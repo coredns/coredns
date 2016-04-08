@@ -12,10 +12,10 @@ import (
 	"net"
 	"os"
 	"runtime"
-	"strconv"
 	"sync"
 	"time"
 
+	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/chaos"
 	"github.com/miekg/coredns/middleware/prometheus"
 
@@ -279,8 +279,19 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 		}
 	}()
 
+	// TODO(miek): keep? Also context.Context
 	// Execute the optional request callback if it exists
 	if s.ReqCallback != nil && s.ReqCallback(w, r) {
+		return
+	}
+
+	if m, err := middleware.Edns0Version(r); err != nil {
+		// Wrong EDNS version, return at once.
+		qtype := dns.Type(r.Question[0].Qtype).String()
+		rc := middleware.RcodeToString(dns.RcodeBadVers)
+		metrics.Report(dropped, qtype, rc, m.Len(), time.Now())
+
+		w.WriteMsg(m)
 		return
 	}
 
@@ -332,15 +343,11 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 // of the specified HTTP status code.
 func DefaultErrorFunc(w dns.ResponseWriter, r *dns.Msg, rcode int) {
 	qtype := dns.Type(r.Question[0].Qtype).String()
-
-	// this code is duplicated a few times, TODO(miek)
-	rc := dns.RcodeToString[rcode]
-	if rc == "" {
-		rc = "RCODE" + strconv.Itoa(rcode)
-	}
+	rc := middleware.RcodeToString(rcode)
 
 	answer := new(dns.Msg)
 	answer.SetRcode(r, rcode)
+
 	// Default zone to dropped (without closing dot, so no zone) here to not blow up this metric.
 	metrics.Report(dropped, qtype, rc, answer.Len(), time.Now())
 
