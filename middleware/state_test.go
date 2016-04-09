@@ -10,9 +10,8 @@ import (
 
 func TestStateDo(t *testing.T) {
 	st := testState()
-
 	st.Do()
-	if st.do == 0 {
+	if !st.do {
 		t.Fatalf("expected st.do to be set")
 	}
 }

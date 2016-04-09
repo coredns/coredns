@@ -15,9 +15,10 @@ type State struct {
 	Req *dns.Msg
 	W   dns.ResponseWriter
 
-	// Cache size after first call to Size or Do
-	size int
-	do   int // 0: not, 1: true: 2: false
+	cached bool // true when we already have this information.
+	size   int
+	do     bool
+	opt    *dns.OPT
 }
 
 // Now returns the current timestamp in the specified format.
@@ -26,9 +27,9 @@ func (s *State) Now(format string) string { return time.Now().Format(format) }
 // NowDate returns the current date/time that can be used in other time functions.
 func (s *State) NowDate() time.Time { return time.Now() }
 
-// Header gets the heaser of the request in State.
+// Header gets the header of the request in State.
+// TODO(miek)
 func (s *State) Header() *dns.RR_Header {
-	// TODO(miek)
 	return nil
 }
 
@@ -67,8 +68,7 @@ func (s *State) Proto() string {
 	return "udp"
 }
 
-// Family returns the family of the transport.
-// 1 for IPv4 and 2 for IPv6.
+// Family returns the family of the transport. 1 for IPv4 and 2 for IPv6.
 func (s *State) Family() int {
 	var a net.IP
 	ip := s.W.RemoteAddr()
@@ -85,63 +85,78 @@ func (s *State) Family() int {
 	return 2
 }
 
+// Opt returns the OPT record from the request.
+func (s *State) Opt() *dns.OPT {
+	if s.cached {
+		return s.opt
+	}
+	if o := s.Req.IsEdns0(); o != nil {
+		return o
+	}
+	return nil
+}
+
 // Do returns if the request has the DO (DNSSEC OK) bit set.
 func (s *State) Do() bool {
-	if s.do != 0 {
-		return s.do == doTrue
+	if s.cached {
+		return s.do
 	}
 
+	s.do = false
 	if o := s.Req.IsEdns0(); o != nil {
-		if o.Do() {
-			s.do = doTrue
-		} else {
-			s.do = doFalse
-		}
-		return o.Do()
+		s.opt = o
+		s.do = o.Do()
 	}
-	s.do = doFalse
-	return false
+	s.cached = true
+	return s.do
 }
 
 // UDPSize returns if UDP buffer size advertised in the requests OPT record.
 // Or when the request was over TCP, we return the maximum allowed size of 64K.
 func (s *State) Size() int {
-	if s.size != 0 {
+	if s.cached || s.size != 0 {
 		return s.size
 	}
 
 	if s.Proto() == "tcp" {
 		s.size = dns.MaxMsgSize
+		if o := s.Req.IsEdns0(); o != nil {
+			s.opt = o
+			s.do = o.Do()
+		}
+		s.cached = true
 		return dns.MaxMsgSize
 	}
 	if o := s.Req.IsEdns0(); o != nil {
-		if o.Do() == true {
-			s.do = doTrue
-		} else {
-			s.do = doFalse
-		}
-
+		s.opt = o
+		s.do = o.Do()
 		size := o.UDPSize()
 		if size < dns.MinMsgSize {
 			size = dns.MinMsgSize
 		}
 		s.size = int(size)
+		s.cached = true
 		return int(size)
 	}
 	s.size = dns.MinMsgSize
+	s.cached = true
 	return dns.MinMsgSize
 }
 
 // SizeAndDo returns a ready made OPT record that the reflects the intent from
 // state. This can be added to upstream requests that will then hopefully
-// return a message that is fits the buffer in the client.
+// return a message that is fits the buffer in the client. If the request
+// did not have an EDNS record, nil is returned.
 func (s *State) SizeAndDo() *dns.OPT {
+	o := s.Opt()
+	if o == nil {
+		return nil
+	}
+
 	size := s.Size()
 	Do := s.Do()
-
-	o := new(dns.OPT)
-	o.Hdr.Name = "."
-	o.Hdr.Rrtype = dns.TypeOPT
+	o.SetVersion(0)
+	// Options set in the request should still be there, don't fiddle with those.
 	o.SetUDPSize(uint16(size))
 	if Do {
 		o.SetDo()
@@ -172,7 +187,12 @@ func (s *State) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 	}
 	// If not delegation, drop additional section.
 	// TODO(miek): check for delegation
+
 	reply.Extra = nil
+	o := s.SizeAndDo() // re-add EDNS0 record
+	if o != nil {
+		reply.Extra = []dns.RR{o}
+	}
 	l = reply.Len()
 	if size >= l {
 		return reply, ScrubDone
@@ -208,8 +228,3 @@ func (s *State) ErrorMessage(rcode int) *dns.Msg {
 	m.SetRcode(s.Req, rcode)
 	return m
 }
-
-const (
-	doTrue  = 1
-	doFalse = 2
-)
