@@ -53,7 +53,7 @@ func Restart(newCorefile Input) error {
 	}
 
 	// Tell the child that it's a restart
-	os.Setenv("CADDY_RESTART", "true")
+	os.Setenv("COREDNS_RESTART", "true")
 
 	// Prepare our payload to the child process
 	crfileGob := corefileGob{

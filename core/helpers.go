@@ -74,7 +74,7 @@ type corefileGob struct {
 // IsRestart returns whether this process is, according
 // to env variables, a fork as part of a graceful restart.
 func IsRestart() bool {
-	return os.Getenv("CADDY_RESTART") == "true"
+	return os.Getenv("COREDNS_RESTART") == "true"
 }
 
 // writePidFile writes the process ID to the file at PidFile, if specified.
