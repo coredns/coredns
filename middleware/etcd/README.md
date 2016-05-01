@@ -27,6 +27,7 @@ etcd [zones...] {
     endpoint endpoint...
     upstream address...
     tls cert key cacert
+    local name
 }
 ~~~
 
@@ -38,6 +39,8 @@ etcd [zones...] {
   pointing to external names. If you want CoreDNS to act as a proxy for clients you'll need to add
   the proxy middleware.
 * `tls` followed the cert, key and the CA's cert filenames.
+* `local` use name for the host-local-value. This name will be substituted when looking up
+  `local.dns.<zone>`.
 
 ## Examples
 
@@ -57,3 +60,10 @@ This is the default SkyDNS setup, with everying specified in full:
     proxy . 8.8.8.8:53 8.8.4.4:53
 }
 ~~~
+
+~~~
+skydns.local:53 {
+    etcd {
+        local mylocalname.instance.skyns.local
+    }
+}

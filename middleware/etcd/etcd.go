@@ -18,8 +18,9 @@ import (
 type Etcd struct {
 	Next       middleware.Handler
 	Zones      []string
+	Local      string // Path for host-local-value queries.
 	PathPrefix string
-	Proxy      proxy.Proxy // Proxy for looking up names during the resolution process
+	Proxy      proxy.Proxy // Proxy for looking up names during the resolution process.
 	Client     etcdc.KeysAPI
 	Ctx        context.Context
 	Inflight   *singleflight.Group

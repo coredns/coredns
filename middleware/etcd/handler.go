@@ -40,6 +40,12 @@ func (e Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	m.SetReply(r)
 	m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
 
+	// If the qname is local.dns.<zone> and e.Local != "" substitute that name.
+	if e.Local != "" && state.Name() == localDomain+zone {
+		state.Req.Question[0].Name = e.Local
+		state.Clear() // oh my
+	}
+
 	var (
 		records, extra []dns.RR
 		err            error
@@ -107,3 +113,5 @@ func dedup(m *dns.Msg) *dns.Msg {
 	m.Extra = dns.Dedup(m.Extra, nil)
 	return m
 }
+
+const localDomain = "local.dns."

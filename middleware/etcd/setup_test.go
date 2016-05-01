@@ -35,6 +35,7 @@ func init() {
 	etc = Etcd{
 		Proxy:      proxy.New([]string{"8.8.8.8:53"}),
 		PathPrefix: "skydns",
+		Local:      "localdata.for.skydns.skydns.test.",
 		Ctx:        context.Background(),
 		Inflight:   &singleflight.Group{},
 		Zones:      []string{"skydns.test.", "skydns_extra.test."},

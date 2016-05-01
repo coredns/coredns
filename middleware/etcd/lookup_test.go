@@ -29,6 +29,8 @@ var services = []*msg.Service{
 	// Nameservers.
 	{Host: "10.0.0.2", Key: "a.ns.dns.skydns.test."},
 	{Host: "10.0.0.3", Key: "b.ns.dns.skydns.test."},
+	// Local data test, when looking up local.dns.<zone> we look up this key
+	{Host: "10.1.1.1", Key: "localdata.for.skydns.skydns.test."},
 }
 
 var dnsTestCases = []test.Case{
@@ -197,5 +199,15 @@ var dnsTestCases = []test.Case{
 	{
 		Qname: "skydns_extra.test.", Qtype: dns.TypeSOA,
 		Answer: []dns.RR{test.SOA("skydns_extra.test. 300 IN SOA ns.dns.skydns_extra.test. hostmaster.skydns_extra.test. 1460498836 14400 3600 604800 60")},
+	},
+	// Local data query
+	{
+		Qname: "local.dns.skydns.test.", Qtype: dns.TypeA,
+		Answer: []dns.RR{test.A("local.dns.skydns.test. 300 A 10.1.1.1")},
+	},
+	// Local data query
+	{
+		Qname: "notlocal.dns.skydns.test.", Qtype: dns.TypeA, Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{test.SOA("skydns.test.	300	IN	SOA	ns.dns.skydns.test. hostmaster.skydns.test. 1460498836 14400 3600 604800 60")},
 	},
 }
