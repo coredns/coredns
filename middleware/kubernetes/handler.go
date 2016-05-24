@@ -10,26 +10,13 @@ import (
 )
 
 func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+
+    fmt.Println("here entering ServeDNS: ctx:%v dnsmsg:%v", ctx, r)
+
 	state := middleware.State{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
 		return dns.RcodeServerFailure, fmt.Errorf("can only deal with ClassINET")
 	}
-
-	// We need to check stubzones first, because we may get a request for a zone we
-	// are not auth. for *but* do have a stubzone forward for. If we do the stubzone
-	// handler will handle the request.
-    // TODO: Determine if stubzone support is needed
-    /*
-	name := state.Name()
-	if k.Stubmap != nil && len(*k.Stubmap) > 0 {
-		for zone, _ := range *k.Stubmap {
-			if middleware.Name(zone).Matches(name) {
-				stub := Stub{Kubernetes: k, Zone: zone}
-				return stub.ServeDNS(ctx, w, r)
-			}
-		}
-	}
-    */
 
 
 	zone := middleware.Zones(k.Zones).Matches(state.Name())
