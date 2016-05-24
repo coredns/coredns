@@ -5,7 +5,7 @@ import (
 //	"crypto/x509"
     "fmt"
 //	"io/ioutil"
-	"net"
+//	"net"
 //	"net/http"
 //	"time"
 
@@ -67,6 +67,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 						return kubernetes.Kubernetes{}, c.ArgErr()
 					}
 					endpoints = args
+/*
 				case "upstream":
 					args := c.RemainingArgs()
 					if len(args) == 0 {
@@ -80,6 +81,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 					}
 					endpoints = args
 					k8s.Proxy = proxy.New(args)
+*/
 				}
 				for c.Next() {
 					switch c.Val() {
@@ -94,6 +96,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 							return kubernetes.Kubernetes{}, c.ArgErr()
 						}
 						endpoints = args
+/*
 					case "upstream":
 						args := c.RemainingArgs()
 						if len(args) == 0 {
@@ -106,6 +109,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 							}
 						}
 						k8s.Proxy = proxy.New(args)
+*/
 					}
 				}
 			}
