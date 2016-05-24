@@ -1,0 +1,11 @@
+# Serve on port 1053
+.:1053 {
+    # use kubernetes middleware for domain "coredns.local"
+    kubernetes coredns.local {
+        # Use url for k8s API endpoint
+        endpoint http://localhost:8080
+#        upstream 8.8.8.8:53 8.8.4.4:53
+    }
+#    cache 160 coredns.local
+#    proxy . 8.8.8.8:53 8.8.4.4:53
+}
