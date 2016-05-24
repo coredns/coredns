@@ -12,7 +12,7 @@ import (
 	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/kubernetes"
 	"github.com/miekg/coredns/middleware/proxy"
-	"github.com/miekg/coredns/middleware/singleflight"
+//	"github.com/miekg/coredns/middleware/singleflight"
 
 	"golang.org/x/net/context"
 )
@@ -41,7 +41,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 		Proxy:      proxy.New([]string{"8.8.8.8:53", "8.8.4.4:53"}),
 		PathPrefix: "skydns",
 		Ctx:        context.Background(),
-		Inflight:   &singleflight.Group{},
+//		Inflight:   &singleflight.Group{},
 	}
 	var (
 		endpoints     = []string{defaultK8sEndpoint}

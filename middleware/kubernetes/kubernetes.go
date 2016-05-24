@@ -9,7 +9,7 @@ import (
 	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/kubernetes/msg"
 	"github.com/miekg/coredns/middleware/proxy"
-	"github.com/miekg/coredns/middleware/singleflight"
+//	"github.com/miekg/coredns/middleware/singleflight"
 
 	"golang.org/x/net/context"
 )
@@ -20,7 +20,7 @@ type Kubernetes struct {
 	Proxy      proxy.Proxy // Proxy for looking up names during the resolution process
 	PathPrefix string
 	Ctx        context.Context
-	Inflight   *singleflight.Group
+//	Inflight   *singleflight.Group
 }
 
 // Records looks up records in etcd. If exact is true, it will lookup just
