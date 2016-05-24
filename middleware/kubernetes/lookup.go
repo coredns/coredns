@@ -228,34 +228,14 @@ func (k Kubernetes) MX(zone string, state middleware.State) (records []dns.RR, e
     return nil, nil, err
 }
 
+// Returning CNAME records from kubernetes not implemented.
 func (k Kubernetes) CNAME(zone string, state middleware.State) (records []dns.RR, err error) {
-	services, err := k.records(state, true)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(services) > 0 {
-		serv := services[0]
-		if ip := net.ParseIP(serv.Host); ip == nil {
-			records = append(records, serv.NewCNAME(state.QName(), serv.Host))
-		}
-	}
-	return records, nil
+    return nil, err
 }
 
+// Returning TXT records from kubernetes not implemented.
 func (k Kubernetes) TXT(zone string, state middleware.State) (records []dns.RR, err error) {
-	services, err := k.records(state, false)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, serv := range services {
-		if serv.Text == "" {
-			continue
-		}
-		records = append(records, serv.NewTXT(state.QName()))
-	}
-	return records, nil
+    return nil, err
 }
 
 func (k Kubernetes) NS(zone string, state middleware.State) (records, extra []dns.RR, err error) {

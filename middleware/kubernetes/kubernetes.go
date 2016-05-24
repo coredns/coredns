@@ -34,6 +34,7 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	}
 	segments := strings.Split(g.Path(name), "/")
     fmt.Println("segments: %v", segments)
+    fmt.Println("path: ", path)
     fmt.Println("star:     %v", star)
 	switch {
 	//case exact && r.Node.Dir:
