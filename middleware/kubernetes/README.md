@@ -51,6 +51,34 @@ This example could be published as:
 
 
 
+### Wildcards
+
+Publishing DNS records for singleton services isn't very interesting. Service
+names are unique within a k8s namespace therefore multiple services will be
+commonly run with a structured naming scheme.
+
+For example, running multiple nginx services under the names:
+
+| Service name |
+|--------------|
+| c1.nginx     |
+| c2.nginx     |
+
+or:
+
+| Service name |
+|--------------|
+| nginx.c3     |
+| nginx.c4     |
+
+A DNS query with wildcard support for "nginx" in these examples should
+return the IP addresses for all services with "nginx" in the service name.
+
+TBD:
+* How does this relate the the k8s load-balancer configuration?
+* Do wildcards search across namespaces?
+
+
 TODO
 ----
 * Implement naive lookup against k8s API.
@@ -58,6 +86,10 @@ TODO
 * Implement namespace filtering to different zones.
 * Implement IP selection and ordering (internal/external).
 * Implement SRV-record queries using naive lookup.
+* Flatten service and namespace names to valid DNS characters. (service names
+  and namespace names in k8s may use uppercase and non-DNS characters. Implement
+  flattening to lower case and mapping of non-DNS characters to DNS characters
+  in a standard way.)
 * Do we need to generate synthetic zone records for namespaces?
 * Implement wildcard-based lookup.
 * Improve lookup to reduce size of query result (namespace-based?, other ideas?)
