@@ -18,7 +18,8 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		return dns.RcodeServerFailure, fmt.Errorf("can only deal with ClassINET")
 	}
 
-
+    // Check that query matches one of the zones served by this middleware,
+    // otherwise delegate to the next in the pipeline.
 	zone := middleware.Zones(k.Zones).Matches(state.Name())
 	if zone == "" {
 		if k.Next == nil {
