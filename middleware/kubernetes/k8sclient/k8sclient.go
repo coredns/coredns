@@ -91,6 +91,18 @@ func (self *K8sConnector) NamespaceExists(name string) bool {
 }
 
 
+func (self *K8sConnector) ServiceExists(namespace string, name string) bool {
+    var exists bool
+    return exists
+}
+
+
+func (self *K8sConnector) GetServiceNamesInNamespace(namespace string) []string {
+    var names []string
+    return names
+}
+
+
 func NewK8sConnector(baseurl string) *K8sConnector {
     k := new(K8sConnector)
     k.SetBaseUrl(baseurl)
