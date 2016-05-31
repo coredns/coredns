@@ -1,6 +1,7 @@
 package k8sclient
 
 import (
+//    "fmt"
     "net/url"
 )
 
@@ -100,6 +101,41 @@ func (self *K8sConnector) ServiceExists(namespace string, name string) bool {
 func (self *K8sConnector) GetServiceNamesInNamespace(namespace string) []string {
     var names []string
     return names
+}
+
+
+func (self *K8sConnector) GetServicesByNamespace() map[string][]ServiceItem {
+    /*
+     * Return a map of namespacename :: [ kubernetesServiceItem ]
+     */
+
+    items := make(map[string][]ServiceItem)
+
+    k8sServiceList := self.GetServiceList()
+    k8sItemList := k8sServiceList.Items
+
+    for _, i := range k8sItemList {
+        namespace := i.Metadata.Namespace
+        items[namespace] = append(items[namespace], i)
+    }
+
+    return items
+}
+
+
+func (self *K8sConnector) GetServiceItemInNamespace(namespace string, servicename string) *ServiceItem {
+    itemMap := self.GetServicesByNamespace()
+
+    // TODO: Handle case where namesapce == nil
+
+    for _, x := range itemMap[namespace] {
+        if x.Metadata.Name == servicename {
+            return &x
+        }
+    }
+
+    // No matching item found in namespace
+    return nil
 }
 
 
