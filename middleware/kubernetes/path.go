@@ -7,6 +7,10 @@ import (
 	"github.com/miekg/dns"
 )
 
+const (
+    PathPrefix = "skydns"
+)
+
 // Path converts a domainname to an etcd path. If s looks like service.staging.skydns.local.,
 // the resulting key will be /skydns/local/skydns/staging/service .
 func (k Kubernetes) Path(s string) string {
@@ -14,7 +18,7 @@ func (k Kubernetes) Path(s string) string {
 	for i, j := 0, len(l)-1; i < j; i, j = i+1, j-1 {
 		l[i], l[j] = l[j], l[i]
 	}
-	return path.Join(append([]string{"/" + k.PathPrefix + "/"}, l...)...)
+	return path.Join(append([]string{"/" + PathPrefix + "/"}, l...)...)
 }
 
 // Domain is the opposite of Path.
@@ -39,8 +43,8 @@ func (k8s Kubernetes) PathWithWildcard(s string) (string, bool) {
 	}
 	for i, k := range l {
 		if k == "*" || k == "any" {
-			return path.Join(append([]string{"/" + k8s.PathPrefix + "/"}, l[:i]...)...), true
+			return path.Join(append([]string{"/" + PathPrefix + "/"}, l[:i]...)...), true
 		}
 	}
-	return path.Join(append([]string{"/" + k8s.PathPrefix + "/"}, l...)...), false
+	return path.Join(append([]string{"/" + PathPrefix + "/"}, l...)...), false
 }

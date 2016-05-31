@@ -39,7 +39,7 @@ func Kubernetes(c *Controller) (middleware.Middleware, error) {
 func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 	k8s := kubernetes.Kubernetes{
         Proxy:      proxy.New([]string{}),
-		PathPrefix: "skydns",
+//		PathPrefix: "skydns",
 		Ctx:        context.Background(),
 //		Inflight:   &singleflight.Group{},
 	}
@@ -56,11 +56,6 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 			if c.NextBlock() {
 				// TODO(miek): 2 switches?
 				switch c.Val() {
-				case "path":
-					if !c.NextArg() {
-						return kubernetes.Kubernetes{}, c.ArgErr()
-					}
-					k8s.PathPrefix = c.Val()
 				case "endpoint":
 					args := c.RemainingArgs()
 					if len(args) == 0 {
@@ -70,11 +65,6 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 				}
 				for c.Next() {
 					switch c.Val() {
-					case "path":
-						if !c.NextArg() {
-							return kubernetes.Kubernetes{}, c.ArgErr()
-						}
-						k8s.PathPrefix = c.Val()
 					case "endpoint":
 						args := c.RemainingArgs()
 						if len(args) == 0 {
