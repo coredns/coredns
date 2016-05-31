@@ -78,10 +78,10 @@ type ServiceList struct {
     Kind         string          `json:"kind"`
     APIVersion   string          `json:"apiVersion"`
     Metadata     apiListMetadata  `json:"metadata"`
-    Items        []serviceItems   `json:"items"`   
+    Items        []ServiceItem    `json:"items"`   
 }
 
-type serviceItems struct {
+type ServiceItem struct {
     Metadata   serviceMetadata  `json:"metadata"`
     Spec       serviceSpec      `json:"spec"`
 //    Status     serviceStatus    `json:"status"`
