@@ -63,65 +63,52 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
     }
     // else we are looking up the zone. So handle the NS, SOA records etc.
 
-    fmt.Println("zone: ", zone)
-    fmt.Println("servicename: ", serviceName)
-    fmt.Println("namespace: ", namespace)
-    fmt.Println("APIconn: ", g.APIConn)
+    fmt.Println("[debug] zone: ", zone)
+    fmt.Println("[debug] servicename: ", serviceName)
+    fmt.Println("[debug] namespace: ", namespace)
+    fmt.Println("[debug] APIconn: ", g.APIConn)
 
     k8sItem := g.APIConn.GetServiceItemInNamespace(namespace, serviceName)
-    fmt.Println("k8s item:", k8sItem)
+    fmt.Println("[debug] k8s item:", k8sItem)
 
-    if k8sItem != nil {
-        //services := new([]msg.Service)
+    switch {
+        case exact && k8sItem == nil:
+            fmt.Println("here2")
+            return nil, nil
+    }
 
-        for _, p := range k8sItem.Spec.Ports {
-            fmt.Println("   host:", name)
-            fmt.Println("   port:", p.Port)
-            //s := msg.Service{Host: name, Port: p.Port}
-            //append(*services, s)
-        }
+    if k8sItem == nil {
+        // Did not find item in k8s
         return nil, nil
     }
 
-     
+    fmt.Println("[debug] clusterIP:", k8sItem.Spec.ClusterIP)
 
-	path, star := g.PathWithWildcard(name)
-	r, err := g.Get(path, true)
-	if err != nil {
-		return nil, err
-	}
-	segments := strings.Split(g.Path(name), "/")
-    fmt.Println("segments: %v", segments)
-    fmt.Println("path: ", path)
-    fmt.Println("star:     %v", star)
-	switch {
-	//case exact && r.Node.Dir:
-	case exact:
-        fmt.Println("Hello... here #1 in kubernetes.Records()")
-		return nil, nil
-	//case r.Node.Dir:
-	case r:
-        // TODO: implement loopNodes
-        fmt.Println("Hello... here #2 in kubernetes.Records()")
-        return nil, nil
-		//return g.loopNodes(r.Node.Nodes, segments, star, nil)
-	default:
-        // TODO: implement loopNodes
-        fmt.Println("Hello... here #3 in kubernetes.Records()")
+    for _, p := range k8sItem.Spec.Ports {
+        fmt.Println("[debug]    host:", name)
+        fmt.Println("[debug]    port:", p.Port)
+    }
 
-        return nil, nil
-		//return g.loopNodes([]*etcdc.Node{r.Node}, segments, false, nil)
-	}
+    clusterIP := k8sItem.Spec.ClusterIP
+    var records []msg.Service
+    for _, p := range k8sItem.Spec.Ports{
+        s := msg.Service{Host: clusterIP, Port: p.Port}
+        records = append(records, s)
+    }
+
+    return records, nil
 }
 
+/*
 // Get performs the call to the Kubernetes http API.
 func (g Kubernetes) Get(path string, recursive bool) (bool, error) {
 
-    fmt.Println("in Get path: ", path)
-    fmt.Println("in Get recursive: ", recursive)
+    fmt.Println("[debug] in Get path: ", path)
+    fmt.Println("[debug] in Get recursive: ", recursive)
 
 	return false, nil
 }
+*/
 
 func (self Kubernetes) splitDNSName(name string) []string {
     l := dns.SplitDomainName(name)

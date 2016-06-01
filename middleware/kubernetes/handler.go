@@ -11,7 +11,7 @@ import (
 
 func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
-    fmt.Println("here entering ServeDNS: ctx:%v dnsmsg:%v", ctx, r)
+    fmt.Println("[debug] here entering ServeDNS: ctx:%v dnsmsg:%v", ctx, r)
 
 	state := middleware.State{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
