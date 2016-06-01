@@ -11,6 +11,7 @@ import (
 
 	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/kubernetes"
+	k8sc "github.com/miekg/coredns/middleware/kubernetes/k8sclient"
 	"github.com/miekg/coredns/middleware/proxy"
 //	"github.com/miekg/coredns/middleware/singleflight"
 
@@ -42,6 +43,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 //		PathPrefix: "skydns",
 		Ctx:        context.Background(),
 //		Inflight:   &singleflight.Group{},
+        APIConn:    nil,
 	}
 	var (
 		endpoints     = []string{defaultK8sEndpoint}
@@ -62,6 +64,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 						return kubernetes.Kubernetes{}, c.ArgErr()
 					}
 					endpoints = args
+                    k8s.APIConn = k8sc.NewK8sConnector(endpoints[0])
 				}
 				for c.Next() {
 					switch c.Val() {
