@@ -8,9 +8,11 @@ import (
 
 	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/kubernetes/msg"
+	k8sc "github.com/miekg/coredns/middleware/kubernetes/k8sclient"
 	"github.com/miekg/coredns/middleware/proxy"
 //	"github.com/miekg/coredns/middleware/singleflight"
 
+    "github.com/miekg/dns"
 	"golang.org/x/net/context"
 )
 
@@ -18,15 +20,46 @@ type Kubernetes struct {
 	Next       middleware.Handler
 	Zones      []string
 	Proxy      proxy.Proxy // Proxy for looking up names during the resolution process
-	PathPrefix string
 	Ctx        context.Context
 //	Inflight   *singleflight.Group
+    APIConn    *k8sc.K8sConnector
 }
 
-// Records looks up records in etcd. If exact is true, it will lookup just
+// Records looks up services in kubernetes.
+// If exact is true, it will lookup just
 // this name. This is used when find matches when completing SRV lookups
 // for instance.
 func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
+
+//    l := dns.SplitDomainName(name)
+    l := g.splitDNSName(name)
+    fmt.Println("segmentsnew: %v", l)
+
+    segment_count := len(l)
+    servicename := l[segment_count-1]
+    namespace := l[segment_count-2]
+
+    fmt.Println("servicename: ", servicename)
+    fmt.Println("namespace: ", namespace)
+    fmt.Println("APIconn: ", g.APIConn)
+
+    k8sItem := g.APIConn.GetServiceItemInNamespace(namespace, servicename)
+    fmt.Println("k8s item:", k8sItem)
+
+    if k8sItem != nil {
+        //services := new([]msg.Service)
+
+        for _, p := range k8sItem.Spec.Ports {
+            fmt.Println("   host:", name)
+            fmt.Println("   port:", p.Port)
+            //s := msg.Service{Host: name, Port: p.Port}
+            //append(*services, s)
+        }
+        return nil, nil
+    }
+
+     
+
 	path, star := g.PathWithWildcard(name)
 	r, err := g.Get(path, true)
 	if err != nil {
@@ -39,6 +72,7 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	switch {
 	//case exact && r.Node.Dir:
 	case exact:
+        fmt.Println("Hello... here #1 in kubernetes.Records()")
 		return nil, nil
 	//case r.Node.Dir:
 	case r:
@@ -48,16 +82,34 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		//return g.loopNodes(r.Node.Nodes, segments, star, nil)
 	default:
         // TODO: implement loopNodes
-        fmt.Println("Hello... here #2 in kubernetes.Records()")
+        fmt.Println("Hello... here #3 in kubernetes.Records()")
+
         return nil, nil
 		//return g.loopNodes([]*etcdc.Node{r.Node}, segments, false, nil)
 	}
 }
 
-// Get is a wrapper for client.Get that uses SingleInflight to suppress multiple outstanding queries.
+// Get performs the call to the Kubernetes http API.
 func (g Kubernetes) Get(path string, recursive bool) (bool, error) {
 
+    fmt.Println("in Get path: ", path)
+    fmt.Println("in Get recursive: ", recursive)
+
 	return false, nil
+}
+
+func (self Kubernetes) splitDNSName(name string) []string {
+    l := dns.SplitDomainName(name)
+
+    fmt.Println("before loop: ", l)
+
+    for i, j := 0, len(l)-1; i < j; i, j = i+1, j-1 {
+        l[i], l[j] = l[j], l[i]
+    }
+
+    fmt.Println("after loop: ", l)
+
+    return l
 }
 
 // skydns/local/skydns/east/staging/web
