@@ -31,18 +31,16 @@ func (g Kubernetes) getZoneForName(name string) (string, []string) {
     var segments []string
 
     for _, z := range g.Zones {
-        if ! strings.HasSuffix(name, z) {
-            continue
+        if dns.IsSubDomain(z, name) {
+            zone = z 
+    
+            segments = dns.SplitDomainName(name)
+            segments = segments[:len(segments) - dns.CountLabel(zone)]
         }
-        zone = z 
-        segments = dns.SplitDomainName(strings.TrimSuffix(name, zone))
-        break
     }   
 
     return zone, segments
 } 
-
-
 
 
 // Records looks up services in kubernetes.
@@ -58,9 +56,10 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 
     // For initial implementation, assume namespace is first serviceSegment
     // and service name is remaining segments.
-    if len(serviceSegments) >= 2 {
-        namespace = serviceSegments[0]
-        serviceName = strings.Join(serviceSegments[1:], ".")
+    serviceSegLen := len(serviceSegments)
+    if serviceSegLen >= 2 {
+        namespace = serviceSegments[serviceSegLen-1]
+        serviceName = strings.Join(serviceSegments[:serviceSegLen-1], ".")
     }
     // else we are looking up the zone. So handle the NS, SOA records etc.
 
