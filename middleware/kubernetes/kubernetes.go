@@ -25,25 +25,51 @@ type Kubernetes struct {
     APIConn    *k8sc.K8sConnector
 }
 
+
+func (g Kubernetes) getZoneForName(name string) (string, []string) {
+    var zone string
+    var segments []string
+
+    for _, z := range g.Zones {
+        if ! strings.HasSuffix(name, z) {
+            continue
+        }
+        zone = z 
+        segments = dns.SplitDomainName(strings.TrimSuffix(name, zone))
+        break
+    }   
+
+    return zone, segments
+} 
+
+
+
+
 // Records looks up services in kubernetes.
 // If exact is true, it will lookup just
 // this name. This is used when find matches when completing SRV lookups
 // for instance.
 func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 
-//    l := dns.SplitDomainName(name)
-    l := g.splitDNSName(name)
-    fmt.Println("segmentsnew: %v", l)
+    zone, serviceSegments := g.getZoneForName(name)
 
-    segment_count := len(l)
-    servicename := l[segment_count-1]
-    namespace := l[segment_count-2]
+    var serviceName string
+    var namespace string
 
-    fmt.Println("servicename: ", servicename)
+    // For initial implementation, assume namespace is first serviceSegment
+    // and service name is remaining segments.
+    if len(serviceSegments) >= 2 {
+        namespace = serviceSegments[0]
+        serviceName = strings.Join(serviceSegments[1:], ".")
+    }
+    // else we are looking up the zone. So handle the NS, SOA records etc.
+
+    fmt.Println("zone: ", zone)
+    fmt.Println("servicename: ", serviceName)
     fmt.Println("namespace: ", namespace)
     fmt.Println("APIconn: ", g.APIConn)
 
-    k8sItem := g.APIConn.GetServiceItemInNamespace(namespace, servicename)
+    k8sItem := g.APIConn.GetServiceItemInNamespace(namespace, serviceName)
     fmt.Println("k8s item:", k8sItem)
 
     if k8sItem != nil {
@@ -101,13 +127,9 @@ func (g Kubernetes) Get(path string, recursive bool) (bool, error) {
 func (self Kubernetes) splitDNSName(name string) []string {
     l := dns.SplitDomainName(name)
 
-    fmt.Println("before loop: ", l)
-
     for i, j := 0, len(l)-1; i < j; i, j = i+1, j-1 {
         l[i], l[j] = l[j], l[i]
     }
-
-    fmt.Println("after loop: ", l)
 
     return l
 }
