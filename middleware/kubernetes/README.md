@@ -12,12 +12,14 @@ Implementation Ideas
 
 The middleware is configured with a "zone" string. For example: "zone = coredns.local".
 
-The Kubernetes service "myservice" running in "mynamespace" would map to: "myservice.mynamespace.coredns.local".
+The Kubernetes service "myservice" running in "mynamespace" would map 
+to: "myservice.mynamespace.coredns.local".
 
 The middleware should publish an A record for that service and a service record.
 
-Initial implementation just performs the above simple mapping. Subsequent revisions should allow different namespaces to be
-published under different zones. For example:
+Initial implementation just performs the above simple mapping. Subsequent 
+revisions should allow different namespaces to be published under different zones.
+For example:
 
     # Serve on port 1053
     .:1053 {
