@@ -130,6 +130,19 @@ In a separate terminal a dns query can be issued using dig:
     ;; MSG SIZE  rcvd: 71
 
 
+#### k8sCoreFile
+
+    # Serve on port 1053
+    .:1053 {
+        # use kubernetes middleware for domain "coredns.local"
+        kubernetes coredns.local {
+            # Use url for k8s API endpoint
+            endpoint http://localhost:8080
+        }
+    #    cache 160 coredns.local
+    }
+
+
 Implementation Ideas
 --------------------
 
@@ -157,6 +170,9 @@ For example:
             endpoint http://localhost:8080
         }
     }
+
+
+####
 
 
 ### Internal IP or External IP?
@@ -202,12 +218,11 @@ return the IP addresses for all services with "nginx" in the service name.
 TBD:
 * How does this relate the the k8s load-balancer configuration?
 * Do wildcards search across namespaces?
+* Initial implementation assumes that a namespace maps to the first DNS label below the zone managed by the kubernetes middleware. This assumption may need to be revised.
 
 
 TODO
 ----
-* Implement naive lookup against k8s API.
-* Implement A-record queries using naive lookup.
 * Implement namespace filtering to different zones.
 * Implement IP selection and ordering (internal/external).
 * Implement SRV-record queries using naive lookup.
