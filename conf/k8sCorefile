@@ -8,6 +8,6 @@
     # Perform DNS response caching for the coredns.local zone
     # Cache timeout is provided by the integer in seconds
     # This works for the kubernetes middleware.)
-    cache 20 coredns.local
+    #cache 20 coredns.local
     #cache 160 coredns.local
 }
