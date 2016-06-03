@@ -155,24 +155,22 @@ The middleware should publish an A record for that service and a service record.
 
 Initial implementation just performs the above simple mapping. Subsequent 
 revisions should allow different namespaces to be published under different zones.
+
 For example:
 
-    # Serve on port 1053
+# Serve on port 1053
     .:1053 {
-    # use kubernetes middleware for domain "coredns.local" for namespaces "staging" and "test"
-        kubernetes coredns.local staging, test {
+        # use kubernetes middleware for domain "coredns.local"
+        kubernetes coredns.local {
             # Use url for k8s API endpoint
             endpoint http://localhost:8080
         }
-    # use kubernetes middleware for domain "prod.local" for namespace "prod
-    kubernetes prod.local prod {
-            # Use url for k8s API endpoint
-            endpoint http://localhost:8080
-        }
+        # Perform DNS response caching for the coredns.local zone
+        # Cache timeout is provided by the integer argument in seconds
+        # This works for the kubernetes middleware.)
+        #cache 20 coredns.local
+        #cache 160 coredns.local
     }
-
-
-####
 
 
 ### Internal IP or External IP?
@@ -234,4 +232,7 @@ TODO
 * Implement wildcard-based lookup.
 * Improve lookup to reduce size of query result (namespace-based?, other ideas?)
 * How to support label specification in Corefile to allow use of labels to indicate zone? (Is this even useful?)
-* Test with CoreDNS caching. Is this enough, or do we need caching wrapped around the http API query?
+* Test with CoreDNS caching. CoreDNS caching for DNS response is working using the `cache` directive. Tested working using 20s cache timeout and A-record queries.
+* DNS response caching is good, but we should also cache at the http query level as well. (Take a look at https://github.com/patrickmn/go-cache as a potential
+expiring cache implementation for the http API queries.)
+
