@@ -107,9 +107,9 @@ The command to launch coredns is:
 
 In a separate terminal a dns query can be issued using dig:
 
-    $ dig -p 1053 @localhost mynginx.demo.coredns.local
+    $ dig @localhost mynginx.demo.coredns.local
     
-    ; <<>> DiG 9.9.4-RedHat-9.9.4-29.el7_2.3 <<>> -p 1053 @localhost mynginx.demo.coredns.local
+    ; <<>> DiG 9.9.4-RedHat-9.9.4-29.el7_2.3 <<>> @localhost mynginx.demo.coredns.local
     ; (2 servers found)
     ;; global options: +cmd
     ;; Got answer:
@@ -125,15 +125,15 @@ In a separate terminal a dns query can be issued using dig:
     mynginx.demo.coredns.local. 0   IN  A   10.0.0.10
     
     ;; Query time: 2 msec
-    ;; SERVER: ::1#1053(::1)
+    ;; SERVER: ::1#53(::1)
     ;; WHEN: Thu Jun 02 11:07:18 PDT 2016
     ;; MSG SIZE  rcvd: 71
 
 
 #### k8sCoreFile
 
-    # Serve on port 1053
-    .:1053 {
+    # Serve on port 53
+    .:53 {
         # use kubernetes middleware for domain "coredns.local"
         kubernetes coredns.local {
             # Use url for k8s API endpoint
@@ -158,8 +158,8 @@ revisions should allow different namespaces to be published under different zone
 
 For example:
 
-# Serve on port 1053
-    .:1053 {
+    # Serve on port 53
+    .:53 {
         # use kubernetes middleware for domain "coredns.local"
         kubernetes coredns.local {
             # Use url for k8s API endpoint
