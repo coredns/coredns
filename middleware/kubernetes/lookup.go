@@ -17,6 +17,7 @@ func (k Kubernetes) records(state middleware.State, exact bool) ([]msg.Service, 
 	if err != nil {
 		return nil, err
 	}
+    // TODO: Do we want to support the SkyDNS (hacky) Group feature?
 	services = msg.Group(services)
 	return services, nil
 }

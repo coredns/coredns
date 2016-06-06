@@ -27,19 +27,27 @@ type Kubernetes struct {
 
 
 func (g Kubernetes) getZoneForName(name string) (string, []string) {
+    /*
+     * getZoneForName returns the zone string that matches the name and a
+     * list of the DNS labels from name that are within the zone.
+     * For example, if "coredns.local" is a zone configured for the
+     * Kubernetes middleware, then getZoneForName("a.b.coredns.local")
+     * will return ("coredns.local", ["a", "b"]).
+     */
     var zone string
-    var segments []string
+    var serviceSegments []string
 
     for _, z := range g.Zones {
         if dns.IsSubDomain(z, name) {
             zone = z 
     
-            segments = dns.SplitDomainName(name)
-            segments = segments[:len(segments) - dns.CountLabel(zone)]
+            serviceSegments = dns.SplitDomainName(name)
+            serviceSegments = serviceSegments[:len(serviceSegments) - dns.CountLabel(zone)]
+            break
         }
     }   
 
-    return zone, segments
+    return zone, serviceSegments
 } 
 
 
@@ -112,7 +120,7 @@ func (g Kubernetes) Get(path string, recursive bool) (bool, error) {
 }
 */
 
-func (self Kubernetes) splitDNSName(name string) []string {
+func (g Kubernetes) splitDNSName(name string) []string {
     l := dns.SplitDomainName(name)
 
     for i, j := 0, len(l)-1; i < j; i, j = i+1, j-1 {

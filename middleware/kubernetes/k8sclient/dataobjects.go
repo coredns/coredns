@@ -17,9 +17,7 @@ func getJson(url string, target interface{}) error {
 }
 
 
-/*
- * Kubernetes Resource List
- */
+// Kubernetes Resource List
 type ResourceList struct {
     Kind         string `json:"kind"`
     GroupVersion string `json:"groupVersion"`
@@ -33,9 +31,7 @@ type resource struct {
 }
 
 
-/*
- * Kubernetes NamespaceList
- */
+// Kubernetes NamespaceList
 type NamespaceList struct {
     Kind         string          `json:"kind"`
     APIVersion   string          `json:"apiVersion"`
@@ -71,9 +67,7 @@ type nsStatus struct {
 }
 
 
-/*
- * Kubernetes ServiceList
- */
+// Kubernetes ServiceList
 type ServiceList struct {
     Kind         string          `json:"kind"`
     APIVersion   string          `json:"apiVersion"`

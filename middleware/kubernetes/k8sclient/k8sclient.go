@@ -7,14 +7,14 @@ import (
 
 // API strings
 const (
-    api_base   = "/api/v1"
-    api_namespaces = "/namespaces"
-    api_services   = "/services"
+    apiBase       = "/api/v1"
+    apiNamespaces = "/namespaces"
+    apiServices   = "/services"
 )
 
 // Defaults
 const (
-    default_baseurl = "http://localhost:8080"
+    defaultBaseUrl = "http://localhost:8080"
 )
 
 
@@ -22,26 +22,26 @@ type K8sConnector struct {
     baseUrl string
 }
 
-func (self *K8sConnector) SetBaseUrl(u string) error {
-    valid_url, error := url.Parse(u)
+func (c *K8sConnector) SetBaseUrl(u string) error {
+    validUrl, error := url.Parse(u)
 
     if error != nil {
         return error
     }
-    self.baseUrl = valid_url.String()
+    c.baseUrl = validUrl.String()
 
     return nil
 }
 
-func (self *K8sConnector) GetBaseUrl() string {
-    return self.baseUrl
+func (c *K8sConnector) GetBaseUrl() string {
+    return c.baseUrl
 }
 
 
-func (self *K8sConnector) GetResourceList() *ResourceList {
+func (c *K8sConnector) GetResourceList() *ResourceList {
     resources := new(ResourceList)
     
-    error := getJson((self.baseUrl + api_base), resources)
+    error := getJson((c.baseUrl + apiBase), resources)
     if error != nil {
         return nil
     }
@@ -50,10 +50,10 @@ func (self *K8sConnector) GetResourceList() *ResourceList {
 }
 
 
-func (self *K8sConnector) GetNamespaceList() *NamespaceList {
+func (c *K8sConnector) GetNamespaceList() *NamespaceList {
     namespaces := new(NamespaceList)
 
-    error := getJson((self.baseUrl + api_base + api_namespaces), namespaces)
+    error := getJson((c.baseUrl + apiBase + apiNamespaces), namespaces)
     if error != nil {
         return nil
     }
@@ -62,10 +62,10 @@ func (self *K8sConnector) GetNamespaceList() *NamespaceList {
 }
 
 
-func (self *K8sConnector) GetServiceList() *ServiceList {
+func (c *K8sConnector) GetServiceList() *ServiceList {
     services := new(ServiceList)
 
-    error := getJson((self.baseUrl + api_base + api_services), services)
+    error := getJson((c.baseUrl + apiBase + apiServices), services)
     if error != nil {
         return nil
     }
@@ -74,7 +74,7 @@ func (self *K8sConnector) GetServiceList() *ServiceList {
 }
 
 
-func (self *K8sConnector) GetNamespaceNames() []string {
+func (c *K8sConnector) GetNamespaceNames() []string {
     /*
      * Return list of namespace names found in k8s.
      */
@@ -83,35 +83,31 @@ func (self *K8sConnector) GetNamespaceNames() []string {
 }
 
 
-func (self *K8sConnector) NamespaceExists(name string) bool {
-    /*
-     * Return true if namespace exists in k8s
-     */
+func (c *K8sConnector) NamespaceExists(name string) bool {
+    // NamespaceExists returns true if the namespace exists in k8s.
     var exists bool
     return exists
 }
 
 
-func (self *K8sConnector) ServiceExists(namespace string, name string) bool {
+func (c *K8sConnector) ServiceExists(namespace string, name string) bool {
     var exists bool
     return exists
 }
 
 
-func (self *K8sConnector) GetServiceNamesInNamespace(namespace string) []string {
+func (c *K8sConnector) GetServiceNamesInNamespace(namespace string) []string {
     var names []string
     return names
 }
 
 
-func (self *K8sConnector) GetServicesByNamespace() map[string][]ServiceItem {
-    /*
-     * Return a map of namespacename :: [ kubernetesServiceItem ]
-     */
+func (c *K8sConnector) GetServicesByNamespace() map[string][]ServiceItem {
+     // GetServicesByNamespace returns a map of namespacename :: [ kubernetesServiceItem ]
 
     items := make(map[string][]ServiceItem)
 
-    k8sServiceList := self.GetServiceList()
+    k8sServiceList := c.GetServiceList()
     k8sItemList := k8sServiceList.Items
 
     for _, i := range k8sItemList {
@@ -123,8 +119,10 @@ func (self *K8sConnector) GetServicesByNamespace() map[string][]ServiceItem {
 }
 
 
-func (self *K8sConnector) GetServiceItemInNamespace(namespace string, servicename string) *ServiceItem {
-    itemMap := self.GetServicesByNamespace()
+func (c *K8sConnector) GetServiceItemInNamespace(namespace string, servicename string) *ServiceItem {
+    // GetServiceItemInNamespace returns the ServiceItem that matches servicename in the namespace
+
+    itemMap := c.GetServicesByNamespace()
 
     // TODO: Handle case where namesapce == nil
 
