@@ -49,6 +49,8 @@ func (g Kubernetes) getZoneForName(name string) (string, []string) {
 // for instance.
 func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 
+    fmt.Println("enter Records('", name, "', ", exact, ")") 
+
     zone, serviceSegments := g.getZoneForName(name)
 
     var serviceName string
