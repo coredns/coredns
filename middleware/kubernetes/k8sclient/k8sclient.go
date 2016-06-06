@@ -74,34 +74,6 @@ func (c *K8sConnector) GetServiceList() *ServiceList {
 }
 
 
-func (c *K8sConnector) GetNamespaceNames() []string {
-    /*
-     * Return list of namespace names found in k8s.
-     */
-    var namespaces []string
-    return namespaces
-}
-
-
-func (c *K8sConnector) NamespaceExists(name string) bool {
-    // NamespaceExists returns true if the namespace exists in k8s.
-    var exists bool
-    return exists
-}
-
-
-func (c *K8sConnector) ServiceExists(namespace string, name string) bool {
-    var exists bool
-    return exists
-}
-
-
-func (c *K8sConnector) GetServiceNamesInNamespace(namespace string) []string {
-    var names []string
-    return names
-}
-
-
 func (c *K8sConnector) GetServicesByNamespace() map[string][]ServiceItem {
      // GetServicesByNamespace returns a map of namespacename :: [ kubernetesServiceItem ]
 
