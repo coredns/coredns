@@ -38,9 +38,17 @@ func Kubernetes(c *Controller) (middleware.Middleware, error) {
 }
 
 func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
+
+    /*
+     * TODO: Remove unused state and simplify.
+     * Inflight and Ctx might not be needed. Leaving in place until
+     * we take a pass at API caching and optimizing connector to the
+     * k8s API. Single flight (or limited upper-bound) for inflight 
+     * API calls may be desirable.
+     */ 
+
 	k8s := kubernetes.Kubernetes{
         Proxy:      proxy.New([]string{}),
-//		PathPrefix: "skydns",
 		Ctx:        context.Background(),
 //		Inflight:   &singleflight.Group{},
         APIConn:    nil,
