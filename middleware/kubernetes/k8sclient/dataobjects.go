@@ -52,7 +52,7 @@ type nsItems struct {
 
 type nsMetadata struct {
     Name              string  `json:"name"`
-    selfLink          string  `json:"selfLink"`
+    SelfLink          string  `json:"selfLink"`
     Uid               string  `json:"uid"`
     ResourceVersion   string  `json:"resourceVersion"`
     CreationTimestamp string  `json:"creationTimestamp"`
