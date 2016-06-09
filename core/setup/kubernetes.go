@@ -58,10 +58,23 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 	)
 	for c.Next() {
 		if c.Val() == "kubernetes" {
-			k8s.Zones = c.RemainingArgs()
-			if len(k8s.Zones) == 0 {
+			zones := c.RemainingArgs()
+
+			// Check that Corefile zones exist and do not overlap
+			if len(zones) == 0 {
 				k8s.Zones = c.ServerBlockHosts
+			} else {
+				for _, z := range zones {
+					zoneConflict, _ := kubernetes.SubzoneConflict(k8s.Zones, z)
+					if zoneConflict {
+						fmt.Printf("[ERROR] new zone '%v' from conf conflicts with parsed zones: %v\n", z, k8s.Zones)
+						fmt.Printf("        Ignoring zone '%v'\n", z)
+					} else {
+						k8s.Zones = append(k8s.Zones, z)
+					}
+				}
 			}
+
 			middleware.Zones(k8s.Zones).FullyQualify()
 			if c.NextBlock() {
 				// TODO(miek): 2 switches?
@@ -72,7 +85,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 						return kubernetes.Kubernetes{}, c.ArgErr()
 					}
 					endpoints = args
-                    k8s.APIConn = k8sc.NewK8sConnector(endpoints[0])
+					k8s.APIConn = k8sc.NewK8sConnector(endpoints[0])
 				}
 				for c.Next() {
 					switch c.Val() {
@@ -87,7 +100,6 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 			}
 			return k8s, nil
 		}
-        fmt.Println("endpoints='%v'", endpoints)
 	}
 	return kubernetes.Kubernetes{}, nil
 }

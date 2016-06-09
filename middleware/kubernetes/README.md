@@ -14,7 +14,7 @@ are constructed as "myservice.mynamespace.coredns.local" where:
 kubernetes [zones...]
 ~~~
 
-* `zones` zones kubernetes should be authorative for.
+* `zones` zones kubernetes should be authorative for. Overlapping zones are ignored.
 
 
 ~~~
