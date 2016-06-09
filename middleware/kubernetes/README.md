@@ -254,7 +254,6 @@ TBD:
 ## TODO
 * Implement namespace filtering to different zones.
 * Implement IP selection and ordering (internal/external).
-* Implement SRV-record queries using naive lookup.
 * Flatten service and namespace names to valid DNS characters. (service names
   and namespace names in k8s may use uppercase and non-DNS characters. Implement
   flattening to lower case and mapping of non-DNS characters to DNS characters
