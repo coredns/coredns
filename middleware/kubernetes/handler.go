@@ -11,7 +11,7 @@ import (
 
 func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
-    fmt.Println("[debug] here entering ServeDNS: ctx:%v dnsmsg:%v", ctx, r)
+    fmt.Printf("[debug] here entering ServeDNS: ctx:%v dnsmsg:%v\n", ctx, r)
 
 	state := middleware.State{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
@@ -43,6 +43,9 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		records, err = k.AAAA(zone, state, nil)
 	case "TXT":
 		records, err = k.TXT(zone, state)
+		// TODO: change lookup to return appropriate error. Then add code below
+		// this switch to check for the error and return not implemented.
+		//return dns.RcodeNotImplemented, nil
 	case "CNAME":
 		records, err = k.CNAME(zone, state)
 	case "MX":
