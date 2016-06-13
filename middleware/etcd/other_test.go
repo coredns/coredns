@@ -5,7 +5,9 @@
 package etcd
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/miekg/coredns/middleware"
@@ -24,7 +26,7 @@ func TestOtherLookup(t *testing.T) {
 		m := tc.Msg()
 
 		rec := middleware.NewResponseRecorder(&test.ResponseWriter{})
-		_, err := etc.ServeDNS(ctx, rec, m)
+		_, err := etc.ServeDNS(ctxt, rec, m)
 		if err != nil {
 			t.Errorf("expected no error, got %v\n", err)
 			continue
@@ -63,12 +65,19 @@ var servicesOther = []*msg.Service{
 	{Host: "a.ipaddr.skydns.test", Mail: true, Key: "a.mx2.skydns.test."},
 	{Host: "b.ipaddr.skydns.test", Mail: true, Key: "b.mx2.skydns.test."},
 
+	{Host: "a.ipaddr.skydns.test", Priority: 20, Mail: true, Key: "a.mx3.skydns.test."},
+	{Host: "a.ipaddr.skydns.test", Priority: 30, Mail: true, Key: "b.mx3.skydns.test."},
+
 	{Host: "172.16.1.1", Key: "a.ipaddr.skydns.test."},
 	{Host: "172.16.1.2", Key: "b.ipaddr.skydns.test."},
 
 	// txt
 	{Text: "abc", Key: "a1.txt.skydns.test."},
 	{Text: "abc abc", Key: "a2.txt.skydns.test."},
+	// txt sizes
+	{Text: strings.Repeat("0", 400), Key: "large400.skydns.test."},
+	{Text: strings.Repeat("0", 600), Key: "large600.skydns.test."},
+	{Text: strings.Repeat("0", 2000), Key: "large2000.skydns.test."},
 
 	// duplicate ip address
 	{Host: "10.11.11.10", Key: "http.multiport.http.skydns.test.", Port: 80},
@@ -103,6 +112,17 @@ var dnsTestCasesOther = []test.Case{
 			test.A("b.ipaddr.skydns.test. 300 A 172.16.1.2"),
 		},
 	},
+	// different priority, same host
+	{
+		Qname: "mx3.skydns.test.", Qtype: dns.TypeMX,
+		Answer: []dns.RR{
+			test.MX("mx3.skydns.test. 300 IN MX 20 a.ipaddr.skydns.test."),
+			test.MX("mx3.skydns.test. 300 IN MX 30 a.ipaddr.skydns.test."),
+		},
+		Extra: []dns.RR{
+			test.A("a.ipaddr.skydns.test. 300 A 172.16.1.1"),
+		},
+	},
 	// Txt
 	{
 		Qname: "a1.txt.skydns.test.", Qtype: dns.TypeTXT,
@@ -116,11 +136,25 @@ var dnsTestCasesOther = []test.Case{
 			test.TXT("a2.txt.skydns.test. 300 IN TXT \"abc abc\""),
 		},
 	},
+	// Large txt less than 512
 	{
-		Qname: "txt.skydns.test.", Qtype: dns.TypeTXT,
+		Qname: "large400.skydns.test.", Qtype: dns.TypeTXT,
 		Answer: []dns.RR{
-			test.TXT("txt.skydns.test. 300 IN TXT \"abc abc\""),
-			test.TXT("txt.skydns.test. 300 IN TXT \"abc\""),
+			test.TXT(fmt.Sprintf("large400.skydns.test. 300 IN TXT \"%s\"", strings.Repeat("0", 400))),
+		},
+	},
+	// Large txt greater than 512 (UDP)
+	{
+		Qname: "large600.skydns.test.", Qtype: dns.TypeTXT,
+		Answer: []dns.RR{
+			test.TXT(fmt.Sprintf("large600.skydns.test. 300 IN TXT \"%s\"", strings.Repeat("0", 600))),
+		},
+	},
+	// Large txt greater than 1500 (typical Ethernet)
+	{
+		Qname: "large2000.skydns.test.", Qtype: dns.TypeTXT,
+		Answer: []dns.RR{
+			test.TXT(fmt.Sprintf("large2000.skydns.test. 300 IN TXT \"%s\"", strings.Repeat("0", 2000))),
 		},
 	},
 	// Duplicate IP address test
