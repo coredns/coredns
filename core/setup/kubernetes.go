@@ -60,19 +60,11 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 		if c.Val() == "kubernetes" {
 			zones := c.RemainingArgs()
 
-			// Check that Corefile zones exist and do not overlap
 			if len(zones) == 0 {
 				k8s.Zones = c.ServerBlockHosts
 			} else {
-				for _, z := range zones {
-					zoneConflict, _ := kubernetes.SubzoneConflict(k8s.Zones, z)
-					if zoneConflict {
-						fmt.Printf("[ERROR] new zone '%v' from conf conflicts with parsed zones: %v\n", z, k8s.Zones)
-						fmt.Printf("        Ignoring zone '%v'\n", z)
-					} else {
-						k8s.Zones = append(k8s.Zones, z)
-					}
-				}
+			    // Normalize requested zones
+				k8s.Zones = kubernetes.NormalizeZoneList(zones)
 			}
 
 			middleware.Zones(k8s.Zones).FullyQualify()
