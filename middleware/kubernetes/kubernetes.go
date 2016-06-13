@@ -26,14 +26,12 @@ type Kubernetes struct {
 }
 
 
+// getZoneForName returns the zone string that matches the name and a
+// list of the DNS labels from name that are within the zone.
+// For example, if "coredns.local" is a zone configured for the
+// Kubernetes middleware, then getZoneForName("a.b.coredns.local")
+// will return ("coredns.local", ["a", "b"]).
 func (g Kubernetes) getZoneForName(name string) (string, []string) {
-    /*
-     * getZoneForName returns the zone string that matches the name and a
-     * list of the DNS labels from name that are within the zone.
-     * For example, if "coredns.local" is a zone configured for the
-     * Kubernetes middleware, then getZoneForName("a.b.coredns.local")
-     * will return ("coredns.local", ["a", "b"]).
-     */
     var zone string
     var serviceSegments []string
 

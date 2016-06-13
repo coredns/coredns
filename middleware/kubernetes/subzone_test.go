@@ -21,9 +21,9 @@ var examplesSubzoneConflict = map[string]bool{
     "":        false,
 }
 
-func TestSubzoneConflict(t *testing.T) {
+func TestsubzoneConflict(t *testing.T) {
     for z, expected := range examplesSubzoneConflict{
-        actual, conflicts := SubzoneConflict(confZones, z)
+        actual, conflicts := subzoneConflict(confZones, z)
         
         if actual != expected {
             t.Errorf("Expected conflict result '%v' for example '%v'. Instead got '%v'. Conflicting zones are: %v", expected, z, actual, conflicts)

@@ -74,8 +74,9 @@ func (c *K8sConnector) GetServiceList() *ServiceList {
 }
 
 
+// GetServicesByNamespace returns a map of
+// namespacename :: [ kubernetesServiceItem ]
 func (c *K8sConnector) GetServicesByNamespace() map[string][]ServiceItem {
-     // GetServicesByNamespace returns a map of namespacename :: [ kubernetesServiceItem ]
 
     items := make(map[string][]ServiceItem)
 
@@ -91,8 +92,9 @@ func (c *K8sConnector) GetServicesByNamespace() map[string][]ServiceItem {
 }
 
 
+// GetServiceItemInNamespace returns the ServiceItem that matches
+// servicename in the namespace
 func (c *K8sConnector) GetServiceItemInNamespace(namespace string, servicename string) *ServiceItem {
-    // GetServiceItemInNamespace returns the ServiceItem that matches servicename in the namespace
 
     itemMap := c.GetServicesByNamespace()
 
