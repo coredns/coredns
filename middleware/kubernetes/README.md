@@ -252,21 +252,42 @@ TBD:
 
 
 ## TODO
-* Implement namespace filtering to different zones.
-* Implement IP selection and ordering (internal/external).
-* Flatten service and namespace names to valid DNS characters. (service names
-  and namespace names in k8s may use uppercase and non-DNS characters. Implement
-  flattening to lower case and mapping of non-DNS characters to DNS characters
-  in a standard way.)
-* Do we need to generate synthetic zone records for namespaces?
-* Implement wildcard-based lookup.
-* Improve lookup to reduce size of query result obtained from k8s API.
-  (namespace-based?, other ideas?)
-* How to support label specification in Corefile to allow use of labels to 
-  indicate zone? (Is this even useful?) For example, the following configuration
-  exposes all services labeled for the "staging" environment and tenant "customerB"
-  in the zone "customerB.stage.local":
-
+* SkyDNS compatibility/equivalency:
+    * Implement wildcard-based lookup.
+    * Implement SkyDNS-style synthetic zones such as "svc" to group k8s objects. (This
+      should be optional behavior.)
+	* Automate packaging to allow executing in Kubernetes. That is, add Docker
+      container build as target in Makefile. Also include anything else needed
+      to simplify launch as the k8s DNS service.
+    * Work out how to pass CoreDNS configuration via kubectl command line and yaml
+      service definition file.
+	* Ensure that resolver in each kubernetes container is configured to use
+      coredns instance.
+	* Implement test cases for SkyDNS equivalent functionality.
+    * SkyDNS functionality, as listed in SkyDNS README: https://github.com/kubernetes/kubernetes/blob/release-1.2/cluster/addons/dns/README.md
+        * A records in form of `pod-ip-address.my-namespace.cluster.local`.
+          For example, a pod with ip `1.2.3.4` in the namespace `default`
+          with a dns name of `cluster.local` would have an entry:
+          `1-2-3-4.default.pod.cluster.local`.
+        * SRV records in form of
+          `_my-port-name._my-port-protocol.my-namespace.svc.cluster.local`
+          CNAME records for both regular services and headless services.
+          See SkyDNS README.
+        * A Records and hostname Based on Pod Annotations (k8s beta 1.2 feature).
+          See SkyDNS README.
+* Additional features:
+    * Implement namespace filtering to different zones. That is, zone "a.b"
+      publishes services from namespace "foo", and zone "x.y" publishes services
+      from namespaces "bar" and "baz".
+    * Implement IP selection and ordering (internal/external).
+    * Flatten service and namespace names to valid DNS characters. (service names
+      and namespace names in k8s may use uppercase and non-DNS characters. Implement
+      flattening to lower case and mapping of non-DNS characters to DNS characters
+      in a standard way.)
+    * How to support label specification in Corefile to allow use of labels to 
+      indicate zone? (Is this even useful?) For example, the following
+      configuration exposes all services labeled for the "staging" environment
+      and tenant "customerB" in the zone "customerB.stage.local":
 ~~~
 kubernetes customerB.stage.local {
     # Use url for k8s API endpoint
@@ -274,10 +295,26 @@ kubernetes customerB.stage.local {
     label "environment" : "staging", "tenant" : "customerB"
 }
 ~~~
-
-* Test with CoreDNS caching. CoreDNS caching for DNS response is working using
-  the `cache` directive. Tested working using 20s cache timeout and A-record queries.
-* DNS response caching is good, but we should also cache at the http query 
-  level as well. (Take a look at https://github.com/patrickmn/go-cache as 
-  a potential expiring cache implementation for the http API queries.)
+    * Expose arbitrary kubernetes repository data as TXT records?
+    * Support custom user-provided templates for k8s names. A string provided
+      in the middleware configuration like `{service}.{namespace}.{type}` defines
+      the template of how to construct record names for the zone. This example
+      would produce `myservice.mynamespace.svc.cluster.local`.
+* DNS Correctness
+    * Do we need to generate synthetic zone records for namespaces?
+    * Do we need to generate synthetic zone records for the skydns synthetic zones?
+* Performance
+    * Improve lookup to reduce size of query result obtained from k8s API.
+      (namespace-based?, other ideas?)
+    * Caching of k8s API dataset.
+    * DNS response caching is good, but we should also cache at the http query 
+      level as well. (Take a look at https://github.com/patrickmn/go-cache as 
+      a potential expiring cache implementation for the http API queries.)
+    * Push notifications from k8s for data changes rather than pull via API?
+* Test cases
+	* Implement test cases for http data parsing using dependency injection
+      for http get operations.
+    * Test with CoreDNS caching. CoreDNS caching for DNS response is working
+      using the `cache` directive. Tested working using 20s cache timeout
+      and A-record queries. Automate testing with cache in place.
 
