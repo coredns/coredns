@@ -286,11 +286,11 @@ TBD:
 	  configuration exposes all services labeled for the "staging" environment
 	  and tenant "customerB" in the zone "customerB.stage.local":
 
-		kubernetes customerB.stage.local {
-		    # Use url for k8s API endpoint
-		    endpoint http://localhost:8080
-		    label "environment" : "staging", "tenant" : "customerB"
-		}
+			kubernetes customerB.stage.local {
+			    # Use url for k8s API endpoint
+			    endpoint http://localhost:8080
+			    label "environment" : "staging", "tenant" : "customerB"
+			}
 
 	  Note: label specification/selection is a killer feature for segmenting
 	  test vs staging vs prod environments.
