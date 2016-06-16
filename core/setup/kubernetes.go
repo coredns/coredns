@@ -78,6 +78,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 					}
 					endpoints = args
 					k8s.APIConn = k8sc.NewK8sConnector(endpoints[0])
+					fmt.Printf("[debug] Got k8s API connector: %v\n", k8s.APIConn)
 				}
 				for c.Next() {
 					switch c.Val() {

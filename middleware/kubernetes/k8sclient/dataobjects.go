@@ -5,9 +5,16 @@ import (
     "net/http"
 )
 
+// getK8sDataBody wraps the http.Get(url) function to provide dependency
+// injection for unit testing.
+var getK8sDataBody = func(url string) (resp *http.Response, err error) {
+	resp, err = http.Get(url)
+	return resp, err
+}
 
-func getJson(url string, target interface{}) error {
-    r, err := http.Get(url)
+
+func parseJson(url string, target interface{}) error {
+	r, err := getK8sDataBody(url)
     if err != nil {
         return err
     }
