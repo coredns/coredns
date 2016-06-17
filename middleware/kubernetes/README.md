@@ -264,6 +264,8 @@ TBD:
 	  Note: Dockerfile already exists in coredns repo to build the docker image.
 	  This work item should identify how to pass configuration and run as a SkyDNS
 	  replacement.
+	* Identify any kubernetes changes necessary to use coredns as k8s DNS server. That is,
+	  how do we consume the "--cluster-dns=" and "--cluster-domain=" arguments.
 	* Work out how to pass CoreDNS configuration via kubectl command line and yaml
 	  service definition file.
 	* Ensure that resolver in each kubernetes container is configured to use
