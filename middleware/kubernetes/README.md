@@ -255,7 +255,7 @@ TBD:
 
 ## TODO
 * SkyDNS compatibility/equivalency:
-	* Implement wildcard-based lookup. Minimally support `\*`, consider `?` as well.
+	* Implement wildcard-based lookup. Minimally support `*`, consider `?` as well.
 	* Implement SkyDNS-style synthetic zones such as "svc" to group k8s objects. (This
 	  should be optional behavior.)
 	* Automate packaging to allow executing in Kubernetes. That is, add Docker
