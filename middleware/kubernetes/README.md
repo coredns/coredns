@@ -88,7 +88,7 @@ The kubernetes control client can be downloaded from the generic URL:
 `http://storage.googleapis.com/kubernetes-release/release/${K8S_VERSION}/bin/${GOOS}/${GOARCH}/${K8S_BINARY}`
 
 For example, the kubectl client for Linux can be downloaded using the command:
-`curl -sSL "http://storage.googleapis.com/kubernetes-release/release/v1.2.4/bin/linux/amd64/kubectl"
+`curl -sSL "http://storage.googleapis.com/kubernetes-release/release/v1.2.4/bin/linux/amd64/kubectl"`
 
 The following `setup_kubectl.sh` script can be stored in the same directory as 
 kubectl to setup
