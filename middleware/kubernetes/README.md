@@ -257,10 +257,13 @@ TBD:
 * SkyDNS compatibility/equivalency:
 	* Implement wildcard-based lookup. Minimally support `*`, consider `?` as well.
 	* Implement SkyDNS-style synthetic zones such as "svc" to group k8s objects. (This
-	  should be optional behavior.)
+	  should be optional behavior.) Also look at "pod" synthetic zones.
 	* Automate packaging to allow executing in Kubernetes. That is, add Docker
 	  container build as target in Makefile. Also include anything else needed
 	  to simplify launch as the k8s DNS service.
+	  Note: Dockerfile already exists in coredns repo to build the docker image.
+	  This work item should identify how to pass configuration and run as a SkyDNS
+	  replacement.
 	* Work out how to pass CoreDNS configuration via kubectl command line and yaml
 	  service definition file.
 	* Ensure that resolver in each kubernetes container is configured to use
