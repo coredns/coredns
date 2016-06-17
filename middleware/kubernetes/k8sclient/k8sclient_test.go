@@ -233,6 +233,89 @@ func TestGetServicesByNamespace(t *testing.T) {
 }
 
 
+func TestGetResourceList(t *testing.T) {
+	// Set up a test http server
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, resourceListJsonData)
+	}))
+	defer testServer.Close()
+
+	// Overwrite URL constructor to access testServer
+	makeURL = func(parts []string) string {
+		return testServer.URL
+    }
+
+	expectedResources := []string{	"bindings",
+									"componentstatuses",
+									"configmaps",
+									"endpoints",
+									"events",
+									"limitranges",
+									"namespaces",
+									"namespaces/finalize",
+									"namespaces/status",
+									"nodes", 
+									"nodes/proxy", 
+									"nodes/status", 
+									"persistentvolumeclaims", 
+									"persistentvolumeclaims/status", 
+									"persistentvolumes", 
+									"persistentvolumes/status", 
+									"pods",
+									"pods/attach",
+									"pods/binding",
+									"pods/exec",
+									"pods/log",
+									"pods/portforward",
+									"pods/proxy",
+									"pods/status",
+									"podtemplates",
+									"replicationcontrollers",
+									"replicationcontrollers/scale",
+									"replicationcontrollers/status",
+									"resourcequotas",
+									"resourcequotas/status",
+									"secrets",
+									"serviceaccounts",
+									"services",
+									"services/proxy",
+									"services/status",
+								}
+	apiConn := NewK8sConnector("")
+	resourceList := apiConn.GetResourceList()
+
+	if resourceList == nil {
+		t.Errorf("Expected data from GetResourceList(), instead got nil")
+	}
+
+	kind := resourceList.Kind
+	if kind != "APIResourceList" {
+		t.Errorf("Expected data from GetResourceList() to have Kind='ResourceList', instead got Kind='%v'", kind)
+	}
+
+	// Ensure correct number of resources found
+	expectedCount := len(expectedResources)
+	resourceCount := len(resourceList.Resources)
+	if resourceCount != expectedCount {
+		t.Errorf("Expected '%v' resources from GetResourceList(), instead found '%v' resources", expectedCount, resourceCount)
+	}
+
+	// Check that all expectedResources are found in the parsed data
+	for _, r := range expectedResources {
+		found := false
+		for _, item := range resourceList.Resources {
+			if item.Name == r {
+				found = true
+				break
+			}
+		} 
+		if ! found {
+			t.Errorf("Expected '%v' resource is not in the parsed data from GetResourceList()", r)
+		}
+	}
+}
+
+
 const namespaceListJsonData string = 
 `{
   "kind": "NamespaceList",
@@ -402,3 +485,186 @@ const serviceListJsonData string =
   ]
 }
 `
+
+const resourceListJsonData string =
+`{
+  "kind": "APIResourceList",
+  "groupVersion": "v1",
+  "resources": [
+    {
+      "name": "bindings",
+      "namespaced": true,
+      "kind": "Binding"
+    },
+    {
+      "name": "componentstatuses",
+      "namespaced": false,
+      "kind": "ComponentStatus"
+    },
+    {
+      "name": "configmaps",
+      "namespaced": true,
+      "kind": "ConfigMap"
+    },
+    {
+      "name": "endpoints",
+      "namespaced": true,
+      "kind": "Endpoints"
+    },
+    {
+      "name": "events",
+      "namespaced": true,
+      "kind": "Event"
+    },
+    {
+      "name": "limitranges",
+      "namespaced": true,
+      "kind": "LimitRange"
+    },
+    {
+      "name": "namespaces",
+      "namespaced": false,
+      "kind": "Namespace"
+    },
+    {
+      "name": "namespaces/finalize",
+      "namespaced": false,
+      "kind": "Namespace"
+    },
+    {
+      "name": "namespaces/status",
+      "namespaced": false,
+      "kind": "Namespace"
+    },
+    {
+      "name": "nodes",
+      "namespaced": false,
+      "kind": "Node"
+    },
+    {
+      "name": "nodes/proxy",
+      "namespaced": false,
+      "kind": "Node"
+    },
+    {
+      "name": "nodes/status",
+      "namespaced": false,
+      "kind": "Node"
+    },
+    {
+      "name": "persistentvolumeclaims",
+      "namespaced": true,
+      "kind": "PersistentVolumeClaim"
+    },
+    {
+      "name": "persistentvolumeclaims/status",
+      "namespaced": true,
+      "kind": "PersistentVolumeClaim"
+    },
+    {
+      "name": "persistentvolumes",
+      "namespaced": false,
+      "kind": "PersistentVolume"
+    },
+    {
+      "name": "persistentvolumes/status",
+      "namespaced": false,
+      "kind": "PersistentVolume"
+    },
+    {
+      "name": "pods",
+      "namespaced": true,
+      "kind": "Pod"
+    },
+    {
+      "name": "pods/attach",
+      "namespaced": true,
+      "kind": "Pod"
+    },
+    {
+      "name": "pods/binding",
+      "namespaced": true,
+      "kind": "Binding"
+    },
+    {
+      "name": "pods/exec",
+      "namespaced": true,
+      "kind": "Pod"
+    },
+    {
+      "name": "pods/log",
+      "namespaced": true,
+      "kind": "Pod"
+    },
+    {
+      "name": "pods/portforward",
+      "namespaced": true,
+      "kind": "Pod"
+    },
+    {
+      "name": "pods/proxy",
+      "namespaced": true,
+      "kind": "Pod"
+    },
+    {
+      "name": "pods/status",
+      "namespaced": true,
+      "kind": "Pod"
+    },
+    {
+      "name": "podtemplates",
+      "namespaced": true,
+      "kind": "PodTemplate"
+    },
+    {
+      "name": "replicationcontrollers",
+      "namespaced": true,
+      "kind": "ReplicationController"
+    },
+    {
+      "name": "replicationcontrollers/scale",
+      "namespaced": true,
+      "kind": "Scale"
+    },
+    {
+      "name": "replicationcontrollers/status",
+      "namespaced": true,
+      "kind": "ReplicationController"
+    },
+    {
+      "name": "resourcequotas",
+      "namespaced": true,
+      "kind": "ResourceQuota"
+    },
+    {
+      "name": "resourcequotas/status",
+      "namespaced": true,
+      "kind": "ResourceQuota"
+    },
+    {
+      "name": "secrets",
+      "namespaced": true,
+      "kind": "Secret"
+    },
+    {
+      "name": "serviceaccounts",
+      "namespaced": true,
+      "kind": "ServiceAccount"
+    },
+    {
+      "name": "services",
+      "namespaced": true,
+      "kind": "Service"
+    },
+    {
+      "name": "services/proxy",
+      "namespaced": true,
+      "kind": "Service"
+    },
+    {
+      "name": "services/status",
+      "namespaced": true,
+      "kind": "Service"
+    }
+  ]
+}`
