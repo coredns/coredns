@@ -1,6 +1,9 @@
 package k8sclient
 
 import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
     "testing"
 )
 
@@ -100,3 +103,254 @@ func TestSetBaseUrl(t *testing.T) {
 		}
 	}
 }
+
+
+
+
+
+func TestGetNamespaceList(t *testing.T) {
+	// Set up a test http server
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, namespaceListJsonData)
+	}))
+	defer testServer.Close()
+
+	// Overwrite URL constructor to access testServer
+	makeURL = func(parts []string) string {
+		return testServer.URL
+    }
+
+	apiConn := NewK8sConnector("")
+	fmt.Printf("apiConn is %v\n", apiConn)
+
+	namespaces := apiConn.GetNamespaceList()
+	fmt.Println("###################")
+	fmt.Printf("%s\n", namespaces)
+
+}
+
+
+func TestGetServiceList(t *testing.T) {
+	// Set up a test http server
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, serviceListJsonData)
+	}))
+	defer testServer.Close()
+
+	// Overwrite URL constructor to access testServer
+	makeURL = func(parts []string) string {
+		return testServer.URL
+    }
+
+	apiConn := NewK8sConnector("")
+
+	services := apiConn.GetServiceList()
+	fmt.Println("###################")
+	fmt.Printf("%s\n", services)
+}
+
+
+func TestGetServicesByNamespace(t *testing.T) {
+	// Set up a test http server
+	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, serviceListJsonData)
+	}))
+	defer testServer.Close()
+
+	// Overwrite URL constructor to access testServer
+	makeURL = func(parts []string) string {
+		return testServer.URL
+    }
+
+	expectedNamespaces := []string{"default", "demo"}
+
+	apiConn := NewK8sConnector("")
+
+	// Parse the sample JSON data
+	servicesByNamespace := apiConn.GetServicesByNamespace()
+
+	// Ensure correct number of namespaces found
+	expectedCount := len(expectedNamespaces)
+	namespaceCount := len(servicesByNamespace)
+	if namespaceCount != expectedCount {
+		t.Errorf("Expected '%v' namespaces from sample JSON data, instead found '%v' namespaces", expectedCount, namespaceCount)
+	}
+
+	// Check that all expectedNamespaces are found in the parsed data
+	for _, ns := range expectedNamespaces {
+		_, ok := servicesByNamespace[ns]
+		if ! ok {
+			t.Errorf("Expected '%v' namespace is not in the parsed data from GetServicesByNamespace()", ns)
+		}
+	}
+}
+
+
+const namespaceListJsonData string = 
+`{
+  "kind": "NamespaceList",
+  "apiVersion": "v1",
+  "metadata": {
+    "selfLink": "/api/v1/namespaces/",
+    "resourceVersion": "121279"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "default",
+        "selfLink": "/api/v1/namespaces/default",
+        "uid": "fb1c92d1-2f39-11e6-b9db-0800279930f6",
+        "resourceVersion": "6",
+        "creationTimestamp": "2016-06-10T18:34:35Z"
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    },
+    {
+      "metadata": {
+        "name": "demo",
+        "selfLink": "/api/v1/namespaces/demo",
+        "uid": "73be8ffd-2f3a-11e6-b9db-0800279930f6",
+        "resourceVersion": "111",
+        "creationTimestamp": "2016-06-10T18:37:57Z"
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    },
+    {
+      "metadata": {
+        "name": "test",
+        "selfLink": "/api/v1/namespaces/test",
+        "uid": "c0be05fa-3352-11e6-b9db-0800279930f6",
+        "resourceVersion": "121276",
+        "creationTimestamp": "2016-06-15T23:41:59Z"
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    }
+  ]
+}`
+
+const serviceListJsonData string =
+`
+{
+  "kind": "ServiceList",
+  "apiVersion": "v1",
+  "metadata": {
+    "selfLink": "/api/v1/services",
+    "resourceVersion": "147965"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "kubernetes",
+        "namespace": "default",
+        "selfLink": "/api/v1/namespaces/default/services/kubernetes",
+        "uid": "fb1cb0d3-2f39-11e6-b9db-0800279930f6",
+        "resourceVersion": "7",
+        "creationTimestamp": "2016-06-10T18:34:35Z",
+        "labels": {
+          "component": "apiserver",
+          "provider": "kubernetes"
+        }
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "https",
+            "protocol": "TCP",
+            "port": 443,
+            "targetPort": 443
+          }
+        ],
+        "clusterIP": "10.0.0.1",
+        "type": "ClusterIP",
+        "sessionAffinity": "None"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    },
+    {
+      "metadata": {
+        "name": "mynginx",
+        "namespace": "demo",
+        "selfLink": "/api/v1/namespaces/demo/services/mynginx",
+        "uid": "93c117ac-2f3a-11e6-b9db-0800279930f6",
+        "resourceVersion": "147",
+        "creationTimestamp": "2016-06-10T18:38:51Z",
+        "labels": {
+          "run": "mynginx"
+        }
+      },
+      "spec": {
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 80,
+            "targetPort": 80
+          }
+        ],
+        "selector": {
+          "run": "mynginx"
+        },
+        "clusterIP": "10.0.0.132",
+        "type": "ClusterIP",
+        "sessionAffinity": "None"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    },
+    {
+      "metadata": {
+        "name": "mywebserver",
+        "namespace": "demo",
+        "selfLink": "/api/v1/namespaces/demo/services/mywebserver",
+        "uid": "aed62187-33e5-11e6-a224-0800279930f6",
+        "resourceVersion": "138185",
+        "creationTimestamp": "2016-06-16T17:13:45Z",
+        "labels": {
+          "run": "mywebserver"
+        }
+      },
+      "spec": {
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 443,
+            "targetPort": 443
+          }
+        ],
+        "selector": {
+          "run": "mywebserver"
+        },
+        "clusterIP": "10.0.0.63",
+        "type": "ClusterIP",
+        "sessionAffinity": "None"
+      },
+      "status": {
+        "loadBalancer": {}
+      }
+    }
+  ]
+}
+`

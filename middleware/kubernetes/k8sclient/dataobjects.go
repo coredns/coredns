@@ -5,16 +5,16 @@ import (
     "net/http"
 )
 
-// getK8sDataBody wraps the http.Get(url) function to provide dependency
+// getK8sAPIResponse wraps the http.Get(url) function to provide dependency
 // injection for unit testing.
-var getK8sDataBody = func(url string) (resp *http.Response, err error) {
+var getK8sAPIResponse = func(url string) (resp *http.Response, err error) {
 	resp, err = http.Get(url)
 	return resp, err
 }
 
 
 func parseJson(url string, target interface{}) error {
-	r, err := getK8sDataBody(url)
+    r, err := getK8sAPIResponse(url)
     if err != nil {
         return err
     }

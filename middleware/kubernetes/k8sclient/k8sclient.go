@@ -4,6 +4,7 @@ import (
 	"errors"
     "fmt"
     "net/url"
+    "strings"
 )
 
 // API strings
@@ -43,10 +44,18 @@ func (c *K8sConnector) GetBaseUrl() string {
 }
 
 
+// URL constructor separated from code to support dependency injection
+// for unit tests.
+var makeURL = func(parts []string) string {
+    return strings.Join(parts, "")
+}
+
+
 func (c *K8sConnector) GetResourceList() *ResourceList {
     resources := new(ResourceList)
-    
-    error := parseJson((c.baseUrl + apiBase), resources)
+
+    url := makeURL([]string{c.baseUrl, apiBase})
+    error := parseJson(url, resources)
 	// TODO: handle no response from k8s
     if error != nil {
 		fmt.Printf("[ERROR] Response from kubernetes API is: %v\n", error)
@@ -60,7 +69,8 @@ func (c *K8sConnector) GetResourceList() *ResourceList {
 func (c *K8sConnector) GetNamespaceList() *NamespaceList {
     namespaces := new(NamespaceList)
 
-    error := parseJson((c.baseUrl + apiBase + apiNamespaces), namespaces)
+    url := makeURL([]string{c.baseUrl, apiBase, apiNamespaces})
+    error := parseJson(url, namespaces)
     if error != nil {
         return nil
     }
@@ -72,7 +82,8 @@ func (c *K8sConnector) GetNamespaceList() *NamespaceList {
 func (c *K8sConnector) GetServiceList() *ServiceList {
     services := new(ServiceList)
 
-    error := parseJson((c.baseUrl + apiBase + apiServices), services)
+    url := makeURL([]string{c.baseUrl, apiBase, apiServices})
+    error := parseJson(url, services)
 	// TODO: handle no response from k8s
     if error != nil {
 		fmt.Printf("[ERROR] Response from kubernetes API is: %v\n", error)
