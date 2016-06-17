@@ -277,6 +277,9 @@ TBD:
 		  See SkyDNS README.
 		* A Records and hostname Based on Pod Annotations (k8s beta 1.2 feature).
 		  See SkyDNS README.
+		* Note: the embedded IP and embedded port record names are weird. I
+		  would need to know the IP/port in order to create the query to lookup
+		  the name. Presumably these are intended for wildcard queries.
 * Additional features:
 	* Implement namespace filtering to different zones. That is, zone "a.b"
 	  publishes services from namespace "foo", and zone "x.y" publishes services
