@@ -320,8 +320,8 @@ TBD:
 	  a potential expiring cache implementation for the http API queries.)
 	* Push notifications from k8s for data changes rather than pull via API?
 * Test cases
-	* Implement test cases for http data parsing using dependency injection
-	  for http get operations.
+	* ~~Implement test cases for http data parsing using dependency injection
+	  for http get operations.~~
 	* Test with CoreDNS caching. CoreDNS caching for DNS response is working
 	  using the `cache` directive. Tested working using 20s cache timeout
 	  and A-record queries. Automate testing with cache in place.
