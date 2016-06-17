@@ -87,7 +87,6 @@ func TestSetBaseUrl(t *testing.T) {
 		}
 	}
 
-
 	// SetBaseUrl with invalid or non absolute URLs should not change state...
 	for _, invalidUrl := range invalidUrls {
 		conn := NewK8sConnector(defaultBaseUrl)
@@ -105,9 +104,6 @@ func TestSetBaseUrl(t *testing.T) {
 }
 
 
-
-
-
 func TestGetNamespaceList(t *testing.T) {
 	// Set up a test http server
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -120,13 +116,39 @@ func TestGetNamespaceList(t *testing.T) {
 		return testServer.URL
     }
 
+	expectedNamespaces := []string{"default", "demo", "test"}
 	apiConn := NewK8sConnector("")
-	fmt.Printf("apiConn is %v\n", apiConn)
+	namespaceList := apiConn.GetNamespaceList()
 
-	namespaces := apiConn.GetNamespaceList()
-	fmt.Println("###################")
-	fmt.Printf("%s\n", namespaces)
+	if namespaceList == nil {
+		t.Errorf("Expected data from GetNamespaceList(), instead got nil")
+	}
 
+	kind := namespaceList.Kind
+	if kind != "NamespaceList" {
+		t.Errorf("Expected data from GetNamespaceList() to have Kind='NamespaceList', instead got Kind='%v'", kind)
+	}
+
+	// Ensure correct number of namespaces found
+	expectedCount := len(expectedNamespaces)
+	namespaceCount := len(namespaceList.Items)
+	if namespaceCount != expectedCount {
+		t.Errorf("Expected '%v' namespaces from GetNamespaceList(), instead found '%v' namespaces", expectedCount, namespaceCount)
+	}
+
+	// Check that all expectedNamespaces are found in the parsed data
+	for _, ns := range expectedNamespaces {
+		found := false
+		for _, item := range namespaceList.Items {
+			if item.Metadata.Name == ns {
+				found = true
+				break
+			}
+		} 
+		if ! found {
+			t.Errorf("Expected '%v' namespace is not in the parsed data from GetServicesByNamespace()", ns)
+		}
+	}
 }
 
 
@@ -142,11 +164,39 @@ func TestGetServiceList(t *testing.T) {
 		return testServer.URL
     }
 
+	expectedServices := []string{"kubernetes", "mynginx", "mywebserver"}
 	apiConn := NewK8sConnector("")
+	serviceList := apiConn.GetServiceList()
 
-	services := apiConn.GetServiceList()
-	fmt.Println("###################")
-	fmt.Printf("%s\n", services)
+	if serviceList == nil {
+		t.Errorf("Expected data from GetServiceList(), instead got nil")
+	}
+
+	kind := serviceList.Kind
+	if kind != "ServiceList" {
+		t.Errorf("Expected data from GetServiceList() to have Kind='ServiceList', instead got Kind='%v'", kind)
+	}
+
+	// Ensure correct number of services found
+	expectedCount := len(expectedServices)
+	serviceCount := len(serviceList.Items)
+	if serviceCount != expectedCount {
+		t.Errorf("Expected '%v' services from GetServiceList(), instead found '%v' services", expectedCount, serviceCount)
+	}
+
+	// Check that all expectedServices are found in the parsed data
+	for _, s := range expectedServices {
+		found := false
+		for _, item := range serviceList.Items {
+			if item.Metadata.Name == s {
+				found = true
+				break
+			}
+		} 
+		if ! found {
+			t.Errorf("Expected '%v' service is not in the parsed data from GetServiceList()", s)
+		}
+	}
 }
 
 
@@ -163,17 +213,14 @@ func TestGetServicesByNamespace(t *testing.T) {
     }
 
 	expectedNamespaces := []string{"default", "demo"}
-
 	apiConn := NewK8sConnector("")
-
-	// Parse the sample JSON data
 	servicesByNamespace := apiConn.GetServicesByNamespace()
 
 	// Ensure correct number of namespaces found
 	expectedCount := len(expectedNamespaces)
 	namespaceCount := len(servicesByNamespace)
 	if namespaceCount != expectedCount {
-		t.Errorf("Expected '%v' namespaces from sample JSON data, instead found '%v' namespaces", expectedCount, namespaceCount)
+		t.Errorf("Expected '%v' namespaces from GetServicesByNamespace(), instead found '%v' namespaces", expectedCount, namespaceCount)
 	}
 
 	// Check that all expectedNamespaces are found in the parsed data
@@ -248,6 +295,7 @@ const namespaceListJsonData string =
     }
   ]
 }`
+
 
 const serviceListJsonData string =
 `
