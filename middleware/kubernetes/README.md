@@ -271,6 +271,8 @@ TBD:
 	* Ensure that resolver in each kubernetes container is configured to use
 	  coredns instance.
 	* Implement test cases for SkyDNS equivalent functionality.
+    * Update kubernetes middleware documentation to describe running CoreDNS as a
+      SkyDNS replacement.
 	* SkyDNS functionality, as listed in SkyDNS README: https://github.com/kubernetes/kubernetes/blob/release-1.2/cluster/addons/dns/README.md
 		* A records in form of `pod-ip-address.my-namespace.cluster.local`.
 		  For example, a pod with ip `1.2.3.4` in the namespace `default`
