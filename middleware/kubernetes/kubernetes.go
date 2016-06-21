@@ -2,6 +2,7 @@
 package kubernetes
 
 import (
+	"errors"
     "fmt"
 	"time"
 
@@ -81,10 +82,18 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	namespace = g.NameTemplate.GetNamespaceFromSegmentArray(serviceSegments)
 	serviceName = g.NameTemplate.GetServiceFromSegmentArray(serviceSegments)
 
+    fmt.Println("[debug] exact: ", exact)
     fmt.Println("[debug] zone: ", zone)
     fmt.Println("[debug] servicename: ", serviceName)
     fmt.Println("[debug] namespace: ", namespace)
     fmt.Println("[debug] APIconn: ", g.APIConn)
+
+	// TODO: Implement wildcard support to allow blank namespace value
+	if namespace == "" {
+		err := errors.New("Parsing query string did not produce a namespace value")
+		fmt.Printf("[ERROR] %v\n", err)
+		return nil, err
+	}
 
 	// Abort if the namespace is not published per CoreFile
 	if g.Namespaces != nil && ! stringInSlice(namespace, *g.Namespaces) {
