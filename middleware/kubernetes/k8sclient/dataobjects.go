@@ -48,7 +48,7 @@ type NamespaceList struct {
 
 type apiListMetadata struct {
     SelfLink         string `json:"selfLink"`
-    resourceVersion  string `json:"resourceVersion"`
+    ResourceVersion  string `json:"resourceVersion"`
 }
 
 type nsItems struct {

@@ -74,7 +74,7 @@ func TestNewK8sConnector(t *testing.T) {
 func TestSetBaseUrl(t *testing.T) {
 	// SetBaseUrl with valid URLs should work...
 	for _, validUrl := range validUrls {
-	    conn := NewK8sConnector(defaultBaseUrl)
+		conn := NewK8sConnector(defaultBaseUrl)
 		err := conn.SetBaseUrl(validUrl)
 		if err != nil {
 			t.Errorf("Expected to receive nil, instead got error '%v'", err)

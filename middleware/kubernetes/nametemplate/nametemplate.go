@@ -72,10 +72,8 @@ func (t *NameTemplate) SetTemplate(s string) error {
 
     t.formatString = s
     t.splitFormat = strings.Split(t.formatString, ".")
-//    fmt.Println(splitFormat)
     for templateIndex, v := range t.splitFormat {
         for name, symbol := range symbols {
-//            fmt.Printf("name: %v   symbol: %v:\n", name, symbol)
             if v == symbol {
                 t.Element[name] = templateIndex
                 break
@@ -87,13 +85,13 @@ func (t *NameTemplate) SetTemplate(s string) error {
 }
 
 
-// TODO: Note this only returns the first segment in the zone. Fix this.
 func (t *NameTemplate) GetZoneFromSegmentArray(segments []string) string {
 	if index, ok := t.Element["zone"]; ! ok {
 		return ""
 	} else {
 		return strings.Join(segments[index:len(segments)], ".")
 	}
+}
 
 
 func (t *NameTemplate) GetNamespaceFromSegmentArray(segments []string) string {
