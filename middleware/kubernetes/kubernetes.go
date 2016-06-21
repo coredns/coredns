@@ -24,6 +24,7 @@ type Kubernetes struct {
 //	Inflight   *singleflight.Group
     APIConn    *k8sc.K8sConnector
 	NameTemplate *nametemplate.NameTemplate
+    Namespaces *[]string
 }
 
 
@@ -84,6 +85,11 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
     fmt.Println("[debug] servicename: ", serviceName)
     fmt.Println("[debug] namespace: ", namespace)
     fmt.Println("[debug] APIconn: ", g.APIConn)
+
+	// Abort if the namespace is not published per CoreFile
+	if g.Namespaces != nil && ! stringInSlice(namespace, *g.Namespaces) {
+		return nil, nil
+	}
 
     k8sItem := g.APIConn.GetServiceItemInNamespace(namespace, serviceName)
     fmt.Println("[debug] k8s item:", k8sItem)
@@ -218,6 +224,17 @@ func (g Kubernetes) Ttl(node *etcdc.Node, serv *msg.Service) uint32 {
 
 // kubernetesNameError checks if the error is ErrorCodeKeyNotFound from kubernetes.
 func isKubernetesNameError(err error) bool {
+	return false
+}
+
+
+// stringInSlice check whether string a is a member of slice.
+func stringInSlice(a string, slice []string) bool {
+	for _, b := range slice {
+		if b == a {
+			return true
+		}
+	}
 	return false
 }
 

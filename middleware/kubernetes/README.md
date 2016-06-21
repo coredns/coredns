@@ -290,7 +290,9 @@ TBD:
 * Additional features:
 	* Implement namespace filtering to different zones. That is, zone "a.b"
 	  publishes services from namespace "foo", and zone "x.y" publishes services
-	  from namespaces "bar" and "baz".
+	  from namespaces "bar" and "baz". (Basic version implemented -- need test cases.)
+	* Reverse IN-ADDR entries for services. (Is there any value in supporting 
+	  reverse lookup records?
 	* How to support label specification in Corefile to allow use of labels to 
 	  indicate zone? (Is this even useful?) For example, the following
 	  configuration exposes all services labeled for the "staging" environment
@@ -314,7 +316,8 @@ TBD:
 	* Support custom user-provided templates for k8s names. A string provided
 	  in the middleware configuration like `{service}.{namespace}.{type}` defines
 	  the template of how to construct record names for the zone. This example
-	  would produce `myservice.mynamespace.svc.cluster.local`.
+	  would produce `myservice.mynamespace.svc.cluster.local`. (Basic template
+	  implemented. Need to slice zone out of current template implementation.)
 * DNS Correctness
 	* Do we need to generate synthetic zone records for namespaces?
 	* Do we need to generate synthetic zone records for the skydns synthetic zones?

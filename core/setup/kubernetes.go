@@ -58,10 +58,12 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 //      Inflight:   &singleflight.Group{},
         APIConn:    nil,
         NameTemplate: nil,
+		Namespaces: nil,
     }
     var (
         endpoints = []string{defaultK8sEndpoint}
         template = defaultNameTemplate
+		namespaces = []string{}
     )
 
     k8s.NameTemplate = new(nametemplate.NameTemplate)
@@ -107,6 +109,14 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
                         template = strings.Join(args, "")
                         fmt.Printf("[debug] Got k8s name template: %v\n", template)
                         k8s.NameTemplate.SetTemplate(template)
+					case "namespaces":
+						args := c.RemainingArgs()
+						if len(args) == 0 {
+                            return kubernetes.Kubernetes{}, c.ArgErr()
+						}
+						namespaces = args
+						k8s.Namespaces = &namespaces
+                        fmt.Printf("[debug] Got k8s namespaces: %v\n", namespaces)
                     }
                 }
             }
