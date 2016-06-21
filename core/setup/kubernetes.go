@@ -95,19 +95,12 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
                 }
                 for c.Next() {
                     switch c.Val() {
-                    case "endpoint":
-                        args := c.RemainingArgs()
-                        if len(args) == 0 {
-                            return kubernetes.Kubernetes{}, c.ArgErr()
-                        }
-                        endpoints = args
                     case "template":
                         args := c.RemainingArgs()
                         if len(args) == 0 {
                             return kubernetes.Kubernetes{}, c.ArgErr()
                         }
                         template = strings.Join(args, "")
-                        fmt.Printf("[debug] Got k8s name template: %v\n", template)
                         k8s.NameTemplate.SetTemplate(template)
 					case "namespaces":
 						args := c.RemainingArgs()
@@ -116,7 +109,6 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 						}
 						namespaces = args
 						k8s.Namespaces = &namespaces
-                        fmt.Printf("[debug] Got k8s namespaces: %v\n", namespaces)
                     }
                 }
             }
