@@ -5,6 +5,7 @@ import (
     "strings"
 )
 
+// Likely symbols that require support:
 // ${id}
 // ${ip}
 // ${portname}
@@ -30,6 +31,21 @@ var symbols = map[string]string{
     "zone": "${zone}",
 }
 
+var types = []string{
+	"svc",
+	"pod",
+}
+
+
+// TODO: Validate that provided NameTemplate string only contains:
+//			* valid, known symbols, or
+//			* static strings
+
+// TODO: Support collapsing multiple segments into a symbol. Either:
+//			* all left-over segments are used as the "service" name, or
+//			* some scheme like "${namespace}.${namespace}" means use
+//			  segments concatenated with a "." for the namespace, or
+//			* ${namespace2:4} means use segements 2->4 for the namespace.
 
 // TODO: possibly need to store length of segmented format to handle cases
 //       where query string segments to a shorter or longer list than the template.
@@ -71,9 +87,13 @@ func (t *NameTemplate) SetTemplate(s string) error {
 }
 
 
+// TODO: Note this only returns the first segment in the zone. Fix this.
 func (t *NameTemplate) GetZoneFromSegmentArray(segments []string) string {
-	return t.GetSymbolFromSegmentArray("zone", segments)
-}
+	if index, ok := t.Element["zone"]; ! ok {
+		return ""
+	} else {
+		return strings.Join(segments[index:len(segments)], ".")
+	}
 
 
 func (t *NameTemplate) GetNamespaceFromSegmentArray(segments []string) string {
@@ -83,6 +103,11 @@ func (t *NameTemplate) GetNamespaceFromSegmentArray(segments []string) string {
 
 func (t *NameTemplate) GetServiceFromSegmentArray(segments []string) string {
 	return t.GetSymbolFromSegmentArray("service", segments)
+}
+
+
+func (t *NameTemplate) GetTypeFromSegmentArray(segments []string) string {
+	return t.GetSymbolFromSegmentArray("type", segments)
 }
 
 
