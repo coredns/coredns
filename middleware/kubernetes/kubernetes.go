@@ -3,11 +3,11 @@ package kubernetes
 
 import (
     "fmt"
-	"strings"
 	"time"
 
 	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/kubernetes/msg"
+	"github.com/miekg/coredns/middleware/kubernetes/nametemplate"
 	k8sc "github.com/miekg/coredns/middleware/kubernetes/k8sclient"
 	"github.com/miekg/coredns/middleware/proxy"
 //	"github.com/miekg/coredns/middleware/singleflight"
@@ -23,6 +23,7 @@ type Kubernetes struct {
 	Ctx        context.Context
 //	Inflight   *singleflight.Group
     APIConn    *k8sc.K8sConnector
+	NameTemplate *nametemplate.NameTemplate
 }
 
 
@@ -62,6 +63,7 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
     var serviceName string
     var namespace string
 
+/*
     // For initial implementation, assume namespace is first serviceSegment
     // and service name is remaining segments.
     serviceSegLen := len(serviceSegments)
@@ -70,6 +72,13 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
         serviceName = strings.Join(serviceSegments[:serviceSegLen-1], ".")
     }
     // else we are looking up the zone. So handle the NS, SOA records etc.
+*/
+
+	// TODO: Implementation above globbed together segments for the serviceName if
+	//       multiple segments remained. Determine how to do similar globbing using
+	//		 the template-based implementation.
+	namespace = g.NameTemplate.GetNamespaceFromSegmentArray(serviceSegments)
+	serviceName = g.NameTemplate.GetServiceFromSegmentArray(serviceSegments)
 
     fmt.Println("[debug] zone: ", zone)
     fmt.Println("[debug] servicename: ", serviceName)

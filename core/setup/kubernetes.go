@@ -7,10 +7,12 @@ import (
 //	"io/ioutil"
 //	"net"
 //	"net/http"
+	"strings"
 //	"time"
 
 	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/kubernetes"
+	"github.com/miekg/coredns/middleware/kubernetes/nametemplate"
 	k8sc "github.com/miekg/coredns/middleware/kubernetes/k8sclient"
 	"github.com/miekg/coredns/middleware/proxy"
 //	"github.com/miekg/coredns/middleware/singleflight"
@@ -18,7 +20,10 @@ import (
 	"golang.org/x/net/context"
 )
 
-const defaultK8sEndpoint = "http://localhost:8080"
+const (
+	defaultK8sEndpoint = "http://localhost:8080"
+	defaultNameTemplate = "${service}.${namespace}.${zone}"
+)
 
 // Kubernetes sets up the kubernetes middleware.
 func Kubernetes(c *Controller) (middleware.Middleware, error) {
@@ -52,10 +57,16 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 		Ctx:        context.Background(),
 //		Inflight:   &singleflight.Group{},
         APIConn:    nil,
+		NameTemplate: nil,
 	}
 	var (
-		endpoints     = []string{defaultK8sEndpoint}
+		endpoints = []string{defaultK8sEndpoint}
+		template = defaultNameTemplate
 	)
+
+	k8s.NameTemplate = new(nametemplate.NameTemplate)
+	k8s.NameTemplate.SetTemplate(template)
+
 	for c.Next() {
 		if c.Val() == "kubernetes" {
 			zones := c.RemainingArgs()
@@ -88,6 +99,14 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 							return kubernetes.Kubernetes{}, c.ArgErr()
 						}
 						endpoints = args
+					case "template":
+						args := c.RemainingArgs()
+						if len(args) == 0 {
+							return kubernetes.Kubernetes{}, c.ArgErr()
+						}
+						template = strings.Join(args, "")
+						fmt.Printf("[debug] Got k8s name template: %v\n", template)
+						k8s.NameTemplate.SetTemplate(template)
 					}
 				}
 			}

@@ -4,6 +4,7 @@
     kubernetes coredns.local {
         # Use url for k8s API endpoint
         endpoint http://localhost:8080
+		template ${service}.${namespace}.${zone}
     }
     # Perform DNS response caching for the coredns.local zone
     # Cache timeout is provided by the integer in seconds
