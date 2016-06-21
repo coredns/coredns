@@ -4,6 +4,7 @@
     kubernetes coredns.local {
         # Use url for k8s API endpoint
         endpoint http://localhost:8080
+        # Assemble k8s record names with the template
 		template ${service}.${namespace}.${zone}
     }
     # Perform DNS response caching for the coredns.local zone
