@@ -1,6 +1,7 @@
 package nametemplate
 
 import (
+	"errors"
     "fmt"
     "strings"
 )
@@ -73,12 +74,23 @@ func (t *NameTemplate) SetTemplate(s string) error {
     t.formatString = s
     t.splitFormat = strings.Split(t.formatString, ".")
     for templateIndex, v := range t.splitFormat {
+		elementPositionSet := false
         for name, symbol := range symbols {
             if v == symbol {
                 t.Element[name] = templateIndex
+				elementPositionSet = true
                 break
             }
         }
+		if ! elementPositionSet {
+			if strings.Contains(v, "${") {
+				err = errors.New("Record name template contains the unknown symbol '" +  v + "'")
+				fmt.Printf("[debug] %v\n", err)
+				return err
+			} else {
+				fmt.Printf("[debug] Template string has static element '%v'\n", v)
+			}
+		}
     }
 
     return err
@@ -105,6 +117,7 @@ func (t *NameTemplate) GetServiceFromSegmentArray(segments []string) string {
 
 
 func (t *NameTemplate) GetTypeFromSegmentArray(segments []string) string {
+	// TODO: Limit type to known types
 	return t.GetSymbolFromSegmentArray("type", segments)
 }
 

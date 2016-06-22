@@ -101,7 +101,10 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
                             return kubernetes.Kubernetes{}, c.ArgErr()
                         }
                         template = strings.Join(args, "")
-                        k8s.NameTemplate.SetTemplate(template)
+                        err := k8s.NameTemplate.SetTemplate(template)
+						if err != nil {
+                            return kubernetes.Kubernetes{}, err
+						}
 					case "namespaces":
 						args := c.RemainingArgs()
 						if len(args) == 0 {
