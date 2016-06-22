@@ -57,13 +57,14 @@ func (g Kubernetes) getZoneForName(name string) (string, []string) {
 // this name. This is used when find matches when completing SRV lookups
 // for instance.
 func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
+    var (
+		serviceName string
+		namespace string
+		typeName string
+	)
 
     fmt.Println("enter Records('", name, "', ", exact, ")") 
-
     zone, serviceSegments := g.getZoneForName(name)
-
-    var serviceName string
-    var namespace string
 
 /*
     // For initial implementation, assume namespace is first serviceSegment
@@ -81,11 +82,13 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	//		 the template-based implementation.
 	namespace = g.NameTemplate.GetNamespaceFromSegmentArray(serviceSegments)
 	serviceName = g.NameTemplate.GetServiceFromSegmentArray(serviceSegments)
+	typeName = g.NameTemplate.GetTypeFromSegmentArray(serviceSegments)
 
     fmt.Println("[debug] exact: ", exact)
     fmt.Println("[debug] zone: ", zone)
     fmt.Println("[debug] servicename: ", serviceName)
     fmt.Println("[debug] namespace: ", namespace)
+    fmt.Println("[debug] typeName: ", typeName)
     fmt.Println("[debug] APIconn: ", g.APIConn)
 
 	// TODO: Implement wildcard support to allow blank namespace value
@@ -103,33 +106,41 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
     k8sItem := g.APIConn.GetServiceItemInNamespace(namespace, serviceName)
     fmt.Println("[debug] k8s item:", k8sItem)
 
-    switch {
-        case exact && k8sItem == nil:
-            fmt.Println("here2")
-            return nil, nil
-    }
+	// TODO: Update GetServiceItemInNamespace to produce a list of ServiceItems. (Stepping stone to wildcard support)
 
     if k8sItem == nil {
         // Did not find item in k8s
         return nil, nil
     }
 
-    fmt.Println("[debug] clusterIP:", k8sItem.Spec.ClusterIP)
-
-    for _, p := range k8sItem.Spec.Ports {
-        fmt.Println("[debug]    host:", name)
-        fmt.Println("[debug]    port:", p.Port)
-    }
-
-    clusterIP := k8sItem.Spec.ClusterIP
-    var records []msg.Service
-    for _, p := range k8sItem.Spec.Ports{
-        s := msg.Service{Host: clusterIP, Port: p.Port}
-        records = append(records, s)
-    }
+	records := g.getRecordsForServiceItems([]*k8sc.ServiceItem{k8sItem}, name)
 
     return records, nil
 }
+
+
+// TODO: assemble name from parts found in k8s data based on name template rather than reusing query string
+func (g Kubernetes) getRecordsForServiceItems(serviceItems []*k8sc.ServiceItem, name string) []msg.Service {
+	var records []msg.Service
+
+	for _, item := range serviceItems {
+		fmt.Println("[debug] clusterIP:", item.Spec.ClusterIP)
+		for _, p := range item.Spec.Ports {
+			fmt.Println("[debug]    host:", name)
+			fmt.Println("[debug]    port:", p.Port)
+		}
+
+		clusterIP := item.Spec.ClusterIP
+		for _, p := range item.Spec.Ports{
+			s := msg.Service{Host: clusterIP, Port: p.Port}
+			records = append(records, s)
+		}
+	}
+
+	fmt.Printf("[debug] records from getRecordsForServiceItems(): %v\n", records)
+	return records
+}
+
 
 /*
 // Get performs the call to the Kubernetes http API.
