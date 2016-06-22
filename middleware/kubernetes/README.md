@@ -255,24 +255,27 @@ TBD:
 
 ## TODO
 * SkyDNS compatibility/equivalency:
-	* Implement wildcard-based lookup. Minimally support `*`, consider `?` as well.
-	* Implement SkyDNS-style synthetic zones such as "svc" to group k8s objects. (This
-	  should be optional behavior.) Also look at "pod" synthetic zones.
-	* Automate packaging to allow executing in Kubernetes. That is, add Docker
-	  container build as target in Makefile. Also include anything else needed
-	  to simplify launch as the k8s DNS service.
-	  Note: Dockerfile already exists in coredns repo to build the docker image.
-	  This work item should identify how to pass configuration and run as a SkyDNS
-	  replacement.
-	* Identify any kubernetes changes necessary to use coredns as k8s DNS server. That is,
-	  how do we consume the "--cluster-dns=" and "--cluster-domain=" arguments.
-	* Work out how to pass CoreDNS configuration via kubectl command line and yaml
-	  service definition file.
-	* Ensure that resolver in each kubernetes container is configured to use
-	  coredns instance.
-	* Implement test cases for SkyDNS equivalent functionality.
-    * Update kubernetes middleware documentation to describe running CoreDNS as a
-      SkyDNS replacement.
+	* Kubernetes packaging and execution
+		* Automate packaging to allow executing in Kubernetes. That is, add Docker
+		  container build as target in Makefile. Also include anything else needed
+		  to simplify launch as the k8s DNS service.
+		  Note: Dockerfile already exists in coredns repo to build the docker image.
+		  This work item should identify how to pass configuration and run as a SkyDNS
+		  replacement.
+		* Identify any kubernetes changes necessary to use coredns as k8s DNS server. That is,
+		  how do we consume the "--cluster-dns=" and "--cluster-domain=" arguments.
+		* Work out how to pass CoreDNS configuration via kubectl command line and yaml
+		  service definition file.
+		* Ensure that resolver in each kubernetes container is configured to use
+		  coredns instance.
+		* Update kubernetes middleware documentation to describe running CoreDNS as a
+		  SkyDNS replacement. (Include descriptions of different ways to pass CoreFile
+		  to coredns command.)
+	* Functional work
+		* Implement SkyDNS-style synthetic zones such as "svc" to group k8s objects. (This
+		  should be optional behavior.) Also look at "pod" synthetic zones.
+		* Implement wildcard-based lookup. Minimally support `*`, consider `?` as well.
+		* Implement test cases for SkyDNS equivalent functionality.
 	* SkyDNS functionality, as listed in SkyDNS README: https://github.com/kubernetes/kubernetes/blob/release-1.2/cluster/addons/dns/README.md
 		* A records in form of `pod-ip-address.my-namespace.cluster.local`.
 		  For example, a pod with ip `1.2.3.4` in the namespace `default`
@@ -299,9 +302,9 @@ TBD:
 	  and tenant "customerB" in the zone "customerB.stage.local":
 
 			kubernetes customerB.stage.local {
-			    # Use url for k8s API endpoint
-			    endpoint http://localhost:8080
-			    label "environment" : "staging", "tenant" : "customerB"
+				# Use url for k8s API endpoint
+				endpoint http://localhost:8080
+				label "environment" : "staging", "tenant" : "customerB"
 			}
 
 	  Note: label specification/selection is a killer feature for segmenting
