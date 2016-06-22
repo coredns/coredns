@@ -290,6 +290,14 @@ TBD:
 		* Note: the embedded IP and embedded port record names are weird. I
 		  would need to know the IP/port in order to create the query to lookup
 		  the name. Presumably these are intended for wildcard queries.
+	* Performance
+		* Improve lookup to reduce size of query result obtained from k8s API.
+		  (namespace-based?, other ideas?)
+		* Caching of k8s API dataset.
+		* DNS response caching is good, but we should also cache at the http query 
+		  level as well. (Take a look at https://github.com/patrickmn/go-cache as 
+		  a potential expiring cache implementation for the http API queries.)
+		* Push notifications from k8s for data changes rather than pull via API?
 * Additional features:
 	* Implement namespace filtering to different zones. That is, zone "a.b"
 	  publishes services from namespace "foo", and zone "x.y" publishes services
@@ -324,14 +332,6 @@ TBD:
 * DNS Correctness
 	* Do we need to generate synthetic zone records for namespaces?
 	* Do we need to generate synthetic zone records for the skydns synthetic zones?
-* Performance
-	* Improve lookup to reduce size of query result obtained from k8s API.
-	  (namespace-based?, other ideas?)
-	* Caching of k8s API dataset.
-	* DNS response caching is good, but we should also cache at the http query 
-	  level as well. (Take a look at https://github.com/patrickmn/go-cache as 
-	  a potential expiring cache implementation for the http API queries.)
-	* Push notifications from k8s for data changes rather than pull via API?
 * Test cases
 	* ~~Implement test cases for http data parsing using dependency injection
 	  for http get operations.~~
