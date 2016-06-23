@@ -271,10 +271,13 @@ TBD:
 		* Update kubernetes middleware documentation to describe running CoreDNS as a
 		  SkyDNS replacement. (Include descriptions of different ways to pass CoreFile
 		  to coredns command.)
+		* Expose load-balancer IP addresses.
+		* Calculate SRV priority based on number of instances running.
+		  (See SkyDNS README.md)
 	* Functional work
+		* Implement wildcard-based lookup. Minimally support `*`, consider `?` as well.
 		* Implement SkyDNS-style synthetic zones such as "svc" to group k8s objects. (This
 		  should be optional behavior.) Also look at "pod" synthetic zones.
-		* Implement wildcard-based lookup. Minimally support `*`, consider `?` as well.
 		* Implement test cases for SkyDNS equivalent functionality.
 	* SkyDNS functionality, as listed in SkyDNS README: https://github.com/kubernetes/kubernetes/blob/release-1.2/cluster/addons/dns/README.md
 		* A records in form of `pod-ip-address.my-namespace.cluster.local`.
