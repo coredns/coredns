@@ -113,6 +113,9 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
         return nil, nil
     }
 
+	test := g.NameTemplate.GetRecordNameFromNameValues(nametemplate.NameValues{ServiceName: serviceName, TypeName: typeName, Namespace: namespace, Zone: zone })
+	fmt.Printf("[debug] got recordname %v\n", test)
+
 	records := g.getRecordsForServiceItems([]*k8sc.ServiceItem{k8sItem}, name)
 
     return records, nil
@@ -126,11 +129,13 @@ func (g Kubernetes) getRecordsForServiceItems(serviceItems []*k8sc.ServiceItem, 
 	for _, item := range serviceItems {
 		fmt.Println("[debug] clusterIP:", item.Spec.ClusterIP)
 		for _, p := range item.Spec.Ports {
-			fmt.Println("[debug]    host:", name)
 			fmt.Println("[debug]    port:", p.Port)
 		}
 
 		clusterIP := item.Spec.ClusterIP
+
+		s := msg.Service{Host: name}
+		records = append(records, s)
 		for _, p := range item.Spec.Ports{
 			s := msg.Service{Host: clusterIP, Port: p.Port}
 			records = append(records, s)

@@ -129,3 +129,36 @@ func (t *NameTemplate) GetSymbolFromSegmentArray(symbol string, segments []strin
 		return segments[index]
 	}
 }
+
+
+// GetRecordNameFromNameValues returns the string produced by applying the
+// values to the NameTemplate format string.
+func(t *NameTemplate) GetRecordNameFromNameValues(values NameValues) string {
+	recordName := make([]string, len(t.splitFormat))
+	copy(recordName[:], t.splitFormat)
+
+	for name, index := range t.Element {
+		if index == -1 {
+			continue
+		}
+		switch name {
+		case "type":
+			recordName[index] = values.TypeName
+		case "service":
+			recordName[index] = values.ServiceName
+		case "namespace":
+			recordName[index] = values.Namespace
+		case "zone":
+			recordName[index] = values.Zone
+		}
+	}
+	return strings.Join(recordName, ".")
+}
+
+
+type NameValues struct {
+	ServiceName string
+	Namespace string
+	TypeName string
+	Zone string
+}
