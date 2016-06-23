@@ -316,6 +316,8 @@ func TestGetResourceList(t *testing.T) {
 }
 
 
+// Sample namespace data for kubernetes with 3 namespaces:
+// "default", "demo", and "test".
 const namespaceListJsonData string = 
 `{
   "kind": "NamespaceList",
@@ -380,6 +382,10 @@ const namespaceListJsonData string =
 }`
 
 
+// Sample service data for kubernetes with 3 services:
+//	* "kubernetes" (in "default" namespace)
+//	* "mynginx" (in "demo" namespace)
+//	* "webserver" (in "demo" namespace)
 const serviceListJsonData string =
 `
 {
@@ -486,6 +492,7 @@ const serviceListJsonData string =
 }
 `
 
+// Sample resource data for kubernetes.
 const resourceListJsonData string =
 `{
   "kind": "APIResourceList",
