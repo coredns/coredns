@@ -4,6 +4,8 @@ import (
 	"errors"
     "fmt"
     "strings"
+
+	"github.com/miekg/coredns/middleware/kubernetes/util"
 )
 
 // Likely symbols that require support:
@@ -122,8 +124,14 @@ func (t *NameTemplate) GetServiceFromSegmentArray(segments []string) string {
 
 
 func (t *NameTemplate) GetTypeFromSegmentArray(segments []string) string {
-	// TODO: Limit type to known types
-	return t.GetSymbolFromSegmentArray("type", segments)
+	typeSegment := t.GetSymbolFromSegmentArray("type", segments)
+
+	// Limit type to known types symbols
+	if util.StringInSlice(typeSegment, types) {
+		return ""
+	}
+
+	return typeSegment
 }
 
 

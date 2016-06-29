@@ -1,4 +1,4 @@
-package kubernetes
+package util
 
 import (
     "testing"
@@ -25,7 +25,7 @@ var testdataInSlice = []struct {
 
 func TestStringInSlice(t *testing.T) {
 	for _, example := range testdataInSlice {
-		actualResult := stringInSlice(example.String, example.Slice)
+		actualResult := StringInSlice(example.String, example.Slice)
 		if actualResult != example.ExpectedResult {
 			t.Errorf("Expected stringInSlice result '%v' for example string='%v', slice='%v'. Instead got result '%v'.", example.ExpectedResult, example.String, example.Slice, actualResult)
 		}

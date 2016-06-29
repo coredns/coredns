@@ -10,6 +10,7 @@ import (
 	"github.com/miekg/coredns/middleware/kubernetes/msg"
 	"github.com/miekg/coredns/middleware/kubernetes/nametemplate"
 	k8sc "github.com/miekg/coredns/middleware/kubernetes/k8sclient"
+	"github.com/miekg/coredns/middleware/kubernetes/util"
 	"github.com/miekg/coredns/middleware/proxy"
 //	"github.com/miekg/coredns/middleware/singleflight"
 
@@ -99,7 +100,7 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	}
 
 	// Abort if the namespace is not published per CoreFile
-	if g.Namespaces != nil && ! stringInSlice(namespace, *g.Namespaces) {
+	if g.Namespaces != nil && ! util.StringInSlice(namespace, *g.Namespaces) {
 		return nil, nil
 	}
 
@@ -252,16 +253,6 @@ func isKubernetesNameError(err error) bool {
 	return false
 }
 
-
-// stringInSlice check whether string a is a member of slice.
-func stringInSlice(a string, slice []string) bool {
-	for _, b := range slice {
-		if b == a {
-			return true
-		}
-	}
-	return false
-}
 
 const (
 	priority    = 10  // default priority when nothing is set
