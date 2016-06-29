@@ -14,7 +14,7 @@ docker:
 
 .PHONY: deps
 deps:
-	go get
+	go get ${BUILD_VERBOSE}
 
 .PHONY: test
 test:

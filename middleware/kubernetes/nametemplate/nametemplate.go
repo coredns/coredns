@@ -97,6 +97,11 @@ func (t *NameTemplate) SetTemplate(s string) error {
 }
 
 
+// TODO: Find a better way to pull the data segments out of the
+//       query string based on the template. Perhaps it is better
+//		 to treat the query string segments as a reverse stack and
+//       step down the stack to find the right element.
+
 func (t *NameTemplate) GetZoneFromSegmentArray(segments []string) string {
 	if index, ok := t.Element["zone"]; ! ok {
 		return ""
