@@ -16,15 +16,15 @@ const (
 
 // Defaults
 const (
-    defaultBaseUrl = "http://localhost:8080"
+    defaultBaseURL = "http://localhost:8080"
 )
 
 
 type K8sConnector struct {
-    baseUrl string
+    baseURL string
 }
 
-func (c *K8sConnector) SetBaseUrl(u string) error {
+func (c *K8sConnector) SetBaseURL(u string) error {
     url, error := url.Parse(u)
 
     if error != nil {
@@ -35,12 +35,12 @@ func (c *K8sConnector) SetBaseUrl(u string) error {
 		return errors.New("k8sclient: Kubernetes endpoint url must be an absolute URL")
 	}
 
-    c.baseUrl = url.String()
+    c.baseURL = url.String()
     return nil
 }
 
-func (c *K8sConnector) GetBaseUrl() string {
-    return c.baseUrl
+func (c *K8sConnector) GetBaseURL() string {
+    return c.baseURL
 }
 
 
@@ -54,7 +54,7 @@ var makeURL = func(parts []string) string {
 func (c *K8sConnector) GetResourceList() *ResourceList {
     resources := new(ResourceList)
 
-    url := makeURL([]string{c.baseUrl, apiBase})
+    url := makeURL([]string{c.baseURL, apiBase})
     error := parseJson(url, resources)
 	// TODO: handle no response from k8s
     if error != nil {
@@ -69,7 +69,7 @@ func (c *K8sConnector) GetResourceList() *ResourceList {
 func (c *K8sConnector) GetNamespaceList() *NamespaceList {
     namespaces := new(NamespaceList)
 
-    url := makeURL([]string{c.baseUrl, apiBase, apiNamespaces})
+    url := makeURL([]string{c.baseURL, apiBase, apiNamespaces})
     error := parseJson(url, namespaces)
     if error != nil {
         return nil
@@ -82,7 +82,7 @@ func (c *K8sConnector) GetNamespaceList() *NamespaceList {
 func (c *K8sConnector) GetServiceList() *ServiceList {
     services := new(ServiceList)
 
-    url := makeURL([]string{c.baseUrl, apiBase, apiServices})
+    url := makeURL([]string{c.baseURL, apiBase, apiServices})
     error := parseJson(url, services)
 	// TODO: handle no response from k8s
     if error != nil {
@@ -137,14 +137,14 @@ func (c *K8sConnector) GetServiceItemInNamespace(namespace string, servicename s
 }
 
 
-func NewK8sConnector(baseUrl string) *K8sConnector {
+func NewK8sConnector(baseURL string) *K8sConnector {
     k := new(K8sConnector)
 
-	if baseUrl == "" {
-		baseUrl = defaultBaseUrl
+	if baseURL == "" {
+		baseURL = defaultBaseURL
 	}
 
-    err := k.SetBaseUrl(baseUrl)
+    err := k.SetBaseURL(baseURL)
 	if err != nil {
 		return nil
 	}
