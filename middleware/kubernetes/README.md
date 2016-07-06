@@ -276,6 +276,7 @@ TBD:
 		  (See SkyDNS README.md)
 	* Functional work
 		* Implement wildcard-based lookup. Minimally support `*`, consider `?` as well.
+        * Note from Miek on PR 181: "SkyDNS also supports the word `any`.
 		* Implement SkyDNS-style synthetic zones such as "svc" to group k8s objects. (This
 		  should be optional behavior.) Also look at "pod" synthetic zones.
 		* Implement test cases for SkyDNS equivalent functionality.
