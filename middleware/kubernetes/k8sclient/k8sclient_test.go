@@ -8,7 +8,7 @@ import (
 )
 
 
-var validUrls = []string{
+var validURLs = []string{
 						 "http://www.github.com",
 						 "http://www.github.com:8080",
 						 "http://8.8.8.8",
@@ -17,7 +17,7 @@ var validUrls = []string{
 						}
 
 
-var	invalidUrls = []string{
+var	invalidURLs = []string{
 							"www.github.com",
 							"8.8.8.8",
 							"8.8.8.8:1010",
@@ -37,32 +37,32 @@ func TestNewK8sConnector(t *testing.T) {
 	if conn == nil {
 		t.Errorf("Expected K8sConnector instance. Instead got '%v'", conn)
 	}
-	url = conn.GetBaseUrl()
-	if url != defaultBaseUrl {
-		t.Errorf("Expected K8sConnector instance to be initialized with defaultBaseUrl. Instead got '%v'", url)
+	url = conn.GetBaseURL()
+	if url != defaultBaseURL {
+		t.Errorf("Expected K8sConnector instance to be initialized with defaultBaseURL. Instead got '%v'", url)
 	}
 
 	// Create with valid URL
-	for _, validUrl := range validUrls {
+	for _, validURL := range validURLs {
 		conn = nil
 		url = ""
 
-		conn = NewK8sConnector(validUrl)
+		conn = NewK8sConnector(validURL)
 		if conn == nil {
 			t.Errorf("Expected K8sConnector instance. Instead got '%v'", conn)
 		}
-		url = conn.GetBaseUrl()
-		if url != validUrl {
-			t.Errorf("Expected K8sConnector instance to be initialized with supplied url '%v'. Instead got '%v'", validUrl, url)
+		url = conn.GetBaseURL()
+		if url != validURL {
+			t.Errorf("Expected K8sConnector instance to be initialized with supplied url '%v'. Instead got '%v'", validURL, url)
 		}
 	}
 
 	// Create with invalid URL
-	for _, invalidUrl := range invalidUrls {
+	for _, invalidURL := range invalidURLs {
 		conn = nil
 		url = ""
 
-		conn = NewK8sConnector(invalidUrl)
+		conn = NewK8sConnector(invalidURL)
 		if conn != nil {
 			t.Errorf("Expected to not get K8sConnector instance. Instead got '%v'", conn)
 			continue
@@ -71,33 +71,33 @@ func TestNewK8sConnector(t *testing.T) {
 }
 
 
-func TestSetBaseUrl(t *testing.T) {
-	// SetBaseUrl with valid URLs should work...
-	for _, validUrl := range validUrls {
-		conn := NewK8sConnector(defaultBaseUrl)
-		err := conn.SetBaseUrl(validUrl)
+func TestSetBaseURL(t *testing.T) {
+	// SetBaseURL with valid URLs should work...
+	for _, validURL := range validURLs {
+		conn := NewK8sConnector(defaultBaseURL)
+		err := conn.SetBaseURL(validURL)
 		if err != nil {
 			t.Errorf("Expected to receive nil, instead got error '%v'", err)
 			continue
 		}
-		url := conn.GetBaseUrl()
-		if url != validUrl {
-			t.Errorf("Expected to connector url to be set to value '%v', instead set to '%v'", validUrl, url)
+		url := conn.GetBaseURL()
+		if url != validURL {
+			t.Errorf("Expected to connector url to be set to value '%v', instead set to '%v'", validURL, url)
 			continue
 		}
 	}
 
-	// SetBaseUrl with invalid or non absolute URLs should not change state...
-	for _, invalidUrl := range invalidUrls {
-		conn := NewK8sConnector(defaultBaseUrl)
-		originalUrl := conn.GetBaseUrl()
+	// SetBaseURL with invalid or non absolute URLs should not change state...
+	for _, invalidURL := range invalidURLs {
+		conn := NewK8sConnector(defaultBaseURL)
+		originalURL := conn.GetBaseURL()
 
-		err := conn.SetBaseUrl(invalidUrl)
+		err := conn.SetBaseURL(invalidURL)
 		if err == nil {
 			t.Errorf("Expected to receive an error value, instead got nil")
 		}
-		url := conn.GetBaseUrl()
-		if url != originalUrl {
+		url := conn.GetBaseURL()
+		if url != originalURL {
 			t.Errorf("Expected base url to not change, instead it changed to '%v'", url)
 		}
 	}
