@@ -22,7 +22,7 @@ import (
 
 const (
     defaultK8sEndpoint = "http://localhost:8080"
-    defaultNameTemplate = "${service}.${namespace}.${zone}"
+    defaultNameTemplate = "{service}.{namespace}.{zone}"
 )
 
 // Kubernetes sets up the kubernetes middleware.

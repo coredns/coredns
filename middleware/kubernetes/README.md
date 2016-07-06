@@ -344,3 +344,4 @@ TBD:
 	  and A-record queries. Automate testing with cache in place.
 	* Automate CoreDNS performance tests. Initially for zone files, and for
 	  pre-loaded k8s API cache.
+    * Automate integration testing with kubernetes.

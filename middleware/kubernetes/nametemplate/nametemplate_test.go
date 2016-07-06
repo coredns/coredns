@@ -16,8 +16,8 @@ const (
 // Map of format string :: expected locations of name symbols in the format.
 // -1 value indicates that symbol does not exist in format.
 var exampleTemplates = map[string][]int{
-    "${service}.${namespace}.${zone}": []int{2, 1, 0},       // service symbol expected @ position 0, namespace @ 1, zone @ 2
-    "${namespace}.${zone}": []int{1, 0, -1},
+    "{service}.{namespace}.{zone}": []int{2, 1, 0},       // service symbol expected @ position 0, namespace @ 1, zone @ 2
+    "{namespace}.{zone}": []int{1, 0, -1},
     "": []int{-1, -1, -1},
 }
 
@@ -49,9 +49,9 @@ func TestGetServiceFromSegmentArray(t *testing.T) {
 		actualService string
 	)
 	
-	// Case where template contains ${service}
+	// Case where template contains {service}
 	n = new(NameTemplate)
-	formatString ="${service}.${namespace}.${zone}"
+	formatString ="{service}.{namespace}.{zone}"
 	n.SetTemplate(formatString)
 
 	queryString = "myservice.mynamespace.coredns"
@@ -63,9 +63,9 @@ func TestGetServiceFromSegmentArray(t *testing.T) {
 		t.Errorf("Expected service name '%v', instead got service name '%v' for query string '%v' and format '%v'", expectedService, actualService, queryString, formatString)
 	}
 
-	// Case where template does not contain ${service}
+	// Case where template does not contain {service}
 	n = new(NameTemplate)
-	formatString = "${namespace}.${zone}"
+	formatString = "{namespace}.{zone}"
 	n.SetTemplate(formatString)
 	
 	queryString = "mynamespace.coredns"
@@ -89,9 +89,9 @@ func TestGetZoneFromSegmentArray(t *testing.T) {
 		actualZone string
 	)
 	
-	// Case where template contains ${zone}
+	// Case where template contains {zone}
 	n = new(NameTemplate)
-	formatString ="${service}.${namespace}.${zone}"
+	formatString ="{service}.{namespace}.{zone}"
 	n.SetTemplate(formatString)
 
 	queryString = "myservice.mynamespace.coredns"
@@ -103,9 +103,9 @@ func TestGetZoneFromSegmentArray(t *testing.T) {
 		t.Errorf("Expected zone name '%v', instead got zone name '%v' for query string '%v' and format '%v'", expectedZone, actualZone, queryString, formatString)
 	}
 
-	// Case where template does not contain ${zone}
+	// Case where template does not contain {zone}
 	n = new(NameTemplate)
-	formatString = "${service}.${namespace}"
+	formatString = "{service}.{namespace}"
 	n.SetTemplate(formatString)
 	
 	queryString = "mynamespace.coredns"
@@ -119,7 +119,7 @@ func TestGetZoneFromSegmentArray(t *testing.T) {
 
 	// Case where zone is multiple segments
 	n = new(NameTemplate)
-	formatString ="${service}.${namespace}.${zone}"
+	formatString ="{service}.{namespace}.{zone}"
 	n.SetTemplate(formatString)
 
 	queryString = "myservice.mynamespace.coredns.cluster.local"

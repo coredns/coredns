@@ -9,29 +9,29 @@ import (
 )
 
 // Likely symbols that require support:
-// ${id}
-// ${ip}
-// ${portname}
-// ${protocolname}
-// ${servicename}
-// ${namespace}
-// ${type}              "svc" or "pod"
-// ${zone}
+// {id}
+// {ip}
+// {portname}
+// {protocolname}
+// {servicename}
+// {namespace}
+// {type}              "svc" or "pod"
+// {zone}
 
 
-// SkyDNS normal services have an A-record of the form "${servicename}.${namespace}.${type}.${zone}"
+// SkyDNS normal services have an A-record of the form "{servicename}.{namespace}.{type}.{zone}"
 // This resolves to the cluster IP of the service.
 
-// SkyDNS headless services have an A-record of the form "${servicename}.${namespace}.${type}.${zone}"
+// SkyDNS headless services have an A-record of the form "{servicename}.{namespace}.{type}.{zone}"
 // This resolves to the set of IPs of the pods selected by the Service. Clients are expected to
 // consume the set or else use round-robin selection from the set.
 
 
 var symbols = map[string]string{
-    "service": "${service}",
-    "namespace": "${namespace}",
-    "type": "${type}",
-    "zone": "${zone}",
+    "service": "{service}",
+    "namespace": "{namespace}",
+    "type": "{type}",
+    "zone": "{zone}",
 }
 
 var types = []string{
@@ -46,9 +46,9 @@ var types = []string{
 
 // TODO: Support collapsing multiple segments into a symbol. Either:
 //			* all left-over segments are used as the "service" name, or
-//			* some scheme like "${namespace}.${namespace}" means use
+//			* some scheme like "{namespace}.{namespace}" means use
 //			  segments concatenated with a "." for the namespace, or
-//			* ${namespace2:4} means use segements 2->4 for the namespace.
+//			* {namespace2:4} means use segements 2->4 for the namespace.
 
 // TODO: possibly need to store length of segmented format to handle cases
 //       where query string segments to a shorter or longer list than the template.
@@ -85,7 +85,7 @@ func (t *NameTemplate) SetTemplate(s string) error {
             }
         }
 		if ! elementPositionSet {
-			if strings.Contains(v, "${") {
+			if strings.Contains(v, "{") {
 				err = errors.New("Record name template contains the unknown symbol '" +  v + "'")
 				fmt.Printf("[debug] %v\n", err)
 				return err
