@@ -17,7 +17,7 @@ func (k Kubernetes) records(state middleware.State, exact bool) ([]msg.Service, 
 	if err != nil {
 		return nil, err
 	}
-    // TODO: Do we want to support the SkyDNS (hacky) Group feature?
+	// TODO: Do we want to support the SkyDNS (hacky) Group feature?
 	services = msg.Group(services)
 	return services, nil
 }
@@ -226,17 +226,17 @@ func (k Kubernetes) SRV(zone string, state middleware.State) (records []dns.RR, 
 
 // Returning MX records from kubernetes not implemented.
 func (k Kubernetes) MX(zone string, state middleware.State) (records []dns.RR, extra []dns.RR, err error) {
-    return nil, nil, err
+	return nil, nil, err
 }
 
 // Returning CNAME records from kubernetes not implemented.
 func (k Kubernetes) CNAME(zone string, state middleware.State) (records []dns.RR, err error) {
-    return nil, err
+	return nil, err
 }
 
 // Returning TXT records from kubernetes not implemented.
 func (k Kubernetes) TXT(zone string, state middleware.State) (records []dns.RR, err error) {
-    return nil, err
+	return nil, err
 }
 
 func (k Kubernetes) NS(zone string, state middleware.State) (records, extra []dns.RR, err error) {

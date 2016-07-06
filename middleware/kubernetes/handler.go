@@ -11,15 +11,15 @@ import (
 
 func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
-    fmt.Printf("[debug] here entering ServeDNS: ctx:%v dnsmsg:%v\n", ctx, r)
+	fmt.Printf("[debug] here entering ServeDNS: ctx:%v dnsmsg:%v\n", ctx, r)
 
 	state := middleware.State{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
 		return dns.RcodeServerFailure, fmt.Errorf("can only deal with ClassINET")
 	}
 
-    // Check that query matches one of the zones served by this middleware,
-    // otherwise delegate to the next in the pipeline.
+	// Check that query matches one of the zones served by this middleware,
+	// otherwise delegate to the next in the pipeline.
 	zone := middleware.Zones(k.Zones).Matches(state.Name())
 	if zone == "" {
 		if k.Next == nil {
