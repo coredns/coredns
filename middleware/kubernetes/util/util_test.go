@@ -1,26 +1,26 @@
 package util
 
 import (
-    "testing"
+	"testing"
 )
 
 type InSliceData struct {
-	Slice []string
-	String string
+	Slice   []string
+	String  string
 	InSlice bool
 }
 
 // Test data for TestStringInSlice cases.
 var testdataInSlice = []struct {
-	Slice []string
-	String string
+	Slice          []string
+	String         string
 	ExpectedResult bool
 }{
-	{ []string{"a", "b", "c"}, "a", true},
-	{ []string{"a", "b", "c"}, "d", false},
-	{ []string{"a", "b", "c"}, "", false},
-	{ []string{}, "a", false},
-	{ []string{}, "", false},
+	{[]string{"a", "b", "c"}, "a", true},
+	{[]string{"a", "b", "c"}, "d", false},
+	{[]string{"a", "b", "c"}, "", false},
+	{[]string{}, "a", false},
+	{[]string{}, "", false},
 }
 
 func TestStringInSlice(t *testing.T) {

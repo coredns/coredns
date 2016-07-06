@@ -4,26 +4,23 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-    "testing"
+	"testing"
 )
 
-
 var validURLs = []string{
-						 "http://www.github.com",
-						 "http://www.github.com:8080",
-						 "http://8.8.8.8",
-						 "http://8.8.8.8:9090",
-						 "www.github.com:8080",
-						}
+	"http://www.github.com",
+	"http://www.github.com:8080",
+	"http://8.8.8.8",
+	"http://8.8.8.8:9090",
+	"www.github.com:8080",
+}
 
-
-var	invalidURLs = []string{
-							"www.github.com",
-							"8.8.8.8",
-							"8.8.8.8:1010",
-							"8.8`8.8",
-						  }
-
+var invalidURLs = []string{
+	"www.github.com",
+	"8.8.8.8",
+	"8.8.8.8:1010",
+	"8.8`8.8",
+}
 
 func TestNewK8sConnector(t *testing.T) {
 	var conn *K8sConnector
@@ -70,7 +67,6 @@ func TestNewK8sConnector(t *testing.T) {
 	}
 }
 
-
 func TestSetBaseURL(t *testing.T) {
 	// SetBaseURL with valid URLs should work...
 	for _, validURL := range validURLs {
@@ -103,7 +99,6 @@ func TestSetBaseURL(t *testing.T) {
 	}
 }
 
-
 func TestGetNamespaceList(t *testing.T) {
 	// Set up a test http server
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +109,7 @@ func TestGetNamespaceList(t *testing.T) {
 	// Overwrite URL constructor to access testServer
 	makeURL = func(parts []string) string {
 		return testServer.URL
-    }
+	}
 
 	expectedNamespaces := []string{"default", "demo", "test"}
 	apiConn := NewK8sConnector("")
@@ -144,13 +139,12 @@ func TestGetNamespaceList(t *testing.T) {
 				found = true
 				break
 			}
-		} 
-		if ! found {
+		}
+		if !found {
 			t.Errorf("Expected '%v' namespace is not in the parsed data from GetServicesByNamespace()", ns)
 		}
 	}
 }
-
 
 func TestGetServiceList(t *testing.T) {
 	// Set up a test http server
@@ -162,7 +156,7 @@ func TestGetServiceList(t *testing.T) {
 	// Overwrite URL constructor to access testServer
 	makeURL = func(parts []string) string {
 		return testServer.URL
-    }
+	}
 
 	expectedServices := []string{"kubernetes", "mynginx", "mywebserver"}
 	apiConn := NewK8sConnector("")
@@ -192,13 +186,12 @@ func TestGetServiceList(t *testing.T) {
 				found = true
 				break
 			}
-		} 
-		if ! found {
+		}
+		if !found {
 			t.Errorf("Expected '%v' service is not in the parsed data from GetServiceList()", s)
 		}
 	}
 }
-
 
 func TestGetServicesByNamespace(t *testing.T) {
 	// Set up a test http server
@@ -210,7 +203,7 @@ func TestGetServicesByNamespace(t *testing.T) {
 	// Overwrite URL constructor to access testServer
 	makeURL = func(parts []string) string {
 		return testServer.URL
-    }
+	}
 
 	expectedNamespaces := []string{"default", "demo"}
 	apiConn := NewK8sConnector("")
@@ -226,12 +219,11 @@ func TestGetServicesByNamespace(t *testing.T) {
 	// Check that all expectedNamespaces are found in the parsed data
 	for _, ns := range expectedNamespaces {
 		_, ok := servicesByNamespace[ns]
-		if ! ok {
+		if !ok {
 			t.Errorf("Expected '%v' namespace is not in the parsed data from GetServicesByNamespace()", ns)
 		}
 	}
 }
-
 
 func TestGetResourceList(t *testing.T) {
 	// Set up a test http server
@@ -243,44 +235,44 @@ func TestGetResourceList(t *testing.T) {
 	// Overwrite URL constructor to access testServer
 	makeURL = func(parts []string) string {
 		return testServer.URL
-    }
+	}
 
-	expectedResources := []string{	"bindings",
-									"componentstatuses",
-									"configmaps",
-									"endpoints",
-									"events",
-									"limitranges",
-									"namespaces",
-									"namespaces/finalize",
-									"namespaces/status",
-									"nodes", 
-									"nodes/proxy", 
-									"nodes/status", 
-									"persistentvolumeclaims", 
-									"persistentvolumeclaims/status", 
-									"persistentvolumes", 
-									"persistentvolumes/status", 
-									"pods",
-									"pods/attach",
-									"pods/binding",
-									"pods/exec",
-									"pods/log",
-									"pods/portforward",
-									"pods/proxy",
-									"pods/status",
-									"podtemplates",
-									"replicationcontrollers",
-									"replicationcontrollers/scale",
-									"replicationcontrollers/status",
-									"resourcequotas",
-									"resourcequotas/status",
-									"secrets",
-									"serviceaccounts",
-									"services",
-									"services/proxy",
-									"services/status",
-								}
+	expectedResources := []string{"bindings",
+		"componentstatuses",
+		"configmaps",
+		"endpoints",
+		"events",
+		"limitranges",
+		"namespaces",
+		"namespaces/finalize",
+		"namespaces/status",
+		"nodes",
+		"nodes/proxy",
+		"nodes/status",
+		"persistentvolumeclaims",
+		"persistentvolumeclaims/status",
+		"persistentvolumes",
+		"persistentvolumes/status",
+		"pods",
+		"pods/attach",
+		"pods/binding",
+		"pods/exec",
+		"pods/log",
+		"pods/portforward",
+		"pods/proxy",
+		"pods/status",
+		"podtemplates",
+		"replicationcontrollers",
+		"replicationcontrollers/scale",
+		"replicationcontrollers/status",
+		"resourcequotas",
+		"resourcequotas/status",
+		"secrets",
+		"serviceaccounts",
+		"services",
+		"services/proxy",
+		"services/status",
+	}
 	apiConn := NewK8sConnector("")
 	resourceList := apiConn.GetResourceList()
 
@@ -308,18 +300,16 @@ func TestGetResourceList(t *testing.T) {
 				found = true
 				break
 			}
-		} 
-		if ! found {
+		}
+		if !found {
 			t.Errorf("Expected '%v' resource is not in the parsed data from GetResourceList()", r)
 		}
 	}
 }
 
-
 // Sample namespace data for kubernetes with 3 namespaces:
 // "default", "demo", and "test".
-const namespaceListJsonData string = 
-`{
+const namespaceListJsonData string = `{
   "kind": "NamespaceList",
   "apiVersion": "v1",
   "metadata": {
@@ -381,13 +371,11 @@ const namespaceListJsonData string =
   ]
 }`
 
-
 // Sample service data for kubernetes with 3 services:
 //	* "kubernetes" (in "default" namespace)
 //	* "mynginx" (in "demo" namespace)
 //	* "webserver" (in "demo" namespace)
-const serviceListJsonData string =
-`
+const serviceListJsonData string = `
 {
   "kind": "ServiceList",
   "apiVersion": "v1",
@@ -493,8 +481,7 @@ const serviceListJsonData string =
 `
 
 // Sample resource data for kubernetes.
-const resourceListJsonData string =
-`{
+const resourceListJsonData string = `{
   "kind": "APIResourceList",
   "groupVersion": "v1",
   "resources": [
