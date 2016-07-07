@@ -55,7 +55,7 @@ func (c *K8sConnector) GetResourceList() (*ResourceList, error) {
 	err := parseJson(url, resources)
 	// TODO: handle no response from k8s
 	if err != nil {
-		fmt.Printf("[ERROR] Response from kubernetes API is: %v\n", err)
+		fmt.Printf("[ERROR] Response from kubernetes API for GetResourceList() is: %v\n", err)
 		return nil, err
 	}
 
@@ -68,6 +68,7 @@ func (c *K8sConnector) GetNamespaceList() (*NamespaceList, error) {
 	url := makeURL([]string{c.baseURL, apiBase, apiNamespaces})
 	err := parseJson(url, namespaces)
 	if err != nil {
+		fmt.Printf("[ERROR] Response from kubernetes API for GetNamespaceList() is: %v\n", err)
 		return nil, err
 	}
 
@@ -81,7 +82,7 @@ func (c *K8sConnector) GetServiceList() (*ServiceList, error) {
 	err := parseJson(url, services)
 	// TODO: handle no response from k8s
 	if err != nil {
-		fmt.Printf("[ERROR] Response from kubernetes API is: %v\n", err)
+		fmt.Printf("[ERROR] Response from kubernetes API for GetServiceList() is: %v\n", err)
 		return nil, err
 	}
 
