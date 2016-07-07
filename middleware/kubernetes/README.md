@@ -7,6 +7,7 @@ are constructed as "myservice.mynamespace.coredns.local" where:
 * "mynamespace" is the k8s namespace for the service, and
 * "coredns.local" is the zone configured for `kubernetes`.
 
+The record name format can be changed by specifying a name template in the Corefile.
 
 ## Syntax
 
