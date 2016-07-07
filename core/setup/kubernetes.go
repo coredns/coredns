@@ -56,9 +56,6 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 		Proxy: proxy.New([]string{}),
 		Ctx:   context.Background(),
 		//      Inflight:   &singleflight.Group{},
-		APIConn:      nil,
-		NameTemplate: nil,
-		Namespaces:   nil,
 	}
 	var (
 		endpoints  = []string{defaultK8sEndpoint}
@@ -66,6 +63,7 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 		namespaces = []string{}
 	)
 
+	k8s.APIConn = k8sc.NewK8sConnector(endpoints[0])
 	k8s.NameTemplate = new(nametemplate.NameTemplate)
 	k8s.NameTemplate.SetTemplate(template)
 
