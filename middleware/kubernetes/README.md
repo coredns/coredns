@@ -36,6 +36,10 @@ This is the default kubernetes setup, with everything specified in full:
     kubernetes coredns.local {
         # Use url for k8s API endpoint
         endpoint http://localhost:8080
+        # Assemble k8s record names with the template
+        template {service}.{namespace}.{zone}
+        # Only expose the k8s namespace "demo"
+        namespaces demo
     }
 #    cache 160 coredns.local
 }
