@@ -146,6 +146,9 @@ func (g Kubernetes) getRecordsForServiceItems(serviceItems []*k8sc.ServiceItem, 
 	return records
 }
 
+// TODO: Remove these unused functions. One is related to Ttl calculation
+//       Implement Ttl and priority calculation based on service count before
+//       removing this code.
 /*
 // Get performs the call to the Kubernetes http API.
 func (g Kubernetes) Get(path string, recursive bool) (bool, error) {
@@ -155,8 +158,8 @@ func (g Kubernetes) Get(path string, recursive bool) (bool, error) {
 
 	return false, nil
 }
-*/
 
+// splitDNSName separates the name into DNS segments and reverses the segments.
 func (g Kubernetes) splitDNSName(name string) []string {
 	l := dns.SplitDomainName(name)
 
@@ -166,16 +169,15 @@ func (g Kubernetes) splitDNSName(name string) []string {
 
 	return l
 }
-
+*/
 // skydns/local/skydns/east/staging/web
 // skydns/local/skydns/west/production/web
 //
 // skydns/local/skydns/*/*/web
 // skydns/local/skydns/*/web
-
+/*
 // loopNodes recursively loops through the nodes and returns all the values. The nodes' keyname
 // will be match against any wildcards when star is true.
-/*
 func (g Kubernetes) loopNodes(ns []*etcdc.Node, nameParts []string, star bool, bx map[msg.Service]bool) (sx []msg.Service, err error) {
 	if bx == nil {
 		bx = make(map[msg.Service]bool)
