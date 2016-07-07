@@ -97,10 +97,10 @@ func (c *K8sConnector) GetServicesByNamespace() (map[string][]ServiceItem, error
 
 	k8sServiceList, err := c.GetServiceList()
 
-    if err != nil {
-        fmt.Printf("[ERROR] Getting service list produced error: %v", err)
-        return nil, err
-    }
+	if err != nil {
+		fmt.Printf("[ERROR] Getting service list produced error: %v", err)
+		return nil, err
+	}
 
 	// TODO: handle no response from k8s
 	if k8sServiceList == nil {
@@ -123,16 +123,15 @@ func (c *K8sConnector) GetServiceItemsInNamespace(namespace string, servicename 
 
 	itemMap, err := c.GetServicesByNamespace()
 
-    if err != nil {
-        fmt.Printf("[ERROR] Getting service list produced error: %v", err)
-        return nil, err
-    }
+	if err != nil {
+		fmt.Printf("[ERROR] Getting service list produced error: %v", err)
+		return nil, err
+	}
 
 	// TODO: Handle case where namespace == nil
 
-    //serviceItems  := []*ServiceItem{}
-    var serviceItems  []*ServiceItem
-	
+	var serviceItems []*ServiceItem
+
 	for _, x := range itemMap[namespace] {
 		if x.Metadata.Name == servicename {
 			serviceItems = append(serviceItems, &x)

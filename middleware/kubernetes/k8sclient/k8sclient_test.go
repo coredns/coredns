@@ -115,9 +115,9 @@ func TestGetNamespaceList(t *testing.T) {
 	apiConn := NewK8sConnector("")
 	namespaceList, err := apiConn.GetNamespaceList()
 
-    if err != nil {
+	if err != nil {
 		t.Errorf("Expected no error from from GetNamespaceList(), instead got %v", err)
-    }
+	}
 
 	if namespaceList == nil {
 		t.Errorf("Expected data from GetNamespaceList(), instead got nil")
@@ -166,9 +166,9 @@ func TestGetServiceList(t *testing.T) {
 	apiConn := NewK8sConnector("")
 	serviceList, err := apiConn.GetServiceList()
 
-    if err != nil {
+	if err != nil {
 		t.Errorf("Expected no error from from GetNamespaceList(), instead got %v", err)
-    }
+	}
 
 	if serviceList == nil {
 		t.Errorf("Expected data from GetServiceList(), instead got nil")
@@ -217,9 +217,9 @@ func TestGetServicesByNamespace(t *testing.T) {
 	apiConn := NewK8sConnector("")
 	servicesByNamespace, err := apiConn.GetServicesByNamespace()
 
-    if err != nil {
+	if err != nil {
 		t.Errorf("Expected no error from from GetServicesByNamespace(), instead got %v", err)
-    }
+	}
 
 	// Ensure correct number of namespaces found
 	expectedCount := len(expectedNamespaces)
@@ -288,9 +288,9 @@ func TestGetResourceList(t *testing.T) {
 	apiConn := NewK8sConnector("")
 	resourceList, err := apiConn.GetResourceList()
 
-    if err != nil {
+	if err != nil {
 		t.Errorf("Expected no error from from GetResourceList(), instead got %v", err)
-    }
+	}
 
 	if resourceList == nil {
 		t.Errorf("Expected data from GetResourceList(), instead got nil")

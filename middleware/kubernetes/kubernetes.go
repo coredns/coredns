@@ -105,17 +105,17 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	k8sItems, err := g.APIConn.GetServiceItemsInNamespace(namespace, serviceName)
 	fmt.Println("[debug] k8s items:", k8sItems)
 
-    if err != nil {
-        fmt.Printf("[ERROR] Got error while looking up ServiceItems. Error is: %v\n", err)
-        return nil, err
-    }
+	if err != nil {
+		fmt.Printf("[ERROR] Got error while looking up ServiceItems. Error is: %v\n", err)
+		return nil, err
+	}
 	if k8sItems == nil {
 		// Did not find item in k8s
 		return nil, nil
 	}
 
-//	test := g.NameTemplate.GetRecordNameFromNameValues(nametemplate.NameValues{ServiceName: serviceName, TypeName: typeName, Namespace: namespace, Zone: zone})
-//	fmt.Printf("[debug] got recordname %v\n", test)
+	//	test := g.NameTemplate.GetRecordNameFromNameValues(nametemplate.NameValues{ServiceName: serviceName, TypeName: typeName, Namespace: namespace, Zone: zone})
+	//	fmt.Printf("[debug] got recordname %v\n", test)
 
 	records := g.getRecordsForServiceItems(k8sItems, name)
 
