@@ -102,20 +102,22 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		return nil, nil
 	}
 
-	k8sItem := g.APIConn.GetServiceItemInNamespace(namespace, serviceName)
-	fmt.Println("[debug] k8s item:", k8sItem)
+	k8sItems, err := g.APIConn.GetServiceItemsInNamespace(namespace, serviceName)
+	fmt.Println("[debug] k8s items:", k8sItems)
 
-	// TODO: Update GetServiceItemInNamespace to produce a list of ServiceItems. (Stepping stone to wildcard support)
-
-	if k8sItem == nil {
+    if err != nil {
+        fmt.Printf("[ERROR] Got error while looking up ServiceItems. Error is: %v\n", err)
+        return nil, err
+    }
+	if k8sItems == nil {
 		// Did not find item in k8s
 		return nil, nil
 	}
 
-	test := g.NameTemplate.GetRecordNameFromNameValues(nametemplate.NameValues{ServiceName: serviceName, TypeName: typeName, Namespace: namespace, Zone: zone})
-	fmt.Printf("[debug] got recordname %v\n", test)
+//	test := g.NameTemplate.GetRecordNameFromNameValues(nametemplate.NameValues{ServiceName: serviceName, TypeName: typeName, Namespace: namespace, Zone: zone})
+//	fmt.Printf("[debug] got recordname %v\n", test)
 
-	records := g.getRecordsForServiceItems([]*k8sc.ServiceItem{k8sItem}, name)
+	records := g.getRecordsForServiceItems(k8sItems, name)
 
 	return records, nil
 }

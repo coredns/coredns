@@ -113,7 +113,11 @@ func TestGetNamespaceList(t *testing.T) {
 
 	expectedNamespaces := []string{"default", "demo", "test"}
 	apiConn := NewK8sConnector("")
-	namespaceList := apiConn.GetNamespaceList()
+	namespaceList, err := apiConn.GetNamespaceList()
+
+    if err != nil {
+		t.Errorf("Expected no error from from GetNamespaceList(), instead got %v", err)
+    }
 
 	if namespaceList == nil {
 		t.Errorf("Expected data from GetNamespaceList(), instead got nil")
@@ -160,7 +164,11 @@ func TestGetServiceList(t *testing.T) {
 
 	expectedServices := []string{"kubernetes", "mynginx", "mywebserver"}
 	apiConn := NewK8sConnector("")
-	serviceList := apiConn.GetServiceList()
+	serviceList, err := apiConn.GetServiceList()
+
+    if err != nil {
+		t.Errorf("Expected no error from from GetNamespaceList(), instead got %v", err)
+    }
 
 	if serviceList == nil {
 		t.Errorf("Expected data from GetServiceList(), instead got nil")
@@ -207,7 +215,11 @@ func TestGetServicesByNamespace(t *testing.T) {
 
 	expectedNamespaces := []string{"default", "demo"}
 	apiConn := NewK8sConnector("")
-	servicesByNamespace := apiConn.GetServicesByNamespace()
+	servicesByNamespace, err := apiConn.GetServicesByNamespace()
+
+    if err != nil {
+		t.Errorf("Expected no error from from GetServicesByNamespace(), instead got %v", err)
+    }
 
 	// Ensure correct number of namespaces found
 	expectedCount := len(expectedNamespaces)
@@ -274,7 +286,11 @@ func TestGetResourceList(t *testing.T) {
 		"services/status",
 	}
 	apiConn := NewK8sConnector("")
-	resourceList := apiConn.GetResourceList()
+	resourceList, err := apiConn.GetResourceList()
+
+    if err != nil {
+		t.Errorf("Expected no error from from GetResourceList(), instead got %v", err)
+    }
 
 	if resourceList == nil {
 		t.Errorf("Expected data from GetResourceList(), instead got nil")
