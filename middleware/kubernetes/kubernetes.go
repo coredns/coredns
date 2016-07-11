@@ -99,6 +99,7 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 
 	// Abort if the namespace is not published per CoreFile
 	if g.Namespaces != nil && !util.StringInSlice(namespace, *g.Namespaces) {
+		fmt.Printf("[debug] Namespace '%v' is not published by Corefile\n", namespace)
 		return nil, nil
 	}
 
