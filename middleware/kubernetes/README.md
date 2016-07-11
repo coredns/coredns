@@ -349,4 +349,5 @@ TBD:
 	  and A-record queries. Automate testing with cache in place.
 	* Automate CoreDNS performance tests. Initially for zone files, and for
 	  pre-loaded k8s API cache.
-    * Automate integration testing with kubernetes.
+    * Automate integration testing with kubernetes. (k8s launch and service start-up
+      automation is in middleware/kubernetes/tests)
