@@ -21,6 +21,8 @@ var testdataLookupA = []struct {
 	{"mynginx.demo.coredns.local.", 1, 1},                     // One A record, should exist
 	{"mynginx.test.coredns.local.", 0, 0},                     // One A record, is not exposed
 	{"someservicethatdoesnotexist.demo.coredns.local.", 0, 0}, // One A record, does not exist
+//	{"*.demo.coredns.local.", 1, 1},                           // One A record, via wildcard
+//	{"mynginx.*.coredns.local.", 1, 1},                        // One A record, via wildcard
 }
 
 // checkKubernetesRunning performs a basic
@@ -30,7 +32,14 @@ func checkKubernetesRunning() bool {
 }
 
 
-func TestLookupA(t *testing.T) {
+
+func TestK8sIntegration(t *testing.T) {
+	t.Log("   === RUN testLookupA")
+	testLookupA(t)
+}
+
+
+func testLookupA(t *testing.T) {
 
 	if ! checkKubernetesRunning() {
 		t.Skip("Skipping Kubernetes Integration tests. Kubernetes is not running")

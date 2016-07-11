@@ -23,7 +23,7 @@ test:
 .PHONY: testk8s
 testk8s:
 #	go test $(TEST_VERBOSE) -tags=k8sIntegration ./...
-	go test $(TEST_VERBOSE) -tags=k8sIntegration test/*.go
+	go test $(TEST_VERBOSE) -tags=k8sIntegration -run 'TestK8sIntegration' ./test
 
 .PHONY: clean
 clean:
