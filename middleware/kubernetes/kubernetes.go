@@ -10,7 +10,7 @@ import (
 	k8sc "github.com/miekg/coredns/middleware/kubernetes/k8sclient"
 	"github.com/miekg/coredns/middleware/kubernetes/msg"
 	"github.com/miekg/coredns/middleware/kubernetes/nametemplate"
-	util "github.com/miekg/coredns/middleware/kubernetes/util"
+	k8sutil "github.com/miekg/coredns/middleware/kubernetes/util"
 	"github.com/miekg/coredns/middleware/proxy"
 	//	"github.com/miekg/coredns/middleware/singleflight"
 
@@ -86,13 +86,13 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	if namespace == "" {
 		err := errors.New("Parsing query string did not produce a namespace value. Assuming wildcard namespace.")
 		fmt.Printf("[WARN] %v\n", err)
-		namespace = util.WildcardStar
+		namespace = k8sutil.WildcardStar
 	}
 
 	if serviceName == "" {
 		err := errors.New("Parsing query string did not produce a serviceName value. Assuming wildcard serviceName.")
 		fmt.Printf("[WARN] %v\n", err)
-		serviceName = util.WildcardStar
+		serviceName = k8sutil.WildcardStar
 	}
 
 	fmt.Println("[debug] exact: ", exact)
@@ -102,12 +102,12 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	fmt.Println("[debug] typeName: ", typeName)
 	fmt.Println("[debug] APIconn: ", g.APIConn)
 
-	nsWildcard := util.SymbolContainsWildcard(namespace)
-	serviceWildcard := util.SymbolContainsWildcard(serviceName)
+	nsWildcard := k8sutil.SymbolContainsWildcard(namespace)
+	serviceWildcard := k8sutil.SymbolContainsWildcard(serviceName)
 
 	// Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
 	// Case where namespace contains a wildcard is handled in Get(...) method.
-	if (!nsWildcard) && (g.Namespaces != nil && !util.StringInSlice(namespace, *g.Namespaces)) {
+	if (!nsWildcard) && (g.Namespaces != nil && !k8sutil.StringInSlice(namespace, *g.Namespaces)) {
 		fmt.Printf("[debug] Namespace '%v' is not published by Corefile\n", namespace)
 		return nil, nil
 	}
@@ -168,7 +168,7 @@ func (g Kubernetes) Get(namespace string, nsWildcard bool, servicename string, s
 		if symbolMatches(namespace, item.Metadata.Namespace, nsWildcard) && symbolMatches(servicename, item.Metadata.Name, serviceWildcard) {
 			// If namespace has a wildcard, filter results against Corefile namespace list.
 			// (Namespaces without a wildcard were filtered before the call to this function.)
-			if nsWildcard && (g.Namespaces != nil && !util.StringInSlice(item.Metadata.Namespace, *g.Namespaces)) {
+			if nsWildcard && (g.Namespaces != nil && !k8sutil.StringInSlice(item.Metadata.Namespace, *g.Namespaces)) {
 				fmt.Printf("[debug] Namespace '%v' is not published by Corefile\n", item.Metadata.Namespace)
 				continue
 			}
@@ -184,9 +184,9 @@ func symbolMatches(queryString string, candidateString string, wildcard bool) bo
 	switch {
 	case !wildcard:
 		result = (queryString == candidateString)
-	case queryString == util.WildcardStar:
+	case queryString == k8sutil.WildcardStar:
 		result = true
-	case queryString == util.WildcardAny:
+	case queryString == k8sutil.WildcardAny:
 		result = true
 	}
 	return result
