@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
+	"github.com/miekg/coredns/middleware/kubernetes/util"
 )
 
 // API strings
@@ -117,19 +119,48 @@ func (c *K8sConnector) GetServicesByNamespace() (map[string][]ServiceItem, error
 	return items, nil
 }
 
+
+func namespaceMatches(queryString string, candidateString string, wildcard bool) bool {
+	switch {
+	case ! wildcard:
+		return queryString == candidateString
+	case queryString == util.WildcardStar:
+		return true
+	case queryString == util.WildcardAny:
+		return true
+	}
+	return false
+}
+
+
 // GetServiceItemsInNamespace returns the ServiceItems that match
 // servicename in the namespace
-func (c *K8sConnector) GetServiceItemsInNamespace(namespace string, servicename string) ([]*ServiceItem, error) {
+func (c *K8sConnector) GetServiceItemsInNamespace(namespace string, nsWildcard bool, servicename string, serviceWildcard bool) ([]*ServiceItem, error) {
 
-	itemMap, err := c.GetServicesByNamespace()
+	serviceList, err := c.GetServiceList()
 
 	if err != nil {
 		fmt.Printf("[ERROR] Getting service list produced error: %v", err)
 		return nil, err
 	}
 
-	// TODO: Handle case where namespace == nil
+	var serviceItems []*ServiceItem
+	
+	for _, item := range serviceList.Items {
+		fmt.Printf("item: %v\n", item)
 
+		if namespaceMatches(namespace, item.Metadata.Namespace, nsWildcard) && item.Metadata.Name == servicename {
+	        serviceItems = append(serviceItems, &item)
+		}
+	}
+
+/*
+	itemMap, err := c.GetServicesByNamespace()
+
+	if err != nil {
+		fmt.Printf("[ERROR] Getting service list produced error: %v", err)
+		return nil, err
+	}
 	var serviceItems []*ServiceItem
 
 	for _, x := range itemMap[namespace] {
@@ -137,6 +168,7 @@ func (c *K8sConnector) GetServiceItemsInNamespace(namespace string, servicename 
 			serviceItems = append(serviceItems, &x)
 		}
 	}
+*/
 
 	return serviceItems, nil
 }

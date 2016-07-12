@@ -83,6 +83,18 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	serviceName = g.NameTemplate.GetServiceFromSegmentArray(serviceSegments)
 	typeName = g.NameTemplate.GetTypeFromSegmentArray(serviceSegments)
 
+	if namespace == "" {
+		err := errors.New("Parsing query string did not produce a namespace value. Assuming wildcard namespace.")
+		fmt.Printf("[WARN] %v\n", err)
+        namespace = util.WildcardStar
+	}
+
+    if serviceName == "" {
+		err := errors.New("Parsing query string did not produce a serviceName value. Assuming wildcard serviceName.")
+		fmt.Printf("[WARN] %v\n", err)
+        serviceName = util.WildcardStar
+    }
+
 	fmt.Println("[debug] exact: ", exact)
 	fmt.Println("[debug] zone: ", zone)
 	fmt.Println("[debug] servicename: ", serviceName)
@@ -90,20 +102,16 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	fmt.Println("[debug] typeName: ", typeName)
 	fmt.Println("[debug] APIconn: ", g.APIConn)
 
-	// TODO: Implement wildcard support to allow blank namespace value
-	if namespace == "" {
-		err := errors.New("Parsing query string did not produce a namespace value")
-		fmt.Printf("[ERROR] %v\n", err)
-		return nil, err
-	}
+    nsWildcard := util.SymbolContainsWildcard(namespace)
+    serviceWildcard := util.SymbolContainsWildcard(serviceName)
 
-	// Abort if the namespace is not published per CoreFile
-	if g.Namespaces != nil && !util.StringInSlice(namespace, *g.Namespaces) {
-		fmt.Printf("[debug] Namespace '%v' is not published by Corefile\n", namespace)
-		return nil, nil
-	}
+    // Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
+    if (! nsWildcard) && (g.Namespaces != nil && !util.StringInSlice(namespace, *g.Namespaces)) {
+        fmt.Printf("[debug] Namespace '%v' is not published by Corefile\n", namespace)
+	    return nil, nil
+    }
 
-	k8sItems, err := g.APIConn.GetServiceItemsInNamespace(namespace, serviceName)
+	k8sItems, err := g.APIConn.GetServiceItemsInNamespace(namespace, nsWildcard, serviceName, serviceWildcard)
 	fmt.Println("[debug] k8s items:", k8sItems)
 
 	if err != nil {

@@ -18,11 +18,17 @@ var testdataLookupA = []struct {
 	TotalAnswerCount int
 	ARecordCount     int
 }{
+	// Matching queries
 	{"mynginx.demo.coredns.local.", 1, 1},                     // One A record, should exist
+	// Failure queries
 	{"mynginx.test.coredns.local.", 0, 0},                     // One A record, is not exposed
-	{"someservicethatdoesnotexist.demo.coredns.local.", 0, 0}, // One A record, does not exist
+	{"someservicethatdoesnotexist.demo.coredns.local.", 0, 0}, // Record does not exist
+	// Namespace wildcards
+	{"mynginx.*.coredns.local.", 1, 1},                        // One A record, via wildcard namespace
+	{"mynginx.any.coredns.local.", 1, 1},                      // One A record, via wildcard namespace
+	{"someservicethatdoesnotexist.*.coredns.local.", 0, 0},    // Record does not exist with wildcard for namespace
 //	{"*.demo.coredns.local.", 1, 1},                           // One A record, via wildcard
-//	{"mynginx.*.coredns.local.", 1, 1},                        // One A record, via wildcard
+//	{"*.test.coredns.local.", 0, 0},                           // One A record, via wildcard that is not exposed
 }
 
 // checkKubernetesRunning performs a basic
@@ -80,10 +86,10 @@ func testLookupA(t *testing.T) {
 		}
 
 		if ARecordCount != testData.ARecordCount {
-			t.Errorf("Expected '%v' A records in response. Instead got '%v' A records.", testData.ARecordCount, ARecordCount)
+			t.Errorf("Expected '%v' A records in response. Instead got '%v' A records. Test query string: '%v'", testData.ARecordCount, ARecordCount, testData.Query)
 		}
 		if len(res.Answer) != testData.TotalAnswerCount {
-			t.Errorf("Expected '%v' records in answer section. Instead got '%v' records in answer section.", res.Answer, testData.TotalAnswerCount)
+			t.Errorf("Expected '%v' records in answer section. Instead got '%v' records in answer section. Test query string: '%v'", res.Answer, testData.TotalAnswerCount, testData.Query)
 		}
 	}
 }
