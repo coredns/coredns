@@ -20,7 +20,7 @@ func SymbolContainsWildcard(symbol string) bool {
 	return (strings.Contains(symbol, WildcardStar) || (symbol == WildcardAny))
 }
 
-const (
-	WildcardStar = "*"
-	WildcardAny  = "any"
+var (
+	WildcardStar string = "*"
+	WildcardAny  string = "any"
 )
