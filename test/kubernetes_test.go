@@ -3,7 +3,7 @@
 package test
 
 import (
-    "fmt"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,7 +19,7 @@ var testdataLookupA = []struct {
 	ARecordCount     int
 }{
 	// Matching queries
-	{"mynginx.demo.coredns.local.", 1, 1},                     // One A record, should exist
+	{"mynginx.demo.coredns.local.", 1, 1}, // One A record, should exist
 
 	// Failure queries
 	{"mynginx.test.coredns.local.", 0, 0},                     // One A record, is not exposed
@@ -41,11 +41,11 @@ var testdataLookupA = []struct {
 var testdataLookupSRV = []struct {
 	Query            string
 	TotalAnswerCount int
-//	ARecordCount     int
-	SRVRecordCount   int
+	//	ARecordCount     int
+	SRVRecordCount int
 }{
 	// Matching queries
-	{"mynginx.demo.coredns.local.", 1, 1},                     // One SRV record, should exist
+	{"mynginx.demo.coredns.local.", 1, 1}, // One SRV record, should exist
 
 	// Failure queries
 	{"mynginx.test.coredns.local.", 0, 0},                     // One SRV record, is not exposed
@@ -56,11 +56,11 @@ var testdataLookupSRV = []struct {
 	{"mynginx.any.coredns.local.", 1, 1},                     // One SRV record, via wildcard namespace
 	{"someservicethatdoesnotexist.*.coredns.local.", 0, 0},   // Record does not exist with wildcard for namespace
 	{"someservicethatdoesnotexist.any.coredns.local.", 0, 0}, // Record does not exist with wildcard for namespace
-	{"*.demo.coredns.local.", 1, 1},                          // Two SRV records, via wildcard
-	{"any.demo.coredns.local.", 1, 1},                        // Two SRV records, via wildcard
-	{"*.test.coredns.local.", 0, 0},                          // Two SRV records, via wildcard that is not exposed
-	{"any.test.coredns.local.", 0, 0},                        // Two SRV records, via wildcard that is not exposed
-	{"*.*.coredns.local.", 1, 1},                             // Two SRV records, via namespace and service wildcard
+	{"*.demo.coredns.local.", 1, 1},                          // One SRV record, via wildcard
+	{"any.demo.coredns.local.", 1, 1},                        // One SRV record, via wildcard
+	{"*.test.coredns.local.", 0, 0},                          // One SRV record, via wildcard that is not exposed
+	{"any.test.coredns.local.", 0, 0},                        // One SRV record, via wildcard that is not exposed
+	{"*.*.coredns.local.", 1, 1},                             // One SRV record, via namespace and service wildcard
 }
 
 // checkKubernetesRunning performs a basic
@@ -69,7 +69,6 @@ func checkKubernetesRunning() bool {
 	return err == nil
 }
 
-
 func TestK8sIntegration(t *testing.T) {
 	t.Log("   === RUN testLookupA")
 	testLookupA(t)
@@ -77,15 +76,14 @@ func TestK8sIntegration(t *testing.T) {
 	testLookupSRV(t)
 }
 
-
 func testLookupA(t *testing.T) {
 	if !checkKubernetesRunning() {
 		t.Skip("Skipping Kubernetes Integration tests. Kubernetes is not running")
 	}
 
-    // Note: Use different port to avoid conflict with servers used in other tests.
-    coreFile :=
-`.:2053 {
+	// Note: Use different port to avoid conflict with servers used in other tests.
+	coreFile :=
+		`.:2053 {
     kubernetes coredns.local {
 		endpoint http://localhost:8080
 		namespaces demo
@@ -102,8 +100,8 @@ func testLookupA(t *testing.T) {
 
 	for _, testData := range testdataLookupA {
 		t.Logf("[log] Testing query string: '%v'\n", testData.Query)
-	    dnsClient := new(dns.Client)
-	    dnsMessage := new(dns.Msg)
+		dnsClient := new(dns.Client)
+		dnsMessage := new(dns.Msg)
 
 		dnsMessage.SetQuestion(testData.Query, dns.TypeA)
 		dnsMessage.SetEdns0(4096, true)
@@ -134,9 +132,9 @@ func testLookupSRV(t *testing.T) {
 		t.Skip("Skipping Kubernetes Integration tests. Kubernetes is not running")
 	}
 
-    // Note: Use different port to avoid conflict with servers used in other tests.
-    coreFile :=
-`.:2054 {
+	// Note: Use different port to avoid conflict with servers used in other tests.
+	coreFile :=
+		`.:2054 {
     kubernetes coredns.local {
 		endpoint http://localhost:8080
 		namespaces demo
@@ -151,12 +149,12 @@ func testLookupSRV(t *testing.T) {
 
 	log.SetOutput(ioutil.Discard)
 
-    // TODO: Add checks for A records in additional section
+	// TODO: Add checks for A records in additional section
 
 	for _, testData := range testdataLookupSRV {
 		t.Logf("[log] Testing query string: '%v'\n", testData.Query)
-	    dnsClient := new(dns.Client)
-	    dnsMessage := new(dns.Msg)
+		dnsClient := new(dns.Client)
+		dnsMessage := new(dns.Msg)
 
 		dnsMessage.SetQuestion(testData.Query, dns.TypeSRV)
 		dnsMessage.SetEdns0(4096, true)
@@ -168,7 +166,7 @@ func testLookupSRV(t *testing.T) {
 		// Count SRV records in the answer section
 		srvRecordCount := 0
 		for _, a := range res.Answer {
-            fmt.Printf("RR: %v\n", a)
+			fmt.Printf("RR: %v\n", a)
 			if a.Header().Rrtype == dns.TypeSRV {
 				srvRecordCount++
 			}
