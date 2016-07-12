@@ -10,7 +10,7 @@ import (
 	k8sc "github.com/miekg/coredns/middleware/kubernetes/k8sclient"
 	"github.com/miekg/coredns/middleware/kubernetes/msg"
 	"github.com/miekg/coredns/middleware/kubernetes/nametemplate"
-	"github.com/miekg/coredns/middleware/kubernetes/util"
+	util "github.com/miekg/coredns/middleware/kubernetes/util"
 	"github.com/miekg/coredns/middleware/proxy"
 	//	"github.com/miekg/coredns/middleware/singleflight"
 
