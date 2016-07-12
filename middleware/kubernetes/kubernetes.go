@@ -106,7 +106,7 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	serviceWildcard := util.SymbolContainsWildcard(serviceName)
 
 	// Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
-    // Case where namespace contains a wildcard is handled in Get(...) method.
+	// Case where namespace contains a wildcard is handled in Get(...) method.
 	if (!nsWildcard) && (g.Namespaces != nil && !util.StringInSlice(namespace, *g.Namespaces)) {
 		fmt.Printf("[debug] Namespace '%v' is not published by Corefile\n", namespace)
 		return nil, nil
@@ -123,25 +123,27 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		return nil, nil
 	}
 
-	records := g.getRecordsForServiceItems(k8sItems, name)
+	records := g.getRecordsForServiceItems(k8sItems, nametemplate.NameValues{TypeName: typeName, ServiceName: serviceName, Namespace: namespace, Zone: zone})
 	return records, nil
 }
 
 // TODO: assemble name from parts found in k8s data based on name template rather than reusing query string
-func (g Kubernetes) getRecordsForServiceItems(serviceItems []k8sc.ServiceItem, name string) []msg.Service {
+func (g Kubernetes) getRecordsForServiceItems(serviceItems []k8sc.ServiceItem, values nametemplate.NameValues) []msg.Service {
 	var records []msg.Service
 
 	for _, item := range serviceItems {
-		fmt.Println("[debug] clusterIP:", item.Spec.ClusterIP)
+		clusterIP := item.Spec.ClusterIP
+		fmt.Println("[debug] clusterIP:", clusterIP)
+
+		// Create records by constructing record name from template...
+		//values.Namespace = item.Metadata.Namespace
+		//values.ServiceName = item.Metadata.Name
+		//s := msg.Service{Host: g.NameTemplate.GetRecordNameFromNameValues(values)}
+		//records = append(records, s)
+
+		// Create records for each exposed port...
 		for _, p := range item.Spec.Ports {
 			fmt.Println("[debug]    port:", p.Port)
-		}
-
-		clusterIP := item.Spec.ClusterIP
-
-		s := msg.Service{Host: name}
-		records = append(records, s)
-		for _, p := range item.Spec.Ports {
 			s := msg.Service{Host: clusterIP, Port: p.Port}
 			records = append(records, s)
 		}

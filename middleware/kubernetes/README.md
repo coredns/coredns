@@ -252,7 +252,7 @@ return the IP addresses for all services with "nginx" in the service name.
 
 TBD:
 * How does this relate the the k8s load-balancer configuration?
-* Do wildcards search across namespaces?
+* Do wildcards search across namespaces? (Yes)
 * Initial implementation assumes that a namespace maps to the first DNS label
   below the zone managed by the kubernetes middleware. This assumption may
   need to be revised.

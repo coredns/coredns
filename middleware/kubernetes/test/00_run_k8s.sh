@@ -11,10 +11,14 @@ ARCH="amd64"
 export K8S_VERSION
 export ARCH
 
+#RUN_SKYDNS="yes"
+RUN_SKYDNS="no"
 
-#DNS_ARGUMENTS="--cluster-dns=10.0.0.10 --cluster-domain=cluster.local"
-DNS_ARGUMENTS=""
-
+if [ "${RUN_SKYDNS}" = "yes" ]; then
+	DNS_ARGUMENTS="--cluster-dns=10.0.0.10 --cluster-domain=cluster.local"
+else
+	DNS_ARGUMENTS=""
+fi
 
 docker run -d \
     --volume=/:/rootfs:ro \

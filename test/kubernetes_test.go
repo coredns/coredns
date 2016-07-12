@@ -28,7 +28,10 @@ var testdataLookupA = []struct {
 	{"someservicethatdoesnotexist.*.coredns.local.", 0, 0},   // Record does not exist with wildcard for namespace
 	{"someservicethatdoesnotexist.any.coredns.local.", 0, 0}, // Record does not exist with wildcard for namespace
 	{"*.demo.coredns.local.", 2, 2},                          // Two A records, via wildcard
+	{"any.demo.coredns.local.", 2, 2},                        // Two A records, via wildcard
 	{"*.test.coredns.local.", 0, 0},                          // Two A record, via wildcard that is not exposed
+	{"any.test.coredns.local.", 0, 0},                        // Two A record, via wildcard that is not exposed
+	{"*.*.coredns.local.", 2, 2},                             // Two A records, via namespace and service wildcard
 }
 
 // checkKubernetesRunning performs a basic
