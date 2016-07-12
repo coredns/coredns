@@ -27,8 +27,8 @@ var testdataLookupA = []struct {
 	{"mynginx.*.coredns.local.", 1, 1},                        // One A record, via wildcard namespace
 	{"mynginx.any.coredns.local.", 1, 1},                      // One A record, via wildcard namespace
 	{"someservicethatdoesnotexist.*.coredns.local.", 0, 0},    // Record does not exist with wildcard for namespace
-//	{"*.demo.coredns.local.", 1, 1},                           // One A record, via wildcard
-//	{"*.test.coredns.local.", 0, 0},                           // One A record, via wildcard that is not exposed
+	{"*.demo.coredns.local.", 1, 1},                           // One A record, via wildcard
+	{"*.test.coredns.local.", 0, 0},                           // One A record, via wildcard that is not exposed
 }
 
 // checkKubernetesRunning performs a basic

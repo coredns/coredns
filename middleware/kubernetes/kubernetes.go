@@ -111,7 +111,7 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	    return nil, nil
     }
 
-	k8sItems, err := g.APIConn.GetServiceItemsInNamespace(namespace, nsWildcard, serviceName, serviceWildcard)
+	k8sItems, err := g.Get(namespace, nsWildcard, serviceName, serviceWildcard)
 	fmt.Println("[debug] k8s items:", k8sItems)
 
 	if err != nil {
@@ -155,19 +155,47 @@ func (g Kubernetes) getRecordsForServiceItems(serviceItems []*k8sc.ServiceItem, 
 	return records
 }
 
+// Get performs the call to the Kubernetes http API.
+func (g Kubernetes) Get(namespace string, nsWildcard bool, servicename string, serviceWildcard bool) ([]*k8sc.ServiceItem, error) {
+
+    serviceList, err := g.APIConn.GetServiceList()
+
+    if err != nil {
+        fmt.Printf("[ERROR] Getting service list produced error: %v", err)
+        return nil, err 
+    }   
+
+    var serviceItems []*k8sc.ServiceItem
+    
+    for _, item := range serviceList.Items {
+        fmt.Printf("item: %v\n", item)
+
+        if symbolMatches(namespace, item.Metadata.Namespace, nsWildcard) && item.Metadata.Name == servicename {
+            serviceItems = append(serviceItems, &item)
+        }   
+    }   
+
+    return serviceItems, nil 
+}
+
+
+func symbolMatches(queryString string, candidateString string, wildcard bool) bool {
+    switch {
+    case ! wildcard:
+        return queryString == candidateString
+    case queryString == util.WildcardStar:
+        return true
+    case queryString == util.WildcardAny:
+        return true
+    }
+    return false
+}
+
+
 // TODO: Remove these unused functions. One is related to Ttl calculation
 //       Implement Ttl and priority calculation based on service count before
 //       removing this code.
 /*
-// Get performs the call to the Kubernetes http API.
-func (g Kubernetes) Get(path string, recursive bool) (bool, error) {
-
-    fmt.Println("[debug] in Get path: ", path)
-    fmt.Println("[debug] in Get recursive: ", recursive)
-
-	return false, nil
-}
-
 // splitDNSName separates the name into DNS segments and reverses the segments.
 func (g Kubernetes) splitDNSName(name string) []string {
 	l := dns.SplitDomainName(name)
