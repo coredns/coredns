@@ -62,7 +62,7 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		typeName    string
 	)
 
-	fmt.Println("enter Records('", name, "', ", exact, ")")
+	fmt.Println("[debug] enter Records('", name, "', ", exact, ")")
 	zone, serviceSegments := g.getZoneForName(name)
 
 	/*
@@ -86,14 +86,14 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	if namespace == "" {
 		err := errors.New("Parsing query string did not produce a namespace value. Assuming wildcard namespace.")
 		fmt.Printf("[WARN] %v\n", err)
-        namespace = util.WildcardStar
+		namespace = util.WildcardStar
 	}
 
-    if serviceName == "" {
+	if serviceName == "" {
 		err := errors.New("Parsing query string did not produce a serviceName value. Assuming wildcard serviceName.")
 		fmt.Printf("[WARN] %v\n", err)
-        serviceName = util.WildcardStar
-    }
+		serviceName = util.WildcardStar
+	}
 
 	fmt.Println("[debug] exact: ", exact)
 	fmt.Println("[debug] zone: ", zone)
@@ -102,18 +102,18 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	fmt.Println("[debug] typeName: ", typeName)
 	fmt.Println("[debug] APIconn: ", g.APIConn)
 
-    nsWildcard := util.SymbolContainsWildcard(namespace)
-    serviceWildcard := util.SymbolContainsWildcard(serviceName)
+	nsWildcard := util.SymbolContainsWildcard(namespace)
+	serviceWildcard := util.SymbolContainsWildcard(serviceName)
 
-    // Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
-    if (! nsWildcard) && (g.Namespaces != nil && !util.StringInSlice(namespace, *g.Namespaces)) {
-        fmt.Printf("[debug] Namespace '%v' is not published by Corefile\n", namespace)
-	    return nil, nil
-    }
+	// Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
+    // Case where namespace contains a wildcard is handled in Get(...) method.
+	if (!nsWildcard) && (g.Namespaces != nil && !util.StringInSlice(namespace, *g.Namespaces)) {
+		fmt.Printf("[debug] Namespace '%v' is not published by Corefile\n", namespace)
+		return nil, nil
+	}
 
 	k8sItems, err := g.Get(namespace, nsWildcard, serviceName, serviceWildcard)
 	fmt.Println("[debug] k8s items:", k8sItems)
-
 	if err != nil {
 		fmt.Printf("[ERROR] Got error while looking up ServiceItems. Error is: %v\n", err)
 		return nil, err
@@ -123,16 +123,12 @@ func (g Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		return nil, nil
 	}
 
-	//	test := g.NameTemplate.GetRecordNameFromNameValues(nametemplate.NameValues{ServiceName: serviceName, TypeName: typeName, Namespace: namespace, Zone: zone})
-	//	fmt.Printf("[debug] got recordname %v\n", test)
-
 	records := g.getRecordsForServiceItems(k8sItems, name)
-
 	return records, nil
 }
 
 // TODO: assemble name from parts found in k8s data based on name template rather than reusing query string
-func (g Kubernetes) getRecordsForServiceItems(serviceItems []*k8sc.ServiceItem, name string) []msg.Service {
+func (g Kubernetes) getRecordsForServiceItems(serviceItems []k8sc.ServiceItem, name string) []msg.Service {
 	var records []msg.Service
 
 	for _, item := range serviceItems {
@@ -156,41 +152,43 @@ func (g Kubernetes) getRecordsForServiceItems(serviceItems []*k8sc.ServiceItem, 
 }
 
 // Get performs the call to the Kubernetes http API.
-func (g Kubernetes) Get(namespace string, nsWildcard bool, servicename string, serviceWildcard bool) ([]*k8sc.ServiceItem, error) {
+func (g Kubernetes) Get(namespace string, nsWildcard bool, servicename string, serviceWildcard bool) ([]k8sc.ServiceItem, error) {
+	serviceList, err := g.APIConn.GetServiceList()
 
-    serviceList, err := g.APIConn.GetServiceList()
+	if err != nil {
+		fmt.Printf("[ERROR] Getting service list produced error: %v", err)
+		return nil, err
+	}
 
-    if err != nil {
-        fmt.Printf("[ERROR] Getting service list produced error: %v", err)
-        return nil, err 
-    }   
+	var resultItems []k8sc.ServiceItem
 
-    var serviceItems []*k8sc.ServiceItem
-    
-    for _, item := range serviceList.Items {
-        fmt.Printf("item: %v\n", item)
+	for _, item := range serviceList.Items {
+		if symbolMatches(namespace, item.Metadata.Namespace, nsWildcard) && symbolMatches(servicename, item.Metadata.Name, serviceWildcard) {
+			// If namespace has a wildcard, filter results against Corefile namespace list.
+			// (Namespaces without a wildcard were filtered before the call to this function.)
+			if nsWildcard && (g.Namespaces != nil && !util.StringInSlice(item.Metadata.Namespace, *g.Namespaces)) {
+				fmt.Printf("[debug] Namespace '%v' is not published by Corefile\n", item.Metadata.Namespace)
+				continue
+			}
+			resultItems = append(resultItems, item)
+		}
+	}
 
-        if symbolMatches(namespace, item.Metadata.Namespace, nsWildcard) && item.Metadata.Name == servicename {
-            serviceItems = append(serviceItems, &item)
-        }   
-    }   
-
-    return serviceItems, nil 
+	return resultItems, nil
 }
-
 
 func symbolMatches(queryString string, candidateString string, wildcard bool) bool {
-    switch {
-    case ! wildcard:
-        return queryString == candidateString
-    case queryString == util.WildcardStar:
-        return true
-    case queryString == util.WildcardAny:
-        return true
-    }
-    return false
+	result := false
+	switch {
+	case !wildcard:
+		result = (queryString == candidateString)
+	case queryString == util.WildcardStar:
+		result = true
+	case queryString == util.WildcardAny:
+		result = true
+	}
+	return result
 }
-
 
 // TODO: Remove these unused functions. One is related to Ttl calculation
 //       Implement Ttl and priority calculation based on service count before

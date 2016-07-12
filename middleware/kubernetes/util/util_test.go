@@ -32,10 +32,9 @@ func TestStringInSlice(t *testing.T) {
 	}
 }
 
-
 // Test data for TestSymbolContainsWildcard cases.
 var testdataSymbolContainsWildcard = []struct {
-	Symbol string
+	Symbol         string
 	ExpectedResult bool
 }{
 	{"mynamespace", false},

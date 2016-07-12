@@ -15,7 +15,6 @@ func StringInSlice(a string, slice []string) bool {
 	return false
 }
 
-
 // SymbolContainsWildcard checks whether symbol contains a wildcard value
 func SymbolContainsWildcard(symbol string) bool {
 	return (strings.Contains(symbol, WildcardStar) || (symbol == WildcardAny))
@@ -23,5 +22,5 @@ func SymbolContainsWildcard(symbol string) bool {
 
 const (
 	WildcardStar = "*"
-	WildcardAny = "any"
+	WildcardAny  = "any"
 )
