@@ -1,7 +1,29 @@
+sudo: required
+# Trusty distribution is much faster when sudo is required
+dist: trusty
+
 language: go
 go:
   - 1.5
   - 1.6
+
+# Note: with sudo enabled IPv6 networking is not configured on eth0
+#       this difference breaks the coredns tests.
+before_install:
+  - cat /proc/net/if_inet6
+  - cat /etc/network/interfaces
+  - ls -la /etc/network/interfaces.d/
+  - cat /etc/network/interfaces.d/*.cfg
+  - sudo modprobe ipv6
+  - sudo sh -c 'echo "auto eth0" >> /etc/network/interfaces.d/eth0.cfg'
+  - sudo sh -c 'echo "iface eth0 inet6 auto" >> /etc/network/interfaces.d/eth0.cfg'
+  - cat /etc/network/interfaces.d/*.cfg
+  - sudo ifdown eth0
+  - sudo ifup eth0
+  - cat /proc/net/if_inet6
+  - cat /etc/network/interfaces
+  - uname -a
+
 before_script:
   - curl -L  https://github.com/coreos/etcd/releases/download/v2.3.1/etcd-v2.3.1-linux-amd64.tar.gz -o etcd-v2.3.1-linux-amd64.tar.gz
   - tar xzvf etcd-v2.3.1-linux-amd64.tar.gz
