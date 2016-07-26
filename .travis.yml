@@ -36,4 +36,4 @@ before_script:
 
 script:
   - go test -tags etcd -race -bench=. ./...
-  - ./middleware/kubernetes/test/kubectl version && make testk8s
+  - ./middleware/kubernetes/test/kubectl version && go test -tags k8sIntegration -race -bench=. -run 'TestK8sIntegration' ./test
