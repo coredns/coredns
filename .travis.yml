@@ -31,6 +31,7 @@ before_script:
   - go get
   - go get github.com/coreos/go-etcd/etcd
   - if [ `which docker` -eq 0 ]; then docker pull gcr.io/google_containers/hyperkube-amd64:v1.2.4 ; docker ps -a ; fi
+  - pwd
 
 script:
   - go test -tags etcd -race -bench=. ./...
