@@ -30,7 +30,7 @@ before_script:
   - ./etcd-v2.3.1-linux-amd64/etcd &
   - go get
   - go get github.com/coreos/go-etcd/etcd
-  - if [ `which docker` -eq 0 ]; then docker pull gcr.io/google_containers/hyperkube-amd64:v1.2.4 ; docker ps -a ; fi
+  - if ! which docker &>/dev/null ; then docker pull gcr.io/google_containers/hyperkube-amd64:v1.2.4 ; docker ps -a ; fi
   - pwd
 
 script:
