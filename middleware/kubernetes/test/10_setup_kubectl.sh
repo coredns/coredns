@@ -1,7 +1,10 @@
 #!/bin/bash
 
 PWD=`pwd`
-BASEDIR=`realpath $(dirname ${0})`
+BASEDIR=`readlink -e $(dirname ${0})`
+
+echo ${BASEDIR}
+exit
 
 cd ${BASEDIR}
 if [ ! -e kubectl ]; then

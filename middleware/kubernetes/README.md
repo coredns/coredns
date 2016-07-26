@@ -102,7 +102,7 @@ kubectl to communicate with kubernetes running on the localhost:
 ~~~
 #!/bin/bash
 
-BASEDIR=`realpath $(dirname ${0})`
+BASEDIR=`readlink -e $(dirname ${0})`
 
 ${BASEDIR}/kubectl config set-cluster test-doc --server=http://localhost:8080
 ${BASEDIR}/kubectl config set-context test-doc --cluster=test-doc
