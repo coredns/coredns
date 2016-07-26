@@ -30,11 +30,10 @@ before_script:
   - ./etcd-v2.3.1-linux-amd64/etcd &
   - go get
   - go get github.com/coreos/go-etcd/etcd
-  - docker ps -a
   - if which docker &>/dev/null ; then docker pull gcr.io/google_containers/hyperkube-amd64:v1.2.4 ; docker ps -a ; fi
   - pwd
   - if which docker &>/dev/null ; then ./middleware/kubernetes/test/00_run_k8s.sh && ./middleware/kubernetes/test/10_setup_kubectl.sh && ./middleware/kubernetes/test/20_setup_k8s_services.sh ; docker ps -a ; fi
 
 script:
   - go test -tags etcd -race -bench=. ./...
-  - if ./middleware/kubernetes/test/kubctl version ; then make testk8s ; fi
+  - if ./middleware/kubernetes/test/kubectl version ; then make testk8s ; fi

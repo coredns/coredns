@@ -11,7 +11,6 @@ wait_until_k8s_ready() {
 	# Wait until kubernetes is up and fully responsive
 	while :
 	do
-   	    ${KUBECTL} get nodes | grep -q '127.0.0.1'
    	    ${KUBECTL} get nodes 2>/dev/null | grep -q '127.0.0.1'
 		if [ "${?}" = "0" ]; then
 			break
