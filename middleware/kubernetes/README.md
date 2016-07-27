@@ -343,12 +343,14 @@ TBD:
 	* Do we need to generate synthetic zone records for namespaces?
 	* Do we need to generate synthetic zone records for the skydns synthetic zones?
 * Test cases
-	* ~~Implement test cases for http data parsing using dependency injection
-	  for http get operations.~~
 	* Test with CoreDNS caching. CoreDNS caching for DNS response is working
 	  using the `cache` directive. Tested working using 20s cache timeout
 	  and A-record queries. Automate testing with cache in place.
 	* Automate CoreDNS performance tests. Initially for zone files, and for
 	  pre-loaded k8s API cache.
-    * Automate integration testing with kubernetes. (k8s launch and service start-up
-      automation is in middleware/kubernetes/tests)
+    * Try to get rid of kubernetes launch scripts by moving operations into
+      .travis.yml file.
+	* ~~Implement test cases for http data parsing using dependency injection
+	  for http get operations.~~
+    * ~~Automate integration testing with kubernetes. (k8s launch and service start-up
+      automation is in middleware/kubernetes/tests)~~
