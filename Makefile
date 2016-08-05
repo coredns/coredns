@@ -5,11 +5,11 @@ TEST_VERBOSE :=
 TEST_VERBOSE := -v
 
 all:
-	go build $(BUILD_VERBOSE)
+	go build ${BUILD_VERBOSE} -ldflags="-s -w"
 
 .PHONY: docker
 docker:
-	GOOS=linux go build -a -tags netgo -installsuffix netgo
+	GOOS=linux go build -a -tags netgo -installsuffix netgo -ldflags="-s -w"
 	docker build -t $$USER/coredns .
 
 .PHONY: deps
