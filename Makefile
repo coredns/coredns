@@ -8,12 +8,11 @@ DOCKER_IMAGE_NAME := $$USER/coredns
 
 
 all:
-	GOOS=linux go build -a -tags netgo -installsuffix netgo
-	# Build static binary below. This might not be needed?
-	#CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo
+	go build $(BUILD_VERBOSE) -ldflags="-s -w"
 
 .PHONY: docker
-docker: coredns
+docker: all
+	GOOS=linux go build -a -tags netgo -installsuffix netgo -ldflags="-s -w"
 	docker build -t $(DOCKER_IMAGE_NAME) .
 
 .PHONY: deps
@@ -26,7 +25,14 @@ test:
 
 .PHONY: testk8s
 testk8s:
+	# With -args --v=100 the k8s API response data will be printed in the log:
+	#go test $(TEST_VERBOSE) -tags=k8s -run 'TestK8sIntegration' ./test -args --v=100
+	# Without the k8s API response data:
 	go test $(TEST_VERBOSE) -tags=k8s -run 'TestK8sIntegration' ./test
+
+.PHONY: testk8s-setup
+testk8s-setup:
+	go test -v ./core/setup -run TestKubernetes
 
 .PHONY: clean
 clean:
