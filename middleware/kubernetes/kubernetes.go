@@ -51,27 +51,13 @@ func (g *Kubernetes) StartKubeCache() error {
 	}
 	kubeClient, err := unversioned.New(config)
 
-	log.Printf("kubeClient: %v\n", kubeClient)
-	log.Printf("kubeClient.Services(): %v\n", kubeClient.Services(api.NamespaceDefault))
 	if err != nil {
 		log.Printf("[ERROR] Failed to create kubernetes notification controller: %v", err)
 		return err
 	}
-	g.APIConn = newdnsController(kubeClient, (5 * time.Minute))
-
-	log.Printf("[debug] APIConn before Run: %v", g.APIConn)
+	g.APIConn = newdnsController(kubeClient, g.ResyncPeriod)
 
 	go g.APIConn.Run()
-
-	log.Printf("[debug] APIConn after Run: %v", g.APIConn)
-
-	log.Printf("[debug] Kubernetes notifcation controller started")
-
-	sl := g.APIConn.GetServiceList()
-	log.Printf("[debug] get service list %v", sl)
-	log.Printf("[debug] get sl.TypeMeta %v", sl.TypeMeta.APIVersion)
-	log.Printf("[debug] get service list %v", sl.Items)
-	log.Printf("[debug] get service list len %v", len(sl.Items))
 
 	return err
 }
