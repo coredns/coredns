@@ -317,7 +317,7 @@ TBD:
 		  (namespace-based?, other ideas?)
 * Additional features:
 	* Reverse IN-ADDR entries for services. (Is there any value in supporting 
-	  reverse lookup records?)
+	  reverse lookup records?) (need tests, functionality should work based on @aledbf's code.)
 	* How to support label specification in Corefile to allow use of labels to 
 	  indicate zone? (Is this even useful?) For example, the following
 	  configuration exposes all services labeled for the "staging" environment
