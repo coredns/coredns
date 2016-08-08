@@ -305,11 +305,6 @@ TBD:
 	* Performance
 		* Improve lookup to reduce size of query result obtained from k8s API.
 		  (namespace-based?, other ideas?)
-		* (done) ~~Caching/notification of k8s API dataset. (See aledbf fork for
-		  implementation ideas.)~~
-		* (done) ~~DNS response caching is good, but we should also cache at the http query 
-		  level as well. (Take a look at https://github.com/patrickmn/go-cache as 
-		  a potential expiring cache implementation for the http API queries.)~~
 * Additional features:
 	* Reverse IN-ADDR entries for services. (Is there any value in supporting 
 	  reverse lookup records?)
@@ -333,14 +328,6 @@ TBD:
 	  flattening to lower case and mapping of non-DNS characters to DNS characters
 	  in a standard way.)
 	* Expose arbitrary kubernetes repository data as TXT records?
-	* (done) ~~Support custom user-provided templates for k8s names. A string provided
-	  in the middleware configuration like `{service}.{namespace}.{type}` defines
-	  the template of how to construct record names for the zone. This example
-	  would produce `myservice.mynamespace.svc.cluster.local`. (Basic template
-	  implemented. Need to slice zone out of current template implementation.)~~
-	* (done) ~~Implement namespace filtering to different zones. That is, zone "a.b"
-	  publishes services from namespace "foo", and zone "x.y" publishes services
-	  from namespaces "bar" and "baz". (Basic version implemented -- need test cases.)~~
 * DNS Correctness
 	* Do we need to generate synthetic zone records for namespaces?
 	* Do we need to generate synthetic zone records for the skydns synthetic zones?
@@ -352,7 +339,3 @@ TBD:
 	  pre-loaded k8s API cache. With and without CoreDNS response caching.
     * Try to get rid of kubernetes launch scripts by moving operations into
       .travis.yml file.
-	* ~~Implement test cases for http data parsing using dependency injection
-	  for http get operations.~~
-    * ~~Automate integration testing with kubernetes. (k8s launch and service
-      start-up automation is in middleware/kubernetes/tests)~~
