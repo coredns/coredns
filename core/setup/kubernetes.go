@@ -2,6 +2,7 @@ package setup
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -95,6 +96,19 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 						k8s.APIEndpoint = args[0]
 					} else {
 						log.Printf("[debug] 'endpoint' keyword provided without any endpoint url value.")
+						return kubernetes.Kubernetes{}, c.ArgErr()
+					}
+				case "resyncperiod":
+					args := c.RemainingArgs()
+					if len(args) != 0 {
+						k8s.ResyncPeriod, err = time.ParseDuration(args[0])
+						if err != nil {
+							err = errors.New(fmt.Sprintf("Unable to parse resync duration value. Value provided was '%v'. Example valid values: '15s', '5m', '1h'. Error was: %v", args[0], err))
+							log.Printf("[ERROR] %v", err)
+							return kubernetes.Kubernetes{}, err
+						}
+					} else {
+						log.Printf("[debug] 'resyncperiod' keyword provided without any duration value.")
 						return kubernetes.Kubernetes{}, c.ArgErr()
 					}
 				}

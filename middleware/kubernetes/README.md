@@ -35,6 +35,9 @@ This is the default kubernetes setup, with everything specified in full:
 .:53 {
     # use kubernetes middleware for domain "coredns.local"
     kubernetes coredns.local {
+        # Kubernetes data API resync period
+        # Example values: 60s, 5m, 1h
+        resyncperiod 5m
         # Use url for k8s API endpoint
         endpoint http://localhost:8080
         # Assemble k8s record names with the template
@@ -42,9 +45,16 @@ This is the default kubernetes setup, with everything specified in full:
         # Only expose the k8s namespace "demo"
         namespaces demo
     }
-#    cache 160 coredns.local
+    # Perform DNS response caching for the coredns.local zone
+    # Cache timeout is provided by the integer in seconds
+    #cache 180 coredns.local
 }
 ~~~
+
+Notes:
+* If the `namespaces` keyword is omitted, all kubernetes namespaces are exposed.
+* If the `template` keyword is omitted, the default template of "{service}.{namespace}.{zone}" is used.
+* If the `resyncperiod` keyword is omitted, the default resync period is 5 minutes.
 
 ### Basic Setup
 
