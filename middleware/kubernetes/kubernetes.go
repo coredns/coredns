@@ -33,7 +33,7 @@ type Kubernetes struct {
 
 func (g *Kubernetes) StartKubeCache() error {
 	// For a custom api server or running outside a k8s cluster
-	// set URL in env.KUBERNETES_MASTER
+	// set URL in env.KUBERNETES_MASTER or set endpoint in Corefile
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{}
 	if len(g.APIEndpoint) > 0 {
