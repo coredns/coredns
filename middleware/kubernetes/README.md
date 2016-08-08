@@ -305,11 +305,11 @@ TBD:
 	* Performance
 		* Improve lookup to reduce size of query result obtained from k8s API.
 		  (namespace-based?, other ideas?)
-		* Caching/notification of k8s API dataset. (See aledbf fork for
-		  implementation ideas.)
-		* DNS response caching is good, but we should also cache at the http query 
+		* (done) ~~Caching/notification of k8s API dataset. (See aledbf fork for
+		  implementation ideas.)~~
+		* (done) ~~DNS response caching is good, but we should also cache at the http query 
 		  level as well. (Take a look at https://github.com/patrickmn/go-cache as 
-		  a potential expiring cache implementation for the http API queries.)
+		  a potential expiring cache implementation for the http API queries.)~~
 * Additional features:
 	* Reverse IN-ADDR entries for services. (Is there any value in supporting 
 	  reverse lookup records?)
