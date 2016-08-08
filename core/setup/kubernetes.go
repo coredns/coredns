@@ -28,7 +28,6 @@ func Kubernetes(c *Controller) (middleware.Middleware, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("[debug] after parse and start KubeCache, APIconn is: %v", kubernetes.APIConn)
 
 	return func(next middleware.Handler) middleware.Handler {
 		kubernetes.Next = next
@@ -52,7 +51,6 @@ func kubernetesParse(c *Controller) (kubernetes.Kubernetes, error) {
 		if c.Val() == "kubernetes" {
 			zones := c.RemainingArgs()
 
-			log.Printf("[debug] Zones: %v", zones)
 			if len(zones) == 0 {
 				k8s.Zones = c.ServerBlockHosts
 				log.Printf("[debug] Zones(from ServerBlockHosts): %v", zones)
