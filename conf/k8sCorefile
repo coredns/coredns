@@ -12,7 +12,7 @@
         # Only expose the k8s namespace "demo"
         namespaces demo
         # Only expose the records for kubernetes objects
-        # these labels
+        # that matches this label selector
         #labels environment in (staging, qa),application=nginx
     }
     # Perform DNS response caching for the coredns.local zone
