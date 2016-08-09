@@ -45,7 +45,11 @@ This is the default kubernetes setup, with everything specified in full:
         # Only expose the k8s namespace "demo"
         namespaces demo
         # Only expose the records for kubernetes objects
-        # these labels
+        # that matches this label selector. The label
+        # selector syntax is described in the kubernetes
+        # API documentation: http://kubernetes.io/docs/user-guide/labels/
+        # Example selector below only exposes objects tagged as
+        # "application=nginx" in the staging or qa environments.
         #labels environment in (staging, qa),application=nginx
     }
     # Perform DNS response caching for the coredns.local zone
@@ -59,7 +63,8 @@ Defaults:
 * If the `template` keyword is omitted, the default template of "{service}.{namespace}.{zone}" is used.
 * If the `resyncperiod` keyword is omitted, the default resync period is 5 minutes.
 * The `labels` keyword is only used when filtering of results based on kubernetes label selector syntax
-  is required.
+  is required. The label selector syntax is described in the kubernetes API documentation at: 
+  http://kubernetes.io/docs/user-guide/labels/
 
 ### Basic Setup
 
@@ -318,7 +323,7 @@ TBD:
 * Additional features:
 	* Reverse IN-ADDR entries for services. (Is there any value in supporting 
 	  reverse lookup records?) (need tests, functionality should work based on @aledbf's code.)
-	* How to support label specification in Corefile to allow use of labels to 
+	* (done) ~~How to support label specification in Corefile to allow use of labels to 
 	  indicate zone? (Is this even useful?) For example, the following
 	  configuration exposes all services labeled for the "staging" environment
 	  and tenant "customerB" in the zone "customerB.stage.local":
@@ -326,11 +331,11 @@ TBD:
 			kubernetes customerB.stage.local {
 				# Use url for k8s API endpoint
 				endpoint http://localhost:8080
-				label "environment" : "staging", "tenant" : "customerB"
+				labels environment in (staging),tenant=customerB
 			}
 
 	  Note: label specification/selection is a killer feature for segmenting
-	  test vs staging vs prod environments.
+	  test vs staging vs prod environments.~~ Need label testing.
 	* Implement IP selection and ordering (internal/external). Related to
 	  wildcards and SkyDNS use of CNAMES.
 	* Flatten service and namespace names to valid DNS characters. (service names
