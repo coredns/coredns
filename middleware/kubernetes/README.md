@@ -44,6 +44,9 @@ This is the default kubernetes setup, with everything specified in full:
         template {service}.{namespace}.{zone}
         # Only expose the k8s namespace "demo"
         namespaces demo
+        # Only expose the records for kubernetes objects
+        # these labels
+        #labels environment in (staging, qa),application=nginx
     }
     # Perform DNS response caching for the coredns.local zone
     # Cache timeout is provided by the integer in seconds
@@ -51,10 +54,12 @@ This is the default kubernetes setup, with everything specified in full:
 }
 ~~~
 
-Notes:
+Defaults:
 * If the `namespaces` keyword is omitted, all kubernetes namespaces are exposed.
 * If the `template` keyword is omitted, the default template of "{service}.{namespace}.{zone}" is used.
 * If the `resyncperiod` keyword is omitted, the default resync period is 5 minutes.
+* The `labels` keyword is only used when filtering of results based on kubernetes label selector syntax
+  is required.
 
 ### Basic Setup
 
@@ -191,7 +196,7 @@ mynginx.demo.coredns.local. 0   IN  A   10.0.0.10
 
 ## Implementation Notes/Ideas
 
-### Basic Zone Mapping (implemented)
+### Basic Zone Mapping
 The middleware is configured with a "zone" string. For 
 example: "zone = coredns.local".
 
@@ -200,8 +205,8 @@ to: "myservice.mynamespace.coredns.local".
 
 The middleware should publish an A record for that service and a service record.
 
-Initial implementation just performs the above simple mapping. Subsequent 
-revisions should allow different namespaces to be published under different zones.
+If multiple zone names are specified, the records for kubernetes objects are
+exposed in all listed zones.
 
 For example:
 
@@ -262,11 +267,6 @@ return the IP addresses for all services with "nginx" in the service name.
 
 TBD:
 * How does this relate the the k8s load-balancer configuration?
-* Do wildcards search across namespaces? (Yes)
-* Initial implementation assumes that a namespace maps to the first DNS label
-  below the zone managed by the kubernetes middleware. This assumption may
-  need to be revised. (Template scheme for record names removes this assumption.)
-
 
 ## TODO
 * SkyDNS compatibility/equivalency:

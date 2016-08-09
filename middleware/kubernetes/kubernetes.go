@@ -15,20 +15,22 @@ import (
 
 	"github.com/miekg/dns"
 	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/unversioned"
+	unversionedapi "k8s.io/kubernetes/pkg/api/unversioned"
+	unversionedclient "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	clientcmdapi "k8s.io/kubernetes/pkg/client/unversioned/clientcmd/api"
 )
 
 type Kubernetes struct {
-	Next         middleware.Handler
-	Zones        []string
-	Proxy        proxy.Proxy // Proxy for looking up names during the resolution process
-	APIEndpoint  string
-	APIConn      *dnsController
-	ResyncPeriod time.Duration
-	NameTemplate *nametemplate.NameTemplate
-	Namespaces   []string
+	Next          middleware.Handler
+	Zones         []string
+	Proxy         proxy.Proxy // Proxy for looking up names during the resolution process
+	APIEndpoint   string
+	APIConn       *dnsController
+	ResyncPeriod  time.Duration
+	NameTemplate  *nametemplate.NameTemplate
+	Namespaces    []string
+	LabelSelector *unversionedapi.LabelSelector
 }
 
 func (g *Kubernetes) StartKubeCache() error {
@@ -45,7 +47,7 @@ func (g *Kubernetes) StartKubeCache() error {
 		log.Printf("[debug] error connecting to the client: %v", err)
 		return err
 	}
-	kubeClient, err := unversioned.New(config)
+	kubeClient, err := unversionedclient.New(config)
 
 	if err != nil {
 		log.Printf("[ERROR] Failed to create kubernetes notification controller: %v", err)

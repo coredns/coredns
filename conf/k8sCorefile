@@ -11,6 +11,9 @@
         template {service}.{namespace}.{zone}
         # Only expose the k8s namespace "demo"
         namespaces demo
+        # Only expose the records for kubernetes objects
+        # these labels
+        #labels environment in (staging, qa),application=nginx
     }
     # Perform DNS response caching for the coredns.local zone
     # Cache timeout is provided by the integer in seconds
