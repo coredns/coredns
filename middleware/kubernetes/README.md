@@ -3,7 +3,8 @@
 `kubernetes` enables reading zone data from a kubernetes cluster. Record names
 are constructed as "myservice.mynamespace.coredns.local" where:
 
-* "myservice" is the name of the k8s service (this may include multiple DNS labels, such as "c1.myservice"),
+* "myservice" is the name of the k8s service (this may include multiple DNS labels, 
+  such as "c1.myservice"),
 * "mynamespace" is the k8s namespace for the service, and
 * "coredns.local" is the zone configured for `kubernetes`.
 
@@ -55,6 +56,14 @@ Notes:
 * If the `namespaces` keyword is omitted, all kubernetes namespaces are exposed.
 * If the `template` keyword is omitted, the default template of "{service}.{namespace}.{zone}" is used.
 * If the `resyncperiod` keyword is omitted, the default resync period is 5 minutes.
+
+### Template syntax
+Record name templates can be constructed using the symbolic elements:
+| template symbol | description                                                         |
+| `{service}`     | Kubernetes object/service name.                                     |
+| `{namespace}`   | The kubernetes namespace.                                           |
+| `{type}`        | The type of the kubernetes object. Supports values 'svc' and 'pod'. |
+| `{zone}`        | The zone configured for the kubernetes middleware.                  |
 
 ### Basic Setup
 
