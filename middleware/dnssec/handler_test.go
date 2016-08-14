@@ -129,8 +129,8 @@ func TestLookupDNSKEY(t *testing.T) {
 		}
 		resp := rec.Msg()
 
-		if resp.Authoritative != true {
-			t.Errorf("Authoritative Answer should be true, got %v\n", resp.Authoritative)
+		if !resp.Authoritative {
+			t.Errorf("Authoritative Answer should be true, got false")
 		}
 
 		sort.Sort(test.RRSet(resp.Answer))
