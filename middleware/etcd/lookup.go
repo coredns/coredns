@@ -12,20 +12,24 @@ import (
 	"github.com/miekg/dns"
 )
 
-func (e Etcd) records(state middleware.State, exact bool) (services, debug []msg.Service, err error) {
+type Options struct {
+	Debug string
+}
+
+func (e Etcd) records(state middleware.State, exact bool, opt Options) (services, debug []msg.Service, err error) {
 	services, err = e.Records(state.Name(), exact)
 	if err != nil {
 		return
 	}
-	if e.debug != "" {
+	if opt.Debug != "" {
 		debug = services
 	}
 	services = msg.Group(services)
 	return
 }
 
-func (e Etcd) A(zone string, state middleware.State, previousRecords []dns.RR) (records []dns.RR, debug []msg.Service, err error) {
-	services, debug, err := e.records(state, false)
+func (e Etcd) A(zone string, state middleware.State, previousRecords []dns.RR, opt Options) (records []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := e.records(state, false, opt)
 	if err != nil {
 		return nil, debug, err
 	}
@@ -50,7 +54,7 @@ func (e Etcd) A(zone string, state middleware.State, previousRecords []dns.RR) (
 			}
 
 			state1 := copyState(state, serv.Host, state.QType())
-			nextRecords, nextDebug, err := e.A(zone, state1, append(previousRecords, newRecord))
+			nextRecords, nextDebug, err := e.A(zone, state1, append(previousRecords, newRecord), opt)
 
 			if err == nil {
 				// Not only have we found something we should add the CNAME and the IP addresses.
@@ -69,6 +73,8 @@ func (e Etcd) A(zone string, state middleware.State, previousRecords []dns.RR) (
 			}
 			m1, e1 := e.Proxy.Lookup(state, target, state.QType())
 			if e1 != nil {
+				debugMsg := msg.Service{Key: msg.Path(target, e.PathPrefix), Host: target, Text: " IN " + state.Type() + ": " + e1.Error()}
+				debug = append(debug, debugMsg)
 				continue
 			}
 			// Len(m1.Answer) > 0 here is well?
@@ -84,8 +90,8 @@ func (e Etcd) A(zone string, state middleware.State, previousRecords []dns.RR) (
 	return records, debug, nil
 }
 
-func (e Etcd) AAAA(zone string, state middleware.State, previousRecords []dns.RR) (records []dns.RR, debug []msg.Service, err error) {
-	services, debug, err := e.records(state, false)
+func (e Etcd) AAAA(zone string, state middleware.State, previousRecords []dns.RR, opt Options) (records []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := e.records(state, false, opt)
 	if err != nil {
 		return nil, debug, err
 	}
@@ -110,7 +116,7 @@ func (e Etcd) AAAA(zone string, state middleware.State, previousRecords []dns.RR
 			}
 
 			state1 := copyState(state, serv.Host, state.QType())
-			nextRecords, nextDebug, err := e.AAAA(zone, state1, append(previousRecords, newRecord))
+			nextRecords, nextDebug, err := e.AAAA(zone, state1, append(previousRecords, newRecord), opt)
 
 			if err == nil {
 				// Not only have we found something we should add the CNAME and the IP addresses.
@@ -129,6 +135,8 @@ func (e Etcd) AAAA(zone string, state middleware.State, previousRecords []dns.RR
 			}
 			m1, e1 := e.Proxy.Lookup(state, target, state.QType())
 			if e1 != nil {
+				debugMsg := msg.Service{Key: msg.Path(target, e.PathPrefix), Host: target, Text: " IN " + state.Type() + ": " + e1.Error()}
+				debug = append(debug, debugMsg)
 				continue
 			}
 			// Len(m1.Answer) > 0 here is well?
@@ -147,8 +155,8 @@ func (e Etcd) AAAA(zone string, state middleware.State, previousRecords []dns.RR
 
 // SRV returns SRV records from etcd.
 // If the Target is not a name but an IP address, a name is created on the fly.
-func (e Etcd) SRV(zone string, state middleware.State) (records, extra []dns.RR, debug []msg.Service, err error) {
-	services, debug, err := e.records(state, false)
+func (e Etcd) SRV(zone string, state middleware.State, opt Options) (records, extra []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := e.records(state, false, opt)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -191,7 +199,11 @@ func (e Etcd) SRV(zone string, state middleware.State) (records, extra []dns.RR,
 				m1, e1 := e.Proxy.Lookup(state, srv.Target, dns.TypeA)
 				if e1 == nil {
 					extra = append(extra, m1.Answer...)
+				} else {
+					debugMsg := msg.Service{Key: msg.Path(srv.Target, e.PathPrefix), Host: srv.Target, Text: " IN A: " + e1.Error()}
+					debug = append(debug, debugMsg)
 				}
+
 				m1, e1 = e.Proxy.Lookup(state, srv.Target, dns.TypeAAAA)
 				if e1 == nil {
 					// If we have seen CNAME's we *assume* that they are already added.
@@ -200,13 +212,16 @@ func (e Etcd) SRV(zone string, state middleware.State) (records, extra []dns.RR,
 							extra = append(extra, a)
 						}
 					}
+				} else {
+					debugMsg := msg.Service{Key: msg.Path(srv.Target, e.PathPrefix), Host: srv.Target, Text: " IN AAAA: " + e1.Error()}
+					debug = append(debug, debugMsg)
 				}
 				break
 			}
 			// Internal name, we should have some info on them, either v4 or v6
 			// Clients expect a complete answer, because we are a recursor in their view.
 			state1 := copyState(state, srv.Target, dns.TypeA)
-			addr, debugAddr, e1 := e.A(zone, state1, nil)
+			addr, debugAddr, e1 := e.A(zone, state1, nil, opt)
 			if e1 == nil {
 				extra = append(extra, addr...)
 				debug = append(debug, debugAddr...)
@@ -231,8 +246,8 @@ func (e Etcd) SRV(zone string, state middleware.State) (records, extra []dns.RR,
 
 // MX returns MX records from etcd.
 // If the Target is not a name but an IP address, a name is created on the fly.
-func (e Etcd) MX(zone string, state middleware.State) (records, extra []dns.RR, debug []msg.Service, err error) {
-	services, debug, err := e.records(state, false)
+func (e Etcd) MX(zone string, state middleware.State, opt Options) (records, extra []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := e.records(state, false, opt)
 	if err != nil {
 		return nil, nil, debug, err
 	}
@@ -257,6 +272,9 @@ func (e Etcd) MX(zone string, state middleware.State) (records, extra []dns.RR, 
 				m1, e1 := e.Proxy.Lookup(state, mx.Mx, dns.TypeA)
 				if e1 == nil {
 					extra = append(extra, m1.Answer...)
+				} else {
+					debugMsg := msg.Service{Key: msg.Path(mx.Mx, e.PathPrefix), Host: mx.Mx, Text: " IN A: " + e1.Error()}
+					debug = append(debug, debugMsg)
 				}
 				m1, e1 = e.Proxy.Lookup(state, mx.Mx, dns.TypeAAAA)
 				if e1 == nil {
@@ -266,12 +284,15 @@ func (e Etcd) MX(zone string, state middleware.State) (records, extra []dns.RR, 
 							extra = append(extra, a)
 						}
 					}
+				} else {
+					debugMsg := msg.Service{Key: msg.Path(mx.Mx, e.PathPrefix), Host: mx.Mx, Text: " IN AAAA: " + e1.Error()}
+					debug = append(debug, debugMsg)
 				}
 				break
 			}
 			// Internal name
 			state1 := copyState(state, mx.Mx, dns.TypeA)
-			addr, debugAddr, e1 := e.A(zone, state1, nil)
+			addr, debugAddr, e1 := e.A(zone, state1, nil, opt)
 			if e1 == nil {
 				extra = append(extra, addr...)
 				debug = append(debug, debugAddr...)
@@ -290,8 +311,8 @@ func (e Etcd) MX(zone string, state middleware.State) (records, extra []dns.RR, 
 	return records, extra, debug, nil
 }
 
-func (e Etcd) CNAME(zone string, state middleware.State) (records []dns.RR, debug []msg.Service, err error) {
-	services, debug, err := e.records(state, true)
+func (e Etcd) CNAME(zone string, state middleware.State, opt Options) (records []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := e.records(state, true, opt)
 	if err != nil {
 		return nil, debug, err
 	}
@@ -306,8 +327,8 @@ func (e Etcd) CNAME(zone string, state middleware.State) (records []dns.RR, debu
 }
 
 // PTR returns the PTR records, only services that have a domain name as host are included.
-func (e Etcd) PTR(zone string, state middleware.State) (records []dns.RR, debug []msg.Service, err error) {
-	services, debug, err := e.records(state, true)
+func (e Etcd) PTR(zone string, state middleware.State, opt Options) (records []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := e.records(state, true, opt)
 	if err != nil {
 		return nil, debug, err
 	}
@@ -320,8 +341,8 @@ func (e Etcd) PTR(zone string, state middleware.State) (records []dns.RR, debug 
 	return records, debug, nil
 }
 
-func (e Etcd) TXT(zone string, state middleware.State) (records []dns.RR, debug []msg.Service, err error) {
-	services, debug, err := e.records(state, false)
+func (e Etcd) TXT(zone string, state middleware.State, opt Options) (records []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := e.records(state, false, opt)
 	if err != nil {
 		return nil, debug, err
 	}
@@ -335,14 +356,14 @@ func (e Etcd) TXT(zone string, state middleware.State) (records []dns.RR, debug 
 	return records, debug, nil
 }
 
-func (e Etcd) NS(zone string, state middleware.State) (records, extra []dns.RR, debug []msg.Service, err error) {
+func (e Etcd) NS(zone string, state middleware.State, opt Options) (records, extra []dns.RR, debug []msg.Service, err error) {
 	// NS record for this zone live in a special place, ns.dns.<zone>. Fake our lookup.
 	// only a tad bit fishy...
 	old := state.QName()
 
 	state.Clear()
 	state.Req.Question[0].Name = "ns.dns." + zone
-	services, debug, err := e.records(state, false)
+	services, debug, err := e.records(state, false, opt)
 	if err != nil {
 		return nil, nil, debug, err
 	}
@@ -368,7 +389,7 @@ func (e Etcd) NS(zone string, state middleware.State) (records, extra []dns.RR, 
 }
 
 // SOA Record returns a SOA record.
-func (e Etcd) SOA(zone string, state middleware.State) ([]dns.RR, []msg.Service, error) {
+func (e Etcd) SOA(zone string, state middleware.State, opt Options) ([]dns.RR, []msg.Service, error) {
 	header := dns.RR_Header{Name: zone, Rrtype: dns.TypeSOA, Ttl: 300, Class: dns.ClassINET}
 
 	soa := &dns.SOA{Hdr: header,
