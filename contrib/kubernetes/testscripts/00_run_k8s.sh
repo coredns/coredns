@@ -21,6 +21,8 @@ else
 	DNS_ARGUMENTS=""
 fi
 
+echo "Starting kubernetes..."
+
 docker run -d \
     --volume=/:/rootfs:ro \
     --volume=/sys:/sys:ro \

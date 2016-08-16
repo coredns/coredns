@@ -87,6 +87,8 @@ run_and_expose_rc() {
     fi
 }
 
+echo "Starting sample kubernetes services..."
+
 wait_until_k8s_ready
 
 NAMESPACES="demo poddemo test"
