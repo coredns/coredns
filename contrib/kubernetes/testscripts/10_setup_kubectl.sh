@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 PWD=`pwd`
 BASEDIR=`readlink -e $(dirname ${0})`
 
