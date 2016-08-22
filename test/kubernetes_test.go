@@ -63,7 +63,9 @@ var testdataLookupSRV = []struct {
 	{"*.*.coredns.local.", 1, 1},                             // One SRV record, via namespace and service wildcard
 }
 
-func testK8sIntegration(t *testing.T) {
+func TestK8sIntegration(t *testing.T) {
+
+    // t.Skip("Skip Kubernetes Integration tests")
 	// subtests here (Go 1.7 feature).
 	testLookupA(t)
 	testLookupSRV(t)
