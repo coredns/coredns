@@ -6,10 +6,12 @@ import (
 	"io/ioutil"
 	"log"
 	"testing"
+    "time"
 
 	"github.com/miekg/coredns/middleware/kubernetes/k8stest"
 
 	"github.com/miekg/dns"
+    "github.com/mholt/caddy"
 )
 
 // Test data for A records
@@ -69,6 +71,22 @@ func TestK8sIntegration(t *testing.T) {
 	testLookupSRV(t)
 }
 
+
+func createTestServer(t *testing.T, corefile string) (*caddy.Instance, string) {
+	server, err := CoreDNSServer(corefile)
+	if err != nil {
+		t.Fatalf("could not get CoreDNS serving instance: %s", err)
+	}
+
+	udp, _ := CoreDNSServerPorts(server, 0)
+	if udp == "" {
+		t.Fatalf("could not get udp listening port")
+	}
+
+    return server, udp
+}
+
+
 func testLookupA(t *testing.T) {
 	if !k8stest.CheckKubernetesRunning() {
 		t.Skip("Skipping Kubernetes Integration tests. Kubernetes is not running")
@@ -80,20 +98,16 @@ func testLookupA(t *testing.T) {
 		endpoint http://localhost:8080
 		namespaces demo
     }
+
 `
-
-	server, err := CoreDNSServer(corefile)
-	if err != nil {
-		t.Fatalf("could not get CoreDNS serving instance: %s", err)
-	}
-
-	udp, _ := CoreDNSServerPorts(server, 0)
-	if udp == "" {
-		t.Fatalf("could not get udp listening port")
-	}
+    server, udp := createTestServer(t, corefile)
 	defer server.Stop()
 
 	log.SetOutput(ioutil.Discard)
+
+    // Work-around for timing condition that results in no-data being returned in
+    // test environment.
+    time.Sleep(5 * time.Second)
 
 	for _, testData := range testdataLookupA {
 		dnsClient := new(dns.Client)
@@ -136,17 +150,14 @@ func testLookupSRV(t *testing.T) {
     }
 `
 
-	server, err := CoreDNSServer(corefile)
-	if err != nil {
-		t.Fatalf("could not get CoreDNS serving instance: %s", err)
-	}
-	udp, _ := CoreDNSServerPorts(server, 0)
-	if udp == "" {
-		t.Fatalf("could not get udp listening port")
-	}
+    server, udp := createTestServer(t, corefile)
 	defer server.Stop()
 
 	log.SetOutput(ioutil.Discard)
+
+    // Work-around for timing condition that results in no-data being returned in
+    // test environment.
+    time.Sleep(5 * time.Second)
 
 	// TODO: Add checks for A records in additional section
 
