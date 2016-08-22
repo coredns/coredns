@@ -6,10 +6,10 @@ import (
 	"io/ioutil"
 	"log"
 	"testing"
-    "time"
+	"time"
 
+	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
-    "github.com/mholt/caddy"
 )
 
 // Test data for A records
@@ -65,12 +65,11 @@ var testdataLookupSRV = []struct {
 
 func TestK8sIntegration(t *testing.T) {
 
-    // t.Skip("Skip Kubernetes Integration tests")
+	// t.Skip("Skip Kubernetes Integration tests")
 	// subtests here (Go 1.7 feature).
 	testLookupA(t)
 	testLookupSRV(t)
 }
-
 
 func createTestServer(t *testing.T, corefile string) (*caddy.Instance, string) {
 	server, err := CoreDNSServer(corefile)
@@ -83,9 +82,8 @@ func createTestServer(t *testing.T, corefile string) (*caddy.Instance, string) {
 		t.Fatalf("could not get udp listening port")
 	}
 
-    return server, udp
+	return server, udp
 }
-
 
 func testLookupA(t *testing.T) {
 	corefile :=
@@ -96,14 +94,14 @@ func testLookupA(t *testing.T) {
     }
 
 `
-    server, udp := createTestServer(t, corefile)
+	server, udp := createTestServer(t, corefile)
 	defer server.Stop()
 
 	log.SetOutput(ioutil.Discard)
 
-    // Work-around for timing condition that results in no-data being returned in
-    // test environment.
-    time.Sleep(5 * time.Second)
+	// Work-around for timing condition that results in no-data being returned in
+	// test environment.
+	time.Sleep(5 * time.Second)
 
 	for _, testData := range testdataLookupA {
 		dnsClient := new(dns.Client)
@@ -142,14 +140,14 @@ func testLookupSRV(t *testing.T) {
     }
 `
 
-    server, udp := createTestServer(t, corefile)
+	server, udp := createTestServer(t, corefile)
 	defer server.Stop()
 
 	log.SetOutput(ioutil.Discard)
 
-    // Work-around for timing condition that results in no-data being returned in
-    // test environment.
-    time.Sleep(5 * time.Second)
+	// Work-around for timing condition that results in no-data being returned in
+	// test environment.
+	time.Sleep(5 * time.Second)
 
 	// TODO: Add checks for A records in additional section
 

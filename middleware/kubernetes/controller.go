@@ -2,7 +2,7 @@ package kubernetes
 
 import (
 	"fmt"
-    "log"
+	"log"
 	"sync"
 	"time"
 
@@ -150,7 +150,7 @@ func (dns *dnsController) Stop() error {
 
 // Run starts the controller.
 func (dns *dnsController) Run() {
-    log.Printf("[debug] starting k8s controller: %s\n", dns)
+	log.Printf("[debug] starting k8s controller: %s\n", dns)
 	go dns.endpController.Run(dns.stopCh)
 	go dns.svcController.Run(dns.stopCh)
 	go dns.nsController.Run(dns.stopCh)
