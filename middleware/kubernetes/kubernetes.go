@@ -3,7 +3,6 @@ package kubernetes
 
 import (
 	"errors"
-    "fmt"
 	"log"
 	"strings"
 	"time"
