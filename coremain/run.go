@@ -49,7 +49,7 @@ func Run() {
 	case "stderr":
 		log.SetOutput(os.Stderr)
 	default:
-		log.SetOutput(ioutil.Discard)
+		log.SetOutput(os.Stdout)
 	}
 	log.SetFlags(log.LstdFlags)
 
