@@ -20,6 +20,7 @@ type Cache struct {
 	cap   time.Duration
 }
 
+// NewCache returns a new cache.
 func NewCache(ttl int, zones []string, next middleware.Handler) Cache {
 	return Cache{Next: next, Zones: zones, cache: gcache.New(defaultDuration, purgeDuration), cap: time.Duration(ttl) * time.Second}
 }
@@ -46,17 +47,20 @@ func cacheKey(m *dns.Msg, t response.Type, do bool) string {
 	return ""
 }
 
-type CachingResponseWriter struct {
+// ResponseWriter is a response writer that caches the reply message.
+type ResponseWriter struct {
 	dns.ResponseWriter
 	cache *gcache.Cache
 	cap   time.Duration
 }
 
-func NewCachingResponseWriter(w dns.ResponseWriter, cache *gcache.Cache, cap time.Duration) *CachingResponseWriter {
-	return &CachingResponseWriter{w, cache, cap}
+// NewCachingResponseWriter returns a new ResponseWriter.
+func NewCachingResponseWriter(w dns.ResponseWriter, cache *gcache.Cache, cap time.Duration) *ResponseWriter {
+	return &ResponseWriter{w, cache, cap}
 }
 
-func (c *CachingResponseWriter) WriteMsg(res *dns.Msg) error {
+// WriteMsg implements the dns.ResponseWriter interface.
+func (c *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	do := false
 	mt, opt := response.Classify(res)
 	if opt != nil {
@@ -73,7 +77,7 @@ func (c *CachingResponseWriter) WriteMsg(res *dns.Msg) error {
 	return c.ResponseWriter.WriteMsg(res)
 }
 
-func (c *CachingResponseWriter) set(m *dns.Msg, key string, mt response.Type) {
+func (c *ResponseWriter) set(m *dns.Msg, key string, mt response.Type) {
 	if key == "" {
 		log.Printf("[ERROR] Caching called with empty cache key")
 		return
@@ -102,13 +106,15 @@ func (c *CachingResponseWriter) set(m *dns.Msg, key string, mt response.Type) {
 	}
 }
 
-func (c *CachingResponseWriter) Write(buf []byte) (int, error) {
+// Write implements the dns.ResponseWriter interface.
+func (c *ResponseWriter) Write(buf []byte) (int, error) {
 	log.Printf("[WARNING] Caching called with Write: not caching reply")
 	n, err := c.ResponseWriter.Write(buf)
 	return n, err
 }
 
-func (c *CachingResponseWriter) Hijack() {
+// Hijack implements the dns.ResponseWriter interface.
+func (c *ResponseWriter) Hijack() {
 	c.ResponseWriter.Hijack()
 	return
 }
