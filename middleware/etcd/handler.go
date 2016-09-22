@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// ServeDNS implements the middleware.Handler interface.
 func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	opt := Options{}
 	state := request.Request{W: w, Req: r}
