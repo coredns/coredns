@@ -34,7 +34,8 @@ type Metrics struct {
 	ZoneNames []string
 }
 
-func (m *Metrics) Startup() error {
+// OnStartup sets up the metrics on startup.
+func (m *Metrics) OnStartup() error {
 	m.Once.Do(func() {
 		define()
 
@@ -68,7 +69,8 @@ func (m *Metrics) Startup() error {
 	return nil
 }
 
-func (m *Metrics) Shutdown() error {
+// OnShutdown tears down the metrics on shutdown.
+func (m *Metrics) OnShutdown() error {
 	if m.ln != nil {
 		return m.ln.Close()
 	}

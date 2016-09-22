@@ -32,6 +32,7 @@ type Zone struct {
 	// TODO: shutdown watcher channel
 }
 
+// Apex contains the apex records of a zone: SOA, NS and their potential signatures.
 type Apex struct {
 	SOA    *dns.SOA
 	NS     []dns.RR
