@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// ServeDNS implements the middleware.Handler interface.
 func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
