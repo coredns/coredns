@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/miekg/coredns/middleware"
-	"github.com/miekg/coredns/middleware/kubernetes/msg"
+	"github.com/miekg/coredns/middleware/etcd/msg"
 	"github.com/miekg/coredns/middleware/kubernetes/nametemplate"
 	"github.com/miekg/coredns/middleware/kubernetes/util"
 	"github.com/miekg/coredns/middleware/pkg/dnsutil"

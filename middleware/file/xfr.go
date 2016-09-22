@@ -10,7 +10,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-// Xf serves up an AXFR.
+// Xfr serves up an AXFR.
 type Xfr struct {
 	*Zone
 }
