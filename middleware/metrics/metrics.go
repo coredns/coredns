@@ -38,12 +38,14 @@ func (m *Metrics) Startup() error {
 	m.Once.Do(func() {
 		define()
 
-		if ln, err := net.Listen("tcp", m.Addr); err != nil {
+		ln, err := net.Listen("tcp", m.Addr)
+		if err != nil {
 			log.Printf("[ERROR] Failed to start metrics handler: %s", err)
 			return
-		} else {
-			m.ln = ln
 		}
+
+		m.ln = ln
+
 		m.mux = http.NewServeMux()
 
 		prometheus.MustRegister(requestCount)

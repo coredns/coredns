@@ -6,14 +6,12 @@ import (
 	"github.com/miekg/dns"
 )
 
+// RoundRobinResponseWriter is a response writer that shuffles A and AAAA records.
 type RoundRobinResponseWriter struct {
 	dns.ResponseWriter
 }
 
-func NewRoundRobinResponseWriter(w dns.ResponseWriter) *RoundRobinResponseWriter {
-	return &RoundRobinResponseWriter{w}
-}
-
+// WriteMsg implements the dns.ResponseWriter interface.
 func (r *RoundRobinResponseWriter) WriteMsg(res *dns.Msg) error {
 	if res.Rcode != dns.RcodeSuccess {
 		return r.ResponseWriter.WriteMsg(res)

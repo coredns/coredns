@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Etcd is a middleware talks to an etcd cluster.
 type Etcd struct {
 	Next       middleware.Handler
 	Zones      []string
