@@ -93,4 +93,5 @@ var directives = []string{
 	"kubernetes",
 	"proxy",
 	"whoami",
+	"whoareyou",
 }

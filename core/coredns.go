@@ -22,4 +22,5 @@ import (
 	_ "github.com/miekg/coredns/middleware/rewrite"
 	_ "github.com/miekg/coredns/middleware/secondary"
 	_ "github.com/miekg/coredns/middleware/whoami"
+	_ "github.com/miekg/coredns/middleware/whoareyou"
 )
