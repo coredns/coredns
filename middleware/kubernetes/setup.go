@@ -98,6 +98,30 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 						continue
 					}
 					return nil, c.ArgErr()
+				case "certauth":
+					args := c.RemainingArgs()
+					if len(args) != 0 {
+						k8s.APICertAuth = args[0]
+					} else {
+						return Kubernetes{}, c.ArgErr()
+					}
+					return nil, c.ArgErr()
+				case "clientcert":
+					args := c.RemainingArgs()
+					if len(args) != 0 {
+						k8s.APIClientCert = args[0]
+					} else {
+						return Kubernetes{}, c.ArgErr()
+					}
+					return nil, c.ArgErr()
+				case "clientkey":
+					args := c.RemainingArgs()
+					if len(args) != 0 {
+						k8s.APIClientKey = args[0]
+					} else {
+						return Kubernetes{}, c.ArgErr()
+					}
+					return nil, c.ArgErr()
 				case "resyncperiod":
 					args := c.RemainingArgs()
 					if len(args) != 0 {
