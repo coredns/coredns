@@ -11,7 +11,7 @@ func (k *DNSKEY) newRRSIG(signerName string, ttl, incep, expir uint32) *dns.RRSI
 	sig.KeyTag = k.keytag
 	sig.SignerName = signerName
 	sig.Hdr.Ttl = ttl
-	sig.OrigTtl = origTtl
+	sig.OrigTtl = origTTL
 
 	sig.Inception = incep
 	sig.Expiration = expir
@@ -50,4 +50,4 @@ func rrSets(rrs []dns.RR) map[rrset][]dns.RR {
 	return nil
 }
 
-const origTtl = 3600
+const origTTL = 3600

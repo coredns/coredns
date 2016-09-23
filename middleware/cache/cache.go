@@ -87,14 +87,14 @@ func (c *ResponseWriter) set(m *dns.Msg, key string, mt response.Type) {
 	switch mt {
 	case response.Success, response.Delegation:
 		if c.cap == 0 {
-			duration = minTtl(m.Answer, mt)
+			duration = minTTL(m.Answer, mt)
 		}
 		i := newItem(m, duration)
 
 		c.cache.Set(key, i, duration)
 	case response.NameError, response.NoData:
 		if c.cap == 0 {
-			duration = minTtl(m.Ns, mt)
+			duration = minTTL(m.Ns, mt)
 		}
 		i := newItem(m, duration)
 
@@ -119,12 +119,12 @@ func (c *ResponseWriter) Hijack() {
 	return
 }
 
-func minTtl(rrs []dns.RR, mt response.Type) time.Duration {
+func minTTL(rrs []dns.RR, mt response.Type) time.Duration {
 	if mt != response.Success && mt != response.NameError && mt != response.NoData {
 		return 0
 	}
 
-	minTtl := maxTtl
+	minTTL := maxTTL
 	for _, r := range rrs {
 		switch mt {
 		case response.NameError, response.NoData:
@@ -132,17 +132,17 @@ func minTtl(rrs []dns.RR, mt response.Type) time.Duration {
 				return time.Duration(r.(*dns.SOA).Minttl) * time.Second
 			}
 		case response.Success, response.Delegation:
-			if r.Header().Ttl < minTtl {
-				minTtl = r.Header().Ttl
+			if r.Header().Ttl < minTTL {
+				minTTL = r.Header().Ttl
 			}
 		}
 	}
-	return time.Duration(minTtl) * time.Second
+	return time.Duration(minTTL) * time.Second
 }
 
 const (
 	purgeDuration          = 1 * time.Minute
 	defaultDuration        = 20 * time.Minute
-	baseTtl                = 5 // minimum ttl that we will allow
-	maxTtl          uint32 = 2 * 3600
+	baseTTL                = 5 // minimum TTL that we will allow
+	maxTTL          uint32 = 2 * 3600
 )

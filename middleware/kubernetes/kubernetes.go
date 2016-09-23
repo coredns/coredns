@@ -22,6 +22,7 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+// Kubernetes implements a middleware that connects to a Kubernetes cluster.
 type Kubernetes struct {
 	Next          middleware.Handler
 	Zones         []string
@@ -35,6 +36,8 @@ type Kubernetes struct {
 	Selector      *labels.Selector
 }
 
+// InitKubeCache initializes a new Kubernetes cache.
+// TODO(miek): is this correct?
 func (k *Kubernetes) InitKubeCache() error {
 	// For a custom api server or running outside a k8s cluster
 	// set URL in env.KUBERNETES_MASTER or set endpoint in Corefile
@@ -232,7 +235,7 @@ func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 const (
 	priority   = 10  // default priority when nothing is set
 	ttl        = 300 // default ttl when nothing is set
-	minTtl     = 60
+	minTTL     = 60
 	hostmaster = "hostmaster"
 	k8sTimeout = 5 * time.Second
 )
