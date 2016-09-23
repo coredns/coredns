@@ -22,6 +22,7 @@ import (
 	"k8s.io/kubernetes/pkg/labels"
 )
 
+// Kubernetes implements a middleware that connects to a Kubernetes cluster.
 type Kubernetes struct {
 	Next          middleware.Handler
 	Zones         []string
@@ -35,6 +36,8 @@ type Kubernetes struct {
 	Selector      *labels.Selector
 }
 
+// InitKubeCache initializes a new Kubernetes cache.
+// TODO(miek): is this correct?
 func (k *Kubernetes) InitKubeCache() error {
 	// For a custom api server or running outside a k8s cluster
 	// set URL in env.KUBERNETES_MASTER or set endpoint in Corefile
@@ -183,14 +186,14 @@ func (k *Kubernetes) Get(namespace string, nsWildcard bool, servicename string, 
 
 	var resultItems []api.Service
 
-	for _, item := range serviceList {
+	for _, item := range serviceList.Items {
 		if symbolMatches(namespace, item.Namespace, nsWildcard) && symbolMatches(servicename, item.Name, serviceWildcard) {
 			// If namespace has a wildcard, filter results against Corefile namespace list.
 			// (Namespaces without a wildcard were filtered before the call to this function.)
 			if nsWildcard && (len(k.Namespaces) > 0) && (!util.StringInSlice(item.Namespace, k.Namespaces)) {
 				continue
 			}
-			resultItems = append(resultItems, *item)
+			resultItems = append(resultItems, item)
 		}
 	}
 
@@ -216,11 +219,11 @@ func isKubernetesNameError(err error) bool {
 }
 
 func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
-	svcList, err := k.APIConn.svcLister.List(labels.Everything())
+	svcList, err := k.APIConn.svcLister.List()
 	if err != nil {
 		return nil
 	}
-	for _, service := range svcList {
+	for _, service := range svcList.Items {
 		if service.Spec.ClusterIP == ip {
 			return []msg.Service{msg.Service{Host: ip}}
 		}
@@ -232,7 +235,7 @@ func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 const (
 	priority   = 10  // default priority when nothing is set
 	ttl        = 300 // default ttl when nothing is set
-	minTtl     = 60
+	minTTL     = 60
 	hostmaster = "hostmaster"
 	k8sTimeout = 5 * time.Second
 )
