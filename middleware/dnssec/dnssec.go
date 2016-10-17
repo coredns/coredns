@@ -25,8 +25,7 @@ type Dnssec struct {
 }
 
 // New returns a new Dnssec.
-func New(zones []string, keys []*DNSKEY, next middleware.Handler) Dnssec {
-	cache, _ := lru.New(defaultCap)
+func New(zones []string, keys []*DNSKEY, next middleware.Handler, cache *lru.Cache) Dnssec {
 	return Dnssec{Next: next,
 		zones:    zones,
 		keys:     keys,
