@@ -10,11 +10,12 @@
 In its most basic form, a simple reverse proxy uses this syntax:
 
 ~~~
-proxy FROM To
+proxy FROM TO
 ~~~
 
-* **FROM** is the base path to match for the request to be proxied
-* **TO** is the destination endpoint to proxy to
+* **FROM** is the base path to match for the request to be proxied.
+* **TO** is the destination endpoint to proxy to. This can be an address and port, or an file name
+    with a resolv.conf(5) like syntax.
 
 However, advanced features including load balancing can be utilized with an expanded syntax:
 
@@ -30,13 +31,23 @@ proxy FROM TO... {
 ~~~
 
 * **FROM** is the name to match for the request to be proxied.
-* **TO** is the destination endpoint to proxy to. At least one is required, but multiple may be specified.
-* `policy` is the load balancing policy to use; applies only with multiple backends. May be one of random, least_conn, or round_robin. Default is random.
-* `fail_timeout` specifies how long to consider a backend as down after it has failed. While it is down, requests will not be routed to that backend. A backend is "down" if CoreDNS fails to communicate with it. The default value is 10 seconds ("10s").
-* `max_fails` is the number of failures within fail_timeout that are needed before considering a backend to be down. If 0, the backend will never be marked as down. Default is 1.
-* `health_check` will check path (on port) on each backend. If a backend returns a status code of 200-399, then that backend is healthy. If it doesn't, the backend is marked as unhealthy for duration and no requests are routed to it. If this option is not provided then health checks are disabled. The default duration is 10 seconds ("10s").
-* `ignored_names...` is a space-separated list of paths to exclude from proxying. Requests that match any of these paths will be passed through.
-* `spray` when all backends are unhealthy, randomly pick one to send the traffic to. (This is a failsafe.)
+* **TO** is the destination endpoint to proxy to. At least one is required, but multiple may be
+  specified.
+* `policy` is the load balancing policy to use; applies only with multiple backends. May be one of
+  random, least_conn, or round_robin. Default is random.
+* `fail_timeout` specifies how long to consider a backend as down after it has failed. While it is
+  down, requests will not be routed to that backend. A backend is "down" if CoreDNS fails to
+  communicate with it. The default value is 10 seconds ("10s").
+* `max_fails` is the number of failures within fail_timeout that are needed before considering
+  a backend to be down. If 0, the backend will never be marked as down. Default is 1.
+* `health_check` will check path (on port) on each backend. If a backend returns a status code of
+  200-399, then that backend is healthy. If it doesn't, the backend is marked as unhealthy for
+  duration and no requests are routed to it. If this option is not provided then health checks are
+  disabled. The default duration is 10 seconds ("10s").
+* `ignored_names...` is a space-separated list of paths to exclude from proxying. Requests that
+  match any of these paths will be passed through.
+* `spray` when all backends are unhealthy, randomly pick one to send the traffic to. (This is
+  a failsafe.)
 
 ## Policies
 
@@ -66,16 +77,7 @@ Same as above, but round-robin style:
 
 ~~~
 proxy . web1.local:53 web2.local:1053 web3.local {
-	policy round_robin
-}
-~~~
-
-With health checks and proxy headers to pass hostname, IP, and scheme upstream:
-
-~~~
-proxy . web1.local:53 web2.local:53 web3.local:53 {
-	policy round_robin
-	health_check /health:8080
+    policy round_robin
 }
 ~~~
 
@@ -83,6 +85,13 @@ Proxy everything except requests to miek.nl or example.org
 
 ~~~
 proxy . backend:1234 {
-	except miek.nl example.org
+    except miek.nl example.org
 }
+~~~
+
+Proxy all requests within example.org. to the nameservers specified
+in `/etc/resolv.conf`:
+
+~~~
+proxy example.org /etc/resolv.conf
 ~~~

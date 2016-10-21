@@ -137,10 +137,18 @@ proxy . 8.8.8.8:53 {
 			false,
 		},
 		{
+			`proxy . /etc/resolv.conf`,
+			false,
+		},
+		{
 			`
 proxy . 8.8.8.8:53 {
     error_option
 }`,
+			true,
+		},
+		{
+			`proxy . /etc/resolv.conf-does-not-exist`,
 			true,
 		},
 	}
