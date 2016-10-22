@@ -6,11 +6,11 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
-	"os"
 
 	"github.com/miekg/coredns/middleware"
 

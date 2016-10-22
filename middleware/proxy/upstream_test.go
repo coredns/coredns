@@ -83,15 +83,15 @@ func TestAllowedPaths(t *testing.T) {
 }
 
 func writeTmpFile(t *testing.T, data string) (string, string) {
-        tempDir, err := ioutil.TempDir("", "")
-        if err != nil {
-                t.Fatalf("tempDir: %v", err)
-        }
+	tempDir, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("tempDir: %v", err)
+	}
 
-        path := filepath.Join(tempDir, "resolv.conf")
-        if err := ioutil.WriteFile(path, []byte(data), 0644); err != nil {
-                t.Fatalf("writeFile: %v", err)
-        }
+	path := filepath.Join(tempDir, "resolv.conf")
+	if err := ioutil.WriteFile(path, []byte(data), 0644); err != nil {
+		t.Fatalf("writeFile: %v", err)
+	}
 	return tempDir, path
 }
 
@@ -178,9 +178,10 @@ proxy . some_bogus_filename`,
 func TestResolvParse(t *testing.T) {
 	tests := []struct {
 		inputUpstreams string
-		filedata string
-		shouldErr bool
-		expected []string}{
+		filedata       string
+		shouldErr      bool
+		expected       []string
+	}{
 		{
 			`
 proxy . FILE
@@ -189,8 +190,8 @@ proxy . FILE
 nameserver 1.2.3.4
 nameserver 4.3.2.1
 `,
-		false,
-		[]string{"1.2.3.4:53", "4.3.2.1:53"},
+			false,
+			[]string{"1.2.3.4:53", "4.3.2.1:53"},
 		},
 		{
 			`
@@ -201,8 +202,8 @@ proxy example.org 2.2.2.2:1234
 			`
 nameserver 1.2.3.4
 `,
-		false,
-		[]string{"1.1.1.1:5000", "1.2.3.4:53", "2.2.2.2:1234"},
+			false,
+			[]string{"1.1.1.1:5000", "1.2.3.4:53", "2.2.2.2:1234"},
 		},
 		{
 			`
@@ -213,13 +214,13 @@ proxy example.org 2.2.2.2:1234
 			`
 junky resolve.conf
 `,
-		false,
-		[]string{"1.1.1.1:5000", "2.2.2.2:1234"},
+			false,
+			[]string{"1.1.1.1:5000", "2.2.2.2:1234"},
 		},
 	}
 	for i, test := range tests {
 		tempDir, path := writeTmpFile(t, test.filedata)
-        	defer os.RemoveAll(tempDir)
+		defer os.RemoveAll(tempDir)
 		config := strings.Replace(test.inputUpstreams, "FILE", path, -1)
 		c := caddy.NewTestController("dns", config)
 		upstreams, err := NewStaticUpstreams(&c.Dispenser)
