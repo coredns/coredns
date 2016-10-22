@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"os"
 
 	"github.com/miekg/coredns/middleware"
 
@@ -75,7 +77,9 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 			if x := net.ParseIP(h); x == nil {
 				// it's a file, parse as resolv.conf
 				c, err := dns.ClientConfigFromFile(host)
-				if err != nil {
+				if err == os.ErrNotExist {
+					return upstreams, fmt.Errorf("not an IP address or file: `%s'", h)
+				} else if err != nil {
 					return upstreams, err
 				}
 				for _, s := range c.Servers {
