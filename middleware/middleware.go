@@ -45,6 +45,7 @@ type (
 	// chain by returning them unchanged.
 	Handler interface {
 		ServeDNS(context.Context, dns.ResponseWriter, *dns.Msg) (int, error)
+		Name() string
 	}
 
 	// HandlerFunc is a convenience type like dns.HandlerFunc, except

@@ -7,12 +7,10 @@ The following metrics are exported:
 
 * coredns_dns_request_count_total{zone, proto, family}
 * coredns_dns_request_duration_milliseconds{zone}
-* coredns_dns_request_size_bytes{zone,, proto}
-* coredns_dns_request_transfer_size_bytes{zone,, proto}
+* coredns_dns_request_size_bytes{zone, proto}
 * coredns_dns_request_do_count_total{zone}
 * coredns_dns_request_type_count_total{zone, type}
 * coredns_dns_response_size_bytes{zone, proto}
-* coredns_dns_response_transfer_size_bytes{zone, proto}
 * coredns_dns_response_rcode_count_total{zone, rcode}
 
 Each counter has a label `zone` which is the zonename used for the request/response.
@@ -44,3 +42,9 @@ It optionally takes an address to which the metrics are exported; the default
 is `localhost:9153`. The metrics path is fixed to `/metrics`.
 
 ## Examples
+
+Use an alternative address:
+
+~~~
+prometheus localhost:9253
+~~~

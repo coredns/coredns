@@ -11,6 +11,7 @@ import (
 	"github.com/miekg/coredns/core/dnsserver"
 	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/file"
+	"github.com/miekg/coredns/middleware/metrics"
 
 	"github.com/mholt/caddy"
 )
@@ -28,10 +29,21 @@ func setup(c *caddy.Controller) error {
 		return middleware.Error("auto", err)
 	}
 
+	// If we have enabled prometheus we should add newly discovered zones to it.
+	met := dnsserver.GetMiddleware(c, "prometheus")
+	if met != nil {
+		a.metrics = met.(*metrics.Metrics)
+	}
+
+	proxy := dnsserver.GetMiddleware(c, "proxy")
+	if proxy != nil {
+		println("PROXY")
+	}
+
 	walkChan := make(chan bool)
 
 	c.OnStartup(func() error {
-		err := a.Zones.Walk(a.loader)
+		err := a.Walk()
 		if err != nil {
 			return err
 		}
@@ -43,7 +55,7 @@ func setup(c *caddy.Controller) error {
 				case <-walkChan:
 					return
 				case <-ticker.C:
-					a.Zones.Walk(a.loader)
+					a.Walk()
 				}
 			}
 		}()

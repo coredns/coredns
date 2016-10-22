@@ -41,3 +41,18 @@ func GetConfig(c *caddy.Controller) *Config {
 	ctx.saveConfig(c.Key, &Config{})
 	return GetConfig(c)
 }
+
+// GetMiddleware return the middleware handler that has been added to the config.
+// This is useful to inspect if a certain middleware is active in this server.
+// Note that this is order dependent and the order is defined in directives.go.
+func GetMiddleware(c *caddy.Controller, name string) middleware.Handler {
+	// TODO(miek): calling the handler h(nil) should be a noop...
+	conf := GetConfig(c)
+	for _, h := range conf.Middleware {
+		x := h(nil)
+		if name == x.Name() {
+			return x
+		}
+	}
+	return nil
+}

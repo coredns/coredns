@@ -283,10 +283,15 @@ type (
 	// Handler interface defines a middleware.
 	Handler interface {
 		ServeDNS(context.Context, dns.ResponseWriter, *dns.Msg) (int, error)
+		Name() string
 	}
 )
 
 // ServeDNS implements the Handler interface.
 func (f HandlerFunc) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	return f(ctx, w, r)
+}
+
+func (f HandlerFunc) Name() string {
+	return "handlerfunc"
 }
