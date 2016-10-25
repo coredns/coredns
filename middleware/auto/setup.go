@@ -35,11 +35,6 @@ func setup(c *caddy.Controller) error {
 		a.metrics = met.(*metrics.Metrics)
 	}
 
-	proxy := dnsserver.GetMiddleware(c, "proxy")
-	if proxy != nil {
-		println("PROXY")
-	}
-
 	walkChan := make(chan bool)
 
 	c.OnStartup(func() error {
