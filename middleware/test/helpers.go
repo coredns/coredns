@@ -292,6 +292,4 @@ func (f HandlerFunc) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	return f(ctx, w, r)
 }
 
-func (f HandlerFunc) Name() string {
-	return "handlerfunc"
-}
+func (f HandlerFunc) Name() string { return "handlerfunc" }
