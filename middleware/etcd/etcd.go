@@ -36,7 +36,7 @@ type Etcd struct {
 // for instance.
 func (e *Etcd) Records(name string, exact bool) ([]msg.Service, error) {
 	path, star := msg.PathWithWildcard(name, e.PathPrefix)
-	r, err := e.Get(path, true)
+	r, err := e.get(path, true)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +51,8 @@ func (e *Etcd) Records(name string, exact bool) ([]msg.Service, error) {
 	}
 }
 
-// Get is a wrapper for client.Get that uses SingleInflight to suppress multiple outstanding queries.
-func (e *Etcd) Get(path string, recursive bool) (*etcdc.Response, error) {
+// get is a wrapper for client.Get that uses SingleInflight to suppress multiple outstanding queries.
+func (e *Etcd) get(path string, recursive bool) (*etcdc.Response, error) {
 	resp, err := e.Inflight.Do(path, func() (interface{}, error) {
 		ctx, cancel := context.WithTimeout(e.Ctx, etcdTimeout)
 		defer cancel()

@@ -243,6 +243,7 @@ func symbolMatches(queryString string, candidateString string, wildcard bool) bo
 }
 
 // kubernetesNameError checks if the error is ErrorCodeKeyNotFound from kubernetes.
+// TODO(infoblox): implement!
 func isKubernetesNameError(err error) bool {
 	return false
 }
