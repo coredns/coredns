@@ -14,84 +14,10 @@ import (
 	"github.com/miekg/dns"
 )
 
+// Remove!
 // Options are extra options that can be specified for a lookup.
 type Options struct {
 	Debug string // This is a debug query. A query prefixed with debug.o-o
-}
-
-func (e Etcd) records(state request.Request, exact bool, opt Options) (services, debug []msg.Service, err error) {
-	services, err = e.Records(state.Name(), exact)
-	if err != nil {
-		return
-	}
-	if opt.Debug != "" {
-		debug = services
-	}
-	services = msg.Group(services)
-	return
-}
-
-// A returns A records from etcd or an error.
-func (e Etcd) A(zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, debug []msg.Service, err error) {
-	services, debug, err := e.records(state, false, opt)
-	if err != nil {
-		return nil, debug, err
-	}
-
-	for _, serv := range services {
-		ip := net.ParseIP(serv.Host)
-		switch {
-		case ip == nil:
-			// TODO(miek): lowercasing? Should lowercase in everything see #85
-			if middleware.Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
-				// x CNAME x is a direct loop, don't add those
-				continue
-			}
-
-			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
-				// don't add it, and just continue
-				continue
-			}
-			if dnsutil.DuplicateCNAME(newRecord, previousRecords) {
-				continue
-			}
-
-			state1 := state.NewWithQuestion(serv.Host, state.QType())
-			nextRecords, nextDebug, err := e.A(zone, state1, append(previousRecords, newRecord), opt)
-
-			if err == nil {
-				// Not only have we found something we should add the CNAME and the IP addresses.
-				if len(nextRecords) > 0 {
-					records = append(records, newRecord)
-					records = append(records, nextRecords...)
-					debug = append(debug, nextDebug...)
-				}
-				continue
-			}
-			// This means we can not complete the CNAME, try to look else where.
-			target := newRecord.Target
-			if dns.IsSubDomain(zone, target) {
-				// We should already have found it
-				continue
-			}
-			m1, e1 := e.Proxy.Lookup(state, target, state.QType())
-			if e1 != nil {
-				debugMsg := msg.Service{Key: msg.Path(target, e.PathPrefix), Host: target, Text: " IN " + state.Type() + ": " + e1.Error()}
-				debug = append(debug, debugMsg)
-				continue
-			}
-			// Len(m1.Answer) > 0 here is well?
-			records = append(records, newRecord)
-			records = append(records, m1.Answer...)
-			continue
-		case ip.To4() != nil:
-			records = append(records, serv.NewA(state.QName(), ip.To4()))
-		case ip.To4() == nil:
-			// nodata?
-		}
-	}
-	return records, debug, nil
 }
 
 // AAAA returns AAAA records from etcd or an error.
@@ -226,7 +152,7 @@ func (e Etcd) SRV(zone string, state request.Request, opt Options) (records, ext
 			// Internal name, we should have some info on them, either v4 or v6
 			// Clients expect a complete answer, because we are a recursor in their view.
 			state1 := state.NewWithQuestion(srv.Target, dns.TypeA)
-			addr, debugAddr, e1 := e.A(zone, state1, nil, opt)
+			addr, debugAddr, e1 := middleware.A(e, zone, state1, nil, middleware.Options(opt))
 			if e1 == nil {
 				extra = append(extra, addr...)
 				debug = append(debug, debugAddr...)
@@ -297,7 +223,7 @@ func (e Etcd) MX(zone string, state request.Request, opt Options) (records, extr
 			}
 			// Internal name
 			state1 := state.NewWithQuestion(mx.Mx, dns.TypeA)
-			addr, debugAddr, e1 := e.A(zone, state1, nil, opt)
+			addr, debugAddr, e1 := middleware.A(e, zone, state1, nil, middleware.Options(opt))
 			if e1 == nil {
 				extra = append(extra, addr...)
 				debug = append(debug, debugAddr...)

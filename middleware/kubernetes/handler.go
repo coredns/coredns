@@ -54,7 +54,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	)
 	switch state.Type() {
 	case "A":
-		records, err = k.A(zone, state, nil)
+		records, _, err = middleware.A(&k, zone, state, nil, middleware.Options{}) // Hmm wrt to '&k'
 	case "AAAA":
 		records, err = k.AAAA(zone, state, nil)
 	case "TXT":
@@ -78,7 +78,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		fallthrough
 	default:
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
-		_, err = k.A(zone, state, nil)
+		_, _, err = middleware.A(&k, zone, state, nil, middleware.Options{})
 	}
 	if isKubernetesNameError(err) {
 		return k.Err(zone, dns.RcodeNameError, state)

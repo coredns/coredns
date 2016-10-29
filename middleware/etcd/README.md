@@ -111,7 +111,7 @@ Or with *debug* queries enabled:
 When debug queries are enabled CoreDNS will return errors and etcd records encountered during the resolution
 process in the response. The general form looks like this:
 
-    skydns.test.skydns.dom.a.	300	CH	TXT	"127.0.0.1:0(10,0,,false)[0,]"
+    test.skydns.dom.a.	300	CH	TXT	"127.0.0.1:0(10,0,,false)[0,]"
 
 This shows the complete key as the owername, the rdata of the TXT record has:
 `host:port(priority,weight,txt content,mail)[targetstrip,group]`.
@@ -126,6 +126,6 @@ Signalling that an A record for www.example.org. was sought, but it failed with 
 
 Any errors seen doing parsing will show up like this:
 
-    . 0 CH TXT "/skydns/local/skydns/r/a: invalid character '.' after object key:value pair"
+    . 0 CH TXT "//local/skydns/r/a: invalid character '.' after object key:value pair"
 
 which shows `a.r.skydns.local.` has a json encoding problem.

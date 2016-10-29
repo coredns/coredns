@@ -58,7 +58,7 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	)
 	switch state.Type() {
 	case "A":
-		records, debug, err = e.A(zone, state, nil, opt)
+		records, debug, err = middleware.A(e, zone, state, nil, middleware.Options(opt))
 	case "AAAA":
 		records, debug, err = e.AAAA(zone, state, nil, opt)
 	case "TXT":
@@ -81,7 +81,7 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		fallthrough
 	default:
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
-		_, debug, err = e.A(zone, state, nil, opt)
+		_, debug, err = middleware.A(e, zone, state, nil, middleware.Options(opt))
 	}
 
 	if opt.Debug != "" {

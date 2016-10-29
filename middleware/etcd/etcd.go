@@ -11,8 +11,10 @@ import (
 	"github.com/miekg/coredns/middleware/etcd/msg"
 	"github.com/miekg/coredns/middleware/pkg/singleflight"
 	"github.com/miekg/coredns/middleware/proxy"
+	"github.com/miekg/coredns/request"
 
 	etcdc "github.com/coreos/etcd/client"
+	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 )
 
@@ -31,9 +33,34 @@ type Etcd struct {
 	endpoints []string // Stored here as well, to aid in testing.
 }
 
-// Records looks up records in etcd. If exact is true, it will lookup just
-// this name. This is used when find matches when completing SRV lookups
-// for instance.
+// Services implements the ServiceBackend interface.
+func (e Etcd) Services(state request.Request, exact bool, opt middleware.Options) (services, debug []msg.Service, err error) {
+	services, err = e.Records(state.Name(), exact)
+	if err != nil {
+		return
+	}
+	if opt.Debug != "" {
+		debug = services
+	}
+	services = msg.Group(services)
+	return
+}
+
+// Lookup implements the ServiceBackend interface.
+func (e Etcd) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
+	return e.Proxy.Lookup(state, name, typ)
+}
+
+// IsNameError implements the ServiceBackend interface.
+func (e Etcd) IsNameError(err error) bool {
+	if ee, ok := err.(etcdc.Error); ok && ee.Code == etcdc.ErrorCodeKeyNotFound {
+		return true
+	}
+	return false
+}
+
+// Records looks up records in etcd. If exact is true, it will lookup just this
+// name. This is used when find matches when completing SRV lookups for instance.
 func (e *Etcd) Records(name string, exact bool) ([]msg.Service, error) {
 	path, star := msg.PathWithWildcard(name, e.PathPrefix)
 	r, err := e.get(path, true)
@@ -49,6 +76,18 @@ func (e *Etcd) Records(name string, exact bool) ([]msg.Service, error) {
 	default:
 		return e.loopNodes([]*etcdc.Node{r.Node}, segments, false, nil)
 	}
+}
+
+func (e Etcd) records(state request.Request, exact bool, opt Options) (services, debug []msg.Service, err error) {
+	services, err = e.Records(state.Name(), exact)
+	if err != nil {
+		return
+	}
+	if opt.Debug != "" {
+		debug = services
+	}
+	services = msg.Group(services)
+	return
 }
 
 // get is a wrapper for client.Get that uses SingleInflight to suppress multiple outstanding queries.

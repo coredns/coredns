@@ -24,66 +24,6 @@ func (k Kubernetes) records(state request.Request, exact bool) ([]msg.Service, e
 	return services, nil
 }
 
-// A returns A records from kubernetes or an error.
-func (k Kubernetes) A(zone string, state request.Request, previousRecords []dns.RR) (records []dns.RR, err error) {
-	services, err := k.records(state, false)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, serv := range services {
-		ip := net.ParseIP(serv.Host)
-		switch {
-		case ip == nil:
-			// TODO(miek): lowercasing? Should lowercase in everything see #85
-			if middleware.Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
-				// x CNAME x is a direct loop, don't add those
-				continue
-			}
-
-			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
-				// don't add it, and just continue
-				continue
-			}
-			if dnsutil.DuplicateCNAME(newRecord, previousRecords) {
-				continue
-			}
-
-			state1 := state.NewWithQuestion(serv.Host, state.QType())
-			nextRecords, err := k.A(zone, state1, append(previousRecords, newRecord))
-
-			if err == nil {
-				// Not only have we found something we should add the CNAME and the IP addresses.
-				if len(nextRecords) > 0 {
-					records = append(records, newRecord)
-					records = append(records, nextRecords...)
-				}
-				continue
-			}
-			// This means we can not complete the CNAME, try to look else where.
-			target := newRecord.Target
-			if dns.IsSubDomain(zone, target) {
-				// We should already have found it
-				continue
-			}
-			mes, err := k.Proxy.Lookup(state, target, state.QType())
-			if err != nil {
-				continue
-			}
-			// Len(mes.Answer) > 0 here is well?
-			records = append(records, newRecord)
-			records = append(records, mes.Answer...)
-			continue
-		case ip.To4() != nil:
-			records = append(records, serv.NewA(state.QName(), ip.To4()))
-		case ip.To4() == nil:
-			// nodata?
-		}
-	}
-	return records, nil
-}
-
 // AAAA returns AAAA records from kubernetes or an error.
 func (k Kubernetes) AAAA(zone string, state request.Request, previousRecords []dns.RR) (records []dns.RR, err error) {
 	services, err := k.records(state, false)
@@ -207,7 +147,7 @@ func (k Kubernetes) SRV(zone string, state request.Request) (records []dns.RR, e
 			// Internal name, we should have some info on them, either v4 or v6
 			// Clients expect a complete answer, because we are a recursor in their view.
 			state1 := state.NewWithQuestion(srv.Target, dns.TypeA)
-			addr, e1 := k.A(zone, state1, nil)
+			addr, _, e1 := middleware.A(&k, zone, state1, nil, middleware.Options{})
 			if e1 == nil {
 				extra = append(extra, addr...)
 			}

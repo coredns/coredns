@@ -13,6 +13,7 @@ import (
 	"github.com/miekg/coredns/middleware/pkg/dnsutil"
 	dns_strings "github.com/miekg/coredns/middleware/pkg/strings"
 	"github.com/miekg/coredns/middleware/proxy"
+	"github.com/miekg/coredns/request"
 
 	"github.com/miekg/dns"
 	"k8s.io/kubernetes/pkg/api"
@@ -39,6 +40,23 @@ type Kubernetes struct {
 	Namespaces    []string
 	LabelSelector *unversionedapi.LabelSelector
 	Selector      *labels.Selector
+}
+
+// Services implements the ServiceBackend interface.
+func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
+	s, e := k.Records(state.Name(), exact)
+	return s, nil, e // Haven't implemented debug queries yet.
+}
+
+// Lookup implements the ServiceBackend interface.
+func (k *Kubernetes) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
+	return k.Proxy.Lookup(state, name, typ)
+}
+
+// IsNameError implements the ServiceBackend interface.
+// TODO(infoblox): implement!
+func (k *Kubernetes) IsNameError(err error) bool {
+	return false
 }
 
 func (k *Kubernetes) getClientConfig() (*restclient.Config, error) {
@@ -125,9 +143,8 @@ func (k *Kubernetes) getZoneForName(name string) (string, []string) {
 	return zone, serviceSegments
 }
 
-// Records looks up services in kubernetes.
-// If exact is true, it will lookup just
-// this name. This is used when find matches when completing SRV lookups
+// Records looks up services in kubernetes. If exact is true, it will lookup
+// just this name. This is used when find matches when completing SRV lookups
 // for instance.
 func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	// TODO: refector this.

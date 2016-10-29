@@ -10,17 +10,14 @@ import (
 	"github.com/miekg/dns"
 )
 
-// Backend defines a (dynamic) backend that returns a slice of service definitions.
+// ServiceBackend defines a (dynamic) backend that returns a slice of service definitions.
 type Backend interface {
 	// Services communitates with the backend to retrieve the service defintion. Exact indicates
 	// on exact much are that we are allowed to recurs.
 	Services(state request.Request, exact bool, opt Options) ([]msg.Service, []msg.Service, error)
 
-	// Lookup is used to 
-			m1, e1 := e.Proxy.Lookup(state, target, state.QType())
-
-	// Etcd thing Note sure we want this...
-	PathPrefix
+	// Lookup is used to find records else where.
+	Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error)
 
 	// IsNameError return true if err indicated a record not found condition
 	IsNameError(err error) bool
@@ -75,9 +72,9 @@ func A(b Backend, zone string, state request.Request, previousRecords []dns.RR, 
 				continue
 			}
 			// Lookup
-			m1, e1 := e.Proxy.Lookup(state, target, state.QType())
+			m1, e1 := b.Lookup(state, target, state.QType())
 			if e1 != nil {
-				debugMsg := msg.Service{Key: msg.Path(target, e.PathPrefix), Host: target, Text: " IN " + state.Type() + ": " + e1.Error()}
+				debugMsg := msg.Service{Key: msg.Path(target, ""), Host: target, Text: " IN " + state.Type() + ": " + e1.Error()}
 				debug = append(debug, debugMsg)
 				continue
 			}
