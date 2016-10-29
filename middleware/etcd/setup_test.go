@@ -28,17 +28,16 @@ func init() {
 func newEtcdMiddleware() *Etcd {
 	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
 
-	etcdCfg := etcdc.Config{
-		Endpoints: []string{"http://localhost:2379"},
-	}
-	cli, _ := etcdc.New(etcdCfg)
+	endpoints := []string{"http://localhost:2379"}
+	client, _ := newEtcdClient(endpoints, "", "", "")
+
 	return &Etcd{
 		Proxy:      proxy.New([]string{"8.8.8.8:53"}),
 		PathPrefix: "skydns",
 		Ctx:        context.Background(),
 		Inflight:   &singleflight.Group{},
 		Zones:      []string{"skydns.test.", "skydns_extra.test.", "in-addr.arpa."},
-		Client:     etcdc.NewKeysAPI(cli),
+		Client:     client,
 	}
 }
 
@@ -61,6 +60,75 @@ func TestLookup(t *testing.T) {
 	for _, serv := range services {
 		set(t, etc, serv.Key, 0, serv)
 		defer delete(t, etc, serv.Key)
+	}
+
+	for _, tc := range dnsTestCases {
+		m := tc.Msg()
+
+		rec := dnsrecorder.New(&test.ResponseWriter{})
+		_, err := etc.ServeDNS(ctxt, rec, m)
+		if err != nil {
+			t.Errorf("expected no error, got: %v for %s %s\n", err, m.Question[0].Name, dns.Type(m.Question[0].Qtype))
+			return
+		}
+
+		resp := rec.Msg
+		sort.Sort(test.RRSet(resp.Answer))
+		sort.Sort(test.RRSet(resp.Ns))
+		sort.Sort(test.RRSet(resp.Extra))
+
+		if !test.Header(t, tc, resp) {
+			t.Logf("%v\n", resp)
+			continue
+		}
+		if !test.Section(t, tc, test.Answer, resp.Answer) {
+			t.Logf("%v\n", resp)
+		}
+		if !test.Section(t, tc, test.Ns, resp.Ns) {
+			t.Logf("%v\n", resp)
+		}
+		if !test.Section(t, tc, test.Extra, resp.Extra) {
+			t.Logf("%v\n", resp)
+		}
+	}
+}
+
+func newEtcd3Middleware() *Etcd3 {
+	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
+
+	endpoints := []string{"http://localhost:2379"}
+	client3, _ := newEtcd3Client(endpoints, "", "", "")
+
+	e := &Etcd{
+		Proxy:      proxy.New([]string{"8.8.8.8:53"}),
+		PathPrefix: "skydns",
+		Ctx:        context.Background(),
+		Inflight:   &singleflight.Group{},
+		Zones:      []string{"skydns.test.", "skydns_extra.test.", "in-addr.arpa."},
+		Client3:    client3,
+	}
+	return &Etcd3{e}
+}
+
+func set3(t *testing.T, e *Etcd3, k string, ttl time.Duration, m *msg.Service) {
+	b, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
+	e.Client3.Put(ctxt, path, string(b))
+}
+
+func delete3(t *testing.T, e *Etcd3, k string) {
+	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
+	e.Client3.Delete(ctxt, path)
+}
+
+func TestLookup3(t *testing.T) {
+	etc := newEtcd3Middleware()
+	for _, serv := range services {
+		set3(t, etc, serv.Key, 0, serv)
+		defer delete3(t, etc, serv.Key)
 	}
 
 	for _, tc := range dnsTestCases {
