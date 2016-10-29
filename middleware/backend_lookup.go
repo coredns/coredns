@@ -329,8 +329,8 @@ func TXT(b ServiceBackend, zone string, state request.Request, opt Options) (rec
 	return records, debug, nil
 }
 
-// TODO(miek|infoblox): move k8s to this as well.
 // PTR returns the PTR records from the backend, only services that have a domain name as host are included.
+// TODO(miek|infoblox): move k8s to this as well.
 func PTR(b ServiceBackend, zone string, state request.Request, opt Options) (records []dns.RR, debug []msg.Service, err error) {
 	services, debug, err := b.Services(state, true, opt)
 	if err != nil {
@@ -427,7 +427,7 @@ func ServicesToTxt(debug []msg.Service) []dns.RR {
 	return rr
 }
 
-// ErrorToText puts in error's text into an TXT RR.
+// ErrorToTxt puts in error's text into an TXT RR.
 func ErrorToTxt(err error) dns.RR {
 	if err == nil {
 		return nil

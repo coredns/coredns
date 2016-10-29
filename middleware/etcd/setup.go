@@ -14,6 +14,7 @@ import (
 	"github.com/miekg/coredns/middleware/proxy"
 
 	etcdc "github.com/coreos/etcd/client"
+	etcdc3 "github.com/coreos/etcd/clientv3"
 	"github.com/mholt/caddy"
 	"golang.org/x/net/context"
 )
@@ -177,6 +178,22 @@ func newEtcdClient(endpoints []string, tlsCert, tlsKey, tlsCACert string) (etcdc
 		return nil, err
 	}
 	return etcdc.NewKeysAPI(cli), nil
+}
+
+func newEtcd3Client(machines []string, tlsCert, tlsKey, tlsCACert string) (*etcdv3.Client, error) {
+
+	// Get this as a transport and then extrac the (only needed) TLS config
+	transport := newHTTPSTransport(tlsCertFile, tlsKeyFile, tlsCACertFile)
+
+	etcd3Cfg := etcdc3.Config{
+		Endpoints: machines,
+		TLS:       transport.TLSClientConfig,
+	}
+	cli, err := etcdc3.New(etcd3Cfg)
+	if err != nil {
+		return nil, err
+	}
+	return cli, nil
 }
 
 func newHTTPSTransport(tlsCertFile, tlsKeyFile, tlsCACertFile string) etcdc.CancelableTransport {
