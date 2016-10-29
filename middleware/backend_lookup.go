@@ -59,7 +59,7 @@ func A(b ServiceBackend, zone string, state request.Request, previousRecords []d
 			// Lookup
 			m1, e1 := b.Lookup(state, target, state.QType())
 			if e1 != nil {
-				debugMsg := msg.Service{Key: msg.Path(target, "debug"), Host: target, Text: " IN " + state.Type() + ": " + e1.Error()}
+				debugMsg := msg.Service{Key: msg.Path(target, b.Debug()), Host: target, Text: " IN " + state.Type() + ": " + e1.Error()}
 				debug = append(debug, debugMsg)
 				continue
 			}
@@ -122,7 +122,7 @@ func AAAA(b ServiceBackend, zone string, state request.Request, previousRecords 
 			}
 			m1, e1 := b.Lookup(state, target, state.QType())
 			if e1 != nil {
-				debugMsg := msg.Service{Key: msg.Path(target, "debug"), Host: target, Text: " IN " + state.Type() + ": " + e1.Error()}
+				debugMsg := msg.Service{Key: msg.Path(target, b.Debug()), Host: target, Text: " IN " + state.Type() + ": " + e1.Error()}
 				debug = append(debug, debugMsg)
 				continue
 			}
@@ -187,7 +187,7 @@ func SRV(b ServiceBackend, zone string, state request.Request, opt Options) (rec
 				if e1 == nil {
 					extra = append(extra, m1.Answer...)
 				} else {
-					debugMsg := msg.Service{Key: msg.Path(srv.Target, "debug"), Host: srv.Target, Text: " IN A: " + e1.Error()}
+					debugMsg := msg.Service{Key: msg.Path(srv.Target, b.Debug()), Host: srv.Target, Text: " IN A: " + e1.Error()}
 					debug = append(debug, debugMsg)
 				}
 
@@ -200,7 +200,7 @@ func SRV(b ServiceBackend, zone string, state request.Request, opt Options) (rec
 						}
 					}
 				} else {
-					debugMsg := msg.Service{Key: msg.Path(srv.Target, "debug"), Host: srv.Target, Text: " IN AAAA: " + e1.Error()}
+					debugMsg := msg.Service{Key: msg.Path(srv.Target, b.Debug()), Host: srv.Target, Text: " IN AAAA: " + e1.Error()}
 					debug = append(debug, debugMsg)
 				}
 				break
@@ -231,6 +231,105 @@ func SRV(b ServiceBackend, zone string, state request.Request, opt Options) (rec
 	return records, extra, debug, nil
 }
 
+// MX returns MX records from the Backend. If the Target is not a name but an IP address, a name is created on the fly.
+func MX(b ServiceBackend, zone string, state request.Request, opt Options) (records, extra []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := b.Services(state, false, opt)
+	if err != nil {
+		return nil, nil, debug, err
+	}
+
+	lookup := make(map[string]bool)
+	for _, serv := range services {
+		if !serv.Mail {
+			continue
+		}
+		ip := net.ParseIP(serv.Host)
+		switch {
+		case ip == nil:
+			mx := serv.NewMX(state.QName())
+			records = append(records, mx)
+			if _, ok := lookup[mx.Mx]; ok {
+				break
+			}
+
+			lookup[mx.Mx] = true
+
+			if !dns.IsSubDomain(zone, mx.Mx) {
+				m1, e1 := b.Lookup(state, mx.Mx, dns.TypeA)
+				if e1 == nil {
+					extra = append(extra, m1.Answer...)
+				} else {
+					debugMsg := msg.Service{Key: msg.Path(mx.Mx, b.Debug()), Host: mx.Mx, Text: " IN A: " + e1.Error()}
+					debug = append(debug, debugMsg)
+				}
+				m1, e1 = b.Lookup(state, mx.Mx, dns.TypeAAAA)
+				if e1 == nil {
+					// If we have seen CNAME's we *assume* that they are already added.
+					for _, a := range m1.Answer {
+						if _, ok := a.(*dns.CNAME); !ok {
+							extra = append(extra, a)
+						}
+					}
+				} else {
+					debugMsg := msg.Service{Key: msg.Path(mx.Mx, b.Debug()), Host: mx.Mx, Text: " IN AAAA: " + e1.Error()}
+					debug = append(debug, debugMsg)
+				}
+				break
+			}
+			// Internal name
+			state1 := state.NewWithQuestion(mx.Mx, dns.TypeA)
+			addr, debugAddr, e1 := A(b, zone, state1, nil, opt)
+			if e1 == nil {
+				extra = append(extra, addr...)
+				debug = append(debug, debugAddr...)
+			}
+			// e.AAAA as well
+		case ip.To4() != nil:
+			serv.Host = msg.Domain(serv.Key)
+			records = append(records, serv.NewMX(state.QName()))
+			extra = append(extra, serv.NewA(serv.Host, ip.To4()))
+		case ip.To4() == nil:
+			serv.Host = msg.Domain(serv.Key)
+			records = append(records, serv.NewMX(state.QName()))
+			extra = append(extra, serv.NewAAAA(serv.Host, ip.To16()))
+		}
+	}
+	return records, extra, debug, nil
+}
+
+// CNAME returns CNAME records from the backend or an error.
+func CNAME(b ServiceBackend, zone string, state request.Request, opt Options) (records []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := b.Services(state, true, opt)
+	if err != nil {
+		return nil, debug, err
+	}
+
+	if len(services) > 0 {
+		serv := services[0]
+		if ip := net.ParseIP(serv.Host); ip == nil {
+			records = append(records, serv.NewCNAME(state.QName(), serv.Host))
+		}
+	}
+	return records, debug, nil
+}
+
+// TXT returns TXT records from Backend or an error.
+func TXT(b ServiceBackend, zone string, state request.Request, opt Options) (records []dns.RR, debug []msg.Service, err error) {
+	services, debug, err := b.Services(state, false, opt)
+	if err != nil {
+		return nil, debug, err
+	}
+
+	for _, serv := range services {
+		if serv.Text == "" {
+			continue
+		}
+		records = append(records, serv.NewTXT(state.QName()))
+	}
+	return records, debug, nil
+}
+
+// TODO(miek|infoblox): move k8s to this as well.
 // PTR returns the PTR records from the backend, only services that have a domain name as host are included.
 func PTR(b ServiceBackend, zone string, state request.Request, opt Options) (records []dns.RR, debug []msg.Service, err error) {
 	services, debug, err := b.Services(state, true, opt)

@@ -77,7 +77,7 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 				case "stubzones":
 					stubzones = true
 				case "debug":
-					etc.Debug = true
+					etc.Debugging = true
 				case "path":
 					if !c.NextArg() {
 						return &Etcd{}, false, c.ArgErr()
@@ -117,7 +117,7 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 					case "stubzones":
 						stubzones = true
 					case "debug":
-						etc.Debug = true
+						etc.Debugging = true
 					case "path":
 						if !c.NextArg() {
 							return &Etcd{}, false, c.ArgErr()

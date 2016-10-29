@@ -14,13 +14,13 @@ import (
 
 // ServeDNS implements the middleware.Handler interface.
 func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	opt := Options{}
+	opt := middleware.Options{}
 	state := request.Request{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
 		return dns.RcodeServerFailure, fmt.Errorf("can only deal with ClassINET")
 	}
 	name := state.Name()
-	if e.Debug {
+	if e.Debugging {
 		if debug := isDebug(name); debug != "" {
 			opt.Debug = r.Question[0].Name
 			state.Clear()
@@ -58,30 +58,30 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	)
 	switch state.Type() {
 	case "A":
-		records, debug, err = middleware.A(e, zone, state, nil, middleware.Options(opt))
+		records, debug, err = middleware.A(e, zone, state, nil, opt)
 	case "AAAA":
-		records, debug, err = middleware.AAAA(e, zone, state, nil, middleware.Options(opt))
+		records, debug, err = middleware.AAAA(e, zone, state, nil, opt)
 	case "TXT":
-		records, debug, err = e.TXT(zone, state, opt)
+		records, debug, err = middleware.TXT(e, zone, state, opt)
 	case "CNAME":
-		records, debug, err = e.CNAME(zone, state, opt)
+		records, debug, err = middleware.CNAME(e, zone, state, opt)
 	case "PTR":
-		records, debug, err = middleware.PTR(e, zone, state, middleware.Options(opt))
+		records, debug, err = middleware.PTR(e, zone, state, opt)
 	case "MX":
-		records, extra, debug, err = e.MX(zone, state, opt)
+		records, extra, debug, err = middleware.MX(e, zone, state, opt)
 	case "SRV":
-		records, extra, debug, err = middleware.SRV(e, zone, state, middleware.Options(opt))
+		records, extra, debug, err = middleware.SRV(e, zone, state, opt)
 	case "SOA":
-		records, debug, err = middleware.SOA(e, zone, state, middleware.Options(opt))
+		records, debug, err = middleware.SOA(e, zone, state, opt)
 	case "NS":
 		if state.Name() == zone {
-			records, extra, debug, err = middleware.NS(e, zone, state, middleware.Options(opt))
+			records, extra, debug, err = middleware.NS(e, zone, state, opt)
 			break
 		}
 		fallthrough
 	default:
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
-		_, debug, err = middleware.A(e, zone, state, nil, middleware.Options(opt))
+		_, debug, err = middleware.A(e, zone, state, nil, opt)
 	}
 
 	if opt.Debug != "" {
@@ -91,14 +91,14 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	if e.IsNameError(err) {
-		return middleware.BackendError(e, zone, dns.RcodeNameError, state, debug, err, middleware.Options(opt))
+		return middleware.BackendError(e, zone, dns.RcodeNameError, state, debug, err, opt)
 	}
 	if err != nil {
-		return middleware.BackendError(e, zone, dns.RcodeServerFailure, state, debug, err, middleware.Options(opt))
+		return middleware.BackendError(e, zone, dns.RcodeServerFailure, state, debug, err, opt)
 	}
 
 	if len(records) == 0 {
-		return middleware.BackendError(e, zone, dns.RcodeSuccess, state, debug, err, middleware.Options(opt))
+		return middleware.BackendError(e, zone, dns.RcodeSuccess, state, debug, err, opt)
 	}
 
 	m := new(dns.Msg)
