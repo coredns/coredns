@@ -20,21 +20,6 @@ func (k Kubernetes) records(state request.Request, exact bool) ([]msg.Service, e
 	return services, nil
 }
 
-// MX returns MX records from kubernetes. Not implemented!
-func (k Kubernetes) MX(zone string, state request.Request) (records []dns.RR, extra []dns.RR, err error) {
-	return nil, nil, err
-}
-
-// CNAME returns CNAME records from kubernetes. Not implemented!
-func (k Kubernetes) CNAME(zone string, state request.Request) (records []dns.RR, err error) {
-	return nil, err
-}
-
-// TXT returns TXT records from kubernetes. Not implemented!
-func (k Kubernetes) TXT(zone string, state request.Request) (records []dns.RR, err error) {
-	return nil, err
-}
-
 // PTR Record returns PTR records from kubernetes.
 func (k Kubernetes) PTR(zone string, state request.Request) ([]dns.RR, error) {
 	reverseIP := dnsutil.ExtractAddressFromReverse(state.Name())

@@ -60,14 +60,11 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	case "AAAA":
 		records, _, err = middleware.AAAA(&k, zone, state, nil, middleware.Options{})
 	case "TXT":
-		records, err = k.TXT(zone, state)
-		// TODO: change lookup to return appropriate error. Then add code below
-		// this switch to check for the error and return not implemented.
-		//return dns.RcodeNotImplemented, nil
+		records, _, err = middleware.TXT(&k, zone, state, middleware.Options{})
 	case "CNAME":
-		records, err = k.CNAME(zone, state)
+		records, _, err = middleware.CNAME(&k, zone, state, middleware.Options{})
 	case "MX":
-		records, extra, err = k.MX(zone, state)
+		records, extra, _, err = middleware.MX(&k, zone, state, middleware.Options{})
 	case "SRV":
 		records, extra, _, err = middleware.SRV(&k, zone, state, middleware.Options{})
 	case "SOA":

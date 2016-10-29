@@ -264,12 +264,6 @@ func symbolMatches(queryString string, candidateString string, wildcard bool) bo
 	return result
 }
 
-// kubernetesNameError checks if the error is ErrorCodeKeyNotFound from kubernetes.
-// TODO(infoblox): implement!
-func isKubernetesNameError(err error) bool {
-	return false
-}
-
 func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 	svcList, err := k.APIConn.svcLister.List(labels.Everything())
 	if err != nil {
