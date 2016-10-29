@@ -13,7 +13,8 @@ import (
 )
 
 // ServeDNS implements the middleware.Handler interface.
-func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (e *Etcd3) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	// Identical to "(e *Etcd) ServeDNS" ...
 	opt := middleware.Options{}
 	state := request.Request{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
@@ -34,7 +35,7 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	if e.Stubmap != nil && len(*e.Stubmap) > 0 {
 		for zone := range *e.Stubmap {
 			if middleware.Name(zone).Matches(name) {
-				stub := Stub{Etcd: e, Zone: zone}
+				stub := Stub{Etcd: e.Etcd, Zone: zone} // TODO(miek): this uses the etcd2 interface!!
 				return stub.ServeDNS(ctx, w, r)
 			}
 		}
@@ -118,4 +119,4 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 }
 
 // Name implements the Handler interface.
-func (e *Etcd) Name() string { return "etcd" }
+func (e *Etcd3) Name() string { return "etcd" }
