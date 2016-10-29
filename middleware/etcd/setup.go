@@ -31,6 +31,25 @@ func setup(c *caddy.Controller) error {
 	if err != nil {
 		return middleware.Error("etcd", err)
 	}
+
+	// If this is an etcd3 client wrap it in Etcd3.
+	if e.Client3 != nil {
+		e3 := &Etcd3{e}
+
+		if stubzones {
+			c.OnStartup(func() error {
+				e3.UpdateStubZones()
+				return nil
+			})
+		}
+
+		dnsserver.GetConfig(c).AddMiddleware(func(next middleware.Handler) middleware.Handler {
+			e3.Next = next
+			return e3
+		})
+		return nil
+	}
+
 	if stubzones {
 		c.OnStartup(func() error {
 			e.UpdateStubZones()
@@ -56,16 +75,15 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 		Stubmap:    &stub,
 	}
 	var (
-		client        etcdc.KeysAPI
 		tlsCertFile   = ""
 		tlsKeyFile    = ""
 		tlsCAcertFile = ""
 		endpoints     = []string{defaultEndpoint}
 		stubzones     = false
+		etcd3         = false
 	)
 	for c.Next() {
 		if c.Val() == "etcd" {
-			etc.Client = client
 			etc.Zones = c.RemainingArgs()
 			if len(etc.Zones) == 0 {
 				etc.Zones = make([]string, len(c.ServerBlockKeys))
@@ -77,6 +95,8 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 				switch c.Val() {
 				case "stubzones":
 					stubzones = true
+				case "etcd3":
+					etcd3 = true
 				case "debug":
 					etc.Debugging = true
 				case "path":
@@ -117,6 +137,8 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 					switch c.Val() {
 					case "stubzones":
 						stubzones = true
+					case "etcd3":
+						etcd3 = true
 					case "debug":
 						etc.Debugging = true
 					case "path":
@@ -162,6 +184,15 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 			}
 			etc.Client = client
 			etc.endpoints = endpoints
+
+			if etcd3 {
+				client3, err := newEtcd3Client(endpoints, tlsCertFile, tlsKeyFile, tlsCAcertFile)
+				if err != nil {
+					return &Etcd{}, false, err
+				}
+				etc.Client3 = client3
+			}
+
 			return &etc, stubzones, nil
 		}
 	}
@@ -180,14 +211,14 @@ func newEtcdClient(endpoints []string, tlsCert, tlsKey, tlsCACert string) (etcdc
 	return etcdc.NewKeysAPI(cli), nil
 }
 
-func newEtcd3Client(machines []string, tlsCert, tlsKey, tlsCACert string) (*etcdv3.Client, error) {
+func newEtcd3Client(machines []string, tlsCert, tlsKey, tlsCACert string) (*etcdc3.Client, error) {
 
-	// Get this as a transport and then extrac the (only needed) TLS config
-	transport := newHTTPSTransport(tlsCertFile, tlsKeyFile, tlsCACertFile)
+	// Get this as a transport and then extract the (only needed) TLS config.
+	transport := newHTTPSTransport(tlsCert, tlsKey, tlsCACert)
 
 	etcd3Cfg := etcdc3.Config{
 		Endpoints: machines,
-		TLS:       transport.TLSClientConfig,
+		TLS:       transport.(*http.Transport).TLSClientConfig,
 	}
 	cli, err := etcdc3.New(etcd3Cfg)
 	if err != nil {

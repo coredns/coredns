@@ -14,6 +14,7 @@ import (
 	"github.com/miekg/coredns/request"
 
 	etcdc "github.com/coreos/etcd/client"
+	etcdc3 "github.com/coreos/etcd/clientv3"
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 )
@@ -24,11 +25,14 @@ type Etcd struct {
 	Zones      []string
 	PathPrefix string
 	Proxy      proxy.Proxy // Proxy for looking up names during the resolution process
-	Client     etcdc.KeysAPI
-	Ctx        context.Context
-	Inflight   *singleflight.Group
-	Stubmap    *map[string]proxy.Proxy // list of proxies for stub resolving.
-	Debugging  bool                    // Do we allow debug queries.
+
+	Client  etcdc.KeysAPI
+	Client3 *etcdc3.Client
+
+	Ctx       context.Context
+	Inflight  *singleflight.Group
+	Stubmap   *map[string]proxy.Proxy // list of proxies for stub resolving.
+	Debugging bool                    // Do we allow debug queries.
 
 	endpoints []string // Stored here as well, to aid in testing.
 }
@@ -81,18 +85,6 @@ func (e *Etcd) Records(name string, exact bool) ([]msg.Service, error) {
 	default:
 		return e.loopNodes([]*etcdc.Node{r.Node}, segments, false, nil)
 	}
-}
-
-func (e *Etcd) records(state request.Request, exact bool, opt middleware.Options) (services, debug []msg.Service, err error) {
-	services, err = e.Records(state.Name(), exact)
-	if err != nil {
-		return
-	}
-	if opt.Debug != "" {
-		debug = services
-	}
-	services = msg.Group(services)
-	return
 }
 
 // get is a wrapper for client.Get that uses SingleInflight to suppress multiple outstanding queries.
@@ -187,14 +179,6 @@ func (e *Etcd) TTL(node *etcdc.Node, serv *msg.Service) uint32 {
 		return etcdTTL
 	}
 	return serv.TTL
-}
-
-// etcNameError checks if the error is ErrorCodeKeyNotFound from etcd.
-func isEtcdNameError(err error) bool {
-	if e, ok := err.(etcdc.Error); ok && e.Code == etcdc.ErrorCodeKeyNotFound {
-		return true
-	}
-	return false
 }
 
 const (
