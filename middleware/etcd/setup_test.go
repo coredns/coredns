@@ -96,7 +96,8 @@ func TestLookup(t *testing.T) {
 func newEtcd3Middleware() *Etcd3 {
 	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
 
-	endpoints := []string{"http://localhost:2379"}
+	// We run etcd3 on this port to not interfere with etcd2 running on 2379
+	endpoints := []string{"http://localhost:32379"}
 	client3, _ := newEtcd3Client(endpoints, "", "", "")
 
 	e := &Etcd{
@@ -125,17 +126,17 @@ func delete3(t *testing.T, e *Etcd3, k string) {
 }
 
 func TestLookup3(t *testing.T) {
-	etc := newEtcd3Middleware()
+	etc3 := newEtcd3Middleware()
 	for _, serv := range services {
-		set3(t, etc, serv.Key, 0, serv)
-		defer delete3(t, etc, serv.Key)
+		set3(t, etc3, serv.Key, 0, serv)
+		defer delete3(t, etc3, serv.Key)
 	}
 
 	for _, tc := range dnsTestCases {
 		m := tc.Msg()
 
 		rec := dnsrecorder.New(&test.ResponseWriter{})
-		_, err := etc.ServeDNS(ctxt, rec, m)
+		_, err := etc3.ServeDNS(ctxt, rec, m)
 		if err != nil {
 			t.Errorf("expected no error, got: %v for %s %s\n", err, m.Question[0].Name, dns.Type(m.Question[0].Qtype))
 			return
