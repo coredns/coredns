@@ -60,22 +60,22 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	case "A":
 		records, debug, err = middleware.A(e, zone, state, nil, middleware.Options(opt))
 	case "AAAA":
-		records, debug, err = e.AAAA(zone, state, nil, opt)
+		records, debug, err = middleware.AAAA(e, zone, state, nil, middleware.Options(opt))
 	case "TXT":
 		records, debug, err = e.TXT(zone, state, opt)
 	case "CNAME":
 		records, debug, err = e.CNAME(zone, state, opt)
 	case "PTR":
-		records, debug, err = e.PTR(zone, state, opt)
+		records, debug, err = middleware.PTR(e, zone, state, middleware.Options(opt))
 	case "MX":
 		records, extra, debug, err = e.MX(zone, state, opt)
 	case "SRV":
-		records, extra, debug, err = e.SRV(zone, state, opt)
+		records, extra, debug, err = middleware.SRV(e, zone, state, middleware.Options(opt))
 	case "SOA":
-		records, debug, err = e.SOA(zone, state, opt)
+		records, debug, err = middleware.SOA(e, zone, state, middleware.Options(opt))
 	case "NS":
 		if state.Name() == zone {
-			records, extra, debug, err = e.NS(zone, state, opt)
+			records, extra, debug, err = middleware.NS(e, zone, state, middleware.Options(opt))
 			break
 		}
 		fallthrough
@@ -90,15 +90,15 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		state.Req.Question[0].Name = opt.Debug
 	}
 
-	if isEtcdNameError(err) {
-		return e.Err(zone, dns.RcodeNameError, state, debug, err, opt)
+	if e.IsNameError(err) {
+		return middleware.BackendError(e, zone, dns.RcodeNameError, state, debug, err, middleware.Options(opt))
 	}
 	if err != nil {
-		return e.Err(zone, dns.RcodeServerFailure, state, debug, err, opt)
+		return middleware.BackendError(e, zone, dns.RcodeServerFailure, state, debug, err, middleware.Options(opt))
 	}
 
 	if len(records) == 0 {
-		return e.Err(zone, dns.RcodeSuccess, state, debug, err, opt)
+		return middleware.BackendError(e, zone, dns.RcodeSuccess, state, debug, err, middleware.Options(opt))
 	}
 
 	m := new(dns.Msg)
@@ -107,7 +107,7 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	m.Answer = append(m.Answer, records...)
 	m.Extra = append(m.Extra, extra...)
 	if opt.Debug != "" {
-		m.Extra = append(m.Extra, servicesToTxt(debug)...)
+		m.Extra = append(m.Extra, middleware.ServicesToTxt(debug)...)
 	}
 
 	m = dnsutil.Dedup(m)
@@ -119,22 +119,3 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 // Name implements the Handler interface.
 func (e *Etcd) Name() string { return "etcd" }
-
-// Err write an error response to the client.
-func (e *Etcd) Err(zone string, rcode int, state request.Request, debug []msg.Service, err error, opt Options) (int, error) {
-	m := new(dns.Msg)
-	m.SetRcode(state.Req, rcode)
-	m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
-	m.Ns, _, _ = e.SOA(zone, state, opt)
-	if opt.Debug != "" {
-		m.Extra = servicesToTxt(debug)
-		txt := errorToTxt(err)
-		if txt != nil {
-			m.Extra = append(m.Extra, errorToTxt(err))
-		}
-	}
-	state.SizeAndDo(m)
-	state.W.WriteMsg(m)
-	// Return success as the rcode to signal we have written to the client.
-	return dns.RcodeSuccess, nil
-}

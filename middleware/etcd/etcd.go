@@ -195,7 +195,5 @@ func isEtcdNameError(err error) bool {
 const (
 	priority    = 10  // default priority when nothing is set
 	ttl         = 300 // default ttl when nothing is set
-	minTTL      = 60
-	hostmaster  = "hostmaster"
 	etcdTimeout = 5 * time.Second
 )

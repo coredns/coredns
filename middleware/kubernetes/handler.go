@@ -23,6 +23,8 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
 
 	// TODO: find an alternative to this block
+	// TODO(miek): Why is this even here, why does the path Etcd takes not work?
+	// Should be a "case PTR" below. I would also like to use middleware.PTR for this.
 	ip := dnsutil.ExtractAddressFromReverse(state.Name())
 	if ip != "" {
 		records := k.getServiceRecordForIP(ip, state.Name())
@@ -56,7 +58,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	case "A":
 		records, _, err = middleware.A(&k, zone, state, nil, middleware.Options{}) // Hmm wrt to '&k'
 	case "AAAA":
-		records, err = k.AAAA(zone, state, nil)
+		records, _, err = middleware.AAAA(&k, zone, state, nil, middleware.Options{})
 	case "TXT":
 		records, err = k.TXT(zone, state)
 		// TODO: change lookup to return appropriate error. Then add code below
@@ -67,12 +69,12 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	case "MX":
 		records, extra, err = k.MX(zone, state)
 	case "SRV":
-		records, extra, err = k.SRV(zone, state)
+		records, extra, _, err = middleware.SRV(&k, zone, state, middleware.Options{})
 	case "SOA":
-		records = []dns.RR{k.SOA(zone, state)}
+		records, _, err = middleware.SOA(&k, zone, state, middleware.Options{})
 	case "NS":
 		if state.Name() == zone {
-			records, extra, err = k.NS(zone, state)
+			records, extra, _, err = middleware.NS(&k, zone, state, middleware.Options{})
 			break
 		}
 		fallthrough
@@ -80,15 +82,15 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
 		_, _, err = middleware.A(&k, zone, state, nil, middleware.Options{})
 	}
-	if isKubernetesNameError(err) {
-		return k.Err(zone, dns.RcodeNameError, state)
+	if k.IsNameError(err) {
+		return middleware.BackendError(&k, zone, dns.RcodeNameError, state, nil /*debug*/, err, middleware.Options{})
 	}
 	if err != nil {
 		return dns.RcodeServerFailure, err
 	}
 
 	if len(records) == 0 {
-		return k.Err(zone, dns.RcodeSuccess, state)
+		return middleware.BackendError(&k, zone, dns.RcodeSuccess, state, nil /*debug*/, nil, middleware.Options{})
 	}
 
 	m.Answer = append(m.Answer, records...)
@@ -103,13 +105,3 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 
 // Name implements the Handler interface.
 func (k Kubernetes) Name() string { return "kubernetes" }
-
-// Err writes an error response back to the client.
-func (k Kubernetes) Err(zone string, rcode int, state request.Request) (int, error) {
-	m := new(dns.Msg)
-	m.SetRcode(state.Req, rcode)
-	m.Ns = []dns.RR{k.SOA(zone, state)}
-	state.SizeAndDo(m)
-	state.W.WriteMsg(m)
-	return rcode, nil
-}

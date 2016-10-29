@@ -126,6 +126,6 @@ Signalling that an A record for www.example.org. was sought, but it failed with 
 
 Any errors seen doing parsing will show up like this:
 
-    . 0 CH TXT "//local/skydns/r/a: invalid character '.' after object key:value pair"
+    . 0 CH TXT "/debug/local/skydns/r/a: invalid character '.' after object key:value pair"
 
 which shows `a.r.skydns.local.` has a json encoding problem.
