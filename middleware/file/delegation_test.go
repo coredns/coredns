@@ -32,6 +32,28 @@ var delegationTestCases = []test.Case{
 		},
 	},
 	{
+		Qname: "foo.delegated.miek.nl.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
+			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+		},
+		Extra: []dns.RR{
+			test.A("a.delegated.miek.nl. 1800 IN A 139.162.196.78"),
+			test.AAAA("a.delegated.miek.nl. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
+		},
+	},
+	{
+		Qname: "foo.delegated.miek.nl.", Qtype: dns.TypeTXT,
+		Answer: []dns.RR{
+			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
+			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+		},
+		Extra: []dns.RR{
+			test.A("a.delegated.miek.nl. 1800 IN A 139.162.196.78"),
+			test.AAAA("a.delegated.miek.nl. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
+		},
+	},
+	{
 		Qname: "miek.nl.", Qtype: dns.TypeSOA,
 		Answer: []dns.RR{
 			test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
@@ -45,16 +67,59 @@ var delegationTestCases = []test.Case{
 	},
 }
 
+var secureDelegationTestCases = []test.Case{
+	{
+		Qname: "a.delegated.example.org.", Qtype: dns.TypeTXT,
+		Do: true,
+		Ns: []dns.RR{
+			test.NS("delegated.example.org.	1800	IN	NS	a.delegated.example.org."),
+			test.NS("delegated.example.org.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+		},
+		Extra: []dns.RR{
+			test.A("a.delegated.example.org. 1800 IN A 139.162.196.78"),
+			test.AAAA("a.delegated.example.org. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
+		},
+	},
+	{
+		Qname: "delegated.example.org.", Qtype: dns.TypeNS,
+		Do: true,
+		Answer: []dns.RR{
+			test.NS("delegated.example.org.	1800	IN	NS	a.delegated.example.org."),
+			test.NS("delegated.example.org.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+		},
+	},
+	{
+		Qname: "foo.delegated.example.org.", Qtype: dns.TypeA,
+		Do: true,
+		Ns: []dns.RR{
+			test.NS("delegated.example.org.	1800	IN	NS	a.delegated.example.org."),
+			test.NS("delegated.example.org.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+		},
+		Extra: []dns.RR{
+			test.A("a.delegated.example.org. 1800 IN A 139.162.196.78"),
+			test.AAAA("a.delegated.example.org. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
+		},
+	},
+}
+
 func TestLookupDelegation(t *testing.T) {
-	zone, err := Parse(strings.NewReader(dbMiekNLDelegation), testzone, "stdin")
+	testDelegation(t, dbMiekNLDelegation, testzone, delegationTestCases)
+}
+
+func TestLookupSecureDelegation(t *testing.T) {
+	testDelegation(t, ExampleOrgSigned, "example.org.", secureDelegationTestCases)
+}
+
+func testDelegation(t *testing.T, z, origin string, testcases []test.Case) {
+	zone, err := Parse(strings.NewReader(z), origin, "stdin")
 	if err != nil {
 		t.Fatalf("expect no error when reading zone, got %q", err)
 	}
 
-	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{testzone: zone}, Names: []string{testzone}}}
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{origin: zone}, Names: []string{origin}}}
 	ctx := context.TODO()
 
-	for _, tc := range delegationTestCases {
+	for _, tc := range testcases {
 		m := tc.Msg()
 
 		rec := dnsrecorder.New(&test.ResponseWriter{})
