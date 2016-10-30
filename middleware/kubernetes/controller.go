@@ -5,12 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/cache"
-	clientset_generated "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_4"
-	"k8s.io/kubernetes/pkg/labels"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/client-go/1.5/kubernetes"
+	"k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/pkg/api/v1"
+	"k8s.io/client-go/1.5/pkg/labels"
+	"k8s.io/client-go/1.5/pkg/runtime"
+	"k8s.io/client-go/1.5/pkg/watch"
+	"k8s.io/client-go/1.5/tools/cache"
 )
 
 var (
@@ -31,7 +32,7 @@ func (s *storeToNamespaceLister) List() (ns api.NamespaceList, err error) {
 }
 
 type dnsController struct {
-	client *clientset_generated.Clientset
+	client *kubernetes.Clientset
 
 	selector *labels.Selector
 
@@ -52,7 +53,7 @@ type dnsController struct {
 }
 
 // newDNSController creates a controller for CoreDNS.
-func newdnsController(kubeClient *clientset_generated.Clientset, resyncPeriod time.Duration, lselector *labels.Selector) *dnsController {
+func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Duration, lselector *labels.Selector) *dnsController {
 	dns := dnsController{
 		client:   kubeClient,
 		selector: lselector,
@@ -64,14 +65,14 @@ func newdnsController(kubeClient *clientset_generated.Clientset, resyncPeriod ti
 			ListFunc:  endpointsListFunc(dns.client, namespace, dns.selector),
 			WatchFunc: endpointsWatchFunc(dns.client, namespace, dns.selector),
 		},
-		&api.Endpoints{}, resyncPeriod, cache.ResourceEventHandlerFuncs{})
+		&v1.Endpoints{}, resyncPeriod, cache.ResourceEventHandlerFuncs{})
 
 	dns.svcLister.Indexer, dns.svcController = cache.NewIndexerInformer(
 		&cache.ListWatch{
 			ListFunc:  serviceListFunc(dns.client, namespace, dns.selector),
 			WatchFunc: serviceWatchFunc(dns.client, namespace, dns.selector),
 		},
-		&api.Service{},
+		&v1.Service{},
 		resyncPeriod,
 		cache.ResourceEventHandlerFuncs{},
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
@@ -81,67 +82,69 @@ func newdnsController(kubeClient *clientset_generated.Clientset, resyncPeriod ti
 			ListFunc:  namespaceListFunc(dns.client, dns.selector),
 			WatchFunc: namespaceWatchFunc(dns.client, dns.selector),
 		},
-		&api.Namespace{}, resyncPeriod, cache.ResourceEventHandlerFuncs{})
+		&v1.Namespace{}, resyncPeriod, cache.ResourceEventHandlerFuncs{})
 
 	return &dns
 }
 
-func serviceListFunc(c *clientset_generated.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
+func serviceListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
 	return func(opts api.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = *s
 		}
-		return c.Services(ns).List(opts)
+		return c.Core().Services(ns).List(opts)
 	}
 }
 
-func serviceWatchFunc(c *clientset_generated.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
+func serviceWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
 	return func(options api.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = *s
 		}
-		return c.Services(ns).Watch(options)
+		return c.Core().Services(ns).Watch(options)
 	}
 }
 
-func endpointsListFunc(c *clientset_generated.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
+func endpointsListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
 	return func(opts api.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = *s
 		}
-		return c.Endpoints(ns).List(opts)
+		return c.Core().Endpoints(ns).List(opts)
 	}
 }
 
-func endpointsWatchFunc(c *clientset_generated.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
+func endpointsWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
 	return func(options api.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = *s
 		}
-		return c.Endpoints(ns).Watch(options)
+		return c.Core().Endpoints(ns).Watch(options)
 	}
 }
 
-func namespaceListFunc(c *clientset_generated.Clientset, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
+func namespaceListFunc(c *kubernetes.Clientset, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
 	return func(opts api.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = *s
 		}
-		return c.Namespaces().List(opts)
+		return c.Core().Namespaces().List(opts)
 	}
 }
 
-func namespaceWatchFunc(c *clientset_generated.Clientset, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
+func namespaceWatchFunc(c *kubernetes.Clientset, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
 	return func(options api.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = *s
 		}
-		return c.Namespaces().Watch(options)
+		return c.Core().Namespaces().Watch(options)
 	}
 }
 
 func (dns *dnsController) controllersInSync() bool {
-	return dns.svcController.HasSynced() && dns.endpController.HasSynced()
+	return dns.svcController.HasSynced() &&
+		dns.endpController.HasSynced() &&
+		dns.nsController.HasSynced()
 }
 
 // Stop stops the  controller.

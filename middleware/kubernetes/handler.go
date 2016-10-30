@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/miekg/coredns/middleware"
+	"github.com/miekg/coredns/middleware/etcd/msg"
 	"github.com/miekg/coredns/middleware/pkg/dnsutil"
 	"github.com/miekg/coredns/request"
 
@@ -102,3 +103,25 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 
 // Name implements the Handler interface.
 func (k Kubernetes) Name() string { return "kubernetes" }
+
+// Services implements the ServiceBackend interface.
+func (k Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
+	s, e := k.Records(state.Name(), exact)
+	return s, nil, e // Haven't implemented debug queries yet.
+}
+
+// Lookup implements the ServiceBackend interface.
+func (k Kubernetes) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
+	return k.Proxy.Lookup(state, name, typ)
+}
+
+// IsNameError implements the ServiceBackend interface.
+// TODO(infoblox): implement!
+func (k Kubernetes) IsNameError(err error) bool {
+	return false
+}
+
+// Debug implements the ServiceBackend interface.
+func (k Kubernetes) Debug() string {
+	return "debug"
+}
