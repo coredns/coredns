@@ -27,7 +27,6 @@ func setup(c *caddy.Controller) error {
 		return middleware.Error("kubernetes", err)
 	}
 
-	// Why is this not an onStartup thing? TODO(inflobox)
 	err = kubernetes.InitKubeCache()
 	if err != nil {
 		return middleware.Error("kubernetes", err)
