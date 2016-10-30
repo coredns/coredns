@@ -44,12 +44,12 @@ func (c *Cache) get(qname string, qtype uint16, do bool) (*item, bool, bool) {
 	k := rawKey(qname, qtype, do)
 
 	if i, ok := c.ncache.Get(k); ok {
-		cacheMisses.WithLabelValues(Denial).Inc()
+		cacheHits.WithLabelValues(Denial).Inc()
 		return i.(*item), ok, i.(*item).expired(time.Now())
 	}
 
 	if i, ok := c.pcache.Get(k); ok {
-		cacheMisses.WithLabelValues(Success).Inc()
+		cacheHits.WithLabelValues(Success).Inc()
 		return i.(*item), ok, i.(*item).expired(time.Now())
 	}
 	cacheMisses.Inc()
