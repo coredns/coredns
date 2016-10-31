@@ -52,15 +52,6 @@ func (e *Elem) Name() string {
 	return ""
 }
 
-// IsWildcard returns true if this name starts with a wildcard label (*.)
-func (e *Elem) IsWildcard() bool {
-	n := e.Name()
-	if len(n) < 2 {
-		return false
-	}
-	return n[0] == '*' && n[1] == '.'
-}
-
 // Insert inserts rr into e. If rr is equal to existing rrs this is a noop.
 func (e *Elem) Insert(rr dns.RR) {
 	t := rr.Header().Rrtype

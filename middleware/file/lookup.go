@@ -18,8 +18,6 @@ const (
 	Delegation
 	// NoData indicates the lookup resulted in a NODATA.
 	NoData
-	// ServerFailure indicates a server failure during the lookup.
-	ServerFailure
 )
 
 // Lookup looks up qname and qtype in the zone. When do is true DNSSEC records are included.
@@ -53,6 +51,11 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 	if !z.NoReload {
 		z.reloadMu.RLock()
 	}
+
+	// Lookups
+	// * per label from the right, first make it a wildcard, then the proper one
+	// * hit for either check types, special case cname and dname and friends
+	// * for delegation i.e. NS records, get DS
 
 	elem, res := z.Tree.Search(qname, qtype)
 	if !z.NoReload {
