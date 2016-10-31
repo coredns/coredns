@@ -196,3 +196,8 @@ func (z *Zone) Reload() error {
 	}()
 	return nil
 }
+
+// Print prints the zone's tree to stdout.
+func (z *Zone) Print() {
+	z.Tree.Print()
+}

@@ -33,7 +33,7 @@ var delegationTestCases = []test.Case{
 	},
 	{
 		Qname: "foo.delegated.miek.nl.", Qtype: dns.TypeA,
-		Answer: []dns.RR{
+		Ns: []dns.RR{
 			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
 			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
 		},
@@ -44,7 +44,7 @@ var delegationTestCases = []test.Case{
 	},
 	{
 		Qname: "foo.delegated.miek.nl.", Qtype: dns.TypeTXT,
-		Answer: []dns.RR{
+		Ns: []dns.RR{
 			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
 			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
 		},
@@ -100,6 +100,18 @@ var secureDelegationTestCases = []test.Case{
 			test.AAAA("a.delegated.example.org. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
 		},
 	},
+	{
+		Qname: "foo.delegated.example.org.", Qtype: dns.TypeTXT,
+		Do: true,
+		Ns: []dns.RR{
+			test.NS("delegated.example.org.	1800	IN	NS	a.delegated.example.org."),
+			test.NS("delegated.example.org.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+		},
+		Extra: []dns.RR{
+			test.A("a.delegated.example.org. 1800 IN A 139.162.196.78"),
+			test.AAAA("a.delegated.example.org. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
+		},
+	},
 }
 
 func TestLookupDelegation(t *testing.T) {
@@ -107,7 +119,7 @@ func TestLookupDelegation(t *testing.T) {
 }
 
 func TestLookupSecureDelegation(t *testing.T) {
-	testDelegation(t, ExampleOrgSigned, "example.org.", secureDelegationTestCases)
+	testDelegation(t, exampleOrgSigned, "example.org.", secureDelegationTestCases)
 }
 
 func testDelegation(t *testing.T, z, origin string, testcases []test.Case) {
@@ -125,7 +137,7 @@ func testDelegation(t *testing.T, z, origin string, testcases []test.Case) {
 		rec := dnsrecorder.New(&test.ResponseWriter{})
 		_, err := fm.ServeDNS(ctx, rec, m)
 		if err != nil {
-			t.Errorf("expected no error, got %v\n", err)
+			t.Errorf("expected no error, got %q\n", err)
 			return
 		}
 

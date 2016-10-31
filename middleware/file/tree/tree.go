@@ -188,7 +188,7 @@ func (n *Node) search(qname string, qtype uint16, glue bool) (*Node, Result) {
 
 	for n != nil {
 
-		// Is this a wildcard that applies to us
+		// Is this a wildcard that applies to us?
 		if n.Elem.IsWildcard() {
 			if dns.IsSubDomain(n.Elem.Name()[2:], qname) {
 				wild = n
