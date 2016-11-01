@@ -92,9 +92,13 @@ var secureDelegationTestCases = []test.Case{
 		Qname: "delegated.example.org.", Qtype: dns.TypeNS,
 		Do: true,
 		Answer: []dns.RR{
-			test.OPT(4096, true),
 			test.NS("delegated.example.org.	1800	IN	NS	a.delegated.example.org."),
 			test.NS("delegated.example.org.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+		},
+		Extra: []dns.RR{
+			test.OPT(4096, true),
+			test.A("a.delegated.example.org. 1800 IN A 139.162.196.78"),
+			test.AAAA("a.delegated.example.org. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
 		},
 	},
 	{

@@ -8,10 +8,13 @@ type Elem struct {
 	name string // owner name
 }
 
-// newElem returns a new elem.
-func newElem(rr dns.RR) *Elem {
+// newElem returns a new elem. If not rr is given an empty non-terminal
+// is created.
+func newElem(rr ...dns.RR) *Elem {
 	e := Elem{m: make(map[uint16][]dns.RR)}
-	e.m[rr.Header().Rrtype] = []dns.RR{rr}
+	if len(rr) == 1 {
+		e.m[rr[0].Header().Rrtype] = []dns.RR{rr[0]}
+	}
 	return &e
 }
 

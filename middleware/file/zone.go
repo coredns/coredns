@@ -17,8 +17,9 @@ import (
 
 // Zone defines a structure that contains all data related to a DNS zone.
 type Zone struct {
-	origin string
-	file   string
+	origin  string
+	origLen int
+	file    string
 	*tree.Tree
 	Apex Apex
 
@@ -44,6 +45,7 @@ type Apex struct {
 func NewZone(name, file string) *Zone {
 	z := &Zone{
 		origin:         dns.Fqdn(name),
+		origLen:        dns.CountLabel(dns.Fqdn(name)),
 		file:           path.Clean(file),
 		Tree:           &tree.Tree{},
 		Expired:        new(bool),
@@ -102,6 +104,12 @@ func (z *Zone) Insert(r dns.RR) error {
 	case dns.TypeSRV:
 		r.(*dns.SRV).Target = strings.ToLower(r.(*dns.SRV).Target)
 	}
+
+	if _, ok := z.isNonTerminal(r.Header().Name); ok {
+		println("EMPTY NONTERMALLAA", r.Header().Name)
+		// Insert the empty non-terminals z.Tree.Insert(name, r)
+	}
+
 	z.Tree.Insert(r)
 	return nil
 }
@@ -210,9 +218,7 @@ func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 		return z.origin, false
 	}
 
-	// TODO(miek): Optimize to store count of labels in origin.
-	origLen := dns.CountLabel(z.origin)
-	for j := 1; j <= origLen; j++ {
+	for j := 1; j <= z.origLen; j++ {
 		if _, shot := dns.PrevLabel(qname, j); shot {
 			return qname, shot
 		}
@@ -221,10 +227,32 @@ func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 	k := 0
 	shot := false
 	for j := 1; j <= i; j++ {
-		k, shot = dns.PrevLabel(qname, j+origLen)
+		k, shot = dns.PrevLabel(qname, j+z.origLen)
 		if shot {
 			return qname, shot
 		}
 	}
 	return qname[k:], false
+}
+
+// isNonTerminal returns the empty non terminal name and true if qname contains
+// an empty non terminal. This means the qname is more than one (or more)
+// labels longer then the zone's origin.
+func (z *Zone) isNonTerminal(qname string) ([]string, bool) {
+	qnameLen := dns.CountLabel(qname)
+
+	// a.b.example.org -> b.example.org
+	// a.b.c.example.org -> b.example.org and c.example.org
+	if qnameLen > z.origLen+1 {
+		// Skip first label from the right.
+		i, _ := dns.NextLabel(qname, 0)
+		ent := []string{}
+		for j := 0; j < qnameLen-z.origLen-1; j++ {
+			ent = append(ent, qname[i:])
+			i, _ = dns.NextLabel(qname, i)
+		}
+		return ent, true
+	}
+
+	return nil, false
 }
