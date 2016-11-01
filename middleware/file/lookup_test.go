@@ -39,35 +39,37 @@ var dnsTestCases = []test.Case{
 			test.AAAA("miek.nl.	1800	IN	AAAA	2a01:7e00::f03c:91ff:fef1:6735"),
 		},
 	},
-	{
-		Qname: "mIeK.NL.", Qtype: dns.TypeAAAA,
-		Answer: []dns.RR{
-			test.AAAA("miek.nl.	1800	IN	AAAA	2a01:7e00::f03c:91ff:fef1:6735"),
+	/*
+		{
+			Qname: "mIeK.NL.", Qtype: dns.TypeAAAA,
+			Answer: []dns.RR{
+				test.AAAA("miek.nl.	1800	IN	AAAA	2a01:7e00::f03c:91ff:fef1:6735"),
+			},
 		},
-	},
-	{
-		Qname: "miek.nl.", Qtype: dns.TypeMX,
-		Answer: []dns.RR{
-			test.MX("miek.nl.	1800	IN	MX	1 aspmx.l.google.com."),
-			test.MX("miek.nl.	1800	IN	MX	10 aspmx2.googlemail.com."),
-			test.MX("miek.nl.	1800	IN	MX	10 aspmx3.googlemail.com."),
-			test.MX("miek.nl.	1800	IN	MX	5 alt1.aspmx.l.google.com."),
-			test.MX("miek.nl.	1800	IN	MX	5 alt2.aspmx.l.google.com."),
+		{
+			Qname: "miek.nl.", Qtype: dns.TypeMX,
+			Answer: []dns.RR{
+				test.MX("miek.nl.	1800	IN	MX	1 aspmx.l.google.com."),
+				test.MX("miek.nl.	1800	IN	MX	10 aspmx2.googlemail.com."),
+				test.MX("miek.nl.	1800	IN	MX	10 aspmx3.googlemail.com."),
+				test.MX("miek.nl.	1800	IN	MX	5 alt1.aspmx.l.google.com."),
+				test.MX("miek.nl.	1800	IN	MX	5 alt2.aspmx.l.google.com."),
+			},
 		},
-	},
-	{
-		Qname: "a.miek.nl.", Qtype: dns.TypeSRV,
-		Ns: []dns.RR{
-			test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+		{
+			Qname: "a.miek.nl.", Qtype: dns.TypeSRV,
+			Ns: []dns.RR{
+				test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+			},
 		},
-	},
-	{
-		Qname: "b.miek.nl.", Qtype: dns.TypeA,
-		Rcode: dns.RcodeNameError,
-		Ns: []dns.RR{
-			test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+		{
+			Qname: "b.miek.nl.", Qtype: dns.TypeA,
+			Rcode: dns.RcodeNameError,
+			Ns: []dns.RR{
+				test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+			},
 		},
-	},
+	*/
 }
 
 const (

@@ -14,7 +14,8 @@ func TestNameFromRight(t *testing.T) {
 		{"example.org.", 0, false, "example.org."},
 		{"a.example.org.", 0, false, "example.org."},
 		{"a.example.org.", 1, false, "a.example.org."},
-		{"a.example.org.", 2, true, "example.org."},
+		{"a.example.org.", 2, true, "a.example.org."},
+		{"a.b.example.org.", 2, false, "a.b.example.org."},
 	}
 
 	for i, tc := range tests {
@@ -23,7 +24,7 @@ func TestNameFromRight(t *testing.T) {
 			t.Errorf("Test %d: expected %s, got %s\n", i, tc.expected, got)
 		}
 		if shot != tc.shot {
-			t.Errorf("Test %d: expected overshot, got %b\n", i, tc.shot, shot)
+			t.Errorf("Test %d: expected shot to be %t, got %t\n", i, tc.shot, shot)
 		}
 	}
 }

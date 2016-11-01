@@ -214,16 +214,16 @@ func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 	origLen := dns.CountLabel(z.origin)
 	for j := 1; j <= origLen; j++ {
 		if _, shot := dns.PrevLabel(qname, j); shot {
-			return z.origin, shot
+			return qname, shot
 		}
 	}
 
 	k := 0
 	shot := false
-	for j := 1 + origLen; j <= i; j++ {
-		k, shot = dns.PrevLabel(qname, j)
+	for j := 1; j <= i; j++ {
+		k, shot = dns.PrevLabel(qname, j+origLen)
 		if shot {
-			return z.origin, shot
+			return qname, shot
 		}
 	}
 	return qname[k:], false
