@@ -53,32 +53,28 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 	}
 
 	// Lookups
-	// * per label from the right, first make it a wildcard, then the proper one
+	// * per label from the right, start with the zone name
+	// when found; check NS records
+	//
+	// first not found, try wildcard, *.+name
+	// check NS records + DS
+	// complete found, chceck types
+
 	// * hit for either check types, special case cname and dname and friends
 	// * for delegation i.e. NS records, get DS
 
-	elem, res := z.Tree.Search(qname, qtype)
+	elem, _ := z.Tree.Search(qname, qtype)
 	if !z.NoReload {
 		z.reloadMu.RUnlock()
 	}
 
 	if elem == nil {
-		if res == tree.EmptyNonTerminal {
-			return z.emptyNonTerminal(qname, do)
-		}
+		return z.emptyNonTerminal(qname, do)
 		return z.nameError(qname, qtype, do)
-	}
-	if res == tree.Delegation {
 		rrs := elem.Types(dns.TypeNS)
 		glue := []dns.RR{}
 		for _, ns := range rrs {
 			if dns.IsSubDomain(ns.Header().Name, ns.(*dns.NS).Ns) {
-				// Even with Do, this should be unsigned.
-				elem, res := z.Tree.SearchGlue(ns.(*dns.NS).Ns)
-				if res == tree.Found {
-					glue = append(glue, elem.Types(dns.TypeAAAA)...)
-					glue = append(glue, elem.Types(dns.TypeA)...)
-				}
 			}
 		}
 		return nil, rrs, glue, Delegation

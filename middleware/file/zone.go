@@ -201,3 +201,30 @@ func (z *Zone) Reload() error {
 func (z *Zone) Print() {
 	z.Tree.Print()
 }
+
+// NameFromRight returns the labels from the right, staring with the
+// origin and then i labels extra. When we are overshooting the name
+// the returned boolean is set to true.
+func (z *Zone) NameFromRight(qname string, i int) (string, bool) {
+	if i <= 0 {
+		return z.origin, false
+	}
+
+	// TODO(miek): Optimize to store count of labels in origin.
+	origLen := dns.CountLabel(z.origin)
+	for j := 1; j <= origLen; j++ {
+		if _, shot := dns.PrevLabel(qname, j); shot {
+			return z.origin, shot
+		}
+	}
+
+	k := 0
+	shot := false
+	for j := 1; j <= i; j++ {
+		k, shot = dns.PrevLabel(qname, j)
+		if shot {
+			return z.origin, shot
+		}
+	}
+	return qname[k:], false
+}
