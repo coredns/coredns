@@ -27,7 +27,7 @@ test: deps
 
 .PHONY: testk8s
 testk8s: deps
-	go test -race $(TEST_VERBOSE) -tags=k8s -run 'TestKubernetes' ./test ./middleware/kubernetes/...
+	go test -race $(TEST_VERBOSE) -tags=k8s -run 'TestKubernetes' ./test ./middleware/kubernetes/... -args -v=5 -alsologtostderr
 
 .PHONY: coverage
 coverage: deps

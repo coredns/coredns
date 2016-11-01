@@ -37,7 +37,7 @@ spec:
       containers:
       - args:
         - -conf=/cfg/corefile
-        image: aledbf/kube-coredns:0.6
+        image: aledbf/kube-coredns:0.7
         imagePullPolicy: IfNotPresent
         name: kube-dns
         ports:

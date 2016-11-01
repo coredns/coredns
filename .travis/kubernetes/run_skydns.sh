@@ -1,5 +1,9 @@
 #!/bin/bash
 
+[[ $DEBUG ]] && set -x
+
+set -eof pipefail
+
 # Running skydns based on instructions at: https://testdatamanagement.wordpress.com/2015/09/01/running-kubernetes-in-docker-with-dns-on-a-single-node/
 
 PWD=`pwd`

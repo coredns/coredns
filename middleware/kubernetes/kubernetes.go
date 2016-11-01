@@ -3,7 +3,6 @@ package kubernetes
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -12,18 +11,16 @@ import (
 	"github.com/miekg/coredns/middleware/etcd/msg"
 	"github.com/miekg/coredns/middleware/kubernetes/nametemplate"
 	"github.com/miekg/coredns/middleware/pkg/dnsutil"
-	dnsstrings "github.com/miekg/coredns/middleware/pkg/strings"
+	dns_strings "github.com/miekg/coredns/middleware/pkg/strings"
 	"github.com/miekg/coredns/middleware/proxy"
-	"github.com/miekg/coredns/request"
-
 	"github.com/miekg/dns"
-	"k8s.io/kubernetes/pkg/api"
-	unversionedapi "k8s.io/kubernetes/pkg/api/unversioned"
-	clientset_generated "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_4"
-	"k8s.io/kubernetes/pkg/client/restclient"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	clientcmdapi "k8s.io/kubernetes/pkg/client/unversioned/clientcmd/api"
-	"k8s.io/kubernetes/pkg/labels"
+
+	"k8s.io/client-go/1.5/kubernetes"
+	"k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/pkg/api/unversioned"
+	"k8s.io/client-go/1.5/pkg/labels"
+	"k8s.io/client-go/1.5/rest"
+	"k8s.io/client-go/1.5/tools/clientcmd"
 )
 
 // Kubernetes implements a middleware that connects to a Kubernetes cluster.
@@ -39,64 +36,39 @@ type Kubernetes struct {
 	ResyncPeriod  time.Duration
 	NameTemplate  *nametemplate.Template
 	Namespaces    []string
-	LabelSelector *unversionedapi.LabelSelector
+	LabelSelector *unversioned.LabelSelector
 	Selector      *labels.Selector
 }
 
-// Services implements the ServiceBackend interface.
-func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
-	s, e := k.Records(state.Name(), exact)
-	return s, nil, e // Haven't implemented debug queries yet.
-}
-
-// Lookup implements the ServiceBackend interface.
-func (k *Kubernetes) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
-	return k.Proxy.Lookup(state, name, typ)
-}
-
-// IsNameError implements the ServiceBackend interface.
-// TODO(infoblox): implement!
-func (k *Kubernetes) IsNameError(err error) bool {
-	return false
-}
-
-// Debug implements the ServiceBackend interface.
-func (k *Kubernetes) Debug() string {
-	return "debug"
-}
-
-func (k *Kubernetes) getClientConfig() (*restclient.Config, error) {
+func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 	// For a custom api server or running outside a k8s cluster
 	// set URL in env.KUBERNETES_MASTER or set endpoint in Corefile
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{}
-	clusterinfo := clientcmdapi.Cluster{}
-	authinfo := clientcmdapi.AuthInfo{}
 	if len(k.APIEndpoint) > 0 {
-		clusterinfo.Server = k.APIEndpoint
+		overrides.ClusterInfo.Server = k.APIEndpoint
 	} else {
-		cc, err := restclient.InClusterConfig()
+		config, err := rest.InClusterConfig()
 		if err != nil {
 			return nil, err
 		}
-		return cc, err
+		return config, err
 	}
 	if len(k.APICertAuth) > 0 {
-		clusterinfo.CertificateAuthority = k.APICertAuth
+		overrides.ClusterInfo.CertificateAuthority = k.APICertAuth
 	}
 	if len(k.APIClientCert) > 0 {
-		authinfo.ClientCertificate = k.APIClientCert
+		overrides.AuthInfo.ClientCertificate = k.APIClientCert
 	}
 	if len(k.APIClientKey) > 0 {
-		authinfo.ClientKey = k.APIClientKey
+		overrides.AuthInfo.ClientKey = k.APIClientKey
 	}
-	overrides.ClusterInfo = clusterinfo
-	overrides.AuthInfo = authinfo
 	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 	return clientConfig.ClientConfig()
 }
 
 // InitKubeCache initializes a new Kubernetes cache.
+// TODO(miek): is this correct?
 func (k *Kubernetes) InitKubeCache() error {
 
 	config, err := k.getClientConfig()
@@ -104,26 +76,23 @@ func (k *Kubernetes) InitKubeCache() error {
 		return err
 	}
 
-	kubeClient, err := clientset_generated.NewForConfig(config)
+	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return fmt.Errorf("Failed to create kubernetes notification controller: %v", err)
+		log.Printf("[ERROR] Failed to create kubernetes notification controller: %v", err)
+		return err
 	}
-
-	if k.LabelSelector != nil {
-		var selector labels.Selector
-		selector, err = unversionedapi.LabelSelectorAsSelector(k.LabelSelector)
-		k.Selector = &selector
-		if err != nil {
-			return fmt.Errorf("Unable to create Selector for LabelSelector '%s'.Error was: %s", k.LabelSelector, err)
-		}
-	}
-
 	if k.LabelSelector == nil {
 		log.Printf("[INFO] Kubernetes middleware configured without a label selector. No label-based filtering will be performed.")
 	} else {
-		log.Printf("[INFO] Kubernetes middleware configured with the label selector '%s'. Only kubernetes objects matching this label selector will be exposed.", unversionedapi.FormatLabelSelector(k.LabelSelector))
+		var selector labels.Selector
+		selector, err = unversioned.LabelSelectorAsSelector(k.LabelSelector)
+		k.Selector = &selector
+		if err != nil {
+			log.Printf("[ERROR] Unable to create Selector for LabelSelector '%s'.Error was: %s", k.LabelSelector, err)
+			return err
+		}
+		log.Printf("[INFO] Kubernetes middleware configured with the label selector '%s'. Only kubernetes objects matching this label selector will be exposed.", unversioned.FormatLabelSelector(k.LabelSelector))
 	}
-
 	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector)
 
 	return err
@@ -151,11 +120,12 @@ func (k *Kubernetes) getZoneForName(name string) (string, []string) {
 	return zone, serviceSegments
 }
 
-// Records looks up services in kubernetes. If exact is true, it will lookup
-// just this name. This is used when find matches when completing SRV lookups
+// Records looks up services in kubernetes.
+// If exact is true, it will lookup just
+// this name. This is used when find matches when completing SRV lookups
 // for instance.
 func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
-	// TODO: refactor this.
+	// TODO: refector this.
 	// Right now NamespaceFromSegmentArray do not supports PRE queries
 	ip := dnsutil.ExtractAddressFromReverse(name)
 	if ip != "" {
@@ -194,11 +164,11 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 
 	// Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
 	// Case where namespace contains a wildcard is handled in Get(...) method.
-	if (!nsWildcard) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(namespace, k.Namespaces)) {
+	if (!nsWildcard) && (len(k.Namespaces) > 0) && (!dns_strings.StringInSlice(namespace, k.Namespaces)) {
 		return nil, nil
 	}
 
-	k8sItems, err := k.Get(namespace, nsWildcard, serviceName, serviceWildcard)
+	k8sItems, err := k.get(namespace, nsWildcard, serviceName, serviceWildcard)
 	if err != nil {
 		return nil, err
 	}
@@ -234,8 +204,8 @@ func (k *Kubernetes) getRecordsForServiceItems(serviceItems []*api.Service, valu
 	return records
 }
 
-// Get performs the call to the Kubernetes http API.
-func (k *Kubernetes) Get(namespace string, nsWildcard bool, servicename string, serviceWildcard bool) ([]*api.Service, error) {
+// Get performs a search in the locals kubernetes stores
+func (k *Kubernetes) get(namespace string, nsWildcard bool, servicename string, serviceWildcard bool) ([]*api.Service, error) {
 	serviceList := k.APIConn.ServiceList()
 
 	var resultItems []*api.Service
@@ -244,7 +214,7 @@ func (k *Kubernetes) Get(namespace string, nsWildcard bool, servicename string, 
 		if symbolMatches(namespace, item.Namespace, nsWildcard) && symbolMatches(servicename, item.Name, serviceWildcard) {
 			// If namespace has a wildcard, filter results against Corefile namespace list.
 			// (Namespaces without a wildcard were filtered before the call to this function.)
-			if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(item.Namespace, k.Namespaces)) {
+			if nsWildcard && (len(k.Namespaces) > 0) && (!dns_strings.StringInSlice(item.Namespace, k.Namespaces)) {
 				continue
 			}
 			resultItems = append(resultItems, item)
