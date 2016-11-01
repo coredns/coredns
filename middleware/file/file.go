@@ -100,6 +100,9 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		m.Rcode = dns.RcodeNameError
 	case Delegation:
 		m.Authoritative = false
+	case ServerFailure:
+		panic("ServerFailure on Lookup")
+		return dns.RcodeServerFailure, nil
 	}
 
 	state.SizeAndDo(m)

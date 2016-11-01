@@ -30,6 +30,10 @@ var delegationTestCases = []test.Case{
 			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
 			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
 		},
+		Extra: []dns.RR{
+			test.A("a.delegated.miek.nl. 1800 IN A 139.162.196.78"),
+			test.AAAA("a.delegated.miek.nl. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
+		},
 	},
 	{
 		Qname: "foo.delegated.miek.nl.", Qtype: dns.TypeA,
@@ -72,10 +76,14 @@ var secureDelegationTestCases = []test.Case{
 		Qname: "a.delegated.example.org.", Qtype: dns.TypeTXT,
 		Do: true,
 		Ns: []dns.RR{
+			test.DS("delegated.example.org.	1800	IN	DS	10056 5 1 EE72CABD1927759CDDA92A10DBF431504B9E1F13"),
+			test.DS("delegated.example.org.	1800	IN	DS	10056 5 2 E4B05F87725FA86D9A64F1E53C3D0E6250946599DFE639C45955B0ED416CDDFA"),
 			test.NS("delegated.example.org.	1800	IN	NS	a.delegated.example.org."),
 			test.NS("delegated.example.org.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+			test.RRSIG("delegated.example.org.	1800	IN	RRSIG	DS 13 3 1800 20161129153240 20161030153240 49035 example.org. rlNNzcUmtbjLSl02ZzQGUbWX75yCUx0Mug1jHtKVqRq1hpPE2S3863tIWSlz+W9wz4o19OI4jbznKKqk+DGKog=="),
 		},
 		Extra: []dns.RR{
+			test.OPT(4096, true),
 			test.A("a.delegated.example.org. 1800 IN A 139.162.196.78"),
 			test.AAAA("a.delegated.example.org. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
 		},
@@ -84,6 +92,7 @@ var secureDelegationTestCases = []test.Case{
 		Qname: "delegated.example.org.", Qtype: dns.TypeNS,
 		Do: true,
 		Answer: []dns.RR{
+			test.OPT(4096, true),
 			test.NS("delegated.example.org.	1800	IN	NS	a.delegated.example.org."),
 			test.NS("delegated.example.org.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
 		},
@@ -92,10 +101,14 @@ var secureDelegationTestCases = []test.Case{
 		Qname: "foo.delegated.example.org.", Qtype: dns.TypeA,
 		Do: true,
 		Ns: []dns.RR{
+			test.DS("delegated.example.org.	1800	IN	DS	10056 5 1 EE72CABD1927759CDDA92A10DBF431504B9E1F13"),
+			test.DS("delegated.example.org.	1800	IN	DS	10056 5 2 E4B05F87725FA86D9A64F1E53C3D0E6250946599DFE639C45955B0ED416CDDFA"),
 			test.NS("delegated.example.org.	1800	IN	NS	a.delegated.example.org."),
 			test.NS("delegated.example.org.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+			test.RRSIG("delegated.example.org.	1800	IN	RRSIG	DS 13 3 1800 20161129153240 20161030153240 49035 example.org. rlNNzcUmtbjLSl02ZzQGUbWX75yCUx0Mug1jHtKVqRq1hpPE2S3863tIWSlz+W9wz4o19OI4jbznKKqk+DGKog=="),
 		},
 		Extra: []dns.RR{
+			test.OPT(4096, true),
 			test.A("a.delegated.example.org. 1800 IN A 139.162.196.78"),
 			test.AAAA("a.delegated.example.org. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
 		},
@@ -104,10 +117,14 @@ var secureDelegationTestCases = []test.Case{
 		Qname: "foo.delegated.example.org.", Qtype: dns.TypeTXT,
 		Do: true,
 		Ns: []dns.RR{
+			test.DS("delegated.example.org.	1800	IN	DS	10056 5 1 EE72CABD1927759CDDA92A10DBF431504B9E1F13"),
+			test.DS("delegated.example.org.	1800	IN	DS	10056 5 2 E4B05F87725FA86D9A64F1E53C3D0E6250946599DFE639C45955B0ED416CDDFA"),
 			test.NS("delegated.example.org.	1800	IN	NS	a.delegated.example.org."),
 			test.NS("delegated.example.org.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+			test.RRSIG("delegated.example.org.	1800	IN	RRSIG	DS 13 3 1800 20161129153240 20161030153240 49035 example.org. rlNNzcUmtbjLSl02ZzQGUbWX75yCUx0Mug1jHtKVqRq1hpPE2S3863tIWSlz+W9wz4o19OI4jbznKKqk+DGKog=="),
 		},
 		Extra: []dns.RR{
+			test.OPT(4096, true),
 			test.A("a.delegated.example.org. 1800 IN A 139.162.196.78"),
 			test.AAAA("a.delegated.example.org. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
 		},
@@ -125,7 +142,7 @@ func TestLookupSecureDelegation(t *testing.T) {
 func testDelegation(t *testing.T, z, origin string, testcases []test.Case) {
 	zone, err := Parse(strings.NewReader(z), origin, "stdin")
 	if err != nil {
-		t.Fatalf("expect no error when reading zone, got %q", err)
+		t.Fatalf("Expect no error when reading zone, got %q", err)
 	}
 
 	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{origin: zone}, Names: []string{origin}}}
@@ -137,7 +154,7 @@ func testDelegation(t *testing.T, z, origin string, testcases []test.Case) {
 		rec := dnsrecorder.New(&test.ResponseWriter{})
 		_, err := fm.ServeDNS(ctx, rec, m)
 		if err != nil {
-			t.Errorf("expected no error, got %q\n", err)
+			t.Errorf("Expected no error, got %q\n", err)
 			return
 		}
 

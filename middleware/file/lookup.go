@@ -18,6 +18,8 @@ const (
 	Delegation
 	// NoData indicates the lookup resulted in a NODATA.
 	NoData
+	// ServerFailure indicates a server failure during the lookup.
+	ServerFailure
 )
 
 // Lookup looks up qname and qtype in the zone. When do is true DNSSEC records are included.
@@ -73,6 +75,7 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 		// If we see NS records, it means the name as been delegated.
 		if nsrrs := elem.Types(dns.TypeNS); nsrrs != nil {
+
 			glue := []dns.RR{}
 			for _, ns := range nsrrs {
 				if dns.IsSubDomain(ns.Header().Name, ns.(*dns.NS).Ns) {
@@ -81,9 +84,14 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 				}
 			}
 
-			// DS record
-
 			// If qtype == NS, we should returns success to put RRs in answer.
+			if qtype == dns.TypeNS {
+				return nsrrs, nil, glue, Success
+			}
+
+			dss := z.lookupDS(elem.Name())
+			nsrrs = append(nsrrs, dss...)
+
 			return nil, nsrrs, glue, Delegation
 		}
 
@@ -124,26 +132,19 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 	}
 
 	// Not found
-	if !found {
-		// Do we have a wildcard for the name parts that we do have?
-		wildcard := "*." + parts
-		if elem, found := z.Tree.Search(wildcard, qtype); found {
-			println("wildcard found", wildcard)
-			// wildcard foo here
-		}
-
-		// No wildcard
-
-		return z.nameError(qname, qtype, do)
+	// Do we have a wildcard for the name parts that we do have?
+	wildcard := "*." + parts
+	if elem, found := z.Tree.Search(wildcard, qtype); found {
+		println("wildcard found", wildcard)
+		// wildcard foo here
+		elem = elem
 	}
 
-	if do {
-		sigs := elem.Types(dns.TypeRRSIG, qname)
-		sigs = signatureForSubType(sigs, qtype)
-		rrs = append(rrs, sigs...)
-	}
+	// No wildcard
 
-	return rrs, nil, nil, Success
+	return z.nameError(qname, qtype, do)
+
+	return nil, nil, nil, ServerFailure
 }
 
 func (z *Zone) noData(elem *tree.Elem, do bool) ([]dns.RR, []dns.RR, []dns.RR, Result) {
@@ -177,6 +178,22 @@ func (z *Zone) lookupGlue(name string) []dns.RR {
 	return glue
 }
 
+// lookupDS looks up DS and sigs
+func (z *Zone) lookupDS(name string) []dns.RR {
+	dss := []dns.RR{}
+
+	if elem, found := z.Tree.Search(name, dns.TypeDS); found {
+		dss = elem.Types(dns.TypeDS)
+		sigs := elem.Types(dns.TypeRRSIG)
+		sigs = signatureForSubType(sigs, dns.TypeDS)
+		if len(sigs) > 0 {
+			dss = append(dss, sigs...)
+		}
+	}
+
+	return dss
+}
+
 func (z *Zone) lookupSOA(do bool) ([]dns.RR, []dns.RR, []dns.RR, Result) {
 	if do {
 		ret := append([]dns.RR{z.Apex.SOA}, z.Apex.SIGSOA...)
@@ -199,12 +216,10 @@ func (z *Zone) lookupNSEC(elem *tree.Elem, do bool) []dns.RR {
 		return nil
 	}
 	nsec := elem.Types(dns.TypeNSEC)
-	if do {
-		sigs := elem.Types(dns.TypeRRSIG)
-		sigs = signatureForSubType(sigs, dns.TypeNSEC)
-		if len(sigs) > 0 {
-			nsec = append(nsec, sigs...)
-		}
+	sigs := elem.Types(dns.TypeRRSIG)
+	sigs = signatureForSubType(sigs, dns.TypeNSEC)
+	if len(sigs) > 0 {
+		nsec = append(nsec, sigs...)
 	}
 	return nsec
 }
