@@ -13,33 +13,33 @@ import (
 )
 
 var dnsTestCases = []test.Case{
-	{
-		Qname: "www.miek.nl.", Qtype: dns.TypeA,
-		Answer: []dns.RR{
-			test.A("a.miek.nl.	1800	IN	A	139.162.196.78"),
-			test.CNAME("www.miek.nl.	1800	IN	CNAME	a.miek.nl."),
-		},
-	},
-	{
-		Qname: "www.miek.nl.", Qtype: dns.TypeAAAA,
-		Answer: []dns.RR{
-			test.AAAA("a.miek.nl.	1800	IN	AAAA	2a01:7e00::f03c:91ff:fef1:6735"),
-			test.CNAME("www.miek.nl.	1800	IN	CNAME	a.miek.nl."),
-		},
-	},
-	{
-		Qname: "miek.nl.", Qtype: dns.TypeSOA,
-		Answer: []dns.RR{
-			test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
-		},
-	},
-	{
-		Qname: "miek.nl.", Qtype: dns.TypeAAAA,
-		Answer: []dns.RR{
-			test.AAAA("miek.nl.	1800	IN	AAAA	2a01:7e00::f03c:91ff:fef1:6735"),
-		},
-	},
 	/*
+		{
+			Qname: "www.miek.nl.", Qtype: dns.TypeA,
+			Answer: []dns.RR{
+				test.A("a.miek.nl.	1800	IN	A	139.162.196.78"),
+				test.CNAME("www.miek.nl.	1800	IN	CNAME	a.miek.nl."),
+			},
+		},
+		{
+			Qname: "www.miek.nl.", Qtype: dns.TypeAAAA,
+			Answer: []dns.RR{
+				test.AAAA("a.miek.nl.	1800	IN	AAAA	2a01:7e00::f03c:91ff:fef1:6735"),
+				test.CNAME("www.miek.nl.	1800	IN	CNAME	a.miek.nl."),
+			},
+		},
+		{
+			Qname: "miek.nl.", Qtype: dns.TypeSOA,
+			Answer: []dns.RR{
+				test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+			},
+		},
+		{
+			Qname: "miek.nl.", Qtype: dns.TypeAAAA,
+			Answer: []dns.RR{
+				test.AAAA("miek.nl.	1800	IN	AAAA	2a01:7e00::f03c:91ff:fef1:6735"),
+			},
+		},
 		{
 			Qname: "mIeK.NL.", Qtype: dns.TypeAAAA,
 			Answer: []dns.RR{
@@ -62,14 +62,14 @@ var dnsTestCases = []test.Case{
 				test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
 			},
 		},
-		{
-			Qname: "b.miek.nl.", Qtype: dns.TypeA,
-			Rcode: dns.RcodeNameError,
-			Ns: []dns.RR{
-				test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
-			},
-		},
 	*/
+	{
+		Qname: "b.miek.nl.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+		},
+	},
 }
 
 const (

@@ -90,13 +90,21 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 		i++
 	}
 
+	// What does found and !shot mean - do we ever hit it
+	if found && !shot {
+		println("found && !shot", qname, qtype, z.origin)
+	}
+
 	// Found entire name.
 	if found && shot {
 
-		println("HIERE", qname, parts)
-		println(elem.Name())
-		for _, rr := range elem.All() {
-			println(rr.String())
+		println("FOUND", parts, qname)
+		for i, rr := range elem.All() {
+			println(i, rr.String())
+		}
+
+		if rrs := elem.Types(dns.TypeCNAME, qname); len(rrs) > 0 {
+			return z.lookupCNAME(rrs, qtype, do)
 		}
 
 		rrs := elem.Types(qtype, qname)
@@ -115,22 +123,18 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 	}
 
-	// previous one should be found, use parts
-	// switch on found and do success or nxdomain
+	// Not found
+	if !found {
+		// Do we have a wildcard for the name parts that we do have?
+		wildcard := "*." + parts
+		if elem, found := z.Tree.Search(wildcard, qtype); found {
+			println("wildcard found", wildcard)
+			// wildcard foo here
+		}
 
-	if elem == nil {
-		return z.emptyNonTerminal(qname, do)
+		// No wildcard
+
 		return z.nameError(qname, qtype, do)
-	}
-
-	rrs := elem.Types(dns.TypeCNAME, qname)
-	if len(rrs) > 0 { // should only ever be 1 actually; TODO(miek) check for this?
-		return z.lookupCNAME(rrs, qtype, do)
-	}
-
-	rrs = elem.Types(qtype, qname)
-	if len(rrs) == 0 {
-		return z.noData(elem, do)
 	}
 
 	if do {
@@ -148,38 +152,7 @@ func (z *Zone) noData(elem *tree.Elem, do bool) ([]dns.RR, []dns.RR, []dns.RR, R
 	return nil, append(soa, nsec...), nil, Success
 }
 
-func (z *Zone) emptyNonTerminal(qname string, do bool) ([]dns.RR, []dns.RR, []dns.RR, Result) {
-	soa, _, _, _ := z.lookupSOA(do)
-
-	elem := z.Tree.Prev(qname)
-	nsec := z.lookupNSEC(elem, do)
-	return nil, append(soa, nsec...), nil, Success
-}
-
 func (z *Zone) nameError(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, []dns.RR, Result) {
-	// Is there a wildcard?
-	ce := z.ClosestEncloser(qname, qtype)
-	elem, _ := z.Tree.Search("*."+ce, qtype) // use result here?
-
-	if elem != nil {
-		ret := elem.Types(qtype) // there can only be one of these (or zero)
-		switch {
-		case ret != nil:
-			if do {
-				sigs := elem.Types(dns.TypeRRSIG)
-				sigs = signatureForSubType(sigs, qtype)
-				ret = append(ret, sigs...)
-			}
-			ret = wildcardReplace(qname, ce, ret)
-			return ret, nil, nil, Success
-		case ret == nil:
-			// nodata, nsec from the wildcard - type does not exist
-			// nsec proof that name does not exist
-			// TODO(miek)
-		}
-	}
-
-	// name error
 	ret := []dns.RR{z.Apex.SOA}
 	if do {
 		ret = append(ret, z.Apex.SIGSOA...)
@@ -236,6 +209,7 @@ func (z *Zone) lookupNSEC(elem *tree.Elem, do bool) []dns.RR {
 	return nsec
 }
 
+// TODO(miek): Needs to be recursive and do multiple lookups.
 func (z *Zone) lookupCNAME(rrs []dns.RR, qtype uint16, do bool) ([]dns.RR, []dns.RR, []dns.RR, Result) {
 	elem, _ := z.Tree.Search(rrs[0].(*dns.CNAME).Target, qtype)
 	if elem == nil {

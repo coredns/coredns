@@ -36,8 +36,8 @@ func (z *Zone) nameErrorProof(qname string, qtype uint16) []dns.RR {
 		}
 	}
 
-	// We do this lookup twice, once for wildcard and once for the name proof. TODO(miek): fix
 	ce := z.ClosestEncloser(qname, qtype)
+	println("Closest encloser", ce)
 	elem = z.Tree.Prev("*." + ce)
 	if elem == nil {
 		// Root?
