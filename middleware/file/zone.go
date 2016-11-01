@@ -205,7 +205,7 @@ func (z *Zone) Print() {
 // NameFromRight returns the labels from the right, staring with the
 // origin and then i labels extra. When we are overshooting the name
 // the returned boolean is set to true.
-func (z *Zone) NameFromRight(qname string, i int) (string, bool) {
+func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 	if i <= 0 {
 		return z.origin, false
 	}
@@ -220,7 +220,7 @@ func (z *Zone) NameFromRight(qname string, i int) (string, bool) {
 
 	k := 0
 	shot := false
-	for j := 1; j <= i; j++ {
+	for j := 1 + origLen; j <= i; j++ {
 		k, shot = dns.PrevLabel(qname, j)
 		if shot {
 			return z.origin, shot
