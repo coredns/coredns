@@ -51,8 +51,7 @@ func NewZone(name, file string) *Zone {
 		Expired:        new(bool),
 		ReloadShutdown: make(chan bool),
 	}
-	z.Tree.origin = z.origin
-	z.Tree.origLen = z.origLen
+	z.Tree.OrigLen = z.origLen
 	*z.Expired = false
 
 	return z
@@ -106,11 +105,6 @@ func (z *Zone) Insert(r dns.RR) error {
 		r.(*dns.MX).Mx = strings.ToLower(r.(*dns.MX).Mx)
 	case dns.TypeSRV:
 		r.(*dns.SRV).Target = strings.ToLower(r.(*dns.SRV).Target)
-	}
-
-	if _, ok := z.isNonTerminal(r.Header().Name); ok {
-		println("EMPTY NONTERMALLAA", r.Header().Name)
-		// Insert the empty non-terminals z.Tree.Insert(name, r)
 	}
 
 	z.Tree.Insert(r)

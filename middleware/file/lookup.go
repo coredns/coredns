@@ -106,18 +106,12 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 	// Found entire name.
 	if found && shot {
 
-		println("FOUND", parts, qname)
-		for i, rr := range elem.All() {
-			println(i, rr.String())
-		}
-
 		if rrs := elem.Types(dns.TypeCNAME, qname); len(rrs) > 0 {
 			return z.lookupCNAME(rrs, qtype, do)
 		}
 
 		rrs := elem.Types(qtype, qname)
 		if len(rrs) == 0 {
-			println("NODATA")
 			return z.noData(elem, do)
 		}
 
@@ -263,15 +257,4 @@ func signatureForSubType(rrs []dns.RR, subtype uint16) []dns.RR {
 		}
 	}
 	return sigs
-}
-
-// wildcardReplace replaces the ownername with the original query name.
-func wildcardReplace(qname, ce string, rrs []dns.RR) []dns.RR {
-	// need to copy here, otherwise we change in zone stuff
-	ret := make([]dns.RR, len(rrs))
-	for i, r := range rrs {
-		ret[i] = dns.Copy(r)
-		ret[i].Header().Name = qname
-	}
-	return ret
 }

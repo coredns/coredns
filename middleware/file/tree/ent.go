@@ -11,11 +11,11 @@ func (t *Tree) isNonTerminal(rr dns.RR) ([]string, bool) {
 
 	// a.b.example.org -> b.example.org
 	// a.b.c.example.org -> b.example.org and c.example.org
-	if qnameLen > t.origLen+1 {
+	if qnameLen > t.OrigLen+1 {
 		// Skip first label from the right.
 		i, _ := dns.NextLabel(qname, 0)
 		ent := []string{}
-		for j := 0; j < qnameLen-t.origLen-1; j++ {
+		for j := 0; j < qnameLen-t.OrigLen-1; j++ {
 			ent = append(ent, qname[i:])
 			i, _ = dns.NextLabel(qname, i)
 		}

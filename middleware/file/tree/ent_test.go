@@ -8,8 +8,7 @@ import (
 
 func TestIsNonTerminal(t *testing.T) {
 	tr := Tree{}
-	tr.origin = "example.org."
-	tr.origLen = 2
+	tr.OrigLen = 2
 
 	tests := []struct {
 		in       string

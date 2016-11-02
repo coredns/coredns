@@ -51,8 +51,7 @@ type Tree struct {
 	Root  *Node // Root node of the tree.
 	Count int   // Number of elements stored.
 
-	origin  string // Origin of the zone contained in this tree.
-	origLen int    // Number of labels of origin.
+	OrigLen int // Number of labels of origin.
 }
 
 // Helper methods
