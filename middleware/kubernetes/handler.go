@@ -87,7 +87,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	}
 
 	if len(records) == 0 {
-		return middleware.BackendError(&k, zone, dns.RcodeSuccess, state, nil /*debug*/, nil, middleware.Options{})
+		return middleware.BackendError(&k, zone, dns.RcodeNameError, state, nil /*debug*/, nil, middleware.Options{})
 	}
 
 	m.Answer = append(m.Answer, records...)
