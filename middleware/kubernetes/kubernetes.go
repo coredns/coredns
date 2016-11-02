@@ -43,6 +43,8 @@ type Kubernetes struct {
 	Selector      *labels.Selector
 }
 
+var noItemsErr = errors.New("No items found")
+
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
 	s, e := k.Records(state.Name(), exact)
@@ -57,7 +59,7 @@ func (k *Kubernetes) Lookup(state request.Request, name string, typ uint16) (*dn
 // IsNameError implements the ServiceBackend interface.
 // TODO(infoblox): implement!
 func (k *Kubernetes) IsNameError(err error) bool {
-	return false
+	return err == noItemsErr
 }
 
 // Debug implements the ServiceBackend interface.
@@ -204,7 +206,7 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	}
 	if k8sItems == nil {
 		// Did not find item in k8s
-		return nil, nil
+		return nil, noItemsErr
 	}
 
 	records := k.getRecordsForServiceItems(k8sItems, nametemplate.NameValues{TypeName: typeName, ServiceName: serviceName, Namespace: namespace, Zone: zone})
