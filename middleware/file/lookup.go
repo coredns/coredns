@@ -112,6 +112,8 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 		rrs := elem.Types(qtype, qname)
 		if len(rrs) == 0 {
+			// closest encloser
+
 			return z.noData(elem, do)
 		}
 
@@ -142,6 +144,8 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 }
 
 func (z *Zone) noData(elem *tree.Elem, do bool) ([]dns.RR, []dns.RR, []dns.RR, Result) {
+	println("NODATA RESPONSE")
+
 	soa, _, _, _ := z.lookupSOA(do)
 	nsec := z.lookupNSEC(elem, do)
 	return nil, append(soa, nsec...), nil, Success
@@ -209,6 +213,7 @@ func (z *Zone) lookupNSEC(elem *tree.Elem, do bool) []dns.RR {
 	if !do {
 		return nil
 	}
+	// Need closest en
 	nsec := elem.Types(dns.TypeNSEC)
 	sigs := elem.Types(dns.TypeRRSIG)
 	sigs = signatureForSubType(sigs, dns.TypeNSEC)
@@ -218,7 +223,7 @@ func (z *Zone) lookupNSEC(elem *tree.Elem, do bool) []dns.RR {
 	return nsec
 }
 
-// TODO(miek): Needs to be recursive and do multiple lookups.
+// TODO(miek): Needs to be recursive and do multiple lookups for CNAME chains.
 func (z *Zone) lookupCNAME(rrs []dns.RR, qtype uint16, do bool) ([]dns.RR, []dns.RR, []dns.RR, Result) {
 	elem, _ := z.Tree.Search(rrs[0].(*dns.CNAME).Target, qtype)
 	if elem == nil {

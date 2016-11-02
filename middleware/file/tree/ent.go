@@ -5,7 +5,7 @@ import "github.com/miekg/dns"
 // isNonTerminal returns the empty non terminal name and true if qname contains
 // an empty non terminal. This means the qname is more than one (or more)
 // labels longer then the zone's origin.
-func (t *Tree) isNonTerminal(rr dns.RR) ([]string, bool) {
+func (t *Tree) isNonTerminal(rr dns.RR) ([]dns.RR, bool) {
 	qname := rr.Header().Name
 	qnameLen := dns.CountLabel(qname)
 
@@ -14,9 +14,12 @@ func (t *Tree) isNonTerminal(rr dns.RR) ([]string, bool) {
 	if qnameLen > t.OrigLen+1 {
 		// Skip first label from the right.
 		i, _ := dns.NextLabel(qname, 0)
-		ent := []string{}
+		ent := []dns.RR{}
 		for j := 0; j < qnameLen-t.OrigLen-1; j++ {
-			ent = append(ent, qname[i:])
+			// Fake RR we will be using for this.
+			a := &dns.ANY{Hdr: dns.RR_Header{Name: qname[i:], Rrtype: dns.TypeANY, Class: dns.ClassANY}}
+			ent = append(ent, a)
+
 			i, _ = dns.NextLabel(qname, i)
 		}
 		return ent, true
