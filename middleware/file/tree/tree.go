@@ -50,6 +50,9 @@ type Node struct {
 type Tree struct {
 	Root  *Node // Root node of the tree.
 	Count int   // Number of elements stored.
+
+	origin  string // Origin of the zone contained in this tree.
+	origLen int    // Number of labels of origin.
 }
 
 // Helper methods
@@ -172,6 +175,8 @@ func (t *Tree) Insert(rr dns.RR) {
 	t.Root, d = t.Root.insert(rr)
 	t.Count += d
 	t.Root.Color = black
+
+	// Check empty non terminal here
 }
 
 func (n *Node) insert(rr dns.RR) (root *Node, d int) {
@@ -279,6 +284,8 @@ func (t *Tree) Delete(rr dns.RR) {
 	if t.Root == nil {
 		return
 	}
+
+	// Check empty-non-terminal here as well.
 
 	el, _ := t.Search(rr.Header().Name, rr.Header().Rrtype)
 	if el == nil {

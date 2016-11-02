@@ -51,7 +51,10 @@ func NewZone(name, file string) *Zone {
 		Expired:        new(bool),
 		ReloadShutdown: make(chan bool),
 	}
+	z.Tree.origin = z.origin
+	z.Tree.origLen = z.origLen
 	*z.Expired = false
+
 	return z
 }
 
@@ -233,26 +236,4 @@ func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 		}
 	}
 	return qname[k:], false
-}
-
-// isNonTerminal returns the empty non terminal name and true if qname contains
-// an empty non terminal. This means the qname is more than one (or more)
-// labels longer then the zone's origin.
-func (z *Zone) isNonTerminal(qname string) ([]string, bool) {
-	qnameLen := dns.CountLabel(qname)
-
-	// a.b.example.org -> b.example.org
-	// a.b.c.example.org -> b.example.org and c.example.org
-	if qnameLen > z.origLen+1 {
-		// Skip first label from the right.
-		i, _ := dns.NextLabel(qname, 0)
-		ent := []string{}
-		for j := 0; j < qnameLen-z.origLen-1; j++ {
-			ent = append(ent, qname[i:])
-			i, _ = dns.NextLabel(qname, i)
-		}
-		return ent, true
-	}
-
-	return nil, false
 }
