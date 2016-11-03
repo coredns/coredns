@@ -75,6 +75,7 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 		// If we see NS records, it means the name as been delegated.
 		if nsrrs := elem.Types(dns.TypeNS); nsrrs != nil {
+			// wildcard delegation, wildcard CNAME delegation. Double check.
 
 			glue := []dns.RR{}
 			for _, ns := range nsrrs {
