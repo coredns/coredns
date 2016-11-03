@@ -17,13 +17,13 @@ import (
 	"github.com/miekg/coredns/request"
 
 	"github.com/miekg/dns"
-	"k8s.io/kubernetes/pkg/api"
-	unversionedapi "k8s.io/kubernetes/pkg/api/unversioned"
-	clientset_generated "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_4"
-	"k8s.io/kubernetes/pkg/client/restclient"
-	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
-	clientcmdapi "k8s.io/kubernetes/pkg/client/unversioned/clientcmd/api"
-	"k8s.io/kubernetes/pkg/labels"
+	"k8s.io/client-go/pkg/api"
+	unversionedapi "k8s.io/client-go/pkg/api/unversioned"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/pkg/labels"
 )
 
 // Kubernetes implements a middleware that connects to a Kubernetes cluster.
@@ -65,7 +65,7 @@ func (k *Kubernetes) Debug() string {
 	return "debug"
 }
 
-func (k *Kubernetes) getClientConfig() (*restclient.Config, error) {
+func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 	// For a custom api server or running outside a k8s cluster
 	// set URL in env.KUBERNETES_MASTER or set endpoint in Corefile
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
@@ -75,7 +75,7 @@ func (k *Kubernetes) getClientConfig() (*restclient.Config, error) {
 	if len(k.APIEndpoint) > 0 {
 		clusterinfo.Server = k.APIEndpoint
 	} else {
-		cc, err := restclient.InClusterConfig()
+		cc, err := rest.InClusterConfig()
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +104,7 @@ func (k *Kubernetes) InitKubeCache() error {
 		return err
 	}
 
-	kubeClient, err := clientset_generated.NewForConfig(config)
+	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return fmt.Errorf("Failed to create kubernetes notification controller: %v", err)
 	}

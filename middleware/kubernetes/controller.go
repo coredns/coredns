@@ -5,12 +5,13 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/kubernetes/pkg/api"
-	"k8s.io/kubernetes/pkg/client/cache"
-	clientset_generated "k8s.io/kubernetes/pkg/client/clientset_generated/release_1_4"
-	"k8s.io/kubernetes/pkg/labels"
-	"k8s.io/kubernetes/pkg/runtime"
-	"k8s.io/kubernetes/pkg/watch"
+	"k8s.io/client-go/pkg/api"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/pkg/runtime"
+	"k8s.io/client-go/pkg/watch"
 )
 
 var (
@@ -31,7 +32,7 @@ func (s *storeToNamespaceLister) List() (ns api.NamespaceList, err error) {
 }
 
 type dnsController struct {
-	client *clientset_generated.Clientset
+	client *kubernetes.Clientset
 
 	selector *labels.Selector
 
@@ -52,7 +53,7 @@ type dnsController struct {
 }
 
 // newDNSController creates a controller for CoreDNS.
-func newdnsController(kubeClient *clientset_generated.Clientset, resyncPeriod time.Duration, lselector *labels.Selector) *dnsController {
+func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Duration, lselector *labels.Selector) *dnsController {
 	dns := dnsController{
 		client:   kubeClient,
 		selector: lselector,
@@ -86,16 +87,16 @@ func newdnsController(kubeClient *clientset_generated.Clientset, resyncPeriod ti
 	return &dns
 }
 
-func serviceListFunc(c *clientset_generated.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
+func serviceListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
 	return func(opts api.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = *s
 		}
-		return c.Services(ns).List(opts)
+		return c.Core().Services(ns).List(opts)
 	}
 }
 
-func serviceWatchFunc(c *clientset_generated.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
+func serviceWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
 	return func(options api.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = *s
@@ -104,7 +105,7 @@ func serviceWatchFunc(c *clientset_generated.Clientset, ns string, s *labels.Sel
 	}
 }
 
-func endpointsListFunc(c *clientset_generated.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
+func endpointsListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
 	return func(opts api.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = *s
@@ -113,7 +114,7 @@ func endpointsListFunc(c *clientset_generated.Clientset, ns string, s *labels.Se
 	}
 }
 
-func endpointsWatchFunc(c *clientset_generated.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
+func endpointsWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
 	return func(options api.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = *s
@@ -122,7 +123,7 @@ func endpointsWatchFunc(c *clientset_generated.Clientset, ns string, s *labels.S
 	}
 }
 
-func namespaceListFunc(c *clientset_generated.Clientset, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
+func namespaceListFunc(c *kubernetes.Clientset, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
 	return func(opts api.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = *s
@@ -131,7 +132,7 @@ func namespaceListFunc(c *clientset_generated.Clientset, s *labels.Selector) fun
 	}
 }
 
-func namespaceWatchFunc(c *clientset_generated.Clientset, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
+func namespaceWatchFunc(c *kubernetes.Clientset, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
 	return func(options api.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = *s

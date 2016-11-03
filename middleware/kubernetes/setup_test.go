@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/mholt/caddy"
-	unversionedapi "k8s.io/kubernetes/pkg/api/unversioned"
+	unversionedapi "k8s.io/client-go/pkg/api/unversioned"
 )
 
 func TestKubernetesParse(t *testing.T) {
