@@ -17,13 +17,13 @@ import (
 	"github.com/miekg/coredns/request"
 
 	"github.com/miekg/dns"
-	"k8s.io/client-go/pkg/api"
-	unversionedapi "k8s.io/client-go/pkg/api/unversioned"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/pkg/labels"
+	"k8s.io/client-go/1.5/pkg/api"
+	unversionedapi "k8s.io/client-go/1.5/pkg/api/unversioned"
+	"k8s.io/client-go/1.5/kubernetes"
+	"k8s.io/client-go/1.5/rest"
+	"k8s.io/client-go/1.5/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/1.5/tools/clientcmd/api"
+	"k8s.io/client-go/1.5/pkg/labels"
 )
 
 // Kubernetes implements a middleware that connects to a Kubernetes cluster.

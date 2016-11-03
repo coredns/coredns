@@ -5,13 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/client-go/pkg/api"
-	"k8s.io/client-go/pkg/api/v1"
-	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/pkg/labels"
-	"k8s.io/client-go/pkg/runtime"
-	"k8s.io/client-go/pkg/watch"
+	"k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/tools/cache"
+	"k8s.io/client-go/1.5/kubernetes"
+	"k8s.io/client-go/1.5/pkg/labels"
+	"k8s.io/client-go/1.5/pkg/runtime"
+	"k8s.io/client-go/1.5/pkg/watch"
 )
 
 var (
@@ -101,7 +100,7 @@ func serviceWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) fu
 		if s != nil {
 			options.LabelSelector = *s
 		}
-		return c.Services(ns).Watch(options)
+		return c.Core().Services(ns).Watch(options)
 	}
 }
 
@@ -110,7 +109,7 @@ func endpointsListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) f
 		if s != nil {
 			opts.LabelSelector = *s
 		}
-		return c.Endpoints(ns).List(opts)
+		return c.Core().Endpoints(ns).List(opts)
 	}
 }
 
@@ -119,7 +118,7 @@ func endpointsWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) 
 		if s != nil {
 			options.LabelSelector = *s
 		}
-		return c.Endpoints(ns).Watch(options)
+		return c.Core().Endpoints(ns).Watch(options)
 	}
 }
 
@@ -128,7 +127,7 @@ func namespaceListFunc(c *kubernetes.Clientset, s *labels.Selector) func(api.Lis
 		if s != nil {
 			opts.LabelSelector = *s
 		}
-		return c.Namespaces().List(opts)
+		return c.Core().Namespaces().List(opts)
 	}
 }
 
@@ -137,7 +136,7 @@ func namespaceWatchFunc(c *kubernetes.Clientset, s *labels.Selector) func(option
 		if s != nil {
 			options.LabelSelector = *s
 		}
-		return c.Namespaces().Watch(options)
+		return c.Core().Namespaces().Watch(options)
 	}
 }
 

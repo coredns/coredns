@@ -17,8 +17,18 @@ docker: deps
 	CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w"
 	docker build -t $(DOCKER_IMAGE_NAME) .
 
+.PHONY: client-go
+client-go:
+	test -d $(GOPATH)/src/k8s.io || mkdir -p $(GOPATH)/src/k8s.io
+	if test ! -d $(GOPATH)/src/k8s.io/client-go/1.5; then cd $(GOPATH)/src/k8s.io; \
+		rm -rf client-go ; \
+		git clone https://github.com/kubernetes/client-go ; \
+		cd client-go ; \
+		git checkout release-1.5 ; \
+	fi
+
 .PHONY: deps
-deps:
+deps: client-go
 	go get ${BUILD_VERBOSE}
 
 .PHONY: test
