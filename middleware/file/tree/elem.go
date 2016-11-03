@@ -13,6 +13,8 @@ type Elem struct {
 func newElem(rr dns.RR, ent bool) *Elem {
 	e := Elem{m: make(map[uint16][]dns.RR)}
 	if ent {
+		// If we are an empty-non-terminal we only set the name, not the any
+		// of the types.
 		e.name = rr.Header().Name
 	} else {
 		e.m[rr.Header().Rrtype] = []dns.RR{rr}
@@ -55,6 +57,12 @@ func (e *Elem) Name() string {
 		return e.name
 	}
 	return ""
+}
+
+// Empty returns true is e does not contain any RRs, i.e. is an
+// empty-non-terminal.
+func (e *Elem) Empty() bool {
+	return len(e.m) == 0
 }
 
 // Insert inserts rr into e. If rr is equal to existing rrs this is a noop.

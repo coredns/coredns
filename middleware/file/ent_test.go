@@ -31,7 +31,7 @@ var entTestCases = []test.Case{
 	},
 }
 
-func TestLookupENT(t *testing.T) {
+func TestLookupEnt(t *testing.T) {
 	zone, err := Parse(strings.NewReader(dbMiekENTNL), testzone, "stdin")
 	if err != nil {
 		t.Fatalf("expect no error when reading zone, got %q", err)

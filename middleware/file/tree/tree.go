@@ -143,12 +143,12 @@ func (t *Tree) Len() int {
 	return t.Count
 }
 
-// Search returns the first match of qname/qtype in the Tree.
-func (t *Tree) Search(qname string, qtype uint16) (*Elem, bool) {
+// Search returns the first match of qname in the Tree.
+func (t *Tree) Search(qname string) (*Elem, bool) {
 	if t.Root == nil {
 		return nil, false
 	}
-	n, res := t.Root.search(qname, qtype)
+	n, res := t.Root.search(qname)
 	if n == nil {
 		return nil, res
 	}
@@ -156,7 +156,7 @@ func (t *Tree) Search(qname string, qtype uint16) (*Elem, bool) {
 }
 
 // search searches the tree for qname and type.
-func (n *Node) search(qname string, qtype uint16) (*Node, bool) {
+func (n *Node) search(qname string) (*Node, bool) {
 	for n != nil {
 		switch c := Less(n.Elem, qname); {
 		case c == 0:
@@ -301,7 +301,7 @@ func (t *Tree) Delete(rr dns.RR) {
 		return
 	}
 
-	el, _ := t.Search(rr.Header().Name, rr.Header().Rrtype)
+	el, _ := t.Search(rr.Header().Name)
 	if el == nil {
 		t.deleteNode(rr, false)
 		return
@@ -391,64 +391,6 @@ func (t *Tree) Max() *Elem {
 
 func (n *Node) max() *Node {
 	for ; n.Right != nil; n = n.Right {
-	}
-	return n
-}
-
-// Prev returns the greatest value equal to or less than the qname according to Less().
-func (t *Tree) Prev(qname string) *Elem {
-	if t.Root == nil {
-		return nil
-	}
-	n := t.Root.floor(qname)
-	if n == nil {
-		return nil
-	}
-	return n.Elem
-}
-
-func (n *Node) floor(qname string) *Node {
-	if n == nil {
-		return nil
-	}
-	switch c := Less(n.Elem, qname); {
-	case c == 0:
-		return n
-	case c < 0:
-		return n.Left.floor(qname)
-	default:
-		if r := n.Right.floor(qname); r != nil {
-			return r
-		}
-	}
-	return n
-}
-
-// Next returns the smallest value equal to or greater than the qname according to Less().
-func (t *Tree) Next(qname string) *Elem {
-	if t.Root == nil {
-		return nil
-	}
-	n := t.Root.ceil(qname)
-	if n == nil {
-		return nil
-	}
-	return n.Elem
-}
-
-func (n *Node) ceil(qname string) *Node {
-	if n == nil {
-		return nil
-	}
-	switch c := Less(n.Elem, qname); {
-	case c == 0:
-		return n
-	case c > 0:
-		return n.Right.ceil(qname)
-	default:
-		if l := n.Left.ceil(qname); l != nil {
-			return l
-		}
 	}
 	return n
 }
