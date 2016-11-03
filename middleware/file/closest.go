@@ -24,6 +24,7 @@ func (z *Zone) ClosestEncloser(qname string) string {
 // nameErrorProof finds the closest encloser and return an NSEC that proofs
 // the wildcard does not exist and an NSEC that proofs the name does no exist.
 func (z *Zone) errorProof(qname string, qtype uint16) []dns.RR {
+	println("TODO error proof")
 
 	ce := z.ClosestEncloser(qname)
 	println("Closest encloser", ce)

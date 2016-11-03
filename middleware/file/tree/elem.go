@@ -68,7 +68,6 @@ func (e *Elem) Empty() bool {
 // Insert inserts rr into e. If rr is equal to existing rrs this is a noop.
 func (e *Elem) Insert(rr dns.RR, ent bool) {
 	if ent {
-		println("ent not doing anything")
 		return
 	}
 

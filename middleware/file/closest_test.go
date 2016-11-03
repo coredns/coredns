@@ -3,8 +3,6 @@ package file
 import (
 	"strings"
 	"testing"
-
-	"github.com/miekg/dns"
 )
 
 func TestClosestEncloser(t *testing.T) {
@@ -26,7 +24,7 @@ func TestClosestEncloser(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		ce := z.ClosestEncloser(tc.in, dns.TypeA)
+		ce := z.ClosestEncloser(tc.in)
 		if ce != tc.out {
 			t.Errorf("expected ce to be %s for %s, got %s", tc.out, tc.in, ce)
 		}

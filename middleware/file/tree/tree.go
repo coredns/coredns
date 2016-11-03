@@ -188,7 +188,6 @@ func (t *Tree) Insert(rr dns.RR) {
 		t.Root, d = t.Root.insert(ent[i], ok)
 		t.Count += d
 		t.Root.Color = black
-		println(ent[i].String())
 	}
 }
 
@@ -196,7 +195,6 @@ func (t *Tree) Insert(rr dns.RR) {
 // insert the name (no types).
 func (n *Node) insert(rr dns.RR, ent bool) (root *Node, d int) {
 	if n == nil {
-		println("creating new element", rr.Header().Name)
 		return &Node{Elem: newElem(rr, ent)}, 1
 	} else if n.Elem == nil {
 		n.Elem = newElem(rr, ent)
@@ -313,7 +311,7 @@ func (t *Tree) Delete(rr dns.RR) {
 		return
 	}
 
-	// Check empty-non-terminal here
+	// Check empty-non-terminal here. See Insert()
 	ent, ok := t.isNonTerminal(rr)
 	if ok {
 		fmt.Printf("empty non terms %v\n", ent)
