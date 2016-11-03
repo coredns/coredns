@@ -112,7 +112,7 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 		rrs := elem.Types(qtype, qname)
 		if len(rrs) == 0 {
-			return z.noData(qname, qtype, do)
+			return z.noData(elem, do)
 		}
 
 		if do {
@@ -141,9 +141,10 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 	return nil, nil, nil, ServerFailure
 }
 
-func (z *Zone) noData(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, []dns.RR, Result) {
-	// ala name error, except different rcode.
-	_, an, _, _ := z.nameError(qname, qtype, do)
+func (z *Zone) noData(elem *tree.Elem, do bool) ([]dns.RR, []dns.RR, []dns.RR, Result) {
+	ret, _, _, _ := z.lookupSOA(do)
+
+	nsec = z.lookupNSEC(elem, do)
 	return nil, an, nil, Success
 }
 

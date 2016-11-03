@@ -393,6 +393,70 @@ func (n *Node) max() *Node {
 	return n
 }
 
+// Prev returns the greatest value equal to or less than the qname according to Less().
+// and is not an empty non terminal.
+func (t *Tree) Prev(qname string) *Elem {
+	if t.Root == nil {
+		return nil
+	}
+UntilNotEmpty:
+	n := t.Root.floor(qname)
+	if n == nil {
+		return nil
+	}
+	if n.Elem.Empty() {
+		qname = n.Elem.Name()
+		goto UntilNotEmpty
+	}
+	return n.Elem
+}
+
+func (n *Node) floor(qname string) *Node {
+	if n == nil {
+		return nil
+	}
+	switch c := Less(n.Elem, qname); {
+	//	case c == 0:
+	//		return n
+	case c <= 0:
+		return n.Left.floor(qname)
+	default:
+		if r := n.Right.floor(qname); r != nil {
+			return r
+		}
+	}
+	return n
+}
+
+// Next returns the smallest value equal to or greater than the qname according to Less().
+func (t *Tree) Next(qname string) *Elem {
+	if t.Root == nil {
+		return nil
+	}
+	n := t.Root.ceil(qname)
+	if n == nil {
+		return nil
+	}
+	return n.Elem
+}
+
+func (n *Node) ceil(qname string) *Node {
+	if n == nil {
+		return nil
+	}
+	switch c := Less(n.Elem, qname); {
+	case c == 0:
+		return n
+	case c > 0:
+		return n.Right.ceil(qname)
+	default:
+		if l := n.Left.ceil(qname); l != nil {
+			return l
+		}
+	}
+	return n
+}
+
 /*
 Copyright ©2012 The bíogo Authors. All rights reserved.
 
