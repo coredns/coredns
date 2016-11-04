@@ -56,11 +56,11 @@ var testdataLookupSRV = []struct {
 	{"mynginx.any.coredns.local.", 1, 1},                     // One SRV record, via wildcard namespace
 	{"someservicethatdoesnotexist.*.coredns.local.", 0, 0},   // Record does not exist with wildcard for namespace
 	{"someservicethatdoesnotexist.any.coredns.local.", 0, 0}, // Record does not exist with wildcard for namespace
-	{"*.demo.coredns.local.", 1, 1},                          // One SRV record, via wildcard
-	{"any.demo.coredns.local.", 1, 1},                        // One SRV record, via wildcard
+	{"*.demo.coredns.local.", 2, 2},                          // Two (mynginx, webserver) SRV record, via wildcard
+	{"any.demo.coredns.local.", 2, 2},                        // Two (mynginx, webserver) SRV record, via wildcard
 	{"*.test.coredns.local.", 0, 0},                          // One SRV record, via wildcard that is not exposed
 	{"any.test.coredns.local.", 0, 0},                        // One SRV record, via wildcard that is not exposed
-	{"*.*.coredns.local.", 1, 1},                             // One SRV record, via namespace and service wildcard
+	{"*.*.coredns.local.", 2, 2},                             // Two SRV record, via namespace and service wildcard
 }
 
 func TestKubernetesIntegration(t *testing.T) {
@@ -89,7 +89,7 @@ func testLookupA(t *testing.T) {
 	corefile :=
 		`.:0 {
     kubernetes coredns.local {
-		endpoint http://localhost:8080
+                endpoint http://localhost:8080
 		namespaces demo
     }
 
@@ -135,7 +135,7 @@ func testLookupSRV(t *testing.T) {
 	corefile :=
 		`.:0 {
     kubernetes coredns.local {
-		endpoint http://localhost:8080
+                endpoint http://localhost:8080
 		namespaces demo
     }
 `
