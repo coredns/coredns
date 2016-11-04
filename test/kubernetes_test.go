@@ -171,10 +171,10 @@ func testLookupSRV(t *testing.T) {
 		}
 
 		if srvRecordCount != testData.SRVRecordCount {
-			t.Errorf("Expected '%v' SRV records in response. Instead got '%v' SRV records. Test query string: '%v'", testData.SRVRecordCount, srvRecordCount, testData.Query)
+			t.Errorf("Expected '%v' SRV records in response. Instead got '%v' SRV records. Test query string: '%v', res: %v", testData.SRVRecordCount, srvRecordCount, testData.Query, res)
 		}
 		if len(res.Answer) != testData.TotalAnswerCount {
-			t.Errorf("Expected '%v' records in answer section. Instead got '%v' records in answer section. Test query string: '%v'", testData.TotalAnswerCount, len(res.Answer), testData.Query)
+			t.Errorf("Expected '%v' records in answer section. Instead got '%v' records in answer section. Test query string: '%v', res: %v", testData.TotalAnswerCount, len(res.Answer), testData.Query, res)
 		}
 	}
 }
