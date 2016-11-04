@@ -50,10 +50,10 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 		elem        *tree.Elem
 	)
 
-	// Lookups
-	// * per label from the right, start with the zone name
-	// when found; check NS records
-	//
+	// Lookup:
+	// * Per label from the right, look if it exists. We do this to find potential
+	//   delegation records. But also wildcards.
+	// ---
 	// first not found, try wildcard, *.+name
 	// check NS records + DS
 	// complete found, chceck types
@@ -70,13 +70,16 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 		elem, found = z.Tree.Search(parts)
 		if !found {
+			// replace last lable with '*.'
+			// check wildcard here..
+			// b.c.example.org
+			// c.example.org
+			// *.example.org
 			break
 		}
 
 		// If we see NS records, it means the name as been delegated.
 		if nsrrs := elem.Types(dns.TypeNS); nsrrs != nil {
-			// wildcard delegation, wildcard CNAME delegation. Double check.
-
 			glue := []dns.RR{}
 			for _, ns := range nsrrs {
 				if dns.IsSubDomain(ns.Header().Name, ns.(*dns.NS).Ns) {

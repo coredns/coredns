@@ -13,11 +13,7 @@
 // Heavily modified by Miek Gieben for use in DNS zones.
 package tree
 
-import (
-	"fmt"
-
-	"github.com/miekg/dns"
-)
+import "github.com/miekg/dns"
 
 const (
 	td234 = iota
@@ -54,8 +50,6 @@ type Node struct {
 type Tree struct {
 	Root  *Node // Root node of the tree.
 	Count int   // Number of elements stored.
-
-	OrigLen int // Number of labels of origin.
 }
 
 // Helper methods
@@ -175,29 +169,17 @@ func (n *Node) search(qname string) (*Node, bool) {
 // with e or when a nil node is reached.
 func (t *Tree) Insert(rr dns.RR) {
 	var d int
-	t.Root, d = t.Root.insert(rr, false)
+	t.Root, d = t.Root.insert(rr)
 	t.Count += d
 	t.Root.Color = black
-
-	// Check empty non terminal here
-	ent, ok := t.isNonTerminal(rr)
-	if !ok {
-		return
-	}
-	for i := range ent {
-		t.Root, d = t.Root.insert(ent[i], ok)
-		t.Count += d
-		t.Root.Color = black
-	}
 }
 
-// insert inserts rr in to the tree, if ent is true this is an empty-non-terminal and we only
-// insert the name (no types).
-func (n *Node) insert(rr dns.RR, ent bool) (root *Node, d int) {
+// insert inserts rr in to the tree.
+func (n *Node) insert(rr dns.RR) (root *Node, d int) {
 	if n == nil {
-		return &Node{Elem: newElem(rr, ent)}, 1
+		return &Node{Elem: newElem(rr)}, 1
 	} else if n.Elem == nil {
-		n.Elem = newElem(rr, ent)
+		n.Elem = newElem(rr)
 		return n, 1
 	}
 
@@ -209,11 +191,11 @@ func (n *Node) insert(rr dns.RR, ent bool) (root *Node, d int) {
 
 	switch c := Less(n.Elem, rr.Header().Name); {
 	case c == 0:
-		n.Elem.Insert(rr, ent)
+		n.Elem.Insert(rr)
 	case c < 0:
-		n.Left, d = n.Left.insert(rr, ent)
+		n.Left, d = n.Left.insert(rr)
 	default:
-		n.Right, d = n.Right.insert(rr, ent)
+		n.Right, d = n.Right.insert(rr)
 	}
 
 	if n.Right.color() == red && n.Left.color() == black {
@@ -301,31 +283,24 @@ func (t *Tree) Delete(rr dns.RR) {
 
 	el, _ := t.Search(rr.Header().Name)
 	if el == nil {
-		t.deleteNode(rr, false)
+		t.deleteNode(rr)
 		return
 	}
 	// Delete from this element.
-	empty := el.Delete(rr, false)
+	empty := el.Delete(rr)
 	if empty {
-		t.deleteNode(rr, false)
+		t.deleteNode(rr)
 		return
 	}
-
-	// Check empty-non-terminal here. See Insert()
-	ent, ok := t.isNonTerminal(rr)
-	if ok {
-		fmt.Printf("empty non terms %v\n", ent)
-	}
-
 }
 
 // DeleteNode deletes the node that matches rr according to Less().
-func (t *Tree) deleteNode(rr dns.RR, ent bool) {
+func (t *Tree) deleteNode(rr dns.RR) {
 	if t.Root == nil {
 		return
 	}
 	var d int
-	t.Root, d = t.Root.delete(rr, ent)
+	t.Root, d = t.Root.delete(rr)
 	t.Count += d
 	if t.Root == nil {
 		return
@@ -333,13 +308,13 @@ func (t *Tree) deleteNode(rr dns.RR, ent bool) {
 	t.Root.Color = black
 }
 
-func (n *Node) delete(rr dns.RR, ent bool) (root *Node, d int) {
+func (n *Node) delete(rr dns.RR) (root *Node, d int) {
 	if Less(n.Elem, rr.Header().Name) < 0 {
 		if n.Left != nil {
 			if n.Left.color() == black && n.Left.Left.color() == black {
 				n = n.moveRedLeft()
 			}
-			n.Left, d = n.Left.delete(rr, ent)
+			n.Left, d = n.Left.delete(rr)
 		}
 	} else {
 		if n.Left.color() == red {
@@ -356,7 +331,7 @@ func (n *Node) delete(rr dns.RR, ent bool) (root *Node, d int) {
 				n.Elem = n.Right.min().Elem
 				n.Right, d = n.Right.deleteMin()
 			} else {
-				n.Right, d = n.Right.delete(rr, ent)
+				n.Right, d = n.Right.delete(rr)
 			}
 		}
 	}
@@ -399,14 +374,10 @@ func (t *Tree) Prev(qname string) *Elem {
 	if t.Root == nil {
 		return nil
 	}
-UntilNotEmpty:
+
 	n := t.Root.floor(qname)
 	if n == nil {
 		return nil
-	}
-	if n.Elem.Empty() {
-		qname = n.Elem.Name()
-		goto UntilNotEmpty
 	}
 	return n.Elem
 }
@@ -416,8 +387,8 @@ func (n *Node) floor(qname string) *Node {
 		return nil
 	}
 	switch c := Less(n.Elem, qname); {
-	//	case c == 0:
-	//		return n
+	case c == 0:
+		return n
 	case c <= 0:
 		return n.Left.floor(qname)
 	default:

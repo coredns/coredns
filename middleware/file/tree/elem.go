@@ -8,17 +8,10 @@ type Elem struct {
 	name string // owner name
 }
 
-// newElem returns a new elem. If ent is true, the RR is not added
-// to the map.
-func newElem(rr dns.RR, ent bool) *Elem {
+// newElem returns a new elem.
+func newElem(rr dns.RR) *Elem {
 	e := Elem{m: make(map[uint16][]dns.RR)}
-	if ent {
-		// If we are an empty-non-terminal we only set the name, not the any
-		// of the types.
-		e.name = rr.Header().Name
-	} else {
-		e.m[rr.Header().Rrtype] = []dns.RR{rr}
-	}
+	e.m[rr.Header().Rrtype] = []dns.RR{rr}
 	return &e
 }
 
@@ -66,11 +59,7 @@ func (e *Elem) Empty() bool {
 }
 
 // Insert inserts rr into e. If rr is equal to existing rrs this is a noop.
-func (e *Elem) Insert(rr dns.RR, ent bool) {
-	if ent {
-		return
-	}
-
+func (e *Elem) Insert(rr dns.RR) {
 	t := rr.Header().Rrtype
 	if e.m == nil {
 		e.m = make(map[uint16][]dns.RR)
@@ -93,13 +82,9 @@ func (e *Elem) Insert(rr dns.RR, ent bool) {
 }
 
 // Delete removes rr from e. When e is empty after the removal the returned bool is true.
-// If ent is true we don't delete any types
-func (e *Elem) Delete(rr dns.RR, ent bool) (empty bool) {
+func (e *Elem) Delete(rr dns.RR) (empty bool) {
 	if e.m == nil {
 		return true
-	}
-	if ent {
-		return
 	}
 
 	t := rr.Header().Rrtype
