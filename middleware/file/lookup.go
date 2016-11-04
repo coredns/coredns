@@ -130,6 +130,8 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 		// NODATA
 		if len(rrs) == 0 {
+			ce, _ := z.ClosestEncloser(qname)
+			println("CLOSEST ENCLOSER", ce.Name()) // need to add this too.
 			ret := z.soa(do)
 			if do {
 				nsec := z.typeFromElem(elem, dns.TypeNSEC, do)
