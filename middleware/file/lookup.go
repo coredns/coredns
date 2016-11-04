@@ -40,12 +40,7 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 	}
 	if qtype == dns.TypeNS && qname == z.origin {
 		nsrrs := z.ns(do)
-		glue := []dns.RR{}
-		for _, ns := range nsrrs {
-			if dns.IsSubDomain(ns.Header().Name, ns.(*dns.NS).Ns) {
-				glue = append(glue, z.searchGlue(ns.(*dns.NS).Ns)...)
-			}
-		}
+		glue := z.Glue(nsrrs)
 		return nsrrs, nil, glue, Success
 	}
 
@@ -91,13 +86,7 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 		// If we see NS records, it means the name as been delegated, and we should return the delegation.
 		if nsrrs := elem.Types(dns.TypeNS); nsrrs != nil {
-			glue := []dns.RR{}
-			for _, ns := range nsrrs {
-				if dns.IsSubDomain(ns.Header().Name, ns.(*dns.NS).Ns) {
-					glue = append(glue, z.searchGlue(ns.(*dns.NS).Ns)...)
-				}
-			}
-
+			glue := z.Glue(nsrrs)
 			// If qtype == NS, we should returns success to put RRs in answer.
 			if qtype == dns.TypeNS {
 				return nsrrs, nil, glue, Success
@@ -130,8 +119,6 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 		// NODATA
 		if len(rrs) == 0 {
-			ce, _ := z.ClosestEncloser(qname)
-			println("CLOSEST ENCLOSER", ce.Name()) // need to add this too.
 			ret := z.soa(do)
 			if do {
 				nsec := z.typeFromElem(elem, dns.TypeNSEC, do)
@@ -159,10 +146,10 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 			ret := z.soa(do)
 			if do {
 				// closest encloser
-				ret = append(ret, wildElem.Types(dns.TypeNSEC)...)
-				sigs := wildElem.Types(dns.TypeRRSIG)
-				sigs = signatureForSubType(sigs, dns.TypeNSEC)
-				ret = append(ret, sigs...)
+				ce, _ := z.ClosestEncloser(qname)
+				println("CLOSEST ENCLOSER", ce.Name()) // need to add this too.
+				nsec := z.typeFromElem(wildElem, dns.TypeNSEC, do)
+				ret = append(ret, nsec...)
 			}
 			return nil, ret, nil, Success
 		}
@@ -213,22 +200,6 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 	}
 Out:
 	return nil, ret, nil, rcode
-}
-
-// searchGlue looks up A and AAAA for name.
-func (z *Zone) searchGlue(name string) []dns.RR {
-	glue := []dns.RR{}
-
-	// A
-	if elem, found := z.Tree.Search(name); found {
-		glue = append(glue, elem.Types(dns.TypeA)...)
-	}
-
-	// AAAA
-	if elem, found := z.Tree.Search(name); found {
-		glue = append(glue, elem.Types(dns.TypeAAAA)...)
-	}
-	return glue
 }
 
 // Return type tp from e and add signatures (if they exists) and do is true.
@@ -299,4 +270,31 @@ func signatureForSubType(rrs []dns.RR, subtype uint16) []dns.RR {
 		}
 	}
 	return sigs
+}
+
+// glue retunrs the glue
+func (z *Zone) Glue(nsrrs []dns.RR) []dns.RR {
+	glue := []dns.RR{}
+	for _, ns := range nsrrs {
+		if dns.IsSubDomain(ns.Header().Name, ns.(*dns.NS).Ns) {
+			glue = append(glue, z.searchGlue(ns.(*dns.NS).Ns)...)
+		}
+	}
+	return glue
+}
+
+// searchGlue looks up A and AAAA for name.
+func (z *Zone) searchGlue(name string) []dns.RR {
+	glue := []dns.RR{}
+
+	// A
+	if elem, found := z.Tree.Search(name); found {
+		glue = append(glue, elem.Types(dns.TypeA)...)
+	}
+
+	// AAAA
+	if elem, found := z.Tree.Search(name); found {
+		glue = append(glue, elem.Types(dns.TypeAAAA)...)
+	}
+	return glue
 }
