@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"k8s.io/client-go/1.5/pkg/api"
+	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/tools/cache"
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/labels"
@@ -35,12 +36,10 @@ type dnsController struct {
 
 	selector *labels.Selector
 
-	endpController *cache.Controller
 	svcController  *cache.Controller
 	nsController   *cache.Controller
 
 	svcLister  cache.StoreToServiceLister
-	endpLister cache.StoreToEndpointsLister
 	nsLister   storeToNamespaceLister
 
 	// stopLock is used to enforce only a single call to Stop is active.
@@ -58,13 +57,6 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 		selector: lselector,
 		stopCh:   make(chan struct{}),
 	}
-
-	dns.endpLister.Store, dns.endpController = cache.NewInformer(
-		&cache.ListWatch{
-			ListFunc:  endpointsListFunc(dns.client, namespace, dns.selector),
-			WatchFunc: endpointsWatchFunc(dns.client, namespace, dns.selector),
-		},
-		&api.Endpoints{}, resyncPeriod, cache.ResourceEventHandlerFuncs{})
 
 	dns.svcLister.Indexer, dns.svcController = cache.NewIndexerInformer(
 		&cache.ListWatch{
@@ -91,7 +83,16 @@ func serviceListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) fun
 		if s != nil {
 			opts.LabelSelector = *s
 		}
-		return c.Core().Services(ns).List(opts)
+		list_v1, err := c.Core().Services(ns).List(opts)
+		if err != nil {
+			return nil, err
+		}
+		var list_api api.ServiceList
+		err = v1.Convert_v1_ServiceList_To_api_ServiceList(list_v1, &list_api, nil)
+		if err != nil {
+			return nil, err
+		}
+		return &list_api, err
 	}
 }
 
@@ -104,30 +105,21 @@ func serviceWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) fu
 	}
 }
 
-func endpointsListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
-	return func(opts api.ListOptions) (runtime.Object, error) {
-		if s != nil {
-			opts.LabelSelector = *s
-		}
-		return c.Core().Endpoints(ns).List(opts)
-	}
-}
-
-func endpointsWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
-	return func(options api.ListOptions) (watch.Interface, error) {
-		if s != nil {
-			options.LabelSelector = *s
-		}
-		return c.Core().Endpoints(ns).Watch(options)
-	}
-}
-
 func namespaceListFunc(c *kubernetes.Clientset, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
 	return func(opts api.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = *s
 		}
-		return c.Core().Namespaces().List(opts)
+		list_v1, err := c.Core().Namespaces().List(opts)
+		if err != nil {
+			return nil, err
+		}
+		var list_api api.NamespaceList
+		err = v1.Convert_v1_NamespaceList_To_api_NamespaceList(list_v1, &list_api, nil)
+		if err != nil {
+			return nil, err
+		}
+		return &list_api, err
 	}
 }
 
@@ -141,7 +133,7 @@ func namespaceWatchFunc(c *kubernetes.Clientset, s *labels.Selector) func(option
 }
 
 func (dns *dnsController) controllersInSync() bool {
-	return dns.svcController.HasSynced() && dns.endpController.HasSynced()
+	return dns.svcController.HasSynced()
 }
 
 // Stop stops the  controller.
@@ -162,7 +154,6 @@ func (dns *dnsController) Stop() error {
 
 // Run starts the controller.
 func (dns *dnsController) Run() {
-	go dns.endpController.Run(dns.stopCh)
 	go dns.svcController.Run(dns.stopCh)
 	go dns.nsController.Run(dns.stopCh)
 	<-dns.stopCh
