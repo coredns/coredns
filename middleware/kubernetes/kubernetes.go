@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -198,7 +199,7 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		return nil, nil
 	}
 
-	k8sItems, err := k.Get(namespace, nsWildcard, serviceName, serviceWildcard)
+	k8sItems, err := k.Get(namespace, nsWildcard, serviceName, serviceWildcard, typeName)
 	if err != nil {
 		return nil, err
 	}
@@ -207,26 +208,22 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		return nil, nil
 	}
 
-	records := k.getRecordsForServiceItems(k8sItems, nametemplate.NameValues{TypeName: typeName, ServiceName: serviceName, Namespace: namespace, Zone: zone})
+	records := k.getRecordsForServiceItems(k8sItems, zone)
 	return records, nil
 }
 
-// TODO: assemble name from parts found in k8s data based on name template rather than reusing query string
-func (k *Kubernetes) getRecordsForServiceItems(serviceItems []*api.Service, values nametemplate.NameValues) []msg.Service {
+func (k *Kubernetes) getRecordsForServiceItems(serviceItems []*api.Service, zone string) []msg.Service {
 	var records []msg.Service
 
 	for _, item := range serviceItems {
 		clusterIP := item.Spec.ClusterIP
 
-		// Create records by constructing record name from template...
-		//values.Namespace = item.Metadata.Namespace
-		//values.ServiceName = item.Metadata.Name
-		//s := msg.Service{Host: g.NameTemplate.GetRecordNameFromNameValues(values)}
-		//records = append(records, s)
-
 		// Create records for each exposed port...
-		for _, p := range item.Spec.Ports {
-			s := msg.Service{Host: clusterIP, Port: int(p.Port)}
+		key := k.NameTemplate.RecordNameFromNameValues(nametemplate.NameValues{TypeName: "svc", ServiceName: item.ObjectMeta.Name, Namespace: item.ObjectMeta.Namespace, Zone: zone})
+		key = strings.Replace(key, ".", "/", -1)
+
+		for i, p := range item.Spec.Ports {
+			s := msg.Service{Key: msg.Path(strconv.Itoa(i) + "." + key, "coredns"), Host: clusterIP, Port: int(p.Port)}
 			records = append(records, s)
 		}
 	}
@@ -235,7 +232,16 @@ func (k *Kubernetes) getRecordsForServiceItems(serviceItems []*api.Service, valu
 }
 
 // Get performs the call to the Kubernetes http API.
-func (k *Kubernetes) Get(namespace string, nsWildcard bool, servicename string, serviceWildcard bool) ([]*api.Service, error) {
+func (k *Kubernetes) Get(namespace string, nsWildcard bool, servicename string, serviceWildcard bool, typeName string) ([]*api.Service, error) {
+	switch {
+	case typeName == "pod":
+		return nil, fmt.Errorf("pod not implemented")
+	default:
+		return k.getServices(namespace, nsWildcard, servicename, serviceWildcard)
+	}
+}
+
+func (k *Kubernetes) getServices(namespace string, nsWildcard bool, servicename string, serviceWildcard bool) ([]*api.Service, error) {
 	serviceList := k.APIConn.ServiceList()
 
 	var resultItems []*api.Service
