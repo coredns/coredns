@@ -369,17 +369,16 @@ func (n *Node) max() *Node {
 }
 
 // Prev returns the greatest value equal to or less than the qname according to Less().
-// and is not an empty non terminal.
-func (t *Tree) Prev(qname string) *Elem {
+func (t *Tree) Prev(qname string) (*Elem, bool) {
 	if t.Root == nil {
-		return nil
+		return nil, false
 	}
 
 	n := t.Root.floor(qname)
 	if n == nil {
-		return nil
+		return nil, false
 	}
-	return n.Elem
+	return n.Elem, true
 }
 
 func (n *Node) floor(qname string) *Node {
@@ -400,15 +399,15 @@ func (n *Node) floor(qname string) *Node {
 }
 
 // Next returns the smallest value equal to or greater than the qname according to Less().
-func (t *Tree) Next(qname string) *Elem {
+func (t *Tree) Next(qname string) (*Elem, bool) {
 	if t.Root == nil {
-		return nil
+		return nil, false
 	}
 	n := t.Root.ceil(qname)
 	if n == nil {
-		return nil
+		return nil, false
 	}
-	return n.Elem
+	return n.Elem, true
 }
 
 func (n *Node) ceil(qname string) *Node {

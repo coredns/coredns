@@ -51,7 +51,6 @@ func NewZone(name, file string) *Zone {
 		Expired:        new(bool),
 		ReloadShutdown: make(chan bool),
 	}
-	z.Tree.OrigLen = z.origLen
 	*z.Expired = false
 
 	return z
