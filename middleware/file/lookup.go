@@ -82,6 +82,7 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 			wildElem, _ = z.Tree.Search(wildcard)
 
 			break
+
 		}
 
 		// If we see NS records, it means the name as been delegated, and we should return the delegation.
@@ -137,11 +138,24 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 	}
 
+	// We missed one iteration of the wildcard when we decided not found,
+	// do another search.
+	wildcard := replaceWithAsteriskLabel(parts)
+	wildElem, _ = z.Tree.Search(wildcard)
+
 	// Haven't found the original name.
 
 	if wildElem != nil {
-		// CNAME as well.
+
+		println("WILDCARDDD")
+
+		if rrs := wildElem.Types(dns.TypeCNAME, qname); len(rrs) > 0 {
+			return z.searchCNAME(rrs, qtype, do)
+		}
+
 		rrs := wildElem.Types(qtype, qname)
+
+		// NODATA
 		if len(rrs) == 0 {
 			ret := z.soa(do)
 			if do {

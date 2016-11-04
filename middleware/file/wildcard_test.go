@@ -108,25 +108,27 @@ var wildcardDoubleTestCases = []test.Case{
 			test.TXT(`wild.w.example.org. IN	TXT	"Wildcard"`),
 		},
 	},
-	{
-		Qname: "wild.c.example.org.", Qtype: dns.TypeTXT,
-		Answer: []dns.RR{
-			test.TXT(`wild.c.example.org. IN	TXT	"c Wildcard"`),
+	/*
+		{
+			Qname: "wild.c.example.org.", Qtype: dns.TypeTXT,
+			Answer: []dns.RR{
+				test.TXT(`wild.c.example.org. IN	TXT	"c Wildcard"`),
+			},
 		},
-	},
-	{
-		Qname: "wild.d.example.org.", Qtype: dns.TypeTXT,
-		Answer: []dns.RR{
-			test.TXT(`alias.example.org. IN	TXT	"Wildcard CNAME expansion"`),
-			test.CNAME(`wild.d.example.org. IN	CNAME	alias.example.org`),
+		{
+			Qname: "wild.d.example.org.", Qtype: dns.TypeTXT,
+			Answer: []dns.RR{
+				test.TXT(`alias.example.org. IN	TXT	"Wildcard CNAME expansion"`),
+				test.CNAME(`wild.d.example.org. IN	CNAME	alias.example.org`),
+			},
 		},
-	},
-	{
-		Qname: "alias.example.org.", Qtype: dns.TypeTXT,
-		Answer: []dns.RR{
-			test.TXT(`alias.example.org. IN	TXT	"Wildcard CNAME expansion"`),
+		{
+			Qname: "alias.example.org.", Qtype: dns.TypeTXT,
+			Answer: []dns.RR{
+				test.TXT(`alias.example.org. IN	TXT	"Wildcard CNAME expansion"`),
+			},
 		},
-	},
+	*/
 }
 
 func TestLookupDoubleWildcard(t *testing.T) {
