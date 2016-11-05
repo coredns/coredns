@@ -76,13 +76,19 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 		if !found {
 			// Apex will always be found, when we are here we can search for a wildcard
 			// and save the result of that search. So when nothing match, but we have a
-			// wildcard we should expand the wildcard.
+			// wildcard we should expand the wildcard. There can only be one wildcard,
+			// so when we found one, we won't look for another.
 
-			wildcard := replaceWithAsteriskLabel(parts)
-			wildElem, _ = z.Tree.Search(wildcard)
+			if wildElem == nil {
+				wildcard := replaceWithAsteriskLabel(parts)
+				wildElem, _ = z.Tree.Search(wildcard)
+			}
 
-			break
-
+			// Keep on searching, because maybe we hit an empty-non-terminal (which aren't
+			// stored in the tree. Only when we have match the full qname (and possible wildcard
+			// we can be confident that we didn't find anything.
+			i++
+			continue
 		}
 
 		// If we see NS records, it means the name as been delegated, and we should return the delegation.
@@ -106,7 +112,7 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 	// What does found and !shot mean - do we ever hit it?
 	if found && !shot {
-		println("found && !shot", qname, qtype, z.origin)
+		return nil, nil, nil, ServerFailure
 	}
 
 	// Found entire name.
@@ -138,16 +144,9 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 
 	}
 
-	// We missed one iteration of the wildcard when we decided not found,
-	// do another search.
-	wildcard := replaceWithAsteriskLabel(parts)
-	wildElem, _ = z.Tree.Search(wildcard)
-
 	// Haven't found the original name.
 
 	if wildElem != nil {
-
-		println("WILDCARDDD")
 
 		if rrs := wildElem.Types(dns.TypeCNAME, qname); len(rrs) > 0 {
 			return z.searchCNAME(rrs, qtype, do)
@@ -159,9 +158,10 @@ func (z *Zone) Lookup(qname string, qtype uint16, do bool) ([]dns.RR, []dns.RR, 
 		if len(rrs) == 0 {
 			ret := z.soa(do)
 			if do {
+				// Do we need to add closest encloser here as well.
 				// closest encloser
-				ce, _ := z.ClosestEncloser(qname)
-				println("CLOSEST ENCLOSER", ce.Name()) // need to add this too.
+				//				ce, _ := z.ClosestEncloser(qname)
+				//				println("CLOSEST ENCLOSER", ce.Name()) // need to add this too.
 				nsec := z.typeFromElem(wildElem, dns.TypeNSEC, do)
 				ret = append(ret, nsec...)
 			}
