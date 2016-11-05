@@ -286,7 +286,7 @@ func signatureForSubType(rrs []dns.RR, subtype uint16) []dns.RR {
 	return sigs
 }
 
-// glue retunrs the glue
+// Glue returns any potential glue records for nsrrs.
 func (z *Zone) Glue(nsrrs []dns.RR) []dns.RR {
 	glue := []dns.RR{}
 	for _, ns := range nsrrs {
