@@ -79,13 +79,18 @@ func TestAuto(t *testing.T) {
 	}
 }
 
-func TestAutoNonExistent(t *testing.T) {
+func TestAutoNonExistentZone(t *testing.T) {
+	tmpdir, err := ioutil.TempDir(os.TempDir(), "coredns")
+	if err != nil {
+		t.Fatal(err)
+	}
 	log.SetOutput(ioutil.Discard)
 
 	corefile := `.:0 {
 		auto {
 			directory ` + tmpdir + ` (.*) {1} 1
 		}
+		errors stdout
 	}
 `
 
@@ -103,7 +108,7 @@ func TestAutoNonExistent(t *testing.T) {
 	p := proxy.New([]string{udp})
 	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
 
-	resp, err := p.Lookup(state, "www.example.org.", dns.TypeA)
+	resp, err := p.Lookup(state, "example.org.", dns.TypeA)
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
