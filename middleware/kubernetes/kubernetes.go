@@ -44,8 +44,8 @@ type Kubernetes struct {
 	Selector      *labels.Selector
 }
 
-var noItemsErr     = errors.New("No items found")
-var nsUnexposedErr = errors.New("Namespace is not exposed")
+var noItemsErr     = errors.New("no items found")
+var nsUnexposedErr = errors.New("namespace is not exposed")
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
