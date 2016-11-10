@@ -3,164 +3,167 @@
 package test
 
 import (
-	"log"
 	"testing"
 	"time"
 
 	"github.com/mholt/caddy"
+	"github.com/miekg/coredns/middleware/test"
 	"github.com/miekg/dns"
 )
 
-func makeRR(s string) dns.RR {
-	rr, err := dns.NewRR(s)
-	if err != nil {
-		log.Printf("Bad test RR (%s): %s", s, err)
-	}
-	return rr
-}
-
-type testquery struct {
-	fqdn  string
-	qtype uint16
-}
-
-type testanswer struct {
-	rcode int
-	rrs   []dns.RR
-}
-
-type testdefn struct {
-	query  testquery
-	answer testanswer
-}
-
 // Test data
 // TODO: Fix the actual RR values
-var testdata = []testdefn{
-	{testquery{"mynginx.demo.svc.coredns.local.", dns.TypeA},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10")},
+
+var dnsTestCases = []test.Case{
+	{
+		Qname: "mynginx.demo.svc.coredns.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
 		},
 	},
-	{testquery{"bogusservice.demo.svc.coredns.local.", dns.TypeA},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
+	{
+		Qname: "bogusservice.demo.svc.coredns.local.", Qtype: dns.TypeA,
+		//TODO: this should be RcodeNameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	},
+	{
+		Qname: "mynginx.*.svc.coredns.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
 		},
 	},
-	{testquery{"mynginx.*.svc.coredns.local.", dns.TypeA},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10")},
+	{
+		Qname: "mynginx.any.svc.coredns.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
 		},
 	},
-	{testquery{"mynginx.any.svc.coredns.local.", dns.TypeA},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10")},
+	{
+		Qname: "bogusservice.*.svc.coredns.local.", Qtype: dns.TypeA,
+		//TODO: this should be RcodeNameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	},
+	{
+		Qname: "bogusservice.any.svc.coredns.local.", Qtype: dns.TypeA,
+		//TODO: this should be RcodeNameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	},
+	{
+		Qname: "*.demo.svc.coredns.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
+			test.A("webserver.demo.svc.coredns.local.      1800    IN      A       10.3.0.20"),
 		},
 	},
-	{testquery{"bogusservice.*.svc.coredns.local.", dns.TypeA},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
+	{
+		Qname: "any.demo.svc.coredns.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
+			test.A("webserver.demo.svc.coredns.local.      1800    IN      A       10.3.0.20"),
 		},
 	},
-	{testquery{"bogusservice.any.svc.coredns.local.", dns.TypeA},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
+	{
+		Qname: "any.test.svc.coredns.local.", Qtype: dns.TypeA,
+		//TODO: this should be NameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	},
+	{
+		Qname: "*.test.svc.coredns.local.", Qtype: dns.TypeA,
+		//TODO: this should be NameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	},
+	{
+		Qname: "*.*.svc.coredns.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
+			test.A("webserver.demo.svc.coredns.local.      1800    IN      A       10.3.0.20"),
 		},
 	},
-	{testquery{"*.demo.svc.coredns.local.", dns.TypeA},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10"),
-				makeRR("webserver.demo.svc.coredns.local. A 10.3.0.10")},
+	//TODO: Fix below to all use test.SRV not test.A!
+	{
+		Qname: "mynginx.demo.svc.coredns.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
 		},
 	},
-	{testquery{"any.demo.svc.coredns.local.", dns.TypeA},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10"),
-				makeRR("webserver.demo.svc.coredns.local. A 10.3.0.10")},
+	{
+		Qname: "bogusservice.demo.svc.coredns.local.", Qtype: dns.TypeSRV,
+		//TODO: this should be RcodeNameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	},
+	{
+		Qname: "mynginx.*.svc.coredns.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
 		},
 	},
-	{testquery{"any.test.svc.coredns.local.", dns.TypeA},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
+	{
+		Qname: "mynginx.any.svc.coredns.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
 		},
 	},
-	{testquery{"*.test.svc.coredns.local.", dns.TypeA},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
+	{
+		Qname: "bogusservice.*.svc.coredns.local.", Qtype: dns.TypeSRV,
+		//TODO: this should be RcodeNameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	},
+	{
+		Qname: "bogusservice.any.svc.coredns.local.", Qtype: dns.TypeSRV,
+		//TODO: this should be RcodeNameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	},
+	{
+		Qname: "*.demo.svc.coredns.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
+			test.A("webserver.demo.svc.coredns.local.      1800    IN      A       10.3.0.20"),
 		},
 	},
-	{testquery{"*.*.svc.coredns.local.", dns.TypeA},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10"),
-				makeRR("webserver.demo.svc.coredns.local. A 10.3.0.10")},
+	{
+		Qname: "any.demo.svc.coredns.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
+			test.A("webserver.demo.svc.coredns.local.      1800    IN      A       10.3.0.20"),
 		},
 	},
-	{testquery{"mynginx.demo.svc.coredns.local.", dns.TypeSRV},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10")},
-		},
+	{
+		Qname: "any.test.svc.coredns.local.", Qtype: dns.TypeSRV,
+		//TODO: this should be NameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
 	},
-	{testquery{"bogusservice.demo.svc.coredns.local.", dns.TypeSRV},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
-		},
+	{
+		Qname: "*.test.svc.coredns.local.", Qtype: dns.TypeSRV,
+		//TODO: this should be NameError
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
 	},
-	{testquery{"mynginx.*.svc.coredns.local.", dns.TypeSRV},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10")},
-		},
-	},
-	{testquery{"mynginx.any.svc.coredns.local.", dns.TypeSRV},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10")},
-		},
-	},
-	{testquery{"bogusservice.*.svc.coredns.local.", dns.TypeSRV},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
-		},
-	},
-	{testquery{"bogusservice.any.svc.coredns.local.", dns.TypeSRV},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
-		},
-	},
-	{testquery{"*.demo.svc.coredns.local.", dns.TypeSRV},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10"),
-				makeRR("webserver.demo.svc.coredns.local. A 10.3.0.10")},
-		},
-	},
-	{testquery{"any.demo.svc.coredns.local.", dns.TypeSRV},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10"),
-				makeRR("webserver.demo.svc.coredns.local. A 10.3.0.10")},
-		},
-	},
-	{testquery{"any.test.svc.coredns.local.", dns.TypeSRV},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
-		},
-	},
-	{testquery{"*.test.svc.coredns.local.", dns.TypeSRV},
-		// TODO: fix NameError bug so this can be used instead of success: testanswer{dns.RcodeNameError,
-		testanswer{dns.RcodeSuccess,
-			nil,
-		},
-	},
-	{testquery{"*.*.svc.coredns.local.", dns.TypeSRV},
-		testanswer{dns.RcodeSuccess,
-			[]dns.RR{makeRR("mynginx.demo.svc.coredns.local. A 10.3.0.10"),
-				makeRR("webserver.demo.svc.coredns.local. A 10.3.0.10")},
+	{
+		Qname: "*.*.svc.coredns.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("mynginx.demo.svc.coredns.local.      1800    IN      A       10.3.0.10"),
+			test.A("webserver.demo.svc.coredns.local.      1800    IN      A       10.3.0.20"),
 		},
 	},
 }
@@ -184,6 +187,7 @@ func TestKubernetesIntegration(t *testing.T) {
 		`.:0 {
     kubernetes coredns.local {
                 endpoint http://localhost:8080
+		#endpoint https://kubernetes/ admin.pem admin-key.pem ca.pem
 		namespaces demo
     }
 
@@ -195,12 +199,11 @@ func TestKubernetesIntegration(t *testing.T) {
 	// test environment.
 	time.Sleep(5 * time.Second)
 
-	for _, td := range testdata {
+	for _, tc := range dnsTestCases {
 		dnsClient := new(dns.Client)
 		dnsMessage := new(dns.Msg)
 
-		dnsMessage.SetQuestion(td.query.fqdn, td.query.qtype)
-		//		dnsMessage.SetEdns0(4096, true)
+		dnsMessage.SetQuestion(tc.Qname, tc.Qtype)
 
 		res, _, err := dnsClient.Exchange(dnsMessage, udp)
 		if err != nil {
@@ -208,12 +211,12 @@ func TestKubernetesIntegration(t *testing.T) {
 		}
 
 		// check the answer
-		if res.Rcode != td.answer.rcode {
-			t.Errorf("Expected rcode %d but got %d for query %v", td.answer.rcode, res.Rcode, td.query)
+		if res.Rcode != tc.Rcode {
+			t.Errorf("Expected rcode %d but got %d for query %s, %d", tc.Rcode, res.Rcode, tc.Qname, tc.Qtype)
 		}
 
-		if len(res.Answer) != len(td.answer.rrs) {
-			t.Errorf("Expected %d answers but got %d for query %v", len(td.answer.rrs), len(res.Answer), td.query)
+		if len(res.Answer) != len(tc.Answer) {
+			t.Errorf("Expected %d answers but got %d for query %s, %d", len(tc.Answer), len(res.Answer), tc.Qname, tc.Qtype)
 		}
 
 		//TODO: Check the actual RR values
