@@ -44,7 +44,8 @@ type Kubernetes struct {
 	Selector      *labels.Selector
 }
 
-var noItemsErr = errors.New("No items found")
+var noItemsErr     = errors.New("No items found")
+var nsUnexposedErr = errors.New("Namespace is not exposed")
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
@@ -69,9 +70,8 @@ func (k *Kubernetes) Lookup(state request.Request, name string, typ uint16) (*dn
 }
 
 // IsNameError implements the ServiceBackend interface.
-// TODO(infoblox): implement!
 func (k *Kubernetes) IsNameError(err error) bool {
-	return err == noItemsErr
+	return err == noItemsErr || err == nsUnexposedErr
 }
 
 // Debug implements the ServiceBackend interface.
@@ -202,14 +202,14 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	// Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
 	// Case where namespace contains a wildcard is handled in Get(...) method.
 	if (!nsWildcard) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(namespace, k.Namespaces)) {
-		return nil, nil
+		return nil, nsUnexposedErr
 	}
 
 	k8sItems, err := k.Get(namespace, nsWildcard, serviceName, serviceWildcard, typeName)
 	if err != nil {
 		return nil, err
 	}
-	if k8sItems == nil {
+	if len(k8sItems) == 0 {
 		// Did not find item in k8s
 		return nil, noItemsErr
 	}
