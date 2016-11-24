@@ -132,13 +132,11 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 						if len(args) == 0 {
 							return &Etcd{}, false, c.ArgErr()
 						}
-						for i := 0; i < len(args); i++ {
-							h, p, e := net.SplitHostPort(args[i])
-							if e != nil && p == "" {
-								args[i] = h + ":53"
-							}
+						ups, err := dnsutil.ParseHostPortOrFile(args...)
+						if err != nil {
+							return &Etcd{}, false, c.ArgErr()
 						}
-						etc.Proxy = proxy.New(args)
+						etc.Proxy = proxy.New(ups)
 					case "tls": // cert key cacertfile
 						args := c.RemainingArgs()
 						if len(args) != 3 {
