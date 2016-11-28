@@ -37,7 +37,7 @@ etcd [ZONES...] {
 * **ENDPOINT** the etcd endpoints. Defaults to "http://localhost:2397".
 * `upstream` upstream resolvers to be used resolve external names found in etcd (think CNAMEs)
   pointing to external names. If you want CoreDNS to act as a proxy for clients, you'll need to add
-  the proxy middleware. **ADDRESS* can be an IP address, and IP:port or a string pointing to a file
+  the proxy middleware. **ADDRESS** can be an IP address, and IP:port or a string pointing to a file
   that is structured as /etc/resolv.conf.
 * `tls` followed the cert, key and the CA's cert filenames.
 * `debug` allows for debug queries. Prefix the name with `o-o.debug.` to retrieve extra information in the
