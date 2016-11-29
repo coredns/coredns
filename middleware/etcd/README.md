@@ -127,7 +127,7 @@ Or with *debug* queries enabled:
 When debug queries are enabled CoreDNS will return errors and etcd records encountered during the resolution
 process in the response. The general form looks like this:
 
-    skydns.test.skydns.dom.a.	300	CH	TXT	"127.0.0.1:0(10,0,,false)[0,]"
+    skydns.test.skydns.dom.a.	0	CH	TXT	"127.0.0.1:0(10,0,,false)[0,]"
 
 This shows the complete key as the owername, the rdata of the TXT record has:
 `host:port(priority,weight,txt content,mail)[targetstrip,group]`.
