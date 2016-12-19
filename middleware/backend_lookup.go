@@ -68,7 +68,11 @@ func A(b ServiceBackend, zone string, state request.Request, previousRecords []d
 			records = append(records, m1.Answer...)
 			continue
 		case ip.To4() != nil:
-			records = append(records, serv.NewA(serv.GetFqdn(), ip.To4()))
+			if (serv.Fqdn != "") {
+				records = append(records, serv.NewA(serv.Fqdn, ip.To4()))
+			} else {
+				records = append(records, serv.NewA(state.QName(), ip.To4()))
+			}
 		case ip.To4() == nil:
 			// nodata?
 		}
@@ -134,7 +138,11 @@ func AAAA(b ServiceBackend, zone string, state request.Request, previousRecords 
 		case ip.To4() != nil:
 			// nada?
 		case ip.To4() == nil:
-			records = append(records, serv.NewAAAA(serv.GetFqdn(), ip.To16()))
+			if (serv.Fqdn != "") {
+				records = append(records, serv.NewAAAA(serv.Fqdn, ip.To16()))
+			} else {
+				records = append(records, serv.NewAAAA(state.QName(), ip.To16()))
+			}
 		}
 	}
 	return records, debug, nil
@@ -216,16 +224,32 @@ func SRV(b ServiceBackend, zone string, state request.Request, opt Options) (rec
 			// IPv6 lookups here as well? AAAA(zone, state1, nil).
 		case ip.To4() != nil:
 			serv.Host = msg.Domain(serv.Key)
-			srv := serv.NewSRV(serv.GetTargetPrefixFromKey()+serv.GetFqdn(), weight)
+			if (serv.Fqdn != "") {
+				srv := serv.NewSRV(serv.GetTargetPrefixFromKey()+serv.Fqdn, weight)
 
-			records = append(records, srv)
-			extra = append(extra, serv.NewA(srv.Target, ip.To4()))
+				records = append(records, srv)
+				extra = append(extra, serv.NewA(srv.Target, ip.To4()))
+			} else {
+				serv.Host = msg.Domain(serv.Key)
+				srv := serv.NewSRV(state.QName(), weight)
+
+				records = append(records, srv)
+				extra = append(extra, serv.NewA(srv.Target, ip.To4()))
+			}
 		case ip.To4() == nil:
 			serv.Host = msg.Domain(serv.Key)
-			srv := serv.NewSRV(serv.GetTargetPrefixFromKey()+serv.GetFqdn(), weight)
+			if (serv.Fqdn != "") {
+				srv := serv.NewSRV(serv.GetTargetPrefixFromKey()+serv.Fqdn, weight)
 
-			records = append(records, srv)
-			extra = append(extra, serv.NewAAAA(srv.Target, ip.To16()))
+				records = append(records, srv)
+				extra = append(extra, serv.NewAAAA(srv.Target, ip.To16()))
+			} else {
+				serv.Host = msg.Domain(serv.Key)
+				srv := serv.NewSRV(state.QName(), weight)
+
+				records = append(records, srv)
+				extra = append(extra, serv.NewAAAA(srv.Target, ip.To16()))
+			}
 		}
 	}
 	return records, extra, debug, nil
