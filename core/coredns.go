@@ -14,6 +14,7 @@ import (
 	_ "github.com/miekg/coredns/middleware/errors"
 	_ "github.com/miekg/coredns/middleware/etcd"
 	_ "github.com/miekg/coredns/middleware/file"
+	_ "github.com/miekg/coredns/middleware/grpc"
 	_ "github.com/miekg/coredns/middleware/health"
 	_ "github.com/miekg/coredns/middleware/httpproxy"
 	_ "github.com/miekg/coredns/middleware/kubernetes"
