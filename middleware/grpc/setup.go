@@ -37,7 +37,7 @@ func setup(c *caddy.Controller) error {
 func grpcParse(c *caddy.Controller) (*grpc, error) {
 	config := dnsserver.GetConfig(c)
 
-	g := &grpc{dns: config.Server}
+	g := &grpc{config: config}
 
 	for c.Next() {
 		if c.Val() == "grpc" {

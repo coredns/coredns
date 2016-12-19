@@ -21,7 +21,7 @@ type grpc struct {
 	addr   string
 	tls    *tls.Config
 	server *grpclib.Server
-	dns	*dnsserver.Server
+	config *dnsserver.Config
 }
 
 func (g *grpc) Startup() error {
@@ -54,22 +54,17 @@ func (g *grpc) Startup() error {
 }
 
 func (g *grpc) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket, error) {
-
-	log.Printf("Received gRPC Query: %v", in)
-	log.Printf("Context: %v", ctx)
-
 	msg := new(dns.Msg)
 	err := msg.Unpack(in.Msg)
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Request message: %v", msg)
 
+	//TODO(jbelamaric): this is junk
 	a := &net.IPAddr{IP:net.ParseIP("127.0.0.1")}
 	w := &response{localAddr: a, remoteAddr: a}
-	g.dns.ServeDNS(w, msg)
+	g.config.Server.ServeDNS(w, msg)
 
-	log.Printf("Response message: %v", w.Msg)
 	packed, err := w.Msg.Pack()
 	if err != nil {
 		return nil, err
@@ -91,44 +86,36 @@ type response struct {
 }
 
 func (r *response) LocalAddr() net.Addr {
-	log.Printf("response.LocalAddr()")
 	return r.localAddr
 }
 
 func (r *response) RemoteAddr() net.Addr {
-	log.Printf("response.RemoteAddr()")
 	return r.remoteAddr
 }
 
 func (r *response) WriteMsg(m *dns.Msg) error {
-	log.Printf("response.WriteMsg(): %v", m)
 	r.Msg = m
 	return nil
 }
 
 func (r *response) Write(b []byte) (int, error) {
-	log.Printf("response.Write(): %v", b)
 	r.Msg = new(dns.Msg)
 	return len(b), r.Msg.Unpack(b)
 }
 
 func (r *response) Close() error {
-	log.Printf("response.Close()")
 	return nil
 }
 
 func (r *response) TsigStatus() error {
-	log.Printf("response.TsigStatus()")
 	return nil
 }
 
 func (r *response) TsigTimersOnly(b bool) {
-	log.Printf("response.TsigTimersOnly(%v)", b)
 	return
 }
 
 func (r *response) Hijack() {
-	log.Printf("response.Hijack()")
 	return
 }
 

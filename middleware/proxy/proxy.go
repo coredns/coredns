@@ -4,7 +4,6 @@ package proxy
 import (
 	"crypto/tls"
 	"errors"
-	"log"
 	"sync/atomic"
 	"time"
 
@@ -107,8 +106,6 @@ func (uh *UpstreamHost) serveGRPC(ctx context.Context, w dns.ResponseWriter, r *
 		uh.grpc = pb.NewDnsServiceClient(conn)
 	}
 
-	log.Printf("Serving via GRPC to %s", uh.Name)
-
 	msg, err := r.Pack()
 	if err != nil {
 		return nil, err
@@ -118,8 +115,6 @@ func (uh *UpstreamHost) serveGRPC(ctx context.Context, w dns.ResponseWriter, r *
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("Received reply %v", reply)
-
 	d := new(dns.Msg)
 	err = d.Unpack(reply.Msg)
 	if err != nil {
