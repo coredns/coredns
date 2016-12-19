@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -149,12 +148,14 @@ func (k *Kubernetes) InitKubeCache() error {
 	return err
 }
 
-// getZoneForName returns the zone string that matches the name and a
-// list of the DNS labels from name that are within the zone.
+// getPrefixesAndZoneForName returns the trailing zone string that matches
+// the name, the leading SRV port, protocol, and reference id elements, if present, and the
 // For example, if "coredns.local" is a zone configured for the
-// Kubernetes middleware, then getZoneForName("a.b.coredns.local")
-// will return ("coredns.local", ["a", "b"]).
-func (k *Kubernetes) getZoneForName(name string) (string, []string) {
+// Kubernetes middleware, then getZoneForName("_a._b.x.c.d.coredns.local")
+// will return ("_a", "_b", "x", ["c", "d"], "coredns.local").
+func (k *Kubernetes) getPrefixesAndZoneForName(name string) (string, string, []string, string) {
+        var srvPort string
+        var srvProtocol string
 	var zone string
 	var serviceSegments []string
 
@@ -167,31 +168,25 @@ func (k *Kubernetes) getZoneForName(name string) (string, []string) {
 			break
 		}
 	}
-
-	return zone, serviceSegments
-}
-
-// Records looks up services in kubernetes. If exact is true, it will lookup
-// just this name. This is used when find matches when completing SRV lookups
-// for instance.
-func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
-	var (
-		serviceName string
-		namespace   string
-		typeName    string
-	)
-
-	zone, serviceSegments := k.getZoneForName(name)
-	if len(serviceSegments) < 3 {
-		return nil, errNoItems
+	if strings.HasPrefix(serviceSegments[0], "_") {
+		if strings.HasPrefix(serviceSegments[1], "_") {
+			srvPort = serviceSegments[0]
+			srvProtocol = serviceSegments[1]
+			serviceSegments = serviceSegments[2:len(serviceSegments)]
+		} else {
+			srvProtocol = serviceSegments[0]
+			serviceSegments = serviceSegments[1:len(serviceSegments)]
+		}
 	}
 
-	// TODO: Implementation above globbed together segments for the serviceName if
-	//       multiple segments remained. Determine how to do similar globbing using
-	//		 the template-based implementation.
-	namespace = k.NameTemplate.NamespaceFromSegmentArray(serviceSegments)
-	serviceName = k.NameTemplate.ServiceFromSegmentArray(serviceSegments)
-	typeName = k.NameTemplate.TypeFromSegmentArray(serviceSegments)
+        return srvPort, srvProtocol, serviceSegments, zone
+}
+
+func parseServiceSegments (serviceSegments []string) (string, string, string, string){
+	serviceSegments, typeName := pullOffFromRight(serviceSegments)
+	serviceSegments, namespace := pullOffFromRight(serviceSegments)
+	serviceSegments, serviceName := pullOffFromRight(serviceSegments)
+	serviceSegments, endpointName := pullOffFromRight(serviceSegments)
 
 	if namespace == "" {
 		err := errors.New("Parsing query string did not produce a namespace value. Assuming wildcard namespace.")
@@ -204,99 +199,120 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		log.Printf("[WARN] %v\n", err)
 		serviceName = "*"
 	}
-
-	nsWildcard := symbolContainsWildcard(namespace)
-	serviceWildcard := symbolContainsWildcard(serviceName)
-
-	// Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
-	// Case where namespace contains a wildcard is handled in Get(...) method.
-	if (!nsWildcard) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(namespace, k.Namespaces)) {
-		return nil, errNsNotExposed
-	}
-
-	k8sItems, err := k.Get(namespace, nsWildcard, serviceName, serviceWildcard, typeName)
-	if err != nil {
-		return nil, err
-	}
-	if len(k8sItems) == 0 {
-		// Did not find item in k8s
-		return nil, errNoItems
-	}
-
-	records := k.getRecordsForServiceItems(k8sItems, zone)
-	return records, nil
+	return endpointName, serviceName, namespace, typeName
 }
 
-func (k *Kubernetes) getRecordsForServiceItems(serviceItems []*api.Service, zone string) []msg.Service {
-	var records []msg.Service
+// Records looks up services in kubernetes. If exact is true, it will lookup
+// just this name. This is used when find matches when completing SRV lookups
+// for instance.
+func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
+	var records      []msg.Service
 
-	for _, item := range serviceItems {
+       srvPort, srvProtocol, serviceSegments, zone := k.getPrefixesAndZoneForName(name)
+       endpointName, serviceName, namespace, typeName := parseServiceSegments(serviceSegments)
 
-		key := k.NameTemplate.RecordNameFromNameValues(nametemplate.NameValues{TypeName: "svc", ServiceName: item.ObjectMeta.Name, Namespace: item.ObjectMeta.Namespace, Zone: zone})
+       if typeName != "svc" {
+               return nil, fmt.Errorf(typeName+" not implemented")
+       }
 
-		key = strings.Replace(key, ".", "/", -1)
+       serviceWildcard := symbolContainsWildcard(serviceName)
+       nsWildcard := symbolContainsWildcard(namespace)
+       epWildcard := symbolContainsWildcard(endpointName)
+       srvPortWildcard := symbolContainsWildcard(srvPort)
+       srvProtocolWildcard := symbolContainsWildcard(srvProtocol)
 
-		clusterIP := item.Spec.ClusterIP
-		if clusterIP == api.ClusterIPNone {
-			// This is a headless service, create records for each pod
-			epList, _ := k.APIConn.epLister.List()
-			for _, ep := range epList.Items {
-				if ep.ObjectMeta.Name == item.ObjectMeta.Name && ep.ObjectMeta.Namespace == item.ObjectMeta.Namespace {
-					for _, eps := range ep.Subsets {
-						for i, port := range eps.Ports {
-							for j, addr := range eps.Addresses {
-								refid := strconv.Itoa(j*1024 + i)
-								s := msg.Service{
-									Key:  msg.Path(strings.ToLower(refid+"._"+port.Name+"._"+string(port.Protocol)+"."+key), "coredns"),
-									Host: addr.IP, Port: int(port.Port),
+       // Abort early if the queried namespace is not in the Corefile namespace list.
+       // Case where namespace is a wildcard is handled later
+       if (!nsWildcard) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(namespace, k.Namespaces)) {
+               return nil, errNsNotExposed
+       }
+       // Loop through all services in the cache
+       for _, svc := range k.APIConn.ServiceList() {
+               // Check for namespace match
+               if symbolMatches(namespace, svc.Namespace, nsWildcard) {
+                       domain := svc.Name+"."+svc.Namespace+".svc."+zone
+                       if endpointName != "" {
+                               domain = endpointName+"."+domain
+                       }
+                       // If namespace is a wildcard, skip this service if service namespace isnt in the Corefile namespace list.
+                       if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(svc.Namespace, k.Namespaces)) {
+                               continue
+                       }
+                       // Check for service name match
+                       if symbolMatches(serviceName, svc.Name, serviceWildcard) {
+                               if svc.Spec.ClusterIP != api.ClusterIPNone {
+                                       // This is a cluster service with a Cluster IP. Create a record for each matching port
+                                       for _, p := range svc.Spec.Ports {
+                                               if portAndProtocolMatch(srvPort, p.Name, srvPortWildcard, p.Port, srvProtocol, string(p.Protocol), srvProtocolWildcard) {
+                                                       s := msg.Service{
+                                                               Key:         msg.Path(strings.ToLower("_"+p.Name+"._"+string(p.Protocol)+"."+domain), "coredns"),
+                                                               Fqdn:        domain,
+                                                               Host:        svc.Spec.ClusterIP,
+                                                               Port:        int(p.Port),
+                                                               TargetStrip: 2}
+                                                       records = append(records, s)
+                                               }
+                                       }
+                               }
+                               if svc.Spec.ClusterIP == api.ClusterIPNone {
+                                       // This is a "headless" service. Find all endpoints for this service in the Endpoints cache
+                                       epList, _ := k.APIConn.epLister.List()
+                                       for _, ep := range epList.Items {
+                                               if ep.ObjectMeta.Name == svc.Name && ep.ObjectMeta.Namespace == svc.Namespace {
+                                                       for _, eps := range ep.Subsets {
+                                                               for _, port := range eps.Ports {
+                                                                       if portAndProtocolMatch(srvPort, port.Name, srvPortWildcard, port.Port, srvProtocol, string(port.Protocol), srvProtocolWildcard) {
+                                                                               for _, addr := range eps.Addresses {
+                                                                                       // Add all endpoints if no endpoint name was given (as if wildcard)
+                                                                                       // If a non wildcard endpoint name is given, only add that endpoint
+                                                                                       if endpointName == "" || symbolMatches(endpointName, getEndpointHostname(addr), epWildcard) {
+                                                                                               epHostname := getEndpointHostname(addr)
+                                                                                               s := msg.Service{
+                                                                                                       Key:         msg.Path(strings.ToLower("_"+port.Name+"._"+string(port.Protocol)+"."+epHostname+"."+domain), "coredns"),
+                                                                                                       Fqdn:        domain,
+                                                                                                       Host:        addr.IP,
+                                                                                                       Port:        int(port.Port),
+                                                                                                       TargetStrip: 2,
+                                                                                               }
+                                                                                               records = append(records, s)
+                                                                                       }
+                                                                               }
+									}
+
 								}
-								records = append(records, s)
 							}
 						}
 					}
 				}
 			}
-		} else {
-			// Create records for each exposed port...
-
-			for _, p := range item.Spec.Ports {
-				s := msg.Service{Key: msg.Path(strings.ToLower("_"+p.Name+"._"+string(p.Protocol)+"."+key), "coredns"), Host: clusterIP, Port: int(p.Port)}
-				records = append(records, s)
-			}
 		}
 	}
+       if len(records) == 0 {
+               // Did not find aany matching services
+               return nil, errNoItems
+       }
+       return records, nil
 
-	return records
 }
 
-// Get performs the call to the Kubernetes http API.
-func (k *Kubernetes) Get(namespace string, nsWildcard bool, servicename string, serviceWildcard bool, typeName string) ([]*api.Service, error) {
-	switch {
-	case typeName == "pod":
-		return nil, fmt.Errorf("pod not implemented")
-	default:
-		return k.getServices(namespace, nsWildcard, servicename, serviceWildcard)
+func getEndpointHostname(addr api.EndpointAddress) string {
+       if addr.Hostname != "" {
+               return addr.Hostname
+       } else {
+               return ipToEndpointId(addr.IP)
 	}
 }
 
-func (k *Kubernetes) getServices(namespace string, nsWildcard bool, servicename string, serviceWildcard bool) ([]*api.Service, error) {
-	serviceList := k.APIConn.ServiceList()
-
-	var resultItems []*api.Service
-
-	for _, item := range serviceList {
-		if symbolMatches(namespace, item.Namespace, nsWildcard) && symbolMatches(servicename, item.Name, serviceWildcard) {
-			// If namespace has a wildcard, filter results against Corefile namespace list.
-			// (Namespaces without a wildcard were filtered before the call to this function.)
-			if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(item.Namespace, k.Namespaces)) {
-				continue
-			}
-
-			resultItems = append(resultItems, item)
-		}
+// portAndProtocolMatch: Returns true if srvPort and srvProtocol match the portName/Num and portProtocol
+func portAndProtocolMatch(srvPort string, portName string, srvPortWildcard bool, portNum int32, srvProtocol string, portProtocol string, srvProtocolWildcard bool) bool {
+	// strip leading underscores if present
+	if strings.HasPrefix(srvPort, "_") {
+		srvPort = srvPort[1:len(srvPort)]
 	}
-
-	return resultItems, nil
+	if strings.HasPrefix(srvProtocol, "_") {
+		srvProtocol = srvProtocol[1:len(srvProtocol)]
+	}
+	return (srvPort == "" || symbolMatches(strings.ToLower(srvPort), strings.ToLower(portName), srvPortWildcard) || symbolMatches(srvPort, string(portNum), srvPortWildcard)) && (srvProtocol == "" || symbolMatches(strings.ToLower(srvProtocol), strings.ToLower(string(portProtocol)), srvProtocolWildcard))
 }
 
 func symbolMatches(queryString string, candidateString string, wildcard bool) bool {
@@ -312,22 +328,71 @@ func symbolMatches(queryString string, candidateString string, wildcard bool) bo
 	return result
 }
 
+// getServiceRecordForIP: Gets a service record with a cluster ip matching the ip argument
+// If a service cluster ip does not match, it checks all endpoints
 func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
+	// First check services with cluster ips
 	svcList, err := k.APIConn.svcLister.List(labels.Everything())
 	if err != nil {
 		return nil
 	}
 	for _, service := range svcList {
+		if (!dnsstrings.StringInSlice(service.Namespace, k.Namespaces)) {
+			continue
+		}
 		if service.Spec.ClusterIP == ip {
-			name := k.NameTemplate.RecordNameFromNameValues(nametemplate.NameValues{TypeName: "svc", ServiceName: service.ObjectMeta.Name, Namespace: service.ObjectMeta.Namespace, Zone: k.PrimaryZone()})
-			return []msg.Service{msg.Service{Host: name}}
+                       domain := service.Name+"."+service.Namespace+".svc."+k.PrimaryZone()
+                       return []msg.Service{msg.Service{Host: domain}}
 		}
 	}
-
+       // If no cluster ips match, search endpoints
+       epList, err := k.APIConn.epLister.List()
+       if err != nil {
+               return nil
+       }
+       for _, ep := range epList.Items {
+               if (!dnsstrings.StringInSlice(ep.ObjectMeta.Namespace, k.Namespaces)) {
+                       continue
+               }
+               for _, eps := range ep.Subsets {
+                       for _, addr := range eps.Addresses {
+                               if addr.IP == ip {
+                                       domain := getEndpointHostname(addr)+"."+ep.ObjectMeta.Name+"."+ep.ObjectMeta.Namespace+".svc."+k.PrimaryZone()
+                                       return []msg.Service{msg.Service{Host: domain}}
+                               }
+                       }
+               }
+       }
 	return nil
+}
+
+// ipToEndpointId converts an ip into a hostname segment
+func ipToEndpointId(ip string) string {
+       if strings.Contains(ip, ".") {
+               return strings.Replace(ip, ".", "-", -1)
+       }
+       if strings.Contains(ip, ":") {
+               return strings.ToLower(strings.Replace(ip, ":", "-", -1))
+       }
+       return ""
 }
 
 // symbolContainsWildcard checks whether symbol contains a wildcard value
 func symbolContainsWildcard(symbol string) bool {
 	return (strings.Contains(symbol, "*") || (symbol == "any"))
 }
+
+// pullOffFromRight pops the last element from a slice,
+// It returns the rightmost element, and the slice with the last element removed
+func pullOffFromRight(a []string) ([]string, string) {
+       l := len(a)
+       switch l {
+       case 0:
+               return a, ""
+       case 1:
+               return []string{}, a[0]
+       }
+       return a[:l-1], a[l-1]
+}
+
+
