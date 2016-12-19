@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"log"
 	"net"
-	"sync"
 
 	context "golang.org/x/net/context"
 	grpclib "google.golang.org/grpc"
@@ -14,8 +13,6 @@ import (
 	"github.com/miekg/coredns/core/dnsserver"
 	"github.com/miekg/coredns/middleware/grpc/pb"
 )
-
-var once sync.Once
 
 type grpc struct {
 	addr   string
@@ -31,25 +28,23 @@ func (g *grpc) Startup() error {
 		g.addr = defHttps
 	}
 
-	once.Do(func() {
-		var ln net.Listener
-		var err error
-		if g.tls == nil {
-			ln, err = net.Listen("tcp", g.addr)
-		} else {
-			ln, err = tls.Listen("tcp", g.addr, g.tls)
-		}
-		if err != nil {
-			log.Printf("[ERROR] Failed to start grpc handler: %s", err)
-			return
-		}
+	var ln net.Listener
+	var err error
+	if g.tls == nil {
+		ln, err = net.Listen("tcp", g.addr)
+	} else {
+		ln, err = tls.Listen("tcp", g.addr, g.tls)
+	}
+	if err != nil {
+		log.Printf("[ERROR] Failed to start grpc handler: %s", err)
+		return err
+	}
 
-		g.server = grpclib.NewServer()
-		pb.RegisterDnsServiceServer(g.server, g)
-		go func() {
-			g.server.Serve(ln)
-		}()
-	})
+	g.server = grpclib.NewServer()
+	pb.RegisterDnsServiceServer(g.server, g)
+	go func() {
+		g.server.Serve(ln)
+	}()
 	return nil
 }
 

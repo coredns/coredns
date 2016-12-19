@@ -19,8 +19,6 @@ grpc [ADDRESS] {
 	tls cert key cacert
 }
 
-This middleware only needs to be enabled once.
-
 ## Examples
 
 ~~~
