@@ -228,75 +228,78 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	}
 	// Loop through all services in the cache
 	for _, svc := range k.APIConn.ServiceList() {
-		// Check for namespace match
-		if symbolMatches(namespace, svc.Namespace, nsWildcard) {
-			domain := svc.Name + "." + svc.Namespace + ".svc." + zone
-			if endpointName != "" {
-				domain = endpointName + "." + domain
+
+		// continue to next service if namespace does not match
+		if !symbolMatches(namespace, svc.Namespace, nsWildcard) {
+			continue
+		}
+		// continue to next service if namespace is a wildcard and this service's namespace isnt in the Corefile namespace list.
+		if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(svc.Namespace, k.Namespaces)) {
+			continue
+		}
+		domain := svc.Name + "." + svc.Namespace + ".svc." + zone
+		if endpointName != "" {
+			domain = endpointName + "." + domain
+		}
+
+		// continue to next service if service name does not match
+		if !symbolMatches(serviceName, svc.Name, serviceWildcard) {
+			continue
+		}
+		if svc.Spec.ClusterIP != api.ClusterIPNone {
+			// This is a cluster service with a Cluster IP. Create a record for each matching port
+			for _, p := range svc.Spec.Ports {
+				if !portAndProtocolMatch(srvPort, p.Name, srvPortWildcard, p.Port, srvProtocol, string(p.Protocol), srvProtocolWildcard) {
+					continue
+				}
+				s := msg.Service{
+					Key:         msg.Path(strings.ToLower("_"+p.Name+"._"+string(p.Protocol)+"."+domain), "coredns"),
+					Host:        svc.Spec.ClusterIP,
+					Port:        int(p.Port),
+					TargetStrip: 0}
+				records = append(records, s)
+
 			}
-			// If namespace is a wildcard, skip this service if service namespace isnt in the Corefile namespace list.
-			if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(svc.Namespace, k.Namespaces)) {
-				continue
-			}
-			// Check for service name match
-			if symbolMatches(serviceName, svc.Name, serviceWildcard) {
-				if svc.Spec.ClusterIP != api.ClusterIPNone {
-					// This is a cluster service with a Cluster IP. Create a record for each matching port
-					for _, p := range svc.Spec.Ports {
-						if portAndProtocolMatch(srvPort, p.Name, srvPortWildcard, p.Port, srvProtocol, string(p.Protocol), srvProtocolWildcard) {
+		} else {
+			// This is a "headless" service. Find all endpoints for this service in the Endpoints cache
+			epList, _ := k.APIConn.epLister.List()
+			for _, ep := range epList.Items {
+				if !(ep.ObjectMeta.Name == svc.Name && ep.ObjectMeta.Namespace == svc.Namespace) {
+					continue
+				}
+				for _, eps := range ep.Subsets {
+					for _, port := range eps.Ports {
+						if !portAndProtocolMatch(srvPort, port.Name, srvPortWildcard, port.Port, srvProtocol, string(port.Protocol), srvProtocolWildcard) {
+							continue
+						}
+						for _, addr := range eps.Addresses {
+							// Add all endpoints if no endpoint name was given (as if wildcard)
+							// If a non wildcard endpoint name is given, only add that endpoint
+							if endpointName != "" && symbolMatches(endpointName, getEndpointHostname(addr), epWildcard) {
+								continue
+							}
+							epHostname := getEndpointHostname(addr)
 							s := msg.Service{
-								Key:         msg.Path(strings.ToLower("_"+p.Name+"._"+string(p.Protocol)+"."+domain), "coredns"),
-								Host:        svc.Spec.ClusterIP,
-								Port:        int(p.Port),
-								TargetStrip: 0}
+								Key:         msg.Path(strings.ToLower("_"+port.Name+"._"+string(port.Protocol)+"."+epHostname+"."+domain), "coredns"),
+								Host:        addr.IP,
+								Port:        int(port.Port),
+								TargetStrip: 0,
+							}
 							records = append(records, s)
 						}
-					}
-				}
-				if svc.Spec.ClusterIP == api.ClusterIPNone {
-					// This is a "headless" service. Find all endpoints for this service in the Endpoints cache
-					epList, _ := k.APIConn.epLister.List()
-					for _, ep := range epList.Items {
-						if ep.ObjectMeta.Name == svc.Name && ep.ObjectMeta.Namespace == svc.Namespace {
-							for _, eps := range ep.Subsets {
-								records = addMsgServicesToRecordsForEndpointPorts(eps, records, srvPort, srvProtocol, endpointName, domain, srvPortWildcard, srvProtocolWildcard, epWildcard)
-							}
-						}
+
 					}
 				}
 			}
 		}
+
 	}
 	if len(records) == 0 {
-		// Did not find aany matching services
+		// Did not find any matching services
 		return nil, errNoItems
 	}
 	return records, nil
 
-}
-
-// This function exists to reduce deep indentation in Records
-func addMsgServicesToRecordsForEndpointPorts(eps api.EndpointSubset, records []msg.Service, srvPort string, srvProtocol string, endpointName string, domain string, srvPortWildcard bool, srvProtocolWildcard bool, epWildcard bool) []msg.Service {
-	for _, port := range eps.Ports {
-		if portAndProtocolMatch(srvPort, port.Name, srvPortWildcard, port.Port, srvProtocol, string(port.Protocol), srvProtocolWildcard) {
-			for _, addr := range eps.Addresses {
-				// Add all endpoints if no endpoint name was given (as if wildcard)
-				// If a non wildcard endpoint name is given, only add that endpoint
-				if endpointName == "" || symbolMatches(endpointName, getEndpointHostname(addr), epWildcard) {
-					epHostname := getEndpointHostname(addr)
-					s := msg.Service{
-						Key:         msg.Path(strings.ToLower("_"+port.Name+"._"+string(port.Protocol)+"."+epHostname+"."+domain), "coredns"),
-						Host:        addr.IP,
-						Port:        int(port.Port),
-						TargetStrip: 0,
-					}
-					records = append(records, s)
-				}
-			}
-		}
-
-	}
-	return records
 }
 
 func getEndpointHostname(addr api.EndpointAddress) string {
