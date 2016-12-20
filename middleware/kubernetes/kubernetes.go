@@ -226,6 +226,8 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	if (!nsWildcard) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(namespace, k.Namespaces)) {
 		return nil, errNsNotExposed
 	}
+
+	servicesFound := false
 	// Loop through all services in the cache
 	for _, svc := range k.APIConn.ServiceList() {
 
@@ -237,15 +239,18 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(svc.Namespace, k.Namespaces)) {
 			continue
 		}
-		domain := svc.Name + "." + svc.Namespace + ".svc." + zone
-		if endpointName != "" {
-			domain = endpointName + "." + domain
-		}
 
 		// continue to next service if service name does not match
 		if !symbolMatches(serviceName, svc.Name, serviceWildcard) {
 			continue
 		}
+
+		domain := svc.Name + "." + svc.Namespace + ".svc." + zone
+		if endpointName != "" {
+			domain = endpointName + "." + domain
+		}
+
+		servicesFound = true
 		if svc.Spec.ClusterIP != api.ClusterIPNone {
 			// This is a cluster service with a Cluster IP. Create a record for each matching port
 			for _, p := range svc.Spec.Ports {
@@ -294,7 +299,7 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		}
 
 	}
-	if len(records) == 0 {
+	if len(records) == 0 && !servicesFound {
 		// Did not find any matching services
 		return nil, errNoItems
 	}
