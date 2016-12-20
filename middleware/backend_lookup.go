@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/miekg/coredns/middleware/etcd/msg"
