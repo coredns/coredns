@@ -277,39 +277,40 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 				records = append(records, s)
 
 			}
-		} else {
-			// This is a "headless" service. Find all endpoints for this service in the Endpoints cache
-			epList, _ := k.APIConn.epLister.List()
-			for _, ep := range epList.Items {
-				if !(ep.ObjectMeta.Name == svc.Name && ep.ObjectMeta.Namespace == svc.Namespace) {
-					continue
-				}
-				for _, eps := range ep.Subsets {
-					for _, port := range eps.Ports {
-						if !portAndProtocolMatch(srvPort, port.Name, srvPortWildcard, port.Port, srvProtocol, string(port.Protocol), srvProtocolWildcard) {
+			continue
+		}
+		// There was no ClusterIP, so this is a "headless" service.
+		// Find all endpoints for this service in the Endpoints cache
+		epList, _ := k.APIConn.epLister.List()
+		for _, ep := range epList.Items {
+			if !(ep.ObjectMeta.Name == svc.Name && ep.ObjectMeta.Namespace == svc.Namespace) {
+				continue
+			}
+			for _, eps := range ep.Subsets {
+				for _, port := range eps.Ports {
+					if !portAndProtocolMatch(srvPort, port.Name, srvPortWildcard, port.Port, srvProtocol, string(port.Protocol), srvProtocolWildcard) {
+						continue
+					}
+					for _, addr := range eps.Addresses {
+						// Add all endpoints if no endpoint name was given (as if wildcard)
+						// If a non wildcard endpoint name is given, only add that endpoint
+						if endpointName != "" && !symbolMatches(endpointName, getEndpointHostname(addr), epWildcard) {
 							continue
 						}
-						for _, addr := range eps.Addresses {
-							// Add all endpoints if no endpoint name was given (as if wildcard)
-							// If a non wildcard endpoint name is given, only add that endpoint
-							if endpointName != "" && symbolMatches(endpointName, getEndpointHostname(addr), epWildcard) {
-								continue
-							}
-							epHostname := getEndpointHostname(addr)
-							key := domain
-							if k.RequestType == "SRV" {
-								key = epHostname + "." + key
-							}
-							s := msg.Service{
-								Key:         msg.Path(strings.ToLower(key), "coredns"),
-								Host:        addr.IP,
-								Port:        int(port.Port),
-								TargetStrip: 0,
-							}
-							records = append(records, s)
+						epHostname := getEndpointHostname(addr)
+						key := domain
+						if k.RequestType == "SRV" {
+							key = epHostname + "." + key
 						}
-
+						s := msg.Service{
+							Key:         msg.Path(strings.ToLower(key), "coredns"),
+							Host:        addr.IP,
+							Port:        int(port.Port),
+							TargetStrip: 0,
+						}
+						records = append(records, s)
 					}
+
 				}
 			}
 		}
