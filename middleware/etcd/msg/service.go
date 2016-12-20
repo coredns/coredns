@@ -21,10 +21,6 @@ type Service struct {
 	Mail     bool   `json:"mail,omitempty"` // Be an MX record. Priority becomes Preference.
 	TTL      uint32 `json:"ttl,omitempty"`
 
-	// Fqdn of the service.  For wildcard requests, we need to know the name
-	// of each service so we can put them in the answer.
-	Fqdn string `json:"fqdn,omitempty"`
-
 	// When a SRV record with a "Host: IP-address" is added, we synthesize
 	// a srv.Target domain name.  Normally we convert the full Key where
 	// the record lives to a DNS name and use this as the srv.Target.  When
@@ -167,18 +163,6 @@ func Group(sx []Service) []Service {
 	return ret
 }
 
-func (s *Service) GetFqdn() string {
-	if s.Fqdn == "" {
-		return s.DomainFromKey()
-	} else {
-		return s.Fqdn
-	}
-}
-
-func (s *Service) DomainFromKey() string {
-	return targetStrip(Domain(s.Key), s.TargetStrip)
-}
-
 // Split255 splits a string into 255 byte chunks.
 func split255(s string) []string {
 	if len(s) < 255 {
@@ -202,36 +186,18 @@ func split255(s string) []string {
 
 // targetStrip strips "targetstrip" labels from the left side of the fully qualified name.
 func targetStrip(name string, targetStrip int) string {
-	_, strippedName := targetSplit(name, targetStrip)
-		return strippedName
-}
-
-// targetSplit splits the name at the strip point
-func targetSplit(name string, targetStrip int) (string, string) {
-
 	if targetStrip == 0 {
-		return "", name
+		return name
 	}
 
 	offset, end := 0, false
-		for i := 0; i < targetStrip; i++ {
-			offset, end = dns.NextLabel(name, offset)
-		}
+	for i := 0; i < targetStrip; i++ {
+		offset, end = dns.NextLabel(name, offset)
+	}
 	if end {
 		// We overshot the name, use the orignal one.
 		offset = 0
 	}
-
-	return name[:offset], name[offset:]
+	name = name[offset:]
+	return name
 }
-
-// GetTargetPrefixFromKey returns the stripped target labels from the left side of the fully qualified name.
-func (s *Service) GetTargetPrefixFromKey() string {
-	origTs := s.TargetStrip
-	s.TargetStrip = 0
-	name := s.DomainFromKey()
-	s.TargetStrip = origTs
-	prefix, _ := targetSplit(name, s.TargetStrip)
-	return prefix
-}
-
