@@ -42,6 +42,7 @@ type Kubernetes struct {
 	Namespaces    []string
 	LabelSelector *unversionedapi.LabelSelector
 	Selector      *labels.Selector
+	RequestType   string
 }
 
 var errNoItems = errors.New("no items found")
@@ -49,7 +50,8 @@ var errNsNotExposed = errors.New("namespace is not exposed")
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
-	s, e := k.Records(state.Name(), exact)
+	k.RequestType = state.Type()
+	s, e := k.Records(state.QName(), exact)
 	return s, nil, e // Haven't implemented debug queries yet.
 }
 
@@ -188,17 +190,6 @@ func parseServiceSegments(serviceSegments []string) (string, string, string, str
 	serviceSegments, serviceName := pullOffFromRight(serviceSegments)
 	serviceSegments, endpointName := pullOffFromRight(serviceSegments)
 
-	if namespace == "" {
-		err := errors.New("Parsing query string did not produce a namespace value. Assuming wildcard namespace.")
-		log.Printf("[WARN] %v\n", err)
-		namespace = "*"
-	}
-
-	if serviceName == "" {
-		err := errors.New("Parsing query string did not produce a serviceName value. Assuming wildcard serviceName.")
-		log.Printf("[WARN] %v\n", err)
-		serviceName = "*"
-	}
 	return endpointName, serviceName, namespace, typeName
 }
 
@@ -210,6 +201,27 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 
 	srvPort, srvProtocol, serviceSegments, zone := k.getPrefixesAndZoneForName(name)
 	endpointName, serviceName, namespace, typeName := parseServiceSegments(serviceSegments)
+
+	// If this is a SRV request, exit if query string doesnt contain the port/protocol
+	if k.RequestType == "SRV" && (srvPort == "" || srvProtocol == "") {
+		return nil, errNoItems
+	}
+	// If this is a SRV request, exit if query string contains and endpointName
+	if k.RequestType == "SRV" && endpointName != "" {
+		return nil, errNoItems
+	}
+
+	if namespace == "" {
+		err := errors.New("Parsing query string did not produce a namespace value. Assuming wildcard namespace.")
+		log.Printf("[WARN] %v\n", err)
+		namespace = "*"
+	}
+
+	if serviceName == "" {
+		err := errors.New("Parsing query string did not produce a serviceName value. Assuming wildcard serviceName.")
+		log.Printf("[WARN] %v\n", err)
+		serviceName = "*"
+	}
 
 	if typeName != "svc" {
 		return nil, fmt.Errorf("%v not implemented", typeName)
@@ -258,7 +270,7 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 					continue
 				}
 				s := msg.Service{
-					Key:         msg.Path(strings.ToLower("_"+p.Name+"._"+string(p.Protocol)+"."+domain), "coredns"),
+					Key:         msg.Path(strings.ToLower(domain), "coredns"),
 					Host:        svc.Spec.ClusterIP,
 					Port:        int(p.Port),
 					TargetStrip: 0}
@@ -284,8 +296,12 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 								continue
 							}
 							epHostname := getEndpointHostname(addr)
+							key := domain
+							if k.RequestType == "SRV" {
+								key = epHostname + "." + key
+							}
 							s := msg.Service{
-								Key:         msg.Path(strings.ToLower("_"+port.Name+"._"+string(port.Protocol)+"."+epHostname+"."+domain), "coredns"),
+								Key:         msg.Path(strings.ToLower(key), "coredns"),
 								Host:        addr.IP,
 								Port:        int(port.Port),
 								TargetStrip: 0,
