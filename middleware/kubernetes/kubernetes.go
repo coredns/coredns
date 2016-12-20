@@ -212,7 +212,7 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	endpointName, serviceName, namespace, typeName := parseServiceSegments(serviceSegments)
 
 	if typeName != "svc" {
-		return nil, fmt.Errorf(typeName + " not implemented")
+		return nil, fmt.Errorf("%v not implemented", typeName)
 	}
 
 	serviceWildcard := symbolContainsWildcard(serviceName)
@@ -259,25 +259,7 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 					for _, ep := range epList.Items {
 						if ep.ObjectMeta.Name == svc.Name && ep.ObjectMeta.Namespace == svc.Namespace {
 							for _, eps := range ep.Subsets {
-								for _, port := range eps.Ports {
-									if portAndProtocolMatch(srvPort, port.Name, srvPortWildcard, port.Port, srvProtocol, string(port.Protocol), srvProtocolWildcard) {
-										for _, addr := range eps.Addresses {
-											// Add all endpoints if no endpoint name was given (as if wildcard)
-											// If a non wildcard endpoint name is given, only add that endpoint
-											if endpointName == "" || symbolMatches(endpointName, getEndpointHostname(addr), epWildcard) {
-												epHostname := getEndpointHostname(addr)
-												s := msg.Service{
-													Key:         msg.Path(strings.ToLower("_"+port.Name+"._"+string(port.Protocol)+"."+epHostname+"."+domain), "coredns"),
-													Host:        addr.IP,
-													Port:        int(port.Port),
-													TargetStrip: 0,
-												}
-												records = append(records, s)
-											}
-										}
-									}
-
-								}
+								records = addMsgServicesToRecordsForEndpointPorts(eps, records, srvPort, srvProtocol, endpointName, domain, srvPortWildcard, srvProtocolWildcard, epWildcard)
 							}
 						}
 					}
@@ -291,6 +273,30 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	}
 	return records, nil
 
+}
+
+// This function exists to reduce deep indentation in Records
+func addMsgServicesToRecordsForEndpointPorts(eps api.EndpointSubset, records []msg.Service, srvPort string, srvProtocol string, endpointName string, domain string, srvPortWildcard bool, srvProtocolWildcard bool, epWildcard bool) []msg.Service {
+	for _, port := range eps.Ports {
+		if portAndProtocolMatch(srvPort, port.Name, srvPortWildcard, port.Port, srvProtocol, string(port.Protocol), srvProtocolWildcard) {
+			for _, addr := range eps.Addresses {
+				// Add all endpoints if no endpoint name was given (as if wildcard)
+				// If a non wildcard endpoint name is given, only add that endpoint
+				if endpointName == "" || symbolMatches(endpointName, getEndpointHostname(addr), epWildcard) {
+					epHostname := getEndpointHostname(addr)
+					s := msg.Service{
+						Key:         msg.Path(strings.ToLower("_"+port.Name+"._"+string(port.Protocol)+"."+epHostname+"."+domain), "coredns"),
+						Host:        addr.IP,
+						Port:        int(port.Port),
+						TargetStrip: 0,
+					}
+					records = append(records, s)
+				}
+			}
+		}
+
+	}
+	return records
 }
 
 func getEndpointHostname(addr api.EndpointAddress) string {
