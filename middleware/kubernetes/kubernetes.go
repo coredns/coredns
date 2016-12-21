@@ -74,7 +74,7 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 }
 
 func validSrvPrefix(name string) bool {
-	matched, _ := regexp.MatchString("^_.*\\._.*\\..*", name)
+	matched, _ := regexp.MatchString("^_[^\\.]+\\._(tcp|udp|\\*|any)\\.", strings.ToLower(name))
 	return matched
 }
 
