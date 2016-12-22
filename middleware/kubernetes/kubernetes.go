@@ -245,18 +245,13 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		serviceName = "*"
 	}
 
-	nsWildcard := symbolContainsWildcard(namespace)
-	serviceWildcard := symbolContainsWildcard(serviceName)
-	portWildcard := symbolContainsWildcard(port)
-	protocolWildcard := symbolContainsWildcard(protocol)
-
 	// Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
 	// Case where namespace contains a wildcard is handled in Get(...) method.
-	if (!nsWildcard) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(namespace, k.Namespaces)) {
+	if (!symbolContainsWildcard(namespace)) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(namespace, k.Namespaces)) {
 		return nil, errNsNotExposed
 	}
 
-	k8sItems, err := k.Get(namespace, nsWildcard, serviceName, serviceWildcard, endpointname, port, portWildcard, protocol, protocolWildcard, typeName)
+	k8sItems, err := k.Get(namespace, serviceName, endpointname, port, protocol, typeName)
 	if err != nil {
 		return nil, err
 	}
@@ -272,13 +267,12 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 func endpointHostname(addr api.EndpointAddress) string {
 	if addr.Hostname != "" {
 		return strings.ToLower(addr.Hostname)
-	} else {
-		if strings.Contains(addr.IP, ".") {
-			return strings.Replace(addr.IP, ".", "-", -1)
-		}
-		if strings.Contains(addr.IP, ":") {
-			return strings.ToLower(strings.Replace(addr.IP, ":", "-", -1))
-		}
+	}
+	if strings.Contains(addr.IP, ".") {
+		return strings.Replace(addr.IP, ".", "-", -1)
+	}
+	if strings.Contains(addr.IP, ":") {
+		return strings.ToLower(strings.Replace(addr.IP, ":", "-", -1))
 	}
 	return ""
 }
@@ -314,19 +308,24 @@ func (k *Kubernetes) getRecordsForServiceItems(serviceItems []service, zone stri
 }
 
 // Get performs the call to the Kubernetes http API.
-func (k *Kubernetes) Get(namespace string, nsWildcard bool, servicename string, serviceWildcard bool, endpointname string, port string, portWildcard bool, protocol string, protocolWildcard bool, typeName string) (services []service, err error) {
+func (k *Kubernetes) Get(namespace string, servicename string, endpointname string, port string, protocol string, typeName string) (services []service, err error) {
 	switch {
 	case typeName == "pod":
 		return nil, fmt.Errorf("%v not implemented", typeName)
 	default:
-		return k.getServices(namespace, nsWildcard, servicename, serviceWildcard, endpointname, port, portWildcard, protocol, protocolWildcard)
+		return k.getServices(namespace, servicename, endpointname, port, protocol)
 	}
 }
 
-func (k *Kubernetes) getServices(namespace string, nsWildcard bool, servicename string, serviceWildcard bool, endpointname string, port string, portWildcard bool, protocol string, protocolWildcard bool) ([]service, error) {
+func (k *Kubernetes) getServices(namespace string, servicename string, endpointname string, port string, protocol string) ([]service, error) {
 	serviceList := k.APIConn.ServiceList()
 
 	var resultItems []service
+
+	nsWildcard := symbolContainsWildcard(namespace)
+	serviceWildcard := symbolContainsWildcard(servicename)
+	portWildcard := symbolContainsWildcard(port)
+	protocolWildcard := symbolContainsWildcard(protocol)
 
 	for _, svc := range serviceList {
 		if !(symbolMatches(namespace, svc.Namespace, nsWildcard) && symbolMatches(servicename, svc.Name, serviceWildcard)) {
