@@ -190,7 +190,7 @@ func (k *Kubernetes) getZoneForName(name string) (string, []string) {
 // stripSrvPrefix separates out the port and protocol segments, if present
 // If not present, assume all ports/protocols (e.g. wildcard)
 func stripSrvPrefix(name []string) (string, string, []string) {
-	if name[0][:1] == "_" && name[1][:1] == "_" {
+	if name[0][0] == '_' && name[1][0] == '_' {
 		return name[0][1:], name[1][1:], name[2:]
 	}
 	// no srv prefix present
