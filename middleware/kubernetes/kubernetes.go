@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"regexp"
 	"strings"
 	"time"
 
@@ -64,18 +63,11 @@ var errInvalidRequest = errors.New("invalid query name")
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
-
-	if state.Type() == "SRV" && !validSrvPrefix(state.QName()) {
+	if state.Type() == "SRV" && !ValidSRV(state.Name()) {
 		return nil, nil, errInvalidRequest
 	}
-
 	s, e := k.Records(state.Name(), exact)
 	return s, nil, e // Haven't implemented debug queries yet.
-}
-
-func validSrvPrefix(name string) bool {
-	matched, _ := regexp.MatchString("^_[^\\.]+\\._(tcp|udp|\\*|any)\\.", strings.ToLower(name))
-	return matched
 }
 
 // PrimaryZone will return the first non-reverse zone being handled by this middleware
@@ -195,10 +187,13 @@ func (k *Kubernetes) getZoneForName(name string) (string, []string) {
 	return zone, serviceSegments
 }
 
-func stripSrvPrefix(name []string) (port string, protocol string, nameOut []string) {
-	if strings.HasPrefix(name[0], "_") && strings.HasPrefix(name[1], "_") {
-		return strings.ToLower(name[0][1:]), strings.ToLower(name[1][1:]), name[2:]
+// stripSrvPrefix separates out the port and protocol segments, if present
+// If not present, assume all ports/protocols (e.g. wildcard)
+func stripSrvPrefix(name []string) (string, string, []string) {
+	if name[0][:1] == "_" && name[1][:1] == "_" {
+		return name[0][1:], name[1][1:], name[2:]
 	}
+	// no srv prefix present
 	return "*", "*", name
 }
 
@@ -430,4 +425,58 @@ func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 // symbolContainsWildcard checks whether symbol contains a wildcard value
 func symbolContainsWildcard(symbol string) bool {
 	return (strings.Contains(symbol, "*") || (symbol == "any"))
+}
+
+// ValidSRV parses a server record validating _port._proto. prefix labels.
+// The valid schema is:
+//   * Fist two segments must start with an "_",
+//   * Second segment must be one of _tcp|_udp|_*|_any
+func ValidSRV(name string) bool {
+
+	// Does it start with a "_" ?
+	if len(name) > 0 && name[0] != '_' {
+		return false
+	}
+
+	// First label
+	first, end := dns.NextLabel(name, 0)
+	if end {
+		return false
+	}
+	// Second label
+	off, end := dns.NextLabel(name, first)
+	if end {
+		return false
+	}
+
+	// first:off has captured _tcp. or _udp. (if present)
+	second := name[first:off]
+	if len(second) > 0 && second[0] != '_' {
+		return false
+	}
+
+	// A bit convoluted to avoid strings.ToLower
+	if len(second) == 5 {
+		// matches _tcp
+		if (second[1] == 't' || second[1] == 'T') && (second[2] == 'c' || second[2] == 'C') &&
+			(second[3] == 'p' || second[3] == 'P') {
+			return true
+		}
+		// matches _udp
+		if (second[1] == 'u' || second[1] == 'U') && (second[2] == 'd' || second[2] == 'D') &&
+			(second[3] == 'p' || second[3] == 'P') {
+			return true
+		}
+		// matches _any
+		if (second[1] == 'a' || second[1] == 'A') && (second[2] == 'n' || second[2] == 'N') &&
+			(second[3] == 'y' || second[3] == 'Y') {
+			return true
+		}
+	}
+	// matches _*
+	if len(second) == 3 && second[1] == '*' {
+		return true
+	}
+
+	return false
 }
