@@ -144,27 +144,21 @@ var dnsTestCases = []test.Case{
 		Answer: []dns.RR{},
 	},
 	{
-		Qname: "_*._*.*.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
+		Qname: "_c-port._*.*.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.SRV("_http._tcp.svc-1-a.test-1.svc.cluster.local.      303    IN    SRV 10 100 80 svc-1-a.test-1.svc.cluster.local."),
-			test.SRV("_https._tcp.svc-1-a.test-1.svc.cluster.local.      303    IN    SRV 10 100 443 svc-1-a.test-1.svc.cluster.local."),
-			test.SRV("_http._tcp.svc-1-b.test-1.svc.cluster.local.      303    IN    SRV 10 100 80 svc-1-b.test-1.svc.cluster.local."),
 			test.SRV("_c-port._udp.svc-c.test-1.svc.cluster.local.      303    IN    SRV 10 100 1234 svc-c.test-1.svc.cluster.local."),
 			test.SRV("_c-port._udp.headless-svc.test-1.svc.cluster.local.      303    IN    SRV 10 100 1234 172-17-0-5.headless-svc.test-1.svc.cluster.local."),
 			test.SRV("_c-port._udp.headless-svc.test-1.svc.cluster.local.      303    IN    SRV 10 100 1234 172-17-0-6.headless-svc.test-1.svc.cluster.local."),
 		},
 	},
 	{
-		Qname: "_*._*.any.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
+		Qname: "_*._tcp.any.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("_http._tcp.svc-1-a.test-1.svc.cluster.local.      303    IN    SRV 10 100 80 svc-1-a.test-1.svc.cluster.local."),
 			test.SRV("_https._tcp.svc-1-a.test-1.svc.cluster.local.      303    IN    SRV 10 100 443 svc-1-a.test-1.svc.cluster.local."),
 			test.SRV("_http._tcp.svc-1-b.test-1.svc.cluster.local.      303    IN    SRV 10 100 80 svc-1-b.test-1.svc.cluster.local."),
-			test.SRV("_c-port._udp.svc-c.test-1.svc.cluster.local.      303    IN    SRV 10 100 1234 svc-c.test-1.svc.cluster.local."),
-			test.SRV("_c-port._udp.headless-svc.test-1.svc.cluster.local.      303    IN    SRV 10 100 1234 172-17-0-5.headless-svc.test-1.svc.cluster.local."),
-			test.SRV("_c-port._udp.headless-svc.test-1.svc.cluster.local.      303    IN    SRV 10 100 1234 172-17-0-6.headless-svc.test-1.svc.cluster.local."),
 		},
 	},
 	{
@@ -178,15 +172,11 @@ var dnsTestCases = []test.Case{
 		Answer: []dns.RR{},
 	},
 	{
-		Qname: "_*._*.*.*.svc.cluster.local.", Qtype: dns.TypeSRV,
+		Qname: "_http._tcp.*.*.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("_http._tcp.svc-1-a.test-1.svc.cluster.local.      303    IN    SRV 10 100 80 svc-1-a.test-1.svc.cluster.local."),
-			test.SRV("_https._tcp.svc-1-a.test-1.svc.cluster.local.      303    IN    SRV 10 100 443 svc-1-a.test-1.svc.cluster.local."),
 			test.SRV("_http._tcp.svc-1-b.test-1.svc.cluster.local.      303    IN    SRV 10 100 80 svc-1-b.test-1.svc.cluster.local."),
-			test.SRV("_c-port._udp.svc-c.test-1.svc.cluster.local.      303    IN    SRV 10 100 1234 svc-c.test-1.svc.cluster.local."),
-			test.SRV("_c-port._udp.headless-svc.test-1.svc.cluster.local.      303    IN    SRV 10 100 1234 172-17-0-5.headless-svc.test-1.svc.cluster.local."),
-			test.SRV("_c-port._udp.headless-svc.test-1.svc.cluster.local.      303    IN    SRV 10 100 1234 172-17-0-6.headless-svc.test-1.svc.cluster.local."),
 		},
 	},
 	{

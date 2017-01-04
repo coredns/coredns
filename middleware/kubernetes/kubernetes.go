@@ -187,9 +187,9 @@ func (k *Kubernetes) getZoneForName(name string) (string, []string) {
 	return zone, serviceSegments
 }
 
-// stripSrvPrefix separates out the port and protocol segments, if present
+// stripSRVPrefix separates out the port and protocol segments, if present
 // If not present, assume all ports/protocols (e.g. wildcard)
-func stripSrvPrefix(name []string) (string, string, []string) {
+func stripSRVPrefix(name []string) (string, string, []string) {
 	if name[0][0] == '_' && name[1][0] == '_' {
 		return name[0][1:], name[1][1:], name[2:]
 	}
@@ -215,7 +215,7 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 	)
 
 	zone, serviceSegments := k.getZoneForName(name)
-	port, protocol, serviceSegments := stripSrvPrefix(serviceSegments)
+	port, protocol, serviceSegments := stripSRVPrefix(serviceSegments)
 	endpointname, serviceSegments := stripEndpointName(serviceSegments)
 	if len(serviceSegments) < 3 {
 		return nil, errNoItems
@@ -303,7 +303,7 @@ func (k *Kubernetes) getRecordsForServiceItems(serviceItems []service, zone stri
 }
 
 // Get performs the call to the Kubernetes http API.
-func (k *Kubernetes) Get(namespace string, servicename string, endpointname string, port string, protocol string, typeName string) (services []service, err error) {
+func (k *Kubernetes) Get(namespace, servicename, endpointname, port, protocol, typeName string) (services []service, err error) {
 	switch {
 	case typeName == "pod":
 		return nil, fmt.Errorf("%v not implemented", typeName)
@@ -312,7 +312,7 @@ func (k *Kubernetes) Get(namespace string, servicename string, endpointname stri
 	}
 }
 
-func (k *Kubernetes) getServices(namespace string, servicename string, endpointname string, port string, protocol string) ([]service, error) {
+func (k *Kubernetes) getServices(namespace, servicename, endpointname, port, protocol string) ([]service, error) {
 	serviceList := k.APIConn.ServiceList()
 
 	var resultItems []service
@@ -371,7 +371,7 @@ func (k *Kubernetes) getServices(namespace string, servicename string, endpointn
 	return resultItems, nil
 }
 
-func symbolMatches(queryString string, candidateString string, wildcard bool) bool {
+func symbolMatches(queryString, candidateString string, wildcard bool) bool {
 	result := false
 	switch {
 	case !wildcard:
