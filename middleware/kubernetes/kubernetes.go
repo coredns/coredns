@@ -202,11 +202,27 @@ func (k *Kubernetes) getZoneForName(name string) (string, []string) {
 // stripSRVPrefix separates out the port and protocol segments, if present
 // If not present, assume all ports/protocols (e.g. wildcard)
 func stripSRVPrefix(name []string) (string, string, []string) {
-	if name[0][0] == '_' && name[1][0] == '_' {
-		return name[0][1:], name[1][1:], name[2:]
+
+	var srv, prt string
+
+	if len(name) != 5 {
+		// no srv prefix present
+		return "*", "*", name
 	}
-	// no srv prefix present
-	return "*", "*", name
+
+	if  name[0][0] == '_' {
+		srv =  name[0][1:]
+	} else {
+		srv =  name[0]
+	}
+
+	if  name[1][0] == '_' {
+		prt =  name[1][1:]
+	} else {
+		prt =  name[1]
+	}
+
+	return srv, prt, name[2:]
 }
 
 func stripEndpointName(name []string) (endpoint string, nameOut []string) {
@@ -482,18 +498,34 @@ func symbolContainsWildcard(symbol string) bool {
 //   * Fist two segments must start with an "_",
 //   * Second segment must be one of _tcp|_udp|_*|_any
 func ValidSRV(name string) bool {
+	// First label
+	first_ok := false
 
-	// Does it start with a "_" ?
-	if len(name) > 0 && name[0] != '_' {
+	if  len(name) > 0 && name[0] == '_' {
+		first_ok = true
+	}
+
+	// matches "*."
+	if len(name) > 1 && name[0:2] == "*." {
+		first_ok = true
+	}
+
+	// A bit convoluted to avoid strings.ToLower
+	// matches "any."
+	if len(name) > 3 && name[3] == '.' && (name[0] == 'a' || name[0] == 'A') && 
+		(name[1] == 'n' || name[1] == 'N') && (name[2] == 'y' || name[2] == 'Y') {
+		first_ok = true
+	}
+
+	if !first_ok {
 		return false
 	}
 
-	// First label
+	// Second label
 	first, end := dns.NextLabel(name, 0)
 	if end {
 		return false
 	}
-	// Second label
 	off, end := dns.NextLabel(name, first)
 	if end {
 		return false
@@ -501,30 +533,25 @@ func ValidSRV(name string) bool {
 
 	// first:off has captured _tcp. or _udp. (if present)
 	second := name[first:off]
-	if len(second) > 0 && second[0] != '_' {
-		return false
-	}
 
 	// A bit convoluted to avoid strings.ToLower
-	if len(second) == 5 {
-		// matches _tcp
-		if (second[1] == 't' || second[1] == 'T') && (second[2] == 'c' || second[2] == 'C') &&
-			(second[3] == 'p' || second[3] == 'P') {
-			return true
-		}
-		// matches _udp
-		if (second[1] == 'u' || second[1] == 'U') && (second[2] == 'd' || second[2] == 'D') &&
-			(second[3] == 'p' || second[3] == 'P') {
-			return true
-		}
-		// matches _any
-		if (second[1] == 'a' || second[1] == 'A') && (second[2] == 'n' || second[2] == 'N') &&
-			(second[3] == 'y' || second[3] == 'Y') {
-			return true
-		}
+	// matches "_tcp."
+	if len(second) == 5 && second[0] == '_' && (second[1] == 't' || second[1] == 'T') && 
+		(second[2] == 'c' || second[2] == 'C') && (second[3] == 'p' || second[3] == 'P') {
+		return true
 	}
-	// matches _*
-	if len(second) == 3 && second[1] == '*' {
+	// matches "_udp."
+	if len(second) == 5 && second[0] == '_' && (second[1] == 'u' || second[1] == 'U') && 
+		(second[2] == 'd' || second[2] == 'D') && (second[3] == 'p' || second[3] == 'P') {
+		return true
+	}
+	// matches "any."
+	if len(second) == 4 && (second[0] == 'a' || second[0] == 'A') && 
+		(second[1] == 'n' || second[1] == 'N') && (second[2] == 'y' || second[2] == 'Y') {
+		return true
+	}
+	// matches "*."
+	if len(second) == 2 && second[0] == '*' {
 		return true
 	}
 
