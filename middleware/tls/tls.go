@@ -7,6 +7,34 @@ import (
 	"io/ioutil"
 )
 
+// NewTLSConfigFromArgs returns a TLS config based upon the passed
+// in list of arguments. Typically these come straight from the
+// Corefile
+func NewTLSConfigFromArgs(args []string) (*tls.Config, error) {
+	var err error
+	var c *tls.Config
+	switch len(args) {
+	case 0:
+		// No client cert, use system CA
+		c, err = NewTLSClientConfig("")
+	case 1:
+		// No client cert, use specified CA
+		c, err = NewTLSClientConfig(args[0])
+	case 2:
+		// Client cert, use system CA
+		c, err = NewTLSConfig(args[0], args[1], "")
+	case 3:
+		// Client cert, use specified CA
+		c, err = NewTLSConfig(args[0], args[1], args[2])
+	default:
+		err = fmt.Errorf("Maximum of three arguments allowed for TLS config, found %d", len(args))
+	}
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 // NewTLSConfig returns a TLS config that includes a certificate
 // Use for server TLS config or when using a client certificate
 // If caPath is empty, system CAs will be used
