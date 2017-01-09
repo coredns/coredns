@@ -1,7 +1,6 @@
 package tls
 
 import (
-//	"crypto/tls"
         "testing"
         "path/filepath"
 
@@ -45,14 +44,12 @@ func TestNewTLSConfigFromArgs(t *testing.T) {
 	rmFunc, cert, key, ca := getPEMFiles(t)
 	defer rmFunc()
 
-	args := []string{}
-	_, err := NewTLSConfigFromArgs(args)
+	_, err := NewTLSConfigFromArgs()
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
 
-	args = []string{ca}
-	c, err := NewTLSConfigFromArgs(args)
+	c, err := NewTLSConfigFromArgs(ca)
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
@@ -60,8 +57,7 @@ func TestNewTLSConfigFromArgs(t *testing.T) {
 		t.Error("RootCAs should not be nil when one arg passed")
 	}
 
-	args = []string{cert,key}
-	c, err = NewTLSConfigFromArgs(args)
+	c, err = NewTLSConfigFromArgs(cert,key)
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
@@ -71,8 +67,8 @@ func TestNewTLSConfigFromArgs(t *testing.T) {
 	if len(c.Certificates) != 1 {
 		t.Error("Certificates should have a single entry when two args passed")
 	}
-	args = []string{cert,key,ca}
-	c, err = NewTLSConfigFromArgs(args)
+	args := []string{cert,key,ca}
+	c, err = NewTLSConfigFromArgs(args...)
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
