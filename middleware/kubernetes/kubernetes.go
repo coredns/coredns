@@ -69,16 +69,22 @@ type pod struct {
 	addr      string
 }
 
+type recordRequest struct {
+	port, protocol, endpoint, service, namespace, typeName, zone string
+}
+
 var errNoItems = errors.New("no items found")
 var errNsNotExposed = errors.New("namespace is not exposed")
 var errInvalidRequest = errors.New("invalid query name")
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
-	if state.Type() == "SRV" && !ValidSRV(state.Name()) {
-		return nil, nil, errInvalidRequest
+
+	r, e := k.parseRequest(state.Name(), state.Type())
+	if e != nil {
+		return nil, nil, e
 	}
-	s, e := k.Records(state.Name(), exact)
+	s, e := k.Records(r)
 	return s, nil, e // Haven't implemented debug queries yet.
 }
 
@@ -177,101 +183,91 @@ func (k *Kubernetes) InitKubeCache() error {
 	return err
 }
 
-// getZoneForName returns the zone string that matches the name and a
-// list of the DNS labels from name that are within the zone.
-// For example, if "coredns.local" is a zone configured for the
-// Kubernetes middleware, then getZoneForName("a.b.coredns.local")
-// will return ("coredns.local", ["a", "b"]).
-func (k *Kubernetes) getZoneForName(name string) (string, []string) {
-	var zone string
-	var serviceSegments []string
+func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest, err error) {
+	// 3 Possible cases
+	//   SRV Request: _port._protocol.service.namespace.type.zone
+	//   A Request (endpoint): endpoint.service.namespace.type.zone
+	//   A Request (service): service.namespace.type.zone
 
+	// separate zone from rest of lowerCasedName
+	var segs []string
 	for _, z := range k.Zones {
-		if dns.IsSubDomain(z, name) {
-			zone = z
+		if dns.IsSubDomain(z, lowerCasedName) {
+			r.zone = z
 
-			serviceSegments = dns.SplitDomainName(name)
-			serviceSegments = serviceSegments[:len(serviceSegments)-dns.CountLabel(zone)]
+			segs = dns.SplitDomainName(lowerCasedName)
+			segs = segs[:len(segs)-dns.CountLabel(r.zone)]
 			break
 		}
 	}
 
-	return zone, serviceSegments
-}
-
-// stripSRVPrefix separates out the port and protocol segments, if present
-// If not present, assume all ports/protocols (e.g. wildcard)
-func stripSRVPrefix(name []string) (string, string, []string) {
-
-	var srv, prt string
-
-	if len(name) != 5 {
-		// no srv prefix present
-		return "*", "*", name
+	offset := 0
+	if len(segs) == 5 {
+		// This is a SRV style request, get first two elements as port and
+		// protocol, stripping leading underscores if present.
+		if segs[0][0] == '_' {
+			r.port = segs[0][1:]
+		} else {
+			r.port = segs[0]
+			if !symbolContainsWildcard(r.port) {
+				return r, errors.New("srv port must start with an underscore or be a wildcard")
+			}
+		}
+		if segs[1][0] == '_' {
+			r.protocol = segs[1][1:]
+			if r.protocol != "tcp" && r.protocol != "udp" {
+				return r, errors.New("invalid srv protocol: " + r.protocol)
+			}
+		} else {
+			r.protocol = segs[1]
+			if !symbolContainsWildcard(r.protocol) {
+				return r, errors.New("srv protocol must start with an underscore or be a wildcard")
+			}
+		}
+		offset = 2
+	} else if len(segs) == 4 {
+		// This is an endpoint A style request. Get first element as endpoint.
+		r.endpoint = segs[0]
+		offset = 1
 	}
 
-	if  name[0][0] == '_' {
-		srv =  name[0][1:]
-	} else {
-		srv =  name[0]
+	// SRV requests require a port and protocol
+	if qtype == "SRV" {
+		if r.port == "" || r.protocol == "" {
+			return r, errors.New("invalid srv request")
+		}
+	}
+	// A requests cannot have port/protocol
+	if qtype == "A" {
+		if r.port != "" && r.protocol != "" {
+			return r, errors.New("invalid a request")
+		}
 	}
 
-	if  name[1][0] == '_' {
-		prt =  name[1][1:]
-	} else {
-		prt =  name[1]
+	if len(segs) == (offset + 3) {
+		r.service = segs[offset]
+		r.namespace = segs[offset+1]
+		r.typeName = segs[offset+2]
+
+		return r, nil
 	}
 
-	return srv, prt, name[2:]
-}
+	return r, errors.New("invalid request")
 
-func stripEndpointName(name []string) (endpoint string, nameOut []string) {
-	if len(name) == 4 {
-		return strings.ToLower(name[0]), name[1:]
-	}
-	return "", name
 }
 
 // Records looks up services in kubernetes. If exact is true, it will lookup
 // just this name. This is used when find matches when completing SRV lookups
 // for instance.
-func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
-	var (
-		serviceName string
-		namespace   string
-		typeName    string
-	)
-
-	zone, serviceSegments := k.getZoneForName(name)
-	port, protocol, serviceSegments := stripSRVPrefix(serviceSegments)
-	endpointname, serviceSegments := stripEndpointName(serviceSegments)
-	if len(serviceSegments) < 3 {
-		return nil, errNoItems
-	}
-
-	serviceName = serviceSegments[0]
-	namespace = serviceSegments[1]
-	typeName = serviceSegments[2]
-
-	if namespace == "" {
-		err := errors.New("Parsing query string did not produce a namespace value. Assuming wildcard namespace.")
-		log.Printf("[WARN] %v\n", err)
-		namespace = "*"
-	}
-
-	if serviceName == "" {
-		err := errors.New("Parsing query string did not produce a serviceName value. Assuming wildcard serviceName.")
-		log.Printf("[WARN] %v\n", err)
-		serviceName = "*"
-	}
+func (k *Kubernetes) Records(r recordRequest) ([]msg.Service, error) {
 
 	// Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
 	// Case where namespace contains a wildcard is handled in Get(...) method.
-	if (!symbolContainsWildcard(namespace)) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(namespace, k.Namespaces)) {
+	if (!symbolContainsWildcard(r.namespace)) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(r.namespace, k.Namespaces)) {
 		return nil, errNsNotExposed
 	}
 
-	services, pods, err := k.Get(namespace, serviceName, endpointname, port, protocol, typeName)
+	services, pods, err := k.Get(r)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +276,7 @@ func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
 		return nil, errNoItems
 	}
 
-	records := k.getRecordsForK8sItems(services, pods, zone)
+	records := k.getRecordsForK8sItems(services, pods, r.zone)
 	return records, nil
 }
 
@@ -336,18 +332,6 @@ func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, zone 
 	return records
 }
 
-// Get retrieves matching data from the cache.
-func (k *Kubernetes) Get(namespace, servicename, endpointname, port, protocol, typeName string) (services []service, pods []pod, err error) {
-	switch {
-	case typeName == "pod":
-		pods, err = k.findPods(namespace, servicename)
-		return nil, pods, err
-	default:
-		services, err = k.findServices(namespace, servicename, endpointname, port, protocol)
-		return services, nil, err
-	}
-}
-
 func ipFromPodName(podname string) string {
 	if strings.Count(podname, "-") == 3 && !strings.Contains(podname, "--") {
 		return strings.Replace(podname, "-", ".", -1)
@@ -378,18 +362,30 @@ func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error)
 
 }
 
-func (k *Kubernetes) findServices(namespace, servicename, endpointname, port, protocol string) ([]service, error) {
+// Get retrieves matching data from the cache.
+func (k *Kubernetes) Get(r recordRequest) (services []service, pods []pod, err error) {
+	switch {
+	case r.typeName == "pod":
+		pods, err = k.findPods(r.namespace, r.service)
+		return nil, pods, err
+	default:
+		services, err = k.findServices(r)
+		return services, nil, err
+	}
+}
+
+func (k *Kubernetes) findServices(r recordRequest) ([]service, error) {
 	serviceList := k.APIConn.ServiceList()
 
 	var resultItems []service
 
-	nsWildcard := symbolContainsWildcard(namespace)
-	serviceWildcard := symbolContainsWildcard(servicename)
-	portWildcard := symbolContainsWildcard(port)
-	protocolWildcard := symbolContainsWildcard(protocol)
+	nsWildcard := symbolContainsWildcard(r.namespace)
+	serviceWildcard := symbolContainsWildcard(r.service)
+	portWildcard := symbolContainsWildcard(r.port) || r.port == ""
+	protocolWildcard := symbolContainsWildcard(r.protocol) || r.protocol == ""
 
 	for _, svc := range serviceList {
-		if !(symbolMatches(namespace, svc.Namespace, nsWildcard) && symbolMatches(servicename, svc.Name, serviceWildcard)) {
+		if !(symbolMatches(r.namespace, svc.Namespace, nsWildcard) && symbolMatches(r.service, svc.Name, serviceWildcard)) {
 			continue
 		}
 		// If namespace has a wildcard, filter results against Corefile namespace list.
@@ -400,7 +396,7 @@ func (k *Kubernetes) findServices(namespace, servicename, endpointname, port, pr
 		s := service{name: svc.Name, namespace: svc.Namespace, addr: svc.Spec.ClusterIP}
 		if s.addr != api.ClusterIPNone {
 			for _, p := range svc.Spec.Ports {
-				if !(symbolMatches(port, strings.ToLower(p.Name), portWildcard) && symbolMatches(protocol, strings.ToLower(string(p.Protocol)), protocolWildcard)) {
+				if !(symbolMatches(r.port, strings.ToLower(p.Name), portWildcard) && symbolMatches(r.protocol, strings.ToLower(string(p.Protocol)), protocolWildcard)) {
 					continue
 				}
 				s.ports = append(s.ports, p)
@@ -421,10 +417,10 @@ func (k *Kubernetes) findServices(namespace, servicename, endpointname, port, pr
 				for _, addr := range eps.Addresses {
 					for _, p := range eps.Ports {
 						ephostname := endpointHostname(addr)
-						if endpointname != "" && endpointname != ephostname {
+						if r.endpoint != "" && r.endpoint != ephostname {
 							continue
 						}
-						if !(symbolMatches(port, strings.ToLower(p.Name), portWildcard) && symbolMatches(protocol, strings.ToLower(string(p.Protocol)), protocolWildcard)) {
+						if !(symbolMatches(r.port, strings.ToLower(p.Name), portWildcard) && symbolMatches(r.protocol, strings.ToLower(string(p.Protocol)), protocolWildcard)) {
 							continue
 						}
 						s.endpoints = append(s.endpoints, endpoint{addr: addr, port: p})
@@ -438,16 +434,10 @@ func (k *Kubernetes) findServices(namespace, servicename, endpointname, port, pr
 }
 
 func symbolMatches(queryString, candidateString string, wildcard bool) bool {
-	result := false
-	switch {
-	case !wildcard:
-		result = (queryString == candidateString)
-	case queryString == "*":
-		result = true
-	case queryString == "any":
-		result = true
+	if wildcard {
+		return true
 	}
-	return result
+	return queryString == candidateString
 }
 
 // getServiceRecordForIP: Gets a service record with a cluster ip matching the ip argument
@@ -491,69 +481,4 @@ func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 // symbolContainsWildcard checks whether symbol contains a wildcard value
 func symbolContainsWildcard(symbol string) bool {
 	return (strings.Contains(symbol, "*") || (symbol == "any"))
-}
-
-// ValidSRV parses a server record validating _port._proto. prefix labels.
-// The valid schema is:
-//   * Fist two segments must start with an "_",
-//   * Second segment must be one of _tcp|_udp|_*|_any
-func ValidSRV(name string) bool {
-	// First label
-	first_ok := false
-
-	if  len(name) > 0 && name[0] == '_' {
-		first_ok = true
-	}
-
-	// matches "*."
-	if len(name) > 1 && name[0:2] == "*." {
-		first_ok = true
-	}
-
-	// A bit convoluted to avoid strings.ToLower
-	// matches "any."
-	if len(name) > 3 && name[3] == '.' && (name[0] == 'a' || name[0] == 'A') && 
-		(name[1] == 'n' || name[1] == 'N') && (name[2] == 'y' || name[2] == 'Y') {
-		first_ok = true
-	}
-
-	if !first_ok {
-		return false
-	}
-
-	// Second label
-	first, end := dns.NextLabel(name, 0)
-	if end {
-		return false
-	}
-	off, end := dns.NextLabel(name, first)
-	if end {
-		return false
-	}
-
-	// first:off has captured _tcp. or _udp. (if present)
-	second := name[first:off]
-
-	// A bit convoluted to avoid strings.ToLower
-	// matches "_tcp."
-	if len(second) == 5 && second[0] == '_' && (second[1] == 't' || second[1] == 'T') && 
-		(second[2] == 'c' || second[2] == 'C') && (second[3] == 'p' || second[3] == 'P') {
-		return true
-	}
-	// matches "_udp."
-	if len(second) == 5 && second[0] == '_' && (second[1] == 'u' || second[1] == 'U') && 
-		(second[2] == 'd' || second[2] == 'D') && (second[3] == 'p' || second[3] == 'P') {
-		return true
-	}
-	// matches "any."
-	if len(second) == 4 && (second[0] == 'a' || second[0] == 'A') && 
-		(second[1] == 'n' || second[1] == 'N') && (second[2] == 'y' || second[2] == 'Y') {
-		return true
-	}
-	// matches "*."
-	if len(second) == 2 && second[0] == '*' {
-		return true
-	}
-
-	return false
 }

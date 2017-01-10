@@ -181,17 +181,17 @@ var dnsTestCases = []test.Case{
 	},
 	{
 		Qname: "*.svc-1-a.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode:  dns.RcodeNameError,
+		Rcode:  dns.RcodeServerFailure,
 		Answer: []dns.RR{},
 	},
 	{
 		Qname: "*._not-udp-or-tcp.svc-1-a.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode:  dns.RcodeNameError,
+		Rcode:  dns.RcodeServerFailure,
 		Answer: []dns.RR{},
 	},
 	{
 		Qname: "svc-1-a.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode:  dns.RcodeNameError,
+		Rcode:  dns.RcodeServerFailure,
 		Answer: []dns.RR{},
 	},
 	{
