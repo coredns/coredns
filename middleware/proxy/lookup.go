@@ -13,7 +13,7 @@ import (
 
 // New create a new proxy with the hosts in host and a Random policy.
 func New(hosts []string) Proxy {
-	p := Proxy{Next: nil, Client: newClient()}
+	p := Proxy{}
 
 	upstream := &staticUpstream{
 		from:        "",
@@ -30,6 +30,8 @@ func New(hosts []string) Proxy {
 			Conns:       0,
 			Fails:       0,
 			FailTimeout: upstream.FailTimeout,
+
+			Exchanger: new(dnsUpstream),
 
 			Unhealthy: false,
 			CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
@@ -71,8 +73,11 @@ func (p Proxy) lookup(state request.Request, r *dns.Msg) (*dns.Msg, error) {
 	for _, upstream := range p.Upstreams {
 		start := time.Now()
 
-		// Since Select() should give us "up" hosts, keep retrying
-		// hosts until timeout (or until we get a nil host).
+		// This code is "identical" to the stuff in proxy.go except that it
+		// a) returns the response, instead of writing it back to the client
+		// b) does not do any metrics
+		// These functions could be combined, but I feel just copying these few
+		// lines is OK.
 		for time.Now().Sub(start) < tryDuration {
 			host := upstream.Select()
 			if host == nil {
@@ -84,7 +89,7 @@ func (p Proxy) lookup(state request.Request, r *dns.Msg) (*dns.Msg, error) {
 
 			atomic.AddInt64(&host.Conns, 1)
 
-			reply, backendErr := p.Client.ServeDNS(state.W, r, host)
+			reply, backendErr := host.Exchange(state.W, r, host)
 
 			atomic.AddInt64(&host.Conns, -1)
 
