@@ -10,7 +10,6 @@ import (
 
 	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/etcd/msg"
-	"github.com/miekg/coredns/middleware/kubernetes/nametemplate"
 	"github.com/miekg/coredns/middleware/pkg/dnsutil"
 	dnsstrings "github.com/miekg/coredns/middleware/pkg/strings"
 	"github.com/miekg/coredns/middleware/proxy"
@@ -38,7 +37,6 @@ type Kubernetes struct {
 	APIClientKey  string
 	APIConn       *dnsController
 	ResyncPeriod  time.Duration
-	NameTemplate  *nametemplate.Template
 	Namespaces    []string
 	LabelSelector *unversionedapi.LabelSelector
 	Selector      *labels.Selector
