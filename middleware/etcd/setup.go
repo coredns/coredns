@@ -10,7 +10,7 @@ import (
 	"github.com/miekg/coredns/middleware"
 	"github.com/miekg/coredns/middleware/pkg/dnsutil"
 	"github.com/miekg/coredns/middleware/pkg/singleflight"
-	mwtls "github.com/miekg/coredns/middleware/tls"
+	mwtls "github.com/miekg/coredns/middleware/pkg/tls"
 	"github.com/miekg/coredns/middleware/proxy"
 
 	etcdc "github.com/coreos/etcd/client"

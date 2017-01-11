@@ -14,7 +14,7 @@ import (
 	"github.com/miekg/coredns/middleware/pkg/singleflight"
 	"github.com/miekg/coredns/middleware/proxy"
 	"github.com/miekg/coredns/middleware/test"
-	"github.com/miekg/coredns/middleware/tls"
+	"github.com/miekg/coredns/middleware/pkg/tls"
 
 	etcdc "github.com/coreos/etcd/client"
 	"github.com/mholt/caddy"
