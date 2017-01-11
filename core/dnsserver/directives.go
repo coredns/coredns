@@ -76,6 +76,7 @@ var directives = []string{
 	"root",
 	"bind",
 	"health",
+	"grpc",
 	"pprof",
 
 	"prometheus",
