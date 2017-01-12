@@ -198,6 +198,9 @@ func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest
 			break
 		}
 	}
+	if r.zone == "" {
+		return r, errors.New("zone not found")
+	}
 
 	offset := 0
 	if len(segs) == 5 {
