@@ -2,17 +2,23 @@
 package proxy
 
 import (
+	"crypto/tls"
 	"errors"
 	"sync/atomic"
 	"time"
 
 	"github.com/miekg/coredns/middleware"
+	"github.com/miekg/coredns/middleware/grpc/pb"
 
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	creds "google.golang.org/grpc/credentials"
+
 )
 
 var errUnreachable = errors.New("unreachable backend")
+var errInvalidEncoding = errors.New("invalid encoding")
 
 // Proxy represents a middleware instance that can proxy requests to another DNS server.
 type Proxy struct {
@@ -46,6 +52,9 @@ type UpstreamHost struct {
 	Unhealthy         bool
 	CheckDown         UpstreamHostDownFunc
 	WithoutPathPrefix string
+	encoding	  upstreamEncoding
+	tls		  *tls.Config
+	grpc		  pb.DnsServiceClient
 }
 
 // Down checks whether the upstream host is down or not.
@@ -58,6 +67,60 @@ func (uh *UpstreamHost) Down() bool {
 		return uh.Unhealthy || fails > 0
 	}
 	return uh.CheckDown(uh)
+}
+
+func (uh *UpstreamHost) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, p Proxy) (*dns.Msg, error) {
+
+	var reply *dns.Msg
+	var backendErr error
+
+	atomic.AddInt64(&uh.Conns, 1)
+
+	switch uh.encoding {
+		case encodingNone:
+			reply, backendErr = p.Client.ServeDNS(w, r, uh)
+		case encodingGRPC:
+			reply, backendErr = uh.serveGRPC(ctx, w, r)
+		case encodingGRPCTLS:
+			reply, backendErr = uh.serveGRPC(ctx, w, r)
+		default:
+			reply, backendErr =  nil, errInvalidEncoding
+	}
+	atomic.AddInt64(&uh.Conns, -1)
+
+	return reply, backendErr
+}
+
+func (uh *UpstreamHost) serveGRPC(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (*dns.Msg, error) {
+	if uh.grpc == nil {
+		var conn *grpc.ClientConn
+		var err error
+		if uh.tls != nil {
+			conn, err = grpc.Dial(uh.Name, grpc.WithTransportCredentials(creds.NewTLS(uh.tls)))
+		} else {
+			conn, err = grpc.Dial(uh.Name, grpc.WithInsecure())
+		}
+		if err != nil {
+			return nil, err
+		}
+		uh.grpc = pb.NewDnsServiceClient(conn)
+	}
+
+	msg, err := r.Pack()
+	if err != nil {
+		return nil, err
+	}
+
+	reply, err := uh.grpc.Query(ctx, &pb.DnsPacket{Msg: msg})
+	if err != nil {
+		return nil, err
+	}
+	d := new(dns.Msg)
+	err = d.Unpack(reply.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 // tryDuration is how long to try upstream hosts; failures result in
@@ -80,11 +143,7 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 				return dns.RcodeServerFailure, errUnreachable
 			}
 
-			atomic.AddInt64(&host.Conns, 1)
-
-			reply, backendErr := p.Client.ServeDNS(w, r, host)
-
-			atomic.AddInt64(&host.Conns, -1)
+			reply, backendErr := host.ServeDNS(ctx, w, r, p)
 
 			if backendErr == nil {
 				w.WriteMsg(reply)

@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+package coredns.dns;
+option go_package = "pb";
+
+message DnsPacket {
+	required bytes msg = 1;
+}
+
+service DnsService {
+	rpc Query (DnsPacket) returns (DnsPacket);
+}
