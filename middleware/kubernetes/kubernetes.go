@@ -45,6 +45,7 @@ type Kubernetes struct {
 
 const (
 	PodModeDisabled  = "disabled" // default. pod requests are ignored
+	PodModeVerified  = "verified" // Pod requests are answered only if they exist
 	PodModeInsecure  = "insecure" // ALL pod requests are answered without verfying they exist
 	DnsSchemaVersion = "1.0.0"    // https://github.com/kubernetes/dns/blob/master/docs/specification.md
 )
@@ -197,7 +198,7 @@ func (k *Kubernetes) InitKubeCache() error {
 		log.Printf("[INFO] Kubernetes middleware configured with the label selector '%s'. Only kubernetes objects matching this label selector will be exposed.", unversionedapi.FormatLabelSelector(k.LabelSelector))
 	}
 
-	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector)
+	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, k.PodMode == PodModeVerified)
 
 	return err
 }
@@ -384,9 +385,25 @@ func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error)
 		return pods, nil
 	}
 
-	// TODO: implement cache verified pod responses
+	// PodModeVerified
+	podList, err := k.APIConn.podLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+	nsWildcard := symbolContainsWildcard(namespace)
+	for _, p := range podList {
+		// If namespace has a wildcard, filter results against Corefile namespace list.
+		if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(p.Namespace, k.Namespaces)) {
+			continue
+		}
+		// check for matching ip and namespace
+		if ip == p.Status.PodIP && symbolMatches(namespace, p.Namespace, nsWildcard) {
+			s := pod{name: podname, namespace: namespace, addr: ip}
+			pods = append(pods, s)
+			return pods, nil
+		}
+	}
 	return pods, nil
-
 }
 
 // Get retrieves matching data from the cache.

@@ -38,10 +38,12 @@ type dnsController struct {
 	selector *labels.Selector
 
 	svcController *cache.Controller
+	podController *cache.Controller
 	nsController  *cache.Controller
 	epController  *cache.Controller
 
 	svcLister cache.StoreToServiceLister
+	podLister cache.StoreToPodLister
 	nsLister  storeToNamespaceLister
 	epLister  cache.StoreToEndpointsLister
 
@@ -54,7 +56,7 @@ type dnsController struct {
 }
 
 // newDNSController creates a controller for CoreDNS.
-func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Duration, lselector *labels.Selector) *dnsController {
+func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Duration, lselector *labels.Selector, initPodCache bool) *dnsController {
 	dns := dnsController{
 		client:   kubeClient,
 		selector: lselector,
@@ -70,6 +72,18 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 		resyncPeriod,
 		cache.ResourceEventHandlerFuncs{},
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+
+	if initPodCache {
+		dns.podLister.Indexer, dns.podController = cache.NewIndexerInformer(
+			&cache.ListWatch{
+				ListFunc:  podListFunc(dns.client, namespace, dns.selector),
+				WatchFunc: podWatchFunc(dns.client, namespace, dns.selector),
+			},
+			&api.Pod{},
+			resyncPeriod,
+			cache.ResourceEventHandlerFuncs{},
+			cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	}
 
 	dns.nsLister.Store, dns.nsController = cache.NewInformer(
 		&cache.ListWatch{
@@ -107,6 +121,25 @@ func serviceListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) fun
 	}
 }
 
+func podListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
+	return func(opts api.ListOptions) (runtime.Object, error) {
+		if s != nil {
+			opts.LabelSelector = *s
+		}
+		listV1, err := c.Core().Pods(ns).List(opts)
+
+		if err != nil {
+			return nil, err
+		}
+		var listAPI api.PodList
+		err = v1.Convert_v1_PodList_To_api_PodList(listV1, &listAPI, nil)
+		if err != nil {
+			return nil, err
+		}
+		return &listAPI, err
+	}
+}
+
 func v1ToAPIFilter(in watch.Event) (out watch.Event, keep bool) {
 	if in.Type == watch.Error {
 		return in, true
@@ -118,6 +151,14 @@ func v1ToAPIFilter(in watch.Event) (out watch.Event, keep bool) {
 		err := v1.Convert_v1_Service_To_api_Service(v1Obj, &apiObj, nil)
 		if err != nil {
 			log.Printf("[ERROR] Could not convert v1.Service: %s", err)
+			return in, true
+		}
+		return watch.Event{Type: in.Type, Object: &apiObj}, true
+	case *v1.Pod:
+		var apiObj api.Pod
+		err := v1.Convert_v1_Pod_To_api_Pod(v1Obj, &apiObj, nil)
+		if err != nil {
+			log.Printf("[ERROR] Could not convert v1.Pod: %s", err)
 			return in, true
 		}
 		return watch.Event{Type: in.Type, Object: &apiObj}, true
@@ -149,6 +190,19 @@ func serviceWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) fu
 			options.LabelSelector = *s
 		}
 		w, err := c.Core().Services(ns).Watch(options)
+		if err != nil {
+			return nil, err
+		}
+		return watch.Filter(w, v1ToAPIFilter), nil
+	}
+}
+
+func podWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
+	return func(options api.ListOptions) (watch.Interface, error) {
+		if s != nil {
+			options.LabelSelector = *s
+		}
+		w, err := c.Core().Pods(ns).Watch(options)
 		if err != nil {
 			return nil, err
 		}
@@ -244,6 +298,9 @@ func (dns *dnsController) Run() {
 	go dns.svcController.Run(dns.stopCh)
 	go dns.nsController.Run(dns.stopCh)
 	go dns.epController.Run(dns.stopCh)
+	if dns.podController != nil {
+		go dns.podController.Run(dns.stopCh)
+	}
 	<-dns.stopCh
 }
 
