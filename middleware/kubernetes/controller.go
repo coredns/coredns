@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -23,6 +24,8 @@ var (
 type storeToNamespaceLister struct {
 	cache.Store
 }
+
+const podIPIndex = "PodIP"
 
 // List lists all Namespaces in the store.
 func (s *storeToNamespaceLister) List() (ns api.NamespaceList, err error) {
@@ -79,10 +82,10 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 				ListFunc:  podListFunc(dns.client, namespace, dns.selector),
 				WatchFunc: podWatchFunc(dns.client, namespace, dns.selector),
 			},
-			&api.Pod{},
+			&api.Pod{}, // TODO replace with a lighter-weight custom struct
 			resyncPeriod,
 			cache.ResourceEventHandlerFuncs{},
-			cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+			cache.Indexers{podIPIndex: podIPIndexFunc})
 	}
 
 	dns.nsLister.Store, dns.nsController = cache.NewInformer(
@@ -100,6 +103,14 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 		&api.Endpoints{}, resyncPeriod, cache.ResourceEventHandlerFuncs{})
 
 	return &dns
+}
+
+func podIPIndexFunc(obj interface{}) ([]string, error) {
+	p, ok := obj.(*api.Pod)
+	if !ok {
+		return nil, errors.New("obj was not an *api.Pod")
+	}
+	return []string{p.Status.PodIP}, nil
 }
 
 func serviceListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
@@ -136,6 +147,7 @@ func podListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(ap
 		if err != nil {
 			return nil, err
 		}
+
 		return &listAPI, err
 	}
 }
@@ -203,6 +215,7 @@ func podWatchFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(o
 			options.LabelSelector = *s
 		}
 		w, err := c.Core().Pods(ns).Watch(options)
+
 		if err != nil {
 			return nil, err
 		}

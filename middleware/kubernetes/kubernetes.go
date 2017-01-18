@@ -386,12 +386,17 @@ func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error)
 	}
 
 	// PodModeVerified
-	podList, err := k.APIConn.podLister.List(labels.Everything())
+	objList, err := k.APIConn.podLister.Indexer.ByIndex(podIPIndex, ip)
 	if err != nil {
 		return nil, err
 	}
+
 	nsWildcard := symbolContainsWildcard(namespace)
-	for _, p := range podList {
+	for _, o := range objList {
+		p, ok := o.(*api.Pod)
+		if !ok {
+			return nil, errors.New("expected type *api.Pod")
+		}
 		// If namespace has a wildcard, filter results against Corefile namespace list.
 		if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(p.Namespace, k.Namespaces)) {
 			continue
