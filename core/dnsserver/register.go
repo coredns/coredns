@@ -18,6 +18,7 @@ const serverType = "dns"
 // wise they potentially clash with other server types.
 func init() {
 	flag.StringVar(&Port, serverType+".port", DefaultPort, "Default port")
+	flag.StringVar(&TracingEndpoint, serverType+".trace", "", "URL for OpenTracing destination")
 
 	caddy.RegisterServerType(serverType, caddy.ServerType{
 		Directives: func() []string { return directives },
@@ -139,4 +140,7 @@ var (
 
 	// GracefulTimeout is the maximum duration of a graceful shutdown.
 	GracefulTimeout time.Duration
+
+	// TracingEndpoint is the global tracing endpoint
+	TracingEndpoint string
 )

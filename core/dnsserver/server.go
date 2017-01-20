@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 	"github.com/miekg/coredns/request"
 
 	"github.com/miekg/dns"
+        ot "github.com/opentracing/opentracing-go"
+        zipkin "github.com/openzipkin/zipkin-go-opentracing"
 	"golang.org/x/net/context"
 )
 
@@ -32,6 +35,7 @@ type Server struct {
 	l net.Listener
 	p net.PacketConn
 	m sync.Mutex // protects listener and packetconn
+	t ot.Tracer
 
 	zones       map[string]*Config // zones keyed by their address
 	dnsWg       sync.WaitGroup     // used to wait on outstanding connections
@@ -67,6 +71,13 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			stack = site.Middleware[i](stack)
 		}
 		site.middlewareChain = stack
+	}
+
+	if TracingEndpoint != "" {
+		err := s.setupTracing()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return s, nil
@@ -179,6 +190,11 @@ func (s *Server) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	off, end := 0, false
 	ctx := context.Background()
 
+	if s.t != nil {
+		span := s.t.StartSpan("servedns")
+		defer span.Finish()
+		ctx = ot.ContextWithSpan(ctx, span)
+	}
 	var dshandler *Config
 
 	for {
@@ -248,6 +264,25 @@ func (s *Server) OnStartupComplete() {
 	}
 }
 
+func (s *Server)setupTracing() (error) {
+	tracingEP := TracingEndpoint
+	if strings.Index(tracingEP, "http://") == -1 {
+		tracingEP = "http://" + tracingEP + "/api/v1/spans"
+	}
+
+	collector, err := zipkin.NewHTTPCollector(tracingEP)
+	if err != nil {
+		return err
+	}
+
+	recorder := zipkin.NewRecorder(collector, debug, s.Addr, "coredns")
+	s.t, err = zipkin.NewTracer(recorder, zipkin.ClientServerSameSpan(false))
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // DefaultErrorFunc responds to an DNS request with an error.
 func DefaultErrorFunc(w dns.ResponseWriter, r *dns.Msg, rc int) {
 	state := request.Request{W: w, Req: r}
@@ -279,6 +314,7 @@ func rcodeNoClientWrite(rcode int) bool {
 const (
 	tcp = 0
 	udp = 1
+	debug = false
 )
 
 var (
