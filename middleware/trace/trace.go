@@ -39,7 +39,6 @@ func (t *Trace) OnStartup() error {
 }
 
 func (t *Trace) setupZipkin() error {
-	log.Printf("Setting up Zipkin tracing to %s\n", t.Endpoint)
 
 	collector, err := zipkin.NewHTTPCollector(t.Endpoint)
 	if err != nil {
@@ -51,7 +50,6 @@ func (t *Trace) setupZipkin() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Zipking tracer is %v\n", t.Tracer)
 	return nil
 }
 
