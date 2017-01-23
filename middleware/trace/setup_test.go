@@ -10,14 +10,16 @@ func TestTraceParse(t *testing.T) {
 	tests := []struct {
 		input     string
 		shouldErr bool
-		addr      string
+		endpoint      string
 	}{
 		// oks
-		{`trace`, false, "localhost:9153"},
-		{`trace localhost:53`, false, "localhost:53"},
+		{`trace`, false, "http://localhost:9411/api/v1/spans"},
+		{`trace localhost:1234`, false, "http://localhost:1234/api/v1/spans"},
+		{`trace http://localhost:1234/somewhere/else`, false, "http://localhost:1234/somewhere/else"},
+		{`trace zipkin localhost:1234`, false, "http://localhost:1234/api/v1/spans"},
+		{`trace zipkin http://localhost:1234/somewhere/else`, false, "http://localhost:1234/somewhere/else"},
 		// fails
-		{`trace {}`, true, ""},
-		{`trace /foo`, true, ""},
+		{`trace footype localhost:4321`, true, ""},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
@@ -34,8 +36,8 @@ func TestTraceParse(t *testing.T) {
 			continue
 		}
 
-		if test.addr != m.Addr {
-			t.Errorf("Test %v: Expected address %s but found: %s", i, test.addr, m.Addr)
+		if test.endpoint != m.Endpoint {
+			t.Errorf("Test %v: Expected endpoint %s but found: %s", i, test.endpoint, m.Endpoint)
 		}
 	}
 }

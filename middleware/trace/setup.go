@@ -46,26 +46,21 @@ func traceParse(c *caddy.Controller) (*Trace, error) {
 	tr.ServiceEndpoint = cfg.ListenHost + ":" + cfg.Port
 	for c.Next() {
 		if c.Val() == "trace" {
-			for c.NextBlock() {
-				switch c.Val() {
-				case "endpoint":
-					var err error
-					args := c.RemainingArgs()
-					switch len(args) {
-					case 1:
-						tr.Endpoint, err = normalizeEndpoint(defEpType, args[0])
-					case 2:
-						tr.EndpointType = strings.ToLower(args[0])
-						tr.Endpoint, err = normalizeEndpoint(tr.EndpointType, args[1])
-					default:
-						err = c.ArgErr()
-					}
-					if err != nil {
-						return tr, err
-					}
-				default:
-					return tr, c.Errf("unknown item: %s", c.Val())
-				}
+			var err error
+			args := c.RemainingArgs()
+			switch len(args) {
+			case 0:
+				tr.Endpoint, err = normalizeEndpoint(tr.EndpointType, defEP)
+			case 1:
+				tr.Endpoint, err = normalizeEndpoint(defEpType, args[0])
+			case 2:
+				tr.EndpointType = strings.ToLower(args[0])
+				tr.Endpoint, err = normalizeEndpoint(tr.EndpointType, args[1])
+			default:
+				err = c.ArgErr()
+			}
+			if err != nil {
+				return tr, err
 			}
 		}
 	}
@@ -73,7 +68,7 @@ func traceParse(c *caddy.Controller) (*Trace, error) {
 }
 
 func normalizeEndpoint(epType, ep string) (string, error) {
-	switch strings.ToLower(epType) {
+	switch epType {
 	case "zipkin":
 		if strings.Index(ep, "http") == -1 {
 			ep = "http://" + ep + "/api/v1/spans"
