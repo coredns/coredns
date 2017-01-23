@@ -2,7 +2,6 @@
 package trace
 
 import (
-	"log"
 	"fmt"
 	"sync"
 
