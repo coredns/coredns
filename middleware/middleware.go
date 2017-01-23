@@ -71,8 +71,7 @@ func Error(name string, err error) error { return fmt.Errorf("%s/%s: %s", "middl
 // and a nil error.
 func NextOrFailure(name string, next Handler, ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if next != nil {
-		span := ot.SpanFromContext(ctx)
-		if span != nil {
+		if span := ot.SpanFromContext(ctx); span != nil {
 			child := span.Tracer().StartSpan(next.Name(), ot.ChildOf(span.Context()))
 			defer child.Finish()
 			ctx = ot.ContextWithSpan(ctx, child)

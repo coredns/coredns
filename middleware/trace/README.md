@@ -6,23 +6,24 @@ middleware chain.
 ## Syntax
 
 ~~~
-trace [endpoint-type] [endpoint]
+trace [ENDPOINT-TYPE] [ENDPOINT]
 ~~~
 
 For each server you which to trace.
 
-It optionally the endpoint type and endpoint. The type defaults to Zipkin and the
-endpoint to localhost:9411. A single argument will be interpreted as a Zipkin endpoint.
+It optionally takes the ENDPOINT-TYPE and ENDPOINT. The ENDPOINT-TYPE defaults to
+`zipkin` and the ENDPOINT to `localhost:9411`. A single argument will be interpreted as
+a Zipkin ENDPOINT.
 
-The only endpoint type supported so far is Zipkin. You can run Zipkin on a Docker host
+The only ENDPOINT-TYPE supported so far is `zipkin`. You can run Zipkin on a Docker host
 like this:
 
 ```
 docker run -d -p 9411:9411 openzipkin/zipkin
 ```
 
-For Zipkin, if the endpoint does not begin with `http`, then it will be transformed to
-`http://$endpoint/api/v1/spans`.
+For Zipkin, if ENDPOINT does not begin with `http`, then it will be transformed to
+`http://ENDPOINT/api/v1/spans`.
 
 ## Examples
 
