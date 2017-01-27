@@ -11,7 +11,7 @@ all: coredns
 # TODO: Add .go file dependencies.
 .PHONY: coredns
 coredns: deps
-	go build $(BUILD_VERBOSE) -ldflags="-s -w"
+	go generate ./core/... && go build $(BUILD_VERBOSE) -ldflags="-s -w"
 
 .PHONY: docker
 docker: deps

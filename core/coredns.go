@@ -1,4 +1,7 @@
 // Package core registers the server and all plugins we support.
+
+// add additional packages
+//go:generate go run ../gen/gen.go ../middleware.cfg
 package core
 
 import (
