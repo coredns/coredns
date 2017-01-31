@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"strings"
 	"time"
 
@@ -27,20 +28,22 @@ import (
 
 // Kubernetes implements a middleware that connects to a Kubernetes cluster.
 type Kubernetes struct {
-	Next          middleware.Handler
-	Zones         []string
-	primaryZone   int
-	Proxy         proxy.Proxy // Proxy for looking up names during the resolution process
-	APIEndpoint   string
-	APICertAuth   string
-	APIClientCert string
-	APIClientKey  string
-	APIConn       *dnsController
-	ResyncPeriod  time.Duration
-	Namespaces    []string
-	LabelSelector *unversionedapi.LabelSelector
-	Selector      *labels.Selector
-	PodMode       string
+	Next                      middleware.Handler
+	Zones                     []string
+	primaryZone               int
+	Proxy                     proxy.Proxy // Proxy for looking up names during the resolution process
+	APIEndpoint               string
+	APICertAuth               string
+	APIClientCert             string
+	APIClientKey              string
+	APIConn                   *dnsController
+	ResyncPeriod              time.Duration
+	Namespaces                []string
+	LabelSelector             *unversionedapi.LabelSelector
+	Selector                  *labels.Selector
+	PodMode                   string
+	ReverseCidrs              []net.IPNet
+	extractAddressFromReverse string
 }
 
 const (
@@ -119,13 +122,32 @@ func (k *Kubernetes) PrimaryZone() string {
 
 // Reverse implements the ServiceBackend interface.
 func (k *Kubernetes) Reverse(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
-	ip := dnsutil.ExtractAddressFromReverse(state.Name())
+	ip := k.ExtractAddressFromReverse(state)
 	if ip == "" {
 		return nil, nil, nil
 	}
 
 	records := k.getServiceRecordForIP(ip, state.Name())
 	return records, nil, nil
+}
+
+func (k *Kubernetes) ExtractAddressFromReverse(state request.Request) string {
+	if state.Type() != "PTR" {
+		return ""
+	}
+	if k.extractAddressFromReverse == "" {
+		k.extractAddressFromReverse = dnsutil.ExtractAddressFromReverse(state.Name())
+	}
+	return k.extractAddressFromReverse
+}
+
+func (k *Kubernetes) IsIpInReverseRange(ip string) bool {
+	for _, c := range k.ReverseCidrs {
+		if c.Contains(net.ParseIP(ip)) {
+			return true
+		}
+	}
+	return false
 }
 
 // Lookup implements the ServiceBackend interface.
