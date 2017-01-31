@@ -1,6 +1,6 @@
 // Package core registers the server and all plugins we support.
 
-// add additional packages
+// Additional middleware packages
 //go:generate go run ../gen/directives_generate.go ../middleware.cfg
 package core
 
