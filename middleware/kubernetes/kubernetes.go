@@ -121,7 +121,7 @@ func (k *Kubernetes) PrimaryZone() string {
 
 // Reverse implements the ServiceBackend interface.
 func (k *Kubernetes) Reverse(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
-	ip := dnsutil.ExtractAddressFromReverse(state.Name())
+	ip := k.ExtractAddressFromReverse(state)
 	if ip == "" {
 		return nil, nil, nil
 	}
