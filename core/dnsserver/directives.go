@@ -1,4 +1,4 @@
-//go:generate go run ../../gen/gen.go ../../middleware.cfg
+//go:generate go run ../../gen/directives_generate.go ../../middleware.cfg
 package dnsserver
 
 import (

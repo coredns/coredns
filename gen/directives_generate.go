@@ -48,10 +48,10 @@ func main() {
 		sort.Ints(orders)
 
 		if os.Getenv("GOPACKAGE") == "core" {
-			genImports("coredns-middleware.go", mi)
+			genImports("zmiddleware.go", mi)
 		}
 		if os.Getenv("GOPACKAGE") == "dnsserver" {
-			genDirectives("directives-config.go", md)
+			genDirectives("zdirectives.go", md)
 		}
 
 	} else {
