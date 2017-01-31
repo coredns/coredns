@@ -58,13 +58,13 @@ Caddyfile when forked).
 ## Compilation
 
 CoreDNS (as a servertype plugin for Caddy) has a dependency on Caddy, but this is not different than
-any other Go dependency. If you have the source of CoreDNS:
+any other Go dependency. If you have the source of CoreDNS, get all dependencies:
 
-    make gen
+    go get ./...
 
-To update the middleware directives and then `make` as you would normally do:
+And then `go build` as you would normally do:
 
-    make
+    go build
 
 This should yield a `coredns` binary.
 
