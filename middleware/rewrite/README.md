@@ -7,23 +7,28 @@ accommodate most dynamic back-end applications.
 ## Syntax
 
 ~~~
-rewrite FROM TO
+rewrite FIELD FROM TO
 ~~~
 
+* **FIELD** is (`qtype`, `class`, `qname`, ...) 
 * **FROM** is the exact name of type to match
 * **TO** is the destination name or type to rewrite to
 
-If from *and* to look like a DNS type (`A`, `MX`, etc.), the type of the message will be rewriten;
-e.g., to rewrite ANY queries to HINFO, use `rewrite ANY HINFO`.
+When the FIELD is `qtype` and FROM is (`A`, `MX`, etc.), the type of the message will be rewriten;
+e.g., to rewrite ANY queries to HINFO, use `rewrite qtype ANY HINFO`.
 
-If from *and* to look like a DNS class (`IN`, `CH`, or `HS`) the class of the message will be
-rewritten; e.g., to rewrite CH queries to IN use `rewrite CH IN`.
+When the FIELD is `class` and FROM is (`IN`, `CH`, or `HS`) the class of the message will be
+rewritten; e.g., to rewrite CH queries to IN use `rewrite class CH IN`.
 
-If it does not look like a type a name is assumed and the qname in the message is rewritten; this
-needs to be a full match of the name, e.g., `rewrite miek.nl example.org`.
+When the FIELD is `qname` the qname in the message is rewritten; this
+needs to be a full match of the name, e.g., `rewrite qname miek.nl example.org`.
 
 If you specify multiple rules and an incoming query matches on multiple (simple) rules, only
 the first rewrite is applied.
+
+Additional FIELD keywords may be implemented to support more rewrite use-cases. 
+New Rule types must be added to the Fields map.
+The type must implement `New` and `Rewrite` functions.
 
 > Everything below this line has not been implemented, yet.
 
