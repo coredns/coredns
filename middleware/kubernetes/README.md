@@ -120,7 +120,7 @@ Some query labels accept a wildcard value to match any value.
 If a label is a valid wildcard (\*, or the word "any"), then that label will match 
 all values.  The labels that accept wildcards are:
 * _service_ in an `A` record request: _service_.namespace.svc.zone.
-   * e.g. `*.ns.scv.myzone.local`
+   * e.g. `*.ns.svc.myzone.local`
 * _namespace_ in an `A` record request: service._namespace_.svc.zone.
    * e.g. `nginx.*.svc.myzone.local`
 * _port and/or protocol_ in an `SRV` request: __port_.__protocol_.service.namespace.svc.zone.
