@@ -1,10 +1,10 @@
-### Basic Development Setup
+# Basic Setup for Development and Testing
 
-#### Launch Kubernetes
+## Launch Kubernetes
 
 Kubernetes is launched using the commands in the `.travis/kubernetes/00_run_k8s.sh` script.
 
-#### Configure kubectl and Test
+## Configure kubectl and Test
 
 The kubernetes control client can be downloaded from the generic URL:
 `http://storage.googleapis.com/kubernetes-release/release/${K8S_VERSION}/bin/${GOOS}/${GOARCH}/${K8S_BINARY}`
@@ -15,7 +15,7 @@ For example, the kubectl client for Linux can be downloaded using the command:
 The `contrib/kubernetes/testscripts/10_setup_kubectl.sh` script can be stored in the same directory as
 kubectl to setup kubectl to communicate with kubernetes running on the localhost.
 
-#### Launch a kubernetes service and expose the service
+## Launch a kubernetes service and expose the service
 
 The following commands will create a kubernetes namespace "demo",
 launch an nginx service in the namespace, and expose the service on port 80:
@@ -36,7 +36,7 @@ with services running in those namespaces. The automated kubernetes integration 
 `test/kubernetes_test.go` depend on these services and namespaces to exist in kubernetes.
 
 
-#### Launch CoreDNS
+## Launch CoreDNS
 
 Build CoreDNS and launch using this configuration file:
 
@@ -89,9 +89,9 @@ mynginx.demo.coredns.local. 0   IN  A   10.0.0.10
 ;; MSG SIZE  rcvd: 71
 ~~~
 
-## Implementation Notes/Ideas
+# Implementation Notes/Ideas
 
-### Internal IP or External IP?
+## Internal IP or External IP?
 * Should the Corefile configuration allow control over whether the internal IP or external IP is exposed?
 * If the Corefile configuration allows control over internal IP or external IP, then the config should allow users to control the precedence.
 
@@ -106,7 +106,6 @@ This example could be published as:
 | iporder = external, internal | 10.0.0.100, 1.2.3.4 |
 | iporder = internal, external | 1.2.3.4, 10.0.0.100 |
 | _no directive_               | 10.0.0.100, 1.2.3.4 |
-
 
 
 ## TODO
