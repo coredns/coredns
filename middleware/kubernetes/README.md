@@ -1,88 +1,126 @@
 # kubernetes
 
-*kubernetes* enables reading zone data from a kubernetes cluster. Record names
-are constructed as "myservice.mynamespace.type.coredns.local" where:
+*kubernetes* enables reading zone data from a kubernetes cluster.
+It implements the spec defined for kubernetes DNS-Based service discovery:
+   https://github.com/kubernetes/dns/blob/master/docs/specification.md
 
-* "myservice" is the name of the k8s service (this may include multiple DNS labels,
-  such as "c1.myservice"),
+Examples:
+
+Service A records are constructed as "myservice.mynamespace.svc.coredns.local" where:
+
+* "myservice" is the name of the k8s service
 * "mynamespace" is the k8s namespace for the service, and
-* "type" is svc or pod
-* "coredns.local" is the zone configured for `kubernetes`.
+* "svc" indicates this is a service
+* "coredns.local" is the zone
+
+Pod A records are constructed as "1-2-3-4.mynamespace.pod.coredns.local" where:
+
+* "1-2-3-4" is the derived from the ip address of the pod
+* "mynamespace" is the k8s namespace for the service, and
+* "pod" indicates this is a pod
+* "coredns.local" is the zone
+
+Endpoint A records are constructed as "epname.myservice.mynamespace.svc.coredns.local" where:
+
+* "epname" is the hostname (or name constructed from IP) of the endpoint
+* "myservice" is the name of the k8s service that the endpoint serves
+* "mynamespace" is the k8s namespace for the service, and
+* "svc" indicates this is a service
+* "coredns.local" is the zone
+
 
 ## Syntax
 
-~~~
-kubernetes [ZONES...]
-~~~
+This is an example kubernetes middle configuration block, with all options described:
 
-* `ZONES` zones kubernetes should be authoritative for. Overlapping zones are ignored.
+```
+# kubernetes <zone> [<zone>] ...
+#
+# Use kubernetes middleware for domain "coredns.local"
+# Reverse domain zones can be defined here (e.g. 0.0.10.in-addr.arpa), 
+# or instead with the "cidrs" option.
+#
+kubernetes coredns.local {
+	
+	# resyncperiod <period>
+	#
+	# Kubernetes data API resync period. Default is 5m
+	# Example values: 60s, 5m, 1h
+	#
+	resyncperiod 5m
+	
+	# endpoint <url>
+	#
+	# Use url for k8s API endpoint. Default is https://localhost:8080
+	#
+	endpoint https://localhost:8080
 
-
-Or if you want to specify an endpoint:
-
-~~~
-kubernetes [ZONES...] {
-    endpoint ENDPOINT
-}
-~~~
-
-* **ENDPOINT** the kubernetes API endpoint, defaults to http://localhost:8080
-
-TODO(...): Add all the other options.
-
-## Examples
-
-This is the default kubernetes setup, with everything specified in full:
-
-~~~
-# Serve on port 53
-.:53 {
-    # use kubernetes middleware for domain "coredns.local"
-    kubernetes coredns.local {
-        # Kubernetes data API resync period
-        # Example values: 60s, 5m, 1h
-        resyncperiod 5m
-		
-        # Use url for k8s API endpoint
-        endpoint https://k8sendpoint:8080
-		
-        # The tls cert, key and the CA cert filenames
-        tls cert key cacert
-		
-        # Only expose the k8s namespace "demo"
-        namespaces demo
-		
-        # Only expose the records for kubernetes objects
-        # that match this label selector. The label
-        # selector syntax is described in the kubernetes
-        # API documentation: http://kubernetes.io/docs/user-guide/labels/
-        # Example selector below only exposes objects tagged as
-        # "application=nginx" in the staging or qa environments.
-        #labels environment in (staging, qa),application=nginx
-		
-        # The mode of responding to pod A record requests. 
-        # e.g 1-2-3-4.ns.pod.zone.  This option is provided to allow use of
-        # SSL certs when connecting directly to pods.
-        # Valid values: disabled, verified, insecure
-        #  disabled: default. ignore pod requests, always returning NXDOMAIN
-        #  insecure: Always return an A record with IP from request (without 
-        #            checking k8s).  This option is is vulnerable to abuse if
-        #            used maliciously in conjuction with wildcard SSL certs.
+	# tls <cert-filename> <key-filename> <cacert-filename>
+	#
+	# The tls cert, key and the CA cert filenames
+	#
+	tls cert key cacert
+	
+	# namespaces <namespace> [<namespace>] ...
+	#
+	# Only expose the k8s namespaces listed.  If this option is omitted
+	# all namespaces are exposed
+	#
+	namespaces demo
+	
+	# lables <expression> [,<expression>] ...
+	#
+	# Only expose the records for kubernetes objects
+	# that match this label selector. The label
+	# selector syntax is described in the kubernetes
+	# API documentation: http://kubernetes.io/docs/user-guide/labels/
+	# Example selector below only exposes objects tagged as
+	# "application=nginx" in the staging or qa environments.
+	#
+	labels environment in (staging, qa),application=nginx
+	
+	# pods <disabled|insecure|verified>
+	#
+	# Set the mode of responding to pod A record requests. 
+	# e.g 1-2-3-4.ns.pod.zone.  This option is provided to allow use of
+	# SSL certs when connecting directly to pods.
+	# Valid values: disabled, verified, insecure
+	#  disabled: Do not process pod requests, always returning NXDOMAIN
+	#  insecure: Always return an A record with IP from request (without 
+	#            checking k8s).  This option is is vulnerable to abuse if
+	#            used maliciously in conjuction with wildcard SSL certs.
+	#  verified: Return an A record if there exists a pod in same 
+	#            namespace with matching IP.
+	# Default value is "disabled".
+	#
 	pods disabled
-    }
-    # Perform DNS response caching for the coredns.local zone
-    # Cache timeout is specified by an integer in seconds
-    #cache 180 coredns.local
+	
+	# cidrs <cidr> [<cidr>] ...
+	#
+	# Expose cidr ranges to reverse lookups.  Include any number of space
+	# delimited cidrs, and or multiple cidrs options on separate lines.
+	# kubernetes middleware will respond to PTR requests for ip addresses
+	# that fall within these ranges.
+	#
+	cidrs 10.0.0.0/24 10.0.10.0/25
+		
 }
-~~~
 
-Defaults:
-* If the `namespaces` keyword is omitted, all kubernetes namespaces are exposed.
-* If the `resyncperiod` keyword is omitted, the default resync period is 5 minutes.
-* The `labels` keyword is only used when filtering results based on kubernetes label selector syntax
-  is required. The label selector syntax is described in the kubernetes API documentation at:
-  http://kubernetes.io/docs/user-guide/labels/
-* If the `pods` keyword is omitted, all pod type requests will result in NXDOMAIN
+```
+
+### Wildcards
+
+Some query labels accept a wildcard value to match any value. 
+If a label is a valid wildcard (*, or the word "any"), then that label will match 
+all values.  The labels that accept wildcards are:
+* _service_ in an `A` record request: _service_.namespace.svc.zone.
+   * e.g. *.ns.scv.myzone.local
+* _namespace_ in an `A` record request: service._namespace_.svc.zone.
+   * e.g. nginx.*.svc.myzone.local
+* _port and/or protocol_ in an `SRV` request: __port_.__protocol_.service.namespace.svc.zone.
+   * e.g. \_http.*.service.ns.svc.
+* multiple wild cards are allowed in a single query.
+   * e.g. `A` Request *.*.svc.zone. or `SRV` request *.*.*.*.svc.zone.
 
 ### Basic Setup
 
@@ -180,35 +218,6 @@ TODO(miek|...): below this line file bugs or issues and cleanup:
 
 ## Implementation Notes/Ideas
 
-### Basic Zone Mapping
-The middleware is configured with a "zone" string. For
-example: "zone = coredns.local".
-
-The Kubernetes service "myservice" running in "mynamespace" would map
-to: "myservice.mynamespace.coredns.local".
-
-The middleware should publish an A record for that service and a service record.
-
-If multiple zone names are specified, the records for kubernetes objects are
-exposed in all listed zones.
-
-For example:
-
-    # Serve on port 53
-    .:53 {
-        # use kubernetes middleware for domain "coredns.local"
-        kubernetes coredns.local {
-            # Use url for k8s API endpoint
-            endpoint http://localhost:8080
-        }
-        # Perform DNS response caching for the coredns.local zone
-        # Cache timeout is specified by an integer argument in seconds
-        # (This works for the kubernetes middleware.)
-        #cache 20 coredns.local
-        #cache 160 coredns.local
-    }
-
-
 ### Internal IP or External IP?
 * Should the Corefile configuration allow control over whether the internal IP or external IP is exposed?
 * If the Corefile configuration allows control over internal IP or external IP, then the config should allow users to control the precedence.
@@ -226,31 +235,6 @@ This example could be published as:
 | _no directive_               | 10.0.0.100, 1.2.3.4 |
 
 
-### Wildcards
-
-Publishing DNS records for singleton services isn't very interesting. Service
-names are unique within a k8s namespace, therefore multiple services will be
-commonly run with a structured naming scheme.
-
-For example, running multiple nginx services under the names:
-
-| Service name |
-|--------------|
-| c1.nginx     |
-| c2.nginx     |
-
-or:
-
-| Service name |
-|--------------|
-| nginx.c3     |
-| nginx.c4     |
-
-A DNS query with wildcard support for "nginx" in these examples should
-return the IP addresses for all services with "nginx" in the service name.
-
-TBD:
-* How does this relate the the k8s load-balancer configuration?
 
 ## TODO
 * SkyDNS compatibility/equivalency:
@@ -272,60 +256,26 @@ TBD:
 		  to coredns command.)
 		* Remove dependency on healthz for health checking in
 		  `kubernetes-rc.yaml` file.
-		* Expose load-balancer IP addresses.
+	* Functional work
 		* Calculate SRV priority based on number of instances running.
 		  (See SkyDNS README.md)
-	* Functional work
-		* (done. '?' not supported yet) ~~Implement wildcard-based lookup. Minimally support `*`, consider `?` as well.~~
-        * (done) ~~Note from Miek on PR 181: "SkyDNS also supports the word `any`.~~
-		* Implement SkyDNS-style synthetic zones such as "svc" to group k8s objects. (This
-		  should be optional behavior.) Also look at "pod" synthetic zones.
-		* Implement test cases for SkyDNS equivalent functionality.
-	* SkyDNS functionality, as listed in SkyDNS README: https://github.com/kubernetes/kubernetes/blob/release-1.2/cluster/addons/dns/README.md
-		* Expose pods and srv objects.
-		* A records in form of `pod-ip-address.my-namespace.cluster.local`.
-		  For example, a pod with ip `1.2.3.4` in the namespace `default`
-		  with a dns name of `cluster.local` would have an entry:
-		  `1-2-3-4.default.pod.cluster.local`.
-		* SRV records in form of
-		  `_my-port-name._my-port-protocol.my-namespace.svc.cluster.local`
-		  CNAME records for both regular services and headless services.
-		  See SkyDNS README.
-		* A Records and hostname Based on Pod Annotations (k8s beta 1.2 feature).
-		  See SkyDNS README.
-		* Note: the embedded IP and embedded port record names are weird. I
-		  would need to know the IP/port in order to create the query to lookup
-		  the name. Presumably these are intended for wildcard queries.
 	* Performance
 		* Improve lookup to reduce size of query result obtained from k8s API.
 		  (namespace-based?, other ideas?)
+		* reduce cache size by caching data into custom structs, instead of caching whole API objects
+		* add (and use) indexes on the caches that support indexing
 * Additional features:
 	* Reverse IN-ADDR entries for services. (Is there any value in supporting
 	  reverse lookup records?) (need tests, functionality should work based on @aledbf's code.)
-	* (done) ~~How to support label specification in Corefile to allow use of labels to
-	  indicate zone? For example, the following
-	  configuration exposes all services labeled for the "staging" environment
-	  and tenant "customerB" in the zone "customerB.stage.local":
-
-			kubernetes customerB.stage.local {
-				# Use url for k8s API endpoint
-				endpoint http://localhost:8080
-				labels environment in (staging),tenant=customerB
-			}
-
-	  Note: label specification/selection is a killer feature for segmenting
-	  test vs staging vs prod environments.~~ Need label testing.
 	* Implement IP selection and ordering (internal/external). Related to
 	  wildcards and SkyDNS use of CNAMES.
-	* Flatten service and namespace names to valid DNS characters. (service names
-	  and namespace names in k8s may use uppercase and non-DNS characters. Implement
-	  flattening to lower case and mapping of non-DNS characters to DNS characters
-	  in a standard way.)
 	* Expose arbitrary kubernetes repository data as TXT records?
 * DNS Correctness
 	* Do we need to generate synthetic zone records for namespaces?
 	* Do we need to generate synthetic zone records for the skydns synthetic zones?
 * Test cases
+	* Implement test cases for SkyDNS equivalent functionality.
+	* Add test cases for lables based filtering
 	* Test with CoreDNS caching. CoreDNS caching for DNS response is working
 	  using the `cache` directive. Tested working using 20s cache timeout
 	  and A-record queries. Automate testing with cache in place.
