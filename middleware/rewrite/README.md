@@ -14,7 +14,7 @@ rewrite FIELD FROM TO
 * **FROM** is the exact name of type to match
 * **TO** is the destination name or type to rewrite to
 
-When the FIELD is `type` and FROM is (`A`, `MX`, etc.), the type of the message will be rewriten;
+When the FIELD is `type` and FROM is (`A`, `MX`, etc.), the type of the message will be rewritten;
 e.g., to rewrite ANY queries to HINFO, use `rewrite type ANY HINFO`.
 
 When the FIELD is `class` and FROM is (`IN`, `CH`, or `HS`) the class of the message will be
