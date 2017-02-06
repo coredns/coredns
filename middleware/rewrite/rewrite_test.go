@@ -20,9 +20,9 @@ func TestRewrite(t *testing.T) {
 	rw := Rewrite{
 		Next: middleware.HandlerFunc(msgPrinter),
 		Rules: []Rule{
-			Fields["qname"].New("from.nl.", "to.nl."),
+			Fields["name"].New("from.nl.", "to.nl."),
 			Fields["class"].New("CH", "IN"),
-			Fields["qtype"].New("ANY", "HINFO"),
+			Fields["type"].New("ANY", "HINFO"),
 		},
 		noRevert: true,
 	}
