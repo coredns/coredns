@@ -56,6 +56,6 @@ func (rw Rewrite) Name() string { return "rewrite" }
 type Rule interface {
 	// Rewrite rewrites the internal location of the current request.
 	Rewrite(*dns.Msg) Result
-	// init
+	// New returns a new rule.
 	New(...string) Rule
 }

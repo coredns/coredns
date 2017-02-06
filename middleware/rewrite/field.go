@@ -1,9 +1,13 @@
 // Package rewrite is middleware for rewriting requests internally to something different.
 package rewrite
 
-// Add more fields keywords here
+/*
+Additional FIELD keywords may be implemented to support more rewrite use-cases.
+New Rule types must be added to the Fields map.
+The type must implement `New` and `Rewrite` functions.
+*/
 var Fields = map[string]Rule{
-	"qname": QnameRule{},
-	"qtype": QtypeRule{},
+	"name":  NameRule{},
+	"type":  TypeRule{},
 	"class": ClassRule{},
 }
