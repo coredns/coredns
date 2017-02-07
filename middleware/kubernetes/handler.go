@@ -33,8 +33,8 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			if !k.IsRequestInReverseRange(state) {
 				return middleware.NextOrFailure(k.Name(), k.Next, ctx, w, r)
 			}
-			// Set the zone. We can assume ipv4 for now.
-			zone = "ip-addr.arpa."
+			// Set the zone to this specific request.
+			zone = state.Name()
 		}
 	}
 
