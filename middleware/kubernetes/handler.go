@@ -35,6 +35,8 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			}
 			// Set the zone to this specific request.
 			zone = state.Name()
+		} else {
+			return middleware.NextOrFailure(k.Name(), k.Next, ctx, w, r)
 		}
 	}
 
