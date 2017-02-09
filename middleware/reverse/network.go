@@ -35,6 +35,7 @@ func (network *network) hostnameToIP(rname string) net.IP {
 	if network.IPnet.IP.To4() != nil {
 		matchedIP = net.ParseIP(strings.Replace(match[1], "-", ".", 4))
 	} else {
+		// TODO: can probably just allocate a []byte and use that.
 		var buf bytes.Buffer
 		// convert back to an valid ipv6 string with colons
 		for i := 0; i < 8*4; i += 4 {

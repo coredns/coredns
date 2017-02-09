@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-// Reverse provides dynamic reverse dns and the related forward rr
+// Reverse provides dynamic reverse DNS and the related forward RR.
 type Reverse struct {
 	Next     middleware.Handler
 	Networks networks
