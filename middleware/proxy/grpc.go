@@ -8,15 +8,14 @@ import (
 	"github.com/miekg/coredns/request"
 
 	"github.com/miekg/dns"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"golang.org/x/net/context"
-
 )
 
 type grpcClient struct {
-	dialOpt grpc.DialOption
-	clients	map[string]pb.DnsServiceClient
+	dialOpt  grpc.DialOption
+	clients  map[string]pb.DnsServiceClient
 	upstream *staticUpstream
 }
 
@@ -51,11 +50,8 @@ func (g *grpcClient) Exchange(addr string, state request.Request) (*dns.Msg, err
 	return d, nil
 }
 
-func (g *grpcClient) Protocol() string { return "grpc" }
-
-func (g *grpcClient) OnShutdown(p *Proxy) error {
-	return nil
-}
+func (g *grpcClient) Protocol() string          { return "grpc" }
+func (g *grpcClient) OnShutdown(p *Proxy) error { return nil }
 
 func (g *grpcClient) OnStartup(p *Proxy) error {
 	for _, host := range g.upstream.Hosts {
