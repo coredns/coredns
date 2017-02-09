@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mholt/caddy"
+	"github.com/miekg/coredns/middleware/test"
 )
 
 func TestHealthCheck(t *testing.T) {
@@ -96,6 +97,14 @@ func writeTmpFile(t *testing.T, data string) (string, string) {
 }
 
 func TestProxyParse(t *testing.T) {
+	rmFunc, cert, key, ca := getPEMFiles(t)
+	defer rmFunc()
+
+	grpc1 := "proxy . 8.8.8.8:53 {\n protocol grpc " + ca + "\n}"
+	grpc2 := "proxy . 8.8.8.8:53 {\n protocol grpc " + cert + " " + key + "\n}"
+	grpc3 := "proxy . 8.8.8.8:53 {\n protocol grpc " + cert + " " + key + " " + ca + "\n}"
+	grpc4 := "proxy . 8.8.8.8:53 {\n protocol grpc " + key + "\n}"
+
 	tests := []struct {
 		inputUpstreams string
 		shouldErr      bool
@@ -175,7 +184,83 @@ proxy . 8.8.8.8:53 {
 		{
 			`
 proxy . 8.8.8.8:53 {
+	protocol grpc
+}`,
+			false,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+	protocol grpc insecure
+}`,
+			false,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+	protocol grpc a b c d
+}`,
+			true,
+		},
+		{
+			grpc1,
+			false,
+		},
+		{
+			grpc2,
+			false,
+		},
+		{
+			grpc3,
+			false,
+		},
+		{
+			grpc4,
+			true,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
 	protocol foobar
+}`,
+			true,
+		},
+		{
+			`proxy`,
+			true,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+	protocol foobar
+}`,
+			true,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+	policy
+}`,
+			true,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+	fail_timeout
+}`,
+			true,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+	fail_timeout junky
+}`,
+			true,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+	health_check
 }`,
 			true,
 		},
@@ -184,7 +269,7 @@ proxy . 8.8.8.8:53 {
 		c := caddy.NewTestController("dns", test.inputUpstreams)
 		_, err := NewStaticUpstreams(&c.Dispenser)
 		if (err != nil) != test.shouldErr {
-			t.Errorf("Test %d expected no error, got %v", i+1, err)
+			t.Errorf("Test %d expected no error, got %v for %s", i+1, err, test.inputUpstreams)
 		}
 	}
 }
@@ -263,4 +348,17 @@ junky resolve.conf
 			}
 		}
 	}
+}
+
+func getPEMFiles(t *testing.T) (rmFunc func(), cert, key, ca string) {
+	tempDir, rmFunc, err := test.WritePEMFiles("")
+	if err != nil {
+		t.Fatalf("Could not write PEM files: %s", err)
+	}
+
+	cert = filepath.Join(tempDir, "cert.pem")
+	key = filepath.Join(tempDir, "key.pem")
+	ca = filepath.Join(tempDir, "ca.pem")
+
+	return
 }
