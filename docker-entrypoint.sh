@@ -2,8 +2,8 @@
 set -x -e
 set -- /coredns "$@"
 
-if [ -z "$COREFILE" ]; then
+if [ -z "$CORE_FILE" ]; then
     exec "$@"
 else
-    exec echo "$COREFILE" | "$@" -conf stdin
+    exec echo "$CORE_FILE" | "$@" -conf stdin
 fi
