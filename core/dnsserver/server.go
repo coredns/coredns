@@ -153,7 +153,10 @@ func (s *Server) Stop() (err error) {
 	}
 
 	for _, s1 := range s.server {
-		err = s1.Shutdown()
+		// We might not have started and initialized the full set of servers
+		if s1 != nil {
+			err = s1.Shutdown()
+		}
 	}
 	s.m.Unlock()
 	return
