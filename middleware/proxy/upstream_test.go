@@ -8,8 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mholt/caddy"
 	"github.com/miekg/coredns/middleware/test"
+
+	"github.com/mholt/caddy"
 )
 
 func TestHealthCheck(t *testing.T) {

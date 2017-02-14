@@ -55,7 +55,6 @@ func (g *grpcClient) Protocol() string { return "grpc" }
 
 func (g *grpcClient) OnShutdown(p *Proxy) error {
 	for i, conn := range g.conns {
-		log.Printf("[INFO] Closing connection %d\n", i)
 		err := conn.Close()
 		if err != nil {
 			log.Printf("[WARNING] Error closing connection %d: %s\n", i, err)
@@ -66,7 +65,6 @@ func (g *grpcClient) OnShutdown(p *Proxy) error {
 
 func (g *grpcClient) OnStartup(p *Proxy) error {
 	for i, host := range g.upstream.Hosts {
-		log.Printf("[INFO] Creating gRPC connection %d to %s.\n", i, host.Name)
 		conn, err := grpc.Dial(host.Name, g.dialOpt)
 		if err != nil {
 			log.Printf("[WARNING] Skipping gRPC host '%s' due to Dial error: %s\n", host.Name, err)
