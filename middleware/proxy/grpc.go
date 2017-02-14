@@ -64,7 +64,7 @@ func (g *grpcClient) OnShutdown(p *Proxy) error {
 }
 
 func (g *grpcClient) OnStartup(p *Proxy) error {
-	for i, host := range g.upstream.Hosts {
+	for _, host := range g.upstream.Hosts {
 		conn, err := grpc.Dial(host.Name, g.dialOpt)
 		if err != nil {
 			log.Printf("[WARNING] Skipping gRPC host '%s' due to Dial error: %s\n", host.Name, err)
