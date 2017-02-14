@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"crypto/tls"
 	"log"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/miekg/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -33,13 +33,13 @@ func newGrpcClient(tls *tls.Config, u *staticUpstream) *grpcClient {
 	return g
 }
 
-func (g *grpcClient) Exchange(addr string, state request.Request) (*dns.Msg, error) {
+func (g *grpcClient) Exchange(ctx context.Context, addr string, state request.Request) (*dns.Msg, error) {
 	msg, err := state.Req.Pack()
 	if err != nil {
 		return nil, err
 	}
 
-	reply, err := g.clients[addr].Query(context.TODO(), &pb.DnsPacket{Msg: msg})
+	reply, err := g.clients[addr].Query(ctx, &pb.DnsPacket{Msg: msg})
 	if err != nil {
 		return nil, err
 	}
