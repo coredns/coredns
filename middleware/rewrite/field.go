@@ -8,4 +8,5 @@ var Fields = map[string]Rule{
 	"name":  NameRule{},
 	"type":  TypeRule{},
 	"class": ClassRule{},
+	"edns0": Edns0Rule{},
 }
