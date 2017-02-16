@@ -30,7 +30,7 @@ func (rule *Edns0Rule) SetEDNS0Attrs(r *dns.Msg) {
 		switch e := s.(type) {
 		case *dns.EDNS0_LOCAL:
 			if rule.code == e.Code {
-				if rule.action == "replace" || rule.action == "set" {
+				if rule.action == "replace" || rule.action == "replace_or_append" {
 					e.Data = rule.data
 				}
 				found = true
@@ -40,7 +40,7 @@ func (rule *Edns0Rule) SetEDNS0Attrs(r *dns.Msg) {
 	}
 
 	// add option if not found
-	if !found && (rule.action == "append" || rule.action == "set") {
+	if !found && (rule.action == "append" || rule.action == "replace_or_append") {
 		o.SetDo(true)
 		var opt *dns.EDNS0_LOCAL
 		opt.Code = rule.code
