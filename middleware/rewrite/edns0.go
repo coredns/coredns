@@ -21,7 +21,8 @@ type Edns0Rule struct {
 func (rule *Edns0Rule) SetEDNS0Attrs(r *dns.Msg) {
 	o := r.IsEdns0()
 	if o == nil {
-		return
+		r.SetEdns0(4096, true)
+		o = r.IsEdns0()
 	}
 
 	found := false
@@ -41,7 +42,7 @@ func (rule *Edns0Rule) SetEDNS0Attrs(r *dns.Msg) {
 	// add option if not found
 	if !found && (rule.action == "append" || rule.action == "set") {
 		o.SetDo(true)
-		opt := new(dns.EDNS0_LOCAL)
+		var opt *dns.EDNS0_LOCAL
 		opt.Code = rule.code
 		opt.Data = rule.data
 		o.Option = append(o.Option, opt)
