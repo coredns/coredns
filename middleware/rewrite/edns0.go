@@ -51,6 +51,11 @@ func (rule *Edns0Rule) SetEDNS0Attrs(r *dns.Msg) {
 
 // Initializer
 func (rule Edns0Rule) New(args ...string) Rule {
+	if len(args) < 3 {
+		log.Printf("[WARN] %s is invalid", args)
+		return rule
+	}
+
 	switch args[0] {
 	case "append":
 	case "replace":
