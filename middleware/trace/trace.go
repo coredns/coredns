@@ -58,12 +58,12 @@ func (t *Trace) setupZipkin() error {
 }
 
 // Name implements the Handler interface.
-func (t *Trace) Name() string {
+func (t Trace) Name() string {
 	return "trace"
 }
 
 // ServeDNS implements the middleware.Handle interface.
-func (t *Trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (t Trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	trace := false
 	if t.every > 0 {
 		queryNr := atomic.AddUint64(&t.count, 1)

@@ -5,8 +5,11 @@ import (
 	"crypto/tls"
 	"log"
 
-	"github.com/coredns/coredns/middleware/proxy/pb"
-	"github.com/coredns/coredns/request"
+	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
+
+	"github.com/miekg/coredns/middleware/proxy/pb"
+	"github.com/miekg/coredns/middleware/trace"
+	"github.com/miekg/coredns/request"
 
 	"github.com/miekg/dns"
 	"google.golang.org/grpc"
@@ -14,7 +17,7 @@ import (
 )
 
 type grpcClient struct {
-	dialOpt  grpc.DialOption
+	dialOpts []grpc.DialOption
 	clients  map[string]pb.DnsServiceClient
 	conns    []*grpc.ClientConn
 	upstream *staticUpstream
@@ -24,9 +27,9 @@ func newGrpcClient(tls *tls.Config, u *staticUpstream) *grpcClient {
 	g := &grpcClient{upstream: u}
 
 	if tls == nil {
-		g.dialOpt = grpc.WithInsecure()
+		g.dialOpts = append(g.dialOpts, grpc.WithInsecure())
 	} else {
-		g.dialOpt = grpc.WithTransportCredentials(credentials.NewTLS(tls))
+		g.dialOpts = append(g.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tls)))
 	}
 	g.clients = map[string]pb.DnsServiceClient{}
 
@@ -64,8 +67,16 @@ func (g *grpcClient) OnShutdown(p *Proxy) error {
 }
 
 func (g *grpcClient) OnStartup(p *Proxy) error {
+	dialOpts := g.dialOpts
+	if p.Trace != nil {
+		if t, ok := p.Trace.(*trace.Trace); ok {
+			dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(t.Tracer)))
+		} else {
+			log.Printf("[WARNING] Wrong type for trace middleware reference: %s", p.Trace)
+		}
+	}
 	for _, host := range g.upstream.Hosts {
-		conn, err := grpc.Dial(host.Name, g.dialOpt)
+		conn, err := grpc.Dial(host.Name, g.dialOpts...)
 		if err != nil {
 			log.Printf("[WARNING] Skipping gRPC host '%s' due to Dial error: %s\n", host.Name, err)
 		} else {
