@@ -23,6 +23,10 @@ rewritten; e.g., to rewrite CH queries to IN use `rewrite class CH IN`.
 When the FIELD is `name` the query name in the message is rewritten; this
 needs to be a full match of the name, e.g., `rewrite name miek.nl example.org`.
 
+When the FIELD is `edns0` an EDNS0_LOCAL option can be appended to the request;
+e.g., to force a code on all requests, `rewrite edns0 replace_or_append 0xffad 55555555555555555555555555555555`;
+to replace present code values, `rewrite edns0 replace 0xffad 55555555555555555555555555555550`.
+
 If you specify multiple rules and an incoming query matches on multiple (simple) rules, only
 the first rewrite is applied.
 
