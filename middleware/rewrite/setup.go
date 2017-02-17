@@ -1,7 +1,7 @@
 package rewrite
 
 import (
-	"log"
+	"errors"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/middleware"
@@ -114,10 +114,10 @@ func rewriteParse(c *caddy.Controller) ([]Rule, error) {
 				if err == nil {
 					simpleRules = append(simpleRules, rule)
 				} else {
-					log.Printf("[ERROR] %s, ignore %s", err, args)
+					return nil, err
 				}
 			} else {
-				log.Printf("[WARN] %s is not a valid field, ignore %s", args[0], args)
+				return nil, errors.New("not a valid field")
 			}
 		}
 	}
