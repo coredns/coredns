@@ -60,7 +60,7 @@ func (rule Edns0Rule) New(args ...string) Rule {
 	switch args[0] {
 	case "append":
 	case "replace":
-	case "set":
+	case "replace_or_append":
 	default:
 		log.Printf("[WARN] %s is invalid", args[0])
 		return rule
