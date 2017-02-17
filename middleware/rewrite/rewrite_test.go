@@ -17,15 +17,20 @@ func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, err
 }
 
 func TestRewrite(t *testing.T) {
+	rules := []Rule{}
+	r, _ := Fields["name"].New("from.nl.", "to.nl.")
+	rules = append(rules, r)
+	r, _ = Fields["class"].New("CH", "IN")
+	rules = append(rules, r)
+	r, _ = Fields["type"].New("ANY", "HINFO")
+	rules = append(rules, r)
+
 	rw := Rewrite{
 		Next: middleware.HandlerFunc(msgPrinter),
-		Rules: []Rule{
-			Fields["name"].New("from.nl.", "to.nl."),
-			Fields["class"].New("CH", "IN"),
-			Fields["type"].New("ANY", "HINFO"),
-		},
+		Rules: rules,
 		noRevert: true,
 	}
+
 
 	tests := []struct {
 		from  string
