@@ -13,9 +13,9 @@ type ClassRule struct {
 }
 
 // Initializer
-func (rule ClassRule) New(args ...string) Rule {
+func (rule ClassRule) New(args ...string) (Rule, error) {
 	from, to := args[0], strings.Join(args[1:], " ")
-	return &ClassRule{dns.StringToClass[from], dns.StringToClass[to]}
+	return &ClassRule{dns.StringToClass[from], dns.StringToClass[to]}, nil
 
 }
 

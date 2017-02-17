@@ -3,7 +3,7 @@ package rewrite
 
 import (
 	"encoding/hex"
-	"log"
+	"errors"
 	"strconv"
 
 	"github.com/miekg/dns"
@@ -51,10 +51,10 @@ func (rule *Edns0Rule) SetEDNS0Attrs(r *dns.Msg) {
 }
 
 // Initializer
-func (rule Edns0Rule) New(args ...string) Rule {
+func (rule Edns0Rule) New(args ...string) (Rule, error) {
+	var err error
 	if len(args) < 3 {
-		log.Printf("[WARN] %s is invalid", args)
-		return rule
+		return rule, errors.New("Wrong argument count")
 	}
 
 	switch args[0] {
@@ -62,23 +62,20 @@ func (rule Edns0Rule) New(args ...string) Rule {
 	case "replace":
 	case "replace_or_append":
 	default:
-		log.Printf("[WARN] %s is invalid", args[0])
-		return rule
+		return rule, errors.New("invalid action")
 	}
 
 	c, err := strconv.ParseUint(args[1], 0, 16)
 	if err != nil {
-		log.Printf("[WARN] %s is invalid", args[1])
-		return rule
+		return rule, err
 	}
 
 	decoded, err := hex.DecodeString(args[2])
 	if err != nil {
-		log.Printf("[WARN] %s is invalid", args[2])
-		return rule
+		return rule, err
 	}
 
-	return &Edns0Rule{args[0], uint16(c), decoded, nil}
+	return &Edns0Rule{args[0], uint16(c), decoded, nil}, nil
 
 }
 

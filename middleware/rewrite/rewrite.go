@@ -57,5 +57,5 @@ type Rule interface {
 	// Rewrite rewrites the internal location of the current request.
 	Rewrite(*dns.Msg) Result
 	// New returns a new rule.
-	New(...string) Rule
+	New(...string) (Rule, error)
 }

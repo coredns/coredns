@@ -109,8 +109,13 @@ func rewriteParse(c *caddy.Controller) ([]Rule, error) {
 		// the only unhandled case is 2 and above
 		default:
 			if _, ok := Fields[args[0]]; ok {
-				rule = Fields[args[0]].New(args[1:]...)
-				simpleRules = append(simpleRules, rule)
+				var err error
+				rule, err = Fields[args[0]].New(args[1:]...)
+				if err == nil {
+					simpleRules = append(simpleRules, rule)
+				} else {
+					log.Printf("[ERROR] %s, ignore %s", err, args)
+				}
 			} else {
 				log.Printf("[WARN] %s is not a valid field, ignore %s", args[0], args)
 			}

@@ -13,9 +13,9 @@ type TypeRule struct {
 }
 
 // Initializer
-func (rule TypeRule) New(args ...string) Rule {
+func (rule TypeRule) New(args ...string) (Rule, error) {
 	from, to := args[0], strings.Join(args[1:], " ")
-	return &TypeRule{dns.StringToType[from], dns.StringToType[to]}
+	return &TypeRule{dns.StringToType[from], dns.StringToType[to]}, nil
 }
 
 // Rewrite rewrites the the current request.
