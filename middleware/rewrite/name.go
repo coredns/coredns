@@ -14,9 +14,9 @@ type NameRule struct {
 }
 
 // New initializes a new rule.
-func (rule NameRule) New(args ...string) Rule {
+func (rule NameRule) New(args ...string) (Rule, error) {
 	from, to := args[0], strings.Join(args[1:], " ")
-	return &NameRule{middleware.Name(from).Normalize(), middleware.Name(to).Normalize()}
+	return &NameRule{middleware.Name(from).Normalize(), middleware.Name(to).Normalize()}, nil
 }
 
 // Rewrite rewrites the the current request.
