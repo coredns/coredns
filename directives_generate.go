@@ -23,10 +23,8 @@ func main() {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	lineNr := 0
 	for scanner.Scan() {
 		line := scanner.Text()
-		lineNr++
 		if strings.HasPrefix(line, "#") {
 			continue
 		}
