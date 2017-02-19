@@ -4,7 +4,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"go/format"
 	"io/ioutil"
 	"log"
@@ -24,32 +23,26 @@ func main() {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	lineNr := 0
 	for scanner.Scan() {
 		line := scanner.Text()
-		lineNr++
-		if strings.HasPrefix(line, "#") {
-			continue
-		}
+		if !strings.HasPrefix(line, `//`) && !strings.HasPrefix(line, "#") {
+			items := strings.Split(line, ":")
+			if len(items) == 3 {
+				if priority, err := strconv.Atoi(items[0]); err == nil {
+					md[priority] = items[1]
+				}
 
-		items := strings.Split(line, ":")
-		if len(items) != 3 {
-			// ignore
-			continue
-		}
-		priority, err := strconv.Atoi(items[0])
-		fatalIfErr(err)
+				if items[2] != "" {
+					if strings.Contains(items[2], "/") {
+						mi[items[1]] = items[2]
+					} else {
+						mi[items[1]] = middlewarePath + items[2]
+					}
+				}
 
-		md[priority] = items[1]
-		mi[items[1]] = middlewarePath + items[2] // Default, unless overriden by 3rd arg
-
-		if strings.Contains(items[2], "/") { // External package has been given
-			mi[items[1]] = items[2]
+			}
 		}
 	}
-
-	fmt.Printf("%+v\n", mi)
-	fmt.Printf("%+v\n", md)
 
 	genImports("core/zmiddleware.go", "core", mi)
 	genDirectives("core/dnsserver/zdirectives.go", "dnsserver", md)
