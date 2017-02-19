@@ -77,20 +77,22 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 // This implements caddy.TCPServer interface.
 func (s *Server) Serve(l net.Listener) error {
 	s.m.Lock()
-	s.server[tcp] = &dns.Server{Listener: l, Net: "tcp", Handler: s.mux}
+	serv := &dns.Server{Listener: l, Net: "tcp", Handler: s.mux}
+	s.server[tcp] = serv
 	s.m.Unlock()
 
-	return s.server[tcp].ActivateAndServe()
+	return serv.ActivateAndServe()
 }
 
 // ServePacket starts the server with an existing packetconn. It blocks until the server stops.
 // This implements caddy.UDPServer interface.
 func (s *Server) ServePacket(p net.PacketConn) error {
 	s.m.Lock()
-	s.server[udp] = &dns.Server{PacketConn: p, Net: "udp", Handler: s.mux}
+	serv := &dns.Server{PacketConn: p, Net: "udp", Handler: s.mux}
+	s.server[udp] = serv
 	s.m.Unlock()
 
-	return s.server[udp].ActivateAndServe()
+	return serv.ActivateAndServe()
 }
 
 // Listen implements caddy.TCPServer interface.
