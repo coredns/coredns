@@ -25,13 +25,11 @@ import (
 // the same address and the listener may be stopped for
 // graceful termination (POSIX only).
 type Server struct {
-	Addr   string // Address we listen on
-	mux    *dns.ServeMux
-	server [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
+	Addr string // Address we listen on
+	mux  *dns.ServeMux
 
-	l net.Listener
-	p net.PacketConn
-	m sync.Mutex // protects listener and packetconn
+	server [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
+	m      sync.Mutex     // protects the servers
 
 	zones       map[string]*Config // zones keyed by their address
 	dnsWg       sync.WaitGroup     // used to wait on outstanding connections
@@ -77,22 +75,20 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 // This implements caddy.TCPServer interface.
 func (s *Server) Serve(l net.Listener) error {
 	s.m.Lock()
-	serv := &dns.Server{Listener: l, Net: "tcp", Handler: s.mux}
-	s.server[tcp] = serv
+	s.server[tcp] = &dns.Server{Listener: l, Net: "tcp", Handler: s.mux}
 	s.m.Unlock()
 
-	return serv.ActivateAndServe()
+	return s.server[tcp].ActivateAndServe()
 }
 
 // ServePacket starts the server with an existing packetconn. It blocks until the server stops.
 // This implements caddy.UDPServer interface.
 func (s *Server) ServePacket(p net.PacketConn) error {
 	s.m.Lock()
-	serv := &dns.Server{PacketConn: p, Net: "udp", Handler: s.mux}
-	s.server[udp] = serv
+	s.server[udp] = &dns.Server{PacketConn: p, Net: "udp", Handler: s.mux}
 	s.m.Unlock()
 
-	return serv.ActivateAndServe()
+	return s.server[udp].ActivateAndServe()
 }
 
 // Listen implements caddy.TCPServer interface.
@@ -101,9 +97,6 @@ func (s *Server) Listen() (net.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.m.Lock()
-	s.l = l
-	s.m.Unlock()
 	return l, nil
 }
 
@@ -114,9 +107,6 @@ func (s *Server) ListenPacket() (net.PacketConn, error) {
 		return nil, err
 	}
 
-	s.m.Lock()
-	s.p = p
-	s.m.Unlock()
 	return p, nil
 }
 
@@ -147,13 +137,6 @@ func (s *Server) Stop() (err error) {
 
 	// Close the listener now; this stops the server without delay
 	s.m.Lock()
-	if s.l != nil {
-		err = s.l.Close()
-	}
-	if s.p != nil {
-		err = s.p.Close()
-	}
-
 	for _, s1 := range s.server {
 		// We might not have started and initialized the full set of servers
 		if s1 != nil {
