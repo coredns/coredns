@@ -6,7 +6,6 @@ import (
 
 	"github.com/miekg/coredns/core/dnsserver"
 	"github.com/miekg/coredns/middleware"
-	"github.com/miekg/coredns/middleware/pkg/resync"
 
 	"github.com/mholt/caddy"
 )
@@ -16,8 +15,6 @@ func init() {
 		ServerType: "dns",
 		Action:     setup,
 	})
-
-	metricsOnce = new(resync.Once)
 }
 
 func setup(c *caddy.Controller) error {
