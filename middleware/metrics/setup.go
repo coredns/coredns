@@ -6,6 +6,7 @@ import (
 
 	"github.com/miekg/coredns/core/dnsserver"
 	"github.com/miekg/coredns/middleware"
+	"github.com/miekg/coredns/middleware/pkg/resync"
 
 	"github.com/mholt/caddy"
 )
@@ -15,6 +16,8 @@ func init() {
 		ServerType: "dns",
 		Action:     setup,
 	})
+
+	metricsOnce = new(resync.Once)
 }
 
 func setup(c *caddy.Controller) error {
@@ -28,9 +31,10 @@ func setup(c *caddy.Controller) error {
 		return m
 	})
 
+	// During restarts we will keep this handler running.
 	metricsOnce.Do(func() {
-		c.OnStartup(m.OnStartup)
-		c.OnShutdown(m.OnShutdown)
+		c.OncePerServerBlock(m.OnStartup)
+		c.OnFinalShutdown(m.OnShutdown)
 	})
 
 	return nil
