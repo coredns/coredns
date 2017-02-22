@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/coredns/coredns/middleware"
+
 	"github.com/mholt/caddy"
 )
 
