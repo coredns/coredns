@@ -102,7 +102,7 @@ func normalizeEndpoint(epType, ep string) (string, error) {
 		}
 		return ep, nil
 	default:
-		return "", fmt.Errorf("tracing endpoint type '%s' is not supported.", epType)
+		return "", fmt.Errorf("tracing endpoint type '%s' is not supported", epType)
 	}
 }
 
