@@ -69,8 +69,8 @@ func (g *grpcClient) OnShutdown(p *Proxy) error {
 func (g *grpcClient) OnStartup(p *Proxy) error {
 	dialOpts := g.dialOpts
 	if p.Trace != nil {
-		if t, ok := p.Trace.(*trace.Trace); ok {
-			dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(t.Tracer)))
+		if t, ok := p.Trace.(trace.Trace); ok {
+			dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(t.Tracer())))
 		} else {
 			log.Printf("[WARNING] Wrong type for trace middleware reference: %s", p.Trace)
 		}
