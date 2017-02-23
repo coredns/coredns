@@ -7,9 +7,9 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 
-	"github.com/miekg/coredns/middleware/proxy/pb"
-	"github.com/miekg/coredns/middleware/trace"
-	"github.com/miekg/coredns/request"
+	"github.com/coredns/coredns/middleware/proxy/pb"
+	"github.com/coredns/coredns/middleware/trace"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 	"google.golang.org/grpc"
