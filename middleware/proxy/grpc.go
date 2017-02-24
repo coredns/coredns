@@ -73,10 +73,10 @@ func (g *grpcClient) OnStartup(p *Proxy) error {
 	dialOpts := g.dialOpts
 	if p.Trace != nil {
 		if t, ok := p.Trace.(trace.Trace); ok {
-			filter := func(parentSpanCtx opentracing.SpanContext, method string, req, resp interface{}) bool {
+			include := func(parentSpanCtx opentracing.SpanContext, method string, req, resp interface{}) bool {
 				return parentSpanCtx != nil
 			}
-			intercept := otgrpc.OpenTracingClientInterceptor(t.Tracer(), otgrpc.SpanFilter(filter))
+			intercept := otgrpc.OpenTracingClientInterceptor(t.Tracer(), otgrpc.IncludeSpan(include))
 			dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(intercept))
 		} else {
 			log.Printf("[WARNING] Wrong type for trace middleware reference: %s", p.Trace)
