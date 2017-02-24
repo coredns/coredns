@@ -12,6 +12,9 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
+
+	opentracing "github.com/opentracing/opentracing-go"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -70,7 +73,10 @@ func (g *grpcClient) OnStartup(p *Proxy) error {
 	dialOpts := g.dialOpts
 	if p.Trace != nil {
 		if t, ok := p.Trace.(trace.Trace); ok {
-			intercept := otgrpc.OpenTracingClientInterceptor(t.Tracer(), otgrpc.DoNotStartTrace())
+			filter := func(parentSpanCtx opentracing.SpanContext, method string, req, resp interface{}) bool {
+				return parentSpanCtx != nil
+			}
+			intercept := otgrpc.OpenTracingClientInterceptor(t.Tracer(), otgrpc.SpanFilter(filter))
 			dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(intercept))
 		} else {
 			log.Printf("[WARNING] Wrong type for trace middleware reference: %s", p.Trace)
