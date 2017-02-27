@@ -26,11 +26,10 @@ func TestRewrite(t *testing.T) {
 	rules = append(rules, r)
 
 	rw := Rewrite{
-		Next: middleware.HandlerFunc(msgPrinter),
-		Rules: rules,
+		Next:     middleware.HandlerFunc(msgPrinter),
+		Rules:    rules,
 		noRevert: true,
 	}
-
 
 	tests := []struct {
 		from  string
