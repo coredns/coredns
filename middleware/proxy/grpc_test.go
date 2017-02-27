@@ -5,31 +5,30 @@ import (
 	"time"
 )
 
-
-func pool() ([]*UpstreamHost) {
+func pool() []*UpstreamHost {
 	return []*UpstreamHost{
-                {
-                        Name: "localhost:10053",
-                },
-                {
-                        Name: "localhost:10054",
-                },
-        }
+		{
+			Name: "localhost:10053",
+		},
+		{
+			Name: "localhost:10054",
+		},
+	}
 }
 
 func TestStartupShutdown(t *testing.T) {
-        upstream := &staticUpstream{
-                from:        ".",
-                Hosts:       pool(),
-                Policy:      &Random{},
-                Spray:       nil,
-                FailTimeout: 10 * time.Second,
-                MaxFails:    1,
-        }
+	upstream := &staticUpstream{
+		from:        ".",
+		Hosts:       pool(),
+		Policy:      &Random{},
+		Spray:       nil,
+		FailTimeout: 10 * time.Second,
+		MaxFails:    1,
+	}
 	g := newGrpcClient(nil, upstream)
 	upstream.ex = g
 
-        p := &Proxy{Trace: nil}
+	p := &Proxy{Trace: nil}
 	p.Upstreams = &[]Upstream{upstream}
 
 	err := g.OnStartup(p)

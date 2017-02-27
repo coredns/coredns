@@ -8,9 +8,9 @@ import (
 
 // CreateTestTrace creates a trace middleware to be used in tests
 func CreateTestTrace(config string) (*caddy.Controller, *trace, error) {
-        c := caddy.NewTestController("dns", config)
+	c := caddy.NewTestController("dns", config)
 	m, err := traceParse(c)
-        return c, m, err
+	return c, m, err
 }
 
 func TestTrace(t *testing.T) {
