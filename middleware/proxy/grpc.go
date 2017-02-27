@@ -60,12 +60,14 @@ func (g *grpcClient) Exchange(ctx context.Context, addr string, state request.Re
 func (g *grpcClient) Protocol() string { return "grpc" }
 
 func (g *grpcClient) OnShutdown(p *Proxy) error {
+	g.clients = map[string]pb.DnsServiceClient{}
 	for i, conn := range g.conns {
 		err := conn.Close()
 		if err != nil {
 			log.Printf("[WARNING] Error closing connection %d: %s\n", i, err)
 		}
 	}
+	g.conns = []*grpc.ClientConn{}
 	return nil
 }
 
