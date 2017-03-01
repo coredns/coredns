@@ -103,14 +103,14 @@ func TestRewriteEDNS0Local(t *testing.T) {
 			"set",
 			"0xffee",
 			"0xabcdef",
-			[]*dns.EDNS0_LOCAL{&dns.EDNS0_LOCAL{0xffee, []byte{0xab, 0xcd, 0xef}}},
+			[]*dns.EDNS0_LOCAL{{0xffee, []byte{0xab, 0xcd, 0xef}}},
 		},
 		{
 			[]*dns.EDNS0_LOCAL{},
 			"append",
 			"0xffee",
 			"abcdefghijklmnop",
-			[]*dns.EDNS0_LOCAL{&dns.EDNS0_LOCAL{0xffee, []byte("abcdefghijklmnop")}},
+			[]*dns.EDNS0_LOCAL{{0xffee, []byte("abcdefghijklmnop")}},
 		},
 	}
 
@@ -178,13 +178,13 @@ func TestRewriteEDNS0NSID(t *testing.T) {
 			[]*dns.EDNS0_NSID{},
 			"set",
 			"abcdef",
-			[]*dns.EDNS0_NSID{&dns.EDNS0_NSID{dns.EDNS0NSID, ""}},
+			[]*dns.EDNS0_NSID{{dns.EDNS0NSID, ""}},
 		},
 		{
 			[]*dns.EDNS0_NSID{},
 			"append",
 			"",
-			[]*dns.EDNS0_NSID{&dns.EDNS0_NSID{dns.EDNS0NSID, ""}},
+			[]*dns.EDNS0_NSID{{dns.EDNS0NSID, ""}},
 		},
 	}
 
