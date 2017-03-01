@@ -1,6 +1,7 @@
 package rewrite
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/coredns/coredns/middleware"
@@ -16,13 +17,25 @@ func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, err
 	return 0, nil
 }
 
+func TestInvalid(t *testing.T) {
+	_, err := newClassRule("XY", "WV")
+	if err == nil {
+		t.Errorf("Expected error but got success for invalid class")
+	}
+
+	_, err = newTypeRule("XY", "WV")
+	if err == nil {
+		t.Errorf("Expected error but got success for invalid type")
+	}
+}
+
 func TestRewrite(t *testing.T) {
 	rules := []Rule{}
-	r, _ := Fields["name"].New("from.nl.", "to.nl.")
+	r, _ := newNameRule("from.nl.", "to.nl.")
 	rules = append(rules, r)
-	r, _ = Fields["class"].New("CH", "IN")
+	r, _ = newClassRule("CH", "IN")
 	rules = append(rules, r)
-	r, _ = Fields["type"].New("ANY", "HINFO")
+	r, _ = newTypeRule("ANY", "HINFO")
 	rules = append(rules, r)
 
 	rw := Rewrite{
@@ -69,79 +82,81 @@ func TestRewrite(t *testing.T) {
 			t.Errorf("Test %d: Expected Class to be '%d' but was '%d'", i, tc.toC, resp.Question[0].Qclass)
 		}
 	}
+}
 
-	/*
-		regexps := [][]string{
-			{"/reg/", ".*", "/to", ""},
-			{"/r/", "[a-z]+", "/toaz", "!.html|"},
-			{"/url/", "a([a-z0-9]*)s([A-Z]{2})", "/to/{path}", ""},
-			{"/ab/", "ab", "/ab?{query}", ".txt|"},
-			{"/ab/", "ab", "/ab?type=html&{query}", ".html|"},
-			{"/abc/", "ab", "/abc/{file}", ".html|"},
-			{"/abcd/", "ab", "/a/{dir}/{file}", ".html|"},
-			{"/abcde/", "ab", "/a#{fragment}", ".html|"},
-			{"/ab/", `.*\.jpg`, "/ajpg", ""},
-			{"/reggrp", `/ad/([0-9]+)([a-z]*)`, "/a{1}/{2}", ""},
-			{"/reg2grp", `(.*)`, "/{1}", ""},
-			{"/reg3grp", `(.*)/(.*)/(.*)`, "/{1}{2}{3}", ""},
-		}
+func TestRewriteEDNS0(t *testing.T) {
 
-		for _, regexpRule := range regexps {
-			var ext []string
-			if s := strings.Split(regexpRule[3], "|"); len(s) > 1 {
-				ext = s[:len(s)-1]
-			}
-			rule, err := NewComplexRule(regexpRule[0], regexpRule[1], regexpRule[2], 0, ext, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			rw.Rules = append(rw.Rules, rule)
-		}
-	*/
-	/*
-		statusTests := []struct {
-			status         int
-			base           string
-			to             string
-			regexp         string
-			statusExpected bool
-		}{
-			{400, "/status", "", "", true},
-			{400, "/ignore", "", "", false},
-			{400, "/", "", "^/ignore", false},
-			{400, "/", "", "(.*)", true},
-			{400, "/status", "", "", true},
-		}
+	rw := Rewrite{
+		Next:     middleware.HandlerFunc(msgPrinter),
+		noRevert: true,
+	}
 
-		for i, s := range statusTests {
-			urlPath := fmt.Sprintf("/status%d", i)
-			rule, err := NewComplexRule(s.base, s.regexp, s.to, s.status, nil, nil)
-			if err != nil {
-				t.Fatalf("Test %d: No error expected for rule but found %v", i, err)
-			}
-			rw.Rules = []Rule{rule}
-			req, err := http.NewRequest("GET", urlPath, nil)
-			if err != nil {
-				t.Fatalf("Test %d: Could not create HTTP request: %v", i, err)
-			}
+	localTests := []struct {
+		fromOpts []*dns.EDNS0_LOCAL
+		action  string
+		code    string
+		data	string
+		toOpts []*dns.EDNS0_LOCAL
+	}{
+		{
+			[]*dns.EDNS0_LOCAL{},
+			"set",
+			"0xffee",
+			"0xabcdef",
+			[]*dns.EDNS0_LOCAL{&dns.EDNS0_LOCAL{0xffee, []byte{0xab,0xcd,0xef}}},
+		},
+		{
+			[]*dns.EDNS0_LOCAL{},
+			"append",
+			"0xffee",
+			"abcdefghijklmnop",
+			[]*dns.EDNS0_LOCAL{&dns.EDNS0_LOCAL{0xffee, []byte("abcdefghijklmnop")}},
+		},
+	}
 
-			rec := httptest.NewRecorder()
-			code, err := rw.ServeHTTP(rec, req)
-			if err != nil {
-				t.Fatalf("Test %d: No error expected for handler but found %v", i, err)
-			}
-			if s.statusExpected {
-				if rec.Body.String() != "" {
-					t.Errorf("Test %d: Expected empty body but found %s", i, rec.Body.String())
-				}
-				if code != s.status {
-					t.Errorf("Test %d: Expected status code %d found %d", i, s.status, code)
-				}
-			} else {
-				if code != 0 {
-					t.Errorf("Test %d: Expected no status code found %d", i, code)
-				}
-			}
+	ctx := context.TODO()
+	for i, tc := range localTests {
+		m := new(dns.Msg)
+		m.SetQuestion("example.com.", dns.TypeA)
+		m.Question[0].Qclass = dns.ClassINET
+
+		r, err := newEdns0LocalRule(tc.action, tc.code, tc.data)
+		if err != nil {
+			t.Errorf("Error creating test rule: %s", err)
+			continue
 		}
-	*/
+		rw.Rules = []Rule{r}
+
+		rec := dnsrecorder.New(&test.ResponseWriter{})
+		rw.ServeDNS(ctx, rec, m)
+
+		resp := rec.Msg
+		o := resp.IsEdns0()
+		if o == nil {
+			t.Errorf("Test %d: EDNS0 options not set", i)
+			continue
+		}
+		if !localOptsEqual(o.Option,tc.toOpts) {
+			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
+		}
+	}
+}
+
+func localOptsEqual(a []dns.EDNS0, b []*dns.EDNS0_LOCAL) (bool) {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if l, ok := a[i].(*dns.EDNS0_LOCAL); ok {
+			if l.Code != b[i].Code {
+				return false
+			}
+			if !bytes.Equal(l.Data, b[i].Data) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+	return true
 }

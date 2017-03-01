@@ -2,24 +2,34 @@
 package rewrite
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/miekg/dns"
 )
 
-// TypeRule is a type rewrite rule.
-type TypeRule struct {
+// typeRule is a type rewrite rule.
+type typeRule struct {
 	fromType, toType uint16
 }
 
-// New initializes a rule.
-func (rule TypeRule) New(args ...string) (Rule, error) {
-	from, to := args[0], strings.Join(args[1:], " ")
-	return &TypeRule{dns.StringToType[from], dns.StringToType[to]}, nil
+func newTypeRule(args ...string) (Rule, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("Type rules must have exactly two arguments")
+	}
+	var from, to uint16
+	var ok bool
+	if from, ok = dns.StringToType[strings.ToUpper(args[0])]; !ok {
+		return nil, fmt.Errorf("Invalid class '%s'", strings.ToUpper(args[0]))
+	}
+	if to, ok = dns.StringToType[strings.ToUpper(args[1])]; !ok {
+		return nil, fmt.Errorf("Invalid class '%s'", strings.ToUpper(args[1]))
+	}
+	return &typeRule{fromType: from, toType: to}, nil
 }
 
 // Rewrite rewrites the the current request.
-func (rule TypeRule) Rewrite(r *dns.Msg) Result {
+func (rule *typeRule) Rewrite(r *dns.Msg) Result {
 	if rule.fromType > 0 && rule.toType > 0 {
 		if r.Question[0].Qtype == rule.fromType {
 			r.Question[0].Qtype = rule.toType

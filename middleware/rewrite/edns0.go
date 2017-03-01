@@ -3,34 +3,69 @@ package rewrite
 
 import (
 	"encoding/hex"
-	"errors"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/miekg/dns"
 )
 
-// Edns0Rule is a class rewrite rule.
-type Edns0Rule struct {
+// edns0LocalRule is a class rewrite rule.
+type edns0LocalRule struct {
 	action string
 	code   uint16
 	data   []byte
 	match  []byte // TODO: add match input for replace rule
 }
 
-// SetEDNS0Attrs will alter the request
-func (rule *Edns0Rule) SetEDNS0Attrs(r *dns.Msg) {
+type edns0NsidRule struct {
+	action string
+}
+
+func getEdns0Opt(r *dns.Msg) (*dns.OPT) {
 	o := r.IsEdns0()
 	if o == nil {
 		r.SetEdns0(4096, true)
 		o = r.IsEdns0()
 	}
+	return o
+}
 
+func (rule *edns0NsidRule) Rewrite(r *dns.Msg) Result {
+	o := getEdns0Opt(r)
+	found := false
+	for _, s := range o.Option {
+		switch e := s.(type) {
+		case *dns.EDNS0_NSID:
+			if rule.action == "replace" || rule.action == "set" {
+				e.Nsid = "" // make sure it is empty for request
+			}
+			found = true
+			break
+		}
+	}
+
+	// add option if not found
+	if !found && (rule.action == "append" || rule.action == "set") {
+		o.SetDo(true)
+		var opt *dns.EDNS0_NSID
+		opt.Code = dns.EDNS0NSID
+		opt.Nsid = ""
+		o.Option = append(o.Option, opt)
+	}
+
+	return RewriteDone
+}
+
+// SetEDNS0Attrs will alter the request
+func (rule *edns0LocalRule) Rewrite(r *dns.Msg) Result {
+	o := getEdns0Opt(r)
 	found := false
 	for _, s := range o.Option {
 		switch e := s.(type) {
 		case *dns.EDNS0_LOCAL:
 			if rule.code == e.Code {
-				if rule.action == "replace" || rule.action == "replace_or_append" {
+				if rule.action == "replace" || rule.action == "set" {
 					e.Data = rule.data
 				}
 				found = true
@@ -40,47 +75,62 @@ func (rule *Edns0Rule) SetEDNS0Attrs(r *dns.Msg) {
 	}
 
 	// add option if not found
-	if !found && (rule.action == "append" || rule.action == "replace_or_append") {
+	if !found && (rule.action == "append" || rule.action == "set") {
 		o.SetDo(true)
-		var opt *dns.EDNS0_LOCAL
+		var opt dns.EDNS0_LOCAL
 		opt.Code = rule.code
 		opt.Data = rule.data
-		o.Option = append(o.Option, opt)
+		o.Option = append(o.Option, &opt)
 	}
 
+	return RewriteDone
 }
 
 // Initializer
-func (rule Edns0Rule) New(args ...string) (Rule, error) {
-	var err error
-	if len(args) < 3 {
-		return rule, errors.New("Wrong argument count")
+func newEdns0Rule(args ...string) (Rule, error) {
+	if len(args) < 2 {
+		return nil, fmt.Errorf("Too few arguments for an EDNS0 rule")
 	}
 
-	switch args[0] {
+	action := strings.ToLower(args[0])
+	switch action {
 	case "append":
 	case "replace":
-	case "replace_or_append":
+	case "set":
 	default:
-		return rule, errors.New("invalid action")
+		return nil, fmt.Errorf("invalid action: '%s'", action)
 	}
 
-	c, err := strconv.ParseUint(args[1], 0, 16)
-	if err != nil {
-		return rule, err
+	switch strings.ToLower(args[1]) {
+		case "local":
+			if len(args) != 3 {
+				return nil, fmt.Errorf("EDNS0 local rules require exactly three args")
+			}
+			return newEdns0LocalRule(action, args[1], args[2])
+		case "nsid":
+			if len(args) != 2 {
+				return nil, fmt.Errorf("EDNS0 NSID rules do not accept args")
+			}
+			return &edns0NsidRule{action: action}, nil
+		default:
+			return nil, fmt.Errorf("Invalid rule type '%s'", args[1])
 	}
-
-	decoded, err := hex.DecodeString(args[2])
-	if err != nil {
-		return rule, err
-	}
-
-	return &Edns0Rule{args[0], uint16(c), decoded, nil}, nil
-
 }
 
-// Rewrite rewrites the the current request.
-func (rule Edns0Rule) Rewrite(r *dns.Msg) Result {
-	rule.SetEDNS0Attrs(r)
-	return RewriteDone
+func newEdns0LocalRule(action, code, data string) (*edns0LocalRule, error) {
+	c, err := strconv.ParseUint(code, 0, 16)
+	if err != nil {
+		return nil, err
+	}
+
+	decoded := []byte(data)
+	if strings.HasPrefix(data, "0x") {
+		decoded, err = hex.DecodeString(data[2:])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &edns0LocalRule{action, uint16(c), decoded, nil}, nil
 }
+

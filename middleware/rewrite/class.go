@@ -1,26 +1,33 @@
-// Package rewrite is middleware for rewriting requests internally to something different.
 package rewrite
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/miekg/dns"
 )
 
-// ClassRule is a class rewrite rule.
-type ClassRule struct {
+type classRule struct {
 	fromClass, toClass uint16
 }
 
-// New initializes rule.
-func (rule ClassRule) New(args ...string) (Rule, error) {
-	from, to := args[0], strings.Join(args[1:], " ")
-	return &ClassRule{dns.StringToClass[from], dns.StringToClass[to]}, nil
-
+func newClassRule(args ...string) (Rule, error) {
+	if len(args) != 2 {
+		return nil, fmt.Errorf("Class rules must have exactly two arguments")
+	}
+	var from, to uint16
+	var ok bool
+	if from, ok = dns.StringToClass[strings.ToUpper(args[0])]; !ok {
+		return nil, fmt.Errorf("Invalid class '%s'", strings.ToUpper(args[0]))
+	}
+	if to, ok = dns.StringToClass[strings.ToUpper(args[1])]; !ok {
+		return nil, fmt.Errorf("Invalid class '%s'", strings.ToUpper(args[1]))
+	}
+	return &classRule{fromClass: from, toClass: to}, nil
 }
 
 // Rewrite rewrites the the current request.
-func (rule ClassRule) Rewrite(r *dns.Msg) Result {
+func (rule *classRule) Rewrite(r *dns.Msg) Result {
 	if rule.fromClass > 0 && rule.toClass > 0 {
 		if r.Question[0].Qclass == rule.fromClass {
 			r.Question[0].Qclass = rule.toClass
