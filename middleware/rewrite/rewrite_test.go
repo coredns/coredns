@@ -17,15 +17,90 @@ func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, err
 	return 0, nil
 }
 
-func TestInvalid(t *testing.T) {
-	_, err := newClassRule("XY", "WV")
+func TestNewRule(t *testing.T) {
+	r, err := newRule()
+	if err == nil {
+		t.Errorf("Expected error but got success for newRule()")
+	}
+	r, err = newRule("foo")
+	if err == nil {
+		t.Errorf("Expected error but got success for newRule(foo)")
+	}
+
+	r, err = newRule("name")
+	if err == nil {
+		t.Errorf("Expected error for newRule(name)")
+	}
+	r, err = newRule("name", "a.com.")
+	if err == nil {
+		t.Errorf("Expected error for newRule(name, a.com)")
+	}
+	r, err = newRule("name", "a.com.", "b.com.", "c.com.")
+	if err == nil {
+		t.Errorf("Expected error for newRule(name, a.com, b.com, c.com)")
+	}
+	r, err = newRule("name", "a.com.", "b.com.")
+	if err != nil {
+		t.Errorf("Expected name rule but got error: %s", err)
+	}
+	if _, ok := r.(*nameRule); !ok {
+		t.Errorf("Expected name rule but got %v", r)
+	}
+
+	r, err = newRule("type")
+	if err == nil {
+		t.Errorf("Expected error for newRule(type)")
+	}
+	r, err = newRule("type", "a")
+	if err == nil {
+		t.Errorf("Expected error for newRule(type, a)")
+	}
+	r, err = newRule("type", "any", "a", "a")
+	if err == nil {
+		t.Errorf("Expected error for newRule(type, any, a, a)")
+	}
+	r, err = newRule("type", "any", "a")
+	if err != nil {
+		t.Errorf("Expected type rule but got error: %s", err)
+	}
+	if _, ok := r.(*typeRule); !ok {
+		t.Errorf("Expected type rule but got %v", r)
+	}
+	_, err = newRule("type", "XY", "WV")
+	if err == nil {
+		t.Errorf("Expected error but got success for invalid type")
+	}
+	_, err = newRule("type", "ANY", "WV")
+	if err == nil {
+		t.Errorf("Expected error but got success for invalid type")
+	}
+
+	r, err = newRule("class")
+	if err == nil {
+		t.Errorf("Expected error for newRule(class)")
+	}
+	r, err = newRule("class", "IN")
+	if err == nil {
+		t.Errorf("Expected error for newRule(class, IN)")
+	}
+	r, err = newRule("class", "ch", "in", "in")
+	if err == nil {
+		t.Errorf("Expected error for newRule(class, ch, in, in)")
+	}
+	r, err = newRule("class", "ch", "in")
+	if err != nil {
+		t.Errorf("Expected class rule but got error: %s", err)
+	}
+	if _, ok := r.(*classRule); !ok {
+		t.Errorf("Expected class rule but got %v", r)
+	}
+	_, err = newRule("class", "XY", "WV")
 	if err == nil {
 		t.Errorf("Expected error but got success for invalid class")
 	}
-
-	_, err = newTypeRule("XY", "WV")
+	_, err = newRule("class", "IN", "WV")
 	if err == nil {
-		t.Errorf("Expected error but got success for invalid type")
+		t.Errorf("Expected error but got success for invalid class")
 	}
 }
 

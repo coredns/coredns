@@ -20,10 +20,10 @@ func newTypeRule(args ...string) (Rule, error) {
 	var from, to uint16
 	var ok bool
 	if from, ok = dns.StringToType[strings.ToUpper(args[0])]; !ok {
-		return nil, fmt.Errorf("Invalid class '%s'", strings.ToUpper(args[0]))
+		return nil, fmt.Errorf("Invalid type '%s'", strings.ToUpper(args[0]))
 	}
 	if to, ok = dns.StringToType[strings.ToUpper(args[1])]; !ok {
-		return nil, fmt.Errorf("Invalid class '%s'", strings.ToUpper(args[1]))
+		return nil, fmt.Errorf("Invalid type '%s'", strings.ToUpper(args[1]))
 	}
 	return &typeRule{fromType: from, toType: to}, nil
 }
