@@ -93,17 +93,17 @@ func TestRewriteEDNS0(t *testing.T) {
 
 	localTests := []struct {
 		fromOpts []*dns.EDNS0_LOCAL
-		action  string
-		code    string
-		data	string
-		toOpts []*dns.EDNS0_LOCAL
+		action   string
+		code     string
+		data     string
+		toOpts   []*dns.EDNS0_LOCAL
 	}{
 		{
 			[]*dns.EDNS0_LOCAL{},
 			"set",
 			"0xffee",
 			"0xabcdef",
-			[]*dns.EDNS0_LOCAL{&dns.EDNS0_LOCAL{0xffee, []byte{0xab,0xcd,0xef}}},
+			[]*dns.EDNS0_LOCAL{&dns.EDNS0_LOCAL{0xffee, []byte{0xab, 0xcd, 0xef}}},
 		},
 		{
 			[]*dns.EDNS0_LOCAL{},
@@ -136,13 +136,13 @@ func TestRewriteEDNS0(t *testing.T) {
 			t.Errorf("Test %d: EDNS0 options not set", i)
 			continue
 		}
-		if !localOptsEqual(o.Option,tc.toOpts) {
+		if !localOptsEqual(o.Option, tc.toOpts) {
 			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
 		}
 	}
 }
 
-func localOptsEqual(a []dns.EDNS0, b []*dns.EDNS0_LOCAL) (bool) {
+func localOptsEqual(a []dns.EDNS0, b []*dns.EDNS0_LOCAL) bool {
 	if len(a) != len(b) {
 		return false
 	}

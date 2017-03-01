@@ -63,7 +63,7 @@ type Rule interface {
 }
 
 func newRule(args ...string) (Rule, error) {
-	if len(args) == 0  {
+	if len(args) == 0 {
 		return nil, fmt.Errorf("No rule type specified for rewrite")
 	}
 

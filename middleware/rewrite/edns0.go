@@ -22,7 +22,7 @@ type edns0NsidRule struct {
 	action string
 }
 
-func getEdns0Opt(r *dns.Msg) (*dns.OPT) {
+func getEdns0Opt(r *dns.Msg) *dns.OPT {
 	o := r.IsEdns0()
 	if o == nil {
 		r.SetEdns0(4096, true)
@@ -102,18 +102,18 @@ func newEdns0Rule(args ...string) (Rule, error) {
 	}
 
 	switch strings.ToLower(args[1]) {
-		case "local":
-			if len(args) != 3 {
-				return nil, fmt.Errorf("EDNS0 local rules require exactly three args")
-			}
-			return newEdns0LocalRule(action, args[1], args[2])
-		case "nsid":
-			if len(args) != 2 {
-				return nil, fmt.Errorf("EDNS0 NSID rules do not accept args")
-			}
-			return &edns0NsidRule{action: action}, nil
-		default:
-			return nil, fmt.Errorf("Invalid rule type '%s'", args[1])
+	case "local":
+		if len(args) != 3 {
+			return nil, fmt.Errorf("EDNS0 local rules require exactly three args")
+		}
+		return newEdns0LocalRule(action, args[1], args[2])
+	case "nsid":
+		if len(args) != 2 {
+			return nil, fmt.Errorf("EDNS0 NSID rules do not accept args")
+		}
+		return &edns0NsidRule{action: action}, nil
+	default:
+		return nil, fmt.Errorf("Invalid rule type '%s'", args[1])
 	}
 }
 
@@ -133,4 +133,3 @@ func newEdns0LocalRule(action, code, data string) (*edns0LocalRule, error) {
 
 	return &edns0LocalRule{action, uint16(c), decoded, nil}, nil
 }
-
