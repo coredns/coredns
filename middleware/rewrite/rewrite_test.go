@@ -84,14 +84,14 @@ func TestRewrite(t *testing.T) {
 	}
 }
 
-func TestRewriteEDNS0(t *testing.T) {
+func TestRewriteEDNS0Local(t *testing.T) {
 
 	rw := Rewrite{
 		Next:     middleware.HandlerFunc(msgPrinter),
 		noRevert: true,
 	}
 
-	localTests := []struct {
+	tests := []struct {
 		fromOpts []*dns.EDNS0_LOCAL
 		action   string
 		code     string
@@ -115,7 +115,7 @@ func TestRewriteEDNS0(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	for i, tc := range localTests {
+	for i, tc := range tests {
 		m := new(dns.Msg)
 		m.SetQuestion("example.com.", dns.TypeA)
 		m.Question[0].Qclass = dns.ClassINET
@@ -152,6 +152,73 @@ func localOptsEqual(a []dns.EDNS0, b []*dns.EDNS0_LOCAL) bool {
 				return false
 			}
 			if !bytes.Equal(l.Data, b[i].Data) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+	return true
+}
+
+func TestRewriteEDNS0NSID(t *testing.T) {
+
+	rw := Rewrite{
+		Next:     middleware.HandlerFunc(msgPrinter),
+		noRevert: true,
+	}
+
+	tests := []struct {
+		fromOpts []*dns.EDNS0_NSID
+		action   string
+		nsid     string
+		toOpts   []*dns.EDNS0_NSID
+	}{
+		{
+			[]*dns.EDNS0_NSID{},
+			"set",
+			"abcdef",
+			[]*dns.EDNS0_NSID{&dns.EDNS0_NSID{dns.EDNS0NSID, ""}},
+		},
+		{
+			[]*dns.EDNS0_NSID{},
+			"append",
+			"",
+			[]*dns.EDNS0_NSID{&dns.EDNS0_NSID{dns.EDNS0NSID, ""}},
+		},
+	}
+
+	ctx := context.TODO()
+	for i, tc := range tests {
+		m := new(dns.Msg)
+		m.SetQuestion("example.com.", dns.TypeA)
+		m.Question[0].Qclass = dns.ClassINET
+
+		r := &edns0NsidRule{tc.action}
+		rw.Rules = []Rule{r}
+
+		rec := dnsrecorder.New(&test.ResponseWriter{})
+		rw.ServeDNS(ctx, rec, m)
+
+		resp := rec.Msg
+		o := resp.IsEdns0()
+		if o == nil {
+			t.Errorf("Test %d: EDNS0 options not set", i)
+			continue
+		}
+		if !nsidOptsEqual(o.Option, tc.toOpts) {
+			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
+		}
+	}
+}
+
+func nsidOptsEqual(a []dns.EDNS0, b []*dns.EDNS0_NSID) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if l, ok := a[i].(*dns.EDNS0_NSID); ok {
+			if l.Nsid != b[i].Nsid {
 				return false
 			}
 		} else {

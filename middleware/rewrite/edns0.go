@@ -48,10 +48,7 @@ func (rule *edns0NsidRule) Rewrite(r *dns.Msg) Result {
 	// add option if not found
 	if !found && (rule.action == "append" || rule.action == "set") {
 		o.SetDo(true)
-		var opt *dns.EDNS0_NSID
-		opt.Code = dns.EDNS0NSID
-		opt.Nsid = ""
-		o.Option = append(o.Option, opt)
+		o.Option = append(o.Option, &dns.EDNS0_NSID{dns.EDNS0NSID, ""})
 	}
 
 	return RewriteDone
