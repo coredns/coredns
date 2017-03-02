@@ -2,6 +2,7 @@ package rewrite
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
 
 	"github.com/coredns/coredns/middleware"
@@ -18,90 +19,44 @@ func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, err
 }
 
 func TestNewRule(t *testing.T) {
-	r, err := newRule()
-	if err == nil {
-		t.Errorf("Expected error but got success for newRule()")
-	}
-	r, err = newRule("foo")
-	if err == nil {
-		t.Errorf("Expected error but got success for newRule(foo)")
-	}
-
-	r, err = newRule("name")
-	if err == nil {
-		t.Errorf("Expected error for newRule(name)")
-	}
-	r, err = newRule("name", "a.com.")
-	if err == nil {
-		t.Errorf("Expected error for newRule(name, a.com)")
-	}
-	r, err = newRule("name", "a.com.", "b.com.", "c.com.")
-	if err == nil {
-		t.Errorf("Expected error for newRule(name, a.com, b.com, c.com)")
-	}
-	r, err = newRule("name", "a.com.", "b.com.")
-	if err != nil {
-		t.Errorf("Expected name rule but got error: %s", err)
-	}
-	if _, ok := r.(*nameRule); !ok {
-		t.Errorf("Expected name rule but got %v", r)
+	tests := []struct {
+		args        []string
+		shouldError bool
+		expType     reflect.Type
+	}{
+		{[]string{}, true, nil},
+		{[]string{"foo"}, true, nil},
+		{[]string{"name"}, true, nil},
+		{[]string{"name", "a.com"}, true, nil},
+		{[]string{"name", "a.com", "b.com", "c.com"}, true, nil},
+		{[]string{"name", "a.com", "b.com"}, false, reflect.TypeOf(&nameRule{})},
+		{[]string{"type"}, true, nil},
+		{[]string{"type", "a"}, true, nil},
+		{[]string{"type", "any", "a", "a"}, true, nil},
+		{[]string{"type", "any", "a"}, false, reflect.TypeOf(&typeRule{})},
+		{[]string{"type", "XY", "WV"}, true, nil},
+		{[]string{"type", "ANY", "WV"}, true, nil},
+		{[]string{"class"}, true, nil},
+		{[]string{"class", "IN"}, true, nil},
+		{[]string{"class", "ch", "in", "in"}, true, nil},
+		{[]string{"class", "ch", "in"}, false, reflect.TypeOf(&classRule{})},
+		{[]string{"class", "XY", "WV"}, true, nil},
+		{[]string{"class", "IN", "WV"}, true, nil},
 	}
 
-	r, err = newRule("type")
-	if err == nil {
-		t.Errorf("Expected error for newRule(type)")
-	}
-	r, err = newRule("type", "a")
-	if err == nil {
-		t.Errorf("Expected error for newRule(type, a)")
-	}
-	r, err = newRule("type", "any", "a", "a")
-	if err == nil {
-		t.Errorf("Expected error for newRule(type, any, a, a)")
-	}
-	r, err = newRule("type", "any", "a")
-	if err != nil {
-		t.Errorf("Expected type rule but got error: %s", err)
-	}
-	if _, ok := r.(*typeRule); !ok {
-		t.Errorf("Expected type rule but got %v", r)
-	}
-	_, err = newRule("type", "XY", "WV")
-	if err == nil {
-		t.Errorf("Expected error but got success for invalid type")
-	}
-	_, err = newRule("type", "ANY", "WV")
-	if err == nil {
-		t.Errorf("Expected error but got success for invalid type")
+	for i, tc := range tests {
+		r, err := newRule(tc.args...)
+		if err == nil && tc.shouldError {
+			t.Errorf("Test %d: expected error but got success", i)
+		} else if err != nil && !tc.shouldError {
+			t.Errorf("Test %d: expected success but got error", i)
+		}
+
+		if !tc.shouldError && reflect.TypeOf(r) != tc.expType {
+			t.Errorf("Test %d: expected %q but got %q", i, tc.expType, r)
+		}
 	}
 
-	r, err = newRule("class")
-	if err == nil {
-		t.Errorf("Expected error for newRule(class)")
-	}
-	r, err = newRule("class", "IN")
-	if err == nil {
-		t.Errorf("Expected error for newRule(class, IN)")
-	}
-	r, err = newRule("class", "ch", "in", "in")
-	if err == nil {
-		t.Errorf("Expected error for newRule(class, ch, in, in)")
-	}
-	r, err = newRule("class", "ch", "in")
-	if err != nil {
-		t.Errorf("Expected class rule but got error: %s", err)
-	}
-	if _, ok := r.(*classRule); !ok {
-		t.Errorf("Expected class rule but got %v", r)
-	}
-	_, err = newRule("class", "XY", "WV")
-	if err == nil {
-		t.Errorf("Expected error but got success for invalid class")
-	}
-	_, err = newRule("class", "IN", "WV")
-	if err == nil {
-		t.Errorf("Expected error but got success for invalid class")
-	}
 }
 
 func TestRewrite(t *testing.T) {
@@ -148,7 +103,7 @@ func TestRewrite(t *testing.T) {
 
 		resp := rec.Msg
 		if resp.Question[0].Name != tc.to {
-			t.Errorf("Test %d: Expected Name to be '%s' but was '%s'", i, tc.to, resp.Question[0].Name)
+			t.Errorf("Test %d: Expected Name to be %q but was %q", i, tc.to, resp.Question[0].Name)
 		}
 		if resp.Question[0].Qtype != tc.toT {
 			t.Errorf("Test %d: Expected Type to be '%d' but was '%d'", i, tc.toT, resp.Question[0].Qtype)

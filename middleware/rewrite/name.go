@@ -1,8 +1,6 @@
 package rewrite
 
 import (
-	"fmt"
-
 	"github.com/coredns/coredns/middleware"
 
 	"github.com/miekg/dns"
@@ -12,11 +10,8 @@ type nameRule struct {
 	From, To string
 }
 
-func newNameRule(args ...string) (Rule, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("Name rules must have exactly two arguments")
-	}
-	return &nameRule{middleware.Name(args[0]).Normalize(), middleware.Name(args[1]).Normalize()}, nil
+func newNameRule(from, to string) (Rule, error) {
+	return &nameRule{middleware.Name(from).Normalize(), middleware.Name(to).Normalize()}, nil
 }
 
 // Rewrite rewrites the the current request.

@@ -10,19 +10,20 @@ import (
 	"github.com/miekg/dns"
 )
 
-// edns0LocalRule is a class rewrite rule.
+// edns0LocalRule is a rewrite rule for EDNS0_LOCAL options
 type edns0LocalRule struct {
 	action string
 	code   uint16
 	data   []byte
-	match  []byte // TODO: add match input for replace rule
 }
 
+// ends0NsidRule is a rewrite rule for EDNS0_NSID options
 type edns0NsidRule struct {
 	action string
 }
 
-func getEdns0Opt(r *dns.Msg) *dns.OPT {
+// setupEdns0Opt will retrieve the EDNS0 OPT or create it if it does not exist
+func setupEdns0Opt(r *dns.Msg) *dns.OPT {
 	o := r.IsEdns0()
 	if o == nil {
 		r.SetEdns0(4096, true)
@@ -31,8 +32,9 @@ func getEdns0Opt(r *dns.Msg) *dns.OPT {
 	return o
 }
 
+// Rewrite will alter the request EDNS0 NSID option
 func (rule *edns0NsidRule) Rewrite(r *dns.Msg) Result {
-	o := getEdns0Opt(r)
+	o := setupEdns0Opt(r)
 	found := false
 	for _, s := range o.Option {
 		switch e := s.(type) {
@@ -48,15 +50,15 @@ func (rule *edns0NsidRule) Rewrite(r *dns.Msg) Result {
 	// add option if not found
 	if !found && (rule.action == "append" || rule.action == "set") {
 		o.SetDo(true)
-		o.Option = append(o.Option, &dns.EDNS0_NSID{dns.EDNS0NSID, ""})
+		o.Option = append(o.Option, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""})
 	}
 
 	return RewriteDone
 }
 
-// SetEDNS0Attrs will alter the request
+// Rewrite will alter the request EDNS0 local options
 func (rule *edns0LocalRule) Rewrite(r *dns.Msg) Result {
-	o := getEdns0Opt(r)
+	o := setupEdns0Opt(r)
 	found := false
 	for _, s := range o.Option {
 		switch e := s.(type) {
@@ -83,7 +85,7 @@ func (rule *edns0LocalRule) Rewrite(r *dns.Msg) Result {
 	return RewriteDone
 }
 
-// Initializer
+// newEdns0Rule creates an EDNS0 rule of the appropriate type based on the args
 func newEdns0Rule(args ...string) (Rule, error) {
 	if len(args) < 2 {
 		return nil, fmt.Errorf("Too few arguments for an EDNS0 rule")
@@ -95,7 +97,7 @@ func newEdns0Rule(args ...string) (Rule, error) {
 	case "replace":
 	case "set":
 	default:
-		return nil, fmt.Errorf("invalid action: '%s'", action)
+		return nil, fmt.Errorf("invalid action: %q", action)
 	}
 
 	switch strings.ToLower(args[1]) {
@@ -110,7 +112,7 @@ func newEdns0Rule(args ...string) (Rule, error) {
 		}
 		return &edns0NsidRule{action: action}, nil
 	default:
-		return nil, fmt.Errorf("Invalid rule type '%s'", args[1])
+		return nil, fmt.Errorf("invalid rule type %q", args[1])
 	}
 }
 
@@ -128,5 +130,5 @@ func newEdns0LocalRule(action, code, data string) (*edns0LocalRule, error) {
 		}
 	}
 
-	return &edns0LocalRule{action, uint16(c), decoded, nil}, nil
+	return &edns0LocalRule{action, uint16(c), decoded}, nil
 }

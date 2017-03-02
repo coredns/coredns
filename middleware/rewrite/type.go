@@ -13,17 +13,14 @@ type typeRule struct {
 	fromType, toType uint16
 }
 
-func newTypeRule(args ...string) (Rule, error) {
-	if len(args) != 2 {
-		return nil, fmt.Errorf("Type rules must have exactly two arguments")
-	}
+func newTypeRule(fromS, toS string) (Rule, error) {
 	var from, to uint16
 	var ok bool
-	if from, ok = dns.StringToType[strings.ToUpper(args[0])]; !ok {
-		return nil, fmt.Errorf("Invalid type '%s'", strings.ToUpper(args[0]))
+	if from, ok = dns.StringToType[strings.ToUpper(fromS)]; !ok {
+		return nil, fmt.Errorf("invalid type %q", strings.ToUpper(fromS))
 	}
-	if to, ok = dns.StringToType[strings.ToUpper(args[1])]; !ok {
-		return nil, fmt.Errorf("Invalid type '%s'", strings.ToUpper(args[1]))
+	if to, ok = dns.StringToType[strings.ToUpper(toS)]; !ok {
+		return nil, fmt.Errorf("invalid type %q", strings.ToUpper(toS))
 	}
 	return &typeRule{fromType: from, toType: to}, nil
 }

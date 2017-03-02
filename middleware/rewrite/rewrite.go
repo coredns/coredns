@@ -67,16 +67,20 @@ func newRule(args ...string) (Rule, error) {
 		return nil, fmt.Errorf("No rule type specified for rewrite")
 	}
 
-	switch strings.ToLower(args[0]) {
+	ruleType := strings.ToLower(args[0])
+	if ruleType != "edns0" && len(args) != 3 {
+		return nil, fmt.Errorf("%s rules must have exactly two arguments", ruleType)
+	}
+	switch ruleType {
 	case "name":
-		return newNameRule(args[1:]...)
+		return newNameRule(args[1], args[2])
 	case "class":
-		return newClassRule(args[1:]...)
+		return newClassRule(args[1], args[2])
 	case "type":
-		return newTypeRule(args[1:]...)
+		return newTypeRule(args[1], args[2])
 	case "edns0":
 		return newEdns0Rule(args[1:]...)
 	default:
-		return nil, fmt.Errorf("Invalid rule type '%s'", args[0])
+		return nil, fmt.Errorf("invalid rule type %q", args[0])
 	}
 }
