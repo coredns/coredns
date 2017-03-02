@@ -130,5 +130,5 @@ func newEdns0LocalRule(action, code, data string) (*edns0LocalRule, error) {
 		}
 	}
 
-	return &edns0LocalRule{action, uint16(c), decoded}, nil
+	return &edns0LocalRule{action: action, code: uint16(c), data: decoded}, nil
 }
