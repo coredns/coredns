@@ -1,4 +1,4 @@
-NCF Community Code of Conduct
+CNCF Community Code of Conduct
 
 ### Contributor Code of Conduct
 
