@@ -91,7 +91,8 @@ func newEdns0Rule(args ...string) (Rule, error) {
 		return nil, fmt.Errorf("Too few arguments for an EDNS0 rule")
 	}
 
-	action := strings.ToLower(args[0])
+	ruleType := strings.ToLower(args[0])
+	action := strings.ToLower(args[1])
 	switch action {
 	case "append":
 	case "replace":
@@ -100,19 +101,19 @@ func newEdns0Rule(args ...string) (Rule, error) {
 		return nil, fmt.Errorf("invalid action: %q", action)
 	}
 
-	switch strings.ToLower(args[1]) {
+	switch ruleType {
 	case "local":
-		if len(args) != 3 {
+		if len(args) != 4 {
 			return nil, fmt.Errorf("EDNS0 local rules require exactly three args")
 		}
-		return newEdns0LocalRule(action, args[1], args[2])
+		return newEdns0LocalRule(action, args[2], args[3])
 	case "nsid":
 		if len(args) != 2 {
 			return nil, fmt.Errorf("EDNS0 NSID rules do not accept args")
 		}
 		return &edns0NsidRule{action: action}, nil
 	default:
-		return nil, fmt.Errorf("invalid rule type %q", args[1])
+		return nil, fmt.Errorf("invalid rule type %q", ruleType)
 	}
 }
 

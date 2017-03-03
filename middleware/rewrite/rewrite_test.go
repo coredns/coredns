@@ -42,6 +42,21 @@ func TestNewRule(t *testing.T) {
 		{[]string{"class", "ch", "in"}, false, reflect.TypeOf(&classRule{})},
 		{[]string{"class", "XY", "WV"}, true, nil},
 		{[]string{"class", "IN", "WV"}, true, nil},
+		{[]string{"edns0"}, true, nil},
+		{[]string{"edns0", "local"}, true, nil},
+		{[]string{"edns0", "local", "set"}, true, nil},
+		{[]string{"edns0", "local", "set", "0xffee"}, true, nil},
+		{[]string{"edns0", "local", "set", "65518", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "set", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "append", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "replace", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "foo", "0xffee", "abcdefg"}, true, nil},
+		{[]string{"edns0", "local", "set", "0xffee", "0xabcdefg"}, true, nil},
+		{[]string{"edns0", "nsid", "set", "junk"}, true, nil},
+		{[]string{"edns0", "nsid", "set"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"edns0", "nsid", "append"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"edns0", "nsid", "replace"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"edns0", "nsid", "foo"}, true, nil},
 	}
 
 	for i, tc := range tests {
@@ -49,7 +64,7 @@ func TestNewRule(t *testing.T) {
 		if err == nil && tc.shouldError {
 			t.Errorf("Test %d: expected error but got success", i)
 		} else if err != nil && !tc.shouldError {
-			t.Errorf("Test %d: expected success but got error", i)
+			t.Errorf("Test %d: expected success but got error: %s", i, err)
 		}
 
 		if !tc.shouldError && reflect.TypeOf(r) != tc.expType {
