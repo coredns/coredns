@@ -34,6 +34,7 @@ func setupEdns0Opt(r *dns.Msg) *dns.OPT {
 
 // Rewrite will alter the request EDNS0 NSID option
 func (rule *edns0NsidRule) Rewrite(r *dns.Msg) Result {
+	result := RewriteIgnored
 	o := setupEdns0Opt(r)
 	found := false
 	for _, s := range o.Option {
@@ -41,6 +42,7 @@ func (rule *edns0NsidRule) Rewrite(r *dns.Msg) Result {
 		case *dns.EDNS0_NSID:
 			if rule.action == "replace" || rule.action == "set" {
 				e.Nsid = "" // make sure it is empty for request
+				result = RewriteDone
 			}
 			found = true
 			break
@@ -51,13 +53,15 @@ func (rule *edns0NsidRule) Rewrite(r *dns.Msg) Result {
 	if !found && (rule.action == "append" || rule.action == "set") {
 		o.SetDo(true)
 		o.Option = append(o.Option, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""})
+		result = RewriteDone
 	}
 
-	return RewriteDone
+	return result
 }
 
 // Rewrite will alter the request EDNS0 local options
 func (rule *edns0LocalRule) Rewrite(r *dns.Msg) Result {
+	result := RewriteIgnored
 	o := setupEdns0Opt(r)
 	found := false
 	for _, s := range o.Option {
@@ -66,6 +70,7 @@ func (rule *edns0LocalRule) Rewrite(r *dns.Msg) Result {
 			if rule.code == e.Code {
 				if rule.action == "replace" || rule.action == "set" {
 					e.Data = rule.data
+					result = RewriteDone
 				}
 				found = true
 				break
@@ -80,9 +85,10 @@ func (rule *edns0LocalRule) Rewrite(r *dns.Msg) Result {
 		opt.Code = rule.code
 		opt.Data = rule.data
 		o.Option = append(o.Option, &opt)
+		result = RewriteDone
 	}
 
-	return RewriteDone
+	return result
 }
 
 // newEdns0Rule creates an EDNS0 rule of the appropriate type based on the args

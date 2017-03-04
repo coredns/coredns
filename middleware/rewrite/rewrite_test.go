@@ -71,7 +71,6 @@ func TestNewRule(t *testing.T) {
 			t.Errorf("Test %d: expected %q but got %q", i, tc.expType, r)
 		}
 	}
-
 }
 
 func TestRewrite(t *testing.T) {
@@ -130,32 +129,45 @@ func TestRewrite(t *testing.T) {
 }
 
 func TestRewriteEDNS0Local(t *testing.T) {
-
 	rw := Rewrite{
 		Next:     middleware.HandlerFunc(msgPrinter),
 		noRevert: true,
 	}
 
 	tests := []struct {
-		fromOpts []*dns.EDNS0_LOCAL
-		action   string
-		code     string
-		data     string
-		toOpts   []*dns.EDNS0_LOCAL
+		fromOpts []dns.EDNS0
+		args   []string
+		toOpts   []dns.EDNS0
 	}{
 		{
-			[]*dns.EDNS0_LOCAL{},
-			"set",
-			"0xffee",
-			"0xabcdef",
-			[]*dns.EDNS0_LOCAL{{0xffee, []byte{0xab, 0xcd, 0xef}}},
+			[]dns.EDNS0{},
+			[]string{"local", "set", "0xffee", "0xabcdef"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0xab, 0xcd, 0xef}}},
 		},
 		{
-			[]*dns.EDNS0_LOCAL{},
-			"append",
-			"0xffee",
-			"abcdefghijklmnop",
-			[]*dns.EDNS0_LOCAL{{0xffee, []byte("abcdefghijklmnop")}},
+			[]dns.EDNS0{},
+			[]string{"local", "append", "0xffee", "abcdefghijklmnop"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("abcdefghijklmnop")}},
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"local", "replace", "0xffee", "abcdefghijklmnop"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"nsid", "set"},
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"nsid", "append"},
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"nsid", "replace"},
+			[]dns.EDNS0{},
 		},
 	}
 
@@ -165,7 +177,7 @@ func TestRewriteEDNS0Local(t *testing.T) {
 		m.SetQuestion("example.com.", dns.TypeA)
 		m.Question[0].Qclass = dns.ClassINET
 
-		r, err := newEdns0LocalRule(tc.action, tc.code, tc.data)
+		r, err := newEdns0Rule(tc.args...)
 		if err != nil {
 			t.Errorf("Error creating test rule: %s", err)
 			continue
@@ -181,55 +193,36 @@ func TestRewriteEDNS0Local(t *testing.T) {
 			t.Errorf("Test %d: EDNS0 options not set", i)
 			continue
 		}
-		if !localOptsEqual(o.Option, tc.toOpts) {
+		if !optsEqual(o.Option, tc.toOpts) {
 			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
 		}
 	}
 }
 
-func localOptsEqual(a []dns.EDNS0, b []*dns.EDNS0_LOCAL) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if l, ok := a[i].(*dns.EDNS0_LOCAL); ok {
-			if l.Code != b[i].Code {
-				return false
-			}
-			if !bytes.Equal(l.Data, b[i].Data) {
-				return false
-			}
-		} else {
-			return false
-		}
-	}
-	return true
-}
-
-func TestRewriteEDNS0NSID(t *testing.T) {
+func TestEdns0LocalMultiRule(t *testing.T) {
+	rules := []Rule{}
+	r, _ := newEdns0Rule("local", "replace", "0xffee", "abcdef")
+	rules = append(rules, r)
+	r, _ = newEdns0Rule("local", "set", "0xffee", "fedcba")
+	rules = append(rules, r)
 
 	rw := Rewrite{
 		Next:     middleware.HandlerFunc(msgPrinter),
+		Rules:    rules,
 		noRevert: true,
 	}
 
 	tests := []struct {
-		fromOpts []*dns.EDNS0_NSID
-		action   string
-		nsid     string
-		toOpts   []*dns.EDNS0_NSID
+		fromOpts []dns.EDNS0
+		toOpts   []dns.EDNS0
 	}{
 		{
-			[]*dns.EDNS0_NSID{},
-			"set",
-			"abcdef",
-			[]*dns.EDNS0_NSID{{dns.EDNS0NSID, ""}},
+			nil,
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("fedcba")}},
 		},
 		{
-			[]*dns.EDNS0_NSID{},
-			"append",
-			"",
-			[]*dns.EDNS0_NSID{{dns.EDNS0NSID, ""}},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("abcdef")}},
 		},
 	}
 
@@ -238,10 +231,14 @@ func TestRewriteEDNS0NSID(t *testing.T) {
 		m := new(dns.Msg)
 		m.SetQuestion("example.com.", dns.TypeA)
 		m.Question[0].Qclass = dns.ClassINET
-
-		r := &edns0NsidRule{tc.action}
-		rw.Rules = []Rule{r}
-
+		if tc.fromOpts != nil {
+			o := m.IsEdns0()
+			if o == nil {
+				m.SetEdns0(4096, true)
+				o = m.IsEdns0()
+			}
+			o.Option = append(o.Option, tc.fromOpts...)
+		}
 		rec := dnsrecorder.New(&test.ResponseWriter{})
 		rw.ServeDNS(ctx, rec, m)
 
@@ -251,22 +248,38 @@ func TestRewriteEDNS0NSID(t *testing.T) {
 			t.Errorf("Test %d: EDNS0 options not set", i)
 			continue
 		}
-		if !nsidOptsEqual(o.Option, tc.toOpts) {
+		if !optsEqual(o.Option, tc.toOpts) {
 			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
 		}
 	}
 }
 
-func nsidOptsEqual(a []dns.EDNS0, b []*dns.EDNS0_NSID) bool {
+func optsEqual(a, b []dns.EDNS0) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
-		if l, ok := a[i].(*dns.EDNS0_NSID); ok {
-			if l.Nsid != b[i].Nsid {
+		switch aa := a[i].(type) {
+		case *dns.EDNS0_LOCAL:
+			if bb, ok := b[i].(*dns.EDNS0_LOCAL); ok {
+				if aa.Code != bb.Code {
+					return false
+				}
+				if !bytes.Equal(aa.Data, bb.Data) {
+					return false
+				}
+			} else {
 				return false
 			}
-		} else {
+		case *dns.EDNS0_NSID:
+			if bb, ok := b[i].(*dns.EDNS0_NSID); ok {
+				if aa.Nsid != bb.Nsid {
+					return false
+				}
+			} else {
+				return false
+			}
+		default:
 			return false
 		}
 	}

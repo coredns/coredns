@@ -23,7 +23,7 @@ rewritten; e.g., to rewrite CH queries to IN use `rewrite class CH IN`.
 When the FIELD is `name` the query name in the message is rewritten; this
 needs to be a full match of the name, e.g., `rewrite name miek.nl example.org`.
 
-When the FIELD is `edns0` an EDNS0_LOCAL option can be appended to the request as described below.
+When the FIELD is `edns0` an EDNS0 option can be appended to the request as described below.
 
 If you specify multiple rules and an incoming query matches on multiple (simple) rules, only
 the first rewrite is applied.
@@ -34,7 +34,7 @@ Using FIELD edns0, you can set, append, or replace specific EDNS0 options on the
 
 * `replace` will modify any matching (what that means may vary based on EDNS0 type) option with the specified option
 * `append` will add the option regardless of what options already exist
-* `set` will modify a matching option or add on if none is found
+* `set` will modify a matching option or add one if none is found
 
 Currently supported are `EDNS0_LOCAL` and `EDNS0_NSID`.
 
