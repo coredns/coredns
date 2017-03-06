@@ -136,7 +136,7 @@ func TestRewriteEDNS0Local(t *testing.T) {
 
 	tests := []struct {
 		fromOpts []dns.EDNS0
-		args   []string
+		args     []string
 		toOpts   []dns.EDNS0
 	}{
 		{
