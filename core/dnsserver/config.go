@@ -21,8 +21,12 @@ type Config struct {
 	// First consumer is the file middleware to looks for zone files in this place.
 	Root string
 
-	// Server is the server that handles this config
-	Server *Server
+	// The transport we implement, normally just "dns" over TCP/UDP, but could be
+	// DNS-over-TLS or DNS-over-gRPC.
+	Transport string
+
+	// TLSConfig when listening for encrypted connections (gRPC, DNS-over-TLS).
+	TLSConfig string
 
 	// Middleware stack.
 	Middleware []middleware.Middleware
@@ -50,7 +54,6 @@ func GetConfig(c *caddy.Controller) *Config {
 // Note that this is order dependent and the order is defined in directives.go, i.e. if your middleware
 // comes before the middleware you are checking; it will not be there (yet).
 func GetMiddleware(c *caddy.Controller, name string) middleware.Handler {
-	// TODO(miek): calling the handler h(nil) should be a noop...
 	conf := GetConfig(c)
 	for _, h := range conf.Middleware {
 		x := h(nil)

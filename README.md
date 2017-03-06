@@ -16,6 +16,10 @@ server that can talk to multiple backends (etcd, kubernetes, etc.).
 CoreDNS aims to be a fast and flexible DNS server. The keyword here is *flexible*: with CoreDNS you
 are able to do what you want with your DNS data. And if not: write some middleware!
 
+CoreDNS can listen for DNS request coming in over UDP/TCP (go'old DNS), TLS (RFC-XXXX) and gRPC (not
+a standard (yet?).
+
+
 Currently CoreDNS is able to:
 
 * Serve zone data from a file; both DNSSEC (NSEC only) and DNS are supported (*file*).
@@ -165,6 +169,14 @@ Just specifying a zone, default to listening on port 53 (can still be overridden
 
 ~~~ txt
 example.org {
+    # ...
+}
+~~~
+
+Listening on TLS and for gRPC? Use:
+
+~~~ txt
+tls://example.org grpc://example.org {
     # ...
 }
 ~~~
