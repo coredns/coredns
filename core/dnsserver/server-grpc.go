@@ -18,6 +18,7 @@ import (
 type GRPCServer struct {
 	*Server
 	grpcServer *grpc.Server
+
 	listenAddr net.Addr
 }
 
@@ -28,23 +29,18 @@ func NewGRPCServer(addr string, group []*Config) (*GRPCServer, error) {
 	if err != nil {
 		return nil, err
 	}
+	gs := &GRPCServer{Server: s}
+	gs.grpcServer = grpc.NewServer()
+	// trace foo... TODO(miek)
+	pb.RegisterDnsServiceServer(gs.grpcServer, gs)
 
-	return &GRPCServer{Server: s}, nil
+	return gs, nil
 }
 
 // Serve implements caddy.TCPServer interface.
 func (s *GRPCServer) Serve(l net.Listener) error {
 	s.m.Lock()
-
-	// Only fill out the gRPC server for this one.
-	s.grpcServer = grpc.NewServer()
-
-	// trace foo... TODO(miek)
-
-	pb.RegisterDnsServiceServer(s.grpcServer, s)
-
 	s.listenAddr = l.Addr()
-
 	s.m.Unlock()
 
 	return s.grpcServer.Serve(l)

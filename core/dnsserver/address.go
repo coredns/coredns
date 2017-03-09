@@ -37,7 +37,7 @@ func Transport(s string) string {
 func normalizeZone(str string) (zoneAddr, error) {
 	var err error
 
-	// Default to DNS is there isn't a transport protocol prefix.
+	// Default to DNS if there isn't a transport protocol prefix.
 	trans := TransportDNS
 
 	switch {
