@@ -1,6 +1,7 @@
 package dnsserver
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -28,13 +29,16 @@ func (s *TLSServer) Serve(l net.Listener) error {
 	s.m.Lock()
 
 	// Only fill out the TCP server for this one.
-	s.server[tcp] = &dns.Server{Listener: l, Net: "tcp-tls", Handler: s.mux}
+	s.server[tcp] = &dns.Server{Listener: l, Net: "tcp-tls", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
+		ctx := context.Background()
+		s.ServeDNS(ctx, w, r)
+	})}
 	s.m.Unlock()
 
 	return s.server[tcp].ActivateAndServe()
 }
 
-// ServePacket This implements caddy.UDPServer interface.
+// ServePacket implements caddy.UDPServer interface.
 func (s *TLSServer) ServePacket(p net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
