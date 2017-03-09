@@ -99,14 +99,14 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 			servers = append(servers, s)
 
 		case TransportTLS:
-			s, err := NewTLSServer(addr, group)
+			s, err := NewServerTLS(addr, group)
 			if err != nil {
 				return nil, err
 			}
 			servers = append(servers, s)
 
 		case TransportGRPC:
-			s, err := NewGRPCServer(addr, group)
+			s, err := NewServergRPC(addr, group)
 			if err != nil {
 				return nil, err
 			}

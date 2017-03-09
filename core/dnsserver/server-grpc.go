@@ -14,8 +14,8 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
-// GRPCServer represents an instance of a DNS-over-gRPC.
-type GRPCServer struct {
+// servergRPC represents an instance of a DNS-over-gRPC.
+type servergRPC struct {
 	*Server
 	grpcServer *grpc.Server
 
@@ -23,13 +23,13 @@ type GRPCServer struct {
 }
 
 // NewGRPCServer returns a new CoreDNS GRPC server and compiles all middleware in to it.
-func NewGRPCServer(addr string, group []*Config) (*GRPCServer, error) {
+func NewServergRPC(addr string, group []*Config) (*servergRPC, error) {
 
 	s, err := NewServer(addr, group)
 	if err != nil {
 		return nil, err
 	}
-	gs := &GRPCServer{Server: s}
+	gs := &servergRPC{Server: s}
 	gs.grpcServer = grpc.NewServer()
 	// trace foo... TODO(miek)
 	pb.RegisterDnsServiceServer(gs.grpcServer, gs)
@@ -38,7 +38,7 @@ func NewGRPCServer(addr string, group []*Config) (*GRPCServer, error) {
 }
 
 // Serve implements caddy.TCPServer interface.
-func (s *GRPCServer) Serve(l net.Listener) error {
+func (s *servergRPC) Serve(l net.Listener) error {
 	s.m.Lock()
 	s.listenAddr = l.Addr()
 	s.m.Unlock()
@@ -47,10 +47,10 @@ func (s *GRPCServer) Serve(l net.Listener) error {
 }
 
 // ServePacket implements caddy.UDPServer interface.
-func (s *GRPCServer) ServePacket(p net.PacketConn) error { return nil }
+func (s *servergRPC) ServePacket(p net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
-func (s *GRPCServer) Listen() (net.Listener, error) {
+func (s *servergRPC) Listen() (net.Listener, error) {
 
 	// Remove, but show our 'tls' directive has been picked up.
 	for _, conf := range s.zones {
@@ -65,11 +65,11 @@ func (s *GRPCServer) Listen() (net.Listener, error) {
 }
 
 // ListenPacket implements caddy.UDPServer interface.
-func (s *GRPCServer) ListenPacket() (net.PacketConn, error) { return nil, nil }
+func (s *servergRPC) ListenPacket() (net.PacketConn, error) { return nil, nil }
 
 // OnStartupComplete lists the sites served by this server
 // and any relevant information, assuming Quiet is false.
-func (s *GRPCServer) OnStartupComplete() {
+func (s *servergRPC) OnStartupComplete() {
 	if Quiet {
 		return
 	}
@@ -79,7 +79,7 @@ func (s *GRPCServer) OnStartupComplete() {
 	}
 }
 
-func (s *GRPCServer) Stop() (err error) {
+func (s *servergRPC) Stop() (err error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 	if s.grpcServer != nil {
@@ -91,7 +91,7 @@ func (s *GRPCServer) Stop() (err error) {
 // Query is the main entry-point into the gRPC server. From here we call ServeDNS like
 // any normal server. We use a custom responseWriter to pick up the bytes we need to write
 // back to the client as a protobuf.
-func (s *GRPCServer) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket, error) {
+func (s *servergRPC) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket, error) {
 	msg := new(dns.Msg)
 	err := msg.Unpack(in.Msg)
 	if err != nil {
@@ -121,7 +121,7 @@ func (s *GRPCServer) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket
 	return &pb.DnsPacket{Msg: packed}, nil
 }
 
-func (g *GRPCServer) Shutdown() error {
+func (g *servergRPC) Shutdown() error {
 	if g.grpcServer != nil {
 		g.grpcServer.Stop()
 	}
