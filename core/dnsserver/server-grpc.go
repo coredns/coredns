@@ -1,6 +1,7 @@
 package dnsserver
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -13,7 +14,7 @@ import (
 	"google.golang.org/grpc/peer"
 )
 
-// servergRPC represents an instance of a DNS-over-gRPC.
+// servergRPC represents an instance of a DNS-over-gRPC server.
 type servergRPC struct {
 	*Server
 	grpcServer *grpc.Server
@@ -51,12 +52,25 @@ func (s *servergRPC) ServePacket(p net.PacketConn) error { return nil }
 // Listen implements caddy.TCPServer interface.
 func (s *servergRPC) Listen() (net.Listener, error) {
 
-	// Remove, but show our 'tls' directive has been picked up.
+	// The *tls* middleware must make sure that multiple conflicting
+	// TLS configuration return an error: it can only be specified once.
+	tlsConfig := new(tls.Config)
 	for _, conf := range s.zones {
-		fmt.Printf("%q\n", conf.TLSConfig)
+		// Should we error if some configs *don't* have TLS?
+		tlsConfig = conf.TLSConfig
 	}
 
-	l, err := net.Listen("tcp", s.Addr[len(TransportGRPC+"://"):])
+	var (
+		l   net.Listener
+		err error
+	)
+
+	if tlsConfig == nil {
+		l, err = net.Listen("tcp", s.Addr[len(TransportGRPC+"://"):])
+	} else {
+		l, err = tls.Listen("tcp", s.Addr[len(TransportGRPC+"://"):], tlsConfig)
+	}
+
 	if err != nil {
 		return nil, err
 	}

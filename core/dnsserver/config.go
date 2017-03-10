@@ -1,6 +1,8 @@
 package dnsserver
 
 import (
+	"crypto/tls"
+
 	"github.com/coredns/coredns/middleware"
 
 	"github.com/mholt/caddy"
@@ -26,7 +28,7 @@ type Config struct {
 	Transport string
 
 	// TLSConfig when listening for encrypted connections (gRPC, DNS-over-TLS).
-	TLSConfig string
+	TLSConfig *tls.Config
 
 	// Middleware stack.
 	Middleware []middleware.Middleware
