@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	// TODO(miek): can't have these cross refs, pb needs to move here, or in the top-level dir
-	"github.com/coredns/coredns/middleware/proxy/pb"
+	"github.com/coredns/coredns/pb"
 
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
