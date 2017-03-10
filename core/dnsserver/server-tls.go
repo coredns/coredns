@@ -2,6 +2,7 @@ package dnsserver
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 
@@ -43,13 +44,25 @@ func (s *serverTLS) ServePacket(p net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *serverTLS) Listen() (net.Listener, error) {
-
-	// Remove, but show our 'tls' directive has been picked up.
+	// The *tls* middleware must make sure that multiple conflicting
+	// TLS configuration return an error: it can only be specified once.
+	tlsConfig := new(tls.Config)
 	for _, conf := range s.zones {
-		fmt.Printf("%q\n", conf.TLSConfig)
+		// Should we error if some configs *don't* have TLS?
+		tlsConfig = conf.TLSConfig
 	}
 
-	l, err := net.Listen("tcp", s.Addr[len(TransportTLS+"://"):])
+	var (
+		l   net.Listener
+		err error
+	)
+
+	if tlsConfig == nil {
+		l, err = net.Listen("tcp", s.Addr[len(TransportTLS+"://"):])
+	} else {
+		l, err = tls.Listen("tcp", s.Addr[len(TransportTLS+"://"):], tlsConfig)
+	}
+
 	if err != nil {
 		return nil, err
 	}

@@ -181,6 +181,16 @@ tls://example.org grpc://example.org {
 }
 ~~~
 
+Specifying ports works in the same way:
+
+~~~ txt
+grpc://example.org:1443 {
+    # ...
+}
+~~~
+
+When no transport protocol is specified the default `dns://` is assumed.
+
 ## Blog and Contact
 
 Website: <https://coredns.io>
