@@ -1,4 +1,4 @@
-package root
+package tls
 
 import (
 	"github.com/coredns/coredns/core/dnsserver"
