@@ -1,20 +1,29 @@
-package dnsserver
+package dnsserver_test
 
 import (
 	"testing"
+	"time"
 
+	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/middleware"
+	"github.com/coredns/coredns/middleware/erratic"
 	"github.com/coredns/coredns/pb"
-	"github.com/mholt/caddy"
+
 	"github.com/miekg/dns"
-        "golang.org/x/net/context"
-        "google.golang.org/grpc"
+
+	"golang.org/x/net/context"
+
+	"google.golang.org/grpc"
 )
 
 func TestGrpc(t *testing.T) {
-	cfgText := `grpc://.:55553 { erratic }`
-	ctrl := caddy.NewTestController("dns", cfgText)
-	cfg := GetConfig(ctrl)
-	g, err := NewServer(":55553", []*Config{cfg})
+	cfg := &dnsserver.Config{Zone: "."}
+
+	e := &erratic.Erratic{}
+	cfg.AddMiddleware(func(next middleware.Handler) middleware.Handler {
+		return e
+	})
+	g, err := dnsserver.NewServergRPC("grpc://:55553", []*dnsserver.Config{cfg})
 	if err != nil {
 		t.Errorf("Expected no error but got: %s", err)
 	}
@@ -27,9 +36,10 @@ func TestGrpc(t *testing.T) {
 		if err != nil {
 			t.Errorf("Expected no error but got: %s", err)
 		}
+		l.Close()
 	}()
 
-        conn, err := grpc.Dial("127.0.0.1:55553", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(g.connTimeout))
+	conn, err := grpc.Dial(":55553", grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(10*time.Second))
 	if err != nil {
 		t.Fatalf("Expected no error but got: %s", err)
 	}
@@ -46,8 +56,13 @@ func TestGrpc(t *testing.T) {
 		t.Errorf("Expected no error but got: %s", err)
 	}
 
-	//TODO: check reply
-	if reply == nil {
-		t.Error("Expected reply but got nil")
+	d := new(dns.Msg)
+	err = d.Unpack(reply.Msg)
+	if err != nil {
+		t.Errorf("Expected no error but got: %s", err)
+	}
+
+	if d.Rcode != dns.RcodeSuccess {
+		t.Errorf("Expected success but got %s", d.Rcode)
 	}
 }
