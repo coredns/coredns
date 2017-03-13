@@ -122,7 +122,7 @@ func (s *servergRPC) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket
 	}
 
 	r := &net.IPAddr{IP: a.IP}
-	w := &gRPCresponse{localAddr: s.listenAddr, remoteAddr: r}
+	w := &gRPCresponse{localAddr: s.listenAddr, remoteAddr: r, Msg: msg}
 
 	s.ServeDNS(ctx, w, msg)
 
