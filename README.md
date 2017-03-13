@@ -5,9 +5,10 @@
 [![Code Coverage](https://img.shields.io/codecov/c/github/coredns/coredns/master.svg?style=flat-square)](https://codecov.io/github/coredns/coredns?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coredns/coredns?style=flat-square)](https://goreportcard.com/report/coredns/coredns)
 
-CoreDNS is a DNS server that started as a fork of [Caddy](https://github.com/mholt/caddy/). It has the
-same model: it chains middleware. In fact it's so similar that CoreDNS is now a server type plugin for
-Caddy. CoreDNS is also a [Cloud Native Computing Foundation](https://cncf.io) inception level project.
+CoreDNS is a DNS server that started as a fork of [Caddy](https://github.com/mholt/caddy/). It has
+the same model: it chains middleware. In fact it's so similar that CoreDNS is now a server type
+plugin for Caddy. CoreDNS is also a [Cloud Native Computing Foundation](https://cncf.io) inception
+level project.
 
 CoreDNS is the successor to [SkyDNS](https://github.com/skynetservices/skydns). SkyDNS is a thin
 layer that exposes services in etcd in the DNS. CoreDNS builds on this idea and is a generic DNS
@@ -16,8 +17,8 @@ server that can talk to multiple backends (etcd, kubernetes, etc.).
 CoreDNS aims to be a fast and flexible DNS server. The keyword here is *flexible*: with CoreDNS you
 are able to do what you want with your DNS data. And if not: write some middleware!
 
-CoreDNS can listen for DNS request coming in over UDP/TCP (go'old DNS), TLS (RFC-XXXX) and gRPC (not
-a standard (yet?).
+CoreDNS can listen for DNS request coming in over UDP/TCP (go'old DNS), TLS (RFC 7858) and gRPC (not
+a standard.
 
 
 Currently CoreDNS is able to:
@@ -48,8 +49,8 @@ Each of the middlewares has a README.md of its own.
 CoreDNS can be used as an authoritative nameserver for your domains, and should be stable enough to
 provide you with good DNS(SEC) service.
 
-There are still a few known [issues](https://github.com/coredns/coredns/issues), and work is ongoing on making
-things fast and to reduce the memory usage.
+There are still a few known [issues](https://github.com/coredns/coredns/issues), and work is ongoing
+on making things fast and to reduce the memory usage.
 
 All in all, CoreDNS should be able to provide you with enough functionality to replace parts of BIND
 9, Knot, NSD or PowerDNS and SkyDNS. Most documentation is in the source and some blog articles can
