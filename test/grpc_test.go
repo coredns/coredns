@@ -32,6 +32,8 @@ func TestGrpc(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error but got: %s", err)
 	}
+	defer conn.Close()
+
 	client := pb.NewDnsServiceClient(conn)
 
 	m := new(dns.Msg)
