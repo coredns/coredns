@@ -17,7 +17,8 @@ server that can talk to multiple backends (etcd, kubernetes, etc.).
 CoreDNS aims to be a fast and flexible DNS server. The keyword here is *flexible*: with CoreDNS you
 are able to do what you want with your DNS data. And if not: write some middleware!
 
-CoreDNS can listen for DNS request coming in over UDP/TCP (go'old DNS), TLS (RFC 7858) and gRPC (not
+CoreDNS can listen for DNS request coming in over UDP/TCP (go'old DNS), TLS
+([RFC 7858](https://tools.ietf.org/html/rfc7858)) and gRPC (not
 a standard.
 
 
