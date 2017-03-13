@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/coredns/coredns/pb"
-
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
+
+	"github.com/coredns/coredns/pb"
 )
 
 // servergRPC represents an instance of a DNS-over-gRPC server.
@@ -96,7 +96,7 @@ func (s *servergRPC) Stop() (err error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 	if s.grpcServer != nil {
-		s.grpcServer.Stop()
+		s.grpcServer.GracefulStop()
 	}
 	return
 }

@@ -1,6 +1,8 @@
 package test
 
 import (
+	"io/ioutil"
+	"log"
 	"testing"
 	"time"
 
@@ -12,8 +14,10 @@ import (
 )
 
 func TestGrpc(t *testing.T) {
+	log.SetOutput(ioutil.Discard)
+
 	corefile := `grpc://.:0 {
-		erratic
+		whoami
 }
 `
 	g, err := CoreDNSServer(corefile)
@@ -24,17 +28,15 @@ func TestGrpc(t *testing.T) {
 	_, tcp := CoreDNSServerPorts(g, 0)
 	defer g.Stop()
 
-	conn, err := grpc.Dial(tcp, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(10*time.Second))
+	conn, err := grpc.Dial(tcp, grpc.WithInsecure(), grpc.WithBlock(), grpc.WithTimeout(5*time.Second))
 	if err != nil {
 		t.Fatalf("Expected no error but got: %s", err)
 	}
 	client := pb.NewDnsServiceClient(conn)
+
 	m := new(dns.Msg)
-	m.SetQuestion("example.com.", dns.TypeA)
-	msg, err := m.Pack()
-	if err != nil {
-		t.Errorf("Expected no error but got: %s", err)
-	}
+	m.SetQuestion("whoami.example.org.", dns.TypeA)
+	msg, _ := m.Pack()
 
 	reply, err := client.Query(context.TODO(), &pb.DnsPacket{Msg: msg})
 	if err != nil {
@@ -50,4 +52,9 @@ func TestGrpc(t *testing.T) {
 	if d.Rcode != dns.RcodeSuccess {
 		t.Errorf("Expected success but got %s", d.Rcode)
 	}
+
+	if len(d.Extra) != 2 {
+		t.Errorf("Expected 2 RRs in additional section, but got %s", len(d.Extra))
+	}
+	t.Logf("Message %v\n", d)
 }
