@@ -5,7 +5,7 @@
 ## Syntax
 
 ~~~ txt
-dns-tls [STUFF]
+tls [STUFF]
 ~~~
 
 **STUFF** is things you'll need to configure TLS.
