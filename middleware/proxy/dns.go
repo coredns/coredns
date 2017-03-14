@@ -14,19 +14,19 @@ import (
 type dnsEx struct {
 	Timeout time.Duration
 	group   *singleflight.Group
-	dnsOptions
+	Options
 }
 
-type dnsOptions struct {
-	forceTCP bool // If true use TCP for upstream no matter what
+type Options struct {
+	ForceTCP bool // If true use TCP for upstream no matter what
 }
 
 func newDNSEx() *dnsEx {
-	return newDNSExWithOption(dnsOptions{})
+	return newDNSExWithOption(Options{})
 }
 
-func newDNSExWithOption(opt dnsOptions) *dnsEx {
-	return &dnsEx{group: new(singleflight.Group), Timeout: defaultTimeout * time.Second, dnsOptions: opt}
+func newDNSExWithOption(opt Options) *dnsEx {
+	return &dnsEx{group: new(singleflight.Group), Timeout: defaultTimeout * time.Second, Options: opt}
 }
 
 func (d *dnsEx) Protocol() string          { return "dns" }
@@ -36,7 +36,7 @@ func (d *dnsEx) OnStartup(p *Proxy) error  { return nil }
 // Exchange implements the Exchanger interface.
 func (d *dnsEx) Exchange(ctx context.Context, addr string, state request.Request) (*dns.Msg, error) {
 	proto := state.Proto()
-	if d.dnsOptions.forceTCP {
+	if d.Options.ForceTCP {
 		proto = "tcp"
 	}
 	co, err := net.DialTimeout(proto, addr, d.Timeout)

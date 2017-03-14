@@ -192,7 +192,7 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 		case "dns":
 			if len(encArgs) > 1 {
 				if encArgs[1] == "force_tcp" {
-					opts := dnsOptions{forceTCP: true}
+					opts := Options{ForceTCP: true}
 					u.ex = newDNSExWithOption(opts)
 				} else {
 					return fmt.Errorf("only force_tcp allowed as parameter to dns")

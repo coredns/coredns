@@ -14,11 +14,11 @@ import (
 
 // NewLookup create a new proxy with the hosts in host and a Random policy.
 func NewLookup(hosts []string) Proxy {
-	return NewLookupWithOption(hosts, dnsOptions{})
+	return NewLookupWithOption(hosts, Options{})
 }
 
 // NewLookupWithForcedProto process creates a simple round robin forward with potentially forced proto for upstream.
-func NewLookupWithOption(hosts []string, opts dnsOptions) Proxy {
+func NewLookupWithOption(hosts []string, opts Options) Proxy {
 	p := Proxy{Next: nil}
 
 	upstream := &staticUpstream{

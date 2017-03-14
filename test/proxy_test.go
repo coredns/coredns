@@ -82,7 +82,7 @@ func TestLookupDnsWithForcedTcp(t *testing.T) {
 
 	log.SetOutput(ioutil.Discard)
 
-	p := proxy.NewLookupWithForcedProto([]string{tcp}, "tcp")
+	p := proxy.NewLookupWithOption([]string{tcp}, proxy.Options{ForceTCP: true})
 	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
 	resp, err := p.Lookup(state, "example.org.", dns.TypeA)
 	if err != nil {
