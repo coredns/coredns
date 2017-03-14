@@ -52,10 +52,8 @@ func (d *dnsEx) Exchange(ctx context.Context, addr string, state request.Request
 	if err != nil {
 		return nil, err
 	}
-	if reply.Len() > allowedReplySize(state) {
-		// Maybe clear the RR fields so the truncated definitely gets there?
-		reply.Truncated = true
-	}
+	// Make sure it fits in the DNS response.
+	reply, _ = state.Scrub(reply)
 	reply.Compress = true
 	reply.Id = state.Req.Id
 
@@ -82,17 +80,6 @@ func (d *dnsEx) ExchangeConn(m *dns.Msg, co net.Conn) (*dns.Msg, time.Duration, 
 	r1 := r.(dns.Msg)
 	rtt := time.Since(start)
 	return &r1, rtt, err
-}
-
-func allowedReplySize(state request.Request) int {
-	if state.Proto() == "tcp" {
-		return dns.MaxMsgSize
-	}
-	opt := state.Req.IsEdns0()
-	if opt == nil {
-		return dns.MinMsgSize
-	}
-	return int(opt.UDPSize())
 }
 
 // exchange does *not* return a pointer to dns.Msg because that leads to buffer reuse when
