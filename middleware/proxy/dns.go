@@ -12,12 +12,17 @@ import (
 )
 
 type dnsEx struct {
-	Timeout time.Duration
-	group   *singleflight.Group
+	forcedProto string
+	Timeout     time.Duration
+	group       *singleflight.Group
 }
 
 func newDNSEx() *dnsEx {
-	return &dnsEx{group: new(singleflight.Group), Timeout: defaultTimeout * time.Second}
+	return newDNSExWithForcedProto("")
+}
+
+func newDNSExWithForcedProto(forcedProto string) *dnsEx {
+	return &dnsEx{group: new(singleflight.Group), Timeout: defaultTimeout * time.Second, forcedProto: forcedProto}
 }
 
 func (d *dnsEx) Protocol() string          { return "dns" }
@@ -26,7 +31,11 @@ func (d *dnsEx) OnStartup(p *Proxy) error  { return nil }
 
 // Exchange implements the Exchanger interface.
 func (d *dnsEx) Exchange(ctx context.Context, addr string, state request.Request) (*dns.Msg, error) {
-	co, err := net.DialTimeout(state.Proto(), addr, d.Timeout)
+	proto := state.Proto()
+	if d.forcedProto != "" {
+		proto = d.forcedProto
+	}
+	co, err := net.DialTimeout(proto, addr, d.Timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +52,8 @@ func (d *dnsEx) Exchange(ctx context.Context, addr string, state request.Request
 	if err != nil {
 		return nil, err
 	}
-
+	// Make sure it fits in the DNS response.
+	reply, _ = state.Scrub(reply)
 	reply.Compress = true
 	reply.Id = state.Req.Id
 
