@@ -14,11 +14,11 @@ import (
 
 // NewLookup create a new proxy with the hosts in host and a Random policy.
 func NewLookup(hosts []string) Proxy {
-	return NewLookupWithForcedProto(hosts, "")
+	return NewLookupWithOption(hosts, dnsOptions{})
 }
 
 // NewLookupWithForcedProto process creates a simple round robin forward with potentially forced proto for upstream.
-func NewLookupWithForcedProto (hosts []string, forcedProto string) Proxy {
+func NewLookupWithOption(hosts []string, opts dnsOptions) Proxy {
 	p := Proxy{Next: nil}
 
 	upstream := &staticUpstream{
@@ -28,7 +28,7 @@ func NewLookupWithForcedProto (hosts []string, forcedProto string) Proxy {
 		Spray:       nil,
 		FailTimeout: 10 * time.Second,
 		MaxFails:    3, // TODO(miek): disable error checking for simple lookups?
-		ex:          newDNSExWithForcedProto(forcedProto),
+		ex:          newDNSExWithOption(opts),
 	}
 
 	for i, host := range hosts {
@@ -58,7 +58,6 @@ func NewLookupWithForcedProto (hosts []string, forcedProto string) Proxy {
 	p.Upstreams = &[]Upstream{upstream}
 	return p
 }
-
 
 // Lookup will use name and type to forge a new message and will send that upstream. It will
 // set any EDNS0 options correctly so that downstream will be able to process the reply.

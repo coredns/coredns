@@ -191,10 +191,11 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 		switch encArgs[0] {
 		case "dns":
 			if len(encArgs) > 1 {
-				if encArgs[1] == "force-tcp" {
-					u.ex = newDNSExWithForcedProto("tcp")
+				if encArgs[1] == "force_tcp" {
+					opts := dnsOptions{forceTCP: true}
+					u.ex = newDNSExWithOption(opts)
 				} else {
-					return fmt.Errorf("only force-tcp allowed as parameter to dns")
+					return fmt.Errorf("only force_tcp allowed as parameter to dns")
 				}
 			} else {
 				u.ex = newDNSEx()
