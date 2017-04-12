@@ -60,7 +60,6 @@ func (e *Erratic) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	default:
 		if !drop {
 			if delay {
-				println("delaying")
 				time.Sleep(e.duration)
 			}
 			// coredns will return error.
@@ -73,7 +72,6 @@ func (e *Erratic) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	if delay {
-		println("delaying")
 		time.Sleep(e.duration)
 	}
 
