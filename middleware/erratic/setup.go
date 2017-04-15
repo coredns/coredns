@@ -56,7 +56,7 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 					return nil, fmt.Errorf("illegal amount value given %q", args[0])
 				}
 				e.drop = uint64(amount)
-				drop := true
+				drop = true
 			case "delay":
 				args := c.RemainingArgs()
 				if len(args) > 2 {
@@ -86,10 +86,28 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 					}
 					e.duration = duration
 				}
+			case "truncate":
+				args := c.RemainingArgs()
+				if len(args) > 1 {
+					return nil, c.ArgErr()
+				}
+
+				if len(args) == 0 {
+					continue
+				}
+
+				amount, err := strconv.ParseInt(args[0], 10, 32)
+				if err != nil {
+					return nil, err
+				}
+				if amount < 0 {
+					return nil, fmt.Errorf("illegal amount value given %q", args[0])
+				}
+				e.truncate = uint64(amount)
 			}
 		}
 	}
-	if e.delay > 0 && !drop { // delay is set, but we've haven't seen a drop keyword, remove default drop stuff
+	if (e.delay > 0 || e.truncate > 0) && !drop { // delay is set, but we've haven't seen a drop keyword, remove default drop stuff
 		e.drop = 0
 	}
 
