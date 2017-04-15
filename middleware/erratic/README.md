@@ -39,22 +39,12 @@ Or even shorter if the defaults suits you. Note this only drops queries, it does
 }
 ~~~
 
-Delay 1 in 3 queries for 50ms, but also drop 1 in 2.
+Delay 1 in 3 queries for 50ms
 
 ~~~ txt
 . {
     erratic {
         delay 3 50ms
-    }
-}
-~~~
-
-To stop dropping you'll need to explicitally set that to 0:
-~~~ txt
-. {
-    erratic {
-        delay 3 50ms
-        drop 0
     }
 }
 ~~~

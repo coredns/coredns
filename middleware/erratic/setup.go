@@ -33,6 +33,8 @@ func setupErratic(c *caddy.Controller) error {
 
 func parseErratic(c *caddy.Controller) (*Erratic, error) {
 	e := &Erratic{drop: 2}
+	drop := false // true if we've seen the drop keyword
+
 	for c.Next() { // 'erratic'
 		for c.NextBlock() {
 			switch c.Val() {
@@ -54,6 +56,7 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 					return nil, fmt.Errorf("illegal amount value given %q", args[0])
 				}
 				e.drop = uint64(amount)
+				drop := true
 			case "delay":
 				args := c.RemainingArgs()
 				if len(args) > 2 {
@@ -86,5 +89,9 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 			}
 		}
 	}
+	if e.delay > 0 && !drop { // delay is set, but we've haven't seen a drop keyword, remove default drop stuff
+		e.drop = 0
+	}
+
 	return e, nil
 }
