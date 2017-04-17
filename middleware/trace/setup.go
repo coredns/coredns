@@ -36,14 +36,18 @@ func setup(c *caddy.Controller) error {
 
 func traceParse(c *caddy.Controller) (*trace, error) {
 	var (
-		tr  = &trace{Endpoint: defEP, EndpointType: defEpType, every: 1, serviceName: defServiceName}
-		err error
+		tr    = &trace{Endpoint: defEP, EndpointType: defEpType, every: 1, serviceName: defServiceName}
+		err   error
+		found bool
 	)
 
 	cfg := dnsserver.GetConfig(c)
 	tr.ServiceEndpoint = cfg.ListenHost + ":" + cfg.Port
 	for c.Next() { // trace
-		var err error
+		if found {
+			return tr, c.Err("can only have one trace directive per server")
+		}
+		found = true
 		args := c.RemainingArgs()
 		switch len(args) {
 		case 0:
