@@ -35,9 +35,6 @@ func NewServergRPC(addr string, group []*Config) (*servergRPC, error) {
 	return gs, nil
 }
 
-// Address together with Stop() implement caddy.GracefulServer.
-func (s *servergRPC) Address() string { return s.Addr }
-
 // Serve implements caddy.TCPServer interface.
 func (s *servergRPC) Serve(l net.Listener) error {
 	s.m.Lock()
