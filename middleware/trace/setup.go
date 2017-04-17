@@ -36,13 +36,14 @@ func setup(c *caddy.Controller) error {
 
 func traceParse(c *caddy.Controller) (*trace, error) {
 	var (
-		tr    = &trace{Endpoint: defEP, EndpointType: defEpType, every: 1, serviceName: defServiceName}
-		err   error
+		tr  = &trace{Endpoint: defEP, EndpointType: defEpType, every: 1, serviceName: defServiceName}
+		err error
 	)
 
 	cfg := dnsserver.GetConfig(c)
 	tr.ServiceEndpoint = cfg.ListenHost + ":" + cfg.Port
 	for c.Next() { // trace
+		var err error
 		args := c.RemainingArgs()
 		switch len(args) {
 		case 0:
