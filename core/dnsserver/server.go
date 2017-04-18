@@ -67,8 +67,6 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 				// Tracer object, because the Tracer won't be initialized yet
 				if t, ok := stack.(trace.Trace); ok {
 					s.trace = t
-				} else {
-					log.Println("[WARNING] Invalid type found for trace middleware. This is a bug.")
 				}
 			}
 		}
