@@ -123,6 +123,7 @@ func (u *staticUpstream) From() string {
 }
 
 func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
+
 	switch c.Val() {
 	case "policy":
 		if !c.NextArg() {
@@ -206,8 +207,28 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 			if len(encArgs) > 2 && encArgs[1] == "bootstrap" {
 				boot = encArgs[2:]
 			}
-
-			u.ex = newGoogle("", boot) // "" for default in google.go
+			google := newGoogle("", boot) // "" for default in google.go
+			if c.NextBlock() {
+				for c.Next() {
+					switch c.Val() {
+					case "padding":
+						google.padding = NewPadding(255)
+					case "pinset":
+						pins := c.RemainingArgs()
+						if len(pins) > 0 {
+							pinSet, err := NewPinSet(pins)
+							if err != nil {
+								return err
+							}
+							google.pinSet = pinSet
+						} else {
+							return fmt.Errorf("no pin set supplied")
+						}
+					}
+				}
+				u.ex = google
+				return nil
+			}
 		case "grpc":
 			if len(encArgs) == 2 && encArgs[1] == "insecure" {
 				u.ex = newGrpcClient(nil, u)
