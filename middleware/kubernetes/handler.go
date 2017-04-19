@@ -39,7 +39,6 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		zone = state.Name()
 	}
 
-
 	var (
 		records, extra []dns.RR
 		err            error
