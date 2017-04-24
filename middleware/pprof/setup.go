@@ -9,9 +9,7 @@ import (
 	"github.com/mholt/caddy"
 )
 
-const (
-	default_addr = "localhost:6053"
-)
+const defaultAddr = "localhost:6053"
 
 func init() {
 	caddy.RegisterPlugin("pprof", caddy.Plugin{
@@ -22,8 +20,7 @@ func init() {
 
 func setup(c *caddy.Controller) error {
 	found := false
-	h := &handler{}
-	h.addr = default_addr
+	h := &handler{addr: defaultAddr}
 	for c.Next() {
 		if found {
 			return middleware.Error("pprof", c.Err("pprof can only be specified once"))
