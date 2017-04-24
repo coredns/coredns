@@ -88,6 +88,8 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 
 				CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
 					return func(uh *UpstreamHost) bool {
+						uh.checkMu.Lock()
+						defer uh.checkMu.Unlock()
 						if uh.Unhealthy {
 							return true
 						}
