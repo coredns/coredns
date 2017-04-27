@@ -28,6 +28,7 @@ file DBFILE [ZONES... ] {
     transfer to ADDRESS...
     no_reload
     upstream ADDRESS...
+    ignore_serial
 }
 ~~~
 
@@ -39,6 +40,8 @@ file DBFILE [ZONES... ] {
   file. This option disables that behavior.
 * `upstream` defines upstream resolvers to be used resolve external names found (think CNAMEs)
   pointing to external names.
+* `ignore_serial` makes CoreDNS ignore the serial on disk and substitute the Unix epoch as the
+  serial. For zones that are signed this is ignored.
 
 ## Examples
 
