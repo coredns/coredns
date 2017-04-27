@@ -1,0 +1,361 @@
+hash: a566a607c3388b3fa318b208f3db7d4e16beed1da763bb66ee7c1b909313c36c
+updated: 2017-04-27T17:22:56.33138745+03:00
+imports:
+- name: cloud.google.com/go
+  version: ba86ddfb382944d62e1ddfe1c479a9b8421d2f51
+  subpackages:
+  - compute/metadata
+- name: github.com/apache/thrift
+  version: 0e22c362b967bd3765ee3da349faa789904a0707
+  subpackages:
+  - lib/go/thrift
+- name: github.com/beorn7/perks
+  version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
+  subpackages:
+  - quantile
+- name: github.com/blang/semver
+  version: 4a1e882c79dcf4ec00d2e29fac74b9c8938d5052
+- name: github.com/coreos/etcd
+  version: e5b7ee2d03627ca33201da428b8110ef7c3e95f1
+  subpackages:
+  - client
+  - pkg/pathutil
+  - pkg/types
+- name: github.com/coreos/go-oidc
+  version: 5157aa730c25a7531d4b99483e6a440d4ab735a0
+  subpackages:
+  - http
+  - jose
+  - key
+  - oauth2
+  - oidc
+- name: github.com/coreos/pkg
+  version: 3ac0863d7acf3bc44daf49afef8919af12f704ef
+  subpackages:
+  - capnslog
+  - health
+  - httputil
+  - timeutil
+- name: github.com/davecgh/go-spew
+  version: 346938d642f2ec3594ed81d874461961cd0faa76
+  subpackages:
+  - spew
+- name: github.com/docker/distribution
+  version: f4a1d3e0d5ed3fafcc6d07226aae351b8a0d9b21
+  subpackages:
+  - digestset
+  - reference
+- name: github.com/eapache/go-resiliency
+  version: b86b1ec0dd4209a588dc1285cdd471e73525c0b3
+  subpackages:
+  - breaker
+- name: github.com/eapache/go-xerial-snappy
+  version: bb955e01b9346ac19dc29eb16586c90ded99a98c
+- name: github.com/eapache/queue
+  version: 44cc805cf13205b55f69e14bcb69867d1ae92f98
+- name: github.com/emicklei/go-restful
+  version: 777bb3f19bcafe2575ffb2a3e46af92509ae9594
+  subpackages:
+  - log
+  - swagger
+- name: github.com/flynn/go-shlex
+  version: 3f9db97f856818214da2e1057f8ad84803971cff
+- name: github.com/fsnotify/fsnotify
+  version: 629574ca2a5df945712d3079857300b5e4da0236
+- name: github.com/ghodss/yaml
+  version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+- name: github.com/go-logfmt/logfmt
+  version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
+- name: github.com/go-openapi/jsonpointer
+  version: 779f45308c19820f1a69e9a4cd965f496e0da10f
+- name: github.com/go-openapi/jsonreference
+  version: 36d33bfe519efae5632669801b180bf1a245da3b
+- name: github.com/go-openapi/spec
+  version: e51c28f07047ad90caff03f6450908720d337e0c
+- name: github.com/go-openapi/swag
+  version: 24ebf76d720bab64f62824d76bced3184a65490d
+- name: github.com/gogo/protobuf
+  version: 909568be09de550ed094403c2bf8a261b5bb730a
+  subpackages:
+  - proto
+  - sortkeys
+- name: github.com/golang/glog
+  version: 23def4e6c14b4da8ac2ed8007337bc5eb5007998
+- name: github.com/golang/protobuf
+  version: 2bba0603135d7d7f5cb73b2125beeda19c09f4ef
+  subpackages:
+  - proto
+- name: github.com/golang/snappy
+  version: 553a641470496b2327abcac10b36396bd98e45c9
+- name: github.com/google/gofuzz
+  version: 44d81051d367757e1c7c6a5a86423ece9afcf63c
+- name: github.com/grpc-ecosystem/grpc-opentracing
+  version: ef7d6c8df7564c20c0a19ed9737f6d67990c61fa
+  subpackages:
+  - go/otgrpc
+- name: github.com/hashicorp/go-syslog
+  version: b609c7d9de4658cded34a7336b90886c56f9dbdb
+- name: github.com/hashicorp/golang-lru
+  version: 0a025b7e63adc15a622f29b0b2c4c3848243bbf6
+  subpackages:
+  - simplelru
+- name: github.com/howeyc/gopass
+  version: bf9dde6d0d2c004a008c27aaee91170c786f6db8
+- name: github.com/imdario/mergo
+  version: d806ba8c21777d504a2090a2ca4913c750dd3a33
+- name: github.com/jonboulle/clockwork
+  version: 2eee05ed794112d45db504eb05aa693efd2b8b09
+- name: github.com/juju/ratelimit
+  version: acf38b000a03e4ab89e40f20f1e548f4e6ac7f72
+- name: github.com/klauspost/crc32
+  version: 1bab8b35b6bb565f92cbc97939610af9369f942a
+- name: github.com/kr/logfmt
+  version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
+- name: github.com/mailru/easyjson
+  version: 3f09c2282fc5ad74b3d04a485311f3173c2431d3
+  subpackages:
+  - buffer
+  - jlexer
+  - jwriter
+- name: github.com/matttproud/golang_protobuf_extensions
+  version: 3247c84500bff8d9fb6d579d800f20b3e091582c
+  subpackages:
+  - pbutil
+- name: github.com/mholt/caddy
+  version: 27785f7993319b615acae4ff2a33cdb36fb68376
+  subpackages:
+  - caddyfile
+  - startupshutdown
+- name: github.com/miekg/dns
+  version: 113c7538ea6d8f429071f901bd26af59cc9676fe
+- name: github.com/opencontainers/go-digest
+  version: aa2ec055abd10d26d539eb630a92241b781ce4bc
+- name: github.com/opentracing/opentracing-go
+  version: 6edb48674bd9467b8e91fda004f2bd7202d60ce4
+  subpackages:
+  - ext
+  - log
+- name: github.com/openzipkin/zipkin-go-opentracing
+  version: 6022d4d3ed39632fad842942bda1813a9b4f63c8
+  subpackages:
+  - _thrift/gen-go/scribe
+  - _thrift/gen-go/zipkincore
+  - flag
+  - types
+  - wire
+- name: github.com/pborman/uuid
+  version: 1b00554d822231195d1babd97ff4a781231955c9
+- name: github.com/pierrec/lz4
+  version: f5b77fd73d83122495309c0f459b810f83cc291f
+- name: github.com/pierrec/xxHash
+  version: 5a004441f897722c627870a981d02b29924215fa
+  subpackages:
+  - xxHash32
+- name: github.com/prometheus/client_golang
+  version: c5b7fccd204277076155f10851dad72b76a49317
+  subpackages:
+  - prometheus
+- name: github.com/prometheus/client_model
+  version: 6f3806018612930941127f2a7c6c453ba2c527d2
+  subpackages:
+  - go
+- name: github.com/prometheus/common
+  version: 13ba4ddd0caa9c28ca7b7bffe1dfa9ed8d5ef207
+  subpackages:
+  - expfmt
+  - internal/bitbucket.org/ww/goautoneg
+  - model
+- name: github.com/prometheus/procfs
+  version: 6ac8c5d890d415025dd5aae7595bcb2a6e7e2fad
+  subpackages:
+  - xfs
+- name: github.com/PuerkitoBio/purell
+  version: b938d81255b5473c57635324295cb0fe398c7a58
+- name: github.com/PuerkitoBio/urlesc
+  version: bbf7a2afc14f93e1e0a5c06df524fbd75e5031e5
+- name: github.com/rcrowley/go-metrics
+  version: 1f30fe9094a513ce4c700b9a54458bbb0c96996c
+- name: github.com/Shopify/sarama
+  version: dd00cf9b0eb061de40ebdabe8179680b5b43d5d2
+- name: github.com/spf13/pflag
+  version: 08b1a584251b5b62f458943640fc8ebd4d50aaa5
+- name: github.com/ugorji/go
+  version: ded73eae5db7e7a0ef6f55aace87a2873c5d2b74
+  subpackages:
+  - codec
+- name: golang.org/x/crypto
+  version: 1351f936d976c60a0a48d728281922cf63eafb8d
+  subpackages:
+  - bcrypt
+  - blowfish
+  - ssh/terminal
+- name: golang.org/x/net
+  version: f2499483f923065a842d38eb4c7f1927e6fc6e6d
+  subpackages:
+  - context
+  - context/ctxhttp
+  - http2
+  - http2/hpack
+  - idna
+  - internal/timeseries
+  - lex/httplex
+  - trace
+- name: golang.org/x/oauth2
+  version: a6bd8cefa1811bd24b86f8902872e4e8225f74c4
+  subpackages:
+  - google
+  - internal
+  - jws
+  - jwt
+- name: golang.org/x/sys
+  version: 9ccfe848b9db8435a24c424abbc07a921adf1df5
+  subpackages:
+  - unix
+- name: golang.org/x/text
+  version: 470f45bf29f4147d6fbd7dfd0a02a848e49f5bf4
+  subpackages:
+  - transform
+  - unicode/norm
+  - width
+- name: google.golang.org/appengine
+  version: 170382fa85b10b94728989dfcf6cc818b335c952
+  subpackages:
+  - internal
+  - internal/app_identity
+  - internal/base
+  - internal/datastore
+  - internal/log
+  - internal/modules
+  - internal/remote_api
+  - internal/urlfetch
+  - urlfetch
+- name: google.golang.org/grpc
+  version: 8050b9cbc271307e5a716a9d782803d09b0d6f2d
+  subpackages:
+  - codes
+  - credentials
+  - grpclog
+  - internal
+  - keepalive
+  - metadata
+  - naming
+  - peer
+  - stats
+  - tap
+  - transport
+- name: gopkg.in/inf.v0
+  version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
+- name: gopkg.in/yaml.v2
+  version: 53feefa2559fb8dfa8d81baad31be332c97d6c77
+- name: k8s.io/client-go
+  version: 843f7c4f28b1f647f664f883697107d5c02c5acc
+  subpackages:
+  - 1.5/discovery
+  - 1.5/kubernetes
+  - 1.5/kubernetes/typed/apps/v1alpha1
+  - 1.5/kubernetes/typed/authentication/v1beta1
+  - 1.5/kubernetes/typed/authorization/v1beta1
+  - 1.5/kubernetes/typed/autoscaling/v1
+  - 1.5/kubernetes/typed/batch/v1
+  - 1.5/kubernetes/typed/certificates/v1alpha1
+  - 1.5/kubernetes/typed/core/v1
+  - 1.5/kubernetes/typed/extensions/v1beta1
+  - 1.5/kubernetes/typed/policy/v1alpha1
+  - 1.5/kubernetes/typed/rbac/v1alpha1
+  - 1.5/kubernetes/typed/storage/v1beta1
+  - 1.5/pkg/api
+  - 1.5/pkg/api/errors
+  - 1.5/pkg/api/install
+  - 1.5/pkg/api/meta
+  - 1.5/pkg/api/meta/metatypes
+  - 1.5/pkg/api/resource
+  - 1.5/pkg/api/unversioned
+  - 1.5/pkg/api/v1
+  - 1.5/pkg/api/validation/path
+  - 1.5/pkg/apimachinery
+  - 1.5/pkg/apimachinery/announced
+  - 1.5/pkg/apimachinery/registered
+  - 1.5/pkg/apis/apps
+  - 1.5/pkg/apis/apps/install
+  - 1.5/pkg/apis/apps/v1alpha1
+  - 1.5/pkg/apis/authentication
+  - 1.5/pkg/apis/authentication/install
+  - 1.5/pkg/apis/authentication/v1beta1
+  - 1.5/pkg/apis/authorization
+  - 1.5/pkg/apis/authorization/install
+  - 1.5/pkg/apis/authorization/v1beta1
+  - 1.5/pkg/apis/autoscaling
+  - 1.5/pkg/apis/autoscaling/install
+  - 1.5/pkg/apis/autoscaling/v1
+  - 1.5/pkg/apis/batch
+  - 1.5/pkg/apis/batch/install
+  - 1.5/pkg/apis/batch/v1
+  - 1.5/pkg/apis/batch/v2alpha1
+  - 1.5/pkg/apis/certificates
+  - 1.5/pkg/apis/certificates/install
+  - 1.5/pkg/apis/certificates/v1alpha1
+  - 1.5/pkg/apis/extensions
+  - 1.5/pkg/apis/extensions/install
+  - 1.5/pkg/apis/extensions/v1beta1
+  - 1.5/pkg/apis/policy
+  - 1.5/pkg/apis/policy/install
+  - 1.5/pkg/apis/policy/v1alpha1
+  - 1.5/pkg/apis/rbac
+  - 1.5/pkg/apis/rbac/install
+  - 1.5/pkg/apis/rbac/v1alpha1
+  - 1.5/pkg/apis/storage
+  - 1.5/pkg/apis/storage/install
+  - 1.5/pkg/apis/storage/v1beta1
+  - 1.5/pkg/auth/user
+  - 1.5/pkg/conversion
+  - 1.5/pkg/conversion/queryparams
+  - 1.5/pkg/fields
+  - 1.5/pkg/genericapiserver/openapi/common
+  - 1.5/pkg/labels
+  - 1.5/pkg/runtime
+  - 1.5/pkg/runtime/serializer
+  - 1.5/pkg/runtime/serializer/json
+  - 1.5/pkg/runtime/serializer/protobuf
+  - 1.5/pkg/runtime/serializer/recognizer
+  - 1.5/pkg/runtime/serializer/streaming
+  - 1.5/pkg/runtime/serializer/versioning
+  - 1.5/pkg/selection
+  - 1.5/pkg/third_party/forked/golang/reflect
+  - 1.5/pkg/types
+  - 1.5/pkg/util
+  - 1.5/pkg/util/cert
+  - 1.5/pkg/util/clock
+  - 1.5/pkg/util/errors
+  - 1.5/pkg/util/flowcontrol
+  - 1.5/pkg/util/framer
+  - 1.5/pkg/util/homedir
+  - 1.5/pkg/util/integer
+  - 1.5/pkg/util/intstr
+  - 1.5/pkg/util/json
+  - 1.5/pkg/util/labels
+  - 1.5/pkg/util/net
+  - 1.5/pkg/util/parsers
+  - 1.5/pkg/util/rand
+  - 1.5/pkg/util/runtime
+  - 1.5/pkg/util/sets
+  - 1.5/pkg/util/uuid
+  - 1.5/pkg/util/validation
+  - 1.5/pkg/util/validation/field
+  - 1.5/pkg/util/wait
+  - 1.5/pkg/util/yaml
+  - 1.5/pkg/version
+  - 1.5/pkg/watch
+  - 1.5/pkg/watch/versioned
+  - 1.5/plugin/pkg/client/auth
+  - 1.5/plugin/pkg/client/auth/gcp
+  - 1.5/plugin/pkg/client/auth/oidc
+  - 1.5/rest
+  - 1.5/tools/auth
+  - 1.5/tools/cache
+  - 1.5/tools/clientcmd
+  - 1.5/tools/clientcmd/api
+  - 1.5/tools/clientcmd/api/latest
+  - 1.5/tools/clientcmd/api/v1
+  - 1.5/tools/metrics
+  - 1.5/transport
+testImports: []

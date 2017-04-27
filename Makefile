@@ -12,7 +12,6 @@ coredns: check
 
 .PHONY: deps
 deps: core/zmiddleware.go core/dnsserver/zdirectives.go
-	go get ${BUILD_VERBOSE}
 	go get -u github.com/golang/lint/golint
 
 .PHONY: check
@@ -60,6 +59,11 @@ fmt:
 lint: deps
 	## run go lint, suggestion only (not enforced)
 	@test -z "$$(golint ./... | grep -v vendor/ | grep -v ".pb.go:" | grep -vE "context\.Context should be the first parameter of a function" | tee /dev/stderr)"
+
+.PHONY: getglide
+getglide:
+	# Install glide
+	curl https://glide.sh/get | sh
 
 .PHONY: distclean
 distclean: clean
