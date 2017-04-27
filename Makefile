@@ -60,6 +60,11 @@ lint: deps
 	## run go lint, suggestion only (not enforced)
 	@test -z "$$(golint ./... | grep -v vendor/ | grep -v ".pb.go:" | grep -vE "context\.Context should be the first parameter of a function" | tee /dev/stderr)"
 
+.PHONY: getglide
+getglide:
+	# Install glide
+	curl https://glide.sh/get | sh
+
 .PHONY: distclean
 distclean: clean
 	# Clean all dependencies and build artifacts
