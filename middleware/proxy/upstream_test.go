@@ -209,6 +209,22 @@ proxy . 8.8.8.8:53 {
 		{
 			`
 proxy . 8.8.8.8:53 {
+  protocol https_google
+}`,
+			false,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+  protocol https_google {
+		padding
+	}
+}`,
+			false,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
 	protocol grpc a b c d
 }`,
 			true,
