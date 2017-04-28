@@ -26,7 +26,6 @@ type google struct {
 
 	bootstrapProxy Proxy
 	padding        *Padding
-	pinSet         *PinSet
 	quit           chan bool
 }
 
@@ -108,12 +107,6 @@ func (g *google) exchangeJSON(addr, json string) ([]byte, error) {
 	resp, err := g.client.Do(req)
 	if err != nil {
 		return nil, err
-	}
-
-	if g.pinSet != nil {
-		if err = g.pinSet.Check(resp.TLS); err != nil {
-			return nil, err
-		}
 	}
 
 	buf, err := ioutil.ReadAll(resp.Body)

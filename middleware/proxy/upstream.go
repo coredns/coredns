@@ -213,17 +213,6 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 					switch c.Val() {
 					case "padding":
 						google.padding = NewPadding(255)
-					case "pinset":
-						pins := c.RemainingArgs()
-						if len(pins) > 0 {
-							pinSet, err := NewPinSet(pins)
-							if err != nil {
-								return err
-							}
-							google.pinSet = pinSet
-						} else {
-							return fmt.Errorf("no pin set supplied")
-						}
 					}
 				}
 				u.ex = google
