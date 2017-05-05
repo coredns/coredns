@@ -44,6 +44,8 @@ type Kubernetes struct {
 	PodMode       string
 	ReverseCidrs  []net.IPNet
 	Fallthrough   bool
+	SvcDomain     string
+	SvcIP         string
 }
 
 const (
@@ -99,6 +101,9 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 	case "TXT":
 		s, e := k.recordsForTXT(r)
 		return s, nil, e
+	case "NS":
+		s, e := k.recordsForNS(r)
+		return s, nil, e
 	}
 	return nil, nil, nil
 }
@@ -113,6 +118,65 @@ func (k *Kubernetes) recordsForTXT(r recordRequest) ([]msg.Service, error) {
 		return []msg.Service{s}, nil
 	}
 	return nil, nil
+}
+
+func (k *Kubernetes) recordsForNS(r recordRequest) ([]msg.Service, error) {
+
+	var localIP string
+	if k.SvcDomain == "" {
+		// get local Pod IP
+		addrs, _ := net.InterfaceAddrs()
+		for _, addr := range addrs {
+			fmt.Println(addr.String())
+			ip, _, _ := net.ParseCIDR(addr.String())
+			ip = ip.To4()
+			if ip == nil || ip.IsLoopback() {
+				continue
+			}
+			localIP = ip.String()
+			break
+		}
+		// Find endpoint matching IP to get service and namespace
+		endpointsList, err := k.APIConn.epLister.List()
+		if err != nil {
+			return nil, err
+		}
+	FindEndpoint:
+		for _, ep := range endpointsList.Items {
+			for _, eps := range ep.Subsets {
+				for _, addr := range eps.Addresses {
+					if addr.IP == localIP {
+						k.SvcDomain = ep.ObjectMeta.Name + "." + ep.ObjectMeta.Namespace + ".svc." + r.zone
+						break FindEndpoint
+					}
+				}
+			}
+		}
+		if k.SvcDomain == "" {
+			k.SvcDomain = "ns.dns." + r.zone
+			k.SvcIP = localIP
+		}
+	}
+	if k.SvcIP == "" {
+		// Find service to get ClusterIP
+		serviceList := k.APIConn.ServiceList()
+	FindService:
+		for _, svc := range serviceList {
+			if k.SvcDomain == svc.Name+"."+svc.Namespace+".svc."+r.zone {
+				k.SvcIP = svc.Spec.ClusterIP
+				break FindService
+			}
+		}
+		if k.SvcIP == api.ClusterIPNone {
+			k.SvcIP = localIP
+		}
+	}
+
+	s := msg.Service{
+		Host: k.SvcIP,
+		Key:  msg.Path(k.SvcDomain, "coredns")}
+	fmt.Printf("Host: %v, Key: %v\n", k.SvcIP, msg.Path(k.SvcDomain, "coredns"))
+	return []msg.Service{s}, nil
 }
 
 // PrimaryZone will return the first non-reverse zone being handled by this middleware
@@ -235,6 +299,10 @@ func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest
 	}
 	if r.zone == "" {
 		return r, errors.New("zone not found")
+	}
+
+	if qtype == "NS" {
+		return r, nil
 	}
 
 	offset := 0
