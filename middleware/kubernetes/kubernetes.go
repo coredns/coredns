@@ -44,8 +44,6 @@ type Kubernetes struct {
 	PodMode       string
 	ReverseCidrs  []net.IPNet
 	Fallthrough   bool
-	SvcDomain     string
-	SvcIP         string
 }
 
 const (
@@ -57,6 +55,8 @@ const (
 	PodModeInsecure = "insecure"
 	// DNSSchemaVersion is the schema version: https://github.com/kubernetes/dns/blob/master/docs/specification.md
 	DNSSchemaVersion = "1.0.0"
+
+	DefaultNSName = "ns.dns"
 )
 
 type endpoint struct {
@@ -82,9 +82,16 @@ type recordRequest struct {
 	port, protocol, endpoint, service, namespace, typeName, zone string
 }
 
+type nsRecord struct {
+	name string
+	ip   string
+}
+
 var errNoItems = errors.New("no items found")
 var errNsNotExposed = errors.New("namespace is not exposed")
 var errInvalidRequest = errors.New("invalid query name")
+
+var corednsRecord nsRecord
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
@@ -92,6 +99,17 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 	r, e := k.parseRequest(state.Name(), state.Type())
 	if e != nil {
 		return nil, nil, e
+	}
+
+	if state.Name() == DefaultNSName+"."+r.zone && state.Type() == "A" {
+		// If this is an A request for "ns.dns", respond with a "fake" record for coredns.  
+		// SOA records always use this hardcoded name
+		ns := k.CoreDNSRecord()
+		s := msg.Service{
+			Key:  msg.Path(DefaultNSName+"."+r.zone, "coredns"),
+			Host: ns.ip,
+		}
+		return []msg.Service{s}, nil, nil
 	}
 
 	switch state.Type() {
@@ -120,14 +138,16 @@ func (k *Kubernetes) recordsForTXT(r recordRequest) ([]msg.Service, error) {
 	return nil, nil
 }
 
-func (k *Kubernetes) recordsForNS(r recordRequest) ([]msg.Service, error) {
-
+func (k *Kubernetes) CoreDNSRecord() nsRecord {
 	var localIP string
-	if k.SvcDomain == "" {
+
+	dnsName := corednsRecord.name
+	dnsIP := corednsRecord.ip
+
+	if dnsName == "" {
 		// get local Pod IP
 		addrs, _ := net.InterfaceAddrs()
 		for _, addr := range addrs {
-			fmt.Println(addr.String())
 			ip, _, _ := net.ParseCIDR(addr.String())
 			ip = ip.To4()
 			if ip == nil || ip.IsLoopback() {
@@ -139,43 +159,49 @@ func (k *Kubernetes) recordsForNS(r recordRequest) ([]msg.Service, error) {
 		// Find endpoint matching IP to get service and namespace
 		endpointsList, err := k.APIConn.epLister.List()
 		if err != nil {
-			return nil, err
+			return corednsRecord
 		}
 	FindEndpoint:
 		for _, ep := range endpointsList.Items {
 			for _, eps := range ep.Subsets {
 				for _, addr := range eps.Addresses {
 					if addr.IP == localIP {
-						k.SvcDomain = ep.ObjectMeta.Name + "." + ep.ObjectMeta.Namespace + ".svc." + r.zone
+						dnsName = ep.ObjectMeta.Name + "." + ep.ObjectMeta.Namespace + ".svc"
 						break FindEndpoint
 					}
 				}
 			}
 		}
-		if k.SvcDomain == "" {
-			k.SvcDomain = "ns.dns." + r.zone
-			k.SvcIP = localIP
+		if dnsName == "" {
+			corednsRecord.name = DefaultNSName
+			corednsRecord.ip = localIP
+			return corednsRecord
 		}
 	}
-	if k.SvcIP == "" {
+	if dnsIP == "" {
 		// Find service to get ClusterIP
 		serviceList := k.APIConn.ServiceList()
 	FindService:
 		for _, svc := range serviceList {
-			if k.SvcDomain == svc.Name+"."+svc.Namespace+".svc."+r.zone {
-				k.SvcIP = svc.Spec.ClusterIP
+			if dnsName == svc.Name+"."+svc.Namespace+".svc" {
+				dnsIP = svc.Spec.ClusterIP
 				break FindService
 			}
 		}
-		if k.SvcIP == api.ClusterIPNone {
-			k.SvcIP = localIP
+		if dnsIP == "" || dnsIP == api.ClusterIPNone {
+			dnsIP = localIP
 		}
 	}
+	corednsRecord.name = dnsName
+	corednsRecord.ip = dnsIP
+	return corednsRecord
+}
 
+func (k *Kubernetes) recordsForNS(r recordRequest) ([]msg.Service, error) {
+	ns := k.CoreDNSRecord()
 	s := msg.Service{
-		Host: k.SvcIP,
-		Key:  msg.Path(k.SvcDomain, "coredns")}
-	fmt.Printf("Host: %v, Key: %v\n", k.SvcIP, msg.Path(k.SvcDomain, "coredns"))
+		Host: ns.ip,
+		Key:  msg.Path(ns.name+"."+r.zone, "coredns")}
 	return []msg.Service{s}, nil
 }
 
@@ -302,6 +328,10 @@ func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest
 	}
 
 	if qtype == "NS" {
+		return r, nil
+	}
+
+	if qtype == "A" && lowerCasedName == DefaultNSName+"."+r.zone {
 		return r, nil
 	}
 
