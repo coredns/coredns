@@ -55,8 +55,6 @@ const (
 	PodModeInsecure = "insecure"
 	// DNSSchemaVersion is the schema version: https://github.com/kubernetes/dns/blob/master/docs/specification.md
 	DNSSchemaVersion = "1.0.0"
-
-	DefaultNSName = "ns.dns"
 )
 
 type endpoint struct {
@@ -82,16 +80,9 @@ type recordRequest struct {
 	port, protocol, endpoint, service, namespace, typeName, zone string
 }
 
-type nsRecord struct {
-	name string
-	ip   string
-}
-
 var errNoItems = errors.New("no items found")
 var errNsNotExposed = errors.New("namespace is not exposed")
 var errInvalidRequest = errors.New("invalid query name")
-
-var corednsRecord nsRecord
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
@@ -101,19 +92,13 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 		return nil, nil, e
 	}
 
-	if state.Name() == DefaultNSName+"."+r.zone && state.Type() == "A" {
-		// If this is an A request for "ns.dns", respond with a "fake" record for coredns.  
-		// SOA records always use this hardcoded name
-		ns := k.CoreDNSRecord()
-		s := msg.Service{
-			Key:  msg.Path(DefaultNSName+"."+r.zone, "coredns"),
-			Host: ns.ip,
-		}
-		return []msg.Service{s}, nil, nil
-	}
-
 	switch state.Type() {
 	case "A", "SRV":
+		if IsDefaultNS(state.Name(), r) && state.Type() == "A" {
+			// If this is an A request for "ns.dns", respond with a "fake" record for coredns.
+			// SOA records always use this hardcoded name
+			return []msg.Service{k.DefaultNSMsg(r)}, nil, nil
+		}
 		s, e := k.Records(r)
 		return s, nil, e // Haven't implemented debug queries yet.
 	case "TXT":
@@ -136,73 +121,6 @@ func (k *Kubernetes) recordsForTXT(r recordRequest) ([]msg.Service, error) {
 		return []msg.Service{s}, nil
 	}
 	return nil, nil
-}
-
-func (k *Kubernetes) CoreDNSRecord() nsRecord {
-	var localIP string
-
-	dnsName := corednsRecord.name
-	dnsIP := corednsRecord.ip
-
-	if dnsName == "" {
-		// get local Pod IP
-		addrs, _ := net.InterfaceAddrs()
-		for _, addr := range addrs {
-			ip, _, _ := net.ParseCIDR(addr.String())
-			ip = ip.To4()
-			if ip == nil || ip.IsLoopback() {
-				continue
-			}
-			localIP = ip.String()
-			break
-		}
-		// Find endpoint matching IP to get service and namespace
-		endpointsList, err := k.APIConn.epLister.List()
-		if err != nil {
-			return corednsRecord
-		}
-	FindEndpoint:
-		for _, ep := range endpointsList.Items {
-			for _, eps := range ep.Subsets {
-				for _, addr := range eps.Addresses {
-					if addr.IP == localIP {
-						dnsName = ep.ObjectMeta.Name + "." + ep.ObjectMeta.Namespace + ".svc"
-						break FindEndpoint
-					}
-				}
-			}
-		}
-		if dnsName == "" {
-			corednsRecord.name = DefaultNSName
-			corednsRecord.ip = localIP
-			return corednsRecord
-		}
-	}
-	if dnsIP == "" {
-		// Find service to get ClusterIP
-		serviceList := k.APIConn.ServiceList()
-	FindService:
-		for _, svc := range serviceList {
-			if dnsName == svc.Name+"."+svc.Namespace+".svc" {
-				dnsIP = svc.Spec.ClusterIP
-				break FindService
-			}
-		}
-		if dnsIP == "" || dnsIP == api.ClusterIPNone {
-			dnsIP = localIP
-		}
-	}
-	corednsRecord.name = dnsName
-	corednsRecord.ip = dnsIP
-	return corednsRecord
-}
-
-func (k *Kubernetes) recordsForNS(r recordRequest) ([]msg.Service, error) {
-	ns := k.CoreDNSRecord()
-	s := msg.Service{
-		Host: ns.ip,
-		Key:  msg.Path(ns.name+"."+r.zone, "coredns")}
-	return []msg.Service{s}, nil
 }
 
 // PrimaryZone will return the first non-reverse zone being handled by this middleware

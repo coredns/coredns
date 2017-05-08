@@ -15,7 +15,7 @@ deps: core/zmiddleware.go core/dnsserver/zdirectives.go
 	go get -u github.com/golang/lint/golint
 
 .PHONY: check
-check: fmt deps
+check: deps
 
 .PHONY: test
 test: check
