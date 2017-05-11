@@ -367,7 +367,7 @@ func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, zone 
 			// Create records for each exposed port...
 			for _, p := range svc.ports {
 				s := msg.Service{
-					Key: strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/"), 
+					Key:  strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/"),
 					Host: svc.addr,
 					Port: int(p.Port)}
 				records = append(records, s)
@@ -528,7 +528,7 @@ func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 			continue
 		}
 		if service.Spec.ClusterIP == ip {
-			domain := strings.Join([]string{service.Name, service.Namespace, "svc", k.PrimaryZone()},".")
+			domain := strings.Join([]string{service.Name, service.Namespace, "svc", k.PrimaryZone()}, ".")
 			return []msg.Service{{Host: domain}}
 		}
 	}
