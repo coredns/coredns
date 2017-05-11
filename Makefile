@@ -7,7 +7,7 @@ all: coredns
 # Phony this to ensure we always build the binary.
 # TODO: Add .go file dependencies.
 .PHONY: coredns
-coredns: check
+coredns: fmt check
 	go build $(BUILD_VERBOSE) -ldflags="-s -w"
 
 .PHONY: deps
