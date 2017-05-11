@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"net"
+	"strings"
 
 	"github.com/coredns/coredns/middleware/etcd/msg"
 
@@ -13,12 +14,13 @@ const DefaultNSName = "ns.dns."
 
 var corednsRecord dns.A
 
-func (k *Kubernetes) recordsForNS(r recordRequest) ([]msg.Service, error) {
+func (k *Kubernetes) recordsForNS(r recordRequest, svcs *[]msg.Service) error {
 	ns := k.CoreDNSRecord()
 	s := msg.Service{
 		Host: ns.A.String(),
-		Key:  msg.Path(ns.Hdr.Name+r.zone, "coredns")}
-	return []msg.Service{s}, nil
+		Key:  msg.Path(strings.Join([]string{ns.Hdr.Name, r.zone}, "."), "coredns")}
+	*svcs = append(*svcs, s)
+	return nil
 }
 
 // DefaultNSMsg returns an msg.Service representing an A record for
@@ -27,23 +29,23 @@ func (k *Kubernetes) recordsForNS(r recordRequest) ([]msg.Service, error) {
 func (k *Kubernetes) DefaultNSMsg(r recordRequest) msg.Service {
 	ns := k.CoreDNSRecord()
 	s := msg.Service{
-		Key:  msg.Path(DefaultNSName+r.zone, "coredns"),
+		Key:  msg.Path(strings.Join([]string{DefaultNSName, r.zone}, "."), "coredns"),
 		Host: ns.A.String(),
 	}
 	return s
 }
 
 func IsDefaultNS(name string, r recordRequest) bool {
-	return name == DefaultNSName+"."+r.zone
+	return strings.Index(name, DefaultNSName) == 0 && strings.Index(name, r.zone) == len(DefaultNSName)
 }
 
 func (k *Kubernetes) CoreDNSRecord() dns.A {
 	var localIP net.IP
+	var svcName string
+	var svcNamespace string
+	var dnsIP net.IP
 
-	dnsName := corednsRecord.Hdr.Name
-	dnsIP := corednsRecord.A
-
-	if dnsName == "" {
+	if len(corednsRecord.Hdr.Name) == 0 || corednsRecord.A == nil {
 		// get local Pod IP
 		addrs, _ := net.InterfaceAddrs()
 		for _, addr := range addrs {
@@ -65,24 +67,23 @@ func (k *Kubernetes) CoreDNSRecord() dns.A {
 			for _, eps := range ep.Subsets {
 				for _, addr := range eps.Addresses {
 					if localIP.Equal(net.ParseIP(addr.IP)) {
-						dnsName = ep.ObjectMeta.Name + "." + ep.ObjectMeta.Namespace + ".svc."
+						svcNamespace = ep.ObjectMeta.Namespace
+						svcName = ep.ObjectMeta.Name
 						break FindEndpoint
 					}
 				}
 			}
 		}
-		if dnsName == "" {
+		if len(svcName) == 0 {
 			corednsRecord.Hdr.Name = DefaultNSName
 			corednsRecord.A = localIP
 			return corednsRecord
 		}
-	}
-	if dnsIP == nil {
 		// Find service to get ClusterIP
 		serviceList := k.APIConn.ServiceList()
 	FindService:
 		for _, svc := range serviceList {
-			if dnsName == svc.Name+"."+svc.Namespace+".svc." {
+			if svcName == svc.Name && svcNamespace == svc.Namespace {
 				if svc.Spec.ClusterIP == api.ClusterIPNone {
 					dnsIP = localIP
 				} else {
@@ -94,8 +95,9 @@ func (k *Kubernetes) CoreDNSRecord() dns.A {
 		if dnsIP == nil {
 			dnsIP = localIP
 		}
+
+		corednsRecord.Hdr.Name = strings.Join([]string{svcName, svcNamespace, "svc."}, ".")
+		corednsRecord.A = dnsIP
 	}
-	corednsRecord.Hdr.Name = dnsName
-	corednsRecord.A = dnsIP
 	return corednsRecord
 }

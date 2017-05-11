@@ -83,9 +83,11 @@ type recordRequest struct {
 var errNoItems = errors.New("no items found")
 var errNsNotExposed = errors.New("namespace is not exposed")
 var errInvalidRequest = errors.New("invalid query name")
+var errZoneNotFound = errors.New("zone not found")
+var errApiBadPodType = errors.New("expected type *api.Pod")
 
 // Services implements the ServiceBackend interface.
-func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
+func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) (svcs []msg.Service, debug []msg.Service, err error) {
 
 	r, e := k.parseRequest(state.Name(), state.Type())
 	if e != nil {
@@ -94,33 +96,35 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 
 	switch state.Type() {
 	case "A", "SRV":
-		if IsDefaultNS(state.Name(), r) && state.Type() == "A" {
+		if state.Type() == "A" && IsDefaultNS(state.Name(), r) {
 			// If this is an A request for "ns.dns", respond with a "fake" record for coredns.
 			// SOA records always use this hardcoded name
-			return []msg.Service{k.DefaultNSMsg(r)}, nil, nil
+			svcs = append(svcs, k.DefaultNSMsg(r))
+			return svcs, nil, nil
 		}
 		s, e := k.Records(r)
 		return s, nil, e // Haven't implemented debug queries yet.
 	case "TXT":
-		s, e := k.recordsForTXT(r)
-		return s, nil, e
+		err := k.recordsForTXT(r, &svcs)
+		return svcs, nil, err
 	case "NS":
-		s, e := k.recordsForNS(r)
-		return s, nil, e
+		err = k.recordsForNS(r, &svcs)
+		return svcs, nil, err
 	}
 	return nil, nil, nil
 }
 
-func (k *Kubernetes) recordsForTXT(r recordRequest) ([]msg.Service, error) {
+func (k *Kubernetes) recordsForTXT(r recordRequest, svcs *[]msg.Service) (err error) {
 	switch r.typeName {
 	case "dns-version":
 		s := msg.Service{
 			Text: DNSSchemaVersion,
 			TTL:  28800,
-			Key:  msg.Path(r.typeName+"."+r.zone, "coredns")}
-		return []msg.Service{s}, nil
+			Key:  msg.Path(strings.Join([]string{r.typeName, r.zone}, "."), "coredns")}
+		*svcs = append(*svcs, s)
+		return nil
 	}
-	return nil, nil
+	return nil
 }
 
 // PrimaryZone will return the first non-reverse zone being handled by this middleware
@@ -130,6 +134,7 @@ func (k *Kubernetes) PrimaryZone() string {
 
 // Reverse implements the ServiceBackend interface.
 func (k *Kubernetes) Reverse(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
+
 	ip := dnsutil.ExtractAddressFromReverse(state.Name())
 	if ip == "" {
 		return nil, nil, nil
@@ -194,7 +199,8 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 }
 
 // InitKubeCache initializes a new Kubernetes cache.
-func (k *Kubernetes) InitKubeCache() error {
+
+func (k *Kubernetes) InitKubeCache() (err error) {
 
 	config, err := k.getClientConfig()
 	if err != nil {
@@ -229,7 +235,6 @@ func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest
 	//   SRV Request: _port._protocol.service.namespace.type.zone
 	//   A Request (endpoint): endpoint.service.namespace.type.zone
 	//   A Request (service): service.namespace.type.zone
-
 	// separate zone from rest of lowerCasedName
 	var segs []string
 	for _, z := range k.Zones {
@@ -242,14 +247,14 @@ func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest
 		}
 	}
 	if r.zone == "" {
-		return r, errors.New("zone not found")
+		return r, errZoneNotFound
 	}
 
 	if qtype == "NS" {
 		return r, nil
 	}
 
-	if qtype == "A" && lowerCasedName == DefaultNSName+"."+r.zone {
+	if qtype == "A" && IsDefaultNS(lowerCasedName, r) {
 		return r, nil
 	}
 
@@ -344,37 +349,35 @@ func endpointHostname(addr api.EndpointAddress) string {
 	return ""
 }
 
-func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, zone string) []msg.Service {
-	var records []msg.Service
+func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, zone string) (records []msg.Service) {
+	zonePath := msg.Path(zone, "coredns")
 
 	for _, svc := range services {
-
-		key := svc.name + "." + svc.namespace + ".svc." + zone
-
 		if svc.addr == api.ClusterIPNone {
 			// This is a headless service, create records for each endpoint
 			for _, ep := range svc.endpoints {
-				ephostname := endpointHostname(ep.addr)
 				s := msg.Service{
-					Key:  msg.Path(strings.ToLower(ephostname+"."+key), "coredns"),
-					Host: ep.addr.IP, Port: int(ep.port.Port),
+					Key:  strings.Join([]string{zonePath, "svc", svc.namespace, svc.name, endpointHostname(ep.addr)}, "/"),
+					Host: ep.addr.IP,
+					Port: int(ep.port.Port),
 				}
 				records = append(records, s)
-
 			}
 		} else {
 			// Create records for each exposed port...
 			for _, p := range svc.ports {
-				s := msg.Service{Key: msg.Path(strings.ToLower(key), "coredns"), Host: svc.addr, Port: int(p.Port)}
+				s := msg.Service{
+					Key: strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/"), 
+					Host: svc.addr,
+					Port: int(p.Port)}
 				records = append(records, s)
 			}
 		}
 	}
 
 	for _, p := range pods {
-		key := p.name + "." + p.namespace + ".pod." + zone
 		s := msg.Service{
-			Key:  msg.Path(strings.ToLower(key), "coredns"),
+			Key:  strings.Join([]string{zonePath, "pod", p.namespace, p.name}, "/"),
 			Host: p.addr,
 		}
 		records = append(records, s)
@@ -392,7 +395,7 @@ func ipFromPodName(podname string) string {
 
 func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error) {
 	if k.PodMode == PodModeDisabled {
-		return pods, errors.New("pod records disabled")
+		return pods, nil
 	}
 
 	var ip string
@@ -418,7 +421,7 @@ func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error)
 	for _, o := range objList {
 		p, ok := o.(*api.Pod)
 		if !ok {
-			return nil, errors.New("expected type *api.Pod")
+			return nil, errApiBadPodType
 		}
 		// If namespace has a wildcard, filter results against Corefile namespace list.
 		if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(p.Namespace, k.Namespaces)) {
@@ -525,7 +528,7 @@ func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 			continue
 		}
 		if service.Spec.ClusterIP == ip {
-			domain := service.Name + "." + service.Namespace + ".svc." + k.PrimaryZone()
+			domain := strings.Join([]string{service.Name, service.Namespace, "svc", k.PrimaryZone()},".")
 			return []msg.Service{{Host: domain}}
 		}
 	}
@@ -541,7 +544,7 @@ func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 		for _, eps := range ep.Subsets {
 			for _, addr := range eps.Addresses {
 				if addr.IP == ip {
-					domain := endpointHostname(addr) + "." + ep.ObjectMeta.Name + "." + ep.ObjectMeta.Namespace + ".svc." + k.PrimaryZone()
+					domain := strings.Join([]string{endpointHostname(addr), ep.ObjectMeta.Name, ep.ObjectMeta.Namespace, "svc", k.PrimaryZone()}, ".")
 					return []msg.Service{{Host: domain}}
 				}
 			}
