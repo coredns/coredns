@@ -85,6 +85,7 @@ var errNsNotExposed = errors.New("namespace is not exposed")
 var errInvalidRequest = errors.New("invalid query name")
 var errZoneNotFound = errors.New("zone not found")
 var errApiBadPodType = errors.New("expected type *api.Pod")
+var errPodsDisabled = errors.New("pod records disabled")
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) (svcs []msg.Service, debug []msg.Service, err error) {
@@ -395,7 +396,7 @@ func ipFromPodName(podname string) string {
 
 func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error) {
 	if k.PodMode == PodModeDisabled {
-		return pods, nil
+		return pods, errPodsDisabled
 	}
 
 	var ip string
