@@ -7,7 +7,7 @@ all: coredns
 # Phony this to ensure we always build the binary.
 # TODO: Add .go file dependencies.
 .PHONY: coredns
-coredns: fmt check
+coredns: check
 	go build $(BUILD_VERBOSE) -ldflags="-s -w"
 
 .PHONY: deps
@@ -15,7 +15,7 @@ deps: core/zmiddleware.go core/dnsserver/zdirectives.go
 	go get -u github.com/golang/lint/golint
 
 .PHONY: check
-check: deps
+check: fmt deps
 
 .PHONY: test
 test: check
