@@ -120,10 +120,6 @@ func Parse(f io.Reader, origin, fileName string) (*Zone, error) {
 		if err := z.Insert(x.RR); err != nil {
 			return nil, err
 		}
-
-		if x.RR.Header().Rrtype == dns.TypeDNAME {
-			z.hasDNAME = true
-		}
 	}
 	return z, nil
 }

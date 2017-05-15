@@ -24,8 +24,6 @@ type Zone struct {
 	*tree.Tree
 	Apex Apex
 
-	hasDNAME bool
-
 	TransferTo   []string
 	StartupOnce  sync.Once
 	TransferFrom []string
