@@ -145,8 +145,8 @@ func (k *Kubernetes) Reverse(state request.Request, exact bool, opt middleware.O
 	return records, nil, nil
 }
 
-func (k *Kubernetes) isRequestInReverseRange(state request.Request) bool {
-	ip := dnsutil.ExtractAddressFromReverse(state.Name())
+func (k *Kubernetes) isRequestInReverseRange(name string) bool {
+	ip := dnsutil.ExtractAddressFromReverse(name)
 	for _, c := range k.ReverseCidrs {
 		if c.Contains(net.ParseIP(ip)) {
 			return true
