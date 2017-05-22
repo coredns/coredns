@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/miekg/dns"
 	"k8s.io/client-go/1.5/pkg/api"
 
 	"github.com/coredns/coredns/middleware/etcd/msg"
@@ -13,7 +14,7 @@ import (
 
 func TestRecordForTXT(t *testing.T) {
 	k := Kubernetes{Zones: []string{"inter.webs.test"}}
-	r, _ := k.parseRequest("dns-version.inter.webs.test", "TXT")
+	r, _ := k.parseRequest("dns-version.inter.webs.test", dns.TypeTXT)
 	expected := DNSSchemaVersion
 
 	var svcs []msg.Service
@@ -116,7 +117,7 @@ func TestParseRequest(t *testing.T) {
 	// Test a valid SRV request
 	//
 	query := "_http._tcp.webs.mynamespace.svc.inter.webs.test."
-	r, e := k.parseRequest(query, "SRV")
+	r, e := k.parseRequest(query, dns.TypeSRV)
 	if e != nil {
 		t.Errorf("Expected no error from parseRequest(%v, \"SRV\"). Instead got '%v'.", query, e)
 	}
@@ -137,7 +138,7 @@ func TestParseRequest(t *testing.T) {
 	// Test wildcard acceptance
 	//
 	query = "*.any.*.any.svc.inter.webs.test."
-	r, e = k.parseRequest(query, "SRV")
+	r, e = k.parseRequest(query, dns.TypeSRV)
 	if e != nil {
 		t.Errorf("Expected no error from parseRequest(\"%v\", \"SRV\"). Instead got '%v'.", query, e)
 	}
@@ -157,7 +158,7 @@ func TestParseRequest(t *testing.T) {
 
 	// Test A request of endpoint
 	query = "1-2-3-4.webs.mynamespace.svc.inter.webs.test."
-	r, e = k.parseRequest(query, "A")
+	r, e = k.parseRequest(query, dns.TypeA)
 	if e != nil {
 		t.Errorf("Expected no error from parseRequest(\"%v\", \"A\"). Instead got '%v'.", query, e)
 	}
@@ -176,7 +177,7 @@ func TestParseRequest(t *testing.T) {
 
 	// Test NS request
 	query = "inter.webs.test."
-	r, e = k.parseRequest(query, "NS")
+	r, e = k.parseRequest(query, dns.TypeNS)
 	if e != nil {
 		t.Errorf("Expected no error from parseRequest(\"%v\", \"NS\"). Instead got '%v'.", query, e)
 	}
@@ -195,7 +196,7 @@ func TestParseRequest(t *testing.T) {
 
 	// Test TXT request
 	query = "dns-version.inter.webs.test."
-	r, e = k.parseRequest(query, "TXT")
+	r, e = k.parseRequest(query, dns.TypeTXT)
 	if e != nil {
 		t.Errorf("Expected no error from parseRequest(\"%v\", \"TXT\"). Instead got '%v'.", query, e)
 	}
@@ -219,7 +220,7 @@ func TestParseRequest(t *testing.T) {
 
 	}
 	for _, q := range invalidAQueries {
-		_, e = k.parseRequest(q, "A")
+		_, e = k.parseRequest(q, dns.TypeA)
 		if e == nil {
 			t.Errorf("Expected error from %v(\"%v\", \"A\").", f, q)
 		}
@@ -236,7 +237,7 @@ func TestParseRequest(t *testing.T) {
 	}
 
 	for _, q := range invalidSRVQueries {
-		_, e = k.parseRequest(q, "SRV")
+		_, e = k.parseRequest(q, dns.TypeSRV)
 		if e == nil {
 			t.Errorf("Expected error from %v(\"%v\", \"SRV\").", f, q)
 		}

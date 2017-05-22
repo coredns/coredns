@@ -14,6 +14,16 @@ const DefaultNSName = "ns.dns."
 
 var corednsRecord dns.A
 
+type InterfaceAddrser interface {
+	InterfaceAddrs() ([]net.Addr, error)
+}
+
+type InterfaceAddrs struct{}
+
+func (i InterfaceAddrs) InterfaceAddrs() ([]net.Addr, error) {
+	return net.InterfaceAddrs()
+}
+
 func (k *Kubernetes) recordsForNS(r recordRequest, svcs *[]msg.Service) error {
 	ns := k.CoreDNSRecord()
 	s := msg.Service{
@@ -26,7 +36,7 @@ func (k *Kubernetes) recordsForNS(r recordRequest, svcs *[]msg.Service) error {
 // DefaultNSMsg returns an msg.Service representing an A record for
 // ns.dns.[zone] -> dns service ip. This A record is needed to legitimize
 // the SOA response in middleware.NS(), which is hardcoded at ns.dns.[zone].
-func (k *Kubernetes) DefaultNSMsg(r recordRequest) msg.Service {
+func (k *Kubernetes) defaultNSMsg(r recordRequest) msg.Service {
 	ns := k.CoreDNSRecord()
 	s := msg.Service{
 		Key:  msg.Path(strings.Join([]string{DefaultNSName, r.zone}, "."), "coredns"),
@@ -35,17 +45,11 @@ func (k *Kubernetes) DefaultNSMsg(r recordRequest) msg.Service {
 	return s
 }
 
-func IsDefaultNS(name string, r recordRequest) bool {
+func isDefaultNS(name string, r recordRequest) bool {
 	return strings.Index(name, DefaultNSName) == 0 && strings.Index(name, r.zone) == len(DefaultNSName)
 }
 
-type ifAddrsFunc func() ([]net.Addr, error)
-
 func (k *Kubernetes) CoreDNSRecord() dns.A {
-	return k.DoCoreDNSRecord(net.InterfaceAddrs)
-}
-
-func (k *Kubernetes) DoCoreDNSRecord(ifAddrs ifAddrsFunc) dns.A {
 	var localIP net.IP
 	var svcName string
 	var svcNamespace string
@@ -53,7 +57,7 @@ func (k *Kubernetes) DoCoreDNSRecord(ifAddrs ifAddrsFunc) dns.A {
 
 	if len(corednsRecord.Hdr.Name) == 0 || corednsRecord.A == nil {
 		// get local Pod IP
-		addrs, _ := ifAddrs()
+		addrs, _ := k.interfaceAddrs.InterfaceAddrs()
 
 		for _, addr := range addrs {
 			ip, _, _ := net.ParseCIDR(addr.String())

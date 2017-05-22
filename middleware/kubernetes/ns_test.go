@@ -11,7 +11,7 @@ func TestRecordForNS(t *testing.T) {
 	k := Kubernetes{Zones: []string{"inter.webs.test"}}
 	corednsRecord.Hdr.Name = "coredns.kube-system."
 	corednsRecord.A = net.IP("1.2.3.4")
-	r, _ := k.parseRequest("inter.webs.test", "NS")
+	r, _ := k.parseRequest("inter.webs.test", dns.TypeNS)
 	expected := "/coredns/test/webs/inter/kube-system/coredns"
 
 	var svcs []msg.Service
@@ -25,10 +25,10 @@ func TestDefaultNSMsg(t *testing.T) {
 	k := Kubernetes{Zones: []string{"inter.webs.test"}}
 	corednsRecord.Hdr.Name = "coredns.kube-system."
 	corednsRecord.A = net.IP("1.2.3.4")
-	r, _ := k.parseRequest("ns.dns.inter.webs.test", "A")
+	r, _ := k.parseRequest("ns.dns.inter.webs.test", dns.TypeA)
 	expected := "/coredns/test/webs/inter/dns/ns"
 
-	svc := k.DefaultNSMsg(r)
+	svc := k.defaultNSMsg(r)
 	if svc.Key != expected {
 		t.Errorf("Expected  result '%v'. Instead got result '%v'.", expected, svc.Key)
 	}
@@ -36,19 +36,19 @@ func TestDefaultNSMsg(t *testing.T) {
 
 func TestIsDefaultNS(t *testing.T) {
 	k := Kubernetes{Zones: []string{"inter.webs.test"}}
-	r, _ := k.parseRequest("ns.dns.inter.webs.test", "A")
+	r, _ := k.parseRequest("ns.dns.inter.webs.test", dns.TypeA)
 
 	var name string
 	var expected bool
 
 	name = "ns.dns.inter.webs.test"
 	expected = true
-	if IsDefaultNS(name, r) != expected {
+	if isDefaultNS(name, r) != expected {
 		t.Errorf("Expected IsDefaultNS('%v') to be '%v'.", name, expected)
 	}
 	name = "ns.dns.blah.inter.webs.test"
 	expected = false
-	if IsDefaultNS(name, r) != expected {
+	if isDefaultNS(name, r) != expected {
 		t.Errorf("Expected IsDefaultNS('%v') to be '%v'.", name, expected)
 	}
 }
@@ -104,18 +104,22 @@ func (APIConnTest) EndpointsList() api.EndpointsList {
 	}
 }
 
-func TestDoCoreDNSRecord(t *testing.T) {
+type InterfaceAddrsTest struct{}
 
-	ifAddrStub := func() ([]net.Addr, error) {
-		_, ipnet, _ := net.ParseCIDR("172.0.40.10/32")
-		return []net.Addr{ipnet}, nil
-	}
+func (i InterfaceAddrsTest) InterfaceAddrs() ([]net.Addr, error) {
+	_, ipnet, _ := net.ParseCIDR("172.0.40.10/32")
+	return []net.Addr{ipnet}, nil
+}
+
+func TestDoCoreDNSRecord(t *testing.T) {
 
 	corednsRecord = dns.A{}
 	k := Kubernetes{Zones: []string{"inter.webs.test"}}
+
+	k.interfaceAddrs = &InterfaceAddrsTest{}
 	k.APIConn = &APIConnTest{}
 
-	cdr := k.DoCoreDNSRecord(ifAddrStub)
+	cdr := k.CoreDNSRecord()
 
 	expected := "10.0.0.111"
 

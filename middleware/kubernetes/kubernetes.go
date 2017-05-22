@@ -28,22 +28,23 @@ import (
 
 // Kubernetes implements a middleware that connects to a Kubernetes cluster.
 type Kubernetes struct {
-	Next          middleware.Handler
-	Zones         []string
-	primaryZone   int
-	Proxy         proxy.Proxy // Proxy for looking up names during the resolution process
-	APIEndpoint   string
-	APICertAuth   string
-	APIClientCert string
-	APIClientKey  string
-	APIConn       dnsControllerItf
-	ResyncPeriod  time.Duration
-	Namespaces    []string
-	LabelSelector *unversionedapi.LabelSelector
-	Selector      *labels.Selector
-	PodMode       string
-	ReverseCidrs  []net.IPNet
-	Fallthrough   bool
+	Next           middleware.Handler
+	Zones          []string
+	primaryZone    int
+	Proxy          proxy.Proxy // Proxy for looking up names during the resolution process
+	APIEndpoint    string
+	APICertAuth    string
+	APIClientCert  string
+	APIClientKey   string
+	APIConn        dnsController
+	ResyncPeriod   time.Duration
+	Namespaces     []string
+	LabelSelector  *unversionedapi.LabelSelector
+	Selector       *labels.Selector
+	PodMode        string
+	ReverseCidrs   []net.IPNet
+	Fallthrough    bool
+	interfaceAddrs InterfaceAddrser
 }
 
 const (
@@ -90,17 +91,17 @@ var errPodsDisabled = errors.New("pod records disabled")
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) (svcs []msg.Service, debug []msg.Service, err error) {
 
-	r, e := k.parseRequest(state.Name(), state.Type())
+	r, e := k.parseRequest(state.Name(), state.QType())
 	if e != nil {
 		return nil, nil, e
 	}
 
 	switch state.Type() {
 	case "A", "SRV":
-		if state.Type() == "A" && IsDefaultNS(state.Name(), r) {
+		if state.Type() == "A" && isDefaultNS(state.Name(), r) {
 			// If this is an A request for "ns.dns", respond with a "fake" record for coredns.
 			// SOA records always use this hardcoded name
-			svcs = append(svcs, k.DefaultNSMsg(r))
+			svcs = append(svcs, k.defaultNSMsg(r))
 			return svcs, nil, nil
 		}
 		s, e := k.Records(r)
@@ -231,7 +232,7 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 	return err
 }
 
-func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest, err error) {
+func (k *Kubernetes) parseRequest(lowerCasedName string, qtype uint16) (r recordRequest, err error) {
 	// 3 Possible cases
 	//   SRV Request: _port._protocol.service.namespace.type.zone
 	//   A Request (endpoint): endpoint.service.namespace.type.zone
@@ -251,16 +252,16 @@ func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest
 		return r, errZoneNotFound
 	}
 
-	if qtype == "NS" {
+	if qtype == dns.TypeNS {
 		return r, nil
 	}
 
-	if qtype == "A" && IsDefaultNS(lowerCasedName, r) {
+	if qtype == dns.TypeA && isDefaultNS(lowerCasedName, r) {
 		return r, nil
 	}
 
 	offset := 0
-	if qtype == "SRV" {
+	if qtype == dns.TypeSRV {
 		if len(segs) != 5 {
 			return r, errInvalidRequest
 		}
@@ -290,7 +291,7 @@ func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest
 		}
 		offset = 2
 	}
-	if qtype == "A" && len(segs) == 4 {
+	if qtype == dns.TypeA && len(segs) == 4 {
 		// This is an endpoint A record request. Get first element as endpoint.
 		r.endpoint = segs[0]
 		offset = 1
@@ -304,7 +305,7 @@ func (k *Kubernetes) parseRequest(lowerCasedName, qtype string) (r recordRequest
 		return r, nil
 	}
 
-	if len(segs) == 1 && qtype == "TXT" {
+	if len(segs) == 1 && qtype == dns.TypeTXT {
 		r.typeName = segs[0]
 		return r, nil
 	}
