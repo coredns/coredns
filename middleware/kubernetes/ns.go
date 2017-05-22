@@ -39,7 +39,13 @@ func IsDefaultNS(name string, r recordRequest) bool {
 	return strings.Index(name, DefaultNSName) == 0 && strings.Index(name, r.zone) == len(DefaultNSName)
 }
 
+type ifAddrsFunc func() ([]net.Addr, error)
+
 func (k *Kubernetes) CoreDNSRecord() dns.A {
+	return k.DoCoreDNSRecord(net.InterfaceAddrs)
+}
+
+func (k *Kubernetes) DoCoreDNSRecord(ifAddrs ifAddrsFunc) dns.A {
 	var localIP net.IP
 	var svcName string
 	var svcNamespace string
@@ -47,10 +53,12 @@ func (k *Kubernetes) CoreDNSRecord() dns.A {
 
 	if len(corednsRecord.Hdr.Name) == 0 || corednsRecord.A == nil {
 		// get local Pod IP
-		addrs, _ := net.InterfaceAddrs()
+		addrs, _ := ifAddrs()
+
 		for _, addr := range addrs {
 			ip, _, _ := net.ParseCIDR(addr.String())
 			ip = ip.To4()
+
 			if ip == nil || ip.IsLoopback() {
 				continue
 			}
@@ -58,15 +66,14 @@ func (k *Kubernetes) CoreDNSRecord() dns.A {
 			break
 		}
 		// Find endpoint matching IP to get service and namespace
-		endpointsList, err := k.APIConn.epLister.List()
-		if err != nil {
-			return corednsRecord
-		}
+		endpointsList := k.APIConn.EndpointsList()
+
 	FindEndpoint:
 		for _, ep := range endpointsList.Items {
 			for _, eps := range ep.Subsets {
 				for _, addr := range eps.Addresses {
 					if localIP.Equal(net.ParseIP(addr.IP)) {
+
 						svcNamespace = ep.ObjectMeta.Namespace
 						svcName = ep.ObjectMeta.Name
 						break FindEndpoint
@@ -74,6 +81,7 @@ func (k *Kubernetes) CoreDNSRecord() dns.A {
 				}
 			}
 		}
+
 		if len(svcName) == 0 {
 			corednsRecord.Hdr.Name = DefaultNSName
 			corednsRecord.A = localIP

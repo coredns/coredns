@@ -36,7 +36,7 @@ type Kubernetes struct {
 	APICertAuth   string
 	APIClientCert string
 	APIClientKey  string
-	APIConn       *dnsController
+	APIConn       dnsControllerItf
 	ResyncPeriod  time.Duration
 	Namespaces    []string
 	LabelSelector *unversionedapi.LabelSelector
@@ -413,10 +413,7 @@ func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error)
 	}
 
 	// PodModeVerified
-	objList, err := k.APIConn.podLister.Indexer.ByIndex(podIPIndex, ip)
-	if err != nil {
-		return nil, err
-	}
+	objList := k.APIConn.PodIndex(ip)
 
 	nsWildcard := symbolContainsWildcard(namespace)
 	for _, o := range objList {
@@ -481,10 +478,8 @@ func (k *Kubernetes) findServices(r recordRequest) ([]service, error) {
 			continue
 		}
 		// Headless service
-		endpointsList, err := k.APIConn.epLister.List()
-		if err != nil {
-			continue
-		}
+		endpointsList := k.APIConn.EndpointsList()
+
 		for _, ep := range endpointsList.Items {
 			if ep.ObjectMeta.Name != svc.Name || ep.ObjectMeta.Namespace != svc.Namespace {
 				continue
@@ -520,10 +515,8 @@ func symbolMatches(queryString, candidateString string, wildcard bool) bool {
 // If a service cluster ip does not match, it checks all endpoints
 func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 	// First check services with cluster ips
-	svcList, err := k.APIConn.svcLister.List(labels.Everything())
-	if err != nil {
-		return nil
-	}
+	svcList := k.APIConn.ServiceList()
+
 	for _, service := range svcList {
 		if (len(k.Namespaces) > 0) && !dnsstrings.StringInSlice(service.Namespace, k.Namespaces) {
 			continue
@@ -534,10 +527,7 @@ func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 		}
 	}
 	// If no cluster ips match, search endpoints
-	epList, err := k.APIConn.epLister.List()
-	if err != nil {
-		return nil
-	}
+	epList := k.APIConn.EndpointsList()
 	for _, ep := range epList.Items {
 		if (len(k.Namespaces) > 0) && !dnsstrings.StringInSlice(ep.ObjectMeta.Namespace, k.Namespaces) {
 			continue

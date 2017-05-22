@@ -35,6 +35,14 @@ func (s *storeToNamespaceLister) List() (ns api.NamespaceList, err error) {
 	return ns, nil
 }
 
+type dnsControllerItf interface {
+	ServiceList() []*api.Service
+	PodIndex(string) []interface{}
+	EndpointsList() api.EndpointsList
+	Run()
+	Stop() error
+}
+
 type dnsController struct {
 	client *kubernetes.Clientset
 
@@ -333,6 +341,24 @@ func (dns *dnsController) ServiceList() []*api.Service {
 	}
 
 	return svcs
+}
+
+func (dns *dnsController) PodIndex(ip string) []interface{} {
+	pods, err := dns.podLister.Indexer.ByIndex(podIPIndex, ip)
+	if err != nil {
+		return nil
+	}
+
+	return pods
+}
+
+func (dns *dnsController) EndpointsList() api.EndpointsList {
+	epl, err := dns.epLister.List()
+	if err != nil {
+		return api.EndpointsList{}
+	}
+
+	return epl
 }
 
 // ServicesByNamespace returns a map of:
