@@ -12,7 +12,7 @@ reverse NETWORK... {
 ~~~
 
 * **NETWORK** one or more CIDR formatted networks to respond on.
-* `hostname` inject the IP and zone to a template for the hostname. Defaults to "ip-{IP}.{zone[1]}". See below for template.
+* `hostname` injects the IP and zone to a template for the hostname. Defaults to "ip-{IP}.{zone[1]}". See below for template.
 * `ttl` defaults to 60
 * `fallthrough` If zone matches and no record can be generated, pass request to the next middleware.
 
