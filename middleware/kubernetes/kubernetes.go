@@ -79,7 +79,6 @@ type pod struct {
 
 type recordRequest struct {
 	port, protocol, endpoint, service, namespace, typeName, zone string
-	//qtype                                                        dns.Type
 }
 
 var errNoItems = errors.New("no items found")
