@@ -79,6 +79,7 @@ type pod struct {
 
 type recordRequest struct {
 	port, protocol, endpoint, service, namespace, typeName, zone string
+	//qtype                                                        dns.Type
 }
 
 var errNoItems = errors.New("no items found")
@@ -97,7 +98,7 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 	}
 
 	switch state.Type() {
-	case "A", "SRV":
+	case "A", "CNAME":
 		if state.Type() == "A" && isDefaultNS(state.Name(), r) {
 			// If this is an A request for "ns.dns", respond with a "fake" record for coredns.
 			// SOA records always use this hardcoded name
@@ -106,6 +107,16 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 		}
 		s, e := k.Records(r)
 		return s, nil, e // Haven't implemented debug queries yet.
+	case "SRV":
+		s, e := k.Records(r)
+		// SRV for external services is not yet implemented, so remove those records
+		noext := []msg.Service{}
+		for _, svc := range s {
+			if t, _ := svc.HostType(); t != dns.TypeCNAME {
+				noext = append(noext, svc)
+			}
+		}
+		return noext, nil, e
 	case "TXT":
 		err := k.recordsForTXT(r, &svcs)
 		return svcs, nil, err
@@ -374,6 +385,14 @@ func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, zone 
 					Port: int(p.Port)}
 				records = append(records, s)
 			}
+			// If the addr is not an IP (i.e. an external service), add the record ...
+			s := msg.Service{
+				Key:  strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/"),
+				Host: svc.addr}
+			if t, _ := s.HostType(); t == dns.TypeCNAME {
+				records = append(records, s)
+			}
+
 		}
 	}
 
@@ -467,8 +486,16 @@ func (k *Kubernetes) findServices(r recordRequest) ([]service, error) {
 		if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(svc.Namespace, k.Namespaces)) {
 			continue
 		}
-		s := service{name: svc.Name, namespace: svc.Namespace, addr: svc.Spec.ClusterIP}
-		if s.addr != api.ClusterIPNone {
+		s := service{name: svc.Name, namespace: svc.Namespace}
+		// External Service
+		if svc.Spec.ExternalName != "" {
+			s.addr = svc.Spec.ExternalName
+			resultItems = append(resultItems, s)
+			continue
+		}
+		// ClusterIP service
+		if svc.Spec.ClusterIP != api.ClusterIPNone {
+			s.addr = svc.Spec.ClusterIP
 			for _, p := range svc.Spec.Ports {
 				if !(symbolMatches(r.port, strings.ToLower(p.Name), portWildcard) && symbolMatches(r.protocol, strings.ToLower(string(p.Protocol)), protocolWildcard)) {
 					continue
@@ -479,6 +506,7 @@ func (k *Kubernetes) findServices(r recordRequest) ([]service, error) {
 			continue
 		}
 		// Headless service
+		s.addr = svc.Spec.ClusterIP
 		endpointsList := k.APIConn.EndpointsList()
 
 		for _, ep := range endpointsList.Items {

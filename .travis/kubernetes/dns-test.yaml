@@ -183,3 +183,13 @@ spec:
   - name: c-port
     port: 1234
     protocol: UDP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ext-svc
+  namespace: test-1
+spec:
+  type: ExternalName
+  externalName: example.net
+
