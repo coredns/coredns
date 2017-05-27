@@ -3,7 +3,6 @@
 package test
 
 import (
-	//"fmt"
 	"os"
 	"testing"
 	"time"
