@@ -192,4 +192,8 @@ metadata:
 spec:
   type: ExternalName
   externalName: example.net
+  ports:
+  - name: c-port
+    port: 1234
+    protocol: UDP
 
