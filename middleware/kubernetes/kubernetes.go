@@ -55,7 +55,7 @@ const (
 	// PodModeInsecure is where pod requests are answered without verfying they exist
 	PodModeInsecure = "insecure"
 	// DNSSchemaVersion is the schema version: https://github.com/kubernetes/dns/blob/master/docs/specification.md
-	DNSSchemaVersion = "1.0.0"
+	DNSSchemaVersion = "1.0.1"
 )
 
 type endpoint struct {
