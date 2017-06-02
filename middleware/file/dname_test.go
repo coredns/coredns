@@ -147,41 +147,16 @@ var dnameDnssecTestCases = []test.Case{
 		},
 		Extra: []dns.RR{test.OPT(4096, true)},
 	},
-	/*
-		{
-			Qname: "dname.miek.nl.", Qtype: dns.TypeA,
-			Answer: []dns.RR{
-				test.A("dname.miek.nl.	1800	IN	A	127.0.0.1"),
-			},
-			Ns: miekAuth,
+	{
+		Qname: "a.dname.example.org.", Qtype: dns.TypeA,
+		Do: true,
+		Answer: []dns.RR{
+			test.CNAME("a.dname.example.org.	1800	IN	CNAME	a.test.example.org."),
+			test.DNAME("dname.example.org.	1800	IN	DNAME	test.example.org."),
+			test.RRSIG("dname.example.org.	1800	IN	RRSIG	DNAME 5 3 1800 20170702091734 20170602091734 54282 example.org. HvXtiBM="),
 		},
-		{
-			Qname: "dname.miek.nl.", Qtype: dns.TypeMX,
-			Answer: []dns.RR{},
-			Ns: []dns.RR{
-				test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
-			},
-		},
-		{
-			Qname: "a.dname.miek.nl.", Qtype: dns.TypeA,
-			Answer: []dns.RR{
-				test.CNAME("a.dname.miek.nl.	1800	IN	CNAME	a.test.miek.nl."),
-				test.A("a.test.miek.nl.	1800	IN	A	139.162.196.78"),
-				test.DNAME("dname.miek.nl.	1800	IN	DNAME	test.miek.nl."),
-			},
-			Ns: miekAuth,
-		},
-		{
-			Qname: "www.dname.miek.nl.", Qtype: dns.TypeA,
-			Answer: []dns.RR{
-				test.A("a.test.miek.nl.	1800	IN	A	139.162.196.78"),
-				test.DNAME("dname.miek.nl.	1800	IN	DNAME	test.miek.nl."),
-				test.CNAME("www.dname.miek.nl.	1800	IN	CNAME	www.test.miek.nl."),
-				test.CNAME("www.test.miek.nl.	1800	IN	CNAME	a.test.miek.nl."),
-			},
-			Ns: miekAuth,
-		},
-	*/
+		Extra: []dns.RR{test.OPT(4096, true)},
+	},
 }
 
 func TestLookupDNAMEDNSSEC(t *testing.T) {
