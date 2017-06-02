@@ -105,9 +105,7 @@ func (z *Zone) Lookup(state request.Request, qname string) ([]dns.RR, []dns.RR, 
 
 		// If we see DNAME records, we should return those.
 		if dnamerrs := elem.Types(dns.TypeDNAME); dnamerrs != nil {
-			// Only one DNAME is allowed per name. We just pick the first one to synthesize
-			// from. We do add ALL found DNAMEs to the reply even though that violates the RFCs.
-			// Garbage in --> Garbage out
+			// Only one DNAME is allowed per name. We just pick the first one to synthesize from.
 			dname := dnamerrs[0]
 			if cname := synthesizeCNAME(state.Name(), dname.(*dns.DNAME)); cname != nil {
 				answer, ns, extra, rcode := z.searchCNAME(state, elem, []dns.RR{cname})
