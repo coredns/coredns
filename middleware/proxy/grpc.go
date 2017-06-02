@@ -14,7 +14,12 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/grpclog"
 )
+
+func init() {
+	grpclog.SetLogger(discard{})
+}
 
 type grpcClient struct {
 	dialOpts []grpc.DialOption
@@ -92,3 +97,13 @@ func (g *grpcClient) OnStartup(p *Proxy) error {
 	}
 	return nil
 }
+
+// discard is a Logger that outputs nothing.
+type discard struct{}
+
+func (d discard) Fatal(args ...interface{})                 {}
+func (d discard) Fatalf(format string, args ...interface{}) {}
+func (d discard) Fatalln(args ...interface{})               {}
+func (d discard) Print(args ...interface{})                 {}
+func (d discard) Printf(format string, args ...interface{}) {}
+func (d discard) Println(args ...interface{})               {}
