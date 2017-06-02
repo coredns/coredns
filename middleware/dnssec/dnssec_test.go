@@ -120,9 +120,10 @@ func TestSigningDname(t *testing.T) {
 
 	m := testMsgDname()
 	state := request.Request{Req: m}
+	// We sign *everything* we see, also the synthesized CNAME.
 	m = d.Sign(state, "miek.nl.", time.Now().UTC())
-	if !section(m.Answer, 1) {
-		t.Errorf("answer section should have 1 sig")
+	if !section(m.Answer, 3) {
+		t.Errorf("answer section should have 3 sig")
 	}
 }
 
