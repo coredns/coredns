@@ -8,6 +8,7 @@ all: coredns
 # TODO: Add .go file dependencies.
 .PHONY: coredns
 coredns: check
+	go get github.com/mholt/caddy # not vendored anymore #700
 	go build $(BUILD_VERBOSE) -ldflags="-s -w"
 
 .PHONY: deps
