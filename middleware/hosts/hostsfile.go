@@ -163,7 +163,7 @@ func (h *Hostsfile) LookupStaticAddr(addr string) []string {
 	return nil
 }
 
-func (h Hostsfile) Names() []string {
+func (h *Hostsfile) Names() []string {
 	h.Lock()
 	defer h.Unlock()
 	names := []string{}
