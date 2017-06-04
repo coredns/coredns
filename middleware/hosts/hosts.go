@@ -7,7 +7,6 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/coredns/coredns/middleware"
-	"github.com/coredns/coredns/middleware/metrics"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
@@ -17,8 +16,6 @@ type (
 	Hosts struct {
 		Next middleware.Handler
 		*Hostsfile
-
-		metrics *metrics.Metrics
 	}
 )
 

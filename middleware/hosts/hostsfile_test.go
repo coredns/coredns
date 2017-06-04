@@ -8,19 +8,66 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
+
+func testHostsfile(file string) *Hostsfile {
+	h := &Hostsfile{expire: time.Now().Add(1 * time.Hour)}
+	h.Parse(strings.NewReader(file))
+	return h
+}
 
 type staticHostEntry struct {
 	in  string
 	out []string
 }
 
+var (
+	hosts = `255.255.255.255	broadcasthost
+	127.0.0.2	odin
+	127.0.0.3	odin  # inline comment 
+	::2             odin
+	127.1.1.1	thor
+	# aliases
+	127.1.1.2	ullr ullrhost
+	fe80::1%lo0	localhost
+	# Bogus entries that must be ignored.
+	123.123.123	loki
+	321.321.321.321`
+	singlelinehosts = `127.0.0.2  odin`
+	ipv4hosts       = `# See https://tools.ietf.org/html/rfc1123.
+	#
+	# The literal IPv4 address parser in the net package is a relaxed
+	# one. It may accept a literal IPv4 address in dotted-decimal notation
+	# with leading zeros such as "001.2.003.4".
+
+	# internet address and host name
+	127.0.0.1	localhost	# inline comment separated by tab
+	127.000.000.002	localhost       # inline comment separated by space
+
+	# internet address, host name and aliases
+	127.000.000.003	localhost	localhost.localdomain`
+	ipv6hosts = `# See https://tools.ietf.org/html/rfc5952, https://tools.ietf.org/html/rfc4007.
+
+	# internet address and host name
+	::1						localhost	# inline comment separated by tab
+	fe80:0000:0000:0000:0000:0000:0000:0001		localhost       # inline comment separated by space
+
+	# internet address with zone identifier and host name
+	fe80:0000:0000:0000:0000:0000:0000:0002%lo0	localhost
+
+	# internet address, host name and aliases
+	fe80::3%lo0					localhost	localhost.localdomain`
+	casehosts = `127.0.0.1	PreserveMe	PreserveMe.local
+		::1		PreserveMe	PreserveMe.local`
+)
+
 var lookupStaticHostTests = []struct {
-	name string
+	file string
 	ents []staticHostEntry
 }{
 	{
-		"testdata/hosts",
+		hosts,
 		[]staticHostEntry{
 			{"odin", []string{"127.0.0.2", "127.0.0.3", "::2"}},
 			{"thor", []string{"127.1.1.1"}},
@@ -30,27 +77,27 @@ var lookupStaticHostTests = []struct {
 		},
 	},
 	{
-		"testdata/singleline-hosts", // see golang.org/issue/6646
+		singlelinehosts, // see golang.org/issue/6646
 		[]staticHostEntry{
 			{"odin", []string{"127.0.0.2"}},
 		},
 	},
 	{
-		"testdata/ipv4-hosts", // see golang.org/issue/8996
+		ipv4hosts,
 		[]staticHostEntry{
 			{"localhost", []string{"127.0.0.1", "127.0.0.2", "127.0.0.3"}},
 			{"localhost.localdomain", []string{"127.0.0.3"}},
 		},
 	},
 	{
-		"testdata/ipv6-hosts", // see golang.org/issue/8996
+		ipv6hosts,
 		[]staticHostEntry{
 			{"localhost", []string{"::1", "fe80::1", "fe80::2", "fe80::3"}},
 			{"localhost.localdomain", []string{"fe80::3"}},
 		},
 	},
 	{
-		"testdata/case-hosts", // see golang.org/issue/12806
+		casehosts,
 		[]staticHostEntry{
 			{"PreserveMe", []string{"127.0.0.1", "::1"}},
 			{"PreserveMe.local", []string{"127.0.0.1", "::1"}},
@@ -61,7 +108,7 @@ var lookupStaticHostTests = []struct {
 func TestLookupStaticHost(t *testing.T) {
 
 	for _, tt := range lookupStaticHostTests {
-		h := &Hostsfile{path: tt.name}
+		h := testHostsfile(tt.file)
 		for _, ent := range tt.ents {
 			testStaticHost(t, ent, h)
 		}
@@ -79,11 +126,11 @@ func testStaticHost(t *testing.T, ent staticHostEntry, h *Hostsfile) {
 }
 
 var lookupStaticAddrTests = []struct {
-	name string
+	file string
 	ents []staticHostEntry
 }{
 	{
-		"testdata/hosts",
+		hosts,
 		[]staticHostEntry{
 			{"255.255.255.255", []string{"broadcasthost"}},
 			{"127.0.0.2", []string{"odin"}},
@@ -95,13 +142,13 @@ var lookupStaticAddrTests = []struct {
 		},
 	},
 	{
-		"testdata/singleline-hosts", // see golang.org/issue/6646
+		singlelinehosts, // see golang.org/issue/6646
 		[]staticHostEntry{
 			{"127.0.0.2", []string{"odin"}},
 		},
 	},
 	{
-		"testdata/ipv4-hosts", // see golang.org/issue/8996
+		ipv4hosts, // see golang.org/issue/8996
 		[]staticHostEntry{
 			{"127.0.0.1", []string{"localhost"}},
 			{"127.0.0.2", []string{"localhost"}},
@@ -109,7 +156,7 @@ var lookupStaticAddrTests = []struct {
 		},
 	},
 	{
-		"testdata/ipv6-hosts", // see golang.org/issue/8996
+		ipv6hosts, // see golang.org/issue/8996
 		[]staticHostEntry{
 			{"::1", []string{"localhost"}},
 			{"fe80::1", []string{"localhost"}},
@@ -118,7 +165,7 @@ var lookupStaticAddrTests = []struct {
 		},
 	},
 	{
-		"testdata/case-hosts", // see golang.org/issue/12806
+		casehosts, // see golang.org/issue/12806
 		[]staticHostEntry{
 			{"127.0.0.1", []string{"PreserveMe", "PreserveMe.local"}},
 			{"::1", []string{"PreserveMe", "PreserveMe.local"}},
@@ -128,7 +175,7 @@ var lookupStaticAddrTests = []struct {
 
 func TestLookupStaticAddr(t *testing.T) {
 	for _, tt := range lookupStaticAddrTests {
-		h := &Hostsfile{path: tt.name}
+		h := testHostsfile(tt.file)
 		for _, ent := range tt.ents {
 			testStaticAddr(t, ent, h)
 		}
@@ -149,7 +196,7 @@ func TestHostCacheModification(t *testing.T) {
 	// Ensure that programs can't modify the internals of the host cache.
 	// See https://github.com/golang/go/issues/14212.
 
-	h := &Hostsfile{path: "testdata/ipv4-hosts"}
+	h := testHostsfile(ipv4hosts)
 	ent := staticHostEntry{"localhost", []string{"127.0.0.1", "127.0.0.2", "127.0.0.3"}}
 	testStaticHost(t, ent, h)
 	// Modify the addresses return by lookupStaticHost.
@@ -159,7 +206,7 @@ func TestHostCacheModification(t *testing.T) {
 	}
 	testStaticHost(t, ent, h)
 
-	h = &Hostsfile{path: "testdata/ipv6-hosts"}
+	h = testHostsfile(ipv6hosts)
 	ent = staticHostEntry{"::1", []string{"localhost"}}
 	testStaticAddr(t, ent, h)
 	// Modify the hosts return by lookupStaticAddr.

@@ -7,7 +7,6 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/middleware"
-	"github.com/coredns/coredns/middleware/metrics"
 
 	"github.com/mholt/caddy"
 )
@@ -23,12 +22,6 @@ func setup(c *caddy.Controller) error {
 	a, err := hostsParse(c)
 	if err != nil {
 		return middleware.Error("hosts", err)
-	}
-
-	// If we have enabled prometheus we should add newly discovered zones to it.
-	met := dnsserver.GetMiddleware(c, "prometheus")
-	if met != nil {
-		a.metrics = met.(*metrics.Metrics)
 	}
 
 	dnsserver.GetConfig(c).AddMiddleware(func(next middleware.Handler) middleware.Handler {

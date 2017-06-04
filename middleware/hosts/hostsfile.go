@@ -7,6 +7,7 @@ package hosts
 import (
 	"bufio"
 	"bytes"
+	"io"
 	"net"
 	"os"
 	"strings"
@@ -85,13 +86,23 @@ func (h *Hostsfile) ReadHosts() {
 		return
 	}
 
-	hs := make(map[string][]string)
-	is := make(map[string][]string)
 	var file *os.File
 	if file, _ = os.Open(h.path); file == nil {
 		return
 	}
 	defer file.Close()
+
+	h.Parse(file)
+
+	// Update the data cache.
+	h.expire = now.Add(cacheMaxAge)
+	h.mtime = stat.ModTime()
+	h.size = stat.Size()
+}
+
+func (h *Hostsfile) Parse(file io.Reader) {
+	hs := make(map[string][]string)
+	is := make(map[string][]string)
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -110,19 +121,15 @@ func (h *Hostsfile) ReadHosts() {
 		}
 		for i := 1; i < len(f); i++ {
 			name := absDomainName(f[i])
-			h := []byte(f[i])
-			lowerASCIIBytes(h)
-			key := absDomainName(h)
+			host := []byte(f[i])
+			lowerASCIIBytes(host)
+			key := absDomainName(host)
 			hs[key] = append(hs[key], addr)
 			is[addr] = append(is[addr], name)
 		}
 	}
-	// Update the data cache.
-	h.expire = now.Add(cacheMaxAge)
 	h.byName = hs
 	h.byAddr = is
-	h.mtime = stat.ModTime()
-	h.size = stat.Size()
 }
 
 // lookupStaticHost looks up the addresses for the given host from /etc/hosts.
