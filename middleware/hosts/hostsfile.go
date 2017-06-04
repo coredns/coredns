@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+// This file is a modified version of net/hosts.go from the golang repo
+
 package hosts
 
 import (
@@ -74,6 +76,7 @@ type Hostsfile struct {
 	size   int64
 }
 
+// ReadHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
 func (h *Hostsfile) ReadHosts() {
 	now := time.Now()
 
@@ -100,6 +103,7 @@ func (h *Hostsfile) ReadHosts() {
 	h.size = stat.Size()
 }
 
+// Parse reads the hostsfile and populates the byName and byAddr maps.
 func (h *Hostsfile) Parse(file io.Reader) {
 	hs := make(map[string][]string)
 	is := make(map[string][]string)
@@ -132,7 +136,7 @@ func (h *Hostsfile) Parse(file io.Reader) {
 	h.byAddr = is
 }
 
-// lookupStaticHost looks up the addresses for the given host from /etc/hosts.
+// LookupStaticHost looks up the addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHost(host string) []string {
 	h.Lock()
 	defer h.Unlock()
@@ -151,7 +155,7 @@ func (h *Hostsfile) LookupStaticHost(host string) []string {
 	return nil
 }
 
-// lookupStaticAddr looks up the hosts for the given address from /etc/hosts.
+// LookupStaticAddr looks up the hosts for the given address from the hosts file.
 func (h *Hostsfile) LookupStaticAddr(addr string) []string {
 	h.Lock()
 	defer h.Unlock()
@@ -170,6 +174,7 @@ func (h *Hostsfile) LookupStaticAddr(addr string) []string {
 	return nil
 }
 
+// Names just returns a slice of names that are in the hosts file.
 func (h *Hostsfile) Names() []string {
 	h.Lock()
 	defer h.Unlock()

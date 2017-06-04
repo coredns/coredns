@@ -16,9 +16,12 @@ type (
 	Hosts struct {
 		Next middleware.Handler
 		*Hostsfile
+
+		Origins []string
 	}
 )
 
+// ServeDNS implements the middleware.Handle interface.
 func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
@@ -27,6 +30,17 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	qname := state.Name()
 
 	answers := []dns.RR{}
+
+	// Precheck with the origins, i.e. are we allowed to looks here.
+	if h.Origins != nil {
+		zone := middleware.Zones(h.Origins).Matches(qname)
+		if zone == "" {
+			// PTR zones don't need to be specified in Origins
+			if state.Type() != "PTR" {
+				return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+			}
+		}
+	}
 
 	zone := middleware.Zones(h.Names()).Matches(qname)
 	if zone == "" {
@@ -40,7 +54,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		if len(names) == 0 {
 			return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
-		answers = ptr(zone, names)
+		answers = h.ptr(zone, names)
 	}
 
 	if zone != "" {
@@ -69,8 +83,10 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	return dns.RcodeSuccess, nil
 }
 
+// Name implements the middleware.Handle interface.
 func (h Hosts) Name() string { return "hosts" }
 
+// ipv6Filter parses a slice of strings into a slice of net.IP and filters out the ipv6 ips.
 func ipv4Filter(strings []string) []net.IP {
 	ips := []net.IP{}
 	for _, str := range strings {
@@ -87,6 +103,7 @@ func ipv4Filter(strings []string) []net.IP {
 	return ips
 }
 
+// ipv6Filter parses a slice of strings into a slice of net.IP and filters out the ipv4 ips.
 func ipv6Filter(strings []string) []net.IP {
 	ips := []net.IP{}
 	for _, str := range strings {
@@ -103,6 +120,7 @@ func ipv6Filter(strings []string) []net.IP {
 	return ips
 }
 
+// a takes a slice of ip strings, parses them, filters out the non-ipv4 ips, and returns a slice of A RRs.
 func a(zone string, ips []string) []dns.RR {
 	answers := []dns.RR{}
 	for _, ip := range ipv4Filter(ips) {
@@ -115,6 +133,7 @@ func a(zone string, ips []string) []dns.RR {
 	return answers
 }
 
+// aaaa takes a slice of ip strings, parses them, filters out the non-ipv6 ips, and returns a slice of AAAA RRs.
 func aaaa(zone string, ips []string) []dns.RR {
 	answers := []dns.RR{}
 	for _, ip := range ipv6Filter(ips) {
@@ -127,9 +146,17 @@ func aaaa(zone string, ips []string) []dns.RR {
 	return answers
 }
 
-func ptr(zone string, names []string) []dns.RR {
+// ptr takes a slice of host names and filters out the ones that aren't in Origins, if specified, and returns a slice of PTR RRs.
+func (h *Hosts) ptr(zone string, names []string) []dns.RR {
 	answers := []dns.RR{}
 	for _, n := range names {
+		if h.Origins != nil {
+			// Filter out zones that we are not authoritive for
+			zone := middleware.Zones(h.Origins).Matches(n)
+			if zone == "" {
+				continue
+			}
+		}
 		r := new(dns.PTR)
 		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypePTR,
 			Class: dns.ClassINET, Ttl: 3600}
