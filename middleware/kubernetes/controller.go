@@ -39,6 +39,7 @@ type dnsController interface {
 	ServiceList() []*api.Service
 	PodIndex(string) []interface{}
 	EndpointsList() api.EndpointsList
+	NodeList() api.NodeList
 	Run()
 	Stop() error
 }
@@ -48,15 +49,17 @@ type dnsControl struct {
 
 	selector *labels.Selector
 
-	svcController *cache.Controller
-	podController *cache.Controller
-	nsController  *cache.Controller
-	epController  *cache.Controller
+	svcController  *cache.Controller
+	podController  *cache.Controller
+	nsController   *cache.Controller
+	epController   *cache.Controller
+	nodeController *cache.Controller
 
-	svcLister cache.StoreToServiceLister
-	podLister cache.StoreToPodLister
-	nsLister  storeToNamespaceLister
-	epLister  cache.StoreToEndpointsLister
+	svcLister  cache.StoreToServiceLister
+	podLister  cache.StoreToPodLister
+	nsLister   storeToNamespaceLister
+	epLister   cache.StoreToEndpointsLister
+	nodeLister cache.StoreToNodeLister
 
 	// stopLock is used to enforce only a single call to Stop is active.
 	// Needed because we allow stopping through an http endpoint and
@@ -67,7 +70,7 @@ type dnsControl struct {
 }
 
 // newDNSController creates a controller for CoreDNS.
-func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Duration, lselector *labels.Selector, initPodCache bool) *dnsControl {
+func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Duration, lselector *labels.Selector, initPodCache bool, initNodeCache bool) *dnsControl {
 	dns := dnsControl{
 		client:   kubeClient,
 		selector: lselector,
@@ -94,6 +97,17 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 			resyncPeriod,
 			cache.ResourceEventHandlerFuncs{},
 			cache.Indexers{podIPIndex: podIPIndexFunc})
+	}
+
+	if initNodeCache {
+		dns.nodeLister.Store, dns.nodeController = cache.NewInformer(
+			&cache.ListWatch{
+				ListFunc:  nodeListFunc(dns.client, dns.selector),
+				WatchFunc: nodeWatchFunc(dns.client, dns.selector),
+			},
+			&api.Node{},
+			resyncPeriod,
+			cache.ResourceEventHandlerFuncs{})
 	}
 
 	dns.nsLister.Store, dns.nsController = cache.NewInformer(
@@ -198,6 +212,15 @@ func v1ToAPIFilter(in watch.Event) (out watch.Event, keep bool) {
 			return in, true
 		}
 		return watch.Event{Type: in.Type, Object: &apiObj}, true
+	case *v1.Node:
+		var apiObj api.Node
+		err := v1.Convert_v1_Node_To_api_Node(v1Obj, &apiObj, nil)
+		if err != nil {
+			log.Printf("[ERROR] Could not convert v1.Node: %s", err)
+			return in, true
+		}
+		return watch.Event{Type: in.Type, Object: &apiObj}, true
+
 	}
 
 	log.Printf("[WARN] Unhandled v1 type in event: %v", in)
@@ -255,6 +278,37 @@ func namespaceWatchFunc(c *kubernetes.Clientset, s *labels.Selector) func(option
 			options.LabelSelector = *s
 		}
 		w, err := c.Core().Namespaces().Watch(options)
+		if err != nil {
+			return nil, err
+		}
+		return watch.Filter(w, v1ToAPIFilter), nil
+	}
+}
+
+func nodeListFunc(c *kubernetes.Clientset, s *labels.Selector) func(api.ListOptions) (runtime.Object, error) {
+	return func(opts api.ListOptions) (runtime.Object, error) {
+		if s != nil {
+			opts.LabelSelector = *s
+		}
+		listV1, err := c.Core().Nodes().List(opts)
+		if err != nil {
+			return nil, err
+		}
+		var listAPI api.NodeList
+		err = v1.Convert_v1_NodeList_To_api_NodeList(listV1, &listAPI, nil)
+		if err != nil {
+			return nil, err
+		}
+		return &listAPI, err
+	}
+}
+
+func nodeWatchFunc(c *kubernetes.Clientset, s *labels.Selector) func(options api.ListOptions) (watch.Interface, error) {
+	return func(options api.ListOptions) (watch.Interface, error) {
+		if s != nil {
+			options.LabelSelector = *s
+		}
+		w, err := c.Core().Nodes().Watch(options)
 		if err != nil {
 			return nil, err
 		}

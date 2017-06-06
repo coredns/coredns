@@ -39,6 +39,7 @@ type Kubernetes struct {
 	APIConn        dnsController
 	ResyncPeriod   time.Duration
 	Namespaces     []string
+	Federations    []Federation
 	LabelSelector  *unversionedapi.LabelSelector
 	Selector       *labels.Selector
 	PodMode        string
@@ -78,7 +79,14 @@ type pod struct {
 }
 
 type recordRequest struct {
-	port, protocol, endpoint, service, namespace, typeName, zone string
+	port       string
+	protocol   string
+	endpoint   string
+	service    string
+	namespace  string
+	typeName   string
+	zone       string
+	federation string
 }
 
 var errNoItems = errors.New("no items found")
@@ -236,16 +244,18 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 		log.Printf("[INFO] Kubernetes middleware configured with the label selector '%s'. Only kubernetes objects matching this label selector will be exposed.", unversionedapi.FormatLabelSelector(k.LabelSelector))
 	}
 
-	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, k.PodMode == PodModeVerified)
+	// TODO: pass correct federation bool
+	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, k.PodMode == PodModeVerified, true)
 
 	return err
 }
 
 func (k *Kubernetes) parseRequest(lowerCasedName string, qtype uint16) (r recordRequest, err error) {
 	// 3 Possible cases
-	//   SRV Request: _port._protocol.service.namespace.type.zone
-	//   A Request (endpoint): endpoint.service.namespace.type.zone
-	//   A Request (service): service.namespace.type.zone
+	//   SRV Request: _port._protocol.service.namespace.[federation.]type.zone
+	//   A Request (endpoint): endpoint.service.namespace.[federation.]type.zone
+	//   A Request (service): service.namespace.[federation.]type.zone
+
 	// separate zone from rest of lowerCasedName
 	var segs []string
 	for _, z := range k.Zones {
@@ -260,6 +270,8 @@ func (k *Kubernetes) parseRequest(lowerCasedName string, qtype uint16) (r record
 	if r.zone == "" {
 		return r, errZoneNotFound
 	}
+
+	r.federation, segs = k.stripFederation(segs)
 
 	if qtype == dns.TypeNS {
 		return r, nil
@@ -344,6 +356,13 @@ func (k *Kubernetes) Records(r recordRequest) ([]msg.Service, error) {
 	}
 
 	records := k.getRecordsForK8sItems(services, pods, r.zone)
+
+	if len(records) == 0 && r.federation != "" {
+		fedCNAME := k.federationCNAMERecord(r)
+		if fedCNAME.Key != "" {
+			records = append(records, fedCNAME)
+		}
+	}
 	return records, nil
 }
 

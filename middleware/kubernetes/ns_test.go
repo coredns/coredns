@@ -104,6 +104,10 @@ func (APIConnTest) EndpointsList() api.EndpointsList {
 	}
 }
 
+func (APIConnTest) NodeList() api.NodeList {
+	return api.NodeList{}
+}
+
 type interfaceAddrsTest struct{}
 
 func (i interfaceAddrsTest) interfaceAddrs() ([]net.Addr, error) {

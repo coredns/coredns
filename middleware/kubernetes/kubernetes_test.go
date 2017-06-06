@@ -411,6 +411,10 @@ func (APIConnServiceTest) EndpointsList() api.EndpointsList {
 	}
 }
 
+func (APIConnServiceTest) NodeList() api.NodeList {
+	return api.NodeList{}
+}
+
 func TestServices(t *testing.T) {
 
 	k := Kubernetes{Zones: []string{"interwebs.test"}}
