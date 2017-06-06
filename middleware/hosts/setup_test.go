@@ -8,27 +8,34 @@ import (
 
 func TestHostsParse(t *testing.T) {
 	tests := []struct {
-		inputFileRules  string
-		shouldErr       bool
-		expectedPath    string
-		expectedOrigins []string
+		inputFileRules      string
+		shouldErr           bool
+		expectedPath        string
+		expectedOrigins     []string
+		expectedFallthrough bool
 	}{
 		{
 			`hosts
 `,
-			false, "/etc/hosts", nil,
+			false, "/etc/hosts", nil, false,
+		},
+		{
+			`hosts {
+				fallthrough
+			}`,
+			false, "/etc/hosts", nil, true,
 		},
 		{
 			`hosts /tmp`,
-			false, "/tmp", nil,
+			false, "/tmp", nil, false,
 		},
 		{
 			`hosts /etc/hosts miek.nl.`,
-			false, "/etc/hosts", []string{"miek.nl."},
+			false, "/etc/hosts", []string{"miek.nl."}, false,
 		},
 		{
 			`hosts /etc/hosts miek.nl. pun.gent.`,
-			false, "/etc/hosts", []string{"miek.nl.", "pun.gent."},
+			false, "/etc/hosts", []string{"miek.nl.", "pun.gent."}, false,
 		},
 	}
 
@@ -45,6 +52,9 @@ func TestHostsParse(t *testing.T) {
 				t.Fatalf("Test %d expected %v, got %v", i, test.expectedPath, h.path)
 			}
 		} else {
+			if h.Fallthrough != test.expectedFallthrough {
+				t.Fatalf("Test %d expected fallthrough of %v, got %v", i, test.expectedFallthrough, h.Fallthrough)
+			}
 			if len(h.Origins) != len(test.expectedOrigins) {
 				t.Fatalf("Test %d expected %v, got %v", i, test.expectedOrigins, h.Origins)
 			}

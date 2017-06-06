@@ -55,7 +55,7 @@ func lowerASCIIBytes(x []byte) {
 	}
 }
 
-// hosts contains known host entries.
+// Hostsfile contains known host entries.
 type Hostsfile struct {
 	sync.Mutex
 

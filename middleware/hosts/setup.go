@@ -42,10 +42,11 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 
 	for c.Next() {
 		if c.Val() == "hosts" { // hosts [FILE] [ZONES...]
-			if !c.NextArg() {
+			args := c.RemainingArgs()
+			if len(args) == 0 {
 				return h, nil
 			}
-			h.path = c.Val()
+			h.path = args[0]
 
 			if !path.IsAbs(h.path) && config.Root != "" {
 				h.path = path.Join(config.Root, h.path)
@@ -61,7 +62,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 
 			origins := make([]string, len(c.ServerBlockKeys))
 			copy(origins, c.ServerBlockKeys)
-			args := c.RemainingArgs()
+			args = args[1:]
 			if len(args) > 0 {
 				origins = args
 			}
@@ -70,6 +71,17 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 			}
 			h.Origins = origins
 
+			for c.NextBlock() {
+				switch c.Val() {
+				case "fallthrough":
+					args := c.RemainingArgs()
+					if len(args) == 0 {
+						h.Fallthrough = true
+						continue
+					}
+					return h, c.ArgErr()
+				}
+			}
 		}
 	}
 	return h, nil

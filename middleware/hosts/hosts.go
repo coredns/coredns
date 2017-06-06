@@ -12,14 +12,14 @@ import (
 	"github.com/miekg/dns"
 )
 
-type (
-	Hosts struct {
-		Next middleware.Handler
-		*Hostsfile
+// Hosts is the middleware handler
+type Hosts struct {
+	Next middleware.Handler
+	*Hostsfile
 
-		Origins []string
-	}
-)
+	Origins     []string
+	Fallthrough bool
+}
 
 // ServeDNS implements the middleware.Handle interface.
 func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -37,6 +37,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		if zone == "" {
 			// PTR zones don't need to be specified in Origins
 			if state.Type() != "PTR" {
+				// If this doesn't match we need to fall through regardless of h.Fallthrough
 				return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 			}
 		}
@@ -45,13 +46,14 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	zone := middleware.Zones(h.Names()).Matches(qname)
 	if zone == "" {
 		if state.Type() != "PTR" {
-			return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+			return h.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
 
 		// Request is a PTR
 		zone = state.Name()
 		names := h.LookupStaticAddr(dnsutil.ExtractAddressFromReverse(zone))
 		if len(names) == 0 {
+			// If this doesn't match we need to fall through regardless of h.Fallthrough
 			return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
 		answers = h.ptr(zone, names)
@@ -69,7 +71,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	if len(answers) == 0 {
-		return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+		return h.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 	}
 
 	m := new(dns.Msg)
@@ -85,6 +87,15 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 // Name implements the middleware.Handle interface.
 func (h Hosts) Name() string { return "hosts" }
+
+// NextOrFailure calls middleware.NextOrFailure if h.Fallthrough is set.
+// If it is not set, we just return a dns.RcodeRefused.
+func (h Hosts) NextOrFailure(name string, next middleware.Handler, ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	if h.Fallthrough {
+		return middleware.NextOrFailure(name, next, ctx, w, r)
+	}
+	return dns.RcodeRefused, nil
+}
 
 // ipv6Filter parses a slice of strings into a slice of net.IP and filters out the ipv6 ips.
 func ipv4Filter(strings []string) []net.IP {
