@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/miekg/coredns/middleware"
+	"github.com/coredns/coredns/middleware"
 )
 
 const cacheMaxAge = 5 * time.Second
