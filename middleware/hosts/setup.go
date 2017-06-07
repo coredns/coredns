@@ -43,29 +43,29 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 	for c.Next() {
 		if c.Val() == "hosts" { // hosts [FILE] [ZONES...]
 			args := c.RemainingArgs()
-			if len(args) == 0 {
-				return h, nil
-			}
-			h.path = args[0]
+			if len(args) >= 1 {
+				h.path = args[0]
+				args = args[1:]
 
-			if !path.IsAbs(h.path) && config.Root != "" {
-				h.path = path.Join(config.Root, h.path)
-			}
-			_, err := os.Stat(h.path)
-			if err != nil {
-				if os.IsNotExist(err) {
-					log.Printf("[WARNING] File does not exist: %s", h.path)
-				} else {
-					return h, c.Errf("Unable to access hosts file '%s': %v", h.path, err)
+				if !path.IsAbs(h.path) && config.Root != "" {
+					h.path = path.Join(config.Root, h.path)
+				}
+				_, err := os.Stat(h.path)
+				if err != nil {
+					if os.IsNotExist(err) {
+						log.Printf("[WARNING] File does not exist: %s", h.path)
+					} else {
+						return h, c.Errf("unable to access hosts file '%s': %v", h.path, err)
+					}
 				}
 			}
 
 			origins := make([]string, len(c.ServerBlockKeys))
 			copy(origins, c.ServerBlockKeys)
-			args = args[1:]
 			if len(args) > 0 {
 				origins = args
 			}
+
 			for i := range origins {
 				origins[i] = middleware.Host(origins[i]).Normalize()
 			}

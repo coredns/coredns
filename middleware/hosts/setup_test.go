@@ -20,12 +20,6 @@ func TestHostsParse(t *testing.T) {
 			false, "/etc/hosts", nil, false,
 		},
 		{
-			`hosts {
-				fallthrough
-			}`,
-			false, "/etc/hosts", nil, true,
-		},
-		{
 			`hosts /tmp`,
 			false, "/tmp", nil, false,
 		},
@@ -36,6 +30,30 @@ func TestHostsParse(t *testing.T) {
 		{
 			`hosts /etc/hosts miek.nl. pun.gent.`,
 			false, "/etc/hosts", []string{"miek.nl.", "pun.gent."}, false,
+		},
+		{
+			`hosts {
+				fallthrough
+			}`,
+			false, "/etc/hosts", nil, true,
+		},
+		{
+			`hosts /tmp {
+				fallthrough
+			}`,
+			false, "/tmp", nil, true,
+		},
+		{
+			`hosts /etc/hosts miek.nl. {
+				fallthrough
+			}`,
+			false, "/etc/hosts", []string{"miek.nl."}, true,
+		},
+		{
+			`hosts /etc/hosts miek.nl. pun.gent. {
+				fallthrough
+			}`,
+			false, "/etc/hosts", []string{"miek.nl.", "pun.gent."}, true,
 		},
 	}
 

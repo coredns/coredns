@@ -17,7 +17,6 @@ type Hosts struct {
 	Next middleware.Handler
 	*Hostsfile
 
-	Origins     []string
 	Fallthrough bool
 }
 
@@ -31,47 +30,36 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	answers := []dns.RR{}
 
-	// Precheck with the origins, i.e. are we allowed to looks here.
-	if h.Origins != nil {
-		zone := middleware.Zones(h.Origins).Matches(qname)
-		if zone == "" {
-			// PTR zones don't need to be specified in Origins
-			if state.Type() != "PTR" {
-				// If this doesn't match we need to fall through regardless of h.Fallthrough
-				return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
-			}
+	zone := middleware.Zones(h.Origins).Matches(qname)
+	if zone == "" {
+		// PTR zones don't need to be specified in Origins
+		if state.Type() != "PTR" {
+			// If this doesn't match we need to fall through regardless of h.Fallthrough
+			return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
 	}
 
-	zone := middleware.Zones(h.Names()).Matches(qname)
-	if zone == "" {
-		if state.Type() != "PTR" {
-			return h.NextOrFailure(h.Name(), h.Next, ctx, w, r)
-		}
-
-		// Request is a PTR
-		zone = state.Name()
-		names := h.LookupStaticAddr(dnsutil.ExtractAddressFromReverse(zone))
+	switch state.QType() {
+	case dns.TypePTR:
+		names := h.LookupStaticAddr(dnsutil.ExtractAddressFromReverse(qname))
 		if len(names) == 0 {
 			// If this doesn't match we need to fall through regardless of h.Fallthrough
 			return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
-		answers = h.ptr(zone, names)
-	}
-
-	if zone != "" {
-		ips := h.LookupStaticHost(zone)
-
-		switch state.QType() {
-		case dns.TypeA:
-			answers = a(zone, ips)
-		case dns.TypeAAAA:
-			answers = aaaa(zone, ips)
-		}
+		answers = h.ptr(qname, names)
+	case dns.TypeA:
+		ips := h.LookupStaticHostV4(qname)
+		answers = a(qname, ips)
+	case dns.TypeAAAA:
+		ips := h.LookupStaticHostV6(qname)
+		answers = aaaa(qname, ips)
 	}
 
 	if len(answers) == 0 {
-		return h.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+		if h.Fallthrough {
+			return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+		}
+		return dns.RcodeRefused, nil
 	}
 
 	m := new(dns.Msg)
@@ -88,53 +76,10 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // Name implements the middleware.Handle interface.
 func (h Hosts) Name() string { return "hosts" }
 
-// NextOrFailure calls middleware.NextOrFailure if h.Fallthrough is set.
-// If it is not set, we just return a dns.RcodeRefused.
-func (h Hosts) NextOrFailure(name string, next middleware.Handler, ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	if h.Fallthrough {
-		return middleware.NextOrFailure(name, next, ctx, w, r)
-	}
-	return dns.RcodeRefused, nil
-}
-
-// ipv6Filter parses a slice of strings into a slice of net.IP and filters out the ipv6 ips.
-func ipv4Filter(strings []string) []net.IP {
-	ips := []net.IP{}
-	for _, str := range strings {
-		ip := net.ParseIP(str)
-		if ip == nil {
-			continue
-		}
-		ip = ip.To4()
-		if ip == nil {
-			continue
-		}
-		ips = append(ips, ip)
-	}
-	return ips
-}
-
-// ipv6Filter parses a slice of strings into a slice of net.IP and filters out the ipv4 ips.
-func ipv6Filter(strings []string) []net.IP {
-	ips := []net.IP{}
-	for _, str := range strings {
-		ip := net.ParseIP(str)
-		if ip == nil {
-			continue
-		}
-		ipv4 := ip.To4()
-		if ipv4 != nil {
-			continue
-		}
-		ips = append(ips, ip)
-	}
-	return ips
-}
-
-// a takes a slice of ip strings, parses them, filters out the non-ipv4 ips, and returns a slice of A RRs.
-func a(zone string, ips []string) []dns.RR {
+// a takes a slice of net.IPs and returns a slice of A RRs.
+func a(zone string, ips []net.IP) []dns.RR {
 	answers := []dns.RR{}
-	for _, ip := range ipv4Filter(ips) {
+	for _, ip := range ips {
 		r := new(dns.A)
 		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeA,
 			Class: dns.ClassINET, Ttl: 3600}
@@ -144,10 +89,10 @@ func a(zone string, ips []string) []dns.RR {
 	return answers
 }
 
-// aaaa takes a slice of ip strings, parses them, filters out the non-ipv6 ips, and returns a slice of AAAA RRs.
-func aaaa(zone string, ips []string) []dns.RR {
+// aaaa takes a slice of net.IPs and returns a slice of AAAA RRs.
+func aaaa(zone string, ips []net.IP) []dns.RR {
 	answers := []dns.RR{}
-	for _, ip := range ipv6Filter(ips) {
+	for _, ip := range ips {
 		r := new(dns.AAAA)
 		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeAAAA,
 			Class: dns.ClassINET, Ttl: 3600}
@@ -161,13 +106,6 @@ func aaaa(zone string, ips []string) []dns.RR {
 func (h *Hosts) ptr(zone string, names []string) []dns.RR {
 	answers := []dns.RR{}
 	for _, n := range names {
-		if h.Origins != nil {
-			// Filter out zones that we are not authoritive for
-			zone := middleware.Zones(h.Origins).Matches(n)
-			if zone == "" {
-				continue
-			}
-		}
 		r := new(dns.PTR)
 		r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypePTR,
 			Class: dns.ClassINET, Ttl: 3600}

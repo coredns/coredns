@@ -5,6 +5,7 @@
 package hosts
 
 import (
+	"net"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,14 +13,15 @@ import (
 )
 
 func testHostsfile(file string) *Hostsfile {
-	h := &Hostsfile{expire: time.Now().Add(1 * time.Hour)}
+	h := &Hostsfile{expire: time.Now().Add(1 * time.Hour), Origins: []string{"."}}
 	h.Parse(strings.NewReader(file))
 	return h
 }
 
 type staticHostEntry struct {
-	in  string
-	out []string
+	in string
+	v4 []string
+	v6 []string
 }
 
 var (
@@ -69,38 +71,38 @@ var lookupStaticHostTests = []struct {
 	{
 		hosts,
 		[]staticHostEntry{
-			{"odin", []string{"127.0.0.2", "127.0.0.3", "::2"}},
-			{"thor", []string{"127.1.1.1"}},
-			{"ullr", []string{"127.1.1.2"}},
-			{"ullrhost", []string{"127.1.1.2"}},
-			{"localhost", []string{"fe80::1"}},
+			{"odin", []string{"127.0.0.2", "127.0.0.3"}, []string{"::2"}},
+			{"thor", []string{"127.1.1.1"}, []string{}},
+			{"ullr", []string{"127.1.1.2"}, []string{}},
+			{"ullrhost", []string{"127.1.1.2"}, []string{}},
+			{"localhost", []string{}, []string{"fe80::1"}},
 		},
 	},
 	{
 		singlelinehosts, // see golang.org/issue/6646
 		[]staticHostEntry{
-			{"odin", []string{"127.0.0.2"}},
+			{"odin", []string{"127.0.0.2"}, []string{}},
 		},
 	},
 	{
 		ipv4hosts,
 		[]staticHostEntry{
-			{"localhost", []string{"127.0.0.1", "127.0.0.2", "127.0.0.3"}},
-			{"localhost.localdomain", []string{"127.0.0.3"}},
+			{"localhost", []string{"127.0.0.1", "127.0.0.2", "127.0.0.3"}, []string{}},
+			{"localhost.localdomain", []string{"127.0.0.3"}, []string{}},
 		},
 	},
 	{
 		ipv6hosts,
 		[]staticHostEntry{
-			{"localhost", []string{"::1", "fe80::1", "fe80::2", "fe80::3"}},
-			{"localhost.localdomain", []string{"fe80::3"}},
+			{"localhost", []string{}, []string{"::1", "fe80::1", "fe80::2", "fe80::3"}},
+			{"localhost.localdomain", []string{}, []string{"fe80::3"}},
 		},
 	},
 	{
 		casehosts,
 		[]staticHostEntry{
-			{"PreserveMe", []string{"127.0.0.1", "::1"}},
-			{"PreserveMe.local", []string{"127.0.0.1", "::1"}},
+			{"PreserveMe", []string{"127.0.0.1"}, []string{"::1"}},
+			{"PreserveMe.local", []string{"127.0.0.1"}, []string{"::1"}},
 		},
 	},
 }
@@ -116,22 +118,41 @@ func TestLookupStaticHost(t *testing.T) {
 }
 
 func testStaticHost(t *testing.T, ent staticHostEntry, h *Hostsfile) {
-	ins := []string{ent.in, absDomainName([]byte(ent.in)), strings.ToLower(ent.in), strings.ToUpper(ent.in)}
-	for _, in := range ins {
-		addrs := h.LookupStaticHost(in)
-		if !reflect.DeepEqual(addrs, ent.out) {
-			t.Errorf("%s, lookupStaticHost(%s) = %v; want %v", h.path, in, addrs, ent.out)
+	ins := []string{ent.in, absDomainName(ent.in), strings.ToLower(ent.in), strings.ToUpper(ent.in)}
+	for k, in := range ins {
+		addrsV4 := h.LookupStaticHostV4(in)
+		if len(addrsV4) != len(ent.v4) {
+			t.Fatalf("%d, lookupStaticHostV4(%s) = %v; want %v", k, in, addrsV4, ent.v4)
+		}
+		for i, v4 := range addrsV4 {
+			if v4.String() != ent.v4[i] {
+				t.Fatalf("%d, lookupStaticHostV4(%s) = %v; want %v", k, in, addrsV4, ent.v4)
+			}
+		}
+		addrsV6 := h.LookupStaticHostV6(in)
+		if len(addrsV6) != len(ent.v6) {
+			t.Fatalf("%d, lookupStaticHostV6(%s) = %v; want %v", k, in, addrsV6, ent.v6)
+		}
+		for i, v6 := range addrsV6 {
+			if v6.String() != ent.v6[i] {
+				t.Fatalf("%d, lookupStaticHostV6(%s) = %v; want %v", k, in, addrsV6, ent.v6)
+			}
 		}
 	}
 }
 
+type staticIPEntry struct {
+	in  string
+	out []string
+}
+
 var lookupStaticAddrTests = []struct {
 	file string
-	ents []staticHostEntry
+	ents []staticIPEntry
 }{
 	{
 		hosts,
-		[]staticHostEntry{
+		[]staticIPEntry{
 			{"255.255.255.255", []string{"broadcasthost"}},
 			{"127.0.0.2", []string{"odin"}},
 			{"127.0.0.3", []string{"odin"}},
@@ -143,13 +164,13 @@ var lookupStaticAddrTests = []struct {
 	},
 	{
 		singlelinehosts, // see golang.org/issue/6646
-		[]staticHostEntry{
+		[]staticIPEntry{
 			{"127.0.0.2", []string{"odin"}},
 		},
 	},
 	{
 		ipv4hosts, // see golang.org/issue/8996
-		[]staticHostEntry{
+		[]staticIPEntry{
 			{"127.0.0.1", []string{"localhost"}},
 			{"127.0.0.2", []string{"localhost"}},
 			{"127.0.0.3", []string{"localhost", "localhost.localdomain"}},
@@ -157,7 +178,7 @@ var lookupStaticAddrTests = []struct {
 	},
 	{
 		ipv6hosts, // see golang.org/issue/8996
-		[]staticHostEntry{
+		[]staticIPEntry{
 			{"::1", []string{"localhost"}},
 			{"fe80::1", []string{"localhost"}},
 			{"fe80::2", []string{"localhost"}},
@@ -166,7 +187,7 @@ var lookupStaticAddrTests = []struct {
 	},
 	{
 		casehosts, // see golang.org/issue/12806
-		[]staticHostEntry{
+		[]staticIPEntry{
 			{"127.0.0.1", []string{"PreserveMe", "PreserveMe.local"}},
 			{"::1", []string{"PreserveMe", "PreserveMe.local"}},
 		},
@@ -182,10 +203,10 @@ func TestLookupStaticAddr(t *testing.T) {
 	}
 }
 
-func testStaticAddr(t *testing.T, ent staticHostEntry, h *Hostsfile) {
+func testStaticAddr(t *testing.T, ent staticIPEntry, h *Hostsfile) {
 	hosts := h.LookupStaticAddr(ent.in)
 	for i := range ent.out {
-		ent.out[i] = absDomainName([]byte(ent.out[i]))
+		ent.out[i] = absDomainName(ent.out[i])
 	}
 	if !reflect.DeepEqual(hosts, ent.out) {
 		t.Errorf("%s, lookupStaticAddr(%s) = %v; want %v", h.path, ent.in, hosts, h)
@@ -197,22 +218,22 @@ func TestHostCacheModification(t *testing.T) {
 	// See https://github.com/golang/go/issues/14212.
 
 	h := testHostsfile(ipv4hosts)
-	ent := staticHostEntry{"localhost", []string{"127.0.0.1", "127.0.0.2", "127.0.0.3"}}
+	ent := staticHostEntry{"localhost", []string{"127.0.0.1", "127.0.0.2", "127.0.0.3"}, []string{}}
 	testStaticHost(t, ent, h)
 	// Modify the addresses return by lookupStaticHost.
-	addrs := h.LookupStaticHost(ent.in)
+	addrs := h.LookupStaticHostV6(ent.in)
 	for i := range addrs {
-		addrs[i] += "junk"
+		addrs[i] = net.IPv4zero
 	}
 	testStaticHost(t, ent, h)
 
 	h = testHostsfile(ipv6hosts)
-	ent = staticHostEntry{"::1", []string{"localhost"}}
-	testStaticAddr(t, ent, h)
+	entip := staticIPEntry{"::1", []string{"localhost"}}
+	testStaticAddr(t, entip, h)
 	// Modify the hosts return by lookupStaticAddr.
-	hosts := h.LookupStaticAddr(ent.in)
+	hosts := h.LookupStaticAddr(entip.in)
 	for i := range hosts {
 		hosts[i] += "junk"
 	}
-	testStaticAddr(t, ent, h)
+	testStaticAddr(t, entip, h)
 }
