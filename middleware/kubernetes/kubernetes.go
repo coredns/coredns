@@ -351,18 +351,17 @@ func (k *Kubernetes) Records(r recordRequest) ([]msg.Service, error) {
 		return nil, err
 	}
 	if len(services) == 0 && len(pods) == 0 {
-		// Did not find item in k8s
+		// Did not find item in k8s, try federated
+		if r.federation != "" {
+			fedCNAME := k.federationCNAMERecord(r)
+			if fedCNAME.Key != "" {
+				return []msg.Service{fedCNAME}, nil
+			}
+		}
 		return nil, errNoItems
 	}
 
-	records := k.getRecordsForK8sItems(services, pods, r.zone)
-
-	if len(records) == 0 && r.federation != "" {
-		fedCNAME := k.federationCNAMERecord(r)
-		if fedCNAME.Key != "" {
-			records = append(records, fedCNAME)
-		}
-	}
+	records := k.getRecordsForK8sItems(services, pods, r)
 	return records, nil
 }
 
@@ -379,17 +378,21 @@ func endpointHostname(addr api.EndpointAddress) string {
 	return ""
 }
 
-func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, zone string) (records []msg.Service) {
-	zonePath := msg.Path(zone, "coredns")
+func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, r recordRequest) (records []msg.Service) {
+	zonePath := msg.Path(r.zone, "coredns")
 
 	for _, svc := range services {
 		if svc.addr == api.ClusterIPNone {
 			// This is a headless service, create records for each endpoint
 			for _, ep := range svc.endpoints {
 				s := msg.Service{
-					Key:  strings.Join([]string{zonePath, "svc", svc.namespace, svc.name, endpointHostname(ep.addr)}, "/"),
 					Host: ep.addr.IP,
 					Port: int(ep.port.Port),
+				}
+				if r.federation != "" {
+					s.Key = strings.Join([]string{zonePath, "svc", r.federation, svc.namespace, svc.name, endpointHostname(ep.addr)}, "/")
+				} else {
+					s.Key = strings.Join([]string{zonePath, "svc", svc.namespace, svc.name, endpointHostname(ep.addr)}, "/")
 				}
 				records = append(records, s)
 			}
@@ -397,9 +400,15 @@ func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, zone 
 			// Create records for each exposed port...
 			for _, p := range svc.ports {
 				s := msg.Service{
-					Key:  strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/"),
 					Host: svc.addr,
 					Port: int(p.Port)}
+
+				if r.federation != "" {
+					s.Key = strings.Join([]string{zonePath, "svc", r.federation, svc.namespace, svc.name}, "/")
+				} else {
+					s.Key = strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/")
+				}
+
 				records = append(records, s)
 			}
 			// If the addr is not an IP (i.e. an external service), add the record ...
@@ -407,6 +416,11 @@ func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, zone 
 				Key:  strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/"),
 				Host: svc.addr}
 			if t, _ := s.HostType(); t == dns.TypeCNAME {
+				if r.federation != "" {
+					s.Key = strings.Join([]string{zonePath, "svc", r.federation, svc.namespace, svc.name}, "/")
+				} else {
+					s.Key = strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/")
+				}
 				records = append(records, s)
 			}
 
