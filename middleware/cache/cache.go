@@ -20,6 +20,8 @@ type Cache struct {
 	Next  middleware.Handler
 	Zones []string
 
+	prefetch int // when > 0 to record prefetching (for both negative and positive?)
+
 	ncache *lru.Cache
 	ncap   int
 	nttl   time.Duration

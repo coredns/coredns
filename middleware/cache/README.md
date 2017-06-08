@@ -24,6 +24,7 @@ If you want more control:
 cache [TTL] [ZONES...] {
     success CAPACITY [TTL]
     denial CAPACITY [TTL]
+    prefetch FREQ ADDRESS...
 }
 ~~~
 
@@ -32,8 +33,9 @@ cache [TTL] [ZONES...] {
   number of packets we cache before we start evicting (LRU). **TTL** overrides the cache maximum TTL.
 * `denial`, override the settings for caching denial of existence responses, **CAPACITY** indicates the maximum
   number of packets we cache before we start evicting (LRU). **TTL** overrides the cache maximum TTL.
-
-There is a third category (`error`) but those responses are never cached.
+  There is a third category (`error`) but those responses are never cached.
+* `prefetch`, fetch records before the TTL expires *if* the record (name + type) has been **FREQ**
+  or more times in the last *minute*. **ADDRESS** are the nameserver(s) used for the lookup.
 
 The minimum TTL allowed on resource records is 5 seconds.
 
