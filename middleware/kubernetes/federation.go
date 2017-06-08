@@ -12,6 +12,7 @@ type Federation struct {
 }
 
 const (
+	// TODO: Do not hard code these, pull them out of the API
 	LabelAvailabilityZone = "failure-domain.beta.kubernetes.io/zone"
 	LabelRegion           = "failure-domain.beta.kubernetes.io/region"
 )
