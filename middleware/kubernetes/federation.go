@@ -12,7 +12,15 @@ type Federation struct {
 }
 
 const (
-	// TODO: Do not hard code these, pull them out of the API
+	// TODO: Do not hardcode these labels. Pull them out of the API instead.
+	//
+	// We can get them via ....
+	//   import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	//     metav1.LabelZoneFailureDomain
+	//     metav1.LabelZoneRegion
+	//
+	// But importing above breaks coredns with flag collision of 'log_dir'
+
 	LabelAvailabilityZone = "failure-domain.beta.kubernetes.io/zone"
 	LabelRegion           = "failure-domain.beta.kubernetes.io/region"
 )

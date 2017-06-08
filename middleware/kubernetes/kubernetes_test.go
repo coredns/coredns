@@ -414,7 +414,7 @@ func (APIConnServiceTest) EndpointsList() api.EndpointsList {
 func (APIConnServiceTest) NodeList() api.NodeList {
 	return api.NodeList{
 		Items: []api.Node{
-			api.Node{
+			{
 				ObjectMeta: api.ObjectMeta{
 					Labels: map[string]string{
 						LabelRegion:           "fd-r",

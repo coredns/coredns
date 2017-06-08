@@ -56,21 +56,21 @@ func (apiConnFedTest) EndpointsList() api.EndpointsList {
 func (apiConnFedTest) NodeList() api.NodeList {
 	return api.NodeList{
 		Items: []api.Node{
-			api.Node{
+			{
 				ObjectMeta: api.ObjectMeta{
 					Labels: map[string]string{
 						LabelAvailabilityZone: "fd-az",
 					},
 				},
 			},
-			api.Node{
+			{
 				ObjectMeta: api.ObjectMeta{
 					Labels: map[string]string{
 						LabelRegion: "fd-r",
 					},
 				},
 			},
-			api.Node{
+			{
 				ObjectMeta: api.ObjectMeta{
 					Labels: map[string]string{
 						LabelRegion:           "fd-r",
