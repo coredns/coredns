@@ -422,3 +422,8 @@ func (dns *dnsControl) EndpointsList() api.EndpointsList {
 
 	return epl
 }
+
+func (dns *dnsControl) NodeList() api.NodeList {
+	nodeList, _ := dns.nodeLister.List()
+	return nodeList
+}
