@@ -34,27 +34,34 @@ func (k *Kubernetes) stripFederation(segs []string) (string, []string) {
 	return "", segs
 }
 
+// federation CNAMRecord returns a service record for the requested federated service
+// with the target host in the federated CNAME format which the external DNS provider
+// should be able to resolve
 func (k *Kubernetes) federationCNAMERecord(r recordRequest) msg.Service {
 	for _, node := range k.APIConn.NodeList().Items {
-		if node.Labels[LabelRegion] != "" && node.Labels[LabelAvailabilityZone] != "" {
-			for _, f := range k.Federations {
-				if f.name == r.federation {
-					if r.endpoint == "" {
-						return msg.Service{
-							Key:  strings.Join([]string{msg.Path(r.zone, "coredns"), r.typeName, r.federation, r.namespace, r.service}, "/"),
-							Host: strings.Join([]string{r.service, r.namespace, r.federation, r.typeName, node.Labels[LabelAvailabilityZone], node.Labels[LabelRegion], f.zone}, "."),
-						}
-					} else {
-						return msg.Service{
-							Key:  strings.Join([]string{msg.Path(r.zone, "coredns"), r.typeName, r.federation, r.namespace, r.service, r.endpoint}, "/"),
-							Host: strings.Join([]string{r.endpoint, r.service, r.namespace, r.federation, r.typeName, node.Labels[LabelAvailabilityZone], node.Labels[LabelRegion], f.zone}, "."),
-						}
-					}
+		// Mimic kube-dns implementation, and arbitrarily pick the first node with
+		// non-empty availability-zone and region
+		if node.Labels[LabelRegion] == "" || node.Labels[LabelAvailabilityZone] == "" {
+			continue
+		}
+		for _, f := range k.Federations {
+			if f.name != r.federation {
+				continue
+			}
+			if r.endpoint == "" {
+				return msg.Service{
+					Key:  strings.Join([]string{msg.Path(r.zone, "coredns"), r.typeName, r.federation, r.namespace, r.service}, "/"),
+					Host: strings.Join([]string{r.service, r.namespace, r.federation, r.typeName, node.Labels[LabelAvailabilityZone], node.Labels[LabelRegion], f.zone}, "."),
 				}
-				return msg.Service{}
+			}
+			return msg.Service{
+				Key:  strings.Join([]string{msg.Path(r.zone, "coredns"), r.typeName, r.federation, r.namespace, r.service, r.endpoint}, "/"),
+				Host: strings.Join([]string{r.endpoint, r.service, r.namespace, r.federation, r.typeName, node.Labels[LabelAvailabilityZone], node.Labels[LabelRegion], f.zone}, "."),
 			}
 
 		}
+		break
+
 	}
 	return msg.Service{}
 }

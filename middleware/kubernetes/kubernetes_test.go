@@ -417,8 +417,8 @@ func (APIConnServiceTest) NodeList() api.NodeList {
 			api.Node{
 				ObjectMeta: api.ObjectMeta{
 					Labels: map[string]string{
-						"failure-domain.beta.kubernetes.io/region": "fd-r",
-						"failure-domain.beta.kubernetes.io/zone":   "fd-az",
+						LabelRegion:           "fd-r",
+						LabelAvailabilityZone: "fd-az",
 					},
 				},
 			},
