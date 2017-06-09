@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -109,6 +110,7 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 				WithoutPathPrefix: upstream.WithoutPathPrefix,
 			}
 
+			log.Printf("Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
 			upstream.Hosts[i] = uh
 		}
 
@@ -180,7 +182,7 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 			return err
 		}
 		u.HealthCheck.Interval = 30 * time.Second
-		u.HealthCheck.Future = 2 * u.HealthCheck.Interval
+		u.HealthCheck.Future = 60 * time.Second
 		if c.NextArg() {
 			dur, err := time.ParseDuration(c.Val())
 			if err != nil {
@@ -188,6 +190,10 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 			}
 			u.HealthCheck.Interval = dur
 			u.HealthCheck.Future = 2 * dur
+			// set a minimum of 3 seconds
+			if u.HealthCheck.Future < (3 * time.Second) {
+				u.HealthCheck.Future = 3 * time.Second
+			}
 		}
 	case "without":
 		if !c.NextArg() {
@@ -249,6 +255,62 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 	return nil
 }
 
+// This was moved into a thread so that each host could throw a health
+// check at the same time.  The reason for this is that if we are checking
+// 3 hosts, and the first one is gone, and we spend minutes timing out to
+// fail it, we would not have been doing any other health checks in that
+// time.  So we now have a per-host lock and a threaded health check.
+//
+// We use the Checking bool to avoid concurrent checks against the same
+// host; if one is taking a long time, the next one will find a check in
+// progress and simply return before trying.
+//
+// We are carefully avoiding having the mutex locked while we check,
+// otherwise checks will back up, potentially a lot of them if a host is
+// absent for a long time.  This arrangement makes checks quickly see if
+// they are the only one running and abort otherwise.
+func healthCheckUrl(url string, nextTs time.Time, host *UpstreamHost) {
+
+	// lock for our bool check.  We don't just defer the unlock because
+	// we don't want the lock held while http.Get runs
+	host.checkMu.Lock()
+
+	// are we mid check?  Don't run another one
+	if host.Checking {
+		host.checkMu.Unlock()
+		return
+	}
+
+	host.Checking = true
+	host.checkMu.Unlock()
+
+	// fetch that url.  This has been moved into a go func because
+	// when the remote host is not merely not serving, but actually
+	// absent, then tcp syn timeouts can be very long, and so one
+	// fetch could last several check intervals
+	if r, err := http.Get(url); err == nil {
+		io.Copy(ioutil.Discard, r.Body)
+		r.Body.Close()
+
+		if r.StatusCode < 200 || r.StatusCode >= 400 {
+
+			log.Printf("[WARNING] Health check URL %s returned HTTP code %d\n",
+				url, r.StatusCode)
+			host.OkUntil = time.Unix(0, 0)
+		} else {
+			log.Printf("[DEBUG] Host healthy until %s\n", nextTs.Local())
+			host.OkUntil = nextTs
+		}
+	} else {
+		log.Printf("[WARNING] Health check probe failed: %v\n", err)
+		host.OkUntil = time.Unix(0, 0)
+	}
+
+	host.checkMu.Lock()
+	host.Checking = false
+	host.checkMu.Unlock()
+}
+
 func (u *staticUpstream) healthCheck() {
 	for _, host := range u.Hosts {
 		var hostName, checkPort string
@@ -272,26 +334,11 @@ func (u *staticUpstream) healthCheck() {
 
 		hostURL := "http://" + net.JoinHostPort(checkHostName, checkPort) + u.HealthCheck.Path
 
-		host.checkMu.Lock()
-		defer host.checkMu.Unlock()
-
 		// calculate this before the get
 		nextTs := time.Now().Add(u.HealthCheck.Future)
 
-		if r, err := http.Get(hostURL); err == nil {
-			io.Copy(ioutil.Discard, r.Body)
-			r.Body.Close()
-			if r.StatusCode < 200 || r.StatusCode >= 400 {
-				log.Printf("[WARNING] Health check URL %s returned HTTP code %d\n",
-					hostURL, r.StatusCode)
-				host.OkUntil = time.Unix(0, 0)
-			} else {
-				host.OkUntil = nextTs
-			}
-		} else {
-			log.Printf("[WARNING] Health check probe failed: %v\n", err)
-			host.OkUntil = time.Unix(0, 0)
-		}
+		// locks/bools should prevent requests backing up
+		go healthCheckUrl(hostURL, nextTs, host)
 	}
 }
 

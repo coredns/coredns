@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -236,6 +237,8 @@ func newUpstream(hosts []string, old *staticUpstream) Upstream {
 			}(upstream),
 			WithoutPathPrefix: upstream.WithoutPathPrefix,
 		}
+
+		log.Printf("Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
 		upstream.Hosts[i] = uh
 	}
 	return upstream

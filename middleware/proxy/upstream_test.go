@@ -3,6 +3,7 @@ package proxy
 import (
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"

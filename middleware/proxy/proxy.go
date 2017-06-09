@@ -62,6 +62,7 @@ type UpstreamHost struct {
 	OkUntil           time.Time
 	CheckDown         UpstreamHostDownFunc
 	WithoutPathPrefix string
+	Checking          bool
 	checkMu           sync.Mutex
 }
 

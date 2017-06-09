@@ -4,6 +4,8 @@ package proxy
 
 import (
 	"context"
+	"log"
+	"math"
 	"sync/atomic"
 	"time"
 
@@ -56,6 +58,8 @@ func NewLookupWithOption(hosts []string, opts Options) Proxy {
 			}(upstream),
 			WithoutPathPrefix: upstream.WithoutPathPrefix,
 		}
+
+		log.Printf("Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
 		upstream.Hosts[i] = uh
 	}
 	p.Upstreams = &[]Upstream{upstream}
