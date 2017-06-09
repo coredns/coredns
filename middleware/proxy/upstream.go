@@ -90,7 +90,7 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 				Conns:       0,
 				Fails:       0,
 				FailTimeout: upstream.FailTimeout,
-				OkUntil:     time.Now().Add(upstream.HealthCheck.Future),
+				OkUntil:     time.Unix(math.MaxInt64, 0), // forever, initially
 
 				CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
 					return func(uh *UpstreamHost) bool {
