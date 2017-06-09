@@ -39,11 +39,12 @@ func NewLookupWithOption(hosts []string, opts Options) Proxy {
 			Conns:       0,
 			Fails:       0,
 			FailTimeout: upstream.FailTimeout,
+			OkUntil:     time.Now().Add(upstream.HealthCheck.Future),
 
-			Unhealthy: false,
 			CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
 				return func(uh *UpstreamHost) bool {
-					if uh.Unhealthy {
+
+					if time.Now().After(uh.OkUntil) {
 						return true
 					}
 					fails := atomic.LoadInt32(&uh.Fails)

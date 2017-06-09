@@ -40,6 +40,7 @@ type staticUpstream struct {
 		Path     string
 		Port     string
 		Interval time.Duration
+		Future   time.Duration
 	}
 	WithoutPathPrefix string
 	IgnoredSubDomains []string
@@ -89,13 +90,12 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 				Conns:       0,
 				Fails:       0,
 				FailTimeout: upstream.FailTimeout,
-				Unhealthy:   false,
+				OkUntil:     time.Now().Add(upstream.HealthCheck.Future),
 
 				CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
 					return func(uh *UpstreamHost) bool {
-						uh.checkMu.Lock()
-						defer uh.checkMu.Unlock()
-						if uh.Unhealthy {
+
+						if time.Now().After(uh.OkUntil) {
 							return true
 						}
 
@@ -180,12 +180,14 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 			return err
 		}
 		u.HealthCheck.Interval = 30 * time.Second
+		u.HealthCheck.Future = 2 * u.HealthCheck.Interval
 		if c.NextArg() {
 			dur, err := time.ParseDuration(c.Val())
 			if err != nil {
 				return err
 			}
 			u.HealthCheck.Interval = dur
+			u.HealthCheck.Future = 2 * dur
 		}
 	case "without":
 		if !c.NextArg() {
@@ -273,19 +275,22 @@ func (u *staticUpstream) healthCheck() {
 		host.checkMu.Lock()
 		defer host.checkMu.Unlock()
 
+		// calculate this before the get
+		nextTs := time.Now().Add(u.HealthCheck.Future)
+
 		if r, err := http.Get(hostURL); err == nil {
 			io.Copy(ioutil.Discard, r.Body)
 			r.Body.Close()
 			if r.StatusCode < 200 || r.StatusCode >= 400 {
 				log.Printf("[WARNING] Health check URL %s returned HTTP code %d\n",
 					hostURL, r.StatusCode)
-				host.Unhealthy = true
+				host.OkUntil = time.Unix(0, 0)
 			} else {
-				host.Unhealthy = false
+				host.OkUntil = nextTs
 			}
 		} else {
 			log.Printf("[WARNING] Health check probe failed: %v\n", err)
-			host.Unhealthy = true
+			host.OkUntil = time.Unix(0, 0)
 		}
 	}
 }

@@ -42,13 +42,13 @@ func TestSelect(t *testing.T) {
 		FailTimeout: 10 * time.Second,
 		MaxFails:    1,
 	}
-	upstream.Hosts[0].Unhealthy = true
-	upstream.Hosts[1].Unhealthy = true
-	upstream.Hosts[2].Unhealthy = true
+	upstream.Hosts[0].OkUntil = time.Unix(0, 0)
+	upstream.Hosts[1].OkUntil = time.Unix(0, 0)
+	upstream.Hosts[2].OkUntil = time.Unix(0, 0)
 	if h := upstream.Select(); h != nil {
 		t.Error("Expected select to return nil as all host are down")
 	}
-	upstream.Hosts[2].Unhealthy = false
+	upstream.Hosts[2].OkUntil = time.Now().Add(1 * time.Hour)
 	if h := upstream.Select(); h == nil {
 		t.Error("Expected select to not return nil")
 	}
