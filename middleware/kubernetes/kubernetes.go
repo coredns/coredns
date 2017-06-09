@@ -244,8 +244,11 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 		log.Printf("[INFO] Kubernetes middleware configured with the label selector '%s'. Only kubernetes objects matching this label selector will be exposed.", unversionedapi.FormatLabelSelector(k.LabelSelector))
 	}
 
-	// TODO: pass correct federation bool
-	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, k.PodMode == PodModeVerified, true)
+	opts := dnsControlOpts{
+		initPodCache:  k.PodMode == PodModeVerified,
+		initNodeCache: len(k.Federations) > 0,
+	}
+	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, opts)
 
 	return err
 }

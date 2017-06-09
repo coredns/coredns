@@ -43,7 +43,7 @@ func (k *Kubernetes) stripFederation(segs []string) (string, []string) {
 	return "", segs
 }
 
-// federation CNAMRecord returns a service record for the requested federated service
+// federationCNAMERecord returns a service record for the requested federated service
 // with the target host in the federated CNAME format which the external DNS provider
 // should be able to resolve
 func (k *Kubernetes) federationCNAMERecord(r recordRequest) msg.Service {
@@ -69,6 +69,8 @@ func (k *Kubernetes) federationCNAMERecord(r recordRequest) msg.Service {
 			}
 
 		}
+		// Federation name in request didnt match a configured federation. Break and
+		// return empty
 		break
 
 	}

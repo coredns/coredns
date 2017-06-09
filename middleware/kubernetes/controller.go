@@ -69,8 +69,13 @@ type dnsControl struct {
 	stopCh   chan struct{}
 }
 
+type dnsControlOpts struct {
+	initPodCache  bool
+	initNodeCache bool
+}
+
 // newDNSController creates a controller for CoreDNS.
-func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Duration, lselector *labels.Selector, initPodCache bool, initNodeCache bool) *dnsControl {
+func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Duration, lselector *labels.Selector, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
 		client:   kubeClient,
 		selector: lselector,
@@ -87,7 +92,7 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 		cache.ResourceEventHandlerFuncs{},
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
-	if initPodCache {
+	if opts.initPodCache {
 		dns.podLister.Indexer, dns.podController = cache.NewIndexerInformer(
 			&cache.ListWatch{
 				ListFunc:  podListFunc(dns.client, namespace, dns.selector),
@@ -99,7 +104,7 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 			cache.Indexers{podIPIndex: podIPIndexFunc})
 	}
 
-	if initNodeCache {
+	if opts.initNodeCache {
 		dns.nodeLister.Store, dns.nodeController = cache.NewInformer(
 			&cache.ListWatch{
 				ListFunc:  nodeListFunc(dns.client, dns.selector),
@@ -424,6 +429,9 @@ func (dns *dnsControl) EndpointsList() api.EndpointsList {
 }
 
 func (dns *dnsControl) NodeList() api.NodeList {
-	nodeList, _ := dns.nodeLister.List()
+	nodeList, err := dns.nodeLister.List()
+	if err != nil {
+		log.Printf("[ERROR] Could not get NodeList: %v", err.Error())
+	}
 	return nodeList
 }

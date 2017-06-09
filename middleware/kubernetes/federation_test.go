@@ -32,26 +32,11 @@ func TestStripFederation(t *testing.T) {
 
 type apiConnFedTest struct{}
 
-func (apiConnFedTest) Run() {
-	return
-}
-
-func (apiConnFedTest) Stop() error {
-	return nil
-}
-
-func (apiConnFedTest) ServiceList() []*api.Service {
-	return []*api.Service{}
-
-}
-
-func (apiConnFedTest) PodIndex(string) []interface{} {
-	return nil
-}
-
-func (apiConnFedTest) EndpointsList() api.EndpointsList {
-	return api.EndpointsList{}
-}
+func (apiConnFedTest) Run()                             { return }
+func (apiConnFedTest) Stop() error                      { return nil }
+func (apiConnFedTest) ServiceList() []*api.Service      { return []*api.Service{} }
+func (apiConnFedTest) PodIndex(string) []interface{}    { return nil }
+func (apiConnFedTest) EndpointsList() api.EndpointsList { return api.EndpointsList{} }
 
 func (apiConnFedTest) NodeList() api.NodeList {
 	return api.NodeList{
