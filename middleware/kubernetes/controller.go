@@ -389,6 +389,9 @@ func (dns *dnsControl) Run() {
 	if dns.podController != nil {
 		go dns.podController.Run(dns.stopCh)
 	}
+	if dns.nodeController != nil {
+		go dns.nodeController.Run(dns.stopCh)
+	}
 	<-dns.stopCh
 }
 
