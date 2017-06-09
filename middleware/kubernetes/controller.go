@@ -206,15 +206,6 @@ func v1ToAPIFilter(in watch.Event) (out watch.Event, keep bool) {
 			return in, true
 		}
 		return watch.Event{Type: in.Type, Object: &apiObj}, true
-	case *v1.Node:
-		var apiObj api.Node
-		err := v1.Convert_v1_Node_To_api_Node(v1Obj, &apiObj, nil)
-		if err != nil {
-			log.Printf("[ERROR] Could not convert v1.Node: %s", err)
-			return in, true
-		}
-		return watch.Event{Type: in.Type, Object: &apiObj}, true
-
 	}
 
 	log.Printf("[WARN] Unhandled v1 type in event: %v", in)
