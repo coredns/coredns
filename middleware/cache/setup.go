@@ -40,6 +40,9 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 
 	ca := &Cache{pcap: defaultCap, ncap: defaultCap, pttl: maxTTL, nttl: maxNTTL}
 
+	ca.prefetch = 100
+	ca.duration = 1 * time.Minute
+
 	for c.Next() {
 		// cache [ttl] [zones..]
 		origins := make([]string, len(c.ServerBlockKeys))

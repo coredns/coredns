@@ -42,15 +42,23 @@ func (c *Cache) Name() string { return "cache" }
 
 func (c *Cache) get(qname string, qtype uint16, do bool) (*item, bool, bool) {
 	k := rawKey(qname, qtype, do)
+	t := time.Now().UTC()
 
 	if i, ok := c.ncache.Get(k); ok {
 		cacheHits.WithLabelValues(Denial).Inc()
-		return i.(*item), ok, i.(*item).expired(time.Now())
+
+		// Should be locking on Freq. This is a data race.
+		println(i.(*item).Freq.Update(c.duration, t))
+
+		return i.(*item), ok, i.(*item).expired(t)
 	}
 
 	if i, ok := c.pcache.Get(k); ok {
 		cacheHits.WithLabelValues(Success).Inc()
-		return i.(*item), ok, i.(*item).expired(time.Now())
+
+		println(i.(*item).Freq.Update(c.duration, t))
+
+		return i.(*item), ok, i.(*item).expired(t)
 	}
 	cacheMisses.Inc()
 	return nil, false, false

@@ -27,6 +27,10 @@ type Cache struct {
 	pcache *lru.Cache
 	pcap   int
 	pttl   time.Duration
+
+	// Prefetching variables.
+	prefetch int
+	duration time.Duration
 }
 
 // Return key under which we store the item. The empty string is returned

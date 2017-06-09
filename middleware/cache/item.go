@@ -3,7 +3,9 @@ package cache
 import (
 	"time"
 
+	"github.com/coredns/coredns/middleware/cache/freq"
 	"github.com/coredns/coredns/middleware/pkg/response"
+
 	"github.com/miekg/dns"
 )
 
@@ -18,6 +20,9 @@ type item struct {
 
 	origTTL uint32
 	stored  time.Time
+
+	// Used for prefetching
+	*freq.Freq
 }
 
 func newItem(m *dns.Msg, d time.Duration) *item {
@@ -43,10 +48,12 @@ func newItem(m *dns.Msg, d time.Duration) *item {
 	i.origTTL = uint32(d.Seconds())
 	i.stored = time.Now().UTC()
 
+	i.Freq = freq.New(i.stored)
+
 	return i
 }
 
-// toMsg turns i into a message, it tailers the reply to m.
+// toMsg turns i into a message, it tailors the reply to m.
 // The Authoritative bit is always set to 0, because the answer is from the cache.
 func (i *item) toMsg(m *dns.Msg) *dns.Msg {
 	m1 := new(dns.Msg)

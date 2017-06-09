@@ -16,7 +16,8 @@ cache [TTL] [ZONES...]
 
 Each element in the cache is cached according to its TTL (with **TTL** as the max).
 For the negative cache, the SOA's MinTTL value is used. A cache can contain up to 10,000 items by
-default. A TTL of zero is not allowed. No cache invalidation triggered by other middlewares is available. Therefore even reloaded items might still be cached for the duration of the TTL.
+default. A TTL of zero is not allowed. No cache invalidation triggered by other middlewares is available.
+Therefore even reloaded items might still be cached for the duration of the TTL.
 
 If you want more control:
 
@@ -24,6 +25,7 @@ If you want more control:
 cache [TTL] [ZONES...] {
     success CAPACITY [TTL]
     denial CAPACITY [TTL]
+    prefetch AMOUNT [DURATION]
 }
 ~~~
 
@@ -32,8 +34,9 @@ cache [TTL] [ZONES...] {
   number of packets we cache before we start evicting (LRU). **TTL** overrides the cache maximum TTL.
 * `denial`, override the settings for caching denial of existence responses, **CAPACITY** indicates the maximum
   number of packets we cache before we start evicting (LRU). **TTL** overrides the cache maximum TTL.
-
-There is a third category (`error`) but those responses are never cached.
+  There is a third category (`error`) but those responses are never cached.
+* `prefetch`, will prefetch popular items when they are about to be expunged from the cache.
+  Popular means **AMOUNT** queries have been seen no gaps of **DURATION** or more between them. **DURATION** defaults to 1m.
 
 The minimum TTL allowed on resource records is 5 seconds.
 
