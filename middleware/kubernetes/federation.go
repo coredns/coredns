@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"net"
 	"strings"
 
 	"github.com/coredns/coredns/middleware/etcd/msg"
@@ -10,6 +11,10 @@ type Federation struct {
 	name string
 	zone string
 }
+
+var localNodeName string
+var federationZone string
+var federationRegion string
 
 const (
 	// TODO: Do not hardcode these labels. Pull them out of the API instead.
@@ -47,32 +52,51 @@ func (k *Kubernetes) stripFederation(segs []string) (string, []string) {
 // with the target host in the federated CNAME format which the external DNS provider
 // should be able to resolve
 func (k *Kubernetes) federationCNAMERecord(r recordRequest) msg.Service {
-	for _, node := range k.APIConn.NodeList().Items {
-		// Mimic kube-dns implementation, and arbitrarily pick the first node with
-		// non-empty availability-zone and region
-		if node.Labels[LabelRegion] == "" || node.Labels[LabelAvailabilityZone] == "" {
+
+	myNodeName := k.localNodeName()
+	node, err := k.APIConn.GetNodeByName(myNodeName)
+	if err != nil {
+		return msg.Service{}
+	}
+
+	for _, f := range k.Federations {
+		if f.name != r.federation {
 			continue
 		}
-		for _, f := range k.Federations {
-			if f.name != r.federation {
-				continue
+		if r.endpoint == "" {
+			return msg.Service{
+				Key:  strings.Join([]string{msg.Path(r.zone, "coredns"), r.typeName, r.federation, r.namespace, r.service}, "/"),
+				Host: strings.Join([]string{r.service, r.namespace, r.federation, r.typeName, node.Labels[LabelAvailabilityZone], node.Labels[LabelRegion], f.zone}, "."),
 			}
-			if r.endpoint == "" {
-				return msg.Service{
-					Key:  strings.Join([]string{msg.Path(r.zone, "coredns"), r.typeName, r.federation, r.namespace, r.service}, "/"),
-					Host: strings.Join([]string{r.service, r.namespace, r.federation, r.typeName, node.Labels[LabelAvailabilityZone], node.Labels[LabelRegion], f.zone}, "."),
+		}
+		return msg.Service{
+			Key:  strings.Join([]string{msg.Path(r.zone, "coredns"), r.typeName, r.federation, r.namespace, r.service, r.endpoint}, "/"),
+			Host: strings.Join([]string{r.endpoint, r.service, r.namespace, r.federation, r.typeName, node.Labels[LabelAvailabilityZone], node.Labels[LabelRegion], f.zone}, "."),
+		}
+	}
+
+	return msg.Service{}
+}
+
+func (k *Kubernetes) localNodeName() string {
+	if localNodeName != "" {
+		return localNodeName
+	}
+	localIP := k.localPodIP()
+	if localIP == nil {
+		return ""
+	}
+	// Find endpoint matching localIP
+	endpointsList := k.APIConn.EndpointsList()
+	for _, ep := range endpointsList.Items {
+		for _, eps := range ep.Subsets {
+			for _, addr := range eps.Addresses {
+				if localIP.Equal(net.ParseIP(addr.IP)) {
+					localNodeName = *addr.NodeName
+					return localNodeName
 				}
 			}
-			return msg.Service{
-				Key:  strings.Join([]string{msg.Path(r.zone, "coredns"), r.typeName, r.federation, r.namespace, r.service, r.endpoint}, "/"),
-				Host: strings.Join([]string{r.endpoint, r.service, r.namespace, r.federation, r.typeName, node.Labels[LabelAvailabilityZone], node.Labels[LabelRegion], f.zone}, "."),
-			}
-
 		}
-		// Federation name in request didnt match a configured federation. Break and
-		// return empty
-		break
-
 	}
-	return msg.Service{}
+	return ""
 }

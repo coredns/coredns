@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"net"
 	"strings"
 	"testing"
 
@@ -32,39 +33,44 @@ func TestStripFederation(t *testing.T) {
 
 type apiConnFedTest struct{}
 
-func (apiConnFedTest) Run()                             { return }
-func (apiConnFedTest) Stop() error                      { return nil }
-func (apiConnFedTest) ServiceList() []*api.Service      { return []*api.Service{} }
-func (apiConnFedTest) PodIndex(string) []interface{}    { return nil }
-func (apiConnFedTest) EndpointsList() api.EndpointsList { return api.EndpointsList{} }
+func (apiConnFedTest) Run()                          { return }
+func (apiConnFedTest) Stop() error                   { return nil }
+func (apiConnFedTest) ServiceList() []*api.Service   { return []*api.Service{} }
+func (apiConnFedTest) PodIndex(string) []interface{} { return nil }
 
-func (apiConnFedTest) NodeList() api.NodeList {
-	return api.NodeList{
-		Items: []api.Node{
+func (apiConnFedTest) EndpointsList() api.EndpointsList {
+	n := "test.node.foo.bar"
+	return api.EndpointsList{
+		Items: []api.Endpoints{
 			{
-				ObjectMeta: api.ObjectMeta{
-					Labels: map[string]string{
-						LabelAvailabilityZone: "fd-az",
-					},
-				},
-			},
-			{
-				ObjectMeta: api.ObjectMeta{
-					Labels: map[string]string{
-						LabelRegion: "fd-r",
-					},
-				},
-			},
-			{
-				ObjectMeta: api.ObjectMeta{
-					Labels: map[string]string{
-						LabelRegion:           "fd-r",
-						LabelAvailabilityZone: "fd-az",
+				Subsets: []api.EndpointSubset{
+					{
+						Addresses: []api.EndpointAddress{
+							{
+								IP:       "10.9.8.7",
+								NodeName: &n,
+							},
+						},
 					},
 				},
 			},
 		},
 	}
+}
+
+func (apiConnFedTest) GetNodeByName(name string) (api.Node, error) {
+	if name != "test.node.foo.bar" {
+		return api.Node{}, nil
+	}
+	return api.Node{
+		ObjectMeta: api.ObjectMeta{
+			Name: "test.node.foo.bar",
+			Labels: map[string]string{
+				LabelRegion:           "fd-r",
+				LabelAvailabilityZone: "fd-az",
+			},
+		},
+	}, nil
 }
 
 func testFederationCNAMERecord(t *testing.T, k Kubernetes, input recordRequest, expected msg.Service) {
@@ -84,7 +90,9 @@ func TestFederationCNAMERecord(t *testing.T) {
 	k.APIConn = apiConnFedTest{}
 
 	var r recordRequest
+
 	r, _ = k.parseRequest("s1.ns.fed.svc.inter.webs", dns.TypeA)
+	localPodIP = net.ParseIP("10.9.8.7")
 	testFederationCNAMERecord(t, k, r, msg.Service{Key: "/coredns/webs/inter/svc/fed/ns/s1", Host: "s1.ns.fed.svc.fd-az.fd-r.era.tion.com"})
 
 	r, _ = k.parseRequest("ep1.s1.ns.fed.svc.inter.webs", dns.TypeA)
@@ -92,4 +100,5 @@ func TestFederationCNAMERecord(t *testing.T) {
 
 	r, _ = k.parseRequest("ep1.s1.ns.foo.svc.inter.webs", dns.TypeA)
 	testFederationCNAMERecord(t, k, r, msg.Service{Key: "", Host: ""})
+
 }

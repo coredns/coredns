@@ -89,6 +89,8 @@ type recordRequest struct {
 	federation string
 }
 
+var localPodIP net.IP
+
 var errNoItems = errors.New("no items found")
 var errNsNotExposed = errors.New("namespace is not exposed")
 var errInvalidRequest = errors.New("invalid query name")
@@ -245,8 +247,7 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 	}
 
 	opts := dnsControlOpts{
-		initPodCache:  k.PodMode == PodModeVerified,
-		initNodeCache: len(k.Federations) > 0,
+		initPodCache: k.PodMode == PodModeVerified,
 	}
 	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, opts)
 
@@ -610,4 +611,22 @@ func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
 // symbolContainsWildcard checks whether symbol contains a wildcard value
 func symbolContainsWildcard(symbol string) bool {
 	return (symbol == "*" || symbol == "any")
+}
+
+func (k *Kubernetes) localPodIP() net.IP {
+	if localPodIP != nil {
+		return localPodIP
+	}
+	addrs, _ := k.interfaceAddrs.interfaceAddrs()
+
+	for _, addr := range addrs {
+		ip, _, _ := net.ParseCIDR(addr.String())
+		ip = ip.To4()
+		if ip == nil || ip.IsLoopback() {
+			continue
+		}
+		localPodIP = ip
+		return localPodIP
+	}
+	return nil
 }
