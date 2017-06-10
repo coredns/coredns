@@ -72,45 +72,7 @@ func consulParse(c *caddy.Controller) (*Consul, bool, error) {
 			}
 
 			if c.NextBlock() {
-				// TODO(miek): 2 switches?
-				switch c.Val() {
-				case "stubzones":
-					stubzones = true
-				case "debug":
-					consul.Debugging = true
-				case "path":
-					if !c.NextArg() {
-						return &Consul{}, false, c.ArgErr()
-					}
-					consul.PathPrefix = c.Val()
-				case "endpoint":
-					args := c.RemainingArgs()
-					if len(args) != 1 {
-						return &Consul{}, false, c.ArgErr()
-					}
-					endpoint = args[0]
-				case "upstream":
-					args := c.RemainingArgs()
-					if len(args) == 0 {
-						return &Consul{}, false, c.ArgErr()
-					}
-					ups, err := dnsutil.ParseHostPortOrFile(args...)
-					if err != nil {
-						return &Consul{}, false, err
-					}
-					consul.Proxy = proxy.NewLookup(ups)
-				case "tls": // cert key cacertfile
-					args := c.RemainingArgs()
-					tlsConfig, err = mwtls.NewTLSConfigFromArgs(args...)
-					if err != nil {
-						return &Consul{}, false, err
-					}
-				default:
-					if c.Val() != "}" {
-						return &Consul{}, false, c.Errf("unknown property '%s'", c.Val())
-					}
-				}
-				for c.Next() {
+				for {
 					switch c.Val() {
 					case "stubzones":
 						stubzones = true
@@ -134,7 +96,7 @@ func consulParse(c *caddy.Controller) (*Consul, bool, error) {
 						}
 						ups, err := dnsutil.ParseHostPortOrFile(args...)
 						if err != nil {
-							return &Consul{}, false, c.ArgErr()
+							return &Consul{}, false, err
 						}
 						consul.Proxy = proxy.NewLookup(ups)
 					case "tls": // cert key cacertfile
@@ -144,9 +106,13 @@ func consulParse(c *caddy.Controller) (*Consul, bool, error) {
 							return &Consul{}, false, err
 						}
 					default:
-						if c.Val() != "}" { // TODO(miek): this feels like I'm doing it completely wrong.
+						if c.Val() != "}" {
 							return &Consul{}, false, c.Errf("unknown property '%s'", c.Val())
 						}
+					}
+
+					if !c.Next() {
+						break
 					}
 				}
 			}
