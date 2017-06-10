@@ -80,34 +80,34 @@ func consulParse(c *caddy.Controller) (*Consul, bool, error) {
 						consul.Debugging = true
 					case "path":
 						if !c.NextArg() {
-							return &Consul{}, false, c.ArgErr()
+							return nil, false, c.ArgErr()
 						}
 						consul.PathPrefix = c.Val()
 					case "endpoint":
 						args := c.RemainingArgs()
 						if len(args) != 1 {
-							return &Consul{}, false, c.ArgErr()
+							return nil, false, c.ArgErr()
 						}
 						endpoint = args[0]
 					case "upstream":
 						args := c.RemainingArgs()
 						if len(args) == 0 {
-							return &Consul{}, false, c.ArgErr()
+							return nil, false, c.ArgErr()
 						}
 						ups, err := dnsutil.ParseHostPortOrFile(args...)
 						if err != nil {
-							return &Consul{}, false, err
+							return nil, false, err
 						}
 						consul.Proxy = proxy.NewLookup(ups)
 					case "tls": // cert key cacertfile
 						args := c.RemainingArgs()
 						tlsConfig, err = mwtls.NewTLSConfigFromArgs(args...)
 						if err != nil {
-							return &Consul{}, false, err
+							return nil, false, err
 						}
 					default:
 						if c.Val() != "}" {
-							return &Consul{}, false, c.Errf("unknown property '%s'", c.Val())
+							return nil, false, c.Errf("unknown property '%s'", c.Val())
 						}
 					}
 
@@ -118,7 +118,7 @@ func consulParse(c *caddy.Controller) (*Consul, bool, error) {
 			}
 			client, err := newConsulClient(endpoint, tlsConfig)
 			if err != nil {
-				return &Consul{}, false, err
+				return nil, false, err
 			}
 			consul.Client = client
 			consul.ConsulKV = client.KV()
