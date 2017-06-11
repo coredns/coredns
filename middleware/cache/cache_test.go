@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/middleware"
+	"github.com/coredns/coredns/middleware/pkg/cache"
 	"github.com/coredns/coredns/middleware/pkg/response"
 	"github.com/coredns/coredns/middleware/test"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/miekg/dns"
 )
 
@@ -148,8 +148,8 @@ func cacheMsg(m *dns.Msg, tc cacheTestCase) *dns.Msg {
 
 func newTestCache(ttl time.Duration) (*Cache, *ResponseWriter) {
 	c := &Cache{Zones: []string{"."}, pcap: defaultCap, ncap: defaultCap, pttl: ttl, nttl: ttl}
-	c.pcache, _ = lru.New(c.pcap)
-	c.ncache, _ = lru.New(c.ncap)
+	c.pcache = cache.New(c.pcap)
+	c.ncache = cache.New(c.ncap)
 
 	crr := &ResponseWriter{nil, c}
 	return c, crr

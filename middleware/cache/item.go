@@ -46,7 +46,7 @@ func newItem(m *dns.Msg, d time.Duration) *item {
 	return i
 }
 
-// toMsg turns i into a message, it tailers the reply to m.
+// toMsg turns i into a message, it tailors the reply to m.
 // The Authoritative bit is always set to 0, because the answer is from the cache.
 func (i *item) toMsg(m *dns.Msg) *dns.Msg {
 	m1 := new(dns.Msg)

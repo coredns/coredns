@@ -7,8 +7,8 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/middleware"
+	"github.com/coredns/coredns/middleware/pkg/cache"
 
-	"github.com/hashicorp/golang-lru"
 	"github.com/mholt/caddy"
 )
 
@@ -118,17 +118,10 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 			origins[i] = middleware.Host(origins[i]).Normalize()
 		}
 
-		var err error
 		ca.Zones = origins
 
-		ca.pcache, err = lru.New(ca.pcap)
-		if err != nil {
-			return nil, err
-		}
-		ca.ncache, err = lru.New(ca.ncap)
-		if err != nil {
-			return nil, err
-		}
+		ca.pcache = cache.New(ca.pcap)
+		ca.ncache = cache.New(ca.ncap)
 
 		return ca, nil
 	}

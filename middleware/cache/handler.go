@@ -41,7 +41,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 func (c *Cache) Name() string { return "cache" }
 
 func (c *Cache) get(qname string, qtype uint16, do bool) (*item, bool, bool) {
-	k := rawKey(qname, qtype, do)
+	k := hash(qname, qtype, do)
 
 	if i, ok := c.ncache.Get(k); ok {
 		cacheHits.WithLabelValues(Denial).Inc()
