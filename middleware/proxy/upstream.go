@@ -293,17 +293,16 @@ func healthCheckUrl(url string, nextTs time.Time, host *UpstreamHost) {
 		r.Body.Close()
 
 		if r.StatusCode < 200 || r.StatusCode >= 400 {
-
-			log.Printf("[WARNING] Health check URL %s returned HTTP code %d\n",
-				url, r.StatusCode)
 			host.OkUntil = time.Unix(0, 0)
+			log.Printf("[WARNING] Host %s health check URL %s returned HTTP code %d\n",
+				host.Name, url, r.StatusCode)
 		} else {
-			log.Printf("[DEBUG] Host healthy until %s\n", nextTs.Local())
 			host.OkUntil = nextTs
+			log.Printf("[DEBUG] Host %s marked healthy until %s.\n", host.Name, host.OkUntil.Local())
 		}
 	} else {
-		log.Printf("[WARNING] Health check probe failed: %v\n", err)
 		host.OkUntil = time.Unix(0, 0)
+		log.Printf("[WARNING] Host %s health check probe failed: %v\n", host.Name, err)
 	}
 
 	host.checkMu.Lock()
