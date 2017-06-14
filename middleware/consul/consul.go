@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/pkg/cache"
 	"github.com/coredns/coredns/middleware/pkg/singleflight"
 	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/request"
@@ -98,7 +99,9 @@ func (e *Consul) Records(name string, exact bool) (records []msg.Service, err er
 
 // get is a wrapper for client.KV().List() that uses SingleInflight to suppress multiple outstanding queries.
 func (e *Consul) get(path string) (*consulapi.KVPairs, error) {
-	resp, err := e.Inflight.Do(path, func() (interface{}, error) {
+	hash := cache.Hash([]byte(path))
+
+	resp, err := e.Inflight.Do(hash, func() (interface{}, error) {
 		pairs, _, err := e.ConsulKV.List(path, nil)
 		if err != nil {
 			return nil, err
