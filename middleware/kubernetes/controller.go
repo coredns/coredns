@@ -344,6 +344,7 @@ func (dns *dnsControl) Run() {
 func (dns *dnsControl) NamespaceList() *api.NamespaceList {
 	nsList, err := dns.nsLister.List()
 	if err != nil {
+		log.Printf("[ERROR] Could not get namespace list: %s", err)
 		return &api.NamespaceList{}
 	}
 
@@ -353,6 +354,7 @@ func (dns *dnsControl) NamespaceList() *api.NamespaceList {
 func (dns *dnsControl) ServiceList() []*api.Service {
 	svcs, err := dns.svcLister.List(labels.Everything())
 	if err != nil {
+		log.Printf("[ERROR] Could not get service list: %s", err)
 		return []*api.Service{}
 	}
 
@@ -362,6 +364,7 @@ func (dns *dnsControl) ServiceList() []*api.Service {
 func (dns *dnsControl) PodIndex(ip string) []interface{} {
 	pods, err := dns.podLister.Indexer.ByIndex(podIPIndex, ip)
 	if err != nil {
+		log.Printf("[ERROR] Could not get pod index: %s", err)
 		return nil
 	}
 
@@ -371,6 +374,7 @@ func (dns *dnsControl) PodIndex(ip string) []interface{} {
 func (dns *dnsControl) EndpointsList() api.EndpointsList {
 	epl, err := dns.epLister.List()
 	if err != nil {
+		log.Printf("[ERROR] Could not get endpoint list: %s", err)
 		return api.EndpointsList{}
 	}
 
