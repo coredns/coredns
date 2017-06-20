@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"math"
 	"net"
 	"net/http"
 	"net/url"
@@ -219,7 +218,7 @@ func newUpstream(hosts []string, old *staticUpstream) Upstream {
 			Conns:       0,
 			Fails:       0,
 			FailTimeout: upstream.FailTimeout,
-			OkUntil:     time.Unix(math.MaxInt64, 0), // forever, initially
+			OkUntil:     time.Unix(4000000000, 0), // forever, initially
 
 			CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
 				return func(uh *UpstreamHost) bool {
