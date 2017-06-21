@@ -1,9 +1,9 @@
 // +build etcd
 
-package etcd
+package backend
 
 import (
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/test"
 
 	"github.com/miekg/dns"

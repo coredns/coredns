@@ -1,6 +1,6 @@
 // +build etcd
 
-package etcd
+package backend
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/dnsrecorder"
 	"github.com/coredns/coredns/middleware/pkg/singleflight"
 	"github.com/coredns/coredns/middleware/pkg/tls"
@@ -25,14 +25,14 @@ func init() {
 	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
 }
 
-func newEtcdMiddleware() *Etcd {
+func newEtcdMiddleware() *Backend {
 	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
 
 	endpoints := []string{"http://localhost:2379"}
 	tlsc, _ := tls.NewTLSConfigFromArgs()
 	client, _ := newEtcdClient(endpoints, tlsc)
 
-	return &Etcd{
+	return &Backend{
 		Proxy:      proxy.NewLookup([]string{"8.8.8.8:53"}),
 		PathPrefix: "skydns",
 		Ctx:        context.Background(),
@@ -42,7 +42,7 @@ func newEtcdMiddleware() *Etcd {
 	}
 }
 
-func set(t *testing.T, e *Etcd, k string, ttl time.Duration, m *msg.Service) {
+func set(t *testing.T, e *Backend, k string, ttl time.Duration, m *msg.Service) {
 	b, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
@@ -51,7 +51,7 @@ func set(t *testing.T, e *Etcd, k string, ttl time.Duration, m *msg.Service) {
 	e.Client.Set(ctxt, path, string(b), &etcdc.SetOptions{TTL: ttl})
 }
 
-func delete(t *testing.T, e *Etcd, k string) {
+func delete(t *testing.T, e *Backend, k string) {
 	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
 	e.Client.Delete(ctxt, path, &etcdc.DeleteOptions{Recursive: false})
 }
@@ -138,10 +138,10 @@ func TestSetupEtcd(t *testing.T) {
 		}
 
 		if !test.shouldErr && etcd.PathPrefix != test.expectedPath {
-			t.Errorf("Etcd not correctly set for input %s. Expected: %s, actual: %s", test.input, test.expectedPath, etcd.PathPrefix)
+			t.Errorf("etcd not correctly set for input %s. Expected: %s, actual: %s", test.input, test.expectedPath, etcd.PathPrefix)
 		}
 		if !test.shouldErr && etcd.endpoints[0] != test.expectedEndpoint { // only checks the first
-			t.Errorf("Etcd not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, test.expectedEndpoint, etcd.endpoints[0])
+			t.Errorf("etcd not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, test.expectedEndpoint, etcd.endpoints[0])
 		}
 	}
 }

@@ -1,12 +1,12 @@
 // +build etcd
 
-package etcd
+package backend
 
 import (
 	"sort"
 	"testing"
 
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/dnsrecorder"
 	"github.com/coredns/coredns/middleware/test"
 
@@ -53,7 +53,7 @@ func TestMultiLookup(t *testing.T) {
 	}
 }
 
-// Note the key is encoded as DNS name, while in "reality" it is a etcd path.
+// Note the key is encoded as DNS name, while in "reality" it is a backend path.
 var servicesMulti = []*msg.Service{
 	{Host: "dev.server1", Port: 8080, Key: "a.server1.dev.region1.skydns.test."},
 	{Host: "dev.server1", Port: 8080, Key: "a.server1.dev.region1.miek.nl."},

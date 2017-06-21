@@ -9,8 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coredns/coredns/middleware/etcd"
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/middleware/test"
 	"github.com/coredns/coredns/request"

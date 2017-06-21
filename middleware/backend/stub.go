@@ -1,4 +1,4 @@
-package etcd
+package backend
 
 import (
 	"log"
@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/proxy"
 
 	"github.com/miekg/dns"
 )
 
-// UpdateStubZones checks etcd for an update on the stubzones.
-func (e *Etcd) UpdateStubZones() {
+// UpdateStubZones checks for an update on the stubzones.
+func (e *Backend) UpdateStubZones() {
 	go func() {
 		for {
 			e.updateStubZones()
@@ -27,9 +27,9 @@ func (e *Etcd) UpdateStubZones() {
 // extract <zone> and add them as forwarders (ip:port-combos) for
 // the stub zones. Only numeric (i.e. IP address) hosts are used.
 // Only the first zone configured on e is used for the lookup.
-func (e *Etcd) updateStubZones() {
+func (e *Backend) updateStubZones() {
 	zone := e.Zones[0]
-	services, err := e.Records(stubDomain+"."+zone, false)
+	services, err := e.ServiceBackend.Records(stubDomain+"."+zone, false)
 	if err != nil {
 		return
 	}

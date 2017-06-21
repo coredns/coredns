@@ -2,7 +2,7 @@
 
 // tests mx and txt records
 
-package etcd
+package backend
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/dnsrecorder"
 	"github.com/coredns/coredns/middleware/test"
 

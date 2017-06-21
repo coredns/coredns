@@ -1,41 +1,33 @@
-// Package etcd provides the etcd backend middleware.
-package etcd
+package etcdv2
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/coredns/coredns/middleware"
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/cache"
 	"github.com/coredns/coredns/middleware/pkg/singleflight"
 	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/request"
-
 	etcdc "github.com/coreos/etcd/client"
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
-// Etcd is a middleware talks to an etcd cluster.
-type Etcd struct {
-	Next       middleware.Handler
-	Zones      []string
-	PathPrefix string
-	Proxy      proxy.Proxy // Proxy for looking up names during the resolution process
+type EtcdV2 struct {
 	Client     etcdc.KeysAPI
 	Ctx        context.Context
+	PathPrefix string
+	Proxy      proxy.Proxy // Proxy for looking up names during the resolution process
 	Inflight   *singleflight.Group
-	Stubmap    *map[string]proxy.Proxy // list of proxies for stub resolving.
-	Debugging  bool                    // Do we allow debug queries.
-
-	endpoints []string // Stored here as well, to aid in testing.
+	endpoints  []string // Stored here as well, to aid in testing.
 }
 
 // Services implements the ServiceBackend interface.
-func (e *Etcd) Services(state request.Request, exact bool, opt middleware.Options) (services, debug []msg.Service, err error) {
+func (e *EtcdV2) Services(state request.Request, exact bool, opt middleware.Options) (services, debug []msg.Service, err error) {
 	services, err = e.Records(state.Name(), exact)
 	if err != nil {
 		return
@@ -48,17 +40,17 @@ func (e *Etcd) Services(state request.Request, exact bool, opt middleware.Option
 }
 
 // Reverse implements the ServiceBackend interface.
-func (e *Etcd) Reverse(state request.Request, exact bool, opt middleware.Options) (services, debug []msg.Service, err error) {
+func (e *EtcdV2) Reverse(state request.Request, exact bool, opt middleware.Options) (services, debug []msg.Service, err error) {
 	return e.Services(state, exact, opt)
 }
 
 // Lookup implements the ServiceBackend interface.
-func (e *Etcd) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
+func (e *EtcdV2) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
 	return e.Proxy.Lookup(state, name, typ)
 }
 
 // IsNameError implements the ServiceBackend interface.
-func (e *Etcd) IsNameError(err error) bool {
+func (e *EtcdV2) IsNameError(err error) bool {
 	if ee, ok := err.(etcdc.Error); ok && ee.Code == etcdc.ErrorCodeKeyNotFound {
 		return true
 	}
@@ -66,13 +58,13 @@ func (e *Etcd) IsNameError(err error) bool {
 }
 
 // Debug implements the ServiceBackend interface.
-func (e *Etcd) Debug() string {
+func (e *EtcdV2) Debug() string {
 	return e.PathPrefix
 }
 
-// Records looks up records in etcd. If exact is true, it will lookup just this
+// Records looks up records in backend. If exact is true, it will lookup just this
 // name. This is used when find matches when completing SRV lookups for instance.
-func (e *Etcd) Records(name string, exact bool) ([]msg.Service, error) {
+func (e *EtcdV2) Records(name string, exact bool) ([]msg.Service, error) {
 	path, star := msg.PathWithWildcard(name, e.PathPrefix)
 	r, err := e.get(path, true)
 	if err != nil {
@@ -90,7 +82,7 @@ func (e *Etcd) Records(name string, exact bool) ([]msg.Service, error) {
 }
 
 // get is a wrapper for client.Get that uses SingleInflight to suppress multiple outstanding queries.
-func (e *Etcd) get(path string, recursive bool) (*etcdc.Response, error) {
+func (e *EtcdV2) get(path string, recursive bool) (*etcdc.Response, error) {
 
 	hash := cache.Hash([]byte(path))
 
@@ -117,7 +109,7 @@ func (e *Etcd) get(path string, recursive bool) (*etcdc.Response, error) {
 
 // loopNodes recursively loops through the nodes and returns all the values. The nodes' keyname
 // will be match against any wildcards when star is true.
-func (e *Etcd) loopNodes(ns []*etcdc.Node, nameParts []string, star bool, bx map[msg.Service]bool) (sx []msg.Service, err error) {
+func (e *EtcdV2) loopNodes(ns []*etcdc.Node, nameParts []string, star bool, bx map[msg.Service]bool) (sx []msg.Service, err error) {
 	if bx == nil {
 		bx = make(map[msg.Service]bool)
 	}
@@ -166,9 +158,9 @@ Nodes:
 	return sx, nil
 }
 
-// TTL returns the smaller of the etcd TTL and the service's
+// TTL returns the smaller of the backend TTL and the service's
 // TTL. If neither of these are set (have a zero value), a default is used.
-func (e *Etcd) TTL(node *etcdc.Node, serv *msg.Service) uint32 {
+func (e *EtcdV2) TTL(node *etcdc.Node, serv *msg.Service) uint32 {
 	etcdTTL := uint32(node.TTL)
 
 	if etcdTTL == 0 && serv.TTL == 0 {

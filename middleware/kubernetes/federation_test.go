@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/miekg/dns"
 	"k8s.io/client-go/1.5/pkg/api"
 )
