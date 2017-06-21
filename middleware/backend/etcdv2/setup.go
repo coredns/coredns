@@ -3,9 +3,6 @@ package etcdv2
 import (
 	"context"
 	"crypto/tls"
-	"net"
-	"net/http"
-	"time"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/middleware"
@@ -27,7 +24,7 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	e, stubzones, err := etcdParse(c)
+	e, stubzones, err := EtcdParse(c)
 	if err != nil {
 		return middleware.Error("etcd", err)
 	}
@@ -47,7 +44,7 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func etcdParse(c *caddy.Controller) (*backend.Backend, bool, error) {
+func EtcdParse(c *caddy.Controller) (*backend.Backend, bool, error) {
 	stub := make(map[string]proxy.Proxy)
 	etc := EtcdV2{
 		// Don't default to a proxy for lookups.
@@ -123,12 +120,12 @@ func etcdParse(c *caddy.Controller) (*backend.Backend, bool, error) {
 					}
 				}
 			}
-			client, err := newEtcdClient(endpoints, tlsConfig)
+			client, err := NewEtcdClient(endpoints, tlsConfig)
 			if err != nil {
 				return nil, false, err
 			}
 			etc.Client = client
-			etc.endpoints = endpoints
+			etc.Endpoints = endpoints
 
 			return &b, stubzones, nil
 		}
@@ -136,35 +133,16 @@ func etcdParse(c *caddy.Controller) (*backend.Backend, bool, error) {
 	return &backend.Backend{}, false, nil
 }
 
-func newEtcdClient(endpoints []string, cc *tls.Config) (etcdc.KeysAPI, error) {
+func NewEtcdClient(endpoints []string, cc *tls.Config) (etcdc.KeysAPI, error) {
 	etcdCfg := etcdc.Config{
 		Endpoints: endpoints,
-		Transport: newHTTPSTransport(cc),
+		Transport: mwtls.NewHTTPSTransport(cc),
 	}
 	cli, err := etcdc.New(etcdCfg)
 	if err != nil {
 		return nil, err
 	}
 	return etcdc.NewKeysAPI(cli), nil
-}
-
-func newHTTPSTransport(cc *tls.Config) etcdc.CancelableTransport {
-	// this seems like a bad idea but was here in the previous version
-	if cc != nil {
-		cc.InsecureSkipVerify = true
-	}
-
-	tr := &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-		TLSHandshakeTimeout: 10 * time.Second,
-		TLSClientConfig:     cc,
-	}
-
-	return tr
 }
 
 const defaultEndpoint = "http://localhost:2379"

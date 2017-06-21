@@ -2,7 +2,7 @@
 
 // tests mx and txt records
 
-package backend
+package btests
 
 import (
 	"fmt"

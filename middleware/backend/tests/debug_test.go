@@ -1,6 +1,6 @@
 // +build etcd
 
-package backend
+package btests
 
 import (
 	"sort"

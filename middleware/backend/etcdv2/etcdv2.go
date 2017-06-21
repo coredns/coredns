@@ -23,7 +23,7 @@ type EtcdV2 struct {
 	PathPrefix string
 	Proxy      proxy.Proxy // Proxy for looking up names during the resolution process
 	Inflight   *singleflight.Group
-	endpoints  []string // Stored here as well, to aid in testing.
+	Endpoints  []string // Stored here as well, to aid in testing.
 }
 
 // Services implements the ServiceBackend interface.

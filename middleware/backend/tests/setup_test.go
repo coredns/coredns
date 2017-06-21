@@ -1,6 +1,6 @@
 // +build etcd
 
-package backend
+package btests
 
 import (
 	"encoding/json"
@@ -16,44 +16,48 @@ import (
 	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/middleware/test"
 
+	"github.com/coredns/coredns/middleware/backend"
+	"github.com/coredns/coredns/middleware/backend/etcdv2"
 	etcdc "github.com/coreos/etcd/client"
 	"github.com/mholt/caddy"
 	"golang.org/x/net/context"
 )
 
 func init() {
-	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
+	ctxt, _ = context.WithTimeout(context.Background(), 5*time.Second)
 }
 
-func newEtcdMiddleware() *Backend {
-	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
+func newEtcdMiddleware() *backend.Backend {
+	ctxt, _ = context.WithTimeout(context.Background(), 5*time.Second)
 
 	endpoints := []string{"http://localhost:2379"}
 	tlsc, _ := tls.NewTLSConfigFromArgs()
-	client, _ := newEtcdClient(endpoints, tlsc)
-
-	return &Backend{
+	client, _ := etcdv2.NewEtcdClient(endpoints, tlsc)
+	etc := etcdv2.EtcdV2{
+		Inflight:   &singleflight.Group{},
 		Proxy:      proxy.NewLookup([]string{"8.8.8.8:53"}),
 		PathPrefix: "skydns",
 		Ctx:        context.Background(),
-		Inflight:   &singleflight.Group{},
-		Zones:      []string{"skydns.test.", "skydns_extra.test.", "in-addr.arpa."},
 		Client:     client,
+	}
+	return &backend.Backend{
+		Zones:          []string{"skydns.test.", "skydns_extra.test.", "in-addr.arpa."},
+		ServiceBackend: &etc,
 	}
 }
 
-func set(t *testing.T, e *Backend, k string, ttl time.Duration, m *msg.Service) {
+func set(t *testing.T, e *backend.Backend, k string, ttl time.Duration, m *msg.Service) {
 	b, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
-	e.Client.Set(ctxt, path, string(b), &etcdc.SetOptions{TTL: ttl})
+	path, _ := msg.PathWithWildcard(k, e.ServiceBackend.(*etcdv2.EtcdV2).PathPrefix)
+	e.ServiceBackend.(*etcdv2.EtcdV2).Client.Set(ctxt, path, string(b), &etcdc.SetOptions{TTL: ttl})
 }
 
-func delete(t *testing.T, e *Backend, k string) {
-	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
-	e.Client.Delete(ctxt, path, &etcdc.DeleteOptions{Recursive: false})
+func delete(t *testing.T, e *backend.Backend, k string) {
+	path, _ := msg.PathWithWildcard(k, e.ServiceBackend.(*etcdv2.EtcdV2).PathPrefix)
+	e.ServiceBackend.(*etcdv2.EtcdV2).Client.Delete(ctxt, path, &etcdc.DeleteOptions{Recursive: false})
 }
 
 func TestLookup(t *testing.T) {
@@ -119,7 +123,7 @@ func TestSetupEtcd(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		etcd, _ /*stubzones*/, err := etcdParse(c)
+		etcd, _ /*stubzones*/, err := etcdv2.EtcdParse(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error but found %s for input %s", i, err, test.input)
@@ -137,11 +141,11 @@ func TestSetupEtcd(t *testing.T) {
 			}
 		}
 
-		if !test.shouldErr && etcd.PathPrefix != test.expectedPath {
-			t.Errorf("etcd not correctly set for input %s. Expected: %s, actual: %s", test.input, test.expectedPath, etcd.PathPrefix)
+		if !test.shouldErr && etcd.ServiceBackend.(*etcdv2.EtcdV2).PathPrefix != test.expectedPath {
+			t.Errorf("etcd not correctly set for input %s. Expected: %s, actual: %s", test.input, test.expectedPath, etcd.ServiceBackend.(*etcdv2.EtcdV2).PathPrefix)
 		}
-		if !test.shouldErr && etcd.endpoints[0] != test.expectedEndpoint { // only checks the first
-			t.Errorf("etcd not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, test.expectedEndpoint, etcd.endpoints[0])
+		if !test.shouldErr && etcd.ServiceBackend.(*etcdv2.EtcdV2).Endpoints[0] != test.expectedEndpoint { // only checks the first
+			t.Errorf("etcd not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, test.expectedEndpoint, etcd.ServiceBackend.(*etcdv2.EtcdV2).Endpoints[0])
 		}
 	}
 }

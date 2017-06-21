@@ -1,6 +1,6 @@
 // +build etcd
 
-package backend
+package btests
 
 // etcd needs to be running on http://localhost:2379
 

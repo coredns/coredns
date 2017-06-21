@@ -1,6 +1,6 @@
 // +build etcd
 
-package backend
+package btests
 
 import (
 	"sort"
@@ -11,12 +11,13 @@ import (
 	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/middleware/test"
 
+	"github.com/coredns/coredns/middleware/backend/etcdv2"
 	"github.com/miekg/dns"
 )
 
 func TestProxyLookupFailDebug(t *testing.T) {
 	etc := newEtcdMiddleware()
-	etc.Proxy = proxy.NewLookup([]string{"127.0.0.1:154"})
+	etc.ServiceBackend.(*etcdv2.EtcdV2).Proxy = proxy.NewLookup([]string{"127.0.0.1:154"})
 	etc.Debugging = true
 
 	for _, serv := range servicesProxy {

@@ -1,6 +1,6 @@
 // +build etcd
 
-package backend
+package btests
 
 import (
 	"net"
@@ -47,7 +47,7 @@ func TestStubLookup(t *testing.T) {
 		defer delete(t, etc, serv.Key)
 	}
 
-	etc.updateStubZones()
+	etc.UpdateStubZonesRaw()
 
 	for _, tc := range dnsTestCasesStub {
 		m := tc.Msg()
