@@ -2,9 +2,11 @@ package kubernetes
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
+	"github.com/coredns/coredns/middleware/rewrite"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -39,37 +41,40 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		zone = state.Name()
 	}
 
-	var (
-		records, extra []dns.RR
-		err            error
-	)
-	switch state.Type() {
-	case "A":
-		records, _, err = middleware.A(&k, zone, state, nil, middleware.Options{})
-	case "AAAA":
-		records, _, err = middleware.AAAA(&k, zone, state, nil, middleware.Options{})
-	case "TXT":
-		records, _, err = middleware.TXT(&k, zone, state, middleware.Options{})
-	case "CNAME":
-		records, _, err = middleware.CNAME(&k, zone, state, middleware.Options{})
-	case "PTR":
-		records, _, err = middleware.PTR(&k, zone, state, middleware.Options{})
-	case "MX":
-		records, extra, _, err = middleware.MX(&k, zone, state, middleware.Options{})
-	case "SRV":
-		records, extra, _, err = middleware.SRV(&k, zone, state, middleware.Options{})
-	case "SOA":
-		records, _, err = middleware.SOA(&k, zone, state, middleware.Options{})
-	case "NS":
-		if state.Name() == zone {
-			records, extra, _, err = middleware.NS(&k, zone, state, middleware.Options{})
-			break
+	records, extra, _, err := k.routeRequest(zone, state)
+
+	if k.IsNameError(err) {
+		p := k.findPodWithIP(state.IP())
+		if p != nil {
+			name, path, ok := splitSearchPath(zone, state.QName(), p.Namespace)
+			if ok {
+				// try the "svc.cluster.local" and "cluster.local" paths
+				for i := 0; i < 2; i++ {
+					path = strings.Join(strings.Split(path, ".")[1:], ".")
+					state = state.NewWithQuestion(strings.Join([]string{name, path}, "."), state.QType())
+					records, extra, _, err = k.routeRequest(zone, state)
+					if !k.IsNameError(err) {
+						break
+					}
+				}
+				if k.IsNameError(err) {
+					// Fallthrough with the host domain path (if set)
+					wr := rewrite.NewResponseReverter(w, r)
+					if k.HostDomainPath != "" {
+						r = state.NewWithQuestion(strings.Join([]string{name, k.HostDomainPath}, "."), state.QType()).Req
+						rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
+						if rcode == dns.RcodeSuccess {
+							return rcode, nextErr
+						}
+					}
+					// Fallthrough with the . path
+					r = state.NewWithQuestion(strings.Join([]string{name, ""}, "."), state.QType()).Req
+					return middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
+				}
+			}
 		}
-		fallthrough
-	default:
-		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
-		_, _, err = middleware.A(&k, zone, state, nil, middleware.Options{})
 	}
+
 	if k.IsNameError(err) {
 		if k.Fallthrough {
 			return middleware.NextOrFailure(k.Name(), k.Next, ctx, w, r)
@@ -93,6 +98,37 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	m, _ = state.Scrub(m)
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
+}
+
+func (k *Kubernetes) routeRequest(zone string, state request.Request) (records []dns.RR, extra []dns.RR, debug []dns.RR, err error) {
+	switch state.Type() {
+	case "A":
+		records, _, err = middleware.A(k, zone, state, nil, middleware.Options{})
+	case "AAAA":
+		records, _, err = middleware.AAAA(k, zone, state, nil, middleware.Options{})
+	case "TXT":
+		records, _, err = middleware.TXT(k, zone, state, middleware.Options{})
+	case "CNAME":
+		records, _, err = middleware.CNAME(k, zone, state, middleware.Options{})
+	case "PTR":
+		records, _, err = middleware.PTR(k, zone, state, middleware.Options{})
+	case "MX":
+		records, extra, _, err = middleware.MX(k, zone, state, middleware.Options{})
+	case "SRV":
+		records, extra, _, err = middleware.SRV(k, zone, state, middleware.Options{})
+	case "SOA":
+		records, _, err = middleware.SOA(k, zone, state, middleware.Options{})
+	case "NS":
+		if state.Name() == zone {
+			records, extra, _, err = middleware.NS(k, zone, state, middleware.Options{})
+			break
+		}
+		fallthrough
+	default:
+		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
+		_, _, err = middleware.A(k, zone, state, nil, middleware.Options{})
+	}
+	return records, extra, nil, err
 }
 
 // Name implements the Handler interface.

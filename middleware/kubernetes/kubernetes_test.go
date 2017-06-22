@@ -480,3 +480,27 @@ func TestServices(t *testing.T) {
 	}
 
 }
+
+func TestSplitSearchPath(t *testing.T) {
+	type testCase struct {
+		question     string
+		namespace    string
+		expectedName string
+		expectedPath string
+		expectedOk   bool
+	}
+	tests := []testCase{
+		{question: "test.blah.com", namespace: "ns1", expectedName: "", expectedPath: "", expectedOk: false},
+		{question: "foo.com.ns2.svc.interwebs.nets", namespace: "ns1", expectedName: "", expectedPath: "", expectedOk: false},
+		{question: "foo.com.svc.interwebs.nets", namespace: "ns1", expectedName: "", expectedPath: "", expectedOk: false},
+		{question: "foo.com.ns1.svc.interwebs.nets", namespace: "ns1", expectedName: "foo.com", expectedPath: "ns1.svc.interwebs.nets", expectedOk: true},
+	}
+	zone := "interwebs.nets"
+	for _, c := range tests {
+		name, path, ok := splitSearchPath(zone, c.question, c.namespace)
+		if c.expectedName != name || c.expectedPath != path || c.expectedOk != ok {
+			t.Errorf("Case %v: Expected name'%v', path:'%v', ok:'%v'. Got name:'%v', path:'%v', ok:'%v'.", c.question, c.expectedName, c.expectedPath, c.expectedOk, name, path, ok)
+		}
+	}
+
+}

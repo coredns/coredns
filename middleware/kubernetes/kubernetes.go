@@ -28,24 +28,26 @@ import (
 
 // Kubernetes implements a middleware that connects to a Kubernetes cluster.
 type Kubernetes struct {
-	Next           middleware.Handler
-	Zones          []string
-	primaryZone    int
-	Proxy          proxy.Proxy // Proxy for looking up names during the resolution process
-	APIEndpoint    string
-	APICertAuth    string
-	APIClientCert  string
-	APIClientKey   string
-	APIConn        dnsController
-	ResyncPeriod   time.Duration
-	Namespaces     []string
-	Federations    []Federation
-	LabelSelector  *unversionedapi.LabelSelector
-	Selector       *labels.Selector
-	PodMode        string
-	ReverseCidrs   []net.IPNet
-	Fallthrough    bool
-	interfaceAddrs interfaceAddrser
+	Next            middleware.Handler
+	Zones           []string
+	primaryZone     int
+	Proxy           proxy.Proxy // Proxy for looking up names during the resolution process
+	APIEndpoint     string
+	APICertAuth     string
+	APIClientCert   string
+	APIClientKey    string
+	APIConn         dnsController
+	ResyncPeriod    time.Duration
+	Namespaces      []string
+	Federations     []Federation
+	LabelSelector   *unversionedapi.LabelSelector
+	Selector        *labels.Selector
+	PodMode         string
+	ReverseCidrs    []net.IPNet
+	Fallthrough     bool
+	AnticipatePaths bool
+	HostDomainPath  string
+	interfaceAddrs  interfaceAddrser
 }
 
 const (
@@ -448,6 +450,21 @@ func ipFromPodName(podname string) string {
 	return strings.Replace(podname, "-", ":", -1)
 }
 
+func (k *Kubernetes) findPodWithIP(ip string) (p *api.Pod) {
+	if k.PodMode != PodModeVerified {
+		return nil
+	}
+	objList := k.APIConn.PodIndex(ip)
+	for _, o := range objList {
+		p, ok := o.(*api.Pod)
+		if !ok {
+			return nil
+		}
+		return p
+	}
+	return nil
+}
+
 func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error) {
 	if k.PodMode == PodModeDisabled {
 		return pods, errPodsDisabled
@@ -633,4 +650,12 @@ func (k *Kubernetes) localPodIP() net.IP {
 		return localPodIP
 	}
 	return nil
+}
+
+func splitSearchPath(zone, question, namespace string) (name, path string, ok bool) {
+	path = strings.Join([]string{namespace, "svc", zone}, ".")
+	if dns.IsSubDomain(path, question) {
+		return question[:len(question)-len(path)-1], path, true
+	}
+	return "", "", false
 }
