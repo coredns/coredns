@@ -121,6 +121,41 @@ kubernetes coredns.local {
 	# Each line consists of the name of the federation, and the domain.
 	federation myfed foo.example.com
 	
+	# autopath [<host-domain>]
+	#
+	# Enables server side search path lookups for pods.  When enabled, coredns
+	# will identify search path queries from pods and perform the remaining path
+	# lookups on the pod's behalf.  The search path used mimics the resolve.conf
+	# search path deployed to pods. E.g.
+	#
+	#     search namespace.svc.cluster.local svc.cluster.local cluster.local
+	#
+	# <host-domain> is optional. If specified, coredns performs a lookup on this
+	# path if the preceeding paths fail to produce an answer.
+	#
+	# If no paths produce an answer, coredns attempts the empty (.) path.
+	#
+	# A successful response will contain a question section with the original
+	# question, and an answer section containing the a record for a diffrent
+	# question.  The question and answer will not match. For example:
+	#
+	#    # host -v -t a google.com
+	#    Trying "google.com.default.svc.cluster.local"
+	#    ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 50957
+	#    ;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+	#
+	#    ;; QUESTION SECTION:
+	#    ;google.com.default.svc.cluster.local. IN A
+	#
+	#    ;; ANSWER SECTION:
+	#    google.com.		175	IN	A	216.58.194.206
+	#
+	# Enabling autopath causes coredns to use more memory since it needs to
+	# maintain a watch on all pods. If autopath and "pods verified" mode are
+	# both enabled, they will use share the same watch. I.e. enabling both options
+	# should have an equivalent memory impact of just one.
+	autopath foo.example.com.
+
 	# fallthrough
 	#
 	# If a query for a record in the cluster zone results in NXDOMAIN,
