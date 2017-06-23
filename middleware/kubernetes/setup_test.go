@@ -657,7 +657,7 @@ func TestKubernetesParse(t *testing.T) {
 		{
 			"valid autopath with host domain",
 			`kubernetes coredns.local {
-	autopath host.domain.com.
+	autopath host.domain.com
 }`,
 			false,
 			"",

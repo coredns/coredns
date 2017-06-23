@@ -194,7 +194,7 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 					}
 					k8s.AnticipatePaths = true
 					if len(args) == 1 {
-						k8s.HostDomainPath = args[0]
+						k8s.HostDomainPath = middleware.Name(args[0]).Normalize()
 					}
 					continue
 				}
