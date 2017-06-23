@@ -247,7 +247,7 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 	}
 
 	opts := dnsControlOpts{
-		initPodCache: k.PodMode == PodModeVerified,
+		initPodCache: (k.PodMode == PodModeVerified || k.AnticipatePaths),
 	}
 	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, opts)
 

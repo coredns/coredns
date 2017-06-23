@@ -43,7 +43,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 
 	records, extra, _, err := k.routeRequest(zone, state)
 
-	if k.IsNameError(err) {
+	if k.AnticipatePaths && k.IsNameError(err) {
 		p := k.findPodWithIP(state.IP())
 		if p != nil {
 			name, path, ok := splitSearchPath(zone, state.QName(), p.Namespace)

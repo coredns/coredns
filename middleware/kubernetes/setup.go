@@ -187,7 +187,16 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 						continue
 					}
 					return nil, fmt.Errorf("incorrect number of arguments for federation, got %v, expected 2", len(args))
-
+				case "autopath": // name zone
+					args := c.RemainingArgs()
+					if len(args) > 1 {
+						return nil, fmt.Errorf("incorrect number of arguments for autopath, got %v, expected at most 1", len(args))
+					}
+					k8s.AnticipatePaths = true
+					if len(args) == 1 {
+						k8s.HostDomainPath = args[0]
+					}
+					continue
 				}
 			}
 			return k8s, nil
