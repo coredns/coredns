@@ -192,7 +192,7 @@ func (k *Kubernetes) IsNameError(err error) bool {
 func (k *Kubernetes) Debug() string { return "debug" }
 
 func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
-	loadingRules := &clientcmd.ClientConfigLoadingRules{}
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	overrides := &clientcmd.ConfigOverrides{}
 	clusterinfo := clientcmdapi.Cluster{}
 	authinfo := clientcmdapi.AuthInfo{}
