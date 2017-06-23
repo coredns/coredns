@@ -218,26 +218,30 @@ func newUpstream(hosts []string, old *staticUpstream) Upstream {
 			Conns:       0,
 			Fails:       0,
 			FailTimeout: upstream.FailTimeout,
-			OkUntil:     time.Unix(4000000000, 0), // forever, initially
+			OkUntil:     time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)), // now + 100 years
 
 			CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
 				return func(uh *UpstreamHost) bool {
 
+					down := false
+
+					uh.checkMu.Lock()
 					if time.Now().After(uh.OkUntil) {
-						return true
+						down = true
 					}
+					uh.checkMu.Unlock()
 
 					fails := atomic.LoadInt32(&uh.Fails)
 					if fails >= upstream.MaxFails && upstream.MaxFails != 0 {
-						return true
+						down = true
 					}
-					return false
+					return down
 				}
 			}(upstream),
 			WithoutPathPrefix: upstream.WithoutPathPrefix,
 		}
 
-		log.Printf("Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
+		log.Printf("[DEBUG] Ggl: Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
 		upstream.Hosts[i] = uh
 	}
 	return upstream

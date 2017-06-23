@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,7 @@ var workableServer *httptest.Server
 func TestMain(m *testing.M) {
 	workableServer = httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
+			log.Printf("[INFO] Health check of workableServer.\n")
 			// do nothing
 		}))
 	r := m.Run()
@@ -29,13 +31,16 @@ func (r *customPolicy) Select(pool HostPool) *UpstreamHost {
 func testPool() HostPool {
 	pool := []*UpstreamHost{
 		{
-			Name: workableServer.URL, // this should resolve (healthcheck test)
+			Name:    workableServer.URL, // this should resolve (healthcheck test)
+			OkUntil: time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)),
 		},
 		{
-			Name: "http://shouldnot.resolve", // this shouldn't
+			Name:    "http://shouldnot.resolve", // this shouldn't
+			OkUntil: time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)),
 		},
 		{
-			Name: "http://C",
+			Name:    "http://C",
+			OkUntil: time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)),
 		},
 	}
 	return HostPool(pool)

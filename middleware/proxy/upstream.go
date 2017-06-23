@@ -90,26 +90,30 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 				Conns:       0,
 				Fails:       0,
 				FailTimeout: upstream.FailTimeout,
-				OkUntil:     time.Unix(4000000000, 0), // forever, initially
+				OkUntil:     time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)), // now + 100 years
 
 				CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
 					return func(uh *UpstreamHost) bool {
 
+						down := false
+
+						uh.checkMu.Lock()
 						if time.Now().After(uh.OkUntil) {
-							return true
+							down = true
 						}
+						uh.checkMu.Unlock()
 
 						fails := atomic.LoadInt32(&uh.Fails)
 						if fails >= upstream.MaxFails && upstream.MaxFails != 0 {
-							return true
+							down = true
 						}
-						return false
+						return down
 					}
 				}(upstream),
 				WithoutPathPrefix: upstream.WithoutPathPrefix,
 			}
 
-			log.Printf("Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
+			log.Printf("[DEBUG] Ups: Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
 			upstream.Hosts[i] = uh
 		}
 
@@ -189,10 +193,10 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 			}
 			u.HealthCheck.Interval = dur
 			u.HealthCheck.Future = 2 * dur
-			// set a minimum of 3 seconds
-			if u.HealthCheck.Future < (3 * time.Second) {
-				u.HealthCheck.Future = 3 * time.Second
-			}
+		}
+		// set a minimum of 3 seconds
+		if u.HealthCheck.Future < time.Duration(3*time.Second) {
+			u.HealthCheck.Future = time.Duration(3 * time.Second)
 		}
 	case "without":
 		if !c.NextArg() {
@@ -283,6 +287,8 @@ func healthCheckUrl(url string, nextTs time.Time, host *UpstreamHost) {
 	host.Checking = true
 	host.checkMu.Unlock()
 
+	log.Printf("[DEBUG] Healthchecking %s, nextTs is %s\n", url, nextTs.Local())
+
 	// fetch that url.  This has been moved into a go func because
 	// when the remote host is not merely not serving, but actually
 	// absent, then tcp syn timeouts can be very long, and so one
@@ -292,20 +298,20 @@ func healthCheckUrl(url string, nextTs time.Time, host *UpstreamHost) {
 		r.Body.Close()
 
 		if r.StatusCode < 200 || r.StatusCode >= 400 {
-			host.OkUntil = time.Unix(0, 0)
 			log.Printf("[WARNING] Host %s health check URL %s returned HTTP code %d\n",
 				host.Name, url, r.StatusCode)
+			nextTs = time.Unix(0, 0)
 		} else {
-			host.OkUntil = nextTs
 			log.Printf("[DEBUG] Host %s marked healthy until %s.\n", host.Name, host.OkUntil.Local())
 		}
 	} else {
-		host.OkUntil = time.Unix(0, 0)
 		log.Printf("[WARNING] Host %s health check probe failed: %v\n", host.Name, err)
+		nextTs = time.Unix(0, 0)
 	}
 
 	host.checkMu.Lock()
 	host.Checking = false
+	host.OkUntil = nextTs
 	host.checkMu.Unlock()
 }
 
@@ -325,6 +331,8 @@ func (u *staticUpstream) healthCheck() {
 		if err != nil {
 			checkHostName = hostName
 		}
+
+		log.Printf("[DEBUG] Host %s has checkHostName %s.\n", host.Name, checkHostName)
 
 		if u.HealthCheck.Port != "" {
 			checkPort = u.HealthCheck.Port

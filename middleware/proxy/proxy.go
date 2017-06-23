@@ -3,6 +3,7 @@ package proxy
 
 import (
 	"errors"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -73,7 +74,18 @@ func (uh *UpstreamHost) Down() bool {
 	if uh.CheckDown == nil {
 		// Default settings
 		fails := atomic.LoadInt32(&uh.Fails)
-		return time.Now().After(uh.OkUntil) || fails > 0
+		after := false
+
+		uh.checkMu.Lock()
+		until := uh.OkUntil
+		uh.checkMu.Unlock()
+
+		if time.Now().After(until) {
+			after = true
+			log.Printf("[INFO] Host %s tested as down: OkUntil was %s\n", uh.Name, until.Local())
+		}
+
+		return after || fails > 0
 	}
 	return uh.CheckDown(uh)
 }

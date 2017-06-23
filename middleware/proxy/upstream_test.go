@@ -3,7 +3,6 @@ package proxy
 import (
 	"io/ioutil"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +26,9 @@ func TestHealthCheck(t *testing.T) {
 		MaxFails:    1,
 	}
 	upstream.healthCheck()
+	// sleep a bit, it's async now
+	time.Sleep(time.Duration(3 * time.Second))
+
 	if upstream.Hosts[0].Down() {
 		t.Error("Expected first host in testpool to not fail healthcheck.")
 	}
@@ -49,7 +51,7 @@ func TestSelect(t *testing.T) {
 	if h := upstream.Select(); h != nil {
 		t.Error("Expected select to return nil as all host are down")
 	}
-	upstream.Hosts[2].OkUntil = time.Unix(4000000000, 0)
+	upstream.Hosts[2].OkUntil = time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)) // now + 100 years
 	if h := upstream.Select(); h == nil {
 		t.Error("Expected select to not return nil")
 	}
