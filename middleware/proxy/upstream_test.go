@@ -14,7 +14,7 @@ import (
 )
 
 func TestHealthCheck(t *testing.T) {
-	//log.SetOutput(ioutil.Discard)
+	log.SetOutput(ioutil.Discard)
 
 	upstream := &staticUpstream{
 		from:        ".",
