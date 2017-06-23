@@ -3,7 +3,6 @@ package proxy
 
 import (
 	"errors"
-	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -82,7 +81,6 @@ func (uh *UpstreamHost) Down() bool {
 
 		if time.Now().After(until) {
 			after = true
-			log.Printf("[INFO] Host %s tested as down: OkUntil was %s\n", uh.Name, until.Local())
 		}
 
 		return after || fails > 0

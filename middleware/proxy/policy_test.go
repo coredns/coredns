@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,7 +13,6 @@ var workableServer *httptest.Server
 func TestMain(m *testing.M) {
 	workableServer = httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
-			log.Printf("[INFO] Health check of workableServer.\n")
 			// do nothing
 		}))
 	r := m.Run()

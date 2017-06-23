@@ -36,11 +36,11 @@ type staticUpstream struct {
 
 	FailTimeout time.Duration
 	MaxFails    int32
+	Future      time.Duration
 	HealthCheck struct {
 		Path     string
 		Port     string
 		Interval time.Duration
-		Future   time.Duration
 	}
 	WithoutPathPrefix string
 	IgnoredSubDomains []string
@@ -60,6 +60,7 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 			Spray:       nil,
 			FailTimeout: 10 * time.Second,
 			MaxFails:    1,
+			Future:      60 * time.Second,
 			ex:          newDNSEx(),
 		}
 
@@ -113,7 +114,6 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 				WithoutPathPrefix: upstream.WithoutPathPrefix,
 			}
 
-			log.Printf("[DEBUG] Ups: Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
 			upstream.Hosts[i] = uh
 		}
 
@@ -185,18 +185,18 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 			return err
 		}
 		u.HealthCheck.Interval = 30 * time.Second
-		u.HealthCheck.Future = 60 * time.Second
 		if c.NextArg() {
 			dur, err := time.ParseDuration(c.Val())
 			if err != nil {
 				return err
 			}
 			u.HealthCheck.Interval = dur
-			u.HealthCheck.Future = 2 * dur
-		}
-		// set a minimum of 3 seconds
-		if u.HealthCheck.Future < time.Duration(3*time.Second) {
-			u.HealthCheck.Future = time.Duration(3 * time.Second)
+			u.Future = 2 * dur
+
+			// set a minimum of 3 seconds
+			if u.Future < (3 * time.Second) {
+				u.Future = 3 * time.Second
+			}
 		}
 	case "without":
 		if !c.NextArg() {
@@ -287,7 +287,7 @@ func healthCheckUrl(url string, nextTs time.Time, host *UpstreamHost) {
 	host.Checking = true
 	host.checkMu.Unlock()
 
-	log.Printf("[DEBUG] Healthchecking %s, nextTs is %s\n", url, nextTs.Local())
+	//log.Printf("[DEBUG] Healthchecking %s, nextTs is %s\n", url, nextTs.Local())
 
 	// fetch that url.  This has been moved into a go func because
 	// when the remote host is not merely not serving, but actually
@@ -298,11 +298,9 @@ func healthCheckUrl(url string, nextTs time.Time, host *UpstreamHost) {
 		r.Body.Close()
 
 		if r.StatusCode < 200 || r.StatusCode >= 400 {
-			log.Printf("[WARNING] Host %s health check URL %s returned HTTP code %d\n",
-				host.Name, url, r.StatusCode)
+			log.Printf("[WARNING] Host %s health check returned HTTP code %d\n",
+				host.Name, r.StatusCode)
 			nextTs = time.Unix(0, 0)
-		} else {
-			log.Printf("[DEBUG] Host %s marked healthy until %s.\n", host.Name, host.OkUntil.Local())
 		}
 	} else {
 		log.Printf("[WARNING] Host %s health check probe failed: %v\n", host.Name, err)
@@ -320,8 +318,9 @@ func (u *staticUpstream) healthCheck() {
 		var hostName, checkPort string
 
 		// The DNS server might be an HTTP server.  If so, extract its name.
-		if url, err := url.Parse(host.Name); err == nil {
-			hostName = url.Host
+		ret, err := url.Parse(host.Name)
+		if err == nil && len(ret.Host) > 0 {
+			hostName = ret.Host
 		} else {
 			hostName = host.Name
 		}
@@ -332,8 +331,6 @@ func (u *staticUpstream) healthCheck() {
 			checkHostName = hostName
 		}
 
-		log.Printf("[DEBUG] Host %s has checkHostName %s.\n", host.Name, checkHostName)
-
 		if u.HealthCheck.Port != "" {
 			checkPort = u.HealthCheck.Port
 		}
@@ -341,7 +338,7 @@ func (u *staticUpstream) healthCheck() {
 		hostURL := "http://" + net.JoinHostPort(checkHostName, checkPort) + u.HealthCheck.Path
 
 		// calculate this before the get
-		nextTs := time.Now().Add(u.HealthCheck.Future)
+		nextTs := time.Now().Add(u.Future)
 
 		// locks/bools should prevent requests backing up
 		go healthCheckUrl(hostURL, nextTs, host)

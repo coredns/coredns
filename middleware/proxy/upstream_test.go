@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +14,7 @@ import (
 )
 
 func TestHealthCheck(t *testing.T) {
-	log.SetOutput(ioutil.Discard)
+	//log.SetOutput(ioutil.Discard)
 
 	upstream := &staticUpstream{
 		from:        ".",
@@ -23,11 +22,13 @@ func TestHealthCheck(t *testing.T) {
 		Policy:      &Random{},
 		Spray:       nil,
 		FailTimeout: 10 * time.Second,
+		Future:      60 * time.Second,
 		MaxFails:    1,
 	}
+
 	upstream.healthCheck()
 	// sleep a bit, it's async now
-	time.Sleep(time.Duration(3 * time.Second))
+	time.Sleep(time.Duration(2 * time.Second))
 
 	if upstream.Hosts[0].Down() {
 		t.Error("Expected first host in testpool to not fail healthcheck.")
@@ -43,6 +44,7 @@ func TestSelect(t *testing.T) {
 		Hosts:       testPool()[:3],
 		Policy:      &Random{},
 		FailTimeout: 10 * time.Second,
+		Future:      60 * time.Second,
 		MaxFails:    1,
 	}
 	upstream.Hosts[0].OkUntil = time.Unix(0, 0)

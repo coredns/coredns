@@ -206,6 +206,7 @@ func newUpstream(hosts []string, old *staticUpstream) Upstream {
 		Spray:             nil,
 		FailTimeout:       10 * time.Second,
 		MaxFails:          3,
+		Future:            60 * time.Second,
 		ex:                old.ex,
 		WithoutPathPrefix: old.WithoutPathPrefix,
 		IgnoredSubDomains: old.IgnoredSubDomains,

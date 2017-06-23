@@ -4,7 +4,6 @@ package proxy
 
 import (
 	"context"
-	"log"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +30,7 @@ func NewLookupWithOption(hosts []string, opts Options) Proxy {
 		Spray:       nil,
 		FailTimeout: 10 * time.Second,
 		MaxFails:    3, // TODO(miek): disable error checking for simple lookups?
+		Future:      60 * time.Second,
 		ex:          newDNSExWithOption(opts),
 	}
 
@@ -63,7 +63,6 @@ func NewLookupWithOption(hosts []string, opts Options) Proxy {
 			WithoutPathPrefix: upstream.WithoutPathPrefix,
 		}
 
-		log.Printf("[DEBUG] Lkp: Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
 		upstream.Hosts[i] = uh
 	}
 	p.Upstreams = &[]Upstream{upstream}
