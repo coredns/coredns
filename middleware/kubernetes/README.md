@@ -136,8 +136,9 @@ kubernetes coredns.local {
 	# If no paths produce an answer, coredns attempts the empty (.) path.
 	#
 	# A successful response will contain a question section with the original
-	# question, and an answer section containing the a record for a diffrent
-	# question.  The question and answer will not match. For example:
+	# question, and an answer section containing the record for the question that
+	# actually had an answer.  This means that the question and answer will not
+	# match. For example:
 	#
 	#    # host -v -t a google.com
 	#    Trying "google.com.default.svc.cluster.local"
