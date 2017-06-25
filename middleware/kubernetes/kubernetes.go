@@ -28,26 +28,27 @@ import (
 
 // Kubernetes implements a middleware that connects to a Kubernetes cluster.
 type Kubernetes struct {
-	Next            middleware.Handler
-	Zones           []string
-	primaryZone     int
-	Proxy           proxy.Proxy // Proxy for looking up names during the resolution process
-	APIEndpoint     string
-	APICertAuth     string
-	APIClientCert   string
-	APIClientKey    string
-	APIConn         dnsController
-	ResyncPeriod    time.Duration
-	Namespaces      []string
-	Federations     []Federation
-	LabelSelector   *unversionedapi.LabelSelector
-	Selector        *labels.Selector
-	PodMode         string
-	ReverseCidrs    []net.IPNet
-	Fallthrough     bool
-	AnticipatePaths bool
-	HostDomainPath  string
-	interfaceAddrs  interfaceAddrser
+	Next           middleware.Handler
+	Zones          []string
+	primaryZone    int
+	Proxy          proxy.Proxy // Proxy for looking up names during the resolution process
+	APIEndpoint    string
+	APICertAuth    string
+	APIClientCert  string
+	APIClientKey   string
+	APIConn        dnsController
+	ResyncPeriod   time.Duration
+	Namespaces     []string
+	Federations    []Federation
+	LabelSelector  *unversionedapi.LabelSelector
+	Selector       *labels.Selector
+	PodMode        string
+	ReverseCidrs   []net.IPNet
+	Fallthrough    bool
+	AutoPath       bool
+	HostSearchPath []string
+	AutoPathNdots  int
+	interfaceAddrs interfaceAddrser
 }
 
 const (
@@ -99,6 +100,7 @@ var errInvalidRequest = errors.New("invalid query name")
 var errZoneNotFound = errors.New("zone not found")
 var errAPIBadPodType = errors.New("expected type *api.Pod")
 var errPodsDisabled = errors.New("pod records disabled")
+var errResolvConfReadErr = errors.New("resolv.conf read error")
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) (svcs []msg.Service, debug []msg.Service, err error) {
@@ -192,7 +194,7 @@ func (k *Kubernetes) IsNameError(err error) bool {
 func (k *Kubernetes) Debug() string { return "debug" }
 
 func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	loadingRules := &clientcmd.ClientConfigLoadingRules{}
 	overrides := &clientcmd.ConfigOverrides{}
 	clusterinfo := clientcmdapi.Cluster{}
 	authinfo := clientcmdapi.AuthInfo{}
@@ -247,7 +249,7 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 	}
 
 	opts := dnsControlOpts{
-		initPodCache: (k.PodMode == PodModeVerified || k.AnticipatePaths),
+		initPodCache: (k.PodMode == PodModeVerified || k.AutoPath),
 	}
 	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, opts)
 
@@ -652,10 +654,10 @@ func (k *Kubernetes) localPodIP() net.IP {
 	return nil
 }
 
-func splitSearchPath(zone, question, namespace string) (name, path string, ok bool) {
-	path = strings.Join([]string{namespace, "svc", zone}, ".")
-	if dns.IsSubDomain(path, question) {
-		return question[:len(question)-len(path)-1], path, true
+func splitSearch(zone, question, namespace string) (name, search string, ok bool) {
+	search = strings.Join([]string{namespace, "svc", zone}, ".")
+	if dns.IsSubDomain(search, question) {
+		return question[:len(question)-len(search)-1], search, true
 	}
 	return "", "", false
 }

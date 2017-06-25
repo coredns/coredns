@@ -2,9 +2,13 @@ package kubernetes
 
 import (
 	"net"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/coredns/coredns/middleware/test"
 
 	"github.com/mholt/caddy"
 	unversionedapi "k8s.io/client-go/1.5/pkg/api/unversioned"
@@ -17,21 +21,22 @@ func parseCidr(cidr string) net.IPNet {
 
 func TestKubernetesParse(t *testing.T) {
 	tests := []struct {
-		description             string        // Human-facing description of test case
-		input                   string        // Corefile data as string
-		shouldErr               bool          // true if test case is exected to produce an error.
-		expectedErrContent      string        // substring from the expected error. Empty for positive cases.
-		expectedZoneCount       int           // expected count of defined zones.
-		expectedNSCount         int           // expected count of namespaces.
-		expectedResyncPeriod    time.Duration // expected resync period value
-		expectedLabelSelector   string        // expected label selector value
-		expectedPodMode         string
-		expectedCidrs           []net.IPNet
-		expectedFallthrough     bool
-		expectedUpstreams       []string
-		expectedFederations     []Federation
-		expectedAnticipatePaths bool
-		expectedHostDomainPath  string
+		description            string        // Human-facing description of test case
+		input                  string        // Corefile data as string
+		shouldErr              bool          // true if test case is exected to produce an error.
+		expectedErrContent     string        // substring from the expected error. Empty for positive cases.
+		expectedZoneCount      int           // expected count of defined zones.
+		expectedNSCount        int           // expected count of namespaces.
+		expectedResyncPeriod   time.Duration // expected resync period value
+		expectedLabelSelector  string        // expected label selector value
+		expectedPodMode        string
+		expectedCidrs          []net.IPNet
+		expectedFallthrough    bool
+		expectedUpstreams      []string
+		expectedFederations    []Federation
+		expectedAutoPath       bool
+		expectedHostSearchPath []string
+		expectedNdots          int
 	}{
 		// positive
 		{
@@ -49,7 +54,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"kubernetes keyword with multiple zones",
@@ -66,7 +72,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"kubernetes keyword with zone and empty braces",
@@ -84,7 +91,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"endpoint keyword with url",
@@ -103,7 +111,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"namespaces keyword with one namespace",
@@ -122,7 +131,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			nil,
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"namespaces keyword with multiple namespaces",
@@ -141,7 +151,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"resync period in seconds",
@@ -160,7 +171,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"resync period in minutes",
@@ -179,7 +191,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"basic label selector",
@@ -198,7 +211,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"multi-label selector",
@@ -217,7 +231,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"fully specified valid config",
@@ -240,7 +255,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// negative
 		{
@@ -258,7 +274,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"kubernetes keyword without a zone",
@@ -275,7 +292,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"endpoint keyword without an endpoint value",
@@ -294,7 +312,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"namespace keyword without a namespace value",
@@ -313,7 +332,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"resyncperiod keyword without a duration value",
@@ -332,7 +352,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"resync period no units",
@@ -351,7 +372,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"resync period invalid",
@@ -370,7 +392,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"labels with no selector value",
@@ -389,7 +412,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		{
 			"labels with invalid selector value",
@@ -408,7 +432,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// pods disabled
 		{
@@ -428,7 +453,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// pods insecure
 		{
@@ -448,7 +474,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// pods verified
 		{
@@ -468,7 +495,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// pods invalid
 		{
@@ -488,7 +516,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// cidrs ok
 		{
@@ -508,7 +537,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// cidrs ok
 		{
@@ -528,7 +558,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// fallthrough invalid
 		{
@@ -548,7 +579,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// Valid upstream
 		{
@@ -568,7 +600,8 @@ func TestKubernetesParse(t *testing.T) {
 			[]string{"13.14.15.16:53"},
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// Invalid upstream
 		{
@@ -588,7 +621,8 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// Valid federations
 		{
@@ -612,7 +646,8 @@ func TestKubernetesParse(t *testing.T) {
 				{name: "fed", zone: "era.tion.com"},
 			},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// Invalid federations
 		{
@@ -632,11 +667,12 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			[]Federation{},
 			false,
-			"",
+			nil,
+			0,
 		},
 		// autopath
 		{
-			"valid autopath without host domain",
+			"valid autopath with system search path",
 			`kubernetes coredns.local {
 	autopath
 }`,
@@ -652,12 +688,13 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			nil,
 			true,
-			"",
+			[]string{"foo.com.", "bar.com.", "baz.com."},
+			defautNdots,
 		},
 		{
-			"valid autopath with host domain",
+			"valid autopath with ndots",
 			`kubernetes coredns.local {
-	autopath host.domain.com
+	autopath ndots:2
 }`,
 			false,
 			"",
@@ -671,15 +708,36 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			nil,
 			true,
-			"host.domain.com.",
+			[]string{"foo.com.", "bar.com.", "baz.com."},
+			2,
 		},
 		{
-			"invalid autopath (too many arguments)",
+			"valid autopath with host domain",
 			`kubernetes coredns.local {
-	autopath foo bar
+	autopath host.domain.com foo.domain.com
+}`,
+			false,
+			"",
+			1,
+			0,
+			defaultResyncPeriod,
+			"",
+			defaultPodMode,
+			nil,
+			false,
+			nil,
+			nil,
+			true,
+			[]string{"host.domain.com.", "foo.domain.com."},
+			defautNdots,
+		},
+		{
+			"invalid autopath (invalid ndots)",
+			`kubernetes coredns.local {
+	autopath ndots:foo
 }`,
 			true,
-			`incorrect number of arguments for autopath`,
+			`invalid ndots option for autopath`,
 			-1,
 			0,
 			defaultResyncPeriod,
@@ -690,9 +748,37 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			nil,
 			false,
+			nil,
+			0,
+		},
+		{
+			"invalid autopath (invalid ndots)",
+			`kubernetes coredns.local {
+	autopath ndots:2 ndots:1
+}`,
+			true,
+			`found more than one ndots option, expected at most one`,
+			-1,
+			0,
+			defaultResyncPeriod,
 			"",
+			defaultPodMode,
+			nil,
+			false,
+			nil,
+			nil,
+			false,
+			nil,
+			0,
 		},
 	}
+
+	f, rm, err := test.TempFile(os.TempDir(), testResolveConf)
+	resolveConfPath = f
+	if err != nil {
+		t.Fatalf("Could not create resolv.conf TempFile: %s", err)
+	}
+	defer rm()
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
@@ -792,11 +878,20 @@ func TestKubernetesParse(t *testing.T) {
 			}
 		}
 		// autopath
-		if k8sController.AnticipatePaths != test.expectedAnticipatePaths {
-			t.Errorf("Test %d: Expected kubernetes controller to be initialized with autopath '%v'. Instead found autopath '%v' for input '%s'", i, test.expectedAnticipatePaths, k8sController.AnticipatePaths, test.input)
+		if k8sController.AutoPath != test.expectedAutoPath {
+			t.Errorf("Test %d: Expected kubernetes controller to be initialized with autopath '%v'. Instead found autopath '%v' for input '%s'", i, test.expectedAutoPath, k8sController.AutoPath, test.input)
 		}
-		if k8sController.HostDomainPath != test.expectedHostDomainPath {
-			t.Errorf("Test %d: Expected kubernetes controller to be initialized with host domain path '%v'. Instead found host domain path '%v' for input '%s'", i, test.expectedHostDomainPath, k8sController.HostDomainPath, test.input)
+		if !reflect.DeepEqual(k8sController.HostSearchPath, test.expectedHostSearchPath) {
+			t.Errorf("Test %d: Expected kubernetes controller to be initialized with host search path '%v'. Instead found host search path '%v' for input '%s'", i, test.expectedHostSearchPath, k8sController.HostSearchPath, test.input)
+		}
+		if k8sController.AutoPathNdots != test.expectedNdots {
+			t.Errorf("Test %d: Expected kubernetes controller to be initialized with ndots of '%v'. Instead found ndots '%v' for input '%s'", i, test.expectedNdots, k8sController.AutoPathNdots, test.input)
 		}
 	}
 }
+
+const testResolveConf = `nameserver 1.2.3.4
+domain foo.com
+search bar.com baz.com
+options ndots:5
+`

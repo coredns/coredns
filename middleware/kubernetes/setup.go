@@ -3,7 +3,9 @@ package kubernetes
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -189,13 +191,35 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 					return nil, fmt.Errorf("incorrect number of arguments for federation, got %v, expected 2", len(args))
 				case "autopath": // name zone
 					args := c.RemainingArgs()
-					if len(args) > 1 {
-						return nil, fmt.Errorf("incorrect number of arguments for autopath, got %v, expected at most 1", len(args))
+					k8s.AutoPathNdots = defautNdots
+					gotNdots := false
+					hostdomains := []string{}
+					for _, arg := range args {
+						if strings.HasPrefix(arg, ndotsOptPrefix) {
+							if gotNdots {
+								return nil, fmt.Errorf("found more than one ndots option, expected at most one")
+							}
+							ndots, err := strconv.Atoi(arg[len(ndotsOptPrefix):])
+							if err != nil {
+								return nil, fmt.Errorf("invalid ndots option for autopath, got '%v', expected an integer", ndots)
+							}
+							k8s.AutoPathNdots = ndots
+							gotNdots = true
+							continue
+						}
+						hostdomains = append(hostdomains, arg)
 					}
-					k8s.AnticipatePaths = true
-					if len(args) == 1 {
-						k8s.HostDomainPath = middleware.Name(args[0]).Normalize()
+					k8s.HostSearchPath = hostdomains
+					if len(k8s.HostSearchPath) == 0 {
+						path, err := getSearchPathFromResolvConf(resolveConfPath)
+						if err != nil {
+							fmt.Errorf("could not get host search path: %v", err)
+						}
+						k8s.HostSearchPath = path
 					}
+					k8s.AutoPath = true
+					middleware.Zones(k8s.HostSearchPath).Normalize()
+
 					continue
 				}
 			}
@@ -205,7 +229,33 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 	return nil, errors.New("kubernetes setup called without keyword 'kubernetes' in Corefile")
 }
 
+func getSearchPathFromResolvConf(filename string) ([]string, error) {
+	content, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, errResolvConfReadErr
+	}
+	var path []string
+	for _, line := range strings.Split(string(content), "\n") {
+		if !strings.HasPrefix(line, "search ") && !strings.HasPrefix(line, "domain ") {
+			continue
+		}
+		for _, s := range strings.Split(line[7:], " ") {
+			search := strings.TrimSpace(s)
+			if search == "" {
+				continue
+			}
+			path = append(path, search)
+		}
+	}
+	return path, nil
+}
+
+var resolveConfPath = defaultResolveConfPath
+
 const (
-	defaultResyncPeriod = 5 * time.Minute
-	defaultPodMode      = PodModeDisabled
+	defaultResyncPeriod    = 5 * time.Minute
+	defaultPodMode         = PodModeDisabled
+	ndotsOptPrefix         = "ndots:"
+	defautNdots            = 1
+	defaultResolveConfPath = "/etc/resolv.conf"
 )

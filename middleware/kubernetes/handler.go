@@ -43,35 +43,46 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 
 	records, extra, _, err := k.routeRequest(zone, state)
 
-	if k.AnticipatePaths && k.IsNameError(err) {
+	if k.AutoPath && k.IsNameError(err) {
 		p := k.findPodWithIP(state.IP())
-		if p != nil {
-			name, path, ok := splitSearchPath(zone, state.QName(), p.Namespace)
-			if ok {
-				// try the "svc.cluster.local" and "cluster.local" paths
-				for i := 0; i < 2; i++ {
-					path = strings.Join(strings.Split(path, ".")[1:], ".")
-					state = state.NewWithQuestion(strings.Join([]string{name, path}, "."), state.QType())
-					records, extra, _, err = k.routeRequest(zone, state)
-					if !k.IsNameError(err) {
-						break
-					}
-				}
-				if k.IsNameError(err) {
-					// Fallthrough with the host domain path (if set)
-					wr := rewrite.NewResponseReverter(w, r)
-					if k.HostDomainPath != "" {
-						r = state.NewWithQuestion(strings.Join([]string{name, k.HostDomainPath}, "."), state.QType()).Req
-						rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
-						if rcode == dns.RcodeSuccess {
-							return rcode, nextErr
-						}
-					}
-					// Fallthrough with the . path
-					r = state.NewWithQuestion(strings.Join([]string{name, ""}, "."), state.QType()).Req
-					return middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
+		for p != nil {
+			name, path, ok := splitSearch(zone, state.QName(), p.Namespace)
+			if !ok {
+				break
+			}
+			if strings.Count(name, ".") < k.AutoPathNdots {
+				break
+			}
+			// Search "svc.cluster.local" and "cluster.local"
+			for i := 0; i < 2; i++ {
+				path = strings.Join(strings.Split(path, ".")[1:], ".")
+				state = state.NewWithQuestion(strings.Join([]string{name, path}, "."), state.QType())
+				records, extra, _, err = k.routeRequest(zone, state)
+				if !k.IsNameError(err) {
+					break
 				}
 			}
+			if !k.IsNameError(err) {
+				break
+			}
+			// Fallthrough with the host search path (if set)
+			wr := rewrite.NewResponseReverter(w, r)
+			for _, hostsearch := range k.HostSearchPath {
+				r = state.NewWithQuestion(strings.Join([]string{name, hostsearch}, "."), state.QType()).Req
+				rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
+				if rcode == dns.RcodeSuccess {
+					return rcode, nextErr
+				}
+			}
+			// Search . in this middleware
+			state = state.NewWithQuestion(strings.Join([]string{name, "."}, ""), state.QType())
+			records, extra, _, err = k.routeRequest(zone, state)
+			if !k.IsNameError(err) {
+				break
+			}
+			// Search . in the next middleware
+			r = state.Req
+			return middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
 		}
 	}
 

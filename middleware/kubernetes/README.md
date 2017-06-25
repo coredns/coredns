@@ -121,19 +121,22 @@ kubernetes coredns.local {
 	# Each line consists of the name of the federation, and the domain.
 	federation myfed foo.example.com
 	
-	# autopath [<host-domain>]
+	# autopath [ndots:NDOTS] [HOST-DOMAIN] [HOST-DOMAIN] ...
 	#
 	# Enables server side search path lookups for pods.  When enabled, coredns
-	# will identify search path queries from pods and perform the remaining path
-	# lookups on the pod's behalf.  The search path used mimics the resolve.conf
-	# search path deployed to pods. E.g.
+	# will identify search path queries from pods and perform the remaining
+	# lookups in the path on the pod's behalf.  The search path used mimics the
+	# resolv.conf search path deployed to pods. E.g.
 	#
 	#     search namespace.svc.cluster.local svc.cluster.local cluster.local
 	#
-	# <host-domain> is optional. If specified, coredns performs a lookup on this
-	# path if the preceeding paths fail to produce an answer.
+	# HOST-DOMAIN are optional. If specified, coredns performs a lookup on these
+	# domains if the preceeding searches fail to produce an answer. If not
+	# specified, the values will be read from the local resolv.conf file (i.e
+	# the resolv.conf file in the pod containing coredns).
 	#
-	# If no paths produce an answer, coredns attempts the empty (.) path.
+	# If no domains in the path produce an answer, a lookup on the bare question
+	# attempted.	
 	#
 	# A successful response will contain a question section with the original
 	# question, and an answer section containing the record for the question that
@@ -151,11 +154,16 @@ kubernetes coredns.local {
 	#    ;; ANSWER SECTION:
 	#    google.com.		175	IN	A	216.58.194.206
 	#
+	# NDOTS is optional, defaulting to 1. This provides an adjustable threshold to
+	# prevent server side lookups from triggering. If the number of dots before
+	# the first search domain is less than this number, then the search path will
+	# not executed on the server side.
+	#
 	# Enabling autopath causes coredns to use more memory since it needs to
 	# maintain a watch on all pods. If autopath and "pods verified" mode are
 	# both enabled, they will use share the same watch. I.e. enabling both options
 	# should have an equivalent memory impact of just one.
-	autopath foo.example.com.
+	autopath ndots:1 foo.example.com.
 
 	# fallthrough
 	#
