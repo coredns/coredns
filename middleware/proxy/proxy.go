@@ -61,6 +61,7 @@ type UpstreamHost struct {
 	FailTimeout       time.Duration
 	OkUntil           time.Time
 	CheckDown         UpstreamHostDownFunc
+	CheckUrl          string
 	WithoutPathPrefix string
 	Checking          bool
 	checkMu           sync.Mutex

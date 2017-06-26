@@ -272,7 +272,7 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 // otherwise checks will back up, potentially a lot of them if a host is
 // absent for a long time.  This arrangement makes checks quickly see if
 // they are the only one running and abort otherwise.
-func healthCheckUrl(url string, nextTs time.Time, host *UpstreamHost) {
+func healthCheckUrl(nextTs time.Time, host *UpstreamHost) {
 
 	// lock for our bool check.  We don't just defer the unlock because
 	// we don't want the lock held while http.Get runs
@@ -293,7 +293,7 @@ func healthCheckUrl(url string, nextTs time.Time, host *UpstreamHost) {
 	// when the remote host is not merely not serving, but actually
 	// absent, then tcp syn timeouts can be very long, and so one
 	// fetch could last several check intervals
-	if r, err := http.Get(url); err == nil {
+	if r, err := http.Get(host.CheckUrl); err == nil {
 		io.Copy(ioutil.Discard, r.Body)
 		r.Body.Close()
 
@@ -315,33 +315,36 @@ func healthCheckUrl(url string, nextTs time.Time, host *UpstreamHost) {
 
 func (u *staticUpstream) healthCheck() {
 	for _, host := range u.Hosts {
-		var hostName, checkPort string
 
-		// The DNS server might be an HTTP server.  If so, extract its name.
-		ret, err := url.Parse(host.Name)
-		if err == nil && len(ret.Host) > 0 {
-			hostName = ret.Host
-		} else {
-			hostName = host.Name
+		if host.CheckUrl == "" {
+			var hostName, checkPort string
+
+			// The DNS server might be an HTTP server.  If so, extract its name.
+			ret, err := url.Parse(host.Name)
+			if err == nil && len(ret.Host) > 0 {
+				hostName = ret.Host
+			} else {
+				hostName = host.Name
+			}
+
+			// Extract the port number from the parsed server name.
+			checkHostName, checkPort, err := net.SplitHostPort(hostName)
+			if err != nil {
+				checkHostName = hostName
+			}
+
+			if u.HealthCheck.Port != "" {
+				checkPort = u.HealthCheck.Port
+			}
+
+			host.CheckUrl = "http://" + net.JoinHostPort(checkHostName, checkPort) + u.HealthCheck.Path
 		}
-
-		// Extract the port number from the parsed server name.
-		checkHostName, checkPort, err := net.SplitHostPort(hostName)
-		if err != nil {
-			checkHostName = hostName
-		}
-
-		if u.HealthCheck.Port != "" {
-			checkPort = u.HealthCheck.Port
-		}
-
-		hostURL := "http://" + net.JoinHostPort(checkHostName, checkPort) + u.HealthCheck.Path
 
 		// calculate this before the get
 		nextTs := time.Now().Add(u.Future)
 
 		// locks/bools should prevent requests backing up
-		go healthCheckUrl(hostURL, nextTs, host)
+		go healthCheckUrl(nextTs, host)
 	}
 }
 
