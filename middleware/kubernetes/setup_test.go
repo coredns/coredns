@@ -618,7 +618,7 @@ func TestKubernetesParse(t *testing.T) {
 		{
 			"valid autopath",
 			`kubernetes coredns.local {
-	autopath ndots:0 resolv:` + autoPathResolvConfFile + `
+	autopath 1 NXDOMAIN ` + autoPathResolvConfFile + `
 }`,
 			false,
 			"",
@@ -633,68 +633,19 @@ func TestKubernetesParse(t *testing.T) {
 			nil,
 			AutoPath{
 				Enabled:        true,
-				NDots:          0,
+				NDots:          1,
 				HostSearchPath: []string{"bar.com.", "baz.com."},
 				ResolvConfFile: autoPathResolvConfFile,
-				OnNXDOMAIN:     defaultOnNXDOMAIN,
+				OnNXDOMAIN:     dns.RcodeNameError,
 			},
 		},
 		{
-			"valid autopath",
+			"invalid autopath RESPONSE",
 			`kubernetes coredns.local {
-	autopath resolv:` + autoPathResolvConfFile + ` onnxdomain:NOERROR
-}`,
-			false,
-			"",
-			1,
-			0,
-			defaultResyncPeriod,
-			"",
-			defaultPodMode,
-			nil,
-			false,
-			nil,
-			nil,
-			AutoPath{
-				Enabled:        true,
-				NDots:          defautNdots,
-				HostSearchPath: []string{"bar.com.", "baz.com."},
-				ResolvConfFile: autoPathResolvConfFile,
-				OnNXDOMAIN:     dns.RcodeSuccess,
-			},
-		},
-		{
-			"valid autopath",
-			`kubernetes coredns.local {
-	autopath resolv:` + autoPathResolvConfFile + ` onnxdomain:SERVFAIL
-}`,
-			false,
-			"",
-			1,
-			0,
-			defaultResyncPeriod,
-			"",
-			defaultPodMode,
-			nil,
-			false,
-			nil,
-			nil,
-			AutoPath{
-				Enabled:        true,
-				NDots:          defautNdots,
-				HostSearchPath: []string{"bar.com.", "baz.com."},
-				ResolvConfFile: autoPathResolvConfFile,
-				OnNXDOMAIN:     dns.RcodeServerFailure,
-			},
-		},
-
-		{
-			"invalid autopath onnxdomain option",
-			`kubernetes coredns.local {
-	autopath onnxdomain:CRY
+	autopath 0 CRY
 }`,
 			true,
-			"invalid onnxdomain: option for autopath",
+			"invalid RESPONSE argument for autopath",
 			-1,
 			0,
 			defaultResyncPeriod,
@@ -707,12 +658,12 @@ func TestKubernetesParse(t *testing.T) {
 			AutoPath{},
 		},
 		{
-			"invalid autopath ndots option",
+			"invalid autopath NDOTS",
 			`kubernetes coredns.local {
-	autopath ndots:polka
+	autopath polka
 }`,
 			true,
-			"invalid ndots: option for autopath",
+			"invalid NDOTS argument for autopath",
 			-1,
 			0,
 			defaultResyncPeriod,
@@ -725,9 +676,9 @@ func TestKubernetesParse(t *testing.T) {
 			AutoPath{},
 		},
 		{
-			"invalid autopath resolv option",
+			"invalid autopath RESOLV-CONF",
 			`kubernetes coredns.local {
-	autopath resolv:/wrong/path/to/resolv.conf
+	autopath 1 NOERROR /wrong/path/to/resolv.conf
 }`,
 			true,
 			"error when parsing",
@@ -745,10 +696,10 @@ func TestKubernetesParse(t *testing.T) {
 		{
 			"invalid autopath invalid option",
 			`kubernetes coredns.local {
-	autopath npolkas:dots
+	autopath 1 SERVFAIL ` + autoPathResolvConfFile + ` foo
 }`,
 			true,
-			"invalid option",
+			"incorrect number of arguments",
 			-1,
 			0,
 			defaultResyncPeriod,

@@ -50,12 +50,12 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			if !ok {
 				break
 			}
-			if strings.Count(name, ".") < k.AutoPath.NDots {
+			if (dns.CountLabel(name) - 1) < k.AutoPath.NDots {
 				break
 			}
 			// Search "svc.cluster.local" and "cluster.local"
 			for i := 0; i < 2; i++ {
-				path = strings.Join(strings.Split(path, ".")[1:], ".")
+				path = strings.Join(dns.SplitDomainName(path)[1:], ".")
 				state = state.NewWithQuestion(strings.Join([]string{name, path}, "."), state.QType())
 				records, extra, _, err = k.routeRequest(zone, state)
 				if !k.IsNameError(err) {

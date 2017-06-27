@@ -197,39 +197,31 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 						ResolvConfFile: defaultResolvConfFile,
 						OnNXDOMAIN:     defaultOnNXDOMAIN,
 					}
+					if len(args) > 3 {
+						return nil, fmt.Errorf("incorrect number of arguments for autopath, got %v, expected at most 3", len(args))
 
-					var opt string
-					for _, arg := range args {
-						opt = "ndots:"
-						if strings.HasPrefix(arg, opt) {
-							ndots, err := strconv.Atoi(arg[len(opt):])
-							if err != nil {
-								return nil, fmt.Errorf("invalid %v option for autopath, got '%v', expected an integer", opt, ndots)
-							}
-							k8s.AutoPath.NDots = ndots
-							continue
+					}
+					if len(args) > 0 {
+						ndots, err := strconv.Atoi(args[0])
+						if err != nil {
+							return nil, fmt.Errorf("invalid NDOTS argument for autopath, got '%v', expected an integer", ndots)
 						}
-						opt = "resolv:"
-						if strings.HasPrefix(arg, opt) {
-							k8s.AutoPath.ResolvConfFile = arg[len(opt):]
-							continue
+						k8s.AutoPath.NDots = ndots
+					}
+					if len(args) > 1 {
+						switch args[1] {
+						case dns.RcodeToString[dns.RcodeNameError]:
+							k8s.AutoPath.OnNXDOMAIN = dns.RcodeNameError
+						case dns.RcodeToString[dns.RcodeSuccess]:
+							k8s.AutoPath.OnNXDOMAIN = dns.RcodeSuccess
+						case dns.RcodeToString[dns.RcodeServerFailure]:
+							k8s.AutoPath.OnNXDOMAIN = dns.RcodeServerFailure
+						default:
+							return nil, fmt.Errorf("invalid RESPONSE argument for autopath, got '%v', expected SERVFAIL, NOERROR, or NXDOMAIN", args[1])
 						}
-						opt = "onnxdomain:"
-						if strings.HasPrefix(arg, opt) {
-							switch arg[len(opt):] {
-							case dns.RcodeToString[dns.RcodeNameError]:
-								k8s.AutoPath.OnNXDOMAIN = dns.RcodeNameError
-							case dns.RcodeToString[dns.RcodeSuccess]:
-								k8s.AutoPath.OnNXDOMAIN = dns.RcodeSuccess
-							case dns.RcodeToString[dns.RcodeServerFailure]:
-								k8s.AutoPath.OnNXDOMAIN = dns.RcodeServerFailure
-							default:
-								return nil, fmt.Errorf("invalid %v option for autopath, got '%v', expected SERVFAIL, NOERROR, or NXDOMAIN", opt, arg[len(opt):])
-							}
-							continue
-						}
-						return nil, fmt.Errorf("invalid option for autopath, '%v'", opt)
-
+					}
+					if len(args) > 2 {
+						k8s.AutoPath.ResolvConfFile = args[2]
 					}
 					rc, err := dns.ClientConfigFromFile(k8s.AutoPath.ResolvConfFile)
 					if err != nil {
@@ -250,7 +242,7 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 const (
 	defaultResyncPeriod   = 5 * time.Minute
 	defaultPodMode        = PodModeDisabled
-	defautNdots           = 1
+	defautNdots           = 0
 	defaultResolvConfFile = "/etc/resolv.conf"
-	defaultOnNXDOMAIN     = dns.RcodeNameError
+	defaultOnNXDOMAIN     = dns.RcodeServerFailure
 )
