@@ -43,14 +43,14 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 
 	records, extra, _, err := k.routeRequest(zone, state)
 
-	if k.AutoPath && k.IsNameError(err) {
+	if k.AutoPath.Enabled && k.IsNameError(err) {
 		p := k.findPodWithIP(state.IP())
 		for p != nil {
 			name, path, ok := splitSearch(zone, state.QName(), p.Namespace)
 			if !ok {
 				break
 			}
-			if strings.Count(name, ".") < k.AutoPathNdots {
+			if strings.Count(name, ".") < k.AutoPath.NDots {
 				break
 			}
 			// Search "svc.cluster.local" and "cluster.local"
@@ -67,7 +67,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			}
 			// Fallthrough with the host search path (if set)
 			wr := rewrite.NewResponseReverter(w, r)
-			for _, hostsearch := range k.HostSearchPath {
+			for _, hostsearch := range k.AutoPath.HostSearchPath {
 				r = state.NewWithQuestion(strings.Join([]string{name, hostsearch}, "."), state.QType()).Req
 				rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
 				if rcode == dns.RcodeSuccess {
@@ -82,7 +82,11 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			}
 			// Search . in the next middleware
 			r = state.Req
-			return middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
+			rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
+			if rcode == dns.RcodeNameError {
+				rcode = k.AutoPath.OnNXDOMAIN
+			}
+			return rcode, nextErr
 		}
 	}
 

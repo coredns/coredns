@@ -28,27 +28,33 @@ import (
 
 // Kubernetes implements a middleware that connects to a Kubernetes cluster.
 type Kubernetes struct {
-	Next           middleware.Handler
-	Zones          []string
-	primaryZone    int
-	Proxy          proxy.Proxy // Proxy for looking up names during the resolution process
-	APIEndpoint    string
-	APICertAuth    string
-	APIClientCert  string
-	APIClientKey   string
-	APIConn        dnsController
-	ResyncPeriod   time.Duration
-	Namespaces     []string
-	Federations    []Federation
-	LabelSelector  *unversionedapi.LabelSelector
-	Selector       *labels.Selector
-	PodMode        string
-	ReverseCidrs   []net.IPNet
-	Fallthrough    bool
-	AutoPath       bool
-	HostSearchPath []string
-	AutoPathNdots  int
+	Next          middleware.Handler
+	Zones         []string
+	primaryZone   int
+	Proxy         proxy.Proxy // Proxy for looking up names during the resolution process
+	APIEndpoint   string
+	APICertAuth   string
+	APIClientCert string
+	APIClientKey  string
+	APIConn       dnsController
+	ResyncPeriod  time.Duration
+	Namespaces    []string
+	Federations   []Federation
+	LabelSelector *unversionedapi.LabelSelector
+	Selector      *labels.Selector
+	PodMode       string
+	ReverseCidrs  []net.IPNet
+	Fallthrough   bool
+	AutoPath
 	interfaceAddrs interfaceAddrser
+}
+
+type AutoPath struct {
+	Enabled        bool
+	NDots          int
+	ResolvConfFile string
+	HostSearchPath []string
+	OnNXDOMAIN     int
 }
 
 const (
@@ -249,7 +255,7 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 	}
 
 	opts := dnsControlOpts{
-		initPodCache: (k.PodMode == PodModeVerified || k.AutoPath),
+		initPodCache: (k.PodMode == PodModeVerified || k.AutoPath.Enabled),
 	}
 	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, opts)
 
