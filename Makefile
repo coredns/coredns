@@ -34,7 +34,7 @@ coverage: check
 	set -e -x
 	echo "" > coverage.txt
 	for d in `go list ./... | grep -v vendor`; do \
-		go test $(TEST_VERBOSE)  -tags 'etcd k8s' -race -coverprofile=cover.out -covermode=atomic -bench=. $$d || exit 1; \
+		go test $(TEST_VERBOSE)  -tags 'k8s' -race -coverprofile=cover.out -covermode=atomic -bench=. $$d || exit 1; \
 		if [ -f cover.out ]; then \
 			cat cover.out >> coverage.txt; \
 			rm cover.out; \

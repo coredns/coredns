@@ -1,6 +1,6 @@
-// +build etcd
+// +build backend
 
-package btests
+package backend
 
 import (
 	"github.com/coredns/coredns/middleware/backend/msg"

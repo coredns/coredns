@@ -1,8 +1,8 @@
-// +build etcd
+// +build backend
 
 // tests mx and txt records
 
-package btests
+package backend
 
 import (
 	"fmt"
