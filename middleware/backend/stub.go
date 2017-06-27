@@ -17,7 +17,7 @@ import (
 func (e *Backend) UpdateStubZones() {
 	go func() {
 		for {
-			e.UpdateStubZonesRaw()
+			e.UpdateStubZones()
 			time.Sleep(15 * time.Second)
 		}
 	}()
@@ -27,7 +27,7 @@ func (e *Backend) UpdateStubZones() {
 // extract <zone> and add them as forwarders (ip:port-combos) for
 // the stub zones. Only numeric (i.e. IP address) hosts are used.
 // Only the first zone configured on e is used for the lookup.
-func (e *Backend) UpdateStubZonesRaw() {
+func (e *Backend) updateStubZones() {
 	zone := e.Zones[0]
 	services, err := e.ServiceBackend.Records(stubDomain+"."+zone, false)
 	if err != nil {

@@ -47,7 +47,7 @@ func TestStubLookup(t *testing.T) {
 		defer delete(t, etc, serv.Key)
 	}
 
-	etc.UpdateStubZonesRaw()
+	etc.updateStubZones()
 
 	for _, tc := range dnsTestCasesStub {
 		m := tc.Msg()
