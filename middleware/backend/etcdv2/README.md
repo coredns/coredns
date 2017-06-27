@@ -98,7 +98,7 @@ Next you'll need to populate the zone with reverse records, here we add a revers
 10.0.0.127 pointing to reverse.skydns.local.
 
 ~~~
-% curl -XPUT http://127.0.0.1:4001/v2/keys/skydns/arpa/in-addr/10/0/0/127 \
+% curl -XPUT http://127.0.0.1:2379/v2/keys/skydns/arpa/in-addr/10/0/0/127 \
     -d value='{"host":"reverse.skydns.local."}'
 ~~~
 
