@@ -6,10 +6,12 @@ import (
 	"github.com/coredns/coredns/middleware/proxy"
 )
 
-// StubServiceBackend is a ServiceBackend that also support stubs.
-type StubServiceBackend interface {
+// ServiceBackendRecords is a ServiceBackend that also returns all matching services
+type ServiceBackendRecords interface {
 	middleware.ServiceBackend
 
+	// Returns _all_ services that matches a certain name.
+	// Note: it does not implement a specific service.
 	Records(name string, exact bool) ([]msg.Service, error)
 }
 
@@ -20,5 +22,5 @@ type Backend struct {
 	ServiceName    string
 	Stubmap        *map[string]proxy.Proxy // list of proxies for stub resolving.
 	Debugging      bool                    // Do we allow debug queries.
-	ServiceBackend StubServiceBackend
+	ServiceBackend ServiceBackendRecords
 }
