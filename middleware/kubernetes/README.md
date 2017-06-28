@@ -131,7 +131,7 @@ kubernetes coredns.local {
 	#  search ns1.svc.cluster.local svc.cluster.local cluster.local foo.com
 	#
 	# If no domains in the path produce an answer, a lookup on the bare question
-	# attempted.	
+	# will be attempted.	
 	#
 	# A successful response will contain a question section with the original
 	# question, and an answer section containing the record for the question that
@@ -171,7 +171,7 @@ kubernetes coredns.local {
 	# maintain a watch on all pods. If autopath and "pods verified" mode are
 	# both enabled, they will share the same watch. I.e. enabling both options
 	# should have an equivalent memory impact of just one.
-	autopath ndots:1 foo.example.com.
+	autopath 0 SERVFAIL /etc/resolv.conf
 
 	# fallthrough
 	#
