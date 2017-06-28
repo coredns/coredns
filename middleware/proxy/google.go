@@ -243,7 +243,6 @@ func newUpstream(hosts []string, old *staticUpstream) Upstream {
 			WithoutPathPrefix: upstream.WithoutPathPrefix,
 		}
 
-		log.Printf("[DEBUG] Ggl: Host %s marked healthy until %s.\n", uh.Name, uh.OkUntil.Local())
 		upstream.Hosts[i] = uh
 	}
 	return upstream
