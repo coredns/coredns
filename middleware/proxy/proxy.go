@@ -80,7 +80,7 @@ func (uh *UpstreamHost) Down() bool {
 		until := uh.OkUntil
 		uh.checkMu.Unlock()
 
-		if time.Now().After(until) {
+		if !until.IsZero() && time.Now().After(until) {
 			after = true
 		}
 

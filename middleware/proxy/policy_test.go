@@ -29,16 +29,13 @@ func (r *customPolicy) Select(pool HostPool) *UpstreamHost {
 func testPool() HostPool {
 	pool := []*UpstreamHost{
 		{
-			Name:    workableServer.URL, // this should resolve (healthcheck test)
-			OkUntil: time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)),
+			Name: workableServer.URL, // this should resolve (healthcheck test)
 		},
 		{
-			Name:    "http://shouldnot.resolve", // this shouldn't
-			OkUntil: time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)),
+			Name: "http://shouldnot.resolve", // this shouldn't
 		},
 		{
-			Name:    "http://C",
-			OkUntil: time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)),
+			Name: "http://C",
 		},
 	}
 	return HostPool(pool)

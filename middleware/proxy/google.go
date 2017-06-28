@@ -219,7 +219,6 @@ func newUpstream(hosts []string, old *staticUpstream) Upstream {
 			Conns:       0,
 			Fails:       0,
 			FailTimeout: upstream.FailTimeout,
-			OkUntil:     time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)), // now + 100 years
 
 			CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
 				return func(uh *UpstreamHost) bool {
@@ -227,10 +226,12 @@ func newUpstream(hosts []string, old *staticUpstream) Upstream {
 					down := false
 
 					uh.checkMu.Lock()
-					if time.Now().After(uh.OkUntil) {
+					until := uh.OkUntil
+					uh.checkMu.Unlock()
+
+					if !until.IsZero() && time.Now().After(until) {
 						down = true
 					}
-					uh.checkMu.Unlock()
 
 					fails := atomic.LoadInt32(&uh.Fails)
 					if fails >= upstream.MaxFails && upstream.MaxFails != 0 {

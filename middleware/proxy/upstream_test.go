@@ -54,7 +54,7 @@ func TestSelect(t *testing.T) {
 	if h := upstream.Select(); h != nil {
 		t.Error("Expected select to return nil as all host are down")
 	}
-	upstream.Hosts[2].OkUntil = time.Now().Add(time.Duration(24 * 365 * 100 * time.Hour)) // now + 100 years
+	upstream.Hosts[2].OkUntil = time.Time{}
 	if h := upstream.Select(); h == nil {
 		t.Error("Expected select to not return nil")
 	}
