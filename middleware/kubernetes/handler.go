@@ -6,7 +6,7 @@ import (
 
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
-	"github.com/coredns/coredns/middleware/rewrite"
+	//	"github.com/coredns/coredns/middleware/rewrite"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -23,7 +23,6 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
-
 	// Check that query matches one of the zones served by this middleware,
 	// otherwise delegate to the next in the pipeline.
 	zone := middleware.Zones(k.Zones).Matches(state.Name())
@@ -40,9 +39,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		// Set the zone to this specific request.
 		zone = state.Name()
 	}
-
 	records, extra, _, err := k.routeRequest(zone, state)
-
 	if k.AutoPath.Enabled && k.IsNameError(err) {
 		p := k.findPodWithIP(state.IP())
 		for p != nil {
@@ -53,38 +50,44 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			if (dns.CountLabel(name) - 1) < k.AutoPath.NDots {
 				break
 			}
-			// Search "svc.cluster.local" and "cluster.local"
+			origQName := state.QName()
+			// Search "svc.cluster.local." and "cluster.local."
 			for i := 0; i < 2; i++ {
 				path = strings.Join(dns.SplitDomainName(path)[1:], ".")
 				state = state.NewWithQuestion(strings.Join([]string{name, path}, "."), state.QType())
 				records, extra, _, err = k.routeRequest(zone, state)
 				if !k.IsNameError(err) {
+					records = append(records, NewCNAME(origQName, records[0].Header().Name, records[0].Header().Ttl))
 					break
 				}
 			}
 			if !k.IsNameError(err) {
 				break
 			}
-			// Fallthrough with the host search path (if set)
-			wr := rewrite.NewResponseReverter(w, r)
+			// Try host search path (if set) in the next middleware
+			apw := NewAutoPathWriter(w, r)
 			for _, hostsearch := range k.AutoPath.HostSearchPath {
-				r = state.NewWithQuestion(strings.Join([]string{name, hostsearch}, "."), state.QType()).Req
-				rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
+				//r = state.NewWithQuestion(strings.Join([]string{name, hostsearch}, "."), state.QType()).Req
+				r.SetQuestion(strings.Join([]string{name, hostsearch}, "."), state.QType())
+				rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, apw, r)
 				if rcode == dns.RcodeSuccess {
 					return rcode, nextErr
 				}
 			}
 			// Search . in this middleware
-			state = state.NewWithQuestion(strings.Join([]string{name, "."}, ""), state.QType())
+			state := state.NewWithQuestion(strings.Join([]string{name, "."}, ""), state.QType())
 			records, extra, _, err = k.routeRequest(zone, state)
 			if !k.IsNameError(err) {
+				records = append(records, NewCNAME(origQName, records[0].Header().Name, records[0].Header().Ttl))
 				break
 			}
+
 			// Search . in the next middleware
-			r = state.Req
-			rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, wr, r)
+			apw.Rcode = k.AutoPath.OnNXDOMAIN
+			r = state.NewWithQuestion(strings.Join([]string{name, "."}, ""), state.QType()).Req
+			rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, apw, r)
 			if rcode == dns.RcodeNameError {
-				rcode = k.AutoPath.OnNXDOMAIN
+				apw.ForceWriteMsg(r)
 			}
 			return rcode, nextErr
 		}
@@ -113,6 +116,10 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	m, _ = state.Scrub(m)
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
+}
+
+func NewCNAME(name string, target string, ttl uint32) *dns.CNAME {
+	return &dns.CNAME{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: ttl}, Target: dns.Fqdn(target)}
 }
 
 func (k *Kubernetes) routeRequest(zone string, state request.Request) (records []dns.RR, extra []dns.RR, debug []dns.RR, err error) {
