@@ -30,6 +30,26 @@ func TestNewTLSConfig(t *testing.T) {
 	}
 }
 
+func TestNewHTTPSTransport(t *testing.T) {
+	rmFunc, _, _, ca := getPEMFiles(t)
+	defer rmFunc()
+
+	cc, err := NewTLSClientConfig(ca)
+	if err != nil {
+		t.Errorf("Failed to create TLSConfig: %s", err)
+	}
+
+	tr := NewHTTPSTransport(cc)
+	if tr == nil {
+		t.Errorf("Failed to create https transport with cc")
+	}
+
+	tr = NewHTTPSTransport(nil)
+	if tr == nil {
+		t.Errorf("Failed to create https transport without cc")
+	}
+}
+
 func TestNewTLSClientConfig(t *testing.T) {
 	rmFunc, _, _, ca := getPEMFiles(t)
 	defer rmFunc()

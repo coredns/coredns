@@ -1,13 +1,13 @@
-// +build etcd
+// +build backend
 
-package etcd
+package backend
 
 // etcd needs to be running on http://localhost:2379
 
 import (
 	"testing"
 
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/dnsrecorder"
 	"github.com/coredns/coredns/middleware/test"
 

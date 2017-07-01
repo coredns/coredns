@@ -3,7 +3,7 @@ package kubernetes
 import "testing"
 import "net"
 
-import "github.com/coredns/coredns/middleware/etcd/msg"
+import "github.com/coredns/coredns/middleware/backend/msg"
 import "k8s.io/client-go/1.5/pkg/api"
 import "github.com/miekg/dns"
 
