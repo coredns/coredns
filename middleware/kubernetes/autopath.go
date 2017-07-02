@@ -4,7 +4,7 @@ import "github.com/miekg/dns"
 
 // AutoPathWriter implements a ResponseWriter that also does the following:
 // * reverts question section of a packet to its original state.
-//   This is done to avoid fatal 'Question section mismatch:' errors in client.
+//   This is done to avoid the 'Question section mismatch:' error in client.
 // * Defers write to the client if the response code is NXDOMAIN.  This is needed
 //   to enable further search path probing if a search was not sucessful.
 // * Allow forced write to client regardless of response code.  This is needed to
@@ -19,6 +19,7 @@ type AutoPathWriter struct {
 	dns.ResponseWriter
 	original dns.Question
 	Rcode    int
+	Sent     bool
 }
 
 // NewAutoPathWriter returns a pointer to a new AutoPathWriter
@@ -38,22 +39,23 @@ func (r *AutoPathWriter) WriteMsg(res *dns.Msg) error {
 		res.Rcode = r.Rcode
 	}
 	for _, a := range res.Answer {
-		continue
 		if r.original.Name == a.Header().Name {
 			continue
 		}
-		res.Answer = append(res.Answer, &dns.CNAME{
+		cname := dns.CNAME{
 			Hdr: dns.RR_Header{
 				Name:   r.original.Name,
 				Rrtype: dns.TypeCNAME,
 				Class:  dns.ClassINET,
 				Ttl:    a.Header().Ttl},
-			Target: dns.Fqdn(a.Header().Name)})
+			Target: dns.Fqdn(a.Header().Name)}
+		res.Answer = append(res.Answer, &cname)
 	}
 	res.Question[0] = r.original
 	if res.Rcode != dns.RcodeSuccess {
 		return nil
 	}
+	r.Sent = true
 	return r.ResponseWriter.WriteMsg(res)
 
 }

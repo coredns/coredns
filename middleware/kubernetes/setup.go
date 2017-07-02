@@ -244,5 +244,5 @@ const (
 	defaultPodMode        = PodModeDisabled
 	defautNdots           = 0
 	defaultResolvConfFile = "/etc/resolv.conf"
-	defaultOnNXDOMAIN     = dns.RcodeServerFailure
+	defaultOnNXDOMAIN     = dns.RcodeSuccess
 )

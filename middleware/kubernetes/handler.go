@@ -6,7 +6,6 @@ import (
 
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
-	//	"github.com/coredns/coredns/middleware/rewrite"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -40,7 +39,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		zone = state.Name()
 	}
 	records, extra, _, err := k.routeRequest(zone, state)
-	if k.AutoPath.Enabled && k.IsNameError(err) {
+	if k.AutoPath.Enabled && k.IsNameError(err) && (state.QType() == dns.TypeA || state.QType() == dns.TypeAAAA) {
 		p := k.findPodWithIP(state.IP())
 		for p != nil {
 			name, path, ok := splitSearch(zone, state.QName(), p.Namespace)
@@ -67,10 +66,10 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			// Try host search path (if set) in the next middleware
 			apw := NewAutoPathWriter(w, r)
 			for _, hostsearch := range k.AutoPath.HostSearchPath {
-				//r = state.NewWithQuestion(strings.Join([]string{name, hostsearch}, "."), state.QType()).Req
-				r.SetQuestion(strings.Join([]string{name, hostsearch}, "."), state.QType())
+				state = state.NewWithQuestion(strings.Join([]string{name, hostsearch}, "."), state.QType())
+				r = state.Req
 				rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, apw, r)
-				if rcode == dns.RcodeSuccess {
+				if apw.Sent {
 					return rcode, nextErr
 				}
 			}
@@ -81,12 +80,14 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 				records = append(records, NewCNAME(origQName, records[0].Header().Name, records[0].Header().Ttl))
 				break
 			}
-
 			// Search . in the next middleware
 			apw.Rcode = k.AutoPath.OnNXDOMAIN
-			r = state.NewWithQuestion(strings.Join([]string{name, "."}, ""), state.QType()).Req
-			rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, apw, r)
-			if rcode == dns.RcodeNameError {
+			state = state.NewWithQuestion(strings.Join([]string{name, "."}, ""), state.QType())
+			rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, apw, state.Req)
+			if !apw.Sent {
+				r = dnsutil.Dedup(r)
+				state.SizeAndDo(r)
+				r, _ = state.Scrub(r)
 				apw.ForceWriteMsg(r)
 			}
 			return rcode, nextErr
