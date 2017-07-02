@@ -4,7 +4,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 )
 
 // Federation holds TODO(...).

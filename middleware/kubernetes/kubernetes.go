@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/middleware"
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
 	dnsstrings "github.com/coredns/coredns/middleware/pkg/strings"
 	"github.com/coredns/coredns/middleware/proxy"

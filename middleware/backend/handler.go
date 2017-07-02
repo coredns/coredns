@@ -4,7 +4,7 @@ import (
 	"errors"
 
 	"github.com/coredns/coredns/middleware"
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/debug"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
 	"github.com/coredns/coredns/request"

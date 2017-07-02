@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/middleware"
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/cache"
 	"github.com/coredns/coredns/middleware/pkg/singleflight"
 	"github.com/coredns/coredns/middleware/proxy"

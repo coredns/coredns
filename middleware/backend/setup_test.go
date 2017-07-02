@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coredns/coredns/middleware/etcd/msg"
+	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/dnsrecorder"
 	"github.com/coredns/coredns/middleware/pkg/singleflight"
 	"github.com/coredns/coredns/middleware/pkg/tls"
