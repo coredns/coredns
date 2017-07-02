@@ -461,7 +461,7 @@ func ipFromPodName(podname string) string {
 }
 
 func (k *Kubernetes) findPodWithIP(ip string) (p *api.Pod) {
-	if k.APICertAuth != PodModeVerified && !k.AutoPath.Enabled {
+	if !k.AutoPath.Enabled {
 		return nil
 	}
 	objList := k.APIConn.PodIndex(ip)
