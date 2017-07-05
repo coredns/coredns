@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/middleware/test"
 
 	"github.com/mholt/caddy"
@@ -789,7 +790,7 @@ func TestKubernetesParse(t *testing.T) {
 			t.Errorf("Test %d: Expected kubernetes controller to be initialized with fallthrough '%v'. Instead found fallthrough '%v' for input '%s'", i, test.expectedFallthrough, foundFallthrough, test.input)
 		}
 		// upstream
-		foundUpstreams := k8sController.Proxy.Upstreams
+		foundUpstreams := k8sController.Proxy.(proxy.Proxy).Upstreams
 		if test.expectedUpstreams == nil {
 			if foundUpstreams != nil {
 				t.Errorf("Test %d: Expected kubernetes controller to not be initialized with upstreams for input '%s'", i, test.input)

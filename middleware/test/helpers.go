@@ -279,6 +279,23 @@ func NextHandler(rcode int, err error) Handler {
 	})
 }
 
+// MockHandler returns a Handler that returns an answer for the quesion in the
+// request per the question->answer map qMap.
+func MockHandler(qMap map[dns.Question]dns.Msg) Handler {
+	return HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		msg, ok := qMap[r.Question[0]]
+		if !ok {
+			return dns.RcodeNameError, nil
+		}
+		m.Answer = append(m.Answer, msg.Answer...)
+		m.Extra = append(m.Extra, msg.Extra...)
+		w.WriteMsg(m)
+		return dns.RcodeSuccess, nil
+	})
+}
+
 // Copied here to prevent an import cycle, so that we can define to above handlers.
 
 type (
