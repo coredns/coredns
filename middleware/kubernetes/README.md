@@ -156,7 +156,7 @@ specified).
 
   If no domains in the path produce an answer, a lookup on the bare question will be attempted.	
 
-  A successful response will contain a question section with the original question, and an answer section containing the record for the question that actually had an answer.  This means that the question and answer will not match. For example:
+  A successful response will contain a question section with the original question, and an answer section containing the record for the question that actually had an answer.  This means that the question and answer will not match. To avoid potential client confusion, a dynamically generated CNAME entry is added to join the two. For example:
 
   ```
     # host -v -t a google.com
@@ -168,6 +168,7 @@ specified).
     ;google.com.default.svc.cluster.local. IN A
 
     ;; ANSWER SECTION:
+    google.com.default.svc.cluster.local. 211 IN CNAME google.com.
     google.com.		175	IN	A	216.58.194.206
   ```
 
