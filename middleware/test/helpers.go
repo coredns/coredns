@@ -287,8 +287,10 @@ func MockHandler(qMap map[dns.Question]dns.Msg) Handler {
 		m.SetReply(r)
 		msg, ok := qMap[r.Question[0]]
 		if !ok {
+			r.Rcode = dns.RcodeNameError
 			return dns.RcodeNameError, nil
 		}
+		r.Rcode = dns.RcodeSuccess
 		m.Answer = append(m.Answer, msg.Answer...)
 		m.Extra = append(m.Extra, msg.Extra...)
 		w.WriteMsg(m)

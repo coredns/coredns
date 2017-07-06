@@ -13,15 +13,17 @@ import (
 	"k8s.io/client-go/1.5/pkg/api"
 )
 
-var dnsTestCases = map[string](test.Case){
+var dnsTestCases = map[string](*test.Case){
 	"A Service": {
 		Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.A("svc1.testns.svc.cluster.local.	0	IN	A	10.0.0.1"),
 		},
 	},
 	"A Service (Headless)": {
 		Qname: "hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.A("hdls1.testns.svc.cluster.local.	0	IN	A	172.0.0.2"),
 			test.A("hdls1.testns.svc.cluster.local.	0	IN	A	172.0.0.3"),
@@ -29,6 +31,7 @@ var dnsTestCases = map[string](test.Case){
 	},
 	"SRV Service": {
 		Qname: "_http._tcp.svc1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("_http._tcp.svc1.testns.svc.cluster.local.	0	IN	SRV	0 100 80 svc1.testns.svc.cluster.local."),
 		},
@@ -38,6 +41,7 @@ var dnsTestCases = map[string](test.Case){
 	},
 	"SRV Service (Headless)": {
 		Qname: "_http._tcp.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	0	IN	SRV	0 50 80 172-0-0-2.hdls1.testns.svc.cluster.local."),
 			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	0	IN	SRV	0 50 80 172-0-0-3.hdls1.testns.svc.cluster.local."),
@@ -50,18 +54,21 @@ var dnsTestCases = map[string](test.Case){
 	// TODO A External
 	"CNAME External": {
 		Qname: "external.testns.svc.cluster.local.", Qtype: dns.TypeCNAME,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.CNAME("external.testns.svc.cluster.local.	0	IN	CNAME	ext.interwebs.test."),
 		},
 	},
 	"A Service (Local Federated)": {
 		Qname: "svc1.testns.fed.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.A("svc1.testns.fed.svc.cluster.local.	0	IN	A	10.0.0.1"),
 		},
 	},
 	"PTR Service": {
 		Qname: "1.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.PTR("1.0.0.10.in-addr.arpa.	0	IN	PTR	svc1.testns.svc.cluster.local."),
 		},
@@ -69,12 +76,17 @@ var dnsTestCases = map[string](test.Case){
 	// TODO A Service (Remote Federated)
 	"CNAME Service (Remote Federated)": {
 		Qname: "svc0.testns.fed.svc.cluster.local.", Qtype: dns.TypeCNAME,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.CNAME("svc0.testns.fed.svc.cluster.local.	0	IN	CNAME	svc0.testns.fed.svc.fd-az.fd-r.federal.test."),
 		},
 	},
+}
+
+var autopathCases = map[string](*test.Case){
 	"A Autopath Service (Second Search)": {
 		Qname: "svc1.testns.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.CNAME("svc1.testns.podns.svc.cluster.local.	0	IN	CNAME	svc1.testns.svc.cluster.local."),
 			test.A("svc1.testns.svc.cluster.local.	0	IN	A	10.0.0.1"),
@@ -82,6 +94,7 @@ var dnsTestCases = map[string](test.Case){
 	},
 	"A Autopath Service (Third Search)": {
 		Qname: "svc1.testns.svc.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.CNAME("svc1.testns.svc.podns.svc.cluster.local.	0	IN	CNAME	svc1.testns.svc.cluster.local."),
 			test.A("svc1.testns.svc.cluster.local.	0	IN	A	10.0.0.1"),
@@ -89,6 +102,7 @@ var dnsTestCases = map[string](test.Case){
 	},
 	"A Autopath Next Middleware (Host Domain Search)": {
 		Qname: "test1.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.CNAME("test1.podns.svc.cluster.local.	0	IN	CNAME	test1.hostdom.test."),
 			test.A("test1.hostdom.test.	0	IN	A	11.22.33.44"),
@@ -96,6 +110,7 @@ var dnsTestCases = map[string](test.Case){
 	},
 	"A Autopath Service (Bare Search)": {
 		Qname: "svc1.testns.svc.cluster.local.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.CNAME("svc1.testns.svc.cluster.local.podns.svc.cluster.local.	0	IN	CNAME	svc1.testns.svc.cluster.local."),
 			test.A("svc1.testns.svc.cluster.local.	0	IN	A	10.0.0.1"),
@@ -103,13 +118,24 @@ var dnsTestCases = map[string](test.Case){
 	},
 	"A Autopath Next Middleware (Bare Search)": {
 		Qname: "test2.interwebs.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.CNAME("test2.interwebs.podns.svc.cluster.local.	0	IN	CNAME	test2.interwebs."),
 			test.A("test2.interwebs.	0	IN	A	55.66.77.88"),
 		},
 	},
-	"A Autopath Next Middleware (Bare Search) Non-existing": {
+}
+var autopathBareSearch = map[string](*test.Case){
+	"A Autopath Next Middleware (Bare Search) Non-existing OnNXDOMAIN default": {
 		Qname: "nothere.interwebs.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	},
+}
+var autopathBareSearchExpectNameErr = map[string](*test.Case){
+	"A Autopath Next Middleware (Bare Search) Non-existing OnNXDOMAIN disabled": {
+		Qname: "nothere.interwebs.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode:  dns.RcodeNameError,
 		Answer: []dns.RR{},
 	},
 }
@@ -128,10 +154,20 @@ func TestServeDNS(t *testing.T) {
 	k.Next = test.MockHandler(nextMWMap)
 
 	ctx := context.TODO()
+	runServeDNSTests(t, dnsTestCases, k, ctx)
+	runServeDNSTests(t, autopathCases, k, ctx)
+	runServeDNSTests(t, autopathBareSearch, k, ctx)
 
+	// Disable the NXDOMAIN override (enabled by default)
+	k.OnNXDOMAIN = dns.RcodeNameError
+	runServeDNSTests(t, autopathCases, k, ctx)
+	runServeDNSTests(t, autopathBareSearchExpectNameErr, k, ctx)
+
+}
+
+func runServeDNSTests(t *testing.T, dnsTestCases map[string](*test.Case), k Kubernetes, ctx context.Context) {
 	for testname, tc := range dnsTestCases {
 		testname = "\nTest Case \"" + testname + "\""
-
 		r := tc.Msg()
 
 		w := dnsrecorder.New(&test.ResponseWriter{})
@@ -150,17 +186,17 @@ func TestServeDNS(t *testing.T) {
 		sort.Sort(test.RRSet(tc.Ns))
 		sort.Sort(test.RRSet(tc.Extra))
 
-		if !test.Header(t, tc, resp) {
+		if !test.Header(t, *tc, resp) {
 			t.Logf("%v Received:\n %v\n", testname, resp)
 			continue
 		}
-		if !test.Section(t, tc, test.Answer, resp.Answer) {
+		if !test.Section(t, *tc, test.Answer, resp.Answer) {
 			t.Logf("%v Received:\n %v\n", testname, resp)
 		}
-		if !test.Section(t, tc, test.Ns, resp.Ns) {
+		if !test.Section(t, *tc, test.Ns, resp.Ns) {
 			t.Logf("%v Received:\n %v\n", testname, resp)
 		}
-		if !test.Section(t, tc, test.Extra, resp.Extra) {
+		if !test.Section(t, *tc, test.Extra, resp.Extra) {
 			t.Logf("%v Received:\n %v\n", testname, resp)
 		}
 	}
@@ -169,24 +205,16 @@ func TestServeDNS(t *testing.T) {
 // Test data & mocks
 
 var nextMWMap = map[dns.Question]dns.Msg{
-	dns.Question{
+	{
 		Name: "test1.hostdom.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET,
-	}: dns.Msg{
+	}: {
 		Answer: []dns.RR{test.A("test1.hostdom.test.	0	IN	A	11.22.33.44")},
 	},
-	dns.Question{
+	{
 		Name: "test2.interwebs.", Qtype: dns.TypeA, Qclass: dns.ClassINET,
-	}: dns.Msg{
+	}: {
 		Answer: []dns.RR{test.A("test2.interwebs.	0	IN	A	55.66.77.88")},
 	}}
-
-const testUp = `; interwebs.test. test file for cname/upstream tests
-interwebs.test.          IN      SOA     ns.interwebs.test. admin.interwebs.test. 2015082541 7200 3600 1209600 3600
-svc0.testns.fed.svc.fd-az.fd-r.interwebs.test. IN CNAME svc0.testns.fed.svc.fd-r.interwebs.test.
-svc0.testns.fed.svc.fd-r.interwebs.test. IN CNAME svc0.testns.fed.svc.interwebs.test.
-svc0.testns.fed.svc.interwebs.test. IN A 13.14.15.16
-ext.interwebs.test.	IN	A	13.14.15.16
-`
 
 type APIConnServeTest struct{}
 

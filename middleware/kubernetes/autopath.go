@@ -27,53 +27,56 @@ func NewAutoPathWriter(w dns.ResponseWriter, r *dns.Msg) *AutoPathWriter {
 	return &AutoPathWriter{
 		ResponseWriter: w,
 		original:       r.Question[0],
-		Rcode:          dns.RcodeNameError,
+		Rcode:          dns.RcodeSuccess,
 	}
 }
 
-// WriteMsg records the status code and calls the
+func (apw *AutoPathWriter) WriteMsg(res *dns.Msg) error {
+	return apw.OverrideMsg(res, false)
+}
+
+// Force the write to client regardless of response code
+func (apw *AutoPathWriter) ForceWriteMsg(res *dns.Msg) error {
+	return apw.OverrideMsg(res, true)
+}
+
+// OverrideMsg records the status code and calls the
 // underlying ResponseWriter's WriteMsg method unless
-// the write is deferred.
-func (r *AutoPathWriter) WriteMsg(res *dns.Msg) error {
+// the write is deferred, or force = true.
+func (apw *AutoPathWriter) OverrideMsg(res *dns.Msg, force bool) error {
 	if res.Rcode == dns.RcodeNameError {
-		res.Rcode = r.Rcode
+		res.Rcode = apw.Rcode
 	}
 	for _, a := range res.Answer {
-		if r.original.Name == a.Header().Name {
+		if apw.original.Name == a.Header().Name {
 			continue
 		}
 		cname := dns.CNAME{
 			Hdr: dns.RR_Header{
-				Name:   r.original.Name,
+				Name:   apw.original.Name,
 				Rrtype: dns.TypeCNAME,
 				Class:  dns.ClassINET,
 				Ttl:    a.Header().Ttl},
 			Target: dns.Fqdn(a.Header().Name)}
 		res.Answer = append(res.Answer, &cname)
 	}
-	res.Question[0] = r.original
-	if res.Rcode != dns.RcodeSuccess {
+	res.Question[0] = apw.original
+	if res.Rcode != dns.RcodeSuccess && !force {
 		return nil
 	}
-	r.Sent = true
-	return r.ResponseWriter.WriteMsg(res)
-
-}
-
-// Force the write to client regardless of response code
-func (r *AutoPathWriter) ForceWriteMsg(res *dns.Msg) error {
-	return r.ResponseWriter.WriteMsg(res)
+	apw.Sent = true
+	return apw.ResponseWriter.WriteMsg(res)
 }
 
 // Write is a wrapper that records the size of the message that gets written.
-func (r *AutoPathWriter) Write(buf []byte) (int, error) {
-	n, err := r.ResponseWriter.Write(buf)
+func (apw *AutoPathWriter) Write(buf []byte) (int, error) {
+	n, err := apw.ResponseWriter.Write(buf)
 	return n, err
 }
 
 // Hijack implements dns.Hijacker. It simply wraps the underlying
 // ResponseWriter's Hijack method if there is one, or returns an error.
-func (r *AutoPathWriter) Hijack() {
-	r.ResponseWriter.Hijack()
+func (apw *AutoPathWriter) Hijack() {
+	apw.ResponseWriter.Hijack()
 	return
 }

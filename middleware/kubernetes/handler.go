@@ -84,7 +84,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			apw.Rcode = k.AutoPath.OnNXDOMAIN
 			state = state.NewWithQuestion(strings.Join([]string{name, "."}, ""), state.QType())
 			rcode, nextErr := middleware.NextOrFailure(k.Name(), k.Next, ctx, apw, state.Req)
-			if !apw.Sent {
+			if !apw.Sent && nextErr == nil {
 				r = dnsutil.Dedup(r)
 				state.SizeAndDo(r)
 				r, _ = state.Scrub(r)
