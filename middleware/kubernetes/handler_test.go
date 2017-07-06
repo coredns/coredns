@@ -124,6 +124,14 @@ var autopathCases = map[string](*test.Case){
 			test.A("test2.interwebs.	0	IN	A	55.66.77.88"),
 		},
 	},
+	"AAAA Autopath Next Middleware (Bare Search)": {
+		Qname: "test2.interwebs.podns.svc.cluster.local.", Qtype: dns.TypeAAAA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.CNAME("test2.interwebs.podns.svc.cluster.local.	0	IN	CNAME	test2.interwebs."),
+			test.AAAA("test2.interwebs.	0	IN	AAAA	5555:6666:7777::8888"),
+		},
+	},
 }
 var autopathBareSearch = map[string](*test.Case){
 	"A Autopath Next Middleware (Bare Search) Non-existing OnNXDOMAIN default": {
@@ -137,6 +145,32 @@ var autopathBareSearchExpectNameErr = map[string](*test.Case){
 		Qname: "nothere.interwebs.podns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode:  dns.RcodeNameError,
 		Answer: []dns.RR{},
+	},
+}
+var autopath2NDotsCases = map[string](*test.Case){
+	"A Service (0 Dots)": {
+		Qname: "foo.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode:  dns.RcodeNameError,
+		Answer: []dns.RR{},
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	300	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 60"),
+		},
+	},
+	"A Service (1 Dots)": {
+		Qname: "foo.foo.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode:  dns.RcodeNameError,
+		Answer: []dns.RR{},
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	300	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 60"),
+		},
+	},
+	"A Service (2 Dots)": {
+		Qname: "foo.foo.foo.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("foo.foo.foo.hostdom.test.	0	IN	A	11.22.33.44"),
+			test.CNAME("foo.foo.foo.podns.svc.cluster.local.	0	IN	CNAME	foo.foo.foo.hostdom.test."),
+		},
 	},
 }
 
@@ -157,6 +191,11 @@ func TestServeDNS(t *testing.T) {
 	runServeDNSTests(t, dnsTestCases, k, ctx)
 	runServeDNSTests(t, autopathCases, k, ctx)
 	runServeDNSTests(t, autopathBareSearch, k, ctx)
+
+	// Set ndots to 2 for the ndots test cases
+	k.AutoPath.NDots = 2
+	runServeDNSTests(t, autopath2NDotsCases, k, ctx)
+	k.AutoPath.NDots = defautNdots
 
 	// Disable the NXDOMAIN override (enabled by default)
 	k.OnNXDOMAIN = dns.RcodeNameError
@@ -205,16 +244,25 @@ func runServeDNSTests(t *testing.T, dnsTestCases map[string](*test.Case), k Kube
 // Test data & mocks
 
 var nextMWMap = map[dns.Question]dns.Msg{
-	{
-		Name: "test1.hostdom.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET,
-	}: {
+	{Name: "test1.hostdom.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET}: {
 		Answer: []dns.RR{test.A("test1.hostdom.test.	0	IN	A	11.22.33.44")},
 	},
-	{
-		Name: "test2.interwebs.", Qtype: dns.TypeA, Qclass: dns.ClassINET,
-	}: {
+	{Name: "test2.interwebs.", Qtype: dns.TypeA, Qclass: dns.ClassINET}: {
 		Answer: []dns.RR{test.A("test2.interwebs.	0	IN	A	55.66.77.88")},
-	}}
+	},
+	{Name: "test2.interwebs.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}: {
+		Answer: []dns.RR{test.AAAA("test2.interwebs.  0  IN  AAAA  5555:6666:7777::8888")},
+	},
+	{Name: "foo.hostdom.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET}: {
+		Answer: []dns.RR{test.A("foo.hostdom.test.	0	IN	A	11.22.33.44")},
+	},
+	{Name: "foo.foo.hostdom.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET}: {
+		Answer: []dns.RR{test.A("foo.foo.hostdom.test.	0	IN	A	11.22.33.44")},
+	},
+	{Name: "foo.foo.foo.hostdom.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET}: {
+		Answer: []dns.RR{test.A("foo.foo.foo.hostdom.test.	0	IN	A	11.22.33.44")},
+	},
+}
 
 type APIConnServeTest struct{}
 

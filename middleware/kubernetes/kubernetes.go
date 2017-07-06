@@ -119,6 +119,9 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 		return nil, nil, e
 	}
 	switch state.Type() {
+	case "AAAA":
+		// AAAA not implemented
+		return nil, nil, errNoItems
 	case "A", "CNAME":
 		if state.Type() == "A" && isDefaultNS(state.Name(), r) {
 			// If this is an A request for "ns.dns", respond with a "fake" record for coredns.
