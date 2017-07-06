@@ -185,7 +185,7 @@ specified).
  
   **NDOTS** (default: `0`) This provides an adjustable threshold to prevent server side lookups from triggering. If the number of dots before the first search domain is less than this number, then the search path will not executed on the server side.  When autopath is enabled with default settings, the search path is always conducted when the query is in the first search domain `<pod-namespace>.svc.<zone>.`.
 	
-  **RESPONSE** (default: `SERVFAIL`) This option causes the kubernetes middleware to return the given response instead of NXDOMAIN when the all searches in the path produce no results. Valid values: `NXDOMAIN`, `SERVFAIL` or `NOERROR`. Setting this to `SERVFAIL` or `NOERROR` should prevent the client from fruitlessly continuing the client side searches in the path after the server already checked them.
+  **RESPONSE** (default: `NOERROR`) This option causes the kubernetes middleware to return the given response instead of NXDOMAIN when the all searches in the path produce no results. Valid values: `NXDOMAIN`, `SERVFAIL` or `NOERROR`. Setting this to `SERVFAIL` or `NOERROR` should prevent the client from fruitlessly continuing the client side searches in the path after the server already checked them.
 
   **RESOLV-CONF** (default: `/etc/resolv.conf`) If specified, the kubernetes middleware uses this file to get the host's search domains. The kubernetes middleware performs a lookup on these domains if the in-cluster search domains in the path fail to produce an answer. If not specified, the values will be read from the local resolv.conf file (i.e the resolv.conf file in the pod containing CoreDNS).  In practice, this option should only need to be used if running CoreDNS outside of the cluster and the search path in /etc/resolv.conf does not match the cluster's "default" dns-policiy.
 
@@ -245,7 +245,7 @@ specified).
 		cidrs 10.0.0.0/24
 		pods verified
 		upstream 10.102.3.10:53
-		autopath 0 SERVFAIL cluster.conf
+		autopath 0 NOERROR cluster.conf
 	}
 
 
