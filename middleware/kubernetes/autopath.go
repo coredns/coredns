@@ -31,39 +31,33 @@ func NewAutoPathWriter(w dns.ResponseWriter, r *dns.Msg) *AutoPathWriter {
 	}
 }
 
+// WriteMsg writes to client, unless response will be NXDOMAIN
 func (apw *AutoPathWriter) WriteMsg(res *dns.Msg) error {
-	return apw.OverrideMsg(res, false)
+	return apw.overrideMsg(res, false)
 }
 
-// Force the write to client regardless of response code
+// ForceWriteMsg forces the write to client regardless of response code
 func (apw *AutoPathWriter) ForceWriteMsg(res *dns.Msg) error {
-	return apw.OverrideMsg(res, true)
+	return apw.overrideMsg(res, true)
 }
 
-// OverrideMsg records the status code and calls the
-// underlying ResponseWriter's WriteMsg method unless
-// the write is deferred, or force = true.
-func (apw *AutoPathWriter) OverrideMsg(res *dns.Msg, force bool) error {
+// overrideMsg overrides rcode, reverts question, adds CNAME, and calls the
+// underlying ResponseWriter's WriteMsg method unless the write is deferred,
+// or force = true.
+func (apw *AutoPathWriter) overrideMsg(res *dns.Msg, force bool) error {
 	if res.Rcode == dns.RcodeNameError {
 		res.Rcode = apw.Rcode
+	}
+	if res.Rcode != dns.RcodeSuccess && !force {
+		return nil
 	}
 	for _, a := range res.Answer {
 		if apw.original.Name == a.Header().Name {
 			continue
 		}
-		cname := dns.CNAME{
-			Hdr: dns.RR_Header{
-				Name:   apw.original.Name,
-				Rrtype: dns.TypeCNAME,
-				Class:  dns.ClassINET,
-				Ttl:    a.Header().Ttl},
-			Target: dns.Fqdn(a.Header().Name)}
-		res.Answer = append(res.Answer, &cname)
+		res.Answer = append(res.Answer, newCNAME(apw.original.Name, dns.Fqdn(a.Header().Name), a.Header().Ttl))
 	}
 	res.Question[0] = apw.original
-	if res.Rcode != dns.RcodeSuccess && !force {
-		return nil
-	}
 	apw.Sent = true
 	return apw.ResponseWriter.WriteMsg(res)
 }

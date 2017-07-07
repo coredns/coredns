@@ -13,7 +13,7 @@ import (
 	"github.com/coredns/coredns/middleware/etcd/msg"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
 	dnsstrings "github.com/coredns/coredns/middleware/pkg/strings"
-	//	"github.com/coredns/coredns/middleware/proxy"
+	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -31,7 +31,7 @@ type Kubernetes struct {
 	Next          middleware.Handler
 	Zones         []string
 	primaryZone   int
-	Proxy         Proxyer // Proxy for looking up names during the resolution process
+	Proxy         proxy.Proxy // Proxy for looking up names during the resolution process
 	APIEndpoint   string
 	APICertAuth   string
 	APIClientCert string
@@ -55,10 +55,6 @@ type AutoPath struct {
 	ResolvConfFile string
 	HostSearchPath []string
 	OnNXDOMAIN     int
-}
-
-type Proxyer interface {
-	Lookup(request.Request, string, uint16) (*dns.Msg, error)
 }
 
 const (

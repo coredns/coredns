@@ -185,7 +185,7 @@ func TestServeDNS(t *testing.T) {
 	k.AutoPath.Enabled = true
 	k.AutoPath.HostSearchPath = []string{"hostdom.test"}
 	//k.Proxy = test.MockHandler(nextMWMap)
-	k.Next = test.MockHandler(nextMWMap)
+	k.Next = testHandler(nextMWMap)
 
 	ctx := context.TODO()
 	runServeDNSTests(t, dnsTestCases, k, ctx)
@@ -262,6 +262,25 @@ var nextMWMap = map[dns.Question]dns.Msg{
 	{Name: "foo.foo.foo.hostdom.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET}: {
 		Answer: []dns.RR{test.A("foo.foo.foo.hostdom.test.	0	IN	A	11.22.33.44")},
 	},
+}
+
+// testHandler returns a Handler that returns an answer for the question in the
+// request per the question->answer map qMap.
+func testHandler(qMap map[dns.Question]dns.Msg) test.Handler {
+	return test.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		msg, ok := qMap[r.Question[0]]
+		if !ok {
+			r.Rcode = dns.RcodeNameError
+			return dns.RcodeNameError, nil
+		}
+		r.Rcode = dns.RcodeSuccess
+		m.Answer = append(m.Answer, msg.Answer...)
+		m.Extra = append(m.Extra, msg.Extra...)
+		w.WriteMsg(m)
+		return dns.RcodeSuccess, nil
+	})
 }
 
 type APIConnServeTest struct{}
