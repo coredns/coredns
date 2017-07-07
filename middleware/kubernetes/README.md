@@ -168,7 +168,7 @@ specified).
     ;google.com.default.svc.cluster.local. IN A
 
     ;; ANSWER SECTION:
-    google.com.default.svc.cluster.local. 211 IN CNAME google.com.
+    google.com.default.svc.cluster.local. 175 IN CNAME google.com.
     google.com.		175	IN	A	216.58.194.206
   ```
 
@@ -179,9 +179,11 @@ specified).
   ```
 	# host -t a google.com
 	google.com has address 216.58.194.206
+	google.com.default.svc.cluster.local is an alias for google.com.
 	
 	# host -t a google.com.default.svc.cluster.local.
 	google.com has address 216.58.194.206
+	google.com.default.svc.cluster.local is an alias for google.com.
   ```
  
   **NDOTS** (default: `0`) This provides an adjustable threshold to prevent server side lookups from triggering. If the number of dots before the first search domain is less than this number, then the search path will not executed on the server side.  When autopath is enabled with default settings, the search path is always conducted when the query is in the first search domain `<pod-namespace>.svc.<zone>.`.
