@@ -58,7 +58,9 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 				newstate := state.NewWithQuestion(strings.Join([]string{name, path}, "."), state.QType())
 				records, extra, _, err = k.routeRequest(zone, newstate)
 				if !k.IsNameError(err) {
-					records = append(records, newCNAME(origQName, records[0].Header().Name, records[0].Header().Ttl))
+					records = append(records, nil)
+					copy(records[1:], records)
+					records[0] = newCNAME(origQName, records[0].Header().Name, records[0].Header().Ttl)
 					break
 				}
 			}
@@ -78,7 +80,9 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			newstate := state.NewWithQuestion(strings.Join([]string{name, "."}, ""), state.QType())
 			records, extra, _, err = k.routeRequest(zone, newstate)
 			if !k.IsNameError(err) {
-				records = append(records, newCNAME(origQName, records[0].Header().Name, records[0].Header().Ttl))
+				records = append(records, nil)
+				copy(records[1:], records)
+				records[0] = newCNAME(origQName, records[0].Header().Name, records[0].Header().Ttl)
 				break
 			}
 			// Search . in the next middleware

@@ -218,6 +218,22 @@ func runServeDNSTests(t *testing.T, dnsTestCases map[string](*test.Case), k Kube
 		}
 
 		resp := w.Msg
+
+		// Before sorting, make sure that CNAMES do not appear after their target records
+		for i, c := range resp.Answer {
+			if c.Header().Rrtype != dns.TypeCNAME {
+				continue
+			}
+			for _, a := range resp.Answer[:i] {
+				if a.Header().Name != c.(*dns.CNAME).Target {
+					continue
+				}
+				t.Errorf("%v: CNAME found after target record\n", testname)
+				t.Logf("%v Received:\n %v\n", testname, resp)
+
+			}
+		}
+
 		sort.Sort(test.RRSet(resp.Answer))
 		sort.Sort(test.RRSet(resp.Ns))
 		sort.Sort(test.RRSet(resp.Extra))
@@ -241,7 +257,7 @@ func runServeDNSTests(t *testing.T, dnsTestCases map[string](*test.Case), k Kube
 	}
 }
 
-// Test data & mocks
+// next middleware question->answer map
 
 var nextMWMap = map[dns.Question]dns.Msg{
 	{Name: "test1.hostdom.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET}: {

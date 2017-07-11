@@ -55,7 +55,9 @@ func (apw *AutoPathWriter) overrideMsg(res *dns.Msg, force bool) error {
 		if apw.original.Name == a.Header().Name {
 			continue
 		}
-		res.Answer = append(res.Answer, newCNAME(apw.original.Name, dns.Fqdn(a.Header().Name), a.Header().Ttl))
+		res.Answer = append(res.Answer, nil)
+		copy(res.Answer[1:], res.Answer)
+		res.Answer[0] = newCNAME(apw.original.Name, dns.Fqdn(a.Header().Name), a.Header().Ttl)
 	}
 	res.Question[0] = apw.original
 	apw.Sent = true
