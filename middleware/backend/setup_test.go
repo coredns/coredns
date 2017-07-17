@@ -25,35 +25,39 @@ func init() {
 	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
 }
 
-func newEtcdMiddleware() *Etcd {
+func newEtcdMiddleware() *Backend {
 	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
 
 	endpoints := []string{"http://localhost:2379"}
 	tlsc, _ := tls.NewTLSConfigFromArgs()
 	client, _ := newEtcdClient(endpoints, tlsc)
 
-	return &Etcd{
+	etcd := &EtcdV2{
 		Proxy:      proxy.NewLookup([]string{"8.8.8.8:53"}),
 		PathPrefix: "skydns",
 		Ctx:        context.Background(),
 		Inflight:   &singleflight.Group{},
-		Zones:      []string{"skydns.test.", "skydns_extra.test.", "in-addr.arpa."},
 		Client:     client,
+	}
+	return &Backend{
+		Zones:          []string{"skydns.test.", "skydns_extra.test.", "in-addr.arpa."},
+		ServiceName:    "etcd",
+		ServiceBackend: etcd,
 	}
 }
 
-func set(t *testing.T, e *Etcd, k string, ttl time.Duration, m *msg.Service) {
-	b, err := json.Marshal(m)
+func set(t *testing.T, b *Backend, k string, ttl time.Duration, m *msg.Service) {
+	d, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
-	e.Client.Set(ctxt, path, string(b), &etcdc.SetOptions{TTL: ttl})
+	path, _ := msg.PathWithWildcard(k, b.ServiceBackend.(*EtcdV2).PathPrefix)
+	b.ServiceBackend.(*EtcdV2).Client.Set(ctxt, path, string(d), &etcdc.SetOptions{TTL: ttl})
 }
 
-func delete(t *testing.T, e *Etcd, k string) {
-	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
-	e.Client.Delete(ctxt, path, &etcdc.DeleteOptions{Recursive: false})
+func delete(t *testing.T, b *Backend, k string) {
+	path, _ := msg.PathWithWildcard(k, b.ServiceBackend.(*EtcdV2).PathPrefix)
+	b.ServiceBackend.(*EtcdV2).Client.Delete(ctxt, path, &etcdc.DeleteOptions{Recursive: false})
 }
 
 func TestLookup(t *testing.T) {
@@ -137,11 +141,11 @@ func TestSetupEtcd(t *testing.T) {
 			}
 		}
 
-		if !test.shouldErr && etcd.PathPrefix != test.expectedPath {
-			t.Errorf("Etcd not correctly set for input %s. Expected: %s, actual: %s", test.input, test.expectedPath, etcd.PathPrefix)
+		if !test.shouldErr && etcd.ServiceBackend.(*EtcdV2).PathPrefix != test.expectedPath {
+			t.Errorf("EtcdV2 not correctly set for input %s. Expected: %s, actual: %s", test.input, test.expectedPath, etcd.ServiceBackend.(*EtcdV2).PathPrefix)
 		}
-		if !test.shouldErr && etcd.endpoints[0] != test.expectedEndpoint { // only checks the first
-			t.Errorf("Etcd not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, test.expectedEndpoint, etcd.endpoints[0])
+		if !test.shouldErr && etcd.ServiceBackend.(*EtcdV2).endpoints[0] != test.expectedEndpoint { // only checks the first
+			t.Errorf("EtcdV2 not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, test.expectedEndpoint, etcd.ServiceBackend.(*EtcdV2).endpoints[0])
 		}
 	}
 }

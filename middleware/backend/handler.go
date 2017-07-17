@@ -14,14 +14,14 @@ import (
 )
 
 // ServeDNS implements the middleware.Handler interface.
-func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (b *Backend) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	opt := middleware.Options{}
 	state := request.Request{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
-		return dns.RcodeServerFailure, middleware.Error(e.Name(), errors.New("can only deal with ClassINET"))
+		return dns.RcodeServerFailure, middleware.Error(b.ServiceName, errors.New("can only deal with ClassINET"))
 	}
 	name := state.Name()
-	if e.Debugging {
+	if b.Debugging {
 		if bug := debug.IsDebug(name); bug != "" {
 			opt.Debug = r.Question[0].Name
 			state.Clear()
@@ -32,21 +32,21 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	// We need to check stubzones first, because we may get a request for a zone we
 	// are not auth. for *but* do have a stubzone forward for. If we do the stubzone
 	// handler will handle the request.
-	if e.Stubmap != nil && len(*e.Stubmap) > 0 {
-		for zone := range *e.Stubmap {
+	if b.Stubmap != nil && len(*b.Stubmap) > 0 {
+		for zone := range *b.Stubmap {
 			if middleware.Name(zone).Matches(name) {
-				stub := Stub{Etcd: e, Zone: zone}
+				stub := Stub{Backend: b, Zone: zone}
 				return stub.ServeDNS(ctx, w, r)
 			}
 		}
 	}
 
-	zone := middleware.Zones(e.Zones).Matches(state.Name())
+	zone := middleware.Zones(b.Zones).Matches(state.Name())
 	if zone == "" {
 		if opt.Debug != "" {
 			r.Question[0].Name = opt.Debug
 		}
-		return middleware.NextOrFailure(e.Name(), e.Next, ctx, w, r)
+		return middleware.NextOrFailure(b.ServiceName, b.Next, ctx, w, r)
 	}
 
 	var (
@@ -56,30 +56,30 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	)
 	switch state.Type() {
 	case "A":
-		records, debug, err = middleware.A(e, zone, state, nil, opt)
+		records, debug, err = middleware.A(b.ServiceBackend, zone, state, nil, opt)
 	case "AAAA":
-		records, debug, err = middleware.AAAA(e, zone, state, nil, opt)
+		records, debug, err = middleware.AAAA(b.ServiceBackend, zone, state, nil, opt)
 	case "TXT":
-		records, debug, err = middleware.TXT(e, zone, state, opt)
+		records, debug, err = middleware.TXT(b.ServiceBackend, zone, state, opt)
 	case "CNAME":
-		records, debug, err = middleware.CNAME(e, zone, state, opt)
+		records, debug, err = middleware.CNAME(b.ServiceBackend, zone, state, opt)
 	case "PTR":
-		records, debug, err = middleware.PTR(e, zone, state, opt)
+		records, debug, err = middleware.PTR(b.ServiceBackend, zone, state, opt)
 	case "MX":
-		records, extra, debug, err = middleware.MX(e, zone, state, opt)
+		records, extra, debug, err = middleware.MX(b.ServiceBackend, zone, state, opt)
 	case "SRV":
-		records, extra, debug, err = middleware.SRV(e, zone, state, opt)
+		records, extra, debug, err = middleware.SRV(b.ServiceBackend, zone, state, opt)
 	case "SOA":
-		records, debug, err = middleware.SOA(e, zone, state, opt)
+		records, debug, err = middleware.SOA(b.ServiceBackend, zone, state, opt)
 	case "NS":
 		if state.Name() == zone {
-			records, extra, debug, err = middleware.NS(e, zone, state, opt)
+			records, extra, debug, err = middleware.NS(b.ServiceBackend, zone, state, opt)
 			break
 		}
 		fallthrough
 	default:
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
-		_, debug, err = middleware.A(e, zone, state, nil, opt)
+		_, debug, err = middleware.A(b.ServiceBackend, zone, state, nil, opt)
 	}
 
 	if opt.Debug != "" {
@@ -88,16 +88,16 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		state.Req.Question[0].Name = opt.Debug
 	}
 
-	if e.IsNameError(err) {
+	if b.ServiceBackend.IsNameError(err) {
 		// Make err nil when returning here, so we don't log spam for NXDOMAIN.
-		return middleware.BackendError(e, zone, dns.RcodeNameError, state, debug, nil /* err */, opt)
+		return middleware.BackendError(b.ServiceBackend, zone, dns.RcodeNameError, state, debug, nil /* err */, opt)
 	}
 	if err != nil {
-		return middleware.BackendError(e, zone, dns.RcodeServerFailure, state, debug, err, opt)
+		return middleware.BackendError(b.ServiceBackend, zone, dns.RcodeServerFailure, state, debug, err, opt)
 	}
 
 	if len(records) == 0 {
-		return middleware.BackendError(e, zone, dns.RcodeSuccess, state, debug, err, opt)
+		return middleware.BackendError(b.ServiceBackend, zone, dns.RcodeSuccess, state, debug, err, opt)
 	}
 
 	m := new(dns.Msg)
@@ -117,4 +117,4 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 }
 
 // Name implements the Handler interface.
-func (e *Etcd) Name() string { return "etcd" }
+func (b *Backend) Name() string { return b.ServiceName }

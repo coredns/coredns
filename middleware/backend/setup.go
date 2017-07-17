@@ -43,16 +43,21 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
+func etcdParse(c *caddy.Controller) (*Backend, bool, error) {
 	stub := make(map[string]proxy.Proxy)
-	etc := Etcd{
+	etc := EtcdV2{
 		// Don't default to a proxy for lookups.
 		//		Proxy:      proxy.NewLookup([]string{"8.8.8.8:53", "8.8.4.4:53"}),
 		PathPrefix: "skydns",
 		Ctx:        context.Background(),
 		Inflight:   &singleflight.Group{},
-		Stubmap:    &stub,
 	}
+	b := Backend{
+		ServiceName:    "etcd",
+		Stubmap:        &stub,
+		ServiceBackend: &etc,
+	}
+
 	var (
 		tlsConfig *tls.Config
 		err       error
@@ -61,13 +66,13 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 	)
 	for c.Next() {
 		if c.Val() == "etcd" {
-			etc.Zones = c.RemainingArgs()
-			if len(etc.Zones) == 0 {
-				etc.Zones = make([]string, len(c.ServerBlockKeys))
-				copy(etc.Zones, c.ServerBlockKeys)
+			b.Zones = c.RemainingArgs()
+			if len(b.Zones) == 0 {
+				b.Zones = make([]string, len(c.ServerBlockKeys))
+				copy(b.Zones, c.ServerBlockKeys)
 			}
-			for i, str := range etc.Zones {
-				etc.Zones[i] = middleware.Host(str).Normalize()
+			for i, str := range b.Zones {
+				b.Zones[i] = middleware.Host(str).Normalize()
 			}
 
 			if c.NextBlock() {
@@ -76,37 +81,37 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 					case "stubzones":
 						stubzones = true
 					case "debug":
-						etc.Debugging = true
+						b.Debugging = true
 					case "path":
 						if !c.NextArg() {
-							return &Etcd{}, false, c.ArgErr()
+							return &Backend{}, false, c.ArgErr()
 						}
 						etc.PathPrefix = c.Val()
 					case "endpoint":
 						args := c.RemainingArgs()
 						if len(args) == 0 {
-							return &Etcd{}, false, c.ArgErr()
+							return &Backend{}, false, c.ArgErr()
 						}
 						endpoints = args
 					case "upstream":
 						args := c.RemainingArgs()
 						if len(args) == 0 {
-							return &Etcd{}, false, c.ArgErr()
+							return &Backend{}, false, c.ArgErr()
 						}
 						ups, err := dnsutil.ParseHostPortOrFile(args...)
 						if err != nil {
-							return &Etcd{}, false, err
+							return &Backend{}, false, err
 						}
 						etc.Proxy = proxy.NewLookup(ups)
 					case "tls": // cert key cacertfile
 						args := c.RemainingArgs()
 						tlsConfig, err = mwtls.NewTLSConfigFromArgs(args...)
 						if err != nil {
-							return &Etcd{}, false, err
+							return &Backend{}, false, err
 						}
 					default:
 						if c.Val() != "}" {
-							return &Etcd{}, false, c.Errf("unknown property '%s'", c.Val())
+							return &Backend{}, false, c.Errf("unknown property '%s'", c.Val())
 						}
 					}
 
@@ -118,15 +123,15 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 			}
 			client, err := newEtcdClient(endpoints, tlsConfig)
 			if err != nil {
-				return &Etcd{}, false, err
+				return &Backend{}, false, err
 			}
 			etc.Client = client
 			etc.endpoints = endpoints
 
-			return &etc, stubzones, nil
+			return &b, stubzones, nil
 		}
 	}
-	return &Etcd{}, false, nil
+	return &Backend{}, false, nil
 }
 
 func newEtcdClient(endpoints []string, cc *tls.Config) (etcdc.KeysAPI, error) {

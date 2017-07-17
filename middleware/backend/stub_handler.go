@@ -10,9 +10,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-// Stub wraps an Etcd. We have this type so that it can have a ServeDNS method.
+// Stub wraps a middleware. We have this type so that it can have a ServeDNS method.
 type Stub struct {
-	*Etcd
+	*Backend
 	Zone string // for what zone (and thus what nameservers are we called)
 }
 
@@ -23,7 +23,7 @@ func (s Stub) ServeDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) 
 		return dns.RcodeRefused, errors.New("stub forward cycle")
 	}
 	req = addStubEdns0(req)
-	proxy, ok := (*s.Etcd.Stubmap)[s.Zone]
+	proxy, ok := (*s.Backend.Stubmap)[s.Zone]
 	if !ok { // somebody made a mistake..
 		return dns.RcodeServerFailure, nil
 	}

@@ -20,13 +20,13 @@ import (
 	"golang.org/x/net/context"
 )
 
-func etcdMiddleware() *etcd.Etcd {
+func etcdMiddleware() *etcd.EtcdV2 {
 	etcdCfg := etcdc.Config{
 		Endpoints: []string{"http://localhost:2379"},
 	}
 	cli, _ := etcdc.New(etcdCfg)
 	client := etcdc.NewKeysAPI(cli)
-	return &etcd.Etcd{Client: client, PathPrefix: "/skydns"}
+	return &etcd.EtcdV2{Client: client, PathPrefix: "/skydns"}
 }
 
 // This test starts two coredns servers (and needs etcd). Configure a stubzones in both (that will loop) and
@@ -92,7 +92,7 @@ var servicesStub = []*msg.Service{
 }
 
 // Copied from middleware/backend/setup_test.go
-func set(ctx context.Context, t *testing.T, e *etcd.Etcd, k string, ttl time.Duration, m *msg.Service) {
+func set(ctx context.Context, t *testing.T, e *etcd.EtcdV2, k string, ttl time.Duration, m *msg.Service) {
 	b, err := json.Marshal(m)
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +102,7 @@ func set(ctx context.Context, t *testing.T, e *etcd.Etcd, k string, ttl time.Dur
 }
 
 // Copied from middleware/backend/setup_test.go
-func delete(ctx context.Context, t *testing.T, e *etcd.Etcd, k string) {
+func delete(ctx context.Context, t *testing.T, e *etcd.EtcdV2, k string) {
 	path, _ := msg.PathWithWildcard(k, e.PathPrefix)
 	e.Client.Delete(ctx, path, &etcdc.DeleteOptions{Recursive: false})
 }
