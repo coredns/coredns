@@ -39,6 +39,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		}
 	}
 
+	var otherRecordCount int
 	switch state.QType() {
 	case dns.TypePTR:
 		names := h.LookupStaticAddr(dnsutil.ExtractAddressFromReverse(qname))
@@ -49,9 +50,11 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		answers = h.ptr(qname, names)
 	case dns.TypeA:
 		ips := h.LookupStaticHostV4(qname)
+		otherRecordCount = len(h.LookupStaticHostV6(qname))
 		answers = a(qname, ips)
 	case dns.TypeAAAA:
 		ips := h.LookupStaticHostV6(qname)
+		otherRecordCount = len(h.LookupStaticHostV4(qname))
 		answers = aaaa(qname, ips)
 	}
 
@@ -59,7 +62,9 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		if h.Fallthrough {
 			return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
-		return dns.RcodeRefused, nil
+		if otherRecordCount == 0 {
+			return dns.RcodeRefused, nil
+		}
 	}
 
 	m := new(dns.Msg)
