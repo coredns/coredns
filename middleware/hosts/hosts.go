@@ -60,7 +60,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			return middleware.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
 		if !h.otherRecordsExist(state.QType(), qname) {
-			return dns.RcodeRefused, nil
+			return dns.RcodeNameError, nil
 		}
 	}
 
