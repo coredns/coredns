@@ -182,10 +182,34 @@
   revision = "6c130eed1e297e1aa4d415a50c90d0c81c52677e"
 
 [[projects]]
+  name = "github.com/hashicorp/consul"
+  packages = ["api"]
+  revision = "f4360770d8e7b852e2d05835b583d20799e58133"
+  version = "v0.8.4"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-cleanhttp"
+  packages = ["."]
+  revision = "3573b8b52aa7b37b9358d966a898feb387f62437"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/hashicorp/go-rootcerts"
+  packages = ["."]
+  revision = "6bb64b370b90e7ef1fa532be9e591a81c3493e00"
+
+[[projects]]
   branch = "master"
   name = "github.com/hashicorp/golang-lru"
   packages = [".","simplelru"]
   revision = "0a025b7e63adc15a622f29b0b2c4c3848243bbf6"
+
+[[projects]]
+  name = "github.com/hashicorp/serf"
+  packages = ["coordinate"]
+  revision = "d6574a5bb1226678d7010325fb6c985db20ee458"
+  version = "v0.8.1"
 
 [[projects]]
   branch = "master"
@@ -234,6 +258,12 @@
   name = "github.com/miekg/dns"
   packages = ["."]
   revision = "e78414ef75607394ad7d917824f07f381df2eafa"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/mitchellh/go-homedir"
+  packages = ["."]
+  revision = "b8bc1bf767474819792c23f32d8286a45736f1c6"
 
 [[projects]]
   name = "github.com/opentracing/opentracing-go"
@@ -388,6 +418,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "a59be89c7a92b81f951b47efd072c2af04fb66b4f2b7a780cadb7466559d0d6b"
+  inputs-digest = "97a0d620bc8adaea622cbe35b696d1de31c0b409c2bc32e7d31bac704a364346"
   solver-name = "gps-cdcl"
   solver-version = 1
