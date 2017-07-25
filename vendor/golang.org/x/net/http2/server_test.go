@@ -286,7 +286,7 @@ func (st *serverTester) greetAndCheckSettings(checkSetting func(s Setting) error
 
 		case *WindowUpdateFrame:
 			if f.FrameHeader.StreamID != 0 {
-				st.t.Fatalf("WindowUpdate StreamID = %d; want 0", f.FrameHeader.StreamID, 0)
+				st.t.Fatalf("WindowUpdate StreamID = %d; want 0", f.FrameHeader.StreamID)
 			}
 			incr := uint32((&Server{}).initialConnRecvWindowSize() - initialWindowSize)
 			if f.Increment != incr {
@@ -3683,5 +3683,39 @@ func TestRequestBodyReadCloseRace(t *testing.T) {
 		}()
 		body.Read(buf)
 		<-done
+	}
+}
+
+func TestIssue20704Race(t *testing.T) {
+	if testing.Short() && os.Getenv("GO_BUILDER_NAME") == "" {
+		t.Skip("skipping in short mode")
+	}
+	const (
+		itemSize  = 1 << 10
+		itemCount = 100
+	)
+
+	st := newServerTester(t, func(w http.ResponseWriter, r *http.Request) {
+		for i := 0; i < itemCount; i++ {
+			_, err := w.Write(make([]byte, itemSize))
+			if err != nil {
+				return
+			}
+		}
+	}, optOnlyServer)
+	defer st.Close()
+
+	tr := &Transport{TLSClientConfig: tlsConfigInsecure}
+	defer tr.CloseIdleConnections()
+	cl := &http.Client{Transport: tr}
+
+	for i := 0; i < 1000; i++ {
+		resp, err := cl.Get(st.ts.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Force a RST stream to the server by closing without
+		// reading the body:
+		resp.Body.Close()
 	}
 }
