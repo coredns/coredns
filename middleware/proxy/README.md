@@ -27,7 +27,11 @@ proxy FROM TO... {
     health_check PATH:PORT [DURATION]
     except IGNORED_NAMES...
     spray
-    protocol [dns [force_tcp]|https_google [bootstrap ADDRESS...]|grpc [insecure|CA-PEM|KEY-PEM CERT-PEM|KEY-PEM CERT-PEM CA-PEM]]
+    protocol [dns [force_tcp]|grpc [insecure|CA-PEM|KEY-PEM CERT-PEM|KEY-PEM CERT-PEM CA-PEM]]
+    protocol https_google [bootstrap ADDRESS...] {
+      padding
+      pinset 0uXWIwuNdaaFSx7xJySymocwKDFJeEVzlouiy6MZATA=
+    }
 }
 ~~~
 
@@ -55,6 +59,10 @@ proxy FROM TO... {
   the [DnsService](https://github.com/coredns/coredns/pb/dns.proto).
   An out-of-tree middleware that implements the server side of this can be found at
   [here](https://github.com/infobloxopen/coredns-grpc).
+  * `padding` sends random padding along with the request - the padding has a
+    fixed length of 255 minus the length of the name
+  * `pinset [PIN...]` defines a set of base64 encoded static pins over the certificates public
+    key - these pins can be obtained out of band e.g. from [ssllabs.com](https://www.ssllabs.com/ssltest/analyze.html?d=dns.google.com&s=216.58.195.238&hideResults=on)
 
 ## Policies
 
@@ -154,7 +162,10 @@ Proxy all requests within example.org to Google's dns.google.com.
 
 ~~~
 proxy example.org 1.2.3.4:53 {
-    protocol https_google
+    protocol https_google {
+      padding
+      pinset 0uXWIwuNdaaFSx7xJySymocwKDFJeEVzlouiy6MZATA=
+    }
 }
 ~~~
 

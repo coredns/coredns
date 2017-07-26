@@ -25,6 +25,7 @@ type google struct {
 	endpoint string // Name to resolve via 'bootstrapProxy'
 
 	bootstrapProxy Proxy
+	padding        *Padding
 	quit           chan bool
 }
 
@@ -46,7 +47,17 @@ func newGoogle(endpoint string, bootstrap []string) *google {
 func (g *google) Exchange(ctx context.Context, addr string, state request.Request) (*dns.Msg, error) {
 	v := url.Values{}
 
-	v.Set("name", state.Name())
+	name := state.Name()
+
+	if g.padding != nil {
+		padding, err := g.padding.Generate(name)
+		if err != nil {
+			return nil, err
+		}
+		v.Set("random_padding", padding)
+	}
+
+	v.Set("name", name)
 	v.Set("type", fmt.Sprintf("%d", state.QType()))
 
 	optDebug := false
