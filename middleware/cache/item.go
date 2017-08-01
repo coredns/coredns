@@ -31,17 +31,28 @@ func newItem(m *dns.Msg, d time.Duration) *item {
 	i.RecursionAvailable = m.RecursionAvailable
 	i.Answer = m.Answer
 	i.Ns = m.Ns
-	i.Extra = make([]dns.RR, len(m.Extra))
-	// Don't copy OPT record as these are hop-by-hop.
-	j := 0
-	for _, e := range m.Extra {
-		if e.Header().Rrtype == dns.TypeOPT {
-			continue
+
+	// Don't copy OPT or TSIG record as these are hop-by-hop.
+	le := len(m.Extra)
+	k := 0
+	if le > 0 {
+		if m.Extra[le-1].Header().Rrtype == dns.TypeOPT {
+			k++
 		}
-		i.Extra[j] = e
-		j++
+		if m.Extra[le-1].Header().Rrtype == dns.TypeTSIG {
+			k++
+		}
 	}
-	i.Extra = i.Extra[:j]
+	if le > 1 {
+		if m.Extra[le-2].Header().Rrtype == dns.TypeOPT {
+			k++
+		}
+		if m.Extra[le-2].Header().Rrtype == dns.TypeTSIG {
+			k++
+		}
+	}
+
+	i.Extra = m.Extra[:le-k]
 
 	i.origTTL = uint32(d.Seconds())
 	i.stored = time.Now().UTC()
@@ -82,9 +93,7 @@ func (i *item) toMsg(m *dns.Msg) *dns.Msg {
 	}
 	for j, r := range i.Extra {
 		m1.Extra[j] = dns.Copy(r)
-		if m1.Extra[j].Header().Rrtype != dns.TypeOPT {
-			m1.Extra[j].Header().Ttl = ttl
-		}
+		m1.Extra[j].Header().Ttl = ttl
 	}
 	return m1
 }
@@ -100,13 +109,25 @@ func minMsgTTL(m *dns.Msg, mt response.Type) time.Duration {
 	}
 
 	minTTL := maxTTL
-	for _, r := range append(m.Answer, m.Ns...) {
-		switch mt {
-		case response.NameError, response.NoData:
+	switch mt {
+	case response.NameError, response.NoData:
+		for _, r := range m.Answer {
 			if r.Header().Rrtype == dns.TypeSOA {
 				return time.Duration(r.(*dns.SOA).Minttl) * time.Second
 			}
-		case response.NoError, response.Delegation:
+		}
+		for _, r := range m.Ns {
+			if r.Header().Rrtype == dns.TypeSOA {
+				return time.Duration(r.(*dns.SOA).Minttl) * time.Second
+			}
+		}
+	case response.NoError, response.Delegation:
+		for _, r := range m.Answer {
+			if r.Header().Ttl < uint32(minTTL.Seconds()) {
+				minTTL = time.Duration(r.Header().Ttl) * time.Second
+			}
+		}
+		for _, r := range m.Ns {
 			if r.Header().Ttl < uint32(minTTL.Seconds()) {
 				minTTL = time.Duration(r.Header().Ttl) * time.Second
 			}
