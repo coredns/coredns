@@ -82,7 +82,7 @@ var dnsTestCases = map[string](*test.Case){
 		},
 	},
 	"AAAA Service (existing service)": {
-		Qname:  "svc1.testns.svc.cluster.local.", Qtype: dns.TypeAAAA,
+		Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypeAAAA,
 		Rcode:  dns.RcodeSuccess,
 		Answer: []dns.RR{},
 		Ns: []dns.RR{
@@ -90,7 +90,7 @@ var dnsTestCases = map[string](*test.Case){
 		},
 	},
 	"AAAA Service (non-existing service)": {
-		Qname:  "svc0.testns.svc.cluster.local.", Qtype: dns.TypeAAAA,
+		Qname: "svc0.testns.svc.cluster.local.", Qtype: dns.TypeAAAA,
 		Rcode:  dns.RcodeNameError,
 		Answer: []dns.RR{},
 		Ns: []dns.RR{
@@ -109,7 +109,7 @@ var dnsTestCases = map[string](*test.Case){
 var podModeDisabledCases = map[string](*test.Case){
 
 	"A Record Pod mode = Case 1": {
-		Qname:  "10-240-0-1.podns.pod.cluster.local.", Qtype: dns.TypeA,
+		Qname: "10-240-0-1.podns.pod.cluster.local.", Qtype: dns.TypeA,
 		Rcode:  dns.RcodeNameError,
 		Error:  errPodsDisabled,
 		Answer: []dns.RR{},
@@ -119,7 +119,7 @@ var podModeDisabledCases = map[string](*test.Case){
 	},
 
 	"A Record Pod mode = Case 2": {
-		Qname:  "172-0-0-2.podns.pod.cluster.local.", Qtype: dns.TypeA,
+		Qname: "172-0-0-2.podns.pod.cluster.local.", Qtype: dns.TypeA,
 		Rcode:  dns.RcodeNameError,
 		Error:  errPodsDisabled,
 		Answer: []dns.RR{},
@@ -159,7 +159,7 @@ var podModeVerifiedCases = map[string](*test.Case){
 	},
 
 	"A Record Pod mode = Case 2": {
-		Qname:  "172-0-0-2.podns.pod.cluster.local.", Qtype: dns.TypeA,
+		Qname: "172-0-0-2.podns.pod.cluster.local.", Qtype: dns.TypeA,
 		Rcode:  dns.RcodeNameError,
 		Answer: []dns.RR{},
 		Ns: []dns.RR{
@@ -220,21 +220,21 @@ var autopathCases = map[string](*test.Case){
 }
 var autopathBareSearch = map[string](*test.Case){
 	"A Autopath Next Middleware (Bare Search) Non-existing OnNXDOMAIN default": {
-		Qname:  "nothere.interwebs.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Qname: "nothere.interwebs.podns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode:  dns.RcodeSuccess,
 		Answer: []dns.RR{},
 	},
 }
 var autopathBareSearchExpectNameErr = map[string](*test.Case){
 	"A Autopath Next Middleware (Bare Search) Non-existing OnNXDOMAIN disabled": {
-		Qname:  "nothere.interwebs.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Qname: "nothere.interwebs.podns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode:  dns.RcodeNameError,
 		Answer: []dns.RR{},
 	},
 }
 var autopath2NDotsCases = map[string](*test.Case){
 	"A Service (0 Dots)": {
-		Qname:  "foo.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Qname: "foo.podns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode:  dns.RcodeNameError,
 		Answer: []dns.RR{},
 		Ns: []dns.RR{
@@ -242,7 +242,7 @@ var autopath2NDotsCases = map[string](*test.Case){
 		},
 	},
 	"A Service (1 Dots)": {
-		Qname:  "foo.foo.podns.svc.cluster.local.", Qtype: dns.TypeA,
+		Qname: "foo.foo.podns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode:  dns.RcodeNameError,
 		Answer: []dns.RR{},
 		Ns: []dns.RR{
