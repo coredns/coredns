@@ -97,31 +97,3 @@ func (APIConnTest) EndpointsList() api.EndpointsList {
 }
 
 func (APIConnTest) GetNodeByName(name string) (api.Node, error) { return api.Node{}, nil }
-
-type interfaceAddrsTest struct{}
-
-func (i interfaceAddrsTest) interfaceAddrs() ([]net.Addr, error) {
-	_, ipnet, _ := net.ParseCIDR("172.0.40.10/32")
-	return []net.Addr{ipnet}, nil
-}
-
-func TestDoCoreDNSRecord(t *testing.T) {
-
-	corednsRecord = dns.A{}
-	k := Kubernetes{Zones: []string{"inter.webs.test"}}
-
-	k.interfaceAddrs = &interfaceAddrsTest{}
-	k.APIConn = &APIConnTest{}
-
-	cdr := k.coreDNSRecord()
-
-	expected := "10.0.0.111"
-
-	if cdr.A.String() != expected {
-		t.Errorf("Expected A to be '%v', got '%v'", expected, cdr.A.String())
-	}
-	expected = "dns-service.kube-system.svc."
-	if cdr.Hdr.Name != expected {
-		t.Errorf("Expected Hdr.Name to be '%v', got '%v'", expected, cdr.Hdr.Name)
-	}
-}

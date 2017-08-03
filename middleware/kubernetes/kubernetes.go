@@ -46,7 +46,6 @@ type Kubernetes struct {
 	ReverseCidrs  []net.IPNet
 	Fallthrough   bool
 	AutoPath
-	interfaceAddrs interfaceAddrser
 }
 
 type AutoPath struct {
@@ -651,7 +650,7 @@ func (k *Kubernetes) localPodIP() net.IP {
 	if localPodIP != nil {
 		return localPodIP
 	}
-	addrs, _ := k.interfaceAddrs.interfaceAddrs()
+	addrs, _ := net.InterfaceAddrs()
 
 	for _, addr := range addrs {
 		ip, _, _ := net.ParseCIDR(addr.String())
