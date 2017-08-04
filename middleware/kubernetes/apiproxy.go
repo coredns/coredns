@@ -39,7 +39,7 @@ func (p proxyUpstream) String() string {
 	return p.address
 }
 
-func (p *proxyUpstream) Healthcheck() {
+func (p *proxyUpstream) Healthcheck(once bool) {
 	p.wait.Add(1)
 	defer p.wait.Done()
 
@@ -67,6 +67,9 @@ func (p *proxyUpstream) Healthcheck() {
 	}
 	log.Printf("[INFO] Healthcheck upstream %s://%s: %s", p.Network(), p.String(), status(unhealthy))
 	atomic.StoreInt32(&(p.unhealthy), unhealthy)
+	if once {
+		return
+	}
 
 	// Continue healthcheck in the next tick
 	for {
@@ -86,9 +89,30 @@ func (p *proxyUpstream) Healthcheck() {
 
 }
 
+func (p *proxyHandler) SetupHealthcheck() {
+	var wait sync.WaitGroup
+	wait.Add(len(p.upstreams))
+	for index := int32(0); index < int32(len(p.upstreams)); index += int32(1) {
+		go func(index int32) {
+			defer wait.Done()
+			p.upstreams[index].Healthcheck(true)
+			if atomic.LoadInt32(&(p.upstreams[index].unhealthy)) == 0 {
+				pickIndex := atomic.LoadInt32(&(p.pickIndex))
+				if atomic.LoadInt32(&(p.upstreams[pickIndex].unhealthy)) != 0 {
+					atomic.StoreInt32(&(p.pickIndex), index)
+					pickIndex = index
+					log.Printf("[INFO] Upstream update: %v %s://%s healthy", pickIndex, p.upstreams[pickIndex].Network(), p.upstreams[pickIndex].String())
+				}
+			}
+
+		}(index)
+	}
+	wait.Wait()
+}
+
 func (p *proxyHandler) StartHealthcheck() {
 	for i := range p.upstreams {
-		go p.upstreams[i].Healthcheck()
+		go p.upstreams[i].Healthcheck(false)
 	}
 }
 
@@ -159,6 +183,7 @@ func (p *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *apiProxy) Run() {
+	p.handler.SetupHealthcheck()
 	p.handler.StartHealthcheck()
 	p.Serve(p.listener)
 }
