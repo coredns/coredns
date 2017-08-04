@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/middleware/etcd/msg"
-	"github.com/miekg/dns"
 	"k8s.io/client-go/1.5/pkg/api"
 )
 
@@ -90,12 +89,12 @@ func TestFederationCNAMERecord(t *testing.T) {
 	k.APIConn = apiConnFedTest{}
 	k.interfaceAddrsFunc = func() net.IP { return net.ParseIP("10.9.8.7") }
 
-	r, _ := k.parseRequest("s1.ns.fed.svc.inter.webs", dns.TypeA)
+	r, _ := k.parseRequest("s1.ns.fed.svc.inter.webs")
 	testFederationCNAMERecord(t, k, r, msg.Service{Key: "/coredns/webs/inter/svc/fed/ns/s1", Host: "s1.ns.fed.svc.fd-az.fd-r.era.tion.com"})
 
-	r, _ = k.parseRequest("ep1.s1.ns.fed.svc.inter.webs", dns.TypeA)
+	r, _ = k.parseRequest("ep1.s1.ns.fed.svc.inter.webs")
 	testFederationCNAMERecord(t, k, r, msg.Service{Key: "/coredns/webs/inter/svc/fed/ns/s1/ep1", Host: "ep1.s1.ns.fed.svc.fd-az.fd-r.era.tion.com"})
 
-	r, _ = k.parseRequest("ep1.s1.ns.foo.svc.inter.webs", dns.TypeA)
+	r, _ = k.parseRequest("ep1.s1.ns.foo.svc.inter.webs")
 	testFederationCNAMERecord(t, k, r, msg.Service{Key: "", Host: ""})
 }

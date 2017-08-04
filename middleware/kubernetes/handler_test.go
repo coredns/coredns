@@ -286,7 +286,6 @@ func TestServeDNS(t *testing.T) {
 	//Set PodMode to Verified
 	k.PodMode = PodModeVerified
 	runServeDNSTests(t, podModeVerifiedCases, k, ctx)
-
 	// Set ndots to 2 for the ndots test cases
 	k.AutoPath.NDots = 2
 	runServeDNSTests(t, autopath2NDotsCases, k, ctx)
@@ -295,20 +294,18 @@ func TestServeDNS(t *testing.T) {
 	k.OnNXDOMAIN = dns.RcodeNameError
 	runServeDNSTests(t, autopathCases, k, ctx)
 	runServeDNSTests(t, autopathBareSearchExpectNameErr, k, ctx)
-
 }
 
 func runServeDNSTests(t *testing.T, dnsTestCases map[string](*test.Case), k Kubernetes, ctx context.Context) {
 	for testname, tc := range dnsTestCases {
-		testname = "\nTest Case \"" + testname + "\""
 		r := tc.Msg()
 
 		w := dnsrecorder.New(&test.ResponseWriter{})
 
 		_, err := k.ServeDNS(ctx, w, r)
 		if err != tc.Error {
-			t.Errorf("%v expected no error, got %v\n", testname, err)
-			return
+			t.Errorf("%v expected no error, got %v for %s\n", testname, err, r.Question[0].Name)
+			continue
 		}
 		if tc.Error != nil {
 			continue
@@ -326,8 +323,6 @@ func runServeDNSTests(t *testing.T, dnsTestCases map[string](*test.Case), k Kube
 					continue
 				}
 				t.Errorf("%v: CNAME found after target record\n", testname)
-				t.Logf("%v Received:\n %v\n", testname, resp)
-
 			}
 		}
 

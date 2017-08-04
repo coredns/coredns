@@ -101,7 +101,6 @@ type recordRequest struct {
 var (
 	errNoItems           = errors.New("no items found")
 	errNsNotExposed      = errors.New("namespace is not exposed")
-	errInvalidRequest    = errors.New("invalid query name")
 	errZoneNotFound      = errors.New("zone not found")
 	errAPIBadPodType     = errors.New("expected type *api.Pod")
 	errPodsDisabled      = errors.New("pod records disabled")
@@ -109,8 +108,8 @@ var (
 )
 
 // Services implements the ServiceBackend interface.
-func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) (svcs []msg.Service, debug []msg.Service, err error) {
-	r, e := k.parseRequest(state.Name(), state.QType())
+func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) (svcs, debug []msg.Service, err error) {
+	r, e := k.parseRequest(state.Name())
 	if e != nil {
 		return nil, nil, e
 	}
@@ -195,11 +194,6 @@ func (k *Kubernetes) Lookup(state request.Request, name string, typ uint16) (*dn
 	return k.Proxy.Lookup(state, name, typ)
 }
 
-// IsNameError implements the ServiceBackend interface.
-func (k *Kubernetes) IsNameError(err error) bool {
-	return err == errNoItems || err == errNsNotExposed || err == errInvalidRequest || err == errZoneNotFound
-}
-
 // Debug implements the ServiceBackend interface.
 func (k *Kubernetes) Debug() string { return "debug" }
 
@@ -266,21 +260,22 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 	return err
 }
 
-func (k *Kubernetes) parseRequest(lowerCasedName string, qtype uint16) (r recordRequest, err error) {
+func (k *Kubernetes) parseRequest(name string) (r recordRequest, err error) {
 	// 3 Possible cases
 	//   SRV Request: _port._protocol.service.namespace.[federation.]type.zone
 	//   A Request (endpoint): endpoint.service.namespace.[federation.]type.zone
 	//   A Request (service): service.namespace.[federation.]type.zone
 
-	// separate zone from rest of lowerCasedName
+	// This is already done in ServeDNS - TODO(miek): remove completely and
+	// plumb current zone through; if we keep parseRequest.
 	var segs []string
 	for _, z := range k.Zones {
-		if dns.IsSubDomain(z, lowerCasedName) {
+		if dns.IsSubDomain(z, name) {
 			r.zone = z
 
-			segs = dns.SplitDomainName(lowerCasedName)
+			segs = dns.SplitDomainName(name)
 			segs = segs[:len(segs)-dns.CountLabel(r.zone)]
-			break
+			break // TODO(miek): this first match, should do longest match: BUG.
 		}
 	}
 	if r.zone == "" {
@@ -289,66 +284,41 @@ func (k *Kubernetes) parseRequest(lowerCasedName string, qtype uint16) (r record
 
 	r.federation, segs = k.stripFederation(segs)
 
-	if qtype == dns.TypeNS {
-		return r, nil
-	}
-
-	if qtype == dns.TypeA && isDefaultNS(lowerCasedName, r) {
-		return r, nil
-	}
-
-	offset := 0
-	if qtype == dns.TypeSRV {
-		if len(segs) != 5 {
-			return r, errInvalidRequest
-		}
-		// This is a SRV style request, get first two elements as port and
-		// protocol, stripping leading underscores if present.
+	// Try to parse the name and fill out the fields.
+	parsedLabels := 0
+	switch len(segs) {
+	case 5:
+		// Might have a SRV request, that specifies the full
 		if segs[0][0] == '_' {
-			r.port = segs[0][1:]
+			r.port = segs[0][1:] // TODO(miek) port is officially named service in the RFC
 		} else {
 			r.port = segs[0]
-			if !symbolContainsWildcard(r.port) {
-				return r, errInvalidRequest
-			}
 		}
+
 		if segs[1][0] == '_' {
 			r.protocol = segs[1][1:]
-			if r.protocol != "tcp" && r.protocol != "udp" {
-				return r, errInvalidRequest
-			}
 		} else {
 			r.protocol = segs[1]
-			if !symbolContainsWildcard(r.protocol) {
-				return r, errInvalidRequest
-			}
 		}
-		if r.port == "" || r.protocol == "" {
-			return r, errInvalidRequest
-		}
-		offset = 2
-	}
-	if (qtype == dns.TypeA || qtype == dns.TypeAAAA) && len(segs) == 4 {
-		// This is an endpoint A/AAAA record request. Get first element as endpoint.
+
+		parsedLabels = 2
+	case 4:
 		r.endpoint = segs[0]
-		offset = 1
-	}
+		parsedLabels = 1
 
-	if len(segs) == (offset + 3) {
-		r.service = segs[offset]
-		r.namespace = segs[offset+1]
-		r.typeName = segs[offset+2]
-
-		return r, nil
-	}
-
-	if len(segs) == 1 && qtype == dns.TypeTXT {
+	case 1:
 		r.typeName = segs[0]
+	}
+
+	// TODO(miek) figure out what this does and when.
+	if len(segs) == (parsedLabels + 3) {
+		r.service = segs[parsedLabels]
+		r.namespace = segs[parsedLabels+1]
+		r.typeName = segs[parsedLabels+2]
 		return r, nil
 	}
 
-	return r, errInvalidRequest
-
+	return r, nil
 }
 
 // Records not implemented, see Entries().
@@ -672,4 +642,10 @@ func splitSearch(zone, question, namespace string) (name, search string, ok bool
 		return question[:len(question)-len(search)-1], search, true
 	}
 	return "", "", false
+}
+
+// IsNameError returns true is err indicated a non existent k8s entity.
+func (k *Kubernetes) IsNameError(err error) bool {
+	// TODO(miek): remove ZoneNotFound
+	return err == errNoItems || err == errNsNotExposed || err == errZoneNotFound
 }
