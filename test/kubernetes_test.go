@@ -13,9 +13,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-// Test data
-// TODO: Fix the actual RR values
-
 var dnsTestCases = []test.Case{
 	{
 		Qname: "svc-1-a.test-1.svc.cluster.local.", Qtype: dns.TypeA,
@@ -543,7 +540,7 @@ func TestKubernetesIntegrationCidrReverseZone(t *testing.T) {
     kubernetes cluster.local {
                 endpoint http://localhost:8080
                 namespaces test-1
-				cidrs 10.0.0.0/24				
+				cidrs 10.0.0.0/24
     }
 	erratic . {
 		drop 0
