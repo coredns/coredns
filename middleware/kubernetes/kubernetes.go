@@ -32,7 +32,8 @@ type Kubernetes struct {
 	Zones         []string
 	primaryZone   int
 	Proxy         proxy.Proxy // Proxy for looking up names during the resolution process
-	APIEndpoint   string
+	APIServerList []string
+	APIProxy      *apiProxy
 	APICertAuth   string
 	APIClientCert string
 	APIClientKey  string
@@ -173,8 +174,30 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 	overrides := &clientcmd.ConfigOverrides{}
 	clusterinfo := clientcmdapi.Cluster{}
 	authinfo := clientcmdapi.AuthInfo{}
-	if len(k.APIEndpoint) > 0 {
-		clusterinfo.Server = k.APIEndpoint
+	if len(k.APIServerList) > 0 {
+		endpoint := k.APIServerList[0]
+		if len(k.APIServerList) > 1 {
+			// Use a random port for api proxy, will get the value later through listener.Addr()
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				return nil, fmt.Errorf("failed to create kubernetes api proxy: %v", err)
+			}
+			k.APIProxy = &apiProxy{
+				listener: listener,
+			}
+			for _, entry := range k.APIServerList {
+				k.APIProxy.handler.upstreams = append(k.APIProxy.handler.upstreams, proxyUpstream{
+					network: "tcp",
+					address: strings.TrimPrefix(entry, "http://"),
+					stop:    make(chan struct{}),
+				})
+			}
+			k.APIProxy.Handler = &k.APIProxy.handler
+
+			// Find the random port used for api proxy
+			endpoint = fmt.Sprintf("http://%s", listener.Addr())
+		}
+		clusterinfo.Server = endpoint
 	} else {
 		cc, err := rest.InClusterConfig()
 		if err != nil {

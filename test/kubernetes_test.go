@@ -513,6 +513,27 @@ func TestKubernetesIntegration(t *testing.T) {
 	doIntegrationTests(t, corefile, dnsTestCases)
 }
 
+func TestKubernetesIntegrationAPIProxy(t *testing.T) {
+
+	removeUpstreamConfig, upstreamServer, udp := createUpstreamServer(t)
+	defer upstreamServer.Stop()
+	defer removeUpstreamConfig()
+
+	corefile :=
+		`.:0 {
+    kubernetes cluster.local 0.0.10.in-addr.arpa {
+        endpoint http://nonexistance:8080,http://invalidip:8080,http://localhost:8080
+        namespaces test-1
+        pods disabled
+        upstream ` + udp + `
+    }
+    erratic . {
+        drop 0
+    }
+`
+	doIntegrationTests(t, corefile, dnsTestCases)
+}
+
 func TestKubernetesIntegrationPodsInsecure(t *testing.T) {
 	corefile :=
 		`.:0 {
