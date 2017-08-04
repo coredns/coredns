@@ -199,7 +199,7 @@ var dnsTestCases = []test.Case{
 	},
 	{
 		Qname: "*._not-udp-or-tcp.svc-1-a.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode:  dns.RcodeNameError,
+		Rcode:  dns.RcodeSuccess,
 		Answer: []dns.RR{},
 	},
 	{
@@ -469,8 +469,6 @@ func doIntegrationTests(t *testing.T, corefile string, testCases []test.Case) {
 		if len(res.Answer) != len(tc.Answer) {
 			t.Errorf("Expected %d answers but got %d for query %s, %d", len(tc.Answer), len(res.Answer), tc.Qname, tc.Qtype)
 		}
-
-		//TODO: Check the actual RR values
 	}
 }
 
