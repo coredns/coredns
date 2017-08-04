@@ -261,7 +261,8 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 }
 
 func (k *Kubernetes) parseRequest(name string) (r recordRequest, err error) {
-	// 3 Possible cases
+	// Try parsing the request so we can route it to the appropiate backend.
+	// 3 Possible cases:
 	//   SRV Request: _port._protocol.service.namespace.[federation.]type.zone
 	//   A Request (endpoint): endpoint.service.namespace.[federation.]type.zone
 	//   A Request (service): service.namespace.[federation.]type.zone
@@ -275,7 +276,7 @@ func (k *Kubernetes) parseRequest(name string) (r recordRequest, err error) {
 
 			segs = dns.SplitDomainName(name)
 			segs = segs[:len(segs)-dns.CountLabel(r.zone)]
-			break // TODO(miek): this first match, should do longest match: BUG.
+			break
 		}
 	}
 	if r.zone == "" {
