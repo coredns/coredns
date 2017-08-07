@@ -105,7 +105,7 @@ func TestDoCoreDNSRecord(t *testing.T) {
 
 	k.APIConn = &APIConnTest{}
 
-	cdr := k.coreDNSRecord()
+	cdr := k.nsAddress()
 
 	expected := "10.0.0.111"
 

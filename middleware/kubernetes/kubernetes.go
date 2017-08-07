@@ -46,7 +46,9 @@ type Kubernetes struct {
 	ReverseCidrs  []net.IPNet
 	Fallthrough   bool
 	AutoPath
+
 	interfaceAddrsFunc func() net.IP
+	nsAddr             *dns.A // IP for the "fake" NS record
 }
 
 // AutoPath enables server side search path lookups for pods
@@ -158,7 +160,7 @@ func (k *Kubernetes) recordsForTXT(r recordRequest) msg.Service {
 }
 
 func (k *Kubernetes) recordsForNS(r recordRequest) msg.Service {
-	ns := k.coreDNSRecord()
+	ns := k.nsAddress()
 	return msg.Service{Host: ns.A.String(),
 		Key: msg.Path(strings.Join([]string{ns.Hdr.Name, r.zone}, "."), "coredns")}
 }
