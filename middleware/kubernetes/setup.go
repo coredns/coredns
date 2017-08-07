@@ -146,7 +146,9 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 				case "endpoint":
 					args := c.RemainingArgs()
 					if len(args) > 0 {
-						k8s.APIServerList = strings.Split(args[0], ",")
+						for _, endpoint := range strings.Split(args[0], ",") {
+							k8s.APIServerList = append(k8s.APIServerList, strings.TrimSpace(endpoint))
+						}
 						continue
 					}
 					return nil, c.ArgErr()
