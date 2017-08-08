@@ -1,23 +1,26 @@
 # kubernetes
 
-The *kubernetes* middleware enables the reading zone data from a Kubernetes cluster.  It implements the [Kubernetes DNS-Based Service Discovery Specification](https://github.com/kubernetes/dns/blob/master/docs/specification.md).
+The *kubernetes* middleware enables the reading zone data from a Kubernetes cluster.  It implements
+the [Kubernetes DNS-Based Service Discovery
+Specification](https://github.com/kubernetes/dns/blob/master/docs/specification.md).
 
-CoreDNS running the kubernetes middleware can be used as a replacement of kube-dns in a kubernetes cluster.  See the [deployment](https://github.com/coredns/deployment) repository for details on [how to deploy CoreDNS in Kubernetes](https://github.com/coredns/deployment/tree/master/kubernetes).
+CoreDNS running the kubernetes middleware can be used as a replacement of kube-dns in a kubernetes
+cluster.  See the [deployment](https://github.com/coredns/deployment) repository for details on [how
+to deploy CoreDNS in Kubernetes](https://github.com/coredns/deployment/tree/master/kubernetes).
 
 ## Syntax
 
 ```
 kubernetes ZONE [ZONE...] [{
-	[resyncperiod DURATION]
-	[endpoint URL
-	[tls CERT KEY CACERT]]
-	[namespaces NAMESPACE [NAMESPACE...]]
-	[labels EXPRESSION]
-	[pods POD-MODE]
-	[cidrs CIDR [CIDR...]]
-	[upstream ADDRESS [ADDRESS...]]
-	[federation NAME DOMAIN]
-	[fallthrough]
+	resyncperiod DURATION
+	endpoint URL
+	tls CERT KEY CACERT]
+	namespaces NAMESPACE [NAMESPACE...]
+	labels EXPRESSION
+	pods POD-MODE]
+	upstream ADDRESS [ADDRESS...]
+	federation NAME DOMAIN
+	fallthrough
 }]
 ```
 
@@ -106,20 +109,6 @@ specified).
 	}
   ```
 
-* `cidrs` **CIDR [CIDR...]**
-
-  Expose cidr ranges to reverse lookups.  Include any number of space delimited cidrs, and/or multiple cidrs options on separate lines. The Kubernetes middleware will respond to PTR requests for ip addresses that fall within these ranges.
-
-  Example:
-
-
-  ```
-	kubernetes cluster.local. {
-		cidrs 10.0.0.0/24 10.0.10.0/25
-	}
-
-  ```
-
 * `upstream` **ADDRESS [ADDRESS...]**
 
   Defines upstream resolvers used for resolving services that point to external hosts (External Services).  **ADDRESS** can be an ip, an ip:port, or a path to a file structured like resolv.conf.
@@ -156,45 +145,47 @@ specified).
 
 	kubernetes cluster.local
 
-**Example 2:** Handle all queries in the `cluster.local` zone. Connect to Kubernetes in-cluster. Handle all `PTR` requests in the `10.0.0.0/16` cidr block. Verify the existence of pods when answering pod requests.  Resolve upstream records against `10.102.3.10`.
+**Example 2:** Handle all queries in the `cluster.local` zone. Connect to Kubernetes in-cluster.
+ Handle all `PTR` requests for `10.0.0.0/16` . Verify the existence of pods when answering pod
+ requests.  Resolve upstream records against `10.102.3.10`.
 
-	kubernetes cluster.local {
-		cidrs 10.0.0.0/16
-		pods verified
-		upstream 10.102.3.10:53
-	}
+    10.0.0.0/16 cluster.local {
+        kubernetes {
+            pods verified
+            upstream 10.102.3.10:53
+        }
+    }
 
-**Selective Exposure Example:** Handle all queries in the `cluster.local` zone. Connect to Kubernetes in-cluster. Only expose objects in the test and staging namespaces. Handle all `PTR` requests that fall between `10.0.0.100` and `10.0.0.255` (expressed as CIDR blocks in the example below). Resolve upstream records using the servers configured in `/etc/resolv.conf`.
+**Selective Exposure Example:** Handle all queries in the `cluster.local` zone. Connect to Kubernetes in-cluster. Only expose objects in the test and staging namespaces.
+  Resolve upstream records using the servers configured in `/etc/resolv.conf`.
 
 	kubernetes cluster.local {
 		namespaces test staging
-		cidrs 10.0.0.100/30 10.0.0.104/29
-		cidrs 10.0.0.112/28 10.0.0.128/25
-		upstream /etc/resolv.conf
-	}
 
-**Federation Example:** Handle all queries in the `cluster.local` zone. Connect to Kubernetes in-cluster. Handle federated service requests in the `prod` and `stage` federations. Handle all `PTR` requests in the `10.0.0.0/24` cidr block. Resolve upstream records using the servers configured in `/etc/resolv.conf`.
+**Federation Example:** Handle all queries in the `cluster.local` zone. Connect to Kubernetes in-cluster. Handle federated service requests in the `prod` and `stage` federations.
+  Resolve upstream records using the servers configured in `/etc/resolv.conf`.
 
-	kubernetes cluster.local {
-		federation prod prod.feddomain.com
-		federation stage stage.feddomain.com
-		cidrs 10.0.0.0/24
-		upstream /etc/resolv.conf
-	}
+    cluster.local {
+        kubernetes {
+		    federation prod prod.feddomain.com
+		    federation stage stage.feddomain.com
+		    upstream /etc/resolv.conf
+    	}
+    }
 
-**Out-Of-Cluster Example:** Handle all queries in the `cluster.local` zone. Connect to Kubernetes from outside the cluster. Handle all `PTR` requests in the `10.0.0.0/24` cidr block. Verify the existence of pods when answering pod requests.  Resolve upstream records against `10.102.3.10`.
+**Out-Of-Cluster Example:** Handle all queries in the `cluster.local` zone. Connect to Kubernetes from outside the cluster.
+  Verify the existence of pods when answering pod requests.  Resolve upstream records against `10.102.3.10`.
 
 	kubernetes cluster.local {
 		endpoint https://k8s-endpoint:8443
 		tls cert key cacert
-		cidrs 10.0.0.0/24
 		pods verified
 		upstream 10.102.3.10:53
 	}
 
 
 
-## Wildcards
+## Wildcard
 
 Some query labels accept a wildcard value to match any value.  If a label is a valid wildcard (\*, or the word "any"), then that label will match all values.  The labels that accept wildcards are:
 
