@@ -30,5 +30,5 @@ func setup(c *caddy.Controller) error {
 }
 
 func autoPathParse(c *caddy.Controller) (AutoPath, error) {
-	return AutoPath{search: []string{"default.svc.cluster.local.", "svc.cluster.local.", "cluster.local.", "c.miek-testing-prod.internal.", "google.internal."}}, nil
+	return AutoPath{search: []string{"default.svc.cluster.local.", "svc.cluster.local.", "cluster.local.", "com.", ""}}, nil
 }

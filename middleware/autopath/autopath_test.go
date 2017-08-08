@@ -54,17 +54,17 @@ func TestInSearchPath(t *testing.T) {
 
 	tests := []struct {
 		qname string
-		i     int
+		b     bool
 	}{
-		{"google.com", -1},
-		{"default.svc.cluster.local.", 0},
-		{"a.default.svc.cluster.local.", 0},
-		{"a.b.svc.cluster.local.", 1},
+		{"google.com", false},
+		{"default.svc.cluster.local.", true},
+		{"a.default.svc.cluster.local.", true},
+		{"a.b.svc.cluster.local.", false},
 	}
 	for i, tc := range tests {
-		got := a.inSearchPath(tc.qname)
-		if got != tc.i {
-			t.Errorf("Test %d, got %d, expected %d, %s", i, got, tc.i, a.search[tc.i])
+		got := a.FirstInSearchPath(tc.qname)
+		if got != tc.b {
+			t.Errorf("Test %d, got %d, expected %d", i, got, tc.b)
 		}
 	}
 }

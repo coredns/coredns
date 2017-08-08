@@ -4,8 +4,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// NonWriter is a type of ResponseWriter that captures
-// the message, but never writes to the client.
+// NonWriter is a type of ResponseWriter that captures the message, but never writes to the client.
 type NonWriter struct {
 	dns.ResponseWriter
 	Msg *dns.Msg
