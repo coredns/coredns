@@ -11,12 +11,18 @@ that points from the original name (with the search path element in it) to the n
 ## Syntax
 
 ~~~
-autopath [RESOLV-CONF]
+autopath [ZONE...] RESOLV-CONF {
+    fallthrough
+    response **RCODE**
+}
 ~~~
 
-* **RESOLV-CONF** points to the resolv.conf, a special syntax can be used to point to another
+* **ZONES** zones *autopath* should be authoritative for.
+
+* **RESOLV-CONF** points to the `resolv.conf` or a special syntax can be used to point to another
     middleware. For instance `@kubernetes`, will call out to the kubernetes middleware (for each
-    query) to retrieve the search list it should use.
+    query) to retrieve the search list it should use. Currently allowed values: `@kubernetes`.
+* You will almost always want `fallthrough`.
 
 ## Examples
 
@@ -30,12 +36,8 @@ autopath
 
   **RESOLV-CONF** (default: `/etc/resolv.conf`) If specified, the kubernetes middleware uses this file to get the host's search domains. The kubernetes middleware performs a lookup on these domains if the in-cluster search domains in the path fail to produce an answer. If not specified, the values will be read from the local resolv.conf file (i.e the resolv.conf file in the pod containing CoreDNS).  In practice, this option should only need to be used if running CoreDNS outside of the cluster and the search path in /etc/resolv.conf does not match the cluster's "default" dns-policiy.
 
-  Enabling autopath requires more memory, since it needs to maintain a watch on all pods. If autopath and `pods verified` mode are both enabled, they will share the same watch. Enabling both options should have an equivalent memory impact of just one.
-
-  Example:
-
-  ```
+```
 	kubernetes cluster.local. {
 		autopath 0 NXDOMAIN /etc/resolv.conf
 	}
-  ```
+```

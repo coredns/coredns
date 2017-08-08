@@ -45,6 +45,7 @@ type AutoPath struct {
 	search     []string
 	searchFunc AutoPathFunc
 	// options ndots:5
+	fall bool
 }
 
 func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
