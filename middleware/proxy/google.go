@@ -200,13 +200,15 @@ func extractAnswer(m *dns.Msg) ([]string, error) {
 // newUpstream returns an upstream initialized with hosts.
 func newUpstream(hosts []string, old *staticUpstream) Upstream {
 	upstream := &staticUpstream{
-		from:              old.from,
-		Hosts:             nil,
-		Policy:            &Random{},
-		Spray:             nil,
-		FailTimeout:       10 * time.Second,
-		MaxFails:          3,
-		Future:            60 * time.Second,
+		from: old.from,
+		HealthCheck: HealthCheck{
+			Hosts:       nil,
+			Policy:      &Random{},
+			Spray:       nil,
+			FailTimeout: 10 * time.Second,
+			MaxFails:    3,
+			Future:      60 * time.Second,
+		},
 		ex:                old.ex,
 		WithoutPathPrefix: old.WithoutPathPrefix,
 		IgnoredSubDomains: old.IgnoredSubDomains,

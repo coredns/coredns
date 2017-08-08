@@ -18,13 +18,15 @@ func TestHealthCheck(t *testing.T) {
 	log.SetOutput(ioutil.Discard)
 
 	upstream := &staticUpstream{
-		from:        ".",
-		Hosts:       testPool(),
-		Policy:      &Random{},
-		Spray:       nil,
-		FailTimeout: 10 * time.Second,
-		Future:      60 * time.Second,
-		MaxFails:    1,
+		from: ".",
+		HealthCheck: HealthCheck{
+			Hosts:       testPool(),
+			Policy:      &Random{},
+			Spray:       nil,
+			FailTimeout: 10 * time.Second,
+			Future:      60 * time.Second,
+			MaxFails:    1,
+		},
 	}
 
 	upstream.healthCheck()
@@ -41,12 +43,14 @@ func TestHealthCheck(t *testing.T) {
 
 func TestSelect(t *testing.T) {
 	upstream := &staticUpstream{
-		from:        ".",
-		Hosts:       testPool()[:3],
-		Policy:      &Random{},
-		FailTimeout: 10 * time.Second,
-		Future:      60 * time.Second,
-		MaxFails:    1,
+		from: ".",
+		HealthCheck: HealthCheck{
+			Hosts:       testPool()[:3],
+			Policy:      &Random{},
+			FailTimeout: 10 * time.Second,
+			Future:      60 * time.Second,
+			MaxFails:    1,
+		},
 	}
 	upstream.Hosts[0].OkUntil = time.Unix(0, 0)
 	upstream.Hosts[1].OkUntil = time.Unix(0, 0)

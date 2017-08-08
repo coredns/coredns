@@ -22,13 +22,15 @@ func TestStartupShutdown(t *testing.T) {
 	grpclog.SetLogger(discard{})
 
 	upstream := &staticUpstream{
-		from:        ".",
-		Hosts:       pool(),
-		Policy:      &Random{},
-		Spray:       nil,
-		FailTimeout: 10 * time.Second,
-		Future:      60 * time.Second,
-		MaxFails:    1,
+		from: ".",
+		HealthCheck: HealthCheck{
+			Hosts:       pool(),
+			Policy:      &Random{},
+			Spray:       nil,
+			FailTimeout: 10 * time.Second,
+			Future:      60 * time.Second,
+			MaxFails:    1,
+		},
 	}
 	g := newGrpcClient(nil, upstream)
 	upstream.ex = g

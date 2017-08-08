@@ -25,23 +25,25 @@ var (
 	supportedPolicies = make(map[string]func() Policy)
 )
 
-type staticUpstream struct {
-	from string
-	stop chan struct{}  // Signals running goroutines to stop.
-	wg   sync.WaitGroup // Used to wait for running goroutines to stop.
-
-	Hosts  HostPool
-	Policy Policy
-	Spray  Policy
-
+type HealthCheck struct {
+	wg          sync.WaitGroup // Used to wait for running goroutines to stop.
+	stop        chan struct{}  // Signals running goroutines to stop.
+	Hosts       HostPool
+	Policy      Policy
+	Spray       Policy
 	FailTimeout time.Duration
 	MaxFails    int32
 	Future      time.Duration
-	HealthCheck struct {
-		Path     string
-		Port     string
-		Interval time.Duration
-	}
+	Path        string
+	Port        string
+	Interval    time.Duration
+}
+
+type staticUpstream struct {
+	from string
+
+	HealthCheck
+
 	WithoutPathPrefix string
 	IgnoredSubDomains []string
 	ex                Exchanger
@@ -53,15 +55,16 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 	var upstreams []Upstream
 	for c.Next() {
 		upstream := &staticUpstream{
-			from:        ".",
-			stop:        make(chan struct{}),
-			Hosts:       nil,
-			Policy:      &Random{},
-			Spray:       nil,
-			FailTimeout: 10 * time.Second,
-			MaxFails:    1,
-			Future:      60 * time.Second,
-			ex:          newDNSEx(),
+			from: ".",
+			HealthCheck: HealthCheck{
+				Hosts:       nil,
+				Policy:      &Random{},
+				Spray:       nil,
+				FailTimeout: 10 * time.Second,
+				MaxFails:    1,
+				Future:      60 * time.Second,
+			},
+			ex: newDNSEx(),
 		}
 
 		if !c.Args(&upstream.from) {
@@ -117,22 +120,27 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 
 			upstream.Hosts[i] = uh
 		}
+		upstream.Start()
 
-		if upstream.HealthCheck.Path != "" {
-			upstream.wg.Add(1)
-			go func() {
-				defer upstream.wg.Done()
-				upstream.HealthCheckWorker(upstream.stop)
-			}()
-		}
 		upstreams = append(upstreams, upstream)
 	}
 	return upstreams, nil
 }
 
+func (u *HealthCheck) Start() {
+	u.stop = make(chan struct{})
+	if u.Path != "" {
+		u.wg.Add(1)
+		go func() {
+			defer u.wg.Done()
+			u.HealthCheckWorker(u.stop)
+		}()
+	}
+}
+
 // Stop sends a signal to all goroutines started by this staticUpstream to exit
 // and waits for them to finish before returning.
-func (u *staticUpstream) Stop() error {
+func (u *HealthCheck) Stop() error {
 	close(u.stop)
 	u.wg.Wait()
 	return nil
@@ -314,7 +322,7 @@ func healthCheckURL(nextTs time.Time, host *UpstreamHost) {
 	host.checkMu.Unlock()
 }
 
-func (u *staticUpstream) healthCheck() {
+func (u *HealthCheck) healthCheck() {
 	for _, host := range u.Hosts {
 
 		if host.CheckURL == "" {
@@ -334,11 +342,11 @@ func (u *staticUpstream) healthCheck() {
 				checkHostName = hostName
 			}
 
-			if u.HealthCheck.Port != "" {
-				checkPort = u.HealthCheck.Port
+			if u.Port != "" {
+				checkPort = u.Port
 			}
 
-			host.CheckURL = "http://" + net.JoinHostPort(checkHostName, checkPort) + u.HealthCheck.Path
+			host.CheckURL = "http://" + net.JoinHostPort(checkHostName, checkPort) + u.Path
 		}
 
 		// calculate this before the get
@@ -349,8 +357,8 @@ func (u *staticUpstream) healthCheck() {
 	}
 }
 
-func (u *staticUpstream) HealthCheckWorker(stop chan struct{}) {
-	ticker := time.NewTicker(u.HealthCheck.Interval)
+func (u *HealthCheck) HealthCheckWorker(stop chan struct{}) {
+	ticker := time.NewTicker(u.Interval)
 	u.healthCheck()
 	for {
 		select {

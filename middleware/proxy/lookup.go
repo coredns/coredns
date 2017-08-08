@@ -24,14 +24,16 @@ func NewLookupWithOption(hosts []string, opts Options) Proxy {
 	// TODO(miek): this needs to be unified with upstream.go's NewStaticUpstreams, caddy uses NewHost
 	// we should copy/make something similar.
 	upstream := &staticUpstream{
-		from:        ".",
-		Hosts:       make([]*UpstreamHost, len(hosts)),
-		Policy:      &Random{},
-		Spray:       nil,
-		FailTimeout: 10 * time.Second,
-		MaxFails:    3, // TODO(miek): disable error checking for simple lookups?
-		Future:      60 * time.Second,
-		ex:          newDNSExWithOption(opts),
+		from: ".",
+		HealthCheck: HealthCheck{
+			Hosts:       make([]*UpstreamHost, len(hosts)),
+			Policy:      &Random{},
+			Spray:       nil,
+			FailTimeout: 10 * time.Second,
+			MaxFails:    3, // TODO(miek): disable error checking for simple lookups?
+			Future:      60 * time.Second,
+		},
+		ex: newDNSExWithOption(opts),
 	}
 
 	for i, host := range hosts {
