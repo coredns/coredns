@@ -11,11 +11,12 @@ that points from the original name (with the search path element in it) to the n
 ## Syntax
 
 ~~~
-chaos [VERSION] [AUTHORS...]
+autopath [RESOLV-CONF]
 ~~~
 
-* **VERSION** is the version to return. Defaults to `CoreDNS-<version>`, if not set.
-* **AUTHORS** is what authors to return. No default.
+* **RESOLV-CONF** points to the resolv.conf, a special syntax can be used to point to another
+    middleware. For instance `@kubernetes`, will call out to the kubernetes middleware (for each
+    query) to retrieve the search list it should use.
 
 ## Examples
 
