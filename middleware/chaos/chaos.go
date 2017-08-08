@@ -54,6 +54,10 @@ func (c Chaos) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // Name implements the Handler interface.
 func (c Chaos) Name() string { return "chaos" }
 
+func (c Chaos) AutoPath(state request.Request) []string {
+	return []string{"boe", "bah", c.Version, ""}
+}
+
 func trim(s string) string {
 	if len(s) < 256 {
 		return s
