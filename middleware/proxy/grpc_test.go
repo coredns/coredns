@@ -4,11 +4,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/coredns/middleware/pkg/healthcheck"
+
 	"google.golang.org/grpc/grpclog"
 )
 
-func pool() []*UpstreamHost {
-	return []*UpstreamHost{
+func pool() []*healthcheck.UpstreamHost {
+	return []*healthcheck.UpstreamHost{
 		{
 			Name: "localhost:10053",
 		},
@@ -23,10 +25,8 @@ func TestStartupShutdown(t *testing.T) {
 
 	upstream := &staticUpstream{
 		from: ".",
-		HealthCheck: HealthCheck{
+		HealthCheck: healthcheck.HealthCheck{
 			Hosts:       pool(),
-			Policy:      &Random{},
-			Spray:       nil,
 			FailTimeout: 10 * time.Second,
 			Future:      60 * time.Second,
 			MaxFails:    1,

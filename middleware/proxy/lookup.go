@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/coredns/coredns/middleware/pkg/healthcheck"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -25,32 +26,30 @@ func NewLookupWithOption(hosts []string, opts Options) Proxy {
 	// we should copy/make something similar.
 	upstream := &staticUpstream{
 		from: ".",
-		HealthCheck: HealthCheck{
-			Hosts:       make([]*UpstreamHost, len(hosts)),
-			Policy:      &Random{},
-			Spray:       nil,
+		HealthCheck: healthcheck.HealthCheck{
 			FailTimeout: 10 * time.Second,
 			MaxFails:    3, // TODO(miek): disable error checking for simple lookups?
 			Future:      60 * time.Second,
 		},
 		ex: newDNSExWithOption(opts),
 	}
+	upstream.Hosts = make([]*healthcheck.UpstreamHost, len(hosts))
 
 	for i, host := range hosts {
-		uh := &UpstreamHost{
+		uh := &healthcheck.UpstreamHost{
 			Name:        host,
 			Conns:       0,
 			Fails:       0,
 			FailTimeout: upstream.FailTimeout,
 
-			CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
-				return func(uh *UpstreamHost) bool {
+			CheckDown: func(upstream *staticUpstream) healthcheck.UpstreamHostDownFunc {
+				return func(uh *healthcheck.UpstreamHost) bool {
 
 					down := false
 
-					uh.checkMu.Lock()
+					uh.CheckMu.Lock()
 					until := uh.OkUntil
-					uh.checkMu.Unlock()
+					uh.CheckMu.Unlock()
 
 					if !until.IsZero() && time.Now().After(until) {
 						down = true
@@ -122,7 +121,7 @@ func (p Proxy) lookup(state request.Request) (*dns.Msg, error) {
 				timeout = 10 * time.Second
 			}
 			atomic.AddInt32(&host.Fails, 1)
-			go func(host *UpstreamHost, timeout time.Duration) {
+			go func(host *healthcheck.UpstreamHost, timeout time.Duration) {
 				time.Sleep(timeout)
 				atomic.AddInt32(&host.Fails, -1)
 			}(host, timeout)
