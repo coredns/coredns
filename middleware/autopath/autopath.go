@@ -24,6 +24,7 @@ It is assume the search path ordering is identical between server and client.
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
@@ -33,18 +34,29 @@ import (
 	"golang.org/x/net/context"
 )
 
+// AutoPathFunc defines the function middleware should implement to return a search
+// path to the autopath middleware. The last element of the slice must be the empty string.
+type AutoPathFunc func(request.Request) []string
+
 // Autopath perform autopath: service side search path completion.
 type AutoPath struct {
 	Next middleware.Handler
 	// Search always includes "" as the last element, so we try the base query with out any search paths added as well.
-	search []string
+	search     []string
+	searchFunc AutoPathFunc
 	// options ndots:5
 }
 
-func (a AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	if state.QClass() != dns.ClassINET {
 		return dns.RcodeServerFailure, middleware.Error(a.Name(), errors.New("can only deal with ClassINET"))
+	}
+
+	searchpath := a.search
+	if a.searchFunc != nil {
+		searchpath = a.searchFunc(state)
+		fmt.Printf("search from chaos %v\n", searchpath)
 	}
 
 	do := a.FirstInSearchPath(state.Name())
@@ -67,9 +79,9 @@ func (a AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	var firstErr error
 	// Walk the search path and see if we can get a non-domain - if they all fail we return the first
 	// query we've done and return that as-is.
-	for i := 0; i < len(a.search); i++ {
+	for i, s := range a.search {
 
-		newQName := base + "." + a.search[i]
+		newQName := base + "." + s
 		r.Question[0].Name = newQName
 		nw := NewNonWriter(w)
 
@@ -101,7 +113,7 @@ func (a AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 // FirstInSearchPath checks if name is equal to are a sibling of the first element
 // in the search path.
-func (a AutoPath) FirstInSearchPath(name string) bool {
+func (a *AutoPath) FirstInSearchPath(name string) bool {
 	if name == a.search[0] {
 		return true
 	}

@@ -1,8 +1,6 @@
 package autopath
 
 import (
-	"fmt"
-
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/chaos"
@@ -19,17 +17,22 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	ap, err := autoPathParse(c)
+	ap, mw, err := autoPathParse(c)
 	if err != nil {
 		return middleware.Error("autopath", err)
 	}
 
 	c.OnStartup(func() error {
-		// So we know for sure this is initialized.
-		ch := dnsserver.GetMiddleware(c, "chaos")
-		if ch != nil {
-			if ch, ok := ch.(chaos.Chaos); ok {
-				fmt.Printf("%v\n", ch.AutoPath())
+		// So we know for sure the mw is initialized.
+		m := dnsserver.GetMiddleware(c, mw)
+		switch mw {
+		case "kubernetes":
+			//if k, ok := m.(kubernetes.Kubernetes); ok {
+			//&ap.searchFunc = k.AutoPath
+			//}
+		case "chaos":
+			if c, ok := m.(chaos.Chaos); ok {
+				ap.searchFunc = c.AutoPath
 			}
 		}
 		return nil
@@ -43,8 +46,8 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func autoPathParse(c *caddy.Controller) (AutoPath, error) {
-	return AutoPath{search: []string{"default.svc.cluster.local.", "svc.cluster.local.", "cluster.local.", "com.", ""}}, nil
+func autoPathParse(c *caddy.Controller) (*AutoPath, string, error) {
+	return &AutoPath{search: []string{"default.svc.cluster.local.", "svc.cluster.local.", "cluster.local.", "com.", ""}}, "chaos", nil
 }
 
 /*
