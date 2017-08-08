@@ -73,8 +73,6 @@ func (a AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		r.Question[0].Name = newQName
 		nw := NewNonWriter(w)
 
-		println("QUERY", newQName)
-
 		rcode, err := middleware.NextOrFailure(a.Name(), a.Next, ctx, nw, r)
 		if i == 0 {
 			firstReply = nw.Msg
