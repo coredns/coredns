@@ -460,6 +460,9 @@ func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, r rec
 	return records
 }
 
+// TODO(miek): rename and put in autopath.go file. This will be for the
+// external middleware autopath to use. Mostly to get the namespace:
+//name, path, ok := autopath.SplitSearch(zone, state.QName(), p.Namespace)
 func (k *Kubernetes) findPodWithIP(ip string) (p *api.Pod) {
 	if k.autoPath == nil {
 		return nil
