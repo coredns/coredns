@@ -4,9 +4,10 @@ package autopath
 Autopath is a hack; it shortcuts the client's search path resolution by performing
 these lookups on the server...
 
-The server has a copy of the client's search path and on receiving a query it first
-establish if the suffix matches the FIRST configured element. If no match
-can be found the query will be forward up the middleware chain without interference.
+The server has a copy (via AutoPathFunc) of the client's search path and on
+receiving a query it first establish if the suffix matches the FIRST configured
+element. If no match can be found the query will be forwarded up the middleware
+chain without interference (iff 'fallthrough' has been set).
 
 If the query is deemed to fall in the search path the server will perform the
 queries with each element of the search path appended in sequence until a
@@ -36,7 +37,8 @@ import (
 
 // AutoPathFunc defines the function middleware should implement to return a search
 // path to the autopath middleware. The last element of the slice must be the empty string.
-type AutoPathFunc func(request.Request) []string
+// If AutoPathFunc returns a non-nil error no autopathing is performed.
+type AutoPathFunc func(request.Request) ([]string, error)
 
 // Autopath perform autopath: service side search path completion.
 type AutoPath struct {
