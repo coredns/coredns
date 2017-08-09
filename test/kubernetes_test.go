@@ -543,7 +543,7 @@ func TestKubernetesIntegrationCidrReverseZone(t *testing.T) {
     kubernetes cluster.local {
                 endpoint http://localhost:8080
                 namespaces test-1
-				cidrs 10.0.0.0/24				
+				cidrs 10.0.0.0/24
     }
 	erratic . {
 		drop 0
@@ -555,7 +555,7 @@ func TestKubernetesIntegrationCidrReverseZone(t *testing.T) {
 func TestKubernetesIntegrationPartialCidrReverseZone(t *testing.T) {
 	corefile :=
 		`.:0 {
-    kubernetes cluster.local {
+    kubernetes 10.0.0.0/24 cluster.local {
                 endpoint http://localhost:8080
                 namespaces test-1
 				cidrs 10.0.0.96/28 10.0.0.120/32
