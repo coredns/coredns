@@ -42,12 +42,12 @@ type AutoPathFunc func(request.Request) ([]string, error)
 
 // Autopath perform autopath: service side search path completion.
 type AutoPath struct {
-	Next middleware.Handler
+	Next  middleware.Handler
+	Zones []string
+
 	// Search always includes "" as the last element, so we try the base query with out any search paths added as well.
 	search     []string
 	searchFunc AutoPathFunc
-	// options ndots:5
-	fall bool
 }
 
 func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -56,9 +56,13 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return dns.RcodeServerFailure, middleware.Error(a.Name(), errors.New("can only deal with ClassINET"))
 	}
 
+	var err error
 	searchpath := a.search
 	if a.searchFunc != nil {
-		searchpath = a.searchFunc(state)
+		searchpath, err = a.searchFunc(state)
+		if err != nil {
+			return middleware.NextOrFailure(a.Name(), a.Next, ctx, w, r)
+		}
 		fmt.Printf("search from chaos %v\n", searchpath)
 	}
 

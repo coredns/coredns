@@ -1,11 +1,14 @@
 package autopath
 
 import (
+	"fmt"
+
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/chaos"
 
 	"github.com/mholt/caddy"
+	"github.com/miekg/dns"
 )
 
 func init() {
@@ -46,50 +49,43 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func autoPathParse(c *caddy.Controller) (*AutoPath, string, error) {
-	return &AutoPath{search: []string{"default.svc.cluster.local.", "svc.cluster.local.", "cluster.local.", "com.", ""}}, "chaos", nil
+var allowedMiddleware = map[string]bool{
+	"@kubernetes": true,
 }
 
-/*
-	case "autopath": // name zone
-		args := c.RemainingArgs()
-		k8s.autoPath = &autopath.AutoPath{
-			NDots:          defautNdots,
-			HostSearchPath: []string{},
-			ResolvConfFile: defaultResolvConfFile,
-			OnNXDOMAIN:     defaultOnNXDOMAIN,
-		}
-		if len(args) > 3 {
-			return nil, fmt.Errorf("incorrect number of arguments for autopath, got %v, expected at most 3", len(args))
+func autoPathParse(c *caddy.Controller) (*AutoPath, string, error) {
+	ap := new(AutoPath)
+	mw := ""
 
+	for c.Next() {
+		zoneAndresolv := c.RemainingArgs()
+		if len(zoneAndresolv) < 1 {
+			return nil, "", fmt.Errorf("no resolv-conf specified")
 		}
-		if len(args) > 0 {
-			ndots, err := strconv.Atoi(args[0])
+		resolv := zoneAndresolv[len(zoneAndresolv)-1]
+		if resolv[0] == '@' {
+			_, ok := allowedMiddleware[resolv]
+			if ok {
+				mw = resolv[1:]
+			}
+		} else {
+			// assume file on disk
+			rc, err := dns.ClientConfigFromFile(resolv)
 			if err != nil {
-				return nil, fmt.Errorf("invalid NDOTS argument for autopath, got '%v', expected an integer", ndots)
+				return nil, "", fmt.Errorf("failed to parse %q: %v", resolv, err)
 			}
-			k8s.autoPath.NDots = ndots
+			ap.search = rc.Search
+			middleware.Zones(ap.search).Normalize()
+			ap.search = append(ap.search, "") // sentinal value as demanded.
 		}
-		if len(args) > 1 {
-			switch args[1] {
-			case dns.RcodeToString[dns.RcodeNameError]:
-				k8s.autoPath.OnNXDOMAIN = dns.RcodeNameError
-			case dns.RcodeToString[dns.RcodeSuccess]:
-				k8s.autoPath.OnNXDOMAIN = dns.RcodeSuccess
-			case dns.RcodeToString[dns.RcodeServerFailure]:
-				k8s.autoPath.OnNXDOMAIN = dns.RcodeServerFailure
-			default:
-				return nil, fmt.Errorf("invalid RESPONSE argument for autopath, got '%v', expected SERVFAIL, NOERROR, or NXDOMAIN", args[1])
-			}
+		ap.Zones = zoneAndresolv[:len(zoneAndresolv)-1]
+		if len(ap.Zones) == 0 {
+			ap.Zones = make([]string, len(c.ServerBlockKeys))
+			copy(ap.Zones, c.ServerBlockKeys)
 		}
-		if len(args) > 2 {
-			k8s.autoPath.ResolvConfFile = args[2]
+		for i, str := range ap.Zones {
+			ap.Zones[i] = middleware.Host(str).Normalize()
 		}
-		rc, err := dns.ClientConfigFromFile(k8s.autoPath.ResolvConfFile)
-		if err != nil {
-			return nil, fmt.Errorf("error when parsing %v: %v", k8s.autoPath.ResolvConfFile, err)
-		}
-		k8s.autoPath.HostSearchPath = rc.Search
-		middleware.Zones(k8s.autoPath.HostSearchPath).Normalize()
-		continue
-*/
+	}
+	return ap, mw, nil
+}
