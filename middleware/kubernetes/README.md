@@ -11,7 +11,7 @@ to deploy CoreDNS in Kubernetes](https://github.com/coredns/deployment/tree/mast
 ## Syntax
 
 ```
-kubernetes ZONE [ZONE...] [{
+kubernetes ZONE [ZONE...] [
 	resyncperiod DURATION
 	endpoint URL
 	tls CERT KEY CACERT]
@@ -21,7 +21,7 @@ kubernetes ZONE [ZONE...] [{
 	upstream ADDRESS [ADDRESS...]
 	federation NAME DOMAIN
 	fallthrough
-}]
+}
 ```
 
 * `resyncperiod` **DURATION**
