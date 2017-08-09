@@ -11,15 +11,16 @@ that points from the original name (with the search path element in it) to the n
 ## Syntax
 
 ~~~
-autopath [ZONE..] RESOLV_CONF
+autopath [ZONE..] RESOLV-CONF
 ~~~
 
 * **ZONES** zones *autopath* should be authoritative for.
-* **RESOLV-CONF** points to the `resolv.conf` or a special syntax can be used to point to another
-    middleware. For instance `@kubernetes`, will call out to the kubernetes middleware (for each
-    query) to retrieve the search list it should use. Currently allowed values: `@kubernetes`.
+* **RESOLV-CONF** points to a `resolv.conf` like file or uses a special syntax to point to another
+  middleware. For instance `@kubernetes`, will call out to the kubernetes middleware (for each
+  query) to retrieve the search list it should use.
 
 Currently the following set of middleware has implemented *autopath*:
+
 * *kubernetes*
 
 ## Examples
@@ -29,5 +30,5 @@ autopath /etc/resolv.conf
 ~~~
 
 ~~~
-autopath @kubernetes {
+autopath @kubernetes
 ~~~
