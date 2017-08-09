@@ -92,8 +92,8 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	firstRcode := 0
 	var firstErr error
 	// Walk the search path and see if we can get a non-nxdomain - if they all fail we return the first
-	// query we've done and return that as-is. This mean the client will do the search path walk again...
-	for i, s := range a.search {
+	// query we've done and return that as-is. This means the client will do the search path walk again...
+	for i, s := range searchpath {
 
 		newQName := base + "." + s
 		r.Question[0].Name = newQName
@@ -104,6 +104,10 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 			firstReply = nw.Msg
 			firstRcode = rcode
 			firstErr = err
+		}
+
+		if !middleware.ClientWrite(rcode) {
+			continue
 		}
 
 		if nw.Msg.Rcode == dns.RcodeNameError {
@@ -118,9 +122,9 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return rcode, err
 
 	}
-
-	// Still here, return first reply.
-	w.WriteMsg(firstReply)
+	if middleware.ClientWrite(firstRcode) {
+		w.WriteMsg(firstReply)
+	}
 	return firstRcode, firstErr
 }
 

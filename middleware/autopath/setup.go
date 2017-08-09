@@ -5,7 +5,6 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/middleware"
-	"github.com/coredns/coredns/middleware/chaos"
 
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
@@ -30,13 +29,10 @@ func setup(c *caddy.Controller) error {
 		m := dnsserver.GetMiddleware(c, mw)
 		switch mw {
 		case "kubernetes":
+			m = m
 			//if k, ok := m.(kubernetes.Kubernetes); ok {
 			//&ap.searchFunc = k.AutoPath
 			//}
-		case "chaos":
-			if c, ok := m.(chaos.Chaos); ok {
-				ap.searchFunc = c.AutoPath
-			}
 		}
 		return nil
 	})
