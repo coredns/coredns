@@ -570,7 +570,7 @@ func TestKubernetesIntegrationPartialCidrReverseZone(t *testing.T) {
 func TestKubernetesIntegrationAllNSExposed(t *testing.T) {
 	corefile :=
 		`.:0 {
-    kubernetes cluster.local {
+    kubernetes 10.0.0.0/24 cluster.local {
                 endpoint http://localhost:8080
 				cidrs 10.0.0.0/24
     }
