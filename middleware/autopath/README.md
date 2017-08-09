@@ -26,9 +26,14 @@ Currently the following set of middleware has implemented *autopath*:
 ## Examples
 
 ~~~
-autopath /etc/resolv.conf
+autopath my-resolv.conf
 ~~~
+
+Use `my-resolv.conf` as the file to get the search path from. This file only needs so have one line:
+`search domain1 domain2 ...`
 
 ~~~
 autopath @kubernetes
 ~~~
+
+Use the search path dynamically retrieved from the kubernetes middleware.
