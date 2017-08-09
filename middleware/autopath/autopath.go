@@ -21,11 +21,19 @@ more work, since the server looks it up, then the client still needs to go
 through the search path.
 
 It is assume the search path ordering is identical between server and client.
+
+Midldeware implementing autopath, must have a function called `AutoPath` of type
+AutoPathFunc. Note the searchpath must be ending with the empty string.
+
+I.e:
+
+func (m Middleware ) AutoPath(state request.Request) ([]string, error) {
+	return []string{"first", "second", "last", ""}, nil
+}
 */
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
@@ -56,6 +64,8 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return dns.RcodeServerFailure, middleware.Error(a.Name(), errors.New("can only deal with ClassINET"))
 	}
 
+	// Check if autopath should be done, searchFunc takes precedence over the local configured
+	// search path.
 	var err error
 	searchpath := a.search
 	if a.searchFunc != nil {
@@ -63,12 +73,10 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		if err != nil {
 			return middleware.NextOrFailure(a.Name(), a.Next, ctx, w, r)
 		}
-		fmt.Printf("search from chaos %v\n", searchpath)
 	}
 
-	do := a.FirstInSearchPath(state.Name())
-	if !do { // Does not fall in the search path, normal middleware chaining
-		// TOD(miek): should actually have a fallthrough thing for this; should be yes.
+	match := a.FirstInSearchPath(state.Name())
+	if !match {
 		return middleware.NextOrFailure(a.Name(), a.Next, ctx, w, r)
 	}
 
@@ -79,13 +87,12 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	if err != nil {
 		return dns.RcodeServerFailure, err
 	}
-	println("DOING AUTOPATH")
 
 	firstReply := new(dns.Msg)
 	firstRcode := 0
 	var firstErr error
-	// Walk the search path and see if we can get a non-domain - if they all fail we return the first
-	// query we've done and return that as-is.
+	// Walk the search path and see if we can get a non-nxdomain - if they all fail we return the first
+	// query we've done and return that as-is. This mean the client will do the search path walk again...
 	for i, s := range a.search {
 
 		newQName := base + "." + s
@@ -100,26 +107,24 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		}
 
 		if nw.Msg.Rcode == dns.RcodeNameError {
-			println("continuing")
 			continue
 		}
 
 		msg := nw.Msg
 		cnamer(msg, origQName)
 
-		// Other failure or successful answer - should check what we need to here
+		// Write whatever non-nxdomain answer we've found.
 		w.WriteMsg(msg)
 		return rcode, err
 
 	}
-	println("ALL NXDOMAIN, returning first")
-	// Still here, return first reply
+
+	// Still here, return first reply.
 	w.WriteMsg(firstReply)
 	return firstRcode, firstErr
 }
 
-// FirstInSearchPath checks if name is equal to are a sibling of the first element
-// in the search path.
+// FirstInSearchPath checks if name is equal to are a sibling of the first element in the search path.
 func (a *AutoPath) FirstInSearchPath(name string) bool {
 	if name == a.search[0] {
 		return true
