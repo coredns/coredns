@@ -78,17 +78,6 @@ type pod struct {
 	addr      string
 }
 
-type recordRequest struct {
-	port       string
-	protocol   string
-	endpoint   string
-	service    string
-	namespace  string
-	typeName   string
-	zone       string
-	federation string
-}
-
 var (
 	errNoItems        = errors.New("no items found")
 	errNsNotExposed   = errors.New("namespace is not exposed")
@@ -96,10 +85,32 @@ var (
 	errZoneNotFound   = errors.New("zone not found")
 	errAPIBadPodType  = errors.New("expected type *api.Pod")
 	errPodsDisabled   = errors.New("pod records disabled")
+	// miek
+	errNameError = errors.New("no such name")
 )
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) (svcs []msg.Service, debug []msg.Service, err error) {
+
+	// We're looking again at types, which we've already done in ServeDNS, but there are some types k8s just can't answer.
+	switch state.QType() {
+	case dns.TypeTXT:
+		// 1 label + zone, label must be "dns-version"
+		t, err := dnsutil.TrimZone(state.Name(), state.Zone)
+		if err != nil {
+			return nil, nil, err
+		}
+		segs := dns.SplitDomainName(t)
+		if len(segs) != 1 {
+			return nil, nil, errors.New("servfail")
+		}
+		if segs[0] != "dns-version" {
+			return nil, nil, errNameError
+		}
+		svc := msg.Service{Text: DNSSchemaVersion, TTL: 28800, Key: msg.Path(state.QName(), "coredns")}
+		return []msg.Service{svc}, nil, nil
+	}
+
 	r, e := k.parseRequest(state.Name(), state.QType())
 	if e != nil {
 		return nil, nil, e
@@ -128,23 +139,12 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 			}
 		}
 		return noext, nil, e
-	case "TXT":
-		if r.typeName == "dns-version" {
-			srv := k.recordsForTXT(r)
-			svcs = append(svcs, srv)
-		}
-		return svcs, nil, err
 	case "NS":
 		srv := k.recordsForNS(r)
 		svcs = append(svcs, srv)
 		return svcs, nil, err
 	}
 	return nil, nil, nil
-}
-
-func (k *Kubernetes) recordsForTXT(r recordRequest) msg.Service {
-	return msg.Service{Text: DNSSchemaVersion, TTL: 28800,
-		Key: msg.Path(strings.Join([]string{r.typeName, r.zone}, "."), "coredns")}
 }
 
 func (k *Kubernetes) recordsForNS(r recordRequest) msg.Service {
@@ -165,7 +165,8 @@ func (k *Kubernetes) Lookup(state request.Request, name string, typ uint16) (*dn
 
 // IsNameError implements the ServiceBackend interface.
 func (k *Kubernetes) IsNameError(err error) bool {
-	return err == errNoItems || err == errNsNotExposed || err == errInvalidRequest || err == errZoneNotFound
+	// TODO(miek): Ive *added* another errNameError
+	return err == errNoItems || err == errNsNotExposed || err == errInvalidRequest || err == errZoneNotFound || err == errNameError
 }
 
 // Debug implements the ServiceBackend interface.
@@ -232,99 +233,6 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, opts)
 
 	return err
-}
-
-func (k *Kubernetes) parseRequest(lowerCasedName string, qtype uint16) (r recordRequest, err error) {
-	// 3 Possible cases
-	//   SRV Request: _port._protocol.service.namespace.[federation.]type.zone
-	//   A Request (endpoint): endpoint.service.namespace.[federation.]type.zone
-	//   A Request (service): service.namespace.[federation.]type.zone
-
-	// separate zone from rest of lowerCasedName
-	var segs []string
-	for _, z := range k.Zones {
-		if dns.IsSubDomain(z, lowerCasedName) {
-			r.zone = z
-
-			segs = dns.SplitDomainName(lowerCasedName)
-			segs = segs[:len(segs)-dns.CountLabel(r.zone)]
-			break
-		}
-	}
-	if r.zone == "" {
-		return r, errZoneNotFound
-	}
-
-	r.federation, segs = k.stripFederation(segs)
-
-	if qtype == dns.TypeNS {
-		return r, nil
-	}
-
-	if qtype == dns.TypeA && isDefaultNS(lowerCasedName, r) {
-		return r, nil
-	}
-
-	offset := 0
-	if qtype == dns.TypeSRV {
-		// The kubernetes peer-finder expects queries with empty port and service to resolve
-		// If neither is specified, treat it as a wildcard
-		if len(segs) == 3 {
-			r.port = "*"
-			r.service = "*"
-			offset = 0
-		} else {
-			if len(segs) != 5 {
-				return r, errInvalidRequest
-			}
-			// This is a SRV style request, get first two elements as port and
-			// protocol, stripping leading underscores if present.
-			if segs[0][0] == '_' {
-				r.port = segs[0][1:]
-			} else {
-				r.port = segs[0]
-				if !wildcard(r.port) {
-					return r, errInvalidRequest
-				}
-			}
-			if segs[1][0] == '_' {
-				r.protocol = segs[1][1:]
-				if r.protocol != "tcp" && r.protocol != "udp" {
-					return r, errInvalidRequest
-				}
-			} else {
-				r.protocol = segs[1]
-				if !wildcard(r.protocol) {
-					return r, errInvalidRequest
-				}
-			}
-			if r.port == "" || r.protocol == "" {
-				return r, errInvalidRequest
-			}
-			offset = 2
-		}
-	}
-	if (qtype == dns.TypeA || qtype == dns.TypeAAAA) && len(segs) == 4 {
-		// This is an endpoint A/AAAA record request. Get first element as endpoint.
-		r.endpoint = segs[0]
-		offset = 1
-	}
-
-	if len(segs) == (offset + 3) {
-		r.service = segs[offset]
-		r.namespace = segs[offset+1]
-		r.typeName = segs[offset+2]
-
-		return r, nil
-	}
-
-	if len(segs) == 1 && qtype == dns.TypeTXT {
-		r.typeName = segs[0]
-		return r, nil
-	}
-
-	return r, errInvalidRequest
-
 }
 
 // Records not implemented, see Entries().
@@ -479,7 +387,7 @@ func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error)
 // get retrieves matching data from the cache.
 func (k *Kubernetes) get(r recordRequest) (services []service, pods []pod, err error) {
 	switch {
-	case r.typeName == Pod:
+	case r.podOrSvc == Pod:
 		pods, err = k.findPods(r.namespace, r.service)
 		return nil, pods, err
 	default:
