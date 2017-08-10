@@ -131,9 +131,7 @@ func (c *Config) RegisterHandler(h middleware.Handler) {
 		c.Registry = make(map[string]middleware.Handler)
 	}
 
-	if _, ok := c.Registry[h.Name()]; ok {
-		panic("foot!")
-	}
+	// Just overwrite...
 	c.Registry[h.Name()] = h
 }
 
