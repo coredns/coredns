@@ -65,7 +65,8 @@ type endpoint struct {
 	port api.EndpointPort
 }
 
-type service struct {
+// kService is a service as retrieved via the k8s API.
+type kService struct {
 	name      string
 	namespace string
 	addr      string
@@ -73,7 +74,8 @@ type service struct {
 	endpoints []endpoint
 }
 
-type pod struct {
+// kPod is a pod as retrieved via the k8s API.
+type kPod struct {
 	name      string
 	namespace string
 	addr      string
@@ -282,7 +284,7 @@ func endpointHostname(addr api.EndpointAddress) string {
 	return ""
 }
 
-func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, r recordRequest) (records []msg.Service) {
+func (k *Kubernetes) getRecordsForK8sItems(services []kService, pods []kPod, r recordRequest) (records []msg.Service) {
 	zonePath := msg.Path(r.zone, "coredns")
 
 	for _, svc := range services {
@@ -342,7 +344,7 @@ func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, r rec
 	return records
 }
 
-func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error) {
+func (k *Kubernetes) findPods(namespace, podname string) (pods []kPod, err error) {
 	if k.PodMode == PodModeDisabled {
 		return pods, errPodsDisabled
 	}
@@ -355,7 +357,7 @@ func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error)
 	}
 
 	if k.PodMode == PodModeInsecure {
-		s := pod{name: podname, namespace: namespace, addr: ip}
+		s := kPod{name: podname, namespace: namespace, addr: ip}
 		pods = append(pods, s)
 		return pods, nil
 	}
@@ -375,7 +377,7 @@ func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error)
 		}
 		// check for matching ip and namespace
 		if ip == p.Status.PodIP && match(namespace, p.Namespace, nsWildcard) {
-			s := pod{name: podname, namespace: namespace, addr: ip}
+			s := kPod{name: podname, namespace: namespace, addr: ip}
 			pods = append(pods, s)
 			return pods, nil
 		}
@@ -384,7 +386,7 @@ func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error)
 }
 
 // get retrieves matching data from the cache.
-func (k *Kubernetes) get(r recordRequest) (services []service, pods []pod, err error) {
+func (k *Kubernetes) get(r recordRequest) (services []kService, pods []kPod, err error) {
 	switch {
 	case r.podOrSvc == Pod:
 		pods, err = k.findPods(r.namespace, r.service)
@@ -395,9 +397,9 @@ func (k *Kubernetes) get(r recordRequest) (services []service, pods []pod, err e
 	}
 }
 
-func (k *Kubernetes) findServices(r recordRequest) ([]service, error) {
+func (k *Kubernetes) findServices(r recordRequest) ([]kService, error) {
 	serviceList := k.APIConn.ServiceList()
-	var resultItems []service
+	var resultItems []kService
 
 	nsWildcard := wildcard(r.namespace)
 	serviceWildcard := wildcard(r.service)
@@ -413,7 +415,7 @@ func (k *Kubernetes) findServices(r recordRequest) ([]service, error) {
 		if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(svc.Namespace, k.Namespaces)) {
 			continue
 		}
-		s := service{name: svc.Name, namespace: svc.Namespace}
+		s := kService{name: svc.Name, namespace: svc.Namespace}
 
 		// Endpoint query or headless service
 		if svc.Spec.ClusterIP == api.ClusterIPNone || r.endpoint != "" {
