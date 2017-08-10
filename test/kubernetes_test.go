@@ -450,7 +450,7 @@ func doIntegrationTests(t *testing.T, corefile string, testCases []test.Case) {
 
 	// Work-around for timing condition that results in no-data being returned in
 	// test environment.
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 
 	for _, tc := range testCases {
 

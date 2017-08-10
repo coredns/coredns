@@ -7,11 +7,13 @@ import (
 	"log"
 	"net"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/etcd/msg"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
+	"github.com/coredns/coredns/middleware/pkg/healthcheck"
 	dnsstrings "github.com/coredns/coredns/middleware/pkg/strings"
 	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/request"
@@ -184,13 +186,45 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 			}
 			k.APIProxy = &apiProxy{
 				listener: listener,
+				handler: proxyHandler{
+					HealthCheck: healthcheck.HealthCheck{
+						FailTimeout: 3 * time.Second,
+						MaxFails:    1,
+						Future:      10 * time.Second,
+						Path:        "/",
+						Interval:    5 * time.Second,
+					},
+				},
 			}
-			for _, entry := range k.APIServerList {
-				k.APIProxy.handler.upstreams = append(k.APIProxy.handler.upstreams, proxyUpstream{
-					network: "tcp",
-					address: strings.TrimPrefix(entry, "http://"),
-					stop:    make(chan struct{}),
-				})
+			k.APIProxy.handler.Hosts = make([]*healthcheck.UpstreamHost, len(k.APIServerList))
+			for i, entry := range k.APIServerList {
+
+				uh := &healthcheck.UpstreamHost{
+					Name: strings.TrimPrefix(entry, "http://"),
+
+					CheckDown: func(upstream *proxyHandler) healthcheck.UpstreamHostDownFunc {
+						return func(uh *healthcheck.UpstreamHost) bool {
+
+							down := false
+
+							uh.CheckMu.Lock()
+							until := uh.OkUntil
+							uh.CheckMu.Unlock()
+
+							if !until.IsZero() && time.Now().After(until) {
+								down = true
+							}
+
+							fails := atomic.LoadInt32(&uh.Fails)
+							if fails >= upstream.MaxFails && upstream.MaxFails != 0 {
+								down = true
+							}
+							return down
+						}
+					}(&k.APIProxy.handler),
+				}
+
+				k.APIProxy.handler.Hosts[i] = uh
 			}
 			k.APIProxy.Handler = &k.APIProxy.handler
 
