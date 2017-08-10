@@ -20,7 +20,7 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	ap, _, err := autoPathParse(c)
+	ap, mw, err := autoPathParse(c)
 	if err != nil {
 		return middleware.Error("autopath", err)
 	}

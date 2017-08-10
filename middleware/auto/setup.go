@@ -32,7 +32,7 @@ func setup(c *caddy.Controller) error {
 	}
 
 	// If we have enabled prometheus we should add newly discovered zones to it.
-	met := dnsserver.GetMiddleware(c, "prometheus")
+	met := dnsserver.GetConfig(c).GetHandler("prometheus")
 	if met != nil {
 		a.metrics = met.(*metrics.Metrics)
 	}
