@@ -34,6 +34,9 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		if !k.isRequestInReverseRange(state.Name()) {
 			return middleware.NextOrFailure(k.Name(), k.Next, ctx, w, r)
 		}
+
+		// Set the zone to this specific request, as we want to handle this reverse request.
+		zone = state.Name()
 	}
 
 	state.Zone = zone
