@@ -124,6 +124,49 @@ func (c *Config) AddMiddleware(m middleware.Middleware) {
 	c.Middleware = append(c.Middleware, m)
 }
 
+// RegisterHandler adds a handler to a site's handler registration. Handlers
+// should use this if the want to announce that they exist to other middleware.
+func (c *Config) RegisterHandler(h middleware.Handler) {
+	if c.Registry == nil {
+		c.Registry = make(map[string]middleware.Handler)
+	}
+
+	if _, ok := c.Registry[h.Name()]; ok {
+		panic("foot!")
+	}
+	c.Registry[h.Name()] = h
+}
+
+// GetHandler returns the middleware handler that has been added to the config under its name.
+// This is useful to inspect if a certain middleware is active in this server.
+// Note that this is order dependent and the order is defined in directives.go, i.e. if your middleware
+// comes before the middleware you are checking; it will not be there (yet).
+// See RegisterHandler on how to register the middleware with this server.
+func (c *Config) GetHandler(name string) middleware.Handler {
+	if c.Registry == nil {
+		return nil
+	}
+	if h, ok := c.Registry[name]; ok {
+		return h
+	}
+	return nil
+}
+
+// GetMiddleware returns the middleware handler that has been added to the config under name.
+// This is useful to inspect if a certain middleware is active in this server.
+// Note that this is order dependent and the order is defined in directives.go, i.e. if your middleware
+// comes before the middleware you are checking; it will not be there (yet).
+func GetMiddleware(c *caddy.Controller, name string) middleware.Handler {
+	conf := GetConfig(c)
+	for _, h := range conf.Middleware {
+		x := h(nil)
+		if name == x.Name() {
+			return x
+		}
+	}
+	return nil
+}
+
 // groupSiteConfigsByListenAddr groups site configs by their listen
 // (bind) address, so sites that use the same listener can be served
 // on the same server instance. The return value maps the listen
