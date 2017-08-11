@@ -40,14 +40,6 @@ func (k *Kubernetes) parseRequest(lowerCasedName string, qtype uint16, zone ...s
 	r.zone = zone[0]
 	r.federation, segs = k.stripFederation(segs)
 
-	if qtype == dns.TypeNS {
-		return r, nil
-	}
-
-	if qtype == dns.TypeA && isDefaultNS(lowerCasedName, r) {
-		return r, nil
-	}
-
 	offset := 0
 	if qtype == dns.TypeSRV {
 		// The kubernetes peer-finder expects queries with empty port and service to resolve

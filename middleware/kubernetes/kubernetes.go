@@ -98,6 +98,9 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 
 	// We're looking again at types, which we've already done in ServeDNS, but there are some types k8s just can't answer.
 	switch state.QType() {
+	case dns.TypeAAAA:
+		return nil, nil, nil
+
 	case dns.TypeTXT:
 		// 1 label + zone, label must be "dns-version".
 		t, err := dnsutil.TrimZone(state.Name(), state.Zone)
@@ -113,8 +116,17 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 		}
 		svc := msg.Service{Text: DNSSchemaVersion, TTL: 28800, Key: msg.Path(state.QName(), "coredns")}
 		return []msg.Service{svc}, nil, nil
+
 	case dns.TypeNS:
 		// We can only get here if the qname equal the zone, see ServeDNS in handler.go.
+		ns := k.nsAddr()
+		svc := msg.Service{Host: ns.A.String(), Key: msg.Path(state.QName(), "coredns")}
+		return []msg.Service{svc}, nil, nil
+	}
+
+	// If this is an A request for "ns.dns", respond with a "fake" record for coredns.
+	// SOA records always use this hardcoded name
+	if state.QType() == dns.TypeA && isDefaultNS(state.Name(), state.Zone) {
 		ns := k.nsAddr()
 		svc := msg.Service{Host: ns.A.String(), Key: msg.Path(state.QName(), "coredns")}
 		return []msg.Service{svc}, nil, nil
@@ -126,19 +138,9 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 	}
 
 	switch state.QType() {
-	case dns.TypeA, dns.TypeAAAA, dns.TypeCNAME:
-		if state.Type() == "A" && isDefaultNS(state.Name(), r) {
-			// If this is an A request for "ns.dns", respond with a "fake" record for coredns.
-			// SOA records always use this hardcoded name
-			svcs = append(svcs, k.defaultNSMsg(r))
-			return svcs, nil, nil
-		}
+	case dns.TypeA, dns.TypeCNAME:
 		s, e := k.Entries(r)
-		if state.QType() == dns.TypeAAAA {
-			// AAAA not implemented
-			return nil, nil, e
-		}
-		return s, nil, e // Haven't implemented debug queries yet.
+		return s, nil, e
 	case dns.TypeSRV:
 		s, e := k.Entries(r)
 		// SRV for external services is not yet implemented, so remove those records
