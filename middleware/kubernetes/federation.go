@@ -1,7 +1,6 @@
 package kubernetes
 
 import (
-	"net"
 	"strings"
 
 	"github.com/coredns/coredns/middleware/etcd/msg"
@@ -73,24 +72,4 @@ func (k *Kubernetes) federationCNAMERecord(r recordRequest) msg.Service {
 	}
 
 	return msg.Service{}
-}
-
-func (k *Kubernetes) localNodeName() string {
-	localIP := k.interfaceAddrsFunc()
-	if localIP == nil {
-		return ""
-	}
-
-	// Find endpoint matching localIP
-	endpointsList := k.APIConn.EndpointsList()
-	for _, ep := range endpointsList.Items {
-		for _, eps := range ep.Subsets {
-			for _, addr := range eps.Addresses {
-				if localIP.Equal(net.ParseIP(addr.IP)) {
-					return *addr.NodeName
-				}
-			}
-		}
-	}
-	return ""
 }
