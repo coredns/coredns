@@ -8,8 +8,6 @@ import (
 )
 
 func TestParseRequest(t *testing.T) {
-	k := Kubernetes{Zones: []string{zone}}
-
 	tests := []struct {
 		query    string
 		qtype    uint16
@@ -40,7 +38,7 @@ func TestParseRequest(t *testing.T) {
 		m.SetQuestion(tc.query, tc.qtype)
 		state := request.Request{Zone: zone, Req: m}
 
-		r, e := k.parseRequest(state)
+		r, e := parseRequest(state)
 		if e != nil {
 			t.Errorf("Test %d, expected no error, got '%v'.", i, e)
 		}
@@ -52,8 +50,6 @@ func TestParseRequest(t *testing.T) {
 }
 
 func TestParseInvalidRequest(t *testing.T) {
-	k := Kubernetes{Zones: []string{zone}}
-
 	invalid := map[string]uint16{
 		"_http._tcp.webs.mynamespace.svc.inter.webs.test.": dns.TypeA,   // A requests cannot have port or protocol
 		"_http._pcp.webs.mynamespace.svc.inter.webs.test.": dns.TypeSRV, // SRV protocol must be tcp or udp
@@ -67,7 +63,7 @@ func TestParseInvalidRequest(t *testing.T) {
 		m.SetQuestion(query, qtype)
 		state := request.Request{Zone: zone, Req: m}
 
-		if _, e := k.parseRequest(state); e == nil {
+		if _, e := parseRequest(state); e == nil {
 			t.Errorf("Expected error from %s:%d, got none", query, qtype)
 		}
 	}

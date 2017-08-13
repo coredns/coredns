@@ -190,8 +190,8 @@ func (APIConnServiceTest) GetNodeByName(name string) (api.Node, error) {
 		ObjectMeta: api.ObjectMeta{
 			Name: "test.node.foo.bar",
 			Labels: map[string]string{
-				labelRegion:           "fd-r",
-				labelAvailabilityZone: "fd-az",
+				region:           "fd-r",
+				availabilityZone: "fd-az",
 			},
 		},
 	}, nil

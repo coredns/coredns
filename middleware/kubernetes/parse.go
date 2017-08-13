@@ -25,7 +25,7 @@ type recordRequest struct {
 }
 
 // parseRequest parses the qname to find all the elements we need for querying k8s.
-func (k *Kubernetes) parseRequest(state request.Request) (r recordRequest, err error) {
+func parseRequest(state request.Request) (r recordRequest, err error) {
 	// 3 Possible cases
 	//   SRV Request: _port._protocol.service.namespace.[federation.]type.zone
 	//   A Request (endpoint): endpoint.service.namespace.[federation.]type.zone
@@ -35,7 +35,6 @@ func (k *Kubernetes) parseRequest(state request.Request) (r recordRequest, err e
 	segs := dns.SplitDomainName(base)
 
 	r.zone = state.Zone
-	r.federation, segs = k.stripFederation(segs)
 
 	if state.QType() == dns.TypeNS {
 		return r, nil

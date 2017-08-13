@@ -41,6 +41,12 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 
 	state.Zone = zone
 
+	if name, zone := isFederation(state, k.Federations); name != "" {
+		// TODO: this redo some of the parsing work.
+		f := Fed{k: &k, zone: zone, name: name}
+		return f.ServeDNS(ctx, w, r)
+	}
+
 	var (
 		records []dns.RR
 		extra   []dns.RR
