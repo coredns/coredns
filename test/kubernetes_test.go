@@ -885,7 +885,13 @@ func endpointIPs(name, namespace string) (cmdOut []byte, err error) {
 	}
 	cmdArgs := kctl + " -n " + name + " get endpoints " + namespace + " -o jsonpath={.subsets[*].addresses[*].ip}"
 	if cmdOut, err = exec.Command("sh", "-c", cmdArgs).Output(); err != nil {
+<<<<<<< HEAD
 		return nil, err
+=======
+		println(" ")
+		println(os.Stderr, "There was an error running kubectl command: ", err.Error())
+		os.Exit(1)
+>>>>>>> additional mods to kubectl run try 2
 	}
 	return cmdOut, nil
 }
