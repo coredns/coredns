@@ -875,7 +875,7 @@ func headlessSRVResponse(qname, responsetype, namespace, name string) []dns.RR {
 	return rr
 }
 
-//endpointIPs retrieves the IP address for a given name and namespace by parsing json using the kubectl command
+//endpointIPs retrieves the IP address for a given name and namespace by parsing json using kubectl command
 func endpointIPs(name, namespace string) (cmdOut []byte, err error) {
 
 	kctl := os.Getenv("KUBECTL")
@@ -885,13 +885,7 @@ func endpointIPs(name, namespace string) (cmdOut []byte, err error) {
 	}
 	cmdArgs := kctl + " -n " + name + " get endpoints " + namespace + " -o jsonpath={.subsets[*].addresses[*].ip}"
 	if cmdOut, err = exec.Command("sh", "-c", cmdArgs).Output(); err != nil {
-<<<<<<< HEAD
 		return nil, err
-=======
-		println(" ")
-		println(os.Stderr, "There was an error running kubectl command: ", err.Error())
-		os.Exit(1)
->>>>>>> additional mods to kubectl run try 2
 	}
 	return cmdOut, nil
 }
