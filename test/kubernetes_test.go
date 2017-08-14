@@ -705,7 +705,7 @@ func doIntegrationTests(t *testing.T, corefile string, testCases []test.Case) {
 		// Before sorting, make sure that CNAMES do not appear after their target records
 		test.CNAMEOrder(t, res)
 
-		// Sorting the test cases to check with the responses
+		// Sorting the test cases to check with the response
 		sort.Sort(test.RRSet(tc.Answer))
 		sort.Sort(test.RRSet(tc.Ns))
 		sort.Sort(test.RRSet(tc.Extra))
