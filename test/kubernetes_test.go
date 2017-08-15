@@ -875,7 +875,7 @@ func headlessSRVResponse(qname, responsetype, namespace, name string) []dns.RR {
 	return rr
 }
 
-//endpointIPs retrieves the IP address for a given name and namespace by parsing json using kubectl command
+//endpointIPs retrieves the IP address for a given name and namespace by parsing json using the kubectl command
 func endpointIPs(name, namespace string) (cmdOut []byte, err error) {
 
 	kctl := os.Getenv("KUBECTL")

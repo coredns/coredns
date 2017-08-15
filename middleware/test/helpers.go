@@ -308,6 +308,23 @@ func SortAndCheck(t *testing.T, resp *dns.Msg, tc Case) {
 	return
 }
 
+// Function to make sure that CNAMES do not appear after their target records
+func CNAMEOrder(t *testing.T, res *dns.Msg) {
+	for i, c := range res.Answer {
+		if c.Header().Rrtype != dns.TypeCNAME {
+			continue
+		}
+		for _, a := range res.Answer[:i] {
+			if a.Header().Name != c.(*dns.CNAME).Target {
+				continue
+			}
+			t.Errorf("CNAME found after target record\n")
+			t.Logf("%v\n", res)
+
+		}
+	}
+}
+
 // ErrorHandler returns a Handler that returns ServerFailure error when called.
 func ErrorHandler() Handler {
 	return HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
