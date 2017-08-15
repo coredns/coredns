@@ -308,7 +308,7 @@ func SortAndCheck(t *testing.T, resp *dns.Msg, tc Case) {
 	return
 }
 
-// Function to make sure that CNAMES do not appear after their target records
+// CNAMEOrder makes sure that CNAMES do not appear after their target records
 func CNAMEOrder(t *testing.T, res *dns.Msg) {
 	for i, c := range res.Answer {
 		if c.Header().Rrtype != dns.TypeCNAME {
