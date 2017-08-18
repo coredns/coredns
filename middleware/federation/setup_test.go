@@ -28,6 +28,9 @@ func TestSetup(t *testing.T) {
 		// errors
 		{`federation {
 		}`, true, 0, []string{}},
+		{`federation {
+			staging 
+		}`, true, 0, []string{}},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
