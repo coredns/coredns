@@ -176,19 +176,6 @@ func TestKubernetesParse(t *testing.T) {
 			true,
 			nil,
 		},
-		// negative
-		{
-			"",
-			true,
-			"kubernetes setup called without keyword 'kubernetes' in Corefile",
-			-1,
-			-1,
-			defaultResyncPeriod,
-			"",
-			PodModeDisabled,
-			false,
-			nil,
-		},
 		{
 			`kubernetes coredns.local {
     endpoint
@@ -442,7 +429,7 @@ func TestKubernetesParse(t *testing.T) {
 		}
 
 		//    Labels
-		if opts.LabelSelector != nil {
+		if opts.labelSelector != nil {
 			foundLabelSelectorString := unversioned.FormatLabelSelector(opts.labelSelector)
 			if foundLabelSelectorString != test.expectedLabelSelector {
 				t.Errorf("Test %d: Expected kubernetes controller to be initialized with label selector '%s'. Instead found selector '%s' for input '%s'", i, test.expectedLabelSelector, foundLabelSelectorString, test.input)
