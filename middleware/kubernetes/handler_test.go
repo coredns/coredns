@@ -185,7 +185,7 @@ func TestServeDNS(t *testing.T) {
 	ctx := context.TODO()
 	runServeDNSTests(ctx, t, dnsTestCases, k)
 
-	k.PodMode = PodModeDisabled
+	k.podMode = podModeDisabled
 	runServeDNSTests(ctx, t, podModeDisabledCases, k)
 
 	k.PodMode = PodModeInsecure
