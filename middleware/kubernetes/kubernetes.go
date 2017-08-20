@@ -38,10 +38,7 @@ type Kubernetes struct {
 	APIClientCert string
 	APIClientKey  string
 	APIConn       dnsController
-	ResyncPeriod  time.Duration
 	Namespaces    map[string]bool
-	LabelSelector *unversionedapi.LabelSelector
-	Selector      *labels.Selector
 	PodMode       string
 	Fallthrough   bool
 
@@ -260,8 +257,8 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 	return clientConfig.ClientConfig()
 }
 
-// InitKubeCache initializes a new Kubernetes cache.
-func (k *Kubernetes) InitKubeCache() (err error) {
+// initKubeCache initializes a new Kubernetes cache.
+func (k *Kubernetes) initKubeCache(opts dnsControlOpts) (err error) {
 
 	config, err := k.getClientConfig()
 	if err != nil {
@@ -286,10 +283,9 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 		log.Printf("[INFO] Kubernetes has label selector '%s'. Only objects matching this label selector will be exposed.", unversionedapi.FormatLabelSelector(k.LabelSelector))
 	}
 
-	opts := dnsControlOpts{
-		initPodCache: k.PodMode == PodModeVerified,
-	}
-	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, opts)
+	opts.initPodCache = k.PodMode == PodModeVerified
+
+	k.APIConn = newdnsController(kubeClient, k.Selector, opts)
 
 	return err
 }
