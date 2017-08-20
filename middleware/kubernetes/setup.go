@@ -153,7 +153,7 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 					if err != nil {
 						return nil, opts, fmt.Errorf("unable to parse label selector value: '%v': %v", labelSelectorString, err)
 					}
-					k8s.LabelSelector = ls
+					opts.labelSelector = ls
 					continue
 				}
 				return nil, opts, c.ArgErr()

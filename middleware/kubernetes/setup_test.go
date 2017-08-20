@@ -442,8 +442,8 @@ func TestKubernetesParse(t *testing.T) {
 		}
 
 		//    Labels
-		if k8sController.LabelSelector != nil {
-			foundLabelSelectorString := unversioned.FormatLabelSelector(k8sController.LabelSelector)
+		if opts.LabelSelector != nil {
+			foundLabelSelectorString := unversioned.FormatLabelSelector(opts.labelSelector)
 			if foundLabelSelectorString != test.expectedLabelSelector {
 				t.Errorf("Test %d: Expected kubernetes controller to be initialized with label selector '%s'. Instead found selector '%s' for input '%s'", i, test.expectedLabelSelector, foundLabelSelectorString, test.input)
 			}

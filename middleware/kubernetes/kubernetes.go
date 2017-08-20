@@ -4,7 +4,6 @@ package kubernetes
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 	"sync/atomic"
@@ -270,22 +269,18 @@ func (k *Kubernetes) initKubeCache(opts dnsControlOpts) (err error) {
 		return fmt.Errorf("failed to create kubernetes notification controller: %q", err)
 	}
 
-	if k.LabelSelector != nil {
+	if opts.labelSelector != nil {
 		var selector labels.Selector
-		selector, err = unversionedapi.LabelSelectorAsSelector(k.LabelSelector)
-		k.Selector = &selector
+		selector, err = unversionedapi.LabelSelectorAsSelector(opts.labelSelector)
 		if err != nil {
-			return fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", k.LabelSelector, err)
+			return fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", opts.labelSelector, err)
 		}
-	}
-
-	if k.LabelSelector != nil {
-		log.Printf("[INFO] Kubernetes has label selector '%s'. Only objects matching this label selector will be exposed.", unversionedapi.FormatLabelSelector(k.LabelSelector))
+		opts.selector = &selector
 	}
 
 	opts.initPodCache = k.PodMode == PodModeVerified
 
-	k.APIConn = newdnsController(kubeClient, k.Selector, opts)
+	k.APIConn = newdnsController(kubeClient, opts)
 
 	return err
 }

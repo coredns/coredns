@@ -9,6 +9,7 @@ import (
 
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api"
+	unversionedapi "k8s.io/client-go/1.5/pkg/api/unversioned"
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/labels"
 	"k8s.io/client-go/1.5/pkg/runtime"
@@ -72,13 +73,16 @@ type dnsControl struct {
 type dnsControlOpts struct {
 	initPodCache bool
 	resyncPeriod time.Duration
+	// Label handling.
+	labelSelector *unversionedapi.LabelSelector
+	selector      *labels.Selector
 }
 
 // newDNSController creates a controller for CoreDNS.
-func newdnsController(kubeClient *kubernetes.Clientset, lselector *labels.Selector, opts dnsControlOpts) *dnsControl {
+func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
 		client:   kubeClient,
-		selector: lselector,
+		selector: opts.selector,
 		stopCh:   make(chan struct{}),
 	}
 
