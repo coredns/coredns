@@ -55,7 +55,6 @@ func New(zones []string) *Kubernetes {
 	k.interfaceAddrsFunc = func() net.IP { return net.ParseIP("127.0.0.1") }
 	k.PodMode = PodModeDisabled
 	k.Proxy = proxy.Proxy{}
-	k.ResyncPeriod = defaultResyncPeriod
 
 	return k
 }

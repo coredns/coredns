@@ -58,7 +58,7 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
+func kubernetesParse(c *caddy.Controller) (*Kubernetes, dnsControlOpts, error) {
 	k8s := New([]string{""})
 	k8s.interfaceAddrsFunc = localPodIP
 	k8s.autoPathSearch = searchFromResolvConf()
