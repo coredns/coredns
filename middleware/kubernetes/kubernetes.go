@@ -37,10 +37,9 @@ type Kubernetes struct {
 	APIClientCert string
 	APIClientKey  string
 	APIConn       dnsController
-
-	Namespaces  map[string]bool
-	podMode     string
-	Fallthrough bool
+	Namespaces    map[string]bool
+	podMode       string
+	Fallthrough   bool
 
 	primaryZoneIndex   int
 	interfaceAddrsFunc func() net.IP
@@ -54,7 +53,7 @@ func New(zones []string) *Kubernetes {
 	k.Zones = zones
 	k.Namespaces = make(map[string]bool)
 	k.interfaceAddrsFunc = func() net.IP { return net.ParseIP("127.0.0.1") }
-	k.PodMode = podModeDisabled
+	k.podMode = podModeDisabled
 	k.Proxy = proxy.Proxy{}
 
 	return k
@@ -278,7 +277,7 @@ func (k *Kubernetes) initKubeCache(opts dnsControlOpts) (err error) {
 		opts.selector = &selector
 	}
 
-	opts.initPodCache = k.PodMode == PodModeVerified
+	opts.initPodCache = k.podMode == podModeVerified
 
 	k.APIConn = newdnsController(kubeClient, opts)
 
