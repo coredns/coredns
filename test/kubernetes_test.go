@@ -252,11 +252,11 @@ var dnsTestCases = []test.Case{
 		Qname: "*.svc-1-a.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.SRV("*.svc-1-a.test-1.svc.cluster.local.   0       IN      SRV     0 50 443 10-1-0-10.svc-1-a.test-1.svc.cluster.local."),
-			test.SRV("*.svc-1-a.test-1.svc.cluster.local.   0       IN      SRV     0 50 80 10-1-0-10.svc-1-a.test-1.svc.cluster.local."),
+			test.SRV("*.svc-1-a.test-1.svc.cluster.local.   0       IN      SRV     0 50 443 svc-1-a.test-1.svc.cluster.local."),
+			test.SRV("*.svc-1-a.test-1.svc.cluster.local.   0       IN      SRV     0 50 80  svc-1-a.test-1.svc.cluster.local."),
 		},
 		Extra: []dns.RR{
-			test.A("10-1-0-10.svc-1-a.test-1.svc.cluster.local.	0	IN	A	10.1.0.10"),
+			test.A("svc-1-a.test-1.svc.cluster.local.	0	IN	A	10.0.0.100"),
 		},
 	},
 	{
@@ -592,10 +592,10 @@ var dnsTestCasesFallthrough = []test.Case{
 		Qname: "*.svc-1-a.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.SRV("*.svc-1-a.test-1.svc.cluster.local.	303	IN	SRV	0 50 443 10-1-0-10.svc-1-a.test-1.svc.cluster.local."),
-			test.SRV("*.svc-1-a.test-1.svc.cluster.local.	303	IN	SRV	0 50 80 10-1-0-10.svc-1-a.test-1.svc.cluster.local.")},
+			test.SRV("*.svc-1-a.test-1.svc.cluster.local.	303	IN	SRV	0 50 443 svc-1-a.test-1.svc.cluster.local."),
+			test.SRV("*.svc-1-a.test-1.svc.cluster.local.	303	IN	SRV	0 50 80  svc-1-a.test-1.svc.cluster.local.")},
 		Extra: []dns.RR{
-			test.A("10-1-0-10.svc-1-a.test-1.svc.cluster.local.	0	IN	A	10.1.0.10"),
+			test.A("svc-1-a.test-1.svc.cluster.local.	0	IN	A	10.0.0.100"),
 		},
 	},
 	{
