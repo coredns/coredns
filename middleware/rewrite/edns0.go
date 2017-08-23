@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -124,7 +125,8 @@ func newEdns0Rule(args ...string) (Rule, error) {
 			return nil, fmt.Errorf("EDNS0 local rules require exactly three args")
 		}
 		//Check for variable option
-		if strings.HasPrefix(args[3], "$") {
+		matchIdx := checkVariable.FindStringIndex(args[3])
+		if matchIdx != nil {
 			return newEdns0VariableRule(action, args[2], args[3])
 		}
 		return newEdns0LocalRule(action, args[2], args[3])
@@ -160,7 +162,6 @@ func newEdns0VariableRule(action, code, variable string) (*edns0VariableRule, er
 	if err != nil {
 		return nil, err
 	}
-
 	//Validate
 	if !isValidVariable(variable) {
 		return nil, fmt.Errorf("unsupported variable name %q", variable)
@@ -217,31 +218,31 @@ func (rule *edns0VariableRule) getRuleData(w dns.ResponseWriter, r *dns.Msg) ([]
 
 	req := request.Request{W: w, Req: r}
 	switch rule.variable {
-	case QueryName:
+	case queryName:
 		//Query name is written as ascii string
 		return []byte(req.QName()), nil
 
-	case QueryType:
+	case queryType:
 		return rule.uint16ToWire(req.QType()), nil
 
-	case ClientIP:
+	case clientIP:
 		return rule.ipToWire(req.Family(), req.IP())
 
-	case ClientPort:
+	case clientPort:
 		return rule.portToWire(req.Port())
 
-	case Protocol:
+	case protocol:
 		// Proto is written as ascii string
 		return []byte(req.Proto()), nil
 
-	case ServerIP:
+	case serverIP:
 		serverIp, _, err := net.SplitHostPort(w.LocalAddr().String())
 		if err != nil {
 			serverIp = w.RemoteAddr().String()
 		}
 		return rule.ipToWire(rule.family(w.RemoteAddr()), serverIp)
 
-	case ServerPort:
+	case serverPort:
 		_, port, err := net.SplitHostPort(w.LocalAddr().String())
 		if err != nil {
 			port = "0"
@@ -293,13 +294,13 @@ func (rule *edns0VariableRule) Rewrite(w dns.ResponseWriter, r *dns.Msg) Result 
 func isValidVariable(variable string) bool {
 	switch variable {
 	case
-		QueryName,
-		QueryType,
-		ClientIP,
-		ClientPort,
-		Protocol,
-		ServerIP,
-		ServerPort:
+		queryName,
+		queryType,
+		clientIP,
+		clientPort,
+		protocol,
+		serverIP,
+		serverPort:
 		return true
 	}
 	return false
@@ -313,12 +314,14 @@ const (
 )
 
 // Supported local EDNS0 variables
+var checkVariable = regexp.MustCompile("{.*}")
+
 const (
-	QueryName  = "$qname"
-	QueryType  = "$qtype"
-	ClientIP   = "$client_ip"
-	ClientPort = "$client_port"
-	Protocol   = "$protocol"
-	ServerIP   = "$server_ip"
-	ServerPort = "$server_port"
+	queryName  = "{qname}"
+	queryType  = "{qtype}"
+	clientIP   = "{client_ip}"
+	clientPort = "{client_port}"
+	protocol   = "{protocol}"
+	serverIP   = "{server_ip}"
+	serverPort = "{server_port}"
 )
