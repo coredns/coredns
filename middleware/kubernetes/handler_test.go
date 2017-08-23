@@ -236,7 +236,7 @@ func runServeDNSTests(ctx context.Context, t *testing.T, dnsTestCases map[string
 
 		// Before sorting, make sure that CNAMES do not appear after their target records
 		test.CNAMEOrder(t, resp)
-		
+
 		test.SortAndCheck(t, resp, tc)
 	}
 }
