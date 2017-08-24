@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -125,8 +124,7 @@ func newEdns0Rule(args ...string) (Rule, error) {
 			return nil, fmt.Errorf("EDNS0 local rules require exactly three args")
 		}
 		//Check for variable option
-		matchIdx := checkVariable.FindStringIndex(args[3])
-		if matchIdx != nil {
+		if strings.HasPrefix(args[3], "{") && strings.HasSuffix(args[3], "}") {
 			return newEdns0VariableRule(action, args[2], args[3])
 		}
 		return newEdns0LocalRule(action, args[2], args[3])
@@ -213,8 +211,8 @@ func (rule *edns0VariableRule) family(ip net.Addr) int {
 	return 2
 }
 
-// getRuleData returns the data specified by the variable
-func (rule *edns0VariableRule) getRuleData(w dns.ResponseWriter, r *dns.Msg) ([]byte, error) {
+// ruleData returns the data specified by the variable
+func (rule *edns0VariableRule) ruleData(w dns.ResponseWriter, r *dns.Msg) ([]byte, error) {
 
 	req := request.Request{W: w, Req: r}
 	switch rule.variable {
@@ -257,7 +255,7 @@ func (rule *edns0VariableRule) getRuleData(w dns.ResponseWriter, r *dns.Msg) ([]
 func (rule *edns0VariableRule) Rewrite(w dns.ResponseWriter, r *dns.Msg) Result {
 	result := RewriteIgnored
 
-	data, err := rule.getRuleData(w, r)
+	data, err := rule.ruleData(w, r)
 	if err != nil || data == nil {
 		return result
 	}
@@ -314,8 +312,6 @@ const (
 )
 
 // Supported local EDNS0 variables
-var checkVariable = regexp.MustCompile("{.*}")
-
 const (
 	queryName  = "{qname}"
 	queryType  = "{qtype}"
