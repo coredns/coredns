@@ -28,6 +28,7 @@ kubernetes [ZONES...] {
     labels EXPRESSION
     pods POD-MODE
     upstream ADDRESS...
+    transfer to ADDRESS...
     fallthrough
 }
 ```
@@ -65,6 +66,11 @@ kubernetes [ZONES...] {
 * `fallthrough`  If a query for a record in the cluster zone results in NXDOMAIN, normally that is
   what the response will be. However, if you specify this option, the query will instead be passed
   on down the middleware chain, which can include another middleware to handle the query.
+* `transfer` enables zone transfers. It may be specified multiples times. `To` or `from` signals
+  the direction. **ADDRESS** must be denoted in CIDR notation (127.0.0.1/32 etc.) or just as plain
+  addresses. The special wildcard `*` means: the entire internet (only valid for 'transfer to').
+  When an address is specified a notify message will be send whenever the zone is reloaded.
+  Only `to` is supported in the *kubernetes* middleware.
 
 ## Examples
 

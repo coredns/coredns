@@ -76,6 +76,9 @@ type dnsControlOpts struct {
 	// Label handling.
 	labelSelector *unversionedapi.LabelSelector
 	selector      *labels.Selector
+	// Xfr serial events handlers
+	addDeleteHandler func(a interface{})
+	updateHandler    func(a, b interface{})
 }
 
 // newDNSController creates a controller for CoreDNS.
@@ -93,7 +96,11 @@ func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dn
 		},
 		&api.Service{},
 		opts.resyncPeriod,
-		cache.ResourceEventHandlerFuncs{},
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    opts.addDeleteHandler,
+			DeleteFunc: opts.addDeleteHandler,
+			UpdateFunc: opts.updateHandler,
+		},
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
 	if opts.initPodCache {
@@ -104,7 +111,11 @@ func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dn
 			},
 			&api.Pod{}, // TODO replace with a lighter-weight custom struct
 			opts.resyncPeriod,
-			cache.ResourceEventHandlerFuncs{},
+			cache.ResourceEventHandlerFuncs{
+				AddFunc:    opts.addDeleteHandler,
+				DeleteFunc: opts.addDeleteHandler,
+				UpdateFunc: opts.updateHandler,
+			},
 			cache.Indexers{podIPIndex: podIPIndexFunc})
 	}
 
@@ -115,7 +126,11 @@ func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dn
 		},
 		&api.Namespace{},
 		opts.resyncPeriod,
-		cache.ResourceEventHandlerFuncs{})
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    opts.addDeleteHandler,
+			DeleteFunc: opts.addDeleteHandler,
+			UpdateFunc: opts.updateHandler,
+		})
 
 	dns.epLister.Store, dns.epController = cache.NewInformer(
 		&cache.ListWatch{
@@ -124,7 +139,11 @@ func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dn
 		},
 		&api.Endpoints{},
 		opts.resyncPeriod,
-		cache.ResourceEventHandlerFuncs{})
+		cache.ResourceEventHandlerFuncs{
+			AddFunc:    opts.addDeleteHandler,
+			DeleteFunc: opts.addDeleteHandler,
+			UpdateFunc: opts.updateHandler,
+		})
 
 	return &dns
 }
