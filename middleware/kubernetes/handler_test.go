@@ -159,9 +159,6 @@ func TestServeDNS(t *testing.T) {
 			t.Fatalf("got nil message and no error for %q: %s %d", testname, r.Question[0].Name, r.Question[0].Qtype)
 		}
 
-		// Before sorting, make sure that CNAMES do not appear after their target records
-		test.CNAMEOrder(t, resp)
-
 		test.SortAndCheck(t, resp, tc)
 	}
 }

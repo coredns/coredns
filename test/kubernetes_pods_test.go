@@ -93,14 +93,14 @@ func TestKubernetesPodsVerified(t *testing.T) {
 	// Work-around for timing condition that results in no-data being returned in test environment.
 	time.Sleep(3 * time.Second)
 
-	for _, tc := range dnsTestCasesPodsVerified {
+	for i, tc := range dnsTestCasesPodsVerified {
 
 		c := new(dns.Client)
 		m := tc.Msg()
 
 		res, _, err := c.Exchange(m, udp)
 		if err != nil {
-			t.Fatalf("Could not send query: %s", err)
+			t.Fatalf("Test %d, could not send query: %s", i, err)
 		}
 
 		test.SortAndCheck(t, res, tc)

@@ -117,20 +117,10 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.
 
 	s, e := k.Records(state, false)
 
-	// SRV for external services is not yet implemented, so remove those records.
+	// SRV for external services is not specified in the DNS spec for kubernetes, we are not smarter than the
+	// spec, just return the records.
 
-	if state.QType() != dns.TypeSRV {
-		return s, nil, e
-	}
-
-	internal := []msg.Service{}
-	for _, svc := range s {
-		if t, _ := svc.HostType(); t != dns.TypeCNAME {
-			internal = append(internal, svc)
-		}
-	}
-
-	return internal, nil, e
+	return s, nil, e
 }
 
 // primaryZone will return the first non-reverse zone being handled by this middleware
@@ -361,6 +351,20 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 			continue
 		}
 
+		// External service
+		if svc.Spec.ExternalName != "" {
+			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.Spec.ExternalName, TTL: k.ttl}
+			if t, _ := s.HostType(); t == dns.TypeCNAME {
+
+				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
+
+				// We have now added a CNAME to the response, meaning this can be the only record for this name.
+				// So we should return here
+
+				return []msg.Service{s}, nil
+			}
+		}
+
 		// Endpoint query or headless service
 		if svc.Spec.ClusterIP == api.ClusterIPNone || r.endpoint != "" {
 			endpointsList := k.APIConn.EndpointsList()
@@ -395,19 +399,6 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 				}
 			}
 			continue
-		}
-
-		// External service
-		if svc.Spec.ExternalName != "" {
-			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.Spec.ExternalName, TTL: k.ttl}
-			if t, _ := s.HostType(); t == dns.TypeCNAME {
-				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
-				services = append(services, s)
-
-				err = nil
-
-				continue
-			}
 		}
 
 		// ClusterIP service
