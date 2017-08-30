@@ -18,8 +18,7 @@ var dnsTestCasesPodsInsecure = []test.Case{
 	},
 	{
 		Qname: "10-20-0-101.test-X.pod.cluster.local.", Qtype: dns.TypeA,
-		Rcode:  dns.RcodeNameError,
-		Answer: []dns.RR{},
+		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	303	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1502307903 7200 1800 86400 60"),
 		},
@@ -31,7 +30,7 @@ func TestKubernetesPodsInsecure(t *testing.T) {
     kubernetes cluster.local 0.0.10.in-addr.arpa {
                 endpoint http://localhost:8080
                 namespaces test-1
-                pods verified
+                pods insecure
     }
 `
 
@@ -58,16 +57,14 @@ func TestKubernetesPodsInsecure(t *testing.T) {
 var dnsTestCasesPodsVerified = []test.Case{
 	{
 		Qname: "10-20-0-101.test-1.pod.cluster.local.", Qtype: dns.TypeA,
-		Rcode:  dns.RcodeNameError,
-		Answer: []dns.RR{},
+		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	303	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1502308197 7200 1800 86400 60"),
 		},
 	},
 	{
 		Qname: "10-20-0-101.test-X.pod.cluster.local.", Qtype: dns.TypeA,
-		Rcode:  dns.RcodeNameError,
-		Answer: []dns.RR{},
+		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	303	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1502307960 7200 1800 86400 60"),
 		},
