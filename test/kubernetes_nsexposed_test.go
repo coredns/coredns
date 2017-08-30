@@ -9,11 +9,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-func init() {
-	// Work-around for timing condition that results in no-data being returned in test environment.
-	time.Sleep(3 * time.Second)
-}
-
 var dnsTestCasesAllNSExposed = []test.Case{
 	{
 		Qname: "svc-1-a.test-1.svc.cluster.local.", Qtype: dns.TypeA,
@@ -44,6 +39,9 @@ func TestKubernetesNSExposed(t *testing.T) {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
 	defer server.Stop()
+
+	// Work-around for timing condition that results in no-data being returned in test environment.
+	time.Sleep(3 * time.Second)
 
 	for _, tc := range dnsTestCasesAllNSExposed {
 
