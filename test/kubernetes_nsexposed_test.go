@@ -2,11 +2,17 @@ package test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/middleware/test"
 
 	"github.com/miekg/dns"
 )
+
+func init() {
+	// Work-around for timing condition that results in no-data being returned in test environment.
+	time.Sleep(3 * time.Second)
+}
 
 var dnsTestCasesAllNSExposed = []test.Case{
 	{
