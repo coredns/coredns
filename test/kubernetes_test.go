@@ -302,7 +302,7 @@ func doIntegrationTests(t *testing.T, corefile string, testCases []test.Case) {
 	}
 }
 
-func UpstreamServer(t *testing.T) (func(), *caddy.Instance, string) {
+func upstreamServer(t *testing.T) (func(), *caddy.Instance, string) {
 	upfile, rmFunc, err := TempFile(os.TempDir(), exampleNet)
 	if err != nil {
 		t.Fatalf("Could not create file for CNAME upstream lookups: %s", err)
@@ -319,7 +319,7 @@ func UpstreamServer(t *testing.T) (func(), *caddy.Instance, string) {
 
 func TestKubernetes(t *testing.T) {
 
-	rmFunc, upstream, udp := createUpstreamServer(t)
+	rmFunc, upstream, udp := upstreamServer(t)
 	defer upstream.Stop()
 	defer rmFunc()
 

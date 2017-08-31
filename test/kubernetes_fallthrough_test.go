@@ -57,9 +57,9 @@ func TestKubernetesFallthrough(t *testing.T) {
 	}
 	defer rmFunc()
 
-	removeUpstreamConfig, upstreamServer, udp := createUpstreamServer(t)
-	defer upstreamServer.Stop()
-	defer removeUpstreamConfig()
+	rmFunc, upstream, udp := upstreamServer(t)
+	defer upstream.Stop()
+	defer rmFunc()
 
 	corefile :=
 		`.:0 {
