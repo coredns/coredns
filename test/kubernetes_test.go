@@ -309,7 +309,7 @@ func upstreamServer(t *testing.T) (func(), *caddy.Instance, string) {
 	}
 	upstreamCorefile := `.:0 {
     file ` + upfile + ` example.net
-`
+}`
 	server, udp, _, err := CoreDNSServerAndPorts(upstreamCorefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
