@@ -526,8 +526,7 @@ var dnsTestCasesFallthrough = []test.Case{
 	},
 	{
 		Qname: "10-20-0-101.test-1.pod.cluster.local.", Qtype: dns.TypeA,
-		Rcode:  dns.RcodeServerFailure,
-		Answer: []dns.RR{},
+		Rcode: dns.RcodeServerFailure,
 	},
 	{
 		Qname: "dns-version.cluster.local.", Qtype: dns.TypeTXT,
