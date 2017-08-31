@@ -351,20 +351,6 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 			continue
 		}
 
-		// External service
-		if svc.Spec.ExternalName != "" {
-			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.Spec.ExternalName, TTL: k.ttl}
-			if t, _ := s.HostType(); t == dns.TypeCNAME {
-
-				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
-
-				// We have now added a CNAME to the response, meaning this can be the only record for this name.
-				// So we should return here
-
-				return []msg.Service{s}, nil
-			}
-		}
-
 		// Endpoint query or headless service
 		if svc.Spec.ClusterIP == api.ClusterIPNone || r.endpoint != "" {
 			endpointsList := k.APIConn.EndpointsList()
@@ -399,6 +385,19 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 				}
 			}
 			continue
+		}
+
+		// External service
+		if svc.Spec.ExternalName != "" {
+			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.Spec.ExternalName, TTL: k.ttl}
+			if t, _ := s.HostType(); t == dns.TypeCNAME {
+				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
+				services = append(services, s)
+
+				err = nil
+
+				continue
+			}
 		}
 
 		// ClusterIP service
