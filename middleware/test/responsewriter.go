@@ -7,9 +7,11 @@ import (
 )
 
 // ResponseWriter is useful for writing tests. It uses some fixed values for the client. The
-// remote will always be 10.240.0.1 and port 40212. The local address is always 127.0.0.1 and
-// port 53.
-type ResponseWriter struct{}
+// remote will always be 10.240.0.1 and port 40212 if the RemoteAddress is not specified.
+// The local address is always 127.0.0.1 and port 53.
+type ResponseWriter struct {
+	RemoteAddress string
+}
 
 // LocalAddr returns the local address, always 127.0.0.1:53 (UDP).
 func (t *ResponseWriter) LocalAddr() net.Addr {
@@ -18,11 +20,20 @@ func (t *ResponseWriter) LocalAddr() net.Addr {
 	return &net.UDPAddr{IP: ip, Port: port, Zone: ""}
 }
 
-// RemoteAddr returns the remote address, always 10.240.0.1:40212 (UDP).
+// RemoteAddr returns the remote address, always 10.240.0.1:40212 (UDP) when
+//            remoteAddr is not specified.
+//            If the remoteAddr is specified, it returns the remoteAddr
 func (t *ResponseWriter) RemoteAddr() net.Addr {
-	ip := net.ParseIP("10.240.0.1")
+
 	port := 40212
+	if len(t.RemoteAddress) == 0 {
+		ip := net.ParseIP("10.240.0.1")
+		return &net.UDPAddr{IP: ip, Port: port, Zone: ""}
+	}
+
+	ip := net.ParseIP(t.RemoteAddress)
 	return &net.UDPAddr{IP: ip, Port: port, Zone: ""}
+
 }
 
 // WriteMsg implement dns.ResponseWriter interface.
