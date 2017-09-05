@@ -33,7 +33,6 @@ func (t *ResponseWriter) RemoteAddr() net.Addr {
 
 	ip := net.ParseIP(t.RemoteAddress)
 	return &net.UDPAddr{IP: ip, Port: port, Zone: ""}
-
 }
 
 // WriteMsg implement dns.ResponseWriter interface.

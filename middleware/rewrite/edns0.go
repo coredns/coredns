@@ -138,7 +138,6 @@ func newEdns0Rule(args ...string) (Rule, error) {
 			return nil, fmt.Errorf("EDNS0 subnet rules require exactly three args")
 		}
 		return newEdns0SubnetRule(action, args[2], args[3])
-
 	default:
 		return nil, fmt.Errorf("invalid rule type %q", ruleType)
 	}
@@ -324,7 +323,7 @@ func newEdns0SubnetRule(action, v4BitMaskLen, v6BitMaskLen string) (*edns0Subnet
 	}
 	// Validate V4 length
 	if v4Len > maxV4BitMaskLen {
-		return nil, fmt.Errorf("Invalid IPv4 bit mask length %d", v4Len)
+		return nil, fmt.Errorf("invalid IPv4 bit mask length %d", v4Len)
 	}
 
 	v6Len, err := strconv.ParseUint(v6BitMaskLen, 0, 16)
@@ -333,7 +332,7 @@ func newEdns0SubnetRule(action, v4BitMaskLen, v6BitMaskLen string) (*edns0Subnet
 	}
 	//Validate V6 length
 	if v6Len > maxV6BitMaskLen {
-		return nil, fmt.Errorf("Invalid IPv6 bit mask length %d", v6Len)
+		return nil, fmt.Errorf("invalid IPv6 bit mask length %d", v6Len)
 	}
 
 	return &edns0SubnetRule{action: action,
@@ -347,7 +346,7 @@ func (rule *edns0SubnetRule) fillEcsData(w dns.ResponseWriter, r *dns.Msg,
 	req := request.Request{W: w, Req: r}
 	family := req.Family()
 	if (family < 1) || (family > 2) {
-		return fmt.Errorf("Unable to fill data for EDNS0 subnet due to invalid IP family")
+		return fmt.Errorf("unable to fill data for EDNS0 subnet due to invalid IP family")
 	}
 
 	ecs.DraftOption = false
