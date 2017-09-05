@@ -21,8 +21,8 @@ func (t *ResponseWriter) LocalAddr() net.Addr {
 }
 
 // RemoteAddr returns the remote address, always 10.240.0.1:40212 (UDP) when
-//            remoteAddr is not specified.
-//            If the remoteAddr is specified, it returns the remoteAddr
+//            remoteAddress is not specified.
+//            If the remoteAddress is specified, it returns the remoteAddress
 func (t *ResponseWriter) RemoteAddr() net.Addr {
 
 	port := 40212
