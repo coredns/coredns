@@ -345,7 +345,7 @@ func (rule *edns0SubnetRule) fillEcsData(w dns.ResponseWriter, r *dns.Msg,
 
 	req := request.Request{W: w, Req: r}
 	family := req.Family()
-	if (family < 1) || (family > 2) {
+	if (family != 1) && (family != 2) {
 		return fmt.Errorf("unable to fill data for EDNS0 subnet due to invalid IP family")
 	}
 
@@ -390,8 +390,7 @@ func (rule *edns0SubnetRule) Rewrite(w dns.ResponseWriter, r *dns.Msg) Result {
 	// add option if not found
 	if !found && (rule.action == Append || rule.action == Set) {
 		o.SetDo()
-		var opt dns.EDNS0_SUBNET
-		opt.Code = dns.EDNS0SUBNET
+		opt := dns.EDNS0_SUBNET{Code: dns.EDNS0SUBNET}
 		if rule.fillEcsData(w, r, &opt) == nil {
 			o.Option = append(o.Option, &opt)
 			result = RewriteDone
