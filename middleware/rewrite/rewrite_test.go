@@ -428,13 +428,13 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 	}
 
 	tests := []struct {
-		remoteAddr string
-		fromOpts   []dns.EDNS0
-		args       []string
-		toOpts     []dns.EDNS0
+		writer   dns.ResponseWriter
+		fromOpts []dns.EDNS0
+		args     []string
+		toOpts   []dns.EDNS0
 	}{
 		{
-			"10.240.0.1",
+			&test.ResponseWriter{},
 			[]dns.EDNS0{},
 			[]string{"subnet", "set", "24", "56"},
 			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
@@ -445,7 +445,7 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 				DraftOption:   false}},
 		},
 		{
-			"10.240.0.1",
+			&test.ResponseWriter{},
 			[]dns.EDNS0{},
 			[]string{"subnet", "set", "32", "56"},
 			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
@@ -456,7 +456,7 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 				DraftOption:   false}},
 		},
 		{
-			"10.240.0.1",
+			&test.ResponseWriter{},
 			[]dns.EDNS0{},
 			[]string{"subnet", "set", "0", "56"},
 			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
@@ -467,7 +467,7 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 				DraftOption:   false}},
 		},
 		{
-			"fe80::42:ff:feca:4c65",
+			&test.ResponseWriter6{},
 			[]dns.EDNS0{},
 			[]string{"subnet", "set", "24", "56"},
 			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
@@ -479,7 +479,7 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 				DraftOption: false}},
 		},
 		{
-			"fe80::42:ff:feca:4c65",
+			&test.ResponseWriter6{},
 			[]dns.EDNS0{},
 			[]string{"subnet", "set", "24", "128"},
 			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
@@ -491,7 +491,7 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 				DraftOption: false}},
 		},
 		{
-			"fe80::42:ff:feca:4c65",
+			&test.ResponseWriter6{},
 			[]dns.EDNS0{},
 			[]string{"subnet", "set", "24", "0"},
 			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
@@ -516,8 +516,7 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 			continue
 		}
 		rw.Rules = []Rule{r}
-
-		rec := dnsrecorder.New(&test.ResponseWriter{RemoteAddress: tc.remoteAddr})
+		rec := dnsrecorder.New(tc.writer)
 		rw.ServeDNS(ctx, rec, m)
 
 		resp := rec.Msg
