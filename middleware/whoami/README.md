@@ -1,7 +1,7 @@
 # whoami
 
 *whoami* returns your resolver's local IP address, port and transport. Your IP address is returned
- in the additional section as either an A or AAAA record. 
+ in the additional section as either an A or AAAA record.
 
 The reply always has an empty answer section. The port and transport are included in the additional
 section as a SRV record, transport can be "tcp" or "udp".
