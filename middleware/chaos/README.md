@@ -30,7 +30,7 @@ version.bind version.server authors.bind hostname.bind id.server {
 Or just default to `.`:
 
 ~~~ corefile
-,  {
+.  {
     chaos CoreDNS-001 info@coredns.io
 }
 ~~~
