@@ -1,15 +1,14 @@
 # erratic
 
 *erratic* is a middleware useful for testing client behavior. It returns a static response to all
-queries, but the responses can be:
-
-* delayed by some duration
-* dropped all together
-* the truncated bit can be set
+queries, but the responses can be delayed, dropped or truncated.
 
 The *erratic* middleware will respond to every A or AAAA query. For any other type it will return
 a SERVFAIL response. The reply for A will return 192.0.2.53 (see RFC 5737), for AAAA it returns
 2001:DB8::53 (see RFC 3849).
+
+*erratic* can also be used in conjunction with the *autopath* middleware. This is mostly to aid in
+ testing.
 
 ## Syntax
 

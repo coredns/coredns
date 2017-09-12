@@ -37,9 +37,11 @@ type Server struct {
 	connTimeout time.Duration      // the maximum duration of a graceful shutdown
 	trace       trace.Trace        // the trace middleware for the server
 	debug       bool               // disable recover()
+	classChaos  bool               // allow non-INET class queries
 }
 
-// NewServer returns a new CoreDNS server and compiles all middleware in to it.
+// NewServer returns a new CoreDNS server and compiles all middleware in to it. By default CH class
+// queries are blocked unless the chaos or proxy is loaded.
 func NewServer(addr string, group []*Config) (*Server, error) {
 
 	s := &Server{
@@ -66,12 +68,19 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		var stack middleware.Handler
 		for i := len(site.Middleware) - 1; i >= 0; i-- {
 			stack = site.Middleware[i](stack)
+
+			// register the *handler* also
+			site.registerHandler(stack)
+
 			if s.trace == nil && stack.Name() == "trace" {
 				// we have to stash away the middleware, not the
 				// Tracer object, because the Tracer won't be initialized yet
 				if t, ok := stack.(trace.Trace); ok {
 					s.trace = t
 				}
+			}
+			if stack.Name() == "chaos" || stack.Name() == "proxy" {
+				s.classChaos = true
 			}
 		}
 		site.middlewareChain = stack
@@ -180,6 +189,11 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}()
 	}
 
+	if !s.classChaos && r.Question[0].Qclass != dns.ClassINET {
+		DefaultErrorFunc(w, r, dns.RcodeRefused)
+		return
+	}
+
 	if m, err := edns.Version(r); err != nil { // Wrong EDNS version, return at once.
 		w.WriteMsg(m)
 		return
@@ -187,7 +201,8 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 	q := r.Question[0].Name
 	b := make([]byte, len(q))
-	off, end := 0, false
+	var off int
+	var end bool
 
 	var dshandler *Config
 
@@ -204,7 +219,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		if h, ok := s.zones[string(b[:l])]; ok {
 			if r.Question[0].Qtype != dns.TypeDS {
 				rcode, _ := h.middlewareChain.ServeDNS(ctx, w, r)
-				if rcodeNoClientWrite(rcode) {
+				if !middleware.ClientWrite(rcode) {
 					DefaultErrorFunc(w, r, rcode)
 				}
 				return
@@ -225,7 +240,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	if dshandler != nil {
 		// DS request, and we found a zone, use the handler for the query
 		rcode, _ := dshandler.middlewareChain.ServeDNS(ctx, w, r)
-		if rcodeNoClientWrite(rcode) {
+		if !middleware.ClientWrite(rcode) {
 			DefaultErrorFunc(w, r, rcode)
 		}
 		return
@@ -234,7 +249,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// Wildcard match, if we have found nothing try the root zone as a last resort.
 	if h, ok := s.zones["."]; ok {
 		rcode, _ := h.middlewareChain.ServeDNS(ctx, w, r)
-		if rcodeNoClientWrite(rcode) {
+		if !middleware.ClientWrite(rcode) {
 			DefaultErrorFunc(w, r, rcode)
 		}
 		return
@@ -279,20 +294,6 @@ func DefaultErrorFunc(w dns.ResponseWriter, r *dns.Msg, rc int) {
 	vars.Report(state, vars.Dropped, rcode.ToString(rc), answer.Len(), time.Now())
 
 	w.WriteMsg(answer)
-}
-
-func rcodeNoClientWrite(rcode int) bool {
-	switch rcode {
-	case dns.RcodeServerFailure:
-		fallthrough
-	case dns.RcodeRefused:
-		fallthrough
-	case dns.RcodeFormatError:
-		fallthrough
-	case dns.RcodeNotImplemented:
-		return true
-	}
-	return false
 }
 
 const (

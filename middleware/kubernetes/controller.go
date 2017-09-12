@@ -9,6 +9,7 @@ import (
 
 	"k8s.io/client-go/1.5/kubernetes"
 	"k8s.io/client-go/1.5/pkg/api"
+	unversionedapi "k8s.io/client-go/1.5/pkg/api/unversioned"
 	"k8s.io/client-go/1.5/pkg/api/v1"
 	"k8s.io/client-go/1.5/pkg/labels"
 	"k8s.io/client-go/1.5/pkg/runtime"
@@ -51,11 +52,10 @@ type dnsControl struct {
 
 	selector *labels.Selector
 
-	svcController  *cache.Controller
-	podController  *cache.Controller
-	nsController   *cache.Controller
-	epController   *cache.Controller
-	nodeController *cache.Controller
+	svcController *cache.Controller
+	podController *cache.Controller
+	nsController  *cache.Controller
+	epController  *cache.Controller
 
 	svcLister cache.StoreToServiceLister
 	podLister cache.StoreToPodLister
@@ -72,13 +72,17 @@ type dnsControl struct {
 
 type dnsControlOpts struct {
 	initPodCache bool
+	resyncPeriod time.Duration
+	// Label handling.
+	labelSelector *unversionedapi.LabelSelector
+	selector      *labels.Selector
 }
 
 // newDNSController creates a controller for CoreDNS.
-func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Duration, lselector *labels.Selector, opts dnsControlOpts) *dnsControl {
+func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
 		client:   kubeClient,
-		selector: lselector,
+		selector: opts.selector,
 		stopCh:   make(chan struct{}),
 	}
 
@@ -88,7 +92,7 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 			WatchFunc: serviceWatchFunc(dns.client, namespace, dns.selector),
 		},
 		&api.Service{},
-		resyncPeriod,
+		opts.resyncPeriod,
 		cache.ResourceEventHandlerFuncs{},
 		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 
@@ -99,7 +103,7 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 				WatchFunc: podWatchFunc(dns.client, namespace, dns.selector),
 			},
 			&api.Pod{}, // TODO replace with a lighter-weight custom struct
-			resyncPeriod,
+			opts.resyncPeriod,
 			cache.ResourceEventHandlerFuncs{},
 			cache.Indexers{podIPIndex: podIPIndexFunc})
 	}
@@ -109,14 +113,18 @@ func newdnsController(kubeClient *kubernetes.Clientset, resyncPeriod time.Durati
 			ListFunc:  namespaceListFunc(dns.client, dns.selector),
 			WatchFunc: namespaceWatchFunc(dns.client, dns.selector),
 		},
-		&api.Namespace{}, resyncPeriod, cache.ResourceEventHandlerFuncs{})
+		&api.Namespace{},
+		opts.resyncPeriod,
+		cache.ResourceEventHandlerFuncs{})
 
 	dns.epLister.Store, dns.epController = cache.NewInformer(
 		&cache.ListWatch{
 			ListFunc:  endpointsListFunc(dns.client, namespace, dns.selector),
 			WatchFunc: endpointsWatchFunc(dns.client, namespace, dns.selector),
 		},
-		&api.Endpoints{}, resyncPeriod, cache.ResourceEventHandlerFuncs{})
+		&api.Endpoints{},
+		opts.resyncPeriod,
+		cache.ResourceEventHandlerFuncs{})
 
 	return &dns
 }

@@ -4,11 +4,12 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/coredns/coredns/middleware/backend/msg"
+	"github.com/coredns/coredns/middleware/pkg/dnsutil"
 	"github.com/coredns/coredns/middleware/proxy"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -25,11 +26,15 @@ func (b *Backend) UpdateStubZones() {
 
 // Look in .../dns/stub/<zone>/xx for msg.Services. Loop through them
 // extract <zone> and add them as forwarders (ip:port-combos) for
-// the stub zones. Only numeric (i.b. IP address) hosts are used.
-// Only the first zone configured on b is used for the lookup.
+// the stub zones. Only numeric (i.e. IP address) hosts are used.
+// Only the first zone configured on e is used for the lookup.
 func (b *Backend) updateStubZones() {
 	zone := b.Zones[0]
-	services, err := b.ServiceBackend.Records(stubDomain+"."+zone, false)
+
+	fakeState := request.Request{W: nil, Req: new(dns.Msg)}
+	fakeState.Req.SetQuestion(stubDomain+"."+zone, dns.TypeA)
+
+	services, err := b.ServiceBackend.Records(fakeState, false)
 	if err != nil {
 		return
 	}
@@ -57,7 +62,7 @@ Services:
 			// Chop of left most label, because that is used as the nameserver place holder
 			// and drop the right most labels that belong to zone.
 			// We must *also* chop of dns.stub. which means cutting two more labels.
-			domain = dns.Fqdn(strings.Join(labels[1:len(labels)-dns.CountLabel(z)-2], "."))
+			domain = dnsutil.Join(labels[1 : len(labels)-dns.CountLabel(z)-2])
 			if domain == z {
 				log.Printf("[WARNING] Skipping nameserver for domain we are authoritative for: %s", domain)
 				continue Services

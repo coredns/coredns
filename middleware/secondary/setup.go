@@ -25,12 +25,13 @@ func setup(c *caddy.Controller) error {
 
 	// Add startup functions to retrieve the zone and keep it up to date.
 	for _, n := range zones.Names {
-		if len(zones.Z[n].TransferFrom) > 0 {
+		z := zones.Z[n]
+		if len(z.TransferFrom) > 0 {
 			c.OnStartup(func() error {
-				zones.Z[n].StartupOnce.Do(func() {
-					zones.Z[n].TransferIn()
+				z.StartupOnce.Do(func() {
+					z.TransferIn()
 					go func() {
-						zones.Z[n].Update()
+						z.Update()
 					}()
 				})
 				return nil
@@ -87,6 +88,8 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 						return file.Zones{}, err
 					}
 					prxy = proxy.NewLookup(ups)
+				default:
+					return file.Zones{}, c.Errf("unknown property '%s'", c.Val())
 				}
 
 				for _, origin := range origins {

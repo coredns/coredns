@@ -1,6 +1,7 @@
 package dnssec
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -42,41 +43,55 @@ func dnssecParse(c *caddy.Controller) ([]string, []*DNSKEY, int, error) {
 
 	capacity := defaultCap
 	for c.Next() {
-		if c.Val() == "dnssec" {
-			// dnssec [zones...]
-			zones = make([]string, len(c.ServerBlockKeys))
-			copy(zones, c.ServerBlockKeys)
-			args := c.RemainingArgs()
-			if len(args) > 0 {
-				zones = args
-			}
+		// dnssec [zones...]
+		zones = make([]string, len(c.ServerBlockKeys))
+		copy(zones, c.ServerBlockKeys)
+		args := c.RemainingArgs()
+		if len(args) > 0 {
+			zones = args
+		}
 
-			for c.NextBlock() {
-				switch c.Val() {
-				case "key":
-					k, e := keyParse(c)
-					if e != nil {
-						return nil, nil, 0, e
-					}
-					keys = append(keys, k...)
-				case "cache_capacity":
-					if !c.NextArg() {
-						return nil, nil, 0, c.ArgErr()
-					}
-					value := c.Val()
-					cacheCap, err := strconv.Atoi(value)
-					if err != nil {
-						return nil, nil, 0, err
-					}
-					capacity = cacheCap
+		for c.NextBlock() {
+			switch c.Val() {
+			case "key":
+				k, e := keyParse(c)
+				if e != nil {
+					return nil, nil, 0, e
 				}
-
+				keys = append(keys, k...)
+			case "cache_capacity":
+				if !c.NextArg() {
+					return nil, nil, 0, c.ArgErr()
+				}
+				value := c.Val()
+				cacheCap, err := strconv.Atoi(value)
+				if err != nil {
+					return nil, nil, 0, err
+				}
+				capacity = cacheCap
 			}
+
 		}
 	}
 	for i := range zones {
 		zones[i] = middleware.Host(zones[i]).Normalize()
 	}
+
+	// Check if each keys owner name can actually sign the zones we want them to sign
+	for _, k := range keys {
+		kname := middleware.Name(k.K.Header().Name)
+		ok := false
+		for i := range zones {
+			if kname.Matches(zones[i]) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return zones, keys, capacity, fmt.Errorf("key %s (keyid: %d) can not sign any of the zones", string(kname), k.keytag)
+		}
+	}
+
 	return zones, keys, capacity, nil
 }
 
@@ -89,6 +104,10 @@ func keyParse(c *caddy.Controller) ([]*DNSKEY, error) {
 	value := c.Val()
 	if value == "file" {
 		ks := c.RemainingArgs()
+		if len(ks) == 0 {
+			return nil, c.ArgErr()
+		}
+
 		for _, k := range ks {
 			base := k
 			// Kmiek.nl.+013+26205.key, handle .private or without extension: Kmiek.nl.+013+26205

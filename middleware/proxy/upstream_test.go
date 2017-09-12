@@ -1,74 +1,14 @@
 package proxy
 
 import (
-	"io/ioutil"
-	"log"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/coredns/coredns/middleware/test"
 
 	"github.com/mholt/caddy"
 )
-
-func TestHealthCheck(t *testing.T) {
-	log.SetOutput(ioutil.Discard)
-
-	upstream := &staticUpstream{
-		from:        ".",
-		Hosts:       testPool(),
-		Policy:      &Random{},
-		Spray:       nil,
-		FailTimeout: 10 * time.Second,
-		Future:      60 * time.Second,
-		MaxFails:    1,
-	}
-
-	upstream.healthCheck()
-	// sleep a bit, it's async now
-	time.Sleep(time.Duration(2 * time.Second))
-
-	if upstream.Hosts[0].Down() {
-		t.Error("Expected first host in testpool to not fail healthcheck.")
-	}
-	if !upstream.Hosts[1].Down() {
-		t.Error("Expected second host in testpool to fail healthcheck.")
-	}
-}
-
-func TestSelect(t *testing.T) {
-	upstream := &staticUpstream{
-		from:        ".",
-		Hosts:       testPool()[:3],
-		Policy:      &Random{},
-		FailTimeout: 10 * time.Second,
-		Future:      60 * time.Second,
-		MaxFails:    1,
-	}
-	upstream.Hosts[0].OkUntil = time.Unix(0, 0)
-	upstream.Hosts[1].OkUntil = time.Unix(0, 0)
-	upstream.Hosts[2].OkUntil = time.Unix(0, 0)
-	if h := upstream.Select(); h != nil {
-		t.Error("Expected select to return nil as all host are down")
-	}
-	upstream.Hosts[2].OkUntil = time.Time{}
-	if h := upstream.Select(); h == nil {
-		t.Error("Expected select to not return nil")
-	}
-}
-
-func TestRegisterPolicy(t *testing.T) {
-	name := "custom"
-	customPolicy := &customPolicy{}
-	RegisterPolicy(name, func() Policy { return customPolicy })
-	if _, ok := supportedPolicies[name]; !ok {
-		t.Error("Expected supportedPolicies to have a custom policy.")
-	}
-
-}
 
 func TestAllowedDomain(t *testing.T) {
 	upstream := &staticUpstream{
@@ -93,19 +33,6 @@ func TestAllowedDomain(t *testing.T) {
 	}
 }
 
-func writeTmpFile(t *testing.T, data string) (string, string) {
-	tempDir, err := ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatalf("tempDir: %v", err)
-	}
-
-	path := filepath.Join(tempDir, "resolv.conf")
-	if err := ioutil.WriteFile(path, []byte(data), 0644); err != nil {
-		t.Fatalf("writeFile: %v", err)
-	}
-	return tempDir, path
-}
-
 func TestProxyParse(t *testing.T) {
 	rmFunc, cert, key, ca := getPEMFiles(t)
 	defer rmFunc()
@@ -121,6 +48,10 @@ func TestProxyParse(t *testing.T) {
 	}{
 		{
 			`proxy . 8.8.8.8:53`,
+			false,
+		},
+		{
+			`proxy 10.0.0.0/24 8.8.8.8:53`,
 			false,
 		},
 		{
@@ -161,7 +92,7 @@ proxy . 8.8.8.8:53 {
 		{
 			`
 proxy . 8.8.8.8:53 {
-    except miek.nl example.org
+    except miek.nl example.org 10.0.0.0/24
 }`,
 			false,
 		},
@@ -341,13 +272,18 @@ junky resolve.conf
 			[]string{"1.1.1.1:5000", "2.2.2.2:1234"},
 		},
 	}
-	for i, test := range tests {
-		tempDir, path := writeTmpFile(t, test.filedata)
-		defer os.RemoveAll(tempDir)
-		config := strings.Replace(test.inputUpstreams, "FILE", path, -1)
+	for i, tc := range tests {
+
+		path, rm, err := test.TempFile(".", tc.filedata)
+		if err != nil {
+			t.Fatalf("Test %d could not creat temp file %v", i, err)
+		}
+		defer rm()
+
+		config := strings.Replace(tc.inputUpstreams, "FILE", path, -1)
 		c := caddy.NewTestController("dns", config)
 		upstreams, err := NewStaticUpstreams(&c.Dispenser)
-		if (err != nil) != test.shouldErr {
+		if (err != nil) != tc.shouldErr {
 			t.Errorf("Test %d expected no error, got %v", i+1, err)
 		}
 		var hosts []string
@@ -356,18 +292,18 @@ junky resolve.conf
 				hosts = append(hosts, h.Name)
 			}
 		}
-		if !test.shouldErr {
-			if len(hosts) != len(test.expected) {
-				t.Errorf("Test %d expected %d hosts got %d", i+1, len(test.expected), len(upstreams))
+		if !tc.shouldErr {
+			if len(hosts) != len(tc.expected) {
+				t.Errorf("Test %d expected %d hosts got %d", i+1, len(tc.expected), len(upstreams))
 			} else {
 				ok := true
-				for i, v := range test.expected {
+				for i, v := range tc.expected {
 					if v != hosts[i] {
 						ok = false
 					}
 				}
 				if !ok {
-					t.Errorf("Test %d expected %v got %v", i+1, test.expected, upstreams)
+					t.Errorf("Test %d expected %v got %v", i+1, tc.expected, upstreams)
 				}
 			}
 		}

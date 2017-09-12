@@ -5,37 +5,36 @@
 ## Syntax
 
 ~~~
-dnssec [ZONES...]
-~~~
-
-* **ZONES** zones that should be signed. If empty, the zones from the configuration block
-    are used.
-
-If keys are not specified (see below), a key is generated and used for all signing operations. The
-DNSSEC signing will treat this key a CSK (common signing key), forgoing the ZSK/KSK split. All
-signing operations are done online. Authenticated denial of existence is implemented with NSEC black
-lies. Using ECDSA as an algorithm is preferred as this leads to smaller signatures (compared to
-RSA). NSEC3 is *not* supported.
-
-A single signing key can be specified by using the `key` directive.
-
-NOTE: Key generation has not been implemented yet.
-
-TODO(miek): think about key rollovers, and how to do them automatically.
-
-~~~
 dnssec [ZONES... ] {
     key file KEY...
     cache_capacity CAPACITY
 }
 ~~~
 
+The specified key is used for all signing operations. The DNSSEC signing will treat this key a
+CSK (common signing key), forgoing the ZSK/KSK split. All signing operations are done online.
+Authenticated denial of existence is implemented with NSEC black lies. Using ECDSA as an algorithm
+is preferred as this leads to smaller signatures (compared to RSA). NSEC3 is *not* supported.
+
+If multiple *dnssec* middlewares are specified in the same zone, the last one specified will be
+used ( see [bugs](#bugs) ).
+
+* `ZONES` zones that should be signed. If empty, the zones from the configuration block
+    are used.
+
 * `key file` indicates that key file(s) should be read from disk. When multiple keys are specified, RRsets
   will be signed with all keys. Generating a key can be done with `dnssec-keygen`: `dnssec-keygen -a
-  ECDSAP256SHA256 <zonename>`. A key created for zone *A* can be safely used for zone *B*.
+  ECDSAP256SHA256 <zonename>`. A key created for zone *A* can be safely used for zone *B*. The name of the
+  key file can be specified as one of the following formats
 
-* `cache_capacity` indicates the capacity of the LRU cache. The dnssec middleware uses LRU cache to manage
-  objects and the default capacity is 10000.
+    * basename of the generated key `Kexample.org+013+45330`
+
+    * generated public key `Kexample.org+013+45330.key`
+
+    * generated private key `Kexample.org+013+45330.private`
+
+* `cache_capacity` indicates the capacity of the cache. The dnssec middleware uses a cache to store
+  RRSIGs. The default capacity is 10000.
 
 ## Metrics
 
@@ -47,3 +46,43 @@ If monitoring is enabled (via the *prometheus* directive) then the following met
 * coredns_dnssec_cache_misses_total - Counter of cache misses.
 
 ## Examples
+
+Sign responses for `example.org` with the key "Kexample.org.+013+45330.key".
+
+~~~
+example.org:53 {
+    dnssec {
+        key file /etc/coredns/Kexample.org.+013+45330
+    }
+    whoami
+}
+~~~
+
+Sign responses for a kubernetes zone with the key "Kcluster.local+013+45129.key".
+
+~~~
+cluster.local:53 {
+    kubernetes cluster.local
+    dnssec cluster.local {
+      key file /etc/coredns/Kcluster.local+013+45129
+    }
+}
+~~~
+
+## Bugs
+
+Multiple *dnssec* middlewares inside one server stanza will silently overwrite earlier ones, here
+`example.local` will overwrite the one for `cluster.local`.
+
+~~~
+.:53 {
+    kubernetes cluster.local
+    dnssec cluster.local {
+      key file /etc/coredns/cluster.local
+    }
+    dnssec example.local {
+      key file /etc/coredns/example.local
+    }
+    whoami
+}
+~~~

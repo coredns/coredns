@@ -1,12 +1,20 @@
 # Makefile for releasing CoreDNS
 #
+# The release binaries are built through docker run like
+# make coredns
+#
+# There advantage of the above command is that we could control reused
+# the binary generation from the default `Makefile`, instread of repeating
+# in `Makefile.release`.
+#
 # The release is controlled from coremain/version.go. The version found
 # there is used to tag the git repo and to build the assets that are
 # uploaded to github (after some sanity checks).
 #
 # The release should be accompanied by release notes published on
-# blog.coredns.io. For example:
-# https://blog.coredns.io/2016/09/18/coredns-001-release/
+# coredns.io. For example:
+# https://coredns.io/2016/09/18/coredns-001-release/
+# Also send an email to coredns-discuss@ to announce the new version.
 #
 # We use https://github.com/progrium/gh-release to automate github stuff
 # be sure to have that binary in your path.
@@ -15,9 +23,6 @@
 #
 # git log --pretty=format:'%an' v001..master | sort -u
 # (where v001 is the previous release, obviously you'll need to adjust this)
-#
-# Side note: check if MAINTAINERS need an update with `git shortlog -s -n` and see if
-# someone has more than 5 (arbitrary number).
 #
 # Steps:
 # * Get an access token: https://help.github.com/articles/creating-an-access-token-for-command-line-use/
@@ -31,7 +36,7 @@
 # Steps for docker
 # * Login into docker: docker login (should have push creds for coredns registry)
 # * Run: make -f Makefile.release docker
-# 
+#
 # Docker push should happen after you make the new release and uploaded it to Github.
 
 NAME:=coredns
@@ -40,11 +45,12 @@ ARCH:=$(shell uname -m)
 GITHUB:=coredns
 DOCKER:=coredns
 DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
+GITCOMMIT:=$(shell git describe --dirty --always)
 
 all:
 	@echo Use the 'release' target to start a release
 
-release:	commit push build tar upload
+release: commit push build tar upload
 
 docker: docker-build docker-upload
 
@@ -59,23 +65,13 @@ commit:
 	git commit -am"Release $(VERSION)"
 
 .PHONY: build
-build: build-arm build-darwin build-linux
-
-.PHONY: build-linux
-build-linux:
-	@echo Building: linux $(VERSION)
-	mkdir -p build/Linux      && CGO_ENABLED=0 GOOS=linux             go build -ldflags="-s -w" -o build/Linux/$(NAME)
-
-.PHONY: build-darwin
-build-darwin:
+build:
+	@echo Building: linux  $(VERSION)
+	mkdir -p build/Linux      && $(MAKE) coredns BINARY=build/Linux/$(NAME) SYSTEM="GOOS=linux"
 	@echo Building: darwin $(VERSION)
-	mkdir -p build/Darwin     && CGO_ENABLED=0 GOOS=darwin            go build -ldflags="-s -w" -o build/Darwin/$(NAME)
-
-.PHONY: build-arm
-build-arm:
-	@echo Building: arm $(VERSION)
-	mkdir -p build/Linux/Arm  && CGO_ENABLED=0 GOOS=linux GOARCH=arm  go build -ldflags="-s -w" -o build/Linux/Arm/$(NAME)
-
+	mkdir -p build/Darwin     && $(MAKE) coredns BINARY=build/Darwin/$(NAME) SYSTEM="GOOS=darwin"
+	@echo Building: arm    $(VERSION)
+	mkdir -p build/Linux/Arm  && $(MAKE) coredns BINARY=build/Linux/Arm/$(NAME) SYSTEM="GOOS=linux GOARCH=arm"
 
 .PHONY: tar
 tar:
@@ -91,7 +87,7 @@ upload:
 
 .PHONY: docker-build
 docker-build:
-	CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w"
+	$(MAKE) coredns SYSTEM="GOOS=linux"
 	docker build -t $(DOCKER_IMAGE_NAME) .
 	docker tag $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_NAME):$(VERSION)
 

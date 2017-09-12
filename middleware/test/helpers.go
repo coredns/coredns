@@ -1,6 +1,7 @@
 package test
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/miekg/dns"
@@ -12,7 +13,7 @@ type sect int
 const (
 	// Answer is the answer section in an Msg.
 	Answer sect = iota
-	// Ns is the authrotitative section in an Msg.
+	// Ns is the authoritative section in an Msg.
 	Ns
 	// Extra is the additional section in an Msg.
 	Extra
@@ -35,6 +36,7 @@ type Case struct {
 	Answer []dns.RR
 	Ns     []dns.RR
 	Extra  []dns.RR
+	Error  error
 }
 
 // Msg returns a *dns.Msg embedded in c.
@@ -216,35 +218,35 @@ func Section(t *testing.T, tc Case, sec sect, rr []dns.RR) bool {
 		case *dns.SOA:
 			tt := section[i].(*dns.SOA)
 			if x.Ns != tt.Ns {
-				t.Errorf("SOA nameserver should be %q, but is %q", x.Ns, tt.Ns)
+				t.Errorf("SOA nameserver should be %q, but is %q", tt.Ns, x.Ns)
 				return false
 			}
 		case *dns.PTR:
 			tt := section[i].(*dns.PTR)
 			if x.Ptr != tt.Ptr {
-				t.Errorf("PTR ptr should be %q, but is %q", x.Ptr, tt.Ptr)
+				t.Errorf("PTR ptr should be %q, but is %q", tt.Ptr, x.Ptr)
 				return false
 			}
 		case *dns.CNAME:
 			tt := section[i].(*dns.CNAME)
 			if x.Target != tt.Target {
-				t.Errorf("CNAME target should be %q, but is %q", x.Target, tt.Target)
+				t.Errorf("CNAME target should be %q, but is %q", tt.Target, x.Target)
 				return false
 			}
 		case *dns.MX:
 			tt := section[i].(*dns.MX)
 			if x.Mx != tt.Mx {
-				t.Errorf("MX Mx should be %q, but is %q", x.Mx, tt.Mx)
+				t.Errorf("MX Mx should be %q, but is %q", tt.Mx, x.Mx)
 				return false
 			}
 			if x.Preference != tt.Preference {
-				t.Errorf("MX Preference should be %q, but is %q", x.Preference, tt.Preference)
+				t.Errorf("MX Preference should be %q, but is %q", tt.Preference, x.Preference)
 				return false
 			}
 		case *dns.NS:
 			tt := section[i].(*dns.NS)
 			if x.Ns != tt.Ns {
-				t.Errorf("NS nameserver should be %q, but is %q", x.Ns, tt.Ns)
+				t.Errorf("NS nameserver should be %q, but is %q", tt.Ns, x.Ns)
 				return false
 			}
 		case *dns.OPT:
@@ -260,6 +262,50 @@ func Section(t *testing.T, tc Case, sec sect, rr []dns.RR) bool {
 		}
 	}
 	return true
+}
+
+// CNAMEOrder makes sure that CNAMES do not appear after their target records
+func CNAMEOrder(t *testing.T, res *dns.Msg) {
+	for i, c := range res.Answer {
+		if c.Header().Rrtype != dns.TypeCNAME {
+			continue
+		}
+		for _, a := range res.Answer[:i] {
+			if a.Header().Name != c.(*dns.CNAME).Target {
+				continue
+			}
+			t.Errorf("CNAME found after target record\n")
+			t.Logf("%v\n", res)
+
+		}
+	}
+}
+
+// SortAndCheck sorts resp and the checks the header and three sections against the testcase in tc.
+func SortAndCheck(t *testing.T, resp *dns.Msg, tc Case) {
+	sort.Sort(RRSet(resp.Answer))
+	sort.Sort(RRSet(resp.Ns))
+	sort.Sort(RRSet(resp.Extra))
+
+	if !Header(t, tc, resp) {
+		t.Logf("%v\n", resp)
+		return
+	}
+
+	if !Section(t, tc, Answer, resp.Answer) {
+		t.Logf("%v\n", resp)
+		return
+	}
+	if !Section(t, tc, Ns, resp.Ns) {
+		t.Logf("%v\n", resp)
+		return
+
+	}
+	if !Section(t, tc, Extra, resp.Extra) {
+		t.Logf("%v\n", resp)
+		return
+	}
+	return
 }
 
 // ErrorHandler returns a Handler that returns ServerFailure error when called.

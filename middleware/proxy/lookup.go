@@ -4,18 +4,18 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"time"
 
+	"github.com/coredns/coredns/middleware/pkg/healthcheck"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
 
 // NewLookup create a new proxy with the hosts in host and a Random policy.
-func NewLookup(hosts []string) Proxy {
-	return NewLookupWithOption(hosts, Options{})
-}
+func NewLookup(hosts []string) Proxy { return NewLookupWithOption(hosts, Options{}) }
 
 // NewLookupWithOption process creates a simple round robin forward with potentially forced proto for upstream.
 func NewLookupWithOption(hosts []string, opts Options) Proxy {
@@ -24,31 +24,31 @@ func NewLookupWithOption(hosts []string, opts Options) Proxy {
 	// TODO(miek): this needs to be unified with upstream.go's NewStaticUpstreams, caddy uses NewHost
 	// we should copy/make something similar.
 	upstream := &staticUpstream{
-		from:        ".",
-		Hosts:       make([]*UpstreamHost, len(hosts)),
-		Policy:      &Random{},
-		Spray:       nil,
-		FailTimeout: 10 * time.Second,
-		MaxFails:    3, // TODO(miek): disable error checking for simple lookups?
-		Future:      60 * time.Second,
-		ex:          newDNSExWithOption(opts),
+		from: ".",
+		HealthCheck: healthcheck.HealthCheck{
+			FailTimeout: 10 * time.Second,
+			MaxFails:    3, // TODO(miek): disable error checking for simple lookups?
+			Future:      60 * time.Second,
+		},
+		ex: newDNSExWithOption(opts),
 	}
+	upstream.Hosts = make([]*healthcheck.UpstreamHost, len(hosts))
 
 	for i, host := range hosts {
-		uh := &UpstreamHost{
+		uh := &healthcheck.UpstreamHost{
 			Name:        host,
 			Conns:       0,
 			Fails:       0,
 			FailTimeout: upstream.FailTimeout,
 
-			CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
-				return func(uh *UpstreamHost) bool {
+			CheckDown: func(upstream *staticUpstream) healthcheck.UpstreamHostDownFunc {
+				return func(uh *healthcheck.UpstreamHost) bool {
 
 					down := false
 
-					uh.checkMu.Lock()
+					uh.CheckMu.Lock()
 					until := uh.OkUntil
-					uh.checkMu.Unlock()
+					uh.CheckMu.Unlock()
 
 					if !until.IsZero() && time.Now().After(until) {
 						down = true
@@ -94,13 +94,15 @@ func (p Proxy) lookup(state request.Request) (*dns.Msg, error) {
 	}
 	for {
 		start := time.Now()
+		reply := new(dns.Msg)
+		var backendErr error
 
 		// Since Select() should give us "up" hosts, keep retrying
 		// hosts until timeout (or until we get a nil host).
-		for time.Now().Sub(start) < tryDuration {
+		for time.Since(start) < tryDuration {
 			host := upstream.Select()
 			if host == nil {
-				return nil, errUnreachable
+				return nil, fmt.Errorf("%s: %s", errUnreachable, "no upstream host")
 			}
 
 			// duplicated from proxy.go, but with a twist, we don't write the
@@ -108,7 +110,7 @@ func (p Proxy) lookup(state request.Request) (*dns.Msg, error) {
 
 			atomic.AddInt64(&host.Conns, 1)
 
-			reply, backendErr := upstream.Exchanger().Exchange(context.TODO(), host.Name, state)
+			reply, backendErr = upstream.Exchanger().Exchange(context.TODO(), host.Name, state)
 
 			atomic.AddInt64(&host.Conns, -1)
 
@@ -120,11 +122,11 @@ func (p Proxy) lookup(state request.Request) (*dns.Msg, error) {
 				timeout = 10 * time.Second
 			}
 			atomic.AddInt32(&host.Fails, 1)
-			go func(host *UpstreamHost, timeout time.Duration) {
+			go func(host *healthcheck.UpstreamHost, timeout time.Duration) {
 				time.Sleep(timeout)
 				atomic.AddInt32(&host.Fails, -1)
 			}(host, timeout)
 		}
-		return nil, errUnreachable
+		return nil, fmt.Errorf("%s: %s", errUnreachable, backendErr)
 	}
 }

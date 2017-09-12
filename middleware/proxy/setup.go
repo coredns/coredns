@@ -20,7 +20,7 @@ func setup(c *caddy.Controller) error {
 		return middleware.Error("proxy", err)
 	}
 
-	t := dnsserver.GetMiddleware(c, "trace")
+	t := dnsserver.GetConfig(c).Handler("trace")
 	P := &Proxy{Trace: t}
 	dnsserver.GetConfig(c).AddMiddleware(func(next middleware.Handler) middleware.Handler {
 		P.Next = next
@@ -30,7 +30,8 @@ func setup(c *caddy.Controller) error {
 
 	c.OnStartup(OnStartupMetrics)
 
-	for _, u := range upstreams {
+	for i := range upstreams {
+		u := upstreams[i]
 		c.OnStartup(func() error {
 			return u.Exchanger().OnStartup(P)
 		})

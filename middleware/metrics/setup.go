@@ -72,24 +72,6 @@ func prometheusParse(c *caddy.Controller) (*Metrics, error) {
 		default:
 			return met, c.ArgErr()
 		}
-		for c.NextBlock() {
-			switch c.Val() {
-			case "address":
-				args = c.RemainingArgs()
-				if len(args) != 1 {
-					return met, c.ArgErr()
-				}
-				met.Addr = args[0]
-				// expecting something that resembles a host-port
-				_, _, e := net.SplitHostPort(met.Addr)
-				if e != nil {
-					return met, e
-				}
-			default:
-				return met, c.Errf("unknown item: %s", c.Val())
-			}
-
-		}
 	}
 	return met, err
 }

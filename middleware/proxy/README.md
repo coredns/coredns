@@ -1,9 +1,10 @@
 # proxy
 
-*proxy* facilitates both a basic reverse proxy and a robust load balancer. The proxy has support for
- multiple backends. The load balancing features include multiple policies, health checks, and
- failovers. If all hosts fail their health check the proxy middleware will fail back to randomly
- selecting a target and sending packets to it.
+*proxy* facilitates both a basic reverse proxy and a robust load balancer.
+
+The proxy has support for multiple backends. The load balancing features include multiple policies,
+health checks, and failovers. If all hosts fail their health check the proxy middleware will fail
+back to randomly selecting a target and sending packets to it.
 
 ## Syntax
 
@@ -26,7 +27,7 @@ proxy FROM TO... {
     health_check PATH:PORT [DURATION]
     except IGNORED_NAMES...
     spray
-    protocol [dns [force_tcp]|https_google [bootstrap ADDRESS...]|grpc [insecure|CA-PEM|KEY-PEM CERT-PEM|KEY-PEM CERT-PEM CA-PEM]]
+    protocol [dns [force_tcp]|https_google [bootstrap ADDRESS...]|grpc [insecure|CACERT|KEY CERT|KEY CERT CACERT]]
 }
 ~~~
 
@@ -84,11 +85,11 @@ payload over HTTPS). Note that with `https_google` the entire transport is encry
 * `grpc`: options are used to control how the TLS connection is made to the gRPC server.
   * None - No client authentication is used, and the system CAs are used to verify the server certificate.
   * `insecure` - TLS is not used, the connection is made in plaintext (not good in production).
-  * CA-PEM - No client authentication is used, and the file CA-PEM is used to verify the server certificate.
-  * KEY-PEM CERT-PEM - Client authentication is used with the specified key/cert pair. The server
+  * **CACERT** - No client authentication is used, and the file **CACERT** is used to verify the server certificate.
+  * **KEY** **CERT** - Client authentication is used with the specified key/cert pair. The server
     certificate is verified with the system CAs.
-  * KEY-PEM CERT-PEM CA-PEM - Client authentication is used with the specified key/cert pair. The
-    server certificate is verified using the CA-PEM file.
+  * **KEY** **CERT** **CACERT** - Client authentication is used with the specified key/cert pair. The
+    server certificate is verified using the **CACERT** file.
 
   An out-of-tree middleware that implements the server side of this can be found at
   [here](https://github.com/infobloxopen/coredns-grpc).
@@ -107,19 +108,19 @@ specified in the config, `proto` is the protocol used by the incoming query ("tc
 Proxy all requests within example.org. to a backend system:
 
 ~~~
-proxy example.org localhost:9005
+proxy example.org 127.0.0.1:9005
 ~~~
 
 Load-balance all requests between three backends (using random policy):
 
 ~~~
-proxy . dns1.local:53 dns2.local:1053 dns3.local
+proxy . 10.0.0.10:53 10.0.0.11:1053 10.0.0.12
 ~~~
 
 Same as above, but round-robin style:
 
 ~~~
-proxy . dns1.local:53 dns2.local:1053 dns3.local {
+proxy . 10.0.0.10:53 10.0.0.11:1053 10.0.0.12 {
 	policy round_robin
 }
 ~~~
@@ -127,7 +128,7 @@ proxy . dns1.local:53 dns2.local:1053 dns3.local {
 With health checks and proxy headers to pass hostname, IP, and scheme upstream:
 
 ~~~
-proxy . dns1.local:53 dns2.local:53 dns3.local:53 {
+proxy . 10.0.0.11:53 10.0.0.11:53 10.0.0.12:53 {
 	policy round_robin
 	health_check /health:8080
 }
@@ -136,7 +137,7 @@ proxy . dns1.local:53 dns2.local:53 dns3.local:53 {
 Proxy everything except requests to miek.nl or example.org
 
 ~~~
-proxy . backend:1234 {
+proxy . 10.0.0.10:1234 {
 	except miek.nl example.org
 }
 ~~~

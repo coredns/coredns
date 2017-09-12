@@ -65,7 +65,7 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 
 				// Defaults.
 				e.delay = 2
-				e.duration = time.Duration(100 * time.Millisecond)
+				e.duration = 100 * time.Millisecond
 				if len(args) == 0 {
 					continue
 				}
@@ -104,6 +104,8 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 					return nil, fmt.Errorf("illegal amount value given %q", args[0])
 				}
 				e.truncate = uint64(amount)
+			default:
+				return nil, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 	}

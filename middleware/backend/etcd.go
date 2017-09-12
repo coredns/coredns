@@ -22,6 +22,7 @@ import (
 // Backend is a list of required information for the default implementation.
 type Backend struct {
 	Next           middleware.Handler
+	Fallthrough    bool
 	Zones          []string
 	ServiceName    string
 	Stubmap        *map[string]proxy.Proxy // list of proxies for stub resolving.
@@ -41,20 +42,19 @@ type EtcdV2 struct {
 }
 
 // Services implements the ServiceBackend interface.
-func (e *EtcdV2) Services(state request.Request, exact bool, opt middleware.Options) (services, debug []msg.Service, err error) {
-	services, err = e.Records(state.Name(), exact)
+func (e *EtcdV2) Services(state request.Request, exact bool, opt middleware.Options) (services []msg.Service, err error) {
+	services, err = e.Records(state, exact)
+
 	if err != nil {
 		return
 	}
-	if opt.Debug != "" {
-		debug = services
-	}
+
 	services = msg.Group(services)
 	return
 }
 
 // Reverse implements the ServiceBackend interface.
-func (e *EtcdV2) Reverse(state request.Request, exact bool, opt middleware.Options) (services, debug []msg.Service, err error) {
+func (e *EtcdV2) Reverse(state request.Request, exact bool, opt middleware.Options) (services []msg.Service, err error) {
 	return e.Services(state, exact, opt)
 }
 
@@ -71,14 +71,11 @@ func (e *EtcdV2) IsNameError(err error) bool {
 	return false
 }
 
-// Debug implements the ServiceBackend interface.
-func (e *EtcdV2) Debug() string {
-	return e.PathPrefix
-}
-
 // Records looks up records in etcd. If exact is true, it will lookup just this
 // name. This is used when find matches when completing SRV lookups for instance.
-func (e *EtcdV2) Records(name string, exact bool) ([]msg.Service, error) {
+func (e *EtcdV2) Records(state request.Request, exact bool) ([]msg.Service, error) {
+	name := state.Name()
+
 	path, star := msg.PathWithWildcard(name, e.PathPrefix)
 	r, err := e.get(path, true)
 	if err != nil {

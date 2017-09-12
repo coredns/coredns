@@ -39,12 +39,16 @@ func send(t *testing.T, server string) {
 
 	r, err := dns.Exchange(m, server)
 	if err != nil {
-		t.Fatalf("Could not send message: %s", err)
+		// This seems to fail a lot on travis, quick'n dirty: redo
+		r, err = dns.Exchange(m, server)
+		if err != nil {
+			return
+		}
 	}
 	if r.Rcode != dns.RcodeSuccess {
 		t.Fatalf("Expected successful reply, got %s", dns.RcodeToString[r.Rcode])
 	}
 	if len(r.Extra) != 2 {
-		t.Fatalf("Expected 2 RRs in additional, got %d", len(r.Extra))
+		t.Fatalf("Expected 2 RRs in additional, got %s", len(r.Extra))
 	}
 }

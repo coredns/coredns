@@ -3,7 +3,6 @@ package test
 import (
 	"io/ioutil"
 	"log"
-	"sort"
 	"testing"
 
 	"github.com/coredns/coredns/middleware/proxy"
@@ -44,14 +43,9 @@ func TestLookupDS(t *testing.T) {
 }
 `
 
-	i, err := CoreDNSServer(corefile)
+	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
-	}
-
-	udp, _ := CoreDNSServerPorts(i, 0)
-	if udp == "" {
-		t.Fatalf("Could not get UDP listening port")
 	}
 	defer i.Stop()
 
@@ -66,22 +60,6 @@ func TestLookupDS(t *testing.T) {
 			t.Fatalf("Expected to receive reply, but didn't for %s %d", tc.Qname, tc.Qtype)
 		}
 
-		sort.Sort(mtest.RRSet(resp.Answer))
-		sort.Sort(mtest.RRSet(resp.Ns))
-		sort.Sort(mtest.RRSet(resp.Extra))
-
-		if !mtest.Header(t, tc, resp) {
-			t.Logf("%v\n", resp)
-			continue
-		}
-		if !mtest.Section(t, tc, mtest.Answer, resp.Answer) {
-			t.Logf("%v\n", resp)
-		}
-		if !mtest.Section(t, tc, mtest.Ns, resp.Ns) {
-			t.Logf("%v\n", resp)
-		}
-		if !mtest.Section(t, tc, mtest.Extra, resp.Extra) {
-			t.Logf("%v\n", resp)
-		}
+		mtest.SortAndCheck(t, resp, tc)
 	}
 }

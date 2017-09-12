@@ -106,7 +106,7 @@ func loadRoots(caPath string) (*x509.CertPool, error) {
 	return roots, nil
 }
 
-// NetHTTPSTransport returns an HTTP transport configured using tls.Config
+// NewHTTPSTransport returns an HTTP transport configured using tls.Config
 func NewHTTPSTransport(cc *tls.Config) *http.Transport {
 	// this seems like a bad idea but was here in the previous version
 	if cc != nil {
@@ -121,6 +121,7 @@ func NewHTTPSTransport(cc *tls.Config) *http.Transport {
 		}).Dial,
 		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     cc,
+		MaxIdleConnsPerHost: 25,
 	}
 
 	return tr

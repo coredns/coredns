@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/coredns/coredns/middleware/pkg/debug"
+	"github.com/coredns/coredns/middleware/pkg/healthcheck"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -49,12 +49,6 @@ func (g *google) Exchange(ctx context.Context, addr string, state request.Reques
 	v.Set("name", state.Name())
 	v.Set("type", fmt.Sprintf("%d", state.QType()))
 
-	optDebug := false
-	if bug := debug.IsDebug(state.Name()); bug != "" {
-		optDebug = true
-		v.Set("name", bug)
-	}
-
 	buf, backendErr := g.exchangeJSON(addr, v.Encode())
 
 	if backendErr == nil {
@@ -63,17 +57,9 @@ func (g *google) Exchange(ctx context.Context, addr string, state request.Reques
 			return nil, err
 		}
 
-		m, debug, err := toMsg(gm)
+		m, err := toMsg(gm)
 		if err != nil {
 			return nil, err
-		}
-
-		if optDebug {
-			// reset question
-			m.Question[0].Name = state.QName()
-			// prepend debug RR to the additional section
-			m.Extra = append([]dns.RR{debug}, m.Extra...)
-
 		}
 
 		m.Id = state.Req.Id
@@ -111,7 +97,8 @@ func (g *google) exchangeJSON(addr, json string) ([]byte, error) {
 	return buf, nil
 }
 
-func (g *google) Protocol() string { return "https_google" }
+func (g *google) Transport() string { return "tcp" }
+func (g *google) Protocol() string  { return "https_google" }
 
 func (g *google) OnShutdown(p *Proxy) error {
 	g.quit <- true
@@ -125,51 +112,55 @@ func (g *google) OnStartup(p *Proxy) error {
 	req.SetQuestion(g.endpoint, dns.TypeA)
 	state := request.Request{W: new(fakeBootWriter), Req: req}
 
+	if len(*p.Upstreams) == 0 {
+		return fmt.Errorf("no upstreams defined")
+	}
+
+	oldUpstream := (*p.Upstreams)[0]
+
+	log.Printf("[INFO] Bootstrapping A records %q", g.endpoint)
+
 	new, err := g.bootstrapProxy.Lookup(state, g.endpoint, dns.TypeA)
-
-	var oldUpstream Upstream
-
-	// ignore errors here, as we want to keep on trying.
 	if err != nil {
 		log.Printf("[WARNING] Failed to bootstrap A records %q: %s", g.endpoint, err)
 	} else {
 		addrs, err1 := extractAnswer(new)
 		if err1 != nil {
-			log.Printf("[WARNING] Failed to bootstrap A records %q: %s", g.endpoint, err)
-		}
+			log.Printf("[WARNING] Failed to bootstrap A records %q: %s", g.endpoint, err1)
+		} else {
 
-		if len(*p.Upstreams) > 0 {
-			oldUpstream = (*p.Upstreams)[0]
 			up := newUpstream(addrs, oldUpstream.(*staticUpstream))
 			p.Upstreams = &[]Upstream{up}
-		} else {
-			log.Printf("[WARNING] Failed to bootstrap upstreams %q", g.endpoint)
+
+			log.Printf("[INFO] Bootstrapping A records %q found: %v", g.endpoint, addrs)
 		}
 	}
 
 	go func() {
-		tick := time.NewTicker(300 * time.Second)
+		tick := time.NewTicker(120 * time.Second)
 
 		for {
 			select {
 			case <-tick.C:
 
+				log.Printf("[INFO] Resolving A records %q", g.endpoint)
+
 				new, err := g.bootstrapProxy.Lookup(state, g.endpoint, dns.TypeA)
 				if err != nil {
-					log.Printf("[WARNING] Failed to bootstrap A records %q: %s", g.endpoint, err)
-				} else {
-					addrs, err1 := extractAnswer(new)
-					if err1 != nil {
-						log.Printf("[WARNING] Failed to bootstrap A records %q: %s", g.endpoint, err)
-						continue
-					}
-
-					// TODO(miek): can this actually happen?
-					if oldUpstream != nil {
-						up := newUpstream(addrs, oldUpstream.(*staticUpstream))
-						p.Upstreams = &[]Upstream{up}
-					}
+					log.Printf("[WARNING] Failed to resolve A records %q: %s", g.endpoint, err)
+					continue
 				}
+
+				addrs, err1 := extractAnswer(new)
+				if err1 != nil {
+					log.Printf("[WARNING] Failed to resolve A records %q: %s", g.endpoint, err1)
+					continue
+				}
+
+				up := newUpstream(addrs, oldUpstream.(*staticUpstream))
+				p.Upstreams = &[]Upstream{up}
+
+				log.Printf("[INFO] Resolving A records %q found: %v", g.endpoint, addrs)
 
 			case <-g.quit:
 				return
@@ -200,34 +191,33 @@ func extractAnswer(m *dns.Msg) ([]string, error) {
 // newUpstream returns an upstream initialized with hosts.
 func newUpstream(hosts []string, old *staticUpstream) Upstream {
 	upstream := &staticUpstream{
-		from:              old.from,
-		Hosts:             nil,
-		Policy:            &Random{},
-		Spray:             nil,
-		FailTimeout:       10 * time.Second,
-		MaxFails:          3,
-		Future:            60 * time.Second,
+		from: old.from,
+		HealthCheck: healthcheck.HealthCheck{
+			FailTimeout: 10 * time.Second,
+			MaxFails:    3,
+			Future:      60 * time.Second,
+		},
 		ex:                old.ex,
 		WithoutPathPrefix: old.WithoutPathPrefix,
 		IgnoredSubDomains: old.IgnoredSubDomains,
 	}
 
-	upstream.Hosts = make([]*UpstreamHost, len(hosts))
+	upstream.Hosts = make([]*healthcheck.UpstreamHost, len(hosts))
 	for i, h := range hosts {
-		uh := &UpstreamHost{
+		uh := &healthcheck.UpstreamHost{
 			Name:        h,
 			Conns:       0,
 			Fails:       0,
 			FailTimeout: upstream.FailTimeout,
 
-			CheckDown: func(upstream *staticUpstream) UpstreamHostDownFunc {
-				return func(uh *UpstreamHost) bool {
+			CheckDown: func(upstream *staticUpstream) healthcheck.UpstreamHostDownFunc {
+				return func(uh *healthcheck.UpstreamHost) bool {
 
 					down := false
 
-					uh.checkMu.Lock()
+					uh.CheckMu.Lock()
 					until := uh.OkUntil
-					uh.checkMu.Unlock()
+					uh.CheckMu.Unlock()
 
 					if !until.IsZero() && time.Now().After(until) {
 						down = true

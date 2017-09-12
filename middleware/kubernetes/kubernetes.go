@@ -4,15 +4,15 @@ package kubernetes
 import (
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/middleware"
 	"github.com/coredns/coredns/middleware/backend/msg"
 	"github.com/coredns/coredns/middleware/pkg/dnsutil"
-	dnsstrings "github.com/coredns/coredns/middleware/pkg/strings"
+	"github.com/coredns/coredns/middleware/pkg/healthcheck"
 	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/request"
 
@@ -30,161 +30,111 @@ import (
 type Kubernetes struct {
 	Next          middleware.Handler
 	Zones         []string
-	primaryZone   int
 	Proxy         proxy.Proxy // Proxy for looking up names during the resolution process
-	APIEndpoint   string
+	APIServerList []string
+	APIProxy      *apiProxy
 	APICertAuth   string
 	APIClientCert string
 	APIClientKey  string
 	APIConn       dnsController
-	ResyncPeriod  time.Duration
-	Namespaces    []string
-	Federations   []Federation
-	LabelSelector *unversionedapi.LabelSelector
-	Selector      *labels.Selector
-	PodMode       string
-	ReverseCidrs  []net.IPNet
+	Namespaces    map[string]bool
+	podMode       string
 	Fallthrough   bool
-	AutoPath
-	interfaceAddrs interfaceAddrser
+	ttl           uint32
+
+	primaryZoneIndex   int
+	interfaceAddrsFunc func() net.IP
+	autoPathSearch     []string // Local search path from /etc/resolv.conf. Needed for autopath.
 }
 
-type AutoPath struct {
-	Enabled        bool
-	NDots          int
-	ResolvConfFile string
-	HostSearchPath []string
-	OnNXDOMAIN     int
+// New returns a intialized Kubernetes. It default interfaceAddrFunc to return 127.0.0.1. All other
+// values default to their zero value, primaryZoneIndex will thus point to the first zone.
+func New(zones []string) *Kubernetes {
+	k := new(Kubernetes)
+	k.Zones = zones
+	k.Namespaces = make(map[string]bool)
+	k.interfaceAddrsFunc = func() net.IP { return net.ParseIP("127.0.0.1") }
+	k.podMode = podModeDisabled
+	k.Proxy = proxy.Proxy{}
+	k.ttl = defaultTTL
+
+	return k
 }
 
 const (
-	// PodModeDisabled is the default value where pod requests are ignored
-	PodModeDisabled = "disabled"
-	// PodModeVerified is where Pod requests are answered only if they exist
-	PodModeVerified = "verified"
-	// PodModeInsecure is where pod requests are answered without verfying they exist
-	PodModeInsecure = "insecure"
+	// podModeDisabled is the default value where pod requests are ignored
+	podModeDisabled = "disabled"
+	// podModeVerified is where Pod requests are answered only if they exist
+	podModeVerified = "verified"
+	// podModeInsecure is where pod requests are answered without verfying they exist
+	podModeInsecure = "insecure"
 	// DNSSchemaVersion is the schema version: https://github.com/kubernetes/dns/blob/master/docs/specification.md
 	DNSSchemaVersion = "1.0.1"
 )
 
-type endpoint struct {
-	addr api.EndpointAddress
-	port api.EndpointPort
-}
-
-type service struct {
-	name      string
-	namespace string
-	addr      string
-	ports     []api.ServicePort
-	endpoints []endpoint
-}
-
-type pod struct {
-	name      string
-	namespace string
-	addr      string
-}
-
-type recordRequest struct {
-	port       string
-	protocol   string
-	endpoint   string
-	service    string
-	namespace  string
-	typeName   string
-	zone       string
-	federation string
-}
-
-var localPodIP net.IP
-
-var errNoItems = errors.New("no items found")
-var errNsNotExposed = errors.New("namespace is not exposed")
-var errInvalidRequest = errors.New("invalid query name")
-var errZoneNotFound = errors.New("zone not found")
-var errAPIBadPodType = errors.New("expected type *api.Pod")
-var errPodsDisabled = errors.New("pod records disabled")
-var errResolvConfReadErr = errors.New("resolv.conf read error")
+var (
+	errNoItems        = errors.New("no items found")
+	errNsNotExposed   = errors.New("namespace is not exposed")
+	errInvalidRequest = errors.New("invalid query name")
+	errAPIBadPodType  = errors.New("expected type *api.Pod")
+	errPodsDisabled   = errors.New("pod records disabled")
+)
 
 // Services implements the ServiceBackend interface.
-func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) (svcs []msg.Service, debug []msg.Service, err error) {
+func (k *Kubernetes) Services(state request.Request, exact bool, opt middleware.Options) (svcs []msg.Service, err error) {
 
-	r, e := k.parseRequest(state.Name(), state.QType())
-	if e != nil {
-		return nil, nil, e
-	}
+	// We're looking again at types, which we've already done in ServeDNS, but there are some types k8s just can't answer.
+	switch state.QType() {
 
-	switch state.Type() {
-	case "A", "CNAME":
-		if state.Type() == "A" && isDefaultNS(state.Name(), r) {
-			// If this is an A request for "ns.dns", respond with a "fake" record for coredns.
-			// SOA records always use this hardcoded name
-			svcs = append(svcs, k.defaultNSMsg(r))
-			return svcs, nil, nil
+	case dns.TypeTXT:
+		// 1 label + zone, label must be "dns-version".
+		t, _ := dnsutil.TrimZone(state.Name(), state.Zone)
+
+		segs := dns.SplitDomainName(t)
+		if len(segs) != 1 {
+			return nil, fmt.Errorf("kubernetes: TXT query can only be for dns-version: %s", state.QName())
 		}
-		s, e := k.Entries(r)
-		return s, nil, e // Haven't implemented debug queries yet.
-	case "SRV":
-		s, e := k.Entries(r)
-		// SRV for external services is not yet implemented, so remove those records
-		noext := []msg.Service{}
-		for _, svc := range s {
-			if t, _ := svc.HostType(); t != dns.TypeCNAME {
-				noext = append(noext, svc)
-			}
+		if segs[0] != "dns-version" {
+			return nil, nil
 		}
-		return noext, nil, e
-	case "TXT":
-		err := k.recordsForTXT(r, &svcs)
-		return svcs, nil, err
-	case "NS":
-		err = k.recordsForNS(r, &svcs)
-		return svcs, nil, err
-	}
-	return nil, nil, nil
-}
+		svc := msg.Service{Text: DNSSchemaVersion, TTL: 28800, Key: msg.Path(state.QName(), "coredns")}
+		return []msg.Service{svc}, nil
 
-func (k *Kubernetes) recordsForTXT(r recordRequest, svcs *[]msg.Service) (err error) {
-	switch r.typeName {
-	case "dns-version":
-		s := msg.Service{
-			Text: DNSSchemaVersion,
-			TTL:  28800,
-			Key:  msg.Path(strings.Join([]string{r.typeName, r.zone}, "."), "coredns")}
-		*svcs = append(*svcs, s)
-		return nil
-	}
-	return nil
-}
-
-// PrimaryZone will return the first non-reverse zone being handled by this middleware
-func (k *Kubernetes) PrimaryZone() string {
-	return k.Zones[k.primaryZone]
-}
-
-// Reverse implements the ServiceBackend interface.
-func (k *Kubernetes) Reverse(state request.Request, exact bool, opt middleware.Options) ([]msg.Service, []msg.Service, error) {
-
-	ip := dnsutil.ExtractAddressFromReverse(state.Name())
-	if ip == "" {
-		return nil, nil, nil
+	case dns.TypeNS:
+		// We can only get here if the qname equal the zone, see ServeDNS in handler.go.
+		ns := k.nsAddr()
+		svc := msg.Service{Host: ns.A.String(), Key: msg.Path(state.QName(), "coredns")}
+		return []msg.Service{svc}, nil
 	}
 
-	records := k.getServiceRecordForIP(ip, state.Name())
-	return records, nil, nil
-}
+	if state.QType() == dns.TypeA && isDefaultNS(state.Name(), state.Zone) {
+		// If this is an A request for "ns.dns", respond with a "fake" record for coredns.
+		// SOA records always use this hardcoded name
+		ns := k.nsAddr()
+		svc := msg.Service{Host: ns.A.String(), Key: msg.Path(state.QName(), "coredns")}
+		return []msg.Service{svc}, nil
+	}
 
-func (k *Kubernetes) isRequestInReverseRange(name string) bool {
-	ip := dnsutil.ExtractAddressFromReverse(name)
-	for _, c := range k.ReverseCidrs {
-		if c.Contains(net.ParseIP(ip)) {
-			return true
+	s, e := k.Records(state, false)
+
+	// SRV for external services is not yet implemented, so remove those records.
+
+	if state.QType() != dns.TypeSRV {
+		return s, e
+	}
+
+	internal := []msg.Service{}
+	for _, svc := range s {
+		if t, _ := svc.HostType(); t != dns.TypeCNAME {
+			internal = append(internal, svc)
 		}
 	}
-	return false
+
+	return internal, e
 }
+
+// primaryZone will return the first non-reverse zone being handled by this middleware
+func (k *Kubernetes) primaryZone() string { return k.Zones[k.primaryZoneIndex] }
 
 // Lookup implements the ServiceBackend interface.
 func (k *Kubernetes) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
@@ -193,26 +143,79 @@ func (k *Kubernetes) Lookup(state request.Request, name string, typ uint16) (*dn
 
 // IsNameError implements the ServiceBackend interface.
 func (k *Kubernetes) IsNameError(err error) bool {
-	return err == errNoItems || err == errNsNotExposed || err == errInvalidRequest || err == errZoneNotFound
+	return err == errNoItems || err == errNsNotExposed || err == errInvalidRequest
 }
-
-// Debug implements the ServiceBackend interface.
-func (k *Kubernetes) Debug() string { return "debug" }
 
 func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 	loadingRules := &clientcmd.ClientConfigLoadingRules{}
 	overrides := &clientcmd.ConfigOverrides{}
 	clusterinfo := clientcmdapi.Cluster{}
 	authinfo := clientcmdapi.AuthInfo{}
-	if len(k.APIEndpoint) > 0 {
-		clusterinfo.Server = k.APIEndpoint
-	} else {
+
+	if len(k.APIServerList) == 0 {
 		cc, err := rest.InClusterConfig()
 		if err != nil {
 			return nil, err
 		}
 		return cc, err
 	}
+
+	endpoint := k.APIServerList[0]
+	if len(k.APIServerList) > 1 {
+		// Use a random port for api proxy, will get the value later through listener.Addr()
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			return nil, fmt.Errorf("failed to create kubernetes api proxy: %v", err)
+		}
+		k.APIProxy = &apiProxy{
+			listener: listener,
+			handler: proxyHandler{
+				HealthCheck: healthcheck.HealthCheck{
+					FailTimeout: 3 * time.Second,
+					MaxFails:    1,
+					Future:      10 * time.Second,
+					Path:        "/",
+					Interval:    5 * time.Second,
+				},
+			},
+		}
+		k.APIProxy.handler.Hosts = make([]*healthcheck.UpstreamHost, len(k.APIServerList))
+		for i, entry := range k.APIServerList {
+
+			uh := &healthcheck.UpstreamHost{
+				Name: strings.TrimPrefix(entry, "http://"),
+
+				CheckDown: func(upstream *proxyHandler) healthcheck.UpstreamHostDownFunc {
+					return func(uh *healthcheck.UpstreamHost) bool {
+
+						down := false
+
+						uh.CheckMu.Lock()
+						until := uh.OkUntil
+						uh.CheckMu.Unlock()
+
+						if !until.IsZero() && time.Now().After(until) {
+							down = true
+						}
+
+						fails := atomic.LoadInt32(&uh.Fails)
+						if fails >= upstream.MaxFails && upstream.MaxFails != 0 {
+							down = true
+						}
+						return down
+					}
+				}(&k.APIProxy.handler),
+			}
+
+			k.APIProxy.handler.Hosts[i] = uh
+		}
+		k.APIProxy.Handler = &k.APIProxy.handler
+
+		// Find the random port used for api proxy
+		endpoint = fmt.Sprintf("http://%s", listener.Addr())
+	}
+	clusterinfo.Server = endpoint
+
 	if len(k.APICertAuth) > 0 {
 		clusterinfo.CertificateAuthority = k.APICertAuth
 	}
@@ -222,14 +225,16 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 	if len(k.APIClientKey) > 0 {
 		authinfo.ClientKey = k.APIClientKey
 	}
+
 	overrides.ClusterInfo = clusterinfo
 	overrides.AuthInfo = authinfo
 	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
+
 	return clientConfig.ClientConfig()
 }
 
-// InitKubeCache initializes a new Kubernetes cache.
-func (k *Kubernetes) InitKubeCache() (err error) {
+// initKubeCache initializes a new Kubernetes cache.
+func (k *Kubernetes) initKubeCache(opts dnsControlOpts) (err error) {
 
 	config, err := k.getClientConfig()
 	if err != nil {
@@ -238,149 +243,43 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return fmt.Errorf("failed to create kubernetes notification controller: %v", err)
+		return fmt.Errorf("failed to create kubernetes notification controller: %q", err)
 	}
 
-	if k.LabelSelector != nil {
+	if opts.labelSelector != nil {
 		var selector labels.Selector
-		selector, err = unversionedapi.LabelSelectorAsSelector(k.LabelSelector)
-		k.Selector = &selector
+		selector, err = unversionedapi.LabelSelectorAsSelector(opts.labelSelector)
 		if err != nil {
-			return fmt.Errorf("unable to create Selector for LabelSelector '%s'.Error was: %s", k.LabelSelector, err)
+			return fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", opts.labelSelector, err)
 		}
+		opts.selector = &selector
 	}
 
-	if k.LabelSelector != nil {
-		log.Printf("[INFO] Kubernetes middleware configured with the label selector '%s'. Only kubernetes objects matching this label selector will be exposed.", unversionedapi.FormatLabelSelector(k.LabelSelector))
-	}
+	opts.initPodCache = k.podMode == podModeVerified
 
-	opts := dnsControlOpts{
-		initPodCache: (k.PodMode == PodModeVerified || k.AutoPath.Enabled),
-	}
-	k.APIConn = newdnsController(kubeClient, k.ResyncPeriod, k.Selector, opts)
+	k.APIConn = newdnsController(kubeClient, opts)
 
 	return err
 }
 
-func (k *Kubernetes) parseRequest(lowerCasedName string, qtype uint16) (r recordRequest, err error) {
-	// 3 Possible cases
-	//   SRV Request: _port._protocol.service.namespace.[federation.]type.zone
-	//   A Request (endpoint): endpoint.service.namespace.[federation.]type.zone
-	//   A Request (service): service.namespace.[federation.]type.zone
-
-	// separate zone from rest of lowerCasedName
-	var segs []string
-	for _, z := range k.Zones {
-		if dns.IsSubDomain(z, lowerCasedName) {
-			r.zone = z
-
-			segs = dns.SplitDomainName(lowerCasedName)
-			segs = segs[:len(segs)-dns.CountLabel(r.zone)]
-			break
-		}
-	}
-	if r.zone == "" {
-		return r, errZoneNotFound
+// Records looks up services in kubernetes.
+func (k *Kubernetes) Records(state request.Request, exact bool) ([]msg.Service, error) {
+	r, e := parseRequest(state)
+	if e != nil {
+		return nil, e
 	}
 
-	r.federation, segs = k.stripFederation(segs)
-
-	if qtype == dns.TypeNS {
-		return r, nil
-	}
-
-	if qtype == dns.TypeA && isDefaultNS(lowerCasedName, r) {
-		return r, nil
-	}
-
-	offset := 0
-	if qtype == dns.TypeSRV {
-		if len(segs) != 5 {
-			return r, errInvalidRequest
-		}
-		// This is a SRV style request, get first two elements as port and
-		// protocol, stripping leading underscores if present.
-		if segs[0][0] == '_' {
-			r.port = segs[0][1:]
-		} else {
-			r.port = segs[0]
-			if !symbolContainsWildcard(r.port) {
-				return r, errInvalidRequest
-			}
-		}
-		if segs[1][0] == '_' {
-			r.protocol = segs[1][1:]
-			if r.protocol != "tcp" && r.protocol != "udp" {
-				return r, errInvalidRequest
-			}
-		} else {
-			r.protocol = segs[1]
-			if !symbolContainsWildcard(r.protocol) {
-				return r, errInvalidRequest
-			}
-		}
-		if r.port == "" || r.protocol == "" {
-			return r, errInvalidRequest
-		}
-		offset = 2
-	}
-	if qtype == dns.TypeA && len(segs) == 4 {
-		// This is an endpoint A record request. Get first element as endpoint.
-		r.endpoint = segs[0]
-		offset = 1
-	}
-
-	if len(segs) == (offset + 3) {
-		r.service = segs[offset]
-		r.namespace = segs[offset+1]
-		r.typeName = segs[offset+2]
-
-		return r, nil
-	}
-
-	if len(segs) == 1 && qtype == dns.TypeTXT {
-		r.typeName = segs[0]
-		return r, nil
-	}
-
-	return r, errInvalidRequest
-
-}
-
-// Records not implemented, see Entries().
-func (k *Kubernetes) Records(name string, exact bool) ([]msg.Service, error) {
-	return nil, fmt.Errorf("NOOP")
-}
-
-// Entries looks up services in kubernetes. If exact is true, it will lookup
-// just this name. This is used when find matches when completing SRV lookups
-// for instance.
-func (k *Kubernetes) Entries(r recordRequest) ([]msg.Service, error) {
-
-	// Abort if the namespace does not contain a wildcard, and namespace is not published per CoreFile
-	// Case where namespace contains a wildcard is handled in Get(...) method.
-	if (!symbolContainsWildcard(r.namespace)) && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(r.namespace, k.Namespaces)) {
+	if !wildcard(r.namespace) && !k.namespaceExposed(r.namespace) {
 		return nil, errNsNotExposed
 	}
 
-	services, pods, err := k.get(r)
-	if err != nil {
-		return nil, err
-	}
-	if len(services) == 0 && len(pods) == 0 {
-		// Did not find item in k8s, try federated
-		if r.federation != "" {
-			fedCNAME := k.federationCNAMERecord(r)
-			if fedCNAME.Key != "" {
-				return []msg.Service{fedCNAME}, nil
-			}
-		}
-		return nil, errNoItems
+	if r.podOrSvc == Pod {
+		pods, err := k.findPods(r, state.Zone)
+		return pods, err
 	}
 
-	records := k.getRecordsForK8sItems(services, pods, r)
-
-	return records, nil
+	services, err := k.findServices(r, state.Zone)
+	return services, err
 }
 
 func endpointHostname(addr api.EndpointAddress) string {
@@ -396,279 +295,163 @@ func endpointHostname(addr api.EndpointAddress) string {
 	return ""
 }
 
-func (k *Kubernetes) getRecordsForK8sItems(services []service, pods []pod, r recordRequest) (records []msg.Service) {
-	zonePath := msg.Path(r.zone, "coredns")
-
-	for _, svc := range services {
-		if svc.addr == api.ClusterIPNone || len(svc.endpoints) > 0 {
-			// This is a headless service or endpoints are present, create records for each endpoint
-			for _, ep := range svc.endpoints {
-				s := msg.Service{
-					Host: ep.addr.IP,
-					Port: int(ep.port.Port),
-				}
-				if r.federation != "" {
-					s.Key = strings.Join([]string{zonePath, "svc", r.federation, svc.namespace, svc.name, endpointHostname(ep.addr)}, "/")
-				} else {
-					s.Key = strings.Join([]string{zonePath, "svc", svc.namespace, svc.name, endpointHostname(ep.addr)}, "/")
-				}
-				records = append(records, s)
-			}
-		} else {
-			// Create records for each exposed port...
-			for _, p := range svc.ports {
-				s := msg.Service{
-					Host: svc.addr,
-					Port: int(p.Port)}
-
-				if r.federation != "" {
-					s.Key = strings.Join([]string{zonePath, "svc", r.federation, svc.namespace, svc.name}, "/")
-				} else {
-					s.Key = strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/")
-				}
-
-				records = append(records, s)
-			}
-			// If the addr is not an IP (i.e. an external service), add the record ...
-			s := msg.Service{
-				Key:  strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/"),
-				Host: svc.addr}
-			if t, _ := s.HostType(); t == dns.TypeCNAME {
-				if r.federation != "" {
-					s.Key = strings.Join([]string{zonePath, "svc", r.federation, svc.namespace, svc.name}, "/")
-				} else {
-					s.Key = strings.Join([]string{zonePath, "svc", svc.namespace, svc.name}, "/")
-				}
-				records = append(records, s)
-			}
-
-		}
+func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service, err error) {
+	if k.podMode == podModeDisabled {
+		return nil, errPodsDisabled
 	}
 
-	for _, p := range pods {
-		s := msg.Service{
-			Key:  strings.Join([]string{zonePath, "pod", p.namespace, p.name}, "/"),
-			Host: p.addr,
-		}
-		records = append(records, s)
-	}
+	namespace := r.namespace
+	podname := r.service
+	zonePath := msg.Path(zone, "coredns")
+	ip := ""
+	err = errNoItems
 
-	return records
-}
-
-func ipFromPodName(podname string) string {
-	if strings.Count(podname, "-") == 3 && !strings.Contains(podname, "--") {
-		return strings.Replace(podname, "-", ".", -1)
-	}
-	return strings.Replace(podname, "-", ":", -1)
-}
-
-func (k *Kubernetes) findPodWithIP(ip string) (p *api.Pod) {
-	if k.PodMode != PodModeVerified {
-		return nil
-	}
-	objList := k.APIConn.PodIndex(ip)
-	for _, o := range objList {
-		p, ok := o.(*api.Pod)
-		if !ok {
-			return nil
-		}
-		return p
-	}
-	return nil
-}
-
-func (k *Kubernetes) findPods(namespace, podname string) (pods []pod, err error) {
-	if k.PodMode == PodModeDisabled {
-		return pods, errPodsDisabled
-	}
-
-	var ip string
 	if strings.Count(podname, "-") == 3 && !strings.Contains(podname, "--") {
 		ip = strings.Replace(podname, "-", ".", -1)
 	} else {
 		ip = strings.Replace(podname, "-", ":", -1)
 	}
 
-	if k.PodMode == PodModeInsecure {
-		s := pod{name: podname, namespace: namespace, addr: ip}
-		pods = append(pods, s)
-		return pods, nil
+	if k.podMode == podModeInsecure {
+		return []msg.Service{{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip}}, nil
 	}
 
 	// PodModeVerified
 	objList := k.APIConn.PodIndex(ip)
 
-	nsWildcard := symbolContainsWildcard(namespace)
 	for _, o := range objList {
 		p, ok := o.(*api.Pod)
 		if !ok {
 			return nil, errAPIBadPodType
 		}
 		// If namespace has a wildcard, filter results against Corefile namespace list.
-		if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(p.Namespace, k.Namespaces)) {
+		if wildcard(namespace) && !k.namespaceExposed(p.Namespace) {
 			continue
 		}
 		// check for matching ip and namespace
-		if ip == p.Status.PodIP && symbolMatches(namespace, p.Namespace, nsWildcard) {
-			s := pod{name: podname, namespace: namespace, addr: ip}
+		if ip == p.Status.PodIP && match(namespace, p.Namespace) {
+			s := msg.Service{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip}
 			pods = append(pods, s)
-			return pods, nil
+
+			err = nil
 		}
 	}
-	return pods, nil
+	return pods, err
 }
 
-// get retrieves matching data from the cache.
-func (k *Kubernetes) get(r recordRequest) (services []service, pods []pod, err error) {
-	switch {
-	case r.typeName == "pod":
-		pods, err = k.findPods(r.namespace, r.service)
-		return nil, pods, err
-	default:
-		services, err = k.findServices(r)
-		return services, nil, err
-	}
-}
-
-func (k *Kubernetes) findServices(r recordRequest) ([]service, error) {
+// findServices returns the services matching r from the cache.
+func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.Service, err error) {
 	serviceList := k.APIConn.ServiceList()
-
-	var resultItems []service
-
-	nsWildcard := symbolContainsWildcard(r.namespace)
-	serviceWildcard := symbolContainsWildcard(r.service)
-	portWildcard := symbolContainsWildcard(r.port) || r.port == ""
-	protocolWildcard := symbolContainsWildcard(r.protocol) || r.protocol == ""
+	zonePath := msg.Path(zone, "coredns")
+	err = errNoItems // Set to errNoItems to signal really nothing found, gets reset when name is matched.
 
 	for _, svc := range serviceList {
-		if !(symbolMatches(r.namespace, svc.Namespace, nsWildcard) && symbolMatches(r.service, svc.Name, serviceWildcard)) {
+		if !(match(r.namespace, svc.Namespace) && match(r.service, svc.Name)) {
 			continue
 		}
+
 		// If namespace has a wildcard, filter results against Corefile namespace list.
 		// (Namespaces without a wildcard were filtered before the call to this function.)
-		if nsWildcard && (len(k.Namespaces) > 0) && (!dnsstrings.StringInSlice(svc.Namespace, k.Namespaces)) {
+		if wildcard(r.namespace) && !k.namespaceExposed(svc.Namespace) {
 			continue
 		}
-		s := service{name: svc.Name, namespace: svc.Namespace}
 
 		// Endpoint query or headless service
 		if svc.Spec.ClusterIP == api.ClusterIPNone || r.endpoint != "" {
-			s.addr = svc.Spec.ClusterIP
 			endpointsList := k.APIConn.EndpointsList()
 			for _, ep := range endpointsList.Items {
 				if ep.ObjectMeta.Name != svc.Name || ep.ObjectMeta.Namespace != svc.Namespace {
 					continue
 				}
+
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
+
+						// See comments in parse.go parseRequest about the endpoint handling.
+
+						if r.endpoint != "" {
+							if !match(r.endpoint, endpointHostname(addr)) {
+								continue
+							}
+						}
+
 						for _, p := range eps.Ports {
-							ephostname := endpointHostname(addr)
-							if r.endpoint != "" && r.endpoint != ephostname {
+							if !(match(r.port, p.Name) && match(r.protocol, string(p.Protocol))) {
 								continue
 							}
-							if !(symbolMatches(r.port, strings.ToLower(p.Name), portWildcard) && symbolMatches(r.protocol, strings.ToLower(string(p.Protocol)), protocolWildcard)) {
-								continue
-							}
-							s.endpoints = append(s.endpoints, endpoint{addr: addr, port: p})
+							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
+							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr)}, "/")
+
+							err = nil
+
+							services = append(services, s)
 						}
 					}
 				}
-			}
-			if len(s.endpoints) > 0 {
-				resultItems = append(resultItems, s)
 			}
 			continue
 		}
 
 		// External service
 		if svc.Spec.ExternalName != "" {
-			s.addr = svc.Spec.ExternalName
-			resultItems = append(resultItems, s)
-			continue
+			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.Spec.ExternalName, TTL: k.ttl}
+			if t, _ := s.HostType(); t == dns.TypeCNAME {
+				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
+				services = append(services, s)
+
+				err = nil
+
+				continue
+			}
 		}
 
 		// ClusterIP service
-		s.addr = svc.Spec.ClusterIP
 		for _, p := range svc.Spec.Ports {
-			if !(symbolMatches(r.port, strings.ToLower(p.Name), portWildcard) && symbolMatches(r.protocol, strings.ToLower(string(p.Protocol)), protocolWildcard)) {
+			if !(match(r.port, p.Name) && match(r.protocol, string(p.Protocol))) {
 				continue
 			}
-			s.ports = append(s.ports, p)
-		}
 
-		resultItems = append(resultItems, s)
+			err = nil
+
+			s := msg.Service{Host: svc.Spec.ClusterIP, Port: int(p.Port), TTL: k.ttl}
+			s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
+
+			services = append(services, s)
+		}
 	}
-	return resultItems, nil
+	return services, err
 }
 
-func symbolMatches(queryString, candidateString string, wildcard bool) bool {
-	if wildcard {
+// match checks if a and b are equal taking wildcards into account.
+func match(a, b string) bool {
+	if wildcard(a) {
 		return true
 	}
-	return queryString == candidateString
+	if wildcard(b) {
+		return true
+	}
+	return strings.EqualFold(a, b)
 }
 
-// getServiceRecordForIP: Gets a service record with a cluster ip matching the ip argument
-// If a service cluster ip does not match, it checks all endpoints
-func (k *Kubernetes) getServiceRecordForIP(ip, name string) []msg.Service {
-	// First check services with cluster ips
-	svcList := k.APIConn.ServiceList()
-
-	for _, service := range svcList {
-		if (len(k.Namespaces) > 0) && !dnsstrings.StringInSlice(service.Namespace, k.Namespaces) {
-			continue
-		}
-		if service.Spec.ClusterIP == ip {
-			domain := strings.Join([]string{service.Name, service.Namespace, "svc", k.PrimaryZone()}, ".")
-			return []msg.Service{{Host: domain}}
-		}
-	}
-	// If no cluster ips match, search endpoints
-	epList := k.APIConn.EndpointsList()
-	for _, ep := range epList.Items {
-		if (len(k.Namespaces) > 0) && !dnsstrings.StringInSlice(ep.ObjectMeta.Namespace, k.Namespaces) {
-			continue
-		}
-		for _, eps := range ep.Subsets {
-			for _, addr := range eps.Addresses {
-				if addr.IP == ip {
-					domain := strings.Join([]string{endpointHostname(addr), ep.ObjectMeta.Name, ep.ObjectMeta.Namespace, "svc", k.PrimaryZone()}, ".")
-					return []msg.Service{{Host: domain}}
-				}
-			}
-		}
-	}
-	return nil
+// wildcard checks whether s contains a wildcard value defined as "*" or "any".
+func wildcard(s string) bool {
+	return s == "*" || s == "any"
 }
 
-// symbolContainsWildcard checks whether symbol contains a wildcard value
-func symbolContainsWildcard(symbol string) bool {
-	return (symbol == "*" || symbol == "any")
+// namespaceExposed returns true when the namespace is exposed.
+func (k *Kubernetes) namespaceExposed(namespace string) bool {
+	_, ok := k.Namespaces[namespace]
+	if len(k.Namespaces) > 0 && !ok {
+		return false
+	}
+	return true
 }
 
-func (k *Kubernetes) localPodIP() net.IP {
-	if localPodIP != nil {
-		return localPodIP
-	}
-	addrs, _ := k.interfaceAddrs.interfaceAddrs()
-
-	for _, addr := range addrs {
-		ip, _, _ := net.ParseCIDR(addr.String())
-		ip = ip.To4()
-		if ip == nil || ip.IsLoopback() {
-			continue
-		}
-		localPodIP = ip
-		return localPodIP
-	}
-	return nil
-}
-
-func splitSearch(zone, question, namespace string) (name, search string, ok bool) {
-	search = strings.Join([]string{namespace, "svc", zone}, ".")
-	if dns.IsSubDomain(search, question) {
-		return question[:len(question)-len(search)-1], search, true
-	}
-	return "", "", false
-}
+const (
+	// Svc is the DNS schema for kubernetes services
+	Svc = "svc"
+	// Pod is the DNS schema for kubernetes pods
+	Pod = "pod"
+	// defaultTTL to apply to all answers.
+	defaultTTL = 5
+)

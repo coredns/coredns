@@ -42,18 +42,14 @@ func TestEtcdStubAndProxyLookup(t *testing.T) {
         path /skydns
         endpoint http://localhost:2379
         upstream 8.8.8.8:53 8.8.4.4:53
+	fallthrough
     }
     proxy . 8.8.8.8:53
 }`
 
-	ex, err := CoreDNSServer(corefile)
+	ex, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
-	}
-
-	udp, _ := CoreDNSServerPorts(ex, 0)
-	if udp == "" {
-		t.Fatalf("Could not get UDP listening port")
 	}
 	defer ex.Stop()
 

@@ -1,8 +1,9 @@
 # rewrite
 
-*rewrite* performs internal message rewriting. Rewrites are invisible to the client.
-There are simple rewrites (fast) and complex rewrites (slower), but they're powerful enough to
-accommodate most dynamic back-end applications.
+*rewrite* performs internal message rewriting.
+
+Rewrites are invisible to the client. There are simple rewrites (fast) and complex rewrites
+(slower), but they're powerful enough to accommodate most dynamic back-end applications.
 
 ## Syntax
 
@@ -36,12 +37,13 @@ Using FIELD edns0, you can set, append, or replace specific EDNS0 options on the
 * `append` will add the option regardless of what options already exist
 * `set` will modify a matching option or add one if none is found
 
-Currently supported are `EDNS0_LOCAL` and `EDNS0_NSID`.
+Currently supported are `EDNS0_LOCAL`, `EDNS0_NSID` and `EDNS0_SUBNET`.
 
 ### `EDNS0_LOCAL`
 
-This has two fields, code and data. A match is defined as having the same code. Data may be a string, or if
-it starts with `0x` it will be treated as hex. Example:
+This has two fields, code and data. A match is defined as having the same code. Data may be a string or a variable.  
+
+* A string data can be treated as hex if it starts with `0x`. Example:
 
 ~~~
 rewrite edns0 local set 0xffee 0x61626364
@@ -53,7 +55,37 @@ rewrites the first local option with code 0xffee, setting the data to "abcd". Eq
 rewrite edns0 local set 0xffee abcd
 ~~~
 
+* A variable data is specified with a pair of curly brackets `{}`. Following are the supported variables:
+    * {qname}
+    * {qtype}
+    * {client_ip}
+    * {client_port}
+    * {protocol}
+    * {server_ip}
+    * {server_port}
+
+Example:
+
+~~~
+rewrite edns0 local set 0xffee {client_ip}
+~~~
+
 ### `EDNS0_NSID`
 
 This has no fields; it will add an NSID option with an empty string for the NSID. If the option already exists
 and the action is `replace` or `set`, then the NSID in the option will be set to the empty string.
+
+### `EDNS0_SUBNET`
+
+This has two fields,  IPv4 bitmask length and IPv6 bitmask length. The bitmask
+length is used to extract the client subnet from the source IP address in the query. 
+
+Example:
+
+~~~
+   rewrite edns0 subnet set 24 56
+~~~
+
+* If the query has source IP as IPv4, the first 24 bits in the IP will be the network subnet.
+* If the query has source IP as IPv6, the first 56 bits in the IP will be the network subnet.
+

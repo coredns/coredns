@@ -23,14 +23,27 @@ func TestAutoParse(t *testing.T) {
 			false, "/tmp", "${1}", `db\.(.*)`, []string{"127.0.0.1:53"},
 		},
 		{
-			`auto {
+			`auto 10.0.0.0/24 {
 				directory /tmp
 			}`,
 			false, "/tmp", "${1}", `db\.(.*)`, nil,
 		},
 		{
 			`auto {
+				directory /tmp
+				no_reload
+			}`,
+			false, "/tmp", "${1}", `db\.(.*)`, nil,
+		},
+		{
+			`auto {
 				directory /tmp (.*) bliep
+			}`,
+			false, "/tmp", "bliep", `(.*)`, nil,
+		},
+		{
+			`auto {
+				directory /tmp (.*) bliep 10
 			}`,
 			false, "/tmp", "bliep", `(.*)`, nil,
 		},
@@ -53,6 +66,24 @@ func TestAutoParse(t *testing.T) {
 		{
 			`auto example.org {
 				directory /tmp * {1}
+			}`,
+			true, "", "${1}", ``, nil,
+		},
+		{
+			`auto example.org {
+				directory /tmp * {1} aa
+			}`,
+			true, "", "${1}", ``, nil,
+		},
+		{
+			`auto example.org {
+				directory /tmp .* {1}
+			}`,
+			true, "", "${1}", ``, nil,
+		},
+		{
+			`auto example.org {
+				directory /tmp .* {1}
 			}`,
 			true, "", "${1}", ``, nil,
 		},

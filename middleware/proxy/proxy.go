@@ -3,13 +3,17 @@ package proxy
 
 import (
 	"errors"
-	"sync"
+	"fmt"
 	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/middleware"
+	"github.com/coredns/coredns/middleware/dnstap"
+	"github.com/coredns/coredns/middleware/dnstap/msg"
+	"github.com/coredns/coredns/middleware/pkg/healthcheck"
 	"github.com/coredns/coredns/request"
 
+	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 	"golang.org/x/net/context"
@@ -41,52 +45,13 @@ type Upstream interface {
 	// The domain name this upstream host should be routed on.
 	From() string
 	// Selects an upstream host to be routed to.
-	Select() *UpstreamHost
+	Select() *healthcheck.UpstreamHost
 	// Checks if subpdomain is not an ignored.
 	IsAllowedDomain(string) bool
 	// Exchanger returns the exchanger to be used for this upstream.
 	Exchanger() Exchanger
 	// Stops the upstream from proxying requests to shutdown goroutines cleanly.
 	Stop() error
-}
-
-// UpstreamHostDownFunc can be used to customize how Down behaves.
-type UpstreamHostDownFunc func(*UpstreamHost) bool
-
-// UpstreamHost represents a single proxy upstream
-type UpstreamHost struct {
-	Conns             int64  // must be first field to be 64-bit aligned on 32-bit systems
-	Name              string // IP address (and port) of this upstream host
-	Fails             int32
-	FailTimeout       time.Duration
-	OkUntil           time.Time
-	CheckDown         UpstreamHostDownFunc
-	CheckUrl          string
-	WithoutPathPrefix string
-	Checking          bool
-	checkMu           sync.Mutex
-}
-
-// Down checks whether the upstream host is down or not.
-// Down will try to use uh.CheckDown first, and will fall
-// back to some default criteria if necessary.
-func (uh *UpstreamHost) Down() bool {
-	if uh.CheckDown == nil {
-		// Default settings
-		fails := atomic.LoadInt32(&uh.Fails)
-		after := false
-
-		uh.checkMu.Lock()
-		until := uh.OkUntil
-		uh.checkMu.Unlock()
-
-		if !until.IsZero() && time.Now().After(until) {
-			after = true
-		}
-
-		return after || fails > 0
-	}
-	return uh.CheckDown(uh)
 }
 
 // tryDuration is how long to try upstream hosts; failures result in
@@ -106,16 +71,18 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	for {
 		start := time.Now()
+		reply := new(dns.Msg)
+		var backendErr error
 
 		// Since Select() should give us "up" hosts, keep retrying
 		// hosts until timeout (or until we get a nil host).
-		for time.Now().Sub(start) < tryDuration {
+		for time.Since(start) < tryDuration {
 			host := upstream.Select()
 			if host == nil {
 
 				RequestDuration.WithLabelValues(state.Proto(), upstream.Exchanger().Protocol(), upstream.From()).Observe(float64(time.Since(start) / time.Millisecond))
 
-				return dns.RcodeServerFailure, errUnreachable
+				return dns.RcodeServerFailure, fmt.Errorf("%s: %s", errUnreachable, "no upstream host")
 			}
 
 			if span != nil {
@@ -124,28 +91,33 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			}
 
 			atomic.AddInt64(&host.Conns, 1)
+			queryEpoch := msg.Epoch()
 
-			reply, backendErr := upstream.Exchanger().Exchange(ctx, host.Name, state)
+			reply, backendErr = upstream.Exchanger().Exchange(ctx, host.Name, state)
 
+			respEpoch := msg.Epoch()
 			atomic.AddInt64(&host.Conns, -1)
 
 			if child != nil {
 				child.Finish()
 			}
 
+			taperr := toDnstap(ctx, host.Name, upstream.Exchanger(), state, reply, queryEpoch, respEpoch)
+
 			if backendErr == nil {
 				w.WriteMsg(reply)
 
 				RequestDuration.WithLabelValues(state.Proto(), upstream.Exchanger().Protocol(), upstream.From()).Observe(float64(time.Since(start) / time.Millisecond))
 
-				return 0, nil
+				return 0, taperr
 			}
+
 			timeout := host.FailTimeout
 			if timeout == 0 {
 				timeout = 10 * time.Second
 			}
 			atomic.AddInt32(&host.Fails, 1)
-			go func(host *UpstreamHost, timeout time.Duration) {
+			go func(host *healthcheck.UpstreamHost, timeout time.Duration) {
 				time.Sleep(timeout)
 				atomic.AddInt32(&host.Fails, -1)
 			}(host, timeout)
@@ -153,7 +125,7 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 		RequestDuration.WithLabelValues(state.Proto(), upstream.Exchanger().Protocol(), upstream.From()).Observe(float64(time.Since(start) / time.Millisecond))
 
-		return dns.RcodeServerFailure, errUnreachable
+		return dns.RcodeServerFailure, fmt.Errorf("%s: %s", errUnreachable, backendErr)
 	}
 }
 
@@ -184,3 +156,40 @@ func (p Proxy) Name() string { return "proxy" }
 
 // defaultTimeout is the default networking timeout for DNS requests.
 const defaultTimeout = 5 * time.Second
+
+func toDnstap(ctx context.Context, host string, ex Exchanger, state request.Request, reply *dns.Msg, queryEpoch, respEpoch uint64) (err error) {
+	if tapper := dnstap.TapperFromContext(ctx); tapper != nil {
+		// Query
+		b := tapper.TapBuilder()
+		b.TimeSec = queryEpoch
+		if err = b.HostPort(host); err != nil {
+			return
+		}
+		t := ex.Transport()
+		if t == "" {
+			t = state.Proto()
+		}
+		if t == "tcp" {
+			b.SocketProto = tap.SocketProtocol_TCP
+		} else {
+			b.SocketProto = tap.SocketProtocol_UDP
+		}
+		if err = b.Msg(state.Req); err != nil {
+			return
+		}
+		err = tapper.TapMessage(b.ToOutsideQuery(tap.Message_FORWARDER_QUERY))
+		if err != nil {
+			return
+		}
+
+		// Response
+		if reply != nil {
+			b.TimeSec = respEpoch
+			if err = b.Msg(reply); err != nil {
+				return
+			}
+			err = tapper.TapMessage(b.ToOutsideResponse(tap.Message_FORWARDER_RESPONSE))
+		}
+	}
+	return
+}

@@ -5,14 +5,17 @@ package core
 import (
 	// Include all middleware.
 	_ "github.com/coredns/coredns/middleware/auto"
+	_ "github.com/coredns/coredns/middleware/autopath"
 	_ "github.com/coredns/coredns/middleware/backend"
 	_ "github.com/coredns/coredns/middleware/bind"
 	_ "github.com/coredns/coredns/middleware/cache"
 	_ "github.com/coredns/coredns/middleware/chaos"
 	_ "github.com/coredns/coredns/middleware/debug"
 	_ "github.com/coredns/coredns/middleware/dnssec"
+	_ "github.com/coredns/coredns/middleware/dnstap"
 	_ "github.com/coredns/coredns/middleware/erratic"
 	_ "github.com/coredns/coredns/middleware/errors"
+	_ "github.com/coredns/coredns/middleware/federation"
 	_ "github.com/coredns/coredns/middleware/file"
 	_ "github.com/coredns/coredns/middleware/health"
 	_ "github.com/coredns/coredns/middleware/hosts"

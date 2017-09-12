@@ -3,7 +3,6 @@ package kubernetes
 import (
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -26,12 +25,12 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	kubernetes, err := kubernetesParse(c)
+	kubernetes, initOpts, err := kubernetesParse(c)
 	if err != nil {
 		return middleware.Error("kubernetes", err)
 	}
 
-	err = kubernetes.InitKubeCache()
+	err = kubernetes.initKubeCache(initOpts)
 	if err != nil {
 		return middleware.Error("kubernetes", err)
 	}
@@ -39,10 +38,16 @@ func setup(c *caddy.Controller) error {
 	// Register KubeCache start and stop functions with Caddy
 	c.OnStartup(func() error {
 		go kubernetes.APIConn.Run()
+		if kubernetes.APIProxy != nil {
+			go kubernetes.APIProxy.Run()
+		}
 		return nil
 	})
 
 	c.OnShutdown(func() error {
+		if kubernetes.APIProxy != nil {
+			kubernetes.APIProxy.Stop()
+		}
 		return kubernetes.APIConn.Stop()
 	})
 
@@ -54,195 +59,150 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
-	k8s := &Kubernetes{
-		ResyncPeriod:   defaultResyncPeriod,
-		interfaceAddrs: &interfaceAddrs{},
-		PodMode:        PodModeDisabled,
+func kubernetesParse(c *caddy.Controller) (*Kubernetes, dnsControlOpts, error) {
+	k8s := New([]string{""})
+	k8s.interfaceAddrsFunc = localPodIP
+	k8s.autoPathSearch = searchFromResolvConf()
+
+	opts := dnsControlOpts{
+		resyncPeriod: defaultResyncPeriod,
 	}
 
 	for c.Next() {
-		if c.Val() == "kubernetes" {
-			zones := c.RemainingArgs()
+		zones := c.RemainingArgs()
 
-			if len(zones) == 0 {
-				k8s.Zones = make([]string, len(c.ServerBlockKeys))
-				copy(k8s.Zones, c.ServerBlockKeys)
+		if len(zones) != 0 {
+			k8s.Zones = zones
+			for i := 0; i < len(k8s.Zones); i++ {
+				k8s.Zones[i] = middleware.Host(k8s.Zones[i]).Normalize()
 			}
-
-			k8s.Zones = NormalizeZoneList(zones)
-			middleware.Zones(k8s.Zones).Normalize()
-
-			if k8s.Zones == nil || len(k8s.Zones) < 1 {
-				return nil, errors.New("zone name must be provided for kubernetes middleware")
+		} else {
+			k8s.Zones = make([]string, len(c.ServerBlockKeys))
+			for i := 0; i < len(c.ServerBlockKeys); i++ {
+				k8s.Zones[i] = middleware.Host(c.ServerBlockKeys[i]).Normalize()
 			}
+		}
 
-			k8s.primaryZone = -1
-			for i, z := range k8s.Zones {
-				if strings.HasSuffix(z, "in-addr.arpa.") || strings.HasSuffix(z, "ip6.arpa.") {
+		k8s.primaryZoneIndex = -1
+		for i, z := range k8s.Zones {
+			if strings.HasSuffix(z, "in-addr.arpa.") || strings.HasSuffix(z, "ip6.arpa.") {
+				continue
+			}
+			k8s.primaryZoneIndex = i
+			break
+		}
+
+		if k8s.primaryZoneIndex == -1 {
+			return nil, opts, errors.New("non-reverse zone name must be used")
+		}
+
+		for c.NextBlock() {
+			switch c.Val() {
+			case "pods":
+				args := c.RemainingArgs()
+				if len(args) == 1 {
+					switch args[0] {
+					case podModeDisabled, podModeInsecure, podModeVerified:
+						k8s.podMode = args[0]
+					default:
+						return nil, opts, fmt.Errorf("wrong value for pods: %s,  must be one of: disabled, verified, insecure", args[0])
+					}
 					continue
 				}
-				k8s.primaryZone = i
-				break
-			}
-
-			if k8s.primaryZone == -1 {
-				return nil, errors.New("non-reverse zone name must be given for Kubernetes")
-			}
-
-			for c.NextBlock() {
-				switch c.Val() {
-				case "cidrs":
-					args := c.RemainingArgs()
-					if len(args) > 0 {
-						for _, cidrStr := range args {
-							_, cidr, err := net.ParseCIDR(cidrStr)
-							if err != nil {
-								return nil, fmt.Errorf("invalid cidr: %s", cidrStr)
-							}
-							k8s.ReverseCidrs = append(k8s.ReverseCidrs, *cidr)
-
-						}
-						continue
+				return nil, opts, c.ArgErr()
+			case "namespaces":
+				args := c.RemainingArgs()
+				if len(args) > 0 {
+					for _, a := range args {
+						k8s.Namespaces[a] = true
 					}
-					return nil, c.ArgErr()
-				case "pods":
-					args := c.RemainingArgs()
-					if len(args) == 1 {
-						switch args[0] {
-						case PodModeDisabled, PodModeInsecure, PodModeVerified:
-							k8s.PodMode = args[0]
-						default:
-							return nil, fmt.Errorf("wrong value for pods: %s,  must be one of: disabled, verified, insecure", args[0])
-						}
-						continue
-					}
-					return nil, c.ArgErr()
-				case "namespaces":
-					args := c.RemainingArgs()
-					if len(args) > 0 {
-						k8s.Namespaces = append(k8s.Namespaces, args...)
-						continue
-					}
-					return nil, c.ArgErr()
-				case "endpoint":
-					args := c.RemainingArgs()
-					if len(args) > 0 {
-						k8s.APIEndpoint = args[0]
-						continue
-					}
-					return nil, c.ArgErr()
-				case "tls": // cert key cacertfile
-					args := c.RemainingArgs()
-					if len(args) == 3 {
-						k8s.APIClientCert, k8s.APIClientKey, k8s.APICertAuth = args[0], args[1], args[2]
-						continue
-					}
-					return nil, c.ArgErr()
-				case "resyncperiod":
-					args := c.RemainingArgs()
-					if len(args) > 0 {
-						rp, err := time.ParseDuration(args[0])
-						if err != nil {
-							return nil, fmt.Errorf("unable to parse resync duration value: '%v': %v", args[0], err)
-						}
-						k8s.ResyncPeriod = rp
-						continue
-					}
-					return nil, c.ArgErr()
-				case "labels":
-					args := c.RemainingArgs()
-					if len(args) > 0 {
-						labelSelectorString := strings.Join(args, " ")
-						ls, err := unversionedapi.ParseToLabelSelector(labelSelectorString)
-						if err != nil {
-							return nil, fmt.Errorf("unable to parse label selector value: '%v': %v", labelSelectorString, err)
-						}
-						k8s.LabelSelector = ls
-						continue
-					}
-					return nil, c.ArgErr()
-				case "fallthrough":
-					args := c.RemainingArgs()
-					if len(args) == 0 {
-						k8s.Fallthrough = true
-						continue
-					}
-					return nil, c.ArgErr()
-				case "upstream":
-					args := c.RemainingArgs()
-					if len(args) == 0 {
-						return nil, c.ArgErr()
-					}
-					ups, err := dnsutil.ParseHostPortOrFile(args...)
-					if err != nil {
-						return nil, err
-					}
-					k8s.Proxy = proxy.NewLookup(ups)
-				case "federation": // name zone
-					args := c.RemainingArgs()
-					if len(args) == 2 {
-						k8s.Federations = append(k8s.Federations, Federation{
-							name: args[0],
-							zone: args[1],
-						})
-						continue
-					}
-					return nil, fmt.Errorf("incorrect number of arguments for federation, got %v, expected 2", len(args))
-				case "autopath": // name zone
-					args := c.RemainingArgs()
-					k8s.AutoPath = AutoPath{
-						NDots:          defautNdots,
-						HostSearchPath: []string{},
-						ResolvConfFile: defaultResolvConfFile,
-						OnNXDOMAIN:     defaultOnNXDOMAIN,
-					}
-					if len(args) > 3 {
-						return nil, fmt.Errorf("incorrect number of arguments for autopath, got %v, expected at most 3", len(args))
-
-					}
-					if len(args) > 0 {
-						ndots, err := strconv.Atoi(args[0])
-						if err != nil {
-							return nil, fmt.Errorf("invalid NDOTS argument for autopath, got '%v', expected an integer", ndots)
-						}
-						k8s.AutoPath.NDots = ndots
-					}
-					if len(args) > 1 {
-						switch args[1] {
-						case dns.RcodeToString[dns.RcodeNameError]:
-							k8s.AutoPath.OnNXDOMAIN = dns.RcodeNameError
-						case dns.RcodeToString[dns.RcodeSuccess]:
-							k8s.AutoPath.OnNXDOMAIN = dns.RcodeSuccess
-						case dns.RcodeToString[dns.RcodeServerFailure]:
-							k8s.AutoPath.OnNXDOMAIN = dns.RcodeServerFailure
-						default:
-							return nil, fmt.Errorf("invalid RESPONSE argument for autopath, got '%v', expected SERVFAIL, NOERROR, or NXDOMAIN", args[1])
-						}
-					}
-					if len(args) > 2 {
-						k8s.AutoPath.ResolvConfFile = args[2]
-					}
-					rc, err := dns.ClientConfigFromFile(k8s.AutoPath.ResolvConfFile)
-					if err != nil {
-						return nil, fmt.Errorf("error when parsing %v: %v", k8s.AutoPath.ResolvConfFile, err)
-					}
-					k8s.AutoPath.HostSearchPath = rc.Search
-					middleware.Zones(k8s.AutoPath.HostSearchPath).Normalize()
-					k8s.AutoPath.Enabled = true
 					continue
 				}
+				return nil, opts, c.ArgErr()
+			case "endpoint":
+				args := c.RemainingArgs()
+				if len(args) > 0 {
+					for _, endpoint := range strings.Split(args[0], ",") {
+						k8s.APIServerList = append(k8s.APIServerList, strings.TrimSpace(endpoint))
+					}
+					continue
+				}
+				return nil, opts, c.ArgErr()
+			case "tls": // cert key cacertfile
+				args := c.RemainingArgs()
+				if len(args) == 3 {
+					k8s.APIClientCert, k8s.APIClientKey, k8s.APICertAuth = args[0], args[1], args[2]
+					continue
+				}
+				return nil, opts, c.ArgErr()
+			case "resyncperiod":
+				args := c.RemainingArgs()
+				if len(args) > 0 {
+					rp, err := time.ParseDuration(args[0])
+					if err != nil {
+						return nil, opts, fmt.Errorf("unable to parse resync duration value: '%v': %v", args[0], err)
+					}
+					opts.resyncPeriod = rp
+					continue
+				}
+				return nil, opts, c.ArgErr()
+			case "labels":
+				args := c.RemainingArgs()
+				if len(args) > 0 {
+					labelSelectorString := strings.Join(args, " ")
+					ls, err := unversionedapi.ParseToLabelSelector(labelSelectorString)
+					if err != nil {
+						return nil, opts, fmt.Errorf("unable to parse label selector value: '%v': %v", labelSelectorString, err)
+					}
+					opts.labelSelector = ls
+					continue
+				}
+				return nil, opts, c.ArgErr()
+			case "fallthrough":
+				args := c.RemainingArgs()
+				if len(args) == 0 {
+					k8s.Fallthrough = true
+					continue
+				}
+				return nil, opts, c.ArgErr()
+			case "upstream":
+				args := c.RemainingArgs()
+				if len(args) == 0 {
+					return nil, opts, c.ArgErr()
+				}
+				ups, err := dnsutil.ParseHostPortOrFile(args...)
+				if err != nil {
+					return nil, opts, err
+				}
+				k8s.Proxy = proxy.NewLookup(ups)
+			case "ttl":
+				args := c.RemainingArgs()
+				if len(args) == 0 {
+					return nil, opts, c.ArgErr()
+				}
+				t, err := strconv.Atoi(args[0])
+				if err != nil {
+					return nil, opts, err
+				}
+				if t < 5 || t > 3600 {
+					return nil, opts, c.Errf("ttl must be in range [5, 3600]: %d", t)
+				}
+				k8s.ttl = uint32(t)
+			default:
+				return nil, opts, c.Errf("unknown property '%s'", c.Val())
 			}
-			return k8s, nil
 		}
 	}
-	return nil, errors.New("kubernetes setup called without keyword 'kubernetes' in Corefile")
+	return k8s, opts, nil
 }
 
-const (
-	defaultResyncPeriod   = 5 * time.Minute
-	defaultPodMode        = PodModeDisabled
-	defautNdots           = 0
-	defaultResolvConfFile = "/etc/resolv.conf"
-	defaultOnNXDOMAIN     = dns.RcodeServerFailure
-)
+func searchFromResolvConf() []string {
+	rc, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+	if err != nil {
+		return nil
+	}
+	middleware.Zones(rc.Search).Normalize()
+	return rc.Search
+}
+
+const defaultResyncPeriod = 5 * time.Minute

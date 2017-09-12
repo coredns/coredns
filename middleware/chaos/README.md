@@ -1,6 +1,7 @@
 # chaos
 
 The *chaos* middleware allows CoreDNS to respond to TXT queries in the CH class.
+
 This is useful for retrieving version or author information from the server.
 
 ## Syntax
@@ -18,6 +19,28 @@ following zones: `version.bind`, `version.server`, `authors.bind`, `hostname.bin
 
 ## Examples
 
+Specify all the zones in full.
+
+~~~ corefile
+version.bind version.server authors.bind hostname.bind id.server {
+    chaos CoreDNS-001 info@coredns.io
+}
 ~~~
-chaos CoreDNS-001 "Miek Gieben" miek@miek.nl
+
+Or just default to `.`:
+
+~~~ corefile
+.  {
+    chaos CoreDNS-001 info@coredns.io
+}
+~~~
+
+And test with `dig`:
+
+~~~ txt
+% dig @localhost CH TXT version.bind
+...
+;; ANSWER SECTION:
+version.bind.		0	CH	TXT	"CoreDNS-001"
+...
 ~~~

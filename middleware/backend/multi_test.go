@@ -3,7 +3,6 @@
 package etcd
 
 import (
-	"sort"
 	"testing"
 
 	"github.com/coredns/coredns/middleware/backend/msg"
@@ -16,6 +15,7 @@ import (
 func TestMultiLookup(t *testing.T) {
 	etc := newEtcdMiddleware()
 	etc.Zones = []string{"skydns.test.", "miek.nl."}
+	etc.Fallthrough = true
 	etc.Next = test.ErrorHandler()
 
 	for _, serv := range servicesMulti {
@@ -33,23 +33,7 @@ func TestMultiLookup(t *testing.T) {
 		}
 
 		resp := rec.Msg
-		sort.Sort(test.RRSet(resp.Answer))
-		sort.Sort(test.RRSet(resp.Ns))
-		sort.Sort(test.RRSet(resp.Extra))
-
-		if !test.Header(t, tc, resp) {
-			t.Logf("%v\n", resp)
-			continue
-		}
-		if !test.Section(t, tc, test.Answer, resp.Answer) {
-			t.Logf("%v\n", resp)
-		}
-		if !test.Section(t, tc, test.Ns, resp.Ns) {
-			t.Logf("%v\n", resp)
-		}
-		if !test.Section(t, tc, test.Extra, resp.Extra) {
-			t.Logf("%v\n", resp)
-		}
+		test.SortAndCheck(t, resp, tc)
 	}
 }
 

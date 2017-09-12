@@ -26,13 +26,29 @@ secondary [zones...] {
 * `transfer to` can be enabled to allow this secondary zone to be transferred again.
 * `upstream` defines upstream resolvers to be used resolve external names found (think CNAMEs)
   pointing to external names. This is only really useful when CoreDNS is configured as a proxy, for
-  normal authoritative serving you don't need *or* want to use this.
+  normal authoritative serving you don't need *or* want to use this. **ADDRESS** can be an IP
+  address, and IP:port or a string pointing to a file that is structured as /etc/resolv.conf.
 
 ## Examples
 
+Transfer `example.org` from 10.0.1.1, and if that fails try 10.1.2.1.
+
+~~~ corefile
+example.org {
+    secondary {
+        transfer from 10.0.1.1
+        transfer from 10.1.2.1
+    }
+}
 ~~~
-secondary example.org {
-    transfer from 10.0.1.1
-    transfer from 10.1.2.1
+
+Or re-export the retrieved zone to other secondaries.
+
+~~~ corefile
+. {
+    secondary example.net {
+        transfer from 10.1.2.1
+        transfer to *
+    }
 }
 ~~~

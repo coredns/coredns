@@ -3,11 +3,25 @@
 package etcd
 
 import (
+	"context"
+	"encoding/json"
+	"testing"
+	"time"
+
 	"github.com/coredns/coredns/middleware/backend/msg"
+	"github.com/coredns/coredns/middleware/pkg/dnsrecorder"
+	"github.com/coredns/coredns/middleware/pkg/singleflight"
+	"github.com/coredns/coredns/middleware/pkg/tls"
+	"github.com/coredns/coredns/middleware/proxy"
 	"github.com/coredns/coredns/middleware/test"
 
+	etcdc "github.com/coreos/etcd/client"
 	"github.com/miekg/dns"
 )
+
+func init() {
+	ctxt = context.TODO()
+}
 
 // Note the key is encoded as DNS name, while in "reality" it is a etcd path.
 var services = []*msg.Service{
@@ -206,3 +220,58 @@ var dnsTestCases = []test.Case{
 		Answer: []dns.RR{test.PTR("1.0.0.10.in-addr.arpa. 300 PTR reverse.example.com.")},
 	},
 }
+
+func newEtcdMiddleware() *Backend {
+	ctxt, _ = context.WithTimeout(context.Background(), etcdTimeout)
+
+	endpoints := []string{"http://localhost:2379"}
+	tlsc, _ := tls.NewTLSConfigFromArgs()
+	client, _ := newEtcdClient(endpoints, tlsc)
+
+	etcd := &EtcdV2{
+		Proxy:      proxy.NewLookup([]string{"8.8.8.8:53"}),
+		PathPrefix: "skydns",
+		Ctx:        context.Background(),
+		Inflight:   &singleflight.Group{},
+		Client:     client,
+	}
+	return &Backend{
+		Zones:          []string{"skydns.test.", "skydns_extra.test.", "in-addr.arpa."},
+		ServiceName:    "etcd",
+		ServiceBackend: etcd,
+	}
+}
+
+func set(t *testing.T, b *Backend, k string, ttl time.Duration, m *msg.Service) {
+	d, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, _ := msg.PathWithWildcard(k, b.ServiceBackend.(*EtcdV2).PathPrefix)
+	b.ServiceBackend.(*EtcdV2).Client.Set(ctxt, path, string(d), &etcdc.SetOptions{TTL: ttl})
+}
+
+func delete(t *testing.T, b *Backend, k string) {
+	path, _ := msg.PathWithWildcard(k, b.ServiceBackend.(*EtcdV2).PathPrefix)
+	b.ServiceBackend.(*EtcdV2).Client.Delete(ctxt, path, &etcdc.DeleteOptions{Recursive: false})
+}
+
+func TestLookup(t *testing.T) {
+	etc := newEtcdMiddleware()
+	for _, serv := range services {
+		set(t, etc, serv.Key, 0, serv)
+		defer delete(t, etc, serv.Key)
+	}
+
+	for _, tc := range dnsTestCases {
+		m := tc.Msg()
+
+		rec := dnsrecorder.New(&test.ResponseWriter{})
+		etc.ServeDNS(ctxt, rec, m)
+
+		resp := rec.Msg
+		test.SortAndCheck(t, resp, tc)
+	}
+}
+
+var ctxt context.Context

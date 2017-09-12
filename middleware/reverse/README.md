@@ -9,12 +9,14 @@ reverse NETWORK... {
     hostname TEMPLATE
     [ttl TTL]
     [fallthrough]
+    [wildcard]
 ~~~
 
 * **NETWORK** one or more CIDR formatted networks to respond on.
 * `hostname` injects the IP and zone to a template for the hostname. Defaults to "ip-{IP}.{zone[1]}". See below for template.
 * `ttl` defaults to 60
-* `fallthrough` If zone matches and no record can be generated, pass request to the next middleware.
+* `fallthrough` if zone matches and no record can be generated, pass request to the next middleware.
+* `wildcard` allows matches to catch all subdomains as well.
 
 ### Template Syntax
 
