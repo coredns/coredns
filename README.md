@@ -84,7 +84,7 @@ CoreDNS requires golang to compile. However, if you already have docker installe
 golang environment, you could build coredns easily:
 
 ```
-$ docker run --rm -i -t -v $PWD:/go/src/github.com/coredns/coredns 
+$ docker run --rm -i -t -v $PWD:/go/src/github.com/coredns/coredns `\`
       -w /go/src/github.com/coredns/coredns golang:1.9 make
 ```
 
