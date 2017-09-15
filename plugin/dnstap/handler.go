@@ -25,6 +25,7 @@ type (
 	Tapper interface {
 		TapMessage(*tap.Message) error
 		TapBuilder() msg.Builder
+		GetWriter() io.Writer
 	}
 	tapContext struct {
 		context.Context
@@ -55,6 +56,11 @@ func (h Dnstap) TapMessage(m *tap.Message) error {
 // TapBuilder implements Tapper.
 func (h Dnstap) TapBuilder() msg.Builder {
 	return msg.Builder{Full: h.Pack}
+}
+
+// GetWriter implements Tapper.
+func (h Dnstap) GetWriter() io.Writer {
+	return h.Out
 }
 
 // ServeDNS logs the client query and response to dnstap and passes the dnstap Context.
