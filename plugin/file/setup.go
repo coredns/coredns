@@ -2,6 +2,7 @@ package file
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path"
 
@@ -34,7 +35,10 @@ func setup(c *caddy.Controller) error {
 				if len(z.TransferTo) > 0 {
 					z.Notify()
 				}
-				z.Reload()
+				err := z.Reload()
+				if err != nil {
+					log.Printf("[ERROR] Failed to reload %q: %s", z.file, err)
+				}
 			})
 			return nil
 		})

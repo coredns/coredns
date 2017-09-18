@@ -20,9 +20,6 @@ file DBFILE [ZONES...]
 
 If you want to round robin A and AAAA responses look at the *loadbalance* plugin.
 
-TSIG key configuration is TODO; directive format for transfer will probably be extended with
-TSIG key information, something like `transfer out [ADDRESS...] key [NAME[:ALG]] [BASE64]`
-
 ~~~
 file DBFILE [ZONES... ] {
     transfer to ADDRESS...
@@ -41,6 +38,10 @@ file DBFILE [ZONES... ] {
   pointing to external names. This is only really useful when CoreDNS is configured as a proxy, for
   normal authoritative serving you don't need *or* want to use this. **ADDRESS** can be an IP
   address, and IP:port or a string pointing to a file that is structured as /etc/resolv.conf.
+
+By default zone file will get *reloaded* when CoreDNS detects a new file on disk. This detection
+*only* happens when a file is created (not written). This means you need to `mv` files into place;
+as this triggers a create and is an atomic operation.
 
 ## Examples
 

@@ -14,7 +14,6 @@ import (
 )
 
 func TestZoneReload(t *testing.T) {
-	t.Parallel()
 	log.SetOutput(ioutil.Discard)
 
 	name, rm, err := TempFile(".", exampleOrg)
@@ -52,7 +51,7 @@ example.net:0 {
 	// Remove RR from the Apex
 	ioutil.WriteFile(name, []byte(exampleOrgUpdated), 0644)
 
-	time.Sleep(1 * time.Second) // fsnotify
+	time.Sleep(600 * time.Millisecond) // fsnotify
 
 	resp, err = p.Lookup(state, "example.org.", dns.TypeA)
 	if err != nil {

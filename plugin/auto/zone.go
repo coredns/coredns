@@ -2,6 +2,7 @@
 package auto
 
 import (
+	"log"
 	"sync"
 
 	"github.com/coredns/coredns/plugin/file"
@@ -51,7 +52,10 @@ func (z *Zones) Add(zo *file.Zone, name string) {
 
 	z.Z[name] = zo
 	z.names = append(z.names, name)
-	zo.Reload()
+	err := zo.Reload()
+	if err != nil {
+		log.Printf("[ERROR] Failed to reload %q: %s", name, err)
+	}
 
 	z.Unlock()
 }

@@ -70,3 +70,7 @@ org {
     }
 }
 ~~~
+
+## Also See
+
+See the README.md of the *file* plugin for details on the reload behavior.
