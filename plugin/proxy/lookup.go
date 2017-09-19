@@ -5,6 +5,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -116,6 +117,10 @@ func (p Proxy) lookup(state request.Request) (*dns.Msg, error) {
 
 			if backendErr == nil {
 				return reply, nil
+			}
+			// If we get a network error, *our* upstream is broken, not us, SERVFAIL request to client.
+			if _, ok := backendErr.(*net.OpError); ok {
+				return nil, fmt.Errorf("bad upstream %s: %s", host.Name, backendErr)
 			}
 			timeout := host.FailTimeout
 			if timeout == 0 {

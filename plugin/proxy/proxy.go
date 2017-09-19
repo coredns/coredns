@@ -4,6 +4,7 @@ package proxy
 import (
 	"errors"
 	"fmt"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -29,9 +30,7 @@ var (
 type Proxy struct {
 	Next plugin.Handler
 
-	// Upstreams is a pointer to a slice, so we can update the upstream (used for Google)
-	// midway.
-
+	// Upstreams is a pointer to a slice, so we can update the upstream (used for google_https) midway.
 	Upstreams *[]Upstream
 
 	// Trace is the Trace plugin, if it is installed
@@ -60,6 +59,7 @@ var tryDuration = 60 * time.Second
 
 // ServeDNS satisfies the plugin.Handler interface.
 func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	// This code is duplicated in lookup.go any big changes you make here should be reflected there as well.
 	var span, child ot.Span
 	span = ot.SpanFromContext(ctx)
 	state := request.Request{W: w, Req: r}
@@ -82,7 +82,7 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 				RequestDuration.WithLabelValues(state.Proto(), upstream.Exchanger().Protocol(), upstream.From()).Observe(float64(time.Since(start) / time.Millisecond))
 
-				return dns.RcodeServerFailure, fmt.Errorf("%s: %s", errUnreachable, "no upstream host")
+				return dns.RcodeServerFailure, fmt.Errorf("%s: %s", errUnreachable, "no healthy upstream host")
 			}
 
 			if span != nil {
@@ -110,6 +110,11 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 				RequestDuration.WithLabelValues(state.Proto(), upstream.Exchanger().Protocol(), upstream.From()).Observe(float64(time.Since(start) / time.Millisecond))
 
 				return 0, taperr
+			}
+
+			// If we get a network error, *our* upstream is broken, not us, SERVFAIL request to client.
+			if _, ok := backendErr.(*net.OpError); ok {
+				return dns.RcodeServerFailure, fmt.Errorf("bad upstream %s: %s", host.Name, backendErr)
 			}
 
 			timeout := host.FailTimeout
