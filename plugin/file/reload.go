@@ -25,7 +25,7 @@ func (z *Zone) Reload() error {
 			case <-tick.C:
 				reader, err := os.Open(z.file)
 				if err != nil {
-					log.Printf("[ERROR] Failed to zone %q in %q: %v", z.origin, z.file, err)
+					log.Printf("[ERROR] Failed to open zone %q in %q: %v", z.origin, z.file, err)
 					continue
 				}
 
