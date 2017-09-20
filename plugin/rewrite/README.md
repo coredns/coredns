@@ -26,11 +26,11 @@ needs to be a full match of the name, e.g., `rewrite name miek.nl example.org`.
 
 When the FIELD is `edns0` an EDNS0 option can be appended to the request as described below.
 
-If you specify multiple rules and an incoming query matches on multiple (simple) rules, the rewrite
+If you specify multiple rules and an incoming query matches on multiple rules, the rewrite
 will behave as following
 * `continue` will continue apply the next rule in the rule list. 
 * `stop` will consider the current rule is the last rule and will not continue.  Default behaviour
-for not specificy this rule processing mode is `stop`
+for not specifying this rule processing mode is `stop`
 
 ## EDNS0 Options
 
