@@ -208,7 +208,7 @@ func TestRewriteEDNS0Local(t *testing.T) {
 		m.SetQuestion("example.com.", dns.TypeA)
 		m.Question[0].Qclass = dns.ClassINET
 
-		r, err := newEdns0Rule(tc.args...)
+		r, err := newEdns0Rule("stop", tc.args...)
 		if err != nil {
 			t.Errorf("Error creating test rule: %s", err)
 			continue
@@ -232,9 +232,9 @@ func TestRewriteEDNS0Local(t *testing.T) {
 
 func TestEdns0LocalMultiRule(t *testing.T) {
 	rules := []Rule{}
-	r, _ := newEdns0Rule("local", "replace", "0xffee", "abcdef")
+	r, _ := newEdns0Rule("stop", "local", "replace", "0xffee", "abcdef")
 	rules = append(rules, r)
-	r, _ = newEdns0Rule("local", "set", "0xffee", "fedcba")
+	r, _ = newEdns0Rule("stop", "local", "set", "0xffee", "fedcba")
 	rules = append(rules, r)
 
 	rw := Rewrite{
@@ -399,7 +399,7 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 		m.SetQuestion("example.com.", dns.TypeA)
 		m.Question[0].Qclass = dns.ClassINET
 
-		r, err := newEdns0Rule(tc.args...)
+		r, err := newEdns0Rule("stop", tc.args...)
 		if err != nil {
 			t.Errorf("Error creating test rule: %s", err)
 			continue
@@ -510,7 +510,7 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 		m.SetQuestion("example.com.", dns.TypeA)
 		m.Question[0].Qclass = dns.ClassINET
 
-		r, err := newEdns0Rule(tc.args...)
+		r, err := newEdns0Rule("stop", tc.args...)
 		if err != nil {
 			t.Errorf("Error creating test rule: %s", err)
 			continue
