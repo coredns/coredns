@@ -25,5 +25,5 @@ func (rule *nameRule) Rewrite(w dns.ResponseWriter, r *dns.Msg) Result {
 
 // Mode returns the processing mode
 func (rule *nameRule) Mode() string {
-	return "stop"
+	return Stop
 }
