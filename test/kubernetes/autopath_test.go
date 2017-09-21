@@ -18,7 +18,7 @@ var autopathTests = []test.Case{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-    {
+	{
 		Qname: "svc-c.test-2", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
