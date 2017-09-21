@@ -76,13 +76,13 @@ func startClientPod(namespace, clientName string) error {
 		// ignore error (pod already running)
 		return nil
 	}
-	maxWait := 30 // 15 seconds (each failed check sleeps 0.5 seconds)
+	maxWait := 60 // 60 seconds
 	for {
 		o, _ := kubectl("-n kube-system get pod " + clientName)
 		if strings.Contains(o, "Running") {
 			return nil
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(time.Second)
 		maxWait = maxWait - 1
 		if maxWait == 0 {
 			break
