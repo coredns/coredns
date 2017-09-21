@@ -177,7 +177,7 @@ func toDnstap(ctx context.Context, host string, ex Exchanger, state request.Requ
 		if err = b.Msg(state.Req); err != nil {
 			return
 		}
-		err = tapper.TapMessage(b.ToOutsideQuery(tap.Message_FORWARDER_QUERY))
+		err = tapper.TapMessage(b.ToOutsideQuery(tap.Message_FORWARDER_QUERY), nil)
 		if err != nil {
 			return
 		}
@@ -188,7 +188,7 @@ func toDnstap(ctx context.Context, host string, ex Exchanger, state request.Requ
 			if err = b.Msg(reply); err != nil {
 				return
 			}
-			err = tapper.TapMessage(b.ToOutsideResponse(tap.Message_FORWARDER_RESPONSE))
+			err = tapper.TapMessage(b.ToOutsideResponse(tap.Message_FORWARDER_RESPONSE), nil)
 		}
 	}
 	return

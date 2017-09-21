@@ -1,0 +1,12 @@
+// This file contains the protobuf schemas for the "dnstapExtra" structured 
+// sent in dnstap.Dnstap event
+
+syntax = "proto2";
+
+package msg;
+
+message Extra {
+    map<string, bytes> extras = 1;
+}
+
+
