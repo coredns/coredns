@@ -3,18 +3,12 @@
 package kubernetes
 
 import (
-	"io/ioutil"
-	"log"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
 )
-
-func init() {
-	log.SetOutput(ioutil.Discard)
-}
 
 var dnsTestCasesA = []test.Case{
 	{

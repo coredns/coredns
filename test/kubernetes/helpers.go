@@ -18,16 +18,38 @@ import (
 	"errors"
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
+	"io/ioutil"
 	"time"
 )
 
+func init() {
+	log.SetOutput(ioutil.Discard)
+}
+
 // doIntegrationTests executes test cases
 func doIntegrationTests(t *testing.T, testCases []test.Case, namespace string) {
+
+	clientName := "coredns-test-client"
+	err := startClientPod(namespace, clientName)
+	if err != nil {
+		t.Fatalf("Failed to start client pod: %s", err)
+	}
 	for _, tc := range testCases {
-		digCmd := "'dig -t " + dns.TypeToString[tc.Qtype] + " " + tc.Qname + " +search +showsearch +time=30'"
-		cmdout, err := kubectl("-n " + namespace + " run dnstools -i --rm --image=infoblox/dnstools --restart=Never -- -c " + digCmd)
-		if err != nil {
-			t.Fatalf("Failed to execute query: %s\n Got Error: %s\n Logs: %s", digCmd, err, corednsLogs())
+		digCmd := "dig -t " + dns.TypeToString[tc.Qtype] + " " + tc.Qname + " +search +showsearch +time=30"
+
+		// attach to client and execute query.
+		var cmdout string
+		tries := 3
+		for {
+			cmdout, err = kubectl("-n " + namespace + " exec " + clientName + " -- " + digCmd)
+			if err == nil {
+				break
+			}
+			tries = tries - 1
+			if tries == 0 {
+				t.Fatalf("Failed to execute query: %s\n Got Error: %s\n Logs: %s", digCmd, err, corednsLogs())
+			}
+			time.Sleep(500 * time.Millisecond)
 		}
 		results, err := test.ParseDigResponse(cmdout)
 		if err != nil {
@@ -46,6 +68,28 @@ func doIntegrationTests(t *testing.T, testCases []test.Case, namespace string) {
 		sort.Sort(test.RRSet(tc.Extra))
 		test.SortAndCheck(t, res, tc)
 	}
+}
+
+func startClientPod(namespace, clientName string) error {
+	_, err := kubectl("-n " + namespace + " run " + clientName + " --image=infoblox/dnstools --restart=Never -- -c 'while [ 1 ]; do sleep 100; done'")
+	if err != nil {
+		// ignore error (pod already running)
+		return nil
+	}
+	maxWait := 30 // 15 seconds (each failed check sleeps 0.5 seconds)
+	for {
+		o, _ := kubectl("-n kube-system get pod " + clientName)
+		if strings.Contains(o, "Running") {
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+		maxWait = maxWait - 1
+		if maxWait == 0 {
+			break
+		}
+	}
+	return errors.New("Timeout waiting for " + clientName + " to be ready.")
+
 }
 
 // upstreamServer starts a local instance of coredns with the given zone file
