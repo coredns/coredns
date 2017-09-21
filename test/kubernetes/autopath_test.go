@@ -58,5 +58,8 @@ func TestAutopath(t *testing.T) {
 		t.Fatalf("Could not load corefile: %s", err)
 	}
 	doIntegrationTests(t, autopathTests, "test-1")
+	println("BEGIN COREDNS LOGS")
+	println(corednsLogs())
+	println("END COREDNS LOGS")
 
 }

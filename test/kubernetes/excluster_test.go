@@ -28,7 +28,7 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 	corefile :=
 		`.:0 {
     kubernetes cluster.local {
-        endpoint nonexistance:8443,invalidip:8443,localhost:8443
+        endpoint nonexistance:8443,invalidip:8443,127.0.0.1:8443
         tls ` + certDir + `client.crt ` + certDir + `client.key ` + certDir + `ca.crt
     }`
 
