@@ -19,7 +19,7 @@ test: check
 
 .PHONY: testk8s
 testk8s: check
-	go test -race -v -tags=k8s -run 'TestKubernetes' ./test ./plugin/kubernetes/...
+	go test -race -v -tags=k8s ./test/kubernetes ./plugin/kubernetes/...
 
 .PHONY: godeps
 godeps:
@@ -31,21 +31,27 @@ godeps:
 .PHONY: travis
 travis: check
 ifeq ($(TEST_TYPE),core)
-	( cd request ; go test -v  -tags 'etcd k8s' -race ./... )
-	( cd core ; go test -v  -tags 'etcd k8s' -race  ./... )
-	( cd coremain go test -v  -tags 'etcd k8s' -race ./... )
+	( cd request ; go test -v -race ./... )
+	( cd core ; go test -v -race  ./... )
+	( cd coremain go test -v -race ./... )
 endif
 ifeq ($(TEST_TYPE),integration)
-	( cd test ; go test -v  -tags 'etcd k8s' -race ./... )
+	( go test -v -tags 'etcd' -race ./test )
+endif
+ifeq ($(TEST_TYPE),integration-k8s1)
+	( go test -v -tags 'k8s1' -race ./test/kubernetes )
+endif
+ifeq ($(TEST_TYPE),integration-k8s2)
+	( go test -v -tags 'k8s2' -race ./test/kubernetes )
 endif
 ifeq ($(TEST_TYPE),plugin)
-	( cd plugin ; go test -v  -tags 'etcd k8s' -race ./... )
+	( cd plugin ; go test -v -race ./... )
 endif
 ifeq ($(TEST_TYPE),coverage)
-	for d in `go list ./... | grep -v vendor`; do \
+	for d in `go list ./... | grep -v vendor | grep -v coredns\/test`; do \
 		t=$$(date +%s); \
-		go test -i -tags 'etcd k8s' -coverprofile=cover.out -covermode=atomic $$d || exit 1; \
-		go test -v -tags 'etcd k8s' -coverprofile=cover.out -covermode=atomic $$d || exit 1; \
+		go test -i -coverprofile=cover.out -covermode=atomic $$d || exit 1; \
+		go test -v -coverprofile=cover.out -covermode=atomic $$d || exit 1; \
 		echo "Coverage test $$d took $$(($$(date +%s)-t)) seconds"; \
 		if [ -f cover.out ]; then \
 			cat cover.out >> coverage.txt; \

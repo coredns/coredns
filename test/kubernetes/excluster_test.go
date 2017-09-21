@@ -1,12 +1,14 @@
-// +build k8s
+// +build k8s k8s2
 
-package test
+package kubernetes
 
 import (
+	"os"
 	"testing"
 	"time"
 
 	"github.com/coredns/coredns/plugin/test"
+	intTest "github.com/coredns/coredns/test"
 
 	"github.com/miekg/dns"
 )
@@ -22,15 +24,15 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 		},
 	}
 
+	certDir := os.Getenv("HOME") + "/.minikube/"
 	corefile :=
 		`.:0 {
     kubernetes cluster.local {
-        endpoint http://nonexistance:8080,http://invalidip:8080,http://localhost:8080
-        namespaces test-1
-        pods disabled
+        endpoint nonexistance:8443,invalidip:8443,localhost:8443
+        tls ` + certDir + `client.crt ` + certDir + `client.key ` + certDir + `ca.crt
     }`
 
-	server, udp, _, err := CoreDNSServerAndPorts(corefile)
+	server, udp, _, err := intTest.CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}

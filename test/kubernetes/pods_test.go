@@ -1,10 +1,9 @@
-// +build k8s
+// +build k8s k8s1
 
-package test
+package kubernetes
 
 import (
 	"testing"
-	"time"
 
 	"github.com/coredns/coredns/plugin/test"
 
@@ -29,35 +28,20 @@ var dnsTestCasesPodsInsecure = []test.Case{
 }
 
 func TestKubernetesPodsInsecure(t *testing.T) {
-	corefile := `.:0 {
-    kubernetes cluster.local 0.0.10.in-addr.arpa {
-                endpoint http://localhost:8080
+	corefile := `    .:53 {
+      kubernetes cluster.local {
                 namespaces test-1
                 pods insecure
+      }
     }
 `
 
-	server, udp, _, err := CoreDNSServerAndPorts(corefile)
+	err := loadCorefile(corefile)
 	if err != nil {
-		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+		t.Fatalf("Could not load corefile: %s", err)
 	}
-	defer server.Stop()
+	doIntegrationTests(t, dnsTestCasesPodsInsecure, "test-1")
 
-	// Work-around for timing condition that results in no-data being returned in test environment.
-	time.Sleep(3 * time.Second)
-
-	for _, tc := range dnsTestCasesPodsInsecure {
-
-		c := new(dns.Client)
-		m := tc.Msg()
-
-		res, _, err := c.Exchange(m, udp)
-		if err != nil {
-			t.Fatalf("Could not send query: %s", err)
-		}
-
-		test.SortAndCheck(t, res, tc)
-	}
 }
 
 var dnsTestCasesPodsVerified = []test.Case{
@@ -78,33 +62,16 @@ var dnsTestCasesPodsVerified = []test.Case{
 }
 
 func TestKubernetesPodsVerified(t *testing.T) {
-	corefile := `.:0 {
-    kubernetes cluster.local 0.0.10.in-addr.arpa {
-                endpoint http://localhost:8080
+	corefile := `    .:53 {
+      kubernetes cluster.local {
                 namespaces test-1
                 pods verified
+      }
     }
 `
-
-	server, udp, _, err := CoreDNSServerAndPorts(corefile)
+	err := loadCorefile(corefile)
 	if err != nil {
-		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+		t.Fatalf("Could not load corefile: %s", err)
 	}
-	defer server.Stop()
-
-	// Work-around for timing condition that results in no-data being returned in test environment.
-	time.Sleep(3 * time.Second)
-
-	for _, tc := range dnsTestCasesPodsVerified {
-
-		c := new(dns.Client)
-		m := tc.Msg()
-
-		res, _, err := c.Exchange(m, udp)
-		if err != nil {
-			t.Fatalf("Could not send query: %s", err)
-		}
-
-		test.SortAndCheck(t, res, tc)
-	}
+	doIntegrationTests(t, dnsTestCasesPodsVerified, "test-1")
 }
