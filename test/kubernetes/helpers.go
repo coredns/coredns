@@ -47,16 +47,16 @@ func doIntegrationTests(t *testing.T, testCases []test.Case, namespace string) {
 			}
 			tries = tries - 1
 			if tries == 0 {
-				t.Fatalf("Failed to execute query: %s\n Got Error: %s\n Logs: %s", digCmd, err, corednsLogs())
+				t.Errorf("Failed to execute query: %s\n Got Error: %s\n Logs: %s", digCmd, err, corednsLogs())
 			}
 			time.Sleep(500 * time.Millisecond)
 		}
 		results, err := test.ParseDigResponse(cmdout)
 		if err != nil {
-			t.Fatalf("Failed to parse result: (%s) '%s'", err, cmdout)
+			t.Errorf("Failed to parse result: (%s) '%s'", err, cmdout)
 		}
 		if len(results) != 1 {
-			t.Fatalf("Parsing yeilded %v results, expected 1.", len(results))
+			t.Errorf("Expected 1 query attempt, observed %v.", len(results))
 		}
 		res := results[0]
 
@@ -211,10 +211,7 @@ func loadCorefileAndZonefile(corefile, zonefile string) error {
 	}
 
 	// force coredns pod reload the config
-	_, err = kubectl("-n kube-system delete pods -l k8s-app=coredns")
-	if err != nil {
-		return err
-	}
+	kubectl("-n kube-system delete pods -l k8s-app=coredns")
 
 	// wait for coredns to be ready before continuing
 	maxWait := 30 // 15 seconds (each failed check sleeps 0.5 seconds)
