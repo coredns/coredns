@@ -60,6 +60,7 @@ var tryDuration = 60 * time.Second
 
 // ServeDNS satisfies the plugin.Handler interface.
 func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	// Partly copied in lookup.go, changes here should be reflected there and vice versa.
 	var span, child ot.Span
 	span = ot.SpanFromContext(ctx)
 	state := request.Request{W: w, Req: r}
@@ -104,6 +105,9 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 			taperr := toDnstap(ctx, host.Name, upstream.Exchanger(), state, reply, queryEpoch, respEpoch)
 
+			// There can be numerous reasons this fails, we rely on health checks that acually
+			// directly probe the upstream to help us here. If successful reply, otherwise try
+			// another one and eventually hit the error return below.
 			if backendErr == nil {
 				w.WriteMsg(reply)
 
@@ -114,9 +118,19 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 			timeout := host.FailTimeout
 			if timeout == 0 {
-				timeout = 10 * time.Second
+				timeout = 5 * time.Second
 			}
+
 			atomic.AddInt32(&host.Fails, 1)
+
+			// preemptive healthcheck to see if really down (and should not be used) or not.
+			fails := atomic.LoadInt32(&host.Fails)
+			if fails > 3 { // TODO(miek): configure value or max_fails??
+				// calculate this before the ping
+				nextTs := time.Now().Add(upstream.HealthCheck.Future)
+				go healthCheckDNS(nextTs, host)
+			}
+
 			go func(host *healthcheck.UpstreamHost, timeout time.Duration) {
 				time.Sleep(timeout)
 				atomic.AddInt32(&host.Fails, -1)

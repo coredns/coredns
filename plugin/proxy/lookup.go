@@ -27,8 +27,9 @@ func NewLookupWithOption(hosts []string, opts Options) Proxy {
 		from: ".",
 		HealthCheck: healthcheck.HealthCheck{
 			FailTimeout: 10 * time.Second,
-			MaxFails:    3, // TODO(miek): disable error checking for simple lookups?
+			MaxFails:    3,
 			Future:      60 * time.Second,
+			client:      &dns.Client{net: "tcp"},
 		},
 		ex: newDNSExWithOption(opts),
 	}
@@ -88,6 +89,7 @@ func (p Proxy) Forward(state request.Request) (*dns.Msg, error) {
 }
 
 func (p Proxy) lookup(state request.Request) (*dns.Msg, error) {
+	// Partly copied in proxy.go, changes here should be reflected there and vice versa.
 	upstream := p.match(state)
 	if upstream == nil {
 		return nil, errInvalidDomain
@@ -114,18 +116,12 @@ func (p Proxy) lookup(state request.Request) (*dns.Msg, error) {
 
 			atomic.AddInt64(&host.Conns, -1)
 
+			// There can be numerous reasons this fails, we rely on health checks that acually
+			// directly probe the upstream to help us here. If successful reply, otherwise try
+			// another one and eventually hit the error return below.
 			if backendErr == nil {
 				return reply, nil
 			}
-			timeout := host.FailTimeout
-			if timeout == 0 {
-				timeout = 10 * time.Second
-			}
-			atomic.AddInt32(&host.Fails, 1)
-			go func(host *healthcheck.UpstreamHost, timeout time.Duration) {
-				time.Sleep(timeout)
-				atomic.AddInt32(&host.Fails, -1)
-			}(host, timeout)
 		}
 		return nil, fmt.Errorf("%s: %s", errUnreachable, backendErr)
 	}
