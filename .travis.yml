@@ -16,6 +16,7 @@ env:
   - TEST_TYPE=integration ETCD_VERSION=2.3.1
   - TEST_TYPE=integration-k8s1 K8S_VERSION=v1.7.5
   - TEST_TYPE=integration-k8s2 K8S_VERSION=v1.7.5
+  - TEST_TYPE=integration-k8sexclust K8S_VERSION=v1.5.0
   - TEST_TYPE=core
   - TEST_TYPE=plugin
 

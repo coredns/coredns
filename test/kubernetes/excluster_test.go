@@ -1,4 +1,4 @@
-// +build k8s k8s2
+// +build k8sexclust
 
 package kubernetes
 
@@ -28,8 +28,8 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 	corefile :=
 		`.:0 {
     kubernetes cluster.local {
-        endpoint nonexistance:8443,invalidip:8443,127.0.0.1:8443
-        tls ` + certDir + `client.crt ` + certDir + `client.key ` + certDir + `ca.crt
+        endpoint nonexistance:8080,invalidip:8080,localhost:8080
+        #tls ` + certDir + `client.crt ` + certDir + `client.key ` + certDir + `ca.crt
     }`
 
 	server, udp, _, err := intTest.CoreDNSServerAndPorts(corefile)

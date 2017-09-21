@@ -44,6 +44,9 @@ endif
 ifeq ($(TEST_TYPE),integration-k8s2)
 	( go test -v -tags 'k8s2' -race ./test/kubernetes )
 endif
+ifeq ($(TEST_TYPE),integration-k8sexclust)
+	( go test -v -tags 'k8sexclust' -race ./test/kubernetes )
+endif
 ifeq ($(TEST_TYPE),plugin)
 	( cd plugin ; go test -v -race ./... )
 endif
