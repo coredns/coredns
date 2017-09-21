@@ -1,4 +1,4 @@
-// +build k8s k8sAuto
+// +build k8s k8s1 k8sauto
 
 package kubernetes
 
@@ -11,19 +11,35 @@ import (
 )
 
 var autopathTests = []test.Case{
-	{
+	{ // query hit on first search domain in path
 		Qname: "svc-1-a", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-	{
-		Qname: "svc-c.test-2", Qtype: dns.TypeA,
+	{ // query hit on second search domain in path
+		Qname: "svc-1-a.test-1", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.CNAME("svc-c.test-2.test-1.svc.cluster.local.  303    IN	     CNAME	  svc-c.test-2.svc.cluster.local."),
-			test.A("svc-c.test-2.svc.cluster.local.      303    IN      A       10.0.0.120"),
+			test.CNAME("svc-1-a.test-1.test-1.svc.cluster.local.  303    IN	     CNAME	  svc-1-a.test-1.svc.cluster.local."),
+			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
+		},
+	},
+	{ // query hit on third search domain in path
+		Qname: "svc-1-a.test-1.svc", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.CNAME("svc-1-a.test-1.svc.test-1.svc.cluster.local.  303    IN	     CNAME	  svc-1-a.test-1.svc.cluster.local."),
+			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
+		},
+	},
+	{ // query hit on no search domains in path
+		Qname: "svc-1-a.test-1.svc.cluster.local", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.CNAME("svc-1-a.test-1.svc.cluster.local.test-1.svc.cluster.local.  303    IN	     CNAME	  svc-1-a.test-1.svc.cluster.local."),
+			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
 }
