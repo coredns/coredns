@@ -91,8 +91,7 @@ upload:
 
 .PHONY: docker-build
 docker-build:
-	$(MAKE) coredns SYSTEM="GOOS=linux"
-	docker build -t $(DOCKER_IMAGE_NAME) .
+	docker build -t $(DOCKER_IMAGE_NAME) --build-arg VERSION=$(VERSION) .
 	docker tag $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_NAME):$(VERSION)
 
 .PHONY: docker-upload
