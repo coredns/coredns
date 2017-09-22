@@ -4,6 +4,7 @@ package kubernetes
 
 import (
 	"os"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -24,7 +25,10 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 		},
 	}
 
-	kubectl("proxy -p8080 &")
+	err := exec.Command("kubectl", "proxy", "-p", "8080").Start()
+	if err != nil {
+		t.Fatalf("Could start kubectl proxy: %s", err)
+	}
 
 	certDir := os.Getenv("HOME") + "/.minikube/"
 	corefile :=
