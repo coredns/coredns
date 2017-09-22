@@ -41,7 +41,7 @@ var autopathTests = []test.Case{
 			test.CNAME("svc-1-a.test-1.svc.cluster.local.test-1.svc.cluster.local.  303    IN	     CNAME	  svc-1-a.test-1.svc.cluster.local."),
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
-	},
+	},/*
 	{ // query hit on no search domains in path (out of kubernetes zone)
 		Qname: "foo.example.net", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
@@ -56,7 +56,7 @@ var autopathTests = []test.Case{
 	{ // query miss
 		Qname: "bar.example.net", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
-	},
+	},*/
 }
 
 func TestAutopath(t *testing.T) {

@@ -29,7 +29,6 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 		`.:0 {
     kubernetes cluster.local {
         endpoint nonexistance:8080,invalidip:8080,localhost:8080
-        #tls ` + certDir + `client.crt ` + certDir + `client.key ` + certDir + `ca.crt
     }`
 
 	server, udp, _, err := intTest.CoreDNSServerAndPorts(corefile)
@@ -37,6 +36,8 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
 	defer server.Stop()
+
+	kubectl("proxy -p8080 &")
 
 	// Work-around for timing condition that results in no-data being returned in test environment.
 	time.Sleep(3 * time.Second)
