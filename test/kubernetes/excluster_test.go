@@ -30,10 +30,9 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 	corefile :=
 		`.:0 {
     kubernetes cluster.local {
-        #endpoint nonexistance:8080,invalidip:8080,http://localhost:8080
-        endpoint nonexistance:8080,invalidip:8080,https://127.0.0.1:8443
-        #endpoint https://localhost:8443
-        tls ` + certDir + `client.crt ` + certDir + `client.key ` + certDir + `ca.crt
+        endpoint nonexistance:8080,invalidip:8080,http://localhost:8080
+        #endpoint nonexistance:8080,invalidip:8080,https://127.0.0.1:8443
+        #tls ` + certDir + `client.crt ` + certDir + `client.key ` + certDir + `ca.crt
     }`
 
 	server, udp, _, err := intTest.CoreDNSServerAndPorts(corefile)
