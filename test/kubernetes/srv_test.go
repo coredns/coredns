@@ -153,6 +153,8 @@ func TestKubernetesSRV(t *testing.T) {
 	defer rmFunc()
 
 	corefile := `    .:53 {
+	    errors
+	    log
         kubernetes cluster.local {
             namespaces test-1
             upstream ` + udp + `

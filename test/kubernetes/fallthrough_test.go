@@ -59,6 +59,8 @@ func TestKubernetesFallthrough(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	corefile := `    .:53 {
+	  errors
+	  log
       file /etc/coredns/Zonefile cluster.local
       kubernetes cluster.local {
           namespaces test-1

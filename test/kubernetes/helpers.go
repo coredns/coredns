@@ -16,6 +16,7 @@ import (
 	intTest "github.com/coredns/coredns/test"
 
 	"errors"
+	"fmt"
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
 	"io/ioutil"
@@ -32,45 +33,49 @@ func doIntegrationTests(t *testing.T, testCases []test.Case, namespace string) {
 	clientName := "coredns-test-client"
 	err := startClientPod(namespace, clientName)
 	if err != nil {
-		t.Fatalf("Failed to start client pod: %s", err)
+		t.Fatalf("failed to start client pod: %s", err)
 	}
 	for _, tc := range testCases {
-		digCmd := "dig -t " + dns.TypeToString[tc.Qtype] + " " + tc.Qname + " +search +showsearch +time=10 +tries=6"
 
-		// attach to client and execute query.
-		var cmdout string
-		tries := 3
-		for {
-			cmdout, err = kubectl("-n " + namespace + " exec " + clientName + " -- " + digCmd)
-			if err == nil {
-				break
+		t.Run(fmt.Sprintf("%s %s", tc.Qname, dns.TypeToString[tc.Qtype]), func(t *testing.T) {
+
+			digCmd := "dig -t " + dns.TypeToString[tc.Qtype] + " " + tc.Qname + " +search +showsearch +time=10 +tries=6"
+
+			// attach to client and execute query.
+			var cmdout string
+			tries := 3
+			for {
+				cmdout, err = kubectl("-n " + namespace + " exec " + clientName + " -- " + digCmd)
+				if err == nil {
+					break
+				}
+				tries = tries - 1
+				if tries == 0 {
+					t.Errorf("failed to execute query '%s' got error: '%s'", digCmd, err)
+				}
+				time.Sleep(500 * time.Millisecond)
 			}
-			tries = tries - 1
-			if tries == 0 {
-				t.Errorf("Failed to execute query: %s\n Got Error: %s\n Logs: %s", digCmd, err, corednsLogs())
+			results, err := test.ParseDigResponse(cmdout)
+			if err != nil {
+				t.Errorf("failed to parse result: (%s) '%s'", err, cmdout)
 			}
-			time.Sleep(500 * time.Millisecond)
-		}
-		results, err := test.ParseDigResponse(cmdout)
-		if err != nil {
-			t.Errorf("Failed to parse result: (%s) '%s'", err, cmdout)
-		}
-		if len(results) != 1 {
-			t.Errorf("Expected 1 query attempt, observed %v.", len(results))
-		}
-		res := results[0]
+			if len(results) != 1 {
+				t.Errorf("expected 1 query attempt, observed %v", len(results))
+			}
+			res := results[0]
 
-		// Before sort and check, make sure that CNAMES do not appear after their target records.
-		test.CNAMEOrder(t, res)
+			// Before sort and check, make sure that CNAMES do not appear after their target records.
+			test.CNAMEOrder(t, res)
 
-		sort.Sort(test.RRSet(tc.Answer))
-		sort.Sort(test.RRSet(tc.Ns))
-		sort.Sort(test.RRSet(tc.Extra))
-		test.SortAndCheck(t, res, tc)
+			sort.Sort(test.RRSet(tc.Answer))
+			sort.Sort(test.RRSet(tc.Ns))
+			sort.Sort(test.RRSet(tc.Extra))
+			test.SortAndCheck(t, res, tc)
 
-		println("BEGIN COREDNS LOGS : " + dns.TypeToString[tc.Qtype] + " " + tc.Qname)
-		println(corednsLogs())
-		println("END COREDNS LOGS")
+			if t.Failed() {
+				t.Errorf("coredns log: %s", corednsLogs())
+			}
+		})
 	}
 }
 
@@ -92,7 +97,7 @@ func startClientPod(namespace, clientName string) error {
 			break
 		}
 	}
-	return errors.New("Timeout waiting for " + clientName + " to be ready.")
+	return errors.New("timeout waiting for " + clientName + " to be ready.")
 
 }
 
@@ -100,7 +105,7 @@ func startClientPod(namespace, clientName string) error {
 func upstreamServer(t *testing.T, zone, zoneFile string) (func(), *caddy.Instance, string) {
 	upfile, rmFunc, err := intTest.TempFile(os.TempDir(), zoneFile)
 	if err != nil {
-		t.Fatalf("Could not create file for CNAME upstream lookups: %s", err)
+		t.Fatalf("could not create file for CNAME upstream lookups: %s", err)
 	}
 	upstreamCorefile := `.:0 {
     file ` + upfile + ` ` + zone + `
@@ -108,7 +113,7 @@ func upstreamServer(t *testing.T, zone, zoneFile string) (func(), *caddy.Instanc
 }`
 	server, udp, _, err := intTest.CoreDNSServerAndPorts(upstreamCorefile)
 	if err != nil {
-		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+		t.Fatalf("could not get CoreDNS serving instance: %s", err)
 	}
 
 	return rmFunc, server, udp
@@ -137,7 +142,7 @@ func headlessAResponse(qname, name, namespace string) []dns.RR {
 
 	str, err := endpointIPs(name, namespace)
 	if err != nil {
-		log.Fatal("Error running kubectl command: ", err.Error())
+		log.Fatal("error running kubectl command: ", err.Error())
 	}
 	result := strings.Split(string(str), " ")
 	lr := len(result)
@@ -156,7 +161,7 @@ func srvResponse(qname string, qtype uint16, name, namespace string) []dns.RR {
 	str, err := endpointIPs(name, namespace)
 
 	if err != nil {
-		log.Fatal("Error running kubectl command: ", err.Error())
+		log.Fatal("error running kubectl command: ", err.Error())
 	}
 	result := strings.Split(string(str), " ")
 	lr := len(result)
@@ -230,14 +235,14 @@ func loadCorefileAndZonefile(corefile, zonefile string) error {
 		if maxWait == 0 {
 			//println(o)
 			logs := corednsLogs()
-			return errors.New("Timeout waiting for coredns to be ready. coredns log: " + logs)
+			return errors.New("timeout waiting for coredns to be ready. coredns log: " + logs)
 		}
 	}
 	return nil
 }
 
 func corednsLogs() string {
-	name, _ := kubectl("-n kube-system get pods -l k8s-app=coredns -o jsonpath='{.items[0].metadata.name}'")
+	name, _ := kubectl("-n kube-system get pods -l k8s-app=coredns | grep Running | cut -f1 -d' ' | tr -d '\n'")
 	logs, _ := kubectl("-n kube-system logs " + name)
 	return (logs)
 }
@@ -264,7 +269,7 @@ func kubectl(args string) (result string, err error) {
 	}
 	cmdOut, err := exec.Command("sh", "-c", kctl+" "+args).CombinedOutput()
 	if err != nil {
-		return "", errors.New("Error: " + string(cmdOut) + " for command: " + kctl + " " + args)
+		return "", errors.New("got error '" + string(cmdOut) + "' for command " + kctl + " " + args)
 	}
 	return string(cmdOut), nil
 }

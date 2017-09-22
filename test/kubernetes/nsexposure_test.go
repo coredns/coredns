@@ -30,6 +30,8 @@ var dnsTestCasesAllNSExposed = []test.Case{
 func TestKubernetesNSExposed(t *testing.T) {
 	corefile :=
 		`    .:53 {
+      errors
+      log
       kubernetes cluster.local
     }
 `
