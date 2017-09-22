@@ -3,8 +3,6 @@
 package kubernetes
 
 import (
-	"os"
-	"os/exec"
 	"testing"
 	"time"
 
