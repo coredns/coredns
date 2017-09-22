@@ -25,18 +25,10 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 		},
 	}
 
-	err := exec.Command("kubectl", "proxy", "-p", "8080").Start()
-	if err != nil {
-		t.Fatalf("Could start kubectl proxy: %s", err)
-	}
-
-	certDir := os.Getenv("HOME") + "/.minikube/"
 	corefile :=
 		`.:0 {
     kubernetes cluster.local {
         endpoint nonexistance:8080,invalidip:8080,localhost:8080
-        #endpoint nonexistance:8080,invalidip:8080,https://127.0.0.1:8443
-        #tls ` + certDir + `client.crt ` + certDir + `client.key ` + certDir + `ca.crt
     }`
 
 	server, udp, _, err := intTest.CoreDNSServerAndPorts(corefile)
