@@ -35,7 +35,7 @@ func doIntegrationTests(t *testing.T, testCases []test.Case, namespace string) {
 		t.Fatalf("Failed to start client pod: %s", err)
 	}
 	for _, tc := range testCases {
-		digCmd := "dig -t " + dns.TypeToString[tc.Qtype] + " " + tc.Qname + " +search +showsearch +time=30"
+		digCmd := "dig -t " + dns.TypeToString[tc.Qtype] + " " + tc.Qname + " +search +showsearch +time=10 +tries=6"
 
 		// attach to client and execute query.
 		var cmdout string
@@ -191,9 +191,6 @@ func loadCorefile(corefile string) error {
 // forces the coredns pod to load the new configmap, and waits for the coredns pod to be ready.
 func loadCorefileAndZonefile(corefile, zonefile string) error {
 
-	//d, _ := kubectl("-n kube-system get pods")
-	//println(d)
-
 	// apply configmap yaml
 	yamlString := configmap + "\n"
 	yamlString += "  Corefile: |\n" + prepForConfigMap(corefile)
@@ -206,7 +203,6 @@ func loadCorefileAndZonefile(corefile, zonefile string) error {
 	defer rmFunc()
 	_, err = kubectl("apply -f " + file)
 	if err != nil {
-		//println("applied yaml: " + yamlString)
 		return err
 	}
 
@@ -217,11 +213,7 @@ func loadCorefileAndZonefile(corefile, zonefile string) error {
 	maxWait := 30 // 15 seconds (each failed check sleeps 0.5 seconds)
 	running := 0
 	for {
-		//e, _ := kubectl("-n kube-system get pods")
-		//println(e)
-
 		o, _ := kubectl("-n kube-system get pods -l k8s-app=coredns")
-		//println(o)
 		if strings.Contains(o, "Running") {
 			running += 1
 		}
