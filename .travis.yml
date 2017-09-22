@@ -16,7 +16,7 @@ env:
   - TEST_TYPE=integration ETCD_VERSION=2.3.1
   - TEST_TYPE=integration-k8s1 K8S_VERSION=v1.7.5
   - TEST_TYPE=integration-k8s2 K8S_VERSION=v1.7.5
-  - TEST_TYPE=integration-k8sexclust K8S_VERSION=v1.7.5
+  - TEST_TYPE=integration-k8sexclust K8S_VERSION=v1.5.0
   - TEST_TYPE=core
   - TEST_TYPE=plugin
 
@@ -34,6 +34,8 @@ before_install:
   - env
 
 before_script:
+  # Quickly check for code validity before setting up integration test environment
+  - make check
   # Start etcd if version is set
   - if [ ! -z "$ETCD_VERSION" ]; then docker run -d --net=host --name=etcd quay.io/coreos/etcd:v$ETCD_VERSION; fi
   # Set up kubernetes if version is set
