@@ -14,7 +14,7 @@ mkdir $HOME/.kube || true
 touch $HOME/.kube/config
 
 export KUBECONFIG=$HOME/.kube/config
-sudo -E minikube start --vm-driver=none
+sudo -E minikube start --vm-driver=none --kubernetes-version=$K8S_VERSION
 
 # Wait for kubernetes api service to be ready
 for i in {1..150} # timeout for 5 minutes
