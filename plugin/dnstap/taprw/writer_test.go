@@ -1,6 +1,7 @@
 package taprw
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 
@@ -79,4 +80,54 @@ func TestClientQueryResponse(t *testing.T) {
 	if !test.MsgEqual(want, have) {
 		t.Fatalf("response: want: %v\nhave: %v", want, have)
 	}
+}
+
+func testingExtraData() map[string]DnstapExtra {
+	m := make(map[string]DnstapExtra)
+	policy_extra := DnstapExtra{extras: make(map[tap.Message_Type][]byte)}
+	policy_extra.extras[tap.Message_CLIENT_QUERY] = []byte{0xaa, 0xaa, 0xaa, 0xaa}
+	policy_extra.extras[tap.Message_CLIENT_RESPONSE] = []byte{0xbb, 0xbb, 0xbb, 0xbb}
+	m["policy"] = policy_extra
+	return m
+}
+
+func TestClientQueryResponseWithExtra(t *testing.T) {
+	trapper := test.TrapTapper{Full: true}
+	m := testingMsg()
+	extra := testingExtraData()
+	rw := ResponseWriter{
+		Query:          m,
+		Tapper:         &trapper,
+		ResponseWriter: &mwtest.ResponseWriter{},
+		DnsTapExtras:   extra,
+	}
+	d := test.TestingData()
+	bin, err := m.Pack()
+	if err != nil {
+		t.Fatal(err)
+		return
+	}
+	d.Packed = bin
+
+	if err := rw.WriteMsg(m); err != nil {
+		t.Fatal(err)
+		return
+	}
+	if l := len(trapper.Trap); l != 2 {
+		t.Fatalf("%d msg trapped", l)
+		return
+	}
+
+	e_want := rw.extraData(tap.Message_CLIENT_QUERY)
+	e_have := trapper.Extra[0]
+	if bytes.Compare(e_want, e_have) > 0 {
+		t.Fatalf("extra in query: want: %v\nhave: %v", e_want, e_have)
+	}
+
+	e_want = rw.extraData(tap.Message_CLIENT_RESPONSE)
+	e_have = trapper.Extra[1]
+	if bytes.Compare(e_want, e_have) > 0 {
+		t.Fatalf("extra in query: want: %v\nhave: %v", e_want, e_have)
+	}
+
 }

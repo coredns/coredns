@@ -64,13 +64,15 @@ func MsgEqual(a, b *tap.Message) bool {
 
 // TrapTapper traps messages.
 type TrapTapper struct {
-	Trap []*tap.Message
-	Full bool
+	Trap  []*tap.Message
+	Full  bool
+	Extra [][]byte
 }
 
 // TapMessage adds the message to the trap.
 func (t *TrapTapper) TapMessage(m *tap.Message, e []byte) error {
 	t.Trap = append(t.Trap, m)
+	t.Extra = append(t.Extra, e)
 	return nil
 }
 
