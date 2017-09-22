@@ -39,13 +39,13 @@ ifeq ($(TEST_TYPE),integration)
 	( go test -v -tags 'etcd' -race ./test )
 endif
 ifeq ($(TEST_TYPE),integration-k8s1)
-	( go test -v -tags 'k8s1' -race ./test/kubernetes )
+	( go test -v -tags 'k8s1' ./test/kubernetes )
 endif
 ifeq ($(TEST_TYPE),integration-k8s2)
-	( go test -v -tags 'k8s2' -race ./test/kubernetes )
+	( go test -v -tags 'k8s2' ./test/kubernetes )
 endif
 ifeq ($(TEST_TYPE),integration-k8sexclust)
-	( go test -v -tags 'k8sexclust' -race ./test/kubernetes )
+	( go test -v -tags 'k8sexclust' ./test/kubernetes )
 endif
 ifeq ($(TEST_TYPE),plugin)
 	( cd plugin ; go test -v -race ./... )
