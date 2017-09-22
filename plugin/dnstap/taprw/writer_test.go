@@ -15,7 +15,7 @@ import (
 type TapFailer struct {
 }
 
-func (TapFailer) TapMessage(*tap.Message) error {
+func (TapFailer) TapMessage(*tap.Message, []byte) error {
 	return errors.New("failed")
 }
 func (TapFailer) TapBuilder() msg.Builder {

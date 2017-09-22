@@ -54,7 +54,7 @@ func (w *ResponseWriter) extraData(msgType tap.Message_Type) []byte {
 	tmpMap := make(map[string][]byte)
 	for k, v := range w.DnsTapExtras {
 		data := v.extras[msgType]
-		if data != nil || len(data) > 0 {
+		if data != nil && len(data) > 0 {
 			tmpMap[k] = data
 		}
 	}

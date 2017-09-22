@@ -69,7 +69,7 @@ type TrapTapper struct {
 }
 
 // TapMessage adds the message to the trap.
-func (t *TrapTapper) TapMessage(m *tap.Message) error {
+func (t *TrapTapper) TapMessage(m *tap.Message, e []byte) error {
 	t.Trap = append(t.Trap, m)
 	return nil
 }
