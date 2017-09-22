@@ -1,4 +1,4 @@
-// +build k8sexclust
+// +build k8s k8sexclust
 
 package kubernetes
 
@@ -28,7 +28,9 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 	corefile :=
 		`.:0 {
     kubernetes cluster.local {
-        endpoint nonexistance:8080,invalidip:8080,localhost:8080
+        #endpoint nonexistance:8080,invalidip:8080,http://localhost:8443
+        endpoint http://localhost:8443
+        tls ` + certDir + `client.crt ` + certDir + `client.key ` + certDir + `ca.crt
     }`
 
 	server, udp, _, err := intTest.CoreDNSServerAndPorts(corefile)
@@ -36,8 +38,6 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
 	defer server.Stop()
-
-	kubectl("proxy -p8080 &")
 
 	// Work-around for timing condition that results in no-data being returned in test environment.
 	time.Sleep(3 * time.Second)
