@@ -67,6 +67,10 @@ func doIntegrationTests(t *testing.T, testCases []test.Case, namespace string) {
 		sort.Sort(test.RRSet(tc.Ns))
 		sort.Sort(test.RRSet(tc.Extra))
 		test.SortAndCheck(t, res, tc)
+
+		println("BEGIN COREDNS LOGS : " + dns.TypeToString[tc.Qtype] + " " + tc.Qname)
+		println(corednsLogs())
+		println("END COREDNS LOGS")
 	}
 }
 

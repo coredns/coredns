@@ -48,8 +48,6 @@ data:
   Corefile: |
     .:53 {
         errors
-        log stdout
-        health
         kubernetes cluster.local 10.0.0.0/8
     }
   Zonefile: |
