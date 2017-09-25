@@ -62,6 +62,15 @@ var autopathTests = []test.Case{
 }
 
 func TestKubernetesAutopath(t *testing.T) {
+
+	// Set up server to handle internal zone, to trap *.internal search path in travis environment.
+	internal := `; internal zone info for autopath tests
+internal.		IN	SOA	sns.internal. noc.internal. 2015082541 7200 3600 1209600 3600
+`
+	rmFunc, upstream, udp := upstreamServer(t, "internal", internal)
+	defer upstream.Stop()
+	defer rmFunc()
+
 	corefile :=
 		`    .:53 {
       errors
@@ -70,7 +79,8 @@ func TestKubernetesAutopath(t *testing.T) {
       kubernetes cluster.local {
         pods verified
       }
-      file /etc/coredns/Zonefile example.net internal
+      file /etc/coredns/Zonefile example.net
+      proxy internal ` + udp + `
     }
 `
 	exampleZonefile := `    ; example.net zone info for autopath tests
@@ -78,8 +88,7 @@ func TestKubernetesAutopath(t *testing.T) {
     example.net.		IN	NS	ns.example.net.
     example.net.      IN      A	10.10.10.10
     foo.example.net.      IN      A	10.10.10.11
-    ; internal zone info for autopath tests
-    internal.		IN	SOA	sns.internal. noc.internal. 2015082541 7200 3600 1209600 3600
+
 `
 	err := loadCorefileAndZonefile(corefile, exampleZonefile)
 	if err != nil {
