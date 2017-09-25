@@ -23,7 +23,7 @@ type Dnstap struct {
 type (
 	// Tapper is implemented by the Context passed by the dnstap handler.
 	Tapper interface {
-		TapMessage(*tap.Message, []byte) error
+		TapMessage(*tap.Message) error
 		TapBuilder() msg.Builder
 	}
 	tapContext struct {
@@ -34,7 +34,7 @@ type (
 
 // Name of data map in the context to be sent in the extra field of tap.Dnstap
 const (
-	DnstapExtraMap = "dnstap_extra"
+	DnstapSendOption = "dnstap-send-option"
 )
 
 // TapperFromContext will return a Tapper if the dnstap plugin is enabled.
@@ -43,8 +43,8 @@ func TapperFromContext(ctx context.Context) (t Tapper) {
 	return
 }
 
-func tapMessageTo(w io.Writer, m *tap.Message, e []byte) error {
-	frame, err := msg.Marshal(m, e)
+func tapMessageTo(w io.Writer, m *tap.Message) error {
+	frame, err := msg.Marshal(m)
 	if err != nil {
 		return fmt.Errorf("marshal: %s", err)
 	}
@@ -53,8 +53,8 @@ func tapMessageTo(w io.Writer, m *tap.Message, e []byte) error {
 }
 
 // TapMessage implements Tapper.
-func (h Dnstap) TapMessage(m *tap.Message, e []byte) error {
-	return tapMessageTo(h.Out, m, e)
+func (h Dnstap) TapMessage(m *tap.Message) error {
+	return tapMessageTo(h.Out, m)
 }
 
 // TapBuilder implements Tapper.
@@ -65,12 +65,12 @@ func (h Dnstap) TapBuilder() msg.Builder {
 // ServeDNS logs the client query and response to dnstap and passes the dnstap Context.
 func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
-	// Add a map where other middlewares can add data to be included into the
-	// extra field in tap.Dnstap into the context
-	extras := make(map[string]taprw.DnstapExtra)
-	newCtx := context.WithValue(ctx, DnstapExtraMap, extras)
+	// Add send option into context so other plugin can decide on which DNSTap
+	// message to be sent out
+	sendOption := taprw.SendOption{Cq: true, Cr: true}
+	newCtx := context.WithValue(ctx, DnstapSendOption, &sendOption)
 
-	rw := &taprw.ResponseWriter{ResponseWriter: w, Tapper: &h, Query: r, DnsTapExtras: extras}
+	rw := &taprw.ResponseWriter{ResponseWriter: w, Tapper: &h, Query: r, Send: &sendOption}
 	rw.QueryEpoch()
 
 	code, err := plugin.NextOrFailure(h.Name(), h.Next, tapContext{newCtx, h}, rw, r)

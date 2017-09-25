@@ -1,7 +1,6 @@
 package taprw
 
 import (
-	"bytes"
 	"errors"
 	"testing"
 
@@ -16,7 +15,7 @@ import (
 type TapFailer struct {
 }
 
-func (TapFailer) TapMessage(*tap.Message, []byte) error {
+func (TapFailer) TapMessage(*tap.Message) error {
 	return errors.New("failed")
 }
 func (TapFailer) TapBuilder() msg.Builder {
@@ -82,24 +81,13 @@ func TestClientQueryResponse(t *testing.T) {
 	}
 }
 
-func testingExtraData() map[string]DnstapExtra {
-	m := make(map[string]DnstapExtra)
-	policy_extra := DnstapExtra{extras: make(map[tap.Message_Type][]byte)}
-	policy_extra.extras[tap.Message_CLIENT_QUERY] = []byte{0xaa, 0xaa, 0xaa, 0xaa}
-	policy_extra.extras[tap.Message_CLIENT_RESPONSE] = []byte{0xbb, 0xbb, 0xbb, 0xbb}
-	m["policy"] = policy_extra
-	return m
-}
-
-func TestClientQueryResponseWithExtra(t *testing.T) {
+func TestClientQueryResponseWithSendOption(t *testing.T) {
 	trapper := test.TrapTapper{Full: true}
 	m := testingMsg()
-	extra := testingExtraData()
 	rw := ResponseWriter{
 		Query:          m,
 		Tapper:         &trapper,
 		ResponseWriter: &mwtest.ResponseWriter{},
-		DnsTapExtras:   extra,
 	}
 	d := test.TestingData()
 	bin, err := m.Pack()
@@ -109,25 +97,40 @@ func TestClientQueryResponseWithExtra(t *testing.T) {
 	}
 	d.Packed = bin
 
+	// Do not send both CQ and CR
+	o := SendOption{Cq: false, Cr: false}
+	rw.Send = &o
+
 	if err := rw.WriteMsg(m); err != nil {
 		t.Fatal(err)
 		return
 	}
-	if l := len(trapper.Trap); l != 2 {
+	if l := len(trapper.Trap); l != 0 {
 		t.Fatalf("%d msg trapped", l)
 		return
 	}
 
-	e_want := rw.extraData(tap.Message_CLIENT_QUERY)
-	e_have := trapper.Extra[0]
-	if bytes.Compare(e_want, e_have) > 0 {
-		t.Fatalf("extra in query: want: %v\nhave: %v", e_want, e_have)
+	//Send CQ
+	o.Cq = true
+	if err := rw.WriteMsg(m); err != nil {
+		t.Fatal(err)
+		return
+	}
+	if l := len(trapper.Trap); l != 1 {
+		t.Fatalf("%d msg trapped", l)
+		return
 	}
 
-	e_want = rw.extraData(tap.Message_CLIENT_RESPONSE)
-	e_have = trapper.Extra[1]
-	if bytes.Compare(e_want, e_have) > 0 {
-		t.Fatalf("extra in query: want: %v\nhave: %v", e_want, e_have)
+	//Send CR
+	trapper.Trap = trapper.Trap[:0]
+	o.Cq = false
+	o.Cr = true
+	if err := rw.WriteMsg(m); err != nil {
+		t.Fatal(err)
+		return
 	}
-
+	if l := len(trapper.Trap); l != 1 {
+		t.Fatalf("%d msg trapped", l)
+		return
+	}
 }
