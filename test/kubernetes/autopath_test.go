@@ -11,14 +11,14 @@ import (
 )
 
 var autopathTests = []test.Case{
-	{ // query success on first search domain in path
+	{ // Valid service name -> success on 1st search in path -> A record
 		Qname: "svc-1-a", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-	{ // query success on second search domain in path
+	{ // Valid service name + namespace -> success on 2nd search in path -> CNAME glue + A record
 		Qname: "svc-1-a.test-1", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -26,7 +26,7 @@ var autopathTests = []test.Case{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-	{ // query success on third search domain in path
+	{ // Valid service name + namespace + svc -> success on 3nd search in path -> CNAME glue + A record
 		Qname: "svc-1-a.test-1.svc", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -34,7 +34,7 @@ var autopathTests = []test.Case{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-	{ // query success on no search domains in path (in kubernetes zone)
+	{ // Valid fqdn for internal service -> success on empty search -> CNAME glue + A record
 		Qname: "svc-1-a.test-1.svc.cluster.local", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -42,7 +42,7 @@ var autopathTests = []test.Case{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-	{ // query success on no search domains in path (out of kubernetes zone)
+	{ // Valid external fqdn -> success on empty search -> CNAME glue + A record
 		Qname: "foo.example.net", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
