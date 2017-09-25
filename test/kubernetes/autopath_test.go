@@ -63,7 +63,7 @@ var autopathTests = []test.Case{
 
 func TestKubernetesAutopath(t *testing.T) {
 
-	// Set up server to handle internal zone, to trap *.internal search path in travis environment.
+	// set up server to handle internal zone, to trap *.internal search path in travis environment.
 	internal := `; internal zone info for autopath tests
 internal.		IN	SOA	sns.internal. noc.internal. 2015082541 7200 3600 1209600 3600
 `
