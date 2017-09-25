@@ -87,7 +87,7 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	origQName := state.QName()
 
 	// Establish base name of the query. I.e what was originally asked.
-	base, err := dnsutil.TrimZone(state.QName(), searchpath[0]) // TODO(miek): we loose the original case of the query here.
+	base, err := dnsutil.TrimZone(state.QName(), searchpath[0]) // TODO(miek): we lose the original case of the query here.
 	if err != nil {
 		return dns.RcodeServerFailure, err
 	}
