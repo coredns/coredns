@@ -78,7 +78,7 @@ func TestKubernetesAutopath(t *testing.T) {
     example.net.		IN	NS	ns.example.net.
     example.net.      IN      A	10.10.10.10
     foo.example.net.      IN      A	10.10.10.11
-	; internal zone info for autopath tests
+    ; internal zone info for autopath tests
     internal.		IN	SOA	sns.internal. noc.internal. 2015082541 7200 3600 1209600 3600
 `
 	err := loadCorefileAndZonefile(corefile, exampleZonefile)
