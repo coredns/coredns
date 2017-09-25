@@ -32,9 +32,12 @@ type (
 	}
 )
 
-// Name of data map in the context to be sent in the extra field of tap.Dnstap
+// ContextKey defines the type of key that is used to save data into the context
+type ContextKey string
+
 const (
-	DnstapSendOption = "dnstap-send-option"
+	// DnstapSendOption specifies the Dnstap message to be send.  Default is sent all.
+	DnstapSendOption ContextKey = "dnstap-send-option"
 )
 
 // TapperFromContext will return a Tapper if the dnstap plugin is enabled.
