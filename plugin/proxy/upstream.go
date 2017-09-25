@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -20,7 +19,6 @@ type staticUpstream struct {
 
 	healthcheck.HealthCheck
 
-	WithoutPathPrefix string
 	IgnoredSubDomains []string
 	ex                Exchanger
 }
@@ -33,9 +31,9 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 		upstream := &staticUpstream{
 			from: ".",
 			HealthCheck: healthcheck.HealthCheck{
-				FailTimeout: 10 * time.Second,
-				MaxFails:    1,
-				Future:      60 * time.Second,
+				FailTimeout: 5 * time.Second,
+				MaxFails:    3,
+				Future:      12 * time.Second,
 			},
 			ex: newDNSEx(),
 		}
@@ -69,28 +67,7 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 				Conns:       0,
 				Fails:       0,
 				FailTimeout: upstream.FailTimeout,
-
-				CheckDown: func(upstream *staticUpstream) healthcheck.UpstreamHostDownFunc {
-					return func(uh *healthcheck.UpstreamHost) bool {
-
-						down := false
-
-						uh.CheckMu.Lock()
-						until := uh.OkUntil
-						uh.CheckMu.Unlock()
-
-						if !until.IsZero() && time.Now().After(until) {
-							down = true
-						}
-
-						fails := atomic.LoadInt32(&uh.Fails)
-						if fails >= upstream.MaxFails && upstream.MaxFails != 0 {
-							down = true
-						}
-						return down
-					}
-				}(upstream),
-				WithoutPathPrefix: upstream.WithoutPathPrefix,
+				CheckDown:   checkDownFunc(upstream),
 			}
 
 			upstream.Hosts[i] = uh
@@ -144,7 +121,7 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 		if err != nil {
 			return err
 		}
-		u.HealthCheck.Interval = 30 * time.Second
+		u.HealthCheck.Interval = 4 * time.Second
 		if c.NextArg() {
 			dur, err := time.ParseDuration(c.Val())
 			if err != nil {
@@ -158,11 +135,6 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 				u.Future = 3 * time.Second
 			}
 		}
-	case "without":
-		if !c.NextArg() {
-			return c.ArgErr()
-		}
-		u.WithoutPathPrefix = c.Val()
 	case "except":
 		ignoredDomains := c.RemainingArgs()
 		if len(ignoredDomains) == 0 {
