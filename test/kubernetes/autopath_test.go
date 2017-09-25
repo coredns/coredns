@@ -11,14 +11,14 @@ import (
 )
 
 var autopathTests = []test.Case{
-	{ // query hit on first search domain in path
+	{ // query success on first search domain in path
 		Qname: "svc-1-a", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-	{ // query hit on second search domain in path
+	{ // query success on second search domain in path
 		Qname: "svc-1-a.test-1", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -26,7 +26,7 @@ var autopathTests = []test.Case{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-	{ // query hit on third search domain in path
+	{ // query success on third search domain in path
 		Qname: "svc-1-a.test-1.svc", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -34,7 +34,7 @@ var autopathTests = []test.Case{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-	{ // query hit on no search domains in path (in kubernetes zone)
+	{ // query success on no search domains in path (in kubernetes zone)
 		Qname: "svc-1-a.test-1.svc.cluster.local", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -42,7 +42,7 @@ var autopathTests = []test.Case{
 			test.A("svc-1-a.test-1.svc.cluster.local.      303    IN      A       10.0.0.100"),
 		},
 	},
-	{ // query hit on no search domains in path (out of kubernetes zone)
+	{ // query success on no search domains in path (out of kubernetes zone)
 		Qname: "foo.example.net", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -53,16 +53,18 @@ var autopathTests = []test.Case{
 			test.NS("example.net.	303	IN	NS	ns.example.net."),
 		},
 	},
-	{ // query miss
-		Qname: "bar.example.net", Qtype: dns.TypeA,
-		Rcode: dns.RcodeSuccess,
-	},
+	/*
+		{ // prevent client search on query fail - this optimization is not implemented
+			Qname: "bar.example.net", Qtype: dns.TypeA,
+			Rcode: dns.RcodeSuccess,
+		},
+	*/
 }
 
-func TestAutopath(t *testing.T) {
+func TestKubernetesAutopath(t *testing.T) {
 	corefile :=
 		`    .:53 {
-      errors
+      debug
       log
       autopath @kubernetes
       kubernetes cluster.local {
