@@ -70,15 +70,16 @@ func TestKubernetesAutopath(t *testing.T) {
       kubernetes cluster.local {
         pods verified
       }
-      file /etc/coredns/Zonefile example.net
-      hosts /etc/hosts internal
+      file /etc/coredns/Zonefile example.net internal
     }
 `
-	exampleZonefile := `    ; example.net test file for autopath tests
+	exampleZonefile := `    ; example.net zone info for autopath tests
     example.net.		IN	SOA	sns.example.net. noc.example.net. 2015082541 7200 3600 1209600 3600
     example.net.		IN	NS	ns.example.net.
     example.net.      IN      A	10.10.10.10
     foo.example.net.      IN      A	10.10.10.11
+	; internal zone info for autopath tests
+    internal.		IN	SOA	sns.internal. noc.internal. 2015082541 7200 3600 1209600 3600
 `
 	err := loadCorefileAndZonefile(corefile, exampleZonefile)
 	if err != nil {
