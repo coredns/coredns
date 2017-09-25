@@ -71,7 +71,7 @@ func TestKubernetesAutopath(t *testing.T) {
         pods verified
       }
       file /etc/coredns/Zonefile example.net
-      hosts
+      hosts /etc/hosts internal
     }
 `
 	exampleZonefile := `    ; example.net test file for autopath tests
