@@ -64,7 +64,7 @@ var autopathTests = []test.Case{
 func TestKubernetesAutopath(t *testing.T) {
 	corefile :=
 		`    .:53 {
-      debug
+      errors
       log
       autopath @kubernetes
       kubernetes cluster.local {
@@ -74,7 +74,7 @@ func TestKubernetesAutopath(t *testing.T) {
     }
 `
 	exampleZonefile := `    ; example.net test file for autopath tests
-    example.net.		IN	SOA	sns.example.netnet. noc.example.net. 2015082541 7200 3600 1209600 3600
+    example.net.		IN	SOA	sns.example.net. noc.example.net. 2015082541 7200 3600 1209600 3600
     example.net.		IN	NS	ns.example.net.
     example.net.      IN      A	10.10.10.10
     foo.example.net.      IN      A	10.10.10.11
