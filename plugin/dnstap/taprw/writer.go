@@ -59,7 +59,6 @@ func (w *ResponseWriter) WriteMsg(resp *dns.Msg) (writeErr error) {
 
 	if w.Send == nil || w.Send.Cq {
 		if err := func() (err error) {
-
 			err = b.AddrMsg(w.ResponseWriter.RemoteAddr(), w.Query)
 			if err != nil {
 				return
