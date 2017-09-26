@@ -26,8 +26,7 @@ type Tapper interface {
 
 // ResponseWriter captures the client response and logs the query to dnstap.
 // Single request use.
-// DnsTapExtras is map of DnstapExtra.  Key is the name of the middlware that
-// saves the extra data.  Value is a DnstapExtra.
+// SendOption configures Dnstap to selectively send Dnstap messages. Default is send all.
 type ResponseWriter struct {
 	queryEpoch uint64
 	Query      *dns.Msg
