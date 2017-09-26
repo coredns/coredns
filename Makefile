@@ -53,8 +53,8 @@ endif
 ifeq ($(TEST_TYPE),coverage)
 	for d in `go list ./... | grep -v vendor | grep -v coredns\/test`; do \
 		t=$$(date +%s); \
-		go test -i -coverprofile=cover.out -covermode=atomic $$d || exit 1; \
-		go test -v -coverprofile=cover.out -covermode=atomic $$d || exit 1; \
+		go test -i -tags 'etcd' -coverprofile=cover.out -covermode=atomic $$d || exit 1; \
+		go test -v -tags 'etcd' -coverprofile=cover.out -covermode=atomic $$d || exit 1; \
 		echo "Coverage test $$d took $$(($$(date +%s)-t)) seconds"; \
 		if [ -f cover.out ]; then \
 			cat cover.out >> coverage.txt; \
