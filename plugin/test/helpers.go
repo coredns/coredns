@@ -1,7 +1,11 @@
 package test
 
 import (
+	"bufio"
+	"errors"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/miekg/dns"
@@ -52,6 +56,139 @@ func (c Case) Msg() *dns.Msg {
 		m.Extra = []dns.RR{o}
 	}
 	return m
+}
+
+// ParseDigResponse parses dig-like command output and returns a dns.Msg
+func ParseDigResponse(r string) ([]*dns.Msg, error) {
+	s := bufio.NewScanner(strings.NewReader(r))
+	var msgs []*dns.Msg
+	var err error
+
+	for err == nil {
+		m, err := parseDig(s)
+		if err != nil {
+			break
+		}
+		msgs = append(msgs, m)
+	}
+
+	if len(msgs) == 0 {
+		return nil, err
+	}
+	return msgs, nil
+}
+
+// parseDig parses a single dig-like response and returns a dns.Msg
+func parseDig(s *bufio.Scanner) (*dns.Msg, error) {
+	m := new(dns.Msg)
+	err := parseDigHeader(s, m)
+	if err != nil {
+		return nil, err
+	}
+	err = parseDigQuestion(s, m)
+	if err != nil {
+		return nil, err
+	}
+	err = parseDigSections(s, m)
+	if err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func parseDigHeader(s *bufio.Scanner, m *dns.Msg) error {
+	headerSection := ";; ->>HEADER<<- "
+	for {
+		if strings.HasPrefix(s.Text(), headerSection) {
+			break
+		}
+		if !s.Scan() {
+			return errors.New("header section not found")
+		}
+	}
+	l := s.Text()
+	strings.Replace(l, headerSection, "", 1)
+	nvps := strings.Split(l, ", ")
+	for _, nvp := range nvps {
+		nva := strings.Split(nvp, ": ")
+		if nva[0] == "opcode" {
+			m.Opcode = invertIntMap(dns.OpcodeToString)[nva[1]]
+		}
+		if nva[0] == "status" {
+			m.Rcode = invertIntMap(dns.RcodeToString)[nva[1]]
+		}
+		if nva[0] == "id" {
+			i, err := strconv.Atoi(nva[1])
+			if err != nil {
+				return err
+			}
+			m.MsgHdr.Id = uint16(i)
+		}
+	}
+	return nil
+}
+
+func parseDigQuestion(s *bufio.Scanner, m *dns.Msg) error {
+	for {
+		if strings.HasPrefix(s.Text(), ";; QUESTION SECTION:") {
+			break
+		}
+		if !s.Scan() {
+			return errors.New("question section not found")
+		}
+	}
+	s.Scan()
+	l := s.Text()
+	l = strings.TrimLeft(l, ";")
+	fields := strings.Fields(l)
+	m.SetQuestion(fields[0], invertUint16Map(dns.TypeToString)[fields[2]])
+	return nil
+}
+
+func parseDigSections(s *bufio.Scanner, m *dns.Msg) error {
+	var section string
+	for s.Scan() {
+		if strings.HasSuffix(s.Text(), " SECTION:") {
+			section = strings.Fields(s.Text())[1]
+			continue
+		}
+		if s.Text() == "" {
+			continue
+		}
+		if strings.HasPrefix(s.Text(), ";;") {
+			break
+		}
+		r, err := dns.NewRR(s.Text())
+		if err != nil {
+			return err
+		}
+		if section == "ANSWER" {
+			m.Answer = append(m.Answer, r)
+		}
+		if section == "AUTHORITY" {
+			m.Ns = append(m.Ns, r)
+		}
+		if section == "ADDITIONAL" {
+			m.Extra = append(m.Extra, r)
+		}
+	}
+	return nil
+}
+
+func invertIntMap(m map[int]string) map[string]int {
+	n := make(map[string]int)
+	for k, v := range m {
+		n[v] = k
+	}
+	return n
+}
+
+func invertUint16Map(m map[uint16]string) map[string]uint16 {
+	n := make(map[string]uint16)
+	for k, v := range m {
+		n[v] = k
+	}
+	return n
 }
 
 // A returns an A record from rr. It panics on errors.
