@@ -46,11 +46,8 @@ func (dio *DnstapIO) serve() {
 	for {
 		select {
 		case payload := <-dio.queue:
-			frame, err := proto.Marshal(&payload)
-			if err == nil {
+			if frame, err := proto.Marshal(&payload); err == nil {
 				dio.writer.Write(frame)
-			} else {
-				fmt.Println("[ERROR] Invalid dnstap payload dropped.")
 			}
 		case <-dio.stop:
 			close(dio.queue)
