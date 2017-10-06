@@ -22,8 +22,7 @@ health. Any reponse that is not an error is taken as a healthy upstream. Multi u
 randomized on first use. Note that when a healthy upstream fails to respond to a query this error
 is propegated to the client and no other upstream is tried.
 
-It uses a fixed buffer size of 4096 bytes for UDP packets. Extra knobs are available with an
-expanded syntax:
+Extra knobs are available with an expanded syntax:
 
 ~~~
 proxy FROM TO... {

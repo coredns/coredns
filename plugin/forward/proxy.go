@@ -214,7 +214,6 @@ func clientID(w dns.ResponseWriter) (id, proto string) {
 }
 
 const (
-	udpBufSize  = 4096
 	dialTimeout = 1 * time.Second
 	connTimeout = 2 * time.Second
 	hcDuration  = 500 * time.Millisecond
