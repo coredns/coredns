@@ -72,12 +72,12 @@ Load-balance all requests between three resolvers:
 }
 ~~~
 
-Forward everything except requests to `miek.nl` or `example.org`
+Forward everything except requests to `example.org`
 
 ~~~ corefile
 . {
     forward . 10.0.0.10:1234 {
-        except miek.nl example.org
+        except example.org
     }
 }
 ~~~
@@ -99,3 +99,7 @@ Forward to a IPv6 host:
     forward . [::1]:1053
 }
 ~~~
+
+## Bugs
+
+Tracing and dnstap is not supported (yet) for this proxy.
