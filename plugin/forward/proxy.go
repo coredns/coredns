@@ -93,7 +93,7 @@ func (p *proxy) setUsed(clientID string) {
 	p.Unlock()
 }
 
-// clientRead reads from upstream and send it to upstreamChan for writing it
+// clientRead reads from upstream and sends it to upstreamChan for writing it
 // back to the original client.
 func (p *proxy) clientRead(upstreamConn *dns.Conn, w dns.ResponseWriter) {
 	clientID, _ := clientID(w)
