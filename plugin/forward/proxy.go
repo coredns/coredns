@@ -215,6 +215,6 @@ func clientID(w dns.ResponseWriter) (id, proto string) {
 
 const (
 	dialTimeout = 1 * time.Second
-	connTimeout = 2 * time.Second
+	connTimeout = 3500 * time.Millisecond
 	hcDuration  = 500 * time.Millisecond
 )
