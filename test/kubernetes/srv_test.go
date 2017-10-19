@@ -77,14 +77,14 @@ var dnsTestCasesSRV = []test.Case{
 		Qname: "_c-port._UDP.*.test-1.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.SRV("_c-port._UDP.*.test-1.svc.cluster.local.      303    IN    SRV 0 33 1234 svc-c.test-1.svc.cluster.local."),
 			test.SRV("_c-port._UDP.*.test-1.svc.cluster.local.      303    IN    SRV 0 33 1234 172-17-0-254.headless-svc.test-1.svc.cluster.local."),
 			test.SRV("_c-port._UDP.*.test-1.svc.cluster.local.      303    IN    SRV 0 33 1234 172-17-0-255.headless-svc.test-1.svc.cluster.local."),
+			test.SRV("_c-port._UDP.*.test-1.svc.cluster.local.      303    IN    SRV 0 33 1234 svc-c.test-1.svc.cluster.local."),
 		},
 		Extra: []dns.RR{
-			test.A("svc-c.test-1.svc.cluster.local.	303	IN	A	10.0.0.115"),
 			test.A("172-17-0-254.headless-svc.test-1.svc.cluster.local.	303	IN	A	172.17.0.254"),
 			test.A("172-17-0-255.headless-svc.test-1.svc.cluster.local.	303	IN	A	172.17.0.255"),
+			test.A("svc-c.test-1.svc.cluster.local.	303	IN	A	10.0.0.115"),
 		},
 	},
 	{
