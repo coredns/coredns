@@ -1,4 +1,4 @@
-// +build ciskip
+// +build ci
 
 package kubernetes
 
@@ -27,6 +27,8 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
     kubernetes cluster.local {
         endpoint nonexistance:8080,invalidip:8080,localhost:8080
     }`
+
+
 
 	server, udp, _, err := intTest.CoreDNSServerAndPorts(corefile)
 	if err != nil {
