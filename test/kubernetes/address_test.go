@@ -3,6 +3,7 @@
 package kubernetes
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/test"
@@ -101,5 +102,23 @@ func TestKubernetesA(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Could not load corefile: %s", err)
 	}
-	testk8s.DoIntegrationTests(t, dnsTestCasesA, "test-1")
+	testCases := dnsTestCasesA
+	namespace := "test-1"
+	err = testk8s.StartClientPod(namespace)
+	if err != nil {
+		t.Fatalf("failed to start client pod: %s", err)
+	}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%s %s", tc.Qname, dns.TypeToString[tc.Qtype]), func(t *testing.T) {
+			res, err := testk8s.DoIntegrationTest(tc, namespace)
+			if err != nil {
+				t.Errorf(err.Error())
+			}
+			test.CNAMEOrder(t, res)
+			test.SortAndCheck(t, res, tc)
+			if t.Failed() {
+				t.Errorf("coredns log: %s", testk8s.CorednsLogs())
+			}
+		})
+	}
 }
