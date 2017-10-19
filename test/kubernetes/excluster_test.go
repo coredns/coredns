@@ -28,8 +28,6 @@ func TestKubernetesAPIFallthrough(t *testing.T) {
         endpoint nonexistance:8080,invalidip:8080,localhost:8080
     }`
 
-
-
 	server, udp, _, err := intTest.CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
