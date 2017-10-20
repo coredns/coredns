@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/test"
 
@@ -277,6 +278,8 @@ func doIntegrationTests(t *testing.T, corefile string, testCases []test.Case) {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
 	defer server.Stop()
+
+	time.Sleep(1 * time.Second)
 
 	for _, tc := range testCases {
 
