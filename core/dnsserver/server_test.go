@@ -48,7 +48,7 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
-func BenchmarkServeDns(b *testing.B) {
+func BenchmarkCoreServeDNS(b *testing.B) {
 	s, err := NewServer("127.0.0.1:53", []*Config{testConfig("dns")})
 	if err != nil {
 		b.Errorf("Expected no error for NewServer, got %s.", err)
