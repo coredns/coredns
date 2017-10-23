@@ -54,10 +54,6 @@ ifeq ($(TEST_TYPE),coverage)
 	done
 endif
 
-.PHONY: ci
-ci:
-	go test -v -tags 'ci' ./test/kubernetes/...
-
 core/zplugin.go core/dnsserver/zdirectives.go: plugin.cfg
 	go generate coredns.go
 
