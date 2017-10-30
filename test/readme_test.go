@@ -128,7 +128,7 @@ func create(c map[string]string) {
 }
 
 func remove(c map[string]string) {
-	for name, _ := range c {
+	for name := range c {
 		os.Remove(name)
 	}
 }
