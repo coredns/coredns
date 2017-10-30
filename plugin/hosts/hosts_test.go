@@ -13,7 +13,7 @@ import (
 
 func TestLookupA(t *testing.T) {
 	h := Hosts{Next: test.ErrorHandler(), Hostsfile: &Hostsfile{Origins: []string{"."}}}
-	h.parseFile(strings.NewReader(hostsExample))
+	h.parseReader(strings.NewReader(hostsExample))
 
 	ctx := context.TODO()
 

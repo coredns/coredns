@@ -13,7 +13,7 @@ import (
 
 func testHostsfile(file string) *Hostsfile {
 	h := &Hostsfile{Origins: []string{"."}}
-	h.parseFile(strings.NewReader(file))
+	h.parseReader(strings.NewReader(file))
 	return h
 }
 

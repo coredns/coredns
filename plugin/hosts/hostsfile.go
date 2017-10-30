@@ -76,10 +76,11 @@ type Hostsfile struct {
 	size  int64
 }
 
-// ReadHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
-func (h *Hostsfile) ReadHosts() {
+// readHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
+func (h *Hostsfile) readHosts() {
 	file, err := os.Open(h.path)
 	if err != nil {
+		// We already log a warning if the file doesn't exist or can't be opened on setup. No need to return the error here.
 		return
 	}
 	defer file.Close()
@@ -91,7 +92,7 @@ func (h *Hostsfile) ReadHosts() {
 
 	h.Lock()
 	defer h.Unlock()
-	h.parseFile(file)
+	h.parseReader(file)
 
 	// Update the data cache.
 	h.mtime = stat.ModTime()
@@ -108,15 +109,15 @@ func (h *Hostsfile) initInline(inline []string) {
 	*h.hmap = *h.inline
 }
 
-func (h *Hostsfile) parseFile(file io.Reader) {
-	h.hmap = h.parse(file, h.inline)
+func (h *Hostsfile) parseReader(r io.Reader) {
+	h.hmap = h.parse(r, h.inline)
 }
 
 // Parse reads the hostsfile and populates the byName and byAddr maps.
-func (h *Hostsfile) parse(file io.Reader, override *hostsMap) *hostsMap {
+func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
 	hmap := newHostsMap()
 
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if i := bytes.Index(line, []byte{'#'}); i >= 0 {
@@ -150,18 +151,20 @@ func (h *Hostsfile) parse(file io.Reader, override *hostsMap) *hostsMap {
 		}
 	}
 
-	if override != nil {
-		for name := range override.byNameV4 {
-			hmap.byNameV4[name] = append(hmap.byNameV4[name], override.byNameV4[name]...)
-		}
-		for name := range override.byNameV4 {
-			hmap.byNameV6[name] = append(hmap.byNameV6[name], override.byNameV6[name]...)
-		}
-		for addr := range override.byAddr {
-			hmap.byAddr[addr] = append(hmap.byAddr[addr], override.byAddr[addr]...)
-		}
-
+	if override == nil {
+		return hmap
 	}
+
+	for name := range override.byNameV4 {
+		hmap.byNameV4[name] = append(hmap.byNameV4[name], override.byNameV4[name]...)
+	}
+	for name := range override.byNameV4 {
+		hmap.byNameV6[name] = append(hmap.byNameV6[name], override.byNameV6[name]...)
+	}
+	for addr := range override.byAddr {
+		hmap.byAddr[addr] = append(hmap.byAddr[addr], override.byAddr[addr]...)
+	}
+
 	return hmap
 }
 

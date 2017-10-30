@@ -29,10 +29,7 @@ func setup(c *caddy.Controller) error {
 	parseChan := make(chan bool)
 
 	c.OnStartup(func() error {
-		h.ReadHosts()
-		if err != nil {
-			return err
-		}
+		h.readHosts()
 
 		go func() {
 			ticker := time.NewTicker(5 * time.Second)
@@ -41,7 +38,7 @@ func setup(c *caddy.Controller) error {
 				case <-parseChan:
 					return
 				case <-ticker.C:
-					h.ReadHosts()
+					h.readHosts()
 				}
 			}
 		}()
