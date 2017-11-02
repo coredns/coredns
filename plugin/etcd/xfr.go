@@ -3,6 +3,7 @@ package etcd
 import (
 	"time"
 
+	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/request"
 )
 
@@ -14,4 +15,11 @@ func (e *Etcd) Serial(state request.Request) uint32 {
 // MinTTL implements the Transferer interface.
 func (e *Etcd) MinTTL(state request.Request) uint32 {
 	return 30
+}
+
+// Transfer implements the Transferer interface.
+func (e *Etcd) Transfer(state request.Request) <-chan msg.Service {
+	c := make(chan msg.Service)
+
+	return c
 }
