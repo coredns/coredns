@@ -94,7 +94,7 @@ tar:
 	@echo Cleaning old releases
 	rm -rf release && mkdir release
 	tar -zcf release/$(NAME)_$(VERSION)_linux_amd64.tgz -C build/linux/amd64 $(NAME)
-	tar -zcf release/$(NAME)_$(VERSION)_darwin_$(ARCH).tgz -C build/darwin/$(ARCH) $(NAME)
+	tar -zcf release/$(NAME)_$(VERSION)_darwin_amd64.tgz -C build/darwin/amd64 $(NAME)
 	tar -zcf release/$(NAME)_$(VERSION)_linux_arm.tgz -C build/linux/arm $(NAME)
 	tar -zcf release/$(NAME)_$(VERSION)_linux_arm64.tgz -C build/linux/arm64 $(NAME)
 	tar -zcf release/$(NAME)_$(VERSION)_linux_ppc64le.tgz -C build/linux/ppc64 $(NAME)
@@ -107,7 +107,7 @@ upload:
 
 .PHONY: docker-build
 docker-build:
-    tar -xzf release/$(NAME)_$(VERSION)_linux_amd64.tgz
+	tar -xzf release/$(NAME)_$(VERSION)_linux_amd64.tgz
 	docker build -t coredns .
 	docker tag coredns $(DOCKER_IMAGE_NAME):coredns-amd64
 
@@ -138,7 +138,7 @@ docker-upload:
 	docker push $(DOCKER_IMAGE_NAME):coredns-s390x
 
 	./manifest-tool push from-args --platforms linux/amd64,linux/arm,linux/arm64,linux/ppc64,linux/s390x --template $(DOCKER_IMAGE_NAME):coredns-ARCH --target $(DOCKER_IMAGE_NAME):$(VERSION)
-    ./manifest-tool push from-args --platforms linux/amd64,linux/arm,linux/arm64,linux/ppc64,linux/s390x --template $(DOCKER_IMAGE_NAME):coredns-ARCH --target $(DOCKER_IMAGE_NAME):latest
+	./manifest-tool push from-args --platforms linux/amd64,linux/arm,linux/arm64,linux/ppc64,linux/s390x --template $(DOCKER_IMAGE_NAME):coredns-ARCH --target $(DOCKER_IMAGE_NAME):latest
 
 .PHONY: clean
 clean:
