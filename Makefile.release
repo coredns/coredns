@@ -104,12 +104,10 @@ docker-build: tar
 	# 1. Copy appropriate coredns binary to build/docker/linux/<arch>
 	# 2. Copy Dockerfile to build/docker/linux/<arch>
 	# 3. Replace base image from alpine:latest to <arch>/alpine:latest
-	# 4. Add COPY qemu-<arch>-static to Dockerfile
-	# 5. Add qemu-<arch>-static to build/docker/linux/<arch>
-	# 6. Set docker handler
+	# 4. Comment RUN in Dockerfile
 	# <arch>:
-	# arm: arm32v6 arm
-	# arm64: arm64v8 aarch64
+	# arm: arm32v6
+	# arm64: arm64v8
 	rm -rf build/docker
 	for arch in $(LINUX_ARCH); do \
 	    mkdir -p build/docker/linux/$$arch ;\
@@ -119,20 +117,16 @@ docker-build: tar
 		case $$arch in \
 	        arm) \
 	            BASEIMAGE=arm32v6 ;\
-	            QEMUARCH=arm ;\
 	            ;; \
 	        arm64) \
 	            BASEIMAGE=arm64v8 ;\
-	            QEMUARCH=aarch64 ;\
 	            ;; \
 	        *) \
 	            BASEIMAGE=$$arch ;\
-	            QEMUARCH=$$arch ;\
 	            ;; \
 	        esac ;\
-	        sed -e "s/alpine:latest/$$BASEIMAGE\\/alpine:latest\nCOPY qemu-$${QEMUARCH}-static \\/usr\\/bin\\//" -i build/docker/linux/$$arch/Dockerfile ;\
-	        docker run --rm --privileged multiarch/qemu-user-static:register --reset ;\
-	        curl -sSL --retry 5 https://github.com/multiarch/qemu-user-static/releases/download/v2.7.0/x86_64_qemu-$${QEMUARCH}-static.tar.gz | tar -xz -C build/docker/linux/$$arch ;\
+	        sed -e "s/alpine:latest/$$BASEIMAGE\\/alpine:latest/" -i build/docker/linux/$$arch/Dockerfile ;\
+	        sed -e "s/^\\s*RUN/#RUN/" -i build/docker/linux/$$arch/Dockerfile ;\
 	    fi ;\
 	    docker build -t coredns build/docker/linux/$$arch ;\
 	    docker tag coredns $(DOCKER_IMAGE_NAME):coredns-$$arch ;\
