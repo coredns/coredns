@@ -36,6 +36,9 @@
 #
 # Docker push should happen after you make the new release and uploaded it to
 # Github.
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
+COMMA := $(EMPTY),$(EMPTY)
 
 ifeq (, $(shell which gh-release))
     $(error "No gh-release in $$PATH, install with: go get github.com/progrium/gh-release")
@@ -51,8 +54,8 @@ GITHUB:=coredns
 DOCKER:=coredns
 DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
 GITCOMMIT:=$(shell git describe --dirty --always)
-PLATFORMS:=linux/amd64,linux/arm,linux/arm64,linux/ppc64le,linux/s390x
-LINUX_ARCH:=$(shell echo $(PLATFORMS) | sed -e "s/linux\///g" | tr "," " ")
+LINUX_ARCH:=amd64 arm arm64 ppc64le s390x
+PLATFORMS:=$(subst $(SPACE),$(COMMA),$(foreach arch,$(LINUX_ARCH),linux/$(arch)))
 
 all:
 	@echo Use the 'release' target to start a release
