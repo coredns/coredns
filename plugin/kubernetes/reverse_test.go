@@ -22,6 +22,7 @@ func (APIConnReverseTest) SvcIndex(string) []*api.Service        { return nil }
 func (APIConnReverseTest) SvcIndexReverse(string) []*api.Service { return nil }
 func (APIConnReverseTest) EpIndex(string) []*api.Endpoints       { return nil }
 func (APIConnReverseTest) EndpointsList() []*api.Endpoints       { return nil }
+func (APIConnReverseTest) Modified() int64                       { return 0 }
 
 func (APIConnReverseTest) ServiceList() []*api.Service {
 	svcs := []*api.Service{

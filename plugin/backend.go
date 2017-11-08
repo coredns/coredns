@@ -37,6 +37,10 @@ type Transferer interface {
 
 	// MinTTL returns the minimum TTL to be used in the SOA record.
 	MinTTL(state request.Request) uint32
+
+	// Transfer returns a channel that returns all services for this backend.
+	// The channel is closed when all records are sent.
+	Transfer(state request.Request) <-chan msg.Service
 }
 
 // Options are extra options that can be specified for a lookup.
