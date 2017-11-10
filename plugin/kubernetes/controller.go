@@ -144,7 +144,8 @@ func epNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 	return []string{s.ObjectMeta.Name + "." + s.ObjectMeta.Namespace}, nil
 }
 
-func epIPIndexFunc(obj interface{}) (idx []string, err error) {
+func epIPIndexFunc(obj interface{}) ([]string, error) {
+	var idx []string
 	ep, ok := obj.(*api.Endpoints)
 	if !ok {
 		return nil, errors.New("obj was not an *api.Endpoints")
