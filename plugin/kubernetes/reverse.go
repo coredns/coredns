@@ -25,12 +25,14 @@ func (k *Kubernetes) Reverse(state request.Request, exact bool, opt plugin.Optio
 // If a service cluster ip does not match, it checks all endpoints
 func (k *Kubernetes) serviceRecordForIP(ip, name string) []msg.Service {
 	// First check services with cluster ips
-	for _, service := range k.APIConn.SvcIndexReverse(ip) {
+	for _, service := range k.APIConn.ServiceList() {
 		if (len(k.Namespaces) > 0) && !k.namespaceExposed(service.Namespace) {
 			continue
 		}
-		domain := strings.Join([]string{service.Name, service.Namespace, Svc, k.primaryZone()}, ".")
-		return []msg.Service{{Host: domain}}
+		if service.Spec.ClusterIP == ip {
+			domain := strings.Join([]string{service.Name, service.Namespace, Svc, k.primaryZone()}, ".")
+			return []msg.Service{{Host: domain}}
+		}
 	}
 	// If no cluster ips match, search endpoints
 	for _, ep := range k.APIConn.EpIndexReverse(ip) {
