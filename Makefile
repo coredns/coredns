@@ -4,6 +4,7 @@ BINARY:=coredns
 SYSTEM:=
 CHECKS:=check godeps
 VERBOSE:=-v
+DOCKER_IMAGE_NAME:=coredns/coredns
 
 all: coredns
 
@@ -72,3 +73,9 @@ linter:
 clean:
 	go clean
 	rm -f coredns
+
+.PHONY: docker
+docker:
+	$(MAKE) coredns SYSTEM="GOOS=linux" CHECKS="" ;\
+	docker build -t coredns . ;\
+	docker tag coredns $(DOCKER_IMAGE_NAME):latest
