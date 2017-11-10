@@ -145,11 +145,11 @@ func epNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 }
 
 func epIPIndexFunc(obj interface{}) ([]string, error) {
-	var idx []string
 	ep, ok := obj.(*api.Endpoints)
 	if !ok {
 		return nil, errors.New("obj was not an *api.Endpoints")
 	}
+	var idx []string
 	for _, eps := range ep.Subsets {
 		for _, addr := range eps.Addresses {
 			idx = append(idx, addr.IP)
