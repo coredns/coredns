@@ -144,12 +144,17 @@ func epNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 	return []string{s.ObjectMeta.Name + "." + s.ObjectMeta.Namespace}, nil
 }
 
-func epIPIndexFunc(obj interface{}) ([]string, error) {
-	ep, ok := obj.(*api.EndpointAddress)
+func epIPIndexFunc(obj interface{}) (idx []string, err error) {
+	ep, ok := obj.(*api.Endpoints)
 	if !ok {
-		return nil, errors.New("obj was not an *api.EndpointAddress")
+		return nil, errors.New("obj was not an *api.Endpoints")
 	}
-	return []string{ep.IP}, nil
+	for _, eps := range ep.Subsets {
+		for _, addr := range eps.Addresses {
+			idx = append(idx, addr.IP)
+		}
+	}
+	return idx, nil
 }
 
 func serviceListFunc(c *kubernetes.Clientset, ns string, s *labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
