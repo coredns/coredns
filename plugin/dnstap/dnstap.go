@@ -1,9 +1,8 @@
-package proxy
+package dnstap
 
 import (
 	"time"
 
-	"github.com/coredns/coredns/plugin/dnstap"
 	"github.com/coredns/coredns/request"
 
 	tap "github.com/dnstap/golang-dnstap"
@@ -11,8 +10,9 @@ import (
 	"golang.org/x/net/context"
 )
 
-func toDnstap(ctx context.Context, host string, ex Exchanger, state request.Request, reply *dns.Msg, start time.Time) error {
-	tapper := dnstap.TapperFromContext(ctx)
+// ToMessage converts a state and possible reply to a dnstap message.
+func ToMessage(ctx context.Context, upstream, proto string, state request.Request, reply *dns.Msg, start time.Time) error {
+	tapper := TapperFromContext(ctx)
 	if tapper == nil {
 		return nil
 	}
@@ -20,15 +20,11 @@ func toDnstap(ctx context.Context, host string, ex Exchanger, state request.Requ
 	// Query
 	b := tapper.TapBuilder()
 	b.TimeSec = uint64(start.Unix())
-	if err := b.HostPort(host); err != nil {
+	if err := b.HostPort(upstream); err != nil {
 		return err
 	}
 
-	t := ex.Transport()
-	if t == "" {
-		t = state.Proto()
-	}
-	if t == "tcp" {
+	if proto == "tcp" {
 		b.SocketProto = tap.SocketProtocol_TCP
 	} else {
 		b.SocketProto = tap.SocketProtocol_UDP

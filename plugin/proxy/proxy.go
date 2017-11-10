@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/dnstap"
 	"github.com/coredns/coredns/plugin/pkg/healthcheck"
 	"github.com/coredns/coredns/request"
 
@@ -97,7 +98,7 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 				child.Finish()
 			}
 
-			taperr := toDnstap(ctx, host.Name, upstream.Exchanger(), state, reply, start)
+			taperr := dnstap.ToMessage(ctx, host.Name, upstream.Exchanger().Protocol(), state, reply, start)
 
 			if backendErr == nil {
 				w.WriteMsg(reply)

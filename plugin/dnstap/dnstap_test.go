@@ -1,4 +1,4 @@
-package proxy
+package dnstap
 
 import (
 	"testing"
@@ -14,11 +14,11 @@ import (
 	"golang.org/x/net/context"
 )
 
-func testCase(t *testing.T, ex Exchanger, q, r *dns.Msg, datq, datr *msg.Data) {
+func testCaseMsg(t *testing.T, proto string, q, r *dns.Msg, datq, datr *msg.Data) {
 	tapq := datq.ToOutsideQuery(tap.Message_FORWARDER_QUERY)
 	tapr := datr.ToOutsideResponse(tap.Message_FORWARDER_RESPONSE)
 	ctx := test.Context{}
-	err := toDnstap(&ctx, "10.240.0.1:40212", ex,
+	err := ToMessage(&ctx, "10.240.0.1:40212", proto,
 		request.Request{W: &mwtest.ResponseWriter{}, Req: q}, r, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -34,7 +34,7 @@ func testCase(t *testing.T, ex Exchanger, q, r *dns.Msg, datq, datr *msg.Data) {
 	}
 }
 
-func TestDnstap(t *testing.T) {
+func TestDnstapProtocol(t *testing.T) {
 	q := mwtest.Case{Qname: "example.org", Qtype: dns.TypeA}.Msg()
 	r := mwtest.Case{
 		Qname: "example.org.", Qtype: dns.TypeA,
@@ -43,15 +43,14 @@ func TestDnstap(t *testing.T) {
 		},
 	}.Msg()
 	tapq, tapr := test.TestingData(), test.TestingData()
-	testCase(t, newDNSEx(), q, r, tapq, tapr)
+	testCaseMsg(t, "udp", q, r, tapq, tapr)
 	tapq.SocketProto = tap.SocketProtocol_TCP
 	tapr.SocketProto = tap.SocketProtocol_TCP
-	testCase(t, newDNSExWithOption(Options{ForceTCP: true}), q, r, tapq, tapr)
-	testCase(t, newGoogle("", []string{"8.8.8.8:53", "8.8.4.4:53"}), q, r, tapq, tapr)
+	testCaseMsg(t, "tcp", q, r, tapq, tapr)
 }
 
-func TestNoDnstap(t *testing.T) {
-	err := toDnstap(context.TODO(), "", nil, request.Request{}, nil, time.Now())
+func TestEmptyDnstap(t *testing.T) {
+	err := ToMessage(context.TODO(), "", "", request.Request{}, nil, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
