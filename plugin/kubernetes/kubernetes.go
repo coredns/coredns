@@ -463,15 +463,6 @@ func wildcard(s string) bool {
 	return s == "*" || s == "any"
 }
 
-// namespaceExposed returns true when the namespace is exposed.
-func (k *Kubernetes) namespaceExposed(namespace string) bool {
-	_, ok := k.Namespaces[namespace]
-	if len(k.Namespaces) > 0 && !ok {
-		return false
-	}
-	return true
-}
-
 const (
 	// Svc is the DNS schema for kubernetes services
 	Svc = "svc"
