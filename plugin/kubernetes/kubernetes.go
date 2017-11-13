@@ -304,7 +304,14 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 	podname := r.service
 	zonePath := msg.Path(zone, "coredns")
 	ip := ""
+
 	err = errNoItems
+	if wildcard(podname) && !wildcard(namespace) {
+		// If namespace exist, err should be nil, so that we return nodata instead of NXDOMAIN
+		if k.namespace(namespace) {
+			err = nil
+		}
+	}
 
 	if strings.Count(podname, "-") == 3 && !strings.Contains(podname, "--") {
 		ip = strings.Replace(podname, "-", ".", -1)
@@ -336,7 +343,14 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 // findServices returns the services matching r from the cache.
 func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.Service, err error) {
 	zonePath := msg.Path(zone, "coredns")
-	err = errNoItems // Set to errNoItems to signal really nothing found, gets reset when name is matched.
+
+	err = errNoItems
+	if wildcard(r.service) && !wildcard(r.namespace) {
+		// If namespace exist, err should be nil, so that we return nodata instead of NXDOMAIN
+		if k.namespace(namespace) {
+			err = nil
+		}
+	}
 
 	var (
 		endpointsListFunc func() []*api.Endpoints

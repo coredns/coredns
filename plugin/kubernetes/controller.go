@@ -36,6 +36,7 @@ type dnsController interface {
 	EndpointsList() []*api.Endpoints
 
 	GetNodeByName(string) (*api.Node, error)
+	GetNamespaceByName(string) (*api.Namespace, error)
 
 	Run()
 	HasSynced() bool
@@ -394,4 +395,12 @@ func (dns *dnsControl) GetNodeByName(name string) (*api.Node, error) {
 		return &api.Node{}, err
 	}
 	return v1node, nil
+}
+
+func (dns *dnsControl) GetNamespaceByName(name string) (*api.Namespace, error) {
+	v1ns, err := dns.client.Namespaces().Get(name, meta.GetOptions{})
+	if err != nil {
+		return &api.Namespace{}, err
+	}
+	return v1ns, nil
 }
