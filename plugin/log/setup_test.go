@@ -18,7 +18,7 @@ func TestLogParse(t *testing.T) {
 			NameScope: ".",
 			Format:    DefaultLogFormat,
 		}}},
-		{`log example.org.`, false, []Rule{{
+		{`log example.org`, false, []Rule{{
 			NameScope: "example.org.",
 			Format:    DefaultLogFormat,
 		}}},
@@ -26,7 +26,7 @@ func TestLogParse(t *testing.T) {
 			NameScope: "example.org.",
 			Format:    CommonLogFormat,
 		}}},
-		{`log example.org. {combined}`, false, []Rule{{
+		{`log example.org {combined}`, false, []Rule{{
 			NameScope: "example.org.",
 			Format:    CombinedLogFormat,
 		}}},
@@ -47,7 +47,7 @@ func TestLogParse(t *testing.T) {
 			Format:    "{when}",
 		}}},
 
-		{`log example.org. {
+		{`log example.org {
 				class all
 			}`, false, []Rule{{
 			NameScope: "example.org.",
