@@ -100,7 +100,6 @@ var dnsTestCases = []test.Case{
 			test.A("172-0-0-3.hdls1.testns.svc.cluster.local.	303	IN	A	172.0.0.3"),
 			test.AAAA("5678-abcd--1.hdls1.testns.svc.cluster.local.	303	IN	AAAA	5678:abcd::1"),
 			test.AAAA("5678-abcd--2.hdls1.testns.svc.cluster.local.	303	IN	AAAA	5678:abcd::2"),
-
 		},
 	},
 	// CNAME External
@@ -345,7 +344,6 @@ var epsIndex = map[string][]*api.Endpoints{
 					{
 						IP: "5678:abcd::2",
 					},
-
 				},
 				Ports: []api.EndpointPort{
 					{
