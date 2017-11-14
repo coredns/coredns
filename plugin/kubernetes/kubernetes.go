@@ -270,6 +270,12 @@ func (k *Kubernetes) Records(state request.Request, exact bool) ([]msg.Service, 
 		return nil, errNsNotExposed
 	}
 
+	if !wildcard(r.namespace) && wildcard(r.service) {
+		if k.namespace(r.namespace) {
+			return nil, nil // trigger nodata response
+		}
+	}
+
 	if r.podOrSvc == Pod {
 		pods, err := k.findPods(r, state.Zone)
 		return pods, err
@@ -300,19 +306,12 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 		return nil, errNoItems
 	}
 
-	namespace := r.namespace
 	podname := r.service
 	zonePath := msg.Path(zone, "coredns")
 	ip := ""
+	err = errNoItems // Set to errNoItems to signal really nothing found, gets reset when name is matched.
 
-	err = errNoItems
-	if wildcard(podname) && !wildcard(namespace) {
-		// If namespace exist, err should be nil, so that we return nodata instead of NXDOMAIN
-		if k.namespace(namespace) {
-			err = nil
-		}
-	}
-
+	// only works for v4 addresses
 	if strings.Count(podname, "-") == 3 && !strings.Contains(podname, "--") {
 		ip = strings.Replace(podname, "-", ".", -1)
 	} else {
@@ -320,18 +319,19 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 	}
 
 	if k.podMode == podModeInsecure {
-		return []msg.Service{{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip}}, nil
+		return []msg.Service{{Key: strings.Join([]string{zonePath, Pod, r.namespace, podname}, "/"), Host: ip}}, nil
 	}
 
 	// PodModeVerified
+	wild := wildcard(r.namespace)
 	for _, p := range k.APIConn.PodIndex(ip) {
 		// If namespace has a wildcard, filter results against Corefile namespace list.
-		if wildcard(namespace) && !k.namespaceExposed(p.Namespace) {
+		if wild && !k.namespaceExposed(p.Namespace) {
 			continue
 		}
 		// check for matching ip and namespace
-		if ip == p.Status.PodIP && match(namespace, p.Namespace) {
-			s := msg.Service{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip}
+		if ip == p.Status.PodIP && match(r.namespace, p.Namespace) {
+			s := msg.Service{Key: strings.Join([]string{zonePath, Pod, r.namespace, podname}, "/"), Host: ip}
 			pods = append(pods, s)
 
 			err = nil
@@ -343,14 +343,7 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 // findServices returns the services matching r from the cache.
 func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.Service, err error) {
 	zonePath := msg.Path(zone, "coredns")
-
-	err = errNoItems
-	if wildcard(r.service) && !wildcard(r.namespace) {
-		// If namespace exist, err should be nil, so that we return nodata instead of NXDOMAIN
-		if k.namespace(namespace) {
-			err = nil
-		}
-	}
+	err = errNoItems // Set to errNoItems to signal really nothing found, gets reset when name is matched.
 
 	var (
 		endpointsListFunc func() []*api.Endpoints
