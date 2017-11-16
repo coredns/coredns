@@ -64,7 +64,7 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*api.Endpoints {
 						},
 						{
 							IP:       "1234:abcd::1",
-							Hostname: "ep1a",
+							Hostname: "ep1b",
 						},
 					},
 					Ports: []api.EndpointPort{
@@ -125,7 +125,7 @@ func TestReverse(t *testing.T) {
 			Qname: "1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.d.c.b.a.4.3.2.1.ip6.arpa.", Qtype: dns.TypePTR,
 			Rcode: dns.RcodeSuccess,
 			Answer: []dns.RR{
-				test.PTR("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.d.c.b.a.4.3.2.1.ip6.arpa. 5 IN PTR ep1a.svc1.testns.svc.cluster.local."),
+				test.PTR("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.d.c.b.a.4.3.2.1.ip6.arpa. 5 IN PTR ep1b.svc1.testns.svc.cluster.local."),
 			},
 		},
 		{
