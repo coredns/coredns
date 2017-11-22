@@ -20,7 +20,7 @@ func Report(req request.Request, zone, rcode string, size int, start time.Time) 
 	typ := req.QType()
 
 	RequestCount.WithLabelValues(zone, net, fam).Inc()
-	RequestDuration.WithLabelValues(zone).Observe(float64(time.Since(start) / time.Millisecond))
+	RequestDuration.WithLabelValues(zone).Observe(float64(time.Since(start)) / float64(time.Millisecond))
 
 	if req.Do() {
 		RequestDo.WithLabelValues(zone).Inc()
