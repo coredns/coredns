@@ -1,13 +1,14 @@
 package kubernetes
 
 import (
+	"net"
 	"strings"
 
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	api "k8s.io/client-go/pkg/api/v1"
+	api "k8s.io/api/core/v1"
 )
 
 // Serial implements the Transferer interface.
@@ -31,10 +32,29 @@ func (k *Kubernetes) transfer(c chan msg.Service, zone string) {
 
 	zonePath := msg.Path(zone, "coredns")
 	serviceList := k.APIConn.ServiceList()
-	endpointsList := k.APIConn.EndpointsList()
 	for _, svc := range serviceList {
-		// Endpoint query or headless service
-		if svc.Spec.ClusterIP == api.ClusterIPNone {
+		switch svc.Spec.Type {
+		case api.ServiceTypeClusterIP, api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
+
+			if net.ParseIP(svc.Spec.ClusterIP) != nil {
+				for _, p := range svc.Spec.Ports {
+
+					s := msg.Service{Host: svc.Spec.ClusterIP, Port: int(p.Port), TTL: k.ttl}
+					s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
+
+					c <- s
+
+					s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, strings.ToLower("_" + string(p.Protocol)), strings.ToLower("_" + string(p.Name))}, "/")
+
+					c <- s
+				}
+
+				//  Skip endpoint discovery if clusterIP is defined
+				continue
+			}
+
+			endpointsList := k.APIConn.EpIndex(svc.Name + "." + svc.Namespace)
+
 			for _, ep := range endpointsList {
 				if ep.ObjectMeta.Name != svc.Name || ep.ObjectMeta.Namespace != svc.Namespace {
 					continue
@@ -45,7 +65,11 @@ func (k *Kubernetes) transfer(c chan msg.Service, zone string) {
 						for _, p := range eps.Ports {
 
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr)}, "/")
+							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
+
+							c <- s
+
+							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, strings.ToLower("_" + string(p.Protocol)), strings.ToLower("_" + string(p.Name))}, "/")
 
 							c <- s
 						}
@@ -53,29 +77,16 @@ func (k *Kubernetes) transfer(c chan msg.Service, zone string) {
 				}
 			}
 
-			continue
-		}
+		case api.ServiceTypeExternalName:
 
-		// External service
-		if svc.Spec.ExternalName != "" {
 			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.Spec.ExternalName, TTL: k.ttl}
 			if t, _ := s.HostType(); t == dns.TypeCNAME {
 				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
 
 				c <- s
-
-				continue
 			}
 		}
 
-		// ClusterIP service
-		for _, p := range svc.Spec.Ports {
-
-			s := msg.Service{Host: svc.Spec.ClusterIP, Port: int(p.Port), TTL: k.ttl}
-			s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
-
-			c <- s
-		}
 	}
 	return
 }

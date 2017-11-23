@@ -2,6 +2,7 @@
 package dnstest
 
 import (
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -17,6 +18,8 @@ type Recorder struct {
 	dns.ResponseWriter
 	Rcode int
 	Len   int
+
+	sync.Mutex
 	Msg   *dns.Msg
 	Start time.Time
 }
@@ -40,7 +43,15 @@ func (r *Recorder) WriteMsg(res *dns.Msg) error {
 	// We may get called multiple times (axfr for instance).
 	// Save the last message, but add the sizes.
 	r.Len += res.Len()
-	r.Msg = res
+	r.Lock()
+	if r.Msg == nil {
+		r.Msg = res
+	} else {
+		r.Msg.Answer = append(r.Msg.Answer, res.Answer...)
+		r.Msg.Extra = append(r.Msg.Extra, res.Extra...)
+	}
+	r.Unlock()
+	//r.Msg = res
 	return r.ResponseWriter.WriteMsg(res)
 }
 
@@ -51,4 +62,11 @@ func (r *Recorder) Write(buf []byte) (int, error) {
 		r.Len += n
 	}
 	return n, err
+}
+
+// ReadMsg returns the locally buffered dns.Msg
+func (r *Recorder) ReadMsg() *dns.Msg {
+	r.Lock()
+	defer r.Unlock()
+	return r.Msg
 }

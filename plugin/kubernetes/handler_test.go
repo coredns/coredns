@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
@@ -266,7 +267,7 @@ func (APIConnServeTest) Run()                                   { return }
 func (APIConnServeTest) Stop() error                            { return nil }
 func (APIConnServeTest) EpIndexReverse(string) []*api.Endpoints { return nil }
 func (APIConnServeTest) SvcIndexReverse(string) []*api.Service  { return nil }
-func (APIConnServeTest) Modified() int64                        { return 0 }
+func (APIConnServeTest) Modified() int64                        { return time.Now().Unix() }
 
 func (APIConnServeTest) PodIndex(string) []*api.Pod {
 	a := []*api.Pod{{
@@ -287,6 +288,7 @@ var svcIndex = map[string][]*api.Service{
 			Namespace: "testns",
 		},
 		Spec: api.ServiceSpec{
+			Type:      api.ServiceTypeClusterIP,
 			ClusterIP: "10.0.0.1",
 			Ports: []api.ServicePort{{
 				Name:     "http",
@@ -301,6 +303,7 @@ var svcIndex = map[string][]*api.Service{
 			Namespace: "testns",
 		},
 		Spec: api.ServiceSpec{
+			Type:      api.ServiceTypeClusterIP,
 			ClusterIP: "1234:abcd::1",
 			Ports: []api.ServicePort{{
 				Name:     "http",
@@ -315,6 +318,7 @@ var svcIndex = map[string][]*api.Service{
 			Namespace: "testns",
 		},
 		Spec: api.ServiceSpec{
+			Type:      api.ServiceTypeClusterIP,
 			ClusterIP: api.ClusterIPNone,
 		},
 	}},
