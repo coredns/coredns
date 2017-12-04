@@ -1,6 +1,7 @@
 package nsid
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -8,6 +9,10 @@ import (
 )
 
 func TestSetupNsid(t *testing.T) {
+	defaultNsid, err := os.Hostname()
+	if err != nil {
+		defaultNsid = "localhost"
+	}
 	tests := []struct {
 		input              string
 		shouldErr          bool
@@ -15,7 +20,7 @@ func TestSetupNsid(t *testing.T) {
 		expectedErrContent string // substring from the expected error. Empty for positive cases.
 	}{
 		{
-			`nsid`, false, "NSID", "",
+			`nsid`, false, defaultNsid, "",
 		},
 		{
 			`nsid "ps0"`, false, "ps0", "",

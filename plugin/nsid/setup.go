@@ -1,6 +1,7 @@
 package nsid
 
 import (
+	"os"
 	"strings"
 
 	"github.com/coredns/coredns/core/dnsserver"
@@ -30,7 +31,11 @@ func setup(c *caddy.Controller) error {
 }
 
 func nsidParse(c *caddy.Controller) (string, error) {
-	nsid := "NSID"
+	// Use hostname as the default
+	nsid, err := os.Hostname()
+	if err != nil {
+		nsid = "localhost"
+	}
 	for c.Next() {
 		args := c.RemainingArgs()
 		if len(args) == 0 {
