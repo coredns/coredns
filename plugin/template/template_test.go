@@ -14,7 +14,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func TestTemplateHandler(t *testing.T) {
+func TestHandler(t *testing.T) {
 	rcodeFallthrough := 3841 // reserved for private use, used to indicate a fallthrough
 	exampleDomainATemplate := template{
 		class:  dns.ClassINET,
@@ -205,12 +205,12 @@ func TestTemplateHandler(t *testing.T) {
 	ctx := context.TODO()
 
 	for _, tr := range tests {
-		handler := TemplateHandler{
+		handler := Handler{
 			Next:      test.NextHandler(rcodeFallthrough, nil),
 			Templates: []template{tr.tmpl},
 		}
 		req := &dns.Msg{
-			Question: []dns.Question{dns.Question{
+			Question: []dns.Question{{
 				Name:   tr.qname,
 				Qclass: tr.qclass,
 				Qtype:  tr.qtype,

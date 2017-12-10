@@ -13,7 +13,8 @@ import (
 	"github.com/miekg/dns"
 )
 
-type TemplateHandler struct {
+// Handler is a plugin handler that takes a query and templates a response.
+type Handler struct {
 	Next      plugin.Handler
 	Templates []template
 }
@@ -37,7 +38,8 @@ type templateData struct {
 	Question *dns.Question
 }
 
-func (h TemplateHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+// ServeDNS implements the plugin.Handler interface.
+func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	for _, template := range h.Templates {
 		data, match := template.match(r)
 		if !match {
@@ -55,18 +57,18 @@ func (h TemplateHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *
 		msg.Rcode = template.rcode
 
 		for _, answer := range template.answer {
-			if rr, err := executeRRTemplate(answer, data); err != nil {
+			rr, err := executeRRTemplate(answer, data)
+			if err != nil {
 				return dns.RcodeServerFailure, err
-			} else {
-				msg.Answer = append(msg.Answer, *rr)
 			}
+			msg.Answer = append(msg.Answer, *rr)
 		}
 		for _, additional := range template.additional {
-			if rr, err := executeRRTemplate(additional, data); err != nil {
+			rr, err := executeRRTemplate(additional, data)
+			if err != nil {
 				return dns.RcodeServerFailure, err
-			} else {
-				msg.Extra = append(msg.Extra, *rr)
 			}
+			msg.Extra = append(msg.Extra, *rr)
 		}
 
 		state.SizeAndDo(msg)
@@ -76,7 +78,8 @@ func (h TemplateHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *
 	return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 }
 
-func (h TemplateHandler) Name() string {
+// Name implements the plugin.Handler interface.
+func (h Handler) Name() string {
 	return "template"
 }
 
