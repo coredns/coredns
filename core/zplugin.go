@@ -4,6 +4,7 @@ package core
 
 import (
 	// Include all plugins.
+	_ "github.com/coredns/coredns/plugin/allow"
 	_ "github.com/coredns/coredns/plugin/auto"
 	_ "github.com/coredns/coredns/plugin/autopath"
 	_ "github.com/coredns/coredns/plugin/bind"
