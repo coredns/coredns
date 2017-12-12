@@ -7,7 +7,7 @@ import (
 	"github.com/mholt/caddy"
 )
 
-// TransferParse parses transfer statements: 'transfer to [address...]'.
+// Transfer parses transfer statements: 'transfer [to|from] [address...]'.
 func Transfer(c *caddy.Controller, secondary bool) (tos, froms []string, err error) {
 	if !c.NextArg() {
 		return nil, nil, c.ArgErr()
