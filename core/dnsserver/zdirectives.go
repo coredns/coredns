@@ -39,6 +39,7 @@ var directives = []string{
 	"etcd",
 	"proxy",
 	"erratic",
+	"distributed",
 	"whoami",
 	"startup",
 	"shutdown",
