@@ -1,4 +1,3 @@
-// Package dnstest allows for easy testing of DNS client against a test server.
 package dnstest
 
 import (
@@ -7,8 +6,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// MultiRecorder is a type of ResponseWriter that captures
-// all messages written to it.
+// MultiRecorder is a type of ResponseWriter that captures all messages written to it.
 type MultiRecorder struct {
 	Len   int
 	Msgs  []*dns.Msg
@@ -16,7 +14,7 @@ type MultiRecorder struct {
 	dns.ResponseWriter
 }
 
-// NewMultiRecorder makes and returns a new MultiRecorder,
+// NewMultiRecorder makes and returns a new MultiRecorder.
 func NewMultiRecorder(w dns.ResponseWriter) *MultiRecorder {
 	return &MultiRecorder{
 		ResponseWriter: w,
@@ -25,7 +23,7 @@ func NewMultiRecorder(w dns.ResponseWriter) *MultiRecorder {
 	}
 }
 
-// WriteMsg records the status code and calls the
+// WriteMsg records the message and its length written to it and call the
 // underlying ResponseWriter's WriteMsg method.
 func (r *MultiRecorder) WriteMsg(res *dns.Msg) error {
 	r.Len += res.Len()
@@ -33,7 +31,7 @@ func (r *MultiRecorder) WriteMsg(res *dns.Msg) error {
 	return r.ResponseWriter.WriteMsg(res)
 }
 
-// Write is a wrapper that records the length of the message that gets written.
+// Write is a wrapper that records the length of the messages that get written to it.
 func (r *MultiRecorder) Write(buf []byte) (int, error) {
 	n, err := r.ResponseWriter.Write(buf)
 	if err == nil {
