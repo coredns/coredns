@@ -6,6 +6,7 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
 )
@@ -39,18 +40,18 @@ func templateParse(c *caddy.Controller) (templates []template, err error) {
 			return nil, c.ArgErr()
 		}
 
-		class, found := dns.StringToClass[c.Val()]
-		if !found {
-			return nil, c.Errf("Invalid query class %s", c.Val())
+		class, ok := dns.StringToClass[c.Val()]
+		if !ok {
+			return nil, c.Errf("invalid query class %s", c.Val())
 		}
 		t.class = class
 
 		if !c.NextArg() {
 			return nil, c.ArgErr()
 		}
-		queryType, found := dns.StringToType[c.Val()]
-		if !found {
-			return nil, c.Errf("Invalid query rr type %s", c.Val())
+		queryType, ok := dns.StringToType[c.Val()]
+		if !ok {
+			return nil, c.Errf("invalid RR type %s", c.Val())
 		}
 		t.qtype = queryType
 
@@ -60,7 +61,7 @@ func templateParse(c *caddy.Controller) (templates []template, err error) {
 		for _, regex := range c.RemainingArgs() {
 			r, err := regexp.Compile(regex)
 			if err != nil {
-				return nil, c.Errf("Could not parse regex: %s, %v", regex, err)
+				return nil, c.Errf("could not parse regex: %s, %v", regex, err)
 			}
 			templatePrefix = templatePrefix + regex + " "
 			t.regex = append(t.regex, r)
@@ -83,7 +84,7 @@ func templateParse(c *caddy.Controller) (templates []template, err error) {
 				for _, answer := range args {
 					tmpl, err := gotmpl.New("answer").Parse(answer)
 					if err != nil {
-						return nil, c.Errf("Could not compile template: %s, %v", c.Val(), err)
+						return nil, c.Errf("could not compile template: %s, %v", c.Val(), err)
 					}
 					t.answer = append(t.answer, tmpl)
 				}
@@ -96,7 +97,7 @@ func templateParse(c *caddy.Controller) (templates []template, err error) {
 				for _, additional := range args {
 					tmpl, err := gotmpl.New("additional").Parse(additional)
 					if err != nil {
-						return nil, c.Errf("Could not compile template: %s, %v\n", c.Val(), err)
+						return nil, c.Errf("could not compile template: %s, %v\n", c.Val(), err)
 					}
 					t.additional = append(t.additional, tmpl)
 				}
@@ -105,9 +106,9 @@ func templateParse(c *caddy.Controller) (templates []template, err error) {
 				if !c.NextArg() {
 					return nil, c.ArgErr()
 				}
-				rcode, found := dns.StringToRcode[c.Val()]
-				if !found {
-					return nil, c.Errf("Unknown rcode %s", c.Val())
+				rcode, ok := dns.StringToRcode[c.Val()]
+				if !ok {
+					return nil, c.Errf("unknown rcode %s", c.Val())
 				}
 				t.rcode = rcode
 
@@ -117,7 +118,7 @@ func templateParse(c *caddy.Controller) (templates []template, err error) {
 		}
 
 		if len(t.answer) == 0 && len(t.additional) == 0 && t.rcode == dns.RcodeSuccess {
-			return nil, c.Errf("No answer section for template %s %sfound", t.qtype, templatePrefix)
+			return nil, c.Errf("no answer section for template %s %sfound", t.qtype, templatePrefix)
 		}
 
 		templates = append(templates, t)

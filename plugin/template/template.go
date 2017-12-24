@@ -10,6 +10,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
+
 	"github.com/miekg/dns"
 )
 
@@ -61,14 +62,14 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
-			msg.Answer = append(msg.Answer, *rr)
+			msg.Answer = append(msg.Answer, rr)
 		}
 		for _, additional := range template.additional {
 			rr, err := executeRRTemplate(additional, data)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
-			msg.Extra = append(msg.Extra, *rr)
+			msg.Extra = append(msg.Extra, rr)
 		}
 
 		state.SizeAndDo(msg)
@@ -83,56 +84,55 @@ func (h Handler) Name() string {
 	return "template"
 }
 
-func executeRRTemplate(template *gotmpl.Template, data templateData) (*dns.RR, error) {
+func executeRRTemplate(template *gotmpl.Template, data templateData) (dns.RR, error) {
 	buffer := &bytes.Buffer{}
 	err := template.Execute(buffer, data)
 	if err != nil {
 		return nil, err
 	}
-	rrDefinition := buffer.String()
-	rr, err := dns.NewRR(rrDefinition)
+	rr, err := dns.NewRR(buffer.String())
 	if err != nil {
-		return nil, err
+		return rr, err
 	}
-	return &rr, nil
+	return rr, nil
 }
 
 func (t template) match(r *dns.Msg) (templateData, bool) {
-	for _, q := range r.Question {
-		if t.class != dns.ClassANY && q.Qclass != dns.ClassANY && q.Qclass != t.class {
-			continue
-		}
-		if t.qtype != dns.TypeANY && q.Qtype != dns.TypeANY && q.Qtype != t.qtype {
-			continue
-		}
-		for _, regex := range t.regex {
-			if !regex.MatchString(q.Name) {
-				continue
-			}
+	q := r.Question[0]
+	data := templateData{}
 
-			data := templateData{}
-			data.Name = q.Name
-			data.Question = &q
-			data.Message = r
-			data.Class = dns.ClassToString[q.Qclass]
-			data.Type = dns.TypeToString[q.Qtype]
-
-			matches := regex.FindStringSubmatch(q.Name)
-			data.Match = make([]string, len(matches))
-			data.Group = make(map[string]string)
-			groupNames := regex.SubexpNames()
-			for i, m := range matches {
-				data.Match[i] = m
-				data.Group[strconv.Itoa(i)] = m
-			}
-			for i, m := range matches {
-				if len(groupNames[i]) > 0 {
-					data.Group[groupNames[i]] = m
-				}
-			}
-
-			return data, true
-		}
+	if t.class != dns.ClassANY && q.Qclass != dns.ClassANY && q.Qclass != t.class {
+		return data, false
 	}
-	return templateData{}, false
+	if t.qtype != dns.TypeANY && q.Qtype != dns.TypeANY && q.Qtype != t.qtype {
+		return data, false
+	}
+	for _, regex := range t.regex {
+		if !regex.MatchString(q.Name) {
+			continue
+		}
+
+		data.Name = q.Name
+		data.Question = &q
+		data.Message = r
+		data.Class = dns.ClassToString[q.Qclass]
+		data.Type = dns.TypeToString[q.Qtype]
+
+		matches := regex.FindStringSubmatch(q.Name)
+		data.Match = make([]string, len(matches))
+		data.Group = make(map[string]string)
+		groupNames := regex.SubexpNames()
+		for i, m := range matches {
+			data.Match[i] = m
+			data.Group[strconv.Itoa(i)] = m
+		}
+		for i, m := range matches {
+			if len(groupNames[i]) > 0 {
+				data.Group[groupNames[i]] = m
+			}
+		}
+
+		return data, true
+	}
+	return data, false
 }
