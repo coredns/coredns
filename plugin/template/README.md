@@ -1,30 +1,32 @@
 # template
 
-*template* allows for dynamic responses base on the incoming query.
+*template* allows for dynamic responses based on the incoming query.
 
 ## Syntax
 
 ~~~
 template CLASS TYPE [REGEX...] {
-    [answer section]
-    [answer section]
-    [additional section]
+    [answer RR]
+    [answer RR]
+    [additional RR]
     [...]
-    [rcode  responsecode]
+    [rcode responsecode]
 }
 ~~~
 
 * **CLASS** the query class (usually IN or ANY)
 * **TYPE** the query type (A, PTR, ...)
-* **REGEX** regex that are matched against the incoming query. Specifying no regex matches everything.
-* `section` A RFC 1035 style fragment build by a go template that contains the answer.
-* `resplonsecode` A response code (NXDOMAIN, SERVFAIL, ...)
+* **REGEX** [Go regexp](https://golang.org/pkg/regexp/) that are matched against the incoming query. Specifying no regex matches everything (default: `.*`). First matching regex wins.
+* `RR` A [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) style `<rr>` fragment build by a [Go template](https://golang.org/pkg/text/template/) that contains the answer.
+* `responsecode` A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `SUCCESS`.
 
 At least one answer section or rcode is needed.
 
+[Also see](#also-see) contains an additional reading list.
+
 ## Templates
 
-Each answer section is a full-featured go templated with the following predefined data
+Each resource record is a full-featured [Go template](https://golang.org/pkg/text/template/) with the following predefined data
 * `.Name` the query name, as a string
 * `.Class` the query class (usually `IN`)
 * `.Type` the RR type requested (e.g. `PTR`)
@@ -33,15 +35,15 @@ Each answer section is a full-featured go templated with the following predefine
 * `.Message` the incoming DNS query message.
 * `.Question` the matched question section.
 
-The output of the template must be a RFC 1035 style RR line (commonly refered to as a "zone file").
+The output of the template must be a [RFC 1035](https://tools.ietf.org/html/rfc1035) style resource record line (commonly refered to as a "zone file").
 
-**WARNING** there is a syntactical problem with go templates and caddy config files. Expressions like `{{$var}}` will be interpreted as a reference to an envorionment variable while `{{ $var }}` will work. Try to avoid template variables.
+**WARNING** there is a syntactical problem with Go templates and caddy config files. Expressions like `{{$var}}` will be interpreted as a reference to an environment variable by caddy/coredns while `{{ $var }}` will work. Try to avoid template variables. See [Bugs](#bugs)
 
 ## Examples
 
 ### Resolve .invalid as NXDOMAIN
 
-The `.invalid` domain is a reserved TLD to indicate non-existing domains.
+The `.invalid` domain is a reserved TLD (see [RFC-2606 Reserved Top Level DNS Names](https://tools.ietf.org/html/rfc2606#section-2)) to indicate invalid domains.
 
 ~~~ corefile
 . {
@@ -62,7 +64,9 @@ The `.invalid` domain is a reserved TLD to indicate non-existing domains.
 
 Imagine you run `example.com` with a datacenter `dc1.example.com`. The datacenter domain
 is part of the DNS search domain.
-However `something.example.com.dc1.example.com` would usually indicate a wrong autocomplete.
+However `something.example.com.dc1.example.com` would indicates a fully qualified
+domain name (`something.example.com`) that inadvertely has the default domain or search
+path (`dc1.example.com`) added.
 
 ~~~ corefile
 . {
@@ -97,7 +101,7 @@ However `something.example.com.dc1.example.com` would usually indicate a wrong a
 }
 ~~~
 
-An IP consists of 4 bytes, `a.b.c.d`. Named groups make it less error prone to reverse the
+An IPv4 address consists of 4 bytes, `a.b.c.d`. Named groups make it less error prone to reverse the
 ip in the PTR case. Try to use named groups to explain what your regex and template are doing.
 
 Note that the A record is actually a wildcard, any subdomain of the ip will resolve to the ip.
@@ -133,3 +137,17 @@ Named capture groups can be used to template one response for multiple patterns.
     }
 }
 ~~~
+
+# Also see
+
+- [Go regexp](https://golang.org/pkg/regexp/) for details about the regex implementation
+- [RE2 syntax reference](https://github.com/google/re2/wiki/Syntax) for details about the regex syntax
+- [RFC-1034](https://tools.ietf.org/html/rfc1034#section-3.6.1) and [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) for the resource record format
+- [Go template](https://golang.org/pkg/text/template/) for the template language reference
+
+# Bugs
+
+CoreDNS supports [caddyfile environment variables](https://caddyserver.com/docs/caddyfile#env)
+with notion of `{$ENV_VAR}`. This parser feature will break [Go template variables](https://golang.org/pkg/text/template/#hdr-Variables) notations like`{{$variable}}`.
+The equivalent notation `{{ $variable }}` will work.
+Try to avoid Go template variables in the context of this plugin.
