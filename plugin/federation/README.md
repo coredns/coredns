@@ -1,8 +1,12 @@
 # federation
 
-*federation* enables
+## Name
+
+*federation* - enables
 [federated](https://kubernetes.io/docs/tasks/federation/federation-service-discovery/) queries to be
 resolved via the kubernetes plugin.
+
+## Description
 
 Enabling *federation* without also having *kubernetes* is a noop.
 
@@ -11,6 +15,7 @@ Enabling *federation* without also having *kubernetes* is a noop.
 ~~~
 federation [ZONES...] {
     NAME DOMAIN
+}
 ~~~
 
 * Each **NAME** and **DOMAIN** defines federation membership. One entry for each. A duplicate
