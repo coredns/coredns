@@ -61,14 +61,14 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		msg.Rcode = template.rcode
 
 		for _, answer := range template.answer {
-			rr, err := executeRRTemplate(answer, data)
+			rr, err := executeRRTemplate("answer", answer, data)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
 			msg.Answer = append(msg.Answer, rr)
 		}
 		for _, additional := range template.additional {
-			rr, err := executeRRTemplate(additional, data)
+			rr, err := executeRRTemplate("additional", additional, data)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
@@ -87,16 +87,16 @@ func (h Handler) Name() string {
 	return "template"
 }
 
-func executeRRTemplate(template *gotmpl.Template, data templateData) (dns.RR, error) {
+func executeRRTemplate(section string, template *gotmpl.Template, data templateData) (dns.RR, error) {
 	buffer := &bytes.Buffer{}
 	err := template.Execute(buffer, data)
 	if err != nil {
-		TemplateFailureCount.WithLabelValues(data.Regex).Inc()
+		TemplateFailureCount.WithLabelValues(data.Regex, section, template.Tree.Root.String()).Inc()
 		return nil, err
 	}
 	rr, err := dns.NewRR(buffer.String())
 	if err != nil {
-		TemplateRRFailureCount.WithLabelValues(data.Regex).Inc()
+		TemplateRRFailureCount.WithLabelValues(data.Regex, section, template.Tree.Root.String()).Inc()
 		return rr, err
 	}
 	return rr, nil

@@ -21,13 +21,13 @@ var (
 		Subsystem: "template",
 		Name:      "template_failures_total",
 		Help:      "Counter of go template failures.",
-	}, []string{"regex"})
+	}, []string{"regex", "section", "template"})
 	TemplateRRFailureCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "template",
 		Name:      "rr_failures_total",
 		Help:      "Counter of mis-templated RRs.",
-	}, []string{"regex"})
+	}, []string{"regex", "section", "template"})
 )
 
 // OnStartupMetrics sets up the metrics on startup.
