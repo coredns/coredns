@@ -39,6 +39,15 @@ The output of the template must be a [RFC 1035](https://tools.ietf.org/html/rfc1
 
 **WARNING** there is a syntactical problem with Go templates and caddy config files. Expressions like `{{$var}}` will be interpreted as a reference to an environment variable by caddy/coredns while `{{ $var }}` will work. Try to avoid template variables. See [Bugs](#bugs)
 
+## Metrics
+
+If monitoring is enabled (via the *prometheus* directive) then the following metrics are exported:
+- `coredns_template_matches_total` the total number of matched requests.
+- `coredns_template_template_failures_total` the number of times the Go templating failed.
+- `coredns_template_rr_failures_total` the number of times the templated resource record was invalid and could not be parsed.
+
+Both failure cases indicate a problem with the template configuration.
+
 ## Examples
 
 ### Resolve .invalid as NXDOMAIN

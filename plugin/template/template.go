@@ -31,6 +31,7 @@ type template struct {
 
 type templateData struct {
 	Name     string
+	Regex    string
 	Match    []string
 	Group    map[string]string
 	Class    string
@@ -46,6 +47,8 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		if !match {
 			continue
 		}
+
+		TemplateMatchesCount.WithLabelValues(data.Regex).Inc()
 
 		if template.rcode == dns.RcodeServerFailure {
 			return template.rcode, nil
@@ -88,10 +91,12 @@ func executeRRTemplate(template *gotmpl.Template, data templateData) (dns.RR, er
 	buffer := &bytes.Buffer{}
 	err := template.Execute(buffer, data)
 	if err != nil {
+		TemplateFailureCount.WithLabelValues(data.Regex).Inc()
 		return nil, err
 	}
 	rr, err := dns.NewRR(buffer.String())
 	if err != nil {
+		TemplateRRFailureCount.WithLabelValues(data.Regex).Inc()
 		return rr, err
 	}
 	return rr, nil
@@ -112,6 +117,7 @@ func (t template) match(r *dns.Msg) (templateData, bool) {
 			continue
 		}
 
+		data.Regex = regex.String()
 		data.Name = q.Name
 		data.Question = &q
 		data.Message = r

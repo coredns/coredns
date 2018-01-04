@@ -24,6 +24,8 @@ func setupTemplate(c *caddy.Controller) error {
 		return plugin.Error("template", err)
 	}
 
+	c.OnStartup(OnStartupMetrics)
+
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		return Handler{Next: next, Templates: templates}
 	})
