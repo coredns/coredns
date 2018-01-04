@@ -5,7 +5,6 @@ import (
 	"context"
 	"regexp"
 	"strconv"
-
 	gotmpl "text/template"
 
 	"github.com/coredns/coredns/plugin"
