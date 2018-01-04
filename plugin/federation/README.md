@@ -2,11 +2,13 @@
 
 ## Name
 
-*federation* - enables
-[federated](https://kubernetes.io/docs/tasks/federation/federation-service-discovery/) queries to be
-resolved via the kubernetes plugin.
+*federation* - enables federated queries to be resolved via the kubernetes plugin.
 
 ## Description
+
+Enabling this plugin allows
+[Federated](https://kubernetes.io/docs/tasks/federation/federation-service-discovery/) queries to be
+resolved via the kubernetes plugin.
 
 Enabling *federation* without also having *kubernetes* is a noop.
 

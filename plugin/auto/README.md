@@ -2,8 +2,7 @@
 
 ## Name
 
-*auto* - enables serving zone data from an RFC 1035-style master file which is automatically picked
-up from disk.
+*auto* - enables serving zone data from an RFC 1035-style master file which is automatically picked up from disk.
 
 ## Description
 
