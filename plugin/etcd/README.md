@@ -47,10 +47,13 @@ etcd [ZONES...] {
   the proxy plugin. **ADDRESS** can be an IP address, and IP:port or a string pointing to a file
   that is structured as /etc/resolv.conf.
 * `tls` followed by:
-  * no arguments, if the server certificate is signed by a system-installed CA and no client cert is needed
-  * a single argument that is the CA PEM file, if the server cert is not signed by a system CA and no client cert is needed
-  * two arguments - path to cert PEM file, the path to private key PEM file - if the server certificate is signed by a system-installed CA and a client certificate is needed
-  * three arguments - path to cert PEM file, path to client private key PEM file, path to CA PEM file - if the server certificate is not signed by a system-installed CA and client certificate is needed
+
+    * no arguments, if the server certificate is signed by a system-installed CA and no client cert is needed
+    * a single argument that is the CA PEM file, if the server cert is not signed by a system CA and no client cert is needed
+    * two arguments - path to cert PEM file, the path to private key PEM file - if the server certificate is signed by a system-installed CA and a client certificate is needed
+    * three arguments - path to cert PEM file, path to client private key PEM file, path to CA PEM
+      file - if the server certificate is not signed by a system-installed CA and client certificate
+      is needed.
 
 ## Examples
 
