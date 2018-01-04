@@ -2,7 +2,7 @@
 
 ## Name
 
-*log* enables query logging to standard output.
+*log* - enables query logging to standard output.
 
 ## Description
 
