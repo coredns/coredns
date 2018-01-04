@@ -117,7 +117,10 @@ None \- No client authentication is used, and the system CAs are used to verify 
 .
 .TP
 \fBhttps_google\fR
-bootstrap \fBADDRESS\.\.\.\fR is used to (re\-)resolve \fBdns\.google\.com\fR to an address to connect to\. This happens every 300s\. If not specified the default is used: 8\.8\.8\.8:53/8\.8\.4\.4:53\. Note that \fBTO\fR is \fIignored\fR when \fBhttps_google\fR is used, as its upstream is defined as \fBdns\.google\.com\fR\.
+bootstrap \fBADDRESS\.\.\.\fR is used to (re\-)resolve \fBdns\.google\.com\fR\.
+.
+.IP
+This happens every 300s\. If not specified the default is used: 8\.8\.8\.8:53/8\.8\.4\.4:53\. Note that \fBTO\fR is \fIignored\fR when \fBhttps_google\fR is used, as its upstream is defined as \fBdns\.google\.com\fR\.
 .
 .SH "METRICS"
 If monitoring is enabled (via the \fIprometheus\fR directive) then the following metric is exported:

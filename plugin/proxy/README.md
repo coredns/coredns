@@ -94,8 +94,9 @@ payload over HTTPS). Note that with `https_google` the entire transport is encry
   [here](https://github.com/infobloxopen/coredns-grpc).
 
 `https_google`
-:   bootstrap **ADDRESS...** is used to (re-)resolve `dns.google.com` to an address to
-    connect to. This happens every 300s. If not specified the default is used: 8.8.8.8:53/8.8.4.4:53.
+:    bootstrap **ADDRESS...** is used to (re-)resolve `dns.google.com`.
+
+    This happens every 300s. If not specified the default is used: 8.8.8.8:53/8.8.4.4:53.
     Note that **TO** is *ignored* when `https_google` is used, as its upstream is defined as `dns.google.com`.
 
 
