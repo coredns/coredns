@@ -26,6 +26,7 @@ type template struct {
 	regex      []*regexp.Regexp
 	answer     []*gotmpl.Template
 	additional []*gotmpl.Template
+	authority  []*gotmpl.Template
 }
 
 type templateData struct {
@@ -72,6 +73,13 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 				return dns.RcodeServerFailure, err
 			}
 			msg.Extra = append(msg.Extra, rr)
+		}
+		for _, authority := range template.authority {
+			rr, err := executeRRTemplate("authority", authority, data)
+			if err != nil {
+				return dns.RcodeServerFailure, err
+			}
+			msg.Ns = append(msg.Ns, rr)
 		}
 
 		state.SizeAndDo(msg)

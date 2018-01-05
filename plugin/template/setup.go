@@ -104,6 +104,19 @@ func templateParse(c *caddy.Controller) (templates []template, err error) {
 					t.additional = append(t.additional, tmpl)
 				}
 
+			case "authority":
+				args := c.RemainingArgs()
+				if len(args) == 0 {
+					return nil, c.ArgErr()
+				}
+				for _, authority := range args {
+					tmpl, err := gotmpl.New("authority").Parse(authority)
+					if err != nil {
+						return nil, c.Errf("could not compile template: %s, %v\n", c.Val(), err)
+					}
+					t.authority = append(t.authority, tmpl)
+				}
+
 			case "rcode":
 				if !c.NextArg() {
 					return nil, c.ArgErr()

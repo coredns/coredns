@@ -138,15 +138,39 @@ Named capture groups can be used to template one response for multiple patterns.
 ### Resolve A and MX records for ip templates in .example
 
 ~~~ corefile
-. { 
+. {
     proxy . 8.8.8.8
-    
+
     template IN A ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$ {
       answer "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
     }
     template IN MX ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$ {
       answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
       additional "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
+    }
+}
+~~~
+
+### Adding authoritative nameservers to the response
+
+~~~ corefile
+. {
+    proxy . 8.8.8.8
+
+    template IN A ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$ {
+      answer "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
+      authority  "example. 60 IN NS ns0.example."
+      authority  "example. 60 IN NS ns1.example."
+      additional "ns0.example. 60 IN A 203.0.113.8"
+      additional "ns1.example. 60 IN A 198.51.100.8"
+    }
+    template IN MX ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$ {
+      answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
+      additional "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
+      authority  "example. 60 IN NS ns0.example."
+      authority  "example. 60 IN NS ns1.example."
+      additional "ns0.example. 60 IN A 203.0.113.8"
+      additional "ns1.example. 60 IN A 198.51.100.8"
     }
 }
 ~~~

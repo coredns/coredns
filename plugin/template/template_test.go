@@ -22,12 +22,20 @@ func TestHandler(t *testing.T) {
 		regex:  []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
 		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
 	}
+	exampleDomainANSTemplate := template{
+		class:      dns.ClassINET,
+		qtype:      dns.TypeA,
+		regex:      []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
+		answer:     []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
+		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("additional").Parse("ns0.example. IN A 203.0.113.8"))},
+		authority:  []*gotmpl.Template{gotmpl.Must(gotmpl.New("authority").Parse("example. IN NS ns0.example.com."))},
+	}
 	exampleDomainMXTemplate := template{
 		class:      dns.ClassINET,
 		qtype:      dns.TypeMX,
 		regex:      []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
 		answer:     []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 MX 10 {{ .Name }}"))},
-		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
+		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("additional").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
 	}
 	invalidDomainTemplate := template{
 		class:  dns.ClassANY,
@@ -59,6 +67,12 @@ func TestHandler(t *testing.T) {
 		qtype:      dns.TypeA,
 		regex:      []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
 		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }}"))},
+	}
+	nonRRAuthoritativeTemplate := template{
+		class:     dns.ClassINET,
+		qtype:     dns.TypeA,
+		regex:     []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
+		authority: []*gotmpl.Template{gotmpl.Must(gotmpl.New("authority").Parse("{{ .Name }}"))},
 	}
 
 	tests := []struct {
@@ -127,6 +141,18 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		{
+			name:         "NonRRAuthorityTemplate",
+			tmpl:         nonRRAuthoritativeTemplate,
+			qclass:       dns.ClassINET,
+			qtype:        dns.TypeANY,
+			qname:        "test.example.",
+			expectedCode: dns.RcodeServerFailure,
+			expectedErr:  `dns: not a TTL: "test.example." at line: 1:13`,
+			verifyResponse: func(r *dns.Msg) error {
+				return nil
+			},
+		},
+		{
 			name:   "ExampleDomainMatch",
 			tmpl:   exampleDomainATemplate,
 			qclass: dns.ClassINET,
@@ -163,6 +189,34 @@ func TestHandler(t *testing.T) {
 				}
 				if r.Extra[0].Header().Rrtype != dns.TypeA {
 					return fmt.Errorf("expected an additional A record, got %v", dns.TypeToString[r.Extra[0].Header().Rrtype])
+				}
+				return nil
+			},
+		},
+		{
+			name:   "ExampleDomainANSMatch",
+			tmpl:   exampleDomainANSTemplate,
+			qclass: dns.ClassINET,
+			qtype:  dns.TypeA,
+			qname:  "ip-10-95-12-8.example.",
+			verifyResponse: func(r *dns.Msg) error {
+				if len(r.Answer) != 1 {
+					return fmt.Errorf("expected 1 answer, got %v", len(r.Answer))
+				}
+				if r.Answer[0].Header().Rrtype != dns.TypeA {
+					return fmt.Errorf("expected an A record anwser, got %v", dns.TypeToString[r.Answer[0].Header().Rrtype])
+				}
+				if len(r.Extra) != 1 {
+					return fmt.Errorf("expected 1 extra record, got %v", len(r.Extra))
+				}
+				if r.Extra[0].Header().Rrtype != dns.TypeA {
+					return fmt.Errorf("expected an additional A record, got %v", dns.TypeToString[r.Extra[0].Header().Rrtype])
+				}
+				if len(r.Ns) != 1 {
+					return fmt.Errorf("expected 1 authoritative record, got %v", len(r.Extra))
+				}
+				if r.Ns[0].Header().Rrtype != dns.TypeNS {
+					return fmt.Errorf("expected an authoritative NS record, got %v", dns.TypeToString[r.Extra[0].Header().Rrtype])
 				}
 				return nil
 			},

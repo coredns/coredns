@@ -85,6 +85,12 @@ func TestSetupParse(t *testing.T) {
 			}`,
 			true,
 		},
+		{
+			`template ANY ANY {
+				authority "{{"
+			}`,
+			true,
+		},
 		// examples
 		{
 			`template ANY A ip-(?P<a>[0-9]*)-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]com {
@@ -102,11 +108,22 @@ func TestSetupParse(t *testing.T) {
 		{
 			`template IN A ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$ {
 				answer "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
-    			}
+			}
 			template IN MX ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$ {
 				answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
 				additional "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
 			}`,
+			false,
+		},
+		{
+			`template IN MX ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$ {
+					answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
+					additional "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
+					authority  "example. 60 IN NS ns0.example."
+					authority  "example. 60 IN NS ns1.example."
+					additional "ns0.example. 60 IN A 203.0.113.8"
+					additional "ns1.example. 60 IN A 198.51.100.8"
+				}`,
 			false,
 		},
 	}
