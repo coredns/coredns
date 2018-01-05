@@ -20,7 +20,7 @@ template CLASS TYPE [REGEX...] {
 
 * **CLASS** the query class (usually IN or ANY)
 * **TYPE** the query type (A, PTR, ...)
-* **REGEX** [Go regexp](https://golang.org/pkg/regexp/) that are matched against the incoming query. Specifying no regex matches everything (default: `.*`). First matching regex wins.
+* **REGEX** [Go regexp](https://golang.org/pkg/regexp/) that are matched against the incoming question name. Specifying no regex matches everything (default: `.*`). First matching regex wins.
 * `RR` A [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) style `<rr>` fragment build by a [Go template](https://golang.org/pkg/text/template/) that contains the answer.
 * `responsecode` A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `SUCCESS`.
 
