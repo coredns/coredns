@@ -31,7 +31,7 @@ Each resource record is a full-featured [Go template](https://golang.org/pkg/tex
 * `.Class` the query class (usually `IN`)
 * `.Type` the RR type requested (e.g. `PTR`)
 * `.Match` an array of all matches. `index .Match 0` refers to the whole match.
-* `.Group` a map fo the named capture groups.
+* `.Group` a map of the named capture groups.
 * `.Message` the incoming DNS query message.
 * `.Question` the matched question section.
 
