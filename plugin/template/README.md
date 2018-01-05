@@ -1,6 +1,10 @@
 # template
 
-*template* allows for dynamic responses based on the incoming query.
+*template* - allows for dynamic responses based on the incoming query.
+
+## Description
+
+The *template* plugin allows you to dynamically repond to queries by just writing a (Go) template.
 
 ## Syntax
 
