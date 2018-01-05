@@ -41,7 +41,7 @@ Each resource record is a full-featured [Go template](https://golang.org/pkg/tex
 
 The output of the template must be a [RFC 1035](https://tools.ietf.org/html/rfc1035) style resource record line (commonly refered to as a "zone file").
 
-**WARNING** there is a syntactical problem with Go templates and caddy config files. Expressions like `{{$var}}` will be interpreted as a reference to an environment variable by caddy/coredns while `{{ $var }}` will work. Try to avoid template variables. See [Bugs](#bugs)
+**WARNING** there is a syntactical problem with Go templates and caddy config files. Expressions like `{{$var}}` will be interpreted as a reference to an environment variable by caddy/coredns while `{{ $var }}` will work. Try to avoid template variables. See [Bugs](#bugs).
 
 ## Metrics
 
