@@ -42,8 +42,10 @@ type templateData struct {
 
 // ServeDNS implements the plugin.Handler interface.
 func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	state := request.Request{W: w, Req: r}
+
 	for _, template := range h.Templates {
-		data, match := template.match(r)
+		data, match := template.match(state)
 		if !match {
 			continue
 		}
@@ -55,7 +57,6 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}
 
 		msg := new(dns.Msg)
-		state := request.Request{W: w, Req: r}
 		msg.SetReply(r)
 		msg.Authoritative, msg.RecursionAvailable, msg.Compress = true, true, true
 		msg.Rcode = template.rcode
@@ -109,8 +110,8 @@ func executeRRTemplate(section string, template *gotmpl.Template, data templateD
 	return rr, nil
 }
 
-func (t template) match(r *dns.Msg) (templateData, bool) {
-	q := r.Question[0]
+func (t template) match(state request.Request) (templateData, bool) {
+	q := state.Req.Question[0]
 	data := templateData{}
 
 	if t.class != dns.ClassANY && q.Qclass != dns.ClassANY && q.Qclass != t.class {
@@ -120,18 +121,18 @@ func (t template) match(r *dns.Msg) (templateData, bool) {
 		return data, false
 	}
 	for _, regex := range t.regex {
-		if !regex.MatchString(q.Name) {
+		if !regex.MatchString(state.Name()) {
 			continue
 		}
 
 		data.Regex = regex.String()
-		data.Name = q.Name
+		data.Name = state.Name()
 		data.Question = &q
-		data.Message = r
+		data.Message = state.Req
 		data.Class = dns.ClassToString[q.Qclass]
 		data.Type = dns.TypeToString[q.Qtype]
 
-		matches := regex.FindStringSubmatch(q.Name)
+		matches := regex.FindStringSubmatch(state.Name())
 		data.Match = make([]string, len(matches))
 		data.Group = make(map[string]string)
 		groupNames := regex.SubexpNames()
