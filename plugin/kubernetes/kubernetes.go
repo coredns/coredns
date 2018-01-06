@@ -317,11 +317,8 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 		ip = strings.Replace(podname, "-", ":", -1)
 	}
 
-	if k.podMode == podModeInsecure {
-		if !wildcard(namespace) && !k.namespace(namespace) { // no wildcard, but namespace does not exist
-			return nil, errNoItems
-		}
-		return []msg.Service{{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip, TTL: k.ttl}}, err
+	if !wildcard(namespace) && !k.namespace(namespace) { // no wildcard, but namespace does not exist
+		return nil, errNoItems
 	}
 
 	err = errNoItems
@@ -332,10 +329,9 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 		}
 	}
 
-	// PodModeVerified
 	for _, p := range k.APIConn.PodIndex(ip) {
-		// If namespace has a wildcard, filter results against Corefile namespace list.
-		if wildcard(namespace) && !k.namespaceExposed(p.Namespace) {
+		// If namespace has a wildcard, filter results against Corefile namespace list, but only in verified mode.
+		if k.podMode == podModeVerified && wildcard(namespace) && !k.namespaceExposed(p.Namespace) {
 			continue
 		}
 
