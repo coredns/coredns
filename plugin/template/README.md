@@ -13,6 +13,7 @@ template CLASS TYPE [REGEX...] {
     [answer RR]
     [answer RR]
     [additional RR]
+    [authority RR]
     [...]
     [rcode responsecode]
 }
