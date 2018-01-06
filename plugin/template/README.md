@@ -47,9 +47,9 @@ The output of the template must be a [RFC 1035](https://tools.ietf.org/html/rfc1
 ## Metrics
 
 If monitoring is enabled (via the *prometheus* directive) then the following metrics are exported:
-- `coredns_template_matches_total` the total number of matched requests.
-- `coredns_template_template_failures_total` the number of times the Go templating failed.
-- `coredns_template_rr_failures_total` the number of times the templated resource record was invalid and could not be parsed.
+- `coredns_template_matches_total{regex}` the total number of matched requests by regex.
+- `coredns_template_template_failures_total{regex,section,template}` the number of times the Go templating failed. Regex, section and template label values can be used to map the error back to the config file.
+- `coredns_template_rr_failures_total{regex,section,template}` the number of times the templated resource record was invalid and could not be parsed. Regex, section and template label values can be used to map the error back to the config file.
 
 Both failure cases indicate a problem with the template configuration.
 
