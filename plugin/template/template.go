@@ -15,14 +15,17 @@ import (
 
 // Handler is a plugin handler that takes a query and templates a response.
 type Handler struct {
+	Zones       []string
+	Fallthrough bool
+	Class       uint16
+	Qtype       uint16
+
 	Next      plugin.Handler
 	Templates []template
 }
 
 type template struct {
 	rcode      int
-	class      uint16
-	qtype      uint16
 	regex      []*regexp.Regexp
 	answer     []*gotmpl.Template
 	additional []*gotmpl.Template
@@ -30,6 +33,7 @@ type template struct {
 }
 
 type templateData struct {
+	Zone     string
 	Name     string
 	Regex    string
 	Match    []string
@@ -44,8 +48,22 @@ type templateData struct {
 func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
+	zone := plugin.Zones(h.Zones).Matches(state.Name())
+	if zone == "" {
+		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+	}
+
+	q := state.Req.Question[0]
+
+	if h.Class != dns.ClassANY && q.Qclass != dns.ClassANY && q.Qclass != h.Class {
+		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+	}
+	if h.Qtype != dns.TypeANY && q.Qtype != dns.TypeANY && q.Qtype != h.Qtype {
+		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+	}
+
 	for _, template := range h.Templates {
-		data, match := template.match(state)
+		data, match := template.match(state, zone)
 		if !match {
 			continue
 		}
@@ -87,7 +105,12 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		w.WriteMsg(msg)
 		return template.rcode, nil
 	}
-	return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+
+	if h.Fallthrough {
+		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+	}
+
+	return dns.RcodeNameError, nil
 }
 
 // Name implements the plugin.Handler interface.
@@ -108,21 +131,16 @@ func executeRRTemplate(section string, template *gotmpl.Template, data templateD
 	return rr, nil
 }
 
-func (t template) match(state request.Request) (templateData, bool) {
+func (t template) match(state request.Request, zone string) (templateData, bool) {
 	q := state.Req.Question[0]
 	data := templateData{}
 
-	if t.class != dns.ClassANY && q.Qclass != dns.ClassANY && q.Qclass != t.class {
-		return data, false
-	}
-	if t.qtype != dns.TypeANY && q.Qtype != dns.TypeANY && q.Qtype != t.qtype {
-		return data, false
-	}
 	for _, regex := range t.regex {
 		if !regex.MatchString(state.Name()) {
 			continue
 		}
 
+		data.Zone = zone
 		data.Regex = regex.String()
 		data.Name = state.Name()
 		data.Question = &q

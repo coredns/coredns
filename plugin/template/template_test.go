@@ -17,60 +17,42 @@ import (
 func TestHandler(t *testing.T) {
 	rcodeFallthrough := 3841 // reserved for private use, used to indicate a fallthrough
 	exampleDomainATemplate := template{
-		class:  dns.ClassINET,
-		qtype:  dns.TypeA,
 		regex:  []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
 		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
 	}
 	exampleDomainANSTemplate := template{
-		class:      dns.ClassINET,
-		qtype:      dns.TypeA,
 		regex:      []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
 		answer:     []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
 		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("additional").Parse("ns0.example. IN A 203.0.113.8"))},
 		authority:  []*gotmpl.Template{gotmpl.Must(gotmpl.New("authority").Parse("example. IN NS ns0.example.com."))},
 	}
 	exampleDomainMXTemplate := template{
-		class:      dns.ClassINET,
-		qtype:      dns.TypeMX,
 		regex:      []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
 		answer:     []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 MX 10 {{ .Name }}"))},
 		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("additional").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
 	}
 	invalidDomainTemplate := template{
-		class:  dns.ClassANY,
-		qtype:  dns.TypeANY,
 		regex:  []*regexp.Regexp{regexp.MustCompile("[.]invalid[.]$")},
 		rcode:  dns.RcodeNameError,
 		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("invalid. 60 {{ .Class }} SOA a.invalid. b.invalid. (1 60 60 60 60)"))},
 	}
 	rcodeServfailTemplate := template{
-		class: dns.ClassANY,
-		qtype: dns.TypeANY,
 		regex: []*regexp.Regexp{regexp.MustCompile(".*")},
 		rcode: dns.RcodeServerFailure,
 	}
 	brokenTemplate := template{
-		class:  dns.ClassINET,
-		qtype:  dns.TypeA,
 		regex:  []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
 		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN TXT \"{{ index .Match 2 }}\""))},
 	}
 	nonRRTemplate := template{
-		class:  dns.ClassINET,
-		qtype:  dns.TypeA,
 		regex:  []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
 		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }}"))},
 	}
 	nonRRAdditionalTemplate := template{
-		class:      dns.ClassINET,
-		qtype:      dns.TypeA,
 		regex:      []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
 		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }}"))},
 	}
 	nonRRAuthoritativeTemplate := template{
-		class:     dns.ClassINET,
-		qtype:     dns.TypeA,
 		regex:     []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
 		authority: []*gotmpl.Template{gotmpl.Must(gotmpl.New("authority").Parse("{{ .Name }}"))},
 	}
@@ -222,22 +204,6 @@ func TestHandler(t *testing.T) {
 			},
 		},
 		{
-			name:         "ExampleDomainMismatchType",
-			tmpl:         exampleDomainATemplate,
-			qclass:       dns.ClassINET,
-			qtype:        dns.TypeMX,
-			qname:        "ip-10-95-12-8.example.",
-			expectedCode: rcodeFallthrough,
-		},
-		{
-			name:         "ExampleDomainMismatchClass",
-			tmpl:         exampleDomainATemplate,
-			qclass:       dns.ClassCHAOS,
-			qtype:        dns.TypeA,
-			qname:        "ip-10-95-12-8.example.",
-			expectedCode: rcodeFallthrough,
-		},
-		{
 			name:         "ExampleInvalidNXDOMAIN",
 			tmpl:         invalidDomainTemplate,
 			qclass:       dns.ClassINET,
@@ -260,8 +226,12 @@ func TestHandler(t *testing.T) {
 
 	for _, tr := range tests {
 		handler := Handler{
-			Next:      test.NextHandler(rcodeFallthrough, nil),
-			Templates: []template{tr.tmpl},
+			Next:        test.NextHandler(rcodeFallthrough, nil),
+			Class:       tr.qclass,
+			Qtype:       tr.qtype,
+			Zones:       []string{"."},
+			Fallthrough: true,
+			Templates:   []template{tr.tmpl},
 		}
 		req := &dns.Msg{
 			Question: []dns.Question{{
