@@ -59,7 +59,11 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 
 		handler.Zones = c.RemainingArgs()
 		if len(handler.Zones) == 0 {
-			handler.Zones = []string{"."}
+			handler.Zones = make([]string, len(c.ServerBlockKeys))
+			copy(handler.Zones, c.ServerBlockKeys)
+		}
+		for i, str := range handler.Zones {
+			handler.Zones[i] = plugin.Host(str).Normalize()
 		}
 
 		t := template{}
