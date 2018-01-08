@@ -96,6 +96,7 @@ func TestSetupParse(t *testing.T) {
 			`template ANY A example.com. {
 				match ip-(?P<a>[0-9]*)-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]com
 				answer "{{ .Name }} A {{ .Group.a }}.{{ .Group.b }}.{{ .Group.c }}.{{ .Grup.d }}."
+				fallthrough
 			}`,
 			false,
 		},
@@ -104,6 +105,7 @@ func TestSetupParse(t *testing.T) {
 				match "[.](example[.]com[.]dc1[.]example[.]com[.])$"
 				rcode NXDOMAIN
 				answer "{{ index .Match 1 }} 60 IN SOA a.{{ index .Match 1 }} b.{{ index .Match 1 }} (1 60 60 60 60)"
+				fallthrough example.com.
 			}`,
 			false,
 		},
