@@ -41,14 +41,19 @@ func setup(c *caddy.Controller) error {
 				x.MustRegister(cacheCapacity)
 				x.MustRegister(cacheHits)
 				x.MustRegister(cacheMisses)
+				x.MustRegister(cachePrefetches)
 			}
 		})
 		return nil
 	})
 
-	// Export the capacity for the metrics. This only happens once, because this is a re-load change only.
+	// Initialize all counters and gauges.
+	cacheSize.WithLabelValues(Success)
+	cacheSize.WithLabelValues(Denial)
 	cacheCapacity.WithLabelValues(Success).Set(float64(ca.pcap))
 	cacheCapacity.WithLabelValues(Denial).Set(float64(ca.ncap))
+	cacheHits.WithLabelValues(Success)
+	cacheHits.WithLabelValues(Denial)
 
 	return nil
 }
