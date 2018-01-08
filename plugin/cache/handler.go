@@ -41,16 +41,18 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 			threshold := int(math.Ceil(float64(c.percentage) / 100 * float64(i.origTTL)))
 			if i.Freq.Hits() >= c.prefetch && ttl <= threshold {
-				cachePrefetches.Inc()
-				// When prefetching we loose the item i, and with it the frequency
-				// that we've gathered sofar. See we copy the frequencies info back
-				// into the new item that was stored in the cache.
-				prr := &ResponseWriter{ResponseWriter: w, Cache: c, prefetch: true}
-				plugin.NextOrFailure(c.Name(), c.Next, ctx, prr, r)
+				go func() {
+					cachePrefetches.Inc()
+					// When prefetching we loose the item i, and with it the frequency
+					// that we've gathered sofar. See we copy the frequencies info back
+					// into the new item that was stored in the cache.
+					prr := &ResponseWriter{ResponseWriter: w, Cache: c, prefetch: true}
+					plugin.NextOrFailure(c.Name(), c.Next, ctx, prr, r)
 
-				if i1 := c.exists(qname, qtype, do); i1 != nil {
-					i1.Freq.Reset(now, i.Freq.Hits())
-				}
+					if i1 := c.exists(qname, qtype, do); i1 != nil {
+						i1.Freq.Reset(now, i.Freq.Hits())
+					}
+				}()
 			}
 		}
 		return dns.RcodeSuccess, nil
