@@ -8,6 +8,7 @@ import (
 	gotmpl "text/template"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -15,10 +16,10 @@ import (
 
 // Handler is a plugin handler that takes a query and templates a response.
 type Handler struct {
-	Zones       []string
-	Fallthrough bool
-	Class       uint16
-	Qtype       uint16
+	Zones []string
+	Class uint16
+	Qtype uint16
+	Fall  fall.F
 
 	Next      plugin.Handler
 	Templates []template
@@ -106,7 +107,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		return template.rcode, nil
 	}
 
-	if h.Fallthrough {
+	if h.Fall.Through(state.Name()) {
 		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 	}
 

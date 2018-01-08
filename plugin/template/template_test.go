@@ -226,13 +226,13 @@ func TestHandler(t *testing.T) {
 
 	for _, tr := range tests {
 		handler := Handler{
-			Next:        test.NextHandler(rcodeFallthrough, nil),
-			Class:       tr.qclass,
-			Qtype:       tr.qtype,
-			Zones:       []string{"."},
-			Fallthrough: true,
-			Templates:   []template{tr.tmpl},
+			Next:      test.NextHandler(rcodeFallthrough, nil),
+			Class:     tr.qclass,
+			Qtype:     tr.qtype,
+			Zones:     []string{"."},
+			Templates: []template{tr.tmpl},
 		}
+		handler.Fall.SetZonesFromArgs([]string{})
 		req := &dns.Msg{
 			Question: []dns.Question{{
 				Name:   tr.qname,
