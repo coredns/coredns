@@ -16,18 +16,19 @@ template CLASS TYPE [ZONE...] {
     [authority RR]
     [...]
     [rcode responsecode]
-    [fallthrough]
+    [fallthrough [fallthrough zone...]]
 }
 ~~~
 
 * **CLASS** the query class (usually IN or ANY).
 * **TYPE** the query type (A, PTR, ... can be ANY to match all types).
-* **ZONE** the zone scope(s) for this template. Defaults to '.' (everything).
+* **ZONE** the zone scope(s) for this template. Defaults to the server zones.
 * **REGEX** [Go regexp](https://golang.org/pkg/regexp/) that are matched against the incoming question name. Specifying no regex matches everything (default: `.*`). First matching regex wins.
 * `answer|additional|authority` **RR** A [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) style resource record fragment
   build by a [Go template](https://golang.org/pkg/text/template/) that contains the reply.
 * `rcode` **CODE** A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `SUCCESS`.
 * `fallthrough` Continue with the next plugin if the zone matched but no regex did not match.
+* `fallthrough zone` One or more zones that may fall through to other plugins. Defaults to all zones of the template.
 
 At least one `answer` or `rcode` directive is needed (e.g. `rcode NXDOMAIN`).
 
@@ -132,11 +133,7 @@ A more verbose regex based equivalent would be
 }
 ~~~
 
-<<<<<<< HEAD
-Using numbered matches works well if there are a few groups (1-4).
-=======
 The regex based version can do more complex matching/templating while zone based templating is easier to read and use.
->>>>>>> 60626052... Align plugin/template usage and syntax with other plugins
 
 ### Resolve A/PTR for .example
 

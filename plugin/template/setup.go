@@ -46,7 +46,6 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 		if !ok {
 			return handler, c.Errf("invalid query class %s", c.Val())
 		}
-		handler.Class = class
 
 		if !c.NextArg() {
 			return handler, c.ArgErr()
@@ -55,18 +54,18 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 		if !ok {
 			return handler, c.Errf("invalid RR class %s", c.Val())
 		}
-		handler.Qtype = qtype
 
-		handler.Zones = c.RemainingArgs()
-		if len(handler.Zones) == 0 {
-			handler.Zones = make([]string, len(c.ServerBlockKeys))
-			copy(handler.Zones, c.ServerBlockKeys)
+		zones := c.RemainingArgs()
+		if len(zones) == 0 {
+			zones = make([]string, len(c.ServerBlockKeys))
+			copy(zones, c.ServerBlockKeys)
 		}
-		for i, str := range handler.Zones {
-			handler.Zones[i] = plugin.Host(str).Normalize()
+		for i, str := range zones {
+			zones[i] = plugin.Host(str).Normalize()
 		}
+		handler.Zones = append(handler.Zones, zones...)
 
-		t := template{}
+		t := template{qclass: class, qtype: qtype, zones: zones}
 
 		t.regex = make([]*regexp.Regexp, 0)
 		templatePrefix := ""
@@ -139,7 +138,12 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 				t.rcode = rcode
 
 			case "fallthrough":
-				handler.Fall.SetZonesFromArgs(c.RemainingArgs())
+				args := c.RemainingArgs()
+				if len(args) > 0 {
+					t.fthrough.SetZonesFromArgs(c.RemainingArgs())
+				} else {
+					t.fthrough.SetZonesFromArgs(zones)
+				}
 
 			default:
 				return handler, c.ArgErr()
