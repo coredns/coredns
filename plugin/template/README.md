@@ -87,7 +87,7 @@ The `.invalid` domain is a reserved TLD (see [RFC-2606 Reserved Top Level DNS Na
 . {
     proxy . 8.8.8.8
 
-    template ANY ANY invalid. {
+    template ANY ANY invalid {
       rcode NXDOMAIN
       answer "invalid. 60 {{ .Class }} SOA a.invalid. b.invalid. (1 60 60 60 60)"
     }
@@ -111,7 +111,7 @@ path (`dc1.example.com`) added.
 . {
     proxy . 8.8.8.8
 
-    template IN ANY example.com.dc1.example.com. {
+    template IN ANY example.com.dc1.example.com {
       rcode NXDOMAIN
       answer "{{ .Zone }} 60 IN SOA a.{{ .Zone }} b.{{ .Zone }} (1 60 60 60 60)"
     }
@@ -124,7 +124,7 @@ A more verbose regex based equivalent would be
 . {
     proxy . 8.8.8.8
 
-    template IN ANY example.com. {
+    template IN ANY example.com {
       match "(example.com.dc1.example.com)$"
       rcode NXDOMAIN
       answer "{{ index .Match 1 }} 60 IN SOA a.{{ index .Match 1 }} b.{{ index .Match 1 }} (1 60 60 60 60)"
@@ -143,7 +143,7 @@ The regex based version can do more complex matching/templating while zone based
 
     # ip-a-b-c-d.example.com A a.b.c.d
 
-    template IN A example. {
+    template IN A example {
       match (^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$
       answer "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
       fallthrough
@@ -173,7 +173,7 @@ Fallthrough is needed for mixed domains where only some responses are templated.
 . {
     proxy . 8.8.8.8
 
-    template IN A example. {
+    template IN A example {
       match "^ip-(?P<a>10)-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]dc[.]example[.]$"
       match "^(?P<a>[0-9]*)[.](?P<b>[0-9]*)[.](?P<c>[0-9]*)[.](?P<d>[0-9]*)[.]ext[.]example[.]$"
       answer "{{ .Name }} 60 IN A {{ .Group.a}}.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
@@ -190,12 +190,12 @@ Named capture groups can be used to template one response for multiple patterns.
 . {
     proxy . 8.8.8.8
 
-    template IN A example. {
+    template IN A example {
       match ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$
       answer "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
       fallthrough
     }
-    template IN MX example. {
+    template IN MX example {
       match ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$
       answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
       additional "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
@@ -210,20 +210,24 @@ Named capture groups can be used to template one response for multiple patterns.
 . {
     proxy . 8.8.8.8
 
-    template IN A ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$ {
+    template IN A example {
+      match ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$
       answer "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
       authority  "example. 60 IN NS ns0.example."
       authority  "example. 60 IN NS ns1.example."
       additional "ns0.example. 60 IN A 203.0.113.8"
       additional "ns1.example. 60 IN A 198.51.100.8"
+      fallthrough
     }
-    template IN MX ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$ {
+    template IN MX example {
+      match ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$
       answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
       additional "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
       authority  "example. 60 IN NS ns0.example."
       authority  "example. 60 IN NS ns1.example."
       additional "ns0.example. 60 IN A 203.0.113.8"
       additional "ns1.example. 60 IN A 198.51.100.8"
+      fallthrough
     }
 }
 ~~~
