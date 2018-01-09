@@ -64,7 +64,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			continue
 		}
 
-		TemplateMatchesCount.WithLabelValues(data.Regex).Inc()
+		TemplateMatchesCount.WithLabelValues(data.Zone, data.Class, data.Type).Inc()
 
 		if template.rcode == dns.RcodeServerFailure {
 			return template.rcode, nil
@@ -112,12 +112,12 @@ func executeRRTemplate(section string, template *gotmpl.Template, data templateD
 	buffer := &bytes.Buffer{}
 	err := template.Execute(buffer, data)
 	if err != nil {
-		TemplateFailureCount.WithLabelValues(data.Regex, section, template.Tree.Root.String()).Inc()
+		TemplateFailureCount.WithLabelValues(data.Zone, data.Class, data.Type, section, template.Tree.Root.String()).Inc()
 		return nil, err
 	}
 	rr, err := dns.NewRR(buffer.String())
 	if err != nil {
-		TemplateRRFailureCount.WithLabelValues(data.Regex, section, template.Tree.Root.String()).Inc()
+		TemplateRRFailureCount.WithLabelValues(data.Zone, data.Class, data.Type, section, template.Tree.Root.String()).Inc()
 		return rr, err
 	}
 	return rr, nil
@@ -149,8 +149,16 @@ func (t template) match(state request.Request, zone string) (templateData, bool,
 		data.Name = state.Name()
 		data.Question = &q
 		data.Message = state.Req
-		data.Class = dns.ClassToString[q.Qclass]
-		data.Type = dns.TypeToString[q.Qtype]
+		if q.Qclass != dns.ClassANY {
+			data.Class = dns.ClassToString[q.Qclass]
+		} else {
+			data.Class = dns.ClassToString[t.qclass]
+		}
+		if q.Qtype != dns.TypeANY {
+			data.Type = dns.TypeToString[q.Qtype]
+		} else {
+			data.Type = dns.TypeToString[t.qtype]
+		}
 
 		matches := regex.FindStringSubmatch(state.Name())
 		data.Match = make([]string, len(matches))
