@@ -316,17 +316,17 @@ func TestMultiSection(t *testing.T) {
 			fallthrough
 		}
 		# Answer CH TXT *.coredns.invalid. / coredns.invalid.
-		template CH TXT coredns.invalid. {
+		template CH TXT coredns.invalid {
 			answer "{{ .Name }} 60 CH TXT \"test\""
 		}
 		# Anwser example. ip templates and fallthrough otherwise
-		template IN A example. {
+		template IN A example {
 			match ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$
 			answer "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
 			fallthrough
 		}
 		# Answer MX record requests for ip templates in example. and never fall through
-		template IN MX example. {
+		template IN MX example {
 			match ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$
 			answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
 			additional "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
