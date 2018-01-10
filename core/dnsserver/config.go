@@ -2,10 +2,12 @@ package dnsserver
 
 import (
 	"crypto/tls"
+	"log"
 
 	"github.com/coredns/coredns/plugin"
 
 	"github.com/mholt/caddy"
+	"github.com/miekg/dns"
 )
 
 // Config configuration for a single server.
@@ -62,4 +64,10 @@ func GetConfig(c *caddy.Controller) *Config {
 	// the configs.
 	ctx.saveConfig(c.Key, &Config{})
 	return GetConfig(c)
+}
+
+func init() {
+	if dns.Version.Major != 1 {
+		log.Fatalf("[PANIC]: coredns is built with an incompatible version (v%s) of github.com/miekg/dns", dns.Version)
+	}
 }
