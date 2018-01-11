@@ -42,6 +42,31 @@ func TestPrefetch(t *testing.T) {
 			},
 		},
 		{
+			qname:    "short.ttl.example.org.",
+			ttl:      5,
+			prefetch: 1,
+			verifications: []verification{
+				{
+					after:  0 * time.Second,
+					answer: "short.ttl.example.org. 5 IN A 127.0.0.1",
+					fetch:  true,
+				},
+				{
+					after:  1 * time.Second,
+					answer: "short.ttl.example.org. 4 IN A 127.0.0.1",
+				},
+				{
+					after:  4 * time.Second,
+					answer: "short.ttl.example.org. 1 IN A 127.0.0.1",
+					fetch:  true,
+				},
+				{
+					after:  5 * time.Second,
+					answer: "short.ttl.example.org. 4 IN A 127.0.0.2",
+				},
+			},
+		},
+		{
 			qname:    "no.prefetch.example.org.",
 			ttl:      30,
 			prefetch: 0,
