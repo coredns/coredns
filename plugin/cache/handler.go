@@ -25,11 +25,11 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	do := state.Do() // TODO(): might need more from OPT record? Like the actual bufsize?
 
-	now := time.Now().UTC()
+	now := c.now().UTC()
 
 	i, ttl := c.get(now, qname, qtype, do)
 	if i != nil && ttl > 0 {
-		resp := i.toMsg(r)
+		resp := i.toMsg(r, now)
 
 		state.SizeAndDo(resp)
 		resp, _ = state.Scrub(resp)
@@ -44,7 +44,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 			pct = int(float64(ttl) / float64(i.origTTL) * 100)
 		}
 
-		if c.prefetch > 0 && i.Freq.Hits() > c.prefetch && pct < c.percentage {
+		if c.prefetch > 0 && i.Freq.Hits() >= c.prefetch && pct < c.percentage {
 			cachePrefetches.Inc()
 			// When prefetching we loose the item i, and with it the frequency
 			// that we've gathered sofar. See we copy the frequencies info back
