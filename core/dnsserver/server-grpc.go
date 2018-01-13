@@ -8,7 +8,7 @@ import (
 
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/miekg/dns"
-	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
@@ -24,9 +24,34 @@ type ServergRPC struct {
 	listenAddr net.Addr
 }
 
+type listenerTLS struct {
+	net.Listener
+	innerListener net.Listener
+	config        *tls.Config
+}
+
+// Dup implemenents caddy.Duppablelistener interface
+func (l listenerTLS) Dup() (net.Listener, error) {
+	file, err := l.innerListener.(*net.TCPListener).File()
+	if err != nil {
+		return nil, err
+	}
+
+	ln, err := net.FileListener(file)
+	if err != nil {
+		return nil, err
+	}
+
+	err = file.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return listenerTLS{Listener: tls.NewListener(ln, l.config), innerListener: ln, config: l.config}, nil
+}
+
 // NewServergRPC returns a new CoreDNS GRPC server and compiles all plugin in to it.
 func NewServergRPC(addr string, group []*Config) (*ServergRPC, error) {
-
 	s, err := NewServer(addr, group)
 	if err != nil {
 		return nil, err
@@ -61,7 +86,6 @@ func (s *ServergRPC) ServePacket(p net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServergRPC) Listen() (net.Listener, error) {
-
 	// The *tls* plugin must make sure that multiple conflicting
 	// TLS configuration return an error: it can only be specified once.
 	tlsConfig := new(tls.Config)
@@ -78,7 +102,10 @@ func (s *ServergRPC) Listen() (net.Listener, error) {
 	if tlsConfig == nil {
 		l, err = net.Listen("tcp", s.Addr[len(TransportGRPC+"://"):])
 	} else {
-		l, err = tls.Listen("tcp", s.Addr[len(TransportGRPC+"://"):], tlsConfig)
+		var innerListener net.Listener
+		innerListener, err = net.Listen("tcp", s.Addr[len(TransportGRPC+"://"):])
+		tlsListener := tls.NewListener(innerListener, tlsConfig)
+		l = listenerTLS{Listener: tlsListener, innerListener: innerListener, config: tlsConfig}
 	}
 
 	if err != nil {

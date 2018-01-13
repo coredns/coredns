@@ -59,7 +59,10 @@ func (s *ServerTLS) Listen() (net.Listener, error) {
 	if tlsConfig == nil {
 		l, err = net.Listen("tcp", s.Addr[len(TransportTLS+"://"):])
 	} else {
-		l, err = tls.Listen("tcp", s.Addr[len(TransportTLS+"://"):], tlsConfig)
+		var innerListener net.Listener
+		innerListener, err = net.Listen("tcp", s.Addr[len(TransportGRPC+"://"):])
+		tlsListener := tls.NewListener(innerListener, tlsConfig)
+		l = listenerTLS{Listener: tlsListener, innerListener: innerListener}
 	}
 
 	if err != nil {
