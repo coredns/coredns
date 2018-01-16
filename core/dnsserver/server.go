@@ -301,7 +301,7 @@ func (s *Server) Tracer() ot.Tracer {
 }
 
 // DefaultErrorFunc responds to an DNS request with an error.
-func DefaultErrorFunc(w dns.ResponseWriter, r *dns.Msg, rc int) {
+var DefaultErrorFunc = func(w dns.ResponseWriter, r *dns.Msg, rc int) {
 	state := request.Request{W: w, Req: r}
 
 	answer := new(dns.Msg)
