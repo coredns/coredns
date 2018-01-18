@@ -20,6 +20,7 @@ type staticUpstream struct {
 	healthcheck.HealthCheck
 
 	IgnoredSubDomains []string
+	FallthroughRcodes map[int]struct{}
 	ex                Exchanger
 }
 
@@ -34,7 +35,8 @@ func NewStaticUpstreams(c *caddyfile.Dispenser) ([]Upstream, error) {
 				FailTimeout: 5 * time.Second,
 				MaxFails:    3,
 			},
-			ex: newDNSEx(),
+			FallthroughRcodes: make(map[int]struct{}),
+			ex:                newDNSEx(),
 		}
 
 		if !c.Args(&upstream.from) {
@@ -135,6 +137,23 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 			ignoredDomains[i] = plugin.Host(ignoredDomains[i]).Normalize()
 		}
 		u.IgnoredSubDomains = ignoredDomains
+	case "fallthrough":
+		fallthroughRcodes := c.RemainingArgs()
+		if len(fallthroughRcodes) == 0 {
+			return c.ArgErr()
+		}
+		for i := 0; i < len(fallthroughRcodes); i++ {
+			rcode := 0
+			switch fallthroughRcodes[i] {
+			case "SERVFAIL":
+				rcode = dns.RcodeServerFailure
+			case "REFUSED":
+				rcode = dns.RcodeRefused
+			default:
+				return c.ArgErr()
+			}
+			u.FallthroughRcodes[rcode] = struct{}{}
+		}
 	case "spray":
 		u.Spray = &healthcheck.Spray{}
 	case "protocol":
@@ -192,6 +211,13 @@ func (u *staticUpstream) IsAllowedDomain(name string) bool {
 		}
 	}
 	return true
+}
+
+func (u *staticUpstream) IsFallthroughRcode(rcode int) bool {
+	if _, ok := u.FallthroughRcodes[rcode]; ok {
+		return true
+	}
+	return false
 }
 
 func (u *staticUpstream) Exchanger() Exchanger { return u.ex }
