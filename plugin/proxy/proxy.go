@@ -46,6 +46,8 @@ type Upstream interface {
 	Select() *healthcheck.UpstreamHost
 	// Checks if subpdomain is not an ignored.
 	IsAllowedDomain(string) bool
+	// Checks if rcode is to be fallthrough.
+	IsFallthroughRcode(int) bool
 	// Exchanger returns the exchanger to be used for this upstream.
 	Exchanger() Exchanger
 	// Stops the upstream from proxying requests to shutdown goroutines cleanly.
@@ -100,6 +102,11 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			taperr := toDnstap(ctx, host.Name, upstream.Exchanger(), state, reply, start)
 
 			if backendErr == nil {
+				// Bypass fallthrough Rcode
+				if upstream.IsFallthroughRcode(reply.Rcode) {
+					return plugin.NextOrFailure(p.Name(), p.Next, ctx, w, r)
+				}
+
 				w.WriteMsg(reply)
 
 				RequestDuration.WithLabelValues(state.Proto(), upstream.Exchanger().Protocol(), familyToString(state.Family()), host.Name).Observe(time.Since(start).Seconds())

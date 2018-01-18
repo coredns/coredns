@@ -212,6 +212,20 @@ proxy . 8.8.8.8:53 {
 }`,
 			true,
 		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+    fallthrough SERVFAIL REFUSED
+}`,
+			false,
+		},
+		{
+			`
+proxy . 8.8.8.8:53 {
+    fallthrough SERVFAIL UNKNOWN REFUSED
+}`,
+			true,
+		},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputUpstreams)
