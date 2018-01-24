@@ -79,13 +79,12 @@ func TestLoadBalance(t *testing.T) {
 		},
 	}
 
-	rec := dnstest.NewRecorder(&test.ResponseWriter{})
-
-	for i, test := range tests {
+	for i, lbtest := range tests {
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		req := new(dns.Msg)
 		req.SetQuestion("region2.skydns.test.", dns.TypeSRV)
-		req.Answer = test.answer
-		req.Extra = test.extra
+		req.Answer = lbtest.answer
+		req.Extra = lbtest.extra
 
 		_, err := rm.ServeDNS(context.TODO(), rec, req)
 		if err != nil {
@@ -98,28 +97,28 @@ func TestLoadBalance(t *testing.T) {
 		if !sorted {
 			t.Errorf("Test %d: Expected CNAMEs, then AAAAs, then MX in Answer, but got mixed", i)
 		}
-		if cname != test.cnameAnswer {
-			t.Errorf("Test %d: Expected %d CNAMEs in Answer, but got %d", i, test.cnameAnswer, cname)
+		if cname != lbtest.cnameAnswer {
+			t.Errorf("Test %d: Expected %d CNAMEs in Answer, but got %d", i, lbtest.cnameAnswer, cname)
 		}
-		if address != test.addressAnswer {
-			t.Errorf("Test %d: Expected %d A/AAAAs in Answer, but got %d", i, test.addressAnswer, address)
+		if address != lbtest.addressAnswer {
+			t.Errorf("Test %d: Expected %d A/AAAAs in Answer, but got %d", i, lbtest.addressAnswer, address)
 		}
-		if mx != test.mxAnswer {
-			t.Errorf("Test %d: Expected %d MXs in Answer, but got %d", i, test.mxAnswer, mx)
+		if mx != lbtest.mxAnswer {
+			t.Errorf("Test %d: Expected %d MXs in Answer, but got %d", i, lbtest.mxAnswer, mx)
 		}
 
 		cname, address, mx, sorted = countRecords(rec.Msg.Extra)
 		if !sorted {
 			t.Errorf("Test %d: Expected CNAMEs, then AAAAs, then MX in Extra, but got mixed", i)
 		}
-		if cname != test.cnameExtra {
-			t.Errorf("Test %d: Expected %d CNAMEs in Extra, but got %d", i, test.cnameAnswer, cname)
+		if cname != lbtest.cnameExtra {
+			t.Errorf("Test %d: Expected %d CNAMEs in Extra, but got %d", i, lbtest.cnameAnswer, cname)
 		}
-		if address != test.addressExtra {
-			t.Errorf("Test %d: Expected %d A/AAAAs in Extra, but got %d", i, test.addressAnswer, address)
+		if address != lbtest.addressExtra {
+			t.Errorf("Test %d: Expected %d A/AAAAs in Extra, but got %d", i, lbtest.addressAnswer, address)
 		}
-		if mx != test.mxExtra {
-			t.Errorf("Test %d: Expected %d MXs in Extra, but got %d", i, test.mxAnswer, mx)
+		if mx != lbtest.mxExtra {
+			t.Errorf("Test %d: Expected %d MXs in Extra, but got %d", i, lbtest.mxAnswer, mx)
 		}
 	}
 }
