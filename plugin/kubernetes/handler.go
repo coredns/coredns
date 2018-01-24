@@ -63,27 +63,29 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		records = append(records, records[0]) // add closing SOA to the end
 
 		ch := make(chan *dns.Envelope)
-		defer close(ch)
 		tr := new(dns.Transfer)
-		go tr.Out(w, r, ch)
 
-		j, l := 0, 0
+		go func(ch chan *dns.Envelope) {
+			j, l := 0, 0
 
-		log.Printf("[INFO] Outgoing transfer of %d records of zone %s to %s started", len(records), zone, state.IP())
-		for i, r := range records {
-			l += dns.Len(r)
-			if l > transferLength {
-				ch <- &dns.Envelope{RR: records[j:i]}
-				l = 0
-				j = i
+			log.Printf("[INFO] Outgoing transfer of %d records of zone %s to %s started", len(records), zone, state.IP())
+			for i, r := range records {
+				l += dns.Len(r)
+				if l > transferLength {
+					ch <- &dns.Envelope{RR: records[j:i]}
+					l = 0
+					j = i
+				}
 			}
-		}
-		if j < len(records) {
-			ch <- &dns.Envelope{RR: records[j:]}
-		}
+			if j < len(records) {
+				ch <- &dns.Envelope{RR: records[j:]}
+			}
+			close(ch)
+		}(ch)
 
+		tr.Out(w, r, ch)
 		w.Hijack()
-		// w.Close() // Client closes connection
+		//w.Close() // Client closes connection
 		return dns.RcodeSuccess, nil
 
 	default:

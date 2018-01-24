@@ -40,8 +40,6 @@ func NewRecorder(w dns.ResponseWriter) *Recorder {
 // underlying ResponseWriter's WriteMsg method.
 func (r *Recorder) WriteMsg(res *dns.Msg) error {
 	r.Rcode = res.Rcode
-	// We may get called multiple times (axfr for instance).
-	// Save the last message, but add the sizes.
 	r.Len += res.Len()
 	r.Lock()
 	if r.Msg == nil {
@@ -51,12 +49,13 @@ func (r *Recorder) WriteMsg(res *dns.Msg) error {
 		r.Msg.Extra = append(r.Msg.Extra, res.Extra...)
 	}
 	r.Unlock()
-	//r.Msg = res
 	return r.ResponseWriter.WriteMsg(res)
 }
 
 // Write is a wrapper that records the length of the message that gets written.
 func (r *Recorder) Write(buf []byte) (int, error) {
+	r.Lock()
+	defer r.Unlock()
 	n, err := r.ResponseWriter.Write(buf)
 	if err == nil {
 		r.Len += n

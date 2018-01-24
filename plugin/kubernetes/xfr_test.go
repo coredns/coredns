@@ -11,20 +11,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-/*
-func TestKubernetesTransfer(t *testing.T) {
-	k := New([]string{"cluster.local."})
-	k.APIConn = &APIConnServeTest{}
-
-	state := request.Request{Zone: "cluster.local.", Req: new(dns.Msg)}
-
-	for service := range k.Transfer(state) {
-		what, _ := service.HostType()
-		t.Logf("%v, %s, %s", service, dns.TypeToString[what], msg.Domain(service.Key))
-	}
-}
-*/
-
 func TestKubernetesXFR(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
