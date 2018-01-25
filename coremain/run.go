@@ -18,6 +18,7 @@ import (
 )
 
 func init() {
+	caddy.TrapSignals()
 	caddy.DefaultConfigFile = "Corefile"
 	caddy.Quiet = true // don't show init stuff from caddy
 	setVersion()
@@ -52,8 +53,6 @@ func Run() {
 	for _, f := range flagsToKeep {
 		flag.Var(f.Value, f.Name, f.Usage)
 	}
-
-	caddy.TrapSignals()
 
 	flag.Parse()
 
