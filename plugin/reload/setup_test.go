@@ -22,7 +22,17 @@ func TestSetupReload(t *testing.T) {
 		t.Fatalf("Expected no errors, but got: %v", err)
 	}
 
-	c = caddy.NewTestController("dns", `reload example.org`)
+	c = caddy.NewTestController("dns", `reload foo`)
+	if err := setup(c); err == nil {
+		t.Fatalf("Expected errors, but got: %v", err)
+	}
+
+	c = caddy.NewTestController("dns", `reload 10s foo`)
+	if err := setup(c); err == nil {
+		t.Fatalf("Expected errors, but got: %v", err)
+	}
+
+	c = caddy.NewTestController("dns", `reload 10s 5s foo`)
 	if err := setup(c); err == nil {
 		t.Fatalf("Expected errors, but got: %v", err)
 	}
