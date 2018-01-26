@@ -24,7 +24,6 @@ testk8s: check
 
 .PHONY: godeps
 godeps:
-	-git checkout master
 	(cd $(GOPATH)/src/github.com/mholt/caddy 2>/dev/null              && git checkout -q master 2>/dev/null || true)
 	(cd $(GOPATH)/src/github.com/miekg/dns 2>/dev/null                && git checkout -q master 2>/dev/null || true)
 	(cd $(GOPATH)/src/github.com/prometheus/client_golang 2>/dev/null && git checkout -q master 2>/dev/null || true)
@@ -37,14 +36,13 @@ godeps:
 	go get -u github.com/prometheus/client_golang/prometheus
 	go get -u golang.org/x/net/context
 	go get -u golang.org/x/text
-	go get -u github.com/coredns/forward
+	-go get -f -u github.com/coredns/forward
 	(cd $(GOPATH)/src/github.com/mholt/caddy              && git checkout -q v0.10.10)
 	(cd $(GOPATH)/src/github.com/miekg/dns                && git checkout -q v1.0.4)
 	(cd $(GOPATH)/src/github.com/prometheus/client_golang && git checkout -q v0.8.0)
 	(cd $(GOPATH)/src/golang.org/x/net                    && git checkout -q release-branch.go1.9)
 	(cd $(GOPATH)/src/golang.org/x/text                   && git checkout -q e19ae1496984b1c655b8044a65c0300a3c878dd3)
 	(cd $(GOPATH)/src/github.com/coredns/forward          && git checkout -q v0.0.2)
-	-git checkout -
 
 .PHONY: travis
 travis: check
