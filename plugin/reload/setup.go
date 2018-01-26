@@ -36,7 +36,7 @@ func setup(c *caddy.Controller) error {
 		}
 		i = d
 	}
-	
+
 	j := defaultJitter * time.Second
 	if len(args) > 1 {
 		d, err := time.ParseDuration(args[1])
@@ -50,7 +50,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("reload", c.ArgErr())
 	}
 
-	if j > i / 2 {
+	if j > i/2 {
 		j = i / 2
 	}
 	jitter := time.Duration(rand.Int63n(j.Nanoseconds()) - (j.Nanoseconds() / 2))
