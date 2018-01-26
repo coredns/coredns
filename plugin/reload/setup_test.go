@@ -1,0 +1,29 @@
+package reload
+
+import (
+	"testing"
+
+	"github.com/mholt/caddy"
+)
+
+func TestSetupReload(t *testing.T) {
+	c := caddy.NewTestController("dns", `reload`)
+	if err := setup(c); err != nil {
+		t.Fatalf("Expected no errors, but got: %v", err)
+	}
+
+	c = caddy.NewTestController("dns", `reload 10s`)
+	if err := setup(c); err != nil {
+		t.Fatalf("Expected no errors, but got: %v", err)
+	}
+
+	c = caddy.NewTestController("dns", `reload 10s 2s`)
+	if err := setup(c); err != nil {
+		t.Fatalf("Expected no errors, but got: %v", err)
+	}
+
+	c = caddy.NewTestController("dns", `reload example.org`)
+	if err := setup(c); err == nil {
+		t.Fatalf("Expected errors, but got: %v", err)
+	}
+}
