@@ -71,5 +71,5 @@ func setup(c *caddy.Controller) error {
 
 const (
 	defaultInterval = 30
-	defaultJitter   = 10
+	defaultJitter   = 15
 )

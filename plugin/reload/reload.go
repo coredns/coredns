@@ -49,7 +49,7 @@ func hook(event caddy.EventName, info interface{}) error {
 				if s != r.sum {
 					_, err := r.instance.Restart(corefile)
 					if err != nil {
-						fmt.Printf("[WARNING] Corefile changed but reload failed: %s\n", err)
+						fmt.Printf("[ERROR] Corefile changed but reload failed: %s\n", err)
 						continue
 					}
 					// we are done, this hook gets called again with new instance
