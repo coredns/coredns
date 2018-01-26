@@ -2,7 +2,7 @@ package reload
 
 import (
 	"crypto/md5"
-	"fmt"
+	"log"
 	"time"
 
 	"github.com/mholt/caddy"
@@ -11,12 +11,11 @@ import (
 // reload periodically checks if the Corefile has changed, and reloads if so
 
 type reload struct {
-	instance   *caddy.Instance
-	interval   time.Duration
-	sum        [md5.Size]byte
-	serverType string
-	stopped    bool
-	quit       chan bool
+	instance *caddy.Instance
+	interval time.Duration
+	sum      [md5.Size]byte
+	stopped  bool
+	quit     chan bool
 }
 
 func hook(event caddy.EventName, info interface{}) error {
@@ -49,7 +48,7 @@ func hook(event caddy.EventName, info interface{}) error {
 				if s != r.sum {
 					_, err := r.instance.Restart(corefile)
 					if err != nil {
-						fmt.Printf("[ERROR] Corefile changed but reload failed: %s\n", err)
+						log.Printf("[ERROR] Corefile changed but reload failed: %s\n", err)
 						continue
 					}
 					// we are done, this hook gets called again with new instance

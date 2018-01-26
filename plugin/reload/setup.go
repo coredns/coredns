@@ -28,7 +28,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("reload", c.ArgErr())
 	}
 
-	i := defaultInterval * time.Second
+	i := defaultInterval
 	if len(args) > 0 {
 		d, err := time.ParseDuration(args[0])
 		if err != nil {
@@ -37,7 +37,7 @@ func setup(c *caddy.Controller) error {
 		i = d
 	}
 
-	j := defaultJitter * time.Second
+	j := defaultJitter
 	if len(args) > 1 {
 		d, err := time.ParseDuration(args[1])
 		if err != nil {
@@ -67,6 +67,6 @@ func setup(c *caddy.Controller) error {
 }
 
 const (
-	defaultInterval = 30
-	defaultJitter   = 15
+	defaultInterval = 30 * time.Second
+	defaultJitter   = 15 * time.Second
 )
