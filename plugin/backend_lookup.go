@@ -379,42 +379,6 @@ func SOA(b ServiceBackend, zone string, state request.Request, opt Options) ([]d
 	return []dns.RR{soa}, nil
 }
 
-// AXFR returns all A, AAAA, and CNAME records from a Backend via the Transfer interface or an error.
-func AXFR(b ServiceBackend, zone string, state request.Request, opt Options) ([]dns.RR, error) {
-
-	var records, xfrrecs []dns.RR
-	var err error
-	xfrrecs, err = SOA(b, zone, state, opt)
-	records = append(records, xfrrecs...)
-
-	services := b.Transfer(state)
-
-	for service := range services {
-		rrType, _ := service.HostType()
-		dnsMsg := &dns.Msg{}
-		dnsMsg.SetQuestion(msg.Domain(service.Key), rrType)
-		queryState := request.Request{Req: dnsMsg, Zone: zone}
-		switch rrType {
-		case dns.TypeA:
-			xfrrecs, err = A(b, zone, queryState, nil, opt)
-		case dns.TypeAAAA:
-			xfrrecs, err = AAAA(b, zone, queryState, nil, opt)
-		case dns.TypeCNAME:
-			xfrrecs, err = CNAME(b, zone, queryState, opt)
-		case dns.TypeSRV:
-			xfrrecs, _, err = SRV(b, zone, queryState, opt)
-		}
-
-		if err != nil {
-			break
-		}
-
-		records = append(records, xfrrecs...)
-	}
-
-	return records, nil
-}
-
 // BackendError writes an error response to the client.
 func BackendError(b ServiceBackend, zone string, rcode int, state request.Request, err error, opt Options) (int, error) {
 	m := new(dns.Msg)

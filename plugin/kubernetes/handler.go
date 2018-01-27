@@ -1,8 +1,6 @@
 package kubernetes
 
 import (
-	"log"
-
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
@@ -10,8 +8,6 @@ import (
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 )
-
-const transferLength = 1000 // Start a new envelop after message reaches this size in bytes. Intentionally small to test multi envelope parsing.
 
 // ServeDNS implements the plugin.Handler interface.
 func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -57,37 +53,8 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 			break
 		}
 		fallthrough
-	case dns.TypeAXFR:
-		records, err = plugin.AXFR(&k, zone, state, plugin.Options{})
-
-		records = append(records, records[0]) // add closing SOA to the end
-
-		ch := make(chan *dns.Envelope)
-		tr := new(dns.Transfer)
-
-		go func(ch chan *dns.Envelope) {
-			j, l := 0, 0
-
-			log.Printf("[INFO] Outgoing transfer of %d records of zone %s to %s started", len(records), zone, state.IP())
-			for i, r := range records {
-				l += dns.Len(r)
-				if l > transferLength {
-					ch <- &dns.Envelope{RR: records[j:i]}
-					l = 0
-					j = i
-				}
-			}
-			if j < len(records) {
-				ch <- &dns.Envelope{RR: records[j:]}
-			}
-			close(ch)
-		}(ch)
-
-		tr.Out(w, r, ch)
-		w.Hijack()
-		//w.Close() // Client closes connection
-		return dns.RcodeSuccess, nil
-
+	case dns.TypeAXFR, dns.TypeIXFR:
+		k.Transfer(ctx, state)
 	default:
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
 		_, err = plugin.A(&k, zone, state, nil, plugin.Options{})

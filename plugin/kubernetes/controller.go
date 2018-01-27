@@ -43,12 +43,15 @@ type dnsController interface {
 	HasSynced() bool
 	Stop() error
 
-	// Modified returns last modified.
+	// Modified returns the timestamp of the most recent changes
 	Modified() int64
 }
 
 type dnsControl struct {
-	modified int64 // modified tracks last modified
+	// Modified tracks timestamp of the most recent changes
+	// It needs to be first because it is guarnteed to be 8-byte
+	// aligned ( we use sync.LoadAtomic with this )
+	modified int64
 
 	client *kubernetes.Clientset
 

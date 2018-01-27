@@ -10,6 +10,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/proxy"
 
 	"github.com/mholt/caddy"
@@ -197,43 +198,20 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, dnsControlOpts, error) {
 				}
 				k8s.ttl = uint32(t)
 			case "transfer":
-				dests, err := TransferParse(c)
+				tos, froms, err := parse.Transfer(c, false)
 				if err != nil {
 					return nil, opts, err
 				}
-				k8s.TransferTo = dests
+				if len(froms) != 0 {
+					return nil, opts, c.Errf("transfer from is not supported with this plugin")
+				}
+				k8s.TransferTo = tos
 			default:
 				return nil, opts, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 	}
 	return k8s, opts, nil
-}
-
-// TransferParse parses transfer statements: 'transfer to [address...]'.
-func TransferParse(c *caddy.Controller) ([]string, error) {
-	if !c.NextArg() {
-		return nil, c.ArgErr()
-	}
-	var tos []string
-	value := c.Val()
-	switch value {
-	case "to":
-		tos = c.RemainingArgs()
-		for i := range tos {
-			if tos[i] != "*" {
-				normalized, err := dnsutil.ParseHostPort(tos[i], "53")
-				if err != nil {
-					return nil, err
-				}
-				tos[i] = normalized
-			}
-		}
-
-	default:
-		return nil, fmt.Errorf("only transfer to is supported")
-	}
-	return tos, nil
 }
 
 func searchFromResolvConf() []string {

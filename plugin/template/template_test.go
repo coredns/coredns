@@ -339,9 +339,10 @@ func TestMultiSection(t *testing.T) {
 
 	handler.Next = test.NextHandler(rcodeFallthrough, nil)
 
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
 	// Asking for test. IN A -> REFUSED
 
-	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	req := &dns.Msg{Question: []dns.Question{{Name: "some.test.", Qclass: dns.ClassINET, Qtype: dns.TypeA}}}
 	code, err := handler.ServeDNS(ctx, rec, req)
 	if err != nil {
@@ -353,7 +354,6 @@ func TestMultiSection(t *testing.T) {
 
 	// Asking for test. IN TXT -> fallthrough
 
-	rec = dnstest.NewRecorder(&test.ResponseWriter{})
 	req = &dns.Msg{Question: []dns.Question{{Name: "some.test.", Qclass: dns.ClassINET, Qtype: dns.TypeTXT}}}
 	code, err = handler.ServeDNS(ctx, rec, req)
 	if err != nil {
@@ -365,7 +365,6 @@ func TestMultiSection(t *testing.T) {
 
 	// Asking for coredns.invalid. CH TXT -> TXT "test"
 
-	rec = dnstest.NewRecorder(&test.ResponseWriter{})
 	req = &dns.Msg{Question: []dns.Question{{Name: "coredns.invalid.", Qclass: dns.ClassCHAOS, Qtype: dns.TypeTXT}}}
 	code, err = handler.ServeDNS(ctx, rec, req)
 	if err != nil {
@@ -383,7 +382,6 @@ func TestMultiSection(t *testing.T) {
 
 	// Asking for an ip template in example
 
-	rec = dnstest.NewRecorder(&test.ResponseWriter{})
 	req = &dns.Msg{Question: []dns.Question{{Name: "ip-10-11-12-13.example.", Qclass: dns.ClassINET, Qtype: dns.TypeA}}}
 	code, err = handler.ServeDNS(ctx, rec, req)
 	if err != nil {
@@ -401,7 +399,6 @@ func TestMultiSection(t *testing.T) {
 
 	// Asking for an MX ip template in example
 
-	rec = dnstest.NewRecorder(&test.ResponseWriter{})
 	req = &dns.Msg{Question: []dns.Question{{Name: "ip-10-11-12-13.example.", Qclass: dns.ClassINET, Qtype: dns.TypeMX}}}
 	code, err = handler.ServeDNS(ctx, rec, req)
 	if err != nil {
@@ -419,7 +416,6 @@ func TestMultiSection(t *testing.T) {
 
 	// Test that something.example. A does fall through but something.example. MX does not
 
-	rec = dnstest.NewRecorder(&test.ResponseWriter{})
 	req = &dns.Msg{Question: []dns.Question{{Name: "something.example.", Qclass: dns.ClassINET, Qtype: dns.TypeA}}}
 	code, err = handler.ServeDNS(ctx, rec, req)
 	if err != nil {

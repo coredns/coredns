@@ -107,11 +107,9 @@ func TestPrefetch(t *testing.T) {
 
 			req := new(dns.Msg)
 			req.SetQuestion(tt.qname, dns.TypeA)
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
 
 			for _, v := range tt.verifications {
-
-				rec := dnstest.NewRecorder(&test.ResponseWriter{})
-
 				c.now = func() time.Time { return t0.Add(v.after) }
 
 				c.ServeDNS(context.TODO(), rec, req)

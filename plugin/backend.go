@@ -3,6 +3,7 @@ package plugin
 import (
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/request"
+	"golang.org/x/net/context"
 
 	"github.com/miekg/dns"
 )
@@ -38,9 +39,9 @@ type Transferer interface {
 	// MinTTL returns the minimum TTL to be used in the SOA record.
 	MinTTL(state request.Request) uint32
 
-	// Transfer returns a channel that returns all services for this backend.
-	// The channel is closed when all records are sent.
-	Transfer(state request.Request) <-chan msg.Service
+	// Transfer handles a zone transfer it writes to the client just
+	// like any other handler.
+	Transfer(ctx context.Context, state request.Request) (int, error)
 }
 
 // Options are extra options that can be specified for a lookup.

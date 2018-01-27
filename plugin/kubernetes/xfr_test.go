@@ -17,7 +17,7 @@ func TestKubernetesXFR(t *testing.T) {
 	k.TransferTo = []string{"127.0.0.1"}
 
 	ctx := context.TODO()
-	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
 	dnsmsg := &dns.Msg{}
 	dnsmsg.SetAxfr(k.Zones[0])
 
@@ -26,43 +26,86 @@ func TestKubernetesXFR(t *testing.T) {
 		t.Error(err)
 	}
 
-	if w.ReadMsg() == nil {
+	if len(w.Msgs) == 0 {
 		t.Logf("%+v\n", w)
 		t.Error("Did not get back a zone response")
 	}
 
-	for _, resp := range w.ReadMsg().Answer {
-		if resp.Header().Rrtype == dns.TypeSOA {
+	// Ensure xfr starts with SOA
+	if w.Msgs[0].Answer[0].Header().Rrtype != dns.TypeSOA {
+		t.Error("Invalid XFR, does not start with SOA record")
+	}
+
+	// Ensure xfr starts with SOA
+	// Last message is empty, so we need to go back one further
+	if w.Msgs[len(w.Msgs)-2].Answer[len(w.Msgs[len(w.Msgs)-2].Answer)-1].Header().Rrtype != dns.TypeSOA {
+		t.Error("Invalid XFR, does not end with SOA record")
+	}
+
+	testRRs := []dns.RR{}
+	for _, tc := range dnsTestCases {
+		if tc.Rcode != dns.RcodeSuccess {
 			continue
 		}
 
-		found := false
-		recs := []string{}
-
-		for _, tc := range dnsTestCases {
-			// Skip failures
-			if tc.Rcode != dns.RcodeSuccess {
+		for _, ans := range tc.Answer {
+			// Exclude wildcard searches
+			if strings.Contains(ans.Header().Name, "*") {
 				continue
 			}
-			for _, ans := range tc.Answer {
-				if resp.String() == ans.String() {
-					found = true
-					break
-				}
-				recs = append(recs, ans.String())
+
+			// Exclude TXT records
+			if ans.Header().Rrtype == dns.TypeTXT {
+				continue
 			}
-			if found {
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Got back a RR we shouldnt have %+v\n%+v\n", resp, strings.Join(recs, "\n"))
+			testRRs = append(testRRs, ans)
 		}
 	}
-	if w.ReadMsg().Answer[0].Header().Rrtype != dns.TypeSOA {
-		t.Error("Invalid XFR, does not start with SOA record")
+
+	gotRRs := []dns.RR{}
+	for _, resp := range w.Msgs {
+		for _, ans := range resp.Answer {
+			// Skip SOA records since these
+			// test cases do not exist
+			if ans.Header().Rrtype == dns.TypeSOA {
+				continue
+			}
+
+			gotRRs = append(gotRRs, ans)
+		}
+
 	}
-	if w.ReadMsg().Answer[len(w.ReadMsg().Answer)-1].Header().Rrtype != dns.TypeSOA {
-		t.Error("Invalid XFR, does not end with SOA record")
+
+	diff := difference(testRRs, gotRRs)
+	if len(diff) != 0 {
+		t.Errorf("Got back %d records that do not exist in test cases, should be 0:", len(diff))
+		for _, rec := range diff {
+			t.Errorf("%+v", rec)
+		}
 	}
+
+	diff = difference(gotRRs, testRRs)
+	if len(diff) != 0 {
+		t.Errorf("Found %d records we're missing tham test cases, should be 0:", len(diff))
+		for _, rec := range diff {
+			t.Errorf("%+v", rec)
+		}
+	}
+
+}
+
+// difference shows what we're missing when comparing two RR slices
+func difference(testRRs []dns.RR, gotRRs []dns.RR) []dns.RR {
+	expectedRRs := map[string]bool{}
+	for _, rr := range testRRs {
+		expectedRRs[rr.String()] = true
+	}
+
+	foundRRs := []dns.RR{}
+	for _, rr := range gotRRs {
+		if _, ok := expectedRRs[rr.String()]; !ok {
+			foundRRs = append(foundRRs, rr)
+		}
+	}
+	return foundRRs
 }

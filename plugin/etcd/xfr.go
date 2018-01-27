@@ -3,8 +3,9 @@ package etcd
 import (
 	"time"
 
-	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/request"
+	"github.com/miekg/dns"
+	"golang.org/x/net/context"
 )
 
 // Serial implements the Transferer interface.
@@ -18,8 +19,6 @@ func (e *Etcd) MinTTL(state request.Request) uint32 {
 }
 
 // Transfer implements the Transferer interface.
-func (e *Etcd) Transfer(state request.Request) <-chan msg.Service {
-	c := make(chan msg.Service)
-
-	return c
+func (e *Etcd) Transfer(ctx context.Context, state request.Request) (int, error) {
+	return dns.RcodeServerFailure, nil
 }
