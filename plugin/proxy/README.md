@@ -29,6 +29,7 @@ proxy FROM TO... {
     fail_timeout DURATION
     max_fails INTEGER
     health_check PATH:PORT [DURATION]
+    report_health
     except IGNORED_NAMES...
     spray
     protocol [dns [force_tcp]|https_google [bootstrap ADDRESS...]|grpc [insecure|CACERT|KEY CERT|KEY CERT CACERT]]
@@ -49,6 +50,9 @@ proxy FROM TO... {
   200-399, then that backend is marked healthy for double the healthcheck duration.  If it doesn't,
   it is marked as unhealthy and no requests are routed to it.  If this option is not provided then
   health checks are disabled.  The default duration is 4 seconds ("4s").
+* `report_health` enable the inclusion of this proxy bloc as part of the global healh of CoreDNS 
+  reported by plugin HEALTH. The proxy bloc report OK if the connection is not in fail state and if at 
+  least one of the destination endpoint report itself as not down.    
 * **IGNORED_NAMES** in `except` is a space-separated list of domains to exclude from proxying.
   Requests that match none of these names will be passed through.
 * `spray` when all backends are unhealthy, randomly pick one to send the traffic to. (This is

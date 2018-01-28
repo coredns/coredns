@@ -43,8 +43,9 @@ func NewStaticUpstream(c *caddyfile.Dispenser) (Upstream, error) {
 	upstream := &staticUpstream{
 		from: ".",
 		HealthCheck: healthcheck.HealthCheck{
-			FailTimeout: 5 * time.Second,
-			MaxFails:    3,
+			FailTimeout:  5 * time.Second,
+			MaxFails:     3,
+			ReportHealth: false,
 		},
 		ex: newDNSEx(),
 	}
@@ -136,6 +137,8 @@ func parseBlock(c *caddyfile.Dispenser, u *staticUpstream) error {
 			}
 			u.HealthCheck.Interval = dur
 		}
+	case "report_health":
+		u.HealthCheck.ReportHealth = true
 	case "except":
 		ignoredDomains := c.RemainingArgs()
 		if len(ignoredDomains) == 0 {
@@ -206,5 +209,12 @@ func (u *staticUpstream) IsAllowedDomain(name string) bool {
 
 func (u *staticUpstream) Exchanger() Exchanger { return u.ex }
 func (u *staticUpstream) From() string         { return u.from }
+
+func (u *staticUpstream) ReportHealthy() bool {
+	return u.ReportHealth
+}
+func (u *staticUpstream) IsHealthy() bool {
+	return u.ex.IsValid() && !u.IsAllDown()
+}
 
 const max = 15

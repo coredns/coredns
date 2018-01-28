@@ -58,6 +58,8 @@ func (g *grpcClient) Transport() string { return "tcp" }
 
 func (g *grpcClient) Protocol() string { return "grpc" }
 
+func (g *grpcClient) IsValid() bool { return len(g.conns) > 0 }
+
 func (g *grpcClient) OnShutdown(p *Proxy) error {
 	g.clients = map[string]pb.DnsServiceClient{}
 	for i, conn := range g.conns {
