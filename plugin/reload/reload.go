@@ -11,9 +11,7 @@ import (
 // reload periodically checks if the Corefile has changed, and reloads if so
 
 type reload struct {
-	instance *caddy.Instance
 	interval time.Duration
-	sum      [md5.Size]byte
 	stopped  bool
 	quit     chan bool
 }
@@ -31,8 +29,8 @@ func hook(event caddy.EventName, info interface{}) error {
 	}
 
 	// this should be an instance. ok to panic if not
-	r.instance = info.(*caddy.Instance)
-	r.sum = md5.Sum(r.instance.Caddyfile().Body())
+	instance := info.(*caddy.Instance)
+	md5sum := md5.Sum(instance.Caddyfile().Body())
 
 	go func() {
 		tick := time.NewTicker(r.interval)
@@ -40,19 +38,23 @@ func hook(event caddy.EventName, info interface{}) error {
 		for {
 			select {
 			case <-tick.C:
-				corefile, err := caddy.LoadCaddyfile(r.instance.Caddyfile().ServerType())
+				corefile, err := caddy.LoadCaddyfile(instance.Caddyfile().ServerType())
 				if err != nil {
 					continue
 				}
 				s := md5.Sum(corefile.Body())
-				if s != r.sum {
-					_, err := r.instance.Restart(corefile)
+				if s != md5sum {
+					// Let not try to restart with the same file, even though it is wrong.
+					md5sum = s
+					// now lets consider that plugin will not be reload, unless appear in next config file
+					// r.stopped will be reset in setup if the plugin appears in config file
+					r.stopped = true
+					_, err := instance.Restart(corefile)
 					if err != nil {
 						log.Printf("[ERROR] Corefile changed but reload failed: %s\n", err)
 						continue
 					}
 					// we are done, this hook gets called again with new instance
-					r.stopped = true
 					return
 				}
 			case <-r.quit:
