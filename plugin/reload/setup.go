@@ -72,7 +72,7 @@ func setup(c *caddy.Controller) error {
 		caddy.RegisterEventHook("reload", hook)
 	})
 
-	// re-register on finalShutDown as the instance most-likely will be changed.
+	// re-register on finalShutDown as the instance most-likely will be changed
 	c.OnFinalShutdown(func() error {
 		r.quit <- true
 		return nil
