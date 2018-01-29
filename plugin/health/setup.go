@@ -68,10 +68,10 @@ func setup(c *caddy.Controller) error {
 	})
 
 	// NOTE: if the restart endup failing, then the Healthcheck will be unavailable until next config is reloaded
-	c.OnRestart(h.OnShutdownBeforeRestart)
+	c.OnRestart(h.OnShutdown)
+	// Shutdown happen after the Restart, but is used sometimes directly.
 	// final shutdown is a bit different as we process the lameduck delay
 	c.OnFinalShutdown(h.OnShutdown)
-
 	// start listener for each stat of the server, including the restarts for reload
 	c.OnStartup(h.OnStartup)
 

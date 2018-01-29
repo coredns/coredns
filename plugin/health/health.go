@@ -67,34 +67,23 @@ func (h *health) OnStartup() error {
 	return nil
 }
 
-func (h *health) OnShutdownBeforeRestart() error {
-	// Stop polling plugins
-	h.pollstop <- true
-	if h.ln != nil {
-		return h.ln.Close()
-	}
-
-	h.stop <- true
-	return nil
-}
-
 func (h *health) OnShutdown() error {
+	var err error
 	// Stop polling plugins
-	h.pollstop <- true
-	// NACK health
-	h.SetOk(false)
-
-	if h.lameduck > 0 {
-		log.Printf("[INFO] Going into lameduck mode for %s", h.lameduck)
-		time.Sleep(h.lameduck)
-	}
-
 	if h.ln != nil {
-		return h.ln.Close()
+		h.SetOk(false)
+		h.pollstop <- true
+
+		if h.lameduck > 0 {
+			log.Printf("[INFO] Going into lameduck mode for %s", h.lameduck)
+			time.Sleep(h.lameduck)
+		}
+		err = h.ln.Close()
+		h.stop <- true
+		h.ln = nil
 	}
 
-	h.stop <- true
-	return nil
+	return err
 }
 
 const (
