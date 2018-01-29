@@ -23,11 +23,20 @@ func CoreDNSServer(corefile string) (*caddy.Instance, error) {
 	dnsserver.Quiet = true
 	log.SetOutput(ioutil.Discard)
 
-	return caddy.Start(NewInput(corefile))
+	instance, err := caddy.Start(NewInput(corefile))
+	if err != nil {
+		return nil, err
+	}
+	// Execute instantiation events
+	caddy.EmitEvent(caddy.InstanceStartupEvent, instance)
+	return instance, nil
 }
 
 // CoreDNSServerStop stops a server.
-func CoreDNSServerStop(i *caddy.Instance) { i.Stop() }
+func CoreDNSServerStop(i *caddy.Instance) {
+	i.ShutdownCallbacks()
+	i.Stop()
+}
 
 // CoreDNSServerPorts returns the ports the instance is listening on. The integer k indicates
 // which ServerListener you want.
