@@ -1,7 +1,7 @@
 package reload
 
 import (
-	"errors"
+	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -22,7 +22,7 @@ func init() {
 // it is used to transmit data between Setup and start of the hook called 'onInstanceStartup'
 // channel for QUIT is never changed in purpose.
 // WARNING: this data may be unsync after an invalid attempt of reload Corefile.
-var r = reload{interval: defaultInterval, stopped: true, quit: make(chan bool)}
+var r = reload{interval: defaultInterval, usage: unused, quit: make(chan bool)}
 var once sync.Once
 
 func setup(c *caddy.Controller) error {
@@ -42,7 +42,7 @@ func setup(c *caddy.Controller) error {
 		i = d
 	}
 	if i < minInterval {
-		return plugin.Error("reload", errors.New("interval value must be greater or equal to 2 sec"))
+		return plugin.Error("reload", fmt.Errorf("interval value must be greater or equal to %v", minInterval))
 	}
 
 	j := defaultJitter
@@ -54,7 +54,7 @@ func setup(c *caddy.Controller) error {
 		j = d
 	}
 	if j < minJitter {
-		return plugin.Error("reload", errors.New("jitter value must be greater or equal to 1 sec"))
+		return plugin.Error("reload", fmt.Errorf("jitter value must be greater or equal to %v", minJitter))
 	}
 
 	if j > i/2 {
@@ -66,7 +66,7 @@ func setup(c *caddy.Controller) error {
 
 	// prepare info for next onInstanceStartup event
 	r.interval = i
-	r.stopped = false
+	r.usage = used
 
 	once.Do(func() {
 		caddy.RegisterEventHook("reload", hook)

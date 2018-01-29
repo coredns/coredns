@@ -9,10 +9,15 @@ import (
 )
 
 // reload periodically checks if the Corefile has changed, and reloads if so
+const (
+	unused    = 0
+	maybeUsed = 1
+	used      = 2
+)
 
 type reload struct {
 	interval time.Duration
-	stopped  bool
+	usage    int
 	quit     chan bool
 }
 
@@ -24,7 +29,7 @@ func hook(event caddy.EventName, info interface{}) error {
 	// if reload is removed from the Corefile, then the hook
 	// is still registered but setup is never called again
 	// so we need a flag to tell us not to reload
-	if r.stopped {
+	if r.usage == unused {
 		return nil
 	}
 
@@ -47,14 +52,17 @@ func hook(event caddy.EventName, info interface{}) error {
 					// Let not try to restart with the same file, even though it is wrong.
 					md5sum = s
 					// now lets consider that plugin will not be reload, unless appear in next config file
-					// r.stopped will be reset in setup if the plugin appears in config file
-					r.stopped = true
+					// change status iof usage will be reset in setup if the plugin appears in config file
+					r.usage = maybeUsed
 					_, err := instance.Restart(corefile)
 					if err != nil {
 						log.Printf("[ERROR] Corefile changed but reload failed: %s\n", err)
 						continue
 					}
-					// we are done, this hook gets called again with new instance
+					// we are done, if the plugin was not set used, then it is not.
+					if r.usage == maybeUsed {
+						r.usage = unused
+					}
 					return
 				}
 			case <-r.quit:
