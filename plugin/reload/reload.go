@@ -36,6 +36,7 @@ func hook(event caddy.EventName, info interface{}) error {
 	// this should be an instance. ok to panic if not
 	instance := info.(*caddy.Instance)
 	md5sum := md5.Sum(instance.Caddyfile().Body())
+	log.Printf("[INFO] Running configuration MD5 = %x\n", md5sum)
 
 	go func() {
 		tick := time.NewTicker(r.interval)
