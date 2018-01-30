@@ -117,9 +117,9 @@ func TestCustomPolicy(t *testing.T) {
 	}
 }
 
-func TestAlwaysFirstPolicy(t *testing.T) {
+func TestFirstPolicy(t *testing.T) {
 	pool := testPool()
-	rrPolicy := &AlwaysFirst{}
+	rrPolicy := &First{}
 	h := rrPolicy.Select(pool)
 	// First selected host is 1, because counter starts at 0
 	// and increments before host is selected
