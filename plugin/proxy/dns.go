@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/request"
@@ -13,6 +14,7 @@ import (
 type dnsEx struct {
 	Timeout time.Duration
 	Options
+	DialFails int32
 }
 
 // Options define the options understood by dns.Exchange.
@@ -25,7 +27,7 @@ func newDNSEx() *dnsEx {
 }
 
 func newDNSExWithOption(opt Options) *dnsEx {
-	return &dnsEx{Timeout: defaultTimeout * time.Second, Options: opt}
+	return &dnsEx{Timeout: defaultTimeout * time.Second, Options: opt, DialFails: 0}
 }
 
 func (d *dnsEx) Transport() string {
@@ -39,6 +41,10 @@ func (d *dnsEx) Transport() string {
 func (d *dnsEx) Protocol() string          { return "dns" }
 func (d *dnsEx) OnShutdown(p *Proxy) error { return nil }
 func (d *dnsEx) OnStartup(p *Proxy) error  { return nil }
+func (d *dnsEx) IsValid() bool {
+	fails := atomic.LoadInt32(&d.DialFails)
+	return fails == 0
+}
 
 // Exchange implements the Exchanger interface.
 func (d *dnsEx) Exchange(ctx context.Context, addr string, state request.Request) (*dns.Msg, error) {
@@ -48,8 +54,10 @@ func (d *dnsEx) Exchange(ctx context.Context, addr string, state request.Request
 	}
 	co, err := net.DialTimeout(proto, addr, d.Timeout)
 	if err != nil {
+		atomic.AddInt32(&d.DialFails, 1)
 		return nil, err
 	}
+	atomic.StoreInt32(&d.DialFails, 0)
 
 	reply, _, err := d.ExchangeConn(state.Req, co)
 

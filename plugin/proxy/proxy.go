@@ -42,6 +42,11 @@ type Proxy struct {
 type Upstream interface {
 	// The domain name this upstream host should be routed on.
 	From() string
+	ReportHealthy() bool
+	// check if the pool is considered healthy
+	IsHealthy() bool
+	// check if all the pool is unavailable
+	IsAllDown() bool
 	// Selects an upstream host to be routed to.
 	Select() *healthcheck.UpstreamHost
 	// Checks if subpdomain is not an ignored.
@@ -107,16 +112,22 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 				return 0, taperr
 			}
 
-			// A "ANY isc.org" query is being dropped by ISC's nameserver, we see this as a i/o timeout, but
-			// would then mark our upstream is being broken. We should not do this if we consider the error temporary.
-			// Of course it could really be that our upstream is broken
-			if oe, ok := backendErr.(*net.OpError); ok {
-				// Note this keeps looping and trying until tryDuration is hit, at which point our client
-				// might be long gone...
-				if oe.Timeout() {
-					// Our upstream's upstream is problably messing up, continue with next selected
-					// host - which my be the *same* one as we don't set any uh.Fails.
-					continue
+			// this workaround of ANY isc.org is very weird.
+			// I am not sure that is still expected. For now prevent HealtReport to work properly if we do not
+			// record the fails by timeout.
+			// thus limit when not reporting health. Will be a chooce of user withing the corefile.
+			if !upstream.ReportHealthy() {
+				// A "ANY isc.org" query is being dropped by ISC's nameserver, we see this as a i/o timeout, but
+				// would then mark our upstream is being broken. We should not do this if we consider the error temporary.
+				// Of course it could really be that our upstream is broken
+				if oe, ok := backendErr.(*net.OpError); ok {
+					// Note this keeps looping and trying until tryDuration is hit, at which point our client
+					// might be long gone...
+					if oe.Timeout() {
+						// Our upstream's upstream is problably messing up, continue with next selected
+						// host - which my be the *same* one as we don't set any uh.Fails.
+						continue
+					}
 				}
 			}
 
@@ -136,11 +147,14 @@ func (p Proxy) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			atomic.AddInt32(&host.Fails, 1)
 			fails := atomic.LoadInt32(&host.Fails)
 
+			// Now, remove the fail incr after the time-out on fail (default 2s)
 			go func(host *healthcheck.UpstreamHost, timeout time.Duration) {
 				time.Sleep(timeout)
 				// we may go negative here, should be rectified by the HC.
 				atomic.AddInt32(&host.Fails, -1)
 				if fails%failureCheck == 0 { // Kick off healthcheck on eveyry third failure.
+					// FIXME: this can be later after the healthWorker are stopped.
+					// We may go silent here is some cases.
 					host.HealthCheckURL()
 				}
 			}(host, timeout)
@@ -180,3 +194,13 @@ const (
 	defaultTimeout     = 5 * time.Second
 	failureCheck       = 3
 )
+
+// Health implements the health.Healther interface.
+func (p *Proxy) Health() bool {
+	for _, upstream := range *p.Upstreams {
+		if upstream.ReportHealthy() && !(upstream.Exchanger().IsValid() && upstream.IsHealthy()) {
+			return false
+		}
+	}
+	return true
+}

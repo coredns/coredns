@@ -45,26 +45,28 @@ type HostPool []*UpstreamHost
 // on a collection of upstream hosts and select
 // one based on the policy.
 type HealthCheck struct {
-	wg          sync.WaitGroup // Used to wait for running goroutines to stop.
-	stop        chan struct{}  // Signals running goroutines to stop.
-	Hosts       HostPool
-	Policy      Policy
-	Spray       Policy
-	FailTimeout time.Duration
-	MaxFails    int32
-	Path        string
-	Port        string
-	Interval    time.Duration
+	wg           sync.WaitGroup // Used to wait for running goroutines to stop.
+	stop         chan struct{}  // Signals running goroutines to stop.
+	Hosts        HostPool
+	Policy       Policy
+	Spray        Policy
+	FailTimeout  time.Duration
+	MaxFails     int32
+	Path         string
+	Port         string
+	Interval     time.Duration
+	ReportHealth bool
 }
 
 // Start starts the healthcheck
 func (u *HealthCheck) Start() {
-	for i, h := range u.Hosts {
-		u.Hosts[i].CheckURL = u.normalizeCheckURL(h.Name)
-	}
 
 	u.stop = make(chan struct{})
 	if u.Path != "" {
+		// keep CheckURL empty if the Path is not provided.
+		for i, h := range u.Hosts {
+			u.Hosts[i].CheckURL = u.normalizeCheckURL(h.Name)
+		}
 		u.wg.Add(1)
 		go func() {
 			defer u.wg.Done()
@@ -164,6 +166,18 @@ func (u *HealthCheck) healthCheckWorker(stop chan struct{}) {
 	}
 }
 
+// IsAllDown returns boolean true if each of the hosts is down
+func (u *HealthCheck) IsAllDown() bool {
+	allDown := true
+	for _, host := range u.Hosts {
+		if !host.Down() {
+			allDown = false
+			break
+		}
+	}
+	return allDown
+}
+
 // Select selects an upstream host based on the policy
 // and the healthcheck result.
 func (u *HealthCheck) Select() *UpstreamHost {
@@ -174,14 +188,7 @@ func (u *HealthCheck) Select() *UpstreamHost {
 		}
 		return pool[0]
 	}
-	allDown := true
-	for _, host := range pool {
-		if !host.Down() {
-			allDown = false
-			break
-		}
-	}
-	if allDown {
+	if u.IsAllDown() {
 		if u.Spray == nil {
 			return nil
 		}

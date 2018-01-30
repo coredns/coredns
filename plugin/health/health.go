@@ -39,53 +39,51 @@ func (h *health) OnStartup() error {
 		h.Addr = defAddr
 	}
 
-	once.Do(func() {
-		ln, err := net.Listen("tcp", h.Addr)
-		if err != nil {
-			log.Printf("[ERROR] Failed to start health handler: %s", err)
+	ln, err := net.Listen("tcp", h.Addr)
+	if err != nil {
+		log.Printf("[ERROR] Failed to start health handler: %s", err)
+		return err
+	}
+
+	h.ln = ln
+
+	h.mux = http.NewServeMux()
+
+	h.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		if h.Ok() {
+			w.WriteHeader(http.StatusOK)
+			io.WriteString(w, ok)
 			return
 		}
-
-		h.ln = ln
-
-		h.mux = http.NewServeMux()
-
-		h.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-			if h.Ok() {
-				w.WriteHeader(http.StatusOK)
-				io.WriteString(w, ok)
-				return
-			}
-			w.WriteHeader(http.StatusServiceUnavailable)
-		})
-
-		go func() {
-			http.Serve(h.ln, h.mux)
-		}()
-		go func() {
-			h.overloaded()
-		}()
+		w.WriteHeader(http.StatusServiceUnavailable)
 	})
+
+	go func() {
+		http.Serve(h.ln, h.mux)
+	}()
+	go func() {
+		h.overloaded()
+	}()
 	return nil
 }
 
 func (h *health) OnShutdown() error {
+	var err error
 	// Stop polling plugins
-	h.pollstop <- true
-	// NACK health
-	h.SetOk(false)
-
-	if h.lameduck > 0 {
-		log.Printf("[INFO] Going into lameduck mode for %s", h.lameduck)
-		time.Sleep(h.lameduck)
-	}
-
 	if h.ln != nil {
-		return h.ln.Close()
+		h.SetOk(false)
+		h.pollstop <- true
+
+		if h.lameduck > 0 {
+			log.Printf("[INFO] Going into lameduck mode for %s", h.lameduck)
+			time.Sleep(h.lameduck)
+		}
+		err = h.ln.Close()
+		h.stop <- true
+		h.ln = nil
 	}
 
-	h.stop <- true
-	return nil
+	return err
 }
 
 const (

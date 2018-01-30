@@ -74,6 +74,9 @@ func TestReadme(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to start server with %s, for input %q:\n%s", readme, err, in.Body())
 			}
+			// Execute instantiation events
+			caddy.EmitEvent(caddy.InstanceStartupEvent, server)
+			server.ShutdownCallbacks()
 			server.Stop()
 			port++
 		}
