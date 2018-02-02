@@ -21,6 +21,39 @@ type reload struct {
 	quit     chan bool
 }
 
+// The set and get functions are defined to protect from data race conditions.
+// It is safe to access the reload variables from these functions and not directly.
+
+// setInterval sets the reload interval.
+func (r *reload) setInterval(interval time.Duration) {
+	mu.Lock()
+	defer mu.Unlock()
+	r.interval = interval
+}
+
+// setUsage sets the reload usage.
+func (r *reload) setUsage(usage int) {
+	mu.Lock()
+	defer mu.Unlock()
+	r.usage = usage
+}
+
+// Interval gets the reload interval.
+func (r reload) Interval() time.Duration {
+	mu.Lock()
+	defer mu.Unlock()
+	i := r.interval
+	return i
+}
+
+// Usage gets the reload usage.
+func (r reload) Usage() int {
+	mu.Lock()
+	defer mu.Unlock()
+	u := r.usage
+	return u
+}
+
 func hook(event caddy.EventName, info interface{}) error {
 	if event != caddy.InstanceStartupEvent {
 		return nil
@@ -29,7 +62,7 @@ func hook(event caddy.EventName, info interface{}) error {
 	// if reload is removed from the Corefile, then the hook
 	// is still registered but setup is never called again
 	// so we need a flag to tell us not to reload
-	if r.usage == unused {
+	if r.Usage() == unused {
 		return nil
 	}
 
@@ -39,7 +72,7 @@ func hook(event caddy.EventName, info interface{}) error {
 	log.Printf("[INFO] Running configuration MD5 = %x\n", md5sum)
 
 	go func() {
-		tick := time.NewTicker(r.interval)
+		tick := time.NewTicker(r.Interval())
 
 		for {
 			select {
@@ -54,15 +87,15 @@ func hook(event caddy.EventName, info interface{}) error {
 					md5sum = s
 					// now lets consider that plugin will not be reload, unless appear in next config file
 					// change status iof usage will be reset in setup if the plugin appears in config file
-					r.usage = maybeUsed
+					r.setUsage(maybeUsed)
 					_, err := instance.Restart(corefile)
 					if err != nil {
 						log.Printf("[ERROR] Corefile changed but reload failed: %s\n", err)
 						continue
 					}
 					// we are done, if the plugin was not set used, then it is not.
-					if r.usage == maybeUsed {
-						r.usage = unused
+					if r.Usage() == maybeUsed {
+						r.setUsage(unused)
 					}
 					return
 				}

@@ -20,13 +20,14 @@ const serverType = "dns"
 // wise they potentially clash with other server types.
 func init() {
 	flag.StringVar(&Port, serverType+".port", DefaultPort, "Default port")
+	port := Port
 
 	caddy.RegisterServerType(serverType, caddy.ServerType{
 		Directives: func() []string { return Directives },
 		DefaultInput: func() caddy.Input {
 			return caddy.CaddyfileInput{
 				Filepath:       "Corefile",
-				Contents:       []byte(".:" + Port + " {\nwhoami\n}\n"),
+				Contents:       []byte(".:" + port + " {\nwhoami\n}\n"),
 				ServerTypeName: serverType,
 			}
 		},
