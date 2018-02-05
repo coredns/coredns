@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Handler is the plugin.Handler for Kubernetes
 type Handler struct {
 	Zones      []string
 	Next       plugin.Handler
