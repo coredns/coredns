@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
-	"github.com/coredns/coredns/plugin/proxy"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/forward"
 
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
@@ -74,7 +74,7 @@ func TestLookupCNAMEExternal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error when reading zone, got %q", err)
 	}
-	zone.Proxy = proxy.NewLookup([]string{"8.8.8.8:53"}) // TODO(miek): point to local instance
+	zone.Proxy = forward.NewLookup([]string{"8.8.8.8:53"}) // TODO(miek): point to local instance
 
 	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{name: zone}, Names: []string{name}}}
 	ctx := context.TODO()

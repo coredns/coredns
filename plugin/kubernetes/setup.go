@@ -10,7 +10,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
-	"github.com/coredns/coredns/plugin/proxy"
+	"github.com/coredns/forward"
 
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
@@ -180,7 +180,7 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, dnsControlOpts, error) {
 				if err != nil {
 					return nil, opts, err
 				}
-				k8s.Proxy = proxy.NewLookup(ups)
+				k8s.Proxy = forward.NewLookup(ups)
 			case "ttl":
 				args := c.RemainingArgs()
 				if len(args) == 0 {

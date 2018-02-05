@@ -6,7 +6,7 @@ import (
 	"github.com/coredns/coredns/plugin/file"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/parse"
-	"github.com/coredns/coredns/plugin/proxy"
+	"github.com/coredns/forward"
 
 	"github.com/mholt/caddy"
 )
@@ -51,7 +51,7 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 	z := make(map[string]*file.Zone)
 	names := []string{}
 	origins := []string{}
-	prxy := proxy.Proxy{}
+	prxy := &forward.Forward{}
 	for c.Next() {
 
 		if c.Val() == "secondary" {
@@ -88,7 +88,7 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 					if err != nil {
 						return file.Zones{}, err
 					}
-					prxy = proxy.NewLookup(ups)
+					prxy = forward.NewLookup(ups)
 				default:
 					return file.Zones{}, c.Errf("unknown property '%s'", c.Val())
 				}

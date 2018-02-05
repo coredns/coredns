@@ -449,7 +449,7 @@ func TestKubernetesParse(t *testing.T) {
 			t.Errorf("Test %d: Expected kubernetes controller to be initialized with fallthrough '%v'. Instead found fallthrough '%v' for input '%s'", i, test.expectedFallthrough, k8sController.Fall, test.input)
 		}
 		// upstream
-		foundUpstreams := k8sController.Proxy.Upstreams
+		foundUpstreams := k8sController.Proxy
 		if test.expectedUpstreams == nil {
 			if foundUpstreams != nil {
 				t.Errorf("Test %d: Expected kubernetes controller to not be initialized with upstreams for input '%s'", i, test.input)
@@ -458,14 +458,8 @@ func TestKubernetesParse(t *testing.T) {
 			if foundUpstreams == nil {
 				t.Errorf("Test %d: Expected kubernetes controller to be initialized with upstreams for input '%s'", i, test.input)
 			} else {
-				if len(*foundUpstreams) != len(test.expectedUpstreams) {
-					t.Errorf("Test %d: Expected kubernetes controller to be initialized with %d upstreams. Instead found %d upstreams for input '%s'", i, len(test.expectedUpstreams), len(*foundUpstreams), test.input)
-				}
-				for j, want := range test.expectedUpstreams {
-					got := (*foundUpstreams)[j].Select().Name
-					if got != want {
-						t.Errorf("Test %d: Expected kubernetes controller to be initialized with upstream '%s'. Instead found upstream '%s' for input '%s'", i, want, got, test.input)
-					}
+				if foundUpstreams.Len() != len(test.expectedUpstreams) {
+					t.Errorf("Test %d: Expected kubernetes controller to be initialized with %d upstreams. Instead found %d upstreams for input '%s'", i, len(test.expectedUpstreams), foundUpstreams.Len(), test.input)
 				}
 
 			}

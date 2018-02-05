@@ -14,8 +14,8 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/pkg/healthcheck"
-	"github.com/coredns/coredns/plugin/proxy"
 	"github.com/coredns/coredns/request"
+	"github.com/coredns/forward"
 
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
@@ -31,7 +31,7 @@ import (
 type Kubernetes struct {
 	Next             plugin.Handler
 	Zones            []string
-	Proxy            proxy.Proxy // Proxy for looking up names during the resolution process
+	Proxy            *forward.Forward // Proxy for looking up names during the resolution process
 	APIServerList    []string
 	APIProxy         *apiProxy
 	APICertAuth      string
@@ -57,7 +57,6 @@ func New(zones []string) *Kubernetes {
 	k.Namespaces = make(map[string]bool)
 	k.interfaceAddrsFunc = func() net.IP { return net.ParseIP("127.0.0.1") }
 	k.podMode = podModeDisabled
-	k.Proxy = proxy.Proxy{}
 	k.ttl = defaultTTL
 
 	return k

@@ -8,7 +8,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/parse"
-	"github.com/coredns/coredns/plugin/proxy"
+	"github.com/coredns/forward"
 
 	"github.com/mholt/caddy"
 )
@@ -90,7 +90,7 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 		}
 
 		noReload := false
-		prxy := proxy.Proxy{}
+		prxy := &forward.Forward{}
 		t := []string{}
 		var e error
 
@@ -114,7 +114,7 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 				if err != nil {
 					return Zones{}, err
 				}
-				prxy = proxy.NewLookup(ups)
+				prxy = forward.NewLookup(ups)
 			default:
 				return Zones{}, c.Errf("unknown property '%s'", c.Val())
 			}

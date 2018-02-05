@@ -13,7 +13,7 @@ import (
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/parse"
-	"github.com/coredns/coredns/plugin/proxy"
+	"github.com/coredns/forward"
 
 	"github.com/mholt/caddy"
 )
@@ -155,7 +155,7 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 				if err != nil {
 					return a, err
 				}
-				a.loader.proxy = proxy.NewLookup(ups)
+				a.loader.proxy = forward.NewLookup(ups)
 
 			default:
 				t, _, e := parse.Transfer(c, false)

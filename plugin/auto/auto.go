@@ -8,8 +8,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
 	"github.com/coredns/coredns/plugin/metrics"
-	"github.com/coredns/coredns/plugin/proxy"
 	"github.com/coredns/coredns/request"
+	"github.com/coredns/forward"
 
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
@@ -33,7 +33,7 @@ type (
 		// In the future this should be something like ZoneMeta that contains all this stuff.
 		transferTo []string
 		noReload   bool
-		proxy      proxy.Proxy // Proxy for looking up names during the resolution process
+		proxy      *forward.Forward // Proxy for looking up names during the resolution process
 
 		duration time.Duration
 	}
