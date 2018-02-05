@@ -52,7 +52,7 @@ forward FROM TO... {
   A value of 0 disables the health checks completely.
 * `max_fails` is the number of subsequent failed health checks that are needed before considering
   a backend to be down. If 0, the backend will never be marked as down. Default is 2.
-* `expire` **DURATION**, expire connections after this time, the default is 10s.
+* `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
 * `tls` **CERT** **KEY** **CA** define the TLS properties for TLS; if you leave this out the
   system's configuration will be used.
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
