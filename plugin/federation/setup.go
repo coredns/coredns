@@ -30,7 +30,7 @@ func setup(c *caddy.Controller) error {
 		if m == nil {
 			return nil
 		}
-		if x, ok := m.(*kubernetes.Kubernetes); ok {
+		if x, ok := m.(*kubernetes.Handler); ok {
 			fed.Federations = x.Federations
 		}
 		return nil
