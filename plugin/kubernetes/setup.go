@@ -93,7 +93,6 @@ func kubernetesParse(c *caddy.Controller) (Handler, error) {
 		}
 		handler.Zones = append(handler.Zones, k8s.Zones...)
 
-
 		k8s.primaryZoneIndex = -1
 		for i, z := range k8s.Zones {
 			if strings.HasSuffix(z, "in-addr.arpa.") || strings.HasSuffix(z, "ip6.arpa.") {

@@ -16,6 +16,7 @@ type Handler struct {
 	Kubernetes []*Kubernetes
 }
 
+// NewHandler creates a new handler with one new Kubernetes with zones
 func NewHandler(zones []string) (Handler, *Kubernetes) {
 	h := Handler{}
 	k := New(zones)
