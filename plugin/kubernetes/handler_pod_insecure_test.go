@@ -64,7 +64,7 @@ var podModeInsecureCases = []test.Case{
 
 func TestServeDNSModeInsecure(t *testing.T) {
 
-	k := New([]string{"cluster.local."})
+	kh, k := NewHandler([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
 	k.Next = test.NextHandler(dns.RcodeSuccess, nil)
 	ctx := context.TODO()
@@ -75,7 +75,7 @@ func TestServeDNSModeInsecure(t *testing.T) {
 
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
-		_, err := k.ServeDNS(ctx, w, r)
+		_, err := kh.ServeDNS(ctx, w, r)
 		if err != tc.Error {
 			t.Errorf("Test %d expected no error, got %v", i, err)
 			return

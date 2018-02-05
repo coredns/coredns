@@ -91,6 +91,8 @@ func kubernetesParse(c *caddy.Controller) (Handler, error) {
 				k8s.Zones[i] = plugin.Host(c.ServerBlockKeys[i]).Normalize()
 			}
 		}
+		handler.Zones = append(handler.Zones, k8s.Zones...)
+
 
 		k8s.primaryZoneIndex = -1
 		for i, z := range k8s.Zones {

@@ -26,7 +26,7 @@ func TestKubernetesParseTTL(t *testing.T) {
 
 	for i, tc := range tests {
 		c := caddy.NewTestController("dns", tc.input)
-		k, _, err := kubernetesParse(c)
+		h, err := kubernetesParse(c)
 		if err != nil && !tc.shouldErr {
 			t.Fatalf("Test %d: Expected no error, got %q", i, err)
 		}
@@ -38,6 +38,7 @@ func TestKubernetesParseTTL(t *testing.T) {
 			continue
 		}
 
+		k := h.Kubernetes[0]
 		if k.ttl != tc.expectedTTL {
 			t.Errorf("Test %d: Expected TTl to be %d, got %d", i, tc.expectedTTL, k.ttl)
 		}

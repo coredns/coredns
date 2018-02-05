@@ -16,6 +16,13 @@ type Handler struct {
 	Kubernetes []*Kubernetes
 }
 
+func NewHandler(zones []string) (Handler, *Kubernetes) {
+	h := Handler{}
+	k := New(zones)
+	h.Kubernetes = append(h.Kubernetes, k)
+	return h, k
+}
+
 // ServeDNS implements the plugin.Handler interface.
 func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}

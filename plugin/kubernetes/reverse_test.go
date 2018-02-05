@@ -113,7 +113,7 @@ func (APIConnReverseTest) GetNamespaceByName(name string) (*api.Namespace, error
 
 func TestReverse(t *testing.T) {
 
-	k := New([]string{"cluster.local.", "0.10.in-addr.arpa.", "168.192.in-addr.arpa.", "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.d.c.b.a.4.3.2.1.ip6.arpa.", "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa."})
+	kh, k := NewHandler([]string{"cluster.local.", "0.10.in-addr.arpa.", "168.192.in-addr.arpa.", "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.d.c.b.a.4.3.2.1.ip6.arpa.", "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa."})
 	k.APIConn = &APIConnReverseTest{}
 
 	tests := []test.Case{
@@ -174,7 +174,7 @@ func TestReverse(t *testing.T) {
 
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
-		_, err := k.ServeDNS(ctx, w, r)
+		_, err := kh.ServeDNS(ctx, w, r)
 		if err != tc.Error {
 			t.Errorf("Test %d: expected no error, got %v", i, err)
 			return
