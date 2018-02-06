@@ -18,18 +18,18 @@ func TestKubernetesParseReverseZone(t *testing.T) {
 
 	for i, tc := range tests {
 		c := caddy.NewTestController("dns", tc.input)
-		k, _, err := kubernetesParse(c)
+		h, err := kubernetesParse(c)
 		if err != nil {
 			t.Fatalf("Test %d: Expected no error, got %q", i, err)
 		}
 
-		zl := len(k.Zones)
+		zl := len(h.Zones)
 		if zl != len(tc.expectedZones) {
 			t.Errorf("Test %d: Expected kubernetes to be initialized with %d zones, found %d zones", i, len(tc.expectedZones), zl)
 		}
 		for i, z := range tc.expectedZones {
-			if k.Zones[i] != z {
-				t.Errorf("Test %d: Expected zones to be %q, got %q", i, z, k.Zones[i])
+			if h.Zones[i] != z {
+				t.Errorf("Test %d: Expected zones to be %q, got %q", i, z, h.Zones[i])
 			}
 		}
 	}

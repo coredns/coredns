@@ -53,13 +53,13 @@ func TestFederationKubernetes(t *testing.T) {
 		},
 	}
 
-	k := kubernetes.New([]string{"cluster.local."})
+	kh, k := kubernetes.NewHandler([]string{"cluster.local."})
 	k.APIConn = &APIConnFederationTest{}
 
 	fed := New()
 	fed.zones = []string{"cluster.local."}
-	fed.Federations = k.Federations
-	fed.Next = k
+	fed.Federations = kh.Federations
+	fed.Next = kh
 	fed.f = map[string]string{
 		"prod": "federal.example.",
 	}

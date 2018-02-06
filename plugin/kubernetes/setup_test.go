@@ -386,7 +386,7 @@ func TestKubernetesParse(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		k8sController, opts, err := kubernetesParse(c)
+		k8sHandler, err := kubernetesParse(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error, but did not find error for input '%s'. Error was: '%v'", i, test.input, err)
@@ -412,6 +412,8 @@ func TestKubernetesParse(t *testing.T) {
 			continue
 		}
 
+		k8sController := k8sHandler.Kubernetes[0]
+
 		// No error was raised, so validate initialization of k8sController
 		//     Zones
 		foundZoneCount := len(k8sController.Zones)
@@ -426,14 +428,14 @@ func TestKubernetesParse(t *testing.T) {
 		}
 
 		//    ResyncPeriod
-		foundResyncPeriod := opts.resyncPeriod
+		foundResyncPeriod := k8sController.apiOpts.resyncPeriod
 		if foundResyncPeriod != test.expectedResyncPeriod {
 			t.Errorf("Test %d: Expected kubernetes controller to be initialized with resync period '%s'. Instead found period '%s' for input '%s'", i, test.expectedResyncPeriod, foundResyncPeriod, test.input)
 		}
 
 		//    Labels
-		if opts.labelSelector != nil {
-			foundLabelSelectorString := meta.FormatLabelSelector(opts.labelSelector)
+		if k8sController.apiOpts.labelSelector != nil {
+			foundLabelSelectorString := meta.FormatLabelSelector(k8sController.apiOpts.labelSelector)
 			if foundLabelSelectorString != test.expectedLabelSelector {
 				t.Errorf("Test %d: Expected kubernetes controller to be initialized with label selector '%s'. Instead found selector '%s' for input '%s'", i, test.expectedLabelSelector, foundLabelSelectorString, test.input)
 			}
@@ -510,7 +512,7 @@ func TestKubernetesEndpointsParse(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		k8sController, _, err := kubernetesParse(c)
+		k8sHandler, err := kubernetesParse(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error, but did not find error for input '%s'. Error was: '%v'", i, test.input, err)
@@ -527,6 +529,8 @@ func TestKubernetesEndpointsParse(t *testing.T) {
 			}
 			continue
 		}
+
+		k8sController := k8sHandler.Kubernetes[0]
 
 		// Endpoints
 		foundEndpointNameMode := k8sController.endpointNameMode
