@@ -39,7 +39,7 @@ type edns0NsidRule struct {
 func setupEdns0Opt(r *dns.Msg) *dns.OPT {
 	o := r.IsEdns0()
 	if o == nil {
-		r.SetEdns0(4096,false)
+		r.SetEdns0(4096, false)
 		o = r.IsEdns0()
 	}
 	return o
