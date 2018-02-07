@@ -1,24 +1,20 @@
 package bind
 
 import (
-	"fmt"
-	"net"
-
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 
-	"github.com/mholt/caddy"
+	"github.com/mholt/caddy/caddyfile"
 )
 
-func setupBind(c *caddy.Controller) error {
-	config := dnsserver.GetConfig(c)
-	for c.Next() {
-		if !c.Args(&config.ListenHost) {
-			return plugin.Error("bind", c.ArgErr())
+func setupEnhancerBind(dispenser *caddyfile.Dispenser) (dnsserver.KeyEnhancer, error) {
+	bke := bindKeyEnhancer{addresses: make([]string, 0)}
+	for dispenser.Next() {
+		for dispenser.NextArg() {
+			if err := bke.addEnhancement(dispenser.Val()); err != nil {
+				return nil, plugin.Error("bind", err)
+			}
 		}
 	}
-	if net.ParseIP(config.ListenHost) == nil {
-		return plugin.Error("bind", fmt.Errorf("not a valid IP address: %s", config.ListenHost))
-	}
-	return nil
+	return bke.EnhanceKey, nil
 }

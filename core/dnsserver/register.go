@@ -32,6 +32,7 @@ func init() {
 		},
 		NewContext: newContext,
 	})
+
 }
 
 func newContext() caddy.Context {
@@ -50,50 +51,140 @@ func (h *dnsContext) saveConfig(key string, cfg *Config) {
 	h.keysToConfigs[key] = cfg
 }
 
+// KeyEnhancer : declaration for the plugins that choose to be keyEnhancers :
+//  - registered like a KeyEnhancer (instead of a plugin)
+//  - setup on a similar way as plugin, but earlier in the process
+//  - applied on each Key, have ability to modify the Key and generate extra Keys
+// NOTE: it is by choice that this KeyEnhancer cannot later apply as a plugin
+type KeyEnhancer func(key ZoneAddr) []ZoneAddr
+
+// SetupEnhancer to be implemented by each KeyEnhancer, parameters are in the dispenser (line setup function of plugins)
+type SetupEnhancer func(dispenser *caddyfile.Dispenser) (KeyEnhancer, error)
+
+//Register - to use to add a new KeyEnhancer
+func Register(name string, enh SetupEnhancer) error {
+	if keyEnhancerPlugins == nil {
+		keyEnhancerPlugins = make(map[string]SetupEnhancer, 1)
+	}
+	if _, ok := keyEnhancerPlugins[name]; ok {
+		return fmt.Errorf("duplicattion of a Key enhancer factory named '%v' ", name)
+	}
+	keyEnhancerPlugins[name] = enh
+	return nil
+}
+
+//function of transformation of Keys and Tokens by applying the KeyEnhancer defined in the Token over the Keys
+func expandKeys(keys []string, tokens map[string][]caddyfile.Token) ([]ZoneAddr, map[string][]caddyfile.Token, error) {
+
+	// transform each Key in a ZoneAddr
+	allZa := make([]ZoneAddr, len(keys))
+	for i, k := range keys {
+		za, err := normalizeZone(k)
+		if err != nil {
+			return nil, nil, err
+		}
+		allZa[i] = *za
+	}
+
+	// build the KeyEnhancers that are defined in the list of Tokens
+	enhancersInvolved := []KeyEnhancer{}
+	for n, tk := range tokens {
+		if plugin, ok := keyEnhancerPlugins[n]; ok {
+			// parse parameter of the token to []string and add to the list of enhancer to run
+			disp := caddyfile.NewDispenserTokens("--try--", tk)
+			enh, err := plugin(&disp)
+			if err != nil {
+				return nil, nil, fmt.Errorf("enhancer '%v' raise error when parsing : %v", n, err)
+			}
+			enhancersInvolved = append(enhancersInvolved, enh)
+			// remove from the Token : this enhancer will not be involved in the plugins process
+			delete(tokens, n)
+		}
+	}
+
+	// Apply the enhancement to each real key and create the missing keys if option has to be applied several time
+	keysToProcess := []ZoneAddr{}
+	for _, k := range allZa {
+		if len(enhancersInvolved) == 0 {
+			keysToProcess = append(keysToProcess, k)
+			continue
+		}
+		for _, enh := range enhancersInvolved {
+			keys := enh(k)
+			for _, nk := range keys {
+				keysToProcess = append(keysToProcess, nk)
+			}
+		}
+	}
+
+	return keysToProcess, tokens, nil
+}
+
 // InspectServerBlocks make sure that everything checks out before
 // executing directives and otherwise prepares the directives to
 // be parsed and executed.
 func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddyfile.ServerBlock) ([]caddyfile.ServerBlock, error) {
 	// Normalize and check all the zone names and check for duplicates
-	dups := map[string]string{}
-	for _, s := range serverBlocks {
-		for i, k := range s.Keys {
-			za, err := normalizeZone(k)
-			if err != nil {
-				return nil, err
-			}
-			s.Keys[i] = za.String()
-			if v, ok := dups[za.String()]; ok {
-				return nil, fmt.Errorf("cannot serve %s - zone already defined for %v", za, v)
-			}
-			dups[za.String()] = za.String()
+	// there is a dup if the same unicast is listening or a multicast is listening
 
-			// Save the config to our master list, and key it for lookups.
+	dups := newZoneAddrOverlapValidator()
+	newBlocs := make([]caddyfile.ServerBlock, len(serverBlocks))
+	for i, s := range serverBlocks {
+
+		//read all keys and expands as ZoneAddr according to defined KeyEnhancer in Tokens (eg bind)
+		zAddrs, tokens, err := expandKeys(s.Keys, s.Tokens)
+		if err != nil {
+			return nil, err
+		}
+
+		// prepare the keys for this server bloc
+		keys := make([]string, len(zAddrs))
+		for i, za := range zAddrs {
+
+			// value of the key, from the expanded ZoneAddr
+			currentKey := za.String()
+			// prepare a config for the server block
 			cfg := &Config{
-				Zone:      za.Zone,
-				Port:      za.Port,
-				Transport: za.Transport,
-			}
-			if za.IPNet == nil {
-				h.saveConfig(za.String(), cfg)
-				continue
+				Zone:       za.Zone,
+				ListenHost: za.serverAddr(),
+				Port:       za.Port,
+				Transport:  za.Transport,
 			}
 
-			ones, bits := za.IPNet.Mask.Size()
-			if (bits-ones)%8 != 0 { // only do this for non-octet boundaries
-				cfg.FilterFunc = func(s string) bool {
-					// TODO(miek): strings.ToLower! Slow and allocates new string.
-					addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s))
-					if addr == "" {
-						return true
+			// update specific for reverse zone
+			if za.IPNet != nil {
+				ones, bits := za.IPNet.Mask.Size()
+				if (bits-ones)%8 != 0 { // only do this for non-octet boundaries
+					cfg.FilterFunc = func(s string) bool {
+						// TODO(miek): strings.ToLower! Slow and allocates new string.
+						addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s))
+						if addr == "" {
+							return true
+						}
+						return za.IPNet.Contains(net.ParseIP(addr))
 					}
-					return za.IPNet.Contains(net.ParseIP(addr))
 				}
 			}
-			h.saveConfig(za.String(), cfg)
+
+			// save key and config
+			keys[i] = currentKey
+			h.saveConfig(currentKey, cfg)
+
+			// Validate the overlapping of ZoneAddr
+			alreadyDefined, overlapDefined, overlapKey := dups.registerAndCheck(za)
+			if alreadyDefined {
+				return nil, fmt.Errorf("cannot serve %s - it is already defined", za.String())
+			}
+			if overlapDefined {
+				return nil, fmt.Errorf("cannot serve %s - zone overlap listener capacity with %v", za.String(), overlapKey)
+			}
+
 		}
+		// Now save new keys and list of tokens in the serverBlock
+		newBlocs[i] = caddyfile.ServerBlock{Keys: keys, Tokens: tokens}
 	}
-	return serverBlocks, nil
+
+	return newBlocs, nil
 }
 
 // MakeServers uses the newly-created siteConfigs to create and return a list of server instances.
@@ -222,3 +313,4 @@ var (
 )
 
 var _ caddy.GracefulServer = new(Server)
+var keyEnhancerPlugins map[string]SetupEnhancer
