@@ -8,13 +8,13 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/trace"
 	"github.com/coredns/coredns/request"
 
+	"fmt"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/miekg/dns"
 	opentracing "github.com/opentracing/opentracing-go"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"fmt"
 )
 
 type grpcClient struct {
@@ -55,7 +55,7 @@ func (g *grpcClient) Exchange(ctx context.Context, addr string, state request.Re
 		}
 		return d, nil
 	}
-	return nil, fmt.Errorf("grpc exchange - no connexion available for host: %s ", addr)
+	return nil, fmt.Errorf("grpc exchange - no connection available for host: %s ", addr)
 }
 
 func (g *grpcClient) Transport() string { return "tcp" }
