@@ -105,7 +105,7 @@ func normalizeZone(str string) (*ZoneAddr, error) {
 		str = str[len(TransportGRPC+separateProtocol):]
 	}
 
-	host, port, ipnet, err := plugin.SplitHostPort(str)
+	host, ip, port, ipnet, err := plugin.SplitHostPort(str)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +127,7 @@ func normalizeZone(str string) (*ZoneAddr, error) {
 		return nil, fmt.Errorf("invalid format for zone, it is not considered as a dns domain : '%v'", host)
 	}
 
-	return &ZoneAddr{Zone: dns.Fqdn(host), Port: port, Transport: trans, IPNet: ipnet}, nil
+	return &ZoneAddr{Zone: dns.Fqdn(host), ListeningAddr: ip, Port: port, Transport: trans, IPNet: ipnet}, nil
 }
 
 // Transport returns the protocol of the string s
@@ -149,42 +149,6 @@ const (
 	TransportTLS  = "tls"
 	TransportGRPC = "grpc"
 )
-
-// test if the addr is either ipv4 or ipv6 enclosed in [], return the non enclosed version
-func isIP(addr string) (bool, string) {
-	shouldIpv6 := false
-	if addr[0] == '[' && addr[len(addr)-1] == ']' {
-		addr = addr[1 : len(addr)-1]
-		shouldIpv6 = true
-	}
-	if ip := net.ParseIP(addr); ip != nil {
-		isIpv4 := ip.To4() != nil
-		return (isIpv4 && !shouldIpv6) || (!isIpv4 && shouldIpv6), addr
-	}
-	return false, addr
-}
-
-// split the string on sep, but avoid to split if that sep is in a zomment zone
-func splitWithComment(s string, sep int32, commentStart int32, commentEnd int32) []string {
-	// need a split where the string between [] is not splitted
-	a := make([]string, 0)
-	comment := 0
-	initPos := 0
-	for i, car := range s {
-		if car == commentStart {
-			comment++
-		}
-		if car == commentEnd && comment > 0 {
-			comment--
-		}
-		if car == sep && comment == 0 {
-			a = append(a, s[initPos:i])
-			initPos = i + 1
-		}
-	}
-	a = append(a, s[initPos:])
-	return a
-}
 
 //parseFromKey build a ZoneAddr from standard format that includes all options
 func parseFromKey(value string) (*ZoneAddr, error) {
@@ -209,7 +173,7 @@ func parseFromKey(value string) (*ZoneAddr, error) {
 	corp := tail[0]
 	zone, ip, port := "", "", ""
 	// extract Zone, maybe IP, and port
-	zoneAddr := splitWithComment(corp, ':', '[', ']')
+	zoneAddr := plugin.SplitWithComment(corp, ':', '[', ']')
 	switch len(zoneAddr) {
 	case 2:
 		zone, ip, port = zoneAddr[0], "", zoneAddr[1]
@@ -225,7 +189,7 @@ func parseFromKey(value string) (*ZoneAddr, error) {
 		return nil, fmt.Errorf("invalid format for zone, it is not considered as a dns domain : '%v'", zone)
 	}
 	if ip != "" {
-		if ok, _ := isIP(ip); !ok {
+		if ok, _ := plugin.IsIP(ip); !ok {
 			return nil, fmt.Errorf("invalid format for ip, it is not an Ipv4 or Ipv6 format : '%v'", ip)
 		}
 	}

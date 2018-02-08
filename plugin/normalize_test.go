@@ -96,7 +96,7 @@ func TestSplitHostPortReverse(t *testing.T) {
 		"2003::1/65":   128 - 65,
 	}
 	for in, expect := range tests {
-		_, _, n, err := SplitHostPort(in)
+		_, _, _, n, err := SplitHostPort(in)
 		if err != nil {
 			t.Errorf("Expected no error, got %q for %s", in, err)
 		}
