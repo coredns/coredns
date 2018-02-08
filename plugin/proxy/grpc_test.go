@@ -91,7 +91,7 @@ func TestRunAQuery(t *testing.T) {
 	// verify that you have proper error if the hostname is unknwn or not registered
 	_, err = g.Exchange(context.TODO(), "invalid:10055", state)
 	if err == nil {
-		t.Errorf("Expecting a proper error when querying gRPC client with invalid hostname", err)
+		t.Errorf("Expecting a proper error when querying gRPC client with invalid hostname : %s", err)
 	}
 
 	err = g.OnShutdown(p)
@@ -115,7 +115,7 @@ func TestRunAQueryOnSecureLinkWithInvalidCert(t *testing.T) {
 		},
 	}
 
-	filename, rmFunc, err := test.TempFile("", VALID_CERT)
+	filename, rmFunc, err := test.TempFile("", validCert)
 	if err != nil {
 		t.Errorf("Error saving file : %s", err)
 		return
@@ -166,7 +166,7 @@ func (d discard) Printf(format string, args ...interface{}) {}
 func (d discard) Println(args ...interface{})               {}
 
 const (
-	VALID_CERT = `-----BEGIN CERTIFICATE-----
+	validCert = `-----BEGIN CERTIFICATE-----
 	MIIDlDCCAnygAwIBAgIJAPaRnBJUE/FVMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
 BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
 aWRnaXRzIFB0eSBMdGQwHhcNMTcxMTI0MTM0OTQ3WhcNMTgxMTI0MTM0OTQ3WjBF
@@ -187,28 +187,5 @@ duMECCigU2x5tAGmFa6g/pXXOoZCBRzFXwXiuNhSyhJEEwODjLZ6vgbySuU2jso3
 va4FKFDdVM16s1/RYOK5oM48XytCMB/JoYoSJHPfpt8LpVNAQEHMvPvHwuZBON/z
 q8HFtDjT4pBpB8AfuzwtUZ/zJ5atwxa5+ahcqRnK2kX2RSINfyEy43FZjLlvjcGa
 UIRTUJK1JKg=
------END CERTIFICATE-----`
-
-	INVALID_CERT = `-----BEGIN CERTIFICATE-----
-MIIDoDCCAoigAwIBAgIJAPUPK7+L0jF2MA0GCSqGSIb3DQEBCwUAMDkxCzAJBgNV
-BAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRUwEwYDVQQKDAxJbmZvYmxveCBJ
-bmMwHhcNMTgwMTMxMjIzNzQyWhcNMjAwMTMxMjIzNzQyWjA5MQswCQYDVQQGEwJV
-UzETMBEGA1UECAwKQ2FsaWZvcm5pYTEVMBMGA1UECgwMSW5mb2Jsb3ggSW5jMIIB
-IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA1xWSRb/xCmIlb4Nn5zi+uV8T
-TGCka89rkGA5z3zPPzhC3zkXOxLCowQljkSwg74tx0NVxqahF3muJn6DjryciyyX
-DhC4df+4yRag1Z/R9nIab2FZgbDt60EaxU1vCbpeB/0P96Pgakft7/SCkre0ZwO+
-mHV5EdMzQVcHwi56XTzMXGACKVkH3e7m+pRiTlypoIoxfIfR50d78Gszt/7IEkxf
-ivZTISY8ywBST/umFL2/KVLytn1RfiM6cT06iCoreKOFTCNSIxbI5UgUYCIBS/G7
-7bHDOs+NdbAfniyQSPx0ApTzcau6eDSaSTm4vzZO5MasU0nUbJG/ryFdagPtGwID
-AQABo4GqMIGnMFcGA1UdEQRQME6HBH8AAAGHBDR3AQGHBDR3AQCHBDR3KmSHBDR3
-KGSHBDR3KmWHBDR3KtKHBDR3KGWHBLmtuN2HBLmtuN6HBLmtuN+HBLmtuOCHBLmt
-uOEwHQYDVR0OBBYEFK7DMeyjOdeLB3Us43qWeVK17joXMB8GA1UdIwQYMBaAFK7D
-MeyjOdeLB3Us43qWeVK17joXMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQELBQAD
-ggEBAF7JYbex4ONh2ogtWMIKotGcmeEa2RX/tEiQ6a++ugQw8C48sDbs2wDHXfF4
-MN6mHUs72UuouE+8ASYaZyGWl/MKMAxYiLIXECEbh8e9VCnh9rRg2bQly9X+5UiM
-V+mXuZ4dvd1K3A4VPKOQAyX4Bseo7Y+B2tUcaUEoV/jEFaBo+WXHTzhB03KKDQ1Z
-IJ2QbeE9KUxag1uJ+LqDUJ58k7LdAK0xIsRJX5J48CLu1ykWluJjnk7CE0RKMfw/
-/4+F4yEvYZzFWr8VEt2PvNibtPlke3Jq8OXE7aW8PEU3sWcTRS2PHe8tDq1f+uCM
-pCqWchSwieGmZEqSi9kFPF1QP6Q=
 -----END CERTIFICATE-----`
 )
