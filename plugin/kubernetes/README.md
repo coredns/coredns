@@ -14,7 +14,7 @@ cluster.  See the [deployment](https://github.com/coredns/deployment) repository
 to deploy CoreDNS in Kubernetes](https://github.com/coredns/deployment/tree/master/kubernetes).
 
 [stubDomains](http://blog.kubernetes.io/2017/04/configuring-private-dns-zones-upstream-nameservers-kubernetes.html)
-are implemented via the *proxy* plugin.
+are implemented via the *proxy* plugin.  See the Stub Domains section below for more detail.
 
 ## Syntax
 
@@ -134,10 +134,7 @@ Here we use the *proxy* plugin to implement stubDomains that forwards `example.o
 
 ~~~ txt
 cluster.local {
-    kubernetes {
-        endpoint https://k8s-endpoint:8443
-        tls cert key cacert
-    }
+    kubernetes
 }
 example.org {
     proxy . 8.8.8.8:53
@@ -186,3 +183,26 @@ or the word "any"), then that label will match all values.  The labels that acce
  * _port and/or protocol_ in an `SRV` request: __port_.__protocol_.service.namespace.svc.zone.,
    e.g. `_http.*.service.ns.svc.`
  * multiple wild cards are allowed in a single query, e.g. `A` Request `*.*.svc.zone.` or `SRV` request `*.*.*.*.svc.zone.`
+ 
+ ## Stub Domains
+ 
+Kube-DNS has a [Stub Domains](http://blog.kubernetes.io/2017/04/configuring-private-dns-zones-upstream-nameservers-kubernetes.html) feature that allows you to configure private DNS zones and upstream nameservers.
+
+This can be mostly replicated in CoreDNS using the *proxy* plugin. The *proxy* plugin, among other things, allows you to direct requests for names in given domains to be forwarded to other nameservers.  One caveat however is that upstream record resolution in coredns does not directly support stub domains.  This means that an External Service (i.e. a `CNAME`)  that targets a name in a stub domain will not get resolved properly.  In other words, retrieval of an `A` record for a `CNAME` target will always be sent to the servers listed in the *upstream* command in the current plugin, regardless of which domain the `CNAME` target belongs.
+
+A perilous workaround to this is to make CoreDNS itself the upstream nameserver. This allows CoreDNS to process the request from the start, and therefore use the *proxy* plugins to properly route the upstream record retrieval.  Self referencing like this is inherently dangerous. It exposes CoreDNS to the risk of infinite recursion, wherein CoreDNS perptually resends itself the same query ad-infinitum.  The only way to stop the resource draining loop if it happens, is to restart CoreDNS.
+
+For example (*employ at your own risk - you have been warned*): The following will proxy `private.local` requests to the nameserver `10.10.10.10`, and also resolve `CNAME` records (External Services) that target records in `private.local` using `10.10.10.10`
+```
+cluster.local {
+    kubernetes {
+        upstream 127.0.0.1
+    }
+}
+private.local {
+    proxy . 10.10.10.10:53
+}
+. {
+    proxy . /etc/resolv.conf
+}
+```
