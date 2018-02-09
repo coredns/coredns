@@ -20,7 +20,7 @@ bind ADDRESS  ...
 ~~~
 
 **ADDRESS** is an IP address to bind to.
-When several addresses are provides a listener will be opened on each of the addresses.
+When several addresses are provided a listener will be opened on each of the addresses.
 
 ## Examples
 
