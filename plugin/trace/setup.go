@@ -34,22 +34,6 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func endPointName(hosts []string, port string) string {
-	host := ""
-	switch len(hosts) {
-	case 0:
-	case 1:
-		host = hosts[0]
-	default:
-		host = hosts[0]
-		for _, h := range hosts[1:] {
-			host = host + "," + h
-		}
-		host = "(" + host + ")"
-	}
-	return host + ":" + port
-}
-
 func traceParse(c *caddy.Controller) (*trace, error) {
 	var (
 		tr  = &trace{Endpoint: defEP, EndpointType: defEpType, every: 1, serviceName: defServiceName}
@@ -57,7 +41,7 @@ func traceParse(c *caddy.Controller) (*trace, error) {
 	)
 
 	cfg := dnsserver.GetConfig(c)
-	tr.ServiceEndpoint = endPointName(cfg.ListenHosts, cfg.Port)
+	tr.ServiceEndpoint = cfg.HostAddresses()
 	for c.Next() { // trace
 		var err error
 		args := c.RemainingArgs()

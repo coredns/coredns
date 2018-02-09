@@ -70,9 +70,10 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 
 			// Save the config to our master list, and key it for lookups.
 			cfg := &Config{
-				Zone:      za.Zone,
-				Port:      za.Port,
-				Transport: za.Transport,
+				Zone:        za.Zone,
+				Port:        za.Port,
+				Transport:   za.Transport,
+				ListenHosts: []string{""},
 			}
 			if za.IPNet == nil {
 				h.saveConfig(za.String(), cfg)
@@ -191,13 +192,7 @@ func groupConfigsByListenAddr(configs []*Config) (map[string][]*Config, error) {
 	groups := make(map[string][]*Config)
 
 	for _, conf := range configs {
-		hosts := []string{}
-		if conf.ListenHosts == nil {
-			hosts = append(hosts, "")
-		} else {
-			hosts = append(hosts, conf.ListenHosts...)
-		}
-		for _, h := range hosts {
+		for _, h := range conf.ListenHosts {
 			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(h, conf.Port))
 			if err != nil {
 				return nil, err
