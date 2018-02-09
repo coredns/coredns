@@ -193,10 +193,10 @@ func TestEndpointsEquivalent(t *testing.T) {
 
 	for i, tc := range tests {
 		if tc.equiv && !endpointsEquivalent(tc.a, tc.b) {
-			t.Error("Test %d: expected endpoints to be equivalent and they are not.", i)
+			t.Errorf("Test %d: expected endpoints to be equivalent and they are not.", i)
 		}
 		if !tc.equiv && endpointsEquivalent(tc.a, tc.b) {
-			t.Error("Test %d: expected endpoints to be seen as different but they were not.", i)
+			t.Errorf("Test %d: expected endpoints to be seen as different but they were not.", i)
 		}
 	}
 }
