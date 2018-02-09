@@ -159,7 +159,7 @@ func TestEndpointsEquivalent(t *testing.T) {
 	epH := api.Endpoints{
 		Subsets: []api.EndpointSubset{{
 			Addresses: []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
-			Ports:     []api.EndpointPort{{Name: "thhp", Port: 80, Protocol: "TCP"}},
+			Ports:     []api.EndpointPort{{Name: "newportname", Port: 80, Protocol: "TCP"}},
 		}},
 	}
 	epI := api.Endpoints{
