@@ -26,7 +26,7 @@ When several addresses are provided a listener will be opened on each of the add
 
 To make your socket accessible only to that machine, bind to IP 127.0.0.1 (localhost):
 
-~~~
+~~~ corefile
 . {
     bind 127.0.0.1
 }
@@ -34,8 +34,18 @@ To make your socket accessible only to that machine, bind to IP 127.0.0.1 (local
 
 To allow processing DNS requests only local host on both IPv4 and IPv6 stacks, use the syntax:
 
-~~~
+~~~ corefile
 . {
     bind 127.0.0.1 ::1
+}
+~~~
+
+If the configuration comes up with several *bind* directives, all addresses are consolidated together:
+The following sample is equivalent to the preceding:
+ 
+~~~ corefile
+. {
+    bind 127.0.0.1 
+    bind ::1
 }
 ~~~
