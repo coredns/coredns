@@ -446,11 +446,8 @@ func (dns *dnsControl) Update(objOld, newObj interface{}) {
 	dns.updateModifed()
 }
 
-// checks if the update to an endpoint is something
-// that matters to us:
-//  ready addresses
-//  host names
-//  ports (including names for SRV)
+// endpointsEquivalent checks if the update to an endpoint is something
+// that matters to us: ready addresses, host names, ports (including names for SRV)
 func endpointsEquivalent(a, b *api.Endpoints) bool {
 	// supposedly we should be able to rely on
 	// these being sorted and able to be compared

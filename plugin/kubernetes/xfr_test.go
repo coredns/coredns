@@ -7,6 +7,8 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 	"golang.org/x/net/context"
+	api "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/miekg/dns"
 )
@@ -108,4 +110,60 @@ func difference(testRRs []dns.RR, gotRRs []dns.RR) []dns.RR {
 		}
 	}
 	return foundRRs
+}
+
+func TestEndpointsEquivalent(t *testing.T) {
+	epA := api.Endpoints{
+		ObjectMeta: meta.ObjectMeta{ResourceVersion: "1230"},
+		Subsets: []api.EndpointSubset{{
+			Addresses:         []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			NotReadyAddresses: []api.EndpointAddress{{IP: "1.2.3.5", Hostname: "foobar"}},
+		}},
+	}
+	epB := api.Endpoints{
+		ObjectMeta: meta.ObjectMeta{ResourceVersion: "1234"},
+		Subsets: []api.EndpointSubset{{
+			Addresses:         []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			NotReadyAddresses: []api.EndpointAddress{{IP: "1.1.1.1", Hostname: "foobar"}},
+		}},
+	}
+	epC := api.Endpoints{
+		Subsets: []api.EndpointSubset{{
+			Addresses: []api.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}},
+		}},
+	}
+	epD := api.Endpoints{
+		Subsets: []api.EndpointSubset{{
+			Addresses: []api.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}},
+		},
+			{
+				Addresses: []api.EndpointAddress{{IP: "1.2.2.2", Hostname: "foofoo"}},
+			}},
+	}
+	epE := api.Endpoints{
+		Subsets: []api.EndpointSubset{{
+			Addresses: []api.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}, {IP: "1.1.1.1"}},
+		}},
+	}
+	epF := api.Endpoints{
+		Subsets: []api.EndpointSubset{{
+			Addresses:         []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foofoo"}},
+		}},
+	}
+
+	if !endpointsEquivalent(&epA, &epB) {
+		t.Error("Expected endpoints to be equivalent and they are not.")
+	}
+	if endpointsEquivalent(&epA, &epC) {
+		t.Error("Expected endpoints to be seen as different but they were not.")
+	}
+	if endpointsEquivalent(&epA, &epD) {
+		t.Error("Expected endpoints to be seen as different but they were not.")
+	}
+	if endpointsEquivalent(&epA, &epE) {
+		t.Error("Expected endpoints to be seen as different but they were not.")
+	}
+	if endpointsEquivalent(&epA, &epF) {
+		t.Error("Expected endpoints to be seen as different but they were not.")
+	}
 }
