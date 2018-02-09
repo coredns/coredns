@@ -147,23 +147,56 @@ func TestEndpointsEquivalent(t *testing.T) {
 	}
 	epF := api.Endpoints{
 		Subsets: []api.EndpointSubset{{
-			Addresses:         []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foofoo"}},
+			Addresses: []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foofoo"}},
+		}},
+	}
+	epG := api.Endpoints{
+		Subsets: []api.EndpointSubset{{
+			Addresses: []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			Ports:     []api.EndpointPort{{Name: "http", Port: 80, Protocol: "TCP"}},
+		}},
+	}
+	epH := api.Endpoints{
+		Subsets: []api.EndpointSubset{{
+			Addresses: []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			Ports:     []api.EndpointPort{{Name: "thhp", Port: 80, Protocol: "TCP"}},
+		}},
+	}
+	epI := api.Endpoints{
+		Subsets: []api.EndpointSubset{{
+			Addresses: []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			Ports:     []api.EndpointPort{{Name: "http", Port: 8080, Protocol: "TCP"}},
+		}},
+	}
+	epJ := api.Endpoints{
+		Subsets: []api.EndpointSubset{{
+			Addresses: []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			Ports:     []api.EndpointPort{{Name: "http", Port: 80, Protocol: "UDP"}},
 		}},
 	}
 
-	if !endpointsEquivalent(&epA, &epB) {
-		t.Error("Expected endpoints to be equivalent and they are not.")
+	tests := []struct {
+		equiv bool
+		a     *api.Endpoints
+		b     *api.Endpoints
+	}{
+		{true, &epA, &epB},
+		{false, &epA, &epC},
+		{false, &epA, &epD},
+		{false, &epA, &epE},
+		{false, &epA, &epF},
+		{false, &epF, &epG},
+		{false, &epG, &epH},
+		{false, &epG, &epI},
+		{false, &epG, &epJ},
 	}
-	if endpointsEquivalent(&epA, &epC) {
-		t.Error("Expected endpoints to be seen as different but they were not.")
-	}
-	if endpointsEquivalent(&epA, &epD) {
-		t.Error("Expected endpoints to be seen as different but they were not.")
-	}
-	if endpointsEquivalent(&epA, &epE) {
-		t.Error("Expected endpoints to be seen as different but they were not.")
-	}
-	if endpointsEquivalent(&epA, &epF) {
-		t.Error("Expected endpoints to be seen as different but they were not.")
+
+	for i, tc := range tests {
+		if tc.equiv && !endpointsEquivalent(tc.a, tc.b) {
+			t.Error("Test %d: expected endpoints to be equivalent and they are not.", i)
+		}
+		if !tc.equiv && endpointsEquivalent(tc.a, tc.b) {
+			t.Error("Test %d: expected endpoints to be seen as different but they were not.", i)
+		}
 	}
 }
