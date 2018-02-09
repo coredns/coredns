@@ -45,9 +45,18 @@ type dnsContext struct {
 	configs []*Config
 }
 
-func (h *dnsContext) saveConfig(key string, cfg *Config) {
+const keySeparator = ":"
+
+func (h *dnsContext) saveConfig(blocIndex int, keyIndex int, cfg *Config) {
+	key := fmt.Sprintf("%d%s%d", blocIndex, keySeparator, keyIndex)
 	h.configs = append(h.configs, cfg)
 	h.keysToConfigs[key] = cfg
+}
+
+func (h *dnsContext) getConfig(blocIndex int, keyIndex int) (*Config, bool) {
+	key := fmt.Sprintf("%d%s%d", blocIndex, keySeparator, keyIndex)
+	c, ok := h.keysToConfigs[key]
+	return c, ok
 }
 
 // InspectServerBlocks make sure that everything checks out before
@@ -55,28 +64,22 @@ func (h *dnsContext) saveConfig(key string, cfg *Config) {
 // be parsed and executed.
 func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddyfile.ServerBlock) ([]caddyfile.ServerBlock, error) {
 	// Normalize and check all the zone names and check for duplicates
-	dups := map[string]string{}
-	for _, s := range serverBlocks {
-		for i, k := range s.Keys {
+	for ib, s := range serverBlocks {
+		for ik, k := range s.Keys {
 			za, err := normalizeZone(k)
 			if err != nil {
 				return nil, err
 			}
-			s.Keys[i] = za.String()
-			if v, ok := dups[za.String()]; ok {
-				return nil, fmt.Errorf("cannot serve %s - zone already defined for %v", za, v)
-			}
-			dups[za.String()] = za.String()
-
+			s.Keys[ik] = za.String()
 			// Save the config to our master list, and key it for lookups.
 			cfg := &Config{
 				Zone:        za.Zone,
+				ListenHosts: []string{""},
 				Port:        za.Port,
 				Transport:   za.Transport,
-				ListenHosts: []string{""},
 			}
 			if za.IPNet == nil {
-				h.saveConfig(za.String(), cfg)
+				h.saveConfig(ib, ik, cfg)
 				continue
 			}
 
@@ -91,7 +94,7 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 					return za.IPNet.Contains(net.ParseIP(addr))
 				}
 			}
-			h.saveConfig(za.String(), cfg)
+			h.saveConfig(ib, ik, cfg)
 		}
 	}
 	return serverBlocks, nil
@@ -99,6 +102,13 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 
 // MakeServers uses the newly-created siteConfigs to create and return a list of server instances.
 func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
+
+	// Now that all Keys and Directives are parsed and initialized
+	// lets verify that there is no overlap on the zones and addresses to listen for
+	errValid := h.validateZonesAndListeningAddresses()
+	if errValid != nil {
+		return nil, errValid
+	}
 
 	// we must map (group) each config to a bind address
 	groups, err := groupConfigsByListenAddr(h.configs)
@@ -183,14 +193,36 @@ func (c *Config) Handlers() []plugin.Handler {
 	return hs
 }
 
+func (h *dnsContext) validateZonesAndListeningAddresses() error {
+	//Validate Zone and addresses
+	checker := newZoneAddrOverlapValidator()
+	for _, conf := range h.configs {
+		for _, h := range conf.ListenHosts {
+			// Validate the overlapping of ZoneAddr
+			akey := &addrKey{Transport: conf.Transport, Zone: conf.Zone, Address: h, Port: conf.Port}
+			alreadyDefined, overlapDefined, overlapKey := checker.registerAndCheck(akey)
+			if alreadyDefined {
+				return fmt.Errorf("cannot serve %s - it is already defined", akey.String())
+			}
+			if overlapDefined {
+				oKey, _ := parseAddrKey(overlapKey)
+				return fmt.Errorf("cannot serve %s - zone overlap listener capacity with %v", akey.String(), oKey.String())
+			}
+
+		}
+	}
+	return nil
+
+}
+
 // groupSiteConfigsByListenAddr groups site configs by their listen
 // (bind) address, so sites that use the same listener can be served
 // on the same server instance. The return value maps the listen
 // address (what you pass into net.Listen) to the list of site configs.
 // This function does NOT vet the configs to ensure they are compatible.
 func groupConfigsByListenAddr(configs []*Config) (map[string][]*Config, error) {
-	groups := make(map[string][]*Config)
 
+	groups := make(map[string][]*Config)
 	for _, conf := range configs {
 		for _, h := range conf.ListenHosts {
 			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(h, conf.Port))
@@ -201,6 +233,7 @@ func groupConfigsByListenAddr(configs []*Config) (map[string][]*Config, error) {
 			groups[addrstr] = append(groups[addrstr], conf)
 		}
 	}
+
 	return groups, nil
 }
 

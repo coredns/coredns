@@ -94,3 +94,74 @@ const (
 	TransportTLS  = "tls"
 	TransportGRPC = "grpc"
 )
+
+const keyPartsSeparator = "##"
+
+type addrKey struct {
+	Transport string // dns, tls or grpc
+	Zone      string
+	Address   string
+	Port      string
+}
+
+func (k *addrKey) asKey() string {
+	return k.Transport + keyPartsSeparator + k.Zone + keyPartsSeparator + k.Address + keyPartsSeparator + k.Port
+}
+
+func parseAddrKey(key string) (*addrKey, error) {
+	keyParts := strings.Split(key, keyPartsSeparator)
+	if len(keyParts) != 4 {
+		return nil, fmt.Errorf("Provided value is not a key for addrKey, expect 4 parts joined by '%s' : %s", key, keyPartsSeparator)
+	}
+	return &addrKey{keyParts[0], keyParts[1], keyParts[2], keyParts[3]}, nil
+}
+
+func (k *addrKey) isMulticast() bool {
+	return k.Address == ""
+}
+
+func (k *addrKey) copyAsMulticast() *addrKey {
+	return &addrKey{Zone: k.Zone, Address: "", Port: k.Port, Transport: k.Transport}
+
+}
+
+// String return the string representation of this ZoneAddr - for print
+func (k *addrKey) String() string {
+	if k.Address == "" {
+		return k.Transport + "://" + k.Zone + ":" + k.Port
+	}
+	return k.Transport + "://" + k.Zone + ":" + k.Address + ":" + k.Port
+}
+
+// Build a Validator that rise error if the bound addresses for listeners are overlapping
+type zoneAddrOverlapValidator struct {
+	registeredAddr   map[string]string
+	multicastOverlap map[string]string
+}
+
+func newZoneAddrOverlapValidator() *zoneAddrOverlapValidator {
+	return &zoneAddrOverlapValidator{registeredAddr: make(map[string]string), multicastOverlap: make(map[string]string)}
+}
+
+func (c *zoneAddrOverlapValidator) registerAndCheck(k *addrKey) (same bool, overlap bool, overlapKey string) {
+	key := k.asKey()
+	if _, ok := c.registeredAddr[key]; ok {
+		// exact same zone already registered
+		return true, false, ""
+	}
+	mkey := k.copyAsMulticast().asKey()
+	if already, ok := c.multicastOverlap[mkey]; ok {
+		if k.isMulticast() {
+			// there is already a unicast registered
+			return false, true, already
+		}
+		if _, ok := c.registeredAddr[mkey]; ok {
+			// the overlapping multicast is already registered
+			return false, true, mkey
+		}
+	} else {
+		c.multicastOverlap[mkey] = key
+	}
+	c.registeredAddr[key] = key
+	return false, false, ""
+}

@@ -72,12 +72,12 @@ func (c *Config) HostAddresses() string {
 // If none exist nil is returned.
 func GetConfig(c *caddy.Controller) *Config {
 	ctx := c.Context().(*dnsContext)
-	if cfg, ok := ctx.keysToConfigs[c.Key]; ok {
+	if cfg, ok := ctx.getConfig(c.ServerBlockIndex, c.ServerBlockKeyIndex); ok {
 		return cfg
 	}
 	// we should only get here during tests because directive
 	// actions typically skip the server blocks where we make
 	// the configs.
-	ctx.saveConfig(c.Key, &Config{ListenHosts: []string{""}})
+	ctx.saveConfig(c.ServerBlockIndex, c.ServerBlockKeyIndex, &Config{})
 	return GetConfig(c)
 }
