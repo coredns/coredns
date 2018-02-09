@@ -14,7 +14,7 @@ type Config struct {
 	Zone string
 
 	// The hostname to bind listener to, defaults to the wildcard address
-	ListenHost string
+	ListenHosts []string
 
 	// The port to listen on.
 	Port string

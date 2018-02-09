@@ -191,14 +191,21 @@ func groupConfigsByListenAddr(configs []*Config) (map[string][]*Config, error) {
 	groups := make(map[string][]*Config)
 
 	for _, conf := range configs {
-		addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(conf.ListenHost, conf.Port))
-		if err != nil {
-			return nil, err
+		hosts := []string{}
+		if conf.ListenHosts == nil {
+			hosts = append(hosts, "")
+		} else {
+			hosts = append(hosts, conf.ListenHosts...)
 		}
-		addrstr := conf.Transport + "://" + addr.String()
-		groups[addrstr] = append(groups[addrstr], conf)
+		for _, h := range hosts {
+			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(h, conf.Port))
+			if err != nil {
+				return nil, err
+			}
+			addrstr := conf.Transport + "://" + addr.String()
+			groups[addrstr] = append(groups[addrstr], conf)
+		}
 	}
-
 	return groups, nil
 }
 

@@ -13,12 +13,16 @@ import (
 func setupBind(c *caddy.Controller) error {
 	config := dnsserver.GetConfig(c)
 	for c.Next() {
-		if !c.Args(&config.ListenHost) {
-			return plugin.Error("bind", c.ArgErr())
+		addresses := c.RemainingArgs()
+		if len(addresses) == 0 {
+			return plugin.Error("bind", fmt.Errorf("at least one address is expected"))
 		}
-	}
-	if net.ParseIP(config.ListenHost) == nil {
-		return plugin.Error("bind", fmt.Errorf("not a valid IP address: %s", config.ListenHost))
+		for _, addr := range addresses {
+			if net.ParseIP(addr) == nil {
+				return plugin.Error("bind", fmt.Errorf("not a valid IP address: %s", addr))
+			}
+		}
+		config.ListenHosts = addresses
 	}
 	return nil
 }

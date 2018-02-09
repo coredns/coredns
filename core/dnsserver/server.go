@@ -287,8 +287,10 @@ func (s *Server) OnStartupComplete() {
 		return
 	}
 
-	for zone, config := range s.zones {
-		fmt.Println(zone + ":" + config.Port)
+	for zone := range s.zones {
+		// if the server is listening on a specific address let's make it visible in the log,
+		// so one can differentiate between all active listeners
+		fmt.Println(zone + " on " + s.Addr)
 	}
 }
 
