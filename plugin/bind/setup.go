@@ -14,19 +14,19 @@ func setupBind(c *caddy.Controller) error {
 	config := dnsserver.GetConfig(c)
 
 	// addresses will be consolidated over all BIND directives available in that BlocServer
-	allAddresses := []string{}
+	all := []string{}
 	for c.Next() {
-		addresses := c.RemainingArgs()
-		if len(addresses) == 0 {
+		addrs := c.RemainingArgs()
+		if len(addrs) == 0 {
 			return plugin.Error("bind", fmt.Errorf("at least one address is expected"))
 		}
-		for _, addr := range addresses {
+		for _, addr := range addrs {
 			if net.ParseIP(addr) == nil {
 				return plugin.Error("bind", fmt.Errorf("not a valid IP address: %s", addr))
 			}
 		}
-		allAddresses = append(allAddresses, addresses...)
+		all = append(all, addrs...)
 	}
-	config.ListenHosts = allAddresses
+	config.ListenHosts = all
 	return nil
 }

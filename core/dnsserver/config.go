@@ -56,16 +56,16 @@ type Config struct {
 //after server is started ONLY, can be used as a Key for identifing that config
 // :53 or 127.0.0.1:53 or 127.0.0.1:53/::1:53
 func (c *Config) HostAddresses() string {
-	hosts := ""
+	all := ""
 	for _, h := range c.ListenHosts {
-		host := net.JoinHostPort(h, c.Port)
-		if hosts == "" {
-			hosts = host
+		addr := net.JoinHostPort(h, c.Port)
+		if all == "" {
+			all = addr
 			continue
 		}
-		hosts = hosts + "/" + host
+		all = all + "/" + addr
 	}
-	return hosts
+	return all
 }
 
 // GetConfig gets the Config that corresponds to c.
