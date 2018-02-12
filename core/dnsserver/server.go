@@ -288,7 +288,13 @@ func (s *Server) OnStartupComplete() {
 	}
 
 	for zone, config := range s.zones {
-		fmt.Println(zone + ":" + config.Port)
+		// if the server is listening on a specific address let's make it visible in the log,
+		// so one can differentiate between all active listeners
+		boundAddr := ""
+		if config.ListenHost != "" {
+			boundAddr = " (->" + config.ListenHost + ")"
+		}
+		fmt.Println(zone + ":" + config.Port + boundAddr)
 	}
 }
 

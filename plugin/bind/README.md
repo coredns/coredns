@@ -6,16 +6,17 @@
 
 ## Description
 
-Normally, the listener binds to the wildcard host. However, you may force the listener to bind to
-another IP instead. This directive accepts only an address, not a port.
+Normally, the listener binds to the wildcard host. However, you may want the listener to bind to
+another IP instead. If several addresses are provided, the listener will be duplicated such as each address is listened. 
+This directive accepts several addresses, no ports.
 
 ## Syntax
 
 ~~~ txt
-bind ADDRESS
+bind ADDRESS [ADDRESS] ...
 ~~~
 
-**ADDRESS** is the IP address to bind to.
+**ADDRESS** is the IP address or list of IP addresses to bind to.
 
 ## Examples
 
@@ -26,3 +27,12 @@ To make your socket accessible only to that machine, bind to IP 127.0.0.1 (local
     bind 127.0.0.1
 }
 ~~~
+
+To duplicate the server and open on a second socket for the Ipv6 localhost counterpart:
+
+~~~
+. {
+    bind 127.0.0.1 ::1
+}
+~~~
+

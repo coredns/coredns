@@ -60,6 +60,9 @@ type (
 
 // Normalize will return the host portion of host, stripping
 // of any port or transport. The host will also be fully qualified and lowercased.
+// NOTE: normalize() is used to retrieve the 'host' part of a ServerBlocsKey.
+// It is used  by several plugin to parse the Zones they apply on. fixing SplitHostPort to ensure the host reply is correct is a workaround
+// the right think would be to use ZoneAddr.asKey() to encode the ServerBlocksKeys in string and ParseZoneAddr() to retrieve the parts in normalise()
 func (h Host) Normalize() string {
 
 	s := string(h)
@@ -75,38 +78,102 @@ func (h Host) Normalize() string {
 
 	// The error can be ignore here, because this function is called after the corefile
 	// has already been vetted.
-	host, _, _, _ := SplitHostPort(s)
+	host, _, _, _, _ := SplitHostPort(s)
 	return Name(host).Normalize()
+}
+
+// IsIP test if the addr is either ipv4 or ipv6 enclosed in [], return the non enclosed version
+func IsIP(addr string) (bool, string) {
+	shouldIpv6 := false
+	if addr[0] == '[' && addr[len(addr)-1] == ']' {
+		addr = addr[1 : len(addr)-1]
+		shouldIpv6 = true
+	}
+	if ip := net.ParseIP(addr); ip != nil {
+		isIpv4 := ip.To4() != nil
+		return (isIpv4 && !shouldIpv6) || (!isIpv4 && shouldIpv6), addr
+	}
+	return false, addr
+}
+
+// SplitWithComment split the string on sep, but avoid to split if that sep is in a zomment zone
+func SplitWithComment(s string, sep int32, commentStart int32, commentEnd int32) []string {
+	// need a split where the string between [] is not splitted
+	a := make([]string, 0)
+	comment := 0
+	initPos := 0
+	for i, car := range s {
+		if car == commentStart {
+			comment++
+		}
+		if car == commentEnd && comment > 0 {
+			comment--
+		}
+		if car == sep && comment == 0 {
+			a = append(a, s[initPos:i])
+			initPos = i + 1
+		}
+	}
+	a = append(a, s[initPos:])
+	return a
+}
+
+// scan for Addr and Port at end of the host string
+// separator is ":", Ipv6 is presented enclosed in []
+// keep compatible with former syntax that was scanning only port with same ":" sep.
+// Do not care of the chars in the host itself, all chars are accepted as in former syntax
+func extractTrailingAddrAndPort(s string) (host string, ip string, port string, err error) {
+	slices := SplitWithComment(s, ':', '[', ']')
+	nbSlices := len(slices)
+	lastItem := ""
+	anteLastItem := ""
+	if len(slices) > 1 {
+		lastItem = slices[len(slices)-1]
+		if len(lastItem) == 0 {
+			return "", "", "", fmt.Errorf("expecting data after last colon: %q", s)
+		}
+		_, err := strconv.ParseInt(lastItem, 10, 0)
+		if err != nil {
+			if ok, _ := IsIP(lastItem); ok {
+				return strings.Join(slices[0:nbSlices-1], ":"), lastItem, "", nil
+			}
+			return s, ip, "", nil
+		}
+		port = lastItem
+		if len(slices) > 2 {
+			anteLastItem = slices[len(slices)-2]
+			if ok, _ := IsIP(anteLastItem); ok {
+				return strings.Join(slices[0:nbSlices-2], ":"), anteLastItem, port, nil
+			}
+		}
+		return strings.Join(slices[0:nbSlices-1], ":"), "", port, nil
+
+	}
+	return s, "", "", nil
+
 }
 
 // SplitHostPort splits s up in a host and port portion, taking reverse address notation into account.
 // String the string s should *not* be prefixed with any protocols, i.e. dns://. The returned ipnet is the
 // *net.IPNet that is used when the zone is a reverse and a netmask is given.
-func SplitHostPort(s string) (host, port string, ipnet *net.IPNet, err error) {
+func SplitHostPort(s string) (host, addr string, port string, ipnet *net.IPNet, err error) {
 	// If there is: :[0-9]+ on the end we assume this is the port. This works for (ascii) domain
 	// names and our reverse syntax, which always needs a /mask *before* the port.
 	// So from the back, find first colon, and then check if its a number.
-	host = s
 
-	colon := strings.LastIndex(s, ":")
-	if colon == len(s)-1 {
-		return "", "", nil, fmt.Errorf("expecting data after last colon: %q", s)
-	}
-	if colon != -1 {
-		if p, err := strconv.Atoi(s[colon+1:]); err == nil {
-			port = strconv.Itoa(p)
-			host = s[:colon]
-		}
+	host, addr, port, err = extractTrailingAddrAndPort(s)
+	if err != nil {
+		return "", "", "", nil, err
 	}
 
 	// TODO(miek): this should take escaping into account.
 	if len(host) > 255 {
-		return "", "", nil, fmt.Errorf("specified zone is too long: %d > 255", len(host))
+		return "", "", "", nil, fmt.Errorf("specified zone is too long: %d > 255", len(host))
 	}
 
 	_, d := dns.IsDomainName(host)
 	if !d {
-		return "", "", nil, fmt.Errorf("zone is not a valid domain name: %s", host)
+		return "", "", "", nil, fmt.Errorf("zone is not a valid domain name: %s", host)
 	}
 
 	// Check if it parses as a reverse zone, if so we use that. Must be fully specified IP and mask.
@@ -133,7 +200,8 @@ func SplitHostPort(s string) (host, port string, ipnet *net.IPNet, err error) {
 			host = rev[offset:]
 		}
 	}
-	return host, port, n, nil
+
+	return host, addr, port, n, nil
 }
 
 // Duplicated from core/dnsserver/address.go !
