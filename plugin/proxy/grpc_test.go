@@ -2,10 +2,10 @@ package proxy
 
 import (
 	"testing"
-	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/healthcheck"
 
+	"fmt"
 	"github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
@@ -14,26 +14,51 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-func pool() []*healthcheck.UpstreamHost {
-	return []*healthcheck.UpstreamHost{
-		{
-			Name: "localhost:10053",
-		},
-		{
-			Name: "localhost:10054",
-		},
-	}
+func init() {
+	grpclog.SetLoggerV2(discardV2{})
 }
 
-func TestStartupShutdown(t *testing.T) {
-	grpclog.SetLogger(discard{})
+func buildPool(size int) ([]*healthcheck.UpstreamHost, func(), error) {
+	ups := make([]*healthcheck.UpstreamHost, size)
+	srvs := []*dns.Server{}
+	errs := []error{}
+	for i := 0; i < size; i++ {
+		srv, addr, err := test.TCPServer("localhost:0")
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		ups[i] = &healthcheck.UpstreamHost{Name: addr}
+		srvs = append(srvs, srv)
+	}
+	stopIt := func() {
+		for _, s := range srvs {
+			s.Shutdown()
+		}
+	}
+	if len(errs) > 0 {
+		go stopIt()
+		valErr := ""
+		for _, e := range errs {
+			valErr += fmt.Sprintf("%v\n", e)
+		}
+		return nil, nil, fmt.Errorf("error at allocation of the pool : %v", valErr)
+	}
+	return ups, stopIt, nil
+}
+
+func TestGRPCStartupShutdown(t *testing.T) {
+
+	pool, closePool, err := buildPool(2)
+	if err != nil {
+		t.Fatalf("error creating the pool of upstream for the test : %s", err)
+	}
+	defer closePool()
 
 	upstream := &staticUpstream{
 		from: ".",
 		HealthCheck: healthcheck.HealthCheck{
-			Hosts:       pool(),
-			FailTimeout: 10 * time.Second,
-			MaxFails:    1,
+			Hosts: pool,
 		},
 	}
 	g := newGrpcClient(nil, upstream)
@@ -42,19 +67,17 @@ func TestStartupShutdown(t *testing.T) {
 	p := &Proxy{}
 	p.Upstreams = &[]Upstream{upstream}
 
-	err := g.OnStartup(p)
+	err = g.OnStartup(p)
 	if err != nil {
-		t.Errorf("Error starting grpc client exchanger: %s", err)
-		return
+		t.Fatalf("Error starting grpc client exchanger: %s", err)
 	}
-	if len(g.clients) != len(pool()) {
-		t.Errorf("Expected %d grpc clients but found %d", len(pool()), len(g.clients))
+	if len(g.clients) != len(pool) {
+		t.Fatalf("Expected %d grpc clients but found %d", len(pool), len(g.clients))
 	}
 
 	err = g.OnShutdown(p)
 	if err != nil {
-		t.Errorf("Error stopping grpc client exchanger: %s", err)
-		return
+		t.Fatalf("Error stopping grpc client exchanger: %s", err)
 	}
 	if len(g.clients) != 0 {
 		t.Errorf("Shutdown didn't remove clients, found %d", len(g.clients))
@@ -64,13 +87,18 @@ func TestStartupShutdown(t *testing.T) {
 	}
 }
 
-func TestRunAQuery(t *testing.T) {
-	grpclog.SetLogger(discard{})
+func TestGRPCRunAQuery(t *testing.T) {
+
+	pool, closePool, err := buildPool(2)
+	if err != nil {
+		t.Fatalf("error creating the pool of upstream for the test : %s", err)
+	}
+	defer closePool()
 
 	upstream := &staticUpstream{
 		from: ".",
 		HealthCheck: healthcheck.HealthCheck{
-			Hosts: pool(),
+			Hosts: pool,
 		},
 	}
 	g := newGrpcClient(nil, upstream)
@@ -79,10 +107,9 @@ func TestRunAQuery(t *testing.T) {
 	p := &Proxy{}
 	p.Upstreams = &[]Upstream{upstream}
 
-	err := g.OnStartup(p)
+	err = g.OnStartup(p)
 	if err != nil {
-		t.Errorf("Error starting grpc client exchanger: %s", err)
-		return
+		t.Fatalf("Error starting grpc client exchanger: %s", err)
 	}
 	// verify the client is usable, or an error is properly raised
 	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
@@ -96,22 +123,22 @@ func TestRunAQuery(t *testing.T) {
 
 	err = g.OnShutdown(p)
 	if err != nil {
-		t.Errorf("Error stopping grpc client exchanger: %s", err)
-		return
+		t.Fatalf("Error stopping grpc client exchanger: %s", err)
 	}
 }
 
-func TestRunAQueryOnSecureLinkWithInvalidCert(t *testing.T) {
-	grpclog.SetLogger(discard{})
+func TestGRPCRunAQueryOnSecureLinkWithInvalidCert(t *testing.T) {
 
-	upstreamHostname := "localhost:43001"
+	pool, closePool, err := buildPool(1)
+	if err != nil {
+		t.Fatalf("error creating the pool of upstream for the test : %s", err)
+	}
+	defer closePool()
+
 	upstream := &staticUpstream{
 		from: ".",
 		HealthCheck: healthcheck.HealthCheck{
-			Hosts: []*healthcheck.UpstreamHost{
-				{
-					Name: upstreamHostname,
-				}},
+			Hosts: pool,
 		},
 	}
 
@@ -124,8 +151,7 @@ func TestRunAQueryOnSecureLinkWithInvalidCert(t *testing.T) {
 
 	tls, err := tls.NewTLSClientConfig(filename)
 	if err != nil {
-		t.Errorf("Error build TLS configuration  : %s", err)
-		return
+		t.Fatalf("Error build TLS configuration  : %s", err)
 	}
 
 	g := newGrpcClient(tls, upstream)
@@ -137,33 +163,38 @@ func TestRunAQueryOnSecureLinkWithInvalidCert(t *testing.T) {
 	// Althougth dial will not work, it is not expected to have an error
 	err = g.OnStartup(p)
 	if err != nil {
-		t.Errorf("Error starting grpc client exchanger: %s", err)
-		return
+		t.Fatalf("Error starting grpc client exchanger: %s", err)
 	}
 
 	// verify that you have proper error if the hostname is unknwn or not registered
 	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
-	_, err = g.Exchange(context.TODO(), upstreamHostname, state)
+	_, err = g.Exchange(context.TODO(), pool[0].Name+"-whatever", state)
 	if err == nil {
 		t.Errorf("Error in Exchange process : %s ", err)
 	}
 
 	err = g.OnShutdown(p)
 	if err != nil {
-		t.Errorf("Error stopping grpc client exchanger: %s", err)
-		return
+		t.Fatalf("Error stopping grpc client exchanger: %s", err)
 	}
 }
 
 // discard is a Logger that outputs nothing.
-type discard struct{}
+type discardV2 struct{}
 
-func (d discard) Fatal(args ...interface{})                 {}
-func (d discard) Fatalf(format string, args ...interface{}) {}
-func (d discard) Fatalln(args ...interface{})               {}
-func (d discard) Print(args ...interface{})                 {}
-func (d discard) Printf(format string, args ...interface{}) {}
-func (d discard) Println(args ...interface{})               {}
+func (d discardV2) Info(args ...interface{})                    {}
+func (d discardV2) Infoln(args ...interface{})                  {}
+func (d discardV2) Infof(format string, args ...interface{})    {}
+func (d discardV2) Warning(args ...interface{})                 {}
+func (d discardV2) Warningln(args ...interface{})               {}
+func (d discardV2) Warningf(format string, args ...interface{}) {}
+func (d discardV2) Error(args ...interface{})                   {}
+func (d discardV2) Errorln(args ...interface{})                 {}
+func (d discardV2) Errorf(format string, args ...interface{})   {}
+func (d discardV2) Fatal(args ...interface{})                   {}
+func (d discardV2) Fatalln(args ...interface{})                 {}
+func (d discardV2) Fatalf(format string, args ...interface{})   {}
+func (d discardV2) V(l int) bool                                { return true }
 
 const (
 	validCert = `-----BEGIN CERTIFICATE-----

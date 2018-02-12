@@ -2,13 +2,13 @@ package proxy
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 
 	"github.com/coredns/coredns/pb"
 	"github.com/coredns/coredns/plugin/pkg/trace"
 	"github.com/coredns/coredns/request"
 
-	"fmt"
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/miekg/dns"
 	opentracing "github.com/opentracing/opentracing-go"
