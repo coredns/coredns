@@ -78,6 +78,6 @@ func GetConfig(c *caddy.Controller) *Config {
 	// we should only get here during tests because directive
 	// actions typically skip the server blocks where we make
 	// the configs.
-	ctx.saveConfig(c.ServerBlockIndex, c.ServerBlockKeyIndex, &Config{})
+	ctx.saveConfig(c.ServerBlockIndex, c.ServerBlockKeyIndex, &Config{ListenHosts: []string{""}})
 	return GetConfig(c)
 }
