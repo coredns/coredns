@@ -95,6 +95,10 @@ func minMsgTTL(m *dns.Msg, mt response.Type) time.Duration {
 		return 0
 	}
 
+	if len(m.Answer) == 0 && len(m.Ns) == 0 {
+		return 0
+	}
+
 	minTTL := maxTTL
 	for _, r := range append(m.Answer, m.Ns...) {
 		switch mt {
