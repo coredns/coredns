@@ -111,16 +111,16 @@ func (k *addrKey) asKey() string {
 func parseAddrKey(key string) (*addrKey, error) {
 	keyParts := strings.Split(key, keyPartsSeparator)
 	if len(keyParts) != 4 {
-		return nil, fmt.Errorf("Provided value is not a key for addrKey, expect 4 parts joined by '%s' : %s", key, keyPartsSeparator)
+		return nil, fmt.Errorf("provided value is not a key for addrKey, expect 4 parts joined by '%s' : %s", key, keyPartsSeparator)
 	}
 	return &addrKey{keyParts[0], keyParts[1], keyParts[2], keyParts[3]}, nil
 }
 
-func (k *addrKey) isMulticast() bool {
+func (k *addrKey) isUnbound() bool {
 	return k.Address == ""
 }
 
-func (k *addrKey) copyAsMulticast() *addrKey {
+func (k *addrKey) copyAsUnbound() *addrKey {
 	return &addrKey{Zone: k.Zone, Address: "", Port: k.Port, Transport: k.Transport}
 
 }
@@ -134,34 +134,42 @@ func (k *addrKey) String() string {
 }
 
 // Build a Validator that rise error if the bound addresses for listeners are overlapping
+// we consider that an unbound address is overlapping all bound addresses for same zome, zame port
 type zoneAddrOverlapValidator struct {
-	registeredAddr   map[string]string
-	multicastOverlap map[string]string
+	registeredAddr map[string]string // each zoneAddr is registered once by its key (bound and unbound)
+	unboundOverlap map[string]string // the unbound equiv ZoneAdddr is registered by its original key (bound or unbound)
 }
 
 func newZoneAddrOverlapValidator() *zoneAddrOverlapValidator {
-	return &zoneAddrOverlapValidator{registeredAddr: make(map[string]string), multicastOverlap: make(map[string]string)}
+	return &zoneAddrOverlapValidator{registeredAddr: make(map[string]string), unboundOverlap: make(map[string]string)}
 }
 
 func (c *zoneAddrOverlapValidator) registerAndCheck(k *addrKey) (same bool, overlap bool, overlapKey string) {
+
+	// we consider there is an overlap if:
+	//  - the current zoneAddr is already registered is already registered for the same zone/port
+	//  - the current zoneAddr is unbound and a non unbound is already registered for the same zone/port
+	//  - the current zoneAddr is bound and an unbound is already registered for the same zone/port
 	key := k.asKey()
 	if _, ok := c.registeredAddr[key]; ok {
 		// exact same zone already registered
 		return true, false, ""
 	}
-	mkey := k.copyAsMulticast().asKey()
-	if already, ok := c.multicastOverlap[mkey]; ok {
-		if k.isMulticast() {
-			// there is already a unicast registered
+	mkey := k.copyAsUnbound().asKey()
+	if already, ok := c.unboundOverlap[mkey]; ok {
+		if k.isUnbound() {
+			// there is already a bound registered
 			return false, true, already
 		}
 		if _, ok := c.registeredAddr[mkey]; ok {
-			// the overlapping multicast is already registered
+			// the overlapping zone+port for the unbound addr is already registered
 			return false, true, mkey
 		}
 	} else {
-		c.multicastOverlap[mkey] = key
+		// anyway add the unbound equiv of current zoneAddr for future tests
+		c.unboundOverlap[mkey] = key
 	}
+	// anyway add the current zoneAddr for future tests
 	c.registeredAddr[key] = key
 	return false, false, ""
 }

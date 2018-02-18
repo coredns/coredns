@@ -51,7 +51,7 @@ func TestGroupingServers(t *testing.T) {
 			expectedGroups: []string{"dns://:53", "dns://:54"},
 			failing:        false},
 
-		// 2 configs on same port, same broadcast address, diff zones -> 1 group
+		// 2 configs on same port, both undound, diff zones -> 1 group
 		{configs: []*Config{
 			{Transport: "dns", Zone: ".", Port: "53", ListenHosts: []string{""}},
 			{Transport: "dns", Zone: "com.", Port: "53", ListenHosts: []string{""}},
@@ -59,7 +59,7 @@ func TestGroupingServers(t *testing.T) {
 			expectedGroups: []string{"dns://:53"},
 			failing:        false},
 
-		// 2 configs on same port, same address, diff zones -> 1 group
+		// 2 configs on same port, one addressed - one unbound, diff zones -> 1 group
 		{configs: []*Config{
 			{Transport: "dns", Zone: ".", Port: "53", ListenHosts: []string{"127.0.0.1"}},
 			{Transport: "dns", Zone: ".", Port: "54", ListenHosts: []string{""}},
@@ -74,7 +74,7 @@ func TestGroupingServers(t *testing.T) {
 			expectedGroups: []string{"dns://127.0.0.1:53", "dns://[::1]:53", "dns://:54"},
 			failing:        false},
 
-		// 2 configs on same port, same unicast address, diff zones -> 1 group
+		// 2 configs on same port, same address, diff zones -> 1 group
 		{configs: []*Config{
 			{Transport: "dns", Zone: ".", Port: "53", ListenHosts: []string{"127.0.0.1", "::1"}},
 			{Transport: "dns", Zone: "com.", Port: "53", ListenHosts: []string{"127.0.0.1", "::1"}},
@@ -117,5 +117,57 @@ func TestGroupingServers(t *testing.T) {
 
 			}
 		}
+	}
+}
+
+func checkConfigvalues(t *testing.T, cfg *Config, zone string, hosts []string) {
+	if cfg == nil {
+		t.Errorf("expected config but got a nil pts")
+	}
+	if cfg.Zone != zone {
+		t.Errorf("expected zone %v, but got %v", zone, cfg.Zone)
+	}
+	if len(cfg.ListenHosts) != len(hosts) {
+		t.Errorf("expected count of listening host :  %v, but got %v", len(hosts), len(cfg.ListenHosts))
+	}
+	for i, h := range hosts {
+		if cfg.ListenHosts[i] != h {
+			t.Errorf("expected listening host %v, but got %v", h, cfg.ListenHosts[i])
+		}
+	}
+}
+func TestConfigPersistence(t *testing.T) {
+	// verify that the right config is saved in the right place
+	// verify we can now save configs with same zone
+	ctx := &dnsContext{keysToConfigs: make(map[string]*Config)}
+
+	test := []struct {
+		blocindex int
+		keyindex  int
+		cfg       *Config
+	}{
+		{blocindex: 1, keyindex: 1, cfg: &Config{Zone: "one", ListenHosts: []string{"one", "two"}}},
+		{blocindex: 1, keyindex: 2, cfg: &Config{Zone: "two", ListenHosts: []string{"one"}}},
+		{blocindex: 2, keyindex: 1, cfg: &Config{Zone: "one", ListenHosts: []string{"one", "two"}}},
+		{blocindex: 2, keyindex: 2, cfg: &Config{Zone: "one", ListenHosts: []string{"one"}}},
+		{blocindex: 0, keyindex: 0, cfg: &Config{Zone: ".", ListenHosts: []string{""}}},
+	}
+
+	for _, tt := range test {
+		ctx.saveConfig(tt.blocindex, tt.keyindex, tt.cfg)
+
+	}
+
+	if len(ctx.keysToConfigs) != len(test) {
+		t.Fatalf("expected %v configs saved in context, got %v", len(test), len(ctx.keysToConfigs))
+	}
+
+	// now verify there is no mixup in the saved zones
+	for i, tt := range test {
+		cfg, ok := ctx.getConfig(tt.blocindex, tt.keyindex)
+		if !ok {
+			t.Fatalf("test %v, cannot retrieve the config from context", i)
+		}
+		checkConfigvalues(t, cfg, tt.cfg.Zone, tt.cfg.ListenHosts)
 	}
 }
