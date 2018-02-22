@@ -101,9 +101,6 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 	if errValid != nil {
 		return nil, errValid
 	}
-	// at this point, the Configs in context are saved in an array.
-	// the keyToConfig map is not needed anymore - reset.
-	h.keysToConfigs = map[string]*Config{}
 
 	// we must map (group) each config to a bind address
 	groups, err := groupConfigsByListenAddr(h.configs)
