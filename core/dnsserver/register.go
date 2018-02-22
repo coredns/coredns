@@ -45,18 +45,9 @@ type dnsContext struct {
 	configs []*Config
 }
 
-const keySeparator = ":"
-
-func (h *dnsContext) saveConfig(blocIndex int, keyIndex int, cfg *Config) {
-	key := fmt.Sprintf("%d%s%d", blocIndex, keySeparator, keyIndex)
+func (h *dnsContext) saveConfig(key string, cfg *Config) {
 	h.configs = append(h.configs, cfg)
 	h.keysToConfigs[key] = cfg
-}
-
-func (h *dnsContext) getConfig(blocIndex int, keyIndex int) (*Config, bool) {
-	key := fmt.Sprintf("%d%s%d", blocIndex, keySeparator, keyIndex)
-	c, ok := h.keysToConfigs[key]
-	return c, ok
 }
 
 // InspectServerBlocks make sure that everything checks out before
@@ -78,8 +69,9 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 				Port:        za.Port,
 				Transport:   za.Transport,
 			}
+			keyConfig := keyForConfig(ib, ik)
 			if za.IPNet == nil {
-				h.saveConfig(ib, ik, cfg)
+				h.saveConfig(keyConfig, cfg)
 				continue
 			}
 
@@ -94,7 +86,7 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 					return za.IPNet.Contains(net.ParseIP(addr))
 				}
 			}
-			h.saveConfig(ib, ik, cfg)
+			h.saveConfig(keyConfig, cfg)
 		}
 	}
 	return serverBlocks, nil
@@ -109,6 +101,9 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 	if errValid != nil {
 		return nil, errValid
 	}
+	// at this point, the Configs in context are saved in an array.
+	// the keyToConfig map is not needed anymore - reset.
+	h.keysToConfigs = map[string]*Config{}
 
 	// we must map (group) each config to a bind address
 	groups, err := groupConfigsByListenAddr(h.configs)
@@ -199,14 +194,13 @@ func (h *dnsContext) validateZonesAndListeningAddresses() error {
 	for _, conf := range h.configs {
 		for _, h := range conf.ListenHosts {
 			// Validate the overlapping of ZoneAddr
-			akey := &addrKey{Transport: conf.Transport, Zone: conf.Zone, Address: h, Port: conf.Port}
-			alreadyDefined, overlapDefined, overlapKey := checker.registerAndCheck(akey)
+			akey := &zoneAddr{Transport: conf.Transport, Zone: conf.Zone, Address: h, Port: conf.Port}
+			alreadyDefined, overlapDefined, overlapAddr := checker.registerAndCheck(akey)
 			if alreadyDefined {
 				return fmt.Errorf("cannot serve %s - it is already defined", akey.String())
 			}
 			if overlapDefined {
-				oKey, _ := parseAddrKey(overlapKey)
-				return fmt.Errorf("cannot serve %s - zone overlap listener capacity with %v", akey.String(), oKey.String())
+				return fmt.Errorf("cannot serve %s - zone overlap listener capacity with %v", akey.String(), overlapAddr.String())
 			}
 
 		}

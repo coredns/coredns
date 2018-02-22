@@ -15,10 +15,17 @@ type zoneAddr struct {
 	Port      string
 	Transport string     // dns, tls or grpc
 	IPNet     *net.IPNet // if reverse zone this hold the IPNet
+	Address   string     // used for bound zoneAddr - validation of overlapping
 }
 
 // String return the string representation of z.
-func (z zoneAddr) String() string { return z.Transport + "://" + z.Zone + ":" + z.Port }
+func (z zoneAddr) String() string {
+	s := z.Transport + "://" + z.Zone + ":" + z.Port
+	if z.Address != "" {
+		s += " on " + z.Address
+	}
+	return s
+}
 
 // Transport returns the protocol of the string s
 func Transport(s string) string {
@@ -95,81 +102,42 @@ const (
 	TransportGRPC = "grpc"
 )
 
-const keyPartsSeparator = "##"
-
-type addrKey struct {
-	Transport string // dns, tls or grpc
-	Zone      string
-	Address   string
-	Port      string
-}
-
-func (k *addrKey) asKey() string {
-	return k.Transport + keyPartsSeparator + k.Zone + keyPartsSeparator + k.Address + keyPartsSeparator + k.Port
-}
-
-func parseAddrKey(key string) (*addrKey, error) {
-	keyParts := strings.Split(key, keyPartsSeparator)
-	if len(keyParts) != 4 {
-		return nil, fmt.Errorf("provided value is not a key for addrKey, expect 4 parts joined by '%s' : %s", key, keyPartsSeparator)
-	}
-	return &addrKey{keyParts[0], keyParts[1], keyParts[2], keyParts[3]}, nil
-}
-
-func (k *addrKey) isUnbound() bool {
-	return k.Address == ""
-}
-
-func (k *addrKey) copyAsUnbound() *addrKey {
-	return &addrKey{Zone: k.Zone, Address: "", Port: k.Port, Transport: k.Transport}
-
-}
-
-// String return the string representation of this ZoneAddr - for print
-func (k *addrKey) String() string {
-	if k.Address == "" {
-		return k.Transport + "://" + k.Zone + ":" + k.Port
-	}
-	return k.Transport + "://" + k.Zone + ":" + k.Address + ":" + k.Port
-}
-
 // Build a Validator that rise error if the bound addresses for listeners are overlapping
 // we consider that an unbound address is overlapping all bound addresses for same zome, zame port
 type zoneAddrOverlapValidator struct {
-	registeredAddr map[string]string // each zoneAddr is registered once by its key (bound and unbound)
-	unboundOverlap map[string]string // the unbound equiv ZoneAdddr is registered by its original key (bound or unbound)
+	registeredAddr map[zoneAddr]zoneAddr // each zoneAddr is registered once by its key (bound and unbound)
+	unboundOverlap map[zoneAddr]zoneAddr // the unbound equiv ZoneAdddr is registered by its original key (bound or unbound)
 }
 
 func newZoneAddrOverlapValidator() *zoneAddrOverlapValidator {
-	return &zoneAddrOverlapValidator{registeredAddr: make(map[string]string), unboundOverlap: make(map[string]string)}
+	return &zoneAddrOverlapValidator{registeredAddr: make(map[zoneAddr]zoneAddr), unboundOverlap: make(map[zoneAddr]zoneAddr)}
 }
 
-func (c *zoneAddrOverlapValidator) registerAndCheck(k *addrKey) (same bool, overlap bool, overlapKey string) {
+func (c *zoneAddrOverlapValidator) registerAndCheck(k *zoneAddr) (same bool, overlap bool, overlapKey *zoneAddr) {
 
 	// we consider there is an overlap if:
 	//  - the current zoneAddr is already registered is already registered for the same zone/port
 	//  - the current zoneAddr is unbound and a non unbound is already registered for the same zone/port
 	//  - the current zoneAddr is bound and an unbound is already registered for the same zone/port
-	key := k.asKey()
-	if _, ok := c.registeredAddr[key]; ok {
+	if _, ok := c.registeredAddr[*k]; ok {
 		// exact same zone already registered
-		return true, false, ""
+		return true, false, nil
 	}
-	mkey := k.copyAsUnbound().asKey()
-	if already, ok := c.unboundOverlap[mkey]; ok {
-		if k.isUnbound() {
+	uk := zoneAddr{Zone: k.Zone, Address: "", Port: k.Port, Transport: k.Transport}
+	if already, ok := c.unboundOverlap[uk]; ok {
+		if k.Address == "" {
 			// there is already a bound registered
-			return false, true, already
+			return false, true, &already
 		}
-		if _, ok := c.registeredAddr[mkey]; ok {
+		if _, ok := c.registeredAddr[uk]; ok {
 			// the overlapping zone+port for the unbound addr is already registered
-			return false, true, mkey
+			return false, true, &uk
 		}
 	} else {
 		// anyway add the unbound equiv of current zoneAddr for future tests
-		c.unboundOverlap[mkey] = key
+		c.unboundOverlap[uk] = *k
 	}
 	// anyway add the current zoneAddr for future tests
-	c.registeredAddr[key] = key
-	return false, false, ""
+	c.registeredAddr[*k] = *k
+	return false, false, nil
 }

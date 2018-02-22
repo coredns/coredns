@@ -110,7 +110,7 @@ func TestSplitProtocolHostPort(t *testing.T) {
 }
 
 type checkCall struct {
-	zone       addrKey
+	zone       zoneAddr
 	same       bool
 	overlap    bool
 	overlapKey string
@@ -123,41 +123,41 @@ type checkTest struct {
 func TestOverlapAddressChecker(t *testing.T) {
 	for i, test := range []checkTest{
 		{sequence: []checkCall{
-			{addrKey{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: ".", Address: "", Port: "53"}, true, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, true, false, ""},
 		},
 		},
 		{sequence: []checkCall{
-			{addrKey{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, true, "dns://.:53"},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, true, "dns://.:53"},
 		},
 		},
 		{sequence: []checkCall{
-			{addrKey{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, true, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, true, false, ""},
 		},
 		},
 		{sequence: []checkCall{
-			{addrKey{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: ".", Address: "128.0.0.1", Port: "53"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: ".", Address: "129.0.0.1", Port: "53"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, true, "dns://.:127.0.0.1:53"},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "128.0.0.1", Port: "53"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "129.0.0.1", Port: "53"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, true, "dns://.:53 on 127.0.0.1"},
 		},
 		},
 		{sequence: []checkCall{
-			{addrKey{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: "com.", Address: "127.0.0.1", Port: "53"}, false, false, ""},
-			{addrKey{Transport: "dns", Zone: "com.", Address: "", Port: "53"}, false, true, "dns://com.:127.0.0.1:53"},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: "com.", Address: "127.0.0.1", Port: "53"}, false, false, ""},
+			{zoneAddr{Transport: "dns", Zone: "com.", Address: "", Port: "53"}, false, true, "dns://com.:53 on 127.0.0.1"},
 		},
 		},
 	} {
 
 		checker := newZoneAddrOverlapValidator()
 		for _, call := range test.sequence {
-			same, overlap, overkey := checker.registerAndCheck(&call.zone)
+			same, overlap, okey := checker.registerAndCheck(&call.zone)
 			sZone := call.zone.String()
 			if same != call.same {
 				t.Errorf("Test %d: error, for zone %s, 'same' (%v) has not the expected value (%v)", i, sZone, same, call.same)
@@ -167,10 +167,6 @@ func TestOverlapAddressChecker(t *testing.T) {
 					t.Errorf("Test %d: error, for zone %s, 'overlap' (%v) has not the expected value (%v)", i, sZone, overlap, call.overlap)
 				}
 				if overlap {
-					okey, errLoad := parseAddrKey(overkey)
-					if errLoad != nil {
-						t.Errorf("cannot parse the overla key ??? : %s - error is : %v", overkey, errLoad)
-					}
 					key := okey.String()
 					if key != call.overlapKey {
 						t.Errorf("Test %d: error, for zone %s, 'overlap Key' (%v) has not the expected value (%v)", i, sZone, key, call.overlapKey)
