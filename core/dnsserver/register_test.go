@@ -119,20 +119,3 @@ func TestGroupingServers(t *testing.T) {
 		}
 	}
 }
-
-func checkConfigvalues(t *testing.T, cfg *Config, zone string, hosts []string) {
-	if cfg == nil {
-		t.Errorf("expected config but got a nil pts")
-	}
-	if cfg.Zone != zone {
-		t.Errorf("expected zone %v, but got %v", zone, cfg.Zone)
-	}
-	if len(cfg.ListenHosts) != len(hosts) {
-		t.Errorf("expected count of listening host :  %v, but got %v", len(hosts), len(cfg.ListenHosts))
-	}
-	for i, h := range hosts {
-		if cfg.ListenHosts[i] != h {
-			t.Errorf("expected listening host %v, but got %v", h, cfg.ListenHosts[i])
-		}
-	}
-}
