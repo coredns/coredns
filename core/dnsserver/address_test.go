@@ -155,7 +155,7 @@ func TestOverlapAddressChecker(t *testing.T) {
 		},
 	} {
 
-		checker := newZoneValidator()
+		checker := newOverlapZone()
 		for _, call := range test.sequence {
 			same, overlap := checker.registerAndCheck(call.zone)
 			sZone := call.zone.String()

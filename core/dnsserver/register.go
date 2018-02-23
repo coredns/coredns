@@ -187,7 +187,7 @@ func (c *Config) Handlers() []plugin.Handler {
 
 func (h *dnsContext) validateZonesAndListeningAddresses() error {
 	//Validate Zone and addresses
-	checker := newZoneValidator()
+	checker := newOverlapZone()
 	for _, conf := range h.configs {
 		for _, h := range conf.ListenHosts {
 			// Validate the overlapping of ZoneAddr

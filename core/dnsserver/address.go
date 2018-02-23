@@ -107,11 +107,11 @@ type zoneOverlap struct {
 	unboundOverlap map[zoneAddr]zoneAddr // the "no bind" equiv ZoneAdddr is registered by its original key
 }
 
-func newZoneValidator() *zoneOverlap {
+func newOverlapZone() *zoneOverlap {
 	return &zoneOverlap{registeredAddr: make(map[zoneAddr]zoneAddr), unboundOverlap: make(map[zoneAddr]zoneAddr)}
 }
 
-// register a new zoneAddr, return information about existing or overlapping with already registered
+// registerAndCheck adds a new zoneAddr for validation, it returns information about existing or overlapping with already registered
 // we consider that an unbound address is overlapping all bound addresses for same zone, same port
 func (zo *zoneOverlap) registerAndCheck(z zoneAddr) (existingZone *zoneAddr, overlappingZone *zoneAddr) {
 
