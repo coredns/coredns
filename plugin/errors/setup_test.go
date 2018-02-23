@@ -12,21 +12,13 @@ func TestErrorsParse(t *testing.T) {
 		shouldErr            bool
 		expectedErrorHandler errorHandler
 	}{
-		{`errors`, false, errorHandler{
-			LogFile: "stdout",
-		}},
-		{`errors stdout`, false, errorHandler{
-			LogFile: "stdout",
-		}},
-		{`errors errors.txt`, true, errorHandler{
-			LogFile: "",
-		}},
-		{`errors visible`, true, errorHandler{
-			LogFile: "",
-		}},
-		{`errors { log visible }`, true, errorHandler{
-			LogFile: "stdout",
-		}},
+		{`errors`, false, errorHandler{LogFile: "stdout"}},
+		{`errors stdout`, false, errorHandler{LogFile: "stdout"}},
+		{`errors errors.txt`, true, errorHandler{LogFile: ""}},
+		{`errors visible`, true, errorHandler{LogFile: ""}},
+		{`errors { log visible }`, true, errorHandler{LogFile: "stdout"}},
+		{`errors
+		errors `, true, errorHandler{LogFile: "stdout"}},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputErrorsRules)
