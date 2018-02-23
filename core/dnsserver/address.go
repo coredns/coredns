@@ -102,42 +102,36 @@ const (
 	TransportGRPC = "grpc"
 )
 
-// Build a Validator that rise error if the bound addresses for listeners are overlapping
-// we consider that an unbound address is overlapping all bound addresses for same zome, zame port
-type zoneAddrOverlapValidator struct {
-	registeredAddr map[zoneAddr]zoneAddr // each zoneAddr is registered once by its key (bound and unbound)
-	unboundOverlap map[zoneAddr]zoneAddr // the unbound equiv ZoneAdddr is registered by its original key (bound or unbound)
+type zoneOverlap struct {
+	registeredAddr map[zoneAddr]zoneAddr // each zoneAddr is registered once by its key
+	unboundOverlap map[zoneAddr]zoneAddr // the "no bind" equiv ZoneAdddr is registered by its original key
 }
 
-func newZoneAddrOverlapValidator() *zoneAddrOverlapValidator {
-	return &zoneAddrOverlapValidator{registeredAddr: make(map[zoneAddr]zoneAddr), unboundOverlap: make(map[zoneAddr]zoneAddr)}
+func newZoneValidator() *zoneOverlap {
+	return &zoneOverlap{registeredAddr: make(map[zoneAddr]zoneAddr), unboundOverlap: make(map[zoneAddr]zoneAddr)}
 }
 
-func (c *zoneAddrOverlapValidator) registerAndCheck(k *zoneAddr) (same bool, overlap bool, overlapKey *zoneAddr) {
+// register a new zoneAddr, return information about existing or overlapping with already registered
+// we consider that an unbound address is overlapping all bound addresses for same zone, same port
+func (zo *zoneOverlap) registerAndCheck(z zoneAddr) (existingZone *zoneAddr, overlappingZone *zoneAddr) {
 
-	// we consider there is an overlap if:
-	//  - the current zoneAddr is already registered is already registered for the same zone/port
-	//  - the current zoneAddr is unbound and a non unbound is already registered for the same zone/port
-	//  - the current zoneAddr is bound and an unbound is already registered for the same zone/port
-	if _, ok := c.registeredAddr[*k]; ok {
+	if exist, ok := zo.registeredAddr[z]; ok {
 		// exact same zone already registered
-		return true, false, nil
+		return &exist, nil
 	}
-	uk := zoneAddr{Zone: k.Zone, Address: "", Port: k.Port, Transport: k.Transport}
-	if already, ok := c.unboundOverlap[uk]; ok {
-		if k.Address == "" {
-			// there is already a bound registered
-			return false, true, &already
+	uz := zoneAddr{Zone: z.Zone, Address: "", Port: z.Port, Transport: z.Transport}
+	if already, ok := zo.unboundOverlap[uz]; ok {
+		if z.Address == "" {
+			// current is not bound to an address, but there is already another zone with a bind address registered
+			return nil, &already
 		}
-		if _, ok := c.registeredAddr[uk]; ok {
-			// the overlapping zone+port for the unbound addr is already registered
-			return false, true, &uk
+		if _, ok := zo.registeredAddr[uz]; ok {
+			// current zone is bound to an address, but there is already an overlapping zone+port with no bind address
+			return nil, &uz
 		}
-	} else {
-		// anyway add the unbound equiv of current zoneAddr for future tests
-		c.unboundOverlap[uk] = *k
 	}
-	// anyway add the current zoneAddr for future tests
-	c.registeredAddr[*k] = *k
-	return false, false, nil
+	// there is no overlap, keep the current zoneAddr for future checks
+	zo.registeredAddr[z] = z
+	zo.unboundOverlap[uz] = z
+	return nil, nil
 }

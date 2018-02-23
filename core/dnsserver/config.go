@@ -69,7 +69,7 @@ func (c *Config) HostAddresses() string {
 	return all
 }
 
-// build a key for identifying the configs during setup time
+// keyForConfig build a key for identifying the configs during setup time
 func keyForConfig(blocIndex int, blocKeyIndex int) string {
 	return fmt.Sprintf("%d:%d", blocIndex, blocKeyIndex)
 }

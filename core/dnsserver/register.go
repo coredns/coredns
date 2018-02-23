@@ -187,17 +187,17 @@ func (c *Config) Handlers() []plugin.Handler {
 
 func (h *dnsContext) validateZonesAndListeningAddresses() error {
 	//Validate Zone and addresses
-	checker := newZoneAddrOverlapValidator()
+	checker := newZoneValidator()
 	for _, conf := range h.configs {
 		for _, h := range conf.ListenHosts {
 			// Validate the overlapping of ZoneAddr
-			akey := &zoneAddr{Transport: conf.Transport, Zone: conf.Zone, Address: h, Port: conf.Port}
-			alreadyDefined, overlapDefined, overlapAddr := checker.registerAndCheck(akey)
-			if alreadyDefined {
+			akey := zoneAddr{Transport: conf.Transport, Zone: conf.Zone, Address: h, Port: conf.Port}
+			existZone, overlapZone := checker.registerAndCheck(akey)
+			if existZone != nil {
 				return fmt.Errorf("cannot serve %s - it is already defined", akey.String())
 			}
-			if overlapDefined {
-				return fmt.Errorf("cannot serve %s - zone overlap listener capacity with %v", akey.String(), overlapAddr.String())
+			if overlapZone != nil {
+				return fmt.Errorf("cannot serve %s - zone overlap listener capacity with %v", akey.String(), overlapZone.String())
 			}
 
 		}

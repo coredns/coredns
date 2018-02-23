@@ -144,7 +144,7 @@ func TestOverlapAddressChecker(t *testing.T) {
 			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
 			{zoneAddr{Transport: "dns", Zone: ".", Address: "128.0.0.1", Port: "53"}, false, false, ""},
 			{zoneAddr{Transport: "dns", Zone: ".", Address: "129.0.0.1", Port: "53"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, true, "dns://.:53 on 127.0.0.1"},
+			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, true, "dns://.:53 on 129.0.0.1"},
 		},
 		},
 		{sequence: []checkCall{
@@ -155,21 +155,20 @@ func TestOverlapAddressChecker(t *testing.T) {
 		},
 	} {
 
-		checker := newZoneAddrOverlapValidator()
+		checker := newZoneValidator()
 		for _, call := range test.sequence {
-			same, overlap, okey := checker.registerAndCheck(&call.zone)
+			same, overlap := checker.registerAndCheck(call.zone)
 			sZone := call.zone.String()
-			if same != call.same {
-				t.Errorf("Test %d: error, for zone %s, 'same' (%v) has not the expected value (%v)", i, sZone, same, call.same)
+			if (same != nil) != call.same {
+				t.Errorf("Test %d: error, for zone %s, 'same' (%v) has not the expected value (%v)", i, sZone, same != nil, call.same)
 			}
-			if !same {
-				if overlap != call.overlap {
-					t.Errorf("Test %d: error, for zone %s, 'overlap' (%v) has not the expected value (%v)", i, sZone, overlap, call.overlap)
+			if same == nil {
+				if (overlap != nil) != call.overlap {
+					t.Errorf("Test %d: error, for zone %s, 'overlap' (%v) has not the expected value (%v)", i, sZone, overlap != nil, call.overlap)
 				}
-				if overlap {
-					key := okey.String()
-					if key != call.overlapKey {
-						t.Errorf("Test %d: error, for zone %s, 'overlap Key' (%v) has not the expected value (%v)", i, sZone, key, call.overlapKey)
+				if overlap != nil {
+					if overlap.String() != call.overlapKey {
+						t.Errorf("Test %d: error, for zone %s, 'overlap Key' (%v) has not the expected value (%v)", i, sZone, overlap.String(), call.overlapKey)
 					}
 
 				}
