@@ -19,6 +19,7 @@ func TestErrorsParse(t *testing.T) {
 		{`errors { log visible }`, true, errorHandler{LogFile: "stdout"}},
 		{`errors
 		errors `, true, errorHandler{LogFile: "stdout"}},
+		{`errors a b`, true, errorHandler{LogFile: ""}},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputErrorsRules)
