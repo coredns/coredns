@@ -14,8 +14,6 @@ func init() {
 		ServerType: "dns",
 		Action:     setup,
 	})
-
-	uniqAddr = addrs{a: make(map[string]int)}
 }
 
 func setup(c *caddy.Controller) error {
@@ -29,69 +27,43 @@ func setup(c *caddy.Controller) error {
 		return m
 	})
 
-	for a, v := range uniqAddr.a {
-		if v == todo {
-			// During restarts we will keep this handler running, BUG.
-			c.OncePerServerBlock(m.OnStartup)
-		}
-		uniqAddr.a[a] = done
-	}
-	c.OnFinalShutdown(m.OnShutdown)
-
+	c.OnStartup(m.OnStartup)
 	return nil
 }
 
 func prometheusParse(c *caddy.Controller) (*Metrics, error) {
-	var met = New(defaultAddr)
-
-	defer func() {
-		uniqAddr.SetAddress(met.Addr)
-	}()
+	var addr = defaultAddr
+	var zones []string
 
 	for c.Next() {
-		if len(met.ZoneNames()) > 0 {
-			return met, c.Err("can only have one metrics module per server")
+		if len(zones) > 0 {
+			return nil, c.Err("can only have one metrics module per server")
 		}
 
 		for _, z := range c.ServerBlockKeys {
-			met.AddZone(plugin.Host(z).Normalize())
+			zones = append(zones, plugin.Host(z).Normalize())
 		}
 		args := c.RemainingArgs()
 
 		switch len(args) {
 		case 0:
 		case 1:
-			met.Addr = args[0]
-			_, _, e := net.SplitHostPort(met.Addr)
+			addr = args[0]
+			_, _, e := net.SplitHostPort(addr)
 			if e != nil {
-				return met, e
+				return nil, e
 			}
 		default:
-			return met, c.ArgErr()
+			return nil, c.ArgErr()
 		}
 	}
-	return met, nil
-}
 
-var uniqAddr addrs
-
-// Keep track on which addrs we listen, so we only start one listener.
-type addrs struct {
-	a map[string]int
-}
-
-func (a *addrs) SetAddress(addr string) {
-	// If already there and set to done, we've already started this listener.
-	if a.a[addr] == done {
-		return
+	m := New(addr)
+	for _, z := range zones {
+		m.AddZone(z)
 	}
-	a.a[addr] = todo
+	return m, nil
 }
 
 // defaultAddr is the address the where the metrics are exported by default.
 const defaultAddr = "localhost:9153"
-
-const (
-	todo = 1
-	done = 2
-)

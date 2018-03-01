@@ -2,6 +2,7 @@
 package metrics
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -21,8 +22,6 @@ type Metrics struct {
 	Next plugin.Handler
 	Addr string
 	Reg  *prometheus.Registry
-	ln   net.Listener
-	mux  *http.ServeMux
 
 	zoneNames []string
 	zoneMap   map[string]bool
@@ -31,33 +30,22 @@ type Metrics struct {
 
 // New returns a new instance of Metrics with the given address
 func New(addr string) *Metrics {
-	met := &Metrics{
+	return &Metrics{
 		Addr:    addr,
-		Reg:     prometheus.NewRegistry(),
+		Reg:     sharedStateFor(addr).reg,
 		zoneMap: make(map[string]bool),
 	}
-	// Add the default collectors
-	met.MustRegister(prometheus.NewGoCollector())
-	met.MustRegister(prometheus.NewProcessCollector(os.Getpid(), ""))
-
-	// Add all of our collectors
-	met.MustRegister(buildInfo)
-	met.MustRegister(vars.RequestCount)
-	met.MustRegister(vars.RequestDuration)
-	met.MustRegister(vars.RequestSize)
-	met.MustRegister(vars.RequestDo)
-	met.MustRegister(vars.RequestType)
-	met.MustRegister(vars.ResponseSize)
-	met.MustRegister(vars.ResponseRcode)
-
-	// Initialize metrics.
-	buildInfo.WithLabelValues(coremain.CoreVersion, coremain.GitCommit, runtime.Version()).Set(1)
-
-	return met
 }
 
 // MustRegister wraps m.Reg.MustRegister.
-func (m *Metrics) MustRegister(c prometheus.Collector) { m.Reg.MustRegister(c) }
+func (m *Metrics) MustRegister(c prometheus.Collector) {
+	if err := m.Reg.Register(c); err != nil {
+		log.Printf("[ERROR] registering metric: %s", err)
+		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+			panic(err)
+		}
+	}
+}
 
 // AddZone adds zone z to m.
 func (m *Metrics) AddZone(z string) {
@@ -85,29 +73,19 @@ func (m *Metrics) ZoneNames() []string {
 
 // OnStartup sets up the metrics on startup.
 func (m *Metrics) OnStartup() error {
-	ln, err := net.Listen("tcp", m.Addr)
+	addr, err := sharedStates[m.Addr].listenAndServe(m.Addr)
 	if err != nil {
-		log.Printf("[ERROR] Failed to start metrics handler: %s", err)
 		return err
 	}
-
-	m.ln = ln
-	ListenAddr = m.ln.Addr().String()
-
-	m.mux = http.NewServeMux()
-	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{}))
-
-	go func() {
-		http.Serve(m.ln, m.mux)
-	}()
+	ListenAddr = addr.String() // for tests
 	return nil
 }
 
 // OnShutdown tears down the metrics on shutdown and restart.
 func (m *Metrics) OnShutdown() error {
-	if m.ln != nil {
-		return m.ln.Close()
-	}
+	// Note: kept for backward compatibility but does nothing now. The listeners
+	// used to be managed by the Metrics values but now they are shared amongst
+	// plugins that use the same address.
 	return nil
 }
 
@@ -124,9 +102,71 @@ func keys(m map[string]bool) []string {
 var ListenAddr string
 
 var (
+	// Notes on using a global registry
+	// --------------------------------
+	//
+	// CoreDNS currently uses a pattern of declaring metrics as global variables
+	// and registering them to
+	//	registry = prometheus.NewRegistry()
+
 	buildInfo = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: plugin.Namespace,
 		Name:      "build_info",
 		Help:      "A metric with a constant '1' value labeled by version, revision, and goversion from which CoreDNS was built.",
 	}, []string{"version", "revision", "goversion"})
 )
+
+type sharedState struct {
+	lstn net.Listener
+	mux  http.ServeMux
+	reg  *prometheus.Registry
+}
+
+func sharedStateFor(addr string) *sharedState {
+	state, ok := sharedStates[addr]
+	if !ok {
+		state = newSharedState()
+		sharedStates[addr] = state
+		log.Print("install shared metrics state at", addr)
+	}
+	return state
+}
+
+func newSharedState() *sharedState {
+	r := prometheus.NewRegistry()
+	s := &sharedState{reg: r}
+	s.mux.Handle("/metrics", promhttp.HandlerFor(s.reg, promhttp.HandlerOpts{}))
+
+	// Add the default collectors
+	r.MustRegister(prometheus.NewGoCollector())
+	r.MustRegister(prometheus.NewProcessCollector(os.Getpid(), ""))
+
+	// Add all of our collectors
+	r.MustRegister(buildInfo)
+	r.MustRegister(vars.RequestCount)
+	r.MustRegister(vars.RequestDuration)
+	r.MustRegister(vars.RequestSize)
+	r.MustRegister(vars.RequestDo)
+	r.MustRegister(vars.RequestType)
+	r.MustRegister(vars.ResponseSize)
+	r.MustRegister(vars.ResponseRcode)
+
+	// Initialize metrics.
+	buildInfo.WithLabelValues(coremain.CoreVersion, coremain.GitCommit, runtime.Version()).Set(1)
+	return s
+}
+
+func (s *sharedState) listenAndServe(addr string) (net.Addr, error) {
+	if s.lstn == nil {
+		l, err := net.Listen("tcp", addr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to start metrics handler: %s", err)
+		}
+		go http.Serve(l, &s.mux)
+		s.lstn = l
+		log.Printf("[INFO] installing /metrics endpoint at %s", l.Addr())
+	}
+	return s.lstn.Addr(), nil
+}
+
+var sharedStates = make(map[string]*sharedState)
