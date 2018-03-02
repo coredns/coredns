@@ -3,7 +3,6 @@ package dnsserver
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"runtime"
 	"sync"
@@ -287,7 +286,6 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// Still here? Error out with REFUSED and some logging
 	remoteHost := w.RemoteAddr().String()
 	DefaultErrorFunc(w, r, dns.RcodeRefused)
-	log.Printf("[INFO] \"%s %s %s\" - No such zone at %s (Remote: %s)", dns.Type(r.Question[0].Qtype), dns.Class(r.Question[0].Qclass), q, s.Addr, remoteHost)
 }
 
 // OnStartupComplete lists the sites served by this server
