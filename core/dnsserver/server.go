@@ -283,8 +283,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		return
 	}
 
-	// Still here? Error out with REFUSED and some logging
-	remoteHost := w.RemoteAddr().String()
+	// Still here? Error out with REFUSED.
 	DefaultErrorFunc(w, r, dns.RcodeRefused)
 }
 
