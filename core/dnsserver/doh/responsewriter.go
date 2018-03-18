@@ -6,7 +6,9 @@ import (
 	"github.com/miekg/dns"
 )
 
-// ResponseWriter is a ...
+// ResponseWriter is a response writer that captures the result and will
+// not write anything to the client. This allows us to capture the result
+// and layer it upon HTTP/2.
 type ResponseWriter struct {
 	dns.ResponseWriter
 	raddr net.Addr
@@ -14,6 +16,7 @@ type ResponseWriter struct {
 	Msg *dns.Msg
 }
 
+// NewResponseWriter returns a new response writer.
 func NewResponseWriter(raddr string) *ResponseWriter {
 
 	r := new(ResponseWriter)
@@ -24,11 +27,12 @@ func NewResponseWriter(raddr string) *ResponseWriter {
 	return r
 }
 
-// RemoteAddr returns the remote address
+// RemoteAddr returns the remote address.
 func (r *ResponseWriter) RemoteAddr() net.Addr { return r.raddr }
 
-// LocalAddr returns the local address
+// LocalAddr returns the local address.
 func (r *ResponseWriter) LocalAddr() net.Addr {
+	// TODO(miek): reflect actual listen address.
 	ip := net.ParseIP("127.0.0.1")
 	port := 53
 	return &net.UDPAddr{IP: ip, Port: port, Zone: ""}

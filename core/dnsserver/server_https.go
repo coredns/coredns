@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 
 	"github.com/coredns/coredns/core/dnsserver/doh"
 
@@ -103,10 +104,18 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	dw := doh.NewResponseWriter(r.RemoteAddr)
 
 	s.ServeDNS(context.Background(), dw, msg)
-	println(dw.Msg.String())
-	println(msg.String())
 
-	fmt.Fprintf(w, "Hi there, I love %s!\n", r.URL.Path[1:])
+	buf, err := dw.Msg.Pack()
+	if err != nil {
+		// new message?
+	}
+
+	w.Header().Set("content-type", doh.MimeType)
+	w.Header().Set("cache-control", "max-age=0")
+	w.Header().Set("content-length", strconv.Itoa(len(buf)))
+	w.WriteHeader(http.StatusOK)
+
+	w.Write(buf)
 }
 
 // Shutdown stops the server (non gracefully).
