@@ -110,9 +110,9 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// new message?
 	}
 
-	w.Header().Set("content-type", doh.MimeType)
-	w.Header().Set("cache-control", "max-age=0")
-	w.Header().Set("content-length", strconv.Itoa(len(buf)))
+	w.Header().Set("Content-Type", doh.MimeType)
+	w.Header().Set("Cache-Control", "max-age=0")
+	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
 	w.WriteHeader(http.StatusOK)
 
 	w.Write(buf)
