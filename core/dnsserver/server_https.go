@@ -101,7 +101,7 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dw := doh.NewResponseWriter(r.RemoteAddr)
+	dw := doh.NewResponseWriter(r.RemoteAddr, s.listenAddr)
 
 	s.ServeDNS(context.Background(), dw, msg)
 

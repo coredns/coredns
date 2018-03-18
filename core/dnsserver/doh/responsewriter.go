@@ -2,6 +2,7 @@ package doh
 
 import (
 	"net"
+	"strconv"
 
 	"github.com/miekg/dns"
 )
@@ -12,17 +13,20 @@ import (
 type ResponseWriter struct {
 	dns.ResponseWriter
 	raddr net.Addr
+	laddr net.Addr
 
 	Msg *dns.Msg
 }
 
 // NewResponseWriter returns a new response writer.
-func NewResponseWriter(raddr string) *ResponseWriter {
+func NewResponseWriter(raddr string, laddr net.Addr) *ResponseWriter {
+	r := &ResponseWriter{laddr: laddr}
 
-	r := new(ResponseWriter)
+	h, p, _ := net.SplitHostPort(raddr)
+	pi, _ := strconv.Atoi(p)
 
-	ip := net.ParseIP(raddr)
-	r.raddr = &net.TCPAddr{IP: ip, Port: 53}
+	ip := net.ParseIP(h)
+	r.raddr = &net.TCPAddr{IP: ip, Port: pi}
 
 	return r
 }
@@ -31,12 +35,7 @@ func NewResponseWriter(raddr string) *ResponseWriter {
 func (r *ResponseWriter) RemoteAddr() net.Addr { return r.raddr }
 
 // LocalAddr returns the local address.
-func (r *ResponseWriter) LocalAddr() net.Addr {
-	// TODO(miek): reflect actual listen address.
-	ip := net.ParseIP("127.0.0.1")
-	port := 53
-	return &net.UDPAddr{IP: ip, Port: port, Zone: ""}
-}
+func (r *ResponseWriter) LocalAddr() net.Addr { return r.laddr }
 
 // WriteMsg implement dns.ResponseWriter interface.
 func (r *ResponseWriter) WriteMsg(m *dns.Msg) error { r.Msg = m; return nil }
