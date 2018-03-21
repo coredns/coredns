@@ -5,6 +5,7 @@
 package forward
 
 import (
+	"net"
 	"strconv"
 	"time"
 
@@ -33,20 +34,39 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 		conn.UDPSize = 512
 	}
 
-	conn.SetWriteDeadline(time.Now().Add(timeout))
-	if err := conn.WriteMsg(state.Req); err != nil {
-		conn.Close() // not giving it back
-		return nil, err
+	to := timeout
+	if proto == "udp" {
+		to = udpTimeout
 	}
 
-	conn.SetReadDeadline(time.Now().Add(timeout))
-	ret, err := conn.ReadMsg()
-	if err != nil {
-		conn.Close() // not giving it back
-		return nil, err
+	udpRetry := udpRetryCnt
+	var ret *dns.Msg
+	for {
+		conn.SetWriteDeadline(time.Now().Add(to))
+		if err := conn.WriteMsg(state.Req); err != nil {
+			conn.Close() // not giving it back
+			return nil, err
+		}
+
+		conn.SetReadDeadline(time.Now().Add(to))
+		ret, err = conn.ReadMsg()
+		if err != nil {
+			oe, ok := err.(*net.OpError)
+			if ok && oe.Timeout() && proto == "udp" && udpRetry > 0 {
+				udpRetry--
+				continue
+			}
+			conn.Close() // not giving it back
+			return nil, err
+		}
+		break
 	}
 
-	p.Yield(conn)
+	if udpRetry != udpRetryCnt {
+		conn.Close() // to skip stale msgs which might come later
+	} else {
+		p.Yield(conn)
+	}
 
 	if metric {
 		rc, ok := dns.RcodeToString[ret.Rcode]
