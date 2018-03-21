@@ -34,21 +34,16 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 		conn.UDPSize = 512
 	}
 
-	to := timeout
-	if proto == "udp" {
-		to = udpTimeout
-	}
-
 	udpRetry := udpRetryCnt
 	var ret *dns.Msg
 	for {
-		conn.SetWriteDeadline(time.Now().Add(to))
+		conn.SetWriteDeadline(time.Now().Add(timeout))
 		if err := conn.WriteMsg(state.Req); err != nil {
 			conn.Close() // not giving it back
 			return nil, err
 		}
 
-		conn.SetReadDeadline(time.Now().Add(to))
+		conn.SetReadDeadline(time.Now().Add(timeout))
 		ret, err = conn.ReadMsg()
 		if err != nil {
 			oe, ok := err.(*net.OpError)
