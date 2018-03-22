@@ -47,9 +47,11 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 		ret, err = conn.ReadMsg()
 		if err != nil {
 			oe, ok := err.(*net.OpError)
-			if ok && oe.Timeout() && proto == "udp" && udpRetry > 0 {
-				udpRetry--
-				continue
+			if ok && oe.Timeout() {
+				if _, ok = conn.Conn.(*net.UDPConn); ok && udpRetry > 0 {
+					udpRetry--
+					continue
+				}
 			}
 			conn.Close() // not giving it back
 			return nil, err
