@@ -221,8 +221,7 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 			break
 		}
 	}
-	// We may come out of this loop with one rotation too many as we don't break on rl == size.
-	// I.e. m makes it too large, but m-1 works.
+
 	if rl > size && m > 0 {
 		reply.Extra = origExtra[:m-1]
 		rl = reply.Len()
@@ -252,8 +251,7 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 			break
 		}
 	}
-	// We may come out of this loop with one rotation too many as we don't break on rl == size.
-	// I.e. m makes it too large, but m-1 works.
+
 	if rl > size && m > 0 {
 		reply.Answer = origAnswer[:m-1]
 		// No need to recalc length, as we don't use it. We set truncated anyway. Doing
