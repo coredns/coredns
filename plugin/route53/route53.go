@@ -4,9 +4,11 @@ package route53
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -19,14 +21,16 @@ import (
 type Route53 struct {
 	Next plugin.Handler
 
-	zones  []string
-	keys   map[string]string
-	client route53iface.Route53API
+	upstream upstream.Upstream
+	zones    []string
+	keys     map[string]string
+	client   route53iface.Route53API
 }
 
 // ServeDNS implements the plugin.Handler interface.
 func (rr Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	state := request.Request{W: w, Req: r}
+	rr.upstream, _ = upstream.NewUpstream([]string{})
+	state := request.Request{W: w, Req: r, Context: ctx}
 	qname := state.Name()
 
 	zone := plugin.Zones(rr.zones).Matches(qname)
@@ -52,6 +56,10 @@ func (rr Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		answers = aaaa(qname, output.ResourceRecordSets)
 	case dns.TypePTR:
 		answers = ptr(qname, output.ResourceRecordSets)
+	case dns.TypeCNAME:
+		answers = rr.cname(state, qname, output.ResourceRecordSets)
+	default:
+		fmt.Printf("We defaulted. %+v\n", state)
 	}
 
 	if len(answers) == 0 {
@@ -71,6 +79,7 @@ func (rr Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 func a(zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
 	answers := []dns.RR{}
+	fmt.Printf("Recordset: %+v\n\n", rrss)
 	for _, rrs := range rrss {
 		for _, rr := range rrs.ResourceRecords {
 			r := new(dns.A)
@@ -107,6 +116,37 @@ func ptr(zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
 	}
 	return answers
 }
+
+func (r53 *Route53) cname(state request.Request, zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
+	defer func() {
+		if argh := recover(); argh != nil {
+			fmt.Println("Recovered in f", argh)
+		}
+	}()
+	answers := []dns.RR{}
+	for _, rrs := range rrss {
+		for _, rr := range rrs.ResourceRecords {
+			fmt.Printf("state: %+v\n, zone %+v\n", state, zone)
+			m, e := r53.upstream.Lookup(state, aws.StringValue(rr.Value)+".", dns.TypeA)
+			fmt.Printf("m: %+v\ne: %+v\n", m, e)
+
+			if e != nil {
+				continue
+			}
+			/*r := new(dns.CNAME)
+			r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: uint32(aws.Int64Value(rrs.TTL))}
+			r.Target = aws.StringValue(rr.Value)
+			*/
+			answers = append(answers, m.Answer...)
+		}
+	}
+	return answers
+}
+
+/*func srv(zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
+	answers := []dns.RR{}
+	return answer
+}*/
 
 // Name implements the Handler interface.
 func (rr Route53) Name() string { return "route53" }
