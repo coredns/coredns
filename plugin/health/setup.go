@@ -20,57 +20,61 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	addr, lame, err := healthParse(c)
-	if err != nil {
-		return plugin.Error("health", err)
-	}
-
-	h := newHealth(addr)
-	h.lameduck = lame
-
-	c.OnStartup(func() error {
-		plugins := dnsserver.GetConfig(c).Handlers()
-		for _, p := range plugins {
-			if x, ok := p.(Healther); ok {
-				h.h = append(h.h, x)
-			}
+	//what do we expect for a ServerBloc with several Keys ?
+	c.OncePerServerBlock(func() error {
+		addr, lame, err := healthParse(c)
+		if err != nil {
+			return plugin.Error("health", err)
 		}
-		return nil
-	})
 
-	c.OnStartup(func() error {
-		// Poll all middleware every second.
-		h.poll()
-		go func() {
-			for {
-				select {
-				case <-time.After(1 * time.Second):
-					h.poll()
-				case <-h.pollstop:
-					return
+		h := newHealth(addr, string(c.ServerBlockIndex))
+		h.lameduck = lame
+
+		c.OnStartup(func() error {
+			plugins := dnsserver.GetConfig(c).Handlers()
+			for _, p := range plugins {
+				if x, ok := p.(Healther); ok {
+					h.h = append(h.h, x)
 				}
 			}
-		}()
-		return nil
-	})
-
-	c.OnStartup(func() error {
-		onceMetric.Do(func() {
-			m := dnsserver.GetConfig(c).Handler("prometheus")
-			if m == nil {
-				return
-			}
-			if x, ok := m.(*metrics.Metrics); ok {
-				x.MustRegister(HealthDuration)
-			}
+			return nil
 		})
+
+		c.OnStartup(func() error {
+			// Poll all middleware every second.
+			h.poll()
+			go func() {
+				for {
+					select {
+					case <-time.After(1 * time.Second):
+						h.poll()
+					case <-h.pollstop:
+						return
+					}
+				}
+			}()
+			return nil
+		})
+
+		c.OnStartup(func() error {
+			onceMetric.Do(func() {
+				m := dnsserver.GetConfig(c).Handler("prometheus")
+				if m == nil {
+					return
+				}
+				if x, ok := m.(*metrics.Metrics); ok {
+					x.MustRegister(HealthDuration)
+				}
+			})
+			return nil
+		})
+
+		c.OnStartup(h.OnStartup)
+		c.OnShutdown(h.OnShutdown)
+
+		// Don't do AddPlugin, as health is not *really* a plugin just a separate webserver running.
 		return nil
 	})
-
-	c.OnStartup(h.OnStartup)
-	c.OnShutdown(h.OnShutdown)
-
-	// Don't do AddPlugin, as health is not *really* a plugin just a separate webserver running.
 	return nil
 }
 

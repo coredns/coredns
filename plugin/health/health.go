@@ -2,6 +2,7 @@
 package health
 
 import (
+	"github.com/coredns/coredns/plugin/pkg/listener"
 	"io"
 	"log"
 	"net"
@@ -12,8 +13,9 @@ import (
 
 // Health implements healthchecks by polling plugins.
 type health struct {
-	Addr     string
-	lameduck time.Duration
+	serverKey string
+	Addr      string
+	lameduck  time.Duration
 
 	ln  net.Listener
 	mux *http.ServeMux
@@ -28,8 +30,8 @@ type health struct {
 }
 
 // newHealth returns a new initialized health.
-func newHealth(addr string) *health {
-	return &health{Addr: addr, stop: make(chan bool), pollstop: make(chan bool)}
+func newHealth(addr string, key string) *health {
+	return &health{serverKey: key, Addr: addr, stop: make(chan bool), pollstop: make(chan bool)}
 }
 
 func (h *health) OnStartup() error {
@@ -37,7 +39,7 @@ func (h *health) OnStartup() error {
 		h.Addr = defAddr
 	}
 
-	ln, err := net.Listen("tcp", h.Addr)
+	ln, err := listener.LsnProvider.AllocateListener("health-"+h.serverKey, "tcp", h.Addr)
 	if err != nil {
 		return err
 	}
