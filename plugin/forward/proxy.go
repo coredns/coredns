@@ -89,4 +89,5 @@ const (
 	dialTimeout = 4 * time.Second
 	timeout     = 2 * time.Second
 	hcDuration  = 500 * time.Millisecond
+	udpRetryCnt = 2
 )
