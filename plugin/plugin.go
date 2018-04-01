@@ -107,5 +107,5 @@ var TimeBuckets = prometheus.ExponentialBuckets(0.00025, 2, 16) // from 0.25ms t
 // ErrOnce is returned when a plugin doesn't support multiple setups per server.
 var ErrOnce = errors.New("this plugin can only be used once per Server Block")
 
-// Key to pass server context to the plugin.
+// ServerCtx is the context key to pass server address context to the plugins handling the request.
 type ServerCtx struct{}
