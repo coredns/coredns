@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"io"
+	"math/rand"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -65,24 +66,36 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	fails := 0
-	var span, child ot.Span
-	var upstreamErr error
-	span = ot.SpanFromContext(ctx)
+	i := 0
+	returnErr := errNoHealthy
+	span := ot.SpanFromContext(ctx)
+	proxyList := f.list()
+	deadline := time.Now().Add(queryTimeout)
 
-	for _, proxy := range f.list() {
-		if proxy.Down(f.maxfails) {
-			fails++
-			if fails < len(f.proxies) {
-				continue
+	for time.Now().Before(deadline) {
+		if i >= len(proxyList) {
+			if i == fails {
+				// All upstream proxies are dead, assume healtcheck is completely broken and randomly
+				// select an upstream to connect to.
+				i = rand.Intn(len(proxyList))
+				deadline = time.Now() // give it a last attempt
+
+				HealthcheckBrokenCount.Add(1)
+			} else {
+				// reached the end of list, reset to begin
+				i = 0
+				fails = 0
 			}
-			// All upstream proxies are dead, assume healtcheck is completely broken and randomly
-			// select an upstream to connect to.
-			r := new(random)
-			proxy = r.List(f.proxies)[0]
-
-			HealthcheckBrokenCount.Add(1)
 		}
 
+		proxy := proxyList[i]
+		i++
+		if proxy.Down(f.maxfails) {
+			fails++
+			continue
+		}
+
+		var child ot.Span
 		if span != nil {
 			child = span.Tracer().StartSpan("connect", ot.ChildOf(span.Context()))
 			ctx = ot.ContextWithSpan(ctx, child)
@@ -107,18 +120,13 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 
 		ret, err = truncated(ret, err)
-		upstreamErr = err
-
 		if err != nil {
+			returnErr = err
 			// Kick off health check to see if *our* upstream is broken.
 			if f.maxfails != 0 {
 				proxy.Healthcheck()
 			}
-
-			if fails < len(f.proxies) {
-				continue
-			}
-			break
+			continue
 		}
 
 		// Check if the reply is correct; if not return FormErr.
@@ -139,11 +147,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return 0, nil
 	}
 
-	if upstreamErr != nil {
-		return dns.RcodeServerFailure, upstreamErr
-	}
-
-	return dns.RcodeServerFailure, errNoHealthy
+	return dns.RcodeServerFailure, returnErr
 }
 
 func (f *Forward) match(state request.Request) bool {
@@ -185,3 +189,5 @@ const (
 	randomPolicy policy = iota
 	roundRobinPolicy
 )
+
+const queryTimeout = 5 * time.Second

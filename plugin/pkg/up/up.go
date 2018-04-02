@@ -4,6 +4,7 @@ package up
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -37,9 +38,11 @@ func (p *Probe) Stop() { p.stop <- true }
 func (p *Probe) Start(interval time.Duration) { go p.start(interval) }
 
 func (p *Probe) start(interval time.Duration) {
+	stop := uint32(0)
 	for {
 		select {
 		case <-p.stop:
+			atomic.StoreUint32(&stop, 1)
 			return
 		case f := <-p.do:
 			p.Lock()
@@ -53,7 +56,7 @@ func (p *Probe) start(interval time.Duration) {
 			// Passed the lock. Now run f for as long it returns false. If a true is returned
 			// we return from the goroutine and we can accept another Func to run.
 			go func() {
-				for {
+				for atomic.LoadUint32(&stop) == 0 {
 					if err := f(); err == nil {
 						break
 					}
