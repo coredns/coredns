@@ -16,8 +16,8 @@ type persistConn struct {
 
 // connErr is used to communicate the connection manager.
 type connErr struct {
-	c   *dns.Conn
-	err error
+	c      *dns.Conn
+	err    error
 	cached bool
 }
 
@@ -140,7 +140,7 @@ Wait:
 }
 
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
-func (t *transport) Dial(proto string) (*dns.Conn, error, bool) {
+func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
 	// If tls has been configured; use it.
 	if t.tlsConfig != nil {
 		proto = "tcp-tls"
@@ -148,7 +148,7 @@ func (t *transport) Dial(proto string) (*dns.Conn, error, bool) {
 
 	t.dial <- proto
 	c := <-t.ret
-	return c.c, c.err, c.cached
+	return c.c, c.cached, c.err
 }
 
 // Yield return the connection to transport for reuse.

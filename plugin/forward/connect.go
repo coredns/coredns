@@ -23,7 +23,7 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 		proto = "tcp"
 	}
 
-	conn, err, cached := p.Dial(proto)
+	conn, cached, err := p.Dial(proto)
 	if err != nil {
 		return nil, err
 	}
