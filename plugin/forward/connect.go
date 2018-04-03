@@ -6,6 +6,7 @@ package forward
 
 import (
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/request"
@@ -13,6 +14,19 @@ import (
 	"github.com/miekg/dns"
 	"golang.org/x/net/context"
 )
+
+func (p *Proxy) readTimeout() time.Duration {
+	rtt := time.Duration(atomic.LoadInt64(&p.avgRtt))
+	if rtt < timeout/2 {
+		return 2 * rtt
+	}
+	return timeout
+}
+
+func (p *Proxy) updateRtt(newRtt time.Duration) {
+	rtt := time.Duration(atomic.LoadInt64(&p.avgRtt))
+	atomic.AddInt64(&p.avgRtt, int64((newRtt-rtt)/rttCount))
+}
 
 func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, metric bool) (*dns.Msg, error) {
 	start := time.Now()
@@ -34,17 +48,21 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 	}
 
 	conn.SetWriteDeadline(time.Now().Add(timeout))
+	reqTime := time.Now()
 	if err := conn.WriteMsg(state.Req); err != nil {
 		conn.Close() // not giving it back
 		return nil, err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(timeout))
+	conn.SetReadDeadline(time.Now().Add(p.readTimeout()))
 	ret, err := conn.ReadMsg()
 	if err != nil {
+		p.updateRtt(timeout)
 		conn.Close() // not giving it back
 		return nil, err
 	}
+
+	p.updateRtt(time.Since(reqTime))
 
 	p.Yield(conn)
 
@@ -61,3 +79,5 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 
 	return ret, nil
 }
+
+const rttCount = 4
