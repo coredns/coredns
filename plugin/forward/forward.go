@@ -173,7 +173,7 @@ var (
 	errInvalidDomain = errors.New("invalid domain for forward")
 	errNoHealthy     = errors.New("no healthy proxies")
 	errNoForward     = errors.New("no forwarder defined")
-	errCachedClosed  = errors.New("cached connection was closed by proxy")
+	errCachedClosed  = errors.New("cached connection was closed by peer")
 )
 
 // policy tells forward what policy for selecting upstream it uses.
