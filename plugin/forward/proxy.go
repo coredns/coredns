@@ -43,9 +43,8 @@ func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
 func dnsClient(tlsConfig *tls.Config) *dns.Client {
 	c := new(dns.Client)
 	c.Net = "udp"
-	// TODO(miek): this should be half of hcDuration?
-	c.ReadTimeout = 1 * time.Second
-	c.WriteTimeout = 1 * time.Second
+	c.ReadTimeout = 4 * time.Second
+	c.WriteTimeout = 4 * time.Second
 
 	if tlsConfig != nil {
 		c.Net = "tcp-tls"

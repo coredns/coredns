@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"log"
 	"sync/atomic"
 
 	"github.com/miekg/dns"
@@ -15,6 +16,7 @@ func (p *Proxy) Check() error {
 	if err != nil {
 		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
 		atomic.AddUint32(&p.fails, 1)
+		log.Printf("[WARNING] Health check of %q failed with: %s", p.addr, err)
 		return err
 	}
 

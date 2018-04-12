@@ -1,5 +1,6 @@
 // Package up is used to run a function for some duration. If a new function is added while a previous run is
-// still ongoing, nothing new will be executed.
+// still ongoing, nothing new will be executed. Every 3rd failure we increase the interval with the interval
+// duration (up to four times).
 package up
 
 import (
@@ -53,12 +54,21 @@ func (p *Probe) start(interval time.Duration) {
 			// Passed the lock. Now run f for as long it returns false. If a true is returned
 			// we return from the goroutine and we can accept another Func to run.
 			go func() {
+				i, j := 1, 1
 				for {
 					if err := f(); err == nil {
 						break
 					}
-					// TODO(miek): little bit of exponential backoff here?
-					time.Sleep(interval)
+					time.Sleep(time.Duration(i) * interval)
+					// Every third failure, we increase the interval, but only up to 4 * interval.
+					j++
+					if j%3 == 0 {
+						i++
+						if i > 4 {
+							i = 4
+						}
+					}
+
 				}
 				p.Lock()
 				p.inprogress = false
