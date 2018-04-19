@@ -39,6 +39,7 @@ var Directives = []string{
 	"auto",
 	"secondary",
 	"etcd",
+	"etcd3",
 	"forward",
 	"proxy",
 	"erratic",

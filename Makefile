@@ -36,6 +36,7 @@ godeps:
 	go get -u github.com/prometheus/client_golang/prometheus
 	go get -u golang.org/x/net/context
 	go get -u golang.org/x/text
+	go get -u github.com/coreos/etcd/clientv3
 	(cd $(GOPATH)/src/github.com/mholt/caddy              && git checkout -q v0.10.11)
 	(cd $(GOPATH)/src/github.com/miekg/dns                && git checkout -q v1.0.5)
 	(cd $(GOPATH)/src/github.com/prometheus/client_golang && git checkout -q v0.8.0)
