@@ -80,7 +80,7 @@ func (f *Forward) Lookup(state request.Request, name string, typ uint16) (*dns.M
 func NewLookup(addr []string) *Forward {
 	f := New()
 	for i := range addr {
-		p := NewProxy(addr[i], nil)
+		p := NewProxy(addr[i])
 		f.SetProxy(p)
 	}
 	return f

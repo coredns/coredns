@@ -37,11 +37,15 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 	start := time.Now()
 
 	proto := state.Proto()
-	if forceTCP {
+	if p.tlsConfig != nil {
+		proto = "tcp-tls"
+	}
+
+	if forceTCP && proto == "udp" {
 		proto = "tcp"
 	}
 
-	conn, cached, err := p.Dial(proto)
+	conn, cached, err := p.dial(proto, p.tlsConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +79,7 @@ func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, me
 
 	p.updateRtt(time.Since(reqTime))
 
-	p.Yield(conn)
+	p.yield(conn, proto)
 
 	if metric {
 		rc, ok := dns.RcodeToString[ret.Rcode]

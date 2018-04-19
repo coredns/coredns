@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strconv"
@@ -120,12 +121,15 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 				if p == "53" {
 					h = net.JoinHostPort(h1, "853")
 				}
+
+				pr := NewProxy(h)
+				pr.setTLSConfig(new(tls.Config)) // Set tlsconfig for this proxy
+				f.proxies = append(f.proxies, pr)
+				continue
 			}
 
-			// We can't set tlsConfig here, because we haven't parsed it yet.
-			// We set it below at the end of parseBlock, use nil now.
-			p := NewProxy(h, nil /* no TLS */)
-			f.proxies = append(f.proxies, p)
+			pr := NewProxy(h)
+			f.proxies = append(f.proxies, pr)
 		}
 
 		for c.NextBlock() {
@@ -136,14 +140,25 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 	}
 
 	if f.tlsServerName != "" {
-		f.tlsConfig.ServerName = f.tlsServerName
-	}
-	for i := range f.proxies {
-		// Only set this for proxies that need it.
-		if protocols[i] == TLS {
-			f.proxies[i].SetTLSConfig(f.tlsConfig)
+		if f.tlsConfig != nil {
+			f.tlsConfig.ServerName = f.tlsServerName
 		}
-		f.proxies[i].SetExpire(f.expire)
+	}
+	// Update the proxies with possibly new TLS Configs.
+	for i := range f.proxies {
+		pr := f.proxies[i]
+		pr.setExpire(f.expire)
+
+		if f.tlsConfig != nil { // forward changes
+			pr.setTLSConfig(f.tlsConfig)
+			continue
+		}
+		// No system wide config, we may only need to set ServerName
+		x := pr.tlsConfig
+		if x != nil && f.tlsServerName != "" {
+			x.ServerName = f.tlsServerName
+			pr.setTLSConfig(x) // reset so healthchecker gets new config
+		}
 	}
 	return f, nil
 }

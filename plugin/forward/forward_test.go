@@ -19,9 +19,8 @@ func TestForward(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, nil /* not TLS */)
 	f := New()
-	f.SetProxy(p)
+	f.SetProxy(NewProxy(s.Addr))
 	defer f.Close()
 
 	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}

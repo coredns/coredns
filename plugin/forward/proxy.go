@@ -12,8 +12,13 @@ import (
 
 // Proxy defines an upstream host.
 type Proxy struct {
-	addr   string
-	client *dns.Client
+	// Put in the beginning of this struct because of alignment on ARM (for instance).
+	avgRtt int64
+	fails  uint32
+
+	addr      string
+	client    *dns.Client
+	tlsConfig *tls.Config
 
 	// Connection caching
 	expire    time.Duration
@@ -21,22 +26,18 @@ type Proxy struct {
 
 	// health checking
 	probe *up.Probe
-	fails uint32
-
-	avgRtt int64
 }
 
 // NewProxy returns a new proxy.
-func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
-	p := &Proxy{
+func NewProxy(addr string) *Proxy {
+	return &Proxy{
 		addr:      addr,
 		fails:     0,
 		probe:     up.New(),
-		transport: newTransport(addr, tlsConfig),
+		transport: newTransport(addr),
 		avgRtt:    int64(timeout / 2),
+		client:    dnsClient(nil),
 	}
-	p.client = dnsClient(tlsConfig)
-	return p
 }
 
 // dnsClient returns a client used for health checking.
@@ -54,20 +55,25 @@ func dnsClient(tlsConfig *tls.Config) *dns.Client {
 	return c
 }
 
-// SetTLSConfig sets the TLS config in the lower p.transport.
-func (p *Proxy) SetTLSConfig(cfg *tls.Config) { p.transport.SetTLSConfig(cfg) }
+// setTLSConfig sets the TLS config in the lower p.transport.
+func (p *Proxy) setTLSConfig(cfg *tls.Config) {
+	p.tlsConfig = cfg
+	p.client = dnsClient(cfg)
+}
 
-// SetExpire sets the expire duration in the lower p.transport.
-func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
+// setExpire sets the expire duration in the lower p.transport.
+func (p *Proxy) setExpire(expire time.Duration) { p.transport.setExpire(expire) }
 
-// Dial connects to the host in p with the configured transport.
-func (p *Proxy) Dial(proto string) (*dns.Conn, bool, error) { return p.transport.Dial(proto) }
+// dial connects to the host in p with the configured transport.
+func (p *Proxy) dial(proto string, tlsConfig *tls.Config) (*dns.Conn, bool, error) {
+	return p.transport.Dial(proto, p.tlsConfig)
+}
 
-// Yield returns the connection to the pool.
-func (p *Proxy) Yield(c *dns.Conn) { p.transport.Yield(c) }
+// yield returns the connection to the pool.
+func (p *Proxy) yield(c *dns.Conn, proto string) { p.transport.Yield(c, proto) }
 
-// Healthcheck kicks of a round of health checks for this proxy.
-func (p *Proxy) Healthcheck() { p.probe.Do(p.Check) }
+// healthcheck kicks of a round of health checks for this proxy.
+func (p *Proxy) healthcheck() { p.probe.Do(p.Check) }
 
 // Down returns true if this proxy is down, i.e. has *more* fails than maxfails.
 func (p *Proxy) Down(maxfails uint32) bool {

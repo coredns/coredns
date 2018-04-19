@@ -34,9 +34,8 @@ func TestLookupTruncated(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, nil /* no TLS */)
 	f := New()
-	f.SetProxy(p)
+	f.SetProxy(NewProxy(s.Addr))
 	defer f.Close()
 
 	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
@@ -88,10 +87,8 @@ func TestForwardTruncated(t *testing.T) {
 
 	f := New()
 
-	p1 := NewProxy(s.Addr, nil /* no TLS */)
-	f.SetProxy(p1)
-	p2 := NewProxy(s.Addr, nil /* no TLS */)
-	f.SetProxy(p2)
+	f.SetProxy(NewProxy(s.Addr))
+	f.SetProxy(NewProxy(s.Addr))
 	defer f.Close()
 
 	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
