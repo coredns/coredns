@@ -186,6 +186,7 @@ var (
 	errNoHealthy     = errors.New("no healthy proxies")
 	errNoForward     = errors.New("no forwarder defined")
 	errCachedClosed  = errors.New("cached connection was closed by peer")
+	errStopped       = errors.New("proxy has been stopped")
 )
 
 // policy tells forward what policy for selecting upstream it uses.
