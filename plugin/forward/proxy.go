@@ -85,7 +85,7 @@ func (p *Proxy) Down(maxfails uint32) bool {
 // close stops the health checking goroutine and connection manager.
 func (p *Proxy) close() {
 	p.probe.Stop()
-	atomic.StoreUint32(&p.state, stopping)
+	atomic.CompareAndSwapUint32(&p.state, running, stopping)
 	if atomic.LoadInt32(&p.inProgress) == 0 {
 		p.checkStopTransport()
 	}
