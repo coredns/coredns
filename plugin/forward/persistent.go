@@ -157,18 +157,7 @@ func (t *transport) Yield(c *dns.Conn) {
 }
 
 // Stop stops the transport's connection manager.
-func (t *transport) Stop() {
-	t.stop <- true
-
-	// at this point nothing should write to channels anymore
-	// closing channels to make tests panic on write
-	close(t.dial)
-	close(t.ret)
-	close(t.yield)
-	close(t.lenc)
-	close(t.lencOut)
-	close(t.stop)
-}
+func (t *transport) Stop() { t.stop <- true }
 
 // SetExpire sets the connection expire time in transport.
 func (t *transport) SetExpire(expire time.Duration) { t.expire = expire }
