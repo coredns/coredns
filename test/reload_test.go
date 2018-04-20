@@ -52,3 +52,20 @@ func send(t *testing.T, server string) {
 		t.Fatalf("Expected 2 RRs in additional, got %d", len(r.Extra))
 	}
 }
+
+func TestReloadHealth(t *testing.T) {
+	corefile := `
+.:0 {
+	health 127.0.0.1:8080
+	proxy . 8.8.8.8:53
+}`
+	c, err := CoreDNSServer(corefile)
+	if err != nil {
+		t.Fatalf("Could not get service instance: %s", err)
+	}
+
+	// This fails with address 8080 already in use, it shouldn't.
+	if _, err = c.Restart(NewInput(corefile)); err != nil {
+		t.Fatal(err)
+	}
+}
