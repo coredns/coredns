@@ -1,8 +1,6 @@
 package test
 
 import (
-	"io/ioutil"
-	"log"
 	"sync"
 
 	"github.com/coredns/coredns/core/dnsserver"
@@ -21,13 +19,14 @@ func CoreDNSServer(corefile string) (*caddy.Instance, error) {
 	defer mu.Unlock()
 	caddy.Quiet = true
 	dnsserver.Quiet = true
-	log.SetOutput(ioutil.Discard)
-
 	return caddy.Start(NewInput(corefile))
 }
 
 // CoreDNSServerStop stops a server.
-func CoreDNSServerStop(i *caddy.Instance) { i.Stop() }
+func CoreDNSServerStop(i *caddy.Instance) {
+	i.Stop()
+	i.ShutdownCallbacks()
+}
 
 // CoreDNSServerPorts returns the ports the instance is listening on. The integer k indicates
 // which ServerListener you want.
