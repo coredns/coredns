@@ -23,7 +23,14 @@ func CoreDNSServer(corefile string) (*caddy.Instance, error) {
 	dnsserver.Quiet = true
 	log.SetOutput(ioutil.Discard)
 
-	return caddy.Start(NewInput(corefile))
+	instance, err := caddy.Start(NewInput(corefile))
+	if err != nil {
+		return nil, err
+	}
+	// Execute after startup events, mandatory for a full started service
+	caddy.EmitEvent(caddy.InstanceStartupEvent, instance)
+	return instance, nil
+
 }
 
 // CoreDNSServerStop stops a server.

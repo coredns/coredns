@@ -52,6 +52,99 @@ When exporting metrics the *Namespace* should be `plugin.Namespace` (="coredns")
  a *Metrics* section detailing the metrics. If the plugin supports dynamic health reporting it
  should also have *Health* section detailing on some of its inner workings.
 
+## Restart compatibility
+
+Each plugin that needs to allocate resources needed for execution needs to take care of the compatibility 
+with the graceful restart mode of RELOAD operation : the new CoreDNS instance is created before the old one is stopped.
+So, one need to consider the creation of any resource that is unique and cannot be created twice : it will most 
+likely failed when restarting CoreDNS and classify the plugin as incompatible with RELOAD.  
+
+### TCP Listeners : uniqueness resources to be managed for RELOAD compatibility
+
+When using TCP Listener to open HTTP Servers (or other usage if any), like for HEALTH or METRICS plugins, 
+you may want to use the listener.Distributor it will provide a way to get TCP Listeners that are compatible with RELOAD.
+it provides the following capabilities:
+- check at booking time if your request is compatible with other listeners to be opened
+- it will automatically reuse the listener allocated for the same plugin, same address when RELOAD
+- if the plugin needs to share the SAME listener among several instances of the plugin (on different ServerBloc ...), 
+a convenient function allow to retrieve already booked Listener with a pointer to the plugin object associated.  
+
+#### Simple use case the Listener to open is the same as the Plugin 
+
+~~~
+func setup(c *caddy.Controller) error {
+    ...
+    // build a plugin or part of plugin that provide the Booker interface
+    p = NewMyPluginPart(....)
+    // book a listener, using a Distributor that tied to this new instance of CoreDNS
+    myListenerAllocator, err = dnsserver.GetListenerDistributor(c).BookListener("tcp", addr, p, true)
+    // Distributor will return an err on any incompatibility for the listener (address already booked,   
+    ...
+    // when all DNS Server are started, then allocate the listener to server HTTP ...
+    c.onStartup(func() error {
+       lsn, err = myListenerAllocator.AllocateListener()
+       // an error could still happen...
+       // now create a HTTP Service upon this listener
+       ...
+    })
+}
+~~~
+
+#### Complex use case the Listener to open could be shared by several instances of the Plugin
+
+See example in /plugin/health or /plugin/metrics
+
+~~~
+// create structure to handle the HTTP Service part of your plugin
+type myLsnPlugin struct {
+  ...  
+}
+
+// create a structure to handle the data part (DNSServe) of your plugin
+type myPlugin struct {
+  ...
+  lsn *myLsnPlugin
+}
+
+// at Setup register the object to be shared 
+
+
+func setup(c *caddy.Controller) error {
+    ...
+    // build a plugin or part of plugin that provide the Booker interface
+    var p  myLsnPlugin;
+    
+    isbooked, booker = dnsserver.GetListenerDistributor(c).IsBooked("tcp", addr)
+    if isbooked {
+        // booker is the object you passed to the Booking function. Most likely a myLsnPlugin object
+	    x, ok := booker.(*myLsnPlugin)
+	    if !ok {
+			return plugin.Error("health", fmt.Errorf("the address (%s) for listening is already booked by %s (and is not recognized as myPlugin)", addr, booker.Tag()))
+	    }
+	    // x is myLsnPlugin object .. do whatever you need 
+	    p = x
+    } else {
+        // not booked, make a booking for a new myLsnPlugin 
+        p = New(myLsnPlugin)
+        p.listener, err = dnsserver.GetListenerDistributor(c).BookListener("tcp", addr, p, true)
+        ...
+        // when all DNS Server are started, then allocate the listener to server HTTP ...
+        c.onStartup(func() error {
+           lsn, err = p.listener.AllocateListener()
+           // an error could still happen...
+           // now create a HTTP Service upon this listener
+           ...
+        })
+     }
+     
+     // now you can create a myPlugin and reference the same myLsnPlugin several times
+     plugin = &myPlugin{lsn: p}
+     ....
+}
+
+~~~ 
+
+
 ## Documentation
 
 Each plugin should have a README.md explaining what the plugin does and how it is configured. The

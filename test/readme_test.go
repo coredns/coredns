@@ -11,6 +11,8 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 
+	"bytes"
+
 	"github.com/mholt/caddy"
 )
 
@@ -72,11 +74,70 @@ func TestReadme(t *testing.T) {
 			dnsserver.Port = strconv.Itoa(port)
 			server, err := caddy.Start(in)
 			if err != nil {
-				t.Errorf("Failed to start server with %s, for input %q:\n%s", readme, err, in.Body())
+				t.Fatalf("Failed to start server with %s, for input %q:\n%s", readme, err, in.Body())
 			}
+			// Execute after startup events, mandatory for a full started service
+			caddy.EmitEvent(caddy.InstanceStartupEvent, server)
+
+			caddy.EmitEvent(caddy.ShutdownEvent, server)
+			server.ShutdownCallbacks()
 			server.Stop()
 			port++
 		}
+	}
+}
+
+func TestReadmeRestart(t *testing.T) {
+	port := 30553
+	caddy.Quiet = true
+	dnsserver.Quiet = true
+
+	create(contents)
+	defer remove(contents)
+
+	log.SetOutput(ioutil.Discard)
+
+	middle := filepath.Join("..", "plugin")
+	dirs, err := ioutil.ReadDir(middle)
+	if err != nil {
+		t.Fatalf("Could not read %s: %q", middle, err)
+	}
+
+	var server *caddy.Instance
+	for _, d := range dirs {
+		if !d.IsDir() {
+			continue
+		}
+		readme := filepath.Join(middle, d.Name())
+		readme = filepath.Join(readme, "README.md")
+
+		inputs, err := corefileFromReadme(readme)
+		if err != nil {
+			continue
+		}
+
+		// Test each snippet.
+		for _, in := range inputs {
+			// avoid reload as it produce restarts on its own and we will point here the wrong instance
+			if !bytes.ContainsAny(in.Body(), "reload") {
+				dnsserver.Port = strconv.Itoa(port)
+				if server == nil {
+					server, err = caddy.Start(in)
+				} else {
+					server, err = server.Restart(in)
+				}
+				if err != nil {
+					t.Fatalf("Failed to start server with %s, for input %q:\n%s", readme, err, in.Body())
+				} // Execute after startup events, mandatory for a full started service
+				caddy.EmitEvent(caddy.InstanceStartupEvent, server)
+				port++
+			}
+		}
+	}
+	if server != nil {
+		caddy.EmitEvent(caddy.ShutdownEvent, server)
+		server.ShutdownCallbacks()
+		server.Stop()
 	}
 }
 

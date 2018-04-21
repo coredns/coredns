@@ -8,13 +8,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/listener"
 	"github.com/coredns/coredns/plugin/pkg/log"
 )
 
 // Health implements healthchecks by polling plugins.
 type health struct {
-	Addr     string
 	lameduck time.Duration
+	alloc    listener.AllocationToken
 
 	ln  net.Listener
 	mux *http.ServeMux
@@ -29,16 +30,25 @@ type health struct {
 }
 
 // newHealth returns a new initialized health.
-func newHealth(addr string) *health {
-	return &health{Addr: addr, stop: make(chan bool), pollstop: make(chan bool)}
+func newHealth(alloc listener.AllocationToken) *health {
+	return &health{alloc: alloc, stop: make(chan bool), pollstop: make(chan bool)}
+}
+
+func (h *health) Name() string {
+	return "health"
+}
+
+func (h *health) registerHealther(plugins []Healther) {
+	h.Lock()
+	for _, p := range plugins {
+		h.h = append(h.h, p)
+	}
+	h.Unlock()
 }
 
 func (h *health) OnStartup() error {
-	if h.Addr == "" {
-		h.Addr = defAddr
-	}
 
-	ln, err := net.Listen("tcp", h.Addr)
+	ln, err := h.alloc.AllocateListener()
 	if err != nil {
 		return err
 	}

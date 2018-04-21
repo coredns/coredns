@@ -20,54 +20,82 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
+	// Need to consolidate the Plugins per address of listening
+
 	addr, lame, err := healthParse(c)
 	if err != nil {
 		return plugin.Error("health", err)
 	}
 
-	h := newHealth(addr)
-	h.lameduck = lame
+	var h *health
+	distributor := dnsserver.GetListenerDistributor(c)
+	booked, booker := distributor.IsBooked("tcp", addr)
+	if booked {
+		x, ok := booker.(*health)
+		if !ok {
+			return plugin.Error("health", fmt.Errorf("the address (%s) for listening is already booked by %s (and is not recognized as prometheus)", addr, booker.Name()))
+		}
+		// we consolidate the health plugin on that existing health plugin
+		h = x
+	} else {
+		h = newHealth(nil)
+		alloc, err := dnsserver.GetListenerDistributor(c).BookListener("tcp", addr, h, true)
+		if err != nil {
+			return plugin.Error("health", err)
+		}
+		h.alloc = alloc
 
+		// setup operation tied to a NEW health object
+		c.OnStartup(func() error {
+			// Poll all middleware every second.
+			h.poll()
+			go func() {
+				for {
+					select {
+					case <-time.After(1 * time.Second):
+						h.poll()
+					case <-h.pollstop:
+						return
+					}
+				}
+			}()
+			return nil
+		})
+
+		c.OnStartup(h.OnStartup)
+		c.OnShutdown(h.OnShutdown)
+
+		c.OnStartup(func() error {
+			once.Do(func() { metrics.MustRegister(c, HealthDuration) })
+			return nil
+		})
+
+	}
+
+	// consolidate lameduck if make sense
+	if lame > h.lameduck {
+		h.lameduck = lame
+	}
+
+	// need to register EACH plugin (for each server listening on the same BlocServer)
 	c.OnStartup(func() error {
 		plugins := dnsserver.GetConfig(c).Handlers()
+		healthers := make([]Healther, 0)
 		for _, p := range plugins {
 			if x, ok := p.(Healther); ok {
-				h.h = append(h.h, x)
+				healthers = append(healthers, x)
 			}
 		}
+		h.registerHealther(healthers)
 		return nil
 	})
-
-	c.OnStartup(func() error {
-		// Poll all middleware every second.
-		h.poll()
-		go func() {
-			for {
-				select {
-				case <-time.After(1 * time.Second):
-					h.poll()
-				case <-h.pollstop:
-					return
-				}
-			}
-		}()
-		return nil
-	})
-
-	c.OnStartup(func() error {
-		once.Do(func() { metrics.MustRegister(c, HealthDuration) })
-		return nil
-	})
-
-	c.OnStartup(h.OnStartup)
-	c.OnShutdown(h.OnShutdown)
 
 	// Don't do AddPlugin, as health is not *really* a plugin just a separate webserver running.
 	return nil
 }
 
 func healthParse(c *caddy.Controller) (string, time.Duration, error) {
-	addr := ""
+	addr := defAddr
 	dur := time.Duration(0)
 	for c.Next() {
 		args := c.RemainingArgs()

@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/cache"
-	"github.com/coredns/coredns/plugin/metrics"
 	mtest "github.com/coredns/coredns/plugin/metrics/test"
 	"github.com/coredns/coredns/plugin/metrics/vars"
 
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/miekg/dns"
 )
 
@@ -37,6 +37,40 @@ example.com:0 {
 	defer srv.Stop()
 }
 
+// Start test server that has metrics enabled. Then tear it down again.
+func TestMetricsServerSharedListener(t *testing.T) {
+	corefile := `example.org:0 {
+	chaos CoreDNS-001 miek@miek.nl
+	prometheus localhost:8701
+}
+
+example.com:0 {
+	proxy . 8.8.4.4:53
+	prometheus localhost:8701
+}
+`
+	srv, err := CoreDNSServer(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	// ensure only one listener activated
+	distrib := dnsserver.GetActiveListenerDistributor()
+	lsns := distrib.Bookings("prometheus")
+	if len(lsns) != 1 {
+		t.Fatalf("Expect only one listener for Prometheus plogin, got %d", len(lsns))
+	}
+
+	defer srv.Stop()
+}
+
+func getCurrentListeningAddress(key string) string {
+	var listenAddr = ""
+	for _, v := range dnsserver.GetActiveListenerDistributor().Bookings(key) {
+		listenAddr = v.Addr().String()
+	}
+	return listenAddr
+}
+
 func TestMetricsRefused(t *testing.T) {
 	metricName := "coredns_dns_response_rcode_count_total"
 
@@ -58,7 +92,7 @@ func TestMetricsRefused(t *testing.T) {
 		t.Fatalf("Could not send message: %s", err)
 	}
 
-	data := mtest.Scrape(t, "http://"+metrics.ListenAddr+"/metrics")
+	data := mtest.Scrape(t, "http://"+getCurrentListeningAddress("prometheus")+"/metrics")
 	got, labels := mtest.MetricValue(metricName, data)
 
 	if got != "1" {
@@ -98,7 +132,7 @@ func testMetricsCache(t *testing.T) {
 		t.Fatalf("Could not send message: %s", err)
 	}
 
-	data := mtest.Scrape(t, "http://"+metrics.ListenAddr+"/metrics")
+	data := mtest.Scrape(t, "http://"+getCurrentListeningAddress("prometheus")+"/metrics")
 	// Get the value for the cache size metric where the one of the labels values matches "success".
 	got, _ := mtest.MetricValueLabel(cacheSizeMetricName, cache.Success, data)
 
@@ -111,7 +145,7 @@ func testMetricsCache(t *testing.T) {
 		t.Fatalf("Could not send message: %s", err)
 	}
 
-	data = mtest.Scrape(t, "http://"+metrics.ListenAddr+"/metrics")
+	data = mtest.Scrape(t, "http://"+getCurrentListeningAddress("prometheus")+"/metrics")
 	// Get the value for the cache hit counter where the one of the labels values matches "success".
 	got, _ = mtest.MetricValueLabel(cacheHitMetricName, cache.Success, data)
 
@@ -163,7 +197,7 @@ func TestMetricsAuto(t *testing.T) {
 
 	metricName := "coredns_dns_request_count_total" //{zone, proto, family}
 
-	data := mtest.Scrape(t, "http://"+metrics.ListenAddr+"/metrics")
+	data := mtest.Scrape(t, "http://"+getCurrentListeningAddress("prometheus")+"/metrics")
 	// Get the value for the metrics where the one of the labels values matches "example.org."
 	got, _ := mtest.MetricValueLabel(metricName, "example.org.", data)
 
@@ -178,7 +212,7 @@ func TestMetricsAuto(t *testing.T) {
 		t.Fatalf("Could not send message: %s", err)
 	}
 
-	data = mtest.Scrape(t, "http://"+metrics.ListenAddr+"/metrics")
+	data = mtest.Scrape(t, "http://"+getCurrentListeningAddress("prometheus")+"/metrics")
 	got, _ = mtest.MetricValueLabel(metricName, "example.org.", data)
 
 	if got != "1" {

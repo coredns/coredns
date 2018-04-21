@@ -8,10 +8,12 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/erratic"
+	"github.com/coredns/coredns/plugin/test"
 )
 
 func TestHealth(t *testing.T) {
-	h := newHealth(":0")
+	alloc := test.NewDefaultAllocator()
+	h := newHealth(alloc)
 	h.h = append(h.h, &erratic.Erratic{})
 
 	if err := h.OnStartup(); err != nil {
@@ -58,7 +60,7 @@ func TestHealth(t *testing.T) {
 }
 
 func TestHealthLameduck(t *testing.T) {
-	h := newHealth(":0")
+	h := newHealth(test.NewDefaultAllocator())
 	h.lameduck = 250 * time.Millisecond
 	h.h = append(h.h, &erratic.Erratic{})
 

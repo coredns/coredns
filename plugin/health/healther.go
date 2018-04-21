@@ -26,7 +26,10 @@ func (h *health) SetOk(ok bool) {
 
 // poll polls all healthers and sets the global state.
 func (h *health) poll() {
-	for _, m := range h.h {
+	h.RLock()
+	healther := h.h
+	h.RUnlock()
+	for _, m := range healther {
 		if !m.Health() {
 			h.SetOk(false)
 			return

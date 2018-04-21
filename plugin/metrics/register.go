@@ -18,6 +18,6 @@ func MustRegister(c *caddy.Controller, cs ...prometheus.Collector) {
 		return
 	}
 	for _, c := range cs {
-		x.MustRegister(c)
+		x.lsn.MustRegister(c)
 	}
 }

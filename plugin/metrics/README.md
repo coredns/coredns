@@ -49,6 +49,10 @@ For each zone that you want to see metrics for.
 It optionally takes an address to which the metrics are exported; the default
 is `localhost:9153`. The metrics path is fixed to `/metrics`.
 
+The plugin can by used on one or several of the ServerBloc of Corefile.
+All the queries handled by prometheus plugins having the same address will be reported on that address. 
+The 'server' and 'zone' labels can be used to identify what plugins served this DNS query. 
+
 ## Examples
 
 Use an alternative address:
@@ -68,7 +72,3 @@ then:
 }
 ~~~
 
-## Bugs
-
-When reloading, we keep the handler running, meaning that any changes to the handler's address
-aren't picked up. You'll need to restart CoreDNS for that to happen.

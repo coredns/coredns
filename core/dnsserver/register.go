@@ -10,6 +10,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 
+	"github.com/coredns/coredns/plugin/pkg/listener"
 	"github.com/mholt/caddy"
 	"github.com/mholt/caddy/caddyfile"
 )
@@ -32,17 +33,63 @@ func init() {
 		},
 		NewContext: newContext,
 	})
+	caddy.RegisterEventHook("register", caddyEventListeners)
+}
+
+func caddyEventListeners(event caddy.EventName, info interface{}) error {
+
+	switch event {
+	case caddy.StartupEvent:
+		fallthrough
+	case caddy.ShutdownEvent:
+		// at first startut or at complete shutdown of coreDNS. Cleanup context
+		// this is needed when you start any Server AFTER a Stop - no need to be the same server
+		// used during tests.
+		allContext = make([]*dnsContext, 0)
+		activeContext = nil
+	case caddy.InstanceStartupEvent:
+		// a context can be considered "active" only after all servers/services are started.
+		// the only way to spot that context is to consider its instance pointer against the current instance.
+		instance := info.(*caddy.Instance)
+		changed := false
+		for _, ctxt := range allContext {
+			if ctxt.instance == instance {
+				activeContext = ctxt
+				changed = true
+			}
+		}
+		if changed {
+			// at this point we need only to keep the current active context. Others are obsoleted
+			// NOTE: would be good to ensure final shutdown all services on obsolete contexts
+			allContext = make([]*dnsContext, 0)
+			allContext = append(allContext, activeContext)
+		}
+	}
+	return nil
 }
 
 func newContext(i *caddy.Instance) caddy.Context {
-	return &dnsContext{keysToConfigs: make(map[string]*Config)}
+	// for 'reload' compatibility, we need to check what listeners of activeContext we are going to reuse.
+	// this new context will be declared 'active' ONLY when after all start servers/services is OK.
+	var lst *listener.Distributor
+	if activeContext != nil {
+		lst = activeContext.listeners
+	}
+	ctxt := &dnsContext{keysToConfigs: make(map[string]*Config), instance: i, listeners: listener.NewListenerDistributor(lst)}
+	allContext = append(allContext, ctxt)
+	return ctxt
 }
 
 type dnsContext struct {
-	keysToConfigs map[string]*Config
+	// instance associated with the context
+	instance *caddy.Instance
 
+	keysToConfigs map[string]*Config
 	// configs is the master list of all site configs.
 	configs []*Config
+
+	// distributor of (tcp) Listeners for plugins that provide service like health, prometheus
+	listeners *listener.Distributor
 }
 
 func (h *dnsContext) saveConfig(key string, cfg *Config) {
@@ -228,6 +275,20 @@ func groupConfigsByListenAddr(configs []*Config) (map[string][]*Config, error) {
 	return groups, nil
 }
 
+// GetListenerDistributor return the listenerDistributor that corresponds to the controller
+func GetListenerDistributor(c *caddy.Controller) *listener.Distributor {
+	ctx := c.Context().(*dnsContext)
+	return ctx.listeners
+}
+
+// GetActiveListenerDistributor return the last started Distributor
+func GetActiveListenerDistributor() *listener.Distributor {
+	if activeContext != nil {
+		return activeContext.listeners
+	}
+	return nil
+}
+
 const (
 	// DefaultPort is the default port.
 	DefaultPort = "53"
@@ -248,3 +309,10 @@ var (
 )
 
 var _ caddy.GracefulServer = new(Server)
+
+// management of the dnsContext : one per instance. We can have several as instance can be reloaded into another instance
+// TODO : add mutex for concurrent access
+var (
+	allContext    = make([]*dnsContext, 0)
+	activeContext *dnsContext
+)

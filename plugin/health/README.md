@@ -33,24 +33,42 @@ health [ADDRESS] {
 * Where `lameduck` will make the process unhealthy then *wait* for **DURATION** before the process
   shuts down.
 
-If you have multiple Server Block and need to export health for each of the plugins, you must run
-health endpoints on different ports:
+If you have multiple Server Blocks and need to export health for each of the plugins, 
+you can either run all health enpoints, like below:
 
 ~~~ corefile
-com {
+com. {
+    whoami
+    health
+}
+
+net. {
+    erratic
+    health
+}
+~~~
+
+
+or on different ports:
+
+~~~ corefile
+com. {
     whoami
     health :8080
 }
 
-net {
+net. {
     erratic
     health :8081
 }
 ~~~
 
+
+ 
 ## Plugins
 
 Any plugin that implements the Healther interface will be used to report health.
+If ports are shared, multiple server plugins will be included as well.
 
 ## Metrics
 

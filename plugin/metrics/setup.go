@@ -1,11 +1,11 @@
 package metrics
 
 import (
+	"fmt"
 	"net"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-
 	"github.com/mholt/caddy"
 )
 
@@ -14,86 +14,76 @@ func init() {
 		ServerType: "dns",
 		Action:     setup,
 	})
-
-	uniqAddr = addrs{a: make(map[string]int)}
 }
 
 func setup(c *caddy.Controller) error {
-	m, err := prometheusParse(c)
+	addr, zones, err := prometheusParse(c)
 	if err != nil {
 		return plugin.Error("prometheus", err)
 	}
 
+	// we start/stop listener, only if there is something to listen
+	// the same address can be defined on multiple prometheus directives. Only the first one will manage the listener
+	// distributor keep track of listener already booked.
+	var mlsn *metricsListener
+	distributor := dnsserver.GetListenerDistributor(c)
+	booked, booker := distributor.IsBooked("tcp", addr)
+	if booked {
+		x, ok := booker.(*metricsListener)
+		if !ok {
+			return plugin.Error("prometheus", fmt.Errorf("the address (%s) for listening is already booked by %s (and is not recognized as prometheus)", addr, booker.Name()))
+		}
+		mlsn = x
+	} else {
+		mlsn = newListener(nil)
+		alloc, err := dnsserver.GetListenerDistributor(c).BookListener("tcp", addr, mlsn, true)
+		if err != nil {
+			return plugin.Error("prometheus", err)
+		}
+		mlsn.alloc = alloc
+		c.OnStartup(mlsn.OnStartup)
+		c.OnShutdown(mlsn.OnShutdown)
+	}
+
+	// Whatever the listening server, we build one Metrics plugin to collect the metrics about this path of DNS Service
+	m := New(mlsn, zones)
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		m.Next = next
 		return m
 	})
 
-	for a, v := range uniqAddr.a {
-		if v == todo {
-			c.OncePerServerBlock(m.OnStartup)
-		}
-		uniqAddr.a[a] = done
-	}
-
-	c.OnShutdown(m.OnShutdown)
-
 	return nil
 }
 
-func prometheusParse(c *caddy.Controller) (*Metrics, error) {
-	var met = New(defaultAddr)
-
-	defer func() {
-		uniqAddr.SetAddress(met.Addr)
-	}()
-
+func prometheusParse(c *caddy.Controller) (string, []string, error) {
 	i := 0
+	zones := []string{}
+	addr := defaultAddr
 	for c.Next() {
 		if i > 0 {
-			return nil, plugin.ErrOnce
+			return "", nil, plugin.ErrOnce
 		}
 		i++
 
 		for _, z := range c.ServerBlockKeys {
-			met.AddZone(plugin.Host(z).Normalize())
+			zones = append(zones, plugin.Host(z).Normalize())
 		}
 		args := c.RemainingArgs()
 
 		switch len(args) {
 		case 0:
 		case 1:
-			met.Addr = args[0]
-			_, _, e := net.SplitHostPort(met.Addr)
+			addr = args[0]
+			_, _, e := net.SplitHostPort(addr)
 			if e != nil {
-				return met, e
+				return "", nil, e
 			}
 		default:
-			return met, c.ArgErr()
+			return "", nil, c.ArgErr()
 		}
 	}
-	return met, nil
-}
-
-var uniqAddr addrs
-
-// Keep track on which addrs we listen, so we only start one listener.
-type addrs struct {
-	a map[string]int
-}
-
-func (a *addrs) SetAddress(addr string) {
-	// If already there and set to done, we've already started this listener.
-	if a.a[addr] == done {
-		return
-	}
-	a.a[addr] = todo
+	return addr, zones, nil
 }
 
 // defaultAddr is the address the where the metrics are exported by default.
 const defaultAddr = "localhost:9153"
-
-const (
-	todo = 1
-	done = 2
-)
