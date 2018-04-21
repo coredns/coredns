@@ -24,6 +24,16 @@ func (a addrs) setAddress(addr string, f func() error) {
 	a.a[addr] = value{todo, f}
 }
 
+// setAddressTodo sets addr to 'todo' again.
+func (a addrs) setAddressTodo(addr string) {
+	v, ok := a.a[addr]
+	if !ok {
+		return
+	}
+	v.state = todo
+	a.a[addr] = v
+}
+
 // forEachTodo iterates for a and executes f for each element that is 'todo' and sets it to 'done'.
 func (a addrs) forEachTodo() error {
 	for k, v := range a.a {

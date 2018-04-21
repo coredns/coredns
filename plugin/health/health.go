@@ -16,8 +16,9 @@ type health struct {
 	Addr     string
 	lameduck time.Duration
 
-	ln  net.Listener
-	mux *http.ServeMux
+	ln      net.Listener
+	nlSetup bool
+	mux     *http.ServeMux
 
 	// A slice of Healthers that the health plugin will poll every second for their health status.
 	h []Healther
@@ -45,6 +46,7 @@ func (h *health) OnStartup() error {
 
 	h.ln = ln
 	h.mux = http.NewServeMux()
+	h.nlSetup = true
 
 	h.mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		if h.Ok() {
@@ -64,7 +66,7 @@ func (h *health) OnStartup() error {
 func (h *health) OnRestart() error { return h.OnFinalShutdown() }
 
 func (h *health) OnFinalShutdown() error {
-	if h == nil {
+	if !h.nlSetup {
 		return nil
 	}
 
@@ -81,7 +83,7 @@ func (h *health) OnFinalShutdown() error {
 	h.ln.Close()
 
 	h.stop <- true
-	h.ln = nil
+	h.nlSetup = false
 	return nil
 }
 

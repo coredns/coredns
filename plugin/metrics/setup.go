@@ -36,8 +36,8 @@ func setup(c *caddy.Controller) error {
 		return nil
 	})
 
-	c.OnShutdown(m.OnFinalShutdown)
 	c.OnRestart(m.OnRestart)
+	c.OnFinalShutdown(m.OnFinalShutdown)
 
 	return nil
 }
