@@ -54,11 +54,18 @@ func dnsClient(tlsConfig *tls.Config) *dns.Client {
 		c.Net = "tcp-tls"
 		c.TLSConfig = tlsConfig
 	}
+
+	println(c.Net, "for dnsClient")
 	return c
 }
 
-// SetTLSConfig sets the TLS config in the lower p.transport.
-func (p *Proxy) SetTLSConfig(cfg *tls.Config) { p.transport.SetTLSConfig(cfg) }
+// SetTLSConfig sets the TLS config in the lower p.transport and in the healthchecking client.
+func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
+	p.transport.SetTLSConfig(cfg)
+	p.client = dnsClient(cfg)
+
+	println(cfg.ServerName)
+}
 
 // SetExpire sets the expire duration in the lower p.transport.
 func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
