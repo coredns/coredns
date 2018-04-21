@@ -56,8 +56,8 @@ func send(t *testing.T, server string) {
 func TestReloadHealth(t *testing.T) {
 	corefile := `
 .:0 {
-	health 127.0.0.1:8080
-	proxy . 8.8.8.8:53
+	health 127.0.0.1:52182
+	whoami
 }`
 	c, err := CoreDNSServer(corefile)
 	if err != nil {

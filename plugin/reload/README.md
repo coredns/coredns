@@ -79,7 +79,8 @@ is already listening on that port. The process reloads, and performs the followi
 1. close the listener on 8080
 2. reload and parse the config again
 3. fail to start a new listener on 443
+4. fail loading the new Corefile, abort and keep using the old process
 
-Now failing step 3 *does not cause* the reload to fail, instead almost everything works, except the
-health exporting because there is no new listener. Note the same is true for prometheus metrics plugin.
-In general be careful with assigning new port and expecting reload to work.
+After the aborted attempt to reload we are left with the old proceses running, but the listener is
+still closes (on step 1.). Note the same is true for prometheus metrics plugin. In general be
+careful with assigning new port and expecting reload to work fully.
