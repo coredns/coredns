@@ -80,8 +80,7 @@ func TestShouldTransfer(t *testing.T) {
 	}
 	defer s.Shutdown()
 
-	z := new(Zone)
-	z.origin = testZone
+	z := NewZone(testZone, "stdin")
 	z.TransferFrom = []string{addrstr}
 
 	// when we have a nil SOA (initial state)
@@ -124,9 +123,7 @@ func TestTransferIn(t *testing.T) {
 	}
 	defer s.Shutdown()
 
-	z := new(Zone)
-	z.Expired = new(bool)
-	z.origin = testZone
+	z := NewZone(testZone, "stdin")
 	z.TransferFrom = []string{addrstr}
 
 	err = z.TransferIn()

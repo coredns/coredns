@@ -20,7 +20,7 @@ type Zone struct {
 	origLen int
 	file    string
 	*tree.Tree
-	Apex Apex
+	Apex *Apex
 
 	TransferTo   []string
 	StartupOnce  sync.Once
@@ -48,6 +48,7 @@ func NewZone(name, file string) *Zone {
 		origLen:        dns.CountLabel(dns.Fqdn(name)),
 		file:           path.Clean(file),
 		Tree:           &tree.Tree{},
+		Apex:           &Apex{},
 		Expired:        new(bool),
 		reloadShutdown: make(chan bool),
 	}
