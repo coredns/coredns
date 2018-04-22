@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"context"
 	"sync"
 	"testing"
 
@@ -10,7 +11,6 @@ import (
 
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 func TestProxyClose(t *testing.T) {
