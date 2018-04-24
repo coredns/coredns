@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 
 	"github.com/coredns/coredns/plugin"
-	// Plugin the trace package.
 	"github.com/coredns/coredns/plugin/metrics"
+	// Plugin the trace package.
 	_ "github.com/coredns/coredns/plugin/pkg/trace"
 
 	ddtrace "github.com/DataDog/dd-trace-go/opentracing"
