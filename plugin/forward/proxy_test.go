@@ -53,13 +53,6 @@ func TestProxyClose(t *testing.T) {
 			wg.Done()
 		}()
 		wg.Wait()
-
-		if p.inProgress != 0 {
-			t.Errorf("unexpected query in progress")
-		}
-		if p.state != stopped {
-			t.Errorf("unexpected proxy state, expected %d, got %d", stopped, p.state)
-		}
 	}
 }
 

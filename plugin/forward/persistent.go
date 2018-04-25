@@ -44,14 +44,7 @@ func newTransport(addr string, tlsConfig *tls.Config) *transport {
 		ret:    make(chan connErr),
 		stop:   make(chan bool),
 	}
-	go func() {
-		t.connManager()
-		// if connManager returns it has been stopped.
-		close(t.stop)
-		close(t.yield)
-		close(t.dial)
-		// close(t.ret) // we can still be dialing and wanting to send back the socket on t.ret
-	}()
+	go func() { t.connManager() }()
 	return t
 }
 
@@ -120,6 +113,7 @@ Wait:
 			t.conns["tcp-tls"] = append(t.conns["tcp-tls"], &persistConn{conn.c, time.Now()})
 
 		case <-t.stop:
+
 			return
 		}
 	}
@@ -132,18 +126,33 @@ func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
 		proto = "tcp-tls"
 	}
 
-	t.dial <- proto
-	c := <-t.ret
-	return c.c, c.cached, c.err
+	select {
+	case t.dial <- proto:
+	case <-t.stop:
+		return nil, false, errStopped
+	}
+
+	select {
+	case c := <-t.ret:
+		return c.c, c.cached, c.err
+	case <-t.stop:
+		break
+	}
+	return nil, false, errStopped
 }
 
 // Yield return the connection to transport for reuse.
 func (t *transport) Yield(c *dns.Conn) {
-	t.yield <- connErr{c, nil, false}
+	select {
+	case t.yield <- connErr{c, nil, false}:
+		return
+	case <-t.stop:
+		return
+	}
 }
 
 // Stop stops the transport's connection manager.
-func (t *transport) Stop() { t.stop <- true }
+func (t *transport) Stop() { close(t.stop) }
 
 // SetExpire sets the connection expire time in transport.
 func (t *transport) SetExpire(expire time.Duration) { t.expire = expire }

@@ -119,7 +119,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 		if err != nil {
 			// Kick off health check to see if *our* upstream is broken.
-			if f.maxfails != 0 && err != errStopped {
+			if f.maxfails != 0 {
 				proxy.Healthcheck()
 			}
 
