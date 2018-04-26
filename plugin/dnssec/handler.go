@@ -27,8 +27,6 @@ func (d Dnssec) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	state.Zone = zone
 	server := metrics.WithServer(ctx)
 
-	cacheCapacity.WithLabelValues(server, "signature").Set(float64(capacity))
-
 	// Intercept queries for DNSKEY, but only if one of the zones matches the qname, otherwise we let
 	// the query through.
 	if qtype == dns.TypeDNSKEY {
