@@ -2,6 +2,7 @@ package forward
 
 import (
 	"crypto/tls"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -24,6 +25,7 @@ type Proxy struct {
 	fails uint32
 
 	avgRtt int64
+	wg     *sync.WaitGroup
 }
 
 // NewProxy returns a new proxy.
@@ -34,6 +36,7 @@ func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
 		probe:     up.New(),
 		transport: newTransport(addr, tlsConfig),
 		avgRtt:    int64(timeout / 2),
+		wg:        &sync.WaitGroup{},
 	}
 	p.client = dnsClient(tlsConfig)
 	return p
@@ -85,6 +88,7 @@ func (p *Proxy) Down(maxfails uint32) bool {
 // close stops the health checking goroutine.
 func (p *Proxy) close() {
 	p.probe.Stop()
+	p.wg.Wait()
 	p.transport.Stop()
 }
 

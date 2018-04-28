@@ -97,7 +97,6 @@ Wait:
 			t.conns["tcp-tls"] = append(t.conns["tcp-tls"], &persistConn{conn, time.Now()})
 
 		case <-t.stop:
-			close(t.ret)
 			return
 		}
 	}

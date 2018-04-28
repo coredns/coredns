@@ -102,6 +102,8 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			ret *dns.Msg
 			err error
 		)
+
+		proxy.wg.Add(1)
 		for {
 			ret, err = proxy.connect(ctx, state, f.forceTCP, true)
 			if err != nil && err == errCachedClosed { // Remote side closed conn, can only happen with TCP.
@@ -109,6 +111,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			}
 			break
 		}
+		proxy.wg.Done()
 
 		if child != nil {
 			child.Finish()

@@ -25,10 +25,12 @@ func TestProxyClose(t *testing.T) {
 	state := request.Request{W: &test.ResponseWriter{}, Req: req}
 	ctx := context.TODO()
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 1000; i++ {
 		p := NewProxy(s.Addr, nil)
 		p.start(hcDuration)
 
+		go func() { p.connect(ctx, state, false, false) }()
+		go func() { p.connect(ctx, state, true, false) }()
 		go func() { p.connect(ctx, state, false, false) }()
 		go func() { p.connect(ctx, state, true, false) }()
 		go func() { p.connect(ctx, state, false, false) }()
