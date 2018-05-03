@@ -33,7 +33,8 @@ func (p *Proxy) updateRtt(newRtt time.Duration) {
 	atomic.AddInt64(&p.avgRtt, int64((newRtt-rtt)/rttCount))
 }
 
-func (p *Proxy) connect(ctx context.Context, state request.Request, forceTCP, metric bool) (*dns.Msg, error) {
+// Connect sets connection and sends the request
+func (p *Proxy) Connect(ctx context.Context, state request.Request, forceTCP, metric bool) (*dns.Msg, error) {
 	start := time.Now()
 
 	proto := state.Proto()
