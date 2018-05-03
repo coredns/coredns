@@ -39,7 +39,7 @@ func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
 	return p
 }
 
-// Addr returns destination endpoints address to forward to
+// Addr returns the address to forward to.
 func (p *Proxy) Addr() (addr string) { return p.addr }
 
 // dnsClient returns a client used for health checking.
