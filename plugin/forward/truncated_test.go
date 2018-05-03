@@ -43,7 +43,7 @@ func TestLookupTruncated(t *testing.T) {
 
 	resp, err := f.Lookup(state, "example.org.", dns.TypeA)
 	if err != nil {
-		t.Fatal("Expected to receive reply, but didn't")
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
 	}
 	// expect answer with TC
 	if !resp.Truncated {
@@ -55,7 +55,7 @@ func TestLookupTruncated(t *testing.T) {
 
 	resp, err = f.Lookup(state, "example.org.", dns.TypeA)
 	if err != nil {
-		t.Fatal("Expected to receive reply, but didn't")
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
 	}
 	// expect answer without TC
 	if resp.Truncated {
@@ -98,7 +98,7 @@ func TestForwardTruncated(t *testing.T) {
 	state.Req.SetQuestion("example.org.", dns.TypeA)
 	resp, err := f.Forward(state)
 	if err != nil {
-		t.Fatal("Expected to receive reply, but didn't")
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
 	}
 
 	// expect answer with TC
@@ -111,7 +111,7 @@ func TestForwardTruncated(t *testing.T) {
 
 	resp, err = f.Forward(state)
 	if err != nil {
-		t.Fatal("Expected to receive reply, but didn't")
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
 	}
 	// expect answer without TC
 	if resp.Truncated {

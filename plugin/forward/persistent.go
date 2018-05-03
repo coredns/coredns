@@ -3,6 +3,7 @@ package forward
 import (
 	"crypto/tls"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
@@ -16,15 +17,18 @@ type persistConn struct {
 
 // transport hold the persistent cache.
 type transport struct {
-	conns     map[string][]*persistConn //  Buckets for udp, tcp and tcp-tls.
+	conns     map[string][]*persistConn // Buckets for udp, tcp and tcp-tls.
 	expire    time.Duration             // After this duration a connection is expired.
 	addr      string
 	tlsConfig *tls.Config
 
-	dial  chan string
-	yield chan *dns.Conn
-	ret   chan *dns.Conn
-	stop  chan bool
+	dial   chan string
+	yield  chan *dns.Conn
+	ret    chan *dns.Conn
+	stop   chan bool
+	signal chan bool
+	sync.RWMutex
+	stopping bool
 }
 
 func newTransport(addr string, tlsConfig *tls.Config) *transport {
@@ -36,6 +40,7 @@ func newTransport(addr string, tlsConfig *tls.Config) *transport {
 		yield:  make(chan *dns.Conn),
 		ret:    make(chan *dns.Conn),
 		stop:   make(chan bool),
+		signal: make(chan bool),
 	}
 	go func() { t.connManager() }()
 	return t
@@ -58,8 +63,6 @@ Wait:
 	for {
 		select {
 		case proto := <-t.dial:
-			// Yes O(n), shouldn't put millions in here. We walk all connection until we find the first
-			// one that is usuable.
 			i := 0
 			for i = 0; i < len(t.conns[proto]); i++ {
 				pc := t.conns[proto][i]
@@ -67,13 +70,14 @@ Wait:
 					// Found one, remove from pool and return this conn.
 					t.conns[proto] = t.conns[proto][i+1:]
 					t.ret <- pc.c
+
 					continue Wait
 				}
 				// This conn has expired. Close it.
 				pc.c.Close()
 			}
 
-			// Not conns were found. Connect to the upstream to create one.
+			// Not conns were found.
 			t.conns[proto] = t.conns[proto][i:]
 			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len()))
 
@@ -96,8 +100,21 @@ Wait:
 
 			t.conns["tcp-tls"] = append(t.conns["tcp-tls"], &persistConn{conn, time.Now()})
 
+		case <-t.signal:
+			t.Lock()
+			t.stopping = true
+			t.Unlock()
+
 		case <-t.stop:
-			close(t.ret)
+			for _, pc := range t.conns["udp"] {
+				pc.c.Close()
+			}
+			for _, pc := range t.conns["tcp"] {
+				pc.c.Close()
+			}
+			for _, pc := range t.conns["tcp-tls"] {
+				pc.c.Close()
+			}
 			return
 		}
 	}
@@ -105,6 +122,10 @@ Wait:
 
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
 func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
+	if t.Signal() {
+		return nil, false, errStopped
+	}
+
 	// If tls has been configured; use it.
 	if t.tlsConfig != nil {
 		proto = "tcp-tls"
@@ -129,7 +150,18 @@ func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
 func (t *transport) Yield(c *dns.Conn) { t.yield <- c }
 
 // Stop stops the transport's connection manager.
-func (t *transport) Stop() { close(t.stop) }
+func (t *transport) Stop() {
+	t.signal <- true
+	time.Sleep(100 * time.Millisecond)
+	close(t.stop)
+}
+
+func (t *transport) Signal() bool {
+	t.RLock()
+	s := t.stopping
+	t.RUnlock()
+	return s
+}
 
 // SetExpire sets the connection expire time in transport.
 func (t *transport) SetExpire(expire time.Duration) { t.expire = expire }

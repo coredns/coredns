@@ -25,10 +25,12 @@ func TestProxyClose(t *testing.T) {
 	state := request.Request{W: &test.ResponseWriter{}, Req: req}
 	ctx := context.TODO()
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		p := NewProxy(s.Addr, nil)
 		p.start(hcDuration)
 
+		go func() { p.connect(ctx, state, false, false) }()
+		go func() { p.connect(ctx, state, true, false) }()
 		go func() { p.connect(ctx, state, false, false) }()
 		go func() { p.connect(ctx, state, true, false) }()
 		go func() { p.connect(ctx, state, false, false) }()
@@ -60,7 +62,7 @@ func TestProxy(t *testing.T) {
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 
 	if _, err := f.ServeDNS(context.TODO(), rec, m); err != nil {
-		t.Fatal("Expected to receive reply, but didn't")
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
 	}
 	if x := rec.Msg.Answer[0].Header().Name; x != "example.org." {
 		t.Errorf("Expected %s, got %s", "example.org.", x)
