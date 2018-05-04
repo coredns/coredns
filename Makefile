@@ -78,6 +78,14 @@ core/zplugin.go core/dnsserver/zdirectives.go: plugin.cfg
 gen:
 	go generate coredns.go
 
+.PHONY: pb
+pb:
+	( cd pb && \
+          protoc --go_out=plugins=grpc:. dns.proto && \
+          sed -e s?golang.org/x/net/context?context? < dns.pb.go > dns.pb.go.tmp && \
+          mv dns.pb.go.tmp dns.pb.go \
+        )
+
 .PHONY: linter
 linter:
 	go get -u github.com/alecthomas/gometalinter
