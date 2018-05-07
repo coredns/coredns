@@ -3,6 +3,7 @@ package forward
 import (
 	"crypto/tls"
 	"net"
+	"sort"
 	"time"
 
 	"github.com/miekg/dns"
@@ -53,28 +54,24 @@ func (t *transport) len() int {
 
 // connManagers manages the persistent connection cache for UDP and TCP.
 func (t *transport) connManager() {
-
+	timer := time.NewTimer(t.expire)
 Wait:
 	for {
 		select {
 		case proto := <-t.dial:
-			// Yes O(n), shouldn't put millions in here. We walk all connection until we find the first
-			// one that is usuable.
-			i := 0
-			for i = 0; i < len(t.conns[proto]); i++ {
-				pc := t.conns[proto][i]
+			// take the last used conn - complexity O(1)
+			if stack := t.conns[proto]; len(stack) > 0 {
+				pc := stack[len(stack)-1]
 				if time.Since(pc.used) < t.expire {
 					// Found one, remove from pool and return this conn.
-					t.conns[proto] = t.conns[proto][i+1:]
+					t.conns[proto] = stack[:len(stack)-1]
 					t.ret <- pc.c
 					continue Wait
 				}
-				// This conn has expired. Close it.
-				pc.c.Close()
+				// clear entire cache if the last conn is expired
+				go closeConns(stack)
+				t.conns[proto] = nil
 			}
-
-			// Not conns were found. Connect to the upstream to create one.
-			t.conns[proto] = t.conns[proto][i:]
 			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len()))
 
 			t.ret <- nil
@@ -96,10 +93,47 @@ Wait:
 
 			t.conns["tcp-tls"] = append(t.conns["tcp-tls"], &persistConn{conn, time.Now()})
 
+		case <-timer.C:
+			t.cleanup(false)
+			timer.Reset(t.expire)
+
 		case <-t.stop:
+			t.cleanup(true)
 			close(t.ret)
 			return
 		}
+	}
+}
+
+// closeConns closes connections.
+func closeConns(conns []*persistConn) {
+	for _, pc := range conns {
+		pc.c.Close()
+	}
+}
+
+// cleanup removes connections from cache.
+func (t *transport) cleanup(all bool) {
+	staleTime := time.Now().Add(-t.expire)
+	for proto, stack := range t.conns {
+		if len(stack) == 0 {
+			continue
+		}
+		if all {
+			go closeConns(stack)
+			t.conns[proto] = nil
+			continue
+		}
+		if stack[0].used.After(staleTime) {
+			continue
+		}
+
+		// connections in stack are sorted by "used"
+		good := sort.Search(len(stack), func(i int) bool {
+			return stack[i].used.After(staleTime)
+		})
+		go closeConns(stack[:good])
+		t.conns[proto] = stack[good:]
 	}
 }
 
