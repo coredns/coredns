@@ -18,6 +18,7 @@ func TestCached(t *testing.T) {
 	defer s.Close()
 
 	tr := newTransport(s.Addr, nil /* no TLS */)
+	tr.Start()
 	defer tr.Stop()
 
 	c1, cache1, _ := tr.Dial("udp")
@@ -47,7 +48,7 @@ func TestCached(t *testing.T) {
 	tr.Yield(c4)
 }
 
-func TestCleanup(t *testing.T) {
+func TestCleanupByTimer(t *testing.T) {
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
 		ret.SetReply(r)
@@ -56,12 +57,44 @@ func TestCleanup(t *testing.T) {
 	defer s.Close()
 
 	tr := newTransport(s.Addr, nil /* no TLS */)
+	tr.SetExpire(100 * time.Millisecond)
+	tr.Start()
 	defer tr.Stop()
 
+	c1, _, _ := tr.Dial("udp")
+	c2, _, _ := tr.Dial("udp")
+	tr.Yield(c1)
 	time.Sleep(10 * time.Millisecond)
-	tr.SetExpire(100 * time.Millisecond)
+	tr.Yield(c2)
 
-	// partially expired
+	time.Sleep(120 * time.Millisecond)
+	c3, cached, _ := tr.Dial("udp")
+	if cached {
+		t.Error("Expected non-cached connection (c3)")
+	}
+	tr.Yield(c3)
+
+	time.Sleep(120 * time.Millisecond)
+	c4, cached, _ := tr.Dial("udp")
+	if cached {
+		t.Error("Expected non-cached connection (c4)")
+	}
+	tr.Yield(c4)
+}
+
+func TestPartialCleanup(t *testing.T) {
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	tr := newTransport(s.Addr, nil /* no TLS */)
+	tr.SetExpire(100 * time.Millisecond)
+	tr.Start()
+	defer tr.Stop()
+
 	c1, _, _ := tr.Dial("udp")
 	c2, _, _ := tr.Dial("udp")
 	c3, _, _ := tr.Dial("udp")
@@ -71,87 +104,58 @@ func TestCleanup(t *testing.T) {
 	tr.Yield(c1)
 	time.Sleep(10 * time.Millisecond)
 	tr.Yield(c2)
-	time.Sleep(60 * time.Millisecond)
-	tr.Yield(c3)
 	time.Sleep(10 * time.Millisecond)
+	tr.Yield(c3)
+	time.Sleep(50 * time.Millisecond)
 	tr.Yield(c4)
 	time.Sleep(10 * time.Millisecond)
 	tr.Yield(c5)
 	time.Sleep(40 * time.Millisecond)
-	tr.cleanup(false)
-	if l := tr.len(); l != 3 {
-		t.Errorf("Expected 3 connections, got %d", l)
-	}
 
-	// dial when all expired
-	time.Sleep(80 * time.Millisecond)
-	if l := tr.len(); l != 3 {
-		t.Errorf("Still expected 3 connections, got %d", l)
+	c6, _, _ := tr.Dial("udp")
+	if c6 != c5 {
+		t.Errorf("Expected c6 == c5")
 	}
-	var cached bool
-	c1, cached, _ = tr.Dial("udp")
+	c7, _, _ := tr.Dial("udp")
+	if c7 != c4 {
+		t.Errorf("Expected c7 == c4")
+	}
+	c8, cached, _ := tr.Dial("udp")
 	if cached {
-		t.Errorf("Expected non-cached connection")
-	}
-	if l := tr.len(); l != 0 {
-		t.Errorf("Expected 0 connections, got %d", l)
+		t.Error("Expected non-cached connection (c8)")
 	}
 
-	// noone expired
-	c2, _, _ = tr.Dial("udp")
-	c3, _, _ = tr.Dial("udp")
-	c4, _, _ = tr.Dial("udp")
-	c5, _, _ = tr.Dial("udp")
+	tr.Yield(c6)
+	tr.Yield(c7)
+	tr.Yield(c8)
+}
 
-	tr.Yield(c1)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c2)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c3)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c4)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c5)
-	time.Sleep(10 * time.Millisecond)
-	tr.cleanup(false)
-	if l := tr.len(); l != 5 {
-		t.Errorf("Expected 0 connections, got %d", l)
+func TestCleanupAll(t *testing.T) {
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	tr := newTransport(s.Addr, nil /* no TLS */)
+
+	c1, _ := dns.DialTimeout("udp", tr.addr, dialTimeout)
+	c2, _ := dns.DialTimeout("udp", tr.addr, dialTimeout)
+	c3, _ := dns.DialTimeout("udp", tr.addr, dialTimeout)
+
+	tr.conns["udp"] = []*persistConn{
+		{c1, time.Now()},
+		{c2, time.Now()},
+		{c3, time.Now()},
 	}
 
-	// all expired
-	c1, _, _ = tr.Dial("udp")
-	c2, _, _ = tr.Dial("udp")
-	c3, _, _ = tr.Dial("udp")
-	c4, _, _ = tr.Dial("udp")
-	c5, _, _ = tr.Dial("udp")
-
-	tr.Yield(c1)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c2)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c3)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c4)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c5)
-	time.Sleep(120 * time.Millisecond)
-	tr.cleanup(false)
-	if l := tr.len(); l != 0 {
-		t.Errorf("Expected 0 connections, got %d", l)
+	if tr.len() != 3 {
+		t.Error("Expected 3 connections")
 	}
-
-	// clean all connections
-	c1, _, _ = tr.Dial("udp")
-	c2, _, _ = tr.Dial("udp")
-	c3, _, _ = tr.Dial("udp")
-
-	tr.Yield(c1)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c2)
-	time.Sleep(10 * time.Millisecond)
-	tr.Yield(c3)
 	tr.cleanup(true)
-	if l := tr.len(); l != 0 {
-		t.Errorf("Expected 0 connections, got %d", l)
+
+	if tr.len() > 0 {
+		t.Error("Expected no cached connections")
 	}
 }

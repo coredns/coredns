@@ -38,7 +38,6 @@ func newTransport(addr string, tlsConfig *tls.Config) *transport {
 		ret:    make(chan *dns.Conn),
 		stop:   make(chan bool),
 	}
-	go func() { t.connManager() }()
 	return t
 }
 
@@ -54,7 +53,7 @@ func (t *transport) len() int {
 
 // connManagers manages the persistent connection cache for UDP and TCP.
 func (t *transport) connManager() {
-	timer := time.NewTimer(t.expire)
+	ticker := time.NewTicker(t.expire)
 Wait:
 	for {
 		select {
@@ -69,8 +68,8 @@ Wait:
 					continue Wait
 				}
 				// clear entire cache if the last conn is expired
-				go closeConns(stack)
 				t.conns[proto] = nil
+				go closeConns(stack)
 			}
 			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len()))
 
@@ -93,9 +92,8 @@ Wait:
 
 			t.conns["tcp-tls"] = append(t.conns["tcp-tls"], &persistConn{conn, time.Now()})
 
-		case <-timer.C:
+		case <-ticker.C:
 			t.cleanup(false)
-			timer.Reset(t.expire)
 
 		case <-t.stop:
 			t.cleanup(true)
@@ -132,8 +130,8 @@ func (t *transport) cleanup(all bool) {
 		good := sort.Search(len(stack), func(i int) bool {
 			return stack[i].used.After(staleTime)
 		})
-		go closeConns(stack[:good])
 		t.conns[proto] = stack[good:]
+		go closeConns(stack[:good])
 	}
 }
 
@@ -161,6 +159,9 @@ func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
 
 // Yield return the connection to transport for reuse.
 func (t *transport) Yield(c *dns.Conn) { t.yield <- c }
+
+// Start starts the transport's connection manager.
+func (t *transport) Start() { go t.connManager() }
 
 // Stop stops the transport's connection manager.
 func (t *transport) Stop() { close(t.stop) }
