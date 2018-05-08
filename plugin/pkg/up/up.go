@@ -3,79 +3,48 @@
 package up
 
 import (
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
 // Probe is used to run a single Func until it returns true (indicating a target is healthy). If an Func
 // is already in progress no new one will be added, i.e. there is always a maximum of 1 checks in flight.
 type Probe struct {
-	do   chan Func
-	stop chan bool
-
-	target string
-
-	sync.Mutex
-	inprogress int
+	inprogress int32
+	interval   time.Duration
 }
 
 // Func is used to determine if a target is alive. If so this function must return nil.
 type Func func() error
 
 // New returns a pointer to an intialized Probe.
-func New() *Probe {
-	return &Probe{stop: make(chan bool), do: make(chan Func)}
-}
+func New() *Probe { return &Probe{} }
 
 // Do will probe target, if a probe is already in progress this is a noop.
-func (p *Probe) Do(f Func) { p.do <- f }
-
-// Stop stops the probing.
-func (p *Probe) Stop() { p.stop <- true }
-
-// Start will start the probe manager, after which probes can be initialized with Do.
-func (p *Probe) Start(interval time.Duration) { go p.start(interval) }
-
-func (p *Probe) start(interval time.Duration) {
-	for {
-		select {
-		case <-p.stop:
-			p.Lock()
-			p.inprogress = stop
-			p.Unlock()
-			return
-		case f := <-p.do:
-			p.Lock()
-			if p.inprogress == active || p.inprogress == stop {
-				p.Unlock()
-				continue
-			}
-			p.inprogress = active
-			p.Unlock()
-
-			// Passed the lock. Now run f for as long it returns false. If a true is returned
-			// we return from the goroutine and we can accept another Func to run.
-			go func() {
-				for {
-					if err := f(); err == nil {
-						break
-					}
-					time.Sleep(interval)
-					p.Lock()
-					if p.inprogress == stop {
-						p.Unlock()
-						return
-					}
-					p.Unlock()
+func (p *Probe) Do(f Func) {
+	if atomic.CompareAndSwapInt32(&p.inprogress, idle, active) {
+		// Passed the lock. Now run f for as long it returns false. If a true is returned
+		// we return from the goroutine and we can accept another Func to run.
+		go func() {
+			for {
+				if err := f(); err == nil {
+					break
 				}
-
-				p.Lock()
-				p.inprogress = idle
-				p.Unlock()
-			}()
-		}
+				time.Sleep(p.interval)
+				if atomic.LoadInt32(&p.inprogress) == stop {
+					return
+				}
+			}
+			atomic.CompareAndSwapInt32(&p.inprogress, active, idle)
+		}()
 	}
 }
+
+// Stop stops the probing.
+func (p *Probe) Stop() { atomic.StoreInt32(&p.inprogress, stop) }
+
+// Start sets probing interval, after which probes can be initiated with Do.
+func (p *Probe) Start(interval time.Duration) { p.interval = interval }
 
 const (
 	idle = iota
