@@ -3,14 +3,15 @@
 package up
 
 import (
-	"sync/atomic"
+	"sync"
 	"time"
 )
 
 // Probe is used to run a single Func until it returns true (indicating a target is healthy). If an Func
 // is already in progress no new one will be added, i.e. there is always a maximum of 1 checks in flight.
 type Probe struct {
-	inprogress int32
+	sync.Mutex
+	inprogress int
 	interval   time.Duration
 }
 
@@ -22,26 +23,41 @@ func New() *Probe { return &Probe{} }
 
 // Do will probe target, if a probe is already in progress this is a noop.
 func (p *Probe) Do(f Func) {
-	if atomic.CompareAndSwapInt32(&p.inprogress, idle, active) {
-		// Passed the lock. Now run f for as long it returns false. If a true is returned
-		// we return from the goroutine and we can accept another Func to run.
-		go func() {
-			for {
-				if err := f(); err == nil {
-					break
-				}
-				time.Sleep(p.interval)
-				if atomic.LoadInt32(&p.inprogress) == stop {
-					return
-				}
-			}
-			atomic.CompareAndSwapInt32(&p.inprogress, active, idle)
-		}()
+	p.Lock()
+	if p.inprogress != idle {
+		p.Unlock()
+		return
 	}
+	p.inprogress = active
+	p.Unlock()
+	// Passed the lock. Now run f for as long it returns false. If a true is returned
+	// we return from the goroutine and we can accept another Func to run.
+	go func() {
+		for {
+			if err := f(); err == nil {
+				break
+			}
+			time.Sleep(p.interval)
+			p.Lock()
+			if p.inprogress == stop {
+				p.Unlock()
+				return
+			}
+			p.Unlock()
+		}
+
+		p.Lock()
+		p.inprogress = idle
+		p.Unlock()
+	}()
 }
 
 // Stop stops the probing.
-func (p *Probe) Stop() { atomic.StoreInt32(&p.inprogress, stop) }
+func (p *Probe) Stop() {
+	p.Lock()
+	p.inprogress = stop
+	p.Unlock()
+}
 
 // Start sets probing interval, after which probes can be initiated with Do.
 func (p *Probe) Start(interval time.Duration) { p.interval = interval }
