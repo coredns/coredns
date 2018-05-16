@@ -29,6 +29,7 @@ func (p *Probe) Do(f Func) {
 		return
 	}
 	p.inprogress = active
+	interval := p.interval
 	p.Unlock()
 	// Passed the lock. Now run f for as long it returns false. If a true is returned
 	// we return from the goroutine and we can accept another Func to run.
@@ -37,7 +38,7 @@ func (p *Probe) Do(f Func) {
 			if err := f(); err == nil {
 				break
 			}
-			time.Sleep(p.interval)
+			time.Sleep(interval)
 			p.Lock()
 			if p.inprogress == stop {
 				p.Unlock()
@@ -59,8 +60,15 @@ func (p *Probe) Stop() {
 	p.Unlock()
 }
 
-// Start sets probing interval, after which probes can be initiated with Do.
-func (p *Probe) Start(interval time.Duration) { p.interval = interval }
+// Start will initialize the probe manager, after which probes can be initiated with Do.
+func (p *Probe) Start(interval time.Duration) { p.SetInterval(interval) }
+
+// SetInterval sets the probing interval to be used by upcoming probes initiated with Do.
+func (p *Probe) SetInterval(interval time.Duration) {
+	p.Lock()
+	p.interval = interval
+	p.Unlock()
+}
 
 const (
 	idle = iota
