@@ -25,21 +25,26 @@ type Route53 struct {
 	zones    []string
 	keys     map[string]string
 	client   route53iface.Route53API
+	writer   dns.ResponseWriter
+	ctx      context.Context
 }
 
 // ServeDNS implements the plugin.Handler interface.
-func (rr Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	rr.upstream, _ = upstream.NewUpstream([]string{})
+func (r53 Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	r53.upstream, _ = upstream.NewUpstream([]string{})
+	r53.writer = w
+	r53.ctx = ctx
+
 	state := request.Request{W: w, Req: r, Context: ctx}
 	qname := state.Name()
 
-	zone := plugin.Zones(rr.zones).Matches(qname)
+	zone := plugin.Zones(r53.zones).Matches(qname)
 	if zone == "" {
-		return plugin.NextOrFailure(rr.Name(), rr.Next, ctx, w, r)
+		return plugin.NextOrFailure(r53.Name(), r53.Next, ctx, w, r)
 	}
 
-	output, err := rr.client.ListResourceRecordSets(&route53.ListResourceRecordSetsInput{
-		HostedZoneId:    aws.String(rr.keys[zone]),
+	output, err := r53.client.ListResourceRecordSets(&route53.ListResourceRecordSetsInput{
+		HostedZoneId:    aws.String(r53.keys[zone]),
 		StartRecordName: aws.String(qname),
 		StartRecordType: aws.String(state.Type()),
 		MaxItems:        aws.String("1"),
@@ -48,22 +53,24 @@ func (rr Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return dns.RcodeServerFailure, err
 	}
 
+	fmt.Printf("Output from aws: %+v\n\n", output)
+
 	answers := []dns.RR{}
 	switch state.QType() {
 	case dns.TypeA:
-		answers = a(qname, output.ResourceRecordSets)
+		answers = r53.a(qname, output.ResourceRecordSets)
 	case dns.TypeAAAA:
 		answers = aaaa(qname, output.ResourceRecordSets)
 	case dns.TypePTR:
 		answers = ptr(qname, output.ResourceRecordSets)
 	case dns.TypeCNAME:
-		answers = rr.cname(state, qname, output.ResourceRecordSets)
+		answers = r53.cname(state, qname, output.ResourceRecordSets)
 	default:
 		fmt.Printf("We defaulted. %+v\n", state)
 	}
 
 	if len(answers) == 0 {
-		return plugin.NextOrFailure(rr.Name(), rr.Next, ctx, w, r)
+		return plugin.NextOrFailure(r53.Name(), r53.Next, ctx, w, r)
 	}
 
 	m := new(dns.Msg)
@@ -77,15 +84,25 @@ func (rr Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	return dns.RcodeSuccess, nil
 }
 
-func a(zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
+func (r53 *Route53) a(zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
 	answers := []dns.RR{}
 	fmt.Printf("Recordset: %+v\n\n", rrss)
 	for _, rrs := range rrss {
-		for _, rr := range rrs.ResourceRecords {
-			r := new(dns.A)
-			r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: uint32(aws.Int64Value(rrs.TTL))}
-			r.A = net.ParseIP(aws.StringValue(rr.Value)).To4()
-			answers = append(answers, r)
+		if *rrs.Type == "A" {
+			for _, rr := range rrs.ResourceRecords {
+				r := new(dns.A)
+				r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: uint32(aws.Int64Value(rrs.TTL))}
+				r.A = net.ParseIP(aws.StringValue(rr.Value)).To4()
+				answers = append(answers, r)
+			}
+		} else {
+			for _, rr := range rrs.ResourceRecords {
+				req := new(dns.Msg)
+				req.SetQuestion(*rr.Value, dns.StringToType[*rrs.Type])
+				upstreamRequest := request.Request{W: r53.writer, Req: req, Context: r53.ctx}
+				upstreamResponse, _ := r53.upstream.Lookup(upstreamRequest, *rr.Value, dns.StringToType[*rrs.Type])
+				fmt.Printf("We get this dns msg back: %+v\n\n", upstreamResponse)
+			}
 		}
 	}
 	return answers
@@ -133,10 +150,6 @@ func (r53 *Route53) cname(state request.Request, zone string, rrss []*route53.Re
 			if e != nil {
 				continue
 			}
-			/*r := new(dns.CNAME)
-			r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: uint32(aws.Int64Value(rrs.TTL))}
-			r.Target = aws.StringValue(rr.Value)
-			*/
 			answers = append(answers, m.Answer...)
 		}
 	}
@@ -149,4 +162,4 @@ func (r53 *Route53) cname(state request.Request, zone string, rrss []*route53.Re
 }*/
 
 // Name implements the Handler interface.
-func (rr Route53) Name() string { return "route53" }
+func (r53 Route53) Name() string { return "route53" }
