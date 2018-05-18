@@ -101,6 +101,8 @@ kubernetes [ZONES...] {
   the query. If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
   is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only
   queries for those zones will be subject to fallthrough.
+* `ignoreemptyservice` will turn off the serving of empty or failing services.
+  All empty services queries will result in an NXDOMAIN.
 
 ## Health
 
