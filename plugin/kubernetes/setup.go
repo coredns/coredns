@@ -250,7 +250,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				return nil, c.ArgErr()
 			}
 			k8s.opts.initEndpointsCache = false
-		case "ignoreemptyservice":
+		case "ignore emptyservice":
 			if len(c.RemainingArgs()) != 0 {
 				return nil, c.ArgErr()
 			}
