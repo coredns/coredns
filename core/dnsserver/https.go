@@ -1,6 +1,8 @@
 package dnsserver
 
 import (
+	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -25,4 +27,26 @@ func postRequestToMsg(req *http.Request) (*dns.Msg, error) {
 }
 
 // getRequestToMsg extract the dns message from the GET request.
-func getRequestToMsg(req *http.Request) (*dns.Msg, error) { return nil, nil }
+func getRequestToMsg(req *http.Request) (*dns.Msg, error) {
+	values := req.URL.Query()
+	b64, ok := values["dns"]
+	if !ok {
+		return nil, fmt.Errorf("no 'dns' query parameter found")
+	}
+	if len(b64) != 1 {
+		return nil, fmt.Errorf("multipe 'dns' query values found")
+	}
+	return base64ToMsg(b64[0])
+}
+
+func base64ToMsg(b64 string) (*dns.Msg, error) {
+	buf, err := base64.RawURLEncoding.DecodeString(b64)
+	if err != nil {
+		return nil, err
+	}
+
+	m := new(dns.Msg)
+	err = m.Unpack(buf)
+
+	return m, err
+}

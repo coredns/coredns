@@ -134,7 +134,7 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	buf, _ := dw.Msg.Pack()
 
 	w.Header().Set("Content-Type", mimeTypeDOH)
-	w.Header().Set("Cache-Control", "max-age=0")
+	w.Header().Set("Cache-Control", "max-age=128") // Minttl as done in cache.
 	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
 	w.WriteHeader(http.StatusOK)
 
