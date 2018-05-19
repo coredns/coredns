@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/coredns/coredns/plugin/pkg/nonwriter"
+	"github.com/miekg/dns"
 
 	"golang.org/x/net/context"
 )
@@ -95,7 +96,25 @@ func (s *ServerHTTPS) Stop() error {
 // ServeHTTP is the handler that gets the HTTP request and converts to the dns format, calls the plugin
 // chain, converts it back and write it to the client.
 func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	msg, err := postRequestToMsg(r)
+
+	msg := new(dns.Msg)
+	var err error
+
+	if r.URL.Path != "/dns-query" {
+		http.Error(w, "", http.StatusNotFound)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodPost:
+		msg, err = postRequestToMsg(r)
+	case http.MethodGet:
+		msg, err = getRequestToMsg(r)
+	default:
+		http.Error(w, "", http.StatusMethodNotAllowed)
+		return
+	}
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

@@ -23,3 +23,6 @@ func postRequestToMsg(req *http.Request) (*dns.Msg, error) {
 	err = m.Unpack(buf)
 	return m, err
 }
+
+// getRequestToMsg extract the dns message from the GET request.
+func getRequestToMsg(req *http.Request) (*dns.Msg, error) { return nil, nil }

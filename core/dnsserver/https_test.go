@@ -15,7 +15,7 @@ func TestPostRequest(t *testing.T) {
 	m.SetQuestion(ex, dns.TypeDNSKEY)
 
 	out, _ := m.Pack()
-	req, err := http.NewRequest("POST", "https://"+ex+":443", bytes.NewReader(out))
+	req, err := http.NewRequest("POST", "https://"+ex+"/dns-query?bla=foo:443", bytes.NewReader(out))
 	if err != nil {
 		t.Errorf("Failure to make request: %s", err)
 	}
@@ -28,9 +28,9 @@ func TestPostRequest(t *testing.T) {
 	}
 
 	if x := m.Question[0].Name; x != ex {
-		t.Errorf("qname expected %s, got %s", ex, x)
+		t.Errorf("Qname expected %s, got %s", ex, x)
 	}
 	if x := m.Question[0].Qtype; x != dns.TypeDNSKEY {
-		t.Errorf("qname expected %d, got %d", x, dns.TypeDNSKEY)
+		t.Errorf("Qname expected %d, got %d", x, dns.TypeDNSKEY)
 	}
 }
