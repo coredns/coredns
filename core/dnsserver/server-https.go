@@ -100,7 +100,7 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	msg := new(dns.Msg)
 	var err error
 
-	if r.URL.Path != "/dns-query" {
+	if r.URL.Path != pathDOH {
 		http.Error(w, "", http.StatusNotFound)
 		return
 	}

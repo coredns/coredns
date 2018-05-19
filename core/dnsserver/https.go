@@ -12,6 +12,9 @@ import (
 // mimeTypeDOH is the DoH mimetype that should be used.
 const mimeTypeDOH = "application/dns-message"
 
+// pathDOH is the URL path that should be used.
+const pathDOH = "/dns-query"
+
 // postRequestToMsg extracts the dns message from the request body.
 func postRequestToMsg(req *http.Request) (*dns.Msg, error) {
 	defer req.Body.Close()
