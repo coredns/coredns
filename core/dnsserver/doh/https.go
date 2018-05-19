@@ -8,9 +8,9 @@ import (
 )
 
 // MimeType is the DoH mimetype that should be used.
-const MimeType = "application/dns-udpwireformat"
+const MimeType = "application/dns-message"
 
-// RequestToMsg extra the dns message from the request body.
+// RequestToMsg extracts the dns message from the request body.
 func RequestToMsg(req *http.Request) (*dns.Msg, error) {
 	defer req.Body.Close()
 
