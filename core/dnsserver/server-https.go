@@ -1,6 +1,7 @@
 package dnsserver
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -9,8 +10,6 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/nonwriter"
 	"github.com/miekg/dns"
-
-	"golang.org/x/net/context"
 )
 
 // ServerHTTPS represents an instance of a DNS-over-HTTPS server.
