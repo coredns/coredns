@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/coredns/coredns/core/dnsserver/doh"
+	"github.com/coredns/coredns/plugin/pkg/nonwriter"
 
 	"golang.org/x/net/context"
 )
@@ -95,22 +95,26 @@ func (s *ServerHTTPS) Stop() error {
 // ServeHTTP is the handler that gets the HTTP request and converts to the dns format, calls the plugin
 // chain, converts it back and write it to the client.
 func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	msg, err := doh.RequestToMsg(r)
+	msg, err := postRequestToMsg(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	dw := doh.NewResponseWriter(r.RemoteAddr, s.listenAddr)
+	// Create a non-writer with the correct addresses in it.
+	dw := &nonwriter.Writer{Laddr: s.listenAddr}
+	h, p, _ := net.SplitHostPort(r.RemoteAddr)
+	po, _ := strconv.Atoi(p)
+	ip := net.ParseIP(h)
+	dw.Raddr = &net.TCPAddr{IP: ip, Port: po}
 
+	// We just call the normal chain handler - all error handling is done there.
+	// We should expect a packet to be returned that we can send to the client.
 	s.ServeDNS(context.Background(), dw, msg)
 
-	buf, err := dw.Msg.Pack()
-	if err != nil {
-		// new message?
-	}
+	buf, _ := dw.Msg.Pack()
 
-	w.Header().Set("Content-Type", doh.MimeType)
+	w.Header().Set("Content-Type", mimeTypeDOH)
 	w.Header().Set("Cache-Control", "max-age=0")
 	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
 	w.WriteHeader(http.StatusOK)

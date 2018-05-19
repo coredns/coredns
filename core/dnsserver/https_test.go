@@ -1,4 +1,4 @@
-package doh
+package dnsserver
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func TestRequest(t *testing.T) {
+func TestPostRequest(t *testing.T) {
 	const ex = "example.org."
 
 	m := new(dns.Msg)
@@ -19,10 +19,10 @@ func TestRequest(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failure to make request: %s", err)
 	}
-	req.Header.Set("content-type", MimeType)
-	req.Header.Set("accept", MimeType)
+	req.Header.Set("content-type", mimeTypeDOH)
+	req.Header.Set("accept", mimeTypeDOH)
 
-	m, err = RequestToMsg(req)
+	m, err = postRequestToMsg(req)
 	if err != nil {
 		t.Fatalf("Failure to get message from request: %s", err)
 	}
