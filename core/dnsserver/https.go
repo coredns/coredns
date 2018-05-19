@@ -21,8 +21,7 @@ func postRequestToMsg(req *http.Request) (*dns.Msg, error) {
 
 	buf, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		return nil, nil
-
+		return nil, err
 	}
 	m := new(dns.Msg)
 	err = m.Unpack(buf)
