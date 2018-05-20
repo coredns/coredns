@@ -10,6 +10,8 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
+	"errors"
+	"github.com/coredns/coredns/plugin/dynapi"
 	"github.com/miekg/dns"
 )
 
@@ -28,6 +30,45 @@ type (
 		Names []string         // All the keys from the map Z as a string slice.
 	}
 )
+
+func (f File) Create(request *dynapi.DynapiRequest) error {
+	zone, ok := f.Zones.Z[request.Zone]
+
+	if !ok {
+		return errors.New("zone not found")
+	}
+
+	var resourceRecord dns.RR
+	var err error
+	switch request.Type {
+	case "A":
+		resourceRecord, err = dns.NewRR(fmt.Sprintf("%s.%s IN A %s", request.Name, request.Zone, request.Address))
+		if err != nil {
+			return err
+		}
+	case "AAAA":
+		resourceRecord, err = dns.NewRR(fmt.Sprintf("%s IN AAAA %s", request.Name, request.Address))
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported zone type: %s", request.Type)
+	}
+
+	return zone.Insert(resourceRecord)
+}
+
+func (f File) Delete(request *dynapi.DynapiRequest) error {
+	return errors.New("not supported")
+}
+
+func (f File) Update(request *dynapi.DynapiRequest) error {
+	return errors.New("not supported")
+}
+
+func (f File) GetZones() []string {
+	return f.Zones.Names
+}
 
 // ServeDNS implements the plugin.Handle interface.
 func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {

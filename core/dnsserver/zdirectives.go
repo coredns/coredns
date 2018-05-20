@@ -40,6 +40,7 @@ var Directives = []string{
 	"secondary",
 	"etcd",
 	"loop",
+	"dynapi",
 	"forward",
 	"proxy",
 	"erratic",
