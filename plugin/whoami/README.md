@@ -23,11 +23,6 @@ If CoreDNS can't find a Corefile on startup this is the _default_ plugin that ge
 it can be used to check that CoreDNS is responding to queries. Other than that this plugin is of
 limited use in production.
 
-[Read the blog post][blog] on how this plugin is built, or [explore the source code][code].
-
-[blog]: https://coredns.io/2017/03/01/how-to-add-plugins-to-coredns/
-[code]: https://github.com/coredns/coredns/blob/master/plugin/whoami/
-
 ## Syntax
 
 ~~~ txt
@@ -54,3 +49,10 @@ When queried for "example.org A", CoreDNS will respond with:
 example.org.            0       IN      A       10.240.0.1
 _udp.example.org.       0       IN      SRV     0 0 40212
 ~~~
+
+## See Also
+
+[Read the blog post][blog] on how this plugin is built, or [explore the source code][code].
+
+[blog]: https://coredns.io/2017/03/01/how-to-add-plugins-to-coredns/
+[code]: https://github.com/coredns/coredns/blob/master/plugin/whoami/
