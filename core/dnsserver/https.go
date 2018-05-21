@@ -36,7 +36,7 @@ func getRequestToMsg(req *http.Request) (*dns.Msg, error) {
 		return nil, fmt.Errorf("no 'dns' query parameter found")
 	}
 	if len(b64) != 1 {
-		return nil, fmt.Errorf("multipe 'dns' query values found")
+		return nil, fmt.Errorf("multiple 'dns' query values found")
 	}
 	return base64ToMsg(b64[0])
 }
