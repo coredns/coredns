@@ -42,7 +42,7 @@ func getRequestToMsg(req *http.Request) (*dns.Msg, error) {
 }
 
 func base64ToMsg(b64 string) (*dns.Msg, error) {
-	buf, err := base64.RawURLEncoding.DecodeString(b64)
+	buf, err := b64Enc.DecodeString(b64)
 	if err != nil {
 		return nil, err
 	}
@@ -52,3 +52,5 @@ func base64ToMsg(b64 string) (*dns.Msg, error) {
 
 	return m, err
 }
+
+var b64Enc = base64.RawURLEncoding
