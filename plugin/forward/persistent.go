@@ -118,8 +118,8 @@ func (t *transport) cleanup(all bool) {
 			continue
 		}
 		if all {
-			go closeConns(stack)
 			t.conns[proto] = nil
+			go closeConns(stack)
 			continue
 		}
 		if stack[0].used.After(staleTime) {
