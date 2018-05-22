@@ -250,11 +250,17 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				return nil, c.ArgErr()
 			}
 			k8s.opts.initEndpointsCache = false
-		case "ignore emptyservice":
-			if len(c.RemainingArgs()) != 0 {
-				return nil, c.ArgErr()
+		case "ignore":
+			args := c.RemainingArgs()
+			if len(args) > 0 {
+				ignore := args[0]
+				if ignore == "emptyservice" {
+					k8s.opts.ignoreEmptyService = true
+					continue
+				} else {
+					return nil, fmt.Errorf("unable to parse ignore value: '%v'", ignore)
+				}
 			}
-			k8s.opts.ignoreEmptyService = true
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}
