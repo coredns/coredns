@@ -22,6 +22,13 @@ var dnsTestCases = []test.Case{
 			test.A("svc1.testns.svc.cluster.local.	5	IN	A	10.0.0.1"),
 		},
 	},
+	{
+		Qname: "svcempty.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("svcempty.testns.svc.cluster.local.	5	IN	A	10.0.0.1"),
+		},
+	},
 	// A Service (wildcard)
 	{
 		Qname: "svc1.*.svc.cluster.local.", Qtype: dns.TypeA,
@@ -333,6 +340,21 @@ var svcIndex = map[string][]*api.Service{
 			}},
 		},
 	}},
+	"svcempty.testns": {{
+		ObjectMeta: meta.ObjectMeta{
+			Name:      "svcempty",
+			Namespace: "testns",
+		},
+		Spec: api.ServiceSpec{
+			Type:      api.ServiceTypeClusterIP,
+			ClusterIP: "10.0.0.1",
+			Ports: []api.ServicePort{{
+				Name:     "http",
+				Protocol: "tcp",
+				Port:     80,
+			}},
+		},
+	}},
 	"svc6.testns": {{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      "svc6",
@@ -408,6 +430,24 @@ var epsIndex = map[string][]*api.Endpoints{
 		},
 		ObjectMeta: meta.ObjectMeta{
 			Name:      "svc1",
+			Namespace: "testns",
+		},
+	}},
+	"svcempty.testns": {{
+		Subsets: []api.EndpointSubset{
+			{
+				Addresses: nil,
+				Ports: []api.EndpointPort{
+					{
+						Port:     80,
+						Protocol: "tcp",
+						Name:     "http",
+					},
+				},
+			},
+		},
+		ObjectMeta: meta.ObjectMeta{
+			Name:      "svcempty",
 			Namespace: "testns",
 		},
 	}},
