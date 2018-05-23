@@ -626,7 +626,7 @@ func TestKubernetesParseIgnoreEmptyService(t *testing.T) {
 		// valid
 		{
 			`kubernetes coredns.local {
-	ignore emptyservice
+	ignore empty_service
 }`,
 			false,
 			"",
@@ -643,7 +643,7 @@ func TestKubernetesParseIgnoreEmptyService(t *testing.T) {
 		},
 		{
 			`kubernetes coredns.local {
-	ignore emptyservice ixnay on the endpointsay
+	ignore empty_service ixnay on the endpointsay
 }`,
 			false,
 			"",
@@ -681,7 +681,7 @@ func TestKubernetesParseIgnoreEmptyService(t *testing.T) {
 
 		foundIgnoreEmptyService := k8sController.opts.ignoreEmptyService
 		if foundIgnoreEmptyService != test.expectedEndpointsInit {
-			t.Errorf("Test %d: Expected kubernetes controller to be initialized with ignore emptyservice '%v'. Instead found ignore emptyservice watch '%v' for input '%s'", i, test.expectedEndpointsInit, foundIgnoreEmptyService, test.input)
+			t.Errorf("Test %d: Expected kubernetes controller to be initialized with ignore empty_service '%v'. Instead found ignore empty_service watch '%v' for input '%s'", i, test.expectedEndpointsInit, foundIgnoreEmptyService, test.input)
 		}
 	}
 }

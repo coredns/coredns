@@ -254,7 +254,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 			args := c.RemainingArgs()
 			if len(args) > 0 {
 				ignore := args[0]
-				if ignore == "emptyservice" {
+				if ignore == "empty_service" {
 					k8s.opts.ignoreEmptyService = true
 					continue
 				} else {
