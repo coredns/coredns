@@ -69,6 +69,8 @@ Wait:
 				}
 				// clear entire cache if the last conn is expired
 				t.conns[proto] = nil
+				// now, the connections being passed to closeConns() are not reachable from
+				// transport methods anymore. So, it's safe to close them in a separate goroutine
 				go closeConns(stack)
 			}
 			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len()))
@@ -119,6 +121,8 @@ func (t *transport) cleanup(all bool) {
 		}
 		if all {
 			t.conns[proto] = nil
+			// now, the connections being passed to closeConns() are not reachable from
+			// transport methods anymore. So, it's safe to close them in a separate goroutine
 			go closeConns(stack)
 			continue
 		}
@@ -131,6 +135,8 @@ func (t *transport) cleanup(all bool) {
 			return stack[i].used.After(staleTime)
 		})
 		t.conns[proto] = stack[good:]
+		// now, the connections being passed to closeConns() are not reachable from
+		// transport methods anymore. So, it's safe to close them in a separate goroutine
 		go closeConns(stack[:good])
 	}
 }
