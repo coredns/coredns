@@ -18,7 +18,7 @@ import (
 var log = clog.NewWithPlugin("etcd")
 
 func init() {
-	caddy.RegisterPlugin("etcd", caddy.Plugin{
+	caddy.RegisterPlugin("etcd3", caddy.Plugin{
 		ServerType: "dns",
 		Action:     setup,
 	})
