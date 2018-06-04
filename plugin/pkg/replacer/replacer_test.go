@@ -1,7 +1,9 @@
 package replacer
 
 import (
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
@@ -16,7 +18,7 @@ func TestNewReplacer(t *testing.T) {
 	r.SetQuestion("example.org.", dns.TypeHINFO)
 	r.MsgHdr.AuthenticatedData = true
 
-	replaceValues := New(r, w, "")
+	replaceValues := New(r, w, "", "s")
 
 	switch v := replaceValues.(type) {
 	case replacer:
@@ -43,7 +45,7 @@ func TestSet(t *testing.T) {
 	r.SetQuestion("example.org.", dns.TypeHINFO)
 	r.MsgHdr.AuthenticatedData = true
 
-	repl := New(r, w, "")
+	repl := New(r, w, "", "ms")
 
 	repl.Set("name", "coredns.io.")
 	repl.Set("type", "A")
@@ -58,4 +60,21 @@ func TestSet(t *testing.T) {
 	if repl.Replace("The request size is {size}") != "The request size is 20" {
 		t.Error("Expected size replacement failed")
 	}
+}
+
+func TestNormalizeTime(t *testing.T) {
+	var dur1 = time.Second
+	t.Log("Dur1:" + dur1.String())
+	// var dur2 = (time.Millisecond * 300)
+	// var dur3 = (time.Second * 36)
+	// var dur4 = (time.Minute * 4)
+	// var dur5 = (time.Microsecond * 56)
+	dur1ToMilliseconds := strconv.FormatFloat(dur1.Seconds()*1000, 'f', -1, 64)
+	dur1Normalized := NormalizeTime(dur1, "ms")
+	if dur1Normalized != dur1ToMilliseconds {
+		t.Log(dur1Normalized)
+		t.Log(dur1ToMilliseconds)
+		t.Error("Seconds to Milliseconds failed")
+	}
+
 }

@@ -20,7 +20,7 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	rules, err := logParse(c)
+	rules, timeUnits, err := logParse(c)
 	if err != nil {
 		return plugin.Error("log", err)
 	}
@@ -35,14 +35,15 @@ func setup(c *caddy.Controller) error {
 	})
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return Logger{Next: next, Rules: rules, ErrorFunc: dnsserver.DefaultErrorFunc}
+		return Logger{Next: next, Rules: rules, ErrorFunc: dnsserver.DefaultErrorFunc, TimeUnits: timeUnits}
 	})
 
 	return nil
 }
 
-func logParse(c *caddy.Controller) ([]Rule, error) {
+func logParse(c *caddy.Controller) ([]Rule, string, error) {
 	var rules []Rule
+	var timeUnits []string
 
 	for c.Next() {
 		args := c.RemainingArgs()
@@ -87,17 +88,22 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 			case "class":
 				classes := c.RemainingArgs()
 				if len(classes) == 0 {
-					return nil, c.ArgErr()
+					return nil, "", c.ArgErr()
 				}
 				for _, c := range classes {
 					cls, err := response.ClassFromString(c)
 					if err != nil {
-						return nil, err
+						return nil, "", err
 					}
 					rules[len(rules)-1].Class[cls] = true
 				}
+			case "timeunit":
+				timeUnits = c.RemainingArgs()
+				if len(timeUnits) != 1 {
+					return nil, "", c.ArgErr()
+				}
 			default:
-				return nil, c.ArgErr()
+				return nil, "", c.ArgErr()
 			}
 		}
 		if len(rules[len(rules)-1].Class) == 0 {
@@ -105,5 +111,5 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 		}
 	}
 
-	return rules, nil
+	return rules, timeUnits[0], nil
 }

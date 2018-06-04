@@ -22,6 +22,7 @@ type Logger struct {
 	Next      plugin.Handler
 	Rules     []Rule
 	ErrorFunc func(context.Context, dns.ResponseWriter, *dns.Msg, int) // failover error handler
+	TimeUnits string                                                   //The units for time in the logs
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -57,7 +58,7 @@ func (l Logger) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// If we don't set up a class in config, the default "all" will be added
 		// and we shouldn't have an empty rule.Class.
 		if rule.Class[response.All] || rule.Class[class] {
-			rep := replacer.New(r, rrw, CommonLogEmptyValue)
+			rep := replacer.New(r, rrw, CommonLogEmptyValue, l.TimeUnits)
 			rule.Log.Println(rep.Replace(rule.Format))
 		}
 
