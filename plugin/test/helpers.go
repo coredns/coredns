@@ -276,6 +276,10 @@ func Section(t *testing.T, tc Case, sec sect, rr []dns.RR) bool {
 
 // CNAMEOrder makes sure that CNAMES do not appear after their target records
 func CNAMEOrder(t *testing.T, res *dns.Msg) {
+	if res == nil {
+		t.Errorf("Unexpected nil response\n")
+		return
+	}
 	for i, c := range res.Answer {
 		if c.Header().Rrtype != dns.TypeCNAME {
 			continue
@@ -286,13 +290,16 @@ func CNAMEOrder(t *testing.T, res *dns.Msg) {
 			}
 			t.Errorf("CNAME found after target record\n")
 			t.Logf("%v\n", res)
-
 		}
 	}
 }
 
 // SortAndCheck sorts resp and the checks the header and three sections against the testcase in tc.
 func SortAndCheck(t *testing.T, resp *dns.Msg, tc Case) {
+	if resp == nil {
+		t.Errorf("Unexpected nil response\n")
+		return
+	}
 	sort.Sort(RRSet(resp.Answer))
 	sort.Sort(RRSet(resp.Ns))
 	sort.Sort(RRSet(resp.Extra))
