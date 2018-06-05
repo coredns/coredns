@@ -65,6 +65,7 @@ func TestLogParse(t *testing.T) {
 		}}},
 		{`log example.org {
 			class denial
+			timeunit ms
 		}`, false, []Rule{{
 			NameScope: "example.org.",
 			Format:    CommonLogFormat,
@@ -72,6 +73,7 @@ func TestLogParse(t *testing.T) {
 		}}},
 		{`log {
 			class denial
+			timeunit fvdw
 		}`, false, []Rule{{
 			NameScope: ".",
 			Format:    CommonLogFormat,
@@ -79,6 +81,7 @@ func TestLogParse(t *testing.T) {
 		}}},
 		{`log {
 			class denial error
+			timeunit micro
 		}`, false, []Rule{{
 			NameScope: ".",
 			Format:    CommonLogFormat,
@@ -87,6 +90,16 @@ func TestLogParse(t *testing.T) {
 		{`log {
 			class denial
 			class error
+			timeunit ns
+		}`, false, []Rule{{
+			NameScope: ".",
+			Format:    CommonLogFormat,
+			Class:     map[response.Class]bool{response.Denial: true, response.Error: true},
+		}}},
+		{`log {
+			class denial
+			class error
+			timeunit s
 		}`, false, []Rule{{
 			NameScope: ".",
 			Format:    CommonLogFormat,
@@ -94,6 +107,8 @@ func TestLogParse(t *testing.T) {
 		}}},
 		{`log {
 			class abracadabra
+			timeunit ns
+			timeunit micro
 		}`, true, []Rule{}},
 		{`log {
 			class
@@ -104,8 +119,11 @@ func TestLogParse(t *testing.T) {
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputLogRules)
-		actualLogRules, err := logParse(c)
+		actualLogRules, timeUnits, err := logParse(c)
 
+		if !(timeUnits == "ms" || timeUnits == "ns" || timeUnits == "micro" || timeUnits == "s" || timeUnits == "") {
+			t.Error("timeUnits wasn't set correctly")
+		}
 		if err == nil && test.shouldErr {
 			t.Errorf("Test %d with input '%s' didn't error, but it should have", i, test.inputLogRules)
 		} else if err != nil && !test.shouldErr {

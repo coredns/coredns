@@ -43,7 +43,7 @@ func setup(c *caddy.Controller) error {
 
 func logParse(c *caddy.Controller) ([]Rule, string, error) {
 	var rules []Rule
-	var timeUnits []string
+	timeUnits := ""
 
 	for c.Next() {
 		args := c.RemainingArgs()
@@ -98,9 +98,13 @@ func logParse(c *caddy.Controller) ([]Rule, string, error) {
 					rules[len(rules)-1].Class[cls] = true
 				}
 			case "timeunit":
-				timeUnits = c.RemainingArgs()
-				if len(timeUnits) != 1 {
+				remainingArgs := c.RemainingArgs()
+				if len(remainingArgs) != 1 {
 					return nil, "", c.ArgErr()
+				}
+				timeUnits = remainingArgs[0]
+				if !(timeUnits == "ms" || timeUnits == "ns" || timeUnits == "micro" || timeUnits == "s") {
+					timeUnits = ""
 				}
 			default:
 				return nil, "", c.ArgErr()
@@ -111,5 +115,5 @@ func logParse(c *caddy.Controller) ([]Rule, string, error) {
 		}
 	}
 
-	return rules, timeUnits[0], nil
+	return rules, timeUnits, nil
 }

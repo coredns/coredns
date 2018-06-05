@@ -1,7 +1,6 @@
 package replacer
 
 import (
-	"strconv"
 	"testing"
 	"time"
 
@@ -64,17 +63,41 @@ func TestSet(t *testing.T) {
 
 func TestNormalizeTime(t *testing.T) {
 	var dur1 = time.Second
-	t.Log("Dur1:" + dur1.String())
-	// var dur2 = (time.Millisecond * 300)
-	// var dur3 = (time.Second * 36)
-	// var dur4 = (time.Minute * 4)
-	// var dur5 = (time.Microsecond * 56)
-	dur1ToMilliseconds := strconv.FormatFloat(dur1.Seconds()*1000, 'f', -1, 64)
+	var dur2 = (time.Millisecond * 300)
+	var dur3 = (time.Second * 36)
+	var dur4 = (time.Minute * 4)
+	var dur5 = (time.Microsecond * 56)
+
+	dur1ToMilliseconds := "1000"
 	dur1Normalized := NormalizeTime(dur1, "ms")
+
 	if dur1Normalized != dur1ToMilliseconds {
-		t.Log(dur1Normalized)
-		t.Log(dur1ToMilliseconds)
 		t.Error("Seconds to Milliseconds failed")
+	}
+
+	dur2Normalized := NormalizeTime(dur2, "s")
+	dur2ToSeconds := "0.3"
+
+	if dur2Normalized != dur2ToSeconds {
+		t.Error("Milliseconds to Seconds failed")
+	}
+
+	dur3Normalized := NormalizeTime(dur3, "ns")
+	dur3ToNano := "36000000000"
+
+	if dur3Normalized != dur3ToNano {
+		t.Error("Seconds to Nanoseconds failed")
+	}
+
+	dur4Normalized := NormalizeTime(dur4, "micro")
+	dur4ToMicro := "240000000"
+
+	if dur4Normalized != dur4ToMicro {
+		t.Error("Minutes to Microseconds failed")
+	}
+
+	if dur5.String() != NormalizeTime(dur5, "") {
+		t.Error("Default case failed")
 	}
 
 }
