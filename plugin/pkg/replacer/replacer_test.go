@@ -89,8 +89,8 @@ func TestNormalizeTime(t *testing.T) {
 		t.Error("Seconds to Nanoseconds failed")
 	}
 
-	dur4Normalized := NormalizeTime(dur4, "micro")
-	dur4ToMicro := "240000000us"
+	dur4Normalized := NormalizeTime(dur4, "us")
+	dur4ToMicro := "240000000" + "\u03BCs"
 
 	if dur4Normalized != dur4ToMicro {
 		t.Error("Minutes to Microseconds failed")

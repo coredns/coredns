@@ -22,11 +22,17 @@ log
 Or if you want/need slightly more control:
 
 ~~~ txt
-log [NAME] [FORMAT]
+log [NAME] [FORMAT] [TIME]
 ~~~
 
 * `NAME` is the name to match in order to be logged
 * `FORMAT` is the log format to use (default is Common Log Format)
+* `TIME` is the specific unit of time you want for response duration
+    *   `ms` - milliseconds
+    *   `ns` - nanoseconds
+    *   `us || µs` - microseconds
+    *   `s` - seconds
+    *   default is whatever go decides is the best unit
 
 You can further specify the classes of responses that get logged:
 
@@ -138,3 +144,12 @@ Also the multiple statements can be OR-ed, for example, we can rewrite the above
     }
 }
 ~~~
+
+Log all queries with their response duration set to milliseconds
+
+~~~ corefile
+. {
+    log . {common} ms {
+
+    }
+}
