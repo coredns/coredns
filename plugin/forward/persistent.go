@@ -6,8 +6,6 @@ import (
 	"sort"
 	"time"
 
-	"sync/atomic"
-
 	"github.com/miekg/dns"
 )
 
@@ -19,22 +17,21 @@ type persistConn struct {
 
 // transport hold the persistent cache.
 type transport struct {
-	conns     map[string][]*persistConn //  Buckets for udp, tcp and tcp-tls.
-	expire    time.Duration             // After this duration a connection is expired.
-	addr      string
-	tlsConfig *tls.Config
+	avgDialTime int64                     // kind of average time of dial time
+	conns       map[string][]*persistConn //  Buckets for udp, tcp and tcp-tls.
+	expire      time.Duration             // After this duration a connection is expired.
+	addr        string
+	tlsConfig   *tls.Config
 
 	dial  chan string
 	yield chan *dns.Conn
 	ret   chan *dns.Conn
 	stop  chan bool
-
-	avgDialTime int64 // kind of average time of dial time
-
 }
 
 func newTransport(addr string, tlsConfig *tls.Config) *transport {
 	t := &transport{
+		avgDialTime: int64(defaultDialTimeout / 2),
 		conns:       make(map[string][]*persistConn),
 		expire:      defaultExpire,
 		addr:        addr,
@@ -42,7 +39,6 @@ func newTransport(addr string, tlsConfig *tls.Config) *transport {
 		yield:       make(chan *dns.Conn),
 		ret:         make(chan *dns.Conn),
 		stop:        make(chan bool),
-		avgDialTime: 0,
 	}
 	return t
 }
@@ -147,46 +143,6 @@ func (t *transport) cleanup(all bool) {
 	}
 }
 
-func (t *transport) dialTimeout() time.Duration {
-	rtt := time.Duration(atomic.LoadInt64(&t.avgDialTime))
-	if rtt == 0 {
-		return defaultDialTimeout
-	}
-	if rtt < minDialTimeout {
-		return minDialTimeout
-	}
-	if rtt < maxDialTimeout/2 {
-		return 2 * rtt
-	}
-	return maxDialTimeout
-}
-
-// Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
-func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
-	// If tls has been configured; use it.
-	if t.tlsConfig != nil {
-		proto = "tcp-tls"
-	}
-
-	t.dial <- proto
-	c := <-t.ret
-
-	if c != nil {
-		return c, true, nil
-	}
-
-	reqTime := time.Now()
-	timeout := t.dialTimeout()
-	if proto == "tcp-tls" {
-		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
-		t.updateDialTime(time.Since(reqTime))
-		return conn, false, err
-	}
-	conn, err := dns.DialTimeout(proto, t.addr, timeout)
-	t.updateDialTime(time.Since(reqTime))
-	return conn, false, err
-}
-
 // Yield return the connection to transport for reuse.
 func (t *transport) Yield(c *dns.Conn) { t.yield <- c }
 
@@ -202,17 +158,9 @@ func (t *transport) SetExpire(expire time.Duration) { t.expire = expire }
 // SetTLSConfig sets the TLS config in transport.
 func (t *transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
 
-func (t *transport) updateDialTime(newDialTime time.Duration) {
-	// update the dial time with avg between last and this new.
-	// if that new failed, the value provided is the timeout.
-	dtt := time.Duration(atomic.LoadInt64(&t.avgDialTime))
-	atomic.AddInt64(&t.avgDialTime, int64((newDialTime-dtt)/dialTimeAvgCount))
-}
-
 const (
 	defaultExpire      = 10 * time.Second
-	dialTimeAvgCount   = 2
 	minDialTimeout     = 100 * time.Millisecond
 	maxDialTimeout     = 30 * time.Second
-	defaultDialTimeout = 4 * time.Second
+	defaultDialTimeout = 30 * time.Second
 )
