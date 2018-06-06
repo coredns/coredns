@@ -27,7 +27,7 @@ func operatorError(operator string) error {
 }
 
 func newReplacer(r *dns.Msg) replacer.Replacer {
-	return replacer.New(r, nil, "")
+	return replacer.New(r, nil, "", "")
 }
 
 // condition is a rewrite condition.
