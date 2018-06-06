@@ -68,7 +68,7 @@ func TestNormalizeTime(t *testing.T) {
 	var dur4 = (time.Minute * 4)
 	var dur5 = (time.Microsecond * 56)
 
-	dur1ToMilliseconds := "1000"
+	dur1ToMilliseconds := "1000ms"
 	dur1Normalized := NormalizeTime(dur1, "ms")
 
 	if dur1Normalized != dur1ToMilliseconds {
@@ -76,21 +76,21 @@ func TestNormalizeTime(t *testing.T) {
 	}
 
 	dur2Normalized := NormalizeTime(dur2, "s")
-	dur2ToSeconds := "0.3"
+	dur2ToSeconds := "0.3s"
 
 	if dur2Normalized != dur2ToSeconds {
 		t.Error("Milliseconds to Seconds failed")
 	}
 
 	dur3Normalized := NormalizeTime(dur3, "ns")
-	dur3ToNano := "36000000000"
+	dur3ToNano := "36000000000ns"
 
 	if dur3Normalized != dur3ToNano {
 		t.Error("Seconds to Nanoseconds failed")
 	}
 
 	dur4Normalized := NormalizeTime(dur4, "micro")
-	dur4ToMicro := "240000000"
+	dur4ToMicro := "240000000us"
 
 	if dur4Normalized != dur4ToMicro {
 		t.Error("Minutes to Microseconds failed")

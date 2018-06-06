@@ -169,13 +169,13 @@ func NormalizeTime(preNormTime time.Duration, timeUnits string) string {
 
 	switch timeUnits {
 	case "s":
-		return strconv.FormatFloat(preNormTime.Seconds(), 'f', -1, 64)
+		return (strconv.FormatFloat(preNormTime.Seconds(), 'f', -1, 64) + "s")
 	case "ms":
-		return strconv.FormatFloat(preNormTime.Seconds()*1000, 'f', -1, 64)
+		return (strconv.FormatFloat(preNormTime.Seconds()*1000, 'f', -1, 64) + "ms")
 	case "ns":
-		return strconv.FormatInt(preNormTime.Nanoseconds(), 10)
+		return (strconv.FormatInt(preNormTime.Nanoseconds(), 10) + "ns")
 	case "micro":
-		return strconv.FormatFloat(preNormTime.Seconds()*1000000, 'f', -1, 64)
+		return (strconv.FormatFloat(preNormTime.Seconds()*1000000, 'f', -1, 64) + "us")
 	default:
 		return preNormTime.String()
 	}
