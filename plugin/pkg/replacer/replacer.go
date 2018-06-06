@@ -31,7 +31,7 @@ type replacer struct {
 // values into the replacer. rr may be nil if it is not
 // available. emptyValue should be the string that is used
 // in place of empty string (can still be empty string).
-func New(r *dns.Msg, rr *dnstest.Recorder, emptyValue string, timeUnits string) Replacer {
+func New(r *dns.Msg, rr *dnstest.Recorder, emptyValue string) Replacer {
 	req := request.Request{W: rr, Req: r}
 	rep := replacer{
 		replacements: map[string]string{
@@ -55,7 +55,7 @@ func New(r *dns.Msg, rr *dnstest.Recorder, emptyValue string, timeUnits string) 
 		}
 		rep.replacements["{rcode}"] = rcode
 		rep.replacements["{rsize}"] = strconv.Itoa(rr.Len)
-		rep.replacements["{duration}"] = NormalizeTime(time.Since(rr.Start), timeUnits)
+		rep.replacements["{duration}"] = NormalizeTime(time.Since(rr.Start))
 		if rr.Msg != nil {
 			rep.replacements[headerReplacer+"rflags}"] = flagsToString(rr.Msg.MsgHdr)
 		}
@@ -165,20 +165,8 @@ func addrToRFC3986(addr string) string {
 
 //NormalizeTime normalizes the time for the duration response time
 //Based on the units set in the class confinements
-func NormalizeTime(preNormTime time.Duration, timeUnits string) string {
-
-	switch timeUnits {
-	case "s":
-		return (strconv.FormatFloat(preNormTime.Seconds(), 'f', -1, 64) + "s")
-	case "ms":
-		return (strconv.FormatFloat(preNormTime.Seconds()*1000, 'f', -1, 64) + "ms")
-	case "ns":
-		return (strconv.FormatInt(preNormTime.Nanoseconds(), 10) + "ns")
-	case "us", "μs":
-		return (strconv.FormatFloat(preNormTime.Seconds()*1000000, 'f', -1, 64) + "μs")
-	default:
-		return preNormTime.String()
-	}
+func NormalizeTime(preNormTime time.Duration) string {
+	return (strconv.FormatFloat(preNormTime.Seconds(), 'f', -1, 64) + "s")
 }
 
 const (

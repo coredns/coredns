@@ -53,37 +53,17 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 				NameScope: ".",
 				Format:    DefaultLogFormat,
 				Class:     make(map[response.Class]bool),
-				TimeUnits: "",
 			})
 		} else if len(args) == 1 {
 			rules = append(rules, Rule{
 				NameScope: dns.Fqdn(args[0]),
 				Format:    DefaultLogFormat,
 				Class:     make(map[response.Class]bool),
-				TimeUnits: "",
-			})
-		} else if len(args) == 2 {
-			// Namescope, and maybe a format specified
-			format := DefaultLogFormat
-			timeUnit := ""
-			switch args[1] {
-			case "{common}":
-				format = CommonLogFormat
-			case "{combined}":
-				format = CombinedLogFormat
-			default:
-				format = args[1]
-			}
-			rules = append(rules, Rule{
-				NameScope: dns.Fqdn(args[0]),
-				Format:    format,
-				Class:     make(map[response.Class]bool),
-				TimeUnits: timeUnit,
 			})
 		} else {
 			// Name scope, and maybe a format specified
 			format := DefaultLogFormat
-			timeUnit := args[2]
+
 			switch args[1] {
 			case "{common}":
 				format = CommonLogFormat
@@ -97,7 +77,6 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 				NameScope: dns.Fqdn(args[0]),
 				Format:    format,
 				Class:     make(map[response.Class]bool),
-				TimeUnits: timeUnit,
 			})
 		}
 
@@ -125,5 +104,6 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 			rules[len(rules)-1].Class[response.All] = true
 		}
 	}
+
 	return rules, nil
 }

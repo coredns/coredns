@@ -57,7 +57,7 @@ func (l Logger) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// If we don't set up a class in config, the default "all" will be added
 		// and we shouldn't have an empty rule.Class.
 		if rule.Class[response.All] || rule.Class[class] {
-			rep := replacer.New(r, rrw, CommonLogEmptyValue, rule.TimeUnits)
+			rep := replacer.New(r, rrw, CommonLogEmptyValue)
 			rule.Log.Println(rep.Replace(rule.Format))
 		}
 
@@ -76,7 +76,6 @@ type Rule struct {
 	Class     map[response.Class]bool
 	Format    string
 	Log       *log.Logger
-	TimeUnits string //The units for time in the logs
 }
 
 const (

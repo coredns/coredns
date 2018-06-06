@@ -19,49 +19,41 @@ func TestLogParse(t *testing.T) {
 			NameScope: ".",
 			Format:    DefaultLogFormat,
 			Class:     map[response.Class]bool{response.All: true},
-			TimeUnits: "",
 		}}},
-		{`log example.org `, false, []Rule{{
+		{`log example.org`, false, []Rule{{
 			NameScope: "example.org.",
 			Format:    DefaultLogFormat,
 			Class:     map[response.Class]bool{response.All: true},
-			TimeUnits: "ms",
 		}}},
-		{`log example.org. {common} ms`, false, []Rule{{
+		{`log example.org. {common}`, false, []Rule{{
 			NameScope: "example.org.",
 			Format:    CommonLogFormat,
 			Class:     map[response.Class]bool{response.All: true},
-			TimeUnits: "ms",
 		}}},
-		{`log example.org {combined} ms`, false, []Rule{{
+		{`log example.org {combined}`, false, []Rule{{
 			NameScope: "example.org.",
 			Format:    CombinedLogFormat,
 			Class:     map[response.Class]bool{response.All: true},
-			TimeUnits: "ms",
 		}}},
-		{`log example.org. {common} s
-		log example.net {combined} s`, false, []Rule{{
+		{`log example.org.
+		log example.net {combined}`, false, []Rule{{
 			NameScope: "example.org.",
 			Format:    DefaultLogFormat,
 			Class:     map[response.Class]bool{response.All: true},
-			TimeUnits: "s",
 		}, {
 			NameScope: "example.net.",
 			Format:    CombinedLogFormat,
 			Class:     map[response.Class]bool{response.All: true},
-			TimeUnits: "s",
 		}}},
-		{`log example.org {host} us
-			  log example.org {when} ns`, false, []Rule{{
+		{`log example.org {host}
+			  log example.org {when}`, false, []Rule{{
 			NameScope: "example.org.",
 			Format:    "{host}",
 			Class:     map[response.Class]bool{response.All: true},
-			TimeUnits: "us",
 		}, {
 			NameScope: "example.org.",
 			Format:    "{when}",
 			Class:     map[response.Class]bool{response.All: true},
-			TimeUnits: "ns",
 		}}},
 
 		{`log example.org {
@@ -70,15 +62,13 @@ func TestLogParse(t *testing.T) {
 			NameScope: "example.org.",
 			Format:    CommonLogFormat,
 			Class:     map[response.Class]bool{response.All: true},
-			TimeUnits: "",
 		}}},
-		{`log example.org {common} {
+		{`log example.org {
 			class denial
 		}`, false, []Rule{{
 			NameScope: "example.org.",
 			Format:    CommonLogFormat,
 			Class:     map[response.Class]bool{response.Denial: true},
-			TimeUnits: "",
 		}}},
 		{`log {
 			class denial
@@ -86,7 +76,6 @@ func TestLogParse(t *testing.T) {
 			NameScope: ".",
 			Format:    CommonLogFormat,
 			Class:     map[response.Class]bool{response.Denial: true},
-			TimeUnits: "",
 		}}},
 		{`log {
 			class denial error
@@ -94,7 +83,6 @@ func TestLogParse(t *testing.T) {
 			NameScope: ".",
 			Format:    CommonLogFormat,
 			Class:     map[response.Class]bool{response.Denial: true, response.Error: true},
-			TimeUnits: "",
 		}}},
 		{`log {
 			class denial
@@ -103,7 +91,6 @@ func TestLogParse(t *testing.T) {
 			NameScope: ".",
 			Format:    CommonLogFormat,
 			Class:     map[response.Class]bool{response.Denial: true, response.Error: true},
-			TimeUnits: "",
 		}}},
 		{`log {
 			class abracadabra
