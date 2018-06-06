@@ -208,3 +208,17 @@ repository](https://github.com/coredns/deployment).
 If you find a security vulnerability or any security related issues, please DO NOT file a public
 issue, instead send your report privately to `security@coredns.io`. Security reports are greatly
 appreciated and we will publicly thank you for it.
+
+
+### Coordination of security releases with Kubernetes project
+
+As CoreDNS is now a feature part of Kubernetes, we are organizing our security release process
+in a way that is compatible with [Kubernetes's security release process](https://github.com/kubernetes/sig-elease/blob/master/security-release-process-documentation/security-release-process.md)
+
+1. CoreDNS Team may disclose privately the security issue in order to organize the patch and its release.
+1. CoreDNS Team will inform Kubernete's project using kubernetes-security@googlegroups.com as early as possible and coordinate
+with Kubernete's Team the upcoming security release timeline in such a way that Kubernetes
+can organize its own security release in compatibility with the public disclosure date of the issue. Specifically:
+   * public releases should correspond with public disclosure (controlled), i.e. within O(hours)
+   * ideally CoreDNS warns Kubernetes one week before the security release date. That time could probably be scrambled downto 24 hours for a critical emergency.
+1. CoreDNS Team will provide backwards-compatible patch releases for all of the CoreDNS releases embedded into one of the 3 last releases of Kubernetes.
