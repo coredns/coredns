@@ -97,6 +97,7 @@ func (r53 *Route53) a(zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
 			}
 		} else {
 			for _, rr := range rrs.ResourceRecords {
+				createAnswer(zone, []string{}, "A", rr, uint32(aws.Int64Value(rrs.TTL)))
 				req := new(dns.Msg)
 				req.SetQuestion(*rr.Value, dns.StringToType[*rrs.Type])
 				upstreamRequest := request.Request{W: r53.writer, Req: req, Context: r53.ctx}
@@ -106,6 +107,24 @@ func (r53 *Route53) a(zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
 		}
 	}
 	return answers
+}
+
+func createAnswer(zone string, reqHistory []string, requestedType string, resourceRecord *route53.ResourceRecord, ttl uint32) dns.RR {
+	answerType := dns.StringToType[requestedType]
+	fmt.Printf("StringToType gives: %+v", answerType)
+	answerRecord := dns.TypeToRR[uint16(answerType)]()
+	answerRecord.Hdr = dns.RR_Header{Name: zone, Rrtype: uint16(dns.StringToRcode[requestedType]), Class: dns.ClassINET, Ttl: ttl}
+	// when we get back in, need to figure out if this is what we initially wanted to do or whther we want to do this IFF
+	// the answer record type matches the requested record type.
+	switch r := answerRecord.(type) {
+	case *dns.A:
+		r.A = net.ParseIP(aws.StringValue(resourceRecord.Value)).To4()
+	case *dns.AAAA:
+		answerRecord.AAAA = net.ParseIP(aws.StringValue(resourceRecord.Value)).To16()
+	default:
+		fmt.Printf("Should have upstreamed this one")
+	}
+	return answerRecord
 }
 
 func aaaa(zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
