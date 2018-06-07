@@ -5,6 +5,7 @@
 [![Code Coverage](https://img.shields.io/codecov/c/github/coredns/coredns/master.svg)](https://codecov.io/github/coredns/coredns?branch=master)
 [![Docker Pulls](https://img.shields.io/docker/pulls/coredns/coredns.svg)](https://hub.docker.com/r/coredns/coredns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coredns/coredns)](https://goreportcard.com/report/coredns/coredns)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Fcoredns%2Fcoredns.svg?type=shield)](https://app.fossa.io/projects/git%2Bhttps%3A%2F%2Fgithub.com%2Fcoredns%2Fcoredns?ref=badge_shield)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1250/badge)](https://bestpractices.coreinfrastructure.org/projects/1250)
 
 
@@ -209,16 +210,20 @@ If you find a security vulnerability or any security related issues, please DO N
 issue, instead send your report privately to `security@coredns.io`. Security reports are greatly
 appreciated and we will publicly thank you for it.
 
+CoreDNS Team may disclose privately the security issue in order to organize the patch and its release.
 
-### Coordination of security releases with Kubernetes project
+If you lead a project that includes CoreDNS and need organizing controlled security releases when CoreDNS triggers a security release,
+contact us at `security@coredns.io` in order to be added to our "Collaborating Projects" and have access to early security release information.
 
-As CoreDNS is now a feature part of Kubernetes, we are organizing our security release process
-in a way that is compatible with [Kubernetes's security release process](https://github.com/kubernetes/sig-elease/blob/master/security-release-process-documentation/security-release-process.md)
+### Coordination of security releases with Collaborating Projects
 
-1. CoreDNS Team may disclose privately the security issue in order to organize the patch and its release.
-1. CoreDNS Team will inform Kubernete's project using kubernetes-security@googlegroups.com as early as possible and coordinate
-with Kubernete's Team the upcoming security release timeline in such a way that Kubernetes
+CoreDNS manage a list of "Collaborating Projects" that are assessed CoreDNS consumers and reliable secure projects.
+That list aims to coordinate the security release in a controlled manner:
+
+1. When a security issue is raised that triggers a CoreDNS code change and therefore a security release,
+CoreDNS Team will inform privately each of the Collaborating Projects as early as possible, providing the timeline of CoreDNS release,
+and coordinating as much as possible the overall upcoming security release timeline in such a way that each project
 can organize its own security release in compatibility with the public disclosure date of the issue. Specifically:
    * public releases should correspond with public disclosure (controlled), i.e. within O(hours)
-   * ideally CoreDNS warns Kubernetes one week before the security release date. That time could probably be scrambled downto 24 hours for a critical emergency.
-1. CoreDNS Team will provide backwards-compatible patch releases for all of the CoreDNS releases embedded into one of the 3 last releases of Kubernetes.
+   * ideally CoreDNS warns the Collaborating Projects one week before the security release date.
+1. by default, CoreDNS Team expect to provide a security patch release on top of the current last release of CoreDNS.
