@@ -31,6 +31,7 @@ type Route53 struct {
 
 // ServeDNS implements the plugin.Handler interface.
 func (r53 Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	fmt.Printf("\n\nserve it up\n\n")
 	r53.upstream, _ = upstream.NewUpstream([]string{})
 	r53.writer = w
 	r53.ctx = ctx
@@ -53,18 +54,19 @@ func (r53 Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return dns.RcodeServerFailure, err
 	}
 
-	fmt.Printf("Output from aws: %+v\n\n", output)
+	//fmt.Printf("State qtype: %+v\n", state.QType())
 
 	answers := []dns.RR{}
 	switch state.QType() {
 	case dns.TypeA:
-		answers = r53.a(qname, output.ResourceRecordSets)
+		answers = r53.answer(state, qname, output.ResourceRecordSets)
 	case dns.TypeAAAA:
 		answers = aaaa(qname, output.ResourceRecordSets)
 	case dns.TypePTR:
 		answers = ptr(qname, output.ResourceRecordSets)
 	case dns.TypeCNAME:
 		answers = r53.cname(state, qname, output.ResourceRecordSets)
+		//answers = r53.cname(state, qname, output.ResourceRecordSets)
 	default:
 		fmt.Printf("We defaulted. %+v\n", state)
 	}
@@ -80,50 +82,80 @@ func (r53 Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 	state.SizeAndDo(m)
 	m, _ = state.Scrub(m)
+	fmt.Printf("Writing message: %+v\n", m)
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
 }
 
-func (r53 *Route53) a(zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
+func (r53 *Route53) answer(state request.Request, zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
 	answers := []dns.RR{}
-	fmt.Printf("Recordset: %+v\n\n", rrss)
 	for _, rrs := range rrss {
-		if *rrs.Type == "A" {
+		if *rrs.Type == dns.TypeToString[uint16(state.QType())] {
+			fmt.Printf("Resource recordset length: %+v\n", len(rrs.ResourceRecords))
 			for _, rr := range rrs.ResourceRecords {
-				r := new(dns.A)
-				r.Hdr = dns.RR_Header{Name: zone, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: uint32(aws.Int64Value(rrs.TTL))}
-				r.A = net.ParseIP(aws.StringValue(rr.Value)).To4()
+				r := createAnswer(zone, []string{}, *rrs.Type, rr, uint32(aws.Int64Value(rrs.TTL)))
 				answers = append(answers, r)
 			}
 		} else {
 			for _, rr := range rrs.ResourceRecords {
-				createAnswer(zone, []string{}, "A", rr, uint32(aws.Int64Value(rrs.TTL)))
-				req := new(dns.Msg)
-				req.SetQuestion(*rr.Value, dns.StringToType[*rrs.Type])
-				upstreamRequest := request.Request{W: r53.writer, Req: req, Context: r53.ctx}
-				upstreamResponse, _ := r53.upstream.Lookup(upstreamRequest, *rr.Value, dns.StringToType[*rrs.Type])
-				fmt.Printf("We get this dns msg back: %+v\n\n", upstreamResponse)
+				fmt.Printf("upstreaming request %+v\n", *rr.Value)
+				upstreamResponse, e := r53.upstream.Lookup(state, aws.StringValue(rr.Value)+".", dns.StringToType[*rrs.Type])
+				if e != nil {
+					fmt.Printf("upstream lookup failed...\n")
+					continue
+				}
+				answers = append(answers, upstreamResponse.Answer...)
 			}
 		}
 	}
 	return answers
 }
 
+/*func (r53 *Route53) a(state request.Request, zone string, rrss []*route53.ResourceRecordSet) []dns.RR {
+	answers := []dns.RR{}
+	//fmt.Printf("Recordset: %+v\n\n", rrss)
+	for _, rrs := range rrss {
+		if *rrs.Type == "A" {
+			for _, rr := range rrs.ResourceRecords {
+				r := createAnswer(zone, []string{}, *rrs.Type, rr, uint32(aws.Int64Value(rrs.TTL)))
+				answers = append(answers, r)
+			}
+		} else {
+			for _, rr := range rrs.ResourceRecords {
+				fmt.Printf("upstreaming request %+v\n", *rr.Value)
+				upstreamResponse, e := r53.upstream.Lookup(state, aws.StringValue(rr.Value)+".", dns.StringToType[*rrs.Type])
+				if e != nil {
+					fmt.Printf("upstream lookup failed...\n")
+					continue
+				}
+				answers = append(answers, upstreamResponse.Answer...)
+			}
+		}
+	}
+	return answers
+}*/
+
 func createAnswer(zone string, reqHistory []string, requestedType string, resourceRecord *route53.ResourceRecord, ttl uint32) dns.RR {
 	answerType := dns.StringToType[requestedType]
-	fmt.Printf("StringToType gives: %+v", answerType)
 	answerRecord := dns.TypeToRR[uint16(answerType)]()
-	answerRecord.Hdr = dns.RR_Header{Name: zone, Rrtype: uint16(dns.StringToRcode[requestedType]), Class: dns.ClassINET, Ttl: ttl}
-	// when we get back in, need to figure out if this is what we initially wanted to do or whther we want to do this IFF
-	// the answer record type matches the requested record type.
+
 	switch r := answerRecord.(type) {
 	case *dns.A:
+		fmt.Printf("Type is A\n")
+		r.Hdr = dns.RR_Header{Name: zone, Rrtype: uint16(answerType), Class: dns.ClassINET, Ttl: ttl}
 		r.A = net.ParseIP(aws.StringValue(resourceRecord.Value)).To4()
 	case *dns.AAAA:
-		answerRecord.AAAA = net.ParseIP(aws.StringValue(resourceRecord.Value)).To16()
+		fmt.Printf("Type is AAAA\n")
+		r.Hdr = dns.RR_Header{Name: zone, Rrtype: uint16(answerType), Class: dns.ClassINET, Ttl: ttl}
+		r.AAAA = net.ParseIP(aws.StringValue(resourceRecord.Value)).To16()
+	case *dns.CNAME:
+		fmt.Printf("Type is CNAME\n")
+		r.Hdr = dns.RR_Header{Name: zone, Rrtype: uint16(answerType), Class: dns.ClassINET, Ttl: ttl}
+		r.Target = aws.StringValue(resourceRecord.Value)
 	default:
 		fmt.Printf("Should have upstreamed this one")
 	}
+	//fmt.Printf("Leaving createAnswer\n")
 	return answerRecord
 }
 
@@ -162,9 +194,9 @@ func (r53 *Route53) cname(state request.Request, zone string, rrss []*route53.Re
 	answers := []dns.RR{}
 	for _, rrs := range rrss {
 		for _, rr := range rrs.ResourceRecords {
-			fmt.Printf("state: %+v\n, zone %+v\n", state, zone)
-			m, e := r53.upstream.Lookup(state, aws.StringValue(rr.Value)+".", dns.TypeA)
-			fmt.Printf("m: %+v\ne: %+v\n", m, e)
+			//fmt.Printf("state: %+v\n, zone %+v\n", state, zone)
+			m, e := r53.upstream.Lookup(state, aws.StringValue(rr.Value)+".", dns.StringToType[*rrs.Type])
+			//fmt.Printf("m: %+v\ne: %+v\n", m, e)
 
 			if e != nil {
 				continue
