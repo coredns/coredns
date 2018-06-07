@@ -55,7 +55,7 @@ func New(r *dns.Msg, rr *dnstest.Recorder, emptyValue string) Replacer {
 		}
 		rep.replacements["{rcode}"] = rcode
 		rep.replacements["{rsize}"] = strconv.Itoa(rr.Len)
-		rep.replacements["{duration}"] = NormalizeTime(time.Since(rr.Start))
+		rep.replacements["{duration}"] = strconv.FormatFloat(time.Since(rr.Start).Seconds(), 'f', -1, 64) + "s"
 		if rr.Msg != nil {
 			rep.replacements[headerReplacer+"rflags}"] = flagsToString(rr.Msg.MsgHdr)
 		}
@@ -161,12 +161,6 @@ func addrToRFC3986(addr string) string {
 		return "[" + addr + "]"
 	}
 	return addr
-}
-
-//NormalizeTime normalizes the time for the duration response time
-//Based on the units set in the class confinements
-func NormalizeTime(preNormTime time.Duration) string {
-	return (strconv.FormatFloat(preNormTime.Seconds(), 'f', -1, 64) + "s")
 }
 
 const (
