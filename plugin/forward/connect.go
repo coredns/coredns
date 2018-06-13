@@ -16,7 +16,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// utility function to auto-tune timeout values
+// limitTimeout is a utility function to auto-tune timeout values
 // average observed time is moved towards the last observed delay moderated by a weight
 // next timeout to use will be the double of the computed average, limited by min and max frame.
 func limitTimeout(currentAvg *int64, minValue time.Duration, maxValue time.Duration) time.Duration {
