@@ -54,8 +54,6 @@ func (r53 Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return dns.RcodeServerFailure, err
 	}
 
-	//fmt.Printf("State qtype: %+v\n", state.QType())
-
 	answers := []dns.RR{}
 	switch state.QType() {
 	case dns.TypeA:
@@ -65,12 +63,13 @@ func (r53 Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	case dns.TypePTR:
 		answers = ptr(qname, output.ResourceRecordSets)
 	case dns.TypeCNAME:
-		answers = r53.cname(state, qname, output.ResourceRecordSets)
+		answers = r53.answer(state, qname, output.ResourceRecordSets)
 		//answers = r53.cname(state, qname, output.ResourceRecordSets)
 	default:
 		fmt.Printf("We defaulted. %+v\n", state)
 	}
 
+	fmt.Printf("Answers is %+v\n", answers)
 	if len(answers) == 0 {
 		return plugin.NextOrFailure(r53.Name(), r53.Next, ctx, w, r)
 	}
@@ -91,13 +90,14 @@ func (r53 *Route53) answer(state request.Request, zone string, rrss []*route53.R
 	answers := []dns.RR{}
 	for _, rrs := range rrss {
 		if *rrs.Type == dns.TypeToString[uint16(state.QType())] {
-			fmt.Printf("Resource recordset length: %+v\n", len(rrs.ResourceRecords))
+			fmt.Printf("rrs.Type is: %+v, state.Qtype is %+v, upstreaming.", *rrs.Type, dns.TypeToString[uint16(state.QType())])
 			for _, rr := range rrs.ResourceRecords {
 				r := createAnswer(zone, []string{}, *rrs.Type, rr, uint32(aws.Int64Value(rrs.TTL)))
 				answers = append(answers, r)
 			}
 		} else {
 			for _, rr := range rrs.ResourceRecords {
+				fmt.Printf("rrs.Type is: %+v, state.Qtype is %+v, upstreaming.", *rrs.Type, dns.TypeToString[uint16(state.QType())])
 				fmt.Printf("upstreaming request %+v\n", *rr.Value)
 				upstreamResponse, e := r53.upstream.Lookup(state, aws.StringValue(rr.Value)+".", dns.StringToType[*rrs.Type])
 				if e != nil {
@@ -155,7 +155,6 @@ func createAnswer(zone string, reqHistory []string, requestedType string, resour
 	default:
 		fmt.Printf("Should have upstreamed this one")
 	}
-	//fmt.Printf("Leaving createAnswer\n")
 	return answerRecord
 }
 
