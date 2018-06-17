@@ -1,46 +1,47 @@
-package dynapi
+package dynapirest
 
 import (
 	"net"
 	"time"
 
 	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/dynapi"
 	"github.com/coredns/coredns/plugin"
 	"github.com/mholt/caddy"
 )
 
 func init() {
-	caddy.RegisterPlugin("dynapi", caddy.Plugin{
+	caddy.RegisterPlugin("dynapirest", caddy.Plugin{
 		ServerType: "dns",
 		Action:     setup,
 	})
 }
 
 func setup(c *caddy.Controller) error {
-	addr, _, err := apiParse(c)
+	addr, _, err := dynapiParse(c)
 	if err != nil {
-		return plugin.Error("dynapi", err)
+		return plugin.Error("dynapirest", err)
 	}
 
-	api := newApi(addr)
+	dynapiInstance := newDynapiRest(addr)
 	c.OnStartup(func() error {
 		plugins := dnsserver.GetConfig(c).Handlers()
 		for _, p := range plugins {
-			if implementable, ok := p.(DynapiImplementable); ok {
-				for _, zoneName := range implementable.GetZones() {
-					api.dynapiImplementable[zoneName] = implementable
+			if writer, ok := p.(dynapi.Writable); ok {
+				for _, zoneName := range writer.GetZones() {
+					dynapiInstance.dynapiWriters[zoneName] = writer
 				}
 			}
 		}
 		return nil
 	})
-	c.OnStartup(api.OnStartup)
-	c.OnRestart(api.OnRestart)
-	c.OnFinalShutdown(api.OnFinalShutdown)
+	c.OnStartup(dynapiInstance.OnStartup)
+	c.OnRestart(dynapiInstance.OnRestart)
+	c.OnFinalShutdown(dynapiInstance.OnFinalShutdown)
 	return nil
 }
 
-func apiParse(c *caddy.Controller) (string, time.Duration, error) {
+func dynapiParse(c *caddy.Controller) (string, time.Duration, error) {
 	addr := ""
 	dur := time.Duration(0)
 	for c.Next() {

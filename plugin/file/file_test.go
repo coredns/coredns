@@ -1,7 +1,6 @@
 package file
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -13,12 +12,11 @@ func BenchmarkFileParseInsert(b *testing.B) {
 }
 
 func TestParseNoSOA(t *testing.T) {
-	z, err := Parse(strings.NewReader(dbNoSOA), "example.org.", "stdin", 0)
+	_, err := Parse(strings.NewReader(dbNoSOA), "example.org.", "stdin", 0)
 	if err == nil {
 		t.Fatalf("Zone %q should have failed to load", "example.org.")
 	}
 
-	fmt.Println(z)
 	if !strings.Contains(err.Error(), "no SOA record") {
 		t.Fatalf("Zone %q should have failed to load with no soa error: %s", "example.org.", err)
 	}
