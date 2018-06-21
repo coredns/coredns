@@ -7,7 +7,6 @@ import (
 	"testing"
 	gotmpl "text/template"
 
-	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/test"
@@ -460,70 +459,5 @@ func TestMultiSection(t *testing.T) {
 		t.Fatalf("TestMultiSection expected NXDOMAIN resolving something.example. IN MX, got %v, %v", code, dns.RcodeToString[code])
 	}
 }
-
-
-func TestCNAMEResolution(t *testing.T) {
-	multisectionConfig := `
-	    # CNAME
-		template IN ANY cname.example.net. {
-			match ".*"
-			answer "cname.example.net. 60 IN CNAME target.example.net."
-			upstream
-		}
-
-		# Target
-		template IN A target.example.net. {
-			match ".*"
-			answer "target.example.net. 60 IN A 1.2.3.4"
-		}
-		`
-	c := caddy.NewTestController("dns", multisectionConfig)
-	c.ServerBlockKeys = []string{".:8053"}
-
-	handler, err := templateParse(c)
-	if err != nil {
-		t.Fatalf("TestCNAMEResolution could not parse config: %v", err)
-	}
-
-	handler.Next = test.NextHandler(rcodeFallthrough, nil)
-
-	ctx := context.WithValue(context.TODO(), dnsserver.Key{}, handler)
-
-	rec := dnstest.NewRecorder(&test.ResponseWriter{})
-
-	req := &dns.Msg{Question: []dns.Question{{Name: "cname.example.net.", Qclass: dns.ClassINET, Qtype: dns.TypeCNAME}}}
-	code, err := handler.ServeDNS(ctx, rec, req)
-	if err != nil {
-		t.Fatalf("TestCNAMEResolution expected no error resolving cname.example.net. CNAME, got: %v", err)
-	}
-	if code != dns.RcodeSuccess {
-		t.Fatalf("TestCNAMEResolution (CNAME) expected response code SUCCESS got: %v", code)
-	}
-	if len(rec.Msg.Answer) != 1 {
-		t.Fatalf("TestCNAMEResolution expected one answers for cname.example.net. A got: %v", rec.Msg.Answer)
-	}
-	if rec.Msg.Answer[0].Header().Rrtype != dns.TypeCNAME {
-		t.Fatalf("TestCNAMEResolution expected the answer to be a CNAME record, got: %v", rec.Msg.Answer)
-	}
-
-	req = &dns.Msg{Question: []dns.Question{{Name: "cname.example.net.", Qclass: dns.ClassINET, Qtype: dns.TypeA}}}
-	code, err = handler.ServeDNS(ctx, rec, req)
-	if err != nil {
-		t.Fatalf("TestCNAMEResolution expected no error resolving cname.example.net. A, got: %v", err)
-	}
-	if code != dns.RcodeSuccess {
-		t.Fatalf("TestCNAMEResolution (A) expected response code SUCCESS got: %v", code)
-	}
-	if len(rec.Msg.Answer) != 2 {
-		t.Fatalf("TestCNAMEResolution expected two answers for cname.example.net. A got: %v", rec.Msg.Answer)
-	}
-	if rec.Msg.Answer[0].Header().Rrtype != dns.TypeCNAME {
-		t.Fatalf("TestCNAMEResolution expected 1st answer to be a CNAME record, got: %v", rec.Msg.Answer)
-	}
-	if rec.Msg.Answer[1].Header().Rrtype != dns.TypeA {
-		t.Fatalf("TestCNAMEResolution expected 2nd answer to be an A record, got: %v", rec.Msg.Answer)
-	}
-}
-
 
 const rcodeFallthrough = 3841 // reserved for private use, used to indicate a fallthrough
