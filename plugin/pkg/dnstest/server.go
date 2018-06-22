@@ -26,10 +26,10 @@ func NewServer(f dns.HandlerFunc) *Server {
 	s1 := &dns.Server{} // udp
 	s2 := &dns.Server{} // tcp
 
-	for i := 0; i < 1000; i++ { // 1000 attempts
+	for i := 0; i < 5; i++ { // 5 attempts
 		s2.Listener, _ = net.Listen("tcp", ":0")
 		if s2.Listener == nil {
-			panic("dnstest.NewServer(): failed to create tcp listener")
+			continue
 		}
 
 		s1.PacketConn, _ = net.ListenPacket("udp", s2.Listener.Addr().String())
