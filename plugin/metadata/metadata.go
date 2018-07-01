@@ -31,9 +31,16 @@ func (m *Metadata) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	if plugin.Zones(m.Zones).Matches(state.Name()) != "" {
 		// Go through all Providers and collect metadata.
 		for _, provider := range m.Providers {
-			for _, varName := range provider.MetadataVarNames() {
-				if val, ok := provider.Metadata(ctx, state, varName); ok {
-					md.SetValue(varName, val)
+			for _, v := range provider.VarStrings() {
+				val := provider.String(ctx, state, v)
+				if val != "" {
+					md.SetString(v, val)
+				}
+			}
+			for _, v := range provider.VarInts() {
+				val := provider.Int(ctx, state, v)
+				if val != -1 {
+					md.SetInt(v, val)
 				}
 			}
 		}
@@ -44,13 +51,12 @@ func (m *Metadata) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	return rcode, err
 }
 
-// MetadataVarNames implements the plugin.Provider interface.
-func (m *Metadata) MetadataVarNames() []string { return variables.All }
+// Metadata implements the plugin.Provider interface.
+func (m *Metadata) String(ctx context.Context, state request.Request, v string) string {
+	return variables.StringValue(state, v)
+}
 
 // Metadata implements the plugin.Provider interface.
-func (m *Metadata) Metadata(ctx context.Context, state request.Request, varName string) (interface{}, bool) {
-	if val, err := variables.GetValue(state, varName); err == nil {
-		return val, true
-	}
-	return nil, false
+func (m *Metadata) Int(ctx context.Context, state request.Request, v string) int {
+	return variables.IntValue(state, v)
 }

@@ -16,7 +16,7 @@ func TestGetValue(t *testing.T) {
 	// 		The local address is always 127.0.0.1 and port 53.
 	tests := []struct {
 		varName       string
-		expectedValue []byte
+		expectedValue interface{},
 		shouldErr     bool
 	}{
 		{
