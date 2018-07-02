@@ -1,37 +1,55 @@
 package whitelist
 
 import (
-	"github.com/miekg/dns"
-	"errors"
-	"net"
-	"github.com/coredns/coredns/plugin"
 	"context"
+	"errors"
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
-	"github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/coredns/coredns/request"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/miekg/dns"
+	"net"
+	"strings"
 )
 
+var log = clog.NewWithPlugin("whitelist")
+
 type Whitelist struct {
-	kubernetes.Kubernetes
+	Kubernetes      *kubernetes.Kubernetes
 	Next            plugin.Handler
 	ServicesToHosts map[string]string
 }
 
 func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, r *dns.Msg) (int, error) {
 
-	state := request.Request{W: rw, Req: r, Context: ctx}
+	log.Infof("query %s", r.Question[0].Name)
 
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Authoritative, m.RecursionAvailable = true, true
+	remoteAddr := rw.RemoteAddr()
 
-	zone := plugin.Zones(whitelist.Kubernetes.Zones).Matches(state.Name())
-	if zone == "" {
-		return plugin.NextOrFailure(whitelist.Kubernetes.Name(), whitelist.Kubernetes.Next, ctx, rw, r)
+	var ipAddr string
+	if ip, ok := remoteAddr.(*net.UDPAddr); ok {
+		ipAddr = ip.IP.String()
+		ipAddr = "172.17.0.4"
+		}
+
+	log.Infof("remote addr %v", ipAddr)
+	services := whitelist.Kubernetes.APIConn.ServiceList()
+
+	pod := whitelist.Kubernetes.APIConn.PodIndex(ipAddr)[0]
+
+	var service string
+	for _, svc := range services {
+		for pLabelKey, pLabelValue := range pod.Labels {
+			if svcLabelValue, ok := svc.Labels[pLabelKey]; ok {
+				if strings.EqualFold(pLabelValue, svcLabelValue) {
+					service = svc.Name
+				}
+			}
+		}
 	}
 
-	remoteAddr := rw.RemoteAddr()
-	service := toServiceName(remoteAddr)
 	log.Infof("handling service %s", service)
 
 	if wlRecord, ok := whitelist.ServicesToHosts[service]; ok {
@@ -46,8 +64,7 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	// does not matter if this write fails
 	rw.WriteMsg(m)
 
-
-	return whitelist.Kubernetes.ServeDNS(ctx, rw, r)
+	//return whitelist.Kubernetes.ServeDNS(ctx, rw, r)
 
 	return dns.RcodeNameError, errors.New("not whitelisted")
 
@@ -60,5 +77,3 @@ func (whitelist Whitelist) Name() string {
 func toServiceName(addr net.Addr) string {
 	return "test"
 }
-
-
