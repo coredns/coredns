@@ -31,8 +31,7 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	var ipAddr string
 	if ip, ok := remoteAddr.(*net.UDPAddr); ok {
 		ipAddr = ip.IP.String()
-		ipAddr = "172.17.0.4"
-		}
+	}
 
 	log.Infof("remote addr %v", ipAddr)
 	services := whitelist.Kubernetes.APIConn.ServiceList()
@@ -55,7 +54,7 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	if wlRecord, ok := whitelist.ServicesToHosts[service]; ok {
 		log.Infof("query %s", r.Question[0].Name)
 		if r.Question[0].Name == wlRecord {
-			log.Infof("%s whitelisted for service %s", r.Question[0].Name, wlRecord)
+			log.Infof("%s whitelisted for service %s", r.Question[0].Name, service)
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
 	}

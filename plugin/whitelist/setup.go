@@ -3,8 +3,8 @@ package whitelist
 import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/mholt/caddy"
 	"github.com/coredns/coredns/plugin/kubernetes"
+	"github.com/mholt/caddy"
 )
 
 func init() {
@@ -35,10 +35,9 @@ func kubernetesParse(c *caddy.Controller) (*kubernetes.Kubernetes, error) {
 	return k8s, nil
 }
 
-
 func setup(c *caddy.Controller) error {
 
-	k8s, err  := kubernetesParse(c)
+	k8s, err := kubernetesParse(c)
 	if err != nil {
 		return plugin.Error("whitelist", err)
 	}
@@ -48,7 +47,7 @@ func setup(c *caddy.Controller) error {
 	k8s.RegisterKubeCache(c)
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return &Whitelist{Kubernetes: k8s, Next: next, ServicesToHosts: map[string]string{"test": "www.google.com."}}
+		return &Whitelist{Kubernetes: k8s, Next: next, ServicesToHosts: map[string]string{"sleep": "www.google.com."}}
 	})
 
 	return nil
