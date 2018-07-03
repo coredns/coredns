@@ -1,6 +1,7 @@
 package hosts
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 func TestLookupA(t *testing.T) {

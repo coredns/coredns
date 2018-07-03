@@ -2,6 +2,7 @@ package errors
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -13,12 +14,12 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 func TestErrors(t *testing.T) {
 	buf := bytes.Buffer{}
-	em := errorHandler{Log: log.New(&buf, "", 0)}
+	log.SetOutput(&buf)
+	em := errorHandler{}
 
 	testErr := errors.New("test error")
 	tests := []struct {
@@ -36,7 +37,7 @@ func TestErrors(t *testing.T) {
 		{
 			next:         genErrorHandler(dns.RcodeNotAuth, testErr),
 			expectedCode: dns.RcodeNotAuth,
-			expectedLog:  fmt.Sprintf("[ERROR %d %s] %v\n", dns.RcodeNotAuth, "example.org. A", testErr),
+			expectedLog:  fmt.Sprintf("[ERROR] %d %s: %v\n", dns.RcodeNotAuth, "example.org. A", testErr),
 			expectedErr:  testErr,
 		},
 	}

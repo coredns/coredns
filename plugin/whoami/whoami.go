@@ -3,13 +3,13 @@
 package whoami
 
 import (
+	"context"
 	"net"
 	"strconv"
 
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // Whoami is a plugin that returns your IP address, port and the protocol used for connecting
@@ -22,7 +22,6 @@ func (wh Whoami) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 	a := new(dns.Msg)
 	a.SetReply(r)
-	a.Compress = true
 	a.Authoritative = true
 
 	ip := state.IP()

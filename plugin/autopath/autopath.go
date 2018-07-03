@@ -32,13 +32,15 @@ func (m Plugins ) AutoPath(state request.Request) []string {
 package autopath
 
 import (
+	"context"
+
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/nonwriter"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // Func defines the function plugin should implement to return a search
@@ -131,7 +133,7 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 		// Write whatever non-nxdomain answer we've found.
 		w.WriteMsg(msg)
-		AutoPathCount.WithLabelValues().Add(1)
+		autoPathCount.WithLabelValues(metrics.WithServer(ctx)).Add(1)
 		return rcode, err
 
 	}

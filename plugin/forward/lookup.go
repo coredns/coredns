@@ -5,21 +5,23 @@
 package forward
 
 import (
+	"context"
+
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // Forward forward the request in state as-is. Unlike Lookup that adds EDNS0 suffix to the message.
 // Forward may be called with a nil f, an error is returned in that case.
 func (f *Forward) Forward(state request.Request) (*dns.Msg, error) {
 	if f == nil {
-		return nil, errNoForward
+		return nil, ErrNoForward
 	}
 
 	fails := 0
-	for _, proxy := range f.list() {
+	var upstreamErr error
+	for _, proxy := range f.List() {
 		if proxy.Down(f.maxfails) {
 			fails++
 			if fails < len(f.proxies) {
@@ -27,21 +29,34 @@ func (f *Forward) Forward(state request.Request) (*dns.Msg, error) {
 			}
 			// All upstream proxies are dead, assume healtcheck is complete broken and randomly
 			// select an upstream to connect to.
-			proxy = f.list()[0]
+			proxy = f.List()[0]
 		}
 
-		ret, err := proxy.connect(context.Background(), state, f.forceTCP, true)
+		ret, err := proxy.Connect(context.Background(), state, f.forceTCP, true)
+
+		ret, err = truncated(state, ret, err)
+		upstreamErr = err
+
 		if err != nil {
 			if fails < len(f.proxies) {
 				continue
 			}
 			break
-
 		}
 
-		return ret, nil
+		// Check if the reply is correct; if not return FormErr.
+		if !state.Match(ret) {
+			return state.ErrorMessage(dns.RcodeFormatError), nil
+		}
+
+		return ret, err
 	}
-	return nil, errNoHealthy
+
+	if upstreamErr != nil {
+		return nil, upstreamErr
+	}
+
+	return nil, ErrNoHealthy
 }
 
 // Lookup will use name and type to forge a new message and will send that upstream. It will
@@ -49,7 +64,7 @@ func (f *Forward) Forward(state request.Request) (*dns.Msg, error) {
 // Lookup may be called with a nil f, an error is returned in that case.
 func (f *Forward) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
 	if f == nil {
-		return nil, errNoForward
+		return nil, ErrNoForward
 	}
 
 	req := new(dns.Msg)

@@ -21,6 +21,10 @@ connect to a random upstream (which may or may not work).
 
 This plugin can only be used once per Server Block.
 
+How does *forward* relate to *proxy*? This plugin is the "new" version of *proxy* and is faster
+because it re-uses connections to the upstreams. It also does in-band health checks - using DNS
+instead of HTTP. Since it is newer it has a little less (production) mileage on it.
+
 ## Syntax
 
 In its most basic form, a simple forwarder uses this syntax:
@@ -47,7 +51,7 @@ forward FROM TO... {
     max_fails INTEGER
     tls CERT KEY CA
     tls_servername NAME
-    policy random|round_robin
+    policy random|round_robin|sequential
     health_check DURATION
 }
 ~~~
@@ -60,8 +64,16 @@ forward FROM TO... {
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
-* `tls` **CERT** **KEY** **CA** define the TLS properties for TLS; if you leave this out the
-  system's configuration will be used.
+* `tls` **CERT** **KEY** **CA** define the TLS properties for TLS connection. From 0 to 3 arguments can be
+  provided with the meaning as described below
+
+  * `tls` - no client authentication is used, and the system CAs are used to verify the server certificate
+  * `tls` **CA** - no client authentication is used, and the file CA is used to verify the server certificate
+  * `tls` **CERT** **KEY** - client authentication is used with the specified cert/key pair.
+    The server certificate is verified with the system CAs
+  * `tls` **CERT** **KEY**  **CA** - client authentication is used with the specified cert/key pair.
+    The server certificate is verified using the specified CA file
+
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
   needs this to be set to `dns.quad9.net`.
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
@@ -69,6 +81,11 @@ forward FROM TO... {
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls-name` for different upstreams you're out of luck.
+
+On each endpoint, the timeouts of the communication are set by default and automatically tuned depending early results.
+
+* dialTimeout by default is 30 sec, and can decrease automatically down to 100ms
+* readTimeout by default is 2 sec, and can decrease automatically down to 200ms
 
 ## Metrics
 
@@ -88,7 +105,7 @@ IPv6).
 
 ## Examples
 
-Proxy all requests within example.org. to a nameserver running on a different port:
+Proxy all requests within `example.org.` to a nameserver running on a different port:
 
 ~~~ corefile
 example.org {
@@ -141,7 +158,7 @@ service with health checks.
 
 ## Bugs
 
-The TLS config is global for the whole forwarding proxy if you need a different `tls_serveraame` for
+The TLS config is global for the whole forwarding proxy if you need a different `tls_servername` for
 different upstreams you're out of luck.
 
 ## Also See

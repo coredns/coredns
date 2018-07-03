@@ -1,6 +1,7 @@
 package federation
 
 import (
+	"context"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/kubernetes"
@@ -8,7 +9,6 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 func TestIsNameFederation(t *testing.T) {

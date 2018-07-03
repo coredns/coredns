@@ -12,6 +12,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
@@ -19,6 +20,8 @@ import (
 	"github.com/miekg/dns"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var log = clog.NewWithPlugin("kubernetes")
 
 func init() {
 	// Kubernetes plugin uses the kubernetes library, which uses glog (ugh), we must set this *flag*,
@@ -112,6 +115,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 
 	opts := dnsControlOpts{
 		initEndpointsCache: true,
+		ignoreEmptyService: false,
 		resyncPeriod:       defaultResyncPeriod,
 	}
 	k8s.opts = opts
@@ -214,7 +218,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 			k8s.Fall.SetZonesFromArgs(c.RemainingArgs())
 		case "upstream":
 			args := c.RemainingArgs()
-			u, err := upstream.NewUpstream(args)
+			u, err := upstream.New(args)
 			if err != nil {
 				return nil, err
 			}
@@ -246,10 +250,22 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				return nil, c.ArgErr()
 			}
 			k8s.opts.initEndpointsCache = false
+		case "ignore":
+			args := c.RemainingArgs()
+			if len(args) > 0 {
+				ignore := args[0]
+				if ignore == "empty_service" {
+					k8s.opts.ignoreEmptyService = true
+					continue
+				} else {
+					return nil, fmt.Errorf("unable to parse ignore value: '%v'", ignore)
+				}
+			}
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}
 	}
+
 	return k8s, nil
 }
 

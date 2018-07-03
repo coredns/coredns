@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "COREDNS\-KUBERNETES" "7" "March 2018" "CoreDNS" "CoreDNS plugins"
+.TH "COREDNS\-KUBERNETES" "7" "June 2018" "CoreDNS" "CoreDNS plugins"
 .
 .SH "NAME"
 \fIkubernetes\fR \- enables the reading zone data from a Kubernetes cluster\.
@@ -43,6 +43,7 @@ kubernetes [ZONES\.\.\.] {
     endpoint_pod_names
     upstream [ADDRESS\.\.\.]
     ttl TTL
+    transfer to ADDRESS\.\.\.
     fallthrough [ZONES\.\.\.]
 }
 .
@@ -93,12 +94,21 @@ kubernetes [ZONES\.\.\.] {
 \fBnoendpoints\fR will turn off the serving of endpoint records by disabling the watch on endpoints\. All endpoint queries and headless service queries will result in an NXDOMAIN\.
 .
 .IP "\(bu" 4
+\fBtransfer\fR enables zone transfers\. It may be specified multiples times\. \fBTo\fR signals the direction (only \fBto\fR is alllow)\. \fBADDRESS\fR must be denoted in CIDR notation (127\.0\.0\.1/32 etc\.) or just as plain addresses\. The special wildcard \fB*\fR means: the entire internet\. Sending DNS notifies is not supported\.
+.
+.IP "\(bu" 4
 \fBfallthrough\fR \fB[ZONES\.\.\.]\fR If a query for a record in the zones for which the plugin is authoritative results in NXDOMAIN, normally that is what the response will be\. However, if you specify this option, the query will instead be passed on down the plugin chain, which can include another plugin to handle the query\. If \fB[ZONES\.\.\.]\fR is omitted, then fallthrough happens for all zones for which the plugin is authoritative\. If specific zones are listed (for example \fBin\-addr\.arpa\fR and \fBip6\.arpa\fR), then only queries for those zones will be subject to fallthrough\.
+.
+.IP "\(bu" 4
+\fBignore empty_service\fR return NXDOMAIN for services without any ready endpoint addresses (e\.g\. ready pods)\. This allows the querying pod to continue searching for the service in the search path\. The search path could, for example, include another kubernetes cluster\.
 .
 .IP "" 0
 .
 .SH "HEALTH"
 This plugin implements dynamic health checking\. Currently this is limited to reporting healthy when the API has synced\.
+.
+.SH "WATCH"
+This plugin implements watch\. A client that connects to CoreDNS using \fBcoredns/client\fR can be notified of changes to A, AAAA, and SRV records for Kubernetes services and endpoints\.
 .
 .SH "EXAMPLES"
 Handle all queries in the \fBcluster\.local\fR zone\. Connect to Kubernetes in\-cluster\. Also handle all \fBin\-addr\.arpa\fR \fBPTR\fR requests for \fB10\.0\.0\.0/17\fR \. Verify the existence of pods when answering pod requests\. Resolve upstream records against \fB10\.102\.3\.10\fR\. Note we show the entire server block here:
@@ -225,19 +235,21 @@ cluster\.local {
 Some query labels accept a wildcard value to match any value\. If a label is a valid wildcard (*, or the word "any"), then that label will match all values\. The labels that accept wildcards are:
 .
 .IP "\(bu" 4
-\fIservice\fR in an \fBA\fR record request: \fIservice\fR\.namespace\.svc\.zone, e\.g\. \fB*\.ns\.svc\.myzone\.local\fR
+\fIendpoint\fR in an \fBA\fR record request: \fIendpoint\fR\.service\.namespace\.svc\.zone, e\.g\. \fB*\.nginx\.ns\.svc\.cluster\.local\fR
 .
 .IP "\(bu" 4
-\fInamespace\fR in an \fBA\fR record request: service\.\fInamespace\fR\.svc\.zone, e\.g\. \fBnginx\.*\.svc\.myzone\.local\fR
+\fIservice\fR in an \fBA\fR record request: \fIservice\fR\.namespace\.svc\.zone, e\.g\. \fB*\.ns\.svc\.cluster\.local\fR
 .
 .IP "\(bu" 4
-\fIport and/or protocol\fR in an \fBSRV\fR request: \fBport_\.\fRprotocol_\.service\.namespace\.svc\.zone\., e\.g\. \fB_http\.*\.service\.ns\.svc\.\fR
+\fInamespace\fR in an \fBA\fR record request: service\.\fInamespace\fR\.svc\.zone, e\.g\. \fBnginx\.*\.svc\.cluster\.local\fR
+.
+.IP "\(bu" 4
+\fIport and/or protocol\fR in an \fBSRV\fR request: \fBport_\.\fRprotocol_\.service\.namespace\.svc\.zone\., e\.g\. \fB_http\.*\.service\.ns\.svc\.cluster\.local\fR
 .
 .IP "\(bu" 4
 multiple wild cards are allowed in a single query, e\.g\. \fBA\fR Request \fB*\.*\.svc\.zone\.\fR or \fBSRV\fR request \fB*\.*\.*\.*\.svc\.zone\.\fR
 .
-.IP "\(bu" 4
-Wildcard can be used also to resolve PODs IPs as \fBA\fR records in a Service with ClusterIP\. e\.g\.: \fB*\.service\.ns\.svc\.myzone\.local\fR will return the PODs IPs as the following: \fB*\.service\.default\.svc\.cluster\.local\. 5 IN A 192\.168\.10\.10 *\.service\.default\.svc\.cluster\.local\. 5 IN A 192\.168\.25\.15\fR This response can be randomized using the \fBloadbalance\fR plugin
-.
 .IP "" 0
-
+.
+.P
+For example, Wildcards can be used to resolve all Endpoints for a Service as \fBA\fR records\. e\.g\.: \fB*\.service\.ns\.svc\.myzone\.local\fR will return the Endpoint IPs in the Service \fBservice\fR in namespace \fBdefault\fR: \fB*\.service\.default\.svc\.cluster\.local\. 5 IN A 192\.168\.10\.10 *\.service\.default\.svc\.cluster\.local\. 5 IN A 192\.168\.25\.15\fR This response can be randomized using the \fBloadbalance\fR plugin

@@ -1,6 +1,7 @@
 package dnstap
 
 import (
+	"context"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -8,7 +9,6 @@ import (
 
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // Dnstap is the dnstap handler.

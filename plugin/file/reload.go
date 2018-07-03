@@ -1,7 +1,6 @@
 package file
 
 import (
-	"log"
 	"os"
 	"time"
 )
@@ -23,17 +22,18 @@ func (z *Zone) Reload() error {
 			select {
 
 			case <-tick.C:
-				reader, err := os.Open(z.file)
+				zFile := z.File()
+				reader, err := os.Open(zFile)
 				if err != nil {
-					log.Printf("[ERROR] Failed to open zone %q in %q: %v", z.origin, z.file, err)
+					log.Errorf("Failed to open zone %q in %q: %v", z.origin, zFile, err)
 					continue
 				}
 
 				serial := z.SOASerialIfDefined()
-				zone, err := Parse(reader, z.origin, z.file, serial)
+				zone, err := Parse(reader, z.origin, zFile, serial)
 				if err != nil {
 					if _, ok := err.(*serialErr); !ok {
-						log.Printf("[ERROR] Parsing zone %q: %v", z.origin, err)
+						log.Errorf("Parsing zone %q: %v", z.origin, err)
 					}
 					continue
 				}
@@ -44,7 +44,7 @@ func (z *Zone) Reload() error {
 				z.Tree = zone.Tree
 				z.reloadMu.Unlock()
 
-				log.Printf("[INFO] Successfully reloaded zone %q in %q with serial %d", z.origin, z.file, z.Apex.SOA.Serial)
+				log.Infof("Successfully reloaded zone %q in %q with serial %d", z.origin, zFile, z.Apex.SOA.Serial)
 				z.Notify()
 
 			case <-z.reloadShutdown:

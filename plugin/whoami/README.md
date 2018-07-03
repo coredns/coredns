@@ -7,8 +7,8 @@
 ## Description
 
 The *whoami* plugin is not really that useful, but can be used for having a simple (fast) endpoint
-to test clients against. When *whoami* returns a response it will have your client's IP address the
-additional section as either an A or AAAA record.
+to test clients against. When *whoami* returns a response it will have your client's IP address in
+the additional section as either an A or AAAA record.
 
 The reply always has an empty answer section. The port and transport are included in the additional
 section as a SRV record, transport can be "tcp" or "udp".
@@ -49,3 +49,10 @@ When queried for "example.org A", CoreDNS will respond with:
 example.org.            0       IN      A       10.240.0.1
 _udp.example.org.       0       IN      SRV     0 0 40212
 ~~~
+
+## See Also
+
+[Read the blog post][blog] on how this plugin is built, or [explore the source code][code].
+
+[blog]: https://coredns.io/2017/03/01/how-to-add-plugins-to-coredns/
+[code]: https://github.com/coredns/coredns/blob/master/plugin/whoami/

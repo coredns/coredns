@@ -1,7 +1,6 @@
 package hosts
 
 import (
-	"log"
 	"os"
 	"path"
 	"strings"
@@ -9,9 +8,12 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"github.com/mholt/caddy"
 )
+
+var log = clog.NewWithPlugin("hosts")
 
 func init() {
 	caddy.RegisterPlugin("hosts", caddy.Plugin{
@@ -87,13 +89,13 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 			s, err := os.Stat(h.path)
 			if err != nil {
 				if os.IsNotExist(err) {
-					log.Printf("[WARNING] File does not exist: %s", h.path)
+					log.Warningf("File does not exist: %s", h.path)
 				} else {
 					return h, c.Errf("unable to access hosts file '%s': %v", h.path, err)
 				}
 			}
 			if s != nil && s.IsDir() {
-				log.Printf("[WARNING] hosts file %q is a directory", h.path)
+				log.Warningf("Hosts file %q is a directory", h.path)
 			}
 		}
 

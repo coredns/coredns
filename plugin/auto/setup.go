@@ -1,7 +1,6 @@
 package auto
 
 import (
-	"log"
 	"os"
 	"path"
 	"regexp"
@@ -11,11 +10,14 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
 	"github.com/mholt/caddy"
 )
+
+var log = clog.NewWithPlugin("auto")
 
 func init() {
 	caddy.RegisterPlugin("auto", caddy.Plugin{
@@ -108,7 +110,7 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 				_, err := os.Stat(a.loader.directory)
 				if err != nil {
 					if os.IsNotExist(err) {
-						log.Printf("[WARNING] Directory does not exist: %s", a.loader.directory)
+						log.Warningf("Directory does not exist: %s", a.loader.directory)
 					} else {
 						return a, c.Errf("Unable to access root path '%s': %v", a.loader.directory, err)
 					}
@@ -151,7 +153,7 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 					return a, c.ArgErr()
 				}
 				var err error
-				a.loader.upstream, err = upstream.NewUpstream(args)
+				a.loader.upstream, err = upstream.New(args)
 				if err != nil {
 					return a, err
 				}

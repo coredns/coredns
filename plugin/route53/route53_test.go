@@ -1,6 +1,7 @@
 package route53
 
 import (
+	"context"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -10,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 type mockedRoute53 struct {

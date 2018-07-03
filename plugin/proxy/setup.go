@@ -4,9 +4,12 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"github.com/mholt/caddy"
 )
+
+var log = clog.NewWithPlugin("proxy")
 
 func init() {
 	caddy.RegisterPlugin("proxy", caddy.Plugin{
@@ -30,16 +33,7 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
-		once.Do(func() {
-			m := dnsserver.GetConfig(c).Handler("prometheus")
-			if m == nil {
-				return
-			}
-			if x, ok := m.(*metrics.Metrics); ok {
-				x.MustRegister(RequestCount)
-				x.MustRegister(RequestDuration)
-			}
-		})
+		once.Do(func() { metrics.MustRegister(c, RequestCount, RequestDuration) })
 		return nil
 	})
 

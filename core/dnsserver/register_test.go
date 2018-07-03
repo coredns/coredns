@@ -100,20 +100,20 @@ func TestGroupingServers(t *testing.T) {
 		groups, err := groupConfigsByListenAddr(test.configs)
 		if err != nil {
 			if !test.failing {
-				t.Fatalf("test %d, expected no errors, but got: %v", i, err)
+				t.Fatalf("Test %d, expected no errors, but got: %v", i, err)
 			}
 			continue
 		}
 		if test.failing {
-			t.Fatalf("test %d, expected to failed but did not, returned values", i)
+			t.Fatalf("Test %d, expected to failed but did not, returned values", i)
 		}
 		if len(groups) != len(test.expectedGroups) {
-			t.Errorf("test %d : expected the group's size to be %d, was %d", i, len(test.expectedGroups), len(groups))
+			t.Errorf("Test %d : expected the group's size to be %d, was %d", i, len(test.expectedGroups), len(groups))
 			continue
 		}
 		for _, v := range test.expectedGroups {
 			if _, ok := groups[v]; !ok {
-				t.Errorf("test %d : expected value %v to be in the group, was not", i, v)
+				t.Errorf("Test %d : expected value %v to be in the group, was not", i, v)
 
 			}
 		}

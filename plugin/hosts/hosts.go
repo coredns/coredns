@@ -1,14 +1,14 @@
 package hosts
 
 import (
+	"context"
 	"net"
-
-	"golang.org/x/net/context"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/request"
+
 	"github.com/miekg/dns"
 )
 
@@ -63,7 +63,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	m := new(dns.Msg)
 	m.SetReply(r)
-	m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
+	m.Authoritative, m.RecursionAvailable = true, true
 	m.Answer = answers
 
 	state.SizeAndDo(m)

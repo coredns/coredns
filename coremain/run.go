@@ -12,13 +12,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mholt/caddy"
-
 	"github.com/coredns/coredns/core/dnsserver"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
+
+	"github.com/mholt/caddy"
 )
 
 func init() {
-	caddy.TrapSignals()
 	caddy.DefaultConfigFile = "Corefile"
 	caddy.Quiet = true // don't show init stuff from caddy
 	setVersion()
@@ -29,7 +29,6 @@ func init() {
 	flag.StringVar(&caddy.PidFile, "pidfile", "", "Path to write pid file")
 	flag.BoolVar(&version, "version", false, "Show version")
 	flag.BoolVar(&dnsserver.Quiet, "quiet", false, "Quiet mode (no initialization output)")
-	flag.BoolVar(&logfile, "log", false, "Log to standard output")
 
 	caddy.RegisterCaddyfileLoader("flag", caddy.LoaderFunc(confLoader))
 	caddy.SetDefaultCaddyfileLoader("default", caddy.LoaderFunc(defaultLoader))
@@ -40,6 +39,8 @@ func init() {
 
 // Run is CoreDNS's main() function.
 func Run() {
+	caddy.TrapSignals()
+
 	// Reset flag.CommandLine to get rid of unwanted flags for instance from glog (used in kubernetes).
 	// And readd the once we want to keep.
 	flag.VisitAll(func(f *flag.Flag) {
@@ -60,10 +61,7 @@ func Run() {
 		mustLogFatal(fmt.Errorf("extra command line arguments: %s", flag.Args()))
 	}
 
-	// Set up process log before anything bad happens
-	if logfile {
-		log.SetOutput(os.Stdout)
-	}
+	log.SetOutput(os.Stdout)
 	log.SetFlags(log.LstdFlags)
 
 	if version {
@@ -156,8 +154,8 @@ func defaultLoader(serverType string) (caddy.Input, error) {
 
 // logVersion logs the version that is starting.
 func logVersion() {
-	log.Print("[INFO] " + versionString())
-	log.Print("[INFO] " + releaseString())
+	clog.Info(versionString())
+	clog.Info(releaseString())
 }
 
 // showVersion prints the version that is starting.

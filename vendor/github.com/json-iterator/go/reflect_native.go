@@ -3,9 +3,10 @@ package jsoniter
 import (
 	"encoding/base64"
 	"reflect"
-	"unsafe"
-	"github.com/v2pro/plz/reflect2"
 	"strconv"
+	"unsafe"
+
+	"github.com/modern-go/reflect2"
 )
 
 const ptrSize = 32 << uintptr(^uintptr(0)>>63)
@@ -405,7 +406,7 @@ func (codec *boolCodec) IsEmpty(ptr unsafe.Pointer) bool {
 }
 
 type base64Codec struct {
-	sliceType *reflect2.UnsafeSliceType
+	sliceType    *reflect2.UnsafeSliceType
 	sliceDecoder ValDecoder
 }
 
@@ -416,16 +417,11 @@ func (codec *base64Codec) Decode(ptr unsafe.Pointer, iter *Iterator) {
 	}
 	switch iter.WhatIsNext() {
 	case StringValue:
-		encoding := base64.StdEncoding
-		src := iter.SkipAndReturnBytes()
-		src = src[1: len(src)-1]
-		decodedLen := encoding.DecodedLen(len(src))
-		dst := make([]byte, decodedLen)
-		len, err := encoding.Decode(dst, src)
+		src := iter.ReadString()
+		dst, err := base64.StdEncoding.DecodeString(src)
 		if err != nil {
 			iter.ReportError("decode base64", err.Error())
 		} else {
-			dst = dst[:len]
 			codec.sliceType.UnsafeSet(ptr, unsafe.Pointer(&dst))
 		}
 	case ArrayValue:

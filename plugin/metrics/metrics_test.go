@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"context"
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
@@ -9,7 +10,6 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 func TestMetrics(t *testing.T) {
@@ -17,7 +17,7 @@ func TestMetrics(t *testing.T) {
 	if err := met.OnStartup(); err != nil {
 		t.Fatalf("Failed to start metrics handler: %s", err)
 	}
-	defer met.OnShutdown()
+	defer met.OnFinalShutdown()
 
 	met.AddZone("example.org.")
 

@@ -2,12 +2,12 @@
 package nsid
 
 import (
+	"context"
 	"encoding/hex"
 
 	"github.com/coredns/coredns/plugin"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // Nsid plugin

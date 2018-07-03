@@ -6,11 +6,12 @@
 package mergo
 
 import (
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"reflect"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 type simpleTest struct {
@@ -225,13 +226,13 @@ func TestPointerStructNil(t *testing.T) {
 	}
 }
 
-func testSlice(t *testing.T, a []int, b []int) {
+func testSlice(t *testing.T, a []int, b []int, e []int, opts ...func(*Config)) {
+	t.Helper()
 	bc := b
-	e := append(a, b...)
 
 	sa := sliceTest{a}
 	sb := sliceTest{b}
-	if err := Merge(&sa, sb); err != nil {
+	if err := Merge(&sa, sb, opts...); err != nil {
 		t.FailNow()
 	}
 	if !reflect.DeepEqual(sb.S, bc) {
@@ -243,14 +244,14 @@ func testSlice(t *testing.T, a []int, b []int) {
 
 	ma := map[string][]int{"S": a}
 	mb := map[string][]int{"S": b}
-	if err := Merge(&ma, mb); err != nil {
+	if err := Merge(&ma, mb, opts...); err != nil {
 		t.FailNow()
 	}
 	if !reflect.DeepEqual(mb["S"], bc) {
-		t.Fatalf("Source slice was modified %d != %d", mb["S"], bc)
+		t.Fatalf("map value: Source slice was modified %d != %d", mb["S"], bc)
 	}
 	if !reflect.DeepEqual(ma["S"], e) {
-		t.Fatalf("b not merged in a proper way %d != %d", ma["S"], e)
+		t.Fatalf("map value: b not merged in a proper way %d != %d", ma["S"], e)
 	}
 
 	if a == nil {
@@ -261,10 +262,10 @@ func testSlice(t *testing.T, a []int, b []int) {
 			t.FailNow()
 		}
 		if !reflect.DeepEqual(mb["S"], bc) {
-			t.Fatalf("Source slice was modified %d != %d", mb["S"], bc)
+			t.Fatalf("missing dst key: Source slice was modified %d != %d", mb["S"], bc)
 		}
 		if !reflect.DeepEqual(ma["S"], e) {
-			t.Fatalf("b not merged in a proper way %d != %d", ma["S"], e)
+			t.Fatalf("missing dst key: b not merged in a proper way %d != %d", ma["S"], e)
 		}
 	}
 
@@ -276,20 +277,25 @@ func testSlice(t *testing.T, a []int, b []int) {
 			t.FailNow()
 		}
 		if !reflect.DeepEqual(mb["S"], bc) {
-			t.Fatalf("Source slice was modified %d != %d", mb["S"], bc)
+			t.Fatalf("missing src key: Source slice was modified %d != %d", mb["S"], bc)
 		}
 		if !reflect.DeepEqual(ma["S"], e) {
-			t.Fatalf("b not merged in a proper way %d != %d", ma["S"], e)
+			t.Fatalf("missing src key: b not merged in a proper way %d != %d", ma["S"], e)
 		}
 	}
 }
 
 func TestSlice(t *testing.T) {
-	testSlice(t, nil, []int{1, 2, 3})
-	testSlice(t, []int{}, []int{1, 2, 3})
-	testSlice(t, []int{1}, []int{2, 3})
-	testSlice(t, []int{1}, []int{})
-	testSlice(t, []int{1}, nil)
+	testSlice(t, nil, []int{1, 2, 3}, []int{1, 2, 3})
+	testSlice(t, []int{}, []int{1, 2, 3}, []int{1, 2, 3})
+	testSlice(t, []int{1}, []int{2, 3}, []int{1})
+	testSlice(t, []int{1}, []int{}, []int{1})
+	testSlice(t, []int{1}, nil, []int{1})
+	testSlice(t, nil, []int{1, 2, 3}, []int{1, 2, 3}, WithAppendSlice)
+	testSlice(t, []int{}, []int{1, 2, 3}, []int{1, 2, 3}, WithAppendSlice)
+	testSlice(t, []int{1}, []int{2, 3}, []int{1, 2, 3}, WithAppendSlice)
+	testSlice(t, []int{1}, []int{}, []int{1}, WithAppendSlice)
+	testSlice(t, []int{1}, nil, []int{1}, WithAppendSlice)
 }
 
 func TestEmptyMaps(t *testing.T) {
@@ -402,6 +408,30 @@ func TestMaps(t *testing.T) {
 	}
 	if m["c"].Value != 13 {
 		t.Fatalf(`n overwritten in m: m["c"].Value(%d) != n["c"].Value(%d)`, m["c"].Value, n["c"].Value)
+	}
+}
+
+func TestMapsWithNilPointer(t *testing.T) {
+	m := map[string]*simpleTest{
+		"a": nil,
+		"b": nil,
+	}
+	n := map[string]*simpleTest{
+		"b": nil,
+		"c": nil,
+	}
+	expect := map[string]*simpleTest{
+		"a": nil,
+		"b": nil,
+		"c": nil,
+	}
+
+	if err := Merge(&m, n, WithOverride); err != nil {
+		t.Fatalf(err.Error())
+	}
+
+	if !reflect.DeepEqual(m, expect) {
+		t.Fatalf("Test failed:\ngot   :\n%#v\n\nwant :\n%#v\n\n", m, expect)
 	}
 }
 
@@ -666,10 +696,10 @@ type structWithUnexportedProperty struct {
 
 func TestUnexportedProperty(t *testing.T) {
 	a := structWithMap{map[string]structWithUnexportedProperty{
-		"key": structWithUnexportedProperty{"hello"},
+		"key": {"hello"},
 	}}
 	b := structWithMap{map[string]structWithUnexportedProperty{
-		"key": structWithUnexportedProperty{"hi"},
+		"key": {"hi"},
 	}}
 	defer func() {
 		if r := recover(); r != nil {

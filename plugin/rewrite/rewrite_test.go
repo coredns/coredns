@@ -2,6 +2,7 @@ package rewrite
 
 import (
 	"bytes"
+	"context"
 	"reflect"
 	"testing"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -482,14 +482,14 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 		},
 		{
 			[]dns.EDNS0{},
-			[]string{"local", "set", "0xffee", "{server_ip}"},
-			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0x7F, 0x00, 0x00, 0x01}}},
+			[]string{"local", "set", "0xffee", "{server_port}"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0x00, 0x35}}},
 			true,
 		},
 		{
 			[]dns.EDNS0{},
-			[]string{"local", "set", "0xffee", "{server_port}"},
-			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0x00, 0x35}}},
+			[]string{"local", "set", "0xffee", "{server_ip}"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0x7F, 0x00, 0x00, 0x01}}},
 			true,
 		},
 	}
@@ -498,7 +498,6 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 	for i, tc := range tests {
 		m := new(dns.Msg)
 		m.SetQuestion("example.com.", dns.TypeA)
-		m.Question[0].Qclass = dns.ClassINET
 
 		r, err := newEdns0Rule("stop", tc.args...)
 		if err != nil {
@@ -620,7 +619,6 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 	for i, tc := range tests {
 		m := new(dns.Msg)
 		m.SetQuestion("example.com.", dns.TypeA)
-		m.Question[0].Qclass = dns.ClassINET
 
 		r, err := newEdns0Rule("stop", tc.args...)
 		if err != nil {

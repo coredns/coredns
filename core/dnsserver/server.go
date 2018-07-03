@@ -2,6 +2,7 @@
 package dnsserver
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"runtime"
@@ -11,13 +12,13 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/edns"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 	"github.com/coredns/coredns/plugin/pkg/trace"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
-	"golang.org/x/net/context"
 )
 
 // Server represents an instance of a server, which serves
@@ -60,12 +61,24 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 	for _, site := range group {
 		if site.Debug {
 			s.debug = true
+			log.D = true
 		}
 		// set the config per zone
 		s.zones[site.Zone] = site
 		// compile custom plugin for everything
 		if site.registry != nil {
 			// this config is already computed with the chain of plugin
+			// set classChaos in accordance with previously registered plugins
+			for name := range enableChaos {
+				if _, ok := site.registry[name]; ok {
+					s.classChaos = true
+					break
+				}
+			}
+			// set trace handler in accordance with previously registered "trace" plugin
+			if handler, ok := site.registry["trace"]; ok {
+				s.trace = handler.(trace.Trace)
+			}
 			continue
 		}
 		var stack plugin.Handler
@@ -186,7 +199,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// The default dns.Mux checks the question section size, but we have our
 	// own mux here. Check if we have a question section. If not drop them here.
 	if r == nil || len(r.Question) == 0 {
-		DefaultErrorFunc(w, r, dns.RcodeServerFailure)
+		DefaultErrorFunc(ctx, w, r, dns.RcodeServerFailure)
 		return
 	}
 
@@ -195,13 +208,14 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			// In case the user doesn't enable error plugin, we still
 			// need to make sure that we stay alive up here
 			if rec := recover(); rec != nil {
-				DefaultErrorFunc(w, r, dns.RcodeServerFailure)
+				vars.Panic.Inc()
+				DefaultErrorFunc(ctx, w, r, dns.RcodeServerFailure)
 			}
 		}()
 	}
 
 	if !s.classChaos && r.Question[0].Qclass != dns.ClassINET {
-		DefaultErrorFunc(w, r, dns.RcodeRefused)
+		DefaultErrorFunc(ctx, w, r, dns.RcodeRefused)
 		return
 	}
 
@@ -212,7 +226,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 	ctx, err := incrementDepthAndCheck(ctx)
 	if err != nil {
-		DefaultErrorFunc(w, r, dns.RcodeServerFailure)
+		DefaultErrorFunc(ctx, w, r, dns.RcodeServerFailure)
 		return
 	}
 
@@ -234,11 +248,16 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}
 
 		if h, ok := s.zones[string(b[:l])]; ok {
+
+			// Set server's address in the context so plugins can reference back to this,
+			// This will makes those metrics unique.
+			ctx = context.WithValue(ctx, plugin.ServerCtx{}, s.Addr)
+
 			if r.Question[0].Qtype != dns.TypeDS {
 				if h.FilterFunc == nil {
 					rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 					if !plugin.ClientWrite(rcode) {
-						DefaultErrorFunc(w, r, rcode)
+						DefaultErrorFunc(ctx, w, r, rcode)
 					}
 					return
 				}
@@ -247,7 +266,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 				if h.FilterFunc(q) {
 					rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 					if !plugin.ClientWrite(rcode) {
-						DefaultErrorFunc(w, r, rcode)
+						DefaultErrorFunc(ctx, w, r, rcode)
 					}
 					return
 				}
@@ -269,22 +288,26 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		// DS request, and we found a zone, use the handler for the query.
 		rcode, _ := dshandler.pluginChain.ServeDNS(ctx, w, r)
 		if !plugin.ClientWrite(rcode) {
-			DefaultErrorFunc(w, r, rcode)
+			DefaultErrorFunc(ctx, w, r, rcode)
 		}
 		return
 	}
 
 	// Wildcard match, if we have found nothing try the root zone as a last resort.
 	if h, ok := s.zones["."]; ok && h.pluginChain != nil {
+
+		// See comment above.
+		ctx = context.WithValue(ctx, plugin.ServerCtx{}, s.Addr)
+
 		rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 		if !plugin.ClientWrite(rcode) {
-			DefaultErrorFunc(w, r, rcode)
+			DefaultErrorFunc(ctx, w, r, rcode)
 		}
 		return
 	}
 
 	// Still here? Error out with REFUSED.
-	DefaultErrorFunc(w, r, dns.RcodeRefused)
+	DefaultErrorFunc(ctx, w, r, dns.RcodeRefused)
 }
 
 // OnStartupComplete lists the sites served by this server
@@ -311,7 +334,7 @@ func (s *Server) Tracer() ot.Tracer {
 }
 
 // DefaultErrorFunc responds to an DNS request with an error.
-func DefaultErrorFunc(w dns.ResponseWriter, r *dns.Msg, rc int) {
+func DefaultErrorFunc(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, rc int) {
 	state := request.Request{W: w, Req: r}
 
 	answer := new(dns.Msg)
@@ -319,7 +342,7 @@ func DefaultErrorFunc(w dns.ResponseWriter, r *dns.Msg, rc int) {
 
 	state.SizeAndDo(answer)
 
-	vars.Report(state, vars.Dropped, rcode.ToString(rc), answer.Len(), time.Now())
+	vars.Report(ctx, state, vars.Dropped, rcode.ToString(rc), answer.Len(), time.Now())
 
 	w.WriteMsg(answer)
 }
@@ -348,11 +371,11 @@ const (
 	maxreentries = 10
 )
 
-// Key is the context key for the current server
-type Key struct{}
-
-// loopKey is the context key for counting self loops
-type loopKey struct{}
+type (
+	// Key is the context key for the current server
+	Key     struct{}
+	loopKey struct{} // loopKey is the context key for counting self loops
+)
 
 // enableChaos is a map with plugin names for which we should open CH class queries as
 // we block these by default.

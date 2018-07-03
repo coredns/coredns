@@ -1,13 +1,12 @@
 package etcd
 
 import (
+	"context"
 	"errors"
-	"log"
 
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // Stub wraps an Etcd. We have this type so that it can have a ServeDNS method.
@@ -19,7 +18,7 @@ type Stub struct {
 // ServeDNS implements the plugin.Handler interface.
 func (s Stub) ServeDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) (int, error) {
 	if hasStubEdns0(req) {
-		log.Printf("[WARNING] Forwarding cycle detected, refusing msg: %s", req.Question[0].Name)
+		log.Warningf("Forwarding cycle detected, refusing msg: %s", req.Question[0].Name)
 		return dns.RcodeRefused, errors.New("stub forward cycle")
 	}
 	req = addStubEdns0(req)
@@ -33,8 +32,9 @@ func (s Stub) ServeDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) 
 	if e != nil {
 		return dns.RcodeServerFailure, e
 	}
-	m.RecursionAvailable, m.Compress = true, true
+	m.RecursionAvailable = true
 	state.SizeAndDo(m)
+	m, _ = state.Scrub(m)
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
 }

@@ -1,6 +1,7 @@
 package file
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -8,7 +9,6 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 var entTestCases = []test.Case{
@@ -33,7 +33,7 @@ var entTestCases = []test.Case{
 func TestLookupEnt(t *testing.T) {
 	zone, err := Parse(strings.NewReader(dbMiekENTNL), testzone, "stdin", 0)
 	if err != nil {
-		t.Fatalf("expect no error when reading zone, got %q", err)
+		t.Fatalf("Expect no error when reading zone, got %q", err)
 	}
 
 	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{testzone: zone}, Names: []string{testzone}}}
@@ -45,7 +45,7 @@ func TestLookupEnt(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := fm.ServeDNS(ctx, rec, m)
 		if err != nil {
-			t.Errorf("expected no error, got %v\n", err)
+			t.Errorf("Expected no error, got %v\n", err)
 			return
 		}
 

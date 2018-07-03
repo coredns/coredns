@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@ import "k8s.io/apimachinery/pkg/util/intstr/generated.proto";
 // Package-wide variables from generator "generated".
 option go_package = "v1beta2";
 
+// DEPRECATED - This group version of ControllerRevision is deprecated by apps/v1/ControllerRevision. See the
+// release notes for more information.
 // ControllerRevision implements an immutable snapshot of state data. Clients
 // are responsible for serializing and deserializing the objects that contain
 // their internal state.
@@ -63,6 +65,8 @@ message ControllerRevisionList {
   repeated ControllerRevision items = 2;
 }
 
+// DEPRECATED - This group version of DaemonSet is deprecated by apps/v1/DaemonSet. See the release notes for
+// more information.
 // DaemonSet represents the configuration of a daemon set.
 message DaemonSet {
   // Standard object's metadata.
@@ -218,6 +222,8 @@ message DaemonSetUpdateStrategy {
   optional RollingUpdateDaemonSet rollingUpdate = 2;
 }
 
+// DEPRECATED - This group version of Deployment is deprecated by apps/v1/Deployment. See the release notes for
+// more information.
 // Deployment enables declarative updates for Pods and ReplicaSets.
 message Deployment {
   // Standard object metadata.
@@ -362,6 +368,8 @@ message DeploymentStrategy {
   optional RollingUpdateDeployment rollingUpdate = 2;
 }
 
+// DEPRECATED - This group version of ReplicaSet is deprecated by apps/v1/ReplicaSet. See the release notes for
+// more information.
 // ReplicaSet ensures that a specified number of pod replicas are running at any given time.
 message ReplicaSet {
   // If the Labels of a ReplicaSet are empty, they are defaulted to
@@ -501,9 +509,9 @@ message RollingUpdateDeployment {
   // Absolute number is calculated from percentage by rounding down.
   // This can not be 0 if MaxSurge is 0.
   // Defaults to 25%.
-  // Example: when this is set to 30%, the old RC can be scaled down to 70% of desired pods
-  // immediately when the rolling update starts. Once new pods are ready, old RC
-  // can be scaled down further, followed by scaling up the new RC, ensuring
+  // Example: when this is set to 30%, the old ReplicaSet can be scaled down to 70% of desired pods
+  // immediately when the rolling update starts. Once new pods are ready, old ReplicaSet
+  // can be scaled down further, followed by scaling up the new ReplicaSet, ensuring
   // that the total number of pods available at all times during the update is at
   // least 70% of desired pods.
   // +optional
@@ -515,10 +523,10 @@ message RollingUpdateDeployment {
   // This can not be 0 if MaxUnavailable is 0.
   // Absolute number is calculated from percentage by rounding up.
   // Defaults to 25%.
-  // Example: when this is set to 30%, the new RC can be scaled up immediately when
+  // Example: when this is set to 30%, the new ReplicaSet can be scaled up immediately when
   // the rolling update starts, such that the total number of old and new pods do not exceed
   // 130% of desired pods. Once old pods have been killed,
-  // new RC can be scaled up further, ensuring that total number of pods running
+  // new ReplicaSet can be scaled up further, ensuring that total number of pods running
   // at any time during the update is atmost 130% of desired pods.
   // +optional
   optional k8s.io.apimachinery.pkg.util.intstr.IntOrString maxSurge = 2;
@@ -574,6 +582,8 @@ message ScaleStatus {
   optional string targetSelector = 3;
 }
 
+// DEPRECATED - This group version of StatefulSet is deprecated by apps/v1/StatefulSet. See the release notes for
+// more information.
 // StatefulSet represents a set of pods with consistent identities.
 // Identities are defined as:
 //  - Network: A single stable DNS and hostname.

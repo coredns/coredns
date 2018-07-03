@@ -40,6 +40,7 @@ kubernetes [ZONES...] {
     endpoint_pod_names
     upstream [ADDRESS...]
     ttl TTL
+    transfer to ADDRESS...
     fallthrough [ZONES...]
 }
 ```
@@ -90,17 +91,29 @@ kubernetes [ZONES...] {
   5 seconds, the maximum is capped at 3600 seconds.
 * `noendpoints` will turn off the serving of endpoint records by disabling the watch on endpoints.
   All endpoint queries and headless service queries will result in an NXDOMAIN.
+* `transfer` enables zone transfers. It may be specified multiples times. `To` signals the direction
+  (only `to` is alllow). **ADDRESS** must be denoted in CIDR notation (127.0.0.1/32 etc.) or just as
+  plain addresses. The special wildcard `*` means: the entire internet.
+  Sending DNS notifies is not supported.
 * `fallthrough` **[ZONES...]** If a query for a record in the zones for which the plugin is authoritative
   results in NXDOMAIN, normally that is what the response will be. However, if you specify this option,
   the query will instead be passed on down the plugin chain, which can include another plugin to handle
   the query. If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
   is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only
   queries for those zones will be subject to fallthrough.
+* `ignore empty_service` return NXDOMAIN for services without any ready endpoint addresses (e.g. ready pods). 
+  This allows the querying pod to continue searching for the service in the search path. 
+  The search path could, for example, include another kubernetes cluster.
 
 ## Health
 
 This plugin implements dynamic health checking. Currently this is limited to reporting healthy when
 the API has synced.
+
+## Watch
+
+This plugin implements watch. A client that connects to CoreDNS using `coredns/client` can be notified
+of changes to A, AAAA, and SRV records for Kubernetes services and endpoints.
 
 ## Examples
 
@@ -199,7 +212,7 @@ or the word "any"), then that label will match all values.  The labels that acce
  * _port and/or protocol_ in an `SRV` request: __port_.__protocol_.service.namespace.svc.zone.,
    e.g. `_http.*.service.ns.svc.cluster.local`
  * multiple wild cards are allowed in a single query, e.g. `A` Request `*.*.svc.zone.` or `SRV` request `*.*.*.*.svc.zone.`
- 
+
  For example, Wildcards can be used to resolve all Endpoints for a Service as `A` records. e.g.: `*.service.ns.svc.myzone.local` will return the Endpoint IPs in the Service `service` in namespace `default`:
  ```
 *.service.default.svc.cluster.local. 5	IN A	192.168.10.10

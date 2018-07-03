@@ -1,6 +1,7 @@
 package nsid
 
 import (
+	"context"
 	"encoding/hex"
 	"testing"
 
@@ -10,7 +11,6 @@ import (
 	"github.com/coredns/coredns/plugin/whoami"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 func TestNsid(t *testing.T) {

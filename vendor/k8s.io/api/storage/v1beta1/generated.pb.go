@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,6 +27,12 @@ limitations under the License.
 	It has these top-level messages:
 		StorageClass
 		StorageClassList
+		VolumeAttachment
+		VolumeAttachmentList
+		VolumeAttachmentSource
+		VolumeAttachmentSpec
+		VolumeAttachmentStatus
+		VolumeError
 */
 package v1beta1
 
@@ -62,9 +68,39 @@ func (m *StorageClassList) Reset()                    { *m = StorageClassList{} 
 func (*StorageClassList) ProtoMessage()               {}
 func (*StorageClassList) Descriptor() ([]byte, []int) { return fileDescriptorGenerated, []int{1} }
 
+func (m *VolumeAttachment) Reset()                    { *m = VolumeAttachment{} }
+func (*VolumeAttachment) ProtoMessage()               {}
+func (*VolumeAttachment) Descriptor() ([]byte, []int) { return fileDescriptorGenerated, []int{2} }
+
+func (m *VolumeAttachmentList) Reset()                    { *m = VolumeAttachmentList{} }
+func (*VolumeAttachmentList) ProtoMessage()               {}
+func (*VolumeAttachmentList) Descriptor() ([]byte, []int) { return fileDescriptorGenerated, []int{3} }
+
+func (m *VolumeAttachmentSource) Reset()                    { *m = VolumeAttachmentSource{} }
+func (*VolumeAttachmentSource) ProtoMessage()               {}
+func (*VolumeAttachmentSource) Descriptor() ([]byte, []int) { return fileDescriptorGenerated, []int{4} }
+
+func (m *VolumeAttachmentSpec) Reset()                    { *m = VolumeAttachmentSpec{} }
+func (*VolumeAttachmentSpec) ProtoMessage()               {}
+func (*VolumeAttachmentSpec) Descriptor() ([]byte, []int) { return fileDescriptorGenerated, []int{5} }
+
+func (m *VolumeAttachmentStatus) Reset()                    { *m = VolumeAttachmentStatus{} }
+func (*VolumeAttachmentStatus) ProtoMessage()               {}
+func (*VolumeAttachmentStatus) Descriptor() ([]byte, []int) { return fileDescriptorGenerated, []int{6} }
+
+func (m *VolumeError) Reset()                    { *m = VolumeError{} }
+func (*VolumeError) ProtoMessage()               {}
+func (*VolumeError) Descriptor() ([]byte, []int) { return fileDescriptorGenerated, []int{7} }
+
 func init() {
 	proto.RegisterType((*StorageClass)(nil), "k8s.io.api.storage.v1beta1.StorageClass")
 	proto.RegisterType((*StorageClassList)(nil), "k8s.io.api.storage.v1beta1.StorageClassList")
+	proto.RegisterType((*VolumeAttachment)(nil), "k8s.io.api.storage.v1beta1.VolumeAttachment")
+	proto.RegisterType((*VolumeAttachmentList)(nil), "k8s.io.api.storage.v1beta1.VolumeAttachmentList")
+	proto.RegisterType((*VolumeAttachmentSource)(nil), "k8s.io.api.storage.v1beta1.VolumeAttachmentSource")
+	proto.RegisterType((*VolumeAttachmentSpec)(nil), "k8s.io.api.storage.v1beta1.VolumeAttachmentSpec")
+	proto.RegisterType((*VolumeAttachmentStatus)(nil), "k8s.io.api.storage.v1beta1.VolumeAttachmentStatus")
+	proto.RegisterType((*VolumeError)(nil), "k8s.io.api.storage.v1beta1.VolumeError")
 }
 func (m *StorageClass) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -152,6 +188,18 @@ func (m *StorageClass) MarshalTo(dAtA []byte) (int, error) {
 		i = encodeVarintGenerated(dAtA, i, uint64(len(*m.VolumeBindingMode)))
 		i += copy(dAtA[i:], *m.VolumeBindingMode)
 	}
+	if len(m.AllowedTopologies) > 0 {
+		for _, msg := range m.AllowedTopologies {
+			dAtA[i] = 0x42
+			i++
+			i = encodeVarintGenerated(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
 	return i, nil
 }
 
@@ -190,6 +238,242 @@ func (m *StorageClassList) MarshalTo(dAtA []byte) (int, error) {
 			i += n
 		}
 	}
+	return i, nil
+}
+
+func (m *VolumeAttachment) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *VolumeAttachment) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	dAtA[i] = 0xa
+	i++
+	i = encodeVarintGenerated(dAtA, i, uint64(m.ObjectMeta.Size()))
+	n3, err := m.ObjectMeta.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
+	}
+	i += n3
+	dAtA[i] = 0x12
+	i++
+	i = encodeVarintGenerated(dAtA, i, uint64(m.Spec.Size()))
+	n4, err := m.Spec.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
+	}
+	i += n4
+	dAtA[i] = 0x1a
+	i++
+	i = encodeVarintGenerated(dAtA, i, uint64(m.Status.Size()))
+	n5, err := m.Status.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
+	}
+	i += n5
+	return i, nil
+}
+
+func (m *VolumeAttachmentList) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *VolumeAttachmentList) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	dAtA[i] = 0xa
+	i++
+	i = encodeVarintGenerated(dAtA, i, uint64(m.ListMeta.Size()))
+	n6, err := m.ListMeta.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
+	}
+	i += n6
+	if len(m.Items) > 0 {
+		for _, msg := range m.Items {
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintGenerated(dAtA, i, uint64(msg.Size()))
+			n, err := msg.MarshalTo(dAtA[i:])
+			if err != nil {
+				return 0, err
+			}
+			i += n
+		}
+	}
+	return i, nil
+}
+
+func (m *VolumeAttachmentSource) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *VolumeAttachmentSource) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.PersistentVolumeName != nil {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintGenerated(dAtA, i, uint64(len(*m.PersistentVolumeName)))
+		i += copy(dAtA[i:], *m.PersistentVolumeName)
+	}
+	return i, nil
+}
+
+func (m *VolumeAttachmentSpec) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *VolumeAttachmentSpec) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	dAtA[i] = 0xa
+	i++
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.Attacher)))
+	i += copy(dAtA[i:], m.Attacher)
+	dAtA[i] = 0x12
+	i++
+	i = encodeVarintGenerated(dAtA, i, uint64(m.Source.Size()))
+	n7, err := m.Source.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
+	}
+	i += n7
+	dAtA[i] = 0x1a
+	i++
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.NodeName)))
+	i += copy(dAtA[i:], m.NodeName)
+	return i, nil
+}
+
+func (m *VolumeAttachmentStatus) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *VolumeAttachmentStatus) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	dAtA[i] = 0x8
+	i++
+	if m.Attached {
+		dAtA[i] = 1
+	} else {
+		dAtA[i] = 0
+	}
+	i++
+	if len(m.AttachmentMetadata) > 0 {
+		keysForAttachmentMetadata := make([]string, 0, len(m.AttachmentMetadata))
+		for k := range m.AttachmentMetadata {
+			keysForAttachmentMetadata = append(keysForAttachmentMetadata, string(k))
+		}
+		github_com_gogo_protobuf_sortkeys.Strings(keysForAttachmentMetadata)
+		for _, k := range keysForAttachmentMetadata {
+			dAtA[i] = 0x12
+			i++
+			v := m.AttachmentMetadata[string(k)]
+			mapSize := 1 + len(k) + sovGenerated(uint64(len(k))) + 1 + len(v) + sovGenerated(uint64(len(v)))
+			i = encodeVarintGenerated(dAtA, i, uint64(mapSize))
+			dAtA[i] = 0xa
+			i++
+			i = encodeVarintGenerated(dAtA, i, uint64(len(k)))
+			i += copy(dAtA[i:], k)
+			dAtA[i] = 0x12
+			i++
+			i = encodeVarintGenerated(dAtA, i, uint64(len(v)))
+			i += copy(dAtA[i:], v)
+		}
+	}
+	if m.AttachError != nil {
+		dAtA[i] = 0x1a
+		i++
+		i = encodeVarintGenerated(dAtA, i, uint64(m.AttachError.Size()))
+		n8, err := m.AttachError.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n8
+	}
+	if m.DetachError != nil {
+		dAtA[i] = 0x22
+		i++
+		i = encodeVarintGenerated(dAtA, i, uint64(m.DetachError.Size()))
+		n9, err := m.DetachError.MarshalTo(dAtA[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n9
+	}
+	return i, nil
+}
+
+func (m *VolumeError) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *VolumeError) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	dAtA[i] = 0xa
+	i++
+	i = encodeVarintGenerated(dAtA, i, uint64(m.Time.Size()))
+	n10, err := m.Time.MarshalTo(dAtA[i:])
+	if err != nil {
+		return 0, err
+	}
+	i += n10
+	dAtA[i] = 0x12
+	i++
+	i = encodeVarintGenerated(dAtA, i, uint64(len(m.Message)))
+	i += copy(dAtA[i:], m.Message)
 	return i, nil
 }
 
@@ -252,6 +536,12 @@ func (m *StorageClass) Size() (n int) {
 		l = len(*m.VolumeBindingMode)
 		n += 1 + l + sovGenerated(uint64(l))
 	}
+	if len(m.AllowedTopologies) > 0 {
+		for _, e := range m.AllowedTopologies {
+			l = e.Size()
+			n += 1 + l + sovGenerated(uint64(l))
+		}
+	}
 	return n
 }
 
@@ -266,6 +556,87 @@ func (m *StorageClassList) Size() (n int) {
 			n += 1 + l + sovGenerated(uint64(l))
 		}
 	}
+	return n
+}
+
+func (m *VolumeAttachment) Size() (n int) {
+	var l int
+	_ = l
+	l = m.ObjectMeta.Size()
+	n += 1 + l + sovGenerated(uint64(l))
+	l = m.Spec.Size()
+	n += 1 + l + sovGenerated(uint64(l))
+	l = m.Status.Size()
+	n += 1 + l + sovGenerated(uint64(l))
+	return n
+}
+
+func (m *VolumeAttachmentList) Size() (n int) {
+	var l int
+	_ = l
+	l = m.ListMeta.Size()
+	n += 1 + l + sovGenerated(uint64(l))
+	if len(m.Items) > 0 {
+		for _, e := range m.Items {
+			l = e.Size()
+			n += 1 + l + sovGenerated(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *VolumeAttachmentSource) Size() (n int) {
+	var l int
+	_ = l
+	if m.PersistentVolumeName != nil {
+		l = len(*m.PersistentVolumeName)
+		n += 1 + l + sovGenerated(uint64(l))
+	}
+	return n
+}
+
+func (m *VolumeAttachmentSpec) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.Attacher)
+	n += 1 + l + sovGenerated(uint64(l))
+	l = m.Source.Size()
+	n += 1 + l + sovGenerated(uint64(l))
+	l = len(m.NodeName)
+	n += 1 + l + sovGenerated(uint64(l))
+	return n
+}
+
+func (m *VolumeAttachmentStatus) Size() (n int) {
+	var l int
+	_ = l
+	n += 2
+	if len(m.AttachmentMetadata) > 0 {
+		for k, v := range m.AttachmentMetadata {
+			_ = k
+			_ = v
+			mapEntrySize := 1 + len(k) + sovGenerated(uint64(len(k))) + 1 + len(v) + sovGenerated(uint64(len(v)))
+			n += mapEntrySize + 1 + sovGenerated(uint64(mapEntrySize))
+		}
+	}
+	if m.AttachError != nil {
+		l = m.AttachError.Size()
+		n += 1 + l + sovGenerated(uint64(l))
+	}
+	if m.DetachError != nil {
+		l = m.DetachError.Size()
+		n += 1 + l + sovGenerated(uint64(l))
+	}
+	return n
+}
+
+func (m *VolumeError) Size() (n int) {
+	var l int
+	_ = l
+	l = m.Time.Size()
+	n += 1 + l + sovGenerated(uint64(l))
+	l = len(m.Message)
+	n += 1 + l + sovGenerated(uint64(l))
 	return n
 }
 
@@ -304,6 +675,7 @@ func (this *StorageClass) String() string {
 		`MountOptions:` + fmt.Sprintf("%v", this.MountOptions) + `,`,
 		`AllowVolumeExpansion:` + valueToStringGenerated(this.AllowVolumeExpansion) + `,`,
 		`VolumeBindingMode:` + valueToStringGenerated(this.VolumeBindingMode) + `,`,
+		`AllowedTopologies:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.AllowedTopologies), "TopologySelectorTerm", "k8s_io_api_core_v1.TopologySelectorTerm", 1), `&`, ``, 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -315,6 +687,85 @@ func (this *StorageClassList) String() string {
 	s := strings.Join([]string{`&StorageClassList{`,
 		`ListMeta:` + strings.Replace(strings.Replace(this.ListMeta.String(), "ListMeta", "k8s_io_apimachinery_pkg_apis_meta_v1.ListMeta", 1), `&`, ``, 1) + `,`,
 		`Items:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Items), "StorageClass", "StorageClass", 1), `&`, ``, 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *VolumeAttachment) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&VolumeAttachment{`,
+		`ObjectMeta:` + strings.Replace(strings.Replace(this.ObjectMeta.String(), "ObjectMeta", "k8s_io_apimachinery_pkg_apis_meta_v1.ObjectMeta", 1), `&`, ``, 1) + `,`,
+		`Spec:` + strings.Replace(strings.Replace(this.Spec.String(), "VolumeAttachmentSpec", "VolumeAttachmentSpec", 1), `&`, ``, 1) + `,`,
+		`Status:` + strings.Replace(strings.Replace(this.Status.String(), "VolumeAttachmentStatus", "VolumeAttachmentStatus", 1), `&`, ``, 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *VolumeAttachmentList) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&VolumeAttachmentList{`,
+		`ListMeta:` + strings.Replace(strings.Replace(this.ListMeta.String(), "ListMeta", "k8s_io_apimachinery_pkg_apis_meta_v1.ListMeta", 1), `&`, ``, 1) + `,`,
+		`Items:` + strings.Replace(strings.Replace(fmt.Sprintf("%v", this.Items), "VolumeAttachment", "VolumeAttachment", 1), `&`, ``, 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *VolumeAttachmentSource) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&VolumeAttachmentSource{`,
+		`PersistentVolumeName:` + valueToStringGenerated(this.PersistentVolumeName) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *VolumeAttachmentSpec) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&VolumeAttachmentSpec{`,
+		`Attacher:` + fmt.Sprintf("%v", this.Attacher) + `,`,
+		`Source:` + strings.Replace(strings.Replace(this.Source.String(), "VolumeAttachmentSource", "VolumeAttachmentSource", 1), `&`, ``, 1) + `,`,
+		`NodeName:` + fmt.Sprintf("%v", this.NodeName) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *VolumeAttachmentStatus) String() string {
+	if this == nil {
+		return "nil"
+	}
+	keysForAttachmentMetadata := make([]string, 0, len(this.AttachmentMetadata))
+	for k := range this.AttachmentMetadata {
+		keysForAttachmentMetadata = append(keysForAttachmentMetadata, k)
+	}
+	github_com_gogo_protobuf_sortkeys.Strings(keysForAttachmentMetadata)
+	mapStringForAttachmentMetadata := "map[string]string{"
+	for _, k := range keysForAttachmentMetadata {
+		mapStringForAttachmentMetadata += fmt.Sprintf("%v: %v,", k, this.AttachmentMetadata[k])
+	}
+	mapStringForAttachmentMetadata += "}"
+	s := strings.Join([]string{`&VolumeAttachmentStatus{`,
+		`Attached:` + fmt.Sprintf("%v", this.Attached) + `,`,
+		`AttachmentMetadata:` + mapStringForAttachmentMetadata + `,`,
+		`AttachError:` + strings.Replace(fmt.Sprintf("%v", this.AttachError), "VolumeError", "VolumeError", 1) + `,`,
+		`DetachError:` + strings.Replace(fmt.Sprintf("%v", this.DetachError), "VolumeError", "VolumeError", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *VolumeError) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&VolumeError{`,
+		`Time:` + strings.Replace(strings.Replace(this.Time.String(), "Time", "k8s_io_apimachinery_pkg_apis_meta_v1.Time", 1), `&`, ``, 1) + `,`,
+		`Message:` + fmt.Sprintf("%v", this.Message) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -641,6 +1092,37 @@ func (m *StorageClass) Unmarshal(dAtA []byte) error {
 			s := VolumeBindingMode(dAtA[iNdEx:postIndex])
 			m.VolumeBindingMode = &s
 			iNdEx = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AllowedTopologies", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AllowedTopologies = append(m.AllowedTopologies, k8s_io_api_core_v1.TopologySelectorTerm{})
+			if err := m.AllowedTopologies[len(m.AllowedTopologies)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipGenerated(dAtA[iNdEx:])
@@ -773,6 +1255,836 @@ func (m *StorageClassList) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *VolumeAttachment) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenerated
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: VolumeAttachment: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: VolumeAttachment: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ObjectMeta", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.ObjectMeta.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Spec", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Spec.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Status", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Status.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenerated(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *VolumeAttachmentList) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenerated
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: VolumeAttachmentList: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: VolumeAttachmentList: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ListMeta", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.ListMeta.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Items", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Items = append(m.Items, VolumeAttachment{})
+			if err := m.Items[len(m.Items)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenerated(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *VolumeAttachmentSource) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenerated
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: VolumeAttachmentSource: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: VolumeAttachmentSource: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PersistentVolumeName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			s := string(dAtA[iNdEx:postIndex])
+			m.PersistentVolumeName = &s
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenerated(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *VolumeAttachmentSpec) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenerated
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: VolumeAttachmentSpec: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: VolumeAttachmentSpec: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Attacher", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Attacher = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Source", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Source.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NodeName", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.NodeName = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenerated(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *VolumeAttachmentStatus) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenerated
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: VolumeAttachmentStatus: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: VolumeAttachmentStatus: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Attached", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Attached = bool(v != 0)
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AttachmentMetadata", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			var keykey uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				keykey |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			var stringLenmapkey uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLenmapkey |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLenmapkey := int(stringLenmapkey)
+			if intStringLenmapkey < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postStringIndexmapkey := iNdEx + intStringLenmapkey
+			if postStringIndexmapkey > l {
+				return io.ErrUnexpectedEOF
+			}
+			mapkey := string(dAtA[iNdEx:postStringIndexmapkey])
+			iNdEx = postStringIndexmapkey
+			if m.AttachmentMetadata == nil {
+				m.AttachmentMetadata = make(map[string]string)
+			}
+			if iNdEx < postIndex {
+				var valuekey uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowGenerated
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					valuekey |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				var stringLenmapvalue uint64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowGenerated
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					stringLenmapvalue |= (uint64(b) & 0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				intStringLenmapvalue := int(stringLenmapvalue)
+				if intStringLenmapvalue < 0 {
+					return ErrInvalidLengthGenerated
+				}
+				postStringIndexmapvalue := iNdEx + intStringLenmapvalue
+				if postStringIndexmapvalue > l {
+					return io.ErrUnexpectedEOF
+				}
+				mapvalue := string(dAtA[iNdEx:postStringIndexmapvalue])
+				iNdEx = postStringIndexmapvalue
+				m.AttachmentMetadata[mapkey] = mapvalue
+			} else {
+				var mapvalue string
+				m.AttachmentMetadata[mapkey] = mapvalue
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AttachError", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AttachError == nil {
+				m.AttachError = &VolumeError{}
+			}
+			if err := m.AttachError.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field DetachError", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.DetachError == nil {
+				m.DetachError = &VolumeError{}
+			}
+			if err := m.DetachError.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenerated(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *VolumeError) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowGenerated
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: VolumeError: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: VolumeError: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Time", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Time.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Message", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowGenerated
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Message = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipGenerated(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthGenerated
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipGenerated(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -883,44 +2195,69 @@ func init() {
 }
 
 var fileDescriptorGenerated = []byte{
-	// 622 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0xcd, 0x6e, 0xd3, 0x40,
-	0x14, 0x85, 0xe3, 0x86, 0xd0, 0x76, 0xd2, 0x8a, 0xd4, 0x74, 0x61, 0x65, 0x61, 0x47, 0x5d, 0x45,
-	0x48, 0x1d, 0xb7, 0xa5, 0xa0, 0x0a, 0x89, 0x05, 0xae, 0xba, 0x40, 0x6a, 0xd4, 0xc8, 0x48, 0x15,
-	0x42, 0x2c, 0x98, 0x38, 0x17, 0x77, 0x88, 0x3d, 0x63, 0xcd, 0x8c, 0x03, 0xd9, 0xf1, 0x08, 0xbc,
-	0x01, 0x8f, 0xc2, 0xb6, 0xcb, 0x2e, 0xbb, 0xb2, 0xa8, 0x79, 0x8b, 0xae, 0x90, 0x7f, 0x68, 0xdc,
-	0xfc, 0x88, 0xee, 0x3c, 0xf7, 0x9e, 0xef, 0xdc, 0x99, 0xeb, 0x83, 0x8e, 0x47, 0x47, 0x12, 0x53,
-	0x6e, 0x8f, 0xe2, 0x01, 0x08, 0x06, 0x0a, 0xa4, 0x3d, 0x06, 0x36, 0xe4, 0xc2, 0x2e, 0x1b, 0x24,
-	0xa2, 0xb6, 0x54, 0x5c, 0x10, 0x1f, 0xec, 0xf1, 0xfe, 0x00, 0x14, 0xd9, 0xb7, 0x7d, 0x60, 0x20,
-	0x88, 0x82, 0x21, 0x8e, 0x04, 0x57, 0x5c, 0x6f, 0x17, 0x5a, 0x4c, 0x22, 0x8a, 0x4b, 0x2d, 0x2e,
-	0xb5, 0xed, 0x5d, 0x9f, 0xaa, 0x8b, 0x78, 0x80, 0x3d, 0x1e, 0xda, 0x3e, 0xf7, 0xb9, 0x9d, 0x23,
-	0x83, 0xf8, 0x73, 0x7e, 0xca, 0x0f, 0xf9, 0x57, 0x61, 0xd5, 0xde, 0xa9, 0x8c, 0xf5, 0xb8, 0xc8,
-	0x66, 0xce, 0x8e, 0x6b, 0x1f, 0x4e, 0x35, 0x21, 0xf1, 0x2e, 0x28, 0x03, 0x31, 0xb1, 0xa3, 0x91,
-	0x9f, 0x15, 0xa4, 0x1d, 0x82, 0x22, 0x8b, 0x28, 0x7b, 0x19, 0x25, 0x62, 0xa6, 0x68, 0x08, 0x73,
-	0xc0, 0xcb, 0xff, 0x01, 0xd2, 0xbb, 0x80, 0x90, 0xcc, 0x71, 0xcf, 0x97, 0x71, 0xb1, 0xa2, 0x81,
-	0x4d, 0x99, 0x92, 0x4a, 0xcc, 0x42, 0x3b, 0x3f, 0x1b, 0x68, 0xe3, 0x5d, 0xb1, 0xba, 0xe3, 0x80,
-	0x48, 0xa9, 0x7f, 0x42, 0x6b, 0xd9, 0x4b, 0x86, 0x44, 0x11, 0x43, 0xeb, 0x68, 0xdd, 0xe6, 0xc1,
-	0x1e, 0x9e, 0xae, 0xf9, 0xce, 0x18, 0x47, 0x23, 0x3f, 0x2b, 0x48, 0x9c, 0xa9, 0xf1, 0x78, 0x1f,
-	0x9f, 0x0d, 0xbe, 0x80, 0xa7, 0x7a, 0xa0, 0x88, 0xa3, 0x5f, 0x26, 0x56, 0x2d, 0x4d, 0x2c, 0x34,
-	0xad, 0xb9, 0x77, 0xae, 0xfa, 0x0b, 0xd4, 0x8c, 0x04, 0x1f, 0x53, 0x49, 0x39, 0x03, 0x61, 0xac,
-	0x74, 0xb4, 0xee, 0xba, 0xf3, 0xb4, 0x44, 0x9a, 0xfd, 0x69, 0xcb, 0xad, 0xea, 0xf4, 0x00, 0xa1,
-	0x88, 0x08, 0x12, 0x82, 0x02, 0x21, 0x8d, 0x7a, 0xa7, 0xde, 0x6d, 0x1e, 0x1c, 0xe1, 0xe5, 0x09,
-	0xc0, 0xd5, 0x67, 0xe1, 0xfe, 0x1d, 0x7a, 0xc2, 0x94, 0x98, 0x4c, 0xaf, 0x38, 0x6d, 0xb8, 0x15,
-	0x7f, 0x7d, 0x84, 0x36, 0x05, 0x78, 0x01, 0xa1, 0x61, 0x9f, 0x07, 0xd4, 0x9b, 0x18, 0x8f, 0xf2,
-	0x6b, 0x9e, 0xa4, 0x89, 0xb5, 0xe9, 0x56, 0x1b, 0xb7, 0x89, 0xb5, 0x37, 0x9f, 0x1d, 0xdc, 0x07,
-	0x21, 0xa9, 0x54, 0xc0, 0xd4, 0x39, 0x0f, 0xe2, 0x10, 0xee, 0x31, 0xee, 0x7d, 0x6f, 0xfd, 0x10,
-	0x6d, 0x84, 0x3c, 0x66, 0xea, 0x2c, 0x52, 0x94, 0x33, 0x69, 0x34, 0x3a, 0xf5, 0xee, 0xba, 0xd3,
-	0x4a, 0x13, 0x6b, 0xa3, 0x57, 0xa9, 0xbb, 0xf7, 0x54, 0xfa, 0x29, 0xda, 0x26, 0x41, 0xc0, 0xbf,
-	0x16, 0x03, 0x4e, 0xbe, 0x45, 0x84, 0x65, 0xab, 0x32, 0x1e, 0x77, 0xb4, 0xee, 0x9a, 0x63, 0xa4,
-	0x89, 0xb5, 0xfd, 0x66, 0x41, 0xdf, 0x5d, 0x48, 0xe9, 0xef, 0xd1, 0xd6, 0x38, 0x2f, 0x39, 0x94,
-	0x0d, 0x29, 0xf3, 0x7b, 0x7c, 0x08, 0xc6, 0x6a, 0xfe, 0xe8, 0x67, 0x69, 0x62, 0x6d, 0x9d, 0xcf,
-	0x36, 0x6f, 0x17, 0x15, 0xdd, 0x79, 0x93, 0xf6, 0x6b, 0xf4, 0x64, 0x66, 0xfb, 0x7a, 0x0b, 0xd5,
-	0x47, 0x30, 0xc9, 0xf3, 0xb5, 0xee, 0x66, 0x9f, 0xfa, 0x36, 0x6a, 0x8c, 0x49, 0x10, 0x43, 0x11,
-	0x07, 0xb7, 0x38, 0xbc, 0x5a, 0x39, 0xd2, 0x76, 0x7e, 0x69, 0xa8, 0x55, 0xfd, 0x95, 0xa7, 0x54,
-	0x2a, 0xfd, 0xe3, 0x5c, 0x4a, 0xf1, 0xc3, 0x52, 0x9a, 0xd1, 0x79, 0x46, 0x5b, 0x65, 0x00, 0xd6,
-	0xfe, 0x55, 0x2a, 0x09, 0xed, 0xa1, 0x06, 0x55, 0x10, 0x4a, 0x63, 0x25, 0x4f, 0x59, 0xf7, 0xa1,
-	0x29, 0x73, 0x36, 0x4b, 0xd3, 0xc6, 0xdb, 0x0c, 0x77, 0x0b, 0x17, 0x67, 0xf7, 0xf2, 0xc6, 0xac,
-	0x5d, 0xdd, 0x98, 0xb5, 0xeb, 0x1b, 0xb3, 0xf6, 0x3d, 0x35, 0xb5, 0xcb, 0xd4, 0xd4, 0xae, 0x52,
-	0x53, 0xbb, 0x4e, 0x4d, 0xed, 0x77, 0x6a, 0x6a, 0x3f, 0xfe, 0x98, 0xb5, 0x0f, 0xab, 0xa5, 0xe3,
-	0xdf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x66, 0xe2, 0x8e, 0x84, 0x1b, 0x05, 0x00, 0x00,
+	// 1022 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x56, 0x4d, 0x6f, 0x1b, 0x45,
+	0x18, 0xce, 0xc6, 0xf9, 0x70, 0xc6, 0x09, 0x4d, 0x96, 0x08, 0x8c, 0x0f, 0x76, 0xe4, 0x0b, 0xa6,
+	0x6a, 0x76, 0x9b, 0x50, 0x50, 0x84, 0xc4, 0xc1, 0x5b, 0x72, 0x00, 0xc5, 0x6d, 0x98, 0x44, 0x15,
+	0xaa, 0x38, 0x30, 0xd9, 0x7d, 0xeb, 0x0c, 0xde, 0xdd, 0x59, 0x66, 0xc6, 0xa6, 0xb9, 0x71, 0xe2,
+	0x8c, 0x38, 0xf0, 0x0b, 0xf8, 0x1f, 0x1c, 0xc9, 0x09, 0xf5, 0xd8, 0x93, 0x45, 0xcc, 0xbf, 0x88,
+	0x38, 0xa0, 0x99, 0x9d, 0x78, 0xd7, 0x5e, 0x9b, 0x36, 0x3d, 0xf4, 0xe6, 0xf7, 0xe3, 0x79, 0xde,
+	0xef, 0x59, 0xa3, 0x87, 0xbd, 0x03, 0xe1, 0x50, 0xe6, 0xf6, 0xfa, 0x67, 0xc0, 0x63, 0x90, 0x20,
+	0xdc, 0x01, 0xc4, 0x01, 0xe3, 0xae, 0x31, 0x90, 0x84, 0xba, 0x42, 0x32, 0x4e, 0xba, 0xe0, 0x0e,
+	0xf6, 0xce, 0x40, 0x92, 0x3d, 0xb7, 0x0b, 0x31, 0x70, 0x22, 0x21, 0x70, 0x12, 0xce, 0x24, 0xb3,
+	0x6b, 0xa9, 0xaf, 0x43, 0x12, 0xea, 0x18, 0x5f, 0xc7, 0xf8, 0xd6, 0x76, 0xbb, 0x54, 0x9e, 0xf7,
+	0xcf, 0x1c, 0x9f, 0x45, 0x6e, 0x97, 0x75, 0x99, 0xab, 0x21, 0x67, 0xfd, 0x67, 0x5a, 0xd2, 0x82,
+	0xfe, 0x95, 0x52, 0xd5, 0x9a, 0xb9, 0xb0, 0x3e, 0xe3, 0x2a, 0xe6, 0x74, 0xb8, 0x5a, 0x27, 0xf3,
+	0x81, 0xe7, 0x12, 0x62, 0x41, 0x59, 0x2c, 0x76, 0x49, 0x42, 0x05, 0xf0, 0x01, 0x70, 0x37, 0xe9,
+	0x75, 0x95, 0x4d, 0x4c, 0x3a, 0xcc, 0xcb, 0xbe, 0xf6, 0x20, 0xa3, 0x8b, 0x88, 0x7f, 0x4e, 0x63,
+	0xe0, 0x17, 0x19, 0x47, 0x04, 0x92, 0xcc, 0x4a, 0xc2, 0x9d, 0x87, 0xe2, 0xfd, 0x58, 0xd2, 0x08,
+	0x0a, 0x80, 0x4f, 0x5f, 0x05, 0x10, 0xfe, 0x39, 0x44, 0xa4, 0x80, 0xfb, 0x78, 0x1e, 0xae, 0x2f,
+	0x69, 0xe8, 0xd2, 0x58, 0x0a, 0xc9, 0xa7, 0x41, 0xcd, 0x5f, 0x57, 0xd0, 0xfa, 0x49, 0x3a, 0x89,
+	0x87, 0x21, 0x11, 0xc2, 0xfe, 0x0e, 0x95, 0x55, 0x25, 0x01, 0x91, 0xa4, 0x6a, 0xed, 0x58, 0xad,
+	0xca, 0xfe, 0x7d, 0x27, 0x9b, 0xda, 0x98, 0xd8, 0x49, 0x7a, 0x5d, 0xa5, 0x10, 0x8e, 0xf2, 0x76,
+	0x06, 0x7b, 0xce, 0xe3, 0xb3, 0xef, 0xc1, 0x97, 0x1d, 0x90, 0xc4, 0xb3, 0x2f, 0x87, 0x8d, 0x85,
+	0xd1, 0xb0, 0x81, 0x32, 0x1d, 0x1e, 0xb3, 0xda, 0x9f, 0xa0, 0x4a, 0xc2, 0xd9, 0x80, 0xaa, 0x66,
+	0x03, 0xaf, 0x2e, 0xee, 0x58, 0xad, 0x35, 0xef, 0x5d, 0x03, 0xa9, 0x1c, 0x67, 0x26, 0x9c, 0xf7,
+	0xb3, 0x43, 0x84, 0x12, 0xc2, 0x49, 0x04, 0x12, 0xb8, 0xa8, 0x96, 0x76, 0x4a, 0xad, 0xca, 0xfe,
+	0x81, 0x33, 0x7f, 0xa1, 0x9c, 0x7c, 0x59, 0xce, 0xf1, 0x18, 0x7a, 0x18, 0x4b, 0x7e, 0x91, 0xa5,
+	0x98, 0x19, 0x70, 0x8e, 0xdf, 0xee, 0xa1, 0x0d, 0x0e, 0x7e, 0x48, 0x68, 0x74, 0xcc, 0x42, 0xea,
+	0x5f, 0x54, 0x97, 0x74, 0x9a, 0x87, 0xa3, 0x61, 0x63, 0x03, 0xe7, 0x0d, 0xd7, 0xc3, 0xc6, 0xfd,
+	0xe2, 0x2a, 0x3a, 0xc7, 0xc0, 0x05, 0x15, 0x12, 0x62, 0xf9, 0x84, 0x85, 0xfd, 0x08, 0x26, 0x30,
+	0x78, 0x92, 0xdb, 0x7e, 0x80, 0xd6, 0x23, 0xd6, 0x8f, 0xe5, 0xe3, 0x44, 0xaa, 0x05, 0xac, 0x2e,
+	0xef, 0x94, 0x5a, 0x6b, 0xde, 0xe6, 0x68, 0xd8, 0x58, 0xef, 0xe4, 0xf4, 0x78, 0xc2, 0xcb, 0x3e,
+	0x42, 0xdb, 0x24, 0x0c, 0xd9, 0x8f, 0x69, 0x80, 0xc3, 0xe7, 0x09, 0xd1, 0xfb, 0x5b, 0x5d, 0xd9,
+	0xb1, 0x5a, 0x65, 0xaf, 0x3a, 0x1a, 0x36, 0xb6, 0xdb, 0x33, 0xec, 0x78, 0x26, 0xca, 0xfe, 0x06,
+	0x6d, 0x0d, 0xb4, 0xca, 0xa3, 0x71, 0x40, 0xe3, 0x6e, 0x87, 0x05, 0x50, 0x5d, 0xd5, 0x45, 0xdf,
+	0x1d, 0x0d, 0x1b, 0x5b, 0x4f, 0xa6, 0x8d, 0xd7, 0xb3, 0x94, 0xb8, 0x48, 0x62, 0xff, 0x80, 0xb6,
+	0x74, 0x44, 0x08, 0x4e, 0x59, 0xc2, 0x42, 0xd6, 0xa5, 0x20, 0xaa, 0x65, 0x3d, 0xbf, 0x56, 0x7e,
+	0x7e, 0xaa, 0x75, 0x6a, 0x91, 0x8c, 0xd7, 0xc5, 0x09, 0x84, 0xe0, 0x4b, 0xc6, 0x4f, 0x81, 0x47,
+	0xde, 0x07, 0x66, 0x5e, 0x5b, 0xed, 0x69, 0x2a, 0x5c, 0x64, 0xaf, 0x7d, 0x8e, 0xee, 0x4c, 0x0d,
+	0xdc, 0xde, 0x44, 0xa5, 0x1e, 0x5c, 0xe8, 0x95, 0x5e, 0xc3, 0xea, 0xa7, 0xbd, 0x8d, 0x96, 0x07,
+	0x24, 0xec, 0x43, 0xba, 0x81, 0x38, 0x15, 0x3e, 0x5b, 0x3c, 0xb0, 0x9a, 0x7f, 0x58, 0x68, 0x33,
+	0xbf, 0x3d, 0x47, 0x54, 0x48, 0xfb, 0xdb, 0xc2, 0x61, 0x38, 0xaf, 0x77, 0x18, 0x0a, 0xad, 0xcf,
+	0x62, 0xd3, 0xd4, 0x50, 0xbe, 0xd1, 0xe4, 0x8e, 0xa2, 0x83, 0x96, 0xa9, 0x84, 0x48, 0x54, 0x17,
+	0x8b, 0x8d, 0xf9, 0xbf, 0xc5, 0xf6, 0x36, 0x0c, 0xe9, 0xf2, 0x97, 0x0a, 0x8e, 0x53, 0x96, 0xe6,
+	0xef, 0x8b, 0x68, 0x33, 0x1d, 0x4e, 0x5b, 0x4a, 0xe2, 0x9f, 0x47, 0x10, 0xcb, 0xb7, 0x70, 0xda,
+	0x18, 0x2d, 0x89, 0x04, 0x7c, 0xdd, 0xd1, 0x49, 0xf6, 0x42, 0x11, 0xd3, 0xd9, 0x9d, 0x24, 0xe0,
+	0x7b, 0xeb, 0x86, 0x7d, 0x49, 0x49, 0x58, 0x73, 0xd9, 0x4f, 0xd1, 0x8a, 0x90, 0x44, 0xf6, 0xd5,
+	0xcd, 0x2b, 0xd6, 0xfd, 0x5b, 0xb1, 0x6a, 0xa4, 0xf7, 0x8e, 0xe1, 0x5d, 0x49, 0x65, 0x6c, 0x18,
+	0x9b, 0x7f, 0x5a, 0x68, 0x7b, 0x1a, 0xf2, 0x16, 0x86, 0xfd, 0xf5, 0xe4, 0xb0, 0xef, 0xdd, 0xa6,
+	0xa2, 0x39, 0x03, 0x7f, 0x86, 0xde, 0x2b, 0xd4, 0xce, 0xfa, 0xdc, 0x07, 0xf5, 0x4c, 0x24, 0x53,
+	0x8f, 0xd1, 0x23, 0x12, 0x41, 0x7a, 0x09, 0xe9, 0x33, 0x71, 0x3c, 0xc3, 0x8e, 0x67, 0xa2, 0x9a,
+	0x7f, 0xcd, 0xe8, 0x98, 0x1a, 0x96, 0x7d, 0x0f, 0x95, 0x89, 0xd6, 0x00, 0x37, 0xd4, 0xe3, 0x0e,
+	0xb4, 0x8d, 0x1e, 0x8f, 0x3d, 0xf4, 0x50, 0x75, 0x7a, 0x66, 0x55, 0x6e, 0x37, 0x54, 0x8d, 0xcc,
+	0x0d, 0x55, 0xcb, 0xd8, 0x30, 0xaa, 0x4c, 0x62, 0x16, 0xa4, 0x45, 0x96, 0x26, 0x33, 0x79, 0x64,
+	0xf4, 0x78, 0xec, 0xd1, 0xfc, 0xb7, 0x34, 0xa3, 0x73, 0x7a, 0x3b, 0x72, 0x25, 0x05, 0xba, 0xa4,
+	0x72, 0xa1, 0xa4, 0x60, 0x5c, 0x52, 0x60, 0xff, 0x66, 0x21, 0x9b, 0x8c, 0x29, 0x3a, 0x37, 0xdb,
+	0x93, 0x8e, 0xf8, 0xab, 0xdb, 0x2f, 0xad, 0xd3, 0x2e, 0x90, 0xa5, 0x9f, 0xae, 0x9a, 0x49, 0xc2,
+	0x2e, 0x3a, 0xe0, 0x19, 0x19, 0xd8, 0x14, 0x55, 0x52, 0xed, 0x21, 0xe7, 0x8c, 0x9b, 0x2b, 0xfa,
+	0xf0, 0xd5, 0x09, 0x69, 0x77, 0xaf, 0xae, 0x3e, 0xca, 0xed, 0x0c, 0x7f, 0x3d, 0x6c, 0x54, 0x72,
+	0x76, 0x9c, 0xe7, 0x56, 0xa1, 0x02, 0xc8, 0x42, 0x2d, 0xbd, 0x41, 0xa8, 0x2f, 0x60, 0x7e, 0xa8,
+	0x1c, 0x77, 0xed, 0x10, 0xbd, 0x3f, 0xa7, 0x41, 0xb7, 0x7a, 0xea, 0x7f, 0xb6, 0x50, 0x3e, 0x86,
+	0x7d, 0x84, 0x96, 0xd4, 0x7f, 0x2c, 0x73, 0xf4, 0x77, 0x5f, 0xef, 0xe8, 0x4f, 0x69, 0x04, 0xd9,
+	0xdb, 0xa5, 0x24, 0xac, 0x59, 0xec, 0x8f, 0xd0, 0x6a, 0x04, 0x42, 0x90, 0xae, 0x89, 0xec, 0xdd,
+	0x31, 0x4e, 0xab, 0x9d, 0x54, 0x8d, 0x6f, 0xec, 0xde, 0xee, 0xe5, 0x55, 0x7d, 0xe1, 0xc5, 0x55,
+	0x7d, 0xe1, 0xe5, 0x55, 0x7d, 0xe1, 0xa7, 0x51, 0xdd, 0xba, 0x1c, 0xd5, 0xad, 0x17, 0xa3, 0xba,
+	0xf5, 0x72, 0x54, 0xb7, 0xfe, 0x1e, 0xd5, 0xad, 0x5f, 0xfe, 0xa9, 0x2f, 0x3c, 0x5d, 0x35, 0x7d,
+	0xfb, 0x2f, 0x00, 0x00, 0xff, 0xff, 0xd8, 0xa9, 0x81, 0xd5, 0x8f, 0x0b, 0x00, 0x00,
 }

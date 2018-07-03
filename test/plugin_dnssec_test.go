@@ -15,7 +15,7 @@ func TestLookupBalanceRewriteCacheDnssec(t *testing.T) {
 	t.Parallel()
 	name, rm, err := test.TempFile(".", exampleOrg)
 	if err != nil {
-		t.Fatalf("failed to create zone: %s", err)
+		t.Fatalf("Failed to create zone: %s", err)
 	}
 	defer rm()
 	rm1 := createKeyFile(t)
@@ -52,7 +52,7 @@ func TestLookupBalanceRewriteCacheDnssec(t *testing.T) {
 		}
 	}
 	if sig == 0 {
-		t.Errorf("expected RRSIGs, got none")
+		t.Errorf("Expected RRSIGs, got none")
 		t.Logf("%v\n", res)
 	}
 }

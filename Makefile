@@ -4,6 +4,9 @@ BINARY:=coredns
 SYSTEM:=
 CHECKS:=check godeps
 VERBOSE:=-v
+GOPATH?=$(HOME)/go
+PRESUBMIT:=core coremain plugin test request
+MAKEPWD:=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 
 all: coredns
 
@@ -12,7 +15,7 @@ coredns: $(CHECKS)
 	CGO_ENABLED=0 $(SYSTEM) go build $(VERBOSE) -ldflags="-s -w -X github.com/coredns/coredns/coremain.GitCommit=$(GITCOMMIT)" -o $(BINARY)
 
 .PHONY: check
-check: linter goimports core/zplugin.go core/dnsserver/zdirectives.go godeps
+check: presubmit goimports core/zplugin.go core/dnsserver/zdirectives.go godeps
 
 .PHONY: test
 test: check
@@ -24,24 +27,19 @@ testk8s: check
 
 .PHONY: godeps
 godeps:
+	@ # Not vendoring these, so external plugins compile, avoiding:
+	@ # cannot use c (type *"github.com/mholt/caddy".Controller) as type
+	@ # *"github.com/coredns/coredns/vendor/github.com/mholt/caddy".Controller like errors.
 	(cd $(GOPATH)/src/github.com/mholt/caddy 2>/dev/null              && git checkout -q master 2>/dev/null || true)
 	(cd $(GOPATH)/src/github.com/miekg/dns 2>/dev/null                && git checkout -q master 2>/dev/null || true)
 	(cd $(GOPATH)/src/github.com/prometheus/client_golang 2>/dev/null && git checkout -q master 2>/dev/null || true)
-	(cd $(GOPATH)/src/golang.org/x/net 2>/dev/null                    && git checkout -q master 2>/dev/null || true)
-	(cd $(GOPATH)/src/golang.org/x/text 2>/dev/null                   && git checkout -q master 2>/dev/null || true)
 	go get -u github.com/mholt/caddy
 	go get -u github.com/miekg/dns
 	go get -u github.com/prometheus/client_golang/prometheus/promhttp
 	go get -u github.com/prometheus/client_golang/prometheus
-	go get -u golang.org/x/net/context
-	go get -u golang.org/x/text
 	(cd $(GOPATH)/src/github.com/mholt/caddy              && git checkout -q v0.10.11)
-	(cd $(GOPATH)/src/github.com/miekg/dns                && git checkout -q v1.0.4)
+	(cd $(GOPATH)/src/github.com/miekg/dns                && git checkout -q v1.0.8)
 	(cd $(GOPATH)/src/github.com/prometheus/client_golang && git checkout -q v0.8.0)
-	(cd $(GOPATH)/src/golang.org/x/net                    && git checkout -q release-branch.go1.10)
-	(cd $(GOPATH)/src/golang.org/x/text                   && git checkout -q v0.3.0)
-	# github.com/flynn/go-shlex is required by mholt/caddy at the moment
-	go get -u github.com/flynn/go-shlex
 
 .PHONY: travis
 travis: check
@@ -76,15 +74,20 @@ core/zplugin.go core/dnsserver/zdirectives.go: plugin.cfg
 gen:
 	go generate coredns.go
 
-.PHONY: linter
-linter:
-	go get -u github.com/alecthomas/gometalinter
-	gometalinter --install golint
-	gometalinter --deadline=2m --disable-all --enable=golint --enable=vet --vendor --exclude=^pb/ ./...
+.PHONY: pb
+pb:
+	$(MAKE) -C pb
 
 .PHONY: goimports
 goimports:
-	( gometalinter --deadline=2m --disable-all --enable=goimports --vendor --exclude=^pb/ ./... || true )
+	go get -u github.com/alecthomas/gometalinter
+	gometalinter --install goimports > /dev/null
+	( gometalinter --deadline=2m --disable-all --enable=goimports --enable=golint --enable=vet --vendor --exclude=^pb/ ./... || true )
+
+# Presubmit runs all scripts in .presubmit; any non 0 exit code will fail the build.
+.PHONY: presubmit
+presubmit:
+	@for pre in $(MAKEPWD)/.presubmit/* ; do "$$pre" $(PRESUBMIT); done
 
 .PHONY: clean
 clean:

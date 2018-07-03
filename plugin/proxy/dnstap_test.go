@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 func testCase(t *testing.T, ex Exchanger, q, r *dns.Msg, datq, datr *msg.Builder) {
@@ -24,13 +24,13 @@ func testCase(t *testing.T, ex Exchanger, q, r *dns.Msg, datq, datr *msg.Builder
 		t.Fatal(err)
 	}
 	if len(ctx.Trap) != 2 {
-		t.Fatalf("messages: %d", len(ctx.Trap))
+		t.Fatalf("Messages: %d", len(ctx.Trap))
 	}
 	if !test.MsgEqual(ctx.Trap[0], tapq) {
-		t.Errorf("want: %v\nhave: %v", tapq, ctx.Trap[0])
+		t.Errorf("Want: %v\nhave: %v", tapq, ctx.Trap[0])
 	}
 	if !test.MsgEqual(ctx.Trap[1], tapr) {
-		t.Errorf("want: %v\nhave: %v", tapr, ctx.Trap[1])
+		t.Errorf("Want: %v\nhave: %v", tapr, ctx.Trap[1])
 	}
 }
 
@@ -47,7 +47,6 @@ func TestDnstap(t *testing.T) {
 	tapq.SocketProto = tap.SocketProtocol_TCP
 	tapr.SocketProto = tap.SocketProtocol_TCP
 	testCase(t, newDNSExWithOption(Options{ForceTCP: true}), q, r, tapq, tapr)
-	testCase(t, newGoogle("", []string{"8.8.8.8:53", "8.8.4.4:53"}), q, r, tapq, tapr)
 }
 
 func TestNoDnstap(t *testing.T) {

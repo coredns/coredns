@@ -1,9 +1,9 @@
 package proxy
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 
 	"github.com/coredns/coredns/pb"
 	"github.com/coredns/coredns/plugin/pkg/trace"
@@ -12,7 +12,6 @@ import (
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/miekg/dns"
 	opentracing "github.com/opentracing/opentracing-go"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -67,7 +66,7 @@ func (g *grpcClient) OnShutdown(p *Proxy) error {
 	for i, conn := range g.conns {
 		err := conn.Close()
 		if err != nil {
-			log.Printf("[WARNING] Error closing connection %d: %s\n", i, err)
+			log.Warningf("Error closing connection %d: %s\n", i, err)
 		}
 	}
 	g.conns = []*grpc.ClientConn{}
@@ -84,13 +83,13 @@ func (g *grpcClient) OnStartup(p *Proxy) error {
 			intercept := otgrpc.OpenTracingClientInterceptor(t.Tracer(), otgrpc.IncludingSpans(onlyIfParent))
 			dialOpts = append(dialOpts, grpc.WithUnaryInterceptor(intercept))
 		} else {
-			log.Printf("[WARNING] Wrong type for trace plugin reference: %s", p.Trace)
+			log.Warningf("Wrong type for trace plugin reference: %s", p.Trace)
 		}
 	}
 	for _, host := range g.upstream.Hosts {
 		conn, err := grpc.Dial(host.Name, dialOpts...)
 		if err != nil {
-			log.Printf("[WARNING] Skipping gRPC host '%s' due to Dial error: %s\n", host.Name, err)
+			log.Warningf("Skipping gRPC host '%s' due to Dial error: %s\n", host.Name, err)
 		} else {
 			g.clients[host.Name] = pb.NewDnsServiceClient(conn)
 			g.conns = append(g.conns, conn)

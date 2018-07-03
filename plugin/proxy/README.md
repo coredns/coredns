@@ -25,13 +25,13 @@ However, advanced features including load balancing can be utilized with an expa
 
 ~~~
 proxy FROM TO... {
-    policy random|least_conn|round_robin|first
+    policy random|least_conn|round_robin|sequential
     fail_timeout DURATION
     max_fails INTEGER
     health_check PATH:PORT [DURATION]
     except IGNORED_NAMES...
     spray
-    protocol [dns [force_tcp]|https_google [bootstrap ADDRESS...]|grpc [insecure|CACERT|KEY CERT|KEY CERT CACERT]]
+    protocol [dns [force_tcp]|grpc [insecure|CACERT|KEY CERT|KEY CERT CACERT]]
 }
 ~~~
 
@@ -39,7 +39,7 @@ proxy FROM TO... {
 * **TO** is the destination endpoint to proxy to. At least one is required, but multiple may be
   specified. **TO** may be an IP:Port pair, or may reference a file in resolv.conf format
 * `policy` is the load balancing policy to use; applies only with multiple backends. May be one of
-  random, least_conn, round_robin or first. Default is random.
+  random, least_conn, round_robin or sequential. Default is random.
 * `fail_timeout` specifies how long to consider a backend as down after it has failed. While it is
   down, requests will not be routed to that backend. A backend is "down" if CoreDNS fails to
   communicate with it. The default value is 2 seconds ("2s").
@@ -54,25 +54,23 @@ proxy FROM TO... {
 * `spray` when all backends are unhealthy, randomly pick one to send the traffic to. (This is
   a failsafe.)
 * `protocol` specifies what protocol to use to speak to an upstream, `dns` (the default) is plain
-  old DNS, and `https_google` uses `https://dns.google.com` and speaks a JSON DNS dialect. Note when
-  using this **TO** will be ignored. The `grpc` option will talk to a server that has implemented
+  old DNS. The `grpc` option will talk to a server that has implemented
   the [DnsService](https://github.com/coredns/coredns/blob/master/pb/dns.proto).
 
 ## Policies
 
-There are three load-balancing policies available:
+There are four load-balancing policies available:
 * `random` (default) - Randomly select a backend
 * `least_conn` - Select the backend with the fewest active connections
 * `round_robin` - Select the backend in round-robin fashion
+* `sequential` - Select the first available backend looking by order of declaration from left to right
+* `first` - Deprecated.  Use sequential instead
+
 
 All polices implement randomly spraying packets to backend hosts when *no healthy* hosts are
 available. This is to preeempt the case where the healthchecking (as a mechanism) fails.
 
 ## Upstream Protocols
-
-Currently `protocol` supports `dns` (i.e., standard DNS over UDP/TCP) and `https_google` (JSON
-payload over HTTPS). Note that with `https_google` the entire transport is encrypted. Only *you* and
-*Google* can see your DNS activity.
 
 `dns`
 :   uses the standard DNS exchange. You can pass `force_tcp` to make sure that the proxied connection is performed
@@ -89,24 +87,19 @@ payload over HTTPS). Note that with `https_google` the entire transport is encry
   * **KEY** **CERT** **CACERT** - Client authentication is used with the specified key/cert pair. The
      server certificate is verified using the **CACERT** file.
 
-`https_google`
-:    bootstrap **ADDRESS...** is used to (re-)resolve `dns.google.com`.
-
-    This happens every 300s. If not specified the default is used: 8.8.8.8:53/8.8.4.4:53.
-    Note that **TO** is *ignored* when `https_google` is used, as its upstream is defined as `dns.google.com`.
-
-
 ## Metrics
 
 If monitoring is enabled (via the *prometheus* directive) then the following metric is exported:
 
-* `coredns_proxy_request_duration_seconds{proto, proto_proxy, family, to}` - duration per upstream
-  interaction.
-* `coredns_proxy_request_count_total{proto, proto_proxy, family, to}` - query count per upstream.
+* `coredns_proxy_request_duration_seconds{server, proto, proto_proxy, family, to}` - duration per
+  upstream interaction.
+* `coredns_proxy_request_count_total{server, proto, proto_proxy, family, to}` - query count per
+  upstream.
 
-Where `proxy_proto` is the protocol used (`dns`, `grpc`, or `https_google`) and `to` is **TO**
-specified in the config, `proto` is the protocol used by the incoming query ("tcp" or "udp").
-and family the transport family ("1" for IPv4, and "2" for IPv6).
+Where `proxy_proto` is the protocol used (`dns` or `grpc`) and `to` is **TO**
+specified in the config, `proto` is the protocol used by the incoming query ("tcp" or "udp"), family
+the transport family ("1" for IPv4, and "2" for IPv6). `Server` is the server responsible for the
+request (and metric). See the documention in the metrics plugin.
 
 ## Examples
 
@@ -160,38 +153,7 @@ Proxy everything except `example.org` using the host's `resolv.conf`'s nameserve
 ~~~ corefile
 . {
     proxy . /etc/resolv.conf {
-        except miek.nl example.org
-    }
-}
-~~~
-
-Proxy all requests within `example.org` to Google's `dns.google.com`.
-
-~~~ corefile
-. {
-    proxy example.org 1.2.3.4:53 {
-        protocol https_google
-    }
-}
-~~~
-
-Proxy everything with HTTPS to `dns.google.com`, except `example.org`. Then have another proxy in
-another stanza that uses plain DNS to resolve names under `example.org`.
-
-~~~ corefile
-. {
-    proxy . 1.2.3.4:53 {
         except example.org
-        protocol https_google
     }
 }
-
-example.org {
-    proxy . 8.8.8.8:53
-}
 ~~~
-
-## Bugs
-
-When using the `google_https` protocol the health checking will health check the wrong endpoint.
-See <https://github.com/coredns/coredns/issues/1202> for some background.

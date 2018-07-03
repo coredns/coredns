@@ -14,10 +14,12 @@ import (
 
 // A returns A records from Backend or an error.
 func A(b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, err error) {
-	services, err := b.Services(state, false, opt)
+	services, err := checkForApex(b, zone, state, opt)
 	if err != nil {
 		return nil, err
 	}
+
+	dup := make(map[string]bool)
 
 	for _, serv := range services {
 
@@ -67,10 +69,13 @@ func A(b ServiceBackend, zone string, state request.Request, previousRecords []d
 			continue
 
 		case dns.TypeA:
-			records = append(records, serv.NewA(state.QName(), ip))
+			if _, ok := dup[serv.Host]; !ok {
+				dup[serv.Host] = true
+				records = append(records, serv.NewA(state.QName(), ip))
+			}
 
 		case dns.TypeAAAA:
-			// nodata?
+			// nada
 		}
 	}
 	return records, nil
@@ -78,10 +83,12 @@ func A(b ServiceBackend, zone string, state request.Request, previousRecords []d
 
 // AAAA returns AAAA records from Backend or an error.
 func AAAA(b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, err error) {
-	services, err := b.Services(state, false, opt)
+	services, err := checkForApex(b, zone, state, opt)
 	if err != nil {
 		return nil, err
 	}
+
+	dup := make(map[string]bool)
 
 	for _, serv := range services {
 
@@ -115,12 +122,9 @@ func AAAA(b ServiceBackend, zone string, state request.Request, previousRecords 
 				}
 				continue
 			}
+
 			// This means we can not complete the CNAME, try to look else where.
 			target := newRecord.Target
-			if dns.IsSubDomain(zone, target) {
-				// We should already have found it
-				continue
-			}
 			m1, e1 := b.Lookup(state, target, state.QType())
 			if e1 != nil {
 				continue
@@ -132,10 +136,13 @@ func AAAA(b ServiceBackend, zone string, state request.Request, previousRecords 
 			// both here again
 
 		case dns.TypeA:
-			// nada?
+			// nada
 
 		case dns.TypeAAAA:
-			records = append(records, serv.NewAAAA(state.QName(), ip))
+			if _, ok := dup[serv.Host]; !ok {
+				dup[serv.Host] = true
+				records = append(records, serv.NewAAAA(state.QName(), ip))
+			}
 		}
 	}
 	return records, nil
@@ -149,7 +156,10 @@ func SRV(b ServiceBackend, zone string, state request.Request, opt Options) (rec
 		return nil, nil, err
 	}
 
-	// Looping twice to get the right weight vs priority
+	dup := make(map[item]bool)
+	lookup := make(map[string]bool)
+
+	// Looping twice to get the right weight vs priority. This might break because we may drop duplicate SRV records latter on.
 	w := make(map[int]int)
 	for _, serv := range services {
 		weight := 100
@@ -162,7 +172,6 @@ func SRV(b ServiceBackend, zone string, state request.Request, opt Options) (rec
 		}
 		w[serv.Priority] += weight
 	}
-	lookup := make(map[string]bool)
 	for _, serv := range services {
 		w1 := 100.0 / float64(w[serv.Priority])
 		if serv.Weight == 0 {
@@ -209,14 +218,20 @@ func SRV(b ServiceBackend, zone string, state request.Request, opt Options) (rec
 			if e1 == nil {
 				extra = append(extra, addr...)
 			}
-			// IPv6 lookups here as well? AAAA(zone, state1, nil).
+			// TODO(miek): AAAA as well here.
 
 		case dns.TypeA, dns.TypeAAAA:
+			addr := serv.Host
 			serv.Host = msg.Domain(serv.Key)
 			srv := serv.NewSRV(state.QName(), weight)
 
-			records = append(records, srv)
-			extra = append(extra, newAddress(serv, srv.Target, ip, what))
+			if ok := isDuplicate(dup, srv.Target, "", srv.Port); !ok {
+				records = append(records, srv)
+			}
+
+			if ok := isDuplicate(dup, srv.Target, addr, 0); !ok {
+				extra = append(extra, newAddress(serv, srv.Target, ip, what))
+			}
 		}
 	}
 	return records, extra, nil
@@ -229,6 +244,7 @@ func MX(b ServiceBackend, zone string, state request.Request, opt Options) (reco
 		return nil, nil, err
 	}
 
+	dup := make(map[item]bool)
 	lookup := make(map[string]bool)
 	for _, serv := range services {
 		if !serv.Mail {
@@ -268,12 +284,20 @@ func MX(b ServiceBackend, zone string, state request.Request, opt Options) (reco
 			if e1 == nil {
 				extra = append(extra, addr...)
 			}
-			// e.AAAA as well
+			// TODO(miek): AAAA as well here.
 
 		case dns.TypeA, dns.TypeAAAA:
+			addr := serv.Host
 			serv.Host = msg.Domain(serv.Key)
-			records = append(records, serv.NewMX(state.QName()))
-			extra = append(extra, newAddress(serv, serv.Host, ip, what))
+			mx := serv.NewMX(state.QName())
+
+			if ok := isDuplicate(dup, mx.Mx, "", mx.Preference); !ok {
+				records = append(records, mx)
+			}
+			// Fake port to be 0 for address...
+			if ok := isDuplicate(dup, serv.Host, addr, 0); !ok {
+				extra = append(extra, newAddress(serv, serv.Host, ip, what))
+			}
 		}
 	}
 	return records, extra, nil
@@ -318,9 +342,14 @@ func PTR(b ServiceBackend, zone string, state request.Request, opt Options) (rec
 		return nil, err
 	}
 
+	dup := make(map[string]bool)
+
 	for _, serv := range services {
 		if ip := net.ParseIP(serv.Host); ip == nil {
-			records = append(records, serv.NewPTR(state.QName(), serv.Host))
+			if _, ok := dup[serv.Host]; !ok {
+				dup[serv.Host] = true
+				records = append(records, serv.NewPTR(state.QName(), serv.Host))
+			}
 		}
 	}
 	return records, nil
@@ -383,7 +412,7 @@ func SOA(b ServiceBackend, zone string, state request.Request, opt Options) ([]d
 func BackendError(b ServiceBackend, zone string, rcode int, state request.Request, err error, opt Options) (int, error) {
 	m := new(dns.Msg)
 	m.SetRcode(state.Req, rcode)
-	m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
+	m.Authoritative, m.RecursionAvailable = true, true
 	m.Ns, _ = SOA(b, zone, state, opt)
 
 	state.SizeAndDo(m)
@@ -401,6 +430,52 @@ func newAddress(s msg.Service, name string, ip net.IP, what uint16) dns.RR {
 	}
 	// Should always be dns.TypeAAAA
 	return &dns.AAAA{Hdr: hdr, AAAA: ip}
+}
+
+// checkForApex checks the spcecial apex.dns directory for records that will be returned as A or AAAA.
+func checkForApex(b ServiceBackend, zone string, state request.Request, opt Options) ([]msg.Service, error) {
+	if state.Name() != zone {
+		return b.Services(state, false, opt)
+	}
+
+	// If the zone name itself is queried we fake the query to search for a special entry
+	// this is equivalent to the NS search code.
+	old := state.QName()
+	state.Clear()
+	state.Req.Question[0].Name = dnsutil.Join([]string{"apex.dns", zone})
+
+	services, err := b.Services(state, false, opt)
+	if err == nil {
+		state.Req.Question[0].Name = old
+		return services, err
+	}
+
+	state.Req.Question[0].Name = old
+	return b.Services(state, false, opt)
+}
+
+// item holds records.
+type item struct {
+	name string // name of the record (either owner or something else unique).
+	port uint16 // port of the record (used for address records, A and AAAA).
+	addr string // address of the record (A and AAAA).
+}
+
+// isDuplicate uses m to see if the combo (name, addr, port) already exists. If it does
+// not exist already IsDuplicate will also add the record to the map.
+func isDuplicate(m map[item]bool, name, addr string, port uint16) bool {
+	if addr != "" {
+		_, ok := m[item{name, 0, addr}]
+		if !ok {
+			m[item{name, 0, addr}] = true
+		}
+		return ok
+	}
+	_, ok := m[item{name, port, ""}]
+	if !ok {
+		m[item{name, port, ""}] = true
+	}
+	return ok
 }
 
 const hostmaster = "hostmaster"

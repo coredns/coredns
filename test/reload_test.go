@@ -1,7 +1,12 @@
 package test
 
 import (
+	"bytes"
+	"io/ioutil"
+	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -52,3 +57,72 @@ func send(t *testing.T, server string) {
 		t.Fatalf("Expected 2 RRs in additional, got %d", len(r.Extra))
 	}
 }
+
+func TestReloadHealth(t *testing.T) {
+	corefile := `
+.:0 {
+	health 127.0.0.1:52182
+	whoami
+}`
+	c, err := CoreDNSServer(corefile)
+	if err != nil {
+		if strings.Contains(err.Error(), inUse) {
+			return // meh, but don't error
+		}
+		t.Fatalf("Could not get service instance: %s", err)
+	}
+
+	if c1, err := c.Restart(NewInput(corefile)); err != nil {
+		t.Fatal(err)
+	} else {
+		c1.Stop()
+	}
+}
+
+func TestReloadMetricsHealth(t *testing.T) {
+	corefile := `
+.:0 {
+	prometheus 127.0.0.1:53183
+	health 127.0.0.1:53184
+	whoami
+}`
+	c, err := CoreDNSServer(corefile)
+	if err != nil {
+		if strings.Contains(err.Error(), inUse) {
+			return // meh, but don't error
+		}
+		t.Fatalf("Could not get service instance: %s", err)
+	}
+
+	c1, err := c.Restart(NewInput(corefile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c1.Stop()
+
+	time.Sleep(1 * time.Second)
+
+	// Health
+	resp, err := http.Get("http://localhost:53184/health")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, _ := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if string(ok) != "OK" {
+		t.Errorf("Failed to receive OK, got %s", ok)
+	}
+
+	// Metrics
+	resp, err = http.Get("http://localhost:53183/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const proc = "process_virtual_memory_bytes"
+	metrics, _ := ioutil.ReadAll(resp.Body)
+	if !bytes.Contains(metrics, []byte(proc)) {
+		t.Errorf("Failed to see %s in metric output", proc)
+	}
+}
+
+const inUse = "address already in use"

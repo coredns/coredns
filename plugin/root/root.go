@@ -1,14 +1,16 @@
 package root
 
 import (
-	"log"
 	"os"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"github.com/mholt/caddy"
 )
+
+var log = clog.NewWithPlugin("root")
 
 func init() {
 	caddy.RegisterPlugin("root", caddy.Plugin{
@@ -33,7 +35,7 @@ func setup(c *caddy.Controller) error {
 		if os.IsNotExist(err) {
 			// Allow this, because the folder might appear later.
 			// But make sure the user knows!
-			log.Printf("[WARNING] Root path does not exist: %s", config.Root)
+			log.Warningf("Root path does not exist: %s", config.Root)
 		} else {
 			return plugin.Error("root", c.Errf("unable to access root path '%s': %v", config.Root, err))
 		}

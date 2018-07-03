@@ -4,12 +4,14 @@ package cache
 import (
 	"encoding/binary"
 	"hash/fnv"
-	"log"
+	"net"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/cache"
+	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/response"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -102,8 +104,43 @@ func hash(qname string, qtype uint16, do bool) uint32 {
 type ResponseWriter struct {
 	dns.ResponseWriter
 	*Cache
+	state  request.Request
+	server string // Server handling the request.
 
-	prefetch bool // When true write nothing back to the client.
+	prefetch   bool // When true write nothing back to the client.
+	remoteAddr net.Addr
+}
+
+// newPrefetchResponseWriter returns a Cache ResponseWriter to be used in
+// prefetch requests. It ensures RemoteAddr() can be called even after the
+// original connetion has already been closed.
+func newPrefetchResponseWriter(server string, state request.Request, c *Cache) *ResponseWriter {
+	// Resolve the address now, the connection might be already closed when the
+	// actual prefetch request is made.
+	addr := state.W.RemoteAddr()
+	// The protocol of the client triggering a cache prefetch doesn't matter.
+	// The address type is used by request.Proto to determine the response size,
+	// and using TCP ensures the message isn't unnecessarily truncated.
+	if u, ok := addr.(*net.UDPAddr); ok {
+		addr = &net.TCPAddr{IP: u.IP, Port: u.Port, Zone: u.Zone}
+	}
+
+	return &ResponseWriter{
+		ResponseWriter: state.W,
+		Cache:          c,
+		state:          state,
+		server:         server,
+		prefetch:       true,
+		remoteAddr:     addr,
+	}
+}
+
+// RemoteAddr implements the dns.ResponseWriter interface.
+func (w *ResponseWriter) RemoteAddr() net.Addr {
+	if w.remoteAddr != nil {
+		return w.remoteAddr
+	}
+	return w.ResponseWriter.RemoteAddr()
 }
 
 // WriteMsg implements the dns.ResponseWriter interface.
@@ -122,16 +159,20 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 		duration = w.nttl
 	}
 
-	msgTTL := minMsgTTL(res, mt)
+	msgTTL := dnsutil.MinimalTTL(res, mt)
 	if msgTTL < duration {
 		duration = msgTTL
 	}
 
 	if key != -1 && duration > 0 {
-		w.set(res, key, mt, duration)
-
-		cacheSize.WithLabelValues(Success).Set(float64(w.pcache.Len()))
-		cacheSize.WithLabelValues(Denial).Set(float64(w.ncache.Len()))
+		if w.state.Match(res) {
+			w.set(res, key, mt, duration)
+			cacheSize.WithLabelValues(w.server, Success).Set(float64(w.pcache.Len()))
+			cacheSize.WithLabelValues(w.server, Denial).Set(float64(w.ncache.Len()))
+		} else {
+			// Don't log it, but increment counter
+			cacheDrops.WithLabelValues(w.server).Inc()
+		}
 	}
 
 	if w.prefetch {
@@ -171,13 +212,13 @@ func (w *ResponseWriter) set(m *dns.Msg, key int, mt response.Type, duration tim
 	case response.OtherError:
 		// don't cache these
 	default:
-		log.Printf("[WARNING] Caching called with unknown classification: %d", mt)
+		log.Warningf("Caching called with unknown classification: %d", mt)
 	}
 }
 
 // Write implements the dns.ResponseWriter interface.
 func (w *ResponseWriter) Write(buf []byte) (int, error) {
-	log.Print("[WARNING] Caching called with Write: not caching reply")
+	log.Warning("Caching called with Write: not caching reply")
 	if w.prefetch {
 		return 0, nil
 	}
@@ -186,9 +227,8 @@ func (w *ResponseWriter) Write(buf []byte) (int, error) {
 }
 
 const (
-	maxTTL      = 1 * time.Hour
-	maxNTTL     = 30 * time.Minute
-	failSafeTTL = 5 * time.Second
+	maxTTL  = dnsutil.MaximumDefaulTTL
+	maxNTTL = dnsutil.MaximumDefaulTTL / 2
 
 	defaultCap = 10000 // default capacity of the cache.
 

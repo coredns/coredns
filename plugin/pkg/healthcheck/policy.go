@@ -1,9 +1,10 @@
 package healthcheck
 
 import (
-	"log"
 	"math/rand"
 	"sync/atomic"
+
+	"github.com/coredns/coredns/plugin/pkg/log"
 )
 
 var (
@@ -28,6 +29,9 @@ func init() {
 	RegisterPolicy("least_conn", func() Policy { return &LeastConn{} })
 	RegisterPolicy("round_robin", func() Policy { return &RoundRobin{} })
 	RegisterPolicy("first", func() Policy { return &First{} })
+	// 'sequential' is an alias to 'first' to maintain consistency with the forward plugin
+	// should probably remove 'first' in a future release
+	RegisterPolicy("sequential", func() Policy { return &First{} })
 }
 
 // Random is a policy that selects up hosts from a pool at random.
@@ -64,7 +68,7 @@ type Spray struct{}
 func (r *Spray) Select(pool HostPool) *UpstreamHost {
 	rnd := rand.Int() % len(pool)
 	randHost := pool[rnd]
-	log.Printf("[WARNING] All hosts reported as down, spraying to target: %s", randHost.Name)
+	log.Warningf("All hosts reported as down, spraying to target: %s", randHost.Name)
 	return randHost
 }
 

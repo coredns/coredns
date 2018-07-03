@@ -89,7 +89,6 @@ var (
 
 // Services implements the ServiceBackend interface.
 func (k *Kubernetes) Services(state request.Request, exact bool, opt plugin.Options) (svcs []msg.Service, err error) {
-
 	// We're looking again at types, which we've already done in ServeDNS, but there are some types k8s just can't answer.
 	switch state.QType() {
 
@@ -108,7 +107,7 @@ func (k *Kubernetes) Services(state request.Request, exact bool, opt plugin.Opti
 		return []msg.Service{svc}, nil
 
 	case dns.TypeNS:
-		// We can only get here if the qname equal the zone, see ServeDNS in handler.go.
+		// We can only get here if the qname equals the zone, see ServeDNS in handler.go.
 		ns := k.nsAddr()
 		svc := msg.Service{Host: ns.A.String(), Key: msg.Path(state.QName(), "coredns")}
 		return []msg.Service{svc}, nil
@@ -240,7 +239,6 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 
 // InitKubeCache initializes a new Kubernetes cache.
 func (k *Kubernetes) InitKubeCache() (err error) {
-
 	config, err := k.getClientConfig()
 	if err != nil {
 		return err
@@ -262,6 +260,8 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 
 	k.opts.initPodCache = k.podMode == podModeVerified
 
+	k.opts.zones = k.Zones
+	k.opts.endpointNameMode = k.endpointNameMode
 	k.APIConn = newdnsController(kubeClient, k.opts)
 
 	return err
@@ -272,6 +272,9 @@ func (k *Kubernetes) Records(state request.Request, exact bool) ([]msg.Service, 
 	r, e := parseRequest(state)
 	if e != nil {
 		return nil, e
+	}
+	if r.podOrSvc == "" {
+		return nil, nil
 	}
 
 	if dnsutil.IsReverse(state.Name()) > 0 {
@@ -289,6 +292,29 @@ func (k *Kubernetes) Records(state request.Request, exact bool) ([]msg.Service, 
 
 	services, err := k.findServices(r, state.Zone)
 	return services, err
+}
+
+// serviceFQDN returns the k8s cluster dns spec service FQDN for the service (or endpoint) object.
+func serviceFQDN(obj meta.Object, zone string) string {
+	return dnsutil.Join(append([]string{}, obj.GetName(), obj.GetNamespace(), Svc, zone))
+}
+
+// podFQDN returns the k8s cluster dns spec FQDN for the pod.
+func podFQDN(p *api.Pod, zone string) string {
+	name := strings.Replace(p.Status.PodIP, ".", "-", -1)
+	name = strings.Replace(name, ":", "-", -1)
+	return dnsutil.Join(append([]string{}, name, p.GetNamespace(), Pod, zone))
+}
+
+// endpointFQDN returns a list of k8s cluster dns spec service FQDNs for each subset in the endpoint.
+func endpointFQDN(ep *api.Endpoints, zone string, endpointNameMode bool) []string {
+	var names []string
+	for _, ss := range ep.Subsets {
+		for _, addr := range ss.Addresses {
+			names = append(names, dnsutil.Join(append([]string{}, endpointHostname(addr, endpointNameMode), serviceFQDN(ep, zone))))
+		}
+	}
+	return names
 }
 
 func endpointHostname(addr api.EndpointAddress, endpointNameMode bool) string {
@@ -395,7 +421,6 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 	}
 
 	for _, svc := range serviceList {
-
 		if !(match(r.namespace, svc.Namespace) && match(r.service, svc.Name)) {
 			continue
 		}
@@ -404,6 +429,20 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		// (Namespaces without a wildcard were filtered before the call to this function.)
 		if wildcard(r.namespace) && !k.namespaceExposed(svc.Namespace) {
 			continue
+		}
+
+		if k.opts.ignoreEmptyService && svc.Spec.ClusterIP != api.ClusterIPNone {
+			// serve NXDOMAIN if no endpoint is able to answer
+			podsCount := 0
+			for _, ep := range endpointsListFunc() {
+				for _, eps := range ep.Subsets {
+					podsCount = podsCount + len(eps.Addresses)
+				}
+			}
+
+			if podsCount == 0 {
+				continue
+			}
 		}
 
 		// Endpoint query or headless service

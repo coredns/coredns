@@ -1,18 +1,21 @@
 package etcd
 
 import (
+	"context"
 	"crypto/tls"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	mwtls "github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/plugin/proxy"
 
-	etcdc "github.com/coreos/etcd/client"
+	etcdcv3 "github.com/coreos/etcd/clientv3"
 	"github.com/mholt/caddy"
-	"golang.org/x/net/context"
 )
+
+var log = clog.NewWithPlugin("etcd")
 
 func init() {
 	caddy.RegisterPlugin("etcd", caddy.Plugin{
@@ -92,7 +95,7 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 					if len(args) == 0 {
 						return nil, false, c.ArgErr()
 					}
-					u, err := upstream.NewUpstream(args)
+					u, err := upstream.New(args)
 					if err != nil {
 						return nil, false, err
 					}
@@ -121,22 +124,22 @@ func etcdParse(c *caddy.Controller) (*Etcd, bool, error) {
 		}
 		etc.Client = client
 		etc.endpoints = endpoints
-
+		
 		return &etc, stubzones, nil
 	}
 	return &Etcd{}, false, nil
 }
 
-func newEtcdClient(endpoints []string, cc *tls.Config) (etcdc.KeysAPI, error) {
-	etcdCfg := etcdc.Config{
+func newEtcdClient(endpoints []string, cc *tls.Config) (*etcdcv3.Client, error) {
+	etcdCfg := etcdcv3.Config{
 		Endpoints: endpoints,
-		Transport: mwtls.NewHTTPSTransport(cc),
+		TLS:       cc,
 	}
-	cli, err := etcdc.New(etcdCfg)
+	cli, err := etcdcv3.New(etcdCfg)
 	if err != nil {
 		return nil, err
 	}
-	return etcdc.NewKeysAPI(cli), nil
+	return cli, nil
 }
 
 const defaultEndpoint = "http://localhost:2379"

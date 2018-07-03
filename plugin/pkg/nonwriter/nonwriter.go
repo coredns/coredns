@@ -19,5 +19,3 @@ func (w *Writer) WriteMsg(res *dns.Msg) error {
 	w.Msg = res
 	return nil
 }
-
-func (w *Writer) Write(buf []byte) (int, error) { return len(buf), nil }

@@ -17,7 +17,7 @@ import (
 func fakeStubServerExampleNet(t *testing.T) (*dns.Server, string) {
 	server, addr, err := test.UDPServer("127.0.0.1:0")
 	if err != nil {
-		t.Fatalf("failed to create a UDP server: %s", err)
+		t.Fatalf("Failed to create a UDP server: %s", err)
 	}
 	// add handler for example.net
 	dns.HandleFunc("example.net.", func(w dns.ResponseWriter, r *dns.Msg) {
@@ -58,7 +58,7 @@ func TestStubLookup(t *testing.T) {
 			continue
 		}
 		if err != nil {
-			t.Errorf("expected no error, got %v for %s\n", err, m.Question[0].Name)
+			t.Errorf("Expected no error, got %v for %s\n", err, m.Question[0].Name)
 		}
 		resp := rec.Msg
 		if resp == nil {

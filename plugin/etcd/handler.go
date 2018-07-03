@@ -1,12 +1,12 @@
 package etcd
 
 import (
+	"context"
+
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // ServeDNS implements the plugin.Handler interface.
@@ -65,8 +65,7 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
 		_, err = plugin.A(e, zone, state, nil, opt)
 	}
-
-	if e.IsNameError(err) {
+	if err != nil && e.IsNameError(err) {
 		if e.Fall.Through(state.Name()) {
 			return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 		}
@@ -83,11 +82,10 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	m := new(dns.Msg)
 	m.SetReply(r)
-	m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
+	m.Authoritative, m.RecursionAvailable = true, true
 	m.Answer = append(m.Answer, records...)
 	m.Extra = append(m.Extra, extra...)
 
-	m = dnsutil.Dedup(m)
 	state.SizeAndDo(m)
 	m, _ = state.Scrub(m)
 	w.WriteMsg(m)

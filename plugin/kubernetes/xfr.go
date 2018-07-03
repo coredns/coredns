@@ -1,7 +1,7 @@
 package kubernetes
 
 import (
-	"log"
+	"context"
 	"math"
 	"net"
 	"strings"
@@ -9,8 +9,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/request"
+
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 	api "k8s.io/api/core/v1"
 )
 
@@ -50,7 +50,7 @@ func (k *Kubernetes) Transfer(ctx context.Context, state request.Request) (int, 
 	records = append(records, soa...)
 	go func(ch chan *dns.Envelope) {
 		j, l := 0, 0
-		log.Printf("[INFO] Outgoing transfer of %d records of zone %s to %s started", len(records), state.Zone, state.IP())
+		log.Infof("Outgoing transfer of %d records of zone %s to %s started", len(records), state.Zone, state.IP())
 		for i, r := range records {
 			l += dns.Len(r)
 			if l > transferLength {

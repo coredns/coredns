@@ -1,12 +1,12 @@
 package plugin
 
 import (
+	"context"
+
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-
-	"golang.org/x/net/context"
 )
 
 // ServiceBackend defines a (dynamic) backend that returns a slice of service definitions.

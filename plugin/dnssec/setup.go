@@ -9,9 +9,12 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/cache"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"github.com/mholt/caddy"
 )
+
+var log = clog.NewWithPlugin("dnssec")
 
 func init() {
 	caddy.RegisterPlugin("dnssec", caddy.Plugin{
@@ -33,22 +36,10 @@ func setup(c *caddy.Controller) error {
 
 	c.OnStartup(func() error {
 		once.Do(func() {
-			m := dnsserver.GetConfig(c).Handler("prometheus")
-			if m == nil {
-				return
-			}
-			if x, ok := m.(*metrics.Metrics); ok {
-				x.MustRegister(cacheSize)
-				x.MustRegister(cacheCapacity)
-				x.MustRegister(cacheHits)
-				x.MustRegister(cacheMisses)
-			}
+			metrics.MustRegister(c, cacheSize, cacheHits, cacheMisses)
 		})
 		return nil
 	})
-
-	// Export the capacity for the metrics. This only happens once, because this is a re-load change only.
-	cacheCapacity.WithLabelValues("signature").Set(float64(capacity))
 
 	return nil
 }

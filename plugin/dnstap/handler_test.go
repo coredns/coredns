@@ -1,6 +1,7 @@
 package dnstap
 
 import (
+	"context"
 	"errors"
 	"net"
 	"strings"
@@ -9,10 +10,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/dnstap/test"
 	mwtest "github.com/coredns/coredns/plugin/test"
-
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 func testCase(t *testing.T, tapq, tapr *tap.Message, q, r *dns.Msg) {
@@ -43,7 +42,7 @@ func (w *writer) Dnstap(e tap.Dnstap) {
 		w.t.Error("Message not expected.")
 	}
 	if !test.MsgEqual(w.queue[0], e.Message) {
-		w.t.Errorf("want: %v, have: %v", w.queue[0], e.Message)
+		w.t.Errorf("Want: %v, have: %v", w.queue[0], e.Message)
 	}
 	w.queue = w.queue[1:]
 }
@@ -104,7 +103,7 @@ func TestError(t *testing.T) {
 	// the dnstap error will show only if there is no plugin error
 	_, err := h.ServeDNS(context.TODO(), rw, nil)
 	if err == nil || !strings.HasPrefix(err.Error(), "plugin/dnstap") {
-		t.Fatal("must return the dnstap error but have:", err)
+		t.Fatal("Must return the dnstap error but have:", err)
 	}
 
 	// plugin errors will always overwrite dnstap errors
@@ -112,6 +111,6 @@ func TestError(t *testing.T) {
 	h.Next = endWith(0, pluginErr)
 	_, err = h.ServeDNS(context.TODO(), rw, nil)
 	if err != pluginErr {
-		t.Fatal("must return the plugin error but have:", err)
+		t.Fatal("Must return the plugin error but have:", err)
 	}
 }

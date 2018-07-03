@@ -14,6 +14,8 @@ Federation is only useful in conjunction with the kubernetes plugin, without it 
 package federation
 
 import (
+	"context"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
@@ -21,7 +23,6 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // Federation contains the name to zone mapping used for federation in kubernetes.
@@ -102,7 +103,7 @@ func (f *Federation) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 
 	m := new(dns.Msg)
 	m.SetReply(r)
-	m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
+	m.Authoritative, m.RecursionAvailable = true, true
 
 	m.Answer = []dns.RR{service.NewCNAME(state.QName(), service.Host)}
 

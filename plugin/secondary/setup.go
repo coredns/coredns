@@ -5,8 +5,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
 	"github.com/coredns/coredns/plugin/pkg/parse"
-
 	"github.com/coredns/coredns/plugin/pkg/upstream"
+
 	"github.com/mholt/caddy"
 )
 
@@ -81,7 +81,7 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 				case "upstream":
 					args := c.RemainingArgs()
 					var err error
-					upstr, err = upstream.NewUpstream(args)
+					upstr, err = upstream.New(args)
 					if err != nil {
 						return file.Zones{}, err
 					}

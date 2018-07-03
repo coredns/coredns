@@ -2,13 +2,13 @@
 package chaos
 
 import (
+	"context"
 	"os"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // Chaos allows CoreDNS to reply to CH TXT queries and return author or

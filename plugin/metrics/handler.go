@@ -1,6 +1,8 @@
 package metrics
 
 import (
+	"context"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -8,7 +10,6 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
 
 // ServeDNS implements the Handler interface.
@@ -25,7 +26,7 @@ func (m *Metrics) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	rw := dnstest.NewRecorder(w)
 	status, err := plugin.NextOrFailure(m.Name(), m.Next, ctx, rw, r)
 
-	vars.Report(state, zone, rcode.ToString(rw.Rcode), rw.Len, rw.Start)
+	vars.Report(ctx, state, zone, rcode.ToString(rw.Rcode), rw.Len, rw.Start)
 
 	return status, err
 }

@@ -1,16 +1,14 @@
 package cache
 
 import (
-	"io/ioutil"
-	"log"
+	"context"
 	"testing"
 	"time"
-
-	"golang.org/x/net/context"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -162,26 +160,22 @@ func TestCache(t *testing.T) {
 
 	c, crr := newTestCache(maxTTL)
 
-	log.SetOutput(ioutil.Discard)
-
 	for _, tc := range cacheTestCases {
 		m := tc.in.Msg()
 		m = cacheMsg(m, tc)
-		do := tc.in.Do
+
+		state := request.Request{W: nil, Req: m}
 
 		mt, _ := response.Typify(m, utc)
-		k := key(m, mt, do)
+		k := key(m, mt, state.Do())
 
 		crr.set(m, k, mt, c.pttl)
 
-		name := plugin.Name(m.Question[0].Name).Normalize()
-		qtype := m.Question[0].Qtype
-
-		i, _ := c.get(time.Now().UTC(), name, qtype, do)
+		i, _ := c.get(time.Now().UTC(), state, "dns://:53")
 		ok := i != nil
 
 		if ok != tc.shouldCache {
-			t.Errorf("cached message that should not have been cached: %s", name)
+			t.Errorf("Cached message that should not have been cached: %s", state.Name())
 			continue
 		}
 
@@ -237,15 +231,15 @@ func BenchmarkCacheResponse(b *testing.B) {
 		reqs[i].SetQuestion(q+".example.org.", dns.TypeA)
 	}
 
-	b.RunParallel(func(pb *testing.PB) {
-		i := 0
-		for pb.Next() {
-			req := reqs[i]
-			c.ServeDNS(ctx, &test.ResponseWriter{}, req)
-			i++
-			i = i % 5
-		}
-	})
+	b.StartTimer()
+
+	j := 0
+	for i := 0; i < b.N; i++ {
+		req := reqs[j]
+		c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+		j++
+		j = j % 5
+	}
 }
 
 func BackendHandler() plugin.Handler {

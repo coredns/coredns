@@ -2,16 +2,18 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"io"
-	"log"
 
 	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"golang.org/x/net/context"
 )
+
+var log = clog.NewWithPlugin("file")
 
 type (
 	// File is the plugin that reads zone data from disk.
@@ -48,28 +50,28 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		if z.isNotify(state) {
 			m := new(dns.Msg)
 			m.SetReply(r)
-			m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
+			m.Authoritative, m.RecursionAvailable = true, true
 			state.SizeAndDo(m)
 			w.WriteMsg(m)
 
-			log.Printf("[INFO] Notify from %s for %s: checking transfer", state.IP(), zone)
+			log.Infof("Notify from %s for %s: checking transfer", state.IP(), zone)
 			ok, err := z.shouldTransfer()
 			if ok {
 				z.TransferIn()
 			} else {
-				log.Printf("[INFO] Notify from %s for %s: no serial increase seen", state.IP(), zone)
+				log.Infof("Notify from %s for %s: no serial increase seen", state.IP(), zone)
 			}
 			if err != nil {
-				log.Printf("[WARNING] Notify from %s for %s: failed primary check: %s", state.IP(), zone, err)
+				log.Warningf("Notify from %s for %s: failed primary check: %s", state.IP(), zone, err)
 			}
 			return dns.RcodeSuccess, nil
 		}
-		log.Printf("[INFO] Dropping notify from %s for %s", state.IP(), zone)
+		log.Infof("Dropping notify from %s for %s", state.IP(), zone)
 		return dns.RcodeSuccess, nil
 	}
 
 	if z.Expired != nil && *z.Expired {
-		log.Printf("[ERROR] Zone %s is expired", zone)
+		log.Errorf("Zone %s is expired", zone)
 		return dns.RcodeServerFailure, nil
 	}
 
@@ -82,7 +84,7 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 
 	m := new(dns.Msg)
 	m.SetReply(r)
-	m.Authoritative, m.RecursionAvailable, m.Compress = true, true, true
+	m.Authoritative, m.RecursionAvailable = true, true
 	m.Answer, m.Ns, m.Extra = answer, ns, extra
 
 	switch result {

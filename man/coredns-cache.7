@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "COREDNS\-CACHE" "7" "March 2018" "CoreDNS" "CoreDNS plugins"
+.TH "COREDNS\-CACHE" "7" "June 2018" "CoreDNS" "CoreDNS plugins"
 .
 .SH "NAME"
 \fIcache\fR \- enables a frontend cache\.
@@ -29,7 +29,7 @@ cache [TTL] [ZONES\.\.\.]
 .IP "" 0
 .
 .P
-Each element in the cache is cached according to its TTL (with \fBTTL\fR as the max)\. For the negative cache, the SOA\'s MinTTL value is used\. A cache can contain up to 10,000 items by default\. A TTL of zero is not allowed\.
+Each element in the cache is cached according to its TTL (with \fBTTL\fR as the max)\. For the negative cache, the SOA\'s MinTTL value is used\. A TTL of zero is not allowed\. A cache is divided into 256 shards, each holding up to 512 items by default \- for a total size of 256 * 512 = 131,072 items\.
 .
 .P
 If you want more control:
@@ -62,25 +62,31 @@ cache [TTL] [ZONES\.\.\.] {
 .
 .IP "" 0
 .
+.SH "CAPACITY AND EVICTION"
+When specifying \fBCAPACITY\fR, the minimum cache capacity is 131,072\. Specifying a lower value will be ignored\. Specifying a \fBCAPACITY\fR of zero does not disable the cache\.
+.
+.P
+Eviction is done per shard \- i\.e\. when a shard reaches capacity, items are evicted from that shard\. Since shards don\'t fill up perfectly evenly, evictions will occur before the entire cache reaches full capacity\. Each shard capacity is equal to the total cache size / number of shards (256)\.
+.
 .SH "METRICS"
 If monitoring is enabled (via the \fIprometheus\fR directive) then the following metrics are exported:
 .
 .IP "\(bu" 4
-\fBcoredns_cache_size{type}\fR \- Total elements in the cache by cache type\.
+\fBcoredns_cache_size{server, type}\fR \- Total elements in the cache by cache type\.
 .
 .IP "\(bu" 4
-\fBcoredns_cache_capacity{type}\fR \- Total capacity of the cache by cache type\.
+\fBcoredns_cache_hits_total{server, type}\fR \- Counter of cache hits by cache type\.
 .
 .IP "\(bu" 4
-\fBcoredns_cache_hits_total{type}\fR \- Counter of cache hits by cache type\.
+\fBcoredns_cache_misses_total{server}\fR \- Counter of cache misses\.
 .
 .IP "\(bu" 4
-\fBcoredns_cache_misses_total{}\fR \- Counter of cache misses\.
+\fBcoredns_cache_drops_total{server}\fR \- Counter of dropped messages\.
 .
 .IP "" 0
 .
 .P
-Cache types are either "denial" or "success"\.
+Cache types are either "denial" or "success"\. \fBServer\fR is the server handling the request, see the metrics plugin for documentation\.
 .
 .SH "EXAMPLES"
 Enable caching for all zones, but cap everything to a TTL of 10 seconds:

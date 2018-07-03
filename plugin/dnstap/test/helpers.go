@@ -1,13 +1,13 @@
 package test
 
 import (
+	"context"
 	"net"
 	"reflect"
 
 	"github.com/coredns/coredns/plugin/dnstap/msg"
 
 	tap "github.com/dnstap/golang-dnstap"
-	"golang.org/x/net/context"
 )
 
 // Context is a message trap.

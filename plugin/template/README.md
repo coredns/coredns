@@ -64,11 +64,12 @@ The output of the template must be a [RFC 1035](https://tools.ietf.org/html/rfc1
 
 If monitoring is enabled (via the *prometheus* directive) then the following metrics are exported:
 
-* `coredns_template_matches_total{regex}` the total number of matched requests by regex.
-* `coredns_template_template_failures_total{regex,section,template}` the number of times the Go templating failed. Regex, section and template label values can be used to map the error back to the config file.
-* `coredns_template_rr_failures_total{regex,section,template}` the number of times the templated resource record was invalid and could not be parsed. Regex, section and template label values can be used to map the error back to the config file.
+* `coredns_template_matches_total{server, regex}` the total number of matched requests by regex.
+* `coredns_template_template_failures_total{server, regex,section,template}` the number of times the Go templating failed. Regex, section and template label values can be used to map the error back to the config file.
+* `coredns_template_rr_failures_total{server, regex,section,template}` the number of times the templated resource record was invalid and could not be parsed. Regex, section and template label values can be used to map the error back to the config file.
 
-Both failure cases indicate a problem with the template configuration.
+Both failure cases indicate a problem with the template configuration. The `server` label indicates
+the server incrementing the metric, see the *metrics* plugin for details.
 
 ## Examples
 
@@ -90,7 +91,7 @@ The most simplistic template is
 
 ### Resolve .invalid as NXDOMAIN
 
-The `.invalid` domain is a reserved TLD (see [RFC-2606 Reserved Top Level DNS Names](https://tools.ietf.org/html/rfc2606#section-2)) to indicate invalid domains.
+The `.invalid` domain is a reserved TLD (see [RFC 2606 Reserved Top Level DNS Names](https://tools.ietf.org/html/rfc2606#section-2)) to indicate invalid domains.
 
 ~~~ corefile
 . {
@@ -245,7 +246,7 @@ Named capture groups can be used to template one response for multiple patterns.
 
 * [Go regexp](https://golang.org/pkg/regexp/) for details about the regex implementation
 * [RE2 syntax reference](https://github.com/google/re2/wiki/Syntax) for details about the regex syntax
-* [RFC-1034](https://tools.ietf.org/html/rfc1034#section-3.6.1) and [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) for the resource record format
+* [RFC 1034](https://tools.ietf.org/html/rfc1034#section-3.6.1) and [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) for the resource record format
 * [Go template](https://golang.org/pkg/text/template/) for the template language reference
 
 ## Bugs
