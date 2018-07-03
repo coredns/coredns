@@ -6,13 +6,11 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/coredns/coredns/request"
-
-	"github.com/coredns/coredns/plugin/metadata"
-
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -438,9 +436,9 @@ func optsEqual(a, b []dns.EDNS0) bool {
 	return true
 }
 
-type StaticProvider map[string]metadata.Func
+type testProvider map[string]metadata.Func
 
-func (tp StaticProvider) Metadata(ctx context.Context, state request.Request) context.Context {
+func (tp testProvider) Metadata(ctx context.Context, state request.Request) context.Context {
 	for k, v := range tp {
 		metadata.SetValueFunc(ctx, k, v)
 	}
@@ -454,8 +452,8 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 	}
 
 	expectedMetadata := []metadata.Provider{
-		StaticProvider{"test/label": func() string { return "my-value" }},
-		StaticProvider{"test/empty": func() string { return "" }},
+		testProvider{"test/label": func() string { return "my-value" }},
+		testProvider{"test/empty": func() string { return "" }},
 	}
 
 	meta := metadata.Metadata{

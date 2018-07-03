@@ -32,6 +32,7 @@ package metadata
 
 import (
 	"context"
+	"strings"
 
 	"github.com/coredns/coredns/request"
 )
@@ -47,6 +48,18 @@ type Provider interface {
 
 // Func is the type of function in the metadata, when called they return the value of the label.
 type Func func() string
+
+// IsLabel check that the provided name looks like a valid label name
+func IsLabel(label string) bool {
+	parts := strings.Split(label, "/")
+	return len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0
+}
+
+// IsMetadataSet check that the ctx is initialized to receive metadata information
+func IsMetadataSet(ctx context.Context) bool {
+	return ctx.Value(key{}) != nil
+
+}
 
 // Labels returns all metadata keys stored in the context. These label names should be named
 // as: plugin/NAME, where NAME is something descriptive.

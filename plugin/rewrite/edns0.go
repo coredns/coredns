@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/metadata"
-
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -202,9 +201,7 @@ func (rule *edns0VariableRule) ruleData(ctx context.Context, state request.Reque
 		return []byte(state.Proto()), nil
 	}
 
-	if metadata.Labels(ctx) != nil {
-		// metadata plugin is enable and used.
-		// remove {},assume it is a label, get the fetcher for the value, and call.
+	if metadata.IsMetadataSet(ctx) {
 		fetcher := metadata.ValueFunc(ctx, rule.variable[1:len(rule.variable)-1])
 		if fetcher != nil {
 			return []byte(fetcher()), nil
@@ -212,6 +209,7 @@ func (rule *edns0VariableRule) ruleData(ctx context.Context, state request.Reque
 		return []byte{}, nil
 	}
 
+	// if metadata is not set, then keep current behavior that return an error for an invalid variable.
 	return nil, fmt.Errorf("unable to extract data for variable %s", rule.variable)
 }
 
@@ -262,9 +260,8 @@ func isValidVariable(variable string) bool {
 		serverPort:
 		return true
 	}
-	// if variable contains a /, then we can assume it is a metadata.
-	// we cannot validate the names of metadata
-	if strings.HasPrefix(variable, "{") && strings.HasSuffix(variable, "}") && strings.Index(variable, "/") >= 0 {
+	// we cannot validate the labels of metadata - but we can verify it has the syntax of a label
+	if strings.HasPrefix(variable, "{") && strings.HasSuffix(variable, "}") && metadata.IsLabel(variable[1:len(variable)-1]) {
 		return true
 	}
 	return false
