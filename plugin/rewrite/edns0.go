@@ -2,11 +2,14 @@
 package rewrite
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
+
+	"github.com/coredns/coredns/plugin/metadata"
 
 	"github.com/coredns/coredns/request"
 
@@ -46,7 +49,7 @@ func setupEdns0Opt(r *dns.Msg) *dns.OPT {
 }
 
 // Rewrite will alter the request EDNS0 NSID option
-func (rule *edns0NsidRule) Rewrite(state request.Request) Result {
+func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) Result {
 	o := setupEdns0Opt(state.Req)
 
 	for _, s := range o.Option {
@@ -74,7 +77,7 @@ func (rule *edns0NsidRule) Mode() string { return rule.mode }
 func (rule *edns0NsidRule) GetResponseRule() ResponseRule { return ResponseRule{} }
 
 // Rewrite will alter the request EDNS0 local options.
-func (rule *edns0LocalRule) Rewrite(state request.Request) Result {
+func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) Result {
 	o := setupEdns0Opt(state.Req)
 
 	for _, s := range o.Option {
@@ -174,7 +177,7 @@ func newEdns0VariableRule(mode, action, code, variable string) (*edns0VariableRu
 }
 
 // ruleData returns the data specified by the variable.
-func (rule *edns0VariableRule) ruleData(state request.Request) ([]byte, error) {
+func (rule *edns0VariableRule) ruleData(ctx context.Context, state request.Request) ([]byte, error) {
 
 	switch rule.variable {
 	case queryName:
@@ -199,12 +202,22 @@ func (rule *edns0VariableRule) ruleData(state request.Request) ([]byte, error) {
 		return []byte(state.Proto()), nil
 	}
 
+	if metadata.Labels(ctx) != nil {
+		// metadata plugin is enable and used.
+		// remove {},assume it is a label, get the fetcher for the value, and call.
+		fetcher := metadata.ValueFunc(ctx, rule.variable[1:len(rule.variable)-1])
+		if fetcher != nil {
+			return []byte(fetcher()), nil
+		}
+		return []byte{}, nil
+	}
+
 	return nil, fmt.Errorf("unable to extract data for variable %s", rule.variable)
 }
 
 // Rewrite will alter the request EDNS0 local options with specified variables.
-func (rule *edns0VariableRule) Rewrite(state request.Request) Result {
-	data, err := rule.ruleData(state)
+func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Request) Result {
+	data, err := rule.ruleData(ctx, state)
 	if err != nil || data == nil {
 		return RewriteIgnored
 	}
@@ -247,6 +260,11 @@ func isValidVariable(variable string) bool {
 		protocol,
 		serverIP,
 		serverPort:
+		return true
+	}
+	// if variable contains a /, then we can assume it is a metadata.
+	// we cannot validate the names of metadata
+	if strings.HasPrefix(variable, "{") && strings.HasSuffix(variable, "}") && strings.Index(variable, "/") >= 0 {
 		return true
 	}
 	return false
@@ -310,7 +328,7 @@ func (rule *edns0SubnetRule) fillEcsData(state request.Request, ecs *dns.EDNS0_S
 }
 
 // Rewrite will alter the request EDNS0 subnet option.
-func (rule *edns0SubnetRule) Rewrite(state request.Request) Result {
+func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request) Result {
 	o := setupEdns0Opt(state.Req)
 
 	for _, s := range o.Option {

@@ -6,6 +6,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/coredns/coredns/request"
+
+	"github.com/coredns/coredns/plugin/metadata"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
@@ -434,10 +438,30 @@ func optsEqual(a, b []dns.EDNS0) bool {
 	return true
 }
 
+type StaticProvider map[string]metadata.Func
+
+func (tp StaticProvider) Metadata(ctx context.Context, state request.Request) context.Context {
+	for k, v := range tp {
+		metadata.SetValueFunc(ctx, k, v)
+	}
+	return ctx
+}
+
 func TestRewriteEDNS0LocalVariable(t *testing.T) {
 	rw := Rewrite{
 		Next:     plugin.HandlerFunc(msgPrinter),
 		noRevert: true,
+	}
+
+	expectedMetadata := []metadata.Provider{
+		StaticProvider{"test/label": func() string { return "my-value" }},
+		StaticProvider{"test/empty": func() string { return "" }},
+	}
+
+	meta := metadata.Metadata{
+		Zones:     []string{"."},
+		Providers: expectedMetadata,
+		Next:      &rw,
 	}
 
 	// test.ResponseWriter has the following values:
@@ -492,9 +516,26 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0x7F, 0x00, 0x00, 0x01}}},
 			true,
 		},
+		{
+			[]dns.EDNS0{},
+			[]string{"local", "set", "0xffee", "{test/label}"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("my-value")}},
+			true,
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"local", "set", "0xffee", "{test/empty}"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("")}},
+			true,
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"local", "set", "0xffee", "{test/does-not-exist}"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("")}},
+			true,
+		},
 	}
 
-	ctx := context.TODO()
 	for i, tc := range tests {
 		m := new(dns.Msg)
 		m.SetQuestion("example.com.", dns.TypeA)
@@ -506,8 +547,9 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 		}
 		rw.Rules = []Rule{r}
 
+		ctx := context.TODO()
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
-		rw.ServeDNS(ctx, rec, m)
+		meta.ServeDNS(ctx, rec, m)
 
 		resp := rec.Msg
 		o := resp.IsEdns0()

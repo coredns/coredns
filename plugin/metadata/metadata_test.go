@@ -10,9 +10,9 @@ import (
 	"github.com/miekg/dns"
 )
 
-type testProvider map[string]Func
+type StaticProvider map[string]Func
 
-func (tp testProvider) Metadata(ctx context.Context, state request.Request) context.Context {
+func (tp StaticProvider) Metadata(ctx context.Context, state request.Request) context.Context {
 	for k, v := range tp {
 		SetValueFunc(ctx, k, v)
 	}
@@ -29,9 +29,9 @@ func (m *testHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns
 }
 
 func TestMetadataServeDNS(t *testing.T) {
-	expectedMetadata := []testProvider{
-		testProvider{"test/key1": func() string { return "testvalue1" }},
-		testProvider{"test/key2": func() string { return "two" }, "test/key3": func() string { return "testvalue3" }},
+	expectedMetadata := []StaticProvider{
+		{"test/key1": func() string { return "testvalue1" }},
+		{"test/key2": func() string { return "two" }, "test/key3": func() string { return "testvalue3" }},
 	}
 	// Create fake Providers based on expectedMetadata
 	providers := []Provider{}
