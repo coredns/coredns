@@ -14,9 +14,9 @@ import (
 var log = clog.NewWithPlugin("whitelist")
 
 type Whitelist struct {
-	Kubernetes      *kubernetes.Kubernetes
-	Next            plugin.Handler
-	ServicesToHosts map[string]string
+	Kubernetes          *kubernetes.Kubernetes
+	Next                plugin.Handler
+	ServicesToWhitelist map[string]map[string]struct{}
 }
 
 func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -51,20 +51,17 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	log.Infof("handling service %s", service)
 
-	if wlRecord, ok := whitelist.ServicesToHosts[service]; ok {
-		log.Infof("query %s", r.Question[0].Name)
-		if r.Question[0].Name == wlRecord {
-			log.Infof("%s whitelisted for service %s", r.Question[0].Name, service)
+	if whitelisted, ok := whitelist.ServicesToWhitelist[service]; ok {
+		query := r.Question[0].Name
+		log.Infof("query %s", query)
+		if _, ok := whitelisted[query]; ok {
+			log.Infof("%s whitelisted for service %s", query, service)
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
-	// does not matter if this write fails
 	rw.WriteMsg(m)
-
-	//return whitelist.Kubernetes.ServeDNS(ctx, rw, r)
-
 	return dns.RcodeNameError, errors.New("not whitelisted")
 
 }
@@ -73,6 +70,4 @@ func (whitelist Whitelist) Name() string {
 	return "whitelist"
 }
 
-func toServiceName(addr net.Addr) string {
-	return "test"
-}
+

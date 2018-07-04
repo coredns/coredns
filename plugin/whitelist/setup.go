@@ -4,7 +4,11 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
+	"github.com/fsnotify/fsnotify"
 	"github.com/mholt/caddy"
+	"github.com/spf13/viper"
+	"os"
+	"path/filepath"
 )
 
 func init() {
@@ -43,12 +47,38 @@ func setup(c *caddy.Controller) error {
 	}
 
 	err = k8s.InitKubeCache()
-
 	k8s.RegisterKubeCache(c)
 
+	whitelist := &Whitelist{Kubernetes: k8s}
+	if whitelistConf := os.Getenv("TUFIN_WHITELIST_CONF_FILE_JSON"); whitelistConf != "" {
+		viper.SetConfigType("json")
+		viper.SetConfigName(filepath.Base(whitelistConf))
+		viper.AddConfigPath(filepath.Dir(whitelistConf))
+		viper.ReadInConfig()
+		viper.WatchConfig()
+
+		viper.OnConfigChange(func(e fsnotify.Event) {
+			viper.ReadInConfig()
+			conf := viper.GetStringMapStringSlice("services")
+			whitelist.ServicesToWhitelist = convert(conf)
+		})
+	}
+
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return &Whitelist{Kubernetes: k8s, Next: next, ServicesToHosts: map[string]string{"sleep": "www.google.com."}}
+		whitelist.Next = next
+		return whitelist
 	})
 
 	return nil
+}
+
+func convert(conf map[string][]string) (ret map[string]map[string]struct{}) {
+
+	for k, v := range conf {
+		for _, item := range v {
+			ret[k][item] = struct{}{}
+		}
+	}
+
+	return ret
 }
