@@ -32,4 +32,4 @@ aliases:
   - |
     /plugin: (.*) -> /label add: plugin/$1
   - |
-    /release: (.*) -> /exec: /opt/bin/release $1
+    /release: (.*) -> /exec: /opt/bin/release-coredns -t $1
