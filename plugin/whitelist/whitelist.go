@@ -69,5 +69,3 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 func (whitelist Whitelist) Name() string {
 	return "whitelist"
 }
-
-
