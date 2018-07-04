@@ -4,11 +4,12 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
-	"github.com/fsnotify/fsnotify"
 	"github.com/mholt/caddy"
 	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 )
 
 func init() {
@@ -51,16 +52,16 @@ func setup(c *caddy.Controller) error {
 
 	whitelist := &Whitelist{Kubernetes: k8s}
 	if whitelistConf := os.Getenv("TUFIN_WHITELIST_CONF_FILE_JSON"); whitelistConf != "" {
-		viper.SetConfigType("json")
-		viper.SetConfigName(filepath.Base(whitelistConf))
-		viper.AddConfigPath(filepath.Dir(whitelistConf))
-		viper.ReadInConfig()
-		viper.WatchConfig()
-
-		viper.OnConfigChange(func(e fsnotify.Event) {
+		WatchFile(whitelistConf, time.Second, func() {
+			log.Info("config changed")
+			viper.SetConfigType("json")
+			fileName, _ := filepath.EvalSymlinks(whitelistConf)
+			viper.SetConfigName(strings.TrimSuffix(filepath.Base(fileName), filepath.Ext(fileName)))
+			viper.AddConfigPath(filepath.Dir(fileName))
 			viper.ReadInConfig()
 			conf := viper.GetStringMapStringSlice("services")
 			whitelist.ServicesToWhitelist = convert(conf)
+			log.Infof("whitelist configuration %s", whitelist.ServicesToWhitelist)
 		})
 	}
 
@@ -72,9 +73,11 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func convert(conf map[string][]string) (ret map[string]map[string]struct{}) {
+func convert(conf map[string][]string) map[string]map[string]struct{} {
 
+	ret := make(map[string]map[string]struct{})
 	for k, v := range conf {
+		ret[k] = make(map[string]struct{})
 		for _, item := range v {
 			ret[k][item] = struct{}{}
 		}
