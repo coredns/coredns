@@ -15,15 +15,52 @@ type persistConn struct {
 	used time.Time
 }
 
+const (
+	transportTypeUdp = iota
+	transportTypeTcp
+	transportTypeTls
+
+	transportTypeCount
+)
+
+type transportType int
+
+func newTransportType(a net.Addr, forceTcp, isTls bool) transportType {
+
+	if isTls {
+		return transportTypeTls
+	}
+	if _, ok := a.(*net.TCPAddr); ok || forceTcp {
+		return transportTypeTcp
+	}
+	return transportTypeUdp
+}
+
+func newTransportTypeFromConn(c net.Conn, isTls bool) transportType {
+	if isTls {
+		return transportTypeTls
+	}
+	if _, ok := c.(*net.UDPConn); ok {
+		return transportTypeUdp
+	}
+	return transportTypeTcp
+}
+
+var ttNetworks = [transportTypeCount]string{"udp", "tcp", "tcp"}
+
+func (tt transportType) toNetwork() string {
+	return ttNetworks[tt]
+}
+
 // transport hold the persistent cache.
 type transport struct {
-	avgDialTime int64                     // kind of average time of dial time
-	conns       map[string][]*persistConn //  Buckets for udp, tcp and tcp-tls.
-	expire      time.Duration             // After this duration a connection is expired.
+	avgDialTime int64                              // kind of average time of dial time
+	conns       [transportTypeCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
+	expire      time.Duration                      // After this duration a connection is expired.
 	addr        string
 	tlsConfig   *tls.Config
 
-	dial  chan string
+	dial  chan transportType
 	yield chan *dns.Conn
 	ret   chan *dns.Conn
 	stop  chan bool
@@ -32,10 +69,9 @@ type transport struct {
 func newTransport(addr string, tlsConfig *tls.Config) *transport {
 	t := &transport{
 		avgDialTime: int64(defaultDialTimeout / 2),
-		conns:       make(map[string][]*persistConn),
 		expire:      defaultExpire,
 		addr:        addr,
-		dial:        make(chan string),
+		dial:        make(chan transportType),
 		yield:       make(chan *dns.Conn),
 		ret:         make(chan *dns.Conn),
 		stop:        make(chan bool),
@@ -59,18 +95,18 @@ func (t *transport) connManager() {
 Wait:
 	for {
 		select {
-		case proto := <-t.dial:
+		case tt := <-t.dial:
 			// take the last used conn - complexity O(1)
-			if stack := t.conns[proto]; len(stack) > 0 {
+			if stack := t.conns[tt]; len(stack) > 0 {
 				pc := stack[len(stack)-1]
 				if time.Since(pc.used) < t.expire {
 					// Found one, remove from pool and return this conn.
-					t.conns[proto] = stack[:len(stack)-1]
+					t.conns[tt] = stack[:len(stack)-1]
 					t.ret <- pc.c
 					continue Wait
 				}
 				// clear entire cache if the last conn is expired
-				t.conns[proto] = nil
+				t.conns[tt] = nil
 				// now, the connections being passed to closeConns() are not reachable from
 				// transport methods anymore. So, it's safe to close them in a separate goroutine
 				go closeConns(stack)
@@ -84,17 +120,8 @@ Wait:
 			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len() + 1))
 
 			// no proto here, infer from config and conn
-			if _, ok := conn.Conn.(*net.UDPConn); ok {
-				t.conns["udp"] = append(t.conns["udp"], &persistConn{conn, time.Now()})
-				continue Wait
-			}
-
-			if t.tlsConfig == nil {
-				t.conns["tcp"] = append(t.conns["tcp"], &persistConn{conn, time.Now()})
-				continue Wait
-			}
-
-			t.conns["tcp-tls"] = append(t.conns["tcp-tls"], &persistConn{conn, time.Now()})
+			tt := newTransportTypeFromConn(conn.Conn, t.tlsConfig != nil)
+			t.conns[tt] = append(t.conns[tt], &persistConn{conn, time.Now()})
 
 		case <-ticker.C:
 			t.cleanup(false)

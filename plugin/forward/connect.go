@@ -44,13 +44,8 @@ func (t *transport) updateDialTimeout(newDialTime time.Duration) {
 }
 
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
-func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
-	// If tls has been configured; use it.
-	if t.tlsConfig != nil {
-		proto = "tcp-tls"
-	}
-
-	t.dial <- proto
+func (t *transport) Dial(tt transportType) (*dns.Conn, bool, error) {
+	t.dial <- tt
 	c := <-t.ret
 
 	if c != nil {
@@ -59,12 +54,12 @@ func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
 
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
-	if proto == "tcp-tls" {
-		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
+	if tt == transportTypeTls {
+		conn, err := dns.DialTimeoutWithTLS(tt.toNetwork(), t.addr, t.tlsConfig, timeout)
 		t.updateDialTimeout(time.Since(reqTime))
 		return conn, false, err
 	}
-	conn, err := dns.DialTimeout(proto, t.addr, timeout)
+	conn, err := dns.DialTimeout(tt.toNetwork(), t.addr, timeout)
 	t.updateDialTimeout(time.Since(reqTime))
 	return conn, false, err
 }
@@ -81,12 +76,9 @@ func (p *Proxy) updateRtt(newRtt time.Duration) {
 func (p *Proxy) Connect(ctx context.Context, state request.Request, forceTCP, metric bool) (*dns.Msg, error) {
 	start := time.Now()
 
-	proto := state.Proto()
-	if forceTCP {
-		proto = "tcp"
-	}
+	tt := newTransportType(state.W.RemoteAddr(), forceTCP, p.transport.tlsConfig != nil)
 
-	conn, cached, err := p.Dial(proto)
+	conn, cached, err := p.Dial(tt)
 	if err != nil {
 		return nil, err
 	}

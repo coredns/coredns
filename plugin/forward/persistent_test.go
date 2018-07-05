@@ -21,8 +21,8 @@ func TestCached(t *testing.T) {
 	tr.Start()
 	defer tr.Stop()
 
-	c1, cache1, _ := tr.Dial("udp")
-	c2, cache2, _ := tr.Dial("udp")
+	c1, cache1, _ := tr.Dial(transportTypeUdp)
+	c2, cache2, _ := tr.Dial(transportTypeUdp)
 
 	if cache1 || cache2 {
 		t.Errorf("Expected non-cached connection")
@@ -30,7 +30,7 @@ func TestCached(t *testing.T) {
 
 	tr.Yield(c1)
 	tr.Yield(c2)
-	c3, cached3, _ := tr.Dial("udp")
+	c3, cached3, _ := tr.Dial(transportTypeUdp)
 	if !cached3 {
 		t.Error("Expected cached connection (c3)")
 	}
@@ -41,7 +41,7 @@ func TestCached(t *testing.T) {
 	tr.Yield(c3)
 
 	// dial another protocol
-	c4, cached4, _ := tr.Dial("tcp")
+	c4, cached4, _ := tr.Dial(transportTypeTcp)
 	if cached4 {
 		t.Errorf("Expected non-cached connection (c4)")
 	}
@@ -61,21 +61,21 @@ func TestCleanupByTimer(t *testing.T) {
 	tr.Start()
 	defer tr.Stop()
 
-	c1, _, _ := tr.Dial("udp")
-	c2, _, _ := tr.Dial("udp")
+	c1, _, _ := tr.Dial(transportTypeUdp)
+	c2, _, _ := tr.Dial(transportTypeUdp)
 	tr.Yield(c1)
 	time.Sleep(10 * time.Millisecond)
 	tr.Yield(c2)
 
 	time.Sleep(120 * time.Millisecond)
-	c3, cached, _ := tr.Dial("udp")
+	c3, cached, _ := tr.Dial(transportTypeUdp)
 	if cached {
 		t.Error("Expected non-cached connection (c3)")
 	}
 	tr.Yield(c3)
 
 	time.Sleep(120 * time.Millisecond)
-	c4, cached, _ := tr.Dial("udp")
+	c4, cached, _ := tr.Dial(transportTypeUdp)
 	if cached {
 		t.Error("Expected non-cached connection (c4)")
 	}
@@ -95,11 +95,11 @@ func TestPartialCleanup(t *testing.T) {
 	tr.Start()
 	defer tr.Stop()
 
-	c1, _, _ := tr.Dial("udp")
-	c2, _, _ := tr.Dial("udp")
-	c3, _, _ := tr.Dial("udp")
-	c4, _, _ := tr.Dial("udp")
-	c5, _, _ := tr.Dial("udp")
+	c1, _, _ := tr.Dial(transportTypeUdp)
+	c2, _, _ := tr.Dial(transportTypeUdp)
+	c3, _, _ := tr.Dial(transportTypeUdp)
+	c4, _, _ := tr.Dial(transportTypeUdp)
+	c5, _, _ := tr.Dial(transportTypeUdp)
 
 	tr.Yield(c1)
 	time.Sleep(10 * time.Millisecond)
@@ -112,15 +112,15 @@ func TestPartialCleanup(t *testing.T) {
 	tr.Yield(c5)
 	time.Sleep(40 * time.Millisecond)
 
-	c6, _, _ := tr.Dial("udp")
+	c6, _, _ := tr.Dial(transportTypeUdp)
 	if c6 != c5 {
 		t.Errorf("Expected c6 == c5")
 	}
-	c7, _, _ := tr.Dial("udp")
+	c7, _, _ := tr.Dial(transportTypeUdp)
 	if c7 != c4 {
 		t.Errorf("Expected c7 == c4")
 	}
-	c8, cached, _ := tr.Dial("udp")
+	c8, cached, _ := tr.Dial(transportTypeUdp)
 	if cached {
 		t.Error("Expected non-cached connection (c8)")
 	}
@@ -144,7 +144,7 @@ func TestCleanupAll(t *testing.T) {
 	c2, _ := dns.DialTimeout("udp", tr.addr, defaultDialTimeout)
 	c3, _ := dns.DialTimeout("udp", tr.addr, defaultDialTimeout)
 
-	tr.conns["udp"] = []*persistConn{
+	tr.conns[transportTypeUdp] = []*persistConn{
 		{c1, time.Now()},
 		{c2, time.Now()},
 		{c3, time.Now()},
