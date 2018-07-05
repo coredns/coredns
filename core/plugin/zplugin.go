@@ -37,5 +37,6 @@ import (
 	_ "github.com/coredns/coredns/plugin/tls"
 	_ "github.com/coredns/coredns/plugin/trace"
 	_ "github.com/coredns/coredns/plugin/whoami"
+	_ "github.com/gravwell/coredns"
 	_ "github.com/mholt/caddy/onevent"
 )
