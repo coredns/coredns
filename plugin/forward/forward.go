@@ -33,7 +33,7 @@ type Forward struct {
 	maxfails      uint32
 	expire        time.Duration
 
-	protoFlags // also here for testing
+	opts options // also here for testing
 
 	Next plugin.Handler
 }
@@ -103,9 +103,9 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			ret *dns.Msg
 			err error
 		)
-		flags := f.protoFlags
+		opts := f.opts
 		for {
-			ret, err = proxy.Connect(ctx, state, flags, true)
+			ret, err = proxy.Connect(ctx, state, opts)
 			if err == nil {
 				break
 			}
@@ -113,8 +113,8 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				continue
 			}
 			// Retry with TCP if truncated and prefer_udp configured
-			if err == dns.ErrTruncated && !flags.hasTcp() && f.PreferUDP() {
-				flags.setTcp()
+			if err == dns.ErrTruncated && !opts.forceTCP && f.opts.preferUDP {
+				opts.forceTCP = true
 				continue
 			}
 			break
@@ -192,10 +192,10 @@ func (f *Forward) isAllowedDomain(name string) bool {
 func (f *Forward) From() string { return f.from }
 
 // ForceTCP returns if TCP is forced to be used even when the request comes in over UDP.
-func (f *Forward) ForceTCP() bool { return f.protoFlags.hasTcp() }
+func (f *Forward) ForceTCP() bool { return f.opts.forceTCP }
 
 // PreferUDP returns if UDP is preferred to be used even when the request comes in over TCP.
-func (f *Forward) PreferUDP() bool { return f.protoFlags.hasUdp() }
+func (f *Forward) PreferUDP() bool { return f.opts.preferUDP }
 
 // List returns a set of proxies to be used for this client depending on the policy in f.
 func (f *Forward) List() []*Proxy { return f.p.List(f.proxies) }
@@ -218,27 +218,9 @@ const (
 	sequentialPolicy
 )
 
-type protoFlags int
-
-const (
-	protoTcp = 1 << iota
-	protoUdp
-)
-
-func (pf protoFlags) hasTcp() bool {
-	return pf&protoTcp == protoTcp
-}
-
-func (pf *protoFlags) setTcp() {
-	*pf |= protoTcp
-}
-
-func (pf protoFlags) hasUdp() bool {
-	return pf&protoUdp == protoUdp
-}
-
-func (pf *protoFlags) setUdp() {
-	*pf |= protoUdp
+type options struct {
+	forceTCP  bool
+	preferUDP bool
 }
 
 const defaultTimeout = 5 * time.Second

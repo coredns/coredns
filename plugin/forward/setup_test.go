@@ -15,25 +15,25 @@ func TestSetup(t *testing.T) {
 		expectedFrom    string
 		expectedIgnored []string
 		expectedFails   uint32
-		expectedFlags   protoFlags
+		expectedOpts    options
 		expectedErr     string
 	}{
 		// positive
-		{"forward . 127.0.0.1", false, ".", nil, 2, 0, ""},
-		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, 0, ""},
-		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, 0, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, protoTcp, ""},
-		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, protoUdp, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, protoTcp | protoUdp, ""},
-		{"forward . 127.0.0.1:53", false, ".", nil, 2, 0, ""},
-		{"forward . 127.0.0.1:8080", false, ".", nil, 2, 0, ""},
-		{"forward . [::1]:53", false, ".", nil, 2, 0, ""},
-		{"forward . [2003::1]:53", false, ".", nil, 2, 0, ""},
+		{"forward . 127.0.0.1", false, ".", nil, 2, options{}, ""},
+		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, options{}, ""},
+		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, options{}, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, options{forceTCP: true}, ""},
+		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true}, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, forceTCP: true}, ""},
+		{"forward . 127.0.0.1:53", false, ".", nil, 2, options{}, ""},
+		{"forward . 127.0.0.1:8080", false, ".", nil, 2, options{}, ""},
+		{"forward . [::1]:53", false, ".", nil, 2, options{}, ""},
+		{"forward . [2003::1]:53", false, ".", nil, 2, options{}, ""},
 		// negative
-		{"forward . a27.0.0.1", true, "", nil, 0, 0, "not an IP"},
-		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, 0, "unknown property"},
+		{"forward . a27.0.0.1", true, "", nil, 0, options{}, "not an IP"},
+		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, options{}, "unknown property"},
 		{`forward . ::1
-		forward com ::2`, true, "", nil, 0, 0, "plugin"},
+		forward com ::2`, true, "", nil, 0, options{}, "plugin"},
 	}
 
 	for i, test := range tests {
@@ -65,8 +65,8 @@ func TestSetup(t *testing.T) {
 		if !test.shouldErr && f.maxfails != test.expectedFails {
 			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedFails, f.maxfails)
 		}
-		if !test.shouldErr && f.protoFlags != test.expectedFlags {
-			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedFlags, f.protoFlags)
+		if !test.shouldErr && f.opts != test.expectedOpts {
+			t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedOpts, f.opts)
 		}
 	}
 }

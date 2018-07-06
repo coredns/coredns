@@ -29,10 +29,10 @@ func TestProxyClose(t *testing.T) {
 		p := NewProxy(s.Addr, nil)
 		p.start(hcInterval)
 
-		go func() { p.Connect(ctx, state, 0, false) }()
-		go func() { p.Connect(ctx, state, protoTcp, false) }()
-		go func() { p.Connect(ctx, state, 0, false) }()
-		go func() { p.Connect(ctx, state, protoTcp, false) }()
+		go func() { p.Connect(ctx, state, options{}) }()
+		go func() { p.Connect(ctx, state, options{forceTCP: true}) }()
+		go func() { p.Connect(ctx, state, options{}) }()
+		go func() { p.Connect(ctx, state, options{forceTCP: true}) }()
 
 		p.close()
 	}
@@ -97,19 +97,19 @@ func TestProxyTLSFail(t *testing.T) {
 func TestProtocolSelection(t *testing.T) {
 	p := NewProxy("bad_address", nil)
 
-	stateUdp := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
-	stateTcp := request.Request{W: &test.ResponseWriter{Tcp: true}, Req: new(dns.Msg)}
+	stateUDP := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
+	stateTCP := request.Request{W: &test.ResponseWriter{TCP: true}, Req: new(dns.Msg)}
 	ctx := context.TODO()
 
 	go func() {
-		p.Connect(ctx, stateUdp, 0, false)
-		p.Connect(ctx, stateUdp, protoTcp, false)
-		p.Connect(ctx, stateUdp, protoUdp, false)
-		p.Connect(ctx, stateUdp, protoUdp|protoTcp, false)
-		p.Connect(ctx, stateTcp, 0, false)
-		p.Connect(ctx, stateTcp, protoTcp, false)
-		p.Connect(ctx, stateTcp, protoUdp, false)
-		p.Connect(ctx, stateTcp, protoUdp|protoTcp, false)
+		p.Connect(ctx, stateUDP, options{})
+		p.Connect(ctx, stateUDP, options{forceTCP: true})
+		p.Connect(ctx, stateUDP, options{preferUDP: true})
+		p.Connect(ctx, stateUDP, options{preferUDP: true, forceTCP: true})
+		p.Connect(ctx, stateTCP, options{})
+		p.Connect(ctx, stateTCP, options{forceTCP: true})
+		p.Connect(ctx, stateTCP, options{preferUDP: true})
+		p.Connect(ctx, stateTCP, options{preferUDP: true, forceTCP: true})
 	}()
 
 	for i, exp := range []string{"udp", "tcp", "udp", "tcp", "tcp", "tcp", "udp", "tcp"} {
