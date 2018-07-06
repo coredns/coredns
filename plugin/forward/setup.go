@@ -99,7 +99,7 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 
 		// If parseHostPortOrFile expands a file with a lot of nameserver our accounting in protocols doesn't make
 		// any sense anymore... For now: lets don't care.
-		toHosts, err := dnsutil.ParseHostPortOrFile(to...)
+		toHosts, err := dnsutil.ParseHostPortOrFileOrDNSName(to...)
 		if err != nil {
 			return f, err
 		}
