@@ -51,8 +51,7 @@ type Func func() string
 
 // IsLabel check that the provided name looks like a valid label name
 func IsLabel(label string) bool {
-	parts := strings.Split(label, "/")
-	return len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0
+	return strings.Index(label, "/") >= 0
 }
 
 // IsMetadataSet check that the ctx is initialized to receive metadata information
