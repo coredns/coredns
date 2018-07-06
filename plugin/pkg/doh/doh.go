@@ -53,12 +53,14 @@ func NewRequest(method, url string, m *dns.Msg) (*http.Request, error) {
 
 }
 
+// ResponseToMsg converts a http.Repsonse to a dns message.
 func ResponseToMsg(resp *http.Response) (*dns.Msg, error) {
 	defer resp.Body.Close()
 
 	return toMsg(resp.Body)
 }
 
+// RequestToMsg converts a http.Request to a dns message.
 func RequestToMsg(req *http.Request) (*dns.Msg, error) {
 	switch req.Method {
 	case http.MethodGet:
