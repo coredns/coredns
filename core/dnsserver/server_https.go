@@ -103,7 +103,7 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg, err := postRequestToMsg(r)
+	msg, err := doh.RequestToMsg(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
