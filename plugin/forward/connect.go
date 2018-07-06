@@ -78,12 +78,17 @@ func (p *Proxy) updateRtt(newRtt time.Duration) {
 }
 
 // Connect selects an upstream, sends the request and waits for a response.
-func (p *Proxy) Connect(ctx context.Context, state request.Request, forceTCP, metric bool) (*dns.Msg, error) {
+func (p *Proxy) Connect(ctx context.Context, state request.Request, pf protoFlags, metric bool) (*dns.Msg, error) {
 	start := time.Now()
 
-	proto := state.Proto()
-	if forceTCP {
+	proto := ""
+	switch {
+	case pf.hasTcp(): // TCP flag has precedence over UDP flag
 		proto = "tcp"
+	case pf.hasUdp():
+		proto = "udp"
+	default:
+		proto = state.Proto()
 	}
 
 	conn, cached, err := p.Dial(proto)

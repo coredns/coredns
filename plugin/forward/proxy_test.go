@@ -29,10 +29,10 @@ func TestProxyClose(t *testing.T) {
 		p := NewProxy(s.Addr, nil)
 		p.start(hcInterval)
 
-		go func() { p.Connect(ctx, state, false, false) }()
-		go func() { p.Connect(ctx, state, true, false) }()
-		go func() { p.Connect(ctx, state, false, false) }()
-		go func() { p.Connect(ctx, state, true, false) }()
+		go func() { p.Connect(ctx, state, 0, false) }()
+		go func() { p.Connect(ctx, state, protoTcp, false) }()
+		go func() { p.Connect(ctx, state, 0, false) }()
+		go func() { p.Connect(ctx, state, protoTcp, false) }()
 
 		p.close()
 	}
@@ -91,5 +91,32 @@ func TestProxyTLSFail(t *testing.T) {
 
 	if _, err := f.ServeDNS(context.TODO(), rec, m); err == nil {
 		t.Fatal("Expected *not* to receive reply, but got one")
+	}
+}
+
+func TestProtocolSelection(t *testing.T) {
+	p := NewProxy("bad_address", nil)
+
+	stateUdp := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
+	stateTcp := request.Request{W: &test.ResponseWriter{Tcp: true}, Req: new(dns.Msg)}
+	ctx := context.TODO()
+
+	go func() {
+		p.Connect(ctx, stateUdp, 0, false)
+		p.Connect(ctx, stateUdp, protoTcp, false)
+		p.Connect(ctx, stateUdp, protoUdp, false)
+		p.Connect(ctx, stateUdp, protoUdp|protoTcp, false)
+		p.Connect(ctx, stateTcp, 0, false)
+		p.Connect(ctx, stateTcp, protoTcp, false)
+		p.Connect(ctx, stateTcp, protoUdp, false)
+		p.Connect(ctx, stateTcp, protoUdp|protoTcp, false)
+	}()
+
+	for i, exp := range []string{"udp", "tcp", "udp", "tcp", "tcp", "tcp", "udp", "tcp"} {
+		proto := <-p.transport.dial
+		p.transport.ret <- nil
+		if proto != exp {
+			t.Errorf("Unexpected protocol in case %d, expected %q, actual %q", i, exp, proto)
+		}
 	}
 }

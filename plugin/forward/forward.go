@@ -33,7 +33,7 @@ type Forward struct {
 	maxfails      uint32
 	expire        time.Duration
 
-	forceTCP bool // also here for testing
+	protoFlags // also here for testing
 
 	Next plugin.Handler
 }
@@ -103,9 +103,18 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			ret *dns.Msg
 			err error
 		)
+		flags := f.protoFlags
 		for {
-			ret, err = proxy.Connect(ctx, state, f.forceTCP, true)
-			if err != nil && err == ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
+			ret, err = proxy.Connect(ctx, state, flags, true)
+			if err == nil {
+				break
+			}
+			if err == ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
+				continue
+			}
+			// Retry with TCP if truncated and prefer_udp configured
+			if err == dns.ErrTruncated && !flags.hasTcp() && f.PreferUDP() {
+				flags.setTcp()
 				continue
 			}
 			break
@@ -183,7 +192,10 @@ func (f *Forward) isAllowedDomain(name string) bool {
 func (f *Forward) From() string { return f.from }
 
 // ForceTCP returns if TCP is forced to be used even when the request comes in over UDP.
-func (f *Forward) ForceTCP() bool { return f.forceTCP }
+func (f *Forward) ForceTCP() bool { return f.protoFlags.hasTcp() }
+
+// PreferUDP returns if UDP is preferred to be used even when the request comes in over TCP.
+func (f *Forward) PreferUDP() bool { return f.protoFlags.hasUdp() }
 
 // List returns a set of proxies to be used for this client depending on the policy in f.
 func (f *Forward) List() []*Proxy { return f.p.List(f.proxies) }
@@ -205,5 +217,28 @@ const (
 	roundRobinPolicy
 	sequentialPolicy
 )
+
+type protoFlags int
+
+const (
+	protoTcp = 1 << iota
+	protoUdp
+)
+
+func (pf protoFlags) hasTcp() bool {
+	return pf&protoTcp == protoTcp
+}
+
+func (pf *protoFlags) setTcp() {
+	*pf |= protoTcp
+}
+
+func (pf protoFlags) hasUdp() bool {
+	return pf&protoUdp == protoUdp
+}
+
+func (pf *protoFlags) setUdp() {
+	*pf |= protoUdp
+}
 
 const defaultTimeout = 5 * time.Second
