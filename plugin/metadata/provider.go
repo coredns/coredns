@@ -51,12 +51,16 @@ type Func func() string
 
 // IsLabel check that the provided name looks like a valid label name
 func IsLabel(label string) bool {
-	return strings.Index(label, "/") >= 0
-}
-
-// IsMetadataSet check that the ctx is initialized to receive metadata information
-func IsMetadataSet(ctx context.Context) bool {
-	return ctx.Value(key{}) != nil
+	p := strings.Index(label, "/")
+	if p <= 0 || p >= len(label)-1 {
+		// cannot accept namespace empty nor label empty
+		return false
+	}
+	if strings.LastIndex(label, "/") != p {
+		// several slash in the Label
+		return false
+	}
+	return true
 
 }
 

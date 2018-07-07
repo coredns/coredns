@@ -47,15 +47,8 @@ func TestMetadataServeDNS(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	if IsMetadataSet(ctx) {
-		t.Errorf("Context provide Metadata information whereas metadata is not yet activated")
-	}
 	m.ServeDNS(ctx, &test.ResponseWriter{}, new(dns.Msg))
 	nctx := next.ctx
-
-	if !IsMetadataSet(nctx) {
-		t.Errorf("Context does not provide Metadata information")
-	}
 
 	for _, expected := range expectedMetadata {
 		for label, expVal := range expected {
@@ -76,11 +69,14 @@ func TestLabelFormat(t *testing.T) {
 		isValid bool
 	}{
 		{"plugin/LABEL", true},
+		{"p/LABEL", true},
+		{"plugin/L", true},
 		{"LABEL", false},
 		{"plugin.LABEL", false},
-		{"/NO-PLUGIN-ACCEPTED", true},
-		{"ONLY-PLUGIN-ACCEPTED/", true},
-		{"PLUGIN/LABEL/SUB-LABEL", true},
+		{"/NO-PLUGIN-NOT-ACCEPTED", false},
+		{"ONLY-PLUGIN-NOT-ACCEPTED/", false},
+		{"PLUGIN/LABEL/SUB-LABEL", false},
+		{"/", false},
 	}
 
 	for _, test := range labels {
