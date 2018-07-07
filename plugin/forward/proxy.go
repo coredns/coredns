@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/up"
-
-	"github.com/miekg/dns"
 )
 
 // Proxy defines an upstream host.
@@ -52,9 +50,6 @@ func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 
 // SetExpire sets the expire duration in the lower p.transport.
 func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
-
-// Dial connects to the host in p with the configured transport.
-func (p *Proxy) Dial(proto string) (*dns.Conn, bool, error) { return p.transport.Dial(proto) }
 
 // Healthcheck kicks of a round of health checks for this proxy.
 func (p *Proxy) Healthcheck() {

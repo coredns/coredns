@@ -91,7 +91,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 		proto = state.Proto()
 	}
 
-	conn, cached, err := p.Dial(proto)
+	conn, cached, err := p.transport.Dial(proto)
 	if err != nil {
 		return nil, err
 	}
