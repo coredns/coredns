@@ -529,8 +529,8 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 		{
 			[]dns.EDNS0{},
 			[]string{"local", "set", "0xffee", "{test/does-not-exist}"},
-			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("")}},
-			true,
+			nil,
+			false,
 		},
 	}
 
@@ -551,11 +551,13 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 
 		resp := rec.Msg
 		o := resp.IsEdns0()
-		o.SetDo(tc.doBool)
 		if o == nil {
-			t.Errorf("Test %d: EDNS0 options not set", i)
+			if tc.toOpts != nil {
+				t.Errorf("Test %d: EDNS0 options not set", i)
+			}
 			continue
 		}
+		o.SetDo(tc.doBool)
 		if o.Do() != tc.doBool {
 			t.Errorf("Test %d: Expected %v but got %v", i, tc.doBool, o.Do())
 		}

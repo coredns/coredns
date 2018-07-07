@@ -201,13 +201,12 @@ func (rule *edns0VariableRule) ruleData(ctx context.Context, state request.Reque
 		return []byte(state.Proto()), nil
 	}
 
-	// starting with metadata support, rewrite will silently accept to rewrite an unknown metadata label
-	// even though metadata is not involved in the stanza
 	fetcher := metadata.ValueFunc(ctx, rule.variable[1:len(rule.variable)-1])
 	if fetcher != nil {
 		return []byte(fetcher()), nil
 	}
-	return []byte{}, nil
+
+	return nil, fmt.Errorf("unable to extract data for variable %s", rule.variable)
 }
 
 // Rewrite will alter the request EDNS0 local options with specified variables.
