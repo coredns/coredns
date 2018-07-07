@@ -36,7 +36,7 @@ func NewProxy(addr string, protocol int, cfg *tls.Config) *Proxy {
 		transport: newTransport(addr, cfg),
 		avgRtt:    int64(maxTimeout / 2),
 	}
-	p.health = NewHealthChecker(1)
+	p.health = NewHealthChecker(protocol)
 	if cfg != nil {
 		p.health.SetTLSConfig(cfg)
 	}
