@@ -125,7 +125,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 
 	p.updateRtt(time.Since(reqTime))
 
-	p.Yield(conn)
+	p.transport.Yield(conn)
 
 	rc, ok := dns.RcodeToString[ret.Rcode]
 	if !ok {

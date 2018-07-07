@@ -16,57 +16,39 @@ type Proxy struct {
 	avgRtt int64
 	fails  uint32
 
-	addr   string
-	client *dns.Client
+	addr string
 
 	// Connection caching
 	expire    time.Duration
 	transport *transport
 
 	// health checking
-	probe *up.Probe
+	probe  *up.Probe
+	health HealthChecker
 }
 
 // NewProxy returns a new proxy.
-func NewProxy(addr string, tlsConfig *tls.Config) *Proxy {
+func NewProxy(addr string, protocol int, cfg *tls.Config) *Proxy {
 	p := &Proxy{
 		addr:      addr,
 		fails:     0,
 		probe:     up.New(),
-		transport: newTransport(addr, tlsConfig),
+		transport: newTransport(addr, cfg),
 		avgRtt:    int64(maxTimeout / 2),
 	}
-	p.client = dnsClient(tlsConfig)
+	p.health = NewHealthChecker(1)
+	if cfg != nil {
+		p.health.SetTLSConfig(cfg)
+	}
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
-}
-
-// Addr returns the address to forward to.
-func (p *Proxy) Addr() (addr string) { return p.addr }
-
-// dnsClient returns a client used for health checking.
-func dnsClient(tlsConfig *tls.Config) *dns.Client {
-	c := new(dns.Client)
-	c.Net = "udp"
-	// TODO(miek): this should be half of hcDuration?
-	c.ReadTimeout = 1 * time.Second
-	c.WriteTimeout = 1 * time.Second
-
-	if tlsConfig != nil {
-		c.Net = "tcp-tls"
-		c.TLSConfig = tlsConfig
-	}
-	return c
 }
 
 // SetTLSConfig sets the TLS config in the lower p.transport and in the healthchecking client.
 func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 	p.transport.SetTLSConfig(cfg)
-	p.client = dnsClient(cfg)
+	p.health.SetTLSConfig(cfg)
 }
-
-// IsTLS returns true if proxy uses tls.
-func (p *Proxy) IsTLS() bool { return p.transport.tlsConfig != nil }
 
 // SetExpire sets the expire duration in the lower p.transport.
 func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
@@ -74,11 +56,12 @@ func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) 
 // Dial connects to the host in p with the configured transport.
 func (p *Proxy) Dial(proto string) (*dns.Conn, bool, error) { return p.transport.Dial(proto) }
 
-// Yield returns the connection to the pool.
-func (p *Proxy) Yield(c *dns.Conn) { p.transport.Yield(c) }
-
 // Healthcheck kicks of a round of health checks for this proxy.
-func (p *Proxy) Healthcheck() { p.probe.Do(p.Check) }
+func (p *Proxy) Healthcheck() {
+	p.probe.Do(func() error {
+		return p.health.Check(p)
+	})
+}
 
 // Down returns true if this proxy is down, i.e. has *more* fails than maxfails.
 func (p *Proxy) Down(maxfails uint32) bool {
@@ -91,13 +74,8 @@ func (p *Proxy) Down(maxfails uint32) bool {
 }
 
 // close stops the health checking goroutine.
-func (p *Proxy) close() {
-	p.probe.Stop()
-}
-
-func (p *Proxy) finalizer() {
-	p.transport.Stop()
-}
+func (p *Proxy) close()     { p.probe.Stop() }
+func (p *Proxy) finalizer() { p.transport.Stop() }
 
 // start starts the proxy's healthchecking.
 func (p *Proxy) start(duration time.Duration) {
