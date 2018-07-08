@@ -7,6 +7,7 @@ jobs:
     working_directory: /go/src/github.com/coredns/coredns
     docker:
       - image: tufinim/circleci-go:master
+      - privileged: true
 
     environment:
       PROJECT_NAME: coredns
