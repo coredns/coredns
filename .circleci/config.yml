@@ -4,7 +4,7 @@
 version: 2
 jobs:
   build:
-    working_directory: /go/src/github.com/tufin/coredns
+    working_directory: /go/src/github.com/coredns/coredns
     docker:
       - image: tufinim/circleci-go:master
 
