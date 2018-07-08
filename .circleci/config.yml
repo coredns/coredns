@@ -43,11 +43,3 @@ jobs:
           name: Upload the docker image to gcr
           command: |
             /scripts/upload_to_gcr.sh $PROJECT_NAME $GCR_NAME $CIRCLE_BUILD_NUM $CIRCLE_BRANCH
-      - run:
-          name: Tufin image analysis
-          command: |
-            bash <(curl -H "Authorization: Bearer $TUFIN_API_KEY" -s $TUFIN_URL/api/scripts/image-scan) "$GCR_NAME:$CIRCLE_BUILD_NUM"
-      - run:
-          name: Tufin Continuous Security Policy
-          command: |
-            bash <(curl -H "Authorization: Bearer $TUFIN_API_KEY" -s $TUFIN_URL/lighthouse/$TUFIN_DOMAIN/$TUFIN_PROJECT/bash) policy.yaml
