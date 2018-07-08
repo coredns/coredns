@@ -41,6 +41,7 @@ PrivateKey: f03VplaIEA+KHI9uizlemUSbUJH86hPBPjmcUninPoM=
 // }
 // ~~~
 func TestReadme(t *testing.T) {
+	t.Skip("bind plugin does not work on in docker (bind: cannot assign requested address) and circleci doesn't allow --net=host")
 	port := 30053
 	caddy.Quiet = true
 	dnsserver.Quiet = true
