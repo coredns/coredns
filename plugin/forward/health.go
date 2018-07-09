@@ -14,7 +14,8 @@ type HealthChecker interface {
 	SetTLSConfig(*tls.Config)
 }
 
-type hc struct{ c *dns.Client }
+// dnsHc is a health checker for a DNS endpoint (DNS, and DoT).
+type dnsHc struct{ c *dns.Client }
 
 // NewHealthChecker returns a new HealthChecker based on protocol.
 func NewHealthChecker(protocol int) HealthChecker {
@@ -25,13 +26,13 @@ func NewHealthChecker(protocol int) HealthChecker {
 		c.ReadTimeout = 1 * time.Second
 		c.WriteTimeout = 1 * time.Second
 
-		return &hc{c: c}
+		return &dnsHc{c: c}
 	}
 
 	return nil
 }
 
-func (h *hc) SetTLSConfig(cfg *tls.Config) {
+func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
 	h.c.Net = "tcp-tls"
 	h.c.TLSConfig = cfg
 }
@@ -40,7 +41,7 @@ func (h *hc) SetTLSConfig(cfg *tls.Config) {
 // replies are considered fails, basically anything else constitutes a healthy upstream.
 
 // Check is used as the up.Func in the up.Probe.
-func (h *hc) Check(p *Proxy) error {
+func (h *dnsHc) Check(p *Proxy) error {
 	err := h.send(p.addr)
 	if err != nil {
 		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
@@ -52,7 +53,7 @@ func (h *hc) Check(p *Proxy) error {
 	return nil
 }
 
-func (h *hc) send(addr string) error {
+func (h *dnsHc) send(addr string) error {
 	ping := new(dns.Msg)
 	ping.SetQuestion(".", dns.TypeNS)
 

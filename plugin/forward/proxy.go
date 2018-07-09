@@ -26,18 +26,15 @@ type Proxy struct {
 }
 
 // NewProxy returns a new proxy.
-func NewProxy(addr string, protocol int, cfg *tls.Config) *Proxy {
+func NewProxy(addr string, protocol int) *Proxy {
 	p := &Proxy{
 		addr:      addr,
 		fails:     0,
 		probe:     up.New(),
-		transport: newTransport(addr, cfg),
+		transport: newTransport(addr),
 		avgRtt:    int64(maxTimeout / 2),
 	}
 	p.health = NewHealthChecker(protocol)
-	if cfg != nil {
-		p.health.SetTLSConfig(cfg)
-	}
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
 }
