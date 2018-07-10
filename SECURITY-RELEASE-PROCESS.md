@@ -21,6 +21,8 @@ These are the people who have been involved in the initial discussion and volunt
 - Francois Tur (**[@fturib](https://github.com/fturib)**) `<ftur@infoblox.com>`
 - ????
 
+**TODO:** - Add public PHP key for encryptes email to Security Team.
+
 ## Disclosures
 
 ### Private Disclosure Processes
@@ -30,6 +32,13 @@ please DO NOT file a public issue - that means do not create a Github issue,
 instead send your report privately to security@coredns.io. 
 Security reports are greatly appreciated and we will publicly thank you for it.
 
+if you know it, please provide as much information as possible, so we can react quickly.
+For instance, that could include:
+- Description of the location and potential impact of the vulnerability;
+- A detailed description of the steps required to reproduce the vulnerability (POC scripts, screenshots, and compressed screen captures are all helpful to us)
+- Whatever else you think we might need to identify the source of this vulnerability
+- Do not forget : a Name/handle and a link for recognition in our Hall of Fame !
+
 ### Public Disclosure Processes
 
 If you know of a publicly disclosed security vulnerability please IMMEDIATELY email security@coredns.io 
@@ -38,6 +47,12 @@ to inform the CoreDNS Security Team about the vulnerability so we start the patc
 If possible we will ask the person making the public report if the issue can be handled via a private disclosure process. 
 If the reporter denies, we will move swiftly with the fix and release process. 
 In extreme cases you can ask GitHub to delete the issue but this generally isn't necessary and is unlikely to make a public disclosure less damaging.
+
+**why is that in public disclosure ?**
+
+**TODO:** Do we want to own the creation of CVEs?  I suspect we would like to work with the reporter on this, at least, or take care of it ourselves.  If we don’t mention it at all, the reporter may take it on themselves to apply for a CVE without our knowledge.
+
+**TODO:** Whether we want them to or not, the external party reporting a vulnerability may continue their own research after reporting to us.  They may continue to investigate on their own, and perhaps even attempt to create a remediation.  We should include some guidelines around working with them to resolve their findings
 
 ## Patch, Release, and Public Communication
 
@@ -80,10 +95,11 @@ When in doubt push forward and go public ASAP.
 
 **Fix Release Day** (Completed within 1-21 days of Disclosure)
 
-- CoreDNS Security Team will cherry-pick all needed commits from the Master branch in order to create a new release on top of the current last version released.
+- CoreDNS Security Team will selectively choose all needed commits from the Master branch in order to create a new release on top of the current last version released.
 - Release process will be as usual.
-- CoreDNS Security Team will inform users of the release by usual means, adding information on what security issue is fixed/workarounded
+- CoreDNS Security Team will inform users of the release by usual means, adding information on what security issues are fixed, or relevant work-arounds..
 
+If the CVSS score is under 4.0 (a low severity score), CoreDNS Security Team can decide to slow the release process down in the face of holidays, developer bandwidth, etc.
 
 ## Private Integrator List
 
