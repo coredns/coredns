@@ -62,7 +62,7 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 			})
 		} else {
 			// Name scope, and maybe a format specified
-			format := DefaultLogFormat
+			var format string
 
 			switch args[1] {
 			case "{common}":
