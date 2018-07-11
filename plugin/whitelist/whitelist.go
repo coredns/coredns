@@ -76,14 +76,10 @@ func (whitelist Whitelist) getServiceFromIP(ipAddr string) string {
 		return ""
 	}
 
-	log.Info("services +v", services)
-
 	pods := whitelist.Kubernetes.APIConn.PodIndex(ipAddr)
 	if pods == nil || len(pods) == 0 {
 		return ""
 	}
-
-	log.Info("pods +v", pods)
 
 	pod := pods[0]
 
