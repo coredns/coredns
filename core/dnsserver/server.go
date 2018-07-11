@@ -208,8 +208,13 @@ func (s *Server) ListenPacket() (net.PacketConn, error) {
 // This implements Caddy.Stopper interface.
 func (s *Server) Stop() (err error) {
 	// close listeners
-	s.tcpReader.Off()
-	s.udpReader.Off()
+	// it may happen that some of the readers are not initialized (e.g. if not using TCP)
+	if s.tcpReader != nil {
+		s.tcpReader.Off()
+	}
+	if s.udpReader != nil {
+		s.udpReader.Off()
+	}
 
 	// wait few ms to ensure all queries are started to be handled
 	time.Sleep(100 * time.Millisecond)
