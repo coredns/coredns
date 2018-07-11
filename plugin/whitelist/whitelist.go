@@ -32,18 +32,18 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	segs := dns.SplitDomainName(state.Name())
 
+	var ipAddr string
+	if ip, ok := remoteAddr.(*net.UDPAddr); ok {
+		ipAddr = ip.IP.String()
+	}
+
 	if len(segs) == 1 {
-		log.Errorf("can not parse %s", state.Name())
+		log.Errorf("can not parse %s. requesting ip %s", state.Name(), ipAddr)
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
-	}
-
-	var ipAddr string
-	if ip, ok := remoteAddr.(*net.UDPAddr); ok {
-		ipAddr = ip.IP.String()
 	}
 
 	services := whitelist.Kubernetes.APIConn.ServiceList()
