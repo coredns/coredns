@@ -97,6 +97,9 @@ func parseRequest(state request.Request) (r recordRequest, err error) {
 	if base == "" || base == kubernetes.Svc || base == kubernetes.Pod {
 		return r, nil
 	}
+
+	log.Infof("base %v", base)
+
 	segs := dns.SplitDomainName(base)
 
 	r.port = "*"
@@ -116,7 +119,7 @@ func parseRequest(state request.Request) (r recordRequest, err error) {
 		return r, nil
 	}
 
-	log.Infof("%v", segs)
+	log.Infof("segs %v", segs)
 	r.podOrSvc = segs[last]
 	if r.podOrSvc != kubernetes.Pod && r.podOrSvc != kubernetes.Svc {
 		return r, errors.New("invalid request1")
