@@ -117,7 +117,7 @@ func parseRequest(state request.Request) (r recordRequest, err error) {
 	}
 	r.podOrSvc = segs[last]
 	if r.podOrSvc != kubernetes.Pod && r.podOrSvc != kubernetes.Svc {
-		return r, errors.New("invalid request")
+		return r, errors.New("invalid request1")
 	}
 	last--
 	if last < 0 {
@@ -147,7 +147,7 @@ func parseRequest(state request.Request) (r recordRequest, err error) {
 		r.port = stripUnderscore(segs[last-1])
 
 	default: // too long
-		return r, errors.New("invalid request")
+		return r, errors.New("invalid request2")
 	}
 
 	return r, nil
