@@ -32,7 +32,12 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	state := request.Request{W: rw, Req: r, Context: ctx}
 
-	req, _ := parseRequest(state)
+	req, err := parseRequest(state)
+
+	if err != nil {
+		log.Error(err)
+		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+	}
 
 	if req.namespace != "" && req.namespace != "default" {
 		log.Infof("not handling namespace %s", req.namespace)
