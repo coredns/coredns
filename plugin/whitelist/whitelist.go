@@ -58,6 +58,8 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		}
 	}
 
+	query := state.Name()
+	log.Info(query)
 	if whitelisted, ok := whitelist.ServicesToWhitelist[service]; ok {
 		query := state.Name()
 		log.Infof("handling service %s", service)
