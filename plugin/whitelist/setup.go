@@ -53,7 +53,6 @@ func setup(c *caddy.Controller) error {
 	whitelist := &Whitelist{Kubernetes: k8s}
 	if whitelistConf := os.Getenv("TUFIN_WHITELIST_CONF_FILE_JSON"); whitelistConf != "" {
 		WatchFile(whitelistConf, time.Second, func() {
-			log.Info("config changed")
 			viper.SetConfigType("json")
 			fileName, _ := filepath.EvalSymlinks(whitelistConf)
 			viper.SetConfigName(strings.TrimSuffix(filepath.Base(fileName), filepath.Ext(fileName)))
