@@ -32,6 +32,11 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	segs := dns.SplitDomainName(state.Name())
 
+	if len(segs) == 1 {
+		log.Errorf("can not parse %s", state.Name())
+		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+	}
+
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
