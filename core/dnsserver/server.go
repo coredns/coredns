@@ -156,7 +156,9 @@ func (s *Server) Serve(l net.Listener) error {
 		s.ServeDNS(ctx, w, r)
 	}),
 		DecorateReader: func(r dns.Reader) dns.Reader {
+			s.m.Lock()
 			s.tcpReader = &OnOffReader{r, s.readerOff}
+			s.m.Unlock()
 			return s.tcpReader
 		}}
 	s.m.Unlock()
@@ -175,7 +177,9 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 		s.ServeDNS(ctx, w, r)
 	}),
 		DecorateReader: func(r dns.Reader) dns.Reader {
+			s.m.Lock()
 			s.udpReader = &OnOffReader{r, s.readerOff}
+			s.m.Unlock()
 			return s.udpReader
 		}}
 	s.m.Unlock()
