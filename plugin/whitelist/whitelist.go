@@ -23,8 +23,6 @@ type Whitelist struct {
 
 func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, r *dns.Msg) (int, error) {
 
-	log.Infof("query %s", r.Question[0].Name)
-
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Authoritative, m.RecursionAvailable = true, true
@@ -33,10 +31,8 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	state := request.Request{W: rw, Req: r, Context: ctx}
 
 	segs := dns.SplitDomainName(state.Name())
-	log.Info("namespace %s ", segs[1])
 
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
-		log.Info("namespace %s found, not handling", ns.Name)
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
@@ -45,7 +41,6 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		ipAddr = ip.IP.String()
 	}
 
-	log.Infof("remote addr %v", ipAddr)
 	services := whitelist.Kubernetes.APIConn.ServiceList()
 
 	pod := whitelist.Kubernetes.APIConn.PodIndex(ipAddr)[0]
@@ -61,6 +56,7 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		}
 	}
 
+	log.Infof("query %s", r.Question[0].Name)
 	if whitelisted, ok := whitelist.ServicesToWhitelist[service]; ok {
 		query := r.Question[0].Name
 		log.Infof("handling service %s", service)
