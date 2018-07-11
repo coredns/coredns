@@ -32,15 +32,11 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	state := request.Request{W: rw, Req: r, Context: ctx}
 
-	req, err := parseRequest(state)
+	segs := dns.SplitDomainName(state.Name())
+	log.Info("namespace %s ", segs[1])
 
-	if err != nil {
-		log.Error(err)
-		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
-	}
-
-	if req.namespace != "" && req.namespace != "default" {
-		log.Infof("not handling namespace %s", req.namespace)
+	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
+		log.Info("namespace %s found, not handling", ns.Name)
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
