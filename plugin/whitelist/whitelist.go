@@ -29,7 +29,6 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	remoteAddr := rw.RemoteAddr()
 
 	state := request.Request{W: rw, Req: r, Context: ctx}
-
 	segs := dns.SplitDomainName(state.Name())
 
 	var ipAddr string
@@ -37,8 +36,7 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		ipAddr = ip.IP.String()
 	}
 
-	if len(segs) == 1 {
-		log.Errorf("can not parse %s. requesting ip %s", state.Name(), ipAddr)
+	if len(segs) <= 1 {
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
@@ -47,7 +45,6 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	}
 
 	services := whitelist.Kubernetes.APIConn.ServiceList()
-
 	pod := whitelist.Kubernetes.APIConn.PodIndex(ipAddr)[0]
 
 	var service string
@@ -61,14 +58,14 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		}
 	}
 
-	log.Infof("query %s", r.Question[0].Name)
 	if whitelisted, ok := whitelist.ServicesToWhitelist[service]; ok {
-		query := r.Question[0].Name
+		query := state.Name()
 		log.Infof("handling service %s", service)
 		if _, ok := whitelisted[query]; ok {
 			log.Infof("%s whitelisted for service %s", query, service)
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
+		log.Infof("blocking %s for service %s", query, service)
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
