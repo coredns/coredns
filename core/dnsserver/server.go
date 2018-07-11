@@ -33,6 +33,7 @@ type Server struct {
 	server    [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
 	udpReader *OnOffReader   // Reader for UDP protocol that can stop accepting in queries when asked
 	tcpReader *OnOffReader
+	readerOff uint32     // inform that reader should start off. Corner case where the Readers are created after we start shutdown the Server
 	m         sync.Mutex // protects the servers
 
 	zones       map[string]*Config // zones keyed by their address
@@ -85,6 +86,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		Addr:        addr,
 		zones:       make(map[string]*Config),
 		connTimeout: 5 * time.Second, // TODO(miek): was configurable
+		readerOff:   0,               // by default the Server accept queries
 	}
 
 	// We have to bound our wg with one increment
@@ -154,7 +156,7 @@ func (s *Server) Serve(l net.Listener) error {
 		s.ServeDNS(ctx, w, r)
 	}),
 		DecorateReader: func(r dns.Reader) dns.Reader {
-			s.tcpReader = &OnOffReader{rd: r}
+			s.tcpReader = &OnOffReader{r, s.readerOff}
 			return s.tcpReader
 		}}
 	s.m.Unlock()
@@ -173,7 +175,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 		s.ServeDNS(ctx, w, r)
 	}),
 		DecorateReader: func(r dns.Reader) dns.Reader {
-			s.udpReader = &OnOffReader{rd: r}
+			s.udpReader = &OnOffReader{r, s.readerOff}
 			return s.udpReader
 		}}
 	s.m.Unlock()
@@ -209,12 +211,15 @@ func (s *Server) ListenPacket() (net.PacketConn, error) {
 func (s *Server) Stop() (err error) {
 	// close listeners
 	// it may happen that some of the readers are not initialized (e.g. if not using TCP)
+	s.m.Lock()
+	s.readerOff = 1
 	if s.tcpReader != nil {
 		s.tcpReader.Off()
 	}
 	if s.udpReader != nil {
 		s.udpReader.Off()
 	}
+	s.m.Unlock()
 
 	// wait few ms to ensure all queries are started to be handled
 	time.Sleep(100 * time.Millisecond)
