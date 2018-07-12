@@ -70,7 +70,7 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func (whitelist whitelist) config() {
+func (whitelist *whitelist) config() {
 
 	viper.SetConfigType("json")
 	fi, err := os.Lstat(whitelist.configPath)
@@ -87,6 +87,7 @@ func (whitelist whitelist) config() {
 			return
 		}
 	} else {
+		log.Info("config file")
 		fileName = whitelist.configPath
 	}
 
