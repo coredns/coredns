@@ -2,10 +2,12 @@
 package metrics
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
@@ -22,6 +24,7 @@ type Metrics struct {
 	ln      net.Listener
 	lnSetup bool
 	mux     *http.ServeMux
+	srv     *http.Server
 
 	zoneNames []string
 	zoneMap   map[string]bool
@@ -84,8 +87,18 @@ func (m *Metrics) ZoneNames() []string {
 func (m *Metrics) OnStartup() error {
 	ln, err := net.Listen("tcp", m.Addr)
 	if err != nil {
-		log.Errorf("Failed to start metrics handler: %s", err)
-		return err
+		log.Warningf("failed to start metrics handler on %s - error : %s", m.Addr, err)
+
+		// on some OS (Alpine) the listener seems reating the socekt a few delay after the closing the listener.
+		// in case of restart of server, it needs to delay a little but the opening of a new listener on the same address:port
+		time.Sleep(1 * time.Second)
+		ln, err = net.Listen("tcp", m.Addr)
+		if err != nil {
+			// complete fail to listen
+			log.Errorf("failed to start metrics handler second time (one sec delay): %s", err)
+			return err
+		}
+		log.Infof("eventually succeeded to start metrics handler on %s", err)
 	}
 
 	m.ln = ln
@@ -95,35 +108,46 @@ func (m *Metrics) OnStartup() error {
 	m.mux = http.NewServeMux()
 	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{}))
 
+	m.srv = &http.Server{Handler: m.mux}
 	go func() {
-		http.Serve(m.ln, m.mux)
+		m.srv.Serve(m.ln)
 	}()
+
 	return nil
 }
 
 // OnRestart stops the listener on reload.
-func (m *Metrics) OnRestart() error {
+func (m *Metrics) stopService() {
+	// We allow prometheus statements in multiple Server Blocks, but only the first
+	// will open the listener, for the rest they are all nil; guard against that.
+
 	if !m.lnSetup {
-		return nil
+		return
 	}
 
-	uniqAddr.SetTodo(m.Addr)
+	// Shutdown will ensure that the service is completely stopped - needed for some tests.
+	err := m.srv.Shutdown(context.TODO())
+	if err != nil {
+		log.Infof("Error when closing prometheus http server: %s", err)
+	}
 
-	m.ln.Close()
 	m.lnSetup = false
+	log.Infof("listener stopped on %s", m.Addr)
+}
+
+func (m *Metrics) OnRestart() error {
+	m.stopService()
+
+	// un-register so a new metrics from the new config can register and be launched
+	uniqAddr.Unset(m.Addr)
+
 	return nil
 }
 
 // OnFinalShutdown tears down the metrics listener on shutdown and restart.
 func (m *Metrics) OnFinalShutdown() error {
-	// We allow prometheus statements in multiple Server Blocks, but only the first
-	// will open the listener, for the rest they are all nil; guard against that.
-	if !m.lnSetup {
-		return nil
-	}
-
-	m.lnSetup = false
-	return m.ln.Close()
+	m.stopService()
+	return nil
 }
 
 func keys(m map[string]bool) []string {

@@ -31,6 +31,8 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("prometheus", err)
 	}
 
+	uniqAddr.Set(m.Addr, m.OnStartup)
+
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		m.Next = next
 		return m
@@ -54,10 +56,6 @@ func setup(c *caddy.Controller) error {
 
 func prometheusParse(c *caddy.Controller) (*Metrics, error) {
 	var met = New(defaultAddr)
-
-	defer func() {
-		uniqAddr.Set(met.Addr, met.OnStartup)
-	}()
 
 	i := 0
 	for c.Next() {
