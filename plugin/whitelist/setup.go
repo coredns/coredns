@@ -73,24 +73,7 @@ func setup(c *caddy.Controller) error {
 func (whitelist *whitelist) config() {
 
 	viper.SetConfigType("json")
-	fi, err := os.Lstat(whitelist.configPath)
-	if err != nil {
-		log.Error("can not load whitelist config")
-		return
-	}
-	var fileName string
-	if fi.Mode()&os.ModeSymlink == 1 {
-		log.Info("config symlink")
-		fileName, err = filepath.EvalSymlinks(whitelist.configPath)
-		if err != nil {
-			log.Error(err)
-			return
-		}
-	} else {
-		log.Info("config file")
-		fileName = whitelist.configPath
-	}
-
+	fileName := whitelist.configPath
 	viper.SetConfigName(strings.TrimSuffix(filepath.Base(fileName), filepath.Ext(fileName)))
 	viper.AddConfigPath(filepath.Dir(fileName))
 	viper.ReadInConfig()
