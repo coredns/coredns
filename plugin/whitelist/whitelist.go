@@ -3,7 +3,6 @@ package whitelist
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -43,11 +42,14 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	if len(segs) <= 1 {
 		code, err := plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
-		fmt.Printf("plugin result %d, %s", code, err)
+		log.Infof("plugin result %d, %s", code, err)
+		return code, err
 	}
 
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
-		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+		code, err := plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+		log.Infof("not handling namespace queries. plugin result %d, %s", code, err)
+		return code, err
 	}
 
 	service := whitelist.getServiceFromIP(ipAddr)
@@ -62,7 +64,7 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		if _, ok := whitelisted[query]; ok {
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
-
+		log.Infof("service %s not whitelisted for %s", service, query)
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
