@@ -14,13 +14,14 @@ import (
 
 var log = clog.NewWithPlugin("whitelist")
 
-type Whitelist struct {
+type whitelist struct {
 	Kubernetes          *kubernetes.Kubernetes
 	Next                plugin.Handler
 	ServicesToWhitelist map[string]map[string]struct{}
+	configPath          string
 }
 
-func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, r *dns.Msg) (int, error) {
 
 	m := new(dns.Msg)
 	m.SetReply(r)
@@ -41,21 +42,16 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	segs := dns.SplitDomainName(state.Name())
 
 	if len(segs) <= 1 {
-		code, err := plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
-		log.Infof("plugin result %d, %s", code, err)
-		return code, err
+		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
-		code, err := plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
-		log.Infof("not handling namespace queries. plugin result %d, %s", code, err)
-		return code, err
+		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
 	service := whitelist.getServiceFromIP(ipAddr)
 
 	if service == "" {
-		log.Infof("no service found for ip %s", ipAddr)
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
@@ -64,7 +60,6 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		if _, ok := whitelisted[query]; ok {
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
-		log.Infof("service %s not whitelisted for %s", service, query)
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
@@ -73,7 +68,7 @@ func (whitelist Whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 }
 
-func (whitelist Whitelist) getServiceFromIP(ipAddr string) string {
+func (whitelist whitelist) getServiceFromIP(ipAddr string) string {
 
 	services := whitelist.Kubernetes.APIConn.ServiceList()
 	if services == nil || len(services) == 0 {
@@ -100,6 +95,6 @@ func (whitelist Whitelist) getServiceFromIP(ipAddr string) string {
 	return service
 }
 
-func (whitelist Whitelist) Name() string {
+func (whitelist whitelist) Name() string {
 	return "whitelist"
 }

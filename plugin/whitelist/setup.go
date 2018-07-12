@@ -1,6 +1,7 @@
 package whitelist
 
 import (
+	"errors"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
@@ -42,6 +43,14 @@ func kubernetesParse(c *caddy.Controller) (*kubernetes.Kubernetes, error) {
 
 func setup(c *caddy.Controller) error {
 
+	whitelist := &whitelist{}
+	if whitelistConf := os.Getenv("TUFIN_WHITELIST_CONF_FILE_JSON"); whitelistConf != "" {
+		whitelist.configPath = whitelistConf
+		WatchFile(whitelistConf, time.Second, whitelist.config)
+	} else {
+		return errors.New("please set TUFIN_WHITELIST_CONF_FILE_JSON")
+	}
+
 	k8s, err := kubernetesParse(c)
 	if err != nil {
 		return plugin.Error("whitelist", err)
@@ -50,19 +59,8 @@ func setup(c *caddy.Controller) error {
 	err = k8s.InitKubeCache()
 	k8s.RegisterKubeCache(c)
 
-	whitelist := &Whitelist{Kubernetes: k8s}
-	if whitelistConf := os.Getenv("TUFIN_WHITELIST_CONF_FILE_JSON"); whitelistConf != "" {
-		WatchFile(whitelistConf, time.Second, func() {
-			viper.SetConfigType("json")
-			fileName, _ := filepath.EvalSymlinks(whitelistConf)
-			viper.SetConfigName(strings.TrimSuffix(filepath.Base(fileName), filepath.Ext(fileName)))
-			viper.AddConfigPath(filepath.Dir(fileName))
-			viper.ReadInConfig()
-			conf := viper.GetStringMapStringSlice("services")
-			whitelist.ServicesToWhitelist = convert(conf)
-			log.Infof("whitelist configuration %s", whitelist.ServicesToWhitelist)
-		})
-	}
+	whitelist.Kubernetes = k8s
+	whitelist.config()
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		whitelist.Next = next
@@ -70,6 +68,34 @@ func setup(c *caddy.Controller) error {
 	})
 
 	return nil
+}
+
+func (whitelist whitelist) config() {
+
+	viper.SetConfigType("json")
+	fi, err := os.Lstat(whitelist.configPath)
+	if err != nil {
+		log.Error("can not load whitelist config")
+		return
+	}
+	var fileName string
+	if fi.Mode()&os.ModeSymlink == 1 {
+		log.Info("config symlink")
+		fileName, err = filepath.EvalSymlinks(whitelist.configPath)
+		if err != nil {
+			log.Error(err)
+			return
+		}
+	} else {
+		fileName = whitelist.configPath
+	}
+
+	viper.SetConfigName(strings.TrimSuffix(filepath.Base(fileName), filepath.Ext(fileName)))
+	viper.AddConfigPath(filepath.Dir(fileName))
+	viper.ReadInConfig()
+	conf := viper.GetStringMapStringSlice("services")
+	whitelist.ServicesToWhitelist = convert(conf)
+	log.Infof("whitelist configuration %s", whitelist.ServicesToWhitelist)
 }
 
 func convert(conf map[string][]string) map[string]map[string]struct{} {
