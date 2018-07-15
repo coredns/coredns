@@ -1,7 +1,9 @@
 package whitelist
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
@@ -9,6 +11,7 @@ import (
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 	"net"
+	"net/http"
 	"strings"
 )
 
@@ -17,6 +20,7 @@ var log = clog.NewWithPlugin("whitelist")
 type whitelist struct {
 	Kubernetes          *kubernetes.Kubernetes
 	Next                plugin.Handler
+	Discovery           string
 	ServicesToWhitelist map[string]map[string]struct{}
 	configPath          string
 }
@@ -58,8 +62,15 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	query := state.Name()
 	if whitelisted, ok := whitelist.ServicesToWhitelist[service]; ok {
 		if _, ok := whitelisted[query]; ok {
+			if whitelist.Discovery != "" {
+				go whitelist.log(service, state.Name(), "allow")
+			}
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
+	}
+
+	if whitelist.Discovery != "" {
+		go whitelist.log(service, state.Name(), "deny")
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
@@ -97,4 +108,20 @@ func (whitelist whitelist) getServiceFromIP(ipAddr string) string {
 
 func (whitelist whitelist) Name() string {
 	return "whitelist"
+}
+
+func (whitelist whitelist) log(service string, query string, action string) {
+	fields := make(map[string]string)
+	fields["src"] = service
+	fields["dst"] = query
+	fields["action"] = action
+
+	actionBytes := new(bytes.Buffer)
+	json.NewEncoder(actionBytes).Encode(fields)
+	_, err := http.Post(whitelist.Discovery, "application/json;charset=utf-8", actionBytes)
+
+	if err != nil {
+		log.Infof("Log not sent to kite: %v", err)
+	}
+
 }
