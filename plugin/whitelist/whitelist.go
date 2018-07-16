@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -60,18 +61,20 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
+	serviceName := fmt.Sprintf("%s.%s.svc.%s", service.Name, service.Namespace, whitelist.Kubernetes.Zones[0])
+
 	query := state.Name()
 	if whitelisted, ok := whitelist.ServicesToWhitelist[service.Name]; ok {
 		if _, ok := whitelisted[query]; ok {
 			if whitelist.Discovery != "" {
-				go whitelist.log(service.Name+"."+service.Namespace+".svc.cluster.local", state.Name(), "allow")
+				go whitelist.log(serviceName, state.Name(), "allow")
 			}
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
 	}
 
 	if whitelist.Discovery != "" {
-		go whitelist.log(service.Name+"."+service.Namespace+".svc.cluster.local", state.Name(), "deny")
+		go whitelist.log(serviceName, state.Name(), "deny")
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)

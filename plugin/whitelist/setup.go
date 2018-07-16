@@ -66,6 +66,10 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("whitelist", err)
 	}
 
+	if len(k8s.Zones) != 1 {
+		return errors.New("whitelist zones length should be 1 (cluster zone only)")
+	}
+
 	err = k8s.InitKubeCache()
 	k8s.RegisterKubeCache(c)
 
