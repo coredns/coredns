@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"net/url"
 )
 
 var log = clog.NewWithPlugin("whitelist")
@@ -85,6 +86,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 func (whitelist whitelist) getServiceFromIP(ipAddr string) *v1.Service {
 
+
 	services := whitelist.Kubernetes.APIConn.ServiceList()
 	if services == nil || len(services) == 0 {
 		return nil
@@ -110,6 +112,41 @@ func (whitelist whitelist) getServiceFromIP(ipAddr string) *v1.Service {
 	return service
 }
 
+
+func (whitelist whitelist) getIpByServiceName(serviceName string) string {
+
+	if serviceName == "" {
+		return ""
+	}
+
+	serviceNameParts := strings.Split(serviceName, ".")
+
+	service, namespace := "", ""
+	//only service name introduced ("
+	if len(serviceNameParts) == 1 {
+		service, namespace = serviceName, v1.NamespaceDefault
+	}
+
+	if len(serviceNameParts) == 2 {
+		service, namespace = serviceNameParts[0], serviceNameParts[1]
+	} else {
+		return ""
+	}
+
+	services := whitelist.Kubernetes.APIConn.ServiceList()
+	if services == nil || len(services) == 0 {
+		return ""
+	}
+
+	for _, svc := range services {
+		 if svc.Name, svc.Namespace == service, namespace {
+		 	return svc.Spec.ClusterIP
+		 }
+	}
+
+	return ""
+}
+
 func (whitelist whitelist) Name() string {
 	return "whitelist"
 }
@@ -122,7 +159,18 @@ func (whitelist whitelist) log(service string, query string, action string) {
 
 	actionBytes := new(bytes.Buffer)
 	json.NewEncoder(actionBytes).Encode(fields)
-	_, err := http.Post(whitelist.Discovery, "application/json;charset=utf-8", actionBytes)
+
+	discoveryURL, err := url.Parse(whitelist.Discovery)
+	if err != nil {
+		return
+	}
+
+	ip := whitelist.getIpByServiceName(discoveryURL.Host)
+	if ip == "" {
+		return
+	}
+
+	_, err = http.Post(fmt.Sprintf("http://%s",ip), "application/json;charset=utf-8", actionBytes)
 
 	if err != nil {
 		log.Infof("Log not sent to kite: %v", err)
