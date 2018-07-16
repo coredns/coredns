@@ -14,8 +14,8 @@ import (
 	"k8s.io/api/core/v1"
 	"net"
 	"net/http"
-	"strings"
 	"net/url"
+	"strings"
 )
 
 var log = clog.NewWithPlugin("whitelist")
@@ -86,7 +86,6 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 func (whitelist whitelist) getServiceFromIP(ipAddr string) *v1.Service {
 
-
 	services := whitelist.Kubernetes.APIConn.ServiceList()
 	if services == nil || len(services) == 0 {
 		return nil
@@ -111,7 +110,6 @@ func (whitelist whitelist) getServiceFromIP(ipAddr string) *v1.Service {
 	}
 	return service
 }
-
 
 func (whitelist whitelist) getIpByServiceName(serviceName string) string {
 
@@ -139,9 +137,9 @@ func (whitelist whitelist) getIpByServiceName(serviceName string) string {
 	}
 
 	for _, svc := range services {
-		 if svc.Name, svc.Namespace == service, namespace {
-		 	return svc.Spec.ClusterIP
-		 }
+		if svc.Name == service && svc.Namespace == namespace {
+			return svc.Spec.ClusterIP
+		}
 	}
 
 	return ""
@@ -170,7 +168,7 @@ func (whitelist whitelist) log(service string, query string, action string) {
 		return
 	}
 
-	_, err = http.Post(fmt.Sprintf("http://%s",ip), "application/json;charset=utf-8", actionBytes)
+	_, err = http.Post(fmt.Sprintf("http://%s", ip), "application/json;charset=utf-8", actionBytes)
 
 	if err != nil {
 		log.Infof("Log not sent to kite: %v", err)
