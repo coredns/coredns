@@ -7,6 +7,7 @@ import (
 	"github.com/coredns/coredns/plugin/kubernetes"
 	"github.com/mholt/caddy"
 	"github.com/spf13/viper"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,9 +52,22 @@ func setup(c *caddy.Controller) error {
 		return errors.New("please set TUFIN_WHITELIST_CONF_FILE_JSON")
 	}
 
+	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
+		_, err := url.Parse(discoveryURL)
+		if err == nil {
+			whitelist.Discovery = discoveryURL
+		} else {
+			log.Warningf("can not parse TUFIN_DISCOVERY_URL. error %v", err)
+		}
+	}
+
 	k8s, err := kubernetesParse(c)
 	if err != nil {
 		return plugin.Error("whitelist", err)
+	}
+
+	if len(k8s.Zones) != 1 {
+		return errors.New("whitelist zones length should be 1 (cluster zone only)")
 	}
 
 	err = k8s.InitKubeCache()
