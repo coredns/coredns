@@ -122,6 +122,8 @@ func (whitelist whitelist) log(service string, query string, action string) {
 
 	if err != nil {
 		log.Infof("Log not sent to kite: %v", err)
+	} else {
+		log.Info("log to kite %v", fields)
 	}
 
 }
