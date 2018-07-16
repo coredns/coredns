@@ -10,6 +10,7 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
+	"k8s.io/api/core/v1"
 	"net"
 	"net/http"
 	"strings"
@@ -55,22 +56,22 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	service := whitelist.getServiceFromIP(ipAddr)
 
-	if service == "" {
+	if service == nil {
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
 	query := state.Name()
-	if whitelisted, ok := whitelist.ServicesToWhitelist[service]; ok {
+	if whitelisted, ok := whitelist.ServicesToWhitelist[service.Name]; ok {
 		if _, ok := whitelisted[query]; ok {
 			if whitelist.Discovery != "" {
-				go whitelist.log(service, state.Name(), "allow")
+				go whitelist.log(service.Name+"."+service.Namespace, state.Name(), "allow")
 			}
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
 	}
 
 	if whitelist.Discovery != "" {
-		go whitelist.log(service, state.Name(), "deny")
+		go whitelist.log(service.Name+"."+service.Namespace, state.Name(), "deny")
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
@@ -79,26 +80,26 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 }
 
-func (whitelist whitelist) getServiceFromIP(ipAddr string) string {
+func (whitelist whitelist) getServiceFromIP(ipAddr string) *v1.Service {
 
 	services := whitelist.Kubernetes.APIConn.ServiceList()
 	if services == nil || len(services) == 0 {
-		return ""
+		return nil
 	}
 
 	pods := whitelist.Kubernetes.APIConn.PodIndex(ipAddr)
 	if pods == nil || len(pods) == 0 {
-		return ""
+		return nil
 	}
 
 	pod := pods[0]
 
-	var service string
+	var service *v1.Service
 	for _, svc := range services {
 		for pLabelKey, pLabelValue := range pod.Labels {
 			if svcLabelValue, ok := svc.Labels[pLabelKey]; ok {
 				if strings.EqualFold(pLabelValue, svcLabelValue) {
-					service = svc.Name
+					service = svc
 				}
 			}
 		}
