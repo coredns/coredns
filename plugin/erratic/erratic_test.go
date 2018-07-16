@@ -77,3 +77,21 @@ func TestErraticTruncate(t *testing.T) {
 		}
 	}
 }
+
+func TestAxfr(t *testing.T) {
+	e := &Erratic{truncate: 0} // nothing, just check if we can get an axfr
+
+	ctx := context.TODO()
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeAXFR)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	_, err := e.ServeDNS(ctx, rec, req)
+	if err != nil {
+		t.Errorf("Failed to set up AXFR: %s", err)
+	}
+	if x := rec.Msg.Answer[0].Header().Rrtype; x != dns.TypeSOA {
+		t.Errorf("Expected for record to be %d, got %d", dns.TypeSOA, x)
+	}
+}
