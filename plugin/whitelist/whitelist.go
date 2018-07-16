@@ -120,7 +120,8 @@ func (whitelist whitelist) getIpByServiceName(serviceName string) string {
 	serviceNameParts := strings.Split(serviceName, ".")
 
 	service, namespace := "", ""
-	//only service name introduced ("
+
+	//only service name introduced ("zipkin")"
 	if len(serviceNameParts) == 1 {
 		service, namespace = serviceName, v1.NamespaceDefault
 	}
@@ -171,9 +172,7 @@ func (whitelist whitelist) log(service string, query string, action string) {
 	_, err = http.Post(fmt.Sprintf("http://%s", ip), "application/json;charset=utf-8", actionBytes)
 
 	if err != nil {
-		log.Infof("Log not sent to kite: %v", err)
-	} else {
-		log.Info("log to kite %v", fields)
+		log.Debugf("Log not sent to kite: %v", err)
 	}
 
 }
