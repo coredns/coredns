@@ -64,14 +64,14 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	if whitelisted, ok := whitelist.ServicesToWhitelist[service.Name]; ok {
 		if _, ok := whitelisted[query]; ok {
 			if whitelist.Discovery != "" {
-				go whitelist.log(service.Name+"."+service.Namespace, state.Name(), "allow")
+				go whitelist.log(service.Name+"."+service.Namespace+".svc.cluster.local", state.Name(), "allow")
 			}
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
 	}
 
 	if whitelist.Discovery != "" {
-		go whitelist.log(service.Name+"."+service.Namespace, state.Name(), "deny")
+		go whitelist.log(service.Name+"."+service.Namespace+".svc.cluster.local", state.Name(), "deny")
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
