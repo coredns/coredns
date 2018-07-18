@@ -7,6 +7,8 @@ import (
 	"github.com/coredns/coredns/plugin/kubernetes"
 	"github.com/mholt/caddy"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -55,7 +57,11 @@ func setup(c *caddy.Controller) error {
 	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
 		_, err := url.Parse(discoveryURL)
 		if err == nil {
-			whitelist.Discovery = discoveryURL
+			dc, conn := newDiscoveryClient(discoveryURL)
+			whitelist.Discovery = dc
+			c.OnShutdown(func() error {
+				return conn.Close()
+			})
 		} else {
 			log.Warningf("can not parse TUFIN_DISCOVERY_URL. error %v", err)
 		}
@@ -82,6 +88,19 @@ func setup(c *caddy.Controller) error {
 	})
 
 	return nil
+}
+
+func newDiscoveryClient(discoveryURL string) (DiscoveryServiceClient, *grpc.ClientConn) {
+
+	cc, err := grpc.Dial(discoveryURL, grpc.WithInsecure(),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 10 * time.Minute, Timeout: 30 * time.Second, PermitWithoutStream: true}))
+	if err != nil {
+		log.Errorf("failed to create gRPC connection with '%v'", err)
+		return nil, nil
+	}
+
+	return NewDiscoveryServiceClient(cc), cc
+
 }
 
 func (whitelist *whitelist) config() {

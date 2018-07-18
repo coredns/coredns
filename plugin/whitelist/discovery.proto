@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package coredns.whitelist;
+option go_package = "whitelist";
+
+message Discovery {
+    bytes msg = 1;
+}
+
+message DiscoveryResponse {
+
+}
+
+service DiscoveryService {
+    rpc Discover (Discovery) returns (DiscoveryResponse);
+}

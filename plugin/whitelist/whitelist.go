@@ -13,8 +13,6 @@ import (
 	"github.com/miekg/dns"
 	"k8s.io/api/core/v1"
 	"net"
-	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -23,7 +21,7 @@ var log = clog.NewWithPlugin("whitelist")
 type whitelist struct {
 	Kubernetes          *kubernetes.Kubernetes
 	Next                plugin.Handler
-	Discovery           string
+	Discovery           DiscoveryServiceClient
 	ServicesToWhitelist map[string]map[string]struct{}
 	configPath          string
 }
@@ -68,14 +66,14 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	query := state.Name()
 	if whitelisted, ok := whitelist.ServicesToWhitelist[serviceNameInConfig]; ok {
 		if _, ok := whitelisted[query]; ok {
-			if whitelist.Discovery != "" {
+			if whitelist.Discovery != nil {
 				go whitelist.log(serviceName, state.Name(), "allow")
 			}
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
 	}
 
-	if whitelist.Discovery != "" {
+	if whitelist.Discovery != nil {
 		go whitelist.log(serviceName, state.Name(), "deny")
 	}
 
@@ -160,20 +158,9 @@ func (whitelist whitelist) log(service string, query string, action string) {
 	actionBytes := new(bytes.Buffer)
 	json.NewEncoder(actionBytes).Encode(fields)
 
-	discoveryURL, err := url.Parse(whitelist.Discovery)
+	_, err := whitelist.Discovery.Discover(context.Background(), &Discovery{Msg: actionBytes.Bytes()})
 	if err != nil {
-		return
-	}
-
-	ip := whitelist.getIpByServiceName(discoveryURL.Host)
-	if ip == "" {
-		return
-	}
-
-	_, err = http.Post(fmt.Sprintf("http://%s", ip), "application/json;charset=utf-8", actionBytes)
-
-	if err != nil {
-		log.Debugf("Log not sent to kite: %v", err)
+		log.Debugf("Log not sent to discovery: %+v", err)
 	}
 
 }
