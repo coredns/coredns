@@ -71,17 +71,11 @@ func setup(c *caddy.Controller) error {
 	whitelist.config()
 
 	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
-		parts := strings.Split(discoveryURL, ":")
-		port := "80"
-		if len(parts) > 1 {
-			port = parts[1]
-		}
-
-		_, err := url.Parse(discoveryURL)
+		discoveryURL, err := url.Parse(discoveryURL)
 		if err == nil {
-			ip := whitelist.getIpByServiceName(discoveryURL)
+			ip := whitelist.getIpByServiceName(discoveryURL.Scheme)
 			log.Infof("discovery ip %s", ip)
-			dc, conn := newDiscoveryClient(fmt.Sprintf("%s:%s", ip, port))
+			dc, conn := newDiscoveryClient(fmt.Sprintf("%s:%s", discoveryURL.Scheme, discoveryURL.Opaque))
 			whitelist.Discovery = dc
 			c.OnShutdown(func() error {
 				return conn.Close()
