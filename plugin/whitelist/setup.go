@@ -75,7 +75,7 @@ func setup(c *caddy.Controller) error {
 		if err == nil {
 			ip := whitelist.getIpByServiceName(discoveryURL.Scheme)
 			log.Infof("discovery ip %s", ip)
-			dc, conn := newDiscoveryClient(fmt.Sprintf("%s:%s", discoveryURL.Scheme, discoveryURL.Opaque))
+			dc, conn := newDiscoveryClient(fmt.Sprintf("%s:%s", ip, discoveryURL.Opaque))
 			whitelist.Discovery = dc
 			c.OnShutdown(func() error {
 				return conn.Close()

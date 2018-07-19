@@ -131,8 +131,10 @@ func (whitelist whitelist) getIpByServiceName(serviceName string) string {
 		return ""
 	}
 
+	log.Info("service %s namespace %s", service, namespace)
 	services := whitelist.Kubernetes.APIConn.ServiceList()
 	if services == nil || len(services) == 0 {
+		log.Info("no services")
 		return ""
 	}
 
@@ -142,6 +144,7 @@ func (whitelist whitelist) getIpByServiceName(serviceName string) string {
 		}
 	}
 
+	log.Info("no service found")
 	return ""
 }
 
