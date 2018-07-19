@@ -2,6 +2,7 @@ package whitelist
 
 import (
 	"errors"
+	"fmt"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
@@ -70,11 +71,17 @@ func setup(c *caddy.Controller) error {
 	whitelist.config()
 
 	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
+		parts := strings.Split(discoveryURL, ":")
+		port := "80"
+		if len(parts) > 1 {
+			port = parts[1]
+		}
+
 		_, err := url.Parse(discoveryURL)
 		if err == nil {
 			ip := whitelist.getIpByServiceName(discoveryURL)
-			log.Info("discovery ip %s", ip)
-			dc, conn := newDiscoveryClient(ip)
+			log.Infof("discovery ip %s", ip)
+			dc, conn := newDiscoveryClient(fmt.Sprintf("%s:%s", ip, port))
 			whitelist.Discovery = dc
 			c.OnShutdown(func() error {
 				return conn.Close()
