@@ -24,24 +24,24 @@ func (u U) Set(key string, f func() error) {
 	u.u[key] = item{todo, f}
 }
 
-// SetTodo sets key to 'todo' again.
-func (u U) SetTodo(key string) {
-	v, ok := u.u[key]
-	if !ok {
-		return
+// Unset sets function f in U under key. If the key already exists
+// it is not overwritten.
+func (u U) Unset(key string) {
+	if _, ok := u.u[key]; ok {
+		delete(u.u, key)
 	}
-	v.state = todo
-	u.u[key] = v
 }
 
 // ForEach iterates for u executes f for each element that is 'todo' and sets it to 'done'.
 func (u U) ForEach() error {
 	for k, v := range u.u {
 		if v.state == todo {
-			v.f()
+			err := v.f()
+			if err == nil {
+				v.state = done
+				u.u[k] = v
+			}
 		}
-		v.state = done
-		u.u[k] = v
 	}
 	return nil
 }

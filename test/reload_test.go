@@ -2,6 +2,7 @@ package test
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -118,10 +119,92 @@ func TestReloadMetricsHealth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const proc = "process_virtual_memory_bytes"
+
+	// verify Metrics is running
+	err = collectMetricsInfo("localhost:53183")
+	if err != nil {
+		t.Errorf("Prometheus is not listening : %s", err)
+	}
+
+}
+
+func collectMetricsInfo(addr string) error {
+	cl := &http.Client{}
+	resp, err := cl.Get(fmt.Sprintf("http://%s/metrics", addr))
+	if err != nil {
+		return err
+	}
+	const proc = "coredns_build_info"
 	metrics, _ := ioutil.ReadAll(resp.Body)
 	if !bytes.Contains(metrics, []byte(proc)) {
-		t.Errorf("Failed to see %s in metric output", proc)
+		return fmt.Errorf("failed to see %s in metric output", proc)
+	}
+	return nil
+}
+
+// Because of behavior of default HttServer. This Test will work ONLY if metrics HTTP Server is closed with a shutdown
+// (a close will not completely end the service)
+func TestReloadSeveralTimeMetrics(t *testing.T) {
+	//TODO: add a tool that find an available port.
+	promAddress := "127.0.0.1:53185" // need to be a port that is not used in another test ! not very convenient
+	corefilePrometheus := `
+.:0 {
+	prometheus ` + promAddress + `
+	whoami
+}`
+	corefileNoPrometheus := `
+.:0 {
+	whoami
+}`
+
+	// The target of the test is to show that after several reloads,
+	// plugin metrics still follow directive of the LAST reloaded config
+	// check no metrics available
+	err := collectMetricsInfo(promAddress)
+	if err == nil {
+		t.Errorf("Prometheus is listening BEFORE the test start")
+	}
+
+	// start coredns for first time
+	c, err := CoreDNSServer(corefilePrometheus)
+	if err != nil {
+		if strings.Contains(err.Error(), inUse) {
+			return // meh, but don't error
+		}
+		t.Errorf("Could not get service instance: %s", err)
+	}
+
+	// verify Metrics is running
+	err = collectMetricsInfo(promAddress)
+	if err != nil {
+		t.Errorf("Prometheus is not listening : %s", err)
+	}
+
+	nbRestarts := 2 // for local investigation it can be usefull to loop more than twice.
+	// restart several times
+	for i := 0; i < nbRestarts; i++ {
+		c, err = c.Restart(NewInput(corefilePrometheus))
+		if err != nil {
+			t.Errorf("Could not restart CoreDNS : %s, at loop %v", err, i)
+		}
+		// verify Metrics is running
+		err = collectMetricsInfo(promAddress)
+		if err != nil {
+			t.Errorf("Prometheus is not listening : %s", err)
+		}
+	}
+
+	// now restart w/o Prometheus
+	c2, err := c.Restart(NewInput(corefileNoPrometheus))
+	if err != nil {
+		t.Errorf("Could not restart a second time CoreDNS : %s", err)
+	}
+	c2.Stop()
+
+	// verify Metrics is NOT running
+	err = collectMetricsInfo(promAddress)
+	if err == nil {
+		t.Errorf("Prometheus is STILL listening")
 	}
 }
 
