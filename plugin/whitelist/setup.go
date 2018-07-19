@@ -54,19 +54,6 @@ func setup(c *caddy.Controller) error {
 		return errors.New("please set TUFIN_WHITELIST_CONF_FILE_JSON")
 	}
 
-	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
-		_, err := url.Parse(discoveryURL)
-		if err == nil {
-			dc, conn := newDiscoveryClient(discoveryURL)
-			whitelist.Discovery = dc
-			c.OnShutdown(func() error {
-				return conn.Close()
-			})
-		} else {
-			log.Warningf("can not parse TUFIN_DISCOVERY_URL. error %v", err)
-		}
-	}
-
 	k8s, err := kubernetesParse(c)
 	if err != nil {
 		return plugin.Error("whitelist", err)
@@ -81,6 +68,21 @@ func setup(c *caddy.Controller) error {
 
 	whitelist.Kubernetes = k8s
 	whitelist.config()
+
+	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
+		_, err := url.Parse(discoveryURL)
+		if err == nil {
+			ip := whitelist.getIpByServiceName(discoveryURL)
+			log.Info("discovery ip %s", ip)
+			dc, conn := newDiscoveryClient(ip)
+			whitelist.Discovery = dc
+			c.OnShutdown(func() error {
+				return conn.Close()
+			})
+		} else {
+			log.Warningf("can not parse TUFIN_DISCOVERY_URL. error %v", err)
+		}
+	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		whitelist.Next = next

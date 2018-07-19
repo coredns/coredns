@@ -160,7 +160,7 @@ func (whitelist whitelist) log(service string, query string, action string) {
 
 	_, err := whitelist.Discovery.Discover(context.Background(), &Discovery{Msg: actionBytes.Bytes()})
 	if err != nil {
-		log.Debugf("Log not sent to discovery: %+v", err)
+		log.Errorf("Log not sent to discovery: %+v", err)
 	}
 
 }
