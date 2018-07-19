@@ -70,6 +70,7 @@ func setup(c *caddy.Controller) error {
 	whitelist.Kubernetes = k8s
 	whitelist.config()
 
+	time.Sleep(time.Second * 5)
 	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
 		discoveryURL, err := url.Parse(discoveryURL)
 		if err == nil {
