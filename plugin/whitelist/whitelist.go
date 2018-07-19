@@ -155,6 +155,7 @@ func (whitelist whitelist) log(service string, query string, action string) {
 	fields["src"] = service
 	fields["dst"] = query
 	fields["action"] = action
+	fields["origin"] = "dns"
 
 	actionBytes := new(bytes.Buffer)
 	json.NewEncoder(actionBytes).Encode(fields)
