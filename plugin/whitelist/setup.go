@@ -67,19 +67,10 @@ func setup(c *caddy.Controller) error {
 	err = k8s.InitKubeCache()
 	k8s.RegisterKubeCache(c)
 
+	initKubernetes(k8s)
+
 	whitelist.Kubernetes = k8s
 	whitelist.config()
-
-	go k8s.APIConn.Run()
-	if k8s.APIProxy != nil {
-		k8s.APIProxy.Run()
-	}
-
-	synced := false
-	for synced == false {
-		synced = k8s.APIConn.HasSynced()
-		time.Sleep(100 * time.Millisecond)
-	}
 
 	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
 		discoveryURL, err := url.Parse(discoveryURL)
@@ -101,6 +92,21 @@ func setup(c *caddy.Controller) error {
 	})
 
 	return nil
+}
+
+func initKubernetes(k8s *kubernetes.Kubernetes) {
+
+	go k8s.APIConn.Run()
+	if k8s.APIProxy != nil {
+		k8s.APIProxy.Run()
+	}
+
+	synced := false
+	for synced == false {
+		synced = k8s.APIConn.HasSynced()
+		time.Sleep(100 * time.Millisecond)
+	}
+
 }
 
 func newDiscoveryClient(discoveryURL string) (DiscoveryServiceClient, *grpc.ClientConn) {
