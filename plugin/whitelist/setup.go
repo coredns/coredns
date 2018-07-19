@@ -70,12 +70,21 @@ func setup(c *caddy.Controller) error {
 	whitelist.Kubernetes = k8s
 	whitelist.config()
 
-	time.Sleep(time.Second * 5)
+	go k8s.APIConn.Run()
+	if k8s.APIProxy != nil {
+		k8s.APIProxy.Run()
+	}
+
+	synced := false
+	for synced == false {
+		synced = k8s.APIConn.HasSynced()
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
 		discoveryURL, err := url.Parse(discoveryURL)
 		if err == nil {
 			ip := whitelist.getIpByServiceName(discoveryURL.Scheme)
-			log.Infof("discovery ip %s", ip)
 			dc, conn := newDiscoveryClient(fmt.Sprintf("%s:%s", ip, discoveryURL.Opaque))
 			whitelist.Discovery = dc
 			c.OnShutdown(func() error {
