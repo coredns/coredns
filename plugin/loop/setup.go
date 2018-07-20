@@ -87,4 +87,4 @@ func qname(zone string) string {
 	return dnsutil.Join([]string{l1, l2, zone})
 }
 
-var r *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
+var r = rand.New(rand.NewSource(time.Now().UnixNano()))
