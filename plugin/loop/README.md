@@ -26,7 +26,7 @@ loop
 Start a server on the default port and load the *loop* and *forward* plugins. The *forward* plugin
 forwards to it self.
 
-~~~ corefile
+~~~ txt
 . {
     loop
     forward . 127.0.0.1
