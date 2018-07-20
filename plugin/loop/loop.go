@@ -2,7 +2,6 @@ package loop
 
 import (
 	"context"
-	"os"
 	"sync"
 
 	"github.com/coredns/coredns/plugin"
@@ -50,9 +49,7 @@ func (l *Loop) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	if l.seen() > 2 {
-		// TODO(miek): add log.Fatal(f) and use here.
-		log.Errorf("Seen \"HINFO IN %s\" from %s more than twice, loop detected", l.qname, state.RemoteAddr())
-		os.Exit(1)
+		log.Fatalf("Seen \"HINFO IN %s\" from %s more than twice, loop detected", l.qname, state.RemoteAddr())
 	}
 
 	return plugin.NextOrFailure(l.Name(), l.Next, ctx, w, r)

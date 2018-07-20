@@ -36,5 +36,5 @@ forwards to it self.
 After CoreDNS has started it stops the process while logging:
 
 ~~~ txt
-plugin/loop: Seen "HINFO IN 5577006791947779410.8674665223082153551." more than twice, loop detected
+plugin/loop: Seen "HINFO IN 5577006791947779410.8674665223082153551." from 127.0.0.1:33280 more than twice, loop detected
 ~~~
