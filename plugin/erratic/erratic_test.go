@@ -14,19 +14,22 @@ func TestErraticDrop(t *testing.T) {
 	e := &Erratic{drop: 2} // 50% drops
 
 	tests := []struct {
+		rrtype       uint16
 		expectedCode int
 		expectedErr  error
 		drop         bool
 	}{
-		{expectedCode: dns.RcodeSuccess, expectedErr: nil, drop: true},
-		{expectedCode: dns.RcodeSuccess, expectedErr: nil, drop: false},
+		{rrtype: dns.TypeA, expectedCode: dns.RcodeSuccess, expectedErr: nil, drop: true},
+		{rrtype: dns.TypeA, expectedCode: dns.RcodeSuccess, expectedErr: nil, drop: false},
+		{rrtype: dns.TypeAAAA, expectedCode: dns.RcodeSuccess, expectedErr: nil, drop: true},
+		{rrtype: dns.TypeHINFO, expectedCode: dns.RcodeServerFailure, expectedErr: nil, drop: false},
 	}
 
 	ctx := context.TODO()
 
 	for i, tc := range tests {
 		req := new(dns.Msg)
-		req.SetQuestion("example.org.", dns.TypeA)
+		req.SetQuestion("example.org.", tc.rrtype)
 
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		code, err := e.ServeDNS(ctx, rec, req)

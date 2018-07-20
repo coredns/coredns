@@ -73,13 +73,14 @@ func (e *Erratic) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return 0, nil
 
 	default:
-		if !drop {
-			if delay {
-				time.Sleep(e.duration)
-			}
-			// coredns will return error.
-			return dns.RcodeServerFailure, nil
+		if drop {
+			return 0, nil
 		}
+		if delay {
+			time.Sleep(e.duration)
+		}
+		// coredns will return error.
+		return dns.RcodeServerFailure, nil
 	}
 
 	if drop {
