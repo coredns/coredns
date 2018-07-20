@@ -53,7 +53,6 @@ func (l *Loop) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	return plugin.NextOrFailure(l.Name(), l.Next, ctx, w, r)
-
 }
 
 // Name implements the plugin.Handler interface.

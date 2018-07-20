@@ -79,7 +79,7 @@ func parse(c *caddy.Controller) (*Loop, error) {
 	return New(zone), nil
 }
 
-// qname returns a random name. <rand.Int()>.<rand.Int().<l.zone>.
+// qname returns a random name. <rand.Int()>.<rand.Int().<zone>.
 func qname(zone string) string {
 	l1 := strconv.Itoa(r.Int())
 	l2 := strconv.Itoa(r.Int())
