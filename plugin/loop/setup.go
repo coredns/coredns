@@ -42,7 +42,7 @@ func setup(c *caddy.Controller) error {
 				lh := conf.ListenHosts[0]
 				addr := net.JoinHostPort(lh, conf.Port)
 				if _, err := l.exchange(addr); err != nil {
-					time.Sleep(2 * time.Second)
+					time.Sleep(1 * time.Second)
 					continue
 				}
 

@@ -49,7 +49,7 @@ func (l *Loop) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	if l.seen() > 2 {
-		log.Fatalf("Seen \"HINFO IN %s\" to %s more than twice, loop detected", l.qname, state.LocalAddr())
+		log.Fatalf("Seen \"HINFO IN %s\" more than twice, loop detected", l.qname)
 	}
 
 	return plugin.NextOrFailure(l.Name(), l.Next, ctx, w, r)
