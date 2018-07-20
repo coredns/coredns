@@ -51,7 +51,7 @@ func (l *Loop) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	if l.seen() > 2 {
 		// TODO(miek): add log.Fatal(f) and use here.
-		log.Errorf("Seen HINFO IN %s more than twice, loop detected", l.qname)
+		log.Errorf("Seen \"HINFO IN %s\" more than twice, loop detected", l.qname)
 		os.Exit(1)
 	}
 

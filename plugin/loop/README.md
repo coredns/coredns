@@ -24,7 +24,7 @@ loop
 ## Examples
 
 Start a server on the default port and load the *loop* and *forward* plugins. The *forward* plugin
-forward to it self.
+forwards to it self.
 
 ~~~ corefile
 . {
@@ -36,5 +36,5 @@ forward to it self.
 After CoreDNS has started it stops the process while logging:
 
 ~~~ txt
-plugin/loop: Seen HINFO IN 5577006791947779410.8674665223082153551. more than twice, loop detected
+plugin/loop: Seen "HINFO IN 5577006791947779410.8674665223082153551." more than twice, loop detected
 ~~~
