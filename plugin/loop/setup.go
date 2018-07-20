@@ -39,23 +39,17 @@ func setup(c *caddy.Controller) error {
 			conf := dnsserver.GetConfig(c)
 
 			for time.Now().Before(deadline) {
-				ok := 0
-				for _, lh := range conf.ListenHosts {
-					addr := net.JoinHostPort(lh, conf.Port)
-					if _, err := l.exchange(addr); err != nil {
-						continue
-					}
-					ok++
+				lh := conf.ListenHosts[0]
+				addr := net.JoinHostPort(lh, conf.Port)
+				if _, err := l.exchange(addr); err != nil {
+					time.Sleep(2 * time.Second)
+					continue
 				}
 
-				if ok == len(conf.ListenHosts) {
-					go func() {
-						time.Sleep(2 * time.Second)
-						l.setDisabled()
-					}()
-					return
-				}
-				time.Sleep(2 * time.Second)
+				go func() {
+					time.Sleep(2 * time.Second)
+					l.setDisabled()
+				}()
 			}
 			l.setDisabled()
 		}()
@@ -66,16 +60,21 @@ func setup(c *caddy.Controller) error {
 }
 
 func parse(c *caddy.Controller) (*Loop, error) {
-	_ = c.NextArg()
-	if c.NextArg() {
-		return nil, c.ArgErr()
-	}
-
+	i := 0
 	zone := "."
-	if len(c.ServerBlockKeys) > 0 {
-		zone = plugin.Host(c.ServerBlockKeys[0]).Normalize()
-	}
+	for c.Next() {
+		if i > 0 {
+			return nil, plugin.ErrOnce
+		}
+		i++
+		if c.NextArg() {
+			return nil, c.ArgErr()
+		}
 
+		if len(c.ServerBlockKeys) > 0 {
+			zone = plugin.Host(c.ServerBlockKeys[0]).Normalize()
+		}
+	}
 	return New(zone), nil
 }
 
