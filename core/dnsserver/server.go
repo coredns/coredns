@@ -7,6 +7,7 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -29,8 +30,11 @@ import (
 type Server struct {
 	Addr string // Address we listen on
 
-	server [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
-	m      sync.Mutex     // protects the servers
+	server    [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
+	udpReader *OnOffReader   // Reader for UDP protocol that can stop accepting in queries when asked
+	tcpReader *OnOffReader
+	readerOff uint32     // inform that reader should start off. Corner case where the Readers are created after we start shutdown the Server
+	m         sync.Mutex // protects the servers
 
 	zones       map[string]*Config // zones keyed by their address
 	dnsWg       sync.WaitGroup     // used to wait on outstanding connections
@@ -38,6 +42,40 @@ type Server struct {
 	trace       trace.Trace        // the trace plugin for the server
 	debug       bool               // disable recover()
 	classChaos  bool               // allow non-INET class queries
+
+}
+
+// TCP/UDP reader that can silently stop off demand to accept new input, simulating no data input
+// used to shutdown gracefully a Server : no more input while last queries are processing
+type OnOffReader struct {
+	rd  dns.Reader // underlying default Reader that do the reading job.
+	off uint32     // off act as boolean for allowing or not incoming queries - 0 = allowed (default value)
+}
+
+func (r *OnOffReader) Off() {
+	atomic.StoreUint32(&r.off, 1)
+}
+
+// ReadTCP reads a raw message from a TCP connection. Implementations may alter
+// connection properties, for example the read-deadline.
+func (r *OnOffReader) ReadTCP(conn net.Conn, timeout time.Duration) ([]byte, error) {
+	if atomic.LoadUint32(&r.off) == 0 {
+		return r.rd.ReadTCP(conn, timeout)
+	}
+	// just wait the timout and return error
+	time.Sleep(timeout)
+	return nil, fmt.Errorf("Reader is in off mode for TCP")
+}
+
+// ReadUDP reads a raw message from a UDP connection. Implementations may alter
+// connection properties, for example the read-deadline.
+func (r *OnOffReader) ReadUDP(conn *net.UDPConn, timeout time.Duration) ([]byte, *dns.SessionUDP, error) {
+	if atomic.LoadUint32(&r.off) == 0 {
+		return r.rd.ReadUDP(conn, timeout)
+	}
+	// just wait the timout and return error
+	time.Sleep(timeout)
+	return nil, nil, fmt.Errorf("Reader is in off mode for UDP")
 }
 
 // NewServer returns a new CoreDNS server and compiles all plugins in to it. By default CH class
@@ -48,6 +86,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		Addr:        addr,
 		zones:       make(map[string]*Config),
 		connTimeout: 5 * time.Second, // TODO(miek): was configurable
+		readerOff:   0,               // by default the Server accept queries
 	}
 
 	// We have to bound our wg with one increment
@@ -111,9 +150,17 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 func (s *Server) Serve(l net.Listener) error {
 	s.m.Lock()
 	s.server[tcp] = &dns.Server{Listener: l, Net: "tcp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
+		s.dnsWg.Add(1)
+		defer s.dnsWg.Done()
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		s.ServeDNS(ctx, w, r)
-	})}
+	}),
+		DecorateReader: func(r dns.Reader) dns.Reader {
+			s.m.Lock()
+			s.tcpReader = &OnOffReader{r, s.readerOff}
+			s.m.Unlock()
+			return s.tcpReader
+		}}
 	s.m.Unlock()
 
 	return s.server[tcp].ActivateAndServe()
@@ -124,9 +171,17 @@ func (s *Server) Serve(l net.Listener) error {
 func (s *Server) ServePacket(p net.PacketConn) error {
 	s.m.Lock()
 	s.server[udp] = &dns.Server{PacketConn: p, Net: "udp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
+		s.dnsWg.Add(1)
+		defer s.dnsWg.Done()
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		s.ServeDNS(ctx, w, r)
-	})}
+	}),
+		DecorateReader: func(r dns.Reader) dns.Reader {
+			s.m.Lock()
+			s.udpReader = &OnOffReader{r, s.readerOff}
+			s.m.Unlock()
+			return s.udpReader
+		}}
 	s.m.Unlock()
 
 	return s.server[udp].ActivateAndServe()
@@ -158,6 +213,22 @@ func (s *Server) ListenPacket() (net.PacketConn, error) {
 // immediately.
 // This implements Caddy.Stopper interface.
 func (s *Server) Stop() (err error) {
+	// close listeners
+	// it may happen that some of the readers are not initialized (e.g. if not using TCP)
+	s.m.Lock()
+	s.readerOff = 1
+	if s.tcpReader != nil {
+		s.tcpReader.Off()
+	}
+	if s.udpReader != nil {
+		s.udpReader.Off()
+	}
+	s.m.Unlock()
+
+	// wait few ms to ensure all queries are started to be handled
+	time.Sleep(100 * time.Millisecond)
+
+	// and then stop the service : it will wait all queries are served
 
 	if runtime.GOOS != "windows" {
 		// force connections to close after timeout
