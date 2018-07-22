@@ -2,11 +2,14 @@ package whitelist
 
 import (
 	"errors"
+	"fmt"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
 	"github.com/mholt/caddy"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -52,15 +55,6 @@ func setup(c *caddy.Controller) error {
 		return errors.New("please set TUFIN_WHITELIST_CONF_FILE_JSON")
 	}
 
-	if discoveryURL := os.Getenv("TUFIN_DISCOVERY_URL"); discoveryURL != "" {
-		_, err := url.Parse(discoveryURL)
-		if err == nil {
-			whitelist.Discovery = discoveryURL
-		} else {
-			log.Warningf("can not parse TUFIN_DISCOVERY_URL. error %v", err)
-		}
-	}
-
 	k8s, err := kubernetesParse(c)
 	if err != nil {
 		return plugin.Error("whitelist", err)
@@ -71,9 +65,14 @@ func setup(c *caddy.Controller) error {
 	}
 
 	err = k8s.InitKubeCache()
-	k8s.RegisterKubeCache(c)
+	if err != nil {
+		return err
+	}
 
+	k8s.RegisterKubeCache(c)
 	whitelist.Kubernetes = k8s
+
+	whitelist.InitDiscoveryServer(c)
 	whitelist.config()
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -82,6 +81,41 @@ func setup(c *caddy.Controller) error {
 	})
 
 	return nil
+}
+
+func (whitelist *whitelist) InitDiscoveryServer(c *caddy.Controller) {
+
+	c.OnStartup(func() error {
+
+		if discoveryURL := os.Getenv("TUFIN_GRPC_DISCOVERY_URL"); discoveryURL != "" {
+			discoveryURL, err := url.Parse(discoveryURL)
+			if err == nil {
+				ip := whitelist.getIpByServiceName(discoveryURL.Scheme)
+				dc, conn := newDiscoveryClient(fmt.Sprintf("%s:%s", ip, discoveryURL.Opaque))
+				whitelist.Discovery = dc
+				c.OnShutdown(func() error {
+					return conn.Close()
+				})
+			} else {
+				log.Warningf("can not parse TUFIN_GRPC_DISCOVERY_URL. error %v", err)
+			}
+		}
+
+		return nil
+	})
+}
+
+func newDiscoveryClient(discoveryURL string) (DiscoveryServiceClient, *grpc.ClientConn) {
+
+	cc, err := grpc.Dial(discoveryURL, grpc.WithInsecure(),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{Time: 10 * time.Minute, Timeout: 30 * time.Second, PermitWithoutStream: true}))
+	if err != nil {
+		log.Errorf("failed to create gRPC connection with '%v'", err)
+		return nil, nil
+	}
+
+	return NewDiscoveryServiceClient(cc), cc
+
 }
 
 func (whitelist *whitelist) config() {
