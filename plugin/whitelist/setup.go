@@ -97,7 +97,7 @@ func (whitelist *whitelist) InitDiscoveryServer(c *caddy.Controller) {
 					return conn.Close()
 				})
 			} else {
-				log.Warningf("can not parse TUFIN_DISCOVERY_URL. error %v", err)
+				log.Warningf("can not parse TUFIN_GRPC_DISCOVERY_URL. error %v", err)
 			}
 		}
 
