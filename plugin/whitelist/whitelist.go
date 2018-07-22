@@ -152,7 +152,7 @@ func (whitelist whitelist) Name() string {
 func (whitelist whitelist) log(service string, query string, action string) {
 	fields := make(map[string]string)
 	fields["src"] = service
-	fields["dst"] = query
+	fields["dst"] = strings.TrimRight(query, ".")
 	fields["action"] = action
 	fields["origin"] = "dns"
 
