@@ -39,6 +39,13 @@ name "dropped" (without a closing dot - this is never a valid domain name).
 
 This plugin can only be used once per Server Block.
 
+## Health
+
+This plugin implements dynamic health checking. 
+Prometheus plugin is considered unhealthy if the HTTP server instance was not successfully started.
+(see bug description below on server fails to start)   
+
+
 ## Syntax
 
 ~~~

@@ -2,8 +2,13 @@
 // identical events will only be processed once.
 package uniq
 
+import (
+	"sync"
+)
+
 // U keeps track of item to be done.
 type U struct {
+	sync.RWMutex
 	u map[string]item
 }
 
@@ -13,37 +18,45 @@ type item struct {
 }
 
 // New returns a new initialized U.
-func New() U { return U{u: make(map[string]item)} }
+func New() *U { return &U{u: make(map[string]item)} }
 
 // Set sets function f in U under key. If the key already exists
 // it is not overwritten.
-func (u U) Set(key string, f func() error) {
+func (u *U) Set(key string, f func() error) {
+	u.Lock()
+	defer u.Unlock()
 	if _, ok := u.u[key]; ok {
 		return
 	}
 	u.u[key] = item{todo, f}
 }
 
-// SetTodo sets key to 'todo' again.
-func (u U) SetTodo(key string) {
-	v, ok := u.u[key]
-	if !ok {
-		return
-	}
-	v.state = todo
-	u.u[key] = v
-}
-
-// ForEach iterates for u executes f for each element that is 'todo' and sets it to 'done'.
-func (u U) ForEach() error {
+// ForEach iterates for u executes f for each element that is 'todo' and sets it to 'done' - if f executes w/o error
+func (u *U) ForEach() error {
+	u.Lock()
+	defer u.Unlock()
 	for k, v := range u.u {
 		if v.state == todo {
-			v.f()
+			if v.f() == nil {
+				// change the state only if an error did not occur
+				v.state = done
+				u.u[k] = v
+			}
 		}
-		v.state = done
-		u.u[k] = v
 	}
 	return nil
+}
+
+// HasTodo inform on weather some things are still in todo mode
+func (u *U) HasTodo() bool {
+	u.RLock()
+	defer u.RUnlock()
+	for _, v := range u.u {
+		if v.state == todo {
+			return true
+		}
+	}
+	return false
 }
 
 const (

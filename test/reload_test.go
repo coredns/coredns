@@ -118,7 +118,7 @@ func TestReloadMetricsHealth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const proc = "process_virtual_memory_bytes"
+	const proc = "coredns_build_info"
 	metrics, _ := ioutil.ReadAll(resp.Body)
 	if !bytes.Contains(metrics, []byte(proc)) {
 		t.Errorf("Failed to see %s in metric output", proc)

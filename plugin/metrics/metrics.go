@@ -7,6 +7,8 @@ import (
 	"os"
 	"sync"
 
+	"github.com/coredns/coredns/plugin/pkg/uniq"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
 
@@ -26,6 +28,7 @@ type Metrics struct {
 	zoneNames []string
 	zoneMap   map[string]bool
 	zoneMu    sync.RWMutex
+	uniqAddr  *uniq.U // same instance shared by all metrics plugin
 }
 
 // New returns a new instance of Metrics with the given address
@@ -101,21 +104,8 @@ func (m *Metrics) OnStartup() error {
 	return nil
 }
 
-// OnRestart stops the listener on reload.
-func (m *Metrics) OnRestart() error {
-	if !m.lnSetup {
-		return nil
-	}
-
-	uniqAddr.SetTodo(m.Addr)
-
-	m.ln.Close()
-	m.lnSetup = false
-	return nil
-}
-
-// OnFinalShutdown tears down the metrics listener on shutdown and restart.
-func (m *Metrics) OnFinalShutdown() error {
+// OnShutdown tears down the metrics listener
+func (m *Metrics) OnShutdown() error {
 	// We allow prometheus statements in multiple Server Blocks, but only the first
 	// will open the listener, for the rest they are all nil; guard against that.
 	if !m.lnSetup {
@@ -123,7 +113,8 @@ func (m *Metrics) OnFinalShutdown() error {
 	}
 
 	m.lnSetup = false
-	return m.ln.Close()
+	m.ln.Close()
+	return nil
 }
 
 func keys(m map[string]bool) []string {

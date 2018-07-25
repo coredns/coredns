@@ -1,11 +1,18 @@
 package test
 
 import (
+	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"path"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/coredns/coredns/plugin/pkg/uniq"
+	"github.com/mholt/caddy"
 
 	"github.com/coredns/coredns/plugin/cache"
 	"github.com/coredns/coredns/plugin/metrics"
@@ -181,4 +188,109 @@ func TestMetricsAuto(t *testing.T) {
 	if got != "1" {
 		t.Errorf("Expected value %s for %s, but got %s", "1", metricName, got)
 	}
+}
+
+func checkHealthStatus(addr string) (bool, error) {
+	resp, err := http.Get(fmt.Sprintf("http://%s/health", addr))
+	if err != nil {
+		return false, err
+	}
+	ok, _ := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	return string(ok) == "OK", err
+}
+
+// RepairHealth - a way to relaunch the listeners of Metrics.
+// this can be helpful if you compie with Go version < 1.10
+// you need to have a kind of monitoring private plugin that would use the healthcheck is coordination with this function
+func RepairHealth(inst *caddy.Instance) (bool, error) {
+	uniqAddr := inst.Storage["metricsData"].(*uniq.U)
+	if uniqAddr == nil {
+		return false, fmt.Errorf("cannot retrieve metrics data form instance storage")
+	}
+	if uniqAddr.HasTodo() {
+		uniqAddr.ForEach()
+	}
+	return !uniqAddr.HasTodo(), nil
+}
+
+// verify the implementation of Healther by metrics
+// it is good time fo verify that the above function is also working
+func TestMetricsHealthAndRepair(t *testing.T) {
+
+	healthAddr := "127.0.0.1:53333"
+
+	// In purpose use a TCP Listener that will fail the listening of metrics
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Could not setup the test : %s", err)
+	}
+
+	// Start CoreDNS with Health and metrics
+	corefile := fmt.Sprintf(`
+.:0 {
+	prometheus %s
+	health %s
+	whoami
+}`, ln.Addr(), healthAddr)
+
+	c, err := CoreDNSServer(corefile)
+	if err != nil {
+		if strings.Contains(err.Error(), inUse) {
+			return // meh, but don't error
+		}
+		t.Fatalf("Could not get service instance: %s", err)
+	}
+	defer c.Stop()
+
+	// check that healh is not OK.
+	ok, err := checkHealthStatus(healthAddr)
+	if err != nil {
+		t.Fatalf("Unexpected error checking health status : %s", err)
+	}
+	if ok {
+		t.Errorf("Expected value %s for health, but got %v", "false (not OK)", ok)
+	}
+
+	// try to repair metrics plugins (all of them as they share the same uniqAddr instance)
+	// you should not be able as the listener is still on
+	ok, err = RepairHealth(c)
+	if err != nil {
+		t.Fatalf("Unexpected error whil trying to Repair gealth of metrics : %s", err)
+	}
+	if ok {
+		t.Errorf("Expected value %s for metrics Repair, but got %v", "false (not OK)", ok)
+	}
+
+	// Stop the initial listener
+	ln.Close()
+	time.Sleep(time.Millisecond * 100)
+
+	// try to repair metrics plugins (all of them as they share the same uniqAddr instance)
+	// it should be successful as the initial listener is stopped and the port is now available
+	ok, err = RepairHealth(c)
+	if err != nil {
+		t.Fatalf("Unexpected error whil trying to Repair gealth of metrics : %s", err)
+	}
+	if !ok {
+		t.Errorf("Expected value %s for metrics Repair after stoping listener, but got %v", "true (OK)", ok)
+	}
+
+	// check that healh is going to OK.
+	// it can take up to 1 sec as it is based period for polling health
+	ok = false
+	for i := 0; i < 11; i++ {
+		ok, err = checkHealthStatus(healthAddr)
+		if err != nil {
+			t.Fatalf("Unexpected error checking health status : %s", err)
+		}
+		if ok {
+			break
+		}
+		time.Sleep(time.Millisecond * 100)
+	}
+	if !ok {
+		t.Errorf("Expected value %s for health after repair, but got %v", "true (OK)", ok)
+	}
+
 }

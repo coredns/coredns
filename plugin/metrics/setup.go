@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"net"
 	"runtime"
 
@@ -13,9 +14,10 @@ import (
 	"github.com/mholt/caddy"
 )
 
+const metricsData = "metricsData"
+
 var (
-	log      = clog.NewWithPlugin("prometheus")
-	uniqAddr = uniq.New()
+	log = clog.NewWithPlugin("prometheus")
 )
 
 func init() {
@@ -31,6 +33,24 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("prometheus", err)
 	}
 
+	// retrieve the shared instance of uniq.U. It is shared by ALL metrics plugins
+	// first plugin must ensure that instance is created in caddy's instance storage
+	var uniqAddr *uniq.U
+	data := c.Get(metricsData)
+	if data == nil {
+		uniqAddr = uniq.New()
+		c.Set(metricsData, uniqAddr)
+	} else {
+		var ok bool
+		uniqAddr, ok = c.Get(metricsData).(*uniq.U)
+		if !ok {
+			return plugin.Error("prometheus", fmt.Errorf("unexpected data stored in place of metrics data : %s", err))
+		}
+	}
+	m.uniqAddr = uniqAddr
+
+	m.uniqAddr.Set(m.Addr, m.OnStartup)
+
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		m.Next = next
 		return m
@@ -38,13 +58,13 @@ func setup(c *caddy.Controller) error {
 
 	c.OncePerServerBlock(func() error {
 		c.OnStartup(func() error {
-			return uniqAddr.ForEach()
+			return m.uniqAddr.ForEach()
 		})
 		return nil
 	})
 
-	c.OnRestart(m.OnRestart)
-	c.OnFinalShutdown(m.OnFinalShutdown)
+	c.OnRestart(m.OnShutdown)
+	c.OnFinalShutdown(m.OnShutdown)
 
 	// Initialize metrics.
 	buildInfo.WithLabelValues(coremain.CoreVersion, coremain.GitCommit, runtime.Version()).Set(1)
@@ -54,10 +74,6 @@ func setup(c *caddy.Controller) error {
 
 func prometheusParse(c *caddy.Controller) (*Metrics, error) {
 	var met = New(defaultAddr)
-
-	defer func() {
-		uniqAddr.Set(met.Addr, met.OnStartup)
-	}()
 
 	i := 0
 	for c.Next() {
