@@ -44,7 +44,7 @@ func (t *transport) updateDialTimeout(newDialTime time.Duration) {
 }
 
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
-func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
+func (t *transport) Dial(proto string) (*persistConn, bool, error) {
 	// If tls has been configured; use it.
 	if t.tlsConfig != nil {
 		proto = "tcp-tls"
@@ -62,11 +62,11 @@ func (t *transport) Dial(proto string) (*dns.Conn, bool, error) {
 	if proto == "tcp-tls" {
 		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
 		t.updateDialTimeout(time.Since(reqTime))
-		return conn, false, err
+		return &persistConn{conn, time.Now().UTC()}, false, err
 	}
 	conn, err := dns.DialTimeout(proto, t.addr, timeout)
 	t.updateDialTimeout(time.Since(reqTime))
-	return conn, false, err
+	return &persistConn{conn, time.Now().UTC()}, false, err
 }
 
 func (p *Proxy) readTimeout() time.Duration {
@@ -91,32 +91,32 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 		proto = state.Proto()
 	}
 
-	conn, cached, err := p.transport.Dial(proto)
+	pc, cached, err := p.transport.Dial(proto)
 	if err != nil {
 		return nil, err
 	}
 
 	// Set buffer size correctly for this client.
-	conn.UDPSize = uint16(state.Size())
-	if conn.UDPSize < 512 {
-		conn.UDPSize = 512
+	pc.c.UDPSize = uint16(state.Size())
+	if pc.c.UDPSize < 512 {
+		pc.c.UDPSize = 512
 	}
 
-	conn.SetWriteDeadline(time.Now().Add(maxTimeout))
+	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
 	reqTime := time.Now()
-	if err := conn.WriteMsg(state.Req); err != nil {
-		conn.Close() // not giving it back
+	if err := pc.c.WriteMsg(state.Req); err != nil {
+		pc.c.Close() // not giving it back
 		if err == io.EOF && cached {
 			return nil, ErrCachedClosed
 		}
 		return nil, err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(p.readTimeout()))
-	ret, err := conn.ReadMsg()
+	pc.c.SetReadDeadline(time.Now().Add(p.readTimeout()))
+	ret, err := pc.c.ReadMsg()
 	if err != nil {
 		p.updateRtt(maxTimeout)
-		conn.Close() // not giving it back
+		pc.c.Close() // not giving it back
 		if err == io.EOF && cached {
 			return nil, ErrCachedClosed
 		}
@@ -125,7 +125,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 
 	p.updateRtt(time.Since(reqTime))
 
-	p.transport.Yield(conn)
+	p.transport.Yield(pc)
 
 	rc, ok := dns.RcodeToString[ret.Rcode]
 	if !ok {
