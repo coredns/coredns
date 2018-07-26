@@ -17,9 +17,9 @@ type HealthChecker interface {
 // dnsHc is a health checker for a DNS endpoint (DNS, and DoT).
 type dnsHc struct{ c *dns.Client }
 
-// NewHealthChecker returns a new HealthChecker based on protocol.
-func NewHealthChecker(protocol int) HealthChecker {
-	switch protocol {
+// NewHealthChecker returns a new HealthChecker.
+func NewHealthChecker(p Protocol) HealthChecker {
+	switch p {
 	case DNS, TLS:
 		c := new(dns.Client)
 		c.Net = "udp"
@@ -29,7 +29,10 @@ func NewHealthChecker(protocol int) HealthChecker {
 		return &dnsHc{c: c}
 	}
 
-	return nil
+	// Panic early if we're asked to healthcheck an unknown protocol, rather
+	// than returning a nil HealthChecker that will panic when Check() is
+	// called.
+	panic("unknown protocol: only DNS or TLS health checks are currently supported")
 }
 
 func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
