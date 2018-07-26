@@ -52,20 +52,22 @@ func TestSetup(t *testing.T) {
 			if !strings.Contains(err.Error(), test.expectedErr) {
 				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
 			}
+
+			continue
 		}
 
-		if !test.shouldErr && f.from != test.expectedFrom {
+		if f.from != test.expectedFrom {
 			t.Errorf("Test %d: expected: %s, got: %s", i, test.expectedFrom, f.from)
 		}
-		if !test.shouldErr && test.expectedIgnored != nil {
+		if test.expectedIgnored != nil {
 			if !reflect.DeepEqual(f.ignored, test.expectedIgnored) {
 				t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedIgnored, f.ignored)
 			}
 		}
-		if !test.shouldErr && f.maxfails != test.expectedFails {
+		if f.maxfails != test.expectedFails {
 			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedFails, f.maxfails)
 		}
-		if !test.shouldErr && f.opts != test.expectedOpts {
+		if f.opts != test.expectedOpts {
 			t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedOpts, f.opts)
 		}
 	}
@@ -107,13 +109,15 @@ func TestSetupTLS(t *testing.T) {
 			if !strings.Contains(err.Error(), test.expectedErr) {
 				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
 			}
+
+			continue
 		}
 
-		if !test.shouldErr && test.expectedServerName != "" && test.expectedServerName != f.tlsConfig.ServerName {
+		if test.expectedServerName != "" && test.expectedServerName != f.tlsConfig.ServerName {
 			t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedServerName, f.tlsConfig.ServerName)
 		}
 
-		if !test.shouldErr && test.expectedServerName != "" && test.expectedServerName != f.proxies[0].health.(*dnsHc).c.TLSConfig.ServerName {
+		if test.expectedServerName != "" && test.expectedServerName != f.proxies[0].health.(*dnsHc).c.TLSConfig.ServerName {
 			t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedServerName, f.proxies[0].health.(*dnsHc).c.TLSConfig.ServerName)
 		}
 	}
