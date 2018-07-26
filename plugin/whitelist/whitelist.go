@@ -63,7 +63,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	serviceNameInConfig := fmt.Sprintf("%s.%s", service.Name, service.Namespace)
 	serviceName := fmt.Sprintf("%s.svc.%s", serviceNameInConfig, whitelist.Kubernetes.Zones[0])
 
-	query := state.Name()
+	query := strings.TrimRight(state.Name(), ".")
 	if whitelisted, ok := whitelist.ServicesToWhitelist[serviceNameInConfig]; ok {
 		if _, ok := whitelisted[query]; ok {
 			if whitelist.Discovery != nil {
