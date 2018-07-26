@@ -8,7 +8,7 @@ import (
 
 // protocol returns the protocol of the string s. The second string returns s
 // with the prefix chopped off.
-func protocol(s string) (int, string) {
+func protocol(s string) (Protocol, string) {
 	switch {
 	case strings.HasPrefix(s, _tls+"://"):
 		return TLS, s[len(_tls)+3:]
@@ -18,9 +18,13 @@ func protocol(s string) (int, string) {
 	return DNS, s
 }
 
+// A Protocol used to query DNS.
+type Protocol int
+
 // Supported protocols.
 const (
-	DNS = iota + 1
+	Unknown Protocol = iota
+	DNS
 	TLS
 )
 
