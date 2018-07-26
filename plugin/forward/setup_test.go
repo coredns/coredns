@@ -90,19 +90,20 @@ func TestSetupTLS(t *testing.T) {
 		input              string
 		shouldErr          bool
 		expectedServerName string
+		expectedProxies    int
 		expectedErr        string
 	}{
 		// positive
 		{`forward . tls://127.0.0.1 {
 				tls_servername dns
-			}`, false, "dns", ""},
+			}`, false, "dns", 1, ""},
 		{`forward . 127.0.0.1 {
 				tls_servername dns
-			}`, false, "", ""},
+			}`, false, "", 1, ""},
 		{`forward . 127.0.0.1 {
 				tls
-			}`, false, "", ""},
-		{`forward . tls://127.0.0.1`, false, "", ""},
+			}`, false, "", 1, ""},
+		{`forward . tls://127.0.0.1`, false, "", 1, ""},
 	}
 
 	for i, test := range tests {
@@ -127,6 +128,10 @@ func TestSetupTLS(t *testing.T) {
 
 		if test.expectedServerName != "" && test.expectedServerName != f.tlsConfig.ServerName {
 			t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedServerName, f.tlsConfig.ServerName)
+		}
+
+		if len(f.proxies) != test.expectedProxies {
+			t.Errorf("Test %d: expected %d proxies, got %d", i, test.expectedProxies, len(f.proxies))
 		}
 
 		if test.expectedServerName != "" && test.expectedServerName != f.proxies[0].health.(*dnsHc).c.TLSConfig.ServerName {

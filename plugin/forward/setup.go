@@ -72,7 +72,8 @@ func (f *Forward) Close() { f.OnShutdown() }
 func parseForward(c *caddy.Controller) (*Forward, error) {
 	f := New()
 
-	protocols := map[int]int{}
+	hosts := make([]string, 0)
+	tlsHosts := make([]string, 0)
 
 	i := 0
 	for c.Next() {
@@ -91,41 +92,20 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 			return f, c.ArgErr()
 		}
 
-		// A bit fiddly, but first check if we've got protocols and if so add them back in when we create the proxies.
-		protocols = make(map[int]int)
-		for i := range to {
-			protocols[i], to[i] = protocol(to[i])
-		}
-
-		// If parseHostPortOrFile expands a file with a lot of nameserver our accounting in protocols doesn't make
-		// any sense anymore... For now: lets don't care.
-		toHosts, err := dnsutil.ParseHostPortOrFile(to...)
-		if err != nil {
-			return f, err
-		}
-
-		for i, h := range toHosts {
-			// Double check the port, if e.g. is 53 and the transport is TLS make it 853.
-			// This can be somewhat annoying because you *can't* have TLS on port 53 then.
-			switch protocols[i] {
+		for _, h := range to {
+			proto, stripped := protocol(h)
+			switch proto {
+			case DNS:
+				// Stripped could either be a regular non-TLS DNS server, or a
+				// path to a resolv.conf specifying one or more non-TLS servers.
+				// In the latter case the resolv.conf is expanded below by
+				// dnsutil.ParseHostPortOrFile.
+				hosts = append(hosts, stripped)
 			case TLS:
-				h1, p, err := net.SplitHostPort(h)
-				if err != nil {
-					break
-				}
-
-				// This is more of a bug in dnsutil.ParseHostPortOrFile that defaults to
-				// 53 because it doesn't know about the tls:// // and friends (that should be fixed). Hence
-				// Fix the port number here, back to what the user intended.
-				if p == "53" {
-					h = net.JoinHostPort(h1, "853")
-				}
+				tlsHosts = append(tlsHosts, stripped)
+			default:
+				return nil, fmt.Errorf("unknown protocol: %v", h)
 			}
-
-			// We can't set tlsConfig here, because we haven't parsed it yet.
-			// We set it below at the end of parseBlock, use nil now.
-			p := NewProxy(h, protocols[i])
-			f.proxies = append(f.proxies, p)
 		}
 
 		for c.NextBlock() {
@@ -138,13 +118,38 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 	if f.tlsServerName != "" {
 		f.tlsConfig.ServerName = f.tlsServerName
 	}
-	for i := range f.proxies {
-		// Only set this for proxies that need it.
-		if protocols[i] == TLS {
-			f.proxies[i].SetTLSConfig(f.tlsConfig)
-		}
-		f.proxies[i].SetExpire(f.expire)
+
+	hosts, err := dnsutil.ParseHostPortOrFile(hosts...)
+	if err != nil {
+		return f, err
 	}
+
+	tlsHosts, err = dnsutil.ParseHostPortOrFile(tlsHosts...)
+	if err != nil {
+		return f, err
+	}
+
+	for _, h := range hosts {
+		p := NewProxy(h, DNS)
+		p.SetExpire(f.expire)
+		f.proxies = append(f.proxies, p)
+	}
+
+	for _, h := range tlsHosts {
+		// dnsutil.ParseHostPortOrFile is blissfully unaware of TLS, and thus
+		// explicitly sets all ports to 53. If we see a TLS host with port 53 we
+		// assume it was changed by dnsutil.ParseHostPortOrFile. We further
+		// assume it was originally set to 853 and change it to that port.
+		sh, sp, err := net.SplitHostPort(h)
+		if err == nil && sp == "53" {
+			h = net.JoinHostPort(sh, "853")
+		}
+		p := NewProxy(h, TLS)
+		p.SetTLSConfig(f.tlsConfig)
+		p.SetExpire(f.expire)
+		f.proxies = append(f.proxies, p)
+	}
+
 	return f, nil
 }
 
