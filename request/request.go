@@ -263,7 +263,7 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 
 	// Account for the OPT record that gets added in SizeAndDo(), subtract that length.
 	sub := 0
-	if r.Do() {
+	if r.Req.IsEdns0() != nil {
 		sub = optLen
 	}
 
@@ -328,8 +328,7 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 		// this extra m-1 step does make it fit in the client's buffer however.
 	}
 
-	// It now fits, but Truncated. We can't call sizeAndDo() because that adds a new record (OPT)
-	// in the additional section.
+	r.SizeAndDo(reply)
 	reply.Truncated = true
 	return reply, ScrubAnswer
 }
