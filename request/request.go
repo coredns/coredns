@@ -248,6 +248,7 @@ const (
 // get the bit, the client should then retry with pigeons.
 func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 	size := r.Size()
+	extras := len(reply.Extra)
 
 	reply.Compress = false
 	rl := reply.Len()
@@ -256,78 +257,16 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 	}
 
 	reply.Compress = true
-	rl = reply.Len()
-	if size >= rl {
-		return reply, ScrubIgnored
-	}
+	reply.Truncate(size)
 
-	// Account for the OPT record that gets added in SizeAndDo(), subtract that length.
-	sub := 0
-	if r.Do() {
-		sub = optLen
+	var a Result
+	switch {
+	case reply.Truncated:
+		a = ScrubAnswer
+	case extras != len(reply.Extra):
+		a = ScrubExtra
 	}
-	origExtra := reply.Extra
-	re := len(reply.Extra) - sub
-	l, m := 0, 0
-	for l < re {
-		m = (l + re) / 2
-		reply.Extra = origExtra[:m]
-		rl = reply.Len()
-		if rl < size {
-			l = m + 1
-			continue
-		}
-		if rl > size {
-			re = m - 1
-			continue
-		}
-		if rl == size {
-			break
-		}
-	}
-
-	// We may come out of this loop with one rotation too many, m makes it too large, but m-1 works.
-	if rl > size && m > 0 {
-		reply.Extra = origExtra[:m-1]
-		rl = reply.Len()
-	}
-
-	if rl < size {
-		r.SizeAndDo(reply)
-		return reply, ScrubExtra
-	}
-
-	origAnswer := reply.Answer
-	ra := len(reply.Answer)
-	l, m = 0, 0
-	for l < ra {
-		m = (l + ra) / 2
-		reply.Answer = origAnswer[:m]
-		rl = reply.Len()
-		if rl < size {
-			l = m + 1
-			continue
-		}
-		if rl > size {
-			ra = m - 1
-			continue
-		}
-		if rl == size {
-			break
-		}
-	}
-
-	// We may come out of this loop with one rotation too many, m makes it too large, but m-1 works.
-	if rl > size && m > 0 {
-		reply.Answer = origAnswer[:m-1]
-		// No need to recalc length, as we don't use it. We set truncated anyway. Doing
-		// this extra m-1 step does make it fit in the client's buffer however.
-	}
-
-	// It now fits, but Truncated. We can't call sizeAndDo() because that adds a new record (OPT)
-	// in the additional section.
-	reply.Truncated = true
-	return reply, ScrubAnswer
+	return reply, a
 }
 
 // Type returns the type of the question as a string. If the request is malformed
