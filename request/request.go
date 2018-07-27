@@ -266,9 +266,13 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 	if r.Do() {
 		sub = optLen
 	}
-	origExtra := reply.Extra
+
+	// substract to make spaces for re-added EDNS0 OPT RR.
 	re := len(reply.Extra) - sub
+	size -= sub
+
 	l, m := 0, 0
+	origExtra := reply.Extra
 	for l < re {
 		m = (l + re) / 2
 		reply.Extra = origExtra[:m]
@@ -297,9 +301,9 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 		return reply, ScrubExtra
 	}
 
-	origAnswer := reply.Answer
 	ra := len(reply.Answer)
 	l, m = 0, 0
+	origAnswer := reply.Answer
 	for l < ra {
 		m = (l + ra) / 2
 		reply.Answer = origAnswer[:m]
@@ -330,8 +334,7 @@ func (r *Request) Scrub(reply *dns.Msg) (*dns.Msg, Result) {
 	return reply, ScrubAnswer
 }
 
-// Type returns the type of the question as a string. If the request is malformed
-// the empty string is returned.
+// Type returns the type of the question as a string. If the request is malformed the empty string is returned.
 func (r *Request) Type() string {
 	if r.Req == nil {
 		return ""
