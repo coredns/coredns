@@ -71,7 +71,6 @@ func setup(c *caddy.Controller) error {
 	whitelist.Kubernetes = k8s
 
 	whitelist.InitDiscoveryServer(c)
-	whitelist.config()
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		whitelist.Next = next
