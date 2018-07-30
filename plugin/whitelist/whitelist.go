@@ -23,7 +23,6 @@ type whitelist struct {
 	Next                plugin.Handler
 	Discovery           DiscoveryServiceClient
 	ServicesToWhitelist map[string]map[string]struct{}
-	configPath          string
 }
 
 func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, r *dns.Msg) (int, error) {

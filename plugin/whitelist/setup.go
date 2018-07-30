@@ -1,21 +1,25 @@
 package whitelist
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
 	"github.com/mholt/caddy"
-	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
+	"io"
 	"net/url"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 )
+
+type dnsConfig struct {
+	ServicesToWhitelist map[string][]string `json:"services"`
+}
 
 func init() {
 	caddy.RegisterPlugin("whitelist", caddy.Plugin{
@@ -48,12 +52,6 @@ func kubernetesParse(c *caddy.Controller) (*kubernetes.Kubernetes, error) {
 func setup(c *caddy.Controller) error {
 
 	whitelist := &whitelist{}
-	if whitelistConf := os.Getenv("TUFIN_WHITELIST_CONF_FILE_JSON"); whitelistConf != "" {
-		whitelist.configPath = whitelistConf
-		WatchFile(whitelistConf, time.Second, whitelist.config)
-	} else {
-		return errors.New("please set TUFIN_WHITELIST_CONF_FILE_JSON")
-	}
 
 	k8s, err := kubernetesParse(c)
 	if err != nil {
@@ -86,19 +84,22 @@ func setup(c *caddy.Controller) error {
 func (whitelist *whitelist) InitDiscoveryServer(c *caddy.Controller) {
 
 	c.OnStartup(func() error {
-
 		if discoveryURL := os.Getenv("TUFIN_GRPC_DISCOVERY_URL"); discoveryURL != "" {
 			discoveryURL, err := url.Parse(discoveryURL)
 			if err == nil {
 				ip := whitelist.getIpByServiceName(discoveryURL.Scheme)
 				dc, conn := newDiscoveryClient(fmt.Sprintf("%s:%s", ip, discoveryURL.Opaque))
 				whitelist.Discovery = dc
+				go whitelist.config()
 				c.OnShutdown(func() error {
 					return conn.Close()
 				})
 			} else {
 				log.Warningf("can not parse TUFIN_GRPC_DISCOVERY_URL. error %v", err)
+
 			}
+		} else {
+			return errors.New("TUFIN_GRPC_DISCOVERY_URL must be set")
 		}
 
 		return nil
@@ -120,14 +121,32 @@ func newDiscoveryClient(discoveryURL string) (DiscoveryServiceClient, *grpc.Clie
 
 func (whitelist *whitelist) config() {
 
-	viper.SetConfigType("json")
-	fileName := whitelist.configPath
-	viper.SetConfigName(strings.TrimSuffix(filepath.Base(fileName), filepath.Ext(fileName)))
-	viper.AddConfigPath(filepath.Dir(fileName))
-	viper.ReadInConfig()
-	conf := viper.GetStringMapStringSlice("services")
-	whitelist.ServicesToWhitelist = convert(conf)
-	log.Infof("whitelist configuration %s", whitelist.ServicesToWhitelist)
+	for {
+		configuration, err := whitelist.Discovery.Configure(context.Background(), &ConfigurationRequest{})
+
+		if err != nil {
+			continue
+		}
+
+		for {
+			resp, err := configuration.Recv()
+			if err == io.EOF {
+				return
+			}
+
+			if err != nil {
+				break
+			}
+
+			var dnsConfiguration dnsConfig
+			if err = json.Unmarshal(resp.GetMsg(), &dnsConfiguration); err != nil {
+				break
+			}
+
+			whitelist.ServicesToWhitelist = convert(dnsConfiguration.ServicesToWhitelist)
+			log.Infof("whitelist configuration %s", whitelist.ServicesToWhitelist)
+		}
+	}
 }
 
 func convert(conf map[string][]string) map[string]map[string]struct{} {
