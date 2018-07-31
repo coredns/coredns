@@ -22,6 +22,7 @@ type whitelist struct {
 	Kubernetes          *kubernetes.Kubernetes
 	Next                plugin.Handler
 	Discovery           DiscoveryServiceClient
+	Fallthrough         []string
 	ServicesToWhitelist map[string]map[string]struct{}
 }
 
@@ -53,6 +54,14 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
+	query := strings.TrimRight(state.Name(), ".")
+
+	for _, domain := range whitelist.Fallthrough {
+		if strings.EqualFold(domain, query) {
+			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+		}
+	}
+
 	service := whitelist.getServiceFromIP(ipAddr)
 
 	if service == nil {
@@ -62,7 +71,6 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	serviceNameInConfig := fmt.Sprintf("%s.%s", service.Name, service.Namespace)
 	serviceName := fmt.Sprintf("%s.svc.%s", serviceNameInConfig, whitelist.Kubernetes.Zones[0])
 
-	query := strings.TrimRight(state.Name(), ".")
 	if whitelisted, ok := whitelist.ServicesToWhitelist[serviceNameInConfig]; ok {
 		if _, ok := whitelisted[query]; ok {
 			if whitelist.Discovery != nil {

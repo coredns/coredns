@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -70,6 +71,10 @@ func setup(c *caddy.Controller) error {
 	k8s.RegisterKubeCache(c)
 	whitelist.Kubernetes = k8s
 
+	if fall := os.Getenv("TUFIN_FALLTHROUGH_DOMAINS"); fall != "" {
+		fallthroughDomains := strings.Split(fall, "")
+		whitelist.Fallthrough = fallthroughDomains
+	}
 	whitelist.InitDiscoveryServer(c)
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
