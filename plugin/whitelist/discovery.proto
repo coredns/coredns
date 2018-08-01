@@ -11,6 +11,16 @@ message DiscoveryResponse {
 
 }
 
+message ConfigurationRequest {
+
+}
+
+message ConfigurationResponse {
+    bytes msg = 1;
+}
+
+
 service DiscoveryService {
     rpc Discover (Discovery) returns (DiscoveryResponse);
+    rpc Configure (ConfigurationRequest) returns (stream ConfigurationResponse);
 }

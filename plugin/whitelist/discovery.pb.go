@@ -34,7 +34,7 @@ func (m *Discovery) Reset()         { *m = Discovery{} }
 func (m *Discovery) String() string { return proto.CompactTextString(m) }
 func (*Discovery) ProtoMessage()    {}
 func (*Discovery) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_e50cfb985c8ba6cc, []int{0}
+	return fileDescriptor_discovery_d4f9d43d81a633a0, []int{0}
 }
 func (m *Discovery) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Discovery.Unmarshal(m, b)
@@ -71,7 +71,7 @@ func (m *DiscoveryResponse) Reset()         { *m = DiscoveryResponse{} }
 func (m *DiscoveryResponse) String() string { return proto.CompactTextString(m) }
 func (*DiscoveryResponse) ProtoMessage()    {}
 func (*DiscoveryResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_discovery_e50cfb985c8ba6cc, []int{1}
+	return fileDescriptor_discovery_d4f9d43d81a633a0, []int{1}
 }
 func (m *DiscoveryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DiscoveryResponse.Unmarshal(m, b)
@@ -91,9 +91,79 @@ func (m *DiscoveryResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_DiscoveryResponse proto.InternalMessageInfo
 
+type ConfigurationRequest struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConfigurationRequest) Reset()         { *m = ConfigurationRequest{} }
+func (m *ConfigurationRequest) String() string { return proto.CompactTextString(m) }
+func (*ConfigurationRequest) ProtoMessage()    {}
+func (*ConfigurationRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_discovery_d4f9d43d81a633a0, []int{2}
+}
+func (m *ConfigurationRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigurationRequest.Unmarshal(m, b)
+}
+func (m *ConfigurationRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigurationRequest.Marshal(b, m, deterministic)
+}
+func (dst *ConfigurationRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigurationRequest.Merge(dst, src)
+}
+func (m *ConfigurationRequest) XXX_Size() int {
+	return xxx_messageInfo_ConfigurationRequest.Size(m)
+}
+func (m *ConfigurationRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigurationRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigurationRequest proto.InternalMessageInfo
+
+type ConfigurationResponse struct {
+	Msg                  []byte   `protobuf:"bytes,1,opt,name=msg,proto3" json:"msg,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *ConfigurationResponse) Reset()         { *m = ConfigurationResponse{} }
+func (m *ConfigurationResponse) String() string { return proto.CompactTextString(m) }
+func (*ConfigurationResponse) ProtoMessage()    {}
+func (*ConfigurationResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_discovery_d4f9d43d81a633a0, []int{3}
+}
+func (m *ConfigurationResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ConfigurationResponse.Unmarshal(m, b)
+}
+func (m *ConfigurationResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ConfigurationResponse.Marshal(b, m, deterministic)
+}
+func (dst *ConfigurationResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigurationResponse.Merge(dst, src)
+}
+func (m *ConfigurationResponse) XXX_Size() int {
+	return xxx_messageInfo_ConfigurationResponse.Size(m)
+}
+func (m *ConfigurationResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigurationResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigurationResponse proto.InternalMessageInfo
+
+func (m *ConfigurationResponse) GetMsg() []byte {
+	if m != nil {
+		return m.Msg
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*Discovery)(nil), "coredns.whitelist.Discovery")
 	proto.RegisterType((*DiscoveryResponse)(nil), "coredns.whitelist.DiscoveryResponse")
+	proto.RegisterType((*ConfigurationRequest)(nil), "coredns.whitelist.ConfigurationRequest")
+	proto.RegisterType((*ConfigurationResponse)(nil), "coredns.whitelist.ConfigurationResponse")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -109,6 +179,7 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type DiscoveryServiceClient interface {
 	Discover(ctx context.Context, in *Discovery, opts ...grpc.CallOption) (*DiscoveryResponse, error)
+	Configure(ctx context.Context, in *ConfigurationRequest, opts ...grpc.CallOption) (DiscoveryService_ConfigureClient, error)
 }
 
 type discoveryServiceClient struct {
@@ -128,9 +199,42 @@ func (c *discoveryServiceClient) Discover(ctx context.Context, in *Discovery, op
 	return out, nil
 }
 
+func (c *discoveryServiceClient) Configure(ctx context.Context, in *ConfigurationRequest, opts ...grpc.CallOption) (DiscoveryService_ConfigureClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_DiscoveryService_serviceDesc.Streams[0], "/coredns.whitelist.DiscoveryService/Configure", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &discoveryServiceConfigureClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type DiscoveryService_ConfigureClient interface {
+	Recv() (*ConfigurationResponse, error)
+	grpc.ClientStream
+}
+
+type discoveryServiceConfigureClient struct {
+	grpc.ClientStream
+}
+
+func (x *discoveryServiceConfigureClient) Recv() (*ConfigurationResponse, error) {
+	m := new(ConfigurationResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // DiscoveryServiceServer is the server API for DiscoveryService service.
 type DiscoveryServiceServer interface {
 	Discover(context.Context, *Discovery) (*DiscoveryResponse, error)
+	Configure(*ConfigurationRequest, DiscoveryService_ConfigureServer) error
 }
 
 func RegisterDiscoveryServiceServer(s *grpc.Server, srv DiscoveryServiceServer) {
@@ -155,6 +259,27 @@ func _DiscoveryService_Discover_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DiscoveryService_Configure_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ConfigurationRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(DiscoveryServiceServer).Configure(m, &discoveryServiceConfigureServer{stream})
+}
+
+type DiscoveryService_ConfigureServer interface {
+	Send(*ConfigurationResponse) error
+	grpc.ServerStream
+}
+
+type discoveryServiceConfigureServer struct {
+	grpc.ServerStream
+}
+
+func (x *discoveryServiceConfigureServer) Send(m *ConfigurationResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 var _DiscoveryService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "coredns.whitelist.DiscoveryService",
 	HandlerType: (*DiscoveryServiceServer)(nil),
@@ -164,21 +289,31 @@ var _DiscoveryService_serviceDesc = grpc.ServiceDesc{
 			Handler:    _DiscoveryService_Discover_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Configure",
+			Handler:       _DiscoveryService_Configure_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "discovery.proto",
 }
 
-func init() { proto.RegisterFile("discovery.proto", fileDescriptor_discovery_e50cfb985c8ba6cc) }
+func init() { proto.RegisterFile("discovery.proto", fileDescriptor_discovery_d4f9d43d81a633a0) }
 
-var fileDescriptor_discovery_e50cfb985c8ba6cc = []byte{
-	// 141 bytes of a gzipped FileDescriptorProto
+var fileDescriptor_discovery_d4f9d43d81a633a0 = []byte{
+	// 198 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4f, 0xc9, 0x2c, 0x4e,
 	0xce, 0x2f, 0x4b, 0x2d, 0xaa, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x12, 0x4c, 0xce, 0x2f,
 	0x4a, 0x4d, 0xc9, 0x2b, 0xd6, 0x2b, 0xcf, 0xc8, 0x2c, 0x49, 0xcd, 0xc9, 0x2c, 0x2e, 0x51, 0x92,
 	0xe5, 0xe2, 0x74, 0x81, 0xa9, 0x12, 0x12, 0xe0, 0x62, 0xce, 0x2d, 0x4e, 0x97, 0x60, 0x54, 0x60,
 	0xd4, 0xe0, 0x09, 0x02, 0x31, 0x95, 0x84, 0xb9, 0x04, 0xe1, 0xd2, 0x41, 0xa9, 0xc5, 0x05, 0xf9,
-	0x79, 0xc5, 0xa9, 0x46, 0x49, 0x5c, 0x02, 0x70, 0xc1, 0xe0, 0xd4, 0xa2, 0xb2, 0xcc, 0xe4, 0x54,
-	0x21, 0x3f, 0x2e, 0x0e, 0x98, 0x98, 0x90, 0x8c, 0x1e, 0x86, 0x3d, 0x7a, 0x70, 0x0d, 0x52, 0x2a,
-	0xf8, 0x64, 0x61, 0x76, 0x38, 0x71, 0x47, 0x71, 0xc2, 0xa5, 0x93, 0xd8, 0xc0, 0xce, 0x37, 0x06,
-	0x04, 0x00, 0x00, 0xff, 0xff, 0x2f, 0xbb, 0x5e, 0xa2, 0xd1, 0x00, 0x00, 0x00,
+	0x79, 0xc5, 0xa9, 0x4a, 0x62, 0x5c, 0x22, 0xce, 0xf9, 0x79, 0x69, 0x99, 0xe9, 0xa5, 0x45, 0x89,
+	0x25, 0x99, 0xf9, 0x79, 0x41, 0xa9, 0x85, 0xa5, 0xa9, 0xc5, 0x25, 0x4a, 0x9a, 0x5c, 0xa2, 0x68,
+	0xe2, 0x10, 0x0d, 0x98, 0xe6, 0x1a, 0x1d, 0x61, 0xe4, 0x12, 0x80, 0x1b, 0x1c, 0x9c, 0x5a, 0x54,
+	0x96, 0x99, 0x9c, 0x2a, 0xe4, 0xc7, 0xc5, 0x01, 0x13, 0x13, 0x92, 0xd1, 0xc3, 0x70, 0xab, 0x1e,
+	0x5c, 0x83, 0x94, 0x0a, 0x3e, 0x59, 0xb8, 0xb5, 0x09, 0x5c, 0x9c, 0x30, 0xf7, 0xa4, 0x0a, 0xa9,
+	0x63, 0xd1, 0x82, 0xcd, 0x17, 0x52, 0x1a, 0x84, 0x15, 0x42, 0xcc, 0x37, 0x60, 0x74, 0xe2, 0x8e,
+	0xe2, 0x84, 0x2b, 0x4a, 0x62, 0x03, 0x07, 0xb2, 0x31, 0x20, 0x00, 0x00, 0xff, 0xff, 0x47, 0xa7,
+	0x93, 0x76, 0x77, 0x01, 0x00, 0x00,
 }
