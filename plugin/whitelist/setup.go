@@ -72,7 +72,7 @@ func setup(c *caddy.Controller) error {
 	whitelist.Kubernetes = k8s
 
 	if fall := os.Getenv("TUFIN_FALLTHROUGH_DOMAINS"); fall != "" {
-		fallthroughDomains := strings.Split(fall, "")
+		fallthroughDomains := strings.Split(fall, ",")
 		whitelist.Fallthrough = fallthroughDomains
 	}
 	whitelist.InitDiscoveryServer(c)
