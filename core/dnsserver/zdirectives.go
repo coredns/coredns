@@ -14,6 +14,7 @@ var Directives = []string{
 	"tls",
 	"reload",
 	"nsid",
+	"whitelist",
 	"root",
 	"bind",
 	"debug",

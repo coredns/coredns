@@ -1,0 +1,45 @@
+# Golang CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-go/ for more details
+version: 2
+jobs:
+  build:
+    working_directory: /go/src/github.com/coredns/coredns
+    docker:
+      - image: tufinim/circleci-go:master
+
+    environment:
+      PROJECT_NAME: coredns
+      GCR_NAME: eu.gcr.io/tufinlight/coredns
+      TEST_RESULTS: /tmp/test-results
+      TUFIN_DOMAIN: tufin
+      TUFIN_PROJECT: stage
+      TUFIN_URL: https://orca.tufin.io
+    steps:
+      - checkout
+      - run:
+          name: Build
+          command: |
+            make
+      - run:
+          name: Run Tests
+          command: |
+            make test
+      - store_artifacts:
+          path: /tmp/test-results
+          destination: raw-test-output
+      - store_test_results:
+          path: /tmp/test-results
+      - setup_remote_docker
+      - run:
+          name: Build Docker image
+          command: |
+            docker build -t "$PROJECT_NAME" .
+      - run:
+          name: Authenticate with gcloud
+          command:
+            echo $GCLOUD_SERVICE_KEY | /scripts/gcloud_auth.sh
+      - run:
+          name: Upload the docker image to gcr
+          command: |
+            /scripts/upload_to_gcr.sh $PROJECT_NAME $GCR_NAME $CIRCLE_BUILD_NUM $CIRCLE_BRANCH

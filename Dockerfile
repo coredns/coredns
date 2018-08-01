@@ -8,5 +8,5 @@ FROM scratch
 COPY --from=0 /etc/ssl/certs /etc/ssl/certs
 ADD coredns /coredns
 
-EXPOSE 53 53/udp
+EXPOSE 54 53/udp
 ENTRYPOINT ["/coredns"]
