@@ -153,7 +153,7 @@ func (whitelist *whitelist) config() {
 				break
 			}
 
-			whitelist.Configuration = whitelistConfig{blacklist: dnsConfiguration.blacklist, ServicesToDomains: convert(dnsConfiguration.ServicesToWhitelist)}
+			whitelist.Configuration = whitelistConfig{blacklist: dnsConfiguration.Blacklist, ServicesToDomains: convert(dnsConfiguration.ServicesToWhitelist)}
 			log.Infof("dns configuration %+v", whitelist.Configuration)
 		}
 	}
