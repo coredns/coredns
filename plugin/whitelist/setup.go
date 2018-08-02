@@ -19,7 +19,7 @@ import (
 )
 
 type dnsConfig struct {
-	Blacklist           bool                `json:"services"`
+	Blacklist           bool                `json:"blacklist"`
 	ServicesToWhitelist map[string][]string `json:"services"`
 }
 
