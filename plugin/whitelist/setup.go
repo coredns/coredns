@@ -150,7 +150,7 @@ func (whitelist *whitelist) config() {
 
 			var dnsConfiguration dnsConfig
 			if err = json.Unmarshal(resp.GetMsg(), &dnsConfiguration); err != nil {
-				break
+				continue
 			}
 
 			whitelist.Configuration = whitelistConfig{blacklist: dnsConfiguration.Blacklist, ServicesToDomains: convert(dnsConfiguration.ServicesToWhitelist)}
