@@ -19,7 +19,13 @@ import (
 )
 
 type dnsConfig struct {
+	Blacklist           bool                `json:"blacklist"`
 	ServicesToWhitelist map[string][]string `json:"services"`
+}
+
+type whitelistConfig struct {
+	blacklist         bool
+	ServicesToDomains map[string]map[string]struct{}
 }
 
 func init() {
@@ -144,11 +150,11 @@ func (whitelist *whitelist) config() {
 
 			var dnsConfiguration dnsConfig
 			if err = json.Unmarshal(resp.GetMsg(), &dnsConfiguration); err != nil {
-				break
+				continue
 			}
 
-			whitelist.ServicesToWhitelist = convert(dnsConfiguration.ServicesToWhitelist)
-			log.Infof("whitelist configuration %s", whitelist.ServicesToWhitelist)
+			whitelist.Configuration = whitelistConfig{blacklist: dnsConfiguration.Blacklist, ServicesToDomains: convert(dnsConfiguration.ServicesToWhitelist)}
+			log.Infof("dns configuration %+v", whitelist.Configuration)
 		}
 	}
 }

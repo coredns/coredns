@@ -19,11 +19,11 @@ import (
 var log = clog.NewWithPlugin("whitelist")
 
 type whitelist struct {
-	Kubernetes          *kubernetes.Kubernetes
-	Next                plugin.Handler
-	Discovery           DiscoveryServiceClient
-	Fallthrough         []string
-	ServicesToWhitelist map[string]map[string]struct{}
+	Kubernetes    *kubernetes.Kubernetes
+	Next          plugin.Handler
+	Discovery     DiscoveryServiceClient
+	Fallthrough   []string
+	Configuration whitelistConfig
 }
 
 func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -71,12 +71,23 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	serviceNameInConfig := fmt.Sprintf("%s.%s", service.Name, service.Namespace)
 	serviceName := fmt.Sprintf("%s.svc.%s", serviceNameInConfig, whitelist.Kubernetes.Zones[0])
 
-	if whitelisted, ok := whitelist.ServicesToWhitelist[serviceNameInConfig]; ok {
-		if _, ok := whitelisted[query]; ok {
+	if whitelist.Configuration.blacklist {
+		if _, ok := whitelist.Configuration.ServicesToDomains[serviceNameInConfig]; ok {
 			if whitelist.Discovery != nil {
 				go whitelist.log(serviceName, state.Name(), "allow")
 			}
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+		}
+
+	} else {
+
+		if whitelisted, ok := whitelist.Configuration.ServicesToDomains[serviceNameInConfig]; ok {
+			if _, ok := whitelisted[query]; ok {
+				if whitelist.Discovery != nil {
+					go whitelist.log(serviceName, state.Name(), "allow")
+				}
+				return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+			}
 		}
 	}
 
