@@ -17,6 +17,7 @@ type (
 		Type string `json:"type"`
 		// Address can be IPv4 or IPv6.
 		Address string `json:"address"`
+		TTL     uint32 `json:"TTL"`
 	}
 )
 
@@ -38,6 +39,12 @@ func (r *Request) ToDNSRecordResource() (dns.RR, error) {
 		}
 	default:
 		return nil, fmt.Errorf("unsupported DNS record resource type: %s. Only A or AAAA are allowed", r.Type)
+	}
+
+	// NOTE: If no TTL is specified, use default implied default one of 3600.
+	// Otherwise set specified TTL.
+	if r.TTL != 0 {
+		resourceRecord.Header().Ttl = r.TTL
 	}
 
 	return resourceRecord, nil
