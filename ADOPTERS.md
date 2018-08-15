@@ -20,5 +20,5 @@
 * [Takealot.com](https://www.takealot.com) use CoreDNS as Kubernetes' DNS Server, in production.
 * [scalable minds](https://scalableminds.com) use CoreDNS with default configuration for Kubernetes in its production environment.
 * [ObjectRocket](https://www.objectrocket.com) use CoreDNS on its numerous Kubernetes' clusters, using refined configurations. Address both Lab and Production environment
-* [Devino Telecom](devinotele.com) use CoreDNS with default configuration for Kubernetes for its Lab and its Production.
+* [Devino Telecom](https://devinotele.com) use CoreDNS with default configuration for Kubernetes for its Lab and its Production.
 * [Yandex Money](htpps://money.yandex.ru) user CoreDNS in Lab and Production, using default configuration for Kubernetes.
