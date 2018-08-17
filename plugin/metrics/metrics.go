@@ -147,7 +147,7 @@ var ListenAddr string
 
 // shutdownTimeout is the maximum amount of time the metrics plugin will wait
 // before erroring when it tries to close the metrics server
-var shutdownTimeout time.Duration = time.Second * 1
+const shutdownTimeout time.Duration = time.Second * 5
 
 var buildInfo = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 	Namespace: plugin.Namespace,
