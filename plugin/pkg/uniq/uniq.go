@@ -45,11 +45,10 @@ func (u U) SetTodo(key string) {
 func (u U) ForEach() error {
 	for k, v := range u.u {
 		if v.state == todo {
-			if err := v.f(); err == nil {
-				v.state = done
-				u.u[k] = v
-			}
+			v.f()
 		}
+		v.state = done
+		u.u[k] = v
 	}
 	return nil
 }
