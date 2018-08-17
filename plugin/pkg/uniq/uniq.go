@@ -24,6 +24,12 @@ func (u U) Set(key string, f func() error) {
 	u.u[key] = item{todo, f}
 }
 
+func (u U) Unset(key string) {
+	if _, ok := u.u[key]; ok {
+		delete(u.u, key)
+	}
+}
+
 // SetTodo sets key to 'todo' again.
 func (u U) SetTodo(key string) {
 	v, ok := u.u[key]
@@ -38,10 +44,11 @@ func (u U) SetTodo(key string) {
 func (u U) ForEach() error {
 	for k, v := range u.u {
 		if v.state == todo {
-			v.f()
+			if err := v.f(); err == nil {
+				v.state = done
+				u.u[k] = v
+			}
 		}
-		v.state = done
-		u.u[k] = v
 	}
 	return nil
 }
