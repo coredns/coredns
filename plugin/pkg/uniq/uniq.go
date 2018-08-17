@@ -24,6 +24,7 @@ func (u U) Set(key string, f func() error) {
 	u.u[key] = item{todo, f}
 }
 
+// Unset removes the 'todo' associated with a key
 func (u U) Unset(key string) {
 	if _, ok := u.u[key]; ok {
 		delete(u.u, key)
