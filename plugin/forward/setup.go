@@ -90,6 +90,7 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 }
 
 // ParseForwardStanza parses one forward stanza
+// Don't remove ParseForwardStanza because it is used by external plugin alternate
 func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
 	f := New()
 
