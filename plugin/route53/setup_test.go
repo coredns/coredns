@@ -10,7 +10,7 @@ import (
 
 func TestSetupRoute53(t *testing.T) {
 	f := func(credential *credentials.Credentials) route53iface.Route53API {
-		return mockedRoute53{}
+		return fakeRoute53{}
 	}
 
 	c := caddy.NewTestController("dns", `route53`)
