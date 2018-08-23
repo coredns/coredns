@@ -100,7 +100,6 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	if zName == "" {
 		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 	}
-
 	z, ok := h.zones[zName]
 	if !ok || z == nil {
 		return dns.RcodeServerFailure, nil

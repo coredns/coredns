@@ -25,7 +25,10 @@ func (fakeRoute53) ListHostedZonesByNameWithContext(_ aws.Context, input *route5
 	return nil, nil
 }
 
-func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, input *route53.ListResourceRecordSetsInput, fn func(*route53.ListResourceRecordSetsOutput, bool) bool, _ ...request.Option) error {
+func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, in *route53.ListResourceRecordSetsInput, fn func(*route53.ListResourceRecordSetsOutput, bool) bool, _ ...request.Option) error {
+	if aws.StringValue(in.HostedZoneId) == "0987654321" {
+		return errors.New("bad. zone is bad")
+	}
 	var rrs []*route53.ResourceRecordSet
 	for _, r := range []struct {
 		rType, name, value string
@@ -35,6 +38,9 @@ func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, input *
 		{"CNAME", "sample.example.org.", "example.org"},
 		{"PTR", "example.org.", "ptr.example.org"},
 		{"SOA", "org.", "ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
+		{"NS", "com.", "ns-1536.awsdns-00.co.uk."},
+		// Unsupported type should be ignored.
+		{"YOLO", "swag.", "foobar"},
 	} {
 		rrs = append(rrs, &route53.ResourceRecordSet{Type: aws.String(r.rType),
 			Name: aws.String(r.name),
@@ -49,14 +55,23 @@ func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, input *
 	if ok := fn(&route53.ListResourceRecordSetsOutput{
 		ResourceRecordSets: rrs,
 	}, true); !ok {
-		return errors.New("pagin function return false")
+		return errors.New("paging function return false")
 	}
 	return nil
 }
 
 func TestRoute53(t *testing.T) {
 	ctx := context.Background()
-	r, err := NewRoute53(ctx, fakeRoute53{}, map[string]string{"org.": "1234567890"}, &upstream.Upstream{})
+
+	r, err := NewRoute53(ctx, fakeRoute53{}, map[string]string{"bad.": "0987654321"}, &upstream.Upstream{})
+	if err != nil {
+		t.Fatalf("Failed to create Route53: %v", err)
+	}
+	if err = r.Run(ctx); err == nil {
+		t.Fatalf("Expected errors for zone bad.")
+	}
+
+	r, err = NewRoute53(ctx, fakeRoute53{}, map[string]string{"org.": "1234567890"}, &upstream.Upstream{})
 	if err != nil {
 		t.Fatalf("Failed to create Route53: %v", err)
 	}
@@ -71,7 +86,7 @@ func TestRoute53(t *testing.T) {
 		qtype        uint16
 		expectedCode int
 		wantAnswer   []string // ownernames for the records in the additional section.
-		wantNs       []string
+		wantNS       []string
 		expectedErr  error
 	}{
 		// 0. example.org A found - success.
@@ -114,18 +129,32 @@ func TestRoute53(t *testing.T) {
 			expectedCode: dns.RcodeSuccess,
 			wantAnswer: []string{"sample.example.org.	300	IN	CNAME	example.org."},
 		},
-		// 5. Zone not configured.
+		// 5. Explicit SOA query for example.org.
+		{
+			qname:        "example.org",
+			qtype:        dns.TypeSOA,
+			expectedCode: dns.RcodeSuccess,
+			wantAnswer: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
+		},
+		// 6. Explicit SOA query for example.org.
+		{
+			qname:        "example.org",
+			qtype:        dns.TypeNS,
+			expectedCode: dns.RcodeSuccess,
+			wantNS: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
+		},
+		// 7. Zone not configured.
 		{
 			qname:        "badexample.com",
 			qtype:        dns.TypeA,
 			expectedCode: dns.RcodeServerFailure,
 		},
-		// 6. No record found. Return SOA record.
+		// 8. No record found. Return SOA record.
 		{
 			qname:        "bad.org",
 			qtype:        dns.TypeA,
 			expectedCode: dns.RcodeSuccess,
-			wantNs: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
+			wantNS: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
 		},
 	}
 
@@ -148,21 +177,21 @@ func TestRoute53(t *testing.T) {
 		} else {
 			for i, gotAnswer := range rec.Msg.Answer {
 				if gotAnswer.String() != tc.wantAnswer[i] {
-					t.Errorf("Test %d: Expected answer. Want: %s, got: %s", ti, tc.wantAnswer[i], gotAnswer)
+					t.Errorf("Test %d: Unexpected answer.\nWant:\n\t%s\nGot:\n\t%s", ti, tc.wantAnswer[i], gotAnswer)
 				}
 			}
 		}
 
-		if len(tc.wantNs) != len(rec.Msg.Ns) {
-			t.Errorf("Test %d: Unexpected NS number. Want: %d, got: %d", ti, len(tc.wantNs), len(rec.Msg.Ns))
+		if len(tc.wantNS) != len(rec.Msg.Ns) {
+			t.Errorf("Test %d: Unexpected NS number. Want: %d, got: %d", ti, len(tc.wantNS), len(rec.Msg.Ns))
 		} else {
 			for i, ns := range rec.Msg.Ns {
 				got, ok := ns.(*dns.SOA)
 				if !ok {
 					t.Errorf("Test %d: Unexpected NS type. Want: SOA, got: %v", ti, reflect.TypeOf(got))
 				}
-				if got.String() != tc.wantNs[i] {
-					t.Errorf("Test %d: Unexpected NS. Want: %v, got: %v", ti, tc.wantNs[i], got)
+				if got.String() != tc.wantNS[i] {
+					t.Errorf("Test %d: Unexpected NS. Want: %v, got: %v", ti, tc.wantNS[i], got)
 				}
 			}
 		}
