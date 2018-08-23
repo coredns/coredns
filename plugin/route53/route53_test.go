@@ -58,12 +58,12 @@ func TestRoute53(t *testing.T) {
 	ctx := context.Background()
 	r, err := NewRoute53(ctx, fakeRoute53{}, map[string]string{"org.": "1234567890"}, &upstream.Upstream{})
 	if err != nil {
-		t.Fatalf("failed to create Route53: %v", err)
+		t.Fatalf("Failed to create Route53: %v", err)
 	}
 	r.Next = test.ErrorHandler()
 	err = r.Run(ctx)
 	if err != nil {
-		t.Fatalf("failed to initialize Route53: %v", err)
+		t.Fatalf("Failed to initialize Route53: %v", err)
 	}
 
 	tests := []struct {
