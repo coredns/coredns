@@ -49,7 +49,7 @@ func TestAuthInfoFromConfig(t *testing.T) {
   `
 	config := Config{}
 	if err := yaml.Unmarshal([]byte(kubeconfig), &config); err != nil {
-		t.Fatalf("unable to load test kubeconfig: %v", err)
+		t.Fatalf("Unable to load test kubeconfig: %v", err)
 	}
 	var tests = []struct {
 		name          string
@@ -85,32 +85,32 @@ func TestAuthInfoFromConfig(t *testing.T) {
 			k8s := Kubernetes{}
 			k8s.AuthInfoFromConfig(config, test.contextName)
 			if k8s.APICertAuth != test.APICertAuth {
-				t.Errorf("unexpected certificate authority: have %s; expected %s",
+				t.Errorf("Unexpected certificate authority: have %s; expected %s",
 					k8s.APICertAuth, test.APICertAuth,
 				)
 			}
 			if k8s.APIClientCert != test.APIClientCert {
-				t.Errorf("unexpected client certificate: have %s; expected %s",
+				t.Errorf("Unexpected client certificate: have %s; expected %s",
 					k8s.APIClientCert, test.APIClientCert,
 				)
 			}
 			if k8s.APIClientKey != test.APIClientKey {
-				t.Errorf("unexpected client key: have %s; expected %s",
+				t.Errorf("Unexpected client key: have %s; expected %s",
 					k8s.APIClientKey, test.APIClientKey,
 				)
 			}
 			if k8s.APIUsername != test.APIUsername {
-				t.Errorf("unexpected client username: have %s; want %s",
+				t.Errorf("Unexpected client username: have %s; want %s",
 					k8s.APIUsername, test.APIUsername,
 				)
 			}
 			if k8s.APIPassword != test.APIPassword {
-				t.Errorf("unexpected client password: have %s; want %s",
+				t.Errorf("Unexpected client password: have %s; want %s",
 					k8s.APIPassword, test.APIPassword,
 				)
 			}
 			if k8s.APIToken != test.APIToken {
-				t.Errorf("unexpected client token: have %s; want %s",
+				t.Errorf("Unexpected client token: have %s; want %s",
 					k8s.APIToken, test.APIToken,
 				)
 			}
