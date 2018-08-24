@@ -37,6 +37,9 @@ type Kubernetes struct {
 	APICertAuth      string
 	APIClientCert    string
 	APIClientKey     string
+	APIUsername      string
+	APIPassword      string
+	APIToken         string
 	APIConn          dnsController
 	Namespaces       map[string]bool
 	podMode          string
@@ -222,6 +225,15 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 	}
 	if len(k.APIClientKey) > 0 {
 		authinfo.ClientKey = k.APIClientKey
+	}
+	if len(k.APIUsername) > 0 {
+		authinfo.Username = k.APIUsername
+	}
+	if len(k.APIUsername) > 0 {
+		authinfo.Password = k.APIPassword
+	}
+	if len(k.APIToken) > 0 {
+		authinfo.Token = k.APIToken
 	}
 
 	overrides.ClusterInfo = clusterinfo

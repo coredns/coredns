@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
+	yaml "gopkg.in/yaml.v2"
 
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
@@ -261,6 +263,21 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 					return nil, fmt.Errorf("unable to parse ignore value: '%v'", ignore)
 				}
 			}
+		case "kubeconfig":
+			args := c.RemainingArgs()
+			if len(args) == 2 {
+				buf, err := ioutil.ReadFile(args[0])
+				if err != nil {
+					return nil, fmt.Errorf("unable to load kubeconfig: %v", err)
+				}
+				kubeconfig := Config{}
+				if err := yaml.Unmarshal(buf, &kubeconfig); err != nil {
+					return nil, fmt.Errorf("unable to unmarshal kubeconfig: %v", err)
+				}
+				k8s.AuthInfoFromConfig(kubeconfig, args[1])
+				continue
+			}
+			return nil, c.ArgErr()
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}
