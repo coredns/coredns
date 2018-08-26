@@ -15,53 +15,57 @@ func TestSetup(t *testing.T) {
 		expectedPcap     int
 		expectedNttl     time.Duration
 		expectedPttl     time.Duration
+		expectedMinPttl  time.Duration
 		expectedPrefetch int
 	}{
-		{`cache`, false, defaultCap, defaultCap, maxNTTL, maxTTL, 0},
-		{`cache {}`, false, defaultCap, defaultCap, maxNTTL, maxTTL, 0},
+		{`cache`, false, defaultCap, defaultCap, maxNTTL, maxTTL, minTTL, 0},
+		{`cache {}`, false, defaultCap, defaultCap, maxNTTL, maxTTL, minTTL, 0},
 		{`cache example.nl {
 				success 10
-			}`, false, defaultCap, 10, maxNTTL, maxTTL, 0},
+			}`, false, defaultCap, 10, maxNTTL, maxTTL, minTTL, 0},
+		{`cache example.nl {
+				success 10 1800 30
+			}`, false, defaultCap, 10, maxNTTL, 1800 * time.Second, 30 * time.Second, 0},
 		{`cache example.nl {
 				success 10
 				denial 10 15
-			}`, false, 10, 10, 15 * time.Second, maxTTL, 0},
+			}`, false, 10, 10, 15 * time.Second, maxTTL, minTTL, 0},
 		{`cache 25 example.nl {
 				success 10
 				denial 10 15
-			}`, false, 10, 10, 15 * time.Second, 25 * time.Second, 0},
-		{`cache aaa example.nl`, false, defaultCap, defaultCap, maxNTTL, maxTTL, 0},
+			}`, false, 10, 10, 15 * time.Second, 25 * time.Second, minTTL, 0},
+		{`cache aaa example.nl`, false, defaultCap, defaultCap, maxNTTL, maxTTL, minTTL, 0},
 		{`cache	{
 				prefetch 10
-			}`, false, defaultCap, defaultCap, maxNTTL, maxTTL, 10},
+			}`, false, defaultCap, defaultCap, maxNTTL, maxTTL, minTTL, 10},
 
 		// fails
 		{`cache example.nl {
 				success
 				denial 10 15
-			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, minTTL, 0},
 		{`cache example.nl {
 				success 15
 				denial aaa
-			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, minTTL, 0},
 		{`cache example.nl {
 				positive 15
 				negative aaa
-			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, 0},
-		{`cache 0 example.nl`, true, defaultCap, defaultCap, maxTTL, maxTTL, 0},
-		{`cache -1 example.nl`, true, defaultCap, defaultCap, maxTTL, maxTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, minTTL, 0},
+		{`cache 0 example.nl`, true, defaultCap, defaultCap, maxTTL, maxTTL, minTTL, 0},
+		{`cache -1 example.nl`, true, defaultCap, defaultCap, maxTTL, maxTTL, minTTL, 0},
 		{`cache 1 example.nl {
 				positive 0
-			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, minTTL, 0},
 		{`cache 1 example.nl {
 				positive 0
 				prefetch -1
-			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, minTTL, 0},
 		{`cache 1 example.nl {
 				prefetch 0 blurp
-			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, maxTTL, minTTL, 0},
 		{`cache
-		  cache`, true, defaultCap, defaultCap, maxTTL, maxTTL, 0},
+		  cache`, true, defaultCap, defaultCap, maxTTL, maxTTL, minTTL, 0},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
@@ -88,6 +92,9 @@ func TestSetup(t *testing.T) {
 		}
 		if ca.pttl != test.expectedPttl {
 			t.Errorf("Test %v: Expected pttl %v but found: %v", i, test.expectedPttl, ca.pttl)
+		}
+		if ca.minpttl != test.expectedMinPttl {
+			t.Errorf("Test %v: Expected minpttl %v but found: %v", i, test.expectedMinPttl, ca.minpttl)
 		}
 		if ca.prefetch != test.expectedPrefetch {
 			t.Errorf("Test %v: Expected prefetch %v but found: %v", i, test.expectedPrefetch, ca.prefetch)

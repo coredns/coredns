@@ -101,6 +101,17 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 						return nil, fmt.Errorf("cache TTL can not be zero or negative: %d", pttl)
 					}
 					ca.pttl = time.Duration(pttl) * time.Second
+					if len(args) > 2 {
+						minpttl, err := strconv.Atoi(args[2])
+						if err != nil {
+							return nil, err
+						}
+						// Reserve < 0
+						if minpttl < 0 {
+							return nil, fmt.Errorf("cache min TTL can not be negative: %d", minpttl)
+						}
+						ca.minpttl = time.Duration(minpttl) * time.Second
+					}
 				}
 			case Denial:
 				args := c.RemainingArgs()

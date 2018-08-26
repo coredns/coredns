@@ -26,9 +26,10 @@ type Cache struct {
 	ncap   int
 	nttl   time.Duration
 
-	pcache *cache.Cache
-	pcap   int
-	pttl   time.Duration
+	pcache  *cache.Cache
+	pcap    int
+	pttl    time.Duration
+	minpttl time.Duration
 
 	// Prefetch.
 	prefetch   int
@@ -47,6 +48,7 @@ func New() *Cache {
 		pcap:       defaultCap,
 		pcache:     cache.New(defaultCap),
 		pttl:       maxTTL,
+		minpttl:    minTTL,
 		ncap:       defaultCap,
 		ncache:     cache.New(defaultCap),
 		nttl:       maxNTTL,
@@ -155,13 +157,18 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	key := key(res, mt, do)
 
 	duration := w.pttl
+	positiveResponse := true
 	if mt == response.NameError || mt == response.NoData {
 		duration = w.nttl
+		positiveResponse = false
 	}
 
 	msgTTL := dnsutil.MinimalTTL(res, mt)
 	if msgTTL < duration {
 		duration = msgTTL
+	}
+	if positiveResponse && duration < w.minpttl {
+		duration = w.minpttl
 	}
 
 	if key != -1 && duration > 0 {
@@ -228,6 +235,7 @@ func (w *ResponseWriter) Write(buf []byte) (int, error) {
 
 const (
 	maxTTL  = dnsutil.MaximumDefaulTTL
+	minTTL  = 0
 	maxNTTL = dnsutil.MaximumDefaulTTL / 2
 
 	defaultCap = 10000 // default capacity of the cache.
