@@ -21,6 +21,9 @@ cache [TTL] [ZONES...]
 * **TTL** max TTL in seconds. If not specified, the maximum TTL will be used, which is 3600 for
     noerror responses and 1800 for denial of existence ones.
     Setting a TTL of 300: `cache 300` would cache records up to 300 seconds.
+* **MINTTL** min TTL in seconds for positive responses. If not specified defaults to 0, which means
+    the default TTL from the backend is used.  Specifying a min TTL > 0 can be used to limit queries
+    to the backend by caching longer than the domain owner intended.
 * **ZONES** zones it should cache for. If empty, the zones from the configuration block are used.
 
 Each element in the cache is cached according to its TTL (with **TTL** as the max).
@@ -32,7 +35,7 @@ If you want more control:
 
 ~~~ txt
 cache [TTL] [ZONES...] {
-    success CAPACITY [TTL]
+    success CAPACITY [TTL] [MINTTL]
     denial CAPACITY [TTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
 }
