@@ -21,9 +21,6 @@ cache [TTL] [ZONES...]
 * **TTL** max TTL in seconds. If not specified, the maximum TTL will be used, which is 3600 for
     noerror responses and 1800 for denial of existence ones.
     Setting a TTL of 300: `cache 300` would cache records up to 300 seconds.
-* **MINTTL** min TTL in seconds for positive responses. If not specified defaults to 0, which means
-    the default TTL from the backend is used.  Specifying a min TTL > 0 can be used to limit queries
-    to the backend by caching longer than the domain owner intended.
 * **ZONES** zones it should cache for. If empty, the zones from the configuration block are used.
 
 Each element in the cache is cached according to its TTL (with **TTL** as the max).
@@ -44,6 +41,7 @@ cache [TTL] [ZONES...] {
 * **TTL**  and **ZONES** as above.
 * `success`, override the settings for caching successful responses. **CAPACITY** indicates the maximum
   number of packets we cache before we start evicting (*randomly*). **TTL** overrides the cache maximum TTL.
+  **MINTTL** overrides the cache minimum TTL, which can be useful to limit queries to the backend.
 * `denial`, override the settings for caching denial of existence responses. **CAPACITY** indicates the maximum
   number of packets we cache before we start evicting (LRU). **TTL** overrides the cache maximum TTL.
   There is a third category (`error`) but those responses are never cached.
