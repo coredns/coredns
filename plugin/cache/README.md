@@ -25,8 +25,7 @@ cache [TTL] [ZONES...]
 
 Each element in the cache is cached according to its TTL (with **TTL** as the max).
 For the negative cache, the SOA's MinTTL value is used. A TTL of zero is not allowed.
-A cache is divided into 256 shards, each holding up to 512 items by default - for a total size
-of 256 * 512 = 131,072 items.
+
 
 If you want more control:
 
@@ -52,10 +51,9 @@ cache [TTL] [ZONES...] {
 
 ## Capacity and Eviction
 
-When specifying **CAPACITY**, the minimum cache capacity is 131,072.  Specifying a lower value will be
-ignored. Specifying a **CAPACITY** of zero does not disable the cache.
+If **CAPACITY** is not specified, the default cache size is 10,000 per cache. The minimum allowed cache size is 1024.
 
-Eviction is done per shard - i.e. when a shard reaches capacity, items are evicted from that shard.  Since shards don't fill up perfectly evenly, evictions will occur before the entire cache reaches full capacity. Each shard capacity is equal to the total cache size / number of shards (256).
+Eviction is done per shard - i.e. when a shard reaches capacity, items are evicted from that shard.  Since shards don't fill up perfectly evenly, evictions will occur before the entire cache reaches full capacity. Each shard capacity is equal to the total cache size / number of shards (256). Eviction is random, not TTL based.  Entries with 0 TTL will remain in the cache until randomly evicted when the shard reaches capacity.
 
 
 ## Metrics
@@ -87,5 +85,15 @@ Proxy to Google Public DNS and only cache responses for example.org (or below).
 . {
     proxy . 8.8.8.8:53
     cache example.org
+}
+~~~
+
+Enable caching for all zones, keep a positive cache size of 5000 and a negative cache size of 2500:
+~~~ corefile
+. {
+    cache {
+        success 5000
+        denial 2500
+   }
 }
 ~~~
