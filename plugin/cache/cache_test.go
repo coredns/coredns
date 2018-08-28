@@ -268,3 +268,23 @@ func zeroTTLBackend() plugin.Handler {
 		return dns.RcodeSuccess, nil
 	})
 }
+
+func TestComputeTTL(t *testing.T) {
+	tests := []struct {
+		msgTTL      time.Duration
+		minTTL      time.Duration
+		maxTTL      time.Duration
+		expectedTTL time.Duration
+	}{
+		{1800 * time.Second, 300 * time.Second, 3600 * time.Second, 1800 * time.Second},
+		{299 * time.Second, 300 * time.Second, 3600 * time.Second, 300 * time.Second},
+		{299 * time.Second, 0 * time.Second, 3600 * time.Second, 299 * time.Second},
+		{3601 * time.Second, 300 * time.Second, 3600 * time.Second, 3600 * time.Second},
+	}
+	for i, test := range tests {
+		ttl := computeTTL(test.msgTTL, test.minTTL, test.maxTTL)
+		if ttl != test.expectedTTL {
+			t.Errorf("Test %v: Expected ttl %v but found: %v", i, test.expectedTTL, ttl)
+		}
+	}
+}

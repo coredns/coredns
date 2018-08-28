@@ -33,7 +33,7 @@ If you want more control:
 ~~~ txt
 cache [TTL] [ZONES...] {
     success CAPACITY [TTL] [MINTTL]
-    denial CAPACITY [TTL]
+    denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
 }
 ~~~
@@ -44,6 +44,7 @@ cache [TTL] [ZONES...] {
   **MINTTL** overrides the cache minimum TTL, which can be useful to limit queries to the backend.
 * `denial`, override the settings for caching denial of existence responses. **CAPACITY** indicates the maximum
   number of packets we cache before we start evicting (LRU). **TTL** overrides the cache maximum TTL.
+  **MINTTL** overrides the cache minimum TTL, which can be useful to limit queries to the backend.
   There is a third category (`error`) but those responses are never cached.
 * `prefetch` will prefetch popular items when they are about to be expunged from the cache.
   Popular means **AMOUNT** queries have been seen with no gaps of **DURATION** or more between them.
