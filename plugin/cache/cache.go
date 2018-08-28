@@ -112,7 +112,7 @@ func computeTTL(msgTTL time.Duration, minTTL time.Duration, maxTTL time.Duration
 	if ttl > maxTTL {
 		ttl = maxTTL
 	}
-	return ttl
+	return
 }
 
 // ResponseWriter is a response writer that caches the reply message.
