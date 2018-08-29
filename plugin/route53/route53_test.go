@@ -63,7 +63,7 @@ func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, in *rou
 func TestRoute53(t *testing.T) {
 	ctx := context.Background()
 
-	r, err := NewRoute53(ctx, fakeRoute53{}, map[string]string{"bad.": "0987654321"}, &upstream.Upstream{})
+	r, err := New(ctx, fakeRoute53{}, map[string]string{"bad.": "0987654321"}, &upstream.Upstream{})
 	if err != nil {
 		t.Fatalf("Failed to create Route53: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestRoute53(t *testing.T) {
 		t.Fatalf("Expected errors for zone bad.")
 	}
 
-	r, err = NewRoute53(ctx, fakeRoute53{}, map[string]string{"org.": "1234567890"}, &upstream.Upstream{})
+	r, err = New(ctx, fakeRoute53{}, map[string]string{"org.": "1234567890"}, &upstream.Upstream{})
 	if err != nil {
 		t.Fatalf("Failed to create Route53: %v", err)
 	}

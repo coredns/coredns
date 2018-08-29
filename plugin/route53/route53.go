@@ -41,8 +41,8 @@ type zone struct {
 	z  *file.Zone
 }
 
-// NewRoute53 returns new *Route53.
-func NewRoute53(
+// New returns new *Route53.
+func New(
 	ctx context.Context,
 	c route53iface.Route53API,
 	keys map[string]string,

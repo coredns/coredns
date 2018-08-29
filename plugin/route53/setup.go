@@ -79,7 +79,7 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 	}
 	client := f(credential)
 	ctx := context.Background()
-	h, err := NewRoute53(ctx, client, keys, &up)
+	h, err := New(ctx, client, keys, &up)
 	if err != nil {
 		return c.Errf("failed to create Route53 plugin: %v", err)
 	}
