@@ -64,7 +64,7 @@ func uint16ToWire(data uint16) string {
 }
 
 // hash serializes the RRset and return a signature cache key.
-func RRToWire(rrs []dns.RR) string {
+func optToString(rrs []dns.RR) string {
 	h := bytes.Buffer{}
 	buf := make([]byte, 256)
 	for _, r := range rrs {
@@ -97,7 +97,7 @@ func key(m *dns.Msg, t response.Type, do bool) string {
 	if do {
 		id += "|DO"
 	}
-	id += RRToWire(m.Extra)
+	id += optToString(m.Extra)
 
 	return id
 }
