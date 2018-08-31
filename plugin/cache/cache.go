@@ -63,7 +63,6 @@ func uint16ToWire(data uint16) string {
 	return string(buf)
 }
 
-// hash serializes the RRset and return a signature cache key.
 func optToString(rrs []dns.RR) string {
 	h := bytes.Buffer{}
 	buf := make([]byte, 256)
