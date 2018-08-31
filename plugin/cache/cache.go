@@ -2,8 +2,8 @@
 package cache
 
 import (
+	"bytes"
 	"encoding/binary"
-	"hash/fnv"
 	"net"
 	"time"
 
@@ -57,47 +57,48 @@ func New() *Cache {
 	}
 }
 
+func uint16ToWire(data uint16) string {
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(data))
+	return string(buf)
+}
+
+func optToString(rrs []dns.RR) string {
+	h := bytes.Buffer{}
+	buf := make([]byte, 256)
+	for _, r := range rrs {
+		if r.Header().Rrtype == dns.TypeOPT {
+			off, err := dns.PackRR(r, buf, 0, nil, false)
+			if err == nil {
+				h.Write(buf[:off])
+			}
+		}
+	}
+
+	return h.String()
+}
+
 // Return key under which we store the item, -1 will be returned if we don't store the
 // message.
 // Currently we do not cache Truncated, errors zone transfers or dynamic update messages.
-func key(m *dns.Msg, t response.Type, do bool) int {
+func key(m *dns.Msg, t response.Type, do bool) string {
 	// We don't store truncated responses.
 	if m.Truncated {
-		return -1
+		return ""
 	}
 	// Nor errors or Meta or Update
 	if t == response.OtherError || t == response.Meta || t == response.Update {
-		return -1
+		return ""
 	}
+	// uint16ToWire writes unit16 to wire/binary format
 
-	return int(hash(m.Question[0].Name, m.Question[0].Qtype, do))
-}
-
-var one = []byte("1")
-var zero = []byte("0")
-
-func hash(qname string, qtype uint16, do bool) uint32 {
-	h := fnv.New32()
-
+	id := m.Question[0].Name + "|" + uint16ToWire(m.Question[0].Qtype)
 	if do {
-		h.Write(one)
-	} else {
-		h.Write(zero)
+		id += "|DO"
 	}
+	id += optToString(m.Extra)
 
-	b := make([]byte, 2)
-	binary.BigEndian.PutUint16(b, qtype)
-	h.Write(b)
-
-	for i := range qname {
-		c := qname[i]
-		if c >= 'A' && c <= 'Z' {
-			c += 'a' - 'A'
-		}
-		h.Write([]byte{c})
-	}
-
-	return h.Sum32()
+	return id
 }
 
 // ResponseWriter is a response writer that caches the reply message.
@@ -164,7 +165,7 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 		duration = msgTTL
 	}
 
-	if key != -1 && duration > 0 {
+	if key != "" && duration > 0 {
 		if w.state.Match(res) {
 			w.set(res, key, mt, duration)
 			cacheSize.WithLabelValues(w.server, Success).Set(float64(w.pcache.Len()))
@@ -195,19 +196,19 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	return w.ResponseWriter.WriteMsg(res)
 }
 
-func (w *ResponseWriter) set(m *dns.Msg, key int, mt response.Type, duration time.Duration) {
-	if key == -1 || duration == 0 {
+func (w *ResponseWriter) set(m *dns.Msg, key string, mt response.Type, duration time.Duration) {
+	if key == "" || duration == 0 {
 		return
 	}
 
 	switch mt {
 	case response.NoError, response.Delegation:
 		i := newItem(m, w.now(), duration)
-		w.pcache.Add(uint32(key), i)
+		w.pcache.Add(key, i)
 
 	case response.NameError, response.NoData:
 		i := newItem(m, w.now(), duration)
-		w.ncache.Add(uint32(key), i)
+		w.ncache.Add(key, i)
 
 	case response.OtherError:
 		// don't cache these
