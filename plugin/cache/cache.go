@@ -2,6 +2,7 @@
 package cache
 
 import (
+	"bytes"
 	"encoding/binary"
 	"net"
 	"time"
@@ -62,6 +63,22 @@ func uint16ToWire(data uint16) string {
 	return string(buf)
 }
 
+// hash serializes the RRset and return a signature cache key.
+func RRToWire(rrs []dns.RR) string {
+	h := bytes.Buffer{}
+	buf := make([]byte, 256)
+	for _, r := range rrs {
+		if r.Header().Rrtype == dns.TypeOPT {
+			off, err := dns.PackRR(r, buf, 0, nil, false)
+			if err == nil {
+				h.Write(buf[:off])
+			}
+		}
+	}
+
+	return h.String()
+}
+
 // Return key under which we store the item, -1 will be returned if we don't store the
 // message.
 // Currently we do not cache Truncated, errors zone transfers or dynamic update messages.
@@ -80,6 +97,8 @@ func key(m *dns.Msg, t response.Type, do bool) string {
 	if do {
 		id += "|DO"
 	}
+	id += RRToWire(m.Extra)
+
 	return id
 }
 
