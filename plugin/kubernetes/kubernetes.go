@@ -343,6 +343,16 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 	zonePath := msg.Path(zone, "coredns")
 	ip := ""
 
+	// handle empty pod name
+	if podname == "" {
+		if k.namespace(namespace) || wildcard(namespace) {
+			// NODATA
+			return nil, nil
+		}
+		// NXDOMAIN
+		return nil, errNoItems
+	}
+
 	if strings.Count(podname, "-") == 3 && !strings.Contains(podname, "--") {
 		ip = strings.Replace(podname, "-", ".", -1)
 	} else {
@@ -362,6 +372,7 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 		return []msg.Service{{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip, TTL: k.ttl}}, err
 	}
 
+	// PodModeVerified
 	err = errNoItems
 	if wildcard(podname) && !wildcard(namespace) {
 		// If namespace exist, err should be nil, so that we return nodata instead of NXDOMAIN
@@ -370,7 +381,6 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 		}
 	}
 
-	// PodModeVerified
 	for _, p := range k.APIConn.PodIndex(ip) {
 		// If namespace has a wildcard, filter results against Corefile namespace list.
 		if wildcard(namespace) && !k.namespaceExposed(p.Namespace) {
@@ -410,6 +420,16 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		endpointsList     []*api.Endpoints
 		serviceList       []*api.Service
 	)
+
+	// handle empty service name
+	if r.service == "" {
+		if k.namespace(r.namespace) || wildcard(r.namespace) {
+			// NODATA
+			return nil, nil
+		}
+		// NXDOMAIN
+		return nil, errNoItems
+	}
 
 	if wildcard(r.service) || wildcard(r.namespace) {
 		serviceList = k.APIConn.ServiceList()
@@ -459,11 +479,15 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 					for _, addr := range eps.Addresses {
 
 						// See comments in parse.go parseRequest about the endpoint handling.
-
 						if r.endpoint != "" {
 							if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
 								continue
 							}
+						}
+
+						if len(eps.Ports) == 0 {
+							// add a sentinel port (-1) entry so we create records for services without any declared ports
+							eps.Ports = append(eps.Ports, api.EndpointPort{Port: -1})
 						}
 
 						for _, p := range eps.Ports {
@@ -496,6 +520,10 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		}
 
 		// ClusterIP service
+		if len(svc.Spec.Ports) == 0 {
+			// add a sentinel port (-1) entry so we create records for services without any declared ports
+			svc.Spec.Ports = append(svc.Spec.Ports, api.ServicePort{Port: -1})
+		}
 		for _, p := range svc.Spec.Ports {
 			if !(match(r.port, p.Name) && match(r.protocol, string(p.Protocol))) {
 				continue
