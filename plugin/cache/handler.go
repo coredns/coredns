@@ -6,6 +6,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/response"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
@@ -64,7 +66,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 func (c *Cache) Name() string { return "cache" }
 
 func (c *Cache) get(now time.Time, state request.Request, server string) (*item, bool) {
-	k := hash(state.Name(), state.QType(), state.Do())
+	k := key(state.Req, response.NoError, state.Do())
 
 	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
 		cacheHits.WithLabelValues(server, Denial).Inc()
@@ -80,7 +82,7 @@ func (c *Cache) get(now time.Time, state request.Request, server string) (*item,
 }
 
 func (c *Cache) exists(state request.Request) *item {
-	k := hash(state.Name(), state.QType(), state.Do())
+	k := key(state.Req, response.NoError, state.Do())
 	if i, ok := c.ncache.Get(k); ok {
 		return i.(*item)
 	}
