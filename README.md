@@ -79,7 +79,7 @@ a Go environment, you could build CoreDNS easily:
 
 ```
 $ docker run --rm -i -t -v $PWD:/go/src/github.com/coredns/coredns \
-      -w /go/src/github.com/coredns/coredns golang:1.10 make
+      -w /go/src/github.com/coredns/coredns golang:1.11 make
 ```
 
 The above command alone will have `coredns` binary generated.
@@ -186,17 +186,17 @@ When no transport protocol is specified the default `dns://` is assumed.
 
 ## Community
 
-We're most active on Slack (and Github):
+We're most active on Github (and Slack):
 
-- Slack: #coredns on <https://slack.cncf.io>
 - Github: <https://github.com/coredns/coredns>
+- Slack: #coredns on <https://slack.cncf.io>
 
 More resources can be found:
 
 - Website: <https://coredns.io>
 - Blog: <https://blog.coredns.io>
 - Twitter: [@corednsio](https://twitter.com/corednsio)
-- Mailing list/group: <coredns-discuss@googlegroups.com>
+- Mailing list/group: <coredns-discuss@googlegroups.com> (not very active)
 
 ## Deployment
 
