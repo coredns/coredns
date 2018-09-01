@@ -104,15 +104,15 @@ func hash(qname string, qtype uint16, do bool) uint32 {
 	return h.Sum32()
 }
 
-func computeTTL(msgTTL time.Duration, minTTL time.Duration, maxTTL time.Duration) (ttl time.Duration) {
-	ttl = msgTTL
+func computeTTL(msgTTL, minTTL, maxTTL time.Duration) time.Duration {
+	ttl := msgTTL
 	if ttl < minTTL {
 		ttl = minTTL
 	}
 	if ttl > maxTTL {
 		ttl = maxTTL
 	}
-	return
+	return ttl
 }
 
 // ResponseWriter is a response writer that caches the reply message.
@@ -241,9 +241,9 @@ func (w *ResponseWriter) Write(buf []byte) (int, error) {
 
 const (
 	maxTTL  = dnsutil.MaximumDefaulTTL
-	minTTL  = 0
+	minTTL  = dnsutil.MinimalDefaultTTL
 	maxNTTL = dnsutil.MaximumDefaulTTL / 2
-	minNTTL = 0
+	minNTTL = dnsutil.MinimalDefaultTTL
 
 	defaultCap = 10000 // default capacity of the cache.
 

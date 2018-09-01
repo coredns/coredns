@@ -210,11 +210,11 @@ func TestCacheZeroTTL(t *testing.T) {
 	ctx := context.TODO()
 
 	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
-	if c.pcache.Len() != 0 {
-		t.Errorf("Msg with 0 TTL should not have been cached")
+	if c.pcache.Len() != 1 {
+		t.Errorf("Msg with 0 TTL should have been cached in pcache")
 	}
 	if c.ncache.Len() != 0 {
-		t.Errorf("Msg with 0 TTL should not have been cached")
+		t.Errorf("Msg with 0 TTL should not have been cached in ncache")
 	}
 }
 
