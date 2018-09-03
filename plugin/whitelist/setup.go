@@ -24,8 +24,8 @@ type dnsConfig struct {
 }
 
 type whitelistConfig struct {
-	blacklist         bool
-	ServicesToDomains map[string]map[string]struct{}
+	blacklist           bool
+	SourceToDestination map[string]map[string]struct{}
 }
 
 func init() {
@@ -153,7 +153,7 @@ func (whitelist *whitelist) config() {
 				continue
 			}
 
-			whitelist.Configuration = whitelistConfig{blacklist: dnsConfiguration.Blacklist, ServicesToDomains: convert(dnsConfiguration.ServicesToWhitelist)}
+			whitelist.Configuration = whitelistConfig{blacklist: dnsConfiguration.Blacklist, SourceToDestination: convert(dnsConfiguration.ServicesToWhitelist)}
 			log.Infof("dns configuration %+v", whitelist.Configuration)
 		}
 	}
