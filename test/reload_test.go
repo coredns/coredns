@@ -208,9 +208,9 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	//TODO: add a tool that find an available port because this needs to be a port
 	// that is not used in another test
 	promAddress := "127.0.0.1:53186"
-	proc_metric := "coredns_build_info"
-	proc_cache := "coredns_cache_size"
-	proc_forward := "coredns_dns_request_duration_seconds"
+	procMetric := "coredns_build_info"
+	procCache := "coredns_cache_size"
+	procForward := "coredns_dns_request_duration_seconds"
 	corefileWithMetrics := `
 	.:0 {
 		prometheus ` + promAddress + `
@@ -243,7 +243,7 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 
 	// we should have metrics from forward, cache, and metrics itself
 	time.Sleep(500 * time.Millisecond)
-	if err := collectMetricsInfo(promAddress, proc_metric, proc_cache, proc_forward); err != nil {
+	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 
@@ -256,7 +256,7 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	}
 
 	// check the metrics are available still
-	if err := collectMetricsInfo(promAddress, proc_metric, proc_cache, proc_forward); err != nil {
+	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 
