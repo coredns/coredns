@@ -261,7 +261,7 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 	//TODO: add a tool that find an available port because this needs to be a port
 	// that is not used in another test
-	promAddress := "127.0.0.1:53186"
+	promAddress := "127.0.0.1:53187"
 	procMetric := "coredns_build_info"
 	procCache := "coredns_cache_size"
 	procForward := "coredns_dns_request_duration_seconds"
