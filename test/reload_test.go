@@ -234,15 +234,8 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	if _, _, err := cl.Exchange(m, tcp); err != nil {
 		t.Fatalf("Could not send message: %s", err)
 	}
-	if _, _, err := cl.Exchange(m, tcp); err != nil {
-		t.Fatalf("Could not send message: %s", err)
-	}
-	if _, _, err := cl.Exchange(m, tcp); err != nil {
-		t.Fatalf("Could not send message: %s", err)
-	}
 
 	// we should have metrics from forward, cache, and metrics itself
-	time.Sleep(500 * time.Millisecond)
 	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
@@ -253,6 +246,81 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	)
 	if err != nil {
 		t.Errorf("Could not restart CoreDNS : %s", err)
+		instReload = inst
+	}
+
+	// check the metrics are available still
+	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
+		t.Errorf("Could not scrap one of expected stats : %s", err)
+	}
+
+	instReload.Stop()
+	// verify that metrics have not been pushed
+}
+
+func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
+	//TODO: add a tool that find an available port because this needs to be a port
+	// that is not used in another test
+	promAddress := "127.0.0.1:53186"
+	procMetric := "coredns_build_info"
+	procCache := "coredns_cache_size"
+	procForward := "coredns_dns_request_duration_seconds"
+	corefileWithMetrics := `
+	.:0 {
+		prometheus ` + promAddress + `
+		cache
+		forward . 8.8.8.8 {
+           force_tcp
+		}
+	}`
+	invalidCorefileWithMetrics := `
+	.:0 {
+		prometheus ` + promAddress + `
+		cache
+		forward . 8.8.8.8 {
+           force_tcp
+		}
+		invalid
+	}`
+	inst, _, tcp, err := CoreDNSServerAndPorts(corefileWithMetrics)
+	if err != nil {
+		if strings.Contains(err.Error(), inUse) {
+			return
+		}
+		t.Errorf("Could not get service instance: %s", err)
+	}
+	// send a query and check we can scrap corresponding metrics
+	cl := dns.Client{Net: "tcp"}
+	m := new(dns.Msg)
+	m.SetQuestion("www.example.org.", dns.TypeA)
+
+	if _, _, err := cl.Exchange(m, tcp); err != nil {
+		t.Fatalf("Could not send message: %s", err)
+	}
+
+	// we should have metrics from forward, cache, and metrics itself
+	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
+		t.Errorf("Could not scrap one of expected stats : %s", err)
+	}
+
+	for i := 0; i < 2; i++ {
+		// now provide a failed reload
+		invInst, err := inst.Restart(
+			NewInput(invalidCorefileWithMetrics),
+		)
+		if err == nil {
+			t.Errorf("Invalid test - this reload should fail")
+			inst = invInst
+		}
+	}
+
+	// now reload with correct corefile
+	instReload, err := inst.Restart(
+		NewInput(corefileWithMetrics),
+	)
+	if err != nil {
+		t.Errorf("Could not restart CoreDNS : %s", err)
+		instReload = inst
 	}
 
 	// check the metrics are available still
