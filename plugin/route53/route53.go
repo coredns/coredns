@@ -5,10 +5,6 @@ package route53
 import (
 	"context"
 	"fmt"
-	"net"
-	"reflect"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -130,87 +126,13 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	return dns.RcodeSuccess, nil
 }
 
-func parseSOA(soa string) (ns, mbox string, serial, refresh, retry, expire, minttl int, err error) {
-	parts := strings.SplitN(soa, " ", 7)
-	if len(parts) != 7 {
-		err = fmt.Errorf("failed to parse SOA record: %q", soa)
-		return
-	}
-	ns, mbox = parts[0], parts[1]
-	if serial, err = strconv.Atoi(parts[2]); err != nil {
-		return
-	}
-	if refresh, err = strconv.Atoi(parts[3]); err != nil {
-		return
-	}
-	if retry, err = strconv.Atoi(parts[4]); err != nil {
-		return
-	}
-	if expire, err = strconv.Atoi(parts[5]); err != nil {
-		return
-	}
-	if minttl, err = strconv.Atoi(parts[6]); err != nil {
-		return
-	}
-	return
-}
-
-func setRRValue(rr dns.RR, hdr *dns.RR_Header, value string) error {
-	switch rr.(type) {
-	case *dns.A:
-		rr.(*dns.A).Hdr = *hdr
-		rr.(*dns.A).A = net.ParseIP(value).To4()
-	case *dns.AAAA:
-		rr.(*dns.AAAA).Hdr = *hdr
-		rr.(*dns.AAAA).AAAA = net.ParseIP(value).To16()
-	case *dns.CNAME:
-		rr.(*dns.CNAME).Hdr = *hdr
-		rr.(*dns.CNAME).Target = dns.Fqdn(value)
-	case *dns.PTR:
-		rr.(*dns.PTR).Hdr = *hdr
-		rr.(*dns.PTR).Ptr = value
-	case *dns.SOA:
-		rr.(*dns.SOA).Hdr = *hdr
-		parts := strings.SplitN(value, " ", 7)
-		if len(parts) != 7 {
-			return fmt.Errorf("failed to parse SOA record: %q", value)
-		}
-		ns, mbox, serial, refresh, retry, expire, minttl, err := parseSOA(value)
-		if err != nil {
-			return err
-		}
-		rr.(*dns.SOA).Ns = dns.Fqdn(ns)
-		rr.(*dns.SOA).Mbox = dns.Fqdn(mbox)
-		rr.(*dns.SOA).Serial = uint32(serial)
-		rr.(*dns.SOA).Refresh = uint32(refresh)
-		rr.(*dns.SOA).Retry = uint32(retry)
-		rr.(*dns.SOA).Expire = uint32(expire)
-		rr.(*dns.SOA).Minttl = uint32(minttl)
-	case *dns.NS:
-		rr.(*dns.NS).Hdr = *hdr
-		rr.(*dns.NS).Ns = value
-	default:
-		return fmt.Errorf("type not supported: %v", reflect.TypeOf(rr))
-	}
-	return nil
-}
-
 func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone) error {
-	t, ok := dns.StringToType[aws.StringValue(rrs.Type)]
-	if !ok {
-		return fmt.Errorf("unsupported record type: %s", aws.StringValue(rrs.Type))
-	}
-	hdr := dns.RR_Header{
-		Name:   aws.StringValue(rrs.Name),
-		Rrtype: t,
-		Class:  dns.ClassINET,
-		Ttl:    uint32(aws.Int64Value(rrs.TTL)),
-	}
 	for _, rr := range rrs.ResourceRecords {
-		var r dns.RR
-		r = dns.TypeToRR[t]()
-		if err := setRRValue(r, &hdr, aws.StringValue(rr.Value)); err != nil {
-			return fmt.Errorf("failed to set answer for %v: %v", r, err)
+		// Assemble RFC 1035 conforming record to pass into dns scanner.
+		rfc1035 := fmt.Sprintf("%s %d IN %s %s", aws.StringValue(rrs.Name), aws.Int64Value(rrs.TTL), aws.StringValue(rrs.Type), aws.StringValue(rr.Value))
+		r, err := dns.NewRR(rfc1035)
+		if err != nil {
+			return fmt.Errorf("failed to parse resource record: %v", err)
 		}
 
 		z.Insert(r)

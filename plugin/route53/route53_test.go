@@ -36,7 +36,7 @@ func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, in *rou
 		{"A", "example.org.", "1.2.3.4"},
 		{"AAAA", "example.org.", "2001:db8:85a3::8a2e:370:7334"},
 		{"CNAME", "sample.example.org.", "example.org"},
-		{"PTR", "example.org.", "ptr.example.org"},
+		{"PTR", "example.org.", "ptr.example.org."},
 		{"SOA", "org.", "ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
 		{"NS", "com.", "ns-1536.awsdns-00.co.uk."},
 		// Unsupported type should be ignored.
@@ -108,7 +108,7 @@ func TestRoute53(t *testing.T) {
 			qname:        "example.org",
 			qtype:        dns.TypePTR,
 			expectedCode: dns.RcodeSuccess,
-			wantAnswer: []string{"example.org.	300	IN	PTR	ptr.example.org"},
+			wantAnswer: []string{"example.org.	300	IN	PTR	ptr.example.org."},
 		},
 		// 3. sample.example.org points to example.org CNAME.
 		// Query must return both CNAME and A recs.
@@ -166,10 +166,10 @@ func TestRoute53(t *testing.T) {
 		code, err := r.ServeDNS(ctx, rec, req)
 
 		if err != tc.expectedErr {
-			t.Errorf("Test %d: Expected error %v, but got %v", ti, tc.expectedErr, err)
+			t.Fatalf("Test %d: Expected error %v, but got %v", ti, tc.expectedErr, err)
 		}
 		if code != int(tc.expectedCode) {
-			t.Errorf("Test %d: Expected status code %d, but got %d", ti, tc.expectedCode, code)
+			t.Fatalf("Test %d: Expected status code %s, but got %s", ti, dns.RcodeToString[tc.expectedCode], dns.RcodeToString[code])
 		}
 
 		if len(tc.wantAnswer) != len(rec.Msg.Answer) {
