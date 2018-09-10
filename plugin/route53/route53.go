@@ -130,27 +130,6 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	return dns.RcodeSuccess, nil
 }
 
-func awsStrTypeToUint16(t string) (uint16, bool) {
-	var out uint16
-	switch t {
-	case "A":
-		out = dns.TypeA
-	case "AAAA":
-		out = dns.TypeAAAA
-	case "CNAME":
-		out = dns.TypeCNAME
-	case "PTR":
-		out = dns.TypePTR
-	case "SOA":
-		out = dns.TypeSOA
-	case "NS":
-		out = dns.TypeNS
-	default:
-		return dns.TypeNone, false
-	}
-	return out, true
-}
-
 func parseSOA(soa string) (ns, mbox string, serial, refresh, retry, expire, minttl int, err error) {
 	parts := strings.SplitN(soa, " ", 7)
 	if len(parts) != 7 {
@@ -217,7 +196,7 @@ func setRRValue(rr dns.RR, hdr *dns.RR_Header, value string) error {
 }
 
 func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone) error {
-	t, ok := awsStrTypeToUint16(aws.StringValue(rrs.Type))
+	t, ok := dns.StringToType[aws.StringValue(rrs.Type)]
 	if !ok {
 		return fmt.Errorf("unsupported record type: %s", aws.StringValue(rrs.Type))
 	}
