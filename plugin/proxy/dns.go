@@ -93,9 +93,7 @@ func exchange(m *dns.Msg, co net.Conn) (*dns.Msg, error) {
 
 	writeDeadline := time.Now().Add(defaultTimeout)
 	dnsco.SetWriteDeadline(writeDeadline)
-	if err := dnsco.WriteMsg(m); err != nil {
-		return nil, err
-	}
+	dnsco.WriteMsg(m)
 
 	readDeadline := time.Now().Add(defaultTimeout)
 	co.SetReadDeadline(readDeadline)
