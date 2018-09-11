@@ -75,11 +75,11 @@ func (h *Route53) Run(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Infof("breaking out of Route53 update loop: %v", ctx.Err())
+				log.Infof("Breaking out of Route53 update loop: %v", ctx.Err())
 				return
 			case <-time.After(1 * time.Minute):
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
-					log.Errorf("failed to update zones: %v", err)
+					log.Errorf("Failed to update zones: %v", err)
 				}
 			}
 		}
@@ -165,7 +165,7 @@ func (h *Route53) updateZones(ctx context.Context) error {
 					for _, rrs := range out.ResourceRecordSets {
 						if err := updateZoneFromRRS(rrs, newZ); err != nil {
 							// Maybe unsupported record type. Log and carry on.
-							log.Warningf("failed to process resource record set: %v", err)
+							log.Warningf("Failed to process resource record set: %v", err)
 						}
 					}
 					return true
