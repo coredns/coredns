@@ -72,12 +72,15 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	}
 
 	querySrcService := fmt.Sprintf("%s.%s", sourceService.Name, sourceService.Namespace)
-	queryDstLocation := ""
+	queryDstLocation, origin := ""
+
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
 		//local kubernetes query
 		queryDstLocation = fmt.Sprintf("%s.%s", segs[0], segs[1])
+		origin = ""
 	} else {
 		//external query
+		origin = "dns"
 		queryDstLocation = state.Name()
 	}
 
@@ -87,7 +90,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		if _, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
 			if whitelist.Discovery != nil {
 				log.Info("log1")
-				go whitelist.log(serviceName, queryDstLocation, "allow")
+				go whitelist.log(serviceName, queryDstLocation, origin, "allow")
 			}
 			log.Info("log2")
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
@@ -99,7 +102,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 			if _, ok := whitelisted[query]; ok {
 				if whitelist.Discovery != nil {
 					log.Info("log3")
-					go whitelist.log(serviceName, queryDstLocation, "allow")
+					go whitelist.log(serviceName, queryDstLocation, origin, "allow")
 				}
 				log.Info("log4")
 				return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
@@ -108,7 +111,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	}
 
 	if whitelist.Discovery != nil {
-		go whitelist.log(serviceName, state.Name(), "deny")
+		go whitelist.log(serviceName, state.Name(), origin, "deny")
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
@@ -183,12 +186,12 @@ func (whitelist whitelist) Name() string {
 	return "whitelist"
 }
 
-func (whitelist whitelist) log(service string, query string, action string) {
+func (whitelist whitelist) log(service string, query, origin, action string) {
 	fields := make(map[string]string)
 	fields["src"] = service
 	fields["dst"] = strings.TrimRight(query, ".")
 	fields["action"] = action
-	fields["origin"] = "dns"
+	fields["origin"] = origin
 
 	actionBytes := new(bytes.Buffer)
 	json.NewEncoder(actionBytes).Encode(fields)
