@@ -55,10 +55,6 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
-	//if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
-	//	return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
-	//}
-
 	query := strings.TrimRight(state.Name(), ".")
 
 	log.Info(query)
@@ -75,14 +71,23 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
-	serviceNameInConfig := fmt.Sprintf("%s.%s", sourceService.Name, sourceService.Namespace)
-	serviceName := fmt.Sprintf("%s.svc.%s", serviceNameInConfig, whitelist.Kubernetes.Zones[0])
+	querySrcService := fmt.Sprintf("%s.%s", sourceService.Name, sourceService.Namespace)
+	queryDstLocation := ""
+	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
+		//local kubernetes query
+		queryDstLocation = fmt.Sprintf("%s.%s", segs[0], segs[1])
+	} else {
+		//external query
+		queryDstLocation = state.Name()
+	}
+
+	serviceName := fmt.Sprintf("%s.svc.%s", querySrcService, whitelist.Kubernetes.Zones[0])
 
 	if whitelist.Configuration.blacklist {
-		if _, ok := whitelist.Configuration.SourceToDestination[serviceNameInConfig]; ok {
+		if _, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
 			if whitelist.Discovery != nil {
 				log.Info("log1")
-				go whitelist.log(serviceName, state.Name(), "allow")
+				go whitelist.log(serviceName, queryDstLocation, "allow")
 			}
 			log.Info("log2")
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
@@ -90,11 +95,11 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	} else {
 
-		if whitelisted, ok := whitelist.Configuration.SourceToDestination[serviceNameInConfig]; ok {
+		if whitelisted, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
 			if _, ok := whitelisted[query]; ok {
 				if whitelist.Discovery != nil {
 					log.Info("log3")
-					go whitelist.log(serviceName, state.Name(), "allow")
+					go whitelist.log(serviceName, queryDstLocation, "allow")
 				}
 				log.Info("log4")
 				return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
