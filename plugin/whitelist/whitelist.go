@@ -35,6 +35,11 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	state := request.Request{W: rw, Req: r, Context: ctx}
 
+	zone := plugin.Zones(whitelist.Kubernetes.Zones).Matches(state.Name())
+	if zone == "" {
+		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+	}
+
 	var sourceIPAddr string
 	if ip, ok := remoteAddr.(*net.UDPAddr); ok {
 		sourceIPAddr = ip.IP.String()
