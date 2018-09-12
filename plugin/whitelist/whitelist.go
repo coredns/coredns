@@ -72,7 +72,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	}
 
 	querySrcService := fmt.Sprintf("%s.%s", sourceService.Name, sourceService.Namespace)
-	queryDstLocation, origin := ""
+	queryDstLocation, origin := "", ""
 
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
 		//local kubernetes query
