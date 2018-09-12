@@ -35,11 +35,6 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	state := request.Request{W: rw, Req: r, Context: ctx}
 
-	zone := plugin.Zones(whitelist.Kubernetes.Zones).Matches(state.Name())
-	if zone == "" {
-		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
-	}
-
 	var sourceIPAddr string
 	if ip, ok := remoteAddr.(*net.UDPAddr); ok {
 		sourceIPAddr = ip.IP.String()
@@ -76,9 +71,14 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
 		//local kubernetes query
-		queryDstLocation = fmt.Sprintf("%s.%s", segs[0], segs[1])
+		queryDstLocation = fmt.Sprintf("%s.%s.listentry.default", segs[0], segs[1])
 		origin = ""
 	} else {
+		//make sure that this is real external query without .cluster.local in the end
+		zone := plugin.Zones(whitelist.Kubernetes.Zones).Matches(state.Name())
+		if zone != "" {
+			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+		}
 		//external query
 		origin = "dns"
 		queryDstLocation = state.Name()
