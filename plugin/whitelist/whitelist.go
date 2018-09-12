@@ -79,6 +79,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 				log.Info("log1")
 				go whitelist.log(serviceName, state.Name(), "allow")
 			}
+			log.Info("log2")
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
 
@@ -87,9 +88,10 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		if whitelisted, ok := whitelist.Configuration.SourceToDestination[serviceNameInConfig]; ok {
 			if _, ok := whitelisted[query]; ok {
 				if whitelist.Discovery != nil {
-					log.Info("log2")
+					log.Info("log3")
 					go whitelist.log(serviceName, state.Name(), "allow")
 				}
+				log.Info("log4")
 				return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 			}
 		}
