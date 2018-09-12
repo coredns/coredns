@@ -71,7 +71,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
 		//local kubernetes query
-		queryDstLocation = fmt.Sprintf("%s.%s.listentry.default", segs[0], segs[1])
+		queryDstLocation = fmt.Sprintf("%s.listentry.%s", segs[0], segs[1])
 		origin = ""
 	} else {
 		//make sure that this is real external query without .cluster.local in the end
