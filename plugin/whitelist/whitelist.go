@@ -35,6 +35,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	state := request.Request{W: rw, Req: r, Context: ctx}
 
+	log.Info(state.Name())
 	var sourceIPAddr string
 	if ip, ok := remoteAddr.(*net.UDPAddr); ok {
 		sourceIPAddr = ip.IP.String()
