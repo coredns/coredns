@@ -35,7 +35,6 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	state := request.Request{W: rw, Req: r, Context: ctx}
 
-	log.Info(state.Name())
 	var sourceIPAddr string
 	if ip, ok := remoteAddr.(*net.UDPAddr); ok {
 		sourceIPAddr = ip.IP.String()
@@ -52,8 +51,6 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	}
 
 	query := strings.TrimRight(state.Name(), ".")
-
-	log.Info(query)
 	for _, domain := range whitelist.Fallthrough {
 		if strings.EqualFold(domain, query) {
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
@@ -61,9 +58,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	}
 
 	sourceService := whitelist.getServiceFromIP(sourceIPAddr)
-
 	if sourceService == nil {
-		log.Info("failure")
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
@@ -90,10 +85,8 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	if whitelist.Configuration.blacklist {
 		if _, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
 			if whitelist.Discovery != nil {
-				log.Info("log1")
 				go whitelist.log(serviceName, queryDstLocation, origin, "allow")
 			}
-			log.Info("log2")
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
 
@@ -102,10 +95,8 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		if whitelisted, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
 			if _, ok := whitelisted[query]; ok {
 				if whitelist.Discovery != nil {
-					log.Info("log3")
 					go whitelist.log(serviceName, queryDstLocation, origin, "allow")
 				}
-				log.Info("log4")
 				return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 			}
 		}
