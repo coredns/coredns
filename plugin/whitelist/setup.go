@@ -14,7 +14,6 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -24,8 +23,8 @@ type dnsConfig struct {
 }
 
 type whitelistConfig struct {
-	blacklist         bool
-	ServicesToDomains map[string]map[string]struct{}
+	blacklist           bool
+	SourceToDestination map[string]map[string]struct{}
 }
 
 func init() {
@@ -76,11 +75,6 @@ func setup(c *caddy.Controller) error {
 
 	k8s.RegisterKubeCache(c)
 	whitelist.Kubernetes = k8s
-
-	if fall := os.Getenv("TUFIN_FALLTHROUGH_DOMAINS"); fall != "" {
-		fallthroughDomains := strings.Split(fall, ",")
-		whitelist.Fallthrough = fallthroughDomains
-	}
 	whitelist.InitDiscoveryServer(c)
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -153,7 +147,7 @@ func (whitelist *whitelist) config() {
 				continue
 			}
 
-			whitelist.Configuration = whitelistConfig{blacklist: dnsConfiguration.Blacklist, ServicesToDomains: convert(dnsConfiguration.ServicesToWhitelist)}
+			whitelist.Configuration = whitelistConfig{blacklist: dnsConfiguration.Blacklist, SourceToDestination: convert(dnsConfiguration.ServicesToWhitelist)}
 			log.Infof("dns configuration %+v", whitelist.Configuration)
 		}
 	}

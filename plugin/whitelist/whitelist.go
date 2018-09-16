@@ -22,7 +22,6 @@ type whitelist struct {
 	Kubernetes    *kubernetes.Kubernetes
 	Next          plugin.Handler
 	Discovery     DiscoveryServiceClient
-	Fallthrough   []string
 	Configuration whitelistConfig
 }
 
@@ -35,12 +34,12 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 
 	state := request.Request{W: rw, Req: r, Context: ctx}
 
-	var ipAddr string
+	var sourceIPAddr string
 	if ip, ok := remoteAddr.(*net.UDPAddr); ok {
-		ipAddr = ip.IP.String()
+		sourceIPAddr = ip.IP.String()
 	}
 
-	if ipAddr == "" {
+	if sourceIPAddr == "" {
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
@@ -50,41 +49,47 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
-	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
-		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
-	}
-
 	query := strings.TrimRight(state.Name(), ".")
 
-	for _, domain := range whitelist.Fallthrough {
-		if strings.EqualFold(domain, query) {
-			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
-		}
-	}
-
-	service := whitelist.getServiceFromIP(ipAddr)
-
-	if service == nil {
+	sourceService := whitelist.getServiceFromIP(sourceIPAddr)
+	if sourceService == nil {
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
-	serviceNameInConfig := fmt.Sprintf("%s.%s", service.Name, service.Namespace)
-	serviceName := fmt.Sprintf("%s.svc.%s", serviceNameInConfig, whitelist.Kubernetes.Zones[0])
+	querySrcService := fmt.Sprintf("%s.%s", sourceService.Name, sourceService.Namespace)
+	queryDstLocation, origin := "", ""
+
+	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
+		//local kubernetes query
+		queryDstLocation = fmt.Sprintf("%s.listentry.%s", segs[0], segs[1])
+		origin = ""
+	} else {
+		//make sure that this is real external query without .cluster.local in the end
+		zone := plugin.Zones(whitelist.Kubernetes.Zones).Matches(state.Name())
+		if zone != "" {
+			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+		}
+		//external query
+		origin = "dns"
+		queryDstLocation = state.Name()
+	}
+
+	serviceName := fmt.Sprintf("%s.svc.%s", querySrcService, whitelist.Kubernetes.Zones[0])
 
 	if whitelist.Configuration.blacklist {
-		if _, ok := whitelist.Configuration.ServicesToDomains[serviceNameInConfig]; ok {
+		if _, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
 			if whitelist.Discovery != nil {
-				go whitelist.log(serviceName, state.Name(), "allow")
+				go whitelist.log(serviceName, queryDstLocation, origin, "allow")
 			}
 			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 		}
 
 	} else {
 
-		if whitelisted, ok := whitelist.Configuration.ServicesToDomains[serviceNameInConfig]; ok {
+		if whitelisted, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
 			if _, ok := whitelisted[query]; ok {
 				if whitelist.Discovery != nil {
-					go whitelist.log(serviceName, state.Name(), "allow")
+					go whitelist.log(serviceName, queryDstLocation, origin, "allow")
 				}
 				return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 			}
@@ -92,7 +97,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	}
 
 	if whitelist.Discovery != nil {
-		go whitelist.log(serviceName, state.Name(), "deny")
+		go whitelist.log(serviceName, state.Name(), origin, "deny")
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
@@ -167,12 +172,12 @@ func (whitelist whitelist) Name() string {
 	return "whitelist"
 }
 
-func (whitelist whitelist) log(service string, query string, action string) {
+func (whitelist whitelist) log(service string, query, origin, action string) {
 	fields := make(map[string]string)
 	fields["src"] = service
 	fields["dst"] = strings.TrimRight(query, ".")
 	fields["action"] = action
-	fields["origin"] = "dns"
+	fields["origin"] = origin
 
 	actionBytes := new(bytes.Buffer)
 	json.NewEncoder(actionBytes).Encode(fields)
