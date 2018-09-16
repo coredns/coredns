@@ -37,12 +37,7 @@ type zone struct {
 }
 
 // New returns new *Route53.
-func New(
-	ctx context.Context,
-	c route53iface.Route53API,
-	keys map[string]string,
-	up *upstream.Upstream) (*Route53, error) {
-
+func New(ctx context.Context, c route53iface.Route53API, keys map[string]string, up *upstream.Upstream) (*Route53, error) {
 	zones := make(map[string]*zone, len(keys))
 	zoneNames := make([]string, 0, len(keys))
 	for dns, id := range keys {
