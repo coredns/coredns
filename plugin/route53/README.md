@@ -28,7 +28,7 @@ route53 [ZONE:HOSTED_ZONE_ID...] {
 * `upstream` [**ADDRESS**...] specifies upstream resolver(s) used for resolving services that point
    to external hosts (eg. used to resolve CNAMEs). If no **ADDRESS** is given, CoreDNS will resolve
    against itself. **ADDRESS** can be an IP, an IP:port or a path to a file structured like
-   resolv.conf (**NB**: Currently a bug is preventing the use of self-resolver).
+   resolv.conf (**NB**: Currently a bug (#2099) is preventing the use of self-resolver).
 
 ## Examples
 
