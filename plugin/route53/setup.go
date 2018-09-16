@@ -6,6 +6,7 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -15,6 +16,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
 	"github.com/mholt/caddy"
 )
+
+var log = clog.NewWithPlugin("route53")
 
 func init() {
 	caddy.RegisterPlugin("route53", caddy.Plugin{
