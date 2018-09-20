@@ -425,6 +425,20 @@ kubernetes cluster.local`,
 			fall.Zero,
 			nil,
 		},
+		{
+			`kubernetes coredns.local {
+	kubeconfig file context
+}`,
+			false,
+			"",
+			1,
+			0,
+			defaultResyncPeriod,
+			"",
+			podModeDisabled,
+			fall.Zero,
+			nil,
+		},
 	}
 
 	for i, test := range tests {

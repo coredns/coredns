@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -16,11 +15,11 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var log = clog.NewWithPlugin("kubernetes")
@@ -266,15 +265,11 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 		case "kubeconfig":
 			args := c.RemainingArgs()
 			if len(args) == 2 {
-				buf, err := ioutil.ReadFile(args[0])
-				if err != nil {
-					return nil, fmt.Errorf("unable to load kubeconfig: %v", err)
-				}
-				kubeconfig := Config{}
-				if err := yaml.Unmarshal(buf, &kubeconfig); err != nil {
-					return nil, fmt.Errorf("unable to unmarshal kubeconfig: %v", err)
-				}
-				k8s.AuthInfoFromConfig(kubeconfig, args[1])
+				config := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+					&clientcmd.ClientConfigLoadingRules{ExplicitPath: args[0]},
+					&clientcmd.ConfigOverrides{CurrentContext: args[1]},
+				)
+				k8s.ClientConfig = config
 				continue
 			}
 			return nil, c.ArgErr()
