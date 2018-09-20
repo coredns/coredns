@@ -49,20 +49,19 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
-	query := strings.TrimRight(state.Name(), ".")
-
 	sourceService := whitelist.getServiceFromIP(sourceIPAddr)
 	if sourceService == nil {
 		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	}
 
 	querySrcService := fmt.Sprintf("%s.%s", sourceService.Name, sourceService.Namespace)
-	queryDstLocation, origin := "", ""
+	queryDstLocation, origin, dstConf := "", "", ""
 
 	if ns, _ := whitelist.Kubernetes.APIConn.GetNamespaceByName(segs[1]); ns != nil {
-		//local kubernetes query
+		//local kubernetes dstConf
 		queryDstLocation = fmt.Sprintf("%s.listentry.%s", segs[0], segs[1])
 		origin = ""
+		dstConf = fmt.Sprintf("%s.%s", segs[0], segs[1])
 	} else {
 		//make sure that this is real external query without .cluster.local in the end
 		zone := plugin.Zones(whitelist.Kubernetes.Zones).Matches(state.Name())
@@ -72,6 +71,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 		//external query
 		origin = "dns"
 		queryDstLocation = state.Name()
+		dstConf = strings.TrimRight(state.Name(), ".")
 	}
 
 	serviceName := fmt.Sprintf("%s.svc.%s", querySrcService, whitelist.Kubernetes.Zones[0])
@@ -87,7 +87,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	} else {
 
 		if whitelisted, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
-			if _, ok := whitelisted[query]; ok {
+			if _, ok := whitelisted[dstConf]; ok {
 				if whitelist.Discovery != nil {
 					go whitelist.log(serviceName, queryDstLocation, origin, "allow")
 				}
