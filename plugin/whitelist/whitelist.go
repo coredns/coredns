@@ -97,7 +97,7 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	}
 
 	if whitelist.Discovery != nil {
-		go whitelist.log(serviceName, state.Name(), origin, "deny")
+		go whitelist.log(serviceName, queryDstLocation, origin, "deny")
 	}
 
 	m.SetRcode(r, dns.RcodeNameError)
