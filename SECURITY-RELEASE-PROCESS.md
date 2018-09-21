@@ -1,27 +1,18 @@
 # Security Release Process
 
-CoreDNS project has adopted this security disclosures and response policy to ensure a responsible handle of critical issues.
-
-**Table of Contents**
-
-__TOC__
+CoreDNS project has adopted this security disclosures and response policy
+to ensure a responsible handle of critical issues.
 
 
-## CoreDNS Security Team
+## Product Security Team (PST)
 
 Security vulnerabilities should be handled quickly and sometimes privately. 
 The primary goal of this process is to reduce the total time users are vulnerable to publicly known exploits.
 
-The CoreDNS Security Team is responsible for organizing the entire response including internal communication and external disclosure. 
+The Product Security Team (PST) is responsible for organizing the entire response including internal communication and external disclosure.
 
-The initial CoreDNS Security Team will consist of volunteers, usual contributors to CoreDNS project.
-These are the people who have been involved in the initial discussion and volunteered:
-
-- Miek Gieben (**[@miekg](https://github.com/miekg)**) `<miek@google.com>`
-- Francois Tur (**[@fturib](https://github.com/fturib)**) `<ftur@infoblox.com>`
-- ????
-
-**TODO:** - Add public PHP key for encryptes email to Security Team.
+The initial Product Security Team will consist of set of maintainers that volunteered.
+The list is available in this [document](/OWNERS.md) and is synchronized with the receivers of product-security-team@coredns.io list.
 
 ## Disclosures
 
@@ -42,34 +33,54 @@ For instance, that could include:
 ### Public Disclosure Processes
 
 If you know of a publicly disclosed security vulnerability please IMMEDIATELY email security@coredns.io 
-to inform the CoreDNS Security Team about the vulnerability so we start the patch, release, and communication process.
+to inform the Product Security Team (PST) about the vulnerability so we start the patch, release, and communication process.
 
-If possible we will ask the person making the public report if the issue can be handled via a private disclosure process. 
-If the reporter denies, we will move swiftly with the fix and release process. 
+If possible the PST will ask the person making the public report if the issue can be handled via a private disclosure process
+(for example if the full exploit details have not yet been published).
+If the reporter denies the request for private disclosure, the PST will move swiftly with the fix and release process.
 In extreme cases you can ask GitHub to delete the issue but this generally isn't necessary and is unlikely to make a public disclosure less damaging.
-
-**why is that in public disclosure ?**
-
-**TODO:** Do we want to own the creation of CVEs?  I suspect we would like to work with the reporter on this, at least, or take care of it ourselves.  If we don’t mention it at all, the reporter may take it on themselves to apply for a CVE without our knowledge.
-
-**TODO:** Whether we want them to or not, the external party reporting a vulnerability may continue their own research after reporting to us.  They may continue to investigate on their own, and perhaps even attempt to create a remediation.  We should include some guidelines around working with them to resolve their findings
 
 ## Patch, Release, and Public Communication
 
-For each vulnerability, CoreDNS Security Team will evaluate the impact on CoreDNS project.
-If CoreDNS Security Team estimates that a release or patch release of CoreDNS is needed to fix this vulnerability.
-Once it is established that a Fix i needed, the Team coordinate and organize that Security Patch Release.
+For each vulnerability a member of the PST will volunteer to lead coordination with the "Fix Team"
+and is responsible for sending disclosure emails to the rest of the community.
+This lead will be referred to as the "Fix Lead."
+
+The role of Fix Lead should rotate round-robin across the PST.
+
+Note that given the current size of the CoreDNS community it is likely that the PST is the same as the "Fix team."
+The PST may decide to bring in additional contributors for added expertise depending on the area of the code that contains the vulnerability.
 
 All of the timelines below are suggestions and assume a Private Disclosure.
 If the Team is dealing with a Public Disclosure all timelines become ASAP. 
 If the fix relies on another upstream project's disclosure timeline, that will adjust the process as well.
 We will work with the upstream project to fit their timeline and best protect our users.
 
+### Fix Team Organization
+
+These steps should be completed within the first 24 hours of disclosure.
+
+- The Fix Lead will work quickly to identify relevant engineers from the affected projects and
+  packages and CC those engineers into the disclosure thread. These selected developers are the Fix
+  Team.
+- The Fix Lead will get the Fix Team access to private security repos to develop the fix.
+
 
 ### Fix Development Process
 
 These steps should be completed within the 1-7 days of Disclosure.
-CoreDNS Security Team will work to develop a fix or mitigation.   
+
+- The Fix Lead and the Fix Team will create a
+  [CVSS](https://www.first.org/cvss/specification-document) using the [CVSS
+  Calculator](https://www.first.org/cvss/calculator/3.0). The Fix Lead makes the final call on the
+  calculated CVSS; it is better to move quickly than making the CVSS perfect.
+- The Fix Team will notify the Fix Lead that work on the fix branch is complete once there are LGTMs
+  on all commits in the private repo from one or more maintainers.
+
+If the CVSS score is under 4.0 ([a low severity
+score](https://www.first.org/cvss/specification-document#i5)) the Fix Team can decide to slow the
+release process down in the face of holidays, developer bandwidth, etc. These decisions must be
+discussed on the product-security-team@coredns.io mailing list.
 
 ### Fix Disclosure Process
 
@@ -79,37 +90,44 @@ so that a realistic timeline can be communicated to users.
 
 **Disclosure of Forthcoming Fix to Users** (Completed within 1-7 days of Disclosure)
 
-- CoreDNS Security Team will create a github issue in CoreDNS project to inform users that a security vulnerability 
+- The Fix Lead will create a github issue in CoreDNS project to inform users that a security vulnerability
 has been disclosed and that a fix will be made available, with an estimation of the Release Date. 
 It will include any mitigating steps users can take until a fix is available.
 
-**Optional Fix Disclosure to Private Integrators List** (Completed within 1-14 days of Disclosure):
+The communication to users should be actionable.
+They should know when to block time to apply patches, understand exact mitigation steps, etc.
 
-- CoreDNS Security Team will make a determination if an issue is critical enough to require early disclosure to integrators. 
-Generally this Private Integrator Disclosure process should be reserved for remotely exploitable or privilege escalation issues. 
+**Optional Fix Disclosure to Private Distributors List** (Completed within 1-14 days of Disclosure):
+
+- The Fix Lead will make a determination with the help of the Fix Team if an issue is critical enough to require early disclosure to distributors.
+Generally this Private Distributor Disclosure process should be reserved for remotely exploitable or privilege escalation issues. 
 Otherwise, this process can be skipped.
-- The CoreDNS Security Team will email the patches to coredns-integrators-announce@coredns.io so integrators can prepare their own release to be available to users on the day of the issue's announcement. 
-Integrators should read about the [Private Integrator List](#private-integrator-list) to find out the requirements for being added to this list.
-- **What if an integrator breaks embargo?** The CoreDNS Security Team will assess the damage and may make the call to release earlier or continue with the plan. 
+- The Fix Lead will email the patches to distributors-announce@coredns.io so distributors can prepare their own release to be available to users on the day of the issue's announcement.
+Distributors should read about the [Private Distributor List](#private-distributor-list) to find out the requirements for being added to this list.
+- **What if an distributor breaks embargo?** The PST will assess the damage and may make the call to release earlier or continue with the plan.
 When in doubt push forward and go public ASAP.
 
 **Fix Release Day** (Completed within 1-21 days of Disclosure)
 
-- CoreDNS Security Team will selectively choose all needed commits from the Master branch in order to create a new release on top of the current last version released.
+- the Fix Team will selectively choose all needed commits from the Master branch in order to create a new release on top of the current last version released.
 - Release process will be as usual.
-- CoreDNS Security Team will inform users of the release by usual means, adding information on what security issues are fixed, or relevant work-arounds..
+- The Fix Lead will request a CVE from [DWF](https://github.com/distributedweaknessfiling/DWF-Documentation)
+  and include the CVSS and release details.
+- The Fix Lead will inform all users, devs and integrators, now that everything is public,
+  announcing the new releases, the CVE number, and the relevant merged PRs to get wide distribution
+  and user action. As much as possible this email should be actionable and include links on how to apply
+  the fix to user's environments; this can include links to external distributor documentation.
 
-If the CVSS score is under 4.0 (a low severity score), CoreDNS Security Team can decide to slow the release process down in the face of holidays, developer bandwidth, etc.
 
-## Private Integrator List
+## Private Distributor List
 
 This list is intended to be used primarily to provide actionable information to
-multiple integrator projects at once. This list is not intended for
+multiple distributor projects at once. This list is not intended for
 individuals to find out about security issues.
 
 ### Embargo Policy
 
-The information members receive on coredns-integrators-announce@coredns.io must not be
+The information members receive on distributors-announce@coredns.io must not be
 made public, shared, nor even hinted at anywhere beyond the need-to-know within
 your specific team except with the list's explicit approval. 
 This holds true until the public disclosure date/time that was agreed upon by the list.
@@ -127,16 +145,33 @@ mailing list of exactly what information leaked and to whom.
 If you continue to leak information and break the policy outlined here, you
 will be removed from the list.
 
+### Contributing Back
+
+This is a team effort. As a member of the list you must carry some water. This
+could be in the form of the following:
+
+**Technical**
+
+- Review and/or test the proposed patches and point out potential issues with
+  them (such as incomplete fixes for the originally reported issues, additional
+  issues you might notice, and newly introduced bugs), and inform the list of the
+  work done even if no issues were encountered.
+
+**Administrative**
+
+- Help draft emails to the public disclosure mailing list.
+- Help with release notes.
+
 ### Membership Criteria
 
-To be eligible for the coredns-integrator-announce mailing list, your
+To be eligible for the distributor-announce@coredns.io mailing list, your
 distribution should:
 
-1. Be an actively integrator of CoreDNS component.
+1. Be an actively distributor of CoreDNS component.
 2. Have a user base not limited to your own organization.
 3. Have a publicly verifiable track record up to present day of fixing security
    issues.
-4. Not be a downstream or rebuild of another integrator.
+4. Not be a downstream or rebuild of another distributor.
 5. Be a participant and active contributor in the community.
 6. Accept the [Embargo Policy](#embargo-policy) that is outlined above.
 7. Have someone already on the list vouch for the person requesting membership
@@ -148,4 +183,13 @@ New membership requests are sent to security@coredns.io.
 
 In the body of your request please specify how you qualify and fulfill each
 criterion listed in [Membership Criteria](#membership-criteria).
+
+
+# TODO
+to remove from this doc before merge
+- **TODO:** - It is also common to include our Public PHP key in this section, in case they (or we) want the information encrypted.
+Add public PHP key for encrypted email to security@coredns.io. (team and CyberInt should work together on curating this key, so that it is managed effectively.)
+- **TODO** - create a section "Product Security Team" in the [OWNERS](/OWNERS.md) doc
+- **TODO** - create a product-security-team@coredns.io mailing list
+- **TODO** - create a  distributors-announce@coredns.io mailing list
 
