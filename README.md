@@ -210,20 +210,4 @@ If you find a security vulnerability or any security related issues, please DO N
 issue, instead send your report privately to `security@coredns.io`. Security reports are greatly
 appreciated and we will publicly thank you for it.
 
-CoreDNS Team may disclose privately the security issue in order to organize the patch and its release.
-
-If you lead a project that includes CoreDNS and need organizing controlled security releases when CoreDNS triggers a security release,
-contact us at `security@coredns.io` in order to be added to our "Collaborating Projects" and have access to early security release information.
-
-### Coordination of security releases with Collaborating Projects
-
-CoreDNS manage a list of "Collaborating Projects" that are assessed CoreDNS consumers and reliable secure projects.
-That list aims to coordinate the security release in a controlled manner:
-
-1. When a security issue is raised that triggers a CoreDNS code change and therefore a security release,
-CoreDNS Team will inform privately each of the Collaborating Projects as early as possible, providing the timeline of CoreDNS release,
-and coordinating as much as possible the overall upcoming security release timeline in such a way that each project
-can organize its own security release in compatibility with the public disclosure date of the issue. Specifically:
-   * public releases should correspond with public disclosure (controlled), i.e. within O(hours)
-   * ideally CoreDNS warns the Collaborating Projects one week before the security release date.
-1. by default, CoreDNS Team expect to provide a security patch release on top of the current last release of CoreDNS.
+Please consult the page dedicated to [security vulnerability disclosures and security fix and release process](/SECURITY-RELEASE-PROCESS.md)
