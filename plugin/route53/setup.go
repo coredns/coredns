@@ -24,9 +24,11 @@ func init() {
 		ServerType: "dns",
 		Action: func(c *caddy.Controller) error {
 			f := func(credential *credentials.Credentials) route53iface.Route53API {
-				return route53.New(session.Must(session.NewSession(&aws.Config{
+				r := route53.New(session.Must(session.NewSession(&aws.Config{
 					Credentials: credential,
 				})))
+
+				return r
 			}
 			return setup(c, f)
 		},
@@ -35,7 +37,9 @@ func init() {
 
 func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Route53API) error {
 	keys := map[string]string{}
-	credential := credentials.NewEnvCredentials()
+	sharedProvider := &credentials.SharedCredentialsProvider{}
+	providers := []credentials.Provider{}
+
 	up, _ := upstream.New(nil)
 	for c.Next() {
 		args := c.RemainingArgs()
@@ -62,7 +66,12 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 				if len(v) < 2 {
 					return c.Errf("invalid access key '%v'", v)
 				}
-				credential = credentials.NewStaticCredentials(v[0], v[1], "")
+				providers = append(providers, &credentials.StaticProvider{
+					Value: credentials.Value{
+						AccessKeyID:     v[0],
+						SecretAccessKey: v[1],
+					},
+				})
 			case "upstream":
 				args := c.RemainingArgs()
 				// TODO(dilyevsky): There is a bug that causes coredns to crash
@@ -75,11 +84,23 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 				if err != nil {
 					return c.Errf("invalid upstream: %v", err)
 				}
+			case "credentials_file":
+				args := c.RemainingArgs()
+				if len(args) == 1 {
+					sharedProvider.Profile = args[0]
+				}
+				if len(args) == 2 {
+					sharedProvider.Filename = args[1]
+				}
 			default:
 				return c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 	}
+	providers = append(providers, &credentials.EnvProvider{}, sharedProvider)
+
+	credential := credentials.NewChainCredentials(providers)
+
 	client := f(credential)
 	ctx := context.Background()
 	h, err := New(ctx, client, keys, &up)
