@@ -84,10 +84,10 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 				}
 			case "credentials_file":
 				args := c.RemainingArgs()
-				if len(args) == 1 {
+				if len(args) > 0 {
 					sharedProvider.Profile = args[0]
 				}
-				if len(args) == 2 {
+				if len(args) > 1 {
 					sharedProvider.Filename = args[1]
 				}
 			default:
