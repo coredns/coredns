@@ -82,7 +82,7 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 				if err != nil {
 					return c.Errf("invalid upstream: %v", err)
 				}
-			case "credentials_file":
+			case "credentials":
 				args := c.RemainingArgs()
 				if len(args) > 0 {
 					sharedProvider.Profile = args[0]

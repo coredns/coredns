@@ -16,7 +16,7 @@ The route53 plugin can be used when coredns is deployed on AWS or elsewhere.
 route53 [ZONE:HOSTED_ZONE_ID...] {
     [aws_access_key AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY]
     upstream [ADDRESS...]
-    [credentials_file PROFILE FILENAME]
+    credentials PROFILE [FILENAME]
 }
 ~~~
 
@@ -30,7 +30,7 @@ route53 [ZONE:HOSTED_ZONE_ID...] {
    to external hosts (eg. used to resolve CNAMEs). If no **ADDRESS** is given, CoreDNS will resolve
    against itself. **ADDRESS** can be an IP, an IP:port or a path to a file structured like
    resolv.conf (**NB**: Currently a bug (#2099) is preventing the use of self-resolver).
-* `credentials_file` used for reading the credential file and setting the profile name for a given zone.
+* `credentials` used for reading the credential file and setting the profile name for a given zone.
 * **PROFILE** AWS account profile name. Defaults to `default`.
 * **FILENAME** AWS credentials filename. Defaults to `~/.aws/credentials`
 

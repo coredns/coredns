@@ -58,7 +58,7 @@ func TestSetupRoute53(t *testing.T) {
 	}
 
 	c = caddy.NewTestController("dns", `route53 example.org:12345678 {
-		credentials_file default credentials
+		credentials default credentials
  		upstream 1.2.3.4
 	}`)
 	if err := setup(c, f); err != nil {
