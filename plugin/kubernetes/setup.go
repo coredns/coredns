@@ -1,7 +1,6 @@
 package kubernetes
 
 import (
-	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -70,15 +69,15 @@ func (k *Kubernetes) RegisterKubeCache(c *caddy.Controller) {
 			k.APIProxy.Run()
 		}
 
+		timeout := time.After(5 * time.Second)
 		ticker := time.NewTicker(100 * time.Millisecond)
-		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		for {
 			select {
 			case <-ticker.C:
 				if k.APIConn.HasSynced() {
 					return nil
 				}
-			case <-ctx.Done():
+			case <-timeout:
 				return nil
 			}
 		}
