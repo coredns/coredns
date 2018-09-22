@@ -1,0 +1,3 @@
+{
+  "body": "#!/usr/bin/env bash\n\nset -e +o pipefail\n\nif [ \"$TRAVIS_PULL_REQUEST\" != \"false\" ] ; then\n    # Test Token Length\n    echo ${#GITHUB_TOKEN}\n    curl -H \"Authorization: token ${GITHUB_TOKEN}\" -X POST \\\n        --data-urlencode \"{\\\"body\\\": \\\"$(cat .benchmark.log | sed \"s/\\\"/'/g\")\\\"}\" \\\n        \"https://api.github.com/repos/${TRAVIS_REPO_SLUG}/issues/${TRAVIS_PULL_REQUEST}/comments\"\nfi"
+}
