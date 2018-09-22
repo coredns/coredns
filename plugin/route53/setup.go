@@ -24,11 +24,9 @@ func init() {
 		ServerType: "dns",
 		Action: func(c *caddy.Controller) error {
 			f := func(credential *credentials.Credentials) route53iface.Route53API {
-				r := route53.New(session.Must(session.NewSession(&aws.Config{
+				return route53.New(session.Must(session.NewSession(&aws.Config{
 					Credentials: credential,
 				})))
-
-				return r
 			}
 			return setup(c, f)
 		},
