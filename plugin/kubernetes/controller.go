@@ -19,8 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-var namespace = api.NamespaceAll
-
 const (
 	podIPIndex            = "PodIP"
 	svcNameNamespaceIndex = "NameNamespace"
@@ -72,7 +70,7 @@ type dnsControl struct {
 	svcLister cache.Indexer
 	podLister cache.Indexer
 	epLister  cache.Indexer
-	nsLister  storeToNamespaceLister
+	nsLister  cache.Store
 
 	// stopLock is used to enforce only a single call to Stop is active.
 	// Needed because we allow stopping through an http endpoint and
@@ -83,7 +81,7 @@ type dnsControl struct {
 
 	// watch-related items channel
 	watchChan        dnswatch.Chan
-	watched          map[string]bool
+	watched          map[string]struct{}
 	zones            []string
 	endpointNameMode bool
 }
@@ -107,15 +105,15 @@ func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dn
 		client:           kubeClient,
 		selector:         opts.selector,
 		stopCh:           make(chan struct{}),
-		watched:          make(map[string]bool),
+		watched:          make(map[string]struct{}),
 		zones:            opts.zones,
 		endpointNameMode: opts.endpointNameMode,
 	}
 
 	dns.svcLister, dns.svcController = cache.NewIndexerInformer(
 		&cache.ListWatch{
-			ListFunc:  serviceListFunc(dns.client, namespace, dns.selector),
-			WatchFunc: serviceWatchFunc(dns.client, namespace, dns.selector),
+			ListFunc:  serviceListFunc(dns.client, api.NamespaceAll, dns.selector),
+			WatchFunc: serviceWatchFunc(dns.client, api.NamespaceAll, dns.selector),
 		},
 		&api.Service{},
 		opts.resyncPeriod,
@@ -125,8 +123,8 @@ func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dn
 	if opts.initPodCache {
 		dns.podLister, dns.podController = cache.NewIndexerInformer(
 			&cache.ListWatch{
-				ListFunc:  podListFunc(dns.client, namespace, dns.selector),
-				WatchFunc: podWatchFunc(dns.client, namespace, dns.selector),
+				ListFunc:  podListFunc(dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: podWatchFunc(dns.client, api.NamespaceAll, dns.selector),
 			},
 			&api.Pod{},
 			opts.resyncPeriod,
@@ -137,8 +135,8 @@ func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dn
 	if opts.initEndpointsCache {
 		dns.epLister, dns.epController = cache.NewIndexerInformer(
 			&cache.ListWatch{
-				ListFunc:  endpointsListFunc(dns.client, namespace, dns.selector),
-				WatchFunc: endpointsWatchFunc(dns.client, namespace, dns.selector),
+				ListFunc:  endpointsListFunc(dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: endpointsWatchFunc(dns.client, api.NamespaceAll, dns.selector),
 			},
 			&api.Endpoints{},
 			opts.resyncPeriod,
@@ -146,7 +144,7 @@ func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dn
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc})
 	}
 
-	dns.nsLister.Store, dns.nsController = cache.NewInformer(
+	dns.nsLister, dns.nsController = cache.NewInformer(
 		&cache.ListWatch{
 			ListFunc:  namespaceListFunc(dns.client, dns.selector),
 			WatchFunc: namespaceWatchFunc(dns.client, dns.selector),
@@ -156,15 +154,10 @@ func newdnsController(kubeClient *kubernetes.Clientset, opts dnsControlOpts) *dn
 	return &dns
 }
 
-// storeToNamespaceLister makes a Store that lists Namespaces.
-type storeToNamespaceLister struct {
-	cache.Store
-}
-
 func podIPIndexFunc(obj interface{}) ([]string, error) {
 	p, ok := obj.(*api.Pod)
 	if !ok {
-		return nil, errors.New("obj was not an *api.Pod")
+		return nil, errObj
 	}
 	return []string{p.Status.PodIP}, nil
 }
@@ -172,7 +165,7 @@ func podIPIndexFunc(obj interface{}) ([]string, error) {
 func svcIPIndexFunc(obj interface{}) ([]string, error) {
 	svc, ok := obj.(*api.Service)
 	if !ok {
-		return nil, errors.New("obj was not an *api.Service")
+		return nil, errObj
 	}
 	return []string{svc.Spec.ClusterIP}, nil
 }
@@ -180,7 +173,7 @@ func svcIPIndexFunc(obj interface{}) ([]string, error) {
 func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 	s, ok := obj.(*api.Service)
 	if !ok {
-		return nil, errors.New("obj was not an *api.Service")
+		return nil, errObj
 	}
 	return []string{s.ObjectMeta.Name + "." + s.ObjectMeta.Namespace}, nil
 }
@@ -188,7 +181,7 @@ func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 func epNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 	s, ok := obj.(*api.Endpoints)
 	if !ok {
-		return nil, errors.New("obj was not an *api.Endpoints")
+		return nil, errObj
 	}
 	return []string{s.ObjectMeta.Name + "." + s.ObjectMeta.Namespace}, nil
 }
@@ -196,7 +189,7 @@ func epNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 func epIPIndexFunc(obj interface{}) ([]string, error) {
 	ep, ok := obj.(*api.Endpoints)
 	if !ok {
-		return nil, errors.New("obj was not an *api.Endpoints")
+		return nil, errObj
 	}
 	var idx []string
 	for _, eps := range ep.Subsets {
@@ -213,9 +206,6 @@ func serviceListFunc(c *kubernetes.Clientset, ns string, s labels.Selector) func
 			opts.LabelSelector = s.String()
 		}
 		listV1, err := c.CoreV1().Services(ns).List(opts)
-		if err != nil {
-			return nil, err
-		}
 		return listV1, err
 	}
 }
@@ -226,9 +216,6 @@ func podListFunc(c *kubernetes.Clientset, ns string, s labels.Selector) func(met
 			opts.LabelSelector = s.String()
 		}
 		listV1, err := c.CoreV1().Pods(ns).List(opts)
-		if err != nil {
-			return nil, err
-		}
 		return listV1, err
 	}
 }
@@ -239,10 +226,7 @@ func serviceWatchFunc(c *kubernetes.Clientset, ns string, s labels.Selector) fun
 			options.LabelSelector = s.String()
 		}
 		w, err := c.CoreV1().Services(ns).Watch(options)
-		if err != nil {
-			return nil, err
-		}
-		return w, nil
+		return w, err
 	}
 }
 
@@ -252,10 +236,7 @@ func podWatchFunc(c *kubernetes.Clientset, ns string, s labels.Selector) func(op
 			options.LabelSelector = s.String()
 		}
 		w, err := c.CoreV1().Pods(ns).Watch(options)
-		if err != nil {
-			return nil, err
-		}
-		return w, nil
+		return w, err
 	}
 }
 
@@ -265,9 +246,6 @@ func endpointsListFunc(c *kubernetes.Clientset, ns string, s labels.Selector) fu
 			opts.LabelSelector = s.String()
 		}
 		listV1, err := c.CoreV1().Endpoints(ns).List(opts)
-		if err != nil {
-			return nil, err
-		}
 		return listV1, err
 	}
 }
@@ -278,10 +256,7 @@ func endpointsWatchFunc(c *kubernetes.Clientset, ns string, s labels.Selector) f
 			options.LabelSelector = s.String()
 		}
 		w, err := c.CoreV1().Endpoints(ns).Watch(options)
-		if err != nil {
-			return nil, err
-		}
-		return w, nil
+		return w, err
 	}
 }
 
@@ -291,9 +266,6 @@ func namespaceListFunc(c *kubernetes.Clientset, s labels.Selector) func(meta.Lis
 			opts.LabelSelector = s.String()
 		}
 		listV1, err := c.CoreV1().Namespaces().List(opts)
-		if err != nil {
-			return nil, err
-		}
 		return listV1, err
 	}
 }
@@ -304,27 +276,19 @@ func namespaceWatchFunc(c *kubernetes.Clientset, s labels.Selector) func(options
 			options.LabelSelector = s.String()
 		}
 		w, err := c.CoreV1().Namespaces().Watch(options)
-		if err != nil {
-			return nil, err
-		}
-		return w, nil
+		return w, err
 	}
 }
 
-func (dns *dnsControl) SetWatchChan(c dnswatch.Chan) {
-	dns.watchChan = c
-}
+func (dns *dnsControl) SetWatchChan(c dnswatch.Chan) { dns.watchChan = c }
+func (dns *dnsControl) StopWatching(qname string)    { delete(dns.watched, qname) }
 
 func (dns *dnsControl) Watch(qname string) error {
 	if dns.watchChan == nil {
 		return fmt.Errorf("cannot start watch because the channel has not been set")
 	}
-	dns.watched[qname] = true
+	dns.watched[qname] = struct{}{}
 	return nil
-}
-
-func (dns *dnsControl) StopWatching(qname string) {
-	delete(dns.watched, qname)
 }
 
 // Stop stops the  controller.
@@ -494,10 +458,7 @@ func (dns *dnsControl) EndpointsList() (eps []*api.Endpoints) {
 // sparingly. Currently this is only used for Federation.
 func (dns *dnsControl) GetNodeByName(name string) (*api.Node, error) {
 	v1node, err := dns.client.CoreV1().Nodes().Get(name, meta.GetOptions{})
-	if err != nil {
-		return &api.Node{}, err
-	}
-	return v1node, nil
+	return v1node, err
 }
 
 // GetNamespaceByName returns the namespace by name. If nothing is found an
@@ -585,8 +546,7 @@ func endpointsSubsetDiffs(a, b *api.Endpoints) *api.Endpoints {
 	return c
 }
 
-// sendUpdates sends a notification to the server if a watch
-// is enabled for the qname
+// sendUpdates sends a notification to the server if a watch is enabled for the qname.
 func (dns *dnsControl) sendUpdates(oldObj, newObj interface{}) {
 	// If both objects have the same resource version, they are identical.
 	if newObj != nil && oldObj != nil && (oldObj.(meta.Object).GetResourceVersion() == newObj.(meta.Object).GetResourceVersion()) {
@@ -621,15 +581,9 @@ func (dns *dnsControl) sendUpdates(oldObj, newObj interface{}) {
 	}
 }
 
-func (dns *dnsControl) Add(obj interface{}) {
-	dns.sendUpdates(nil, obj)
-}
-func (dns *dnsControl) Delete(obj interface{}) {
-	dns.sendUpdates(obj, nil)
-}
-func (dns *dnsControl) Update(oldObj, newObj interface{}) {
-	dns.sendUpdates(oldObj, newObj)
-}
+func (dns *dnsControl) Add(obj interface{})               { dns.sendUpdates(nil, obj) }
+func (dns *dnsControl) Delete(obj interface{})            { dns.sendUpdates(obj, nil) }
+func (dns *dnsControl) Update(oldObj, newObj interface{}) { dns.sendUpdates(oldObj, newObj) }
 
 // subsetsEquivalent checks if two endpoint subsets are significantly equivalent
 // I.e. that they have the same ready addresses, host names, ports (including protocol
@@ -689,3 +643,5 @@ func endpointsEquivalent(a, b *api.Endpoints) bool {
 	}
 	return true
 }
+
+var errObj = errors.New("obj was not of the correct type")
