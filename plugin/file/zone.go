@@ -28,7 +28,6 @@ type Zone struct {
 	TransferFrom []string
 	Expired      *bool
 
-	NoReload       bool
 	ReloadInterval time.Duration
 	LastReloaded   time.Time
 	reloadMu       sync.RWMutex
@@ -165,7 +164,7 @@ func (z *Zone) TransferAllowed(state request.Request) bool {
 // All returns all records from the zone, the first record will be the SOA record,
 // otionally followed by all RRSIG(SOA)s.
 func (z *Zone) All() []dns.RR {
-	if !z.NoReload {
+	if z.ReloadInterval > 0 {
 		z.reloadMu.RLock()
 		defer z.reloadMu.RUnlock()
 	}

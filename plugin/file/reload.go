@@ -5,12 +5,12 @@ import (
 	"time"
 )
 
-// Tick every second. Handler checks if reloadInterval has been reached.
+// TickTime is clock resolution. By default ticks every second. Handler checks if reloadInterval has been reached on every tick.
 var TickTime = 1 * time.Second
 
 // Reload reloads a zone when it is changed on disk. If z.NoRoload is true, no reloading will be done.
 func (z *Zone) Reload() error {
-	if z.NoReload || z.ReloadInterval == 0 {
+	if z.ReloadInterval == 0 {
 		return nil
 	}
 	tick := time.NewTicker(TickTime)

@@ -93,7 +93,6 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 		}
 
 		reload := 1 * time.Minute
-		noReload := false
 		upstr := upstream.Upstream{}
 		t := []string{}
 		var e error
@@ -112,11 +111,9 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 					return Zones{}, plugin.Error("file", err)
 				}
 				reload = d
-				noReload = 0 == reload
 
 			case "no_reload":
 				reload = 0
-				noReload = true
 
 			case "upstream":
 				args := c.RemainingArgs()
@@ -133,7 +130,6 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 				if t != nil {
 					z[origin].TransferTo = append(z[origin].TransferTo, t...)
 				}
-				z[origin].NoReload = noReload
 				z[origin].ReloadInterval = reload
 				z[origin].Upstream = upstr
 			}
