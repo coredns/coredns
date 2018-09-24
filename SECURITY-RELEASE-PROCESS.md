@@ -23,10 +23,10 @@ please DO NOT file a public issue - that means do not create a Github issue,
 instead send your report privately to security@coredns.io. 
 Security reports are greatly appreciated and we will publicly thank you for it.
 
-if you know it, please provide as much information as possible, so we can react quickly.
+If you know it, please provide as much information as possible, so we can react quickly.
 For instance, that could include:
 - Description of the location and potential impact of the vulnerability;
-- A detailed description of the steps required to reproduce the vulnerability (POC scripts, screenshots, and compressed screen captures are all helpful to us)
+- A detailed description of the steps required to reproduce the vulnerability (POC scripts, screenshots, and compressed packet captures are all helpful to us)
 - Whatever else you think we might need to identify the source of this vulnerability
 - Do not forget : a Name/handle and a link for recognition in our Hall of Fame !
 
@@ -104,7 +104,7 @@ Generally this Private Distributor Disclosure process should be reserved for rem
 Otherwise, this process can be skipped.
 - The Fix Lead will email the patches to distributors-announce@coredns.io so distributors can prepare their own release to be available to users on the day of the issue's announcement.
 Distributors should read about the [Private Distributor List](#private-distributor-list) to find out the requirements for being added to this list.
-- **What if an distributor breaks embargo?** The PST will assess the damage and may make the call to release earlier or continue with the plan.
+- **What if a distributor breaks embargo?** The PST will assess the damage and may make the call to release earlier or continue with the plan.
 When in doubt push forward and go public ASAP.
 
 **Fix Release Day** (Completed within 1-21 days of Disclosure)
