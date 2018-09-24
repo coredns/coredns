@@ -4,7 +4,7 @@
 
 The CoreDNS community adheres to the following principles:
 
-- Open: CoreDNS is open source. See repository guidelines.
+- Open: CoreDNS is open source. See repository guidelines, below.
 - Welcoming and respectful: See Code of Conduct, below.
 - Transparent and accessible: Work and collaboration are done in public.
 - Merit: Ideas and contributions are accepted according to their technical merit and alignment with project objectives, scope, and design principles.
@@ -29,22 +29,24 @@ Maintainers can be removed by a 2/3 majority organization vote.
 
 ## Github Project Administration
 
-Maintainers will be added to the __coredns__ GitHub organization and added to the GitHub maintainers team.
+Maintainers will be added to the __coredns__ GitHub project maintainers team.
 
 After 6 months a maintainer will be made an "owner" of the GitHub organization.
 
 ## Projects
 
-The CoreDNS organization is open to receive new sub-projects under its umbrella. To apply a project as part of the __CoreDNS__ organization, it has to met the following criteria:
+The CoreDNS organization is open to receive new sub-projects under its umbrella.
+To accept project into the __CoreDNS__ organization, it has to met the following criteria:
 
 - Licensed under the terms of the Apache License v2.0
 - Related to one or more scopes of CoreDNS ecosystem:
   - CoreDNS project artifacts (website, deployments, CI, etc ...)
   - External plugin
   - other DNS processing related
-- Be supported by 2/3 majority of organization
+- Be supported by 2/3 majority organization vote for acceptance
 
-The submission process starts as a Pull Request on CoreDNS repository with the required information mentioned above. Once a project is accepted, it's considered a __CNCF sub-project under the umbrella of CoreDNS__
+The submission process starts as a Pull Request on the [coredns/coredns](https://github.com/coredns/coredns) repository with the required information mentioned above.
+Once a project is accepted, it's considered a __CNCF sub-project under the umbrella of CoreDNS__
 
 ## Code of Conduct
 
