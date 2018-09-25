@@ -36,7 +36,7 @@ func init() {
 func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Route53API) error {
 	keys := map[string]string{}
 	sharedProvider := &credentials.SharedCredentialsProvider{}
-	providers := []credentials.Provider{}
+	var providers []credentials.Provider
 
 	up, _ := upstream.New(nil)
 	for c.Next() {
@@ -83,12 +83,13 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 					return c.Errf("invalid upstream: %v", err)
 				}
 			case "credentials":
-				args := c.RemainingArgs()
-				if len(args) > 0 {
-					sharedProvider.Profile = args[0]
+				if c.NextArg() {
+					sharedProvider.Profile = c.Val()
+				} else {
+					return c.ArgErr()
 				}
-				if len(args) > 1 {
-					sharedProvider.Filename = args[1]
+				if c.NextArg() {
+					sharedProvider.Filename = c.Val()
 				}
 			default:
 				return c.Errf("unknown property '%s'", c.Val())
