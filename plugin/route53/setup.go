@@ -6,6 +6,7 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
@@ -37,6 +38,7 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 	keys := map[string]string{}
 	sharedProvider := &credentials.SharedCredentialsProvider{}
 	var providers []credentials.Provider
+	var fall fall.F
 
 	up, _ := upstream.New(nil)
 	for c.Next() {
@@ -91,6 +93,8 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 				if c.NextArg() {
 					sharedProvider.Filename = c.Val()
 				}
+			case "fallthrough":
+				fall.SetZonesFromArgs(c.RemainingArgs())
 			default:
 				return c.Errf("unknown property '%s'", c.Val())
 			}
@@ -104,6 +108,7 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 	if err != nil {
 		return c.Errf("failed to create Route53 plugin: %v", err)
 	}
+	h.Fall = fall
 	if err := h.Run(ctx); err != nil {
 		return c.Errf("failed to initialize Route53 plugin: %v", err)
 	}
