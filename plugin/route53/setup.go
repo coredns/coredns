@@ -36,6 +36,13 @@ func init() {
 
 func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Route53API) error {
 	keys := map[string]string{}
+
+	// Route53 plugin attempts to find AWS credentials by using ChainCredentials.
+	// And the order of that provider chain is as follows:
+	// Static AWS keys -> Environment Variables -> Credentials file -> IAM role
+	// With that said, even though a user doesn't define any credentials in
+	// Corefile, we should still attempt to read the default credentials file,
+	// ~/.aws/credentials with the default profile.
 	sharedProvider := &credentials.SharedCredentialsProvider{}
 	var providers []credentials.Provider
 	var fall fall.F
