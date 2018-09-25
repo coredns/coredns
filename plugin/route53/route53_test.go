@@ -3,7 +3,6 @@ package route53
 import (
 	"context"
 	"errors"
-	"fmt"
 	"reflect"
 	"testing"
 
@@ -89,7 +88,7 @@ func TestRoute53(t *testing.T) {
 			m.SetReply(r)
 			rr, err := dns.NewRR("example.gov.  300 IN  A   2.4.6.8")
 			if err != nil {
-				fmt.Printf("hata var %+v\n", err)
+				t.Fatalf("Failed to create Resource Record: %v", err)
 			}
 			m.Answer = []dns.RR{rr}
 
