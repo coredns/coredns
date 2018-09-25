@@ -97,9 +97,7 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 	}
 	providers = append(providers, &credentials.EnvProvider{}, sharedProvider)
 
-	credential := credentials.NewChainCredentials(providers)
-
-	client := f(credential)
+	client := f(credentials.NewChainCredentials(providers))
 	ctx := context.Background()
 	h, err := New(ctx, client, keys, &up)
 	if err != nil {
