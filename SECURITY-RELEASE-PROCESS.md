@@ -185,11 +185,4 @@ In the body of your request please specify how you qualify and fulfill each
 criterion listed in [Membership Criteria](#membership-criteria).
 
 
-# TODO
-to remove from this doc before merge
-- **TODO:** - It is also common to include our Public PHP key in this section, in case they (or we) want the information encrypted.
-Add public PHP key for encrypted email to security@coredns.io. (team and CyberInt should work together on curating this key, so that it is managed effectively.)
-- **TODO** - create a section "Product Security Team" in the [OWNERS](/OWNERS.md) doc
-- **TODO** - create a product-security-team@coredns.io mailing list
-- **TODO** - create a  distributors-announce@coredns.io mailing list
 
