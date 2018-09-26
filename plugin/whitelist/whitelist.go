@@ -77,15 +77,11 @@ func (whitelist whitelist) ServeDNS(ctx context.Context, rw dns.ResponseWriter, 
 	serviceName := fmt.Sprintf("%s.svc.%s", querySrcService, whitelist.Kubernetes.Zones[0])
 
 	if whitelist.Configuration.blacklist {
-		if _, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
-			if whitelist.Discovery != nil {
-				go whitelist.log(serviceName, queryDstLocation, origin, "allow")
-			}
-			return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
+		if whitelist.Discovery != nil {
+			go whitelist.log(serviceName, queryDstLocation, origin, "allow")
 		}
-
+		return plugin.NextOrFailure(whitelist.Name(), whitelist.Next, ctx, rw, r)
 	} else {
-
 		if whitelisted, ok := whitelist.Configuration.SourceToDestination[querySrcService]; ok {
 			if _, ok := whitelisted[dstConf]; ok {
 				if whitelist.Discovery != nil {
