@@ -12,7 +12,7 @@ The primary goal of this process is to reduce the total time users are vulnerabl
 The Product Security Team (PST) is responsible for organizing the entire response including internal communication and external disclosure.
 
 The initial Product Security Team will consist of set of maintainers that volunteered.
-The list is available in this [document](/OWNERS.md) and is synchronized with the receivers of product-security-team@coredns.io list.
+The list is available in this [document](/OWNERS) and is synchronized with the receivers of product-security-team@coredns.io list.
 
 ## Disclosures
 
