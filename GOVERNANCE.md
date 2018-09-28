@@ -13,25 +13,33 @@ The CoreDNS community adheres to the following principles:
 
 The CoreDNS project employs "organization voting" to ensure no single organization can dominate the project.
 
-Individuals not associated with or employed by a company or organization are allowed one organization vote. Each company or organization (regardless of the number of maintainers associated with or employed by that company/organization) receives one organization vote.
+Individuals declare if they contribute as un-affiliated or as associated with or employee of an organization or a company.
+
+Individuals that contribute as un-affiliated are allowed one organization vote. Each company or organization (regardless of the number of maintainers associated with or employed by that company/organization) receives one organization vote.
 
 In other words, if two maintainers are employed by Company X, two by Company Y, two by Company Z, and one maintainer is an un-affiliated individual, a total of four "organization votes" are possible; one for X, one for Y, one for Z, and one for the un-affiliated individual.
 
 Any maintainer from an organization may cast the vote for that organization.
 
-For formal votes, a specific statement of what is being voted on should be added to the relevant github issue or PR, and a link to that issue or PR added to the maintainers meeting agenda document. Maintainers should indicate their yes/no vote on that issue or PR, and after a suitable period of time, the votes will be tallied and the outcome noted.
+For formal votes, a specific statement of what is being voted on, and in which delay (a suitable amount of time), should be added to the relevant github issue or PR, and a link to that issue or PR added to the maintainers meeting agenda document. Maintainers should indicate their yes/no vote on that issue or PR, and after the delay is expired, the votes will be tallied and the outcome noted.
+
+## Expectations from Maintainers
+
+Maintainers are the bridges between members of the CoreDNS community.
+Maintainers actively participate in PR reviews. Maintainers are expected to respond to assigned PRs in a reasonable time frame,
+either providing insights, or assign the PRs to other maintainers.
 
 ## Changes in Maintainership
 
 New maintainers are proposed by an existing maintainer and are elected by a 2/3 majority organization vote.
 
-Maintainers can be removed by a 2/3 majority organization vote.
+Maintainers who fail to meet the principles of CoreDNS community can be removed by a 2/3 majority organization vote.
+
+The list of Maintainers is available in this [document](/OWNERS) and is synchronized with the receivers of maintainers@coredns.io list
 
 ## Github Project Administration
 
-Maintainers will be added to the __coredns__ GitHub project maintainers team.
-
-After 6 months a maintainer will be made an "owner" of the GitHub organization.
+the __coredns__ GitHub project maintainers team reflect the list of Maintainers.
 
 ## Projects
 
