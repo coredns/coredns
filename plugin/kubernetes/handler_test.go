@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/coredns/plugin/kubernetes/index"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/watch"
 	"github.com/coredns/coredns/plugin/test"
@@ -368,15 +369,15 @@ func TestServeDNS(t *testing.T) {
 
 type APIConnServeTest struct{}
 
-func (APIConnServeTest) HasSynced() bool                        { return true }
-func (APIConnServeTest) Run()                                   { return }
-func (APIConnServeTest) Stop() error                            { return nil }
-func (APIConnServeTest) EpIndexReverse(string) []*api.Endpoints { return nil }
-func (APIConnServeTest) SvcIndexReverse(string) []*api.Service  { return nil }
-func (APIConnServeTest) Modified() int64                        { return time.Now().Unix() }
-func (APIConnServeTest) SetWatchChan(watch.Chan)                {}
-func (APIConnServeTest) Watch(string) error                     { return nil }
-func (APIConnServeTest) StopWatching(string)                    {}
+func (APIConnServeTest) HasSynced() bool                         { return true }
+func (APIConnServeTest) Run()                                    { return }
+func (APIConnServeTest) Stop() error                             { return nil }
+func (APIConnServeTest) EpIndexReverse(string) []*api.Endpoints  { return nil }
+func (APIConnServeTest) SvcIndexReverse(string) []*index.Service { return nil }
+func (APIConnServeTest) Modified() int64                         { return time.Now().Unix() }
+func (APIConnServeTest) SetWatchChan(watch.Chan)                 {}
+func (APIConnServeTest) Watch(string) error                      { return nil }
+func (APIConnServeTest) StopWatching(string)                     {}
 
 func (APIConnServeTest) PodIndex(string) []*api.Pod {
 	a := []*api.Pod{{
@@ -390,125 +391,93 @@ func (APIConnServeTest) PodIndex(string) []*api.Pod {
 	return a
 }
 
-var svcIndex = map[string][]*api.Service{
+var svcIndex = map[string][]*index.Service{
 	"svc1.testns": {{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      "svc1",
-			Namespace: "testns",
-		},
-		Spec: api.ServiceSpec{
-			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: "10.0.0.1",
-			Ports: []api.ServicePort{{
-				Name:     "http",
-				Protocol: "tcp",
-				Port:     80,
-			}},
-		},
+		Name:      "svc1",
+		Namespace: "testns",
+		Type:      api.ServiceTypeClusterIP,
+		ClusterIP: "10.0.0.1",
+		Ports: []api.ServicePort{{
+			Name:     "http",
+			Protocol: "tcp",
+			Port:     80,
+		}},
 	}},
 	"svcempty.testns": {{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      "svcempty",
-			Namespace: "testns",
-		},
-		Spec: api.ServiceSpec{
-			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: "10.0.0.1",
-			Ports: []api.ServicePort{{
-				Name:     "http",
-				Protocol: "tcp",
-				Port:     80,
-			}},
-		},
+		Name:      "svcempty",
+		Namespace: "testns",
+		Type:      api.ServiceTypeClusterIP,
+		ClusterIP: "10.0.0.1",
+		Ports: []api.ServicePort{{
+			Name:     "http",
+			Protocol: "tcp",
+			Port:     80,
+		}},
 	}},
 	"svc6.testns": {{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      "svc6",
-			Namespace: "testns",
-		},
-		Spec: api.ServiceSpec{
-			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: "1234:abcd::1",
-			Ports: []api.ServicePort{{
-				Name:     "http",
-				Protocol: "tcp",
-				Port:     80,
-			}},
-		},
+		Name:      "svc6",
+		Namespace: "testns",
+		Type:      api.ServiceTypeClusterIP,
+		ClusterIP: "1234:abcd::1",
+		Ports: []api.ServicePort{{
+			Name:     "http",
+			Protocol: "tcp",
+			Port:     80,
+		}},
 	}},
 	"hdls1.testns": {{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      "hdls1",
-			Namespace: "testns",
-		},
-		Spec: api.ServiceSpec{
-			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: api.ClusterIPNone,
-		},
+		Name:      "hdls1",
+		Namespace: "testns",
+		Type:      api.ServiceTypeClusterIP,
+		ClusterIP: api.ClusterIPNone,
 	}},
 	"external.testns": {{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      "external",
-			Namespace: "testns",
-		},
-		Spec: api.ServiceSpec{
-			ExternalName: "ext.interwebs.test",
-			Ports: []api.ServicePort{{
-				Name:     "http",
-				Protocol: "tcp",
-				Port:     80,
-			}},
-			Type: api.ServiceTypeExternalName,
-		},
+		Name:         "external",
+		Namespace:    "testns",
+		ExternalName: "ext.interwebs.test",
+		Ports: []api.ServicePort{{
+			Name:     "http",
+			Protocol: "tcp",
+			Port:     80,
+		}},
+		Type: api.ServiceTypeExternalName,
 	}},
 	"external-to-service.testns": {{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      "external-to-service",
-			Namespace: "testns",
-		},
-		Spec: api.ServiceSpec{
-			ExternalName: "svc1.testns.svc.cluster.local.",
-			Ports: []api.ServicePort{{
-				Name:     "http",
-				Protocol: "tcp",
-				Port:     80,
-			}},
-			Type: api.ServiceTypeExternalName,
-		},
+		Name:         "external-to-service",
+		Namespace:    "testns",
+		ExternalName: "svc1.testns.svc.cluster.local.",
+		Ports: []api.ServicePort{{
+			Name:     "http",
+			Protocol: "tcp",
+			Port:     80,
+		}},
+		Type: api.ServiceTypeExternalName,
 	}},
 	"hdlsprtls.testns": {{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      "hdlsprtls",
-			Namespace: "testns",
-		},
-		Spec: api.ServiceSpec{
-			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: api.ClusterIPNone,
-		},
+		Name:      "hdlsprtls",
+		Namespace: "testns",
+		Type:      api.ServiceTypeClusterIP,
+		ClusterIP: api.ClusterIPNone,
 	}},
 	"svc1.unexposedns": {{
-		ObjectMeta: meta.ObjectMeta{
-			Name:      "svc1",
-			Namespace: "unexposedns",
-		},
-		Spec: api.ServiceSpec{
-			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: "10.0.0.2",
-			Ports: []api.ServicePort{{
-				Name:     "http",
-				Protocol: "tcp",
-				Port:     80,
-			}},
-		},
+		Name:      "svc1",
+		Namespace: "unexposedns",
+		Type:      api.ServiceTypeClusterIP,
+		ClusterIP: "10.0.0.2",
+		Ports: []api.ServicePort{{
+			Name:     "http",
+			Protocol: "tcp",
+			Port:     80,
+		}},
 	}},
 }
 
-func (APIConnServeTest) SvcIndex(s string) []*api.Service {
+func (APIConnServeTest) SvcIndex(s string) []*index.Service {
 	return svcIndex[s]
 }
 
-func (APIConnServeTest) ServiceList() []*api.Service {
-	var svcs []*api.Service
+func (APIConnServeTest) ServiceList() []*index.Service {
+	var svcs []*index.Service
 	for _, svc := range svcIndex {
 		svcs = append(svcs, svc...)
 	}

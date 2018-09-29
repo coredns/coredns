@@ -44,10 +44,10 @@ FindEndpoint:
 FindService:
 	for _, svc := range k.APIConn.ServiceList() {
 		if svcName == svc.Name && svcNamespace == svc.Namespace {
-			if svc.Spec.ClusterIP == api.ClusterIPNone {
+			if svc.ClusterIP == api.ClusterIPNone {
 				rr.A = localIP
 			} else {
-				rr.A = net.ParseIP(svc.Spec.ClusterIP)
+				rr.A = net.ParseIP(svc.ClusterIP)
 			}
 			break FindService
 		}
