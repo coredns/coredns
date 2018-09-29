@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/pkg/watch"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -56,18 +55,9 @@ func TestEndpointHostname(t *testing.T) {
 	}
 }
 
-type APIConnServiceTest struct{}
-
-func (APIConnServiceTest) HasSynced() bool                        { return true }
-func (APIConnServiceTest) Run()                                   { return }
-func (APIConnServiceTest) Stop() error                            { return nil }
-func (APIConnServiceTest) PodIndex(string) []*api.Pod             { return nil }
-func (APIConnServiceTest) SvcIndexReverse(string) []*api.Service  { return nil }
-func (APIConnServiceTest) EpIndexReverse(string) []*api.Endpoints { return nil }
-func (APIConnServiceTest) Modified() int64                        { return 0 }
-func (APIConnServiceTest) SetWatchChan(watch.Chan)                {}
-func (APIConnServiceTest) Watch(string) error                     { return nil }
-func (APIConnServiceTest) StopWatching(string)                    {}
+type APIConnServiceTest struct {
+	APIEmpty
+}
 
 func (APIConnServiceTest) SvcIndex(string) []*api.Service {
 	svcs := []*api.Service{

@@ -3,26 +3,13 @@ package kubernetes
 import (
 	"testing"
 
-	"github.com/coredns/coredns/plugin/pkg/watch"
-
 	api "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type APIConnTest struct{}
-
-func (APIConnTest) HasSynced() bool                       { return true }
-func (APIConnTest) Run()                                  { return }
-func (APIConnTest) Stop() error                           { return nil }
-func (APIConnTest) PodIndex(string) []*api.Pod            { return nil }
-func (APIConnTest) SvcIndex(string) []*api.Service        { return nil }
-func (APIConnTest) SvcIndexReverse(string) []*api.Service { return nil }
-func (APIConnTest) EpIndex(string) []*api.Endpoints       { return nil }
-func (APIConnTest) EndpointsList() []*api.Endpoints       { return nil }
-func (APIConnTest) Modified() int64                       { return 0 }
-func (APIConnTest) SetWatchChan(watch.Chan)               {}
-func (APIConnTest) Watch(string) error                    { return nil }
-func (APIConnTest) StopWatching(string)                   {}
+type APIConnTest struct {
+	APIEmpty
+}
 
 func (APIConnTest) ServiceList() []*api.Service {
 	svcs := []*api.Service{

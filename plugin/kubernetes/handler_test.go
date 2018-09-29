@@ -3,10 +3,8 @@ package kubernetes
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
-	"github.com/coredns/coredns/plugin/pkg/watch"
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -366,17 +364,9 @@ func TestServeDNS(t *testing.T) {
 	}
 }
 
-type APIConnServeTest struct{}
-
-func (APIConnServeTest) HasSynced() bool                        { return true }
-func (APIConnServeTest) Run()                                   { return }
-func (APIConnServeTest) Stop() error                            { return nil }
-func (APIConnServeTest) EpIndexReverse(string) []*api.Endpoints { return nil }
-func (APIConnServeTest) SvcIndexReverse(string) []*api.Service  { return nil }
-func (APIConnServeTest) Modified() int64                        { return time.Now().Unix() }
-func (APIConnServeTest) SetWatchChan(watch.Chan)                {}
-func (APIConnServeTest) Watch(string) error                     { return nil }
-func (APIConnServeTest) StopWatching(string)                    {}
+type APIConnServeTest struct {
+	APIEmpty
+}
 
 func (APIConnServeTest) PodIndex(string) []*api.Pod {
 	a := []*api.Pod{{
