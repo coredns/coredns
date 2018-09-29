@@ -29,9 +29,11 @@ func setup(c *caddy.Controller) error {
 		if len(z.TransferFrom) > 0 {
 			c.OnStartup(func() error {
 				z.StartupOnce.Do(func() {
-					z.TransferIn()
 					go func() {
-						z.Update()
+						z.TransferIn()
+						go func() {
+							z.Update()
+						}()
 					}()
 				})
 				return nil
