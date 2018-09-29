@@ -90,14 +90,13 @@ func (rep *Reporter) sendAPICallAttemptMetric(r *request.Request) {
 }
 
 func setError(m *metric, err awserr.Error) {
-	msg := err.Message()
+	msg := err.Error()
 	code := err.Code()
 
 	switch code {
 	case "RequestError",
 		"SerializationError",
 		request.CanceledErrorCode:
-
 		m.SDKException = &code
 		m.SDKExceptionMessage = &msg
 	default:

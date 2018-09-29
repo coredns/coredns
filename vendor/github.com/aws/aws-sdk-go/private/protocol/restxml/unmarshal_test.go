@@ -128,7 +128,7 @@ const opOutputService1TestCaseOperation1 = "OperationName"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation1Request(input *OutputService1TestShapeOutputService1TestCaseOperation1Input) (req *request.Request, output *OutputService1TestShapeOutputService1TestCaseOperation3Output) {
+func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation1Request(input *OutputService1TestShapeOutputService1TestCaseOperation1Input) (req *request.Request, output *OutputService1TestShapeOutputService1TestCaseOperation1Output) {
 	op := &request.Operation{
 		Name:     opOutputService1TestCaseOperation1,
 		HTTPPath: "/",
@@ -138,7 +138,7 @@ func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation1Request(inp
 		input = &OutputService1TestShapeOutputService1TestCaseOperation1Input{}
 	}
 
-	output = &OutputService1TestShapeOutputService1TestCaseOperation3Output{}
+	output = &OutputService1TestShapeOutputService1TestCaseOperation1Output{}
 	req = c.newRequest(op, input, output)
 	return
 }
@@ -151,7 +151,7 @@ func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation1Request(inp
 //
 // See the AWS API reference guide for 's
 // API operation OutputService1TestCaseOperation1 for usage and error information.
-func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation1(input *OutputService1TestShapeOutputService1TestCaseOperation1Input) (*OutputService1TestShapeOutputService1TestCaseOperation3Output, error) {
+func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation1(input *OutputService1TestShapeOutputService1TestCaseOperation1Input) (*OutputService1TestShapeOutputService1TestCaseOperation1Output, error) {
 	req, out := c.OutputService1TestCaseOperation1Request(input)
 	return out, req.Send()
 }
@@ -165,7 +165,7 @@ func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation1(input *Out
 // the context is nil a panic will occur. In the future the SDK may create
 // sub-contexts for http.Requests. See https://golang.org/pkg/context/
 // for more information on using Contexts.
-func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation1WithContext(ctx aws.Context, input *OutputService1TestShapeOutputService1TestCaseOperation1Input, opts ...request.Option) (*OutputService1TestShapeOutputService1TestCaseOperation3Output, error) {
+func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation1WithContext(ctx aws.Context, input *OutputService1TestShapeOutputService1TestCaseOperation1Input, opts ...request.Option) (*OutputService1TestShapeOutputService1TestCaseOperation1Output, error) {
 	req, out := c.OutputService1TestCaseOperation1Request(input)
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
@@ -196,7 +196,7 @@ const opOutputService1TestCaseOperation2 = "OperationName"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation2Request(input *OutputService1TestShapeOutputService1TestCaseOperation2Input) (req *request.Request, output *OutputService1TestShapeOutputService1TestCaseOperation3Output) {
+func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation2Request(input *OutputService1TestShapeOutputService1TestCaseOperation2Input) (req *request.Request, output *OutputService1TestShapeOutputService1TestCaseOperation2Output) {
 	op := &request.Operation{
 		Name:     opOutputService1TestCaseOperation2,
 		HTTPPath: "/",
@@ -206,7 +206,7 @@ func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation2Request(inp
 		input = &OutputService1TestShapeOutputService1TestCaseOperation2Input{}
 	}
 
-	output = &OutputService1TestShapeOutputService1TestCaseOperation3Output{}
+	output = &OutputService1TestShapeOutputService1TestCaseOperation2Output{}
 	req = c.newRequest(op, input, output)
 	return
 }
@@ -219,7 +219,7 @@ func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation2Request(inp
 //
 // See the AWS API reference guide for 's
 // API operation OutputService1TestCaseOperation2 for usage and error information.
-func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation2(input *OutputService1TestShapeOutputService1TestCaseOperation2Input) (*OutputService1TestShapeOutputService1TestCaseOperation3Output, error) {
+func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation2(input *OutputService1TestShapeOutputService1TestCaseOperation2Input) (*OutputService1TestShapeOutputService1TestCaseOperation2Output, error) {
 	req, out := c.OutputService1TestCaseOperation2Request(input)
 	return out, req.Send()
 }
@@ -233,76 +233,8 @@ func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation2(input *Out
 // the context is nil a panic will occur. In the future the SDK may create
 // sub-contexts for http.Requests. See https://golang.org/pkg/context/
 // for more information on using Contexts.
-func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation2WithContext(ctx aws.Context, input *OutputService1TestShapeOutputService1TestCaseOperation2Input, opts ...request.Option) (*OutputService1TestShapeOutputService1TestCaseOperation3Output, error) {
+func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation2WithContext(ctx aws.Context, input *OutputService1TestShapeOutputService1TestCaseOperation2Input, opts ...request.Option) (*OutputService1TestShapeOutputService1TestCaseOperation2Output, error) {
 	req, out := c.OutputService1TestCaseOperation2Request(input)
-	req.SetContext(ctx)
-	req.ApplyOptions(opts...)
-	return out, req.Send()
-}
-
-const opOutputService1TestCaseOperation3 = "OperationName"
-
-// OutputService1TestCaseOperation3Request generates a "aws/request.Request" representing the
-// client's request for the OutputService1TestCaseOperation3 operation. The "output" return
-// value will be populated with the request's response once the request completes
-// successfuly.
-//
-// Use "Send" method on the returned Request to send the API call to the service.
-// the "output" return value is not valid until after Send returns without error.
-//
-// See OutputService1TestCaseOperation3 for more information on using the OutputService1TestCaseOperation3
-// API call, and error handling.
-//
-// This method is useful when you want to inject custom logic or configuration
-// into the SDK's request lifecycle. Such as custom headers, or retry logic.
-//
-//
-//    // Example sending a request using the OutputService1TestCaseOperation3Request method.
-//    req, resp := client.OutputService1TestCaseOperation3Request(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
-func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation3Request(input *OutputService1TestShapeOutputService1TestCaseOperation3Input) (req *request.Request, output *OutputService1TestShapeOutputService1TestCaseOperation3Output) {
-	op := &request.Operation{
-		Name:     opOutputService1TestCaseOperation3,
-		HTTPPath: "/",
-	}
-
-	if input == nil {
-		input = &OutputService1TestShapeOutputService1TestCaseOperation3Input{}
-	}
-
-	output = &OutputService1TestShapeOutputService1TestCaseOperation3Output{}
-	req = c.newRequest(op, input, output)
-	return
-}
-
-// OutputService1TestCaseOperation3 API operation for .
-//
-// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
-// with awserr.Error's Code and Message methods to get detailed information about
-// the error.
-//
-// See the AWS API reference guide for 's
-// API operation OutputService1TestCaseOperation3 for usage and error information.
-func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation3(input *OutputService1TestShapeOutputService1TestCaseOperation3Input) (*OutputService1TestShapeOutputService1TestCaseOperation3Output, error) {
-	req, out := c.OutputService1TestCaseOperation3Request(input)
-	return out, req.Send()
-}
-
-// OutputService1TestCaseOperation3WithContext is the same as OutputService1TestCaseOperation3 with the addition of
-// the ability to pass a context and additional request options.
-//
-// See OutputService1TestCaseOperation3 for details on how to use this API operation.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *OutputService1ProtocolTest) OutputService1TestCaseOperation3WithContext(ctx aws.Context, input *OutputService1TestShapeOutputService1TestCaseOperation3Input, opts ...request.Option) (*OutputService1TestShapeOutputService1TestCaseOperation3Output, error) {
-	req, out := c.OutputService1TestCaseOperation3Request(input)
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
@@ -312,18 +244,8 @@ type OutputService1TestShapeOutputService1TestCaseOperation1Input struct {
 	_ struct{} `type:"structure"`
 }
 
-type OutputService1TestShapeOutputService1TestCaseOperation2Input struct {
+type OutputService1TestShapeOutputService1TestCaseOperation1Output struct {
 	_ struct{} `type:"structure"`
-}
-
-type OutputService1TestShapeOutputService1TestCaseOperation3Input struct {
-	_ struct{} `type:"structure"`
-}
-
-type OutputService1TestShapeOutputService1TestCaseOperation3Output struct {
-	_ struct{} `type:"structure"`
-
-	Blobs [][]byte `type:"list"`
 
 	Char *string `type:"character"`
 
@@ -343,87 +265,169 @@ type OutputService1TestShapeOutputService1TestCaseOperation3Output struct {
 
 	Str *string `type:"string"`
 
-	Timestamp *time.Time `type:"timestamp" timestampFormat:"iso8601"`
-
-	Timestamps []*time.Time `type:"list"`
+	Timestamp *time.Time `type:"timestamp"`
 
 	TrueBool *bool `type:"boolean"`
 }
 
-// SetBlobs sets the Blobs field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetBlobs(v [][]byte) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
-	s.Blobs = v
-	return s
-}
-
 // SetChar sets the Char field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetChar(v string) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetChar(v string) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.Char = &v
 	return s
 }
 
 // SetDouble sets the Double field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetDouble(v float64) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetDouble(v float64) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.Double = &v
 	return s
 }
 
 // SetFalseBool sets the FalseBool field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetFalseBool(v bool) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetFalseBool(v bool) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.FalseBool = &v
 	return s
 }
 
 // SetFloat sets the Float field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetFloat(v float64) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetFloat(v float64) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.Float = &v
 	return s
 }
 
 // SetImaHeader sets the ImaHeader field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetImaHeader(v string) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetImaHeader(v string) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.ImaHeader = &v
 	return s
 }
 
 // SetImaHeaderLocation sets the ImaHeaderLocation field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetImaHeaderLocation(v string) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetImaHeaderLocation(v string) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.ImaHeaderLocation = &v
 	return s
 }
 
 // SetLong sets the Long field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetLong(v int64) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetLong(v int64) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.Long = &v
 	return s
 }
 
 // SetNum sets the Num field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetNum(v int64) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetNum(v int64) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.Num = &v
 	return s
 }
 
 // SetStr sets the Str field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetStr(v string) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetStr(v string) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.Str = &v
 	return s
 }
 
 // SetTimestamp sets the Timestamp field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetTimestamp(v time.Time) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetTimestamp(v time.Time) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
 	s.Timestamp = &v
 	return s
 }
 
-// SetTimestamps sets the Timestamps field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetTimestamps(v []*time.Time) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
-	s.Timestamps = v
+// SetTrueBool sets the TrueBool field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation1Output) SetTrueBool(v bool) *OutputService1TestShapeOutputService1TestCaseOperation1Output {
+	s.TrueBool = &v
+	return s
+}
+
+type OutputService1TestShapeOutputService1TestCaseOperation2Input struct {
+	_ struct{} `type:"structure"`
+}
+
+type OutputService1TestShapeOutputService1TestCaseOperation2Output struct {
+	_ struct{} `type:"structure"`
+
+	Char *string `type:"character"`
+
+	Double *float64 `type:"double"`
+
+	FalseBool *bool `type:"boolean"`
+
+	Float *float64 `type:"float"`
+
+	ImaHeader *string `location:"header" type:"string"`
+
+	ImaHeaderLocation *string `location:"header" locationName:"X-Foo" type:"string"`
+
+	Long *int64 `type:"long"`
+
+	Num *int64 `locationName:"FooNum" type:"integer"`
+
+	Str *string `type:"string"`
+
+	Timestamp *time.Time `type:"timestamp"`
+
+	TrueBool *bool `type:"boolean"`
+}
+
+// SetChar sets the Char field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetChar(v string) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.Char = &v
+	return s
+}
+
+// SetDouble sets the Double field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetDouble(v float64) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.Double = &v
+	return s
+}
+
+// SetFalseBool sets the FalseBool field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetFalseBool(v bool) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.FalseBool = &v
+	return s
+}
+
+// SetFloat sets the Float field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetFloat(v float64) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.Float = &v
+	return s
+}
+
+// SetImaHeader sets the ImaHeader field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetImaHeader(v string) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.ImaHeader = &v
+	return s
+}
+
+// SetImaHeaderLocation sets the ImaHeaderLocation field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetImaHeaderLocation(v string) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.ImaHeaderLocation = &v
+	return s
+}
+
+// SetLong sets the Long field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetLong(v int64) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.Long = &v
+	return s
+}
+
+// SetNum sets the Num field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetNum(v int64) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.Num = &v
+	return s
+}
+
+// SetStr sets the Str field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetStr(v string) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.Str = &v
+	return s
+}
+
+// SetTimestamp sets the Timestamp field's value.
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetTimestamp(v time.Time) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
+	s.Timestamp = &v
 	return s
 }
 
 // SetTrueBool sets the TrueBool field's value.
-func (s *OutputService1TestShapeOutputService1TestCaseOperation3Output) SetTrueBool(v bool) *OutputService1TestShapeOutputService1TestCaseOperation3Output {
+func (s *OutputService1TestShapeOutputService1TestCaseOperation2Output) SetTrueBool(v bool) *OutputService1TestShapeOutputService1TestCaseOperation2Output {
 	s.TrueBool = &v
 	return s
 }
@@ -1906,7 +1910,7 @@ type OutputService11TestShapeOutputService11TestCaseOperation1Output struct {
 
 	Str *string `location:"header" locationName:"x-str" type:"string"`
 
-	Timestamp *time.Time `location:"header" locationName:"x-timestamp" type:"timestamp" timestampFormat:"iso8601"`
+	Timestamp *time.Time `location:"header" locationName:"x-timestamp" type:"timestamp"`
 
 	TrueBool *bool `location:"header" locationName:"x-true-bool" type:"boolean"`
 }
@@ -2193,18 +2197,17 @@ const opOutputService13TestCaseOperation1 = "OperationName"
 //    if err == nil { // resp is now filled
 //        fmt.Println(resp)
 //    }
-func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation1Request(input *OutputService13TestShapeOutputService13TestCaseOperation1Input) (req *request.Request, output *OutputService13TestShapeOutputService13TestCaseOperation2Input) {
+func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation1Request(input *OutputService13TestShapeOutputService13TestCaseOperation1Input) (req *request.Request, output *OutputService13TestShapeOutputService13TestCaseOperation1Output) {
 	op := &request.Operation{
-		Name:       opOutputService13TestCaseOperation1,
-		HTTPMethod: "POST",
-		HTTPPath:   "/path",
+		Name:     opOutputService13TestCaseOperation1,
+		HTTPPath: "/",
 	}
 
 	if input == nil {
 		input = &OutputService13TestShapeOutputService13TestCaseOperation1Input{}
 	}
 
-	output = &OutputService13TestShapeOutputService13TestCaseOperation2Input{}
+	output = &OutputService13TestShapeOutputService13TestCaseOperation1Output{}
 	req = c.newRequest(op, input, output)
 	return
 }
@@ -2217,7 +2220,7 @@ func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation1Request(i
 //
 // See the AWS API reference guide for 's
 // API operation OutputService13TestCaseOperation1 for usage and error information.
-func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation1(input *OutputService13TestShapeOutputService13TestCaseOperation1Input) (*OutputService13TestShapeOutputService13TestCaseOperation2Input, error) {
+func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation1(input *OutputService13TestShapeOutputService13TestCaseOperation1Input) (*OutputService13TestShapeOutputService13TestCaseOperation1Output, error) {
 	req, out := c.OutputService13TestCaseOperation1Request(input)
 	return out, req.Send()
 }
@@ -2231,79 +2234,8 @@ func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation1(input *O
 // the context is nil a panic will occur. In the future the SDK may create
 // sub-contexts for http.Requests. See https://golang.org/pkg/context/
 // for more information on using Contexts.
-func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation1WithContext(ctx aws.Context, input *OutputService13TestShapeOutputService13TestCaseOperation1Input, opts ...request.Option) (*OutputService13TestShapeOutputService13TestCaseOperation2Input, error) {
+func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation1WithContext(ctx aws.Context, input *OutputService13TestShapeOutputService13TestCaseOperation1Input, opts ...request.Option) (*OutputService13TestShapeOutputService13TestCaseOperation1Output, error) {
 	req, out := c.OutputService13TestCaseOperation1Request(input)
-	req.SetContext(ctx)
-	req.ApplyOptions(opts...)
-	return out, req.Send()
-}
-
-const opOutputService13TestCaseOperation2 = "OperationName"
-
-// OutputService13TestCaseOperation2Request generates a "aws/request.Request" representing the
-// client's request for the OutputService13TestCaseOperation2 operation. The "output" return
-// value will be populated with the request's response once the request completes
-// successfuly.
-//
-// Use "Send" method on the returned Request to send the API call to the service.
-// the "output" return value is not valid until after Send returns without error.
-//
-// See OutputService13TestCaseOperation2 for more information on using the OutputService13TestCaseOperation2
-// API call, and error handling.
-//
-// This method is useful when you want to inject custom logic or configuration
-// into the SDK's request lifecycle. Such as custom headers, or retry logic.
-//
-//
-//    // Example sending a request using the OutputService13TestCaseOperation2Request method.
-//    req, resp := client.OutputService13TestCaseOperation2Request(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
-func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation2Request(input *OutputService13TestShapeOutputService13TestCaseOperation2Input) (req *request.Request, output *OutputService13TestShapeOutputService13TestCaseOperation2Output) {
-	op := &request.Operation{
-		Name:       opOutputService13TestCaseOperation2,
-		HTTPMethod: "POST",
-		HTTPPath:   "/path",
-	}
-
-	if input == nil {
-		input = &OutputService13TestShapeOutputService13TestCaseOperation2Input{}
-	}
-
-	output = &OutputService13TestShapeOutputService13TestCaseOperation2Output{}
-	req = c.newRequest(op, input, output)
-	req.Handlers.Unmarshal.Remove(restxml.UnmarshalHandler)
-	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
-	return
-}
-
-// OutputService13TestCaseOperation2 API operation for .
-//
-// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
-// with awserr.Error's Code and Message methods to get detailed information about
-// the error.
-//
-// See the AWS API reference guide for 's
-// API operation OutputService13TestCaseOperation2 for usage and error information.
-func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation2(input *OutputService13TestShapeOutputService13TestCaseOperation2Input) (*OutputService13TestShapeOutputService13TestCaseOperation2Output, error) {
-	req, out := c.OutputService13TestCaseOperation2Request(input)
-	return out, req.Send()
-}
-
-// OutputService13TestCaseOperation2WithContext is the same as OutputService13TestCaseOperation2 with the addition of
-// the ability to pass a context and additional request options.
-//
-// See OutputService13TestCaseOperation2 for details on how to use this API operation.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *OutputService13ProtocolTest) OutputService13TestCaseOperation2WithContext(ctx aws.Context, input *OutputService13TestShapeOutputService13TestCaseOperation2Input, opts ...request.Option) (*OutputService13TestShapeOutputService13TestCaseOperation2Output, error) {
-	req, out := c.OutputService13TestCaseOperation2Request(input)
 	req.SetContext(ctx)
 	req.ApplyOptions(opts...)
 	return out, req.Send()
@@ -2313,240 +2245,85 @@ type OutputService13TestShapeOutputService13TestCaseOperation1Input struct {
 	_ struct{} `type:"structure"`
 }
 
-type OutputService13TestShapeOutputService13TestCaseOperation2Input struct {
+type OutputService13TestShapeOutputService13TestCaseOperation1Output struct {
 	_ struct{} `type:"structure"`
 
-	FooEnum *string `type:"string" enum:"OutputService13TestShapeRESTJSONEnumType"`
+	StructMember *OutputService13TestShapeTimeContainer `type:"structure"`
 
-	HeaderEnum *string `location:"header" locationName:"x-amz-enum" type:"string" enum:"OutputService13TestShapeRESTJSONEnumType"`
+	TimeArg *time.Time `type:"timestamp"`
 
-	ListEnums []*string `type:"list"`
+	TimeArgInHeader *time.Time `location:"header" locationName:"x-amz-timearg" type:"timestamp"`
+
+	TimeCustom *time.Time `type:"timestamp" timestampFormat:"rfc822"`
+
+	TimeCustomInHeader *time.Time `location:"header" locationName:"x-amz-timecustom" type:"timestamp" timestampFormat:"unixTimestamp"`
+
+	TimeFormat *time.Time `type:"timestamp" timestampFormat:"unixTimestamp"`
+
+	TimeFormatInHeader *time.Time `location:"header" locationName:"x-amz-timeformat" type:"timestamp" timestampFormat:"unixTimestamp"`
 }
 
-// SetFooEnum sets the FooEnum field's value.
-func (s *OutputService13TestShapeOutputService13TestCaseOperation2Input) SetFooEnum(v string) *OutputService13TestShapeOutputService13TestCaseOperation2Input {
-	s.FooEnum = &v
+// SetStructMember sets the StructMember field's value.
+func (s *OutputService13TestShapeOutputService13TestCaseOperation1Output) SetStructMember(v *OutputService13TestShapeTimeContainer) *OutputService13TestShapeOutputService13TestCaseOperation1Output {
+	s.StructMember = v
 	return s
 }
 
-// SetHeaderEnum sets the HeaderEnum field's value.
-func (s *OutputService13TestShapeOutputService13TestCaseOperation2Input) SetHeaderEnum(v string) *OutputService13TestShapeOutputService13TestCaseOperation2Input {
-	s.HeaderEnum = &v
+// SetTimeArg sets the TimeArg field's value.
+func (s *OutputService13TestShapeOutputService13TestCaseOperation1Output) SetTimeArg(v time.Time) *OutputService13TestShapeOutputService13TestCaseOperation1Output {
+	s.TimeArg = &v
 	return s
 }
 
-// SetListEnums sets the ListEnums field's value.
-func (s *OutputService13TestShapeOutputService13TestCaseOperation2Input) SetListEnums(v []*string) *OutputService13TestShapeOutputService13TestCaseOperation2Input {
-	s.ListEnums = v
+// SetTimeArgInHeader sets the TimeArgInHeader field's value.
+func (s *OutputService13TestShapeOutputService13TestCaseOperation1Output) SetTimeArgInHeader(v time.Time) *OutputService13TestShapeOutputService13TestCaseOperation1Output {
+	s.TimeArgInHeader = &v
 	return s
 }
 
-type OutputService13TestShapeOutputService13TestCaseOperation2Output struct {
-	_ struct{} `type:"structure"`
-}
-
-const (
-	// RESTJSONEnumTypeFoo is a OutputService13TestShapeRESTJSONEnumType enum value
-	RESTJSONEnumTypeFoo = "foo"
-
-	// RESTJSONEnumTypeBar is a OutputService13TestShapeRESTJSONEnumType enum value
-	RESTJSONEnumTypeBar = "bar"
-
-	// RESTJSONEnumType0 is a OutputService13TestShapeRESTJSONEnumType enum value
-	RESTJSONEnumType0 = "0"
-
-	// RESTJSONEnumType1 is a OutputService13TestShapeRESTJSONEnumType enum value
-	RESTJSONEnumType1 = "1"
-)
-
-// OutputService14ProtocolTest provides the API operation methods for making requests to
-// . See this package's package overview docs
-// for details on the service.
-//
-// OutputService14ProtocolTest methods are safe to use concurrently. It is not safe to
-// modify mutate any of the struct's properties though.
-type OutputService14ProtocolTest struct {
-	*client.Client
-}
-
-// New creates a new instance of the OutputService14ProtocolTest client with a session.
-// If additional configuration is needed for the client instance use the optional
-// aws.Config parameter to add your extra config.
-//
-// Example:
-//     // Create a OutputService14ProtocolTest client from just a session.
-//     svc := outputservice14protocoltest.New(mySession)
-//
-//     // Create a OutputService14ProtocolTest client with additional configuration
-//     svc := outputservice14protocoltest.New(mySession, aws.NewConfig().WithRegion("us-west-2"))
-func NewOutputService14ProtocolTest(p client.ConfigProvider, cfgs ...*aws.Config) *OutputService14ProtocolTest {
-	c := p.ClientConfig("outputservice14protocoltest", cfgs...)
-	return newOutputService14ProtocolTestClient(*c.Config, c.Handlers, c.Endpoint, c.SigningRegion, c.SigningName)
-}
-
-// newClient creates, initializes and returns a new service client instance.
-func newOutputService14ProtocolTestClient(cfg aws.Config, handlers request.Handlers, endpoint, signingRegion, signingName string) *OutputService14ProtocolTest {
-	svc := &OutputService14ProtocolTest{
-		Client: client.New(
-			cfg,
-			metadata.ClientInfo{
-				ServiceName:   "OutputService14ProtocolTest",
-				ServiceID:     "OutputService14ProtocolTest",
-				SigningName:   signingName,
-				SigningRegion: signingRegion,
-				Endpoint:      endpoint,
-				APIVersion:    "",
-			},
-			handlers,
-		),
-	}
-
-	// Handlers
-	svc.Handlers.Sign.PushBackNamed(v4.SignRequestHandler)
-	svc.Handlers.Build.PushBackNamed(restxml.BuildHandler)
-	svc.Handlers.Unmarshal.PushBackNamed(restxml.UnmarshalHandler)
-	svc.Handlers.UnmarshalMeta.PushBackNamed(restxml.UnmarshalMetaHandler)
-	svc.Handlers.UnmarshalError.PushBackNamed(restxml.UnmarshalErrorHandler)
-
-	return svc
-}
-
-// newRequest creates a new request for a OutputService14ProtocolTest operation and runs any
-// custom request initialization.
-func (c *OutputService14ProtocolTest) newRequest(op *request.Operation, params, data interface{}) *request.Request {
-	req := c.NewRequest(op, params, data)
-
-	return req
-}
-
-const opOutputService14TestCaseOperation1 = "OperationName"
-
-// OutputService14TestCaseOperation1Request generates a "aws/request.Request" representing the
-// client's request for the OutputService14TestCaseOperation1 operation. The "output" return
-// value will be populated with the request's response once the request completes
-// successfuly.
-//
-// Use "Send" method on the returned Request to send the API call to the service.
-// the "output" return value is not valid until after Send returns without error.
-//
-// See OutputService14TestCaseOperation1 for more information on using the OutputService14TestCaseOperation1
-// API call, and error handling.
-//
-// This method is useful when you want to inject custom logic or configuration
-// into the SDK's request lifecycle. Such as custom headers, or retry logic.
-//
-//
-//    // Example sending a request using the OutputService14TestCaseOperation1Request method.
-//    req, resp := client.OutputService14TestCaseOperation1Request(params)
-//
-//    err := req.Send()
-//    if err == nil { // resp is now filled
-//        fmt.Println(resp)
-//    }
-func (c *OutputService14ProtocolTest) OutputService14TestCaseOperation1Request(input *OutputService14TestShapeOutputService14TestCaseOperation1Input) (req *request.Request, output *OutputService14TestShapeOutputService14TestCaseOperation1Output) {
-	op := &request.Operation{
-		Name:       opOutputService14TestCaseOperation1,
-		HTTPMethod: "GET",
-		HTTPPath:   "/path",
-	}
-
-	if input == nil {
-		input = &OutputService14TestShapeOutputService14TestCaseOperation1Input{}
-	}
-
-	output = &OutputService14TestShapeOutputService14TestCaseOperation1Output{}
-	req = c.newRequest(op, input, output)
-	return
-}
-
-// OutputService14TestCaseOperation1 API operation for .
-//
-// Returns awserr.Error for service API and SDK errors. Use runtime type assertions
-// with awserr.Error's Code and Message methods to get detailed information about
-// the error.
-//
-// See the AWS API reference guide for 's
-// API operation OutputService14TestCaseOperation1 for usage and error information.
-func (c *OutputService14ProtocolTest) OutputService14TestCaseOperation1(input *OutputService14TestShapeOutputService14TestCaseOperation1Input) (*OutputService14TestShapeOutputService14TestCaseOperation1Output, error) {
-	req, out := c.OutputService14TestCaseOperation1Request(input)
-	return out, req.Send()
-}
-
-// OutputService14TestCaseOperation1WithContext is the same as OutputService14TestCaseOperation1 with the addition of
-// the ability to pass a context and additional request options.
-//
-// See OutputService14TestCaseOperation1 for details on how to use this API operation.
-//
-// The context must be non-nil and will be used for request cancellation. If
-// the context is nil a panic will occur. In the future the SDK may create
-// sub-contexts for http.Requests. See https://golang.org/pkg/context/
-// for more information on using Contexts.
-func (c *OutputService14ProtocolTest) OutputService14TestCaseOperation1WithContext(ctx aws.Context, input *OutputService14TestShapeOutputService14TestCaseOperation1Input, opts ...request.Option) (*OutputService14TestShapeOutputService14TestCaseOperation1Output, error) {
-	req, out := c.OutputService14TestCaseOperation1Request(input)
-	req.SetContext(ctx)
-	req.ApplyOptions(opts...)
-	return out, req.Send()
-}
-
-type OutputService14TestShapeItemDetailShape struct {
-	_ struct{} `type:"structure" xmlPrefix:"xsi" xmlURI:"http://www.w3.org/2001/XMLSchema-instance"`
-
-	ID *string `type:"string"`
-
-	// Type is a required field
-	Type *string `locationName:"xsi:type" type:"string" xmlAttribute:"true" required:"true" enum:"OutputService14TestShapeItemType"`
-}
-
-// SetID sets the ID field's value.
-func (s *OutputService14TestShapeItemDetailShape) SetID(v string) *OutputService14TestShapeItemDetailShape {
-	s.ID = &v
+// SetTimeCustom sets the TimeCustom field's value.
+func (s *OutputService13TestShapeOutputService13TestCaseOperation1Output) SetTimeCustom(v time.Time) *OutputService13TestShapeOutputService13TestCaseOperation1Output {
+	s.TimeCustom = &v
 	return s
 }
 
-// SetType sets the Type field's value.
-func (s *OutputService14TestShapeItemDetailShape) SetType(v string) *OutputService14TestShapeItemDetailShape {
-	s.Type = &v
+// SetTimeCustomInHeader sets the TimeCustomInHeader field's value.
+func (s *OutputService13TestShapeOutputService13TestCaseOperation1Output) SetTimeCustomInHeader(v time.Time) *OutputService13TestShapeOutputService13TestCaseOperation1Output {
+	s.TimeCustomInHeader = &v
 	return s
 }
 
-type OutputService14TestShapeItemShape struct {
+// SetTimeFormat sets the TimeFormat field's value.
+func (s *OutputService13TestShapeOutputService13TestCaseOperation1Output) SetTimeFormat(v time.Time) *OutputService13TestShapeOutputService13TestCaseOperation1Output {
+	s.TimeFormat = &v
+	return s
+}
+
+// SetTimeFormatInHeader sets the TimeFormatInHeader field's value.
+func (s *OutputService13TestShapeOutputService13TestCaseOperation1Output) SetTimeFormatInHeader(v time.Time) *OutputService13TestShapeOutputService13TestCaseOperation1Output {
+	s.TimeFormatInHeader = &v
+	return s
+}
+
+type OutputService13TestShapeTimeContainer struct {
 	_ struct{} `type:"structure"`
 
-	ItemDetail *OutputService14TestShapeItemDetailShape `type:"structure" xmlPrefix:"xsi" xmlURI:"http://www.w3.org/2001/XMLSchema-instance"`
+	Bar *time.Time `locationName:"bar" type:"timestamp" timestampFormat:"unixTimestamp"`
+
+	Foo *time.Time `locationName:"foo" type:"timestamp"`
 }
 
-// SetItemDetail sets the ItemDetail field's value.
-func (s *OutputService14TestShapeItemShape) SetItemDetail(v *OutputService14TestShapeItemDetailShape) *OutputService14TestShapeItemShape {
-	s.ItemDetail = v
+// SetBar sets the Bar field's value.
+func (s *OutputService13TestShapeTimeContainer) SetBar(v time.Time) *OutputService13TestShapeTimeContainer {
+	s.Bar = &v
 	return s
 }
 
-type OutputService14TestShapeOutputService14TestCaseOperation1Input struct {
-	_ struct{} `type:"structure"`
-}
-
-type OutputService14TestShapeOutputService14TestCaseOperation1Output struct {
-	_ struct{} `type:"structure"`
-
-	ListItems []*OutputService14TestShapeItemShape `locationName:"ItemsList" locationNameList:"Item" type:"list"`
-}
-
-// SetListItems sets the ListItems field's value.
-func (s *OutputService14TestShapeOutputService14TestCaseOperation1Output) SetListItems(v []*OutputService14TestShapeItemShape) *OutputService14TestShapeOutputService14TestCaseOperation1Output {
-	s.ListItems = v
+// SetFoo sets the Foo field's value.
+func (s *OutputService13TestShapeTimeContainer) SetFoo(v time.Time) *OutputService13TestShapeTimeContainer {
+	s.Foo = &v
 	return s
 }
-
-const (
-	// ItemTypeType1 is a OutputService14TestShapeItemType enum value
-	ItemTypeType1 = "Type1"
-
-	// ItemTypeType2 is a OutputService14TestShapeItemType enum value
-	ItemTypeType2 = "Type2"
-
-	// ItemTypeType3 is a OutputService14TestShapeItemType enum value
-	ItemTypeType3 = "Type3"
-)
 
 //
 // Tests begin here
@@ -2663,41 +2440,6 @@ func TestOutputService1ProtocolTestScalarMembersCase2(t *testing.T) {
 		t.Errorf("expect %v, got %v", e, a)
 	}
 	if e, a := true, *out.TrueBool; e != a {
-		t.Errorf("expect %v, got %v", e, a)
-	}
-
-}
-
-func TestOutputService1ProtocolTestScalarMembersCase3(t *testing.T) {
-	svc := NewOutputService1ProtocolTest(unit.Session, &aws.Config{Endpoint: aws.String("https://test")})
-
-	buf := bytes.NewReader([]byte("<OperationNameResponse><Blobs><member>dmFsdWU=</member><member>dmFsdWUy</member></Blobs><Timestamps><member>2015-01-25T08:00:00Z</member><member>2015-01-25T08:00:01Z</member></Timestamps></OperationNameResponse>"))
-	req, out := svc.OutputService1TestCaseOperation3Request(nil)
-	req.HTTPResponse = &http.Response{StatusCode: 200, Body: ioutil.NopCloser(buf), Header: http.Header{}}
-
-	// set headers
-
-	// unmarshal response
-	restxml.UnmarshalMeta(req)
-	restxml.Unmarshal(req)
-	if req.Error != nil {
-		t.Errorf("expect not error, got %v", req.Error)
-	}
-
-	// assert response
-	if out == nil {
-		t.Errorf("expect not to be nil")
-	}
-	if e, a := "value", string(out.Blobs[0]); e != a {
-		t.Errorf("expect %v, got %v", e, a)
-	}
-	if e, a := "value2", string(out.Blobs[1]); e != a {
-		t.Errorf("expect %v, got %v", e, a)
-	}
-	if e, a := time.Unix(1.4221728e+09, 0).UTC().String(), out.Timestamps[0].UTC().String(); e != a {
-		t.Errorf("expect %v, got %v", e, a)
-	}
-	if e, a := time.Unix(1.422172801e+09, 0).UTC().String(), out.Timestamps[1].UTC().String(); e != a {
 		t.Errorf("expect %v, got %v", e, a)
 	}
 
@@ -3044,15 +2786,17 @@ func TestOutputService12ProtocolTestEmptyStringCase1(t *testing.T) {
 
 }
 
-func TestOutputService13ProtocolTestEnumCase1(t *testing.T) {
+func TestOutputService13ProtocolTestTimestampMembersCase1(t *testing.T) {
 	svc := NewOutputService13ProtocolTest(unit.Session, &aws.Config{Endpoint: aws.String("https://test")})
 
-	buf := bytes.NewReader([]byte("<OperationNameResponse><FooEnum>foo</FooEnum><ListEnums><member>0</member><member>1</member></ListEnums></OperationNameResponse>"))
+	buf := bytes.NewReader([]byte("<OperationNameResponse><StructMember><foo>2014-04-29T18:30:38Z</foo><bar>1398796238</bar></StructMember><TimeArg>2014-04-29T18:30:38Z</TimeArg><TimeCustom>Tue, 29 Apr 2014 18:30:38 GMT</TimeCustom><TimeFormat>1398796238</TimeFormat><RequestId>requestid</RequestId></OperationNameResponse>"))
 	req, out := svc.OutputService13TestCaseOperation1Request(nil)
 	req.HTTPResponse = &http.Response{StatusCode: 200, Body: ioutil.NopCloser(buf), Header: http.Header{}}
 
 	// set headers
-	req.HTTPResponse.Header.Set("x-amz-enum", "baz")
+	req.HTTPResponse.Header.Set("x-amz-timearg", "Tue, 29 Apr 2014 18:30:38 GMT")
+	req.HTTPResponse.Header.Set("x-amz-timecustom", "1398796238")
+	req.HTTPResponse.Header.Set("x-amz-timeformat", "1398796238")
 
 	// unmarshal response
 	restxml.UnmarshalMeta(req)
@@ -3065,80 +2809,28 @@ func TestOutputService13ProtocolTestEnumCase1(t *testing.T) {
 	if out == nil {
 		t.Errorf("expect not to be nil")
 	}
-	if e, a := "foo", *out.FooEnum; e != a {
+	if e, a := time.Unix(1.398796238e+09, 0).UTC().String(), out.StructMember.Bar.UTC().String(); e != a {
 		t.Errorf("expect %v, got %v", e, a)
 	}
-	if e, a := "baz", *out.HeaderEnum; e != a {
+	if e, a := time.Unix(1.398796238e+09, 0).UTC().String(), out.StructMember.Foo.UTC().String(); e != a {
 		t.Errorf("expect %v, got %v", e, a)
 	}
-	if e, a := "0", *out.ListEnums[0]; e != a {
+	if e, a := time.Unix(1.398796238e+09, 0).UTC().String(), out.TimeArg.UTC().String(); e != a {
 		t.Errorf("expect %v, got %v", e, a)
 	}
-	if e, a := "1", *out.ListEnums[1]; e != a {
+	if e, a := time.Unix(1.398796238e+09, 0).UTC().String(), out.TimeArgInHeader.UTC().String(); e != a {
 		t.Errorf("expect %v, got %v", e, a)
 	}
-
-}
-
-func TestOutputService13ProtocolTestEnumCase2(t *testing.T) {
-	svc := NewOutputService13ProtocolTest(unit.Session, &aws.Config{Endpoint: aws.String("https://test")})
-
-	buf := bytes.NewReader([]byte(""))
-	req, out := svc.OutputService13TestCaseOperation2Request(nil)
-	req.HTTPResponse = &http.Response{StatusCode: 200, Body: ioutil.NopCloser(buf), Header: http.Header{}}
-
-	// set headers
-
-	// unmarshal response
-	restxml.UnmarshalMeta(req)
-	restxml.Unmarshal(req)
-	if req.Error != nil {
-		t.Errorf("expect not error, got %v", req.Error)
-	}
-
-	// assert response
-	if out == nil {
-		t.Errorf("expect not to be nil")
-	}
-
-}
-
-func TestOutputService14ProtocolTestXMLAttributesCase1(t *testing.T) {
-	svc := NewOutputService14ProtocolTest(unit.Session, &aws.Config{Endpoint: aws.String("https://test")})
-
-	buf := bytes.NewReader([]byte("<SomeOutputDoc xmlns=\"http://s3.amazonaws.com/doc/2006-03-01/\"><ItemsList><Item><ItemDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"Type1\"><ID>id1</ID></ItemDetail></Item><Item><ItemDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"Type2\"><ID>id2</ID></ItemDetail></Item><Item><ItemDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"Type3\"><ID>id3</ID></ItemDetail></Item></ItemsList></SomeOutputDoc>"))
-	req, out := svc.OutputService14TestCaseOperation1Request(nil)
-	req.HTTPResponse = &http.Response{StatusCode: 200, Body: ioutil.NopCloser(buf), Header: http.Header{}}
-
-	// set headers
-
-	// unmarshal response
-	restxml.UnmarshalMeta(req)
-	restxml.Unmarshal(req)
-	if req.Error != nil {
-		t.Errorf("expect not error, got %v", req.Error)
-	}
-
-	// assert response
-	if out == nil {
-		t.Errorf("expect not to be nil")
-	}
-	if e, a := "id1", *out.ListItems[0].ItemDetail.ID; e != a {
+	if e, a := time.Unix(1.398796238e+09, 0).UTC().String(), out.TimeCustom.UTC().String(); e != a {
 		t.Errorf("expect %v, got %v", e, a)
 	}
-	if e, a := "Type1", *out.ListItems[0].ItemDetail.Type; e != a {
+	if e, a := time.Unix(1.398796238e+09, 0).UTC().String(), out.TimeCustomInHeader.UTC().String(); e != a {
 		t.Errorf("expect %v, got %v", e, a)
 	}
-	if e, a := "id2", *out.ListItems[1].ItemDetail.ID; e != a {
+	if e, a := time.Unix(1.398796238e+09, 0).UTC().String(), out.TimeFormat.UTC().String(); e != a {
 		t.Errorf("expect %v, got %v", e, a)
 	}
-	if e, a := "Type2", *out.ListItems[1].ItemDetail.Type; e != a {
-		t.Errorf("expect %v, got %v", e, a)
-	}
-	if e, a := "id3", *out.ListItems[2].ItemDetail.ID; e != a {
-		t.Errorf("expect %v, got %v", e, a)
-	}
-	if e, a := "Type3", *out.ListItems[2].ItemDetail.Type; e != a {
+	if e, a := time.Unix(1.398796238e+09, 0).UTC().String(), out.TimeFormatInHeader.UTC().String(); e != a {
 		t.Errorf("expect %v, got %v", e, a)
 	}
 

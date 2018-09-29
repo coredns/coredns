@@ -1,9 +1,13 @@
 language: go
 
+env:
+  - GO111MODULE=off
+  - GO111MODULE=on
+
 go:
-  - 1.8.x
   - 1.9.x
   - 1.10.x
+  - 1.11.x
   - master
 
 matrix:

@@ -481,10 +481,11 @@ func TestClientController(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer safeClose(t, client2)
-	if _, err = client2.Controller(); err != ErrControllerNotAvailable {
-		t.Errorf("Expected Contoller() to return %s, found %s", ErrControllerNotAvailable, err)
+	if _, err = client2.Controller(); err != ErrUnsupportedVersion {
+		t.Errorf("Expected Contoller() to return %s, found %s", ErrUnsupportedVersion, err)
 	}
 }
+
 func TestClientCoordinatorWithConsumerOffsetsTopic(t *testing.T) {
 	seedBroker := NewMockBroker(t, 1)
 	staleCoordinator := NewMockBroker(t, 2)

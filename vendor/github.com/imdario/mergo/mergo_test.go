@@ -731,3 +731,25 @@ func TestBooleanPointer(t *testing.T) {
 		t.Fatalf("dst.C should be true")
 	}
 }
+
+func TestMergeMapWithInnerSliceOfDifferentType(t *testing.T) {
+	src := map[string]interface{}{
+		"foo": []string{"a", "b"},
+	}
+	dst := map[string]interface{}{
+		"foo": []int{1, 2},
+	}
+
+	if err := Merge(&src, &dst, WithOverride, WithAppendSlice); err == nil {
+		t.Fatal("expected an error, got nothing")
+	}
+}
+
+func TestMergeSliceDifferentType(t *testing.T) {
+	src := []string{"a", "b"}
+	dst := []int{1, 2}
+
+	if err := Merge(&src, &dst, WithOverride, WithAppendSlice); err == nil {
+		t.Fatal("expected an error, got nothing")
+	}
+}

@@ -462,6 +462,27 @@ func TestHuffmanDecode(t *testing.T) {
 	}
 }
 
+func BenchmarkHuffmanDecode(b *testing.B) {
+	b.StopTimer()
+	enc, err := hex.DecodeString(strings.Replace("94e7 821d d7f2 e6c7 b335 dfdf cd5b 3960 d5af 2708 7f36 72c1 ab27 0fb5 291f 9587 3160 65c0 03ed 4ee5 b106 3d50 07",
+		" ", "", -1))
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportAllocs()
+	b.StartTimer()
+	var buf bytes.Buffer
+	for i := 0; i < b.N; i++ {
+		buf.Reset()
+		if _, err := HuffmanDecode(&buf, enc); err != nil {
+			b.Fatalf("decode error: %v", err)
+		}
+		if string(buf.Bytes()) != "foo=ASDJKHQKBZXOQWEOPIUAXQWEOIU; max-age=3600; version=1" {
+			b.Fatalf("bogus output %q", buf.Bytes())
+		}
+	}
+}
+
 func TestAppendHuffmanString(t *testing.T) {
 	tests := []struct {
 		in, want string

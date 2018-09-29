@@ -9,6 +9,8 @@ import (
 	"runtime"
 )
 
+const debugFlag = true
+
 func debug(args ...interface{}) {
 	_, file, line, _ := runtime.Caller(1)
 	file = filepath.Base(file)

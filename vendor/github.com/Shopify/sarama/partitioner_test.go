@@ -150,6 +150,24 @@ func TestHashPartitioner(t *testing.T) {
 	}
 }
 
+func TestHashPartitionerConsistency(t *testing.T) {
+	partitioner := NewHashPartitioner("mytopic")
+	ep, ok := partitioner.(DynamicConsistencyPartitioner)
+
+	if !ok {
+		t.Error("Hash partitioner does not implement DynamicConsistencyPartitioner")
+	}
+
+	consistency := ep.MessageRequiresConsistency(&ProducerMessage{Key: StringEncoder("hi")})
+	if !consistency {
+		t.Error("Messages with keys should require consistency")
+	}
+	consistency = ep.MessageRequiresConsistency(&ProducerMessage{})
+	if consistency {
+		t.Error("Messages without keys should require consistency")
+	}
+}
+
 func TestHashPartitionerMinInt32(t *testing.T) {
 	partitioner := NewHashPartitioner("mytopic")
 

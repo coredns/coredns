@@ -361,6 +361,21 @@ func BenchmarkInsert(b *testing.B) {
 	}
 }
 
+func BenchmarkSeek(b *testing.B) {
+	b.StopTimer()
+	size := 100000
+	insertP := perm(size)
+	tr := New(*btreeDegree)
+	for _, item := range insertP {
+		tr.ReplaceOrInsert(item)
+	}
+	b.StartTimer()
+
+	for i := 0; i < b.N; i++ {
+		tr.AscendGreaterOrEqual(Int(i%size), func(i Item) bool { return false })
+	}
+}
+
 func BenchmarkDeleteInsert(b *testing.B) {
 	b.StopTimer()
 	insertP := perm(benchmarkTreeSize)

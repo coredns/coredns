@@ -1,0 +1,126 @@
+{
+  "swagger": "2.0",
+  "info": {
+   "title": "Integration Test",
+   "version": "1.0"
+  },
+  "paths": {},
+  "definitions": {
+   "dummytype.Bar": {
+    "required": [
+     "ViolationBehind",
+     "Violation"
+    ],
+    "properties": {
+     "Violation": {
+      "type": "boolean"
+     },
+     "ViolationBehind": {
+      "type": "boolean"
+     }
+    }
+   },
+   "dummytype.Baz": {
+    "required": [
+     "Violation",
+     "ViolationBehind"
+    ],
+    "properties": {
+     "Violation": {
+      "type": "boolean"
+     },
+     "ViolationBehind": {
+      "type": "boolean"
+     }
+    }
+   },
+   "dummytype.Foo": {
+    "required": [
+     "Second",
+     "First"
+    ],
+    "properties": {
+     "First": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "Second": {
+      "type": "string"
+     }
+    }
+   },
+   "dummytype.Waldo": {
+    "required": [
+     "First",
+     "Second"
+    ],
+    "properties": {
+     "First": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "Second": {
+      "type": "string"
+     }
+    }
+   },
+   "listtype.AtomicList": {
+    "required": [
+     "Field"
+    ],
+    "properties": {
+     "Field": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "atomic"
+     }
+    }
+   },
+   "listtype.Item": {
+    "required": [
+     "Protocol",
+     "Port"
+    ],
+    "properties": {
+     "Port": {
+      "type": "integer",
+      "format": "int32"
+     },
+     "Protocol": {
+      "type": "string"
+     }
+    }
+   },
+   "listtype.MapList": {
+    "required": [
+     "Field"
+    ],
+    "properties": {
+     "Field": {
+      "type": "array",
+      "items": {
+       "$ref": "#/definitions/listtype.Item"
+      },
+      "x-kubernetes-list-map-keys": "port",
+      "x-kubernetes-list-type": "map"
+     }
+    }
+   },
+   "listtype.SetList": {
+    "required": [
+     "Field"
+    ],
+    "properties": {
+     "Field": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      },
+      "x-kubernetes-list-type": "set"
+     }
+    }
+   }
+  }
+ }

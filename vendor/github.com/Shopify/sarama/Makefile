@@ -4,7 +4,7 @@ default: fmt vet errcheck test
 test:
 	echo "" > coverage.txt
 	for d in `go list ./... | grep -v vendor`; do \
-		go test -p 1 -v -timeout 90s -race -coverprofile=profile.out -covermode=atomic $$d || exit 1; \
+		go test -p 1 -v -timeout 240s -race -coverprofile=profile.out -covermode=atomic $$d || exit 1; \
 		if [ -f profile.out ]; then \
 			cat profile.out >> coverage.txt; \
 			rm profile.out; \

@@ -40,10 +40,7 @@ import (
 	tpb "github.com/gogo/protobuf/proto/proto3_proto"
 )
 
-var (
-	bytesBlackhole []byte
-	msgBlackhole   = new(tpb.Message)
-)
+var msgBlackhole = new(tpb.Message)
 
 // Disabled this Benchmark because it is using features (b.Run) from go1.7 and gogoprotobuf still have compatibility with go1.5
 // BenchmarkVarint32ArraySmall shows the performance on an array of small int32 fields (1 and

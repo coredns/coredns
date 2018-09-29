@@ -33,12 +33,12 @@ func TestTLS(t *testing.T) {
 	nva := time.Now().Add(1 * time.Hour)
 
 	caTemplate := &x509.Certificate{
-		Subject:      pkix.Name{CommonName: "ca"},
-		Issuer:       pkix.Name{CommonName: "ca"},
-		SerialNumber: big.NewInt(0),
-		NotAfter:     nva,
-		NotBefore:    nvb,
-		IsCA:         true,
+		Subject:               pkix.Name{CommonName: "ca"},
+		Issuer:                pkix.Name{CommonName: "ca"},
+		SerialNumber:          big.NewInt(0),
+		NotAfter:              nva,
+		NotBefore:             nvb,
+		IsCA:                  true,
 		BasicConstraintsValid: true,
 		KeyUsage:              x509.KeyUsageCertSign,
 	}

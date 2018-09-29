@@ -1760,42 +1760,6 @@ func TestServer_Response_Data_Sniff_DoesntOverride(t *testing.T) {
 	})
 }
 
-func TestServer_Response_Nosniff_WithoutContentType(t *testing.T) {
-	const msg = "<html>this is HTML."
-	testServerResponse(t, func(w http.ResponseWriter, r *http.Request) error {
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(200)
-		io.WriteString(w, msg)
-		return nil
-	}, func(st *serverTester) {
-		getSlash(st)
-		hf := st.wantHeaders()
-		if hf.StreamEnded() {
-			t.Fatal("don't want END_STREAM, expecting data")
-		}
-		if !hf.HeadersEnded() {
-			t.Fatal("want END_HEADERS flag")
-		}
-		goth := st.decodeHeader(hf.HeaderBlockFragment())
-		wanth := [][2]string{
-			{":status", "200"},
-			{"x-content-type-options", "nosniff"},
-			{"content-type", "application/octet-stream"},
-			{"content-length", strconv.Itoa(len(msg))},
-		}
-		if !reflect.DeepEqual(goth, wanth) {
-			t.Errorf("Got headers %v; want %v", goth, wanth)
-		}
-		df := st.wantData()
-		if !df.StreamEnded() {
-			t.Error("expected DATA to have END_STREAM flag")
-		}
-		if got := string(df.Data()); got != msg {
-			t.Errorf("got DATA %q; want %q", got, msg)
-		}
-	})
-}
-
 func TestServer_Response_TransferEncoding_chunked(t *testing.T) {
 	const msg = "hi"
 	testServerResponse(t, func(w http.ResponseWriter, r *http.Request) error {
@@ -2395,9 +2359,6 @@ func TestServer_NoCrash_HandlerClose_Then_ClientClose(t *testing.T) {
 		// it doesn't crash with an internal invariant panic, like
 		// it did before.
 		st.writeData(1, true, []byte("foo"))
-
-		// Get our flow control bytes back, since the handler didn't get them.
-		st.wantWindowUpdate(0, uint32(len("foo")))
 
 		// Sent after a peer sends data anyway (admittedly the
 		// previous RST_STREAM might've still been in-flight),
@@ -3817,9 +3778,6 @@ func TestServerHandlerConnectionClose(t *testing.T) {
 				}
 			case *HeadersFrame:
 				goth := st.decodeHeader(f.HeaderBlockFragment())
-				if !sawGoAway {
-					t.Fatalf("unexpected Headers frame before GOAWAY: %s, %v", summarizeFrame(f), goth)
-				}
 				wanth := [][2]string{
 					{":status", "200"},
 					{"foo", "bar"},
@@ -3836,8 +3794,59 @@ func TestServerHandlerConnectionClose(t *testing.T) {
 				t.Logf("unexpected frame: %v", summarizeFrame(f))
 			}
 		}
+		if !sawGoAway {
+			t.Errorf("didn't see GOAWAY")
+		}
 		if !sawRes {
 			t.Errorf("didn't see response")
 		}
 	})
+}
+
+func TestServer_Headers_HalfCloseRemote(t *testing.T) {
+	var st *serverTester
+	writeData := make(chan bool)
+	writeHeaders := make(chan bool)
+	leaveHandler := make(chan bool)
+	st = newServerTester(t, func(w http.ResponseWriter, r *http.Request) {
+		if st.stream(1) == nil {
+			t.Errorf("nil stream 1 in handler")
+		}
+		if got, want := st.streamState(1), stateOpen; got != want {
+			t.Errorf("in handler, state is %v; want %v", got, want)
+		}
+		writeData <- true
+		if n, err := r.Body.Read(make([]byte, 1)); n != 0 || err != io.EOF {
+			t.Errorf("body read = %d, %v; want 0, EOF", n, err)
+		}
+		if got, want := st.streamState(1), stateHalfClosedRemote; got != want {
+			t.Errorf("in handler, state is %v; want %v", got, want)
+		}
+		writeHeaders <- true
+
+		<-leaveHandler
+	})
+	st.greet()
+
+	st.writeHeaders(HeadersFrameParam{
+		StreamID:      1,
+		BlockFragment: st.encodeHeader(),
+		EndStream:     false, // keep it open
+		EndHeaders:    true,
+	})
+	<-writeData
+	st.writeData(1, true, nil)
+
+	<-writeHeaders
+
+	st.writeHeaders(HeadersFrameParam{
+		StreamID:      1,
+		BlockFragment: st.encodeHeader(),
+		EndStream:     false, // keep it open
+		EndHeaders:    true,
+	})
+
+	defer close(leaveHandler)
+
+	st.wantRSTStream(1, ErrCodeStreamClosed)
 }

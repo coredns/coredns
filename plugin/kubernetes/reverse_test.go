@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/watch"
 	"github.com/coredns/coredns/plugin/test"
@@ -15,66 +16,50 @@ import (
 
 type APIConnReverseTest struct{}
 
-func (APIConnReverseTest) HasSynced() bool                 { return true }
-func (APIConnReverseTest) Run()                            { return }
-func (APIConnReverseTest) Stop() error                     { return nil }
-func (APIConnReverseTest) PodIndex(string) []*api.Pod      { return nil }
-func (APIConnReverseTest) EpIndex(string) []*api.Endpoints { return nil }
-func (APIConnReverseTest) EndpointsList() []*api.Endpoints { return nil }
-func (APIConnReverseTest) ServiceList() []*api.Service     { return nil }
-func (APIConnReverseTest) Modified() int64                 { return 0 }
-func (APIConnReverseTest) SetWatchChan(watch.Chan)         {}
-func (APIConnReverseTest) Watch(string) error              { return nil }
-func (APIConnReverseTest) StopWatching(string)             {}
+func (APIConnReverseTest) HasSynced() bool                    { return true }
+func (APIConnReverseTest) Run()                               { return }
+func (APIConnReverseTest) Stop() error                        { return nil }
+func (APIConnReverseTest) PodIndex(string) []*object.Pod      { return nil }
+func (APIConnReverseTest) EpIndex(string) []*object.Endpoints { return nil }
+func (APIConnReverseTest) EndpointsList() []*object.Endpoints { return nil }
+func (APIConnReverseTest) ServiceList() []*object.Service     { return nil }
+func (APIConnReverseTest) Modified() int64                    { return 0 }
+func (APIConnReverseTest) SetWatchChan(watch.Chan)            {}
+func (APIConnReverseTest) Watch(string) error                 { return nil }
+func (APIConnReverseTest) StopWatching(string)                {}
 
-func (APIConnReverseTest) SvcIndex(svc string) []*api.Service {
+func (APIConnReverseTest) SvcIndex(svc string) []*object.Service {
 	if svc != "svc1.testns" {
 		return nil
 	}
-	svcs := []*api.Service{
+	svcs := []*object.Service{
 		{
-			ObjectMeta: meta.ObjectMeta{
-				Name:      "svc1",
-				Namespace: "testns",
-			},
-			Spec: api.ServiceSpec{
-				ClusterIP: "192.168.1.100",
-				Ports: []api.ServicePort{{
-					Name:     "http",
-					Protocol: "tcp",
-					Port:     80,
-				}},
-			},
+			Name:      "svc1",
+			Namespace: "testns",
+			ClusterIP: "192.168.1.100",
+			Ports:     []api.ServicePort{{Name: "http", Protocol: "tcp", Port: 80}},
 		},
 	}
 	return svcs
 
 }
 
-func (APIConnReverseTest) SvcIndexReverse(ip string) []*api.Service {
+func (APIConnReverseTest) SvcIndexReverse(ip string) []*object.Service {
 	if ip != "192.168.1.100" {
 		return nil
 	}
-	svcs := []*api.Service{
+	svcs := []*object.Service{
 		{
-			ObjectMeta: meta.ObjectMeta{
-				Name:      "svc1",
-				Namespace: "testns",
-			},
-			Spec: api.ServiceSpec{
-				ClusterIP: "192.168.1.100",
-				Ports: []api.ServicePort{{
-					Name:     "http",
-					Protocol: "tcp",
-					Port:     80,
-				}},
-			},
+			Name:      "svc1",
+			Namespace: "testns",
+			ClusterIP: "192.168.1.100",
+			Ports:     []api.ServicePort{{Name: "http", Protocol: "tcp", Port: 80}},
 		},
 	}
 	return svcs
 }
 
-func (APIConnReverseTest) EpIndexReverse(ip string) []*api.Endpoints {
+func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 	switch ip {
 	case "10.0.0.100":
 	case "1234:abcd::1":
@@ -83,11 +68,11 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*api.Endpoints {
 	default:
 		return nil
 	}
-	eps := []*api.Endpoints{
+	eps := []*object.Endpoints{
 		{
-			Subsets: []api.EndpointSubset{
+			Subsets: []object.EndpointSubset{
 				{
-					Addresses: []api.EndpointAddress{
+					Addresses: []object.EndpointAddress{
 						{
 							IP:       "10.0.0.100",
 							Hostname: "ep1a",
@@ -105,7 +90,7 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*api.Endpoints {
 							Hostname: "ip6svc1in",
 						},
 					},
-					Ports: []api.EndpointPort{
+					Ports: []object.EndpointPort{
 						{
 							Port:     80,
 							Protocol: "tcp",
@@ -114,10 +99,8 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*api.Endpoints {
 					},
 				},
 			},
-			ObjectMeta: meta.ObjectMeta{
-				Name:      "svc1",
-				Namespace: "testns",
-			},
+			Name:      "svc1",
+			Namespace: "testns",
 		},
 	}
 	return eps

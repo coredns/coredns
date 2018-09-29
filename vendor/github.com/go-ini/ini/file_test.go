@@ -266,16 +266,29 @@ func TestFile_WriteTo(t *testing.T) {
 	})
 
 	Convey("Support multiline comments", t, func() {
-		f := ini.Empty()
+		f, err := ini.Load([]byte(`
+# 
+# general.domain
+# 
+# Domain name of XX system.
+domain      = mydomain.com
+`))
+		So(err, ShouldBeNil)
+
 		f.Section("").Key("test").Comment = "Multiline\nComment"
 
 		var buf bytes.Buffer
-		_, err := f.WriteTo(&buf)
+		_, err = f.WriteTo(&buf)
 		So(err, ShouldBeNil)
 
-		So(buf.String(), ShouldEqual, `; Multiline
+		So(buf.String(), ShouldEqual, `# 
+# general.domain
+# 
+# Domain name of XX system.
+domain = mydomain.com
+; Multiline
 ; Comment
-test = 
+test   = 
 
 `)
 

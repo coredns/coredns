@@ -46,6 +46,7 @@ import (
 	"time"
 
 	. "github.com/golang/protobuf/proto"
+	pb3 "github.com/golang/protobuf/proto/proto3_proto"
 	. "github.com/golang/protobuf/proto/test_proto"
 )
 
@@ -2250,17 +2251,98 @@ func TestConcurrentMarshal(t *testing.T) {
 }
 
 func TestInvalidUTF8(t *testing.T) {
-	const wire = "\x12\x04\xde\xea\xca\xfe"
+	const invalidUTF8 = "\xde\xad\xbe\xef\x80\x00\xff"
+	tests := []struct {
+		label  string
+		proto2 Message
+		proto3 Message
+		want   []byte
+	}{{
+		label:  "Scalar",
+		proto2: &TestUTF8{Scalar: String(invalidUTF8)},
+		proto3: &pb3.TestUTF8{Scalar: invalidUTF8},
+		want:   []byte{0x0a, 0x07, 0xde, 0xad, 0xbe, 0xef, 0x80, 0x00, 0xff},
+	}, {
+		label:  "Vector",
+		proto2: &TestUTF8{Vector: []string{invalidUTF8}},
+		proto3: &pb3.TestUTF8{Vector: []string{invalidUTF8}},
+		want:   []byte{0x12, 0x07, 0xde, 0xad, 0xbe, 0xef, 0x80, 0x00, 0xff},
+	}, {
+		label:  "Oneof",
+		proto2: &TestUTF8{Oneof: &TestUTF8_Field{invalidUTF8}},
+		proto3: &pb3.TestUTF8{Oneof: &pb3.TestUTF8_Field{invalidUTF8}},
+		want:   []byte{0x1a, 0x07, 0xde, 0xad, 0xbe, 0xef, 0x80, 0x00, 0xff},
+	}, {
+		label:  "MapKey",
+		proto2: &TestUTF8{MapKey: map[string]int64{invalidUTF8: 0}},
+		proto3: &pb3.TestUTF8{MapKey: map[string]int64{invalidUTF8: 0}},
+		want:   []byte{0x22, 0x0b, 0x0a, 0x07, 0xde, 0xad, 0xbe, 0xef, 0x80, 0x00, 0xff, 0x10, 0x00},
+	}, {
+		label:  "MapValue",
+		proto2: &TestUTF8{MapValue: map[int64]string{0: invalidUTF8}},
+		proto3: &pb3.TestUTF8{MapValue: map[int64]string{0: invalidUTF8}},
+		want:   []byte{0x2a, 0x0b, 0x08, 0x00, 0x12, 0x07, 0xde, 0xad, 0xbe, 0xef, 0x80, 0x00, 0xff},
+	}}
 
-	var m GoTest
-	if err := Unmarshal([]byte(wire), &m); err == nil {
-		t.Errorf("Unmarshal error: got nil, want non-nil")
+	for _, tt := range tests {
+		// Proto2 should not validate UTF-8.
+		b, err := Marshal(tt.proto2)
+		if err != nil {
+			t.Errorf("Marshal(proto2.%s) = %v, want nil", tt.label, err)
+		}
+		if !bytes.Equal(b, tt.want) {
+			t.Errorf("Marshal(proto2.%s) = %x, want %x", tt.label, b, tt.want)
+		}
+
+		m := Clone(tt.proto2)
+		m.Reset()
+		if err = Unmarshal(tt.want, m); err != nil {
+			t.Errorf("Unmarshal(proto2.%s) = %v, want nil", tt.label, err)
+		}
+		if !Equal(m, tt.proto2) {
+			t.Errorf("proto2.%s: output mismatch:\ngot  %v\nwant %v", tt.label, m, tt.proto2)
+		}
+
+		// Proto3 should validate UTF-8.
+		b, err = Marshal(tt.proto3)
+		if err == nil {
+			t.Errorf("Marshal(proto3.%s) = %v, want non-nil", tt.label, err)
+		}
+		if !bytes.Equal(b, tt.want) {
+			t.Errorf("Marshal(proto3.%s) = %x, want %x", tt.label, b, tt.want)
+		}
+
+		m = Clone(tt.proto3)
+		m.Reset()
+		err = Unmarshal(tt.want, m)
+		if err == nil {
+			t.Errorf("Unmarshal(proto3.%s) = %v, want non-nil", tt.label, err)
+		}
+		if !Equal(m, tt.proto3) {
+			t.Errorf("proto3.%s: output mismatch:\ngot  %v\nwant %v", tt.label, m, tt.proto2)
+		}
+	}
+}
+
+func TestRequired(t *testing.T) {
+	// The F_BoolRequired field appears after all of the required fields.
+	// It should still be handled even after multiple required field violations.
+	m := &GoTest{F_BoolRequired: Bool(true)}
+	got, err := Marshal(m)
+	if _, ok := err.(*RequiredNotSetError); !ok {
+		t.Errorf("Marshal() = %v, want RequiredNotSetError error", err)
+	}
+	if want := []byte{0x50, 0x01}; !bytes.Equal(got, want) {
+		t.Errorf("Marshal() = %x, want %x", got, want)
 	}
 
-	m.Reset()
-	m.Table = String(wire[2:])
-	if _, err := Marshal(&m); err == nil {
-		t.Errorf("Marshal error: got nil, want non-nil")
+	m = new(GoTest)
+	err = Unmarshal(got, m)
+	if _, ok := err.(*RequiredNotSetError); !ok {
+		t.Errorf("Marshal() = %v, want RequiredNotSetError error", err)
+	}
+	if !m.GetF_BoolRequired() {
+		t.Error("m.F_BoolRequired = false, want true")
 	}
 }
 

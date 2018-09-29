@@ -15,6 +15,7 @@
 package etcdserver
 
 import (
+	goruntime "runtime"
 	"time"
 
 	"github.com/coreos/etcd/pkg/runtime"
@@ -40,6 +41,18 @@ var (
 		Subsystem: "server",
 		Name:      "leader_changes_seen_total",
 		Help:      "The number of leader changes seen.",
+	})
+	heartbeatSendFailures = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "etcd",
+		Subsystem: "server",
+		Name:      "heartbeat_send_failures_total",
+		Help:      "The total number of leader heartbeat send failures (likely overloaded from slow disk).",
+	})
+	slowApplies = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "etcd",
+		Subsystem: "server",
+		Name:      "slow_apply_total",
+		Help:      "The total number of slow apply requests (likely overloaded from slow disk).",
 	})
 	proposalsCommitted = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: "etcd",
@@ -71,6 +84,18 @@ var (
 		Name:      "lease_expired_total",
 		Help:      "The total number of expired leases.",
 	})
+	slowReadIndex = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: "etcd",
+		Subsystem: "server",
+		Name:      "slow_read_indexes_total",
+		Help:      "The total number of pending read indexes not in sync with leader's or timed out read index requests.",
+	})
+	quotaBackendBytes = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: "etcd",
+		Subsystem: "server",
+		Name:      "quota_backend_bytes",
+		Help:      "Current backend storage quota size in bytes.",
+	})
 	currentVersion = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: "etcd",
 		Subsystem: "server",
@@ -78,21 +103,36 @@ var (
 		Help:      "Which version is running. 1 for 'server_version' label with current version.",
 	},
 		[]string{"server_version"})
+	currentGoVersion = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: "etcd",
+		Subsystem: "server",
+		Name:      "go_version",
+		Help:      "Which Go version server is running with. 1 for 'server_go_version' label with current version.",
+	},
+		[]string{"server_go_version"})
 )
 
 func init() {
 	prometheus.MustRegister(hasLeader)
 	prometheus.MustRegister(isLeader)
 	prometheus.MustRegister(leaderChanges)
+	prometheus.MustRegister(heartbeatSendFailures)
+	prometheus.MustRegister(slowApplies)
 	prometheus.MustRegister(proposalsCommitted)
 	prometheus.MustRegister(proposalsApplied)
 	prometheus.MustRegister(proposalsPending)
 	prometheus.MustRegister(proposalsFailed)
 	prometheus.MustRegister(leaseExpired)
+	prometheus.MustRegister(slowReadIndex)
+	prometheus.MustRegister(quotaBackendBytes)
 	prometheus.MustRegister(currentVersion)
+	prometheus.MustRegister(currentGoVersion)
 
 	currentVersion.With(prometheus.Labels{
 		"server_version": version.Version,
+	}).Set(1)
+	currentGoVersion.With(prometheus.Labels{
+		"server_go_version": goruntime.Version(),
 	}).Set(1)
 }
 

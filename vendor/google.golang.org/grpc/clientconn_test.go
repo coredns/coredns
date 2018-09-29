@@ -19,6 +19,7 @@
 package grpc
 
 import (
+	"errors"
 	"math"
 	"net"
 	"sync/atomic"
@@ -31,6 +32,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/internal/backoff"
 	"google.golang.org/grpc/internal/leakcheck"
+	"google.golang.org/grpc/internal/transport"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/naming"
 	"google.golang.org/grpc/resolver"
@@ -179,6 +181,10 @@ func TestDialWaitsForServerSettings(t *testing.T) {
 }
 
 func TestCloseConnectionWhenServerPrefaceNotReceived(t *testing.T) {
+	// 1. Client connects to a server that doesn't send preface.
+	// 2. After minConnectTimeout(500 ms here), client disconnects and retries.
+	// 3. The new server sends its preface.
+	// 4. Client doesn't kill the connection this time.
 	mctBkp := getMinConnectTimeout()
 	// Call this only after transportMonitor goroutine has ended.
 	defer func() {
@@ -204,6 +210,7 @@ func TestCloseConnectionWhenServerPrefaceNotReceived(t *testing.T) {
 		}
 	}()
 	done := make(chan struct{})
+	accepted := make(chan struct{})
 	go func() { // Launch the server.
 		defer close(done)
 		conn1, err := lis.Accept()
@@ -218,6 +225,7 @@ func TestCloseConnectionWhenServerPrefaceNotReceived(t *testing.T) {
 			t.Errorf("Error while accepting. Err: %v", err)
 			return
 		}
+		close(accepted)
 		framer := http2.NewFramer(conn2, conn2)
 		if err = framer.WriteSettings(http2.Setting{}); err != nil {
 			t.Errorf("Error while writing settings. Err: %v", err)
@@ -242,9 +250,16 @@ func TestCloseConnectionWhenServerPrefaceNotReceived(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error while dialing. Err: %v", err)
 	}
-	time.Sleep(time.Second * 2) // Let things play out.
+	// wait for connection to be accepted on the server.
+	timer := time.NewTimer(time.Second * 10)
+	select {
+	case <-accepted:
+	case <-timer.C:
+		t.Fatalf("Client didn't make another connection request in time.")
+	}
+	// Make sure the connection stays alive for sometime.
+	time.Sleep(time.Second * 2)
 	atomic.StoreUint32(&over, 1)
-	lis.Close()
 	client.Close()
 	<-done
 }
@@ -427,6 +442,26 @@ func TestDialContextCancel(t *testing.T) {
 	cancel()
 	if _, err := DialContext(ctx, "Non-Existent.Server:80", WithBlock(), WithInsecure()); err != context.Canceled {
 		t.Fatalf("DialContext(%v, _) = _, %v, want _, %v", ctx, err, context.Canceled)
+	}
+}
+
+type failFastError struct{}
+
+func (failFastError) Error() string   { return "failfast" }
+func (failFastError) Temporary() bool { return false }
+
+func TestDialContextFailFast(t *testing.T) {
+	defer leakcheck.Check(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	failErr := failFastError{}
+	dialer := func(string, time.Duration) (net.Conn, error) {
+		return nil, failErr
+	}
+
+	_, err := DialContext(ctx, "Non-Existent.Server:80", WithBlock(), WithInsecure(), WithDialer(dialer), FailOnNonTempDialError(true))
+	if terr, ok := err.(transport.ConnectionError); !ok || terr.Origin() != failErr {
+		t.Fatalf("DialContext() = _, %v, want _, %v", err, failErr)
 	}
 }
 
@@ -674,5 +709,54 @@ func TestDisableServiceConfigOption(t *testing.T) {
 	m := cc.GetMethodConfig("/foo/Bar")
 	if m.WaitForReady != nil {
 		t.Fatalf("want: method (\"/foo/bar/\") config to be empty, got: %v", m)
+	}
+}
+
+func TestGetClientConnTarget(t *testing.T) {
+	addr := "nonexist:///non.existent"
+	cc, err := Dial(addr, WithInsecure())
+	if err != nil {
+		t.Fatalf("Dial(%s, _) = _, %v, want _, <nil>", addr, err)
+	}
+	defer cc.Close()
+	if cc.Target() != addr {
+		t.Fatalf("Target() = %s, want %s", cc.Target(), addr)
+	}
+}
+
+type backoffForever struct{}
+
+func (b backoffForever) Backoff(int) time.Duration { return time.Duration(math.MaxInt64) }
+
+func TestResetConnectBackoff(t *testing.T) {
+	defer leakcheck.Check(t)
+	dials := make(chan struct{})
+	dialer := func(string, time.Duration) (net.Conn, error) {
+		dials <- struct{}{}
+		return nil, errors.New("failed to fake dial")
+	}
+	cc, err := Dial("any", WithInsecure(), WithDialer(dialer), withBackoff(backoffForever{}))
+	if err != nil {
+		t.Fatalf("Dial() = _, %v; want _, nil", err)
+	}
+	defer cc.Close()
+	select {
+	case <-dials:
+	case <-time.NewTimer(10 * time.Second).C:
+		t.Fatal("Failed to call dial within 10s")
+	}
+
+	select {
+	case <-dials:
+		t.Fatal("Dial called unexpectedly before resetting backoff")
+	case <-time.NewTimer(100 * time.Millisecond).C:
+	}
+
+	cc.ResetConnectBackoff()
+
+	select {
+	case <-dials:
+	case <-time.NewTimer(10 * time.Second).C:
+		t.Fatal("Failed to call dial within 10s after resetting backoff")
 	}
 }
