@@ -16,6 +16,7 @@ func TestParseNoSOA(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Zone %q should have failed to load", "example.org.")
 	}
+
 	if !strings.Contains(err.Error(), "no SOA record") {
 		t.Fatalf("Zone %q should have failed to load with no soa error: %s", "example.org.", err)
 	}

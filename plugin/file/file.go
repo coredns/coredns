@@ -10,6 +10,9 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
+	"errors"
+
+	"github.com/coredns/coredns/dynapi"
 	"github.com/miekg/dns"
 )
 
@@ -28,6 +31,176 @@ type (
 		Names []string         // All the keys from the map Z as a string slice.
 	}
 )
+
+// Upsert implements the `dynapi.Writable` interface.
+// It either creates or updates an existing dns resource record
+// in the zone specified in `request.Zone` if existing.
+// Also the file-reload mutex is locked (and later released) to make
+// sure no concurrent unpredictable order of creation/deletion of dns resource record happens.
+func (f File) Upsert(request *dynapi.Request) error {
+	zone, ok := f.Zones.Z[request.Zone]
+	if !ok {
+		return errors.New("zone not found")
+	}
+
+	resourceRecord, err := request.ToDNSRecordResource()
+	if err != nil {
+		return err
+	}
+
+	dnsRRs := f.findRecordsInZoneByName(zone, resourceRecord.Header().Name)
+
+	zone.reloadMu.Lock()
+	defer zone.reloadMu.Unlock()
+
+	if dnsRRs != nil {
+		for _, dnsRR := range dnsRRs {
+			// TODO: Discuss adding `error` as
+			// return type to `zone.Delete`.
+			zone.Delete(dnsRR)
+		}
+	}
+
+	return zone.Insert(resourceRecord)
+}
+
+// Create implements the `dynapi.Writable` interface.
+// It creates an existing dns resource record
+// in the zone specified in `request.Zone` if existing.
+// Also the file-reload mutex is locked (and later released) to make
+// sure no concurrent unpredictable order of creation/deletion of dns resource record happens.
+func (f File) Create(request *dynapi.Request) error {
+	zone, ok := f.Zones.Z[request.Zone]
+	if !ok {
+		return errors.New("zone not found")
+	}
+
+	dnsRR, err := request.ToDNSRecordResource()
+	if err != nil {
+		return err
+	}
+
+	zone.reloadMu.Lock()
+	defer zone.reloadMu.Unlock()
+	return zone.Insert(dnsRR)
+}
+
+// Delete implements the `dynapi.Writable` interface.
+// It deletes an existing dns resource record
+// in the zone specified in `request.Zone` if both zone and record are existing.
+// Also the file-reload mutex is locked (and later released) to make
+// sure no concurrent unpredictable order of creation/deletion of dns resource record happens.
+func (f File) Delete(request *dynapi.Request) error {
+	zone, ok := f.Zones.Z[request.Zone]
+	if !ok {
+		return errors.New("zone not found")
+	}
+
+	resourceRecord, err := request.ToDNSRecordResource()
+	if err != nil {
+		return err
+	}
+
+	zone.reloadMu.Lock()
+	defer zone.reloadMu.Unlock()
+
+	// TODO: Discuss adding `error` as
+	// return type to `zone.Delete`.
+	zone.Delete(resourceRecord)
+	return nil
+}
+
+// Update implements the `dynapi.Writable` interface.
+// It updates an existing dns resource record
+// in the zone specified in `request.Zone` if both zone and record are existing by name.
+// Also the file-reload mutex is locked (and later released) to make
+// sure no concurrent unpredictable order of creation/deletion of dns resource record happens.
+func (f File) Update(request *dynapi.Request) error {
+	zone, ok := f.Zones.Z[request.Zone]
+	if !ok {
+		return errors.New("zone not found")
+	}
+
+	resourceRecord, err := request.ToDNSRecordResource()
+	if err != nil {
+		return err
+	}
+
+	dnsRRs := f.findRecordsInZoneByName(zone, resourceRecord.Header().Name)
+	if dnsRRs == nil {
+		return errors.New("no dns resource record found")
+	}
+
+	zone.reloadMu.Lock()
+	defer zone.reloadMu.Unlock()
+	for _, dnsRR := range dnsRRs {
+		// TODO: Discuss adding `error` as
+		// return type to `zone.Delete`.
+		zone.Delete(dnsRR)
+	}
+
+	return zone.Insert(resourceRecord)
+}
+
+// Exists implements the `dynapi.Writable` interface.
+// It checks whether a dns resource record exists in the specified
+// zone by `dynapi.Request` if zone is existing.
+func (f File) Exists(request *dynapi.Request) bool {
+	zone, ok := f.Zones.Z[request.Zone]
+	if !ok {
+		return false
+	}
+
+	resourceRecord, err := request.ToDNSRecordResource()
+	if err != nil {
+		return false
+	}
+
+	// TODO: Perhaps `zone.searchGlue(name, do)`
+	// might be more appropriate to use.
+	for _, r := range zone.All() {
+		if r.String() == resourceRecord.String() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (f File) findRecordsInZoneByName(zone *Zone, name string) []dns.RR {
+	var records []dns.RR
+
+	for _, r := range zone.All() {
+		rrType := r.Header().Rrtype
+		if (rrType == dns.TypeA || rrType == dns.TypeAAAA) && r.Header().Name == name {
+			records = append(records, r)
+		}
+	}
+
+	return records
+}
+
+// ExistsByName implements the `dynapi.Writable` interface.
+// It checks whether a dns resource record exists by name in the specified
+// zone by `dynapi.Request` if zone is existing.
+func (f File) ExistsByName(request *dynapi.Request) bool {
+	zone, ok := f.Zones.Z[request.Zone]
+	if !ok {
+		return false
+	}
+
+	resourceRecord, err := request.ToDNSRecordResource()
+	if err != nil {
+		return false
+	}
+
+	return f.findRecordsInZoneByName(zone, resourceRecord.Header().Name) != nil
+}
+
+// GetZones returns all zones handled by the `file` plugin.
+func (f File) GetZones() []string {
+	return f.Zones.Names
+}
 
 // ServeDNS implements the plugin.Handle interface.
 func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
