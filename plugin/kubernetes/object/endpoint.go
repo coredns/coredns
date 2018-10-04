@@ -92,7 +92,7 @@ func ToEndpoints(obj interface{}) interface{} {
 		}
 	}
 
-	end = nil
+	*end = api.Endpoints{}
 
 	return e
 }

@@ -34,7 +34,7 @@ func ToPod(obj interface{}) interface{} {
 		p.Deleting = !(*t).Time.IsZero()
 	}
 
-	pod = nil
+	*pod = api.Pod{}
 
 	return p
 }
