@@ -1,7 +1,7 @@
 # Security Release Process
 
-CoreDNS project has adopted this security disclosures and response policy
-to ensure a responsible handle of critical issues.
+The CoreDNS project has adopted this security disclosures and response policy
+to ensure responsible handling of critical issues.
 
 
 ## Product Security Team (PST)
@@ -11,24 +11,29 @@ The primary goal of this process is to reduce the total time users are vulnerabl
 
 The Product Security Team (PST) is responsible for organizing the entire response including internal communication and external disclosure.
 
-The initial Product Security Team will consist of set of maintainers that volunteered.
-The list is available in this [document](/OWNERS) and is synchronized with the receivers of product-security-team@coredns.io list.
+The initial Product Security Team will consist of the set of maintainers that volunteered.
+The list is available in this [document](/OWNERS) and is synchronized with the receivers of the members of security@coredns.io mailing list.
+
+### mailing lists
+
+* security@coredns.io : for any security concerns. Received by Product Security Team members, and used by this Team to discuss security issues and fixes.
+* distributors-announce@coredns.io: for early private information on Security patch releases. see below how CoreDNS distributors can apply for this list.
 
 ## Disclosures
 
 ### Private Disclosure Processes
 
 If you find a security vulnerability or any security related issues, 
-please DO NOT file a public issue - that means do not create a Github issue, 
-instead send your report privately to security@coredns.io. 
+please DO NOT file a public issue. Do not create a Github issue.
+Instead, send your report privately to security@coredns.io.
 Security reports are greatly appreciated and we will publicly thank you for it.
 
-If you know it, please provide as much information as possible, so we can react quickly.
+Please provide as much information as possible, so we can react quickly.
 For instance, that could include:
 - Description of the location and potential impact of the vulnerability;
 - A detailed description of the steps required to reproduce the vulnerability (POC scripts, screenshots, and compressed packet captures are all helpful to us)
 - Whatever else you think we might need to identify the source of this vulnerability
-- Do not forget : a Name/handle and a link for recognition in our Hall of Fame !
+- Do not forget: a Name/handle and a link for recognition in our Hall of Fame !
 
 ### Public Disclosure Processes
 
@@ -80,7 +85,7 @@ These steps should be completed within the 1-7 days of Disclosure.
 If the CVSS score is under 4.0 ([a low severity
 score](https://www.first.org/cvss/specification-document#i5)) the Fix Team can decide to slow the
 release process down in the face of holidays, developer bandwidth, etc. These decisions must be
-discussed on the product-security-team@coredns.io mailing list.
+discussed on the security@coredns.io mailing list.
 
 ### Fix Disclosure Process
 
@@ -167,7 +172,7 @@ could be in the form of the following:
 To be eligible for the distributor-announce@coredns.io mailing list, your
 distribution should:
 
-1. Be an actively distributor of CoreDNS component.
+1. Be an active distributor of CoreDNS component.
 2. Have a user base not limited to your own organization.
 3. Have a publicly verifiable track record up to present day of fixing security
    issues.
