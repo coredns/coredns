@@ -30,28 +30,44 @@ type Route53 struct {
 	upstream  *upstream.Upstream
 
 	zMu   sync.RWMutex
-	zones map[string]*zone
+	zones zones
 }
 
 type zone struct {
-	id string
-	z  *file.Zone
+	id  string
+	z   *file.Zone
+	dns string
+}
+
+type zones map[string][]*zone
+
+// AddHostedZone adds a new hosted zone into the zones map.
+// Returns true if the zone introduces a new domain.
+func (z zones) AddHostedZone(hz *zone) (newDomain bool) {
+	hz.z = file.NewZone(hz.dns, "")
+	if _, ok := z[hz.dns]; !ok {
+		z[hz.dns] = make([]*zone, 0)
+		newDomain = true
+	}
+	z[hz.dns] = append(z[hz.dns], hz)
+	return
 }
 
 // New returns new *Route53.
-func New(ctx context.Context, c route53iface.Route53API, keys map[string]string, up *upstream.Upstream) (*Route53, error) {
-	zones := make(map[string]*zone, len(keys))
+func New(ctx context.Context, c route53iface.Route53API, keys []*zone, up *upstream.Upstream) (*Route53, error) {
+	zones := make(zones, len(keys))
 	zoneNames := make([]string, 0, len(keys))
-	for dns, id := range keys {
+	for _, hostedZone := range keys {
 		_, err := c.ListHostedZonesByNameWithContext(ctx, &route53.ListHostedZonesByNameInput{
-			DNSName:      aws.String(dns),
-			HostedZoneId: aws.String(id),
+			DNSName:      aws.String(hostedZone.dns),
+			HostedZoneId: aws.String(hostedZone.id),
 		})
 		if err != nil {
 			return nil, err
 		}
-		zones[dns] = &zone{id: id, z: file.NewZone(dns, "")}
-		zoneNames = append(zoneNames, dns)
+		if zones.AddHostedZone(hostedZone) {
+			zoneNames = append(zoneNames, hostedZone.dns)
+		}
 	}
 	return &Route53{
 		client:    c,
@@ -101,9 +117,14 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	m.SetReply(r)
 	m.Authoritative, m.RecursionAvailable = true, true
 	var result file.Result
-	h.zMu.RLock()
-	m.Answer, m.Ns, m.Extra, result = z.z.Lookup(state, qname)
-	h.zMu.RUnlock()
+	for _, hostedZone := range z {
+		h.zMu.RLock()
+		m.Answer, m.Ns, m.Extra, result = hostedZone.z.Lookup(state, qname)
+		h.zMu.RUnlock()
+		if len(m.Answer) != 0 {
+			break
+		}
+	}
 
 	if len(m.Answer) == 0 && h.Fall.Through(qname) {
 		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
@@ -146,36 +167,37 @@ func (h *Route53) updateZones(ctx context.Context) error {
 	errc := make(chan error)
 	defer close(errc)
 	for zName, z := range h.zones {
-		go func(zName string, z *zone) {
+		go func(zName string, z []*zone) {
 			var err error
 			defer func() {
 				errc <- err
 			}()
 
-			newZ := file.NewZone(zName, "")
-			newZ.Upstream = *h.upstream
-
-			in := &route53.ListResourceRecordSetsInput{
-				HostedZoneId: aws.String(z.id),
-			}
-			err = h.client.ListResourceRecordSetsPagesWithContext(ctx, in,
-				func(out *route53.ListResourceRecordSetsOutput, last bool) bool {
-					for _, rrs := range out.ResourceRecordSets {
-						if err := updateZoneFromRRS(rrs, newZ); err != nil {
-							// Maybe unsupported record type. Log and carry on.
-							log.Warningf("Failed to process resource record set: %v", err)
+			for i, hostedZone := range z {
+				newZ := file.NewZone(zName, "")
+				newZ.Upstream = *h.upstream
+				in := &route53.ListResourceRecordSetsInput{
+					HostedZoneId: aws.String(hostedZone.id),
+				}
+				err = h.client.ListResourceRecordSetsPagesWithContext(ctx, in,
+					func(out *route53.ListResourceRecordSetsOutput, last bool) bool {
+						for _, rrs := range out.ResourceRecordSets {
+							if err := updateZoneFromRRS(rrs, newZ); err != nil {
+								// Maybe unsupported record type. Log and carry on.
+								log.Warningf("Failed to process resource record set: %v", err)
+							}
 						}
-					}
-					return true
-				})
-			if err != nil {
-				err = fmt.Errorf("failed to list resource records for %v:%v from route53: %v", zName, z.id, err)
-				return
+						return true
+					})
+				if err != nil {
+					err = fmt.Errorf("failed to list resource records for %v:%v from route53: %v", zName, hostedZone.id, err)
+					return
+				}
+				h.zMu.Lock()
+				(*z[i]).z = newZ
+				h.zMu.Unlock()
 			}
 
-			h.zMu.Lock()
-			z.z = newZ
-			h.zMu.Unlock()
 		}(zName, z)
 	}
 	// Collect errors (if any). This will also sync on all zones updates
