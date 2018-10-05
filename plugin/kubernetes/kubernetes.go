@@ -443,13 +443,16 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		serviceList = k.APIConn.ServiceList()
 		endpointsListFunc = func() []*api.Endpoints { return k.APIConn.EndpointsList() }
 	} else {
-		idx := r.service + "." + r.namespace
-		serviceList = k.APIConn.SvcIndex(idx)
-		endpointsListFunc = func() []*api.Endpoints { return k.APIConn.EpIndex(idx) }
+		key := metaNamespaceKey(r.namespace, r.service)
+		s := k.APIConn.SvcIndex(key)
+		if s != nil {
+			serviceList = append(serviceList, s)
+		}
+		endpointsListFunc = func() []*api.Endpoints { return []*api.Endpoints{k.APIConn.EpIndex(key)} }
 	}
 
 	for _, svc := range serviceList {
-		if !(match(r.namespace, svc.Namespace) && match(r.service, svc.Name)) {
+		if !(match(r.namespace, svc.ObjectMeta.Namespace) && match(r.service, svc.ObjectMeta.Name)) {
 			continue
 		}
 

@@ -19,7 +19,7 @@ func (APIConnReverseTest) HasSynced() bool                 { return true }
 func (APIConnReverseTest) Run()                            { return }
 func (APIConnReverseTest) Stop() error                     { return nil }
 func (APIConnReverseTest) PodIndex(string) []*api.Pod      { return nil }
-func (APIConnReverseTest) EpIndex(string) []*api.Endpoints { return nil }
+func (APIConnReverseTest) EpIndex(string) *api.Endpoints   { return nil }
 func (APIConnReverseTest) EndpointsList() []*api.Endpoints { return nil }
 func (APIConnReverseTest) ServiceList() []*api.Service     { return nil }
 func (APIConnReverseTest) Modified() int64                 { return 0 }
@@ -27,54 +27,52 @@ func (APIConnReverseTest) SetWatchChan(watch.Chan)         {}
 func (APIConnReverseTest) Watch(string) error              { return nil }
 func (APIConnReverseTest) StopWatching(string)             {}
 
-func (APIConnReverseTest) SvcIndex(svc string) []*api.Service {
-	if svc != "svc1.testns" {
+func (APIConnReverseTest) SvcIndex(key string) *api.Service {
+	if key != "testns/svc1" {
 		return nil
 	}
-	svcs := []*api.Service{
-		{
-			ObjectMeta: meta.ObjectMeta{
-				Name:      "svc1",
-				Namespace: "testns",
-			},
-			Spec: api.ServiceSpec{
-				ClusterIP: "192.168.1.100",
-				Ports: []api.ServicePort{{
-					Name:     "http",
-					Protocol: "tcp",
-					Port:     80,
-				}},
-			},
+	svc := api.Service{
+
+		ObjectMeta: meta.ObjectMeta{
+			Name:      "svc1",
+			Namespace: "testns",
+		},
+		Spec: api.ServiceSpec{
+			ClusterIP: "192.168.1.100",
+			Ports: []api.ServicePort{{
+				Name:     "http",
+				Protocol: "tcp",
+				Port:     80,
+			}},
 		},
 	}
-	return svcs
+	return &svc
 
 }
 
-func (APIConnReverseTest) SvcIndexReverse(ip string) []*api.Service {
+func (APIConnReverseTest) SvcIndexReverse(ip string) *api.Service {
 	if ip != "192.168.1.100" {
 		return nil
 	}
-	svcs := []*api.Service{
-		{
-			ObjectMeta: meta.ObjectMeta{
-				Name:      "svc1",
-				Namespace: "testns",
-			},
-			Spec: api.ServiceSpec{
-				ClusterIP: "192.168.1.100",
-				Ports: []api.ServicePort{{
-					Name:     "http",
-					Protocol: "tcp",
-					Port:     80,
-				}},
-			},
+	svc := api.Service{
+		ObjectMeta: meta.ObjectMeta{
+			Name:      "svc1",
+			Namespace: "testns",
+		},
+		Spec: api.ServiceSpec{
+			ClusterIP: "192.168.1.100",
+			Ports: []api.ServicePort{{
+				Name:     "http",
+				Protocol: "tcp",
+				Port:     80,
+			}},
 		},
 	}
-	return svcs
+
+	return &svc
 }
 
-func (APIConnReverseTest) EpIndexReverse(ip string) []*api.Endpoints {
+func (APIConnReverseTest) EpIndexReverse(ip string) *api.Endpoints {
 	switch ip {
 	case "10.0.0.100":
 	case "1234:abcd::1":
@@ -83,8 +81,8 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*api.Endpoints {
 	default:
 		return nil
 	}
-	eps := []*api.Endpoints{
-		{
+	ep := api.Endpoints{
+
 			Subsets: []api.EndpointSubset{
 				{
 					Addresses: []api.EndpointAddress{
@@ -118,9 +116,8 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*api.Endpoints {
 				Name:      "svc1",
 				Namespace: "testns",
 			},
-		},
 	}
-	return eps
+	return &ep
 }
 
 func (APIConnReverseTest) GetNodeByName(name string) (*api.Node, error) {

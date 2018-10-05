@@ -20,21 +20,21 @@ import (
 )
 
 const (
-	podIPIndex            = "PodIP"
-	svcNameNamespaceIndex = "NameNamespace"
-	svcIPIndex            = "ServiceIP"
-	epNameNamespaceIndex  = "EndpointNameNamespace"
-	epIPIndex             = "EndpointsIP"
+	podIPIndex = "PodIP"
+	svcIPIndex = "ServiceIP"
+	epIPIndex  = "EndpointsIP"
 )
 
 type dnsController interface {
 	ServiceList() []*api.Service
-	SvcIndex(string) []*api.Service
-	SvcIndexReverse(string) []*api.Service
-	PodIndex(string) []*api.Pod
-	EpIndex(string) []*api.Endpoints
-	EpIndexReverse(string) []*api.Endpoints
 	EndpointsList() []*api.Endpoints
+
+	SvcIndex(string) *api.Service
+	PodIndex(string) []*api.Pod
+	EpIndex(string) *api.Endpoints
+
+	SvcIndexReverse(string) *api.Service
+	EpIndexReverse(string) *api.Endpoints
 
 	GetNodeByName(string) (*api.Node, error)
 	GetNamespaceByName(string) (*api.Namespace, error)
@@ -72,6 +72,8 @@ type dnsControl struct {
 	epLister  cache.Indexer
 	nsLister  cache.Store
 
+	headlessEndpoints *endpointips
+
 	// stopLock is used to enforce only a single call to Stop is active.
 	// Needed because we allow stopping through an http endpoint and
 	// allowing concurrent stoppers leads to stack traces.
@@ -80,10 +82,11 @@ type dnsControl struct {
 	stopCh   chan struct{}
 
 	// watch-related items channel
-	watchChan        dnswatch.Chan
-	watched          map[string]struct{}
-	zones            []string
-	endpointNameMode bool
+	watchChan          dnswatch.Chan
+	watched            map[string]struct{}
+	zones              []string
+	endpointNameMode   bool
+	revIdxAllEndpoints bool
 }
 
 type dnsControlOpts struct {
@@ -97,17 +100,24 @@ type dnsControlOpts struct {
 
 	zones            []string
 	endpointNameMode bool
+
+	revIdxAllEndpoints bool
 }
 
 // newDNSController creates a controller for CoreDNS.
 func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
-		client:           kubeClient,
-		selector:         opts.selector,
-		stopCh:           make(chan struct{}),
-		watched:          make(map[string]struct{}),
-		zones:            opts.zones,
-		endpointNameMode: opts.endpointNameMode,
+		client:             kubeClient,
+		selector:           opts.selector,
+		stopCh:             make(chan struct{}),
+		watched:            make(map[string]struct{}),
+		zones:              opts.zones,
+		endpointNameMode:   opts.endpointNameMode,
+		revIdxAllEndpoints: opts.revIdxAllEndpoints,
+	}
+
+	if !dns.revIdxAllEndpoints {
+		dns.headlessEndpoints = newEndpointIPs()
 	}
 
 	dns.svcLister, dns.svcController = cache.NewIndexerInformer(
@@ -118,7 +128,7 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 		&api.Service{},
 		opts.resyncPeriod,
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
-		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc})
+		cache.Indexers{svcIPIndex: svcIPIndexFunc})
 
 	if opts.initPodCache {
 		dns.podLister, dns.podController = cache.NewIndexerInformer(
@@ -133,6 +143,10 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 	}
 
 	if opts.initEndpointsCache {
+		indexers := map[string]cache.IndexFunc{}
+		if opts.revIdxAllEndpoints {
+			indexers[epIPIndex] = epIPIndexFunc
+		}
 		dns.epLister, dns.epController = cache.NewIndexerInformer(
 			&cache.ListWatch{
 				ListFunc:  endpointsListFunc(dns.client, api.NamespaceAll, dns.selector),
@@ -141,7 +155,7 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 			&api.Endpoints{},
 			opts.resyncPeriod,
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
-			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc})
+			indexers)
 	}
 
 	dns.nsLister, dns.nsController = cache.NewInformer(
@@ -168,22 +182,6 @@ func svcIPIndexFunc(obj interface{}) ([]string, error) {
 		return nil, errObj
 	}
 	return []string{svc.Spec.ClusterIP}, nil
-}
-
-func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
-	s, ok := obj.(*api.Service)
-	if !ok {
-		return nil, errObj
-	}
-	return []string{s.ObjectMeta.Name + "." + s.ObjectMeta.Namespace}, nil
-}
-
-func epNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
-	s, ok := obj.(*api.Endpoints)
-	if !ok {
-		return nil, errObj
-	}
-	return []string{s.ObjectMeta.Name + "." + s.ObjectMeta.Namespace}, nil
 }
 
 func epIPIndexFunc(obj interface{}) ([]string, error) {
@@ -347,6 +345,10 @@ func (dns *dnsControl) ServiceList() (svcs []*api.Service) {
 	return svcs
 }
 
+func metaNamespaceKey(namespace, name string) string {
+	return namespace + "/" + name
+}
+
 func (dns *dnsControl) PodIndex(ip string) (pods []*api.Pod) {
 	if dns.podLister == nil {
 		return nil
@@ -360,30 +362,25 @@ func (dns *dnsControl) PodIndex(ip string) (pods []*api.Pod) {
 		if !ok {
 			continue
 		}
-		pods = append(pods, p)
+		return []*api.Pod{p}
 	}
-	return pods
+	return nil
 }
 
-func (dns *dnsControl) SvcIndex(idx string) (svcs []*api.Service) {
-	if dns.svcLister == nil {
-		return nil
-	}
-	os, err := dns.svcLister.ByIndex(svcNameNamespaceIndex, idx)
+func (dns *dnsControl) SvcIndex(key string) *api.Service {
+	o, _, err := dns.svcLister.GetByKey(key)
 	if err != nil {
 		return nil
 	}
-	for _, o := range os {
-		s, ok := o.(*api.Service)
-		if !ok {
-			continue
-		}
-		svcs = append(svcs, s)
+	s, ok := o.(*api.Service)
+	if !ok {
+		return nil
 	}
-	return svcs
+
+	return s
 }
 
-func (dns *dnsControl) SvcIndexReverse(ip string) (svcs []*api.Service) {
+func (dns *dnsControl) SvcIndexReverse(ip string) *api.Service {
 	if dns.svcLister == nil {
 		return nil
 	}
@@ -397,31 +394,36 @@ func (dns *dnsControl) SvcIndexReverse(ip string) (svcs []*api.Service) {
 		if !ok {
 			continue
 		}
-		svcs = append(svcs, s)
+		return s
 	}
-	return svcs
+	return nil
 }
 
-func (dns *dnsControl) EpIndex(idx string) (ep []*api.Endpoints) {
+func (dns *dnsControl) EpIndex(key string) *api.Endpoints {
 	if dns.epLister == nil {
 		return nil
 	}
-	os, err := dns.epLister.ByIndex(epNameNamespaceIndex, idx)
+	o, _, err := dns.epLister.GetByKey(key)
 	if err != nil {
 		return nil
 	}
-	for _, o := range os {
-		e, ok := o.(*api.Endpoints)
-		if !ok {
-			continue
-		}
-		ep = append(ep, e)
+	e, ok := o.(*api.Endpoints)
+	if !ok {
+		return nil
 	}
-	return ep
+	return e
 }
 
-func (dns *dnsControl) EpIndexReverse(ip string) (ep []*api.Endpoints) {
-	if dns.svcLister == nil {
+func (dns *dnsControl) EpIndexReverse(ip string) (ep *api.Endpoints) {
+	if !dns.revIdxAllEndpoints {
+		key := dns.headlessEndpoints.keys[ip]
+		if key == nil {
+			return nil
+		}
+		return dns.EpIndex(*key)
+	}
+
+	if dns.epLister == nil {
 		return nil
 	}
 	os, err := dns.epLister.ByIndex(epIPIndex, ip)
@@ -433,9 +435,10 @@ func (dns *dnsControl) EpIndexReverse(ip string) (ep []*api.Endpoints) {
 		if !ok {
 			continue
 		}
-		ep = append(ep, e)
+		return e
 	}
-	return ep
+
+	return nil
 }
 
 func (dns *dnsControl) EndpointsList() (eps []*api.Endpoints) {
@@ -470,7 +473,7 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*api.Namespace, error) {
 		if !ok {
 			continue
 		}
-		if name == ns.ObjectMeta.Name {
+		if name == ns.GetName() {
 			return ns, nil
 		}
 	}
@@ -581,9 +584,20 @@ func (dns *dnsControl) sendUpdates(oldObj, newObj interface{}) {
 	}
 }
 
-func (dns *dnsControl) Add(obj interface{})               { dns.sendUpdates(nil, obj) }
-func (dns *dnsControl) Delete(obj interface{})            { dns.sendUpdates(obj, nil) }
-func (dns *dnsControl) Update(oldObj, newObj interface{}) { dns.sendUpdates(oldObj, newObj) }
+func (dns *dnsControl) Add(obj interface{}) {
+	dns.AddEndpoints(obj)
+	dns.sendUpdates(nil, obj)
+}
+
+func (dns *dnsControl) Delete(obj interface{}) {
+	dns.DeleteEndpoints(obj)
+	dns.sendUpdates(obj, nil)
+}
+
+func (dns *dnsControl) Update(oldObj, newObj interface{}) {
+	dns.UpdateEndpoints(oldObj, newObj)
+	dns.sendUpdates(oldObj, newObj)
+}
 
 // subsetsEquivalent checks if two endpoint subsets are significantly equivalent
 // I.e. that they have the same ready addresses, host names, ports (including protocol

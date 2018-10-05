@@ -62,16 +62,16 @@ func (APIConnServiceTest) HasSynced() bool                        { return true 
 func (APIConnServiceTest) Run()                                   { return }
 func (APIConnServiceTest) Stop() error                            { return nil }
 func (APIConnServiceTest) PodIndex(string) []*api.Pod             { return nil }
-func (APIConnServiceTest) SvcIndexReverse(string) []*api.Service  { return nil }
-func (APIConnServiceTest) EpIndexReverse(string) []*api.Endpoints { return nil }
+func (APIConnServiceTest) SvcIndexReverse(string) *api.Service  { return nil }
+func (APIConnServiceTest) EpIndexReverse(string) *api.Endpoints { return nil }
 func (APIConnServiceTest) Modified() int64                        { return 0 }
 func (APIConnServiceTest) SetWatchChan(watch.Chan)                {}
 func (APIConnServiceTest) Watch(string) error                     { return nil }
 func (APIConnServiceTest) StopWatching(string)                    {}
 
-func (APIConnServiceTest) SvcIndex(string) []*api.Service {
-	svcs := []*api.Service{
-		{
+func (APIConnServiceTest) SvcIndex(key string) *api.Service {
+	svcs := map[string]*api.Service{
+		"testns/svc1": {
 			ObjectMeta: meta.ObjectMeta{
 				Name:      "svc1",
 				Namespace: "testns",
@@ -85,7 +85,7 @@ func (APIConnServiceTest) SvcIndex(string) []*api.Service {
 				}},
 			},
 		},
-		{
+		"testns/hdls1": {
 			ObjectMeta: meta.ObjectMeta{
 				Name:      "hdls1",
 				Namespace: "testns",
@@ -94,7 +94,7 @@ func (APIConnServiceTest) SvcIndex(string) []*api.Service {
 				ClusterIP: api.ClusterIPNone,
 			},
 		},
-		{
+		"testns/external": {
 			ObjectMeta: meta.ObjectMeta{
 				Name:      "external",
 				Namespace: "testns",
@@ -110,7 +110,7 @@ func (APIConnServiceTest) SvcIndex(string) []*api.Service {
 			},
 		},
 	}
-	return svcs
+	return svcs[key]
 }
 
 func (APIConnServiceTest) ServiceList() []*api.Service {
@@ -157,11 +157,11 @@ func (APIConnServiceTest) ServiceList() []*api.Service {
 	return svcs
 }
 
-func (APIConnServiceTest) EpIndex(string) []*api.Endpoints {
+func (APIConnServiceTest) EpIndex(key string) *api.Endpoints {
 	n := "test.node.foo.bar"
 
-	eps := []*api.Endpoints{
-		{
+	eps := map[string]*api.Endpoints{
+		"testns/svc1": {
 			Subsets: []api.EndpointSubset{
 				{
 					Addresses: []api.EndpointAddress{
@@ -184,7 +184,7 @@ func (APIConnServiceTest) EpIndex(string) []*api.Endpoints {
 				Namespace: "testns",
 			},
 		},
-		{
+		"testns/hdls1": {
 			Subsets: []api.EndpointSubset{
 				{
 					Addresses: []api.EndpointAddress{
@@ -206,7 +206,7 @@ func (APIConnServiceTest) EpIndex(string) []*api.Endpoints {
 				Namespace: "testns",
 			},
 		},
-		{
+		"testns/hdls2": {
 			Subsets: []api.EndpointSubset{
 				{
 					Addresses: []api.EndpointAddress{
@@ -224,11 +224,11 @@ func (APIConnServiceTest) EpIndex(string) []*api.Endpoints {
 				},
 			},
 			ObjectMeta: meta.ObjectMeta{
-				Name:      "hdls1",
+				Name:      "hdls2",
 				Namespace: "testns",
 			},
 		},
-		{
+		"testns/testsvc": {
 			Subsets: []api.EndpointSubset{
 				{
 					Addresses: []api.EndpointAddress{
@@ -239,9 +239,13 @@ func (APIConnServiceTest) EpIndex(string) []*api.Endpoints {
 					},
 				},
 			},
+			ObjectMeta: meta.ObjectMeta{
+				Name:      "testsvc",
+				Namespace: "testns",
+			},
 		},
 	}
-	return eps
+	return eps[key]
 }
 
 func (APIConnServiceTest) EndpointsList() []*api.Endpoints {
@@ -311,7 +315,7 @@ func (APIConnServiceTest) EndpointsList() []*api.Endpoints {
 				},
 			},
 			ObjectMeta: meta.ObjectMeta{
-				Name:      "hdls1",
+				Name:      "hdls2",
 				Namespace: "testns",
 			},
 		},
@@ -325,6 +329,10 @@ func (APIConnServiceTest) EndpointsList() []*api.Endpoints {
 						},
 					},
 				},
+			},
+			ObjectMeta: meta.ObjectMeta{
+				Name:      "testsvc",
+				Namespace: "testns",
 			},
 		},
 	}

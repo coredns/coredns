@@ -15,8 +15,8 @@ type APIConnFederationTest struct {
 func (APIConnFederationTest) HasSynced() bool                        { return true }
 func (APIConnFederationTest) Run()                                   { return }
 func (APIConnFederationTest) Stop() error                            { return nil }
-func (APIConnFederationTest) SvcIndexReverse(string) []*api.Service  { return nil }
-func (APIConnFederationTest) EpIndexReverse(string) []*api.Endpoints { return nil }
+func (APIConnFederationTest) SvcIndexReverse(string) *api.Service  { return nil }
+func (APIConnFederationTest) EpIndexReverse(string) *api.Endpoints { return nil }
 func (APIConnFederationTest) Modified() int64                        { return 0 }
 func (APIConnFederationTest) SetWatchChan(watch.Chan)                {}
 func (APIConnFederationTest) Watch(string) error                     { return nil }
@@ -34,9 +34,9 @@ func (APIConnFederationTest) PodIndex(string) []*api.Pod {
 	return a
 }
 
-func (APIConnFederationTest) SvcIndex(string) []*api.Service {
-	svcs := []*api.Service{
-		{
+func (APIConnFederationTest) SvcIndex(key string) *api.Service {
+	svcs := map[string]*api.Service{
+		"testns/svc1": {
 			ObjectMeta: meta.ObjectMeta{
 				Name:      "svc1",
 				Namespace: "testns",
@@ -50,7 +50,7 @@ func (APIConnFederationTest) SvcIndex(string) []*api.Service {
 				}},
 			},
 		},
-		{
+		"testns/hdls1": {
 			ObjectMeta: meta.ObjectMeta{
 				Name:      "hdls1",
 				Namespace: "testns",
@@ -59,7 +59,7 @@ func (APIConnFederationTest) SvcIndex(string) []*api.Service {
 				ClusterIP: api.ClusterIPNone,
 			},
 		},
-		{
+		"testns/external": {
 			ObjectMeta: meta.ObjectMeta{
 				Name:      "external",
 				Namespace: "testns",
@@ -74,7 +74,7 @@ func (APIConnFederationTest) SvcIndex(string) []*api.Service {
 			},
 		},
 	}
-	return svcs
+	return svcs[key]
 }
 
 func (APIConnFederationTest) ServiceList() []*api.Service {
@@ -120,9 +120,9 @@ func (APIConnFederationTest) ServiceList() []*api.Service {
 	return svcs
 }
 
-func (APIConnFederationTest) EpIndex(string) []*api.Endpoints {
-	eps := []*api.Endpoints{
-		{
+func (APIConnFederationTest) EpIndex(key string) *api.Endpoints {
+	eps := map[string]*api.Endpoints{
+		"testns/svc1": {
 			Subsets: []api.EndpointSubset{
 				{
 					Addresses: []api.EndpointAddress{
@@ -146,7 +146,7 @@ func (APIConnFederationTest) EpIndex(string) []*api.Endpoints {
 			},
 		},
 	}
-	return eps
+	return eps[key]
 }
 
 func (APIConnFederationTest) EndpointsList() []*api.Endpoints {
