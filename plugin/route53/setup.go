@@ -35,8 +35,8 @@ func init() {
 }
 
 func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Route53API) error {
-	keys := map[string]struct{}{}
-	zones := []*zone{}
+	keyPairs := map[string]struct{}{}
+	keys := map[string][]string{}
 
 	// Route53 plugin attempts to find AWS credentials by using ChainCredentials.
 	// And the order of that provider chain is as follows:
@@ -61,11 +61,12 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 			if dns == "" || hostedZoneID == "" {
 				return c.Errf("invalid zone '%s'", args[i])
 			}
-			if _, ok := keys[args[i]]; ok {
+			if _, ok := keyPairs[args[i]]; ok {
 				return c.Errf("conflict zone '%s'", args[i])
 			}
-			keys[args[i]] = struct{}{}
-			zones = append(zones, &zone{id: hostedZoneID, dns: plugin.Host(dns).Normalize()})
+
+			keyPairs[args[i]] = struct{}{}
+			keys[dns] = append(keys[dns], hostedZoneID)
 		}
 
 		for c.NextBlock() {
@@ -113,7 +114,7 @@ func setup(c *caddy.Controller, f func(*credentials.Credentials) route53iface.Ro
 
 	client := f(credentials.NewChainCredentials(providers))
 	ctx := context.Background()
-	h, err := New(ctx, client, zones, &up)
+	h, err := New(ctx, client, keys, &up)
 	if err != nil {
 		return c.Errf("failed to create Route53 plugin: %v", err)
 	}

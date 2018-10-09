@@ -41,32 +41,27 @@ type zone struct {
 
 type zones map[string][]*zone
 
-// AddHostedZone adds a new hosted zone into the zones map.
-// Returns true if the zone introduces a new domain.
-func (z zones) AddHostedZone(hz *zone) (newDomain bool) {
-	hz.z = file.NewZone(hz.dns, "")
-	if _, ok := z[hz.dns]; !ok {
-		z[hz.dns] = make([]*zone, 0)
-		newDomain = true
-	}
-	z[hz.dns] = append(z[hz.dns], hz)
-	return
-}
-
-// New returns new *Route53.
-func New(ctx context.Context, c route53iface.Route53API, keys []*zone, up *upstream.Upstream) (*Route53, error) {
-	zones := make(zones, len(keys))
+// New reads from the keys map which uses domain names as its key and hosted
+// zone id lists as its values, validates that each domain name/zone id pair does
+// exist, and returns a new *Route53. In addition to this, upstream is passed
+// for doing recursive queries against CNAMEs.
+// Returns error if it cannot verify any given domain name/zone id pair.
+func New(ctx context.Context, c route53iface.Route53API, keys map[string][]string, up *upstream.Upstream) (*Route53, error) {
+	zones := make(map[string][]*zone, len(keys))
 	zoneNames := make([]string, 0, len(keys))
-	for _, hostedZone := range keys {
-		_, err := c.ListHostedZonesByNameWithContext(ctx, &route53.ListHostedZonesByNameInput{
-			DNSName:      aws.String(hostedZone.dns),
-			HostedZoneId: aws.String(hostedZone.id),
-		})
-		if err != nil {
-			return nil, err
-		}
-		if zones.AddHostedZone(hostedZone) {
-			zoneNames = append(zoneNames, hostedZone.dns)
+	for dns, hostedZoneIDs := range keys {
+		for _, hostedZoneID := range hostedZoneIDs {
+			_, err := c.ListHostedZonesByNameWithContext(ctx, &route53.ListHostedZonesByNameInput{
+				DNSName:      aws.String(dns),
+				HostedZoneId: aws.String(hostedZoneID),
+			})
+			if err != nil {
+				return nil, err
+			}
+			if _, ok := zones[dns]; !ok {
+				zoneNames = append(zoneNames, dns)
+			}
+			zones[dns] = append(zones[dns], &zone{id: hostedZoneID, dns: dns, z: file.NewZone(dns, "")})
 		}
 	}
 	return &Route53{
