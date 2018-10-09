@@ -122,12 +122,11 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 	k8s.interfaceAddrsFunc = localPodIP
 	k8s.autoPathSearch = searchFromResolvConf()
 
-	opts := dnsControlOpts{
+	k8s.opts = dnsControlOpts{
 		initEndpointsCache: true,
 		ignoreEmptyService: false,
 		resyncPeriod:       defaultResyncPeriod,
 	}
-	k8s.opts = opts
 
 	zones := c.RemainingArgs()
 
@@ -281,6 +280,12 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				continue
 			}
 			return nil, c.ArgErr()
+		case "watch":
+			args := c.RemainingArgs()
+			if len(args) > 0 {
+				return nil, c.ArgErr()
+			}
+			k8s.opts.watch = true
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}

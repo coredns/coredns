@@ -5,6 +5,8 @@ import (
 	"math"
 	"net"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
@@ -206,4 +208,16 @@ func calcSRVWeight(numservices int) uint16 {
 	}
 
 	return uint16(math.Floor((100.0 / float64(w[0])) * 100))
+}
+
+// Modified returns true where anything was modified the DNS data.
+func (dns *dnsControl) Modified() int64 {
+	unix := atomic.LoadInt64(&dns.modified)
+	return unix
+}
+
+// updateModified set dns.modified to the current time.
+func (dns *dnsControl) updateModifed() {
+	unix := time.Now().Unix()
+	atomic.StoreInt64(&dns.modified, unix)
 }

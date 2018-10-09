@@ -42,6 +42,7 @@ kubernetes [ZONES...] {
     ttl TTL
     transfer to ADDRESS...
     fallthrough [ZONES...]
+    watch
 }
 ```
 
@@ -106,6 +107,7 @@ kubernetes [ZONES...] {
 * `ignore empty_service` return NXDOMAIN for services without any ready endpoint addresses (e.g. ready pods).
   This allows the querying pod to continue searching for the service in the search path.
   The search path could, for example, include another kubernetes cluster.
+* `watch` enables updates being send to a server listening for watching on a gRPC channel.
 
 ## Health
 

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	dnswatch "github.com/coredns/coredns/plugin/pkg/watch"
@@ -97,6 +96,7 @@ type dnsControlOpts struct {
 
 	zones            []string
 	endpointNameMode bool
+	watch            bool
 }
 
 // newDNSController creates a controller for CoreDNS.
@@ -109,6 +109,14 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 		zones:            opts.zones,
 		endpointNameMode: opts.endpointNameMode,
 	}
+	add := func(obj interface{}) { dns.updateModifed() }
+	del := func(obj interface{}) { dns.updateModifed() }
+	upd := func(old, new interface{}) { dns.updateModifed() }
+	if opts.watch {
+		add = dns.Add
+		del = dns.Delete
+		upd = dns.Update
+	}
 
 	dns.svcLister, dns.svcController = cache.NewIndexerInformer(
 		&cache.ListWatch{
@@ -117,7 +125,7 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 		},
 		&api.Service{},
 		opts.resyncPeriod,
-		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+		cache.ResourceEventHandlerFuncs{AddFunc: add, UpdateFunc: upd, DeleteFunc: del},
 		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc})
 
 	if opts.initPodCache {
@@ -128,7 +136,7 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 			},
 			&api.Pod{},
 			opts.resyncPeriod,
-			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+			cache.ResourceEventHandlerFuncs{AddFunc: add, UpdateFunc: upd, DeleteFunc: del},
 			cache.Indexers{podIPIndex: podIPIndexFunc})
 	}
 
@@ -140,7 +148,7 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 			},
 			&api.Endpoints{},
 			opts.resyncPeriod,
-			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+			cache.ResourceEventHandlerFuncs{AddFunc: add, UpdateFunc: upd, DeleteFunc: del},
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc})
 	}
 
@@ -475,17 +483,6 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*api.Namespace, error) {
 		}
 	}
 	return nil, fmt.Errorf("namespace not found")
-}
-
-func (dns *dnsControl) Modified() int64 {
-	unix := atomic.LoadInt64(&dns.modified)
-	return unix
-}
-
-// updateModified set dns.modified to the current time.
-func (dns *dnsControl) updateModifed() {
-	unix := time.Now().Unix()
-	atomic.StoreInt64(&dns.modified, unix)
 }
 
 func (dns *dnsControl) sendServiceUpdates(s *api.Service) {
