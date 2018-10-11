@@ -75,7 +75,8 @@ func setup(c *caddy.Controller) error {
 	}
 
 	k8s.RegisterKubeCache(c)
-	whitelist.Kubernetes = k8s
+	whitelist.Kubernetes = k8s.APIConn
+	whitelist.Zones = k8s.Zones
 	whitelist.InitDiscoveryServer(c)
 
 	if fall := os.Getenv("TUFIN_FALLTHROUGH_DOMAINS"); fall != "" {
