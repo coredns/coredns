@@ -58,8 +58,6 @@ func kubernetesParse(c *caddy.Controller) (*kubernetes.Kubernetes, error) {
 
 func setup(c *caddy.Controller) error {
 
-	whitelist := &whitelist{}
-
 	k8s, err := kubernetesParse(c)
 	if err != nil {
 		return plugin.Error("whitelist", err)
@@ -75,14 +73,12 @@ func setup(c *caddy.Controller) error {
 	}
 
 	k8s.RegisterKubeCache(c)
-	whitelist.Kubernetes = k8s.APIConn
-	whitelist.Zones = k8s.Zones
-	whitelist.InitDiscoveryServer(c)
-
-	if fall := os.Getenv("TUFIN_FALLTHROUGH_DOMAINS"); fall != "" {
-		fallthroughDomains := strings.Split(fall, ",")
-		whitelist.Fallthrough = fallthroughDomains
+	whitelist := &whitelist{
+		Kubernetes:  k8s.APIConn,
+		Zones:       k8s.Zones,
+		Fallthrough: getFallthrough(),
 	}
+	whitelist.InitDiscoveryServer(c)
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		whitelist.Next = next
@@ -90,6 +86,16 @@ func setup(c *caddy.Controller) error {
 	})
 
 	return nil
+}
+
+func getFallthrough() *List {
+
+	ret := NewList()
+	if fall := os.Getenv("TUFIN_FALLTHROUGH_DOMAINS"); fall != "" {
+		ret.AddItems(strings.Split(fall, ","))
+	}
+
+	return ret
 }
 
 func (whitelist *whitelist) InitDiscoveryServer(c *caddy.Controller) {
