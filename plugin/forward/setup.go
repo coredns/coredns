@@ -10,7 +10,6 @@ import (
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
-	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/mholt/caddy"
 	"github.com/mholt/caddy/caddyfile"
@@ -89,51 +88,34 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 
 // ParseForwardStanza parses one forward stanza
 func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
-	f := New()
+	var err error
 
-	if !c.Args(&f.from) {
-		return f, c.ArgErr()
+	o := NewDefault()
+
+	if !c.Args(&o.From) {
+		return nil, c.ArgErr()
 	}
-	f.from = plugin.Host(f.from).Normalize()
 
 	to := c.RemainingArgs()
 	if len(to) == 0 {
-		return f, c.ArgErr()
+		return nil, c.ArgErr()
 	}
 
-	toHosts, err := parse.HostPortOrFile(to...)
+	o.ToHosts, err = parse.HostPortOrFile(to...)
 	if err != nil {
-		return f, err
-	}
-
-	transports := make([]string, len(toHosts))
-	for i, host := range toHosts {
-		trans, h := parse.Transport(host)
-		p := NewProxy(h, trans)
-		f.proxies = append(f.proxies, p)
-		transports[i] = trans
+		return nil, err
 	}
 
 	for c.NextBlock() {
-		if err := parseBlock(c, f); err != nil {
-			return f, err
+		if err := parseBlock(c, o); err != nil {
+			return nil, err
 		}
 	}
 
-	if f.tlsServerName != "" {
-		f.tlsConfig.ServerName = f.tlsServerName
-	}
-	for i := range f.proxies {
-		// Only set this for proxies that need it.
-		if transports[i] == transport.TLS {
-			f.proxies[i].SetTLSConfig(f.tlsConfig)
-		}
-		f.proxies[i].SetExpire(f.expire)
-	}
-	return f, nil
+	return o.Build(), nil
 }
 
-func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
+func parseBlock(c *caddyfile.Dispenser, o *Opt) error {
 	switch c.Val() {
 	case "except":
 		ignore := c.RemainingArgs()
@@ -143,7 +125,7 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 		for i := 0; i < len(ignore); i++ {
 			ignore[i] = plugin.Host(ignore[i]).Normalize()
 		}
-		f.ignored = ignore
+		o.Ignored = ignore
 	case "max_fails":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -155,7 +137,7 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 		if n < 0 {
 			return fmt.Errorf("max_fails can't be negative: %d", n)
 		}
-		f.maxfails = uint32(n)
+		o.Maxfails = uint32(n)
 	case "health_check":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -167,17 +149,17 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 		if dur < 0 {
 			return fmt.Errorf("health_check can't be negative: %d", dur)
 		}
-		f.hcInterval = dur
+		o.HealthCheckInterval = dur
 	case "force_tcp":
 		if c.NextArg() {
 			return c.ArgErr()
 		}
-		f.opts.forceTCP = true
+		o.ForceTCP = true
 	case "prefer_udp":
 		if c.NextArg() {
 			return c.ArgErr()
 		}
-		f.opts.preferUDP = true
+		o.PerferUDP = true
 	case "tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {
@@ -188,12 +170,12 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 		if err != nil {
 			return err
 		}
-		f.tlsConfig = tlsConfig
+		o.TLSConfig = tlsConfig
 	case "tls_servername":
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
-		f.tlsServerName = c.Val()
+		o.TLSServerName = c.Val()
 	case "expire":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -205,18 +187,18 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 		if dur < 0 {
 			return fmt.Errorf("expire can't be negative: %s", dur)
 		}
-		f.expire = dur
+		o.Expire = dur
 	case "policy":
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
 		switch x := c.Val(); x {
 		case "random":
-			f.p = &random{}
+			o.SelectPolicy = &random{}
 		case "round_robin":
-			f.p = &roundRobin{}
+			o.SelectPolicy = &roundRobin{}
 		case "sequential":
-			f.p = &sequential{}
+			o.SelectPolicy = &sequential{}
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}

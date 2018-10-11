@@ -13,6 +13,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/debug"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/coredns/coredns/plugin/pkg/parse"
+	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -20,6 +22,72 @@ import (
 )
 
 var log = clog.NewWithPlugin("forward")
+
+// Opt holds configurations for building plugin instance.
+type Opt struct {
+	From    string
+	ToHosts []string
+	Ignored []string
+
+	TLSConfig     *tls.Config
+	TLSServerName string
+
+	Maxfails            uint32
+	Expire              time.Duration
+	HealthCheckInterval time.Duration
+	SelectPolicy        Policy
+
+	ForceTCP  bool
+	PerferUDP bool
+}
+
+// NewDefault creates default forward options.
+func NewDefault() *Opt {
+	return &Opt{
+		From:                ".",
+		TLSConfig:           new(tls.Config),
+		Maxfails:            2,
+		Expire:              defaultExpire,
+		HealthCheckInterval: hcInterval,
+		SelectPolicy:        new(random),
+	}
+}
+
+// Build creates a forward instance.
+func (o *Opt) Build() *Forward {
+	f := &Forward{}
+
+	f.from = plugin.Host(o.From).Normalize()
+	f.ignored = o.Ignored
+
+	if o.TLSConfig != nil {
+		f.tlsConfig = o.TLSConfig
+	}
+	if o.TLSServerName != "" {
+		f.tlsConfig.ServerName = o.TLSServerName
+	}
+
+	f.maxfails = o.Maxfails
+	f.expire = o.Expire
+	f.hcInterval = o.HealthCheckInterval
+	f.p = o.SelectPolicy
+
+	f.opts.forceTCP = o.ForceTCP
+	f.opts.preferUDP = o.PerferUDP
+
+	for _, host := range o.ToHosts {
+		trans, h := parse.Transport(host)
+		p := NewProxy(h, trans)
+		f.proxies = append(f.proxies, p)
+		// Only set this for proxies that need it.
+		if trans == transport.TLS {
+			p.SetTLSConfig(f.tlsConfig)
+		}
+		p.SetExpire(f.expire)
+	}
+
+	return f
+}
 
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
 // of proxies each representing one upstream proxy.
@@ -42,9 +110,10 @@ type Forward struct {
 }
 
 // New returns a new Forward.
+//
+// Deprecated, use Opt to build instead.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval}
-	return f
+	return NewDefault().Build()
 }
 
 // SetProxy appends p to the proxy list and starts healthchecking.
