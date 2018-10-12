@@ -3,6 +3,7 @@ package route53
 import (
 	"context"
 	"errors"
+	"net"
 	"reflect"
 	"testing"
 
@@ -34,32 +35,44 @@ func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, in *rou
 	rrsResponse := map[string][]*route53.ResourceRecordSet{}
 	for _, r := range []struct {
 		rType, name, value, hostedZoneID string
+		isAlias                          bool
 	}{
-		{"A", "example.org.", "1.2.3.4", "1234567890"},
-		{"AAAA", "example.org.", "2001:db8:85a3::8a2e:370:7334", "1234567890"},
-		{"CNAME", "sample.example.org.", "example.org", "1234567890"},
-		{"PTR", "example.org.", "ptr.example.org.", "1234567890"},
-		{"SOA", "org.", "ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400", "1234567890"},
-		{"NS", "com.", "ns-1536.awsdns-00.co.uk.", "1234567890"},
+		{"A", "example.org.", "1.2.3.4", "1234567890", false},
+		{"AAAA", "example.org.", "2001:db8:85a3::8a2e:370:7334", "1234567890", false},
+		{"CNAME", "sample.example.org.", "example.org", "1234567890", false},
+		{"PTR", "example.org.", "ptr.example.org.", "1234567890", false},
+		{"SOA", "org.", "ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400", "1234567890", false},
+		{"NS", "com.", "ns-1536.awsdns-00.co.uk.", "1234567890", false},
 		// Unsupported type should be ignored.
-		{"YOLO", "swag.", "foobar", "1234567890"},
+		{"YOLO", "swag.", "foobar", "1234567890", false},
 		// hosted zone with the same name, but a different id
-		{"A", "other-example.org.", "3.5.7.9", "1357986420"},
-		{"SOA", "org.", "ns-15.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400", "1357986420"},
+		{"A", "other-example.org.", "3.5.7.9", "1357986420", false},
+		{"SOA", "org.", "ns-15.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400", "1357986420", false},
+		{"A", "alias-example.org.", "alias.us-west-2.elb.amazonaws.com.", "1234567890", true},
 	} {
 		rrs, ok := rrsResponse[r.hostedZoneID]
 		if !ok {
 			rrs = make([]*route53.ResourceRecordSet, 0)
 		}
-		rrs = append(rrs, &route53.ResourceRecordSet{Type: aws.String(r.rType),
+		rr := &route53.ResourceRecordSet{Type: aws.String(r.rType),
 			Name: aws.String(r.name),
-			ResourceRecords: []*route53.ResourceRecord{
+			TTL:  aws.Int64(300),
+		}
+		if !r.isAlias {
+			rr.ResourceRecords = []*route53.ResourceRecord{
 				{
 					Value: aws.String(r.value),
 				},
-			},
-			TTL: aws.Int64(300),
-		})
+			}
+		} else {
+			rr.AliasTarget = &route53.AliasTarget{
+				DNSName:              aws.String(r.value),
+				EvaluateTargetHealth: aws.Bool(true),
+				HostedZoneId:         aws.String(r.hostedZoneID),
+			}
+		}
+
+		rrs = append(rrs, rr)
 		rrsResponse[r.hostedZoneID] = rrs
 	}
 
@@ -82,7 +95,29 @@ func TestRoute53(t *testing.T) {
 		t.Fatalf("Expected errors for zone bad.")
 	}
 
-	r, err = New(ctx, fakeRoute53{}, map[string][]string{"org.": []string{"1357986420", "1234567890"}, "gov": []string{"Z098765432"}}, &upstream.Upstream{})
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		ret.Rcode = dns.RcodeSuccess
+		a := &dns.A{Hdr: dns.RR_Header{
+			Name:   "alias.us-west-2.elb.amazonaws.com.",
+			Rrtype: dns.TypeA,
+			Class:  dns.ClassINET,
+			Ttl:    60,
+		},
+			A: net.IPv4(9, 7, 5, 3),
+		}
+		ret.Answer = []dns.RR{a}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	ups, err := upstream.New([]string{s.Addr})
+	if err != nil {
+		t.Fatalf("Failed to create Upstream: %v", err)
+	}
+
+	r, err = New(ctx, fakeRoute53{}, map[string][]string{"org.": []string{"1357986420", "1234567890"}, "gov": []string{"Z098765432"}}, &ups)
 	if err != nil {
 		t.Fatalf("Failed to create Route53: %v", err)
 	}
@@ -202,6 +237,13 @@ func TestRoute53(t *testing.T) {
 			qtype:        dns.TypeA,
 			expectedCode: dns.RcodeSuccess,
 			wantAnswer: []string{"other-example.org.	300	IN	A	3.5.7.9"},
+		},
+		// 11. Alias record returns an A record in response.
+		{
+			qname:        "alias-example.org",
+			qtype:        dns.TypeA,
+			expectedCode: dns.RcodeSuccess,
+			wantAnswer: []string{"alias-example.org.	60	IN	A	9.7.5.3"},
 		},
 	}
 

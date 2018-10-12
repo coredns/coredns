@@ -34,9 +34,10 @@ type Route53 struct {
 }
 
 type zone struct {
-	id  string
-	z   *file.Zone
-	dns string
+	id    string
+	z     *file.Zone
+	dns   string
+	alias map[string]struct{}
 }
 
 type zones map[string][]*zone
@@ -112,7 +113,8 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	m.SetReply(r)
 	m.Authoritative, m.RecursionAvailable = true, true
 	var result file.Result
-	for _, hostedZone := range z {
+	var hostedZone *zone
+	for _, hostedZone = range z {
 		h.zMu.RLock()
 		m.Answer, m.Ns, m.Extra, result = hostedZone.z.Lookup(state, qname)
 		h.zMu.RUnlock()
@@ -136,11 +138,24 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return dns.RcodeServerFailure, nil
 	}
 
+	updateAliasRecord(hostedZone.alias, m)
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
 }
 
-func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone) error {
+func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone, alias map[string]struct{}) error {
+	if rrs.AliasTarget != nil {
+		alias[aws.StringValue(rrs.Name)] = struct{}{}
+		// this cname will be removed during the updateAliasRecord call.
+		rfc1035 := fmt.Sprintf("%s %d IN %s %s", aws.StringValue(rrs.Name), 300, "CNAME", aws.StringValue(rrs.AliasTarget.DNSName))
+		r, err := dns.NewRR(rfc1035)
+		if err != nil {
+			return fmt.Errorf("failed to parse alias resource record: %v", err)
+		}
+
+		z.Insert(r)
+	}
+
 	for _, rr := range rrs.ResourceRecords {
 		// Assemble RFC 1035 conforming record to pass into dns scanner.
 		rfc1035 := fmt.Sprintf("%s %d IN %s %s", aws.StringValue(rrs.Name), aws.Int64Value(rrs.TTL), aws.StringValue(rrs.Type), aws.StringValue(rr.Value))
@@ -174,10 +189,11 @@ func (h *Route53) updateZones(ctx context.Context) error {
 				in := &route53.ListResourceRecordSetsInput{
 					HostedZoneId: aws.String(hostedZone.id),
 				}
+				newAlias := map[string]struct{}{}
 				err = h.client.ListResourceRecordSetsPagesWithContext(ctx, in,
 					func(out *route53.ListResourceRecordSetsOutput, last bool) bool {
 						for _, rrs := range out.ResourceRecordSets {
-							if err := updateZoneFromRRS(rrs, newZ); err != nil {
+							if err := updateZoneFromRRS(rrs, newZ, newAlias); err != nil {
 								// Maybe unsupported record type. Log and carry on.
 								log.Warningf("Failed to process resource record set: %v", err)
 							}
@@ -190,6 +206,7 @@ func (h *Route53) updateZones(ctx context.Context) error {
 				}
 				h.zMu.Lock()
 				(*z[i]).z = newZ
+				(*z[i]).alias = newAlias
 				h.zMu.Unlock()
 			}
 
@@ -212,3 +229,28 @@ func (h *Route53) updateZones(ctx context.Context) error {
 
 // Name implements plugin.Handler.Name.
 func (h *Route53) Name() string { return "route53" }
+
+// updateAliasRecord goes through the answers, removes the cname record, and
+// renames the records that have the same domain with the cname
+func updateAliasRecord(alias map[string]struct{}, m *dns.Msg) {
+	var (
+		domain string
+		cname  string
+	)
+
+	for i, rr := range m.Answer {
+		if _, ok := alias[rr.Header().Name]; ok && rr.Header().Rrtype == dns.TypeCNAME {
+			domain = rr.Header().Name
+			cname = rr.(*dns.CNAME).Target
+			m.Answer = append(m.Answer[:i], m.Answer[i+1:]...)
+			break
+		}
+	}
+
+	// Rename all the records with the above cname to domain name
+	for _, rr := range m.Answer {
+		if rr.Header().Name == cname {
+			rr.Header().Name = domain
+		}
+	}
+}
