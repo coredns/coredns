@@ -65,14 +65,21 @@ func (c *Cache) Name() string { return "cache" }
 func (c *Cache) get(now time.Time, state request.Request, server string) (*item, bool) {
 	k := hash(state.Name(), state.QType(), state.Do())
 
-	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Denial).Inc()
-		return i.(*item), true
+	if i, ok := c.ncache.Get(k); ok {
+		if i.(*item).ttl(now) > 0 {
+			cacheHits.WithLabelValues(server, Denial).Inc()
+			return i.(*item), true
+		}
+		// else, this item is out-of-date, we should delete this item rather than do nothing.
+		c.ncache.Remove(k)
 	}
 
-	if i, ok := c.pcache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Success).Inc()
-		return i.(*item), true
+	if i, ok := c.pcache.Get(k); ok {
+		if i.(*item).ttl(now) > 0 {
+			cacheHits.WithLabelValues(server, Success).Inc()
+			return i.(*item), true
+		}
+		c.pcache.Remove(k)
 	}
 	cacheMisses.WithLabelValues(server).Inc()
 	return nil, false

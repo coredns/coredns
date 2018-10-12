@@ -292,3 +292,26 @@ func TestComputeTTL(t *testing.T) {
 		}
 	}
 }
+
+func TestOutOfDateItem(t *testing.T) {
+	c := New()
+	c.pttl = 5 * time.Second
+	c.nttl = 5 * time.Second
+	c.Next = BackendHandler()
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	time.Sleep(5 * time.Second)
+
+	c.Next = nil
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	if c.pcache.Len() != 0 {
+		t.Errorf("When get cache, answer with out-of-date TTL should be deleted")
+	}
+	if c.ncache.Len() != 0 {
+		t.Errorf("When get cache, answer with out-of-date TTL should be deleted")
+	}
+}
