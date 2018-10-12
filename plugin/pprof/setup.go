@@ -47,10 +47,8 @@ func setup(c *caddy.Controller) error {
 		}
 	}
 
-	pprofOnce.Do(func() {
-		c.OnStartup(h.Startup)
-		c.OnShutdown(h.Shutdown)
-	})
+	c.OnStartup(h.Startup)
+	c.OnRestart(h.Shutdown)
 
 	return nil
 }
