@@ -12,12 +12,13 @@ The primary goal of this process is to reduce the total time users are vulnerabl
 The Product Security Team (PST) is responsible for organizing the entire response including internal communication and external disclosure.
 
 The initial Product Security Team will consist of the set of maintainers that volunteered.
-The list of members is identified in this [document](https://github.com/coredns/coredns/OWNERS) under the string `product-security-team` and is synchronized with the receivers of the members of security@coredns.io mailing list.
+The list of members is identified in this [document](https://github.com/coredns/coredns/OWNERS) under the string `security` and is synchronized with the receivers of the members of security@coredns.io mailing list.
 
 ### mailing lists
 
 * security@coredns.io : for any security concerns. Received by Product Security Team members, and used by this Team to discuss security issues and fixes.
-* distributors-announce@coredns.io: for early private information on Security patch releases. see below how CoreDNS distributors can apply for this list.
+* coredns-distributors-announce@googlegroup.com: for early private information on Security patch releases. see below how CoreDNS distributors can apply for this list.
+
 
 ## Disclosures
 
@@ -33,7 +34,6 @@ For instance, that could include:
 - Description of the location and potential impact of the vulnerability;
 - A detailed description of the steps required to reproduce the vulnerability (POC scripts, screenshots, and compressed packet captures are all helpful to us)
 - Whatever else you think we might need to identify the source of this vulnerability
-- Do not forget: a Name/handle and a link for recognition in our Hall of Fame !
 
 ### Public Disclosure Processes
 
@@ -107,7 +107,7 @@ They should know when to block time to apply patches, understand exact mitigatio
 - The Fix Lead will make a determination with the help of the Fix Team if an issue is critical enough to require early disclosure to distributors.
 Generally this Private Distributor Disclosure process should be reserved for remotely exploitable or privilege escalation issues. 
 Otherwise, this process can be skipped.
-- The Fix Lead will email the patches to distributors-announce@coredns.io so distributors can prepare their own release to be available to users on the day of the issue's announcement.
+- The Fix Lead will email the patches to coredns-distributors-announce@googlegroup.com so distributors can prepare their own release to be available to users on the day of the issue's announcement.
 Distributors should read about the [Private Distributor List](#private-distributor-list) to find out the requirements for being added to this list.
 - **What if a distributor breaks embargo?** The PST will assess the damage and may make the call to release earlier or continue with the plan.
 When in doubt push forward and go public ASAP.
@@ -132,7 +132,7 @@ individuals to find out about security issues.
 
 ### Embargo Policy
 
-The information members receive on distributors-announce@coredns.io must not be
+The information members receive on coredns-distributors-announce@googlegroup.com must not be
 made public, shared, nor even hinted at anywhere beyond the need-to-know within
 your specific team except with the list's explicit approval. 
 This holds true until the public disclosure date/time that was agreed upon by the list.
@@ -169,7 +169,7 @@ could be in the form of the following:
 
 ### Membership Criteria
 
-To be eligible for the distributor-announce@coredns.io mailing list, your
+To be eligible for the coredns-distributors-announce@googlegroup.com mailing list, your
 distribution should:
 
 1. Be an active distributor of CoreDNS component.
@@ -188,6 +188,3 @@ New membership requests are sent to security@coredns.io.
 
 In the body of your request please specify how you qualify and fulfill each
 criterion listed in [Membership Criteria](#membership-criteria).
-
-
-

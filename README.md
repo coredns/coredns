@@ -209,4 +209,4 @@ If you find a security vulnerability or any security related issues, please DO N
 issue, instead send your report privately to `security@coredns.io`. Security reports are greatly
 appreciated and we will publicly thank you for it.
 
-Please consult the page dedicated to [security vulnerability disclosures and security fix and release process](/SECURITY-RELEASE-PROCESS.md)
+Please consult the page dedicated to [security vulnerability disclosures and security fix and release process](https://github.com/coredns/coredns/SECURITY-RELEASE-PROCESS.md)
