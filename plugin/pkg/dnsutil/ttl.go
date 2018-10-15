@@ -19,7 +19,7 @@ func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
 		return MinimalDefaultTTL
 	}
 
-	minTTL := MaximumDefaulTTL
+	minTTL := MaximumDefaultTTL
 	for _, r := range m.Answer {
 		switch mt {
 		case response.NameError, response.NoData:
@@ -65,8 +65,8 @@ func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
 }
 
 const (
-	// MinimalDefaultTTL is the absolute lowest TTL we use in CoreDNS.
-	MinimalDefaultTTL = 5 * time.Second
-	// MaximumDefaulTTL is the maximum TTL was use on RRsets in CoreDNS.
-	MaximumDefaulTTL = 1 * time.Hour
+	// MinimalDefaultTTL is the default minimum TTL to use in cache
+	MinimalDefaultTTL = 0
+	// MaximumDefaultTTL is the default maximum TTL to use in cache
+	MaximumDefaultTTL = 1 * time.Hour
 )
