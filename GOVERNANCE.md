@@ -4,33 +4,32 @@
 
 The CoreDNS community adheres to the following principles:
 
-- Open: CoreDNS is open source. See repository guidelines, below.
-- Welcoming and respectful: See Code of Conduct, below.
+- Open: CoreDNS is open source, advertised on [our website](https://coredns.io/community)
+- Welcoming and respectful: See [Code of Conduct](#code-of-conduct), below.
 - Transparent and accessible: Work and collaboration are done in public.
 - Merit: Ideas and contributions are accepted according to their technical merit and alignment with project objectives, scope, and design principles.
 
 
 ## Expectations from Maintainers
 
-"Every one carries water."
+Everyone carries water...
 
-Making a community work requires input/effort from every one. Maintainers should actively
-participate in Pull Request reviews. Maintainers are expected to respond to assigned Pull Requests
-in a *reasonable* time frame, either providing insights, or assign the Pull Requests to other
-maintainers.
+Making a community work requires input/effort from everyone.
+Maintainers should actively participate in Pull Request reviews.
+Maintainers are expected to respond to assigned Pull Requests in a *reasonable* time frame,
+either providing insights, or assign the Pull Requests to other maintainers.
 
-Every Maintainer is listed in the top-level [OWNERS](https://github.com/coredns/coredns/OWNERS)
-file, with their Github handle and an (possible obfuscated) email address. Every one in the
-`reviewers` list is a Maintainer.
+Every Maintainer is listed in the top-level [OWNERS](OWNERS)
+file, with their Github handle and a possibly obfuscated email address.
+Every one in the `approvers` list is a Maintainer.
 
 A Maintainer is also listed in a plugin specific OWNER file.
 
 A Maintainer should be a member of `maintainer@coredns.io`, although this is not a hard requirement.
-A Maintainer that hasn't been active in the CoreDNS repository for 12 months is considered inactive.
 
-## Becoming a Maintainers
+## Becoming a Maintainer
 
-On successful completion (it was merged) of a (large) pull request, any current maintainer can reach
+On successful merge of a significant pull request, any current maintainer can reach
 to the person behind the pull request and ask them if they are willing to become a CoreDNS
 maintainer.
 
@@ -83,5 +82,5 @@ Miek Gieben (@miekg), as the historical owner of CoreDNS, weighs two votes.
 
 ## Code of Conduct
 
-CoreDNS follows the [CNCF Code of Conduct](https://github.com/coredns/coredns/CODE-OF-CONDUCT.md).
+the [CoreDNS Code of Conduct](https://github.com/coredns/coredns/CODE-OF-CONDUCT.md) is aligned with the CNCF Code of Conduct.
 
