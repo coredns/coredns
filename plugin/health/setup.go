@@ -55,7 +55,7 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
-		metrics.MustRegister(c, HealthDuration)
+		metrics.MustRegister(c, h.metric.Collectors()...)
 		return nil
 	})
 

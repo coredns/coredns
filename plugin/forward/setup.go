@@ -38,7 +38,7 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
-		metrics.MustRegister(c, RequestCount, RcodeCount, RequestDuration, HealthcheckFailureCount, SocketGauge)
+		metrics.MustRegister(c, f.metric.Collectors()...)
 		return f.OnStartup()
 	})
 
@@ -109,7 +109,7 @@ func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
 	transports := make([]string, len(toHosts))
 	for i, host := range toHosts {
 		trans, h := parse.Transport(host)
-		p := NewProxy(h, trans)
+		p := NewProxy(h, trans, f.metric)
 		f.proxies = append(f.proxies, p)
 		transports[i] = trans
 	}

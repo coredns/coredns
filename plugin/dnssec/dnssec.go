@@ -22,15 +22,17 @@ type Dnssec struct {
 	keys     []*DNSKEY
 	inflight *singleflight.Group
 	cache    *cache.Cache
+	metric *metric
 }
 
 // New returns a new Dnssec.
-func New(zones []string, keys []*DNSKEY, next plugin.Handler, c *cache.Cache) Dnssec {
-	return Dnssec{Next: next,
+func New(zones []string, keys []*DNSKEY, c *cache.Cache) Dnssec {
+	return Dnssec{
 		zones:    zones,
 		keys:     keys,
 		cache:    c,
 		inflight: new(singleflight.Group),
+		metric: newMetric(),
 	}
 }
 
@@ -118,15 +120,15 @@ func (d Dnssec) get(key uint64, server string) ([]dns.RR, bool) {
 		is75 := time.Now().UTC().Add(sixDays)
 		for _, rr := range s.([]dns.RR) {
 			if !rr.(*dns.RRSIG).ValidityPeriod(is75) {
-				cacheMisses.WithLabelValues(server).Inc()
+				d.metric.Misses.WithLabelValues(server).Inc()
 				return nil, false
 			}
 		}
 
-		cacheHits.WithLabelValues(server).Inc()
+		d.metric.Hits.WithLabelValues(server).Inc()
 		return s.([]dns.RR), true
 	}
-	cacheMisses.WithLabelValues(server).Inc()
+	d.metric.Misses.WithLabelValues(server).Inc()
 	return nil, false
 }
 

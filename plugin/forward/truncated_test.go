@@ -34,9 +34,8 @@ func TestLookupTruncated(t *testing.T) {
 		w.WriteMsg(ret)
 	})
 	defer s.Close()
-
-	p := NewProxy(s.Addr, transport.DNS)
 	f := New()
+	p := NewProxy(s.Addr, transport.DNS, f.metric)
 	f.SetProxy(p)
 	defer f.Close()
 
@@ -89,9 +88,9 @@ func TestForwardTruncated(t *testing.T) {
 
 	f := New()
 
-	p1 := NewProxy(s.Addr, transport.DNS)
+	p1 := NewProxy(s.Addr, transport.DNS, f.metric)
 	f.SetProxy(p1)
-	p2 := NewProxy(s.Addr, transport.DNS)
+	p2 := NewProxy(s.Addr, transport.DNS, f.metric)
 	f.SetProxy(p2)
 	defer f.Close()
 

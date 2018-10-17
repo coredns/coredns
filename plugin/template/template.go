@@ -22,6 +22,7 @@ type Handler struct {
 
 	Next      plugin.Handler
 	Templates []template
+	metric *metric
 }
 
 type template struct {
@@ -67,7 +68,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			continue
 		}
 
-		templateMatchesCount.WithLabelValues(metrics.WithServer(ctx), data.Zone, data.Class, data.Type).Inc()
+		h.metric.MatchCount.WithLabelValues(metrics.WithServer(ctx), data.Zone, data.Class, data.Type).Inc()
 
 		if template.rcode == dns.RcodeServerFailure {
 			return template.rcode, nil
@@ -79,7 +80,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		msg.Rcode = template.rcode
 
 		for _, answer := range template.answer {
-			rr, err := executeRRTemplate(metrics.WithServer(ctx), "answer", answer, data)
+			rr, err := h.executeRRTemplate(metrics.WithServer(ctx), "answer", answer, data)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
@@ -90,14 +91,14 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			}
 		}
 		for _, additional := range template.additional {
-			rr, err := executeRRTemplate(metrics.WithServer(ctx), "additional", additional, data)
+			rr, err := h.executeRRTemplate(metrics.WithServer(ctx), "additional", additional, data)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
 			msg.Extra = append(msg.Extra, rr)
 		}
 		for _, authority := range template.authority {
-			rr, err := executeRRTemplate(metrics.WithServer(ctx), "authority", authority, data)
+			rr, err := h.executeRRTemplate(metrics.WithServer(ctx), "authority", authority, data)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
@@ -114,16 +115,16 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 // Name implements the plugin.Handler interface.
 func (h Handler) Name() string { return "template" }
 
-func executeRRTemplate(server, section string, template *gotmpl.Template, data templateData) (dns.RR, error) {
+func (h *Handler)executeRRTemplate(server, section string, template *gotmpl.Template, data templateData) (dns.RR, error) {
 	buffer := &bytes.Buffer{}
 	err := template.Execute(buffer, data)
 	if err != nil {
-		templateFailureCount.WithLabelValues(server, data.Zone, data.Class, data.Type, section, template.Tree.Root.String()).Inc()
+		h.metric.FailureCount.WithLabelValues(server, data.Zone, data.Class, data.Type, section, template.Tree.Root.String()).Inc()
 		return nil, err
 	}
 	rr, err := dns.NewRR(buffer.String())
 	if err != nil {
-		templateRRFailureCount.WithLabelValues(server, data.Zone, data.Class, data.Type, section, template.Tree.Root.String()).Inc()
+		h.metric.RRFailureCount.WithLabelValues(server, data.Zone, data.Class, data.Type, section, template.Tree.Root.String()).Inc()
 		return rr, err
 	}
 	return rr, nil

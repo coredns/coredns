@@ -29,7 +29,7 @@ func (d *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	state.Zone = zone
 
 	res = d.d.Sign(state, time.Now().UTC(), d.server)
-	cacheSize.WithLabelValues(d.server, "signature").Set(float64(d.d.cache.Len()))
+	d.d.metric.Size.WithLabelValues(d.server, "signature").Set(float64(d.d.cache.Len()))
 	// No need for EDNS0 trickery, as that is handled by the server.
 
 	return d.ResponseWriter.WriteMsg(res)

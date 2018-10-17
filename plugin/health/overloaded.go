@@ -5,9 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coredns/coredns/plugin"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // overloaded queries the health end point and updates a metrics showing how long it took.
@@ -25,11 +22,11 @@ func (h *health) overloaded() {
 			start := time.Now()
 			resp, err := client.Get(url)
 			if err != nil {
-				HealthDuration.Observe(timeout.Seconds())
+				h.metric.Duration.Observe(timeout.Seconds())
 				continue
 			}
 			resp.Body.Close()
-			HealthDuration.Observe(time.Since(start).Seconds())
+			h.metric.Duration.Observe(time.Since(start).Seconds())
 
 		case <-h.stop:
 			tick.Stop()
@@ -37,16 +34,5 @@ func (h *health) overloaded() {
 		}
 	}
 }
-
-var (
-	// HealthDuration is the metric used for exporting how fast we can retrieve the /health endpoint.
-	HealthDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "health",
-		Name:      "request_duration_seconds",
-		Buckets:   plugin.TimeBuckets,
-		Help:      "Histogram of the time (in seconds) each request took.",
-	})
-)
 
 var once sync.Once

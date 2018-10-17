@@ -23,18 +23,20 @@ type Proxy struct {
 	// health checking
 	probe  *up.Probe
 	health HealthChecker
+	metric *metric
 }
 
 // NewProxy returns a new proxy.
-func NewProxy(addr, trans string) *Proxy {
+func NewProxy(addr, trans string, m *metric) *Proxy {
 	p := &Proxy{
 		addr:      addr,
 		fails:     0,
 		probe:     up.New(),
-		transport: newTransport(addr),
+		transport: newTransport(addr, m),
 		avgRtt:    int64(maxTimeout / 2),
+		metric: m,
 	}
-	p.health = NewHealthChecker(trans)
+	p.health = NewHealthChecker(trans, m)
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
 }

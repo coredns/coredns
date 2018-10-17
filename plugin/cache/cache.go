@@ -38,7 +38,8 @@ type Cache struct {
 	percentage int
 
 	// Testing.
-	now func() time.Time
+	now    func() time.Time
+	metric *metric
 }
 
 // New returns an initialized Cache with default settings. It's up to the
@@ -58,6 +59,7 @@ func New() *Cache {
 		duration:   1 * time.Minute,
 		percentage: 10,
 		now:        time.Now,
+		metric:     newMetric(),
 	}
 }
 
@@ -180,11 +182,11 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	if hasKey && duration > 0 {
 		if w.state.Match(res) {
 			w.set(res, key, mt, duration)
-			cacheSize.WithLabelValues(w.server, Success).Set(float64(w.pcache.Len()))
-			cacheSize.WithLabelValues(w.server, Denial).Set(float64(w.ncache.Len()))
+			w.metric.Size.WithLabelValues(w.server, Success).Set(float64(w.pcache.Len()))
+			w.metric.Size.WithLabelValues(w.server, Denial).Set(float64(w.ncache.Len()))
 		} else {
 			// Don't log it, but increment counter
-			cacheDrops.WithLabelValues(w.server).Inc()
+			w.metric.Drops.WithLabelValues(w.server).Inc()
 		}
 	}
 

@@ -62,6 +62,7 @@ type AutoPath struct {
 	// Search always includes "" as the last element, so we try the base query with out any search paths added as well.
 	search     []string
 	searchFunc Func
+	metric *metric
 }
 
 // ServeDNS implements the plugin.Handle interface.
@@ -133,7 +134,7 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 		// Write whatever non-nxdomain answer we've found.
 		w.WriteMsg(msg)
-		autoPathCount.WithLabelValues(metrics.WithServer(ctx)).Add(1)
+		a.metric.Count.WithLabelValues(metrics.WithServer(ctx)).Inc()
 		return rcode, err
 
 	}

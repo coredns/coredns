@@ -8,7 +8,6 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ServeDNS implements the plugin.Handler interface.
@@ -47,36 +46,6 @@ func (d Dnssec) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
 }
-
-var (
-	cacheSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "dnssec",
-		Name:      "cache_size",
-		Help:      "The number of elements in the dnssec cache.",
-	}, []string{"server", "type"})
-
-	cacheCapacity = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "dnssec",
-		Name:      "cache_capacity",
-		Help:      "The dnssec cache's capacity.",
-	}, []string{"server", "type"})
-
-	cacheHits = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "dnssec",
-		Name:      "cache_hits_total",
-		Help:      "The count of cache hits.",
-	}, []string{"server"})
-
-	cacheMisses = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "dnssec",
-		Name:      "cache_misses_total",
-		Help:      "The count of cache misses.",
-	}, []string{"server"})
-)
 
 // Name implements the Handler interface.
 func (d Dnssec) Name() string { return "dnssec" }

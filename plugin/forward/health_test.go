@@ -25,9 +25,8 @@ func TestHealth(t *testing.T) {
 		w.WriteMsg(ret)
 	})
 	defer s.Close()
-
-	p := NewProxy(s.Addr, transport.DNS)
 	f := New()
+	p := NewProxy(s.Addr, transport.DNS, f.metric)
 	f.SetProxy(p)
 	defer f.Close()
 
@@ -65,9 +64,8 @@ func TestHealthTimeout(t *testing.T) {
 		w.WriteMsg(ret)
 	})
 	defer s.Close()
-
-	p := NewProxy(s.Addr, transport.DNS)
 	f := New()
+	p := NewProxy(s.Addr, transport.DNS, f.metric)
 	f.SetProxy(p)
 	defer f.Close()
 
@@ -110,8 +108,8 @@ func TestHealthFailTwice(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, transport.DNS)
 	f := New()
+	p := NewProxy(s.Addr, transport.DNS, f.metric)
 	f.SetProxy(p)
 	defer f.Close()
 
@@ -132,9 +130,8 @@ func TestHealthMaxFails(t *testing.T) {
 		// timeout
 	})
 	defer s.Close()
-
-	p := NewProxy(s.Addr, transport.DNS)
 	f := New()
+	p := NewProxy(s.Addr, transport.DNS, f.metric)
 	f.maxfails = 2
 	f.SetProxy(p)
 	defer f.Close()
@@ -163,9 +160,8 @@ func TestHealthNoMaxFails(t *testing.T) {
 		}
 	})
 	defer s.Close()
-
-	p := NewProxy(s.Addr, transport.DNS)
 	f := New()
+	p := NewProxy(s.Addr, transport.DNS, f.metric)
 	f.maxfails = 0
 	f.SetProxy(p)
 	defer f.Close()

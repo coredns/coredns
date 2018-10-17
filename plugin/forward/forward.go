@@ -39,11 +39,12 @@ type Forward struct {
 	opts options // also here for testing
 
 	Next plugin.Handler
+	metric *metric
 }
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, metric: newMetric()}
 	return f
 }
 
@@ -94,7 +95,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			r := new(random)
 			proxy = r.List(f.proxies)[0]
 
-			HealthcheckBrokenCount.Add(1)
+			f.metric.HealthcheckBroken.Inc()
 		}
 
 		if span != nil {

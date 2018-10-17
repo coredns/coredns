@@ -6,6 +6,7 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
 	"github.com/mholt/caddy"
@@ -25,19 +26,21 @@ func setupTemplate(c *caddy.Controller) error {
 		return plugin.Error("template", err)
 	}
 
-	if err := setupMetrics(c); err != nil {
-		return plugin.Error("template", err)
-	}
-
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		handler.Next = next
 		return handler
+	})
+
+	c.OnStartup(func() error {
+		metrics.MustRegister(c, handler.metric.Collectors()...)
+		return nil
 	})
 
 	return nil
 }
 
 func templateParse(c *caddy.Controller) (handler Handler, err error) {
+	handler.metric = newMetric()
 	handler.Templates = make([]template, 0)
 
 	for c.Next() {

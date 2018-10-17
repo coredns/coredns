@@ -26,7 +26,7 @@ func setup(c *caddy.Controller) error {
 	}
 
 	c.OnStartup(func() error {
-		metrics.MustRegister(c, autoPathCount)
+		metrics.MustRegister(c, ap.metric.Collectors()...)
 		return nil
 	})
 
@@ -53,7 +53,9 @@ func setup(c *caddy.Controller) error {
 }
 
 func autoPathParse(c *caddy.Controller) (*AutoPath, string, error) {
-	ap := &AutoPath{}
+	ap := &AutoPath{
+		metric: newMetric(),
+	}
 	mw := ""
 
 	for c.Next() {

@@ -17,7 +17,8 @@ func TestCached(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport(s.Addr)
+
+	tr := newTransport(s.Addr, newMetric())
 	tr.Start()
 	defer tr.Stop()
 
@@ -56,7 +57,7 @@ func TestCleanupByTimer(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport(s.Addr)
+	tr := newTransport(s.Addr, newMetric())
 	tr.SetExpire(100 * time.Millisecond)
 	tr.Start()
 	defer tr.Stop()
@@ -90,7 +91,7 @@ func TestPartialCleanup(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport(s.Addr)
+	tr := newTransport(s.Addr, newMetric())
 	tr.SetExpire(100 * time.Millisecond)
 	tr.Start()
 	defer tr.Stop()
@@ -138,7 +139,7 @@ func TestCleanupAll(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport(s.Addr)
+	tr := newTransport(s.Addr, newMetric())
 
 	c1, _ := dns.DialTimeout("udp", tr.addr, defaultDialTimeout)
 	c2, _ := dns.DialTimeout("udp", tr.addr, defaultDialTimeout)

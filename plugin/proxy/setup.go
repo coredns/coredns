@@ -25,7 +25,7 @@ func setup(c *caddy.Controller) error {
 	}
 
 	t := dnsserver.GetConfig(c).Handler("trace")
-	P := &Proxy{Trace: t}
+	P := &Proxy{Trace: t, metric:newMetric()}
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		P.Next = next
 		P.Upstreams = &upstreams
@@ -33,7 +33,7 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
-		metrics.MustRegister(c, RequestCount, RequestDuration)
+		metrics.MustRegister(c, P.metric.Collectors()...)
 		return nil
 	})
 

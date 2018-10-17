@@ -29,6 +29,8 @@ type health struct {
 
 	stop     chan bool
 	pollstop chan bool
+
+	metric *metric
 }
 
 // newHealth returns a new initialized health.

@@ -27,9 +27,10 @@ type Transport struct {
 	yield chan *dns.Conn
 	ret   chan *dns.Conn
 	stop  chan bool
+	metric *metric
 }
 
-func newTransport(addr string) *Transport {
+func newTransport(addr string, m *metric) *Transport {
 	t := &Transport{
 		avgDialTime: int64(defaultDialTimeout / 2),
 		conns:       make(map[string][]*persistConn),
@@ -39,6 +40,7 @@ func newTransport(addr string) *Transport {
 		yield:       make(chan *dns.Conn),
 		ret:         make(chan *dns.Conn),
 		stop:        make(chan bool),
+		metric: m,
 	}
 	return t
 }
@@ -75,13 +77,13 @@ Wait:
 				// transport methods anymore. So, it's safe to close them in a separate goroutine
 				go closeConns(stack)
 			}
-			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len()))
+			t.metric.Sockets.WithLabelValues(t.addr).Set(float64(t.len()))
 
 			t.ret <- nil
 
 		case conn := <-t.yield:
 
-			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len() + 1))
+			t.metric.Sockets.WithLabelValues(t.addr).Set(float64(t.len() + 1))
 
 			// no proto here, infer from config and conn
 			if _, ok := conn.Conn.(*net.UDPConn); ok {

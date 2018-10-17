@@ -31,12 +31,14 @@ func setup(c *caddy.Controller) error {
 	}
 
 	ca := cache.New(capacity)
+	d := New(zones, keys, ca)
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return New(zones, keys, next, ca)
+		d.Next = next
+		return d
 	})
 
 	c.OnStartup(func() error {
-		metrics.MustRegister(c, cacheSize, cacheHits, cacheMisses)
+		metrics.MustRegister(c, d.metric.Collectors()...)
 		return nil
 	})
 

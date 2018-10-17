@@ -17,10 +17,13 @@ type HealthChecker interface {
 }
 
 // dnsHc is a health checker for a DNS endpoint (DNS, and DoT).
-type dnsHc struct{ c *dns.Client }
+type dnsHc struct{
+	c *dns.Client
+	metric *metric
+}
 
 // NewHealthChecker returns a new HealthChecker based on transport.
-func NewHealthChecker(trans string) HealthChecker {
+func NewHealthChecker(trans string, m *metric) HealthChecker {
 	switch trans {
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
@@ -28,7 +31,7 @@ func NewHealthChecker(trans string) HealthChecker {
 		c.ReadTimeout = 1 * time.Second
 		c.WriteTimeout = 1 * time.Second
 
-		return &dnsHc{c: c}
+		return &dnsHc{c: c, metric: m}
 	}
 
 	log.Warningf("No healthchecker for transport %q", trans)
@@ -47,7 +50,7 @@ func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
 func (h *dnsHc) Check(p *Proxy) error {
 	err := h.send(p.addr)
 	if err != nil {
-		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
+		h.metric.HealthcheckFailure.WithLabelValues(p.addr).Inc()
 		atomic.AddUint32(&p.fails, 1)
 		return err
 	}
