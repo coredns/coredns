@@ -99,6 +99,9 @@ func DNSKEY(rr string) *dns.DNSKEY { r, _ := dns.NewRR(rr); return r.(*dns.DNSKE
 // DS returns a DS record from rr. It panics on errors.
 func DS(rr string) *dns.DS { r, _ := dns.NewRR(rr); return r.(*dns.DS) }
 
+// CAA returns a CAA record from rr. It panics on errors.
+func CAA(rr string) *dns.CAA { r, _ := dns.NewRR(rr); return r.(*dns.CAA) }
+
 // OPT returns an OPT record with UDP buffer size set to bufsize and the DO bit set to do.
 func OPT(bufsize int, do bool) *dns.OPT {
 	o := new(dns.OPT)
@@ -267,6 +270,20 @@ func Section(t *testing.T, tc Case, sec sect, rr []dns.RR) bool {
 			}
 			if x.Do() != tt.Do() {
 				t.Errorf("OPT DO should be %t, but is %t", tt.Do(), x.Do())
+				return false
+			}
+		case *dns.CAA:
+			tt := section[i].(*dns.CAA)
+			if x.Tag != tt.Tag {
+				t.Errorf("CAA Tag should be %s, but is %s", tt.Tag, x.Tag)
+				return false
+			}
+			if x.Flag != tt.Flag {
+				t.Errorf("CAA Flag should be %d, but is %d", tt.Flag, x.Flag)
+				return false
+			}
+			if x.Value != tt.Value {
+				t.Errorf("CAA Value should be %s, but is %s", tt.Value, x.Value)
 				return false
 			}
 		}
