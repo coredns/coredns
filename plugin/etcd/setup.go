@@ -3,6 +3,7 @@ package etcd
 import (
 	"context"
 	"crypto/tls"
+	"os"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -134,6 +135,8 @@ func newEtcdClient(endpoints []string, cc *tls.Config) (*etcdcv3.Client, error) 
 	etcdCfg := etcdcv3.Config{
 		Endpoints: endpoints,
 		TLS:       cc,
+		Username: os.Getenv("ETCD_USERNAME"),
+		Password: os.Getenv("ETCD_PASSWORD"),
 	}
 	cli, err := etcdcv3.New(etcdCfg)
 	if err != nil {
