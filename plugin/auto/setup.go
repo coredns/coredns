@@ -2,7 +2,7 @@ package auto
 
 import (
 	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"time"
@@ -104,8 +104,8 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 					return a, c.ArgErr()
 				}
 				a.loader.directory = c.Val()
-				if !path.IsAbs(a.loader.directory) && config.Root != "" {
-					a.loader.directory = path.Join(config.Root, a.loader.directory)
+				if !filepath.IsAbs(a.loader.directory) && config.Root != "" {
+					a.loader.directory = filepath.Join(config.Root, a.loader.directory)
 				}
 				_, err := os.Stat(a.loader.directory)
 				if err != nil {
@@ -144,8 +144,15 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 					a.loader.duration = time.Duration(i) * time.Second
 				}
 
+			case "reload":
+				d, err := time.ParseDuration(c.RemainingArgs()[0])
+				if err != nil {
+					return a, plugin.Error("file", err)
+				}
+				a.loader.ReloadInterval = d
+
 			case "no_reload":
-				a.loader.noReload = true
+				a.loader.ReloadInterval = 0
 
 			case "upstream":
 				args := c.RemainingArgs()

@@ -11,6 +11,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
+	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/pkg/healthcheck"
@@ -37,6 +38,7 @@ type Kubernetes struct {
 	APICertAuth      string
 	APIClientCert    string
 	APIClientKey     string
+	ClientConfig     clientcmd.ClientConfig
 	APIConn          dnsController
 	Namespaces       map[string]bool
 	podMode          string
@@ -153,6 +155,9 @@ func (k *Kubernetes) IsNameError(err error) bool {
 }
 
 func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
+	if k.ClientConfig != nil {
+		return k.ClientConfig.ClientConfig()
+	}
 	loadingRules := &clientcmd.ClientConfigLoadingRules{}
 	overrides := &clientcmd.ConfigOverrides{}
 	clusterinfo := clientcmdapi.Cluster{}
@@ -296,39 +301,43 @@ func (k *Kubernetes) Records(state request.Request, exact bool) ([]msg.Service, 
 
 // serviceFQDN returns the k8s cluster dns spec service FQDN for the service (or endpoint) object.
 func serviceFQDN(obj meta.Object, zone string) string {
-	return dnsutil.Join(append([]string{}, obj.GetName(), obj.GetNamespace(), Svc, zone))
+	return dnsutil.Join(obj.GetName(), obj.GetNamespace(), Svc, zone)
 }
 
 // podFQDN returns the k8s cluster dns spec FQDN for the pod.
-func podFQDN(p *api.Pod, zone string) string {
-	name := strings.Replace(p.Status.PodIP, ".", "-", -1)
-	name = strings.Replace(name, ":", "-", -1)
-	return dnsutil.Join(append([]string{}, name, p.GetNamespace(), Pod, zone))
+func podFQDN(p *object.Pod, zone string) string {
+	if strings.Contains(p.PodIP, ".") {
+		name := strings.Replace(p.PodIP, ".", "-", -1)
+		return dnsutil.Join(name, p.GetNamespace(), Pod, zone)
+	}
+
+	name := strings.Replace(p.PodIP, ":", "-", -1)
+	return dnsutil.Join(name, p.GetNamespace(), Pod, zone)
 }
 
 // endpointFQDN returns a list of k8s cluster dns spec service FQDNs for each subset in the endpoint.
-func endpointFQDN(ep *api.Endpoints, zone string, endpointNameMode bool) []string {
+func endpointFQDN(ep *object.Endpoints, zone string, endpointNameMode bool) []string {
 	var names []string
 	for _, ss := range ep.Subsets {
 		for _, addr := range ss.Addresses {
-			names = append(names, dnsutil.Join(append([]string{}, endpointHostname(addr, endpointNameMode), serviceFQDN(ep, zone))))
+			names = append(names, dnsutil.Join(endpointHostname(addr, endpointNameMode), serviceFQDN(ep, zone)))
 		}
 	}
 	return names
 }
 
-func endpointHostname(addr api.EndpointAddress, endpointNameMode bool) string {
+func endpointHostname(addr object.EndpointAddress, endpointNameMode bool) string {
 	if addr.Hostname != "" {
-		return strings.ToLower(addr.Hostname)
+		return addr.Hostname
 	}
-	if endpointNameMode && addr.TargetRef != nil && addr.TargetRef.Name != "" {
-		return addr.TargetRef.Name
+	if endpointNameMode && addr.TargetRefName != "" {
+		return addr.TargetRefName
 	}
 	if strings.Contains(addr.IP, ".") {
 		return strings.Replace(addr.IP, ".", "-", -1)
 	}
 	if strings.Contains(addr.IP, ":") {
-		return strings.ToLower(strings.Replace(addr.IP, ":", "-", -1))
+		return strings.Replace(addr.IP, ":", "-", -1)
 	}
 	return ""
 }
@@ -388,12 +397,12 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 		}
 
 		// exclude pods in the process of termination
-		if !p.ObjectMeta.DeletionTimestamp.IsZero() {
+		if p.Deleting {
 			continue
 		}
 
 		// check for matching ip and namespace
-		if ip == p.Status.PodIP && match(namespace, p.Namespace) {
+		if ip == p.PodIP && match(namespace, p.Namespace) {
 			s := msg.Service{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip, TTL: k.ttl}
 			pods = append(pods, s)
 
@@ -410,15 +419,15 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 	err = errNoItems
 	if wildcard(r.service) && !wildcard(r.namespace) {
 		// If namespace exist, err should be nil, so that we return nodata instead of NXDOMAIN
-		if k.namespace(namespace) {
+		if k.namespace(r.namespace) {
 			err = nil
 		}
 	}
 
 	var (
-		endpointsListFunc func() []*api.Endpoints
-		endpointsList     []*api.Endpoints
-		serviceList       []*api.Service
+		endpointsListFunc func() []*object.Endpoints
+		endpointsList     []*object.Endpoints
+		serviceList       []*object.Service
 	)
 
 	// handle empty service name
@@ -433,11 +442,11 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 	if wildcard(r.service) || wildcard(r.namespace) {
 		serviceList = k.APIConn.ServiceList()
-		endpointsListFunc = func() []*api.Endpoints { return k.APIConn.EndpointsList() }
+		endpointsListFunc = func() []*object.Endpoints { return k.APIConn.EndpointsList() }
 	} else {
-		idx := r.service + "." + r.namespace
+		idx := object.ServiceKey(r.service, r.namespace)
 		serviceList = k.APIConn.SvcIndex(idx)
-		endpointsListFunc = func() []*api.Endpoints { return k.APIConn.EpIndex(idx) }
+		endpointsListFunc = func() []*object.Endpoints { return k.APIConn.EpIndex(idx) }
 	}
 
 	for _, svc := range serviceList {
@@ -451,7 +460,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 			continue
 		}
 
-		if k.opts.ignoreEmptyService && svc.Spec.ClusterIP != api.ClusterIPNone {
+		if k.opts.ignoreEmptyService && svc.ClusterIP != api.ClusterIPNone {
 			// serve NXDOMAIN if no endpoint is able to answer
 			podsCount := 0
 			for _, ep := range endpointsListFunc() {
@@ -466,12 +475,12 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		}
 
 		// Endpoint query or headless service
-		if svc.Spec.ClusterIP == api.ClusterIPNone || r.endpoint != "" {
+		if svc.ClusterIP == api.ClusterIPNone || r.endpoint != "" {
 			if endpointsList == nil {
 				endpointsList = endpointsListFunc()
 			}
 			for _, ep := range endpointsList {
-				if ep.ObjectMeta.Name != svc.Name || ep.ObjectMeta.Namespace != svc.Namespace {
+				if ep.Name != svc.Name || ep.Namespace != svc.Namespace {
 					continue
 				}
 
@@ -483,11 +492,6 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 							if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
 								continue
 							}
-						}
-
-						if len(eps.Ports) == 0 {
-							// add a sentinel port (-1) entry so we create records for services without any declared ports
-							eps.Ports = append(eps.Ports, api.EndpointPort{Port: -1})
 						}
 
 						for _, p := range eps.Ports {
@@ -508,8 +512,8 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		}
 
 		// External service
-		if svc.Spec.Type == api.ServiceTypeExternalName {
-			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.Spec.ExternalName, TTL: k.ttl}
+		if svc.Type == api.ServiceTypeExternalName {
+			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.ExternalName, TTL: k.ttl}
 			if t, _ := s.HostType(); t == dns.TypeCNAME {
 				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
 				services = append(services, s)
@@ -520,18 +524,14 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		}
 
 		// ClusterIP service
-		if len(svc.Spec.Ports) == 0 {
-			// add a sentinel port (-1) entry so we create records for services without any declared ports
-			svc.Spec.Ports = append(svc.Spec.Ports, api.ServicePort{Port: -1})
-		}
-		for _, p := range svc.Spec.Ports {
+		for _, p := range svc.Ports {
 			if !(match(r.port, p.Name) && match(r.protocol, string(p.Protocol))) {
 				continue
 			}
 
 			err = nil
 
-			s := msg.Service{Host: svc.Spec.ClusterIP, Port: int(p.Port), TTL: k.ttl}
+			s := msg.Service{Host: svc.ClusterIP, Port: int(p.Port), TTL: k.ttl}
 			s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
 
 			services = append(services, s)

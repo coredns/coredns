@@ -20,6 +20,7 @@ import (
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/nonwriter"
+	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -27,8 +28,9 @@ import (
 
 // Federation contains the name to zone mapping used for federation in kubernetes.
 type Federation struct {
-	f     map[string]string
-	zones []string
+	f        map[string]string
+	zones    []string
+	Upstream *upstream.Upstream
 
 	Next        plugin.Handler
 	Federations Func
@@ -49,7 +51,8 @@ func (f *Federation) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
-	state := request.Request{W: w, Req: r}
+	state := request.Request{W: w, Req: r, Context: ctx}
+
 	zone := plugin.Zones(f.zones).Matches(state.Name())
 	if zone == "" {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
@@ -105,6 +108,13 @@ func (f *Federation) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 
 	m.Answer = []dns.RR{service.NewCNAME(state.QName(), service.Host)}
 
+	if f.Upstream != nil {
+		aRecord, err := f.Upstream.Lookup(state, service.Host, state.QType())
+		if err == nil && aRecord != nil && len(aRecord.Answer) > 0 {
+			m.Answer = append(m.Answer, aRecord.Answer...)
+		}
+	}
+
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
 }
@@ -130,7 +140,7 @@ func (f *Federation) isNameFederation(name, zone string) (string, string) {
 	fed := labels[ll-2]
 
 	if _, ok := f.f[fed]; ok {
-		without := dnsutil.Join(labels[:ll-2]) + labels[ll-1] + "." + zone
+		without := dnsutil.Join(labels[:ll-2]...) + labels[ll-1] + "." + zone
 		return without, fed
 	}
 	return "", ""

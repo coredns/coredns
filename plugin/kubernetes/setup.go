@@ -19,6 +19,15 @@ import (
 	"github.com/mholt/caddy"
 	"github.com/miekg/dns"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	// Excluding azure because it is failing to compile
+	// pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	// pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
+	// pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
+	_ "k8s.io/client-go/plugin/pkg/client/auth/openstack"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var log = clog.NewWithPlugin("kubernetes")
@@ -267,6 +276,17 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 					return nil, fmt.Errorf("unable to parse ignore value: '%v'", ignore)
 				}
 			}
+		case "kubeconfig":
+			args := c.RemainingArgs()
+			if len(args) == 2 {
+				config := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+					&clientcmd.ClientConfigLoadingRules{ExplicitPath: args[0]},
+					&clientcmd.ConfigOverrides{CurrentContext: args[1]},
+				)
+				k8s.ClientConfig = config
+				continue
+			}
+			return nil, c.ArgErr()
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}

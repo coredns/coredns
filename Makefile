@@ -3,27 +3,20 @@ GITCOMMIT:=$(shell git describe --dirty --always)
 BINARY:=coredns
 SYSTEM:=
 CHECKS:=check godeps
-VERBOSE:=-v
+BUILDOPTS:=-v
 GOPATH?=$(HOME)/go
 PRESUBMIT:=core coremain plugin test request
 MAKEPWD:=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
+CGO_ENABLED:=0
 
 all: coredns
 
 .PHONY: coredns
 coredns: $(CHECKS)
-	CGO_ENABLED=0 $(SYSTEM) go build $(VERBOSE) -ldflags="-s -w -X github.com/coredns/coredns/coremain.GitCommit=$(GITCOMMIT)" -o $(BINARY)
+	CGO_ENABLED=$(CGO_ENABLED) $(SYSTEM) go build $(BUILDOPTS) -ldflags="-s -w -X github.com/coredns/coredns/coremain.GitCommit=$(GITCOMMIT)" -o $(BINARY)
 
 .PHONY: check
 check: presubmit core/zplugin.go core/dnsserver/zdirectives.go godeps
-
-.PHONY: test
-test: check
-	go test -race $(VERBOSE) ./test ./plugin/...
-
-.PHONY: testk8s
-testk8s: check
-	go test -race $(VERBOSE) -tags=k8s -run 'TestKubernetes' ./test ./plugin/kubernetes/...
 
 .PHONY: godeps
 godeps:
@@ -37,16 +30,18 @@ godeps:
 	go get -u github.com/miekg/dns
 	go get -u github.com/prometheus/client_golang/prometheus/promhttp
 	go get -u github.com/prometheus/client_golang/prometheus
-	(cd $(GOPATH)/src/github.com/mholt/caddy              && git checkout -q v0.10.11)
-	(cd $(GOPATH)/src/github.com/miekg/dns                && git checkout -q v1.0.8)
+	(cd $(GOPATH)/src/github.com/mholt/caddy              && git checkout -q v0.10.13)
+	(cd $(GOPATH)/src/github.com/miekg/dns                && git checkout -q v1.0.12)
 	(cd $(GOPATH)/src/github.com/prometheus/client_golang && git checkout -q v0.8.0)
+	@ # for travis only, if this fails we don't care, but don't see benchmarks
+	 go get -u golang.org/x/tools/cmd/benchcmp || true
 
 .PHONY: travis
-travis: check
+travis:
 ifeq ($(TEST_TYPE),core)
 	( cd request ; go test -v  -tags 'etcd' -race ./... )
 	( cd core ; go test -v  -tags 'etcd' -race  ./... )
-	( cd coremain go test -v  -tags 'etcd' -race ./... )
+	( cd coremain ; go test -v  -tags 'etcd' -race ./... )
 endif
 ifeq ($(TEST_TYPE),integration)
 	( cd test ; go test -v  -tags 'etcd' -race ./... )
@@ -65,6 +60,21 @@ ifeq ($(TEST_TYPE),coverage)
 			rm cover.out; \
 		fi; \
 	done
+endif
+ifeq ($(TEST_TYPE),benchmark)
+	> new
+	( cd plugin; go test -run=NONE -bench=. -benchmem=true -tags 'etcd' ./... ) >> new
+	( cd request; go test -run=NONE -bench=. -benchmem=true -tags 'etcd' ./... ) >> new
+	( cd core; go test -run=NONE -bench=. -benchmem=true -tags 'etcd' ./... ) >> new
+	( cd coremain; go test -run=NONE -bench=. -benchmem=true -tags 'etcd' ./... ) >> new
+	git checkout master
+	> old
+	( cd plugin; go test -run=NONE -bench=. -benchmem=true -tags 'etcd' ./... ) >> old
+	( cd request; go test -run=NONE -bench=. -benchmem=true -tags 'etcd' ./... ) >> old
+	( cd core; go test -run=NONE -bench=. -benchmem=true -tags 'etcd' ./... ) >> old
+	( cd coremain; go test -run=NONE -bench=. -benchmem=true -tags 'etcd' ./... ) >> old
+	if command -v benchcmp; then benchcmp old new > .benchmark.log ; cat .benchmark.log ; fi
+	git checkout -
 endif
 
 core/zplugin.go core/dnsserver/zdirectives.go: plugin.cfg
@@ -87,3 +97,10 @@ presubmit:
 clean:
 	go clean
 	rm -f coredns
+
+.PHONY: dep-ensure
+dep-ensure:
+	dep version || go get -u github.com/golang/dep/cmd/dep
+	dep ensure -v
+	dep prune -v
+	find vendor -name '*_test.go' -delete

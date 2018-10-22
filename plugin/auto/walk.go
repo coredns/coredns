@@ -2,7 +2,6 @@ package auto
 
 import (
 	"os"
-	"path"
 	"path/filepath"
 	"regexp"
 
@@ -52,7 +51,7 @@ func (a Auto) Walk() error {
 			return nil
 		}
 
-		zo.NoReload = a.loader.noReload
+		zo.ReloadInterval = a.loader.ReloadInterval
 		zo.Upstream = a.loader.upstream
 		zo.TransferTo = a.loader.transferTo
 
@@ -91,7 +90,7 @@ func (a Auto) Walk() error {
 // matches matches re to filename, if is is a match, the subexpression will be used to expand
 // template to an origin. When match is true that origin is returned. Origin is fully qualified.
 func matches(re *regexp.Regexp, filename, template string) (match bool, origin string) {
-	base := path.Base(filename)
+	base := filepath.Base(filename)
 
 	matches := re.FindStringSubmatchIndex(base)
 	if matches == nil {
