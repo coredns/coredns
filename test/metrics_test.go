@@ -215,7 +215,7 @@ google.com:0 {
 	// it is expected to have no info on cache yet
 	err = collectMetricsInfo(addrMetrics, cacheSizeMetricName)
 	if err == nil {
-		t.Errorf("unexpected metric data retrieved for %s", cacheSizeMetricName)
+		t.Errorf("Unexpected metric data retrieved for %s", cacheSizeMetricName)
 	}
 
 	m := new(dns.Msg)
@@ -228,6 +228,6 @@ google.com:0 {
 	// it is expected to have no info on cache yet
 	err = collectMetricsInfo(addrMetrics, cacheSizeMetricName)
 	if err != nil {
-		t.Errorf("expected metric data retrieved for %s, but got an error : %s", cacheSizeMetricName, err)
+		t.Errorf("Expected metric data retrieved for %s, but got an error : %s", cacheSizeMetricName, err)
 	}
 }
