@@ -1,6 +1,7 @@
 package test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -180,5 +181,53 @@ func TestMetricsAuto(t *testing.T) {
 
 	if got != "1" {
 		t.Errorf("Expected value %s for %s, but got %s", "1", metricName, got)
+	}
+}
+
+// Show that when 2 blocs share the same metric listener (they have a prometheus plugin on the same listening address),
+// ALL the metrics of the second bloc in order are declared in prometheus, especially the plugins that are used ONLY in the second bloc
+func TestMetricsSeveralBlocs(t *testing.T) {
+	cacheSizeMetricName := "coredns_cache_size"
+	addrMetrics := "localhost:9155"
+
+	corefile := fmt.Sprintf(`
+example.org:0 {
+	prometheus %s
+	forward . 8.8.8.8:53 {
+       force_tcp
+    }
+}
+google.com:0 {
+	prometheus %s
+	forward . 8.8.8.8:53 {
+       force_tcp
+    }
+	cache
+}
+`, addrMetrics, addrMetrics)
+
+	i, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer i.Stop()
+
+	// it is expected to have no info on cache yet
+	err = collectMetricsInfo(addrMetrics, cacheSizeMetricName)
+	if err == nil {
+		t.Errorf("unexpected metric data retrieved for %s", cacheSizeMetricName)
+	}
+
+	m := new(dns.Msg)
+	m.SetQuestion("google.com.", dns.TypeA)
+
+	if _, err = dns.Exchange(m, udp); err != nil {
+		t.Fatalf("Could not send message: %s", err)
+	}
+
+	// it is expected to have no info on cache yet
+	err = collectMetricsInfo(addrMetrics, cacheSizeMetricName)
+	if err != nil {
+		t.Errorf("expected metric data retrieved for %s, but got an error : %s", cacheSizeMetricName, err)
 	}
 }
