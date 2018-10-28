@@ -16,8 +16,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-// fail when done in parallel
-
 // Start test server that has metrics enabled. Then tear it down again.
 func TestMetricsServer(t *testing.T) {
 	corefile := `example.org:0 {
@@ -206,6 +204,8 @@ google.com:0 {
 }
 `, addrMetrics, addrMetrics)
 
+	// ensure the metrics are reset (from other Test that were running before)
+	cache.CacheResetMetrics()
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)

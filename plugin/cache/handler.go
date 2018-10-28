@@ -89,6 +89,15 @@ func (c *Cache) exists(state request.Request) *item {
 	return nil
 }
 
+// CacheResetMetrics - ensure all metrics for cache re-start from 0
+func CacheResetMetrics() {
+	cacheSize.Reset()
+	cacheHits.Reset()
+	cacheMisses.Reset()
+	cachePrefetches.Reset()
+	cacheDrops.Reset()
+}
+
 var (
 	cacheSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: plugin.Namespace,
