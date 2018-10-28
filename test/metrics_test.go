@@ -71,7 +71,7 @@ func TestMetricsRefused(t *testing.T) {
 }
 
 // TODO(miek): disabled for now - fails in weird ways in travis.
-func testMetricsCache(t *testing.T) {
+func TestMetricsCache(t *testing.T) {
 	cacheSizeMetricName := "coredns_cache_size"
 	cacheHitMetricName := "coredns_cache_hits_total"
 
@@ -80,7 +80,9 @@ func testMetricsCache(t *testing.T) {
 	prometheus localhost:0
 	cache
 }
-`
+` // ensure the metrics are reset (from other Test that were running before)
+	cache.CacheResetMetrics()
+
 	srv, err := CoreDNSServer(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -104,7 +106,11 @@ func testMetricsCache(t *testing.T) {
 		t.Errorf("Expected value %s for %s, but got %s", "1", cacheSizeMetricName, got)
 	}
 
-	// Second request for the same response to test hit counter.
+	// Second request for the same response to test hit counter
+	if _, err = dns.Exchange(m, udp); err != nil {
+		t.Fatalf("Could not send message: %s", err)
+	}
+	// Third request for the same response to test hit counter for the second time
 	if _, err = dns.Exchange(m, udp); err != nil {
 		t.Fatalf("Could not send message: %s", err)
 	}
