@@ -26,7 +26,7 @@ func (u U) Set(key string, f func() error, o interface{}) interface{} {
 	return o
 }
 
-// Unset removes the key
+// Unset removes the key.
 func (u U) Unset(key string) {
 	if _, ok := u.u[key]; ok {
 		delete(u.u, key)
