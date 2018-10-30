@@ -62,7 +62,7 @@ func (m *Metrics) MustRegister(c prometheus.Collector) {
 	if err != nil {
 		// ignore any duplicate error, but fatal on any other kind of error
 		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
-			log.Fatalf("cannot register metrics collector : %s", err)
+			log.Fatalf("Cannot register metrics collector: %s", err)
 		}
 	}
 }
