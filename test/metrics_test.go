@@ -99,7 +99,6 @@ func TestMetricsCache(t *testing.T) {
 
 	beginCacheSizeSuccess := mtest.ScrapeMetricAsInt(t, metrics.ListenAddr, cacheSizeMetricName, cache.Success, 0)
 	beginCacheHitSuccess := mtest.ScrapeMetricAsInt(t, metrics.ListenAddr, cacheHitMetricName, cache.Success, 0)
-	t.Logf("metrics at begining : %s = %d %s = %d", cacheSizeMetricName, beginCacheSizeSuccess, cacheHitMetricName, beginCacheHitSuccess)
 
 	m = new(dns.Msg)
 	m.SetQuestion("www.example.net.", dns.TypeA)
@@ -110,7 +109,6 @@ func TestMetricsCache(t *testing.T) {
 
 	// Get the value for the cache size metric where the one of the labels values matches "success".
 	got := mtest.ScrapeMetricAsInt(t, metrics.ListenAddr, cacheSizeMetricName, cache.Success, 0)
-	t.Logf("metrics collected : %s = %d", cacheSizeMetricName, got)
 
 	if got-beginCacheSizeSuccess != 1 {
 		t.Errorf("Expected value %d for %s, but got %d", 1, cacheSizeMetricName, got-beginCacheSizeSuccess)
