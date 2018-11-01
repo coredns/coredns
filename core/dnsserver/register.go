@@ -59,36 +59,38 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 	// Normalize and check all the zone names and check for duplicates
 	for ib, s := range serverBlocks {
 		for ik, k := range s.Keys {
-			za, err := normalizeZone(k)
+			zas, err := normalizeZone(k)
 			if err != nil {
 				return nil, err
 			}
-			s.Keys[ik] = za.String()
-			// Save the config to our master list, and key it for lookups.
-			cfg := &Config{
-				Zone:        za.Zone,
-				ListenHosts: []string{""},
-				Port:        za.Port,
-				Transport:   za.Transport,
-			}
-			keyConfig := keyForConfig(ib, ik)
-			if za.IPNet == nil {
-				h.saveConfig(keyConfig, cfg)
-				continue
-			}
-
-			ones, bits := za.IPNet.Mask.Size()
-			if (bits-ones)%8 != 0 { // only do this for non-octet boundaries
-				cfg.FilterFunc = func(s string) bool {
-					// TODO(miek): strings.ToLower! Slow and allocates new string.
-					addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s))
-					if addr == "" {
-						return true
-					}
-					return za.IPNet.Contains(net.ParseIP(addr))
+			for _, za := range zas {
+				s.Keys[ik] = za.String()
+				// Save the config to our master list, and key it for lookups.
+				cfg := &Config{
+					Zone:        za.Zone,
+					ListenHosts: []string{""},
+					Port:        za.Port,
+					Transport:   za.Transport,
 				}
+				keyConfig := keyForConfig(ib, ik)
+				if za.IPNet == nil {
+					h.saveConfig(keyConfig, cfg)
+					continue
+				}
+
+				ones, bits := za.IPNet.Mask.Size()
+				if (bits-ones)%8 != 0 { // only do this for non-octet boundaries
+					cfg.FilterFunc = func(s string) bool {
+						// TODO(miek): strings.ToLower! Slow and allocates new string.
+						addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s))
+						if addr == "" {
+							return true
+						}
+						return za.IPNet.Contains(net.ParseIP(addr))
+					}
+				}
+				h.saveConfig(keyConfig, cfg)
 			}
-			h.saveConfig(keyConfig, cfg)
 		}
 	}
 	return serverBlocks, nil

@@ -79,9 +79,11 @@ func autoPathParse(c *caddy.Controller) (*AutoPath, string, error) {
 			ap.Zones = make([]string, len(c.ServerBlockKeys))
 			copy(ap.Zones, c.ServerBlockKeys)
 		}
-		for i, str := range ap.Zones {
-			ap.Zones[i] = plugin.Host(str).Normalize()
+		var zones []string
+		for _, str := range ap.Zones {
+			zones = append(zones, plugin.Host(str).Normalize()...)
 		}
+		ap.Zones = zones
 	}
 	return ap, mw, nil
 }

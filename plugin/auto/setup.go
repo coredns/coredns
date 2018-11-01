@@ -97,9 +97,12 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 		if len(args) > 0 {
 			a.Zones.origins = args
 		}
+
+		var normalizedOrigins []string
 		for i := range a.Zones.origins {
-			a.Zones.origins[i] = plugin.Host(a.Zones.origins[i]).Normalize()
+			normalizedOrigins = append(normalizedOrigins, plugin.Host(a.Zones.origins[i]).Normalize()...)
 		}
+		a.Zones.origins = normalizedOrigins
 
 		for c.NextBlock() {
 			switch c.Val() {

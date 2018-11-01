@@ -185,11 +185,11 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 				return nil, c.ArgErr()
 			}
 		}
-
+		var zones []string
 		for i := range origins {
-			origins[i] = plugin.Host(origins[i]).Normalize()
+			zones = append(zones, plugin.Host(origins[i]).Normalize()...)
 		}
-		ca.Zones = origins
+		ca.Zones = zones
 
 		ca.pcache = cache.New(ca.pcap)
 		ca.ncache = cache.New(ca.ncap)

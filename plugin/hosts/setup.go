@@ -119,10 +119,12 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 			origins = args
 		}
 
+		var normalizedOrigins []string
 		for i := range origins {
-			origins[i] = plugin.Host(origins[i]).Normalize()
+			normalizedOrigins = append(normalizedOrigins, plugin.Host(origins[i]).Normalize()...)
 		}
-		h.Origins = origins
+
+		h.Origins = normalizedOrigins
 
 		for c.NextBlock() {
 			switch c.Val() {

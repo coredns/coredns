@@ -42,15 +42,14 @@ func metadataParse(c *caddy.Controller) (*Metadata, error) {
 	c.Next()
 	zones := c.RemainingArgs()
 
+	m.Zones = []string{}
 	if len(zones) != 0 {
-		m.Zones = zones
 		for i := 0; i < len(m.Zones); i++ {
-			m.Zones[i] = plugin.Host(m.Zones[i]).Normalize()
+			m.Zones = append(m.Zones, plugin.Host(m.Zones[i]).Normalize()...)
 		}
 	} else {
-		m.Zones = make([]string, len(c.ServerBlockKeys))
 		for i := 0; i < len(c.ServerBlockKeys); i++ {
-			m.Zones[i] = plugin.Host(c.ServerBlockKeys[i]).Normalize()
+			m.Zones = append(m.Zones, plugin.Host(c.ServerBlockKeys[i]).Normalize()...)
 		}
 	}
 

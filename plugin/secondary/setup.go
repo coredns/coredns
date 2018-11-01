@@ -60,8 +60,13 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 			if len(args) > 0 {
 				origins = args
 			}
+			var normalizedOrigins []string
 			for i := range origins {
-				origins[i] = plugin.Host(origins[i]).Normalize()
+				normalizedOrigins = append(normalizedOrigins, plugin.Host(origins[i]).Normalize()...)
+			}
+			origins = normalizedOrigins
+
+			for i := range origins {
 				z[origins[i]] = file.NewZone(origins[i], "stdin")
 				names = append(names, origins[i])
 			}

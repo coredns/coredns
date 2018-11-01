@@ -51,9 +51,11 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 			etc.Zones = make([]string, len(c.ServerBlockKeys))
 			copy(etc.Zones, c.ServerBlockKeys)
 		}
-		for i, str := range etc.Zones {
-			etc.Zones[i] = plugin.Host(str).Normalize()
+		var zones []string
+		for _, str := range etc.Zones {
+			zones = append(zones, plugin.Host(str).Normalize()...)
 		}
+		etc.Zones = zones
 
 		for c.NextBlock() {
 			switch c.Val() {

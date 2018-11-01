@@ -76,11 +76,12 @@ func federationParse(c *caddy.Controller) (*Federation, error) {
 			}
 		}
 
+		var normalizedOrigins []string
 		for i := range origins {
-			origins[i] = plugin.Host(origins[i]).Normalize()
+			normalizedOrigins = append(normalizedOrigins, plugin.Host(origins[i]).Normalize()...)
 		}
 
-		fed.zones = origins
+		fed.zones = normalizedOrigins
 
 		if len(fed.f) == 0 {
 			return fed, fmt.Errorf("at least one name to zone federation expected")

@@ -91,7 +91,8 @@ func dnssecParse(c *caddy.Controller) ([]string, []*DNSKEY, int, bool, error) {
 		}
 	}
 	for i := range zones {
-		zones[i] = plugin.Host(zones[i]).Normalize()
+		//We don't expect zone expantion after Normalize
+		zones[i] = plugin.Host(zones[i]).Normalize()[0]
 	}
 
 	// Check if we have both KSKs and ZSKs.

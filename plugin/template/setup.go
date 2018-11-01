@@ -58,13 +58,14 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 			return handler, c.Errf("invalid RR class %s", c.Val())
 		}
 
-		zones := c.RemainingArgs()
-		if len(zones) == 0 {
+		remainingArgs := c.RemainingArgs()
+		var zones []string
+		if len(remainingArgs) == 0 {
 			zones = make([]string, len(c.ServerBlockKeys))
 			copy(zones, c.ServerBlockKeys)
 		}
-		for i, str := range zones {
-			zones[i] = plugin.Host(str).Normalize()
+		for _, str := range remainingArgs {
+			zones = append(zones, plugin.Host(str).Normalize()...)
 		}
 		handler.Zones = append(handler.Zones, zones...)
 

@@ -82,7 +82,8 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 		}
 
 		for i := range origins {
-			origins[i] = plugin.Host(origins[i]).Normalize()
+			//For file plugin, we don't expect Normalize would expand the host
+			origins[i] = plugin.Host(origins[i]).Normalize()[0]
 			zone, err := Parse(reader, origins[i], fileName, 0)
 			if err == nil {
 				z[origins[i]] = zone

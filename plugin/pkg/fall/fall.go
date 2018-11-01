@@ -19,8 +19,9 @@ func (f F) Through(qname string) bool {
 
 // setZones will set zones in f.
 func (f *F) setZones(zones []string) {
+	var normalizedZones []string
 	for i := range zones {
-		zones[i] = plugin.Host(zones[i]).Normalize()
+		normalizedZones = append(normalizedZones, plugin.Host(zones[i]).Normalize()...)
 	}
 	f.Zones = zones
 }
