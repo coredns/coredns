@@ -68,7 +68,7 @@ func (h Host) Normalize() []string {
 	// The error can be ignore here, because this function is called after the corefile has already been vetted.
 	hosts, _, _, _ := SplitHostPort(s)
 	var retval []string
-	for host := range hosts {
+	for _, host := range hosts {
 		retval = append(retval, Name(host).Normalize())
 	}
 	return retval
@@ -79,8 +79,6 @@ func (h Host) Normalize() []string {
 // *net.IPNet that is used when the zone is a reverse and a netmask is given.
 func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err error) {
 	host := s
-	hosts = []string{s}
-
 	// If there is: :[0-9]+ on the end we assume this is the port. This works for (ascii) domain
 	// names and our reverse syntax, which always needs a /mask *before* the port.
 	// So from the back, find first colon, and then check if its a number.
@@ -94,6 +92,7 @@ func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err
 			host = s[:colon]
 		}
 	}
+	hosts = []string{host}
 
 	// TODO(miek): this should take escaping into account.
 	if len(host) > 255 {
