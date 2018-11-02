@@ -30,7 +30,7 @@ func TestNormalizeZone(t *testing.T) {
 		{"https://.:", "://:", true},
 	} {
 		addr, err := normalizeZone(test.input)
-		actual := addr.String()
+		actual := addr[0].String()
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error, but there wasn't any", i)
 		}
@@ -66,7 +66,7 @@ func TestNormalizeZoneReverse(t *testing.T) {
 		{"fd00:77:30::0/110", "dns://0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa.:53", false},
 	} {
 		addr, err := normalizeZone(test.input)
-		actual := addr.String()
+		actual := addr[0].String()
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error, but there wasn't any", i)
 		}

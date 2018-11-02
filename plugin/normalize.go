@@ -131,7 +131,7 @@ func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err
 					break
 				}
 			}
-			hosts = append(hosts, rev[offset:])
+			hosts = []string{rev[offset:]}
 		}
 		//}
 	}
