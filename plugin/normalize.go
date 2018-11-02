@@ -78,11 +78,12 @@ func (h Host) Normalize() []string {
 // String the string s should *not* be prefixed with any protocols, i.e. dns://. The returned ipnet is the
 // *net.IPNet that is used when the zone is a reverse and a netmask is given.
 func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err error) {
+	host := s
+	hosts = []string{s}
+
 	// If there is: :[0-9]+ on the end we assume this is the port. This works for (ascii) domain
 	// names and our reverse syntax, which always needs a /mask *before* the port.
 	// So from the back, find first colon, and then check if its a number.
-	host := s
-
 	colon := strings.LastIndex(s, ":")
 	if colon == len(s)-1 {
 		return []string{""}, "", nil, fmt.Errorf("expecting data after last colon: %q", s)
