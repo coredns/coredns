@@ -106,14 +106,14 @@ func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err
 	}
 
 	// Check if it parses as a reverse zone, if so we use that. Must be fully specified IP and mask.
-	ip, n, err := net.ParseCIDR(host)
+	_, n, err := net.ParseCIDR(host) //ip is not used
 
 	if err == nil {
 		//for ip := range ips {
 
 		ones, bits := 0, 0
 
-		if rev, e := dns.ReverseAddr(ip.String()); e == nil {
+		if rev, e := dns.ReverseAddr(n.IP.String()); e == nil {
 			ones, bits = n.Mask.Size()
 			// get the size, in bits, of each portion of hostname defined in the reverse address. (8 for IPv4, 4 for IPv6)
 			sizeDigit := 8

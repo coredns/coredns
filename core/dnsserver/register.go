@@ -58,39 +58,43 @@ func (h *dnsContext) saveConfig(key string, cfg *Config) {
 func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddyfile.ServerBlock) ([]caddyfile.ServerBlock, error) {
 	// Normalize and check all the zone names and check for duplicates
 	for ib, s := range serverBlocks {
-		for ik, k := range s.Keys {
+		var normalizedZones []zoneAddr
+		for _, k := range s.Keys {
 			zas, err := normalizeZone(k)
 			if err != nil {
 				return nil, err
 			}
-			for _, za := range zas {
-				s.Keys[ik] = za.String()
-				// Save the config to our master list, and key it for lookups.
-				cfg := &Config{
-					Zone:        za.Zone,
-					ListenHosts: []string{""},
-					Port:        za.Port,
-					Transport:   za.Transport,
-				}
-				keyConfig := keyForConfig(ib, ik)
-				if za.IPNet == nil {
-					h.saveConfig(keyConfig, cfg)
-					continue
-				}
+			normalizedZones = append(normalizedZones, zas...)
+		}
+		s.Keys = make([]string, len(normalizedZones))
+		for ik, za := range normalizedZones {
+			s.Keys[ik] = za.String()
 
-				ones, bits := za.IPNet.Mask.Size()
-				if (bits-ones)%8 != 0 { // only do this for non-octet boundaries
-					cfg.FilterFunc = func(s string) bool {
-						// TODO(miek): strings.ToLower! Slow and allocates new string.
-						addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s))
-						if addr == "" {
-							return true
-						}
-						return za.IPNet.Contains(net.ParseIP(addr))
-					}
-				}
-				h.saveConfig(keyConfig, cfg)
+			// Save the config to our master list, and key it for lookups.
+			cfg := &Config{
+				Zone:        za.Zone,
+				ListenHosts: []string{""},
+				Port:        za.Port,
+				Transport:   za.Transport,
 			}
+			keyConfig := keyForConfig(ib, ik)
+			if za.IPNet == nil {
+				h.saveConfig(keyConfig, cfg)
+				continue
+			}
+
+			ones, bits := za.IPNet.Mask.Size()
+			if (bits-ones)%8 != 0 { // only do this for non-octet boundaries
+				cfg.FilterFunc = func(s string) bool {
+					// TODO(miek): strings.ToLower! Slow and allocates new string.
+					addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s))
+					if addr == "" {
+						return true
+					}
+					return za.IPNet.Contains(net.ParseIP(addr))
+				}
+			}
+			h.saveConfig(keyConfig, cfg)
 		}
 	}
 	return serverBlocks, nil
