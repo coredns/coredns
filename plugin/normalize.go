@@ -74,11 +74,35 @@ func (h Host) Normalize() []string {
 	return retval
 }
 
+func octetToStringIPv4(b *byte) string {
+	return strconv.Itoa(int(*b))
+}
+
+func quadToStringIPv6(b *byte, first bool) string {
+	const hexDigit = "0123456789abcdef"
+	if first {
+		return string(hexDigit[*b&0x0F])
+	} else {
+		return string(hexDigit[*b>>4])
+	}
+}
+
+func octetValue(b *byte) byte {
+	return *b
+}
+
+func quadValue(b *byte, first bool) byte {
+	if first {
+		return (*b & 0x0F)
+	} else {
+		return (*b >> 4)
+	}
+}
+
 // SplitHostPort splits s up in a host and port portion, taking reverse address notation into account.
 // String the string s should *not* be prefixed with any protocols, i.e. dns://. The returned ipnet is the
 // *net.IPNet that is used when the zone is a reverse and a netmask is given.
 func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err error) {
-	host := s
 	// If there is: :[0-9]+ on the end we assume this is the port. This works for (ascii) domain
 	// names and our reverse syntax, which always needs a /mask *before* the port.
 	// So from the back, find first colon, and then check if its a number.
@@ -86,13 +110,15 @@ func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err
 	if colon == len(s)-1 {
 		return []string{""}, "", nil, fmt.Errorf("expecting data after last colon: %q", s)
 	}
+	host := s
+	hosts = []string{host}
 	if colon != -1 {
 		if p, err := strconv.Atoi(s[colon+1:]); err == nil {
 			port = strconv.Itoa(p)
 			host = s[:colon]
+			hosts = []string{host}
 		}
 	}
-	hosts = []string{host}
 
 	// TODO(miek): this should take escaping into account.
 	if len(host) > 255 {
@@ -110,29 +136,48 @@ func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err
 	if err == nil {
 		//for ip := range ips {
 
-		ones, bits := 0, 0
-
-		if rev, e := dns.ReverseAddr(n.IP.String()); e == nil {
-			ones, bits = n.Mask.Size()
+		{
+			ones, bits := n.Mask.Size()
 			// get the size, in bits, of each portion of hostname defined in the reverse address. (8 for IPv4, 4 for IPv6)
 			sizeDigit := 8
+			suffix := "in-addr.arpa."
 			if len(n.IP) == net.IPv6len {
 				sizeDigit = 4
+				suffix = "ip6.arpa."
 			}
-			// Get the first lower octet boundary to see what encompassing zone we should be authoritative for.
-			mod := (bits - ones) % sizeDigit
-			nearest := (bits - ones) + mod
-			offset := 0
-			var end bool
-			for i := 0; i < nearest/sizeDigit; i++ {
-				offset, end = dns.NextLabel(rev, offset)
-				if end {
-					break
+
+			iLabelToVariate := ones / sizeDigit
+			for i := 0; i < iLabelToVariate; i++ {
+				if len(n.IP) == net.IPv6len {
+					suffix = quadToStringIPv6(&n.IP[i/2], (i%2) == 0) + "." + suffix
+				} else {
+					suffix = octetToStringIPv4(&n.IP[i]) + "." + suffix
 				}
 			}
-			hosts = []string{rev[offset:]}
+
+			var labelToVariate byte
+			if len(n.IP) == net.IPv6len {
+				labelToVariate = quadValue(&n.IP[iLabelToVariate/2], (iLabelToVariate%2) == 0)
+			} else {
+				labelToVariate = octetValue(&n.IP[iLabelToVariate])
+			}
+			hosts = []string{}
+			var aHost string
+			var nEntries byte
+			nEntries = (1 << uint((bits-ones)%sizeDigit))
+			var d byte
+			for d = byte(0); d < nEntries; d++ {
+				var b byte
+				b = byte(labelToVariate + d)
+
+				if len(n.IP) == net.IPv6len {
+					aHost = quadToStringIPv6(&b, true) + "." + suffix
+				} else {
+					aHost = octetToStringIPv4(&b) + "." + suffix
+				}
+				hosts = append(hosts, aHost)
+			}
 		}
-		//}
 	}
 	return hosts, port, n, nil
 }
