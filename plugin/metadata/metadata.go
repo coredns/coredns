@@ -15,6 +15,7 @@ type Metadata struct {
 	Zones     []string
 	Providers []Provider
 	Next      plugin.Handler
+	options   map[uint16][]*edns0Map
 }
 
 // Name implements the Handler interface.

@@ -17,7 +17,19 @@ func TestSetup(t *testing.T) {
 		{"metadata example.com.", []string{"example.com."}, false},
 		{"metadata example.com. net.", []string{"example.com.", "net."}, false},
 
-		{"metadata example.com. { some_param }", []string{}, true},
+		{`metadata example.com. { 
+						some_param 
+				}`, []string{}, true},
+		{`metadata { 
+					group_id edns0 0xffee hex 16 0 16
+				}`, []string{}, false},
+		{`metadata example.com { 
+					client_id edns0 0xffed
+					group_id edns0 0xffee hex 16 0 16
+				}`, []string{}, false},
+		{`metadata { 
+					client_id edns0 
+				}`, []string{}, true},
 		{"metadata\nmetadata", []string{}, true},
 	}
 
@@ -35,6 +47,62 @@ func TestSetup(t *testing.T) {
 	}
 }
 
+func TestRequestParse(t *testing.T) {
+	tests := []struct {
+		input       string
+		shouldErr   bool
+		expectedLen int
+	}{
+		{`metadata example.com {
+			client_id edns0 0xffed
+		}`, false, 1},
+
+		{`metadata {
+			client_id edns0
+		}`, true, 1},
+		{`metadata {
+			group_id edns0 0xffee hex 16 0 16
+			client_id edns0
+		}`, true, 2},
+
+		{`metadata {
+			client_id edns0 0xffed
+			group_id edns0 0xffee hex 16 0 16
+		}`, false, 2},
+
+		{`metadata example.com {
+			client_id edns0 0xffed
+			label edns0 0xffee
+		}`, false, 2},
+
+		{`metadata {
+			group_id edns0
+		}`, true, 1},
+		{`metadata {
+			example/label edns0 0xffed
+		}`, false, 1},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		actualRequest, err := metadataParse(c)
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %v: Expected error but found nil", i)
+			continue
+		} else if !test.shouldErr && err != nil {
+			t.Errorf("Test %v: Expected no error but found error: %v", i, err)
+			continue
+		}
+		if test.shouldErr && err != nil {
+			continue
+		}
+		x := len(actualRequest.options)
+		if x != test.expectedLen {
+			t.Errorf("Test %v: Expected map length of %d, got: %d", i, test.expectedLen, x)
+		}
+	}
+}
+
 func TestSetupHealth(t *testing.T) {
 	tests := []struct {
 		input     string
@@ -45,7 +113,12 @@ func TestSetupHealth(t *testing.T) {
 		{"metadata example.com.", []string{"example.com."}, false},
 		{"metadata example.com. net.", []string{"example.com.", "net."}, false},
 
-		{"metadata example.com. { some_param }", []string{}, true},
+		{`metadata example.com. { 
+					some_param 
+				}`, []string{}, true},
+		{`metadata example.com { 
+					group_id edns0 0xffee hex 16 0 16
+				}`, []string{"example.com."}, false},
 		{"metadata\nmetadata", []string{}, true},
 	}
 
