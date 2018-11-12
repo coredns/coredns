@@ -76,6 +76,7 @@ func (k *Kubernetes) Transfer(ctx context.Context, state request.Request) (int, 
 }
 
 // transferAllowed checks if incoming request for transferring the zone is allowed according to the ACLs.
+// Note: This is copied from zone.transferAllowed, but should eventually be factored into a common transfer pkg.
 func (k *Kubernetes) transferAllowed(state request.Request) bool {
 	for _, t := range k.TransferTo {
 		if t == "*" {
