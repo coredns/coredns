@@ -12,7 +12,7 @@ func TestNewEdns0Opt(t *testing.T) {
 		t.Error(err)
 	} else {
 		if o.code != 0xfffe {
-			t.Errorf("expected 0x%x EDNS0 code but got 0x%x", 0xfffe, o.code)
+			t.Errorf("Expected 0x%x EDNS0 code but got 0x%x", 0xfffe, o.code)
 		}
 
 		if o.name != "edns" ||
@@ -20,7 +20,7 @@ func TestNewEdns0Opt(t *testing.T) {
 			o.size != 16 ||
 			o.start != 0 ||
 			o.end != 8 {
-			t.Errorf("unexpected EDNS0 option: %+v", o)
+			t.Errorf("Unexpected EDNS0 option: %+v", o)
 		}
 	}
 
@@ -46,7 +46,7 @@ func TestNewEdns0Opt(t *testing.T) {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
 			o, err := newEDNS0Map(test.c, test.n, test.t, test.s, test.b, test.e)
 			if err == nil {
-				t.Errorf("expected error but got EDNS0 0x%x %+v", o.code, o)
+				t.Errorf("Expected error but got EDNS0 0x%x %+v", o.code, o)
 			}
 		})
 	}
@@ -106,7 +106,7 @@ func TestMakeHexString(t *testing.T) {
 	for i, test := range tests {
 		s := test.o.makeHexString(test.b)
 		if s != test.s {
-			t.Errorf("expected string %q for test %d but got %q", test.s, i, s)
+			t.Errorf("Expected string %q for test %d but got %q", test.s, i, s)
 		}
 	}
 }

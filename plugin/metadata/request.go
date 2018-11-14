@@ -18,14 +18,14 @@ const (
 )
 
 const (
-	QueryName  = "qname"
-	QueryType  = "qtype"
-	ClientIP   = "client_ip"
-	ClientPort = "client_port"
-	Protocol   = "protocol"
-	ServerIP   = "server_ip"
-	ServerPort = "server_port"
-	ResponseIP = "response_ip"
+	queryName  = "qname"
+	queryType  = "qtype"
+	clientIP   = "client_ip"
+	clientPort = "client_port"
+	protocol   = "protocol"
+	serverIP   = "server_ip"
+	serverPort = "server_port"
+	responseIP = "response_ip"
 )
 
 func newMetadata() *Metadata {
@@ -88,23 +88,24 @@ func (m *Metadata) addEDNS0Map(code, name, dataType, sizeStr, startStr, endStr s
 	return nil
 }
 
+// Metadata adds additional standard values to the context.
 func (m *Metadata) Metadata(ctx context.Context, state request.Request) context.Context {
 	return m.fillMetadata(ctx, state)
 }
 
 func (m *Metadata) fillMetadata(ctx context.Context, state request.Request) context.Context {
 
-	m.declareMetadata(QueryName, state.QName(), ctx)
-	m.declareMetadata(QueryType, dns.Type(state.QType()).String(), ctx)
-	m.declareMetadata(ClientIP, state.IP(), ctx)
-	m.declareMetadata(ServerIP, state.LocalIP(), ctx)
-	m.declareMetadata(ClientPort, state.Port(), ctx)
-	m.declareMetadata(ServerPort, state.LocalPort(), ctx)
-	m.declareMetadata(Protocol, state.Proto(), ctx)
+	m.declareMetadata(ctx, queryName, state.QName())
+	m.declareMetadata(ctx, queryType, dns.Type(state.QType()).String())
+	m.declareMetadata(ctx, clientIP, state.IP())
+	m.declareMetadata(ctx, serverIP, state.LocalIP())
+	m.declareMetadata(ctx, clientPort, state.Port())
+	m.declareMetadata(ctx, serverPort, state.LocalPort())
+	m.declareMetadata(ctx, protocol, state.Proto())
 
-	m.getAttrsFromEDNS0(state.Req, ctx)
+	m.getAttrsFromEDNS0(ctx, state.Req)
 
-	SetValueFunc(ctx, "metadata/"+ResponseIP, func() string {
+	SetValueFunc(ctx, "metadata/"+responseIP, func() string {
 		ip := getRespIP(state.Req)
 		if ip != nil {
 			return ip.String()
@@ -115,11 +116,11 @@ func (m *Metadata) fillMetadata(ctx context.Context, state request.Request) cont
 
 }
 
-func (m *Metadata) declareMetadata(name string, value string, ctx context.Context) {
+func (m *Metadata) declareMetadata(ctx context.Context, name string, value string) {
 	SetValueFunc(ctx, "metadata/"+name, func() string { return value })
 }
 
-func (m *Metadata) getAttrsFromEDNS0(r *dns.Msg, ctx context.Context) {
+func (m *Metadata) getAttrsFromEDNS0(ctx context.Context, r *dns.Msg) {
 	o := r.IsEdns0()
 	if o == nil {
 		return
@@ -134,11 +135,11 @@ func (m *Metadata) getAttrsFromEDNS0(r *dns.Msg, ctx context.Context) {
 		if !ok {
 			continue
 		}
-		m.parseOptionGroup(optLocal.Data, opts, ctx)
+		m.parseOptionGroup(ctx, optLocal.Data, opts)
 	}
 }
 
-func (m *Metadata) parseOptionGroup(data []byte, options []*edns0Map, ctx context.Context) {
+func (m *Metadata) parseOptionGroup(ctx context.Context, data []byte, options []*edns0Map) {
 	for _, option := range options {
 		var value string
 		switch option.dataType {
@@ -151,7 +152,7 @@ func (m *Metadata) parseOptionGroup(data []byte, options []*edns0Map, ctx contex
 			value = ip.String()
 		}
 		if value != "" {
-			m.declareMetadata(option.name, value, ctx)
+			m.declareMetadata(ctx, option.name, value)
 		}
 	}
 }
