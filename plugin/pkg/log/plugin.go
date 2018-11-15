@@ -2,7 +2,6 @@ package log
 
 import (
 	"fmt"
-	golog "log"
 	"os"
 )
 
@@ -16,13 +15,11 @@ type P struct {
 func NewWithPlugin(name string) P { return P{name} }
 
 func (p P) logf(level, format string, v ...interface{}) {
-	s := level + pFormat(p.plugin) + fmt.Sprintf(format, v...)
-	golog.Print(s)
+	log(level, pFormat(p.plugin), fmt.Sprintf(format, v...))
 }
 
 func (p P) log(level string, v ...interface{}) {
-	s := level + pFormat(p.plugin) + fmt.Sprint(v...)
-	golog.Print(s)
+	log(level+pFormat(p.plugin), v...)
 }
 
 // Debug logs as log.Debug.
