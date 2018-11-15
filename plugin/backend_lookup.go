@@ -392,7 +392,7 @@ func NS(b ServiceBackend, zone string, state request.Request, opt Options) (reco
 // SOA returns a SOA record from the backend.
 func SOA(b ServiceBackend, zone string, state request.Request, opt Options) ([]dns.RR, error) {
 	minTTL := b.MinTTL(state)
-	ttl := 300
+	ttl := uint32(300)
 	if minTTL < ttl {
 		ttl = minTTL
 	}
