@@ -112,7 +112,8 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 		return nil, err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(p.readTimeout()))
+	// WW 11/20/2018 changed to 5 seconds in order to improve dns query performance of new domains.
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	ret, err := conn.ReadMsg()
 	if err != nil {
 		p.updateRtt(maxTimeout)
