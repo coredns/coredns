@@ -65,6 +65,13 @@ var (
 		Name:      "panic_count_total",
 		Help:      "A metrics that counts the number of panics.",
 	})
+
+	PluginEnabled = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: subsystem,
+		Name:      "plugin_enabled",
+		Help:      "A metric that monitors which plugin(s) is(are) enabled.",
+	}, []string{"name"})
 )
 
 const (
