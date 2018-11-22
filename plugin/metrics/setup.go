@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"fmt"
 	"net"
 	"runtime"
 
@@ -52,10 +51,17 @@ func setup(c *caddy.Controller) error {
 		return nil
 	})
 	c.OnStartup(func() error {
-		plugins := dnsserver.GetConfig(c).Handlers()
-		for _, p := range plugins {
-			vars.PluginEnabled.WithLabelValues(p.Name()).Set(1)
-			fmt.Println(p.Name())
+		conf := dnsserver.GetConfig(c)
+		plugins := conf.Handlers()
+		for _, h := range conf.ListenHosts {
+			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(h, conf.Port))
+			if err != nil {
+				return err
+			}
+			addrstr := conf.Transport + "://" + addr.String()
+			for _, p := range plugins {
+				vars.PluginEnabled.WithLabelValues(addrstr, conf.Zone, p.Name()).Set(1)
+			}
 		}
 		return nil
 

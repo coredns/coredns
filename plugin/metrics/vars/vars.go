@@ -71,7 +71,7 @@ var (
 		Subsystem: subsystem,
 		Name:      "plugin_enabled",
 		Help:      "A metric that monitors which plugin(s) is(are) enabled.",
-	}, []string{"name"})
+	}, []string{"server", "zone", "name"})
 )
 
 const (
