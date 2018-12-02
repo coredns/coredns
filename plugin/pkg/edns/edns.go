@@ -15,9 +15,9 @@ type supported struct {
 	sync.RWMutex
 }
 
-// SetSupportedOption adds a new supported option the set of EDNS0 options that we supported. Plugins typically call
+// SetSupportedOption adds a new supported option the set of EDNS0 options that we support. Plugins typically call
 // this in their setup code to signal support for a new option.
-// By default we supoort:
+// By default we support:
 // dns.EDNS0NSID, dns.EDNS0EXPIRE, dns.EDNS0COOKIE, dns.EDNS0TCPKEEPALIVE, dns.EDNS0PADDING. These
 // values are not in this map and checked directly in the server.
 func SetSupportedOption(option uint16) {
@@ -26,7 +26,7 @@ func SetSupportedOption(option uint16) {
 	sup.Unlock()
 }
 
-// SupportedOption returns true if e is supported as an extra EDNS0 option.
+// SupportedOption returns true if the option code is supported as an extra EDNS0 option.
 func SupportedOption(option uint16) bool {
 	sup.RLock()
 	_, ok := sup.m[option]
