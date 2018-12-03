@@ -78,10 +78,10 @@ requests to itself.
 There are many ways to work around this issue, some are listed here:
 
 * Add the following to `kubelet`: `--resolv-conf <path-to-your-real-resolv-conf-file>`.  Your "real" 
-  `resolv.conf` is the one that contains the actual IPs of your upstream servers, and no local/loopback addresss.
+  `resolv.conf` is the one that contains the actual IPs of your upstream servers, and no local/loopback address.
   This flag tells `kubelet` to pass an alternate `resolv.conf` to Pods. For systems using `systemd-resolved`,
 `/run/systemd/resolve/resolv.conf` is typically the location of the "real" `resolv.conf`,
-although this can be diffrent depending on your distribution.
+although this can be different depending on your distribution.
 * Disable the local DNS cache on host nodes, and restore `/etc/resolv.conf` to the original.
 * A quick and dirty fix is to edit your Corefile, replacing `proxy . /etc/resolv.conf` with
 the ip address of your upstream DNS, for example `proxy . 8.8.8.8`.  But this only fixes the issue for CoreDNS,
