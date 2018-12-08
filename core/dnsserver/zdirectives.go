@@ -34,6 +34,7 @@ var Directives = []string{
 	"hosts",
 	"route53",
 	"federation",
+	"external",
 	"kubernetes",
 	"file",
 	"auto",
