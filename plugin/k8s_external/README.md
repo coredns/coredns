@@ -1,8 +1,8 @@
-# external
+# k8s_external
 
 ## Name
 
-*external* - resolve ingress and load balance IPs from outside kubernetes clusters.
+*k8s_external* - resolve load balancer and external IPs from outside kubernetes clusters.
 
 ## Description
 
@@ -33,22 +33,22 @@ Note we use the `dns` subdomain to place the records the DNS needs (see the `ape
 note the SOA's serial number is static. The IP addresses of the nameserver records are those of the
 CoreDNS service.
 
-The *external* plugin handles the subdomain `dns` and the apex of the zone by itself, all other
+The *k8s_external* plugin handles the subdomain `dns` and the apex of the zone by itself, all other
 queries are resolved to addresses in the cluster.
 
 ## Syntax
 
 ~~~
-external [ZONE...]
+k8s_external [ZONE...]
 ~~~
 
-* **ZONES** zones *external* should be authoritative for.
+* **ZONES** zones *k8s_external* should be authoritative for.
 
 If you want to change the apex domain or use a different TTL for the return records you can use
 this extended syntax.
 
 ~~~
-external [ZONE...] {
+k8s_external [ZONE...] {
     apex APEX
     ttl TTL
 }
@@ -64,7 +64,7 @@ Enable names under `example.org` to be resolved to in cluster DNS addresses.
 ~~~
 . {
    kubernetes cluster.local
-   external example.org
+   k8s_external example.org
 }
 ~~~
 

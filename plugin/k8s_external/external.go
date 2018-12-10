@@ -109,4 +109,4 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 }
 
 // Name implements the Handler interface.
-func (e *External) Name() string { return "external" }
+func (e *External) Name() string { return "k8s_external" }

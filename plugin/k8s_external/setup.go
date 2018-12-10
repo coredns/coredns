@@ -10,7 +10,7 @@ import (
 )
 
 func init() {
-	caddy.RegisterPlugin("external", caddy.Plugin{
+	caddy.RegisterPlugin("k8s_external", caddy.Plugin{
 		ServerType: "dns",
 		Action:     setup,
 	})
@@ -19,7 +19,7 @@ func init() {
 func setup(c *caddy.Controller) error {
 	e, err := parse(c)
 	if err != nil {
-		return plugin.Error("external", err)
+		return plugin.Error("k8s_external", err)
 	}
 
 	// Do this in OnStartup, so all plugins have been initialized.

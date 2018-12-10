@@ -13,9 +13,9 @@ func TestSetup(t *testing.T) {
 		expectedZone string
 		expectedApex string
 	}{
-		{`external`, false, "", "dns"},
-		{`external example.org`, false, "example.org.", "dns"},
-		{`external example.org {
+		{`k8s_external`, false, "", "dns"},
+		{`k8s_external example.org`, false, "example.org.", "dns"},
+		{`k8s_external example.org {
 			apex testdns
 }`, false, "example.org.", "testdns"},
 	}
