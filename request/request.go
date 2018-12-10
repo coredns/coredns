@@ -206,10 +206,7 @@ func (r *Request) SizeAndDo(m *dns.Msg) bool {
 		mo.SetUDPSize(o.UDPSize())
 		mo.Hdr.Ttl &= 0xff00 // clear flags
 
-		// If the request had options set, but we don't support those, we should not echo those back.
-		if len(o.Option) > 0 {
-			mo.Option = supportedOptions(o.Option)
-		}
+		// Assume if the message m has options set, they are OK and represent what an upstream can do.
 
 		if o.Do() {
 			mo.SetDo()
