@@ -1,12 +1,11 @@
 package erratic
 
 import (
-	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	cs "github.com/coredns/coredns/plugin/pkg/coresetup"
 
 	"github.com/mholt/caddy"
 )
@@ -39,71 +38,25 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 		for c.NextBlock() {
 			switch c.Val() {
 			case "drop":
-				args := c.RemainingArgs()
-				if len(args) > 1 {
-					return nil, c.ArgErr()
-				}
-
-				if len(args) == 0 {
-					continue
-				}
-
-				amount, err := strconv.ParseInt(args[0], 10, 32)
+				vals, err := cs.Parse(c, cs.Int{0, -1, cs.DefaultInt(2)})
 				if err != nil {
 					return nil, err
 				}
-				if amount < 0 {
-					return nil, fmt.Errorf("illegal amount value given %q", args[0])
-				}
-				e.drop = uint64(amount)
+				e.drop = uint64(vals[0].IntValue())
 				drop = true
 			case "delay":
-				args := c.RemainingArgs()
-				if len(args) > 2 {
-					return nil, c.ArgErr()
-				}
-
-				// Defaults.
-				e.delay = 2
-				e.duration = 100 * time.Millisecond
-				if len(args) == 0 {
-					continue
-				}
-
-				amount, err := strconv.ParseInt(args[0], 10, 32)
+				vals, err := cs.Parse(c, cs.Int{0, -1, cs.DefaultInt(2)}, cs.Duration{cs.DefaultDuration(100 * time.Millisecond)})
 				if err != nil {
 					return nil, err
 				}
-				if amount < 0 {
-					return nil, fmt.Errorf("illegal amount value given %q", args[0])
-				}
-				e.delay = uint64(amount)
-
-				if len(args) > 1 {
-					duration, err := time.ParseDuration(args[1])
-					if err != nil {
-						return nil, err
-					}
-					e.duration = duration
-				}
+				e.delay = uint64(vals[0].IntValue())
+				e.duration = vals[1].DurationValue()
 			case "truncate":
-				args := c.RemainingArgs()
-				if len(args) > 1 {
-					return nil, c.ArgErr()
-				}
-
-				if len(args) == 0 {
-					continue
-				}
-
-				amount, err := strconv.ParseInt(args[0], 10, 32)
+				vals, err := cs.Parse(c, cs.Int{0, -1, cs.DefaultInt(0)})
 				if err != nil {
 					return nil, err
 				}
-				if amount < 0 {
-					return nil, fmt.Errorf("illegal amount value given %q", args[0])
-				}
-				e.truncate = uint64(amount)
+				e.truncate = uint64(vals[0].IntValue())
 			case "large":
 				e.large = true
 			default:
