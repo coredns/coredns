@@ -38,21 +38,21 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 		for c.NextBlock() {
 			switch c.Val() {
 			case "drop":
-				vals, err := cs.Parse(c, cs.Int{0, -1, cs.DefaultInt(2)})
+				vals, err := cs.Parse(c, cs.Int{0, -1, 2})
 				if err != nil {
 					return nil, err
 				}
 				e.drop = uint64(vals[0].IntValue())
 				drop = true
 			case "delay":
-				vals, err := cs.Parse(c, cs.Int{0, -1, cs.DefaultInt(2)}, cs.Duration{cs.DefaultDuration(100 * time.Millisecond)})
+				vals, err := cs.Parse(c, cs.Int{0, -1, 2}, cs.Duration{100 * time.Millisecond})
 				if err != nil {
 					return nil, err
 				}
 				e.delay = uint64(vals[0].IntValue())
 				e.duration = vals[1].DurationValue()
 			case "truncate":
-				vals, err := cs.Parse(c, cs.Int{0, -1, cs.DefaultInt(0)})
+				vals, err := cs.Parse(c, cs.Int{0, -1, 0})
 				if err != nil {
 					return nil, err
 				}

@@ -30,10 +30,7 @@ func Parse(c *caddy.Controller, x ...Type) ([]Value, error) {
 		switch t := p.(type) {
 		case Int:
 			if val == "" {
-				if t.Default == nil {
-					return nil, errNoDefault
-				}
-				values[i] = v{Int: t.Default}
+				values[i] = v{Int: &t.Default}
 				continue
 			}
 			values[i], err = p.Parse(val)
@@ -43,10 +40,7 @@ func Parse(c *caddy.Controller, x ...Type) ([]Value, error) {
 
 		case Duration:
 			if val == "" {
-				if t.Default == nil {
-					return nil, errNoDefault
-				}
-				values[i] = v{Duration: t.Default}
+				values[i] = v{Duration: &t.Default}
 				continue
 			}
 			values[i], err = p.Parse(val)
@@ -56,17 +50,13 @@ func Parse(c *caddy.Controller, x ...Type) ([]Value, error) {
 
 		case String:
 			if val == "" {
-				if t.Default == nil {
-					return nil, errNoDefault
-				}
-				values[i] = v{String: t.Default}
+				values[i] = v{String: &t.Default}
 				continue
 			}
 			values[i], err = p.Parse(val)
 			if err != nil {
 				return values, err
 			}
-
 		}
 	}
 
