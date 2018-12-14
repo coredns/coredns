@@ -123,7 +123,7 @@ func Proto(w dns.ResponseWriter) string {
 		return "udp"
 	}
 	if _, ok := w.RemoteAddr().(*net.TCPAddr); ok {
-		if w.(dns.ConnectionStater).ConnectionState() != nil {
+		if i, ok := w.(dns.ConnectionStater); ok && i.ConnectionState() != nil {
 			return "tls"
 		}
 		return "tcp"
