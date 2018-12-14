@@ -1,6 +1,7 @@
 package test
 
 import (
+	"crypto/tls"
 	"net"
 
 	"github.com/miekg/dns"
@@ -11,6 +12,7 @@ import (
 // port 53.
 type ResponseWriter struct {
 	TCP bool // if TCP is true we return an TCP connection instead of an UDP one.
+	TLS bool // if TLS is true we return a TLS connection instead of UDP one.
 }
 
 // LocalAddr returns the local address, 127.0.0.1:53 (UDP, TCP if t.TCP is true).
@@ -50,6 +52,14 @@ func (t *ResponseWriter) TsigTimersOnly(bool) { return }
 
 // Hijack implement dns.ResponseWriter interface.
 func (t *ResponseWriter) Hijack() { return }
+
+// ConnectionState implement the dns.ConnectionStater interface.
+func (t *ResponseWriter) ConnectionState() *tls.ConnectionState {
+	if t.TLS {
+		return &tls.ConnectionState{}
+	}
+	return nil
+}
 
 // ResponseWriter6 returns fixed client and remote address in IPv6.  The remote
 // address is always fe80::42:ff:feca:4c65 and port 40212. The local address is always ::1 and port 53.

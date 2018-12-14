@@ -281,3 +281,48 @@ func TestRequestClear(t *testing.T) {
 		t.Errorf("Expected st.port to be cleared after Clear")
 	}
 }
+
+func TestRequestProtocol(t *testing.T) {
+
+	testCases := []struct {
+		TCP   bool
+		TLS   bool
+		proto string
+	}{
+		{
+			TCP:   false,
+			TLS:   false,
+			proto: "udp",
+		},
+		{
+			TCP:   false,
+			TLS:   true,
+			proto: "udp",
+		},
+		{
+			TCP:   true,
+			TLS:   false,
+			proto: "tcp",
+		},
+		{
+			TCP:   true,
+			TLS:   true,
+			proto: "tls",
+		},
+	}
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	m.SetEdns0(4096, true)
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
+
+			r := Request{W: &test.ResponseWriter{TCP: tc.TCP, TLS: tc.TLS}, Req: m}
+			proto := r.Proto()
+			if tc.proto != proto {
+				t.Errorf("Expected protocol %s, got %s", tc.proto, proto)
+			}
+		})
+	}
+}
