@@ -5,7 +5,7 @@
 # e.g.
 #
 # 	make -f Makefile.fuzz proxy
-# 
+#
 # Each plugin that wants to join the fuzzing fray only needs to add a fuzz.go that calls
 # the plugins's ServeDNS and used the plugin/pkg/fuzz for the Do function.
 #
