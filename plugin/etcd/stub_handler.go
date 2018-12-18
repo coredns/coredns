@@ -32,7 +32,7 @@ func (s Stub) ServeDNS(ctx context.Context, w dns.ResponseWriter, req *dns.Msg) 
 	if e != nil {
 		return dns.RcodeServerFailure, e
 	}
-	m.RecursionAvailable = true
+	m.RecursionAvailable = false
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
 }
