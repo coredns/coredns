@@ -79,6 +79,8 @@ const (
 	Svc = "svc"
 	// Pod is the DNS schema for kubernetes pods
 	Pod = "pod"
+	// Fsvc is the DNS schema for Federated services
+	Fsvc = "fsvc"
 	// defaultTTL to apply to all answers.
 	defaultTTL = 5
 )

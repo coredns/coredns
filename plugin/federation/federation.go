@@ -124,7 +124,7 @@ func (f *Federation) Name() string { return "federation" }
 
 // IsNameFederation checks the qname to see if it is a potential federation. The federation
 // label is always the 2nd to last once the zone is chopped of. For instance
-// "nginx.mynamespace.myfederation.svc.example.com" has "myfederation" as the federation label.
+// "nginx.mynamespace.myfederation.fsvc.example.com" has "myfederation" as the federation label.
 // IsNameFederation returns a new qname with the federation label and the label itself or two
 // empty strings if there wasn't a hit.
 func (f *Federation) isNameFederation(name, zone string) (string, string) {

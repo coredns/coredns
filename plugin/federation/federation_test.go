@@ -37,18 +37,18 @@ func TestFederationKubernetes(t *testing.T) {
 	tests := []test.Case{
 		{
 			// service exists so we return the IP address associated with it.
-			Qname: "svc1.testns.prod.svc.cluster.local.", Qtype: dns.TypeA,
+			Qname: "svc1.testns.prod.fsvc.cluster.local.", Qtype: dns.TypeA,
 			Rcode: dns.RcodeSuccess,
 			Answer: []dns.RR{
-				test.A("svc1.testns.prod.svc.cluster.local.      303       IN      A       10.0.0.1"),
+				test.A("svc1.testns.prod.fsvc.cluster.local.      303       IN      A       10.0.0.1"),
 			},
 		},
 		{
 			// service does not exist, do the federation dance.
-			Qname: "svc0.testns.prod.svc.cluster.local.", Qtype: dns.TypeA,
+			Qname: "svc0.testns.prod.fsvc.cluster.local.", Qtype: dns.TypeA,
 			Rcode: dns.RcodeSuccess,
 			Answer: []dns.RR{
-				test.CNAME("svc0.testns.prod.svc.cluster.local.  303       IN      CNAME   svc0.testns.prod.svc.fd-az.fd-r.federal.example."),
+				test.CNAME("svc0.testns.prod.fsvc.cluster.local.  303       IN      CNAME   svc0.testns.prod.fsvc.fd-az.fd-r.federal.example."),
 			},
 		},
 	}
@@ -84,10 +84,10 @@ func TestFederationKubernetesMissingLabels(t *testing.T) {
 	tests := []test.Case{
 		{
 			// service does not exist, do the federation dance.
-			Qname: "svc0.testns.prod.svc.cluster.local.", Qtype: dns.TypeA,
+			Qname: "svc0.testns.prod.fsvc.cluster.local.", Qtype: dns.TypeA,
 			Rcode: dns.RcodeSuccess,
 			Answer: []dns.RR{
-				test.CNAME("svc0.testns.prod.svc.cluster.local.  303       IN      CNAME   svc0.testns.prod.svc.fd-az.fd-r.federal.example."),
+				test.CNAME("svc0.testns.prod.fsvc.cluster.local.  303       IN      CNAME   svc0.testns.prod.fsvc.fd-az.fd-r.federal.example."),
 			},
 		},
 	}

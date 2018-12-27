@@ -58,7 +58,7 @@ func parseRequest(state request.Request) (r recordRequest, err error) {
 		return r, nil
 	}
 	r.podOrSvc = segs[last]
-	if r.podOrSvc != Pod && r.podOrSvc != Svc {
+	if r.podOrSvc != Pod && r.podOrSvc != Svc && r.podOrSvc != Fsvc {
 		return r, errInvalidRequest
 	}
 	last--
