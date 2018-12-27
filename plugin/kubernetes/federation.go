@@ -1,7 +1,7 @@
 package kubernetes
 
 import (
-	"errors"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
@@ -26,26 +26,30 @@ const (
 // Federations is used from the federations plugin to return the service that should be
 // returned as a CNAME for federation(s) to work.
 func (k *Kubernetes) Federations(state request.Request, fname, fzone string) (msg.Service, error) {
-	nodeName := k.localNodeName()
-	node, err := k.APIConn.GetNodeByName(nodeName)
-	if err != nil {
-		return msg.Service{}, err
-	}
 	r, err := parseRequest(state)
 	if err != nil {
 		return msg.Service{}, err
 	}
 
+	host := strings.Join([]string{r.service, r.namespace, fname, Fsvc}, ".")
+	if r.endpoint != "" {
+		host = strings.Join([]string{r.endpoint, host}, ".")
+	}
+
+	nodeName := k.localNodeName()
+	node, err := k.APIConn.GetNodeByName(nodeName)
+	if err != nil {
+		return msg.Service{Host: dnsutil.Join(host, fzone)}, nil
+	}
+
 	lz := node.Labels[LabelZone]
 	lr := node.Labels[LabelRegion]
 
-	if lz == "" || lr == "" {
-		return msg.Service{}, errors.New("local node missing zone/region labels")
+	if lr == "" {
+		return msg.Service{Host: dnsutil.Join(host, fzone)}, nil
+	} else if lz == "" {
+		return msg.Service{Host: dnsutil.Join(host, lr, fzone)}, nil
 	}
 
-	if r.endpoint == "" {
-		return msg.Service{Host: dnsutil.Join(r.service, r.namespace, fname, Fsvc, lz, lr, fzone)}, nil
-	}
-
-	return msg.Service{Host: dnsutil.Join(r.endpoint, r.service, r.namespace, fname, Fsvc, lz, lr, fzone)}, nil
+	return msg.Service{Host: dnsutil.Join(host, lz, lr, fzone)}, nil
 }

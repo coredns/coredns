@@ -87,7 +87,7 @@ func TestFederationKubernetesMissingLabels(t *testing.T) {
 			Qname: "svc0.testns.prod.fsvc.cluster.local.", Qtype: dns.TypeA,
 			Rcode: dns.RcodeSuccess,
 			Answer: []dns.RR{
-				test.CNAME("svc0.testns.prod.fsvc.cluster.local.  303       IN      CNAME   svc0.testns.prod.fsvc.fd-az.fd-r.federal.example."),
+				test.CNAME("svc0.testns.prod.fsvc.cluster.local.  303       IN      CNAME   svc0.testns.prod.fsvc.federal.example."),
 			},
 		},
 	}
@@ -104,14 +104,56 @@ func TestFederationKubernetesMissingLabels(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	for _, tc := range tests {
+	for i, tc := range tests {
 		m := tc.Msg()
 
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := fed.ServeDNS(ctx, rec, m)
-		if err == nil {
-			t.Errorf("Expected an error")
+		if err != nil {
+			t.Errorf("Test %d, expected no error, got %v\n", i, err)
 			return
 		}
+
+		resp := rec.Msg
+		test.SortAndCheck(t, resp, tc)
+	}
+}
+
+func TestFederationKubernetesMissingZoneLabel(t *testing.T) {
+	tests := []test.Case{
+		{
+			// service does not exist, do the federation dance.
+			Qname: "svc0.testns.prod.fsvc.cluster.local.", Qtype: dns.TypeA,
+			Rcode: dns.RcodeSuccess,
+			Answer: []dns.RR{
+				test.CNAME("svc0.testns.prod.fsvc.cluster.local.  303       IN      CNAME   svc0.testns.prod.fsvc.fd-r.federal.example."),
+			},
+		},
+	}
+
+	k := kubernetes.New([]string{"cluster.local."})
+	k.APIConn = &APIConnFederationTest{zone: "", region: "fd-r"}
+
+	fed := New()
+	fed.zones = []string{"cluster.local."}
+	fed.Federations = k.Federations
+	fed.Next = k
+	fed.f = map[string]string{
+		"prod": "federal.example.",
+	}
+
+	ctx := context.TODO()
+	for i, tc := range tests {
+		m := tc.Msg()
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		_, err := fed.ServeDNS(ctx, rec, m)
+		if err != nil {
+			t.Errorf("Test %d, expected no error, got %v\n", i, err)
+			return
+		}
+
+		resp := rec.Msg
+		test.SortAndCheck(t, resp, tc)
 	}
 }
