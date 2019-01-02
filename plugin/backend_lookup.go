@@ -316,6 +316,9 @@ func CNAME(b ServiceBackend, zone string, state request.Request, opt Options) (r
 
 	if len(services) > 0 {
 		serv := services[0]
+		if len(serv.Host) == 0 {
+			return nil, nil
+		}
 		if ip := net.ParseIP(serv.Host); ip == nil {
 			records = append(records, serv.NewCNAME(state.QName(), serv.Host))
 		}
