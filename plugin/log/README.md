@@ -44,8 +44,8 @@ log [NAME] [FORMAT] {
 The classes of responses have the following meaning:
 
 * `success`: successful response
-* `denial`: either NXDOMAIN or nodata respones (name exists, type does not, this type of reply
-   sets the return code to NOERROR)
+* `denial`: either NXDOMAIN or nodata responses (Name exists, type does not). A nodata response
+   sets the return code to NOERROR.
 * `error`: SERVFAIL, NOTIMP, REFUSED, etc. Anything that indicates the remote server is not willing to
     resolve the request.
 * `all`: the default - nothing is specified. Using of this class means that all messages will be
@@ -79,9 +79,9 @@ The following place holders are supported:
 * `{>opcode}`: query OPCODE
 * `{common}`: the default Common Log Format.
 * `{combined}`: the Common Log Format with the query opcode.
-*  `{/LABEL}`: any metadata label is accepted as a place holder if it is enclosed between `{/` and
-   `}`, the place holder will be replaced by the corresponding metadata value or the default value
-   `-` if label is not defined. See the *metadata* plugin for more information.
+* `{/LABEL}`: any metadata label is accepted as a place holder if it is enclosed between `{/` and
+  `}`, the place holder will be replaced by the corresponding metadata value or the default value
+  `-` if label is not defined. See the *metadata* plugin for more information.
 
 The default Common Log Format is:
 
