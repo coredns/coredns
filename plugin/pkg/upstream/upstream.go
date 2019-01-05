@@ -2,6 +2,8 @@
 package upstream
 
 import (
+	"fmt"
+
 	"github.com/miekg/dns"
 
 	"github.com/coredns/coredns/core/dnsserver"
@@ -17,11 +19,15 @@ func New() *Upstream { return &Upstream{} }
 
 // Lookup routes lookups to our selves or forward to a remote.
 func (u *Upstream) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
+	server, ok := state.Context.Value(dnsserver.Key{}).(*dnsserver.Server)
+	if !ok {
+		return nil, fmt.Errorf("no full server is running")
+	}
+
 	req := new(dns.Msg)
 	req.SetQuestion(name, typ)
 
 	nw := nonwriter.New(state.W)
-	server := state.Context.Value(dnsserver.Key{}).(*dnsserver.Server)
 
 	server.ServeDNS(state.Context, nw, req)
 
