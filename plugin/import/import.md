@@ -2,7 +2,7 @@
 
 ## Name
 
-*import* - include files or reference snippets from a Corefile
+*import* - include files or reference snippets from a Corefile.
 
 ## Description
 
@@ -10,10 +10,7 @@ The *import* plugin can be used to incude files into the main configuration. Ano
 reference predefined snippets. Both can help to avoid some duplication.
 
 This is a unique directive in that *import* can appear outside of a server block. In other words, it
-can appear at the top of a Corefile where an address would normally be. Like other directives,
-however, it cannot be used inside of other directives.
-
-That the the import path is relative to the Corefile.
+can appear at the top of a Corefile where an address would normally be.
 
 ## Syntax
 
@@ -21,20 +18,51 @@ That the the import path is relative to the Corefile.
 import PATTERN
 ~~~
 
-* **PATTERN** is the file or glob pattern (`*`) to include. Its contents will replace this line, as
-  if that file's contents appeared here to begin with. This value is relative to the file's
-  location. It is an error if a specific file cannot be found, but an empty glob pattern is not an
-  error.
+*   **PATTERN** is the file, glob pattern (`*`) or snippet to include. Its contents will replace
+    this line, as if that file's contents appeared here to begin with.
+
+## Files
+
+You can use *import* to include a file or files. This file's location is relative to the
+Corefile's location. It is an error if a specific file cannot be found, but an empty glob pattern is
+not an error.
+
+## Snippets
+
+You can define snippets to be reused later in your Corefile by defining a block with a single-token
+label surrounded by parentheses:
+
+~~~ corefile
+(mysnippet) {
+	...
+}
+~~~
+
+Then you can invoke the snippet with *import*:
+
+~~~
+import mysnippet
+~~~
 
 ## Examples
 
 Import a shared configuration:
 
 ~~~
-import config/common.conf
+. {
+   import config/common.conf
+}
 ~~~
 
-Imports any files found in the zones directory:
+Where `config/common.conf` contains:
+
+~~~
+prometheus
+errors
+log
+~~~
+
+This imports files found in the zones directory:
 
 ~~~
 import ../zones/*
