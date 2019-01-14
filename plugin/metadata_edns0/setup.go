@@ -18,7 +18,7 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	r, err := parseRequest(c)
+	r, err := parse(c)
 
 	if err != nil {
 		return plugin.Error("metadata_edns0", err)
@@ -32,7 +32,7 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func parseRequest(c *caddy.Controller) (*metadataEdns0, error) {
+func parse(c *caddy.Controller) (*metadataEdns0, error) {
 	r := newRequestPlugin()
 	for c.Next() {
 		c.RemainingArgs()

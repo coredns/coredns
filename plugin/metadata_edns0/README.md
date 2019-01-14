@@ -1,6 +1,6 @@
 # Name 
   
-Plugin *metadata_edns0* for coding DNS msg information into metadata
+Plugin *metadata_edns0* is used for decoding EDNS0 related information from the DNS query and publish it as metadata.
 
 
 # Description

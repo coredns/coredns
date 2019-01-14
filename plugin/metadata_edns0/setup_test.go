@@ -37,7 +37,7 @@ func TestSetup(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		actualRequest, err := parseRequest(c)
+		actualRequest, err := parse(c)
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %v: Expected error but found nil", i)
 			continue
