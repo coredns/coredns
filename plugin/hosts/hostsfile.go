@@ -9,6 +9,12 @@ package hosts
 import (
 	"bufio"
 	"bytes"
+	"crypto"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/hex"
 	"io"
 	"net"
 	"os"
@@ -18,6 +24,9 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 )
+
+// The crypto library starts at 1, so this is safe
+const noEncoding crypto.Hash = 0
 
 func parseLiteralIP(addr string) net.IP {
 	if i := strings.Index(addr, "%"); i >= 0 {
@@ -32,6 +41,18 @@ func absDomainName(b string) string {
 	return plugin.Name(b).Normalize()
 }
 
+type lookupOptions struct {
+	// automatically generate IP to Hostname PTR entries
+	// for host entries we parse
+	autoReverse bool
+
+	// Encoding to apply before comparing the hostname with the
+	// data in the hostmap, allowing to use hexencoded hashes
+	// as hostname (so a reader can not reverse engineer what
+	// hosts are being intercepted)
+	encoding crypto.Hash
+}
+
 type hostsMap struct {
 	// Key for the list of literal IP addresses must be a host
 	// name. It would be part of DNS labels, a FQDN or an absolute
@@ -44,13 +65,19 @@ type hostsMap struct {
 	// including IPv6 address with zone identifier.
 	// We don't support old-classful IP address notation.
 	byAddr map[string][]string
+
+	options lookupOptions
 }
 
-func newHostsMap() *hostsMap {
+func newHostsMap(options lookupOptions) *hostsMap {
 	return &hostsMap{
 		byNameV4: make(map[string][]net.IP),
 		byNameV6: make(map[string][]net.IP),
 		byAddr:   make(map[string][]string),
+		options: lookupOptions{
+			autoReverse: options.autoReverse,
+			encoding:    options.encoding,
+		},
 	}
 }
 
@@ -90,6 +117,9 @@ type Hostsfile struct {
 	// mtime and size are only read and modified by a single goroutine
 	mtime time.Time
 	size  int64
+
+	// lookupOptions to apply when looking up hostname
+	options lookupOptions
 }
 
 // readHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
@@ -106,7 +136,7 @@ func (h *Hostsfile) readHosts() {
 		return
 	}
 
-	newMap := h.parse(file, h.inline)
+	newMap := h.parse(file, h.inline, h.options)
 	log.Debugf("Parsed hosts file into %d entries", newMap.Len())
 
 	h.Lock()
@@ -119,19 +149,19 @@ func (h *Hostsfile) readHosts() {
 	h.Unlock()
 }
 
-func (h *Hostsfile) initInline(inline []string) {
+func (h *Hostsfile) initInline(inline []string, options lookupOptions) {
 	if len(inline) == 0 {
 		return
 	}
 
-	hmap := newHostsMap()
-	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")), hmap)
+	hmap := newHostsMap(options)
+	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")), hmap, options)
 	*h.hmap = *h.inline
 }
 
 // Parse reads the hostsfile and populates the byName and byAddr maps.
-func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
-	hmap := newHostsMap()
+func (h *Hostsfile) parse(r io.Reader, override *hostsMap, options lookupOptions) *hostsMap {
+	hmap := newHostsMap(options)
 
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -163,6 +193,9 @@ func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
 			default:
 				continue
 			}
+			if !options.autoReverse || options.encoding != noEncoding {
+				continue
+			}
 			hmap.byAddr[addr.String()] = append(hmap.byAddr[addr.String()], name)
 		}
 	}
@@ -177,6 +210,7 @@ func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
 	for name := range override.byNameV4 {
 		hmap.byNameV6[name] = append(hmap.byNameV6[name], override.byNameV6[name]...)
 	}
+
 	for addr := range override.byAddr {
 		hmap.byAddr[addr] = append(hmap.byAddr[addr], override.byAddr[addr]...)
 	}
@@ -202,6 +236,42 @@ func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
 	h.RLock()
 	defer h.RUnlock()
 	if len(h.hmap.byNameV4) != 0 {
+		switch h.options.encoding {
+		case noEncoding:
+			// we are out
+		case crypto.MD5:
+			hashed := md5.Sum([]byte(host))
+			hexstr := hex.EncodeToString(hashed[:])
+			if ips, ok := h.hmap.byNameV4[absDomainName(hexstr)]; ok {
+				ipsCp := make([]net.IP, len(ips))
+				copy(ipsCp, ips)
+				return ipsCp
+			}
+		case crypto.SHA1:
+			hashed := sha1.Sum([]byte(host))
+			hexstr := hex.EncodeToString(hashed[:])
+			if ips, ok := h.hmap.byNameV4[absDomainName(hexstr)]; ok {
+				ipsCp := make([]net.IP, len(ips))
+				copy(ipsCp, ips)
+				return ipsCp
+			}
+		case crypto.SHA256:
+			hashed := sha256.Sum256([]byte(host))
+			hexstr := hex.EncodeToString(hashed[:])
+			if ips, ok := h.hmap.byNameV4[absDomainName(hexstr)]; ok {
+				ipsCp := make([]net.IP, len(ips))
+				copy(ipsCp, ips)
+				return ipsCp
+			}
+		case crypto.SHA512:
+			hashed := sha512.Sum512([]byte(host))
+			hexstr := hex.EncodeToString(hashed[:])
+			if ips, ok := h.hmap.byNameV4[absDomainName(hexstr)]; ok {
+				ipsCp := make([]net.IP, len(ips))
+				copy(ipsCp, ips)
+				return ipsCp
+			}
+		}
 		if ips, ok := h.hmap.byNameV4[absDomainName(host)]; ok {
 			ipsCp := make([]net.IP, len(ips))
 			copy(ipsCp, ips)
@@ -216,6 +286,42 @@ func (h *Hostsfile) LookupStaticHostV6(host string) []net.IP {
 	h.RLock()
 	defer h.RUnlock()
 	if len(h.hmap.byNameV6) != 0 {
+		switch h.options.encoding {
+		case noEncoding:
+			// we are out
+		case crypto.MD5:
+			hashed := md5.Sum([]byte(host))
+			hexstr := hex.EncodeToString(hashed[:])
+			if ips, ok := h.hmap.byNameV6[absDomainName(hexstr)]; ok {
+				ipsCp := make([]net.IP, len(ips))
+				copy(ipsCp, ips)
+				return ipsCp
+			}
+		case crypto.SHA1:
+			hashed := sha1.Sum([]byte(host))
+			hexstr := hex.EncodeToString(hashed[:])
+			if ips, ok := h.hmap.byNameV6[absDomainName(hexstr)]; ok {
+				ipsCp := make([]net.IP, len(ips))
+				copy(ipsCp, ips)
+				return ipsCp
+			}
+		case crypto.SHA256:
+			hashed := sha256.Sum256([]byte(host))
+			hexstr := hex.EncodeToString(hashed[:])
+			if ips, ok := h.hmap.byNameV6[absDomainName(hexstr)]; ok {
+				ipsCp := make([]net.IP, len(ips))
+				copy(ipsCp, ips)
+				return ipsCp
+			}
+		case crypto.SHA512:
+			hashed := sha512.Sum512([]byte(host))
+			hexstr := hex.EncodeToString(hashed[:])
+			if ips, ok := h.hmap.byNameV6[absDomainName(hexstr)]; ok {
+				ipsCp := make([]net.IP, len(ips))
+				copy(ipsCp, ips)
+				return ipsCp
+			}
+		}
 		if ips, ok := h.hmap.byNameV6[absDomainName(host)]; ok {
 			ipsCp := make([]net.IP, len(ips))
 			copy(ipsCp, ips)

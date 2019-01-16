@@ -1,6 +1,7 @@
 package hosts
 
 import (
+	"crypto"
 	"os"
 	"path/filepath"
 	"strings"
@@ -64,7 +65,10 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 	var h = Hosts{
 		Hostsfile: &Hostsfile{
 			path: "/etc/hosts",
-			hmap: newHostsMap(),
+			hmap: newHostsMap(lookupOptions{
+				autoReverse: true,
+				encoding:    noEncoding,
+			}),
 		},
 	}
 
@@ -79,6 +83,34 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		i++
 
 		args := c.RemainingArgs()
+
+	Prepended:
+		for len(args) >= 1 {
+			switch args[0] {
+			case "no-reverse":
+				h.options.autoReverse = false
+				args = args[1:]
+				continue
+			case "md5", "MD5":
+				h.options.encoding = crypto.MD5
+				args = args[1:]
+				continue
+			case "sha1", "SHA1":
+				h.options.encoding = crypto.SHA1
+				args = args[1:]
+				continue
+			case "sha224", "SSH224":
+				h.options.encoding = crypto.SHA224
+				args = args[1:]
+				continue
+			case "sha512", "SSH512":
+				h.options.encoding = crypto.SHA512
+				args = args[1:]
+			default:
+				break Prepended
+			}
+		}
+
 		if len(args) >= 1 {
 			h.path = args[0]
 			args = args[1:]
@@ -125,7 +157,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		}
 	}
 
-	h.initInline(inline)
+	h.initInline(inline, h.hmap.options)
 
 	return h, nil
 }
