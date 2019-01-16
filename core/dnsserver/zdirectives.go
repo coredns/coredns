@@ -11,6 +11,7 @@ package dnsserver
 // care what plugin above them are doing.
 var Directives = []string{
 	"metadata",
+	"metadata_edns0",
 	"tls",
 	"reload",
 	"nsid",

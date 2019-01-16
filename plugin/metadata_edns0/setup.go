@@ -33,7 +33,7 @@ func setup(c *caddy.Controller) error {
 }
 
 func parse(c *caddy.Controller) (*metadataEdns0, error) {
-	r := newRequestPlugin()
+	r := New()
 	for c.Next() {
 		c.RemainingArgs()
 		for c.NextBlock() {
@@ -51,7 +51,7 @@ func (p *metadataEdns0) parseEDNS0(c *caddy.Controller) error {
 	args := c.RemainingArgs()
 	// <label> <definition>
 	// <label> edns0 <id>
-	// <label> ends0 <id> <encoded-format> <params of format ...>
+	// <label> edns0 <id> <encoded-format> <params of format ...>
 	// Valid encoded-format are hex (default), bytes, ip.
 
 	argsLen := len(args)
