@@ -44,15 +44,15 @@ out-of-tree plugins.
 
 ## Compilation from Source
 
-Check out the project:
+Check out the project in your `$GOPATH` or set `$GOPATH` to be the folder where you want to work in
 
 ~~~
+% [ -z "$GOPATH" ] && export GOPATH=`pwd`
+% mkdir -p $GOPATH/src/github.com/coredns
+% cd $GOPATH/src/github.com/coredns
 % git clone https://github.com/coredns/coredns
+% cd coredns
 ~~~
-
-We vendor most (not all!) packages. This is mostly because vendoring isn't a perfect solution (in
-Go). We don't vendor `mholt/caddy` and `miekg/dns` for instance. Using `make` will pull down these
-dependencies and check out the correct version as well.
 
 Next just run `make`:
 
@@ -61,6 +61,10 @@ Next just run `make`:
 ~~~
 
 This should yield a `coredns` binary.
+
+We vendor most (not all!) packages. This is mostly because vendoring isn't a perfect solution (in
+Go). We don't vendor `mholt/caddy` and `miekg/dns` for instance. Using `make` will pull down these
+dependencies and check out the correct version as well.
 
 ## Compilation with Docker
 
