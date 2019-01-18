@@ -95,6 +95,10 @@ Load hosts file inlined in Corefile.
 }
 ~~~
 
+## Auto-update
+
+The plugin reloads the content of the hosts file every 5 seconds. Upon reload, CoreDNS will use the new definitions. Should the file be deleted, any inlined content will continue to be served. When the file is restored, it will then again be used.
+
 ## See also
 
 The form of the entries in the `/etc/hosts` file are based on IETF [RFC 952](https://tools.ietf.org/html/rfc952) which was updated by IETF [RFC 1123](https://tools.ietf.org/html/rfc1123).
