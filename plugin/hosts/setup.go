@@ -35,7 +35,7 @@ func setup(c *caddy.Controller) error {
 		h.readHosts()
 
 		go func() {
-			ticker := time.NewTicker(5 * time.Second)
+			ticker := time.NewTicker(h.hmap.options.reload)
 			for {
 				select {
 				case <-parseChan:
@@ -62,17 +62,20 @@ func setup(c *caddy.Controller) error {
 }
 
 func hostsParse(c *caddy.Controller) (Hosts, error) {
-	var h = Hosts{
-		Hostsfile: &Hostsfile{
-			path: "/etc/hosts",
-			hmap: newHostsMap(lookupOptions{
-				autoReverse: true,
-				encoding:    noEncoding,
-			}),
-		},
+	config := dnsserver.GetConfig(c)
+
+	options := hostsOptions{
+		autoReverse: true,
+		encoding:    noEncoding,
+		reload:      durationOf5s,
 	}
 
-	config := dnsserver.GetConfig(c)
+	h := Hosts{
+		Hostsfile: &Hostsfile{
+			path: "/etc/hosts",
+			hmap: newHostsMap(options),
+		},
+	}
 
 	inline := []string{}
 	i := 0
@@ -88,15 +91,19 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		for searchForPredended {
 			switch args[0] {
 			case "no-reverse":
-				h.options.autoReverse = false
+				options.autoReverse = false
 			case "md5", "MD5":
-				h.options.encoding = crypto.MD5
+				options.encoding = crypto.MD5
+				options.autoReverse = false
 			case "sha1", "SHA1":
-				h.options.encoding = crypto.SHA1
+				options.encoding = crypto.SHA1
+				options.autoReverse = false
 			case "sha224", "SSH224":
-				h.options.encoding = crypto.SHA224
+				options.encoding = crypto.SHA224
+				options.autoReverse = false
 			case "sha512", "SSH512":
-				h.options.encoding = crypto.SHA512
+				options.encoding = crypto.SHA512
+				options.autoReverse = false
 			default:
 				searchForPredended = false
 				continue
@@ -140,6 +147,23 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 			switch c.Val() {
 			case "fallthrough":
 				h.Fall.SetZonesFromArgs(c.RemainingArgs())
+			case "md5", "MD5":
+				options.encoding = crypto.MD5
+			case "sha1", "SHA1":
+				options.encoding = crypto.SHA1
+			case "sha224", "SSH224":
+				options.encoding = crypto.SHA224
+			case "sha512", "SSH512":
+				options.encoding = crypto.SHA512
+			case "no-reverse":
+				options.autoReverse = false
+			case "reload":
+				duration := c.RemainingArgs()[0]
+				reload, err := time.ParseDuration(duration)
+				if err != nil {
+					return h, c.Errf("invalid duration for reload '%s'", duration)
+				}
+				options.reload = reload
 			default:
 				if len(h.Fall.Zones) == 0 {
 					line := strings.Join(append([]string{c.Val()}, c.RemainingArgs()...), " ")
@@ -151,7 +175,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		}
 	}
 
-	h.initInline(inline, h.hmap.options)
+	h.initInline(options, inline)
 
 	return h, nil
 }

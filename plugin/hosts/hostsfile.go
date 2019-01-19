@@ -41,10 +41,13 @@ func absDomainName(b string) string {
 	return plugin.Name(b).Normalize()
 }
 
-type lookupOptions struct {
+type hostsOptions struct {
 	// automatically generate IP to Hostname PTR entries
 	// for host entries we parse
 	autoReverse bool
+
+	// The time between two reload of the configuration
+	reload time.Duration
 
 	// Encoding to apply before comparing the hostname with the
 	// data in the hostmap, allowing to use hexencoded hashes
@@ -66,16 +69,19 @@ type hostsMap struct {
 	// We don't support old-classful IP address notation.
 	byAddr map[string][]string
 
-	options lookupOptions
+	options hostsOptions
 }
 
-func newHostsMap(options lookupOptions) *hostsMap {
+var durationOf5s, _ = time.ParseDuration("5s")
+
+func newHostsMap(options hostsOptions) *hostsMap {
 	return &hostsMap{
 		byNameV4: make(map[string][]net.IP),
 		byNameV6: make(map[string][]net.IP),
 		byAddr:   make(map[string][]string),
-		options: lookupOptions{
+		options: hostsOptions{
 			autoReverse: options.autoReverse,
+			reload:      options.reload,
 			encoding:    options.encoding,
 		},
 	}
@@ -117,9 +123,6 @@ type Hostsfile struct {
 	// mtime and size are only read and modified by a single goroutine
 	mtime time.Time
 	size  int64
-
-	// lookupOptions to apply when looking up hostname
-	options lookupOptions
 }
 
 // readHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
@@ -136,7 +139,7 @@ func (h *Hostsfile) readHosts() {
 		return
 	}
 
-	newMap := h.parse(file, h.inline, h.options)
+	newMap := h.parse(file, h.hmap)
 	log.Debugf("Parsed hosts file into %d entries", newMap.Len())
 
 	h.Lock()
@@ -149,19 +152,19 @@ func (h *Hostsfile) readHosts() {
 	h.Unlock()
 }
 
-func (h *Hostsfile) initInline(inline []string, options lookupOptions) {
+func (h *Hostsfile) initInline(options hostsOptions, inline []string) {
 	if len(inline) == 0 {
 		return
 	}
 
 	hmap := newHostsMap(options)
-	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")), hmap, options)
+	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")), hmap)
 	*h.hmap = *h.inline
 }
 
 // Parse reads the hostsfile and populates the byName and byAddr maps.
-func (h *Hostsfile) parse(r io.Reader, override *hostsMap, options lookupOptions) *hostsMap {
-	hmap := newHostsMap(options)
+func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
+	hmap := newHostsMap(override.options)
 
 	scanner := bufio.NewScanner(r)
 	for scanner.Scan() {
@@ -193,7 +196,7 @@ func (h *Hostsfile) parse(r io.Reader, override *hostsMap, options lookupOptions
 			default:
 				continue
 			}
-			if !options.autoReverse || options.encoding != noEncoding {
+			if !override.options.autoReverse {
 				continue
 			}
 			hmap.byAddr[addr.String()] = append(hmap.byAddr[addr.String()], name)
@@ -266,10 +269,10 @@ func (h *Hostsfile) LookupStaticHost(hmapByName map[string][]net.IP, host string
 
 	ips, ok := hmapByName[fqhost]
 	if !ok {
-		if h.options.encoding == noEncoding {
+		if h.hmap.options.encoding == noEncoding {
 			return nil
 		}
-		ips, ok = hmapByName[hashed(h.options.encoding, host)]
+		ips, ok = hmapByName[hashed(h.hmap.options.encoding, host)]
 		if !ok {
 			return nil
 		}
