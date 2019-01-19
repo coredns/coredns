@@ -231,104 +231,62 @@ func ipVersion(s string) int {
 	return 0
 }
 
-// LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
-func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
+// hostKeys return the hashed hostname to lookup
+func hashed(encoding crypto.Hash, host string) string {
+	var hashedHost string
+	switch encoding {
+	case crypto.MD5:
+		hashed := md5.Sum([]byte(host))
+		hashedHost = hex.EncodeToString(hashed[:])
+	case crypto.SHA1:
+		hashed := sha1.Sum([]byte(host))
+		hashedHost = hex.EncodeToString(hashed[:])
+	case crypto.SHA256:
+		hashed := sha256.Sum256([]byte(host))
+		hashedHost = hex.EncodeToString(hashed[:])
+	case crypto.SHA512:
+		hashed := sha512.Sum512([]byte(host))
+		hashedHost = hex.EncodeToString(hashed[:])
+	default:
+		hashedHost = ""
+	}
+	return absDomainName(hashedHost)
+}
+
+// LookupStaticHost looks up the IP addresses for the given host from the hosts file.
+func (h *Hostsfile) LookupStaticHost(hmapByName map[string][]net.IP, host string) []net.IP {
+	fqhost := absDomainName(host)
+
 	h.RLock()
 	defer h.RUnlock()
-	if len(h.hmap.byNameV4) != 0 {
-		switch h.options.encoding {
-		case noEncoding:
-			// we are out
-		case crypto.MD5:
-			hashed := md5.Sum([]byte(host))
-			hexstr := hex.EncodeToString(hashed[:])
-			if ips, ok := h.hmap.byNameV4[absDomainName(hexstr)]; ok {
-				ipsCp := make([]net.IP, len(ips))
-				copy(ipsCp, ips)
-				return ipsCp
-			}
-		case crypto.SHA1:
-			hashed := sha1.Sum([]byte(host))
-			hexstr := hex.EncodeToString(hashed[:])
-			if ips, ok := h.hmap.byNameV4[absDomainName(hexstr)]; ok {
-				ipsCp := make([]net.IP, len(ips))
-				copy(ipsCp, ips)
-				return ipsCp
-			}
-		case crypto.SHA256:
-			hashed := sha256.Sum256([]byte(host))
-			hexstr := hex.EncodeToString(hashed[:])
-			if ips, ok := h.hmap.byNameV4[absDomainName(hexstr)]; ok {
-				ipsCp := make([]net.IP, len(ips))
-				copy(ipsCp, ips)
-				return ipsCp
-			}
-		case crypto.SHA512:
-			hashed := sha512.Sum512([]byte(host))
-			hexstr := hex.EncodeToString(hashed[:])
-			if ips, ok := h.hmap.byNameV4[absDomainName(hexstr)]; ok {
-				ipsCp := make([]net.IP, len(ips))
-				copy(ipsCp, ips)
-				return ipsCp
-			}
+
+	if len(hmapByName) == 0 {
+		return nil
+	}
+
+	ips, ok := hmapByName[fqhost]
+	if !ok {
+		if h.options.encoding == noEncoding {
+			return nil
 		}
-		if ips, ok := h.hmap.byNameV4[absDomainName(host)]; ok {
-			ipsCp := make([]net.IP, len(ips))
-			copy(ipsCp, ips)
-			return ipsCp
+		ips, ok = hmapByName[hashed(h.options.encoding, host)]
+		if !ok {
+			return nil
 		}
 	}
-	return nil
+	ipsCp := make([]net.IP, len(ips))
+	copy(ipsCp, ips)
+	return ipsCp
+}
+
+// LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
+func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
+	return h.LookupStaticHost(h.hmap.byNameV4, host)
 }
 
 // LookupStaticHostV6 looks up the IPv6 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV6(host string) []net.IP {
-	h.RLock()
-	defer h.RUnlock()
-	if len(h.hmap.byNameV6) != 0 {
-		switch h.options.encoding {
-		case noEncoding:
-			// we are out
-		case crypto.MD5:
-			hashed := md5.Sum([]byte(host))
-			hexstr := hex.EncodeToString(hashed[:])
-			if ips, ok := h.hmap.byNameV6[absDomainName(hexstr)]; ok {
-				ipsCp := make([]net.IP, len(ips))
-				copy(ipsCp, ips)
-				return ipsCp
-			}
-		case crypto.SHA1:
-			hashed := sha1.Sum([]byte(host))
-			hexstr := hex.EncodeToString(hashed[:])
-			if ips, ok := h.hmap.byNameV6[absDomainName(hexstr)]; ok {
-				ipsCp := make([]net.IP, len(ips))
-				copy(ipsCp, ips)
-				return ipsCp
-			}
-		case crypto.SHA256:
-			hashed := sha256.Sum256([]byte(host))
-			hexstr := hex.EncodeToString(hashed[:])
-			if ips, ok := h.hmap.byNameV6[absDomainName(hexstr)]; ok {
-				ipsCp := make([]net.IP, len(ips))
-				copy(ipsCp, ips)
-				return ipsCp
-			}
-		case crypto.SHA512:
-			hashed := sha512.Sum512([]byte(host))
-			hexstr := hex.EncodeToString(hashed[:])
-			if ips, ok := h.hmap.byNameV6[absDomainName(hexstr)]; ok {
-				ipsCp := make([]net.IP, len(ips))
-				copy(ipsCp, ips)
-				return ipsCp
-			}
-		}
-		if ips, ok := h.hmap.byNameV6[absDomainName(host)]; ok {
-			ipsCp := make([]net.IP, len(ips))
-			copy(ipsCp, ips)
-			return ipsCp
-		}
-	}
-	return nil
+	return h.LookupStaticHost(h.hmap.byNameV6, host)
 }
 
 // LookupStaticAddr looks up the hosts for the given address from the hosts file.
@@ -339,12 +297,14 @@ func (h *Hostsfile) LookupStaticAddr(addr string) []string {
 	if addr == "" {
 		return nil
 	}
-	if len(h.hmap.byAddr) != 0 {
-		if hosts, ok := h.hmap.byAddr[addr]; ok {
-			hostsCp := make([]string, len(hosts))
-			copy(hostsCp, hosts)
-			return hostsCp
-		}
+	if len(h.hmap.byAddr) == 0 {
+		return nil
 	}
-	return nil
+	hosts, ok := h.hmap.byAddr[addr]
+	if !ok {
+		return nil
+	}
+	hostsCp := make([]string, len(hosts))
+	copy(hostsCp, hosts)
+	return hostsCp
 }
