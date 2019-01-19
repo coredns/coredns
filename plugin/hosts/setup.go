@@ -84,8 +84,8 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 
 		args := c.RemainingArgs()
 
-	Prepended:
-		for len(args) >= 1 {
+		var searchForPredended = (len(args) >= 1)
+		for searchForPredended {
 			switch args[0] {
 			case "no-reverse":
 				h.options.autoReverse = false
@@ -107,7 +107,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 				h.options.encoding = crypto.SHA512
 				args = args[1:]
 			default:
-				break Prepended
+				searchForPredended = false
 			}
 		}
 
