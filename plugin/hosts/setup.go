@@ -89,23 +89,19 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 			switch args[0] {
 			case "no-reverse":
 				h.options.autoReverse = false
-				args = args[1:]
 			case "md5", "MD5":
 				h.options.encoding = crypto.MD5
-				args = args[1:]
 			case "sha1", "SHA1":
 				h.options.encoding = crypto.SHA1
-				args = args[1:]
 			case "sha224", "SSH224":
 				h.options.encoding = crypto.SHA224
-				args = args[1:]
 			case "sha512", "SSH512":
 				h.options.encoding = crypto.SHA512
-				args = args[1:]
 			default:
 				searchForPredended = false
 				continue
 			}
+			args = args[1:]
 			searchForPredended = (len(args) >= 1)
 		}
 
