@@ -20,7 +20,7 @@
 //	result := Scrape("http://localhost:9153/metrics")
 //	v := MetricValue("coredns_cache_capacity", result)
 //
-package metrics
+package test
 
 import (
 	"fmt"
@@ -28,7 +28,6 @@ import (
 	"mime"
 	"net/http"
 	"strconv"
-	"testing"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	"github.com/prometheus/common/expfmt"
@@ -66,8 +65,8 @@ type (
 	}
 )
 
-// scrape returns the all the vars a []*metricFamily.
-func scrape(t *testing.T, url string) []*MetricFamily {
+// Scrape returns the all the vars a []*metricFamily.
+func Scrape(url string) []*MetricFamily {
 	mfChan := make(chan *dto.MetricFamily, 1024)
 
 	go fetchMetricFamilies(url, mfChan)
@@ -79,9 +78,9 @@ func scrape(t *testing.T, url string) []*MetricFamily {
 	return result
 }
 
-// scrapeMetricAsInt provide a sum of all metrics collected for the name and label provided.
+// ScrapeMetricAsInt provide a sum of all metrics collected for the name and label provided.
 // if the metric is not a numeric value, it will be counted a 0.
-func scrapeMetricAsInt(t *testing.T, addr string, name string, label string, nometricvalue int) int {
+func ScrapeMetricAsInt(addr string, name string, label string, nometricvalue int) int {
 
 	valueToInt := func(m metric) int {
 		v := m.Value
@@ -92,7 +91,7 @@ func scrapeMetricAsInt(t *testing.T, addr string, name string, label string, nom
 		return r
 	}
 
-	met := scrape(t, fmt.Sprintf("http://%s/metrics", addr))
+	met := Scrape(fmt.Sprintf("http://%s/metrics", addr))
 	found := false
 	tot := 0
 	for _, mf := range met {
@@ -120,9 +119,9 @@ func scrapeMetricAsInt(t *testing.T, addr string, name string, label string, nom
 	return tot
 }
 
-// metricValue returns the value associated with name as a string as well as the labels.
+// MetricValue returns the value associated with name as a string as well as the labels.
 // It only returns the first metrics of the slice.
-func metricValue(name string, mfs []*MetricFamily) (string, map[string]string) {
+func MetricValue(name string, mfs []*MetricFamily) (string, map[string]string) {
 	for _, mf := range mfs {
 		if mf.Name == name {
 			// Only works with Gauge and Counter...
@@ -132,8 +131,8 @@ func metricValue(name string, mfs []*MetricFamily) (string, map[string]string) {
 	return "", nil
 }
 
-// metricValueLabel returns the value for name *and* label *value*.
-func metricValueLabel(name, label string, mfs []*MetricFamily) (string, map[string]string) {
+// MetricValueLabel returns the value for name *and* label *value*.
+func MetricValueLabel(name, label string, mfs []*MetricFamily) (string, map[string]string) {
 	// bit hacky is this really handy...?
 	for _, mf := range mfs {
 		if mf.Name == name {

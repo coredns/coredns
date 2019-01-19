@@ -70,10 +70,10 @@ func TestMetrics(t *testing.T) {
 			t.Fatalf("Test %d: Expected no error, but got %s", i, err)
 		}
 
-		result := scrape(t, "http://"+ListenAddr+"/metrics")
+		result := test.Scrape("http://" + ListenAddr + "/metrics")
 
 		if tc.expectedValue != "" {
-			got, _ := metricValue(tc.metric, result)
+			got, _ := test.MetricValue(tc.metric, result)
 			if got != tc.expectedValue {
 				t.Errorf("Test %d: Expected value %s for metrics %s, but got %s", i, tc.expectedValue, tc.metric, got)
 			}
