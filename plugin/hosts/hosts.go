@@ -43,13 +43,13 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			// If this doesn't match we need to fall through regardless of h.Fallthrough
 			return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
-		answers = h.ptr(qname, h.hmap.options.ttl, names)
+		answers = h.ptr(qname, h.options.ttl, names)
 	case dns.TypeA:
 		ips := h.LookupStaticHostV4(qname)
-		answers = a(qname, h.hmap.options.ttl, ips)
+		answers = a(qname, h.options.ttl, ips)
 	case dns.TypeAAAA:
 		ips := h.LookupStaticHostV6(qname)
-		answers = aaaa(qname, h.hmap.options.ttl, ips)
+		answers = aaaa(qname, h.options.ttl, ips)
 	}
 
 	if len(answers) == 0 {

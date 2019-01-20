@@ -14,7 +14,8 @@ import (
 func testHostsfile(file string) *Hostsfile {
 	h := &Hostsfile{
 		Origins: []string{"."},
-		hmap:    newHostsMap(newHostsOptions()),
+		hmap:    newHostsMap(),
+		options: newHostsOptions(),
 	}
 	h.parseReader(strings.NewReader(file))
 	return h

@@ -27,12 +27,12 @@ func init() {
 func periodicHostsUpdate(h *Hosts) chan bool {
 	parseChan := make(chan bool)
 
-	if *h.hmap.options.reload == durationOf0s {
+	if *h.options.reload == durationOf0s {
 		return parseChan
 	}
 
 	go func() {
-		ticker := time.NewTicker(*h.hmap.options.reload)
+		ticker := time.NewTicker(*h.options.reload)
 		for {
 			select {
 			case <-parseChan:
@@ -78,8 +78,9 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 
 	h := Hosts{
 		Hostsfile: &Hostsfile{
-			path: "/etc/hosts",
-			hmap: newHostsMap(options),
+			path:    "/etc/hosts",
+			hmap:    newHostsMap(),
+			options: options,
 		},
 	}
 
@@ -202,7 +203,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		}
 	}
 
-	h.initInline(options, inline)
+	h.initInline(inline)
 
 	return h, nil
 }
