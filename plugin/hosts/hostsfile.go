@@ -46,20 +46,24 @@ type hostsOptions struct {
 	// for host entries we parse
 	autoReverse bool
 
-	// The time between two reload of the configuration
-	reload *time.Duration
-
 	// Encoding to apply before comparing the hostname with the
 	// data in the hostmap, allowing to use hexencoded hashes
 	// as hostname (so a reader can not reverse engineer what
 	// hosts are being intercepted)
 	encoding crypto.Hash
+
+	// The TTL of the record we generate
+	ttl uint32
+
+	// The time between two reload of the configuration
+	reload *time.Duration
 }
 
 func newHostsOptions() *hostsOptions {
 	return &hostsOptions{
 		autoReverse: true,
 		encoding:    noEncoding,
+		ttl:         3600,
 		reload:      &durationOf5s,
 	}
 }

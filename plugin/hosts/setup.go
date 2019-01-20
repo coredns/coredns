@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -162,8 +163,25 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 				options.encoding = crypto.SHA512
 			case "no-reverse":
 				options.autoReverse = false
+			case "ttl":
+				remaining := c.RemainingArgs()
+				if len(remaining) < 1 {
+					return h, c.Errf("ttl needs a time in second")
+				}
+				ttl, err := strconv.Atoi(remaining[0])
+				if err != nil {
+					return h, c.Errf("ttl needs a number of second")
+				}
+				if ttl <= 0 || ttl > 65535 {
+					return h, c.Errf("ttl provided is invalid")
+				}
+				options.ttl = uint32(ttl)
 			case "reload":
-				duration := c.RemainingArgs()[0]
+				remaining := c.RemainingArgs()
+				if len(remaining) < 1 {
+					return h, c.Errf("reload needs a duration or the word disabled")
+				}
+				duration := remaining[0]
 				if duration == "disabled" {
 					options.reload = &durationOf0s
 				} else {

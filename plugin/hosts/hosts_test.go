@@ -17,6 +17,7 @@ func (h *Hostsfile) parseReader(r io.Reader) {
 	inline := newHostsMap(&hostsOptions{
 		autoReverse: h.hmap.options.autoReverse,
 		encoding:    h.hmap.options.encoding,
+		ttl:         h.hmap.options.ttl,
 		reload:      h.hmap.options.reload,
 	})
 	h.hmap = h.parse(r, inline)
@@ -30,6 +31,7 @@ func TestLookupA(t *testing.T) {
 			hmap: newHostsMap(&hostsOptions{
 				autoReverse: true,
 				encoding:    noEncoding,
+				ttl:         3600,
 				reload:      &durationOf5s,
 			}),
 		},
@@ -116,6 +118,7 @@ func TestLookupHashed(t *testing.T) {
 			hmap: newHostsMap(&hostsOptions{
 				autoReverse: false,
 				encoding:    crypto.SHA1,
+				ttl:         3600,
 				reload:      &durationOf5s,
 			}),
 		},
