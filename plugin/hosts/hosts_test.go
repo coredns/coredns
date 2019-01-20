@@ -12,7 +12,14 @@ import (
 	"github.com/miekg/dns"
 )
 
-func (h *Hostsfile) parseReader(r io.Reader) { h.hmap = h.parse(r, h.inline, h.options) }
+func (h *Hostsfile) parseReader(r io.Reader) {
+	inline := newHostsMap(&hostsOptions{
+		autoReverse: true,
+		encoding:    noEncoding,
+		reload:      &durationOf5s,
+	})
+	h.hmap = h.parse(r, inline)
+}
 
 func TestLookupA(t *testing.T) {
 	h := Hosts{Next: test.ErrorHandler(), Hostsfile: &Hostsfile{Origins: []string{"."}}}
@@ -75,3 +82,21 @@ const hostsExample = `
 127.0.0.1 localhost localhost.domain
 ::1 localhost localhost.domain
 10.0.0.1 example.org`
+
+// {
+// 	Qname: "localhost.localdomain.", Qtype: dns.TypeA,
+// 	Answer: []dns.RR{
+// 		test.A("localhost. 3600	IN	A 127.0.0.1"),
+// 	},
+// },
+// {
+// 	Qname: "coredns.io.", Qtype: dns.TypeA,
+// 	Answer: []dns.RR{
+// 		test.A("coredns.io. 3600	IN	A 127.0.0.2"),
+// 	},
+// },
+
+// sha1
+// 127.0.0.1 localhost
+// ::FFFF:127.0.0.1 localhost.domain
+// 10.0.0.2 e3245ab1c03ed4e3f9e6b858f479d6c00b0055ef

@@ -73,16 +73,12 @@ func setup(c *caddy.Controller) error {
 func hostsParse(c *caddy.Controller) (Hosts, error) {
 	config := dnsserver.GetConfig(c)
 
-	options := hostsOptions{
-		autoReverse: true,
-		encoding:    noEncoding,
-		reload:      &durationOf5s,
-	}
+	options := newHostsOptions()
 
 	h := Hosts{
 		Hostsfile: &Hostsfile{
 			path: "/etc/hosts",
-			hmap: newHostsMap(&options),
+			hmap: newHostsMap(options),
 		},
 	}
 
@@ -188,7 +184,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		}
 	}
 
-	h.initInline(&options, inline)
+	h.initInline(options, inline)
 
 	return h, nil
 }

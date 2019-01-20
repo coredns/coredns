@@ -56,6 +56,14 @@ type hostsOptions struct {
 	encoding crypto.Hash
 }
 
+func newHostsOptions() *hostsOptions {
+	return &hostsOptions{
+		autoReverse: true,
+		encoding:    noEncoding,
+		reload:      &durationOf5s,
+	}
+}
+
 type hostsMap struct {
 	// Key for the list of literal IP addresses must be a host
 	// name. It would be part of DNS labels, a FQDN or an absolute
