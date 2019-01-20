@@ -2,6 +2,7 @@ package hosts
 
 import (
 	"context"
+	"crypto"
 	"io"
 	"strings"
 	"testing"
@@ -14,15 +15,25 @@ import (
 
 func (h *Hostsfile) parseReader(r io.Reader) {
 	inline := newHostsMap(&hostsOptions{
-		autoReverse: true,
-		encoding:    noEncoding,
-		reload:      &durationOf5s,
+		autoReverse: h.hmap.options.autoReverse,
+		encoding:    h.hmap.options.encoding,
+		reload:      h.hmap.options.reload,
 	})
 	h.hmap = h.parse(r, inline)
 }
 
 func TestLookupA(t *testing.T) {
-	h := Hosts{Next: test.ErrorHandler(), Hostsfile: &Hostsfile{Origins: []string{"."}}}
+	h := Hosts{
+		Next: test.ErrorHandler(),
+		Hostsfile: &Hostsfile{
+			Origins: []string{"."},
+			hmap: newHostsMap(&hostsOptions{
+				autoReverse: true,
+				encoding:    noEncoding,
+				reload:      &durationOf5s,
+			}),
+		},
+	}
 	h.parseReader(strings.NewReader(hostsExample))
 
 	ctx := context.TODO()
@@ -97,11 +108,40 @@ const hostsExample = `
 ::FFFF:10.0.0.2 example.com
 `
 
-// 	Qname: "coredns.io.", Qtype: dns.TypeA,
-// 	Answer: []dns.RR{
-// 		test.A("coredns.io. 3600	IN	A 127.0.0.2"),
-// 	},
-// },
+func TestLookupHashed(t *testing.T) {
+	h := Hosts{
+		Next: test.ErrorHandler(),
+		Hostsfile: &Hostsfile{
+			Origins: []string{"."},
+			hmap: newHostsMap(&hostsOptions{
+				autoReverse: false,
+				encoding:    crypto.SHA1,
+				reload:      &durationOf5s,
+			}),
+		},
+	}
 
-// sha1
-// 10.0.0.2 e3245ab1c03ed4e3f9e6b858f479d6c00b0055ef
+	h.parseReader(strings.NewReader(hostsExampleHashed))
+	ips := h.LookupStaticHostV4("coredns.io.")
+
+	if len(ips) != 1 {
+		t.Errorf("Hashed record not found")
+	}
+	if ips[0].String() != "10.0.0.3" {
+		t.Errorf("Hashed record invalid")
+	}
+}
+
+var hostsTestCasesHashed = []test.Case{
+	{
+		Qname: "coredns.io.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.A("coredns.io. 3600	IN	A 10.0.0.3"),
+		},
+	},
+}
+
+const hostsExampleHashed = `
+sha1
+10.0.0.3 e3245ab1c03ed4e3f9e6b858f479d6c00b0055ef
+`
