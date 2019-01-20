@@ -231,7 +231,7 @@ func ipVersion(s string) int {
 	return 0
 }
 
-// hostKeys return the hashed hostname to lookup
+// hashed returns the hashed hostname to lookup
 func hashed(encoding crypto.Hash, host string) string {
 	var hashedHost string
 	switch encoding {
@@ -254,7 +254,7 @@ func hashed(encoding crypto.Hash, host string) string {
 }
 
 // LookupStaticHost looks up the IP addresses for the given host from the hosts file.
-func (h *Hostsfile) LookupStaticHost(hmapByName map[string][]net.IP, host string) []net.IP {
+func (h *Hostsfile) lookupStaticHost(hmapByName map[string][]net.IP, host string) []net.IP {
 	fqhost := absDomainName(host)
 
 	h.RLock()
@@ -281,12 +281,12 @@ func (h *Hostsfile) LookupStaticHost(hmapByName map[string][]net.IP, host string
 
 // LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
-	return h.LookupStaticHost(h.hmap.byNameV4, host)
+	return h.lookupStaticHost(h.hmap.byNameV4, host)
 }
 
 // LookupStaticHostV6 looks up the IPv6 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV6(host string) []net.IP {
-	return h.LookupStaticHost(h.hmap.byNameV6, host)
+	return h.lookupStaticHost(h.hmap.byNameV6, host)
 }
 
 // LookupStaticAddr looks up the hosts for the given address from the hosts file.
