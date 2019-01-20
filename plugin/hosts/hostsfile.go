@@ -47,7 +47,7 @@ type hostsOptions struct {
 	autoReverse bool
 
 	// The time between two reload of the configuration
-	reload time.Duration
+	reload *time.Duration
 
 	// Encoding to apply before comparing the hostname with the
 	// data in the hostmap, allowing to use hexencoded hashes
@@ -69,21 +69,18 @@ type hostsMap struct {
 	// We don't support old-classful IP address notation.
 	byAddr map[string][]string
 
-	options hostsOptions
+	options *hostsOptions
 }
 
+var durationOf0s, _ = time.ParseDuration("0s")
 var durationOf5s, _ = time.ParseDuration("5s")
 
-func newHostsMap(options hostsOptions) *hostsMap {
+func newHostsMap(options *hostsOptions) *hostsMap {
 	return &hostsMap{
 		byNameV4: make(map[string][]net.IP),
 		byNameV6: make(map[string][]net.IP),
 		byAddr:   make(map[string][]string),
-		options: hostsOptions{
-			autoReverse: options.autoReverse,
-			reload:      options.reload,
-			encoding:    options.encoding,
-		},
+		options:  options,
 	}
 }
 
@@ -152,7 +149,7 @@ func (h *Hostsfile) readHosts() {
 	h.Unlock()
 }
 
-func (h *Hostsfile) initInline(options hostsOptions, inline []string) {
+func (h *Hostsfile) initInline(options *hostsOptions, inline []string) {
 	if len(inline) == 0 {
 		return
 	}

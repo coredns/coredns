@@ -23,28 +23,37 @@ func init() {
 	})
 }
 
+func periodicHostsUpdate(h *Hosts) chan bool {
+	parseChan := make(chan bool)
+
+	if *h.hmap.options.reload == durationOf0s {
+		return parseChan
+	}
+
+	go func() {
+		ticker := time.NewTicker(*h.hmap.options.reload)
+		for {
+			select {
+			case <-parseChan:
+				return
+			case <-ticker.C:
+				h.readHosts()
+			}
+		}
+	}()
+	return parseChan
+}
+
 func setup(c *caddy.Controller) error {
 	h, err := hostsParse(c)
 	if err != nil {
 		return plugin.Error("hosts", err)
 	}
 
-	parseChan := make(chan bool)
+	parseChan := periodicHostsUpdate(&h)
 
 	c.OnStartup(func() error {
 		h.readHosts()
-
-		go func() {
-			ticker := time.NewTicker(h.hmap.options.reload)
-			for {
-				select {
-				case <-parseChan:
-					return
-				case <-ticker.C:
-					h.readHosts()
-				}
-			}
-		}()
 		return nil
 	})
 
@@ -67,13 +76,13 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 	options := hostsOptions{
 		autoReverse: true,
 		encoding:    noEncoding,
-		reload:      durationOf5s,
+		reload:      &durationOf5s,
 	}
 
 	h := Hosts{
 		Hostsfile: &Hostsfile{
 			path: "/etc/hosts",
-			hmap: newHostsMap(options),
+			hmap: newHostsMap(&options),
 		},
 	}
 
@@ -159,11 +168,15 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 				options.autoReverse = false
 			case "reload":
 				duration := c.RemainingArgs()[0]
-				reload, err := time.ParseDuration(duration)
-				if err != nil {
-					return h, c.Errf("invalid duration for reload '%s'", duration)
+				if duration == "disabled" {
+					options.reload = &durationOf0s
+				} else {
+					reload, err := time.ParseDuration(duration)
+					if err != nil {
+						return h, c.Errf("invalid duration for reload '%s'", duration)
+					}
+					options.reload = &reload
 				}
-				options.reload = reload
 			default:
 				if len(h.Fall.Zones) == 0 {
 					line := strings.Join(append([]string{c.Val()}, c.RemainingArgs()...), " ")
@@ -175,7 +188,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		}
 	}
 
-	h.initInline(options, inline)
+	h.initInline(&options, inline)
 
 	return h, nil
 }
