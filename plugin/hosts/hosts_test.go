@@ -99,6 +99,8 @@ const hostsExample = `
 ::1 localhost localhost.domain
 10.0.0.1 example.org
 ::FFFF:10.0.0.2 example.com
+reload 5s
+timeout 3600
 `
 
 func TestLookupHashed(t *testing.T) {
@@ -137,6 +139,12 @@ var hostsTestCasesHashed = []test.Case{
 }
 
 const hostsExampleHashed = `
+no-reverse
+sha512
+sha256
+ssg224
+md5
 sha1
+reload disabled
 10.0.0.3 e3245ab1c03ed4e3f9e6b858f479d6c00b0055ef
 `
