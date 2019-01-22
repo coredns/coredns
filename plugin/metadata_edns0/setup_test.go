@@ -13,25 +13,25 @@ func TestSetup(t *testing.T) {
 		expectedLen int
 	}{
 		{`metadata_edns0 {
-			client_id edns0 0xffed
+			client_id 0xffed
 		}`, false, 1},
 
 		{`metadata_edns0 {
-			client_id edns0
+			client_id
 		}`, true, 1},
 
 		{`metadata_edns0 {
-			client_id edns0 0xffed
-			group_id edns0 0xffee hex 16 0 16
+			client_id 0xffed
+			group_id 0xffee hex 16 0 16
 		}`, false, 2},
 
 		{`metadata_edns0 {
-			client_id edns0 0xffed
-			label edns0 0xffee
+			client_id 0xffed address
+			label 0xffee
 		}`, false, 2},
 
 		{`metadata_edns0 {
-			group_id edns0 
+			group_id 
 		}`, true, 1},
 	}
 

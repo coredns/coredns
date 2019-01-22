@@ -50,29 +50,29 @@ func (p *metadataEdns0) parseEDNS0(c *caddy.Controller) error {
 	name := c.Val()
 	args := c.RemainingArgs()
 	// <label> <definition>
-	// <label> edns0 <id>
-	// <label> edns0 <id> <encoded-format> <params of format ...>
+	// <label> <id>
+	// <label> <id> <encoded-format> <params of format ...>
 	// Valid encoded-format are hex (default), bytes, ip.
 
 	argsLen := len(args)
-	if argsLen != 2 && argsLen != 3 && argsLen != 6 {
+	if argsLen != 1 && argsLen != 2 && argsLen != 5 {
 		return fmt.Errorf("invalid edns0 directive")
 	}
-	code := args[1]
+	code := args[0]
 
 	dataType := "hex"
 	size := "0"
 	start := "0"
 	end := "0"
 
-	if argsLen > 2 {
-		dataType = args[2]
+	if argsLen > 1 {
+		dataType = args[1]
 	}
 
-	if argsLen == 6 && dataType == "hex" {
-		size = args[3]
-		start = args[4]
-		end = args[5]
+	if argsLen == 5 && dataType == "hex" {
+		size = args[2]
+		start = args[3]
+		end = args[4]
 	}
 
 	err := p.addEDNS0Map(code, name, dataType, size, start, end)
