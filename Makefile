@@ -21,19 +21,7 @@ check: presubmit core/plugin/zplugin.go core/dnsserver/zdirectives.go godeps
 
 .PHONY: godeps
 godeps:
-	@ # Not vendoring these, so external plugins compile, avoiding:
-	@ # cannot use c (type *"github.com/mholt/caddy".Controller) as type
-	@ # *"github.com/coredns/coredns/vendor/github.com/mholt/caddy".Controller like errors.
-	(cd $(GOPATH)/src/github.com/mholt/caddy 2>/dev/null              && git checkout -q master 2>/dev/null || true)
-	(cd $(GOPATH)/src/github.com/miekg/dns 2>/dev/null                && git checkout -q master 2>/dev/null || true)
-	(cd $(GOPATH)/src/github.com/prometheus/client_golang 2>/dev/null && git checkout -q master 2>/dev/null || true)
-	go get -u github.com/mholt/caddy
-	go get -u github.com/miekg/dns
-	go get -u github.com/prometheus/client_golang/prometheus/promhttp
-	go get -u github.com/prometheus/client_golang/prometheus
-	(cd $(GOPATH)/src/github.com/mholt/caddy              && git checkout -q v0.11.1)
-	(cd $(GOPATH)/src/github.com/miekg/dns                && git checkout -q v1.1.3)
-	(cd $(GOPATH)/src/github.com/prometheus/client_golang && git checkout -q v0.9.1)
+	@ # Vendoring all dependencies
 
 .PHONY: travis
 travis:
