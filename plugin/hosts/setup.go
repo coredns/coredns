@@ -158,19 +158,14 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 				options.ttl = uint32(ttl)
 			case "reload":
 				remaining := c.RemainingArgs()
-				if len(remaining) < 1 {
-					return h, c.Errf("reload needs a duration or the word disabled")
+				if len(remaining) != 1 {
+					return h, c.Errf("reload needs a duration (zero seconds to disable)")
 				}
-				duration := remaining[0]
-				if duration == "disabled" {
-					options.reload = &durationOf0s
-				} else {
-					reload, err := time.ParseDuration(duration)
-					if err != nil {
-						return h, c.Errf("invalid duration for reload '%s'", duration)
-					}
-					options.reload = &reload
+				reload, err := time.ParseDuration(remaining[0])
+				if err != nil {
+					return h, c.Errf("invalid duration for reload '%s'", remaining[0])
 				}
+				options.reload = &reload
 			default:
 				if len(h.Fall.Zones) == 0 {
 					line := strings.Join(append([]string{c.Val()}, c.RemainingArgs()...), " ")
