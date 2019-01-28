@@ -165,6 +165,9 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 				if err != nil {
 					return h, c.Errf("invalid duration for reload '%s'", remaining[0])
 				}
+				if reload < durationOf0s {
+					return h, c.Errf("invalid negative duration for reload '%s'", remaining[0])
+				}
 				options.reload = &reload
 			default:
 				if len(h.Fall.Zones) == 0 {
