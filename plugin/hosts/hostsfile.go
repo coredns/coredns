@@ -185,9 +185,8 @@ func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
 }
 
 // ipVersion returns what IP version was used textually
-// gomacro> net.ParseIP("::FFFF:127.0.0.1")
-// 127.0.0.1	// net.IP
-// https://tools.ietf.org/html/rfc4291#section-2.5.5
+// For why the string is parsed end to start,
+// see IPv4-Compatible IPv6 addresses - RFC 4291 section 2.5.5
 func ipVersion(s string) int {
 	for i := len(s) - 1; i >= 0; i-- {
 		switch s[i] {
