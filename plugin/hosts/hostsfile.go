@@ -66,8 +66,8 @@ type hostsMap struct {
 	byAddr map[string][]string
 }
 
-var durationOf0s, _ = time.ParseDuration("0s")
-var durationOf5s, _ = time.ParseDuration("5s")
+var durationOf0s = time.Duration(0)
+var durationOf5s = time.Duration(5 * time.Second)
 
 func newHostsMap() *hostsMap {
 	return &hostsMap{
