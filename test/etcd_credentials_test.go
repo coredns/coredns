@@ -49,22 +49,15 @@ func TestEtcdCredentials(t *testing.T) {
 
 	etc2 := etcdPluginWithCredentials(username, password)
 
-	// defer func() {
-	// 	if _, err := etc2.Client.AuthDisable(ctx); err != nil {
-	// 		t.Errorf("Fail to disable authentication: %v", err)
-	// 	}
-	// 	if _, err := etc.Client.RoleDelete(ctx, "root"); err != nil {
-	// 		t.Errorf("Failed to delete root role: %v", err)
-	// 	}
-	// 	_, err := etc.Client.UserDelete(ctx, username)
-	// 	if err != nil {
-	// 		t.Errorf("Failed to delete user: %v", err)
-	// 	}
-	// }()
+	defer func() {
+		if _, err := etc2.Client.AuthDisable(ctx); err != nil {
+			t.Errorf("Fail to disable authentication: %v", err)
+		}
+	}()
 
 	resp, err := etc2.Client.Get(ctx, key)
 	if err != nil {
-		t.Errorf("Fail to retreive value from etcd: %v", err)
+		t.Errorf("Fail to retrieve value from etcd: %v", err)
 	}
 
 	if len(resp.Kvs) != 1 {
