@@ -41,14 +41,14 @@ type hostsOptions struct {
 	ttl uint32
 
 	// The time between two reload of the configuration
-	reload *time.Duration
+	reload time.Duration
 }
 
 func newHostsOptions() *hostsOptions {
 	return &hostsOptions{
 		autoReverse: true,
 		ttl:         3600,
-		reload:      &durationOf5s,
+		reload:      durationOf5s,
 	}
 }
 
@@ -66,8 +66,10 @@ type hostsMap struct {
 	byAddr map[string][]string
 }
 
-var durationOf0s = time.Duration(0)
-var durationOf5s = time.Duration(5 * time.Second)
+const (
+	durationOf0s = time.Duration(0)
+	durationOf5s = time.Duration(5 * time.Second)
+)
 
 func newHostsMap() *hostsMap {
 	return &hostsMap{

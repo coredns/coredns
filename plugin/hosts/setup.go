@@ -26,12 +26,12 @@ func init() {
 func periodicHostsUpdate(h *Hosts) chan bool {
 	parseChan := make(chan bool)
 
-	if *h.options.reload == durationOf0s {
+	if h.options.reload == durationOf0s {
 		return parseChan
 	}
 
 	go func() {
-		ticker := time.NewTicker(*h.options.reload)
+		ticker := time.NewTicker(h.options.reload)
 		for {
 			select {
 			case <-parseChan:
@@ -168,7 +168,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 				if reload < durationOf0s {
 					return h, c.Errf("invalid negative duration for reload '%s'", remaining[0])
 				}
-				options.reload = &reload
+				options.reload = reload
 			default:
 				if len(h.Fall.Zones) == 0 {
 					line := strings.Join(append([]string{c.Val()}, c.RemainingArgs()...), " ")
