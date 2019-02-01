@@ -40,7 +40,7 @@ kubernetes [ZONES...] {
     pods POD-MODE
     endpoint_pod_names
     upstream [ADDRESS...]
-    ttl TTL
+    ttl TTL [clusterIPTTL]
     noendpoints
     transfer to ADDRESS...
     fallthrough [ZONES...]
@@ -88,7 +88,8 @@ kubernetes [ZONES...] {
   that point to external hosts (aka External Services, aka CNAMEs).  If no **ADDRESS** is given, CoreDNS
   will resolve External Services against itself. **ADDRESS** can be an IP, an IP:port, or a path
   to a file structured like resolv.conf.
-* `ttl` allows you to set a custom TTL for responses. The default is 5 seconds.  The minimum TTL allowed is
+* `ttl` allows you to set a custom TTL for responses and a optional clusterIPTTL for clusterIP service
+  which can be a little large. The default is 5 seconds.  The minimum TTL allowed is
   0 seconds, and the maximum is capped at 3600 seconds. Setting TTL to 0 will prevent records from being cached.
 * `noendpoints` will turn off the serving of endpoint records by disabling the watch on endpoints.
   All endpoint queries and headless service queries will result in an NXDOMAIN.

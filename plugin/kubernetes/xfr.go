@@ -112,7 +112,7 @@ func (k *Kubernetes) transfer(c chan dns.RR, zone string) {
 			if clusterIP != nil {
 				for _, p := range svc.Ports {
 
-					s := msg.Service{Host: svc.ClusterIP, Port: int(p.Port), TTL: k.ttl}
+					s := msg.Service{Host: svc.ClusterIP, Port: int(p.Port), TTL: k.clusterIPTtl}
 					s.Key = strings.Join(svcBase, "/")
 
 					// Change host from IP to Name for SRV records

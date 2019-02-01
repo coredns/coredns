@@ -252,6 +252,18 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				return nil, c.Errf("ttl must be in range [0, 3600]: %d", t)
 			}
 			k8s.ttl = uint32(t)
+
+			// set clusterIPTtl
+			if len(args) >= 2 {
+				t, err = strconv.Atoi(args[1])
+				if err != nil {
+					return nil, err
+				}
+				if t < 0 || t > 3600 {
+					return nil, c.Errf("ttl must be in range [0, 3600]: %d", t)
+				}
+			}
+			k8s.clusterIPTtl = uint32(t)
 		case "transfer":
 			tos, froms, err := parse.Transfer(c, false)
 			if err != nil {

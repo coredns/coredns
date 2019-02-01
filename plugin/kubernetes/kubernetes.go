@@ -42,6 +42,7 @@ type Kubernetes struct {
 	endpointNameMode bool
 	Fall             fall.F
 	ttl              uint32
+	clusterIPTtl     uint32
 	opts             dnsControlOpts
 
 	primaryZoneIndex   int
@@ -59,6 +60,7 @@ func New(zones []string) *Kubernetes {
 	k.interfaceAddrsFunc = func() net.IP { return net.ParseIP("127.0.0.1") }
 	k.podMode = podModeDisabled
 	k.ttl = defaultTTL
+	k.clusterIPTtl = defaultTTL
 
 	return k
 }
@@ -486,7 +488,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 			err = nil
 
-			s := msg.Service{Host: svc.ClusterIP, Port: int(p.Port), TTL: k.ttl}
+			s := msg.Service{Host: svc.ClusterIP, Port: int(p.Port), TTL: k.clusterIPTtl}
 			s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
 
 			services = append(services, s)
