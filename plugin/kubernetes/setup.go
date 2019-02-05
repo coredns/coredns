@@ -20,6 +20,9 @@ import (
 	"github.com/miekg/dns"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	// Pull this in for logtostderr flag parsing
+	"k8s.io/klog"
+
 	// Excluding azure because it is failing to compile
 	// pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -38,8 +41,10 @@ func init() {
 	// We also set: os.Stderr = os.Stdout in the setup function below so we output to standard out; as we do for
 	// all CoreDNS logging. We can't do *that* in the init function, because we, when starting, also barf some
 	// things to stderr.
-	flag.Set("logtostderr", "true")
-	flag.Parse()
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+	logtostderr := klogFlags.Lookup("logtostderr")
+	logtostderr.Value.Set("true")
 
 	caddy.RegisterPlugin("kubernetes", caddy.Plugin{
 		ServerType: "dns",
