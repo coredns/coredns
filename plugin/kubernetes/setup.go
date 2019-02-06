@@ -36,7 +36,7 @@ import (
 var log = clog.NewWithPlugin("kubernetes")
 
 func init() {
-	// Kubernetes plugin uses the kubernetes library, which now uses klog (ugh), we must set and parse this *flag*,
+	// Kubernetes plugin uses the kubernetes library, which now uses klog, we must set and parse this flag
 	// so we don't log to the filesystem, which can fill up and crash CoreDNS indirectly by calling os.Exit().
 	// We also set: os.Stderr = os.Stdout in the setup function below so we output to standard out; as we do for
 	// all CoreDNS logging. We can't do *that* in the init function, because we, when starting, also barf some
