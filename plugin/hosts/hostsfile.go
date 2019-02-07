@@ -32,6 +32,26 @@ func absDomainName(b string) string {
 	return plugin.Name(b).Normalize()
 }
 
+type options struct {
+	// automatically generate IP to Hostname PTR entries
+	// for host entries we parse
+	autoReverse bool
+
+	// The TTL of the record we generate
+	ttl uint32
+
+	// The time between two reload of the configuration
+	reload time.Duration
+}
+
+func newOptions() *options {
+	return &options{
+		autoReverse: true,
+		ttl:         3600,
+		reload:      durationOf5s,
+	}
+}
+
 type hostsMap struct {
 	// Key for the list of literal IP addresses must be a host
 	// name. It would be part of DNS labels, a FQDN or an absolute
@@ -45,6 +65,11 @@ type hostsMap struct {
 	// We don't support old-classful IP address notation.
 	byAddr map[string][]string
 }
+
+const (
+	durationOf0s = time.Duration(0)
+	durationOf5s = time.Duration(5 * time.Second)
+)
 
 func newHostsMap() *hostsMap {
 	return &hostsMap{
@@ -90,6 +115,8 @@ type Hostsfile struct {
 	// mtime and size are only read and modified by a single goroutine
 	mtime time.Time
 	size  int64
+
+	options *options
 }
 
 // readHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
@@ -106,7 +133,7 @@ func (h *Hostsfile) readHosts() {
 		return
 	}
 
-	newMap := h.parse(file, h.inline)
+	newMap := h.parse(file, h.hmap, h.options.autoReverse)
 	log.Debugf("Parsed hosts file into %d entries", newMap.Len())
 
 	h.Lock()
@@ -125,12 +152,12 @@ func (h *Hostsfile) initInline(inline []string) {
 	}
 
 	hmap := newHostsMap()
-	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")), hmap)
+	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")), hmap, h.options.autoReverse)
 	*h.hmap = *h.inline
 }
 
 // Parse reads the hostsfile and populates the byName and byAddr maps.
-func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
+func (h *Hostsfile) parse(r io.Reader, override *hostsMap, autoReverse bool) *hostsMap {
 	hmap := newHostsMap()
 
 	scanner := bufio.NewScanner(r)
@@ -163,6 +190,9 @@ func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
 			default:
 				continue
 			}
+			if !autoReverse {
+				continue
+			}
 			hmap.byAddr[addr.String()] = append(hmap.byAddr[addr.String()], name)
 		}
 	}
@@ -177,6 +207,7 @@ func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
 	for name := range override.byNameV4 {
 		hmap.byNameV6[name] = append(hmap.byNameV6[name], override.byNameV6[name]...)
 	}
+
 	for addr := range override.byAddr {
 		hmap.byAddr[addr] = append(hmap.byAddr[addr], override.byAddr[addr]...)
 	}
@@ -199,32 +230,34 @@ func ipVersion(s string) int {
 	return 0
 }
 
-// LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
-func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
+// LookupStaticHost looks up the IP addresses for the given host from the hosts file.
+func (h *Hostsfile) lookupStaticHost(hmapByName map[string][]net.IP, host string) []net.IP {
+	fqhost := absDomainName(host)
+
 	h.RLock()
 	defer h.RUnlock()
-	if len(h.hmap.byNameV4) != 0 {
-		if ips, ok := h.hmap.byNameV4[absDomainName(host)]; ok {
-			ipsCp := make([]net.IP, len(ips))
-			copy(ipsCp, ips)
-			return ipsCp
-		}
+
+	if len(hmapByName) == 0 {
+		return nil
 	}
-	return nil
+
+	ips, ok := hmapByName[fqhost]
+	if !ok {
+		return nil
+	}
+	ipsCp := make([]net.IP, len(ips))
+	copy(ipsCp, ips)
+	return ipsCp
+}
+
+// LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
+func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
+	return h.lookupStaticHost(h.hmap.byNameV4, host)
 }
 
 // LookupStaticHostV6 looks up the IPv6 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV6(host string) []net.IP {
-	h.RLock()
-	defer h.RUnlock()
-	if len(h.hmap.byNameV6) != 0 {
-		if ips, ok := h.hmap.byNameV6[absDomainName(host)]; ok {
-			ipsCp := make([]net.IP, len(ips))
-			copy(ipsCp, ips)
-			return ipsCp
-		}
-	}
-	return nil
+	return h.lookupStaticHost(h.hmap.byNameV6, host)
 }
 
 // LookupStaticAddr looks up the hosts for the given address from the hosts file.
@@ -235,12 +268,14 @@ func (h *Hostsfile) LookupStaticAddr(addr string) []string {
 	if addr == "" {
 		return nil
 	}
-	if len(h.hmap.byAddr) != 0 {
-		if hosts, ok := h.hmap.byAddr[addr]; ok {
-			hostsCp := make([]string, len(hosts))
-			copy(hostsCp, hosts)
-			return hostsCp
-		}
+	if len(h.hmap.byAddr) == 0 {
+		return nil
 	}
-	return nil
+	hosts, ok := h.hmap.byAddr[addr]
+	if !ok {
+		return nil
+	}
+	hostsCp := make([]string, len(hosts))
+	copy(hostsCp, hosts)
+	return hostsCp
 }
