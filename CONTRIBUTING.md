@@ -35,7 +35,7 @@ If you are going to spend significant time implementing code for a pull request,
 issue first and "claim" it and get feedback before you invest a lot of time.
 
 If possible make a pull request as small as possible, or submit multiple pull request to complete a
-feature. Smallers means: easier to understand and reviews. This in turn means things can be merged
+feature. Smaller means: easier to understand and review. This in turn means things can be merged
 faster.
 
 ## Updating Dependencies
