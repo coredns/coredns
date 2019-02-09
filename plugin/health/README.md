@@ -29,8 +29,8 @@ health [ADDRESS] {
 * Where `lameduck` will make the process unhealthy then *wait* for **DURATION** before the process
   shuts down.
 
-If you have multiple Server Blocks and need to export health, you must run health endpoints on
-different ports:
+If you have multiple Server Blocks, *health* should only be enabled in one of them (as it is process
+wide). If you really need multiple endpoints, you must run health endpoints on different ports:
 
 ~~~ corefile
 com {
@@ -41,17 +41,6 @@ com {
 net {
     erratic
     health :8081
-}
-~~~
-
-Note that if you format this in one server block you will get an error on startup, that the second
-server can't setup the health plugin (on the same port).
-
-~~~ txt
-com net {
-    whoami
-    erratic
-    health :8080
 }
 ~~~
 
@@ -88,7 +77,7 @@ Set a lameduck duration of 1 second:
 
 ## Bugs
 
-When reloading, the Health handler is stopped before the new server instance is started. If that
+When reloading, the health handler is stopped before the new server instance is started. If that
 new server fails to start, then the initial server instance is still available and DNS queries still
-served, but Health handler stays down. Health will not reply HTTP request until a successful reload
+served, but health handler stays down. Health will not reply HTTP request until a successful reload
 or a complete restart of CoreDNS.
