@@ -133,7 +133,7 @@ func (h *Hostsfile) readHosts() {
 		return
 	}
 
-	newMap := h.parse(file, h.hmap, h.options.autoReverse)
+	newMap := h.parse(file)
 	log.Debugf("Parsed hosts file into %d entries", newMap.Len())
 
 	h.Lock()
@@ -151,13 +151,12 @@ func (h *Hostsfile) initInline(inline []string) {
 		return
 	}
 
-	hmap := newHostsMap()
-	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")), hmap, h.options.autoReverse)
+	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")))
 	*h.hmap = *h.inline
 }
 
 // Parse reads the hostsfile and populates the byName and byAddr maps.
-func (h *Hostsfile) parse(r io.Reader, override *hostsMap, autoReverse bool) *hostsMap {
+func (h *Hostsfile) parse(r io.Reader) *hostsMap {
 	hmap := newHostsMap()
 
 	scanner := bufio.NewScanner(r)
@@ -190,26 +189,22 @@ func (h *Hostsfile) parse(r io.Reader, override *hostsMap, autoReverse bool) *ho
 			default:
 				continue
 			}
-			if !autoReverse {
+			if !h.options.autoReverse {
 				continue
 			}
 			hmap.byAddr[addr.String()] = append(hmap.byAddr[addr.String()], name)
 		}
 	}
 
-	if override == nil {
-		return hmap
+	for name := range h.hmap.byNameV4 {
+		hmap.byNameV4[name] = append(hmap.byNameV4[name], h.hmap.byNameV4[name]...)
+	}
+	for name := range h.hmap.byNameV4 {
+		hmap.byNameV6[name] = append(hmap.byNameV6[name], h.hmap.byNameV6[name]...)
 	}
 
-	for name := range override.byNameV4 {
-		hmap.byNameV4[name] = append(hmap.byNameV4[name], override.byNameV4[name]...)
-	}
-	for name := range override.byNameV4 {
-		hmap.byNameV6[name] = append(hmap.byNameV6[name], override.byNameV6[name]...)
-	}
-
-	for addr := range override.byAddr {
-		hmap.byAddr[addr] = append(hmap.byAddr[addr], override.byAddr[addr]...)
+	for addr := range h.hmap.byAddr {
+		hmap.byAddr[addr] = append(hmap.byAddr[addr], h.hmap.byAddr[addr]...)
 	}
 
 	return hmap

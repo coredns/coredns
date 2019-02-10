@@ -13,8 +13,7 @@ import (
 )
 
 func (h *Hostsfile) parseReader(r io.Reader) {
-	inline := newHostsMap()
-	h.hmap = h.parse(r, inline, h.options.autoReverse)
+	h.hmap = h.parse(r)
 }
 
 func TestLookupA(t *testing.T) {
