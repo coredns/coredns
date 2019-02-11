@@ -3,11 +3,13 @@ package forward
 import (
 	"math/rand"
 	"sync/atomic"
+
+	"github.com/coredns/coredns/plugin/forward/proxy"
 )
 
 // Policy defines a policy we use for selecting upstreams.
 type Policy interface {
-	List([]*Proxy) []*Proxy
+	List([]proxy.Proxy) []proxy.Proxy
 	String() string
 }
 
@@ -16,19 +18,19 @@ type random struct{}
 
 func (r *random) String() string { return "random" }
 
-func (r *random) List(p []*Proxy) []*Proxy {
+func (r *random) List(p []proxy.Proxy) []proxy.Proxy {
 	switch len(p) {
 	case 1:
 		return p
 	case 2:
 		if rand.Int()%2 == 0 {
-			return []*Proxy{p[1], p[0]} // swap
+			return []proxy.Proxy{p[1], p[0]} // swap
 		}
 		return p
 	}
 
 	perms := rand.Perm(len(p))
-	rnd := make([]*Proxy, len(p))
+	rnd := make([]proxy.Proxy, len(p))
 
 	for i, p1 := range perms {
 		rnd[i] = p[p1]
@@ -43,11 +45,11 @@ type roundRobin struct {
 
 func (r *roundRobin) String() string { return "round_robin" }
 
-func (r *roundRobin) List(p []*Proxy) []*Proxy {
+func (r *roundRobin) List(p []proxy.Proxy) []proxy.Proxy {
 	poolLen := uint32(len(p))
 	i := atomic.AddUint32(&r.robin, 1) % poolLen
 
-	robin := []*Proxy{p[i]}
+	robin := []proxy.Proxy{p[i]}
 	robin = append(robin, p[:i]...)
 	robin = append(robin, p[i+1:]...)
 
@@ -59,6 +61,6 @@ type sequential struct{}
 
 func (r *sequential) String() string { return "sequential" }
 
-func (r *sequential) List(p []*Proxy) []*Proxy {
+func (r *sequential) List(p []proxy.Proxy) []proxy.Proxy {
 	return p
 }

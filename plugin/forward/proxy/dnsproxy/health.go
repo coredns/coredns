@@ -1,10 +1,12 @@
-package forward
+package dnsproxy
 
 import (
 	"crypto/tls"
 	"sync/atomic"
 	"time"
 
+	"github.com/coredns/coredns/plugin/forward/metrics"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/miekg/dns"
@@ -12,15 +14,18 @@ import (
 
 // HealthChecker checks the upstream health.
 type HealthChecker interface {
-	Check(*Proxy) error
-	SetTLSConfig(*tls.Config)
+	check(*DNSProxy) error
+	setTLSConfig(*tls.Config)
 }
 
 // dnsHc is a health checker for a DNS endpoint (DNS, and DoT).
-type dnsHc struct{ c *dns.Client }
+type dnsHc struct {
+	c *dns.Client
+	m *metrics.Metrics
+}
 
-// NewHealthChecker returns a new HealthChecker based on transport.
-func NewHealthChecker(trans string) HealthChecker {
+// newHealthChecker returns a new HealthChecker based on transport.
+func newHealthChecker(trans string, metrics *metrics.Metrics) HealthChecker {
 	switch trans {
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
@@ -28,14 +33,14 @@ func NewHealthChecker(trans string) HealthChecker {
 		c.ReadTimeout = 1 * time.Second
 		c.WriteTimeout = 1 * time.Second
 
-		return &dnsHc{c: c}
+		return &dnsHc{c: c, m: metrics}
 	}
 
 	log.Warningf("No healthchecker for transport %q", trans)
 	return nil
 }
 
-func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
+func (h *dnsHc) setTLSConfig(cfg *tls.Config) {
 	h.c.Net = "tcp-tls"
 	h.c.TLSConfig = cfg
 }
@@ -44,10 +49,10 @@ func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
 // replies are considered fails, basically anything else constitutes a healthy upstream.
 
 // Check is used as the up.Func in the up.Probe.
-func (h *dnsHc) Check(p *Proxy) error {
+func (h *dnsHc) check(p *DNSProxy) error {
 	err := h.send(p.addr)
 	if err != nil {
-		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
+		h.m.HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
 		atomic.AddUint32(&p.fails, 1)
 		return err
 	}

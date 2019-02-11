@@ -48,10 +48,16 @@ forward FROM TO... {
     except IGNORED_NAMES...
     force_tcp
     prefer_udp
+    dns_force_tcp
+    dns_prefer_udp
     expire DURATION
     max_fails INTEGER
     tls CERT KEY CA
     tls_servername NAME
+    dns_tls CERT KEY CA
+    dns_servername NAME
+    grpc_tls CERT KEY CA
+    grpc_tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION
 }

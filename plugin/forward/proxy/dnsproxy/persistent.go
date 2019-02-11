@@ -1,4 +1,4 @@
-package forward
+package dnsproxy
 
 import (
 	"crypto/tls"
@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/coredns/coredns/plugin/forward/metrics"
 	"github.com/miekg/dns"
 )
 
@@ -27,18 +28,21 @@ type Transport struct {
 	yield chan *dns.Conn
 	ret   chan *dns.Conn
 	stop  chan bool
+	m     *metrics.Metrics
 }
 
-func newTransport(addr string) *Transport {
+func newTransport(addr string, cfg *tls.Config, expire time.Duration, metrics *metrics.Metrics) *Transport {
 	t := &Transport{
 		avgDialTime: int64(maxDialTimeout / 2),
 		conns:       make(map[string][]*persistConn),
-		expire:      defaultExpire,
+		expire:      expire,
 		addr:        addr,
+		tlsConfig:   cfg,
 		dial:        make(chan string),
 		yield:       make(chan *dns.Conn),
 		ret:         make(chan *dns.Conn),
 		stop:        make(chan bool),
+		m:           metrics,
 	}
 	return t
 }
@@ -75,13 +79,13 @@ Wait:
 				// transport methods anymore. So, it's safe to close them in a separate goroutine
 				go closeConns(stack)
 			}
-			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len()))
+			t.m.SocketGauge.WithLabelValues(t.addr).Set(float64(t.len()))
 
 			t.ret <- nil
 
 		case conn := <-t.yield:
 
-			SocketGauge.WithLabelValues(t.addr).Set(float64(t.len() + 1))
+			t.m.SocketGauge.WithLabelValues(t.addr).Set(float64(t.len() + 1))
 
 			// no proto here, infer from config and conn
 			if _, ok := conn.Conn.(*net.UDPConn); ok {
@@ -152,14 +156,7 @@ func (t *Transport) Start() { go t.connManager() }
 // Stop stops the transport's connection manager.
 func (t *Transport) Stop() { close(t.stop) }
 
-// SetExpire sets the connection expire time in transport.
-func (t *Transport) SetExpire(expire time.Duration) { t.expire = expire }
-
-// SetTLSConfig sets the TLS config in transport.
-func (t *Transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
-
 const (
-	defaultExpire  = 10 * time.Second
 	minDialTimeout = 1 * time.Second
 	maxDialTimeout = 30 * time.Second
 

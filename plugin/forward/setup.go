@@ -7,6 +7,10 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	forwardmetrics "github.com/coredns/coredns/plugin/forward/metrics"
+	"github.com/coredns/coredns/plugin/forward/proxy"
+	"github.com/coredns/coredns/plugin/forward/proxy/dnsproxy"
+	"github.com/coredns/coredns/plugin/forward/proxy/grpcproxy"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
@@ -38,7 +42,7 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
-		metrics.MustRegister(c, RequestCount, RcodeCount, RequestDuration, HealthcheckFailureCount, SocketGauge)
+		metrics.MustRegister(c, fmetrics.RequestCount, fmetrics.RcodeCount, fmetrics.RequestDuration, fmetrics.HealthcheckFailureCount, fmetrics.SocketGauge)
 		return f.OnStartup()
 	})
 
@@ -52,7 +56,7 @@ func setup(c *caddy.Controller) error {
 // OnStartup starts a goroutines for all proxies.
 func (f *Forward) OnStartup() (err error) {
 	for _, p := range f.proxies {
-		p.start(f.hcInterval)
+		p.Start(f.hcInterval)
 	}
 	return nil
 }
@@ -60,7 +64,7 @@ func (f *Forward) OnStartup() (err error) {
 // OnShutdown stops all configured proxies.
 func (f *Forward) OnShutdown() error {
 	for _, p := range f.proxies {
-		p.close()
+		p.Stop()
 	}
 	return nil
 }
@@ -89,7 +93,7 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 
 // ParseForwardStanza parses one forward stanza
 func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
-	f := New()
+	f := New(fmetrics)
 
 	if !c.Args(&f.from) {
 		return f, c.ArgErr()
@@ -106,30 +110,39 @@ func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
 		return f, err
 	}
 
-	transports := make([]string, len(toHosts))
-	for i, host := range toHosts {
-		trans, h := parse.Transport(host)
-		p := NewProxy(h, trans)
-		f.proxies = append(f.proxies, p)
-		transports[i] = trans
-	}
-
 	for c.NextBlock() {
 		if err := parseBlock(c, f); err != nil {
 			return f, err
 		}
 	}
 
-	if f.tlsServerName != "" {
-		f.tlsConfig.ServerName = f.tlsServerName
-	}
-	for i := range f.proxies {
-		// Only set this for proxies that need it.
-		if transports[i] == transport.TLS {
-			f.proxies[i].SetTLSConfig(f.tlsConfig)
+	transports := make([]string, len(toHosts))
+	var p proxy.Proxy
+	for i, host := range toHosts {
+		trans, h := parse.Transport(host)
+		if f.tlsServerName[trans] != "" {
+			f.tlsConfig[trans].ServerName = f.tlsServerName[trans]
 		}
-		f.proxies[i].SetExpire(f.expire)
+		switch trans {
+		case transport.DNS:
+			opts := &dnsproxy.DNSOpts{
+				TLSConfig: f.tlsConfig[transport.DNS],
+				Expire:    f.expire,
+				ForceTCP:  f.opts.forceTCP,
+				PreferUDP: f.opts.preferUDP,
+			}
+			p = dnsproxy.New(h, opts, fmetrics)
+			if err != nil {
+				return nil, err
+			}
+		case transport.GRPC:
+			opts := &grpcproxy.GrpcOpts{TLSConfig: f.tlsConfig[trans]}
+			p = grpcproxy.New(h, opts, fmetrics)
+		}
+		f.proxies = append(f.proxies, p)
+		transports[i] = trans
 	}
+
 	return f, nil
 }
 
@@ -168,32 +181,46 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 			return fmt.Errorf("health_check can't be negative: %d", dur)
 		}
 		f.hcInterval = dur
-	case "force_tcp":
+	case "force_tcp", "dns_force_tcp":
 		if c.NextArg() {
 			return c.ArgErr()
 		}
 		f.opts.forceTCP = true
-	case "prefer_udp":
+	case "prefer_udp", "dns_prefer_udp":
 		if c.NextArg() {
 			return c.ArgErr()
 		}
 		f.opts.preferUDP = true
-	case "tls":
+	case "tls", "dns_tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {
 			return c.ArgErr()
 		}
-
 		tlsConfig, err := pkgtls.NewTLSConfigFromArgs(args...)
 		if err != nil {
 			return err
 		}
-		f.tlsConfig = tlsConfig
-	case "tls_servername":
+		f.tlsConfig[transport.DNS] = tlsConfig
+	case "grpc_tls":
+		args := c.RemainingArgs()
+		if len(args) > 3 {
+			return c.ArgErr()
+		}
+		tlsConfig, err := pkgtls.NewTLSConfigFromArgs(args...)
+		if err != nil {
+			return err
+		}
+		f.tlsConfig[transport.GRPC] = tlsConfig
+	case "tls_servername", "dns_tls_servername":
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
-		f.tlsServerName = c.Val()
+		f.tlsServerName[transport.DNS] = c.Val()
+	case "grpc_tls_servername":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		f.tlsServerName[transport.GRPC] = c.Val()
 	case "expire":
 		if !c.NextArg() {
 			return c.ArgErr()
@@ -229,3 +256,4 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 }
 
 const max = 15 // Maximum number of upstreams.
+var fmetrics = forwardmetrics.New()
