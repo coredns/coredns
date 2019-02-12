@@ -142,10 +142,44 @@ func TestMetadataReplacement(t *testing.T) {
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 	r := new(dns.Msg)
 	r.SetQuestion("example.org.", dns.TypeHINFO)
-	r.MsgHdr.AuthenticatedData = true
-	state := request.Request{W: w, Req: r}
 
 	repl := New()
+	state := request.Request{W: w, Req: r}
+
+	for i, ts := range tests {
+		r := repl.Replace(ctx, state, nil, ts.expr)
+		if r != ts.result {
+			t.Errorf("Test %d - expr : %s, expected %q, got %q", i, ts.expr, ts.result, r)
+		}
+	}
+}
+
+func TestMetadataMalformed(t *testing.T) {
+	tests := []struct {
+		expr   string
+		result string
+	}{
+		{"{/test/meta2", "{/test/meta2"},
+		{"{test/meta2} {/test/meta4}", "{test/meta2} -"},
+		{"{test}", "{test}"},
+	}
+
+	next := &testHandler{}
+	m := metadata.Metadata{
+		Zones:     []string{"."},
+		Providers: []metadata.Provider{testProvider{"test/meta2": func() string { return "two" }}},
+		Next:      next,
+	}
+
+	m.ServeDNS(context.TODO(), &test.ResponseWriter{}, new(dns.Msg))
+	ctx := next.ctx // important because the m.ServeDNS has only now populated the context
+
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeHINFO)
+
+	repl := New()
+	state := request.Request{W: w, Req: r}
 
 	for i, ts := range tests {
 		r := repl.Replace(ctx, state, nil, ts.expr)
