@@ -220,7 +220,11 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
-
+	case "disable_proxy_recovery":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		f.disableProxyRecovery = true
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}

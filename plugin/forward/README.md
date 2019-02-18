@@ -48,6 +48,7 @@ forward FROM TO... {
     except IGNORED_NAMES...
     force_tcp
     prefer_udp
+    disable_proxy_recovery
     expire DURATION
     max_fails INTEGER
     tls CERT KEY CA
@@ -64,6 +65,8 @@ forward FROM TO... {
 * `prefer_udp`, try first using UDP even when the request comes in over TCP. If response is truncated
   (TC flag set in response) then do another attempt over TCP. In case if both `force_tcp` and
   `prefer_udp` options specified the `force_tcp` takes precedence.
+* `disable_proxy_recovery`, allows all upstreams to go down and let other plugins to take over the
+monitoring.
 * `max_fails` is the number of subsequent failed health checks that are needed before considering
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.

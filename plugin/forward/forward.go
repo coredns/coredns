@@ -31,10 +31,11 @@ type Forward struct {
 	from    string
 	ignored []string
 
-	tlsConfig     *tls.Config
-	tlsServerName string
-	maxfails      uint32
-	expire        time.Duration
+	tlsConfig            *tls.Config
+	tlsServerName        string
+	maxfails             uint32
+	expire               time.Duration
+	disableProxyRecovery bool
 
 	opts options // also here for testing
 
@@ -89,6 +90,12 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			if fails < len(f.proxies) {
 				continue
 			}
+
+			// do not try to recover proxies.
+			if f.disableProxyRecovery {
+				break
+			}
+
 			// All upstream proxies are dead, assume healtcheck is completely broken and randomly
 			// select an upstream to connect to.
 			r := new(random)
@@ -131,7 +138,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 		if err != nil {
 			// Kick off health check to see if *our* upstream is broken.
-			if f.maxfails != 0 {
+			if f.maxfails != 0 && !f.disableProxyRecovery {
 				proxy.Healthcheck()
 			}
 

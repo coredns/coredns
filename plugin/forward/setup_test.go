@@ -12,30 +12,32 @@ import (
 
 func TestSetup(t *testing.T) {
 	tests := []struct {
-		input           string
-		shouldErr       bool
-		expectedFrom    string
-		expectedIgnored []string
-		expectedFails   uint32
-		expectedOpts    options
-		expectedErr     string
+		input                 string
+		shouldErr             bool
+		expectedFrom          string
+		expectedIgnored       []string
+		expectedFails         uint32
+		expectedOpts          options
+		expectedProxyRecovery bool
+		expectedErr           string
 	}{
 		// positive
-		{"forward . 127.0.0.1", false, ".", nil, 2, options{}, ""},
-		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, options{}, ""},
-		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, options{}, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, options{forceTCP: true}, ""},
-		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true}, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, forceTCP: true}, ""},
-		{"forward . 127.0.0.1:53", false, ".", nil, 2, options{}, ""},
-		{"forward . 127.0.0.1:8080", false, ".", nil, 2, options{}, ""},
-		{"forward . [::1]:53", false, ".", nil, 2, options{}, ""},
-		{"forward . [2003::1]:53", false, ".", nil, 2, options{}, ""},
+		{"forward . 127.0.0.1", false, ".", nil, 2, options{}, false, ""},
+		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, options{}, false, ""},
+		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, options{}, false, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, options{forceTCP: true}, false, ""},
+		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true}, false, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, forceTCP: true}, false, ""},
+		{"forward . 127.0.0.1:53", false, ".", nil, 2, options{}, false, ""},
+		{"forward . 127.0.0.1:8080", false, ".", nil, 2, options{}, false, ""},
+		{"forward . [::1]:53", false, ".", nil, 2, options{}, false, ""},
+		{"forward . [2003::1]:53", false, ".", nil, 2, options{}, false, ""},
+		{"forward . 127.0.0.1 {\ndisable_proxy_recovery\n}\n", false, ".", nil, 2, options{}, true, ""},
 		// negative
-		{"forward . a27.0.0.1", true, "", nil, 0, options{}, "not an IP"},
-		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, options{}, "unknown property"},
+		{"forward . a27.0.0.1", true, "", nil, 0, options{}, false, "not an IP"},
+		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, options{}, false, "unknown property"},
 		{`forward . ::1
-		forward com ::2`, true, "", nil, 0, options{}, "plugin"},
+		forward com ::2`, true, "", nil, 0, options{}, false, "plugin"},
 	}
 
 	for i, test := range tests {
