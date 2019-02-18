@@ -119,6 +119,11 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// We should expect a packet to be returned that we can send to the client.
 	s.ServeDNS(context.Background(), dw, msg)
 
+	if dw.Msg == nil {
+		http.Error(w, "No response", http.StatusInternalServerError)
+		return
+	}
+
 	buf, _ := dw.Msg.Pack()
 
 	mt, _ := response.Typify(dw.Msg, time.Now().UTC())
