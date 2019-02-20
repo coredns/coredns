@@ -5,7 +5,6 @@ import (
 
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
-	"github.com/coredns/coredns/plugin/pkg/watch"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
 
@@ -23,13 +22,13 @@ var extCases = []struct {
 	{
 		Qname: "svc1.testns.example.org.", Rcode: dns.RcodeSuccess,
 		Msg: []msg.Service{
-			msg.Service{Host: "1.2.3.4", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc1"},
+			{Host: "1.2.3.4", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc1"},
 		},
 	},
 	{
 		Qname: "svc6.testns.example.org.", Rcode: dns.RcodeSuccess,
 		Msg: []msg.Service{
-			msg.Service{Host: "1:2::5", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc1"},
+			{Host: "1:2::5", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc1"},
 		},
 	},
 	{
@@ -38,7 +37,7 @@ var extCases = []struct {
 	{
 		Qname: "_http._tcp.svc1.testns.example.com.", Rcode: dns.RcodeSuccess,
 		Msg: []msg.Service{
-			msg.Service{Host: "1.2.3.4", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc1"},
+			{Host: "1.2.3.4", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc1"},
 		},
 	},
 	{
@@ -53,7 +52,7 @@ func TestExternal(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &external{}
 	k.Next = test.NextHandler(dns.RcodeSuccess, nil)
-	k.Namespaces = map[string]struct{}{"testns": struct{}{}}
+	k.Namespaces = map[string]struct{}{"testns": {}}
 
 	for i, tc := range extCases {
 		state := testRequest(tc.Qname)
@@ -85,9 +84,6 @@ func (external) Stop() error                                  { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints    { return nil }
 func (external) SvcIndexReverse(string) []*object.Service     { return nil }
 func (external) Modified() int64                              { return 0 }
-func (external) SetWatchChan(watch.Chan)                      {}
-func (external) Watch(string) error                           { return nil }
-func (external) StopWatching(string)                          {}
 func (external) EpIndex(s string) []*object.Endpoints         { return nil }
 func (external) EndpointsList() []*object.Endpoints           { return nil }
 func (external) GetNodeByName(name string) (*api.Node, error) { return nil, nil }

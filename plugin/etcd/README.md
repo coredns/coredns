@@ -31,7 +31,8 @@ etcd [ZONES...] {
     fallthrough [ZONES...]
     path PATH
     endpoint ENDPOINT...
-    upstream
+    credentials USERNAME PASSWORD
+    upstream [ADDRESS...]
     tls CERT KEY CACERT
 }
 ~~~
@@ -42,8 +43,12 @@ etcd [ZONES...] {
   queries for those zones will be subject to fallthrough.
 * **PATH** the path inside etcd. Defaults to "/skydns".
 * **ENDPOINT** the etcd endpoints. Defaults to "http://localhost:2379".
-* `upstream` resolve names found in etcd (think CNAMEs) If you want CoreDNS to act as a proxy for clients,
-  you'll need to add the forward plugin. CoreDNS will resolve CNAMEs against itself.
+* `credentials` is used to set the **USERNAME** and **PASSWORD** for accessing the etcd cluster.
+* `upstream` upstream resolvers to be used resolve external names found in etcd (think CNAMEs)
+  pointing to external names. If you want CoreDNS to act as a proxy for clients, you'll need to add
+  the proxy plugin. If no **ADDRESS** is given, CoreDNS will resolve CNAMEs against itself.
+  **ADDRESS** can be an IP address, and IP:port or a string pointing to a file that is structured
+  as /etc/resolv.conf.
 * `tls` followed by:
 
     * no arguments, if the server certificate is signed by a system-installed CA and no client cert is needed
@@ -56,7 +61,7 @@ etcd [ZONES...] {
 ## Special Behaviour
 CoreDNS etcd plugin leverages directory structure to look for related entries. For example an entry `/skydns/test/skydns/mx` would have entries like `/skydns/test/skydns/mx/a`, `/skydns/test/skydns/mx/b` and so on. Similarly a directory `/skydns/test/skydns/mx1` will have all `mx1` entries.
 
-With etcd3, support for [hierarchial keys are dropped](https://coreos.com/etcd/docs/latest/learning/api.html). This means there are no directories but only flat keys with prefixes in etcd3. To accommodate lookups, etcdv3 plugin now does a lookup on prefix `/skydns/test/skydns/mx/` to search for entries like `/skydns/test/skydns/mx/a` etc, and if there is nothing found on `/skydns/test/skydns/mx/`, it looks for `/skydns/test/skydns/mx` to find entries like `/skydns/test/skydns/mx1`.
+With etcd3, support for [hierarchical keys are dropped](https://coreos.com/etcd/docs/latest/learning/api.html). This means there are no directories but only flat keys with prefixes in etcd3. To accommodate lookups, etcdv3 plugin now does a lookup on prefix `/skydns/test/skydns/mx/` to search for entries like `/skydns/test/skydns/mx/a` etc, and if there is nothing found on `/skydns/test/skydns/mx/`, it looks for `/skydns/test/skydns/mx` to find entries like `/skydns/test/skydns/mx1`.
 
 This causes two lookups from CoreDNS to etcdv3 in certain cases.
 

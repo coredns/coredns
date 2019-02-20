@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 
@@ -16,7 +15,7 @@ func TestKubernetesXFR(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
 	k.TransferTo = []string{"10.240.0.1:53"}
-	k.Namespaces = map[string]struct{}{"testns": struct{}{}}
+	k.Namespaces = map[string]struct{}{"testns": {}}
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
@@ -104,7 +103,7 @@ func TestKubernetesXFRNotAllowed(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
 	k.TransferTo = []string{"1.2.3.4:53"}
-	k.Namespaces = map[string]struct{}{"testns": struct{}{}}
+	k.Namespaces = map[string]struct{}{"testns": {}}
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
@@ -141,89 +140,4 @@ func difference(testRRs []dns.RR, gotRRs []dns.RR) []dns.RR {
 		}
 	}
 	return foundRRs
-}
-
-func TestEndpointsEquivalent(t *testing.T) {
-	epA := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
-		}},
-	}
-	epB := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
-		}},
-	}
-	epC := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}},
-		}},
-	}
-	epD := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}},
-		},
-			{
-				Addresses: []object.EndpointAddress{{IP: "1.2.2.2", Hostname: "foofoo"}},
-			}},
-	}
-	epE := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}, {IP: "1.1.1.1"}},
-		}},
-	}
-	epF := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foofoo"}},
-		}},
-	}
-	epG := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
-			Ports:     []object.EndpointPort{{Name: "http", Port: 80, Protocol: "TCP"}},
-		}},
-	}
-	epH := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
-			Ports:     []object.EndpointPort{{Name: "newportname", Port: 80, Protocol: "TCP"}},
-		}},
-	}
-	epI := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
-			Ports:     []object.EndpointPort{{Name: "http", Port: 8080, Protocol: "TCP"}},
-		}},
-	}
-	epJ := object.Endpoints{
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
-			Ports:     []object.EndpointPort{{Name: "http", Port: 80, Protocol: "UDP"}},
-		}},
-	}
-
-	tests := []struct {
-		equiv bool
-		a     *object.Endpoints
-		b     *object.Endpoints
-	}{
-		{true, &epA, &epB},
-		{false, &epA, &epC},
-		{false, &epA, &epD},
-		{false, &epA, &epE},
-		{false, &epA, &epF},
-		{false, &epF, &epG},
-		{false, &epG, &epH},
-		{false, &epG, &epI},
-		{false, &epG, &epJ},
-	}
-
-	for i, tc := range tests {
-		if tc.equiv && !endpointsEquivalent(tc.a, tc.b) {
-			t.Errorf("Test %d: expected endpoints to be equivalent and they are not.", i)
-		}
-		if !tc.equiv && endpointsEquivalent(tc.a, tc.b) {
-			t.Errorf("Test %d: expected endpoints to be seen as different but they were not.", i)
-		}
-	}
 }
