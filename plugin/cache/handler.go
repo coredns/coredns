@@ -30,6 +30,8 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	if i != nil && found {
 		resp := i.toMsg(r, now)
 
+		resp.Authoritative = true
+
 		w.WriteMsg(resp)
 
 		if c.prefetch > 0 {
