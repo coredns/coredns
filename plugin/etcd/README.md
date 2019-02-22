@@ -61,7 +61,7 @@ etcd [ZONES...] {
 ## Special Behaviour
 CoreDNS etcd plugin leverages directory structure to look for related entries. For example an entry `/skydns/test/skydns/mx` would have entries like `/skydns/test/skydns/mx/a`, `/skydns/test/skydns/mx/b` and so on. Similarly a directory `/skydns/test/skydns/mx1` will have all `mx1` entries.
 
-With etcd3, support for [hierarchial keys are dropped](https://coreos.com/etcd/docs/latest/learning/api.html). This means there are no directories but only flat keys with prefixes in etcd3. To accommodate lookups, etcdv3 plugin now does a lookup on prefix `/skydns/test/skydns/mx/` to search for entries like `/skydns/test/skydns/mx/a` etc, and if there is nothing found on `/skydns/test/skydns/mx/`, it looks for `/skydns/test/skydns/mx` to find entries like `/skydns/test/skydns/mx1`.
+With etcd3, support for [hierarchical keys are dropped](https://coreos.com/etcd/docs/latest/learning/api.html). This means there are no directories but only flat keys with prefixes in etcd3. To accommodate lookups, etcdv3 plugin now does a lookup on prefix `/skydns/test/skydns/mx/` to search for entries like `/skydns/test/skydns/mx/a` etc, and if there is nothing found on `/skydns/test/skydns/mx/`, it looks for `/skydns/test/skydns/mx` to find entries like `/skydns/test/skydns/mx1`.
 
 This causes two lookups from CoreDNS to etcdv3 in certain cases.
 
@@ -113,7 +113,7 @@ etcd skydns.local {
 
 Before getting started with these examples, please setup `etcdctl` (with `etcdv3` API) as explained [here](https://coreos.com/etcd/docs/latest/dev-guide/interacting_v3.html). This will help you to put sample keys in your etcd server.
 
-If you prefer, you can use `curl` to populate the `etcd` server, but with `curl` the endpoint URL depends on the version of `etcd`. For instance, `etcd v3.2` or before uses only [CLIENT-URL]/v3alpha/* while `etcd v3.5` or later uses [CLIENT-URL]/v3/* . Also, Key and Value must be base64 encoded in the JSON payload. With, `etcdctl` these details are automatically taken care off. You can check [this document](https://github.com/coreos/etcd/blob/master/Documentation/dev-guide/api_grpc_gateway.md#notes) for details.
+If you prefer, you can use `curl` to populate the `etcd` server, but with `curl` the endpoint URL depends on the version of `etcd`. For instance, `etcd v3.2` or before uses only [CLIENT-URL]/v3alpha/* while `etcd v3.5` or later uses [CLIENT-URL]/v3/* . Also, Key and Value must be base64 encoded in the JSON payload. With `etcdctl` these details are automatically taken care off. You can check [this document](https://github.com/coreos/etcd/blob/master/Documentation/dev-guide/api_grpc_gateway.md#notes) for details.
 
 ### Reverse zones
 
@@ -142,7 +142,7 @@ reverse.skydns.local.
 
 ### Zone name as A record
 
-The zone name itself can be used A record. This behavior can be achieved by writing special entries to the ETCD path of your zone. If your zone is named `skydns.local` for example, you can create an `A` record for this zone as follows:
+The zone name itself can be used as A record. This behavior can be achieved by writing special entries to the ETCD path of your zone. If your zone is named `skydns.local` for example, you can create an `A` record for this zone as follows:
 
 ~~~
 % etcdctl put /skydns/local/skydns/ '{"host":"1.1.1.1","ttl":60}'
