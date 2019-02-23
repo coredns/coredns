@@ -84,9 +84,15 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 				return dns.RcodeServerFailure, err
 			}
 			msg.Answer = append(msg.Answer, rr)
-			if template.upstream != nil && (state.QType() == dns.TypeA || state.QType() == dns.TypeAAAA) && rr.Header().Rrtype == dns.TypeCNAME {
-				up, _ := template.upstream.Lookup(state, rr.(*dns.CNAME).Target, state.QType())
-				msg.Answer = append(msg.Answer, up.Answer...)
+			if (state.QType() == dns.TypeA || state.QType() == dns.TypeAAAA) && rr.Header().Rrtype == dns.TypeCNAME {
+				upstreamToUse := template.upstream
+				if upstreamToUse == nil {
+					upstreamToUse = upstream.New()
+				}
+				up, _ := upstreamToUse.Lookup(state, rr.(*dns.CNAME).Target, state.QType())
+				if up != nil {
+					msg.Answer = append(msg.Answer, up.Answer...)
+				}
 			}
 		}
 		for _, additional := range template.additional {

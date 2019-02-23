@@ -7,6 +7,7 @@ import (
 	"testing"
 	gotmpl "text/template"
 
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/test"
@@ -350,6 +351,16 @@ func TestMultiSection(t *testing.T) {
 			answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
 			additional "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
 		}
+		template IN ANY . {
+			match ^nowana[.](.*)$
+			answer "{{ .Name }} 60 IN A 1.2.3.4"
+			fallthrough
+		}
+		template IN ANY . {
+			match ^(www[.])?cnamewitha[.](.*)$
+			answer "{{ .Name }} 60 IN CNAME nowana.com."
+			fallthrough
+		}
 		`
 	c := caddy.NewTestController("dns", multisectionConfig)
 	c.ServerBlockKeys = []string{"test.:8053"}
@@ -457,6 +468,21 @@ func TestMultiSection(t *testing.T) {
 	}
 	if code != dns.RcodeNameError {
 		t.Fatalf("TestMultiSection expected NXDOMAIN resolving something.example. IN MX, got %v, %v", code, dns.RcodeToString[code])
+	}
+	// Test that www.cnamewitha.com gets 2 results, the cname and the A for the result
+
+	req = &dns.Msg{Question: []dns.Question{{Name: "www.cnamewitha.com.", Qclass: dns.ClassINET, Qtype: dns.TypeA}}}
+
+	ctx = context.WithValue(ctx, dnsserver.Key{}, handler)
+	code, err = handler.ServeDNS(ctx, rec, req)
+	if err != nil {
+		t.Fatalf("TestMultiSection expected no error resolving www.cnamewitha.com. IN A, got: %v", err)
+	}
+	if len(rec.Msg.Answer) != 2 {
+		t.Fatalf("TestMultiSection expected 2 answers resolving www.cnamewitha.com. IN A, got: %v", len(rec.Msg.Answer))
+	}
+	if rec.Msg.Answer[0].Header().Rrtype != dns.TypeCNAME || rec.Msg.Answer[1].Header().Rrtype != dns.TypeA {
+		t.Fatalf("TestMultiSection expected a CNAME and an A got: %v, %v", rec.Msg.Answer[0].Header().Rrtype, rec.Msg.Answer[1].Header().Rrtype)
 	}
 }
 
