@@ -16,7 +16,7 @@
 CoreDNS is a DNS server that chains plugins\. Each plugin handles a DNS feature, like rewriting queries, kubernetes service discovery or just exporting metrics\. There are many other plugins, each described on \fIhttps://coredns\.io/plugins\fR and there respective manual pages\. Plugins not bundled in CoreDNS are listed on \fIhttps://coredns\.io/explugins\fR\.
 .
 .P
-When started with no options CoreDNS will looks for a file names \fBCorefile\fR in the current directory, if found it will parse its contents and start up accordingly\. If no \fBCorefile\fR is found it will start with the \fIwhoami\fR plugin (coredns\-whoami(7)) and start listening on port 53 (unless overriden with \fB\-dns\.port\fR)\.
+When started with no options CoreDNS will looks for a file names \fBCorefile\fR in the current directory, if found it will parse its contents and start up accordingly\. If no \fBCorefile\fR is found it will start with the \fIwhoami\fR plugin (coredns\-whoami(7)) and start listening on port 53 (unless overridden with \fB\-dns\.port\fR)\.
 .
 .P
 Available options:
