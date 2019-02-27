@@ -105,6 +105,8 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}
 
 		w.WriteMsg(msg)
+		// Template always writes to client, so always return success here
+		// to avoid a second write to client for "error" (e.g. REFUSED) responses - see plugin.md
 		return dns.RcodeSuccess, nil
 	}
 
