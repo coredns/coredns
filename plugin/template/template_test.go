@@ -251,13 +251,16 @@ func TestHandler(t *testing.T) {
 			qclass:       dns.ClassINET,
 			qtype:        dns.TypeMX,
 			qname:        "test.invalid.",
-			expectedCode: dns.RcodeNameError,
+			expectedCode: dns.RcodeSuccess,
 			verifyResponse: func(r *dns.Msg) error {
 				if len(r.Answer) != 1 {
 					return fmt.Errorf("expected 1 answer, got %v", len(r.Answer))
 				}
 				if r.Answer[0].Header().Rrtype != dns.TypeSOA {
 					return fmt.Errorf("expected an SOA record answer, got %v", dns.TypeToString[r.Answer[0].Header().Rrtype])
+				}
+				if r.Rcode != dns.RcodeNameError {
+					return fmt.Errorf("expected an NXDOMAIN code, got %v", r.Rcode)
 				}
 				return nil
 			},
@@ -370,7 +373,7 @@ func TestMultiSection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("TestMultiSection expected no error resolving some.test. A, got: %v", err)
 	}
-	if code != dns.RcodeRefused {
+	if rec.Rcode != dns.RcodeRefused {
 		t.Fatalf("TestMultiSection expected response code REFUSED got: %v", code)
 	}
 

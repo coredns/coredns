@@ -105,7 +105,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}
 
 		w.WriteMsg(msg)
-		return template.rcode, nil
+		return dns.RcodeSuccess, nil
 	}
 
 	return h.Next.ServeDNS(ctx, w, r)
