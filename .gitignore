@@ -7,4 +7,6 @@ coredns.exe~
 kubectl
 go-test-tmpfile*
 coverage.txt
-.idea
+.idea/
+# OSX trash
+.DS_Store
