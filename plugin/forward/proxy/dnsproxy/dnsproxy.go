@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"io"
 	"strconv"
 	"sync/atomic"
@@ -66,8 +65,6 @@ func New(addr string, opts *DNSOpts, metrics *metrics.Metrics) *DNSProxy {
 
 // Query selects an upstream, sends the request and waits for a response.
 func (p *DNSProxy) Query(ctx context.Context, state request.Request) (*dns.Msg, error) {
-	fmt.Printf("--- Query via DNS %s --- \n", p.addr)
-
 	start := time.Now()
 	proto := ""
 	switch {
@@ -107,17 +104,19 @@ func (p *DNSProxy) Query(ctx context.Context, state request.Request) (*dns.Msg, 
 		}
 
 		conn.SetReadDeadline(time.Now().Add(readTimeout))
-		ret, err = conn.ReadMsg()
-		if err != nil {
-			conn.Close() // not giving it back
-			if err == io.EOF && cached {
-				continue // cached connection was closed by peer
-			}
-			if ret != nil && ret.Truncated && !p.forceTCP && p.preferUDP {
-				p.forceTCP = true
+		for {
+			ret, err = conn.ReadMsg()
+			if err != nil {
+				conn.Close() // not giving it back
+				if err == io.EOF && cached {
+					continue // cached connection was closed by peer
+				}
 				continue
 			}
-			break
+			// drop out-of-order responses
+			if state.Req.Id == ret.Id {
+				break
+			}
 		}
 
 		p.transport.Yield(conn)

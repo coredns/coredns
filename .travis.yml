@@ -6,7 +6,7 @@ services:
 
 language: go
 go:
-  - "1.11.x"
+  - "1.12.x"
 
 go_import_path: github.com/coredns/coredns
 
@@ -38,7 +38,6 @@ before_install:
 
 before_script:
   - docker run -d --net=host --name=etcd quay.io/coreos/etcd:v$ETCD_VERSION
-  - make godeps
 
 script:
   - make TEST_TYPE=$TEST_TYPE travis

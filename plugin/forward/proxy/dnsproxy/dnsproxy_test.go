@@ -96,20 +96,6 @@ func TestTCPDnsProxy(t *testing.T) {
 	}
 }
 
-func TestUnavailableDNSProxy(t *testing.T) {
-	t.Parallel()
-	metrics := metrics.New()
-	opts := &DNSOpts{Expire: 1 * time.Second}
-	p := New("1.2.3.4:5", opts, metrics)
-	p.transport.Start()
-	defer p.Stop()
-
-	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
-	if _, err := p.Query(context.TODO(), state); err == nil {
-		t.Errorf("Expecting an unavailable error when querying gRPC client with invalid hostname : %s", err)
-	}
-}
-
 func TestHealthcheckGrpcProxy(t *testing.T) {
 	t.Parallel()
 	metrics := metrics.New()

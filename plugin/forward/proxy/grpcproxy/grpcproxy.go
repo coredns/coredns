@@ -62,7 +62,6 @@ func New(addr string, opts *GrpcOpts, metrics *metrics.Metrics) *GrpcProxy {
 
 // Query selects an upstream, sends the request and waits for a response.
 func (p *GrpcProxy) Query(ctx context.Context, state request.Request) (*dns.Msg, error) {
-	fmt.Printf("--- Query via gRPC %s --- \n", p.addr)
 	start := time.Now()
 	msg, err := state.Req.Pack()
 	if err != nil {

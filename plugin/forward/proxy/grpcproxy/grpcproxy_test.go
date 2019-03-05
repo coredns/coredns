@@ -106,9 +106,6 @@ func newMockDNSServiceClient(dnsPacket *pb.DnsPacket, err error) *mockDNSService
 func (m mockDNSServiceClient) Query(ctx context.Context, in *pb.DnsPacket, opts ...grpc.CallOption) (*pb.DnsPacket, error) {
 	return m.dnsPacket, m.err
 }
-func (m mockDNSServiceClient) Watch(ctx context.Context, opts ...grpc.CallOption) (pb.DnsService_WatchClient, error) {
-	return nil, nil
-}
 
 const (
 	aCert = `-----BEGIN CERTIFICATE-----

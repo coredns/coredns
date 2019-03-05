@@ -16,7 +16,7 @@ CoreDNS is a fast and flexible DNS server. The keyword here is *flexible*: with 
 are able to do what you want with your DNS data by utilizing plugins. If some functionality is not
 provided out of the box you can add it by [writing a plugin](https://coredns.io/explugins).
 
-CoreDNS can listen for DNS request coming in over UDP/TCP (go'old DNS), TLS ([RFC
+CoreDNS can listen for DNS requests coming in over UDP/TCP (go'old DNS), TLS ([RFC
 7858](https://tools.ietf.org/html/rfc7858)) and [gRPC](https://grpc.io) (not a standard).
 
 Currently CoreDNS is able to:
@@ -46,21 +46,16 @@ out-of-tree plugins.
 
 To compile CoreDNS, we assume you have a working Go setup. See various tutorials if you don’t have that already configured.
 
-First, make sure your `$GOPATH` is correctly set. See [here](https://github.com/golang/go/wiki/SettingGOPATH) for details. Then, check out the project under your `$GOPATH` and run `make` to compile the binary:
-
+First, make sure your golang version is 1.12 or higher as `go mod` support is needed.
+See [here](https://github.com/golang/go/wiki/Modules) for `go mod` details.
+Then, check out the project and run `make` to compile the binary:
 ~~~
-$ mkdir -p $GOPATH/src/github.com/coredns
-$ cd $GOPATH/src/github.com/coredns/
 $ git clone https://github.com/coredns/coredns
 $ cd coredns
 $ make
 ~~~
 
 This should yield a `coredns` binary.
-
-We vendor most ([not all!](https://github.com/coredns/coredns/issues/1523)) packages. This is mostly because vendoring isn't a perfect solution (in
-Go). We don't vendor `mholt/caddy` and `miekg/dns` for instance. Using `make` will pull down these
-dependencies and checks out the correct version as well.
 
 ## Compilation with Docker
 
@@ -69,7 +64,7 @@ a Go environment, you could build CoreDNS easily:
 
 ```
 $ docker run --rm -i -t -v $PWD:/go/src/github.com/coredns/coredns \
-      -w /go/src/github.com/coredns/coredns golang:1.11 make
+      -w /go/src/github.com/coredns/coredns golang:1.12 make
 ```
 
 The above command alone will have `coredns` binary generated.
@@ -86,7 +81,7 @@ When starting CoreDNS without any configuration, it loads the
 CoreDNS-001
 ~~~
 
-Any query send to port 53 should return some information; your sending address, port and protocol
+Any query sent to port 53 should return some information; your sending address, port and protocol
 used.
 
 If you have a Corefile without a port number specified it will, by default, use port 53, but you
@@ -94,7 +89,7 @@ can override the port with the `-dns.port` flag:
 
 `./coredns -dns.port 1053`, runs the server on port 1053.
 
-Start a simple proxy, you'll need to be root to start listening on port 53.
+Start a simple proxy. You'll need to be root to start listening on port 53.
 
 `Corefile` contains:
 
