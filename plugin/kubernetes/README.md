@@ -215,3 +215,16 @@ or the word "any"), then that label will match all values.  The labels that acce
 *.service.default.svc.cluster.local. 5	IN A	192.168.25.15
 ```
  This response can be randomized using the `loadbalance` plugin
+
+## Metrics
+
+The *kubernetes* plugin exports the following *Prometheus* metrics.
+
+* `coredns_kubernetes_dns_programming_latency_seconds{service_kind}` - exports the 
+  [DNS programming latency SLI](https://github.com/kubernetes/community/blob/master/sig-scalability/slos/dns_programming_latency.md).
+  The metrics has the `service_kind` label that identifies the kind of the 
+  [kubernetes service](https://kubernetes.io/docs/concepts/services-networking/service).
+  It may take one of the three values:
+    * `cluster_ip`
+    * `headless_with_selector`
+    * `headless_without_selector`  

@@ -74,6 +74,14 @@ type dnsControl struct {
 
 	zones            []string
 	endpointNameMode bool
+
+	// lastChangeTriggerTimes is a map from the namespaced-name of an Endpoints object to the last
+	// seen value of the EndpointsLastChangeTriggerTime annotation for that Endpoints object.
+	// Used to calculate the dns-programming-latency SLI, see https://github.com/kubernetes/community/blob/master/sig-scalability/slos/dns_programming_latency.md
+	lastChangeTriggerTimes map[string]time.Time
+	// durationSinceFunc returns the duration elapsed since the given time.
+	// Added as a member to the struct to allow injection for testing.
+	durationSinceFunc func(time.Time) time.Duration
 }
 
 type dnsControlOpts struct {
@@ -87,16 +95,28 @@ type dnsControlOpts struct {
 
 	zones            []string
 	endpointNameMode bool
+
+	// doNotClearObjectsForTests is a TEST-ONLY flag that results in not clearing original api objects
+	// during conversion to stripped down objects. This is needed in tests as otherwise the fake k8s
+	// client may not work properly.
+	doNotClearObjectsForTests bool
 }
 
 // newDNSController creates a controller for CoreDNS.
 func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
-		client:           kubeClient,
-		selector:         opts.selector,
-		stopCh:           make(chan struct{}),
-		zones:            opts.zones,
-		endpointNameMode: opts.endpointNameMode,
+		client:                 kubeClient,
+		selector:               opts.selector,
+		stopCh:                 make(chan struct{}),
+		zones:                  opts.zones,
+		endpointNameMode:       opts.endpointNameMode,
+		lastChangeTriggerTimes: make(map[string]time.Time),
+		durationSinceFunc:      time.Since,
+	}
+
+	clearOriginalObject := true
+	if opts.doNotClearObjectsForTests {
+		clearOriginalObject = false
 	}
 
 	dns.svcLister, dns.svcController = object.NewIndexerInformer(
@@ -108,7 +128,7 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 		opts.resyncPeriod,
 		cache.ResourceEventHandlerFuncs{},
 		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc},
-		object.ToService,
+		object.ToService(clearOriginalObject),
 	)
 
 	if opts.initPodCache {
@@ -121,7 +141,7 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 			opts.resyncPeriod,
 			cache.ResourceEventHandlerFuncs{},
 			cache.Indexers{podIPIndex: podIPIndexFunc},
-			object.ToPod,
+			object.ToPod(clearOriginalObject),
 		)
 	}
 
@@ -133,9 +153,13 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 			},
 			&api.Endpoints{},
 			opts.resyncPeriod,
-			cache.ResourceEventHandlerFuncs{},
+			cache.ResourceEventHandlerFuncs{
+				AddFunc:    func(obj interface{}) { dns.onEndpointsChange(obj.(*object.Endpoints)) },
+				UpdateFunc: func(oldObj, newObj interface{}) { dns.onEndpointsChange(newObj.(*object.Endpoints)) },
+				DeleteFunc: func(obj interface{}) { dns.onEndpointsChange(obj.(*object.Endpoints)) },
+			},
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			object.ToEndpoints)
+			object.ToEndpoints(clearOriginalObject))
 	}
 
 	dns.nsLister, dns.nsController = cache.NewInformer(
@@ -408,6 +432,33 @@ func (dns *dnsControl) Modified() int64 {
 func (dns *dnsControl) updateModifed() {
 	unix := time.Now().Unix()
 	atomic.StoreInt64(&dns.modified, unix)
+}
+
+func (dns *dnsControl) onEndpointsChange(endpoints *object.Endpoints) {
+	if !dns.isEndpointForHeadlessService(endpoints) || endpoints.LastChangeTriggerTime.IsZero() {
+		return
+	}
+	oldTriggerTime := dns.lastChangeTriggerTimes[endpoints.Index]
+	if endpoints.LastChangeTriggerTime.After(oldTriggerTime) {
+		dns.lastChangeTriggerTimes[endpoints.Index] = endpoints.LastChangeTriggerTime
+		// If we're here it means that the Endpoints object is for a headless service and that
+		// the Endpoints object was created by the endpoints-controller (because the
+		// LastChangeTriggerTime annotation is set). It means that the corresponding service is a
+		// "headless service with selector".
+		DnsProgrammingLatency.WithLabelValues("headless_with_selector").
+			Observe(dns.durationSinceFunc(endpoints.LastChangeTriggerTime).Seconds())
+	}
+}
+
+// isEndpointForHeadlessService returns true whether the endpoints object belongs to a headless
+// service (i.e. clusterIp = None). Note that this method may return false negatives if the service
+// informer is lagging, i.e. we may not see a recently created service. Given that the services
+// don't change very often (comparing to much more frequent endpoints changes), cases when this method
+// will return wrong answer should be relatively rare. Because of that we intentionally accept this
+// flaw to keep the solution simple.
+func (dns *dnsControl) isEndpointForHeadlessService(endpoints *object.Endpoints) bool {
+	svcs := dns.SvcIndex(endpoints.Index)
+	return len(svcs) == 1 && svcs[0].ClusterIP == api.ClusterIPNone
 }
 
 var errObj = errors.New("obj was not of the correct type")

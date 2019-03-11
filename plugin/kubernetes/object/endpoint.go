@@ -1,18 +1,23 @@
 package object
 
 import (
+	"time"
+
+	"github.com/coredns/coredns/plugin/pkg/log"
+
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // Endpoints is a stripped down api.Endpoints with only the items we need for CoreDNS.
 type Endpoints struct {
-	Version   string
-	Name      string
-	Namespace string
-	Index     string
-	IndexIP   []string
-	Subsets   []EndpointSubset
+	Version               string
+	Name                  string
+	Namespace             string
+	Index                 string
+	IndexIP               []string
+	Subsets               []EndpointSubset
+	LastChangeTriggerTime time.Time
 
 	*Empty
 }
@@ -42,19 +47,26 @@ type EndpointPort struct {
 // EndpointsKey return a string using for the index.
 func EndpointsKey(name, namespace string) string { return name + "." + namespace }
 
-// ToEndpoints converts an api.Service to a *Service.
-func ToEndpoints(obj interface{}) interface{} {
+// ToEndpoints returns a function that converts an api.Endpoints to a *Endpoints.
+func ToEndpoints(clearOriginalObject bool) func(obj interface{}) interface{} {
+	return func(obj interface{}) interface{} {
+		return toEndpoints(clearOriginalObject, obj)
+	}
+}
+
+func toEndpoints(clearOriginalObject bool, obj interface{}) interface{} {
 	end, ok := obj.(*api.Endpoints)
 	if !ok {
 		return nil
 	}
 
 	e := &Endpoints{
-		Version:   end.GetResourceVersion(),
-		Name:      end.GetName(),
-		Namespace: end.GetNamespace(),
-		Index:     EndpointsKey(end.GetName(), end.GetNamespace()),
-		Subsets:   make([]EndpointSubset, len(end.Subsets)),
+		Version:               end.GetResourceVersion(),
+		Name:                  end.GetName(),
+		Namespace:             end.GetNamespace(),
+		Index:                 EndpointsKey(end.GetName(), end.GetNamespace()),
+		Subsets:               make([]EndpointSubset, len(end.Subsets)),
+		LastChangeTriggerTime: getLastChangeTriggerTime(end),
 	}
 	for i, eps := range end.Subsets {
 		sub := EndpointSubset{
@@ -92,11 +104,12 @@ func ToEndpoints(obj interface{}) interface{} {
 		}
 	}
 
-	*end = api.Endpoints{}
+	if (clearOriginalObject) {
+		*end = api.Endpoints{}
+	}
 
 	return e
 }
-
 // CopyWithoutSubsets copies e, without the subsets.
 func (e *Endpoints) CopyWithoutSubsets() *Endpoints {
 	e1 := &Endpoints{
@@ -160,3 +173,22 @@ func (e *Endpoints) GetResourceVersion() string { return e.Version }
 
 // SetResourceVersion implements the metav1.Object interface.
 func (e *Endpoints) SetResourceVersion(version string) {}
+
+// getLastChangeTriggerTime returns the time.Time value of the EndpointsLastChangeTriggerTime
+// annotation stored in the given endpoints object or the "zero" time if the annotation wasn't set
+// or was set incorrectly.
+func getLastChangeTriggerTime(endpoints *api.Endpoints) time.Time {
+	stringVal, ok := endpoints.Annotations[api.EndpointsLastChangeTriggerTime];
+	if !ok {
+		// It's possible that the Endpoints object won't have the EndpointsLastChangeTriggerTime
+		// annotation set. In that case return the 'zero value', which is ignored in the upstream code.
+		return time.Time{}
+	}
+	val, err := time.Parse(time.RFC3339Nano, stringVal)
+	if err != nil {
+		log.Warningf("Error while parsing EndpointsLastChangeTriggerTimeAnnotation: '%s'. Error is %v",
+			stringVal, err)
+		// In case of error val = time.Zero, which is ignored in the upstream code.
+	}
+	return val
+}
