@@ -27,10 +27,4 @@ var (
 		Buckets:   plugin.TimeBuckets,
 		Help:      "Histogram of the time each request took.",
 	}, []string{"to"})
-	HealthcheckFailureCount = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "grpc",
-		Name:      "healthcheck_failure_count_total",
-		Help:      "Counter of the number of failed healtchecks.",
-	}, []string{"to"})
 )

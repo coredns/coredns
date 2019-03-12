@@ -11,28 +11,26 @@ import (
 )
 
 func TestSetup(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		input           string
 		shouldErr       bool
 		expectedFrom    string
 		expectedIgnored []string
-		expectedFails   uint32
 		expectedErr     string
 	}{
 		// positive
-		{"grpc . 127.0.0.1", false, ".", nil, 2, ""},
-		{"grpc . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, ""},
-		{"grpc . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, ""},
-		{"grpc . 127.0.0.1:53", false, ".", nil, 2, ""},
-		{"grpc . 127.0.0.1:8080", false, ".", nil, 2, ""},
-		{"grpc . [::1]:53", false, ".", nil, 2, ""},
-		{"grpc . [2003::1]:53", false, ".", nil, 2, ""},
+		{"grpc . 127.0.0.1", false, ".", nil, ""},
+		{"grpc . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, ""},
+		{"grpc . 127.0.0.1", false, ".", nil, ""},
+		{"grpc . 127.0.0.1:53", false, ".", nil, ""},
+		{"grpc . 127.0.0.1:8080", false, ".", nil, ""},
+		{"grpc . [::1]:53", false, ".", nil, ""},
+		{"grpc . [2003::1]:53", false, ".", nil, ""},
 		// negative
-		{"grpc . a27.0.0.1", true, "", nil, 0, "not an IP"},
-		{"grpc . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, "unknown property"},
+		{"grpc . a27.0.0.1", true, "", nil, "not an IP"},
+		{"grpc . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, "unknown property"},
 		{`grpc . ::1
-		grpc com ::2`, true, "", nil, 0, "plugin"},
+		grpc com ::2`, true, "", nil, "plugin"},
 	}
 
 	for i, test := range tests {
@@ -61,14 +59,10 @@ func TestSetup(t *testing.T) {
 				t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedIgnored, g.ignored)
 			}
 		}
-		if !test.shouldErr && g.maxfails != test.expectedFails {
-			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedFails, g.maxfails)
-		}
 	}
 }
 
 func TestSetupTLS(t *testing.T) {
-	t.Parallel()
 	tests := []struct {
 		input              string
 		shouldErr          bool
@@ -113,7 +107,6 @@ tls
 }
 
 func TestSetupResolvconf(t *testing.T) {
-	t.Parallel()
 	const resolv = "resolv.conf"
 	if err := ioutil.WriteFile(resolv,
 		[]byte(`nameserver 10.10.255.252
@@ -158,9 +151,6 @@ nameserver 10.10.255.253`), 0666); err != nil {
 					t.Errorf("Test %d, expected %q, got %q", j, n, addr)
 				}
 			}
-		}
-		for _, p := range f.proxies {
-			p.check() // this should almost always err, we don't care it shoulnd't crash
 		}
 	}
 }

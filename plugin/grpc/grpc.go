@@ -3,28 +3,27 @@ package grpc
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/debug"
 	"github.com/coredns/coredns/request"
+
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 )
 
-// GRPC is an grpc plugin to show how to write a plugin.
+// GRPC represents a plugin instance that can proxy requests to another (DNS) server via gRPC protocol.
+// It has a list of proxies each representing one upstream proxy.
 type GRPC struct {
-	proxies    []*Proxy
-	p          Policy
-	hcInterval time.Duration
+	proxies []*Proxy
+	p       Policy
 
 	from    string
 	ignored []string
 
 	tlsConfig     *tls.Config
 	tlsServerName string
-	maxfails      uint32
 
 	Next plugin.Handler
 }
@@ -40,7 +39,6 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		span, child ot.Span
 		ret         *dns.Msg
 		err         error
-		fails       int
 		i           int
 	)
 	span = ot.SpanFromContext(ctx)
@@ -60,15 +58,6 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		proxy := list[i]
 		i++
 
-		if proxy.down(g.maxfails) {
-			fails++
-			if fails < len(g.proxies) {
-				continue
-			}
-			// All upstream proxies are dead
-			return dns.RcodeServerFailure, ErrNoHealthy
-		}
-
 		if span != nil {
 			child = span.Tracer().StartSpan("query", ot.ChildOf(span.Context()))
 			ctx = ot.ContextWithSpan(ctx, child)
@@ -76,10 +65,7 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 		ret, err = proxy.query(ctx, r)
 		if err != nil {
-			// Kick off health check to see if *our* upstream is broken.
-			if g.maxfails != 0 {
-				proxy.healthcheck()
-			}
+			// Continue with the next proxy
 			continue
 		}
 
@@ -111,9 +97,7 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // NewGRPC returns a new GRPC.
 func newGRPC() *GRPC {
 	g := &GRPC{
-		p:          new(random),
-		maxfails:   2,
-		hcInterval: hcInterval,
+		p: new(random),
 	}
 	return g
 }
@@ -148,28 +132,4 @@ func (g *GRPC) isAllowedDomain(name string) bool {
 // List returns a set of proxies to be used for this client depending on the policy in p.
 func (g *GRPC) list() []*Proxy { return g.p.List(g.proxies) }
 
-// OnStartup starts a goroutines for all proxies.
-func (g *GRPC) onStartup() (err error) {
-	for _, p := range g.proxies {
-		p.start(g.hcInterval)
-	}
-	return nil
-}
-
-// OnShutdown stops all configured proxies.
-func (g *GRPC) onShutdown() error {
-	for _, p := range g.proxies {
-		p.stop()
-	}
-	return nil
-}
-
-const (
-	hcInterval     = 500 * time.Millisecond
-	defaultTimeout = 5 * time.Second
-)
-
-var (
-	// ErrNoHealthy means no healthy proxies left.
-	ErrNoHealthy = errors.New("no healthy proxies")
-)
+const defaultTimeout = 5 * time.Second

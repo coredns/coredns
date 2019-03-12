@@ -3,8 +3,6 @@ package grpc
 import (
 	"crypto/tls"
 	"fmt"
-	"strconv"
-	"time"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -39,12 +37,8 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
-		metrics.MustRegister(c, RequestCount, RcodeCount, RequestDuration, HealthcheckFailureCount)
-		return g.onStartup()
-	})
-
-	c.OnShutdown(func() error {
-		return g.onShutdown()
+		metrics.MustRegister(c, RequestCount, RcodeCount, RequestDuration)
+		return nil
 	})
 
 	return nil
@@ -61,7 +55,7 @@ func parseGRPC(c *caddy.Controller) (*GRPC, error) {
 			return nil, plugin.ErrOnce
 		}
 		i++
-		g, err = ParseGRPCStanza(&c.Dispenser)
+		g, err = parseGRPCStanza(&c.Dispenser)
 		if err != nil {
 			return nil, err
 		}
@@ -69,8 +63,7 @@ func parseGRPC(c *caddy.Controller) (*GRPC, error) {
 	return g, nil
 }
 
-// ParseGRPCStanza parses one grpc stanza
-func ParseGRPCStanza(c *caddyfile.Dispenser) (*GRPC, error) {
+func parseGRPCStanza(c *caddyfile.Dispenser) (*GRPC, error) {
 	g := newGRPC()
 
 	if !c.Args(&g.from) {
@@ -95,8 +88,10 @@ func ParseGRPCStanza(c *caddyfile.Dispenser) (*GRPC, error) {
 		g.tlsConfig.ServerName = g.tlsServerName
 	}
 	for _, host := range toHosts {
-		opts := &options{TLSConfig: g.tlsConfig}
-		pr := newProxy(host, opts)
+		pr, err := newProxy(host, g.tlsConfig)
+		if err != nil {
+			return nil, err
+		}
 		g.proxies = append(g.proxies, pr)
 	}
 
@@ -121,30 +116,6 @@ func parseBlock(c *caddyfile.Dispenser, g *GRPC) error {
 			ignore[i] = plugin.Host(ignore[i]).Normalize()
 		}
 		g.ignored = ignore
-	case "max_fails":
-		if !c.NextArg() {
-			return c.ArgErr()
-		}
-		n, err := strconv.Atoi(c.Val())
-		if err != nil {
-			return err
-		}
-		if n < 0 {
-			return fmt.Errorf("max_fails can't be negative: %d", n)
-		}
-		g.maxfails = uint32(n)
-	case "health_check":
-		if !c.NextArg() {
-			return c.ArgErr()
-		}
-		dur, err := time.ParseDuration(c.Val())
-		if err != nil {
-			return err
-		}
-		if dur < 0 {
-			return fmt.Errorf("health_check can't be negative: %d", dur)
-		}
-		g.hcInterval = dur
 	case "tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {
