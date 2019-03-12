@@ -14,12 +14,15 @@ github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973 h1:xJ4a3vCFaGF/jqvzLM
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/coredns/coredns v1.4.0/go.mod h1:zASH/MVDgR6XZTbxvOnsZfffS+31vg6Ackf/wo1+AM0=
+github.com/coredns/coredns v1.4.1-0.20190312110147-91d645168488/go.mod h1:lCPlCTDuEbx701jyBww8zIU8zQDzKyHhZVcJC5EfKKA=
 github.com/coredns/proxy v0.0.0-20190303110311-afc937d015b9 h1:Y1pVzULwQG8rsh4jFpxaVZfaR8qTfM5VtweoBvZ56Vs=
 github.com/coredns/proxy v0.0.0-20190303110311-afc937d015b9/go.mod h1:BXx1AhWPTL4TJqe70SRiT1MT41j8yWJGU6kEInPiDAA=
 github.com/coredns/proxy v0.0.0-20190311201044-8a9ec7ab6930 h1:pqYfyVLDa51EsWTiaEKd0CxJ4zhT+BJgCCrRqWzWGHU=
 github.com/coredns/proxy v0.0.0-20190311201044-8a9ec7ab6930/go.mod h1:x10RuebO4Jy4NkWRYfqPOuRllxJLZQ0EAiF3/DaAm0U=
 github.com/coredns/proxy v0.0.0-20190312110506-57866548a2d0 h1:ckTufBJDPOonpRL9Eeuum2CBefjqQT6KsqyDFQhjM6Y=
 github.com/coredns/proxy v0.0.0-20190312110506-57866548a2d0/go.mod h1:hzP6Dp1bDn7TkZf+Hhcz5D7xCl4kw7GtxnTk4yyJiPE=
+github.com/coredns/proxy v0.0.0-20190312112157-36a505170348 h1:mNw8Fi3ejpsoeZ/Ei6Aavl30wgkjBhrRyoSob++fRtw=
+github.com/coredns/proxy v0.0.0-20190312112157-36a505170348/go.mod h1:rbe/YMvFev5KLow/GbDAxBnyJX0RgfzhHMLUwt4Y4XE=
 github.com/coreos/etcd v3.3.11+incompatible h1:0gCnqKsq7XxMi69JsnbmMc1o+RJH3XH64sV9aiTTYko=
 github.com/coreos/etcd v3.3.11+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=

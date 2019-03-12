@@ -8,7 +8,7 @@ require (
 	github.com/Shopify/sarama v1.17.0
 	github.com/apache/thrift v0.12.0
 	github.com/aws/aws-sdk-go v1.14.17
-	github.com/coredns/proxy v0.0.0-20190312110506-57866548a2d0
+	github.com/coredns/proxy v0.0.0-20190312112157-36a505170348
 	github.com/coreos/etcd v3.3.11+incompatible
 	github.com/davecgh/go-spew v1.1.0
 	github.com/dnstap/golang-dnstap v0.0.0-20170829151710-2cf77a2b5e11
@@ -43,14 +43,12 @@ require (
 	github.com/openzipkin/zipkin-go-opentracing v0.3.4
 	github.com/petar/GoLLRB v0.0.0-20130427215148-53be0d36a84c
 	github.com/peterbourgon/diskv v2.0.1+incompatible
-	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/pierrec/lz4 v2.0.3+incompatible
 	github.com/prometheus/client_golang v0.9.2
 	github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910
 	github.com/prometheus/common v0.0.0-20181126121408-4724e9255275
 	github.com/rcrowley/go-metrics v0.0.0-20180503174638-e2704e165165
 	github.com/spf13/pflag v1.0.1
-	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/ugorji/go v0.0.0-20161130061742-9c7f9b7a2bc3
 	golang.org/x/crypto v0.0.0-20190228161510-8dd112bcdc25
 	golang.org/x/net v0.0.0-20181201002055-351d144fa1fc
