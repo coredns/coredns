@@ -73,11 +73,6 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			child.Finish()
 		}
 
-		// Continue if no answer has been found
-		if ret.Rcode == dns.RcodeNameError {
-			continue
-		}
-
 		// Check if the reply is correct; if not return FormErr.
 		if !state.Match(ret) {
 			debug.Hexdumpf(ret, "Wrong reply for id: %d, %s %d", ret.Id, state.QName(), state.QType())
