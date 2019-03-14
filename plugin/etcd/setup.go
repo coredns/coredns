@@ -102,11 +102,6 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 					return &Etcd{}, c.Errf("unknown property '%s'", c.Val())
 				}
 			}
-
-			if !c.Next() {
-				break
-			}
-
 		}
 		client, err := newEtcdClient(endpoints, tlsConfig, username, password)
 		if err != nil {
