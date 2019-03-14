@@ -24,6 +24,7 @@ func TestSetup(t *testing.T) {
 		{"grpc . 127.0.0.1", false, ".", nil, ""},
 		{"grpc . 127.0.0.1:53", false, ".", nil, ""},
 		{"grpc . 127.0.0.1:8080", false, ".", nil, ""},
+		{"grpc . 127.0.0.1 {\nbackoffMaxDelay 2s\n}\n", false, ".", nil, ""},
 		{"grpc . [::1]:53", false, ".", nil, ""},
 		{"grpc . [2003::1]:53", false, ".", nil, ""},
 		// negative
