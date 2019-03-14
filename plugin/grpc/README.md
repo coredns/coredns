@@ -30,6 +30,7 @@ Extra knobs are available with an expanded syntax:
 ~~~
 grpc FROM TO... {
     except IGNORED_NAMES...
+    backoffMaxDelay DURATION
     tls CERT KEY CA
     tls_servername NAME
     policy random|round_robin|sequential
@@ -38,6 +39,7 @@ grpc FROM TO... {
 
 * **FROM** and **TO...** as above.
 * **IGNORED_NAMES** in `except` is a space-separated list of domains to exclude from proxying.
+* `backoffMaxDelay` **DURATION**, backoffMaxDelay configures the maximum delay when backing off after failed connection attempts. By default, the grpc client backoff delay is exponential, and the maxDelay is 2 minutes.
   Requests that match none of these names will be passed through.
 * `tls` **CERT** **KEY** **CA** define the TLS properties for TLS connection. From 0 to 3 arguments can be
   provided with the meaning as described below
@@ -85,12 +87,13 @@ Load balance all requests between three resolvers, one of which has a IPv6 addre
 }
 ~~~
 
-Forward everything except requests to `example.org`
+Forward everything except requests to `example.org` and set max delay in 1 second
 
 ~~~ corefile
 . {
     grpc . 10.0.0.10:1234 {
         except example.org
+        backoffMaxDelay 1s
     }
 }
 ~~~

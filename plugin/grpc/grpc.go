@@ -22,8 +22,9 @@ type GRPC struct {
 	from    string
 	ignored []string
 
-	tlsConfig     *tls.Config
-	tlsServerName string
+	tlsConfig       *tls.Config
+	tlsServerName   string
+	backoffMaxDelay time.Duration
 
 	Next plugin.Handler
 }

@@ -3,6 +3,7 @@ package grpc
 import (
 	"crypto/tls"
 	"fmt"
+	"time"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -88,7 +89,8 @@ func parseGRPCStanza(c *caddyfile.Dispenser) (*GRPC, error) {
 		g.tlsConfig.ServerName = g.tlsServerName
 	}
 	for _, host := range toHosts {
-		pr, err := newProxy(host, g.tlsConfig)
+		fmt.Println(g.backoffMaxDelay)
+		pr, err := newProxy(host, g.tlsConfig, g.backoffMaxDelay)
 		if err != nil {
 			return nil, err
 		}
@@ -146,6 +148,18 @@ func parseBlock(c *caddyfile.Dispenser, g *GRPC) error {
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
+	case "backoffMaxDelay":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("backoffMaxDelay can't be negative: %d", dur)
+		}
+		g.backoffMaxDelay = dur
 	default:
 		if c.Val() != "}" {
 			return c.Errf("unknown property '%s'", c.Val())

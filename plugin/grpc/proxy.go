@@ -25,9 +25,13 @@ type Proxy struct {
 }
 
 // newProxy returns a new proxy.
-func newProxy(addr string, tlsConfig *tls.Config) (*Proxy, error) {
+func newProxy(addr string, tlsConfig *tls.Config, backoffMaxDelay time.Duration) (*Proxy, error) {
 	p := &Proxy{
 		addr: addr,
+	}
+
+	if backoffMaxDelay != 0 {
+		p.dialOpts = append(p.dialOpts, grpc.WithBackoffMaxDelay(backoffMaxDelay))
 	}
 
 	if tlsConfig != nil {
