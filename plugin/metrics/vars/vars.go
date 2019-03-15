@@ -68,7 +68,6 @@ var (
 
 	PluginEnabled = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: plugin.Namespace,
-		Subsystem: subsystem,
 		Name:      "plugin_enabled",
 		Help:      "A metric that monitors which plugin(s) is(are) enabled.",
 	}, []string{"server", "zone", "name"})
