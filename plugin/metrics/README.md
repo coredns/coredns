@@ -19,7 +19,7 @@ The following metrics are exported:
 * `coredns_dns_request_type_count_total{server, zone, type}` - counter of queries per zone and type.
 * `coredns_dns_response_size_bytes{server, zone, proto}` - response size in bytes.
 * `coredns_dns_response_rcode_count_total{server, zone, rcode}` - response per zone and rcode.
-* `coredns_plugin_enabled{server, zone, name}` - enabled pulgin(s) per server and zone.
+* `coredns_plugin_enabled{server, zone, name}` - indicates whether a plugin is enabled on per server and zone basis.
 
 Each counter has a label `zone` which is the zonename used for the request/response.
 
