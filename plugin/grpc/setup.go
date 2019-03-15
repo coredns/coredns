@@ -95,7 +95,6 @@ func parseGRPCStanza(c *caddyfile.Dispenser) (*GRPC, error) {
 		g.tlsConfig.ServerName = g.tlsServerName
 	}
 	for _, host := range toHosts {
-		fmt.Println(g.backoffMaxDelay)
 		pr, err := newProxy(host, g.tlsConfig, g.backoffMaxDelay)
 		if err != nil {
 			return nil, err
