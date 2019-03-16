@@ -50,6 +50,12 @@ func setup(c *caddy.Controller) error {
 		})
 		return nil
 	})
+
+	c.OnRestart(func() error {
+		vars.PluginEnabled.Reset()
+		return nil
+	})
+
 	c.OnStartup(func() error {
 		conf := dnsserver.GetConfig(c)
 		plugins := conf.Handlers()
