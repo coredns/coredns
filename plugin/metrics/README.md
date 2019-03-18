@@ -76,3 +76,4 @@ When reloading, the Prometheus handler is stopped before the new server instance
 If that new server fails to start, then the initial server instance is still available and DNS queries still served,
 but Prometheus handler stays down.
 Prometheus will not reply HTTP request until a successful reload or a complete restart of CoreDNS.
+Only the plugins that register as Handler are visible in `coredns_plugin_enabled{server, zone, name}`. As of today the plugins reload and bind will not be reported.
