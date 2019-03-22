@@ -60,11 +60,7 @@ func setup(c *caddy.Controller) error {
 		conf := dnsserver.GetConfig(c)
 		plugins := conf.Handlers()
 		for _, h := range conf.ListenHosts {
-			addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(h, conf.Port))
-			if err != nil {
-				return err
-			}
-			addrstr := conf.Transport + "://" + addr.String()
+			addrstr := conf.Transport + "://" + net.JoinHostPort(h, conf.Port)
 			for _, p := range plugins {
 				vars.PluginEnabled.WithLabelValues(addrstr, conf.Zone, p.Name()).Set(1)
 			}
