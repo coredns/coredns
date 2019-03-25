@@ -338,7 +338,7 @@ func errorFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
 	w.WriteMsg(answer)
 }
 
-func errorAndMetricsFunc(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, rc int) {
+func errorAndMetricsFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
 	state := request.Request{W: w, Req: r}
 
 	answer := new(dns.Msg)
