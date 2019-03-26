@@ -53,7 +53,7 @@ type dnsControl struct {
 
 	client kubernetes.Interface
 
-	selector labels.Selector
+	selector          labels.Selector
 	namespaceSelector labels.Selector
 
 	svcController cache.Controller
@@ -76,10 +76,6 @@ type dnsControl struct {
 	zones            []string
 	endpointNameMode bool
 
-	// lastChangeTriggerTimes is a map from the namespaced-name of an Endpoints object to the last
-	// seen value of the EndpointsLastChangeTriggerTime annotation for that Endpoints object.
-	// Used to calculate the dns-programming-latency SLI, see https://github.com/kubernetes/community/blob/master/sig-scalability/slos/dns_programming_latency.md
-	lastChangeTriggerTimes map[string]time.Time
 	// durationSinceFunc returns the duration elapsed since the given time.
 	// Added as a member to the struct to allow injection for testing.
 	durationSinceFunc func(time.Time) time.Duration
@@ -92,10 +88,10 @@ type dnsControlOpts struct {
 	ignoreEmptyService bool
 
 	// Label handling.
-	labelSelector *meta.LabelSelector
-	selector      labels.Selector
+	labelSelector          *meta.LabelSelector
+	selector               labels.Selector
 	namespaceLabelSelector *meta.LabelSelector
-	namespaceSelector labels.Selector
+	namespaceSelector      labels.Selector
 
 	zones            []string
 	endpointNameMode bool
@@ -109,14 +105,13 @@ type dnsControlOpts struct {
 // newDNSController creates a controller for CoreDNS.
 func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
-		client:                 kubeClient,
-		selector:               opts.selector,
+		client:            kubeClient,
+		selector:          opts.selector,
 		namespaceSelector: opts.namespaceSelector,
-		stopCh:                 make(chan struct{}),
-		zones:                  opts.zones,
-		endpointNameMode:       opts.endpointNameMode,
-		lastChangeTriggerTimes: make(map[string]time.Time),
-		durationSinceFunc:      time.Since,
+		stopCh:            make(chan struct{}),
+		zones:             opts.zones,
+		endpointNameMode:  opts.endpointNameMode,
+		durationSinceFunc: time.Since,
 	}
 
 	clearOriginalObject := true
@@ -159,9 +154,11 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 			&api.Endpoints{},
 			opts.resyncPeriod,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc:    func(obj interface{}) { dns.onEndpointsChange(obj.(*object.Endpoints)) },
-				UpdateFunc: func(oldObj, newObj interface{}) { dns.onEndpointsChange(newObj.(*object.Endpoints)) },
-				DeleteFunc: func(obj interface{}) { dns.onEndpointsChange(obj.(*object.Endpoints)) },
+				AddFunc: func(obj interface{}) { dns.onEndpointsChange(nil, obj.(*object.Endpoints)) },
+				UpdateFunc: func(oldObj, newObj interface{}) {
+					dns.onEndpointsChange(oldObj.(*object.Endpoints), newObj.(*object.Endpoints))
+				},
+				DeleteFunc: func(obj interface{}) { dns.onEndpointsChange(obj.(*object.Endpoints), nil) },
 			},
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
 			object.ToEndpoints(clearOriginalObject))
@@ -441,19 +438,17 @@ func (dns *dnsControl) updateModifed() {
 	atomic.StoreInt64(&dns.modified, unix)
 }
 
-func (dns *dnsControl) onEndpointsChange(endpoints *object.Endpoints) {
-	if !dns.isEndpointForHeadlessService(endpoints) || endpoints.LastChangeTriggerTime.IsZero() {
+func (dns *dnsControl) onEndpointsChange(oldEp, newEp *object.Endpoints) {
+	if newEp == nil || !dns.isEndpointForHeadlessService(newEp) || newEp.LastChangeTriggerTime.IsZero() {
 		return
 	}
-	oldTriggerTime := dns.lastChangeTriggerTimes[endpoints.Index]
-	if endpoints.LastChangeTriggerTime.After(oldTriggerTime) {
-		dns.lastChangeTriggerTimes[endpoints.Index] = endpoints.LastChangeTriggerTime
+	if oldEp == nil || newEp.LastChangeTriggerTime.After(oldEp.LastChangeTriggerTime) {
 		// If we're here it means that the Endpoints object is for a headless service and that
 		// the Endpoints object was created by the endpoints-controller (because the
 		// LastChangeTriggerTime annotation is set). It means that the corresponding service is a
 		// "headless service with selector".
 		DnsProgrammingLatency.WithLabelValues("headless_with_selector").
-			Observe(dns.durationSinceFunc(endpoints.LastChangeTriggerTime).Seconds())
+			Observe(dns.durationSinceFunc(newEp.LastChangeTriggerTime).Seconds())
 	}
 }
 
