@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"regexp"
 
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
@@ -61,6 +62,67 @@ func HostPortOrFile(s ...string) ([]string, error) {
 	return servers, nil
 }
 
+// HostPortOrFileOrDNSName parses the strings in s, each string can either be a
+// address, [scheme://]address:port or a filename or a DNS name. The address part is checked,
+// DNS name is validated and in case of filename a resolv.conf like file is (assumed) and parsed and
+// the nameservers found are returned.
+func HostPortOrFileOrDNSName(s ...string) ([]string, error) {
+	var servers []string
+	for _, h := range s {
+
+		trans, host := Transport(h)
+
+		addr, _, err := net.SplitHostPort(host)
+		if err != nil {
+			// Parse didn't work, it is not a addr:port combo
+			if net.ParseIP(host) == nil {
+				// Not an IP address.
+				ss, err := tryFile(host)
+				if err == nil {
+					servers = append(servers, ss...)
+					continue
+				}
+				if isDNSName(host) {
+					// consider address to be DNS name
+					servers = append(servers, net.JoinHostPort(host, transport.Port))
+					continue
+				}
+				return servers, fmt.Errorf("not an IP address or file: %q", host)
+			}
+			var ss string
+			switch trans {
+			case transport.DNS:
+				ss = net.JoinHostPort(host, transport.Port)
+			case transport.TLS:
+				ss = transport.TLS + "://" + net.JoinHostPort(host, transport.TLSPort)
+			case transport.GRPC:
+				ss = transport.GRPC + "://" + net.JoinHostPort(host, transport.GRPCPort)
+			case transport.HTTPS:
+				ss = transport.HTTPS + "://" + net.JoinHostPort(host, transport.HTTPSPort)
+			}
+			servers = append(servers, ss)
+			continue
+		}
+
+		if net.ParseIP(addr) == nil {
+			// Not an IP address.
+			ss, err := tryFile(host)
+			if err == nil {
+				servers = append(servers, ss...)
+				continue
+			}
+			if isDNSName(addr) {
+				// consider address to be hostname
+				servers = append(servers, host)
+				continue
+			}
+			return servers, fmt.Errorf("not an IP address or file: %q", host)
+		}
+		servers = append(servers, h)
+	}
+	return servers, nil
+}
+
 // Try to open this is a file first.
 func tryFile(s string) ([]string, error) {
 	c, err := dns.ClientConfigFromFile(s)
@@ -95,4 +157,11 @@ func HostPort(s, defaultPort string) (string, error) {
 		return "", fmt.Errorf("must specify an IP address: `%s'", addr)
 	}
 	return net.JoinHostPort(addr, port), nil
+}
+
+const dnsName string = `^([a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62}){1}(\.[a-zA-Z0-9_]{1}[a-zA-Z0-9_-]{0,62})*[\._]?$`
+
+// Verify that string validates as DNS name
+func isDNSName(s string) bool {
+	return regexp.MustCompile(dnsName).MatchString(s)
 }

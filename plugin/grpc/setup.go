@@ -76,7 +76,7 @@ func parseGRPCStanza(c *caddyfile.Dispenser) (*GRPC, error) {
 		return g, c.ArgErr()
 	}
 
-	toHosts, err := parse.HostPortOrFile(to...)
+	toHosts, err := parse.HostPortOrFileOrDNSName(to...)
 	if err != nil {
 		return g, err
 	}
