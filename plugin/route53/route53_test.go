@@ -215,11 +215,11 @@ func TestRoute53(t *testing.T) {
 			qname: "split-example.org",
 			qtype: dns.TypeAAAA,
 			wantNS: []string{"org.	300	IN	SOA	ns-15.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
+		},
 		// 13. *.www.example.org is a wildcard CNAME to www.example.org.
 		{
-			qname:        "a.www.example.org",
-			qtype:        dns.TypeA,
-			expectedCode: dns.RcodeSuccess,
+			qname: "a.www.example.org",
+			qtype: dns.TypeA,
 			wantAnswer: []string{
 				"a.www.example.org.	300	IN	CNAME	www.example.org.",
 				"www.example.org.	300	IN	A	1.2.3.4",
