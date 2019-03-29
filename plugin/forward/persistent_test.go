@@ -48,40 +48,6 @@ func TestCached(t *testing.T) {
 	tr.Yield(c4)
 }
 
-func TestCleanupByTimer(t *testing.T) {
-	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
-		ret := new(dns.Msg)
-		ret.SetReply(r)
-		w.WriteMsg(ret)
-	})
-	defer s.Close()
-
-	tr := newTransport(s.Addr)
-	tr.SetExpire(100 * time.Microsecond)
-	tr.Start()
-	defer tr.Stop()
-
-	c1, _, _ := tr.Dial("udp")
-	c2, _, _ := tr.Dial("udp")
-	tr.Yield(c1)
-	time.Sleep(40 * time.Microsecond)
-	tr.Yield(c2)
-
-	time.Sleep(140 * time.Microsecond)
-	c3, cached, _ := tr.Dial("udp")
-	if cached {
-		t.Error("Expected non-cached connection (c3)")
-	}
-	tr.Yield(c3)
-
-	time.Sleep(160 * time.Microsecond)
-	c4, cached, _ := tr.Dial("udp")
-	if cached {
-		t.Error("Expected non-cached connection (c4)")
-	}
-	tr.Yield(c4)
-}
-
 func TestCleanupAll(t *testing.T) {
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
