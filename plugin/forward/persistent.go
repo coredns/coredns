@@ -85,16 +85,16 @@ Wait:
 
 			// no proto here, infer from config and conn
 			if _, ok := conn.Conn.(*net.UDPConn); ok {
-				t.conns["udp"] = append(t.conns["udp"], &persistConn{conn, time.Now()})
+				t.conns["udp"] = append(t.conns["udp"], &persistConn{conn, time.Now().Add(jitter(t.expire))})
 				continue Wait
 			}
 
 			if t.tlsConfig == nil {
-				t.conns["tcp"] = append(t.conns["tcp"], &persistConn{conn, time.Now()})
+				t.conns["tcp"] = append(t.conns["tcp"], &persistConn{conn, time.Now().Add(jitter(t.expire))})
 				continue Wait
 			}
 
-			t.conns["tcp-tls"] = append(t.conns["tcp-tls"], &persistConn{conn, time.Now()})
+			t.conns["tcp-tls"] = append(t.conns["tcp-tls"], &persistConn{conn, time.Now().Add(jitter(t.expire))})
 
 		case <-ticker.C:
 			t.cleanup(false)
