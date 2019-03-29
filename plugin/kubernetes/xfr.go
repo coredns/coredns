@@ -20,7 +20,7 @@ const transferLength = 2000
 func (k *Kubernetes) Serial(state request.Request) uint32 { return uint32(k.APIConn.Modified()) }
 
 // MinTTL implements the Transferer interface.
-func (k *Kubernetes) MinTTL(state request.Request) uint32 { return 30 }
+func (k *Kubernetes) MinTTL(state request.Request) uint32 { return k.ttl }
 
 // Transfer implements the Transferer interface.
 func (k *Kubernetes) Transfer(ctx context.Context, state request.Request) (int, error) {
@@ -45,7 +45,7 @@ func (k *Kubernetes) Transfer(ctx context.Context, state request.Request) (int, 
 	ch := make(chan *dns.Envelope)
 	tr := new(dns.Transfer)
 
-	soa, err := plugin.SOA(k, state.Zone, state, plugin.Options{})
+	soa, err := plugin.SOA(ctx, k, state.Zone, state, plugin.Options{})
 	if err != nil {
 		return dns.RcodeServerFailure, nil
 	}

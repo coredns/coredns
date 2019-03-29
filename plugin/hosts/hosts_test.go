@@ -12,10 +12,19 @@ import (
 	"github.com/miekg/dns"
 )
 
-func (h *Hostsfile) parseReader(r io.Reader) { h.hmap = h.parse(r, h.inline) }
+func (h *Hostsfile) parseReader(r io.Reader) {
+	h.hmap = h.parse(r)
+}
 
 func TestLookupA(t *testing.T) {
-	h := Hosts{Next: test.ErrorHandler(), Hostsfile: &Hostsfile{Origins: []string{"."}}}
+	h := Hosts{
+		Next: test.ErrorHandler(),
+		Hostsfile: &Hostsfile{
+			Origins: []string{"."},
+			hmap:    newHostsMap(),
+			options: newOptions(),
+		},
+	}
 	h.parseReader(strings.NewReader(hostsExample))
 
 	ctx := context.TODO()
@@ -26,12 +35,14 @@ func TestLookupA(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := h.ServeDNS(ctx, rec, m)
 		if err != nil {
-			t.Errorf("Expected no error, got %v\n", err)
+			t.Errorf("Expected no error, got %v", err)
 			return
 		}
 
 		resp := rec.Msg
-		test.SortAndCheck(t, resp, tc)
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Error(err)
+		}
 	}
 }
 
@@ -40,6 +51,12 @@ var hostsTestCases = []test.Case{
 		Qname: "example.org.", Qtype: dns.TypeA,
 		Answer: []dns.RR{
 			test.A("example.org. 3600	IN	A 10.0.0.1"),
+		},
+	},
+	{
+		Qname: "example.com.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.A("example.com. 3600	IN	A 10.0.0.2"),
 		},
 	},
 	{
@@ -52,6 +69,12 @@ var hostsTestCases = []test.Case{
 		Qname: "1.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
 		Answer: []dns.RR{
 			test.PTR("1.0.0.10.in-addr.arpa. 3600 PTR example.org."),
+		},
+	},
+	{
+		Qname: "2.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+		Answer: []dns.RR{
+			test.PTR("2.0.0.10.in-addr.arpa. 3600 PTR example.com."),
 		},
 	},
 	{
@@ -74,4 +97,8 @@ var hostsTestCases = []test.Case{
 const hostsExample = `
 127.0.0.1 localhost localhost.domain
 ::1 localhost localhost.domain
-10.0.0.1 example.org`
+10.0.0.1 example.org
+::FFFF:10.0.0.2 example.com
+reload 5s
+timeout 3600
+`

@@ -71,7 +71,7 @@ func (rule *exactNameRule) Rewrite(ctx context.Context, state request.Request) R
 // Rewrite rewrites the current request when the name begins with the matching string.
 func (rule *prefixNameRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if strings.HasPrefix(state.Name(), rule.Prefix) {
-		state.Req.Question[0].Name = rule.Replacement + strings.TrimLeft(state.Name(), rule.Prefix)
+		state.Req.Question[0].Name = rule.Replacement + strings.TrimPrefix(state.Name(), rule.Prefix)
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -80,7 +80,7 @@ func (rule *prefixNameRule) Rewrite(ctx context.Context, state request.Request) 
 // Rewrite rewrites the current request when the name ends with the matching string.
 func (rule *suffixNameRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if strings.HasSuffix(state.Name(), rule.Suffix) {
-		state.Req.Question[0].Name = strings.TrimRight(state.Name(), rule.Suffix) + rule.Replacement
+		state.Req.Question[0].Name = strings.TrimSuffix(state.Name(), rule.Suffix) + rule.Replacement
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -300,10 +300,10 @@ func getSubExprUsage(s string) int {
 func isValidRegexPattern(rewriteFrom, rewriteTo string) (*regexp.Regexp, error) {
 	rewriteFromPattern, err := regexp.Compile(rewriteFrom)
 	if err != nil {
-		return nil, fmt.Errorf("Invalid regex matching pattern: %s", rewriteFrom)
+		return nil, fmt.Errorf("invalid regex matching pattern: %s", rewriteFrom)
 	}
 	if getSubExprUsage(rewriteTo) > rewriteFromPattern.NumSubexp() {
-		return nil, fmt.Errorf("The rewrite regex pattern (%s) uses more subexpressions than its corresponding matching regex pattern (%s)", rewriteTo, rewriteFrom)
+		return nil, fmt.Errorf("the rewrite regex pattern (%s) uses more subexpressions than its corresponding matching regex pattern (%s)", rewriteTo, rewriteFrom)
 	}
 	return rewriteFromPattern, nil
 }

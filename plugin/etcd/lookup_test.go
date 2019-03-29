@@ -12,7 +12,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
-	"github.com/coredns/coredns/plugin/proxy"
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -28,6 +27,8 @@ var services = []*msg.Service{
 	{Host: "10.0.0.1", Port: 8080, Key: "a.server1.prod.region1.skydns.test."},
 	{Host: "10.0.0.2", Port: 8080, Key: "b.server1.prod.region1.skydns.test."},
 	{Host: "::1", Port: 8080, Key: "b.server6.prod.region1.skydns.test."},
+	// TXT record in server1.
+	{Host: "", Port: 8080, Text: "sometext", Key: "txt.server1.prod.region1.skydns.test."},
 	// Unresolvable internal name.
 	{Host: "unresolvable.skydns.test", Key: "cname.prod.region1.skydns.test."},
 	// Priority.
@@ -127,6 +128,13 @@ var dnsTestCases = []test.Case{
 	{
 		Qname: "cname.prod.region1.skydns.test.", Qtype: dns.TypeA,
 		Ns: []dns.RR{test.SOA("skydns.test. 30 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0")},
+	},
+	// TXT Test
+	{
+		Qname: "server1.prod.region1.skydns.test.", Qtype: dns.TypeTXT,
+		Answer: []dns.RR{
+			test.TXT("server1.prod.region1.skydns.test. 303 IN TXT sometext"),
+		},
 	},
 	// Wildcard Test
 	{
@@ -281,13 +289,11 @@ func newEtcdPlugin() *Etcd {
 
 	endpoints := []string{"http://localhost:2379"}
 	tlsc, _ := tls.NewTLSConfigFromArgs()
-	client, _ := newEtcdClient(endpoints, tlsc)
+	client, _ := newEtcdClient(endpoints, tlsc, "", "")
 
-	p := proxy.NewLookup([]string{"8.8.8.8:53"})
 	return &Etcd{
-		Upstream:   upstream.Upstream{Forward: &p},
+		Upstream:   upstream.New(),
 		PathPrefix: "skydns",
-		Ctx:        context.Background(),
 		Zones:      []string{"skydns.test.", "skydns_extra.test.", "skydns_zonea.test.", "skydns_zoneb.test.", "skydns_zonec.test.", "skydns_zoned.test.", "in-addr.arpa."},
 		Client:     client,
 	}
@@ -321,7 +327,9 @@ func TestLookup(t *testing.T) {
 		etc.ServeDNS(ctxt, rec, m)
 
 		resp := rec.Msg
-		test.SortAndCheck(t, resp, tc)
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Error(err)
+		}
 	}
 }
 

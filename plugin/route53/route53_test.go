@@ -36,6 +36,8 @@ func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, in *rou
 		rType, name, value, hostedZoneID string
 	}{
 		{"A", "example.org.", "1.2.3.4", "1234567890"},
+		{"A", "www.example.org", "1.2.3.4", "1234567890"},
+		{"CNAME", `\\052.www.example.org`, "www.example.org", "1234567890"},
 		{"AAAA", "example.org.", "2001:db8:85a3::8a2e:370:7334", "1234567890"},
 		{"CNAME", "sample.example.org.", "example.org", "1234567890"},
 		{"PTR", "example.org.", "ptr.example.org.", "1234567890"},
@@ -104,7 +106,7 @@ func TestRoute53(t *testing.T) {
 			}
 			m.Answer = []dns.RR{rr}
 
-			m.Authoritative, m.RecursionAvailable = true, true
+			m.Authoritative = true
 			rcode = dns.RcodeSuccess
 
 		}
@@ -213,6 +215,15 @@ func TestRoute53(t *testing.T) {
 			qname: "split-example.org",
 			qtype: dns.TypeAAAA,
 			wantNS: []string{"org.	300	IN	SOA	ns-15.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
+		// 13. *.www.example.org is a wildcard CNAME to www.example.org.
+		{
+			qname:        "a.www.example.org",
+			qtype:        dns.TypeA,
+			expectedCode: dns.RcodeSuccess,
+			wantAnswer: []string{
+				"a.www.example.org.	300	IN	CNAME	www.example.org.",
+				"www.example.org.	300	IN	A	1.2.3.4",
+			},
 		},
 	}
 
@@ -256,6 +267,38 @@ func TestRoute53(t *testing.T) {
 					t.Errorf("Test %d: Unexpected NS.\nWant: %v\nGot: %v", ti, tc.wantNS[i], got)
 				}
 			}
+		}
+	}
+}
+
+func TestMaybeUnescape(t *testing.T) {
+	for ti, tc := range []struct {
+		escaped, want string
+		wantErr       error
+	}{
+		// 0. empty string is fine.
+		{escaped: "", want: ""},
+		// 1. non-escaped sequence.
+		{escaped: "example.com.", want: "example.com."},
+		// 2. escaped `*` as first label - OK.
+		{escaped: `\\052.example.com`, want: "*.example.com"},
+		// 3. Escaped dot, 'a' and a hyphen. No idea why but we'll allow it.
+		{escaped: `weird\\055ex\\141mple\\056com\\056\\056`, want: "weird-example.com.."},
+		// 4. escaped `*` in the middle - NOT OK.
+		{escaped: `e\\052ample.com`, wantErr: errors.New("`*' ony supported as wildcard (leftmost label)")},
+		// 5. Invalid character.
+		{escaped: `\\000.example.com`, wantErr: errors.New(`invalid character: \\000`)},
+		// 6. Invalid escape sequence in the middle.
+		{escaped: `example\\0com`, wantErr: errors.New(`invalid escape sequence: '\\0co'`)},
+		// 7. Invalid escape sequence at the end.
+		{escaped: `example.com\\0`, wantErr: errors.New(`invalid escape sequence: '\\0'`)},
+	} {
+		got, gotErr := maybeUnescape(tc.escaped)
+		if tc.wantErr != gotErr && !reflect.DeepEqual(tc.wantErr, gotErr) {
+			t.Fatalf("Test %d: Expected error: `%v', but got: `%v'", ti, tc.wantErr, gotErr)
+		}
+		if tc.want != got {
+			t.Errorf("Test %d: Expected unescaped: `%s', but got: `%s'", ti, tc.want, got)
 		}
 	}
 }

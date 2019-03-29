@@ -10,18 +10,18 @@
 CoreDNS (written in Go) chains [plugins](https://coredns.io/plugins). Each plugin performs a DNS
 function.
 
-CoreDNS is a [Cloud Native Computing Foundation](https://cncf.io) incubating level project.
+CoreDNS is a [Cloud Native Computing Foundation](https://cncf.io) graduated project.
 
 CoreDNS is a fast and flexible DNS server. The keyword here is *flexible*: with CoreDNS you
 are able to do what you want with your DNS data by utilizing plugins. If some functionality is not
 provided out of the box you can add it by [writing a plugin](https://coredns.io/explugins).
 
-CoreDNS can listen for DNS request coming in over UDP/TCP (go'old DNS), TLS ([RFC
+CoreDNS can listen for DNS requests coming in over UDP/TCP (go'old DNS), TLS ([RFC
 7858](https://tools.ietf.org/html/rfc7858)) and [gRPC](https://grpc.io) (not a standard).
 
 Currently CoreDNS is able to:
 
-* Serve zone data from a file; both DNSSEC (NSEC only) and DNS are supported (*file*).
+* Serve zone data from a file; both DNSSEC (NSEC only) and DNS are supported (*file* and *auto*).
 * Retrieve zone data from primaries, i.e., act as a secondary server (AXFR only) (*secondary*).
 * Sign zone data on-the-fly (*dnssec*).
 * Load balancing of responses (*loadbalance*).
@@ -30,7 +30,7 @@ Currently CoreDNS is able to:
 * Caching (*cache*).
 * Use etcd as a backend (replace [SkyDNS](https://github.com/skynetservices/skydns)) (*etcd*).
 * Use k8s (kubernetes) as a backend (*kubernetes*).
-* Serve as a proxy to forward queries to some other (recursive) nameserver (*proxy*, and *forward*).
+* Serve as a proxy to forward queries to some other (recursive) nameserver (*forward*).
 * Provide metrics (by using Prometheus) (*metrics*).
 * Provide query (*log*) and error (*errors*) logging.
 * Support the CH class: `version.bind` and friends (*chaos*).
@@ -44,18 +44,15 @@ out-of-tree plugins.
 
 ## Compilation from Source
 
-Check out the project and do dependency resolution with:
+To compile CoreDNS, we assume you have a working Go setup. See various tutorials if you don’t have that already configured.
 
+First, make sure your golang version is 1.12 or higher as `go mod` support is needed.
+See [here](https://github.com/golang/go/wiki/Modules) for `go mod` details.
+Then, check out the project and run `make` to compile the binary:
 ~~~
-% go get github.com/coredns/coredns
-~~~
-
-Some of the dependencies require Go version 1.9 or later.
-
-We vendor most (not all!) packages. Building from scratch is easiest, by just using `make`:
-
-~~~
-% make
+$ git clone https://github.com/coredns/coredns
+$ cd coredns
+$ make
 ~~~
 
 This should yield a `coredns` binary.
@@ -67,7 +64,7 @@ a Go environment, you could build CoreDNS easily:
 
 ```
 $ docker run --rm -i -t -v $PWD:/go/src/github.com/coredns/coredns \
-      -w /go/src/github.com/coredns/coredns golang:1.11 make
+      -w /go/src/github.com/coredns/coredns golang:1.12 make
 ```
 
 The above command alone will have `coredns` binary generated.
@@ -84,7 +81,7 @@ When starting CoreDNS without any configuration, it loads the
 CoreDNS-001
 ~~~
 
-Any query send to port 53 should return some information; your sending address, port and protocol
+Any query sent to port 53 should return some information; your sending address, port and protocol
 used.
 
 If you have a Corefile without a port number specified it will, by default, use port 53, but you
@@ -92,7 +89,7 @@ can override the port with the `-dns.port` flag:
 
 `./coredns -dns.port 1053`, runs the server on port 1053.
 
-Start a simple proxy, you'll need to be root to start listening on port 53.
+Start a simple proxy. You'll need to be root to start listening on port 53.
 
 `Corefile` contains:
 
@@ -191,10 +188,30 @@ More resources can be found:
 Examples for deployment via systemd and other use cases can be found in the [deployment
 repository](https://github.com/coredns/deployment).
 
+## Deprecation Policy
+
+When there is a backwards incompatible change in CoreDNS the following process is followed:
+
+*  Release x.y.z: Announce that in the next release we will make backward incompatible changes.
+*  Release x.y+1.0: Increase the minor version and set the patch version to 0. Make the changes,
+   but allow the old configuration to be parsed. I.e. CoreDNS will start from an unchanged
+   Corefile.
+*  Release x.y+1.1: Increase the patch version to 1. Remove the lenient parsing, so CoreDNS will
+   not start if those features are still used.
+
+E.g. 1.3.1 announce a change. 1.4.0 a new release with the change but backward compatible config.
+And finally 1.4.1 that removes the config workarounds.
+
 ## Security
+
+### Security Audit
+
+A third party security audit was performed by Cure53, you can see the full report [here](https://coredns.io/assets/DNS-01-report.pdf).
+
+### Reporting security vulnerabilities
 
 If you find a security vulnerability or any security related issues, please DO NOT file a public
 issue, instead send your report privately to `security@coredns.io`. Security reports are greatly
 appreciated and we will publicly thank you for it.
 
-Please consult [security vulnerability disclosures and security fix and release process document](https://github.com/coredns/coredns/SECURITY-RELEASE-PROCESS.md)
+Please consult [security vulnerability disclosures and security fix and release process document](https://github.com/coredns/coredns/blob/master/SECURITY-RELEASE-PROCESS.md)

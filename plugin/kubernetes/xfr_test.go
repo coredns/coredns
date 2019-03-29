@@ -16,7 +16,7 @@ func TestKubernetesXFR(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
 	k.TransferTo = []string{"10.240.0.1:53"}
-	k.Namespaces = map[string]bool{"testns": true}
+	k.Namespaces = map[string]struct{}{"testns": {}}
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
@@ -104,7 +104,7 @@ func TestKubernetesXFRNotAllowed(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
 	k.TransferTo = []string{"1.2.3.4:53"}
-	k.Namespaces = map[string]bool{"testns": true}
+	k.Namespaces = map[string]struct{}{"testns": {}}
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
@@ -129,9 +129,9 @@ func TestKubernetesXFRNotAllowed(t *testing.T) {
 
 // difference shows what we're missing when comparing two RR slices
 func difference(testRRs []dns.RR, gotRRs []dns.RR) []dns.RR {
-	expectedRRs := map[string]bool{}
+	expectedRRs := map[string]struct{}{}
 	for _, rr := range testRRs {
-		expectedRRs[rr.String()] = true
+		expectedRRs[rr.String()] = struct{}{}
 	}
 
 	foundRRs := []dns.RR{}

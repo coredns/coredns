@@ -11,6 +11,9 @@ file that exists on disk. It checks the file for changes and updates the zones a
 plugin only supports A, AAAA, and PTR records. The hosts plugin can be used with readily
 available hosts files that block access to advertising servers.
 
+The plugin reloads the content of the hosts file every 5 seconds. Upon reload, CoreDNS will use the new definitions.
+Should the file be deleted, any inlined content will continue to be served. When the file is restored, it will then again be used.
+
 This plugin can only be used once per Server Block.
 
 ## The hosts file
@@ -38,6 +41,9 @@ PTR records for reverse lookups are generated automatically by CoreDNS (based on
 ~~~
 hosts [FILE [ZONES...]] {
     [INLINE]
+    ttl SECONDS
+    no_reverse
+    reload DURATION
     fallthrough [ZONES...]
 }
 ~~~
@@ -49,7 +55,10 @@ hosts [FILE [ZONES...]] {
    are used.
 * **INLINE** the hosts file contents inlined in Corefile. If there are any lines before fallthrough
    then all of them will be treated as the additional content for hosts file. The specified hosts
-   file path will still be read but entries will be overrided.
+   file path will still be read but entries will be overridden.
+* `ttl` change the DNS TTL of the records generated (forward and reverse). The default is 3600 seconds (1 hour).
+* `reload` change the period between each hostsfile reload. A time of zero seconds disable the feature. Examples of valid durations: "300ms", "1.5h" or "2h45m" are valid duration with units "ns" (nanosecond), "us" (or "µs" for microsecond), "ms" (millisecond), "s" (second), "m" (minute), "h" (hour).
+* `no_reverse` disable the automatic generation of the `in-addr.arpa` or `ip6.arpa` entries for the hosts
 * `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
   If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
   is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only

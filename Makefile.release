@@ -4,9 +4,10 @@
 # used to tag the git repo and to build the assets that are uploaded to github
 # (after some sanity checks).
 #
-# The release should be accompanied by release notes published on coredns.io.
-# For example: https://coredns.io/2016/09/18/coredns-001-release/ Also send an
-# email to coredns-discuss@ to announce the new version.
+# The release should be accompanied by release notes in the notes/ subdirectory.
+# These are published on coredns.io.
+#
+# For example: https://coredns.io/2016/09/18/coredns-001-release/ .
 #
 # Getting the authors for this release is done with the following command line
 # git log --pretty=format:'%an' v$(VERSION)..master | sort -u
@@ -62,14 +63,14 @@ docker: docker-build
 
 .PHONY: pre
 pre:
-	go get github.com/estesp/manifest-tool
+	GO111MODULE=off go get github.com/estesp/manifest-tool
 
 .PHONY: build
 build:
 	@echo Cleaning old builds
 	@rm -rf build && mkdir build
 	@echo Building: darwin/amd64 - $(VERSION)
-	mkdir -p build/darwin/amd64 && $(MAKE) coredns BINARY=build/darwin/amd64/$(NAME) SYSTEM="GOOS=darwin GOARCH=amd64" CHECKS="godeps" BUILDOPTS=""
+	mkdir -p build/darwin/amd64 && $(MAKE) coredns BINARY=build/darwin/amd64/$(NAME) SYSTEM="GOOS=darwin GOARCH=amd64" CHECKS="" BUILDOPTS=""
 	@echo Building: windows/amd64 - $(VERSION)
 	mkdir -p build/windows/amd64 && $(MAKE) coredns BINARY=build/windows/amd64/$(NAME).exe SYSTEM="GOOS=windows GOARCH=amd64" CHECKS="" BUILDOPTS=""
 	@echo Building: linux/$(LINUX_ARCH) - $(VERSION) ;\

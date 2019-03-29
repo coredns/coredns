@@ -20,6 +20,9 @@ import (
 	"github.com/miekg/dns"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	// Pull this in for logtostderr flag parsing
+	"k8s.io/klog"
+
 	// Excluding azure because it is failing to compile
 	// pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -33,12 +36,15 @@ import (
 var log = clog.NewWithPlugin("kubernetes")
 
 func init() {
-	// Kubernetes plugin uses the kubernetes library, which uses glog (ugh), we must set this *flag*,
+	// Kubernetes plugin uses the kubernetes library, which now uses klog, we must set and parse this flag
 	// so we don't log to the filesystem, which can fill up and crash CoreDNS indirectly by calling os.Exit().
 	// We also set: os.Stderr = os.Stdout in the setup function below so we output to standard out; as we do for
 	// all CoreDNS logging. We can't do *that* in the init function, because we, when starting, also barf some
 	// things to stderr.
-	flag.Set("logtostderr", "true")
+	klogFlags := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(klogFlags)
+	logtostderr := klogFlags.Lookup("logtostderr")
+	logtostderr.Value.Set("true")
 
 	caddy.RegisterPlugin("kubernetes", caddy.Plugin{
 		ServerType: "dns",
@@ -74,9 +80,6 @@ func setup(c *caddy.Controller) error {
 func (k *Kubernetes) RegisterKubeCache(c *caddy.Controller) {
 	c.OnStartup(func() error {
 		go k.APIConn.Run()
-		if k.APIProxy != nil {
-			k.APIProxy.Run()
-		}
 
 		timeout := time.After(5 * time.Second)
 		ticker := time.NewTicker(100 * time.Millisecond)
@@ -93,9 +96,6 @@ func (k *Kubernetes) RegisterKubeCache(c *caddy.Controller) {
 	})
 
 	c.OnShutdown(func() error {
-		if k.APIProxy != nil {
-			k.APIProxy.Stop()
-		}
 		return k.APIConn.Stop()
 	})
 }
@@ -187,7 +187,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 			args := c.RemainingArgs()
 			if len(args) > 0 {
 				for _, a := range args {
-					k8s.Namespaces[a] = true
+					k8s.Namespaces[a] = struct{}{}
 				}
 				continue
 			}
@@ -195,7 +195,12 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 		case "endpoint":
 			args := c.RemainingArgs()
 			if len(args) > 0 {
+				// Multiple endoints are deprecated but still could be specified,
+				// only the first one be used, though
 				k8s.APIServerList = args
+				if len(args) > 1 {
+					log.Warningf("Multiple endpoints have been deprecated, only the first specified endpoint '%s' is used", args[0])
+				}
 				continue
 			}
 			return nil, c.ArgErr()
@@ -229,15 +234,23 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				continue
 			}
 			return nil, c.ArgErr()
+		case "namespace_labels":
+			args := c.RemainingArgs()
+			if len(args) > 0 {
+				namespaceLabelSelectorString := strings.Join(args, " ")
+				nls, err := meta.ParseToLabelSelector(namespaceLabelSelectorString)
+				if err != nil {
+					return nil, fmt.Errorf("unable to parse namespace_label selector value: '%v': %v", namespaceLabelSelectorString, err)
+				}
+				k8s.opts.namespaceLabelSelector = nls
+				continue
+			}
+			return nil, c.ArgErr()
 		case "fallthrough":
 			k8s.Fall.SetZonesFromArgs(c.RemainingArgs())
 		case "upstream":
-			args := c.RemainingArgs()
-			u, err := upstream.New(args)
-			if err != nil {
-				return nil, err
-			}
-			k8s.Upstream = u
+			c.RemainingArgs() // eat remaining args
+			k8s.Upstream = upstream.New()
 		case "ttl":
 			args := c.RemainingArgs()
 			if len(args) == 0 {
@@ -247,8 +260,8 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 			if err != nil {
 				return nil, err
 			}
-			if t < 5 || t > 3600 {
-				return nil, c.Errf("ttl must be in range [5, 3600]: %d", t)
+			if t < 0 || t > 3600 {
+				return nil, c.Errf("ttl must be in range [0, 3600]: %d", t)
 			}
 			k8s.ttl = uint32(t)
 		case "transfer":
@@ -290,6 +303,10 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}
+	}
+
+	if len(k8s.Namespaces) != 0 && k8s.opts.namespaceLabelSelector != nil {
+		return nil, c.Errf("namespaces and namespace_labels cannot both be set")
 	}
 
 	return k8s, nil

@@ -1,5 +1,8 @@
 package file
 
+/*
+TODO(miek): move to test/ for full server testing
+
 import (
 	"context"
 	"strings"
@@ -104,7 +107,7 @@ func TestLookupDNAME(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := fm.ServeDNS(ctx, rec, m)
 		if err != nil {
-			t.Errorf("Expected no error, got %v\n", err)
+			t.Errorf("Expected no error, got %v", err)
 			return
 		}
 
@@ -153,7 +156,7 @@ func TestLookupDNAMEDNSSEC(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := fm.ServeDNS(ctx, rec, m)
 		if err != nil {
-			t.Errorf("Expected no error, got %v\n", err)
+			t.Errorf("Expected no error, got %v", err)
 			return
 		}
 
@@ -294,3 +297,4 @@ ns.example.org.		1800	IN A	127.0.0.1
 					RXpMdvaE6ZDwalWldLjC3h8QDywDoFdndoRY
 					eHOsmTvvtWWqtO6Fa5A8gmHT5HA= )
 `
+*/

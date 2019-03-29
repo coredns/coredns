@@ -22,28 +22,28 @@ var podModeVerifiedCases = []test.Case{
 		Qname: "podns.pod.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
-			test.SOA("cluster.local.	30	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 60"),
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{
 		Qname: "svcns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
-			test.SOA("cluster.local.	30	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 60"),
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{
 		Qname: "pod-nons.pod.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
-			test.SOA("cluster.local.	30	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 60"),
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{
 		Qname: "172-0-0-2.podns.pod.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
-			test.SOA("cluster.local.	30	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 60"),
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
 }
@@ -75,6 +75,8 @@ func TestServeDNSModeVerified(t *testing.T) {
 			t.Fatalf("Test %d, got nil message and no error for %q", i, r.Question[0].Name)
 		}
 
-		test.SortAndCheck(t, resp, tc)
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Error(err)
+		}
 	}
 }

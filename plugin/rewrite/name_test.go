@@ -32,6 +32,49 @@ func TestRewriteIllegalName(t *testing.T) {
 	}
 }
 
+func TestRewriteNamePrefixSuffix(t *testing.T) {
+
+	ctx, close := context.WithCancel(context.TODO())
+	defer close()
+
+	tests := []struct {
+		next     string
+		args     []string
+		question string
+		expected string
+	}{
+		{"stop", []string{"prefix", "foo", "bar"}, "foo.example.com.", "bar.example.com."},
+		{"stop", []string{"prefix", "foo.", "bar."}, "foo.example.com.", "bar.example.com."},
+		{"stop", []string{"suffix", "com", "org"}, "foo.example.com.", "foo.example.org."},
+		{"stop", []string{"suffix", ".com", ".org"}, "foo.example.com.", "foo.example.org."},
+	}
+	for _, tc := range tests {
+		r, err := newNameRule(tc.next, tc.args...)
+		if err != nil {
+			t.Fatalf("Expected no error, got %s", err)
+		}
+
+		rw := Rewrite{
+			Next:     plugin.HandlerFunc(msgPrinter),
+			Rules:    []Rule{r},
+			noRevert: true,
+		}
+
+		m := new(dns.Msg)
+		m.SetQuestion(tc.question, dns.TypeA)
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		_, err = rw.ServeDNS(ctx, rec, m)
+		if err != nil {
+			t.Fatalf("Expected no error, got %s", err)
+		}
+		actual := rec.Msg.Question[0].Name
+		if actual != tc.expected {
+			t.Fatalf("Expected rewrite to %v, got %v", tc.expected, actual)
+		}
+	}
+}
+
 func TestNewNameRule(t *testing.T) {
 	tests := []struct {
 		next         string

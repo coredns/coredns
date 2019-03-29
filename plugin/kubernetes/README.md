@@ -13,8 +13,8 @@ CoreDNS running the kubernetes plugin can be used as a replacement for kube-dns 
 cluster.  See the [deployment](https://github.com/coredns/deployment) repository for details on [how
 to deploy CoreDNS in Kubernetes](https://github.com/coredns/deployment/tree/master/kubernetes).
 
-[stubDomains and upstreamNameservers](http://blog.kubernetes.io/2017/04/configuring-private-dns-zones-upstream-nameservers-kubernetes.html)
-are implemented via the *proxy* plugin and kubernetes *upstream*. See example below.
+[stubDomains and upstreamNameservers](https://kubernetes.io/blog/2017/04/configuring-private-dns-zones-upstream-nameservers-kubernetes/)
+are implemented via the *forward* plugin and kubernetes *upstream*. See the examples below.
 
 This plugin can only be used once per Server Block.
 
@@ -32,7 +32,7 @@ all the zones the plugin should be authoritative for.
 ```
 kubernetes [ZONES...] {
     resyncperiod DURATION
-    endpoint URL [URL...]
+    endpoint URL
     tls CERT KEY CACERT
     kubeconfig KUBECONFIG CONTEXT
     namespaces NAMESPACE...
@@ -51,17 +51,19 @@ kubernetes [ZONES...] {
 * `resyncperiod` specifies the Kubernetes data API **DURATION** period.
 * `endpoint` specifies the **URL** for a remote k8s API endpoint.
    If omitted, it will connect to k8s in-cluster using the cluster service account.
-   Multiple k8s API endpoints could be specified:
-   `endpoint http://k8s-endpoint1:8080 http://k8s-endpoint2:8080`. CoreDNS
-   will automatically perform a healthcheck and proxy to the healthy k8s API endpoint.
 * `tls` **CERT** **KEY** **CACERT** are the TLS cert, key and the CA cert file names for remote k8s connection.
    This option is ignored if connecting in-cluster (i.e. endpoint is not specified).
 * `kubeconfig` **KUBECONFIG** **CONTEXT** authenticates the connection to a remote k8s cluster using a kubeconfig file. It supports TLS, username and password, or token-based authentication. This option is ignored if connecting in-cluster (i.e., the endpoint is not specified).
 * `namespaces` **NAMESPACE [NAMESPACE...]** only exposes the k8s namespaces listed.
    If this option is omitted all namespaces are exposed
-* `labels` **EXPRESSION** only exposes the records for Kubernetes objects that match this label selector.
+* `namespace_labels` **EXPRESSION** only expose the records for Kubernetes namespaces that match this label selector.
    The label selector syntax is described in the
    [Kubernetes User Guide - Labels](http://kubernetes.io/docs/user-guide/labels/). An example that
+   only exposes namespaces labeled as "istio-injection=enabled", would use: 
+   `labels istio-injection=enabled`.
+* `labels` **EXPRESSION** only exposes the records for Kubernetes objects that match this label selector.
+   The label selector syntax is described in the
+   [Kubernetes User Guide - Labels](https://kubernetes.io/docs/user-guide/labels/). An example that
    only exposes objects labeled as "application=nginx" in the "staging" or "qa" environments, would
    use: `labels environment in (staging, qa),application=nginx`.
 * `pods` **POD-MODE** sets the mode for handling IP-based pod A records, e.g.
@@ -91,12 +93,12 @@ kubernetes [ZONES...] {
   that point to external hosts (aka External Services, aka CNAMEs).  If no **ADDRESS** is given, CoreDNS
   will resolve External Services against itself. **ADDRESS** can be an IP, an IP:port, or a path
   to a file structured like resolv.conf.
-* `ttl` allows you to set a custom TTL for responses. The default (and minimum allowed) is
-  5 seconds, while the maximum is capped at 3600 seconds.
+* `ttl` allows you to set a custom TTL for responses. The default is 5 seconds.  The minimum TTL allowed is
+  0 seconds, and the maximum is capped at 3600 seconds. Setting TTL to 0 will prevent records from being cached.
 * `noendpoints` will turn off the serving of endpoint records by disabling the watch on endpoints.
   All endpoint queries and headless service queries will result in an NXDOMAIN.
 * `transfer` enables zone transfers. It may be specified multiples times. `To` signals the direction
-  (only `to` is allow). **ADDRESS** must be denoted in CIDR notation (127.0.0.1/32 etc.) or just as
+  (only `to` is allowed). **ADDRESS** must be denoted in CIDR notation (127.0.0.1/32 etc.) or just as
   plain addresses. The special wildcard `*` means: the entire internet.
   Sending DNS notifies is not supported.
   [Deprecated](https://github.com/kubernetes/dns/blob/master/docs/specification.md#26---deprecated-records) pod records in the subdomain `pod.cluster.local` are not transferred.
@@ -106,19 +108,14 @@ kubernetes [ZONES...] {
   the query. If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
   is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only
   queries for those zones will be subject to fallthrough.
-* `ignore empty_service` return NXDOMAIN for services without any ready endpoint addresses (e.g., ready pods).
+* `ignore empty_service` returns NXDOMAIN for services without any ready endpoint addresses (e.g., ready pods).
   This allows the querying pod to continue searching for the service in the search path.
   The search path could, for example, include another Kubernetes cluster.
 
-## Health
+## Ready
 
-This plugin implements dynamic health checking. Currently this is limited to reporting healthy when
-the API has synced.
-
-## Watch
-
-This plugin implements watch. A client that connects to CoreDNS using `coredns/client` can be notified
-of changes to A, AAAA, and SRV records for Kubernetes services and endpoints.
+This plugin reports readiness to the ready plugin. This will happen after it has synced to the
+Kubernetes API.
 
 ## Examples
 
@@ -152,31 +149,35 @@ kubernetes cluster.local {
 }
 ~~~
 
-
 ## stubDomains and upstreamNameservers
 
-Here we use the *proxy* plugin to implement a stubDomain that forwards `example.local` to the nameserver `10.100.0.10:53`.
+Here we use the *forward* plugin to implement a stubDomain that forwards `example.local` to the nameserver `10.100.0.10:53`.
 The *upstream* option in the *kubernetes* plugin means that ExternalName services (CNAMEs) will be resolved using the respective proxy.
 Also configured is an upstreamNameserver `8.8.8.8:53` that will be used for resolving names that do not fall in `cluster.local`
 or `example.local`.
 
 ~~~ txt
-.:53 {
+cluster.local:53 {
     kubernetes cluster.local {
         upstream
     }
-    proxy example.local 10.100.0.10:53
-    proxy . 8.8.8.8:53
+}
+example.local {
+    forward . 10.100.0.10:53
+}
+
+. {
+    forward . 8.8.8.8:53
 }
 ~~~
 
 The configuration above represents the following Kube-DNS stubDomains and upstreamNameservers configuration.
 
 ~~~ txt
-  stubDomains: |
-    {“example.local”: [“10.100.0.10:53”]}
-  upstreamNameservers: |
-    [“8.8.8.8:53”]
+stubDomains: |
+   {“example.local”: [“10.100.0.10:53”]}
+upstreamNameservers: |
+   [“8.8.8.8:53”]
 ~~~
 
 ## AutoPath
@@ -216,7 +217,7 @@ or the word "any"), then that label will match all values.  The labels that acce
  * _namespace_ in an `A` record request: service._namespace_.svc.zone, e.g., `nginx.*.svc.cluster.local`
  * _port and/or protocol_ in an `SRV` request: __port_.__protocol_.service.namespace.svc.zone.,
    e.g., `_http.*.service.ns.svc.cluster.local`
- * multiple wild cards are allowed in a single query, e.g., `A` Request `*.*.svc.zone.` or `SRV` request `*.*.*.*.svc.zone.`
+ * multiple wildcards are allowed in a single query, e.g., `A` Request `*.*.svc.zone.` or `SRV` request `*.*.*.*.svc.zone.`
 
  For example, wildcards can be used to resolve all Endpoints for a Service as `A` records. e.g.: `*.service.ns.svc.myzone.local` will return the Endpoint IPs in the Service `service` in namespace `default`:
  ```

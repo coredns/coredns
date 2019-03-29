@@ -16,7 +16,7 @@ import (
 type Chaos struct {
 	Next    plugin.Handler
 	Version string
-	Authors map[string]bool
+	Authors map[string]struct{}
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -46,7 +46,6 @@ func (c Chaos) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		}
 		m.Answer = []dns.RR{&dns.TXT{Hdr: hdr, Txt: []string{trim(hostname)}}}
 	}
-	state.SizeAndDo(m)
 	w.WriteMsg(m)
 	return 0, nil
 }

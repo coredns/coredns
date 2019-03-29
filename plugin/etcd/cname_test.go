@@ -28,23 +28,23 @@ func TestCnameLookup(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := etc.ServeDNS(ctxt, rec, m)
 		if err != nil {
-			t.Errorf("Expected no error, got %v\n", err)
+			t.Errorf("Expected no error, got %v", err)
 			return
 		}
 
 		resp := rec.Msg
-		if !test.Header(t, tc, resp) {
-			t.Logf("%v\n", resp)
+		if err := test.Header(tc, resp); err != nil {
+			t.Error(err)
 			continue
 		}
-		if !test.Section(t, tc, test.Answer, resp.Answer) {
-			t.Logf("%v\n", resp)
+		if err := test.Section(tc, test.Answer, resp.Answer); err != nil {
+			t.Error(err)
 		}
-		if !test.Section(t, tc, test.Ns, resp.Ns) {
-			t.Logf("%v\n", resp)
+		if err := test.Section(tc, test.Ns, resp.Ns); err != nil {
+			t.Error(err)
 		}
-		if !test.Section(t, tc, test.Extra, resp.Extra) {
-			t.Logf("%v\n", resp)
+		if err := test.Section(tc, test.Extra, resp.Extra); err != nil {
+			t.Error(err)
 		}
 	}
 }
@@ -58,6 +58,7 @@ var servicesCname = []*msg.Service{
 	{Host: "cname6.region2.skydns.test", Key: "cname5.region2.skydns.test."},
 	{Host: "endpoint.region2.skydns.test", Key: "cname6.region2.skydns.test."},
 	{Host: "mainendpoint.region2.skydns.test", Key: "region2.skydns.test."},
+	{Host: "", Key: "region3.skydns.test.", Text: "SOME-RECORD-TEXT"},
 	{Host: "10.240.0.1", Key: "endpoint.region2.skydns.test."},
 }
 
@@ -81,6 +82,13 @@ var dnsTestCasesCname = []test.Case{
 		Qname: "region2.skydns.test.", Qtype: dns.TypeCNAME,
 		Answer: []dns.RR{
 			test.CNAME("region2.skydns.test.	300	IN	CNAME	mainendpoint.region2.skydns.test."),
+		},
+	},
+	{
+		Qname: "region3.skydns.test.", Qtype: dns.TypeCNAME,
+		Rcode: dns.RcodeSuccess,
+		Ns: []dns.RR{
+			test.SOA("skydns.test.	303	IN	SOA	ns.dns.skydns.test. hostmaster.skydns.test. 1546424605 7200 1800 86400 30"),
 		},
 	},
 }
