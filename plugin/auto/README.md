@@ -17,7 +17,6 @@ zonefile. New or changed zones are automatically picked up from disk.
 auto [ZONES...] {
     directory DIR [REGEXP ORIGIN_TEMPLATE [TIMEOUT]]
     reload DURATION
-    no_reload
     upstream
 }
 ~~~
@@ -37,7 +36,6 @@ are used.
 * `reload` interval to perform reloads of zones if SOA version changes and zonefiles. Default is one minute.
   Value of `0` means to not scan for changes and reload. eg. `30s` checks zonefile every 30 seconds
   and reloads zone when serial changes.
-* `no_reload` deprecated. Sets reload to 0.
 * `upstream` defines upstream resolvers to be used resolve external names found (think CNAMEs)
   pointing to external names. CoreDNS will resolve CNAMEs against itself.
 

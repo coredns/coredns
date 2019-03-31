@@ -34,7 +34,7 @@ func TestAutoParse(t *testing.T) {
 		{
 			`auto {
 				directory /tmp
-				no_reload
+				reload 0
 			}`,
 			false, "/tmp", "${1}", `db\.(.*)`, 0 * time.Second, 0 * time.Second, nil,
 		},
@@ -74,6 +74,13 @@ func TestAutoParse(t *testing.T) {
 			false, "/tmp", "bliep", `(.*)`, 60 * time.Second, 60 * time.Second, []string{"127.0.0.1:53", "127.0.0.2:53"},
 		},
 		// errors
+		{
+			`auto {
+				directory /tmp
+				no_reload
+			}`,
+			true, "/tmp", "${1}", `db\.(.*)`, 0 * time.Second, 0 * time.Second, nil,
+		},
 		{
 			`auto example.org {
 				directory
