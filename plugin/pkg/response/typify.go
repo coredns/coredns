@@ -15,10 +15,8 @@ const (
 	NoError Type = iota
 	// NameError is a NXDOMAIN in header, SOA in auth.
 	NameError
-	// ServerFailureError is a SERVFAIL in header.
-	ServerFailureError
-	// NotImplementedError means that server does not support the specified Operation code.
-	NotImplementedError
+	// ServerError is a set of errors we want to cache, for now it containers SERVFAIL and NOTIMPL.
+	ServerError
 	// NoData indicates name found, but not the type: NOERROR in header, SOA in auth.
 	NoData
 	// Delegation is a msg with a pointer to another nameserver: NOERROR in header, NS in auth, optionally fluff in additional (not checked).
@@ -32,15 +30,14 @@ const (
 )
 
 var toString = map[Type]string{
-	NoError:             "NOERROR",
-	NameError:           "NXDOMAIN",
-	ServerFailureError:  "SERVFAIL",
-	NotImplementedError: "NOTIMP",
-	NoData:              "NODATA",
-	Delegation:          "DELEGATION",
-	Meta:                "META",
-	Update:              "UPDATE",
-	OtherError:          "OTHERERROR",
+	NoError:     "NOERROR",
+	NameError:   "NXDOMAIN",
+	ServerError: "SERVERERROR",
+	NoData:      "NODATA",
+	Delegation:  "DELEGATION",
+	Meta:        "META",
+	Update:      "UPDATE",
+	OtherError:  "OTHERERROR",
 }
 
 func (t Type) String() string { return toString[t] }
@@ -112,11 +109,8 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 		return NameError, opt
 	}
 
-	if m.Rcode == dns.RcodeServerFailure {
-		return ServerFailureError, opt
-	}
-	if m.Rcode == dns.RcodeNotImplemented {
-		return NotImplementedError, opt
+	if m.Rcode == dns.RcodeServerFailure || m.Rcode == dns.RcodeNotImplemented {
+		return ServerError, opt
 	}
 
 	if ns > 0 && m.Rcode == dns.RcodeSuccess {
