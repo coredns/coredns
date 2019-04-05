@@ -52,12 +52,14 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		answers = aaaa(qname, h.options.ttl, ips)
 	}
 
+	rcode := dns.RcodeSuccess
+
 	if len(answers) == 0 {
 		if h.Fall.Through(qname) {
 			return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
 		if !h.otherRecordsExist(state.QType(), qname) {
-			return dns.RcodeNameError, nil
+			rcode = dns.RcodeNameError
 		}
 	}
 
@@ -65,9 +67,10 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	m.SetReply(r)
 	m.Authoritative = true
 	m.Answer = answers
+	m.Rcode = rcode
 
 	w.WriteMsg(m)
-	return dns.RcodeSuccess, nil
+	return rcode, nil
 }
 
 func (h Hosts) otherRecordsExist(qtype uint16, qname string) bool {
