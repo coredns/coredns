@@ -7,4 +7,9 @@ coredns.exe~
 kubectl
 go-test-tmpfile*
 coverage.txt
-.idea
+.idea/
+.DS_Store
+*~
+.classpath
+.project
+.settings/**

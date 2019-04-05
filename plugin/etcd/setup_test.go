@@ -1,3 +1,5 @@
+// +build etcd
+
 package etcd
 
 import (
@@ -14,49 +16,75 @@ func TestSetupEtcd(t *testing.T) {
 		expectedPath       string
 		expectedEndpoint   []string
 		expectedErrContent string // substring from the expected error. Empty for positive cases.
+		username           string
+		password           string
 	}{
 		// positive
 		{
-			`etcd`, false, "skydns", []string{"http://localhost:2379"}, "",
+			`etcd`, false, "skydns", []string{"http://localhost:2379"}, "", "", "",
 		},
 		{
 			`etcd {
 	endpoint http://localhost:2379 http://localhost:3379 http://localhost:4379
 
-}`, false, "skydns", []string{"http://localhost:2379", "http://localhost:3379", "http://localhost:4379"}, "",
+}`, false, "skydns", []string{"http://localhost:2379", "http://localhost:3379", "http://localhost:4379"}, "", "", "",
 		},
 		{
 			`etcd skydns.local {
 	endpoint localhost:300
 }
-`, false, "skydns", []string{"localhost:300"}, "",
+`, false, "skydns", []string{"localhost:300"}, "", "", "",
 		},
 		//test for upstream
 		{
 			`etcd {
 	endpoint localhost:300
 	upstream 8.8.8.8:53 8.8.4.4:53
-}`, false, "skydns", []string{"localhost:300"}, "",
+}`, false, "skydns", []string{"localhost:300"}, "", "", "",
 		},
 		//test for optional upstream address
 		{
 			`etcd {
 	endpoint localhost:300
 	upstream
-}`, false, "skydns", []string{"localhost:300"}, "",
+}`, false, "skydns", []string{"localhost:300"}, "", "", "",
 		},
 		// negative
 		{
 			`etcd {
 	endpoints localhost:300
 }
-`, true, "", []string{""}, "unknown property 'endpoints'",
+`, true, "", []string{""}, "unknown property 'endpoints'", "", "",
+		},
+		// with valid credentials
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			credentials username password
+		}
+			`, false, "skydns", []string{"http://localhost:2379"}, "", "username", "password",
+		},
+		// with credentials, missing password
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			credentials username
+		}
+			`, true, "skydns", []string{"http://localhost:2379"}, "credentials requires 2 arguments", "username", "",
+		},
+		// with credentials, missing username and  password
+		{
+			`etcd {
+			endpoint http://localhost:2379
+			credentials
+		}
+			`, true, "skydns", []string{"http://localhost:2379"}, "Wrong argument count", "", "",
 		},
 	}
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		etcd, _ /*stubzones*/, err := etcdParse(c)
+		etcd, err := etcdParse(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error but found %s for input %s", i, err, test.input)
@@ -69,7 +97,7 @@ func TestSetupEtcd(t *testing.T) {
 			}
 
 			if !strings.Contains(err.Error(), test.expectedErrContent) {
-				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErrContent, err, test.input)
+				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErrContent, err.Error(), test.input)
 				continue
 			}
 		}
@@ -84,6 +112,19 @@ func TestSetupEtcd(t *testing.T) {
 			for i, endpoint := range etcd.endpoints {
 				if endpoint != test.expectedEndpoint[i] {
 					t.Errorf("Etcd not correctly set for input %s. Expected: '%+v', actual: '%+v'", test.input, test.expectedEndpoint, etcd.endpoints)
+				}
+			}
+		}
+
+		if !test.shouldErr {
+			if test.username != "" {
+				if etcd.Client.Username != test.username {
+					t.Errorf("Etcd username not correctly set for input %s. Excpeted: '%+v', actual: '%+v'", test.input, test.username, etcd.Client.Username)
+				}
+			}
+			if test.password != "" {
+				if etcd.Client.Password != test.password {
+					t.Errorf("Etcd password not correctly set for input %s. Excpeted: '%+v', actual: '%+v'", test.input, test.password, etcd.Client.Password)
 				}
 			}
 		}

@@ -103,18 +103,21 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 		return nil, err
 	}
 
-	// WW 11/20/2018 changed to 5 seconds in order to improve dns query performance of new domains.
-	//conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-
-	//WW 02/03/2019 leaving this as note that we changed for this merge a1d92c5... plugin/forward: remove dynamic read timeout (#2319)
+	var ret *dns.Msg
 	conn.SetReadDeadline(time.Now().Add(readTimeout))
-	ret, err := conn.ReadMsg()
-	if err != nil {
-		conn.Close() // not giving it back
-		if err == io.EOF && cached {
-			return nil, ErrCachedClosed
+	for {
+		ret, err = conn.ReadMsg()
+		if err != nil {
+			conn.Close() // not giving it back
+			if err == io.EOF && cached {
+				return nil, ErrCachedClosed
+			}
+			return ret, err
 		}
-		return ret, err
+		// drop out-of-order responses
+		if state.Req.Id == ret.Id {
+			break
+		}
 	}
 
 	p.transport.Yield(conn)

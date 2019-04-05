@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "COREDNS\-ERRATIC" "7" "October 2018" "CoreDNS" "CoreDNS plugins"
+.TH "COREDNS\-ERRATIC" "7" "March 2019" "CoreDNS" "CoreDNS plugins"
 .
 .SH "NAME"
 \fIerratic\fR \- a plugin useful for testing client behavior\.
@@ -38,8 +38,8 @@ erratic {
 .P
 In case of a zone transfer and truncate the final SOA record \fIisn\'t\fR added to the response\.
 .
-.SH "HEALTH"
-This plugin implements dynamic health checking\. For every dropped query it turns unhealthy\.
+.SH "READY"
+This plugin reports readiness to the ready plugin\.
 .
 .SH "EXAMPLES"
 .

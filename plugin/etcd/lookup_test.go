@@ -12,7 +12,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
-	"github.com/coredns/coredns/plugin/proxy"
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -28,6 +27,8 @@ var services = []*msg.Service{
 	{Host: "10.0.0.1", Port: 8080, Key: "a.server1.prod.region1.skydns.test."},
 	{Host: "10.0.0.2", Port: 8080, Key: "b.server1.prod.region1.skydns.test."},
 	{Host: "::1", Port: 8080, Key: "b.server6.prod.region1.skydns.test."},
+	// TXT record in server1.
+	{Host: "", Port: 8080, Text: "sometext", Key: "txt.server1.prod.region1.skydns.test."},
 	// Unresolvable internal name.
 	{Host: "unresolvable.skydns.test", Key: "cname.prod.region1.skydns.test."},
 	// Priority.
@@ -81,7 +82,7 @@ var dnsTestCases = []test.Case{
 		Qname: "doesnotexist.skydns.test.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
-			test.SOA("skydns.test. 300 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0"),
+			test.SOA("skydns.test. 30 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0"),
 		},
 	},
 	// A Test
@@ -126,7 +127,14 @@ var dnsTestCases = []test.Case{
 	// CNAME (unresolvable internal name)
 	{
 		Qname: "cname.prod.region1.skydns.test.", Qtype: dns.TypeA,
-		Ns: []dns.RR{test.SOA("skydns.test. 300 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0")},
+		Ns: []dns.RR{test.SOA("skydns.test. 30 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0")},
+	},
+	// TXT Test
+	{
+		Qname: "server1.prod.region1.skydns.test.", Qtype: dns.TypeTXT,
+		Answer: []dns.RR{
+			test.TXT("server1.prod.region1.skydns.test. 303 IN TXT sometext"),
+		},
 	},
 	// Wildcard Test
 	{
@@ -182,26 +190,26 @@ var dnsTestCases = []test.Case{
 	// CNAME loop detection
 	{
 		Qname: "a.cname.skydns.test.", Qtype: dns.TypeA,
-		Ns: []dns.RR{test.SOA("skydns.test. 300 SOA ns.dns.skydns.test. hostmaster.skydns.test. 1407441600 28800 7200 604800 60")},
+		Ns: []dns.RR{test.SOA("skydns.test. 30 SOA ns.dns.skydns.test. hostmaster.skydns.test. 1407441600 28800 7200 604800 60")},
 	},
 	// NODATA Test
 	{
 		Qname: "a.server1.dev.region1.skydns.test.", Qtype: dns.TypeTXT,
-		Ns: []dns.RR{test.SOA("skydns.test. 300 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0")},
+		Ns: []dns.RR{test.SOA("skydns.test. 30 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0")},
 	},
 	// NODATA Test
 	{
 		Qname: "a.server1.dev.region1.skydns.test.", Qtype: dns.TypeHINFO,
-		Ns: []dns.RR{test.SOA("skydns.test. 300 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0")},
+		Ns: []dns.RR{test.SOA("skydns.test. 30 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0")},
 	},
 	// NXDOMAIN Test
 	{
 		Qname: "a.server1.nonexistent.region1.skydns.test.", Qtype: dns.TypeHINFO, Rcode: dns.RcodeNameError,
-		Ns: []dns.RR{test.SOA("skydns.test. 300 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0")},
+		Ns: []dns.RR{test.SOA("skydns.test. 30 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0")},
 	},
 	{
 		Qname: "skydns.test.", Qtype: dns.TypeSOA,
-		Answer: []dns.RR{test.SOA("skydns.test.	300	IN	SOA	ns.dns.skydns.test. hostmaster.skydns.test. 1460498836 14400 3600 604800 60")},
+		Answer: []dns.RR{test.SOA("skydns.test.	30	IN	SOA	ns.dns.skydns.test. hostmaster.skydns.test. 1460498836 14400 3600 604800 60")},
 	},
 	// NS Record Test
 	{
@@ -218,7 +226,7 @@ var dnsTestCases = []test.Case{
 	// NS Record Test
 	{
 		Qname: "a.skydns.test.", Qtype: dns.TypeNS, Rcode: dns.RcodeNameError,
-		Ns: []dns.RR{test.SOA("skydns.test.	300	IN	SOA	ns.dns.skydns.test. hostmaster.skydns.test. 1460498836 14400 3600 604800 60")},
+		Ns: []dns.RR{test.SOA("skydns.test.	30	IN	SOA	ns.dns.skydns.test. hostmaster.skydns.test. 1460498836 14400 3600 604800 60")},
 	},
 	// A Record For NS Record Test
 	{
@@ -230,7 +238,7 @@ var dnsTestCases = []test.Case{
 	},
 	{
 		Qname: "skydns_extra.test.", Qtype: dns.TypeSOA,
-		Answer: []dns.RR{test.SOA("skydns_extra.test. 300 IN SOA ns.dns.skydns_extra.test. hostmaster.skydns_extra.test. 1460498836 14400 3600 604800 60")},
+		Answer: []dns.RR{test.SOA("skydns_extra.test. 30 IN SOA ns.dns.skydns_extra.test. hostmaster.skydns_extra.test. 1460498836 14400 3600 604800 60")},
 	},
 	// A Record Test for backward compatibility for zone records
 	{
@@ -281,13 +289,11 @@ func newEtcdPlugin() *Etcd {
 
 	endpoints := []string{"http://localhost:2379"}
 	tlsc, _ := tls.NewTLSConfigFromArgs()
-	client, _ := newEtcdClient(endpoints, tlsc)
+	client, _ := newEtcdClient(endpoints, tlsc, "", "")
 
-	p := proxy.NewLookup([]string{"8.8.8.8:53"})
 	return &Etcd{
-		Upstream:   upstream.Upstream{Forward: &p},
+		Upstream:   upstream.New(),
 		PathPrefix: "skydns",
-		Ctx:        context.Background(),
 		Zones:      []string{"skydns.test.", "skydns_extra.test.", "skydns_zonea.test.", "skydns_zoneb.test.", "skydns_zonec.test.", "skydns_zoned.test.", "in-addr.arpa."},
 		Client:     client,
 	}
@@ -321,7 +327,9 @@ func TestLookup(t *testing.T) {
 		etc.ServeDNS(ctxt, rec, m)
 
 		resp := rec.Msg
-		test.SortAndCheck(t, resp, tc)
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Error(err)
+		}
 	}
 }
 

@@ -8,13 +8,11 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
-	dnswatch "github.com/coredns/coredns/plugin/pkg/watch"
 
 	api "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -45,22 +43,18 @@ type dnsController interface {
 
 	// Modified returns the timestamp of the most recent changes
 	Modified() int64
-
-	// Watch-related items
-	SetWatchChan(dnswatch.Chan)
-	Watch(string) error
-	StopWatching(string)
 }
 
 type dnsControl struct {
 	// Modified tracks timestamp of the most recent changes
-	// It needs to be first because it is guarnteed to be 8-byte
+	// It needs to be first because it is guaranteed to be 8-byte
 	// aligned ( we use sync.LoadAtomic with this )
 	modified int64
 
 	client kubernetes.Interface
 
 	selector labels.Selector
+	namespaceSelector labels.Selector
 
 	svcController cache.Controller
 	podController cache.Controller
@@ -79,9 +73,6 @@ type dnsControl struct {
 	shutdown bool
 	stopCh   chan struct{}
 
-	// watch-related items channel
-	watchChan        dnswatch.Chan
-	watched          map[string]struct{}
 	zones            []string
 	endpointNameMode bool
 }
@@ -91,9 +82,12 @@ type dnsControlOpts struct {
 	initEndpointsCache bool
 	resyncPeriod       time.Duration
 	ignoreEmptyService bool
+
 	// Label handling.
 	labelSelector *meta.LabelSelector
 	selector      labels.Selector
+	namespaceLabelSelector *meta.LabelSelector
+	namespaceSelector labels.Selector
 
 	zones            []string
 	endpointNameMode bool
@@ -104,8 +98,8 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 	dns := dnsControl{
 		client:           kubeClient,
 		selector:         opts.selector,
+		namespaceSelector: opts.namespaceSelector,
 		stopCh:           make(chan struct{}),
-		watched:          make(map[string]struct{}),
 		zones:            opts.zones,
 		endpointNameMode: opts.endpointNameMode,
 	}
@@ -151,10 +145,12 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 
 	dns.nsLister, dns.nsController = cache.NewInformer(
 		&cache.ListWatch{
-			ListFunc:  namespaceListFunc(dns.client, dns.selector),
-			WatchFunc: namespaceWatchFunc(dns.client, dns.selector),
+			ListFunc:  namespaceListFunc(dns.client, dns.namespaceSelector),
+			WatchFunc: namespaceWatchFunc(dns.client, dns.namespaceSelector),
 		},
-		&api.Namespace{}, opts.resyncPeriod, cache.ResourceEventHandlerFuncs{})
+		&api.Namespace{},
+		opts.resyncPeriod,
+		cache.ResourceEventHandlerFuncs{})
 
 	return &dns
 }
@@ -172,7 +168,11 @@ func svcIPIndexFunc(obj interface{}) ([]string, error) {
 	if !ok {
 		return nil, errObj
 	}
-	return []string{svc.ClusterIP}, nil
+	if len(svc.ExternalIPs) == 0 {
+		return []string{svc.ClusterIP}, nil
+	}
+
+	return append([]string{svc.ClusterIP}, svc.ExternalIPs...), nil
 }
 
 func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
@@ -219,26 +219,6 @@ func podListFunc(c kubernetes.Interface, ns string, s labels.Selector) func(meta
 	}
 }
 
-func serviceWatchFunc(c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
-	return func(options meta.ListOptions) (watch.Interface, error) {
-		if s != nil {
-			options.LabelSelector = s.String()
-		}
-		w, err := c.CoreV1().Services(ns).Watch(options)
-		return w, err
-	}
-}
-
-func podWatchFunc(c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
-	return func(options meta.ListOptions) (watch.Interface, error) {
-		if s != nil {
-			options.LabelSelector = s.String()
-		}
-		w, err := c.CoreV1().Pods(ns).Watch(options)
-		return w, err
-	}
-}
-
 func endpointsListFunc(c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
 	return func(opts meta.ListOptions) (runtime.Object, error) {
 		if s != nil {
@@ -246,16 +226,6 @@ func endpointsListFunc(c kubernetes.Interface, ns string, s labels.Selector) fun
 		}
 		listV1, err := c.CoreV1().Endpoints(ns).List(opts)
 		return listV1, err
-	}
-}
-
-func endpointsWatchFunc(c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
-	return func(options meta.ListOptions) (watch.Interface, error) {
-		if s != nil {
-			options.LabelSelector = s.String()
-		}
-		w, err := c.CoreV1().Endpoints(ns).Watch(options)
-		return w, err
 	}
 }
 
@@ -267,27 +237,6 @@ func namespaceListFunc(c kubernetes.Interface, s labels.Selector) func(meta.List
 		listV1, err := c.CoreV1().Namespaces().List(opts)
 		return listV1, err
 	}
-}
-
-func namespaceWatchFunc(c kubernetes.Interface, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
-	return func(options meta.ListOptions) (watch.Interface, error) {
-		if s != nil {
-			options.LabelSelector = s.String()
-		}
-		w, err := c.CoreV1().Namespaces().Watch(options)
-		return w, err
-	}
-}
-
-func (dns *dnsControl) SetWatchChan(c dnswatch.Chan) { dns.watchChan = c }
-func (dns *dnsControl) StopWatching(qname string)    { delete(dns.watched, qname) }
-
-func (dns *dnsControl) Watch(qname string) error {
-	if dns.watchChan == nil {
-		return fmt.Errorf("cannot start watch because the channel has not been set")
-	}
-	dns.watched[qname] = struct{}{}
-	return nil
 }
 
 // Stop stops the  controller.
@@ -455,6 +404,100 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*api.Namespace, error) {
 		}
 	}
 	return nil, fmt.Errorf("namespace not found")
+}
+
+func (dns *dnsControl) Add(obj interface{})               { dns.detectChanges(nil, obj) }
+func (dns *dnsControl) Delete(obj interface{})            { dns.detectChanges(obj, nil) }
+func (dns *dnsControl) Update(oldObj, newObj interface{}) { dns.detectChanges(oldObj, newObj) }
+
+// detectChanges detects changes in objects, and updates the modified timestamp
+func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
+	// If both objects have the same resource version, they are identical.
+	if newObj != nil && oldObj != nil && (oldObj.(meta.Object).GetResourceVersion() == newObj.(meta.Object).GetResourceVersion()) {
+		return
+	}
+	obj := newObj
+	if obj == nil {
+		obj = oldObj
+	}
+	switch ob := obj.(type) {
+	case *object.Service:
+		dns.updateModifed()
+	case *object.Endpoints:
+		if newObj == nil || oldObj == nil {
+			dns.updateModifed()
+			return
+		}
+		p := oldObj.(*object.Endpoints)
+		// endpoint updates can come frequently, make sure it's a change we care about
+		if endpointsEquivalent(p, ob) {
+			return
+		}
+		dns.updateModifed()
+	case *object.Pod:
+		dns.updateModifed()
+	default:
+		log.Warningf("Updates for %T not supported.", ob)
+	}
+}
+
+// subsetsEquivalent checks if two endpoint subsets are significantly equivalent
+// I.e. that they have the same ready addresses, host names, ports (including protocol
+// and service names for SRV)
+func subsetsEquivalent(sa, sb object.EndpointSubset) bool {
+	if len(sa.Addresses) != len(sb.Addresses) {
+		return false
+	}
+	if len(sa.Ports) != len(sb.Ports) {
+		return false
+	}
+
+	// in Addresses and Ports, we should be able to rely on
+	// these being sorted and able to be compared
+	// they are supposed to be in a canonical format
+	for addr, aaddr := range sa.Addresses {
+		baddr := sb.Addresses[addr]
+		if aaddr.IP != baddr.IP {
+			return false
+		}
+		if aaddr.Hostname != baddr.Hostname {
+			return false
+		}
+	}
+
+	for port, aport := range sa.Ports {
+		bport := sb.Ports[port]
+		if aport.Name != bport.Name {
+			return false
+		}
+		if aport.Port != bport.Port {
+			return false
+		}
+		if aport.Protocol != bport.Protocol {
+			return false
+		}
+	}
+	return true
+}
+
+// endpointsEquivalent checks if the update to an endpoint is something
+// that matters to us or if they are effectively equivalent.
+func endpointsEquivalent(a, b *object.Endpoints) bool {
+
+	if len(a.Subsets) != len(b.Subsets) {
+		return false
+	}
+
+	// we should be able to rely on
+	// these being sorted and able to be compared
+	// they are supposed to be in a canonical format
+	for i, sa := range a.Subsets {
+		sb := b.Subsets[i]
+		if !subsetsEquivalent(sa, sb) {
+			return false
+		}
+	}
+	return true
 }
 
 func (dns *dnsControl) Modified() int64 {

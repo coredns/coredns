@@ -14,7 +14,7 @@ import (
 func TestChaos(t *testing.T) {
 	em := Chaos{
 		Version: version,
-		Authors: map[string]bool{"Miek Gieben": true},
+		Authors: []string{"Miek Gieben"},
 	}
 
 	tests := []struct {

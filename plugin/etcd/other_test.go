@@ -29,12 +29,14 @@ func TestOtherLookup(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := etc.ServeDNS(ctxt, rec, m)
 		if err != nil {
-			t.Errorf("Expected no error, got %v\n", err)
+			t.Errorf("Expected no error, got %v", err)
 			continue
 		}
 
 		resp := rec.Msg
-		test.SortAndCheck(t, resp, tc)
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Error(err)
+		}
 	}
 }
 
@@ -75,7 +77,7 @@ var dnsTestCasesOther = []test.Case{
 		// NODATA as this is not an Mail: true record.
 		Qname: "a.server1.dev.region1.skydns.test.", Qtype: dns.TypeMX,
 		Ns: []dns.RR{
-			test.SOA("skydns.test. 300 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0"),
+			test.SOA("skydns.test. 30 SOA ns.dns.skydns.test. hostmaster.skydns.test. 0 0 0 0 0"),
 		},
 	},
 	{

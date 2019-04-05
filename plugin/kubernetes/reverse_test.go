@@ -6,7 +6,6 @@ import (
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
-	"github.com/coredns/coredns/plugin/pkg/watch"
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -24,9 +23,6 @@ func (APIConnReverseTest) EpIndex(string) []*object.Endpoints { return nil }
 func (APIConnReverseTest) EndpointsList() []*object.Endpoints { return nil }
 func (APIConnReverseTest) ServiceList() []*object.Service     { return nil }
 func (APIConnReverseTest) Modified() int64                    { return 0 }
-func (APIConnReverseTest) SetWatchChan(watch.Chan)            {}
-func (APIConnReverseTest) Watch(string) error                 { return nil }
-func (APIConnReverseTest) StopWatching(string)                {}
 
 func (APIConnReverseTest) SvcIndex(svc string) []*object.Service {
 	if svc != "svc1.testns" {
@@ -151,35 +147,35 @@ func TestReverse(t *testing.T) {
 			Qname: "101.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
 			Rcode: dns.RcodeNameError,
 			Ns: []dns.RR{
-				test.SOA("0.10.in-addr.arpa.	300	IN	SOA	ns.dns.0.10.in-addr.arpa. hostmaster.0.10.in-addr.arpa. 1502782828 7200 1800 86400 60"),
+				test.SOA("0.10.in-addr.arpa.	5	IN	SOA	ns.dns.0.10.in-addr.arpa. hostmaster.0.10.in-addr.arpa. 1502782828 7200 1800 86400 5"),
 			},
 		},
 		{
 			Qname: "example.org.cluster.local.", Qtype: dns.TypePTR,
 			Rcode: dns.RcodeNameError,
 			Ns: []dns.RR{
-				test.SOA("cluster.local.       300     IN      SOA     ns.dns.cluster.local. hostmaster.cluster.local. 1502989566 7200 1800 86400 60"),
+				test.SOA("cluster.local.       5     IN      SOA     ns.dns.cluster.local. hostmaster.cluster.local. 1502989566 7200 1800 86400 5"),
 			},
 		},
 		{
 			Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypePTR,
 			Rcode: dns.RcodeSuccess,
 			Ns: []dns.RR{
-				test.SOA("cluster.local.       300     IN      SOA     ns.dns.cluster.local. hostmaster.cluster.local. 1502989566 7200 1800 86400 60"),
+				test.SOA("cluster.local.       5     IN      SOA     ns.dns.cluster.local. hostmaster.cluster.local. 1502989566 7200 1800 86400 5"),
 			},
 		},
 		{
 			Qname: "svc1.testns.svc.0.10.in-addr.arpa.", Qtype: dns.TypeA,
 			Rcode: dns.RcodeNameError,
 			Ns: []dns.RR{
-				test.SOA("0.10.in-addr.arpa.       300     IN      SOA     ns.dns.0.10.in-addr.arpa. hostmaster.0.10.in-addr.arpa. 1502989566 7200 1800 86400 60"),
+				test.SOA("0.10.in-addr.arpa.       5     IN      SOA     ns.dns.0.10.in-addr.arpa. hostmaster.0.10.in-addr.arpa. 1502989566 7200 1800 86400 5"),
 			},
 		},
 		{
 			Qname: "100.0.0.10.cluster.local.", Qtype: dns.TypePTR,
 			Rcode: dns.RcodeNameError,
 			Ns: []dns.RR{
-				test.SOA("cluster.local.       300     IN      SOA     ns.dns.cluster.local. hostmaster.cluster.local. 1502989566 7200 1800 86400 60"),
+				test.SOA("cluster.local.       5     IN      SOA     ns.dns.cluster.local. hostmaster.cluster.local. 1502989566 7200 1800 86400 5"),
 			},
 		},
 	}
@@ -200,6 +196,8 @@ func TestReverse(t *testing.T) {
 		if resp == nil {
 			t.Fatalf("Test %d: got nil message and no error for: %s %d", i, r.Question[0].Name, r.Question[0].Qtype)
 		}
-		test.SortAndCheck(t, resp, tc)
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Error(err)
+		}
 	}
 }

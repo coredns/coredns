@@ -7,10 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coredns/coredns/plugin/proxy"
-	"github.com/coredns/coredns/plugin/test"
-	"github.com/coredns/coredns/request"
-
 	"github.com/miekg/dns"
 )
 
@@ -23,7 +19,8 @@ func TestAuto(t *testing.T) {
 
 	corefile := `org:0 {
 		auto {
-			directory ` + tmpdir + ` db\.(.*) {1} 1
+			directory ` + tmpdir + ` db\.(.*) {1}
+			reload 1s
 		}
 	}
 `
@@ -34,10 +31,9 @@ func TestAuto(t *testing.T) {
 	}
 	defer i.Stop()
 
-	p := proxy.NewLookup([]string{udp})
-	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
-
-	resp, err := p.Lookup(state, "www.example.org.", dns.TypeA)
+	m := new(dns.Msg)
+	m.SetQuestion("www.example.org.", dns.TypeA)
+	resp, err := dns.Exchange(m, udp)
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
@@ -52,7 +48,7 @@ func TestAuto(t *testing.T) {
 
 	time.Sleep(1500 * time.Millisecond) // wait for it to be picked up
 
-	resp, err = p.Lookup(state, "www.example.org.", dns.TypeA)
+	resp, err = dns.Exchange(m, udp)
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
@@ -64,7 +60,7 @@ func TestAuto(t *testing.T) {
 	os.Remove(filepath.Join(tmpdir, "db.example.org"))
 
 	time.Sleep(1100 * time.Millisecond) // wait for it to be picked up
-	resp, err = p.Lookup(state, "www.example.org.", dns.TypeA)
+	resp, err = dns.Exchange(m, udp)
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
@@ -82,7 +78,8 @@ func TestAutoNonExistentZone(t *testing.T) {
 
 	corefile := `.:0 {
 		auto {
-			directory ` + tmpdir + ` (.*) {1} 1
+			directory ` + tmpdir + ` (.*) {1}
+			reload 1s
 		}
 		errors stdout
 	}
@@ -99,10 +96,9 @@ func TestAutoNonExistentZone(t *testing.T) {
 	}
 	defer i.Stop()
 
-	p := proxy.NewLookup([]string{udp})
-	state := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
-
-	resp, err := p.Lookup(state, "example.org.", dns.TypeA)
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	resp, err := dns.Exchange(m, udp)
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
@@ -121,7 +117,8 @@ func TestAutoAXFR(t *testing.T) {
 
 	corefile := `org:0 {
 		auto {
-			directory ` + tmpdir + ` db\.(.*) {1} 1
+			directory ` + tmpdir + ` db\.(.*) {1}
+			reload 1s
 			transfer to *
 		}
 	}
@@ -145,12 +142,9 @@ func TestAutoAXFR(t *testing.T) {
 
 	time.Sleep(1100 * time.Millisecond) // wait for it to be picked up
 
-	p := proxy.NewLookup([]string{udp})
 	m := new(dns.Msg)
 	m.SetAxfr("example.org.")
-	state := request.Request{W: &test.ResponseWriter{}, Req: m}
-
-	resp, err := p.Lookup(state, "example.org.", dns.TypeAXFR)
+	resp, err := dns.Exchange(m, udp)
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}

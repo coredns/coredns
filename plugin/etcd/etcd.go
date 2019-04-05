@@ -12,7 +12,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/fall"
-	"github.com/coredns/coredns/plugin/proxy"
 	"github.com/coredns/coredns/request"
 
 	"github.com/coredns/coredns/plugin/pkg/upstream"
@@ -27,7 +26,7 @@ const (
 	etcdTimeout = 5 * time.Second
 )
 
-var errKeyNotFound = errors.New("Key not found")
+var errKeyNotFound = errors.New("key not found")
 
 // Etcd is a plugin talks to an etcd cluster.
 type Etcd struct {
@@ -35,17 +34,15 @@ type Etcd struct {
 	Fall       fall.F
 	Zones      []string
 	PathPrefix string
-	Upstream   upstream.Upstream // Proxy for looking up names during the resolution process
+	Upstream   *upstream.Upstream
 	Client     *etcdcv3.Client
-	Ctx        context.Context
-	Stubmap    *map[string]proxy.Proxy // list of proxies for stub resolving.
 
 	endpoints []string // Stored here as well, to aid in testing.
 }
 
 // Services implements the ServiceBackend interface.
-func (e *Etcd) Services(state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
-	services, err = e.Records(state, exact)
+func (e *Etcd) Services(ctx context.Context, state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
+	services, err = e.Records(ctx, state, exact)
 	if err != nil {
 		return
 	}
@@ -55,13 +52,13 @@ func (e *Etcd) Services(state request.Request, exact bool, opt plugin.Options) (
 }
 
 // Reverse implements the ServiceBackend interface.
-func (e *Etcd) Reverse(state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
-	return e.Services(state, exact, opt)
+func (e *Etcd) Reverse(ctx context.Context, state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
+	return e.Services(ctx, state, exact, opt)
 }
 
 // Lookup implements the ServiceBackend interface.
-func (e *Etcd) Lookup(state request.Request, name string, typ uint16) (*dns.Msg, error) {
-	return e.Upstream.Lookup(state, name, typ)
+func (e *Etcd) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+	return e.Upstream.Lookup(ctx, state, name, typ)
 }
 
 // IsNameError implements the ServiceBackend interface.
@@ -71,20 +68,20 @@ func (e *Etcd) IsNameError(err error) bool {
 
 // Records looks up records in etcd. If exact is true, it will lookup just this
 // name. This is used when find matches when completing SRV lookups for instance.
-func (e *Etcd) Records(state request.Request, exact bool) ([]msg.Service, error) {
+func (e *Etcd) Records(ctx context.Context, state request.Request, exact bool) ([]msg.Service, error) {
 	name := state.Name()
 
 	path, star := msg.PathWithWildcard(name, e.PathPrefix)
-	r, err := e.get(path, !exact)
+	r, err := e.get(ctx, path, !exact)
 	if err != nil {
 		return nil, err
 	}
 	segments := strings.Split(msg.Path(name, e.PathPrefix), "/")
-	return e.loopNodes(r.Kvs, segments, star)
+	return e.loopNodes(r.Kvs, segments, star, state.QType())
 }
 
-func (e *Etcd) get(path string, recursive bool) (*etcdcv3.GetResponse, error) {
-	ctx, cancel := context.WithTimeout(e.Ctx, etcdTimeout)
+func (e *Etcd) get(ctx context.Context, path string, recursive bool) (*etcdcv3.GetResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, etcdTimeout)
 	defer cancel()
 	if recursive == true {
 		if !strings.HasSuffix(path, "/") {
@@ -117,8 +114,8 @@ func (e *Etcd) get(path string, recursive bool) (*etcdcv3.GetResponse, error) {
 	return r, nil
 }
 
-func (e *Etcd) loopNodes(kv []*mvccpb.KeyValue, nameParts []string, star bool) (sx []msg.Service, err error) {
-	bx := make(map[msg.Service]bool)
+func (e *Etcd) loopNodes(kv []*mvccpb.KeyValue, nameParts []string, star bool, qType uint16) (sx []msg.Service, err error) {
+	bx := make(map[msg.Service]struct{})
 Nodes:
 	for _, n := range kv {
 		if star {
@@ -141,18 +138,20 @@ Nodes:
 		if err := json.Unmarshal(n.Value, serv); err != nil {
 			return nil, fmt.Errorf("%s: %s", n.Key, err.Error())
 		}
-		b := msg.Service{Host: serv.Host, Port: serv.Port, Priority: serv.Priority, Weight: serv.Weight, Text: serv.Text, Key: string(n.Key)}
-		if _, ok := bx[b]; ok {
+		serv.Key = string(n.Key)
+		if _, ok := bx[*serv]; ok {
 			continue
 		}
-		bx[b] = true
+		bx[*serv] = struct{}{}
 
-		serv.Key = string(n.Key)
 		serv.TTL = e.TTL(n, serv)
 		if serv.Priority == 0 {
 			serv.Priority = priority
 		}
-		sx = append(sx, *serv)
+
+		if shouldInclude(serv, qType) {
+			sx = append(sx, *serv)
+		}
 	}
 	return sx, nil
 }
@@ -175,4 +174,14 @@ func (e *Etcd) TTL(kv *mvccpb.KeyValue, serv *msg.Service) uint32 {
 		return etcdTTL
 	}
 	return serv.TTL
+}
+
+// shouldInclude returns true if the service should be included in a list of records, given the qType. For all the
+// currently supported lookup types, the only one to allow for an empty Host field in the service are TXT records.
+// Similarly, the TXT record in turn requires the Text field to be set.
+func shouldInclude(serv *msg.Service, qType uint16) bool {
+	if qType == dns.TypeTXT {
+		return serv.Text != ""
+	}
+	return serv.Host != ""
 }

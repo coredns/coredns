@@ -1,107 +1,146 @@
 package replacer
 
 import (
+	"context"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
 
-// Replacer is a type which can replace placeholder
-// substrings in a string with actual values from a
-// dns.Msg and responseRecorder. Always use
-// NewReplacer to get one of these.
-type Replacer interface {
-	Replace(string) string
-	Set(key, value string)
+// Replacer replaces labels for values in strings.
+type Replacer struct {
+	valueFunc func(request.Request, *dnstest.Recorder, string) string
+	labels    []string
 }
 
-type replacer struct {
-	replacements map[string]string
-	emptyValue   string
+// labels are all supported labels that can be used in the default Replacer.
+var labels = []string{
+	"{type}",
+	"{name}",
+	"{class}",
+	"{proto}",
+	"{size}",
+	"{remote}",
+	"{port}",
+	"{local}",
+	// Header values.
+	headerReplacer + "id}",
+	headerReplacer + "opcode}",
+	headerReplacer + "do}",
+	headerReplacer + "bufsize}",
+	// Recorded replacements.
+	"{rcode}",
+	"{rsize}",
+	"{duration}",
+	headerReplacer + "rflags}",
 }
 
-// New makes a new replacer based on r and rr.
-// Do not create a new replacer until r and rr have all
-// the needed values, because this function copies those
-// values into the replacer. rr may be nil if it is not
-// available. emptyValue should be the string that is used
-// in place of empty string (can still be empty string).
-func New(r *dns.Msg, rr *dnstest.Recorder, emptyValue string) Replacer {
-	req := request.Request{W: rr, Req: r}
-	rep := replacer{
-		replacements: map[string]string{
-			"{type}":   req.Type(),
-			"{name}":   req.Name(),
-			"{class}":  req.Class(),
-			"{proto}":  req.Proto(),
-			"{when}":   "", // made a noop
-			"{size}":   strconv.Itoa(req.Len()),
-			"{remote}": addrToRFC3986(req.IP()),
-			"{port}":   req.Port(),
-		},
-		emptyValue: emptyValue,
-	}
-	if rr != nil {
+// value returns the current value of label.
+func value(state request.Request, rr *dnstest.Recorder, label string) string {
+	switch label {
+	case "{type}":
+		return state.Type()
+	case "{name}":
+		return state.Name()
+	case "{class}":
+		return state.Class()
+	case "{proto}":
+		return state.Proto()
+	case "{size}":
+		return strconv.Itoa(state.Req.Len())
+	case "{remote}":
+		return addrToRFC3986(state.IP())
+	case "{port}":
+		return state.Port()
+	case "{local}":
+		return addrToRFC3986(state.LocalIP())
+	// Header placeholders (case-insensitive).
+	case headerReplacer + "id}":
+		return strconv.Itoa(int(state.Req.Id))
+	case headerReplacer + "opcode}":
+		return strconv.Itoa(state.Req.Opcode)
+	case headerReplacer + "do}":
+		return boolToString(state.Do())
+	case headerReplacer + "bufsize}":
+		return strconv.Itoa(state.Size())
+	// Recorded replacements.
+	case "{rcode}":
+		if rr == nil {
+			return EmptyValue
+		}
 		rcode := dns.RcodeToString[rr.Rcode]
 		if rcode == "" {
 			rcode = strconv.Itoa(rr.Rcode)
 		}
-		rep.replacements["{rcode}"] = rcode
-		rep.replacements["{rsize}"] = strconv.Itoa(rr.Len)
-		rep.replacements["{duration}"] = strconv.FormatFloat(time.Since(rr.Start).Seconds(), 'f', -1, 64) + "s"
-		if rr.Msg != nil {
-			rep.replacements[headerReplacer+"rflags}"] = flagsToString(rr.Msg.MsgHdr)
+		return rcode
+	case "{rsize}":
+		if rr == nil {
+			return EmptyValue
+		}
+		return strconv.Itoa(rr.Len)
+	case "{duration}":
+		if rr == nil {
+			return EmptyValue
+		}
+		return strconv.FormatFloat(time.Since(rr.Start).Seconds(), 'f', -1, 64) + "s"
+	case headerReplacer + "rflags}":
+		if rr != nil && rr.Msg != nil {
+			return flagsToString(rr.Msg.MsgHdr)
+		}
+		return EmptyValue
+	}
+	return EmptyValue
+}
+
+// New makes a new replacer. This only needs to be called once in the setup and then call Replace for each incoming message.
+// A replacer is safe for concurrent use.
+func New() Replacer {
+	return Replacer{
+		valueFunc: value,
+		labels:    labels,
+	}
+}
+
+// Replace performs a replacement of values on s and returns the string with the replaced values.
+func (r Replacer) Replace(ctx context.Context, state request.Request, rr *dnstest.Recorder, s string) string {
+	for _, placeholder := range r.labels {
+		if strings.Contains(s, placeholder) {
+			s = strings.Replace(s, placeholder, r.valueFunc(state, rr, placeholder), -1)
 		}
 	}
 
-	// Header placeholders (case-insensitive)
-	rep.replacements[headerReplacer+"id}"] = strconv.Itoa(int(r.Id))
-	rep.replacements[headerReplacer+"opcode}"] = strconv.Itoa(r.Opcode)
-	rep.replacements[headerReplacer+"do}"] = boolToString(req.Do())
-	rep.replacements[headerReplacer+"bufsize}"] = strconv.Itoa(req.Size())
-
-	return rep
-}
-
-// Replace performs a replacement of values on s and returns
-// the string with the replaced values.
-func (r replacer) Replace(s string) string {
-	// Header replacements - these are case-insensitive, so we can't just use strings.Replace()
-	for strings.Contains(s, headerReplacer) {
-		idxStart := strings.Index(s, headerReplacer)
-		endOffset := idxStart + len(headerReplacer)
+	// Metadata label replacements. Scan for {/ and search for next }, replace that metadata label with
+	// any meta data that is available.
+	b := strings.Builder{}
+	for strings.Contains(s, labelReplacer) {
+		idxStart := strings.Index(s, labelReplacer)
+		endOffset := idxStart + len(labelReplacer)
 		idxEnd := strings.Index(s[endOffset:], "}")
 		if idxEnd > -1 {
-			placeholder := strings.ToLower(s[idxStart : endOffset+idxEnd+1])
-			replacement := r.replacements[placeholder]
-			if replacement == "" {
-				replacement = r.emptyValue
+			label := s[idxStart+2 : endOffset+idxEnd]
+
+			fm := metadata.ValueFunc(ctx, label)
+			replacement := EmptyValue
+			if fm != nil {
+				replacement = fm()
 			}
-			s = s[:idxStart] + replacement + s[endOffset+idxEnd+1:]
+
+			b.WriteString(s[:idxStart])
+			b.WriteString(replacement)
+			s = s[endOffset+idxEnd+1:]
 		} else {
 			break
 		}
 	}
 
-	// Regular replacements - these are easier because they're case-sensitive
-	for placeholder, replacement := range r.replacements {
-		if replacement == "" {
-			replacement = r.emptyValue
-		}
-		s = strings.Replace(s, placeholder, replacement, -1)
-	}
-
-	return s
-}
-
-// Set sets key to value in the replacements map.
-func (r replacer) Set(key, value string) {
-	r.replacements["{"+key+"}"] = value
+	b.WriteString(s)
+	return b.String()
 }
 
 func boolToString(b bool) string {
@@ -161,4 +200,9 @@ func addrToRFC3986(addr string) string {
 	return addr
 }
 
-const headerReplacer = "{>"
+const (
+	headerReplacer = "{>"
+	labelReplacer  = "{/"
+	// EmptyValue is the default empty value.
+	EmptyValue = "-"
+)

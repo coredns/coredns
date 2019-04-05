@@ -1,14 +1,14 @@
 approvers:
   - bradbeam
-  - chrisohaver
+  - chrisohaver    # Infoblox | cohaver@infoblox.com
   - dilyevsky
   - fastest963
-  - fturib
+  - fturib         # ftur@infoblox.com
   - greenpau
   - grobie
   - isolus
   - johnbelamaric
-  - miekg
+  - miekg          # miek@miek.nl | project lead: 11/11/2019
   - pmoroney
   - rajansandeep
   - stp-ip

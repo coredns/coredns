@@ -8,7 +8,7 @@ The main method that gets called is `ServeDNS`. It has three parameters:
 * `dns.ResponseWriter` that is, basically, the client's connection;
 * `*dns.Msg` the request from the client.
 
-`ServeDNS` returns two values, a response code and an error. If the error is not nil CoreDNS,
+`ServeDNS` returns two values, a response code and an error. If the error is not nil, CoreDNS
 will return a SERVFAIL to the client. The response code tells CoreDNS if a *reply has been
 written by the plugin chain or not*. In the latter case CoreDNS will take care of that.
 
@@ -57,8 +57,10 @@ server.
 
 When exporting metrics the *Namespace* should be `plugin.Namespace` (="coredns"), and the
 *Subsystem* should be the name of the plugin. The README.md for the plugin should then also contain
- a *Metrics* section detailing the metrics. If the plugin supports dynamic health reporting it
- should also have *Health* section detailing on some of its inner workings.
+a *Metrics* section detailing the metrics.
+
+If the plugin supports signalling readiness it should have a *Ready* section detailing how it
+works.
 
 ## Documentation
 
@@ -106,13 +108,13 @@ entire domain and all sub domains.
 In this example the *file* plugin is handling all names below (and including) `example.org`. If
 a query comes in that is not a subdomain (or equal to) `example.org` the next plugin is called.
 
-Now, the world isn't perfect, and there are good reasons to "fallthrough" to the next middlware,
+Now, the world isn't perfect, and there are good reasons to "fallthrough" to the next middleware,
 meaning a plugin is only responsible for a *subset* of names within the zone. The first of these
 to appear was the *reverse* plugin that synthesis PTR and A/AAAA responses (useful with IPv6).
 
 The nature of the *reverse* plugin is such that it only deals with A,AAAA and PTR and then only
 for a subset of the names. Ideally you would want to layer *reverse* **in front off** another
-plugin such as *file* or *auto* (or even *proxy*). This means *reverse* handles some special
+plugin such as *file* or *auto* (or even *forward*). This means *reverse* handles some special
 reverse cases and **all other** request are handled by the backing plugin. This is exactly what
 "fallthrough" does. To keep things explicit we've opted that plugins implement such behavior
 should implement a `fallthrough` keyword.

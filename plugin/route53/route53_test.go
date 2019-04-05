@@ -36,16 +36,21 @@ func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, in *rou
 		rType, name, value, hostedZoneID string
 	}{
 		{"A", "example.org.", "1.2.3.4", "1234567890"},
+		{"A", "www.example.org", "1.2.3.4", "1234567890"},
+		{"CNAME", `\\052.www.example.org`, "www.example.org", "1234567890"},
 		{"AAAA", "example.org.", "2001:db8:85a3::8a2e:370:7334", "1234567890"},
 		{"CNAME", "sample.example.org.", "example.org", "1234567890"},
 		{"PTR", "example.org.", "ptr.example.org.", "1234567890"},
 		{"SOA", "org.", "ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400", "1234567890"},
 		{"NS", "com.", "ns-1536.awsdns-00.co.uk.", "1234567890"},
+		{"A", "split-example.gov.", "1.2.3.4", "1234567890"},
 		// Unsupported type should be ignored.
 		{"YOLO", "swag.", "foobar", "1234567890"},
-		// hosted zone with the same name, but a different id
+		// Hosted zone with the same name, but a different id.
 		{"A", "other-example.org.", "3.5.7.9", "1357986420"},
+		{"A", "split-example.org.", "1.2.3.4", "1357986420"},
 		{"SOA", "org.", "ns-15.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400", "1357986420"},
+		// Hosted zone without SOA.
 	} {
 		rrs, ok := rrsResponse[r.hostedZoneID]
 		if !ok {
@@ -82,7 +87,7 @@ func TestRoute53(t *testing.T) {
 		t.Fatalf("Expected errors for zone bad.")
 	}
 
-	r, err = New(ctx, fakeRoute53{}, map[string][]string{"org.": []string{"1357986420", "1234567890"}, "gov": []string{"Z098765432"}}, &upstream.Upstream{})
+	r, err = New(ctx, fakeRoute53{}, map[string][]string{"org.": []string{"1357986420", "1234567890"}, "gov.": []string{"Z098765432", "1234567890"}}, &upstream.Upstream{})
 	if err != nil {
 		t.Fatalf("Failed to create Route53: %v", err)
 	}
@@ -101,8 +106,9 @@ func TestRoute53(t *testing.T) {
 			}
 			m.Answer = []dns.RR{rr}
 
-			m.Authoritative, m.RecursionAvailable = true, true
+			m.Authoritative = true
 			rcode = dns.RcodeSuccess
+
 		}
 
 		m.SetRcode(r, rcode)
@@ -117,38 +123,35 @@ func TestRoute53(t *testing.T) {
 	tests := []struct {
 		qname        string
 		qtype        uint16
-		expectedCode int
+		wantRetCode  int
 		wantAnswer   []string // ownernames for the records in the additional section.
+		wantMsgRCode int
 		wantNS       []string
 		expectedErr  error
 	}{
 		// 0. example.org A found - success.
 		{
-			qname:        "example.org",
-			qtype:        dns.TypeA,
-			expectedCode: dns.RcodeSuccess,
+			qname: "example.org",
+			qtype: dns.TypeA,
 			wantAnswer: []string{"example.org.	300	IN	A	1.2.3.4"},
 		},
 		// 1. example.org AAAA found - success.
 		{
-			qname:        "example.org",
-			qtype:        dns.TypeAAAA,
-			expectedCode: dns.RcodeSuccess,
+			qname: "example.org",
+			qtype: dns.TypeAAAA,
 			wantAnswer: []string{"example.org.	300	IN	AAAA	2001:db8:85a3::8a2e:370:7334"},
 		},
 		// 2. exampled.org PTR found - success.
 		{
-			qname:        "example.org",
-			qtype:        dns.TypePTR,
-			expectedCode: dns.RcodeSuccess,
+			qname: "example.org",
+			qtype: dns.TypePTR,
 			wantAnswer: []string{"example.org.	300	IN	PTR	ptr.example.org."},
 		},
 		// 3. sample.example.org points to example.org CNAME.
 		// Query must return both CNAME and A recs.
 		{
-			qname:        "sample.example.org",
-			qtype:        dns.TypeA,
-			expectedCode: dns.RcodeSuccess,
+			qname: "sample.example.org",
+			qtype: dns.TypeA,
 			wantAnswer: []string{
 				"sample.example.org.	300	IN	CNAME	example.org.",
 				"example.org.	300	IN	A	1.2.3.4",
@@ -157,51 +160,70 @@ func TestRoute53(t *testing.T) {
 		// 4. Explicit CNAME query for sample.example.org.
 		// Query must return just CNAME.
 		{
-			qname:        "sample.example.org",
-			qtype:        dns.TypeCNAME,
-			expectedCode: dns.RcodeSuccess,
+			qname: "sample.example.org",
+			qtype: dns.TypeCNAME,
 			wantAnswer: []string{"sample.example.org.	300	IN	CNAME	example.org."},
 		},
 		// 5. Explicit SOA query for example.org.
 		{
-			qname:        "example.org",
-			qtype:        dns.TypeSOA,
-			expectedCode: dns.RcodeSuccess,
+			qname: "example.org",
+			qtype: dns.TypeSOA,
 			wantAnswer: []string{"org.	300	IN	SOA	ns-15.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
 		},
 		// 6. Explicit SOA query for example.org.
 		{
-			qname:        "example.org",
-			qtype:        dns.TypeNS,
-			expectedCode: dns.RcodeSuccess,
+			qname: "example.org",
+			qtype: dns.TypeNS,
 			wantNS: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
 		},
-		// 7. Zone not configured.
+		// 7. AAAA query for split-example.org must return NODATA.
+		{
+			qname:       "split-example.gov",
+			qtype:       dns.TypeAAAA,
+			wantRetCode: dns.RcodeSuccess,
+			wantNS: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
+		},
+		// 8. Zone not configured.
 		{
 			qname:        "badexample.com",
 			qtype:        dns.TypeA,
-			expectedCode: dns.RcodeServerFailure,
+			wantRetCode:  dns.RcodeServerFailure,
+			wantMsgRCode: dns.RcodeServerFailure,
 		},
-		// 8. No record found. Return SOA record.
+		// 9. No record found. Return SOA record.
 		{
 			qname:        "bad.org",
 			qtype:        dns.TypeA,
-			expectedCode: dns.RcodeSuccess,
+			wantRetCode:  dns.RcodeSuccess,
+			wantMsgRCode: dns.RcodeNameError,
 			wantNS: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
 		},
-		// 9. No record found. Fallthrough.
+		// 10. No record found. Fallthrough.
 		{
-			qname:        "example.gov",
-			qtype:        dns.TypeA,
-			expectedCode: dns.RcodeSuccess,
+			qname: "example.gov",
+			qtype: dns.TypeA,
 			wantAnswer: []string{"example.gov.	300	IN	A	2.4.6.8"},
 		},
-		// 10. other-zone.example.org is stored in a different hosted zone. success
+		// 11. other-zone.example.org is stored in a different hosted zone. success
 		{
-			qname:        "other-example.org",
-			qtype:        dns.TypeA,
-			expectedCode: dns.RcodeSuccess,
+			qname: "other-example.org",
+			qtype: dns.TypeA,
 			wantAnswer: []string{"other-example.org.	300	IN	A	3.5.7.9"},
+		},
+		// 12. split-example.org only has A record. Expect NODATA.
+		{
+			qname: "split-example.org",
+			qtype: dns.TypeAAAA,
+			wantNS: []string{"org.	300	IN	SOA	ns-15.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
+		},
+		// 13. *.www.example.org is a wildcard CNAME to www.example.org.
+		{
+			qname: "a.www.example.org",
+			qtype: dns.TypeA,
+			wantAnswer: []string{
+				"a.www.example.org.	300	IN	CNAME	www.example.org.",
+				"www.example.org.	300	IN	A	1.2.3.4",
+			},
 		},
 	}
 
@@ -215,8 +237,12 @@ func TestRoute53(t *testing.T) {
 		if err != tc.expectedErr {
 			t.Fatalf("Test %d: Expected error %v, but got %v", ti, tc.expectedErr, err)
 		}
-		if code != int(tc.expectedCode) {
-			t.Fatalf("Test %d: Expected status code %s, but got %s", ti, dns.RcodeToString[tc.expectedCode], dns.RcodeToString[code])
+		if code != int(tc.wantRetCode) {
+			t.Fatalf("Test %d: Expected returned status code %s, but got %s", ti, dns.RcodeToString[tc.wantRetCode], dns.RcodeToString[code])
+		}
+
+		if tc.wantMsgRCode != rec.Msg.Rcode {
+			t.Errorf("Test %d: Unexpected msg status code. Want: %s, got: %s", ti, dns.RcodeToString[tc.wantMsgRCode], dns.RcodeToString[rec.Msg.Rcode])
 		}
 
 		if len(tc.wantAnswer) != len(rec.Msg.Answer) {
@@ -238,9 +264,41 @@ func TestRoute53(t *testing.T) {
 					t.Errorf("Test %d: Unexpected NS type. Want: SOA, got: %v", ti, reflect.TypeOf(got))
 				}
 				if got.String() != tc.wantNS[i] {
-					t.Errorf("Test %d: Unexpected NS. Want: %v, got: %v", ti, tc.wantNS[i], got)
+					t.Errorf("Test %d: Unexpected NS.\nWant: %v\nGot: %v", ti, tc.wantNS[i], got)
 				}
 			}
+		}
+	}
+}
+
+func TestMaybeUnescape(t *testing.T) {
+	for ti, tc := range []struct {
+		escaped, want string
+		wantErr       error
+	}{
+		// 0. empty string is fine.
+		{escaped: "", want: ""},
+		// 1. non-escaped sequence.
+		{escaped: "example.com.", want: "example.com."},
+		// 2. escaped `*` as first label - OK.
+		{escaped: `\\052.example.com`, want: "*.example.com"},
+		// 3. Escaped dot, 'a' and a hyphen. No idea why but we'll allow it.
+		{escaped: `weird\\055ex\\141mple\\056com\\056\\056`, want: "weird-example.com.."},
+		// 4. escaped `*` in the middle - NOT OK.
+		{escaped: `e\\052ample.com`, wantErr: errors.New("`*' ony supported as wildcard (leftmost label)")},
+		// 5. Invalid character.
+		{escaped: `\\000.example.com`, wantErr: errors.New(`invalid character: \\000`)},
+		// 6. Invalid escape sequence in the middle.
+		{escaped: `example\\0com`, wantErr: errors.New(`invalid escape sequence: '\\0co'`)},
+		// 7. Invalid escape sequence at the end.
+		{escaped: `example.com\\0`, wantErr: errors.New(`invalid escape sequence: '\\0'`)},
+	} {
+		got, gotErr := maybeUnescape(tc.escaped)
+		if tc.wantErr != gotErr && !reflect.DeepEqual(tc.wantErr, gotErr) {
+			t.Fatalf("Test %d: Expected error: `%v', but got: `%v'", ti, tc.wantErr, gotErr)
+		}
+		if tc.want != got {
+			t.Errorf("Test %d: Expected unescaped: `%s', but got: `%s'", ti, tc.want, got)
 		}
 	}
 }

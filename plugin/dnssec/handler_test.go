@@ -26,7 +26,7 @@ var dnssecTestCases = []test.Case{
 			test.DNSKEY("miek.nl.	3600	IN	DNSKEY	257 3 13 0J8u0XJ9GNGFEBXuAmLu04taHG4"),
 			test.RRSIG("miek.nl.	3600	IN	RRSIG	DNSKEY 13 2 3600 20160503150844 20160425120844 18512 miek.nl. Iw/kNOyM"),
 		},
-		Extra: []dns.RR{test.OPT(4096, true)},
+		/* Extra: []dns.RR{test.OPT(4096, true)}, this has moved to the server and can't be test here */
 	},
 }
 
@@ -112,11 +112,13 @@ func TestLookupZone(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := dh.ServeDNS(context.TODO(), rec, m)
 		if err != nil {
-			t.Errorf("Expected no error, got %v\n", err)
+			t.Errorf("Expected no error, got %v", err)
 			return
 		}
 
-		test.SortAndCheck(t, rec.Msg, tc)
+		if err := test.SortAndCheck(rec.Msg, tc); err != nil {
+			t.Error(err)
+		}
 	}
 }
 
@@ -133,7 +135,7 @@ func TestLookupDNSKEY(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := dh.ServeDNS(context.TODO(), rec, m)
 		if err != nil {
-			t.Errorf("Expected no error, got %v\n", err)
+			t.Errorf("Expected no error, got %v", err)
 			return
 		}
 
@@ -142,7 +144,9 @@ func TestLookupDNSKEY(t *testing.T) {
 			t.Errorf("Authoritative Answer should be true, got false")
 		}
 
-		test.SortAndCheck(t, resp, tc)
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Error(err)
+		}
 
 		// If there is an NSEC present in authority section check if the bitmap does not have the qtype set.
 		for _, rr := range resp.Ns {

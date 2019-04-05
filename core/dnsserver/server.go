@@ -33,12 +33,12 @@ type Server struct {
 	server [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
 	m      sync.Mutex     // protects the servers
 
-	zones       map[string]*Config // zones keyed by their address
-	dnsWg       sync.WaitGroup     // used to wait on outstanding connections
-	connTimeout time.Duration      // the maximum duration of a graceful shutdown
-	trace       trace.Trace        // the trace plugin for the server
-	debug       bool               // disable recover()
-	classChaos  bool               // allow non-INET class queries
+	zones        map[string]*Config // zones keyed by their address
+	dnsWg        sync.WaitGroup     // used to wait on outstanding connections
+	graceTimeout time.Duration      // the maximum duration of a graceful shutdown
+	trace        trace.Trace        // the trace plugin for the server
+	debug        bool               // disable recover()
+	classChaos   bool               // allow non-INET class queries
 }
 
 // NewServer returns a new CoreDNS server and compiles all plugins in to it. By default CH class
@@ -46,9 +46,9 @@ type Server struct {
 func NewServer(addr string, group []*Config) (*Server, error) {
 
 	s := &Server{
-		Addr:        addr,
-		zones:       make(map[string]*Config),
-		connTimeout: 5 * time.Second, // TODO(miek): was configurable
+		Addr:         addr,
+		zones:        make(map[string]*Config),
+		graceTimeout: 5 * time.Second,
 	}
 
 	// We have to bound our wg with one increment
@@ -66,22 +66,8 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		}
 		// set the config per zone
 		s.zones[site.Zone] = site
+
 		// compile custom plugin for everything
-		if site.registry != nil {
-			// this config is already computed with the chain of plugin
-			// set classChaos in accordance with previously registered plugins
-			for name := range enableChaos {
-				if _, ok := site.registry[name]; ok {
-					s.classChaos = true
-					break
-				}
-			}
-			// set trace handler in accordance with previously registered "trace" plugin
-			if handler, ok := site.registry["trace"]; ok {
-				s.trace = handler.(trace.Trace)
-			}
-			continue
-		}
 		var stack plugin.Handler
 		for i := len(site.Plugin) - 1; i >= 0; i-- {
 			stack = site.Plugin[i](stack)
@@ -97,7 +83,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 				}
 			}
 			// Unblock CH class queries when any of these plugins are loaded.
-			if _, ok := enableChaos[stack.Name()]; ok {
+			if _, ok := EnableChaos[stack.Name()]; ok {
 				s.classChaos = true
 			}
 		}
@@ -142,6 +128,11 @@ func (s *Server) Listen() (net.Listener, error) {
 	return l, nil
 }
 
+// WrapListener Listen implements caddy.GracefulServer interface.
+func (s *Server) WrapListener(ln net.Listener) net.Listener {
+	return ln
+}
+
 // ListenPacket implements caddy.UDPServer interface.
 func (s *Server) ListenPacket() (net.PacketConn, error) {
 	p, err := listenPacket("udp", s.Addr[len(transport.DNS+"://"):])
@@ -172,7 +163,7 @@ func (s *Server) Stop() (err error) {
 		// Wait for remaining connections to finish or
 		// force them all to close after timeout
 		select {
-		case <-time.After(s.connTimeout):
+		case <-time.After(s.graceTimeout):
 		case <-done:
 		}
 	}
@@ -200,7 +191,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// The default dns.Mux checks the question section size, but we have our
 	// own mux here. Check if we have a question section. If not drop them here.
 	if r == nil || len(r.Question) == 0 {
-		DefaultErrorFunc(ctx, w, r, dns.RcodeServerFailure)
+		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
 		return
 	}
 
@@ -210,24 +201,18 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			// need to make sure that we stay alive up here
 			if rec := recover(); rec != nil {
 				vars.Panic.Inc()
-				DefaultErrorFunc(ctx, w, r, dns.RcodeServerFailure)
+				errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
 			}
 		}()
 	}
 
 	if !s.classChaos && r.Question[0].Qclass != dns.ClassINET {
-		DefaultErrorFunc(ctx, w, r, dns.RcodeRefused)
+		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
 		return
 	}
 
 	if m, err := edns.Version(r); err != nil { // Wrong EDNS version, return at once.
 		w.WriteMsg(m)
-		return
-	}
-
-	ctx, err := incrementDepthAndCheck(ctx)
-	if err != nil {
-		DefaultErrorFunc(ctx, w, r, dns.RcodeServerFailure)
 		return
 	}
 
@@ -252,16 +237,11 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}
 
 		if h, ok := s.zones[string(b[:l])]; ok {
-
-			// Set server's address in the context so plugins can reference back to this,
-			// This will makes those metrics unique.
-			ctx = context.WithValue(ctx, plugin.ServerCtx{}, s.Addr)
-
 			if r.Question[0].Qtype != dns.TypeDS {
 				if h.FilterFunc == nil {
 					rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 					if !plugin.ClientWrite(rcode) {
-						DefaultErrorFunc(ctx, w, r, rcode)
+						errorFunc(s.Addr, w, r, rcode)
 					}
 					return
 				}
@@ -270,7 +250,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 				if h.FilterFunc(q) {
 					rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 					if !plugin.ClientWrite(rcode) {
-						DefaultErrorFunc(ctx, w, r, rcode)
+						errorFunc(s.Addr, w, r, rcode)
 					}
 					return
 				}
@@ -292,26 +272,22 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		// DS request, and we found a zone, use the handler for the query.
 		rcode, _ := dshandler.pluginChain.ServeDNS(ctx, w, r)
 		if !plugin.ClientWrite(rcode) {
-			DefaultErrorFunc(ctx, w, r, rcode)
+			errorFunc(s.Addr, w, r, rcode)
 		}
 		return
 	}
 
 	// Wildcard match, if we have found nothing try the root zone as a last resort.
 	if h, ok := s.zones["."]; ok && h.pluginChain != nil {
-
-		// See comment above.
-		ctx = context.WithValue(ctx, plugin.ServerCtx{}, s.Addr)
-
 		rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 		if !plugin.ClientWrite(rcode) {
-			DefaultErrorFunc(ctx, w, r, rcode)
+			errorFunc(s.Addr, w, r, rcode)
 		}
 		return
 	}
 
 	// Still here? Error out with REFUSED.
-	DefaultErrorFunc(ctx, w, r, dns.RcodeRefused)
+	errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
 }
 
 // OnStartupComplete lists the sites served by this server
@@ -337,56 +313,42 @@ func (s *Server) Tracer() ot.Tracer {
 	return s.trace.Tracer()
 }
 
-// DefaultErrorFunc responds to an DNS request with an error.
-func DefaultErrorFunc(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, rc int) {
+// errorFunc responds to an DNS request with an error.
+func errorFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
 	state := request.Request{W: w, Req: r}
 
 	answer := new(dns.Msg)
 	answer.SetRcode(r, rc)
-
 	state.SizeAndDo(answer)
-
-	vars.Report(ctx, state, vars.Dropped, rcode.ToString(rc), answer.Len(), time.Now())
 
 	w.WriteMsg(answer)
 }
 
-// incrementDepthAndCheck increments the loop counter in the context, and returns an error if
-// the counter exceeds the max number of re-entries
-func incrementDepthAndCheck(ctx context.Context) (context.Context, error) {
-	// Loop counter for self directed lookups
-	loop := ctx.Value(loopKey{})
-	if loop == nil {
-		ctx = context.WithValue(ctx, loopKey{}, 0)
-		return ctx, nil
-	}
+func errorAndMetricsFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
+	state := request.Request{W: w, Req: r}
 
-	iloop := loop.(int) + 1
-	if iloop > maxreentries {
-		return ctx, fmt.Errorf("too deep")
-	}
-	ctx = context.WithValue(ctx, loopKey{}, iloop)
-	return ctx, nil
+	answer := new(dns.Msg)
+	answer.SetRcode(r, rc)
+	state.SizeAndDo(answer)
+
+	vars.Report(server, state, vars.Dropped, rcode.ToString(rc), answer.Len(), time.Now())
+
+	w.WriteMsg(answer)
 }
 
 const (
-	tcp          = 0
-	udp          = 1
-	maxreentries = 10
+	tcp = 0
+	udp = 1
 )
 
-type (
-	// Key is the context key for the current server
-	Key     struct{}
-	loopKey struct{} // loopKey is the context key for counting self loops
-)
+// Key is the context key for the current server added to the context.
+type Key struct{}
 
-// enableChaos is a map with plugin names for which we should open CH class queries as
-// we block these by default.
-var enableChaos = map[string]bool{
-	"chaos":   true,
-	"forward": true,
-	"proxy":   true,
+// EnableChaos is a map with plugin names for which we should open CH class queries as we block these by default.
+var EnableChaos = map[string]struct{}{
+	"chaos":   struct{}{},
+	"forward": struct{}{},
+	"proxy":   struct{}{},
 }
 
 // Quiet mode will not show any informative output on initialization.

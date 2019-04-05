@@ -4,7 +4,10 @@ package route53
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -110,18 +113,21 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 	m := new(dns.Msg)
 	m.SetReply(r)
-	m.Authoritative, m.RecursionAvailable = true, true
+	m.Authoritative = true
 	var result file.Result
 	for _, hostedZone := range z {
 		h.zMu.RLock()
-		m.Answer, m.Ns, m.Extra, result = hostedZone.z.Lookup(state, qname)
+		m.Answer, m.Ns, m.Extra, result = hostedZone.z.Lookup(ctx, state, qname)
 		h.zMu.RUnlock()
-		if len(m.Answer) != 0 {
+
+		// Take the answer if it's non-empty OR if there is another
+		// record type exists for this name (NODATA).
+		if len(m.Answer) != 0 || result == file.NoData {
 			break
 		}
 	}
 
-	if len(m.Answer) == 0 && h.Fall.Through(qname) {
+	if len(m.Answer) == 0 && result != file.NoData && h.Fall.Through(qname) {
 		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 	}
 
@@ -140,10 +146,79 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	return dns.RcodeSuccess, nil
 }
 
+const escapeSeq = `\\`
+
+// maybeUnescape parses s and converts escaped ASCII codepoints (in octal) back
+// to its ASCII representation.
+//
+// From AWS docs:
+//
+// "If the domain name includes any characters other than a to z, 0 to 9, -
+// (hyphen), or _ (underscore), Route 53 API actions return the characters as
+// escape codes."
+//
+// For our purposes (and with respect to RFC 1035), we'll fish for a-z, 0-9,
+// '-', '.' and '*' as the leftmost character (for wildcards) and throw error
+// for everything else.
+//
+// Example:
+//   `\\052.example.com.` -> `*.example.com`
+//   `\\137.example.com.` -> error ('_' is not valid)
+func maybeUnescape(s string) (string, error) {
+	var out string
+	for {
+		i := strings.Index(s, escapeSeq)
+		if i < 0 {
+			return out + s, nil
+		}
+
+		out += s[:i]
+
+		li, ri := i+len(escapeSeq), i+len(escapeSeq)+3
+		if ri > len(s) {
+			return "", fmt.Errorf("invalid escape sequence: '%s%s'", escapeSeq, s[li:])
+		}
+		// Parse `\\xxx` in base 8 (2nd arg) and attempt to fit into
+		// 8-bit result (3rd arg).
+		n, err := strconv.ParseInt(s[li:ri], 8, 8)
+		if err != nil {
+			return "", fmt.Errorf("invalid escape sequence: '%s%s'", escapeSeq, s[li:ri])
+		}
+
+		r := rune(n)
+		switch {
+		case r >= rune('a') && r <= rune('z'): // Route53 converts everything to lowercase.
+		case r >= rune('0') && r <= rune('9'):
+		case r == rune('*'):
+			if out != "" {
+				return "", errors.New("`*' ony supported as wildcard (leftmost label)")
+			}
+		case r == rune('-'):
+		case r == rune('.'):
+		default:
+			return "", fmt.Errorf("invalid character: %s%#03o", escapeSeq, r)
+		}
+
+		out += string(r)
+
+		s = s[i+len(escapeSeq)+3:]
+	}
+}
+
 func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone) error {
 	for _, rr := range rrs.ResourceRecords {
+
+		n, err := maybeUnescape(aws.StringValue(rrs.Name))
+		if err != nil {
+			return fmt.Errorf("failed to unescape `%s' name: %v", aws.StringValue(rrs.Name), err)
+		}
+		v, err := maybeUnescape(aws.StringValue(rr.Value))
+		if err != nil {
+			return fmt.Errorf("failed to unescape `%s' value: %v", aws.StringValue(rr.Value), err)
+		}
+
 		// Assemble RFC 1035 conforming record to pass into dns scanner.
-		rfc1035 := fmt.Sprintf("%s %d IN %s %s", aws.StringValue(rrs.Name), aws.Int64Value(rrs.TTL), aws.StringValue(rrs.Type), aws.StringValue(rr.Value))
+		rfc1035 := fmt.Sprintf("%s %d IN %s %s", n, aws.Int64Value(rrs.TTL), aws.StringValue(rrs.Type), v)
 		r, err := dns.NewRR(rfc1035)
 		if err != nil {
 			return fmt.Errorf("failed to parse resource record: %v", err)
@@ -170,7 +245,7 @@ func (h *Route53) updateZones(ctx context.Context) error {
 
 			for i, hostedZone := range z {
 				newZ := file.NewZone(zName, "")
-				newZ.Upstream = *h.upstream
+				newZ.Upstream = h.upstream
 				in := &route53.ListResourceRecordSetsInput{
 					HostedZoneId: aws.String(hostedZone.id),
 				}
