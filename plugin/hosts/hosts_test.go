@@ -92,6 +92,11 @@ var hostsTestCases = []test.Case{
 		Qname: "example.org.", Qtype: dns.TypeMX,
 		Answer: []dns.RR{},
 	},
+	{
+		Qname: "unknown.example.org", Qtype: dns.TypeA,
+		Rcode: dns.RcodeNameError,
+		Answer: []dns.RR{},
+	},
 }
 
 const hostsExample = `
