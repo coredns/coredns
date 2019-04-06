@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -35,6 +36,7 @@ func (rule *typeRule) Rewrite(ctx context.Context, state request.Request) Result
 	if rule.fromType > 0 && rule.toType > 0 {
 		if state.QType() == rule.fromType {
 			state.Req.Question[0].Qtype = rule.toType
+			RequestRewriteTypeCount.WithLabelValues(metrics.WithServer(ctx), string(rule.fromType), string(rule.toType))
 			return RewriteDone
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
 	//"github.com/miekg/dns"
 )
@@ -46,6 +47,7 @@ type regexTTLRule struct {
 // in the question section of the request.
 func (rule *exactTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if rule.From == state.Name() {
+		RequestRewriteTTLCount.WithLabelValues(metrics.WithServer(ctx), "exact")
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -54,6 +56,7 @@ func (rule *exactTTLRule) Rewrite(ctx context.Context, state request.Request) Re
 // Rewrite rewrites the current request when the name begins with the matching string.
 func (rule *prefixTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if strings.HasPrefix(state.Name(), rule.Prefix) {
+		RequestRewriteTTLCount.WithLabelValues(metrics.WithServer(ctx), "prefix")
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -62,6 +65,7 @@ func (rule *prefixTTLRule) Rewrite(ctx context.Context, state request.Request) R
 // Rewrite rewrites the current request when the name ends with the matching string.
 func (rule *suffixTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if strings.HasSuffix(state.Name(), rule.Suffix) {
+		RequestRewriteTTLCount.WithLabelValues(metrics.WithServer(ctx), "suffix")
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -71,6 +75,7 @@ func (rule *suffixTTLRule) Rewrite(ctx context.Context, state request.Request) R
 // name in the question section of the request.
 func (rule *substringTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
 	if strings.Contains(state.Name(), rule.Substring) {
+		RequestRewriteTTLCount.WithLabelValues(metrics.WithServer(ctx), "substring")
 		return RewriteDone
 	}
 	return RewriteIgnored
@@ -81,6 +86,7 @@ func (rule *substringTTLRule) Rewrite(ctx context.Context, state request.Request
 func (rule *regexTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
 	regexGroups := rule.Pattern.FindStringSubmatch(state.Name())
 	if len(regexGroups) == 0 {
+		RequestRewriteTTLCount.WithLabelValues(metrics.WithServer(ctx), "regex")
 		return RewriteIgnored
 	}
 	return RewriteDone

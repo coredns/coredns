@@ -299,4 +299,18 @@ The full plugin usage syntax is harder to digest...
 rewrite [continue|stop] {type|class|edns0|name [exact|prefix|suffix|substring|regex [FROM TO answer name]]} FROM TO
 ~~~
 
-The syntax above doesn't cover the multi-line block option for specifying a name request+response rewrite rule described in the **Response Rewrite** section.
+The syntax above doesn't cover the multi line block option for specifying a name request+response rewrite rule described in the **Response Rewrite** section.
+
+## Metrics
+
+If monitoring is enabled (via the *prometheus* directive) then the following metric is exported:
+
+* `rewrite_request_name_total{server, match_type, src_domain_name, dest_domain_name}` - counter of total requests with rewritten name
+* `rewrite_request_type_total{server, src_type, dest_type}` - counter of total requests with rewritten names type
+* `rewrite_request_class_total{server, src_class, dest_class}` - counter of total requests with rewritten names class
+* `rewrite_request_edns0_total{server}` - counter of total requests with rewritten name server IDs
+* `rewrite_request_ttl_total{server, match_type}` - counter of total requests with rewritten TTLs
+* `rewrite_response_ttl_total{ttl}` - counter of total responses with rewritten TTL
+* `rewrite_response_name_total{src_domain_name, dest_domain_name}` - counter of total requests with rewritten name
+
+All request metrics have a `server` label and every rewrite metric with multiple kinds of rewrite operations have a `match_type` label. The source and destination labels refer to the original and rewritten value of either domain names or type or class.

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -34,6 +35,7 @@ func (rule *classRule) Rewrite(ctx context.Context, state request.Request) Resul
 	if rule.fromClass > 0 && rule.toClass > 0 {
 		if state.Req.Question[0].Qclass == rule.fromClass {
 			state.Req.Question[0].Qclass = rule.toClass
+			RequestRewriteClassCount.WithLabelValues(metrics.WithServer(ctx), string(rule.fromClass), string(rule.toClass))
 			return RewriteDone
 		}
 	}

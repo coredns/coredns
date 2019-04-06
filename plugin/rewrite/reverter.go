@@ -63,11 +63,13 @@ func (r *ResponseReverter) WriteMsg(res *dns.Msg) error {
 							s = strings.Replace(s, groupIndexStr, groupValue, -1)
 						}
 					}
+					ResponseRewriteNameCount.WithLabelValues(name, s).Inc()
 					name = s
 					isNameRewritten = true
 				case "ttl":
 					ttl = rule.TTL
 					isTTLRewritten = true
+					ResponseRewriteTTLCount.WithLabelValues(string(ttl)).Inc()
 				}
 			}
 			if isNameRewritten {

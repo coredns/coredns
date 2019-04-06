@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/metadata"
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/edns"
 	"github.com/coredns/coredns/request"
 
@@ -56,6 +57,7 @@ func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) R
 		if e, ok := s.(*dns.EDNS0_NSID); ok {
 			if rule.action == Replace || rule.action == Set {
 				e.Nsid = "" // make sure it is empty for request
+				RequestRewriteEDNS0Count.WithLabelValues(metrics.WithServer(ctx), "nsid")
 				return RewriteDone
 			}
 		}
@@ -64,6 +66,7 @@ func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) R
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""})
+		RequestRewriteEDNS0Count.WithLabelValues(metrics.WithServer(ctx), "nsid")
 		return RewriteDone
 	}
 
@@ -85,6 +88,7 @@ func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) 
 			if rule.code == e.Code {
 				if rule.action == Replace || rule.action == Set {
 					e.Data = rule.data
+					RequestRewriteEDNS0Count.WithLabelValues(metrics.WithServer(ctx), "local")
 					return RewriteDone
 				}
 			}
@@ -94,6 +98,7 @@ func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) 
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_LOCAL{Code: rule.code, Data: rule.data})
+		RequestRewriteEDNS0Count.WithLabelValues(metrics.WithServer(ctx), "local")
 		return RewriteDone
 	}
 
@@ -234,6 +239,7 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 			if rule.code == e.Code {
 				if rule.action == Replace || rule.action == Set {
 					e.Data = data
+					RequestRewriteEDNS0Count.WithLabelValues(metrics.WithServer(ctx), "variable")
 					return RewriteDone
 				}
 				return RewriteIgnored
@@ -244,6 +250,7 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_LOCAL{Code: rule.code, Data: data})
+		RequestRewriteEDNS0Count.WithLabelValues(metrics.WithServer(ctx), "variable")
 		return RewriteDone
 	}
 
@@ -340,6 +347,7 @@ func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request)
 		if e, ok := s.(*dns.EDNS0_SUBNET); ok {
 			if rule.action == Replace || rule.action == Set {
 				if rule.fillEcsData(state, e) == nil {
+					RequestRewriteEDNS0Count.WithLabelValues(metrics.WithServer(ctx), "subnet")
 					return RewriteDone
 				}
 			}
@@ -352,6 +360,7 @@ func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request)
 		opt := &dns.EDNS0_SUBNET{Code: dns.EDNS0SUBNET}
 		if rule.fillEcsData(state, opt) == nil {
 			o.Option = append(o.Option, opt)
+			RequestRewriteEDNS0Count.WithLabelValues(metrics.WithServer(ctx), "subnet")
 			return RewriteDone
 		}
 	}
