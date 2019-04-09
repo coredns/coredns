@@ -34,6 +34,9 @@
 # * make github-push
 # * make docker-push
 
+# RLS - make on Windows
+# make release --file Makefile.release
+
 EMPTY:=
 SPACE:=$(EMPTY) $(EMPTY)
 COMMA:=$(EMPTY),$(EMPTY)
@@ -42,13 +45,13 @@ ifeq (, $(shell which curl))
     $(error "No curl in $$PATH, please install")
 endif
 
-DOCKER:=
+DOCKER:=coredns
 NAME:=coredns
 VERSION:=$(shell grep 'CoreVersion' coremain/version.go | awk '{ print $$3 }' | tr -d '"')
 GITHUB:=coredns
 DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
 # mips is not in LINUX_ARCH because it's not supported by the manifest-tool.
-LINUX_ARCH:=amd64 arm arm64 ppc64le s390x
+LINUX_ARCH:=arm64
 PLATFORMS:=$(subst $(SPACE),$(COMMA),$(foreach arch,$(LINUX_ARCH),linux/$(arch)))
 
 ifeq ($(DOCKER),)
@@ -70,12 +73,12 @@ pre:
 build:
 	@echo Cleaning old builds
 	@rm -rf build && mkdir build
-	@echo Building: darwin/amd64 - $(VERSION)
-	mkdir -p build/darwin/amd64 && $(MAKE) coredns BINARY=build/darwin/amd64/$(NAME) SYSTEM="GOOS=darwin GOARCH=amd64" CHECKS="" BUILDOPTS=""
-	@echo Building: windows/amd64 - $(VERSION)
-	mkdir -p build/windows/amd64 && $(MAKE) coredns BINARY=build/windows/amd64/$(NAME).exe SYSTEM="GOOS=windows GOARCH=amd64" CHECKS="" BUILDOPTS=""
-	@echo Building: linux/mips - $(VERSION)
-	mkdir -p build/linux/mips  && $(MAKE) coredns BINARY=build/linux/mips/$(NAME) SYSTEM="GOOS=linux GOARCH=mips" CHECKS="" BUILDOPTS=""
+	# @echo Building: darwin/amd64 - $(VERSION)
+	# mkdir -p build/darwin/amd64 && $(MAKE) coredns BINARY=build/darwin/amd64/$(NAME) SYSTEM="GOOS=darwin GOARCH=amd64" CHECKS="" BUILDOPTS=""
+	# @echo Building: windows/amd64 - $(VERSION)
+	# mkdir -p build/windows/amd64 && $(MAKE) coredns BINARY=build/windows/amd64/$(NAME).exe SYSTEM="GOOS=windows GOARCH=amd64" CHECKS="" BUILDOPTS=""
+	# @echo Building: linux/mips - $(VERSION)
+	# mkdir -p build/linux/mips  && $(MAKE) coredns BINARY=build/linux/mips/$(NAME) SYSTEM="GOOS=linux GOARCH=mips" CHECKS="" BUILDOPTS=""
 	@echo Building: linux/$(LINUX_ARCH) - $(VERSION) ;\
 	for arch in $(LINUX_ARCH); do \
 	    mkdir -p build/linux/$$arch  && $(MAKE) coredns BINARY=build/linux/$$arch/$(NAME) SYSTEM="GOOS=linux GOARCH=$$arch" CHECKS="" BUILDOPTS="" ;\
@@ -85,35 +88,35 @@ build:
 tar:
 	@echo Cleaning old releases
 	@rm -rf release && mkdir release
-	tar -zcf release/$(NAME)_$(VERSION)_darwin_amd64.tgz -C build/darwin/amd64 $(NAME)
-	tar -zcf release/$(NAME)_$(VERSION)_windows_amd64.tgz -C build/windows/amd64 $(NAME).exe
-	tar -zcf release/$(NAME)_$(VERSION)_linux_mips.tgz -C build/linux/mips $(NAME)
+	# tar -zcf release/$(NAME)_$(VERSION)_darwin_amd64.tgz -C build/darwin/amd64 $(NAME)
+	# tar -zcf release/$(NAME)_$(VERSION)_windows_amd64.tgz -C build/windows/amd64 $(NAME).exe
+	# tar -zcf release/$(NAME)_$(VERSION)_linux_mips.tgz -C build/linux/mips $(NAME)
 	for arch in $(LINUX_ARCH); do \
 	    tar -zcf release/$(NAME)_$(VERSION)_linux_$$arch.tgz -C build/linux/$$arch $(NAME) ;\
 	done
 
 .PHONY: github-push
 github-push:
-	@echo Releasing: $(VERSION)
-	@$(eval RELEASE:=$(shell curl -s -d '{"tag_name": "v$(VERSION)", "name": "v$(VERSION)"}' "https://api.github.com/repos/$(GITHUB)/$(NAME)/releases?access_token=${GITHUB_ACCESS_TOKEN}" | grep -m 1 '"id"' | tr -cd '[[:digit:]]'))
-	@echo ReleaseID: $(RELEASE)
-	@( cd release; for asset in `ls -A *tgz`; do \
-	    echo $$asset; \
-	    curl -o /dev/null -X POST \
-	      -H "Content-Type: application/gzip" \
-	      --data-binary "@$$asset" \
-	      "https://uploads.github.com/repos/$(GITHUB)/$(NAME)/releases/$(RELEASE)/assets?name=$${asset}&access_token=${GITHUB_ACCESS_TOKEN}" ; \
-	done )
-	@( cd release; for asset in `ls -A *tgz`; do \
-	    sha256sum $$asset > $$asset.sha256; \
-	done )
-	@( cd release; for asset in `ls -A *sha256`; do \
-	    echo $$asset; \
-	    curl -o /dev/null -X POST \
-	      -H "Content-Type: text/plain" \
-	      --data-binary "@$$asset" \
-	      "https://uploads.github.com/repos/$(GITHUB)/$(NAME)/releases/$(RELEASE)/assets?name=$${asset}&access_token=${GITHUB_ACCESS_TOKEN}" ; \
-	done )
+	# @echo Releasing: $(VERSION)
+	# @$(eval RELEASE:=$(shell curl -s -d '{"tag_name": "v$(VERSION)", "name": "v$(VERSION)"}' "https://api.github.com/repos/$(GITHUB)/$(NAME)/releases?access_token=${GITHUB_ACCESS_TOKEN}" | grep -m 1 '"id"' | tr -cd '[[:digit:]]'))
+	# @echo ReleaseID: $(RELEASE)
+	# @( cd release; for asset in `ls -A *tgz`; do \
+    #	    echo $$asset; \
+	#    curl -o /dev/null -X POST \
+	#      -H "Content-Type: application/gzip" \
+	#      --data-binary "@$$asset" \
+	#      "https://uploads.github.com/repos/$(GITHUB)/$(NAME)/releases/$(RELEASE)/assets?name=$${asset}&access_token=${GITHUB_ACCESS_TOKEN}" ; \
+	# done )
+	# @( cd release; for asset in `ls -A *tgz`; do \
+#	    sha256sum $$asset > $$asset.sha256; \
+	#done )
+	#@( cd release; for asset in `ls -A *sha256`; do \
+	#    echo $$asset; \
+	#    curl -o /dev/null -X POST \
+	#      -H "Content-Type: text/plain" \
+	#      --data-binary "@$$asset" \
+	#      "https://uploads.github.com/repos/$(GITHUB)/$(NAME)/releases/$(RELEASE)/assets?name=$${asset}&access_token=${GITHUB_ACCESS_TOKEN}" ; \
+	#done )
 
 .PHONY: docker-build
 docker-build: tar

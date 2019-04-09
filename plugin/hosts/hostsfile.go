@@ -15,8 +15,9 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"github.com/coredns/coredns/plugin"
+	"golang.org/x/net/publicsuffix"
+	//"fmt"
 )
 
 func parseLiteralIP(addr string) net.IP {
@@ -228,6 +229,35 @@ func ipVersion(s string) int {
 	return 0
 }
 
+// LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
+func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
+	//fmt.Println("[TRACE] LookupStaticHostV4()", host)
+	h.RLock()
+	defer h.RUnlock()
+	if len(h.hmap.byNameV4) != 0 {
+		// RLS - Given a lengthier domain (a.b.c.com), will attempt to match
+		// its higher level domains against the hosts list (b.c.com, c.com).
+		absDomain := absDomainName(host)
+		absDomainList := getSubdomains(absDomain)
+
+		for _, subdomain := range absDomainList {
+			//fmt.Println("   LookupStaticHostV4()", subdomain)
+			if ips, ok := h.hmap.byNameV4[absDomainName(subdomain)]; ok {
+				ipsCp := make([]net.IP, len(ips))
+				copy(ipsCp, ips)
+				return ipsCp
+			}
+		}
+
+		/*if ips, ok := h.hmap.byNameV4[absDomainName(host)]; ok {
+			ipsCp := make([]net.IP, len(ips))
+			copy(ipsCp, ips)
+			return ipsCp
+		}*/
+	}
+	return nil
+}
+
 // LookupStaticHost looks up the IP addresses for the given host from the hosts file.
 func (h *Hostsfile) lookupStaticHost(hmapByName map[string][]net.IP, host string) []net.IP {
 	fqhost := absDomainName(host)
@@ -248,9 +278,34 @@ func (h *Hostsfile) lookupStaticHost(hmapByName map[string][]net.IP, host string
 	return ipsCp
 }
 
-// LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
-func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
-	return h.lookupStaticHost(h.hmap.byNameV4, host)
+// Returns a list of more general subdomains down to the TLDPlusOne, including the original.
+// ie: "a.b.example.com" returns "a.b.example.com", "b.example.com" and "example.com"
+func getSubdomains(domain string) []string {
+	// shortcut: If domain = TLDPlusOne, then we're done
+	TLDPlusOne, err := publicsuffix.EffectiveTLDPlusOne(domain)
+	if err != nil {
+		return []string{}
+	}
+	if TLDPlusOne == domain {
+		return []string{domain}
+	}
+
+	// Split by periods.
+	parts := strings.Split(domain, ".")
+	len := len(parts)
+	TLDlen := strings.Count(TLDPlusOne, ".") + 1
+
+	//fmt.Printf("  *** domain: %s len: %d  TLDlen: %d\n", domain, len, TLDlen)
+	domains := make([]string, len - TLDlen + 1)
+	domains[len - TLDlen] = TLDPlusOne
+	//fmt.Printf("  ***   domains[%d]=%s\n", len - TLDlen, TLDPlusOne)
+
+	// Reassemble in reverse order starting from TLDPlusOne
+	for i:= len - TLDlen - 1; i>=0; i-- {
+		domains[i] = parts[i] + "." + domains[i+1]
+	}
+	return domains
+
 }
 
 // LookupStaticHostV6 looks up the IPv6 addresses for the given host from the hosts file.

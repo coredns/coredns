@@ -129,6 +129,7 @@ func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
 			f.proxies[i].SetTLSConfig(f.tlsConfig)
 		}
 		f.proxies[i].SetExpire(f.expire)
+		f.proxies[i].SetMaxRequests(f.maxrequests)
 	}
 	return f, nil
 }
@@ -220,7 +221,18 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
-
+	case "max_requests":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		n, err := strconv.Atoi(c.Val())
+		if err != nil {
+			return err
+		}
+		if n < 0 {
+			return fmt.Errorf("max_requests can't be negative: %d", n)
+		}
+		f.maxrequests = uint32(n)
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}

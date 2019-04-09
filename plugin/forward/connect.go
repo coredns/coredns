@@ -14,6 +14,7 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
+	"fmt"
 )
 
 // limitTimeout is a utility function to auto-tune timeout values
@@ -71,6 +72,16 @@ func (t *Transport) Dial(proto string) (*dns.Conn, bool, error) {
 
 // Connect selects an upstream, sends the request and waits for a response.
 func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options) (*dns.Msg, error) {
+	numpending := atomic.AddInt64(&p.transport.pendingrequests, 1)
+	defer func() {
+		atomic.AddInt64(&p.transport.pendingrequests, -1)
+	}()
+
+	if p.transport.maxrequests > 0 && numpending > p.transport.maxrequests {
+		fmt.Printf("Too busy: %d requests pending\n", numpending)
+		return nil, fmt.Errorf("Too busy: %d requests pending", numpending)
+	}
+
 	start := time.Now()
 
 	proto := ""

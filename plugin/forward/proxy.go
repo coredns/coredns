@@ -46,6 +46,9 @@ func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 // SetExpire sets the expire duration in the lower p.transport.
 func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
 
+// SetMaxRequests sets the maxrequests in the lower p.transrpot
+func (p *Proxy) SetMaxRequests(maxrequests uint32) { p.transport.SetMaxRequests(maxrequests) }
+
 // Healthcheck kicks of a round of health checks for this proxy.
 func (p *Proxy) Healthcheck() {
 	if p.health == nil {

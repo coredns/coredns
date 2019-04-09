@@ -27,6 +27,9 @@ type Transport struct {
 	yield chan *dns.Conn
 	ret   chan *dns.Conn
 	stop  chan bool
+
+	pendingrequests int64
+	maxrequests 	int64		// max # of in flight requests. If exceeded, will drop request with error.
 }
 
 func newTransport(addr string) *Transport {
@@ -155,12 +158,15 @@ func (t *Transport) Stop() { close(t.stop) }
 // SetExpire sets the connection expire time in transport.
 func (t *Transport) SetExpire(expire time.Duration) { t.expire = expire }
 
+// SetExpire sets the connection expire time in transport.
+func (t *Transport) SetMaxRequests(maxrequests uint32) { t.maxrequests = int64(maxrequests) }
+
 // SetTLSConfig sets the TLS config in transport.
 func (t *Transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
 
 const (
 	defaultExpire  = 10 * time.Second
-	minDialTimeout = 1 * time.Second
+	minDialTimeout = 2 * time.Second
 	maxDialTimeout = 30 * time.Second
 
 	// Some resolves might take quite a while, usually (cached) responses are fast. Set to 2s to give us some time to retry a different upstream.
