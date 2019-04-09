@@ -1,3 +1,16 @@
+### Winston fork of CoreDNS
+
+Major differences include the inclusion of the Alternate plugin as well as a maximum in flight request
+throttler which drops excessive DNS queries rather than allowing them to spam the box.
+
+Note: To recognize the alternate plugin, you may need to run "go generate".
+
+This version also includes a modified Makefile to build on Windows:
+
+```
+ make release --file Makefile.release
+```
+
 [![CoreDNS](https://coredns.io/images/CoreDNS_Colour_Horizontal.png)](https://coredns.io)
 
 [![Documentation](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/coredns/coredns)
