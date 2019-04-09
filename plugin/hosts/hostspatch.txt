@@ -1,0 +1,38 @@
+diff --git a/plugin/hosts/hostsfile.go b/plugin/hosts/hostsfile.go
+index af5e054f..8b2ffa0a 100644
+--- a/plugin/hosts/hostsfile.go
++++ b/plugin/hosts/hostsfile.go
+@@ -106,13 +106,17 @@ func (h *Hostsfile) readHosts() {
+                return
+        }
+ 
++       newMap := h.parse(file, h.inline)
++       log.Debugf("Parsed hosts file into %d entries", newMap.Len())
++
+        h.Lock()
+-       defer h.Unlock()
+-       h.parseReader(file)
+ 
++       h.hmap = newMap
+        // Update the data cache.
+        h.mtime = stat.ModTime()
+        h.size = stat.Size()
++
++       h.Unlock()
+ }
+ 
+ func (h *Hostsfile) initInline(inline []string) {
+@@ -125,12 +129,6 @@ func (h *Hostsfile) initInline(inline []string) {
+        *h.hmap = *h.inline
+ }
+ 
+-func (h *Hostsfile) parseReader(r io.Reader) {
+-       h.hmap = h.parse(r, h.inline)
+-
+-       log.Debugf("Parsed hosts file into %d entries", h.hmap.Len())
+-}
+-
+ // Parse reads the hostsfile and populates the byName and byAddr maps.
+ func (h *Hostsfile) parse(r io.Reader, override *hostsMap) *hostsMap {
+        hmap := newHostsMap()
+		
