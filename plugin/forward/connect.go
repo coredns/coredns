@@ -78,7 +78,6 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 	}()
 
 	if p.transport.maxrequests > 0 && numpending > p.transport.maxrequests {
-		fmt.Printf("Too busy: %d requests pending\n", numpending)
 		return nil, fmt.Errorf("Too busy: %d requests pending", numpending)
 	}
 
