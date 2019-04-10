@@ -161,3 +161,33 @@ func TestSetupParse(t *testing.T) {
 		}
 	}
 }
+
+func TestSetupParseZones(t *testing.T) {
+	// Verify that template plugin parser should parse double quoted list of zones correctly
+	serverBlockKeys := []string{".:8053"}
+	tests := []struct {
+		inputFileRules string
+		count          int
+	}{
+		{
+			`template ANY ANY a.example.com b.example.com c.example.com {
+				rcode NXDOMAIN
+			}`, 3,
+		},
+		{
+			`template ANY ANY " a.example.com  b.example.com	 c.example.com " {
+				rcode NXDOMAIN
+			}`, 3,
+		},
+	}
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.inputFileRules)
+		c.ServerBlockKeys = serverBlockKeys
+		templates, _ := templateParse(c)
+		zoneCount := len(templates.Templates[0].zones)
+		if zoneCount != test.count {
+			t.Fatalf("Test %d expected %d zones, but got %d \n%v",
+				i, test.count, zoneCount, templates.Templates[0].zones)
+		}
+	}
+}

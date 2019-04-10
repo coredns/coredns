@@ -2,6 +2,7 @@ package template
 
 import (
 	"regexp"
+	"strings"
 	gotmpl "text/template"
 
 	"github.com/coredns/coredns/core/dnsserver"
@@ -58,7 +59,11 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 			return handler, c.Errf("invalid RR class %s", c.Val())
 		}
 
-		zones := c.RemainingArgs()
+		tokenizedZones := c.RemainingArgs()
+		var zones []string
+		for _, z := range tokenizedZones {
+			zones = append(zones, strings.Fields(z)...)
+		}
 		if len(zones) == 0 {
 			zones = make([]string, len(c.ServerBlockKeys))
 			copy(zones, c.ServerBlockKeys)
