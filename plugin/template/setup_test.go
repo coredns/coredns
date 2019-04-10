@@ -163,21 +163,35 @@ func TestSetupParse(t *testing.T) {
 }
 
 func TestSetupParseZones(t *testing.T) {
-	// Verify that template plugin parser should parse double quoted list of zones correctly
+	// Verify that `template` plugin parser should parse double/single quoted list of zones correctly
 	serverBlockKeys := []string{".:8053"}
 	tests := []struct {
 		inputFileRules string
 		count          int
 	}{
+		// zones field is not quoted
 		{
 			`template ANY ANY a.example.com b.example.com c.example.com {
 				rcode NXDOMAIN
 			}`, 3,
 		},
+		// zones field is double quoted
 		{
 			`template ANY ANY " a.example.com  b.example.com	 c.example.com " {
 				rcode NXDOMAIN
 			}`, 3,
+		},
+		// zones field is single quoted
+		{
+			`template ANY ANY ' a.example.com  b.example.com	 c.example.com ' {
+				rcode NXDOMAIN
+			}`, 3,
+		},
+		// zones field is double quoted and the length is more than 255 (max length of DNS full domain name)
+		{
+			`template ANY ANY "com.c.example.internal com.cluster.local com.svc.cluster.local com.google.internal com.default.svc.cluster.local com.example-core.svc.cluster.local net.c.example.internal net.cluster.local net.svc.cluster.local net.google.internal net.default.svc.cluster.local" {
+				rcode NXDOMAIN
+			}`, 11,
 		},
 	}
 	for i, test := range tests {
