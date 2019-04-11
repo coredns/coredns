@@ -69,7 +69,8 @@ func parseGRPCStanza(c *caddyfile.Dispenser) (*GRPC, error) {
 	if !c.Args(&g.from) {
 		return g, c.ArgErr()
 	}
-	g.from = plugin.Host(g.from).Normalize()
+	// We don't expect Normalize to expand
+	g.from = plugin.Host(g.from).Normalize()[0]
 
 	to := c.RemainingArgs()
 	if len(to) == 0 {
@@ -113,7 +114,7 @@ func parseBlock(c *caddyfile.Dispenser, g *GRPC) error {
 			return c.ArgErr()
 		}
 		for i := 0; i < len(ignore); i++ {
-			ignore[i] = plugin.Host(ignore[i]).Normalize()
+			ignore[i] = plugin.Host(ignore[i]).Normalize()[i]
 		}
 		g.ignored = ignore
 	case "tls":

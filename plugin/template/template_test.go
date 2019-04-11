@@ -324,7 +324,7 @@ func TestMultiSection(t *testing.T) {
 		# Implicit section (see c.ServerBlockKeys)
 		# test.:8053 {
 
-	  # REFUSE IN A for the server zone (test.)
+		# REFUSE IN A for the server zone (test.)
 		template IN A {
 			rcode REFUSED
 		}

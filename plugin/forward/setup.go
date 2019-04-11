@@ -94,7 +94,7 @@ func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
 	if !c.Args(&f.from) {
 		return f, c.ArgErr()
 	}
-	//We don't expect Normalize to expand
+	// We don't expect Normalize to expand
 	f.from = plugin.Host(f.from).Normalize()[0]
 
 	to := c.RemainingArgs()
@@ -142,7 +142,7 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 			return c.ArgErr()
 		}
 		for i := 0; i < len(ignore); i++ {
-			//TODO: shall we expect expanded hosts here?
+			// We don't expect Normalize to expand
 			ignore[i] = plugin.Host(ignore[i]).Normalize()[0]
 		}
 		f.ignored = ignore

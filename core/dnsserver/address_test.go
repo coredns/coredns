@@ -2,13 +2,22 @@ package dnsserver
 
 import "testing"
 
+// Test non %8==0 netmasks
 func TestNormalizeReverseZoneWithExpansion(t *testing.T) {
 	for i, test := range []struct {
 		input     string
 		expected  []string
 		shouldErr bool
 	}{
-		{"10.6.84.129/31", []string{"dns://128.84.6.10.in-addr.arpa.:53", "dns://129.84.6.10.in-addr.arpa.:53"}, false},
+		{"10.6.84.129/31",
+			[]string{
+				"dns://128.84.6.10.in-addr.arpa.:53",
+				"dns://129.84.6.10.in-addr.arpa.:53",
+				},false},
+		{"10.0.0.0/31.", // has dot
+			[]string{
+				"dns://10.0.0.0/31.:53",
+				}, false},
 		{"172.17.17.17/12",
 			[]string{
 				"dns://16.172.in-addr.arpa.:53",
@@ -27,7 +36,26 @@ func TestNormalizeReverseZoneWithExpansion(t *testing.T) {
 				"dns://29.172.in-addr.arpa.:53",
 				"dns://30.172.in-addr.arpa.:53",
 				"dns://31.172.in-addr.arpa.:53",
-			}, false},
+				}, false},
+		{"10.129.60.0/22",
+			[]string{
+				"dns://60.129.10.in-addr.arpa.:53",
+				"dns://61.129.10.in-addr.arpa.:53",
+				"dns://62.129.10.in-addr.arpa.:53",
+				"dns://63.129.10.in-addr.arpa.:53",
+				}, false},
+		{"2003::53/67",
+			[]string{
+				"dns://0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.2.ip6.arpa.:53",
+				"dns://1.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.2.ip6.arpa.:53",
+				}, false},
+		{"fd00:77:30::0/110",
+			[]string{
+				"dns://0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa.:53",
+				"dns://1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa.:53",
+				"dns://2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa.:53",
+				"dns://3.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa.:53",
+				}, false},
 	} {
 		hosts, err := normalizeZone(test.input)
 		var actual []string
@@ -108,12 +136,6 @@ func TestNormalizeZoneReverse(t *testing.T) {
 		{"10.0.0.0/24.", "dns://10.0.0.0/24.:53", false},
 		{"10.0.0.0/24:53", "dns://0.0.10.in-addr.arpa.:53", false},
 		{"10.0.0.0/24.:53", "dns://10.0.0.0/24.:53", false},
-
-		// non %8==0 netmasks
-		{"2003::53/67", "dns://0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.2.ip6.arpa.:53", false},
-		{"10.0.0.0/25.", "dns://10.0.0.0/25.:53", false}, // has dot
-		{"10.0.0.0/25", "dns://0.0.10.in-addr.arpa.:53", false},
-		{"fd00:77:30::0/110", "dns://0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa.:53", false},
 	} {
 		addr, err := normalizeZone(test.input)
 		actual := addr[0].String()
@@ -122,6 +144,9 @@ func TestNormalizeZoneReverse(t *testing.T) {
 		}
 		if !test.shouldErr && err != nil {
 			t.Errorf("Test %d: Expected no error, but there was one: %v", i, err)
+		}
+		if len(addr) != 1 {
+			t.Errorf("Test %d: Expected 1 address, but got %d addresses", i, len(addr))
 		}
 		if actual != test.expected {
 			t.Errorf("Test %d: Expected %s but got %s", i, test.expected, actual)

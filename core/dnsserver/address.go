@@ -32,14 +32,11 @@ func (z zoneAddr) String() string {
 // normalizeZone parses a zone string into a structured format with separate
 // host, and port portions, as well as the original input string.
 func normalizeZone(str string) ([]zoneAddr, error) {
-	var err error
-
-	var trans string
-	trans, str = parse.Transport(str)
+	trans, str := parse.Transport(str)
 
 	hosts, port, ipnet, err := plugin.SplitHostPort(str)
 	if err != nil {
-		return []zoneAddr{zoneAddr{}}, err
+		return []zoneAddr{{}}, err
 	}
 
 	if port == "" {

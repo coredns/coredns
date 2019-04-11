@@ -138,12 +138,12 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 	remainingArgs := c.RemainingArgs()
 	var zones []string
 	if len(remainingArgs) != 0 {
-		for i := 0; i < len(remainingArgs); i++ {
-			zones = append(zones, plugin.Host(remainingArgs[i]).Normalize()...)
+		for _, ra := range remainingArgs {
+			zones = append(zones, plugin.Host(ra).Normalize()...)
 		}
 	} else {
-		for i := 0; i < len(c.ServerBlockKeys); i++ {
-			zones = append(zones, plugin.Host(c.ServerBlockKeys[i]).Normalize()...)
+		for _, sbk := range c.ServerBlockKeys {
+			zones = append(zones, plugin.Host(sbk).Normalize()...)
 		}
 	}
 	k8s.Zones = zones

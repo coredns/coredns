@@ -61,8 +61,9 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 		remainingArgs := c.RemainingArgs()
 		var zones []string
 		if len(remainingArgs) == 0 {
-			zones = make([]string, len(c.ServerBlockKeys))
-			copy(zones, c.ServerBlockKeys)
+			for _, sbk := range c.ServerBlockKeys {
+				zones = append(zones, plugin.Host(sbk).Normalize()...)
+			}
 		}
 		for _, str := range remainingArgs {
 			zones = append(zones, plugin.Host(str).Normalize()...)

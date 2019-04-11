@@ -96,6 +96,8 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 			}
 			h.saveConfig(keyConfig, cfg)
 		}
+
+		serverBlocks[ib] = s
 	}
 	return serverBlocks, nil
 }

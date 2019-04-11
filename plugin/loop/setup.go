@@ -76,7 +76,7 @@ func parse(c *caddy.Controller) (*Loop, error) {
 		}
 
 		if len(c.ServerBlockKeys) > 0 {
-			//For loop plugin, we don't expect expansion of host into a few entries
+			// We don't expect Normalize to expand
 			zone = plugin.Host(c.ServerBlockKeys[0]).Normalize()[0]
 		}
 	}

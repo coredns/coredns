@@ -20,10 +20,10 @@ func (f F) Through(qname string) bool {
 // setZones will set zones in f.
 func (f *F) setZones(zones []string) {
 	var normalizedZones []string
-	for i := range zones {
-		normalizedZones = append(normalizedZones, plugin.Host(zones[i]).Normalize()...)
+	for _, zone := range zones {
+		normalizedZones = append(normalizedZones, plugin.Host(zone).Normalize()...)
 	}
-	f.Zones = zones
+	f.Zones = normalizedZones
 }
 
 // SetZonesFromArgs sets zones in f to the passed value or to "." if the slice is empty.

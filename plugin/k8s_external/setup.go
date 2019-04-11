@@ -53,9 +53,11 @@ func parse(c *caddy.Controller) (*External, error) {
 			e.Zones = make([]string, len(c.ServerBlockKeys))
 			copy(e.Zones, c.ServerBlockKeys)
 		}
-		for i, str := range e.Zones {
-			e.Zones[i] = plugin.Host(str).Normalize()
+		var normalizedZones []string
+		for _, str := range e.Zones {
+			normalizedZones = append(normalizedZones, plugin.Host(str).Normalize()...)
 		}
+		e.Zones = normalizedZones
 		for c.NextBlock() {
 			switch c.Val() {
 			case "ttl":

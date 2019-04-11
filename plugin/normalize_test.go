@@ -1,6 +1,9 @@
 package plugin
 
-import "testing"
+import (
+	"strconv"
+	"testing"
+)
 
 func TestZoneMatches(t *testing.T) {
 	child := "example.org."
@@ -69,16 +72,30 @@ func TestNameNormalize(t *testing.T) {
 }
 
 func TestHostNormalize(t *testing.T) {
-	hosts := []string{".:53", ".", "example.org:53", "example.org.", "example.org.:53", "example.org.",
-		"10.0.0.0/8:53", "10.in-addr.arpa.", "10.0.0.0/9", "10.in-addr.arpa.",
-		"dns://example.org", "example.org."}
-
-	for i := 0; i < len(hosts); i += 2 {
-		ts := hosts[i]
-		expected := hosts[i+1]
-		actual := Host(ts).Normalize()
-		if expected != actual {
-			t.Errorf("Expected %v, got %v", expected, actual)
+	normalizedNonMod8Cidr := []string{}
+	for i := 0 ; i < 128 ; i++ {
+		normalizedNonMod8Cidr = append(normalizedNonMod8Cidr, strconv.Itoa(i) + ".10.in-addr.arpa.")
+	}
+	for i, test := range []struct {
+		input string
+		expected []string
+	}{
+		{".:53", []string{"."}},
+		{"example.org:53", []string{"example.org."}},
+		{"example.org.:53", []string{"example.org."}},
+		{"10.0.0.0/8:53", []string{"10.in-addr.arpa."}},
+		{"10.0.0.0/9", normalizedNonMod8Cidr},
+		{"dns://example.org", []string{"example.org."}},
+	} {
+		actual := Host(test.input).Normalize()
+		if len(actual) != len(test.expected) {
+			t.Errorf("Test %d: Expected %d elements but %d observed", i, len(test.expected), len(actual))
+		} else {
+			for ih, host := range actual {
+				if host != test.expected[ih] {
+					t.Errorf("Test %d: Expected %s at index %d but got %s", i, test.expected[ih], ih, host)
+				}
+			}
 		}
 	}
 }

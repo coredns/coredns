@@ -134,49 +134,47 @@ func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err
 	_, n, err := net.ParseCIDR(host) //ip is not used
 
 	if err == nil {
-		//for ip := range ips {
+		ones, bits := n.Mask.Size()
+		// get the size, in bits, of each portion of hostname defined in the reverse address. (8 for IPv4, 4 for IPv6)
+		sizeDigit := 8
+		suffix := "in-addr.arpa."
+		if len(n.IP) == net.IPv6len {
+			sizeDigit = 4
+			suffix = "ip6.arpa."
+		}
 
-		{
-			ones, bits := n.Mask.Size()
-			// get the size, in bits, of each portion of hostname defined in the reverse address. (8 for IPv4, 4 for IPv6)
-			sizeDigit := 8
-			suffix := "in-addr.arpa."
+		iLabelToVariate := ones / sizeDigit
+		for i := 0; i < iLabelToVariate; i++ {
 			if len(n.IP) == net.IPv6len {
-				sizeDigit = 4
-				suffix = "ip6.arpa."
-			}
-
-			iLabelToVariate := ones / sizeDigit
-			for i := 0; i < iLabelToVariate; i++ {
-				if len(n.IP) == net.IPv6len {
-					suffix = quadToStringIPv6(&n.IP[i/2], (i%2) == 0) + "." + suffix
-				} else {
-					suffix = octetToStringIPv4(&n.IP[i]) + "." + suffix
-				}
-			}
-
-			var labelToVariate byte
-			if len(n.IP) == net.IPv6len {
-				labelToVariate = quadValue(&n.IP[iLabelToVariate/2], (iLabelToVariate%2) == 0)
+				suffix = quadToStringIPv6(&n.IP[i/2], (i%2) == 1) + "." + suffix
 			} else {
-				labelToVariate = octetValue(&n.IP[iLabelToVariate])
+				suffix = octetToStringIPv4(&n.IP[i]) + "." + suffix
 			}
-			hosts = []string{}
-			var aHost string
-			var nEntries byte
-			nEntries = (1 << uint((bits-ones)%sizeDigit))
-			var d byte
-			for d = byte(0); d < nEntries; d++ {
-				var b byte
-				b = byte(labelToVariate + d)
+		}
 
-				if len(n.IP) == net.IPv6len {
-					aHost = quadToStringIPv6(&b, true) + "." + suffix
-				} else {
-					aHost = octetToStringIPv4(&b) + "." + suffix
-				}
-				hosts = append(hosts, aHost)
+		var labelToVariate byte
+		if len(n.IP) == net.IPv6len {
+			labelToVariate = quadValue(&n.IP[iLabelToVariate/2], (iLabelToVariate%2) == 0)
+		} else {
+			labelToVariate = octetValue(&n.IP[iLabelToVariate])
+		}
+		hosts = []string{}
+		var aHost string
+		var nEntries byte
+		nEntries = (1 << uint((bits-ones)%sizeDigit))
+		var d byte
+		for d = byte(0); d < nEntries; d++ {
+			var b byte
+			b = byte(labelToVariate + d)
+
+			if ones % sizeDigit == 0 {
+				aHost = suffix
+			} else if len(n.IP) == net.IPv6len {
+				aHost = quadToStringIPv6(&b, true) + "." + suffix
+			} else {
+				aHost = octetToStringIPv4(&b) + "." + suffix
 			}
+			hosts = append(hosts, aHost)
 		}
 	}
 	return hosts, port, n, nil

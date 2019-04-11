@@ -77,8 +77,8 @@ func federationParse(c *caddy.Controller) (*Federation, error) {
 		}
 
 		var normalizedOrigins []string
-		for i := range origins {
-			normalizedOrigins = append(normalizedOrigins, plugin.Host(origins[i]).Normalize()...)
+		for _, origin := range origins {
+			normalizedOrigins = append(normalizedOrigins, plugin.Host(origin).Normalize()...)
 		}
 
 		fed.zones = normalizedOrigins

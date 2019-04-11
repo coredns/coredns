@@ -79,7 +79,7 @@ func (m *Metrics) AddZone(z string) {
 func (m *Metrics) AddZones(zs []string) {
 	m.zoneMu.Lock()
 	for _, z := range zs {
-		m.zoneMap[z] = true
+		m.zoneMap[z] = struct{}{}
 	}
 	m.zoneNames = keys(m.zoneMap)
 	m.zoneMu.Unlock()
