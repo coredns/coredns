@@ -82,9 +82,8 @@ func quadToStringIPv6(b *byte, first bool) string {
 	const hexDigit = "0123456789abcdef"
 	if first {
 		return string(hexDigit[*b&0x0F])
-	} else {
-		return string(hexDigit[*b>>4])
 	}
+	return string(hexDigit[*b>>4])
 }
 
 func octetValue(b *byte) byte {
@@ -94,9 +93,8 @@ func octetValue(b *byte) byte {
 func quadValue(b *byte, first bool) byte {
 	if first {
 		return (*b & 0x0F)
-	} else {
-		return (*b >> 4)
 	}
+	return (*b >> 4)
 }
 
 // SplitHostPort splits s up in a host and port portion, taking reverse address notation into account.
