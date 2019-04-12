@@ -38,7 +38,7 @@ func TestSetupDnssec(t *testing.T) {
 	}{
 		{`dnssec`, false, nil, nil, false, defaultCap, ""},
 		{`dnssec example.org`, false, []string{"example.org."}, nil, false, defaultCap, ""},
-		{`dnssec 10.0.0.0/8`, false, []string{"10.in-addr.arpa."}, nil, false, defaultCap, ""},
+		{`dnssec 10.0.0.0/31`, false, []string{"0.0.0.10.in-addr.arpa.", "1.0.0.10.in-addr.arpa."}, nil, false, defaultCap, ""},
 		{
 			`dnssec example.org {
 				cache_capacity 100
@@ -98,21 +98,24 @@ func TestSetupDnssec(t *testing.T) {
 			}
 		}
 		if !test.shouldErr {
+			if len(zones) != len(test.expectedZones) {
+				t.Errorf("Test %d: Expected %d zones but got %d", i, len(test.expectedZones), len(zones))
+			}
 			for i, z := range test.expectedZones {
 				if zones[i] != z {
-					t.Errorf("Dnssec not correctly set for input %s. Expected: %s, actual: %s", test.input, z, zones[i])
+					t.Errorf("Test %d: Dnssec not correctly set for input %s. Expected: %s, actual: %s", i, test.input, z, zones[i])
 				}
 			}
 			for i, k := range test.expectedKeys {
 				if k != keys[i].K.Header().Name {
-					t.Errorf("Dnssec not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, k, keys[i].K.Header().Name)
+					t.Errorf("Test %d: Dnssec not correctly set for input %s. Expected: '%s', actual: '%s'", i, test.input, k, keys[i].K.Header().Name)
 				}
 			}
 			if splitkeys != test.expectedSplitkeys {
-				t.Errorf("Detected split keys does not match. Expected: %t, actual %t", test.expectedSplitkeys, splitkeys)
+				t.Errorf("Test %d: Detected split keys does not match. Expected: %t, actual %t", i, test.expectedSplitkeys, splitkeys)
 			}
 			if capacity != test.expectedCapacity {
-				t.Errorf("Dnssec not correctly set capacity for input '%s' Expected: '%d', actual: '%d'", test.input, capacity, test.expectedCapacity)
+				t.Errorf("Test %d: Dnssec not correctly set capacity for input '%s' Expected: '%d', actual: '%d'", i, test.input, capacity, test.expectedCapacity)
 			}
 		}
 	}

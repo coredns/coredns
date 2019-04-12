@@ -21,19 +21,19 @@ func TestSetupAutoPath(t *testing.T) {
 	tests := []struct {
 		input              string
 		shouldErr          bool
-		expectedZone       string
+		expectedZones      []string
 		expectedMw         string   // expected plugin.
 		expectedSearch     []string // expected search path
 		expectedErrContent string   // substring from the expected error. Empty for positive cases.
 	}{
 		// positive
-		{`autopath @kubernetes`, false, "", "kubernetes", nil, ""},
-		{`autopath example.org @kubernetes`, false, "example.org.", "kubernetes", nil, ""},
-		{`autopath 10.0.0.0/8 @kubernetes`, false, "10.in-addr.arpa.", "kubernetes", nil, ""},
-		{`autopath ` + resolv, false, "", "", []string{"bar.com.", "baz.com.", ""}, ""},
+		{`autopath @kubernetes`, false, []string{}, "kubernetes", nil, ""},
+		{`autopath example.org @kubernetes`, false, []string{"example.org."}, "kubernetes", nil, ""},
+		{`autopath 10.0.0.0/31 @kubernetes`, false, []string{"0.0.0.10.in-addr.arpa.", "1.0.0.10.in-addr.arpa."}, "kubernetes", nil, ""},
+		{`autopath ` + resolv, false, []string{}, "", []string{"bar.com.", "baz.com.", ""}, ""},
 		// negative
-		{`autopath kubernetes`, true, "", "", nil, "open kubernetes: no such file or directory"},
-		{`autopath`, true, "", "", nil, "no resolv-conf"},
+		{`autopath kubernetes`, true, []string{}, "", nil, "open kubernetes: no such file or directory"},
+		{`autopath`, true, []string{}, "", nil, "no resolv-conf"},
 	}
 
 	for i, test := range tests {
@@ -55,16 +55,18 @@ func TestSetupAutoPath(t *testing.T) {
 		}
 
 		if !test.shouldErr && mw != test.expectedMw {
-			t.Errorf("Test %d, Plugin not correctly set for input %s. Expected: %s, actual: %s", i, test.input, test.expectedMw, mw)
+			t.Errorf("Test %d: Plugin not correctly set for input %s. Expected: %s, actual: %s", i, test.input, test.expectedMw, mw)
 		}
 		if !test.shouldErr && ap.search != nil {
 			if !reflect.DeepEqual(test.expectedSearch, ap.search) {
-				t.Errorf("Test %d, wrong searchpath for input %s. Expected: '%v', actual: '%v'", i, test.input, test.expectedSearch, ap.search)
+				t.Errorf("Test %d: wrong searchpath for input %s. Expected: '%v', actual: '%v'", i, test.input, test.expectedSearch, ap.search)
 			}
 		}
-		if !test.shouldErr && test.expectedZone != "" {
-			if test.expectedZone != ap.Zones[0] {
-				t.Errorf("Test %d, expected zone %q for input %s, got: %q", i, test.expectedZone, test.input, ap.Zones[0])
+		if !test.shouldErr {
+			for j, zone := range ap.Zones {
+				if test.expectedZones[j] != zone {
+					t.Errorf("Test %d: expected zone %q for input %s, got: %q", i, test.expectedZones[j], test.input, zone)
+				}
 			}
 		}
 	}

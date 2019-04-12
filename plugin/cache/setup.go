@@ -71,9 +71,15 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 				args = args[1:]
 			}
 			if len(args) > 0 {
-				copy(origins, args)
+				origins = append(origins, args...)
 			}
 		}
+
+		var zones []string
+		for _, origin := range origins {
+			zones = append(zones, plugin.Host(origin).Normalize()...)
+		}
+		ca.Zones = zones
 
 		// Refinements? In an extra block.
 		for c.NextBlock() {
@@ -185,11 +191,6 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 				return nil, c.ArgErr()
 			}
 		}
-		var zones []string
-		for _, origin := range origins {
-			zones = append(zones, plugin.Host(origin).Normalize()...)
-		}
-		ca.Zones = zones
 
 		ca.pcache = cache.New(ca.pcap)
 		ca.ncache = cache.New(ca.ncap)
