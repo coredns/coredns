@@ -9,7 +9,8 @@ import (
 
 func TestClasslessReverse(t *testing.T) {
 	// 25 -> so anything above 1.127 won't be answered, below is OK.
-	corefile := `192.168.1.0/25:0 {
+	// Additional CIDR to ensure correct CIDR filter
+	corefile := `192.168.1.0/25:0 192.168.3.0/25:0 {
 		whoami
 }
 `

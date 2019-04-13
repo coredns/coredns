@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
+	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/edns"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
@@ -238,16 +240,14 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 		if h, ok := s.zones[string(b[:l])]; ok {
 			if r.Question[0].Qtype != dns.TypeDS {
-				if h.FilterFunc == nil {
+				if h.FilterIPNet == nil { // only queries on non-octet boundaries will be checked against the CIDR range
 					rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 					if !plugin.ClientWrite(rcode) {
 						errorFunc(s.Addr, w, r, rcode)
 					}
 					return
 				}
-				// FilterFunc is set, call it to see if we should use this handler.
-				// This is given to full query name.
-				if h.FilterFunc(q) {
+				if addrInZone(h.FilterIPNet, q) {
 					rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 					if !plugin.ClientWrite(rcode) {
 						errorFunc(s.Addr, w, r, rcode)
@@ -334,6 +334,16 @@ func errorAndMetricsFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int
 	vars.Report(server, state, vars.Dropped, rcode.ToString(rc), answer.Len(), time.Now())
 
 	w.WriteMsg(answer)
+}
+
+// Check if a reverse address is within a net.IPNet
+func addrInZone(ipNet *net.IPNet, s string) bool {
+	// TODO(miek): strings.ToLower! Slow and allocates new string.
+	addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s))
+	if addr == "" {
+		return true
+	}
+	return ipNet.Contains(net.ParseIP(addr))
 }
 
 const (

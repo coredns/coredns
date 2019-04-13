@@ -57,18 +57,6 @@ func dnssecParse(c *caddy.Controller) ([]string, []*DNSKEY, int, bool, error) {
 		}
 		i++
 
-		//// dnssec [zones...]
-		//zones = make([]string, len(c.ServerBlockKeys))
-		//copy(zones, c.ServerBlockKeys)
-		//args := c.RemainingArgs()
-		//if len(args) > 0 {
-		//	zones = args
-		//}
-		//for i := range zones {
-		//	//We don't expect zone expansion after Normalize
-		//	zones[i] = plugin.Host(zones[i]).Normalize()[0]
-		//}
-
 		remainingArgs := c.RemainingArgs()
 		if len(remainingArgs) != 0 {
 			for _, ra := range remainingArgs {

@@ -4,11 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
@@ -84,15 +82,9 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 			}
 
 			ones, bits := za.IPNet.Mask.Size()
-			if (bits-ones)%8 != 0 { // only do this for non-octet boundaries
-				cfg.FilterFunc = func(s string) bool {
-					// TODO(miek): strings.ToLower! Slow and allocates new string.
-					addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s))
-					if addr == "" {
-						return true
-					}
-					return za.IPNet.Contains(net.ParseIP(addr))
-				}
+			// only queries on non-octet boundaries will be checked against the CIDR range
+			if (bits-ones)%8 != 0 {
+				cfg.FilterIPNet = za.IPNet
 			}
 			h.saveConfig(keyConfig, cfg)
 		}
