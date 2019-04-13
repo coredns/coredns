@@ -98,8 +98,10 @@ func quadValue(b *byte, first bool) byte {
 }
 
 // SplitHostPort splits s up in a host and port portion, taking reverse address notation into account.
-// String the string s should *not* be prefixed with any protocols, i.e. dns://. The returned ipnet is the
-// *net.IPNet that is used when the zone is a reverse and a netmask is given.
+// The string s should *not* be prefixed with any protocols, i.e. dns://.
+// It returns a slice of all hosts, the port, the *net.IPNet that is used when the zone is a reverse
+// and a netmask is given. Note that, when a reverse address in CIDR notation is split, the returned
+// slice will contain all reverse zones.
 func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err error) {
 	// If there is: :[0-9]+ on the end we assume this is the port. This works for (ascii) domain
 	// names and our reverse syntax, which always needs a /mask *before* the port.
