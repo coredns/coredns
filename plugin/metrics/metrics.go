@@ -75,16 +75,6 @@ func (m *Metrics) AddZone(z string) {
 	m.zoneMu.Unlock()
 }
 
-// AddZones adds zones from zs to m.
-func (m *Metrics) AddZones(zs []string) {
-	m.zoneMu.Lock()
-	for _, z := range zs {
-		m.zoneMap[z] = struct{}{}
-	}
-	m.zoneNames = keys(m.zoneMap)
-	m.zoneMu.Unlock()
-}
-
 // RemoveZone remove zone z from m.
 func (m *Metrics) RemoveZone(z string) {
 	m.zoneMu.Lock()

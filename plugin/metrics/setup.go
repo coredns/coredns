@@ -88,7 +88,9 @@ func prometheusParse(c *caddy.Controller) (*Metrics, error) {
 		i++
 
 		for _, z := range c.ServerBlockKeys {
-			met.AddZones(plugin.Host(z).Normalize())
+			for _, nz := range plugin.Host(z).Normalize() {
+				met.AddZone(nz)
+			}
 		}
 		args := c.RemainingArgs()
 

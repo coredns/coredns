@@ -106,7 +106,7 @@ func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err
 	// So from the back, find first colon, and then check if its a number.
 	colon := strings.LastIndex(s, ":")
 	if colon == len(s)-1 {
-		return []string{""}, "", nil, fmt.Errorf("expecting data after last colon: %q", s)
+		return nil, "", nil, fmt.Errorf("expecting data after last colon: %q", s)
 	}
 	host := s
 	hosts = []string{host}

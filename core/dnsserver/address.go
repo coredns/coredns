@@ -29,8 +29,9 @@ func (z zoneAddr) String() string {
 	return s
 }
 
-// normalizeZone parses a zone string into a structured format with separate
-// host, and port portions, as well as the original input string.
+// normalizeZone parses a zone string, including CIDR notations for reverse zones, into
+// a structured format with separate host, and port portions, as well as the original
+// input string. In particular, all reverse zones are calculated from a given CIDR.
 func normalizeZone(str string) ([]zoneAddr, error) {
 	trans, str := parse.Transport(str)
 

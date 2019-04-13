@@ -50,7 +50,7 @@ func TestSetup(t *testing.T) {
 				prefetch 10
 			}`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 10, []string{}},
 
-		//// fails
+		// fails
 		{`cache example.nl {
 				success
 				denial 10 15
