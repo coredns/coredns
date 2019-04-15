@@ -86,6 +86,8 @@ func TestHostNormalize(t *testing.T) {
 		{"10.0.0.0/8:53", []string{"10.in-addr.arpa."}},
 		{"10.0.0.0/9", normalizedNonMod8Cidr},
 		{"dns://example.org", []string{"example.org."}},
+		{"10.0.0.0/32", []string{"0.0.0.10.in-addr.arpa."}},
+		{"2003::1/128", []string{"1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.2.ip6.arpa."}},
 	} {
 		actual := Host(test.input).Normalize()
 		if len(actual) != len(test.expected) {
@@ -108,9 +110,11 @@ func TestSplitHostPortReverse(t *testing.T) {
 		"10.0.0.0/17":  32 - 17,
 		"10.0.0.0/0":   32 - 0,
 		"10.0.0.0/64":  0,
+		"10.0.0.0/32":  0,
 		"10.0.0.0":     0,
 		"10.0.0":       0,
 		"2003::1/65":   128 - 65,
+		"2003::1/128":  0,
 	}
 	for in, expect := range tests {
 		_, _, n, err := SplitHostPort(in)

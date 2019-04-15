@@ -152,6 +152,11 @@ func SplitHostPort(s string) (hosts []string, port string, ipnet *net.IPNet, err
 			}
 		}
 
+		if (len(n.IP) == net.IPv6len && (net.IPv6len * 8 == ones)) ||
+			(len(n.IP) == net.IPv4len && (net.IPv4len * 8 == ones)) {
+			return []string{suffix}, port, n, nil
+		}
+
 		var labelToVariate byte
 		if len(n.IP) == net.IPv6len {
 			labelToVariate = quadValue(&n.IP[iLabelToVariate/2], (iLabelToVariate%2) == 0)
