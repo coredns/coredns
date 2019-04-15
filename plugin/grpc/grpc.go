@@ -19,7 +19,7 @@ type GRPC struct {
 	proxies []*Proxy
 	p       Policy
 
-	from    string
+	from    []string
 	ignored []string
 
 	tlsConfig     *tls.Config
@@ -105,16 +105,20 @@ func (g *GRPC) Name() string { return "grpc" }
 func (g *GRPC) len() int { return len(g.proxies) }
 
 func (g *GRPC) match(state request.Request) bool {
-	if !plugin.Name(g.from).Matches(state.Name()) || !g.isAllowedDomain(state.Name()) {
-		return false
+	for _, from := range g.from {
+		if !plugin.Name(from).Matches(state.Name()) || !g.isAllowedDomain(state.Name()) {
+			return false
+		}
 	}
 
 	return true
 }
 
 func (g *GRPC) isAllowedDomain(name string) bool {
-	if dns.Name(name) == dns.Name(g.from) {
-		return true
+	for _, from := range g.from {
+		if dns.Name(name) == dns.Name(from) {
+			return true
+		}
 	}
 
 	for _, ignore := range g.ignored {

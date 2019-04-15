@@ -14,23 +14,24 @@ func TestSetup(t *testing.T) {
 	tests := []struct {
 		input           string
 		shouldErr       bool
-		expectedFrom    string
+		expectedFrom    []string
 		expectedIgnored []string
 		expectedErr     string
 	}{
 		// positive
-		{"grpc . 127.0.0.1", false, ".", nil, ""},
-		{"grpc . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, ""},
-		{"grpc . 127.0.0.1", false, ".", nil, ""},
-		{"grpc . 127.0.0.1:53", false, ".", nil, ""},
-		{"grpc . 127.0.0.1:8080", false, ".", nil, ""},
-		{"grpc . [::1]:53", false, ".", nil, ""},
-		{"grpc . [2003::1]:53", false, ".", nil, ""},
+		{"grpc . 127.0.0.1", false, []string{"."}, nil, ""},
+		{"grpc 10.0.0.0/31 127.0.0.1", false, []string{"0.0.0.10.in-addr.arpa.", "1.0.0.10.in-addr.arpa."}, nil, ""},
+		{"grpc . 127.0.0.1 {\nexcept miek.nl\n}\n", false, []string{"."}, nil, ""},
+		{"grpc . 127.0.0.1", false, []string{"."}, nil, ""},
+		{"grpc . 127.0.0.1:53", false, []string{"."}, nil, ""},
+		{"grpc . 127.0.0.1:8080", false, []string{"."}, nil, ""},
+		{"grpc . [::1]:53", false, []string{"."}, nil, ""},
+		{"grpc . [2003::1]:53", false, []string{"."}, nil, ""},
 		// negative
-		{"grpc . a27.0.0.1", true, "", nil, "not an IP"},
-		{"grpc . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, "unknown property"},
+		{"grpc . a27.0.0.1", true, []string{}, nil, "not an IP"},
+		{"grpc . 127.0.0.1 {\nblaatl\n}\n", true, []string{}, nil, "unknown property"},
 		{`grpc . ::1
-		grpc com ::2`, true, "", nil, "plugin"},
+		grpc com ::2`, true, []string{}, nil, "plugin"},
 	}
 
 	for i, test := range tests {
@@ -51,12 +52,17 @@ func TestSetup(t *testing.T) {
 			}
 		}
 
-		if !test.shouldErr && g.from != test.expectedFrom {
-			t.Errorf("Test %d: expected: %s, got: %s", i, test.expectedFrom, g.from)
-		}
-		if !test.shouldErr && test.expectedIgnored != nil {
-			if !reflect.DeepEqual(g.ignored, test.expectedIgnored) {
-				t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedIgnored, g.ignored)
+		if !test.shouldErr {
+			for j, actual := range g.from {
+				if actual != test.expectedFrom[j] {
+					t.Errorf("Test %d: expected: %s, got: %s", i, test.expectedFrom, g.from)
+				}
+			}
+
+			if test.expectedIgnored != nil {
+				if !reflect.DeepEqual(g.ignored, test.expectedIgnored) {
+					t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedIgnored, g.ignored)
+				}
 			}
 		}
 	}

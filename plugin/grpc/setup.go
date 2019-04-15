@@ -66,11 +66,11 @@ func parseGRPC(c *caddy.Controller) (*GRPC, error) {
 func parseGRPCStanza(c *caddyfile.Dispenser) (*GRPC, error) {
 	g := newGRPC()
 
-	if !c.Args(&g.from) {
+	var from string
+	if !c.Args(&from) {
 		return g, c.ArgErr()
 	}
-	// We don't expect Normalize to expand
-	g.from = plugin.Host(g.from).Normalize()[0]
+	g.from = plugin.Host(from).Normalize()
 
 	to := c.RemainingArgs()
 	if len(to) == 0 {

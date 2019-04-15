@@ -64,7 +64,7 @@ func TestGRPC(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			g := newGRPC()
-			g.from = "."
+			g.from = []string{"."}
 			g.proxies = tt.proxies
 			rec := dnstest.NewRecorder(&test.ResponseWriter{})
 			if _, err := g.ServeDNS(context.TODO(), rec, m); err != nil && !tt.wantErr {
