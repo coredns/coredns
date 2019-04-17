@@ -14,6 +14,7 @@ import (
 	"github.com/coredns/coredns/plugin/debug"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
@@ -35,6 +36,7 @@ type Forward struct {
 	tlsServerName string
 	maxfails      uint32
 	expire        time.Duration
+	fall          fall.F
 
 	opts options // also here for testing
 
@@ -43,7 +45,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, fall: fall.F{}}
 	return f
 }
 
@@ -63,6 +65,7 @@ func (f *Forward) Name() string { return "forward" }
 func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
 	state := request.Request{W: w, Req: r}
+	qname := state.Name()
 	if !f.match(state) {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
@@ -149,6 +152,11 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			formerr := new(dns.Msg)
 			formerr.SetRcode(state.Req, dns.RcodeFormatError)
 			w.WriteMsg(formerr)
+
+			if f.fall.Through(qname) {
+				return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+			}
+
 			return 0, taperr
 		}
 
@@ -156,8 +164,12 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return 0, taperr
 	}
 
-	if upstreamErr != nil {
+	if !f.fall.Through(qname) && upstreamErr != nil {
 		return dns.RcodeServerFailure, upstreamErr
+	}
+
+	if f.fall.Through(qname) {
+		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
 	return dns.RcodeServerFailure, ErrNoHealthy

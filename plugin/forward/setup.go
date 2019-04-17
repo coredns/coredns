@@ -206,6 +206,8 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 			return fmt.Errorf("expire can't be negative: %s", dur)
 		}
 		f.expire = dur
+	case "fallthrough":
+		f.fall.SetZonesFromArgs(c.RemainingArgs())
 	case "policy":
 		if !c.NextArg() {
 			return c.ArgErr()

@@ -27,6 +27,8 @@ func TestSetup(t *testing.T) {
 		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, options{forceTCP: true}, ""},
 		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true}, ""},
 		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, forceTCP: true}, ""},
+		{"forward . 127.0.0.1 {\nfallthrough\n}\n", false, ".", nil, 2, options{}, ""},
+		{"forward . 127.0.0.1 {\nfallthrough hello.com\n}\n", false, ".", nil, 2, options{}, ""},
 		{"forward . 127.0.0.1:53", false, ".", nil, 2, options{}, ""},
 		{"forward . 127.0.0.1:8080", false, ".", nil, 2, options{}, ""},
 		{"forward . [::1]:53", false, ".", nil, 2, options{}, ""},
