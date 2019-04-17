@@ -50,6 +50,7 @@ forward FROM TO... {
     tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION
+    fallthrough [ZONES...]
 }
 ~~~
 
@@ -83,6 +84,10 @@ forward FROM TO... {
   * `round_robin` is a policy that selects hosts based on round robin ordering.
   * `sequential` is a policy that selects hosts based on sequential ordering.
 * `health_check`, use a different **DURATION** for health checking, the default duration is 0.5s.
+* `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
+  If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
+  is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only
+  queries for those zones will be subject to fallthrough.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls-name` for different upstreams you're out of luck.
@@ -142,6 +147,17 @@ Proxy everything except `example.org` using the host's `resolv.conf`'s nameserve
 . {
     forward . /etc/resolv.conf {
         except example.org
+    }
+}
+~~~
+
+Load example.hosts file and only serve example.org and example.net from it and fall through to the
+next plugin if query doesn't match.
+
+~~~
+. {
+    hosts example.hosts example.org example.net {
+        fallthrough
     }
 }
 ~~~
