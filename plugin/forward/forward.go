@@ -65,7 +65,7 @@ func (f *Forward) Name() string { return "forward" }
 func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
 	state := request.Request{W: w, Req: r}
-	qname := state.Name()
+	queryName := state.Name()
 	if !f.match(state) {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
@@ -153,10 +153,6 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			formerr.SetRcode(state.Req, dns.RcodeFormatError)
 			w.WriteMsg(formerr)
 
-			if f.fall.Through(qname) {
-				return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
-			}
-
 			return 0, taperr
 		}
 
@@ -164,11 +160,11 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return 0, taperr
 	}
 
-	if !f.fall.Through(qname) && upstreamErr != nil {
+	if !f.fall.Through(queryName) && upstreamErr != nil {
 		return dns.RcodeServerFailure, upstreamErr
 	}
 
-	if f.fall.Through(qname) {
+	if f.fall.Through(queryName) {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
