@@ -24,6 +24,8 @@ func TestLoadBalance(t *testing.T) {
 		addressExtra  int
 		mxAnswer      int
 		mxExtra       int
+		nsAnswer      int
+		nsExtra       int
 	}{
 		{
 			answer: []dns.RR{
@@ -39,6 +41,15 @@ func TestLoadBalance(t *testing.T) {
 			cnameAnswer:   4,
 			addressAnswer: 1,
 			mxAnswer:      3,
+		},
+		{
+			answer: []dns.RR{
+				test.NS("region2.skydns.test.		300	IN	NS	ns1.region2.skydns.test."),
+				test.NS("region2.skydns.test.		300	IN	NS	ns2.region2.skydns.test."),
+				test.NS("region2.skydns.test.		300	IN	NS	ns3.region2.skydns.test."),
+				test.NS("region2.skydns.test.		300	IN	NS	ns4.region2.skydns.test."),
+			},
+			nsAnswer: 4,
 		},
 		{
 			answer: []dns.RR{
@@ -69,6 +80,10 @@ func TestLoadBalance(t *testing.T) {
 				test.A("endpoint.region2.skydns.test.		300	IN	A			10.240.0.3"),
 				test.AAAA("endpoint.region2.skydns.test.	300	IN	AAAA		::2"),
 				test.MX("mx.region2.skydns.test.			300	IN	MX		1	mx3.region2.skydns.test."),
+				test.NS("region2.skydns.test.				300	IN	NS	ns1.region2.skydns.test."),
+				test.NS("region2.skydns.test.				300	IN	NS	ns2.region2.skydns.test."),
+				test.NS("region2.skydns.test.				300	IN	NS	ns3.region2.skydns.test."),
+				test.NS("region2.skydns.test.				300	IN	NS	ns4.region2.skydns.test."),
 			},
 			cnameAnswer:   1,
 			cnameExtra:    1,
@@ -76,6 +91,7 @@ func TestLoadBalance(t *testing.T) {
 			addressExtra:  4,
 			mxAnswer:      3,
 			mxExtra:       3,
+			nsExtra:       4,
 		},
 	}
 
@@ -94,7 +110,7 @@ func TestLoadBalance(t *testing.T) {
 
 		}
 
-		cname, address, mx, sorted := countRecords(rec.Msg.Answer)
+		cname, address, mx, ns, sorted := countRecords(rec.Msg.Answer)
 		if !sorted {
 			t.Errorf("Test %d: Expected CNAMEs, then AAAAs, then MX in Answer, but got mixed", i)
 		}
@@ -107,8 +123,11 @@ func TestLoadBalance(t *testing.T) {
 		if mx != test.mxAnswer {
 			t.Errorf("Test %d: Expected %d MXs in Answer, but got %d", i, test.mxAnswer, mx)
 		}
+		if ns != test.nsAnswer {
+			t.Errorf("Test %d: Expected %d NSs in Answer, but got %d", i, test.nsAnswer, ns)
+		}
 
-		cname, address, mx, sorted = countRecords(rec.Msg.Extra)
+		cname, address, mx, ns, sorted = countRecords(rec.Msg.Extra)
 		if !sorted {
 			t.Errorf("Test %d: Expected CNAMEs, then AAAAs, then MX in Extra, but got mixed", i)
 		}
@@ -120,6 +139,9 @@ func TestLoadBalance(t *testing.T) {
 		}
 		if mx != test.mxExtra {
 			t.Errorf("Test %d: Expected %d MXs in Extra, but got %d", i, test.mxAnswer, mx)
+		}
+		if ns != test.nsExtra {
+			t.Errorf("Test %d: Expected %d NSs in Extra, but got %d", i, test.nsAnswer, ns)
 		}
 	}
 }
@@ -160,12 +182,13 @@ func TestLoadBalanceXFR(t *testing.T) {
 	}
 }
 
-func countRecords(result []dns.RR) (cname int, address int, mx int, sorted bool) {
+func countRecords(result []dns.RR) (cname int, address int, mx int, ns int, sorted bool) {
 	const (
 		Start = iota
 		CNAMERecords
 		ARecords
 		MXRecords
+		NSRecords
 		Any
 	)
 
@@ -174,6 +197,7 @@ func countRecords(result []dns.RR) (cname int, address int, mx int, sorted bool)
 	cname = 0
 	address = 0
 	mx = 0
+	ns = 0
 	state := Start
 	for _, r := range result {
 		switch r.Header().Rrtype {
@@ -189,6 +213,10 @@ func countRecords(result []dns.RR) (cname int, address int, mx int, sorted bool)
 			sorted = sorted && state <= MXRecords
 			state = MXRecords
 			mx++
+		case dns.TypeNS:
+			sorted = sorted && state <= NSRecords
+			state = NSRecords
+			ns++
 		default:
 			state = Any
 		}
