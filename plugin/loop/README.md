@@ -80,7 +80,7 @@ requests to itself.
 
 There are many ways to work around this issue, some are listed here:
 
-* Add the following to `kubelet`: `--resolv-conf <path-to-your-real-resolv-conf-file>`.  Your "real"
+* Add the following to your `kubelet` config yaml: `ResolverConfig: <path-to-your-real-resolv-conf-file>` (or set it with the deprecated command flag `--resolv-conf`).  Your "real"
   `resolv.conf` is the one that contains the actual IPs of your upstream servers, and no local/loopback address.
   This flag tells `kubelet` to pass an alternate `resolv.conf` to Pods. For systems using `systemd-resolved`,
 `/run/systemd/resolve/resolv.conf` is typically the location of the "real" `resolv.conf`,
