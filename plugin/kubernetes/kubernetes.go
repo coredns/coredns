@@ -484,11 +484,13 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 		// External service
 		if svc.Type == api.ServiceTypeExternalName {
-			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.ExternalName, TTL: k.ttl}
+			s := msg.Service{Host: svc.ExternalName, TTL: k.ttl}
+			s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
 			if t, _ := s.HostType(); t == dns.TypeCNAME {
-				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
 				services = append(services, s)
-
+				err = nil
+			} else if t == dns.TypeA || t == dns.TypeAAAA {
+				services = append(services, s)
 				err = nil
 			}
 			continue
