@@ -14,6 +14,7 @@ import (
 
 	"github.com/mholt/caddy"
 	"github.com/mholt/caddy/caddyfile"
+	"github.com/miekg/dns"
 )
 
 func init() {
@@ -220,7 +221,26 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
-
+	case "retry_on":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		for {
+			code := -1
+			for k, v := range dns.RcodeToString {
+				if v == c.Val() {
+					code = k
+					break
+				}
+			}
+			if code == -1 {
+				return c.ArgErr()
+			}
+			f.retryOn = append(f.retryOn, code)
+			if !c.NextArg() {
+				break
+			}
+		}
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}

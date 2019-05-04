@@ -35,6 +35,7 @@ type Forward struct {
 	tlsServerName string
 	maxfails      uint32
 	expire        time.Duration
+	retryOn       []int
 
 	opts options // also here for testing
 
@@ -126,6 +127,11 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		if child != nil {
 			child.Finish()
 		}
+
+		if f.retryRs(ret, err) {
+			continue
+		}
+
 		taperr := toDnstap(ctx, proxy.addr, f, state, ret, start)
 
 		upstreamErr = err
@@ -161,6 +167,18 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	return dns.RcodeServerFailure, ErrNoHealthy
+}
+
+func (f Forward) retryRs(msg *dns.Msg, err error) bool {
+	if err != nil {
+		return false
+	}
+	for _, rc := range f.retryOn {
+		if rc == msg.Rcode {
+			return true
+		}
+	}
+	return false
 }
 
 func (f *Forward) match(state request.Request) bool {

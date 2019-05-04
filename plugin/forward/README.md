@@ -50,6 +50,7 @@ forward FROM TO... {
     tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION
+    retry_on RESPONCES...
 }
 ~~~
 
@@ -83,6 +84,8 @@ forward FROM TO... {
   * `round_robin` is a policy that selects hosts based on round robin ordering.
   * `sequential` is a policy that selects hosts based on sequential ordering.
 * `health_check`, use a different **DURATION** for health checking, the default duration is 0.5s.
+*  `retry_on` define proxy responses that require retry with next server. This makes sense with `sequential` policy.
+E.g. `retry_on NXDOMAIN`
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls-name` for different upstreams you're out of luck.
