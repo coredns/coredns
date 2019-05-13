@@ -1,8 +1,11 @@
 package tls
 
 import (
+	"crypto/tls"
 	"strings"
 	"testing"
+
+	"github.com/coredns/coredns/core/dnsserver"
 
 	"github.com/mholt/caddy"
 )
@@ -36,5 +39,21 @@ func TestTLS(t *testing.T) {
 				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErrContent, err, test.input)
 			}
 		}
+	}
+}
+
+func TestTLSClientAuthentication(t *testing.T) {
+	// Confirm explicitly specified CA file enables client authentication.
+	c := caddy.NewTestController("dns", "tls test_cert.pem test_key.pem test_ca.pem")
+	err := setup(c)
+	if err != nil {
+		t.Errorf("TLS config is unexpectedly rejected: %v", err)
+	}
+	cfg := dnsserver.GetConfig(c)
+	if cfg.TLSConfig.ClientCAs == nil {
+		t.Errorf("Client CA is not configured")
+	}
+	if cfg.TLSConfig.ClientAuth != tls.RequireAndVerifyClientCert {
+		t.Errorf("Unexpected client auth type: %d", cfg.TLSConfig.ClientAuth)
 	}
 }

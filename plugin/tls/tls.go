@@ -1,6 +1,8 @@
 package tls
 
 import (
+	ctls "crypto/tls"
+
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/tls"
@@ -32,6 +34,12 @@ func setup(c *caddy.Controller) error {
 			return plugin.Error("tls", err)
 		}
 		config.TLSConfig = tls
+
+		// If CA is explicitly specified, we assume client authentication is needed, and adjust TLS config accordingly.
+		if len(args) == 3 {
+			config.TLSConfig.ClientCAs = config.TLSConfig.RootCAs
+			config.TLSConfig.ClientAuth = ctls.RequireAndVerifyClientCert
+		}
 	}
 	return nil
 }
