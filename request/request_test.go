@@ -2,6 +2,7 @@ package request
 
 import (
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/test"
@@ -21,6 +22,22 @@ func TestRequestDo(t *testing.T) {
 func TestRequestRemote(t *testing.T) {
 	st := testRequest()
 	if st.IP() != "10.240.0.1" {
+		t.Errorf("Wrong IP from request")
+	}
+	p := st.Port()
+	if p == "" {
+		t.Errorf("Failed to get Port from request")
+	}
+	if p != "40212" {
+		t.Errorf("Wrong port from request")
+	}
+}
+
+func TestRequestRemoteCustomIP(t *testing.T) {
+	ip := "192.0.2.1"
+
+	st := testRequestFromIP(net.ParseIP(ip))
+	if st.IP() != ip {
 		t.Errorf("Wrong IP from request")
 	}
 	p := st.Port()
@@ -261,6 +278,15 @@ func testRequest() Request {
 	m.SetQuestion("example.com.", dns.TypeA)
 	m.SetEdns0(4096, true)
 	return Request{W: &test.ResponseWriter{}, Req: m}
+}
+
+func testRequestFromIP(ip net.IP) Request {
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	m.SetEdns0(4096, true)
+	rw := &test.ResponseWriter{}
+	rw.RemoteIP = ip
+	return Request{W: rw, Req: m}
 }
 
 func TestRequestClear(t *testing.T) {

@@ -10,7 +10,9 @@ import (
 // remote will always be 10.240.0.1 and port 40212. The local address is always 127.0.0.1 and
 // port 53.
 type ResponseWriter struct {
-	TCP bool // if TCP is true we return an TCP connection instead of an UDP one.
+	TCP               bool // if TCP is true we return an TCP connection instead of an UDP one.
+	RemoteIP          net.IP
+	writeMsgCallCount uint64
 }
 
 // LocalAddr returns the local address, 127.0.0.1:53 (UDP, TCP if t.TCP is true).
@@ -25,7 +27,13 @@ func (t *ResponseWriter) LocalAddr() net.Addr {
 
 // RemoteAddr returns the remote address, always 10.240.0.1:40212 (UDP, TCP is t.TCP is true).
 func (t *ResponseWriter) RemoteAddr() net.Addr {
-	ip := net.ParseIP("10.240.0.1")
+	var ip net.IP
+	if t.RemoteIP != nil {
+		ip = t.RemoteIP
+	} else {
+		ip = net.ParseIP("10.240.0.1")
+	}
+
 	port := 40212
 	if t.TCP {
 		return &net.TCPAddr{IP: ip, Port: port, Zone: ""}
@@ -34,7 +42,7 @@ func (t *ResponseWriter) RemoteAddr() net.Addr {
 }
 
 // WriteMsg implement dns.ResponseWriter interface.
-func (t *ResponseWriter) WriteMsg(m *dns.Msg) error { return nil }
+func (t *ResponseWriter) WriteMsg(m *dns.Msg) error { t.writeMsgCallCount++; return nil }
 
 // Write implement dns.ResponseWriter interface.
 func (t *ResponseWriter) Write(buf []byte) (int, error) { return len(buf), nil }
@@ -50,6 +58,12 @@ func (t *ResponseWriter) TsigTimersOnly(bool) { return }
 
 // Hijack implement dns.ResponseWriter interface.
 func (t *ResponseWriter) Hijack() { return }
+
+// GetWriteMsgCallCount returns the number of WriteMsg calls that were made.
+func (t *ResponseWriter) GetWriteMsgCallCount() uint64 { return t.writeMsgCallCount }
+
+// ResetWriteMsgCallCount returns the number of WriteMsg calls that were made.
+func (t *ResponseWriter) ResetWriteMsgCallCount() { t.writeMsgCallCount = 0 }
 
 // ResponseWriter6 returns fixed client and remote address in IPv6.  The remote
 // address is always fe80::42:ff:feca:4c65 and port 40212. The local address is always ::1 and port 53.
@@ -67,8 +81,14 @@ func (t *ResponseWriter6) LocalAddr() net.Addr {
 
 // RemoteAddr returns the remote address, always fe80::42:ff:feca:4c65 port 40212 (UDP, TCP is t.TCP is true).
 func (t *ResponseWriter6) RemoteAddr() net.Addr {
-	if t.TCP {
-		return &net.TCPAddr{IP: net.ParseIP("fe80::42:ff:feca:4c65"), Port: 40212, Zone: ""}
+	var ip net.IP
+	if t.RemoteIP != nil {
+		ip = t.RemoteIP
+	} else {
+		ip = net.ParseIP("fe80::42:ff:feca:4c65")
 	}
-	return &net.UDPAddr{IP: net.ParseIP("fe80::42:ff:feca:4c65"), Port: 40212, Zone: ""}
+	if t.TCP {
+		return &net.TCPAddr{IP: ip, Port: 40212, Zone: ""}
+	}
+	return &net.UDPAddr{IP: ip, Port: 40212, Zone: ""}
 }

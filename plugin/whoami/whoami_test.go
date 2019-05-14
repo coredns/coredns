@@ -42,8 +42,9 @@ func TestWhoami(t *testing.T) {
 	for i, tc := range tests {
 		req := new(dns.Msg)
 		req.SetQuestion(dns.Fqdn(tc.qname), tc.qtype)
+		rw := &test.ResponseWriter{}
 
-		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		rec := dnstest.NewRecorder(rw)
 		code, err := wh.ServeDNS(ctx, rec, req)
 
 		if err != tc.expectedErr {
@@ -58,6 +59,11 @@ func TestWhoami(t *testing.T) {
 				if actual != expected {
 					t.Errorf("Test %d: Expected answer %s, but got %s", i, expected, actual)
 				}
+			}
+		}
+		if tc.expectedCode == dns.RcodeSuccess {
+			if rw.GetWriteMsgCallCount() != 1 {
+				t.Errorf("Test %d: Expected DNS message to be written on wire, but got %d", i, rw.GetWriteMsgCallCount())
 			}
 		}
 	}
