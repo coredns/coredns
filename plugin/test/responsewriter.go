@@ -2,6 +2,7 @@ package test
 
 import (
 	"net"
+	"sync/atomic"
 
 	"github.com/miekg/dns"
 )
@@ -42,7 +43,10 @@ func (t *ResponseWriter) RemoteAddr() net.Addr {
 }
 
 // WriteMsg implement dns.ResponseWriter interface.
-func (t *ResponseWriter) WriteMsg(m *dns.Msg) error { t.writeMsgCallCount++; return nil }
+func (t *ResponseWriter) WriteMsg(m *dns.Msg) error {
+	atomic.AddUint64(&t.writeMsgCallCount, 1)
+	return nil
+}
 
 // Write implement dns.ResponseWriter interface.
 func (t *ResponseWriter) Write(buf []byte) (int, error) { return len(buf), nil }
@@ -60,10 +64,10 @@ func (t *ResponseWriter) TsigTimersOnly(bool) { return }
 func (t *ResponseWriter) Hijack() { return }
 
 // GetWriteMsgCallCount returns the number of WriteMsg calls that were made.
-func (t *ResponseWriter) GetWriteMsgCallCount() uint64 { return t.writeMsgCallCount }
+func (t *ResponseWriter) GetWriteMsgCallCount() uint64 { return atomic.LoadUint64(&t.writeMsgCallCount) }
 
 // ResetWriteMsgCallCount returns the number of WriteMsg calls that were made.
-func (t *ResponseWriter) ResetWriteMsgCallCount() { t.writeMsgCallCount = 0 }
+func (t *ResponseWriter) ResetWriteMsgCallCount() { atomic.StoreUint64(&t.writeMsgCallCount, 0) }
 
 // ResponseWriter6 returns fixed client and remote address in IPv6.  The remote
 // address is always fe80::42:ff:feca:4c65 and port 40212. The local address is always ::1 and port 53.
