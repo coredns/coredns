@@ -53,7 +53,7 @@ func (k *Kubernetes) AutoPath(state request.Request) []string {
 func (k *Kubernetes) podWithIP(ip string) *object.Pod {
 	ps := k.APIConn.PodIndex(ip)
         for _, p := range ps {
-          if p.Phase == "Running" {
+          if p.Running {
             return p
             }
         }

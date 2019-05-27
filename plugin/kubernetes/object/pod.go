@@ -12,7 +12,7 @@ type Pod struct {
 	Name      string
 	Namespace string
 	Deleting  bool
-        Phase     string
+        Running   bool
 
 	*Empty
 }
@@ -29,12 +29,17 @@ func ToPod(obj interface{}) interface{} {
 		PodIP:     pod.Status.PodIP,
 		Namespace: pod.GetNamespace(),
 		Name:      pod.GetName(),
-                Phase:     string(pod.Status.Phase),
 	}
 	t := pod.ObjectMeta.DeletionTimestamp
 	if t != nil {
 		p.Deleting = !(*t).Time.IsZero()
 	}
+        s := string(pod.Status.Phase)
+        if s == "Running" {
+                p.Running = true
+        } else {
+                p.Running = false
+        }
 
 	*pod = api.Pod{}
 
