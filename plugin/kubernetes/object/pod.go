@@ -12,6 +12,7 @@ type Pod struct {
 	Name      string
 	Namespace string
 	Deleting  bool
+        Phase     string
 
 	*Empty
 }
@@ -28,6 +29,7 @@ func ToPod(obj interface{}) interface{} {
 		PodIP:     pod.Status.PodIP,
 		Namespace: pod.GetNamespace(),
 		Name:      pod.GetName(),
+                Phase:     string(pod.Status.Phase),
 	}
 	t := pod.ObjectMeta.DeletionTimestamp
 	if t != nil {
