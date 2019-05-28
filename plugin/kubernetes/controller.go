@@ -217,7 +217,7 @@ func podListFunc(c kubernetes.Interface, ns string, s labels.Selector) func(meta
 		if len(opts.FieldSelector) > 0 {
 			opts.FieldSelector = opts.FieldSelector + ","
 		}
-		opts.FieldSelector = opts.FieldSelector + "status.phase=Running"
+		opts.FieldSelector = opts.FieldSelector + "status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown"
 		listV1, err := c.CoreV1().Pods(ns).List(opts)
 		return listV1, err
 	}
