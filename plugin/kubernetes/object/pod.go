@@ -22,10 +22,6 @@ func ToPod(obj interface{}) interface{} {
 	if !ok {
 		return nil
 	}
-	s := string(pod.Status.Phase)
-	if s != "Running" {
-		return nil
-	}
 
 	p := &Pod{
 		Version:   pod.GetResourceVersion(),
