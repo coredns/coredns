@@ -5,80 +5,101 @@ initWorkingDir: &initWorkingDir
   name: Initialize Working Directory
   pwd: /
   command: |
-    sudo mkdir -p /go/src/rajansandeep/ci
-    sudo chown -R circleci /go
-    mkdir -p /go/out/tests
-    mkdir -p /go/out/logs
+    mkdir -p ~/go/src/${CIRCLE_PROJECT_USERNAME}/coredns
+    sudo chown -R circleci ~/go
+    mkdir -p ~/go/out/tests
+    mkdir -p ~/go/out/logs
     mkdir -p /home/circleci/logs
     GOROOT=$(go env GOROOT)
     sudo rm -r $(go env GOROOT)
     sudo mkdir $GOROOT
     curl https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz | sudo tar xz -C $GOROOT --strip-components=1
 
+integrationDefaults: &integrationDefaults
+  machine:
+    image: ubuntu-1604:201903-01
+  working_directory: ~/go/src/${CIRCLE_PROJECT_USERNAME}/coredns
+  environment:
+    - K8S_VERSION: v1.13.3
+    - KUBECONFIG: /home/circleci/.kube/config
+    - MINIKUBE_VERSION: v0.33.1
+    - MINIKUBE_WANTUPDATENOTIFICATION: false
+    - MINIKUBE_WANTREPORTERRORPROMPT: false
+    - CHANGE_MINIKUBE_NONE_USER: true
+    - MINIKUBE_HOME: /home/circleci
+
+setupKubernetes: &setupKubernetes
+  - run:
+      name: Setup Kubernetes
+      command: |
+        mkdir -p ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci
+        git clone https://github.com/${CIRCLE_PROJECT_USERNAME}/ci ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci
+
+        # Setup Kubectl
+        curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VERSION}/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+
+        # Setup Minikube
+        mkdir -p ${HOME}/.kube
+        touch ${HOME}/.kube/config
+        curl -Lo minikube https://github.com/kubernetes/minikube/releases/download/${MINIKUBE_VERSION}/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+
+        # Start a local docker repository
+        docker run -d -p 5000:5000 --restart=always --name registry registry:2.6.2
+
+        # Start Minikube
+        sudo -E minikube start --vm-driver=none --cpus 2 --memory 2048 --kubernetes-version=${K8S_VERSION}
+
+        # Wait for minikube to setup
+        JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}';
+        until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do
+          sleep 1;
+        done
+
+        # Scale the CoreDNS replicas to 1 for more accuracy.
+        kubectl scale -n kube-system deployment/coredns --replicas=1
+
+        # Patch CoreDNS to update deployment.
+        kubectl patch deployment coredns -n kube-system -p "$(cat ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci/build/kubernetes/coredns_deployment_patch.yaml)"
+
+        # Deploy test objects
+        kubectl create -f ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci/build/kubernetes/dns-test.yaml
+
+        # Add federation labels to node
+        kubectl label nodes minikube failure-domain.beta.kubernetes.io/zone=fdzone
+        kubectl label nodes minikube failure-domain.beta.kubernetes.io/region=fdregion
+
+        # Start local proxy (for out-of-cluster tests)
+        kubectl proxy --port=8080 2> /dev/null &
+        echo -n $! > sudo /var/run/kubectl_proxy.pid
+        sleep 3
+
+
+buildCoreDNSImage: &buildCoreDNSImage
+  - run:
+      name: Build latest CoreDNS Docker image
+      command: |
+        cd ~/go/src/${CIRCLE_PROJECT_USERNAME}/coredns
+        make coredns SYSTEM="GOOS=linux" && \
+        docker build -t coredns . && \
+        docker tag coredns localhost:5000/coredns && \
+        docker push localhost:5000/coredns
+
 jobs:
-  build:
-    machine:
-      image: ubuntu-1604:201903-01
-    working_directory: /go/src/rajansandeep/ci
-    environment:
-      K8S_VERSION: v1.14.1
-      KUBECONFIG: /home/circleci/.kube/config
-      MINIKUBE_VERSION: v1.1.0
-      MINIKUBE_WANTUPDATENOTIFICATION: false
-      MINIKUBE_WANTREPORTERRORPROMPT: false
-      MINIKUBE_HOME: /home/circleci
-      CHANGE_MINIKUBE_NONE_USER: true
+  kubernetes-tests:
+    <<: *integrationDefaults
     steps:
       - <<: *initWorkingDir
       - checkout
+      - <<: *setupKubernetes
+      - <<: *buildCoreDNSImage
       - run:
-          name: setup kubectl
+          name: Run Kubernetes tests
           command: |
-            curl -Lo kubectl https://storage.googleapis.com/kubernetes-release/release/${K8S_VERSION}/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-            mkdir -p ${HOME}/.kube
-            touch ${HOME}/.kube/config
-      - run:
-          name: setup minikube
-          command: |
-            curl -Lo minikube https://github.com/kubernetes/minikube/releases/download/${MINIKUBE_VERSION}/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
-            # Start a local docker repository
-            docker run -d -p 5000:5000 --restart=always --name registry registry:2.6.2
-      - run:
-          name: setup helm
-          command: curl https://raw.githubusercontent.com/helm/helm/master/scripts/get | bash
-      - run:
-          name: start minikube
-          command: |
-            sudo -E minikube start --vm-driver=none --cpus 2 --memory 2048 --kubernetes-version=${K8S_VERSION}
-      - run:
-          name: wait for minikube
-          command: |
-            JSONPATH='{range .items[*]}{@.metadata.name}:{range @.status.conditions[*]}{@.type}={@.status};{end}{end}';
-            until kubectl get nodes -o jsonpath="$JSONPATH" 2>&1 | grep -q "Ready=True"; do
-              sleep 1;
-            done
-      - run:
-          name: dump cluster-info
-          command: |
-            kubectl cluster-info
-            kubectl get po --all-namespaces
-      - run:
-          name: setup coredns for test
-          command: |
-            # Scale the CoreDNS replicas to 1 for more accuracy.
-            kubectl scale -n kube-system deployment/coredns --replicas=1
+            cd ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci/test/kubernetes
+            GO111MODULE=on go test -v ./...
 
-            # Patch CoreDNS to update deployment.
-            kubectl patch deployment coredns -n kube-system -p "$(cat /go/src/rajansandeep/ci/build/kubernetes/coredns_deployment_patch.yaml)"
-
-            # Deploy test objects
-            kubectl create -f /go/src/rajansandeep/ci/build/kubernetes/dns-test.yaml
-
-            # Add federation labels to node
-            kubectl label nodes minikube failure-domain.beta.kubernetes.io/zone=fdzone
-            kubectl label nodes minikube failure-domain.beta.kubernetes.io/region=fdregion
-
-            # Start local proxy (for out-of-cluster tests)
-            kubectl proxy --port=8080 2> /dev/null &
-            echo -n $! > sudo /var/run/kubectl_proxy.pid
-            sleep 3
+workflows:
+  version: 2
+  integration-tests:
+    jobs:
+      - kubernetes-tests
