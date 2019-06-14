@@ -31,10 +31,7 @@ integrationDefaults: &integrationDefaults
 setupKubernetes: &setupKubernetes
   - run:
       name: Setup Kubernetes
-      command: |
-        mkdir -p ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci
-        git clone https://github.com/${CIRCLE_PROJECT_USERNAME}/ci ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci
-        ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci/build/kubernetes/minikube_setup.sh
+      command: ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci/build/kubernetes/minikube_setup.sh
 
 buildCoreDNSImage: &buildCoreDNSImage
   - run:
@@ -52,6 +49,11 @@ jobs:
     steps:
       - <<: *initWorkingDir
       - checkout
+      - run:
+          name: Get CI repo
+          command : |
+            mkdir -p ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci
+            git clone https://github.com/${CIRCLE_PROJECT_USERNAME}/ci ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci
       - <<: *setupKubernetes
       - <<: *buildCoreDNSImage
       - run:
