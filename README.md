@@ -8,7 +8,7 @@
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1250/badge)](https://bestpractices.coreinfrastructure.org/projects/1250)
 
 CoreDNS is a DNS server/forwarder, written in Go, that chains [plugins](https://coredns.io/plugins).
-Each plugin performs a (DNS) function.
+Each plugin performs a (DNS) function. 
 
 CoreDNS is a [Cloud Native Computing Foundation](https://cncf.io) graduated project.
 
