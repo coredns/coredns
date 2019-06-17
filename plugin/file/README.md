@@ -79,8 +79,8 @@ not being correctly recognized:
 
 We omit the origin for the file `db.example.org`, so this references the zone in the server block,
 which, in this case, is the root zone. Any contents of `db.example.org` will then read with that
-origin set; this may or may not do what you want. It's better to be explicit (which can be done in
-two ways) here and specify the correct origin:
+origin set; this may or may not do what you want.
+It's better to be explicit here and specify the correct origin. This can be done in two ways:"
 
 ~~~
 . {
