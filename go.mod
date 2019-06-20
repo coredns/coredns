@@ -35,7 +35,7 @@ require (
 	github.com/miekg/dns v1.1.14
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
 	github.com/opentracing/opentracing-go v1.0.2
-	github.com/openzipkin/zipkin-go-opentracing v0.3.4
+	github.com/openzipkin/zipkin-go-opentracing v0.3.5
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_golang v1.0.0
