@@ -96,7 +96,7 @@ changes the *reload* plugin is ignorant of that fact.
 
  If monitoring is enabled (via the *prometheus* directive) then the following metric is exported:
 
-* `coredns_reload_failed_count{}` - counts the number of failed reload attempts.
+* `coredns_reload_failed_count_total{}` - counts the number of failed reload attempts.
 
 ## Also See
 
