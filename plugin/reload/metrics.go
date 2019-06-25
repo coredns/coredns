@@ -12,6 +12,6 @@ var (
 		Namespace: plugin.Namespace,
 		Subsystem: "reload",
 		Name:      "failed_count",
-		Help:      "A metrics that counts the number of failed reload attempts.",
+		Help:      "A metric that counts the number of failed reload attempts.",
 	})
 )
