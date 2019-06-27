@@ -83,7 +83,6 @@ spec:
  type: ClusterIP
 ~~~
 
-This will create a resource record for `test.default.example.org`.
 
 # Also See
 
