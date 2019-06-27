@@ -68,6 +68,23 @@ Enable names under `example.org` to be resolved to in cluster DNS addresses.
 }
 ~~~
 
+Create a service in Kubernetes.
+
+~~~
+apiVersion: v1
+kind: Service
+metadata:
+ name: test
+ namespace: default
+spec:
+ clusterIP: None
+ externalIPs:
+ - 192.168.200.123
+ type: ClusterIP
+~~~
+
+This will create a resource record for `test.default.example.org`.
+
 # Also See
 
 For some background see [resolve external IP address](https://github.com/kubernetes/dns/issues/242).
