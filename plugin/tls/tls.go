@@ -2,7 +2,6 @@ package tls
 
 import (
 	ctls "crypto/tls"
-	"os"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
