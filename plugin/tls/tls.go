@@ -2,6 +2,7 @@ package tls
 
 import (
 	ctls "crypto/tls"
+	"os"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -23,6 +24,24 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("tls", err)
 	}
 	return nil
+}
+
+func hardenTLS(tls *ctls.Config) {
+	os.Setenv("GODEBUG", "tls13=1")
+	tls.MinVersion = ctls.VersionTLS12
+	tls.MaxVersion = ctls.VersionTLS13
+	tls.CipherSuites = []uint16{
+		ctls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+		ctls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		ctls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+		ctls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		ctls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		ctls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		ctls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+		ctls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		ctls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	}
+	tls.PreferServerCipherSuites = true
 }
 
 func parseTLS(c *caddy.Controller) error {
@@ -70,6 +89,9 @@ func parseTLS(c *caddy.Controller) error {
 		tls.ClientAuth = clientAuth
 		// NewTLSConfigFromArgs only sets RootCAs, so we need to let ClientCAs refer to it.
 		tls.ClientCAs = tls.RootCAs
+
+		hardenTLS(tls)
+
 		config.TLSConfig = tls
 	}
 	return nil
