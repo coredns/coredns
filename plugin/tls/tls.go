@@ -27,7 +27,6 @@ func setup(c *caddy.Controller) error {
 }
 
 func setTLSDefaults(tls *ctls.Config) {
-	os.Setenv("GODEBUG", "tls13=1")
 	tls.MinVersion = ctls.VersionTLS12
 	tls.MaxVersion = ctls.VersionTLS13
 	tls.CipherSuites = []uint16{
