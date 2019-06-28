@@ -1,0 +1,15 @@
+kind: pipeline
+name: coredns-build-arm64
+
+platform:
+  os: linux
+  arch: arm64
+
+steps:
+- name: coredns-build-arm64
+  image: golang:1.12
+  commands:
+  - make TEST_TYPE=coverage
+  - make TEST_TYPE=integration
+  - make TEST_TYPE=core
+  - make TEST_TYPE=plugin
