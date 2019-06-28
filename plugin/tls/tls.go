@@ -26,7 +26,7 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func hardenTLS(tls *ctls.Config) {
+func setTLSDefaults(tls *ctls.Config) {
 	os.Setenv("GODEBUG", "tls13=1")
 	tls.MinVersion = ctls.VersionTLS12
 	tls.MaxVersion = ctls.VersionTLS13
@@ -90,7 +90,7 @@ func parseTLS(c *caddy.Controller) error {
 		// NewTLSConfigFromArgs only sets RootCAs, so we need to let ClientCAs refer to it.
 		tls.ClientCAs = tls.RootCAs
 
-		hardenTLS(tls)
+		setTLSDefaults(tls)
 
 		config.TLSConfig = tls
 	}
