@@ -2,7 +2,7 @@ package test
 
 import (
 	"fmt"
-	"io"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -35,8 +35,7 @@ func TestLargeAXFR(t *testing.T) {
        }
 }
 `
-
-	// Start server, and send an AXFR query to the TCP port.  We set the deadline to prevent the test from hanging.
+	// Start server, and send an AXFR query to the TCP port. We set the deadline to prevent the test from hanging.
 	i, _, tcp, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -56,8 +55,7 @@ func TestLargeAXFR(t *testing.T) {
 		t.Fatalf("Unable to send TCP query: %s", err)
 	}
 
-	nrr := 0                                             // total number of transferred RRs
-	co.SetReadDeadline(time.Now().Add(60 * time.Second)) // use a longer timeout as it involves transferring a non-trivial amount of data.
+	nrr := 0 // total number of transferred RRs
 	for {
 		resp, err := co.ReadMsg()
 		if err != nil {
@@ -82,18 +80,13 @@ func TestLargeAXFR(t *testing.T) {
 		t.Fatalf("Got an unexpected number of RRs: %d", nrr)
 	}
 
-	// At the time of the initial implementation of this test, the remaining check would fail due to the problem described in PR #2866, so we return here.
-	// Once the issue is resolved this workaround should be removed to enable the check.
-	return
-
-	// Once xfr is completed the server should close the connection, so a further read should result in an EOF error.
-	// This time we use a short timeout to make it faster in case the server doesn't behave as expected.
+	// Once xfr is completed the server should close the connection, so a further read should result in an error.
 	co.SetReadDeadline(time.Now().Add(time.Second))
 	_, err = co.ReadMsg()
 	if err == nil {
 		t.Fatalf("Expected failure on further read, but it succeeded")
 	}
-	if err != io.EOF {
-		t.Fatalf("Expected EOF on further read, but got a different error: %v", err)
+	if !err.(net.Error).Timeout() {
+		t.Fatalf("Expected timeout on further read, but got a different type of error: %v", err)
 	}
 }
