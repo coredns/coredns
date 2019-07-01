@@ -1,18 +1,18 @@
-# azureDNS
+# azure
 
 ## Name
 
-*azureDNS* - enables serving zone data from Microsoft Azure DNS service.
+*azure* - enables serving zone data from Microsoft Azure DNS service.
 
 ## Description
 
-The azureDNS plugin is useful for serving zones from resource record
-sets in Microsoft Azure DNS. The `azureDNS` plugin can be used when coredns is deployed on Azure or elsewhere.
+The azure plugin is useful for serving zones from resource record
+sets in Microsoft Azure DNS. The `azure` plugin can be used when coredns is deployed on Azure or elsewhere.
 
 ## Syntax
 
 ~~~ txt
-azureDNS [resource-group:dns-zone] {
+azure [resource-group:dns-zone] {
     [azure_auth_location <path to azure_auth_location>]
     [azure_tenant_id <azure_tenant_id>]
     [azure_client_id <azure_client_id>]
@@ -42,11 +42,11 @@ azureDNS [resource-group:dns-zone] {
 
 ## Examples
 
-Enable azureDNS with Azure CLI authentication file and an upstream:
+Enable azure with Azure CLI authentication file and an upstream:
 
 ~~~ txt
 . {
-    azureDNS resource-group-foo:foo.com {
+    azure resource-group-foo:foo.com {
       azure_auth_location /tmp/config.json
     }
     forward . 10.0.0.1
@@ -67,7 +67,7 @@ Enable route53 with explicit Azure credentials:
 
 ~~~ txt
 . {
-    azureDNS resource-group-foo:foo.com {
+    azure resource-group-foo:foo.com {
       azure_tenant_id 123abc-123abc-123abc-123abc
       azure_client_id 123abc-123abc-123abc-123abc
       azure_client_secret 123abc-123abc-123abc-123abc
@@ -76,11 +76,11 @@ Enable route53 with explicit Azure credentials:
 }
 ~~~
 
-Enable azureDNS with fallthrough:
+Enable azure with fallthrough:
 
 ~~~ txt
 . {
-    azureDNS resource-group-foo:foo.com {
+    azure resource-group-foo:foo.com {
       fallthrough example.gov.
     }
 }

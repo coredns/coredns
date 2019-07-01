@@ -1,4 +1,4 @@
-package azureDNS
+package azure
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	azureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
+	azure "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
 	"github.com/coredns/coredns/plugin/pkg/fall"
@@ -23,22 +23,19 @@ type zone struct {
 
 type zones map[string][]*zone
 
-type AzureDNS struct {
+// Azure is the core struct of the azure plugin
+type Azure struct {
 	Next      plugin.Handler
 	Fall      fall.F
 	zoneNames []string
-	client    azureDNS.RecordSetsClient
+	client    azure.RecordSetsClient
 	upstream  *upstream.Upstream
 	zMu       sync.RWMutex
 	zones     zones
 }
 
-func New(ctx context.Context, dnsClient azureDNS.RecordSetsClient, keys map[string][]string, up *upstream.Upstream) (*AzureDNS, error) {
-	// keys := {"docker-machine": ["foo.com"]}
-	// we want {"foo.bar" -> []*zone}
-	// the resource set is just an internal info, the zone.id field
-	// zones is {"foo.com": ["single dummy zone for foo.com"]}
-	// zoneNames is "foo.com"
+// New validates the input dns zones and initializes the Azure struct
+func New(ctx context.Context, dnsClient azure.RecordSetsClient, keys map[string][]string, up *upstream.Upstream) (*Azure, error) {
 	zones := make(map[string][]*zone, len(keys))
 	zoneNames := make([]string, 0, len(keys))
 	for resourceGroup, inputZoneNames := range keys {
@@ -54,7 +51,7 @@ func New(ctx context.Context, dnsClient azureDNS.RecordSetsClient, keys map[stri
 			zones[fmt.Sprintf("%s.", zoneName)] = append(zones[zoneName], &zone{id: resourceGroup, dns: zoneName, z: file.NewZone(zoneName, "")})
 		}
 	}
-	return &AzureDNS{
+	return &Azure{
 		client:    dnsClient,
 		zones:     zones,
 		zoneNames: zoneNames,
@@ -62,7 +59,8 @@ func New(ctx context.Context, dnsClient azureDNS.RecordSetsClient, keys map[stri
 	}, nil
 }
 
-func (h *AzureDNS) Run(ctx context.Context) error {
+// Run updates the zones once and starts a goroutine to do it every minute
+func (h *Azure) Run(ctx context.Context) error {
 	if err := h.updateZones(ctx); err != nil {
 		return err
 	}
@@ -70,7 +68,7 @@ func (h *AzureDNS) Run(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Infof("Breaking out of AzureDNS update loop: %v", ctx.Err())
+				log.Infof("Breaking out of Azure update loop: %v", ctx.Err())
 				return
 			case <-time.After(1 * time.Minute):
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
@@ -82,7 +80,7 @@ func (h *AzureDNS) Run(ctx context.Context) error {
 	return nil
 }
 
-func (h *AzureDNS) updateZones(ctx context.Context) error {
+func (h *Azure) updateZones(ctx context.Context) error {
 	errc := make(chan error)
 	defer close(errc)
 	for zName, z := range h.zones {
@@ -126,7 +124,7 @@ func (h *AzureDNS) updateZones(ctx context.Context) error {
 	return nil //
 }
 
-func updateZoneFromResourceSet(recordSet azureDNS.RecordSetListResultPage, hostedZoneDNS string) (*file.Zone, error) {
+func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, hostedZoneDNS string) (*file.Zone, error) {
 	newZ := file.NewZone(hostedZoneDNS, "")
 	for _, result := range *(recordSet.Response().Value) {
 		if result.RecordSetProperties.ARecords != nil {
@@ -175,7 +173,8 @@ func updateZoneFromResourceSet(recordSet azureDNS.RecordSetListResultPage, hoste
 	return newZ, nil
 }
 
-func (h *AzureDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+// ServeDNS uses the azure plugin to serve dns requests
+func (h *Azure) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	qname := state.Name()
 
@@ -224,4 +223,4 @@ func (h *AzureDNS) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 }
 
 // Name implements plugin.Handler.Name.
-func (h *AzureDNS) Name() string { return "azureDNS" }
+func (h *Azure) Name() string { return "azure" }

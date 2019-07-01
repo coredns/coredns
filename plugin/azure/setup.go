@@ -1,4 +1,4 @@
-package azureDNS
+package azure
 
 import (
 	"context"
@@ -16,10 +16,10 @@ import (
 	"github.com/mholt/caddy"
 )
 
-var log = clog.NewWithPlugin("azureDNS")
+var log = clog.NewWithPlugin("azure")
 
 func init() {
-	caddy.RegisterPlugin("azureDNS", caddy.Plugin{
+	caddy.RegisterPlugin("azure", caddy.Plugin{
 		ServerType: "dns",
 		Action:     setup,
 	})
@@ -35,12 +35,12 @@ func setup(c *caddy.Controller) error {
 	dnsClient := dns.NewRecordSetsClient(envSettings.Values[auth.SubscriptionID])
 	dnsClient.Authorizer, err = envSettings.GetAuthorizer()
 	if err != nil {
-		return c.Errf("\nfailed to create azureDNS plugin:\n\n %v\n", err)
+		return c.Errf("\nfailed to create azure plugin:\n\n %v\n", err)
 	}
 	h, err := New(ctx, dnsClient, keys, up)
 	h.Fall = fall
 	if err := h.Run(ctx); err != nil {
-		return c.Errf("failed to initialize azureDNS plugin: %v", err)
+		return c.Errf("failed to initialize azure plugin: %v", err)
 	}
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		h.Next = next

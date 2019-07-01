@@ -1,4 +1,4 @@
-package azureDNS
+package azure
 
 import (
 	"testing"
@@ -11,35 +11,35 @@ func TestSetupRoute53(t *testing.T) {
 		body          string
 		expectedError bool
 	}{
-		{`azureDNS`, false},
-		{`azureDNS :`, true},
-		{`azureDNS resource-set:hosted-zone`, false},
-		{`azureDNS resource-set:hosted-zone {
+		{`azure`, false},
+		{`azure :`, true},
+		{`azure resource-set:hosted-zone`, false},
+		{`azure resource-set:hosted-zone {
     azure_tenant_id
 }`, true},
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
     azure_tenant_id
 }`, true},
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
     azure_client_id
 }`, true},
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
     azure_client_secret
 }`, true},
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
     azure_subscription_id
 }`, true},
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
     upstream 10.0.0.1
 }`, false},
 
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
     upstream
 }`, false},
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
     wat
 }`, true},
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
     azure_tenant_id <azure_tenant_id>
     azure_client_id <azure_client_id>
     azure_client_secret <azure_client_secret>
@@ -47,20 +47,20 @@ func TestSetupRoute53(t *testing.T) {
     upstream 1.2.3.4
 }`, false},
 
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
     fallthrough
 }`, false},
-		{`azureDNS resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone {
 		azure_auth_location
  		upstream 1.2.3.4
 	}`, true},
-		{`azureDNS resource-set:hosted-zone resource-set:hosted-zone {
+		{`azure resource-set:hosted-zone resource-set:hosted-zone {
 			upstream 1.2.3.4
 		}`, true},
-		{`azureDNS resource-set:hosted-zone,hosted-zone-2 {
+		{`azure resource-set:hosted-zone,hosted-zone-2 {
 			upstream 1.2.3.4
 		}`, false},
-		{`azureDNS resource-set {
+		{`azure resource-set {
 			upstream 1.2.3.4
 		}`, true},
 	}

@@ -1,4 +1,4 @@
-package azureDNS
+package azure
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-var demoAzureDNS AzureDNS = AzureDNS{
+var demoAzure Azure = Azure{
 	Next:      returnTestHandler(),
 	Fall:      fall.Zero,
 	zoneNames: []string{"example.org", "www.example.org", "example.org.", "sample.example.org."},
@@ -66,7 +66,7 @@ func returnTestHandler() test.HandlerFunc {
 	}
 }
 
-func TestAzureDNS(t *testing.T) {
+func TestAzure(t *testing.T) {
 	tests := []struct {
 		qname        string
 		qtype        uint16
@@ -109,7 +109,7 @@ func TestAzureDNS(t *testing.T) {
 		req.SetQuestion(dns.Fqdn(tc.qname), tc.qtype)
 
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
-		code, err := demoAzureDNS.ServeDNS(context.Background(), rec, req)
+		code, err := demoAzure.ServeDNS(context.Background(), rec, req)
 
 		if err != tc.expectedErr {
 			t.Fatalf("Test %d: Expected error %v, but got %v", ti, tc.expectedErr, err)
