@@ -8,6 +8,7 @@ import (
 	gotmpl "text/template"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
@@ -47,6 +48,15 @@ type templateData struct {
 	Type     string
 	Message  *dns.Msg
 	Question *dns.Question
+	ctx      context.Context
+}
+
+func (data *templateData) Meta(metaName string) string {
+	f := metadata.ValueFunc(data.ctx, metaName)
+	if f == nil {
+		return ""
+	}
+	return f()
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -59,7 +69,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	}
 
 	for _, template := range h.Templates {
-		data, match, fthrough := template.match(state, zone)
+		data, match, fthrough := template.match(ctx, state, zone)
 		if !match {
 			if !fthrough {
 				return dns.RcodeNameError, nil
@@ -114,7 +124,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 // Name implements the plugin.Handler interface.
 func (h Handler) Name() string { return "template" }
 
-func executeRRTemplate(server, section string, template *gotmpl.Template, data templateData) (dns.RR, error) {
+func executeRRTemplate(server, section string, template *gotmpl.Template, data *templateData) (dns.RR, error) {
 	buffer := &bytes.Buffer{}
 	err := template.Execute(buffer, data)
 	if err != nil {
@@ -129,9 +139,9 @@ func executeRRTemplate(server, section string, template *gotmpl.Template, data t
 	return rr, nil
 }
 
-func (t template) match(state request.Request, zone string) (templateData, bool, bool) {
+func (t template) match(ctx context.Context, state request.Request, zone string) (*templateData, bool, bool) {
 	q := state.Req.Question[0]
-	data := templateData{}
+	data := &templateData{ctx: ctx}
 
 	zone = plugin.Zones(t.zones).Matches(state.Name())
 	if zone == "" {
