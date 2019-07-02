@@ -2,7 +2,6 @@ package test
 
 import (
 	"fmt"
-	"net"
 	"strings"
 	"testing"
 	"time"
@@ -52,9 +51,17 @@ func TestLargeAXFR(t *testing.T) {
 	co.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	err = co.WriteMsg(m)
 	if err != nil {
-		t.Fatalf("Unable to send TCP query: %s", err)
+		t.Fatalf("Unable to send AXFR/TCP query: %s", err)
 	}
 
+	// Then send another query on the same connection.  We use this to confirm that multiple outstanding queries won't cause a race.
+	m.SetQuestion("0.example.com.", dns.TypeAAAA)
+	err = co.WriteMsg(m)
+	if err != nil {
+		t.Fatalf("Unable to send AAAA/TCP query: %s", err)
+	}
+
+	// The AXFR query should be responded first.
 	nrr := 0 // total number of transferred RRs
 	for {
 		resp, err := co.ReadMsg()
@@ -80,13 +87,15 @@ func TestLargeAXFR(t *testing.T) {
 		t.Fatalf("Got an unexpected number of RRs: %d", nrr)
 	}
 
-	// Once xfr is completed the server closes the connection, so a further read should result in an error.
-	co.SetReadDeadline(time.Now().Add(time.Second))
-	_, err = co.ReadMsg()
-	if err == nil {
-		t.Fatalf("Expected failure on further read, but it succeeded")
+	// The file plugin shouldn't hijack or (yet) close the connection, so the second query should also be responded.
+	resp, err := co.ReadMsg()
+	if err != nil {
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
 	}
-	if !err.(net.Error).Timeout() {
-		t.Fatalf("Expected timeout on further read, but got a different type of error: %v", err)
+	if len(resp.Answer) < 1 {
+		t.Fatalf("Expected a non-empty answer, but it was empty")
+	}
+	if resp.Answer[len(resp.Answer)-1].Header().Rrtype != dns.TypeAAAA {
+		t.Fatalf("Expected a AAAA answer, but it wasn't: type %d", resp.Answer[len(resp.Answer)-1].Header().Rrtype)
 	}
 }
