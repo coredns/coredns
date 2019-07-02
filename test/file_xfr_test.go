@@ -80,7 +80,7 @@ func TestLargeAXFR(t *testing.T) {
 		t.Fatalf("Got an unexpected number of RRs: %d", nrr)
 	}
 
-	// Once xfr is completed the server should close the connection, so a further read should result in an error.
+	// Once xfr is completed the server closes the connection, so a further read should result in an error.
 	co.SetReadDeadline(time.Now().Add(time.Second))
 	_, err = co.ReadMsg()
 	if err == nil {
