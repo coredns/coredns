@@ -48,15 +48,19 @@ type templateData struct {
 	Type     string
 	Message  *dns.Msg
 	Question *dns.Question
-	ctx      context.Context
+	md       map[string]metadata.Func
 }
 
 func (data *templateData) Meta(metaName string) string {
-	f := metadata.ValueFunc(data.ctx, metaName)
-	if f == nil {
+	if data.md == nil {
 		return ""
 	}
-	return f()
+
+	if f, ok := data.md[metaName]; ok {
+		return f()
+	}
+
+	return ""
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -141,7 +145,7 @@ func executeRRTemplate(server, section string, template *gotmpl.Template, data *
 
 func (t template) match(ctx context.Context, state request.Request, zone string) (*templateData, bool, bool) {
 	q := state.Req.Question[0]
-	data := &templateData{ctx: ctx}
+	data := &templateData{md: metadata.ValueFuncs(ctx)}
 
 	zone = plugin.Zones(t.zones).Matches(state.Name())
 	if zone == "" {
