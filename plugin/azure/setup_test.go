@@ -31,11 +31,11 @@ func TestSetupRoute53(t *testing.T) {
 }`, true},
 		{`azure resource-set:hosted-zone {
     upstream 10.0.0.1
-}`, false},
+}`, true},
 
 		{`azure resource-set:hosted-zone {
     upstream
-}`, false},
+}`, true},
 		{`azure resource-set:hosted-zone {
     wat
 }`, true},
@@ -44,7 +44,6 @@ func TestSetupRoute53(t *testing.T) {
     azure_client_id <azure_client_id>
     azure_client_secret <azure_client_secret>
     azure_subscription_id <azure_subscription_id>
-    upstream 1.2.3.4
 }`, false},
 
 		{`azure resource-set:hosted-zone {
@@ -52,16 +51,15 @@ func TestSetupRoute53(t *testing.T) {
 }`, false},
 		{`azure resource-set:hosted-zone {
 		azure_auth_location
- 		upstream 1.2.3.4
 	}`, true},
 		{`azure resource-set:hosted-zone resource-set:hosted-zone {
-			upstream 1.2.3.4
+			fallthrough
 		}`, true},
 		{`azure resource-set:hosted-zone,hosted-zone-2 {
-			upstream 1.2.3.4
+			fallthrough
 		}`, false},
 		{`azure resource-set {
-			upstream 1.2.3.4
+			fallthrough
 		}`, true},
 	}
 

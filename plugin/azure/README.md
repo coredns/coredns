@@ -18,7 +18,6 @@ azure [resource-group:dns-zone] {
     [azure_client_id <azure_client_id>]
     [azure_client_secret <azure_client_secret>]
     [azure_subscription_id <azure_subscription_id>]
-    upstream
     fallthrough [ZONES...]
 }
 ~~~
@@ -29,9 +28,6 @@ azure [resource-group:dns-zone] {
     accessed.
 
 *   **`azure_auth_location`** the path to the Azure CLI authentication file. You can also provide the credentials individually (`azure_tenant_id`, `azure_client_id`, `azure_client_secret`, `azure_subscription_id`)
-
-*   `upstream`is used for resolving services that point to external hosts (eg. used to resolve
-    CNAMEs). CoreDNS will resolve against itself.
 
 *   `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
     If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin is

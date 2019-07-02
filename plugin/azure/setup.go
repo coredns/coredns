@@ -128,8 +128,6 @@ func parseCorefile(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]
 				}
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
-			case "upstream":
-				c.RemainingArgs()
 			default:
 				return envSettings, keys, fall, c.Errf("unknown property '%s'", c.Val())
 			}
