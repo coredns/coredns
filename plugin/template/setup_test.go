@@ -3,7 +3,7 @@ package template
 import (
 	"testing"
 
-	"github.com/mholt/caddy"
+	"github.com/caddyserver/caddy"
 )
 
 func TestSetup(t *testing.T) {
@@ -138,13 +138,6 @@ func TestSetupParse(t *testing.T) {
 					authority  "example. 60 IN NS ns1.example."
 					additional "ns0.example. 60 IN A 203.0.113.8"
 					additional "ns1.example. 60 IN A 198.51.100.8"
-				}`,
-			false,
-		},
-		{
-			`template ANY ANY up.stream.local {
-					answer "up.stream.local 5 IN CNAME up.river.local"
-					upstream
 				}`,
 			false,
 		},

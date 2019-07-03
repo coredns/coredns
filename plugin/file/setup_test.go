@@ -5,7 +5,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/test"
 
-	"github.com/mholt/caddy"
+	"github.com/caddyserver/caddy"
 )
 
 func TestFileParse(t *testing.T) {
@@ -40,13 +40,6 @@ func TestFileParse(t *testing.T) {
 			`file ` + zoneFileName2 + ` 10.0.0.0/8`,
 			false,
 			Zones{Names: []string{"10.in-addr.arpa."}},
-		},
-		{
-			`file ` + zoneFileName1 + ` example.net. {
-				upstream a
-			}`,
-			false, // OK for now as we disregard any options for the `upstream`.
-			Zones{Names: []string{"example.net."}},
 		},
 		// errors.
 		{

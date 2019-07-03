@@ -6,7 +6,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/fall"
 
-	"github.com/mholt/caddy"
+	"github.com/caddyserver/caddy"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -287,20 +287,6 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.F{Zones: []string{"ip6.arpa.", "inaddr.arpa.", "foo.com."}},
-		},
-		// Valid upstream
-		{
-			`kubernetes coredns.local {
-	upstream
-}`,
-			false,
-			"",
-			1,
-			0,
-			"",
-			"",
-			podModeDisabled,
-			fall.Zero,
 		},
 		// More than one Kubernetes not allowed
 		{

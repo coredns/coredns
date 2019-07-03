@@ -10,7 +10,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
-	"github.com/mholt/caddy"
+	"github.com/caddyserver/caddy"
 )
 
 func init() {
@@ -113,8 +113,8 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 				reload = d
 
 			case "upstream":
-				// ignore args, will be error later.
-				c.RemainingArgs() // clear buffer
+				// remove soon
+				c.RemainingArgs()
 
 			default:
 				return Zones{}, c.Errf("unknown property '%s'", c.Val())
