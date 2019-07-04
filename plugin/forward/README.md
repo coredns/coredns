@@ -42,6 +42,7 @@ Extra knobs are available with an expanded syntax:
 ~~~
 forward FROM TO... {
     except IGNORED_NAMES...
+    whitelist ALLOWED_NAMES...
     force_tcp
     prefer_udp
     expire DURATION
@@ -56,6 +57,7 @@ forward FROM TO... {
 * **FROM** and **TO...** as above.
 * **IGNORED_NAMES** in `except` is a space-separated list of domains to exclude from forwarding.
   Requests that match none of these names will be passed through.
+* **ALLOWED_NAMES** in `whitelist` is a space-separated list of domains to allowto be forwarded. If whitelist is set all domains not in the list will not be forwarded.
 * `force_tcp`, use TCP even when the request comes in over UDP.
 * `prefer_udp`, try first using UDP even when the request comes in over TCP. If response is truncated
   (TC flag set in response) then do another attempt over TCP. In case if both `force_tcp` and

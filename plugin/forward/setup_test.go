@@ -23,6 +23,7 @@ func TestSetup(t *testing.T) {
 		// positive
 		{"forward . 127.0.0.1", false, ".", nil, 2, options{}, ""},
 		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, options{}, ""},
+		{"forward . 127.0.0.1 {\nwhitelist github.com\n}\n", false, ".", nil, 2, options{}, ""},
 		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, options{}, ""},
 		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, options{forceTCP: true}, ""},
 		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true}, ""},

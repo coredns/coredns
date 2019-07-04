@@ -144,6 +144,15 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 			ignore[i] = plugin.Host(ignore[i]).Normalize()
 		}
 		f.ignored = ignore
+	case "whitelist":
+		whitelist := c.RemainingArgs()
+		if len(whitelist) == 0 {
+			return c.ArgErr()
+		}
+		for i := 0; i < len(whitelist); i++ {
+			whitelist[i] = plugin.Host(whitelist[i]).Normalize()
+		}
+		f.whitelist = whitelist
 	case "max_fails":
 		if !c.NextArg() {
 			return c.ArgErr()

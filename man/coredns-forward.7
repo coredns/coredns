@@ -59,6 +59,7 @@ Extra knobs are available with an expanded syntax:
 .nf
 forward FROM TO... {
     except IGNORED\_NAMES...
+    whitelist ALLOWED_NAMES...
     force\_tcp
     prefer\_udp
     expire DURATION
@@ -77,6 +78,8 @@ forward FROM TO... {
 .IP \(bu 4
 \fBIGNORED_NAMES\fP in \fB\fCexcept\fR is a space-separated list of domains to exclude from forwarding.
 Requests that match none of these names will be passed through.
+.IP \(bu 4
+\fBALLOWED_NAMES\fP in \fB\fCewhitelist\fR is a space-separated list of domains to allow to be forwarded. If whitelist is set all domains not in the list will not be forwarded.
 .IP \(bu 4
 \fB\fCforce_tcp\fR, use TCP even when the request comes in over UDP.
 .IP \(bu 4

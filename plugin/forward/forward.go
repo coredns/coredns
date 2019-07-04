@@ -28,8 +28,9 @@ type Forward struct {
 	p          Policy
 	hcInterval time.Duration
 
-	from    string
-	ignored []string
+	from      string
+	ignored   []string
+        whitelist []string
 
 	tlsConfig     *tls.Config
 	tlsServerName string
@@ -175,7 +176,13 @@ func (f *Forward) isAllowedDomain(name string) bool {
 	if dns.Name(name) == dns.Name(f.from) {
 		return true
 	}
-
+        if len(f.whitelist) > 0 {
+		for _, allowed := range f.whitelist {
+			if plugin.Name(allowed).Matches(name) {
+				return true
+			}
+		}
+                return false
 	for _, ignore := range f.ignored {
 		if plugin.Name(ignore).Matches(name) {
 			return false
