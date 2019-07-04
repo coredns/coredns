@@ -10,6 +10,7 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.2.0 // indirect
 	github.com/Shopify/sarama v1.21.0 // indirect
 	github.com/aws/aws-sdk-go v1.20.5
+	github.com/caddyserver/caddy v1.0.1
 	github.com/coreos/bbolt v1.3.2 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-semver v0.2.0 // indirect
