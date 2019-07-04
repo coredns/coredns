@@ -35,7 +35,7 @@ func setup(c *caddy.Controller) error {
 	dnsClient := dns.NewRecordSetsClient(envSettings.Values[auth.SubscriptionID])
 	dnsClient.Authorizer, err = envSettings.GetAuthorizer()
 	if err != nil {
-		return c.Errf("\nfailed to create azure plugin:\n\n %v\n", err)
+		return c.Errf("failed to create azure plugin: %v", err)
 	}
 	h, err := New(ctx, dnsClient, keys, up)
 	h.Fall = fall
@@ -78,7 +78,7 @@ func parseCorefile(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]
 		}
 		for c.NextBlock() {
 			switch c.Val() {
-			case "azure_auth_location":
+			case "auth_location":
 				var path string
 				if c.NextArg() {
 					path = c.Val()
@@ -86,37 +86,37 @@ func parseCorefile(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]
 					return envSettings, keys, fall, c.ArgErr()
 				}
 				os.Setenv("AZURE_AUTH_LOCATION", path)
-				defer os.Unsetenv("AZURE_AUTH_LOCATION")
 				fileSettings, err := auth.GetSettingsFromFile()
+				os.Unsetenv("AZURE_AUTH_LOCATION")
 				if err != nil {
 					return envSettings, keys, fall, c.Errf("cannot use azure auth location: %s", err.Error())
 				}
 				envSettings.Values = fileSettings.Values
-			case "azure_subscription_id":
+			case "subscription_id":
 				if c.NextArg() {
 					envSettings.Values[auth.SubscriptionID] = c.Val()
 				} else {
 					return envSettings, keys, fall, c.ArgErr()
 				}
-			case "azure_tenant_id":
+			case "tenant_id":
 				if c.NextArg() {
 					envSettings.Values[auth.TenantID] = c.Val()
 				} else {
 					return envSettings, keys, fall, c.ArgErr()
 				}
-			case "azure_client_id":
+			case "client_id":
 				if c.NextArg() {
 					envSettings.Values[auth.ClientID] = c.Val()
 				} else {
 					return envSettings, keys, fall, c.ArgErr()
 				}
-			case "azure_client_secret":
+			case "client_secret":
 				if c.NextArg() {
 					envSettings.Values[auth.ClientSecret] = c.Val()
 				} else {
 					return envSettings, keys, fall, c.ArgErr()
 				}
-			case "azure_environment":
+			case "environment":
 				if c.NextArg() {
 					envSettings.Values[auth.ClientSecret] = c.Val()
 					envSettings.Environment, err = azure.EnvironmentFromName(c.Val())

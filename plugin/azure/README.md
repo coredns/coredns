@@ -13,11 +13,11 @@ sets in Microsoft Azure DNS. The `azure` plugin can be used when coredns is depl
 
 ~~~ txt
 azure [resource-group:dns-zone] {
-    [azure_auth_location <path to azure_auth_location>]
-    [azure_tenant_id <azure_tenant_id>]
-    [azure_client_id <azure_client_id>]
-    [azure_client_secret <azure_client_secret>]
-    [azure_subscription_id <azure_subscription_id>]
+    [auth_location <path to auth_location>]
+    [tenant_id <tenant_id>]
+    [client_id <client_id>]
+    [client_secret <client_secret>]
+    [subscription_id <subscription_id>]
     fallthrough [ZONES...]
 }
 ~~~
@@ -27,7 +27,7 @@ azure [resource-group:dns-zone] {
 *   **`dns-zone`** the dns zone that contains the resource record sets to be
     accessed.
 
-*   **`azure_auth_location`** the path to the Azure CLI authentication file. You can also provide the credentials individually (`azure_tenant_id`, `azure_client_id`, `azure_client_secret`, `azure_subscription_id`)
+*   **`auth_location`** the path to the Azure CLI authentication file. You can also provide the credentials individually (`tenant_id`, `client_id`, `client_secret`, `subscription_id`)
 
 *   `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
     If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin is
@@ -43,7 +43,7 @@ Enable azure with Azure CLI authentication file and an upstream:
 ~~~ txt
 . {
     azure resource-group-foo:foo.com {
-      azure_auth_location /tmp/config.json
+      auth_location /tmp/config.json
     }
     forward . 10.0.0.1
 }
@@ -64,10 +64,10 @@ Enable route53 with explicit Azure credentials:
 ~~~ txt
 . {
     azure resource-group-foo:foo.com {
-      azure_tenant_id 123abc-123abc-123abc-123abc
-      azure_client_id 123abc-123abc-123abc-123abc
-      azure_client_secret 123abc-123abc-123abc-123abc
-      azure_subscription_id 123abc-123abc-123abc-123abc
+      tenant_id 123abc-123abc-123abc-123abc
+      client_id 123abc-123abc-123abc-123abc
+      client_secret 123abc-123abc-123abc-123abc
+      subscription_id 123abc-123abc-123abc-123abc
     }
 }
 ~~~

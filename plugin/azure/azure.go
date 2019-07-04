@@ -42,7 +42,7 @@ func New(ctx context.Context, dnsClient azure.RecordSetsClient, keys map[string]
 		for _, zoneName := range inputZoneNames {
 			_, err := dnsClient.ListAllByDNSZone(context.Background(), resourceGroup, zoneName, nil, "")
 			if err != nil {
-				log.Fatalf("err not nil:%s", err.Error())
+				return nil, err
 			}
 
 			if _, ok := zones[zoneName]; !ok {
@@ -71,7 +71,7 @@ func (h *Azure) Run(ctx context.Context) error {
 				log.Infof("Breaking out of Azure update loop: %v", ctx.Err())
 				return
 			case <-time.After(1 * time.Minute):
-				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
+				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil {
 					log.Errorf("Failed to update zones: %v", err)
 				}
 			}
@@ -84,8 +84,6 @@ func (h *Azure) updateZones(ctx context.Context) error {
 	errc := make(chan error)
 	defer close(errc)
 	for zName, z := range h.zones {
-		// zName - docker-machine
-		// z - foo.com, AAA, SOA
 		go func(zName string, z []*zone) {
 			var err error
 			defer func() {
@@ -95,13 +93,10 @@ func (h *Azure) updateZones(ctx context.Context) error {
 			for i, hostedZone := range z {
 				recordSet, err := h.client.ListByDNSZone(context.Background(), hostedZone.id, hostedZone.dns, nil, "")
 				if err != nil {
-					log.Fatalf("in update, err not nil: %s", err.Error())
+					err = fmt.Errorf("failed to list resource records for %v from azure: %v", hostedZone.dns, err)
+					return
 				}
-
-				newZ, err := updateZoneFromResourceSet(recordSet, hostedZone.dns)
-				if err != nil {
-					log.Fatalf("in update, err not nil: %s", err.Error())
-				}
+				newZ := updateZoneFromResourceSet(recordSet, hostedZone.dns)
 				newZ.Upstream = h.upstream
 				h.zMu.Lock()
 				(*z[i]).z = newZ
@@ -121,10 +116,10 @@ func (h *Azure) updateZones(ctx context.Context) error {
 	if len(errs) != 0 {
 		return fmt.Errorf("errors updating zones: %v", errs)
 	}
-	return nil //
+	return nil
 }
 
-func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, hostedZoneDNS string) (*file.Zone, error) {
+func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, hostedZoneDNS string) *file.Zone {
 	newZ := file.NewZone(hostedZoneDNS, "")
 	for _, result := range *(recordSet.Response().Value) {
 		if result.RecordSetProperties.ARecords != nil {
@@ -132,7 +127,7 @@ func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, hostedZo
 				rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "A", *(a.Ipv4Address))
 				r, err := dns.NewRR(rfc1035)
 				if err != nil {
-					log.Fatalf("CANNOT typecast to coredns: %s", err.Error())
+					log.Warningf("failed to process resource record set: %v", err.Error())
 				}
 				newZ.Insert(r)
 			}
@@ -143,7 +138,7 @@ func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, hostedZo
 				rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "AAAA", *(a.Ipv6Address))
 				r, err := dns.NewRR(rfc1035)
 				if err != nil {
-					log.Fatalf("CANNOT typecast to coredns: %s", err.Error())
+					log.Warningf("failed to process resource record set: %v", err.Error())
 				}
 				newZ.Insert(r)
 			}
@@ -154,7 +149,7 @@ func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, hostedZo
 				rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "NS", *(a.Nsdname))
 				r, err := dns.NewRR(rfc1035)
 				if err != nil {
-					log.Fatalf("CANNOT typecast to coredns: %s", err.Error())
+					log.Warningf("failed to process resource record set: %v", err.Error())
 				}
 				newZ.Insert(r)
 			}
@@ -165,12 +160,12 @@ func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, hostedZo
 			rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "SOA", fmt.Sprintf("%s %s %d %d %d %d %d", *(a.Host), *(a.Email), *(a.SerialNumber), *(a.RefreshTime), *(a.RetryTime), *(a.ExpireTime), *(a.MinimumTTL)))
 			r, err := dns.NewRR(rfc1035)
 			if err != nil {
-				log.Fatalf("CANNOT typecast to coredns: %s", err.Error())
+				log.Warningf("failed to process resource record set: %v", err.Error())
 			}
 			newZ.Insert(r)
 		}
 	}
-	return newZ, nil
+	return newZ
 }
 
 // ServeDNS uses the azure plugin to serve dns requests

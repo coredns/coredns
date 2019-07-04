@@ -15,19 +15,19 @@ func TestSetupRoute53(t *testing.T) {
 		{`azure :`, true},
 		{`azure resource-set:hosted-zone`, false},
 		{`azure resource-set:hosted-zone {
-    azure_tenant_id
+    tenant_id
 }`, true},
 		{`azure resource-set:hosted-zone {
-    azure_tenant_id
+    tenant_id
 }`, true},
 		{`azure resource-set:hosted-zone {
-    azure_client_id
+    client_id
 }`, true},
 		{`azure resource-set:hosted-zone {
-    azure_client_secret
+    client_secret
 }`, true},
 		{`azure resource-set:hosted-zone {
-    azure_subscription_id
+    subscription_id
 }`, true},
 		{`azure resource-set:hosted-zone {
     upstream 10.0.0.1
@@ -37,13 +37,13 @@ func TestSetupRoute53(t *testing.T) {
     upstream
 }`, true},
 		{`azure resource-set:hosted-zone {
-    wat
+    foobar
 }`, true},
 		{`azure resource-set:hosted-zone {
-    azure_tenant_id <azure_tenant_id>
-    azure_client_id <azure_client_id>
-    azure_client_secret <azure_client_secret>
-    azure_subscription_id <azure_subscription_id>
+    tenant_id <tenant_id>
+    client_id <client_id>
+    client_secret <client_secret>
+    subscription_id <subscription_id>
 }`, false},
 
 		{`azure resource-set:hosted-zone {
