@@ -44,11 +44,12 @@ func New(ctx context.Context, dnsClient azure.RecordSetsClient, keys map[string]
 			if err != nil {
 				return nil, err
 			}
-
-			if _, ok := zones[zoneName]; !ok {
-				zoneNames = append(zoneNames, fmt.Sprintf("%s.", zoneName))
+			// Normalizing zoneName to make it fqdn
+			zoneNameFQDN := fmt.Sprintf("%s.", zoneName)
+			if _, ok := zones[zoneNameFQDN]; !ok {
+				zoneNames = append(zoneNames, zoneNameFQDN)
 			}
-			zones[fmt.Sprintf("%s.", zoneName)] = append(zones[zoneName], &zone{id: resourceGroup, dns: zoneName, z: file.NewZone(zoneName, "")})
+			zones[zoneNameFQDN] = append(zones[zoneNameFQDN], &zone{id: resourceGroup, dns: zoneName, z: file.NewZone(zoneName, "")})
 		}
 	}
 	return &Azure{
@@ -96,7 +97,7 @@ func (h *Azure) updateZones(ctx context.Context) error {
 					err = fmt.Errorf("failed to list resource records for %v from azure: %v", hostedZone.dns, err)
 					return
 				}
-				newZ := updateZoneFromResourceSet(recordSet, hostedZone.dns)
+				newZ := updateZoneFromResourceSet(recordSet, zName)
 				newZ.Upstream = h.upstream
 				h.zMu.Lock()
 				(*z[i]).z = newZ
@@ -119,8 +120,8 @@ func (h *Azure) updateZones(ctx context.Context) error {
 	return nil
 }
 
-func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, hostedZoneDNS string) *file.Zone {
-	newZ := file.NewZone(hostedZoneDNS, "")
+func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, zName string) *file.Zone {
+	newZ := file.NewZone(zName, "")
 	for _, result := range *(recordSet.Response().Value) {
 		if result.RecordSetProperties.ARecords != nil {
 			for _, a := range *(result.RecordSetProperties.ARecords) {
