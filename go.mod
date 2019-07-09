@@ -72,4 +72,4 @@ require (
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
 
-replace github.com/miekg/dns v1.1.3 => github.com/miekg/dns v1.1.14
+replace github.com/miekg/dns v1.1.3 => github.com/miekg/dns v1.1.15

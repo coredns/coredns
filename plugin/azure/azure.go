@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -45,8 +46,11 @@ func New(ctx context.Context, dnsClient azure.RecordSetsClient, keys map[string]
 			if err != nil {
 				return nil, err
 			}
-			// Normalizing zoneName to make it fqdn
-			zoneNameFQDN := fmt.Sprintf("%s.", zoneName)
+			zoneNameFQDN := zoneName
+			// Normalizing zoneName to make it fqdn if required
+			if !strings.HasSuffix(zoneNameFQDN, ".") {
+				zoneNameFQDN = fmt.Sprintf("%s.", zoneNameFQDN)
+			}
 			if _, ok := zones[zoneNameFQDN]; !ok {
 				zoneNames = append(zoneNames, zoneNameFQDN)
 			}

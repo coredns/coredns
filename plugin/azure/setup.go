@@ -7,7 +7,7 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/pkg/fall"
+	pkgFall "github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
@@ -39,9 +39,12 @@ func setup(c *caddy.Controller) error {
 		return c.Errf("failed to create azure plugin: %v", err)
 	}
 	h, err := New(ctx, dnsClient, keys, up)
+	if err != nil {
+		return c.Errf("failed to initialize azure plugin: %v", err)
+	}
 	h.Fall = fall
 	if err := h.Run(ctx); err != nil {
-		return c.Errf("failed to initialize azure plugin: %v", err)
+		return c.Errf("failed to run azure plugin: %v", err)
 	}
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		h.Next = next
@@ -50,13 +53,12 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func parseCorefile(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, fall.F, error) {
+func parseCorefile(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, pkgFall.F, error) {
 	keyPairs := map[string]struct{}{}
 	keys := map[string][]string{}
 	var err error
-	var fall fall.F
+	var fall pkgFall.F
 	envSettings := auth.EnvironmentSettings{Values: map[string]string{}}
-	// envSettings.Values[auth.Resource] = "866a1291-8274-4540-9779-b5d4c5d53f5a"
 
 	for c.Next() {
 		args := c.RemainingArgs()
