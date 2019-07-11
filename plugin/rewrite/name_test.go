@@ -12,6 +12,58 @@ import (
 	"github.com/miekg/dns"
 )
 
+func TestRewriteLongName(t *testing.T) {
+	r, _ := newTypeRule("stop", "ANY", "HINFO")
+
+	rw := Rewrite{
+		Next:     plugin.HandlerFunc(msgPrinter),
+		Rules:    []Rule{r},
+		noRevert: true,
+	}
+
+	ctx := context.TODO()
+
+	m := new(dns.Msg)
+	qName := `\208\180\208\187\208\184\208\189` +
+		`\208\189\208\190\208\181\208\191` +
+		`\209\128\208\181\208\180\208\187` +
+		`\208\184\208\189\208\189\208\190` +
+		`\208\181\208\189\208\181\208\187` +
+		`\208\176\209\130\208\184\208\189` +
+		`\209\129\208\186\208\190\208\181` +
+		`\208\184\208\188\209\143.` +
+		`reallytoolongname.reallytoolongname.` +
+		`reallytoolongname.reallytoolongname.` +
+		`reallytoolongname.reallytoolongname.` +
+		`reallytoolongname.reallytoolongname.` +
+		`reallytoolongname.reallytoolongname.` +
+		`reallytoolongname.com.`
+	m.SetQuestion(qName, dns.TypeANY)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	_, err := rw.ServeDNS(ctx, rec, m)
+	if err == nil || !strings.Contains(err.Error(), "invalid name") {
+		t.Errorf("Expected invalid name, got %s", err)
+	}
+
+	m = new(dns.Msg)
+	qName = `\208\180\208\187\208\184\208\189` +
+		`\208\189\208\190\208\181\208\191` +
+		`\209\128\208\181\208\180\208\187` +
+		`\208\184\208\189\208\189\208\190` +
+		`\208\181\208\189\208\181\208\187` +
+		`\208\176\209\130\208\184\208\189` +
+		`\209\129\208\186\208\190\208\181` +
+		`\208\184\208\188\209\143.` +
+		`longnonasciiname.com.`
+	m.SetQuestion(qName, dns.TypeANY)
+
+	_, err = rw.ServeDNS(ctx, rec, m)
+	if err != nil && strings.Contains(err.Error(), "invalid name") {
+		t.Errorf("Expected valid name, got %s", err)
+	}
+}
+
 func TestRewriteIllegalName(t *testing.T) {
 	r, _ := newNameRule("stop", "example.org.", "example..org.")
 
