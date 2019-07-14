@@ -267,20 +267,15 @@ func loadFormat(s string) replacer {
 	return v.(replacer)
 }
 
-// bufPool stores pointers to scratch buffers.  We store a pointer to the slice
-// as it saves an allocation during the slice => interface{} conversion.  If we
-// were to store the slice value a pointer to it would have to be created on
-// each Put().
+// bufPool stores pointers to scratch buffers.
 var bufPool = sync.Pool{
 	New: func() interface{} {
-		b := make([]byte, 0, 256)
-		return &b
+		return make([]byte, 0, 256)
 	},
 }
 
 func (r replacer) Replace(ctx context.Context, state request.Request, rr *dnstest.Recorder) string {
-	p := bufPool.Get().(*[]byte)
-	b := *p
+	b := bufPool.Get().([]byte)
 	for _, s := range r {
 		switch s.typ {
 		case typeLabel:
@@ -296,7 +291,6 @@ func (r replacer) Replace(ctx context.Context, state request.Request, rr *dnstes
 		}
 	}
 	s := string(b)
-	*p = b[:0]
-	bufPool.Put(p)
+	bufPool.Put(b[:0])
 	return s
 }
