@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/coredns/coredns/plugin/metadata"
@@ -14,13 +15,27 @@ import (
 )
 
 // Replacer replaces labels for values in strings.
-type Replacer struct {
-	valueFunc func(request.Request, *dnstest.Recorder, string) string
-	labels    []string
+type Replacer struct{}
+
+// New makes a new replacer. This only needs to be called once in the setup and
+// then call Replace for each incoming message. A replacer is safe for concurrent use.
+func New() Replacer {
+	return Replacer{}
 }
 
+// Replace performs a replacement of values on s and returns the string with the replaced values.
+func (r Replacer) Replace(ctx context.Context, state request.Request, rr *dnstest.Recorder, s string) string {
+	return loadFormat(s).Replace(ctx, state, rr)
+}
+
+const (
+	headerReplacer = "{>"
+	// EmptyValue is the default empty value.
+	EmptyValue = "-"
+)
+
 // labels are all supported labels that can be used in the default Replacer.
-var labels = []string{
+var labels = [...]string{
 	"{type}",
 	"{name}",
 	"{class}",
@@ -41,168 +56,247 @@ var labels = []string{
 	headerReplacer + "rflags}",
 }
 
-// value returns the current value of label.
-func value(state request.Request, rr *dnstest.Recorder, label string) string {
+var knownLabels = map[string]struct{}{
+	"{type}":                    {},
+	"{name}":                    {},
+	"{class}":                   {},
+	"{proto}":                   {},
+	"{size}":                    {},
+	"{remote}":                  {},
+	"{port}":                    {},
+	"{local}":                   {},
+	headerReplacer + "id}":      {},
+	headerReplacer + "opcode}":  {},
+	headerReplacer + "do}":      {},
+	headerReplacer + "bufsize}": {},
+	"{rcode}":                   {},
+	"{rsize}":                   {},
+	"{duration}":                {},
+	headerReplacer + "rflags}":  {},
+}
+
+// appendValue appends the current value of label.
+func appendValue(b []byte, state request.Request, rr *dnstest.Recorder, label string) []byte {
 	switch label {
 	case "{type}":
-		return state.Type()
+		return append(b, state.Type()...)
 	case "{name}":
-		return state.Name()
+		return append(b, state.Name()...)
 	case "{class}":
-		return state.Class()
+		return append(b, state.Class()...)
 	case "{proto}":
-		return state.Proto()
+		return append(b, state.Proto()...)
 	case "{size}":
-		return strconv.Itoa(state.Req.Len())
+		return strconv.AppendInt(b, int64(state.Req.Len()), 10)
 	case "{remote}":
-		return addrToRFC3986(state.IP())
+		return appendAddrToRFC3986(b, state.IP())
 	case "{port}":
-		return state.Port()
+		return append(b, state.Port()...)
 	case "{local}":
-		return addrToRFC3986(state.LocalIP())
+		return appendAddrToRFC3986(b, state.LocalIP())
 	// Header placeholders (case-insensitive).
 	case headerReplacer + "id}":
-		return strconv.Itoa(int(state.Req.Id))
+		return strconv.AppendInt(b, int64(state.Req.Id), 10)
 	case headerReplacer + "opcode}":
-		return strconv.Itoa(state.Req.Opcode)
+		return strconv.AppendInt(b, int64(state.Req.Opcode), 10)
 	case headerReplacer + "do}":
-		return boolToString(state.Do())
+		return strconv.AppendBool(b, state.Do())
 	case headerReplacer + "bufsize}":
-		return strconv.Itoa(state.Size())
+		return strconv.AppendInt(b, int64(state.Size()), 10)
 	// Recorded replacements.
 	case "{rcode}":
 		if rr == nil {
-			return EmptyValue
+			return append(b, EmptyValue...)
 		}
-		rcode := dns.RcodeToString[rr.Rcode]
-		if rcode == "" {
-			rcode = strconv.Itoa(rr.Rcode)
+		if rcode := dns.RcodeToString[rr.Rcode]; rcode != "" {
+			return append(b, rcode...)
 		}
-		return rcode
+		return strconv.AppendInt(b, int64(rr.Rcode), 10)
 	case "{rsize}":
 		if rr == nil {
-			return EmptyValue
+			return append(b, EmptyValue...)
 		}
-		return strconv.Itoa(rr.Len)
+		return strconv.AppendInt(b, int64(rr.Len), 10)
 	case "{duration}":
 		if rr == nil {
-			return EmptyValue
+			return append(b, EmptyValue...)
 		}
-		return strconv.FormatFloat(time.Since(rr.Start).Seconds(), 'f', -1, 64) + "s"
+		secs := time.Since(rr.Start).Seconds()
+		return append(strconv.AppendFloat(b, secs, 'f', -1, 64), 's')
 	case headerReplacer + "rflags}":
 		if rr != nil && rr.Msg != nil {
-			return flagsToString(rr.Msg.MsgHdr)
+			return appendFlags(b, rr.Msg.MsgHdr)
 		}
-		return EmptyValue
-	}
-	return EmptyValue
-}
-
-// New makes a new replacer. This only needs to be called once in the setup and then call Replace for each incoming message.
-// A replacer is safe for concurrent use.
-func New() Replacer {
-	return Replacer{
-		valueFunc: value,
-		labels:    labels,
+		return append(b, EmptyValue...)
+	default:
+		// TODO (CEV): consider panicking since this should be impossible
+		return append(b, EmptyValue...)
 	}
 }
 
-// Replace performs a replacement of values on s and returns the string with the replaced values.
-func (r Replacer) Replace(ctx context.Context, state request.Request, rr *dnstest.Recorder, s string) string {
-	for _, placeholder := range r.labels {
-		if strings.Contains(s, placeholder) {
-			s = strings.Replace(s, placeholder, r.valueFunc(state, rr, placeholder), -1)
-		}
-	}
-
-	// Metadata label replacements. Scan for {/ and search for next }, replace that metadata label with
-	// any meta data that is available.
-	b := strings.Builder{}
-	for strings.Contains(s, labelReplacer) {
-		idxStart := strings.Index(s, labelReplacer)
-		endOffset := idxStart + len(labelReplacer)
-		idxEnd := strings.Index(s[endOffset:], "}")
-		if idxEnd > -1 {
-			label := s[idxStart+2 : endOffset+idxEnd]
-
-			fm := metadata.ValueFunc(ctx, label)
-			replacement := EmptyValue
-			if fm != nil {
-				replacement = fm()
-			}
-
-			b.WriteString(s[:idxStart])
-			b.WriteString(replacement)
-			s = s[endOffset+idxEnd+1:]
-		} else {
-			break
-		}
-	}
-
-	b.WriteString(s)
-	return b.String()
-}
-
-func boolToString(b bool) string {
-	if b {
-		return "true"
-	}
-	return "false"
-}
-
-// flagsToString checks all header flags and returns those
+// appendFlags checks all header flags and appends those
 // that are set as a string separated with commas
-func flagsToString(h dns.MsgHdr) string {
-	flags := make([]string, 7)
-	i := 0
-
+func appendFlags(b []byte, h dns.MsgHdr) []byte {
+	origLen := len(b)
 	if h.Response {
-		flags[i] = "qr"
-		i++
+		b = append(b, "qr,"...)
 	}
-
 	if h.Authoritative {
-		flags[i] = "aa"
-		i++
+		b = append(b, "aa,"...)
 	}
 	if h.Truncated {
-		flags[i] = "tc"
-		i++
+		b = append(b, "tc,"...)
 	}
 	if h.RecursionDesired {
-		flags[i] = "rd"
-		i++
+		b = append(b, "rd,"...)
 	}
 	if h.RecursionAvailable {
-		flags[i] = "ra"
-		i++
+		b = append(b, "ra,"...)
 	}
 	if h.Zero {
-		flags[i] = "z"
-		i++
+		b = append(b, "z,"...)
 	}
 	if h.AuthenticatedData {
-		flags[i] = "ad"
-		i++
+		b = append(b, "ad,"...)
 	}
 	if h.CheckingDisabled {
-		flags[i] = "cd"
-		i++
+		b = append(b, "cd,"...)
 	}
-	return strings.Join(flags[:i], ",")
+	if n := len(b); n > origLen {
+		return b[:n-1] // trim trailing ','
+	}
+	return b
 }
 
-// addrToRFC3986 will add brackets to the address if it is an IPv6 address.
-func addrToRFC3986(addr string) string {
-	if strings.Contains(addr, ":") {
-		return "[" + addr + "]"
+// appendAddrToRFC3986 will add brackets to the address if it is an IPv6 address.
+func appendAddrToRFC3986(b []byte, addr string) []byte {
+	if strings.IndexByte(addr, ':') != -1 {
+		b = append(b, '[')
+		b = append(b, addr...)
+		b = append(b, ']')
+	} else {
+		b = append(b, addr...)
 	}
-	return addr
+	return b
 }
+
+type nodeType int
 
 const (
-	headerReplacer = "{>"
-	labelReplacer  = "{/"
-	// EmptyValue is the default empty value.
-	EmptyValue = "-"
+	typeLabel    nodeType = iota // "{type}"
+	typeLiteral                  // "foo"
+	typeMetadata                 // "{/metadata}"
 )
+
+// A node represents a segment of a parsed format.  For example: "A {type}"
+// contains two nodes: "A " (literal); and "{type}" (label).
+type node struct {
+	value string // Literal value, label or metadata label
+	typ   nodeType
+}
+
+// A replacer is an ordered list of all the nodes in a format.
+type replacer []node
+
+func parseFormat(s string) replacer {
+	// Assume there is a literal between each label - its cheaper to over
+	// allocate once than allocate twice.
+	rep := make(replacer, 0, strings.Count(s, "{")*2)
+	for {
+		// We find the right bracket then backtrack to find the left bracket.
+		// This allows us to handle formats like: "{ {foo} }".
+		j := strings.IndexByte(s, '}')
+		if j < 0 {
+			break
+		}
+		i := strings.LastIndexByte(s[:j], '{')
+		if i < 0 {
+			// Handle: "A } {foo}"
+			//            ^j
+			//
+			// By treating "A }" as a literal
+			rep = append(rep, node{
+				value: s[:j+1],
+				typ:   typeLiteral,
+			})
+			s = s[j+1:]
+			continue
+		}
+
+		val := s[i : j+1]
+		var typ nodeType
+		switch _, ok := knownLabels[val]; {
+		case ok:
+			typ = typeLabel
+		case strings.HasPrefix(val, "{/"):
+			// Strip "{/}" from metadata labels
+			val = val[2 : len(val)-1]
+			typ = typeMetadata
+		default:
+			// Given: "A {X}" val is "{X}" expand it to the whole literal.
+			val = s[:j+1]
+			typ = typeLiteral
+		}
+
+		// Append any leading literal.  Given "A {type}" the literal is "A "
+		if i != 0 && typ != typeLiteral {
+			rep = append(rep, node{
+				value: s[:i],
+				typ:   typeLiteral,
+			})
+		}
+		rep = append(rep, node{
+			value: val,
+			typ:   typ,
+		})
+		s = s[j+1:]
+	}
+	if len(s) != 0 {
+		rep = append(rep, node{
+			value: s,
+			typ:   typeLiteral,
+		})
+	}
+	return rep
+}
+
+var replacerCache sync.Map // map[string]replacer
+
+func loadFormat(s string) replacer {
+	if v, ok := replacerCache.Load(s); ok {
+		return v.(replacer)
+	}
+	v, _ := replacerCache.LoadOrStore(s, parseFormat(s))
+	return v.(replacer)
+}
+
+// bufPool stores pointers to scratch buffers
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		b := make([]byte, 0, 256)
+		return &b
+	},
+}
+
+func (r replacer) Replace(ctx context.Context, state request.Request, rr *dnstest.Recorder) string {
+	p := bufPool.Get().(*[]byte)
+	b := *p
+	for _, s := range r {
+		switch s.typ {
+		case typeLabel:
+			b = appendValue(b, state, rr, s.value)
+		case typeLiteral:
+			b = append(b, s.value...)
+		case typeMetadata:
+			if fm := metadata.ValueFunc(ctx, s.value); fm != nil {
+				b = append(b, fm()...)
+			} else {
+				b = append(b, EmptyValue...)
+			}
+		}
+	}
+	s := string(b)
+	*p = b[:0]
+	bufPool.Put(p)
+	return s
+}
