@@ -211,10 +211,7 @@ func parseFormat(s string) replacer {
 		}
 		i := strings.LastIndexByte(s[:j], '{')
 		if i < 0 {
-			// Handle: "A } {foo}"
-			//            ^j
-			//
-			// By treating "A }" as a literal
+			// Handle: "A } {foo}" by treating "A }" as a literal
 			rep = append(rep, node{
 				value: s[:j+1],
 				typ:   typeLiteral,
@@ -270,7 +267,10 @@ func loadFormat(s string) replacer {
 	return v.(replacer)
 }
 
-// bufPool stores pointers to scratch buffers
+// bufPool stores pointers to scratch buffers.  We store a pointer to the slice
+// as it saves an allocation during the slice => interface{} conversion.  If we
+// were to store the slice value a pointer to it would have to be created on
+// each Put().
 var bufPool = sync.Pool{
 	New: func() interface{} {
 		b := make([]byte, 0, 256)

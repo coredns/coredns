@@ -173,7 +173,7 @@ func TestParseFormat(t *testing.T) {
 	}
 }
 
-func TestParseFormat_Nodes(t *testing.T) {
+func TestParseFormatNodes(t *testing.T) {
 	// If we parse the format successfully the result of joining all the
 	// segments should match the original format.
 	formats := []string{
