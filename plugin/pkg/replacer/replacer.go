@@ -129,7 +129,6 @@ func appendValue(b []byte, state request.Request, rr *dnstest.Recorder, label st
 		}
 		return append(b, EmptyValue...)
 	default:
-		// TODO (CEV): consider panicking since this should be impossible
 		return append(b, EmptyValue...)
 	}
 }
