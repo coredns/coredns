@@ -40,7 +40,7 @@ type Rewrite struct {
 func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	wr := NewResponseReverter(w, r)
 	state := request.Request{W: w, Req: r}
-
+	ogQuestion := state.Req.Question[0].Name
 	for _, rule := range rw.Rules {
 		switch result := rule.Rewrite(ctx, state); result {
 		case RewriteDone:
@@ -50,6 +50,9 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				state.Req.Question[0] = wr.originalQuestion
 				return dns.RcodeServerFailure, fmt.Errorf("invalid name after rewrite: %s", x)
 			}
+
+			fmt.Printf("rewrote: input[%s] -> output[%s]", ogQuestion, state.Req.Question[0].Name)
+
 			respRule := rule.GetResponseRule()
 			if respRule.Active {
 				wr.ResponseRewrite = true
