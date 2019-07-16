@@ -37,13 +37,14 @@ func (l Logger) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 		// If we don't set up a class in config, the default "all" will be added
 		// and we shouldn't have an empty rule.Class.
-		_, shouldLog := rule.Class[response.All]
-		if !shouldLog {
+		_, ok := rule.Class[response.All]
+		var ok1 bool
+		if !ok {
 			tpe, _ := response.Typify(rrw.Msg, time.Now().UTC())
 			class := response.Classify(tpe)
-			_, shouldLog = rule.Class[class]
+			_, ok1 = rule.Class[class]
 		}
-		if shouldLog {
+		if ok || ok1 {
 			logstr := l.repl.Replace(ctx, state, rrw, rule.Format)
 			clog.Infof(logstr)
 		}
