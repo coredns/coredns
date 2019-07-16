@@ -245,7 +245,7 @@ func TestLabels(t *testing.T) {
 		t.Fatalf("Expect %d labels, got %d", len(expect), len(labels))
 	}
 
-	for _, lbl := range labels {
+	for lbl := range labels {
 		repl := replacer.Replace(ctx, state, w, lbl)
 		if lbl == "{duration}" {
 			if repl[len(repl)-1] != 's' {
@@ -390,17 +390,6 @@ func TestMetadataMalformed(t *testing.T) {
 		r := repl.Replace(ctx, state, nil, ts.expr)
 		if r != ts.result {
 			t.Errorf("Test %d - expr : %s, expected %q, got %q", i, ts.expr, ts.result, r)
-		}
-	}
-}
-
-func TestKnownLabels(t *testing.T) {
-	if len(knownLabels) != len(labels) {
-		t.Fatalf("Want len: %d got: %d", len(labels), len(knownLabels))
-	}
-	for _, s := range labels {
-		if _, ok := knownLabels[s]; !ok {
-			t.Errorf("Missing label: %q", s)
 		}
 	}
 }

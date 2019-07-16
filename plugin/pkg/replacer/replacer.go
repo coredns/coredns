@@ -35,44 +35,25 @@ const (
 )
 
 // labels are all supported labels that can be used in the default Replacer.
-var labels = [...]string{
-	"{type}",
-	"{name}",
-	"{class}",
-	"{proto}",
-	"{size}",
-	"{remote}",
-	"{port}",
-	"{local}",
+var labels = map[string]struct{}{
+	"{type}":   {},
+	"{name}":   {},
+	"{class}":  {},
+	"{proto}":  {},
+	"{size}":   {},
+	"{remote}": {},
+	"{port}":   {},
+	"{local}":  {},
 	// Header values.
-	headerReplacer + "id}",
-	headerReplacer + "opcode}",
-	headerReplacer + "do}",
-	headerReplacer + "bufsize}",
-	// Recorded replacements.
-	"{rcode}",
-	"{rsize}",
-	"{duration}",
-	headerReplacer + "rflags}",
-}
-
-var knownLabels = map[string]struct{}{
-	"{type}":                    {},
-	"{name}":                    {},
-	"{class}":                   {},
-	"{proto}":                   {},
-	"{size}":                    {},
-	"{remote}":                  {},
-	"{port}":                    {},
-	"{local}":                   {},
 	headerReplacer + "id}":      {},
 	headerReplacer + "opcode}":  {},
 	headerReplacer + "do}":      {},
 	headerReplacer + "bufsize}": {},
-	"{rcode}":                   {},
-	"{rsize}":                   {},
-	"{duration}":                {},
-	headerReplacer + "rflags}":  {},
+	// Recorded replacements.
+	"{rcode}":                  {},
+	"{rsize}":                  {},
+	"{duration}":               {},
+	headerReplacer + "rflags}": {},
 }
 
 // appendValue appends the current value of label.
@@ -221,7 +202,7 @@ func parseFormat(s string) replacer {
 
 		val := s[i : j+1]
 		var typ nodeType
-		switch _, ok := knownLabels[val]; {
+		switch _, ok := labels[val]; {
 		case ok:
 			typ = typeLabel
 		case strings.HasPrefix(val, "{/"):
