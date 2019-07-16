@@ -38,33 +38,47 @@ type edns0NsidRule struct {
 	action string
 }
 
+// removeEdns0 removes OPT record from the message.
+// This func can be removed if/when method dns.Msg.popEdns0() becomes public
+func removeEdns0Opt(msg *dns.Msg) {
+	for i := len(msg.Extra) - 1; i >= 0; i-- {
+		if msg.Extra[i].Header().Rrtype == dns.TypeOPT {
+			msg.Extra = append(msg.Extra[:i], msg.Extra[i+1:]...)
+			return
+		}
+	}
+}
+
 // setupEdns0Opt will retrieve the EDNS0 OPT or create it if it does not exist.
-func setupEdns0Opt(r *dns.Msg) *dns.OPT {
+// Result specifies the code to be returned by EDNS rules on successful rewrite.
+func setupEdns0Opt(r *dns.Msg) (*dns.OPT, Result) {
 	o := r.IsEdns0()
 	if o == nil {
 		r.SetEdns0(4096, false)
 		o = r.IsEdns0()
+		return o, RewriteEdnsCreated
 	}
-	return o
+	return o, RewriteEdnsDone
 }
 
 // Rewrite will alter the request EDNS0 NSID option
 func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) Result {
-	o := setupEdns0Opt(state.Req)
+	o, doneCode := setupEdns0Opt(state.Req)
 
 	for _, s := range o.Option {
 		if e, ok := s.(*dns.EDNS0_NSID); ok {
 			if rule.action == Replace || rule.action == Set {
 				e.Nsid = "" // make sure it is empty for request
-				return RewriteDone
+				return doneCode
 			}
+			return RewriteIgnored
 		}
 	}
 
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""})
-		return RewriteDone
+		return doneCode
 	}
 
 	return RewriteIgnored
@@ -78,15 +92,16 @@ func (rule *edns0NsidRule) GetResponseRule() ResponseRule { return ResponseRule{
 
 // Rewrite will alter the request EDNS0 local options.
 func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) Result {
-	o := setupEdns0Opt(state.Req)
+	o, doneCode := setupEdns0Opt(state.Req)
 
 	for _, s := range o.Option {
 		if e, ok := s.(*dns.EDNS0_LOCAL); ok {
 			if rule.code == e.Code {
 				if rule.action == Replace || rule.action == Set {
 					e.Data = rule.data
-					return RewriteDone
+					return doneCode
 				}
+				return RewriteIgnored
 			}
 		}
 	}
@@ -94,7 +109,7 @@ func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) 
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_LOCAL{Code: rule.code, Data: rule.data})
-		return RewriteDone
+		return doneCode
 	}
 
 	return RewriteIgnored
@@ -228,13 +243,13 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 		return RewriteIgnored
 	}
 
-	o := setupEdns0Opt(state.Req)
+	o, doneCode := setupEdns0Opt(state.Req)
 	for _, s := range o.Option {
 		if e, ok := s.(*dns.EDNS0_LOCAL); ok {
 			if rule.code == e.Code {
 				if rule.action == Replace || rule.action == Set {
 					e.Data = data
-					return RewriteDone
+					return doneCode
 				}
 				return RewriteIgnored
 			}
@@ -244,7 +259,7 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_LOCAL{Code: rule.code, Data: data})
-		return RewriteDone
+		return doneCode
 	}
 
 	return RewriteIgnored
@@ -319,14 +334,18 @@ func (rule *edns0SubnetRule) fillEcsData(state request.Request, ecs *dns.EDNS0_S
 	ipAddr := state.IP()
 	switch family {
 	case 1:
-		ipv4Mask := net.CIDRMask(int(rule.v4BitMaskLen), 32)
+		if rule.v4BitMaskLen < ecs.SourceNetmask {
+			ecs.SourceNetmask = rule.v4BitMaskLen
+		}
+		ipv4Mask := net.CIDRMask(int(ecs.SourceNetmask), 32)
 		ipv4Addr := net.ParseIP(ipAddr)
-		ecs.SourceNetmask = rule.v4BitMaskLen
 		ecs.Address = ipv4Addr.Mask(ipv4Mask).To4()
 	case 2:
-		ipv6Mask := net.CIDRMask(int(rule.v6BitMaskLen), 128)
+		if rule.v6BitMaskLen < ecs.SourceNetmask {
+			ecs.SourceNetmask = rule.v6BitMaskLen
+		}
+		ipv6Mask := net.CIDRMask(int(ecs.SourceNetmask), 128)
 		ipv6Addr := net.ParseIP(ipAddr)
-		ecs.SourceNetmask = rule.v6BitMaskLen
 		ecs.Address = ipv6Addr.Mask(ipv6Mask).To16()
 	}
 	return nil
@@ -334,13 +353,13 @@ func (rule *edns0SubnetRule) fillEcsData(state request.Request, ecs *dns.EDNS0_S
 
 // Rewrite will alter the request EDNS0 subnet option.
 func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request) Result {
-	o := setupEdns0Opt(state.Req)
+	o, doneCode := setupEdns0Opt(state.Req)
 
 	for _, s := range o.Option {
 		if e, ok := s.(*dns.EDNS0_SUBNET); ok {
 			if rule.action == Replace || rule.action == Set {
 				if rule.fillEcsData(state, e) == nil {
-					return RewriteDone
+					return doneCode
 				}
 			}
 			return RewriteIgnored
@@ -349,10 +368,10 @@ func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request)
 
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
-		opt := &dns.EDNS0_SUBNET{Code: dns.EDNS0SUBNET}
+		opt := &dns.EDNS0_SUBNET{Code: dns.EDNS0SUBNET, SourceNetmask: 128}
 		if rule.fillEcsData(state, opt) == nil {
 			o.Option = append(o.Option, opt)
-			return RewriteDone
+			return doneCode
 		}
 	}
 

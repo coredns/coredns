@@ -19,6 +19,10 @@ const (
 	RewriteIgnored Result = iota
 	// RewriteDone is returned when rewrite is done on request.
 	RewriteDone
+	// RewriteEdnsDone is returned when EDNS rewrite is done on request.
+	RewriteEdnsDone
+	// RewriteEdnsCreated is returned when new OPT RR is created and rewrite is done on request.
+	RewriteEdnsCreated
 )
 
 // These are defined processing mode.
@@ -54,17 +58,17 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				wr.ResponseRewrite = true
 				wr.ResponseRules = append(wr.ResponseRules, respRule)
 			}
-			if rule.Mode() == Stop {
-				if rw.noRevert {
-					return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
-				}
-				return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
-			}
+		case RewriteEdnsCreated:
+			wr.RemoveOPT = true
 		case RewriteIgnored:
+			continue
+		}
+
+		if rule.Mode() == Stop {
 			break
 		}
 	}
-	if rw.noRevert || len(wr.ResponseRules) == 0 {
+	if rw.noRevert {
 		return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
 	}
 	return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
