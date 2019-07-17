@@ -109,7 +109,7 @@ func TestParseReload(t *testing.T) {
 		},
 		{
 			`file ` + name + ` example.org. {
-				reload 5s
+			reload 5s
 			}`,
 			5 * time.Second,
 		},
@@ -119,7 +119,7 @@ func TestParseReload(t *testing.T) {
 		c := caddy.NewTestController("dns", test.input)
 		z, _ := fileParse(c)
 		if x := z.Z["example.org."].ReloadInterval; x != test.reload {
-			t.Fatalf("Test %d expected reload to be %s, but got %s", i, test.reload, x)
+			t.Errorf("Test %d expected reload to be %s, but got %s", i, test.reload, x)
 		}
 	}
 }
