@@ -249,26 +249,35 @@ func TestCacheZeroTTL(t *testing.T) {
 }
 
 func BenchmarkCacheResponse(b *testing.B) {
-	c := New()
-	c.prefetch = 1
-	c.Next = BackendHandler()
-
-	ctx := context.TODO()
-
 	reqs := make([]*dns.Msg, 5)
 	for i, q := range []string{"example1", "example2", "a", "b", "ddd"} {
 		reqs[i] = new(dns.Msg)
 		reqs[i].SetQuestion(q+".example.org.", dns.TypeA)
 	}
+	ctx := context.TODO()
+	rw := &test.ResponseWriter{}
 
-	b.StartTimer()
+	b.Run("NoPrefetch", func(b *testing.B) {
+		c := New()
+		c.Next = BackendHandler()
+		c.prefetch = 0
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			req := reqs[i%5]
+			c.ServeDNS(ctx, rw, req)
+		}
+	})
 
-	j := 0
-	for i := 0; i < b.N; i++ {
-		req := reqs[j]
-		c.ServeDNS(ctx, &test.ResponseWriter{}, req)
-		j = (j + 1) % 5
-	}
+	b.Run("Prefetch", func(b *testing.B) {
+		c := New()
+		c.Next = BackendHandler()
+		c.prefetch = 1
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			req := reqs[i%5]
+			c.ServeDNS(ctx, rw, req)
+		}
+	})
 }
 
 func BackendHandler() plugin.Handler {
