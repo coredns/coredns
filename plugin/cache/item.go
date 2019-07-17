@@ -9,15 +9,13 @@ import (
 
 type item struct {
 	Rcode              int
-	AuthenticatedData  bool
-	RecursionAvailable bool
 	Answer             []dns.RR
 	Ns                 []dns.RR
 	Extra              []dns.RR
-
-	origTTL uint32
-	stored  time.Time
-
+	AuthenticatedData  bool
+	RecursionAvailable bool
+	origTTL            uint32
+	stored             time.Time
 	*freq.Freq
 }
 
