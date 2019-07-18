@@ -15,7 +15,7 @@ func newElem(rr dns.RR) *Elem {
 	return &e
 }
 
-// Types returns the types of the records in e. The return listed is not sorted.
+// Types returns the types of the records in e. The returned list is not sorted.
 func (e *Elem) Types() []uint16 {
 	t := make([]uint16, len(e.m))
 	i := 0
