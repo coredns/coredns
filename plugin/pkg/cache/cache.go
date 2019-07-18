@@ -78,14 +78,11 @@ func newShard(size int) *shard { return &shard{items: make(map[uint64]interface{
 func (s *shard) Add(key uint64, el interface{}) {
 	s.Lock()
 	if len(s.items) >= s.size {
-		if _, ok := s.items[key]; ok {
-			s.items[key] = el
-			s.Unlock()
-			return
-		}
-		for k := range s.items {
-			delete(s.items, k)
-			break
+		if _, ok := s.items[key]; !ok {
+			for k := range s.items {
+				delete(s.items, k)
+				break
+			}
 		}
 	}
 	s.items[key] = el
