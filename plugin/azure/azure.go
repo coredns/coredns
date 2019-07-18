@@ -18,9 +18,9 @@ import (
 )
 
 type zone struct {
-	id  string
-	z   *file.Zone
-	dns string
+	id   string
+	z    *file.Zone
+	zone string
 }
 
 type zones map[string][]*zone
@@ -46,15 +46,12 @@ func New(ctx context.Context, dnsClient azure.RecordSetsClient, keys map[string]
 			if err != nil {
 				return nil, err
 			}
-			zoneNameFQDN := zoneName
 			// Normalizing zoneName to make it fqdn if required
-			if !strings.HasSuffix(zoneNameFQDN, ".") {
-				zoneNameFQDN = fmt.Sprintf("%s.", zoneNameFQDN)
-			}
+			zoneNameFQDN := dns.Fqdn(zoneName)
 			if _, ok := zones[zoneNameFQDN]; !ok {
 				zoneNames = append(zoneNames, zoneNameFQDN)
 			}
-			zones[zoneNameFQDN] = append(zones[zoneNameFQDN], &zone{id: resourceGroup, dns: zoneName, z: file.NewZone(zoneName, "")})
+			zones[zoneNameFQDN] = append(zones[zoneNameFQDN], &zone{id: resourceGroup, zone: zoneName, z: file.NewZone(zoneName, "")})
 		}
 	}
 	return &Azure{
@@ -65,7 +62,7 @@ func New(ctx context.Context, dnsClient azure.RecordSetsClient, keys map[string]
 	}, nil
 }
 
-// Run updates the zones once and starts a goroutine to do it every minute
+// Run updates the zones once and starts a goroutine to do it every minute.
 func (h *Azure) Run(ctx context.Context) error {
 	if err := h.updateZones(ctx); err != nil {
 		return err
@@ -97,9 +94,9 @@ func (h *Azure) updateZones(ctx context.Context) error {
 			}()
 
 			for i, hostedZone := range z {
-				recordSet, err := h.client.ListByDNSZone(context.Background(), hostedZone.id, hostedZone.dns, nil, "")
+				recordSet, err := h.client.ListByDNSZone(ctx, hostedZone.id, hostedZone.zone, nil, "")
 				if err != nil {
-					err = fmt.Errorf("failed to list resource records for %v from azure: %v", hostedZone.dns, err)
+					err = fmt.Errorf("failed to list resource records for %v from azure: %v", hostedZone.zone, err)
 					return
 				}
 				newZ := updateZoneFromResourceSet(recordSet, zName)
@@ -150,6 +147,54 @@ func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, zName st
 			}
 		}
 
+		if result.RecordSetProperties.MxRecords != nil {
+			for _, a := range *(result.RecordSetProperties.MxRecords) {
+				// vachdal.my.private. 300 IN MX 10 mailserver.example.com.
+				rfc1035 := fmt.Sprintf("%s %d IN MX %d %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), *(a.Preference), *(a.Exchange))
+				r, err := dns.NewRR(rfc1035)
+				if err != nil {
+					log.Warningf("failed to process resource record set: %v", err.Error())
+				}
+				newZ.Insert(r)
+			}
+		}
+
+		if result.RecordSetProperties.PtrRecords != nil {
+			for _, a := range *(result.RecordSetProperties.PtrRecords) {
+				// tetoda.my.private. 300 IN PTR www.tetoda.com
+				rfc1035 := fmt.Sprintf("%s %d IN PTR %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), *(a.Ptrdname))
+				r, err := dns.NewRR(rfc1035)
+				if err != nil {
+					log.Warningf("failed to process resource record set: %v", err.Error())
+				}
+				newZ.Insert(r)
+			}
+		}
+
+		if result.RecordSetProperties.SrvRecords != nil {
+			for _, a := range *(result.RecordSetProperties.SrvRecords) {
+				// kumor.my.private. 300 IN SRV 1 10 5269 xmpp-server.example.com.
+				rfc1035 := fmt.Sprintf("%s %d IN SRV %d %d %d %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), *(a.Priority), *(a.Weight), *(a.Port), *(a.Target))
+				r, err := dns.NewRR(rfc1035)
+				if err != nil {
+					log.Warningf("failed to process resource record set: %v", err.Error())
+				}
+				newZ.Insert(r)
+			}
+		}
+
+		if result.RecordSetProperties.TxtRecords != nil {
+			for _, txt := range *(result.RecordSetProperties.TxtRecords) {
+				// fagutra.my.private. 300 IN TXT "CoreDNS is awesome"
+				rfc1035 := fmt.Sprintf("%s %d IN TXT \"%s\"", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), strings.Join(*(txt.Value), " "))
+				r, err := dns.NewRR(rfc1035)
+				if err != nil {
+					log.Warningf("failed to process resource record set: %v", err.Error())
+				}
+				newZ.Insert(r)
+			}
+		}
+
 		if result.RecordSetProperties.NsRecords != nil {
 			for _, a := range *(result.RecordSetProperties.NsRecords) {
 				rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "NS", *(a.Nsdname))
@@ -164,6 +209,15 @@ func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, zName st
 		if result.RecordSetProperties.SoaRecord != nil {
 			a := result.RecordSetProperties.SoaRecord
 			rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "SOA", fmt.Sprintf("%s %s %d %d %d %d %d", *(a.Host), *(a.Email), *(a.SerialNumber), *(a.RefreshTime), *(a.RetryTime), *(a.ExpireTime), *(a.MinimumTTL)))
+			r, err := dns.NewRR(rfc1035)
+			if err != nil {
+				log.Warningf("failed to process resource record set: %v", err.Error())
+			}
+			newZ.Insert(r)
+		}
+
+		if result.RecordSetProperties.CnameRecord != nil {
+			rfc1035 := fmt.Sprintf("%s %d IN CNAME %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), *(result.RecordSetProperties.CnameRecord.Cname))
 			r, err := dns.NewRR(rfc1035)
 			if err != nil {
 				log.Warningf("failed to process resource record set: %v", err.Error())

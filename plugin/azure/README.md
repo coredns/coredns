@@ -13,7 +13,6 @@ sets in Microsoft Azure DNS. The `azure` plugin can be used when coredns is depl
 
 ~~~ txt
 azure [resource-group:dns-zone] {
-    [auth_location <path to auth_location>]
     [tenant_id <tenant_id>]
     [client_id <client_id>]
     [client_secret <client_secret>]
@@ -27,8 +26,6 @@ azure [resource-group:dns-zone] {
 *   **`dns-zone`** the dns zone that contains the resource record sets to be
     accessed.
 
-*   **`auth_location`** the path to the Azure CLI authentication file. You can also provide the credentials individually (`tenant_id`, `client_id`, `client_secret`, `subscription_id`)
-
 *   `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
     If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin is
     authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then
@@ -36,30 +33,11 @@ azure [resource-group:dns-zone] {
 
 *   **ZONES** zones it should be authoritative for. If empty, the zones from the configuration block
 
+*   `environment` the azure environment to use. Defaults to `AzurePublicCloud`. Possible values: `AzureChinaCloud`, `AzureGermanCloud`, `AzurePublicCloud`, `AzureUSGovernmentCloud`.
+
 ## Examples
 
-Enable azure with Azure CLI authentication file and an upstream:
-
-~~~ txt
-. {
-    azure resource-group-foo:foo.com {
-      auth_location /tmp/config.json
-    }
-    forward . 10.0.0.1
-}
-~~~
-
-Format for Azure CLI authentication file:
-~~~ txt
-{
-  "clientId": "123abc-123abc-123abc-123abc",
-  "clientSecret": "123abc-123abc-123abc-123abc",
-  "subscriptionId": "123abc-123abc-123abc-123abc",
-  "tenantId": "123abc-123abc-123abc-123abc"
-}
-
-~~~
-Enable route53 with explicit Azure credentials:
+Enable route53 with Azure credentials:
 
 ~~~ txt
 . {

@@ -6,7 +6,7 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
-func TestSetupRoute53(t *testing.T) {
+func TestSetup(t *testing.T) {
 	tests := []struct {
 		body          string
 		expectedError bool
@@ -50,8 +50,8 @@ func TestSetupRoute53(t *testing.T) {
     fallthrough
 }`, false},
 		{`azure resource-set:hosted-zone {
-		azure_auth_location
-	}`, true},
+		environment AZUREPUBLICCLOUD
+	}`, false},
 		{`azure resource-set:hosted-zone resource-set:hosted-zone {
 			fallthrough
 		}`, true},
@@ -65,8 +65,8 @@ func TestSetupRoute53(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.body)
-		if _, _, _, err := parseCorefile(c); (err == nil) == test.expectedError {
-			t.Errorf("Unexpected errors: %v in test: %d", err, i)
+		if _, _, _, err := parse(c); (err == nil) == test.expectedError {
+			t.Fatalf("Unexpected errors: %v in test: %d\n\t%s", err, i, test.body)
 		}
 	}
 }

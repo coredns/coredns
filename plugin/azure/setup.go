@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	"github.com/coredns/coredns/core/dnsserver"
@@ -27,14 +26,14 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	envSettings, keys, fall, err := parseCorefile(c)
+	env, keys, fall, err := parse(c)
 	if err != nil {
 		return err
 	}
 	up := upstream.New()
 	ctx := context.Background()
-	dnsClient := dns.NewRecordSetsClient(envSettings.Values[auth.SubscriptionID])
-	dnsClient.Authorizer, err = envSettings.GetAuthorizer()
+	dnsClient := dns.NewRecordSetsClient(env.Values[auth.SubscriptionID])
+	dnsClient.Authorizer, err = env.GetAuthorizer()
 	if err != nil {
 		return c.Errf("failed to create azure plugin: %v", err)
 	}
@@ -53,12 +52,14 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func parseCorefile(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, pkgFall.F, error) {
-	keyPairs := map[string]struct{}{}
+func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, pkgFall.F, error) {
 	keys := map[string][]string{}
+	keyPairs := map[string]struct{}{}
 	var err error
 	var fall pkgFall.F
-	envSettings := auth.EnvironmentSettings{Values: map[string]string{}}
+
+	azureEnv := azure.PublicCloud
+	env := auth.EnvironmentSettings{Values: map[string]string{}}
 
 	for c.Next() {
 		args := c.RemainingArgs()
@@ -66,14 +67,14 @@ func parseCorefile(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]
 		for i := 0; i < len(args); i++ {
 			parts := strings.SplitN(args[i], ":", 2)
 			if len(parts) != 2 {
-				return envSettings, keys, fall, c.Errf("invalid resource group / zone '%s'", args[i])
+				return env, keys, fall, c.Errf("invalid resource group / zone '%s'", args[i])
 			}
 			resourceGroup, zoneName := parts[0], parts[1]
 			if resourceGroup == "" || zoneName == "" {
-				return envSettings, keys, fall, c.Errf("invalid resource group / zone '%s'", args[i])
+				return env, keys, fall, c.Errf("invalid resource group / zone '%s'", args[i])
 			}
 			if _, ok := keyPairs[args[i]]; ok {
-				return envSettings, keys, fall, c.Errf("conflict zone '%s'", args[i])
+				return env, keys, fall, c.Errf("conflict zone '%s'", args[i])
 			}
 
 			keyPairs[args[i]] = struct{}{}
@@ -81,62 +82,48 @@ func parseCorefile(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]
 		}
 		for c.NextBlock() {
 			switch c.Val() {
-			case "auth_location":
-				var path string
-				if c.NextArg() {
-					path = c.Val()
-				} else {
-					return envSettings, keys, fall, c.ArgErr()
-				}
-				os.Setenv("AZURE_AUTH_LOCATION", path)
-				fileSettings, err := auth.GetSettingsFromFile()
-				os.Unsetenv("AZURE_AUTH_LOCATION")
-				if err != nil {
-					return envSettings, keys, fall, c.Errf("cannot use azure auth location: %s", err.Error())
-				}
-				envSettings.Values = fileSettings.Values
 			case "subscription_id":
 				if c.NextArg() {
-					envSettings.Values[auth.SubscriptionID] = c.Val()
+					env.Values[auth.SubscriptionID] = c.Val()
 				} else {
-					return envSettings, keys, fall, c.ArgErr()
+					return env, keys, fall, c.ArgErr()
 				}
 			case "tenant_id":
 				if c.NextArg() {
-					envSettings.Values[auth.TenantID] = c.Val()
+					env.Values[auth.TenantID] = c.Val()
 				} else {
-					return envSettings, keys, fall, c.ArgErr()
+					return env, keys, fall, c.ArgErr()
 				}
 			case "client_id":
 				if c.NextArg() {
-					envSettings.Values[auth.ClientID] = c.Val()
+					env.Values[auth.ClientID] = c.Val()
 				} else {
-					return envSettings, keys, fall, c.ArgErr()
+					return env, keys, fall, c.ArgErr()
 				}
 			case "client_secret":
 				if c.NextArg() {
-					envSettings.Values[auth.ClientSecret] = c.Val()
+					env.Values[auth.ClientSecret] = c.Val()
 				} else {
-					return envSettings, keys, fall, c.ArgErr()
+					return env, keys, fall, c.ArgErr()
 				}
 			case "environment":
 				if c.NextArg() {
-					envSettings.Values[auth.ClientSecret] = c.Val()
-					envSettings.Environment, err = azure.EnvironmentFromName(c.Val())
+					env.Values[auth.ClientSecret] = c.Val()
+					azureEnv, err = azure.EnvironmentFromName(c.Val())
 					if err != nil {
-						return envSettings, keys, fall, c.Errf("cannot set azure environment: %s", err.Error())
+						return env, keys, fall, c.Errf("cannot set azure environment: %s", err.Error())
 					}
 				} else {
-					return envSettings, keys, fall, c.ArgErr()
+					return env, keys, fall, c.ArgErr()
 				}
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
 			default:
-				return envSettings, keys, fall, c.Errf("unknown property '%s'", c.Val())
+				return env, keys, fall, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 	}
-	envSettings.Values[auth.Resource] = azure.PublicCloud.ResourceManagerEndpoint
-	envSettings.Environment = azure.PublicCloud
-	return envSettings, keys, fall, nil
+	env.Values[auth.Resource] = azureEnv.ResourceManagerEndpoint
+	env.Environment = azureEnv
+	return env, keys, fall, nil
 }

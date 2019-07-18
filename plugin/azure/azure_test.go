@@ -22,7 +22,7 @@ var demoAzure Azure = Azure{
 
 func returnTestZones() zones {
 	zones := make(map[string][]*zone)
-	zones["example.org."] = append(zones["example.org."], &zone{dns: "example.org."})
+	zones["example.org."] = append(zones["example.org."], &zone{zone: "example.org."})
 	newZ := file.NewZone("example.org.", "")
 
 	for _, rr := range []string{
@@ -101,6 +101,11 @@ func TestAzure(t *testing.T) {
 			qname: "example.gov",
 			qtype: dns.TypeA,
 			wantAnswer: []string{"example.gov.	300	IN	A	2.4.6.8"},
+		},
+		{
+			qname:      "example.org",
+			qtype:      dns.TypeSRV,
+			wantAnswer: []string{"foosh"},
 		},
 	}
 
