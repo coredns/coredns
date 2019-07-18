@@ -126,7 +126,7 @@ func BenchmarkShard(b *testing.B) {
 	}
 }
 
-func BenchmarkShard_Parallel(b *testing.B) {
+func BenchmarkShardParallel(b *testing.B) {
 	s := newShard(shardSize)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {

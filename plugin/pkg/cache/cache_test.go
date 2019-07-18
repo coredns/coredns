@@ -42,9 +42,8 @@ func TestCacheLen(t *testing.T) {
 }
 
 func TestCacheSharding(t *testing.T) {
-	const N = shardSize
-	c := New(N)
-	for i := 0; i < N*2; i++ {
+	c := New(shardSize)
+	for i := 0; i < shardSize*2; i++ {
 		c.Add(uint64(i), 1)
 	}
 	for i, s := range c.shards {
