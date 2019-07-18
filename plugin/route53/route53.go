@@ -221,7 +221,6 @@ func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone) error {
 
 		// Assemble RFC 1035 conforming record to pass into dns scanner.
 		rfc1035 := fmt.Sprintf("%s %d IN %s %s", n, aws.Int64Value(rrs.TTL), aws.StringValue(rrs.Type), v)
-		fmt.Printf("~~~~~~~ new record from aws: %s\n", rfc1035)
 		r, err := dns.NewRR(rfc1035)
 		if err != nil {
 			return fmt.Errorf("failed to parse resource record: %v", err)

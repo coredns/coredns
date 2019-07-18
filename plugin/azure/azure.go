@@ -3,7 +3,7 @@ package azure
 import (
 	"context"
 	"fmt"
-	"strings"
+	"net"
 	"sync"
 	"time"
 
@@ -124,105 +124,133 @@ func (h *Azure) updateZones(ctx context.Context) error {
 
 func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, zName string) *file.Zone {
 	newZ := file.NewZone(zName, "")
+
 	for _, result := range *(recordSet.Response().Value) {
+		resultFqdn := *(result.RecordSetProperties.Fqdn)
+		resultTTL := uint32(*(result.RecordSetProperties.TTL))
 		if result.RecordSetProperties.ARecords != nil {
-			for _, a := range *(result.RecordSetProperties.ARecords) {
-				rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "A", *(a.Ipv4Address))
-				r, err := dns.NewRR(rfc1035)
-				if err != nil {
-					log.Warningf("failed to process resource record set: %v", err.Error())
-				}
-				newZ.Insert(r)
+			for _, A := range *(result.RecordSetProperties.ARecords) {
+				a := dns.A{
+					Hdr: dns.RR_Header{
+						Name:   resultFqdn,
+						Rrtype: dns.TypeA,
+						Class:  dns.ClassINET,
+						Ttl:    resultTTL},
+					A: net.ParseIP(*(A.Ipv4Address))}
+				newZ.Insert(&a)
 			}
 		}
 
 		if result.RecordSetProperties.AaaaRecords != nil {
-			for _, a := range *(result.RecordSetProperties.AaaaRecords) {
-				rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "AAAA", *(a.Ipv6Address))
-				r, err := dns.NewRR(rfc1035)
-				if err != nil {
-					log.Warningf("failed to process resource record set: %v", err.Error())
-				}
-				newZ.Insert(r)
+			for _, AAAA := range *(result.RecordSetProperties.AaaaRecords) {
+				aaaa := dns.AAAA{
+					Hdr: dns.RR_Header{
+						Name:   resultFqdn,
+						Rrtype: dns.TypeAAAA,
+						Class:  dns.ClassINET,
+						Ttl:    resultTTL},
+					AAAA: net.ParseIP(*(AAAA.Ipv6Address))}
+				newZ.Insert(&aaaa)
 			}
 		}
 
 		if result.RecordSetProperties.MxRecords != nil {
-			for _, a := range *(result.RecordSetProperties.MxRecords) {
-				// vachdal.my.private. 300 IN MX 10 mailserver.example.com.
-				rfc1035 := fmt.Sprintf("%s %d IN MX %d %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), *(a.Preference), *(a.Exchange))
-				r, err := dns.NewRR(rfc1035)
-				if err != nil {
-					log.Warningf("failed to process resource record set: %v", err.Error())
-				}
-				newZ.Insert(r)
+			for _, MX := range *(result.RecordSetProperties.MxRecords) {
+				mx := dns.MX{
+					Hdr: dns.RR_Header{
+						Name:   resultFqdn,
+						Rrtype: dns.TypeMX,
+						Class:  dns.ClassINET,
+						Ttl:    resultTTL},
+					Preference: uint16(*(MX.Preference)),
+					Mx:         dns.Fqdn(*(MX.Exchange))}
+				newZ.Insert(&mx)
 			}
 		}
 
 		if result.RecordSetProperties.PtrRecords != nil {
-			for _, a := range *(result.RecordSetProperties.PtrRecords) {
-				// tetoda.my.private. 300 IN PTR www.tetoda.com
-				rfc1035 := fmt.Sprintf("%s %d IN PTR %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), *(a.Ptrdname))
-				r, err := dns.NewRR(rfc1035)
-				if err != nil {
-					log.Warningf("failed to process resource record set: %v", err.Error())
-				}
-				newZ.Insert(r)
+			for _, PTR := range *(result.RecordSetProperties.PtrRecords) {
+				ptr := dns.PTR{
+					Hdr: dns.RR_Header{
+						Name:   resultFqdn,
+						Rrtype: dns.TypePTR,
+						Class:  dns.ClassINET,
+						Ttl:    resultTTL},
+					Ptr: dns.Fqdn(*(PTR.Ptrdname))}
+				newZ.Insert(&ptr)
 			}
 		}
 
 		if result.RecordSetProperties.SrvRecords != nil {
-			for _, a := range *(result.RecordSetProperties.SrvRecords) {
-				// kumor.my.private. 300 IN SRV 1 10 5269 xmpp-server.example.com.
-				rfc1035 := fmt.Sprintf("%s %d IN SRV %d %d %d %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), *(a.Priority), *(a.Weight), *(a.Port), *(a.Target))
-				r, err := dns.NewRR(rfc1035)
-				if err != nil {
-					log.Warningf("failed to process resource record set: %v", err.Error())
-				}
-				newZ.Insert(r)
+			for _, SRV := range *(result.RecordSetProperties.SrvRecords) {
+				srv := dns.SRV{
+					Hdr: dns.RR_Header{
+						Name:   resultFqdn,
+						Rrtype: dns.TypeSRV,
+						Class:  dns.ClassINET,
+						Ttl:    resultTTL},
+					Priority: uint16(*(SRV.Priority)),
+					Weight:   uint16(*(SRV.Weight)),
+					Port:     uint16(*(SRV.Port)),
+					Target:   dns.Fqdn(*(SRV.Target))}
+				newZ.Insert(&srv)
 			}
 		}
 
 		if result.RecordSetProperties.TxtRecords != nil {
-			for _, txt := range *(result.RecordSetProperties.TxtRecords) {
-				// fagutra.my.private. 300 IN TXT "CoreDNS is awesome"
-				rfc1035 := fmt.Sprintf("%s %d IN TXT \"%s\"", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), strings.Join(*(txt.Value), " "))
-				r, err := dns.NewRR(rfc1035)
-				if err != nil {
-					log.Warningf("failed to process resource record set: %v", err.Error())
-				}
-				newZ.Insert(r)
+			for _, TXT := range *(result.RecordSetProperties.TxtRecords) {
+				txt := dns.TXT{
+					Hdr: dns.RR_Header{
+						Name:   resultFqdn,
+						Rrtype: dns.TypeTXT,
+						Class:  dns.ClassINET,
+						Ttl:    resultTTL},
+					Txt: *(TXT.Value)}
+				newZ.Insert(&txt)
 			}
 		}
 
 		if result.RecordSetProperties.NsRecords != nil {
-			for _, a := range *(result.RecordSetProperties.NsRecords) {
-				rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "NS", *(a.Nsdname))
-				r, err := dns.NewRR(rfc1035)
-				if err != nil {
-					log.Warningf("failed to process resource record set: %v", err.Error())
-				}
-				newZ.Insert(r)
+			for _, NS := range *(result.RecordSetProperties.NsRecords) {
+				ns := dns.NS{
+					Hdr: dns.RR_Header{
+						Name:   resultFqdn,
+						Rrtype: dns.TypeNS,
+						Class:  dns.ClassINET,
+						Ttl:    resultTTL},
+					Ns: *(NS.Nsdname)}
+				newZ.Insert(&ns)
 			}
 		}
 
 		if result.RecordSetProperties.SoaRecord != nil {
-			a := result.RecordSetProperties.SoaRecord
-			rfc1035 := fmt.Sprintf("%s %d IN %s %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), "SOA", fmt.Sprintf("%s %s %d %d %d %d %d", *(a.Host), *(a.Email), *(a.SerialNumber), *(a.RefreshTime), *(a.RetryTime), *(a.ExpireTime), *(a.MinimumTTL)))
-			r, err := dns.NewRR(rfc1035)
-			if err != nil {
-				log.Warningf("failed to process resource record set: %v", err.Error())
-			}
-			newZ.Insert(r)
+			SOA := result.RecordSetProperties.SoaRecord
+			soa := dns.SOA{
+				Hdr: dns.RR_Header{
+					Name:   resultFqdn,
+					Rrtype: dns.TypeSOA,
+					Class:  dns.ClassINET,
+					Ttl:    resultTTL},
+				Minttl:  uint32(*(SOA.MinimumTTL)),
+				Expire:  uint32(*(SOA.ExpireTime)),
+				Retry:   uint32(*(SOA.RetryTime)),
+				Refresh: uint32(*(SOA.RefreshTime)),
+				Serial:  uint32(*(SOA.SerialNumber)),
+				Mbox:    dns.Fqdn(*(SOA.Email)),
+				Ns:      *(SOA.Host)}
+			newZ.Insert(&soa)
 		}
 
 		if result.RecordSetProperties.CnameRecord != nil {
-			rfc1035 := fmt.Sprintf("%s %d IN CNAME %s", *(result.RecordSetProperties.Fqdn), *(result.RecordSetProperties.TTL), *(result.RecordSetProperties.CnameRecord.Cname))
-			r, err := dns.NewRR(rfc1035)
-			if err != nil {
-				log.Warningf("failed to process resource record set: %v", err.Error())
-			}
-			newZ.Insert(r)
+			CNAME := result.RecordSetProperties.CnameRecord.Cname
+			cname := dns.CNAME{
+				Hdr: dns.RR_Header{
+					Name:   resultFqdn,
+					Rrtype: dns.TypeCNAME,
+					Class:  dns.ClassINET,
+					Ttl:    resultTTL},
+				Target: dns.Fqdn(*CNAME)}
+			newZ.Insert(&cname)
 		}
 	}
 	return newZ
@@ -238,7 +266,7 @@ func (h *Azure) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 	}
 
-	z, ok := h.zones[zName]
+	z, ok := h.zones[zName] // ok true if we are authoritive for the zone
 	if !ok || z == nil {
 		return dns.RcodeServerFailure, nil
 	}

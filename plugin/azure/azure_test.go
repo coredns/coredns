@@ -9,18 +9,19 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/test"
-	crequest "github.com/coredns/coredns/request"
+	"github.com/coredns/coredns/request"
+
 	"github.com/miekg/dns"
 )
 
 var demoAzure Azure = Azure{
-	Next:      returnTestHandler(),
+	Next:      testHandler(),
 	Fall:      fall.Zero,
 	zoneNames: []string{"example.org", "www.example.org", "example.org.", "sample.example.org."},
-	zones:     returnTestZones(),
+	zones:     testZones(),
 }
 
-func returnTestZones() zones {
+func testZones() zones {
 	zones := make(map[string][]*zone)
 	zones["example.org."] = append(zones["example.org."], &zone{zone: "example.org."})
 	newZ := file.NewZone("example.org.", "")
@@ -32,31 +33,30 @@ func returnTestZones() zones {
 		"www.example.org.  300 IN  A   1.2.3.4",
 		"org.	172800	IN	NS	ns3-06.azure-dns.org.",
 		"org.	300	IN	SOA	ns1-06.azure-dns.com. azuredns-hostmaster.microsoft.com. 1 3600 300 2419200 300",
+		"cname.example.org. 300 IN CNAME example.org",
+		"mail.example.org. 300 IN MX 10 mailserver.example.com",
+		"ptr.example.org. 300 IN PTR www.ptr-example.com",
+		"example.org. 300 IN SRV 1 10 5269 srv-1.example.com.",
+		"example.org. 300 IN SRV 1 10 5269 srv-2.example.com.",
+		"txt.example.org. 300 IN TXT \"TXT for example.org\"",
 	} {
 		r, _ := dns.NewRR(rr)
-		err := newZ.Insert(r)
-		if err != nil {
-			log.Fatalf("XXXXXXXXXXXXXX could not add file zone to zone: %s", err.Error())
-		}
+		newZ.Insert(r)
 	}
 	zones["example.org."][0].z = newZ
 	return zones
 }
 
-func returnTestHandler() test.HandlerFunc {
+func testHandler() test.HandlerFunc {
 	return func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-		state := crequest.Request{W: w, Req: r}
+		state := request.Request{W: w, Req: r}
 		qname := state.Name()
 		m := new(dns.Msg)
 		rcode := dns.RcodeServerFailure
 		if qname == "example.gov." {
 			m.SetReply(r)
-			rr, err := dns.NewRR("example.gov.  300 IN  A   2.4.6.8")
-			if err != nil {
-				log.Fatalf("Failed to create Resource Record: %v", err)
-			}
+			rr := test.A("example.gov.  300 IN  A   2.4.6.8")
 			m.Answer = []dns.RR{rr}
-
 			m.Authoritative = true
 			rcode = dns.RcodeSuccess
 		}
@@ -103,9 +103,34 @@ func TestAzure(t *testing.T) {
 			wantAnswer: []string{"example.gov.	300	IN	A	2.4.6.8"},
 		},
 		{
-			qname:      "example.org",
-			qtype:      dns.TypeSRV,
-			wantAnswer: []string{"foosh"},
+			qname: "example.org",
+			qtype: dns.TypeSRV,
+			wantAnswer: []string{"example.org.	300	IN	SRV	1 10 5269 srv-1.example.com.", "example.org.	300	IN	SRV	1 10 5269 srv-2.example.com."},
+		},
+		{
+			qname: "cname.example.org.",
+			qtype: dns.TypeCNAME,
+			wantAnswer: []string{"cname.example.org.	300	IN	CNAME	example.org."},
+		},
+		{
+			qname: "cname.example.org.",
+			qtype: dns.TypeA,
+			wantAnswer: []string{"cname.example.org.	300	IN	CNAME	example.org.", "example.org.	300	IN	A	1.2.3.4"},
+		},
+		{
+			qname: "mail.example.org.",
+			qtype: dns.TypeMX,
+			wantAnswer: []string{"mail.example.org.	300	IN	MX	10 mailserver.example.com."},
+		},
+		{
+			qname: "ptr.example.org.",
+			qtype: dns.TypePTR,
+			wantAnswer: []string{"ptr.example.org.	300	IN	PTR	www.ptr-example.com."},
+		},
+		{
+			qname: "txt.example.org.",
+			qtype: dns.TypeTXT,
+			wantAnswer: []string{"txt.example.org.	300	IN	TXT	\"TXT for example.org\""},
 		},
 	}
 
@@ -119,6 +144,7 @@ func TestAzure(t *testing.T) {
 		if err != tc.expectedErr {
 			t.Fatalf("Test %d: Expected error %v, but got %v", ti, tc.expectedErr, err)
 		}
+
 		if code != int(tc.wantRetCode) {
 			t.Fatalf("Test %d: Expected returned status code %s, but got %s", ti, dns.RcodeToString[tc.wantRetCode], dns.RcodeToString[code])
 		}

@@ -3,13 +3,13 @@ module github.com/coredns/coredns
 go 1.12
 
 require (
-	cloud.google.com/go v0.40.0 // indirect
-	github.com/Azure/azure-sdk-for-go v30.1.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.2.0
+	cloud.google.com/go v0.41.0 // indirect
+	github.com/Azure/azure-sdk-for-go v31.1.0+incompatible
+	github.com/Azure/go-autorest/autorest v0.5.0
 	github.com/Azure/go-autorest/autorest/azure/auth v0.1.0
 	github.com/Azure/go-autorest/autorest/to v0.2.0 // indirect
 	github.com/Shopify/sarama v1.21.0 // indirect
-	github.com/aws/aws-sdk-go v1.20.5
+	github.com/aws/aws-sdk-go v1.21.0
 	github.com/caddyserver/caddy v1.0.1
 	github.com/coreos/bbolt v1.3.2 // indirect
 	github.com/coreos/etcd v3.3.13+incompatible
@@ -21,8 +21,7 @@ require (
 	github.com/farsightsec/golang-framestream v0.0.0-20181102145529-8a0cb8ba8710
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/golang/groupcache v0.0.0-20190129154638-5b532d6fd5ef // indirect
-	github.com/golang/protobuf v1.3.1
-	github.com/google/btree v1.0.0 // indirect
+	github.com/golang/protobuf v1.3.2
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gophercloud/gophercloud v0.0.0-20190307220656-fe1ba5ce12dd // indirect
@@ -33,8 +32,7 @@ require (
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
-	github.com/mholt/caddy v1.0.0
-	github.com/miekg/dns v1.1.14
+	github.com/miekg/dns v1.1.15
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.3.5 // indirect
@@ -54,14 +52,13 @@ require (
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect
 	go.uber.org/zap v1.9.1 // indirect
-	golang.org/x/crypto v0.0.0-20190618222545-ea8f1a30c443 // indirect
-	golang.org/x/net v0.0.0-20190619014844-b5b0513f8c1b // indirect
-	golang.org/x/sys v0.0.0-20190618155005-516e3c20635f
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
-	google.golang.org/appengine v1.6.1 // indirect
-	google.golang.org/genproto v0.0.0-20190611190212-a7e196e89fd3 // indirect
-	google.golang.org/grpc v1.21.1
-	gopkg.in/DataDog/dd-trace-go.v1 v1.15.0
+	golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 // indirect
+	golang.org/x/net v0.0.0-20190628185345-da137c7871d7 // indirect
+	golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb
+	golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 // indirect
+	google.golang.org/genproto v0.0.0-20190701230453-710ae3a149df // indirect
+	google.golang.org/grpc v1.22.0
+	gopkg.in/DataDog/dd-trace-go.v1 v1.16.0
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/api v0.0.0-20190313235455-40a48860b5ab
 	k8s.io/apimachinery v0.0.0-20190313205120-d7deff9243b1
