@@ -35,6 +35,7 @@ var Directives = []string{
 	"autopath",
 	"template",
 	"hosts",
+	"gcpdns",
 	"route53",
 	"federation",
 	"k8s_external",
