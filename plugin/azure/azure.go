@@ -84,42 +84,26 @@ func (h *Azure) Run(ctx context.Context) error {
 }
 
 func (h *Azure) updateZones(ctx context.Context) error {
-	errc := make(chan error)
-	defer close(errc)
+	errs := make([]string, 0)
 	for zName, z := range h.zones {
-		go func(zName string, z []*zone) {
-			var err error
-			defer func() {
-				errc <- err
-			}()
-
-			for i, hostedZone := range z {
-				recordSet, err := h.client.ListByDNSZone(ctx, hostedZone.id, hostedZone.zone, nil, "")
-				if err != nil {
-					err = fmt.Errorf("failed to list resource records for %v from azure: %v", hostedZone.zone, err)
-					return
-				}
-				newZ := updateZoneFromResourceSet(recordSet, zName)
-				newZ.Upstream = h.upstream
-				h.zMu.Lock()
-				(*z[i]).z = newZ
-				h.zMu.Unlock()
+		for i, hostedZone := range z {
+			recordSet, err := h.client.ListByDNSZone(ctx, hostedZone.id, hostedZone.zone, nil, "")
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("failed to list resource records for %v from azure: %v", hostedZone.zone, err))
 			}
-		}(zName, z)
-	}
-	// Collect errors (if any). This will also sync on all zones updates
-	// completion.
-	var errs []string
-	for i := 0; i < len(h.zones); i++ {
-		err := <-errc
-		if err != nil {
-			errs = append(errs, err.Error())
+			newZ := updateZoneFromResourceSet(recordSet, zName)
+			newZ.Upstream = h.upstream
+			h.zMu.Lock()
+			(*z[i]).z = newZ
+			h.zMu.Unlock()
 		}
 	}
+
 	if len(errs) != 0 {
 		return fmt.Errorf("errors updating zones: %v", errs)
 	}
 	return nil
+
 }
 
 func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, zName string) *file.Zone {

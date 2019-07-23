@@ -40,10 +40,10 @@ func TestSetup(t *testing.T) {
     foobar
 }`, true},
 		{`azure resource-set:hosted-zone {
-    tenant_id <tenant_id>
-    client_id <client_id>
-    client_secret <client_secret>
-    subscription_id <subscription_id>
+    tenant_id tenant_id
+    client_id client_id
+    client_secret client_secret
+    subscription_id subscription_id
 }`, false},
 
 		{`azure resource-set:hosted-zone {

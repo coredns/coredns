@@ -14,10 +14,10 @@ This plugin supports all the DNS records supported by Azure, viz. A, AAAA, CAA, 
 
 ~~~ txt
 azure resource-group:dns-zone {
-    tenant_id <tenant_id>
-    client_id <client_id>
-    client_secret <client_secret>
-    subscription_id <subscription_id>
+    tenant_id tenant_id
+    client_id client_id
+    client_secret client_secret
+    subscription_id subscription_id
 }
 ~~~
 

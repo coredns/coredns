@@ -53,7 +53,7 @@ func testHandler() test.HandlerFunc {
 		qname := state.Name()
 		m := new(dns.Msg)
 		rcode := dns.RcodeServerFailure
-		if qname == "example.gov." {
+		if qname == "example.gov." { // no records match, test fallthrough
 			m.SetReply(r)
 			rr := test.A("example.gov.  300 IN  A   2.4.6.8")
 			m.Answer = []dns.RR{rr}
