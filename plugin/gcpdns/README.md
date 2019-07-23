@@ -22,11 +22,6 @@ gcpdns [DNS_NAME:GCP_PROJECT/ZONE_NAME...] {
 }
 ~~~
 
-* `name` **INSTANCE_NAME** - the name of the **gcpdns** plugin instance (optional).
-
-  The default value will be `gcpdns-`*id* where *id* will be a an ID that is
-  unique for that configuration incarnation.  
-
 * **DNS_NAME** the name of the domain to be accessed. When there are multiple
   zones with overlapping domains (private vs. public hosted zone), CoreDNS does
   the lookup in the given order here. Therefore, for a non-existing resource
@@ -36,6 +31,11 @@ gcpdns [DNS_NAME:GCP_PROJECT/ZONE_NAME...] {
 
 * **ZONE_NAME** the name of the hosted zone that contains the resource record
   sets to be accessed.
+
+* `name` **INSTANCE_NAME** - the name of the **gcpdns** plugin instance (optional).
+
+  The default value will be `gcpdns-`*id* where *id* will be a an ID that is
+  unique for that configuration incarnation.  
 
 * `gcp_service_account_json` **GCP_SA_ENV_VAR** - the environmental variable
   name whose base 64 encoded JSON value is the
