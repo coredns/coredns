@@ -19,7 +19,7 @@ import (
 func TestConfiguredWithNonexistentZone(t *testing.T) {
 	ctx := context.Background()
 
-	_, err := newGcpDNSHandler(ctx, newMock(), map[string][]zoneID{"bad.": {zoneID{"my-project", "unknown-zone"}}}, &upstream.Upstream{})
+	_, err := newGcpDNSHandler(ctx, "bad", newMock(), map[string][]zoneID{"bad.": {zoneID{"my-project", "unknown-zone"}}}, &upstream.Upstream{})
 	assert.Error(t, err)
 	assert.Equal(t, 404, errors.Cause(err).(*googleapi.Error).Code)
 }
@@ -27,7 +27,7 @@ func TestConfiguredWithNonexistentZone(t *testing.T) {
 func TestConfiguredWithNonexistentProject(t *testing.T) {
 	ctx := context.Background()
 
-	_, err := newGcpDNSHandler(ctx, newMock(), map[string][]zoneID{"bad.": {zoneID{"unknown-project", "org-zone"}}}, &upstream.Upstream{})
+	_, err := newGcpDNSHandler(ctx, "good", newMock(), map[string][]zoneID{"bad.": {zoneID{"unknown-project", "org-zone"}}}, &upstream.Upstream{})
 	assert.Error(t, err)
 	assert.Equal(t, 403, errors.Cause(err).(*googleapi.Error).Code)
 }
@@ -35,7 +35,7 @@ func TestConfiguredWithNonexistentProject(t *testing.T) {
 func TestServeDNS(t *testing.T) {
 	ctx := context.Background()
 
-	r, err := newGcpDNSHandler(ctx, newMock(), map[string][]zoneID{
+	r, err := newGcpDNSHandler(ctx, "test", newMock(), map[string][]zoneID{
 		"org.": {zoneID{"my-project", "another-org-zone"}, zoneID{"my-project", "org-zone"}},
 		"gov.": {zoneID{"my-project", "org-zone"},
 		}}, &upstream.Upstream{})

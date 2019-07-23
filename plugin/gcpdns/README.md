@@ -2,24 +2,30 @@
 
 ## Name
 
-*gcpdns* - enables serving zone data from Google Cloud DNS.
+**gcpdns** - enables serving zone data from Google Cloud DNS.
 
 ## Description
 
-The gcpdns plugin is useful for serving zones from resource record sets in
+The **gcpdns** plugin is useful for serving zones from resource record sets in
 Google Cloud DNS. This plugin supports all Google Cloud DNS records
 ([https://cloud.google.com/dns/docs/overview](https://cloud.google.com/dns/docs/overview#supported_dns_record_types)).
-The gcpdns plugin can be used when CoreDNS is deployed on Google Cloud or
+The **gcpdns** plugin can be used when CoreDNS is deployed on Google Cloud or
 elsewhere.
 
 ## Syntax
 
 ~~~ txt
 gcpdns [DNS_NAME:GCP_PROJECT/ZONE_NAME...] {
-    [gcp_service_account_json GCP_SA_ENV_VAR] | [gcp_service_account_file GCP_CREDENTIALS_FILE]
-    fallthrough [ZONES...]
+  [name INSTANCE_NAME]  
+  [gcp_service_account_json GCP_SA_ENV_VAR] | [gcp_service_account_file GCP_CREDENTIALS_FILE]
+  [fallthrough [ZONES...]]
 }
 ~~~
+
+* `name` **INSTANCE_NAME** - the name of the **gcpdns** plugin instance (optional).
+
+  The default value will be `gcpdns-`*id* where *id* will be a an ID that is
+  unique for that configuration incarnation.  
 
 * **DNS_NAME** the name of the domain to be accessed. When there are multiple
   zones with overlapping domains (private vs. public hosted zone), CoreDNS does
@@ -60,18 +66,17 @@ gcpdns [DNS_NAME:GCP_PROJECT/ZONE_NAME...] {
   to obtain GCP credentials using the strategy "Application Default Credentials"
   detailed below.
 
-* `fallthrough` If zone matches and no record can be generated, pass request to
-  the next plugin.  If **[ZONES...]** is omitted, then fallthrough happens for
-  all zones for which the plugin is authoritative. If specific zones are listed
+* `fallthrough` **ZONES** - If zone matches and no record can be generated,
+  pass request to the next plugin (optional).
+  
+  If **[ZONES...]** is omitted, then fallthrough happens for all zones for
+  which the plugin is authoritative. If specific zones are listed
   (for example `in-addr.arpa` and `ip6.arpa`), then only queries for
   those zones will be subject to fallthrough.
 
-* **ZONES** zones it should be authoritative for. If empty, the zones from the
-  configuration block.
-
 ## Examples
 
-Enable gcpdns with GCP Application Default Credentials:
+Enable **gcpdns** with GCP Application Default Credentials:
 
 ~~~ txt
 . {
@@ -80,7 +85,7 @@ Enable gcpdns with GCP Application Default Credentials:
 }
 ~~~
 
-Enable gcpdns with explicit GCP service account credentials, base 64 encoded,
+Enable **gcpdns** with explicit GCP service account credentials, base 64 encoded,
 stored in the environmental variable `DNS_SERVICE_ACCOUNT`:
 
 ~~~ txt
@@ -91,7 +96,7 @@ stored in the environmental variable `DNS_SERVICE_ACCOUNT`:
 }
 ~~~
 
-Enable gcpdns with explicit GCP service account credentials stored in the file
+Enable **gcpdns** with explicit GCP service account credentials stored in the file
 `/etc/coredns/gcp-service-account.json`:
 
 ~~~ txt
@@ -102,7 +107,7 @@ Enable gcpdns with explicit GCP service account credentials stored in the file
 }
 ~~~
 
-Enable gcpdns with fallthrough:
+Enable **gcpdns** with fallthrough:
 
 ~~~ txt
 . {
@@ -112,11 +117,27 @@ Enable gcpdns with fallthrough:
 }
 ~~~
 
-Enable gcpdns with multiple hosted zones with the same domain:
+Enable **gcpdns** with multiple hosted zones with the same domain:
 
 ~~~ txt
 . {
     gcpdns example.org.:my-private-project/my-private-zone-name example.org.:my-public-project/my-public-zone-name
+}
+~~~
+
+Enable **gcpdns** with multiple hosted zones, but different credentials, with the same domain:
+
+~~~ txt
+. {
+  gcpdns demo.eng.acme.io.:user-project/user-eng-acme-io-zone {
+    name user-project
+    gcp_service_account_file /Users/user/user-project-ec24219ff8cf.json
+    fallthrough demo.eng.acme.io.
+  }
+  gcpdns demo.eng.acme.io.:shared-project/shared-eng-acme-io-zone {
+    name shared-project
+    gcp_service_account_file /Users/user/shared-project-74b7b8e03651.json
+  }
 }
 ~~~
 

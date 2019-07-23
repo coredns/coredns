@@ -44,7 +44,7 @@ type mockZonesServiceCall struct {
 }
 
 func (m *mockZonesService) Get(project string, managedZone string) api.ManagedZonesGetCall {
-	if project != "my-project" {
+	if project != "my-project" && project != "another-project" {
 		return &mockZonesServiceCall{
 			err: &googleapi.Error{
 				Code:    403,

@@ -20,6 +20,8 @@ import (
 
 // gcpDNSPlugin is a plugin that returns DNS Resource Records from GCP Cloud DNS.
 type gcpDNSPlugin struct {
+	name string
+
 	Next plugin.Handler
 	Fall fall.F
 
@@ -53,7 +55,7 @@ type zones map[string][]*zone
 // name pair does exist, and returns a new *gcpDNSPlugin. In addition to this, upstream
 // is passed for doing recursive queries against CNAMEs.
 // Returns error if it cannot verify any given domain name/zone name pair.
-func newGcpDNSHandler(ctx context.Context, s *api.Service, keys map[string][]zoneID, up *upstream.Upstream) (*gcpDNSPlugin, error) {
+func newGcpDNSHandler(ctx context.Context, name string, s *api.Service, keys map[string][]zoneID, up *upstream.Upstream) (*gcpDNSPlugin, error) {
 	zones := make(map[string][]*zone, len(keys))
 	zoneNames := make([]string, 0, len(keys))
 	for dn, zids := range keys {
@@ -70,6 +72,7 @@ func newGcpDNSHandler(ctx context.Context, s *api.Service, keys map[string][]zon
 		}
 	}
 	return &gcpDNSPlugin{
+		name:      name,
 		client:    s,
 		zoneNames: zoneNames,
 		zones:     zones,
@@ -90,7 +93,7 @@ func (h *gcpDNSPlugin) startup(ctx context.Context) error {
 				return
 			case <-time.After(1 * time.Minute):
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
-					log.Errorf("Failed to update zones: %v", err)
+					log.Errorf("[%s] Failed to update zones: %v", h.name, err)
 				}
 			}
 		}
@@ -129,8 +132,11 @@ func (h *gcpDNSPlugin) ServeDNS(ctx context.Context, w dnslib.ResponseWriter, r 
 	}
 
 	if len(m.Answer) == 0 && result != file.NoData && h.Fall.Through(qname) {
+		log.Debugf("[%s] falling through for %s", h.name, qname)
 		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 	}
+
+	log.Debugf("[%s] providing answer for %s", h.name, qname)
 
 	switch result {
 	case file.Success:
@@ -176,12 +182,13 @@ func (h *gcpDNSPlugin) updateZones(ctx context.Context) error {
 					// Assemble RFC 1035 conforming record to pass into dns scanner.
 					for _, z := range rr.Rrdatas {
 						rfc1035 := fmt.Sprintf("%s %d IN %s %s", rr.Name, rr.Ttl, rr.Type, z)
+						log.Debugf("[%s] Adding %s", h.name, rfc1035)
 						r, err := dnslib.NewRR(rfc1035)
 						if err != nil {
-							log.Errorf("failed to parse resource record: %v", err)
+							log.Errorf("[%s] failed to parse resource record: %v", h.name, err)
 						} else {
 							if err := nz.Insert(r); err != nil {
-								log.Errorf("failed to insert resource record: %v", err)
+								log.Errorf("[%s] failed to insert resource record: %v", h.name, err)
 							}
 						}
 					}
@@ -204,7 +211,7 @@ func (h *gcpDNSPlugin) updateZones(ctx context.Context) error {
 		}
 	}
 	if len(errs) != 0 {
-		return fmt.Errorf("errors updating zones: %v", errs)
+		return fmt.Errorf("[%s] errors updating zones: %v", h.name, errs)
 	}
 	return nil
 }

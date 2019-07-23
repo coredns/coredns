@@ -36,7 +36,7 @@ func TestSetupGcpdns(t *testing.T) {
 		factory       dnsServiceFactory
 		saCredentials string
 	}{
-		{"bad-factory", ``, true, badFactory, ""},
+		{"bad-factory", `gcpdns`, true, badFactory, ""},
 		{"simplest", `gcpdns`, false, goodFactory, ""},
 		{"name-zone-missing-k-v", `gcpdns :`, true, goodFactory, ""},
 		{"vanilla-name-zone", `gcpdns example.org:my-project/org-zone`, false, goodFactory, ""},
@@ -78,6 +78,14 @@ func TestSetupGcpdns(t *testing.T) {
     upstream 10.0.0.1
 }`, false, goodFactory, ""},
 
+		{"multiple", fmt.Sprintf(`gcpdns example.org:my-project/org-zone {
+    gcp_service_account_json DNS_SERVICE_ACCOUNT
+}
+
+gcpdns example.org:another-project/org-zone {
+    gcp_service_account_file %s
+}`, saCredentialsFile.Name()), false, goodFactory, "eyJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCJ9"},
+
 		{"upstream", `gcpdns example.org:my-project/org-zone {
     upstream
 }`, false, goodFactory, ""},
@@ -110,12 +118,11 @@ func TestSetupGcpdns(t *testing.T) {
 				_ = os.Setenv("DNS_SERVICE_ACCOUNT", tc.saCredentials)
 			}
 			c := caddy.NewTestController("dns", tc.body)
-			if err := setup(c, tc.factory); (err == nil) == tc.expectedError {
-				if tc.expectedError {
-					assert.Error(err)
-				} else {
-					assert.NoError(err)
-				}
+			err := setup(c, tc.factory)
+			if tc.expectedError {
+				assert.Error(err)
+			} else {
+				assert.NoError(err)
 			}
 		})
 	}

@@ -20,6 +20,8 @@ import (
 
 var log = clog.NewWithPlugin("gcpdns")
 
+const dfltNm = "gcpdns"
+
 func init() {
 	caddy.RegisterPlugin("gcpdns", caddy.Plugin{
 		ServerType: "dns",
@@ -37,14 +39,17 @@ type dnsServiceFactory func(ctx context.Context, opts ...option.ClientOption) (*
 
 func setup(c *caddy.Controller, factory dnsServiceFactory) error {
 
-	visited := map[string]struct{}{}
-	keys := make(map[string][]zoneID)
+	var dfltCnt = 0
 
-	var f fall.F
-	var options = make([]option.ClientOption, 0, 1)
-
-	up := upstream.New()
 	for c.Next() {
+		visited := map[string]struct{}{}
+		keys := make(map[string][]zoneID)
+
+		var f fall.F
+		var options = make([]option.ClientOption, 0, 1)
+		var name = dfltNm
+
+		up := upstream.New()
 		args := c.RemainingArgs()
 
 		for i := 0; i < len(args); i++ {
@@ -52,8 +57,8 @@ func setup(c *caddy.Controller, factory dnsServiceFactory) error {
 			if len(parts) != 2 {
 				return c.Errf("invalid zone '%s'", args[i])
 			}
-			name, zone := parts[0], parts[1]
-			if name == "" || zone == "" {
+			domain, zone := parts[0], parts[1]
+			if domain == "" || zone == "" {
 				return c.Errf("invalid zone '%s'", args[i])
 			}
 			zoneParts := strings.SplitN(zone, "/", 2)
@@ -70,11 +75,18 @@ func setup(c *caddy.Controller, factory dnsServiceFactory) error {
 			}
 
 			visited[args[i]] = struct{}{}
-			keys[name] = append(keys[name], zoneID{project: project, name: id})
+			keys[domain] = append(keys[domain], zoneID{project: project, name: id})
 		}
 
 		for c.NextBlock() {
 			switch c.Val() {
+			case "name":
+				v := c.RemainingArgs()
+				if len(v) != 1 {
+					return c.Err("missing plugin name")
+				}
+				name = v[0]
+
 			case "gcp_service_account_json":
 				if len(options) > 0 {
 					return c.Err("credentials already set")
@@ -83,16 +95,17 @@ func setup(c *caddy.Controller, factory dnsServiceFactory) error {
 				if len(v) < 1 {
 					return c.Err("missing GCP service account environmental variable name")
 				}
-				name := v[0]
-				b64, ok := os.LookupEnv(name)
+				e := v[0]
+				b64, ok := os.LookupEnv(e)
 				if !ok {
-					return c.Errf("missing environmental variable %s", name)
+					return c.Errf("missing environmental variable %s", e)
 				}
 				j, err := base64.StdEncoding.DecodeString(b64)
 				if err != nil {
 					return c.Errf("invalid base64 %v", err)
 				}
 				options = append(options, option.WithCredentialsJSON([]byte(j)))
+
 			case "gcp_service_account_file":
 				if len(options) > 0 {
 					return c.Err("credentials already set")
@@ -101,50 +114,58 @@ func setup(c *caddy.Controller, factory dnsServiceFactory) error {
 				if len(v) < 1 {
 					return c.Err("missing GCP service account file name")
 				}
-				name := v[0]
-				if _, err := os.Stat(name); os.IsNotExist(err) {
-					return fmt.Errorf("service account file does not exist: %s", name)
+				f := v[0]
+				if _, err := os.Stat(f); os.IsNotExist(err) {
+					return fmt.Errorf("service account file does not exist: %s", f)
 				}
-				options = append(options, option.WithCredentialsFile(name))
+				options = append(options, option.WithCredentialsFile(f))
+
 			case "upstream":
 				c.RemainingArgs() // eats args
+
 			case "fallthrough":
 				f.SetZonesFromArgs(c.RemainingArgs())
+
 			default:
 				return c.Errf("unknown property '%s'", c.Val())
 			}
 		}
-	}
 
-	ctx := context.Background()
-	client, err := factory(ctx, options...)
-	if err != nil {
-		return c.Errf("failed to create gcpdns plugin: %v", err)
-	}
+		if name == dfltNm {
+			dfltCnt++
+			name = fmt.Sprintf("%s-%d", dfltNm, dfltCnt)
+		}
 
-	h, err := newGcpDNSHandler(ctx, client, keys, up)
-	if err != nil {
-		return c.Errf("failed to initialize gcpdns plugin: %v", err)
-	}
+		ctx := context.Background()
+		client, err := factory(ctx, options...)
+		if err != nil {
+			return c.Errf("failed to create gcpdns plugin: %v", err)
+		}
 
-	c.OnStartup(func() error {
-		log.Info("GCP Cloud DNS plugin starting up")
-		ctx, cancel := context.WithCancel(context.Background())
-		if err := h.startup(ctx); err != nil {
+		h, err := newGcpDNSHandler(ctx, name, client, keys, up)
+		if err != nil {
 			return c.Errf("failed to initialize gcpdns plugin: %v", err)
 		}
-		c.OnShutdown(func() error {
-			log.Info("GCP Cloud DNS plugin shutting down")
-			cancel()
+		h.Fall = f
+
+		c.OnStartup(func() error {
+			log.Debugf("[%s] GCP Cloud DNS plugin starting up", h.name)
+			ctx, cancel := context.WithCancel(context.Background())
+			if err := h.startup(ctx); err != nil {
+				return c.Errf("failed to initialize gcpdns plugin: %v", err)
+			}
+			c.OnShutdown(func() error {
+				log.Debugf("[%s] GCP Cloud DNS plugin shutting down", h.name)
+				cancel()
+				return nil
+			})
 			return nil
 		})
-		return nil
-	})
 
-	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		h.Next = next
-		return h
-	})
-
+		dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
+			h.Next = next
+			return h
+		})
+	}
 	return nil
 }
