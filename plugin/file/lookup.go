@@ -263,7 +263,7 @@ Out:
 	return nil, ret, nil, rcode
 }
 
-// typeFromElem returns the type tp from e and adds signatures (if they exists) and do is true.
+// typeFromElem returns the type tp from e and adds signatures (if they exist) and do is true.
 func typeFromElem(elem *tree.Elem, tp uint16, do bool) []dns.RR {
 	rrs := elem.Type(tp)
 	if do {
