@@ -128,13 +128,13 @@ func setup(c *caddy.Controller, factory dnsServiceFactory) error {
 	}
 
 	c.OnStartup(func() error {
-		clog.Info("GCP Cloud DNS plugin starting up")
+		log.Info("GCP Cloud DNS plugin starting up")
 		ctx, cancel := context.WithCancel(context.Background())
 		if err := h.startup(ctx); err != nil {
 			return c.Errf("failed to initialize gcpdns plugin: %v", err)
 		}
 		c.OnShutdown(func() error {
-			clog.Info("GCP Cloud DNS plugin shutting down")
+			log.Info("GCP Cloud DNS plugin shutting down")
 			cancel()
 			return nil
 		})
