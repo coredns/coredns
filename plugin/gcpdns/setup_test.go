@@ -66,10 +66,10 @@ func TestSetupGcpdns(t *testing.T) {
 		{"gcp_service_account_file-no-saCredentialsFile", `gcpdns example.org:my-project/org-zone {
     gcp_service_account_file /no/such/saCredentialsFile
 }`, true, goodFactory, ""},
-		{"double-credentials-i", `gcpdns example.org:my-project/org-zone {
-    gcp_service_account_file /etc/coredns/gcp-service-account.json
+		{"double-credentials-i", fmt.Sprintf(`gcpdns example.org:my-project/org-zone {
+    gcp_service_account_file %s
     gcp_service_account_json DNS_SERVICE_ACCOUNT
-}`, true, goodFactory, "eyJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCJ9"},
+}`, saCredentialsFile.Name()), true, goodFactory, "eyJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCJ9"},
 		{"double-credentials-ii", `gcpdns example.org:my-project/org-zone {
     gcp_service_account_json DNS_SERVICE_ACCOUNT
     gcp_service_account_file /etc/coredns/gcp-service-account.json
