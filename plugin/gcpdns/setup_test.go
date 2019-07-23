@@ -107,6 +107,31 @@ gcpdns example.org:another-project/org-zone {
 		{"test", `gcpdns example.org {
     upstream 1.2.3.4
 }`, true, goodFactory, ""},
+
+		{"name", fmt.Sprintf(`gcpdns example.org:my-project/org-zone {
+    name thing-one
+    gcp_service_account_json DNS_SERVICE_ACCOUNT
+}
+
+gcpdns example.org:another-project/org-zone {
+    name thing-two
+    gcp_service_account_file %s
+}`, saCredentialsFile.Name()), false, goodFactory, "eyJ0eXBlIjogInNlcnZpY2VfYWNjb3VudCJ9"},
+		{"missing-name", `gcpdns example.org:my-project/org-zone {
+    name
+}`, true, goodFactory, ""},
+		{"name-with-whitespace", `gcpdns example.org:my-project/org-zone {
+    name how now brown cow
+}`, true, goodFactory, ""},
+		{"too-many-names", `gcpdns example.org:my-project/org-zone {
+    name Daenerys-Stormborn-of-the-House-Targaryen
+    name First-of-Her-Name
+    name the-Unburnt
+    name Queen-of-the-Andals-and-the-First-Men
+    name Khaleesi-of-the-Great-Grass-Sea
+    name Breaker-of-Chains
+    name Mother-of-Dragons
+}`, true, goodFactory, ""},
 	}
 
 	assert := require.New(t)

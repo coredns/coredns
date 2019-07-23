@@ -78,12 +78,20 @@ func setup(c *caddy.Controller, factory dnsServiceFactory) error {
 			keys[domain] = append(keys[domain], zoneID{project: project, name: id})
 		}
 
+		var nameSpecified = false
 		for c.NextBlock() {
 			switch c.Val() {
 			case "name":
+				if nameSpecified {
+					return c.Err("too many names specified")
+				}
+				nameSpecified = true
+
 				v := c.RemainingArgs()
-				if len(v) != 1 {
+				if len(v) < 1 {
 					return c.Err("missing plugin name")
+				} else if len(v) > 1 {
+					return c.Err("whitespaces not allowed in name")
 				}
 				name = v[0]
 
