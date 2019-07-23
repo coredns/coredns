@@ -25,6 +25,22 @@ const (
 	ServerFailure
 )
 
+func (r Result) String() string {
+	switch r {
+	case Success:
+		return "Success"
+	case NameError:
+		return "NameError"
+	case Delegation:
+		return "Delegation"
+	case NoData:
+		return "NoData"
+	case ServerFailure:
+		return "ServerFailure"
+	}
+	return ""
+}
+
 // Lookup looks up qname and qtype in the zone. When do is true DNSSEC records are included.
 // Three sets of records are returned, one for the answer, one for authority  and one for the additional section.
 func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) ([]dns.RR, []dns.RR, []dns.RR, Result) {

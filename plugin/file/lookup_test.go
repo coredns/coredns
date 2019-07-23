@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/miekg/dns"
 )
@@ -162,6 +163,14 @@ func BenchmarkFileLookup(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		fm.ServeDNS(ctx, rec, m)
 	}
+}
+
+func TestResultStringer(t *testing.T) {
+	assert.Equal(t, "Success", Success.String())
+	assert.Equal(t, "NameError", NameError.String())
+	assert.Equal(t, "Delegation", Delegation.String())
+	assert.Equal(t, "NoData", NoData.String())
+	assert.Equal(t, "ServerFailure", ServerFailure.String())
 }
 
 const dbMiekNL = `
