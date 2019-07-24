@@ -14,10 +14,10 @@ import (
 	"github.com/miekg/dns"
 )
 
-var demoAzure Azure = Azure{
+var demoAzure = Azure{
 	Next:      testHandler(),
 	Fall:      fall.Zero,
-	zoneNames: []string{"example.org", "www.example.org", "example.org.", "sample.example.org."},
+	zoneNames: []string{"example.org.", "www.example.org.", "example.org.", "sample.example.org."},
 	zones:     testZones(),
 }
 
@@ -53,7 +53,7 @@ func testHandler() test.HandlerFunc {
 		qname := state.Name()
 		m := new(dns.Msg)
 		rcode := dns.RcodeServerFailure
-		if qname == "example.gov." { // no records match, test fallthrough
+		if qname == "example.gov." { // No records match, test fallthrough.
 			m.SetReply(r)
 			rr := test.A("example.gov.  300 IN  A   2.4.6.8")
 			m.Answer = []dns.RR{rr}

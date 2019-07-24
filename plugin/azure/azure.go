@@ -13,7 +13,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
-	azure "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
+	azuredns "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
 	"github.com/miekg/dns"
 )
 
@@ -25,19 +25,19 @@ type zone struct {
 
 type zones map[string][]*zone
 
-// Azure is the core struct of the azure plugin
+// Azure is the core struct of the azure plugin.
 type Azure struct {
 	Next      plugin.Handler
 	Fall      fall.F
 	zoneNames []string
-	client    azure.RecordSetsClient
+	client    azuredns.RecordSetsClient
 	upstream  *upstream.Upstream
 	zMu       sync.RWMutex
 	zones     zones
 }
 
-// New validates the input dns zones and initializes the Azure struct
-func New(ctx context.Context, dnsClient azure.RecordSetsClient, keys map[string][]string, up *upstream.Upstream) (*Azure, error) {
+// New validates the input DNS zones and initializes the Azure struct.
+func New(ctx context.Context, dnsClient azuredns.RecordSetsClient, keys map[string][]string, up *upstream.Upstream) (*Azure, error) {
 	zones := make(map[string][]*zone, len(keys))
 	zoneNames := make([]string, 0, len(keys))
 	for resourceGroup, inputZoneNames := range keys {
@@ -46,7 +46,7 @@ func New(ctx context.Context, dnsClient azure.RecordSetsClient, keys map[string]
 			if err != nil {
 				return nil, err
 			}
-			// Normalizing zoneName to make it fqdn if required
+			// Normalizing zoneName to make it fqdn if required.
 			zoneNameFQDN := dns.Fqdn(zoneName)
 			if _, ok := zones[zoneNameFQDN]; !ok {
 				zoneNames = append(zoneNames, zoneNameFQDN)
@@ -62,7 +62,7 @@ func New(ctx context.Context, dnsClient azure.RecordSetsClient, keys map[string]
 	}, nil
 }
 
-// Run updates the zones once and starts a goroutine to do it every minute.
+// Run updates the zone from azure.
 func (h *Azure) Run(ctx context.Context) error {
 	if err := h.updateZones(ctx); err != nil {
 		return err
@@ -106,7 +106,7 @@ func (h *Azure) updateZones(ctx context.Context) error {
 
 }
 
-func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, zName string) *file.Zone {
+func updateZoneFromResourceSet(recordSet azuredns.RecordSetListResultPage, zName string) *file.Zone {
 	newZ := file.NewZone(zName, "")
 
 	for _, result := range *(recordSet.Response().Value) {
@@ -240,7 +240,7 @@ func updateZoneFromResourceSet(recordSet azure.RecordSetListResultPage, zName st
 	return newZ
 }
 
-// ServeDNS uses the azure plugin to serve dns requests
+// ServeDNS implements the plugin.Handler interface.
 func (h *Azure) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	qname := state.Name()
@@ -250,7 +250,7 @@ func (h *Azure) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 	}
 
-	z, ok := h.zones[zName] // ok true if we are authoritive for the zone
+	z, ok := h.zones[zName] // ok true if we are authoritive for the zone.
 	if !ok || z == nil {
 		return dns.RcodeServerFailure, nil
 	}

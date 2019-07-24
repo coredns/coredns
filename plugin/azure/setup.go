@@ -10,8 +10,8 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
-	azure "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
-	azureCloud "github.com/Azure/go-autorest/autorest/azure"
+	azuredns "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
+	azurerest "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/caddyserver/caddy"
 )
@@ -28,10 +28,10 @@ func init() {
 func setup(c *caddy.Controller) error {
 	env, keys, fall, err := parse(c)
 	if err != nil {
-		return err
+		return plugin.Error("azure", err)
 	}
 	ctx := context.Background()
-	dnsClient := azure.NewRecordSetsClient(env.Values[auth.SubscriptionID])
+	dnsClient := azuredns.NewRecordSetsClient(env.Values[auth.SubscriptionID])
 	dnsClient.Authorizer, err = env.GetAuthorizer()
 	if err != nil {
 		return c.Errf("failed to create azure plugin: %v", err)
@@ -57,7 +57,7 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 	var err error
 	var fall fall.F
 
-	azureEnv := azureCloud.PublicCloud
+	azureEnv := azurerest.PublicCloud
 	env := auth.EnvironmentSettings{Values: map[string]string{}}
 
 	for c.Next() {
@@ -82,38 +82,33 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 		for c.NextBlock() {
 			switch c.Val() {
 			case "subscription_id":
-				if c.NextArg() {
-					env.Values[auth.SubscriptionID] = c.Val()
-				} else {
+				if !c.NextArg() {
 					return env, resourceGroupMapping, fall, c.ArgErr()
 				}
+				env.Values[auth.SubscriptionID] = c.Val()
 			case "tenant_id":
-				if c.NextArg() {
-					env.Values[auth.TenantID] = c.Val()
-				} else {
+				if !c.NextArg() {
 					return env, resourceGroupMapping, fall, c.ArgErr()
 				}
+				env.Values[auth.TenantID] = c.Val()
 			case "client_id":
-				if c.NextArg() {
-					env.Values[auth.ClientID] = c.Val()
-				} else {
+				if !c.NextArg() {
 					return env, resourceGroupMapping, fall, c.ArgErr()
 				}
+				env.Values[auth.ClientID] = c.Val()
 			case "client_secret":
-				if c.NextArg() {
-					env.Values[auth.ClientSecret] = c.Val()
-				} else {
+				if !c.NextArg() {
 					return env, resourceGroupMapping, fall, c.ArgErr()
 				}
+				env.Values[auth.ClientSecret] = c.Val()
 			case "environment":
-				if c.NextArg() {
-					env.Values[auth.ClientSecret] = c.Val()
-					azureEnv, err = azureCloud.EnvironmentFromName(c.Val())
-					if err != nil {
-						return env, resourceGroupMapping, fall, c.Errf("cannot set azure environment: %s", err.Error())
-					}
-				} else {
+				if !c.NextArg() {
 					return env, resourceGroupMapping, fall, c.ArgErr()
+				}
+				env.Values[auth.ClientSecret] = c.Val()
+				azureEnv, err = azurerest.EnvironmentFromName(c.Val())
+				if err != nil {
+					return env, resourceGroupMapping, fall, c.Errf("cannot set azure environment: %s", err.Error())
 				}
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
