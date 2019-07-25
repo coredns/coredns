@@ -20,7 +20,7 @@ github.com/coredns/federation. This is likely to happen in CoreDNS 1.7.0.
 
 # Plugins
 
-* The [*file*](/plugins/file) a lot of bug fixes and it load lazily on start, i.e. if the zonefile
+* The [*file*](/plugins/file) a lot of bug fixes and it loads lazily on start, i.e. if the zonefile
   does not exist, keep trying per reload period.
 * The [*cache*](/plugins/cache) fixes a race.
 * Multiple fixes in the [*route53*](/plugins/route53).
