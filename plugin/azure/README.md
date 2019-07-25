@@ -13,11 +13,11 @@ This plugin supports all the DNS records supported by Azure, viz. A, AAAA, CAA, 
 ## Syntax
 
 ~~~ txt
-azure resource-group:dns-zone {
-    tenant_id tenant_id
-    client_id client_id
-    client_secret client_secret
-    subscription_id subscription_id
+azure RESOURCE-GROUP:DNS-ZONE {
+    tenant_id TENANT_ID
+    client_id CLIENT_ID
+    client_secret CLIENT_SECRET
+    subscription_id SUBSCRIPTION_ID
 }
 ~~~
 
