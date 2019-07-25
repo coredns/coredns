@@ -52,7 +52,7 @@ $ go get -u
 ```
 
 After the dependencies have been updated or added, you might run the following to
-prune vendored packages:
+cleanup the go module files:
 ```sh
 $ go mod tidy
 ```
