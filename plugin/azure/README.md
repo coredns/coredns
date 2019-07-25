@@ -13,25 +13,23 @@ This plugin supports all the DNS records supported by Azure, viz. A, AAAA, CAA, 
 ## Syntax
 
 ~~~ txt
-azure RESOURCE-GROUP:DNS-ZONE {
-    tenant_id TENANT_ID
-    client_id CLIENT_ID
-    client_secret CLIENT_SECRET
-    subscription_id SUBSCRIPTION_ID
+azure RESOURCE_GROUP:ZONE {
+    tenant TENANT_ID
+    client CLIENT_ID
+    secret CLIENT_SECRET
+    subscription SUBSCRIPTION_ID
 }
 ~~~
 
-*   **`resource-group`** The resource group to which the dns hosted zones belong on Azure
+*   **`RESOURCE_GROUP`** The resource group to which the dns hosted zones belong on Azure
 
-*   **`dns-zone`** the dns zone that contains the resource record sets to be
+*   **`ZONE`** the zone that contains the resource record sets to be
     accessed.
 
 *   `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
     If **ZONES** is omitted, then fallthrough happens for all zones for which the plugin is
     authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then
     only queries for those zones will be subject to fallthrough.
-
-*   **ZONES** zones it should be authoritative for. If empty, the zones from the configuration block
 
 *   `environment` the azure environment to use. Defaults to `AzurePublicCloud`. Possible values: `AzureChinaCloud`, `AzureGermanCloud`, `AzurePublicCloud`, `AzureUSGovernmentCloud`.
 
@@ -41,12 +39,12 @@ Enable `azure` with Azure credentials and fallthrough:
 
 ~~~ txt
 . {
-    azure resource-group-foo:foo.com {
-      tenant_id 123abc-123abc-123abc-123abc
-      client_id 123abc-123abc-123abc-123abc
-      client_secret 123abc-123abc-123abc-123abc
-      subscription_id 123abc-123abc-123abc-123abc
-      fallthrough example.gov.
+    azure resource_group_foo:foo.com {
+      tenant 123abc-123abc-123abc-123abc
+      client 123abc-123abc-123abc-123abc
+      secret 123abc-123abc-123abc-123abc
+      subscription 123abc-123abc-123abc-123abc
+      fallthrough example.org.
     }
 }
 ~~~

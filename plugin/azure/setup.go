@@ -81,22 +81,22 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 		}
 		for c.NextBlock() {
 			switch c.Val() {
-			case "subscription_id":
+			case "subscription":
 				if !c.NextArg() {
 					return env, resourceGroupMapping, fall, c.ArgErr()
 				}
 				env.Values[auth.SubscriptionID] = c.Val()
-			case "tenant_id":
+			case "tenant":
 				if !c.NextArg() {
 					return env, resourceGroupMapping, fall, c.ArgErr()
 				}
 				env.Values[auth.TenantID] = c.Val()
-			case "client_id":
+			case "client":
 				if !c.NextArg() {
 					return env, resourceGroupMapping, fall, c.ArgErr()
 				}
 				env.Values[auth.ClientID] = c.Val()
-			case "client_secret":
+			case "secret":
 				if !c.NextArg() {
 					return env, resourceGroupMapping, fall, c.ArgErr()
 				}
