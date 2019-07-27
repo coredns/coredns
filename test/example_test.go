@@ -11,6 +11,6 @@ short	1	IN	A	127.0.0.3
 
 *.w        3600 IN      TXT     "Wildcard"
 a.b.c.w    IN      TXT     "Not a wildcard"
-cname      IN      CNAME   www
+cname      IN      CNAME   www.example.net.
 service    IN      SRV     8080 10 10 @
 `
