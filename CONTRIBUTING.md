@@ -44,7 +44,7 @@ faster.
 
 ## New Plugins
 
-A new plugin is (usually) about a 1000 lines of Go. This includes tests and some plugin boiler
+A new plugin is (usually) about 1000 lines of Go. This includes tests and some plugin boiler
 plate. This is a considerable amount of code and will take time review. To prevent too much back and
 forth it is advisable to start with the plugin's `README.md`; its main documentation. This will help
 nail down the correct name of the plugin and its various config options.
