@@ -49,7 +49,7 @@ plate. This is a considerable amount of code and will take time review. To preve
 forth it is advisable to start with the plugin's `README.md`; This will be it's main documentation and will help
 nail down the correct name of the plugin and its various config options.
 
-From there it can work its way through the reset (`setup.go`, the `ServeDNS` hanlder function,
+From there it can work its way through the reset (`setup.go`, the `ServeDNS` handler function,
 etc.). Doing this will help the reviewers, as each chunk of code is relatively small.
 
 ## Updating Dependencies
