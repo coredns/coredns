@@ -6,14 +6,14 @@
 
 ## Description
 
-The azure plugin is useful for serving zones from resource record
-sets in Microsoft Azure DNS. The `azure` plugin can be used when coredns is deployed on Azure or elsewhere.
-This plugin supports all the DNS records supported by Azure, viz. A, AAAA, CAA, CNAME, MX, NS, PTR, SOA, SRV, and TXT record types.
+The azure plugin is useful for serving zones from Microsoft Azure DNS.
+Thi *azure* plugin supports all the DNS records supported by Azure, viz. A, AAAA, CAA, CNAME, MX, NS, PTR, SOA, SRV, and TXT record types. For a non-existing resource record, zone's SOA response will returned.
+
 
 ## Syntax
 
 ~~~ txt
-azure RESOURCE_GROUP:ZONE {
+azure RESOURCE_GROUP:ZONE... {
     tenant TENANT_ID
     client CLIENT_ID
     secret CLIENT_SECRET
@@ -35,7 +35,7 @@ azure RESOURCE_GROUP:ZONE {
 
 ## Examples
 
-Enable `azure` with Azure credentials and fallthrough:
+Enable the *azure* plugin with Azure credentials:
 
 ~~~ txt
 . {
@@ -44,7 +44,9 @@ Enable `azure` with Azure credentials and fallthrough:
       client 123abc-123abc-123abc-123abc
       secret 123abc-123abc-123abc-123abc
       subscription 123abc-123abc-123abc-123abc
-      fallthrough example.org.
     }
 }
 ~~~
+
+## Also See
+- [Azure DNS Overview](https://docs.microsoft.com/en-us/azure/dns/dns-overview)
