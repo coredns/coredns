@@ -44,6 +44,32 @@ ifeq ($(TEST_TYPE),coverage)
 		fi; \
 	done
 endif
+ifeq ($(TEST_TYPE),fuzzit)
+	export GO111MODULE=off
+	go get -u github.com/dvyukov/go-fuzz/go-fuzz-build
+	go get -u ./...
+	LIBFUZZER=YES make -f Makefile.fuzz cache chaos file rewrite whoami
+	wget -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/download/v2.4.8/fuzzit_Linux_x86_64
+	chmod a+x fuzzit
+	./fuzzit auth $(FUZZIT_API_KEY)
+	./fuzzit create job --branch $(TRAVIS_BRANCH) --revision $(TRAVIS_COMMIT) cache ./cache
+	./fuzzit create job --branch $(TRAVIS_BRANCH) --revision $(TRAVIS_COMMIT) chaos ./chaos
+	./fuzzit create job --branch $(TRAVIS_BRANCH) --revision $(TRAVIS_COMMIT) file ./file
+	./fuzzit create job --branch $(TRAVIS_BRANCH) --revision $(TRAVIS_COMMIT) rewrite ./rewrite
+	./fuzzit create job --branch $(TRAVIS_BRANCH) --revision $(TRAVIS_COMMIT) whoami ./whoami
+endif
+ifeq ($(TEST_TYPE),fuzzit-regression)
+	export GO111MODULE=off
+	go get -u github.com/dvyukov/go-fuzz/go-fuzz-build
+	LIBFUZZER=YES make -f Makefile.fuzz cache chaos file rewrite whoami
+	wget -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/download/v2.4.8/fuzzit_Linux_x86_64
+	chmod a+x fuzzit
+	./fuzzit create job --local coredns/cache ./cache
+	./fuzzit create job --local coredns/chaos ./chaos
+	./fuzzit create job --local coredns/file ./file
+	./fuzzit create job --local coredns/rewrite ./rewrite
+	./fuzzit create job --local coredns/whoami ./whoami
+endif
 
 core/plugin/zplugin.go core/dnsserver/zdirectives.go: plugin.cfg
 	GO111MODULE=on go generate coredns.go
