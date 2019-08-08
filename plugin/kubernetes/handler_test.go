@@ -343,8 +343,8 @@ var dnsTestCases = []test.Case{
 	},
 	// NS query for qname != zone
 	{
-		Qname: "foo.cluster.local.", Qtype: dns.TypeA,
-		Rcode: dns.RcodeNameError,
+		Qname: "foo.cluster.local.", Qtype: dns.TypeNS,
+		Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
