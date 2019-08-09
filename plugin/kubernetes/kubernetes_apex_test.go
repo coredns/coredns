@@ -85,7 +85,7 @@ func TestServeDNSApex(t *testing.T) {
 		}
 
 		if err := test.SortAndCheck(resp, tc); err != nil {
-			t.Error(err)
+			t.Fatalf("Test %d, got: %v", i, err)
 		}
 	}
 }

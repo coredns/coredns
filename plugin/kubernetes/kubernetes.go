@@ -106,10 +106,16 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 		return []msg.Service{svc}, nil
 
 	case dns.TypeNS:
-		// We can only get here if the qname equals the zone, see ServeDNS in handler.go.
+		var e error
+		// Expect for the apex zone and special ns.dns subdomain, check to see there
+		// exists another record at the same level.  This is to determine if the response
+		// should be a NXDOMAIN or NODATA.
+		if state.QName() != state.Zone && state.QName() != "ns.dns." + state.Zone {
+			_, e = k.Records(ctx, state, false)
+		}
 		ns := k.nsAddr()
 		svc := msg.Service{Host: ns.A.String(), Key: msg.Path(state.QName(), coredns), TTL: k.ttl}
-		return []msg.Service{svc}, nil
+		return []msg.Service{svc}, e
 	}
 
 	if isDefaultNS(state.Name(), state.Zone) {
