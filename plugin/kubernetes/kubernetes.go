@@ -107,7 +107,7 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 
 	case dns.TypeNS:
 		var e error
-		// Expect for the apex zone and special ns.dns subdomain, check to see there
+		// Except for the apex zone and special ns.dns subdomain, check to see if there
 		// exists another record at the same level.  This is to determine if the response
 		// should be a NXDOMAIN or NODATA.
 		if state.QName() != state.Zone && state.QName() != "ns.dns." + state.Zone {
