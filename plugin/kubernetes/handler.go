@@ -28,6 +28,8 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	)
 
 	switch state.QType() {
+	case dns.TypeAXFR, dns.TypeIXFR:
+		k.Transfer(ctx, state)
 	case dns.TypeA:
 		records, err = plugin.A(ctx, &k, zone, state, nil, plugin.Options{})
 	case dns.TypeAAAA:
@@ -44,14 +46,12 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		records, extra, err = plugin.SRV(ctx, &k, zone, state, plugin.Options{})
 	case dns.TypeSOA:
 		records, err = plugin.SOA(ctx, &k, zone, state, plugin.Options{})
-	case dns.TypeAXFR, dns.TypeIXFR:
-		k.Transfer(ctx, state)
 	case dns.TypeNS:
 		if state.Name() == zone {
 			records, extra, err = plugin.NS(ctx, &k, zone, state, plugin.Options{})
 			break
 		}
-		_, err = parseRequest(state)
+		fallthrough
 	default:
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
 		_, err = plugin.A(ctx, &k, zone, state, nil, plugin.Options{})
