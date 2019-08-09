@@ -50,5 +50,6 @@ var Directives = []string{
 	"grpc",
 	"erratic",
 	"whoami",
+	"acl",
 	"on",
 }
