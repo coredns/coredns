@@ -13,8 +13,8 @@ will go BAD (RFC 4035, Section 5.5). The *sign* plugin takes care of this.
 
 Only NSEC is supported, *sign* does not support NSEC3.
 
-*Signs* works in conjunction with the *file* and *auto* plugins; this plugin **signs** the zones
-*files*, *auto* and *file* **serve** the zones *data*.
+*Sign* works in conjunction with the *file* and *auto* plugins; this plugin **signs** the zones
+files, *auto* and *file* **serve** the zones *data*.
 
 For this plugin to work at least one Common Signing Key, (see coredns-keygen(1)) is needed. This key
 (or keys) will be used to sign the entire zone. *Sign* does not support the ZSK/KSK split, nor will
@@ -32,7 +32,7 @@ it do key or algorithm rollovers - it just signs.
     Both these dates are only checked on the SOA's signature(s).
 
  *  Create signatures that have an inception of -3 hours (minus a jitter between 0 and 18 hours)
-    and a expiration of +32 days for every key given.
+    and a expiration of +32 days for every given DNSKEY.
 
  *  Add or replace *all* apex CDS/CDNSKEY records with the ones derived from the given keys. For
     each key two CDS are created one with SHA1 and another with SHA256.
@@ -41,7 +41,7 @@ it do key or algorithm rollovers - it just signs.
     overwrite *any* previous serial number.
 
 Thus there are two ways that dictate when a zone is signed. Normally every 6 days (plus jitter) it
-will be resigned.
+will be resigned. If for some reason we fail this check, the 14 days before expiring kicks in.
 
 Keys are named (following BIND9): `K<name>+<alg>+<id>.key` and `K<name>+<alg>+<id>.private`.
 The keys **must not** be included in your zone; they will be added by *sign*. These keys can be
@@ -49,7 +49,7 @@ generated with `coredns-keygen` or BIND9's `dnssec-keygen`. You don't have to ad
 scheme, but then you need to name your keys explicitly, see the `keys file` directive.
 
 A generated zone is written out in a file named `db.<name>.signed` in the directory named by the
-`directory` directive.
+`directory` directive (which defaults to `/var/lib/coredns`).
 
 ## Syntax
 
@@ -143,7 +143,7 @@ example.org example.net {
 This will lead to `db.example.org` be signed *twice*, as this entire section is parsed twice because
 you have specified the origins `example.org` and `example.net` in the server block.
 
-Forcibly resiging a zone can be accomplished by removing the signed zone file (CoreDNS will keep on
+Forcibly resigning a zone can be accomplished by removing the signed zone file (CoreDNS will keep on
 serving it from memory), and sending SIGUSR1 to the process to make it reload and resign the zone
 file.
 
@@ -152,8 +152,9 @@ file.
 The DNSSEC RFCs: RFC 4033, RFC 4034 and RFC 4035. And the BCP on DNSSEC, RFC 6781. Further more the
 manual pages coredns-keygen(1) and dnssec-keygen(8). And the *file* plugin's documentation.
 
-Coredns-keygen can be found at https://github.com/coredns-utils in the coredns-keygen directory.
+Coredns-keygen can be found at <https://github.com/coredns-utils> in the coredns-keygen directory.
 
 ## Bugs
 
-`keys directory` is not implemented. Glue records are currently signed.
+`keys directory` is not implemented. Glue records are currently signed, and no DS records are added
+for child zones.
