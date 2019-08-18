@@ -1,98 +1,79 @@
 # acl
 
-*acl* - enforces basic access control policies and prevents unauthorized access to protected servers.
+*acl* - enforces access control policies on source ip and prevents unauthorized access to DNS servers.
 
 ## Description
 
-With `acl` enabled, users are able to filter DNS queries with filtering rules, i.e. allowing authorized queries to recurse or blocking unauthorized queries towards protected DNS zones.
+With `acl` enabled, users are able to block suspicous DNS queries by configuring IP filter rule sets, i.e. allowing authorized queries to recurse or blocking unauthorized queries.
 
 This plugin can be used multiple times per Server Block.
 
 ## Syntax
 
 ```
-acl [ZONES…] {
-    ACTION type QTYPE net SOURCE
-    ACTION type QTYPE file LOCAL_FILE
+acl [ZONES...] {
+    ACTION [type QTYPE...] [net SOURCE...] [file LOCAL_FILE...]
 }
 ```
 
 - **ZONES** zones it should be authoritative for. If empty, the zones from the configuration block are used.
 - **ACTION** (*allow* or *block*) defines the way to deal with DNS queries matched by this rule. The default action is *allow*, which means a DNS query not matched by any rules will be allowed to recurse.
-- **QTYPE** is the query type to match for the requests to be allowed or blocked. Common resource record types are supported. *ANY* stands for all kinds of DNS queries.
-- **SOURCE** is the source ip to match for the requests to be allowed or blocked. Typical CIDR notation and single IP address are supported. *ANY* stands for all possible source IP addresses.
-- **LOCAL_FILE** is a local file including a list of IP addresses or subnets. It allows users to import blacklist/whitelist from third party directly without setting rules by hand.
+- **QTYPE** is the query type to match for the requests to be allowed or blocked. Common resource record types are supported. `*` stands for all record types. The default behavior for an omitted `type QTYPE...` is to match all kinds of DNS queries (same as `type *`).
+- **SOURCE** is the source IP address to match for the requests to be allowed or blocked. Typical CIDR notation and single IP address are supported. `*` stands for all possible source IP addresses.
+- **LOCAL_FILE** is a local file including a list of IP addresses or subnets. It allows users to import blacklist/whitelist from third party directly without setting rules by hand. The default behavior for `net SOURCE...` and `file LOCAL_FILE...` both being omitted is to match all IP addresses (same as `net *`).
 
 ## Examples
 
 To demonstrate the usage of plugin acl, here we provide some typical examples.
 
 Block all DNS queries with record type A from 192.168.0.0/16：
-```
+
+~~~ Corefile
 . {
     acl {
         block type A net 192.168.0.0/16
     }
 }
-```
+~~~
 
 Block all DNS queries from 192.168.0.0/16 except for 192.168.1.0/24:
 
-```
+~~~ Corefile
 . {
     acl {
-        allow type ANY net 192.168.1.0/24
-        block type ANY net 192.168.0.0/16
+        allow net 192.168.1.0/24
+        block net 192.168.0.0/16
     }
 }
 ```
 
 Allow only DNS queries from 192.168.0.0/16:
 
-```
+~~~ Corefile
 . {
     acl {
-        allow type ANY net 192.168.0.0/16
-        block type ANY net ANY
+        allow net 192.168.0.0/16
+        block
     }
 }
-```
+~~~
 
 Block all DNS queries from 192.168.1.0/24 towards a.example.org:
 
-```
+~~~ Corefile
 example.org {
     acl a.example.org {
-        block type ANY net 192.168.1.0/24
+        block net 192.168.1.0/24
     }
 }
-```
-
-Allow only DNS queries from private networks (`192.168.0.0/16`, `172.16.0.0/12`, `10.0.0.0/8`):
-```
-. {
-    acl {
-        allow type ANY net PRIVATE
-        block type ANY net ANY
-    }
-}
-```
-
-Allow only DNS queries from local area network:
-```
-. {
-    acl {
-        allow type ANY net LOCAL
-        block type ANY net ALL
-    }
-}
-```
+~~~
 
 Block DNS queries from source ip on the local blacklist.
-```
+
+~~~ Corefile
 . {
     acl {
-        block type ANY file /path/to/blacklist.txt
+        block file /path/to/blacklist.txt
     }
 }
-```
+~~~

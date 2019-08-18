@@ -114,7 +114,7 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Blacklist 2 BLOCKED",
 			caddy.NewTestController("dns", `
 			acl example.org {
-				block type ANY net 192.168.0.0/16
+				block type * net 192.168.0.0/16
 			}`),
 			args{
 				"www.example.org.",
@@ -128,7 +128,7 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Blacklist 3 BLOCKED",
 			caddy.NewTestController("dns", `
 			acl example.org {
-				block type A net ANY
+				block type A
 			}`),
 			args{
 				"www.example.org.",
@@ -142,7 +142,7 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Blacklist 3 ALLOWED",
 			caddy.NewTestController("dns", `
 			acl example.org {
-				block type A net ANY
+				block type A
 			}`),
 			args{
 				"www.example.org.",
@@ -184,8 +184,8 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Whitelist 1 ALLOWED",
 			caddy.NewTestController("dns", `
 			acl example.org {
-				allow type ANY net 192.168.0.0/16
-				block type ANY net ANY
+				allow type * net 192.168.0.0/16
+				block type * net *
 			}`),
 			args{
 				"www.example.org.",
@@ -199,8 +199,8 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Whitelist 1 REFUSED",
 			caddy.NewTestController("dns", `
 			acl example.org {
-				allow type ANY net 192.168.0.0/16
-				block type ANY net ANY
+				allow type * net 192.168.0.0/16
+				block type * net *
 			}`),
 			args{
 				"www.example.org.",
@@ -214,7 +214,7 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Fine-Grained 1 REFUSED",
 			NewTestControllerWithZones("dns", `
 			acl a.example.org {
-				block type ANY net 192.168.1.0/24
+				block type * net 192.168.1.0/24
 			}`, []string{"example.org"}),
 			args{
 				"a.example.org.",
@@ -228,7 +228,7 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Fine-Grained 1 ALLOWED",
 			NewTestControllerWithZones("dns", `
 			acl a.example.org {
-				block type ANY net 192.168.1.0/24
+				block type * net 192.168.1.0/24
 			}`, []string{"example.org"}),
 			args{
 				"www.example.org.",
@@ -242,7 +242,7 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Fine-Grained 2 REFUSED",
 			NewTestControllerWithZones("dns", `
 			acl {
-				block type ANY net 192.168.1.0/24
+				block type * net 192.168.1.0/24
 			}`, []string{"example.org"}),
 			args{
 				"a.example.org.",
@@ -256,7 +256,7 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Fine-Grained 2 ALLOWED",
 			NewTestControllerWithZones("dns", `
 			acl {
-				block type ANY net 192.168.1.0/24
+				block type * net 192.168.1.0/24
 			}`, []string{"example.org"}),
 			args{
 				"a.example.com.",
@@ -270,10 +270,10 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Fine-Grained 2 REFUSED",
 			NewTestControllerWithZones("dns", `
 			acl a.example.org {
-				block type ANY net 192.168.1.0/24
+				block type * net 192.168.1.0/24
 			}
 			acl b.example.org {
-				block type ANY net 192.168.2.0/24
+				block type * net 192.168.2.0/24
 			}`, []string{"example.org"}),
 			args{
 				"b.example.org.",
@@ -287,10 +287,10 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Fine-Grained 2 ALLOWED",
 			NewTestControllerWithZones("dns", `
 			acl a.example.org {
-				block type ANY net 192.168.1.0/24
+				block type * net 192.168.1.0/24
 			}
 			acl b.example.org {
-				block type ANY net 192.168.2.0/24
+				block type * net 192.168.2.0/24
 			}`, []string{"example.org"}),
 			args{
 				"b.example.org.",
@@ -301,56 +301,10 @@ func Test_acl_ServeDNS(t *testing.T) {
 			false,
 		},
 		{
-			"Keyword PRIVATE 1 Blocked",
-			caddy.NewTestController("dns", `
-			acl example.com {
-				block type ANY net PRIVATE
-			}`),
-			args{
-				"a.example.com.",
-				"172.16.0.2",
-				dns.TypeA,
-			},
-			dns.RcodeRefused,
-			false,
-		},
-		{
-			"Keyword LOCAL 1 Blocked",
-			caddy.NewTestController("dns", `
-			acl example.com {
-				allow type ANY net LOCAL
-				block type ANY net ANY
-			}`),
-			args{
-				"a.example.com.",
-				// NOTE: this test case will only pass when 100.100.100.100 is not in your local network.
-				"100.100.100.100",
-				dns.TypeA,
-			},
-			dns.RcodeRefused,
-			false,
-		},
-		{
-			"Keyword LOCAL 1 Allowed",
-			caddy.NewTestController("dns", `
-			acl example.com {
-				allow type ANY net LOCAL
-				block type ANY net ANY
-			}`),
-			args{
-				"a.example.com.",
-				// loopback net is 127.0.0.1/8, which should cover 127.16.0.2.
-				"127.16.0.2",
-				dns.TypeA,
-			},
-			dns.RcodeSuccess,
-			false,
-		},
-		{
 			"Local file 1 Blocked",
 			caddy.NewTestController("dns", `
 			acl example.com {
-				block type ANY file acl-test-1.txt
+				block type * file acl-test-1.txt
 			}`),
 			args{
 				"a.example.com.",
@@ -364,7 +318,7 @@ func Test_acl_ServeDNS(t *testing.T) {
 			"Local file 1 Allowed",
 			caddy.NewTestController("dns", `
 			acl example.com {
-				block type ANY file acl-test-1.txt
+				block type * file acl-test-1.txt
 			}`),
 			args{
 				"a.example.com.",
@@ -380,10 +334,10 @@ func Test_acl_ServeDNS(t *testing.T) {
 	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a, err := parseACL(tt.ctr)
+			a, err := parse(tt.ctr)
 			a.Next = test.NextHandler(dns.RcodeSuccess, nil)
 			if err != nil {
-				t.Errorf("Error: cannot parse acl from config: %v", err)
+				t.Errorf("cannot parse acl from config: %v", err)
 			}
 
 			w := &testResponseWriter{}
@@ -392,11 +346,11 @@ func Test_acl_ServeDNS(t *testing.T) {
 			m.SetQuestion(tt.args.domain, tt.args.qtype)
 			_, err = a.ServeDNS(ctx, w, m)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("Error: acl.ServeDNS() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("acl.ServeDNS() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if w.Rcode != tt.wantRcode {
-				t.Errorf("Error: acl.ServeDNS() Rcode = %v, want %v", w.Rcode, tt.wantRcode)
+				t.Errorf("acl.ServeDNS() Rcode = %v, want %v", w.Rcode, tt.wantRcode)
 			}
 		})
 	}

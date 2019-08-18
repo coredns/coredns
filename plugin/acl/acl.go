@@ -30,15 +30,15 @@ type Rule struct {
 // matched by source IP or QTYPE.
 type Policy struct {
 	action string
-	qtype  uint16
+	qtypes map[uint16]bool
 	filter filter.Filter
 }
 
 const (
 	// ALLOW allows authorized queries to recurse.
-	ALLOW string = "allow"
+	ALLOW = "allow"
 	// BLOCK blocks unauthorized queries towards protected DNS zones.
-	BLOCK string = "block"
+	BLOCK = "block"
 )
 
 func (a acl) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -70,23 +70,19 @@ func shouldBlock(policies []Policy, w dns.ResponseWriter, r *dns.Msg) (bool, err
 	state := request.Request{W: w, Req: r}
 
 	ip := net.ParseIP(state.IP())
-	if ip == nil {
-		return true, fmt.Errorf("Illegal source ip '%s'", state.IP())
-	}
-
-	if len(r.Question) != 1 {
-		// TODO: what if #question == 0 or > 1? (@ihac)
-		return false, nil
-	}
-	qtype := r.Question[0].Qtype
+	qtype := state.QType()
 	for _, policy := range policies {
 		if !policy.filter.Contains(ip) {
 			continue
 		}
 
-		if qtype != policy.qtype && policy.qtype != QtypeAll {
+		_, matchAll := policy.qtypes[QtypeAll]
+		_, match := policy.qtypes[qtype]
+		fmt.Printf("%v, %v, %v\n", match, matchAll, qtype)
+		if !matchAll && !match {
 			continue
 		}
+
 		// matched.
 		switch policy.action {
 		case ALLOW:

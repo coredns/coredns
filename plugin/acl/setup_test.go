@@ -60,7 +60,7 @@ func Test_setup(t *testing.T) {
 			"Blacklist 2",
 			caddy.NewTestController("dns", `
 			acl {
-				block type ANY net 192.168.0.0/16
+				block type * net 192.168.0.0/16
 			}
 			`),
 			false,
@@ -69,7 +69,7 @@ func Test_setup(t *testing.T) {
 			"Blacklist 3",
 			caddy.NewTestController("dns", `
 			acl {
-				block type A net ANY
+				block type A net *
 			}
 			`),
 			false,
@@ -78,8 +78,8 @@ func Test_setup(t *testing.T) {
 			"Blacklist 4",
 			caddy.NewTestController("dns", `
 			acl {
-				allow type ANY net 192.168.1.0/24
-				block type ANY net 192.168.0.0/16
+				allow type * net 192.168.1.0/24
+				block type * net 192.168.0.0/16
 			}
 			`),
 			false,
@@ -88,8 +88,8 @@ func Test_setup(t *testing.T) {
 			"Whitelist 1",
 			caddy.NewTestController("dns", `
 			acl {
-				allow type ANY net 192.168.0.0/16
-				block type ANY net ANY
+				allow type * net 192.168.0.0/16
+				block type * net *
 			}
 			`),
 			false,
@@ -98,7 +98,7 @@ func Test_setup(t *testing.T) {
 			"fine-grained 1",
 			caddy.NewTestController("dns", `
 			acl a.example.org {
-				block type ANY net 192.168.1.0/24
+				block type * net 192.168.1.0/24
 			}
 			`),
 			false,
@@ -107,10 +107,10 @@ func Test_setup(t *testing.T) {
 			"fine-grained 2",
 			caddy.NewTestController("dns", `
 			acl a.example.org {
-				block type ANY net 192.168.1.0/24
+				block type * net 192.168.1.0/24
 			}
 			acl b.example.org {
-				block type ANY net 192.168.2.0/24
+				block type * net 192.168.2.0/24
 			}
 			`),
 			false,
@@ -119,7 +119,7 @@ func Test_setup(t *testing.T) {
 			"multiple-networks 1",
 			caddy.NewTestController("dns", `
 			acl example.org {
-				block type ANY net 192.168.1.0/24 192.168.3.0/24
+				block type * net 192.168.1.0/24 192.168.3.0/24
 			}
 			`),
 			false,
@@ -128,26 +128,7 @@ func Test_setup(t *testing.T) {
 			"multiple-networks 2",
 			caddy.NewTestController("dns", `
 			acl example.org {
-				block type ANY net 192.168.3.0/24
-			}
-			`),
-			false,
-		},
-		{
-			"Keyword PRIVATE 1",
-			caddy.NewTestController("dns", `
-			acl example.org {
-				block type ANY net PRIVATE
-			}
-			`),
-			false,
-		},
-		{
-			"Keyword LOCAL 1",
-			caddy.NewTestController("dns", `
-			acl example.org {
-				allow type ANY net LOCAL
-				block type ANY net ANY
+				block type * net 192.168.3.0/24
 			}
 			`),
 			false,
@@ -287,7 +268,7 @@ func Test_normalize(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := normalize(tt.args.rawNet); got != tt.want {
-				t.Errorf("Error: normalize() = %v, want %v", got, tt.want)
+				t.Errorf("normalize() = %v, want %v", got, tt.want)
 			}
 		})
 	}
