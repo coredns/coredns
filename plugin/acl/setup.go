@@ -8,11 +8,12 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/caddyserver/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/acl/filter"
 	"github.com/coredns/coredns/plugin/metrics"
+
+	"github.com/caddyserver/caddy"
 	"github.com/miekg/dns"
 )
 
