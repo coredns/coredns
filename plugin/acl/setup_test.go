@@ -38,7 +38,7 @@ func envCleanup(files map[string]string) {
 	}
 }
 
-func Test_setup(t *testing.T) {
+func TestSetup(t *testing.T) {
 	envSetup(setupTestFiles)
 	defer envCleanup(setupTestFiles)
 
@@ -206,7 +206,7 @@ func Test_setup(t *testing.T) {
 	}
 }
 
-func Test_stripComment(t *testing.T) {
+func TestStripComment(t *testing.T) {
 	type args struct {
 		line string
 	}
@@ -245,7 +245,7 @@ func Test_stripComment(t *testing.T) {
 	}
 }
 
-func Test_normalize(t *testing.T) {
+func TestNormalize(t *testing.T) {
 	type args struct {
 		rawNet string
 	}

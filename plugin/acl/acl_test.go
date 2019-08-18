@@ -67,7 +67,7 @@ func NewTestControllerWithZones(serverType, input string, zones []string) *caddy
 	return ctr
 }
 
-func Test_acl_ServeDNS(t *testing.T) {
+func TestACLServeDNS(t *testing.T) {
 	envSetup(aclTestFiles)
 	defer envCleanup(aclTestFiles)
 
