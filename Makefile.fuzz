@@ -10,8 +10,9 @@
 # the plugins's ServeDNS and used the plugin/pkg/fuzz for the Do function.
 #
 # Installing go-fuzz
-#$ go get github.com/dvyukov/go-fuzz/go-fuzz
-#$ go get github.com/dvyukov/go-fuzz/go-fuzz-build
+#
+# $ go get github.com/dvyukov/go-fuzz/go-fuzz
+# $ go get github.com/dvyukov/go-fuzz/go-fuzz-build
 
 REPO:="github.com/coredns/coredns"
 # set LIBFUZZER=YES to build libfuzzer compatible targets
@@ -22,7 +23,7 @@ PLUGINS:=$(foreach f,$(PLUGINS),$(subst /, ,$(f))) # > cache
 
 .PHONY: echo
 echo:
-	@echo fuzz targets: $(PLUGINS)
+	@echo $(PLUGINS)
 
 .PHONY: $(PLUGINS)
 $(PLUGINS): echo
@@ -45,6 +46,12 @@ else
 	go-fuzz -bin=./test-fuzz.zip -workdir=fuzz/$(@)
 endif
 
+
+.PHONY: install
+install:
+	if [ ! -x fuzzit ]; then \
+		wget -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/download/v2.4.27/fuzzit_Linux_x86_64 && chmod a+x fuzzit; \
+	fi
 
 
 .PHONY: clean

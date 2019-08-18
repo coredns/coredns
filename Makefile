@@ -46,23 +46,10 @@ ifeq ($(TEST_TYPE),coverage)
 endif
 ifeq ($(TEST_TYPE),fuzzit)
 	# skip fuzzing for PR
-	if [ "$(TRAVIS_PULL_REQUEST)" = "false" ] || [ "$(FUZZIT_TYPE)" = "local-regression" ] ; then \
-        export GO111MODULE=off; \
-        go get -u github.com/dvyukov/go-fuzz/go-fuzz-build; \
-        go get -u -v .; \
-        cd ../../go-acme/lego; \
-        git checkout v2.5.0; \
-        cd ../../coredns/coredns; \
-        LIBFUZZER=YES make -f Makefile.fuzz cache chaos file rewrite whoami corefile; \
-        wget -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/download/v2.4.27/fuzzit_Linux_x86_64; \
-        chmod a+x fuzzit; \
-        ./fuzzit create job --type $(FUZZIT_TYPE) coredns/cache ./cache; \
-        ./fuzzit create job --type $(FUZZIT_TYPE) coredns/chaos ./chaos; \
-        ./fuzzit create job --type $(FUZZIT_TYPE) coredns/file ./file; \
-        ./fuzzit create job --type $(FUZZIT_TYPE) coredns/rewrite ./rewrite; \
-        ./fuzzit create job --type $(FUZZIT_TYPE) coredns/whoami ./whoami; \
-        ./fuzzit create job --type $(FUZZIT_TYPE) coredns/corefile ./corefile; \
-    fi;
+	if [ "$(TRAVIS_PULL_REQUEST)" = "false" ] || [ "$(FUZZIT_TYPE)" = "local-regression" ]; then \
+		$(MAKE) -f Makefile.fuzz install; LIBFUZZER=YES; \
+		for f in `$(MAKE) -f Makefile.fuzz echo`; do ./fuzzit create job --type $(FUZZIT_TYPE) coredns/$$f ./$$f; done; \
+	fi
 endif
 
 core/plugin/zplugin.go core/dnsserver/zdirectives.go: plugin.cfg
