@@ -54,13 +54,9 @@ ifeq ($(TEST_TYPE),fuzzit)
 		cd ../../coredns/coredns; \
 		LIBFUZZER=YES $(MAKE) -f Makefile.fuzz all; \
 		$(MAKE) -sf Makefile.fuzz fuzzit; \
-		for i in `$(MAKE) -sf Makefile.fuzz echo`; do echo $$i; done ;\
-		./fuzzit create job --type $(FUZZIT_TYPE) coredns/cache ./cache; \
-		./fuzzit create job --type $(FUZZIT_TYPE) coredns/chaos ./chaos; \
-		./fuzzit create job --type $(FUZZIT_TYPE) coredns/file ./file; \
-		./fuzzit create job --type $(FUZZIT_TYPE) coredns/rewrite ./rewrite; \
-		./fuzzit create job --type $(FUZZIT_TYPE) coredns/whoami ./whoami; \
-		./fuzzit create job --type $(FUZZIT_TYPE) coredns/corefile ./corefile; \
+		for i in `$(MAKE) -sf Makefile.fuzz echo`; do echo $$i; \
+			./fuzzit create job --type $(FUZZIT_TYPE) coredns/$$i ./$$i; \
+		done; \
 	fi;
 endif
 

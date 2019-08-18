@@ -51,7 +51,6 @@ fuzzit:
 	wget -O fuzzit https://github.com/fuzzitdev/fuzzit/releases/download/v2.4.27/fuzzit_Linux_x86_64
 	chmod a+x fuzzit
 
-
 .PHONY: clean
 clean:
 	rm *-fuzz.zip
