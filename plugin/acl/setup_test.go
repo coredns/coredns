@@ -268,7 +268,7 @@ func TestNormalize(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := normalize(tt.args.rawNet); got != tt.want {
-				t.Errorf("normalize() = %v, want %v", got, tt.want)
+				t.Errorf("Error: normalize() = %v, want %v", got, tt.want)
 			}
 		})
 	}

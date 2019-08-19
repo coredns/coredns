@@ -338,7 +338,7 @@ func TestACLServeDNS(t *testing.T) {
 			a, err := parse(tt.ctr)
 			a.Next = test.NextHandler(dns.RcodeSuccess, nil)
 			if err != nil {
-				t.Errorf("cannot parse acl from config: %v", err)
+				t.Errorf("Error: Cannot parse acl from config: %v", err)
 			}
 
 			w := &testResponseWriter{}
@@ -347,11 +347,11 @@ func TestACLServeDNS(t *testing.T) {
 			m.SetQuestion(tt.args.domain, tt.args.qtype)
 			_, err = a.ServeDNS(ctx, w, m)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("acl.ServeDNS() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Error: acl.ServeDNS() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if w.Rcode != tt.wantRcode {
-				t.Errorf("acl.ServeDNS() Rcode = %v, want %v", w.Rcode, tt.wantRcode)
+				t.Errorf("Error: acl.ServeDNS() Rcode = %v, want %v", w.Rcode, tt.wantRcode)
 			}
 		})
 	}
