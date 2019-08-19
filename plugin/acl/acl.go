@@ -6,12 +6,15 @@ import (
 	"net"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/acl/filter"
 	"github.com/coredns/coredns/plugin/metrics"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
+	"github.com/infobloxopen/go-trees/iptree"
 	"github.com/miekg/dns"
 )
+
+var log = clog.NewWithPlugin("acl")
 
 type acl struct {
 	Next plugin.Handler
@@ -32,7 +35,7 @@ type Rule struct {
 type Policy struct {
 	action string
 	qtypes map[uint16]bool
-	filter filter.Filter
+	filter *iptree.Tree
 }
 
 const (
@@ -73,7 +76,16 @@ func shouldBlock(policies []Policy, w dns.ResponseWriter, r *dns.Msg) (bool, err
 	ip := net.ParseIP(state.IP())
 	qtype := state.QType()
 	for _, policy := range policies {
-		if !policy.filter.Contains(ip) {
+		v, contained := policy.filter.GetByIP(ip)
+		if !contained {
+			continue
+		}
+		enabled, ok := v.(bool)
+		if !ok {
+			log.Warningf("failed to parse filtering result; expected boolean but got %T (%#v)", enabled, enabled)
+			continue
+		}
+		if !enabled {
 			continue
 		}
 

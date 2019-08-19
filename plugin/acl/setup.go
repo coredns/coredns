@@ -9,10 +9,10 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/acl/filter"
 	"github.com/coredns/coredns/plugin/metrics"
 
 	"github.com/caddyserver/caddy"
+	"github.com/infobloxopen/go-trees/iptree"
 	"github.com/miekg/dns"
 )
 
@@ -69,7 +69,6 @@ func parse(c *caddy.Controller) (acl, error) {
 			r.Zones[i] = plugin.Host(r.Zones[i]).Normalize()
 		}
 
-		var err error
 		for c.NextBlock() {
 			p := Policy{}
 
@@ -80,15 +79,12 @@ func parse(c *caddy.Controller) (acl, error) {
 
 			p.qtypes = make(map[uint16]bool)
 
-			p.filter, err = filter.New("trie", nil)
-			if err != nil {
-				return a, c.Errf("unable to initialize filter: %v", err)
-			}
+			p.filter = iptree.NewTree()
 
 			// match all qtypes and IP addresses.
 			if !c.NextArg() {
 				p.qtypes[QtypeAll] = true
-				p.filter.Add(*IPv4All)
+				p.filter.InplaceInsertNet(IPv4All, true)
 				r.Policies = append(r.Policies, p)
 				break
 			}
@@ -148,12 +144,12 @@ func parse(c *caddy.Controller) (acl, error) {
 
 			// optional `net` and `file` means all ip addresses.
 			if !hasSection["net"] && !hasSection["file"] {
-				p.filter.Add(*IPv4All)
+				p.filter.InplaceInsertNet(IPv4All, true)
 			}
 
 			for _, rawNet := range rawSourceIPRanges {
 				if rawNet == "*" {
-					p.filter.Add(*IPv4All)
+					p.filter.InplaceInsertNet(IPv4All, true)
 					continue
 				}
 				rawNet = normalize(rawNet)
@@ -161,7 +157,7 @@ func parse(c *caddy.Controller) (acl, error) {
 				if err != nil {
 					return a, c.Errf("illegal CIDR notation '%s'", rawNet)
 				}
-				p.filter.Add(*source)
+				p.filter.InplaceInsertNet(source, true)
 			}
 			r.Policies = append(r.Policies, p)
 		}
