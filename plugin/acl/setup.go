@@ -2,7 +2,6 @@ package acl
 
 import (
 	"bufio"
-	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -107,9 +106,13 @@ func parse(c *caddy.Controller) (acl, error) {
 				case "type":
 					hasSection["type"] = true
 					for _, token := range tokens {
-						qtype, err := parseQype(token)
-						if err != nil {
-							return a, c.Err(err.Error())
+						if token == "*" {
+							p.qtypes[QtypeAll] = true
+							continue
+						}
+						qtype, ok := dns.StringToType[token]
+						if !ok {
+							return a, c.Errf("unexpected token '%s'; expect legal QTYPE", token)
 						}
 						p.qtypes[qtype] = true
 					}
@@ -216,91 +219,4 @@ func stripComment(line string) string {
 	}
 	line = strings.TrimLeftFunc(line, unicode.IsSpace)
 	return strings.TrimRightFunc(line, unicode.IsSpace)
-}
-
-func parseQype(raw string) (uint16, error) {
-	switch raw {
-	case "A":
-		return dns.TypeA, nil
-	case "AAAA":
-		return dns.TypeAAAA, nil
-	case "AFSDB":
-		return dns.TypeAFSDB, nil
-	case "CAA":
-		return dns.TypeCAA, nil
-	case "CDNSKEY":
-		return dns.TypeCDNSKEY, nil
-	case "CDS":
-		return dns.TypeCDS, nil
-	case "CERT":
-		return dns.TypeCERT, nil
-	case "CNAME":
-		return dns.TypeCNAME, nil
-	case "DHCID":
-		return dns.TypeDHCID, nil
-	case "DLV":
-		return dns.TypeDLV, nil
-	case "DNAME":
-		return dns.TypeDNAME, nil
-	case "DNSKEY":
-		return dns.TypeDNSKEY, nil
-	case "DS":
-		return dns.TypeDS, nil
-	case "HIP":
-		return dns.TypeHIP, nil
-	case "KEY":
-		return dns.TypeKEY, nil
-	case "KX":
-		return dns.TypeKX, nil
-	case "LOC":
-		return dns.TypeLOC, nil
-	case "MX":
-		return dns.TypeMX, nil
-	case "NAPTR":
-		return dns.TypeNAPTR, nil
-	case "NS":
-		return dns.TypeNS, nil
-	case "NSEC":
-		return dns.TypeNSEC, nil
-	case "NSEC3":
-		return dns.TypeNSEC3, nil
-	case "NSEC3PARAM":
-		return dns.TypeNSEC3PARAM, nil
-	case "OPENPGPKEY":
-		return dns.TypeOPENPGPKEY, nil
-	case "PTR":
-		return dns.TypePTR, nil
-	case "RRSIG":
-		return dns.TypeRRSIG, nil
-	case "RP":
-		return dns.TypeRP, nil
-	case "SIG":
-		return dns.TypeSIG, nil
-	case "SMIMEA":
-		return dns.TypeSMIMEA, nil
-	case "SOA":
-		return dns.TypeSOA, nil
-	case "SRV":
-		return dns.TypeSRV, nil
-	case "SSHFP":
-		return dns.TypeSSHFP, nil
-	case "TA":
-		return dns.TypeTA, nil
-	case "TKEY":
-		return dns.TypeTKEY, nil
-	case "TLSA":
-		return dns.TypeTLSA, nil
-	case "TSIG":
-		return dns.TypeTSIG, nil
-	case "TXT":
-		return dns.TypeTXT, nil
-	case "URI":
-		return dns.TypeURI, nil
-	case "ANY":
-		return dns.TypeANY, nil
-	case "*":
-		return QtypeAll, nil
-	default:
-		return 0, fmt.Errorf("unexpected token '%s'; expect legal QTYPE", raw)
-	}
 }
