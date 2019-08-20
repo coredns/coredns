@@ -63,14 +63,19 @@ func (APIConnTest) GetNamespaceByName(name string) (*api.Namespace, error) {
 	return &api.Namespace{}, nil
 }
 
-func TestNsAddr(t *testing.T) {
+func TestNsAddrs(t *testing.T) {
 
 	k := New([]string{"inter.webs.test."})
 	k.APIConn = &APIConnTest{}
 
-	cdr := k.nsAddr(k.Zones[0])
+	cdrs := k.nsAddrs(false, k.Zones[0])
 	expected := "10.0.0.111"
 
+	if len(cdrs) != 1 {
+		t.Fatalf("Expected 1 result, got %q", len(cdrs))
+
+	}
+	cdr := cdrs[0]
 	if cdr.(*dns.A).A.String() != expected {
 		t.Errorf("Expected A to be %q, got %q", expected, cdr.(*dns.A).A.String())
 	}
