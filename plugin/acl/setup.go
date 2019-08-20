@@ -77,20 +77,19 @@ func parse(c *caddy.Controller) (acl, error) {
 				return a, c.Errf("unexpected token '%s'; expect '%s' or '%s'", c.Val(), ALLOW, BLOCK)
 			}
 
-			p.qtypes = make(map[uint16]bool)
+			p.qtypes = make(map[uint16]struct{})
 
 			p.filter = iptree.NewTree()
 
 			// match all qtypes and IP addresses.
 			if !c.NextArg() {
-				p.qtypes[QtypeAll] = true
-				p.filter.InplaceInsertNet(IPv4All, true)
+				p.qtypes[QtypeAll] = struct{}{}
+				p.filter.InplaceInsertNet(IPv4All, struct{}{})
 				r.Policies = append(r.Policies, p)
 				break
 			}
 
 			var rawSourceIPRanges []string
-			hasSection := make(map[string]bool)
 			for {
 				section := strings.ToLower(c.Val())
 				tokens, remaining := loadFollowingTokens(c)
@@ -100,26 +99,23 @@ func parse(c *caddy.Controller) (acl, error) {
 
 				switch section {
 				case "type":
-					hasSection["type"] = true
 					for _, token := range tokens {
 						if token == "*" {
-							p.qtypes[QtypeAll] = true
-							continue
+							p.qtypes[QtypeAll] = struct{}{}
+							break
 						}
 						qtype, ok := dns.StringToType[token]
 						if !ok {
 							return a, c.Errf("unexpected token '%s'; expect legal QTYPE", token)
 						}
-						p.qtypes[qtype] = true
+						p.qtypes[qtype] = struct{}{}
 					}
 				case "net":
-					hasSection["net"] = true
 					// TODO: refactor to load source IP address one by one.
 					for _, token := range tokens {
 						rawSourceIPRanges = append(rawSourceIPRanges, token)
 					}
 				case "file":
-					hasSection["file"] = true
 					for _, token := range tokens {
 						ipRanges, err := loadNetworksFromLocalFile(token)
 						if err != nil {
@@ -138,26 +134,26 @@ func parse(c *caddy.Controller) (acl, error) {
 			}
 
 			// optional `type` section means all record types.
-			if !hasSection["type"] {
-				p.qtypes[QtypeAll] = true
+			if len(p.qtypes) == 0 {
+				p.qtypes[QtypeAll] = struct{}{}
 			}
 
 			// optional `net` and `file` means all ip addresses.
-			if !hasSection["net"] && !hasSection["file"] {
-				p.filter.InplaceInsertNet(IPv4All, true)
+			if len(rawSourceIPRanges) == 0 {
+				p.filter.InplaceInsertNet(IPv4All, struct{}{})
 			}
 
 			for _, rawNet := range rawSourceIPRanges {
 				if rawNet == "*" {
-					p.filter.InplaceInsertNet(IPv4All, true)
-					continue
+					p.filter.InplaceInsertNet(IPv4All, struct{}{})
+					break
 				}
 				rawNet = normalize(rawNet)
 				_, source, err := net.ParseCIDR(rawNet)
 				if err != nil {
 					return a, c.Errf("illegal CIDR notation '%s'", rawNet)
 				}
-				p.filter.InplaceInsertNet(source, true)
+				p.filter.InplaceInsertNet(source, struct{}{})
 			}
 			r.Policies = append(r.Policies, p)
 		}

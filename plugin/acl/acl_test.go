@@ -2,7 +2,6 @@ package acl
 
 import (
 	"context"
-	"net"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/test"
@@ -16,26 +15,12 @@ var aclTestFiles = map[string]string{
 }
 
 type testResponseWriter struct {
-	remoteIP net.Addr
-	Rcode    int
+	test.ResponseWriter
+	Rcode int
 }
 
-func (t *testResponseWriter) setRemoteIP(rawIP string) {
-	ip := net.ParseIP(rawIP)
-	port := 65667
-	t.remoteIP = &net.UDPAddr{IP: ip, Port: port, Zone: ""}
-}
-
-// LocalAddr returns the local address, 127.0.0.1:53.
-func (t *testResponseWriter) LocalAddr() net.Addr {
-	ip := net.ParseIP("127.0.0.1")
-	port := 53
-	return &net.UDPAddr{IP: ip, Port: port, Zone: ""}
-}
-
-// RemoteAddr returns the remote address, always 10.240.0.1:40212.
-func (t *testResponseWriter) RemoteAddr() net.Addr {
-	return t.remoteIP
+func (t *testResponseWriter) setRemoteIP(ip string) {
+	t.RemoteIP = ip
 }
 
 // WriteMsg implement dns.ResponseWriter interface.
@@ -44,23 +29,8 @@ func (t *testResponseWriter) WriteMsg(m *dns.Msg) error {
 	return nil
 }
 
-// Write implement dns.ResponseWriter interface.
-func (t *testResponseWriter) Write(buf []byte) (int, error) { return len(buf), nil }
-
-// Close implement dns.ResponseWriter interface.
-func (t *testResponseWriter) Close() error { return nil }
-
-// TsigStatus implement dns.ResponseWriter interface.
-func (t *testResponseWriter) TsigStatus() error { return nil }
-
-// TsigTimersOnly implement dns.ResponseWriter interface.
-func (t *testResponseWriter) TsigTimersOnly(bool) { return }
-
-// Hijack implement dns.ResponseWriter interface.
-func (t *testResponseWriter) Hijack() { return }
-
-func NewTestControllerWithZones(serverType, input string, zones []string) *caddy.Controller {
-	ctr := caddy.NewTestController(serverType, input)
+func NewTestControllerWithZones(input string, zones []string) *caddy.Controller {
+	ctr := caddy.NewTestController("dns", input)
 	for _, zone := range zones {
 		ctr.ServerBlockKeys = append(ctr.ServerBlockKeys, zone)
 	}
@@ -78,17 +48,18 @@ func TestACLServeDNS(t *testing.T) {
 	}
 	tests := []struct {
 		name      string
-		ctr       *caddy.Controller
+		config    string
+		zones     []string
 		args      args
 		wantRcode int
 		wantErr   bool
 	}{
 		{
 			"Blacklist 1 BLOCKED",
-			caddy.NewTestController("dns", `
-			acl example.org {
+			`acl example.org {
 				block type A net 192.168.0.0/16
-			}`),
+			}`,
+			[]string{},
 			args{
 				"www.example.org.",
 				"192.168.0.2",
@@ -99,10 +70,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Blacklist 1 ALLOWED",
-			caddy.NewTestController("dns", `
-			acl example.org {
+			`acl example.org {
 				block type A net 192.168.0.0/16
-			}`),
+			}`,
+			[]string{},
 			args{
 				"www.example.org.",
 				"192.167.0.2",
@@ -113,10 +84,11 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Blacklist 2 BLOCKED",
-			caddy.NewTestController("dns", `
+			`
 			acl example.org {
 				block type * net 192.168.0.0/16
-			}`),
+			}`,
+			[]string{},
 			args{
 				"www.example.org.",
 				"192.168.0.2",
@@ -127,10 +99,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Blacklist 3 BLOCKED",
-			caddy.NewTestController("dns", `
-			acl example.org {
+			`acl example.org {
 				block type A
-			}`),
+			}`,
+			[]string{},
 			args{
 				"www.example.org.",
 				"10.1.0.2",
@@ -141,10 +113,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Blacklist 3 ALLOWED",
-			caddy.NewTestController("dns", `
-			acl example.org {
+			`acl example.org {
 				block type A
-			}`),
+			}`,
+			[]string{},
 			args{
 				"www.example.org.",
 				"10.1.0.2",
@@ -155,10 +127,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Blacklist 4 Single IP BLOCKED",
-			caddy.NewTestController("dns", `
-			acl example.org {
+			`acl example.org {
 				block type A net 192.168.1.2
-			}`),
+			}`,
+			[]string{},
 			args{
 				"www.example.org.",
 				"192.168.1.2",
@@ -169,25 +141,25 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Blacklist 4 Single IP ALLOWED",
-			caddy.NewTestController("dns", `
-			acl example.org {
+			`acl example.org {
 				block type A net 192.168.1.2
-			}`),
+			}`,
+			[]string{},
 			args{
 				"www.example.org.",
 				"192.168.1.3",
-				dns.TypeAAAA,
+				dns.TypeA,
 			},
 			dns.RcodeSuccess,
 			false,
 		},
 		{
 			"Whitelist 1 ALLOWED",
-			caddy.NewTestController("dns", `
-			acl example.org {
-				allow type * net 192.168.0.0/16
-				block type * net *
-			}`),
+			`acl example.org {
+				allow net 192.168.0.0/16
+				block
+			}`,
+			[]string{},
 			args{
 				"www.example.org.",
 				"192.168.0.2",
@@ -198,11 +170,11 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Whitelist 1 REFUSED",
-			caddy.NewTestController("dns", `
-			acl example.org {
+			`acl example.org {
 				allow type * net 192.168.0.0/16
-				block type * net *
-			}`),
+				block
+			}`,
+			[]string{},
 			args{
 				"www.example.org.",
 				"10.1.0.2",
@@ -213,10 +185,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Fine-Grained 1 REFUSED",
-			NewTestControllerWithZones("dns", `
-			acl a.example.org {
+			`acl a.example.org {
 				block type * net 192.168.1.0/24
-			}`, []string{"example.org"}),
+			}`,
+			[]string{"example.org"},
 			args{
 				"a.example.org.",
 				"192.168.1.2",
@@ -227,10 +199,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Fine-Grained 1 ALLOWED",
-			NewTestControllerWithZones("dns", `
-			acl a.example.org {
-				block type * net 192.168.1.0/24
-			}`, []string{"example.org"}),
+			`acl a.example.org {
+				block net 192.168.1.0/24
+			}`,
+			[]string{"example.org"},
 			args{
 				"www.example.org.",
 				"192.168.1.2",
@@ -241,10 +213,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Fine-Grained 2 REFUSED",
-			NewTestControllerWithZones("dns", `
-			acl {
-				block type * net 192.168.1.0/24
-			}`, []string{"example.org"}),
+			`acl {
+				block net 192.168.1.0/24
+			}`,
+			[]string{"example.org"},
 			args{
 				"a.example.org.",
 				"192.168.1.2",
@@ -255,10 +227,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Fine-Grained 2 ALLOWED",
-			NewTestControllerWithZones("dns", `
-			acl {
-				block type * net 192.168.1.0/24
-			}`, []string{"example.org"}),
+			`acl {
+				block net 192.168.1.0/24
+			}`,
+			[]string{"example.org"},
 			args{
 				"a.example.com.",
 				"192.168.1.2",
@@ -269,13 +241,13 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Fine-Grained 2 REFUSED",
-			NewTestControllerWithZones("dns", `
-			acl a.example.org {
-				block type * net 192.168.1.0/24
+			`acl a.example.org {
+				block net 192.168.1.0/24
 			}
 			acl b.example.org {
 				block type * net 192.168.2.0/24
-			}`, []string{"example.org"}),
+			}`,
+			[]string{"example.org"},
 			args{
 				"b.example.org.",
 				"192.168.2.2",
@@ -286,13 +258,13 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Fine-Grained 2 ALLOWED",
-			NewTestControllerWithZones("dns", `
-			acl a.example.org {
-				block type * net 192.168.1.0/24
+			`acl a.example.org {
+				block net 192.168.1.0/24
 			}
 			acl b.example.org {
-				block type * net 192.168.2.0/24
-			}`, []string{"example.org"}),
+				block net 192.168.2.0/24
+			}`,
+			[]string{"example.org"},
 			args{
 				"b.example.org.",
 				"192.168.1.2",
@@ -303,10 +275,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Local file 1 Blocked",
-			caddy.NewTestController("dns", `
-			acl example.com {
-				block type * file acl-test-1.txt
-			}`),
+			`acl example.com {
+				block file acl-test-1.txt
+			}`,
+			[]string{},
 			args{
 				"a.example.com.",
 				"192.168.1.2",
@@ -317,10 +289,10 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Local file 1 Allowed",
-			caddy.NewTestController("dns", `
-			acl example.com {
-				block type * file acl-test-1.txt
-			}`),
+			`acl example.com {
+				block file acl-test-1.txt
+			}`,
+			[]string{},
 			args{
 				"a.example.com.",
 				"192.168.3.1",
@@ -335,7 +307,8 @@ func TestACLServeDNS(t *testing.T) {
 	ctx := context.Background()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			a, err := parse(tt.ctr)
+			ctr := NewTestControllerWithZones(tt.config, tt.zones)
+			a, err := parse(ctr)
 			a.Next = test.NextHandler(dns.RcodeSuccess, nil)
 			if err != nil {
 				t.Errorf("Error: Cannot parse acl from config: %v", err)

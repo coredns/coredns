@@ -2,7 +2,6 @@ package acl
 
 import (
 	"context"
-	"fmt"
 	"net"
 
 	"github.com/coredns/coredns/plugin"
@@ -34,7 +33,7 @@ type Rule struct {
 // matched by source IP or QTYPE.
 type Policy struct {
 	action string
-	qtypes map[uint16]bool
+	qtypes map[uint16]struct{}
 	filter *iptree.Tree
 }
 
@@ -53,11 +52,8 @@ func (a acl) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (in
 		if zone == "" {
 			continue
 		}
-		isBlocked, err := shouldBlock(rule.Policies, w, r)
-		if err != nil {
-			return dns.RcodeRefused, err
-		}
-		if isBlocked {
+
+		if shouldBlock(rule.Policies, w, r) {
 			m := new(dns.Msg)
 			m.SetRcode(r, dns.RcodeRefused)
 			w.WriteMsg(m)
@@ -70,41 +66,32 @@ func (a acl) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (in
 	return plugin.NextOrFailure(state.Name(), a.Next, ctx, w, r)
 }
 
-func shouldBlock(policies []Policy, w dns.ResponseWriter, r *dns.Msg) (bool, error) {
+func shouldBlock(policies []Policy, w dns.ResponseWriter, r *dns.Msg) bool {
 	state := request.Request{W: w, Req: r}
 
 	ip := net.ParseIP(state.IP())
 	qtype := state.QType()
 	for _, policy := range policies {
-		v, contained := policy.filter.GetByIP(ip)
-		if !contained {
-			continue
-		}
-		enabled, ok := v.(bool)
-		if !ok {
-			log.Warningf("failed to parse filtering result; expected boolean but got %T (%#v)", enabled, enabled)
-			continue
-		}
-		if !enabled {
+		_, matchAll := policy.qtypes[QtypeAll]
+		_, match := policy.qtypes[qtype]
+		if !matchAll && !match {
 			continue
 		}
 
-		_, matchAll := policy.qtypes[QtypeAll]
-		_, match := policy.qtypes[qtype]
-		fmt.Printf("%v, %v, %v\n", match, matchAll, qtype)
-		if !matchAll && !match {
+		_, contained := policy.filter.GetByIP(ip)
+		if !contained {
 			continue
 		}
 
 		// matched.
 		switch policy.action {
 		case ALLOW:
-			return false, nil
+			return false
 		case BLOCK:
-			return true, nil
+			return true
 		}
 	}
-	return false, nil
+	return false
 }
 
 func (a acl) Name() string {

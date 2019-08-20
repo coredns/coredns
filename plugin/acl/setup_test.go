@@ -1,6 +1,7 @@
 package acl
 
 import (
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -16,13 +17,8 @@ var (
 )
 
 func envSetup(files map[string]string) {
-	for k, v := range files {
-		file, err := os.Create(k)
-		defer file.Close()
-		if err != nil {
-			panic(err)
-		}
-		_, err = file.Write([]byte(v))
+	for filename, content := range files {
+		err := ioutil.WriteFile(filename, []byte(content), 0600)
 		if err != nil {
 			panic(err)
 		}
@@ -30,8 +26,8 @@ func envSetup(files map[string]string) {
 }
 
 func envCleanup(files map[string]string) {
-	for k := range files {
-		err := os.Remove(k)
+	for filename := range files {
+		err := os.Remove(filename)
 		if err != nil {
 			panic(err)
 		}
@@ -44,162 +40,131 @@ func TestSetup(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		ctr     *caddy.Controller
+		config  string
 		wantErr bool
 	}{
 		{
 			"Blacklist 1",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				block type A net 192.168.0.0/16
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"Blacklist 2",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				block type * net 192.168.0.0/16
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"Blacklist 3",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				block type A net *
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"Blacklist 4",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				allow type * net 192.168.1.0/24
 				block type * net 192.168.0.0/16
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"Whitelist 1",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				allow type * net 192.168.0.0/16
 				block type * net *
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"fine-grained 1",
-			caddy.NewTestController("dns", `
-			acl a.example.org {
+			`acl a.example.org {
 				block type * net 192.168.1.0/24
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"fine-grained 2",
-			caddy.NewTestController("dns", `
-			acl a.example.org {
+			`acl a.example.org {
 				block type * net 192.168.1.0/24
 			}
 			acl b.example.org {
 				block type * net 192.168.2.0/24
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"multiple-networks 1",
-			caddy.NewTestController("dns", `
-			acl example.org {
+			`acl example.org {
 				block type * net 192.168.1.0/24 192.168.3.0/24
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"multiple-networks 2",
-			caddy.NewTestController("dns", `
-			acl example.org {
+			`acl example.org {
 				block type * net 192.168.3.0/24
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"Local file 1",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				block type A file acl-setup-test-1.txt
-			}
-			`),
+			}`,
 			false,
 		},
 		{
 			"Missing argument 1",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				block A net 192.168.0.0/16
-			}
-			`),
+			}`,
 			true,
 		},
 		{
 			"Missing argument 2",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				block type net 192.168.0.0/16
-			}
-			`),
+			}`,
 			true,
 		},
 		{
 			"Illegal argument 1",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				block type ABC net 192.168.0.0/16
-			}
-			`),
+			}`,
 			true,
 		},
 		{
 			"Illegal argument 2",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				blck type A net 192.168.0.0/16
-			}
-			`),
+			}`,
 			true,
 		},
 		{
 			"Illegal argument 3",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				block type A net 192.168.0/16
-			}
-			`),
+			}`,
 			true,
 		},
 		{
 			"Illegal argument 4",
-			caddy.NewTestController("dns", `
-			acl {
+			`acl {
 				block type A net 192.168.0.0/33
-			}
-			`),
+			}`,
 			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := setup(tt.ctr); (err != nil) != tt.wantErr {
+			ctr := caddy.NewTestController("dns", tt.config)
+			if err := setup(ctr); (err != nil) != tt.wantErr {
 				t.Errorf("Error: setup() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
