@@ -72,9 +72,13 @@ func parse(c *caddy.Controller) (acl, error) {
 		for c.NextBlock() {
 			p := Policy{}
 
-			p.action = strings.ToLower(c.Val())
-			if p.action != ALLOW && p.action != BLOCK {
-				return a, c.Errf("unexpected token '%s'; expect '%s' or '%s'", c.Val(), ALLOW, BLOCK)
+			action := strings.ToLower(c.Val())
+			if action == "allow" {
+				p.action = ALLOW
+			} else if action == "block" {
+				p.action = BLOCK
+			} else {
+				return a, c.Errf("unexpected token '%s'; expect 'allow' or 'block'", c.Val())
 			}
 
 			p.qtypes = make(map[uint16]struct{})

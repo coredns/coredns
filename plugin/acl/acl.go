@@ -32,16 +32,16 @@ type Rule struct {
 // A policy performs the specified action (block/allow) on all DNS queries
 // matched by source IP or QTYPE.
 type Policy struct {
-	action string
+	action int
 	qtypes map[uint16]struct{}
 	filter *iptree.Tree
 }
 
 const (
 	// ALLOW allows authorized queries to recurse.
-	ALLOW = "allow"
+	ALLOW = iota
 	// BLOCK blocks unauthorized queries towards protected DNS zones.
-	BLOCK = "block"
+	BLOCK
 )
 
 func (a acl) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
