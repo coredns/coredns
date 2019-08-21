@@ -76,7 +76,7 @@ func (h Host) Normalize() string {
 func SplitHostPort(s string) (host, port string, ipnet *net.IPNet, err error) {
 	// If there is: :[0-9]+ on the end we assume this is the port. This works for (ascii) domain
 	// names and our reverse syntax, which always needs a /mask *before* the port.
-	// So from the back, find first colon, and then check if its a number.
+	// So from the back, find first colon, and then check if it's a number.
 	host = s
 
 	colon := strings.LastIndex(s, ":")
