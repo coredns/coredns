@@ -23,17 +23,25 @@ const (
 )
 
 var (
-	// IPv4All is used to match all IPv4 IP addresses.
-	IPv4All *net.IPNet
+	// DefaultFilter is the default ip filter which matches both IPv4All and IPv6All.
+	DefaultFilter *iptree.Tree
 )
 
 func init() {
-	_, IPv4All, _ = net.ParseCIDR("0.0.0.0/0")
+	initDefaultFilter()
 
 	caddy.RegisterPlugin("acl", caddy.Plugin{
 		ServerType: "dns",
 		Action:     setup,
 	})
+}
+
+func initDefaultFilter() {
+	_, IPv4All, _ := net.ParseCIDR("0.0.0.0/0")
+	_, IPv6All, _ := net.ParseCIDR("::/0")
+	DefaultFilter = iptree.NewTree()
+	DefaultFilter.InplaceInsertNet(IPv4All, struct{}{})
+	DefaultFilter.InplaceInsertNet(IPv6All, struct{}{})
 }
 
 func setup(c *caddy.Controller) error {
@@ -88,7 +96,7 @@ func parse(c *caddy.Controller) (acl, error) {
 			// match all qtypes and IP addresses.
 			if !c.NextArg() {
 				p.qtypes[QtypeAll] = struct{}{}
-				p.filter.InplaceInsertNet(IPv4All, struct{}{})
+				p.filter = DefaultFilter
 				r.Policies = append(r.Policies, p)
 				break
 			}
@@ -144,12 +152,12 @@ func parse(c *caddy.Controller) (acl, error) {
 
 			// optional `net` and `file` means all ip addresses.
 			if len(rawSourceIPRanges) == 0 {
-				p.filter.InplaceInsertNet(IPv4All, struct{}{})
+				p.filter = DefaultFilter
 			}
 
 			for _, rawNet := range rawSourceIPRanges {
 				if rawNet == "*" {
-					p.filter.InplaceInsertNet(IPv4All, struct{}{})
+					p.filter = DefaultFilter
 					break
 				}
 				rawNet = normalize(rawNet)
@@ -159,6 +167,7 @@ func parse(c *caddy.Controller) (acl, error) {
 				}
 				p.filter.InplaceInsertNet(source, struct{}{})
 			}
+
 			r.Policies = append(r.Policies, p)
 		}
 		a.Rules = append(a.Rules, r)
@@ -180,10 +189,14 @@ func loadFollowingTokens(c *caddy.Controller) (tokens []string, remain bool) {
 	return
 }
 
-// normalize appends '/32' for any single ip address.
+// normalize appends '/32' for any single IPv4 address and '/128' for IPv6.
 func normalize(rawNet string) string {
 	if idx := strings.IndexAny(rawNet, "/"); idx >= 0 {
 		return rawNet
+	}
+
+	if idx := strings.IndexAny(rawNet, ":"); idx >= 0 {
+		return rawNet + "/128"
 	}
 	return rawNet + "/32"
 }

@@ -11,7 +11,10 @@ import (
 )
 
 var aclTestFiles = map[string]string{
-	"acl-test-1.txt": `192.168.1.0/24`,
+	"acl-test-ipv4.txt": `192.168.1.0/24`,
+	"acl-test-ipv6.txt": `2001:db8:85a3::8a2e:370:7334
+2001:db8:abcd:0012::0/64
+2001:0db8:85a3:0000:0000:8a2e:0370:7334`,
 }
 
 type testResponseWriter struct {
@@ -54,6 +57,7 @@ func TestACLServeDNS(t *testing.T) {
 		wantRcode int
 		wantErr   bool
 	}{
+		// IPv4 tests.
 		{
 			"Blacklist 1 BLOCKED",
 			`acl example.org {
@@ -240,7 +244,7 @@ func TestACLServeDNS(t *testing.T) {
 			false,
 		},
 		{
-			"Fine-Grained 2 REFUSED",
+			"Fine-Grained 3 REFUSED",
 			`acl a.example.org {
 				block net 192.168.1.0/24
 			}
@@ -257,7 +261,7 @@ func TestACLServeDNS(t *testing.T) {
 			false,
 		},
 		{
-			"Fine-Grained 2 ALLOWED",
+			"Fine-Grained 3 ALLOWED",
 			`acl a.example.org {
 				block net 192.168.1.0/24
 			}
@@ -276,7 +280,7 @@ func TestACLServeDNS(t *testing.T) {
 		{
 			"Local file 1 Blocked",
 			`acl example.com {
-				block file acl-test-1.txt
+				block file acl-test-ipv4.txt
 			}`,
 			[]string{},
 			args{
@@ -290,7 +294,7 @@ func TestACLServeDNS(t *testing.T) {
 		{
 			"Local file 1 Allowed",
 			`acl example.com {
-				block file acl-test-1.txt
+				block file acl-test-ipv4.txt
 			}`,
 			[]string{},
 			args{
@@ -301,7 +305,133 @@ func TestACLServeDNS(t *testing.T) {
 			dns.RcodeSuccess,
 			false,
 		},
-		// TODO: Add more test cases. (@ihac)
+		// IPv6 tests.
+		{
+			"Blacklist 1 BLOCKED IPv6",
+			`acl example.org {
+				block type A net 2001:db8:abcd:0012::0/64
+			}`,
+			[]string{},
+			args{
+				"www.example.org.",
+				"2001:db8:abcd:0012::1230",
+				dns.TypeA,
+			},
+			dns.RcodeRefused,
+			false,
+		},
+		{
+			"Blacklist 1 ALLOWED IPv6",
+			`acl example.org {
+				block type A net 2001:db8:abcd:0012::0/64
+			}`,
+			[]string{},
+			args{
+				"www.example.org.",
+				"2001:db8:abcd:0013::0",
+				dns.TypeA,
+			},
+			dns.RcodeSuccess,
+			false,
+		},
+		{
+			"Blacklist 2 BLOCKED IPv6",
+			`acl example.org {
+				block type A
+			}`,
+			[]string{},
+			args{
+				"www.example.org.",
+				"2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+				dns.TypeA,
+			},
+			dns.RcodeRefused,
+			false,
+		},
+		{
+			"Blacklist 3 Single IP BLOCKED IPv6",
+			`acl example.org {
+				block type A net 2001:0db8:85a3:0000:0000:8a2e:0370:7334
+			}`,
+			[]string{},
+			args{
+				"www.example.org.",
+				"2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+				dns.TypeA,
+			},
+			dns.RcodeRefused,
+			false,
+		},
+		{
+			"Blacklist 3 Single IP ALLOWED IPv6",
+			`acl example.org {
+				block type A net 2001:0db8:85a3:0000:0000:8a2e:0370:7334
+			}`,
+			[]string{},
+			args{
+				"www.example.org.",
+				"2001:0db8:85a3:0000:0000:8a2e:0370:7335",
+				dns.TypeA,
+			},
+			dns.RcodeSuccess,
+			false,
+		},
+		{
+			"Fine-Grained 1 REFUSED IPv6",
+			`acl a.example.org {
+				block type * net 2001:db8:abcd:0012::0/64
+			}`,
+			[]string{"example.org"},
+			args{
+				"a.example.org.",
+				"2001:db8:abcd:0012:2019::0",
+				dns.TypeA,
+			},
+			dns.RcodeRefused,
+			false,
+		},
+		{
+			"Fine-Grained 1 ALLOWED IPv6",
+			`acl a.example.org {
+				block net 2001:db8:abcd:0012::0/64
+			}`,
+			[]string{"example.org"},
+			args{
+				"www.example.org.",
+				"2001:db8:abcd:0012:2019::0",
+				dns.TypeA,
+			},
+			dns.RcodeSuccess,
+			false,
+		},
+		{
+			"Local file 1 Blocked IPv6",
+			`acl example.com {
+				block file acl-test-ipv6.txt
+			}`,
+			[]string{},
+			args{
+				"a.example.com.",
+				"2001:db8:abcd:0012::2019:0821",
+				dns.TypeA,
+			},
+			dns.RcodeRefused,
+			false,
+		},
+		{
+			"Local file 1 Allowed IPv6",
+			`acl example.com {
+				block file acl-test-ipv6.txt
+			}`,
+			[]string{},
+			args{
+				"a.example.com.",
+				"3001:db8:abcd:0012::0",
+				dns.TypeA,
+			},
+			dns.RcodeSuccess,
+			false,
+		},
 	}
 
 	ctx := context.Background()
