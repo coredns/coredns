@@ -12,7 +12,7 @@ import (
 
 // See core/dnsserver/address.go - we should unify these two impls.
 
-// Zones respresents a lists of zone names.
+// Zones represents a lists of zone names.
 type Zones []string
 
 // Matches checks if qname is a subdomain of any of the zones in z.  The match
@@ -65,7 +65,7 @@ func (h Host) Normalize() string {
 	s := string(h)
 	_, s = parse.Transport(s)
 
-	// The error can be ignore here, because this function is called after the corefile has already been vetted.
+	// The error can be ignored here, because this function is called after the corefile has already been vetted.
 	host, _, _, _ := SplitHostPort(s)
 	return Name(host).Normalize()
 }
