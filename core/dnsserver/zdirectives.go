@@ -26,6 +26,7 @@ var Directives = []string{
 	"errors",
 	"log",
 	"dnstap",
+	"acl",
 	"any",
 	"chaos",
 	"loadbalance",
@@ -50,6 +51,5 @@ var Directives = []string{
 	"grpc",
 	"erratic",
 	"whoami",
-	"acl",
 	"on",
 }
