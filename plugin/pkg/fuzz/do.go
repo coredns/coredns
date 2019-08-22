@@ -19,7 +19,7 @@ func Do(p plugin.Handler, data []byte) int {
 	}
 	// If the data unpack into a dns msg, but does not have a proper question section discard it.
 	// The server parts make sure this is true before calling the plugins; mimic this behavior.
-	if len(r.Question) != 1 {
+	if len(r.Question) == 0 {
 		return 0
 	}
 
