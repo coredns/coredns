@@ -28,7 +28,7 @@ CoreDNS is now a (the first!) server type plugin in Caddy - this means we can le
 from Caddy without having to fork (and maintain) it all. By doing so we were able to remove 9000
 lines of code from CoreDNS.
 
-The core (ghe!) of CoreDNS is now in a good shape. Future work will focus on making the
+The core (ghe!) of CoreDNS is now in good shape. Future work will focus on making the
 plugin better, e.g. the proxy implementation is slow and needs to be
 [faster](https://github.com/coredns/coredns/issues/184).
 
