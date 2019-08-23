@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"net"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
@@ -54,7 +55,7 @@ func (APIConnTest) ServiceList() []*object.Service {
 }
 
 func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
-	if ip != "127.0.0.1" {
+	if ip != "10.244.0.20" {
 		return nil
 	}
 	eps := []*object.Endpoints{
@@ -63,7 +64,7 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 				{
 					Addresses: []object.EndpointAddress{
 						{
-							IP: "127.0.0.1",
+							IP: "10.244.0.20",
 						},
 					},
 				},
@@ -76,7 +77,7 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 				{
 					Addresses: []object.EndpointAddress{
 						{
-							IP: "127.0.0.1",
+							IP: "10.244.0.20",
 						},
 					},
 				},
@@ -89,7 +90,7 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 				{
 					Addresses: []object.EndpointAddress{
 						{
-							IP: "127.0.0.1",
+							IP: "10.244.0.20",
 						},
 					},
 				},
@@ -110,6 +111,7 @@ func TestNsAddrs(t *testing.T) {
 
 	k := New([]string{"inter.webs.test."})
 	k.APIConn = &APIConnTest{}
+	k.interfaceAddrsFunc = func() net.IP { return net.ParseIP("10.244.0.20") }
 
 	cdrs := k.nsAddrs(false, k.Zones[0])
 
@@ -127,11 +129,11 @@ func TestNsAddrs(t *testing.T) {
 		t.Errorf("Expected 1st Header Name to be %q, got %q", expected, cdr.Header().Name)
 	}
 	cdr = cdrs[1]
-	expected = "127.0.0.1"
+	expected = "10.244.0.20"
 	if cdr.(*dns.A).A.String() != expected {
 		t.Errorf("Expected 2nd A to be %q, got %q", expected, cdr.(*dns.A).A.String())
 	}
-	expected = "127-0-0-1.hdls-dns-service.kube-system.svc.inter.webs.test."
+	expected = "10-244-0-20.hdls-dns-service.kube-system.svc.inter.webs.test."
 	if cdr.Header().Name != expected {
 		t.Errorf("Expected 2nd Header Name to be %q, got %q", expected, cdr.Header().Name)
 	}
