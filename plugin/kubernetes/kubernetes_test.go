@@ -310,20 +310,20 @@ func TestServicesAuthority(t *testing.T) {
 		key  string
 	}
 	type svcTest struct {
-		interfaceAddrs func() []net.IP
-		qname          string
-		qtype          uint16
-		answer         *svcAns
+		localIPs []net.IP
+		qname    string
+		qtype    uint16
+		answer   *svcAns
 	}
 	tests := []svcTest{
-		{interfaceAddrs: func() []net.IP { return []net.IP{net.ParseIP("127.0.0.1") }}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeA, answer: &svcAns{host: "127.0.0.1", key: "/" + coredns + "/test/interwebs/dns/ns"}},
-		{interfaceAddrs: func() []net.IP { return []net.IP{net.ParseIP("127.0.0.1") }}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeAAAA},
-		{interfaceAddrs: func() []net.IP { return []net.IP{net.ParseIP("::1") }}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeA},
-		{interfaceAddrs: func() []net.IP { return []net.IP{net.ParseIP("::1") }}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeAAAA, answer: &svcAns{host: "::1", key: "/" + coredns + "/test/interwebs/dns/ns"}},
+		{localIPs: []net.IP{net.ParseIP("127.0.0.1")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeA, answer: &svcAns{host: "127.0.0.1", key: "/" + coredns + "/test/interwebs/dns/ns"}},
+		{localIPs: []net.IP{net.ParseIP("127.0.0.1")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeAAAA},
+		{localIPs: []net.IP{net.ParseIP("::1")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeA},
+		{localIPs: []net.IP{net.ParseIP("::1")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeAAAA, answer: &svcAns{host: "::1", key: "/" + coredns + "/test/interwebs/dns/ns"}},
 	}
 
 	for i, test := range tests {
-		k.interfaceAddrsFunc = test.interfaceAddrs
+		k.localIPs = test.localIPs
 
 		state := request.Request{
 			Req:  &dns.Msg{Question: []dns.Question{{Name: test.qname, Qtype: test.qtype}}},

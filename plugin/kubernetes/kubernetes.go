@@ -43,9 +43,8 @@ type Kubernetes struct {
 	Fall             fall.F
 	ttl              uint32
 	opts             dnsControlOpts
-
 	primaryZoneIndex   int
-	interfaceAddrsFunc func() []net.IP
+	localIPs           []net.IP
 	autoPathSearch     []string // Local search path from /etc/resolv.conf. Needed for autopath.
 	TransferTo         []string
 }
@@ -56,7 +55,6 @@ func New(zones []string) *Kubernetes {
 	k := new(Kubernetes)
 	k.Zones = zones
 	k.Namespaces = make(map[string]struct{})
-	k.interfaceAddrsFunc = func() []net.IP { return []net.IP{net.ParseIP("127.0.0.1")} }
 	k.podMode = podModeDisabled
 	k.ttl = defaultTTL
 

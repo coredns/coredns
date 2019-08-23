@@ -2,16 +2,27 @@ package kubernetes
 
 import (
 	"net"
+
+	"github.com/caddyserver/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 )
 
-func localPodIP() (ips []net.IP) {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return nil
+// boundIPs returns the list of non-loopback IPs that CoreDNS is bound to
+func boundIPs(c *caddy.Controller) (ips []net.IP) {
+	conf := dnsserver.GetConfig(c)
+	hosts := conf.ListenHosts
+	if  hosts == nil || hosts[0] == "" {
+		hosts = nil
+		addrs, err := net.InterfaceAddrs()
+		if err != nil {
+			return nil
+		}
+		for _, addr := range addrs{
+			hosts = append(hosts, addr.String())
+		}
 	}
-
-	for _, addr := range addrs {
-		ip, _, _ := net.ParseCIDR(addr.String())
+	for _, host := range hosts {
+		ip, _, _ := net.ParseCIDR(host)
 		ip4 := ip.To4()
 		if ip4 != nil && !ip4.IsLoopback() {
 			ips = append(ips, ip4)
@@ -26,13 +37,12 @@ func localPodIP() (ips []net.IP) {
 
 // LocalNodeName is exclusively used in federation plugin, will be deprecated later.
 func (k *Kubernetes) LocalNodeName() string {
-	localIPs := k.interfaceAddrsFunc()
-	if len(localIPs) == 0 {
+	if len(k.localIPs) == 0 {
 		return ""
 	}
 
 	// Find fist endpoint matching any localIP
-	for _, localIP := range localIPs {
+	for _, localIP := range k.localIPs {
 		for _, ep := range k.APIConn.EpIndexReverse(localIP.String()) {
 			for _, eps := range ep.Subsets {
 				for _, addr := range eps.Addresses {
