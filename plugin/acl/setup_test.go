@@ -1,47 +1,12 @@
 package acl
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
 	"github.com/caddyserver/caddy"
 )
 
-var (
-	setupTestFiles = map[string]string{
-		"acl-setup-test-ipv4.txt": `10.218.128.0/24
-35.39.53.223/32
-43.105.127.35/18`,
-		"acl-setup-test-ipv6.txt": `2001:db8:85a3::8a2e:370:7334
-2001:db8:abcd:0012::0/64
-2001:0db8:85a3:0000:0000:8a2e:0370:7334
-`,
-	}
-)
-
-func envSetup(files map[string]string) {
-	for filename, content := range files {
-		err := ioutil.WriteFile(filename, []byte(content), 0600)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func envCleanup(files map[string]string) {
-	for filename := range files {
-		err := os.Remove(filename)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
 func TestSetup(t *testing.T) {
-	envSetup(setupTestFiles)
-	defer envCleanup(setupTestFiles)
-
 	tests := []struct {
 		name    string
 		config  string
@@ -113,13 +78,6 @@ func TestSetup(t *testing.T) {
 			"Multiple Qtypes 1",
 			`acl example.org {
 				block type TXT ANY CNAME net 192.168.3.0/24
-			}`,
-			false,
-		},
-		{
-			"Local file 1",
-			`acl {
-				block type A file acl-setup-test-ipv4.txt
 			}`,
 			false,
 		},
@@ -228,13 +186,6 @@ func TestSetup(t *testing.T) {
 			false,
 		},
 		{
-			"Local file 1 IPv6 IPv6",
-			`acl {
-				block type A file acl-setup-test-ipv6.txt
-			}`,
-			false,
-		},
-		{
 			"Illegal argument 1 IPv6",
 			`acl {
 				block type A net 2001::85a3::8a2e:370:7334
@@ -254,45 +205,6 @@ func TestSetup(t *testing.T) {
 			ctr := caddy.NewTestController("dns", tt.config)
 			if err := setup(ctr); (err != nil) != tt.wantErr {
 				t.Errorf("Error: setup() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestStripComment(t *testing.T) {
-	type args struct {
-		line string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			"No change 1",
-			args{`hello, world`},
-			`hello, world`,
-		},
-		{
-			"No comment 1",
-			args{`  hello, world   `},
-			`hello, world`,
-		},
-		{
-			"Remove tailing comment 1",
-			args{`hello, world# comments`},
-			`hello, world`,
-		},
-		{
-			"Remove tailing comment 2",
-			args{`  hello, world   # comments`},
-			`hello, world`,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := stripComment(tt.args.line); got != tt.want {
-				t.Errorf("Error: stripComment() = %v, want %v", got, tt.want)
 			}
 		})
 	}

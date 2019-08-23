@@ -1,11 +1,8 @@
 package acl
 
 import (
-	"bufio"
 	"net"
-	"os"
 	"strings"
-	"unicode"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -101,7 +98,8 @@ func parse(c *caddy.Controller) (acl, error) {
 				break
 			}
 
-			var rawSourceIPRanges []string
+			hasTypeSection := false
+			hasNetSection := false
 			for {
 				section := strings.ToLower(c.Val())
 				tokens, remaining := loadFollowingTokens(c)
@@ -111,6 +109,7 @@ func parse(c *caddy.Controller) (acl, error) {
 
 				switch section {
 				case "type":
+					hasTypeSection = true
 					for _, token := range tokens {
 						if token == "*" {
 							p.qtypes[QtypeAll] = struct{}{}
@@ -123,22 +122,22 @@ func parse(c *caddy.Controller) (acl, error) {
 						p.qtypes[qtype] = struct{}{}
 					}
 				case "net":
+					hasNetSection = true
 					// TODO: refactor to load source IP address one by one.
 					for _, token := range tokens {
-						rawSourceIPRanges = append(rawSourceIPRanges, token)
-					}
-				case "file":
-					for _, token := range tokens {
-						ipRanges, err := loadNetworksFromLocalFile(token)
+						if token == "*" {
+							p.filter = DefaultFilter
+							break
+						}
+						token = normalize(token)
+						_, source, err := net.ParseCIDR(token)
 						if err != nil {
-							return a, c.Errf("unable to load networks from local file: %v", err)
+							return a, c.Errf("illegal CIDR notation '%s'", token)
 						}
-						for _, ipRange := range ipRanges {
-							rawSourceIPRanges = append(rawSourceIPRanges, ipRange)
-						}
+						p.filter.InplaceInsertNet(source, struct{}{})
 					}
 				default:
-					return a, c.Errf("unexpected token '%s'; expect 'type | net | file'", c.Val())
+					return a, c.Errf("unexpected token '%s'; expect 'type | net'", c.Val())
 				}
 				if !remaining {
 					break
@@ -146,26 +145,13 @@ func parse(c *caddy.Controller) (acl, error) {
 			}
 
 			// optional `type` section means all record types.
-			if len(p.qtypes) == 0 {
+			if !hasTypeSection {
 				p.qtypes[QtypeAll] = struct{}{}
 			}
 
-			// optional `net` and `file` means all ip addresses.
-			if len(rawSourceIPRanges) == 0 {
+			// optional `net` means all ip addresses.
+			if !hasNetSection {
 				p.filter = DefaultFilter
-			}
-
-			for _, rawNet := range rawSourceIPRanges {
-				if rawNet == "*" {
-					p.filter = DefaultFilter
-					break
-				}
-				rawNet = normalize(rawNet)
-				_, source, err := net.ParseCIDR(rawNet)
-				if err != nil {
-					return a, c.Errf("illegal CIDR notation '%s'", rawNet)
-				}
-				p.filter.InplaceInsertNet(source, struct{}{})
 			}
 
 			r.Policies = append(r.Policies, p)
@@ -180,7 +166,7 @@ func loadFollowingTokens(c *caddy.Controller) (tokens []string, remain bool) {
 	for c.NextArg() {
 		token := c.Val()
 		identifier := strings.ToLower(token)
-		if identifier == "type" || identifier == "net" || identifier == "file" {
+		if identifier == "type" || identifier == "net" {
 			remain = true
 			break
 		}
@@ -199,33 +185,4 @@ func normalize(rawNet string) string {
 		return rawNet + "/128"
 	}
 	return rawNet + "/32"
-}
-
-func loadNetworksFromLocalFile(fileName string) ([]string, error) {
-	var nets []string
-	file, err := os.Open(fileName)
-	defer file.Close()
-	if err != nil {
-		return nil, err
-	}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := stripComment(scanner.Text())
-		// skip empty line.
-		if line == "" {
-			continue
-		}
-		nets = append(nets, line)
-	}
-	return nets, nil
-}
-
-// stripComment removes comments.
-func stripComment(line string) string {
-	commentCh := "#"
-	if idx := strings.IndexAny(line, commentCh); idx >= 0 {
-		line = line[:idx]
-	}
-	line = strings.TrimLeftFunc(line, unicode.IsSpace)
-	return strings.TrimRightFunc(line, unicode.IsSpace)
 }

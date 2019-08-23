@@ -10,13 +10,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-var aclTestFiles = map[string]string{
-	"acl-test-ipv4.txt": `192.168.1.0/24`,
-	"acl-test-ipv6.txt": `2001:db8:85a3::8a2e:370:7334
-2001:db8:abcd:0012::0/64
-2001:0db8:85a3:0000:0000:8a2e:0370:7334`,
-}
-
 type testResponseWriter struct {
 	test.ResponseWriter
 	Rcode int
@@ -41,9 +34,6 @@ func NewTestControllerWithZones(input string, zones []string) *caddy.Controller 
 }
 
 func TestACLServeDNS(t *testing.T) {
-	envSetup(aclTestFiles)
-	defer envCleanup(aclTestFiles)
-
 	type args struct {
 		domain   string
 		sourceIP string
@@ -277,34 +267,6 @@ func TestACLServeDNS(t *testing.T) {
 			dns.RcodeSuccess,
 			false,
 		},
-		{
-			"Local file 1 Blocked",
-			`acl example.com {
-				block file acl-test-ipv4.txt
-			}`,
-			[]string{},
-			args{
-				"a.example.com.",
-				"192.168.1.2",
-				dns.TypeA,
-			},
-			dns.RcodeRefused,
-			false,
-		},
-		{
-			"Local file 1 Allowed",
-			`acl example.com {
-				block file acl-test-ipv4.txt
-			}`,
-			[]string{},
-			args{
-				"a.example.com.",
-				"192.168.3.1",
-				dns.TypeA,
-			},
-			dns.RcodeSuccess,
-			false,
-		},
 		// IPv6 tests.
 		{
 			"Blacklist 1 BLOCKED IPv6",
@@ -399,34 +361,6 @@ func TestACLServeDNS(t *testing.T) {
 			args{
 				"www.example.org.",
 				"2001:db8:abcd:0012:2019::0",
-				dns.TypeA,
-			},
-			dns.RcodeSuccess,
-			false,
-		},
-		{
-			"Local file 1 Blocked IPv6",
-			`acl example.com {
-				block file acl-test-ipv6.txt
-			}`,
-			[]string{},
-			args{
-				"a.example.com.",
-				"2001:db8:abcd:0012::2019:0821",
-				dns.TypeA,
-			},
-			dns.RcodeRefused,
-			false,
-		},
-		{
-			"Local file 1 Allowed IPv6",
-			`acl example.com {
-				block file acl-test-ipv6.txt
-			}`,
-			[]string{},
-			args{
-				"a.example.com.",
-				"3001:db8:abcd:0012::0",
 				dns.TypeA,
 			},
 			dns.RcodeSuccess,

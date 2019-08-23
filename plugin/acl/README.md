@@ -12,7 +12,7 @@ This plugin can be used multiple times per Server Block.
 
 ```
 acl [ZONES...] {
-    ACTION [type QTYPE...] [net SOURCE...] [file LOCAL_FILE...]
+    ACTION [type QTYPE...] [net SOURCE...]
 }
 ```
 
@@ -20,7 +20,6 @@ acl [ZONES...] {
 - **ACTION** (*allow* or *block*) defines the way to deal with DNS queries matched by this rule. The default action is *allow*, which means a DNS query not matched by any rules will be allowed to recurse.
 - **QTYPE** is the query type to match for the requests to be allowed or blocked. Common resource record types are supported. `*` stands for all record types. The default behavior for an omitted `type QTYPE...` is to match all kinds of DNS queries (same as `type *`).
 - **SOURCE** is the source IP address to match for the requests to be allowed or blocked. Typical CIDR notation and single IP address are supported. `*` stands for all possible source IP addresses.
-- **LOCAL_FILE** is a local file including a list of IP addresses or subnets. It allows users to import blacklist/whitelist from third party directly without setting rules by hand. The default behavior for `net SOURCE...` and `file LOCAL_FILE...` both being omitted is to match all IP addresses (same as `net *`).
 
 ## Examples
 
@@ -64,16 +63,6 @@ Block all DNS queries from 192.168.1.0/24 towards a.example.org:
 example.org {
     acl a.example.org {
         block net 192.168.1.0/24
-    }
-}
-~~~
-
-Block DNS queries from source ip on the local blacklist.
-
-~~~ Corefile
-. {
-    acl {
-        block file /path/to/blacklist.txt
     }
 }
 ~~~
