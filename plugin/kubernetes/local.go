@@ -11,13 +11,13 @@ import (
 func boundIPs(c *caddy.Controller) (ips []net.IP) {
 	conf := dnsserver.GetConfig(c)
 	hosts := conf.ListenHosts
-	if  hosts == nil || hosts[0] == "" {
+	if hosts == nil || hosts[0] == "" {
 		hosts = nil
 		addrs, err := net.InterfaceAddrs()
 		if err != nil {
 			return nil
 		}
-		for _, addr := range addrs{
+		for _, addr := range addrs {
 			hosts = append(hosts, addr.String())
 		}
 	}
@@ -26,6 +26,7 @@ func boundIPs(c *caddy.Controller) (ips []net.IP) {
 		ip4 := ip.To4()
 		if ip4 != nil && !ip4.IsLoopback() {
 			ips = append(ips, ip4)
+			continue
 		}
 		ip6 := ip.To16()
 		if ip6 != nil && !ip6.IsLoopback() {

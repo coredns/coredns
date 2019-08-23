@@ -43,10 +43,10 @@ type Kubernetes struct {
 	Fall             fall.F
 	ttl              uint32
 	opts             dnsControlOpts
-	primaryZoneIndex   int
-	localIPs           []net.IP
-	autoPathSearch     []string // Local search path from /etc/resolv.conf. Needed for autopath.
-	TransferTo         []string
+	primaryZoneIndex int
+	localIPs         []net.IP
+	autoPathSearch   []string // Local search path from /etc/resolv.conf. Needed for autopath.
+	TransferTo       []string
 }
 
 // New returns a initialized Kubernetes. It default interfaceAddrFunc to return 127.0.0.1. All other
