@@ -56,8 +56,12 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 
 	// If no local IPs matched any endpoints, use the localIPs directly
 	if len(svcIPs) == 0 {
-		svcNames = []string{defaultNSName + zone}
-		svcIPs = k.localIPs
+		svcIPs = make([]net.IP, len(k.localIPs))
+		svcNames = make([]string, len(k.localIPs))
+		for i, localIP := range k.localIPs {
+			svcNames[i] = defaultNSName + zone
+			svcIPs[i] = localIP
+		}
 	}
 
 	// Create an RR slice of collected IPs
