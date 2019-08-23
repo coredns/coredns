@@ -45,7 +45,7 @@ type Kubernetes struct {
 	opts             dnsControlOpts
 
 	primaryZoneIndex   int
-	interfaceAddrsFunc func() net.IP
+	interfaceAddrsFunc func() []net.IP
 	autoPathSearch     []string // Local search path from /etc/resolv.conf. Needed for autopath.
 	TransferTo         []string
 }
@@ -56,7 +56,7 @@ func New(zones []string) *Kubernetes {
 	k := new(Kubernetes)
 	k.Zones = zones
 	k.Namespaces = make(map[string]struct{})
-	k.interfaceAddrsFunc = func() net.IP { return net.ParseIP("127.0.0.1") }
+	k.interfaceAddrsFunc = func() []net.IP { return []net.IP{net.ParseIP("127.0.0.1")} }
 	k.podMode = podModeDisabled
 	k.ttl = defaultTTL
 

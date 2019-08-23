@@ -22,14 +22,10 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 	)
 
 	// Find the CoreDNS Endpoint
-	localIP := k.interfaceAddrsFunc()
-	endpoints := k.APIConn.EpIndexReverse(localIP.String())
+	localIPs := k.interfaceAddrsFunc()
+	for _, localIP := range localIPs {
+		endpoints := k.APIConn.EpIndexReverse(localIP.String())
 
-	// If the CoreDNS Endpoint is not found, use the locally bound IP address
-	if len(endpoints) == 0 {
-		svcNames = []string{defaultNSName + zone}
-		svcIPs = []net.IP{localIP}
-	} else {
 		// Collect IPs for all Services of the Endpoints
 		for _, endpoint := range endpoints {
 			svcs := k.APIConn.SvcIndex(object.ServiceKey(endpoint.Name, endpoint.Namespace))
@@ -57,6 +53,12 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 				}
 			}
 		}
+	}
+
+	// If no local IPs matched any endpoints, use the localIPs directly
+	if len(svcIPs) == 0 {
+		svcNames = []string{defaultNSName + zone}
+		svcIPs = localIPs
 	}
 
 	// Create an RR slice of collected IPs
