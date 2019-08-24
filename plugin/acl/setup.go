@@ -16,29 +16,23 @@ import (
 const (
 	// QtypeAll is used to match any kinds of DNS records type.
 	// NOTE: The value of QtypeAll should be different with other QTYPEs defined in miekg/dns.
-	QtypeAll uint16 = 299
-)
-
-var (
-	// DefaultFilter is the default ip filter which matches both IPv4All and IPv6All.
-	DefaultFilter *iptree.Tree
+	QtypeAll uint16 = 0
 )
 
 func init() {
-	initDefaultFilter()
-
 	caddy.RegisterPlugin("acl", caddy.Plugin{
 		ServerType: "dns",
 		Action:     setup,
 	})
 }
 
-func initDefaultFilter() {
+func createDefaultFilter() *iptree.Tree {
+	defaultFilter := iptree.NewTree()
 	_, IPv4All, _ := net.ParseCIDR("0.0.0.0/0")
 	_, IPv6All, _ := net.ParseCIDR("::/0")
-	DefaultFilter = iptree.NewTree()
-	DefaultFilter.InplaceInsertNet(IPv4All, struct{}{})
-	DefaultFilter.InplaceInsertNet(IPv6All, struct{}{})
+	defaultFilter.InplaceInsertNet(IPv4All, struct{}{})
+	defaultFilter.InplaceInsertNet(IPv6All, struct{}{})
+	return defaultFilter
 }
 
 func setup(c *caddy.Controller) error {
@@ -79,11 +73,11 @@ func parse(c *caddy.Controller) (acl, error) {
 
 			action := strings.ToLower(c.Val())
 			if action == "allow" {
-				p.action = ALLOW
+				p.action = Allow
 			} else if action == "block" {
-				p.action = BLOCK
+				p.action = Block
 			} else {
-				return a, c.Errf("unexpected token '%s'; expect 'allow' or 'block'", c.Val())
+				return a, c.Errf("unexpected token %q; expect 'allow' or 'block'", c.Val())
 			}
 
 			p.qtypes = make(map[uint16]struct{})
@@ -93,7 +87,7 @@ func parse(c *caddy.Controller) (acl, error) {
 			// match all qtypes and IP addresses.
 			if !c.NextArg() {
 				p.qtypes[QtypeAll] = struct{}{}
-				p.filter = DefaultFilter
+				p.filter = createDefaultFilter()
 				r.Policies = append(r.Policies, p)
 				break
 			}
@@ -104,7 +98,7 @@ func parse(c *caddy.Controller) (acl, error) {
 				section := strings.ToLower(c.Val())
 				tokens, remaining := loadFollowingTokens(c)
 				if len(tokens) == 0 {
-					return a, c.Errf("no token specified in '%s' section", section)
+					return a, c.Errf("no token specified in %q section", section)
 				}
 
 				switch section {
@@ -117,27 +111,26 @@ func parse(c *caddy.Controller) (acl, error) {
 						}
 						qtype, ok := dns.StringToType[token]
 						if !ok {
-							return a, c.Errf("unexpected token '%s'; expect legal QTYPE", token)
+							return a, c.Errf("unexpected token %q; expect legal QTYPE", token)
 						}
 						p.qtypes[qtype] = struct{}{}
 					}
 				case "net":
 					hasNetSection = true
-					// TODO: refactor to load source IP address one by one.
 					for _, token := range tokens {
 						if token == "*" {
-							p.filter = DefaultFilter
+							p.filter = createDefaultFilter()
 							break
 						}
 						token = normalize(token)
 						_, source, err := net.ParseCIDR(token)
 						if err != nil {
-							return a, c.Errf("illegal CIDR notation '%s'", token)
+							return a, c.Errf("illegal CIDR notation %q", token)
 						}
 						p.filter.InplaceInsertNet(source, struct{}{})
 					}
 				default:
-					return a, c.Errf("unexpected token '%s'; expect 'type | net'", c.Val())
+					return a, c.Errf("unexpected token %q; expect 'type | net'", c.Val())
 				}
 				if !remaining {
 					break
@@ -151,7 +144,7 @@ func parse(c *caddy.Controller) (acl, error) {
 
 			// optional `net` means all ip addresses.
 			if !hasNetSection {
-				p.filter = DefaultFilter
+				p.filter = createDefaultFilter()
 			}
 
 			r.Policies = append(r.Policies, p)

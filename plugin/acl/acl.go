@@ -38,10 +38,10 @@ type Policy struct {
 }
 
 const (
-	// ALLOW allows authorized queries to recurse.
-	ALLOW = iota
-	// BLOCK blocks unauthorized queries towards protected DNS zones.
-	BLOCK
+	// Allow allows authorized queries to recurse.
+	Allow = iota
+	// Block blocks unauthorized queries towards protected DNS zones.
+	Block
 )
 
 func (a acl) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -85,9 +85,9 @@ func shouldBlock(policies []Policy, w dns.ResponseWriter, r *dns.Msg) bool {
 
 		// matched.
 		switch policy.action {
-		case ALLOW:
+		case Allow:
 			return false
-		case BLOCK:
+		case Block:
 			return true
 		}
 	}
