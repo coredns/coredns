@@ -24,8 +24,13 @@ FUZZ:=$(dir $(wildcard plugin/*/fuzz.go)) # plugin/cache/
 PLUGINS:=$(foreach f,$(FUZZ),$(subst plugin, ,$(f:/=))) # > /cache
 PLUGINS:=$(foreach f,$(PLUGINS),$(subst /, ,$(f))) # > cache
 
+.PHONY: vendor
+vendor:
+	@echo "Vendoring code till go-fuzz supports Go modules!"
+	@go mod vendor
+
 .PHONY: echo
-echo:
+echo: vendor
 	@echo $(PLUGINS) corefile
 
 all: $(PLUGINS) corefile
@@ -33,20 +38,20 @@ all: $(PLUGINS) corefile
 .PHONY: $(PLUGINS)
 $(PLUGINS): echo
 ifeq ($(LIBFUZZER), YES)
-	go-fuzz-build -tags fuzz -libfuzzer -o $(@).a ./plugin/$(@)
+	go-fuzz-build -libfuzzer -o $(@).a ./plugin/$(@)
 	clang -fsanitize=fuzzer $(@).a -o $(@)
 else
-	go-fuzz-build -tags fuzz $(REPO)/plugin/$(@)
+	go-fuzz-build $(REPO)/plugin/$(@)
 	go-fuzz -bin=./$(@)-fuzz.zip -workdir=fuzz/$(@)
 endif
 
 .PHONY: corefile
 corefile:
 ifeq ($(LIBFUZZER), YES)
-	go-fuzz-build -tags fuzz -libfuzzer -o $(@).a ./test
+	go-fuzz-build -libfuzzer -o $(@).a ./test
 	clang -fsanitize=fuzzer $(@).a -o $(@)
 else
-	go-fuzz-build -tags fuzz $(REPO)/test
+	go-fuzz-build $(REPO)/test
 	go-fuzz -bin=./test-fuzz.zip -workdir=fuzz/$(@)
 endif
 
