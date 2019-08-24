@@ -46,12 +46,12 @@ Block all DNS queries from 192.168.0.0/16 except for 192.168.1.0/24:
 }
 ```
 
-Allow only DNS queries from 192.168.0.0/16:
+Allow only DNS queries from 192.168.0.0/24 and 192.168.1.0/24:
 
 ~~~ Corefile
 . {
     acl {
-        allow net 192.168.0.0/16
+        allow net 192.168.0.0/16 192.168.1.0/24
         block
     }
 }
