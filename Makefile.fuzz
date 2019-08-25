@@ -24,13 +24,8 @@ FUZZ:=$(dir $(wildcard plugin/*/fuzz.go)) # plugin/cache/
 PLUGINS:=$(foreach f,$(FUZZ),$(subst plugin, ,$(f:/=))) # > /cache
 PLUGINS:=$(foreach f,$(PLUGINS),$(subst /, ,$(f))) # > cache
 
-.PHONY: vendor
-vendor:
-	@echo "Vendoring code till go-fuzz supports Go modules!"
-	@go mod vendor
-
 .PHONY: echo
-echo: vendor
+echo:
 	@echo $(PLUGINS) corefile
 
 all: $(PLUGINS) corefile
