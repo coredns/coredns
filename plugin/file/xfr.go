@@ -69,6 +69,9 @@ func (x Xfr) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (in
 	return dns.RcodeSuccess, nil
 }
 
+// Name implements the plugin.Handler interface.
+func (x Xfr) Name() string { return "xfr" }
+
 // ServeIxfr checks if we need to serve a simpler IXFR for the incoming message.
 // See RFC 1995 Section 3: "... and the authority section containing the SOA record of client's version of the zone."
 // and Section 2, paragraph 4 where we only need to echo the SOA record back.
@@ -81,7 +84,6 @@ func (x Xfr) ServeIxfr(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	soa, ok := r.Ns[0].(*dns.SOA)
 	if !ok {
 		return dns.RcodeServerFailure, nil
-
 	}
 
 	x.RLock()
@@ -89,7 +91,6 @@ func (x Xfr) ServeIxfr(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		x.RUnlock()
 		return dns.RcodeServerFailure, nil
 	}
-
 	serial := x.Apex.SOA.Serial
 	x.RUnlock()
 
@@ -102,8 +103,5 @@ func (x Xfr) ServeIxfr(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	}
 	return dns.RcodeServerFailure, nil
 }
-
-// Name implements the plugin.Handler interface.
-func (x Xfr) Name() string { return "xfr" }
 
 const transferLength = 1000 // Start a new envelop after message reaches this size in bytes. Intentionally small to test multi envelope parsing.
