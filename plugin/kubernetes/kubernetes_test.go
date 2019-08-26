@@ -313,13 +313,21 @@ func TestServicesAuthority(t *testing.T) {
 		localIPs []net.IP
 		qname    string
 		qtype    uint16
-		answer   *svcAns
+		answer   []svcAns
 	}
 	tests := []svcTest{
-		{localIPs: []net.IP{net.ParseIP("127.0.0.1")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeA, answer: &svcAns{host: "127.0.0.1", key: "/" + coredns + "/test/interwebs/dns/ns"}},
-		{localIPs: []net.IP{net.ParseIP("127.0.0.1")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeAAAA},
-		{localIPs: []net.IP{net.ParseIP("::1")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeA},
-		{localIPs: []net.IP{net.ParseIP("::1")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeAAAA, answer: &svcAns{host: "::1", key: "/" + coredns + "/test/interwebs/dns/ns"}},
+		{localIPs: []net.IP{net.ParseIP("1.2.3.4")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeA, answer: []svcAns{{host: "1.2.3.4", key: "/" + coredns + "/test/interwebs/dns/ns"}}},
+		{localIPs: []net.IP{net.ParseIP("1.2.3.4")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeAAAA},
+		{localIPs: []net.IP{net.ParseIP("1:2::3:4")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeA},
+		{localIPs: []net.IP{net.ParseIP("1:2::3:4")}, qname: "ns.dns.interwebs.test.", qtype: dns.TypeAAAA, answer: []svcAns{{host: "1:2::3:4", key: "/" + coredns + "/test/interwebs/dns/ns"}}},
+		{
+			localIPs: []net.IP{net.ParseIP("1.2.3.4"), net.ParseIP("1:2::3:4")},
+			qname:    "ns.dns.interwebs.test.",
+			qtype:    dns.TypeNS, answer: []svcAns{
+				{host: "1.2.3.4", key: "/" + coredns + "/test/interwebs/dns/ns"},
+				{host: "1:2::3:4", key: "/" + coredns + "/test/interwebs/dns/ns"},
+			},
+		},
 	}
 
 	for i, test := range tests {
@@ -334,7 +342,7 @@ func TestServicesAuthority(t *testing.T) {
 			t.Errorf("Test %d: got error '%v'", i, e)
 			continue
 		}
-		if test.answer != nil && len(svcs) != 1 {
+		if test.answer != nil && len(svcs) != len(test.answer) {
 			t.Errorf("Test %d, expected 1 answer, got %v", i, len(svcs))
 			continue
 		}
@@ -347,11 +355,13 @@ func TestServicesAuthority(t *testing.T) {
 			continue
 		}
 
-		if test.answer.host != svcs[0].Host {
-			t.Errorf("Test %d, expected host '%v', got '%v'", i, test.answer.host, svcs[0].Host)
-		}
-		if test.answer.key != svcs[0].Key {
-			t.Errorf("Test %d, expected key '%v', got '%v'", i, test.answer.key, svcs[0].Key)
+		for i, answer := range test.answer {
+			if answer.host != svcs[i].Host {
+				t.Errorf("Test %d, expected host '%v', got '%v'", i, answer.host, svcs[i].Host)
+			}
+			if answer.key != svcs[i].Key {
+				t.Errorf("Test %d, expected key '%v', got '%v'", i, answer.key, svcs[i].Key)
+			}
 		}
 	}
 }
