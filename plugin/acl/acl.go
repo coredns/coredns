@@ -58,7 +58,6 @@ func (a acl) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (in
 			m.SetRcode(r, dns.RcodeRefused)
 			w.WriteMsg(m)
 			RequestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone).Inc()
-			// TODO: should we return Success here? (@ihac)
 			return dns.RcodeSuccess, nil
 		}
 	}
