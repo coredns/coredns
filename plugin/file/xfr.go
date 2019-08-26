@@ -31,7 +31,7 @@ func (x Xfr) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (in
 	if state.QType() == dns.TypeIXFR {
 		code, _ := x.ServeIxfr(ctx, w, r)
 		if plugin.ClientWrite(code) {
-			return 0, nil
+			return code, nil
 		}
 	}
 
