@@ -1,5 +1,5 @@
 +++
-title = "CoreDNS-1.7.9 Release"
+title = "CoreDNS-1.7.0 Release"
 description = "CoreDNS-1.7.0 Release Notes."
 tags = ["Release", "1.7.0", "Notes"]
 release = "1.7.0"
