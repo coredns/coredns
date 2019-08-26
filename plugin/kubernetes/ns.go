@@ -21,7 +21,7 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 		svcIPs   []net.IP
 	)
 
-	// Find the CoreDNS Endpoint
+	// Find the CoreDNS Endpoints
 	for _, localIP := range k.localIPs {
 		endpoints := k.APIConn.EpIndexReverse(localIP.String())
 
