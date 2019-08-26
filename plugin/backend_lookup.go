@@ -381,14 +381,13 @@ func NS(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 			return nil, nil, fmt.Errorf("NS record must be an IP address: %s", serv.Host)
 
 		case dns.TypeA, dns.TypeAAAA:
+			serv.Host = msg.Domain(serv.Key)
 			extra = append(extra, newAddress(serv, serv.Host, ip, what))
-
 			ns := serv.NewNS(state.QName())
-			if _, ok := seen[ns.Header().Name]; ok {
+			if _, ok := seen[ns.Ns]; ok {
 				continue
 			}
-			serv.Host = msg.Domain(serv.Key)
-			seen[ns.Header().Name] = true
+			seen[ns.Ns] = true
 			records = append(records, ns)
 		}
 	}
