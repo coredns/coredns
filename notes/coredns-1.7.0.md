@@ -13,13 +13,13 @@ The CoreDNS team has released
 In this release we have deprecated the *federation* plugin that was used in conjunction with the
 *kubernetes* plugin.
 
-Futher more a slew a spelling corrections and other minor improvements and polish. **And** three(!)
+Further more a slew a spelling corrections and other minor improvements and polish. **And** three(!)
 new plugins.
 
 # Plugins
 
 * [*acl*](/plugins/acl) blocks queries depending on their source IP address.
-* [*clouddns*](/plugin/clouddns) to enabel serving zone data from GCP Cloud DNS.
+* [*clouddns*](/plugin/clouddns) to enable serving zone data from GCP Cloud DNS.
 * [*sign*](/plugins/sign) that (DNSSEC) signs your zonefiles (in its most basic form).
 
 ## Brought to You By
