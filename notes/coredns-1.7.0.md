@@ -19,7 +19,7 @@ new plugins.
 # Plugins
 
 * [*acl*](/plugins/acl) blocks queries depending on their source IP address.
-* [*googlecloud*](/plugin/googlecloud) to enabel serving zone data from GCP Cloud DNS.
+* [*clouddns*](/plugin/clouddns) to enabel serving zone data from GCP Cloud DNS.
 * [*sign*](/plugins/sign) that (DNSSEC) signs your zonefiles (in its most basic form).
 
 ## Brought to You By
