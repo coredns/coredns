@@ -147,7 +147,7 @@ reverse.skydns.local.
 
 ### Zone name as A record
 
-The zone name itself can be used as A record. This behavior can be achieved by writing special
+The zone name itself can be used as an `A` record. This behavior can be achieved by writing special
 entries to the ETCD path of your zone. If your zone is named `skydns.local` for example, you can
 create an `A` record for this zone as follows:
 
