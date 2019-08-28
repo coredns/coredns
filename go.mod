@@ -27,6 +27,7 @@ require (
 	github.com/gophercloud/gophercloud v0.0.0-20190307220656-fe1ba5ce12dd // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 	github.com/imdario/mergo v0.3.7 // indirect
+	github.com/infobloxopen/go-trees v0.0.0-20190313150506-2af4e13f9062
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/miekg/dns v1.1.16
