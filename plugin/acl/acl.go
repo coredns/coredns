@@ -53,19 +53,28 @@ func (a acl) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (in
 			continue
 		}
 
-		if shouldBlock(rule.Policies, w, r) {
+		shouldBlock, matched := matchWithPolicies(rule.Policies, w, r)
+		if shouldBlock {
 			m := new(dns.Msg)
 			m.SetRcode(r, dns.RcodeRefused)
 			w.WriteMsg(m)
 			RequestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone).Inc()
 			return dns.RcodeSuccess, nil
 		}
+		// matched but allowed to recurse; skip remaining rules.
+		if matched {
+			break
+		}
 	}
 	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
 	return plugin.NextOrFailure(state.Name(), a.Next, ctx, w, r)
 }
 
-func shouldBlock(policies []Policy, w dns.ResponseWriter, r *dns.Msg) bool {
+// matchWithPolicies check whether the DNS query should be blocked by a list of ACL policies.
+// It returns two values: <shouldBlock>, <matched>. <shouldBlock> means the DNS query should be
+// blocked, while <matched> means the DNS query is matched by at least one policy.
+// All possible results: {true, true}, {false, true}, {false, false}.
+func matchWithPolicies(policies []Policy, w dns.ResponseWriter, r *dns.Msg) (bool, bool) {
 	state := request.Request{W: w, Req: r}
 
 	ip := net.ParseIP(state.IP())
@@ -84,14 +93,9 @@ func shouldBlock(policies []Policy, w dns.ResponseWriter, r *dns.Msg) bool {
 		}
 
 		// matched.
-		switch policy.action {
-		case Allow:
-			return false
-		case Block:
-			return true
-		}
+		return policy.action == Block, true
 	}
-	return false
+	return false, false
 }
 
 func (a acl) Name() string {
