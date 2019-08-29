@@ -376,6 +376,7 @@ func TestACLServeDNS(t *testing.T) {
 			a.Next = test.NextHandler(dns.RcodeSuccess, nil)
 			if err != nil {
 				t.Errorf("Error: Cannot parse acl from config: %v", err)
+				return
 			}
 
 			w := &testResponseWriter{}
