@@ -153,7 +153,7 @@ file.
 The DNSSEC RFCs: RFC 4033, RFC 4034 and RFC 4035. And the BCP on DNSSEC, RFC 6781. Further more the
 manual pages coredns-keygen(1) and dnssec-keygen(8). And the *file* plugin's documentation.
 
-Coredns-keygen can be found at <https://github.com/coredns-utils> in the coredns-keygen directory.
+Coredns-keygen can be found at <https://github.com/coredns/coredns-utils> in the coredns-keygen directory.
 
 ## Bugs
 
