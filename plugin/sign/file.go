@@ -33,7 +33,7 @@ func write(w io.Writer, z *file.Zone) error {
 	if _, err := io.WriteString(w, z.Apex.SOA.String()); err != nil {
 		return err
 	}
-	w.Write([]byte("\n"))
+	w.Write([]byte("\n")) // RR Stringer() method doesn't include newline, which ends the RR in a zone file, write that here.
 	for _, rr := range z.Apex.SIGSOA {
 		io.WriteString(w, rr.String())
 		w.Write([]byte("\n"))
