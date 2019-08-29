@@ -13,12 +13,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-const (
-	// QtypeAll is used to match any kinds of DNS records type.
-	// NOTE: The value of QtypeAll should be different with other QTYPEs defined in miekg/dns.
-	QtypeAll uint16 = 0
-)
-
 func init() {
 	caddy.RegisterPlugin("acl", caddy.Plugin{
 		ServerType: "dns",
@@ -26,7 +20,7 @@ func init() {
 	})
 }
 
-func createDefaultFilter() *iptree.Tree {
+func newDefaultFilter() *iptree.Tree {
 	defaultFilter := iptree.NewTree()
 	_, IPv4All, _ := net.ParseCIDR("0.0.0.0/0")
 	_, IPv6All, _ := net.ParseCIDR("::/0")
@@ -81,22 +75,25 @@ func parse(c *caddy.Controller) (acl, error) {
 			}
 
 			p.qtypes = make(map[uint16]struct{})
-
 			p.filter = iptree.NewTree()
-
-			// match all qtypes and IP addresses.
-			if !c.NextArg() {
-				p.qtypes[QtypeAll] = struct{}{}
-				p.filter = createDefaultFilter()
-				r.Policies = append(r.Policies, p)
-				break
-			}
 
 			hasTypeSection := false
 			hasNetSection := false
-			for {
-				section := strings.ToLower(c.Val())
-				tokens, remaining := loadFollowingTokens(c)
+
+			remainingTokens := c.RemainingArgs()
+			for len(remainingTokens) > 0 {
+				if !isPreservedIdentifier(remainingTokens[0]) {
+					return a, c.Errf("unexpected token %q; expect 'type | net'", remainingTokens[0])
+				}
+				section := strings.ToLower(remainingTokens[0])
+
+				i := 1
+				var tokens []string
+				for ; i < len(remainingTokens) && !isPreservedIdentifier(remainingTokens[i]); i++ {
+					tokens = append(tokens, remainingTokens[i])
+				}
+				remainingTokens = remainingTokens[i:]
+
 				if len(tokens) == 0 {
 					return a, c.Errf("no token specified in %q section", section)
 				}
@@ -106,7 +103,7 @@ func parse(c *caddy.Controller) (acl, error) {
 					hasTypeSection = true
 					for _, token := range tokens {
 						if token == "*" {
-							p.qtypes[QtypeAll] = struct{}{}
+							p.qtypes[dns.TypeNone] = struct{}{}
 							break
 						}
 						qtype, ok := dns.StringToType[token]
@@ -119,7 +116,7 @@ func parse(c *caddy.Controller) (acl, error) {
 					hasNetSection = true
 					for _, token := range tokens {
 						if token == "*" {
-							p.filter = createDefaultFilter()
+							p.filter = newDefaultFilter()
 							break
 						}
 						token = normalize(token)
@@ -130,21 +127,18 @@ func parse(c *caddy.Controller) (acl, error) {
 						p.filter.InplaceInsertNet(source, struct{}{})
 					}
 				default:
-					return a, c.Errf("unexpected token %q; expect 'type | net'", c.Val())
-				}
-				if !remaining {
-					break
+					return a, c.Errf("unexpected token %q; expect 'type | net'", section)
 				}
 			}
 
 			// optional `type` section means all record types.
 			if !hasTypeSection {
-				p.qtypes[QtypeAll] = struct{}{}
+				p.qtypes[dns.TypeNone] = struct{}{}
 			}
 
 			// optional `net` means all ip addresses.
 			if !hasNetSection {
-				p.filter = createDefaultFilter()
+				p.filter = newDefaultFilter()
 			}
 
 			r.Policies = append(r.Policies, p)
@@ -154,18 +148,9 @@ func parse(c *caddy.Controller) (acl, error) {
 	return a, nil
 }
 
-func loadFollowingTokens(c *caddy.Controller) (tokens []string, remain bool) {
-	remain = false
-	for c.NextArg() {
-		token := c.Val()
-		identifier := strings.ToLower(token)
-		if identifier == "type" || identifier == "net" {
-			remain = true
-			break
-		}
-		tokens = append(tokens, token)
-	}
-	return
+func isPreservedIdentifier(token string) bool {
+	identifier := strings.ToLower(token)
+	return identifier == "type" || identifier == "net"
 }
 
 // normalize appends '/32' for any single IPv4 address and '/128' for IPv6.

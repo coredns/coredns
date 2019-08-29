@@ -71,7 +71,8 @@ func shouldBlock(policies []Policy, w dns.ResponseWriter, r *dns.Msg) bool {
 	ip := net.ParseIP(state.IP())
 	qtype := state.QType()
 	for _, policy := range policies {
-		_, matchAll := policy.qtypes[QtypeAll]
+		// dns.TypeNone matches all query types.
+		_, matchAll := policy.qtypes[dns.TypeNone]
 		_, match := policy.qtypes[qtype]
 		if !matchAll && !match {
 			continue
