@@ -98,10 +98,10 @@ Running this leads to the following log output (note the timers in this example 
 shorter intervals).
 
 ~~~ txt
-2019-08-02T17:27:45.270Z [WARNING] plugin/file: Failed to open "open /tmp/db.example.org.signed: no such file or directory": trying again in 1m0s
-2019-08-02T17:27:45.279Z [INFO] plugin/sign: Signing "example.org." because open /tmp/db.example.org.signed: no such file or directory
-2019-08-02T17:27:45.279Z [INFO] plugin/sign: Successfully signed zone "example.org." in "/tmp/db.example.org.signed" with key tags "59725" and 1564766865 SOA serial, elapsed 9.357933ms, next: 2019-08-02T22:27:45.270Z
-2019-08-02T17:28:45.271Z [INFO] plugin/file: Successfully reloaded zone "example.org." in "/tmp/db.example.org.signed" with serial 1564766865
+[WARNING] plugin/file: Failed to open "open /tmp/db.example.org.signed: no such file or directory": trying again in 1m0s
+[INFO] plugin/sign: Signing "example.org." because open /tmp/db.example.org.signed: no such file or directory
+[INFO] plugin/sign: Successfully signed zone "example.org." in "/tmp/db.example.org.signed" with key tags "59725" and 1564766865 SOA serial, elapsed 9.357933ms, next: 2019-08-02T22:27:45.270Z
+[INFO] plugin/file: Successfully reloaded zone "example.org." in "/tmp/db.example.org.signed" with serial 1564766865
 ~~~
 
 Or use a single zone file for *multiple* zones, note that the **ZONES** are repeated for both plugins.
