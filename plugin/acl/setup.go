@@ -48,28 +48,28 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func parse(c *caddy.Controller) (acl, error) {
-	a := acl{}
+func parse(c *caddy.Controller) (ACL, error) {
+	a := ACL{}
 	for c.Next() {
-		r := Rule{}
-		r.Zones = c.RemainingArgs()
-		if len(r.Zones) == 0 {
+		r := rule{}
+		r.zones = c.RemainingArgs()
+		if len(r.zones) == 0 {
 			// if empty, the zones from the configuration block are used.
-			r.Zones = make([]string, len(c.ServerBlockKeys))
-			copy(r.Zones, c.ServerBlockKeys)
+			r.zones = make([]string, len(c.ServerBlockKeys))
+			copy(r.zones, c.ServerBlockKeys)
 		}
-		for i := range r.Zones {
-			r.Zones[i] = plugin.Host(r.Zones[i]).Normalize()
+		for i := range r.zones {
+			r.zones[i] = plugin.Host(r.zones[i]).Normalize()
 		}
 
 		for c.NextBlock() {
-			p := Policy{}
+			p := policy{}
 
 			action := strings.ToLower(c.Val())
 			if action == "allow" {
-				p.action = ActionAllow
+				p.action = actionAllow
 			} else if action == "block" {
-				p.action = ActionBlock
+				p.action = actionBlock
 			} else {
 				return a, c.Errf("unexpected token %q; expect 'allow' or 'block'", c.Val())
 			}
@@ -141,7 +141,7 @@ func parse(c *caddy.Controller) (acl, error) {
 				p.filter = newDefaultFilter()
 			}
 
-			r.Policies = append(r.Policies, p)
+			r.policies = append(r.policies, p)
 		}
 		a.Rules = append(a.Rules, r)
 	}

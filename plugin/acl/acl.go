@@ -15,54 +15,56 @@ import (
 
 var log = clog.NewWithPlugin("acl")
 
-type acl struct {
+// ACL enforces access control policies on DNS queries.
+type ACL struct {
 	Next plugin.Handler
 
-	Rules []Rule
+	Rules []rule
 }
 
-// Rule defines a list of Zones and some ACL policies which will be
+// rule defines a list of Zones and some ACL policies which will be
 // enforced on them.
-type Rule struct {
-	Zones    []string
-	Policies []Policy
+type rule struct {
+	zones    []string
+	policies []policy
 }
 
-// Action defines the action against queries.
-type Action int
+// action defines the action against queries.
+type action int
 
-// Policy defines the ACL policy for DNS queries.
+// policy defines the ACL policy for DNS queries.
 // A policy performs the specified action (block/allow) on all DNS queries
 // matched by source IP or QTYPE.
-type Policy struct {
-	action Action
+type policy struct {
+	action action
 	qtypes map[uint16]struct{}
 	filter *iptree.Tree
 }
 
 const (
-	// ActionNone does nothing on the queries.
-	ActionNone = iota
-	// ActionAllow allows authorized queries to recurse.
-	ActionAllow
-	// ActionBlock blocks unauthorized queries towards protected DNS zones.
-	ActionBlock
+	// actionNone does nothing on the queries.
+	actionNone = iota
+	// actionAllow allows authorized queries to recurse.
+	actionAllow
+	// actionBlock blocks unauthorized queries towards protected DNS zones.
+	actionBlock
 )
 
-func (a acl) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+// ServeDNS implements the plugin.Handler interface.
+func (a ACL) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
 RulesCheckLoop:
 	for _, rule := range a.Rules {
 		// check zone.
-		zone := plugin.Zones(rule.Zones).Matches(state.Name())
+		zone := plugin.Zones(rule.zones).Matches(state.Name())
 		if zone == "" {
 			continue
 		}
 
-		action := matchWithPolicies(rule.Policies, w, r)
+		action := matchWithPolicies(rule.policies, w, r)
 		switch action {
-		case ActionBlock:
+		case actionBlock:
 			{
 				m := new(dns.Msg)
 				m.SetRcode(r, dns.RcodeRefused)
@@ -70,7 +72,7 @@ RulesCheckLoop:
 				RequestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone).Inc()
 				return dns.RcodeSuccess, nil
 			}
-		case ActionAllow:
+		case actionAllow:
 			{
 				break RulesCheckLoop
 			}
@@ -83,7 +85,7 @@ RulesCheckLoop:
 
 // matchWithPolicies matches the DNS query with a list of ACL polices and returns suitable
 // action agains the query.
-func matchWithPolicies(policies []Policy, w dns.ResponseWriter, r *dns.Msg) Action {
+func matchWithPolicies(policies []policy, w dns.ResponseWriter, r *dns.Msg) action {
 	state := request.Request{W: w, Req: r}
 
 	ip := net.ParseIP(state.IP())
@@ -104,9 +106,10 @@ func matchWithPolicies(policies []Policy, w dns.ResponseWriter, r *dns.Msg) Acti
 		// matched.
 		return policy.action
 	}
-	return ActionNone
+	return actionNone
 }
 
-func (a acl) Name() string {
+// Name implements the plugin.Handler interface.
+func (a ACL) Name() string {
 	return "acl"
 }
