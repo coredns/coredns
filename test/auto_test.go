@@ -149,9 +149,12 @@ func TestAutoAXFR(t *testing.T) {
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
-	l := len(c)
+	l := 0
+	for e := range c {
+		l += len(e.RR)
+	}
 
-	if l == 5 {
+	if l != 5 {
 		t.Fatalf("Expected response with %d RRs, got %d", 5, l)
 	}
 }
