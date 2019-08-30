@@ -67,9 +67,9 @@ func parse(c *caddy.Controller) (acl, error) {
 
 			action := strings.ToLower(c.Val())
 			if action == "allow" {
-				p.action = Allow
+				p.action = ActionAllow
 			} else if action == "block" {
-				p.action = Block
+				p.action = ActionBlock
 			} else {
 				return a, c.Errf("unexpected token %q; expect 'allow' or 'block'", c.Val())
 			}
