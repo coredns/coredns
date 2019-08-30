@@ -23,7 +23,6 @@ plugins: *clouddns* and *sign*.
 * [*sign*](/plugins/sign) that (DNSSEC) signs your zonefiles (in its most basic form).
 * [*file*](/plugins/file) various update, plug a memory leak when doing zone transfers, among other
   things.
-* [*kubernetes*](/plugins/kubernetes) fix adding NS records for zone transfers.
 
 We've removed the time stamping from `pkg/log` as timestamps are *also* added by the logging
 aggregators, like `journald` or inside Kubernetes. And a small ASCII art logo is now printed when
