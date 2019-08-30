@@ -153,7 +153,7 @@ func showVersion() {
 
 // versionString returns the CoreDNS version as a string.
 func versionString() string {
-	return fmt.Sprintf("%s\t%s-%s\n", logo[1], caddy.AppName, caddy.AppVersion)
+	return fmt.Sprintf("%s\t%s%s-%s\n", logo[1], marker, caddy.AppName, caddy.AppVersion)
 }
 
 // releaseString returns the release information related to CoreDNS version:
@@ -161,7 +161,7 @@ func versionString() string {
 // e.g.,
 // linux/amd64, go1.8.3, a6d2d7b5
 func releaseString() string {
-	return fmt.Sprintf("%s\t%s/%s, %s, %s\n", logo[2], runtime.GOOS, runtime.GOARCH, runtime.Version(), GitCommit)
+	return fmt.Sprintf("%s\t%s%s/%s, %s, %s\n", logo[2], marker, runtime.GOOS, runtime.GOARCH, runtime.Version(), GitCommit)
 }
 
 // setVersion figures out the version information
