@@ -51,7 +51,8 @@ const (
 
 func (a acl) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
-Check:
+
+RulesCheckLoop:
 	for _, rule := range a.Rules {
 		// check zone.
 		zone := plugin.Zones(rule.Zones).Matches(state.Name())
@@ -71,10 +72,11 @@ Check:
 			}
 		case ActionAllow:
 			{
-				break Check
+				break RulesCheckLoop
 			}
 		}
 	}
+
 	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
 	return plugin.NextOrFailure(state.Name(), a.Next, ctx, w, r)
 }
