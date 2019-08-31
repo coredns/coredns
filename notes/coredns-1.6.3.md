@@ -3,7 +3,7 @@ title = "CoreDNS-1.6.3 Release"
 description = "CoreDNS-1.6.3 Release Notes."
 tags = ["Release", "1.6.3", "Notes"]
 release = "1.6.3"
-date = 2019-08-31T14:35:47+01:00
+date = 2019-08-31T07:30:47+00:00
 author = "coredns"
 +++
 
@@ -12,9 +12,9 @@ The CoreDNS team has released
 
 In this release we have moved the *federation* plugin to
 [github.com/coredns/federation](https://github.com/coredns/federation), but it is still fully
-functional in this version. In version 1.7.0 we expect to fully deprecate it.
+functional in this version. In version 1.7.0 we expect to deprecate it.
 
-Further more a slew a spelling corrections and other minor improvements and polish. **And** two new
+Further more a slew a spelling corrections, and other minor improvements and polish. **And** two new
 plugins: *clouddns* and *sign*.
 
 # Plugins
