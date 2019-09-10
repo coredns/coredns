@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"context"
+	"errors"
 
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -21,22 +22,30 @@ type Transfer struct {
 type xfr struct {
 	Zones       []string
 	to          []string
-	Transferers map[string]Transferer // a map of zone->plugins which implement Transferer
+	Transferers []Transferer // the list of plugins that implement Transferer
 }
 
 // Transferer may be implemented by plugins to enable zone transfers
 type Transferer interface {
-	// AllRecords returns a channel to which it writes all records in the zone.
-	// All NS + glue records should be included
-	// The SOA should not be written to the channel (will be ignored).
-	AllRecords(zone string) <-chan []dns.RR
-
-	// SOA returns the SOA  for the zone
-	SOA(zone string) *dns.SOA
-
-	// Authoritative must return a list of Zones that the plugin is authoritative for.
-	Authoritative() []string
+	// Transfer returns a channel to which it writes responses to the transfer request.
+	// If the plugin is not authoritative for the zone, it should immediately return the
+	// Transfer.ErrNotAuthoritative error.
+	//
+	// If serial is 0, handle as an AXFR request. Transfer should send all records
+	// in the zone to the channel. The SOA should be written to the channel first, followed
+	// by all other records, including all NS + glue records.
+	//
+	// If serial is not 0, handle as an IXFR request. If the serial is >
+	// the current serial for the zone, send a single SOA record to the channel.
+	// If the serial is >= the current serial for the zone, perform an AXFR fallback
+	// by proceeding as if an AXFR was requested (as above).
+	Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 }
+
+var (
+	// ErrNotAuthoritative is returned by Transfer() when the plugin is not authoritative for the zone
+	ErrNotAuthoritative = errors.New("not authoritative for zone")
+)
 
 // ServeDNS implements the plugin.Handler interface.
 func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -63,33 +72,27 @@ func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return dns.RcodeRefused, nil
 	}
 
-	// Get the plugin that is authoritative for the zone
-	p, exists := x.Transferers[zone]
-	if !exists {
-		// Pass request down chain in case later plugins are capable of handling transfer requests themselves.
-		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
-	}
-
-	switch state.QType() {
-	case dns.TypeIXFR:
-		rSoa, ok := r.Ns[0].(*dns.SOA)
+	// Get serial from request if this is an IXFR
+	var serial uint32
+	if state.QType() == dns.TypeIXFR {
+		soa, ok := r.Ns[0].(*dns.SOA)
 		if !ok {
 			return dns.RcodeServerFailure, nil
 		}
-		cSoa := p.SOA(zone)
+		serial = soa.Serial
+	}
 
-		if cSoa != nil && rSoa.Serial >= cSoa.Serial {
-			// Per RFC 1995, section 2, para 4: If an IXFR query with the same or newer
-			// version number than that of the server is received, we can send the simple
-			// zone-current response (single SOA)
-			x.sendIxfrCurrent(state, cSoa)
+	// Try each Transferer plugin
+	for _, p := range x.Transferers {
+		ch, err := p.Transfer(zone, serial)
+		if err == ErrNotAuthoritative {
+			// plugin was not authoritative for the zone, try next plugin
+			continue
 		}
-		// Current serial didnt match, we dont implement IXFR zone change responses,
-		// so fallback to AXFR style response per RFC 1995, section 4, para 1
-		fallthrough
-	case dns.TypeAXFR:
-		ch := p.AllRecords(zone)
-		x.sendAxfr(state, ch)
+		if err != nil {
+			return dns.RcodeServerFailure, nil
+		}
+		x.send(state, ch)
 		for range ch {
 			// drain rest of channel if sendAxfr was aborted
 		}
@@ -97,25 +100,12 @@ func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
+
 }
 
-// sendIxfrCurrent sends a simple "zone-current" response signaling to the client that their zone
-// is the latest. Per RFC 1995, section 2, para 4 this is a single SOA record containing the
-// server's current SOA
-func (x xfr) sendIxfrCurrent(state request.Request, soa *dns.SOA) {
-	toRemote := make(chan *dns.Envelope)
-	go func() {
-		toRemote <- &dns.Envelope{RR: []dns.RR{soa}}
-		close(toRemote)
-	}()
-	tr := new(dns.Transfer)
-	tr.Out(state.W, state.Req, toRemote)
-	state.W.Hijack()
-}
-
-// sendAxfr sends the full zone to the client.  It aborts if the first record received on the
-// channel is not an SOA.  sendAxfr automatically adds the closing SOA to the end of the response.
-func (x xfr) sendAxfr(state request.Request, fromPlugin <-chan []dns.RR) {
+// send sends the response to the client.  It aborts if the first record received on the
+// channel is not an SOA.  send automatically adds the closing SOA to the end of an AXFR response.
+func (x xfr) send(state request.Request, fromPlugin <-chan []dns.RR) {
 	toRemote := make(chan *dns.Envelope)
 
 	go func() {
@@ -145,9 +135,11 @@ func (x xfr) sendAxfr(state request.Request, fromPlugin <-chan []dns.RR) {
 			}
 		}
 
-		// write remaining records and closing SOA
-		c++
-		toRemote <- &dns.Envelope{RR: append(records, soa)}
+		if state.Req.Question[0].Qtype == dns.TypeAXFR {
+			// write remaining records and closing SOA
+			c++
+			toRemote <- &dns.Envelope{RR: append(records, soa)}
+		}
 
 		close(toRemote)
 		log.Infof("Outgoing transfer of %d records of zone %s to %s started with %d SOA serial", c, state.QName(), state.IP(), serial)

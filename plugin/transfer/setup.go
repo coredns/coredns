@@ -29,35 +29,16 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
-		// find all plugins that implement Transferer and add them to t.Transferers
+		// find all plugins that implement Transferer and add them to Transferers
 		plugins := dnsserver.GetConfig(c).Handlers()
 		for _, pl := range plugins {
 			tr, ok := pl.(Transferer)
 			if !ok {
 				continue
 			}
-			for _, z := range tr.Authoritative() {
-				for _, x := range t.xfrs {
-					var found bool
-					for _, xz := range x.Zones {
-						if z == xz {
-							found = true
-							break
-						}
-					}
-					if !found {
-						continue
-					}
-					if x.Transferers[z] != nil {
-						// Acknowledge only the first transferer for each zone.
-						// This doesn't play nice with fallthrough, where more than one plugin can
-						// collectively be authoritative for a zone.
-						continue
-					}
-					x.Transferers[z] = tr
-				}
+			for _, x := range t.xfrs {
+				x.Transferers = append(x.Transferers, tr)
 			}
-
 		}
 		return nil
 	})
@@ -110,8 +91,6 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 		if len(x.to) == 0 {
 			return nil, plugin.Error("transfer", c.Errf("'to' is required", c.Val()))
 		}
-		x.Transferers = make(map[string]Transferer)
-		t.xfrs = append(t.xfrs, x)
 	}
 	return t, nil
 }
