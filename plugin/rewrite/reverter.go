@@ -8,10 +8,19 @@ import (
 	"github.com/miekg/dns"
 )
 
+type ResponseRuleType string
+
+const (
+	ResponseRuleTypeUnset    ResponseRuleType = ""
+	ResponseRuleTypeName                      = "name"
+	ResponseRuleTypeQuestion                  = "question"
+	ResponseRuleTypeTTL                       = "ttl"
+)
+
 // ResponseRule contains a rule to rewrite a response with.
 type ResponseRule struct {
 	Active      bool
-	Type        string
+	Type        ResponseRuleType
 	Pattern     *regexp.Regexp
 	Replacement string
 	TTL         uint32
@@ -47,11 +56,14 @@ func (r *ResponseReverter) WriteMsg(res *dns.Msg) error {
 				ttl             = rr.Header().Ttl
 			)
 			for _, rule := range r.ResponseRules {
-				if rule.Type == "" {
-					rule.Type = "name"
+				if rule.Type == ResponseRuleTypeUnset {
+					rule.Type = ResponseRuleTypeName
 				}
 				switch rule.Type {
-				case "name":
+				case ResponseRuleTypeQuestion:
+					name = r.originalQuestion.Name
+					isNameRewritten = true
+				case ResponseRuleTypeName:
 					regexGroups := rule.Pattern.FindStringSubmatch(name)
 					if len(regexGroups) == 0 {
 						continue
@@ -63,7 +75,7 @@ func (r *ResponseReverter) WriteMsg(res *dns.Msg) error {
 					}
 					name = s
 					isNameRewritten = true
-				case "ttl":
+				case ResponseRuleTypeTTL:
 					ttl = rule.TTL
 					isTTLRewritten = true
 				}
