@@ -36,8 +36,7 @@ buildCoreDNSImage: &buildCoreDNSImage
         cd ~/go/src/${CIRCLE_PROJECT_USERNAME}/coredns
         make coredns SYSTEM="GOOS=linux" && \
         docker build -t coredns . && \
-        docker tag coredns localhost:5000/coredns && \
-        docker push localhost:5000/coredns
+        kind load docker-image coredns
 
 jobs:
   kubernetes-tests:
