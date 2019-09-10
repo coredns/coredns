@@ -190,7 +190,7 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 		// hack: use a regex to rewrite back; this is how it was previously done,
 		// but really we probably want a ResponseRule that's just exact string
 		// substitution
-		respRuleRegex, err := isValidRegexPattern(from, to)
+		respRuleRegex, err := isValidRegexPattern(to, from)
 		if err != nil {
 			return nil, fmt.Errorf("could not construct name response rule for 'exact': %v", err)
 		}
