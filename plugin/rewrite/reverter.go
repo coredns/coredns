@@ -8,13 +8,19 @@ import (
 	"github.com/miekg/dns"
 )
 
+// ResponseRuleType is the type of a ResponseRule
 type ResponseRuleType string
 
 const (
-	ResponseRuleTypeUnset    ResponseRuleType = ""
-	ResponseRuleTypeName                      = "name"
-	ResponseRuleTypeQuestion                  = "question"
-	ResponseRuleTypeTTL                       = "ttl"
+	// ResponseRuleTypeUnset is the unset response rule type; it defaults to 'name'
+	ResponseRuleTypeUnset ResponseRuleType = ""
+	// ResponseRuleTypeName is a name type. It uses the Pattern and Replacement fields of ResponseRule
+	ResponseRuleTypeName = "name"
+	// ResponseRuleTypeQuestion is a question type. It has no configured fields,
+	// and rewrites the response to the question
+	ResponseRuleTypeQuestion = "question"
+	// ResponseRuleTypeTTL is the type of ResponseRule that rewrites the TTL. It uses the TTL field.
+	ResponseRuleTypeTTL = "ttl"
 )
 
 // ResponseRule contains a rule to rewrite a response with.
