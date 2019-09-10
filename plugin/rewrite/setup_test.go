@@ -49,7 +49,7 @@ func TestParse(t *testing.T) {
 	_, err = rewriteParse(c)
 	if err == nil {
 		t.Errorf("Expected error but got success for invalid response rewrite")
-	} else if !strings.Contains(err.Error(), "must consist only of") {
+	} else if !strings.Contains(err.Error(), "unexpected trailing arguments for") {
 		t.Errorf("Got wrong error for invalid response rewrite: %v", err.Error())
 	}
 

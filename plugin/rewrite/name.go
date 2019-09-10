@@ -22,18 +22,21 @@ type prefixNameRule struct {
 	NextAction  string
 	Prefix      string
 	Replacement string
+	ResponseRule
 }
 
 type suffixNameRule struct {
 	NextAction  string
 	Suffix      string
 	Replacement string
+	ResponseRule
 }
 
 type substringNameRule struct {
 	NextAction  string
 	Substring   string
 	Replacement string
+	ResponseRule
 }
 
 type regexNameRule struct {
@@ -112,139 +115,175 @@ func (rule *regexNameRule) Rewrite(ctx context.Context, state request.Request) R
 
 // newNameRule creates a name matching rule based on exact, partial, or regex match
 func newNameRule(nextAction string, args ...string) (Rule, error) {
-	var matchType, rewriteQuestionFrom, rewriteQuestionTo string
-	var rewriteAnswerField, rewriteAnswerFrom, rewriteAnswerTo string
+	// argsIdx is advanced as we parse through args
+	argsIdx := 0
 	if len(args) < 2 {
 		return nil, fmt.Errorf("too few arguments for a name rule")
 	}
+	var matchType string
 	if len(args) == 2 {
 		matchType = "exact"
-		rewriteQuestionFrom = plugin.Name(args[0]).Normalize()
-		rewriteQuestionTo = plugin.Name(args[1]).Normalize()
 	}
 	if len(args) >= 3 {
 		matchType = strings.ToLower(args[0])
-		rewriteQuestionFrom = plugin.Name(args[1]).Normalize()
-		rewriteQuestionTo = plugin.Name(args[2]).Normalize()
+		argsIdx++
 	}
-	if matchType == RegexMatch {
-		rewriteQuestionFrom = args[1]
-		rewriteQuestionTo = args[2]
-	}
-	if matchType == ExactMatch || matchType == SuffixMatch {
-		if !hasClosingDot(rewriteQuestionFrom) {
-			rewriteQuestionFrom = rewriteQuestionFrom + "."
+
+	// A lot of rules have from/to pairs in comment, let's refactor out parsing them
+	from, to := "", ""
+	var fromRegex *regexp.Regexp
+
+	switch matchType {
+	case ExactMatch, PrefixMatch, SuffixMatch, SubstringMatch:
+		if len(args[argsIdx:]) < 2 {
+			return nil, fmt.Errorf("%v name rule must have two arguments after name", matchType)
 		}
-		if !hasClosingDot(rewriteQuestionTo) {
-			rewriteQuestionTo = rewriteQuestionTo + "."
+		from = plugin.Name(args[argsIdx]).Normalize()
+		to = plugin.Name(args[argsIdx+1]).Normalize()
+		argsIdx += 2
+	case RegexMatch:
+		// no normalization on 'from' for this case
+		from = args[argsIdx]
+		to = plugin.Name(args[argsIdx+1]).Normalize()
+		argsIdx += 2
+		var err error
+		fromRegex, err = isValidRegexPattern(from, to)
+		if err != nil {
+			return nil, err
 		}
 	}
 
-	// Valid forms for regex args:
-	// regex 1 2 answer question
-	// regex 1 2 answer name 1 2
-	if len(args) > 3 && len(args) != 7 && len(args) != 5 {
-		return nil, fmt.Errorf("response rewrites must consist only of a name rule with 3 arguments and an answer rule with 3 arguments")
+	// Multiple rules also want from/to dot normalization
+	switch matchType {
+	case ExactMatch, SuffixMatch:
+		if !hasClosingDot(from) {
+			from = from + "."
+		}
+		if !hasClosingDot(to) {
+			to = to + "."
+		}
 	}
 
-	if len(args) < 5 {
-		switch matchType {
-		case ExactMatch:
-			rewriteAnswerFromPattern, err := isValidRegexPattern(rewriteQuestionTo, rewriteQuestionFrom)
-			if err != nil {
-				return nil, err
-			}
-			return &exactNameRule{
-				nextAction,
-				rewriteQuestionFrom,
-				rewriteQuestionTo,
-				ResponseRule{
-					Active:      true,
-					Type:        "name",
-					Pattern:     rewriteAnswerFromPattern,
-					Replacement: rewriteQuestionFrom,
-				},
-			}, nil
-		case PrefixMatch:
-			return &prefixNameRule{
-				nextAction,
-				rewriteQuestionFrom,
-				rewriteQuestionTo,
-			}, nil
-		case SuffixMatch:
-			return &suffixNameRule{
-				nextAction,
-				rewriteQuestionFrom,
-				rewriteQuestionTo,
-			}, nil
-		case SubstringMatch:
-			return &substringNameRule{
-				nextAction,
-				rewriteQuestionFrom,
-				rewriteQuestionTo,
-			}, nil
-		case RegexMatch:
-			rewriteQuestionFromPattern, err := isValidRegexPattern(rewriteQuestionFrom, rewriteQuestionTo)
-			if err != nil {
-				return nil, err
-			}
-			rewriteQuestionTo := plugin.Name(args[2]).Normalize()
-			return &regexNameRule{
-				nextAction,
-				rewriteQuestionFromPattern,
-				rewriteQuestionTo,
-				ResponseRule{
-					Type: "name",
-				},
-			}, nil
-		default:
-			return nil, fmt.Errorf("name rule supports only exact, prefix, suffix, substring, and regex name matching, received: %s", matchType)
+	// Most rule types allow answer rewriting too
+	respRule := ResponseRule{}
+
+	switch matchType {
+	case ExactMatch:
+		// no answer rewrite allowed, it just happens automatically
+
+	case PrefixMatch, SuffixMatch, SubstringMatch, RegexMatch:
+		var err error
+		respRule, err = parseRespRule(args, &argsIdx)
+		if err != nil {
+			return nil, err
+		}
+		// once we've parsed all this, no more trailing stuff is allowed
+		if len(args[argsIdx:]) != 0 {
+			return nil, fmt.Errorf("unexpected trailing arguments for name %v rule: %+v", matchType, args[argsIdx:])
 		}
 	}
-	if len(args) == 7 || len(args) == 5 {
-		if matchType == RegexMatch {
-			if args[3] != "answer" {
-				return nil, fmt.Errorf("exceeded the number of arguments for a regex name rule")
-			}
-			rewriteQuestionFromPattern, err := isValidRegexPattern(rewriteQuestionFrom, rewriteQuestionTo)
-			if err != nil {
-				return nil, err
-			}
-			rewriteAnswerField = strings.ToLower(args[4])
-			var respRule ResponseRule
-			switch rewriteAnswerField {
-			case "name":
-				rewriteAnswerFrom = args[5]
-				rewriteAnswerTo = plugin.Name(args[6]).Normalize()
-				rewriteAnswerFromPattern, err := isValidRegexPattern(rewriteAnswerFrom, rewriteAnswerTo)
-				if err != nil {
-					return nil, err
-				}
-				respRule = ResponseRule{
-					Active:      true,
-					Type:        ResponseRuleTypeName,
-					Pattern:     rewriteAnswerFromPattern,
-					Replacement: rewriteAnswerTo,
-				}
-			case "question":
-				respRule = ResponseRule{
-					Active: true,
-					Type:   ResponseRuleTypeQuestion,
-				}
-			default:
-				return nil, fmt.Errorf("exceeded the number of arguments for a regex name rule")
-			}
-			rewriteQuestionTo = plugin.Name(args[2]).Normalize()
-			return &regexNameRule{
-				nextAction,
-				rewriteQuestionFromPattern,
-				rewriteQuestionTo,
-				respRule,
-			}, nil
+	// Ideally we'd add 'if len(args[argsIdx:]) != 0 , "error: exact name rule must have exactly two arguments"
+	// But for backwards compatibility with the previous parser, we don't
+	// and now construct the actual rule
+	switch matchType {
+	case ExactMatch:
+		// hack: use a regex to rewrite back; this is how it was previously done,
+		// but really we probably want a ResponseRule that's just exact string
+		// substitution
+		respRuleRegex, err := isValidRegexPattern(from, to)
+		if err != nil {
+			return nil, fmt.Errorf("could not construct name response rule for 'exact': %v", err)
 		}
-		return nil, fmt.Errorf("the rewrite of response is supported only for name regex rule")
+		return &exactNameRule{
+			nextAction,
+			from,
+			to,
+			ResponseRule{
+				Active:      true,
+				Type:        ResponseRuleTypeName,
+				Pattern:     respRuleRegex,
+				Replacement: from,
+			},
+		}, nil
+	case PrefixMatch:
+		return &prefixNameRule{
+			nextAction,
+			from,
+			to,
+			respRule,
+		}, nil
+	case SuffixMatch:
+		return &suffixNameRule{
+			nextAction,
+			from,
+			to,
+			respRule,
+		}, nil
+	case SubstringMatch:
+		return &substringNameRule{
+			nextAction,
+			from,
+			to,
+			respRule,
+		}, nil
+	case RegexMatch:
+		return &regexNameRule{
+			nextAction,
+			fromRegex,
+			to,
+			respRule,
+		}, nil
+	default:
+		return nil, fmt.Errorf("name rule supports only exact, prefix, suffix, substring, and regex name matching, received: %s", matchType)
 	}
-	return nil, fmt.Errorf("the rewrite rule is invalid: %s", args)
+}
+
+// parseRespRule parses the response rule out of a rule
+// That is to say, given 'answer name x y', it parses out a response rule.
+// It understands the format 'answer name x y' and 'answer question'
+// It assumes the arguments passed to it are already trimmed down to contain
+// only the answer portion.
+func parseRespRule(args []string, argsIdx *int) (ResponseRule, error) {
+	if len(args[*argsIdx:]) == 0 {
+		return ResponseRule{}, nil
+	}
+	typ := args[*argsIdx]
+	*argsIdx++
+	if typ != "answer" {
+		return ResponseRule{}, fmt.Errorf("response rules must be of type 'answer'; got %v", typ)
+	}
+	if len(args[*argsIdx:]) == 0 {
+		return ResponseRule{}, fmt.Errorf("answer rule must have a type of 'name' or 'question', was blank")
+	}
+	respType := args[*argsIdx]
+	*argsIdx++
+
+	switch respType {
+	case ResponseRuleTypeName:
+		if len(args[*argsIdx:]) < 2 {
+			return ResponseRule{}, fmt.Errorf("answer rule of type 'name' must have at least two arguments to 'name'; got %d(%+v) instead", len(args[*argsIdx:]), args[*argsIdx:])
+		}
+		rewriteAnswerFrom := args[*argsIdx]
+		rewriteAnswerTo := plugin.Name(args[*argsIdx+1]).Normalize()
+		*argsIdx += 2
+		rewriteAnswerFromPattern, err := isValidRegexPattern(rewriteAnswerFrom, rewriteAnswerTo)
+		if err != nil {
+			return ResponseRule{}, err
+		}
+		return ResponseRule{
+			Active:      true,
+			Type:        ResponseRuleTypeName,
+			Pattern:     rewriteAnswerFromPattern,
+			Replacement: rewriteAnswerTo,
+		}, nil
+	case ResponseRuleTypeQuestion:
+		return ResponseRule{
+			Active: true,
+			Type:   ResponseRuleTypeQuestion,
+		}, nil
+	default:
+		return ResponseRule{}, fmt.Errorf("unexpected answer rule type %q; only 'name' and 'question' are supported", respType)
+	}
 }
 
 // Mode returns the processing nextAction
@@ -257,14 +296,14 @@ func (rule *regexNameRule) Mode() string     { return rule.NextAction }
 // GetResponseRule return a rule to rewrite the response with.
 func (rule *exactNameRule) GetResponseRule() ResponseRule { return rule.ResponseRule }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
-func (rule *prefixNameRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRule return a rule to rewrite the response with.
+func (rule *prefixNameRule) GetResponseRule() ResponseRule { return rule.ResponseRule }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
-func (rule *suffixNameRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRule return a rule to rewrite the response with.
+func (rule *suffixNameRule) GetResponseRule() ResponseRule { return rule.ResponseRule }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
-func (rule *substringNameRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRule return a rule to rewrite the response with.
+func (rule *substringNameRule) GetResponseRule() ResponseRule { return rule.ResponseRule }
 
 // GetResponseRule return a rule to rewrite the response with.
 func (rule *regexNameRule) GetResponseRule() ResponseRule { return rule.ResponseRule }
