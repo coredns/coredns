@@ -135,7 +135,7 @@ func (x xfr) send(state request.Request, fromPlugin <-chan []dns.RR) {
 			}
 		}
 
-		if state.Req.Question[0].Qtype == dns.TypeAXFR {
+		if c > 1 {
 			// write remaining records and closing SOA
 			c++
 			toRemote <- &dns.Envelope{RR: append(records, soa)}
