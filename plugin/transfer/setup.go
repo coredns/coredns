@@ -91,6 +91,7 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 		if len(x.to) == 0 {
 			return nil, plugin.Error("transfer", c.Errf("'to' is required", c.Val()))
 		}
+		t.xfrs = append(t.xfrs, x)
 	}
 	return t, nil
 }
