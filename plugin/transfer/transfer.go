@@ -50,6 +50,9 @@ var (
 // ServeDNS implements the plugin.Handler interface.
 func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
+	if state.QType() != dns.TypeAXFR  && state.QType() != dns.TypeIXFR {
+		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
+	}
 
 	// Find the first transfer instance matching the zone.
 	var x *xfr
