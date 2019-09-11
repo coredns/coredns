@@ -138,14 +138,19 @@ func (x xfr) send(state request.Request, fromPlugin <-chan []dns.RR) {
 			}
 		}
 
+		if len(records) > 0 {
+			// write remaining records
+			toRemote <- &dns.Envelope{RR: records}
+		}
+
 		if c > 1 {
-			// write remaining records and closing SOA
+			// write closing SOA
 			c++
-			toRemote <- &dns.Envelope{RR: append(records, soa)}
+			toRemote <- &dns.Envelope{RR: []dns.RR{soa}}
 		}
 
 		close(toRemote)
-		log.Infof("Outgoing transfer of %d records of zone %s to %s started with %d SOA serial", c, state.QName(), state.IP(), serial)
+		log.Infof("Outgoing transfer of %d records of zone %s to %s with %d SOA serial", c, state.QName(), state.IP(), serial)
 	}()
 
 	tr := new(dns.Transfer)
