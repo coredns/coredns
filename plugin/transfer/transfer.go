@@ -138,15 +138,15 @@ func (x xfr) send(state request.Request, fromPlugin <-chan []dns.RR) {
 			}
 		}
 
+		if c > 1 {
+			// add closing SOA
+			c++
+			records = append(records, soa)
+		}
+
 		if len(records) > 0 {
 			// write remaining records
 			toRemote <- &dns.Envelope{RR: records}
-		}
-
-		if c > 1 {
-			// write closing SOA
-			c++
-			toRemote <- &dns.Envelope{RR: []dns.RR{soa}}
 		}
 
 		close(toRemote)
