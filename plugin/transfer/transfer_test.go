@@ -12,19 +12,27 @@ import (
 	"github.com/miekg/dns"
 )
 
-type testPlugin struct {
+// transfererPlugin implements transfer.Transferer and plugin.Handler
+type transfererPlugin struct {
 	Zone   string
 	Serial uint32
 	Next   plugin.Handler
 }
 
-func (p testPlugin) Name() string { return "testplugin" }
+// Name implements plugin.Handler
+func (transfererPlugin) Name() string { return "transfererplugin" }
 
-func (p testPlugin) ServeDNS(context.Context, dns.ResponseWriter, *dns.Msg) (int, error) {
+// ServeDNS implements plugin.Handler
+func (p transfererPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	if r.Question[0].Name != p.Zone {
+		return p.Next.ServeDNS(ctx, w, r)
+	}
 	return 0, nil
 }
 
-func (p testPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
+// Transfer implements transfer.Transferer - it returns a static AXFR response, or
+// if serial is current, an abbreviated IXFR response
+func (p transfererPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	ch := make(chan []dns.RR, 2)
 	defer close(ch)
 	ch <- []dns.RR{test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s %d 7200 1800 86400 100", p.Zone, p.Zone, p.Zone, p.Serial))}
@@ -38,26 +46,63 @@ func (p testPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR, error
 	return ch, nil
 }
 
+type terminatingPlugin struct{}
+
+// Name implements plugin.Handler
+func (terminatingPlugin) Name() string { return "testplugin" }
+
+// ServeDNS implements plugin.Handler that returns NXDOMAIN for all requests
+func (terminatingPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.SetRcode(r, dns.RcodeNameError)
+	w.WriteMsg(m)
+	return dns.RcodeNameError, nil
+}
+
 func newTestTransfer() Transfer {
-	nextPlugin1 := testPlugin{Zone: "example.com.", Serial: 12345}
-	nextPlugin2 := testPlugin{Zone: "example.org.", Serial: 12345}
+	nextPlugin1 := transfererPlugin{Zone: "example.com.", Serial: 12345}
+	nextPlugin2 := transfererPlugin{Zone: "example.org.", Serial: 12345}
+	nextPlugin2.Next = terminatingPlugin{}
 	nextPlugin1.Next = nextPlugin2
 
 	transfer := Transfer{
 		Transferers: []Transferer{nextPlugin1, nextPlugin2},
 		xfrs: []*xfr{
 			{
-				Zones:       []string{"example.org."},
-				to:          []string{"*"},
+				Zones: []string{"example.org."},
+				to:    []string{"*"},
 			},
 			{
-				Zones:       []string{"example.com."},
-				to:          []string{"*"},
+				Zones: []string{"example.com."},
+				to:    []string{"*"},
 			},
 		},
 		Next: nextPlugin1,
 	}
 	return transfer
+}
+
+func TestTransferNotAXFRorIXFR(t *testing.T) {
+
+	transfer := newTestTransfer()
+
+	ctx := context.TODO()
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	dnsmsg := &dns.Msg{}
+	dnsmsg.SetQuestion("test.domain.", dns.TypeA)
+
+	_, err := transfer.ServeDNS(ctx, w, dnsmsg)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if w.Msg == nil {
+		t.Fatal("Got nil message")
+	}
+
+	if w.Msg.Rcode != dns.RcodeNameError {
+		t.Errorf("Expected NXDOMAIN got %s", dns.RcodeToString[w.Msg.Rcode])
+	}
 }
 
 func TestTransferAXFRExampleOrg(t *testing.T) {
@@ -76,6 +121,7 @@ func TestTransferAXFRExampleOrg(t *testing.T) {
 
 	validateAXFRResponse(t, w)
 }
+
 func TestTransferAXFRExampleCom(t *testing.T) {
 
 	transfer := newTestTransfer()
@@ -97,7 +143,7 @@ func TestTransferIXFRFallback(t *testing.T) {
 
 	transfer := newTestTransfer()
 
-	testPlugin := transfer.Transferers[0].(testPlugin)
+	testPlugin := transfer.Transferers[0].(transfererPlugin)
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
@@ -121,7 +167,7 @@ func TestTransferIXFRCurrent(t *testing.T) {
 
 	transfer := newTestTransfer()
 
-	testPlugin := transfer.Transferers[0].(testPlugin)
+	testPlugin := transfer.Transferers[0].(transfererPlugin)
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
@@ -186,14 +232,14 @@ func validateAXFRResponse(t *testing.T, w *dnstest.MultiRecorder) {
 }
 
 func TestTransferNotAllowed(t *testing.T) {
-	nextPlugin := testPlugin{Zone: "example.org.", Serial: 12345}
+	nextPlugin := transfererPlugin{Zone: "example.org.", Serial: 12345}
 
 	transfer := Transfer{
 		Transferers: []Transferer{nextPlugin},
 		xfrs: []*xfr{
 			{
-				Zones:       []string{"example.org."},
-				to:          []string{"1.2.3.4"},
+				Zones: []string{"example.org."},
+				to:    []string{"1.2.3.4"},
 			},
 		},
 		Next: nextPlugin,
