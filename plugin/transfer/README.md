@@ -13,6 +13,8 @@ This plugin answers zone transfers for authoritative plugins that implement
 Transfer answers AXFR requests and IXFR requests with AXFR fallback if the
 zone has changed.
 
+Notifies are not supported.
+
 *transfer* is not currently implemented by any plugins.
 
 ## Syntax
