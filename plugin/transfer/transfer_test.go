@@ -216,19 +216,3 @@ func TestTransferNotAllowed(t *testing.T) {
 	}
 
 }
-
-// difference shows what we're missing when comparing two RR slices
-func difference(testRRs []dns.RR, gotRRs []dns.RR) []dns.RR {
-	expectedRRs := map[string]struct{}{}
-	for _, rr := range testRRs {
-		expectedRRs[rr.String()] = struct{}{}
-	}
-
-	foundRRs := []dns.RR{}
-	for _, rr := range gotRRs {
-		if _, ok := expectedRRs[rr.String()]; !ok {
-			foundRRs = append(foundRRs, rr)
-		}
-	}
-	return foundRRs
-}
