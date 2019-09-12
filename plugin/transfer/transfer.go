@@ -15,14 +15,14 @@ var log = clog.NewWithPlugin("transfer")
 
 // Transfer is a plugin that handles zone transfers.
 type Transfer struct {
+	Transferers []Transferer // the list of plugins that implement Transferer
 	xfrs []*xfr
-	Next plugin.Handler
+	Next plugin.Handler // the next plugin in the chain
 }
 
 type xfr struct {
 	Zones       []string
 	to          []string
-	Transferers []Transferer // the list of plugins that implement Transferer
 }
 
 // Transferer may be implemented by plugins to enable zone transfers
@@ -86,7 +86,7 @@ func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	// Try each Transferer plugin
-	for _, p := range x.Transferers {
+	for _, p := range t.Transferers {
 		ch, err := p.Transfer(zone, serial)
 		if err == ErrNotAuthoritative {
 			// plugin was not authoritative for the zone, try next plugin

@@ -36,9 +36,7 @@ func setup(c *caddy.Controller) error {
 			if !ok {
 				continue
 			}
-			for _, x := range t.xfrs {
-				x.Transferers = append(x.Transferers, tr)
-			}
+			t.Transferers = append(t.Transferers, tr)
 		}
 		return nil
 	})

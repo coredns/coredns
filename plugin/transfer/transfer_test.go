@@ -44,19 +44,18 @@ func newTestTransfer() Transfer {
 	nextPlugin1.Next = nextPlugin2
 
 	transfer := Transfer{
-		Next: nextPlugin1,
+		Transferers: []Transferer{nextPlugin1, nextPlugin2},
 		xfrs: []*xfr{
 			{
 				Zones:       []string{"example.org."},
 				to:          []string{"*"},
-				Transferers: []Transferer{nextPlugin1, nextPlugin2},
 			},
 			{
 				Zones:       []string{"example.com."},
 				to:          []string{"*"},
-				Transferers: []Transferer{nextPlugin1, nextPlugin2},
 			},
 		},
+		Next: nextPlugin1,
 	}
 	return transfer
 }
@@ -98,7 +97,7 @@ func TestTransferIXFRFallback(t *testing.T) {
 
 	transfer := newTestTransfer()
 
-	testPlugin := transfer.xfrs[0].Transferers[0].(testPlugin)
+	testPlugin := transfer.Transferers[0].(testPlugin)
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
@@ -122,7 +121,7 @@ func TestTransferIXFRCurrent(t *testing.T) {
 
 	transfer := newTestTransfer()
 
-	testPlugin := transfer.xfrs[0].Transferers[0].(testPlugin)
+	testPlugin := transfer.Transferers[0].(testPlugin)
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
@@ -190,14 +189,14 @@ func TestTransferNotAllowed(t *testing.T) {
 	nextPlugin := testPlugin{Zone: "example.org.", Serial: 12345}
 
 	transfer := Transfer{
-		Next: nextPlugin,
+		Transferers: []Transferer{nextPlugin},
 		xfrs: []*xfr{
 			{
 				Zones:       []string{"example.org."},
 				to:          []string{"1.2.3.4"},
-				Transferers: []Transferer{nextPlugin},
 			},
 		},
+		Next: nextPlugin,
 	}
 
 	ctx := context.TODO()
