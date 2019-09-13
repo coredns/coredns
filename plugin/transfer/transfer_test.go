@@ -33,6 +33,9 @@ func (p transfererPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r 
 // Transfer implements transfer.Transferer - it returns a static AXFR response, or
 // if serial is current, an abbreviated IXFR response
 func (p transfererPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
+	if zone != p.Zone {
+		return nil, ErrNotAuthoritative
+	}
 	ch := make(chan []dns.RR, 2)
 	defer close(ch)
 	ch <- []dns.RR{test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s %d 7200 1800 86400 100", p.Zone, p.Zone, p.Zone, p.Serial))}
@@ -80,6 +83,31 @@ func newTestTransfer() Transfer {
 		Next: nextPlugin1,
 	}
 	return transfer
+}
+
+func TestTransferNonZone(t *testing.T) {
+
+	transfer := newTestTransfer()
+	ctx := context.TODO()
+
+	for _, tc := range []string{"sub.example.org.", "example.test."} {
+		w := dnstest.NewRecorder(&test.ResponseWriter{})
+		dnsmsg := &dns.Msg{}
+		dnsmsg.SetAxfr(tc)
+
+		_, err := transfer.ServeDNS(ctx, w, dnsmsg)
+		if err != nil {
+			t.Error(err)
+		}
+
+		if w.Msg == nil {
+			t.Fatalf("Got nil message for AXFR %s", tc)
+		}
+
+		if w.Msg.Rcode != dns.RcodeNameError {
+			t.Errorf("Expected NXDOMAIN for AXFR %s got %s", tc, dns.RcodeToString[w.Msg.Rcode])
+		}
+	}
 }
 
 func TestTransferNotAXFRorIXFR(t *testing.T) {

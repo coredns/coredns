@@ -54,16 +54,18 @@ func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
-	// Find the first transfer instance matching the zone.
+	// Find the first transfer instance for which the queried zone is a subdomain.
 	var x *xfr
-	var zone string
 	for _, xfr := range t.xfrs {
-		zone = plugin.Zones(xfr.Zones).Matches(state.Name())
+		zone := plugin.Zones(xfr.Zones).Matches(state.Name())
 		if zone == "" {
 			continue
 		}
 		x = xfr
 	}
+
+	// proceed with the queried zone
+	zone := state.Name()
 
 	if x == nil {
 		// Requested zone did not match any transfer instance zones.
