@@ -26,7 +26,7 @@ transfer [ZONE...] {
 ~~~
 
 * **ZONES** The zones *transfer* will answer zone requests for. If left blank,
-  the zones are inherited from the enclosing server block. To answer zone 
+  the zones are inherited from the enclosing server block. To answer zone
   transfers for a given zone, there must be another plugin in the same server
   block that serves the same zone, and implements `transfer.Transferer`.
 
@@ -48,7 +48,7 @@ example.com {
 ~~~
 
 You can enable zone transfer for more than one plugin with a single *transfer* instance.
-Here, *transfer* will send zone transfers to any source for the theoretical plugins *plugin1* 
+Here, *transfer* will send zone transfers to any source for the theoretical plugins *plugin1*
 and *plugin2* (both of which must both implement `transfer.Transferer`).
 
 ~~~
