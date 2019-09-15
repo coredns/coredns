@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // parseIP calls discards any v6 zone info, before calling net.ParseIP.
@@ -45,7 +47,7 @@ func newOptions() *options {
 	return &options{
 		autoReverse: true,
 		ttl:         3600,
-		reload:      time.Duration(5 * time.Second),
+		reload:      time.Duration(5 * time.Minute),
 	}
 }
 
@@ -135,6 +137,8 @@ func (h *Hostsfile) readHosts() {
 	h.mtime = stat.ModTime()
 	h.size = stat.Size()
 
+	hostsEntries.WithLabelValues().Set(float64(h.inline.Len() + h.hmap.Len()))
+	hostsReloadTime.SetToCurrentTime()
 	h.Unlock()
 }
 
@@ -252,3 +256,19 @@ func (h *Hostsfile) LookupStaticAddr(addr string) []string {
 	copy(hostsCp[len(hosts1):], hosts2)
 	return hostsCp
 }
+
+var (
+	hostsEntries = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "hosts",
+		Name:      "entries_count",
+		Help:      "The combined number of entries in hosts and Corefile.",
+	}, []string{})
+
+	hostsReloadTime = prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "hosts",
+		Name:      "reload_timestamp_seconds",
+		Help:      "Timestamp of the last reload of hosts file.",
+	})
+)
