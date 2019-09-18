@@ -47,7 +47,7 @@ func newOptions() *options {
 	return &options{
 		autoReverse: true,
 		ttl:         3600,
-		reload:      time.Duration(5 * time.Minute),
+		reload:      time.Duration(5 * time.Second),
 	}
 }
 
@@ -138,7 +138,7 @@ func (h *Hostsfile) readHosts() {
 	h.size = stat.Size()
 
 	hostsEntries.WithLabelValues().Set(float64(h.inline.Len() + h.hmap.Len()))
-	hostsReloadTime.SetToCurrentTime()
+	hostsReloadTime.Set(float64(stat.ModTime().UnixNano()) / 1e9)
 	h.Unlock()
 }
 
@@ -269,6 +269,6 @@ var (
 		Namespace: plugin.Namespace,
 		Subsystem: "hosts",
 		Name:      "reload_timestamp_seconds",
-		Help:      "Timestamp of the last reload of hosts file.",
+		Help:      "The timestamp of the last reload of hosts file.",
 	})
 )
