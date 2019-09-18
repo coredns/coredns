@@ -3,6 +3,8 @@ package transfer
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -16,13 +18,13 @@ var log = clog.NewWithPlugin("transfer")
 // Transfer is a plugin that handles zone transfers.
 type Transfer struct {
 	Transferers []Transferer // the list of plugins that implement Transferer
-	xfrs []*xfr
-	Next plugin.Handler // the next plugin in the chain
+	xfrs        []*xfr
+	Next        plugin.Handler // the next plugin in the chain
 }
 
 type xfr struct {
-	Zones       []string
-	to          []string
+	Zones []string
+	to    []string
 }
 
 // Transferer may be implemented by plugins to enable zone transfers
@@ -50,7 +52,7 @@ var (
 // ServeDNS implements the plugin.Handler interface.
 func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
-	if state.QType() != dns.TypeAXFR  && state.QType() != dns.TypeIXFR {
+	if state.QType() != dns.TypeAXFR && state.QType() != dns.TypeIXFR {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
@@ -63,10 +65,6 @@ func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 		x = xfr
 	}
-
-	// proceed with the queried zone
-	zone := state.Name()
-
 	if x == nil {
 		// Requested zone did not match any transfer instance zones.
 		// Pass request down chain in case later plugins are capable of handling transfer requests themselves.
@@ -87,77 +85,77 @@ func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		serial = soa.Serial
 	}
 
-	// Try each Transferer plugin
+	// Get a receiving channel from the first Transferer plugin that returns one
+	var fromPlugin <-chan []dns.RR
 	for _, p := range t.Transferers {
-		ch, err := p.Transfer(zone, serial)
+		var err error
+		fromPlugin, err = p.Transfer(state.QName(), serial)
 		if err == ErrNotAuthoritative {
 			// plugin was not authoritative for the zone, try next plugin
 			continue
 		}
 		if err != nil {
-			return dns.RcodeServerFailure, nil
+			return dns.RcodeServerFailure, err
 		}
-		x.send(state, ch)
-		for range ch {
-			// drain rest of channel if sendAxfr was aborted
-		}
-		return dns.RcodeSuccess, nil
+		break
 	}
 
-	return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
+	if fromPlugin == nil {
+		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
+	}
 
-}
-
-// send sends the response to the client.  It aborts if the first record received on the
-// channel is not an SOA.  send automatically adds the closing SOA to the end of an AXFR response.
-func (x xfr) send(state request.Request, fromPlugin <-chan []dns.RR) {
-	toRemote := make(chan *dns.Envelope)
-
+	// Send response to client
+	ch := make(chan *dns.Envelope)
+	tr := new(dns.Transfer)
+	wg := new(sync.WaitGroup)
 	go func() {
-		var records []dns.RR
-		var serial uint32
-		var soa *dns.SOA
-		l, c := 0, 0
-		for rs := range fromPlugin {
-			for _, r := range rs {
-				if c == 0 {
-					var ok bool
-					soa, ok = r.(*dns.SOA)
-					if !ok {
-						log.Errorf("First record in transfer from zone %s was not an SOA", state.QName())
-						return
-					}
-					serial = soa.Serial
-				}
-				records = append(records, r)
-				c++
-				l += dns.Len(r)
-				if l > 500 {
-					toRemote <- &dns.Envelope{RR: records}
-					l = 0
-					records = nil
-				}
-			}
-		}
-
-		if c > 1 {
-			// add closing SOA
-			c++
-			records = append(records, soa)
-		}
-
-		if len(records) > 0 {
-			// write remaining records
-			toRemote <- &dns.Envelope{RR: records}
-		}
-
-		close(toRemote)
-		log.Infof("Outgoing transfer of %d records of zone %s to %s with %d SOA serial", c, state.QName(), state.IP(), serial)
+		wg.Add(1)
+		tr.Out(w, r, ch)
+		wg.Done()
 	}()
 
-	tr := new(dns.Transfer)
-	tr.Out(state.W, state.Req, toRemote)
-	state.W.Hijack()
+	var soa *dns.SOA
+	rrs := []dns.RR{}
+	l := 0
+
+receive:
+	for records := range fromPlugin {
+		for _, record := range records {
+			if soa == nil {
+				if soa = record.(*dns.SOA); soa == nil {
+					break receive
+				}
+				serial = soa.Serial
+			}
+			rrs = append(rrs, record)
+			if len(rrs) > 500 {
+				ch <- &dns.Envelope{RR: rrs}
+				l += len(rrs)
+				rrs = []dns.RR{}
+			}
+		}
+	}
+
+	if len(rrs) > 0 {
+		ch <- &dns.Envelope{RR: rrs}
+		l += len(rrs)
+		rrs = []dns.RR{}
+	}
+
+	if soa != nil {
+		ch <- &dns.Envelope{RR: []dns.RR{soa}} // closing SOA.
+		l++
+	}
+
+	close(ch) // Even though we close the channel here, we still have
+	wg.Wait() // to wait before we can return and close the connection.
+
+	if soa == nil {
+		return dns.RcodeServerFailure, fmt.Errorf("first record in zone %s is not SOA", state.QName())
+	}
+
+	log.Infof("Outgoing transfer of %d records of zone %s to %s with %d SOA serial", l, state.QName(), state.IP(), serial)
+	return dns.RcodeSuccess, nil
 }
 
 func (x xfr) allowed(state request.Request) bool {

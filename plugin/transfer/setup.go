@@ -63,7 +63,7 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 			}
 		}
 
-	BLOCK:
+	block:
 		for c.NextBlock() {
 			switch c.Val() {
 			case "to":
@@ -74,7 +74,7 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 				for _, host := range args {
 					if host == "*" {
 						x.to = []string{"*"}
-						continue BLOCK
+						continue block
 					}
 					ip := net.ParseIP(host)
 					if ip == nil {
