@@ -245,7 +245,10 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 // only the answer portion.
 func parseRespRule(args []string, argsIdx *int) (ResponseRule, error) {
 	if len(args[*argsIdx:]) == 0 {
-		return ResponseRule{}, nil
+		// If no response rule is set, enable the default response rule.
+		return ResponseRule{
+			Active: true,
+		}, nil
 	}
 	typ := args[*argsIdx]
 	*argsIdx++
@@ -276,13 +279,8 @@ func parseRespRule(args []string, argsIdx *int) (ResponseRule, error) {
 			Pattern:     rewriteAnswerFromPattern,
 			Replacement: rewriteAnswerTo,
 		}, nil
-	case ResponseRuleTypeQuestion:
-		return ResponseRule{
-			Active: true,
-			Type:   ResponseRuleTypeQuestion,
-		}, nil
 	default:
-		return ResponseRule{}, fmt.Errorf("unexpected answer rule type %q; only 'name' and 'question' are supported", respType)
+		return ResponseRule{}, fmt.Errorf("unexpected answer rule type %q; only 'name' is supported", respType)
 	}
 }
 

@@ -12,13 +12,13 @@ import (
 type ResponseRuleType string
 
 const (
-	// ResponseRuleTypeUnset is the unset response rule type; it defaults to 'name'
+	// ResponseRuleTypeUnset is the unset response rule type; it defaults to
+	// setting the answer to match the question.
+	// It uses no fields of the ResponseRule struct.
 	ResponseRuleTypeUnset ResponseRuleType = ""
-	// ResponseRuleTypeName is a name type. It uses the Pattern and Replacement fields of ResponseRule
+	// ResponseRuleTypeName is a name type. It uses the Pattern and Replacement
+	// fields of ResponseRule
 	ResponseRuleTypeName = "name"
-	// ResponseRuleTypeQuestion is a question type. It has no configured fields,
-	// and rewrites the response to the question
-	ResponseRuleTypeQuestion = "question"
 	// ResponseRuleTypeTTL is the type of ResponseRule that rewrites the TTL. It uses the TTL field.
 	ResponseRuleTypeTTL = "ttl"
 )
@@ -62,11 +62,8 @@ func (r *ResponseReverter) WriteMsg(res *dns.Msg) error {
 				ttl             = rr.Header().Ttl
 			)
 			for _, rule := range r.ResponseRules {
-				if rule.Type == ResponseRuleTypeUnset {
-					rule.Type = ResponseRuleTypeName
-				}
 				switch rule.Type {
-				case ResponseRuleTypeQuestion:
+				case ResponseRuleTypeUnset:
 					name = r.originalQuestion.Name
 					isNameRewritten = true
 				case ResponseRuleTypeName:
