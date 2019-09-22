@@ -215,6 +215,7 @@ func TestRewrite(t *testing.T) {
 		mustRule(newClassRule("continue", "HS", "CH")),
 		mustRule(newClassRule("stop", "CH", "IN")),
 		mustRule(newTypeRule("stop", "ANY", "HINFO")),
+		mustRule(newNameRule("stop", "exact", "legacy.tld.", "neo.tld.", "answer", "name", "(.*)", "{1}")),
 	}
 
 	reqChan := make(chan *dns.Msg, 1)
@@ -233,6 +234,7 @@ func TestRewrite(t *testing.T) {
 		answer string
 	}{
 		{"from.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET, "from.nl."},
+		{"legacy.tld.", dns.TypeA, dns.ClassINET, "neo.tld.", dns.TypeA, dns.ClassINET, "neo.tld."},
 		{"a.nl.", dns.TypeA, dns.ClassINET, "a.nl.", dns.TypeA, dns.ClassINET, "a.nl."},
 		{"a.nl.", dns.TypeA, dns.ClassCHAOS, "a.nl.", dns.TypeA, dns.ClassINET, "a.nl."},
 		{"a.nl.", dns.TypeANY, dns.ClassINET, "a.nl.", dns.TypeHINFO, dns.ClassINET, "a.nl."},
@@ -258,18 +260,21 @@ func TestRewrite(t *testing.T) {
 		m.Question[0].Qclass = tc.fromC
 
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
-		rw.ServeDNS(ctx, rec, m)
+		_, err := rw.ServeDNS(ctx, rec, m)
+		if err != nil {
+			t.Fatalf("expected no error serving dns: %v", err)
+		}
 
 		req := <-reqChan
 		resp := rec.Msg
 		if req.Question[0].Name != tc.to {
-			t.Errorf("Test %d: Expected Name to be %q but was %q", i, tc.to, resp.Question[0].Name)
+			t.Errorf("Test %d: Expected request Name to be %q but was %q", i, tc.to, resp.Question[0].Name)
 		}
 		if req.Question[0].Qtype != tc.toT {
-			t.Errorf("Test %d: Expected Type to be '%d' but was '%d'", i, tc.toT, resp.Question[0].Qtype)
+			t.Errorf("Test %d: Expected request Type to be '%d' but was '%d'", i, tc.toT, resp.Question[0].Qtype)
 		}
 		if req.Question[0].Qclass != tc.toC {
-			t.Errorf("Test %d: Expected Class to be '%d' but was '%d'", i, tc.toC, resp.Question[0].Qclass)
+			t.Errorf("Test %d: Expected request Class to be '%d' but was '%d'", i, tc.toC, resp.Question[0].Qclass)
 		}
 		if tc.fromT == dns.TypeA && tc.toT == dns.TypeA {
 			if tc.answer != "" {
