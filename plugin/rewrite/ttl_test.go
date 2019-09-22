@@ -70,13 +70,13 @@ func TestTtlRewrite(t *testing.T) {
 		args         []string
 		expectedType reflect.Type
 	}{
-		{[]string{"stop", "ttl", "srv1.coredns.rocks", "1"}, reflect.TypeOf(&exactTTLRule{})},
-		{[]string{"stop", "ttl", "exact", "srv15.coredns.rocks", "15"}, reflect.TypeOf(&exactTTLRule{})},
-		{[]string{"stop", "ttl", "prefix", "srv30", "30"}, reflect.TypeOf(&prefixTTLRule{})},
-		{[]string{"stop", "ttl", "suffix", "45.coredns.rocks", "45"}, reflect.TypeOf(&suffixTTLRule{})},
-		{[]string{"stop", "ttl", "substring", "rv50", "50"}, reflect.TypeOf(&substringTTLRule{})},
-		{[]string{"stop", "ttl", "regex", `(srv10)\.(coredns)\.(rocks)`, "10"}, reflect.TypeOf(&regexTTLRule{})},
-		{[]string{"stop", "ttl", "regex", `(srv20)\.(coredns)\.(rocks)`, "20"}, reflect.TypeOf(&regexTTLRule{})},
+		{[]string{"stop", "ttl", "srv1.coredns.rocks", "1"}, reflect.TypeOf(&ttlRule{})},
+		{[]string{"stop", "ttl", "exact", "srv15.coredns.rocks", "15"}, reflect.TypeOf(&ttlRule{})},
+		{[]string{"stop", "ttl", "prefix", "srv30", "30"}, reflect.TypeOf(&ttlRule{})},
+		{[]string{"stop", "ttl", "suffix", "45.coredns.rocks", "45"}, reflect.TypeOf(&ttlRule{})},
+		{[]string{"stop", "ttl", "substring", "rv50", "50"}, reflect.TypeOf(&ttlRule{})},
+		{[]string{"stop", "ttl", "regex", `(srv10)\.(coredns)\.(rocks)`, "10"}, reflect.TypeOf(&ttlRule{})},
+		{[]string{"stop", "ttl", "regex", `(srv20)\.(coredns)\.(rocks)`, "20"}, reflect.TypeOf(&ttlRule{})},
 	}
 	for i, r := range ruleset {
 		rule, err := newRule(r.args...)
