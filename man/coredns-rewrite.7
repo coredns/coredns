@@ -28,17 +28,24 @@ rewrite [continue|stop] FIELD [FROM TO|FROM TTL]
 
 .RS
 .IP \(en 4
-\fB\fCtype\fR - the type field of the request will be rewritten. FROM/TO must be a DNS record type (\fB\fCA\fR, \fB\fCMX\fR, etc.);
-e.g., to rewrite ANY queries to HINFO, use \fB\fCrewrite type ANY HINFO\fR.
+\fB\fCtype\fR - the type field of the request will be rewritten. FROM/TO must be
+a DNS record type (\fB\fCA\fR, \fB\fCMX\fR, etc.); e.g., to rewrite ANY queries to
+HINFO, use \fB\fCrewrite type ANY HINFO\fR.
 .IP \(en 4
 \fB\fCclass\fR - the class of the message will be rewritten. FROM/TO must be a DNS class type (\fB\fCIN\fR, \fB\fCCH\fR, or \fB\fCHS\fR); e.g., to rewrite CH queries to IN use \fB\fCrewrite class CH IN\fR.
 .IP \(en 4
-\fB\fCname\fR - the query name in the \fIrequest\fP is rewritten; by default this is a full match of the
-name, e.g., \fB\fCrewrite name example.net example.org\fR. Other match types are supported, see the \fBName Field Rewrites\fP section below.
+\fB\fCname\fR - the query name in the \fIrequest\fP is rewritten; by default this is
+a full match of the name, e.g., \fB\fCrewrite name example.net example.org\fR.
+Other match types are also supported. See the \fBName Field Rewrites\fP
+section below.
 .IP \(en 4
-\fB\fCanswer name\fR - the query name in the \fIresponse\fP is rewritten.  This option has special restrictions and requirements, in particular it must always combined with a \fB\fCname\fR rewrite.  See below in the \fBResponse Rewrites\fP section.
+\fB\fCanswer name\fR - the query name in the \fIresponse\fP is rewritten.  This
+option has special restrictions and requirements, in particular it may
+only be used with a \fB\fCname\fR rewrite.  See the \fBResponse Rewrites\fP section
+below.
 .IP \(en 4
-\fB\fCedns0\fR - an EDNS0 option can be appended to the request as described below in the \fBEDNS0 Options\fP section.
+\fB\fCedns0\fR - an EDNS0 option can be appended to the request as described
+below in the \fBEDNS0 Options\fP section.
 .IP \(en 4
 \fB\fCttl\fR - the TTL value in the \fIresponse\fP is rewritten.
 
@@ -158,13 +165,14 @@ rewrite name suffix .schmoogle.com. .google.com.
 .SS "RESPONSE REWRITES"
 .PP
 When rewriting incoming DNS requests' names, CoreDNS re-writes the \fB\fCQUESTION SECTION\fR
-section of the requests. It may be necessary to rewrite the \fB\fCANSWER SECTION\fR of the
-requests, because some DNS resolvers treat mismatches between the \fB\fCQUESTION SECTION\fR
-and \fB\fCANSWER SECTION\fR as a man-in-the-middle attack (MITM).
+section of the requests. It will also rewrite the \fB\fCANSWER SECTION\fR of the
+response, to match the original question because some DNS resolvers treat
+mismatches between the \fB\fCQUESTION SECTION\fR and \fB\fCANSWER SECTION\fR as a
+man-in-the-middle attack (MITM).
 
 .PP
-For example, a user tries to resolve \fB\fCftp-us-west-1.coredns.rocks\fR. The
-CoreDNS configuration file has the following rule:
+For example, given a query for \fB\fCftp-us-west-1.coredns.rocks\fR with the following
+CoreDNS rewrite configured:
 
 .PP
 .RS
@@ -176,10 +184,56 @@ rewrite name regex (.*)\-(us\-west\-1)\\.coredns\\.rocks {1}.service.{2}.consul
 .RE
 
 .PP
-CoreDNS rewrote the request from \fB\fCftp-us-west-1.coredns.rocks\fR to
-\fB\fCftp.service.us-west-1.consul\fR and ultimately resolved it to 3 records.
-The resolved records, in the \fB\fCANSWER SECTION\fR below, were not from \fB\fCcoredns.rocks\fR, but
-rather from \fB\fCservice.us-west-1.consul\fR.
+CoreDNS will rewrite the request from \fB\fCftp-us-west-1.coredns.rocks\fR to
+\fB\fCftp.service.us-west-1.consul\fR and resolve it to 3 records (shown below).
+Even though \fB\fCftp.service.us-west-1.consul\fR gave that name in the answer, the
+default response rewriting behavior overwrote it with
+\fB\fCftp-us-west-1.coredns.rocks\fR.
+
+.PP
+.RS
+
+.nf
+$ dig @10.1.1.1 ftp\-us\-west\-1.coredns.rocks
+
+; <<>> DiG 9.8.3\-P1 <<>> @10.1.1.1 ftp\-us\-west\-1.coredns.rocks
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; \->>HEADER<<\- opcode: QUERY, status: NOERROR, id: 8619
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 3, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;ftp\-us\-west\-1.coredns.rocks. IN A
+
+;; ANSWER SECTION:
+ftp\-us\-west\-1.coredns.rocks 0    IN A    10.10.10.10
+ftp\-us\-west\-1.coredns.rocks 0    IN A    10.20.20.20
+ftp\-us\-west\-1.coredns.rocks 0    IN A    10.30.30.30
+
+.fi
+.RE
+
+.PP
+This default behavior ensures there is not a mismatch between the question and
+answer in common cases.
+If it's desired to retain the original answer with no modification to it, the
+following 'answer' rule may be used:
+
+.PP
+.RS
+
+.nf
+    rewrite stop {
+        name regex (.*)\-(us\-west\-1)\\.coredns\\.rocks {1}.service.{2}.consul
+        answer name (.*) {1}
+    }
+
+.fi
+.RE
+
+.PP
+Now, the \fB\fCANSWER SECTION\fR appears unmodified:
 
 .PP
 .RS
@@ -206,52 +260,6 @@ ftp.service.us\-west\-1.consul. 0    IN A    10.30.30.30
 .RE
 
 .PP
-The above is a mismatch between the question asked and the answer provided.
-
-.PP
-The following configuration snippet allows for rewriting of the
-\fB\fCANSWER SECTION\fR, provided that the \fB\fCQUESTION SECTION\fR was rewritten:
-
-.PP
-.RS
-
-.nf
-    rewrite stop {
-        name regex (.*)\-(us\-west\-1)\\.coredns\\.rocks {1}.service.{2}.consul
-        answer name (.*)\\.service\\.(us\-west\-1)\\.consul {1}\-{2}.coredns.rocks
-    }
-
-.fi
-.RE
-
-.PP
-Now, the \fB\fCANSWER SECTION\fR matches the \fB\fCQUESTION SECTION\fR:
-
-.PP
-.RS
-
-.nf
-$ dig @10.1.1.1 ftp\-us\-west\-1.coredns.rocks
-
-; <<>> DiG 9.8.3\-P1 <<>> @10.1.1.1 ftp\-us\-west\-1.coredns.rocks
-; (1 server found)
-;; global options: +cmd
-;; Got answer:
-;; \->>HEADER<<\- opcode: QUERY, status: NOERROR, id: 8619
-;; flags: qr aa rd ra; QUERY: 1, ANSWER: 3, AUTHORITY: 0, ADDITIONAL: 0
-
-;; QUESTION SECTION:
-;ftp\-us\-west\-1.coredns.rocks. IN A
-
-;; ANSWER SECTION:
-ftp\-us\-west\-1.coredns.rocks. 0    IN A    10.10.10.10
-ftp\-us\-west\-1.coredns.rocks. 0    IN A    10.20.20.20
-ftp\-us\-west\-1.coredns.rocks. 0    IN A    10.30.30.30
-
-.fi
-.RE
-
-.PP
 The syntax for the rewrite of DNS request and response is as follows:
 
 .PP
@@ -259,7 +267,7 @@ The syntax for the rewrite of DNS request and response is as follows:
 
 .nf
 rewrite [continue|stop] {
-    name regex STRING STRING
+    name STRING STRING
     answer name STRING STRING
 }
 
@@ -267,11 +275,9 @@ rewrite [continue|stop] {
 .RE
 
 .PP
-Note that the above syntax is strict.  For response rewrites, only \fB\fCname\fR
-rules are allowed to match the question section, and only by match type
-\fB\fCregex\fR. The answer rewrite must be after the name, as in the
-syntax example. There must only be two lines (a \fB\fCname\fR followed by an
-\fB\fCanswer\fR) in the brackets; additional rules are not supported.
+Note that the above syntax is strict. The answer rewrite must be after the
+name, as in the syntax example. There must only be two lines (a \fB\fCname\fR followed
+by an \fB\fCanswer\fR) in the brackets; additional rules are not supported.
 
 .PP
 An alternate syntax for rewriting a DNS request and response is as
@@ -281,23 +287,7 @@ follows:
 .RS
 
 .nf
-rewrite [continue|stop] name regex STRING STRING answer name STRING STRING
-
-.fi
-.RE
-
-.PP
-When using \fB\fCexact\fR name rewrite rules, the answer gets rewritten automatically,
-and there is no need to define \fB\fCanswer name\fR. The rule below
-rewrites the name in a request from \fB\fCRED\fR to \fB\fCBLUE\fR, and subsequently
-rewrites the name in a corresponding response from \fB\fCBLUE\fR to \fB\fCRED\fR. The
-client in the request would see only \fB\fCRED\fR and no \fB\fCBLUE\fR.
-
-.PP
-.RS
-
-.nf
-rewrite [continue|stop] name exact RED BLUE
+rewrite [continue|stop] name [exact|prefix|suffix|substring|regex] STRING STRING answer name STRING STRING
 
 .fi
 .RE
