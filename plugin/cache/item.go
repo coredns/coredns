@@ -60,9 +60,14 @@ func (i *item) toMsg(m *dns.Msg, now time.Time) *dns.Msg {
 	m1.RecursionAvailable = i.RecursionAvailable
 	m1.Rcode = i.Rcode
 
-	m1.Answer = make([]dns.RR, len(i.Answer))
-	m1.Ns = make([]dns.RR, len(i.Ns))
-	m1.Extra = make([]dns.RR, len(i.Extra))
+	m1.Answer = i.Answer
+	m1.Ns = i.Ns
+	m1.Extra = i.Extra
+
+	a := make([]dns.RR, len(i.Answer)+len(i.Ns)+len(i.Extra))
+	m1.Answer, a = a[:len(i.Answer)], a[len(i.Answer):]
+	m1.Ns, a = a[:len(i.Ns)], a[len(i.Ns):]
+	m1.Extra = a[:len(i.Extra)]
 
 	ttl := uint32(i.ttl(now))
 	for j, r := range i.Answer {
