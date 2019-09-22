@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 
@@ -95,24 +94,23 @@ func TestTtlRewrite(t *testing.T) {
 
 func doTTLTests(rules []Rule, t *testing.T) {
 	tests := []struct {
-		from      string
-		fromType  uint16
-		answer    []dns.RR
-		ttl       uint32
-		noRewrite bool
+		from     string
+		fromType uint16
+		answer   []dns.RR
+		ttl      uint32
 	}{
-		{"srv1.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv1.coredns.rocks.  5   IN  A  10.0.0.1")}, 1, false},
-		{"srv15.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv15.coredns.rocks.  5   IN  A  10.0.0.15")}, 15, false},
-		{"srv30.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv30.coredns.rocks.  5   IN  A  10.0.0.30")}, 30, false},
-		{"srv45.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv45.coredns.rocks.  5   IN  A  10.0.0.45")}, 45, false},
-		{"srv50.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv50.coredns.rocks.  5   IN  A  10.0.0.50")}, 50, false},
-		{"srv10.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv10.coredns.rocks.  5   IN  A  10.0.0.10")}, 10, false},
-		{"xmpp.coredns.rocks.", dns.TypeSRV, []dns.RR{test.SRV("xmpp.coredns.rocks.  5  IN  SRV 0 100 100 srvxmpp.coredns.rocks.")}, 5, true},
-		{"srv15.coredns.rocks.", dns.TypeHINFO, []dns.RR{test.HINFO("srv15.coredns.rocks.  5  HINFO INTEL-64 \"RHEL 7.5\"")}, 15, false},
+		{"srv1.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv1.coredns.rocks.  5   IN  A  10.0.0.1")}, 1},
+		{"srv15.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv15.coredns.rocks.  5   IN  A  10.0.0.15")}, 15},
+		{"srv30.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv30.coredns.rocks.  5   IN  A  10.0.0.30")}, 30},
+		{"srv45.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv45.coredns.rocks.  5   IN  A  10.0.0.45")}, 45},
+		{"srv50.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv50.coredns.rocks.  5   IN  A  10.0.0.50")}, 50},
+		{"srv10.coredns.rocks.", dns.TypeA, []dns.RR{test.A("srv10.coredns.rocks.  5   IN  A  10.0.0.10")}, 10},
+		{"xmpp.coredns.rocks.", dns.TypeSRV, []dns.RR{test.SRV("xmpp.coredns.rocks.  5  IN  SRV 0 100 100 srvxmpp.coredns.rocks.")}, 5},
+		{"srv15.coredns.rocks.", dns.TypeHINFO, []dns.RR{test.HINFO("srv15.coredns.rocks.  5  HINFO INTEL-64 \"RHEL 7.5\"")}, 15},
 		{"srv20.coredns.rocks.", dns.TypeA, []dns.RR{
 			test.A("srv20.coredns.rocks.  5   IN  A  10.0.0.22"),
 			test.A("srv20.coredns.rocks.  5   IN  A  10.0.0.23"),
-		}, 20, false},
+		}, 20},
 	}
 	ctx := context.TODO()
 	for i, tc := range tests {
@@ -120,13 +118,16 @@ func doTTLTests(rules []Rule, t *testing.T) {
 		m.SetQuestion(tc.from, tc.fromType)
 		m.Question[0].Qclass = dns.ClassINET
 		m.Answer = tc.answer
+		req := make(chan *dns.Msg, 1)
 		rw := Rewrite{
-			Next:     plugin.HandlerFunc(msgPrinter),
-			Rules:    rules,
-			noRevert: false,
+			Next:  mockDnsResponder(req),
+			Rules: rules,
 		}
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
-		rw.ServeDNS(ctx, rec, m)
+		_, err := rw.ServeDNS(ctx, rec, m)
+		if err != nil {
+			t.Errorf("Test %d: Unexpected error serving dns: %v", i, err)
+		}
 		resp := rec.Msg
 		if len(resp.Answer) == 0 {
 			t.Errorf("Test %d: FAIL %s (%d) Expected valid response but received %q", i, tc.from, tc.fromType, resp)

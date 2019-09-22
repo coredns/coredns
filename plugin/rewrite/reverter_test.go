@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 
@@ -52,8 +51,9 @@ func doReverterTests(rules []Rule, t *testing.T) {
 		m.SetQuestion(tc.from, tc.fromType)
 		m.Question[0].Qclass = dns.ClassINET
 		m.Answer = tc.answer
+		req := make(chan *dns.Msg, 1)
 		rw := Rewrite{
-			Next:     plugin.HandlerFunc(msgPrinter),
+			Next:     mockDnsResponder(req),
 			Rules:    rules,
 			noRevert: tc.noRevert,
 		}

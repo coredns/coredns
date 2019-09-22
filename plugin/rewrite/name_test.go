@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 
@@ -13,11 +12,12 @@ import (
 )
 
 func TestRewriteIllegalName(t *testing.T) {
-	r, _ := newNameRule("stop", "example.org.", "example..org.")
-
+	reqs := make(chan *dns.Msg)
+	// shouldn't be written to in this test
+	close(reqs)
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		Rules:    []Rule{r},
+		Next:     mockDnsResponder(reqs),
+		Rules:    []Rule{mustRule(newNameRule("stop", "example.org.", "example..org."))},
 		noRevert: true,
 	}
 
@@ -33,9 +33,8 @@ func TestRewriteIllegalName(t *testing.T) {
 }
 
 func TestRewriteNamePrefixSuffix(t *testing.T) {
-
-	ctx, close := context.WithCancel(context.TODO())
-	defer close()
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
 	tests := []struct {
 		next     string
@@ -49,14 +48,10 @@ func TestRewriteNamePrefixSuffix(t *testing.T) {
 		{"stop", []string{"suffix", ".com", ".org"}, "foo.example.com.", "foo.example.org."},
 	}
 	for _, tc := range tests {
-		r, err := newNameRule(tc.next, tc.args...)
-		if err != nil {
-			t.Fatalf("Expected no error, got %s", err)
-		}
-
+		req := make(chan *dns.Msg, 1)
 		rw := Rewrite{
-			Next:     plugin.HandlerFunc(msgPrinter),
-			Rules:    []Rule{r},
+			Next:     mockDnsResponder(req),
+			Rules:    []Rule{mustRule(newNameRule(tc.next, tc.args...))},
 			noRevert: true,
 		}
 
@@ -64,11 +59,11 @@ func TestRewriteNamePrefixSuffix(t *testing.T) {
 		m.SetQuestion(tc.question, dns.TypeA)
 
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
-		_, err = rw.ServeDNS(ctx, rec, m)
+		_, err := rw.ServeDNS(ctx, rec, m)
 		if err != nil {
 			t.Fatalf("Expected no error, got %s", err)
 		}
-		actual := rec.Msg.Question[0].Name
+		actual := (<-req).Question[0].Name
 		if actual != tc.expected {
 			t.Fatalf("Expected rewrite to %v, got %v", tc.expected, actual)
 		}

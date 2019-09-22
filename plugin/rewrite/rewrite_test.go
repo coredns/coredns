@@ -3,6 +3,7 @@ package rewrite
 import (
 	"bytes"
 	"context"
+	"net"
 	"reflect"
 	"testing"
 
@@ -18,6 +19,13 @@ import (
 func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	w.WriteMsg(r)
 	return 0, nil
+}
+
+func mustRule(r Rule, err error) Rule {
+	if err != nil {
+		panic(err)
+	}
+	return r
 }
 
 func TestNewRule(t *testing.T) {
@@ -158,64 +166,89 @@ func TestNewRule(t *testing.T) {
 	}
 }
 
-func TestRewrite(t *testing.T) {
-	rules := []Rule{}
-	r, _ := newNameRule("stop", "from.nl.", "to.nl.")
-	rules = append(rules, r)
-	r, _ = newNameRule("stop", "regex", "(core)\\.(dns)\\.(rocks)\\.(nl)", "{2}.{1}.{3}.{4}", "answer", "name", "(dns)\\.(core)\\.(rocks)\\.(nl)", "{2}.{1}.{3}.{4}")
-	rules = append(rules, r)
-	r, _ = newNameRule("stop", "exact", "from.exact.nl.", "to.nl.")
-	rules = append(rules, r)
-	r, _ = newNameRule("stop", "prefix", "prefix", "to")
-	rules = append(rules, r)
-	r, _ = newNameRule("stop", "suffix", ".suffix.", ".nl.")
-	rules = append(rules, r)
-	r, _ = newNameRule("stop", "substring", "from.substring", "to")
-	rules = append(rules, r)
-	r, _ = newNameRule("stop", "regex", "(f.*m)\\.regex\\.(nl)", "to.{2}")
-	rules = append(rules, r)
-	r, _ = newNameRule("continue", "regex", "consul\\.(rocks)", "core.dns.{1}")
-	rules = append(rules, r)
-	r, _ = newNameRule("stop", "core.dns.rocks", "to.nl.")
-	rules = append(rules, r)
-	r, _ = newClassRule("continue", "HS", "CH")
-	rules = append(rules, r)
-	r, _ = newClassRule("stop", "CH", "IN")
-	rules = append(rules, r)
-	r, _ = newTypeRule("stop", "ANY", "HINFO")
-	rules = append(rules, r)
+// mockDnsResponder is a testing function that writes all dns messages it
+// receives to the given channel, and then resolves the given question to
+// '127.0.0.1' with a TTL of 300 by default.
+// If the 'Answer' field of the given request msg is already set, it will be
+// used instead.
+func mockDnsResponder(reqs chan<- *dns.Msg) plugin.HandlerFunc {
+	return func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		reqs <- r
 
+		q := r.Question[0]
+		// copy because otherwise the rewrite plugin mutates the question slice
+		respQuestion := make([]dns.Question, len(r.Question))
+		copy(respQuestion, r.Question)
+		answer := []dns.RR{
+			&dns.A{
+				Hdr: dns.RR_Header{
+					Name:   q.Name,
+					Rrtype: q.Qtype,
+					Class:  q.Qclass,
+					Ttl:    300,
+				},
+				A: net.IP{127, 0, 0, 1},
+			},
+		}
+		if r.Answer != nil {
+			answer = r.Answer
+		}
+		w.WriteMsg(&dns.Msg{
+			Question: respQuestion,
+			Answer:   answer,
+		})
+		return 0, nil
+	}
+}
+
+func TestRewrite(t *testing.T) {
+	rules := []Rule{
+		mustRule(newNameRule("stop", "from.nl.", "to.nl.")),
+		mustRule(newNameRule("stop", "regex", "(core)\\.(dns)\\.(rocks)\\.(nl)", "{2}.{1}.{3}.{4}", "answer", "name", "(dns)\\.(core)\\.(rocks)\\.(nl)", "{2}.{1}.{3}.{4}")),
+		mustRule(newNameRule("stop", "exact", "from.exact.nl.", "to.nl.")),
+		mustRule(newNameRule("stop", "prefix", "prefix", "to")),
+		mustRule(newNameRule("stop", "suffix", ".suffix.", ".nl.")),
+		mustRule(newNameRule("stop", "substring", "from.substring", "to")),
+		mustRule(newNameRule("stop", "regex", "(f.*m)\\.regex\\.(nl)", "to.{2}")),
+		mustRule(newNameRule("continue", "regex", "consul\\.(rocks)", "core.dns.{1}")),
+		mustRule(newNameRule("stop", "core.dns.rocks", "to.nl.")),
+		mustRule(newClassRule("continue", "HS", "CH")),
+		mustRule(newClassRule("stop", "CH", "IN")),
+		mustRule(newTypeRule("stop", "ANY", "HINFO")),
+	}
+
+	reqChan := make(chan *dns.Msg)
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		Rules:    rules,
-		noRevert: true,
+		Next:  mockDnsResponder(reqChan),
+		Rules: rules,
 	}
 
 	tests := []struct {
-		from  string
-		fromT uint16
-		fromC uint16
-		to    string
-		toT   uint16
-		toC   uint16
+		from   string
+		fromT  uint16
+		fromC  uint16
+		to     string
+		toT    uint16
+		toC    uint16
+		answer string
 	}{
-		{"from.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
-		{"a.nl.", dns.TypeA, dns.ClassINET, "a.nl.", dns.TypeA, dns.ClassINET},
-		{"a.nl.", dns.TypeA, dns.ClassCHAOS, "a.nl.", dns.TypeA, dns.ClassINET},
-		{"a.nl.", dns.TypeANY, dns.ClassINET, "a.nl.", dns.TypeHINFO, dns.ClassINET},
+		{"from.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET, "from.nl."},
+		{"a.nl.", dns.TypeA, dns.ClassINET, "a.nl.", dns.TypeA, dns.ClassINET, "a.nl."},
+		{"a.nl.", dns.TypeA, dns.ClassCHAOS, "a.nl.", dns.TypeA, dns.ClassINET, "a.nl."},
+		{"a.nl.", dns.TypeANY, dns.ClassINET, "a.nl.", dns.TypeHINFO, dns.ClassINET, "a.nl."},
 		// name is rewritten, type is not.
-		{"from.nl.", dns.TypeANY, dns.ClassINET, "to.nl.", dns.TypeANY, dns.ClassINET},
-		{"from.exact.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
-		{"prefix.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
-		{"to.suffix.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
-		{"from.substring.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
-		{"from.regex.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
-		{"consul.rocks.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
+		{"from.nl.", dns.TypeANY, dns.ClassINET, "to.nl.", dns.TypeANY, dns.ClassINET, "from.nl."},
+		{"from.exact.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET, "from.exact.nl."},
+		{"prefix.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET, "prefix.nl."},
+		{"to.suffix.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET, "to.suffix."},
+		{"from.substring.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET, "from.substring.nl."},
+		{"from.regex.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET, "from.regex.nl."},
+		{"consul.rocks.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET, "consul.rocks."},
 		// name is not, type is, but class is, because class is the 2nd rule.
-		{"a.nl.", dns.TypeANY, dns.ClassCHAOS, "a.nl.", dns.TypeANY, dns.ClassINET},
+		{"a.nl.", dns.TypeANY, dns.ClassCHAOS, "a.nl.", dns.TypeANY, dns.ClassINET, "a.nl."},
 		// class gets rewritten twice because of continue/stop logic: HS to CH, CH to IN
-		{"a.nl.", dns.TypeANY, 4, "a.nl.", dns.TypeANY, dns.ClassINET},
-		{"core.dns.rocks.nl.", dns.TypeA, dns.ClassINET, "dns.core.rocks.nl.", dns.TypeA, dns.ClassINET},
+		{"a.nl.", dns.TypeANY, 4, "a.nl.", dns.TypeANY, dns.ClassINET, "a.nl."},
+		{"core.dns.rocks.nl.", dns.TypeA, dns.ClassINET, "dns.core.rocks.nl.", dns.TypeA, dns.ClassINET, "core.dns.rocks.nl."},
 	}
 
 	ctx := context.TODO()
@@ -225,22 +258,26 @@ func TestRewrite(t *testing.T) {
 		m.Question[0].Qclass = tc.fromC
 
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
-		rw.ServeDNS(ctx, rec, m)
+		go rw.ServeDNS(ctx, rec, m)
 
+		req := <-reqChan
 		resp := rec.Msg
-		if resp.Question[0].Name != tc.to {
+		if req.Question[0].Name != tc.to {
 			t.Errorf("Test %d: Expected Name to be %q but was %q", i, tc.to, resp.Question[0].Name)
 		}
-		if resp.Question[0].Qtype != tc.toT {
+		if req.Question[0].Qtype != tc.toT {
 			t.Errorf("Test %d: Expected Type to be '%d' but was '%d'", i, tc.toT, resp.Question[0].Qtype)
 		}
-		if resp.Question[0].Qclass != tc.toC {
+		if req.Question[0].Qclass != tc.toC {
 			t.Errorf("Test %d: Expected Class to be '%d' but was '%d'", i, tc.toC, resp.Question[0].Qclass)
 		}
 		if tc.fromT == dns.TypeA && tc.toT == dns.TypeA {
-			if len(resp.Answer) > 0 {
-				if resp.Answer[0].(*dns.A).Hdr.Name != tc.to {
-					t.Errorf("Test %d: Expected Answer Name to be %q but was %q", i, tc.to, resp.Answer[0].(*dns.A).Hdr.Name)
+			if tc.answer != "" {
+				if len(resp.Answer) == 0 {
+					t.Fatalf("Test %d: Expected an answer, got none", i)
+				}
+				if resp.Answer[0].(*dns.A).Hdr.Name != tc.answer {
+					t.Errorf("Test %d: Expected Answer Name to be %q but was %q", i, tc.answer, resp.Answer[0].(*dns.A).Hdr.Name)
 				}
 			}
 		}
