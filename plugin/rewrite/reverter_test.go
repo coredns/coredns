@@ -16,17 +16,14 @@ var tests = []struct {
 	answer   []dns.RR
 	to       string
 	toType   uint16
-	noRevert bool
 }{
-	{"core.dns.rocks", dns.TypeA, []dns.RR{test.A("dns.core.rocks.  5   IN  A  10.0.0.1")}, "core.dns.rocks", dns.TypeA, false},
-	{"core.dns.rocks", dns.TypeSRV, []dns.RR{test.SRV("dns.core.rocks.  5  IN  SRV 0 100 100 srv1.dns.core.rocks.")}, "core.dns.rocks", dns.TypeSRV, false},
-	{"core.dns.rocks", dns.TypeA, []dns.RR{test.A("core.dns.rocks.  5   IN  A  10.0.0.1")}, "dns.core.rocks.", dns.TypeA, true},
-	{"core.dns.rocks", dns.TypeSRV, []dns.RR{test.SRV("core.dns.rocks.  5  IN  SRV 0 100 100 srv1.dns.core.rocks.")}, "dns.core.rocks.", dns.TypeSRV, true},
-	{"core.dns.rocks", dns.TypeHINFO, []dns.RR{test.HINFO("core.dns.rocks.  5  HINFO INTEL-64 \"RHEL 7.4\"")}, "core.dns.rocks", dns.TypeHINFO, false},
+	{"core.dns.rocks", dns.TypeA, []dns.RR{test.A("dns.core.rocks.  5   IN  A  10.0.0.1")}, "core.dns.rocks", dns.TypeA},
+	{"core.dns.rocks", dns.TypeSRV, []dns.RR{test.SRV("dns.core.rocks.  5  IN  SRV 0 100 100 srv1.dns.core.rocks.")}, "core.dns.rocks", dns.TypeSRV},
+	{"core.dns.rocks", dns.TypeHINFO, []dns.RR{test.HINFO("core.dns.rocks.  5  HINFO INTEL-64 \"RHEL 7.4\"")}, "core.dns.rocks", dns.TypeHINFO},
 	{"core.dns.rocks", dns.TypeA, []dns.RR{
 		test.A("dns.core.rocks.  5   IN  A  10.0.0.1"),
 		test.A("dns.core.rocks.  5   IN  A  10.0.0.2"),
-	}, "core.dns.rocks", dns.TypeA, false},
+	}, "core.dns.rocks", dns.TypeA},
 }
 
 func TestResponseReverter(t *testing.T) {
@@ -53,9 +50,8 @@ func doReverterTests(rules []Rule, t *testing.T) {
 		m.Answer = tc.answer
 		req := make(chan *dns.Msg, 1)
 		rw := Rewrite{
-			Next:     mockDnsResponder(req),
-			Rules:    rules,
-			noRevert: tc.noRevert,
+			Next:  mockDnsResponder(req),
+			Rules: rules,
 		}
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		rw.ServeDNS(ctx, rec, m)

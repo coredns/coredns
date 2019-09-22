@@ -286,8 +286,7 @@ func TestRewrite(t *testing.T) {
 
 func TestRewriteEDNS0Local(t *testing.T) {
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		noRevert: true,
+		Next: plugin.HandlerFunc(msgPrinter),
 	}
 
 	tests := []struct {
@@ -374,9 +373,8 @@ func TestEdns0LocalMultiRule(t *testing.T) {
 	rules = append(rules, r)
 
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		Rules:    rules,
-		noRevert: true,
+		Next:  plugin.HandlerFunc(msgPrinter),
+		Rules: rules,
 	}
 
 	tests := []struct {
@@ -485,8 +483,7 @@ func (tp testProvider) Metadata(ctx context.Context, state request.Request) cont
 
 func TestRewriteEDNS0LocalVariable(t *testing.T) {
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		noRevert: true,
+		Next: plugin.HandlerFunc(msgPrinter),
 	}
 
 	expectedMetadata := []metadata.Provider{
@@ -607,8 +604,7 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 
 func TestRewriteEDNS0Subnet(t *testing.T) {
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		noRevert: true,
+		Next: plugin.HandlerFunc(msgPrinter),
 	}
 
 	tests := []struct {

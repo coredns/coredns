@@ -16,9 +16,8 @@ func TestRewriteIllegalName(t *testing.T) {
 	// shouldn't be written to in this test
 	close(reqs)
 	rw := Rewrite{
-		Next:     mockDnsResponder(reqs),
-		Rules:    []Rule{mustRule(newNameRule("stop", "example.org.", "example..org."))},
-		noRevert: true,
+		Next:  mockDnsResponder(reqs),
+		Rules: []Rule{mustRule(newNameRule("stop", "example.org.", "example..org."))},
 	}
 
 	ctx := context.TODO()
@@ -50,9 +49,8 @@ func TestRewriteNamePrefixSuffix(t *testing.T) {
 	for _, tc := range tests {
 		req := make(chan *dns.Msg, 1)
 		rw := Rewrite{
-			Next:     mockDnsResponder(req),
-			Rules:    []Rule{mustRule(newNameRule(tc.next, tc.args...))},
-			noRevert: true,
+			Next:  mockDnsResponder(req),
+			Rules: []Rule{mustRule(newNameRule(tc.next, tc.args...))},
 		}
 
 		m := new(dns.Msg)

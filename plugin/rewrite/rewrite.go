@@ -31,9 +31,8 @@ const (
 
 // Rewrite is a plugin to rewrite requests internally before being handled.
 type Rewrite struct {
-	Next     plugin.Handler
-	Rules    []Rule
-	noRevert bool
+	Next  plugin.Handler
+	Rules []Rule
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -55,15 +54,12 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				wr.ResponseRules = append(wr.ResponseRules, respRule)
 			}
 			if rule.Mode() == Stop {
-				if rw.noRevert {
-					return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
-				}
 				return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
 			}
 		case RewriteIgnored:
 		}
 	}
-	if rw.noRevert || len(wr.ResponseRules) == 0 {
+	if len(wr.ResponseRules) == 0 {
 		return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
 	}
 	return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
