@@ -13,7 +13,7 @@ func TestRequestDo(t *testing.T) {
 	st := testRequest()
 
 	st.Do()
-	if st.do == nil {
+	if !st.do.IsSet() {
 		t.Errorf("Expected st.do to be set")
 	}
 }
