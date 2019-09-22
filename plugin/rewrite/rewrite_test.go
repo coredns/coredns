@@ -215,7 +215,7 @@ func TestRewrite(t *testing.T) {
 		mustRule(newClassRule("continue", "HS", "CH")),
 		mustRule(newClassRule("stop", "CH", "IN")),
 		mustRule(newTypeRule("stop", "ANY", "HINFO")),
-		mustRule(newNameRule("stop", "exact", "legacy.tld.", "neo.tld.", "answer", "name", "(.*)", "{1}")),
+		mustRule(newNameRule("stop", "exact", "legacy.tld.", "neo.tld.", "answer", "name", "(.*)\\.", "{1}")),
 	}
 
 	reqChan := make(chan *dns.Msg, 1)
