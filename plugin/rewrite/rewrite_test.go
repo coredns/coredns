@@ -217,7 +217,7 @@ func TestRewrite(t *testing.T) {
 		mustRule(newTypeRule("stop", "ANY", "HINFO")),
 	}
 
-	reqChan := make(chan *dns.Msg)
+	reqChan := make(chan *dns.Msg, 1)
 	rw := Rewrite{
 		Next:  mockDnsResponder(reqChan),
 		Rules: rules,
@@ -258,7 +258,7 @@ func TestRewrite(t *testing.T) {
 		m.Question[0].Qclass = tc.fromC
 
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
-		go rw.ServeDNS(ctx, rec, m)
+		rw.ServeDNS(ctx, rec, m)
 
 		req := <-reqChan
 		resp := rec.Msg
