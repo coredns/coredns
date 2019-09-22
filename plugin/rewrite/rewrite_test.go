@@ -262,7 +262,7 @@ func TestRewrite(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := rw.ServeDNS(ctx, rec, m)
 		if err != nil {
-			t.Fatalf("expected no error serving dns: %v", err)
+			t.Fatalf("Expected no error serving dns: %v", err)
 		}
 
 		req := <-reqChan
