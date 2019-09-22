@@ -59,9 +59,6 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		case RewriteIgnored:
 		}
 	}
-	if len(wr.ResponseRules) == 0 {
-		return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
-	}
 	return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
 }
 
