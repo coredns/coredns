@@ -326,3 +326,9 @@ func TestComputeTTL(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkHash(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		hash("example.org", 1024, true)
+	}
+}

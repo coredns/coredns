@@ -2,7 +2,6 @@
 package cache
 
 import (
-	"hash/fnv"
 	"net"
 	"time"
 
@@ -76,21 +75,39 @@ func key(qname string, m *dns.Msg, t response.Type, do bool) (bool, uint64) {
 	return true, hash(qname, m.Question[0].Qtype, do)
 }
 
-var one = []byte("1")
-var zero = []byte("0")
+type fnv64 uint64
+
+const prime64 = 1099511628211
+
+func (s *fnv64) WriteString(data string) {
+	hash := *s
+	for i := 0; i < len(data); i++ {
+		hash *= prime64
+		hash ^= fnv64(data[i])
+	}
+	*s = hash
+}
+
+func (s *fnv64) WriteByte(c byte) {
+	hash := *s
+	hash *= prime64
+	hash ^= fnv64(c)
+	*s = hash
+}
+
+func (s fnv64) Sum64() uint64 { return uint64(s) }
 
 func hash(qname string, qtype uint16, do bool) uint64 {
-	h := fnv.New64()
-
+	var h fnv64
 	if do {
-		h.Write(one)
+		h.WriteByte('1')
 	} else {
-		h.Write(zero)
+		h.WriteByte('0')
 	}
 
-	h.Write([]byte{byte(qtype >> 8)})
-	h.Write([]byte{byte(qtype)})
-	h.Write([]byte(qname))
+	h.WriteByte(byte(qtype >> 8))
+	h.WriteByte(byte(qtype))
+	h.WriteString(qname)
 	return h.Sum64()
 }
 
