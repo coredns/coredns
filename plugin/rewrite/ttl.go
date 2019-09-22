@@ -109,9 +109,8 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 				nextAction,
 				plugin.Name(args[1]).Normalize(),
 				ResponseRule{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
+					Type: "ttl",
+					TTL:  ttl,
 				},
 			}, nil
 		case PrefixMatch:
@@ -119,9 +118,8 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 				nextAction,
 				plugin.Name(args[1]).Normalize(),
 				ResponseRule{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
+					Type: "ttl",
+					TTL:  ttl,
 				},
 			}, nil
 		case SuffixMatch:
@@ -129,9 +127,8 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 				nextAction,
 				plugin.Name(args[1]).Normalize(),
 				ResponseRule{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
+					Type: "ttl",
+					TTL:  ttl,
 				},
 			}, nil
 		case SubstringMatch:
@@ -139,9 +136,8 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 				nextAction,
 				plugin.Name(args[1]).Normalize(),
 				ResponseRule{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
+					Type: "ttl",
+					TTL:  ttl,
 				},
 			}, nil
 		case RegexMatch:
@@ -153,9 +149,8 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 				nextAction,
 				regexPattern,
 				ResponseRule{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
+					Type: "ttl",
+					TTL:  ttl,
 				},
 			}, nil
 		default:
@@ -169,9 +164,8 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 		nextAction,
 		plugin.Name(args[0]).Normalize(),
 		ResponseRule{
-			Active: true,
-			Type:   "ttl",
-			TTL:    ttl,
+			Type: "ttl",
+			TTL:  ttl,
 		},
 	}, nil
 }

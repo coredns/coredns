@@ -25,7 +25,6 @@ const (
 
 // ResponseRule contains a rule to rewrite a response with.
 type ResponseRule struct {
-	Active      bool
 	Type        ResponseRuleType
 	Pattern     *regexp.Regexp
 	Replacement string

@@ -49,10 +49,8 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				return dns.RcodeServerFailure, err
 			}
 			respRule := rule.GetResponseRule()
-			if respRule.Active {
-				wr.ResponseRewrite = true
-				wr.ResponseRules = append(wr.ResponseRules, respRule)
-			}
+			wr.ResponseRewrite = true
+			wr.ResponseRules = append(wr.ResponseRules, respRule)
 			if rule.Mode() == Stop {
 				return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
 			}

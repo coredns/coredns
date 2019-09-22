@@ -235,9 +235,7 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 func parseRespRule(args []string, argsIdx *int) (ResponseRule, error) {
 	if len(args[*argsIdx:]) == 0 {
 		// If no response rule is set, enable the default response rule.
-		return ResponseRule{
-			Active: true,
-		}, nil
+		return ResponseRule{}, nil
 	}
 	typ := args[*argsIdx]
 	*argsIdx++
@@ -263,7 +261,6 @@ func parseRespRule(args []string, argsIdx *int) (ResponseRule, error) {
 			return ResponseRule{}, err
 		}
 		return ResponseRule{
-			Active:      true,
 			Type:        ResponseRuleTypeName,
 			Pattern:     rewriteAnswerFromPattern,
 			Replacement: rewriteAnswerTo,
