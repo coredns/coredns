@@ -18,13 +18,20 @@ rewrite [continue|stop] FIELD [FROM TO|FROM TTL]
 
 * **FIELD** indicates what part of the request/response is being re-written.
 
-   * `type` - the type field of the request will be rewritten. FROM/TO must be a DNS record type (`A`, `MX`, etc.);
-e.g., to rewrite ANY queries to HINFO, use `rewrite type ANY HINFO`.
+   * `type` - the type field of the request will be rewritten. FROM/TO must be
+     a DNS record type (`A`, `MX`, etc.); e.g., to rewrite ANY queries to
+     HINFO, use `rewrite type ANY HINFO`.
    * `class` - the class of the message will be rewritten. FROM/TO must be a DNS class type (`IN`, `CH`, or `HS`); e.g., to rewrite CH queries to IN use `rewrite class CH IN`.
-   * `name` - the query name in the _request_ is rewritten; by default this is a full match of the
-     name, e.g., `rewrite name example.net example.org`. Other match types are supported, see the **Name Field Rewrites** section below.
-   * `answer name` - the query name in the _response_ is rewritten.  This option has special restrictions and requirements, in particular it must always combined with a `name` rewrite.  See below in the **Response Rewrites** section.
-   *  `edns0` - an EDNS0 option can be appended to the request as described below in the **EDNS0 Options** section.
+   * `name` - the query name in the _request_ is rewritten; by default this is
+     a full match of the name, e.g., `rewrite name example.net example.org`.
+     Other match types are also supported. See the **Name Field Rewrites**
+     section below.
+   * `answer name` - the query name in the _response_ is rewritten.  This
+     option has special restrictions and requirements, in particular it may
+     only be used with a `name` rewrite.  See the **Response Rewrites** section
+     below.
+   *  `edns0` - an EDNS0 option can be appended to the request as described
+      below in the **EDNS0 Options** section.
    * `ttl` - the TTL value in the _response_ is rewritten.
 
 * **FROM** is the name (exact, suffix, prefix, substring, or regex) or type to match
@@ -94,22 +101,57 @@ rewrite name suffix .schmoogle.com. .google.com.
 ### Response Rewrites
 
 When rewriting incoming DNS requests' names, CoreDNS re-writes the `QUESTION SECTION`
-section of the requests. It may be necessary to rewrite the `ANSWER SECTION` of the
-requests, because some DNS resolvers treat mismatches between the `QUESTION SECTION`
-and `ANSWER SECTION` as a man-in-the-middle attack (MITM).
+section of the requests. It will also rewrite the `ANSWER SECTION` of the
+response, to match the original question because some DNS resolvers treat
+mismatches between the `QUESTION SECTION` and `ANSWER SECTION` as a
+man-in-the-middle attack (MITM).
 
-For example, a user tries to resolve `ftp-us-west-1.coredns.rocks`. The
-CoreDNS configuration file has the following rule:
+For example, given a query for `ftp-us-west-1.coredns.rocks` with the following
+CoreDNS rewrite configured:
 
 ```
 rewrite name regex (.*)-(us-west-1)\.coredns\.rocks {1}.service.{2}.consul
 ```
 
-CoreDNS rewrote the request from `ftp-us-west-1.coredns.rocks` to
-`ftp.service.us-west-1.consul` and ultimately resolved it to 3 records.
-The resolved records, in the `ANSWER SECTION` below, were not from `coredns.rocks`, but
-rather from `service.us-west-1.consul`.
+CoreDNS will rewrite the request from `ftp-us-west-1.coredns.rocks` to
+`ftp.service.us-west-1.consul` and resolve it to 3 records (shown below).
+Even though `ftp.service.us-west-1.consul` gave that name in the answer, the
+default response rewriting behavior overwrote it with
+`ftp-us-west-1.coredns.rocks`.
 
+
+```
+$ dig @10.1.1.1 ftp-us-west-1.coredns.rocks
+
+; <<>> DiG 9.8.3-P1 <<>> @10.1.1.1 ftp-us-west-1.coredns.rocks
+; (1 server found)
+;; global options: +cmd
+;; Got answer:
+;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 8619
+;; flags: qr aa rd ra; QUERY: 1, ANSWER: 3, AUTHORITY: 0, ADDITIONAL: 0
+
+;; QUESTION SECTION:
+;ftp-us-west-1.coredns.rocks. IN A
+
+;; ANSWER SECTION:
+ftp-us-west-1.coredns.rocks 0    IN A    10.10.10.10
+ftp-us-west-1.coredns.rocks 0    IN A    10.20.20.20
+ftp-us-west-1.coredns.rocks 0    IN A    10.30.30.30
+```
+
+This default behavior ensures there is not a mismatch between the question and
+answer in common cases.
+If it's desired to retain the original answer with no modification to it, the
+following 'answer' rule may be used:
+
+```
+    rewrite stop {
+        name regex (.*)-(us-west-1)\.coredns\.rocks {1}.service.{2}.consul
+        answer name (.*) {1}
+    }
+```
+
+Now, the `ANSWER SECTION` appears unmodified:
 
 ```
 $ dig @10.1.1.1 ftp-us-west-1.coredns.rocks
@@ -130,69 +172,24 @@ ftp.service.us-west-1.consul. 0    IN A    10.20.20.20
 ftp.service.us-west-1.consul. 0    IN A    10.30.30.30
 ```
 
-The above is a mismatch between the question asked and the answer provided.
-
-The following configuration snippet allows for rewriting of the
-`ANSWER SECTION`, provided that the `QUESTION SECTION` was rewritten:
-
-```
-    rewrite stop {
-        name regex (.*)-(us-west-1)\.coredns\.rocks {1}.service.{2}.consul
-        answer name (.*)\.service\.(us-west-1)\.consul {1}-{2}.coredns.rocks
-    }
-```
-
-Now, the `ANSWER SECTION` matches the `QUESTION SECTION`:
-
-```
-$ dig @10.1.1.1 ftp-us-west-1.coredns.rocks
-
-; <<>> DiG 9.8.3-P1 <<>> @10.1.1.1 ftp-us-west-1.coredns.rocks
-; (1 server found)
-;; global options: +cmd
-;; Got answer:
-;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 8619
-;; flags: qr aa rd ra; QUERY: 1, ANSWER: 3, AUTHORITY: 0, ADDITIONAL: 0
-
-;; QUESTION SECTION:
-;ftp-us-west-1.coredns.rocks. IN A
-
-;; ANSWER SECTION:
-ftp-us-west-1.coredns.rocks. 0    IN A    10.10.10.10
-ftp-us-west-1.coredns.rocks. 0    IN A    10.20.20.20
-ftp-us-west-1.coredns.rocks. 0    IN A    10.30.30.30
-```
-
 The syntax for the rewrite of DNS request and response is as follows:
 
 ```
 rewrite [continue|stop] {
-    name regex STRING STRING
+    name STRING STRING
     answer name STRING STRING
 }
 ```
 
-Note that the above syntax is strict.  For response rewrites, only `name`
-rules are allowed to match the question section, and only by match type
-`regex`. The answer rewrite must be after the name, as in the
-syntax example. There must only be two lines (a `name` followed by an
-`answer`) in the brackets; additional rules are not supported.
+Note that the above syntax is strict. The answer rewrite must be after the
+name, as in the syntax example. There must only be two lines (a `name` followed
+by an `answer`) in the brackets; additional rules are not supported.
 
 An alternate syntax for rewriting a DNS request and response is as
 follows:
 
 ```
-rewrite [continue|stop] name regex STRING STRING answer name STRING STRING
-```
-
-When using `exact` name rewrite rules, the answer gets rewritten automatically,
-and there is no need to define `answer name`. The rule below
-rewrites the name in a request from `RED` to `BLUE`, and subsequently
-rewrites the name in a corresponding response from `BLUE` to `RED`. The
-client in the request would see only `RED` and no `BLUE`.
-
-```
-rewrite [continue|stop] name exact RED BLUE
+rewrite [continue|stop] name [exact|prefix|suffix|substring|regex] STRING STRING answer name STRING STRING
 ```
 
 ### TTL Field Rewrites
