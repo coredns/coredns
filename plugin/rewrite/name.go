@@ -197,7 +197,7 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 				},
 			}, nil
 		default:
-			return nil, fmt.Errorf("A name rule supports only exact, prefix, suffix, substring, and regex name matching, received: %s", matchType)
+			return nil, fmt.Errorf("a name rule supports only exact, prefix, suffix, substring, and regex name matching, received: %s", matchType)
 		}
 	}
 	if len(args) == 7 {
@@ -264,10 +264,7 @@ func (rule *regexNameRule) GetResponseRule() ResponseRule { return rule.Response
 
 // hasClosingDot return true if s has a closing dot at the end.
 func hasClosingDot(s string) bool {
-	if strings.HasSuffix(s, ".") {
-		return true
-	}
-	return false
+	return strings.HasSuffix(s, ".")
 }
 
 // getSubExprUsage return the number of subexpressions used in s.

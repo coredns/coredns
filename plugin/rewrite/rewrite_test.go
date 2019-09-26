@@ -3,6 +3,7 @@ package rewrite
 import (
 	"bytes"
 	"context"
+	"net"
 	"reflect"
 	"testing"
 
@@ -422,7 +423,7 @@ func optsEqual(a, b []dns.EDNS0) bool {
 				if aa.SourceScope != bb.SourceScope {
 					return false
 				}
-				if !bytes.Equal(aa.Address, bb.Address) {
+				if net.IP.Equal(aa.Address, bb.Address) {
 					return false
 				}
 			} else {
