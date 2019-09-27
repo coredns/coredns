@@ -1,3 +1,4 @@
+// Pakcage reload periodically checks if the Corefile has changed, and reloads if so.
 package reload
 
 import (
@@ -11,7 +12,6 @@ import (
 	"github.com/caddyserver/caddy/caddyfile"
 )
 
-// reload periodically checks if the Corefile has changed, and reloads if so
 const (
 	unused    = 0
 	maybeUsed = 1
