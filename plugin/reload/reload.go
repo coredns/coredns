@@ -1,4 +1,4 @@
-// Pakcage reload periodically checks if the Corefile has changed, and reloads if so.
+// Package reload periodically checks if the Corefile has changed, and reloads if so.
 package reload
 
 import (
