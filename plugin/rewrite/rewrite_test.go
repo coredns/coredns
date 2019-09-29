@@ -423,7 +423,7 @@ func optsEqual(a, b []dns.EDNS0) bool {
 				if aa.SourceScope != bb.SourceScope {
 					return false
 				}
-				if net.IP.Equal(aa.Address, bb.Address) {
+				if !aa.Address.Equal(bb.Address) {
 					return false
 				}
 			} else {

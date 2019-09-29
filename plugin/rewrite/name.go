@@ -104,9 +104,7 @@ func (rule *regexNameRule) Rewrite(ctx context.Context, state request.Request) R
 	s := rule.Replacement
 	for groupIndex, groupValue := range regexGroups {
 		groupIndexStr := "{" + strconv.Itoa(groupIndex) + "}"
-		if strings.Contains(s, groupIndexStr) {
-			s = strings.Replace(s, groupIndexStr, groupValue, -1)
-		}
+		s = strings.Replace(s, groupIndexStr, groupValue, -1)
 	}
 	state.Req.Question[0].Name = s
 	return RewriteDone
