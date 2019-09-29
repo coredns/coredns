@@ -147,7 +147,7 @@ following 'answer' rule may be used:
 ```
     rewrite stop {
         name regex (.*)-(us-west-1)\.coredns\.rocks {1}.service.{2}.consul
-        answer name (.*) {1}
+        answer name (.*)\. {1}.
     }
 ```
 
