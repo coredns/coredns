@@ -8,8 +8,8 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
-	"github.com/coredns/coredns/plugin/pkg/parse"
-	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
+	coreparse "github.com/coredns/coredns/plugin/pkg/parse"
+	coretls "github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/caddyserver/caddy"
@@ -18,7 +18,7 @@ import (
 func init() { plugin.Register("forward", setup) }
 
 func setup(c *caddy.Controller) error {
-	f, err := parseForward(c)
+	f, err := parse(c)
 	if err != nil {
 		return plugin.Error("forward", err)
 	}
@@ -54,7 +54,7 @@ func (f *Forward) OnStartup() (err error) {
 // OnShutdown stops all configured proxies.
 func (f *Forward) OnShutdown() error {
 	for _, p := range f.proxies {
-		p.close()
+		p.stop()
 	}
 	return nil
 }
@@ -62,7 +62,7 @@ func (f *Forward) OnShutdown() error {
 // Close is a synonym for OnShutdown().
 func (f *Forward) Close() { f.OnShutdown() }
 
-func parseForward(c *caddy.Controller) (*Forward, error) {
+func parse(c *caddy.Controller) (*Forward, error) {
 	var (
 		f   *Forward
 		err error
@@ -94,14 +94,14 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		return f, c.ArgErr()
 	}
 
-	toHosts, err := parse.HostPortOrFile(to...)
+	toHosts, err := coreparse.HostPortOrFile(to...)
 	if err != nil {
 		return f, err
 	}
 
 	transports := make([]string, len(toHosts))
 	for i, host := range toHosts {
-		trans, h := parse.Transport(host)
+		trans, h := coreparse.Transport(host)
 		p := NewProxy(h, trans)
 		f.proxies = append(f.proxies, p)
 		transports[i] = trans
@@ -121,7 +121,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		if transports[i] == transport.TLS {
 			f.proxies[i].SetTLSConfig(f.tlsConfig)
 		}
-		f.proxies[i].SetExpire(f.expire)
+		f.proxies[i].expire = f.expire
 	}
 	return f, nil
 }
@@ -177,7 +177,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return c.ArgErr()
 		}
 
-		tlsConfig, err := pkgtls.NewTLSConfigFromArgs(args...)
+		tlsConfig, err := coretls.NewTLSConfigFromArgs(args...)
 		if err != nil {
 			return err
 		}

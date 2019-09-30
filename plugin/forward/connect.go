@@ -43,30 +43,33 @@ func (t *Transport) updateDialTimeout(newDialTime time.Duration) {
 	averageTimeout(&t.avgDialTime, newDialTime, cumulativeAvgWeight)
 }
 
-// Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
-func (t *Transport) Dial(proto string) (*dns.Conn, bool, error) {
+// dial dials the address configured in transport, potentially reusing a connection or creating a new one.
+func (t *Transport) dial(proto string, expire time.Duration) (*persistConn, error) {
 	// If tls has been configured; use it.
 	if t.tlsConfig != nil {
 		proto = "tcp-tls"
 	}
 
-	t.dial <- proto
-	c := <-t.ret
-
-	if c != nil {
-		return c, true, nil
+	pc := t.connection(proto)
+	if pc != nil && time.Since(pc.used) < expire {
+		return pc, nil
 	}
 
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
 	if proto == "tcp-tls" {
 		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
+
 		t.updateDialTimeout(time.Since(reqTime))
-		return conn, false, err
+
+		return &persistConn{conn, time.Now()}, err
 	}
+
 	conn, err := dns.DialTimeout(proto, t.addr, timeout)
+
 	t.updateDialTimeout(time.Since(reqTime))
-	return conn, false, err
+
+	return &persistConn{conn, time.Now()}, err
 }
 
 // Connect selects an upstream, sends the request and waits for a response.
@@ -83,33 +86,33 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 		proto = state.Proto()
 	}
 
-	conn, cached, err := p.transport.Dial(proto)
+	pc, err := p.transport.dial(proto, p.expire)
 	if err != nil {
 		return nil, err
 	}
 
 	// Set buffer size correctly for this client.
-	conn.UDPSize = uint16(state.Size())
-	if conn.UDPSize < 512 {
-		conn.UDPSize = 512
+	pc.c.UDPSize = uint16(state.Size())
+	if pc.c.UDPSize < 512 {
+		pc.c.UDPSize = 512
 	}
 
-	conn.SetWriteDeadline(time.Now().Add(maxTimeout))
-	if err := conn.WriteMsg(state.Req); err != nil {
-		conn.Close() // not giving it back
-		if err == io.EOF && cached {
+	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
+	if err := pc.c.WriteMsg(state.Req); err != nil {
+		pc.c.Close() // not giving it back
+		if err == io.EOF {
 			return nil, ErrCachedClosed
 		}
 		return nil, err
 	}
 
 	var ret *dns.Msg
-	conn.SetReadDeadline(time.Now().Add(readTimeout))
+	pc.c.SetReadDeadline(time.Now().Add(readTimeout))
 	for {
-		ret, err = conn.ReadMsg()
+		ret, err = pc.c.ReadMsg()
 		if err != nil {
-			conn.Close() // not giving it back
-			if err == io.EOF && cached {
+			pc.c.Close() // not giving it back
+			if err == io.EOF {
 				return nil, ErrCachedClosed
 			}
 			return ret, err
@@ -120,7 +123,10 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 		}
 	}
 
-	p.transport.Yield(conn)
+	// If new enough, put it back in the queue.
+	if time.Since(pc.used) < p.expire {
+		p.transport.yieldConnection(pc)
+	}
 
 	rc, ok := dns.RcodeToString[ret.Rcode]
 	if !ok {

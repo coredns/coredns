@@ -35,7 +35,7 @@ func TestProxyClose(t *testing.T) {
 		go func() { p.Connect(ctx, state, options{}) }()
 		go func() { p.Connect(ctx, state, options{forceTCP: true}) }()
 
-		p.close()
+		p.stop()
 	}
 }
 
@@ -49,7 +49,7 @@ func TestProxy(t *testing.T) {
 	defer s.Close()
 
 	c := caddy.NewTestController("dns", "forward . "+s.Addr)
-	f, err := parseForward(c)
+	f, err := parse(c)
 	if err != nil {
 		t.Errorf("Failed to create forwarder: %s", err)
 	}
@@ -79,7 +79,7 @@ func TestProxyTLSFail(t *testing.T) {
 	defer s.Close()
 
 	c := caddy.NewTestController("dns", "forward . tls://"+s.Addr)
-	f, err := parseForward(c)
+	f, err := parse(c)
 	if err != nil {
 		t.Errorf("Failed to create forwarder: %s", err)
 	}
@@ -92,32 +92,5 @@ func TestProxyTLSFail(t *testing.T) {
 
 	if _, err := f.ServeDNS(context.TODO(), rec, m); err == nil {
 		t.Fatal("Expected *not* to receive reply, but got one")
-	}
-}
-
-func TestProtocolSelection(t *testing.T) {
-	p := NewProxy("bad_address", transport.DNS)
-
-	stateUDP := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
-	stateTCP := request.Request{W: &test.ResponseWriter{TCP: true}, Req: new(dns.Msg)}
-	ctx := context.TODO()
-
-	go func() {
-		p.Connect(ctx, stateUDP, options{})
-		p.Connect(ctx, stateUDP, options{forceTCP: true})
-		p.Connect(ctx, stateUDP, options{preferUDP: true})
-		p.Connect(ctx, stateUDP, options{preferUDP: true, forceTCP: true})
-		p.Connect(ctx, stateTCP, options{})
-		p.Connect(ctx, stateTCP, options{forceTCP: true})
-		p.Connect(ctx, stateTCP, options{preferUDP: true})
-		p.Connect(ctx, stateTCP, options{preferUDP: true, forceTCP: true})
-	}()
-
-	for i, exp := range []string{"udp", "tcp", "udp", "tcp", "tcp", "tcp", "udp", "tcp"} {
-		proto := <-p.transport.dial
-		p.transport.ret <- nil
-		if proto != exp {
-			t.Errorf("Unexpected protocol in case %d, expected %q, actual %q", i, exp, proto)
-		}
 	}
 }

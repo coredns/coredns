@@ -2,7 +2,6 @@ package forward
 
 import (
 	"crypto/tls"
-	"runtime"
 	"sync/atomic"
 	"time"
 
@@ -31,9 +30,9 @@ func NewProxy(addr, trans string) *Proxy {
 		fails:     0,
 		probe:     up.New(),
 		transport: newTransport(addr),
+		expire:    defaultExpire,
 	}
 	p.health = NewHealthChecker(trans)
-	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
 }
 
@@ -42,9 +41,6 @@ func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 	p.transport.SetTLSConfig(cfg)
 	p.health.SetTLSConfig(cfg)
 }
-
-// SetExpire sets the expire duration in the lower p.transport.
-func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
 
 // Healthcheck kicks of a round of health checks for this proxy.
 func (p *Proxy) Healthcheck() {
@@ -69,14 +65,10 @@ func (p *Proxy) Down(maxfails uint32) bool {
 }
 
 // close stops the health checking goroutine.
-func (p *Proxy) close()     { p.probe.Stop() }
-func (p *Proxy) finalizer() { p.transport.Stop() }
+func (p *Proxy) stop() { p.probe.Stop() }
 
 // start starts the proxy's healthchecking.
-func (p *Proxy) start(duration time.Duration) {
-	p.probe.Start(duration)
-	p.transport.Start()
-}
+func (p *Proxy) start(duration time.Duration) { p.probe.Start(duration) }
 
 const (
 	maxTimeout = 2 * time.Second
