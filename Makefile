@@ -22,15 +22,15 @@ check: presubmit core/plugin/zplugin.go core/dnsserver/zdirectives.go
 .PHONY: travis
 travis:
 ifeq ($(TEST_TYPE),core)
-	( cd request ;go test -v -race ./... )
-	( cd core ;go test -v -race  ./... )
-	( cd coremain ;go test -v -race ./... )
+	( cd request; go test -race ./... )
+	( cd core; go test -race  ./... )
+	( cd coremain; go test -race ./... )
 endif
 ifeq ($(TEST_TYPE),integration)
-	( cd test ;go test -v -race ./... )
+	( cd test; go test -race ./... )
 endif
 ifeq ($(TEST_TYPE),plugin)
-	( cd plugin ;go test -v -race ./... )
+	( cd plugin; go test -race ./... )
 endif
 ifeq ($(TEST_TYPE),coverage)
 	for d in `go list ./... | grep -v vendor`; do \
