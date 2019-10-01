@@ -133,6 +133,8 @@ const yieldTimeout = 25 * time.Millisecond
 
 // Yield return the connection to transport for reuse.
 func (t *Transport) Yield(pc *persistConn) {
+	pc.used = time.Now() // update used time
+
 	// Make ths non-blocking, because in the case of a very busy forwarder we will *block* on this yield. This
 	// blocks the outer go-routine and stuff will just pile up.  We timeout when the send fails to as returning
 	// these connection is an optimization anyway.
