@@ -16,9 +16,9 @@ type persistConn struct {
 
 // Transport hold the persistent cache.
 type Transport struct {
-	avgDialTime int64             // kind of average time of dial time
-	conns       [3][]*persistConn // Buckets for udp, tcp and tcp-tls.
-	expire      time.Duration     // After this duration a connection is expired.
+	avgDialTime int64                          // kind of average time of dial time
+	conns       [typeTotalCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
+	expire      time.Duration                  // After this duration a connection is expired.
 	addr        string
 	tlsConfig   *tls.Config
 
@@ -31,7 +31,7 @@ type Transport struct {
 func newTransport(addr string) *Transport {
 	t := &Transport{
 		avgDialTime: int64(maxDialTimeout / 2),
-		conns:       [3][]*persistConn{},
+		conns:       [typeTotalCount][]*persistConn{},
 		expire:      defaultExpire,
 		addr:        addr,
 		dial:        make(chan string),

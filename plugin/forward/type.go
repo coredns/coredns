@@ -8,6 +8,7 @@ const (
 	typeUdp transportType = iota
 	typeTcp
 	typeTls
+	typeTotalCount // keep this last
 )
 
 func stringToTransportType(s string) transportType {
