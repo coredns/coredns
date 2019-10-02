@@ -8,11 +8,11 @@ import (
 	"google.golang.org/api/option"
 )
 
-var f = func(ctx context.Context, opt option.ClientOption) (gcpDNS, error) {
-	return fakeGCPClient{}, nil
-}
-
 func TestSetupCloudDNS(t *testing.T) {
+	f = func(ctx context.Context, opt option.ClientOption) (gcpDNS, error) {
+		return fakeGCPClient{}, nil
+	}
+
 	tests := []struct {
 		body          string
 		expectedError bool
