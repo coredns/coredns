@@ -1,4 +1,4 @@
-# bufsise
+# bufsize
 ## Name
 ## Description
 ## Syntax
