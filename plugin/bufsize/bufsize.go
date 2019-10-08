@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -16,7 +15,7 @@ type Bufsize struct {
 
 // ServeDNS implements the plugin.Handler interface.
 func (buf Bufsize) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	state := request.Request{W: w, Req: r}
+	//state := request.Request{W: w, Req: r}
 
 	a := new(dns.Msg)
 	a.SetReply(r)

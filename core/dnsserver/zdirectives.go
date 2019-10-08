@@ -53,4 +53,5 @@ var Directives = []string{
 	"whoami",
 	"on",
 	"sign",
+	"bufsize",
 }
