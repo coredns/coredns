@@ -28,9 +28,16 @@ Additional features can be enabled with this syntax:
 
 ~~~
 trace [ENDPOINT-TYPE] [ENDPOINT] {
-	every AMOUNT
-	service NAME
-	client_server
+    every AMOUNT
+    service NAME
+    client_server
+}
+~~~
+~~~
+trace datadog {
+    every AMOUNT
+    service NAME
+    datadog_analytics_rate RATE
 }
 ~~~
 
@@ -39,6 +46,8 @@ trace [ENDPOINT-TYPE] [ENDPOINT] {
 * `service` **NAME** allows you to specify the service name reported to the tracing server.
   Default is `coredns`.
 * `client_server` will enable the `ClientServerSameSpan` OpenTracing feature.
+* `datadog_analytics_rate` **RATE** will enable [trace analytics](https://docs.datadoghq.com/tracing/app_analytics) on the traces sent
+  from *0* to *1*, *1* being every trace sent will be analyzed. This is a datadog only feature.
 
 ## Zipkin
 You can run Zipkin on a Docker host like this:

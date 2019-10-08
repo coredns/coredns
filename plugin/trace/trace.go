@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
@@ -20,30 +19,33 @@ import (
 	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	"github.com/openzipkin/zipkin-go"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
-	tagName   = "coredns.io/name"
-	tagType   = "coredns.io/type"
-	tagRcode  = "coredns.io/rcode"
-	tagProto  = "coredns.io/proto"
-	tagRemote = "coredns.io/remote"
+	tagName                 = "coredns.io/name"
+	tagType                 = "coredns.io/type"
+	tagRcode                = "coredns.io/rcode"
+	tagProto                = "coredns.io/proto"
+	tagRemote               = "coredns.io/remote"
+	defaultTopLevelSpanName = "servedns"
 )
 
 type trace struct {
 	count uint64 // as per Go spec, needs to be first element in a struct
 
-	Next            plugin.Handler
-	Endpoint        string
-	EndpointType    string
-	tracer          ot.Tracer
-	serviceEndpoint string
-	serviceName     string
-	clientServer    bool
-	every           uint64
-	Once            sync.Once
+	Next                 plugin.Handler
+	Endpoint             string
+	EndpointType         string
+	tracer               ot.Tracer
+	serviceEndpoint      string
+	serviceName          string
+	clientServer         bool
+	every                uint64
+	datadogAnalyticsRate float64
+	Once                 sync.Once
 }
 
 func (t *trace) Tracer() ot.Tracer {
@@ -58,7 +60,13 @@ func (t *trace) OnStartup() error {
 		case "zipkin":
 			err = t.setupZipkin()
 		case "datadog":
-			tracer := opentracer.New(tracer.WithAgentAddr(t.Endpoint), tracer.WithServiceName(t.serviceName), tracer.WithDebugMode(log.D.Value()))
+			tracer := opentracer.New(
+				tracer.WithAgentAddr(t.Endpoint),
+				tracer.WithDebugMode(log.D.Value()),
+				tracer.WithGlobalTag(ext.SpanTypeDNS, true),
+				tracer.WithServiceName(t.serviceName),
+				tracer.WithAnalyticsRate(t.datadogAnalyticsRate),
+			)
 			t.tracer = tracer
 		default:
 			err = fmt.Errorf("unknown endpoint type: %s", t.EndpointType)
@@ -73,7 +81,10 @@ func (t *trace) setupZipkin() error {
 	if err != nil {
 		log.Warningf("build Zipkin endpoint found err: %v", err)
 	}
-	tracer, err := zipkin.NewTracer(reporter, zipkin.WithLocalEndpoint(recorder))
+	tracer, err := zipkin.NewTracer(
+		reporter,
+		zipkin.WithLocalEndpoint(recorder),
+	)
 	if err != nil {
 		return err
 	}
@@ -100,7 +111,7 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	}
 
 	req := request.Request{W: w, Req: r}
-	span = t.Tracer().StartSpan(spanName(ctx, req))
+	span = t.Tracer().StartSpan(defaultTopLevelSpanName)
 	defer span.Finish()
 
 	rw := dnstest.NewRecorder(w)
@@ -114,8 +125,4 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	span.SetTag(tagRcode, rcode.ToString(rw.Rcode))
 
 	return status, err
-}
-
-func spanName(ctx context.Context, req request.Request) string {
-	return "servedns:" + metrics.WithServer(ctx) + " " + req.Name()
 }

@@ -22,6 +22,7 @@ func TestTraceParse(t *testing.T) {
 		{`trace zipkin localhost:1234`, false, "http://localhost:1234/api/v1/spans", 1, `coredns`, false},
 		{`trace datadog localhost`, false, "localhost", 1, `coredns`, false},
 		{`trace datadog http://localhost:8127`, false, "http://localhost:8127", 1, `coredns`, false},
+		{"trace datadog localhost {\n datadog_analytics_rate 0.1\n}", false, "localhost", 1, `coredns`, false},
 		{"trace {\n every 100\n}", false, "http://localhost:9411/api/v1/spans", 100, `coredns`, false},
 		{"trace {\n every 100\n service foobar\nclient_server\n}", false, "http://localhost:9411/api/v1/spans", 100, `foobar`, true},
 		{"trace {\n every 2\n client_server true\n}", false, "http://localhost:9411/api/v1/spans", 2, `coredns`, true},
@@ -29,6 +30,7 @@ func TestTraceParse(t *testing.T) {
 		// fails
 		{`trace footype localhost:4321`, true, "", 1, "", false},
 		{"trace {\n every 2\n client_server junk\n}", true, "", 1, "", false},
+		{"trace datadog localhost {\n datadog_analytics_rate 2\n}", true, "", 1, "", false},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)

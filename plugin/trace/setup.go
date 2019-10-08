@@ -83,6 +83,21 @@ func traceParse(c *caddy.Controller) (*trace, error) {
 				if err != nil {
 					return nil, err
 				}
+			case "datadog_analytics_rate":
+				args := c.RemainingArgs()
+				if len(args) > 1 {
+					return nil, c.ArgErr()
+				}
+				tr.datadogAnalyticsRate = 0
+				if len(args) == 1 {
+					tr.datadogAnalyticsRate,err = strconv.ParseFloat(args[0], 64)
+				}
+				if err != nil {
+					return nil, err
+				}
+				if tr.datadogAnalyticsRate > 1 || tr.datadogAnalyticsRate < 0 {
+					return nil,fmt.Errorf("datadog analytics rate must be between 0 and 1, '%f' is not supported", tr.datadogAnalyticsRate )
+				}
 			}
 		}
 	}
