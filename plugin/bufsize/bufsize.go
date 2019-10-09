@@ -16,13 +16,9 @@ type Bufsize struct {
 // ServeDNS implements the plugin.Handler interface.
 func (buf Bufsize) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	//state := request.Request{W: w, Req: r}
-
 	a := new(dns.Msg)
-	a.SetReply(r)
-	a.Authoritative = true
-
+	a.Truncate(buf.Size)
 	w.WriteMsg(a)
-
 	return 0, nil
 }
 

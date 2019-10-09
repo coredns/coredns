@@ -38,8 +38,9 @@ func bufsizeParse(c *caddy.Controller) (int, error) {
 		fmt.Println(err)
 		os.Exit(2)
 	}
-	if bufsize < 100 || bufsize > 4096 {
-		fmt.Println("bufsize must be within 100 - 4096")
+	// RFC 6891
+	if bufsize < 512 || bufsize > 4096 {
+		fmt.Println("bufsize must be within 512 - 4096")
 		os.Exit(2)
 	}
 	bufsize = i
