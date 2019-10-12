@@ -42,6 +42,7 @@ var Directives = []string{
 	"federation",
 	"k8s_external",
 	"kubernetes",
+	"eureka",
 	"file",
 	"auto",
 	"secondary",
