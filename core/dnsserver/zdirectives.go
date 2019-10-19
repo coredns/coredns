@@ -15,6 +15,7 @@ var Directives = []string{
 	"tls",
 	"reload",
 	"nsid",
+	"bufsize",
 	"root",
 	"bind",
 	"debug",
@@ -53,5 +54,4 @@ var Directives = []string{
 	"whoami",
 	"on",
 	"sign",
-	"bufsize",
 }

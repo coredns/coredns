@@ -19,8 +19,12 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("bufsize", err)
 	}
 
+	fmt.Printf("c: %v \n", c)
+	fmt.Printf("bufsize - dnsserver.GetConfig(c): %v \n", dnsserver.GetConfig(c))
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return Bufsize{Next: next, Size: bufsize}
+
+		return Bufsize{Size: bufsize}
+		//return Bufsize{Next: next, Size: bufsize}
 	})
 
 	return nil
@@ -44,6 +48,6 @@ func bufsizeParse(c *caddy.Controller) (int, error) {
 		os.Exit(2)
 	}
 	bufsize = i
-
+	//fmt.Println("bufsize: ", bufsize)
 	return bufsize, nil
 }
