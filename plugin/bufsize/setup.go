@@ -2,7 +2,6 @@ package bufsize
 
 import (
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/coredns/coredns/core/dnsserver"
@@ -27,23 +26,32 @@ func setup(c *caddy.Controller) error {
 }
 
 func bufsizeParse(c *caddy.Controller) (int, error) {
-	// Use 512 byte as the default
-	bufsize := 512
-	args := c.RemainingArgs()
 
-	i, err := strconv.Atoi(args[1])
-	if err != nil {
-		// handle error
-		fmt.Println("Invalid argument in bufsize")
-		fmt.Println(err)
-		os.Exit(2)
+	for c.Next() {
+		args := c.RemainingArgs()
+		switch len(args) {
+		case 0:
+			// Nothing specified; use 512 as default
+			bufsize := 512
+			return bufsize, nil
+		case 1:
+			// Specified value is needed to verify
+			bufsize, err := strconv.Atoi(args[0])
+			if err != nil {
+				fmt.Println("Invalid argument in bufsize")
+				return -1, c.ArgErr()
+			}
+			// Follows RFC 6891
+			if bufsize < 512 || bufsize > 4096 {
+				fmt.Println("bufsize must be within 512 - 4096")
+				return -1, c.ArgErr()
+			}
+			return bufsize, nil
+		default:
+			// Only 1 argument is acceptable
+			fmt.Println("bufsize accepts only 1 argument")
+			return -1, c.ArgErr()
+		}
 	}
-	// RFC 6891
-	if bufsize < 512 || bufsize > 4096 {
-		fmt.Println("bufsize must be within 512 - 4096")
-		os.Exit(2)
-	}
-	bufsize = i
-
-	return bufsize, nil
+	return -1, c.ArgErr()
 }
