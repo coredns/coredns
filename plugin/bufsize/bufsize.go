@@ -18,6 +18,9 @@ type Bufsize struct {
 func (buf Bufsize) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if option := r.IsEdns0(); option != nil {
 		option.SetUDPSize(uint16(buf.Size))
+	} else {
+		// If a client does not use EDNS, add it
+		r.SetEdns0(uint16(buf.Size), false)
 	}
 
 	return plugin.NextOrFailure(buf.Name(), buf.Next, ctx, w, r)
