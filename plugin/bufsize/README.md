@@ -25,8 +25,8 @@ example.org {
 ```
 
 ## Considerations
-For now, if a client does not use EDNS, this plugin would add OPT RR.  
-This behavior respects the following description on RFC 6891.
+For now, if a client does not use EDNS, this plugin adds OPT RR.  
+This behavior respect the following description on RFC 6891.
 
 https://tools.ietf.org/html/rfc6891#section-6.1.1
 > The OPT RR MAY be placed anywhere within the additional data section.

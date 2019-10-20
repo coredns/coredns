@@ -26,7 +26,6 @@ func setup(c *caddy.Controller) error {
 }
 
 func bufsizeParse(c *caddy.Controller) (int, error) {
-
 	for c.Next() {
 		args := c.RemainingArgs()
 		switch len(args) {
