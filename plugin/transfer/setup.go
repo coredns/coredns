@@ -37,6 +37,10 @@ func setup(c *caddy.Controller) error {
 				continue
 			}
 			t.Transferers = append(t.Transferers, tr)
+			ch := tr.Notify()
+			if ch != nil {
+				go t.Notify(ch)
+			}
 		}
 		return nil
 	})
