@@ -54,12 +54,20 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 		if len(zones) != 0 {
 			x.Zones = zones
 			for i := 0; i < len(x.Zones); i++ {
-				x.Zones[i] = plugin.Host(x.Zones[i]).Normalize()
+				nzone, err := plugin.Host(x.Zones[i]).MustNormalize()
+				if err != nil {
+					return nil, err
+				}
+				x.Zones[i] = nzone
 			}
 		} else {
 			x.Zones = make([]string, len(c.ServerBlockKeys))
 			for i := 0; i < len(c.ServerBlockKeys); i++ {
-				x.Zones[i] = plugin.Host(c.ServerBlockKeys[i]).Normalize()
+				nzone, err := plugin.Host(c.ServerBlockKeys[i]).MustNormalize()
+				if err != nil {
+					return nil, err
+				}
+				x.Zones[i] = nzone
 			}
 		}
 
