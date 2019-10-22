@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/coredns/coredns/plugin"
@@ -163,9 +164,13 @@ func (x xfr) allowed(state request.Request) bool {
 		if h == "*" {
 			return true
 		}
+		to, _, err := net.SplitHostPort(h)
+		if err != nil {
+			return false
+		}
 		// If remote IP matches we accept.
 		remote := state.IP()
-		if h == remote {
+		if to == remote {
 			return true
 		}
 	}

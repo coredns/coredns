@@ -1,10 +1,10 @@
 package transfer
 
 import (
-	"net"
-
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	parsepkg "github.com/coredns/coredns/plugin/pkg/parse"
+	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/caddyserver/caddy"
 )
@@ -71,7 +71,6 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 			}
 		}
 
-	block:
 		for c.NextBlock() {
 			switch c.Val() {
 			case "to":
@@ -81,14 +80,14 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 				}
 				for _, host := range args {
 					if host == "*" {
-						x.to = []string{"*"}
-						continue block
+						x.to = append(x.to, host)
+						continue
 					}
-					ip := net.ParseIP(host)
-					if ip == nil {
-						return nil, plugin.Error("transfer", c.Errf("non-ip '%s' found in 'to'", c.Val()))
+					normalized, err := parsepkg.HostPort(host, transport.Port)
+					if err != nil {
+						return nil, err
 					}
-					x.to = append(x.to, host)
+					x.to = append(x.to, normalized)
 				}
 			default:
 				return nil, plugin.Error("transfer", c.Errf("unknown property '%s'", c.Val()))
