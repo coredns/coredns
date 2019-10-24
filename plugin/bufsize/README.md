@@ -13,7 +13,7 @@ bufsize [SIZE]
 
 **[SIZE]** is an int value for setting the buffer size.  
 The default value is 512, and the value must be within 512 - 4096.  
-Only one argument is acceptable.
+Only one argument is acceptable
 
 ## Examples
 ```text
