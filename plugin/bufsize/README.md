@@ -4,7 +4,7 @@
 
 ## Description
 *bufsize* can limit requester's UDP payload size.  
-It prevents fragmentation so that be ready for the DNS Flag Day 2020 and deal with DNS vulnerability.
+It prevents fragmentation so that to be ready for the DNS Flag Day 2020 and to deal with DNS vulnerability.
 
 ## Syntax
 ```text
@@ -13,7 +13,7 @@ bufsize [SIZE]
 
 **[SIZE]** is an int value for setting the buffer size.  
 The default value is 512, and the value must be within 512 - 4096.  
-Only one argument is acceptable.
+Only one argument is acceptable
 
 ## Examples
 ```text
