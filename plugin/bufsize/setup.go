@@ -37,20 +37,20 @@ func bufsizeParse(c *caddy.Controller) (int, error) {
 			// Specified value is needed to verify
 			bufsize, err := strconv.Atoi(args[0])
 			if err != nil {
-				fmt.Println("Invalid argument in bufsize")
-				return -1, c.ArgErr()
+				fmt.Println("Invalid argument in bufsize.")
+				return -1, plugin.Error("bufsize", c.ArgErr())
 			}
 			// Follows RFC 6891
 			if bufsize < 512 || bufsize > 4096 {
-				fmt.Println("bufsize must be within 512 - 4096")
-				return -1, c.ArgErr()
+				fmt.Println("bufsize must be within 512 - 4096.")
+				return -1, plugin.Error("bufsize", c.ArgErr())
 			}
 			return bufsize, nil
 		default:
 			// Only 1 argument is acceptable
-			fmt.Println("bufsize accepts only 1 argument")
-			return -1, c.ArgErr()
+			fmt.Println("bufsize accepts only 1 argument.")
+			return -1, plugin.Error("bufsize", c.ArgErr())
 		}
 	}
-	return -1, c.ArgErr()
+	return -1, plugin.Error("bufsize", c.ArgErr())
 }
