@@ -16,7 +16,7 @@ func TestSetupBufsize(t *testing.T) {
 	}{
 		{`bufsize`, false, 512, ""},
 		{`bufsize "1232"`, false, 1232, ""},
-		{`bufsize "5000"`, true, -1, ""},
+		{`bufsize "5000"`, true, -1, "plugin"},
 		{`bufsize "512 512"`, true, -1, "plugin"},
 		{`bufsize "abc123"`, true, -1, "plugin"},
 	}
@@ -31,7 +31,7 @@ func TestSetupBufsize(t *testing.T) {
 
 		if err != nil {
 			if !test.shouldErr {
-				t.Errorf("Test %d: Expected no error but found one for input %s. Error was: %v", i, test.input, err)
+				t.Errorf("Test %d: Error found for input %s. Error: %v", i, test.input, err)
 			}
 
 			if !strings.Contains(err.Error(), test.expectedErrContent) {
@@ -40,7 +40,7 @@ func TestSetupBufsize(t *testing.T) {
 		}
 
 		if !test.shouldErr && bufsize != test.expectedData {
-			t.Errorf("Bufsize not correctly set for input %s. Expected: %d, actual: %d", test.input, test.expectedData, bufsize)
+			t.Errorf("bufsize not correctly set for input %s. Expected: %d, actual: %d", test.input, test.expectedData, bufsize)
 		}
 	}
 }

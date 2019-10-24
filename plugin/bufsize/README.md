@@ -1,6 +1,6 @@
 # bufsize
 ## Name
-*bufsize* - modifying EDNS0 buffer size for the flag day and protecting by vulnerability of IP flagmentation.
+*bufsize* - modifies EDNS0 buffer size for protecting answers from vulnerability of IP flagmentation.
 
 ## Description
 *bufsize* can limit requester's UDP payload size.  
