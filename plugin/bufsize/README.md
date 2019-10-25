@@ -4,7 +4,7 @@
 
 ## Description
 *bufsize* can limit requester's UDP payload size.  
-It prevents fragmentation so that to be ready for the DNS Flag Day 2020 and to deal with DNS vulnerability.
+It prevents IP fragmentation so that to be ready for the DNS Flag Day 2020 and to deal with DNS vulnerability.
 
 ## Syntax
 ```text
