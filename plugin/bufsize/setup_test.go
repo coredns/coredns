@@ -40,7 +40,7 @@ func TestSetupBufsize(t *testing.T) {
 		}
 
 		if !test.shouldErr && bufsize != test.expectedData {
-			t.Errorf("Bufsize not correctly set for input %s. Expected: %d, actual: %d", test.input, test.expectedData, bufsize)
+			t.Errorf("Test %d: Bufsize not correctly set for input %s. Expected: %d, actual: %d", i, test.input, test.expectedData, bufsize)
 		}
 	}
 }
