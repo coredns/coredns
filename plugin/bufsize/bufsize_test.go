@@ -63,8 +63,9 @@ func TestBufsize(t *testing.T) {
 					if b != tc.outgoingBufsize {
 						t.Errorf("Test %d: Expected outgoing bufsize is %d, but got %d", i, tc.outgoingBufsize, b)
 					}
+				} else {
+					t.Errorf("Test %d: Not found OPT RR.", i)
 				}
-				t.Errorf("Test %d: Not found OPT RR.", i)
 			}
 		}
 	}
