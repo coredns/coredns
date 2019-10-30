@@ -38,9 +38,9 @@ type Transferer interface {
 	// in the zone to the channel. The SOA should be written to the channel first, followed
 	// by all other records, including all NS + glue records.
 	//
-	// If serial is not 0, handle as an IXFR request. If the serial is >
+	// If serial is not 0, handle as an IXFR request. If the serial is equal to or greater (newer) than
 	// the current serial for the zone, send a single SOA record to the channel.
-	// If the serial is >= the current serial for the zone, perform an AXFR fallback
+	// If the serial is less (older) than the current serial for the zone, perform an AXFR fallback
 	// by proceeding as if an AXFR was requested (as above).
 	Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 }
