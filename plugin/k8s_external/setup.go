@@ -26,6 +26,8 @@ func setup(c *caddy.Controller) error {
 		if x, ok := m.(Externaler); ok {
 			e.externalFunc = x.External
 			e.externalAddrFunc = x.ExternalAddress
+			e.externalServicesFunc = x.ExternalServices
+			e.externalSerialFunc = x.ExternalSerial
 		}
 		return nil
 	})

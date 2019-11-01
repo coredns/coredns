@@ -24,7 +24,8 @@ func TestExternal(t *testing.T) {
 	e.Zones = []string{"example.com."}
 	e.Next = test.NextHandler(dns.RcodeSuccess, nil)
 	e.externalFunc = k.External
-	e.externalAddrFunc = externalAddress // internal test function
+	e.externalAddrFunc = externalAddress  // internal test function
+	e.externalSerialFunc = externalSerial // internal test function
 
 	ctx := context.TODO()
 	for i, tc := range tests {
@@ -157,6 +158,7 @@ func (external) Stop() error                                  { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints    { return nil }
 func (external) SvcIndexReverse(string) []*object.Service     { return nil }
 func (external) Modified() int64                              { return 0 }
+func (external) ExtModified() int64                           { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints         { return nil }
 func (external) EndpointsList() []*object.Endpoints           { return nil }
 func (external) GetNodeByName(name string) (*api.Node, error) { return nil, nil }
@@ -205,4 +207,8 @@ func (external) ServiceList() []*object.Service {
 func externalAddress(state request.Request) []dns.RR {
 	a := test.A("example.org. IN A 127.0.0.1")
 	return []dns.RR{a}
+}
+
+func externalSerial(string) uint32 {
+	return 1499347823
 }

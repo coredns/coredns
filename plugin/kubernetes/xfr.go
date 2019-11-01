@@ -22,7 +22,7 @@ func (k *Kubernetes) Serial(state request.Request) uint32 { return uint32(k.APIC
 // MinTTL implements the Transferer interface.
 func (k *Kubernetes) MinTTL(state request.Request) uint32 { return k.ttl }
 
-// Transfer implements the Transferer interface.
+// Transfer handles zone transfer requests
 func (k *Kubernetes) Transfer(ctx context.Context, state request.Request) (int, error) {
 
 	if !k.transferAllowed(state) {

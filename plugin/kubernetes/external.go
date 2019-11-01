@@ -87,8 +87,30 @@ func (k *Kubernetes) External(state request.Request) ([]msg.Service, int) {
 func (k *Kubernetes) ExternalAddress(state request.Request) []dns.RR {
 	// If CoreDNS is running inside the Kubernetes cluster: k.nsAddrs() will return the external IPs of the services
 	// targeting the CoreDNS Pod.
-	// If CoreDNS is running outside of the Kubernetes cluster: k.nsAddrs() will return the first non-loopback IP
-	// address seen on the local system it is running on. This could be the wrong answer if coredns is using the *bind*
-	// plugin to bind to a different IP address.
+	// If CoreDNS is running outside of the Kubernetes cluster: k.nsAddrs() will return the non-loopback IPs
+	// that CoreDNS is listening on.
 	return k.nsAddrs(true, state.Zone)
+}
+
+// ExternalServices returns all services with external IPs
+func (k *Kubernetes) ExternalServices(zone string) (services []msg.Service) {
+	zonePath := msg.Path(zone, coredns)
+	for _, svc := range k.APIConn.ServiceList() {
+		for _, ip := range svc.ExternalIPs {
+			for _, p := range svc.Ports {
+				s := msg.Service{Host: ip, Port: int(p.Port), TTL: k.ttl}
+				s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
+				services = append(services, s)
+				s.Key = strings.Join(append([]string{zonePath, svc.Namespace, svc.Name}, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+string(p.Name))), "/")
+				s.TargetStrip = 2
+				services = append(services, s)
+			}
+		}
+	}
+	return services
+}
+
+//ExternalSerial returns the serial of the external zone
+func (k *Kubernetes) ExternalSerial(string) uint32 {
+	return uint32(k.APIConn.ExtModified())
 }

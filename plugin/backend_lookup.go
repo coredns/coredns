@@ -404,7 +404,7 @@ func SOA(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 
 	header := dns.RR_Header{Name: zone, Rrtype: dns.TypeSOA, Ttl: ttl, Class: dns.ClassINET}
 
-	Mbox := hostmaster + "."
+	Mbox := hostmaster + ".dns"
 	Ns := "ns.dns."
 	if zone[0] != '.' {
 		Mbox += zone

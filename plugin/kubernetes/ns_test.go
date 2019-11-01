@@ -20,6 +20,7 @@ func (APIConnTest) SvcIndexReverse(string) []*object.Service { return nil }
 func (APIConnTest) EpIndex(string) []*object.Endpoints       { return nil }
 func (APIConnTest) EndpointsList() []*object.Endpoints       { return nil }
 func (APIConnTest) Modified() int64                          { return 0 }
+func (APIConnTest) ExtModified() int64                       { return 0 }
 
 func (a APIConnTest) SvcIndex(s string) []*object.Service {
 	switch s {

@@ -28,9 +28,13 @@ type Externaler interface {
 	External(request.Request) ([]msg.Service, int)
 	// ExternalAddress should return a string slice of addresses for the nameserving endpoint.
 	ExternalAddress(state request.Request) []dns.RR
+	// ExternalServices returns all services in a slice of msg.Service.
+	ExternalServices(string) []msg.Service
+	// ExternalSerial gets the current serial.
+	ExternalSerial(string) uint32
 }
 
-// External resolves Ingress and Loadbalance IPs from kubernetes clusters.
+// External resolves External IPs and Loadbalance IPs from kubernetes clusters.
 type External struct {
 	Next  plugin.Handler
 	Zones []string
@@ -39,8 +43,10 @@ type External struct {
 	apex       string
 	ttl        uint32
 
-	externalFunc     func(request.Request) ([]msg.Service, int)
-	externalAddrFunc func(request.Request) []dns.RR
+	externalFunc         func(request.Request) ([]msg.Service, int)
+	externalAddrFunc     func(request.Request) []dns.RR
+	externalSerialFunc   func(string) uint32
+	externalServicesFunc func(string) []msg.Service
 }
 
 // New returns a new and initialized *External.

@@ -83,6 +83,20 @@ spec:
  type: ClusterIP
 ~~~
 
+## Zone Transfers
+
+The *k8s_external* plugin can be used in conjunction with the *transfer* plugin to enable
+zone transfers.
+
+~~~
+    . {
+        transfer example.org {
+            to *
+        }
+        kubernetes cluster.local
+        k8s_external example.org
+    }
+~~~
 
 # Also See
 

@@ -23,6 +23,7 @@ func (APIConnReverseTest) EpIndex(string) []*object.Endpoints { return nil }
 func (APIConnReverseTest) EndpointsList() []*object.Endpoints { return nil }
 func (APIConnReverseTest) ServiceList() []*object.Service     { return nil }
 func (APIConnReverseTest) Modified() int64                    { return 0 }
+func (APIConnReverseTest) ExtModified() int64                 { return 0 }
 
 func (APIConnReverseTest) SvcIndex(svc string) []*object.Service {
 	if svc != "svc1.testns" {

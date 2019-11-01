@@ -84,6 +84,7 @@ func (external) Stop() error                                  { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints    { return nil }
 func (external) SvcIndexReverse(string) []*object.Service     { return nil }
 func (external) Modified() int64                              { return 0 }
+func (external) ExtModified() int64                           { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints         { return nil }
 func (external) EndpointsList() []*object.Endpoints           { return nil }
 func (external) GetNodeByName(name string) (*api.Node, error) { return nil, nil }

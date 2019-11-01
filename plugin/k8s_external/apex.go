@@ -93,7 +93,7 @@ func (e *External) soa(state request.Request) *dns.SOA {
 	soa := &dns.SOA{Hdr: header,
 		Mbox:    dnsutil.Join(e.hostmaster, e.apex, state.Zone),
 		Ns:      dnsutil.Join("ns1", e.apex, state.Zone),
-		Serial:  12345, // Also dynamic?
+		Serial:  e.externalSerialFunc(state.Zone),
 		Refresh: 7200,
 		Retry:   1800,
 		Expire:  86400,
