@@ -43,7 +43,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	case dns.TypeMX:
 		records, extra, err = plugin.MX(ctx, &k, zone, state, plugin.Options{})
 	case dns.TypeSRV:
-		records, extra, err = plugin.SRV(ctx, &k, zone, state, plugin.Options{})
+		records, extra, err = plugin.SingleSRV(ctx, &k, zone, state, plugin.Options{})
 	case dns.TypeSOA:
 		records, err = plugin.SOA(ctx, &k, zone, state, plugin.Options{})
 	case dns.TypeNS:

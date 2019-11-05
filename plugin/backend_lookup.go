@@ -242,6 +242,64 @@ func SRV(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 	return records, extra, nil
 }
 
+//SingleSRV is used by k8s to retrieve a single SRV record
+func SingleSRV(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) (records, extra []dns.RR, err error) {
+	services, err := b.Services(ctx, state, false, opt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, serv := range services {
+		w1 := float64(1)
+		if serv.Weight == 0 {
+			w1 *= 100
+		} else {
+			w1 *= float64(serv.Weight)
+		}
+		weight := uint16(math.Floor(w1))
+		what, ip := serv.HostType()
+
+		switch what {
+		case dns.TypeCNAME:
+			srv := serv.NewSRV(state.QName(), weight)
+			records = append(records, srv)
+
+			if !dns.IsSubDomain(zone, srv.Target) {
+				m1, e1 := b.Lookup(ctx, state, srv.Target, dns.TypeA)
+				if e1 == nil {
+					extra = append(extra, m1.Answer...)
+				}
+
+				m1, e1 = b.Lookup(ctx, state, srv.Target, dns.TypeAAAA)
+				if e1 == nil {
+					// If we have seen CNAME's we *assume* that they are already added.
+					for _, a := range m1.Answer {
+						if _, ok := a.(*dns.CNAME); !ok {
+							extra = append(extra, a)
+						}
+					}
+				}
+			}
+			// Internal name, we should have some info on them, either v4 or v6
+			// Clients expect a complete answer, because we are a recursor in their view.
+			state1 := state.NewWithQuestion(srv.Target, dns.TypeA)
+			addr, e1 := A(ctx, b, zone, state1, nil, opt)
+			if e1 == nil {
+				extra = append(extra, addr...)
+			}
+			// TODO(miek): AAAA as well here.
+
+		case dns.TypeA, dns.TypeAAAA:
+			serv.Host = msg.Domain(serv.Key)
+			srv := serv.NewSRV(state.QName(), weight)
+
+			records = append(records, srv)
+			extra = append(extra, newAddress(serv, srv.Target, ip, what))
+		}
+	}
+	return records, extra, nil
+}
+
 // MX returns MX records from the Backend. If the Target is not a name but an IP address, a name is created on the fly.
 func MX(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) (records, extra []dns.RR, err error) {
 	services, err := b.Services(ctx, state, false, opt)
