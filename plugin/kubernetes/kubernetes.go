@@ -165,6 +165,12 @@ func (k *Kubernetes) IsNameError(err error) bool {
 	return err == errNoItems || err == errNsNotExposed || err == errInvalidRequest
 }
 
+// Serial implements the ServiceBackend interface.
+func (k *Kubernetes) Serial(state request.Request) uint32 { return uint32(k.APIConn.Modified()) }
+
+// MinTTL implements the ServiceBackend interface.
+func (k *Kubernetes) MinTTL(state request.Request) uint32 { return k.ttl }
+
 func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 	if k.ClientConfig != nil {
 		return k.ClientConfig.ClientConfig()

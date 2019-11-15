@@ -95,6 +95,7 @@ kubernetes [ZONES...] {
   plain addresses. The special wildcard `*` means: the entire internet.
   Sending DNS notifies is not supported.
   [Deprecated](https://github.com/kubernetes/dns/blob/master/docs/specification.md#26---deprecated-records) pod records in the subdomain `pod.cluster.local` are not transferred.
+  NOTE: This `transfer` option is deprecated in favor of the *transfer* plugin, see section below.
 * `fallthrough` **[ZONES...]** If a query for a record in the zones for which the plugin is authoritative
   results in NXDOMAIN, normally that is what the response will be. However, if you specify this option,
   the query will instead be passed on down the plugin chain, which can include another plugin to handle
@@ -180,6 +181,20 @@ be set to `verified` for this to function properly.
         kubernetes {
             pods verified
         }
+    }
+
+## Zone Transfers
+
+The *kubernetes* plugin can be used in conjunction with the *transfer* plugin to enable
+zone transfers.
+
+[Deprecated](https://github.com/kubernetes/dns/blob/master/docs/specification.md#26---deprecated-records) Pod records in the subdomain `pod.cluster.local` are not transferred.
+
+    cluster.local {
+        transfer {
+            to *
+        }
+        kubernetes
     }
 
 ## Wildcards

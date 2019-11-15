@@ -66,6 +66,16 @@ func (e *Etcd) IsNameError(err error) bool {
 	return err == errKeyNotFound
 }
 
+// Serial implements the ServiceBackend interface.
+func (e *Etcd) Serial(state request.Request) uint32 {
+	return uint32(time.Now().Unix())
+}
+
+// MinTTL implements the ServiceBackend interface.
+func (e *Etcd) MinTTL(state request.Request) uint32 {
+	return 30
+}
+
 // Records looks up records in etcd. If exact is true, it will lookup just this
 // name. This is used when find matches when completing SRV lookups for instance.
 func (e *Etcd) Records(ctx context.Context, state request.Request, exact bool) ([]msg.Service, error) {
