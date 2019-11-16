@@ -3,6 +3,7 @@
 package pprof
 
 import (
+	reuse "github.com/libp2p/go-reuseport"
 	"net"
 	"net/http"
 	pp "net/http/pprof"
@@ -17,7 +18,10 @@ type handler struct {
 }
 
 func (h *handler) Startup() error {
-	ln, err := net.Listen("tcp", h.addr)
+	// Reloading the plugin without changing the listening address results
+	// in an error unless we reuse the port because Startup is called for
+	// new handlers before Shutdown is called for the old ones.
+	ln, err := reuse.Listen("tcp", h.addr)
 	if err != nil {
 		log.Errorf("Failed to start pprof handler: %s", err)
 		return err
