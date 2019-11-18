@@ -180,10 +180,10 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 			case "serve_expired":
 				args := c.RemainingArgs()
 				if len(args) != 1 && len(args) != 2 {
-					return nil, c.ArgErr()
+					return nil, errors.New("syntax is: serve_expired (yes|no) [<duration>]")
 				}
 				if args[0] != "yes" && args[0] != "no" {
-					return nil, c.ArgErr()
+					return nil, errors.New("syntax is: serve_expired (yes|no) [<duration>]")
 				}
 				ca.serveExpired = args[0] == "yes"
 				ca.expiredUpTo = time.Duration(1 * time.Hour) // default 1h

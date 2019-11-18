@@ -9,72 +9,101 @@ import (
 
 func TestSetup(t *testing.T) {
 	tests := []struct {
-		input            string
-		shouldErr        bool
-		expectedNcap     int
-		expectedPcap     int
-		expectedNttl     time.Duration
-		expectedMinNttl  time.Duration
-		expectedPttl     time.Duration
-		expectedMinPttl  time.Duration
-		expectedPrefetch int
+		input                string
+		shouldErr            bool
+		expectedNcap         int
+		expectedPcap         int
+		expectedNttl         time.Duration
+		expectedMinNttl      time.Duration
+		expectedPttl         time.Duration
+		expectedMinPttl      time.Duration
+		expectedPrefetch     int
+		expectedServeExpired bool
+		expectedExpiredUpTo  time.Duration
 	}{
-		{`cache`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0},
-		{`cache {}`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0},
+		{`cache`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
+		{`cache {}`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache example.nl {
 				success 10
-			}`, false, defaultCap, 10, maxNTTL, minNTTL, maxTTL, minTTL, 0},
+			}`, false, defaultCap, 10, maxNTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache example.nl {
 				success 10 1800 30
-			}`, false, defaultCap, 10, maxNTTL, minNTTL, 1800 * time.Second, 30 * time.Second, 0},
+			}`, false, defaultCap, 10, maxNTTL, minNTTL, 1800 * time.Second, 30 * time.Second, 0, false, 0},
 		{`cache example.nl {
 				success 10
 				denial 10 15
-			}`, false, 10, 10, 15 * time.Second, minNTTL, maxTTL, minTTL, 0},
+			}`, false, 10, 10, 15 * time.Second, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache example.nl {
 				success 10
 				denial 10 15 2
-			}`, false, 10, 10, 15 * time.Second, 2 * time.Second, maxTTL, minTTL, 0},
+			}`, false, 10, 10, 15 * time.Second, 2 * time.Second, maxTTL, minTTL, 0, false, 0},
 		{`cache 25 example.nl {
 				success 10
 				denial 10 15
-			}`, false, 10, 10, 15 * time.Second, minNTTL, 25 * time.Second, minTTL, 0},
+			}`, false, 10, 10, 15 * time.Second, minNTTL, 25 * time.Second, minTTL, 0, false, 0},
 		{`cache 25 example.nl {
 				success 10
 				denial 10 15 5
-			}`, false, 10, 10, 15 * time.Second, 5 * time.Second, 25 * time.Second, minTTL, 0},
-		{`cache aaa example.nl`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0},
+			}`, false, 10, 10, 15 * time.Second, 5 * time.Second, 25 * time.Second, minTTL, 0, false, 0},
+		{`cache aaa example.nl`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache	{
 				prefetch 10
-			}`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 10},
+			}`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 10, false, 0},
+		{`cache	{
+				serve_expired no
+			}`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0, false, 1 * time.Hour},
+		{`cache	{
+				serve_expired no 35m
+			}`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0, false, 35 * time.Minute},
+		{`cache	{
+				serve_expired yes
+			}`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0, true, 1 * time.Hour},
+		{`cache	{
+				serve_expired yes 20m
+			}`, false, defaultCap, defaultCap, maxNTTL, minNTTL, maxTTL, minTTL, 0, true, 20 * time.Minute},
 
 		// fails
 		{`cache example.nl {
 				success
 				denial 10 15
-			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache example.nl {
 				success 15
 				denial aaa
-			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache example.nl {
 				positive 15
 				negative aaa
-			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0},
-		{`cache 0 example.nl`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0},
-		{`cache -1 example.nl`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
+		{`cache 0 example.nl`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
+		{`cache -1 example.nl`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache 1 example.nl {
 				positive 0
-			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache 1 example.nl {
 				positive 0
 				prefetch -1
-			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache 1 example.nl {
 				prefetch 0 blurp
-			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0},
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 		{`cache
-		  cache`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0},
+		  cache`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
+		{`cache	{
+				serve_expired non
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
+		{`cache	{
+				serve_expired no 35ma
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
+		{`cache	{
+				serve_expired y
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
+		{`cache	{
+				serve_expired
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
+		{`cache	{
+				serve_expired yes -20m
+			}`, true, defaultCap, defaultCap, maxTTL, minNTTL, maxTTL, minTTL, 0, false, 0},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
@@ -110,6 +139,12 @@ func TestSetup(t *testing.T) {
 		}
 		if ca.prefetch != test.expectedPrefetch {
 			t.Errorf("Test %v: Expected prefetch %v but found: %v", i, test.expectedPrefetch, ca.prefetch)
+		}
+		if ca.serveExpired != test.expectedServeExpired {
+			t.Errorf("Test %v: Expected serve_expired %v but found: %v", i, test.expectedServeExpired, ca.serveExpired)
+		}
+		if ca.expiredUpTo != test.expectedExpiredUpTo {
+			t.Errorf("Test %v: Expected expiredUpTo %v but found: %v", i, test.expectedExpiredUpTo, ca.expiredUpTo)
 		}
 	}
 }
