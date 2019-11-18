@@ -176,6 +176,15 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					ca.percentage = num
 				}
 
+			case "serve_expired":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				if args[0] != "yes" && args[0] != "no" {
+					return nil, c.ArgErr()
+				}
+				ca.serveExpired = args[0] == "yes"
 			default:
 				return nil, c.ArgErr()
 			}

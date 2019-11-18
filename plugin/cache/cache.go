@@ -36,6 +36,9 @@ type Cache struct {
 	duration   time.Duration
 	percentage int
 
+	// Whether to serve cache stale records when upstream is down.
+	serveExpired bool
+
 	// Testing.
 	now func() time.Time
 }
