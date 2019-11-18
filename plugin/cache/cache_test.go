@@ -293,8 +293,9 @@ func TestServeFromStaleCache(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureMinutes) * time.Minute) }
 		c.serveExpired = tt.serveExpired
-		req.SetQuestion(tt.name, dns.TypeA)
-		if ret, _ := c.ServeDNS(ctx, rec, req); ret != tt.expectedResult {
+		r := req.Copy()
+		r.SetQuestion(tt.name, dns.TypeA)
+		if ret, _ := c.ServeDNS(ctx, rec, r); ret != tt.expectedResult {
 			t.Errorf("Test %d: expecting %v; got %v", i, tt.expectedResult, ret)
 		}
 	}
