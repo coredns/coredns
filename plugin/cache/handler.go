@@ -29,8 +29,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	i, found := c.get(now, state, server)
 	if i == nil || !found {
 		if c.serveExpired {
-			//TODO: make 1h configurable.
-			i, found = c.get(now.Add(-1*time.Hour), state, server)
+			i, found = c.get(now.Add(-c.expiredUpTo), state, server)
 		}
 		if !found {
 			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}

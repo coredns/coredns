@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -178,13 +179,24 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 
 			case "serve_expired":
 				args := c.RemainingArgs()
-				if len(args) != 1 {
+				if len(args) != 1 && len(args) != 2 {
 					return nil, c.ArgErr()
 				}
 				if args[0] != "yes" && args[0] != "no" {
 					return nil, c.ArgErr()
 				}
 				ca.serveExpired = args[0] == "yes"
+				ca.expiredUpTo = time.Duration(1 * time.Hour) // default 1h
+				if len(args) == 2 {
+					d, err := time.ParseDuration(args[1])
+					if err != nil {
+						return nil, err
+					}
+					if d < 0 {
+						return nil, errors.New("negative duration does not make sense")
+					}
+					ca.expiredUpTo = d
+				}
 			default:
 				return nil, c.ArgErr()
 			}
