@@ -31,7 +31,7 @@ func setup(c *caddy.Controller) error {
 	c.OnStartup(func() error {
 		metrics.MustRegister(c,
 			cacheSize, cacheHits, cacheMisses,
-			cachePrefetches, cacheDrops)
+			cachePrefetches, cacheDrops, servedExpired)
 		return nil
 	})
 
