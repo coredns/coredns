@@ -32,18 +32,19 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 			//TODO: make 1h configurable.
 			i, found = c.get(now.Add(-1*time.Hour), state, server)
 		}
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
 		if !found {
+			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
 			return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 		}
-		// Adjust the time to get a 0 TTL.
+		// Adjust the time to get a 0 TTL in the reply we got from a stale item.
 		t := i.ttl(now)
 		if t < 0 {
 			now = now.Add(time.Duration(t) * time.Second)
 		}
 		go func() {
-			m := *r // TODO: is this doign a deep copy?
-			_, _ = plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, &m)
+			r := r.Copy()
+			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: w.LocalAddr()}
+			plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 		}()
 	}
 	resp := i.toMsg(r, now)
