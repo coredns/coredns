@@ -36,6 +36,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
 			return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 		}
+		servedExpired.WithLabelValues(server).Inc()
 		// Adjust the time to get a 0 TTL in the reply we got from a stale item.
 		t := i.ttl(now)
 		if t < 0 {
@@ -143,5 +144,12 @@ var (
 		Subsystem: "cache",
 		Name:      "drops_total",
 		Help:      "The number responses that are not cached, because the reply is malformed.",
+	}, []string{"server"})
+
+	servedExpired = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "cache",
+		Name:      "served_expired_total",
+		Help:      "The number of requests served from expired cache entries.",
 	}, []string{"server"})
 )
