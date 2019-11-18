@@ -27,18 +27,32 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	server := metrics.WithServer(ctx)
 
 	i, found := c.get(now, state, server)
-	if i != nil && found {
-		resp := i.toMsg(r, now)
-		w.WriteMsg(resp)
-
-		if c.shouldPrefetch(i, now) {
-			go c.doPrefetch(ctx, state, server, i, now)
+	if i == nil || !found {
+		if c.serveExpired {
+			//TODO: make 1h configurable.
+			i, found = c.get(now.Add(-1*time.Hour), state, server)
 		}
-		return dns.RcodeSuccess, nil
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
+		if !found {
+			return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
+		}
+		// Adjust the time to get a 0 TTL.
+		t := i.ttl(now)
+		if t < 0 {
+			now = now.Add(time.Duration(t) * time.Second)
+		}
+		go func() {
+			m := *r // TODO: is this doign a deep copy?
+			_, _ = plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, &m)
+		}()
 	}
+	resp := i.toMsg(r, now)
+	w.WriteMsg(resp)
 
-	crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
-	return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
+	if c.shouldPrefetch(i, now) {
+		go c.doPrefetch(ctx, state, server, i, now)
+	}
+	return dns.RcodeSuccess, nil
 }
 
 func (c *Cache) doPrefetch(ctx context.Context, state request.Request, server string, i *item, now time.Time) {
