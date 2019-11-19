@@ -34,6 +34,7 @@ cache [TTL] [ZONES...] {
     success CAPACITY [TTL] [MINTTL]
     denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
+    serve_expired yes|no [DURATION]
 }
 ~~~
 
@@ -50,6 +51,10 @@ cache [TTL] [ZONES...] {
   **DURATION** defaults to 1m. Prefetching will happen when the TTL drops below **PERCENTAGE**,
   which defaults to `10%`, or latest 1 second before TTL expiration. Values should be in the range `[10%, 90%]`.
   Note the percent sign is mandatory. **PERCENTAGE** is treated as an `int`.
+* `serve_expired`, when set to yes, it will serve expired responses from cache when there are no healthy
+  upstream backends. The responses have a TTL of 0.  **DURATION** is how far back to consider stale
+  responses as fresh. The default is: 'serve\_expired no 1h'. Hint: the bigger the **CAPACITY** the more
+  expired responses there will be in the cache.
 
 ## Capacity and Eviction
 
