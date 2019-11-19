@@ -156,17 +156,6 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 		}
 	}
 
-	// Multiple rules also want from/to dot normalization
-	switch matchType {
-	case ExactMatch, SuffixMatch:
-		if !hasClosingDot(from) {
-			from = from + "."
-		}
-		if !hasClosingDot(to) {
-			to = to + "."
-		}
-	}
-
 	respRule, err := parseRespRule(args, &argsIdx)
 	if err != nil {
 		return nil, err
@@ -275,11 +264,6 @@ func (rule *nameRule) Mode() string { return rule.nextAction }
 
 // GetResponseRule return a rule to rewrite the response with.
 func (rule *nameRule) GetResponseRule() ResponseRule { return rule.responseRule }
-
-// hasClosingDot return true if s has a closing dot at the end.
-func hasClosingDot(s string) bool {
-	return strings.HasSuffix(s, ".")
-}
 
 // getSubExprUsage return the number of subexpressions used in s.
 func getSubExprUsage(s string) int {

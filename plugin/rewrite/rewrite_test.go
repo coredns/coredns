@@ -39,6 +39,8 @@ func TestNewRule(t *testing.T) {
 		{[]string{"name"}, true, nil},
 		{[]string{"name", "a.com"}, true, nil},
 		{[]string{"name", "a.com", "b.com", "c.com"}, true, nil},
+		{[]string{"name", "suffix", "a.com", "b.com", "answer"}, true, nil},
+		{[]string{"name", "suffix", "a.com", "b.com", "answer", "name", "x"}, true, nil},
 		{[]string{"name", "a.com", "b.com"}, false, reflect.TypeOf(&nameRule{})},
 		{[]string{"name", "exact", "a.com", "b.com"}, false, reflect.TypeOf(&nameRule{})},
 		{[]string{"name", "prefix", "a.com", "b.com"}, false, reflect.TypeOf(&nameRule{})},

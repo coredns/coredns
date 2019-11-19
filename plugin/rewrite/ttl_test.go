@@ -3,6 +3,7 @@ package rewrite
 import (
 	"context"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -61,6 +62,38 @@ func TestNewTTLRule(t *testing.T) {
 			continue
 		}
 		t.Fatalf("Test %d: FAIL, expected fail=%t, but received fail=%t: (%s) %s, rule=%v", i, tc.expectedFail, failed, tc.next, tc.args, rule)
+	}
+}
+
+func TestTtlErrorCases(t *testing.T) {
+	errorCases := []struct {
+		args     []string
+		expected string
+	}{
+		{
+			[]string{"stop", "ttl", "wrong", "args", "asdf", "bsdf"},
+			"a ttl rule must have 3 arguments",
+		},
+		{
+			[]string{"stop", "ttl", "regex", "([[", "35"},
+			"invalid regex",
+		},
+		{
+			[]string{"stop", "ttl", "foobar", "1", "35"},
+			"ttl rule supports only exact",
+		},
+	}
+
+	for i, ec := range errorCases {
+		_, err := newRule(ec.args...)
+		if err == nil {
+			t.Fatalf("Rule %d: expected error %v, didn't get one", i, ec.expected)
+			continue
+		}
+		if !strings.Contains(err.Error(), ec.expected) {
+			t.Fatalf("Rule %d: expected error %v, got %v", i, ec.expected, err)
+			continue
+		}
 	}
 }
 
