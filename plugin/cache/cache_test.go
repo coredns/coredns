@@ -260,8 +260,8 @@ func TestServeFromStaleCache(t *testing.T) {
 
 	// Cache example.org.
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
-	c.serveExpired = false
-	c.expiredUpTo = 1 * time.Hour
+	c.serveStale = false
+	c.staleUpTo = 1 * time.Hour
 	c.ServeDNS(ctx, rec, req)
 	if c.pcache.Len() != 1 {
 		t.Fatalf("Msg with > 0 TTL should have been cached")
@@ -274,7 +274,7 @@ func TestServeFromStaleCache(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		serveExpired   bool
+		serveStale     bool
 		futureMinutes  int
 		expectedResult int
 	}{
@@ -292,7 +292,7 @@ func TestServeFromStaleCache(t *testing.T) {
 	for i, tt := range tests {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureMinutes) * time.Minute) }
-		c.serveExpired = tt.serveExpired
+		c.serveStale = tt.serveStale
 		r := req.Copy()
 		r.SetQuestion(tt.name, dns.TypeA)
 		if ret, _ := c.ServeDNS(ctx, rec, r); ret != tt.expectedResult {

@@ -26,17 +26,18 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	server := metrics.WithServer(ctx)
 
-	i, found := c.get(now, state, server)
-	if i == nil || !found {
-		if c.serveExpired {
-			i, found = c.get(now.Add(-c.expiredUpTo), state, server)
-		}
-		if !found {
-			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
-			return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
-		}
-		servedExpired.WithLabelValues(server).Inc()
-		// Adjust the time to get a 0 TTL in the reply we got from a stale item.
+	ttl := 0
+	i := c.getItem(state, server)
+	if i != nil {
+		ttl = i.ttl(now)
+	}
+	if i == nil || (ttl < 0 && !c.serveStale) || -ttl >= int(c.staleUpTo.Seconds()) {
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
+		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
+	}
+	if ttl < 0 {
+		servedStale.WithLabelValues(server).Inc()
+		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		t := i.ttl(now)
 		if t < 0 {
 			now = now.Add(time.Duration(t) * time.Second)
@@ -98,6 +99,18 @@ func (c *Cache) get(now time.Time, state request.Request, server string) (*item,
 	return nil, false
 }
 
+func (c *Cache) getItem(state request.Request, server string) *item {
+	k := hash(state.Name(), state.QType(), state.Do())
+
+	if i, ok := c.ncache.Get(k); ok {
+		return i.(*item)
+	}
+	if i, ok := c.pcache.Get(k); ok {
+		return i.(*item)
+	}
+	return nil
+}
+
 func (c *Cache) exists(state request.Request) *item {
 	k := hash(state.Name(), state.QType(), state.Do())
 	if i, ok := c.ncache.Get(k); ok {
@@ -145,10 +158,10 @@ var (
 		Help:      "The number responses that are not cached, because the reply is malformed.",
 	}, []string{"server"})
 
-	servedExpired = prometheus.NewCounterVec(prometheus.CounterOpts{
+	servedStale = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "cache",
-		Name:      "served_expired_total",
-		Help:      "The number of requests served from expired cache entries.",
+		Name:      "served_stale_total",
+		Help:      "The number of requests served from stale cache entries.",
 	}, []string{"server"})
 )

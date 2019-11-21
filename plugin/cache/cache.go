@@ -36,8 +36,8 @@ type Cache struct {
 	duration   time.Duration
 	percentage int
 
-	serveExpired bool
-	expiredUpTo  time.Duration
+	serveStale bool
+	staleUpTo  time.Duration
 
 	// Testing.
 	now func() time.Time

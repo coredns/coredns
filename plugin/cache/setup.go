@@ -32,7 +32,7 @@ func setup(c *caddy.Controller) error {
 	c.OnStartup(func() error {
 		metrics.MustRegister(c,
 			cacheSize, cacheHits, cacheMisses,
-			cachePrefetches, cacheDrops, servedExpired)
+			cachePrefetches, cacheDrops, servedStale)
 		return nil
 	})
 
@@ -177,26 +177,19 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					ca.percentage = num
 				}
 
-			case "serve_expired":
+			case "serve_stale":
 				args := c.RemainingArgs()
-				if len(args) != 1 && len(args) != 2 {
-					return nil, errors.New("syntax is: serve_expired (yes|no) [<duration>]")
+				if len(args) != 1 {
+					return nil, errors.New("syntax is: serve_stale <duration>")
 				}
-				if args[0] != "yes" && args[0] != "no" {
-					return nil, errors.New("syntax is: serve_expired (yes|no) [<duration>]")
+				d, err := time.ParseDuration(args[0])
+				if err != nil {
+					return nil, fmt.Errorf("invalid duration: %v", args[0])
 				}
-				ca.serveExpired = args[0] == "yes"
-				ca.expiredUpTo = time.Duration(1 * time.Hour) // default 1h
-				if len(args) == 2 {
-					d, err := time.ParseDuration(args[1])
-					if err != nil {
-						return nil, err
-					}
-					if d < 0 {
-						return nil, errors.New("negative duration does not make sense")
-					}
-					ca.expiredUpTo = d
+				if d < 0 {
+					return nil, errors.New("negative duration does not make sense")
 				}
+				ca.staleUpTo = d
 			default:
 				return nil, c.ArgErr()
 			}
