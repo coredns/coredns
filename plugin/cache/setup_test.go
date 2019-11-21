@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -120,34 +121,19 @@ func TestServeStale(t *testing.T) {
 		shouldErr bool
 		staleUpTo time.Duration
 	}{
-		{`cache	{
-				serve_stale 20m
-			}`, false, 20 * time.Minute},
-		{`cache	{
-				serve_stale 1h20m
-			}`, false, 80 * time.Minute},
-		{`cache	{
-				serve_stale 0m
-			}`, false, 0},
-		{`cache	{
-				serve_stale 0
-			}`, false, 0},
+		{"serve_stale", false, 1 * time.Hour},
+		{"serve_stale 20m", false, 20 * time.Minute},
+		{"serve_stale 1h20m", false, 80 * time.Minute},
+		{"serve_stale 0m", false, 0},
+		{"serve_stale 0", false, 0},
 		// fails
-		{`cache	{
-				serve_stale
-			}`, true, 0},
-		{`cache	{
-				serve_stale 20
-			}`, true, 0},
-		{`cache	{
-				serve_stale aa
-			}`, true, 0},
-		{`cache	{
-				serve_stale 1m nono
-			}`, true, 0},
+		{"serve_stale 20", true, 0},
+		{"serve_stale -20m", true, 0},
+		{"serve_stale aa", true, 0},
+		{"serve_stale 1m nono", true, 0},
 	}
 	for i, test := range tests {
-		c := caddy.NewTestController("dns", test.input)
+		c := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", test.input))
 		ca, err := cacheParse(c)
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %v: Expected error but found nil", i)

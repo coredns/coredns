@@ -27,7 +27,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	server := metrics.WithServer(ctx)
 
 	ttl := 0
-	i := c.getItem(state, server)
+	i := c.getIgnoreTTL(now, state, server)
 	if i != nil {
 		ttl = i.ttl(now)
 	}
@@ -99,13 +99,22 @@ func (c *Cache) get(now time.Time, state request.Request, server string) (*item,
 	return nil, false
 }
 
-func (c *Cache) getItem(state request.Request, server string) *item {
+// getIgnoreTTL unconditionally returns an item if it exists in the cache.
+func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
 	k := hash(state.Name(), state.QType(), state.Do())
 
 	if i, ok := c.ncache.Get(k); ok {
+		ttl := i.(*item).ttl(now)
+		if ttl > 0 || (c.serveStale && -ttl < int(c.staleUpTo.Seconds())) {
+			cacheHits.WithLabelValues(server, Denial).Inc()
+		}
 		return i.(*item)
 	}
 	if i, ok := c.pcache.Get(k); ok {
+		ttl := i.(*item).ttl(now)
+		if ttl > 0 || (c.serveStale && -ttl < int(c.staleUpTo.Seconds())) {
+			cacheHits.WithLabelValues(server, Success).Inc()
+		}
 		return i.(*item)
 	}
 	return nil

@@ -179,17 +179,21 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 
 			case "serve_stale":
 				args := c.RemainingArgs()
-				if len(args) != 1 {
-					return nil, errors.New("syntax is: serve_stale <duration>")
+				if len(args) > 1 {
+					return nil, c.ArgErr()
 				}
-				d, err := time.ParseDuration(args[0])
-				if err != nil {
-					return nil, fmt.Errorf("invalid duration: %v", args[0])
+				ca.serveStale = true
+				ca.staleUpTo = 1 * time.Hour
+				if len(args) == 1 {
+					d, err := time.ParseDuration(args[0])
+					if err != nil {
+						return nil, err
+					}
+					if d < 0 {
+						return nil, errors.New("invalid negative duration for server_stale")
+					}
+					ca.staleUpTo = d
 				}
-				if d < 0 {
-					return nil, errors.New("negative duration does not make sense")
-				}
-				ca.staleUpTo = d
 			default:
 				return nil, c.ArgErr()
 			}
