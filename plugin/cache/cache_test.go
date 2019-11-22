@@ -260,7 +260,6 @@ func TestServeFromStaleCache(t *testing.T) {
 
 	// Cache example.org.
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
-	c.serveStale = false
 	c.staleUpTo = 1 * time.Hour
 	c.ServeDNS(ctx, rec, req)
 	if c.pcache.Len() != 1 {
@@ -274,25 +273,21 @@ func TestServeFromStaleCache(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		serveStale     bool
 		futureMinutes  int
 		expectedResult int
 	}{
-		{"cached.org.", true, 30, 0},
-		{"cached.org.", true, 70, 255},
-		{"cached.org.", false, 30, 255},
-		{"cached.org.", false, 70, 255},
+		{"cached.org.", 30, 0},
+		{"cached.org.", 60, 0},
+		{"cached.org.", 70, 255},
 
-		{"notcached.org.", true, 30, 255},
-		{"notcached.org.", true, 70, 255},
-		{"notcached.org.", false, 30, 255},
-		{"notcached.org.", false, 70, 255},
+		{"notcached.org.", 30, 255},
+		{"notcached.org.", 60, 255},
+		{"notcached.org.", 70, 255},
 	}
 
 	for i, tt := range tests {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureMinutes) * time.Minute) }
-		c.serveStale = tt.serveStale
 		r := req.Copy()
 		r.SetQuestion(tt.name, dns.TypeA)
 		if ret, _ := c.ServeDNS(ctx, rec, r); ret != tt.expectedResult {

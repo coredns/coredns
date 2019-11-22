@@ -182,7 +182,6 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 				if len(args) > 1 {
 					return nil, c.ArgErr()
 				}
-				ca.serveStale = true
 				ca.staleUpTo = 1 * time.Hour
 				if len(args) == 1 {
 					d, err := time.ParseDuration(args[0])
@@ -190,7 +189,7 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 						return nil, err
 					}
 					if d < 0 {
-						return nil, errors.New("invalid negative duration for server_stale")
+						return nil, errors.New("invalid negative duration for serve_stale")
 					}
 					ca.staleUpTo = d
 				}

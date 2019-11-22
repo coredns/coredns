@@ -31,17 +31,14 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	if i != nil {
 		ttl = i.ttl(now)
 	}
-	if i == nil || (ttl < 0 && !c.serveStale) || -ttl >= int(c.staleUpTo.Seconds()) {
+	if i == nil || -ttl >= int(c.staleUpTo.Seconds()) {
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 	}
 	if ttl < 0 {
 		servedStale.WithLabelValues(server).Inc()
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
-		t := i.ttl(now)
-		if t < 0 {
-			now = now.Add(time.Duration(t) * time.Second)
-		}
+		now = now.Add(time.Duration(ttl) * time.Second)
 		go func() {
 			r := r.Copy()
 			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: w.LocalAddr()}
@@ -105,14 +102,14 @@ func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string
 
 	if i, ok := c.ncache.Get(k); ok {
 		ttl := i.(*item).ttl(now)
-		if ttl > 0 || (c.serveStale && -ttl < int(c.staleUpTo.Seconds())) {
+		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
 			cacheHits.WithLabelValues(server, Denial).Inc()
 		}
 		return i.(*item)
 	}
 	if i, ok := c.pcache.Get(k); ok {
 		ttl := i.(*item).ttl(now)
-		if ttl > 0 || (c.serveStale && -ttl < int(c.staleUpTo.Seconds())) {
+		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
 			cacheHits.WithLabelValues(server, Success).Inc()
 		}
 		return i.(*item)
