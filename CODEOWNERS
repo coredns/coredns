@@ -1,0 +1,44 @@
+# @miekg, miek@miek.nl, project lead: 11/11/2020
+
+*                       @bradbeam @chrisohaver @dilyevsky @fastest963 @greenpau @grobie @isolus @johnbelamaric @miekg @pmoroney @rajansandeep @stp-ip @superq @yongtang
+
+/plugin/auto/           @miekg @stp-ip
+/plugin/azure/          @miekg @yongtang @darshanime
+/plugin/forward/        @grobie @johnbelamaric @miekg @rdrozhdzh
+/plugin/bind/           @miekg
+/plugin/erratic/        @miekg
+/plugin/metrics/        @fastest963 @miekg @superq @greenpau
+/plugin/log/            @miekg @nchrisdk
+/plugin/tls/            @johnbelamaric
+/plugin/dnstap/         @varyoo @yongtang
+/plugin/dnssec/         @isolus @miekg
+/plugin/kubernetes/     @bradbeam @chrisohaver @johnbelamaric @miekg @rajansandeep @yongtang
+/plugin/reload/         @johnbelamaric
+/plugin/pprof/          @miekg
+/plugin/k8s_external/   @miekg
+/plugin/loadbalance/    @miekg
+/plugin/cancel/         @miekg
+/plugin/etcd/           @miekg @nitisht
+/plugin/grpc/           @inigohu @miekg
+/plugin/acl/            @miekg @ihac
+/plugin/chaos/          @miekg
+/plugin/errors/         @miekg
+/plugin/cache/          @grobie @miekg
+/plugin/hosts/          @johnbelamaric @pmoroney
+/plugin/clouddns/       @miekg @yongtang
+/plugin/template/       @rtreffer
+/plugin/route53/        @yongtang @dilyevsky
+/plugin/loop/           @miekg @chrisohaver
+/plugin/metadata/       @ekleiner @miekg
+/plugin/secondary/      @bradbeam @miekg
+/plugin/root/           @miekg
+/plugin/autopath/       @chrisohaver @miekg
+/plugin/whoami/         @miekg @chrisohaver
+/plugin/trace/          @johnbelamaric
+/plugin/nsid/           @yongtang
+/plugin/file/           @miekg @yongtang @stp-ip
+/plugin/bufsize/        @ykhr53
+/plugin/health/         @fastest963 @miekg
+/plugin/transfer/       @miekg @chrisohaver
+/plugin/any/            @miekg
+/plugin/rewrite/        @greenpau @johnbelamaric
