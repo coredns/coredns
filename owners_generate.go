@@ -79,7 +79,7 @@ func owners(path string) ([]string, error) {
 		return nil, err
 	}
 	u := []string{}
-	for k, _ := range users {
+	for k := range users {
 		if strings.HasPrefix(k, "@") {
 			k = k[1:]
 		}
