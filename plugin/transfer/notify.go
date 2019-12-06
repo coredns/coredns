@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/coredns/coredns/plugin/pkg/rcode"
+
 	"github.com/miekg/dns"
 )
 
@@ -11,28 +12,30 @@ import (
 func (t Transfer) Notify(ch <-chan []string) {
 	for zones := range ch {
 		for _, zone := range zones {
-			x := t.getInstanceForZone(zone)
-			notify(zone, x.to)
+			t.notifyForZone(zone)
 		}
 	}
 }
 
-func (t Transfer) getInstanceForZone(zone string) *xfr {
+// notifyForZone sends notifies to the configured remote servers for the transfer instance handling the zone.
+// It will try up to three times before giving up on a specific remote. It will sequentially loop
+// through "to" until they all have replied (or have 3 failed attempts).
+func (t Transfer) notifyForZone(zone string) error {
+	var to []string
+
+	// get remote servers for this zone
 	for _, x := range t.xfrs {
 		for _, z := range x.Zones {
 			if zone != z {
 				continue
 			}
-			return x
+			to = append(to, x.to...)
 		}
 	}
-	return nil
-}
+	if len(to) == 0 {
+		return nil
+	}
 
-// notify sends notifies to the configured remote servers. It will try up to three times
-// before giving up on a specific remote. We will sequentially loop through "to"
-// until they all have replied (or have 3 failed attempts).
-func notify(zone string, to []string) error {
 	m := new(dns.Msg)
 	m.SetNotify(zone)
 	c := new(dns.Client)
