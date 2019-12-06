@@ -47,7 +47,7 @@ type Transferer interface {
 	// Notify returns a channel to which the implementing plugin should send a message for each zone
 	// that has updated.  The transfer plugin listens for messages and sends notifications to
 	// the destinations in "to".  A plugin that does not want to support notifications can return a nil
-	// channel.
+	// channel. The channel, if created, must be closed on shutdown.
 	Notify() <-chan []string
 }
 
