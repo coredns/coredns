@@ -52,7 +52,7 @@ func New(ctx context.Context, dnsClient azuredns.RecordSetsClient, keys map[stri
 			if _, ok := zones[fqdn]; !ok {
 				names = append(names, fqdn)
 			}
-			zones[fqdn] = append(zones[fqdn], &zone{id: resourceGroup, zone: fqdn, z: file.NewZone(fqdn, "")})
+			zones[fqdn] = append(zones[fqdn], &zone{id: resourceGroup, zone: name, z: file.NewZone(fqdn, "")})
 		}
 	}
 	return &Azure{
