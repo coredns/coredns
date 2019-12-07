@@ -13,7 +13,7 @@ record types.
 ## Syntax
 
 ~~~ txt
-azure RESOURCE_GROUP:ZONE... {
+azure RESOURCE_GROUP:ZONE:ACCESS... {
     tenant TENANT_ID
     client CLIENT_ID
     secret CLIENT_SECRET
@@ -23,8 +23,8 @@ azure RESOURCE_GROUP:ZONE... {
 }
 ~~~
 
-*   **RESOURCE_GROUP:ZONE** is the resource group to which the hosted zones belongs on Azure,
-    and  **ZONE** the zone that contains data.
+*   **RESOURCE_GROUP:ZONE:ACCESS** is the resource group to which the hosted zones belongs on Azure,
+    **ZONE** the zone that contains data and **ACCESS** is either `public` or `private`.
 
 *   **CLIENT_ID** and **CLIENT_SECRET** are the credentials for Azure, and `tenant` specifies the
     **TENANT_ID** to be used. **SUBSCRIPTION_ID** is the subscription ID. All of these are needed
@@ -38,11 +38,11 @@ azure RESOURCE_GROUP:ZONE... {
 
 ## Examples
 
-Enable the *azure* plugin with Azure credentials for the zone `example.org`:
+Enable the *azure* plugin with Azure credentials for public zone `example.org` and for private zone `example.private`:
 
 ~~~ txt
 example.org {
-    azure resource_group_foo:example.org {
+    azure resource_group_foo:example.org:public resource_group_foo:example.private:private {
       tenant 123abc-123abc-123abc-123abc
       client 123abc-123abc-123abc-234xyz
       subscription 123abc-123abc-123abc-563abc

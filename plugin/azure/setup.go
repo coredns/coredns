@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/coredns/coredns/core/dnsserver"
@@ -9,7 +10,9 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 
-	azuredns "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
+	publicAzureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
+	privateAzureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/privatedns/mgmt/privatedns"
+
 	azurerest "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/caddyserver/caddy"
@@ -26,12 +29,17 @@ func setup(c *caddy.Controller) error {
 	}
 	ctx := context.Background()
 
-	dnsClient := azuredns.NewRecordSetsClient(env.Values[auth.SubscriptionID])
-	if dnsClient.Authorizer, err = env.GetAuthorizer(); err != nil {
+	publicDNSClient := publicAzureDNS.NewRecordSetsClient(env.Values[auth.SubscriptionID])
+	if publicDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
 		return plugin.Error("azure", err)
 	}
 
-	h, err := New(ctx, dnsClient, keys)
+	privateDNSClient := privateAzureDNS.NewRecordSetsClient(env.Values[auth.SubscriptionID])
+	if privateDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
+		return plugin.Error("azure", err)
+	}
+
+	h, err := New(ctx, publicDNSClient, privateDNSClient, keys)
 	if err != nil {
 		return plugin.Error("azure", err)
 	}
@@ -59,20 +67,20 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 		args := c.RemainingArgs()
 
 		for i := 0; i < len(args); i++ {
-			parts := strings.SplitN(args[i], ":", 2)
-			if len(parts) != 2 {
+			parts := strings.SplitN(args[i], ":", 3)
+			if len(parts) != 3 {
 				return env, resourceGroupMapping, fall, c.Errf("invalid resource group/zone: %q", args[i])
 			}
-			resourceGroup, zoneName := parts[0], parts[1]
-			if resourceGroup == "" || zoneName == "" {
-				return env, resourceGroupMapping, fall, c.Errf("invalid resource group/zone: %q", args[i])
+			resourceGroup, zoneName, access := parts[0], parts[1], parts[2]
+			if resourceGroup == "" || zoneName == "" || (access != "public" && access != "private") {
+				return env, resourceGroupMapping, fall, c.Errf("invalid resource group/zone/access: %q", args[i])
 			}
-			if _, ok := resourceGroupSet[args[i]]; ok {
+			if _, ok := resourceGroupSet[resourceGroup+zoneName]; ok {
 				return env, resourceGroupMapping, fall, c.Errf("conflicting zone: %q", args[i])
 			}
 
-			resourceGroupSet[args[i]] = struct{}{}
-			resourceGroupMapping[resourceGroup] = append(resourceGroupMapping[resourceGroup], zoneName)
+			resourceGroupSet[resourceGroup+zoneName] = struct{}{}
+			resourceGroupMapping[resourceGroup] = append(resourceGroupMapping[resourceGroup], fmt.Sprintf("%s:%s", zoneName, access))
 		}
 		for c.NextBlock() {
 			switch c.Val() {

@@ -13,49 +13,52 @@ func TestSetup(t *testing.T) {
 	}{
 		{`azure`, false},
 		{`azure :`, true},
-		{`azure resource_set:zone`, false},
-		{`azure resource_set:zone {
+		{`azure resource_set:zone`, true},
+		{`azure resource_set:zone:public`, false},
+		{`azure resource_set:zone:private`, false},
+		{`azure resource_set:zone:foo`, true},
+		{`azure resource_set:zone:public {
     tenant
 }`, true},
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
     tenant
 }`, true},
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
     client
 }`, true},
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
     secret
 }`, true},
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
     subscription
 }`, true},
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
     upstream 10.0.0.1
 }`, true},
 
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
     upstream
 }`, true},
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
     foobar
 }`, true},
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
     tenant tenant_id
     client client_id
     secret client_secret
     subscription subscription_id
 }`, false},
 
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
     fallthrough
 }`, false},
-		{`azure resource_set:zone {
+		{`azure resource_set:zone:public {
 		environment AZUREPUBLICCLOUD
 	}`, false},
-		{`azure resource_set:zone resource_set:zone {
+		{`azure resource_set:zone:public resource_set:zone:private {
 			fallthrough
 		}`, true},
-		{`azure resource_set:zone,zone2 {
+		{`azure resource_set:zone,zone2:public {
 			fallthrough
 		}`, false},
 		{`azure resource-set {
