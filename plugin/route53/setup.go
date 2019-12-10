@@ -125,7 +125,7 @@ func setup(c *caddy.Controller) error {
 		})
 		client := f(credentials.NewChainCredentials(providers))
 		ctx := context.Background()
-		h, err := New(ctx, client, keys, refresh)
+		h, err := New(ctx, client, keys, refresh, authoritativeNsResolver{})
 		if err != nil {
 			return plugin.Error("route53", c.Errf("failed to create Route53 plugin: %v", err))
 		}

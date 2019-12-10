@@ -33,24 +33,36 @@ type Route53 struct {
 	upstream  *upstream.Upstream
 	refresh   time.Duration
 
+	aliasRefresh  time.Duration
+	aliasTTL      int64
+	aliasResolver AliasResolver
+
 	zMu   sync.RWMutex
 	zones zones
 }
 
 type zone struct {
-	id  string
-	z   *file.Zone
-	dns string
+	id      string
+	z       *file.Zone
+	dns     string
+	aliases map[string]aliasRecord
 }
 
 type zones map[string][]*zone
+
+type aliasRecord struct {
+	dnsName     string
+	dnsType     uint16
+	dnsTypeName string
+	dnsZoneId   string
+}
 
 // New reads from the keys map which uses domain names as its key and hosted
 // zone id lists as its values, validates that each domain name/zone id pair
 // does exist, and returns a new *Route53. In addition to this, upstream is use
 // for doing recursive queries against CNAMEs. Returns error if it cannot
 // verify any given domain name/zone id pair.
-func New(ctx context.Context, c route53iface.Route53API, keys map[string][]string, refresh time.Duration) (*Route53, error) {
+func New(ctx context.Context, c route53iface.Route53API, keys map[string][]string, refresh time.Duration, aliasResolver AliasResolver) (*Route53, error) {
 	zones := make(map[string][]*zone, len(keys))
 	zoneNames := make([]string, 0, len(keys))
 	for dns, hostedZoneIDs := range keys {
@@ -69,11 +81,14 @@ func New(ctx context.Context, c route53iface.Route53API, keys map[string][]strin
 		}
 	}
 	return &Route53{
-		client:    c,
-		zoneNames: zoneNames,
-		zones:     zones,
-		upstream:  upstream.New(),
-		refresh:   refresh,
+		client:        c,
+		zoneNames:     zoneNames,
+		zones:         zones,
+		upstream:      upstream.New(),
+		refresh:       refresh,
+		aliasRefresh:  time.Minute,
+		aliasTTL:      60,
+		aliasResolver: aliasResolver,
 	}, nil
 }
 
@@ -89,6 +104,17 @@ func (h *Route53) Run(ctx context.Context) error {
 			case <-ctx.Done():
 				log.Infof("Breaking out of Route53 update loop: %v", ctx.Err())
 				return
+			case <-time.After(h.aliasRefresh):
+				if h.aliasRefresh >= h.refresh {
+					// we don't need to do anything as the refresh period is lower than the alias refresh
+					// period, so we can skip the extra call to update the aliases
+					continue
+				}
+				// make this auto adjustable so we can adjust based on the TTL,
+				// health-checks can be 15, 30 or 60 seconds per AWS so worst case this has to execute every 15 seconds
+				if err := h.updateAliases(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
+					log.Errorf("Failed to update aliases: %v", err)
+				}
 			case <-time.After(h.refresh):
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
 					log.Errorf("Failed to update zones: %v", err)
@@ -96,6 +122,88 @@ func (h *Route53) Run(ctx context.Context) error {
 			}
 		}
 	}()
+	return nil
+}
+
+func updateAliasesForZone(ctx context.Context, zMu sync.RWMutex, zone *zone, resolver AliasResolver, aliasTTL int64) (err error) {
+	for name, alias := range zone.aliases {
+		// remove old records from the hosted zone file if they exist
+		zMu.RLock()
+		records, found := zone.z.Search(name)
+		zMu.RUnlock()
+		if found {
+			// we need to remove all of them so the next time we add it will be the new ones
+			zMu.Lock()
+			for _, record := range records.All() {
+				zone.z.Delete(record)
+			}
+			zMu.Unlock()
+		}
+
+		// check to make sure that we don't host the zone first, if we do
+		// we need to return the alias from our zone, no need for an external lookup
+		if zone.id == alias.dnsZoneId {
+			records, found := zone.z.Search(alias.dnsName)
+			if found {
+				for _, record := range records.All() {
+					rec, _ := remapDnsAliasRR(name, record, int64(record.Header().Ttl))
+					zMu.Lock()
+					_ = zone.z.Insert(rec)
+					zMu.Unlock()
+				}
+			}
+			continue // we are finished, onto the next alias
+		}
+
+		// go through all the ns servers, before giving up on the resolving
+		for _, ns := range zone.z.NS {
+			var rrs []dns.RR
+			nameserver := fmt.Sprintf("%s:53", ns.(*dns.NS).Ns)
+			rrs, err = resolver.Resolve(ctx, name, alias.dnsType, nameserver, aliasTTL)
+			if err != nil {
+				continue // we skip and continue onto the next one until we exhaust all of them
+			}
+			for _, rr := range rrs {
+				zMu.Lock()
+				_ = zone.z.Insert(rr)
+				zMu.Unlock()
+			}
+			break // we finished successfully no need to go over the next nameserver
+		}
+	}
+	return err
+}
+
+func (h *Route53) updateAliases(ctx context.Context) error {
+	errc := make(chan error)
+	defer close(errc)
+
+	for zName, z := range h.zones {
+		go func(zName string, z []*zone) {
+			var err error
+			defer func() {
+				errc <- err
+			}()
+			for _, hostedZone := range z {
+				err = updateAliasesForZone(ctx, h.zMu, hostedZone, h.aliasResolver, h.aliasTTL)
+			}
+		}(zName, z)
+	}
+
+	// Collect errors (if any). This will also sync on all zones updates
+	// completion.
+	var errs []string
+	for i := 0; i < len(h.zones); i++ {
+		err := <-errc
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+
+	if len(errs) != 0 {
+		return fmt.Errorf("errors updating aliases: %v", errs)
+	}
+
 	return nil
 }
 
@@ -207,25 +315,61 @@ func maybeUnescape(s string) (string, error) {
 	}
 }
 
-func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone) error {
+func rrFromRR(name string, dnsType string, ttl int64, record route53.ResourceRecord) (dns.RR, error) {
+
+	v, err := maybeUnescape(aws.StringValue(record.Value))
+	if err != nil {
+		return nil, fmt.Errorf("failed to unescape `%s' value: %v", aws.StringValue(record.Value), err)
+	}
+
+	rfc1035 := fmt.Sprintf("%s %d IN %s %s", name, ttl, dnsType, v)
+	r, err := dns.NewRR(rfc1035)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse resource record: %v", err)
+	}
+	return r, nil
+}
+
+func remapDnsAliasRR(name string, record dns.RR, ttl int64) (dns.RR, error) {
+	var val string
+	var dnsTypeName string
+	switch r := record.(type) {
+	case *dns.A:
+		val = r.A.String()
+		dnsTypeName = "A"
+	case *dns.AAAA:
+		val = r.AAAA.String()
+		dnsTypeName = "AAAA"
+	}
+
+	return rrFromRR(name, dnsTypeName, ttl, route53.ResourceRecord{Value: &val})
+}
+
+func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone, alias map[string]aliasRecord) error {
+	n, err := maybeUnescape(aws.StringValue(rrs.Name))
+	if err != nil {
+		return fmt.Errorf("failed to unescape `%s' name: %v", aws.StringValue(rrs.Name), err)
+	}
+
+	if rrs.AliasTarget != nil {
+		var dnsType uint16
+		var dnsName = aws.StringValue(rrs.AliasTarget.DNSName)
+		switch aws.StringValue(rrs.Type) {
+		case "A":
+			dnsType = dns.TypeA
+		case "AAAA":
+			dnsType = dns.TypeAAAA
+		default:
+			return fmt.Errorf("failed to process alias record for %v => %v from route53: %v", n, dnsName, err)
+		}
+		alias[n] = aliasRecord{dnsName: dnsName, dnsType: dnsType, dnsTypeName: aws.StringValue(rrs.Type), dnsZoneId: aws.StringValue(rrs.AliasTarget.HostedZoneId)}
+	}
+
 	for _, rr := range rrs.ResourceRecords {
-
-		n, err := maybeUnescape(aws.StringValue(rrs.Name))
+		r, err := rrFromRR(n, aws.StringValue(rrs.Type), aws.Int64Value(rrs.TTL), *rr)
 		if err != nil {
-			return fmt.Errorf("failed to unescape `%s' name: %v", aws.StringValue(rrs.Name), err)
+			return err
 		}
-		v, err := maybeUnescape(aws.StringValue(rr.Value))
-		if err != nil {
-			return fmt.Errorf("failed to unescape `%s' value: %v", aws.StringValue(rr.Value), err)
-		}
-
-		// Assemble RFC 1035 conforming record to pass into dns scanner.
-		rfc1035 := fmt.Sprintf("%s %d IN %s %s", n, aws.Int64Value(rrs.TTL), aws.StringValue(rrs.Type), v)
-		r, err := dns.NewRR(rfc1035)
-		if err != nil {
-			return fmt.Errorf("failed to parse resource record: %v", err)
-		}
-
 		z.Insert(r)
 	}
 	return nil
@@ -252,10 +396,11 @@ func (h *Route53) updateZones(ctx context.Context) error {
 					HostedZoneId: aws.String(hostedZone.id),
 					MaxItems:     aws.String("1000"),
 				}
+				alias := map[string]aliasRecord{}
 				err = h.client.ListResourceRecordSetsPagesWithContext(ctx, in,
 					func(out *route53.ListResourceRecordSetsOutput, last bool) bool {
 						for _, rrs := range out.ResourceRecordSets {
-							if err := updateZoneFromRRS(rrs, newZ); err != nil {
+							if err := updateZoneFromRRS(rrs, newZ, alias); err != nil {
 								// Maybe unsupported record type. Log and carry on.
 								log.Warningf("Failed to process resource record set: %v", err)
 							}
@@ -266,8 +411,10 @@ func (h *Route53) updateZones(ctx context.Context) error {
 					err = fmt.Errorf("failed to list resource records for %v:%v from route53: %v", zName, hostedZone.id, err)
 					return
 				}
+
 				h.zMu.Lock()
 				(*z[i]).z = newZ
+				(*z[i]).aliases = alias
 				h.zMu.Unlock()
 			}
 
@@ -285,6 +432,8 @@ func (h *Route53) updateZones(ctx context.Context) error {
 	if len(errs) != 0 {
 		return fmt.Errorf("errors updating zones: %v", errs)
 	}
+
+	_ = h.updateAliases(ctx)
 	return nil
 }
 

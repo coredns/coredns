@@ -66,7 +66,6 @@ func TestSetupRoute53(t *testing.T) {
 		{`route53 example.org:12345678 {
 	refresh -1m
 }`, true},
-
 		{`route53 example.org {
 	}`, true},
 	}
