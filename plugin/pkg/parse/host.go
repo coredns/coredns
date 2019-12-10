@@ -4,11 +4,22 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/miekg/dns"
 )
+
+// Strips the zone, but preserves any port that comes after the zone
+func stripZone(host string) string {
+	if strings.Contains(host, "%") {
+		lastPercent := strings.LastIndex(host, "%")
+		newHost := host[:lastPercent]
+		return newHost
+	}
+	return host
+}
 
 // HostPortOrFile parses the strings in s, each string can either be a
 // address, [scheme://]address:port or a filename. The address part is checked
@@ -21,10 +32,11 @@ func HostPortOrFile(s ...string) ([]string, error) {
 		trans, host := Transport(h)
 
 		addr, _, err := net.SplitHostPort(host)
+
 		if err != nil {
 			// Parse didn't work, it is not a addr:port combo
-			if net.ParseIP(host) == nil {
-				// Not an IP address.
+			hostNoZone := stripZone(host)
+			if net.ParseIP(hostNoZone) == nil {
 				ss, err := tryFile(host)
 				if err == nil {
 					servers = append(servers, ss...)
@@ -47,8 +59,7 @@ func HostPortOrFile(s ...string) ([]string, error) {
 			continue
 		}
 
-		if net.ParseIP(addr) == nil {
-			// Not an IP address.
+		if net.ParseIP(stripZone(addr)) == nil {
 			ss, err := tryFile(host)
 			if err == nil {
 				servers = append(servers, ss...)
