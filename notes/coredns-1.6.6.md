@@ -20,11 +20,11 @@ vulnerability (https://github.com/miekg/dns/issues/1043).
 
 # Plugins
 
-A new plugin [*bufsize*](/plugins/bufsize) has been added to prevents IP fragmentation
-for the DNS Flag Day 2020 and to deal with DNS vulnerability.
+A new plugin [*bufsize*](/plugins/bufsize) has been added that prevents IP fragmentation
+for the DNS Flag Day 2020 and to deal with DNS vulnerabilities.
 
 * [*cache*](/plugin/cache) added a `serve_stale` option similar to `unbound`'s `serve_expired`.
-* [*sign*](/plugin/sign) fix signing of authoritative data that are not authoritative for.
+* [*sign*](/plugin/sign) fix signing of authoritative data that we are not authoritative for.
 * [*transfer*](/plugin/transfer) fixed calling wg.Add in main goroutine to avoid race conditons.
 
 ## Brought to You By
