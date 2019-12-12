@@ -52,15 +52,15 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		answers = aaaa(qname, h.options.ttl, ips)
 	}
 
-	if len(answers) == 0 {
+	// This condition hooks only NXDOMAIN.
+	if len(answers) == 0 && !h.otherRecordsExist(qname) {
 		if h.Fall.Through(qname) {
 			return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
+
 		// We want to send an NXDOMAIN, but because of /etc/hosts' setup we don't have a SOA, so we make it REFUSED
 		// to at least give an answer back to signals we're having problems resolving this.
-		if !h.otherRecordsExist(qname) {
-			return dns.RcodeServerFailure, nil
-		}
+		return dns.RcodeServerFailure, nil
 	}
 
 	m := new(dns.Msg)
