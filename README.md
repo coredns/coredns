@@ -1,242 +1,194 @@
-[![CoreDNS](https://coredns.io/images/CoreDNS_Colour_Horizontal.png)](https://coredns.io)
+# consul
 
-[![Documentation](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/coredns/coredns)
-[![Build Status](https://img.shields.io/travis/coredns/coredns/master.svg?label=build)](https://travis-ci.org/coredns/coredns)
-[![fuzzit](https://app.fuzzit.dev/badge?org_id=coredns&branch=master)](https://fuzzit.dev)
-[![Code Coverage](https://img.shields.io/codecov/c/github/coredns/coredns/master.svg)](https://codecov.io/github/coredns/coredns?branch=master)
-[![Docker Pulls](https://img.shields.io/docker/pulls/coredns/coredns.svg)](https://hub.docker.com/r/coredns/coredns)
-[![Go Report Card](https://goreportcard.com/badge/github.com/coredns/coredns)](https://goreportcard.com/report/coredns/coredns)
-[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1250/badge)](https://bestpractices.coreinfrastructure.org/projects/1250)
+## Name
 
-CoreDNS is a DNS server/forwarder, written in Go, that chains [plugins](https://coredns.io/plugins).
-Each plugin performs a (DNS) function.
+*consul* - enables SkyDNS service discovery from consul.
 
-CoreDNS is a [Cloud Native Computing Foundation](https://cncf.io) graduated project.
+## Description
 
-CoreDNS is a fast and flexible DNS server. The key word here is *flexible*: with CoreDNS you
-are able to do what you want with your DNS data by utilizing plugins. If some functionality is not
-provided out of the box you can add it by [writing a plugin](https://coredns.io/explugins).
+The *consul* plugin implements the (older) SkyDNS service discovery service. It is *not* suitable as
+a generic DNS zone data plugin. Only a subset of DNS record types are implemented, and subdomains
+and delegations are not handled at all.
 
-CoreDNS can listen for DNS requests coming in over UDP/TCP (go'old DNS), TLS ([RFC
-7858](https://tools.ietf.org/html/rfc7858)), also called DoT, DNS over HTTP/2 - DoH -
-([RFC 8484](https://tools.ietf.org/html/rfc8484)) and [gRPC](https://grpc.io) (not a standard).
+The data in the consul instance has to be encoded as
+a [message](https://github.com/skynetservices/skydns/blob/2fcff74cdc9f9a7dd64189a447ef27ac354b725f/msg/service.go#L26)
+like [SkyDNS](https://github.com/skynetservices/skydns). It works just like SkyDNS.
 
-Currently CoreDNS is able to:
+The consul plugin makes extensive use of the *forward* plugin to forward and query other servers in the
+network.
 
-* Serve zone data from a file; both DNSSEC (NSEC only) and DNS are supported (*file* and *auto*).
-* Retrieve zone data from primaries, i.e., act as a secondary server (AXFR only) (*secondary*).
-* Sign zone data on-the-fly (*dnssec*).
-* Load balancing of responses (*loadbalance*).
-* Allow for zone transfers, i.e., act as a primary server (*file*).
-* Automatically load zone files from disk (*auto*).
-* Caching of DNS responses (*cache*).
-* Use etcd as a backend (replacing [SkyDNS](https://github.com/skynetservices/skydns)) (*etcd*).
-* Use k8s (kubernetes) as a backend (*kubernetes*).
-* Serve as a proxy to forward queries to some other (recursive) nameserver (*forward*).
-* Provide metrics (by using Prometheus) (*metrics*).
-* Provide query (*log*) and error (*errors*) logging.
-* Integrate with cloud providers (*route53*).
-* Support the CH class: `version.bind` and friends (*chaos*).
-* Support the RFC 5001 DNS name server identifier (NSID) option (*nsid*).
-* Profiling support (*pprof*).
-* Rewrite queries (qtype, qclass and qname) (*rewrite* and *template*).
-* Block ANY queries (*any*).
-
-And more. Each of the plugins is documented. See [coredns.io/plugins](https://coredns.io/plugins)
-for all in-tree plugins, and [coredns.io/explugins](https://coredns.io/explugins) for all
-out-of-tree plugins.
-
-## Compilation from Source
-
-To compile CoreDNS, we assume you have a working Go setup. See various tutorials if you don’t have
-that already configured.
-
-First, make sure your golang version is 1.12 or higher as `go mod` support is needed.
-See [here](https://github.com/golang/go/wiki/Modules) for `go mod` details.
-Then, check out the project and run `make` to compile the binary:
+## Syntax
 
 ~~~
-$ git clone https://github.com/coredns/coredns
-$ cd coredns
-$ make
+consul [ZONES...]
 ~~~
 
-This should yield a `coredns` binary.
+* **ZONES** zones *consul* should be authoritative for.
 
-## Compilation with Docker
+The path will default to `/skydns` the local consul proxy (http://localhost:8500). If no zones are
+specified the block's zone will be used as the zone.
 
-CoreDNS requires Go to compile. However, if you already have docker installed and prefer not to
-setup a Go environment, you could build CoreDNS easily:
+If you want to `round robin` A and AAAA responses look at the `loadbalance` plugin.
 
-```
-$ docker run --rm -i -t -v $PWD:/v -w /v golang:1.12 make
-```
+~~~
+consul [ZONES...] {
+    fallthrough [ZONES...]
+    path PATH
+    address address
+    token token
+}
+~~~
 
-The above command alone will have `coredns` binary generated.
+* `fallthrough` If zone matches but no record can be generated, pass request to the next plugin.
+  If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
+  is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only
+  queries for those zones will be subject to fallthrough.
+* **PATH** the path inside consul. Defaults to "/skydns".
+* **ADDRESS** the consul endpoints. Defaults to "http://localhost:8500".
+
+
+## Special Behaviour
+
+The *consul* plugin leverages directory structure to look for related entries. For example
+an entry `/skydns/test/skydns/mx` would have entries like `/skydns/test/skydns/mx/a`,
+`/skydns/test/skydns/mx/b` and so on. Similarly a directory `/skydns/test/skydns/mx1` will have all
+`mx1` entries.
 
 ## Examples
 
-When starting CoreDNS without any configuration, it loads the
-[*whoami*](https://coredns.io/plugins/whoami) plugin and starts listening on port 53 (override with
-`-dns.port`), it should show the following:
-
-~~~ txt
-.:53
-   ______                ____  _   _______
-  / ____/___  ________  / __ \/ | / / ___/	~ CoreDNS-1.6.3
- / /   / __ \/ ___/ _ \/ / / /  |/ /\__ \ 	~ linux/amd64, go1.13,
-/ /___/ /_/ / /  /  __/ /_/ / /|  /___/ /
-\____/\____/_/   \___/_____/_/ |_//____/
-~~~
-
-Any query sent to port 53 should return some information; your sending address, port and protocol
-used.
-
-If you have a Corefile without a port number specified it will, by default, use port 53, but you can
-override the port with the `-dns.port` flag:
-
-`./coredns -dns.port 1053`, runs the server on port 1053.
-
-Start a simple proxy. You'll need to be root to start listening on port 53.
-
-`Corefile` contains:
+This is the default SkyDNS setup, with everything specified in full:
 
 ~~~ corefile
-.:53 {
-    forward . 8.8.8.8:53
-    log
-}
-~~~
-
-Just start CoreDNS: `./coredns`. Then just query on that port (53). The query should be forwarded
-to 8.8.8.8 and the response will be returned. Each query should also show up in the log which is
-printed on standard output.
-
-Serve the (NSEC) DNSSEC-signed `example.org` on port 1053, with errors and logging sent to standard
-output. Allow zone transfers to everybody, but specifically mention 1 IP address so that CoreDNS can
-send notifies to it.
-
-~~~ txt
-example.org:1053 {
-    file /var/lib/coredns/example.org.signed {
-        transfer to *
-        transfer to 2001:500:8f::53
+skydns.local {
+    consul {
+        path /skydns
+        address http://localhost:8500
+        token xxxx-xxxx-xxxx-xxxx-xxxx
     }
-    errors
-    log
+    prometheus
+    cache
+    loadbalance
 }
-~~~
 
-Serve `example.org` on port 1053, but forward everything that does *not* match `example.org` to a
-recursive nameserver *and* rewrite ANY queries to HINFO.
-
-~~~ txt
-example.org:1053 {
-    file /var/lib/coredns/example.org.signed {
-        transfer to *
-        transfer to 2001:500:8f::53
-    }
-    errors
-    log
-}
 . {
-    any
-    forward . 8.8.8.8:53
-    errors
-    log
+    forward . 8.8.8.8:53 8.8.4.4:53
+    cache
 }
 ~~~
 
-IP addresses are also allowed. They are automatically converted to reverse zones:
+Or a setup where we use `/etc/resolv.conf` as the basis for the proxy and the upstream
+when resolving external pointing CNAMEs.
 
 ~~~ corefile
-10.0.0.0/24 {
-    whoami
+skydns.local {
+    consul {
+        path /skydns
+    }
+    cache
 }
-~~~
-Means you are authoritative for `0.0.10.in-addr.arpa.`.
 
-This also works for IPv6 addresses. If for some reason you want to serve a zone named `10.0.0.0/24`
-add the closing dot: `10.0.0.0/24.` as this also stops the conversion.
-
-This even works for CIDR (See RFC 1518 and 1519) addressing, i.e. `10.0.0.0/25`, CoreDNS will then
-check if the `in-addr` request falls in the correct range.
-
-Listening on TLS (DoT) and for gRPC? Use:
-
-~~~ corefile
-tls://example.org grpc://example.org {
-    whoami
+. {
+    forward . /etc/resolv.conf
+    cache
 }
 ~~~
 
-And for DNS over HTTP/2 (DoH) use:
 
-~~~ corefile
-https://example.org {
-    whoami
-}
+### Reverse zones
+
+Reverse zones are supported. You need to make CoreDNS aware of the fact that you are also
+authoritative for the reverse. For instance if you want to add the reverse for 10.0.0.0/24, you'll
+need to add the zone `0.0.10.in-addr.arpa` to the list of zones. Showing a snippet of a Corefile:
+
+~~~
+consul skydns.local 10.0.0.0/24 {
+...
 ~~~
 
-Specifying ports works in the same way:
+Next you'll need to populate the zone with reverse records, here we add a reverse for
+10.0.0.127 pointing to reverse.skydns.local.
 
-~~~ txt
-grpc://example.org:1443 {
-    # ...
-}
+~~~
+% /skydns/arpa/in-addr/10/0/0/127 '{"host":"reverse.skydns.local."}'
 ~~~
 
-When no transport protocol is specified the default `dns://` is assumed.
+Querying with dig:
 
-## Community
+~~~ sh
+% dig @localhost -x 10.0.0.127 +short
+reverse.skydns.local.
+~~~
 
-We're most active on Github (and Slack):
+### Zone name as A record
 
-- Github: <https://github.com/coredns/coredns>
-- Slack: #coredns on <https://slack.cncf.io>
+The zone name itself can be used as an `A` record. This behavior can be achieved by writing special
+entries to the ETCD path of your zone. If your zone is named `skydns.local` for example, you can
+create an `A` record for this zone as follows:
 
-More resources can be found:
+~~~
+% /skydns/local/skydns/ '{"host":"1.1.1.1","ttl":60}'
+~~~
 
-- Website: <https://coredns.io>
-- Blog: <https://blog.coredns.io>
-- Twitter: [@corednsio](https://twitter.com/corednsio)
-- Mailing list/group: <coredns-discuss@googlegroups.com> (not very active)
+If you query the zone name itself, you will receive the created `A` record:
 
-## Contribution guidelines
+~~~ sh
+% dig +short skydns.local @localhost
+1.1.1.1
+~~~
 
-If you want to contribute to CoreDNS, be sure to review the [contribution
-guidelines](CONTRIBUTING.md).
+If you would like to use DNS RR for the zone name, you can set the following:
+~~~
+% /skydns/local/skydns/x1 '{"host":"1.1.1.1","ttl":60}'
+% /skydns/local/skydns/x2 '{"host":"1.1.1.2","ttl":60}'
+~~~
 
-## Deployment
+If you query the zone name now, you will get the following response:
 
-Examples for deployment via systemd and other use cases can be found in the [deployment
-repository](https://github.com/coredns/deployment).
+~~~ sh
+% dig +short skydns.local @localhost
+1.1.1.1
+1.1.1.2
+~~~
 
-## Deprecation Policy
+### Zone name as AAAA record
 
-When there is a backwards incompatible change in CoreDNS the following process is followed:
+If you would like to use `AAAA` records for the zone name too, you can set the following:
+~~~
+% /skydns/local/skydns/x3 '{"host":"2003::8:1","ttl":60}'
+% /skydns/local/skydns/x4 '{"host":"2003::8:2","ttl":60}'
+~~~
 
-*  Release x.y.z: Announce that in the next release we will make backward incompatible changes.
-*  Release x.y+1.0: Increase the minor version and set the patch version to 0. Make the changes,
-   but allow the old configuration to be parsed. I.e. CoreDNS will start from an unchanged
-   Corefile.
-*  Release x.y+1.1: Increase the patch version to 1. Remove the lenient parsing, so CoreDNS will
-   not start if those features are still used.
+If you query the zone name for `AAAA` now, you will get the following response:
+~~~ sh
+% dig +short skydns.local AAAA @localhost
+2003::8:1
+2003::8:2
+~~~
 
-E.g. 1.3.1 announce a change. 1.4.0 a new release with the change but backward compatible config.
-And finally 1.4.1 that removes the config workarounds.
+### SRV record
 
-## Security
+If you would like to use `SRV` records, you can set the following:
+~~~
+% /skydns/local/skydns/x5 '{"host":"skydns-local.server","ttl":60,"priority":10,"port":8080}'
+~~~
+Please notice that the key `host` is the `target` in `SRV`, so it should be a domain name.
 
-### Security Audit
-A third party security audit was performed by Cure53, you can see the full report
-[here](https://coredns.io/assets/DNS-01-report.pdf).
+If you query the zone name for `SRV` now, you will get the following response:
 
-### Reporting security vulnerabilities
+~~~ sh
+% dig +short skydns.local SRV @localhost
+10 100 8080 skydns-local.server.
+~~~
 
-If you find a security vulnerability or any security related issues, please DO NOT file a public
-issue, instead send your report privately to `security@coredns.io`. Security reports are greatly
-appreciated and we will publicly thank you for it.
+### TXT record
 
-Please consult [security vulnerability disclosures and security fix and release process
-document](https://github.com/coredns/coredns/blob/master/SECURITY.md)
+If you would like to use `TXT` records, you can set the following:
+~~~
+% /skydns/local/skydns/x6 '{"ttl":60,"text":"this is a random text message."}'
+~~~
+
+If you query the zone name for `TXT` now, you will get the following response:
+~~~ sh
+% dig +short skydns.local TXT @localhost
+"this is a random text message."
+~~~
