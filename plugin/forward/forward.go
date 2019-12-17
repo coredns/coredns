@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -29,7 +30,7 @@ type Forward struct {
 	hcInterval time.Duration
 
 	from    string
-	ignored []string
+	ignored map[string]struct{}
 
 	tlsConfig     *tls.Config
 	tlsServerName string
@@ -43,7 +44,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, ignored: make(map[string]struct{})}
 	return f
 }
 
@@ -173,11 +174,14 @@ func (f *Forward) isAllowedDomain(name string) bool {
 		return true
 	}
 
-	for _, ignore := range f.ignored {
-		if plugin.Name(ignore).Matches(name) {
+	ss := strings.Split(name, ".")
+	for i := 0; i < len(ss); i++ {
+		n := strings.Join(ss[i:], ".")
+		if _, ok := f.ignored[n]; ok {
 			return false
 		}
 	}
+
 	return true
 }
 
