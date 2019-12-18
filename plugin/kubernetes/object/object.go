@@ -88,12 +88,6 @@ func (e *Empty) GetAnnotations() map[string]string { return nil }
 // SetAnnotations implements the metav1.Object interface.
 func (e *Empty) SetAnnotations(annotations map[string]string) {}
 
-// GetInitializers implements the metav1.Object interface.
-func (e *Empty) GetInitializers() *v1.Initializers { return nil }
-
-// SetInitializers implements the metav1.Object interface.
-func (e *Empty) SetInitializers(initializers *v1.Initializers) {}
-
 // GetFinalizers implements the metav1.Object interface.
 func (e *Empty) GetFinalizers() []string { return nil }
 
