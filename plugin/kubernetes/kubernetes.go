@@ -69,7 +69,7 @@ const (
 	// podModeInsecure is where pod requests are answered without verifying they exist
 	podModeInsecure = "insecure"
 	// DNSSchemaVersion is the schema version: https://github.com/kubernetes/dns/blob/master/docs/specification.md
-	DNSSchemaVersion = "1.0.1"
+	DNSSchemaVersion = "1.1.0"
 	// Svc is the DNS schema for kubernetes services
 	Svc = "svc"
 	// Pod is the DNS schema for kubernetes pods

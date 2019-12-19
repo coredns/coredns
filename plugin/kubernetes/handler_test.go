@@ -264,7 +264,7 @@ var dnsTestCases = []test.Case{
 		Qname: "dns-version.cluster.local.", Qtype: dns.TypeTXT,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.TXT("dns-version.cluster.local 28800 IN TXT 1.0.1"),
+			test.TXT("dns-version.cluster.local 28800 IN TXT 1.1.0"),
 		},
 	},
 	// A Service (Headless) does not exist
