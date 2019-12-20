@@ -35,7 +35,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	case dns.TypeAAAA:
 		records, err = plugin.AAAA(ctx, &k, zone, state, nil, plugin.Options{})
 	case dns.TypeTXT:
-		records, err = plugin.TXT(ctx, &k, zone, state, plugin.Options{})
+		records, err = plugin.TXT(ctx, &k, zone, state, nil, plugin.Options{})
 	case dns.TypeCNAME:
 		records, err = plugin.CNAME(ctx, &k, zone, state, plugin.Options{})
 	case dns.TypePTR:

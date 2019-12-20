@@ -30,7 +30,7 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	case dns.TypeAAAA:
 		records, err = plugin.AAAA(ctx, e, zone, state, nil, opt)
 	case dns.TypeTXT:
-		records, err = plugin.TXT(ctx, e, zone, state, opt)
+		records, err = plugin.TXT(ctx, e, zone, state, nil, opt)
 	case dns.TypeCNAME:
 		records, err = plugin.CNAME(ctx, e, zone, state, opt)
 	case dns.TypePTR:

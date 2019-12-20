@@ -325,8 +325,8 @@ func CNAME(ctx context.Context, b ServiceBackend, zone string, state request.Req
 }
 
 // TXT returns TXT records from Backend or an error.
-func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) (records []dns.RR, err error) {
-	services, err := b.Services(ctx, state, false, opt)
+func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, err error) {
+
 	if err != nil {
 		return nil, err
 	}
