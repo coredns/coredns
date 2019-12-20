@@ -177,11 +177,9 @@ func (e *Etcd) TTL(kv *mvccpb.KeyValue, serv *msg.Service) uint32 {
 }
 
 // shouldInclude returns true if the service should be included in a list of records, given the qType. For all the
-// currently supported lookup types, the only one to allow for an empty Host field in the service are TXT records.
-// Similarly, the TXT record in turn requires the Text field to be set.
+// currently supported lookup types, the only one to allow for an empty Host field in the service are TXT records
+// which resolve directly.  If a TXT record is being resolved by CNAME, then we expect the Host field to have a 
+// value while the TXT field will be empty.
 func shouldInclude(serv *msg.Service, qType uint16) bool {
-	if qType == dns.TypeTXT {
-		return serv.Text != ""
-	}
-	return serv.Host != ""
+	return (qType == dns.TypeTXT && serv.Text != "") || serv.Host != ""
 }
