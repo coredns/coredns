@@ -12,13 +12,13 @@ The CoreDNS team has released
 
 A fairly small release that polishes various plugins and fixes a bunch of bugs.
 
+## Security
 
-# Security 
+The github.com/miekg/dns dependency has been updated
+to v1.1.25 to fix a DNS related security vulnerability
+([https://github.com/miekg/dns/issues/1043](https://github.com/miekg/dns/issues/1043)).
 
-The github.com/miekg/dns has been updated to v1.1.25 to fix a DNS related security
-vulnerability (https://github.com/miekg/dns/issues/1043).
-
-# Plugins
+## Plugins
 
 A new plugin [*bufsize*](/plugin/bufsize) has been added that prevents IP fragmentation
 for the DNS Flag Day 2020 and to deal with DNS vulnerabilities.
