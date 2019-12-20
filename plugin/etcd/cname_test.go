@@ -58,6 +58,9 @@ var servicesCname = []*msg.Service{
 	{Host: "cname6.region2.skydns.test", Key: "cname5.region2.skydns.test."},
 	{Host: "endpoint.region2.skydns.test", Key: "cname6.region2.skydns.test."},
 	{Host: "mainendpoint.region2.skydns.test", Key: "region2.skydns.test."},
+	{Host: "cname2.region3.skydns.test", Key: "cname3.region3.skydns.test."},
+	{Host: "cname1.region3.skydns.test", Key: "cname2.region3.skydns.test."},
+	{Host: "region3.skydns.test", Key: "cname1.region3.skydns.test."},
 	{Host: "", Key: "region3.skydns.test.", Text: "SOME-RECORD-TEXT"},
 	{Host: "10.240.0.1", Key: "endpoint.region2.skydns.test."},
 }
@@ -89,6 +92,15 @@ var dnsTestCasesCname = []test.Case{
 		Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
 			test.SOA("skydns.test.	303	IN	SOA	ns.dns.skydns.test. hostmaster.skydns.test. 1546424605 7200 1800 86400 30"),
+		},
+	},
+	{
+		Qname: "cname3.region3.skydns.test.", Qtype: dns.TypeTXT,
+		Answer: []dns.RR{
+			test.CNAME("cname3.region3.skydns.test.	300	IN	CNAME	cname2.region3.skydns.test."),
+			test.CNAME("cname2.region3.skydns.test.	300	IN	CNAME	cname1.region3.skydns.test."),
+			test.CNAME("cname1.region3.skydns.test.	300	IN	CNAME	region3.skydns.test."),
+			test.TXT("region3.skydns.test. 300 IN TXT \"SOME-RECORD-TEXT\""),
 		},
 	},
 }
