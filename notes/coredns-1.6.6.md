@@ -20,12 +20,12 @@ to v1.1.25 to fix a DNS related security vulnerability
 
 ## Plugins
 
-A new plugin [*bufsize*](/plugin/bufsize) has been added that prevents IP fragmentation
+A new plugin [*bufsize*](/plugins/bufsize) has been added that prevents IP fragmentation
 for the DNS Flag Day 2020 and to deal with DNS vulnerabilities.
 
-* [*cache*](/plugin/cache) added a `serve_stale` option similar to `unbound`'s `serve_expired`.
-* [*sign*](/plugin/sign) fix signing of authoritative data that we are not authoritative for.
-* [*transfer*](/plugin/transfer) fixed calling wg.Add in main goroutine to avoid race conditons.
+* [*cache*](/plugins/cache) added a `serve_stale` option similar to `unbound`'s `serve_expired`.
+* [*sign*](/plugins/sign) fix signing of authoritative data that we are not authoritative for.
+* [*transfer*](/plugins/transfer) fixed calling wg.Add in main goroutine to avoid race conditons.
 
 ## Brought to You By
 
