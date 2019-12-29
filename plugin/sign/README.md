@@ -11,13 +11,13 @@ added. The signatures that sign the resource records sets have an expiration dat
 signing process must be repeated before this expiration data is reached. Otherwise the zone's data
 will go BAD (RFC 4035, Section 5.5). The *sign* plugin takes care of this.
 
-Only NSEC is supported, *sign* does not support NSEC3.
+Only NSEC is supported, *sign* does *not* support NSEC3.
 
 *Sign* works in conjunction with the *file* and *auto* plugins; this plugin **signs** the zones
 files, *auto* and *file* **serve** the zones *data*.
 
 For this plugin to work at least one Common Signing Key, (see coredns-keygen(1)) is needed. This key
-(or keys) will be used to sign the entire zone. *Sign* does not support the ZSK/KSK split, nor will
+(or keys) will be used to sign the entire zone. *Sign* does *not* support the ZSK/KSK split, nor will
 it do key or algorithm rollovers - it just signs.
 
 *Sign* will:

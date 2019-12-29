@@ -244,4 +244,4 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 
 ## Bugs
 
-The duration metric only supports the "headless_with_selector" service currently.
+The duration metric only supports the "headless\_with\_selector" service currently.

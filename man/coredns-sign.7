@@ -13,7 +13,7 @@ signing process must be repeated before this expiration data is reached. Otherwi
 will go BAD (RFC 4035, Section 5.5). The \fIsign\fP plugin takes care of this.
 
 .PP
-Only NSEC is supported, \fIsign\fP does not support NSEC3.
+Only NSEC is supported, \fIsign\fP does \fInot\fP support NSEC3.
 
 .PP
 \fISign\fP works in conjunction with the \fIfile\fP and \fIauto\fP plugins; this plugin \fBsigns\fP the zones
@@ -21,7 +21,7 @@ files, \fIauto\fP and \fIfile\fP \fBserve\fP the zones \fIdata\fP.
 
 .PP
 For this plugin to work at least one Common Signing Key, (see coredns-keygen(1)) is needed. This key
-(or keys) will be used to sign the entire zone. \fISign\fP does not support the ZSK/KSK split, nor will
+(or keys) will be used to sign the entire zone. \fISign\fP does \fInot\fP support the ZSK/KSK split, nor will
 it do key or algorithm rollovers - it just signs.
 
 .PP

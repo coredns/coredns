@@ -45,10 +45,11 @@ tls CERT KEY [CA] {
 .RE
 
 .PP
-If client\fIauth option is specified, it controls the client authentication policy.
+If client_auth option is specified, it controls the client authentication policy.
 The option value corresponds to the ClientAuthType values of the Go tls package
 \[la]https://golang.org/pkg/crypto/tls/#ClientAuthType\[ra]: NoClientCert, RequestClientCert, RequireAnyClientCert, VerifyClientCertIfGiven, and RequireAndVerifyClientCert, respectively.
-The default is "nocert".  Note that it makes no sense to specify parameter CA unless this option is set to verify\fPif\fIgiven or require\fPand_verify.
+The default is "nocert".  Note that it makes no sense to specify parameter CA unless this option is
+set to verify_if_given or require_and_verify.
 
 .SH "EXAMPLES"
 .PP
