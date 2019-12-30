@@ -49,7 +49,12 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 }
 
 // toMsg turns i into a message, it tailors the reply to m.
-// The Authoritative bit is always set to 0, because the answer is from the cache.
+// The Authoritative bit should be set to 0, but some client stub resolver implementations, most notably,
+// on some legacy systems(e.g. ubuntu 14.04 with glib version 2.20), low-level glibc function `getaddrinfo`
+// useb by Python/Ruby/etc.. will discard answers that do not have this bit set.
+// So we're forced to always set this to 1; regardless if the answer came from the cache or not.
+// On newer systems(e.g. ubuntu 16.04 with glib version 2.23), this issue is resolved.
+// So we may set this bit back to 0 in the future ?
 func (i *item) toMsg(m *dns.Msg, now time.Time) *dns.Msg {
 	m1 := new(dns.Msg)
 	m1.SetReply(m)
