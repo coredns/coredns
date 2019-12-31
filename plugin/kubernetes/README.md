@@ -20,7 +20,7 @@ This plugin can only be used once per Server Block.
 
 ## Syntax
 
-~~~
+~~~ txt
 kubernetes [ZONES...]
 ~~~
 
@@ -29,7 +29,7 @@ the server's block. It will handle all queries in that zone and connect to Kuber
 will not provide PTR records for services or A records for pods. If **ZONES** is used it specifies
 all the zones the plugin should be authoritative for.
 
-```
+~~~ txt
 kubernetes [ZONES...] {
     endpoint URL
     tls CERT KEY CACERT
@@ -44,7 +44,7 @@ kubernetes [ZONES...] {
     fallthrough [ZONES...]
     ignore empty_service
 }
-```
+~~~
 
 * `endpoint` specifies the **URL** for a remote k8s API endpoint.
    If omitted, it will connect to k8s in-cluster using the cluster service account.
@@ -68,11 +68,11 @@ kubernetes [ZONES...] {
    This option is provided to facilitate use of SSL certs when connecting directly to pods. Valid
    values for **POD-MODE**:
 
-   * `disabled`: Default. Do not process pod requests, always returning `NXDOMAIN`
-   * `insecure`: Always return an A record with IP from request (without checking k8s).  This option
+  * `disabled`: Default. Do not process pod requests, always returning `NXDOMAIN`
+  * `insecure`: Always return an A record with IP from request (without checking k8s).  This option
      is vulnerable to abuse if used maliciously in conjunction with wildcard SSL certs.  This
      option is provided for backward compatibility with kube-dns.
-   * `verified`: Return an A record if there exists a pod in same namespace with matching IP.  This
+  * `verified`: Return an A record if there exists a pod in same namespace with matching IP.  This
      option requires substantially more memory than in insecure mode, since it will maintain a watch
      on all pods.
 
@@ -175,18 +175,21 @@ The *kubernetes* plugin can be used in conjunction with the *autopath* plugin.  
 feature enables server-side domain search path completion in Kubernetes clusters.  Note: `pods` must
 be set to `verified` for this to function properly.
 
+~~~ txt
     cluster.local {
         autopath @kubernetes
         kubernetes {
             pods verified
         }
     }
+~~~
 
 ## Federation
 
 The *kubernetes* plugin can be used in conjunction with the *federation* plugin.  Using this
 feature enables serving federated domains from the Kubernetes clusters.
 
+~~~ txt
     cluster.local {
         federation {
             prod prod.example.org
@@ -194,19 +197,19 @@ feature enables serving federated domains from the Kubernetes clusters.
         }
         kubernetes
     }
-
+~~~
 
 ## Wildcards
 
 Some query labels accept a wildcard value to match any value.  If a label is a valid wildcard (\*,
 or the word "any"), then that label will match all values.  The labels that accept wildcards are:
 
- * _endpoint_ in an `A` record request: _endpoint_.service.namespace.svc.zone, e.g., `*.nginx.ns.svc.cluster.local`
- * _service_ in an `A` record request: _service_.namespace.svc.zone, e.g., `*.ns.svc.cluster.local`
- * _namespace_ in an `A` record request: service._namespace_.svc.zone, e.g., `nginx.*.svc.cluster.local`
- * _port and/or protocol_ in an `SRV` request: __port_.__protocol_.service.namespace.svc.zone.,
+* _endpoint_ in an `A` record request: _endpoint_.service.namespace.svc.zone, e.g., `*.nginx.ns.svc.cluster.local`
+* _service_ in an `A` record request: _service_.namespace.svc.zone, e.g., `*.ns.svc.cluster.local`
+* _namespace_ in an `A` record request: service._namespace_.svc.zone, e.g., `nginx.*.svc.cluster.local`
+* _port and/or protocol_ in an `SRV` request: __port_.__protocol_.service.namespace.svc.zone.,
    e.g., `_http.*.service.ns.svc.cluster.local`
- * multiple wildcards are allowed in a single query, e.g., `A` Request `*.*.svc.zone.` or `SRV` request `*.*.*.*.svc.zone.`
+* multiple wildcards are allowed in a single query, e.g., `A` Request `*.*.svc.zone.` or `SRV` request `*.*.*.*.svc.zone.`
 
  For example, wildcards can be used to resolve all Endpoints for a Service as `A` records. e.g.: `*.service.ns.svc.myzone.local` will return the Endpoint IPs in the Service `service` in namespace `default`:
 
@@ -220,14 +223,14 @@ or the word "any"), then that label will match all values.  The labels that acce
 The kubernetes plugin will publish the following metadata, if the *metadata*
 plugin is also enabled:
 
- * kubernetes/endpoint: the endpoint name in the query
- * kubernetes/kind: the resource kind (pod or svc) in the query
- * kubernetes/namespace: the namespace in the query
- * kubernetes/port-name: the port name in an SRV query
- * kubernetes/protocol: the protocol in an SRV query
- * kubernetes/service: the service name in the query
- * kubernetes/client-namespace: the client pod's namespace, if `pods verified` mode is enabled
- * kubernetes/client-pod-name: the client pod's name, if `pods verified` mode is enabled
+* kubernetes/endpoint: the endpoint name in the query
+* kubernetes/kind: the resource kind (pod or svc) in the query
+* kubernetes/namespace: the namespace in the query
+* kubernetes/port-name: the port name in an SRV query
+* kubernetes/protocol: the protocol in an SRV query
+* kubernetes/service: the service name in the query
+* kubernetes/client-namespace: the client pod's namespace, if `pods verified` mode is enabled
+* kubernetes/client-pod-name: the client pod's name, if `pods verified` mode is enabled
 
 ## Metrics
 
@@ -238,9 +241,10 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
   The metrics has the `service_kind` label that identifies the kind of the
   [kubernetes service](https://kubernetes.io/docs/concepts/services-networking/service).
   It may take one of the three values:
-    * `cluster_ip`
-    * `headless_with_selector`
-    * `headless_without_selector`
+
+  * `cluster_ip`
+  * `headless_with_selector`
+  * `headless_without_selector`
 
 ## Bugs
 
