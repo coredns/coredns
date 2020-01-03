@@ -114,6 +114,7 @@ func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string
 		}
 		return i.(*item)
 	}
+	cacheMisses.WithLabelValues(server).Inc()
 	return nil
 }
 

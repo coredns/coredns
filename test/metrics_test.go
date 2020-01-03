@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -221,5 +222,41 @@ example.com:0 {
 
 	if got != "" {
 		t.Errorf("Expected value %s for %s, but got %s", "", metricName, got)
+	}
+}
+
+func TestMetricsAvailable(t *testing.T) {
+	procMetric := "coredns_build_info"
+	procCache := "coredns_cache_size"
+	procCacheMiss := "coredns_cache_misses_total"
+	procForward := "coredns_dns_request_duration_seconds"
+	corefileWithMetrics := `
+	.:0 {
+		prometheus localhost:0
+		cache
+		forward . 8.8.8.8 {
+           force_tcp
+		}
+	}`
+	inst, _, tcp, err := CoreDNSServerAndPorts(corefileWithMetrics)
+	defer inst.Stop()
+	if err != nil {
+		if strings.Contains(err.Error(), inUse) {
+			return
+		}
+		t.Errorf("Could not get service instance: %s", err)
+	}
+	// send a query and check we can scrap corresponding metrics
+	cl := dns.Client{Net: "tcp"}
+	m := new(dns.Msg)
+	m.SetQuestion("www.example.org.", dns.TypeA)
+
+	if _, _, err := cl.Exchange(m, tcp); err != nil {
+		t.Fatalf("Could not send message: %s", err)
+	}
+
+	// we should have metrics from forward, cache, and metrics itself
+	if err := collectMetricsInfo(metrics.ListenAddr, procMetric, procCache, procCacheMiss, procForward); err != nil {
+		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 }
