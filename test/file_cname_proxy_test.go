@@ -58,10 +58,10 @@ func TestZoneExternalCNAMELookupWithProxy(t *testing.T) {
 }
 `
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
+	defer i.Stop()
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
-	defer i.Stop()
 
 	m := new(dns.Msg)
 	m.SetQuestion("cname.example.org.", dns.TypeA)

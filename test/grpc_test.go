@@ -17,10 +17,10 @@ func TestGrpc(t *testing.T) {
 }
 `
 	g, _, tcp, err := CoreDNSServerAndPorts(corefile)
+	defer g.Stop()
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
-	defer g.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

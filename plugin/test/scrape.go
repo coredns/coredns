@@ -25,14 +25,17 @@ package test
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime"
 	"net/http"
+	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/matttproud/golang_protobuf_extensions/pbutil"
-	"github.com/prometheus/common/expfmt"
-
 	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 )
 
 type (
@@ -63,7 +66,129 @@ type (
 		Count   string            `json:"count"`
 		Sum     string            `json:"sum"`
 	}
+
+	// DnsMetrics is metrics for dns
+	DnsMetrics map[string]model.Samples
 )
+
+// Equal returns true if all metrics are the same as the arguments.
+func (m *DnsMetrics) Equal(o DnsMetrics) bool {
+	leftKeySet := []string{}
+	rightKeySet := []string{}
+	for k := range *m {
+		leftKeySet = append(leftKeySet, k)
+	}
+	for k := range o {
+		rightKeySet = append(rightKeySet, k)
+	}
+	if !reflect.DeepEqual(leftKeySet, rightKeySet) {
+		return false
+	}
+	for _, k := range leftKeySet {
+		if !(*m)[k].Equal(o[k]) {
+			return false
+		}
+	}
+	return true
+}
+
+// NewDnsMetrics returns new metrics which are initialized.
+func NewDnsMetrics() DnsMetrics {
+	result := make(DnsMetrics)
+	return result
+}
+
+// GrabDnsMetrics retrieve metrics from the dns using a simple GET over http.
+// Currently only used in integration tests.
+func GrabDnsMetrics(url string) (DnsMetrics, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return DnsMetrics{}, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return DnsMetrics{}, err
+	}
+	return parseDnsMetrics(string(body))
+}
+
+func parseDnsMetrics(data string) (DnsMetrics, error) {
+	result := NewDnsMetrics()
+	if err := parseMetrics(data, &result); err != nil {
+		return DnsMetrics{}, err
+	}
+	return result, nil
+}
+
+// parseMetrics parses Metrics from data returned from prometheus endpoint
+func parseMetrics(data string, output *DnsMetrics) error {
+	dec := expfmt.NewDecoder(strings.NewReader(data), expfmt.FmtText)
+	decoder := expfmt.SampleDecoder{
+		Dec:  dec,
+		Opts: &expfmt.DecodeOptions{},
+	}
+
+	for {
+		var v model.Vector
+		if err := decoder.Decode(&v); err != nil {
+			if err == io.EOF {
+				// Expected loop termination condition.
+				return nil
+			}
+			continue
+		}
+		for _, metric := range v {
+			name := string(metric.Metric[model.MetricNameLabel])
+			(*output)[name] = append((*output)[name], metric)
+		}
+	}
+}
+
+// GetDnsMetrics returns config related metrics from the dns, filtered to the filterMetricNames passed in
+func GetDnsMetrics(filterMetricNames map[string]interface{}, url string) (DnsMetrics, error) {
+	// grab Kubelet metrics
+	ms, err := GrabDnsMetrics(fmt.Sprintf("http://%s/metrics", url))
+	if err != nil {
+		return nil, err
+	}
+
+	filtered := NewDnsMetrics()
+	for name := range ms {
+		if _, ok := filterMetricNames[name]; !ok {
+			continue
+		}
+		filtered[name] = ms[name]
+	}
+	// clear timestamps from actual, so DeepEqual is time-invariant
+	for _, samples := range filtered {
+		for _, sample := range samples {
+			sample.Timestamp = 0
+		}
+	}
+	return filtered, nil
+}
+
+// NewCacheSample return the pointer of model.Sample
+func NewCacheSample(name model.LabelValue, source model.LabelSet) *model.Sample {
+	sample := &model.Sample{
+		Metric: model.Metric(map[model.LabelName]model.LabelValue{
+			model.MetricNameLabel: name,
+		}),
+		Value: 0,
+	}
+	for key, value := range source {
+		if key != "Value" {
+			sample.Metric[key] = value
+		} else {
+			f, err := strconv.ParseFloat(string(value), 64)
+			if err == nil {
+				sample.Value = model.SampleValue(f)
+			}
+		}
+	}
+	return sample
+}
 
 // Scrape returns the all the vars a []*metricFamily.
 func Scrape(url string) []*MetricFamily {

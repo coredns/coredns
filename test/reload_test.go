@@ -2,12 +2,13 @@ package test
 
 import (
 	"bytes"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
 )
@@ -88,6 +89,7 @@ func TestReloadMetricsHealth(t *testing.T) {
 	whoami
 }`
 	c, err := CoreDNSServer(corefile)
+	defer c.Stop()
 	if err != nil {
 		if strings.Contains(err.Error(), inUse) {
 			return // meh, but don't error
@@ -126,21 +128,6 @@ func TestReloadMetricsHealth(t *testing.T) {
 	}
 }
 
-func collectMetricsInfo(addr string, procs ...string) error {
-	cl := &http.Client{}
-	resp, err := cl.Get(fmt.Sprintf("http://%s/metrics", addr))
-	if err != nil {
-		return err
-	}
-	metrics, _ := ioutil.ReadAll(resp.Body)
-	for _, p := range procs {
-		if !bytes.Contains(metrics, []byte(p)) {
-			return fmt.Errorf("failed to see %s in metric output \n%s", p, metrics)
-		}
-	}
-	return nil
-}
-
 // TestReloadSeveralTimeMetrics ensures that metrics are not pushed to
 // prometheus once the metrics plugin is removed and a coredns
 // reload is triggered
@@ -163,10 +150,14 @@ func TestReloadSeveralTimeMetrics(t *testing.T) {
 	.:0 {
 		whoami
 	}`
-	if err := collectMetricsInfo(promAddress, proc); err == nil {
+	// we should have metrics from forward, cache, and metrics itself
+	first, err := test.GetDnsMetrics(map[string]interface{}{
+		proc: nil}, promAddress)
+	if err != nil || len(first) != 1 {
 		t.Errorf("Prometheus is listening before the test started")
 	}
 	serverWithMetrics, err := CoreDNSServer(corefileWithMetrics)
+	defer serverWithMetrics.Stop()
 	if err != nil {
 		if strings.Contains(err.Error(), inUse) {
 			return
@@ -174,7 +165,9 @@ func TestReloadSeveralTimeMetrics(t *testing.T) {
 		t.Errorf("Could not get service instance: %s", err)
 	}
 	// verify prometheus is running
-	if err := collectMetricsInfo(promAddress, proc); err != nil {
+	second, err := test.GetDnsMetrics(map[string]interface{}{
+		proc: nil}, promAddress)
+	if err != nil || len(second) != 1 {
 		t.Errorf("Prometheus is not listening : %s", err)
 	}
 	reloadCount := 2
@@ -185,7 +178,10 @@ func TestReloadSeveralTimeMetrics(t *testing.T) {
 		if err != nil {
 			t.Errorf("Could not restart CoreDNS : %s, at loop %v", err, i)
 		}
-		if err := collectMetricsInfo(promAddress, proc); err != nil {
+		// verify prometheus is running
+		second, err := test.GetDnsMetrics(map[string]interface{}{
+			proc: nil}, promAddress)
+		if err != nil || len(second) != 1 {
 			t.Errorf("Prometheus is not listening : %s", err)
 		}
 		serverWithMetrics = serverReload
@@ -199,7 +195,9 @@ func TestReloadSeveralTimeMetrics(t *testing.T) {
 	}
 	serverWithoutMetrics.Stop()
 	// verify that metrics have not been pushed
-	if err := collectMetricsInfo(promAddress, proc); err == nil {
+	third, err := test.GetDnsMetrics(map[string]interface{}{
+		proc: nil}, promAddress)
+	if err == nil && len(third) > 0 {
 		t.Errorf("Prometheus is still listening")
 	}
 }
@@ -220,6 +218,7 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 		}
 	}`
 	inst, _, tcp, err := CoreDNSServerAndPorts(corefileWithMetrics)
+	defer inst.Stop()
 	if err != nil {
 		if strings.Contains(err.Error(), inUse) {
 			return
@@ -230,14 +229,17 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	cl := dns.Client{Net: "tcp"}
 	m := new(dns.Msg)
 	m.SetQuestion("www.example.org.", dns.TypeA)
-
 	if _, _, err := cl.Exchange(m, tcp); err != nil {
 		t.Fatalf("Could not send message: %s", err)
 	}
 
-	// we should have metrics from forward, cache, and metrics itself
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
-		t.Errorf("Could not scrap one of expected stats : %s", err)
+	actual, err := test.GetDnsMetrics(map[string]interface{}{
+		procMetric:  nil,
+		procCache:   nil,
+		procForward: nil,
+	}, promAddress)
+	if err != nil || len(actual) != 3 {
+		t.Errorf("Could not get dns metrics: %v", err)
 	}
 
 	// now reload
@@ -249,8 +251,14 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 		instReload = inst
 	}
 
+	reload, err := test.GetDnsMetrics(map[string]interface{}{
+		procMetric:  nil,
+		procCache:   nil,
+		procForward: nil,
+	}, promAddress)
+
 	// check the metrics are available still
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
+	if err != nil || len(reload) != 3 {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 
@@ -283,6 +291,7 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 		invalid
 	}`
 	inst, _, tcp, err := CoreDNSServerAndPorts(corefileWithMetrics)
+	defer inst.Stop()
 	if err != nil {
 		if strings.Contains(err.Error(), inUse) {
 			return
@@ -299,8 +308,14 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 	}
 
 	// we should have metrics from forward, cache, and metrics itself
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
-		t.Errorf("Could not scrap one of expected stats : %s", err)
+	actual, err := test.GetDnsMetrics(map[string]interface{}{
+		procMetric:  nil,
+		procCache:   nil,
+		procForward: nil,
+	}, promAddress)
+
+	if err != nil || len(actual) != 3 {
+		t.Errorf("Could not get dns metrics: %v", err)
 	}
 
 	for i := 0; i < 2; i++ {
@@ -323,8 +338,14 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 		instReload = inst
 	}
 
+	reload, err := test.GetDnsMetrics(map[string]interface{}{
+		procMetric:  nil,
+		procCache:   nil,
+		procForward: nil,
+	}, promAddress)
+
 	// check the metrics are available still
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
+	if err != nil || len(reload) != 3 {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 

@@ -13,7 +13,9 @@ import (
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/test"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/miekg/dns"
+	"github.com/prometheus/common/model"
 )
 
 // Start test server that has metrics enabled. Then tear it down again.
@@ -29,10 +31,10 @@ example.com:0 {
 }
 `
 	srv, err := CoreDNSServer(corefile)
+	defer srv.Stop()
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
-	defer srv.Stop()
 }
 
 func TestMetricsRefused(t *testing.T) {
@@ -44,10 +46,10 @@ func TestMetricsRefused(t *testing.T) {
 }
 `
 	srv, udp, _, err := CoreDNSServerAndPorts(corefile)
+	defer srv.Stop()
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
-	defer srv.Stop()
 
 	m := new(dns.Msg)
 	m.SetQuestion("google.com.", dns.TypeA)
@@ -86,6 +88,7 @@ func TestMetricsAuto(t *testing.T) {
 `
 
 	i, err := CoreDNSServer(corefile)
+	defer i.Stop()
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
@@ -94,7 +97,6 @@ func TestMetricsAuto(t *testing.T) {
 	if udp == "" {
 		t.Fatalf("Could not get UDP listening port")
 	}
-	defer i.Stop()
 
 	// Write db.example.org to get example.org.
 	if err = ioutil.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
@@ -158,10 +160,10 @@ google.com:0 {
 `, addrMetrics, addrMetrics)
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
+	defer i.Stop()
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
-	defer i.Stop()
 
 	// send an initial query to setup properly the cache size
 	m := new(dns.Msg)
@@ -201,27 +203,39 @@ example.com:0 {
 }
 `
 	srv, err := CoreDNSServer(corefile)
+	defer srv.Stop()
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
-	defer srv.Stop()
 
 	metricName := "coredns_plugin_enabled" //{server, zone, name}
-
-	data := test.Scrape("http://" + metrics.ListenAddr + "/metrics")
-
-	// Get the value for the metrics where the one of the labels values matches "chaos".
-	got, _ := test.MetricValueLabel(metricName, "chaos", data)
-
-	if got != "1" {
-		t.Errorf("Expected value %s for %s, but got %s", "1", metricName, got)
+	// cache Plugin sample
+	cachePluginSamples := func(plugin, zone string) map[model.LabelName]model.LabelValue {
+		return map[model.LabelName]model.LabelValue{
+			"name":                model.LabelValue(plugin),
+			model.MetricNameLabel: model.LabelValue(metricName),
+			"server":              "dns://:0",
+			"zone":                model.LabelValue(zone),
+			"Value":               "1",
+		}
 	}
-
-	// Get the value for the metrics where the one of the labels values matches "whoami".
-	got, _ = test.MetricValueLabel(metricName, "whoami", data)
-
-	if got != "" {
-		t.Errorf("Expected value %s for %s, but got %s", "", metricName, got)
+	expect := test.DnsMetrics(
+		map[string]model.Samples{
+			metricName: model.Samples{
+				test.NewCacheSample(model.LabelValue(metricName), cachePluginSamples("chaos", "example.org.")),
+				test.NewCacheSample(model.LabelValue(metricName), cachePluginSamples("forward", "example.com.")),
+				test.NewCacheSample(model.LabelValue(metricName), cachePluginSamples("prometheus", "example.com.")),
+				test.NewCacheSample(model.LabelValue(metricName), cachePluginSamples("prometheus", "example.org.")),
+			},
+		},
+	)
+	// we should have metrics from forward, cache, and metrics itself
+	actual, err := test.GetDnsMetrics(map[string]interface{}{
+		metricName: nil,
+	}, metrics.ListenAddr)
+	// compare to expected
+	if diff := cmp.Diff(expect, actual); diff != "" {
+		t.Errorf("Unexpected result diff (-want, +got): %s", diff)
 	}
 }
 
@@ -254,9 +268,15 @@ func TestMetricsAvailable(t *testing.T) {
 	if _, _, err := cl.Exchange(m, tcp); err != nil {
 		t.Fatalf("Could not send message: %s", err)
 	}
-
 	// we should have metrics from forward, cache, and metrics itself
-	if err := collectMetricsInfo(metrics.ListenAddr, procMetric, procCache, procCacheMiss, procForward); err != nil {
+	actual, err := test.GetDnsMetrics(map[string]interface{}{
+		procMetric:    nil,
+		procCache:     nil,
+		procCacheMiss: nil,
+		procForward:   nil,
+	}, metrics.ListenAddr)
+	// we should have metrics from forward, cache, and metrics itself
+	if err != nil || len(actual) != 4 {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 }
