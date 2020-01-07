@@ -12,15 +12,15 @@ import (
 func (t Transfer) Notify(ch <-chan []string) {
 	for zones := range ch {
 		for _, zone := range zones {
-			t.notifyForZone(zone)
+			t.sendNotifies(zone)
 		}
 	}
 }
 
-// notifyForZone sends notifies to the configured remote servers for the transfer instance handling the zone.
+// sendNotifies sends notifies to the configured remote servers for the transfer instance handling the zone.
 // It will try up to three times before giving up on a specific remote. It will sequentially loop
 // through "to" until they all have replied (or have 3 failed attempts).
-func (t Transfer) notifyForZone(zone string) error {
+func (t Transfer) sendNotifies(zone string) {
 	var to []string
 
 	// get remote servers for this zone
@@ -33,7 +33,7 @@ func (t Transfer) notifyForZone(zone string) error {
 		}
 	}
 	if len(to) == 0 {
-		return nil
+		return
 	}
 
 	m := new(dns.Msg)
@@ -49,7 +49,6 @@ func (t Transfer) notifyForZone(zone string) error {
 		}
 	}
 	log.Infof("Sent notifies for zone %q to %v", zone, to)
-	return nil
 }
 
 func notifyAddr(c *dns.Client, m *dns.Msg, s string) error {
