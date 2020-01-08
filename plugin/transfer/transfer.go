@@ -44,11 +44,11 @@ type Transferer interface {
 	// by proceeding as if an AXFR was requested (as above).
 	Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 
-	// Notify returns a channel to which the implementing plugin should send a message for each zone
-	// that has updated.  The transfer plugin listens for messages and sends notifications to
-	// the destinations in "to".  A plugin that does not want to support notifications can return a nil
-	// channel. The channel, if created, must be closed on shutdown.
-	Notify() <-chan []string
+	// Notify returns a data channel to which the implementing plugin should send a message for each zone
+	// that has updated, and a stop channel.  The transfer plugin listens for messages and sends notifications to
+	// the destinations in "to".  A plugin that does not want to support notifications can return nil
+	// channels.
+	Notify() (data <-chan []string, stop <-chan struct{})
 }
 
 var (

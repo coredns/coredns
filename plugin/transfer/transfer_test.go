@@ -49,7 +49,7 @@ func (p transfererPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR,
 	return ch, nil
 }
 
-func (p transfererPlugin) Notify() <-chan []string { return nil }
+func (p transfererPlugin) Notify() (<-chan []string, <-chan struct{}) { return nil, nil }
 
 type terminatingPlugin struct{}
 

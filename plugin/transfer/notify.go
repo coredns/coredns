@@ -9,10 +9,15 @@ import (
 )
 
 // Notify sends notifies for incoming messages from plugins
-func (t Transfer) Notify(ch <-chan []string) {
-	for zones := range ch {
-		for _, zone := range zones {
-			t.sendNotifies(zone)
+func (t Transfer) Notify(data <-chan []string, stop <-chan struct{}) {
+	for {
+		select {
+		case <-stop:
+			return
+		case zones := <-data:
+			for _, zone := range zones {
+				t.sendNotifies(zone)
+			}
 		}
 	}
 }
