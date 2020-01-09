@@ -3,6 +3,7 @@ package transfer
 import (
 	"fmt"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 
 	"github.com/miekg/dns"
@@ -30,12 +31,12 @@ func (t Transfer) sendNotifies(zone string) {
 
 	// get remote servers for this zone
 	for _, x := range t.xfrs {
-		for _, z := range x.Zones {
-			if zone != z {
-				continue
-			}
-			to = append(to, x.to...)
+		matchZone := plugin.Zones(x.Zones).Matches(zone)
+		if matchZone == "" {
+			continue
 		}
+		to = x.to
+		break
 	}
 	if len(to) == 0 {
 		return
