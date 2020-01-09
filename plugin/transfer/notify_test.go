@@ -47,13 +47,13 @@ func TestNotify(t *testing.T) {
 		t.Fatal(err)
 	}
 	if notifyMsg.Opcode != dns.OpcodeNotify {
-		t.Fatalf("expected opcode Notify(4), got %v ", notifyMsg.Opcode)
+		t.Fatalf("Expected opcode Notify(4), got %v ", notifyMsg.Opcode)
 	}
 	if len(notifyMsg.Question) != 1 {
-		t.Fatalf("expected one question, got %v ", len(notifyMsg.Question))
+		t.Fatalf("Expected one question, got %v ", len(notifyMsg.Question))
 	}
 	if notifyMsg.Question[0].Name != "example.com." {
-		t.Fatalf("expected zone example.com., got %v ", notifyMsg.Question[0])
+		t.Fatalf("Expected zone example.com., got %v ", notifyMsg.Question[0])
 	}
 
 	// Write a positive response back to the client
