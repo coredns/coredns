@@ -26,13 +26,13 @@ func (s *Sign) OnStartup() error {
 
 // Various duration constants for signing of the zones.
 const (
-	DurationExpireDays              = 7 * 24 * time.Hour  // max time allowed before expiration
-	DurationResignDays              = 6 * 24 * time.Hour  // if the last sign happenend this long ago, sign again
-	DurationSignatureExpireDays     = 32 * 24 * time.Hour // sign for 32 days
-	DurationRefreshHours            = 5 * time.Hour       // check zones every 5 hours
-	DurationInceptionJitter         = -18 * time.Hour     // default max jitter for the inception
-	DurationExpirationDayJitter     = 5 * 24 * time.Hour  // default max jitter for the expiration
-	DurationSignatureInceptionHours = -3 * time.Hour      // -(2+1) hours, be sure to catch daylight saving time and such, jitter is subtracted
+	durationExpireDays              = 7 * 24 * time.Hour  // max time allowed before expiration
+	durationResignDays              = 6 * 24 * time.Hour  // if the last sign happenend this long ago, sign again
+	durationSignatureExpireDays     = 32 * 24 * time.Hour // sign for 32 days
+	durationRefreshHours            = 5 * time.Hour       // check zones every 5 hours
+	durationInceptionJitter         = -18 * time.Hour     // default max jitter for the inception
+	durationExpirationDayJitter     = 5 * 24 * time.Hour  // default max jitter for the expiration
+	durationSignatureInceptionHours = -3 * time.Hour      // -(2+1) hours, be sure to catch daylight saving time and such, jitter is subtracted
 )
 
 const timeFmt = "2006-01-02T15:04:05.000Z07:00"
