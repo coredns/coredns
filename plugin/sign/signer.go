@@ -18,11 +18,12 @@ var log = clog.NewWithPlugin("sign")
 
 // Signer holds the data needed to sign a zone file.
 type Signer struct {
-	keys      []Pair
-	origin    string
-	dbfile    string
-	directory string
-	jitter    time.Duration
+	keys        []Pair
+	origin      string
+	dbfile      string
+	directory   string
+	jitterIncep time.Duration
+	jitterExpir time.Duration
 
 	signedfile string
 	stop       chan struct{}
@@ -42,7 +43,7 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 
 	mttl := z.Apex.SOA.Minttl
 	ttl := z.Apex.SOA.Header().Ttl
-	inception, expiration := lifetime(now, s.jitter)
+	inception, expiration := lifetime(now, s.jitterIncep, s.jitterExpir)
 	z.Apex.SOA.Serial = uint32(now.Unix())
 
 	for _, pair := range s.keys {
@@ -202,8 +203,8 @@ func (s *Signer) refresh(val time.Duration) {
 	}
 }
 
-func lifetime(now time.Time, jitter time.Duration) (uint32, uint32) {
-	incep := uint32(now.Add(DurationSignatureInceptionHours).Add(jitter).Unix())
-	expir := uint32(now.Add(DurationSignatureExpireDays).Unix())
+func lifetime(now time.Time, jitterInception, jitterExpiration time.Duration) (uint32, uint32) {
+	incep := uint32(now.Add(DurationSignatureInceptionHours).Add(jitterInception).Unix())
+	expir := uint32(now.Add(DurationSignatureExpireDays).Add(jitterExpiration).Unix())
 	return incep, expir
 }

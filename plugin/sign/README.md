@@ -32,7 +32,7 @@ it do key or algorithm rollovers - it just signs.
     Both these dates are only checked on the SOA's signature(s).
 
  *  Create RRSIGs that have an inception of -3 hours (minus a jitter between 0 and 18 hours)
-    and a expiration of +32 days for every given DNSKEY.
+    and a expiration of +32 (plus a jitter between 0 and 5 days) days for every given DNSKEY.
 
  *  Add NSEC records for all names in the zone. The TTL for these is the negative cache TTL from the
     SOA record.

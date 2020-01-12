@@ -30,7 +30,8 @@ const (
 	DurationResignDays              = 6 * 24 * time.Hour  // if the last sign happenend this long ago, sign again
 	DurationSignatureExpireDays     = 32 * 24 * time.Hour // sign for 32 days
 	DurationRefreshHours            = 5 * time.Hour       // check zones every 5 hours
-	DurationJitter                  = -18 * time.Hour     // default max jitter
+	DurationInceptionJitter         = -18 * time.Hour     // default max jitter for the inception
+	DurationExpirationDayJitter     = 5 * 24 * time.Hour  // default max jitter for the expiration
 	DurationSignatureInceptionHours = -3 * time.Hour      // -(2+1) hours, be sure to catch daylight saving time and such, jitter is subtracted
 )
 
