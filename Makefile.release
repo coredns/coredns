@@ -88,6 +88,8 @@ build:
 	mkdir -p build/windows/amd64 && $(MAKE) coredns BINARY=build/windows/amd64/$(NAME).exe SYSTEM="GOOS=windows GOARCH=amd64" CHECKS="" BUILDOPTS=""
 	@echo Building: linux/mips - $(VERSION)
 	mkdir -p build/linux/mips  && $(MAKE) coredns BINARY=build/linux/mips/$(NAME) SYSTEM="GOOS=linux GOARCH=mips" CHECKS="" BUILDOPTS=""
+	@echo Building: linux/mips64le - $(VERSION)
+	mkdir -p build/linux/mips64le  && $(MAKE) coredns BINARY=build/linux/mips64le/$(NAME) SYSTEM="GOOS=linux GOARCH=mips64le" CHECKS="" BUILDOPTS=""
 	@echo Building: linux/$(LINUX_ARCH) - $(VERSION) ;\
 	for arch in $(LINUX_ARCH); do \
 	    mkdir -p build/linux/$$arch  && $(MAKE) coredns BINARY=build/linux/$$arch/$(NAME) SYSTEM="GOOS=linux GOARCH=$$arch" CHECKS="" BUILDOPTS="" ;\
@@ -100,6 +102,7 @@ tar:
 	tar -zcf release/$(NAME)_$(VERSION)_darwin_amd64.tgz -C build/darwin/amd64 $(NAME)
 	tar -zcf release/$(NAME)_$(VERSION)_windows_amd64.tgz -C build/windows/amd64 $(NAME).exe
 	tar -zcf release/$(NAME)_$(VERSION)_linux_mips.tgz -C build/linux/mips $(NAME)
+	tar -zcf release/$(NAME)_$(VERSION)_linux_mips64le.tgz -C build/linux/mips64le $(NAME)
 	for arch in $(LINUX_ARCH); do \
 	    tar -zcf release/$(NAME)_$(VERSION)_linux_$$arch.tgz -C build/linux/$$arch $(NAME) ;\
 	done
