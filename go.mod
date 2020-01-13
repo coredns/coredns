@@ -46,8 +46,3 @@ require (
 	k8s.io/client-go v0.17.0
 	k8s.io/klog v1.0.0
 )
-
-replace (
-	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.0.0+incompatible
-	github.com/miekg/dns v1.1.3 => github.com/miekg/dns v1.1.22
-)
