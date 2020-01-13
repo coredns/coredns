@@ -49,9 +49,10 @@ func TestLookupA(t *testing.T) {
 			return
 		}
 
-		resp := rec.Msg
-		if err := test.SortAndCheck(resp, tc); err != nil {
-			t.Error(err)
+		if resp := rec.Msg; rec.Msg != nil {
+			if err := test.SortAndCheck(resp, tc); err != nil {
+				t.Error(err)
+			}
 		}
 	}
 }
