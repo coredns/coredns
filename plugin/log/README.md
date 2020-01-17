@@ -7,10 +7,10 @@
 ## Description
 
 By just using *log* you dump all queries (and parts for the reply) on standard output. Options exist
-to tweak the output a little. The date/time prefix on log lines is RFC3339 formatted with
-milliseconds.
+to tweak the output a little. Note that for busy servers logging will incur a performance hit.
 
-Note that for busy servers logging will incur a performance hit.
+Enabling or disabling the *log* plugin only affects the query logging, any other logging from
+CoreDNS will show up regardless.
 
 ## Syntax
 
@@ -18,8 +18,7 @@ Note that for busy servers logging will incur a performance hit.
 log
 ~~~
 
-* With no arguments, a query log entry is written to *stdout* in the common log format for all requests
-
+With no arguments, a query log entry is written to *stdout* in the common log format for all requests.
 Or if you want/need slightly more control:
 
 ~~~ txt
@@ -47,11 +46,11 @@ The classes of responses have the following meaning:
 * `denial`: either NXDOMAIN or nodata responses (Name exists, type does not). A nodata response
    sets the return code to NOERROR.
 * `error`: SERVFAIL, NOTIMP, REFUSED, etc. Anything that indicates the remote server is not willing to
-    resolve the request.
+  resolve the request.
 * `all`: the default - nothing is specified. Using of this class means that all messages will be
   logged whatever we mix together with "all".
 
-If no class is specified, it defaults to *all*.
+If no class is specified, it defaults to `all`.
 
 ## Log Format
 
