@@ -30,7 +30,7 @@ require (
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.3.5
 	github.com/philhofer/fwd v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.3.0
-	github.com/prometheus/client_model v0.1.0
+	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.7.0
 	github.com/tinylib/msgp v1.1.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
