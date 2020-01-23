@@ -8,10 +8,12 @@
 # These are published on coredns.io. For example see: notes/coredns-1.5.1.md
 #
 # Getting the authors for this release is done with the following command line
+# See the 'authors' target.
 #
-# git log --pretty=format:'%an' v$(VERSION)..master | sort -u
+# git log --pretty=format:'%an' $(git describe --tags --abbrev=0)..master | sort -u
 #
 # Getting all pull requests merged since the last tag can be done with this "oneliner"
+# See the 'prs' target.
 #
 # % git log $(git describe --tags --abbrev=0)..HEAD --oneline | awk ' { $1="";print } ' | sed 's/^ //' | sed -e 's|#\([0-9]\)|https://github.com/coredns/coredns/pull/\1|'
 #
@@ -162,3 +164,13 @@ version:
 clean:
 	rm -rf release
 	rm -rf build
+
+.PHONY: prs
+prs:
+	git log $$(git describe --tags --abbrev=0)..HEAD --oneline | awk ' { $$1="";print } ' | sed 's/^ //' | sed -e 's|#\([0-9]\)|https://github.com/coredns/coredns/pull/\1|' | \
+		grep -v '^build(deps)' | \
+		grep -v '^auto go mod tidy'
+
+.PHONY: authors
+authors:
+	git log --pretty=format:'%an' $$(git describe --tags --abbrev=0)..master | sort -u
