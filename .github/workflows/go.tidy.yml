@@ -15,11 +15,7 @@ jobs:
     steps:
       -
         name: Checkout
-        uses: actions/checkout@v1
-      -
-        # https://github.com/actions/checkout/issues/6
-        name: Fix detached HEAD
-        run: git checkout ${GITHUB_REF#refs/heads/}
+        uses: actions/checkout@v2
       -
         name: Tidy
         run: |
