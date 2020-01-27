@@ -1,5 +1,7 @@
 # acl
 
+## Name
+
 *acl* - enforces access control policies on source ip and prevents unauthorized access to DNS servers.
 
 ## Description
@@ -76,4 +78,3 @@ If monitoring is enabled (via the _prometheus_ plugin) then the following metric
 - `coredns_request_allow_count_total{server}` - counter of DNS requests being allowed.
 
 The `server` and `zone` labels are explained in the _metrics_ plugin documentation.
-
