@@ -5,7 +5,6 @@ SYSTEM:=
 CHECKS:=check
 BUILDOPTS:=-v
 GOPATH?=$(HOME)/go
-PRESUBMIT:=core coremain plugin test request
 MAKEPWD:=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 CGO_ENABLED:=0
 
@@ -17,7 +16,7 @@ coredns: $(CHECKS)
 	CGO_ENABLED=$(CGO_ENABLED) $(SYSTEM) go build $(BUILDOPTS) -ldflags="-s -w -X github.com/coredns/coredns/coremain.GitCommit=$(GITCOMMIT)" -o $(BINARY)
 
 .PHONY: check
-check: presubmit core/plugin/zplugin.go core/dnsserver/zdirectives.go
+check: core/plugin/zplugin.go core/dnsserver/zdirectives.go
 
 .PHONY: travis
 travis:
@@ -68,11 +67,6 @@ gen:
 .PHONY: pb
 pb:
 	$(MAKE) -C pb
-
-# Presubmit runs all scripts in .presubmit; any non 0 exit code will fail the build.
-.PHONY: presubmit
-presubmit:
-	@for pre in $(MAKEPWD)/.presubmit/* ; do "$$pre" $(PRESUBMIT) || exit 1 ; done
 
 .PHONY: clean
 clean:
