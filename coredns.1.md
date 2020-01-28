@@ -4,7 +4,7 @@
 
 ## Synopsis
 
-*coredns* **[-conf FILE]** **[-dns.port PORT}** **[OPTION]**... 
+*coredns* **[-conf FILE]** **[-dns.port PORT}** **[OPTION]**...
 
 ## Description
 

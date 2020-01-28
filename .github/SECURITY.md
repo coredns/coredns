@@ -6,7 +6,7 @@ to ensure responsible handling of critical issues.
 
 ## Product Security Team (PST)
 
-Security vulnerabilities should be handled quickly and sometimes privately. 
+Security vulnerabilities should be handled quickly and sometimes privately.
 The primary goal of this process is to reduce the total time users are vulnerable to publicly known exploits.
 
 The Product Security Team (PST) is responsible for organizing the entire response including internal communication and external disclosure.
@@ -23,7 +23,7 @@ The initial Product Security Team will consist of the set of maintainers that vo
 
 ### Private Disclosure Processes
 
-If you find a security vulnerability or any security related issues, 
+If you find a security vulnerability or any security related issues,
 please DO NOT file a public issue. Do not create a Github issue.
 Instead, send your report privately to security@coredns.io.
 Security reports are greatly appreciated and we will publicly thank you for it.
@@ -36,7 +36,7 @@ For instance, that could include:
 
 ### Public Disclosure Processes
 
-If you know of a publicly disclosed security vulnerability please IMMEDIATELY email security@coredns.io 
+If you know of a publicly disclosed security vulnerability please IMMEDIATELY email security@coredns.io
 to inform the Product Security Team (PST) about the vulnerability so we start the patch, release, and communication process.
 
 If possible the PST will ask the person making the public report if the issue can be handled via a private disclosure process
@@ -56,7 +56,7 @@ Note that given the current size of the CoreDNS community it is likely that the 
 The PST may decide to bring in additional contributors for added expertise depending on the area of the code that contains the vulnerability.
 
 All of the timelines below are suggestions and assume a Private Disclosure.
-If the Team is dealing with a Public Disclosure all timelines become ASAP. 
+If the Team is dealing with a Public Disclosure all timelines become ASAP.
 If the fix relies on another upstream project's disclosure timeline, that will adjust the process as well.
 We will work with the upstream project to fit their timeline and best protect our users.
 
@@ -88,14 +88,14 @@ discussed on the security@coredns.io mailing list.
 
 ### Fix Disclosure Process
 
-With the Fix Development underway the CoreDNS Security Team needs to come up with an overall communication plan for the wider community. 
-This Disclosure process should begin after the Team has developed a fix or mitigation 
+With the Fix Development underway the CoreDNS Security Team needs to come up with an overall communication plan for the wider community.
+This Disclosure process should begin after the Team has developed a fix or mitigation
 so that a realistic timeline can be communicated to users.
 
 **Disclosure of Forthcoming Fix to Users** (Completed within 1-7 days of Disclosure)
 
 - The Fix Lead will create a github issue in CoreDNS project to inform users that a security vulnerability
-has been disclosed and that a fix will be made available, with an estimation of the Release Date. 
+has been disclosed and that a fix will be made available, with an estimation of the Release Date.
 It will include any mitigating steps users can take until a fix is available.
 
 The communication to users should be actionable.
@@ -104,7 +104,7 @@ They should know when to block time to apply patches, understand exact mitigatio
 **Optional Fix Disclosure to Private Distributors List** (Completed within 1-14 days of Disclosure):
 
 - The Fix Lead will make a determination with the help of the Fix Team if an issue is critical enough to require early disclosure to distributors.
-Generally this Private Distributor Disclosure process should be reserved for remotely exploitable or privilege escalation issues. 
+Generally this Private Distributor Disclosure process should be reserved for remotely exploitable or privilege escalation issues.
 Otherwise, this process can be skipped.
 - The Fix Lead will email the patches to coredns-distributors-announce@lists.cncf.io so distributors can prepare their own release to be available to users on the day of the issue's announcement.
 Distributors should read about the [Private Distributor List](#private-distributor-list) to find out the requirements for being added to this list.
@@ -133,7 +133,7 @@ individuals to find out about security issues.
 
 The information members receive on coredns-distributors-announce@lists.cncf.io must not be
 made public, shared, nor even hinted at anywhere beyond the need-to-know within
-your specific team except with the list's explicit approval. 
+your specific team except with the list's explicit approval.
 This holds true until the public disclosure date/time that was agreed upon by the list.
 Members of the list and others may not use the information for anything other
 than getting the issue fixed for your respective distribution's users.
@@ -144,7 +144,7 @@ find out information on a need-to-know basis.
 
 In the unfortunate event you share the information beyond what is allowed by
 this policy, you _must_ urgently inform the security@coredns.io
-mailing list of exactly what information leaked and to whom. 
+mailing list of exactly what information leaked and to whom.
 
 If you continue to leak information and break the policy outlined here, you
 will be removed from the list.

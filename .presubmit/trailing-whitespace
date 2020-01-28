@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-echo "** presubmit/$(basename $0)"
-
-if grep -r '[[:blank:]]$' "$@"; then
-    echo "** presubmit/$(basename $0): please remove any trailing white space"
-fi

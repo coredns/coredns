@@ -31,7 +31,7 @@ added. Documentation can be found in
 
 * *proxy*: fix a bug when a connection hangs and never gets release (#467)
 * *proxy*: Fold *httpproxy* into it, which is now a normal proxy with a special `protocol`. For
-  Monitoring an extra label was added: `proxy_proto` that shows the protocol used (`dns` or `https_google`). 
+  Monitoring an extra label was added: `proxy_proto` that shows the protocol used (`dns` or `https_google`).
   See the [proxy README.md](https://github.com/coredns/coredns/blob/master/plugin/proxy/README.md) for details.
 * *httpproxy*: removed because functionality is moved to *proxy*.
 * *kubernetes*: Now implements the full
@@ -43,7 +43,7 @@ added. Documentation can be found in
 * *kubernetes*: Simplified the configuration of reverse zones. Instead of listing the zones in the
   zone list, you can just add a list of CIDRs using the `cidrs` option.
 * *rewrite*: allow rewriting more bits of the incoming packet. This required some backward
-  *incompatible* changes, e.g. a new **FIELD** keyword is now required. See the 
+  *incompatible* changes, e.g. a new **FIELD** keyword is now required. See the
   [rewrite README.md](https://github.com/coredns/coredns/blob/master/plugin/rewrite/README.md) for details.
 
 
