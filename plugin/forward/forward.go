@@ -76,7 +76,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		count := atomic.AddInt64(&(f.queryCount), 1)
 		defer atomic.AddInt64(&(f.queryCount), -1)
 		if count > f.maxQueryCount {
-			return dns.RcodeRefused, errors.New("inflight forward queries exceeded maximum")
+			return dns.RcodeServerFailure, errors.New("inflight forward queries exceeded maximum")
 		}
 	}
 
