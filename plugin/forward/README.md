@@ -50,6 +50,7 @@ forward FROM TO... {
     tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION
+    max_queries MAX
 }
 ~~~
 
@@ -83,6 +84,8 @@ forward FROM TO... {
   * `round_robin` is a policy that selects hosts based on round robin ordering.
   * `sequential` is a policy that selects hosts based on sequential ordering.
 * `health_check`, use a different **DURATION** for health checking, the default duration is 0.5s.
+* `max_queries`, limit the number of concurrent queries to **MAX**.  Any new query that would
+  this raise the number of concurrent queries above the **MAX** will result in a SERVFAIL.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls-name` for different upstreams you're out of luck.
