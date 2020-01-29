@@ -1,0 +1,26 @@
+# This file contains all available configuration options
+# with their default values.
+
+# options for analysis running
+run:
+  # timeout for analysis, e.g. 30s, 5m, default is 1m
+  deadline: 10m
+
+# output configuration options
+output:
+  # colored-line-number|line-number|json|tab|checkstyle, default is "colored-line-number"
+  format: line-number
+
+# all available settings of specific linters
+linters-settings:
+  gofmt:
+    # simplify code: gofmt with `-s` option, true by default
+    simplify: true
+
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - govet
+  disable-all: true
+  fast: false

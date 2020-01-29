@@ -72,3 +72,6 @@ pb:
 clean:
 	go clean
 	rm -f coredns
+
+lint:
+	golangci-lint run

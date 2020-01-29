@@ -32,6 +32,7 @@ func TestNoDebug(t *testing.T) {
 	}
 }
 
+//nolint: govet
 func ExampleLogHexdump() {
 	buf, _ := msg().Pack()
 	h := hexdump(buf)
