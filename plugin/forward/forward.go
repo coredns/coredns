@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -36,6 +37,9 @@ type Forward struct {
 	tlsServerName string
 	maxfails      uint32
 	expire        time.Duration
+
+	maxQueryCount int64
+	queryCount int64
 
 	opts options // also here for testing
 
@@ -66,6 +70,14 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	state := request.Request{W: w, Req: r}
 	if !f.match(state) {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+	}
+
+	if f.maxQueryCount > 0 {
+		count := atomic.AddInt64(&(f.queryCount), 1)
+		defer atomic.AddInt64(&(f.queryCount), -1)
+		if count > f.maxQueryCount {
+			return dns.RcodeRefused, errors.New("inflight forward queries exceeded maximum")
+		}
 	}
 
 	fails := 0
