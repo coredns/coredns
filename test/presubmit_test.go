@@ -208,3 +208,106 @@ func hasImportTesting(path string, info os.FileInfo, _ error) error {
 	}
 	return nil
 }
+
+func TestImportOrdering(t *testing.T) {
+	err := filepath.Walk("..", hasImportOrdering)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func hasImportOrdering(path string, info os.FileInfo, _ error) error {
+	if !info.Mode().IsRegular() {
+		return nil
+	}
+	if strings.HasPrefix(path, "../.") {
+		return nil
+	}
+	if filepath.Ext(path) != ".go" {
+		return nil
+	}
+
+	fs := token.NewFileSet()
+	f, err := parser.ParseFile(fs, path, nil, parser.AllErrors)
+	if err != nil {
+		return err
+	}
+	if len(f.Imports) == 0 {
+		return nil
+	}
+
+	// 3 blocks total, if
+	// 3 blocks: std + coredns + 3rd party
+	// 2 blocks: std + coredns, std + 3rd party, coredns + 3rd party
+	// 1 block: std, coredns, 3rd party
+	// first entry in a block specifies the type (std, coredns, 3rd party)
+	// we want: std, coredns, 3rd party
+	// more than 3 blocks as an error
+	blocks := [3][]*ast.ImportSpec{}
+	prevpos := 0
+	bl := 0
+	for _, im := range f.Imports {
+		line := fs.Position(im.Path.Pos()).Line
+		if line-prevpos > 1 && prevpos > 0 {
+			bl++
+		}
+		if bl > 2 {
+			return fmt.Errorf("more than %d import blocks in %q", bl, path)
+		}
+		blocks[bl] = append(blocks[bl], im)
+		prevpos = line
+	}
+	// if it:
+	// contains strings github.com/coredns/coredns -> coredns
+	// contains dots -> 3rd
+	// no dots -> std
+	ip := [3]string{} // type per block, just string, either std, coredns, 3rd
+	for i := 0; i <= bl; i++ {
+		ip[i] = importtype(blocks[i][0].Path.Value)
+	}
+
+	// Ok, now that we have the type, let's see if all members adhere to it.
+	// After that we check if the are in the right order.
+	for i := 0; i < bl; i++ {
+		for _, p := range blocks[i] {
+			t := importtype(p.Path.Value)
+			if t != ip[i] {
+				return fmt.Errorf("import path for %s is not of the same type %q in %q", p.Path.Value, ip[i], path)
+			}
+		}
+	}
+
+	// check order
+	switch bl {
+	case 0:
+		// we don't care
+	case 1:
+		if ip[0] == "std" && ip[1] == "coredns" {
+			break // OK
+		}
+		if ip[0] == "std" && ip[1] == "3rd" {
+			break // OK
+		}
+		if ip[0] == "coredns" && ip[1] == "3rd" {
+			break // OK
+		}
+		return fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", path)
+	case 2:
+		if ip[0] == "std" && ip[1] == "coredns" && ip[2] == "3rd" {
+			break // OK
+		}
+		return fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", path)
+	}
+
+	return nil
+}
+
+func importtype(s string) string {
+	if strings.Contains(s, "github.com/coredns/coredns") {
+		return "coredns"
+	}
+	if strings.Contains(s, ".") {
+		return "3rd"
+	}
+	return "std"
+}

@@ -19,18 +19,11 @@ import (
 	"github.com/caddyserver/caddy"
 	"github.com/miekg/dns"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	// Pull this in setting klog's output to stdout
-	"k8s.io/klog"
-
-	// Excluding azure because it is failing to compile
-	// pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	// pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
-	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
-	// pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
-	_ "k8s.io/client-go/plugin/pkg/client/auth/openstack"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"       // pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"      // pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
+	_ "k8s.io/client-go/plugin/pkg/client/auth/openstack" // pull this in here, because we want it excluded if plugin.cfg doesn't have k8s
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 )
 
 var log = clog.NewWithPlugin("kubernetes")

@@ -11,16 +11,14 @@ import (
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentracer"
-	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
-
-	// Plugin the trace package.
-	_ "github.com/coredns/coredns/plugin/pkg/trace"
+	_ "github.com/coredns/coredns/plugin/pkg/trace" // Plugin the trace package.
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 	zipkin "github.com/openzipkin-contrib/zipkin-go-opentracing"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentracer"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (

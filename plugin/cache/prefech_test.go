@@ -8,8 +8,8 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
-
 	"github.com/coredns/coredns/plugin/test"
+
 	"github.com/miekg/dns"
 )
 
