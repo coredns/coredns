@@ -121,6 +121,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		}
 		f.proxies[i].SetExpire(f.expire)
 	}
+
 	return f, nil
 }
 
@@ -211,6 +212,18 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
+	case "max_queries":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		n, err := strconv.Atoi(c.Val())
+		if err != nil {
+			return err
+		}
+		if n < 0 {
+			return fmt.Errorf("max_queries can't be negative: %d", n)
+		}
+		f.maxQueryCount = int64(n)
 
 	default:
 		return c.Errf("unknown property '%s'", c.Val())

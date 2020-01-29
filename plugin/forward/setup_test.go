@@ -168,7 +168,45 @@ nameserver 10.10.255.253`), 0666); err != nil {
 			}
 		}
 		for _, p := range f.proxies {
-			p.health.Check(p) // this should almost always err, we don't care it shoulnd't crash
+			p.health.Check(p) // this should almost always err, we don't care it shouldn't crash
+		}
+	}
+}
+
+func TestSetupMaxQueryCount(t *testing.T) {
+	tests := []struct {
+		input       string
+		shouldErr   bool
+		expectedVal int64
+		expectedErr string
+	}{
+		// positive
+		{"forward . 127.0.0.1 {\nmax_queries 1000\n}\n", false, 1000, ""},
+		// negative
+		{"forward . 127.0.0.1 {\nmax_queries many\n}\n", true, 0, "invalid"},
+		{"forward . 127.0.0.1 {\nmax_queries -4\n}\n", true, 0, "negative"},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		f, err := parseForward(c)
+
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
+		}
+
+		if err != nil {
+			if !test.shouldErr {
+				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+			}
+
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
+			}
+		}
+
+		if !test.shouldErr && f.maxQueryCount != test.expectedVal {
+			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedVal, f.maxQueryCount)
 		}
 	}
 }
