@@ -59,7 +59,7 @@ func (w *hasTrailingWhitespaceWalker) walk(path string, info os.FileInfo, _ erro
 		trimmed := strings.TrimRightFunc(text, unicode.IsSpace)
 		if len(text) != len(trimmed) {
 			absPath, _ := filepath.Abs(path)
-			w.Errors = append(w.Errors, fmt.Errorf("file %q has trailing whitespace at line %d, text: %q", path, i, absPath))
+			w.Errors = append(w.Errors, fmt.Errorf("file %q has trailing whitespace at line %d, text: %q", absPath, i, text))
 		}
 	}
 
