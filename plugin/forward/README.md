@@ -85,9 +85,10 @@ forward FROM TO... {
   * `sequential` is a policy that selects hosts based on sequential ordering.
 * `health_check`, use a different **DURATION** for health checking, the default duration is 0.5s.
 * `max_concurrent` **MAX** will limit the number of concurrent queries to **MAX**.  Any new query that would
-  raise the number of concurrent queries above the **MAX** will result in a REFUSED response. A refusal of
-  this kind does not in itself count as a health failure. When choosing a value for **MAX**, pick a number
-  at least greater than the expected forwarded query rate * the normal latency of the upstream servers.
+  raise the number of concurrent queries above the **MAX** will result in a SERVFAIL response. This
+  response does not count as a health failure. When choosing a value for **MAX**, pick a number
+  at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
+  As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls-name` for different upstreams you're out of luck.
