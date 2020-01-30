@@ -3,12 +3,14 @@ package kubernetes
 import (
 	"context"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/request"
 )
 
 // Metadata implements the metadata.Provider interface.
 func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) context.Context {
+	state.Zone = plugin.Zones(k.Zones).Matches(state.Name())
 	// possible optimization: cache r so it doesn't need to be calculated again in ServeDNS
 	r, err := parseRequest(state)
 	if err != nil {
