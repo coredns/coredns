@@ -58,7 +58,8 @@ func (w *hasTrailingWhitespaceWalker) walk(path string, info os.FileInfo, _ erro
 		text := scanner.Text()
 		trimmed := strings.TrimRightFunc(text, unicode.IsSpace)
 		if len(text) != len(trimmed) {
-			w.Errors = append(w.Errors, fmt.Errorf("file %q has trailing whitespace at line %d, text: %q", path, i, text))
+			absPath, _ := filepath.Abs(path)
+			w.Errors = append(w.Errors, fmt.Errorf("file %q has trailing whitespace at line %d, text: %q", path, i, absPath))
 		}
 	}
 
@@ -97,7 +98,8 @@ func (w *hasHyphenWalker) walk(path string, info os.FileInfo, _ error) error {
 	}
 
 	if strings.Index(path, "-") > 0 {
-		w.Errors = append(w.Errors, fmt.Errorf("file %q has a hyphen, please use underscores in file names", path))
+		absPath, _ := filepath.Abs(path)
+		w.Errors = append(w.Errors, fmt.Errorf("file %q has a hyphen, please use underscores in file names", absPath))
 		return nil
 	}
 
@@ -251,7 +253,8 @@ func (w *hasImportTestingWalker) walk(path string, info os.FileInfo, _ error) er
 		}
 		for _, im := range f.Imports {
 			if im.Path.Value == `"testing"` {
-				w.Errors = append(w.Errors, fmt.Errorf("file %q is importing %q", path, "testing"))
+				absPath, _ := filepath.Abs(path)
+				w.Errors = append(w.Errors, fmt.Errorf("file %q is importing %q", absPath, "testing"))
 			}
 		}
 	}
@@ -313,7 +316,8 @@ func (w *testImportOrderingWalker) walk(path string, info os.FileInfo, _ error) 
 			bl++
 		}
 		if bl > 2 {
-			w.Errors = append(w.Errors, fmt.Errorf("more than %d import blocks in %q", bl, path))
+			absPath, _ := filepath.Abs(path)
+			w.Errors = append(w.Errors, fmt.Errorf("more than %d import blocks in %q", bl, absPath))
 		}
 		blocks[bl] = append(blocks[bl], im)
 		prevpos = line
@@ -333,7 +337,8 @@ func (w *testImportOrderingWalker) walk(path string, info os.FileInfo, _ error) 
 		for _, p := range blocks[i] {
 			t := importtype(p.Path.Value)
 			if t != ip[i] {
-				w.Errors = append(w.Errors, fmt.Errorf("import path for %s is not of the same type %q in %q", p.Path.Value, ip[i], path))
+				absPath, _ := filepath.Abs(path)
+				w.Errors = append(w.Errors, fmt.Errorf("import path for %s is not of the same type %q in %q", p.Path.Value, ip[i], absPath))
 			}
 		}
 	}
@@ -352,12 +357,14 @@ func (w *testImportOrderingWalker) walk(path string, info os.FileInfo, _ error) 
 		if ip[0] == "coredns" && ip[1] == "3rd" {
 			break // OK
 		}
-		w.Errors = append(w.Errors, fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", path))
+		absPath, _ := filepath.Abs(path)
+		w.Errors = append(w.Errors, fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", absPath))
 	case 2:
 		if ip[0] == "std" && ip[1] == "coredns" && ip[2] == "3rd" {
 			break // OK
 		}
-		w.Errors = append(w.Errors, fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", path))
+		absPath, _ := filepath.Abs(path)
+		w.Errors = append(w.Errors, fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", absPath))
 	}
 
 	return nil
