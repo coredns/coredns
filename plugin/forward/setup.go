@@ -212,7 +212,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
-	case "max_queries":
+	case "max_concurrent":
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
@@ -221,9 +221,9 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return err
 		}
 		if n < 0 {
-			return fmt.Errorf("max_queries can't be negative: %d", n)
+			return fmt.Errorf("max_concurrent can't be negative: %d", n)
 		}
-		f.maxQueryCount = int64(n)
+		f.maxConcurrent = int64(n)
 
 	default:
 		return c.Errf("unknown property '%s'", c.Val())

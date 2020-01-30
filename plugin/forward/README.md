@@ -84,7 +84,7 @@ forward FROM TO... {
   * `round_robin` is a policy that selects hosts based on round robin ordering.
   * `sequential` is a policy that selects hosts based on sequential ordering.
 * `health_check`, use a different **DURATION** for health checking, the default duration is 0.5s.
-* `max_queries` **MAX** will limit the number of concurrent queries to **MAX**.  Any new query that would
+* `max_concurrent` **MAX** will limit the number of concurrent queries to **MAX**.  Any new query that would
   raise the number of concurrent queries above the **MAX** will result in a SERVFAIL.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different

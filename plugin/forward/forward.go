@@ -26,9 +26,11 @@ var log = clog.NewWithPlugin("forward")
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
 // of proxies each representing one upstream proxy.
 type Forward struct {
-	proxies    []*Proxy
-	p          policy.Policy
-	hcInterval time.Duration
+	maxConcurrent int64
+	concurrent    int64
+	proxies       []*Proxy
+	p             policy.Policy
+	hcInterval    time.Duration
 
 	from    string
 	ignored []string
@@ -38,13 +40,12 @@ type Forward struct {
 	maxfails      uint32
 	expire        time.Duration
 
-	maxQueryCount int64
-	queryCount int64
-
 	opts options // also here for testing
 
 	Next plugin.Handler
 }
+
+var ErrLimitExceeded = errors.New("concurrent queries exceeded maximum")
 
 // New returns a new Forward.
 func New() *Forward {
@@ -72,11 +73,11 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
-	if f.maxQueryCount > 0 {
-		count := atomic.AddInt64(&(f.queryCount), 1)
-		defer atomic.AddInt64(&(f.queryCount), -1)
-		if count > f.maxQueryCount {
-			return dns.RcodeServerFailure, errors.New("inflight forward queries exceeded maximum")
+	if f.maxConcurrent > 0 {
+		count := atomic.AddInt64(&(f.concurrent), 1)
+		defer atomic.AddInt64(&(f.concurrent), -1)
+		if count > f.maxConcurrent {
+			return dns.RcodeServerFailure, ErrLimitExceeded
 		}
 	}
 

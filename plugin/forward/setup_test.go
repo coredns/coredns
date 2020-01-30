@@ -205,8 +205,8 @@ func TestSetupMaxQueryCount(t *testing.T) {
 			}
 		}
 
-		if !test.shouldErr && f.maxQueryCount != test.expectedVal {
-			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedVal, f.maxQueryCount)
+		if !test.shouldErr && f.maxConcurrent != test.expectedVal {
+			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedVal, f.maxConcurrent)
 		}
 	}
 }
