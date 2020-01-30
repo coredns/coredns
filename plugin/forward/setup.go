@@ -224,7 +224,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		if n < 0 {
 			return fmt.Errorf("max_concurrent can't be negative: %d", n)
 		}
-		ErrLimitExceeded = errors.New("concurrent queries exceeded maximum " + c.Val())
+		f.ErrLimitExceeded = errors.New("concurrent queries exceeded maximum " + c.Val())
 		f.maxConcurrent = int64(n)
 
 	default:
