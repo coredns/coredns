@@ -173,7 +173,7 @@ nameserver 10.10.255.253`), 0666); err != nil {
 	}
 }
 
-func TestSetupMaxQueryCount(t *testing.T) {
+func TestSetupMaxConcurrent(t *testing.T) {
 	tests := []struct {
 		input       string
 		shouldErr   bool
@@ -181,10 +181,10 @@ func TestSetupMaxQueryCount(t *testing.T) {
 		expectedErr string
 	}{
 		// positive
-		{"forward . 127.0.0.1 {\nmax_queries 1000\n}\n", false, 1000, ""},
+		{"forward . 127.0.0.1 {\nmax_concurrent 1000\n}\n", false, 1000, ""},
 		// negative
-		{"forward . 127.0.0.1 {\nmax_queries many\n}\n", true, 0, "invalid"},
-		{"forward . 127.0.0.1 {\nmax_queries -4\n}\n", true, 0, "negative"},
+		{"forward . 127.0.0.1 {\nmax_concurrent many\n}\n", true, 0, "invalid"},
+		{"forward . 127.0.0.1 {\nmax_concurrent -4\n}\n", true, 0, "negative"},
 	}
 
 	for i, test := range tests {
