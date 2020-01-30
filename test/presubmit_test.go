@@ -100,7 +100,6 @@ func (w *hasHyphenWalker) walk(path string, info os.FileInfo, _ error) error {
 	if strings.Index(path, "-") > 0 {
 		absPath, _ := filepath.Abs(path)
 		w.Errors = append(w.Errors, fmt.Errorf("file %q has a hyphen, please use underscores in file names", absPath))
-		return nil
 	}
 
 	return nil
