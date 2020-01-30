@@ -16,13 +16,25 @@ import (
 )
 
 func TestTrailingWhitespace(t *testing.T) {
-	err := filepath.Walk("..", hasTrailingWhitespace)
+	walker := hasTrailingWhitespaceWalker{}
+	err := filepath.Walk("..", walker.walk)
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if len(walker.Errors) > 0 {
+		for _, err = range walker.Errors {
+			t.Error(err)
+		}
+	}
 }
 
-func hasTrailingWhitespace(path string, info os.FileInfo, _ error) error {
+type hasTrailingWhitespaceWalker struct {
+	Errors []error
+}
+
+func (w *hasTrailingWhitespaceWalker) walk(path string, info os.FileInfo, _ error) error {
 	// Only handle regular files, skip files that are executable and skip file in the
 	// root that start with a .
 	if !info.Mode().IsRegular() {
@@ -42,11 +54,11 @@ func hasTrailingWhitespace(path string, info os.FileInfo, _ error) error {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
+	for i := 1; scanner.Scan(); i++ {
 		text := scanner.Text()
 		trimmed := strings.TrimRightFunc(text, unicode.IsSpace)
 		if len(text) != len(trimmed) {
-			return fmt.Errorf("file %q has trailing whitespace, text: %q", path, text)
+			w.Errors = append(w.Errors, fmt.Errorf("file %q has trailing whitespace at line %d, text: %q", path, i, text))
 		}
 	}
 
@@ -54,13 +66,25 @@ func hasTrailingWhitespace(path string, info os.FileInfo, _ error) error {
 }
 
 func TestFileNameHyphen(t *testing.T) {
-	err := filepath.Walk("..", hasHyphen)
+	walker := hasHyphenWalker{}
+	err := filepath.Walk("..", walker.walk)
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if len(walker.Errors) > 0 {
+		for _, err = range walker.Errors {
+			t.Error(err)
+		}
+	}
 }
 
-func hasHyphen(path string, info os.FileInfo, _ error) error {
+type hasHyphenWalker struct {
+	Errors []error
+}
+
+func (w *hasHyphenWalker) walk(path string, info os.FileInfo, _ error) error {
 	// only for regular files, not starting with a . and those that are go files.
 	if !info.Mode().IsRegular() {
 		return nil
@@ -73,7 +97,8 @@ func hasHyphen(path string, info os.FileInfo, _ error) error {
 	}
 
 	if strings.Index(path, "-") > 0 {
-		return fmt.Errorf("file %q has a hyphen, please use underscores in file names", path)
+		w.Errors = append(w.Errors, fmt.Errorf("file %q has a hyphen, please use underscores in file names", path))
+		return nil
 	}
 
 	return nil
@@ -81,13 +106,25 @@ func hasHyphen(path string, info os.FileInfo, _ error) error {
 
 // Test if error messages start with an upper case.
 func TestLowercaseLog(t *testing.T) {
-	err := filepath.Walk("..", hasLowercase)
+	walker := hasLowercaseWalker{}
+	err := filepath.Walk("..", walker.walk)
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if len(walker.Errors) > 0 {
+		for _, err = range walker.Errors {
+			t.Error(err)
+		}
+	}
 }
 
-func hasLowercase(path string, info os.FileInfo, _ error) error {
+type hasLowercaseWalker struct {
+	Errors []error
+}
+
+func (w *hasLowercaseWalker) walk(path string, info os.FileInfo, _ error) error {
 	// only for regular files, not starting with a . and those that are go files.
 	if !info.Mode().IsRegular() {
 		return nil
@@ -107,7 +144,7 @@ func hasLowercase(path string, info os.FileInfo, _ error) error {
 	l := &logfmt{}
 	ast.Walk(l, f)
 	if l.err != nil {
-		return l.err
+		w.Errors = append(w.Errors, l.err)
 	}
 	return nil
 }
@@ -176,13 +213,25 @@ func (l logfmt) Visit(n ast.Node) ast.Visitor {
 }
 
 func TestImportTesting(t *testing.T) {
-	err := filepath.Walk("..", hasImportTesting)
+	walker := hasLowercaseWalker{}
+	err := filepath.Walk("..", walker.walk)
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if len(walker.Errors) > 0 {
+		for _, err = range walker.Errors {
+			t.Error(err)
+		}
+	}
 }
 
-func hasImportTesting(path string, info os.FileInfo, _ error) error {
+type hasImportTestingWalker struct {
+	Errors []error
+}
+
+func (w *hasImportTestingWalker) walk(path string, info os.FileInfo, _ error) error {
 	// only for regular files, not starting with a . and those that are go files.
 	if !info.Mode().IsRegular() {
 		return nil
@@ -202,7 +251,7 @@ func hasImportTesting(path string, info os.FileInfo, _ error) error {
 		}
 		for _, im := range f.Imports {
 			if im.Path.Value == `"testing"` {
-				return fmt.Errorf("file %q is importing %q", path, "testing")
+				w.Errors = append(w.Errors, fmt.Errorf("file %q is importing %q", path, "testing"))
 			}
 		}
 	}
@@ -210,13 +259,25 @@ func hasImportTesting(path string, info os.FileInfo, _ error) error {
 }
 
 func TestImportOrdering(t *testing.T) {
-	err := filepath.Walk("..", hasImportOrdering)
+	walker := testImportOrderingWalker{}
+	err := filepath.Walk("..", walker.walk)
+
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	if len(walker.Errors) > 0 {
+		for _, err = range walker.Errors {
+			t.Error(err)
+		}
+	}
 }
 
-func hasImportOrdering(path string, info os.FileInfo, _ error) error {
+type testImportOrderingWalker struct {
+	Errors []error
+}
+
+func (w *testImportOrderingWalker) walk(path string, info os.FileInfo, _ error) error {
 	if !info.Mode().IsRegular() {
 		return nil
 	}
@@ -252,7 +313,7 @@ func hasImportOrdering(path string, info os.FileInfo, _ error) error {
 			bl++
 		}
 		if bl > 2 {
-			return fmt.Errorf("more than %d import blocks in %q", bl, path)
+			w.Errors = append(w.Errors, fmt.Errorf("more than %d import blocks in %q", bl, path))
 		}
 		blocks[bl] = append(blocks[bl], im)
 		prevpos = line
@@ -272,7 +333,7 @@ func hasImportOrdering(path string, info os.FileInfo, _ error) error {
 		for _, p := range blocks[i] {
 			t := importtype(p.Path.Value)
 			if t != ip[i] {
-				return fmt.Errorf("import path for %s is not of the same type %q in %q", p.Path.Value, ip[i], path)
+				w.Errors = append(w.Errors, fmt.Errorf("import path for %s is not of the same type %q in %q", p.Path.Value, ip[i], path))
 			}
 		}
 	}
@@ -291,12 +352,12 @@ func hasImportOrdering(path string, info os.FileInfo, _ error) error {
 		if ip[0] == "coredns" && ip[1] == "3rd" {
 			break // OK
 		}
-		return fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", path)
+		w.Errors = append(w.Errors, fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", path))
 	case 2:
 		if ip[0] == "std" && ip[1] == "coredns" && ip[2] == "3rd" {
 			break // OK
 		}
-		return fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", path)
+		w.Errors = append(w.Errors, fmt.Errorf("import path in %q are not in the right order (std -> coredns -> 3rd)", path))
 	}
 
 	return nil
