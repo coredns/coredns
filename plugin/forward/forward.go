@@ -26,11 +26,11 @@ var log = clog.NewWithPlugin("forward")
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
 // of proxies each representing one upstream proxy.
 type Forward struct {
-	maxConcurrent int64
-	concurrent    int64
-	proxies       []*Proxy
-	p             policy.Policy
-	hcInterval    time.Duration
+	concurrent int64 // atomic counters need to be first in struct for proper alignment
+
+	proxies    []*Proxy
+	p          policy.Policy
+	hcInterval time.Duration
 
 	from    string
 	ignored []string
@@ -39,6 +39,7 @@ type Forward struct {
 	tlsServerName string
 	maxfails      uint32
 	expire        time.Duration
+	maxConcurrent int64
 
 	opts options // also here for testing
 
