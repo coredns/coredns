@@ -105,7 +105,8 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 * `coredns_forward_healthcheck_failure_count_total{to}` - number of failed health checks per upstream.
 * `coredns_forward_healthcheck_broken_count_total{}` - counter of when all upstreams are unhealthy,
   and we are randomly (this always uses the `random` policy) spraying to an upstream.
-
+* `max_concurrent_reject_count_total{}` - counter of the number of queries rejected because the
+  number of concurrent queries were at maximum.
 Where `to` is one of the upstream servers (**TO** from the config), `rcode` is the returned RCODE
 from the upstream.
 

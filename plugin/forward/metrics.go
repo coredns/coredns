@@ -45,4 +45,10 @@ var (
 		Name:      "sockets_open",
 		Help:      "Gauge of open sockets per upstream.",
 	}, []string{"to"})
+	MaxConcurrentRejectCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "forward",
+		Name:      "max_concurrent_reject_count_total",
+		Help:      "Counter of the number of queries rejected because the concurrent queries were at maximum.",
+	})
 )
