@@ -46,6 +46,8 @@ type Forward struct {
 	Next plugin.Handler
 }
 
+// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded
+// the maximum allowed (maxConcurrent)
 var ErrLimitExceeded = errors.New("concurrent queries exceeded maximum")
 
 // New returns a new Forward.
