@@ -63,7 +63,14 @@ func (w *hasTrailingWhitespaceWalker) walk(path string, info os.FileInfo, _ erro
 		}
 	}
 
-	return scanner.Err()
+	err = scanner.Err()
+
+	if err != nil {
+		absPath, _ := filepath.Abs(path)
+		err = fmt.Errorf("file %q: %v", absPath, err)
+	}
+
+	return err
 }
 
 func TestFileNameHyphen(t *testing.T) {
