@@ -109,7 +109,7 @@ func TestMetadata(t *testing.T) {
 		ctx := metadata.ContextWithMetadata(context.Background())
 		state := request.Request{
 			Req:  &dns.Msg{Question: []dns.Question{{Name: tc.Qname, Qtype: tc.Qtype}}},
-			Zone: "cluster.local.",
+			Zone: ".",
 			W:    &test.ResponseWriter{RemoteIP: tc.RemoteIP},
 		}
 
