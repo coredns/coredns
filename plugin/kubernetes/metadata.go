@@ -10,11 +10,9 @@ import (
 
 // Metadata implements the metadata.Provider interface.
 func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) context.Context {
-	origZone := state.Zone
-	state.Zone = plugin.Zones(k.Zones).Matches(state.Name())
+	zone := plugin.Zones(k.Zones).Matches(state.Name())
 	// possible optimization: cache r so it doesn't need to be calculated again in ServeDNS
-	r, err := parseRequest(state)
-	state.Zone = origZone
+	r, err := parseRequest(state.Name(), zone)
 	if err != nil {
 		metadata.SetValueFunc(ctx, "kubernetes/parse-error", func() string {
 			return err.Error()
