@@ -16,6 +16,8 @@ A plugin interested in the cancellation status should call `plugin.Done()` on th
 context was canceled due to a timeout the plugin should not write anything back to the client and
 return a value indicating CoreDNS should not either; a zero return value should suffice for that.
 
+## Syntax
+
 ~~~ txt
 cancel [TIMEOUT]
 ~~~

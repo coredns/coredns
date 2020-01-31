@@ -29,3 +29,7 @@ transfer [ZONE...] {
 
 * `to ` **HOST...** The hosts *transfer* will transfer to. Use `*` to permit
   transfers to all hosts.
+
+## Examples
+
+TODO

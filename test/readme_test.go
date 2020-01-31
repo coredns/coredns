@@ -2,10 +2,12 @@ package test
 
 import (
 	"bufio"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/coredns/coredns/core/dnsserver"
@@ -39,6 +41,9 @@ PrivateKey: f03VplaIEA+KHI9uizlemUSbUJH86hPBPjmcUninPoM=
 //	# check-this-please
 // }
 // ~~~
+//
+// While we're at it - we also check the README.md itself. It should at least have the sections:
+// Name, Description, Syntax and Examples. See plugin.md for more details.
 func TestReadme(t *testing.T) {
 	port := 30053
 	caddy.Quiet = true
@@ -58,6 +63,10 @@ func TestReadme(t *testing.T) {
 		}
 		readme := filepath.Join(middle, d.Name())
 		readme = filepath.Join(readme, "README.md")
+
+		if err := sectionsFromReadme(readme); err != nil {
+			t.Fatal(err)
+		}
 
 		inputs, err := corefileFromReadme(readme)
 		if err != nil {
@@ -116,6 +125,47 @@ func corefileFromReadme(readme string) ([]*Input, error) {
 		return nil, err
 	}
 	return input, nil
+}
+
+// sectionsFromReadme returns an error if the readme doesn't contains all
+// mandatory sections. The check is basic, as we match each line, this mostly
+// works, because markdown is such a simple format.
+// We want: Name, Description, Syntax, Examples - in this order.
+func sectionsFromReadme(readme string) error {
+	f, err := os.Open(readme)
+	if err != nil {
+		return nil // don't error when we can read the file
+	}
+	defer f.Close()
+
+	section := 0
+	s := bufio.NewScanner(f)
+	for s.Scan() {
+		line := s.Text()
+		switch section {
+		case 0:
+			if strings.HasPrefix(line, "## Name") {
+				section++
+			}
+		case 1:
+			if strings.HasPrefix(line, "## Description") {
+				section++
+			}
+		case 2:
+			if strings.HasPrefix(line, "## Syntax") {
+				section++
+			}
+		case 3:
+			if strings.HasPrefix(line, "## Examples") {
+				section++
+			}
+		}
+	}
+	if section != 4 {
+		return fmt.Errorf("Sections incomplete or ordered wrong: %q, want (at least): Name, Descripion, Syntax and Examples", readme)
+	}
+	return nil
+
 }
 
 func create(c map[string]string) {

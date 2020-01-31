@@ -37,6 +37,8 @@ will behave as follows:
    * `continue` will continue applying the next rule in the rule list.
    * `stop` will consider the current rule the last rule and will not continue.  The default behaviour is `stop`
 
+## Examples
+
 ### Name Field Rewrites
 
 The `rewrite` plugin offers the ability to match the name in the question section of

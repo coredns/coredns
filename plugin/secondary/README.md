@@ -10,6 +10,8 @@ With *secondary* you can transfer (via AXFR) a zone from another server. The ret
 *not committed* to disk (a violation of the RFC). This means restarting CoreDNS will cause it to
 retrieve all secondary zones.
 
+## Syntax
+
 ~~~
 secondary [ZONES...]
 ~~~
