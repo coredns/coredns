@@ -9,8 +9,10 @@
 The *forward* plugin re-uses already opened sockets to the upstreams. It supports UDP, TCP and
 DNS-over-TLS and uses in band health checking.
 
-When it detects an error a health check is performed. This checks runs in a loop, every *0.5s*, for
-as long as the upstream reports unhealthy. Once healthy we stop health checking (until the next
+When it detects an error a health check is performed. This checks runs in a loop,
+starting with a *0.5s* interval and exponentially backing off with randomized intervals
+up to *60s* for as long as the upstream reports unhealthy. The exponential backoff
+will reset to *0.5s* after 15 minutes. Once healthy we stop health checking (until the next
 error). The health checks use a recursive DNS query (`. IN NS`) to get upstream health. Any response
 that is not a network error (REFUSED, NOTIMPL, SERVFAIL, etc) is taken as a healthy upstream. The
 health check uses the same protocol as specified in **TO**. If `max_fails` is set to 0, no checking
