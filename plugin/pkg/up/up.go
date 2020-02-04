@@ -79,8 +79,8 @@ func (p *Probe) Start(interval time.Duration) {
 		InitialInterval:     interval,
 		RandomizationFactor: backoff.DefaultRandomizationFactor,
 		Multiplier:          backoff.DefaultMultiplier,
-		MaxInterval:         backoff.DefaultMaxInterval,
-		MaxElapsedTime:      backoff.DefaultMaxElapsedTime,
+		MaxInterval:         15 * time.Second,
+		MaxElapsedTime:      2 * time.Minute,
 		Stop:                backoff.Stop,
 		Clock:               backoff.SystemClock,
 	}
