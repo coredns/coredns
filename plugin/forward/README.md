@@ -52,7 +52,7 @@ forward FROM TO... {
     tls_servername NAME
     policy random|round_robin|sequential
     health_check DURATION
-    max_queries MAX
+    max_concurrent MAX
 }
 ~~~
 
