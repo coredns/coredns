@@ -87,7 +87,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			// wildcard we should expand the wildcard.
 
 			wildcard := replaceWithAsteriskLabel(parts)
-			if wild, found := tr.Search(wildcard); found {
+			if wild, wfound := tr.Search(wildcard); wfound {
 				wildElem = wild
 			}
 
