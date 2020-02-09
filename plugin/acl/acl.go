@@ -59,8 +59,8 @@ RulesCheckLoop:
 			continue
 		}
 
-		action := matchWithPolicies(rule.policies, w, r)
-		switch action {
+		policyAction := matchWithPolicies(rule.policies, w, r)
+		switch policyAction {
 		case actionBlock:
 			{
 				m := new(dns.Msg)
