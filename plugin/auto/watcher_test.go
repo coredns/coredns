@@ -78,7 +78,7 @@ func TestSymlinks(t *testing.T) {
 	a.Walk()
 
 	// Now create a duplicate file in a subdirectory and repoint the symlink
-	if err := os.Remove(filepath.Join(tempdir, "db.example.com")); err != nil {
+	if err = os.Remove(filepath.Join(tempdir, "db.example.com")); err != nil {
 		t.Fatal(err)
 	}
 	dataDir := filepath.Join(tempdir, "..data")
