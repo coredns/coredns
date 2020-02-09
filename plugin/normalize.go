@@ -97,7 +97,8 @@ func SplitHostPort(s string) (host, port string, ipnet *net.IPNet, err error) {
 		return "", "", nil, fmt.Errorf("expecting data after last colon: %q", s)
 	}
 	if colon != -1 {
-		if p, err := strconv.Atoi(s[colon+1:]); err == nil {
+		var p int
+		if p, err = strconv.Atoi(s[colon+1:]); err == nil {
 			port = strconv.Itoa(p)
 			host = s[:colon]
 		}
