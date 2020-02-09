@@ -45,7 +45,7 @@ xGbtCkhVk2VQ+BiCWnjYXJ6ZMzabP7wiOFDP9Pvr2ik22PRItsW/TLfHFXM1jDmc
 I1rs/VUGKzcJGVIWbHrgjP68CTStGAvKgbsTqw7aLXTSqtPw88N9XVSyRg==
 -----END CERTIFICATE-----`
 	path := filepath.Join(tempDir, "ca.pem")
-	if err := ioutil.WriteFile(path, []byte(data), 0644); err != nil {
+	if err = ioutil.WriteFile(path, []byte(data), 0644); err != nil {
 		return "", nil, err
 	}
 	data = `-----BEGIN CERTIFICATE-----
