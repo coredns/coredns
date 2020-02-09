@@ -82,7 +82,7 @@ func (b *Builder) HostPort(addr string) *Builder {
 
 	if ip := net.ParseIP(ip); ip != nil {
 		b.Address = []byte(ip)
-		if ip := ip.To4(); ip != nil {
+		if ipf := ip.To4(); ipf != nil {
 			b.SocketFam = tap.SocketFamily_INET
 		} else {
 			b.SocketFam = tap.SocketFamily_INET6

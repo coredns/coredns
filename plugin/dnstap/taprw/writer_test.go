@@ -34,7 +34,7 @@ func TestClientQueryResponse(t *testing.T) {
 	}
 	d.Packed = bin
 
-	if err := rw.WriteMsg(m); err != nil {
+	if err = rw.WriteMsg(m); err != nil {
 		t.Fatal(err)
 		return
 	}
