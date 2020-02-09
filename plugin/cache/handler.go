@@ -40,9 +40,9 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
 		go func() {
-			r := r.Copy()
+			rc := r.Copy()
 			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: w.LocalAddr()}
-			plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
+			plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, rc)
 		}()
 	}
 	resp := i.toMsg(r, now)
