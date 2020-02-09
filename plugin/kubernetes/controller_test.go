@@ -70,10 +70,10 @@ func generateEndpoints(cidr string, client kubernetes.Interface) {
 			Namespace: "testns",
 		},
 	}
-	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+	for eip := ip.Mask(ipnet.Mask); ipnet.Contains(eip); inc(eip) {
 		ep.Subsets[0].Addresses = []api.EndpointAddress{
 			{
-				IP:       ip.String(),
+				IP:       eip.String(),
 				Hostname: "foo" + strconv.Itoa(count),
 			},
 		}
@@ -92,28 +92,28 @@ func generateSvcs(cidr string, svcType string, client kubernetes.Interface) {
 	count := 1
 	switch svcType {
 	case "clusterip":
-		for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-			createClusterIPSvc(count, client, ip)
+		for cip := ip.Mask(ipnet.Mask); ipnet.Contains(cip); inc(cip) {
+			createClusterIPSvc(count, client, cip)
 			count++
 		}
 	case "headless":
-		for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-			createHeadlessSvc(count, client, ip)
+		for hip := ip.Mask(ipnet.Mask); ipnet.Contains(hip); inc(hip) {
+			createHeadlessSvc(count, client, hip)
 			count++
 		}
 	case "external":
-		for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-			createExternalSvc(count, client, ip)
+		for eip := ip.Mask(ipnet.Mask); ipnet.Contains(eip); inc(eip) {
+			createExternalSvc(count, client, eip)
 			count++
 		}
 	default:
-		for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
+		for dip := ip.Mask(ipnet.Mask); ipnet.Contains(dip); inc(dip) {
 			if count%3 == 0 {
-				createClusterIPSvc(count, client, ip)
+				createClusterIPSvc(count, client, dip)
 			} else if count%3 == 1 {
-				createHeadlessSvc(count, client, ip)
+				createHeadlessSvc(count, client, dip)
 			} else if count%3 == 2 {
-				createExternalSvc(count, client, ip)
+				createExternalSvc(count, client, dip)
 			}
 			count++
 		}
