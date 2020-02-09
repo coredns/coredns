@@ -58,7 +58,8 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 	ln := len(names)
 
 	for _, pair := range s.keys {
-		rrsig, err := pair.signRRs([]dns.RR{z.Apex.SOA}, s.origin, ttl, inception, expiration)
+		var rrsig *dns.RRSIG
+		rrsig, err = pair.signRRs([]dns.RR{z.Apex.SOA}, s.origin, ttl, inception, expiration)
 		if err != nil {
 			return nil, err
 		}
@@ -95,7 +96,8 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 				continue
 			}
 			for _, pair := range s.keys {
-				rrsig, err := pair.signRRs(rrs, s.origin, rrs[0].Header().Ttl, inception, expiration)
+				var rrsig *dns.RRSIG
+				rrsig, err = pair.signRRs(rrs, s.origin, rrs[0].Header().Ttl, inception, expiration)
 				if err != nil {
 					return err
 				}
