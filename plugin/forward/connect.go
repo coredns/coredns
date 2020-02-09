@@ -95,7 +95,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 	}
 
 	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
-	if err := pc.c.WriteMsg(state.Req); err != nil {
+	if err = pc.c.WriteMsg(state.Req); err != nil {
 		pc.c.Close() // not giving it back
 		if err == io.EOF && cached {
 			return nil, ErrCachedClosed
