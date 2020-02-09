@@ -100,9 +100,9 @@ func TestRoute53(t *testing.T) {
 		rcode := dns.RcodeServerFailure
 		if qname == "example.gov." {
 			m.SetReply(r)
-			rr, err := dns.NewRR("example.gov.  300 IN  A   2.4.6.8")
-			if err != nil {
-				t.Fatalf("Failed to create Resource Record: %v", err)
+			rr, rerr := dns.NewRR("example.gov.  300 IN  A   2.4.6.8")
+			if rerr != nil {
+				t.Fatalf("Failed to create Resource Record: %v", rerr)
 			}
 			m.Answer = []dns.RR{rr}
 
@@ -285,16 +285,16 @@ func TestMaybeUnescape(t *testing.T) {
 		// 3. Escaped dot, 'a' and a hyphen. No idea why but we'll allow it.
 		{escaped: `weird\\055ex\\141mple\\056com\\056\\056`, want: "weird-example.com.."},
 		// 4. escaped `*` in the middle - NOT OK.
-		{escaped: `e\\052ample.com`, wantErr: errors.New("`*' only supported as wildcard (leftmost label)")},
+		{escaped: `e\\052ample.com`, wantErr: errInvalidWildcard},
 		// 5. Invalid character.
-		{escaped: `\\000.example.com`, wantErr: errors.New(`invalid character: \\000`)},
+		{escaped: `\\000.example.com`, wantErr: errInvalidCharacter},
 		// 6. Invalid escape sequence in the middle.
-		{escaped: `example\\0com`, wantErr: errors.New(`invalid escape sequence: '\\0co'`)},
+		{escaped: `example\\0com`, wantErr: errInvalidEscape},
 		// 7. Invalid escape sequence at the end.
-		{escaped: `example.com\\0`, wantErr: errors.New(`invalid escape sequence: '\\0'`)},
+		{escaped: `example.com\\0`, wantErr: errInvalidEscape},
 	} {
 		got, gotErr := maybeUnescape(tc.escaped)
-		if tc.wantErr != gotErr && !reflect.DeepEqual(tc.wantErr, gotErr) {
+		if !errors.Is(gotErr, tc.wantErr) {
 			t.Fatalf("Test %d: Expected error: `%v', but got: `%v'", ti, tc.wantErr, gotErr)
 		}
 		if tc.want != got {

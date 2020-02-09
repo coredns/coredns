@@ -23,6 +23,12 @@ import (
 	"github.com/miekg/dns"
 )
 
+var (
+	errInvalidWildcard  = errors.New("`*' only supported as wildcard (leftmost label)")
+	errInvalidEscape    = errors.New("invalid escape sequence")
+	errInvalidCharacter = errors.New("invalid character")
+)
+
 // Route53 is a plugin that returns RR from AWS route53.
 type Route53 struct {
 	Next plugin.Handler
@@ -178,13 +184,15 @@ func maybeUnescape(s string) (string, error) {
 
 		li, ri := i+len(escapeSeq), i+len(escapeSeq)+3
 		if ri > len(s) {
-			return "", fmt.Errorf("invalid escape sequence: '%s%s'", escapeSeq, s[li:])
+			return "", fmt.Errorf("%w: %s%s", errInvalidEscape, escapeSeq, s[li:])
+			//return "", fmt.Errorf("invalid escape sequence: '%s%s'", escapeSeq, s[li:])
 		}
 		// Parse `\\xxx` in base 8 (2nd arg) and attempt to fit into
 		// 8-bit result (3rd arg).
 		n, err := strconv.ParseInt(s[li:ri], 8, 8)
 		if err != nil {
-			return "", fmt.Errorf("invalid escape sequence: '%s%s'", escapeSeq, s[li:ri])
+			return "", fmt.Errorf("%w: %s%s", errInvalidEscape, escapeSeq, s[li:ri])
+			//return "", fmt.Errorf("invalid escape sequence: '%s%s'", escapeSeq, s[li:ri])
 		}
 
 		r := rune(n)
@@ -193,12 +201,13 @@ func maybeUnescape(s string) (string, error) {
 		case r >= rune('0') && r <= rune('9'):
 		case r == rune('*'):
 			if out != "" {
-				return "", errors.New("`*' only supported as wildcard (leftmost label)")
+				return "", errInvalidWildcard
 			}
 		case r == rune('-'):
 		case r == rune('.'):
 		default:
-			return "", fmt.Errorf("invalid character: %s%#03o", escapeSeq, r)
+			return "", fmt.Errorf("%w: %s%#03o", errInvalidCharacter, escapeSeq, r)
+			//return "", fmt.Errorf("invalid character: %s%#03o", escapeSeq, r)
 		}
 
 		out += string(r)
@@ -255,9 +264,9 @@ func (h *Route53) updateZones(ctx context.Context) error {
 				err = h.client.ListResourceRecordSetsPagesWithContext(ctx, in,
 					func(out *route53.ListResourceRecordSetsOutput, last bool) bool {
 						for _, rrs := range out.ResourceRecordSets {
-							if err := updateZoneFromRRS(rrs, newZ); err != nil {
+							if zerr := updateZoneFromRRS(rrs, newZ); zerr != nil {
 								// Maybe unsupported record type. Log and carry on.
-								log.Warningf("Failed to process resource record set: %v", err)
+								log.Warningf("Failed to process resource record set: %v", zerr)
 							}
 						}
 						return true
