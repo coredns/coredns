@@ -185,7 +185,7 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 			if err != nil {
 				return nil, err
 			}
-			rewriteQuestionTo := plugin.Name(args[2]).Normalize()
+			rewriteQuestionTo = plugin.Name(args[2]).Normalize()
 			return &regexNameRule{
 				nextAction,
 				rewriteQuestionFromPattern,
