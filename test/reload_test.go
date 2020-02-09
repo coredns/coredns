@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caddyserver/caddy"
 	"github.com/miekg/dns"
 )
 
@@ -174,18 +175,19 @@ func TestReloadSeveralTimeMetrics(t *testing.T) {
 		t.Errorf("Could not get service instance: %s", err)
 	}
 	// verify prometheus is running
-	if err := collectMetricsInfo(promAddress, proc); err != nil {
+	if err = collectMetricsInfo(promAddress, proc); err != nil {
 		t.Errorf("Prometheus is not listening : %s", err)
 	}
 	reloadCount := 2
+	var serverReload *caddy.Instance
 	for i := 0; i < reloadCount; i++ {
-		serverReload, err := serverWithMetrics.Restart(
+		serverReload, err = serverWithMetrics.Restart(
 			NewInput(corefileWithMetrics),
 		)
 		if err != nil {
 			t.Errorf("Could not restart CoreDNS : %s, at loop %v", err, i)
 		}
-		if err := collectMetricsInfo(promAddress, proc); err != nil {
+		if err = collectMetricsInfo(promAddress, proc); err != nil {
 			t.Errorf("Prometheus is not listening : %s", err)
 		}
 		serverWithMetrics = serverReload
@@ -231,17 +233,18 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("www.example.org.", dns.TypeA)
 
-	if _, _, err := cl.Exchange(m, tcp); err != nil {
+	if _, _, err = cl.Exchange(m, tcp); err != nil {
 		t.Fatalf("Could not send message: %s", err)
 	}
 
 	// we should have metrics from forward, cache, and metrics itself
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
+	if err = collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 
 	// now reload
-	instReload, err := inst.Restart(
+	var instReload *caddy.Instance
+	instReload, err = inst.Restart(
 		NewInput(corefileWithMetrics),
 	)
 	if err != nil {
@@ -294,18 +297,19 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("www.example.org.", dns.TypeA)
 
-	if _, _, err := cl.Exchange(m, tcp); err != nil {
+	if _, _, err = cl.Exchange(m, tcp); err != nil {
 		t.Fatalf("Could not send message: %s", err)
 	}
 
 	// we should have metrics from forward, cache, and metrics itself
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
+	if err = collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 
+	var invInst *caddy.Instance
 	for i := 0; i < 2; i++ {
 		// now provide a failed reload
-		invInst, err := inst.Restart(
+		invInst, err = inst.Restart(
 			NewInput(invalidCorefileWithMetrics),
 		)
 		if err == nil {

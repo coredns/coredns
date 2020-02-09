@@ -63,8 +63,9 @@ func TestLargeAXFR(t *testing.T) {
 
 	// The AXFR query should be responded first.
 	nrr := 0 // total number of transferred RRs
+	var resp *dns.Msg
 	for {
-		resp, err := co.ReadMsg()
+		resp, err = co.ReadMsg()
 		if err != nil {
 			t.Fatalf("Expected to receive reply, but didn't: %s", err)
 		}
@@ -88,7 +89,7 @@ func TestLargeAXFR(t *testing.T) {
 	}
 
 	// The file plugin shouldn't hijack or (yet) close the connection, so the second query should also be responded.
-	resp, err := co.ReadMsg()
+	resp, err = co.ReadMsg()
 	if err != nil {
 		t.Fatalf("Expected to receive reply, but didn't: %s", err)
 	}
