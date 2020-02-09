@@ -144,9 +144,9 @@ func TestCloudDNS(t *testing.T) {
 		rcode := dns.RcodeServerFailure
 		if qname == "example.gov." {
 			m.SetReply(r)
-			rr, err := dns.NewRR("example.gov.  300 IN  A   2.4.6.8")
-			if err != nil {
-				t.Fatalf("Failed to create Resource Record: %v", err)
+			rr, rerr := dns.NewRR("example.gov.  300 IN  A   2.4.6.8")
+			if rerr != nil {
+				t.Fatalf("Failed to create Resource Record: %v", rerr)
 			}
 			m.Answer = []dns.RR{rr}
 
