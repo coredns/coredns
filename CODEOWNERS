@@ -50,3 +50,4 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/trace/          @johnbelamaric
 /plugin/transfer/       @miekg @chrisohaver
 /plugin/whoami/         @miekg @chrisohaver
+/plugin/fanout/         @denis-tingajkin
