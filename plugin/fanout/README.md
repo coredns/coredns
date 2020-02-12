@@ -6,7 +6,7 @@
 
 ## Description
 
-TODO: add description
+Each incoming DNS query that hits the CoreDNS fanout plugin will be replicated in parallel to each listed IP (i.e. the DNS servers). The first non-negative response from any of the queried DNS Servers will be forwarded as a response to the application's DNS request.
 
 ## Syntax
 
@@ -26,8 +26,8 @@ TODO: add description
 * `fail-count` is the number of subsequent failed health checks that are needed before client stops trying to connect.
 * `worker-count` is the number of parallel queries per request.
 * `policy` is specifies the policy to use for selecting response from proxies.
-    * `any` is a policy that returns any first response from success connected proxies.
-    * `first-positive` is a policy that returns any first non-negative response from proxies.
+  * `any` is a policy that returns any first response from success connected proxies.
+  * `first-positive` is a policy that returns any first non-negative response from proxies.
 * `network` is a specific network protocol. Could be `tcp`, `udp`, `tcp-tls`.
 * `except` is a list is a space-separated list of domains to exclude from proxying.
 
