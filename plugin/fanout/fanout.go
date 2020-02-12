@@ -67,7 +67,7 @@ func (f *Fanout) ServeDNS(ctx context.Context, w dns.ResponseWriter, m *dns.Msg)
 	for i := 0; i < f.workerCount; i++ {
 		go func() {
 			for c := range workerChannel {
-				connect(timeoutContext, c, req, resultCh, f.maxFailCount)
+				connect(timeoutContext, c, request.Request{W: w, Req: m}, resultCh, f.maxFailCount)
 			}
 		}()
 	}
