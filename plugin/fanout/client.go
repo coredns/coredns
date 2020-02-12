@@ -23,6 +23,7 @@ type client struct {
 	net       string
 }
 
+// Health returns health checker related to this client
 func (c *client) Health() Health {
 	return c.health
 }
@@ -38,15 +39,21 @@ func NewClient(addr, net string) Client {
 	return a
 }
 
+// SetTLSConfig sets tls config for client
 func (c *client) SetTLSConfig(cfg *tls.Config) {
+	if cfg != nil {
+		c.net = tcptlc
+	}
 	c.transport.SetTLSConfig(cfg)
 	c.health.SetTLSConfig(cfg)
 }
 
+// Endpoint returns address of DNS server
 func (c *client) Endpoint() string {
 	return c.addr
 }
 
+// Connect sends request to DNS server
 func (c *client) Connect(request request.Request) (*dns.Msg, error) {
 	start := time.Now()
 	conn, err := c.transport.Dial(c.net)

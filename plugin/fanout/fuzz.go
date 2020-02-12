@@ -20,7 +20,7 @@ func init() {
 	f.clients = append(f.clients, NewClient(s.Addr, "udp"))
 }
 
-// Fuzz fuzzes forward.
+// Fuzz fuzzes fanaot.
 func Fuzz(data []byte) int {
 	return fuzz.Do(f, data)
 }

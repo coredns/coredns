@@ -29,11 +29,13 @@ type health struct {
 	addr string
 }
 
+// SetTLSConfigs sets tls config
 func (h *health) SetTLSConfig(cfg *tls.Config) {
 	h.c.Net = tcptlc
 	h.c.TLSConfig = cfg
 }
 
+// Checks that remote DNS server is alive
 func (h *health) Check() error {
 	ping := new(dns.Msg)
 	ping.SetQuestion(".", dns.TypeNS)

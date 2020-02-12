@@ -11,6 +11,7 @@ type Transport interface {
 	SetTLSConfig(*tls.Config)
 }
 
+// NewTransport creates new transport with address
 func NewTransport(addr string) Transport {
 	return &transportImpl{
 		addr: addr,
@@ -22,6 +23,7 @@ type transportImpl struct {
 	addr      string
 }
 
+// SetTLSConfig sets tls config for transport
 func (t *transportImpl) SetTLSConfig(c *tls.Config) {
 	t.tlsConfig = c
 }

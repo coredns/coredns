@@ -13,7 +13,7 @@ import (
 
 var log = clog.NewWithPlugin("fanout")
 
-// Fanout represents a plugin instance that can do async proxy requests to another (DNS) servers.
+// Fanout represents a plugin instance that can do async requests to list of DNS servers.
 type Fanout struct {
 	clients       []Client
 	policy        Policy
