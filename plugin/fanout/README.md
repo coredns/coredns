@@ -23,11 +23,13 @@ TODO: add description
   but they have to use the same `tls_servername`. E.g. mixing 9.9.9.9 (QuadDNS) with 1.1.1.1
   (Cloudflare) will not work.
 
-* `fail-count`
-* `worker-count`
-* `policy`
-* `network`
-* `except`
+* `fail-count` is the number of subsequent failed health checks that are needed before client stops trying to connect.
+* `worker-count` is the number of parallel queries per request.
+* `policy` is specifies the policy to use for selecting response from proxies.
+    * `any` is a policy that returns any first response from success connected proxies.
+    * `first-positive` is a policy that returns any first non-negative response from proxies.
+* `network` is a specific network protocol. Could be `tcp`, `udp`, `tcp-tls`.
+* `except` is a list is a space-separated list of domains to exclude from proxying.
 
 ## Metrics
 
@@ -44,4 +46,63 @@ Where `to` is one of the upstream servers (**TO** from the config), `rcode` is t
 from the upstream.
 
 ## Examples
-TODO: Add examples
+Proxy all requests within `example.org.` to a nameserver running on a different port:
+
+~~~ corefile
+example.org {
+    fanout . 127.0.0.1:9005
+}
+~~~
+
+Sends parallel requests between three resolvers, one of which has a IPv6 address via TCP. The first success connected response from proxy will be provided ad result.
+
+~~~ corefile
+. {
+    fanout . 10.0.0.10:53 10.0.0.11:1053 [2003::1]:53 {
+        protocol TCP
+        policy any
+    }
+}
+~~~
+
+Proxying everything except requests to `example.org`
+
+~~~ corefile
+. {
+    fanout . 10.0.0.10:1234 {
+        except example.org
+    }
+}
+~~~
+
+Proxy everything except `example.org` using the host's `resolv.conf`'s nameservers:
+
+~~~ corefile
+. {
+    fanout . /etc/resolv.conf {
+        except example.org
+    }
+}
+~~~
+
+Proxy all requests to 9.9.9.9 using the DNS-over-TLS protocol. 
+Note the `tls_servername` is mandatory if you want a working setup, as 9.9.9.9 can't be
+used in the TLS negotiation.
+
+~~~ corefile
+. {
+    fanout . tls://9.9.9.9 {
+       tls_servername dns.quad9.net
+    }
+}
+~~~
+
+Sends parallel requests between five resolvers via UDP uses two workers. The first positive response from proxy will be provided ad result.
+
+~~~ corefile
+. {
+    fanout . 10.0.0.10:53 10.0.0.11:53 10.0.0.12:53 10.0.0.13:1053 10.0.0.14:1053 {
+        worker-count 2
+    }
+}
+~~~

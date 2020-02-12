@@ -114,6 +114,15 @@ func parsefanoutStanza(c *caddyfile.Dispenser) (*Fanout, error) {
 			f.clients[i].SetTLSConfig(f.tlsConfig)
 		}
 	}
+
+	minWorkers := f.workerCount
+
+	if minWorkers > len(f.clients) {
+		minWorkers = len(f.clients)
+	}
+
+	f.workerCount = minWorkers
+
 	return f, nil
 }
 

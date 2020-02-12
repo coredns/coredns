@@ -23,10 +23,12 @@ func TestSetup(t *testing.T) {
 		expectedErr     string
 	}{
 		//positive
-		{input: "fanout . 127.0.0.1", expectedFrom: ".", expectedFails: 2, expectedWorkers: 4, expectedPolicy: FirstPositive, expectedNetwork: "udp"},
-		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count 3\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 3, expectedPolicy: FirstPositive, expectedIgnored: []string{"a.", "b."}, expectedNetwork: "udp"},
-		{input: "fanout . 127.0.0.1 {\npolicy any\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 4, expectedPolicy: Any, expectedNetwork: "udp"},
-		{input: "fanout . 127.0.0.1 127.0.0.2 {\nmax-fail-count 0\nnetwork tcp\n}", expectedFrom: ".", expectedFails: 0, expectedWorkers: 4, expectedPolicy: FirstPositive, expectedNetwork: "tcp", expectedTo: []string{"127.0.0.1:53", "127.0.0.2:53"}},
+		{input: "fanout . 127.0.0.1", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedPolicy: FirstPositive, expectedNetwork: "udp"},
+		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count 3\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedPolicy: FirstPositive, expectedIgnored: []string{"a.", "b."}, expectedNetwork: "udp"},
+		{input: "fanout . 127.0.0.1 {\npolicy any\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedPolicy: Any, expectedNetwork: "udp"},
+		{input: "fanout . 127.0.0.1 127.0.0.2 {\nmax-fail-count 0\nnetwork tcp\n}", expectedFrom: ".", expectedFails: 0, expectedWorkers: 2, expectedPolicy: FirstPositive, expectedNetwork: "tcp", expectedTo: []string{"127.0.0.1:53", "127.0.0.2:53"}},
+		{input: "fanout . 127.0.0.1 127.0.0.2 127.0.0.3 127.0.0.4 {\nworker-count 3\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 3, expectedPolicy: FirstPositive, expectedNetwork: "udp"},
+
 		//negative
 		{input: "fanout . aaa", expectedErr: "not an IP address or file"},
 		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count 1\n}", expectedErr: "use Forward plugin"},
