@@ -85,7 +85,7 @@ Proxy everything except `example.org` using the host's `resolv.conf`'s nameserve
 }
 ~~~
 
-Proxy all requests to 9.9.9.9 using the DNS-over-TLS protocol. 
+Proxy all requests to 9.9.9.9 using the DNS-over-TLS protocol.
 Note the `tls_servername` is mandatory if you want a working setup, as 9.9.9.9 can't be
 used in the TLS negotiation.
 
