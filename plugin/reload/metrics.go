@@ -11,7 +11,7 @@ var (
 	FailedCount = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "reload",
-		Name:      "failed_count_total",
+		Name:      "failed_total",
 		Help:      "Counter of the number of failed reload attempts.",
 	})
 

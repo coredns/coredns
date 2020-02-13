@@ -11,13 +11,13 @@ var (
 	RequestCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "request_count_total",
+		Name:      "requests_total",
 		Help:      "Counter of requests made per upstream.",
 	}, []string{"to"})
 	RcodeCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "response_rcode_count_total",
+		Name:      "responses_total",
 		Help:      "Counter of requests made per upstream.",
 	}, []string{"rcode", "to"})
 	RequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -30,13 +30,13 @@ var (
 	HealthcheckFailureCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "healthcheck_failure_count_total",
+		Name:      "healthcheck_failures_total",
 		Help:      "Counter of the number of failed healthchecks.",
 	}, []string{"to"})
 	HealthcheckBrokenCount = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "healthcheck_broken_count_total",
+		Name:      "healthcheck_broken_total",
 		Help:      "Counter of the number of complete failures of the healthchecks.",
 	})
 	SocketGauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -48,7 +48,7 @@ var (
 	MaxConcurrentRejectCount = prometheus.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
-		Name:      "max_concurrent_reject_count_total",
+		Name:      "max_concurrent_rejects_total",
 		Help:      "Counter of the number of queries rejected because the concurrent queries were at maximum.",
 	})
 )

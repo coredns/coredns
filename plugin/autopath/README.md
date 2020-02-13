@@ -31,7 +31,7 @@ If a plugin implements the `AutoPather` interface then it can be used.
 
 If monitoring is enabled (via the *prometheus* plugin) then the following metric is exported:
 
-* `coredns_autopath_success_count_total{server}` - counter of successfully autopath-ed queries.
+* `coredns_autopath_success_total{server}` - counter of successfully autopath-ed queries.
 
 The `server` label is explained in the *metrics* plugin documentation.
 

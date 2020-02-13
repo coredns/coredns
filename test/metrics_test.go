@@ -36,7 +36,7 @@ example.com:0 {
 }
 
 func TestMetricsRefused(t *testing.T) {
-	metricName := "coredns_dns_response_rcode_count_total"
+	metricName := "coredns_dns_responses_total"
 
 	corefile := `example.org:0 {
 	forward . 8.8.8.8:53
@@ -110,7 +110,7 @@ func TestMetricsAuto(t *testing.T) {
 		t.Fatalf("Could not send message: %s", err)
 	}
 
-	metricName := "coredns_dns_request_count_total" //{zone, proto, family}
+	metricName := "coredns_dns_requests_total" // {zone, proto, family, type}
 
 	data := test.Scrape("http://" + metrics.ListenAddr + "/metrics")
 	// Get the value for the metrics where the one of the labels values matches "example.org."

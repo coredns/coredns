@@ -11,14 +11,14 @@ var (
 	RequestBlockCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "dns",
-		Name:      "request_block_count_total",
+		Name:      "acl_blocked_requests_total",
 		Help:      "Counter of DNS requests being blocked.",
 	}, []string{"server", "zone"})
 	// RequestAllowCount is the number of DNS requests being Allowed.
 	RequestAllowCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "dns",
-		Name:      "request_allow_count_total",
+		Name:      "acl_allowed_requests_total",
 		Help:      "Counter of DNS requests being allowed.",
 	}, []string{"server"})
 )
