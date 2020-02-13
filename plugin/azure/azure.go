@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -43,34 +42,31 @@ type Azure struct {
 }
 
 // New validates the input DNS zones and initializes the Azure struct.
-func New(ctx context.Context, publicDNSClient publicAzureDNS.RecordSetsClient, privateDNSClient privateAzureDNS.RecordSetsClient, keys map[string][]string) (*Azure, error) {
+func New(ctx context.Context, publicDNSClient publicAzureDNS.RecordSetsClient, privateDNSClient privateAzureDNS.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
 	zones := make(map[string][]*zone, len(keys))
 	names := make([]string, len(keys))
 	var private bool
 
 	for resourceGroup, znames := range keys {
 		for _, name := range znames {
-			parts := strings.SplitN(name, ":", 2)
-			zoneName, access := parts[0], parts[1]
-
-			switch access {
+			switch accessMap[resourceGroup+name] {
 			case "public":
-				if _, err := publicDNSClient.ListAllByDNSZone(context.Background(), resourceGroup, zoneName, nil, ""); err != nil {
+				if _, err := publicDNSClient.ListAllByDNSZone(context.Background(), resourceGroup, name, nil, ""); err != nil {
 					return nil, err
 				}
 				private = false
 			case "private":
-				if _, err := privateDNSClient.ListComplete(context.Background(), resourceGroup, zoneName, nil, ""); err != nil {
+				if _, err := privateDNSClient.ListComplete(context.Background(), resourceGroup, name, nil, ""); err != nil {
 					return nil, err
 				}
 				private = true
 			}
 
-			fqdn := dns.Fqdn(zoneName)
+			fqdn := dns.Fqdn(name)
 			if _, ok := zones[fqdn]; !ok {
 				names = append(names, fqdn)
 			}
-			zones[fqdn] = append(zones[fqdn], &zone{id: resourceGroup, zone: zoneName, private: private, z: file.NewZone(fqdn, "")})
+			zones[fqdn] = append(zones[fqdn], &zone{id: resourceGroup, zone: name, private: private, z: file.NewZone(fqdn, "")})
 		}
 	}
 
