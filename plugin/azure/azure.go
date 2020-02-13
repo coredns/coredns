@@ -42,7 +42,7 @@ type Azure struct {
 }
 
 // New validates the input DNS zones and initializes the Azure struct.
-func New(ctx context.Context, publicDNSClient publicdns.RecordSetsClient, privateDNSClient privatedns.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
+func New(ctx context.Context, publicClient publicdns.RecordSetsClient, privateClient privatedns.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
 	zones := make(map[string][]*zone, len(keys))
 	names := make([]string, len(keys))
 	var private bool
@@ -51,12 +51,12 @@ func New(ctx context.Context, publicDNSClient publicdns.RecordSetsClient, privat
 		for _, name := range znames {
 			switch accessMap[resourceGroup+name] {
 			case "public":
-				if _, err := publicDNSClient.ListAllByDNSZone(context.Background(), resourceGroup, name, nil, ""); err != nil {
+				if _, err := publicClient.ListAllByDNSZone(context.Background(), resourceGroup, name, nil, ""); err != nil {
 					return nil, err
 				}
 				private = false
 			case "private":
-				if _, err := privateDNSClient.ListComplete(context.Background(), resourceGroup, name, nil, ""); err != nil {
+				if _, err := privateClient.ListComplete(context.Background(), resourceGroup, name, nil, ""); err != nil {
 					return nil, err
 				}
 				private = true
@@ -71,8 +71,8 @@ func New(ctx context.Context, publicDNSClient publicdns.RecordSetsClient, privat
 	}
 
 	return &Azure{
-		publicClient:  publicDNSClient,
-		privateClient: privateDNSClient,
+		publicClient:  publicClient,
+		privateClient: privateClient,
 		zones:         zones,
 		zoneNames:     names,
 		upstream:      upstream.New(),

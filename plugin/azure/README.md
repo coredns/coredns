@@ -25,7 +25,7 @@ azure RESOURCE_GROUP:ZONE... {
 ~~~
 
 *   **RESOURCE_GROUP:ZONE** is the resource group to which the hosted zones belongs on Azure,
-    **ZONE** the zone that contains data
+    and **ZONE** the zone that contains data.
 
 *   **CLIENT_ID** and **CLIENT_SECRET** are the credentials for Azure, and `tenant` specifies the
     **TENANT_ID** to be used. **SUBSCRIPTION_ID** is the subscription ID. All of these are needed
@@ -41,7 +41,7 @@ azure RESOURCE_GROUP:ZONE... {
 
 ## Examples
 
-Enable the *azure* plugin with Azure credentials for public zone `example.org` and for private zone `example.private`:
+Enable the *azure* plugin with Azure credentials for private zones `example.org`, `example.private`:
 
 ~~~ txt
 example.org {
