@@ -51,7 +51,6 @@ func New(addr string) *Metrics {
 	met.MustRegister(vars.RequestDuration)
 	met.MustRegister(vars.RequestSize)
 	met.MustRegister(vars.RequestDo)
-	met.MustRegister(vars.RequestType)
 	met.MustRegister(vars.ResponseSize)
 	met.MustRegister(vars.ResponseRcode)
 	met.MustRegister(vars.PluginEnabled)

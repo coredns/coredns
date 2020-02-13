@@ -31,25 +31,25 @@ func TestMetrics(t *testing.T) {
 		{
 			next:          test.NextHandler(dns.RcodeSuccess, nil),
 			qname:         "example.org",
-			metric:        "coredns_dns_request_count_total",
+			metric:        "coredns_dns_requests_total",
 			expectedValue: "1",
 		},
 		{
 			next:          test.NextHandler(dns.RcodeSuccess, nil),
 			qname:         "example.org",
-			metric:        "coredns_dns_request_count_total",
+			metric:        "coredns_dns_requests_total",
 			expectedValue: "2",
 		},
 		{
 			next:          test.NextHandler(dns.RcodeSuccess, nil),
 			qname:         "example.org",
-			metric:        "coredns_dns_request_type_count_total",
+			metric:        "coredns_dns_requests_total",
 			expectedValue: "3",
 		},
 		{
 			next:          test.NextHandler(dns.RcodeSuccess, nil),
 			qname:         "example.org",
-			metric:        "coredns_dns_response_rcode_count_total",
+			metric:        "coredns_dns_responses_total",
 			expectedValue: "4",
 		},
 	}

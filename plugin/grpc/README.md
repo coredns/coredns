@@ -63,8 +63,8 @@ Also note the TLS config is "global" for the whole grpc proxy if you need a diff
 If monitoring is enabled (via the *prometheus* plugin) then the following metric are exported:
 
 * `coredns_grpc_request_duration_seconds{to}` - duration per upstream interaction.
-* `coredns_grpc_request_count_total{to}` - query count per upstream.
-* `coredns_grpc_response_rcode_count_total{to, rcode}` - count of RCODEs per upstream.
+* `coredns_grpc_requests_total{to}` - query count per upstream.
+* `coredns_grpc_responses_total{to, rcode}` - count of RCODEs per upstream.
   and we are randomly (this always uses the `random` policy) spraying to an upstream.
 
 ## Examples

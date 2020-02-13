@@ -11,13 +11,13 @@ var (
 	RequestCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "grpc",
-		Name:      "request_count_total",
+		Name:      "requests_total",
 		Help:      "Counter of requests made per upstream.",
 	}, []string{"to"})
 	RcodeCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "grpc",
-		Name:      "response_rcode_count_total",
+		Name:      "responses_total",
 		Help:      "Counter of requests made per upstream.",
 	}, []string{"rcode", "to"})
 	RequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
