@@ -13,8 +13,8 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
-	publicAzureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
-	privateAzureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/privatedns/mgmt/privatedns"
+	publicdns "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
+	privatedns "github.com/Azure/azure-sdk-for-go/profiles/latest/privatedns/mgmt/privatedns"
 
 	"github.com/miekg/dns"
 )
@@ -31,8 +31,8 @@ type zones map[string][]*zone
 // Azure is the core struct of the azure plugin.
 type Azure struct {
 	zoneNames     []string
-	publicClient  publicAzureDNS.RecordSetsClient
-	privateClient privateAzureDNS.RecordSetsClient
+	publicClient  publicdns.RecordSetsClient
+	privateClient privatedns.RecordSetsClient
 	upstream      *upstream.Upstream
 	zMu           sync.RWMutex
 	zones         zones
@@ -42,7 +42,7 @@ type Azure struct {
 }
 
 // New validates the input DNS zones and initializes the Azure struct.
-func New(ctx context.Context, publicDNSClient publicAzureDNS.RecordSetsClient, privateDNSClient privateAzureDNS.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
+func New(ctx context.Context, publicDNSClient publicdns.RecordSetsClient, privateDNSClient privatedns.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
 	zones := make(map[string][]*zone, len(keys))
 	names := make([]string, len(keys))
 	var private bool
@@ -102,8 +102,8 @@ func (h *Azure) Run(ctx context.Context) error {
 
 func (h *Azure) updateZones(ctx context.Context) error {
 	var err error
-	var publicSet publicAzureDNS.RecordSetListResultPage
-	var privateSet privateAzureDNS.RecordSetListResultPage
+	var publicSet publicdns.RecordSetListResultPage
+	var privateSet privatedns.RecordSetListResultPage
 	var newZ *file.Zone
 	errs := make([]string, 0)
 	for zName, z := range h.zones {
@@ -132,7 +132,7 @@ func (h *Azure) updateZones(ctx context.Context) error {
 
 }
 
-func updateZoneFromPublicResourceSet(recordSet publicAzureDNS.RecordSetListResultPage, zName string) *file.Zone {
+func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage, zName string) *file.Zone {
 	newZ := file.NewZone(zName, "")
 
 	for _, result := range *(recordSet.Response().Value) {
@@ -221,7 +221,7 @@ func updateZoneFromPublicResourceSet(recordSet publicAzureDNS.RecordSetListResul
 	return newZ
 }
 
-func updateZoneFromPrivateResourceSet(recordSet privateAzureDNS.RecordSetListResultPage, zName string) *file.Zone {
+func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPage, zName string) *file.Zone {
 	newZ := file.NewZone(zName, "")
 
 	for _, result := range *(recordSet.Response().Value) {
