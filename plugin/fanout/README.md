@@ -46,15 +46,15 @@ Where `to` is one of the upstream servers (**TO** from the config), `rcode` is t
 from the upstream.
 
 ## Examples
-Proxy all requests within `example.org.` to a nameserver running on a different port:
+Proxy all requests within `example.org.` to a nameservers running on a different ports.  The first positive response from a proxy will be provided as the result.
 
 ~~~ corefile
 example.org {
-    fanout . 127.0.0.1:9005
+    fanout . 127.0.0.1:9005 127.0.0.1:9006 127.0.0.1:9007 127.0.0.1:9008
 }
 ~~~
 
-Sends parallel requests between three resolvers, one of which has a IPv6 address via TCP. The first success connected response from proxy will be provided ad result.
+Sends parallel requests between three resolvers, one of which has a IPv6 address via TCP. The first response from proxy will be provided as the result.
 
 ~~~ corefile
 . {
@@ -97,12 +97,12 @@ used in the TLS negotiation.
 }
 ~~~
 
-Sends parallel requests between five resolvers via UDP uses two workers. The first positive response from proxy will be provided ad result.
-
+Sends parallel requests between five resolvers via UDP uses two workers and without attempting to reconnect. The first positive response from a proxy will be provided as the result.
 ~~~ corefile
 . {
     fanout . 10.0.0.10:53 10.0.0.11:53 10.0.0.12:53 10.0.0.13:1053 10.0.0.14:1053 {
         worker-count 2
+        max-fail-count 0
     }
 }
 ~~~
