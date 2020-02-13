@@ -50,10 +50,10 @@ var Directives = []string{
 	"etcd",
 	"loop",
 	"forward",
+	"fanout",
 	"grpc",
 	"erratic",
 	"whoami",
 	"on",
 	"sign",
-	"fanout",
 }
