@@ -122,7 +122,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		return template.rcode, nil
 	}
 
-	return h.Next.ServeDNS(ctx, w, r)
+	return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 }
 
 // Name implements the plugin.Handler interface.
