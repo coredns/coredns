@@ -10,7 +10,7 @@ require (
 	github.com/DataDog/datadog-go v3.3.1+incompatible // indirect
 	github.com/Shopify/sarama v1.21.0 // indirect
 	github.com/apache/thrift v0.13.0 // indirect
-	github.com/aws/aws-sdk-go v1.28.13
+	github.com/aws/aws-sdk-go v1.29.3
 	github.com/caddyserver/caddy v1.0.4
 	github.com/cenkalti/backoff/v4 v4.0.0
 	github.com/coredns/federation v0.0.0-20190818181423-e032b096babe
