@@ -27,7 +27,7 @@ Each incoming DNS query that hits the CoreDNS fanout plugin will be replicated i
 * `worker-count` is the number of parallel queries per request.
 * `policy` is specifies the policy to use for selecting response from proxies.
   * `any` is a policy that returns any first response from success connected proxies.
-  * `first-positive` is a policy that returns any first non-negative response from proxies.
+  * `first-positive` is a default policy that returns any first non-negative response from proxies.
 * `network` is a specific network protocol. Could be `tcp`, `udp`, `tcp-tls`.
 * `except` is a list is a space-separated list of domains to exclude from proxying.
 
