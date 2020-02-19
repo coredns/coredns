@@ -24,7 +24,7 @@ Each incoming DNS query that hits the CoreDNS fanout plugin will be replicated i
   (Cloudflare) will not work.
 
 * `fail-count` is the number of subsequent failed health checks that are needed before client stops trying to connect.
-* `worker-count` is the number of parallel queries per request. By default equals to count of IP list. Use this only for reducing parallel queries per request. 
+* `worker-count` is the number of parallel queries per request. By default equals to count of IP list. Use this only for reducing parallel queries per request.
 * `policy` is specifies the policy to use for selecting response from proxies.
   * `any` is a policy that returns any first response from success connected proxies.
   * `first-positive` is a default policy that returns any first non-negative response from proxies.
