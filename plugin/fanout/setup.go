@@ -115,13 +115,13 @@ func parsefanoutStanza(c *caddyfile.Dispenser) (*Fanout, error) {
 		}
 	}
 
-	minWorkers := f.workerCount
+	workerCount := f.workerCount
 
-	if minWorkers > len(f.clients) {
-		minWorkers = len(f.clients)
+	if workerCount > len(f.clients) || workerCount == 0 {
+		workerCount = len(f.clients)
 	}
 
-	f.workerCount = minWorkers
+	f.workerCount = workerCount
 
 	return f, nil
 }

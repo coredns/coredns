@@ -28,7 +28,7 @@ func (w *cachedDNSWriter) WriteMsg(m *dns.Msg) error {
 }
 
 type server struct {
-	Addr  string
+	addr  string
 	inner *dns.Server
 }
 
@@ -55,7 +55,7 @@ func newServer(f dns.HandlerFunc) *server {
 	go s.ActivateAndServe()
 
 	<-ch
-	return &server{inner: s, Addr: s.Listener.Addr().String()}
+	return &server{inner: s, addr: s.Listener.Addr().String()}
 }
 
 func makeRecordA(rr string) *dns.A {
@@ -71,7 +71,7 @@ func TestFanoutCanReturnUnsuccessRespnse(t *testing.T) {
 	})
 	f := New()
 	f.from = "."
-	c := NewClient(s.Addr, "tcp")
+	c := NewClient(s.addr, "tcp")
 	f.addClient(c)
 	req := new(dns.Msg)
 	req.SetQuestion("example1.", dns.TypeA)
@@ -113,8 +113,8 @@ func TestFanoutTwoServersNotSuccessResponse(t *testing.T) {
 	})
 	defer s1.close()
 	defer s2.close()
-	c1 := NewClient(s1.Addr, "tcp")
-	c2 := NewClient(s2.Addr, "tcp")
+	c1 := NewClient(s1.addr, "tcp")
+	c2 := NewClient(s2.addr, "tcp")
 	f := New()
 	f.addClient(c1)
 	f.addClient(c2)
@@ -163,8 +163,8 @@ func TestFanoutTwoServers(t *testing.T) {
 	defer s1.close()
 	defer s2.close()
 
-	c1 := NewClient(s1.Addr, "tcp")
-	c2 := NewClient(s2.Addr, "tcp")
+	c1 := NewClient(s1.addr, "tcp")
+	c2 := NewClient(s2.addr, "tcp")
 	f := New()
 	f.from = "."
 	f.addClient(c1)
@@ -184,6 +184,53 @@ func TestFanoutTwoServers(t *testing.T) {
 	}
 }
 
+func TestFanouWorkerCountLessThenServers(t *testing.T) {
+	const expected = 1
+	answerCount1 := 0
+	var mutex sync.Mutex
+	var closeFuncs []func()
+	free := func() {
+		for _, f := range closeFuncs {
+			f()
+		}
+	}
+	defer free()
+	f := New()
+	f.from = "."
+
+	for i := 0; i < 4; i++ {
+		incorrectServer := newServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		})
+		f.addClient(NewClient(incorrectServer.addr, "tcp"))
+		closeFuncs = append(closeFuncs, incorrectServer.close)
+	}
+	correctServer := newServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		if r.Question[0].Name == "example1." {
+			msg := dns.Msg{
+				Answer: []dns.RR{makeRecordA("example1 3600	IN	A 10.0.0.1")},
+			}
+			mutex.Lock()
+			answerCount1++
+			mutex.Unlock()
+			msg.SetReply(r)
+			w.WriteMsg(&msg)
+		}
+	})
+
+	f.addClient(NewClient(correctServer.addr, "tcp"))
+	f.maxFailCount = 0
+	f.workerCount = 1
+	req := new(dns.Msg)
+	req.SetQuestion("example1.", dns.TypeA)
+	f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
+	<-time.After(time.Second)
+	mutex.Lock()
+	defer mutex.Unlock()
+	if answerCount1 != expected {
+		t.Errorf("Expected number of health checks to be %d, got : %d,", expected, answerCount1)
+	}
+}
+
 func TestFanout(t *testing.T) {
 	s := newServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
@@ -195,7 +242,7 @@ func TestFanout(t *testing.T) {
 	source := `fanout . %v {
 	NETWORK tcp
 }`
-	c := caddy.NewTestController("dns", fmt.Sprintf(source, s.Addr))
+	c := caddy.NewTestController("dns", fmt.Sprintf(source, s.addr))
 	f, err := parseFanout(c)
 	if err != nil {
 		t.Fatalf("Failed to create fanout: %s", err)

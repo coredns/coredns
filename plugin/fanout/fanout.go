@@ -32,7 +32,6 @@ func New() *Fanout {
 	return &Fanout{
 		tlsConfig:    new(tls.Config),
 		maxFailCount: 2,
-		workerCount:  4,
 		net:          "udp",
 		policy:       FirstPositive,
 	}
@@ -40,6 +39,7 @@ func New() *Fanout {
 
 func (f *Fanout) addClient(p Client) {
 	f.clients = append(f.clients, p)
+	f.workerCount++
 }
 
 // Name implements plugin.Handler.
