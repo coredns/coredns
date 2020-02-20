@@ -56,34 +56,51 @@ func (APIConnReverseTest) SvcIndexReverse(ip string) []*object.Service {
 }
 
 func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
-	switch ip {
-	case "10.0.0.100":
-	case "1234:abcd::1":
-	case "fd00:77:30::a":
-	case "fd00:77:30::2:9ba6":
-	default:
-		return nil
-	}
-	eps := []*object.Endpoints{
-		{
-			Subsets: []object.EndpointSubset{
-				{
-					Addresses: []object.EndpointAddress{
-						{IP: "10.0.0.100", Hostname: "ep1a"},
-						{IP: "1234:abcd::1", Hostname: "ep1b"},
-						{IP: "fd00:77:30::a", Hostname: "ip6svc1ex"},
-						{IP: "fd00:77:30::2:9ba6", Hostname: "ip6svc1in"},
-					},
-					Ports: []object.EndpointPort{
-						{Port: 80, Protocol: "tcp", Name: "http"},
-					},
+	ep1 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.100", Hostname: "ep1a"},
+					{IP: "1234:abcd::1", Hostname: "ep1b"},
+					{IP: "fd00:77:30::a", Hostname: "ip6svc1ex"},
+					{IP: "fd00:77:30::2:9ba6", Hostname: "ip6svc1in"},
+					{IP: "10.0.0.99", Hostname: "double-ep"}, // this endpoint is used by two services
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
 				},
 			},
-			Name:      "svc1",
-			Namespace: "testns",
 		},
+		Name:      "svc1",
+		Namespace: "testns",
 	}
-	return eps
+	ep2 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.99", Hostname: "double-ep"}, // this endpoint is used by two services
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc2",
+		Namespace: "testns",
+	}
+	switch ip {
+	case "10.0.0.100":
+		fallthrough
+	case "1234:abcd::1":
+		fallthrough
+	case "fd00:77:30::a":
+		fallthrough
+	case "fd00:77:30::2:9ba6":
+		return []*object.Endpoints{&ep1}
+	case "10.0.0.99":
+		return []*object.Endpoints{&ep1, &ep2}
+	}
+	return nil
 }
 
 func (APIConnReverseTest) GetNodeByName(name string) (*api.Node, error) {
@@ -176,6 +193,14 @@ func TestReverse(t *testing.T) {
 			Rcode: dns.RcodeNameError,
 			Ns: []dns.RR{
 				test.SOA("cluster.local.       5     IN      SOA     ns.dns.cluster.local. hostmaster.cluster.local. 1502989566 7200 1800 86400 5"),
+			},
+		},
+		{
+			Qname: "99.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+			Rcode: dns.RcodeSuccess,
+			Answer: []dns.RR{
+				test.PTR("99.0.0.10.in-addr.arpa.      5    IN      PTR       double-ep.svc1.testns.svc.cluster.local."),
+				test.PTR("99.0.0.10.in-addr.arpa.      5    IN      PTR       double-ep.svc2.testns.svc.cluster.local."),
 			},
 		},
 	}
