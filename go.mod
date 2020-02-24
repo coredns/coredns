@@ -5,7 +5,7 @@ go 1.13
 require (
 	cloud.google.com/go v0.41.0 // indirect
 	github.com/Azure/azure-sdk-for-go v32.6.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.9.5
+	github.com/Azure/go-autorest/autorest v0.9.6
 	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2
 	github.com/DataDog/datadog-go v3.3.1+incompatible // indirect
 	github.com/Shopify/sarama v1.21.0 // indirect
