@@ -382,6 +382,82 @@ func TestNegativeStaleMaskingPositiveCache(t *testing.T) {
 	}
 }
 
+func TestNegativeExpiredMaskingPositiveCache(t *testing.T) {
+	c := New()
+	c.Next = nxDomainBackend(60)
+
+	req := new(dns.Msg)
+	qname := "cached.org."
+	req.SetQuestion(qname, dns.TypeA)
+	ctx := context.TODO()
+
+	// Negative Cache example.org. - NXDOMAIN
+	expectedResult := dns.RcodeNameError
+	if ret, _ := c.ServeDNS(ctx, &test.ResponseWriter{}, req); ret != expectedResult {
+		t.Errorf("Test 0 Negative Cache Population: expecting %v; got %v", expectedResult, ret)
+	}
+
+	// Confirm item was added to negative cache and not to positive cache
+	if c.ncache.Len() == 0 {
+		t.Errorf("Test 0 Negative Cache Population: item not added to negative cache")
+	}
+	if c.pcache.Len() != 0 {
+		t.Errorf("Test 0 Negative Cache Population: item added to positive cache")
+	}
+
+	// Backend - Give error only
+	c.Next = plugin.HandlerFunc(func(context.Context, dns.ResponseWriter, *dns.Msg) (int, error) {
+		return 255, nil // Below, a 255 means we tried querying upstream.
+	})
+
+	// Confirm we get an NXDOMAIN from cache
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	req = new(dns.Msg)
+	req.SetQuestion(qname, dns.TypeA)
+	expectedResult = dns.RcodeNameError
+	if c.ServeDNS(ctx, rec, req); rec.Rcode != expectedResult {
+		t.Errorf("Test 1 NXDOMAIN from Negative Cache: expecting %v; got %v", expectedResult, rec.Rcode)
+	}
+
+	// Backend - Give NOERROR and A response
+	c.Next = BackendHandler()
+
+	// Jump into the future past when the negative cache item would expire
+	// Note: the negative item will not be removed from the negative cache
+	c.now = func() time.Time { return time.Now().Add(time.Duration(5) * time.Minute) }
+
+	// Populate the positive cache with a record
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	req = new(dns.Msg)
+	req.SetQuestion(qname, dns.TypeA)
+	expectedResult = dns.RcodeSuccess
+	if c.ServeDNS(ctx, rec, req); rec.Rcode != expectedResult {
+		t.Errorf("Test 2 NOERROR from Backend: expecting %v; got %v", expectedResult, rec.Rcode)
+	}
+
+	// Confirm that postive and negative cache both have 1 item
+	if c.ncache.Len() != 1 {
+		t.Errorf("Test 2 NOERROR from Backend: item missing from negative cache")
+	}
+	if c.pcache.Len() != 1 {
+		t.Errorf("Test 2 NOERROR from Backend: item missing from positive cache")
+	}
+
+	// Backend - Give error only
+	c.Next = plugin.HandlerFunc(func(context.Context, dns.ResponseWriter, *dns.Msg) (int, error) {
+		return 255, nil // Below, a 255 means we tried querying upstream.
+	})
+
+	// Check if positive cache is returned or if error backend is hit
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	req = new(dns.Msg)
+	req.SetQuestion(qname, dns.TypeA)
+	expectedResult = dns.RcodeSuccess
+	if ret, _ := c.ServeDNS(ctx, rec, req); ret != expectedResult {
+		t.Errorf("Test 3 NOERROR from Cache: expecting %v; got %v", expectedResult, ret)
+	}
+}
+
 func BenchmarkCacheResponse(b *testing.B) {
 	c := New()
 	c.prefetch = 1
@@ -417,6 +493,20 @@ func BackendHandler() plugin.Handler {
 
 		w.WriteMsg(m)
 		return dns.RcodeSuccess, nil
+	})
+}
+
+func nxDomainBackend(ttl int) plugin.Handler {
+	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+
+		m.Ns = []dns.RR{test.SOA(fmt.Sprintf("example.org. %d IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600", ttl))}
+
+		m.MsgHdr.Rcode = dns.RcodeNameError
+		w.WriteMsg(m)
+		return dns.RcodeNameError, nil
 	})
 }
 
