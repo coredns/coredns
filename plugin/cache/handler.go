@@ -36,15 +36,20 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 	}
 	if ttl < 0 {
+		// Cached but expired item
 		servedStale.WithLabelValues(server).Inc()
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
+
+		// Dispatch background refresh
 		go func() {
 			r := r.Copy()
 			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: w.LocalAddr()}
 			plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 		}()
 	}
+
+	// Serve cached item (stale or fresh)
 	resp := i.toMsg(r, now)
 	w.WriteMsg(resp)
 
@@ -80,25 +85,24 @@ func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 // Name implements the Handler interface.
 func (c *Cache) Name() string { return "cache" }
 
-func (c *Cache) get(now time.Time, state request.Request, server string) (*item, bool) {
-	k := hash(state.Name(), state.QType(), state.Do())
-
-	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Denial).Inc()
-		return i.(*item), true
-	}
-
-	if i, ok := c.pcache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Success).Inc()
-		return i.(*item), true
-	}
-	cacheMisses.WithLabelValues(server).Inc()
-	return nil, false
-}
-
-// getIgnoreTTL unconditionally returns an item if it exists in the cache.
+// getIgnoreTTL will return the best unexpired or expired item
 func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
 	k := hash(state.Name(), state.QType(), state.Do())
+
+	var ni, pi interface{}
+	nexists, pexists := false, false
+	nwillserve, pwillserve := false, false
+	pexpired := false
+	nttl, pttl := 0, 0
+
+	// See if the negative cache has the item
+	ni, nexists = c.ncache.Get(k)
+	if nexists {
+		nttl = ni.(*item).ttl(now)
+		if nttl > 0 || (c.staleUpTo > 0 && -nttl < int(c.staleUpTo.Seconds())) {
+			nwillserve = true
+		}
+	}
 
 	if i, ok := c.ncache.Get(k); ok {
 		ttl := i.(*item).ttl(now)
@@ -107,15 +111,18 @@ func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string
 			return i.(*item)
 		}
 	}
-	if i, ok := c.pcache.Get(k); ok {
-		ttl := i.(*item).ttl(now)
-		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
+
+	if pexists && (!pexpired || !nexists || (nexists && pttl >= nttl)) {
+		// Return the positive item if:
+		// it exists and is not expired
+		// OR it exists and the negative item does not exist
+		// OR it exists and the negative item exists but the
+		//   positive has more TTL (note: both may be expired or non-expired)
+		if pwillserve {
 			cacheHits.WithLabelValues(server, Success).Inc()
 			return i.(*item)
 		}
 	}
-	cacheMisses.WithLabelValues(server).Inc()
-	return nil
 }
 
 func (c *Cache) exists(state request.Request) *item {

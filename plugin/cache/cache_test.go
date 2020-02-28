@@ -202,7 +202,7 @@ func TestCache(t *testing.T) {
 			crr.set(m, k, mt, c.pttl)
 		}
 
-		i, _ := c.get(time.Now().UTC(), state, "dns://:53")
+		i := c.getIgnoreTTL(time.Now().UTC(), state, "dns://:53")
 		ok := i != nil
 
 		if ok != tc.shouldCache {
