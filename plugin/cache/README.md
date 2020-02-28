@@ -73,7 +73,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 * `coredns_cache_size{server, type}` - Total elements in the cache by cache type.
 * `coredns_cache_hits_total{server, type}` - Counter of cache hits by cache type.
 * `coredns_cache_misses_total{server}` - Counter of cache misses.
-* `coredns_cache_drops_total{server}` - Counter of dropped messages.
+* `coredns_cache_drops_total{server}` - Counter of responses excluded from the cache due to request/response question name mismatch.
 * `coredns_cache_served_stale_total{server}` - Counter of requests served from stale cache entries.
 
 Cache types are either "denial" or "success". `Server` is the server handling the request, see the
