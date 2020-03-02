@@ -38,7 +38,7 @@ require (
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20190917205325-a14579fbfb1a
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
 	golang.org/x/sys v0.0.0-20200122134326-e047566fdf82
-	google.golang.org/api v0.15.0
+	google.golang.org/api v0.19.0
 	google.golang.org/grpc v1.26.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.21.0
 	k8s.io/api v0.17.3
