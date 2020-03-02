@@ -70,7 +70,7 @@ I have listed out four possible scenarios that the binary might be deployed in. 
 
 
 - **Binary Deployed Externally but Creating/Deleting Pods Inside the Cluster Allowed** 
-
+![CoreDNSPod](https://user-images.githubusercontent.com/37150991/75658062-9220f900-5c8d-11ea-8c13-f48fbcecc37a.jpeg)
  
  
   Here, the binary itself lives as an external program but will dynamically create a lightweight pod in the cluster (through communication with the API server). The only purpose of this pod inside the cluster would be to execute the dig command (and maybe other debug commands) that the external Golang application sends to this pod. 
@@ -82,7 +82,7 @@ I have listed out four possible scenarios that the binary might be deployed in. 
 
 
 - **Binary Deployed Externally and DNS Port Exposed** 
-
+![CoreDNSNodePort](https://user-images.githubusercontent.com/37150991/75658133-b5e43f00-5c8d-11ea-87de-2dc14f965cd3.jpeg)
 
   Here, the DNS port or the UDP port 53 (in standard deployment) of the CoreDNS deployment is exposed through a service to the external world. The binary, deployed externally, can then use this service to ping the endpoints using the dig command.  
  
