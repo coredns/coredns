@@ -127,7 +127,7 @@ is returned.
 ```
 
 ```python
-digIP(IPAddr) { 
+digIP(IPAddress) { 
 """  
 Sends DNSqueries to the input IP address.  
 Implements logic to determine if CoreDNS is healthy or not based on 
