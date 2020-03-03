@@ -18,23 +18,20 @@ func TestSetup(t *testing.T) {
 		expectedIgnored []string
 		expectedFails   int
 		expectedWorkers int
-		expectedPolicy  Policy
 		expectedNetwork string
 		expectedErr     string
 	}{
 		//positive
-		{input: "fanout . 127.0.0.1", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedPolicy: FirstPositive, expectedNetwork: "udp"},
-		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count 3\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedPolicy: FirstPositive, expectedIgnored: []string{"a.", "b."}, expectedNetwork: "udp"},
-		{input: "fanout . 127.0.0.1 {\npolicy any\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedPolicy: Any, expectedNetwork: "udp"},
-		{input: "fanout . 127.0.0.1 127.0.0.2 {\nmax-fail-count 0\nnetwork tcp\n}", expectedFrom: ".", expectedFails: 0, expectedWorkers: 2, expectedPolicy: FirstPositive, expectedNetwork: "tcp", expectedTo: []string{"127.0.0.1:53", "127.0.0.2:53"}},
-		{input: "fanout . 127.0.0.1 127.0.0.2 127.0.0.3 127.0.0.4 {\nworker-count 3\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 3, expectedPolicy: FirstPositive, expectedNetwork: "udp"},
+		{input: "fanout . 127.0.0.1", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedNetwork: "udp"},
+		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count 3\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedIgnored: []string{"a.", "b."}, expectedNetwork: "udp"},
+		{input: "fanout . 127.0.0.1 127.0.0.2 {\nmax-fail-count 0\nnetwork tcp\n}", expectedFrom: ".", expectedFails: 0, expectedWorkers: 2, expectedNetwork: "tcp", expectedTo: []string{"127.0.0.1:53", "127.0.0.2:53"}},
+		{input: "fanout . 127.0.0.1 127.0.0.2 127.0.0.3 127.0.0.4 {\nworker-count 3\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 3, expectedNetwork: "udp"},
 
 		//negative
 		{input: "fanout . aaa", expectedErr: "not an IP address or file"},
 		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count 1\n}", expectedErr: "use Forward plugin"},
 		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count ten\n}", expectedErr: "'ten'"},
-		{input: "fanout . 127.0.0.1 {\npolicy mypolicy\n}", expectedErr: "unknown policy"},
-		{input: "fanout . 127.0.0.1 127.0.0.2 {\nmax-fail-count 3\nnetwork XXX\n}", expectedErr: "unknown protocol"},
+		{input: "fanout . 127.0.0.1 127.0.0.2 {\nmax-fail-count 3\nnetwork XXX\n}", expectedErr: "unknown network protocol"},
 	}
 
 	for i, test := range tests {
@@ -76,9 +73,6 @@ func TestSetup(t *testing.T) {
 		}
 		if f.net != test.expectedNetwork {
 			t.Fatalf("Test %d: expected: %v, got: %v", i, test.expectedNetwork, f.net)
-		}
-		if f.policy != test.expectedPolicy {
-			t.Fatalf("Test %d: expected: %v, got: %v", i, test.expectedPolicy, f.policy)
 		}
 	}
 }

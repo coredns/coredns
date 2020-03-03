@@ -16,7 +16,6 @@ var log = clog.NewWithPlugin("fanout")
 // Fanout represents a plugin instance that can do async requests to list of DNS servers.
 type Fanout struct {
 	clients       []Client
-	policy        Policy
 	tlsConfig     *tls.Config
 	ignored       []string
 	tlsServerName string
@@ -33,7 +32,6 @@ func New() *Fanout {
 		tlsConfig:    new(tls.Config),
 		maxFailCount: 2,
 		net:          "udp",
-		policy:       FirstPositive,
 	}
 }
 
@@ -108,7 +106,7 @@ func (f *Fanout) getFanoutResult(ctx context.Context, ch <-chan connectResult) *
 			if r.err != nil {
 				break
 			}
-			if !f.checkResponse(r.response) {
+			if r.response.Rcode != dns.RcodeSuccess {
 				break
 			}
 			return &r
@@ -133,14 +131,4 @@ func (f *Fanout) isAllowedDomain(name string) bool {
 		}
 	}
 	return true
-}
-
-func (f *Fanout) checkResponse(r *dns.Msg) bool {
-	switch f.policy {
-	case FirstPositive:
-		return r.Rcode == dns.RcodeSuccess
-	case Any:
-		return true
-	}
-	return false
 }

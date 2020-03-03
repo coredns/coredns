@@ -141,8 +141,8 @@ func parseValue(v string, f *Fanout, c *caddyfile.Dispenser) (err error) {
 		return err
 	case "except":
 		return parseIgnored(f, c)
-	case "policy":
-		return parsePolicy(f, c)
+	default:
+		return fmt.Errorf("unknown property %v", v)
 	}
 	return err
 }
@@ -188,15 +188,6 @@ func parsePositiveInt(c *caddyfile.Dispenser) (int, error) {
 	return num, nil
 }
 
-func parsePolicy(f *Fanout, c *caddyfile.Dispenser) error {
-	if !c.NextArg() {
-		return c.ArgErr()
-	}
-	p := Policy(c.Val())
-	f.policy = p
-	return p.Validate()
-}
-
 func parseTLSServer(f *Fanout, c *caddyfile.Dispenser) error {
 	if !c.NextArg() {
 		return c.ArgErr()
@@ -209,10 +200,11 @@ func parseProtocol(f *Fanout, c *caddyfile.Dispenser) error {
 	if !c.NextArg() {
 		return c.ArgErr()
 	}
-	if c.Val() != "tcp" && c.Val() != "udp" && c.Val() != "tcp-tls" {
-		return errors.New("unknown protocol")
+	net := strings.ToLower(c.Val())
+	if net != "tcp" && net != "udp" && net != "tcp-tls" {
+		return errors.New("unknown network protocol")
 	}
-	f.net = strings.ToLower(c.Val())
+	f.net = net
 	return nil
 }
 
