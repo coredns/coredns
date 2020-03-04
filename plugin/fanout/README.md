@@ -23,7 +23,6 @@ Each incoming DNS query that hits the CoreDNS fanout plugin will be replicated i
   but they have to use the same `tls_servername`. E.g. mixing 9.9.9.9 (QuadDNS) with 1.1.1.1
   (Cloudflare) will not work.
 
-* `fail-count` is the number of subsequent failed health checks that are needed before client stops trying to connect.
 * `worker-count` is the number of parallel queries per request. By default equals to count of IP list. Use this only for reducing parallel queries per request.
 * `network` is a specific network protocol. Could be `tcp`, `udp`, `tcp-tls`.
 * `except` is a list is a space-separated list of domains to exclude from proxying.
@@ -98,7 +97,6 @@ Sends parallel requests between five resolvers via UDP uses two workers and with
 . {
     fanout . 10.0.0.10:53 10.0.0.11:53 10.0.0.12:53 10.0.0.13:1053 10.0.0.14:1053 {
         worker-count 2
-        max-fail-count 0
     }
 }
 ~~~

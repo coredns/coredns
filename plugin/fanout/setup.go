@@ -136,9 +136,6 @@ func parseValue(v string, f *Fanout, c *caddyfile.Dispenser) (err error) {
 		return parseTLSServer(f, c)
 	case "worker-count":
 		return parseWorkerCount(f, c)
-	case "max-fail-count":
-		f.maxFailCount, err = parsePositiveInt(c)
-		return err
 	case "except":
 		return parseIgnored(f, c)
 	default:

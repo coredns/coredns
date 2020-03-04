@@ -2,7 +2,6 @@ package fanout
 
 import (
 	"context"
-	"runtime/debug"
 	"time"
 
 	"github.com/coredns/coredns/plugin/dnstap"
@@ -13,12 +12,11 @@ import (
 	"github.com/miekg/dns"
 )
 
-func logIfNotNil(err error) {
+func logErrIfNotNil(err error) {
 	if err == nil {
 		return
 	}
-	stack := debug.Stack()
-	log.Errorf("err :%v \nstack:\n%v", err, string(stack))
+	log.Error(err)
 }
 
 func toDnstap(ctx context.Context, host string, protocol string, state request.Request, reply *dns.Msg, start time.Time) error {

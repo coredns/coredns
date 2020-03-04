@@ -10,22 +10,15 @@ import (
 
 // Client represents the proxy for remote DNS server
 type Client interface {
-	Health() Health
-	Connect(request request.Request) (*dns.Msg, error)
+	Request(request.Request) (*dns.Msg, error)
 	Endpoint() string
 	SetTLSConfig(*tls.Config)
 }
 
 type client struct {
-	health    Health
 	transport Transport
 	addr      string
 	net       string
-}
-
-// Health returns health checker related to this client
-func (c *client) Health() Health {
-	return c.health
 }
 
 // NewClient creates new client with specific addr and network
@@ -34,7 +27,6 @@ func NewClient(addr, net string) Client {
 		addr:      addr,
 		net:       net,
 		transport: NewTransport(addr),
-		health:    NewHealth(addr, net),
 	}
 	return a
 }
@@ -45,7 +37,6 @@ func (c *client) SetTLSConfig(cfg *tls.Config) {
 		c.net = tcptlc
 	}
 	c.transport.SetTLSConfig(cfg)
-	c.health.SetTLSConfig(cfg)
 }
 
 // Endpoint returns address of DNS server
@@ -53,28 +44,28 @@ func (c *client) Endpoint() string {
 	return c.addr
 }
 
-// Connect sends request to DNS server
-func (c *client) Connect(request request.Request) (*dns.Msg, error) {
+// Request sends request to DNS server
+func (c *client) Request(request request.Request) (*dns.Msg, error) {
 	start := time.Now()
 	conn, err := c.transport.Dial(c.net)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		logIfNotNil(conn.Close())
+		logErrIfNotNil(conn.Close())
 	}()
 
-	logIfNotNil(conn.SetWriteDeadline(time.Now().Add(maxTimeout)))
+	logErrIfNotNil(conn.SetWriteDeadline(time.Now().Add(maxTimeout)))
 	if err = conn.WriteMsg(request.Req); err != nil {
-		logIfNotNil(err)
+		logErrIfNotNil(err)
 		return nil, err
 	}
-	logIfNotNil(conn.SetReadDeadline(time.Now().Add(readTimeout)))
+	logErrIfNotNil(conn.SetReadDeadline(time.Now().Add(readTimeout)))
 	var ret *dns.Msg
 	for {
 		ret, err = conn.ReadMsg()
 		if err != nil {
-			logIfNotNil(err)
+			logErrIfNotNil(err)
 			return nil, err
 		}
 		if request.Req.Id == ret.Id {

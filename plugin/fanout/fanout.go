@@ -9,6 +9,7 @@ import (
 	"github.com/coredns/coredns/request"
 	"github.com/miekg/dns"
 	"github.com/pkg/errors"
+	"time"
 )
 
 var log = clog.NewWithPlugin("fanout")
@@ -22,16 +23,14 @@ type Fanout struct {
 	net           string
 	from          string
 	workerCount   int
-	maxFailCount  int
 	Next          plugin.Handler
 }
 
 // New returns reference to new Fanout plugin instance with default configs.
 func New() *Fanout {
 	return &Fanout{
-		tlsConfig:    new(tls.Config),
-		maxFailCount: 2,
-		net:          "udp",
+		tlsConfig: new(tls.Config),
+		net:       "udp",
 	}
 }
 
@@ -55,7 +54,7 @@ func (f *Fanout) ServeDNS(ctx context.Context, w dns.ResponseWriter, m *dns.Msg)
 	defer cancel()
 	clientCount := len(f.clients)
 	workerChannel := make(chan Client, f.workerCount)
-	resultCh := make(chan connectResult, clientCount)
+	responseCh := make(chan *response, clientCount)
 	go func() {
 		for i := 0; i < clientCount; i++ {
 			client := f.clients[i]
@@ -65,11 +64,13 @@ func (f *Fanout) ServeDNS(ctx context.Context, w dns.ResponseWriter, m *dns.Msg)
 	for i := 0; i < f.workerCount; i++ {
 		go func() {
 			for c := range workerChannel {
-				connect(timeoutContext, c, request.Request{W: w, Req: m}, resultCh, f.maxFailCount)
+				start := time.Now()
+				msg, err := c.Request(request.Request{W: w, Req: m})
+				responseCh <- &response{client: c, response: msg, start: start, err: err}
 			}
 		}()
 	}
-	result := f.getFanoutResult(timeoutContext, resultCh)
+	result := f.getFanoutResult(timeoutContext, responseCh)
 	if result == nil {
 		return dns.RcodeServerFailure, timeoutContext.Err()
 	}
@@ -81,24 +82,24 @@ func (f *Fanout) ServeDNS(ctx context.Context, w dns.ResponseWriter, m *dns.Msg)
 		debug.Hexdumpf(result.response, "Wrong reply for id: %d, %s %d", result.response.Id, req.QName(), req.QType())
 		formerr := new(dns.Msg)
 		formerr.SetRcode(req.Req, dns.RcodeFormatError)
-		logIfNotNil(w.WriteMsg(formerr))
+		logErrIfNotNil(w.WriteMsg(formerr))
 		return 0, dnsTAP
 	}
-	logIfNotNil(w.WriteMsg(result.response))
+	logErrIfNotNil(w.WriteMsg(result.response))
 	return 0, dnsTAP
 }
 
-func (f *Fanout) getFanoutResult(ctx context.Context, ch <-chan connectResult) *connectResult {
+func (f *Fanout) getFanoutResult(ctx context.Context, responseCh <-chan *response) *response {
 	count := len(f.clients)
-	var result *connectResult
+	var result *response
 	for {
 		select {
 		case <-ctx.Done():
 			return result
-		case r := <-ch:
+		case r := <-responseCh:
 			count--
-			if isBetter(result, &r) {
-				result = &r
+			if isBetter(result, r) {
+				result = r
 			}
 			if count == 0 {
 				return result
@@ -109,7 +110,7 @@ func (f *Fanout) getFanoutResult(ctx context.Context, ch <-chan connectResult) *
 			if r.response.Rcode != dns.RcodeSuccess {
 				break
 			}
-			return &r
+			return r
 		}
 	}
 }

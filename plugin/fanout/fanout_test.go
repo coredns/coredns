@@ -218,7 +218,6 @@ func TestFanouWorkerCountLessThenServers(t *testing.T) {
 	})
 
 	f.addClient(NewClient(correctServer.addr, "tcp"))
-	f.maxFailCount = 0
 	f.workerCount = 1
 	req := new(dns.Msg)
 	req.SetQuestion("example1.", dns.TypeA)

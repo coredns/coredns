@@ -24,14 +24,14 @@ func TestSetup(t *testing.T) {
 		//positive
 		{input: "fanout . 127.0.0.1", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedNetwork: "udp"},
 		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count 3\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 1, expectedIgnored: []string{"a.", "b."}, expectedNetwork: "udp"},
-		{input: "fanout . 127.0.0.1 127.0.0.2 {\nmax-fail-count 0\nnetwork tcp\n}", expectedFrom: ".", expectedFails: 0, expectedWorkers: 2, expectedNetwork: "tcp", expectedTo: []string{"127.0.0.1:53", "127.0.0.2:53"}},
+		{input: "fanout . 127.0.0.1 127.0.0.2 {\nnetwork tcp\n}", expectedFrom: ".", expectedFails: 0, expectedWorkers: 2, expectedNetwork: "tcp", expectedTo: []string{"127.0.0.1:53", "127.0.0.2:53"}},
 		{input: "fanout . 127.0.0.1 127.0.0.2 127.0.0.3 127.0.0.4 {\nworker-count 3\n}", expectedFrom: ".", expectedFails: 2, expectedWorkers: 3, expectedNetwork: "udp"},
 
 		//negative
 		{input: "fanout . aaa", expectedErr: "not an IP address or file"},
 		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count 1\n}", expectedErr: "use Forward plugin"},
 		{input: "fanout . 127.0.0.1 {\nexcept a b\nworker-count ten\n}", expectedErr: "'ten'"},
-		{input: "fanout . 127.0.0.1 127.0.0.2 {\nmax-fail-count 3\nnetwork XXX\n}", expectedErr: "unknown network protocol"},
+		{input: "fanout . 127.0.0.1 127.0.0.2 {\nnetwork XXX\n}", expectedErr: "unknown network protocol"},
 	}
 
 	for i, test := range tests {
@@ -64,9 +64,6 @@ func TestSetup(t *testing.T) {
 			if !reflect.DeepEqual(to, test.expectedTo) {
 				t.Fatalf("Test %d: expected: %q, actual: %q", i, test.expectedTo, to)
 			}
-		}
-		if f.maxFailCount != test.expectedFails {
-			t.Fatalf("Test %d: expected: %d, got: %d", i, test.expectedFails, f.maxFailCount)
 		}
 		if f.workerCount != test.expectedWorkers {
 			t.Fatalf("Test %d: expected: %d, got: %d", i, test.expectedWorkers, f.workerCount)
@@ -121,9 +118,6 @@ nameserver 10.10.255.253`), 0666); err != nil {
 					t.Errorf("Test %d, expected %q, got %q", j, n, addr)
 				}
 			}
-		}
-		for _, p := range f.clients {
-			_ = p.Health().Check()
 		}
 	}
 }

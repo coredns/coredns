@@ -5,14 +5,14 @@ import (
 	"time"
 )
 
-type connectResult struct {
+type response struct {
 	client   Client
 	response *dns.Msg
 	start    time.Time
 	err      error
 }
 
-func isBetter(left, right *connectResult) bool {
+func isBetter(left, right *response) bool {
 	if right == nil {
 		return false
 	}
