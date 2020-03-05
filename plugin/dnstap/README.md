@@ -6,7 +6,7 @@
 
 ## Description
 
-dnstap is a flexible, structured binary log format for DNS software; see http://dnstap.info. With this
+dnstap is a flexible, structured binary log format for DNS software; see https://dnstap.info. With this
 plugin you make CoreDNS output dnstap logging.
 
 Note that there is an internal buffer, so expect at least 13 requests before the server sends its
@@ -90,4 +90,4 @@ func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 ## See Also
 
-[dnstap.info](http://dnstap.info).
+[dnstap.info](https://dnstap.info).
