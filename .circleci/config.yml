@@ -40,6 +40,14 @@ buildCoreDNSImage: &buildCoreDNSImage
         kind load docker-image coredns
 
 jobs:
+  doc-test:
+    docker:
+      - image: circleci/golang:1.13
+    steps:
+      - checkout
+      - run: ./fixup_file_mtime.sh
+      - run: make -f Makefile.doc
+      - run: git diff --exit-code -- man/
   kubernetes-tests:
     <<: *integrationDefaults
     steps:
@@ -62,4 +70,5 @@ workflows:
   version: 2
   integration-tests:
     jobs:
+      - doc-test
       - kubernetes-tests
