@@ -52,6 +52,9 @@ func (h *dnsContext) saveConfig(key string, cfg *Config) {
 	h.keysToConfigs[key] = cfg
 }
 
+// Compile-time check to ensure dnsContext implements the caddy.Context interface
+var _ caddy.Context = &dnsContext{}
+
 // InspectServerBlocks make sure that everything checks out before
 // executing directives and otherwise prepares the directives to
 // be parsed and executed.
