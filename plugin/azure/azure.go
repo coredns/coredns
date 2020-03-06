@@ -15,7 +15,6 @@ import (
 
 	publicdns "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
 	privatedns "github.com/Azure/azure-sdk-for-go/profiles/latest/privatedns/mgmt/privatedns"
-
 	"github.com/miekg/dns"
 )
 
