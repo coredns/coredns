@@ -6,6 +6,7 @@ import (
 	"github.com/miekg/dns"
 )
 
+// Transfer implements Transfer.Transferer
 func (f File) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	// look for exact zone match
 	var z *Zone
@@ -21,6 +22,7 @@ func (f File) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	return z.Transfer(serial)
 }
 
+// Transfer returns a channel containing records of a zone transfer response for the zone
 func (z Zone) Transfer(serial uint32) (<-chan []dns.RR, error) {
 	ch := make(chan []dns.RR, 2)
 

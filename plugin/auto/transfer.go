@@ -5,7 +5,7 @@ import (
 	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/miekg/dns"
 )
-
+// Transfer implements Transfer.Transferer
 func (a Auto) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	// look for exact zone match
 	var z *file.Zone
