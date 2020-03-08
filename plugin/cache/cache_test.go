@@ -250,6 +250,53 @@ func TestCacheZeroTTL(t *testing.T) {
 	}
 }
 
+func TestServeFromStaleNoNCache(t *testing.T) {
+	c := New()
+	c.staleUpTo = 1 * time.Hour
+	c.Next = ttlBackend(60)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// Cache cached.org in ncache.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(ctx, rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+	p := c.pcache
+	c = New()
+	c.staleUpTo = 1 * time.Hour
+	c.Next = ttlBackend(60)
+	c.ncache = p
+
+	// No more backend resolutions, just from cache if available.
+	c.Next = plugin.HandlerFunc(func(context.Context, dns.ResponseWriter, *dns.Msg) (int, error) {
+		return 255, nil // Below, a 255 means we tried querying upstream.
+	})
+
+	tests := []struct {
+		name           string
+		futureMinutes  int
+		expectedResult int
+	}{
+		{"cached.org.", 30, 255},
+		{"cached.org.", 60, 255},
+		{"cached.org.", 70, 255},
+	}
+
+	for i, tt := range tests {
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureMinutes) * time.Minute) }
+		r := req.Copy()
+		r.SetQuestion(tt.name, dns.TypeA)
+		if ret, _ := c.ServeDNS(ctx, rec, r); ret != tt.expectedResult {
+			t.Errorf("Test %d: expecting %v; got %v", i, tt.expectedResult, ret)
+		}
+	}
+}
+
 func TestServeFromStaleCache(t *testing.T) {
 	c := New()
 	c.Next = ttlBackend(60)

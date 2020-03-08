@@ -27,11 +27,11 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	server := metrics.WithServer(ctx)
 
 	ttl := 0
-	i := c.getIgnoreTTL(now, state, server)
+	i, okStale := c.getIgnoreTTL(now, state, server)
 	if i != nil {
 		ttl = i.ttl(now)
 	}
-	if i == nil || -ttl >= int(c.staleUpTo.Seconds()) {
+	if i == nil || (!okStale && ttl < 0) || -ttl >= int(c.staleUpTo.Seconds()) {
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 	}
@@ -97,7 +97,7 @@ func (c *Cache) get(now time.Time, state request.Request, server string) (*item,
 }
 
 // getIgnoreTTL unconditionally returns an item if it exists in the cache.
-func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
+func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) (*item, bool) {
 	k := hash(state.Name(), state.QType(), state.Do())
 
 	if i, ok := c.ncache.Get(k); ok {
@@ -105,17 +105,17 @@ func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string
 		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
 			cacheHits.WithLabelValues(server, Denial).Inc()
 		}
-		return i.(*item)
+		return i.(*item), false
 	}
 	if i, ok := c.pcache.Get(k); ok {
 		ttl := i.(*item).ttl(now)
 		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
 			cacheHits.WithLabelValues(server, Success).Inc()
 		}
-		return i.(*item)
+		return i.(*item), true
 	}
 	cacheMisses.WithLabelValues(server).Inc()
-	return nil
+	return nil, false
 }
 
 func (c *Cache) exists(state request.Request) *item {
