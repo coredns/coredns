@@ -1,6 +1,7 @@
 package fanout
 
 import (
+	"errors"
 	"fmt"
 	"github.com/caddyserver/caddy"
 	"github.com/caddyserver/caddy/caddyfile"
@@ -10,7 +11,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/transport"
-	"github.com/pkg/errors"
 	"strconv"
 	"strings"
 )
@@ -29,7 +29,7 @@ func setup(c *caddy.Controller) error {
 	}
 	l := len(f.clients)
 	if len(f.clients) > maxIPCount {
-		return plugin.Error("fanout", errors.Errorf("more than %d TOs configured: %d", maxIPCount, l))
+		return plugin.Error("fanout", fmt.Errorf("more than %d TOs configured: %d", maxIPCount, l))
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
