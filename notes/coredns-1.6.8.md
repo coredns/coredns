@@ -22,6 +22,7 @@ the Prometheus project.
 Andy Bursavich,
 Chris O'Haver,
 Christian Tryti,
+Darshan Chaudhary,
 Kohei Yoshida,
 LongKB,
 Miek Gieben,
@@ -31,12 +32,13 @@ Zou Nengren.
 
 ## Noteworthy Changes
 
+* plugin/azure: Add private DNS support for azure plugin (https://github.com/coredns/coredns/pull/ 1516)
 * plugin/cache: explain drop metric (https://github.com/coredns/coredns/pull/3706)
 * plugin/forward: Add configuration flag to set if RecursionDesired should be set on health checks (https://github.com/coredns/coredns/pull/3679)
+* plugin/forward: Add exponential backoff to healthcheck (https://github.com/coredns/coredns/pull/3643)
+* plugin/forward: Add max_concurrent option (https://github.com/coredns/coredns/pull/3640)
 * plugin/hosts: Modifies NODATA handling (https://github.com/coredns/coredns/pull/3536)
 * plugin/kubernetes: fix metadata (https://github.com/coredns/coredns/pull/3642)
 * plugin/kubernetes: Return all records with matching IP for reverse queries (https://github.com/coredns/coredns/pull/3687)
 * plugin/metrics: Add query type to latency as well (https://github.com/coredns/coredns/pull/3685)
 * plugin/pkg/up: Make default intervals shorter (https://github.com/coredns/coredns/pull/3651)
-* plugins/forward: Add max_concurrent option (https://github.com/coredns/coredns/pull/3640)
-* plugn/forward: Add exponential backoff to healthcheck (https://github.com/coredns/coredns/pull/3643)
