@@ -174,7 +174,7 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 
 	if hasKey && duration > 0 {
 		if w.state.Match(res) {
-			w.set(res, key, mt, duration)
+			w.set(res, key, mt, duration, w.prefetch)
 			cacheSize.WithLabelValues(w.server, Success).Set(float64(w.pcache.Len()))
 			cacheSize.WithLabelValues(w.server, Denial).Set(float64(w.ncache.Len()))
 		} else {
@@ -203,13 +203,17 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	return w.ResponseWriter.WriteMsg(res)
 }
 
-func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration time.Duration) {
+func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration time.Duration, prefetch bool) {
 	// duration is expected > 0
 	// and key is valid
 	switch mt {
 	case response.NoError, response.Delegation:
 		i := newItem(m, w.now(), duration)
 		w.pcache.Add(key, i)
+		// when pre-fetching, remove the negative cache entry if it exists
+		if prefetch {
+			w.ncache.Remove(key)
+		}
 
 	case response.NameError, response.NoData, response.ServerError:
 		i := newItem(m, w.now(), duration)

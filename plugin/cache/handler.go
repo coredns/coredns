@@ -31,7 +31,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	if i != nil {
 		ttl = i.ttl(now)
 	}
-	if i == nil || -ttl >= int(c.staleUpTo.Seconds()) {
+	if i == nil {
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 	}
@@ -104,15 +104,15 @@ func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string
 		ttl := i.(*item).ttl(now)
 		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
 			cacheHits.WithLabelValues(server, Denial).Inc()
+			return i.(*item)
 		}
-		return i.(*item)
 	}
 	if i, ok := c.pcache.Get(k); ok {
 		ttl := i.(*item).ttl(now)
 		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
 			cacheHits.WithLabelValues(server, Success).Inc()
+			return i.(*item)
 		}
-		return i.(*item)
 	}
 	cacheMisses.WithLabelValues(server).Inc()
 	return nil
