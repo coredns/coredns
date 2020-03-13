@@ -54,6 +54,11 @@ func TestHostPortOrFile(t *testing.T) {
 			"[fd01::1%ens3]:153",
 			false,
 		},
+		{
+			"8.9.1043",
+			"",
+			true,
+		},
 	}
 
 	err := ioutil.WriteFile("resolv.conf", []byte("nameserver 127.0.0.1\n"), 0600)
