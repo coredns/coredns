@@ -69,6 +69,9 @@ func HostPortOrFile(s ...string) ([]string, error) {
 		}
 		servers = append(servers, h)
 	}
+	if len(servers) == 0 {
+		return servers, fmt.Errorf("no nameservers found")
+	}
 	return servers, nil
 }
 

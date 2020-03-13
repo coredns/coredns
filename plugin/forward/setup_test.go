@@ -139,6 +139,8 @@ nameserver 10.10.255.253`), 0666); err != nil {
 	}{
 		// pass
 		{`forward . ` + resolv, false, "", []string{"10.10.255.252:53", "10.10.255.253:53"}},
+		// fail
+		{`forward . /dev/null`, true, "no nameservers", nil},
 	}
 
 	for i, test := range tests {
@@ -167,6 +169,9 @@ nameserver 10.10.255.253`), 0666); err != nil {
 					t.Errorf("Test %d, expected %q, got %q", j, n, addr)
 				}
 			}
+		}
+		if test.shouldErr {
+			continue
 		}
 		for _, p := range f.proxies {
 			p.health.Check(p) // this should almost always err, we don't care it shouldn't crash
