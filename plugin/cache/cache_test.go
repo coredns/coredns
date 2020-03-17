@@ -199,7 +199,7 @@ func TestCache(t *testing.T) {
 		valid, k := key(state.Name(), m, mt, state.Do())
 
 		if valid {
-			crr.set(m, k, mt, c.pttl, false)
+			crr.set(m, k, mt, c.pttl)
 		}
 
 		i, _ := c.get(time.Now().UTC(), state, "dns://:53")
