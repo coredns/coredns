@@ -56,14 +56,6 @@ func TestTo6(t *testing.T) {
 	}
 }
 
-func rr(rdef string) dns.RR {
-	ret, err := dns.NewRR(rdef)
-	if err != nil {
-		panic(err)
-	}
-	return ret
-}
-
 func TestResponseShould(t *testing.T) {
 	var tests = []struct {
 		resp         dns.Msg
@@ -77,7 +69,7 @@ func TestResponseShould(t *testing.T) {
 					Rcode: dns.RcodeSuccess,
 				},
 				Answer: []dns.RR{
-					rr("example.com. IN AAAA ::1"),
+					test.AAAA("example.com. IN AAAA ::1"),
 				},
 			},
 			expected: false,
@@ -89,7 +81,7 @@ func TestResponseShould(t *testing.T) {
 					Rcode: dns.RcodeSuccess,
 				},
 				Ns: []dns.RR{
-					rr("example.com. IN SOA foo bar 1 1 1 1 1"),
+					test.SOA("example.com. IN SOA foo bar 1 1 1 1 1"),
 				},
 			},
 			expected: true,
@@ -101,7 +93,7 @@ func TestResponseShould(t *testing.T) {
 					Rcode: dns.RcodeNotImplemented,
 				},
 				Ns: []dns.RR{
-					rr("example.com. IN SOA foo bar 1 1 1 1 1"),
+					test.SOA("example.com. IN SOA foo bar 1 1 1 1 1"),
 				},
 			},
 			expected: true,
@@ -113,7 +105,7 @@ func TestResponseShould(t *testing.T) {
 					Rcode: dns.RcodeNameError,
 				},
 				Ns: []dns.RR{
-					rr("example.com. IN SOA foo bar 1 1 1 1 1"),
+					test.SOA("example.com. IN SOA foo bar 1 1 1 1 1"),
 				},
 			},
 			expected: false,
@@ -125,7 +117,7 @@ func TestResponseShould(t *testing.T) {
 					Rcode: dns.RcodeSuccess,
 				},
 				Answer: []dns.RR{
-					rr("example.com. IN AAAA ::1"),
+					test.AAAA("example.com. IN AAAA ::1"),
 				},
 			},
 			translateAll: true,
@@ -140,7 +132,7 @@ func TestResponseShould(t *testing.T) {
 			d.TranslateAll = tc.translateAll
 			actual := d.responseShouldDNS64(&tc.resp)
 			if actual != tc.expected {
-				t.Fatalf("Expected responseShouldDNS64 %v got %v", tc.expected, actual)
+				t.Fatalf("Expected %v got %v", tc.expected, actual)
 			}
 		})
 	}
@@ -183,7 +175,7 @@ func TestDNS64(t *testing.T) {
 					Response:         true,
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
-				Ns:       []dns.RR{rr("example.com. 70 IN SOA foo bar 1 1 1 1 1")},
+				Ns:       []dns.RR{test.SOA("example.com. 70 IN SOA foo bar 1 1 1 1 1")},
 			},
 			aResp: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
@@ -195,8 +187,8 @@ func TestDNS64(t *testing.T) {
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeA, dns.ClassINET}},
 				Answer: []dns.RR{
-					rr("example.com. 60 IN A 192.0.2.42"),
-					rr("example.com. 5000 IN A 192.0.2.43"),
+					test.A("example.com. 60 IN A 192.0.2.42"),
+					test.A("example.com. 5000 IN A 192.0.2.43"),
 				},
 			},
 
@@ -210,9 +202,9 @@ func TestDNS64(t *testing.T) {
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Answer: []dns.RR{
-					rr("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
+					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
 					// override RR ttl to SOA ttl, since it's lower
-					rr("example.com. 70 IN AAAA 64:ff9b::192.0.2.43"),
+					test.AAAA("example.com. 70 IN AAAA 64:ff9b::192.0.2.43"),
 				},
 			},
 		},
@@ -236,7 +228,7 @@ func TestDNS64(t *testing.T) {
 					Response:         true,
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
-				Ns:       []dns.RR{rr("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
+				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 			aResp: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
@@ -247,7 +239,7 @@ func TestDNS64(t *testing.T) {
 					Response:         true,
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeA, dns.ClassINET}},
-				Ns:       []dns.RR{rr("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
+				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 
 			resp: &dns.Msg{
@@ -259,7 +251,7 @@ func TestDNS64(t *testing.T) {
 					Response:         true,
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
-				Ns:       []dns.RR{rr("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
+				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 				Answer:   []dns.RR{}, // just to make comparison happy
 			},
 		},
@@ -294,8 +286,8 @@ func TestDNS64(t *testing.T) {
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeA, dns.ClassINET}},
 				Answer: []dns.RR{
-					rr("example.com. 60 IN A 192.0.2.42"),
-					rr("example.com. 5000 IN A 192.0.2.43"),
+					test.A("example.com. 60 IN A 192.0.2.42"),
+					test.A("example.com. 5000 IN A 192.0.2.43"),
 				},
 			},
 
@@ -309,8 +301,8 @@ func TestDNS64(t *testing.T) {
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Answer: []dns.RR{
-					rr("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
-					rr("example.com. 600 IN AAAA 64:ff9b::192.0.2.43"),
+					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
+					test.AAAA("example.com. 600 IN AAAA 64:ff9b::192.0.2.43"),
 				},
 			},
 		},
@@ -334,7 +326,7 @@ func TestDNS64(t *testing.T) {
 					Response:         true,
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
-				Ns:       []dns.RR{rr("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
+				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 			resp: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
@@ -345,7 +337,7 @@ func TestDNS64(t *testing.T) {
 					Response:         true,
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
-				Ns:       []dns.RR{rr("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
+				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 		},
 		{
@@ -370,8 +362,8 @@ func TestDNS64(t *testing.T) {
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Answer: []dns.RR{
-					rr("example.com. 60 IN AAAA ::1"),
-					rr("example.com. 5000 IN AAAA ::2"),
+					test.AAAA("example.com. 60 IN AAAA ::1"),
+					test.AAAA("example.com. 5000 IN AAAA ::2"),
 				},
 			},
 
@@ -385,8 +377,8 @@ func TestDNS64(t *testing.T) {
 				},
 				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Answer: []dns.RR{
-					rr("example.com. 60 IN AAAA ::1"),
-					rr("example.com. 5000 IN AAAA ::2"),
+					test.AAAA("example.com. 60 IN AAAA ::1"),
+					test.AAAA("example.com. 5000 IN AAAA ::2"),
 				},
 			},
 		},
@@ -437,17 +429,17 @@ func (fh *fakeHandler) Name() string {
 }
 
 type fakeUpstream struct {
-	t    *testing.T
-	req  string
-	resp *dns.Msg
+	t     *testing.T
+	qname string
+	resp  *dns.Msg
 }
 
 func (fu *fakeUpstream) Lookup(_ context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
-	if fu.req == "" {
+	if fu.qname == "" {
 		fu.t.Fatalf("Unexpected A lookup for %s", name)
 	}
-	if name != fu.req {
-		fu.t.Fatalf("Wrong A lookup for %s, expected %s", name, fu.req)
+	if name != fu.qname {
+		fu.t.Fatalf("Wrong A lookup for %s, expected %s", name, fu.qname)
 	}
 
 	if typ != dns.TypeA {
