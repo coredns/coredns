@@ -148,7 +148,7 @@ docker-build: tar
 
 .PHONY: docker-push
 docker-push:
-	@echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_LOGIN) --password-stdin
+	#@echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_LOGIN) --password-stdin
 	@echo Pushing: $(VERSION) to $(DOCKER_IMAGE_NAME)
 	for arch in $(LINUX_ARCH); do \
 	    docker push $(DOCKER_IMAGE_NAME):coredns-$$arch ;\

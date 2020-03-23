@@ -10,6 +10,7 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -46,7 +47,7 @@ func setup(c *caddy.Controller) error {
 	k.RegisterKubeCache(c)
 
 	c.OnStartup(func() error {
-		metrics.MustRegister(c, DnsProgrammingLatency)
+		metrics.MustRegister(c, DnsProgrammingLatency, object.APIIndexErrorCount, object.APIIndexSize, object.APIWatchEventCount)
 		return nil
 	})
 
