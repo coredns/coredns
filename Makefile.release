@@ -118,7 +118,7 @@ github-push:
 	    echo $$asset; \
 	    curl -o /dev/null -X POST \
 	      -H "Content-Type: application/gzip" \
-		  -H "Authorization: token ${GITHUB_ACCESS_TOKEN}"
+	      -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" \
 	      --data-binary "@$$asset" \
 	      "https://uploads.github.com/repos/$(GITHUB)/$(NAME)/releases/$(RELEASE)/assets?name=$${asset}" ; \
 	done )
@@ -129,7 +129,7 @@ github-push:
 	    echo $$asset; \
 	    curl -o /dev/null -X POST \
 	      -H "Content-Type: text/plain" \
-		  -H "Authorization: token ${GITHUB_ACCESS_TOKEN}"
+	      -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" \
 	      --data-binary "@$$asset" \
 	      "https://uploads.github.com/repos/$(GITHUB)/$(NAME)/releases/$(RELEASE)/assets?name=$${asset}" ; \
 	done )
