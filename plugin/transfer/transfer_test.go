@@ -32,20 +32,25 @@ func (p transfererPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r 
 
 // Transfer implements transfer.Transferer - it returns a static AXFR response, or
 // if serial is current, an abbreviated IXFR response
-func (p transfererPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
+func (p transfererPlugin) Transfer(zone string, serial uint32) (<-chan *dns.Envelope, error) {
 	if zone != p.Zone {
 		return nil, ErrNotAuthoritative
 	}
-	ch := make(chan []dns.RR, 2)
+	ch := make(chan *dns.Envelope, 2)
 	defer close(ch)
-	ch <- []dns.RR{test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s %d 7200 1800 86400 100", p.Zone, p.Zone, p.Zone, p.Serial))}
+	ch <- &dns.Envelope{
+		RR: []dns.RR{test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s %d 7200 1800 86400 100", p.Zone, p.Zone, p.Zone, p.Serial))},
+	}
 	if serial >= p.Serial {
 		return ch, nil
 	}
-	ch <- []dns.RR{
-		test.NS(fmt.Sprintf("%s 100 IN NS ns.dns.%s", p.Zone, p.Zone)),
-		test.A(fmt.Sprintf("ns.dns.%s 100 IN A 1.2.3.4", p.Zone)),
+	ch <- &dns.Envelope{
+		RR: []dns.RR{
+			test.NS(fmt.Sprintf("%s 100 IN NS ns.dns.%s", p.Zone, p.Zone)),
+			test.A(fmt.Sprintf("ns.dns.%s 100 IN A 1.2.3.4", p.Zone)),
+		},
 	}
+
 	return ch, nil
 }
 

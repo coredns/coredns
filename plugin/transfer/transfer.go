@@ -42,7 +42,7 @@ type Transferer interface {
 	// the current serial for the zone, send a single SOA record to the channel.
 	// If the serial is less (older) than the current serial for the zone, perform an AXFR fallback
 	// by proceeding as if an AXFR was requested (as above).
-	Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
+	Transfer(zone string, serial uint32) (<-chan *dns.Envelope, error)
 }
 
 var (
@@ -87,7 +87,7 @@ func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	// Get a receiving channel from the first Transferer plugin that returns one
-	var fromPlugin <-chan []dns.RR
+	var fromPlugin <-chan *dns.Envelope
 	for _, p := range t.Transferers {
 		var err error
 		fromPlugin, err = p.Transfer(state.QName(), serial)
@@ -116,12 +116,16 @@ func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}()
 
 	var soa *dns.SOA
+	var envelope *dns.Envelope
 	rrs := []dns.RR{}
 	l := 0
 
 receive:
-	for records := range fromPlugin {
-		for _, record := range records {
+	for envelope = range fromPlugin {
+		if envelope.Error != nil {
+			break
+		}
+		for _, record := range envelope.RR {
 			if soa == nil {
 				if soa = record.(*dns.SOA); soa == nil {
 					break receive
@@ -150,6 +154,10 @@ receive:
 
 	close(ch) // Even though we close the channel here, we still have
 	wg.Wait() // to wait before we can return and close the connection.
+
+	if envelope == nil || envelope.Error != nil {
+		return dns.RcodeServerFailure, fmt.Errorf("Failed to transfer zone %s. Error recieve from plugin", state.QName())
+	}
 
 	if soa == nil {
 		return dns.RcodeServerFailure, fmt.Errorf("first record in zone %s is not SOA", state.QName())
