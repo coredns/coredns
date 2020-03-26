@@ -13,7 +13,6 @@ The CoreDNS team has released
 This is a **backwards incompatible release**. Major changes include:
 * Better metrics names (PR #3776)
 * New `transfer` plugin that removes the need for plugins to perform their own zone transfers.
-added `transfer` plugin that removes the need for plugins to perform their own zone transfers.
 
 As this was already backwards incompatible release, we took the liberty to stuff is much of it in
 one release as possible to minimize the disruption going forward.
