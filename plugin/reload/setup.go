@@ -71,7 +71,7 @@ func setup(c *caddy.Controller) error {
 	once.Do(func() {
 		caddy.RegisterEventHook("reload", hook)
 		c.OnRestart(func() error {
-			metrics.MustRegister(c, reloadInfo)
+			metrics.MustRegister(c, reloadInfo, FailedCount)
 			return nil
 		})
 	})
