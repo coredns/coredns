@@ -29,7 +29,8 @@ func BenchmarkController(b *testing.B) {
 	dco := dnsControlOpts{
 		zones: []string{"cluster.local."},
 	}
-	controller := newdnsController(client, dco)
+	ctx := context.Background()
+	controller := newdnsController(ctx, client, dco)
 	cidr := "10.0.0.0/19"
 
 	// Add resources
@@ -39,7 +40,6 @@ func BenchmarkController(b *testing.B) {
 	m.SetQuestion("svc1.testns.svc.cluster.local.", dns.TypeA)
 	k := New([]string{"cluster.local."})
 	k.APIConn = controller
-	ctx := context.Background()
 	rw := &test.ResponseWriter{}
 
 	b.ResetTimer()
@@ -70,6 +70,7 @@ func generateEndpoints(cidr string, client kubernetes.Interface) {
 			Namespace: "testns",
 		},
 	}
+	ctx := context.TODO()
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
 		ep.Subsets[0].Addresses = []api.EndpointAddress{
 			{
@@ -78,7 +79,7 @@ func generateEndpoints(cidr string, client kubernetes.Interface) {
 			},
 		}
 		ep.ObjectMeta.Name = "svc" + strconv.Itoa(count)
-		client.CoreV1().Endpoints("testns").Create(ep)
+		client.CoreV1().Endpoints("testns").Create(ctx, ep)
 		count++
 	}
 }
@@ -121,7 +122,8 @@ func generateSvcs(cidr string, svcType string, client kubernetes.Interface) {
 }
 
 func createClusterIPSvc(suffix int, client kubernetes.Interface, ip net.IP) {
-	client.CoreV1().Services("testns").Create(&api.Service{
+	ctx := context.TODO()
+	client.CoreV1().Services("testns").Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      "svc" + strconv.Itoa(suffix),
 			Namespace: "testns",
@@ -138,7 +140,8 @@ func createClusterIPSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 }
 
 func createHeadlessSvc(suffix int, client kubernetes.Interface, ip net.IP) {
-	client.CoreV1().Services("testns").Create(&api.Service{
+	ctx := context.TODO()
+	client.CoreV1().Services("testns").Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      "hdls" + strconv.Itoa(suffix),
 			Namespace: "testns",
@@ -150,7 +153,8 @@ func createHeadlessSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 }
 
 func createExternalSvc(suffix int, client kubernetes.Interface, ip net.IP) {
-	client.CoreV1().Services("testns").Create(&api.Service{
+	ctx := context.TODO()
+	client.CoreV1().Services("testns").Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{
 			Name:      "external" + strconv.Itoa(suffix),
 			Namespace: "testns",

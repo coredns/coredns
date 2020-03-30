@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -22,7 +23,8 @@ const (
 func TestDnsProgrammingLatency(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	now := time.Now()
-	controller := newdnsController(client, dnsControlOpts{
+	ctx := context.TODO()
+	controller := newdnsController(ctx, client, dnsControlOpts{
 		initEndpointsCache: true,
 		// This is needed as otherwise the fake k8s client doesn't work properly.
 		skipAPIObjectsCleanup: true,
@@ -104,21 +106,24 @@ func buildEndpoints(name string, lastChangeTriggerTime interface{}, subsets []ap
 }
 
 func createEndpoints(t *testing.T, client kubernetes.Interface, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
-	_, err := client.CoreV1().Endpoints(namespace).Create(buildEndpoints(name, triggerTime, subsets))
+	ctx := context.TODO()
+	_, err := client.CoreV1().Endpoints(namespace).Create(ctx, buildEndpoints(name, triggerTime, subsets))
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func updateEndpoints(t *testing.T, client kubernetes.Interface, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
-	_, err := client.CoreV1().Endpoints(namespace).Update(buildEndpoints(name, triggerTime, subsets))
+	ctx := context.TODO()
+	_, err := client.CoreV1().Endpoints(namespace).Update(ctx, buildEndpoints(name, triggerTime, subsets))
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func createService(t *testing.T, client kubernetes.Interface, controller dnsController, name string, clusterIp string) {
-	if _, err := client.CoreV1().Services(namespace).Create(&api.Service{
+	ctx := context.TODO()
+	if _, err := client.CoreV1().Services(namespace).Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{Namespace: namespace, Name: name},
 		Spec:       api.ServiceSpec{ClusterIP: clusterIp},
 	}); err != nil {
