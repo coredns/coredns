@@ -107,7 +107,7 @@ func buildEndpoints(name string, lastChangeTriggerTime interface{}, subsets []ap
 
 func createEndpoints(t *testing.T, client kubernetes.Interface, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
 	ctx := context.TODO()
-	_, err := client.CoreV1().Endpoints(namespace).Create(ctx, buildEndpoints(name, triggerTime, subsets))
+	_, err := client.CoreV1().Endpoints(namespace).Create(ctx, buildEndpoints(name, triggerTime, subsets), meta.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func createEndpoints(t *testing.T, client kubernetes.Interface, name string, tri
 
 func updateEndpoints(t *testing.T, client kubernetes.Interface, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
 	ctx := context.TODO()
-	_, err := client.CoreV1().Endpoints(namespace).Update(ctx, buildEndpoints(name, triggerTime, subsets))
+	_, err := client.CoreV1().Endpoints(namespace).Update(ctx, buildEndpoints(name, triggerTime, subsets), meta.UpdateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +126,7 @@ func createService(t *testing.T, client kubernetes.Interface, controller dnsCont
 	if _, err := client.CoreV1().Services(namespace).Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{Namespace: namespace, Name: name},
 		Spec:       api.ServiceSpec{ClusterIP: clusterIp},
-	}); err != nil {
+	}, meta.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
