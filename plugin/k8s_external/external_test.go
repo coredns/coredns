@@ -159,7 +159,7 @@ func (external) SvcIndexReverse(string) []*object.Service     { return nil }
 func (external) Modified() int64                              { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints         { return nil }
 func (external) EndpointsList() []*object.Endpoints           { return nil }
-func (external) GetNodeByName(name string) (*api.Node, error) { return nil, nil }
+func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }
 func (external) SvcIndex(s string) []*object.Service          { return svcIndexExternal[s] }
 func (external) PodIndex(string) []*object.Pod                { return nil }
 

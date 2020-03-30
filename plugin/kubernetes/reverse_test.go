@@ -103,7 +103,7 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 	return nil
 }
 
-func (APIConnReverseTest) GetNodeByName(name string) (*api.Node, error) {
+func (APIConnReverseTest) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
 	return &api.Node{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "test.node.foo.bar",

@@ -704,7 +704,7 @@ func (APIConnServeTest) EndpointsList() []*object.Endpoints {
 	return eps
 }
 
-func (APIConnServeTest) GetNodeByName(name string) (*api.Node, error) {
+func (APIConnServeTest) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
 	return &api.Node{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "test.node.foo.bar",
