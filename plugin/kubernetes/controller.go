@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -34,7 +35,7 @@ type dnsController interface {
 	EpIndex(string) []*object.Endpoints
 	EpIndexReverse(string) []*object.Endpoints
 
-	GetNodeByName(string) (*api.Node, error)
+	GetNodeByName(context.Context, string) (*api.Node, error)
 	GetNamespaceByName(string) (*api.Namespace, error)
 
 	Run()
@@ -94,7 +95,7 @@ type dnsControlOpts struct {
 }
 
 // newDNSController creates a controller for CoreDNS.
-func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dnsControl {
+func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
 		client:            kubeClient,
 		selector:          opts.selector,
@@ -106,8 +107,8 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 
 	dns.svcLister, dns.svcController = object.NewIndexerInformer(
 		&cache.ListWatch{
-			ListFunc:  serviceListFunc(dns.client, api.NamespaceAll, dns.selector),
-			WatchFunc: serviceWatchFunc(dns.client, api.NamespaceAll, dns.selector),
+			ListFunc:  serviceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			WatchFunc: serviceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 		},
 		&api.Service{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
@@ -118,8 +119,8 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 	if opts.initPodCache {
 		dns.podLister, dns.podController = object.NewIndexerInformer(
 			&cache.ListWatch{
-				ListFunc:  podListFunc(dns.client, api.NamespaceAll, dns.selector),
-				WatchFunc: podWatchFunc(dns.client, api.NamespaceAll, dns.selector),
+				ListFunc:  podListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: podWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 			},
 			&api.Pod{},
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
@@ -131,8 +132,8 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 	if opts.initEndpointsCache {
 		dns.epLister, dns.epController = object.NewIndexerInformer(
 			&cache.ListWatch{
-				ListFunc:  endpointsListFunc(dns.client, api.NamespaceAll, dns.selector),
-				WatchFunc: endpointsWatchFunc(dns.client, api.NamespaceAll, dns.selector),
+				ListFunc:  endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 			},
 			&api.Endpoints{},
 			cache.ResourceEventHandlerFuncs{},
@@ -183,8 +184,8 @@ func newdnsController(kubeClient kubernetes.Interface, opts dnsControlOpts) *dns
 
 	dns.nsLister, dns.nsController = cache.NewInformer(
 		&cache.ListWatch{
-			ListFunc:  namespaceListFunc(dns.client, dns.namespaceSelector),
-			WatchFunc: namespaceWatchFunc(dns.client, dns.namespaceSelector),
+			ListFunc:  namespaceListFunc(ctx, dns.client, dns.namespaceSelector),
+			WatchFunc: namespaceWatchFunc(ctx, dns.client, dns.namespaceSelector),
 		},
 		&api.Namespace{},
 		defaultResyncPeriod,
@@ -237,17 +238,17 @@ func epIPIndexFunc(obj interface{}) ([]string, error) {
 	return ep.IndexIP, nil
 }
 
-func serviceListFunc(c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
+func serviceListFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
 	return func(opts meta.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = s.String()
 		}
-		listV1, err := c.CoreV1().Services(ns).List(opts)
+		listV1, err := c.CoreV1().Services(ns).List(ctx, opts)
 		return listV1, err
 	}
 }
 
-func podListFunc(c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
+func podListFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
 	return func(opts meta.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = s.String()
@@ -256,27 +257,27 @@ func podListFunc(c kubernetes.Interface, ns string, s labels.Selector) func(meta
 			opts.FieldSelector = opts.FieldSelector + ","
 		}
 		opts.FieldSelector = opts.FieldSelector + "status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown"
-		listV1, err := c.CoreV1().Pods(ns).List(opts)
+		listV1, err := c.CoreV1().Pods(ns).List(ctx, opts)
 		return listV1, err
 	}
 }
 
-func endpointsListFunc(c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
+func endpointsListFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
 	return func(opts meta.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = s.String()
 		}
-		listV1, err := c.CoreV1().Endpoints(ns).List(opts)
+		listV1, err := c.CoreV1().Endpoints(ns).List(ctx, opts)
 		return listV1, err
 	}
 }
 
-func namespaceListFunc(c kubernetes.Interface, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
+func namespaceListFunc(ctx context.Context, c kubernetes.Interface, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
 	return func(opts meta.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = s.String()
 		}
-		listV1, err := c.CoreV1().Namespaces().List(opts)
+		listV1, err := c.CoreV1().Namespaces().List(ctx, opts)
 		return listV1, err
 	}
 }
@@ -428,8 +429,8 @@ func (dns *dnsControl) EpIndexReverse(ip string) (ep []*object.Endpoints) {
 // GetNodeByName return the node by name. If nothing is found an error is
 // returned. This query causes a roundtrip to the k8s API server, so use
 // sparingly. Currently this is only used for Federation.
-func (dns *dnsControl) GetNodeByName(name string) (*api.Node, error) {
-	v1node, err := dns.client.CoreV1().Nodes().Get(name, meta.GetOptions{})
+func (dns *dnsControl) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
+	v1node, err := dns.client.CoreV1().Nodes().Get(ctx, name, meta.GetOptions{})
 	return v1node, err
 }
 

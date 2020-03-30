@@ -1,23 +1,25 @@
 package kubernetes
 
 import (
+	"context"
+
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 )
 
-func serviceWatchFunc(c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
+func serviceWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
 	return func(options meta.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
-		w, err := c.CoreV1().Services(ns).Watch(options)
+		w, err := c.CoreV1().Services(ns).Watch(ctx, options)
 		return w, err
 	}
 }
 
-func podWatchFunc(c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
+func podWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
 	return func(options meta.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = s.String()
@@ -26,27 +28,27 @@ func podWatchFunc(c kubernetes.Interface, ns string, s labels.Selector) func(opt
 			options.FieldSelector = options.FieldSelector + ","
 		}
 		options.FieldSelector = options.FieldSelector + "status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown"
-		w, err := c.CoreV1().Pods(ns).Watch(options)
+		w, err := c.CoreV1().Pods(ns).Watch(ctx, options)
 		return w, err
 	}
 }
 
-func endpointsWatchFunc(c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
+func endpointsWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
 	return func(options meta.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
-		w, err := c.CoreV1().Endpoints(ns).Watch(options)
+		w, err := c.CoreV1().Endpoints(ns).Watch(ctx, options)
 		return w, err
 	}
 }
 
-func namespaceWatchFunc(c kubernetes.Interface, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
+func namespaceWatchFunc(ctx context.Context, c kubernetes.Interface, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
 	return func(options meta.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
-		w, err := c.CoreV1().Namespaces().Watch(options)
+		w, err := c.CoreV1().Namespaces().Watch(ctx, options)
 		return w, err
 	}
 }

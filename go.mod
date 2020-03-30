@@ -40,8 +40,8 @@ require (
 	google.golang.org/genproto v0.0.0-20200306153348-d950eab6f860 // indirect
 	google.golang.org/grpc v1.28.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.22.0
-	k8s.io/api v0.17.4
-	k8s.io/apimachinery v0.17.4
-	k8s.io/client-go v0.17.4
+	k8s.io/api v0.18.0
+	k8s.io/apimachinery v0.18.0
+	k8s.io/client-go v0.18.0
 	k8s.io/klog v1.0.0
 )

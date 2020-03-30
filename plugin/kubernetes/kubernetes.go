@@ -212,7 +212,7 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 }
 
 // InitKubeCache initializes a new Kubernetes cache.
-func (k *Kubernetes) InitKubeCache() (err error) {
+func (k *Kubernetes) InitKubeCache(ctx context.Context) (err error) {
 	config, err := k.getClientConfig()
 	if err != nil {
 		return err
@@ -245,7 +245,7 @@ func (k *Kubernetes) InitKubeCache() (err error) {
 
 	k.opts.zones = k.Zones
 	k.opts.endpointNameMode = k.endpointNameMode
-	k.APIConn = newdnsController(kubeClient, k.opts)
+	k.APIConn = newdnsController(ctx, kubeClient, k.opts)
 
 	return err
 }
