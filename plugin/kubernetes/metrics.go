@@ -9,10 +9,6 @@ import (
 	api "k8s.io/api/core/v1"
 )
 
-const (
-	subsystem = "kubernetes"
-)
-
 var (
 	// DnsProgrammingLatency is defined as the time it took to program a DNS instance - from the time
 	// a service or pod has changed to the time the change was propagated and was available to be
@@ -27,7 +23,7 @@ var (
 	//   * headless_without_selector
 	DnsProgrammingLatency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
-		Subsystem: subsystem,
+		Subsystem: pluginName,
 		Name:      "dns_programming_duration_seconds",
 		// From 1 millisecond to ~17 minutes.
 		Buckets: prometheus.ExponentialBuckets(0.001, 2, 20),

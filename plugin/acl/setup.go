@@ -13,7 +13,9 @@ import (
 	"github.com/miekg/dns"
 )
 
-func init() { plugin.Register("acl", setup) }
+const pluginName = "acl"
+
+func init() { plugin.Register(pluginName, setup) }
 
 func newDefaultFilter() *iptree.Tree {
 	defaultFilter := iptree.NewTree()
@@ -27,7 +29,7 @@ func newDefaultFilter() *iptree.Tree {
 func setup(c *caddy.Controller) error {
 	a, err := parse(c)
 	if err != nil {
-		return plugin.Error("acl", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {

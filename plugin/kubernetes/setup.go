@@ -27,21 +27,23 @@ import (
 	"k8s.io/klog"
 )
 
-var log = clog.NewWithPlugin("kubernetes")
+const pluginName = "kubernetes"
 
-func init() { plugin.Register("kubernetes", setup) }
+var log = clog.NewWithPlugin(pluginName)
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	klog.SetOutput(os.Stdout)
 
 	k, err := kubernetesParse(c)
 	if err != nil {
-		return plugin.Error("kubernetes", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	err = k.InitKubeCache(context.Background())
 	if err != nil {
-		return plugin.Error("kubernetes", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	k.RegisterKubeCache(c)

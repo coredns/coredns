@@ -12,14 +12,16 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
-var log = clog.NewWithPlugin("dns64")
+const pluginName = "dns64"
 
-func init() { plugin.Register("dns64", setup) }
+var log = clog.NewWithPlugin(pluginName)
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	dns64, err := dns64Parse(c)
 	if err != nil {
-		return plugin.Error("dns64", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {

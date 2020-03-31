@@ -56,7 +56,7 @@ server.
 ## Metrics
 
 When exporting metrics the *Namespace* should be `plugin.Namespace` (="coredns"), and the
-*Subsystem* should be the name of the plugin. The README.md for the plugin should then also contain
+*Subsystem* must be the name of the plugin. The README.md for the plugin should then also contain
 a *Metrics* section detailing the metrics.
 
 ## Readiness

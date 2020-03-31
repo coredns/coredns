@@ -73,8 +73,8 @@ example.org {
 
 If monitoring is enabled (via the _prometheus_ plugin) then the following metrics are exported:
 
-- `coredns_dns_blocked_requests_total{server, zone}` - counter of DNS requests being blocked.
+- `coredns_acl_blocked_requests_total{server, zone}` - counter of DNS requests being blocked.
 
-- `coredns_dns_allowed_requests_total{server}` - counter of DNS requests being allowed.
+- `coredns_acl_allowed_requests_total{server}` - counter of DNS requests being allowed.
 
 The `server` and `zone` labels are explained in the _metrics_ plugin documentation.
