@@ -9,7 +9,7 @@ import (
 
 // MustRegister registers the prometheus Collectors when the metrics plugin is used.
 func MustRegister(c *caddy.Controller, cs ...prometheus.Collector) {
-	m := dnsserver.GetConfig(c).Handler("prometheus")
+	m := dnsserver.GetConfig(c).Handler(pluginName)
 	if m == nil {
 		return
 	}

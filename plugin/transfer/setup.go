@@ -9,8 +9,10 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
+const pluginName = "transfer"
+
 func init() {
-	caddy.RegisterPlugin("transfer", caddy.Plugin{
+	caddy.RegisterPlugin(pluginName, caddy.Plugin{
 		ServerType: "dns",
 		Action:     setup,
 	})
@@ -20,7 +22,7 @@ func setup(c *caddy.Controller) error {
 	t, err := parse(c)
 
 	if err != nil {
-		return plugin.Error("transfer", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -90,11 +92,11 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 					x.to = append(x.to, normalized)
 				}
 			default:
-				return nil, plugin.Error("transfer", c.Errf("unknown property '%s'", c.Val()))
+				return nil, plugin.Error(pluginName, c.Errf(plugin.UnknownPropertyErrmsg, c.Val()))
 			}
 		}
 		if len(x.to) == 0 {
-			return nil, plugin.Error("transfer", c.Err("'to' is required"))
+			return nil, plugin.Error(pluginName, c.Err("'to' is required"))
 		}
 		t.xfrs = append(t.xfrs, x)
 	}

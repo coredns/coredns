@@ -289,4 +289,4 @@ func (h *Route53) updateZones(ctx context.Context) error {
 }
 
 // Name implements plugin.Handler.Name.
-func (h *Route53) Name() string { return "route53" }
+func (h *Route53) Name() string { return pluginName }

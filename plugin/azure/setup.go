@@ -129,7 +129,7 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 				}
 				accessMap[resourceGroup+zoneName] = access
 			default:
-				return env, resourceGroupMapping, accessMap, fall, c.Errf("unknown property: %q", c.Val())
+				return env, resourceGroupMapping, accessMap, fall, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 			}
 		}
 	}

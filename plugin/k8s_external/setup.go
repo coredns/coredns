@@ -73,7 +73,7 @@ func parse(c *caddy.Controller) (*External, error) {
 				}
 				e.apex = args[0]
 			default:
-				return nil, c.Errf("unknown property '%s'", c.Val())
+				return nil, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 			}
 		}
 	}

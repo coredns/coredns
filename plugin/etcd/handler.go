@@ -77,4 +77,4 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 }
 
 // Name implements the Handler interface.
-func (e *Etcd) Name() string { return "etcd" }
+func (e *Etcd) Name() string { return pluginName }

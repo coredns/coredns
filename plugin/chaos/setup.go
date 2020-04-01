@@ -11,12 +11,14 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
-func init() { plugin.Register("chaos", setup) }
+const pluginName = "chaos"
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	version, authors, err := parse(c)
 	if err != nil {
-		return plugin.Error("chaos", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {

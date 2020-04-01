@@ -41,7 +41,7 @@ var (
 	// HealthDuration is the metric used for exporting how fast we can retrieve the /health endpoint.
 	HealthDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
-		Subsystem: "health",
+		Subsystem: pluginName,
 		Name:      "request_duration_seconds",
 		Buckets:   plugin.TimeBuckets,
 		Help:      "Histogram of the time (in seconds) each request took.",

@@ -10,12 +10,14 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
-func init() { plugin.Register("secondary", setup) }
+const pluginName = "secondary"
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	zones, err := secondaryParse(c)
 	if err != nil {
-		return plugin.Error("secondary", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	// Add startup functions to retrieve the zone and keep it up to date.
@@ -47,7 +49,7 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 	upstr := upstream.New()
 	for c.Next() {
 
-		if c.Val() == "secondary" {
+		if c.Val() == pluginName {
 			// secondary [origin]
 			origins := make([]string, len(c.ServerBlockKeys))
 			copy(origins, c.ServerBlockKeys)
@@ -76,7 +78,7 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 					// remove soon
 					c.RemainingArgs()
 				default:
-					return file.Zones{}, c.Errf("unknown property '%s'", c.Val())
+					return file.Zones{}, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 				}
 
 				for _, origin := range origins {

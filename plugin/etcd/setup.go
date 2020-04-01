@@ -12,12 +12,14 @@ import (
 	etcdcv3 "go.etcd.io/etcd/clientv3"
 )
 
-func init() { plugin.Register("etcd", setup) }
+const pluginName = "etcd"
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	e, err := etcdParse(c)
 	if err != nil {
-		return plugin.Error("etcd", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -89,7 +91,7 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 				username, password = args[0], args[1]
 			default:
 				if c.Val() != "}" {
-					return &Etcd{}, c.Errf("unknown property '%s'", c.Val())
+					return &Etcd{}, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 				}
 			}
 		}

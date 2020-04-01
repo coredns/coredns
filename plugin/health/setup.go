@@ -11,12 +11,14 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
-func init() { plugin.Register("health", setup) }
+const pluginName = "health"
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	addr, lame, err := parse(c)
 	if err != nil {
-		return plugin.Error("health", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	h := &health{Addr: addr, stop: make(chan bool), lameduck: lame}

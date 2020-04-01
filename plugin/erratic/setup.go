@@ -102,7 +102,7 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 			case "large":
 				e.large = true
 			default:
-				return nil, c.Errf("unknown property '%s'", c.Val())
+				return nil, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 			}
 		}
 	}

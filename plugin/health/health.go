@@ -11,7 +11,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 )
 
-var log = clog.NewWithPlugin("health")
+var log = clog.NewWithPlugin(pluginName)
 
 // Health implements healthchecks by exporting a HTTP endpoint.
 type health struct {

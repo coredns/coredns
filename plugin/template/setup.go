@@ -12,16 +12,18 @@ import (
 	"github.com/miekg/dns"
 )
 
-func init() { plugin.Register("template", setupTemplate) }
+const pluginName = "template"
+
+func init() { plugin.Register(pluginName, setupTemplate) }
 
 func setupTemplate(c *caddy.Controller) error {
 	handler, err := templateParse(c)
 	if err != nil {
-		return plugin.Error("template", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	if err := setupMetrics(c); err != nil {
-		return plugin.Error("template", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -31,6 +33,16 @@ func setupTemplate(c *caddy.Controller) error {
 
 	return nil
 }
+
+const (
+	templateMatch       = "match"
+	templateAnswer      = "answer"
+	templateAdditional  = "additional"
+	templateAuthority   = "authority"
+	templateRcode       = "rcode"
+	templateFallthrough = "fallthrough"
+	templateUpstream    = "upstream"
+)
 
 func templateParse(c *caddy.Controller) (handler Handler, err error) {
 	handler.Templates = make([]template, 0)
@@ -73,7 +85,7 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 
 		for c.NextBlock() {
 			switch c.Val() {
-			case "match":
+			case templateMatch:
 				args := c.RemainingArgs()
 				if len(args) == 0 {
 					return handler, c.ArgErr()
@@ -87,20 +99,20 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 					t.regex = append(t.regex, r)
 				}
 
-			case "answer":
+			case templateAnswer:
 				args := c.RemainingArgs()
 				if len(args) == 0 {
 					return handler, c.ArgErr()
 				}
 				for _, answer := range args {
-					tmpl, err := gotmpl.New("answer").Parse(answer)
+					tmpl, err := gotmpl.New(templateAnswer).Parse(answer)
 					if err != nil {
 						return handler, c.Errf("could not compile template: %s, %v", c.Val(), err)
 					}
 					t.answer = append(t.answer, tmpl)
 				}
 
-			case "additional":
+			case templateAdditional:
 				args := c.RemainingArgs()
 				if len(args) == 0 {
 					return handler, c.ArgErr()
@@ -113,7 +125,7 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 					t.additional = append(t.additional, tmpl)
 				}
 
-			case "authority":
+			case templateAuthority:
 				args := c.RemainingArgs()
 				if len(args) == 0 {
 					return handler, c.ArgErr()
@@ -126,7 +138,7 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 					t.authority = append(t.authority, tmpl)
 				}
 
-			case "rcode":
+			case templateRcode:
 				if !c.NextArg() {
 					return handler, c.ArgErr()
 				}
@@ -136,10 +148,10 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 				}
 				t.rcode = rcode
 
-			case "fallthrough":
+			case templateFallthrough:
 				t.fall.SetZonesFromArgs(c.RemainingArgs())
 
-			case "upstream":
+			case templateUpstream:
 				// remove soon
 				c.RemainingArgs()
 			default:

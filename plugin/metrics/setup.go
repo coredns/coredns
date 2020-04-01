@@ -14,18 +14,20 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
+const pluginName = "prometheus"
+
 var (
-	log      = clog.NewWithPlugin("prometheus")
+	log      = clog.NewWithPlugin(pluginName)
 	u        = uniq.New()
 	registry = newReg()
 )
 
-func init() { plugin.Register("prometheus", setup) }
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	m, err := parse(c)
 	if err != nil {
-		return plugin.Error("prometheus", err)
+		return plugin.Error(pluginName, err)
 	}
 	m.Reg = registry.getOrSet(m.Addr, m.Reg)
 

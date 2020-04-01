@@ -14,7 +14,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-var log = clog.NewWithPlugin("transfer")
+var log = clog.NewWithPlugin(pluginName)
 
 // Transfer is a plugin that handles zone transfers.
 type Transfer struct {
@@ -178,4 +178,4 @@ func (x xfr) allowed(state request.Request) bool {
 }
 
 // Name implements the Handler interface.
-func (Transfer) Name() string { return "transfer" }
+func (Transfer) Name() string { return pluginName }

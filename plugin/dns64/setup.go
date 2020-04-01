@@ -75,7 +75,7 @@ func dns64Parse(c *caddy.Controller) (*DNS64, error) {
 			case "translate_all":
 				dns64.TranslateAll = true
 			default:
-				return nil, c.Errf("unknown property '%s'", c.Val())
+				return nil, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 			}
 		}
 	}

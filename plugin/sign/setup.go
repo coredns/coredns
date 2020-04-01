@@ -100,7 +100,7 @@ func parse(c *caddy.Controller) (*Sign, error) {
 					signers[i].signedfile = fmt.Sprintf("db.%ssigned", signers[i].origin)
 				}
 			default:
-				return nil, c.Errf("unknown property '%s'", c.Val())
+				return nil, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 			}
 		}
 		sign.signers = append(sign.signers, signers...)

@@ -32,4 +32,4 @@ func (m *Metrics) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 }
 
 // Name implements the Handler interface.
-func (m *Metrics) Name() string { return "prometheus" }
+func (m *Metrics) Name() string { return pluginName }

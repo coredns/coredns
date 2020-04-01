@@ -283,7 +283,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 			}
 			return nil, c.ArgErr()
 		default:
-			return nil, c.Errf("unknown property '%s'", c.Val())
+			return nil, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 		}
 	}
 

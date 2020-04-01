@@ -15,14 +15,16 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
-var log = clog.NewWithPlugin("cache")
+const pluginName = "cache"
 
-func init() { plugin.Register("cache", setup) }
+var log = clog.NewWithPlugin(pluginName)
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	ca, err := cacheParse(c)
 	if err != nil {
-		return plugin.Error("cache", err)
+		return plugin.Error(pluginName, err)
 	}
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		ca.Next = next

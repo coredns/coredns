@@ -7,12 +7,14 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
-func init() { plugin.Register("rewrite", setup) }
+const pluginName = "rewrite"
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	rewrites, err := rewriteParse(c)
 	if err != nil {
-		return plugin.Error("rewrite", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {

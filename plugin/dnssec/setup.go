@@ -80,7 +80,7 @@ func dnssecParse(c *caddy.Controller) ([]string, []*DNSKEY, int, bool, error) {
 				}
 				capacity = cacheCap
 			default:
-				return nil, nil, 0, false, c.Errf("unknown property '%s'", x)
+				return nil, nil, 0, false, c.Errf(plugin.UnknownPropertyErrmsg, x)
 			}
 
 		}

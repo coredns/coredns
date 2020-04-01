@@ -116,7 +116,7 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 				c.RemainingArgs()
 
 			default:
-				return Zones{}, c.Errf("unknown property '%s'", c.Val())
+				return Zones{}, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 			}
 
 			for _, origin := range origins {

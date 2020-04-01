@@ -87,4 +87,4 @@ func (a Auto) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 }
 
 // Name implements the Handler interface.
-func (a Auto) Name() string { return "auto" }
+func (a Auto) Name() string { return pluginName }

@@ -12,21 +12,21 @@ var (
 	// templateMatchesCount is the counter of template regex matches.
 	templateMatchesCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
-		Subsystem: "template",
+		Subsystem: pluginName,
 		Name:      "matches_total",
 		Help:      "Counter of template regex matches.",
 	}, []string{"server", "zone", "class", "type"})
 	// templateFailureCount is the counter of go template failures.
 	templateFailureCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
-		Subsystem: "template",
+		Subsystem: pluginName,
 		Name:      "template_failures_total",
 		Help:      "Counter of go template failures.",
 	}, []string{"server", "zone", "class", "type", "section", "template"})
 	// templateRRFailureCount is the counter of mis-templated RRs.
 	templateRRFailureCount = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
-		Subsystem: "template",
+		Subsystem: pluginName,
 		Name:      "rr_failures_total",
 		Help:      "Counter of mis-templated RRs.",
 	}, []string{"server", "zone", "class", "type", "section", "template"})

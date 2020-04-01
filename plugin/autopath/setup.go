@@ -11,12 +11,14 @@ import (
 	"github.com/miekg/dns"
 )
 
-func init() { plugin.Register("autopath", setup) }
+const pluginName = "autopath"
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	ap, mw, err := autoPathParse(c)
 	if err != nil {
-		return plugin.Error("autopath", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	c.OnStartup(func() error {
@@ -33,7 +35,7 @@ func setup(c *caddy.Controller) error {
 		if x, ok := m.(AutoPather); ok {
 			ap.searchFunc = x.AutoPath
 		} else {
-			return plugin.Error("autopath", fmt.Errorf("%s does not implement the AutoPather interface", mw))
+			return plugin.Error(pluginName, fmt.Errorf("%s does not implement the AutoPather interface", mw))
 		}
 		return nil
 	})

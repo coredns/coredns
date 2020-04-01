@@ -143,7 +143,7 @@ func parseBlock(c *caddy.Controller, g *GRPC) error {
 		}
 	default:
 		if c.Val() != "}" {
-			return c.Errf("unknown property '%s'", c.Val())
+			return c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 		}
 	}
 

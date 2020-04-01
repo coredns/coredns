@@ -93,7 +93,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		msg.Rcode = template.rcode
 
 		for _, answer := range template.answer {
-			rr, err := executeRRTemplate(metrics.WithServer(ctx), "answer", answer, data)
+			rr, err := executeRRTemplate(metrics.WithServer(ctx), templateAnswer, answer, data)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
@@ -104,14 +104,14 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			}
 		}
 		for _, additional := range template.additional {
-			rr, err := executeRRTemplate(metrics.WithServer(ctx), "additional", additional, data)
+			rr, err := executeRRTemplate(metrics.WithServer(ctx), templateAdditional, additional, data)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}
 			msg.Extra = append(msg.Extra, rr)
 		}
 		for _, authority := range template.authority {
-			rr, err := executeRRTemplate(metrics.WithServer(ctx), "authority", authority, data)
+			rr, err := executeRRTemplate(metrics.WithServer(ctx), templateAuthority, authority, data)
 			if err != nil {
 				return dns.RcodeServerFailure, err
 			}

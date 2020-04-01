@@ -144,7 +144,7 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 }
 
 // Name implements the Handler interface.
-func (a *AutoPath) Name() string { return "autopath" }
+func (a *AutoPath) Name() string { return pluginName }
 
 // firstInSearchPath checks if name is equal to are a sibling of the first element in the search path.
 func firstInSearchPath(name string, searchpath []string) bool {

@@ -10,11 +10,13 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
-var log = clog.NewWithPlugin("pprof")
+const pluginName = "pprof"
+
+var log = clog.NewWithPlugin(pluginName)
 
 const defaultAddr = "localhost:6053"
 
-func init() { plugin.Register("pprof", setup) }
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	h := &handler{addr: defaultAddr}
@@ -22,7 +24,7 @@ func setup(c *caddy.Controller) error {
 	i := 0
 	for c.Next() {
 		if i > 0 {
-			return plugin.Error("pprof", plugin.ErrOnce)
+			return plugin.Error(pluginName, plugin.ErrOnce)
 		}
 		i++
 
@@ -31,12 +33,12 @@ func setup(c *caddy.Controller) error {
 			h.addr = args[0]
 			_, _, e := net.SplitHostPort(h.addr)
 			if e != nil {
-				return plugin.Error("pprof", c.Errf("%v", e))
+				return plugin.Error(pluginName, c.Errf("%v", e))
 			}
 		}
 
 		if len(args) > 1 {
-			return plugin.Error("pprof", c.ArgErr())
+			return plugin.Error(pluginName, c.ArgErr())
 		}
 
 		for c.NextBlock() {
@@ -44,18 +46,18 @@ func setup(c *caddy.Controller) error {
 			case "block":
 				args := c.RemainingArgs()
 				if len(args) > 1 {
-					return plugin.Error("pprof", c.ArgErr())
+					return plugin.Error(pluginName, c.ArgErr())
 				}
 				h.rateBloc = 1
 				if len(args) > 0 {
 					t, err := strconv.Atoi(args[0])
 					if err != nil {
-						return plugin.Error("pprof", c.Errf("property '%s' invalid integer value '%v'", "block", args[0]))
+						return plugin.Error(pluginName, c.Errf("property '%s' invalid integer value '%v'", "block", args[0]))
 					}
 					h.rateBloc = t
 				}
 			default:
-				return plugin.Error("pprof", c.Errf("unknown property '%s'", c.Val()))
+				return plugin.Error(pluginName, c.Errf(plugin.UnknownPropertyErrmsg, c.Val()))
 			}
 		}
 

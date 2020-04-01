@@ -239,7 +239,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		f.maxConcurrent = int64(n)
 
 	default:
-		return c.Errf("unknown property '%s'", c.Val())
+		return c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 	}
 
 	return nil

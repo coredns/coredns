@@ -75,7 +75,7 @@ func setup(c *caddy.Controller) error {
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
 			default:
-				return c.Errf("unknown property '%s'", c.Val())
+				return c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 			}
 		}
 

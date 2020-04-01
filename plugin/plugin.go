@@ -107,3 +107,6 @@ var TimeBuckets = prometheus.ExponentialBuckets(0.00025, 2, 16) // from 0.25ms t
 
 // ErrOnce is returned when a plugin doesn't support multiple setups per server.
 var ErrOnce = errors.New("this plugin can only be used once per Server Block")
+
+// UnknownPropertyErrmsg formats unknown property error string.
+const UnknownPropertyErrmsg = "unknown property '%s'"

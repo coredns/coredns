@@ -163,7 +163,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 					inline = append(inline, line)
 					continue
 				}
-				return h, c.Errf("unknown property '%s'", c.Val())
+				return h, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 			}
 		}
 	}

@@ -70,7 +70,7 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 }
 
 // Name implements the Handler interface.
-func (rw Rewrite) Name() string { return "rewrite" }
+func (rw Rewrite) Name() string { return pluginName }
 
 // Rule describes a rewrite rule.
 type Rule interface {

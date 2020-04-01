@@ -16,14 +16,16 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
-var log = clog.NewWithPlugin("auto")
+const pluginName = "auto"
 
-func init() { plugin.Register("auto", setup) }
+var log = clog.NewWithPlugin(pluginName)
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	a, err := autoParse(c)
 	if err != nil {
-		return plugin.Error("auto", err)
+		return plugin.Error(pluginName, err)
 	}
 
 	c.OnStartup(func() error {
@@ -157,7 +159,7 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 				}
 
 			default:
-				return Auto{}, c.Errf("unknown property '%s'", c.Val())
+				return Auto{}, c.Errf(plugin.UnknownPropertyErrmsg, c.Val())
 			}
 		}
 	}
