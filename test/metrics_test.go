@@ -138,7 +138,7 @@ func TestMetricsAuto(t *testing.T) {
 // Show that when 2 blocs share the same metric listener (they have a prometheus plugin on the same listening address),
 // ALL the metrics of the second bloc in order are declared in prometheus, especially the plugins that are used ONLY in the second bloc
 func TestMetricsSeveralBlocs(t *testing.T) {
-	cacheSizeMetricName := "coredns_cache_size"
+	cacheSizeMetricName := "coredns_cache_entries"
 	addrMetrics := "localhost:9155"
 
 	corefile := fmt.Sprintf(`
@@ -227,7 +227,7 @@ example.com:0 {
 
 func TestMetricsAvailable(t *testing.T) {
 	procMetric := "coredns_build_info"
-	procCache := "coredns_cache_size"
+	procCache := "coredns_cache_entries"
 	procCacheMiss := "coredns_cache_misses_total"
 	procForward := "coredns_dns_request_duration_seconds"
 	corefileWithMetrics := `

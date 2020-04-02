@@ -11,7 +11,7 @@ var (
 	cacheSize = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "cache",
-		Name:      "size",
+		Name:      "entries",
 		Help:      "The number of elements in the cache.",
 	}, []string{"server", "type"})
 	// cacheHits is counter of cache hits by cache type.

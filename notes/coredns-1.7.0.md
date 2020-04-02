@@ -51,6 +51,8 @@ It's mostly dropping `count` from `_total` metrics names:
 
 * `coredns_reload_failed_count_total` -\> `coredns_reload_failed_total`
 
+* `coredns_cache_size` -\> `coredns_cache_entries`
+
 And note that
 `coredns_dns_request_type_count_total` is now part of `coredns_dns_requests_total` .
 

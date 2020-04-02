@@ -209,7 +209,7 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	// that is not used in another test
 	promAddress := "127.0.0.1:53186"
 	procMetric := "coredns_build_info"
-	procCache := "coredns_cache_size"
+	procCache := "coredns_cache_entries"
 	procForward := "coredns_dns_request_duration_seconds"
 	corefileWithMetrics := `
 	.:0 {
@@ -263,7 +263,7 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 	// that is not used in another test
 	promAddress := "127.0.0.1:53187"
 	procMetric := "coredns_build_info"
-	procCache := "coredns_cache_size"
+	procCache := "coredns_cache_entries"
 	procForward := "coredns_dns_request_duration_seconds"
 	corefileWithMetrics := `
 	.:0 {
