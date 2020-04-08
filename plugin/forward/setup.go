@@ -99,8 +99,13 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	}
 
 	transports := make([]string, len(toHosts))
+	allowedTrans := map[string]bool{"dns": true, "tls": true}
 	for i, host := range toHosts {
 		trans, h := parse.Transport(host)
+
+		if !allowedTrans[trans] {
+			return f, fmt.Errorf("'%s' is not supported as a destination protocol in forward: %s", trans, host)
+		}
 		p := NewProxy(h, trans)
 		f.proxies = append(f.proxies, p)
 		transports[i] = trans
