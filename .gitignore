@@ -8,6 +8,7 @@ kubectl
 go-test-tmpfile*
 coverage.txt
 .idea/
+.vscode/
 .DS_Store
 *~
 .classpath
