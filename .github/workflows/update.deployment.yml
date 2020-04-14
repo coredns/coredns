@@ -1,0 +1,38 @@
+name: update homebrew deployment
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+        with:
+          repository: 'coredns/deployment'
+          path: deployment
+      -
+        name: Update Homebrew formula
+        uses: ./.github/actions/update-homebrew
+        env:
+          CHECKOUT_PATH: 'deployment'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Set up Git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "coredns-auto-homebrew-deployment[bot]"
+          git config user.email "coredns-auto-go-homebrew-deployment[bot]@users.noreply.github.com"
+      -
+        name: Commit and push changes
+        run: |
+          cd deployment
+          git add HomebrewFormula/coredns.rb
+          if output=$(git status --porcelain) && [ ! -z "$output" ]; then
+            git commit -m 'auto update homebrew formula to ${GITHUB_REF}'
+            git push
+          fi

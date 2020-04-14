@@ -1,0 +1,6 @@
+---
+name: 'Update Homebrew'
+description: 'Updates Homebrew formula in coredns/deployment'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
