@@ -1,6 +1,6 @@
 # @miekg, miek@miek.nl, project lead: 11/11/2020
 
-*                       @bradbeam @chrisohaver @dilyevsky @fastest963 @greenpau @grobie @isolus @johnbelamaric @miekg @pmoroney @rajansandeep @stp-ip @superq @yongtang
+*                       @bradbeam @chrisohaver @dilyevsky @fastest963 @greenpau @isolus @johnbelamaric @miekg @pmoroney @rajansandeep @stp-ip @superq @yongtang
 
 /plugin/pkg/            @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /coremain/              @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
@@ -17,7 +17,7 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/azure/          @miekg @yongtang @darshanime
 /plugin/bind/           @miekg
 /plugin/bufsize/        @ykhr53
-/plugin/cache/          @grobie @miekg
+/plugin/cache/          @miekg
 /plugin/cancel/         @miekg
 /plugin/chaos/          @miekg
 /plugin/clouddns/       @miekg @yongtang
@@ -27,7 +27,7 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/errors/         @miekg
 /plugin/etcd/           @miekg @nitisht
 /plugin/file/           @miekg @yongtang @stp-ip
-/plugin/forward/        @grobie @johnbelamaric @miekg @rdrozhdzh
+/plugin/forward/        @johnbelamaric @miekg @rdrozhdzh
 /plugin/grpc/           @inigohu @miekg
 /plugin/health/         @fastest963 @miekg
 /plugin/hosts/          @johnbelamaric @pmoroney
