@@ -21,6 +21,7 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/cancel/         @miekg
 /plugin/chaos/          @miekg @zouyee
 /plugin/clouddns/       @miekg @yongtang
+/plugin/dns64           @superq
 /plugin/dnssec/         @isolus @miekg
 /plugin/dnstap/         @varyoo @yongtang
 /plugin/erratic/        @miekg
