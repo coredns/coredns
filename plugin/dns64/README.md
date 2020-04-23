@@ -35,7 +35,7 @@ dns64 [PREFIX] {
 
 ## Examples
 
-Translate with the default well known prefix. Applies to all queries (f they came in over IPv6).
+Translate with the default well known prefix. Applies to all queries (if they came in over IPv6).
 
 ~~~
 dns64
