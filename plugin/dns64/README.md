@@ -54,8 +54,9 @@ Use a custom prefix.
 Or
 ~~~ corefile
 . {
-dns64 {
-    prefix 64:1337::/96
+    dns64 {
+        prefix 64:1337::/96
+    }
 }
 ~~~
 
