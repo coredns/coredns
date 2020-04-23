@@ -6,7 +6,7 @@
 
 ## Description
 
-The *dns64* plugins will when asked for a domain's AAAA records, but only finds A records,
+The *dns64* plugin will when asked for a domain's AAAA records, but only finds A records,
 synthesizes the AAAA records from the A records.
 
 The synthesis is *only* performed **if the query came in via IPv6**.
