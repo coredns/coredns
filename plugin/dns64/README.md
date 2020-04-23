@@ -38,7 +38,9 @@ dns64 [PREFIX] {
 Translate with the default well known prefix. Applies to all queries (if they came in over IPv6).
 
 ~~~
-dns64
+. {
+    dns64
+}
 ~~~
 
 Use a custom prefix.
