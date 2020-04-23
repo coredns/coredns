@@ -25,8 +25,8 @@ Or use this slightly longer form with more options:
 
 ~~~
 dns64 [PREFIX] {
-  translate_all
-  prefix PREFIX
+    [translate_all]
+    prefix PREFIX
 }
 ~~~
 
