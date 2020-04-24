@@ -7,7 +7,7 @@
 ## Description
 
 This plugin answers zone transfers for authoritative plugins that implement
-`transfer.Transferer`.
+`transfer.Transferer`.  Currently, no internal plugins implement this interface.
 
 Transfer answers full zone transfer (AXFR) requests and incremental zone transfer (IXFR) requests
 with AXFR fallback if the zone has changed.
