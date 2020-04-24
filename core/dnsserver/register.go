@@ -73,6 +73,7 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 				ListenHosts: []string{""},
 				Port:        za.Port,
 				Transport:   za.Transport,
+				blocIndex:   ib,
 			}
 			keyConfig := keyForConfig(ib, ik)
 			if za.IPNet == nil {
@@ -105,6 +106,16 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 	errValid := h.validateZonesAndListeningAddresses()
 	if errValid != nil {
 		return nil, errValid
+	}
+
+	// consolidate/de-duplicate Plugin stacks for configs in the same server blocks
+	blockStacks := make(map[int][]plugin.Plugin)
+	for _, c := range h.configs {
+		if stack, ok := blockStacks[c.blocIndex]; ok {
+			c.Plugin = stack
+			continue
+		}
+		blockStacks[c.blocIndex] = c.Plugin
 	}
 
 	// we must map (group) each config to a bind address

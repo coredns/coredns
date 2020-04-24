@@ -50,6 +50,9 @@ type Config struct {
 	// on them should register themselves here. The name should be the name as return by the
 	// Handler's Name method.
 	registry map[string]plugin.Handler
+
+	// The server block index
+	blocIndex int
 }
 
 // keyForConfig build a key for identifying the configs during setup time

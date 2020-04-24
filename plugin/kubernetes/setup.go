@@ -34,6 +34,10 @@ var log = clog.NewWithPlugin(pluginName)
 func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
+	if c.ServerBlockKeyIndex > 0 {
+		return nil
+	}
+
 	klog.SetOutput(os.Stdout)
 
 	k, err := kubernetesParse(c)
