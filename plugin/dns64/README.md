@@ -49,7 +49,7 @@ Use a custom prefix.
 . {
     dns64 64:1337::/96
 }
-~~~~
+~~~
 
 Or
 ~~~ corefile
