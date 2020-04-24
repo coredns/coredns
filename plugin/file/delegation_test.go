@@ -14,47 +14,23 @@ import (
 var delegationTestCases = []test.Case{
 	{
 		Qname: "a.delegated.miek.nl.", Qtype: dns.TypeTXT,
-		Ns: []dns.RR{
-			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
-			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
-		},
-		Extra: []dns.RR{
-			test.A("a.delegated.miek.nl. 1800 IN A 139.162.196.78"),
-			test.AAAA("a.delegated.miek.nl. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
-		},
+		Ns:    delegatedMiekAuth,
+		Extra: delegatedMiekExtra,
 	},
 	{
 		Qname: "delegated.miek.nl.", Qtype: dns.TypeNS,
-		Ns: []dns.RR{
-			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
-			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
-		},
-		Extra: []dns.RR{
-			test.A("a.delegated.miek.nl. 1800 IN A 139.162.196.78"),
-			test.AAAA("a.delegated.miek.nl. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
-		},
+		Ns:    delegatedMiekAuth,
+		Extra: delegatedMiekExtra,
 	},
 	{
 		Qname: "foo.delegated.miek.nl.", Qtype: dns.TypeA,
-		Ns: []dns.RR{
-			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
-			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
-		},
-		Extra: []dns.RR{
-			test.A("a.delegated.miek.nl. 1800 IN A 139.162.196.78"),
-			test.AAAA("a.delegated.miek.nl. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
-		},
+		Ns:    delegatedMiekAuth,
+		Extra: delegatedMiekExtra,
 	},
 	{
 		Qname: "foo.delegated.miek.nl.", Qtype: dns.TypeTXT,
-		Ns: []dns.RR{
-			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
-			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
-		},
-		Extra: []dns.RR{
-			test.A("a.delegated.miek.nl. 1800 IN A 139.162.196.78"),
-			test.AAAA("a.delegated.miek.nl. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
-		},
+		Ns:    delegatedMiekAuth,
+		Extra: delegatedMiekExtra,
 	},
 	{
 		Qname: "miek.nl.", Qtype: dns.TypeSOA,
@@ -68,6 +44,16 @@ var delegationTestCases = []test.Case{
 		Ns: []dns.RR{
 			test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
 		},
+	},
+	{
+		Qname: "delegated.miek.nl.", Qtype: dns.TypeSOA,
+		Ns:    delegatedMiekAuth,
+		Extra: delegatedMiekExtra,
+	},
+	{
+		Qname: "foo.delegated.miek.nl.", Qtype: dns.TypeSOA,
+		Ns:    delegatedMiekAuth,
+		Extra: delegatedMiekExtra,
 	},
 }
 
@@ -148,6 +134,16 @@ var miekAuth = []dns.RR{
 	test.NS("miek.nl.	1800	IN	NS	linode.atoom.net."),
 	test.NS("miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
 	test.NS("miek.nl.	1800	IN	NS	omval.tednet.nl."),
+}
+
+var delegatedMiekAuth = []dns.RR{
+	test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
+	test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+}
+
+var delegatedMiekExtra = []dns.RR{
+	test.A("a.delegated.miek.nl.	1800	IN	A	139.162.196.78"),
+	test.AAAA("a.delegated.miek.nl.	1800	IN	AAAA	2a01:7e00::f03c:91ff:fef1:6735"),
 }
 
 func TestLookupDelegation(t *testing.T) {

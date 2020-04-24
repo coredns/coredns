@@ -44,7 +44,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		return nil, nil, nil, ServerFailure
 	}
 
-	if qtype == dns.TypeSOA {
+	if qtype == dns.TypeSOA && qname == z.origin {
 		return ap.soa(do), ap.ns(do), nil, Success
 	}
 	if qtype == dns.TypeNS && qname == z.origin {
