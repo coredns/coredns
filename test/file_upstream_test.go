@@ -10,18 +10,18 @@ import (
 
 func TestFileUpstream(t *testing.T) {
 	name, rm, err := test.TempFile(".", `$ORIGIN example.org.
-@	3600 IN	SOA sns.dns.icann.org. noc.dns.icann.org. (
-		2017042745 ; serial
-		7200       ; refresh (2 hours)
-		3600       ; retry (1 hour)
-		1209600    ; expire (2 weeks)
-		3600       ; minimum (1 hour)
-	)
+@	3600 IN	SOA   sns.dns.icann.org. noc.dns.icann.org. (
+        2017042745 ; serial
+        7200       ; refresh (2 hours)
+        3600       ; retry (1 hour)
+        1209600    ; expire (2 weeks)
+        3600       ; minimum (1 hour)
+)
 
-        3600 IN NS a.iana-servers.net.
-	3600 IN NS b.iana-servers.net.
+    3600 IN NS    a.iana-servers.net.
+    3600 IN NS    b.iana-servers.net.
 
-www 3600 IN CNAME   www.example.net.
+www 3600 IN CNAME www.example.net.
 `)
 	if err != nil {
 		t.Fatalf("Failed to create zone: %s", err)
@@ -29,15 +29,15 @@ www 3600 IN CNAME   www.example.net.
 	defer rm()
 
 	corefile := `.:0 {
-	file ` + name + ` example.org {
-	       upstream
-	}
-	hosts {
-               10.0.0.1 www.example.net.
-               fallthrough
-       }
-}
-`
+		file ` + name + ` example.org {
+			upstream
+		}
+		hosts {
+			10.0.0.1 www.example.net.
+			fallthrough
+		}
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -64,11 +64,11 @@ www 3600 IN CNAME   www.example.net.
 // example.org contains a cname to foo.example.org; this should be resolved via upstream.Self.
 func TestFileUpstreamAdditional(t *testing.T) {
 	name, rm, err := test.TempFile(".", `$ORIGIN example.org.
-@	3600 IN	SOA sns.dns.icann.org. noc.dns.icann.org. 2017042745 7200 3600 1209600 3600
+@	3600 IN	SOA   sns.dns.icann.org. noc.dns.icann.org. 2017042745 7200 3600 1209600 3600
 
-	3600 IN NS b.iana-servers.net.
+    3600 IN NS    b.iana-servers.net.
 
-www 3600 IN CNAME   www.foo
+www 3600 IN CNAME www.foo
 `)
 	if err != nil {
 		t.Fatalf("Failed to create zone: %s", err)
@@ -78,7 +78,7 @@ www 3600 IN CNAME   www.foo
 	name2, rm2, err2 := test.TempFile(".", `$ORIGIN foo.example.org.
 @	3600 IN	SOA sns.dns.icann.org. noc.dns.icann.org. 2017042745 7200 3600 1209600 3600
 
-	3600 IN NS b.iana-servers.net.
+    3600 IN NS  b.iana-servers.net.
 
 www 3600 IN A   127.0.0.53
 `)
@@ -88,14 +88,14 @@ www 3600 IN A   127.0.0.53
 	defer rm2()
 
 	corefile := `.:0 {
-	file ` + name + ` example.org {
-	       upstream
-	}
-	file ` + name2 + ` foo.example.org {
-	       upstream
-	}
-}
-`
+		file ` + name + ` example.org {
+			upstream
+		}
+		file ` + name2 + ` foo.example.org {
+			upstream
+		}
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)

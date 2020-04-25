@@ -12,19 +12,19 @@ func TestZoneEDNS0Lookup(t *testing.T) {
 	t.Parallel()
 
 	name, rm, err := test.TempFile(".", `$ORIGIN example.org.
-@	3600 IN	SOA sns.dns.icann.org. noc.dns.icann.org. (
-		2017042745 ; serial
-		7200       ; refresh (2 hours)
-		3600       ; retry (1 hour)
-		1209600    ; expire (2 weeks)
-		3600       ; minimum (1 hour)
-	)
+@ 3600 IN SOA  sns.dns.icann.org. noc.dns.icann.org. (
+        2017042745 ; serial
+        7200       ; refresh (2 hours)
+        3600       ; retry (1 hour)
+        1209600    ; expire (2 weeks)
+        3600       ; minimum (1 hour)
+)
 
-        3600 IN NS a.iana-servers.net.
-	3600 IN NS b.iana-servers.net.
+  3600 IN NS   a.iana-servers.net.
+  3600 IN NS   b.iana-servers.net.
 
-www     IN A 127.0.0.1
-www     IN AAAA ::1
+www    IN A    127.0.0.1
+www    IN AAAA ::1
 `)
 	if err != nil {
 		t.Fatalf("Failed to create zone: %s", err)
@@ -33,9 +33,9 @@ www     IN AAAA ::1
 
 	// Corefile with for example without proxy section.
 	corefile := `example.org:0 {
-       file ` + name + `
-}
-`
+		file ` + name + `
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -59,7 +59,7 @@ func TestZoneNoNS(t *testing.T) {
 	t.Parallel()
 
 	name, rm, err := test.TempFile(".", `$ORIGIN example.org.
-@	3600 IN	SOA sns.dns.icann.org. noc.dns.icann.org. (
+@ 3600 IN SOA  sns.dns.icann.org. noc.dns.icann.org. (
 		2017042745 ; serial
 		7200       ; refresh (2 hours)
 		3600       ; retry (1 hour)
@@ -67,8 +67,8 @@ func TestZoneNoNS(t *testing.T) {
 		3600       ; minimum (1 hour)
 	)
 
-www     IN A 127.0.0.1
-www     IN AAAA ::1
+www    IN A    127.0.0.1
+www    IN AAAA ::1
 `)
 	if err != nil {
 		t.Fatalf("Failed to create zone: %s", err)
@@ -77,9 +77,9 @@ www     IN AAAA ::1
 
 	// Corefile with for example without proxy section.
 	corefile := `example.org:0 {
-       file ` + name + `
-}
-`
+		file ` + name + `
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)

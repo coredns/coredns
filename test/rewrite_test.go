@@ -10,12 +10,12 @@ import (
 func TestRewrite(t *testing.T) {
 	t.Parallel()
 	corefile := `.:0 {
-       rewrite type MX a
-       rewrite edns0 local set 0xffee hello-world
-       erratic . {
-	drop 0
-	}
-}`
+		rewrite type MX a
+		rewrite edns0 local set 0xffee hello-world
+		erratic . {
+			drop 0
+		}
+	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {

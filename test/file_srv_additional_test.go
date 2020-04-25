@@ -19,9 +19,9 @@ func TestZoneSRVAdditional(t *testing.T) {
 
 	// Corefile with for example without proxy section.
 	corefile := `example.org:0 {
-       file ` + name + `
-}
-`
+		file ` + name + `
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)

@@ -15,11 +15,11 @@ import (
 
 func TestEtcdCache(t *testing.T) {
 	corefile := `.:0 {
-    etcd skydns.test {
-        path /skydns
-    }
-    cache skydns.test
-}`
+		etcd skydns.test {
+			path /skydns
+		}
+		cache skydns.test
+	}`
 
 	ex, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {

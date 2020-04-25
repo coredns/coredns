@@ -17,9 +17,9 @@ func TestLookupCache(t *testing.T) {
 	defer rm()
 
 	corefile := `example.org:0 {
-       file ` + name + `
-}
-`
+		file ` + name + `
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -28,10 +28,10 @@ func TestLookupCache(t *testing.T) {
 
 	// Start caching forward CoreDNS that we want to test.
 	corefile = `example.org:0 {
-	forward . ` + udp + `
-	cache 10
-}
-`
+		forward . ` + udp + `
+		cache 10
+	}`
+
 	i, udp, _, err = CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)

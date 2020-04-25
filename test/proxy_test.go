@@ -17,9 +17,8 @@ func TestLookupProxy(t *testing.T) {
 	defer rm()
 
 	corefile := `example.org:0 {
-       file ` + name + `
-}
-`
+		file ` + name + `
+	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
@@ -54,9 +53,8 @@ func BenchmarkProxyLookup(b *testing.B) {
 	defer rm()
 
 	corefile := `example.org:0 {
-       file ` + name + `
-}
-`
+		file ` + name + `
+	}`
 
 	i, err := CoreDNSServer(corefile)
 	if err != nil {

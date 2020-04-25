@@ -17,7 +17,7 @@ func setupProxyTargetCoreDNS(t *testing.T, fn func(string)) {
 	defer os.Remove(tmpdir)
 
 	content := `
-example.org. IN	SOA sns.dns.icann.org. noc.dns.icann.org. 1 3600 3600 3600 3600
+example.org. IN SOA sns.dns.icann.org. noc.dns.icann.org. 1 3600 3600 3600 3600
 
 google.com. IN SOA ns1.google.com. dns-admin.google.com. 1 3600 3600 3600 3600
 google.com. IN A 172.217.25.110
@@ -30,9 +30,9 @@ google.com. IN A 172.217.25.110
 	defer os.Remove(path)
 
 	corefile := `.:0 {
-	file ` + path + `
-}
-`
+		file ` + path + `
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get proxy target CoreDNS serving instance: %s", err)
@@ -45,12 +45,12 @@ google.com. IN A 172.217.25.110
 func TestLookupAutoPathErratic(t *testing.T) {
 	setupProxyTargetCoreDNS(t, func(proxyPath string) {
 		corefile := `.:0 {
-		erratic
-		autopath @erratic
-		forward . ` + proxyPath + `
-		debug
-		}
-`
+			erratic
+			autopath @erratic
+			forward . ` + proxyPath + `
+			debug
+		}`
+
 		i, udp, _, err := CoreDNSServerAndPorts(corefile)
 		if err != nil {
 			t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -91,11 +91,11 @@ func TestLookupAutoPathErratic(t *testing.T) {
 func TestAutoPathErraticNotLoaded(t *testing.T) {
 	setupProxyTargetCoreDNS(t, func(proxyPath string) {
 		corefile := `.:0 {
-	autopath @erratic
-	forward . ` + proxyPath + `
-	debug
-    }
-`
+			autopath @erratic
+			forward . ` + proxyPath + `
+			debug
+		}`
+
 		i, err := CoreDNSServer(corefile)
 		if err != nil {
 			t.Fatalf("Could not get CoreDNS serving instance: %s", err)

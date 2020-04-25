@@ -15,8 +15,7 @@ func TestProxyThreeWay(t *testing.T) {
 		erratic {
 			drop 2
 		}
-	}
-`
+	}`
 
 	up1, err := CoreDNSServer(corefileUp1)
 	if err != nil {
@@ -26,8 +25,7 @@ func TestProxyThreeWay(t *testing.T) {
 
 	corefileUp2 := `example.org:0 {
 		whoami
-	}
-`
+	}`
 
 	up2, err := CoreDNSServer(corefileUp2)
 	if err != nil {

@@ -19,9 +19,9 @@ func TestZoneExternalCNAMELookupWithoutProxy(t *testing.T) {
 
 	// Corefile with for example without proxy section.
 	corefile := `example.org:0 {
-       file ` + name + `
-}
-`
+		file ` + name + `
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -51,12 +51,12 @@ func TestZoneExternalCNAMELookupWithProxy(t *testing.T) {
 
 	// Corefile with for example proxy section.
 	corefile := `.:0 {
-       file ` + name + ` example.org {
-	       upstream
-	}
-	forward . 8.8.8.8 8.8.4.4
-}
-`
+		file ` + name + ` example.org {
+			upstream
+		}
+		forward . 8.8.8.8 8.8.4.4
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)

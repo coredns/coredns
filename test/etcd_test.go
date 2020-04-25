@@ -41,15 +41,15 @@ func TestEtcdStubLoop(t *testing.T) {
 
 func TestEtcdStubAndProxyLookup(t *testing.T) {
 	corefile := `.:0 {
-    etcd skydns.local {
-        stubzones
-        path /skydns
-        endpoint http://localhost:2379
-        upstream
-	fallthrough
-    }
-    forward . 8.8.8.8:53
-}`
+		etcd skydns.local {
+			stubzones
+			path /skydns
+			endpoint http://localhost:2379
+			upstream
+			fallthrough
+		}
+		forward . 8.8.8.8:53
+	}`
 
 	ex, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {

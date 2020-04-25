@@ -8,7 +8,7 @@ import (
 
 func TestTemplateUpstream(t *testing.T) {
 	corefile := `.:0 {
- 		# CNAME
+		# CNAME
 		template IN ANY cname.example.net. {
 			match ".*"
 			answer "cname.example.net. 60 IN CNAME target.example.net."
@@ -20,8 +20,8 @@ func TestTemplateUpstream(t *testing.T) {
 			match ".*"
 			answer "target.example.net. 60 IN A 1.2.3.4"
 		}
-}
-`
+	}`
+
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)

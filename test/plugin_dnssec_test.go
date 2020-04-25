@@ -21,14 +21,14 @@ func TestLookupBalanceRewriteCacheDnssec(t *testing.T) {
 	defer rm1()
 
 	corefile := `example.org:0 {
-    file ` + name + `
-    rewrite type ANY HINFO
-    dnssec {
-        key file ` + base + `
-    }
-    loadbalance
-}
-`
+		file ` + name + `
+		rewrite type ANY HINFO
+		dnssec {
+			key file ` + base + `
+		}
+		loadbalance
+	}`
+
 	ex, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)

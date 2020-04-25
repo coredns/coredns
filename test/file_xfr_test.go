@@ -29,11 +29,11 @@ func TestLargeAXFR(t *testing.T) {
 	defer rm()
 
 	corefile := `example.com:0 {
-       file ` + name + ` {
-           transfer to *
-       }
-}
-`
+		file ` + name + ` {
+			transfer to *
+		}
+	}`
+
 	// Start server, and send an AXFR query to the TCP port. We set the deadline to prevent the test from hanging.
 	i, _, tcp, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {

@@ -15,8 +15,7 @@ func TestEmptySecondaryZone(t *testing.T) {
 		secondary {
 			transfer from 127.0.0.1:1717
 		}
-	}
-`
+	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
@@ -43,11 +42,10 @@ func TestSecondaryZoneTransfer(t *testing.T) {
 	defer rm()
 
 	corefile := `example.org:0 {
-       file ` + name + ` {
-	       transfer to *
-       }
-}
-`
+		file ` + name + ` {
+			transfer to *
+		}
+	}`
 
 	i, _, tcp, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
@@ -59,8 +57,8 @@ func TestSecondaryZoneTransfer(t *testing.T) {
 		secondary {
 			transfer from ` + tcp + `
 		}
-}
-`
+	}`
+
 	i1, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -93,11 +91,10 @@ func TestIxfrResponse(t *testing.T) {
 	defer rm()
 
 	corefile := `example.org:0 {
-       file ` + name + ` {
-	       transfer to *
-       }
-}
-`
+		file ` + name + ` {
+		transfer to *
+		}
+	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {

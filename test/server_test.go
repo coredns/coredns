@@ -10,9 +10,9 @@ import (
 func TestProxyToChaosServer(t *testing.T) {
 	t.Parallel()
 	corefile := `.:0 {
-	chaos CoreDNS-001 miek@miek.nl
-}
-`
+		chaos CoreDNS-001 miek@miek.nl
+	}`
+
 	chaos, udpChaos, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -22,8 +22,8 @@ func TestProxyToChaosServer(t *testing.T) {
 
 	corefileProxy := `.:0 {
 		forward . ` + udpChaos + `
-}
-`
+	}`
+
 	proxy, udp, _, err := CoreDNSServerAndPorts(corefileProxy)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance")

@@ -9,12 +9,12 @@ import (
 
 func TestCompressScrub(t *testing.T) {
 	corefile := `example.org:0 {
-                       erratic {
-			  drop 0
-			  delay 0
-			  large
-		       }
-		     }`
+		erratic {
+			drop 0
+			delay 0
+			large
+		}
+	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {

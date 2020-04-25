@@ -22,8 +22,7 @@ func TestAuto(t *testing.T) {
 			directory ` + tmpdir + ` db\.(.*) {1}
 			reload 1s
 		}
-	}
-`
+	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
@@ -82,8 +81,7 @@ func TestAutoNonExistentZone(t *testing.T) {
 			reload 1s
 		}
 		errors stdout
-	}
-`
+	}`
 
 	i, err := CoreDNSServer(corefile)
 	if err != nil {
@@ -121,8 +119,7 @@ func TestAutoAXFR(t *testing.T) {
 			reload 1s
 			transfer to *
 		}
-	}
-`
+	}`
 
 	i, err := CoreDNSServer(corefile)
 	if err != nil {
@@ -160,9 +157,9 @@ func TestAutoAXFR(t *testing.T) {
 }
 
 const zoneContent = `; testzone
-@	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082534 7200 3600 1209600 3600
-		NS	a.iana-servers.net.
-		NS	b.iana-servers.net.
+@   IN SOA sns.dns.icann.org. noc.dns.icann.org. 2016082534 7200 3600 1209600 3600
+    IN NS  a.iana-servers.net.
+    IN NS  b.iana-servers.net.
 
-www IN A 127.0.0.1
+www IN A   127.0.0.1
 `

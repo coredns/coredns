@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,16 +17,16 @@ import (
 
 // Start test server that has metrics enabled. Then tear it down again.
 func TestMetricsServer(t *testing.T) {
-	corefile := `example.org:0 {
-	chaos CoreDNS-001 miek@miek.nl
-	prometheus localhost:0
-}
+	corefile := `
+	example.org:0 {
+		chaos CoreDNS-001 miek@miek.nl
+		prometheus localhost:0
+	}
+	example.com:0 {
+		forward . 8.8.4.4:53
+		prometheus localhost:0
+	}`
 
-example.com:0 {
-	forward . 8.8.4.4:53
-	prometheus localhost:0
-}
-`
 	srv, err := CoreDNSServer(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -37,12 +36,11 @@ example.com:0 {
 
 func TestMetricsRefused(t *testing.T) {
 	metricName := "coredns_dns_responses_total"
-
 	corefile := `example.org:0 {
-	forward . 8.8.8.8:53
-	prometheus localhost:0
-}
-`
+		forward . 8.8.8.8:53
+		prometheus localhost:0
+	}`
+
 	srv, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -82,8 +80,7 @@ func TestMetricsAuto(t *testing.T) {
 			reload 1s
 		}
 		prometheus localhost:0
-	}
-`
+	}`
 
 	i, err := CoreDNSServer(corefile)
 	if err != nil {
@@ -140,22 +137,20 @@ func TestMetricsAuto(t *testing.T) {
 func TestMetricsSeveralBlocs(t *testing.T) {
 	cacheSizeMetricName := "coredns_cache_entries"
 	addrMetrics := "localhost:9155"
-
-	corefile := fmt.Sprintf(`
-example.org:0 {
-	prometheus %s
-	forward . 8.8.8.8:53 {
-       force_tcp
-    }
-}
-google.com:0 {
-	prometheus %s
-	forward . 8.8.8.8:53 {
-       force_tcp
-    }
-	cache
-}
-`, addrMetrics, addrMetrics)
+	corefile := `
+	example.org:0 {
+		prometheus ` + addrMetrics + `
+		forward . 8.8.8.8:53 {
+			force_tcp
+		}
+	}
+	google.com:0 {
+		prometheus ` + addrMetrics + `
+		forward . 8.8.8.8:53 {
+			force_tcp
+		}
+		cache
+	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
@@ -190,16 +185,16 @@ google.com:0 {
 }
 
 func TestMetricsPluginEnabled(t *testing.T) {
-	corefile := `example.org:0 {
-	chaos CoreDNS-001 miek@miek.nl
-	prometheus localhost:0
-}
+	corefile := `
+	example.org:0 {
+		chaos CoreDNS-001 miek@miek.nl
+		prometheus localhost:0
+	}
+	example.com:0 {
+		forward . 8.8.4.4:53
+		prometheus localhost:0
+	}`
 
-example.com:0 {
-	forward . 8.8.4.4:53
-	prometheus localhost:0
-}
-`
 	srv, err := CoreDNSServer(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -230,14 +225,14 @@ func TestMetricsAvailable(t *testing.T) {
 	procCache := "coredns_cache_entries"
 	procCacheMiss := "coredns_cache_misses_total"
 	procForward := "coredns_dns_request_duration_seconds"
-	corefileWithMetrics := `
-	.:0 {
+	corefileWithMetrics := `.:0 {
 		prometheus localhost:0
 		cache
 		forward . 8.8.8.8 {
-           force_tcp
+			force_tcp
 		}
 	}`
+
 	inst, _, tcp, err := CoreDNSServerAndPorts(corefileWithMetrics)
 	defer inst.Stop()
 	if err != nil {

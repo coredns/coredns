@@ -13,8 +13,7 @@ import (
 func TestChaos(t *testing.T) {
 	corefile := `.:0 {
 		chaos
-}
-`
+	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {

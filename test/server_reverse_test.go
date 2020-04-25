@@ -11,8 +11,8 @@ func TestClasslessReverse(t *testing.T) {
 	// 25 -> so anything above 1.127 won't be answered, below is OK.
 	corefile := `192.168.1.0/25:0 {
 		whoami
-}
-`
+	}`
+
 	s, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -51,8 +51,8 @@ func TestClasslessReverse(t *testing.T) {
 func TestReverse(t *testing.T) {
 	corefile := `192.168.1.0/24:0 {
 		whoami
-}
-`
+	}`
+
 	s, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -97,8 +97,8 @@ func TestReverse(t *testing.T) {
 func TestReverseInAddr(t *testing.T) {
 	corefile := `1.168.192.in-addr.arpa:0 {
 		whoami
-}
-`
+	}`
+
 	s, udp, _, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
