@@ -6,7 +6,7 @@ package forward
 
 import (
 	"context"
-	"crypto/tls"
+	//"crypto/tls"
 	"errors"
 	"time"
 
@@ -17,6 +17,8 @@ import (
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
+
+	"fmt"
 )
 
 var log = clog.NewWithPlugin("forward")
@@ -31,7 +33,7 @@ type Forward struct {
 	from    string
 	ignored []string
 
-	tlsConfig     *tls.Config
+	//tlsConfig     *tls.Config
 	tlsServerName string
 	maxfails      uint32
 	expire        time.Duration
@@ -44,7 +46,9 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval}
+	f := &Forward{maxfails: 2,
+		//tlsConfig: new(tls.Config),
+		expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval}
 	return f
 }
 
@@ -64,6 +68,7 @@ func (f *Forward) Name() string { return "forward" }
 func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	if !f.match(state) {
+		//fmt.Println("Forward:ServeDNS - did not match", r.Question)
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
@@ -111,7 +116,10 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			ret, err = proxy.Connect(ctx, state, opts)
 			if err == nil {
 				break
+			} else {
+				fmt.Println("[ERROR] DNS err", err)
 			}
+
 			if err == ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
 				continue
 			}

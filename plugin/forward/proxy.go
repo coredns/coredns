@@ -22,6 +22,10 @@ type Proxy struct {
 	// health checking
 	probe  *up.Probe
 	health HealthChecker
+
+	// For DNS over TLS
+	tlsConfig     *tls.Config
+	tlsServerName string
 }
 
 // NewProxy returns a new proxy.

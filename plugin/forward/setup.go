@@ -9,11 +9,12 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/parse"
-	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
+	//pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/mholt/caddy"
 	"github.com/mholt/caddy/caddyfile"
+	"crypto/tls"
 )
 
 func init() {
@@ -120,13 +121,17 @@ func ParseForwardStanza(c *caddyfile.Dispenser) (*Forward, error) {
 		}
 	}
 
-	if f.tlsServerName != "" {
-		f.tlsConfig.ServerName = f.tlsServerName
-	}
 	for i := range f.proxies {
+		// TODO:
+		tlsConfig := new(tls.Config)
+
+		if f.proxies[i].tlsServerName != "" {
+			tlsConfig.ServerName = f.proxies[i].tlsServerName
+		}
 		// Only set this for proxies that need it.
 		if transports[i] == transport.TLS {
-			f.proxies[i].SetTLSConfig(f.tlsConfig)
+			f.proxies[i].SetTLSConfig(tlsConfig)
+			fmt.Println("[DEBUG] Set tlsConfig.ServerName to ", f.proxies[i].addr, "->", f.proxies[i].tlsServerName)
 		}
 		f.proxies[i].SetExpire(f.expire)
 		f.proxies[i].SetMaxRequests(f.maxrequests)
@@ -179,22 +184,32 @@ func parseBlock(c *caddyfile.Dispenser, f *Forward) error {
 			return c.ArgErr()
 		}
 		f.opts.preferUDP = true
-	case "tls":
-		args := c.RemainingArgs()
-		if len(args) > 3 {
+	//case "tls":
+	//	args := c.RemainingArgs()
+	//	if len(args) > 3 {
+	//		return c.ArgErr()
+	//	}
+	//
+	//	tlsConfig, err := pkgtls.NewTLSConfigFromArgs(args...)
+	//	if err != nil {
+	//		return err
+	//	}
+	//	f.tlsConfig = tlsConfig
+	case "tls_servername":
+		servers := c.RemainingArgs()
+		fmt.Println("[DEBUG] tls_servername. Proxies found:", len(f.proxies))
+		fmt.Println("[DEBUG] # server names", len(servers))
+		fmt.Println("[DEBUG] args", servers)
+
+		// Must have matching number of tls server names and forwarding proxies
+		if len(servers) == 0 || len(servers) != len(f.proxies) {
 			return c.ArgErr()
 		}
 
-		tlsConfig, err := pkgtls.NewTLSConfigFromArgs(args...)
-		if err != nil {
-			return err
+		for i, tlsServerName := range servers {
+			f.proxies[i].tlsServerName = tlsServerName
 		}
-		f.tlsConfig = tlsConfig
-	case "tls_servername":
-		if !c.NextArg() {
-			return c.ArgErr()
-		}
-		f.tlsServerName = c.Val()
+
 	case "expire":
 		if !c.NextArg() {
 			return c.ArgErr()

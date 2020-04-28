@@ -12,11 +12,13 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"github.com/mholt/caddy"
+	//"fmt"
 )
 
 var log = clog.NewWithPlugin("hosts")
 
 func init() {
+	//fmt.Println("[DEBUG] hosts:setup.go:init()")
 	caddy.RegisterPlugin("hosts", caddy.Plugin{
 		ServerType: "dns",
 		Action:     setup,
@@ -45,6 +47,7 @@ func periodicHostsUpdate(h *Hosts) chan bool {
 }
 
 func setup(c *caddy.Controller) error {
+	//fmt.Println("[DEBUG] hosts:setup.go:setup()")
 	h, err := hostsParse(c)
 	if err != nil {
 		return plugin.Error("hosts", err)
@@ -71,6 +74,7 @@ func setup(c *caddy.Controller) error {
 }
 
 func hostsParse(c *caddy.Controller) (Hosts, error) {
+	//fmt.Println("[DEBUG] hosts:setup.go:hostsParse()")
 	config := dnsserver.GetConfig(c)
 
 	options := newOptions()

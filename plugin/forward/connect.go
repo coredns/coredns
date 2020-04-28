@@ -95,6 +95,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 
 	conn, cached, err := p.transport.Dial(proto)
 	if err != nil {
+		fmt.Println("[ERROR] Failed while dialing", proto, p.addr, "elapsed", time.Since(start), err)
 		return nil, err
 	}
 
@@ -106,6 +107,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 
 	conn.SetWriteDeadline(time.Now().Add(maxTimeout))
 	if err := conn.WriteMsg(state.Req); err != nil {
+		fmt.Println("[ERROR] Write error", p.addr, err)
 		conn.Close() // not giving it back
 		if err == io.EOF && cached {
 			return nil, ErrCachedClosed
@@ -118,6 +120,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 	for {
 		ret, err = conn.ReadMsg()
 		if err != nil {
+			fmt.Println("[ERROR] Read error", p.addr, err)
 			conn.Close() // not giving it back
 			if err == io.EOF && cached {
 				return nil, ErrCachedClosed

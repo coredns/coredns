@@ -10,6 +10,9 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
+
+	//"fmt"
+	//"time"
 )
 
 // Hosts is the plugin handler
@@ -25,6 +28,10 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	state := request.Request{W: w, Req: r}
 	qname := state.Name()
 
+	//start := time.Now()
+	//fmt.Println()
+	//fmt.Printf("[DEBUG] ServeDNS request - new: %s\n", qname)
+
 	answers := []dns.RR{}
 
 	zone := plugin.Zones(h.Origins).Matches(qname)
@@ -36,6 +43,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		}
 	}
 
+	//fmt.Println("[DEBUG] host query", qname, state.Type())
 	switch state.QType() {
 	case dns.TypePTR:
 		names := h.LookupStaticAddr(dnsutil.ExtractAddressFromReverse(qname))
@@ -47,16 +55,20 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	case dns.TypeA:
 		ips := h.LookupStaticHostV4(qname)
 		answers = a(qname, h.options.ttl, ips)
+		//fmt.Println("[DEBUG] query TypeA (ipv4) - answers:", answers)
 	case dns.TypeAAAA:
+		//fmt.Println("[DEBUG] query TypeAAAA (ipv6)")
 		ips := h.LookupStaticHostV6(qname)
 		answers = aaaa(qname, h.options.ttl, ips)
 	}
 
 	if len(answers) == 0 {
 		if h.Fall.Through(qname) {
+			//fmt.Println("[DEBUG] host failover in", time.Since(start))
 			return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
 		if !h.otherRecordsExist(state.QType(), qname) {
+			//fmt.Println("[DEBUG] query complete (4) in", time.Since(start))
 			return dns.RcodeNameError, nil
 		}
 	}
@@ -67,6 +79,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	m.Answer = answers
 
 	w.WriteMsg(m)
+	//fmt.Println("[DEBUG] query complete (5) in", time.Since(start))
 	return dns.RcodeSuccess, nil
 }
 
