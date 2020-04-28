@@ -53,7 +53,7 @@ Allow only DNS queries from 192.168.0.0/24 and 192.168.1.0/24:
 ~~~ corefile
 . {
     acl {
-        allow net 192.168.0.0/16 192.168.1.0/24
+        allow net 192.168.0.0/24 192.168.1.0/24
         block
     }
 }
