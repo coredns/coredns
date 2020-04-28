@@ -24,9 +24,13 @@ const (
 	svcIPIndex            = "ServiceIP"
 	epNameNamespaceIndex  = "EndpointNameNamespace"
 	epIPIndex             = "EndpointsIP"
+	nodeIPIndex           = "NodeIP"
+	nodeNameIndex         = "NodeName"
 )
 
 type dnsController interface {
+	NodeList() []*object.Node
+	NodeIndex(string) []*object.Node
 	ServiceList() []*object.Service
 	EndpointsList() []*object.Endpoints
 	SvcIndex(string) []*object.Service
@@ -56,16 +60,19 @@ type dnsControl struct {
 
 	selector          labels.Selector
 	namespaceSelector labels.Selector
+	nodeSelector      labels.Selector
 
-	svcController cache.Controller
-	podController cache.Controller
-	epController  cache.Controller
-	nsController  cache.Controller
+	svcController  cache.Controller
+	podController  cache.Controller
+	epController   cache.Controller
+	nsController   cache.Controller
+	nodeController cache.Controller
 
-	svcLister cache.Indexer
-	podLister cache.Indexer
-	epLister  cache.Indexer
-	nsLister  cache.Store
+	svcLister  cache.Indexer
+	podLister  cache.Indexer
+	epLister   cache.Indexer
+	nsLister   cache.Store
+	nodeLister cache.Indexer
 
 	// stopLock is used to enforce only a single call to Stop is active.
 	// Needed because we allow stopping through an http endpoint and
@@ -88,6 +95,8 @@ type dnsControlOpts struct {
 	selector               labels.Selector
 	namespaceLabelSelector *meta.LabelSelector
 	namespaceSelector      labels.Selector
+	nodeLabelSelector      *meta.LabelSelector
+	nodeSelector           labels.Selector
 
 	zones                 []string
 	endpointNameMode      bool
@@ -191,6 +200,17 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		defaultResyncPeriod,
 		cache.ResourceEventHandlerFuncs{})
 
+	dns.nodeLister, dns.nodeController = object.NewIndexerInformer(
+		&cache.ListWatch{
+			ListFunc:  nodeListFunc(ctx, dns.client, dns.nodeSelector),
+			WatchFunc: nodeWatchFunc(ctx, dns.client, dns.nodeSelector),
+		},
+		&api.Node{},
+		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+		cache.Indexers{nodeNameIndex: nodeNameIndexFunc, nodeIPIndex: nodeIPIndexFunc},
+		object.DefaultProcessor(object.ToNode(opts.skipAPIObjectsCleanup)),
+	)
+
 	return &dns
 }
 
@@ -212,6 +232,34 @@ func svcIPIndexFunc(obj interface{}) ([]string, error) {
 	}
 
 	return append([]string{svc.ClusterIP}, svc.ExternalIPs...), nil
+}
+
+func nodeIPIndexFunc(obj interface{}) ([]string, error) {
+	node, ok := obj.(*object.Node)
+
+	if !ok {
+		return nil, errObj
+	}
+
+	var nodeIPS []string
+	for _, nIp := range node.ExternalIPS {
+		nodeIPS = append(nodeIPS, nIp)
+	}
+
+	for _, nIp := range node.InternalIPS {
+		nodeIPS = append(nodeIPS, nIp)
+	}
+
+	return nodeIPS, nil
+}
+
+func nodeNameIndexFunc(obj interface{}) ([]string, error) {
+	node, ok := obj.(*object.Node)
+	if !ok {
+		return nil, errObj
+	}
+
+	return []string{node.Index}, nil
 }
 
 func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
@@ -282,6 +330,16 @@ func namespaceListFunc(ctx context.Context, c kubernetes.Interface, s labels.Sel
 	}
 }
 
+func nodeListFunc(ctx context.Context, c kubernetes.Interface, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
+	return func(opts meta.ListOptions) (runtime.Object, error) {
+		if s != nil {
+			opts.LabelSelector = s.String()
+		}
+		listV1, err := c.CoreV1().Nodes().List(ctx, opts)
+		return listV1, err
+	}
+}
+
 // Stop stops the  controller.
 func (dns *dnsControl) Stop() error {
 	dns.stopLock.Lock()
@@ -308,6 +366,9 @@ func (dns *dnsControl) Run() {
 		go dns.podController.Run(dns.stopCh)
 	}
 	go dns.nsController.Run(dns.stopCh)
+	if dns.nodeController != nil {
+		go dns.nodeController.Run(dns.stopCh)
+	}
 	<-dns.stopCh
 }
 
@@ -323,7 +384,39 @@ func (dns *dnsControl) HasSynced() bool {
 		c = dns.podController.HasSynced()
 	}
 	d := dns.nsController.HasSynced()
-	return a && b && c && d
+	e := true
+	if dns.nodeController != nil {
+		e = dns.nodeController.HasSynced()
+	}
+	return a && b && c && d && e
+}
+
+func (dns *dnsControl) NodeList() (nodes []*object.Node) {
+	os := dns.nodeLister.List()
+
+	for _, o := range os {
+		n, ok := o.(*object.Node)
+		if !ok {
+			continue
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes
+}
+
+func (dns *dnsControl) NodeIndex(idx string) (nodes []*object.Node) {
+	os, err := dns.nodeLister.ByIndex(nodeNameIndex, idx)
+	if err != nil {
+		return nil
+	}
+	for _, o := range os {
+		n, ok := o.(*object.Node)
+		if !ok {
+			continue
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes
 }
 
 func (dns *dnsControl) ServiceList() (svcs []*object.Service) {
