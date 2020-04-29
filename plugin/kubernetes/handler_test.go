@@ -524,7 +524,7 @@ func (APIConnServeTest) Run()                                      {}
 func (APIConnServeTest) Stop() error                               { return nil }
 func (APIConnServeTest) EpIndexReverse(string) []*object.Endpoints { return nil }
 func (APIConnServeTest) SvcIndexReverse(string) []*object.Service  { return nil }
-func (APIConnServeTest) Modified() int64                           { return 2 }
+func (APIConnServeTest) Modified() int64                           { return 2 } // set to 2 for IXFR tests
 
 func (APIConnServeTest) PodIndex(ip string) []*object.Pod {
 	if ip != "10.240.0.1" {
