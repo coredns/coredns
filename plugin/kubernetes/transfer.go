@@ -81,7 +81,7 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 }
 
 func (k *Kubernetes) transfer(c chan []dns.RR, zone string) {
-	zonePath := msg.Path(zone, "coredns")
+	zonePath := msg.Path(zone, coredns)
 	serviceList := k.APIConn.ServiceList()
 	for _, svc := range serviceList {
 		if !k.namespaceExposed(svc.Namespace) {
