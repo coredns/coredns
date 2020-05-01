@@ -101,9 +101,10 @@ func mapsDiffer(a, b map[string]string) bool {
 	return false
 }
 
-func TestMetadata(t *testing.T) {
+func TestMetadataPodsVerified(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
+	k.podMode = podModeVerified
 
 	for i, tc := range metadataCases {
 		ctx := metadata.ContextWithMetadata(context.Background())
@@ -122,5 +123,36 @@ func TestMetadata(t *testing.T) {
 		if mapsDiffer(tc.Md, md) {
 			t.Errorf("Case %d expected metadata %v and got %v", i, tc.Md, md)
 		}
+	}
+}
+
+func TestMetadataPodsUnverified(t *testing.T) {
+	k := New([]string{"cluster.local."})
+	k.APIConn = &APIConnServeTest{}
+
+	ctx := metadata.ContextWithMetadata(context.Background())
+	state := request.Request{
+		Req:  &dns.Msg{Question: []dns.Question{{Name: "s.ns.svc.cluster.local.", Qtype: dns.TypeA}}},
+		Zone: ".",
+		W:    &test.ResponseWriter{},
+	}
+
+	k.Metadata(ctx, state)
+
+	expect := map[string]string{
+		"kubernetes/endpoint":  "",
+		"kubernetes/kind":      "svc",
+		"kubernetes/namespace": "ns",
+		"kubernetes/port-name": "*",
+		"kubernetes/protocol":  "*",
+		"kubernetes/service":   "s",
+	}
+
+	md := make(map[string]string)
+	for _, l := range metadata.Labels(ctx) {
+		md[l] = metadata.ValueFunc(ctx, l)()
+	}
+	if mapsDiffer(expect, md) {
+		t.Errorf("Expected metadata %v and got %v", expect, md)
 	}
 }
