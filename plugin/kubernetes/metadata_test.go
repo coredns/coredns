@@ -32,8 +32,6 @@ var metadataCases = []struct {
 			"kubernetes/port-name":        "*",
 			"kubernetes/protocol":         "*",
 			"kubernetes/service":          "10-240-0-1",
-			"kubernetes/client-namespace": "podns",
-			"kubernetes/client-pod-name":  "foo",
 		},
 	},
 	{
@@ -45,8 +43,6 @@ var metadataCases = []struct {
 			"kubernetes/port-name":        "*",
 			"kubernetes/protocol":         "*",
 			"kubernetes/service":          "s",
-			"kubernetes/client-namespace": "podns",
-			"kubernetes/client-pod-name":  "foo",
 		},
 	},
 	{
@@ -101,10 +97,9 @@ func mapsDiffer(a, b map[string]string) bool {
 	return false
 }
 
-func TestMetadataPodsVerified(t *testing.T) {
+func TestMetadata(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
-	k.podMode = podModeVerified
 
 	for i, tc := range metadataCases {
 		ctx := metadata.ContextWithMetadata(context.Background())
@@ -126,8 +121,9 @@ func TestMetadataPodsVerified(t *testing.T) {
 	}
 }
 
-func TestMetadataPodsUnverified(t *testing.T) {
+func TestMetadataPodsVerified(t *testing.T) {
 	k := New([]string{"cluster.local."})
+	k.podMode = podModeVerified
 	k.APIConn = &APIConnServeTest{}
 
 	ctx := metadata.ContextWithMetadata(context.Background())
@@ -146,6 +142,8 @@ func TestMetadataPodsUnverified(t *testing.T) {
 		"kubernetes/port-name": "*",
 		"kubernetes/protocol":  "*",
 		"kubernetes/service":   "s",
+		"kubernetes/client-namespace": "podns",
+		"kubernetes/client-pod-name":  "foo",
 	}
 
 	md := make(map[string]string)
