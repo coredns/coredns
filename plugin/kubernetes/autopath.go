@@ -51,6 +51,9 @@ func (k *Kubernetes) AutoPath(state request.Request) []string {
 
 // podWithIP return the api.Pod for source IP. It returns nil if nothing can be found.
 func (k *Kubernetes) podWithIP(ip string) *object.Pod {
+	if k.podMode != podModeVerified {
+		return nil
+	}
 	ps := k.APIConn.PodIndex(ip)
 	if len(ps) == 0 {
 		return nil
