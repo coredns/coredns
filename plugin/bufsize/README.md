@@ -4,7 +4,7 @@
 
 ## Description
 *bufsize* limits a requester's UDP payload size.
-It prevents IP fragmentation so that to deal with DNS vulnerability.
+It prevents IP fragmentation, mitigating certain DNS vulnerabilities.
 
 ## Syntax
 ```txt
