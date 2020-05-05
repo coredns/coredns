@@ -26,23 +26,23 @@ var metadataCases = []struct {
 	{
 		Qname: "10-240-0-1.podns.pod.cluster.local.", Qtype: dns.TypeA,
 		Md: map[string]string{
-			"kubernetes/endpoint":         "",
-			"kubernetes/kind":             "pod",
-			"kubernetes/namespace":        "podns",
-			"kubernetes/port-name":        "*",
-			"kubernetes/protocol":         "*",
-			"kubernetes/service":          "10-240-0-1",
+			"kubernetes/endpoint":  "",
+			"kubernetes/kind":      "pod",
+			"kubernetes/namespace": "podns",
+			"kubernetes/port-name": "*",
+			"kubernetes/protocol":  "*",
+			"kubernetes/service":   "10-240-0-1",
 		},
 	},
 	{
 		Qname: "s.ns.svc.cluster.local.", Qtype: dns.TypeA,
 		Md: map[string]string{
-			"kubernetes/endpoint":         "",
-			"kubernetes/kind":             "svc",
-			"kubernetes/namespace":        "ns",
-			"kubernetes/port-name":        "*",
-			"kubernetes/protocol":         "*",
-			"kubernetes/service":          "s",
+			"kubernetes/endpoint":  "",
+			"kubernetes/kind":      "svc",
+			"kubernetes/namespace": "ns",
+			"kubernetes/port-name": "*",
+			"kubernetes/protocol":  "*",
+			"kubernetes/service":   "s",
 		},
 	},
 	{
@@ -80,6 +80,11 @@ var metadataCases = []struct {
 			"kubernetes/protocol":  "*",
 			"kubernetes/service":   "s",
 		},
+	},
+	{
+		Qname: "example.com.", Qtype: dns.TypeA,
+		RemoteIP: "10.10.10.10",
+		Md:       map[string]string{},
 	},
 }
 
@@ -128,7 +133,7 @@ func TestMetadataPodsVerified(t *testing.T) {
 
 	ctx := metadata.ContextWithMetadata(context.Background())
 	state := request.Request{
-		Req:  &dns.Msg{Question: []dns.Question{{Name: "s.ns.svc.cluster.local.", Qtype: dns.TypeA}}},
+		Req:  &dns.Msg{Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA}}},
 		Zone: ".",
 		W:    &test.ResponseWriter{},
 	}
@@ -136,12 +141,6 @@ func TestMetadataPodsVerified(t *testing.T) {
 	k.Metadata(ctx, state)
 
 	expect := map[string]string{
-		"kubernetes/endpoint":  "",
-		"kubernetes/kind":      "svc",
-		"kubernetes/namespace": "ns",
-		"kubernetes/port-name": "*",
-		"kubernetes/protocol":  "*",
-		"kubernetes/service":   "s",
 		"kubernetes/client-namespace": "podns",
 		"kubernetes/client-pod-name":  "foo",
 	}
