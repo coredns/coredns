@@ -219,7 +219,7 @@ plugin is also enabled:
 The `kubernetes/client-namespace` and `kubernetes/client-pod-name` metadata work by reconciling the
 client IP address in the DNS request packet to a known pod IP address. Therefore the following is required:
  * `pods verified` mode must be enabled
- * the remote IP address in the DNS packet received by CoreDNS must be the IP address 
+ * the remote IP address in the DNS packet received by CoreDNS must be the IP address
    of the Pod that sent the request.
 
 ## Metrics
