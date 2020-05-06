@@ -44,13 +44,15 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		return nil, nil, nil, ServerFailure
 	}
 
-	if qtype == dns.TypeSOA {
-		return ap.soa(do), ap.ns(do), nil, Success
-	}
-	if qtype == dns.TypeNS && qname == z.origin {
-		nsrrs := ap.ns(do)
-		glue := tr.Glue(nsrrs, do) // technically this isn't glue
-		return nsrrs, nil, glue, Success
+	if qname == z.origin {
+		switch qtype {
+		case dns.TypeSOA:
+			return ap.soa(do), ap.ns(do), nil, Success
+		case dns.TypeNS:
+			nsrrs := ap.ns(do)
+			glue := tr.Glue(nsrrs, do) // technically this isn't glue
+			return nsrrs, nil, glue, Success
+		}
 	}
 
 	var (

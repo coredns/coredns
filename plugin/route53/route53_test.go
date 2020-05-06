@@ -167,30 +167,24 @@ func TestRoute53(t *testing.T) {
 		// 5. Explicit SOA query for example.org.
 		{
 			qname: "example.org",
-			qtype: dns.TypeSOA,
-			wantAnswer: []string{"org.	300	IN	SOA	ns-15.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
-		},
-		// 6. Explicit SOA query for example.org.
-		{
-			qname: "example.org",
 			qtype: dns.TypeNS,
 			wantNS: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
 		},
-		// 7. AAAA query for split-example.org must return NODATA.
+		// 6. AAAA query for split-example.org must return NODATA.
 		{
 			qname:       "split-example.gov",
 			qtype:       dns.TypeAAAA,
 			wantRetCode: dns.RcodeSuccess,
 			wantNS: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
 		},
-		// 8. Zone not configured.
+		// 7. Zone not configured.
 		{
 			qname:        "badexample.com",
 			qtype:        dns.TypeA,
 			wantRetCode:  dns.RcodeServerFailure,
 			wantMsgRCode: dns.RcodeServerFailure,
 		},
-		// 9. No record found. Return SOA record.
+		// 8. No record found. Return SOA record.
 		{
 			qname:        "bad.org",
 			qtype:        dns.TypeA,
@@ -198,25 +192,25 @@ func TestRoute53(t *testing.T) {
 			wantMsgRCode: dns.RcodeNameError,
 			wantNS: []string{"org.	300	IN	SOA	ns-1536.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
 		},
-		// 10. No record found. Fallthrough.
+		// 9. No record found. Fallthrough.
 		{
 			qname: "example.gov",
 			qtype: dns.TypeA,
 			wantAnswer: []string{"example.gov.	300	IN	A	2.4.6.8"},
 		},
-		// 11. other-zone.example.org is stored in a different hosted zone. success
+		// 10. other-zone.example.org is stored in a different hosted zone. success
 		{
 			qname: "other-example.org",
 			qtype: dns.TypeA,
 			wantAnswer: []string{"other-example.org.	300	IN	A	3.5.7.9"},
 		},
-		// 12. split-example.org only has A record. Expect NODATA.
+		// 11. split-example.org only has A record. Expect NODATA.
 		{
 			qname: "split-example.org",
 			qtype: dns.TypeAAAA,
 			wantNS: []string{"org.	300	IN	SOA	ns-15.awsdns-00.co.uk. awsdns-hostmaster.amazon.com. 1 7200 900 1209600 86400"},
 		},
-		// 13. *.www.example.org is a wildcard CNAME to www.example.org.
+		// 12. *.www.example.org is a wildcard CNAME to www.example.org.
 		{
 			qname: "a.www.example.org",
 			qtype: dns.TypeA,

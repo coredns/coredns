@@ -57,6 +57,17 @@ var delegationTestCases = []test.Case{
 		},
 	},
 	{
+		Qname: "foo.delegated.miek.nl.", Qtype: dns.TypeSOA,
+		Ns: []dns.RR{
+			test.NS("delegated.miek.nl.	1800	IN	NS	a.delegated.miek.nl."),
+			test.NS("delegated.miek.nl.	1800	IN	NS	ns-ext.nlnetlabs.nl."),
+		},
+		Extra: []dns.RR{
+			test.A("a.delegated.miek.nl. 1800 IN A 139.162.196.78"),
+			test.AAAA("a.delegated.miek.nl. 1800 IN AAAA 2a01:7e00::f03c:91ff:fef1:6735"),
+		},
+	},
+	{
 		Qname: "miek.nl.", Qtype: dns.TypeSOA,
 		Answer: []dns.RR{
 			test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
