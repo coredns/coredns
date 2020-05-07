@@ -16,8 +16,8 @@ var f *Forward
 func init() {
 	f = New()
 	s := dnstest.NewServer(r{}.reflectHandler)
-	f.proxies = append(f.proxies, NewProxy(s.Addr, "tcp"))
-	f.proxies = append(f.proxies, NewProxy(s.Addr, "udp"))
+	f.SetProxy(NewProxy(s.Addr, "tcp"))
+	f.SetProxy(NewProxy(s.Addr, "udp"))
 }
 
 // Fuzz fuzzes forward.
