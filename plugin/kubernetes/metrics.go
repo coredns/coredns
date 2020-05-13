@@ -36,9 +36,6 @@ var (
 )
 
 func recordDNSProgrammingLatency(svcs []*object.Service, endpoints *api.Endpoints) {
-	if endpoints == nil {
-		return
-	}
 	// getLastChangeTriggerTime is the time.Time value of the EndpointsLastChangeTriggerTime
 	// annotation stored in the given endpoints object or the "zero" time if the annotation wasn't set
 	var lastChangeTriggerTime time.Time
@@ -61,7 +58,7 @@ func recordDNSProgrammingLatency(svcs []*object.Service, endpoints *api.Endpoint
 	// flaw to keep the solution simple.
 	isHeadless := len(svcs) == 1 && svcs[0].ClusterIP == api.ClusterIPNone
 
-	if !isHeadless || lastChangeTriggerTime.IsZero() {
+	if endpoints == nil || !isHeadless || lastChangeTriggerTime.IsZero() {
 		return
 	}
 

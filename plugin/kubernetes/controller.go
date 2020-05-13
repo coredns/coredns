@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -142,7 +141,9 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
 				return func(obj interface{}) error {
 					for _, d := range obj.(cache.Deltas) {
-						var obj interface{}
+						var obj *object.Endpoints
+						var dfsu cache.DeletedFinalStateUnknown
+
 						apiEndpoints, ok := d.Object.(*api.Endpoints)
 						if ok {
 							obj = object.ToEndpoints(apiEndpoints)
@@ -151,7 +152,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 							// This is essentially an indicator that the Endpoint was deleted, without a containing a full copy of the
 							// Endpoints object - just a key value. We need to use cache.DeletedFinalStateUnknown
 							// object so it can be properly deleted by store.Delete() below, which knows how to handle it.
-							obj = d.Object
+							dfsu = d.Object.(cache.DeletedFinalStateUnknown)
 						}
 
 						switch d.Type {
@@ -162,7 +163,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 								}
 								h.OnUpdate(old, obj)
 								// endpoint updates can come frequently, make sure it's a change we care about
-								if !endpointsEquivalent(old.(*object.Endpoints), obj.(*object.Endpoints)) {
+								if !endpointsEquivalent(old.(*object.Endpoints), obj) {
 									dns.updateModifed()
 									recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
 								}
@@ -175,15 +176,23 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 								recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
 							}
 						case cache.Deleted:
-							if err := clientState.Delete(obj); err != nil {
-								return err
+							if obj != nil {
+								if err := clientState.Delete(obj); err != nil {
+									return err
+								}
+							} else {
+								if err := clientState.Delete(dfsu); err != nil {
+									return err
+								}
 							}
 							h.OnDelete(d.Object)
 							dns.updateModifed()
-							recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
+							if obj != nil {
+								recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
+							}
 						}
 
-						if !opts.skipAPIObjectsCleanup && !reflect.ValueOf(apiEndpoints).IsNil() {
+						if !opts.skipAPIObjectsCleanup && apiEndpoints != nil {
 							*apiEndpoints = api.Endpoints{}
 						}
 					}
@@ -484,11 +493,8 @@ func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
 	}
 }
 
-func (dns *dnsControl) getServices(obj interface{}) []*object.Service {
-	if endpoints, ok := obj.(*object.Endpoints); ok {
-		return dns.SvcIndex(object.EndpointsKey(endpoints.GetName(), endpoints.GetNamespace()))
-	}
-	return nil
+func (dns *dnsControl) getServices(endpoints *object.Endpoints) []*object.Service {
+	return dns.SvcIndex(object.EndpointsKey(endpoints.GetName(), endpoints.GetNamespace()))
 }
 
 // subsetsEquivalent checks if two endpoint subsets are significantly equivalent
