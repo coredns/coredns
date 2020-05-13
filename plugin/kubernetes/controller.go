@@ -142,8 +142,18 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
 				return func(obj interface{}) error {
 					for _, d := range obj.(cache.Deltas) {
-
-						apiEndpoints, obj := object.ToEndpoints(d.Object)
+						var apiEndpoints *api.Endpoints
+						var obj interface{}
+						end, ok := d.Object.(*api.Endpoints)
+						if ok {
+							apiEndpoints, obj = object.ToEndpoints(end)
+						} else {
+							// Assume that the object is cache.DeletedFinalStateUnknown.
+							// This is essentially an indicator that the Endpoint was deleted, without a containing a full copy of the
+							// Endpoints object - just a key value. We need to use cache.DeletedFinalStateUnknown
+							// object so it can be properly deleted by store.Delete() below, which knows how to handle it.
+							obj = d.Object
+						}
 
 						switch d.Type {
 						case cache.Sync, cache.Added, cache.Updated:

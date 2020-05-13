@@ -44,12 +44,7 @@ type EndpointPort struct {
 func EndpointsKey(name, namespace string) string { return name + "." + namespace }
 
 // ToEndpoints converts an api.Endpoints to a *Endpoints.
-func ToEndpoints(obj interface{}) (*api.Endpoints, interface{}) {
-	end, ok := obj.(*api.Endpoints)
-	if !ok {
-		return nil, obj
-	}
-
+func ToEndpoints(end *api.Endpoints) (*api.Endpoints, *Endpoints) {
 	e := &Endpoints{
 		Version:   end.GetResourceVersion(),
 		Name:      end.GetName(),
