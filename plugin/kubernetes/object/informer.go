@@ -1,16 +1,13 @@
 package object
 
 import (
-	"errors"
-	"reflect"
-
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 )
 
 // NewIndexerInformer is a copy of the cache.NewIndexerInformer function, but allows custom process function
 func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.ResourceEventHandler, indexers cache.Indexers, builder ProcessorBuilder) (cache.Indexer, cache.Controller) {
-	clientState := cache.NewIndexer(deletionHandlingMetaNamespaceKeyFunc, indexers)
+	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, indexers)
 
 	cfg := &cache.Config{
 		Queue:            cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, clientState),
@@ -21,13 +18,6 @@ func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.
 		Process:          builder(clientState, h),
 	}
 	return clientState, cache.New(cfg)
-}
-
-func deletionHandlingMetaNamespaceKeyFunc(obj interface{})(string, error){
-	if obj == nil || reflect.ValueOf(obj).IsNil() {
-		return "", errors.New("nil object")
-	}
-	return cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
 }
 
 // DefaultProcessor is a copy of Process function from cache.NewIndexerInformer except it does a conversion.

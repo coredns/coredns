@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -152,7 +153,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 								}
 								h.OnUpdate(old, obj)
 								// endpoint updates can come frequently, make sure it's a change we care about
-								if !endpointsEquivalent(old.(*object.Endpoints), obj) {
+								if !endpointsEquivalent(old.(*object.Endpoints), obj.(*object.Endpoints)) {
 									dns.updateModifed()
 									recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
 								}
@@ -172,7 +173,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 							dns.updateModifed()
 							recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
 						}
-						if !opts.skipAPIObjectsCleanup {
+						if !opts.skipAPIObjectsCleanup && !reflect.ValueOf(apiEndpoints).IsNil() {
 							*apiEndpoints = api.Endpoints{}
 						}
 					}
@@ -473,8 +474,11 @@ func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
 	}
 }
 
-func (dns *dnsControl) getServices(endpoints *object.Endpoints) []*object.Service {
-	return dns.SvcIndex(object.EndpointsKey(endpoints.GetName(), endpoints.GetNamespace()))
+func (dns *dnsControl) getServices(obj interface{}) []*object.Service {
+	if endpoints, ok := obj.(*object.Endpoints); ok {
+		return dns.SvcIndex(object.EndpointsKey(endpoints.GetName(), endpoints.GetNamespace()))
+	}
+	return nil
 }
 
 // subsetsEquivalent checks if two endpoint subsets are significantly equivalent
