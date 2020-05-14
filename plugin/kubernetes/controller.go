@@ -173,7 +173,6 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 						case cache.Deleted:
 							apiEndpoints, ok := d.Object.(*api.Endpoints)
 							if !ok {
-								println("CTO DEBUG: GOT TOMBSTONE")
 								// Assume that the object must be a cache.DeletedFinalStateUnknown.
 								// This is essentially an indicator that the Endpoint was deleted, without a containing a
 								// up-to date copy of the Endpoints object. We need to use cache.DeletedFinalStateUnknown
