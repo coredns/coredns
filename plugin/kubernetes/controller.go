@@ -181,9 +181,6 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 								if !ok {
 									return errors.New("expected tombstone")
 								}
-								if err := clientState.Delete(tombstone); err != nil {
-									return err
-								}
 								apiEndpoints, ok = tombstone.Obj.(*api.Endpoints)
 								if !ok {
 									return errors.New("got non-endpoint tombstone")
