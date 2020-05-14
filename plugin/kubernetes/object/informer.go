@@ -1,6 +1,8 @@
 package object
 
 import (
+	"reflect"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 )
@@ -25,11 +27,9 @@ func DefaultProcessor(convert ToFunc) ProcessorBuilder {
 	return func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
 		return func(obj interface{}) error {
 			for _, d := range obj.(cache.Deltas) {
-
-				obj := convert(d.Object)
-
 				switch d.Type {
 				case cache.Sync, cache.Added, cache.Updated:
+					obj := convert(d.Object)
 					if old, exists, err := clientState.Get(obj); err == nil && exists {
 						if err := clientState.Update(obj); err != nil {
 							return err
@@ -42,6 +42,14 @@ func DefaultProcessor(convert ToFunc) ProcessorBuilder {
 						h.OnAdd(obj)
 					}
 				case cache.Deleted:
+					var obj interface{}
+					tombstone, ok := d.Object.(cache.DeletedFinalStateUnknown)
+					if ok {
+						println("got tombstone of type " + reflect.TypeOf(tombstone.Obj).String())
+						obj = convert(tombstone.Obj)
+					} else {
+						obj = convert(d.Object)
+					}
 					if err := clientState.Delete(obj); err != nil {
 						return err
 					}

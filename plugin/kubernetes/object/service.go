@@ -29,16 +29,11 @@ func ServiceKey(name, namespace string) string { return name + "." + namespace }
 // ToService returns a function that converts an api.Service to a *Service.
 func ToService(skipCleanup bool) ToFunc {
 	return func(obj interface{}) interface{} {
-		return toService(skipCleanup, obj)
+		return toService(skipCleanup, obj.(*api.Service))
 	}
 }
 
-func toService(skipCleanup bool, obj interface{}) interface{} {
-	svc, ok := obj.(*api.Service)
-	if !ok {
-		return nil
-	}
-
+func toService(skipCleanup bool, svc *api.Service) *Service {
 	s := &Service{
 		Version:      svc.GetResourceVersion(),
 		Name:         svc.GetName(),
