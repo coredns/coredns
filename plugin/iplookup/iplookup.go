@@ -32,7 +32,7 @@ type IPLookup struct {
 	head        *cacheEntry
 	tail        *cacheEntry
 	size        int
-	sync.RWMutex
+	sync.Mutex
 
 	maxEntries  int
 	maxDuration time.Duration
@@ -116,12 +116,16 @@ func setup(c *caddy.Controller) error {
 		ipl.cacheLookup = make(map[string]*cacheEntry)
 
 		// Start the cache cleaner
-		go func() {
-			for {
-				time.Sleep(time.Minute)
-				ipl.cleanCache()
-			}
-		}()
+		if ipl.maxDuration > 0 {
+			go func() {
+				for {
+					time.Sleep(30 * time.Second)
+					ipl.Lock()
+					ipl.cleanCache()
+					ipl.Unlock()
+				}
+			}()
+		}
 
 		go func() {
 			if err := ipl.server.ListenAndServe(); err != nil {

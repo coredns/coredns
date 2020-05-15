@@ -79,15 +79,19 @@ func (ipl *IPLookup) addCache(name, value string) {
 
 		ipl.size++
 
+		// Make sure we haven't exceeded the number of entries
+		if ipl.maxEntries > 0 && ipl.size > ipl.maxEntries {
+			ipl.cleanCache()
+		}
+
 	}
 
 	ipl.Unlock()
 
 }
 
+// Clean the cache, it must be locked
 func (ipl *IPLookup) cleanCache() {
-
-	ipl.Lock()
 
 	now := time.Now()
 
@@ -96,6 +100,7 @@ func (ipl *IPLookup) cleanCache() {
 		// If we have a maxDuration set and the tail is after that
 		// If we have maxEntries set and we're more than that
 		if (ipl.maxDuration > 0 && now.After(ipl.tail.expires)) || (ipl.maxEntries > 0 && ipl.size > ipl.maxEntries) {
+
 			// Update the tail next.prev
 			if ipl.tail.next != nil {
 				ipl.tail.next.prev = nil
@@ -106,6 +111,9 @@ func (ipl *IPLookup) cleanCache() {
 
 			// Advance the tail pointer
 			ipl.tail = ipl.tail.next
+			if ipl.tail == nil {
+				ipl.head = nil
+			}
 
 			ipl.size--
 		} else {
@@ -113,7 +121,5 @@ func (ipl *IPLookup) cleanCache() {
 		}
 
 	}
-
-	ipl.Unlock()
 
 }

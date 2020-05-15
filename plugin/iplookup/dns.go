@@ -2,7 +2,6 @@ package iplookup
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/coredns/coredns/plugin"
 
@@ -15,10 +14,12 @@ type InterceptRecorder struct {
 }
 
 func (ipl *IPLookup) NewInterceptRecorder(w dns.ResponseWriter) *InterceptRecorder {
+
 	return &InterceptRecorder{
 		ResponseWriter: w,
 		ipl:            ipl,
 	}
+
 }
 
 // WriteMsg records the status code and calls the
@@ -34,8 +35,6 @@ func (ir *InterceptRecorder) WriteMsg(res *dns.Msg) error {
 			lookup[rec.A.String()] = rec.Hdr.Name
 		case *dns.CNAME:
 			alias[rec.Target] = rec.Hdr.Name
-		default:
-			fmt.Printf("REC: %+v\n", rec)
 		}
 	}
 
@@ -62,6 +61,6 @@ func (ir *InterceptRecorder) WriteMsg(res *dns.Msg) error {
 }
 
 // ServeDNS implements the plugin.Handler interface.
-func (ipl IPLookup) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (ipl *IPLookup) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	return plugin.NextOrFailure(ipl.Name(), ipl.Next, ctx, ipl.NewInterceptRecorder(w), r)
 }
