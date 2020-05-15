@@ -23,7 +23,7 @@ import (
 )
 
 // ToFunc converts one empty interface to another.
-type ToFunc func(interface{}) interface{}
+type ToFunc func(interface{}) (interface{}, error)
 
 // ProcessorBuilder returns function to process cache events.
 type ProcessorBuilder func(cache.Indexer, cache.ResourceEventHandler) cache.ProcessFunc

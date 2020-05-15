@@ -1,6 +1,9 @@
 package object
 
 import (
+	"errors"
+	"fmt"
+
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -16,10 +19,23 @@ type Pod struct {
 	*Empty
 }
 
+var errPodTerminating = errors.New("pod terminating")
+
 // ToPod returns a function that converts an api.Pod to a *Pod.
 func ToPod(skipCleanup bool) ToFunc {
-	return func(obj interface{}) interface{} {
-		return toPod(skipCleanup, obj.(*api.Pod))
+	return func(obj interface{}) (interface{}, error) {
+		apiPod, ok := obj.(*api.Pod)
+		if !ok {
+			return nil, fmt.Errorf("unexpected object %v", obj)
+		}
+		pod := toPod(skipCleanup, apiPod)
+		t := apiPod.ObjectMeta.DeletionTimestamp
+		if t != nil && !(*t).Time.IsZero() {
+			// if the pod is in the process of termination, return an error so it can be ignored
+			// during add/update event processing
+			return pod, errPodTerminating
+		}
+		return pod, nil
 	}
 }
 
@@ -29,11 +45,6 @@ func toPod(skipCleanup bool, pod *api.Pod) *Pod {
 		PodIP:     pod.Status.PodIP,
 		Namespace: pod.GetNamespace(),
 		Name:      pod.GetName(),
-	}
-	// don't add pods that are being deleted.
-	t := pod.ObjectMeta.DeletionTimestamp
-	if t != nil && !(*t).Time.IsZero() {
-		return nil
 	}
 
 	if !skipCleanup {

@@ -1,6 +1,8 @@
 package object
 
 import (
+	"fmt"
+
 	api "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -28,8 +30,12 @@ func ServiceKey(name, namespace string) string { return name + "." + namespace }
 
 // ToService returns a function that converts an api.Service to a *Service.
 func ToService(skipCleanup bool) ToFunc {
-	return func(obj interface{}) interface{} {
-		return toService(skipCleanup, obj.(*api.Service))
+	return func(obj interface{}) (interface{}, error) {
+		svc, ok := obj.(*api.Service)
+		if !ok {
+			return nil, fmt.Errorf("unexpected object %v", obj)
+		}
+		return toService(skipCleanup, svc), nil
 	}
 }
 
