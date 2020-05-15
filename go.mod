@@ -58,6 +58,7 @@ require (
 	github.com/sirupsen/logrus v1.4.1 // indirect
 	github.com/smartystreets/goconvey v0.0.0-20190306220146-200a235640ff // indirect
 	github.com/soheilhy/cmux v0.1.4 // indirect
+	github.com/spf13/cast v1.3.1
 	github.com/spf13/pflag v1.0.3 // indirect
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
