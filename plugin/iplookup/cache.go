@@ -1,6 +1,7 @@
 package iplookup
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 )
@@ -95,6 +96,7 @@ func (ipl *IPLookup) cleanCache() {
 
 	now := time.Now()
 
+	// We trim the cache from the tail forward until we get to the right size or the right duration
 	for ipl.tail != nil {
 
 		// If we have a maxDuration set and the tail is after that
@@ -116,10 +118,14 @@ func (ipl *IPLookup) cleanCache() {
 			}
 
 			ipl.size--
+
 		} else {
+			// We have trimmed everything off the list that is required
 			break
 		}
 
 	}
+
+	fmt.Printf("F: %+v\n", ipl)
 
 }
