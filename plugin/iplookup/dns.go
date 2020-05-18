@@ -33,6 +33,8 @@ func (ir *InterceptRecorder) WriteMsg(res *dns.Msg) error {
 		switch rec := ans.(type) {
 		case *dns.A:
 			lookup[rec.A.String()] = rec.Hdr.Name
+		case *dns.AAAA:
+			lookup[rec.AAAA.String()] = rec.Hdr.Name
 		case *dns.CNAME:
 			alias[rec.Target] = rec.Hdr.Name
 		}
