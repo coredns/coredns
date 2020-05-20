@@ -1,7 +1,6 @@
 package iplookup
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 )
@@ -125,7 +124,5 @@ func (ipl *IPLookup) cleanCache() {
 		}
 
 	}
-
-	fmt.Printf("F: %+v\n", ipl)
 
 }
