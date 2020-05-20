@@ -91,9 +91,6 @@ func setup(c *caddy.Controller) error {
 			globalIPL = ipl
 		}
 		// Set all the values
-		if ipl.server != nil {
-			globalIPL.server = ipl.server
-		}
 		if ipl.maxEntries > 0 {
 			globalIPL.maxEntries = ipl.maxEntries
 		}
