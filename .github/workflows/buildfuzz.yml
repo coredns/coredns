@@ -1,0 +1,25 @@
+name: Build Fuzz Targets
+on: [push, pull_request]
+jobs:
+
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go 1.14
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.14
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v1
+
+    - name: Build Fuzz Targets
+      run: |
+        go get github.com/dvyukov/go-fuzz/go-fuzz
+        go get github.com/dvyukov/go-fuzz/go-fuzz-build
+        export PATH=$PATH:$GOBIN:$HOME/go/bin:$GOROOT/bin
+        echo $PATH
+        make -f Makefile.fuzz all
