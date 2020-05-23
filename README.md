@@ -90,14 +90,14 @@ linux/amd64, go1.13.5, aa8c32
 The following could be used to query the CoreDNS server that is running now:
 
 ~~~ txt
-dig @127.0.0.1 -p 53 www.example.com 
+dig @127.0.0.1 -p 53 www.example.com
 ~~~
 
 Any query sent to port 53 should return some information; your sending address, port and protocol
 used. The query should also be logged to standard output.
 
-The configuration of CoreDNS is done through a file named `Corefile`. When CoreDNS starts, it will 
-look for the `Corefile` from the current working directory. A `Corefile` for CoreDNS server that listens 
+The configuration of CoreDNS is done through a file named `Corefile`. When CoreDNS starts, it will
+look for the `Corefile` from the current working directory. A `Corefile` for CoreDNS server that listens
 on port `53` and enables `whoami` plugin is:
 
 ~~~ corefile
