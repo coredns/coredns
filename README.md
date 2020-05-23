@@ -104,7 +104,7 @@ to modify the Corefile.)
 If you have a Corefile without a port number specified it will, by default, use port 53, but you can
 override the port with the `-dns.port` flag: `./coredns -dns.port 1053`, runs the server on port 1053.
 
-Start a simple proxy. You'll need to be root to start listening on port 53. Sometimes the `Corefile` contains:
+Start a simple proxy. You'll need to be root to start listening on port 53. Sometimes the `Corefile`  would contain:
 
 ~~~ corefile
 .:53 {
