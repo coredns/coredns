@@ -77,25 +77,34 @@ The above command alone will have `coredns` binary generated.
 
 ## Examples
 
-When starting CoreDNS without any configuration, it loads the
+To start CoreDNS, use `./coredns` when you are in the coredns directory. When starting CoreDNS without any configuration, it loads the
 [*whoami*](https://coredns.io/plugins/whoami) and [*log*](https://coredns.io/plugins/log) plugins
 and starts listening on port 53 (override with `-dns.port`), it should show the following:
 
 ~~~ txt
 .:53
-CoreDNS-1.6.6
+CoreDNS-1.6.9
 linux/amd64, go1.13.5, aa8c32
+~~~
+
+To query port 53 use the following:
+
+~~~ txt
+dig @localhost -p 53 www.example.com 
 ~~~
 
 Any query sent to port 53 should return some information; your sending address, port and protocol
 used. The query should also be logged to standard output.
 
+To modify the properties of the CoreDNS server, you will have to edit a file known as the Corefile. 
+If there is no Corefile in your coredns directory create one using `touch Corefile`. Please do not get 
+confused between the Corefile and corefile.5.md (which is a file that contains more information about how
+to modify the Corefile.)
+
 If you have a Corefile without a port number specified it will, by default, use port 53, but you can
-override the port with the `-dns.port` flag: `coredns -dns.port 1053`, runs the server on port 1053.
+override the port with the `-dns.port` flag: `./coredns -dns.port 1053`, runs the server on port 1053.
 
-Start a simple proxy. You'll need to be root to start listening on port 53.
-
-`Corefile` contains:
+Start a simple proxy. You'll need to be root to start listening on port 53. Sometimes the `Corefile` contains:
 
 ~~~ corefile
 .:53 {
@@ -104,9 +113,19 @@ Start a simple proxy. You'll need to be root to start listening on port 53.
 }
 ~~~
 
-Start CoreDNS and then query on that port (53). The query should be forwarded to 8.8.8.8 and the
+Start CoreDNS using `./coredns` and then query on that port (53). The query should be forwarded to 8.8.8.8 and the
 response will be returned. Each query should also show up in the log which is printed on standard
 output.
+
+Sometimes port number 53 is occupied by system processes. In that case you can run the CoreDNS server using `./coredns`
+while changing the Corefile as given below so that the CoreDNS server starts on port 1053.
+
+~~~ corefile
+.:1053 {
+    forward . 8.8.8.8:53
+    log
+}
+~~~
 
 To serve the (NSEC) DNSSEC-signed `example.org` on port 1053, with errors and logging sent to standard
 output. Allow zone transfers to everybody, but specifically mention 1 IP address so that CoreDNS can
