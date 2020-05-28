@@ -14,7 +14,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/debug"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/coredns/coredns/plugin/pkg/policy"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -29,7 +28,7 @@ type Forward struct {
 	concurrent int64 // atomic counters need to be first in struct for proper alignment
 
 	proxies    []*Proxy
-	p          policy.Policy
+	p          Policy
 	hcInterval time.Duration
 
 	from    string
@@ -52,7 +51,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(policy.Random), from: ".", hcInterval: hcInterval, opts: options{forceTCP: false, preferUDP: false, hcRecursionDesired: true}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: options{forceTCP: false, preferUDP: false, hcRecursionDesired: true}}
 	return f
 }
 
@@ -109,8 +108,8 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			}
 			// All upstream proxies are dead, assume healthcheck is completely broken and randomly
 			// select an upstream to connect to.
-			r := new(policy.Random)
-			proxy = r.List(f.proxies)[0].([]*Proxy)[0]
+			r := new(random)
+			proxy = r.List(f.proxies)[0]
 
 			HealthcheckBrokenCount.Add(1)
 		}
@@ -206,12 +205,7 @@ func (f *Forward) ForceTCP() bool { return f.opts.forceTCP }
 func (f *Forward) PreferUDP() bool { return f.opts.preferUDP }
 
 // List returns a set of proxies to be used for this client depending on the policy in f.
-func (f *Forward) List() []*Proxy {
-	if len(f.p.List(f.proxies)) == 1 {
-		return f.p.List(f.proxies)[0].([]*Proxy)
-	}
-	return nil
-}
+func (f *Forward) List() []*Proxy {return f.p.List(f.proxies)}
 
 var (
 	// ErrNoHealthy means no healthy proxies left.

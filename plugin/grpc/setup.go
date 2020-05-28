@@ -8,7 +8,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/parse"
-	"github.com/coredns/coredns/plugin/pkg/policy"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
 
 	"github.com/caddyserver/caddy"
@@ -133,11 +132,11 @@ func parseBlock(c *caddy.Controller, g *GRPC) error {
 		}
 		switch x := c.Val(); x {
 		case "random":
-			g.p = &policy.Random{}
+			g.p = &random{}
 		case "round_robin":
-			g.p = &policy.RoundRobin{}
+			g.p = &roundRobin{}
 		case "sequential":
-			g.p = &policy.Sequential{}
+			g.p = &sequential{}
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
