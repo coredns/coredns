@@ -40,7 +40,12 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 		tlsConfig = conf.TLSConfig
 	}
 
-	sh := &ServerHTTPS{Server: s, tlsConfig: tlsConfig, httpsServer: new(http.Server)}
+	srv := &http.Server{
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
+	sh := &ServerHTTPS{Server: s, tlsConfig: tlsConfig, httpsServer: srv}
 	sh.httpsServer.Handler = sh
 
 	return sh, nil
