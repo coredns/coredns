@@ -112,7 +112,6 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 				if !c.NextArg() {
 					return env, resourceGroupMapping, accessMap, fall, c.ArgErr()
 				}
-				env.Values[auth.ClientSecret] = c.Val()
 				var err error
 				if azureEnv, err = azurerest.EnvironmentFromName(c.Val()); err != nil {
 					return env, resourceGroupMapping, accessMap, fall, c.Errf("cannot set azure environment: %q", err.Error())
