@@ -47,7 +47,7 @@ func DefaultProcessor(convert ToFunc) ProcessorBuilder {
 					var err error
 					tombstone, ok := d.Object.(cache.DeletedFinalStateUnknown)
 					if ok {
-						obj, err = convert(tombstone.Obj)
+						obj = tombstone.Obj
 					} else {
 						obj, err = convert(d.Object)
 					}
