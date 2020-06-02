@@ -153,6 +153,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 								if err := clientState.Update(obj); err != nil {
 									return err
 								}
+								h.OnUpdate(old, obj)
 								// endpoint updates can come frequently, make sure it's a change we care about
 								if !endpointsEquivalent(old.(*object.Endpoints), obj) {
 									dns.updateModifed()
@@ -162,6 +163,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 								if err := clientState.Add(obj); err != nil {
 									return err
 								}
+								h.OnAdd(d.Object)
 								dns.updateModifed()
 								recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
 								if !opts.skipAPIObjectsCleanup {
@@ -176,29 +178,32 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 								if err := clientState.Delete(obj); err != nil {
 									return err
 								}
-								dns.updateModifed()
+							} else {
+								// Assume that the object must be a cache.DeletedFinalStateUnknown.
+								// This is essentially an indicator that the Endpoint was deleted, without a containing a
+								// up-to date copy of the Endpoints object. We need to extract the cache.DeletedFinalStateUnknown
+								// object so it can be properly deleted by store.Delete().
+								tombstone, ok := d.Object.(cache.DeletedFinalStateUnknown)
+								if !ok {
+									return errors.New("expected tombstone")
+								}
+								obj, ok = tombstone.Obj.(*object.Endpoints)
+								if !ok {
+									return errors.New("got non-endpoint tombstone")
+								}
+								if err := clientState.Delete(obj); err != nil {
+									return err
+								}
+							}
+							h.OnDelete(obj)
+							dns.updateModifed()
+
+							if apiEndpoints != nil {
 								recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
 								if !opts.skipAPIObjectsCleanup {
 									*apiEndpoints = api.Endpoints{}
 								}
-								return nil
 							}
-							// Assume that the object must be a cache.DeletedFinalStateUnknown.
-							// This is essentially an indicator that the Endpoint was deleted, without a containing a
-							// up-to date copy of the Endpoints object. We need to extract the cache.DeletedFinalStateUnknown
-							// object so it can be properly deleted by store.Delete().
-							tombstone, ok := d.Object.(cache.DeletedFinalStateUnknown)
-							if !ok {
-								return errors.New("expected tombstone")
-							}
-							obj, ok = tombstone.Obj.(*object.Endpoints)
-							if !ok {
-								return errors.New("got non-endpoint tombstone")
-							}
-							if err := clientState.Delete(obj); err != nil {
-								return err
-							}
-							dns.updateModifed()
 						}
 					}
 					return nil
@@ -474,8 +479,8 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*api.Namespace, error) {
 	return nil, fmt.Errorf("namespace not found")
 }
 
-func (dns *dnsControl) Add(obj interface{})               { dns.updateModifed() }
-func (dns *dnsControl) Delete(obj interface{})            { dns.updateModifed() }
+func (dns *dnsControl) Add(obj interface{})               { dns.detectChanges(nil, obj) }
+func (dns *dnsControl) Delete(obj interface{})            { dns.detectChanges(obj, nil) }
 func (dns *dnsControl) Update(oldObj, newObj interface{}) { dns.detectChanges(oldObj, newObj) }
 
 // detectChanges detects changes in objects, and updates the modified timestamp
