@@ -175,9 +175,6 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 							apiEndpoints, ok := d.Object.(*api.Endpoints)
 							if ok {
 								obj = object.ToEndpoints(apiEndpoints)
-								if err := clientState.Delete(obj); err != nil {
-									return err
-								}
 							} else {
 								// Assume that the object must be a cache.DeletedFinalStateUnknown.
 								// This is essentially an indicator that the Endpoint was deleted, without a containing a
@@ -191,9 +188,10 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 								if !ok {
 									return errors.New("got non-endpoint tombstone")
 								}
-								if err := clientState.Delete(obj); err != nil {
-									return err
-								}
+							}
+
+							if err := clientState.Delete(obj); err != nil {
+								return err
 							}
 							h.OnDelete(obj)
 							dns.updateModifed()
