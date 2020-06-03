@@ -49,9 +49,9 @@ func DefaultProcessor(convert ToFunc, recordLatency recordLatencyFunc) Processor
 					}
 				case cache.Deleted:
 					var obj interface{}
-					var err error
 					obj, ok := d.Object.(cache.DeletedFinalStateUnknown)
 					if !ok {
+						var err error
 						obj, err = convert(d.Object)
 						if err != nil && err != errPodTerminating {
 							return err
