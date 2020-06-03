@@ -113,7 +113,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		&api.Service{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc},
-		object.DefaultProcessor(object.ToService(opts.skipAPIObjectsCleanup)),
+		object.DefaultProcessor(object.ToService(opts.skipAPIObjectsCleanup), nil),
 	)
 
 	if opts.initPodCache {
@@ -125,7 +125,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			&api.Pod{},
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{podIPIndex: podIPIndexFunc},
-			object.DefaultProcessor(object.ToPod(opts.skipAPIObjectsCleanup)),
+			object.DefaultProcessor(object.ToPod(opts.skipAPIObjectsCleanup), nil),
 		)
 	}
 
@@ -136,78 +136,10 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 				WatchFunc: endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 			},
 			&api.Endpoints{},
-			cache.ResourceEventHandlerFuncs{},
+			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
-				return func(obj interface{}) error {
-					for _, d := range obj.(cache.Deltas) {
-						switch d.Type {
-						case cache.Sync, cache.Added, cache.Updated:
-							apiEndpoints, ok := d.Object.(*api.Endpoints)
-							if !ok {
-								return errors.New("got non-endpoint add/update")
-							}
-							obj := object.ToEndpoints(apiEndpoints)
-
-							if old, exists, err := clientState.Get(obj); err == nil && exists {
-								if err := clientState.Update(obj); err != nil {
-									return err
-								}
-								h.OnUpdate(old, obj)
-								// endpoint updates can come frequently, make sure it's a change we care about
-								if !endpointsEquivalent(old.(*object.Endpoints), obj) {
-									dns.updateModifed()
-									recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
-								}
-							} else {
-								if err := clientState.Add(obj); err != nil {
-									return err
-								}
-								h.OnAdd(d.Object)
-								dns.updateModifed()
-								recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
-								if !opts.skipAPIObjectsCleanup {
-									*apiEndpoints = api.Endpoints{}
-								}
-							}
-						case cache.Deleted:
-							var obj *object.Endpoints
-							apiEndpoints, ok := d.Object.(*api.Endpoints)
-							if ok {
-								obj = object.ToEndpoints(apiEndpoints)
-							} else {
-								// Assume that the object must be a cache.DeletedFinalStateUnknown.
-								// This is essentially an indicator that the Endpoint was deleted, without a containing a
-								// up-to date copy of the Endpoints object. We need to extract the cache.DeletedFinalStateUnknown
-								// object so it can be properly deleted by store.Delete().
-								tombstone, ok := d.Object.(cache.DeletedFinalStateUnknown)
-								if !ok {
-									return errors.New("expected tombstone")
-								}
-								obj, ok = tombstone.Obj.(*object.Endpoints)
-								if !ok {
-									return errors.New("got non-endpoint tombstone")
-								}
-							}
-
-							if err := clientState.Delete(obj); err != nil {
-								return err
-							}
-							h.OnDelete(obj)
-							dns.updateModifed()
-
-							if apiEndpoints != nil {
-								recordDNSProgrammingLatency(dns.getServices(obj), apiEndpoints)
-								if !opts.skipAPIObjectsCleanup {
-									*apiEndpoints = api.Endpoints{}
-								}
-							}
-						}
-					}
-					return nil
-				}
-			})
-
+			object.DefaultProcessor(object.ToEndpoints(opts.skipAPIObjectsCleanup), dns.recordDNSProgrammingLatency),
+		)
 	}
 
 	dns.nsLister, dns.nsController = cache.NewInformer(
@@ -220,6 +152,10 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		cache.ResourceEventHandlerFuncs{})
 
 	return &dns
+}
+
+func (dns *dnsControl) recordDNSProgrammingLatency(obj interface{}) {
+	recordDNSProgrammingLatency(dns.getServices(obj.(*api.Endpoints)), obj.(*api.Endpoints))
 }
 
 func podIPIndexFunc(obj interface{}) ([]string, error) {
@@ -477,8 +413,8 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*api.Namespace, error) {
 	return nil, fmt.Errorf("namespace not found")
 }
 
-func (dns *dnsControl) Add(obj interface{})               { dns.detectChanges(nil, obj) }
-func (dns *dnsControl) Delete(obj interface{})            { dns.detectChanges(obj, nil) }
+func (dns *dnsControl) Add(obj interface{})               { dns.updateModifed() }
+func (dns *dnsControl) Delete(obj interface{})            { dns.updateModifed() }
 func (dns *dnsControl) Update(oldObj, newObj interface{}) { dns.detectChanges(oldObj, newObj) }
 
 // detectChanges detects changes in objects, and updates the modified timestamp
@@ -496,12 +432,16 @@ func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
 		dns.updateModifed()
 	case *object.Pod:
 		dns.updateModifed()
+	case *object.Endpoints:
+		if !endpointsEquivalent(oldObj.(*object.Endpoints), newObj.(*object.Endpoints)) {
+			dns.updateModifed()
+		}
 	default:
 		log.Warningf("Updates for %T not supported.", ob)
 	}
 }
 
-func (dns *dnsControl) getServices(endpoints *object.Endpoints) []*object.Service {
+func (dns *dnsControl) getServices(endpoints *api.Endpoints) []*object.Service {
 	return dns.SvcIndex(object.EndpointsKey(endpoints.GetName(), endpoints.GetNamespace()))
 }
 

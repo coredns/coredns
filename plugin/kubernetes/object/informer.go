@@ -20,8 +20,10 @@ func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.
 	return clientState, cache.New(cfg)
 }
 
-// DefaultProcessor is a copy of Process function from cache.NewIndexerInformer except it does a conversion.
-func DefaultProcessor(convert ToFunc) ProcessorBuilder {
+type recordLatencyFunc func(interface{})
+
+// DefaultProcessor is based on the Process function from cache.NewIndexerInformer except it does a conversion.
+func DefaultProcessor(convert ToFunc, recordLatency recordLatencyFunc) ProcessorBuilder {
 	return func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
 		return func(obj interface{}) error {
 			for _, d := range obj.(cache.Deltas) {
@@ -42,23 +44,27 @@ func DefaultProcessor(convert ToFunc) ProcessorBuilder {
 						}
 						h.OnAdd(obj)
 					}
+					if recordLatency != nil {
+						recordLatency(d.Object)
+					}
 				case cache.Deleted:
 					var obj interface{}
 					var err error
-					tombstone, ok := d.Object.(cache.DeletedFinalStateUnknown)
-					if ok {
-						obj = tombstone.Obj
-					} else {
+					obj, ok := d.Object.(cache.DeletedFinalStateUnknown)
+					if !ok {
 						obj, err = convert(d.Object)
-					}
-					if err != nil && err != errPodTerminating {
-						return err
+						if err != nil && err != errPodTerminating {
+							return err
+						}
 					}
 
 					if err := clientState.Delete(obj); err != nil {
 						return err
 					}
 					h.OnDelete(obj)
+					if !ok && recordLatency != nil {
+						recordLatency(d.Object)
+					}
 				}
 			}
 			return nil
