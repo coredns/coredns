@@ -1,6 +1,7 @@
 package object
 
 import (
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
 )
@@ -20,7 +21,7 @@ func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.
 	return clientState, cache.New(cfg)
 }
 
-type recordLatencyFunc func(interface{})
+type recordLatencyFunc func(meta.Object)
 
 // DefaultProcessor is based on the Process function from cache.NewIndexerInformer except it does a conversion.
 func DefaultProcessor(convert ToFunc, recordLatency recordLatencyFunc) ProcessorBuilder {
@@ -45,7 +46,7 @@ func DefaultProcessor(convert ToFunc, recordLatency recordLatencyFunc) Processor
 						h.OnAdd(obj)
 					}
 					if recordLatency != nil {
-						recordLatency(d.Object)
+						recordLatency(d.Object.(meta.Object))
 					}
 				case cache.Deleted:
 					var obj interface{}
@@ -63,7 +64,7 @@ func DefaultProcessor(convert ToFunc, recordLatency recordLatencyFunc) Processor
 					}
 					h.OnDelete(obj)
 					if !ok && recordLatency != nil {
-						recordLatency(d.Object)
+						recordLatency(d.Object.(meta.Object))
 					}
 				}
 			}

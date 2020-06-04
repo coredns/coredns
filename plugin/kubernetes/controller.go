@@ -154,7 +154,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 	return &dns
 }
 
-func (dns *dnsControl) recordDNSProgrammingLatency(obj interface{}) {
+func (dns *dnsControl) recordDNSProgrammingLatency(obj meta.Object) {
 	recordDNSProgrammingLatency(dns.getServices(obj.(*api.Endpoints)), obj.(*api.Endpoints))
 }
 
