@@ -228,6 +228,11 @@ func calcSRVWeight(numservices int) uint16 {
 		}
 		w[serv.Priority] += weight
 	}
+	weight := uint16(math.Floor((100.0 / float64(w[0])) * 100))
+	// weight should be at least 1
+	if weight == 0 {
+		weight = 1
+	}
 
-	return uint16(math.Floor((100.0 / float64(w[0])) * 100))
+	return weight
 }

@@ -103,6 +103,10 @@ func (e *External) srv(services []msg.Service, state request.Request) (records, 
 			w1 *= float64(s.Weight)
 		}
 		weight := uint16(math.Floor(w1))
+		// weight should be at least 1
+		if weight == 0 {
+			weight = 1
+		}
 
 		what, ip := s.HostType()
 
