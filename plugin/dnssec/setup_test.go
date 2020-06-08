@@ -78,6 +78,18 @@ func TestSetupDnssec(t *testing.T) {
 				key file ksk_Kcluster.local
 			}`, false, []string{"cluster.local."}, nil, true, defaultCap, "",
 		},
+		{
+			`dnssec cluster.local {
+				key file Kcluster.local
+                key file Kcluster.local
+			}`, true, []string{"example.org."}, nil, false, defaultCap, "loaded twice",
+		},
+		{
+			`dnssec cluster.local {
+				key file Kcluster.local.private
+                key file Kcluster.local.key
+			}`, true, []string{"example.org."}, nil, false, defaultCap, "loaded twice",
+		},
 	}
 
 	for i, test := range tests {

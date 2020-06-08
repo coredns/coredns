@@ -115,6 +115,19 @@ func dnssecParse(c *caddy.Controller) ([]string, []*DNSKEY, int, bool, error) {
 		}
 	}
 
+	// check if a key is configured multiple times
+	seen := make(map[string]bool)
+	for _, k := range keys {
+		// compare based on DNSKEY resource record that already includes key type, using same key for both KSK and ZSK
+		// is not an issue on CoreDNS side
+		record := k.K.String()
+		_, found := seen[record]
+		if found {
+			return zones, keys, capacity, splitkeys, fmt.Errorf("key %s (keyid: %d) loaded twice", k.K.Header().Name, k.tag)
+		}
+		seen[record] = true
+	}
+
 	return zones, keys, capacity, splitkeys, nil
 }
 
