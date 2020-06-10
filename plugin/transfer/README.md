@@ -12,8 +12,6 @@ This plugin answers zone transfers for authoritative plugins that implement
 Transfer answers full zone transfer (AXFR) requests and incremental zone transfer (IXFR) requests
 with AXFR fallback if the zone has changed.
 
-Notifies are sent to all hosts in `to` fields when the zone changes.
-
 ## Syntax
 
 ~~~
