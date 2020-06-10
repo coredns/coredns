@@ -51,7 +51,7 @@ func TestParse(t *testing.T) {
 			&Transfer{
 				xfrs: []*xfr{{
 					Zones: []string{"example.org."},
-					to:    hosts{"1.2.3.4:53": &notifyOpts{source: &net.IPAddr{IP: net.ParseIP("5.6.7.8")}}},
+					to:    hosts{"1.2.3.4:53": &notifyOpts{source: &net.UDPAddr{IP: net.ParseIP("5.6.7.8")}}},
 				}},
 			},
 		},
