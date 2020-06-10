@@ -12,13 +12,13 @@ This plugin answers zone transfers for authoritative plugins that implement
 Transfer answers full zone transfer (AXFR) requests and incremental zone transfer (IXFR) requests
 with AXFR fallback if the zone has changed.
 
-Notifies are sent to all hosts in the `to` field when the zone changes.
+Notifies are sent to all hosts in `to` fields when the zone changes.
 
 ## Syntax
 
 ~~~
 transfer [ZONE...] {
-  to HOST...
+  to HOST-IP [notify [source SOURCE-IP]]
 }
 ~~~
 
@@ -27,9 +27,11 @@ transfer [ZONE...] {
   transfers for a given zone, there must be another plugin in the same server
   block that serves the same zone, and implements `transfer.Transferer`.
 
-* `to ` **HOST...** The hosts *transfer* will transfer to. Use `*` to permit
-  transfers to all hosts. Notifies will also be sent to all listed hosts (with
-  exception to the `*` wildcard).
+* `to ` **HOST-IP** The host *transfer* will transfer to. Use `*` to permit
+  transfers to all hosts. If `notify` is included, notifies will be sent
+  to the host. The `to` option may be specified more than once to
+  define multiple hosts.  The `source SOURCE-IP` option controls which
+  interface will be used when sending notifies to the host.
 
 ## Examples
 

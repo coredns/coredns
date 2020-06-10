@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"net"
 	"testing"
 
 	"github.com/caddyserver/caddy"
@@ -13,19 +14,44 @@ func TestParse(t *testing.T) {
 		exp       *Transfer
 	}{
 		{`transfer example.net example.org {
-			to 1.2.3.4 5.6.7.8:1053 [1::2]:34
+			to 1.2.3.4
+            to 5.6.7.8:1053
+            to [1::2]:34
 		 }
          transfer example.com example.edu {
-            to * 1.2.3.4
+            to *
+            to 1.2.3.4
          }`,
 			false,
 			&Transfer{
 				xfrs: []*xfr{{
 					Zones: []string{"example.net.", "example.org."},
-					to:    []string{"1.2.3.4:53", "5.6.7.8:1053", "[1::2]:34"},
+					to:    hosts{"1.2.3.4:53": nil, "5.6.7.8:1053": nil, "[1::2]:34": nil},
 				}, {
 					Zones: []string{"example.com.", "example.edu."},
-					to:    []string{"*", "1.2.3.4:53"},
+					to:    hosts{"*": nil, "1.2.3.4:53": nil},
+				}},
+			},
+		},
+		{`transfer example.org {
+			to 1.2.3.4 notify
+		 }`,
+			false,
+			&Transfer{
+				xfrs: []*xfr{{
+					Zones: []string{"example.org."},
+					to:    hosts{"1.2.3.4:53": &notifyOpts{}},
+				}},
+			},
+		},
+		{`transfer example.org {
+			to 1.2.3.4 notify source 5.6.7.8
+		 }`,
+			false,
+			&Transfer{
+				xfrs: []*xfr{{
+					Zones: []string{"example.org."},
+					to:    hosts{"1.2.3.4:53": &notifyOpts{source: &net.IPAddr{IP: net.ParseIP("5.6.7.8")}}},
 				}},
 			},
 		},
@@ -37,6 +63,24 @@ func TestParse(t *testing.T) {
 		},
 		{`transfer example.net example.org {
            invalid option
+		 }`,
+			true,
+			nil,
+		},
+		{`transfer example.org {
+           to 1.2.3.4 invalid
+		 }`,
+			true,
+			nil,
+		},
+		{`transfer example.org {
+           to 1.2.3.4 notify invalid
+		 }`,
+			true,
+			nil,
+		},
+		{`transfer example.org {
+           to 1.2.3.4 notify source invalid
 		 }`,
 			true,
 			nil,
@@ -74,10 +118,18 @@ func TestParse(t *testing.T) {
 			if len(tc.exp.xfrs[j].to) != len(x.to) {
 				t.Fatalf("Test %d expected %d 'to' values, got %d", i, len(tc.exp.xfrs[i].to), len(x.to))
 			}
-			for k, to := range x.to {
-				if tc.exp.xfrs[j].to[k] != to {
-					t.Errorf("Test %d expected %v in 'to', got %v", i, tc.exp.xfrs[j].to[k], to)
-
+			for host, opts := range x.to {
+				if tc.exp.xfrs[j].to[host] == nil && opts == nil {
+					continue
+				}
+				if opts.source == nil && tc.exp.xfrs[j].to[host].source == nil {
+					continue
+				}
+				if opts.source == nil && tc.exp.xfrs[j].to[host].source != nil {
+					t.Fatalf("Test %d expected nil for 'to notify source', got %v", i, opts.source)
+				}
+				if tc.exp.xfrs[j].to[host].source.String() != opts.source.String() {
+					t.Errorf("Test %d expected %v for 'to notify source', got %v", i, tc.exp.xfrs[j].to[host].source, opts.source)
 				}
 			}
 		}

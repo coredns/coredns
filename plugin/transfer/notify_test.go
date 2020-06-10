@@ -21,7 +21,7 @@ func TestNotify(t *testing.T) {
 	transfer := Transfer{
 		xfrs: []*xfr{{
 			Zones: []string{"example.com."},
-			to:    []string{addr}, // send the dns notifies to our udp listener
+			to:    hosts{addr: &notifyOpts{source: &net.UDPAddr{IP: net.ParseIP("127.0.0.1")}}}, // send the dns notifies to our udp listener
 		}},
 	}
 	stop := make(chan struct{})

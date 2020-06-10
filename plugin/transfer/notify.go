@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
@@ -27,7 +28,7 @@ func (t Transfer) Notify(data <-chan []string, stop <-chan struct{}) {
 // It will try up to three times before giving up on a specific remote. It will sequentially loop
 // through "to" until they all have replied (or have 3 failed attempts).
 func (t Transfer) sendNotifies(zone string) {
-	var to []string
+	var to hosts
 
 	// get remote servers for this zone
 	for _, x := range t.xfrs {
@@ -45,16 +46,20 @@ func (t Transfer) sendNotifies(zone string) {
 	m := new(dns.Msg)
 	m.SetNotify(zone)
 	c := new(dns.Client)
-
-	for _, t := range to {
-		if t == "*" {
+	var hosts string
+	for host, nOpts := range to {
+		if nOpts == nil || host == "*" {
 			continue
 		}
-		if err := notifyAddr(c, m, t); err != nil {
+		if nOpts.source != nil {
+			c.Dialer = &net.Dialer{LocalAddr: nOpts.source}
+		}
+		if err := notifyAddr(c, m, host); err != nil {
 			log.Error(err.Error())
 		}
+		hosts += " " + host
 	}
-	log.Infof("Sent notifies for zone %q to %v", zone, to)
+	log.Infof("Sent notifies for zone %q to%v", zone, hosts)
 }
 
 func notifyAddr(c *dns.Client, m *dns.Msg, s string) error {

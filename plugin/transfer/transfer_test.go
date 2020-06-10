@@ -75,11 +75,11 @@ func newTestTransfer() Transfer {
 		xfrs: []*xfr{
 			{
 				Zones: []string{"example.org."},
-				to:    []string{"*"},
+				to:    hosts{"*": nil},
 			},
 			{
 				Zones: []string{"example.com."},
-				to:    []string{"*"},
+				to:    hosts{"*": nil},
 			},
 		},
 		Next: nextPlugin1,
@@ -269,7 +269,7 @@ func TestTransferNotAllowed(t *testing.T) {
 		xfrs: []*xfr{
 			{
 				Zones: []string{"example.org."},
-				to:    []string{"1.2.3.4"},
+				to:    hosts{"1.2.3.4": nil},
 			},
 		},
 		Next: nextPlugin,

@@ -1,6 +1,10 @@
 package transfer
 
 import (
+	"errors"
+	"fmt"
+	"net"
+
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	parsepkg "github.com/coredns/coredns/plugin/pkg/parse"
@@ -52,7 +56,7 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 
 	t := &Transfer{}
 	for c.Next() {
-		x := &xfr{}
+		x := &xfr{to: make(hosts)}
 		zones := c.RemainingArgs()
 
 		if len(zones) != 0 {
@@ -78,21 +82,11 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 		for c.NextBlock() {
 			switch c.Val() {
 			case "to":
-				args := c.RemainingArgs()
-				if len(args) == 0 {
-					return nil, c.ArgErr()
+				host, nOpts, err := parseTo(c.RemainingArgs())
+				if err != nil {
+					return nil, err
 				}
-				for _, host := range args {
-					if host == "*" {
-						x.to = append(x.to, host)
-						continue
-					}
-					normalized, err := parsepkg.HostPort(host, transport.Port)
-					if err != nil {
-						return nil, err
-					}
-					x.to = append(x.to, normalized)
-				}
+				x.to[host] = nOpts
 			default:
 				return nil, plugin.Error("transfer", c.Errf("unknown property '%s'", c.Val()))
 			}
@@ -103,4 +97,43 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 		t.xfrs = append(t.xfrs, x)
 	}
 	return t, nil
+}
+
+func parseTo(args []string) (host string, nOpts *notifyOpts, err error) {
+	if len(args) == 0 {
+		return host, nOpts, errors.New("expected host")
+	}
+	host = args[0]
+	if host == "*" {
+		return host, nOpts, err
+	}
+	host, err = parsepkg.HostPort(host, transport.Port)
+	if err != nil {
+		return host, nOpts, err
+	}
+	if len(args) == 1 {
+		return host, nOpts, err
+	}
+	if len(args) > 1 && args[1] != "notify" {
+		return host, nOpts, fmt.Errorf("invalid option %v", args[1])
+	}
+	nOpts = &notifyOpts{}
+
+	for i := 2; i < len(args); i++ {
+		switch args[i] {
+		case "source":
+			i++
+			if i > len(args) {
+				return host, nOpts, errors.New("expected source address")
+			}
+			if ip := net.ParseIP(args[i]); ip != nil {
+				nOpts.source = &net.UDPAddr{IP: ip}
+			} else {
+				return host, nOpts, fmt.Errorf("invalid source address '%v'", args[i])
+			}
+		default:
+			return host, nOpts, fmt.Errorf("invalid option %v", args[i])
+		}
+	}
+	return host, nOpts, nil
 }

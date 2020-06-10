@@ -25,7 +25,15 @@ type Transfer struct {
 
 type xfr struct {
 	Zones []string
-	to    []string
+	to    hosts
+}
+
+// hosts is a map of remote hosts to notify options
+type hosts map[string]*notifyOpts
+
+// notifyOpts hold options for sending notifies
+type notifyOpts struct {
+	source net.Addr
 }
 
 // Transferer may be implemented by plugins to enable zone transfers
@@ -166,7 +174,7 @@ receive:
 }
 
 func (x xfr) allowed(state request.Request) bool {
-	for _, h := range x.to {
+	for h, _ := range x.to {
 		if h == "*" {
 			return true
 		}
