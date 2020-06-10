@@ -174,7 +174,7 @@ receive:
 }
 
 func (x xfr) allowed(state request.Request) bool {
-	for h, _ := range x.to {
+	for h := range x.to {
 		if h == "*" {
 			return true
 		}
