@@ -25,11 +25,15 @@ type dnsHc struct {
 }
 
 // NewHealthChecker returns a new HealthChecker based on transport.
-func NewHealthChecker(trans string, recursionDesired bool) HealthChecker {
+func NewHealthChecker(trans string, healthCheckTCP bool, recursionDesired bool) HealthChecker {
 	switch trans {
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
-		c.Net = "udp"
+		if healthCheckTCP {
+			c.Net = "tcp"
+		} else {
+			c.Net = "udp"
+		}
 		c.ReadTimeout = 1 * time.Second
 		c.WriteTimeout = 1 * time.Second
 

@@ -27,7 +27,7 @@ func TestProxyClose(t *testing.T) {
 	ctx := context.TODO()
 
 	for i := 0; i < 100; i++ {
-		p := NewProxy(s.Addr, transport.DNS)
+		p := NewProxy(s.Addr, transport.DNS, false)
 		p.start(hcInterval)
 
 		go func() { p.Connect(ctx, state, options{}) }()
@@ -96,7 +96,7 @@ func TestProxyTLSFail(t *testing.T) {
 }
 
 func TestProtocolSelection(t *testing.T) {
-	p := NewProxy("bad_address", transport.DNS)
+	p := NewProxy("bad_address", transport.DNS, false)
 
 	stateUDP := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
 	stateTCP := request.Request{W: &test.ResponseWriter{TCP: true}, Req: new(dns.Msg)}

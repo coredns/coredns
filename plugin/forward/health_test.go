@@ -31,7 +31,7 @@ func TestHealth(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy(s.Addr, transport.DNS, false)
 	f := New()
 	f.SetProxy(p)
 	defer f.OnShutdown()
@@ -66,7 +66,7 @@ func TestHealthNoRecursion(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy(s.Addr, transport.DNS, false)
 	p.health.SetRecursionDesired(false)
 	f := New()
 	f.SetProxy(p)
@@ -107,7 +107,7 @@ func TestHealthTimeout(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy(s.Addr, transport.DNS, false)
 	f := New()
 	f.SetProxy(p)
 	defer f.OnShutdown()
@@ -151,7 +151,7 @@ func TestHealthFailTwice(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy(s.Addr, transport.DNS, false)
 	f := New()
 	f.SetProxy(p)
 	defer f.OnShutdown()
@@ -174,7 +174,7 @@ func TestHealthMaxFails(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy(s.Addr, transport.DNS, false)
 	f := New()
 	f.maxfails = 2
 	f.SetProxy(p)
@@ -206,7 +206,7 @@ func TestHealthNoMaxFails(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy(s.Addr, transport.DNS, false)
 	f := New()
 	f.maxfails = 0
 	f.SetProxy(p)

@@ -22,14 +22,14 @@ type Proxy struct {
 }
 
 // NewProxy returns a new proxy.
-func NewProxy(addr, trans string) *Proxy {
+func NewProxy(addr, trans string, healthCheckTCP bool) *Proxy {
 	p := &Proxy{
 		addr:      addr,
 		fails:     0,
 		probe:     up.New(),
 		transport: newTransport(addr),
 	}
-	p.health = NewHealthChecker(trans, true)
+	p.health = NewHealthChecker(trans, healthCheckTCP, true)
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
 }
