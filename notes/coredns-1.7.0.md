@@ -57,4 +57,36 @@ And note that
 `coredns_dns_request_type_count_total` is now part of `coredns_dns_requests_total` .
 
 ## Brought to You By
+
+Ambrose Chua,
+Ben Kochie,
+Catena cyber,
+Chanakya-Ekbote,
+Chris O'Haver,
+Daisuke TASAKI,
+Eli Lindsey,
+Erfan Besharat,
+Krzysztof Dąbrowski,
+Michael Kashin,
+Miek Gieben,
+Mirek S,
+Pablo Caderno,
+Sandeep Rajan,
+Tobias Schmidt,
+Yang Bo,
+Yong Tang,
+Zou Nengren.
+
 ## Noteworthy Changes
+
+* plugin/azure: Fix environment option overwrite (https://github.com/coredns/coredns/pull/3922)
+* plugin/dns64: Add DNS64 plugin (https://github.com/coredns/coredns/pull/3534)
+* plugin/federation: Remove already deprecated federation plugin (https://github.com/coredns/coredns/pull/3794)
+* plugin/forward: Avoid https protocol (https://github.com/coredns/coredns/pull/3817)
+* plugin/k8s_external: Add CNAME support for AWS ELB/NLB (https://github.com/coredns/coredns/pull/3916)
+* plugin/kubernetes: Remove already deprecated options `resyncperiod` and `upstream` (https://github.com/coredns/coredns/pull/3737)
+* plugin/kubernetes: Populate client metadata for external queries (https://github.com/coredns/coredns/pull/3874)
+* plugin/kubernetes: Fix 0 weight in SRV records with 100 more records in answer (https://github.com/coredns/coredns/pull/3931)
+* plugin/kubernetes: Handle tombstones in kubernetes plugin (https://github.com/coredns/coredns/pull/3887) and (https://github.com/coredns/coredns/pull/3890)
+* plugin/nsid: Fix NSID not being set on cached responses (https://github.com/coredns/coredns/pull/3822)
+* metrics: Better metrics names (https://github.com/coredns/coredns/pull/3776), (https://github.com/coredns/coredns/pull/3799), and (https://github.com/coredns/coredns/pull/3805)
