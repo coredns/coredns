@@ -12,7 +12,6 @@ The CoreDNS team has released
 
 This is a **backwards incompatible release**. Major changes include:
 * Better [metrics names](https://github.com/coredns/coredns/pull/3776).
-* New `transfer` plugin that removes the need for plugins to perform their own zone transfers.
 * The *federation* plugin (allows for v1 Kubernetes federation) has been removed. We've also removed
   some supporting code from the *kubernetes* plugin, so it will not build as an external plugin
   (with this version of CoreDNS).
