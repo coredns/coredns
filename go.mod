@@ -36,7 +36,7 @@ require (
 	go.uber.org/zap v1.14.1 // indirect
 	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
 	golang.org/x/sys v0.0.0-20200615200032-f1bc736245b1
-	google.golang.org/api v0.26.0
+	google.golang.org/api v0.28.0
 	google.golang.org/grpc v1.29.1
 	gopkg.in/DataDog/dd-trace-go.v1 v1.24.1
 	k8s.io/api v0.18.3
