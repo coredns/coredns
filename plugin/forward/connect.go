@@ -65,6 +65,7 @@ func (t *Transport) Dial(proto string) (*dns.Conn, bool, error) {
 		t.updateDialTimeout(time.Since(reqTime))
 		return conn, false, err
 	}
+	//fmt.Println("[INFO] Transport Dial used", proto, t.addr)
 	conn, err := dns.DialTimeout(proto, t.addr, timeout)
 	t.updateDialTimeout(time.Since(reqTime))
 	return conn, false, err
@@ -78,6 +79,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 	}()
 
 	if p.transport.maxrequests > 0 && numpending > p.transport.maxrequests {
+		fmt.Println("[ERROR] Too busy: %d requests pending", numpending)
 		return nil, fmt.Errorf("Too busy: %d requests pending", numpending)
 	}
 
@@ -95,7 +97,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 
 	conn, cached, err := p.transport.Dial(proto)
 	if err != nil {
-		fmt.Println("[ERROR] Failed while dialing", proto, p.addr, "elapsed", time.Since(start), err)
+		fmt.Println("[ERROR] Failed while dialing", proto, p.addr, "->", state.Req.Question, "elapsed", time.Since(start), err)
 		return nil, err
 	}
 
@@ -144,6 +146,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 	RcodeCount.WithLabelValues(rc, p.addr).Add(1)
 	RequestDuration.WithLabelValues(p.addr).Observe(time.Since(start).Seconds())
 
+	//fmt.Println("[OK] ", p.addr, "->", state.Req.Question)
 	return ret, nil
 }
 
