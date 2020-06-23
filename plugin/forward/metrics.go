@@ -18,7 +18,7 @@ var (
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
 		Name:      "responses_total",
-		Help:      "Counter of requests made per upstream.",
+		Help:      "Counter of response made per upstream.",
 	}, []string{"rcode", "to"})
 	RequestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
