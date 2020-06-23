@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -87,6 +88,9 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		return 0, nil
 	}
 
+	if ret == nil {
+		return dns.RcodeServerFailure, errors.New("no healthy gRPC backend")
+	}
 	return 0, nil
 }
 
