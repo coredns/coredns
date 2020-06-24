@@ -33,7 +33,7 @@ var (
 		Namespace: plugin.Namespace,
 		Subsystem: "cache",
 		Name:      "prefetch_total",
-		Help:      "The number of time the cache has prefetched a cached item.",
+		Help:      "The number of times the cache has prefetched a cached item.",
 	}, []string{"server"})
 	// cacheDrops is the number responses that are not cached, because the reply is malformed.
 	cacheDrops = prometheus.NewCounterVec(prometheus.CounterOpts{
