@@ -27,6 +27,7 @@ env:
     - TEST_TYPE=integration
     - TEST_TYPE=core
     - TEST_TYPE=plugin
+    - TEST_TYPE=fmt
 #    - TEST_TYPE=fuzzit FUZZIT_TYPE=local-regression
 #    - TEST_TYPE=fuzzit FUZZIT_TYPE=fuzzing
 

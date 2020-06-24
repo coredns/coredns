@@ -103,7 +103,9 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 	return eps
 }
 
-func (APIConnTest) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return &api.Node{}, nil }
+func (APIConnTest) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
+	return &api.Node{}, nil
+}
 func (APIConnTest) GetNamespaceByName(name string) (*api.Namespace, error) {
 	return &api.Namespace{}, nil
 }

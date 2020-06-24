@@ -79,17 +79,17 @@ func TestExternal(t *testing.T) {
 
 type external struct{}
 
-func (external) HasSynced() bool                              { return true }
-func (external) Run()                                         {}
-func (external) Stop() error                                  { return nil }
-func (external) EpIndexReverse(string) []*object.Endpoints    { return nil }
-func (external) SvcIndexReverse(string) []*object.Service     { return nil }
-func (external) Modified() int64                              { return 0 }
-func (external) EpIndex(s string) []*object.Endpoints         { return nil }
-func (external) EndpointsList() []*object.Endpoints           { return nil }
+func (external) HasSynced() bool                                                   { return true }
+func (external) Run()                                                              {}
+func (external) Stop() error                                                       { return nil }
+func (external) EpIndexReverse(string) []*object.Endpoints                         { return nil }
+func (external) SvcIndexReverse(string) []*object.Service                          { return nil }
+func (external) Modified() int64                                                   { return 0 }
+func (external) EpIndex(s string) []*object.Endpoints                              { return nil }
+func (external) EndpointsList() []*object.Endpoints                                { return nil }
 func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }
-func (external) SvcIndex(s string) []*object.Service          { return svcIndexExternal[s] }
-func (external) PodIndex(string) []*object.Pod                { return nil }
+func (external) SvcIndex(s string) []*object.Service                               { return svcIndexExternal[s] }
+func (external) PodIndex(string) []*object.Pod                                     { return nil }
 
 func (external) GetNamespaceByName(name string) (*api.Namespace, error) {
 	return &api.Namespace{

@@ -13,6 +13,7 @@ import (
 )
 
 const name = "whoami"
+
 // Whoami is a plugin that returns your IP address, port and the protocol used for connecting
 // to CoreDNS.
 type Whoami struct{}

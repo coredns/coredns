@@ -164,7 +164,7 @@ func TestDNS64(t *testing.T) {
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 			},
 			initResp: &dns.Msg{ //success, no answers
 				MsgHdr: dns.MsgHdr{
@@ -174,7 +174,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 70 IN SOA foo bar 1 1 1 1 1")},
 			},
 			aResp: &dns.Msg{
@@ -185,7 +185,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeA, dns.ClassINET}},
 				Answer: []dns.RR{
 					test.A("example.com. 60 IN A 192.0.2.42"),
 					test.A("example.com. 5000 IN A 192.0.2.43"),
@@ -200,7 +200,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Answer: []dns.RR{
 					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
 					// override RR ttl to SOA ttl, since it's lower
@@ -217,7 +217,7 @@ func TestDNS64(t *testing.T) {
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 			},
 			initResp: &dns.Msg{ //success, no answers
 				MsgHdr: dns.MsgHdr{
@@ -227,7 +227,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 			aResp: &dns.Msg{
@@ -238,7 +238,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeA, dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 
@@ -250,7 +250,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 				Answer:   []dns.RR{}, // just to make comparison happy
 			},
@@ -264,7 +264,7 @@ func TestDNS64(t *testing.T) {
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 			},
 			initResp: &dns.Msg{ // failure
 				MsgHdr: dns.MsgHdr{
@@ -274,7 +274,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeRefused,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 			},
 			aResp: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
@@ -284,7 +284,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeA, dns.ClassINET}},
 				Answer: []dns.RR{
 					test.A("example.com. 60 IN A 192.0.2.42"),
 					test.A("example.com. 5000 IN A 192.0.2.43"),
@@ -299,7 +299,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Answer: []dns.RR{
 					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
 					test.AAAA("example.com. 600 IN AAAA 64:ff9b::192.0.2.43"),
@@ -315,7 +315,7 @@ func TestDNS64(t *testing.T) {
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 			},
 			initResp: &dns.Msg{ // failure
 				MsgHdr: dns.MsgHdr{
@@ -325,7 +325,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeNameError,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 			resp: &dns.Msg{
@@ -336,7 +336,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeNameError,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 		},
@@ -349,7 +349,7 @@ func TestDNS64(t *testing.T) {
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 			},
 
 			initResp: &dns.Msg{
@@ -360,7 +360,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Answer: []dns.RR{
 					test.AAAA("example.com. 60 IN AAAA ::1"),
 					test.AAAA("example.com. 5000 IN AAAA ::2"),
@@ -375,7 +375,7 @@ func TestDNS64(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{dns.Question{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
 				Answer: []dns.RR{
 					test.AAAA("example.com. 60 IN AAAA ::1"),
 					test.AAAA("example.com. 5000 IN AAAA ::2"),

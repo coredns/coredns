@@ -28,6 +28,9 @@ endif
 ifeq ($(TEST_TYPE),integration)
 	( cd test; go test -race ./... )
 endif
+ifeq ($(TEST_TYPE),fmt)
+	( echo "fmt"; gofmt -w -s . | grep ".*\.go"; if [ "$$?" = "0" ]; then exit 1; fi )
+endif
 ifeq ($(TEST_TYPE),plugin)
 	( cd plugin; go test -race ./... )
 endif
