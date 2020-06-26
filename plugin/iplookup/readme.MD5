@@ -1,0 +1,21 @@
+# Reverse lookup service
+
+1. Modify Corefile with the following stanza
+
+```
+iplookup {
+     listen :8053
+     entries 1000
+     duration 30m
+     global true
+}
+```
+
+entries and duration are mutually exclusive. You can add both but only one will be used.
+
+2. Resolve IP addresses to their corresponding origin host queries via the following URL. If the hostname
+was recently queried, it will show up here.
+
+```
+http://localhost:8053/172.217.4.202
+```
