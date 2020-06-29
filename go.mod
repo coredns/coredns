@@ -4,8 +4,8 @@ go 1.13
 
 require (
 	github.com/Azure/azure-sdk-for-go v40.6.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.10.2
-	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2
+	github.com/Azure/go-autorest/autorest v0.11.0
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.0
 	github.com/DataDog/datadog-go v3.5.0+incompatible // indirect
 	github.com/Shopify/sarama v1.21.0 // indirect
 	github.com/apache/thrift v0.13.0 // indirect
@@ -34,7 +34,7 @@ require (
 	github.com/tinylib/msgp v1.1.2 // indirect
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200306183522-221f0cc107cb
 	go.uber.org/zap v1.14.1 // indirect
-	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/sys v0.0.0-20200615200032-f1bc736245b1
 	google.golang.org/api v0.28.0
 	google.golang.org/grpc v1.29.1
