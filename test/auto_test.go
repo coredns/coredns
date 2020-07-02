@@ -16,6 +16,7 @@ func TestAuto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tmpdir)
 
 	corefile := `org:0 {
 		auto {
@@ -74,6 +75,7 @@ func TestAutoNonExistentZone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tmpdir)
 
 	corefile := `.:0 {
 		auto {
@@ -112,6 +114,7 @@ func TestAutoAXFR(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tmpdir)
 
 	corefile := `org:0 {
 		auto {
