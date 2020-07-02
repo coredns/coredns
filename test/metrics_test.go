@@ -73,6 +73,7 @@ func TestMetricsAuto(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(tmpdir)
 
 	corefile := `org:0 {
 		auto {
