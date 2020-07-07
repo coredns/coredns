@@ -120,7 +120,9 @@ func TestAutoAXFR(t *testing.T) {
 		auto {
 			directory ` + tmpdir + ` db\.(.*) {1}
 			reload 1s
-			transfer to *
+		}
+		transfer {
+			to *
 		}
 	}`
 

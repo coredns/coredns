@@ -14,7 +14,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
 	"github.com/miekg/dns"
@@ -235,15 +234,6 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				return nil, c.Errf("ttl must be in range [0, 3600]: %d", t)
 			}
 			k8s.ttl = uint32(t)
-		case "transfer":
-			tos, froms, err := parse.Transfer(c, false)
-			if err != nil {
-				return nil, err
-			}
-			if len(froms) != 0 {
-				return nil, c.Errf("transfer from is not supported with this plugin")
-			}
-			k8s.TransferTo = tos
 		case "noendpoints":
 			if len(c.RemainingArgs()) != 0 {
 				return nil, c.ArgErr()

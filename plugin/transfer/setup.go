@@ -4,7 +4,7 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	parsepkg "github.com/coredns/coredns/plugin/pkg/parse"
+	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 )
 
@@ -16,7 +16,7 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	t, err := parse(c)
+	t, err := parseTransfer(c)
 
 	if err != nil {
 		return plugin.Error("transfer", err)
@@ -43,8 +43,7 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func parse(c *caddy.Controller) (*Transfer, error) {
-
+func parseTransfer(c *caddy.Controller) (*Transfer, error) {
 	t := &Transfer{}
 	for c.Next() {
 		x := &xfr{}
@@ -82,14 +81,14 @@ func parse(c *caddy.Controller) (*Transfer, error) {
 						x.to = append(x.to, host)
 						continue
 					}
-					normalized, err := parsepkg.HostPort(host, transport.Port)
+					normalized, err := parse.HostPort(host, transport.Port)
 					if err != nil {
 						return nil, err
 					}
 					x.to = append(x.to, normalized)
 				}
 			default:
-				return nil, plugin.Error("transfer", c.Errf("unknown property '%s'", c.Val()))
+				return nil, plugin.Error("transfer", c.Errf("unknown property %q", c.Val()))
 			}
 		}
 		if len(x.to) == 0 {

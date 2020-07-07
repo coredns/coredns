@@ -11,8 +11,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
+	"github.com/coredns/coredns/plugin/transfer"
 )
 
 var log = clog.NewWithPlugin("auto")
@@ -27,10 +27,13 @@ func setup(c *caddy.Controller) error {
 
 	c.OnStartup(func() error {
 		m := dnsserver.GetConfig(c).Handler("prometheus")
-		if m == nil {
-			return nil
+		if m != nil {
+			(&a).metrics = m.(*metrics.Metrics)
 		}
-		(&a).metrics = m.(*metrics.Metrics)
+		t := dnsserver.GetConfig(c).Handler("transfer")
+		if t != nil {
+			(&a).transfer = t.(*transfer.Transfer)
+		}
 		return nil
 	})
 
@@ -145,15 +148,6 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 			case "upstream":
 				// remove soon
 				c.RemainingArgs() // eat remaining args
-
-			case "transfer":
-				t, _, e := parse.Transfer(c, false)
-				if e != nil {
-					return a, e
-				}
-				if t != nil {
-					a.loader.transferTo = append(a.loader.transferTo, t...)
-				}
 
 			default:
 				return Auto{}, c.Errf("unknown property '%s'", c.Val())

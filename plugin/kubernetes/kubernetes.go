@@ -46,7 +46,6 @@ type Kubernetes struct {
 	primaryZoneIndex int
 	localIPs         []net.IP
 	autoPathSearch   []string // Local search path from /etc/resolv.conf. Needed for autopath.
-	TransferTo       []string
 }
 
 // New returns a initialized Kubernetes. It default interfaceAddrFunc to return 127.0.0.1. All other
@@ -494,6 +493,12 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 	}
 	return services, err
 }
+
+// Serial return the SOA serial.
+func (k *Kubernetes) Serial(state request.Request) uint32 { return uint32(k.APIConn.Modified()) }
+
+// MinTTL returns the minimal TTL.
+func (k *Kubernetes) MinTTL(state request.Request) uint32 { return k.ttl }
 
 // match checks if a and b are equal taking wildcards into account.
 func match(a, b string) bool {

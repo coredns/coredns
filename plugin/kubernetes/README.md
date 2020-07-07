@@ -40,7 +40,6 @@ kubernetes [ZONES...] {
     endpoint_pod_names
     ttl TTL
     noendpoints
-    transfer to ADDRESS...
     fallthrough [ZONES...]
     ignore empty_service
 }
@@ -90,11 +89,6 @@ kubernetes [ZONES...] {
   0 seconds, and the maximum is capped at 3600 seconds. Setting TTL to 0 will prevent records from being cached.
 * `noendpoints` will turn off the serving of endpoint records by disabling the watch on endpoints.
   All endpoint queries and headless service queries will result in an NXDOMAIN.
-* `transfer` enables zone transfers. It may be specified multiples times. `To` signals the direction
-  (only `to` is allowed). **ADDRESS** must be denoted in CIDR notation (127.0.0.1/32 etc.) or just as
-  plain addresses. The special wildcard `*` means: the entire internet.
-  Sending DNS notifies is not supported.
-  [Deprecated](https://github.com/kubernetes/dns/blob/master/docs/specification.md#26---deprecated-records) pod records in the subdomain `pod.cluster.local` are not transferred.
 * `fallthrough` **[ZONES...]** If a query for a record in the zones for which the plugin is authoritative
   results in NXDOMAIN, normally that is what the response will be. However, if you specify this option,
   the query will instead be passed on down the plugin chain, which can include another plugin to handle
@@ -104,6 +98,8 @@ kubernetes [ZONES...] {
 * `ignore empty_service` returns NXDOMAIN for services without any ready endpoint addresses (e.g., ready pods).
   This allows the querying pod to continue searching for the service in the search path.
   The search path could, for example, include another Kubernetes cluster.
+
+Enabling zone transfer is done by using the *transfer* plugin.
 
 ## Ready
 
@@ -238,3 +234,8 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 ## Bugs
 
 The duration metric only supports the "headless\_with\_selector" service currently.
+
+## Also See
+
+See the *autopath* plugin to enable search path optimizations. And use the *transfer* plugin to
+enable outgoing zone transfers.

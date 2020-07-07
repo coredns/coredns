@@ -2,7 +2,6 @@ package file
 
 import (
 	"fmt"
-	"net"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -10,7 +9,6 @@ import (
 
 	"github.com/coredns/coredns/plugin/file/tree"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
-	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -26,7 +24,6 @@ type Zone struct {
 
 	sync.RWMutex
 
-	TransferTo   []string
 	StartupOnce  sync.Once
 	TransferFrom []string
 
@@ -58,7 +55,6 @@ func NewZone(name, file string) *Zone {
 // Copy copies a zone.
 func (z *Zone) Copy() *Zone {
 	z1 := NewZone(z.origin, z.file)
-	z1.TransferTo = z.TransferTo
 	z1.TransferFrom = z.TransferFrom
 	z1.Expired = z.Expired
 
@@ -69,7 +65,6 @@ func (z *Zone) Copy() *Zone {
 // CopyWithoutApex copies zone z without the Apex records.
 func (z *Zone) CopyWithoutApex() *Zone {
 	z1 := NewZone(z.origin, z.file)
-	z1.TransferTo = z.TransferTo
 	z1.TransferFrom = z.TransferFrom
 	z1.Expired = z.Expired
 
@@ -132,26 +127,6 @@ func (z *Zone) SetFile(path string) {
 	z.Lock()
 	z.file = path
 	z.Unlock()
-}
-
-// TransferAllowed checks if incoming request for transferring the zone is allowed according to the ACLs.
-func (z *Zone) TransferAllowed(state request.Request) bool {
-	for _, t := range z.TransferTo {
-		if t == "*" {
-			return true
-		}
-		// If remote IP matches we accept.
-		remote := state.IP()
-		to, _, err := net.SplitHostPort(t)
-		if err != nil {
-			continue
-		}
-		if to == remote {
-			return true
-		}
-	}
-	// TODO(miek): future matching against IP/CIDR notations
-	return false
 }
 
 // ApexIfDefined returns the apex nodes from z. The SOA record is the first record, if it does not exist, an error is returned.

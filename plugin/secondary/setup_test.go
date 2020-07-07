@@ -22,7 +22,6 @@ func TestSecondaryParse(t *testing.T) {
 		{
 			`secondary {
 				transfer from 127.0.0.1
-				transfer to 127.0.0.1
 			}`,
 			false,
 			"127.0.0.1:53",
@@ -31,7 +30,6 @@ func TestSecondaryParse(t *testing.T) {
 		{
 			`secondary example.org {
 				transfer from 127.0.0.1
-				transfer to 127.0.0.1
 			}`,
 			false,
 			"127.0.0.1:53",

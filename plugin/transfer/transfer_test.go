@@ -12,18 +12,18 @@ import (
 	"github.com/miekg/dns"
 )
 
-// transfererPlugin implements transfer.Transferer and plugin.Handler
+// transfererPlugin implements transfer.Transferer and plugin.Handler.
 type transfererPlugin struct {
 	Zone   string
 	Serial uint32
 	Next   plugin.Handler
 }
 
-// Name implements plugin.Handler
-func (transfererPlugin) Name() string { return "transfererplugin" }
+// Name implements plugin.Handler.
+func (*transfererPlugin) Name() string { return "transfererplugin" }
 
-// ServeDNS implements plugin.Handler
-func (p transfererPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+// ServeDNS implements plugin.Handler.
+func (p *transfererPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if r.Question[0].Name != p.Zone {
 		return p.Next.ServeDNS(ctx, w, r)
 	}
@@ -31,12 +31,12 @@ func (p transfererPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r 
 }
 
 // Transfer implements transfer.Transferer - it returns a static AXFR response, or
-// if serial is current, an abbreviated IXFR response
-func (p transfererPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
+// if serial is current, an abbreviated IXFR response.
+func (p *transfererPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	if zone != p.Zone {
 		return nil, ErrNotAuthoritative
 	}
-	ch := make(chan []dns.RR, 2)
+	ch := make(chan []dns.RR, 3) // sending 3 bits and don't want to block, nor do a waitgroup
 	defer close(ch)
 	ch <- []dns.RR{test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s %d 7200 1800 86400 100", p.Zone, p.Zone, p.Zone, p.Serial))}
 	if serial >= p.Serial {
@@ -46,30 +46,31 @@ func (p transfererPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR,
 		test.NS(fmt.Sprintf("%s 100 IN NS ns.dns.%s", p.Zone, p.Zone)),
 		test.A(fmt.Sprintf("ns.dns.%s 100 IN A 1.2.3.4", p.Zone)),
 	}
+	ch <- []dns.RR{test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s %d 7200 1800 86400 100", p.Zone, p.Zone, p.Zone, p.Serial))}
 	return ch, nil
 }
 
 type terminatingPlugin struct{}
 
-// Name implements plugin.Handler
-func (terminatingPlugin) Name() string { return "testplugin" }
+// Name implements plugin.Handler.
+func (*terminatingPlugin) Name() string { return "testplugin" }
 
-// ServeDNS implements plugin.Handler that returns NXDOMAIN for all requests
-func (terminatingPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+// ServeDNS implements plugin.Handler that returns NXDOMAIN for all requests.
+func (*terminatingPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	m := new(dns.Msg)
 	m.SetRcode(r, dns.RcodeNameError)
 	w.WriteMsg(m)
 	return dns.RcodeNameError, nil
 }
 
-func newTestTransfer() Transfer {
+func newTestTransfer() *Transfer {
 	nextPlugin1 := transfererPlugin{Zone: "example.com.", Serial: 12345}
 	nextPlugin2 := transfererPlugin{Zone: "example.org.", Serial: 12345}
-	nextPlugin2.Next = terminatingPlugin{}
-	nextPlugin1.Next = nextPlugin2
+	nextPlugin2.Next = &terminatingPlugin{}
+	nextPlugin1.Next = &nextPlugin2
 
-	transfer := Transfer{
-		Transferers: []Transferer{nextPlugin1, nextPlugin2},
+	transfer := &Transfer{
+		Transferers: []Transferer{&nextPlugin1, &nextPlugin2},
 		xfrs: []*xfr{
 			{
 				Zones: []string{"example.org."},
@@ -80,22 +81,21 @@ func newTestTransfer() Transfer {
 				to:    []string{"*"},
 			},
 		},
-		Next: nextPlugin1,
+		Next: &nextPlugin1,
 	}
 	return transfer
 }
 
 func TestTransferNonZone(t *testing.T) {
-
 	transfer := newTestTransfer()
 	ctx := context.TODO()
 
 	for _, tc := range []string{"sub.example.org.", "example.test."} {
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
-		dnsmsg := &dns.Msg{}
-		dnsmsg.SetAxfr(tc)
+		m := &dns.Msg{}
+		m.SetAxfr(tc)
 
-		_, err := transfer.ServeDNS(ctx, w, dnsmsg)
+		_, err := transfer.ServeDNS(ctx, w, m)
 		if err != nil {
 			t.Error(err)
 		}
@@ -111,15 +111,14 @@ func TestTransferNonZone(t *testing.T) {
 }
 
 func TestTransferNotAXFRorIXFR(t *testing.T) {
-
 	transfer := newTestTransfer()
 
 	ctx := context.TODO()
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
-	dnsmsg := &dns.Msg{}
-	dnsmsg.SetQuestion("test.domain.", dns.TypeA)
+	m := &dns.Msg{}
+	m.SetQuestion("test.domain.", dns.TypeA)
 
-	_, err := transfer.ServeDNS(ctx, w, dnsmsg)
+	_, err := transfer.ServeDNS(ctx, w, m)
 	if err != nil {
 		t.Error(err)
 	}
@@ -134,15 +133,14 @@ func TestTransferNotAXFRorIXFR(t *testing.T) {
 }
 
 func TestTransferAXFRExampleOrg(t *testing.T) {
-
 	transfer := newTestTransfer()
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
-	dnsmsg := &dns.Msg{}
-	dnsmsg.SetAxfr(transfer.xfrs[0].Zones[0])
+	m := &dns.Msg{}
+	m.SetAxfr(transfer.xfrs[0].Zones[0])
 
-	_, err := transfer.ServeDNS(ctx, w, dnsmsg)
+	_, err := transfer.ServeDNS(ctx, w, m)
 	if err != nil {
 		t.Error(err)
 	}
@@ -151,39 +149,14 @@ func TestTransferAXFRExampleOrg(t *testing.T) {
 }
 
 func TestTransferAXFRExampleCom(t *testing.T) {
-
 	transfer := newTestTransfer()
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
-	dnsmsg := &dns.Msg{}
-	dnsmsg.SetAxfr(transfer.xfrs[1].Zones[0])
+	m := &dns.Msg{}
+	m.SetAxfr(transfer.xfrs[1].Zones[0])
 
-	_, err := transfer.ServeDNS(ctx, w, dnsmsg)
-	if err != nil {
-		t.Error(err)
-	}
-
-	validateAXFRResponse(t, w)
-}
-
-func TestTransferIXFRFallback(t *testing.T) {
-
-	transfer := newTestTransfer()
-
-	testPlugin := transfer.Transferers[0].(transfererPlugin)
-
-	ctx := context.TODO()
-	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
-	dnsmsg := &dns.Msg{}
-	dnsmsg.SetIxfr(
-		transfer.xfrs[0].Zones[0],
-		testPlugin.Serial-1,
-		"ns.dns."+testPlugin.Zone,
-		"hostmaster.dns."+testPlugin.Zone,
-	)
-
-	_, err := transfer.ServeDNS(ctx, w, dnsmsg)
+	_, err := transfer.ServeDNS(ctx, w, m)
 	if err != nil {
 		t.Error(err)
 	}
@@ -192,28 +165,21 @@ func TestTransferIXFRFallback(t *testing.T) {
 }
 
 func TestTransferIXFRCurrent(t *testing.T) {
-
 	transfer := newTestTransfer()
 
-	testPlugin := transfer.Transferers[0].(transfererPlugin)
+	testPlugin := transfer.Transferers[0].(*transfererPlugin)
 
 	ctx := context.TODO()
 	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
-	dnsmsg := &dns.Msg{}
-	dnsmsg.SetIxfr(
-		transfer.xfrs[0].Zones[0],
-		testPlugin.Serial,
-		"ns.dns."+testPlugin.Zone,
-		"hostmaster.dns."+testPlugin.Zone,
-	)
+	m := &dns.Msg{}
+	m.SetIxfr(transfer.xfrs[0].Zones[0], testPlugin.Serial, "ns.dns."+testPlugin.Zone, "hostmaster.dns."+testPlugin.Zone)
 
-	_, err := transfer.ServeDNS(ctx, w, dnsmsg)
+	_, err := transfer.ServeDNS(ctx, w, m)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if len(w.Msgs) == 0 {
-		t.Logf("%+v\n", w)
 		t.Fatal("Did not get back a zone response")
 	}
 
@@ -228,9 +194,31 @@ func TestTransferIXFRCurrent(t *testing.T) {
 	}
 }
 
+func TestTransferIXFRFallback(t *testing.T) {
+	transfer := newTestTransfer()
+
+	testPlugin := transfer.Transferers[0].(*transfererPlugin)
+
+	ctx := context.TODO()
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
+	m := &dns.Msg{}
+	m.SetIxfr(
+		transfer.xfrs[0].Zones[0],
+		testPlugin.Serial-1,
+		"ns.dns."+testPlugin.Zone,
+		"hostmaster.dns."+testPlugin.Zone,
+	)
+
+	_, err := transfer.ServeDNS(ctx, w, m)
+	if err != nil {
+		t.Error(err)
+	}
+
+	validateAXFRResponse(t, w)
+}
+
 func validateAXFRResponse(t *testing.T, w *dnstest.MultiRecorder) {
 	if len(w.Msgs) == 0 {
-		t.Logf("%+v\n", w)
 		t.Fatal("Did not get back a zone response")
 	}
 
@@ -263,29 +251,28 @@ func TestTransferNotAllowed(t *testing.T) {
 	nextPlugin := transfererPlugin{Zone: "example.org.", Serial: 12345}
 
 	transfer := Transfer{
-		Transferers: []Transferer{nextPlugin},
+		Transferers: []Transferer{&nextPlugin},
 		xfrs: []*xfr{
 			{
 				Zones: []string{"example.org."},
 				to:    []string{"1.2.3.4"},
 			},
 		},
-		Next: nextPlugin,
+		Next: &nextPlugin,
 	}
 
 	ctx := context.TODO()
-	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
-	dnsmsg := &dns.Msg{}
-	dnsmsg.SetAxfr(transfer.xfrs[0].Zones[0])
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	m := &dns.Msg{}
+	m.SetAxfr(transfer.xfrs[0].Zones[0])
 
-	rcode, err := transfer.ServeDNS(ctx, w, dnsmsg)
+	_, err := transfer.ServeDNS(ctx, w, m)
 
 	if err != nil {
 		t.Error(err)
 	}
 
-	if rcode != dns.RcodeRefused {
-		t.Errorf("Expected REFUSED response code, got %s", dns.RcodeToString[rcode])
+	if w.Msg.Rcode != dns.RcodeRefused {
+		t.Errorf("Expected REFUSED response code, got %s", dns.RcodeToString[w.Msg.Rcode])
 	}
-
 }

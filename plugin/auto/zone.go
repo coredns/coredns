@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/coredns/coredns/plugin/file"
+	"github.com/coredns/coredns/plugin/transfer"
 )
 
 // Zones maps zone names to a *Zone. This keeps track of what zones we have loaded at
@@ -42,7 +43,7 @@ func (z *Zones) Zones(name string) *file.Zone {
 
 // Add adds a new zone into z. If zo.NoReload is false, the
 // reload goroutine is started.
-func (z *Zones) Add(zo *file.Zone, name string) {
+func (z *Zones) Add(zo *file.Zone, name string, t *transfer.Transfer) {
 	z.Lock()
 
 	if z.Z == nil {
@@ -51,7 +52,7 @@ func (z *Zones) Add(zo *file.Zone, name string) {
 
 	z.Z[name] = zo
 	z.names = append(z.names, name)
-	zo.Reload()
+	zo.Reload(t)
 
 	z.Unlock()
 }

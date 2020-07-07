@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -20,6 +21,7 @@ type (
 	File struct {
 		Next plugin.Handler
 		Zones
+		transfer *transfer.Transfer
 	}
 
 	// Zones maps zone names to a *Zone.
@@ -75,11 +77,6 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	if exp {
 		log.Errorf("Zone %s is expired", zone)
 		return dns.RcodeServerFailure, nil
-	}
-
-	if state.QType() == dns.TypeAXFR || state.QType() == dns.TypeIXFR {
-		xfr := Xfr{z}
-		return xfr.ServeDNS(ctx, w, r)
 	}
 
 	answer, ns, extra, result := z.Lookup(ctx, state, qname)
