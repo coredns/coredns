@@ -26,15 +26,18 @@ If you want to round-robin A and AAAA responses look at the *loadbalance* plugin
 
 ~~~
 file DBFILE [ZONES... ] {
+    transfer to ADDRESS...
     reload DURATION
 }
 ~~~
 
+* `transfer` enables zone transfers. It may be specified multiples times. `To` or `from` signals
+  the direction. **ADDRESS** must be denoted in CIDR notation (e.g., 127.0.0.1/32) or just as plain
+  addresses. The special wildcard `*` means: the entire internet (only valid for 'transfer to').
+  When an address is specified a notify message will be sent whenever the zone is reloaded.
 * `reload` interval to perform a reload of the zone if the SOA version changes. Default is one minute.
   Value of `0` means to not scan for changes and reload. For example, `30s` checks the zonefile every 30 seconds
   and reloads the zone when serial changes.
-
-If you need outgoing zone transfers, take a look at the *transfer* plugin.
 
 ## Examples
 
@@ -43,9 +46,9 @@ notifies to 10.240.1.1
 
 ~~~ corefile
 example.org {
-    file example.org.signed
-    transfer {
-        to * 10.240.1.1
+    file example.org.signed {
+        transfer to *
+        transfer to 10.240.1.1
     }
 }
 ~~~
@@ -54,9 +57,9 @@ Or use a single zone file for multiple zones:
 
 ~~~ corefile
 . {
-    file example.org.signed example.org example.net
-    transfer example.org example.net {
-        to * 10.240.1.1
+    file example.org.signed example.org example.net {
+        transfer to *
+        transfer to 10.240.1.1
     }
 }
 ~~~
@@ -91,5 +94,4 @@ example.org {
 
 ## Also See
 
-See the *loadbalance* plugin if you need simple record shuffling. And the *transfer* plugin for zone
-transfers. Lastly the *root* plugin can help you specificy the location of the zone files.
+See the *loadbalance* plugin if you need simple record shuffling.

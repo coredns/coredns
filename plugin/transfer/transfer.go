@@ -3,6 +3,7 @@ package transfer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 
@@ -17,9 +18,9 @@ var log = clog.NewWithPlugin("transfer")
 
 // Transfer is a plugin that handles zone transfers.
 type Transfer struct {
-	Transferers []Transferer // List of plugins that implement Transferer
+	Transferers []Transferer // the list of plugins that implement Transferer
 	xfrs        []*xfr
-	Next        plugin.Handler
+	Next        plugin.Handler // the next plugin in the chain
 }
 
 type xfr struct {
@@ -31,53 +32,53 @@ type xfr struct {
 type Transferer interface {
 	// Transfer returns a channel to which it writes responses to the transfer request.
 	// If the plugin is not authoritative for the zone, it should immediately return the
-	// transfer.ErrNotAuthoritative error. This is important otherwise the transfer plugin can
-	// use plugin X while it should transfer the data from plugin Y.
+	// Transfer.ErrNotAuthoritative error.
 	//
 	// If serial is 0, handle as an AXFR request. Transfer should send all records
 	// in the zone to the channel. The SOA should be written to the channel first, followed
-	// by all other records, including all NS + glue records. The implemenation is also responsible
-	// for sending the last SOA record (to signal end of the transfer). This plugin will just grab
-	// these records and send them back to the requester, there is little validation done.
+	// by all other records, including all NS + glue records.
 	//
-	// If serial is not 0, it will be handled as an IXFR request. If the serial is equal to or greater (newer) than
-	// the current serial for the zone, send a single SOA record to the channel and then close it.
+	// If serial is not 0, handle as an IXFR request. If the serial is equal to or greater (newer) than
+	// the current serial for the zone, send a single SOA record to the channel.
 	// If the serial is less (older) than the current serial for the zone, perform an AXFR fallback
 	// by proceeding as if an AXFR was requested (as above).
 	Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 }
 
 var (
-	// ErrNotAuthoritative is returned by Transfer() when the plugin is not authoritative for the zone.
+	// ErrNotAuthoritative is returned by Transfer() when the plugin is not authoritative for the zone
 	ErrNotAuthoritative = errors.New("not authoritative for zone")
 )
 
 // ServeDNS implements the plugin.Handler interface.
-func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (t Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	if state.QType() != dns.TypeAXFR && state.QType() != dns.TypeIXFR {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
-	x := longestMatch(t.xfrs, state.QName())
+	// Find the first transfer instance for which the queried zone is a subdomain.
+	var x *xfr
+	for _, xfr := range t.xfrs {
+		zone := plugin.Zones(xfr.Zones).Matches(state.Name())
+		if zone == "" {
+			continue
+		}
+		x = xfr
+	}
 	if x == nil {
+		// Requested zone did not match any transfer instance zones.
+		// Pass request down chain in case later plugins are capable of handling transfer requests themselves.
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
 	if !x.allowed(state) {
-		// write msg here, so logging will pick it up
-		m := new(dns.Msg)
-		m.SetRcode(r, dns.RcodeRefused)
-		w.WriteMsg(m)
-		return 0, nil
+		return dns.RcodeRefused, nil
 	}
 
-	// Get serial from request if this is an IXFR.
+	// Get serial from request if this is an IXFR
 	var serial uint32
 	if state.QType() == dns.TypeIXFR {
-		if len(r.Ns) != 1 {
-			return dns.RcodeServerFailure, nil
-		}
 		soa, ok := r.Ns[0].(*dns.SOA)
 		if !ok {
 			return dns.RcodeServerFailure, nil
@@ -85,11 +86,11 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		serial = soa.Serial
 	}
 
-	// Get a receiving channel from the first Transferer plugin that returns one.
-	var pchan <-chan []dns.RR
-	var err error
+	// Get a receiving channel from the first Transferer plugin that returns one
+	var fromPlugin <-chan []dns.RR
 	for _, p := range t.Transferers {
-		pchan, err = p.Transfer(state.QName(), serial)
+		var err error
+		fromPlugin, err = p.Transfer(state.QName(), serial)
 		if err == ErrNotAuthoritative {
 			// plugin was not authoritative for the zone, try next plugin
 			continue
@@ -100,7 +101,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		break
 	}
 
-	if pchan == nil {
+	if fromPlugin == nil {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
@@ -114,51 +115,26 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		wg.Done()
 	}()
 
+	var soa *dns.SOA
 	rrs := []dns.RR{}
 	l := 0
-	var soa *dns.SOA
-	for records := range pchan {
-		if x, ok := records[0].(*dns.SOA); ok && soa == nil {
-			soa = x
+
+receive:
+	for records := range fromPlugin {
+		for _, record := range records {
+			if soa == nil {
+				if soa = record.(*dns.SOA); soa == nil {
+					break receive
+				}
+				serial = soa.Serial
+			}
+			rrs = append(rrs, record)
+			if len(rrs) > 500 {
+				ch <- &dns.Envelope{RR: rrs}
+				l += len(rrs)
+				rrs = []dns.RR{}
+			}
 		}
-		rrs = append(rrs, records...)
-		if len(rrs) > 500 {
-			ch <- &dns.Envelope{RR: rrs}
-			l += len(rrs)
-			rrs = []dns.RR{}
-		}
-	}
-
-	// if we are here and we only hold 1 soa (len(rrs) == 1) and soa != nil, and IXFR fallback should
-	// be performed. We haven't send anything on ch yet, so that can be closed (and waited for), and we only
-	// need to return the SOA back to the client and return.
-	if len(rrs) == 1 && soa != nil { // soa should never be nil...
-		close(ch)
-		wg.Wait()
-
-		m := new(dns.Msg)
-		m.SetReply(r)
-		m.Answer = []dns.RR{soa}
-		w.WriteMsg(m)
-
-		log.Infof("Outgoing incremental transfer for up to date zone %q to %s for %d SOA serial", state.QName(), state.IP(), serial)
-		return 0, nil
-	}
-
-	// if we are here and we only hold 1 soa (len(rrs) == 1) and soa != nil, and IXFR fallback should
-	// be performed. We haven't send anything on ch yet, so that can be closed (and waited for), and we only
-	// need to return the SOA back to the client and return.
-	if len(rrs) == 1 && soa != nil { // soa should never be nil...
-		close(ch)
-		wg.Wait()
-
-		m := new(dns.Msg)
-		m.SetReply(r)
-		m.Answer = []dns.RR{soa}
-		w.WriteMsg(m)
-
-		log.Infof("Outgoing noop, incremental transfer for up to date zone %q to %s for %d SOA serial", state.QName(), state.IP(), soa.Serial)
-		return 0, nil
 	}
 
 	if len(rrs) > 0 {
@@ -167,15 +143,20 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		rrs = []dns.RR{}
 	}
 
+	if soa != nil {
+		ch <- &dns.Envelope{RR: []dns.RR{soa}} // closing SOA.
+		l++
+	}
+
 	close(ch) // Even though we close the channel here, we still have
 	wg.Wait() // to wait before we can return and close the connection.
 
-	logserial := uint32(0)
-	if soa != nil {
-		logserial = soa.Serial
+	if soa == nil {
+		return dns.RcodeServerFailure, fmt.Errorf("first record in zone %s is not SOA", state.QName())
 	}
-	log.Infof("Outgoing transfer of %d records of zone %q to %s for %d SOA serial", l, state.QName(), state.IP(), logserial)
-	return 0, nil
+
+	log.Infof("Outgoing transfer of %d records of zone %s to %s with %d SOA serial", l, state.QName(), state.IP(), serial)
+	return dns.RcodeSuccess, nil
 }
 
 func (x xfr) allowed(state request.Request) bool {
@@ -187,29 +168,13 @@ func (x xfr) allowed(state request.Request) bool {
 		if err != nil {
 			return false
 		}
-		// If remote IP matches we accept. TODO(): make this works with ranges
-		if to == state.IP() {
+		// If remote IP matches we accept.
+		remote := state.IP()
+		if to == remote {
 			return true
 		}
 	}
 	return false
-}
-
-// Find the first transfer instance for which the queried zone is the longest match. When nothing
-// is found nil is returned.
-func longestMatch(xfrs []*xfr, name string) *xfr {
-	// TODO(xxx): optimize and make it a map (or maps)
-	var x *xfr
-	zone := "" // longest zone match wins
-	for _, xfr := range xfrs {
-		if z := plugin.Zones(xfr.Zones).Matches(name); z != "" {
-			if z > zone {
-				zone = z
-				x = xfr
-			}
-		}
-	}
-	return x
 }
 
 // Name implements the Handler interface.

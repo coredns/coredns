@@ -1,126 +1,229 @@
 package kubernetes
 
 import (
+	"context"
 	"strings"
 	"testing"
+
+	"github.com/coredns/coredns/plugin/kubernetes/object"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
 )
 
-func TestKubernetesAXFR(t *testing.T) {
+func TestKubernetesXFR(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
+	k.TransferTo = []string{"10.240.0.1:53"}
 	k.Namespaces = map[string]struct{}{"testns": {}}
 
+	ctx := context.TODO()
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
 	dnsmsg := &dns.Msg{}
 	dnsmsg.SetAxfr(k.Zones[0])
 
-	ch, err := k.Transfer(k.Zones[0], 0)
-	if err != nil {
-		t.Error(err)
-	}
-	validateAXFR(t, ch)
-}
-
-func TestKubernetesIXFRFallback(t *testing.T) {
-	k := New([]string{"cluster.local."})
-	k.APIConn = &APIConnServeTest{}
-	k.Namespaces = map[string]struct{}{"testns": {}}
-
-	dnsmsg := &dns.Msg{}
-	dnsmsg.SetAxfr(k.Zones[0])
-
-	ch, err := k.Transfer(k.Zones[0], 1)
-	if err != nil {
-		t.Error(err)
-	}
-	validateAXFR(t, ch)
-}
-
-func TestKubernetesIXFRCurrent(t *testing.T) {
-	k := New([]string{"cluster.local."})
-	k.APIConn = &APIConnServeTest{}
-	k.Namespaces = map[string]struct{}{"testns": {}}
-
-	dnsmsg := &dns.Msg{}
-	dnsmsg.SetAxfr(k.Zones[0])
-
-	ch, err := k.Transfer(k.Zones[0], 3)
+	_, err := k.ServeDNS(ctx, w, dnsmsg)
 	if err != nil {
 		t.Error(err)
 	}
 
-	var gotRRs []dns.RR
-	for rrs := range ch {
-		gotRRs = append(gotRRs, rrs...)
+	if len(w.Msgs) == 0 {
+		t.Logf("%+v\n", w)
+		t.Fatal("Did not get back a zone response")
 	}
 
-	// ensure only one record is returned
-	if len(gotRRs) > 1 {
-		t.Errorf("Expected only one answer, got %d", len(gotRRs))
+	if len(w.Msgs[0].Answer) == 0 {
+		t.Logf("%+v\n", w)
+		t.Fatal("Did not get back an answer")
 	}
 
-	// Ensure first record is a SOA
-	if gotRRs[0].Header().Rrtype != dns.TypeSOA {
-		t.Error("Invalid transfer response, does not start with SOA record")
-	}
-}
-
-func validateAXFR(t *testing.T, ch <-chan []dns.RR) {
-	xfr := []dns.RR{}
-	for rrs := range ch {
-		xfr = append(xfr, rrs...)
-	}
-	if xfr[0].Header().Rrtype != dns.TypeSOA {
-		t.Error("Invalid transfer response, does not start with SOA record")
+	// Ensure xfr starts with SOA
+	if w.Msgs[0].Answer[0].Header().Rrtype != dns.TypeSOA {
+		t.Error("Invalid XFR, does not start with SOA record")
 	}
 
-	zp := dns.NewZoneParser(strings.NewReader(expectedZone), "", "")
-	i := 0
-	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		if !dns.IsDuplicate(rr, xfr[i]) {
-			t.Fatalf("Record %d, expected\n%v\n, got\n%v", i, rr, xfr[i])
+	// Ensure xfr starts with SOA
+	// Last message is empty, so we need to go back one further
+	if w.Msgs[len(w.Msgs)-2].Answer[len(w.Msgs[len(w.Msgs)-2].Answer)-1].Header().Rrtype != dns.TypeSOA {
+		t.Error("Invalid XFR, does not end with SOA record")
+	}
+
+	testRRs := []dns.RR{}
+	for _, tc := range dnsTestCases {
+		if tc.Rcode != dns.RcodeSuccess {
+			continue
 		}
-		i++
+
+		for _, ans := range tc.Answer {
+			// Exclude wildcard searches
+			if strings.Contains(ans.Header().Name, "*") {
+				continue
+			}
+
+			// Exclude TXT records
+			if ans.Header().Rrtype == dns.TypeTXT {
+				continue
+			}
+			testRRs = append(testRRs, ans)
+		}
 	}
 
-	if err := zp.Err(); err != nil {
-		t.Fatal(err)
+	gotRRs := []dns.RR{}
+	for _, resp := range w.Msgs {
+		for _, ans := range resp.Answer {
+			// Skip SOA records since these
+			// test cases do not exist
+			if ans.Header().Rrtype == dns.TypeSOA {
+				continue
+			}
+
+			gotRRs = append(gotRRs, ans)
+		}
+
+	}
+
+	diff := difference(testRRs, gotRRs)
+	if len(diff) != 0 {
+		t.Errorf("Got back %d records that do not exist in test cases, should be 0:", len(diff))
+		for _, rec := range diff {
+			t.Errorf("%+v", rec)
+		}
+	}
+
+	diff = difference(gotRRs, testRRs)
+	if len(diff) != 0 {
+		t.Errorf("Found %d records we're missing, should be 0:", len(diff))
+		for _, rec := range diff {
+			t.Errorf("%+v", rec)
+		}
 	}
 }
 
-const expectedZone = `
-cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 3 7200 1800 86400 5
-external.testns.svc.cluster.local.	5	IN	CNAME	ext.interwebs.test.
-external-to-service.testns.svc.cluster.local.	5	IN	CNAME	svc1.testns.svc.cluster.local.
-hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2
-172-0-0-2.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2
-_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 172-0-0-2.hdls1.testns.svc.cluster.local.
-hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3
-172-0-0-3.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3
-_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 172-0-0-3.hdls1.testns.svc.cluster.local.
-hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4
-dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4
-_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 dup-name.hdls1.testns.svc.cluster.local.
-hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5
-dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5
-_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 dup-name.hdls1.testns.svc.cluster.local.
-hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::1
-5678-abcd--1.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::1
-_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--1.hdls1.testns.svc.cluster.local.
-hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2
-5678-abcd--2.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2
-_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--2.hdls1.testns.svc.cluster.local.
-hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20
-172-0-0-20.hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20
-svc1.testns.svc.cluster.local.	5	IN	A	10.0.0.1
-svc1.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc1.testns.svc.cluster.local.
-_http._tcp.svc1.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc1.testns.svc.cluster.local.
-svc6.testns.svc.cluster.local.	5	IN	AAAA	1234:abcd::1
-svc6.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc6.testns.svc.cluster.local.
-_http._tcp.svc6.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc6.testns.svc.cluster.local.
-svcempty.testns.svc.cluster.local.	5	IN	A	10.0.0.1
-svcempty.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svcempty.testns.svc.cluster.local.
-_http._tcp.svcempty.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svcempty.testns.svc.cluster.local.
-cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 3 7200 1800 86400 5
-`
+func TestKubernetesXFRNotAllowed(t *testing.T) {
+	k := New([]string{"cluster.local."})
+	k.APIConn = &APIConnServeTest{}
+	k.TransferTo = []string{"1.2.3.4:53"}
+	k.Namespaces = map[string]struct{}{"testns": {}}
+
+	ctx := context.TODO()
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
+	dnsmsg := &dns.Msg{}
+	dnsmsg.SetAxfr(k.Zones[0])
+
+	_, err := k.ServeDNS(ctx, w, dnsmsg)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(w.Msgs) == 0 {
+		t.Logf("%+v\n", w)
+		t.Fatal("Did not get back a zone response")
+	}
+
+	if len(w.Msgs[0].Answer) != 0 {
+		t.Logf("%+v\n", w)
+		t.Fatal("Got an answer, should not have")
+	}
+}
+
+// difference shows what we're missing when comparing two RR slices
+func difference(testRRs []dns.RR, gotRRs []dns.RR) []dns.RR {
+	expectedRRs := map[string]struct{}{}
+	for _, rr := range testRRs {
+		expectedRRs[rr.String()] = struct{}{}
+	}
+
+	foundRRs := []dns.RR{}
+	for _, rr := range gotRRs {
+		if _, ok := expectedRRs[rr.String()]; !ok {
+			foundRRs = append(foundRRs, rr)
+		}
+	}
+	return foundRRs
+}
+
+func TestEndpointsEquivalent(t *testing.T) {
+	epA := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+		}},
+	}
+	epB := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+		}},
+	}
+	epC := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}},
+		}},
+	}
+	epD := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}},
+		},
+			{
+				Addresses: []object.EndpointAddress{{IP: "1.2.2.2", Hostname: "foofoo"}},
+			}},
+	}
+	epE := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}, {IP: "1.1.1.1"}},
+		}},
+	}
+	epF := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foofoo"}},
+		}},
+	}
+	epG := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			Ports:     []object.EndpointPort{{Name: "http", Port: 80, Protocol: "TCP"}},
+		}},
+	}
+	epH := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			Ports:     []object.EndpointPort{{Name: "newportname", Port: 80, Protocol: "TCP"}},
+		}},
+	}
+	epI := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			Ports:     []object.EndpointPort{{Name: "http", Port: 8080, Protocol: "TCP"}},
+		}},
+	}
+	epJ := object.Endpoints{
+		Subsets: []object.EndpointSubset{{
+			Addresses: []object.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
+			Ports:     []object.EndpointPort{{Name: "http", Port: 80, Protocol: "UDP"}},
+		}},
+	}
+
+	tests := []struct {
+		equiv bool
+		a     *object.Endpoints
+		b     *object.Endpoints
+	}{
+		{true, &epA, &epB},
+		{false, &epA, &epC},
+		{false, &epA, &epD},
+		{false, &epA, &epE},
+		{false, &epA, &epF},
+		{false, &epF, &epG},
+		{false, &epG, &epH},
+		{false, &epG, &epI},
+		{false, &epG, &epJ},
+	}
+
+	for i, tc := range tests {
+		if tc.equiv && !endpointsEquivalent(tc.a, tc.b) {
+			t.Errorf("Test %d: expected endpoints to be equivalent and they are not.", i)
+		}
+		if !tc.equiv && endpointsEquivalent(tc.a, tc.b) {
+			t.Errorf("Test %d: expected endpoints to be seen as different but they were not.", i)
+		}
+	}
+}

@@ -3,12 +3,10 @@ package file
 import (
 	"os"
 	"time"
-
-	"github.com/coredns/coredns/plugin/transfer"
 )
 
 // Reload reloads a zone when it is changed on disk. If z.NoReload is true, no reloading will be done.
-func (z *Zone) Reload(t *transfer.Transfer) error {
+func (z *Zone) Reload() error {
 	if z.ReloadInterval == 0 {
 		return nil
 	}
@@ -42,11 +40,7 @@ func (z *Zone) Reload(t *transfer.Transfer) error {
 				z.Unlock()
 
 				log.Infof("Successfully reloaded zone %q in %q with %d SOA serial", z.origin, zFile, z.Apex.SOA.Serial)
-				if t != nil {
-					if err := t.Notify(z.origin); err != nil {
-						log.Warningf("Failed sending notifies: %s", err)
-					}
-				}
+				z.Notify()
 
 			case <-z.reloadShutdown:
 				tick.Stop()

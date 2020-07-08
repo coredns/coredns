@@ -53,14 +53,15 @@ func (a Auto) Walk() error {
 
 		zo.ReloadInterval = a.loader.ReloadInterval
 		zo.Upstream = a.loader.upstream
+		zo.TransferTo = a.loader.transferTo
 
-		a.Zones.Add(zo, origin, a.transfer)
+		a.Zones.Add(zo, origin)
 
 		if a.metrics != nil {
 			a.metrics.AddZone(origin)
 		}
 
-		a.transfer.Notify(origin)
+		zo.Notify()
 
 		log.Infof("Inserting zone `%s' from: %s", origin, path)
 

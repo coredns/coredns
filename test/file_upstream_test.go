@@ -29,7 +29,9 @@ www 3600 IN CNAME www.example.net.
 	defer rm()
 
 	corefile := `.:0 {
-		file ` + name + ` example.org
+		file ` + name + ` example.org {
+			upstream
+		}
 		hosts {
 			10.0.0.1 www.example.net.
 			fallthrough
@@ -86,8 +88,12 @@ www 3600 IN A   127.0.0.53
 	defer rm2()
 
 	corefile := `.:0 {
-		file ` + name + ` example.org
-		file ` + name2 + ` foo.example.org
+		file ` + name + ` example.org {
+			upstream
+		}
+		file ` + name2 + ` foo.example.org {
+			upstream
+		}
 	}`
 
 	i, udp, _, err := CoreDNSServerAndPorts(corefile)

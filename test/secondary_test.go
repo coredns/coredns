@@ -43,9 +43,7 @@ func TestSecondaryZoneTransfer(t *testing.T) {
 
 	corefile := `example.org:0 {
 		file ` + name + ` {
-		}
-		transfer {
-			to *
+			transfer to *
 		}
 	}`
 
@@ -94,9 +92,7 @@ func TestIxfrResponse(t *testing.T) {
 
 	corefile := `example.org:0 {
 		file ` + name + ` {
-		}
-		transfer {
-			to *
+		transfer to *
 		}
 	}`
 

@@ -44,6 +44,7 @@ func setup(c *caddy.Controller) error {
 func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 	z := make(map[string]*file.Zone)
 	names := []string{}
+	upstr := upstream.New()
 	for c.Next() {
 
 		if c.Val() == "secondary" {
@@ -62,24 +63,30 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 
 			for c.NextBlock() {
 
-				f := []string{}
+				t, f := []string{}, []string{}
+				var e error
 
 				switch c.Val() {
 				case "transfer":
-					var err error
-					f, err = parse.TransferIn(c)
-					if err != nil {
-						return file.Zones{}, err
+					t, f, e = parse.Transfer(c, true)
+					if e != nil {
+						return file.Zones{}, e
 					}
+				case "upstream":
+					// remove soon
+					c.RemainingArgs()
 				default:
 					return file.Zones{}, c.Errf("unknown property '%s'", c.Val())
 				}
 
 				for _, origin := range origins {
+					if t != nil {
+						z[origin].TransferTo = append(z[origin].TransferTo, t...)
+					}
 					if f != nil {
 						z[origin].TransferFrom = append(z[origin].TransferFrom, f...)
 					}
-					z[origin].Upstream = upstream.New()
+					z[origin].Upstream = upstr
 				}
 			}
 		}

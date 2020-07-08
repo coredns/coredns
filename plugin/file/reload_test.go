@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/test"
-	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -31,7 +30,7 @@ func TestZoneReload(t *testing.T) {
 	}
 
 	z.ReloadInterval = 500 * time.Millisecond
-	z.Reload(&transfer.Transfer{})
+	z.Reload()
 	time.Sleep(time.Second)
 
 	ctx := context.TODO()

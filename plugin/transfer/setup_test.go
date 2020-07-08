@@ -6,6 +6,12 @@ import (
 	"github.com/caddyserver/caddy"
 )
 
+func newTestControllerWithZones(input string, zones []string) *caddy.Controller {
+	ctr := caddy.NewTestController("dns", input)
+	ctr.ServerBlockKeys = append(ctr.ServerBlockKeys, zones...)
+	return ctr
+}
+
 func TestParse(t *testing.T) {
 	tests := []struct {
 		input     string
@@ -69,10 +75,8 @@ func TestParse(t *testing.T) {
 		},
 	}
 	for i, tc := range tests {
-		c := caddy.NewTestController("dns", tc.input)
-		c.ServerBlockKeys = append(c.ServerBlockKeys, tc.zones...)
-
-		transfer, err := parseTransfer(c)
+		c := newTestControllerWithZones(tc.input, tc.zones)
+		transfer, err := parse(c)
 
 		if err == nil && tc.shouldErr {
 			t.Fatalf("Test %d expected errors, but got no error", i)

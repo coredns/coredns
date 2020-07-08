@@ -29,9 +29,8 @@ func TestLargeAXFR(t *testing.T) {
 	defer rm()
 
 	corefile := `example.com:0 {
-		file ` + name + `
-		transfer {
-			to *
+		file ` + name + ` {
+			transfer to *
 		}
 	}`
 
