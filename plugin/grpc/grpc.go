@@ -37,10 +37,10 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	var (
-		span, child ot.Span
-		ret         *dns.Msg
-		err         error
-		i           int
+		span, child      ot.Span
+		ret              *dns.Msg
+		upstreamErr, err error
+		i                int
 	)
 	span = ot.SpanFromContext(ctx)
 	list := g.list()
@@ -74,6 +74,8 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			child.Finish()
 		}
 
+		upstreamErr = err
+
 		// Check if the reply is correct; if not return FormErr.
 		if !state.Match(ret) {
 			debug.Hexdumpf(ret, "Wrong reply for id: %d, %s %d", ret.Id, state.QName(), state.QType())
@@ -88,10 +90,11 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		return 0, nil
 	}
 
-	if ret == nil {
-		return dns.RcodeServerFailure, errors.New("no healthy gRPC backend")
+	if upstreamErr != nil {
+		return dns.RcodeServerFailure, upstreamErr
 	}
-	return 0, nil
+
+	return dns.RcodeServerFailure, ErrNoHealthy
 }
 
 // NewGRPC returns a new GRPC.
@@ -133,3 +136,8 @@ func (g *GRPC) isAllowedDomain(name string) bool {
 func (g *GRPC) list() []*Proxy { return g.p.List(g.proxies) }
 
 const defaultTimeout = 5 * time.Second
+
+var (
+	// ErrNoHealthy means no healthy proxies left.
+	ErrNoHealthy = errors.New("no healthy gRPC proxies")
+)
