@@ -13,32 +13,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-func TestProxyClose(t *testing.T) {
-	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
-		ret := new(dns.Msg)
-		ret.SetReply(r)
-		w.WriteMsg(ret)
-	})
-	defer s.Close()
-
-	req := new(dns.Msg)
-	req.SetQuestion("example.org.", dns.TypeA)
-	state := request.Request{W: &test.ResponseWriter{}, Req: req}
-	ctx := context.TODO()
-
-	for i := 0; i < 100; i++ {
-		p := NewProxy(s.Addr, transport.DNS)
-		p.start(hcInterval)
-
-		go func() { p.Connect(ctx, state, options{}) }()
-		go func() { p.Connect(ctx, state, options{forceTCP: true}) }()
-		go func() { p.Connect(ctx, state, options{}) }()
-		go func() { p.Connect(ctx, state, options{forceTCP: true}) }()
-
-		p.stop()
-	}
-}
-
 func TestProxy(t *testing.T) {
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
