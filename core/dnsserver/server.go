@@ -66,10 +66,6 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		if site.Debug {
 			s.debug = true
 			log.D.Set()
-		} else {
-			// When reloading we need to explicitly disable debug logging if it is now disabled.
-			s.debug = false
-			log.D.Clear()
 		}
 		// set the config per zone
 		s.zones[site.Zone] = site
@@ -95,6 +91,11 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			}
 		}
 		site.pluginChain = stack
+	}
+
+	if !s.debug {
+		// When reloading we need to explicitly disable debug logging if it is now disabled.
+		log.D.Clear()
 	}
 
 	return s, nil
