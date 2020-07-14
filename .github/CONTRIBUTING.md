@@ -76,6 +76,17 @@ $ go mod tidy
 
 Please refer to [Go Modules](https://github.com/golang/go/wiki/Modules) for more details.
 
+## Developer Certificate of Origin
+
+As required by the CNCF's [charter](https://github.com/cncf/foundation/blob/master/charter.md#11-ip-policy),
+all new code contributions must be accompanied by a [Developer Certificate of Origin (DCO)](https://developercertificate.org/). CoreDNS uses [Probot](https://github.com/probot/dco#how-it-works) to enforce the DCO on pull requests.
+
+You may use git option `-s` to append automatically to the `Sign-off-by` line to your commit messages:
+
+```
+$ git commit -s -m 'This is my commit message'
+```
+
 # Thank You
 
 Thanks for your help! CoreDNS would not be what it is today without your contributions.
