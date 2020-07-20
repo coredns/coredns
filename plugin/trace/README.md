@@ -7,6 +7,7 @@
 ## Description
 
 With *trace* you enable OpenTracing of how a request flows through CoreDNS.
+Enable *debug* plugin to get logs from the trace plugin.
 
 ## Syntax
 
@@ -84,3 +85,7 @@ trace tracinghost:9411 {
 	client_server
 }
 ~~~
+
+## Also See
+
+See the *debug* plugin for more information about debug logging.

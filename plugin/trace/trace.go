@@ -10,6 +10,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 	_ "github.com/coredns/coredns/plugin/pkg/trace" // Plugin the trace package.
 	"github.com/coredns/coredns/request"
@@ -52,7 +53,7 @@ func (t *trace) OnStartup() error {
 		case "zipkin":
 			err = t.setupZipkin()
 		case "datadog":
-			tracer := opentracer.New(tracer.WithAgentAddr(t.Endpoint), tracer.WithServiceName(t.serviceName), tracer.WithDebugMode(true))
+			tracer := opentracer.New(tracer.WithAgentAddr(t.Endpoint), tracer.WithServiceName(t.serviceName), tracer.WithDebugMode(log.D.Value()))
 			t.tracer = tracer
 		default:
 			err = fmt.Errorf("unknown endpoint type: %s", t.EndpointType)
