@@ -6,7 +6,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/response"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 func TestLogParse(t *testing.T) {

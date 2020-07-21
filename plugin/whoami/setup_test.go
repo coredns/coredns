@@ -3,7 +3,7 @@ package whoami
 import (
 	"testing"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 func TestSetup(t *testing.T) {

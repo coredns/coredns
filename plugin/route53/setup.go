@@ -19,7 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 var log = clog.NewWithPlugin("route53")

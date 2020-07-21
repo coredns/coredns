@@ -10,7 +10,7 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 	gcp "google.golang.org/api/dns/v1"
 	"google.golang.org/api/option"
 )

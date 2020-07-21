@@ -15,7 +15,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 // ServerHTTPS represents an instance of a DNS-over-HTTPS server.

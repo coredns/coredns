@@ -6,13 +6,16 @@ require (
 	github.com/Azure/azure-sdk-for-go v40.6.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.6
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.2
+	github.com/Azure/go-autorest/autorest/to v0.2.0 // indirect
 	github.com/DataDog/datadog-go v3.5.0+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.34.22
-	github.com/caddyserver/caddy v1.0.5
 	github.com/cenkalti/backoff/v4 v4.0.2
+	github.com/coredns/caddy v1.1.0
 	github.com/dnstap/golang-dnstap v0.2.1
+	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/farsightsec/golang-framestream v0.3.0
 	github.com/golang/protobuf v1.4.2
+	github.com/gorilla/websocket v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect

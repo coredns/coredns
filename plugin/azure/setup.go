@@ -13,7 +13,7 @@ import (
 	privateAzureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/privatedns/mgmt/privatedns"
 	azurerest "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 var log = clog.NewWithPlugin("azure")

@@ -3,7 +3,7 @@ package dns64
 import (
 	"testing"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 func TestSetupDns64(t *testing.T) {

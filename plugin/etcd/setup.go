@@ -8,7 +8,7 @@ import (
 	mwtls "github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 	etcdcv3 "go.etcd.io/etcd/clientv3"
 )
 

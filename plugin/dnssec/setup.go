@@ -11,7 +11,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 var log = clog.NewWithPlugin("dnssec")

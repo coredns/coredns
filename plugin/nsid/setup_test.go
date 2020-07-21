@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 func TestSetupNsid(t *testing.T) {

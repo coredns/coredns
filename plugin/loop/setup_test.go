@@ -3,7 +3,7 @@ package loop
 import (
 	"testing"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 func TestSetup(t *testing.T) {

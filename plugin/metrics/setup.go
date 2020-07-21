@@ -11,7 +11,7 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/uniq"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 var (

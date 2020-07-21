@@ -13,7 +13,7 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 	"github.com/miekg/dns"
 	"golang.org/x/crypto/ed25519"
 )

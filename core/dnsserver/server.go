@@ -20,7 +20,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/request"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 )

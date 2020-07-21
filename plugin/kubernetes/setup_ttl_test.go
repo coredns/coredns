@@ -3,7 +3,7 @@ package kubernetes
 import (
 	"testing"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 func TestKubernetesParseTTL(t *testing.T) {

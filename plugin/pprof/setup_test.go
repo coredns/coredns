@@ -3,7 +3,7 @@ package pprof
 import (
 	"testing"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 func TestPProf(t *testing.T) {

@@ -8,7 +8,7 @@ import (
 	"github.com/coredns/coredns/plugin/dnstap/dnstapio"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 func init() { plugin.Register("dnstap", wrapSetup) }

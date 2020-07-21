@@ -3,7 +3,7 @@ package transfer
 import (
 	"testing"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 func newTestControllerWithZones(input string, zones []string) *caddy.Controller {

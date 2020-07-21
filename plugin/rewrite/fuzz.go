@@ -5,7 +5,7 @@ package rewrite
 import (
 	"github.com/coredns/coredns/plugin/pkg/fuzz"
 
-	"github.com/caddyserver/caddy"
+	"github.com/coredns/caddy"
 )
 
 // Fuzz fuzzes rewrite.
