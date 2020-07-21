@@ -1,20 +1,20 @@
 package test
 
 import (
-	"bytes"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil/promlint"
 	dto "github.com/prometheus/client_model/go"
-	"github.com/prometheus/common/expfmt"
-	"github.com/prometheus/prometheus/util/promlint"
 )
 
 func TestMetricNaming(t *testing.T) {
@@ -27,16 +27,7 @@ func TestMetricNaming(t *testing.T) {
 	}
 
 	if len(walker.Metrics) > 0 {
-
-		buf := &bytes.Buffer{}
-		encoder := expfmt.NewEncoder(buf, expfmt.FmtText)
-		for _, mf := range walker.Metrics {
-			if err := encoder.Encode(mf); err != nil {
-				t.Fatalf("Encoding and sending metric family: %s", err)
-			}
-		}
-
-		l := promlint.New(buf)
+		l := promlint.NewWithMetricFamilies(walker.Metrics)
 		problems, err := l.Lint()
 		if err != nil {
 			t.Fatalf("Link found error: %s", err)
@@ -86,7 +77,7 @@ type metric struct {
 	Metric *dto.MetricFamily
 }
 
-func (l metric) Visit(n ast.Node) ast.Visitor {
+func (l *metric) Visit(n ast.Node) ast.Visitor {
 	if n == nil {
 		return nil
 	}
@@ -142,13 +133,20 @@ func (l metric) Visit(n ast.Node) ast.Visitor {
 		if !ok {
 			continue
 		}
+
+		// remove quotes
+		stringLiteral, err := strconv.Unquote(value.Value)
+		if err != nil {
+			return l
+		}
+
 		switch object.Name {
 		case "Subsystem":
-			subsystem = value.Value
+			subsystem = stringLiteral
 		case "Name":
-			name = value.Value
+			name = stringLiteral
 		case "Help":
-			help = value.Value
+			help = stringLiteral
 		}
 	}
 
@@ -157,12 +155,7 @@ func (l metric) Visit(n ast.Node) ast.Visitor {
 		return l
 	}
 
-	var metricName string
-	if len(subsystem) > 0 {
-		metricName = strings.Join([]string{plugin.Namespace, subsystem, name}, "_")
-	} else {
-		metricName = strings.Join([]string{plugin.Namespace, name}, "_")
-	}
+	metricName := prometheus.BuildFQName(plugin.Namespace, subsystem, name)
 	l.Metric = &dto.MetricFamily{
 		Name: &metricName,
 		Help: &help,
