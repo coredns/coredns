@@ -196,13 +196,13 @@ func TestCache(t *testing.T) {
 		state := request.Request{W: &test.ResponseWriter{}, Req: m}
 
 		mt, _ := response.Typify(m, utc)
-		valid, k := key(state.Name(), m, mt, state.Do())
+		valid, k := key(state.Name(), m, mt, state.Do(), nil)
 
 		if valid {
 			crr.set(m, k, mt, c.pttl)
 		}
 
-		i, _ := c.get(time.Now().UTC(), state, "dns://:53")
+		i, _ := c.get(time.Now().UTC(), state, "dns://:53", nil)
 		ok := i != nil
 
 		if ok != tc.shouldCache {

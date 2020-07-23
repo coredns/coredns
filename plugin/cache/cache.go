@@ -38,6 +38,8 @@ type Cache struct {
 
 	staleUpTo time.Duration
 
+	metadataKeys []string
+
 	// Testing.
 	now func() time.Time
 }
@@ -65,7 +67,7 @@ func New() *Cache {
 // key returns key under which we store the item, -1 will be returned if we don't store the message.
 // Currently we do not cache Truncated, errors zone transfers or dynamic update messages.
 // qname holds the already lowercased qname.
-func key(qname string, m *dns.Msg, t response.Type, do bool) (bool, uint64) {
+func key(qname string, m *dns.Msg, t response.Type, do bool, mdVals []string) (bool, uint64) {
 	// We don't store truncated responses.
 	if m.Truncated {
 		return false, 0
@@ -75,13 +77,13 @@ func key(qname string, m *dns.Msg, t response.Type, do bool) (bool, uint64) {
 		return false, 0
 	}
 
-	return true, hash(qname, m.Question[0].Qtype, do)
+	return true, hash(qname, m.Question[0].Qtype, do, mdVals)
 }
 
 var one = []byte("1")
 var zero = []byte("0")
 
-func hash(qname string, qtype uint16, do bool) uint64 {
+func hash(qname string, qtype uint16, do bool, mdVals []string) uint64 {
 	h := fnv.New64()
 
 	if do {
@@ -93,6 +95,11 @@ func hash(qname string, qtype uint16, do bool) uint64 {
 	h.Write([]byte{byte(qtype >> 8)})
 	h.Write([]byte{byte(qtype)})
 	h.Write([]byte(qname))
+
+	for _, val := range mdVals {
+		h.Write([]byte(val))
+	}
+
 	return h.Sum64()
 }
 
@@ -116,6 +123,8 @@ type ResponseWriter struct {
 
 	prefetch   bool // When true write nothing back to the client.
 	remoteAddr net.Addr
+
+	MdVals []string
 }
 
 // newPrefetchResponseWriter returns a Cache ResponseWriter to be used in
@@ -159,7 +168,7 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	}
 
 	// key returns empty string for anything we don't want to cache.
-	hasKey, key := key(w.state.Name(), res, mt, do)
+	hasKey, key := key(w.state.Name(), res, mt, do, w.MdVals)
 
 	msgTTL := dnsutil.MinimalTTL(res, mt)
 	var duration time.Duration
