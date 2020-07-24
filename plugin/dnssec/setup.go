@@ -8,7 +8,6 @@ import (
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 
@@ -28,11 +27,6 @@ func setup(c *caddy.Controller) error {
 	ca := cache.New(capacity)
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		return New(zones, keys, splitkeys, next, ca)
-	})
-
-	c.OnStartup(func() error {
-		metrics.MustRegister(c, cacheSize, cacheHits, cacheMisses)
-		return nil
 	})
 
 	return nil

@@ -31,6 +31,12 @@ endif
 ifeq ($(TEST_TYPE),fmt)
 	( echo "fmt"; gofmt -w -s . | grep ".*\.go"; if [ "$$?" = "0" ]; then exit 1; fi )
 endif
+ifeq ($(TEST_TYPE),metrics)
+	( echo "metrics"; go get github.com/fatih/faillint)
+	( faillint -paths "github.com/prometheus/client_golang/prometheus.{NewCounter,NewCounterVec,NewCounterVec,\
+	NewGauge,NewGaugeVec,NewGaugeFunc,NewHistorgram,NewHistogramVec,NewSummary,NewSummaryVec}=github.com/prometheus/client_golang/prometheus/promauto.{NewCounter,\
+	NewCounterVec,NewCounterVec,NewGauge,NewGaugeVec,NewGaugeFunc,NewHistorgram,NewHistogramVec,NewSummary,NewSummaryVec}" ./...)
+endif
 ifeq ($(TEST_TYPE),plugin)
 	( cd plugin; go test -race ./... )
 endif

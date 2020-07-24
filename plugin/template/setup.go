@@ -20,10 +20,6 @@ func setupTemplate(c *caddy.Controller) error {
 		return plugin.Error("template", err)
 	}
 
-	if err := setupMetrics(c); err != nil {
-		return plugin.Error("template", err)
-	}
-
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		handler.Next = next
 		return handler

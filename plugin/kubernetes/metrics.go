@@ -5,7 +5,9 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
+
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	api "k8s.io/api/core/v1"
 )
 
@@ -21,7 +23,7 @@ var (
 	//   * cluster_ip
 	//   * headless_with_selector
 	//   * headless_without_selector
-	DnsProgrammingLatency = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	DnsProgrammingLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: pluginName,
 		Name:      "dns_programming_duration_seconds",

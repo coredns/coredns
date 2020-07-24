@@ -14,6 +14,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/dnstap/golang-dnstap v0.2.0
 	github.com/farsightsec/golang-framestream v0.0.0-20190425193708-fa4b164d59b8
+	github.com/fatih/faillint v1.5.0 // indirect
 	github.com/golang/protobuf v1.4.2
 	github.com/gophercloud/gophercloud v0.9.0 // indirect
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
@@ -30,7 +31,7 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.10.0
-	github.com/prometheus/prometheus v2.5.0+incompatible
+	github.com/prometheus/prometheus v2.5.0+incompatible // indirect
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200306183522-221f0cc107cb
 	go.uber.org/zap v1.14.1 // indirect
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9

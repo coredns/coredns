@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/metrics"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"github.com/caddyserver/caddy"
@@ -70,10 +69,6 @@ func setup(c *caddy.Controller) error {
 	r.setUsage(used)
 	once.Do(func() {
 		caddy.RegisterEventHook("reload", hook)
-		c.OnRestart(func() error {
-			metrics.MustRegister(c, reloadInfo, failedCount)
-			return nil
-		})
 	})
 	// re-register on finalShutDown as the instance most-likely will be changed
 	shutOnce.Do(func() {

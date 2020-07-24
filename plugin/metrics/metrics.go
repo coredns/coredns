@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -37,23 +37,9 @@ type Metrics struct {
 func New(addr string) *Metrics {
 	met := &Metrics{
 		Addr:    addr,
-		Reg:     prometheus.NewRegistry(),
+		Reg:     prometheus.DefaultRegisterer.(*prometheus.Registry),
 		zoneMap: make(map[string]struct{}),
 	}
-	// Add the default collectors
-	met.MustRegister(prometheus.NewGoCollector())
-	met.MustRegister(prometheus.NewProcessCollector(prometheus.ProcessCollectorOpts{}))
-
-	// Add all of our collectors
-	met.MustRegister(buildInfo)
-	met.MustRegister(vars.Panic)
-	met.MustRegister(vars.RequestCount)
-	met.MustRegister(vars.RequestDuration)
-	met.MustRegister(vars.RequestSize)
-	met.MustRegister(vars.RequestDo)
-	met.MustRegister(vars.ResponseSize)
-	met.MustRegister(vars.ResponseRcode)
-	met.MustRegister(vars.PluginEnabled)
 
 	return met
 }
@@ -162,7 +148,7 @@ var ListenAddr string
 // before erroring when it tries to close the metrics server
 const shutdownTimeout time.Duration = time.Second * 5
 
-var buildInfo = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+var buildInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Namespace: plugin.Namespace,
 	Name:      "build_info",
 	Help:      "A metric with a constant '1' value labeled by version, revision, and goversion from which CoreDNS was built.",
