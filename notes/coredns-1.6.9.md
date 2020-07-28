@@ -37,6 +37,7 @@ Zou Nengren.
 ## Noteworthy Changes
 
 * plugin/azure: Add private DNS support for azure plugin (https://github.com/coredns/coredns/pull/1516)
+* plugin/cache: Fix negative cache masking cases (https://github.com/coredns/coredns/pull/3744)
 * plugin/cache: explain drop metric (https://github.com/coredns/coredns/pull/3706)
 * plugin/forward: Add configuration flag to set if RecursionDesired should be set on health checks (https://github.com/coredns/coredns/pull/3679)
 * plugin/forward: Add exponential backoff to healthcheck (https://github.com/coredns/coredns/pull/3643)
