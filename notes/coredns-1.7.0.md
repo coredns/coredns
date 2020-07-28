@@ -81,6 +81,7 @@ Zou Nengren.
 * plugin/azure: Fix environment option overwrite (https://github.com/coredns/coredns/pull/3922)
 * plugin/dns64: Add DNS64 plugin (https://github.com/coredns/coredns/pull/3534)
 * plugin/federation: Remove already-deprecated federation plugin (https://github.com/coredns/coredns/pull/3794)
+* plugin/forward: Fix only first upstream server is used in forward plugin (https://github.com/coredns/coredns/issues/3900)
 * plugin/forward: Avoid https protocol (https://github.com/coredns/coredns/pull/3817)
 * plugin/k8s_external: Add CNAME support for AWS ELB/NLB (https://github.com/coredns/coredns/pull/3916)
 * plugin/kubernetes: Remove already-deprecated options `resyncperiod` and `upstream` (https://github.com/coredns/coredns/pull/3737)
