@@ -11,6 +11,7 @@ The CoreDNS team has released
 [CoreDNS-1.7.0](https://github.com/coredns/coredns/releases/tag/v1.7.0).
 
 This is a **backwards-incompatible release**. Major changes include:
+
 * Better [metrics names](https://github.com/coredns/coredns/pull/3776).
 * The *federation* plugin (which allows for v1 Kubernetes federation) has been removed. We've also removed
   some supporting code from the *kubernetes* plugin, so it will not build as an external plugin
