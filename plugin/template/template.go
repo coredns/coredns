@@ -5,6 +5,7 @@ import (
 	"context"
 	"regexp"
 	"strconv"
+	"strings"
 	gotmpl "text/template"
 
 	"github.com/coredns/coredns/plugin"
@@ -32,6 +33,7 @@ type template struct {
 	answer     []*gotmpl.Template
 	additional []*gotmpl.Template
 	authority  []*gotmpl.Template
+	ednsLocal  []*gotmpl.Template
 	qclass     uint16
 	qtype      uint16
 	fall       fall.F
@@ -116,6 +118,28 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 				return dns.RcodeServerFailure, err
 			}
 			msg.Ns = append(msg.Ns, rr)
+		}
+		if len(template.ednsLocal) > 0 {
+			o := new(dns.OPT)
+			o.Hdr.Name = "."
+			o.Hdr.Rrtype = dns.TypeOPT
+			for _, e := range template.ednsLocal {
+				buffer := &bytes.Buffer{}
+				err := e.Execute(buffer, data)
+				if err != nil {
+					return dns.RcodeServerFailure, err
+				}
+				pos := strings.Index(buffer.String(), "=")
+				i, err := strconv.Atoi(buffer.String()[0:pos])
+				code := uint16(i)
+				var edata []byte
+				if buffer.Len() > pos {
+					edata = buffer.Bytes()[pos+1:]
+				}
+				e := &dns.EDNS0_LOCAL{Code: code, Data: edata}
+				o.Option = append(o.Option, e)
+			}
+			msg.Extra = append(msg.Extra, o)
 		}
 
 		w.WriteMsg(msg)

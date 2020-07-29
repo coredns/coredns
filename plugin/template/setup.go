@@ -109,6 +109,19 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 					t.additional = append(t.additional, tmpl)
 				}
 
+			case "ednslocal":
+				args := c.RemainingArgs()
+				if len(args) == 0 {
+					return handler, c.ArgErr()
+				}
+				for _, ednslocal := range args {
+					tmpl, err := gotmpl.New("ednslocal").Parse(ednslocal)
+					if err != nil {
+						return handler, c.Errf("could not compile template: %s, %v\n", c.Val(), err)
+					}
+					t.ednsLocal = append(t.ednsLocal, tmpl)
+				}
+
 			case "authority":
 				args := c.RemainingArgs()
 				if len(args) == 0 {
