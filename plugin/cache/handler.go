@@ -22,12 +22,9 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, r)
 	}
 
-	mdVals := make([]string, len(c.metadataKeys))
+	mdKeys := make([]metadata.Func, len(c.metadataKeys))
 	for i, md := range c.metadataKeys {
-		fn := metadata.ValueFunc(ctx, md)
-		if fn != nil {
-			mdVals[i] = fn()
-		}
+		mdKeys[i] = metadata.ValueFunc(ctx, md)
 	}
 
 	now := c.now().UTC()
@@ -35,12 +32,12 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	server := metrics.WithServer(ctx)
 
 	ttl := 0
-	i := c.getIgnoreTTL(now, state, server, mdVals)
+	i := c.getIgnoreTTL(now, state, server, mdKeys)
 	if i != nil {
 		ttl = i.ttl(now)
 	}
 	if i == nil {
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, MdVals: mdVals}
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, MdKeys: mdKeys}
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 	}
 	if ttl < 0 {
@@ -49,7 +46,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		now = now.Add(time.Duration(ttl) * time.Second)
 		go func() {
 			r := r.Copy()
-			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: w.LocalAddr(), MdVals: mdVals}
+			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: w.LocalAddr(), MdKeys: mdKeys}
 			plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 		}()
 	}
@@ -57,12 +54,12 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	w.WriteMsg(resp)
 
 	if c.shouldPrefetch(i, now) {
-		go c.doPrefetch(ctx, state, server, i, now, mdVals)
+		go c.doPrefetch(ctx, state, server, i, now, mdKeys)
 	}
 	return dns.RcodeSuccess, nil
 }
 
-func (c *Cache) doPrefetch(ctx context.Context, state request.Request, server string, i *item, now time.Time, mdVals []string) {
+func (c *Cache) doPrefetch(ctx context.Context, state request.Request, server string, i *item, now time.Time, mdKeys []metadata.Func) {
 	cw := newPrefetchResponseWriter(server, state, c)
 
 	cachePrefetches.WithLabelValues(server).Inc()
@@ -71,7 +68,7 @@ func (c *Cache) doPrefetch(ctx context.Context, state request.Request, server st
 	// When prefetching we loose the item i, and with it the frequency
 	// that we've gathered so far. So we copy the frequencies info back
 	// into the new item that was stored in the cache.
-	if i1 := c.exists(state, mdVals); i1 != nil {
+	if i1 := c.exists(state, mdKeys); i1 != nil {
 		i1.Freq.Reset(now, i.Freq.Hits())
 	}
 }
@@ -88,8 +85,8 @@ func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 // Name implements the Handler interface.
 func (c *Cache) Name() string { return "cache" }
 
-func (c *Cache) get(now time.Time, state request.Request, server string, mdVals []string) (*item, bool) {
-	k := hash(state.Name(), state.QType(), state.Do(), mdVals)
+func (c *Cache) get(now time.Time, state request.Request, server string, mdKeys []metadata.Func) (*item, bool) {
+	k := hash(state.Name(), state.QType(), state.Do(), mdKeys)
 
 	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
 		cacheHits.WithLabelValues(server, Denial).Inc()
@@ -105,8 +102,8 @@ func (c *Cache) get(now time.Time, state request.Request, server string, mdVals 
 }
 
 // getIgnoreTTL unconditionally returns an item if it exists in the cache.
-func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string, mdVals []string) *item {
-	k := hash(state.Name(), state.QType(), state.Do(), mdVals)
+func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string, mdKeys []metadata.Func) *item {
+	k := hash(state.Name(), state.QType(), state.Do(), mdKeys)
 
 	if i, ok := c.ncache.Get(k); ok {
 		ttl := i.(*item).ttl(now)
@@ -126,8 +123,8 @@ func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string
 	return nil
 }
 
-func (c *Cache) exists(state request.Request, mdVals []string) *item {
-	k := hash(state.Name(), state.QType(), state.Do(), mdVals)
+func (c *Cache) exists(state request.Request, mdKeys []metadata.Func) *item {
+	k := hash(state.Name(), state.QType(), state.Do(), mdKeys)
 	if i, ok := c.ncache.Get(k); ok {
 		return i.(*item)
 	}

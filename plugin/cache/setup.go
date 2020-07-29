@@ -185,7 +185,7 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					}
 					ca.staleUpTo = d
 				}
-			case "add-key":
+			case "addkey":
 				for _, arg := range c.RemainingArgs(){
 					ca.metadataKeys = append(ca.metadataKeys, arg)
 				}

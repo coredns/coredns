@@ -35,6 +35,7 @@ cache [TTL] [ZONES...] {
     denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
     serve_stale [DURATION]
+    addkey METADATA...
 }
 ~~~
 
@@ -55,6 +56,8 @@ cache [TTL] [ZONES...] {
   available.  When this happens, cache will attempt to refresh the cache entry after sending the expired cache
   entry to the client. The responses have a TTL of 0. **DURATION** is how far back to consider
   stale responses as fresh. The default duration is 1h.
+* `addkey` adds the listed **METADATA** to the cache key when writing and reading from cache. This has the effect
+  of partitioning responses
 
 ## Capacity and Eviction
 

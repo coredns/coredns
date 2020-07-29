@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/response"
@@ -67,7 +68,7 @@ func New() *Cache {
 // key returns key under which we store the item, -1 will be returned if we don't store the message.
 // Currently we do not cache Truncated, errors zone transfers or dynamic update messages.
 // qname holds the already lowercased qname.
-func key(qname string, m *dns.Msg, t response.Type, do bool, mdVals []string) (bool, uint64) {
+func key(qname string, m *dns.Msg, t response.Type, do bool, mdKeys []metadata.Func) (bool, uint64) {
 	// We don't store truncated responses.
 	if m.Truncated {
 		return false, 0
@@ -77,13 +78,13 @@ func key(qname string, m *dns.Msg, t response.Type, do bool, mdVals []string) (b
 		return false, 0
 	}
 
-	return true, hash(qname, m.Question[0].Qtype, do, mdVals)
+	return true, hash(qname, m.Question[0].Qtype, do, mdKeys)
 }
 
 var one = []byte("1")
 var zero = []byte("0")
 
-func hash(qname string, qtype uint16, do bool, mdVals []string) uint64 {
+func hash(qname string, qtype uint16, do bool, mdKeys []metadata.Func) uint64 {
 	h := fnv.New64()
 
 	if do {
@@ -96,8 +97,8 @@ func hash(qname string, qtype uint16, do bool, mdVals []string) uint64 {
 	h.Write([]byte{byte(qtype)})
 	h.Write([]byte(qname))
 
-	for _, val := range mdVals {
-		h.Write([]byte(val))
+	for _, f := range mdKeys {
+		h.Write([]byte(f()))
 	}
 
 	return h.Sum64()
@@ -124,7 +125,7 @@ type ResponseWriter struct {
 	prefetch   bool // When true write nothing back to the client.
 	remoteAddr net.Addr
 
-	MdVals []string
+	mdKeys []metadata.Func
 }
 
 // newPrefetchResponseWriter returns a Cache ResponseWriter to be used in
@@ -168,7 +169,7 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	}
 
 	// key returns empty string for anything we don't want to cache.
-	hasKey, key := key(w.state.Name(), res, mt, do, w.MdVals)
+	hasKey, key := key(w.state.Name(), res, mt, do, w.MdKeys)
 
 	msgTTL := dnsutil.MinimalTTL(res, mt)
 	var duration time.Duration
