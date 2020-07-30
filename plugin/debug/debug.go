@@ -5,6 +5,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 
 	"github.com/caddyserver/caddy"
+
+	"github.com/coredns/coredns/plugin/pkg/log"
 )
 
 func init() { plugin.Register("debug", setup) }
@@ -17,6 +19,7 @@ func setup(c *caddy.Controller) error {
 			return plugin.Error("debug", c.ArgErr())
 		}
 		config.Debug = true
+		log.D.Set()
 	}
 
 	return nil
