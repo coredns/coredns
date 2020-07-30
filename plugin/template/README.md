@@ -16,7 +16,7 @@ template CLASS TYPE [ZONE...] {
     answer RR
     additional RR
     authority RR
-    ednslocal CODE=DATA...
+    edns local CODE=DATA...
     rcode CODE
     fallthrough [ZONE...]
 }
@@ -28,7 +28,7 @@ template CLASS TYPE [ZONE...] {
 * `match` **REGEX** [Go regexp](https://golang.org/pkg/regexp/) that are matched against the incoming question name. Specifying no **REGEX** matches everything (default: `.*`). First matching regex wins.
 * `answer|additional|authority` **RR** A [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) style resource record fragment
   built by a [Go template](https://golang.org/pkg/text/template/) that contains the reply.
-* `ednslocal` add an EDNS0 local OPT pseudo-RR to the response. Each **CODE**=**DATA** adds an EDNS0 local value.
+* `edns local` add an EDNS0 local OPT pseudo-RR to the response. Each **CODE**=**DATA** pair adds an EDNS0 local value.
 * `rcode` **CODE** A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `SUCCESS`.
 * `fallthrough` Continue with the next plugin if the zone matched but no regex matched.
   If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only queries for
