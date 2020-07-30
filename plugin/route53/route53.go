@@ -148,7 +148,7 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	return dns.RcodeSuccess, nil
 }
 
-const escapeSeq = `\\`
+const escapeSeq = "\\"
 
 // maybeUnescape parses s and converts escaped ASCII codepoints (in octal) back
 // to its ASCII representation.
