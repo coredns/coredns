@@ -25,6 +25,14 @@ func TestHandler(t *testing.T) {
 		fall:   fall.Root,
 		zones:  []string{"."},
 	}
+	exampleDomainIPATemplate := template{
+		regex:  []*regexp.Regexp{regexp.MustCompile(".*")},
+		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A {{ .Remote }}"))},
+		qclass: dns.ClassINET,
+		qtype:  dns.TypeA,
+		fall:   fall.Root,
+		zones:  []string{"."},
+	}
 	exampleDomainANSTemplate := template{
 		regex:      []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
 		answer:     []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
@@ -193,6 +201,25 @@ func TestHandler(t *testing.T) {
 			expectedCode: dns.RcodeServerFailure,
 			expectedErr:  `dns: not a TTL: "test.example." at line: 1:13`,
 			verifyResponse: func(r *dns.Msg) error {
+				return nil
+			},
+		},
+		{
+			name:   "ExampleIPMatch",
+			tmpl:   exampleDomainIPATemplate,
+			qclass: dns.ClassINET,
+			qtype:  dns.TypeA,
+			qname:  "test.example.",
+			verifyResponse: func(r *dns.Msg) error {
+				if len(r.Answer) != 1 {
+					return fmt.Errorf("expected 1 answer, got %v", len(r.Answer))
+				}
+				if r.Answer[0].Header().Rrtype != dns.TypeA {
+					return fmt.Errorf("expected an A record answer, got %v", dns.TypeToString[r.Answer[0].Header().Rrtype])
+				}
+				if r.Answer[0].(*dns.A).A.String() != "10.240.0.1" {
+					return fmt.Errorf("expected an A record for 10.95.12.8, got %v", r.Answer[0].String())
+				}
 				return nil
 			},
 		},
