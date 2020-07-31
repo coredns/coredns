@@ -56,8 +56,9 @@ cache [TTL] [ZONES...] {
   available.  When this happens, cache will attempt to refresh the cache entry after sending the expired cache
   entry to the client. The responses have a TTL of 0. **DURATION** is how far back to consider
   stale responses as fresh. The default duration is 1h.
-* `addkey` adds the listed **METADATA** to the cache key when writing and reading from cache. This has the effect
-  of partitioning responses
+* `addkey` adds the listed **METADATA** to the cache key when writing and reading from cache.
+  This can be used to cache policy based responses which contain answers that are are dependent
+  on the same criteria exposed in the **METADATA**.
 
 ## Capacity and Eviction
 
