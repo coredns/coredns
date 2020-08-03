@@ -1,6 +1,7 @@
 package template
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"regexp"
@@ -118,6 +119,14 @@ func TestHandler(t *testing.T) {
 		qtype:  dns.TypeANY,
 		fall:   fall.Root,
 		zones:  []string{"."},
+	}
+	staticEdnsTemp := template{
+		regex:     []*regexp.Regexp{regexp.MustCompile(".*")},
+		ednsLocal: []*gotmpl.Template{gotmpl.Must(gotmpl.New("edns").Parse("1234=abcdefg"))},
+		qclass:    dns.ClassANY,
+		qtype:     dns.TypeANY,
+		fall:      fall.Root,
+		zones:     []string{"."},
 	}
 
 	tests := []struct {
@@ -366,6 +375,37 @@ func TestHandler(t *testing.T) {
 			},
 			md: map[string]string{
 				"foo": "myfoo",
+			},
+		},
+		{
+			name:   "EDNSLocal",
+			tmpl:   staticEdnsTemp,
+			qclass: dns.ClassINET,
+			qtype:  dns.TypeA,
+			qname:  "test.example.",
+			verifyResponse: func(r *dns.Msg) error {
+				if len(r.Extra) != 1 {
+					return fmt.Errorf("expected 1 additional, got %v", len(r.Extra))
+				}
+				opt := r.IsEdns0()
+				if opt == nil {
+					return fmt.Errorf("expected an EDNS OPT record  got %v", r.Extra[0].String())
+				}
+				if len(opt.Option) != 1 {
+					return fmt.Errorf("expected 1 EDNS option, got %v", len(opt.Option))
+				}
+				eloc, ok := opt.Option[0].(*dns.EDNS0_LOCAL)
+				if !ok {
+					return fmt.Errorf("expected EDNS Local option")
+
+				}
+				if eloc.Code != 1234 {
+					return fmt.Errorf("expected EDNS option code 1234, got %v", eloc.Code)
+				}
+				if bytes.Compare(eloc.Data, []byte("abcdefg")) != 0 {
+					return fmt.Errorf("expected EDNS option data 'abcdefg', got %v", string(eloc.Data))
+				}
+				return nil
 			},
 		},
 	}

@@ -84,6 +84,12 @@ func TestSetupParse(t *testing.T) {
 			}`,
 			true,
 		},
+		{
+			`template ANY A example.com {
+					edns unspportedOptionType "12345=test123"
+                }`,
+			true,
+		},
 		// examples
 		{`template ANY ANY (?P<x>`, false},
 		{
@@ -139,6 +145,12 @@ func TestSetupParse(t *testing.T) {
 					additional "ns0.example. 60 IN A 203.0.113.8"
 					additional "ns1.example. 60 IN A 198.51.100.8"
 				}`,
+			false,
+		},
+		{
+			`template ANY A example.com {
+					edns local "12345=test123"
+                }`,
 			false,
 		},
 	}

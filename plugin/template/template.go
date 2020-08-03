@@ -124,20 +124,10 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			o.Hdr.Name = "."
 			o.Hdr.Rrtype = dns.TypeOPT
 			for _, e := range template.ednsLocal {
-				buffer := &bytes.Buffer{}
-				err := e.Execute(buffer, data)
+				err := executeEdnsTemplate(metrics.WithServer(ctx), "edns", e, o, data)
 				if err != nil {
 					return dns.RcodeServerFailure, err
 				}
-				pos := strings.Index(buffer.String(), "=")
-				i, err := strconv.Atoi(buffer.String()[0:pos])
-				code := uint16(i)
-				var edata []byte
-				if buffer.Len() > pos {
-					edata = buffer.Bytes()[pos+1:]
-				}
-				e := &dns.EDNS0_LOCAL{Code: code, Data: edata}
-				o.Option = append(o.Option, e)
 			}
 			msg.Extra = append(msg.Extra, o)
 		}
@@ -151,6 +141,29 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 // Name implements the plugin.Handler interface.
 func (h Handler) Name() string { return "template" }
+
+func executeEdnsTemplate(server, section string, template *gotmpl.Template, o *dns.OPT, data *templateData) error {
+	buffer := &bytes.Buffer{}
+	err := template.Execute(buffer, data)
+	if err != nil {
+		templateFailureCount.WithLabelValues(server, data.Zone, data.Class, data.Type, section, template.Tree.Root.String()).Inc()
+		return err
+	}
+	pos := strings.Index(buffer.String(), "=")
+	i, err := strconv.Atoi(buffer.String()[0:pos])
+	if err != nil {
+		templateRRFailureCount.WithLabelValues(server, data.Zone, data.Class, data.Type, section, template.Tree.Root.String()).Inc()
+		return err
+	}
+	code := uint16(i)
+	var edata []byte
+	if buffer.Len() > pos {
+		edata = buffer.Bytes()[pos+1:]
+	}
+	e := &dns.EDNS0_LOCAL{Code: code, Data: edata}
+	o.Option = append(o.Option, e)
+	return nil
+}
 
 func executeRRTemplate(server, section string, template *gotmpl.Template, data *templateData) (dns.RR, error) {
 	buffer := &bytes.Buffer{}
