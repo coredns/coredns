@@ -8,7 +8,7 @@
 
 The *etcd* plugin implements the (older) SkyDNS service discovery service. It is *not* suitable as
 a generic DNS zone data plugin. Only a subset of DNS record types are implemented, and subdomains
-and delegations are not handled at all. The plugin will also recursively decent the tree and return
+and delegations are not handled at all. The plugin will also recursively descend the tree and return
 all records found, see "Special Behavior" below for details.
 
 The data in the etcd instance has to be encoded as
