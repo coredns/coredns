@@ -8,14 +8,15 @@
 
 The *etcd* plugin implements the (older) SkyDNS service discovery service. It is *not* suitable as
 a generic DNS zone data plugin. Only a subset of DNS record types are implemented, and subdomains
-and delegations are not handled at all.
+and delegations are not handled at all. The plugin will also recursively decent the tree and return
+all records found, see "Special Behavior" below for details.
 
 The data in the etcd instance has to be encoded as
 a [message](https://github.com/skynetservices/skydns/blob/2fcff74cdc9f9a7dd64189a447ef27ac354b725f/msg/service.go#L26)
 like [SkyDNS](https://github.com/skynetservices/skydns). It works just like SkyDNS.
 
-The etcd plugin makes extensive use of the *forward* plugin to forward and query other servers in the
-network.
+The *etcd* plugin makes extensive use of the *forward* plugin to forward and query other servers in the
+network - if that plugin has been enabled as well.
 
 ## Syntax
 
@@ -28,7 +29,6 @@ etcd [ZONES...]
 The path will default to `/skydns` the local etcd3 proxy (http://localhost:2379). If no zones are
 specified the block's zone will be used as the zone.
 
-If you want to `round robin` A and AAAA responses look at the `loadbalance` plugin.
 
 ~~~
 etcd [ZONES...] {
@@ -61,16 +61,18 @@ etcd [ZONES...] {
 The *etcd* plugin leverages directory structure to look for related entries. For example
 an entry `/skydns/test/skydns/mx` would have entries like `/skydns/test/skydns/mx/a`,
 `/skydns/test/skydns/mx/b` and so on. Similarly a directory `/skydns/test/skydns/mx1` will have all
-`mx1` entries.
+`mx1` entries. Note this plugin will search through the entire (sub)tree for records. In case of the
+first example a query for `mx.skydns.text` will return both the contents of the `a` and `b` records,
+if the directory extends deeper those records are returned as well.
 
 With etcd3, support for [hierarchical keys are
 dropped](https://coreos.com/etcd/docs/latest/learning/api.html). This means there are no directories
-but only flat keys with prefixes in etcd3. To accommodate lookups, etcdv3 plugin now does a lookup
+but only flat keys with prefixes in etcd3. To accommodate lookups, the *etcd* plugin now does a lookup
 on prefix `/skydns/test/skydns/mx/` to search for entries like `/skydns/test/skydns/mx/a` etc, and
 if there is nothing found on `/skydns/test/skydns/mx/`, it looks for `/skydns/test/skydns/mx` to
 find entries like `/skydns/test/skydns/mx1`.
 
-This causes two lookups from CoreDNS to etcdv3 in certain cases.
+This causes two lookups from CoreDNS to etcd in certain cases.
 
 ## Examples
 
@@ -226,3 +228,7 @@ If you query the zone name for `TXT` now, you will get the following response:
 % dig +short skydns.local TXT @localhost
 "this is a random text message."
 ~~~
+
+## Also See
+
+If you want to `round robin` A and AAAA responses look at the *loadbalance* plugin.
