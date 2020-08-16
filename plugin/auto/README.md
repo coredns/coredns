@@ -9,7 +9,7 @@
 The *auto* plugin is used for an "old-style" DNS server. It serves from a preloaded file that exists
 on disk. If the zone file contains signatures (i.e. is signed, i.e. using DNSSEC) correct DNSSEC answers
 are returned. Only NSEC is supported! If you use this setup *you* are responsible for re-signing the
-zonefile. New or changed zones are automatically picked up from disk.
+zonefile. New or changed zones are automatically picked up from disk only when serial changes. If the zones are not updated via a zone transfer, serial must be manually changed.
 
 ## Syntax
 
