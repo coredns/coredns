@@ -14,7 +14,7 @@ func setupProxyTargetCoreDNS(t *testing.T, fn func(string)) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(tmpdir)
+	defer os.RemoveAll(tmpdir)
 
 	content := `
 example.org. IN SOA sns.dns.icann.org. noc.dns.icann.org. 1 3600 3600 3600 3600
