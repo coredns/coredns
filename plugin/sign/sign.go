@@ -27,7 +27,7 @@ func (s *Sign) OnStartup() error {
 // Various duration constants for signing of the zones.
 const (
 	durationExpireDays              = 7 * 24 * time.Hour  // max time allowed before expiration
-	durationResignDays              = 6 * 24 * time.Hour  // if the last sign happenend this long ago, sign again
+	durationResignDays              = 6 * 24 * time.Hour  // if the last sign happened this long ago, sign again
 	durationSignatureExpireDays     = 32 * 24 * time.Hour // sign for 32 days
 	durationRefreshHours            = 5 * time.Hour       // check zones every 5 hours
 	durationInceptionJitter         = -18 * time.Hour     // default max jitter for the inception
