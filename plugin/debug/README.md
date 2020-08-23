@@ -12,6 +12,9 @@ will be printed to standard output.
 
 Note that the *errors* plugin (if loaded) will also set a `recover`, negating this setting.
 
+Enabling this plugin is process-wide: enabling *debug* in at least one server block enables
+debug mode globally.
+
 ## Syntax
 
 ~~~ txt

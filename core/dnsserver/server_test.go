@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -45,6 +46,33 @@ func TestNewServer(t *testing.T) {
 	_, err = NewServerTLS("127.0.0.1:53", []*Config{testConfig("tls", testPlugin{})})
 	if err != nil {
 		t.Errorf("Expected no error for NewServerTLS, got %s", err)
+	}
+}
+
+func TestDebug(t *testing.T) {
+	configNoDebug, configDebug := testConfig("dns", testPlugin{}), testConfig("dns", testPlugin{})
+	configDebug.Debug = true
+
+	s1, err := NewServer("127.0.0.1:53", []*Config{configDebug, configNoDebug})
+	if err != nil {
+		t.Errorf("Expected no error for NewServer, got %s", err)
+	}
+	if !s1.debug {
+		t.Errorf("Expected debug mode enabled for server s1")
+	}
+	if !log.D.Value() {
+		t.Errorf("Expected debug logging enabled")
+	}
+
+	s2, err := NewServer("127.0.0.1:53", []*Config{configNoDebug})
+	if err != nil {
+		t.Errorf("Expected no error for NewServer, got %s", err)
+	}
+	if s2.debug {
+		t.Errorf("Expected debug mode disabled for server s2")
+	}
+	if log.D.Value() {
+		t.Errorf("Expected debug logging disabled")
 	}
 }
 
