@@ -39,7 +39,7 @@ Zou Nengren.
 * plugin/{etcd,kubernetes}: fix root zone usage (https://github.com/coredns/coredns/pull/4039).
 * plugin/forward: Register HealthcheckBrokenCount (https://github.com/coredns/coredns/pull/4021).
 * plugin/grpc: Improve gRPC Plugin when backend is not available (https://github.com/coredns/coredns/pull/3966)
-* plugin/route53: Fix wildcard records issue in rout53 plugin (https://github.com/coredns/coredns/pull/4038).
+* plugin/route53: Fix wildcard records issue in route53 plugin (https://github.com/coredns/coredns/pull/4038).
 * plugins: Using promauto package to ensure all created metrics are properly registered (https://github.com/coredns/coredns/pull/4025).
 * plugin/template: Add client IP data (https://github.com/coredns/coredns/pull/4034).
 * plugin/trace: Only with *debug* active enable debug mode for tracing - removes extra logging (https://github.com/coredns/coredns/pull/4016).
