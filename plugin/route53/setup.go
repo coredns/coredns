@@ -53,14 +53,14 @@ func setup(c *caddy.Controller) error {
 		for i := 0; i < len(args); i++ {
 			parts := strings.SplitN(args[i], ":", 2)
 			if len(parts) != 2 {
-				return plugin.Error("route53", c.Errf("invalid zone '%s'", args[i]))
+				return plugin.Error("route53", c.Errf("invalid zone %q", args[i]))
 			}
 			dns, hostedZoneID := parts[0], parts[1]
 			if dns == "" || hostedZoneID == "" {
-				return plugin.Error("route53", c.Errf("invalid zone '%s'", args[i]))
+				return plugin.Error("route53", c.Errf("invalid zone %q", args[i]))
 			}
 			if _, ok := keyPairs[args[i]]; ok {
-				return plugin.Error("route53", c.Errf("conflict zone '%s'", args[i]))
+				return plugin.Error("route53", c.Errf("conflict zone %q", args[i]))
 			}
 
 			keyPairs[args[i]] = struct{}{}
@@ -72,7 +72,7 @@ func setup(c *caddy.Controller) error {
 			case "aws_access_key":
 				v := c.RemainingArgs()
 				if len(v) < 2 {
-					return plugin.Error("route53", c.Errf("invalid access key '%v'", v))
+					return plugin.Error("route53", c.Errf("invalid access key: '%v'", v))
 				}
 				providers = append(providers, &credentials.StaticProvider{
 					Value: credentials.Value{
@@ -102,16 +102,16 @@ func setup(c *caddy.Controller) error {
 					}
 					refresh, err = time.ParseDuration(refreshStr)
 					if err != nil {
-						return plugin.Error("route53", c.Errf("Unable to parse duration: '%v'", err))
+						return plugin.Error("route53", c.Errf("Unable to parse duration: %v", err))
 					}
 					if refresh <= 0 {
-						return plugin.Error("route53", c.Errf("refresh interval must be greater than 0: %s", refreshStr))
+						return plugin.Error("route53", c.Errf("refresh interval must be greater than 0: %q", refreshStr))
 					}
 				} else {
 					return plugin.Error("route53", c.ArgErr())
 				}
 			default:
-				return plugin.Error("route53", c.Errf("unknown property '%s'", c.Val()))
+				return plugin.Error("route53", c.Errf("unknown property %q", c.Val()))
 			}
 		}
 
@@ -127,16 +127,17 @@ func setup(c *caddy.Controller) error {
 		ctx := context.Background()
 		h, err := New(ctx, client, keys, refresh)
 		if err != nil {
-			return plugin.Error("route53", c.Errf("failed to create Route53 plugin: %v", err))
+			return plugin.Error("route53", c.Errf("failed to create route53 plugin: %v", err))
 		}
 		h.Fall = fall
 		if err := h.Run(ctx); err != nil {
-			return plugin.Error("route53", c.Errf("failed to initialize Route53 plugin: %v", err))
+			return plugin.Error("route53", c.Errf("failed to initialize route53 plugin: %v", err))
 		}
 		dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 			h.Next = next
 			return h
 		})
+		c.OnShutdown(func() error { ctx.Done(); return nil })
 	}
 	return nil
 }

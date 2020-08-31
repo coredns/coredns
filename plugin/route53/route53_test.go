@@ -81,7 +81,7 @@ func TestRoute53(t *testing.T) {
 
 	r, err := New(ctx, fakeRoute53{}, map[string][]string{"bad.": {"0987654321"}}, time.Minute)
 	if err != nil {
-		t.Fatalf("Failed to create Route53: %v", err)
+		t.Fatalf("Failed to create route53: %v", err)
 	}
 	if err = r.Run(ctx); err == nil {
 		t.Fatalf("Expected errors for zone bad.")
@@ -89,7 +89,7 @@ func TestRoute53(t *testing.T) {
 
 	r, err = New(ctx, fakeRoute53{}, map[string][]string{"org.": {"1357986420", "1234567890"}, "gov.": {"Z098765432", "1234567890"}}, 90*time.Second)
 	if err != nil {
-		t.Fatalf("Failed to create Route53: %v", err)
+		t.Fatalf("Failed to create route53: %v", err)
 	}
 	r.Fall = fall.Zero
 	r.Fall.SetZonesFromArgs([]string{"gov."})
@@ -117,7 +117,7 @@ func TestRoute53(t *testing.T) {
 	})
 	err = r.Run(ctx)
 	if err != nil {
-		t.Fatalf("Failed to initialize Route53: %v", err)
+		t.Fatalf("Failed to initialize route53: %v", err)
 	}
 
 	tests := []struct {
