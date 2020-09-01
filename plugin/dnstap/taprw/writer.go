@@ -38,7 +38,7 @@ type ResponseWriter struct {
 	dnstapErr error
 }
 
-// DnstapError check if a dnstap error occurred during Write and returns it.
+// DnstapError checks if a dnstap error occurred during Write and returns it.
 func (w *ResponseWriter) DnstapError() error {
 	return w.dnstapErr
 }

@@ -73,7 +73,7 @@ func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) R
 // Mode returns the processing mode.
 func (rule *edns0NsidRule) Mode() string { return rule.mode }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *edns0NsidRule) GetResponseRule() ResponseRule { return ResponseRule{} }
 
 // Rewrite will alter the request EDNS0 local options.
@@ -103,7 +103,7 @@ func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) 
 // Mode returns the processing mode.
 func (rule *edns0LocalRule) Mode() string { return rule.mode }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *edns0LocalRule) GetResponseRule() ResponseRule { return ResponseRule{} }
 
 // newEdns0Rule creates an EDNS0 rule of the appropriate type based on the args
@@ -253,7 +253,7 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 // Mode returns the processing mode.
 func (rule *edns0VariableRule) Mode() string { return rule.mode }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *edns0VariableRule) GetResponseRule() ResponseRule { return ResponseRule{} }
 
 func isValidVariable(variable string) bool {

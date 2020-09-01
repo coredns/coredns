@@ -183,27 +183,27 @@ func (rule *suffixTTLRule) Mode() string    { return rule.NextAction }
 func (rule *substringTTLRule) Mode() string { return rule.NextAction }
 func (rule *regexTTLRule) Mode() string     { return rule.NextAction }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *exactTTLRule) GetResponseRule() ResponseRule {
 	return rule.ResponseRule
 }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *prefixTTLRule) GetResponseRule() ResponseRule {
 	return rule.ResponseRule
 }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *suffixTTLRule) GetResponseRule() ResponseRule {
 	return rule.ResponseRule
 }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *substringTTLRule) GetResponseRule() ResponseRule {
 	return rule.ResponseRule
 }
 
-// GetResponseRule return a rule to rewrite the response with.
+// GetResponseRule returns a rule to rewrite the response with.
 func (rule *regexTTLRule) GetResponseRule() ResponseRule {
 	return rule.ResponseRule
 }

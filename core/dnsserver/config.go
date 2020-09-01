@@ -52,7 +52,7 @@ type Config struct {
 	registry map[string]plugin.Handler
 }
 
-// keyForConfig build a key for identifying the configs during setup time
+// keyForConfig builds a key for identifying the configs during setup time
 func keyForConfig(blocIndex int, blocKeyIndex int) string {
 	return fmt.Sprintf("%d:%d", blocIndex, blocKeyIndex)
 }

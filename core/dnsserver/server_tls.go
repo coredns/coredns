@@ -26,7 +26,7 @@ func NewServerTLS(addr string, group []*Config) (*ServerTLS, error) {
 		return nil, err
 	}
 	// The *tls* plugin must make sure that multiple conflicting
-	// TLS configuration return an error: it can only be specified once.
+	// TLS configuration returns an error: it can only be specified once.
 	var tlsConfig *tls.Config
 	for _, conf := range s.zones {
 		// Should we error if some configs *don't* have TLS?

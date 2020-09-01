@@ -112,7 +112,7 @@ func OPT(bufsize int, do bool) *dns.OPT {
 	return o
 }
 
-// Header test if the header in resp matches the header as defined in tc.
+// Header tests if the header in resp matches the header as defined in tc.
 func Header(tc Case, resp *dns.Msg) error {
 	if resp.Rcode != tc.Rcode {
 		return fmt.Errorf("rcode is %q, expected %q", dns.RcodeToString[resp.Rcode], dns.RcodeToString[tc.Rcode])

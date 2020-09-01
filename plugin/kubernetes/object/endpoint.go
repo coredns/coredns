@@ -42,7 +42,7 @@ type EndpointPort struct {
 	Protocol string
 }
 
-// EndpointsKey return a string using for the index.
+// EndpointsKey returns a string using for the index.
 func EndpointsKey(name, namespace string) string { return name + "." + namespace }
 
 // ToEndpoints returns a function that converts an *api.Endpoints to a *Endpoints.

@@ -6,7 +6,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// hash serializes the RRset and return a signature cache key.
+// hash serializes the RRset and returns a signature cache key.
 func hash(rrs []dns.RR) uint64 {
 	h := fnv.New64()
 	buf := make([]byte, 256)

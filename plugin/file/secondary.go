@@ -95,7 +95,7 @@ Transfer:
 	return less(z.Apex.SOA.Serial, uint32(serial)), Err
 }
 
-// less return true of a is smaller than b when taking RFC 1982 serial arithmetic into account.
+// less returns true of a is smaller than b when taking RFC 1982 serial arithmetic into account.
 func less(a, b uint32) bool {
 	if a < b {
 		return (b - a) <= MaxSerialIncrement

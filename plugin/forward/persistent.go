@@ -121,7 +121,7 @@ func (t *Transport) cleanup(all bool) {
 // It is hard to pin a value to this, the import thing is to no block forever, losing at cached connection is not terrible.
 const yieldTimeout = 25 * time.Millisecond
 
-// Yield return the connection to transport for reuse.
+// Yield returns the connection to transport for reuse.
 func (t *Transport) Yield(pc *persistConn) {
 	pc.used = time.Now() // update used time
 

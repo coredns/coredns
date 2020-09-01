@@ -9,7 +9,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// ResponseWriter sign the response on the fly.
+// ResponseWriter signs the response on the fly.
 type ResponseWriter struct {
 	dns.ResponseWriter
 	d      Dnssec

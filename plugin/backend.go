@@ -26,7 +26,7 @@ type ServiceBackend interface {
 	// Note: it does not implement a specific service.
 	Records(ctx context.Context, state request.Request, exact bool) ([]msg.Service, error)
 
-	// IsNameError return true if err indicated a record not found condition
+	// IsNameError returns true if err indicated a record not found condition
 	IsNameError(err error) bool
 
 	Transferer

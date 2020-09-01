@@ -99,7 +99,7 @@ func stripUnderscore(s string) string {
 	return s[1:]
 }
 
-// String return a string representation of r, it just returns all fields concatenated with dots.
+// String returns a string representation of r, it just returns all fields concatenated with dots.
 // This is mostly used in tests.
 func (r recordRequest) String() string {
 	s := r.port

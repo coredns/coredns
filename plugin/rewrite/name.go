@@ -245,27 +245,27 @@ func (rule *suffixNameRule) Mode() string    { return rule.NextAction }
 func (rule *substringNameRule) Mode() string { return rule.NextAction }
 func (rule *regexNameRule) Mode() string     { return rule.NextAction }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *exactNameRule) GetResponseRule() ResponseRule { return rule.ResponseRule }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *prefixNameRule) GetResponseRule() ResponseRule { return ResponseRule{} }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *suffixNameRule) GetResponseRule() ResponseRule { return ResponseRule{} }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
+// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
 func (rule *substringNameRule) GetResponseRule() ResponseRule { return ResponseRule{} }
 
-// GetResponseRule return a rule to rewrite the response with.
+// GetResponseRule returns a rule to rewrite the response with.
 func (rule *regexNameRule) GetResponseRule() ResponseRule { return rule.ResponseRule }
 
-// hasClosingDot return true if s has a closing dot at the end.
+// hasClosingDot returns true if s has a closing dot at the end.
 func hasClosingDot(s string) bool {
 	return strings.HasSuffix(s, ".")
 }
 
-// getSubExprUsage return the number of subexpressions used in s.
+// getSubExprUsage returns the number of subexpressions used in s.
 func getSubExprUsage(s string) int {
 	subExprUsage := 0
 	for i := 0; i <= 100; i++ {
@@ -276,7 +276,7 @@ func getSubExprUsage(s string) int {
 	return subExprUsage
 }
 
-// isValidRegexPattern return a regular expression for pattern matching or errors, if any.
+// isValidRegexPattern returns a regular expression for pattern matching or errors, if any.
 func isValidRegexPattern(rewriteFrom, rewriteTo string) (*regexp.Regexp, error) {
 	rewriteFromPattern, err := regexp.Compile(rewriteFrom)
 	if err != nil {

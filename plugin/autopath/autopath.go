@@ -54,7 +54,7 @@ type AutoPather interface {
 	AutoPath(request.Request) []string
 }
 
-// AutoPath perform autopath: service side search path completion.
+// AutoPath performs autopath: service side search path completion.
 type AutoPath struct {
 	Next  plugin.Handler
 	Zones []string
