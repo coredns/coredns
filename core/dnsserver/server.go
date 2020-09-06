@@ -194,7 +194,7 @@ func (s *Server) Stop() (err error) {
 // Address together with Stop() implement caddy.GracefulServer.
 func (s *Server) Address() string { return s.Addr }
 
-// ServeDNS is the entry point for every request to the address that 
+// ServeDNS is the entry point for every request to the address that
 // is bound to. It acts as a multiplexer for the requests zonename as
 // defined in the request so that the correct zone
 // (configuration and plugin stack) will handle the request.
