@@ -118,6 +118,9 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	if f.tlsServerName != "" {
 		f.tlsConfig.ServerName = f.tlsServerName
 	}
+
+	// Initialize ClientSessionCache in tls.Config. This may speed up a TLS handshake
+	// in upcoming connections to the same TLS server.
 	f.tlsConfig.ClientSessionCache = tls.NewLRUClientSessionCache(len(f.proxies))
 
 	for i := range f.proxies {
