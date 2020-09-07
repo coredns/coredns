@@ -143,6 +143,8 @@ github.com/dnaeon/go-vcr v0.0.0-20180814043457-aafff18a5cc2/go.mod h1:aBB1+wY4s9
 github.com/dnsimple/dnsimple-go v0.30.0/go.mod h1:O5TJ0/U6r7AfT8niYNlmohpLbCSG+c71tQlGr9SeGrg=
 github.com/dnstap/golang-dnstap v0.2.0 h1:+NrmP4mkaTeKYV7xJ5FXpUxRn0RpcgoQcsOCTS8WQPk=
 github.com/dnstap/golang-dnstap v0.2.0/go.mod h1:s1PfVYYVmTMgCSPtho4LKBDecEHJWtiVDPNv78Z985U=
+github.com/dnstap/golang-dnstap v0.2.1 h1:dcqdOI9vPmFt4U213jjFHLw9SEu5EuKrtW/DPJojO28=
+github.com/dnstap/golang-dnstap v0.2.1/go.mod h1:JIH+8jjV4pSEZCGPfPgFfuwyzmAuTLrEnk0BxtrF/5w=
 github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96/go.mod h1:Qh8CwZgvJUkLughtfhJv5dyTYa91l1fOUCrgjqmcifM=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=
@@ -165,6 +167,8 @@ github.com/evanphx/json-patch v4.9.0+incompatible/go.mod h1:50XU6AFN0ol/bzJsmQLi
 github.com/exoscale/egoscale v0.18.1/go.mod h1:Z7OOdzzTOz1Q1PjQXumlz9Wn/CddH0zSYdCF3rnBKXE=
 github.com/farsightsec/golang-framestream v0.0.0-20190425193708-fa4b164d59b8 h1:/iPdQppoAsTfML+yqFSq2EBChiEMnRkh5WvhFgtWwcU=
 github.com/farsightsec/golang-framestream v0.0.0-20190425193708-fa4b164d59b8/go.mod h1:eNde4IQyEiA5br02AouhEHCu3p3UzrCdFR4LuQHklMI=
+github.com/farsightsec/golang-framestream v0.2.0 h1:tW5KuZqkNIoiBc6LMsMLg+h6kkGyIB4/RR1z7Tqv6wE=
+github.com/farsightsec/golang-framestream v0.2.0/go.mod h1:eNde4IQyEiA5br02AouhEHCu3p3UzrCdFR4LuQHklMI=
 github.com/fatih/color v1.7.0/go.mod h1:Zm6kSWBoL9eyXnKyktHP6abPY2pDugNf5KwzbycvMj4=
 github.com/fatih/structs v1.1.0/go.mod h1:9NiDSp5zOcgEDl+j00MP/WkGVPOlPRLejGD8Ga6PJ7M=
 github.com/flynn/go-shlex v0.0.0-20150515145356-3f9db97f8568 h1:BHsljHzVlRcyQhjrss6TZTdY2VfCqZPbv5k3iBFa2ZQ=

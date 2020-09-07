@@ -12,8 +12,8 @@ require (
 	github.com/aws/aws-sdk-go v1.34.13
 	github.com/caddyserver/caddy v1.0.5
 	github.com/cenkalti/backoff/v4 v4.0.2
-	github.com/dnstap/golang-dnstap v0.2.0
-	github.com/farsightsec/golang-framestream v0.0.0-20190425193708-fa4b164d59b8
+	github.com/dnstap/golang-dnstap v0.2.1
+	github.com/farsightsec/golang-framestream v0.2.0
 	github.com/golang/protobuf v1.4.2
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
