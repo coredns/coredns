@@ -80,4 +80,4 @@ pb:
 .PHONY: clean
 clean:
 	go clean
-	rm -f coredns
+	rm -f coredns cover.out coverage.txt

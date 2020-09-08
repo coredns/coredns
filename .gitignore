@@ -4,3 +4,5 @@ coredns.exe
 build/
 release/
 vendor/
+/cover.out
+/coverage.txt
