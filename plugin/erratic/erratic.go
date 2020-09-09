@@ -13,15 +13,13 @@ import (
 
 // Erratic is a plugin that returns erratic responses to each client.
 type Erratic struct {
-	drop uint64
-
+	q        uint64 // counter of queries
+	drop     uint64
 	delay    uint64
-	duration time.Duration
-
 	truncate uint64
-	large    bool // undocumented feature; return large responses for A request (>512B, to test compression).
 
-	q uint64 // counter of queries
+	duration time.Duration
+	large    bool // undocumented feature; return large responses for A request (>512B, to test compression).
 }
 
 // ServeDNS implements the plugin.Handler interface.
