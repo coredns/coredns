@@ -50,6 +50,9 @@ func (a Auto) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 
 	// Now the real zone.
 	zone = plugin.Zones(a.Zones.Names()).Matches(qname)
+	if zone == "" {
+		return plugin.NextOrFailure(a.Name(), a.Next, ctx, w, r)
+	}
 
 	a.Zones.RLock()
 	z, ok := a.Zones.Z[zone]
