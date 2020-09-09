@@ -29,6 +29,8 @@ const (
 )
 
 type trace struct {
+	count uint64 // as per Go spec, needs to be first element in a struct
+
 	Next            plugin.Handler
 	Endpoint        string
 	EndpointType    string
@@ -37,7 +39,6 @@ type trace struct {
 	serviceName     string
 	clientServer    bool
 	every           uint64
-	count           uint64
 	Once            sync.Once
 }
 
