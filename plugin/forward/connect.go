@@ -54,8 +54,10 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	pc := <-t.ret
 
 	if pc != nil {
+		ConnCacheHitsCount.WithLabelValues(t.addr, proto).Add(1)
 		return pc, true, nil
 	}
+	ConnCacheMissesCount.WithLabelValues(t.addr, proto).Add(1)
 
 	reqTime := time.Now()
 	timeout := t.dialTimeout()

@@ -52,4 +52,16 @@ var (
 		Name:      "max_concurrent_rejects_total",
 		Help:      "Counter of the number of queries rejected because the concurrent queries were at maximum.",
 	})
+	ConnCacheHitsCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "forward",
+		Name:      "conn_cache_hits_total",
+		Help:      "Counter of connection cache hits per upstream and protocol.",
+	}, []string{"to", "proto"})
+	ConnCacheMissesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "forward",
+		Name:      "conn_cache_misses_total",
+		Help:      "Counter of connection cache misses per upstream and protocol.",
+	}, []string{"to", "proto"})
 )
