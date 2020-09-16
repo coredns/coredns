@@ -17,7 +17,9 @@ import (
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
-	zipkin "github.com/openzipkin-contrib/zipkin-go-opentracing"
+	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
+	"github.com/openzipkin/zipkin-go"
+	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
@@ -64,15 +66,16 @@ func (t *trace) OnStartup() error {
 }
 
 func (t *trace) setupZipkin() error {
-
-	collector, err := zipkin.NewHTTPCollector(t.Endpoint)
+	reporter := zipkinhttp.NewReporter(t.Endpoint)
+	recorder, err := zipkin.NewEndpoint(t.serviceName, t.serviceEndpoint)
+	if err != nil {
+		log.Warningf("build Zipkin endpoint found err: %v", err)
+	}
+	tracer, err := zipkin.NewTracer(reporter, zipkin.WithLocalEndpoint(recorder))
 	if err != nil {
 		return err
 	}
-
-	recorder := zipkin.NewRecorder(collector, false, t.serviceEndpoint, t.serviceName)
-	t.tracer, err = zipkin.NewTracer(recorder, zipkin.ClientServerSameSpan(t.clientServer))
-
+	t.tracer = zipkinot.Wrap(tracer)
 	return err
 }
 
