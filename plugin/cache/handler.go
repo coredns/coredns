@@ -26,7 +26,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	server := metrics.WithServer(ctx)
 
 	// On cache miss, if the request has the OPT record and the DO bit set we leave the message as-is. If there isn't a DO bit
-	// set we will modify the request to _add_ one. This means we will always do DNSSEC lookups on cache misses. 
+	// set we will modify the request to _add_ one. This means we will always do DNSSEC lookups on cache misses.
 	// When writing to cache, any DNSSEC RRs in the response are written to cache with the response.
 	// When sending a response to a non-DNSSEC client, we remove DNSSEC RRs from the response. We use a 2048 buffer size, which is
 	// less than 4096 (and older default) and more than 1024 which may be too small. We might need to tweaks this
