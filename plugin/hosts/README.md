@@ -6,7 +6,7 @@
 
 ## Description
 
-The hosts plugin is useful for serving zones from a `/etc/hosts` file. It serves from a preloaded
+The *hosts* plugin is useful for serving zones from a `/etc/hosts` file. It serves from a preloaded
 file that exists on disk. It checks the file for changes and updates the zones accordingly. This
 plugin only supports A, AAAA, and PTR records. The hosts plugin can be used with readily
 available hosts files that block access to advertising servers.
