@@ -14,9 +14,15 @@ a default TTL of 3600s is assumed.
 For negative responses a SOA record should be included in the response, this will only be done when
 a SOA record is included in the data.
 
-Currently not implemented is DNSSEC. If RRSIG records are added they will not be returned in the
-reply even if the client is capable of handling them. If you need signed replies use the *dnssec*
-plugin in conjunction with this one.
+The *records* plugin uses a simple algorithm for find the correct record(s) to return. This means
+some more advanced features are currently not available, such as:
+
+* DNSSEC, if RRSIG records are added they will not be returned in the reply even if the client is
+  capable of handling them. If you need signed replies use the *dnssec* plugin in conjunction with
+  this one.
+* Wildcards, i.e. `*.example.org`, will not be detected as a wildcard record.
+
+If you need a more robust implementation you probably want to use the *file* plugin.
 
 Note the *host* plugin is configured before *records* in `plugin.cfg`, which means that when both
 are being specified in a server block, the *host* plugin will get preference.
@@ -69,7 +75,7 @@ RFC 1035 zone file and everything after it will be ignored, hence the need for q
 
 ## Bugs
 
-DNSSEC is not implemented.
+DNSSEC, nor wildcards are implemented. The lookup algorithm is pretty basic.
 
 ## See Also
 
@@ -78,3 +84,5 @@ plugin to reload the contents of these inline records automatically when they ar
 *dnssec* plugin can be used to sign replies. See RFC 1035 and subsequent RFCs defining new record
 types for the text representation that must be used in this plugin. Note RFC 3597 (Handling of
 Unknown DNS Resource Record) syntax is also supported.
+
+Use the *file* plugin for a more fully featured DNS implementation (including DNSSEC).
