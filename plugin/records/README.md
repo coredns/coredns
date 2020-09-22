@@ -54,12 +54,15 @@ example.org {
 }
 ~~~
 
-Create 2 zones, each will have a MX record. Note the no SOA record has been given.
+Create 2 zones, each will have a MX record. Note that no SOA record has been given. Also note you
+need to quote the `;` in the TXT record's data to make the parser happy. (A `;` is a comment in a
+RFC 1035 zone file and everything after it will be ignored, hence the need for quoting it here.)
 
 ~~~
 . {
     records example.org example.net {
         mx1 IN MX 10 mx1
+        dkim._domainkey.relay 3600 IN TXT "v=DKIM1\; h=sha256\; k=rsa\; s=email\; p=MIIBIj ..."
     }
 }
 ~~~
