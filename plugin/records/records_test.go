@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"github.com/caddyserver/caddy"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 
+	"github.com/caddyserver/caddy"
 	"github.com/miekg/dns"
 )
 
