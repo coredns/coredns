@@ -83,7 +83,7 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	if err != nil {
 		t.Fatalf("delete test failed: %v", err)
 	}
-	got, exists, err = idx.Get(obj2)
+	_, exists, err = idx.Get(obj2)
 	if err != nil {
 		t.Fatalf("get deleted object failed: %v", err)
 	}
@@ -101,7 +101,7 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	if err != nil {
 		t.Fatalf("tombstone delete test failed: %v", err)
 	}
-	got, exists, err = idx.Get(svc)
+	_, exists, err = idx.Get(svc)
 	if err != nil {
 		t.Fatalf("get tombstone deleted object failed: %v", err)
 	}

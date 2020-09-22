@@ -140,7 +140,6 @@ receive:
 	if len(rrs) > 0 {
 		ch <- &dns.Envelope{RR: rrs}
 		l += len(rrs)
-		rrs = []dns.RR{}
 	}
 
 	if soa != nil {

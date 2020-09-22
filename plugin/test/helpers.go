@@ -248,7 +248,7 @@ func Section(tc Case, sec sect, rr []dns.RR) error {
 	return nil
 }
 
-// CNAMEOrder makes sure that CNAMES do not appear after their target records
+// CNAMEOrder makes sure that CNAMES do not appear after their target records.
 func CNAMEOrder(res *dns.Msg) error {
 	for i, c := range res.Answer {
 		if c.Header().Rrtype != dns.TypeCNAME {
