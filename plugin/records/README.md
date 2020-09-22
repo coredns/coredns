@@ -7,14 +7,19 @@
 ## Description
 
 The *records* plugin is useful for serving zone data that is specified inline in the configuration
-file. As opposed to the *hosts* plugin, this plugin supports **all** record types.
-If no TTL is specified in the records, a default TTL of 3600s is assumed. For negative responses a
-SOA record should be included in the response, this will only be done when a SOA record is included
-in the data.
+file. As opposed to the *hosts* plugin, this plugin supports **all** record types. Records need to
+be specifed in text representation as specified in RFC 1035. If no TTL is specified in the records,
+a default TTL of 3600s is assumed.
+
+For negative responses a SOA record should be included in the response, this will only be done when
+a SOA record is included in the data.
 
 Currently not implemented is DNSSEC. If RRSIG records are added they will not be returned in the
 reply even if the client is capable of handling them. If you need signed replies use the *dnssec*
 plugin in conjunction with this one.
+
+Note the *host* plugin is configured before *records* in `plugin.cfg`, which means that when both
+are being specified in a server block, the *host* plugin will get preference.
 
 This plugin can only be used once per Server Block.
 
@@ -27,9 +32,10 @@ records [ZONES...] {
 ~~~
 
 * **ZONES** zones it should be authoritative for. If empty, the zones from the configuration block
-  are used.
+   are used.
 * **INLINE** the resource record that are to be served. These must be specified as the text
-  represenation of the record, see the examples below. Each record must be on a single line.
+   represenation (as specifed in RFC 1035) of the record. See the examples below. Each record must
+   be on a single line.
 
 If domain name in **INLINE** are not fully qualifed each of the **ZONES** are used as the origin and
 added to the names.
@@ -66,4 +72,6 @@ DNSSEC is not implemented.
 
 See the *hosts*' plugin documentation if you just need to return address records. Use the *reload*
 plugin to reload the contents of these inline records automatically when they are changed. The
-*dnssec* plugin can be used to sign replies.
+*dnssec* plugin can be used to sign replies. See RFC 1035 and subsequent RFCs defining new record
+types for the text representation that must be used in this plugin. Note RFC 3597 (Handling of
+Unknown DNS Resource Record) syntax is also supported.
