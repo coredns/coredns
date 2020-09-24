@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/edns"
@@ -20,7 +21,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/request"
 
-	"github.com/coredns/caddy"
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 )

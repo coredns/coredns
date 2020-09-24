@@ -7,13 +7,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coredns/caddy"
+	"github.com/coredns/caddy/caddyfile"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/transport"
-
-	"github.com/coredns/caddy"
-	"github.com/coredns/caddy/caddyfile"
 )
 
 const serverType = "dns"
