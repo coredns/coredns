@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 
-	"github.com/coredns/caddy"
 	"github.com/miekg/dns"
 	"golang.org/x/crypto/ed25519"
 )

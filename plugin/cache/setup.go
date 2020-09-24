@@ -6,12 +6,11 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-
-	"github.com/coredns/caddy"
 )
 
 var log = clog.NewWithPlugin("cache")

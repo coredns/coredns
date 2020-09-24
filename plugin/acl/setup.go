@@ -4,10 +4,10 @@ import (
 	"net"
 	"strings"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 
-	"github.com/coredns/caddy"
 	"github.com/infobloxopen/go-trees/iptree"
 	"github.com/miekg/dns"
 )

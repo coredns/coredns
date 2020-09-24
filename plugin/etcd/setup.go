@@ -3,12 +3,12 @@ package etcd
 import (
 	"crypto/tls"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	mwtls "github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
-	"github.com/coredns/caddy"
 	etcdcv3 "go.etcd.io/etcd/clientv3"
 )
 

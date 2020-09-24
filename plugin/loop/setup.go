@@ -6,11 +6,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
-
-	"github.com/coredns/caddy"
 )
 
 func init() { plugin.Register("loop", setup) }

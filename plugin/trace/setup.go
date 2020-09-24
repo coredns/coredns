@@ -5,10 +5,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-
-	"github.com/coredns/caddy"
 )
 
 func init() { plugin.Register("trace", setup) }

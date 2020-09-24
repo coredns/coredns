@@ -11,6 +11,7 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/caddy/caddyfile"
+
 	"github.com/prometheus/client_golang/prometheus"
 )
 

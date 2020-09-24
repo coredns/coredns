@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/coredns/caddy"
+
 	"github.com/miekg/dns"
 )
 

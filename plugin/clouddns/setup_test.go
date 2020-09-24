@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+
 	"google.golang.org/api/option"
 )
 

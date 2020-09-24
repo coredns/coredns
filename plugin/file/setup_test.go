@@ -4,9 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coredns/coredns/plugin/test"
-
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/test"
 )
 
 func TestFileParse(t *testing.T) {

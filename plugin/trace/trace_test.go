@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
 
-	"github.com/coredns/caddy"
 	"github.com/miekg/dns"
 	"github.com/opentracing/opentracing-go/mocktracer"
 )
