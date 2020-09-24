@@ -344,7 +344,7 @@ func (w *testImportOrderingWalker) walk(path string, info os.FileInfo, _ error) 
 		prevpos = line
 	}
 	// if it:
-	// contains strings github.com/coredns/coredns -> coredns
+	// contains strings github.com/coredns -> coredns
 	// contains dots -> 3rd
 	// no dots -> std
 	ip := [3]string{} // type per block, just string, either std, coredns, 3rd
@@ -392,7 +392,7 @@ func (w *testImportOrderingWalker) walk(path string, info os.FileInfo, _ error) 
 }
 
 func importtype(s string) string {
-	if strings.Contains(s, "github.com/coredns/coredns") {
+	if strings.Contains(s, "github.com/coredns") {
 		return "coredns"
 	}
 	if strings.Contains(s, ".") {
