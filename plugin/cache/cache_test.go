@@ -216,13 +216,13 @@ func TestCache(t *testing.T) {
 			resp := i.toMsg(m, time.Now().UTC(), state.Do())
 
 			if err := test.Header(tc.Case, resp); err != nil {
-				t.Logf("Bla %v", resp)
+				t.Logf("Cache %v", resp)
 				t.Error(err)
 				continue
 			}
 
 			if err := test.Section(tc.Case, test.Answer, resp.Answer); err != nil {
-				t.Logf("Bla %v -- %v", test.Answer, resp.Answer)
+				t.Logf("Cache %v -- %v", test.Answer, resp.Answer)
 				t.Error(err)
 			}
 			if err := test.Section(tc.Case, test.Ns, resp.Ns); err != nil {

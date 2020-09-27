@@ -46,6 +46,13 @@ func TestLookupCache(t *testing.T) {
 		testCase(t, "short.example.org.", udp, 1, 5)
 	})
 
+	t.Run("DNSSEC OPT", func(t *testing.T) {
+		testCaseDNSSEC(t, "example.org.", udp, 4096)
+	})
+
+	t.Run("DNSSEC OPT", func(t *testing.T) {
+		testCaseDNSSEC(t, "example.org.", udp, 0)
+	})
 }
 
 func testCase(t *testing.T, name, addr string, expectAnsLen int, expectTTL uint32) {
@@ -53,7 +60,7 @@ func testCase(t *testing.T, name, addr string, expectAnsLen int, expectTTL uint3
 	m.SetQuestion(name, dns.TypeA)
 	resp, err := dns.Exchange(m, addr)
 	if err != nil {
-		t.Fatal("Expected to receive reply, but didn't")
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
 	}
 
 	if len(resp.Answer) != expectAnsLen {
@@ -63,5 +70,43 @@ func testCase(t *testing.T, name, addr string, expectAnsLen int, expectTTL uint3
 	ttl := resp.Answer[0].Header().Ttl
 	if ttl != expectTTL {
 		t.Errorf("Expected TTL to be %d, got %d", expectTTL, ttl)
+	}
+}
+
+func testCaseDNSSEC(t *testing.T, name, addr string, bufsize int) {
+	m := new(dns.Msg)
+	m.SetQuestion(name, dns.TypeA)
+
+	if bufsize > 0 {
+		o := &dns.OPT{Hdr: dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT}}
+		o.SetDo()
+		o.SetUDPSize(uint16(bufsize))
+		m.Extra = append(m.Extra, o)
+	}
+	resp, err := dns.Exchange(m, addr)
+	if err != nil {
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
+	}
+
+	if len(resp.Extra) == 0 && bufsize == 0 {
+		// no OPT, this is OK
+		return
+	}
+
+	opt := resp.Extra[len(resp.Extra)-1]
+	if x, ok := opt.(*dns.OPT); !ok && bufsize > 0 {
+		t.Fatalf("Expected OPT RR, got %T", x)
+	}
+	if bufsize > 0 {
+		if !opt.(*dns.OPT).Do() {
+			t.Errorf("Expected DO bit to be set, got false")
+		}
+		if x := opt.(*dns.OPT).UDPSize(); int(x) != bufsize {
+			t.Errorf("Expected %d bufsize, got %d", bufsize, x)
+		}
+	} else {
+		if opt.Header().Rrtype == dns.TypeOPT {
+			t.Errorf("Expected no OPT RR, but got one: %s", opt)
+		}
 	}
 }

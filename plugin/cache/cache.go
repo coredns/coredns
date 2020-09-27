@@ -142,12 +142,15 @@ func (w *ResponseWriter) RemoteAddr() net.Addr {
 
 // WriteMsg implements the dns.ResponseWriter interface.
 func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
-	mt, _ := response.Typify(res, w.now().UTC())
+	// res needs to be copied otherwise we will be modifying the underlaying arrays which are now cached.
+	resc := res.Copy()
+
+	mt, _ := response.Typify(resc, w.now().UTC())
 
 	// key returns empty string for anything we don't want to cache.
-	hasKey, key := key(w.state.Name(), res, mt)
+	hasKey, key := key(w.state.Name(), resc, mt)
 
-	msgTTL := dnsutil.MinimalTTL(res, mt)
+	msgTTL := dnsutil.MinimalTTL(resc, mt)
 	var duration time.Duration
 	if mt == response.NameError || mt == response.NoData {
 		duration = computeTTL(msgTTL, w.minnttl, w.nttl)
@@ -159,8 +162,8 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	}
 
 	if hasKey && duration > 0 {
-		if w.state.Match(res) {
-			w.set(res, key, mt, duration)
+		if w.state.Match(resc) {
+			w.set(resc, key, mt, duration)
 			cacheSize.WithLabelValues(w.server, Success).Set(float64(w.pcache.Len()))
 			cacheSize.WithLabelValues(w.server, Denial).Set(float64(w.ncache.Len()))
 		} else {
@@ -174,39 +177,14 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	}
 
 	do := w.state.Do()
-
 	// Apply capped TTL to this reply to avoid jarring TTL experience 1799 -> 8 (e.g.)
 	// We also may need to filter out DNSSEC records, see toMsg() for similar code.
 	ttl := uint32(duration.Seconds())
-	j := 0
-	for _, r := range res.Answer {
-		if !do && isDNSSEC(r) {
-			continue
-		}
-		res.Answer[j].Header().Ttl = ttl
-		j++
-	}
-	res.Answer = res.Answer[:j]
-	j = 0
-	for _, r := range res.Ns {
-		if !do && isDNSSEC(r) {
-			continue
-		}
-		res.Ns[j].Header().Ttl = ttl
-		j++
-	}
-	res.Ns = res.Ns[:j]
-	j = 0
-	for _, r := range res.Extra {
-		if !do && isDNSSEC(r) {
-			continue
-		}
-		if res.Extra[j].Header().Rrtype != dns.TypeOPT {
-			res.Extra[j].Header().Ttl = ttl
-		}
-		j++
-	}
-	return w.ResponseWriter.WriteMsg(res)
+	resc.Answer = filterRRSlice(resc.Answer, ttl, do, false)
+	resc.Ns = filterRRSlice(resc.Ns, ttl, do, false)
+	resc.Extra = filterRRSlice(resc.Extra, ttl, do, false)
+
+	return w.ResponseWriter.WriteMsg(resc)
 }
 
 func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration time.Duration) {

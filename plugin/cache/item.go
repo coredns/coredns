@@ -75,60 +75,14 @@ func (i *item) toMsg(m *dns.Msg, now time.Time, do bool) *dns.Msg {
 	m1.Extra = make([]dns.RR, len(i.Extra))
 
 	ttl := uint32(i.ttl(now))
-	j := 0
-	for _, r := range i.Answer {
-		if !do && isDNSSEC(r) {
-			continue
-		}
-		m1.Answer[j] = dns.Copy(r)
-		m1.Answer[j].Header().Ttl = ttl
-		j++
-	}
-	m1.Answer = m1.Answer[:j]
-	j = 0
-	for _, r := range i.Ns {
-		if !do && isDNSSEC(r) {
-			continue
-		}
-		m1.Ns[j] = dns.Copy(r)
-		m1.Ns[j].Header().Ttl = ttl
-		j++
-	}
-	m1.Ns = m1.Ns[:j]
-	// newItem skips OPT records, so we can just use i.Extra as is.
-	j = 0
-	for _, r := range i.Extra {
-		if !do && isDNSSEC(r) {
-			continue
-		}
-		m1.Extra[j] = dns.Copy(r)
-		m1.Extra[j].Header().Ttl = ttl
-		j++
-	}
-	m1.Extra = m1.Extra[:j]
+	m1.Answer = filterRRSlice(i.Answer, ttl, do, true)
+	m1.Ns = filterRRSlice(i.Ns, ttl, do, true)
+	m1.Extra = filterRRSlice(i.Extra, ttl, do, true)
+
 	return m1
 }
 
 func (i *item) ttl(now time.Time) int {
 	ttl := int(i.origTTL) - int(now.UTC().Sub(i.stored).Seconds())
 	return ttl
-}
-
-// isDNSSEC returns true if r is a DNSSEC record. NSEC,NSEC3,DS and RRSIG/SIG
-// are DNSSEC records. DNSKEYs is not in this list on the assumption that the
-// client explictly asked for it.
-func isDNSSEC(r dns.RR) bool {
-	switch r.Header().Rrtype {
-	case dns.TypeNSEC:
-		return true
-	case dns.TypeNSEC3:
-		return true
-	case dns.TypeDS:
-		return true
-	case dns.TypeRRSIG:
-		return true
-	case dns.TypeSIG:
-		return true
-	}
-	return false
 }
