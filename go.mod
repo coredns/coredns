@@ -8,7 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.2
 	github.com/Azure/go-autorest/autorest/to v0.2.0 // indirect
 	github.com/DataDog/datadog-go v3.5.0+incompatible // indirect
-	github.com/aws/aws-sdk-go v1.34.22
+	github.com/aws/aws-sdk-go v1.34.32
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/coredns/caddy v1.1.0
 	github.com/dnstap/golang-dnstap v0.2.1
