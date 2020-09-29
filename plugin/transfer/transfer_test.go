@@ -36,7 +36,7 @@ func (p *transfererPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR
 	if zone != p.Zone {
 		return nil, ErrNotAuthoritative
 	}
-	ch := make(chan []dns.RR, 3) // sending 3 bits and don't want to block, nor do a waitgroup
+	ch := make(chan []dns.RR, 23) // sending 3 bits and don't want to block, nor do a waitgroup
 	defer close(ch)
 	ch <- []dns.RR{test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s %d 7200 1800 86400 100", p.Zone, p.Zone, p.Zone, p.Serial))}
 	if serial >= p.Serial {
@@ -45,6 +45,13 @@ func (p *transfererPlugin) Transfer(zone string, serial uint32) (<-chan []dns.RR
 	ch <- []dns.RR{
 		test.NS(fmt.Sprintf("%s 100 IN NS ns.dns.%s", p.Zone, p.Zone)),
 		test.A(fmt.Sprintf("ns.dns.%s 100 IN A 1.2.3.4", p.Zone)),
+	}
+	for j := 0; j < 20; j++ {
+		rrs := []dns.RR{}
+		for i := 0; i < 100; i++ {
+			rrs = append(rrs, test.A(fmt.Sprintf("a%d.dns.%s 100 IN A 1.2.3.4", i+j*100, p.Zone)))
+		}
+		ch <- rrs
 	}
 	ch <- []dns.RR{test.SOA(fmt.Sprintf("%s 100 IN SOA ns.dns.%s hostmaster.%s %d 7200 1800 86400 100", p.Zone, p.Zone, p.Zone, p.Serial))}
 	return ch, nil
@@ -242,7 +249,7 @@ func validateAXFRResponse(t *testing.T, w *dnstest.MultiRecorder) {
 	for _, m := range w.Msgs {
 		c += len(m.Answer)
 	}
-	if c != 4 {
+	if c != 2004 {
 		t.Errorf("Answer is not the expected length (expected 4, got %d)", c)
 	}
 }
@@ -274,5 +281,38 @@ func TestTransferNotAllowed(t *testing.T) {
 
 	if w.Msg.Rcode != dns.RcodeRefused {
 		t.Errorf("Expected REFUSED response code, got %s", dns.RcodeToString[w.Msg.Rcode])
+	}
+}
+
+type badwriter struct {
+	dns.ResponseWriter
+	count int
+}
+
+func newBadWriter(w dns.ResponseWriter) *badwriter {
+	return &badwriter{
+		ResponseWriter: w,
+	}
+}
+
+func (w *badwriter) WriteMsg(res *dns.Msg) error {
+	if w.count > 0 {
+		return fmt.Errorf("failed to write msg")
+	}
+	w.count++
+	return nil
+}
+
+func TestWriteMessageFailed(t *testing.T) {
+	transfer := newTestTransfer()
+	ctx := context.TODO()
+
+	w := newBadWriter(&test.ResponseWriter{})
+	m := &dns.Msg{}
+	m.SetAxfr("example.org.")
+
+	_, err := transfer.ServeDNS(ctx, w, m)
+	if err == nil {
+		t.Error("failed to get error")
 	}
 }
