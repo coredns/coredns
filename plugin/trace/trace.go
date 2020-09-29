@@ -23,11 +23,11 @@ import (
 )
 
 const (
-	tagName  = "coredns.io/name"
-	tagType  = "coredns.io/type"
-	tagRcode = "coredns.io/rcode"
-	tagProto = "coredns.io/proto"
-	tagClientIP = "coredns.io/client-ip"
+	tagName   = "coredns.io/name"
+	tagType   = "coredns.io/type"
+	tagRcode  = "coredns.io/rcode"
+	tagProto  = "coredns.io/proto"
+	tagRemote = "coredns.io/remote"
 )
 
 type trace struct {
@@ -106,7 +106,7 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	span.SetTag(tagName, req.Name())
 	span.SetTag(tagType, req.Type())
 	span.SetTag(tagProto, req.Proto())
-	span.SetTag(tagClientIP, req.IP())
+	span.SetTag(tagRemote, req.IP())
 	span.SetTag(tagRcode, rcode.ToString(rw.Rcode))
 
 	return status, err
