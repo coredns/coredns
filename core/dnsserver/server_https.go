@@ -38,6 +38,9 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 		// Should we error if some configs *don't* have TLS?
 		tlsConfig = conf.TLSConfig
 	}
+	if tlsConfig == nil {
+		return nil, fmt.Errorf("DoH requires TLS to be configured, see the tls plugin")
+	}
 
 	srv := &http.Server{
 		ReadTimeout:  5 * time.Second,

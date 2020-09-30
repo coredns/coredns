@@ -195,13 +195,16 @@ And for DNS over HTTP/2 (DoH) use:
 ~~~ corefile
 https://example.org {
     whoami
+    tls mycert mykey
 }
 ~~~
+
+Note that you must have the *tls* plugin configured as DoH requires that to be setup.
 
 Specifying ports works in the same way:
 
 ~~~ txt
-grpc://example.org:1443 {
+grpc://example.org:1443 https://example.org:1444 {
     # ...
 }
 ~~~
