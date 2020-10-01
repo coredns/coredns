@@ -48,11 +48,16 @@ example.org {
 
 ## Brought to You By
 
+Chris O'Haver,
+Macks,
 Miek Gieben,
 Yong Tang.
 
 ## Noteworthy Changes
 
-* plugin/cache: Fix filtering (https://github.com/coredns/coredns/pull/4148)
-* plugin/transfer: Implement notifies for transfer plugin (https://github.com/coredns/coredns/pull/3972) (#4142)
+* core: doh support: make no TLS config fatal (https://github.com/coredns/coredns/pull/4162)
 * core: Move caddy v1 in our GitHub org (https://github.com/coredns/coredns/pull/4018)
+* plugin/auto: allow fallthrough if no zone match (https://github.com/coredns/coredns/pull/4166)
+* plugin/cache: Fix filtering (https://github.com/coredns/coredns/pull/4148)
+* plugin/ready: dont return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
+* plugin/transfer: Implement notifies for transfer plugin (https://github.com/coredns/coredns/pull/3972) (#4142)
