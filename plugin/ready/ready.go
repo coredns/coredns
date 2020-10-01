@@ -43,6 +43,13 @@ func (rd *ready) onStartup() error {
 	rd.Unlock()
 
 	rd.mux.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
+		rd.Lock()
+		defer rd.Unlock()
+		if !rd.done {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			io.WriteString(w, "Shutting down")
+			return
+		}
 		ok, todo := plugins.Ready()
 		if ok {
 			w.WriteHeader(http.StatusOK)
