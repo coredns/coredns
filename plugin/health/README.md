@@ -26,8 +26,8 @@ health [ADDRESS] {
 }
 ~~~
 
-* Where `lameduck` will make the process unhealthy then *wait* for **DURATION** before the process
-  shuts down.
+* Where `lameduck` will delay shutdown for **DURATION**. /health will still answer 200 OK.
+  Note: The *ready* plugin will not answer OK while CoreDNS is in lameduck mode prior to shutdown.
 
 If you have multiple Server Blocks, *health* can only be enabled in one of them (as it is process
 wide). If you really need multiple endpoints, you must run health endpoints on different ports:
