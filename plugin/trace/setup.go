@@ -35,7 +35,9 @@ func traceParse(c *caddy.Controller) (*trace, error) {
 	)
 
 	cfg := dnsserver.GetConfig(c)
-	tr.serviceEndpoint = cfg.ListenHosts[0] + ":" + cfg.Port
+	if cfg.ListenHosts[0] != "" {
+		tr.serviceEndpoint = cfg.ListenHosts[0] + ":" + cfg.Port
+	}
 
 	for c.Next() { // trace
 		var err error
@@ -115,7 +117,7 @@ func normalizeEndpoint(epType, ep string) (string, string, error) {
 
 	if epType == "zipkin" {
 		if !strings.Contains(ep, "http") {
-			ep = "http://" + ep + "/api/v1/spans"
+			ep = "http://" + ep + "/api/v2/spans"
 		}
 	}
 

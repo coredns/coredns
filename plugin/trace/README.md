@@ -56,6 +56,8 @@ You can run Zipkin on a Docker host like this:
 docker run -d -p 9411:9411 openzipkin/zipkin
 ```
 
+:warning: The zipkin provider does not support the v1 API since coredns 1.7.1
+
 ## Examples
 
 Use an alternative Zipkin address:

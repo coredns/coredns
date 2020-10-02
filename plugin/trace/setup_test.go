@@ -16,17 +16,17 @@ func TestTraceParse(t *testing.T) {
 		clientServer bool
 	}{
 		// oks
-		{`trace`, false, "http://localhost:9411/api/v1/spans", 1, `coredns`, false},
-		{`trace localhost:1234`, false, "http://localhost:1234/api/v1/spans", 1, `coredns`, false},
+		{`trace`, false, "http://localhost:9411/api/v2/spans", 1, `coredns`, false},
+		{`trace localhost:1234`, false, "http://localhost:1234/api/v2/spans", 1, `coredns`, false},
 		{`trace http://localhost:1234/somewhere/else`, false, "http://localhost:1234/somewhere/else", 1, `coredns`, false},
-		{`trace zipkin localhost:1234`, false, "http://localhost:1234/api/v1/spans", 1, `coredns`, false},
+		{`trace zipkin localhost:1234`, false, "http://localhost:1234/api/v2/spans", 1, `coredns`, false},
 		{`trace datadog localhost`, false, "localhost", 1, `coredns`, false},
 		{`trace datadog http://localhost:8127`, false, "http://localhost:8127", 1, `coredns`, false},
 		{"trace datadog localhost {\n datadog_analytics_rate 0.1\n}", false, "localhost", 1, `coredns`, false},
-		{"trace {\n every 100\n}", false, "http://localhost:9411/api/v1/spans", 100, `coredns`, false},
-		{"trace {\n every 100\n service foobar\nclient_server\n}", false, "http://localhost:9411/api/v1/spans", 100, `foobar`, true},
-		{"trace {\n every 2\n client_server true\n}", false, "http://localhost:9411/api/v1/spans", 2, `coredns`, true},
-		{"trace {\n client_server false\n}", false, "http://localhost:9411/api/v1/spans", 1, `coredns`, false},
+		{"trace {\n every 100\n}", false, "http://localhost:9411/api/v2/spans", 100, `coredns`, false},
+		{"trace {\n every 100\n service foobar\nclient_server\n}", false, "http://localhost:9411/api/v2/spans", 100, `foobar`, true},
+		{"trace {\n every 2\n client_server true\n}", false, "http://localhost:9411/api/v2/spans", 2, `coredns`, true},
+		{"trace {\n client_server false\n}", false, "http://localhost:9411/api/v2/spans", 1, `coredns`, false},
 		// fails
 		{`trace footype localhost:4321`, true, "", 1, "", false},
 		{"trace {\n every 2\n client_server junk\n}", true, "", 1, "", false},
@@ -47,6 +47,9 @@ func TestTraceParse(t *testing.T) {
 			continue
 		}
 
+		if "" != m.serviceEndpoint {
+			t.Errorf("Test %v: Expected serviceEndpoint to be '' but found: %s", i, m.serviceEndpoint)
+		}
 		if test.endpoint != m.Endpoint {
 			t.Errorf("Test %v: Expected endpoint %s but found: %s", i, test.endpoint, m.Endpoint)
 		}

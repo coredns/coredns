@@ -84,6 +84,7 @@ func (t *trace) setupZipkin() error {
 	tracer, err := zipkin.NewTracer(
 		reporter,
 		zipkin.WithLocalEndpoint(recorder),
+		zipkin.WithSharedSpans(t.clientServer),
 	)
 	if err != nil {
 		return err
