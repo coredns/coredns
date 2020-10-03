@@ -112,7 +112,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	go func() {
 		err := tr.Out(w, r, ch)
 		if err != nil {
-			log.Infof("failed to write message zone %q to %s for %d SOA serial: %s", state.QName(), state.IP(), serial, err.Error())
+			log.Warningf("Failed to write zone transfer of zone %q to %s for %d SOA serial: %s", state.QName(), state.IP(), serial, err)
 		}
 		close(closeCh)
 	}()
