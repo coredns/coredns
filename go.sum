@@ -128,6 +128,8 @@ github.com/dimchansky/utfbom v1.1.0 h1:FcM3g+nofKgUteL8dm/UpdRXNC9KmADgTpLKsu0TR
 github.com/dimchansky/utfbom v1.1.0/go.mod h1:rO41eb7gLfo8SF1jd9F8HplJm1Fewwi4mQvIirEdv+8=
 github.com/dnstap/golang-dnstap v0.2.1 h1:dcqdOI9vPmFt4U213jjFHLw9SEu5EuKrtW/DPJojO28=
 github.com/dnstap/golang-dnstap v0.2.1/go.mod h1:JIH+8jjV4pSEZCGPfPgFfuwyzmAuTLrEnk0BxtrF/5w=
+github.com/dnstap/golang-dnstap v0.2.2 h1:H2PCf5R92SRSsXuSM9P4ToqRkzaRLwtS8UPwauHLPf8=
+github.com/dnstap/golang-dnstap v0.2.2/go.mod h1:JIH+8jjV4pSEZCGPfPgFfuwyzmAuTLrEnk0BxtrF/5w=
 github.com/docker/spdystream v0.0.0-20160310174837-449fdfce4d96/go.mod h1:Qh8CwZgvJUkLughtfhJv5dyTYa91l1fOUCrgjqmcifM=
 github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815/go.mod h1:WwZ+bS3ebgob9U8Nd0kOddGdZWjyMGR8Wziv+TBNwSE=
 github.com/dustin/go-humanize v0.0.0-20171111073723-bb3d318650d4/go.mod h1:HtrtbFcZ19U5GC7JDqmcUSB87Iq5E25KnS6fMYU6eOk=

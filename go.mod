@@ -11,7 +11,7 @@ require (
 	github.com/aws/aws-sdk-go v1.34.32
 	github.com/cenkalti/backoff/v4 v4.0.2
 	github.com/coredns/caddy v1.1.0
-	github.com/dnstap/golang-dnstap v0.2.1
+	github.com/dnstap/golang-dnstap v0.2.2
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/farsightsec/golang-framestream v0.3.0
 	github.com/golang/protobuf v1.4.2
