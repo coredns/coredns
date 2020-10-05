@@ -1,10 +1,10 @@
 package forward
 
 import (
-	"context"
+	"net"
+	"strconv"
 	"time"
 
-	"github.com/coredns/coredns/plugin/dnstap"
 	"github.com/coredns/coredns/plugin/dnstap/msg"
 	"github.com/coredns/coredns/request"
 
@@ -12,50 +12,49 @@ import (
 	"github.com/miekg/dns"
 )
 
-func toDnstap(ctx context.Context, host string, f *Forward, state request.Request, reply *dns.Msg, start time.Time) error {
-	tapper := dnstap.TapperFromContext(ctx)
-	if tapper == nil {
-		return nil
-	}
+// toDnstap will send the forward and received message to the dnstap plugin.
+func toDnstap(f *Forward, host string, state request.Request, reply *dns.Msg, start time.Time) {
 	// Query
-	b := msg.New().Time(start).HostPort(host)
+	tm := new(tap.Message)
+	msg.SetQueryTime(tm, start)
+	ip, p, _ := net.SplitHostPort(host)     // this is preparsed and can't err here
+	port, _ := strconv.ParseUint(p, 10, 32) // same here
+
 	opts := f.opts
-	t := ""
+	t := state.Proto()
 	switch {
 	case opts.forceTCP: // TCP flag has precedence over UDP flag
 		t = "tcp"
 	case opts.preferUDP:
 		t = "udp"
-	default:
-		t = state.Proto()
 	}
 
 	if t == "tcp" {
-		b.SocketProto = tap.SocketProtocol_TCP
+		ta := &net.TCPAddr{IP: net.ParseIP(ip), Port: int(port)}
+		msg.SetQueryAddress(tm, ta)
 	} else {
-		b.SocketProto = tap.SocketProtocol_UDP
+		ta := &net.UDPAddr{IP: net.ParseIP(ip), Port: int(port)}
+		msg.SetQueryAddress(tm, ta)
 	}
 
-	if tapper.Pack() {
-		b.Msg(state.Req)
+	if f.tapPlugin.IncludeRawMessage {
+		if buf, err := state.Req.Pack(); err != nil {
+			tm.QueryMessage = buf
+		}
 	}
-	m, err := b.ToOutsideQuery(tap.Message_FORWARDER_QUERY)
-	if err != nil {
-		return err
-	}
-	tapper.TapMessage(m)
+	msg.SetType(tm, tap.Message_FORWARDER_QUERY)
+	f.tapPlugin.TapMessage(tm)
 
 	// Response
 	if reply != nil {
-		if tapper.Pack() {
-			b.Msg(reply)
+		if f.tapPlugin.IncludeRawMessage {
+			if buf, err := reply.Pack(); err != nil {
+				tm.ResponseMessage = buf
+			}
 		}
-		m, err := b.Time(time.Now()).ToOutsideResponse(tap.Message_FORWARDER_RESPONSE)
-		if err != nil {
-			return err
-		}
-		tapper.TapMessage(m)
+		tm.QueryMessage = nil // zero this, to not send it again
+		msg.SetResponseTime(tm, time.Now())
+		msg.SetType(tm, tap.Message_FORWARDER_RESPONSE)
+		f.tapPlugin.TapMessage(tm)
 	}
-
-	return nil
 }

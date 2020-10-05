@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/dnstap/test"
-	mwtest "github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/plugin/dnstap/msg"
+	test "github.com/coredns/coredns/plugin/test"
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
 )
@@ -18,15 +18,14 @@ func testCase(t *testing.T, tapq, tapr *tap.Message, q, r *dns.Msg) {
 	w := writer{t: t}
 	w.queue = append(w.queue, tapq, tapr)
 	h := Dnstap{
-		Next: mwtest.HandlerFunc(func(_ context.Context,
+		Next: test.HandlerFunc(func(_ context.Context,
 			w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 
 			return 0, w.WriteMsg(r)
 		}),
-		IO:             &w,
-		JoinRawMessage: false,
+		io: &w,
 	}
-	_, err := h.ServeDNS(context.TODO(), &mwtest.ResponseWriter{}, q)
+	_, err := h.ServeDNS(context.TODO(), &test.ResponseWriter{}, q)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,66 +38,83 @@ type writer struct {
 
 func (w *writer) Dnstap(e tap.Dnstap) {
 	if len(w.queue) == 0 {
-		w.t.Error("Message not expected.")
+		w.t.Error("Message not expected")
 	}
-	if !test.MsgEqual(w.queue[0], e.Message) {
-		w.t.Errorf("Want: %v, have: %v", w.queue[0], e.Message)
+
+	ex := w.queue[0]
+	got := e.Message
+
+	if string(ex.QueryAddress) != string(got.QueryAddress) {
+		w.t.Errorf("Expected source adress %s, got %s", ex.QueryAddress, got.QueryAddress)
+	}
+	if string(ex.ResponseAddress) != string(got.ResponseAddress) {
+		w.t.Errorf("Expected response adress %s, got %s", ex.ResponseAddress, got.ResponseAddress)
+	}
+	if *ex.QueryPort != *got.QueryPort {
+		w.t.Errorf("Expected port %d, got %d", *ex.QueryPort, *got.QueryPort)
+	}
+	if *ex.SocketFamily != *got.SocketFamily {
+		w.t.Errorf("Expected socket family %d, got %d", *ex.SocketFamily, *got.SocketFamily)
 	}
 	w.queue = w.queue[1:]
 }
 
 func TestDnstap(t *testing.T) {
-	q := mwtest.Case{Qname: "example.org", Qtype: dns.TypeA}.Msg()
-	r := mwtest.Case{
+	q := test.Case{Qname: "example.org", Qtype: dns.TypeA}.Msg()
+	r := test.Case{
 		Qname: "example.org.", Qtype: dns.TypeA,
 		Answer: []dns.RR{
-			mwtest.A("example.org. 3600	IN	A 10.0.0.1"),
+			test.A("example.org. 3600	IN	A 10.0.0.1"),
 		},
 	}.Msg()
-	tapq, _ := test.TestingData().ToClientQuery()
-	tapr, _ := test.TestingData().ToClientResponse()
+	tapq := testMessage() // leave type unset for deepEqual
+	msg.SetType(tapq, tap.Message_CLIENT_QUERY)
+	tapr := testMessage()
+	msg.SetType(tapr, tap.Message_CLIENT_RESPONSE)
 	testCase(t, tapq, tapr, q, r)
 }
 
-type noWriter struct {
+func testMessage() *tap.Message {
+	inet := tap.SocketFamily_INET
+	udp := tap.SocketProtocol_UDP
+	port := uint32(40212)
+	return &tap.Message{
+		SocketFamily:   &inet,
+		SocketProtocol: &udp,
+		QueryAddress:   net.ParseIP("10.240.0.1"),
+		QueryPort:      &port,
+	}
 }
 
-func (n noWriter) Dnstap(d tap.Dnstap) {
-}
+type noWriter struct{}
+
+func (n noWriter) Dnstap(d tap.Dnstap) {}
 
 func endWith(c int, err error) plugin.Handler {
-	return mwtest.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
+	return test.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 		w.WriteMsg(nil) // trigger plugin dnstap to log client query and response
 		// maybe dnstap should log the client query when no message is written...
 		return c, err
 	})
 }
 
-type badAddr struct {
-}
+type badAddr struct{}
 
-func (bad badAddr) Network() string {
-	return "bad network"
-}
-func (bad badAddr) String() string {
-	return "bad address"
-}
+func (bad badAddr) Network() string { return "bad network" }
+func (bad badAddr) String() string  { return "bad address" }
 
 type badRW struct {
 	dns.ResponseWriter
 }
 
-func (bad *badRW) RemoteAddr() net.Addr {
-	return badAddr{}
-}
+func (bad *badRW) RemoteAddr() net.Addr { return badAddr{} }
 
 func TestError(t *testing.T) {
 	h := Dnstap{
-		Next:           endWith(0, nil),
-		IO:             noWriter{},
-		JoinRawMessage: false,
+		Next: endWith(0, nil),
+		io:   noWriter{},
 	}
-	rw := &badRW{&mwtest.ResponseWriter{}}
+	rw := &badRW{&test.ResponseWriter{}}
 
 	// the dnstap error will show only if there is no plugin error
 	_, err := h.ServeDNS(context.TODO(), rw, nil)

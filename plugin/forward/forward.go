@@ -13,6 +13,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/debug"
+	"github.com/coredns/coredns/plugin/dnstap"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
@@ -45,6 +46,8 @@ type Forward struct {
 	// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded
 	// the maximum allowed (maxConcurrent)
 	ErrLimitExceeded error
+
+	tapPlugin *dnstap.Dnstap // when the dnstap plugin is loaded, we use to this to send messages out.
 
 	Next plugin.Handler
 }
@@ -140,7 +143,10 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		if child != nil {
 			child.Finish()
 		}
-		taperr := toDnstap(ctx, proxy.addr, f, state, ret, start)
+
+		if f.tapPlugin != nil {
+			toDnstap(f, proxy.addr, state, ret, start)
+		}
 
 		upstreamErr = err
 
@@ -163,11 +169,11 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			formerr := new(dns.Msg)
 			formerr.SetRcode(state.Req, dns.RcodeFormatError)
 			w.WriteMsg(formerr)
-			return 0, taperr
+			return 0, nil
 		}
 
 		w.WriteMsg(ret)
-		return 0, taperr
+		return 0, nil
 	}
 
 	if upstreamErr != nil {

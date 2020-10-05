@@ -26,7 +26,6 @@ func accept(t *testing.T, l net.Listener, count int) {
 	server, err := l.Accept()
 	if err != nil {
 		t.Fatalf("Server accepted: %s", err)
-		return
 	}
 
 	dec, err := fs.NewDecoder(server, &fs.DecoderOptions{
@@ -35,7 +34,6 @@ func accept(t *testing.T, l net.Listener, count int) {
 	})
 	if err != nil {
 		t.Fatalf("Server decoder: %s", err)
-		return
 	}
 
 	for i := 0; i < count; i++ {

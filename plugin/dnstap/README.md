@@ -66,28 +66,36 @@ $ dnstap -l 127.0.0.1:6000
 
 ## Using Dnstap in your plugin
 
-~~~ Go
-import (
-    "github.com/coredns/coredns/plugin/dnstap"
-    "github.com/coredns/coredns/plugin/dnstap/msg"
-)
+In your setup function, check to see if the *dnstap* plugin is loaded:
 
-func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-    // log client query to Dnstap
-    if t := dnstap.TapperFromContext(ctx); t != nil {
-        b := msg.New().Time(time.Now()).Addr(w.RemoteAddr())
-        if t.Pack() {
-            b.Msg(r)
-        }
-        if m, err := b.ToClientQuery(); err == nil {
-            t.TapMessage(m)
-        }
+~~~ go
+if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
+    if tapPlugin, ok := taph.(dnstap.Dnstap); ok {
+        // save tapPlugin somewhere.
     }
+}
+~~~
 
+And then in your plugin:
+
+~~~ go
+func (x RandomPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+    if tapPlugin != nil {
+        tm := new(msg.Msg)
+        msg.SetQueryTime(tm, time.Now())
+        msg.SetQueryAddress(tm, w.RemoteAddr())
+        if tapPlugin.IncludeRawMessage {
+            if buf, err := r.Pack(); err != nil {
+                tm.QueryMessage = buf
+            }
+        }
+        msg.SetType(tm, tap.Message_CLIENT_QUERY)
+        tapPlugin.TapMessage(tm)
+    }
     // ...
 }
 ~~~
 
 ## See Also
 
-[dnstap.info](https://dnstap.info).
+The website [dnstap.info](https://dnstap.info) has info on the dnstap protocol.
