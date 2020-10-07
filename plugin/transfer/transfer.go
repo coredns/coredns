@@ -3,7 +3,6 @@ package transfer
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 
 	"github.com/coredns/coredns/plugin"
@@ -50,6 +49,8 @@ type Transferer interface {
 var (
 	// ErrNotAuthoritative is returned by Transfer() when the plugin is not authoritative for the zone.
 	ErrNotAuthoritative = errors.New("not authoritative for zone")
+	// ErrWriteMessage is returned by ServeDNS() when failed to write message.
+	ErrWriteMessage = errors.New("not authoritative for zone")
 )
 
 // ServeDNS implements the plugin.Handler interface.
@@ -107,26 +108,14 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	// Send response to client
 	ch := make(chan *dns.Envelope)
 	tr := new(dns.Transfer)
-	closeCh := make(chan error)
+	closeCh := make(chan struct{})
 	go func() {
 		err := tr.Out(w, r, ch)
 		if err != nil {
 			log.Warningf("Failed to write zone transfer of zone %q to %s for %d SOA serial: %s", state.QName(), state.IP(), serial, err)
 		}
-		closeCh <- err
+		close(closeCh)
 	}()
-
-	send := func(ev *dns.Envelope) error {
-		select {
-		case ch <- ev:
-		case err = <-closeCh:
-			if err != nil {
-				return fmt.Errorf("failed to write transfer message: %w", err)
-			}
-			return fmt.Errorf("finish transfer before ch close")
-		}
-		return nil
-	}
 
 	rrs := []dns.RR{}
 	l := 0
@@ -137,10 +126,10 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		}
 		rrs = append(rrs, records...)
 		if len(rrs) > 500 {
-			if err := send(&dns.Envelope{RR: rrs}); err != nil {
-				close(ch)
-				close(closeCh)
-				return dns.RcodeServerFailure, err
+			select {
+			case ch <- &dns.Envelope{RR: rrs}:
+			case <-closeCh:
+				return dns.RcodeServerFailure, ErrWriteMessage
 			}
 			l += len(rrs)
 			rrs = []dns.RR{}
@@ -153,7 +142,6 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	if len(rrs) == 1 && soa != nil { // soa should never be nil...
 		close(ch)
 		<-closeCh
-		close(closeCh)
 
 		m := new(dns.Msg)
 		m.SetReply(r)
@@ -170,7 +158,6 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	if len(rrs) == 1 && soa != nil { // soa should never be nil...
 		close(ch)
 		<-closeCh
-		close(closeCh)
 
 		m := new(dns.Msg)
 		m.SetReply(r)
@@ -182,20 +169,16 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	}
 
 	if len(rrs) > 0 {
-		if err := send(&dns.Envelope{RR: rrs}); err != nil {
-			close(ch)
-			close(closeCh)
-			return dns.RcodeServerFailure, err
+		select {
+		case ch <- &dns.Envelope{RR: rrs}:
+		case <-closeCh:
+			return dns.RcodeServerFailure, ErrWriteMessage
 		}
 		l += len(rrs)
 	}
 
-	close(ch)       // Even though we close the channel here, we still have
-	err = <-closeCh // to wait before we can return and close the connection.
-	if err != nil {
-		return dns.RcodeServerFailure, err
-	}
-	close(closeCh)
+	close(ch) // Even though we close the channel here, we still have
+	<-closeCh // to wait before we can return and close the connection.
 
 	logserial := uint32(0)
 	if soa != nil {

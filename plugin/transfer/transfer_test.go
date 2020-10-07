@@ -2,7 +2,6 @@ package transfer
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -296,11 +295,9 @@ func newBadWriter(w dns.ResponseWriter) *badwriter {
 	}
 }
 
-var errBadWriterErr = fmt.Errorf("failed to write msg")
-
 func (w *badwriter) WriteMsg(res *dns.Msg) error {
 	if w.count > 0 {
-		return errBadWriterErr
+		return fmt.Errorf("failed to write msg")
 	}
 	w.count++
 	return nil
@@ -315,7 +312,7 @@ func TestWriteMessageFailed(t *testing.T) {
 	m.SetAxfr("example.org.")
 
 	_, err := transfer.ServeDNS(ctx, w, m)
-	if !errors.Is(err, errBadWriterErr) {
-		t.Error("failed to get write msg error")
+	if err == nil {
+		t.Error("failed to get error")
 	}
 }
