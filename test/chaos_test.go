@@ -32,6 +32,6 @@ func TestChaos(t *testing.T) {
 	chTxt := resp.Answer[0].(*dns.TXT).Txt[0]
 	version := caddy.AppName + "-" + caddy.AppVersion
 	if chTxt != version {
-		t.Fatalf("Expected version to bo %s, got %s", version, chTxt)
+		t.Fatalf("Expected version to be %s, got %s", version, chTxt)
 	}
 }
