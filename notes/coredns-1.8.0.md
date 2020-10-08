@@ -15,7 +15,8 @@ The CoreDNS team has released
 
 If you are running 1.7.1 you probably want to upgrade for the *cache* plugin fix.
 
-This release also adds two backwards incompatible changes.
+This release also adds two backwards incompatible changes. This will only affect you if you have an
+**external plugin** or use **outgoing zone transfers**.
 
 One, because Caddy is now developing a version 2 and we are using version 1, we've internalized Caddy
 into <https://github.com/coredns/caddy>. This means the `caddy` types change and *all* plugins need
@@ -49,15 +50,18 @@ example.org {
 ## Brought to You By
 
 Chris O'Haver,
+Johnny Bergström,
 Macks,
 Miek Gieben,
 Yong Tang.
 
 ## Noteworthy Changes
-
+* core: doh support: fix alpn for http/2 upgrade when using DoH (https://github.com/coredns/coredns/pull/4182)
 * core: doh support: make no TLS config fatal (https://github.com/coredns/coredns/pull/4162)
+* core: fix crash with no plugins (https://github.com/coredns/coredns/pull/4184)
 * core: Move caddy v1 in our GitHub org (https://github.com/coredns/coredns/pull/4018)
 * plugin/auto: allow fallthrough if no zone match (https://github.com/coredns/coredns/pull/4166)
 * plugin/cache: Fix filtering (https://github.com/coredns/coredns/pull/4148)
 * plugin/ready: dont return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
-* plugin/transfer: Implement notifies for transfer plugin (https://github.com/coredns/coredns/pull/3972) (#4142)
+* plugin/ready: dont return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
+* plugin/transfer: Implement notifies for transfer plugin (https://github.com/coredns/coredns/pull/3972)
