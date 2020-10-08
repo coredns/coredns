@@ -50,7 +50,7 @@ func toDnstap(ctx context.Context, host string, f *Forward, state request.Reques
 		if tapper.Pack() {
 			b.Msg(reply)
 		}
-		m, err := b.Time(time.Now()).ToOutsideResponse(tap.Message_FORWARDER_RESPONSE)
+		m, err := b.QueryTime(start).Time(time.Now()).ToOutsideResponse(tap.Message_FORWARDER_RESPONSE)
 		if err != nil {
 			return err
 		}

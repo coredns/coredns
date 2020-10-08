@@ -67,7 +67,7 @@ func (w *ResponseWriter) WriteMsg(resp *dns.Msg) (writeErr error) {
 			if w.Pack() {
 				b.Msg(resp)
 			}
-			if m, err := b.Time(writeEpoch).ToClientResponse(); err != nil {
+			if m, err := b.QueryTime(w.QueryEpoch).Time(writeEpoch).ToClientResponse(); err != nil {
 				w.dnstapErr = fmt.Errorf("client response: %s", err)
 			} else {
 				w.TapMessage(m)

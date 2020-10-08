@@ -19,6 +19,8 @@ type Builder struct {
 	Port        uint32
 	TimeSec     uint64
 	TimeNsec    uint32
+	qTimeSec    uint64
+	qTimeNsec   uint32
 
 	err error
 }
@@ -100,10 +102,17 @@ func (b *Builder) Time(ts time.Time) *Builder {
 	return b
 }
 
+// QueryTime adds the query timestamp to the response message.
+func (b *Builder) QueryTime(ts time.Time) *Builder {
+	b.qTimeSec = uint64(ts.Unix())
+	b.qTimeNsec = uint32(ts.Nanosecond())
+	return b
+}
+
 // ToClientResponse transforms Data into a client response message.
 func (b *Builder) ToClientResponse() (*tap.Message, error) {
 	t := tap.Message_CLIENT_RESPONSE
-	return &tap.Message{
+	m := &tap.Message{
 		Type:             &t,
 		SocketFamily:     &b.SocketFam,
 		SocketProtocol:   &b.SocketProto,
@@ -112,7 +121,12 @@ func (b *Builder) ToClientResponse() (*tap.Message, error) {
 		ResponseMessage:  b.Packed,
 		QueryAddress:     b.Address,
 		QueryPort:        &b.Port,
-	}, b.err
+	}
+	if b.qTimeSec > 0 {
+		m.QueryTimeSec = &b.qTimeSec
+		m.QueryTimeNsec = &b.qTimeNsec
+	}
+	return m, b.err
 }
 
 // ToClientQuery transforms Data into a client query message.
@@ -146,7 +160,7 @@ func (b *Builder) ToOutsideQuery(t tap.Message_Type) (*tap.Message, error) {
 
 // ToOutsideResponse transforms the data into a forwarder or resolver response message.
 func (b *Builder) ToOutsideResponse(t tap.Message_Type) (*tap.Message, error) {
-	return &tap.Message{
+	m := &tap.Message{
 		Type:             &t,
 		SocketFamily:     &b.SocketFam,
 		SocketProtocol:   &b.SocketProto,
@@ -155,5 +169,10 @@ func (b *Builder) ToOutsideResponse(t tap.Message_Type) (*tap.Message, error) {
 		ResponseMessage:  b.Packed,
 		ResponseAddress:  b.Address,
 		ResponsePort:     &b.Port,
-	}, b.err
+	}
+	if b.qTimeSec > 0 {
+		m.QueryTimeSec = &b.qTimeSec
+		m.QueryTimeNsec = &b.qTimeNsec
+	}
+	return m, b.err
 }
