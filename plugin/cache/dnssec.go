@@ -31,6 +31,9 @@ func filterRRSlice(rrs []dns.RR, ttl uint32, do, dup bool) []dns.RR {
 		if !do && isDNSSEC(r) {
 			continue
 		}
+		if r.Header().Rrtype == dns.TypeOPT {
+			continue
+		}
 		r.Header().Ttl = ttl
 		if dup {
 			rs[j] = dns.Copy(r)

@@ -41,7 +41,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		if !do {
 			setDo(r)
 		}
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server}
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 	}
 	if ttl < 0 {
@@ -53,7 +53,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 			if !do {
 				setDo(r)
 			}
-			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: w.LocalAddr()}
+			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: w.LocalAddr(), do: do}
 			plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
 		}()
 	}

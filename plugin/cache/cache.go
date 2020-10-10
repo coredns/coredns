@@ -104,6 +104,7 @@ type ResponseWriter struct {
 	state  request.Request
 	server string // Server handling the request.
 
+	do         bool // When true the original request had the DO bit set.
 	prefetch   bool // When true write nothing back to the client.
 	remoteAddr net.Addr
 }
@@ -176,13 +177,12 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 		return nil
 	}
 
-	do := w.state.Do()
 	// Apply capped TTL to this reply to avoid jarring TTL experience 1799 -> 8 (e.g.)
 	// We also may need to filter out DNSSEC records, see toMsg() for similar code.
 	ttl := uint32(duration.Seconds())
-	resc.Answer = filterRRSlice(resc.Answer, ttl, do, false)
-	resc.Ns = filterRRSlice(resc.Ns, ttl, do, false)
-	resc.Extra = filterRRSlice(resc.Extra, ttl, do, false)
+	resc.Answer = filterRRSlice(resc.Answer, ttl, w.do, false)
+	resc.Ns = filterRRSlice(resc.Ns, ttl, w.do, false)
+	resc.Extra = filterRRSlice(resc.Extra, ttl, w.do, false)
 
 	return w.ResponseWriter.WriteMsg(resc)
 }
