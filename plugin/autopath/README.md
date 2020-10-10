@@ -6,7 +6,7 @@
 
 ## Description
 
-If the *autopath* plugins sees a query that matches the first element of the configured search path, it will
+If the *autopath* plugin sees a query that matches the first element of the configured search path, it will
 follow the chain of search path elements and return the first reply that is not NXDOMAIN. On any
 failures, the original reply is returned. Because *autopath* returns a reply for a name that wasn't
 the original question, it will add a CNAME that points from the original name (with the search path
