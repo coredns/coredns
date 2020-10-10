@@ -145,7 +145,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 
 		if f.tapPlugin != nil {
-			toDnstap(f, proxy.addr, state, ret, start)
+			toDnstap(f, proxy.addr, state, opts, ret, start)
 		}
 
 		upstreamErr = err

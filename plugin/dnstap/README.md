@@ -99,3 +99,4 @@ func (x RandomPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns
 ## See Also
 
 The website [dnstap.info](https://dnstap.info) has info on the dnstap protocol.
+The *forward* plugin's `dnstap.go` uses dnstap to tap messages sent to an upstream.

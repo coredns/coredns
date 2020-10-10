@@ -12,15 +12,14 @@ import (
 	"github.com/miekg/dns"
 )
 
-// toDnstap will send the forward and received message to the dnstap plugin.
-func toDnstap(f *Forward, host string, state request.Request, reply *dns.Msg, start time.Time) {
+// oDnstap will send the forward and received message to the dnstap plugin.
+func toDnstap(f *Forward, host string, state request.Request, opts options, reply *dns.Msg, start time.Time) {
 	// Query
 	tm := new(tap.Message)
 	msg.SetQueryTime(tm, start)
 	ip, p, _ := net.SplitHostPort(host)     // this is preparsed and can't err here
 	port, _ := strconv.ParseUint(p, 10, 32) // same here
 
-	opts := f.opts
 	t := state.Proto()
 	switch {
 	case opts.forceTCP: // TCP flag has precedence over UDP flag
