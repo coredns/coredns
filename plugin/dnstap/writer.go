@@ -16,7 +16,6 @@ type ResponseWriter struct {
 	dns.ResponseWriter
 
 	Dnstap
-
 	Err error
 }
 
@@ -25,13 +24,9 @@ type ResponseWriter struct {
 func (w *ResponseWriter) WriteMsg(resp *dns.Msg) error {
 	writeErr := w.ResponseWriter.WriteMsg(resp)
 
-	tm := new(tap.Message)
-	msg.SetResponseTime(tm, time.Now())
-	msg.SetQueryTime(tm, w.QueryTime)
-	if err := msg.SetQueryAddress(tm, w.RemoteAddr()); err != nil {
-		w.Err = err
-		return err
-	}
+	q := new(tap.Message)
+	msg.SetQueryTime(q, w.QueryTime)
+	msg.SetQueryAddress(q, w.RemoteAddr())
 
 	if w.IncludeRawMessage {
 		buf, err := w.Query.Pack()
@@ -39,14 +34,19 @@ func (w *ResponseWriter) WriteMsg(resp *dns.Msg) error {
 			w.Err = err
 			return err
 		}
-		tm.QueryMessage = buf
+		q.QueryMessage = buf
 	}
-	msg.SetType(tm, tap.Message_CLIENT_QUERY)
-	w.TapMessage(tm)
+	msg.SetType(q, tap.Message_CLIENT_QUERY)
+	w.TapMessage(q)
 
 	if writeErr != nil {
 		return writeErr
 	}
+
+	r := new(tap.Message)
+	msg.SetQueryTime(r, w.QueryTime)
+	msg.SetResponseTime(r, time.Now())
+	msg.SetQueryAddress(r, w.RemoteAddr())
 
 	if w.IncludeRawMessage {
 		buf, err := resp.Pack()
@@ -54,10 +54,10 @@ func (w *ResponseWriter) WriteMsg(resp *dns.Msg) error {
 			w.Err = err
 			return err
 		}
-		tm.ResponseMessage = buf
+		r.ResponseMessage = buf
 	}
-	tm.QueryMessage = nil // zero this, to not send it again
-	msg.SetType(tm, tap.Message_CLIENT_RESPONSE)
-	w.TapMessage(tm)
-	return writeErr
+
+	msg.SetType(r, tap.Message_CLIENT_RESPONSE)
+	w.TapMessage(r)
+	return nil
 }

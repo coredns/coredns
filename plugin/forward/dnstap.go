@@ -15,8 +15,8 @@ import (
 // oDnstap will send the forward and received message to the dnstap plugin.
 func toDnstap(f *Forward, host string, state request.Request, opts options, reply *dns.Msg, start time.Time) {
 	// Query
-	tm := new(tap.Message)
-	msg.SetQueryTime(tm, start)
+	q := new(tap.Message)
+	msg.SetQueryTime(q, start)
 	ip, p, _ := net.SplitHostPort(host)     // this is preparsed and can't err here
 	port, _ := strconv.ParseUint(p, 10, 32) // same here
 
@@ -30,30 +30,31 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 
 	if t == "tcp" {
 		ta := &net.TCPAddr{IP: net.ParseIP(ip), Port: int(port)}
-		msg.SetQueryAddress(tm, ta)
+		msg.SetQueryAddress(q, ta)
 	} else {
 		ta := &net.UDPAddr{IP: net.ParseIP(ip), Port: int(port)}
-		msg.SetQueryAddress(tm, ta)
+		msg.SetQueryAddress(q, ta)
 	}
 
 	if f.tapPlugin.IncludeRawMessage {
 		if buf, err := state.Req.Pack(); err != nil {
-			tm.QueryMessage = buf
+			q.QueryMessage = buf
 		}
 	}
-	msg.SetType(tm, tap.Message_FORWARDER_QUERY)
-	f.tapPlugin.TapMessage(tm)
+	msg.SetType(q, tap.Message_FORWARDER_QUERY)
+	f.tapPlugin.TapMessage(q)
 
 	// Response
+	r := new(tap.Message)
 	if reply != nil {
 		if f.tapPlugin.IncludeRawMessage {
 			if buf, err := reply.Pack(); err != nil {
-				tm.ResponseMessage = buf
+				r.ResponseMessage = buf
 			}
 		}
-		tm.QueryMessage = nil // zero this, to not send it again
-		msg.SetResponseTime(tm, time.Now())
-		msg.SetType(tm, tap.Message_FORWARDER_RESPONSE)
-		f.tapPlugin.TapMessage(tm)
+		msg.SetQueryTime(r, start)
+		msg.SetResponseTime(r, time.Now())
+		msg.SetType(r, tap.Message_FORWARDER_RESPONSE)
+		f.tapPlugin.TapMessage(r)
 	}
 }

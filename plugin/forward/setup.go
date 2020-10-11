@@ -27,12 +27,6 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("forward", fmt.Errorf("more than %d TOs configured: %d", max, f.Len()))
 	}
 
-	if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
-		if tapPlugin, ok := taph.(dnstap.Dnstap); ok {
-			f.tapPlugin = &tapPlugin
-		}
-	}
-
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		f.Next = next
 		return f
@@ -40,6 +34,14 @@ func setup(c *caddy.Controller) error {
 
 	c.OnStartup(func() error {
 		return f.OnStartup()
+	})
+	c.OnStartup(func() error {
+		if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
+			if tapPlugin, ok := taph.(dnstap.Dnstap); ok {
+				f.tapPlugin = &tapPlugin
+			}
+		}
+		return nil
 	})
 
 	c.OnShutdown(func() error {
