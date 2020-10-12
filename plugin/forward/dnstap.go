@@ -12,7 +12,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// oDnstap will send the forward and received message to the dnstap plugin.
+// toDnstap will send the forward and received message to the dnstap plugin.
 func toDnstap(f *Forward, host string, state request.Request, opts options, reply *dns.Msg, start time.Time) {
 	// Query
 	q := new(tap.Message)
