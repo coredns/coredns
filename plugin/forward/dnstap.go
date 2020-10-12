@@ -17,10 +17,11 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 	// Query
 	q := new(tap.Message)
 	msg.SetQueryTime(q, start)
-	ip, p, _ := net.SplitHostPort(host)     // this is preparsed and can't err here
+	h, p, _ := net.SplitHostPort(host)      // this is preparsed and can't err here
 	port, _ := strconv.ParseUint(p, 10, 32) // same here
+	ip := net.ParseIP(h)
 
-	var ta net.Addr = &net.UDPAddr{IP: net.ParseIP(ip), Port: int(port)}
+	var ta net.Addr = &net.UDPAddr{IP: ip, Port: int(port)}
 	t := state.Proto()
 	switch {
 	case opts.forceTCP:
@@ -30,7 +31,7 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 	}
 
 	if t == "tcp" {
-		ta = &net.TCPAddr{IP: net.ParseIP(ip), Port: int(port)}
+		ta = &net.TCPAddr{IP: ip, Port: int(port)}
 	}
 
 	msg.SetQueryAddress(q, ta)
