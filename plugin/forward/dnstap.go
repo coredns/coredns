@@ -22,9 +22,13 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 
 	var ta net.Addr = &net.UDPAddr{IP: net.ParseIP(ip), Port: int(port)}
 	t := state.Proto()
-	if opts.forceTCP {
+	switch {
+	case opts.forceTCP:
 		t = "tcp"
+	case opts.preferUDP:
+		t = "udp"
 	}
+
 	if t == "tcp" {
 		ta = &net.TCPAddr{IP: net.ParseIP(ip), Port: int(port)}
 	}
