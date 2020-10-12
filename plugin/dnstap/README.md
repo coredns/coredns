@@ -69,11 +69,14 @@ $ dnstap -l 127.0.0.1:6000
 In your setup function, check to see if the *dnstap* plugin is loaded:
 
 ~~~ go
-if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
-    if tapPlugin, ok := taph.(dnstap.Dnstap); ok {
-        // save tapPlugin somewhere.
+c.OnStartup(func() error {
+    if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
+        if tapPlugin, ok := taph.(dnstap.Dnstap); ok {
+            f.tapPlugin = &tapPlugin
+        }
     }
-}
+    return nil
+})
 ~~~
 
 And then in your plugin:

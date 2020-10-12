@@ -20,21 +20,16 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 	ip, p, _ := net.SplitHostPort(host)     // this is preparsed and can't err here
 	port, _ := strconv.ParseUint(p, 10, 32) // same here
 
+	var ta net.Addr = &net.UDPAddr{IP: net.ParseIP(ip), Port: int(port)}
 	t := state.Proto()
-	switch {
-	case opts.forceTCP: // TCP flag has precedence over UDP flag
+	if opts.forceTCP {
 		t = "tcp"
-	case opts.preferUDP:
-		t = "udp"
+	}
+	if t == "tcp" {
+		ta = &net.TCPAddr{IP: net.ParseIP(ip), Port: int(port)}
 	}
 
-	if t == "tcp" {
-		ta := &net.TCPAddr{IP: net.ParseIP(ip), Port: int(port)}
-		msg.SetQueryAddress(q, ta)
-	} else {
-		ta := &net.UDPAddr{IP: net.ParseIP(ip), Port: int(port)}
-		msg.SetQueryAddress(q, ta)
-	}
+	msg.SetQueryAddress(q, ta)
 
 	if f.tapPlugin.IncludeRawMessage {
 		buf, _ := state.Req.Pack()
@@ -44,13 +39,14 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 	f.tapPlugin.TapMessage(q)
 
 	// Response
-	r := new(tap.Message)
 	if reply != nil {
+		r := new(tap.Message)
 		if f.tapPlugin.IncludeRawMessage {
 			buf, _ := reply.Pack()
 			r.ResponseMessage = buf
 		}
 		msg.SetQueryTime(r, start)
+		msg.SetQueryAddress(r, ta)
 		msg.SetResponseTime(r, time.Now())
 		msg.SetType(r, tap.Message_FORWARDER_RESPONSE)
 		f.tapPlugin.TapMessage(r)
