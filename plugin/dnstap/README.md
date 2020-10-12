@@ -81,16 +81,15 @@ And then in your plugin:
 ~~~ go
 func (x RandomPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
     if tapPlugin != nil {
-        tm := new(msg.Msg)
-        msg.SetQueryTime(tm, time.Now())
-        msg.SetQueryAddress(tm, w.RemoteAddr())
+        q := new(msg.Msg)
+        msg.SetQueryTime(q, time.Now())
+        msg.SetQueryAddress(q, w.RemoteAddr())
         if tapPlugin.IncludeRawMessage {
-            if buf, err := r.Pack(); err != nil {
-                tm.QueryMessage = buf
-            }
+            buf, _ := r.Pack() // r has been seen packed/unpacked before, this should not fail
+            q.QueryMessage = buf
         }
-        msg.SetType(tm, tap.Message_CLIENT_QUERY)
-        tapPlugin.TapMessage(tm)
+        msg.SetType(q, tap.Message_CLIENT_QUERY)
+        tapPlugin.TapMessage(q)
     }
     // ...
 }

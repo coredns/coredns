@@ -35,16 +35,7 @@ func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		QueryTime:      time.Now(),
 	}
 
-	code, err := plugin.NextOrFailure(h.Name(), h.Next, ctx, rw, r)
-	if err != nil {
-		return code, err
-	}
-
-	if rw.Err != nil {
-		return code, plugin.Error("dnstap", rw.Err)
-	}
-
-	return code, nil
+	return plugin.NextOrFailure(h.Name(), h.Next, ctx, rw, r)
 }
 
 // Name implements the plugin.Plugin interface.

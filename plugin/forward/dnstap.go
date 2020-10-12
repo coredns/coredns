@@ -37,9 +37,8 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 	}
 
 	if f.tapPlugin.IncludeRawMessage {
-		if buf, err := state.Req.Pack(); err != nil {
-			q.QueryMessage = buf
-		}
+		buf, _ := state.Req.Pack()
+		q.QueryMessage = buf
 	}
 	msg.SetType(q, tap.Message_FORWARDER_QUERY)
 	f.tapPlugin.TapMessage(q)
@@ -48,9 +47,8 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 	r := new(tap.Message)
 	if reply != nil {
 		if f.tapPlugin.IncludeRawMessage {
-			if buf, err := reply.Pack(); err != nil {
-				r.ResponseMessage = buf
-			}
+			buf, _ := reply.Pack()
+			r.ResponseMessage = buf
 		}
 		msg.SetQueryTime(r, start)
 		msg.SetResponseTime(r, time.Now())
