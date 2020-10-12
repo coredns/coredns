@@ -2,12 +2,9 @@ package dnstap
 
 import (
 	"context"
-	"errors"
 	"net"
-	"strings"
 	"testing"
 
-	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/dnstap/msg"
 	test "github.com/coredns/coredns/plugin/test"
 	tap "github.com/dnstap/golang-dnstap"
@@ -83,50 +80,5 @@ func testMessage() *tap.Message {
 		SocketProtocol: &udp,
 		QueryAddress:   net.ParseIP("10.240.0.1"),
 		QueryPort:      &port,
-	}
-}
-
-type noWriter struct{}
-
-func (n noWriter) Dnstap(d tap.Dnstap) {}
-
-func endWith(c int, err error) plugin.Handler {
-	return test.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
-		w.WriteMsg(nil) // trigger plugin dnstap to log client query and response
-		// maybe dnstap should log the client query when no message is written...
-		return c, err
-	})
-}
-
-type badAddr struct{}
-
-func (bad badAddr) Network() string { return "bad network" }
-func (bad badAddr) String() string  { return "bad address" }
-
-type badRW struct {
-	dns.ResponseWriter
-}
-
-func (bad *badRW) RemoteAddr() net.Addr { return badAddr{} }
-
-func TestError(t *testing.T) {
-	h := Dnstap{
-		Next: endWith(0, nil),
-		io:   noWriter{},
-	}
-	rw := &badRW{&test.ResponseWriter{}}
-
-	// the dnstap error will show only if there is no plugin error
-	_, err := h.ServeDNS(context.TODO(), rw, nil)
-	if err == nil || !strings.HasPrefix(err.Error(), "plugin/dnstap") {
-		t.Fatal("Must return the dnstap error but have:", err)
-	}
-
-	// plugin errors will always overwrite dnstap errors
-	pluginErr := errors.New("plugin error")
-	h.Next = endWith(0, pluginErr)
-	_, err = h.ServeDNS(context.TODO(), rw, nil)
-	if err != pluginErr {
-		t.Fatal("Must return the plugin error but have:", err)
 	}
 }
