@@ -9,7 +9,7 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.2.0 // indirect
 	github.com/DataDog/datadog-go v3.5.0+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.35.2
-	github.com/cenkalti/backoff/v4 v4.0.2
+	github.com/cenkalti/backoff/v4 v4.1.0
 	github.com/coredns/caddy v1.1.0
 	github.com/dnstap/golang-dnstap v0.2.2
 	github.com/dustin/go-humanize v1.0.0 // indirect
