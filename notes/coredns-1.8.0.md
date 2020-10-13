@@ -13,10 +13,11 @@ draft = true
 The CoreDNS team has released
 [CoreDNS-1.8.0](https://github.com/coredns/coredns/releases/tag/v1.8.0).
 
-If you are running 1.7.1 you probably want to upgrade for the *cache* plugin fix.
+If you are running 1.7.1 you probably want to upgrade for the *cache* plugin fixes.
 
-This release also adds two backwards incompatible changes. This will only affect you if you have an
-**external plugin** or use **outgoing zone transfers**.
+This release also adds three backwards incompatible changes. This will only affect you if you have an
+**external plugin** or use **outgoing zone transfers**. If you're using `dnstap` in your plugin,
+you'll need to upgrade to the new API as detailed in it's [documentation](/plugins/dnstap).
 
 One, because Caddy is now developing a version 2 and we are using version 1, we've internalized Caddy
 into <https://github.com/coredns/caddy>. This means the `caddy` types change and *all* plugins need
@@ -62,6 +63,7 @@ Yong Tang.
 * core: Move caddy v1 in our GitHub org (https://github.com/coredns/coredns/pull/4018)
 * plugin/auto: allow fallthrough if no zone match (https://github.com/coredns/coredns/pull/4166)
 * plugin/cache: Fix filtering (https://github.com/coredns/coredns/pull/4148)
+* plugin/dnstap: various cleanups (https://github.com/coredns/coredns/pull/4179)
 * plugin/ready: dont return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
 * plugin/ready: dont return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
 * plugin/transfer: Implement notifies for transfer plugin (https://github.com/coredns/coredns/pull/3972)
