@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
+	discovery "k8s.io/api/discovery/v1beta1"
 
 	api "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,21 +20,21 @@ import (
 )
 
 const (
-	podIPIndex            = "PodIP"
-	svcNameNamespaceIndex = "NameNamespace"
-	svcIPIndex            = "ServiceIP"
-	epNameNamespaceIndex  = "EndpointNameNamespace"
-	epIPIndex             = "EndpointsIP"
+	podIPIndex                       = "PodIP"
+	svcNameNamespaceIndex            = "NameNamespace"
+	svcIPIndex                       = "ServiceIP"
+	epSliceServiceNameNamespaceIndex = "EndpointNameNamespace"
+	epSliceIPIndex                   = "EndpointsIP"
 )
 
 type dnsController interface {
 	ServiceList() []*object.Service
-	EndpointsList() []*object.Endpoints
+	EndpointSliceList() []*discovery.EndpointSlice
 	SvcIndex(string) []*object.Service
 	SvcIndexReverse(string) []*object.Service
 	PodIndex(string) []*object.Pod
-	EpIndex(string) []*object.Endpoints
-	EpIndexReverse(string) []*object.Endpoints
+	EpIndex(string) []*discovery.EndpointSlice
+	EpIndexReverse(string) []*discovery.EndpointSlice
 
 	GetNodeByName(context.Context, string) (*api.Node, error)
 	GetNamespaceByName(string) (*api.Namespace, error)
@@ -130,15 +131,15 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 	}
 
 	if opts.initEndpointsCache {
-		dns.epLister, dns.epController = object.NewIndexerInformer(
+		dns.epLister, dns.epController = cache.NewIndexerInformer(
 			&cache.ListWatch{
 				ListFunc:  endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 				WatchFunc: endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 			},
-			&api.Endpoints{},
+			&discovery.EndpointSlice{},
+			0,
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
-			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			object.DefaultProcessor(object.ToEndpoints(opts.skipAPIObjectsCleanup), dns.recordDNSProgrammingLatency),
+			cache.Indexers{epSliceServiceNameNamespaceIndex: epSliceServiceNameNamespaceIndexFunc, epSliceIPIndex: epSliceIPIndexFunc},
 		)
 	}
 
@@ -186,20 +187,24 @@ func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 	return []string{s.Index}, nil
 }
 
-func epNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
-	s, ok := obj.(*object.Endpoints)
+func epSliceServiceNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
+	s, ok := obj.(*discovery.EndpointSlice)
 	if !ok {
 		return nil, errObj
 	}
-	return []string{s.Index}, nil
+	return []string{s.Labels[discovery.LabelServiceName]+"."+s.Namespace}, nil
 }
 
-func epIPIndexFunc(obj interface{}) ([]string, error) {
-	ep, ok := obj.(*object.Endpoints)
+func epSliceIPIndexFunc(obj interface{}) ([]string, error) {
+	ep, ok := obj.(*discovery.EndpointSlice)
 	if !ok {
 		return nil, errObj
 	}
-	return ep.IndexIP, nil
+	var addrs []string
+	for _, e := range ep.Endpoints {
+		addrs = append(addrs, e.Addresses...)
+	}
+	return addrs, nil
 }
 
 func serviceListFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
@@ -231,7 +236,7 @@ func endpointsListFunc(ctx context.Context, c kubernetes.Interface, ns string, s
 		if s != nil {
 			opts.LabelSelector = s.String()
 		}
-		listV1, err := c.CoreV1().Endpoints(ns).List(ctx, opts)
+		listV1, err := c.DiscoveryV1beta1().EndpointSlices(ns).List(ctx, opts)
 		return listV1, err
 	}
 }
@@ -302,10 +307,10 @@ func (dns *dnsControl) ServiceList() (svcs []*object.Service) {
 	return svcs
 }
 
-func (dns *dnsControl) EndpointsList() (eps []*object.Endpoints) {
+func (dns *dnsControl) EndpointSliceList() (eps []*discovery.EndpointSlice) {
 	os := dns.epLister.List()
 	for _, o := range os {
-		ep, ok := o.(*object.Endpoints)
+		ep, ok := o.(*discovery.EndpointSlice)
 		if !ok {
 			continue
 		}
@@ -360,13 +365,13 @@ func (dns *dnsControl) SvcIndexReverse(ip string) (svcs []*object.Service) {
 	return svcs
 }
 
-func (dns *dnsControl) EpIndex(idx string) (ep []*object.Endpoints) {
-	os, err := dns.epLister.ByIndex(epNameNamespaceIndex, idx)
+func (dns *dnsControl) EpIndex(idx string) (ep []*discovery.EndpointSlice) {
+	os, err := dns.epLister.ByIndex(epSliceServiceNameNamespaceIndex, idx)
 	if err != nil {
 		return nil
 	}
 	for _, o := range os {
-		e, ok := o.(*object.Endpoints)
+		e, ok := o.(*discovery.EndpointSlice)
 		if !ok {
 			continue
 		}
@@ -375,13 +380,13 @@ func (dns *dnsControl) EpIndex(idx string) (ep []*object.Endpoints) {
 	return ep
 }
 
-func (dns *dnsControl) EpIndexReverse(ip string) (ep []*object.Endpoints) {
-	os, err := dns.epLister.ByIndex(epIPIndex, ip)
+func (dns *dnsControl) EpIndexReverse(ip string) (ep []*discovery.EndpointSlice) {
+	os, err := dns.epLister.ByIndex(epSliceIPIndex, ip)
 	if err != nil {
 		return nil
 	}
 	for _, o := range os {
-		e, ok := o.(*object.Endpoints)
+		e, ok := o.(*discovery.EndpointSlice)
 		if !ok {
 			continue
 		}

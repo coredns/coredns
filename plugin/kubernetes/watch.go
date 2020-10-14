@@ -38,7 +38,7 @@ func endpointsWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, 
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
-		w, err := c.CoreV1().Endpoints(ns).Watch(ctx, options)
+		w, err := c.DiscoveryV1beta1().EndpointSlices(ns).Watch(ctx, options)
 		return w, err
 	}
 }

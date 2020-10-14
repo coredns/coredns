@@ -15,6 +15,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
+	discovery "k8s.io/api/discovery/v1beta1"
 
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
@@ -276,18 +277,18 @@ func (k *Kubernetes) Records(ctx context.Context, state request.Request, exact b
 	return services, err
 }
 
-func endpointHostname(addr object.EndpointAddress, endpointNameMode bool) string {
-	if addr.Hostname != "" {
-		return addr.Hostname
+func endpointHostname(endpoint *discovery.Endpoint, ip string, endpointNameMode bool) string {
+	if endpoint.Hostname != nil {
+		return *endpoint.Hostname
 	}
-	if endpointNameMode && addr.TargetRefName != "" {
-		return addr.TargetRefName
+	if endpointNameMode && endpoint.TargetRef != nil {
+		return endpoint.TargetRef.Name
 	}
-	if strings.Contains(addr.IP, ".") {
-		return strings.Replace(addr.IP, ".", "-", -1)
+	if strings.Contains(ip, ".") {
+		return strings.Replace(ip, ".", "-", -1)
 	}
-	if strings.Contains(addr.IP, ":") {
-		return strings.Replace(addr.IP, ":", "-", -1)
+	if strings.Contains(ip, ":") {
+		return strings.Replace(ip, ":", "-", -1)
 	}
 	return ""
 }
@@ -386,18 +387,18 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 	}
 
 	var (
-		endpointsListFunc func() []*object.Endpoints
-		endpointsList     []*object.Endpoints
+		endpointsListFunc func() []*discovery.EndpointSlice
+		endpointsList     []*discovery.EndpointSlice
 		serviceList       []*object.Service
 	)
 
 	if wildcard(r.service) || wildcard(r.namespace) {
 		serviceList = k.APIConn.ServiceList()
-		endpointsListFunc = func() []*object.Endpoints { return k.APIConn.EndpointsList() }
+		endpointsListFunc = func() []*discovery.EndpointSlice { return k.APIConn.EndpointSliceList() }
 	} else {
 		idx := object.ServiceKey(r.service, r.namespace)
 		serviceList = k.APIConn.SvcIndex(idx)
-		endpointsListFunc = func() []*object.Endpoints { return k.APIConn.EpIndex(idx) }
+		endpointsListFunc = func() []*discovery.EndpointSlice { return k.APIConn.EpIndex(idx) }
 	}
 
 	zonePath := msg.Path(zone, coredns)
@@ -417,9 +418,9 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		if k.opts.ignoreEmptyService && svc.ClusterIP != api.ClusterIPNone && svc.Type != api.ServiceTypeExternalName {
 			// serve NXDOMAIN if no endpoint is able to answer
 			podsCount := 0
-			for _, ep := range endpointsListFunc() {
-				for _, eps := range ep.Subsets {
-					podsCount = podsCount + len(eps.Addresses)
+			for _, eps := range endpointsListFunc() {
+				for _, e := range eps.Endpoints {
+					podsCount = podsCount + len(e.Addresses)
 				}
 			}
 
@@ -433,27 +434,27 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 			if endpointsList == nil {
 				endpointsList = endpointsListFunc()
 			}
-			for _, ep := range endpointsList {
-				if ep.Name != svc.Name || ep.Namespace != svc.Namespace {
+			for _, eps := range endpointsList {
+				if eps.Labels[discovery.LabelServiceName] != svc.Name || eps.Namespace != svc.Namespace {
 					continue
 				}
 
-				for _, eps := range ep.Subsets {
-					for _, addr := range eps.Addresses {
+				for _, e := range eps.Endpoints {
+					for _, addr := range e.Addresses {
 
 						// See comments in parse.go parseRequest about the endpoint handling.
 						if r.endpoint != "" {
-							if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+							if !match(r.endpoint, endpointHostname(&e, addr, k.endpointNameMode)) {
 								continue
 							}
 						}
 
 						for _, p := range eps.Ports {
-							if !(match(r.port, p.Name) && match(r.protocol, string(p.Protocol))) {
+							if !(match(r.port, *p.Name) && match(r.protocol, string(*p.Protocol))) {
 								continue
 							}
-							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
+							s := msg.Service{Host: addr, Port: int(*p.Port), TTL: k.ttl}
+							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(&e, addr, k.endpointNameMode)}, "/")
 
 							err = nil
 
