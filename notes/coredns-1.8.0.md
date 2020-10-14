@@ -5,7 +5,6 @@ tags = ["Release", "1.8.0", "Notes"]
 release = "1.8.0"
 date = 2020-10-15T08:00:00+00:00
 author = "coredns"
-draft = true
 +++
 
 The CoreDNS team has released
@@ -60,10 +59,9 @@ Yong Tang.
 * core: doh support: make no TLS config fatal (https://github.com/coredns/coredns/pull/4162)
 * core: fix crash with no plugins (https://github.com/coredns/coredns/pull/4184)
 * core: Move caddy v1 in our GitHub org (https://github.com/coredns/coredns/pull/4018)
-* plugin/auto: allow fallthrough if no zone match (https://github.com/coredns/coredns/pull/4166)
+* plugin/auto: allow fallthrough if no zones match (https://github.com/coredns/coredns/pull/4166)
 * plugin/cache: Fix filtering (https://github.com/coredns/coredns/pull/4148)
 * plugin/cache: Fix removing OPT (https://github.com/coredns/coredns/pull/4190)
 * plugin/dnstap: various cleanups (https://github.com/coredns/coredns/pull/4179)
-* plugin/ready: dont return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
-* plugin/ready: dont return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
+* plugin/ready: don't return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
 * plugin/transfer: Implement notifies for transfer plugin (https://github.com/coredns/coredns/pull/3972)
