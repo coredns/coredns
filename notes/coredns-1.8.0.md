@@ -3,12 +3,10 @@ title = "CoreDNS-1.8.0 Release"
 description = "CoreDNS-1.8.0 Release Notes."
 tags = ["Release", "1.8.0", "Notes"]
 release = "1.8.0"
-date = 2020-10-01T10:00:00+00:00
+date = 2020-10-15T08:00:00+00:00
 author = "coredns"
 draft = true
 +++
-
-**NOT RELEASED**
 
 The CoreDNS team has released
 [CoreDNS-1.8.0](https://github.com/coredns/coredns/releases/tag/v1.8.0).
@@ -50,6 +48,7 @@ example.org {
 
 ## Brought to You By
 
+Bob,
 Chris O'Haver,
 Johnny Bergström,
 Macks,
@@ -63,6 +62,7 @@ Yong Tang.
 * core: Move caddy v1 in our GitHub org (https://github.com/coredns/coredns/pull/4018)
 * plugin/auto: allow fallthrough if no zone match (https://github.com/coredns/coredns/pull/4166)
 * plugin/cache: Fix filtering (https://github.com/coredns/coredns/pull/4148)
+* plugin/cache: Fix removing OPT (https://github.com/coredns/coredns/pull/4190)
 * plugin/dnstap: various cleanups (https://github.com/coredns/coredns/pull/4179)
 * plugin/ready: dont return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
 * plugin/ready: dont return 200 during shutdown (https://github.com/coredns/coredns/pull/4167)
