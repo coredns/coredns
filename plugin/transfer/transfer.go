@@ -141,22 +141,6 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		m.Answer = []dns.RR{soa}
 		w.WriteMsg(m)
 
-		log.Infof("Outgoing incremental transfer for up to date zone %q to %s for %d SOA serial", state.QName(), state.IP(), serial)
-		return 0, nil
-	}
-
-	// if we are here and we only hold 1 soa (len(rrs) == 1) and soa != nil, and IXFR fallback should
-	// be performed. We haven't send anything on ch yet, so that can be closed (and waited for), and we only
-	// need to return the SOA back to the client and return.
-	if len(rrs) == 1 && soa != nil { // soa should never be nil...
-		close(ch)
-		wg.Wait()
-
-		m := new(dns.Msg)
-		m.SetReply(r)
-		m.Answer = []dns.RR{soa}
-		w.WriteMsg(m)
-
 		log.Infof("Outgoing noop, incremental transfer for up to date zone %q to %s for %d SOA serial", state.QName(), state.IP(), soa.Serial)
 		return 0, nil
 	}
