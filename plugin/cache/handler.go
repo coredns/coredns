@@ -14,12 +14,13 @@ import (
 
 // ServeDNS implements the plugin.Handler interface.
 func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	state := request.Request{W: w, Req: r}
+	rc := r.Copy() // We potentially modify r, to prevent other plugins from seeing this (r is a pointer), copy r into rc.
+	state := request.Request{W: w, Req: rc}
 	do := state.Do()
 
 	zone := plugin.Zones(c.Zones).Matches(state.Name())
 	if zone == "" {
-		return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, r)
+		return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, rc)
 	}
 
 	now := c.now().UTC()
@@ -39,22 +40,21 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	}
 	if i == nil {
 		if !do {
-			setDo(r)
+			setDo(rc)
 		}
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
-		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
+		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, rc)
 	}
 	if ttl < 0 {
 		servedStale.WithLabelValues(server).Inc()
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
 		go func() {
-			r := r.Copy()
 			if !do {
-				setDo(r)
+				setDo(rc)
 			}
 			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: w.LocalAddr(), do: do}
-			plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, r)
+			plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, rc)
 		}()
 	}
 	resp := i.toMsg(r, now, do)

@@ -110,3 +110,48 @@ func testCaseDNSSEC(t *testing.T, name, addr string, bufsize int) {
 		}
 	}
 }
+
+func TestLookupCacheWithoutEdns(t *testing.T) {
+	name, rm, err := test.TempFile(".", exampleOrg)
+	if err != nil {
+		t.Fatalf("Failed to create zone: %s", err)
+	}
+	defer rm()
+
+	corefile := `example.org:0 {
+		file ` + name + `
+	}`
+
+	i, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer i.Stop()
+
+	// Start caching forward CoreDNS that we want to test.
+	corefile = `example.org:0 {
+		forward . ` + udp + `
+		cache 10
+	}`
+
+	i, udp, _, err = CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer i.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	resp, err := dns.Exchange(m, udp)
+	if err != nil {
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
+	}
+	if len(resp.Extra) == 0 {
+		return
+	}
+
+	if resp.Extra[0].Header().Rrtype == dns.TypeOPT {
+		t.Fatalf("Expected no OPT RR, but got: %s", resp.Extra[0])
+	}
+	t.Fatalf("Expected empty additional section, got %v", resp.Extra)
+}

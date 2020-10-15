@@ -143,15 +143,12 @@ func (w *ResponseWriter) RemoteAddr() net.Addr {
 
 // WriteMsg implements the dns.ResponseWriter interface.
 func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
-	// res needs to be copied otherwise we will be modifying the underlaying arrays which are now cached.
-	resc := res.Copy()
-
-	mt, _ := response.Typify(resc, w.now().UTC())
+	mt, _ := response.Typify(res, w.now().UTC())
 
 	// key returns empty string for anything we don't want to cache.
-	hasKey, key := key(w.state.Name(), resc, mt)
+	hasKey, key := key(w.state.Name(), res, mt)
 
-	msgTTL := dnsutil.MinimalTTL(resc, mt)
+	msgTTL := dnsutil.MinimalTTL(res, mt)
 	var duration time.Duration
 	if mt == response.NameError || mt == response.NoData {
 		duration = computeTTL(msgTTL, w.minnttl, w.nttl)
@@ -163,8 +160,8 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	}
 
 	if hasKey && duration > 0 {
-		if w.state.Match(resc) {
-			w.set(resc, key, mt, duration)
+		if w.state.Match(res) {
+			w.set(res, key, mt, duration)
 			cacheSize.WithLabelValues(w.server, Success).Set(float64(w.pcache.Len()))
 			cacheSize.WithLabelValues(w.server, Denial).Set(float64(w.ncache.Len()))
 		} else {
@@ -180,11 +177,11 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	// Apply capped TTL to this reply to avoid jarring TTL experience 1799 -> 8 (e.g.)
 	// We also may need to filter out DNSSEC records, see toMsg() for similar code.
 	ttl := uint32(duration.Seconds())
-	resc.Answer = filterRRSlice(resc.Answer, ttl, w.do, false)
-	resc.Ns = filterRRSlice(resc.Ns, ttl, w.do, false)
-	resc.Extra = filterRRSlice(resc.Extra, ttl, w.do, false)
+	res.Answer = filterRRSlice(res.Answer, ttl, w.do, false)
+	res.Ns = filterRRSlice(res.Ns, ttl, w.do, false)
+	res.Extra = filterRRSlice(res.Extra, ttl, w.do, false)
 
-	return w.ResponseWriter.WriteMsg(resc)
+	return w.ResponseWriter.WriteMsg(res)
 }
 
 func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration time.Duration) {
