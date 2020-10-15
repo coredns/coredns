@@ -101,7 +101,7 @@ func TestReloadMetricsHealth(t *testing.T) {
 	}
 	defer c1.Stop()
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 
 	// Health
 	resp, err := http.Get("http://localhost:53184/health")

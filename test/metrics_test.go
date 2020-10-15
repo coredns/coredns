@@ -78,7 +78,7 @@ func TestMetricsAuto(t *testing.T) {
 	corefile := `org:0 {
 		auto {
 			directory ` + tmpdir + ` db\.(.*) {1}
-			reload 1s
+			reload 0.1s
 		}
 		prometheus localhost:0
 	}`
@@ -98,8 +98,7 @@ func TestMetricsAuto(t *testing.T) {
 	if err = ioutil.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
 		t.Fatal(err)
 	}
-	// TODO(miek): make the auto sleep even less.
-	time.Sleep(1100 * time.Millisecond) // wait for it to be picked up
+	time.Sleep(110 * time.Millisecond) // wait for it to be picked up
 
 	m := new(dns.Msg)
 	m.SetQuestion("www.example.org.", dns.TypeA)
@@ -120,7 +119,7 @@ func TestMetricsAuto(t *testing.T) {
 
 	// Remove db.example.org again. And see if the metric stops increasing.
 	os.Remove(filepath.Join(tmpdir, "db.example.org"))
-	time.Sleep(1100 * time.Millisecond) // wait for it to be picked up
+	time.Sleep(110 * time.Millisecond) // wait for it to be picked up
 	if _, err := dns.Exchange(m, udp); err != nil {
 		t.Fatalf("Could not send message: %s", err)
 	}
