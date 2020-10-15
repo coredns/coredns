@@ -9,13 +9,13 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
-	discovery "k8s.io/api/discovery/v1beta1"
-	"k8s.io/apimachinery/pkg/watch"
 
 	api "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -83,6 +83,7 @@ type dnsControl struct {
 type dnsControlOpts struct {
 	initPodCache       bool
 	initEndpointsCache bool
+	useEndpointSlices  bool
 	ignoreEmptyService bool
 
 	// Label handling.
@@ -132,7 +133,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 	}
 
 	if opts.initEndpointsCache {
-		if true /*opts.useEndpointSlices*/ {
+		if opts.useEndpointSlices {
 			dns.epLister, dns.epController = object.NewIndexerInformer(
 				&cache.ListWatch{
 					ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
@@ -152,7 +153,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 				&api.Endpoints{},
 				cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 				cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-				object.DefaultProcessor(object.ToEndpoints(opts.skipAPIObjectsCleanup), nil),
+				object.DefaultProcessor(object.ToEndpoints(opts.skipAPIObjectsCleanup), dns.recordDNSProgrammingLatency),
 			)
 		}
 	}
