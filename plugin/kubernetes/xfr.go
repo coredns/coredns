@@ -11,7 +11,6 @@ import (
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
-	discovery "k8s.io/api/discovery/v1beta1"
 
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
@@ -84,21 +83,21 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 
 				endpointsList := k.APIConn.EpIndex(svc.Name + "." + svc.Namespace)
 
-				for _, eps := range endpointsList {
-					if eps.Labels[discovery.LabelServiceName] != svc.Name || eps.Namespace != svc.Namespace {
+				for _, ep := range endpointsList {
+					if ep.Name != svc.Name || ep.Namespace != svc.Namespace {
 						continue
 					}
 
-					for _, e := range eps.Endpoints {
-						srvWeight := calcSRVWeight(len(e.Addresses))
-						for _, addr := range e.Addresses {
-							s := msg.Service{Host: addr, TTL: k.ttl}
+					for _, eps := range ep.Subsets {
+						srvWeight := calcSRVWeight(len(eps.Addresses))
+						for _, addr := range eps.Addresses {
+							s := msg.Service{Host: addr.IP, TTL: k.ttl}
 							s.Key = strings.Join(svcBase, "/")
 							// We don't need to change the msg.Service host from IP to Name yet
 							// so disregard the return value here
 							emitAddressRecord(ch, s)
 
-							s.Key = strings.Join(append(svcBase, endpointHostname(&e, addr, k.endpointNameMode)), "/")
+							s.Key = strings.Join(append(svcBase, endpointHostname(addr, k.endpointNameMode)), "/")
 							// Change host from IP to Name for SRV records
 							host := emitAddressRecord(ch, s)
 							s.Host = host
@@ -106,13 +105,13 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 							for _, p := range eps.Ports {
 								// As per spec unnamed ports do not have a srv record
 								// https://github.com/kubernetes/dns/blob/master/docs/specification.md#232---srv-records
-								if *p.Name == "" {
+								if p.Name == "" {
 									continue
 								}
 
-								s.Port = int(*p.Port)
+								s.Port = int(p.Port)
 
-								s.Key = strings.Join(append(svcBase, strings.ToLower("_"+string(*p.Protocol)), strings.ToLower("_"+string(*p.Name))), "/")
+								s.Key = strings.Join(append(svcBase, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+string(p.Name))), "/")
 								ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), srvWeight)}
 							}
 						}

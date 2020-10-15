@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	api "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -56,6 +57,17 @@ func ToEndpoints(skipCleanup bool) ToFunc {
 	}
 }
 
+// SliceToEndpoints returns a function that converts an *discovery.EndpointSlice to a *Endpoints.
+func SliceToEndpoints(skipCleanup bool) ToFunc {
+	return func(obj interface{}) (interface{}, error) {
+		eps, ok := obj.(*discovery.EndpointSlice)
+		if !ok {
+			return nil, fmt.Errorf("unexpected object %v", obj)
+		}
+		return sliceToEndpoints(skipCleanup, eps), nil
+	}
+}
+
 // toEndpoints converts an *api.Endpoints to a *Endpoints.
 func toEndpoints(skipCleanup bool, end *api.Endpoints) *Endpoints {
 	e := &Endpoints{
@@ -103,6 +115,49 @@ func toEndpoints(skipCleanup bool, end *api.Endpoints) *Endpoints {
 
 	if !skipCleanup {
 		*end = api.Endpoints{}
+	}
+
+	return e
+}
+
+// sliceToEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
+func sliceToEndpoints(skipCleanup bool, ends *discovery.EndpointSlice) *Endpoints {
+	e := &Endpoints{
+		Version:   ends.GetResourceVersion(),
+		Name:      ends.Labels[discovery.LabelServiceName],
+		Namespace: ends.GetNamespace(),
+		Index:     EndpointsKey(ends.Labels[discovery.LabelServiceName], ends.GetNamespace()),
+		Subsets:   make([]EndpointSubset, 1),
+	}
+
+	if len(ends.Ports) == 0 {
+		// Add sentinel if there are no ports.
+		e.Subsets[0].Ports = []EndpointPort{{Port: -1}}
+	} else {
+		e.Subsets[0].Ports = make([]EndpointPort, len(ends.Ports))
+		for k, p := range ends.Ports {
+			ep := EndpointPort{Port: *p.Port, Name: *p.Name, Protocol: string(*p.Protocol)}
+			e.Subsets[0].Ports[k] = ep
+		}
+	}
+
+	for _, end := range ends.Endpoints {
+		for _, a := range end.Addresses {
+			ea := EndpointAddress{IP: a}
+			if end.Hostname != nil {
+				ea.Hostname = *end.Hostname
+			}
+			if end.TargetRef != nil {
+				ea.TargetRefName = end.TargetRef.Name
+			}
+			// EndpointSlice does not contain NodeName, leave blank
+			e.Subsets[0].Addresses = append(e.Subsets[0].Addresses, ea)
+			e.IndexIP = append(e.IndexIP, a)
+		}
+	}
+
+	if !skipCleanup {
+		*ends = discovery.EndpointSlice{}
 	}
 
 	return e

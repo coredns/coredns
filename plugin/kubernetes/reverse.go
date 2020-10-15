@@ -8,7 +8,6 @@ import (
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
-	discovery "k8s.io/api/discovery/v1beta1"
 )
 
 // Reverse implements the ServiceBackend interface.
@@ -44,10 +43,10 @@ func (k *Kubernetes) serviceRecordForIP(ip, name string) []msg.Service {
 		if len(k.Namespaces) > 0 && !k.namespaceExposed(ep.Namespace) {
 			continue
 		}
-		for _, eps := range ep.Endpoints {
+		for _, eps := range ep.Subsets {
 			for _, addr := range eps.Addresses {
-				if addr == ip {
-					domain := strings.Join([]string{endpointHostname(&eps, addr, k.endpointNameMode), ep.Labels[discovery.LabelServiceName], ep.Namespace, Svc, k.primaryZone()}, ".")
+				if addr.IP == ip {
+					domain := strings.Join([]string{endpointHostname(addr, k.endpointNameMode), ep.Name, ep.Namespace, Svc, k.primaryZone()}, ".")
 					svcs = append(svcs, msg.Service{Host: domain, TTL: k.ttl})
 				}
 			}
