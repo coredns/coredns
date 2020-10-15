@@ -26,7 +26,6 @@ func TestDNSProgrammingLatency(t *testing.T) {
 	ctx := context.TODO()
 	controller := newdnsController(ctx, client, dnsControlOpts{
 		initEndpointsCache: true,
-		useEndpointSlices: false,
 		// This is needed as otherwise the fake k8s client doesn't work properly.
 		skipAPIObjectsCleanup: true,
 	})

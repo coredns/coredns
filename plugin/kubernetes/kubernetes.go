@@ -15,6 +15,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
+	discovery "k8s.io/api/discovery/v1beta1"
 
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
@@ -244,6 +245,11 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (err error) {
 
 	k.opts.zones = k.Zones
 	k.opts.endpointNameMode = k.endpointNameMode
+	// Enable use of endpoint slices if the API supports the discovery v1 beta1 api
+	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(discovery.SchemeGroupVersion.String()); err == nil {
+		k.opts.useEndpointSlices = true
+	}
+
 	k.APIConn = newdnsController(ctx, kubeClient, k.opts)
 
 	return err
