@@ -70,8 +70,9 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 					},
 				},
 			},
-			Name:      "dns-service",
+			Name:      "dns-service-aaaaa",
 			Namespace: "kube-system",
+			Index:     object.EndpointsKey("dns-service", "kube-system"),
 		},
 		{
 			Subsets: []object.EndpointSubset{
@@ -83,8 +84,9 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 					},
 				},
 			},
-			Name:      "hdls-dns-service",
+			Name:      "hdls-dns-service-aaaaa",
 			Namespace: "kube-system",
+			Index:     object.EndpointsKey("hdls-dns-service", "kube-system"),
 		},
 		{
 			Subsets: []object.EndpointSubset{
@@ -96,12 +98,10 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 					},
 				},
 			},
-			Name:      "dns6-service",
+			Name:      "dns6-service-aaaaa",
 			Namespace: "kube-system",
+			Index:     object.EndpointsKey("dns6-service", "kube-system"),
 		},
-	}
-	for _, ep := range eps {
-		ep.Index = object.EndpointsKey(ep.Name, ep.Namespace)
 	}
 	return eps
 }

@@ -71,8 +71,9 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 				},
 			},
 		},
-		Name:      "svc1",
+		Name:      "svc1-aaaaa",
 		Namespace: "testns",
+		Index:     object.EndpointsKey("svc1", "testns"),
 	}
 	ep2 := object.Endpoints{
 		Subsets: []object.EndpointSubset{
@@ -85,8 +86,9 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 				},
 			},
 		},
-		Name:      "svc2",
+		Name:      "svc2-aaaaa",
 		Namespace: "testns",
+		Index:     object.EndpointsKey("svc2", "testns"),
 	}
 	switch ip {
 	case "10.0.0.100":

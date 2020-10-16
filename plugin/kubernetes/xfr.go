@@ -84,10 +84,6 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 				endpointsList := k.APIConn.EpIndex(svc.Name + "." + svc.Namespace)
 
 				for _, ep := range endpointsList {
-					if ep.Name != svc.Name || ep.Namespace != svc.Namespace {
-						continue
-					}
-
 					for _, eps := range ep.Subsets {
 						srvWeight := calcSRVWeight(len(eps.Addresses))
 						for _, addr := range eps.Addresses {
