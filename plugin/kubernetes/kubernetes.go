@@ -446,7 +446,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 				endpointsList = endpointsListFunc()
 			}
 			for _, ep := range endpointsList {
-				if ep.Name != svc.Name || ep.Namespace != svc.Namespace {
+				if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
 					continue
 				}
 

@@ -124,7 +124,7 @@ func toEndpoints(skipCleanup bool, end *api.Endpoints) *Endpoints {
 func sliceToEndpoints(skipCleanup bool, ends *discovery.EndpointSlice) *Endpoints {
 	e := &Endpoints{
 		Version:   ends.GetResourceVersion(),
-		Name:      ends.Labels[discovery.LabelServiceName],
+		Name:      ends.GetName(),
 		Namespace: ends.GetNamespace(),
 		Index:     EndpointsKey(ends.Labels[discovery.LabelServiceName], ends.GetNamespace()),
 		Subsets:   make([]EndpointSubset, 1),
