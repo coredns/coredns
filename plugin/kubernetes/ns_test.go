@@ -100,6 +100,9 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 			Namespace: "kube-system",
 		},
 	}
+	for _, ep := range eps {
+		ep.Index = object.EndpointsKey(ep.Name, ep.Namespace)
+	}
 	return eps
 }
 
