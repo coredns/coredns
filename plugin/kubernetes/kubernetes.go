@@ -249,6 +249,12 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (err error) {
 	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(discovery.SchemeGroupVersion.String()); err == nil {
 		k.opts.useEndpointSlices = true
 	}
+	// Disable use of endpoint slices for k8s versions 1.17 and 1.18. Endpoint slices were
+	// introduced in 1.17 but not fully integrated and enabled by default until k8s 1.19.
+	sv, _ := kubeClient.ServerVersion()
+	if strings.HasPrefix(sv.String(), "v1.18") || strings.HasPrefix(sv.String(), "v1.17") {
+		k.opts.useEndpointSlices = false
+	}
 
 	k.APIConn = newdnsController(ctx, kubeClient, k.opts)
 
