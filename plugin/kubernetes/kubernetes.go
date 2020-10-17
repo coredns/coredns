@@ -445,6 +445,8 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 			if endpointsList == nil {
 				endpointsList = endpointsListFunc()
 			}
+
+			dups := make(map[msg.Service]struct{})
 			for _, ep := range endpointsList {
 				if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
 					continue
@@ -466,6 +468,11 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 							}
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
 							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
+
+							if _, dup := dups[s]; dup {
+								continue
+							}
+							dups[s] = struct{}{}
 
 							err = nil
 
