@@ -102,6 +102,20 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 			Namespace: "kube-system",
 			Index:     object.EndpointsKey("dns6-service", "kube-system"),
 		},
+		{
+			Subsets: []object.EndpointSubset{
+				{
+					Addresses: []object.EndpointAddress{
+						{
+							IP: "10.244.0.20",
+						},
+					},
+				},
+			},
+			Name:      "dns6-service-bbbbb",
+			Namespace: "kube-system",
+			Index:     object.EndpointsKey("dns6-service", "kube-system"),
+		},
 	}
 	return eps
 }
