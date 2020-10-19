@@ -56,14 +56,11 @@ func (APIConnReverseTest) SvcIndexReverse(ip string) []*object.Service {
 }
 
 func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
-	ep1 := object.Endpoints{
+	ep1s1 := object.Endpoints{
 		Subsets: []object.EndpointSubset{
 			{
 				Addresses: []object.EndpointAddress{
 					{IP: "10.0.0.100", Hostname: "ep1a"},
-					{IP: "1234:abcd::1", Hostname: "ep1b"},
-					{IP: "fd00:77:30::a", Hostname: "ip6svc1ex"},
-					{IP: "fd00:77:30::2:9ba6", Hostname: "ip6svc1in"},
 					{IP: "10.0.0.99", Hostname: "double-ep"}, // this endpoint is used by two services
 				},
 				Ports: []object.EndpointPort{
@@ -72,6 +69,38 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 			},
 		},
 		Name:      "svc1-aaaaa",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc1", "testns"),
+	}
+	ep1s2 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "1234:abcd::1", Hostname: "ep1b"},
+					{IP: "fd00:77:30::a", Hostname: "ip6svc1ex"},
+					{IP: "fd00:77:30::2:9ba6", Hostname: "ip6svc1in"},
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc1-bbbbb",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc1", "testns"),
+	}
+	ep1s3 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.100", Hostname: "ep1a"}, // duplicate endpointslice address
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc1-ccccc",
 		Namespace: "testns",
 		Index:     object.EndpointsKey("svc1", "testns"),
 	}
@@ -91,16 +120,16 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 		Index:     object.EndpointsKey("svc2", "testns"),
 	}
 	switch ip {
-	case "10.0.0.100":
-		fallthrough
 	case "1234:abcd::1":
 		fallthrough
 	case "fd00:77:30::a":
 		fallthrough
 	case "fd00:77:30::2:9ba6":
-		return []*object.Endpoints{&ep1}
-	case "10.0.0.99":
-		return []*object.Endpoints{&ep1, &ep2}
+		return []*object.Endpoints{&ep1s2}
+	case "10.0.0.100": // two EndpointSlices for a Service contain this IP (EndpointSlice skew)
+		return []*object.Endpoints{&ep1s1, &ep1s3}
+	case "10.0.0.99": // two different Services select this IP
+		return []*object.Endpoints{&ep1s1, &ep2}
 	}
 	return nil
 }
