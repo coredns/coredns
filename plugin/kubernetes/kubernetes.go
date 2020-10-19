@@ -446,7 +446,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 				endpointsList = endpointsListFunc()
 			}
 
-			dups := make(map[msg.Service]struct{}) // todo: do duplicate endpointslice address checks in other areas (e.g. reverse, xfr, nsAddr)
+			dups := make(map[msg.Service]struct{})
 			for _, ep := range endpointsList {
 				if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
 					continue
