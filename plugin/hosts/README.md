@@ -78,6 +78,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 
 - `coredns_hosts_entries{}` - The combined number of entries in hosts and Corefile.
 - `coredns_hosts_reload_timestamp_seconds{}` - The timestamp of the last reload of hosts file.
+- `coredns_hosts_hits_total{}` - The number of requests served from the hosts file
 
 ## Examples
 

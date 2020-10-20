@@ -67,8 +67,9 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	m.SetReply(r)
 	m.Authoritative = true
 	m.Answer = answers
-
 	w.WriteMsg(m)
+
+	hostsHits.Add(1)
 	return dns.RcodeSuccess, nil
 }
 

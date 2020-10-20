@@ -22,4 +22,11 @@ var (
 		Name:      "reload_timestamp_seconds",
 		Help:      "The timestamp of the last reload of hosts file.",
 	})
+	// hostsHits is counter of requests found in the hosts file
+	hostsHits = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "hosts",
+		Name:      "hits_total",
+		Help:      "The number of requests served from the hosts file",
+	})
 )
