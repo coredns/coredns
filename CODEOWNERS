@@ -2,6 +2,7 @@
 
 *                       @bradbeam @chrisohaver @dilyevsky @fastest963 @greenpau @isolus @johnbelamaric @miekg @pmoroney @rajansandeep @stp-ip @superq @yongtang
 
+/.circleci/             @miekg @chrisohaver @rajansandeep
 /plugin/pkg/            @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /coremain/              @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /core/                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
