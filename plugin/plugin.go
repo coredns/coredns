@@ -69,9 +69,16 @@ func (f HandlerFunc) Name() string { return "handlerfunc" }
 // Error returns err with 'plugin/name: ' prefixed to it.
 func Error(name string, err error) error { return fmt.Errorf("%s/%s: %s", "plugin", name, err) }
 
+type Key struct{}
+
 // NextOrFailure calls next.ServeDNS when next is not nil, otherwise it will return, a ServerFailure and a nil error.
 func NextOrFailure(name string, next Handler, ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) { // nolint: golint
 	if next != nil {
+		if v := ctx.Value(Key{}); v != nil {
+			if p, ok := v.(*string); ok {
+				*p = next.Name()
+			}
+		}
 		if span := ot.SpanFromContext(ctx); span != nil {
 			child := span.Tracer().StartSpan(next.Name(), ot.ChildOf(span.Context()))
 			defer child.Finish()

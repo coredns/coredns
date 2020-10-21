@@ -16,6 +16,9 @@ import (
 func (m *Metrics) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
+	var p string
+	ctx = context.WithValue(ctx, plugin.Key{}, &p)
+
 	qname := state.QName()
 	zone := plugin.Zones(m.ZoneNames()).Matches(qname)
 	if zone == "" {
@@ -27,6 +30,9 @@ func (m *Metrics) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	status, err := plugin.NextOrFailure(m.Name(), m.Next, ctx, rw, r)
 
 	vars.Report(WithServer(ctx), state, zone, rcode.ToString(rw.Rcode), rw.Len, rw.Start)
+	if p != "" {
+		PluginResponseCount.WithLabelValues(p).Add(1)
+	}
 
 	return status, err
 }

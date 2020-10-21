@@ -153,3 +153,10 @@ var buildInfo = promauto.NewGaugeVec(prometheus.GaugeOpts{
 	Name:      "build_info",
 	Help:      "A metric with a constant '1' value labeled by version, revision, and goversion from which CoreDNS was built.",
 }, []string{"version", "revision", "goversion"})
+
+var PluginResponseCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	Namespace: plugin.Namespace,
+	Subsystem: "plugin",
+	Name:      "responses_total",
+	Help:      "Counter of responses served by plugins",
+}, []string{"plugin"})
