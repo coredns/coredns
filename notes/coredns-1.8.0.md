@@ -3,27 +3,27 @@ title = "CoreDNS-1.8.0 Release"
 description = "CoreDNS-1.8.0 Release Notes."
 tags = ["Release", "1.8.0", "Notes"]
 release = "1.8.0"
-date = 2020-10-15T08:00:00+00:00
+date = 2020-10-22T08:00:00+00:00
 author = "coredns"
 +++
 
 The CoreDNS team has released
 [CoreDNS-1.8.0](https://github.com/coredns/coredns/releases/tag/v1.8.0).
 
-If you are running 1.7.1 you probably want to upgrade for the *cache* plugin fixes.
+If you are running 1.7.1 you want to upgrade for the *cache* plugin fixes.
 
 This release also adds three backwards incompatible changes. This will only affect you if you have an
 **external plugin** or use **outgoing zone transfers**. If you're using `dnstap` in your plugin,
 you'll need to upgrade to the new API as detailed in it's [documentation](/plugins/dnstap).
 
-One, because Caddy is now developing a version 2 and we are using version 1, we've internalized Caddy
-into <https://github.com/coredns/caddy>. This means the `caddy` types change and *all* plugins need
-to fix the import path from: `github.com/caddyserver/caddy` to `github.com/coredns/caddy` (this can
-thankfully be automated).
+Two, because Caddy is now developing a version 2 and we are using version 1, we've internalized
+Caddy into <https://github.com/coredns/caddy>. This means the `caddy` types change and *all* plugins
+need to fix the import path from: `github.com/caddyserver/caddy` to `github.com/coredns/caddy` (this
+can thankfully be automated).
 
-Next the `transfer` plugin is now made a first class citizen and plugins wanting to perform outgoing
-zone transfers now use this plugin: *file*, *auto*, *secondary* and *kubernetes* are converted.
-For this you must change your Corefile from (e.g.):
+And lastly, the `transfer` plugin is now made a first class citizen and plugins wanting to perform
+outgoing zone transfers now use this plugin: *file*, *auto*, *secondary* and *kubernetes* are
+converted. For this you must change your Corefile from (e.g.):
 
 ``` txt
 example.org {
