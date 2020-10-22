@@ -124,7 +124,7 @@ func setup(c *caddy.Controller) error {
 			Client: ec2metadata.New(session),
 		})
 		client := f(credentials.NewChainCredentials(providers))
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
 		h, err := New(ctx, client, keys, refresh)
 		if err != nil {
 			return plugin.Error("route53", c.Errf("failed to create route53 plugin: %v", err))
@@ -137,7 +137,7 @@ func setup(c *caddy.Controller) error {
 			h.Next = next
 			return h
 		})
-		c.OnShutdown(func() error { ctx.Done(); return nil })
+		c.OnShutdown(func() error { cancel(); return nil })
 	}
 	return nil
 }

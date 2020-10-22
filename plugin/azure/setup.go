@@ -25,7 +25,7 @@ func setup(c *caddy.Controller) error {
 	if err != nil {
 		return plugin.Error("azure", err)
 	}
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 
 	publicDNSClient := publicAzureDNS.NewRecordSetsClient(env.Values[auth.SubscriptionID])
 	if publicDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
@@ -50,6 +50,7 @@ func setup(c *caddy.Controller) error {
 		h.Next = next
 		return h
 	})
+	c.OnShutdown(func() error { cancel(); return nil })
 	return nil
 }
 

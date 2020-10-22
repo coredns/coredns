@@ -87,11 +87,11 @@ func (h *Azure) Run(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Infof("Breaking out of Azure update loop: %v", ctx.Err())
+				log.Debugf("Breaking out of Azure update loop for %v: %v", h.zoneNames, ctx.Err())
 				return
 			case <-time.After(1 * time.Minute):
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil {
-					log.Errorf("Failed to update zones: %v", err)
+					log.Errorf("Failed to update zones %v: %v", h.zoneNames, err)
 				}
 			}
 		}

@@ -87,11 +87,11 @@ func (h *Route53) Run(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Infof("Breaking out of Route53 update loop: %v", ctx.Err())
+				log.Debugf("Breaking out of Route53 update loop for %v: %v", h.zoneNames, ctx.Err())
 				return
 			case <-time.After(h.refresh):
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
-					log.Errorf("Failed to update zones: %v", err)
+					log.Errorf("Failed to update zones %v: %v", h.zoneNames, err)
 				}
 			}
 		}

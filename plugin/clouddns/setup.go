@@ -78,7 +78,7 @@ func setup(c *caddy.Controller) error {
 			}
 		}
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
 		client, err := f(ctx, opt)
 		if err != nil {
 			return err
@@ -98,7 +98,7 @@ func setup(c *caddy.Controller) error {
 			h.Next = next
 			return h
 		})
-		c.OnShutdown(func() error { ctx.Done(); return nil })
+		c.OnShutdown(func() error { cancel(); return nil })
 	}
 
 	return nil
