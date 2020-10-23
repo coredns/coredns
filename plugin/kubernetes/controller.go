@@ -223,8 +223,7 @@ func serviceListFunc(ctx context.Context, c kubernetes.Interface, ns string, s l
 		if s != nil {
 			opts.LabelSelector = s.String()
 		}
-		listV1, err := c.CoreV1().Services(ns).List(ctx, opts)
-		return listV1, err
+		return c.CoreV1().Services(ns).List(ctx, opts)
 	}
 }
 
@@ -237,8 +236,7 @@ func podListFunc(ctx context.Context, c kubernetes.Interface, ns string, s label
 			opts.FieldSelector = opts.FieldSelector + ","
 		}
 		opts.FieldSelector = opts.FieldSelector + "status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown"
-		listV1, err := c.CoreV1().Pods(ns).List(ctx, opts)
-		return listV1, err
+		return c.CoreV1().Pods(ns).List(ctx, opts)
 	}
 }
 
@@ -247,8 +245,7 @@ func endpointSliceListFunc(ctx context.Context, c kubernetes.Interface, ns strin
 		if s != nil {
 			opts.LabelSelector = s.String()
 		}
-		listV1, err := c.DiscoveryV1beta1().EndpointSlices(ns).List(ctx, opts)
-		return listV1, err
+		return c.DiscoveryV1beta1().EndpointSlices(ns).List(ctx, opts)
 	}
 }
 
@@ -257,8 +254,7 @@ func endpointsListFunc(ctx context.Context, c kubernetes.Interface, ns string, s
 		if s != nil {
 			opts.LabelSelector = s.String()
 		}
-		listV1, err := c.CoreV1().Endpoints(ns).List(ctx, opts)
-		return listV1, err
+		return c.CoreV1().Endpoints(ns).List(ctx, opts)
 	}
 }
 
@@ -267,8 +263,7 @@ func namespaceListFunc(ctx context.Context, c kubernetes.Interface, s labels.Sel
 		if s != nil {
 			opts.LabelSelector = s.String()
 		}
-		listV1, err := c.CoreV1().Namespaces().List(ctx, opts)
-		return listV1, err
+		return c.CoreV1().Namespaces().List(ctx, opts)
 	}
 }
 
@@ -277,8 +272,7 @@ func serviceWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s 
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
-		w, err := c.CoreV1().Services(ns).Watch(ctx, options)
-		return w, err
+		return c.CoreV1().Services(ns).Watch(ctx, options)
 	}
 }
 
@@ -291,8 +285,7 @@ func podWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labe
 			options.FieldSelector = options.FieldSelector + ","
 		}
 		options.FieldSelector = options.FieldSelector + "status.phase!=Succeeded,status.phase!=Failed,status.phase!=Unknown"
-		w, err := c.CoreV1().Pods(ns).Watch(ctx, options)
-		return w, err
+		return c.CoreV1().Pods(ns).Watch(ctx, options)
 	}
 }
 
@@ -301,9 +294,7 @@ func endpointSliceWatchFunc(ctx context.Context, c kubernetes.Interface, ns stri
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
-		w, err := c.DiscoveryV1beta1().EndpointSlices(ns).Watch(ctx, options)
-
-		return w, err
+		return c.DiscoveryV1beta1().EndpointSlices(ns).Watch(ctx, options)
 	}
 }
 
@@ -312,9 +303,7 @@ func endpointsWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, 
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
-		w, err := c.CoreV1().Endpoints(ns).Watch(ctx, options)
-
-		return w, err
+		return c.CoreV1().Endpoints(ns).Watch(ctx, options)
 	}
 }
 
@@ -323,8 +312,7 @@ func namespaceWatchFunc(ctx context.Context, c kubernetes.Interface, s labels.Se
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
-		w, err := c.CoreV1().Namespaces().Watch(ctx, options)
-		return w, err
+		return c.CoreV1().Namespaces().Watch(ctx, options)
 	}
 }
 

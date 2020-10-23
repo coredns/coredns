@@ -65,13 +65,13 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 
 	// Create an RR slice of collected IPs
 	rrs := make([]dns.RR, len(svcIPs))
-	dups := make(map[string]struct{})
+	uniq := make(map[string]struct{}) // keep track of unique records
 	i := 0
 	for _, ip := range svcIPs {
-		if _, dup := dups[ip.String()]; dup {
-			continue
+		if _, dup := uniq[ip.String()]; dup {
+			continue // this is a duplicate record
 		}
-		dups[ip.String()] = struct{}{}
+		uniq[ip.String()] = struct{}{}
 		if ip.To4() == nil {
 			rr := new(dns.AAAA)
 			rr.Hdr.Class = dns.ClassINET

@@ -446,7 +446,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 				endpointsList = endpointsListFunc()
 			}
 
-			dups := make(map[msg.Service]struct{})
+			uniq := make(map[msg.Service]struct{}) // keep track of unique records
 			for _, ep := range endpointsList {
 				if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
 					continue
@@ -469,10 +469,10 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
 							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
 
-							if _, dup := dups[s]; dup {
-								continue
+							if _, dup := uniq[s]; dup {
+								continue // this is a duplicate record
 							}
-							dups[s] = struct{}{}
+							uniq[s] = struct{}{}
 
 							err = nil
 
