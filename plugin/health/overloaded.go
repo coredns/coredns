@@ -16,7 +16,7 @@ func (h *health) overloaded() {
 	client := http.Client{
 		Timeout: timeout,
 	}
-	url := "http://" + h.Addr
+	url := "http://" + h.Addr + "/health"
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
 
