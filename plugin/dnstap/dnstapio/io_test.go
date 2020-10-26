@@ -12,15 +12,10 @@ import (
 	fs "github.com/farsightsec/golang-framestream"
 )
 
-const (
-	endpointTCP    = "localhost:0"
-	endpointSocket = "dnstap.sock"
-)
-
-var (
-	msgType = tap.Dnstap_MESSAGE
-	msg     = tap.Dnstap{Type: &msgType}
-)
+func newMsg() tap.Dnstap {
+	msgType := tap.Dnstap_MESSAGE
+	return tap.Dnstap{Type: &msgType}
+}
 
 func accept(t *testing.T, l net.Listener, count int) {
 	server, err := l.Accept()
@@ -48,13 +43,12 @@ func accept(t *testing.T, l net.Listener, count int) {
 }
 
 func TestTransport(t *testing.T) {
-	transport := [2][3]string{
-		{"tcp", endpointTCP, "false"},
-		{"unix", endpointSocket, "true"},
+	transport := [2][]string{
+		{"tcp", ":0"},
+		{"unix", "dnstap.sock"},
 	}
 
 	for _, param := range transport {
-		// Start TCP listener
 		l, err := reuseport.Listen(param[0], param[1])
 		if err != nil {
 			t.Fatalf("Cannot start listener: %s", err)
@@ -67,22 +61,24 @@ func TestTransport(t *testing.T) {
 			wg.Done()
 		}()
 
-		dio := New(l.Addr().String(), param[2] == "true")
-		dio.Connect()
+		dio := New(param[0], l.Addr().String())
+		if err := dio.connect(); err != nil {
+			log.Fatal(err)
+		}
 
-		dio.Dnstap(msg)
+		dio.Dnstap(newMsg())
+		dio.enc.Flush()
 
 		wg.Wait()
 		l.Close()
-		dio.Close()
+		dio.close()
 	}
 }
 
 func TestRace(t *testing.T) {
 	count := 10
 
-	// Start TCP listener
-	l, err := reuseport.Listen("tcp", endpointTCP)
+	l, err := reuseport.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Cannot start listener: %s", err)
 	}
@@ -95,15 +91,15 @@ func TestRace(t *testing.T) {
 		wg.Done()
 	}()
 
-	dio := New(l.Addr().String(), false)
-	dio.Connect()
-	defer dio.Close()
+	dio := New("tcp", l.Addr().String())
+	dio.connect()
+	defer dio.close()
 
 	wg.Add(count)
 	for i := 0; i < count; i++ {
 		go func() {
 			time.Sleep(50 * time.Millisecond)
-			dio.Dnstap(msg)
+			dio.Dnstap(newMsg())
 			wg.Done()
 		}()
 	}
@@ -114,8 +110,7 @@ func TestRace(t *testing.T) {
 func TestReconnect(t *testing.T) {
 	count := 5
 
-	// Start TCP listener
-	l, err := reuseport.Listen("tcp", endpointTCP)
+	l, err := reuseport.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Cannot start listener: %s", err)
 	}
@@ -128,16 +123,13 @@ func TestReconnect(t *testing.T) {
 	}()
 
 	addr := l.Addr().String()
-	dio := New(addr, false)
-	dio.Connect()
-	defer dio.Close()
+	dio := New("tcp", addr)
+	dio.connect()
+	defer dio.close()
 
-	msg := tap.Dnstap_MESSAGE
-	dio.Dnstap(tap.Dnstap{Type: &msg})
+	dio.Dnstap(newMsg())
 
 	wg.Wait()
-
-	// Close listener
 	l.Close()
 
 	// And start TCP listener again on the same port
@@ -155,7 +147,7 @@ func TestReconnect(t *testing.T) {
 
 	for i := 0; i < count; i++ {
 		time.Sleep(time.Second)
-		dio.Dnstap(tap.Dnstap{Type: &msg})
+		dio.Dnstap(newMsg())
 	}
 
 	wg.Wait()
