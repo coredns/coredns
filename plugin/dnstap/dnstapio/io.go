@@ -91,6 +91,7 @@ func (d *dio) Dnstap(payload tap.Dnstap) {
 func (d *dio) flush() error {
 	d.Lock()
 	if d.enc != nil {
+		d.Unlock()
 		return fmt.Errorf("no connection")
 	}
 	err := d.enc.Flush()
