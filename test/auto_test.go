@@ -80,7 +80,7 @@ func TestAutoNonExistentZone(t *testing.T) {
 	corefile := `.:0 {
 		auto {
 			directory ` + tmpdir + ` (.*) {1}
-			reload 0.1s
+			reload 0.01s
 		}
 		errors stdout
 	}`
