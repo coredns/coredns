@@ -4,7 +4,6 @@ import (
 	"net"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 
@@ -24,8 +23,7 @@ func accept(t *testing.T, l net.Listener, count int) {
 	}
 
 	dec, err := fs.NewDecoder(server, &fs.DecoderOptions{
-		ContentType:   []byte("protobuf:dnstap.Dnstap"),
-		Bidirectional: true,
+		ContentType: []byte("protobuf:dnstap.Dnstap"),
 	})
 	if err != nil {
 		t.Fatalf("Server decoder: %s", err)
@@ -67,7 +65,7 @@ func TestTransport(t *testing.T) {
 		}
 
 		dio.Dnstap(newMsg())
-		dio.enc.Flush()
+		dio.flush()
 
 		wg.Wait()
 		l.Close()
@@ -98,8 +96,8 @@ func TestRace(t *testing.T) {
 	wg.Add(count)
 	for i := 0; i < count; i++ {
 		go func() {
-			time.Sleep(50 * time.Millisecond)
 			dio.Dnstap(newMsg())
+			dio.flush()
 			wg.Done()
 		}()
 	}
@@ -108,8 +106,6 @@ func TestRace(t *testing.T) {
 }
 
 func TestReconnect(t *testing.T) {
-	count := 5
-
 	l, err := reuseport.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Cannot start listener: %s", err)
@@ -128,6 +124,7 @@ func TestReconnect(t *testing.T) {
 	defer dio.close()
 
 	dio.Dnstap(newMsg())
+	dio.flush()
 
 	wg.Wait()
 	l.Close()
@@ -137,6 +134,7 @@ func TestReconnect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot start listener: %s", err)
 	}
+	dio.connect()
 	defer l.Close()
 
 	wg.Add(1)
@@ -145,10 +143,8 @@ func TestReconnect(t *testing.T) {
 		wg.Done()
 	}()
 
-	for i := 0; i < count; i++ {
-		time.Sleep(time.Second)
-		dio.Dnstap(newMsg())
-	}
+	dio.Dnstap(newMsg())
+	dio.flush()
 
 	wg.Wait()
 }

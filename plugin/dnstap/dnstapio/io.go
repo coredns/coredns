@@ -16,9 +16,8 @@ import (
 var log = clog.NewWithPlugin("dnstap")
 
 const (
-	tcpWriteBufSize = 1024 * 1024
-	tcpTimeout      = 4 * time.Second
-	flushTimeout    = 1 * time.Second
+	tcpTimeout   = 4 * time.Second
+	flushTimeout = 1 * time.Second
 )
 
 // Tapper interface is used in testing to mock the Dnstap method.
@@ -49,13 +48,12 @@ func New(proto, endpoint string) *dio {
 
 // Connect connects to the socket.
 func (d *dio) connect() (err error) {
-	d.conn, err = net.Dial(d.proto, d.endpoint)
+	d.conn, err = net.DialTimeout(d.proto, d.endpoint, tcpTimeout)
 	if err != nil {
 		return err
 	}
 	d.enc, err = fs.NewEncoder(d.conn, &fs.EncoderOptions{
-		ContentType:   []byte("protobuf:dnstap.Dnstap"),
-		Bidirectional: true,
+		ContentType: []byte("protobuf:dnstap.Dnstap"),
 	})
 	return err
 }
@@ -75,11 +73,20 @@ func (d *dio) Dnstap(payload tap.Dnstap) {
 		atomic.AddUint32(&d.dropped, 1)
 		return
 	}
+	d.Lock()
 	_, err = d.enc.Write(buf)
+	d.Unlock()
 	if err != nil {
 		atomic.AddUint32(&d.dropped, 1)
 	}
 	return
+}
+
+func (d *dio) flush() error {
+	d.Lock()
+	err := d.enc.Flush()
+	d.Unlock()
+	return err
 }
 
 func (d *dio) close() {
@@ -99,6 +106,10 @@ func (d *dio) serve() {
 		case <-timeout:
 			if dropped := atomic.SwapUint32(&d.dropped, 0); dropped > 0 {
 				log.Warningf("Dropped dnstap messages: %d", dropped)
+			}
+			if err := d.flush(); err != nil {
+				log.Errorf("Failed to flush dnstap: %s", err)
+				d.close()
 			}
 			// reconnect, if we've lost the connection
 			if d.conn == nil {
