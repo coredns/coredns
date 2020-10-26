@@ -60,7 +60,7 @@ func TestTransport(t *testing.T) {
 		}()
 
 		dio := New(param[0], l.Addr().String())
-		if err := dio.connect(); err != nil {
+		if err := dio.Connect(); err != nil {
 			log.Fatal(err)
 		}
 
@@ -69,7 +69,7 @@ func TestTransport(t *testing.T) {
 
 		wg.Wait()
 		l.Close()
-		dio.close()
+		dio.Close()
 	}
 }
 
@@ -90,8 +90,8 @@ func TestRace(t *testing.T) {
 	}()
 
 	dio := New("tcp", l.Addr().String())
-	dio.connect()
-	defer dio.close()
+	dio.Connect()
+	defer dio.Close()
 
 	wg.Add(count)
 	for i := 0; i < count; i++ {
@@ -105,7 +105,7 @@ func TestRace(t *testing.T) {
 	wg.Wait()
 }
 
-func TestReconnect(t *testing.T) {
+func TestReConnect(t *testing.T) {
 	l, err := reuseport.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Cannot start listener: %s", err)
@@ -120,8 +120,8 @@ func TestReconnect(t *testing.T) {
 
 	addr := l.Addr().String()
 	dio := New("tcp", addr)
-	dio.connect()
-	defer dio.close()
+	dio.Connect()
+	defer dio.Close()
 
 	dio.Dnstap(newMsg())
 	dio.flush()
@@ -134,7 +134,7 @@ func TestReconnect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot start listener: %s", err)
 	}
-	dio.connect()
+	dio.Connect()
 	defer l.Close()
 
 	wg.Add(1)

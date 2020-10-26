@@ -1,6 +1,7 @@
 package dnstapio
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -47,8 +48,8 @@ func New(proto, endpoint string) *dio {
 }
 
 // Connect connects to the socket.
-func (d *dio) connect() (err error) {
-	d.conn, err = net.DialTimeout(d.proto, d.endpoint, tcpTimeout)
+func (d *dio) Connect() (err error) {
+	d.conn, err = net.Dial(d.proto, d.endpoint)
 	if err != nil {
 		return err
 	}
@@ -58,10 +59,10 @@ func (d *dio) connect() (err error) {
 	return err
 }
 
-// Serve connects to the dnstap endpoint and starts a maintenance go routine
+// Serve connects to the dnstap endpoint and starts a maintenance go routine.
 func (d *dio) Serve() {
-	if err := d.connect(); err != nil {
-		log.Error("No connection to dnstap endpoint")
+	if err := d.Connect(); err != nil {
+		log.Errorf("No connection to dnstap endpoint: %s", err)
 	}
 	go d.serve()
 }
@@ -74,6 +75,11 @@ func (d *dio) Dnstap(payload tap.Dnstap) {
 		return
 	}
 	d.Lock()
+	if d.enc == nil {
+		atomic.AddUint32(&d.dropped, 1)
+		d.Unlock()
+		return
+	}
 	_, err = d.enc.Write(buf)
 	d.Unlock()
 	if err != nil {
@@ -84,12 +90,15 @@ func (d *dio) Dnstap(payload tap.Dnstap) {
 
 func (d *dio) flush() error {
 	d.Lock()
+	if d.enc != nil {
+		return fmt.Errorf("no connection")
+	}
 	err := d.enc.Flush()
 	d.Unlock()
 	return err
 }
 
-func (d *dio) close() {
+func (d *dio) Close() {
 	if d.conn != nil {
 		d.conn.Close()
 		d.conn = nil
@@ -101,7 +110,7 @@ func (d *dio) serve() {
 	for {
 		select {
 		case <-d.quit:
-			d.close()
+			d.Close()
 			return
 		case <-timeout:
 			if dropped := atomic.SwapUint32(&d.dropped, 0); dropped > 0 {
@@ -109,11 +118,11 @@ func (d *dio) serve() {
 			}
 			if err := d.flush(); err != nil {
 				log.Errorf("Failed to flush dnstap: %s", err)
-				d.close()
+				d.Close()
 			}
 			// reconnect, if we've lost the connection
 			if d.conn == nil {
-				if err := d.connect(); err != nil {
+				if err := d.Connect(); err != nil {
 					log.Errorf("Cannot connect to dnstap: %s", err)
 				} else {
 					log.Info("Reconnected to dnstap")
