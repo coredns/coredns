@@ -21,7 +21,7 @@ func TestZoneReload(t *testing.T) {
 	corefile := `
 	example.org:0 {
 		file ` + name + ` {
-			reload 0.1s
+			reload 0.01s
 		}
 	}
 	example.net:0 {
@@ -47,7 +47,7 @@ func TestZoneReload(t *testing.T) {
 	// Remove RR from the Apex
 	ioutil.WriteFile(name, []byte(exampleOrgUpdated), 0644)
 
-	time.Sleep(150 * time.Millisecond) // reload time
+	time.Sleep(10 * time.Millisecond) // reload time
 
 	resp, err = dns.Exchange(m, udp)
 	if err != nil {

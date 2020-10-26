@@ -30,9 +30,9 @@ func TestZoneReload(t *testing.T) {
 		t.Fatalf("Failed to parse zone: %s", err)
 	}
 
-	z.ReloadInterval = 500 * time.Millisecond
+	z.ReloadInterval = 10 * time.Millisecond
 	z.Reload(&transfer.Transfer{})
-	time.Sleep(time.Second)
+	time.Sleep(20 * time.Millisecond)
 
 	ctx := context.TODO()
 	r := new(dns.Msg)
@@ -60,7 +60,7 @@ func TestZoneReload(t *testing.T) {
 		t.Fatalf("Failed to write new zone data: %s", err)
 	}
 	// Could still be racy, but we need to wait a bit for the event to be seen
-	time.Sleep(1 * time.Second)
+	time.Sleep(30 * time.Millisecond)
 
 	rrs, err = z.ApexIfDefined()
 	if err != nil {

@@ -28,9 +28,11 @@ func setup(c *caddy.Controller) error {
 			return nil
 		}
 		f.transfer = t.(*transfer.Transfer) // if found this must be OK.
-		for _, n := range zones.Names {
-			f.transfer.Notify(n)
-		}
+		go func() {
+			for _, n := range zones.Names {
+				f.transfer.Notify(n)
+			}
+		}()
 		return nil
 	})
 
@@ -39,9 +41,11 @@ func setup(c *caddy.Controller) error {
 		if t == nil {
 			return nil
 		}
-		for _, n := range zones.Names {
-			f.transfer.Notify(n)
-		}
+		go func() {
+			for _, n := range zones.Names {
+				f.transfer.Notify(n)
+			}
+		}()
 		return nil
 	})
 

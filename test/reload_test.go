@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/miekg/dns"
 )
@@ -100,8 +99,6 @@ func TestReloadMetricsHealth(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c1.Stop()
-
-	time.Sleep(100 * time.Millisecond)
 
 	// Health
 	resp, err := http.Get("http://localhost:53184/health")

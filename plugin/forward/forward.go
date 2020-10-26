@@ -229,4 +229,4 @@ type options struct {
 	hcRecursionDesired bool
 }
 
-const defaultTimeout = 5 * time.Second
+var defaultTimeout = 5 * time.Second

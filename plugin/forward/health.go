@@ -24,14 +24,19 @@ type dnsHc struct {
 	recursionDesired bool
 }
 
+var (
+	hcReadTimeout  = 1 * time.Second
+	hcWriteTimeout = 1 * time.Second
+)
+
 // NewHealthChecker returns a new HealthChecker based on transport.
 func NewHealthChecker(trans string, recursionDesired bool) HealthChecker {
 	switch trans {
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
 		c.Net = "udp"
-		c.ReadTimeout = 1 * time.Second
-		c.WriteTimeout = 1 * time.Second
+		c.ReadTimeout = hcReadTimeout
+		c.WriteTimeout = hcWriteTimeout
 
 		return &dnsHc{c: c, recursionDesired: recursionDesired}
 	}

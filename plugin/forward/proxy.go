@@ -77,5 +77,6 @@ func (p *Proxy) start(duration time.Duration) {
 
 const (
 	maxTimeout = 2 * time.Second
-	hcInterval = 500 * time.Millisecond
 )
+
+var hcInterval = 500 * time.Millisecond

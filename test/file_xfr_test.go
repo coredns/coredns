@@ -12,9 +12,9 @@ import (
 )
 
 func TestLargeAXFR(t *testing.T) {
-	// Build a large zone in text format.  It contains 64K AAAA RRs.
+	// Build a zone in text format. It contains 6.4K AAAA RRs. (this number is rather random)
 	var sb strings.Builder
-	const numAAAAs = 65536
+	const numAAAAs = 6553
 	sb.WriteString("example.com. IN SOA . . 1 60 60 60 60\n")
 	sb.WriteString("example.com. IN NS ns.example.\n")
 	for i := 0; i < numAAAAs; i++ {
