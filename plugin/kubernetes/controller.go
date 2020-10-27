@@ -182,7 +182,7 @@ func (dns *dnsControl) recordEndpointDNSProgrammingLatency(obj meta.Object) {
 }
 
 func (dns *dnsControl) recordEndpointSliceDNSProgrammingLatency(obj meta.Object) {
-	recordDNSProgrammingLatency(dns.SvcIndex(object.ServiceKey(obj.GetName(), obj.GetLabels()[discovery.LabelServiceName])), obj)
+	recordDNSProgrammingLatency(dns.SvcIndex(object.ServiceKey(obj.GetLabels()[discovery.LabelServiceName], obj.GetNamespace())), obj)
 }
 
 func podIPIndexFunc(obj interface{}) ([]string, error) {
