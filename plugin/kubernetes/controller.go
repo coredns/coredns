@@ -133,29 +133,33 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 	}
 
 	if opts.initEndpointsCache {
+		var (
+			apiObj        runtime.Object
+			listWatch     *cache.ListWatch
+			recordLatency object.RecordLatencyFunc
+		)
 		if opts.useEndpointSlices {
-			dns.epLister, dns.epController = object.NewIndexerInformer(
-				&cache.ListWatch{
-					ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-					WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-				},
-				&discovery.EndpointSlice{},
-				cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
-				cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-				object.DefaultProcessor(object.SliceToEndpoints(opts.skipAPIObjectsCleanup), nil),
-			)
+			apiObj = &discovery.EndpointSlice{}
+			listWatch = &cache.ListWatch{
+				ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			}
+			recordLatency = nil
 		} else {
-			dns.epLister, dns.epController = object.NewIndexerInformer(
-				&cache.ListWatch{
-					ListFunc:  endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-					WatchFunc: endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-				},
-				&api.Endpoints{},
-				cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
-				cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-				object.DefaultProcessor(object.ToEndpoints(opts.skipAPIObjectsCleanup), dns.recordDNSProgrammingLatency),
-			)
+			apiObj = &api.Endpoints{}
+			listWatch = &cache.ListWatch{
+				ListFunc:  endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			}
+			recordLatency = dns.recordDNSProgrammingLatency
 		}
+		dns.epLister, dns.epController = object.NewIndexerInformer(
+			listWatch,
+			apiObj,
+			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
+			object.DefaultProcessor(object.SliceToEndpoints(opts.skipAPIObjectsCleanup), recordLatency),
+		)
 	}
 
 	dns.nsLister, dns.nsController = cache.NewInformer(

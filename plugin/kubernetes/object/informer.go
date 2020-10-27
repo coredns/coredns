@@ -21,10 +21,11 @@ func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.
 	return clientState, cache.New(cfg)
 }
 
-type recordLatencyFunc func(meta.Object)
+// RecordLatencyFunc is a function for recording api object delta latency
+type RecordLatencyFunc func(meta.Object)
 
 // DefaultProcessor is based on the Process function from cache.NewIndexerInformer except it does a conversion.
-func DefaultProcessor(convert ToFunc, recordLatency recordLatencyFunc) ProcessorBuilder {
+func DefaultProcessor(convert ToFunc, recordLatency RecordLatencyFunc) ProcessorBuilder {
 	return func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
 		return func(obj interface{}) error {
 			for _, d := range obj.(cache.Deltas) {
