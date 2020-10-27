@@ -13,8 +13,8 @@ import (
 func init() { plugin.Register("dnstap", setup) }
 
 type config struct {
+	proto  string
 	target string
-	socket bool
 	full   bool
 }
 
@@ -32,10 +32,10 @@ func parseConfig(d *caddy.Controller) (c config, err error) {
 			return c, d.ArgErr()
 		}
 		c.target = servers[0]
+		c.proto = "tcp"
 	} else {
-		// default to UNIX socket
 		c.target = strings.TrimPrefix(c.target, "unix://")
-		c.socket = true
+		c.proto = "unix"
 	}
 
 	c.full = d.NextArg() && d.Val() == "full"
@@ -49,7 +49,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("dnstap", err)
 	}
 
-	dio := dnstapio.New(conf.target, conf.socket)
+	dio := dnstapio.New(conf.proto, conf.target)
 	dnstap := Dnstap{io: dio, IncludeRawMessage: conf.full}
 
 	c.OnStartup(func() error {

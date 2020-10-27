@@ -8,16 +8,16 @@ import (
 
 func TestConfig(t *testing.T) {
 	tests := []struct {
-		file   string
-		path   string
-		full   bool
-		socket bool
-		fail   bool
+		file  string
+		path  string
+		full  bool
+		proto string
+		fail  bool
 	}{
-		{"dnstap dnstap.sock full", "dnstap.sock", true, true, false},
-		{"dnstap unix://dnstap.sock", "dnstap.sock", false, true, false},
-		{"dnstap tcp://127.0.0.1:6000", "127.0.0.1:6000", false, false, false},
-		{"dnstap", "fail", false, true, true},
+		{"dnstap dnstap.sock full", "dnstap.sock", true, "unix", false},
+		{"dnstap unix://dnstap.sock", "dnstap.sock", false, "unix", false},
+		{"dnstap tcp://127.0.0.1:6000", "127.0.0.1:6000", false, "tcp", false},
+		{"dnstap", "fail", false, "tcp", true},
 	}
 	for _, c := range tests {
 		cad := caddy.NewTestController("dns", c.file)
@@ -26,7 +26,7 @@ func TestConfig(t *testing.T) {
 			if err == nil {
 				t.Errorf("%s: %s", c.file, err)
 			}
-		} else if err != nil || conf.target != c.path || conf.full != c.full || conf.socket != c.socket {
+		} else if err != nil || conf.target != c.path || conf.full != c.full || conf.proto != c.proto {
 			t.Errorf("Expected: %+v\nhave: %+v\nerror: %s", c, conf, err)
 		}
 	}
