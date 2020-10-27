@@ -57,8 +57,8 @@ func ToEndpoints(skipCleanup bool) ToFunc {
 	}
 }
 
-// SliceToEndpoints returns a function that converts an *discovery.EndpointSlice to a *Endpoints.
-func SliceToEndpoints(skipCleanup bool) ToFunc {
+// EndpointSliceToEndpoints returns a function that converts an *discovery.EndpointSlice to a *Endpoints.
+func EndpointSliceToEndpoints(skipCleanup bool) ToFunc {
 	return func(obj interface{}) (interface{}, error) {
 		eps, ok := obj.(*discovery.EndpointSlice)
 		if !ok {

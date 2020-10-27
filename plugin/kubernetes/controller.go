@@ -136,7 +136,8 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		var (
 			apiObj        runtime.Object
 			listWatch     *cache.ListWatch
-			recordLatency object.RecordLatencyFunc
+			toFuncFunc        func(bool) object.ToFunc
+			recordLatencyFunc object.RecordLatencyFunc
 		)
 		if opts.useEndpointSlices {
 			apiObj = &discovery.EndpointSlice{}
@@ -144,21 +145,23 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 				ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 				WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 			}
-			recordLatency = nil
+			toFuncFunc = object.EndpointSliceToEndpoints
+			recordLatencyFunc = nil
 		} else {
 			apiObj = &api.Endpoints{}
 			listWatch = &cache.ListWatch{
 				ListFunc:  endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 				WatchFunc: endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 			}
-			recordLatency = dns.recordDNSProgrammingLatency
+			toFuncFunc = object.ToEndpoints
+			recordLatencyFunc = dns.recordDNSProgrammingLatency
 		}
 		dns.epLister, dns.epController = object.NewIndexerInformer(
 			listWatch,
 			apiObj,
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			object.DefaultProcessor(object.SliceToEndpoints(opts.skipAPIObjectsCleanup), recordLatency),
+			object.DefaultProcessor(toFuncFunc(opts.skipAPIObjectsCleanup), recordLatencyFunc),
 		)
 	}
 
