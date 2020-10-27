@@ -67,7 +67,7 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 	rrs := make([]dns.RR, len(svcIPs))
 	uniq := make(map[string]struct{}) // keep track of unique records
 	i := 0
-	for _, ip := range svcIPs {
+	for j, ip := range svcIPs {
 		if _, dup := uniq[ip.String()]; dup {
 			continue // this is a duplicate record
 		}
@@ -76,7 +76,7 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 			rr := new(dns.AAAA)
 			rr.Hdr.Class = dns.ClassINET
 			rr.Hdr.Rrtype = dns.TypeAAAA
-			rr.Hdr.Name = svcNames[i]
+			rr.Hdr.Name = svcNames[j]
 			rr.AAAA = ip
 			rrs[i] = rr
 			i++
@@ -85,7 +85,7 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 		rr := new(dns.A)
 		rr.Hdr.Class = dns.ClassINET
 		rr.Hdr.Rrtype = dns.TypeA
-		rr.Hdr.Name = svcNames[i]
+		rr.Hdr.Name = svcNames[j]
 		rr.A = ip
 		rrs[i] = rr
 		i++

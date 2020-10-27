@@ -61,60 +61,40 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 	}
 	eps := []*object.Endpoints{
 		{
-			Subsets: []object.EndpointSubset{
-				{
-					Addresses: []object.EndpointAddress{
-						{
-							IP: "10.244.0.20",
-						},
-					},
-				},
-			},
 			Name:      "dns-service-aaaaa",
 			Namespace: "kube-system",
 			Index:     object.EndpointsKey("dns-service", "kube-system"),
-		},
-		{
 			Subsets: []object.EndpointSubset{
-				{
-					Addresses: []object.EndpointAddress{
-						{
-							IP: "10.244.0.20",
-						},
-					},
-				},
+				{Addresses: []object.EndpointAddress{{IP: "10.244.0.20"}}},
 			},
+		},
+		// hdls-dns-service-aaaaa and hdls-dns-service-bbbbb represent object.Endpoints
+		// created by a pair two EndpointSlices of the same service, with EndpointSlice
+		// address duplication. It is expected that the duplicated address will only be
+		// listed once in the result.
+		{
 			Name:      "hdls-dns-service-aaaaa",
 			Namespace: "kube-system",
 			Index:     object.EndpointsKey("hdls-dns-service", "kube-system"),
+			Subsets: []object.EndpointSubset{
+				{Addresses: []object.EndpointAddress{{IP: "10.244.0.20"}}},
+			},
 		},
 		{
+			Name:      "hdls-dns-service-bbbbb",
+			Namespace: "kube-system",
+			Index:     object.EndpointsKey("hdls-dns-service", "kube-system"),
 			Subsets: []object.EndpointSubset{
-				{
-					Addresses: []object.EndpointAddress{
-						{
-							IP: "10.244.0.20",
-						},
-					},
-				},
+				{Addresses: []object.EndpointAddress{{IP: "10.244.0.20"}}},
 			},
+		},
+		{
 			Name:      "dns6-service-aaaaa",
 			Namespace: "kube-system",
 			Index:     object.EndpointsKey("dns6-service", "kube-system"),
-		},
-		{
 			Subsets: []object.EndpointSubset{
-				{
-					Addresses: []object.EndpointAddress{
-						{
-							IP: "10.244.0.20",
-						},
-					},
-				},
+				{Addresses: []object.EndpointAddress{{IP: "10.244.0.20"}}},
 			},
-			Name:      "dns6-service-bbbbb",
-			Namespace: "kube-system",
-			Index:     object.EndpointsKey("dns6-service", "kube-system"),
 		},
 	}
 	return eps
