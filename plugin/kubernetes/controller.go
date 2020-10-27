@@ -134,8 +134,8 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 
 	if opts.initEndpointsCache {
 		var (
-			apiObj        runtime.Object
-			listWatch     *cache.ListWatch
+			apiObj            runtime.Object
+			listWatch         *cache.ListWatch
 			toFuncFunc        func(bool) object.ToFunc
 			recordLatencyFunc object.RecordLatencyFunc
 		)
@@ -146,7 +146,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 				WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 			}
 			toFuncFunc = object.EndpointSliceToEndpoints
-			recordLatencyFunc = nil
+			recordLatencyFunc = dns.recordEndpointSliceDNSProgrammingLatency
 		} else {
 			apiObj = &api.Endpoints{}
 			listWatch = &cache.ListWatch{
@@ -154,7 +154,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 				WatchFunc: endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
 			}
 			toFuncFunc = object.ToEndpoints
-			recordLatencyFunc = dns.recordDNSProgrammingLatency
+			recordLatencyFunc = dns.recordEndpointDNSProgrammingLatency
 		}
 		dns.epLister, dns.epController = object.NewIndexerInformer(
 			listWatch,
@@ -177,8 +177,12 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 	return &dns
 }
 
-func (dns *dnsControl) recordDNSProgrammingLatency(obj meta.Object) {
-	recordDNSProgrammingLatency(dns.getServices(obj.(*api.Endpoints)), obj.(*api.Endpoints))
+func (dns *dnsControl) recordEndpointDNSProgrammingLatency(obj meta.Object) {
+	recordDNSProgrammingLatency(dns.getServices(obj.(*api.Endpoints)), obj)
+}
+
+func (dns *dnsControl) recordEndpointSliceDNSProgrammingLatency(obj meta.Object) {
+	recordDNSProgrammingLatency(dns.SvcIndex(object.ServiceKey(obj.GetName(), obj.GetLabels()[discovery.LabelServiceName])), obj)
 }
 
 func podIPIndexFunc(obj interface{}) ([]string, error) {
@@ -519,7 +523,7 @@ func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
 }
 
 func (dns *dnsControl) getServices(endpoints *api.Endpoints) []*object.Service {
-	return dns.SvcIndex(object.EndpointsKey(endpoints.GetName(), endpoints.GetNamespace()))
+	return dns.SvcIndex(object.ServiceKey(endpoints.GetName(), endpoints.GetNamespace()))
 }
 
 // subsetsEquivalent checks if two endpoint subsets are significantly equivalent

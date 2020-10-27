@@ -64,7 +64,7 @@ func EndpointSliceToEndpoints(skipCleanup bool) ToFunc {
 		if !ok {
 			return nil, fmt.Errorf("unexpected object %v", obj)
 		}
-		return sliceToEndpoints(skipCleanup, eps), nil
+		return endpointSliceToEndpoints(skipCleanup, eps), nil
 	}
 }
 
@@ -120,8 +120,8 @@ func toEndpoints(skipCleanup bool, end *api.Endpoints) *Endpoints {
 	return e
 }
 
-// sliceToEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
-func sliceToEndpoints(skipCleanup bool, ends *discovery.EndpointSlice) *Endpoints {
+// endpointSliceToEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
+func endpointSliceToEndpoints(skipCleanup bool, ends *discovery.EndpointSlice) *Endpoints {
 	e := &Endpoints{
 		Version:   ends.GetResourceVersion(),
 		Name:      ends.GetName(),

@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	api "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -36,11 +37,11 @@ var (
 	durationSinceFunc = time.Since
 )
 
-func recordDNSProgrammingLatency(svcs []*object.Service, endpoints *api.Endpoints) {
+func recordDNSProgrammingLatency(svcs []*object.Service, endpoints meta.Object) {
 	// getLastChangeTriggerTime is the time.Time value of the EndpointsLastChangeTriggerTime
 	// annotation stored in the given endpoints object or the "zero" time if the annotation wasn't set
 	var lastChangeTriggerTime time.Time
-	stringVal, ok := endpoints.Annotations[api.EndpointsLastChangeTriggerTime]
+	stringVal, ok := endpoints.GetAnnotations()[api.EndpointsLastChangeTriggerTime]
 	if ok {
 		ts, err := time.Parse(time.RFC3339Nano, stringVal)
 		if err != nil {
