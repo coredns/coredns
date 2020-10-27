@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	// DnsProgrammingLatency is defined as the time it took to program a DNS instance - from the time
+	// DNSProgrammingLatency is defined as the time it took to program a DNS instance - from the time
 	// a service or pod has changed to the time the change was propagated and was available to be
 	// served by a DNS server.
 	// The definition of this SLI can be found at https://github.com/kubernetes/community/blob/master/sig-scalability/slos/dns_programming_latency.md
@@ -23,7 +23,7 @@ var (
 	//   * cluster_ip
 	//   * headless_with_selector
 	//   * headless_without_selector
-	DnsProgrammingLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	DNSProgrammingLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: pluginName,
 		Name:      "dns_programming_duration_seconds",
@@ -68,6 +68,6 @@ func recordDNSProgrammingLatency(svcs []*object.Service, endpoints *api.Endpoint
 	// the Endpoints object was created by the endpoints-controller (because the
 	// LastChangeTriggerTime annotation is set). It means that the corresponding service is a
 	// "headless service with selector".
-	DnsProgrammingLatency.WithLabelValues("headless_with_selector").
+	DNSProgrammingLatency.WithLabelValues("headless_with_selector").
 		Observe(durationSinceFunc(lastChangeTriggerTime).Seconds())
 }

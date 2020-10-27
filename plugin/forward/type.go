@@ -5,33 +5,33 @@ import "net"
 type transportType int
 
 const (
-	typeUdp transportType = iota
-	typeTcp
-	typeTls
+	typeUDP transportType = iota
+	typeTCP
+	typeTLS
 	typeTotalCount // keep this last
 )
 
 func stringToTransportType(s string) transportType {
 	switch s {
 	case "udp":
-		return typeUdp
+		return typeUDP
 	case "tcp":
-		return typeTcp
+		return typeTCP
 	case "tcp-tls":
-		return typeTls
+		return typeTLS
 	}
 
-	return typeUdp
+	return typeUDP
 }
 
 func (t *Transport) transportTypeFromConn(pc *persistConn) transportType {
 	if _, ok := pc.c.Conn.(*net.UDPConn); ok {
-		return typeUdp
+		return typeUDP
 	}
 
 	if t.tlsConfig == nil {
-		return typeTcp
+		return typeTCP
 	}
 
-	return typeTls
+	return typeTLS
 }

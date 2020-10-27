@@ -20,7 +20,7 @@ const (
 	namespace = "testns"
 )
 
-func TestDnsProgrammingLatency(t *testing.T) {
+func TestDNSProgrammingLatency(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	now := time.Now()
 	ctx := context.TODO()
@@ -32,7 +32,7 @@ func TestDnsProgrammingLatency(t *testing.T) {
 	durationSinceFunc = func(t time.Time) time.Duration {
 		return now.Sub(t)
 	}
-	DnsProgrammingLatency.Reset()
+	DNSProgrammingLatency.Reset()
 	go controller.Run()
 
 	subset1 := []api.EndpointSubset{{
@@ -86,7 +86,7 @@ func TestDnsProgrammingLatency(t *testing.T) {
         coredns_kubernetes_dns_programming_duration_seconds_sum{service_kind="headless_with_selector"} 3
         coredns_kubernetes_dns_programming_duration_seconds_count{service_kind="headless_with_selector"} 2
 	`
-	if err := testutil.CollectAndCompare(DnsProgrammingLatency, strings.NewReader(expected)); err != nil {
+	if err := testutil.CollectAndCompare(DNSProgrammingLatency, strings.NewReader(expected)); err != nil {
 		t.Error(err)
 	}
 }
@@ -121,11 +121,11 @@ func updateEndpoints(t *testing.T, client kubernetes.Interface, name string, tri
 	}
 }
 
-func createService(t *testing.T, client kubernetes.Interface, controller dnsController, name string, clusterIp string) {
+func createService(t *testing.T, client kubernetes.Interface, controller dnsController, name string, clusterIP string) {
 	ctx := context.TODO()
 	if _, err := client.CoreV1().Services(namespace).Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{Namespace: namespace, Name: name},
-		Spec:       api.ServiceSpec{ClusterIP: clusterIp},
+		Spec:       api.ServiceSpec{ClusterIP: clusterIP},
 	}, meta.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}
