@@ -46,6 +46,6 @@ Disable the ability to recover from crashes and show debug logging:
 }
 ~~~
 
-## Also See
+## See Also
 
 <https://www.wireshark.org/docs/man-pages/text2pcap.html>.

@@ -31,6 +31,6 @@ A `dig +nocmd ANY example.org +noall +answer` now returns:
 example.org.  8482	IN	HINFO	"ANY obsoleted" "See RFC 8482"
 ~~~
 
-## Also See
+## See Also
 
 [RFC 8482](https://tools.ietf.org/html/rfc8482).

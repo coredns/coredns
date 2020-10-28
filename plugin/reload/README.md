@@ -103,6 +103,6 @@ CoreDNS v1.7.0 and later does parse the Corefile and supports detecting changes 
 
 Currently the type of `hash` is "md5", the `value` is the returned hash value.
 
-## Also See
+## See Also
 
 See coredns-import(7) and corefile(5).

@@ -42,6 +42,6 @@ example.org {
 }
 ~~~
 
-## Also See
+## See Also
 
 The Go documentation for the context package.

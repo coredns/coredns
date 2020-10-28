@@ -43,7 +43,7 @@ Note: this method should work quickly, because it is called for every request.
 
 The *rewrite* plugin uses meta data to rewrite requests.
 
-## Also See
+## See Also
 
 The [Provider interface](https://godoc.org/github.com/coredns/coredns/plugin/metadata#Provider) and
 the [package level](https://godoc.org/github.com/coredns/coredns/plugin/metadata) documentation.

@@ -235,7 +235,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 
 The duration metric only supports the "headless\_with\_selector" service currently.
 
-## Also See
+## See Also
 
 See the *autopath* plugin to enable search path optimizations. And use the *transfer* plugin to
 enable outgoing zone transfers.

@@ -60,6 +60,6 @@ grpc://. {
 Only Knot DNS' `kdig` supports DNS-over-TLS queries, no command line client supports gRPC making
 debugging these transports harder than it should be.
 
-## Also See
+## See Also
 
 RFC 7858 and https://grpc.io.

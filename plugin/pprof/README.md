@@ -65,7 +65,7 @@ Listen on an all addresses on port 6060, and enable block profiling
 }
 ~~~
 
-## Also See
+## See Also
 
 See [Go's pprof documentation](https://golang.org/pkg/net/http/pprof/) and [Profiling Go
 Programs](https://blog.golang.org/profiling-go-programs).

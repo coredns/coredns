@@ -84,7 +84,7 @@ spec:
 ~~~
 
 
-# Also See
+# See Also
 
 For some background see [resolve external IP address](https://github.com/kubernetes/dns/issues/242).
 And [A records for services with Load Balancer IP](https://github.com/coredns/coredns/issues/1851).

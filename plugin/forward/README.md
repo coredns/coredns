@@ -189,6 +189,6 @@ Or with multiple upstreams from the same provider
 The TLS config is global for the whole forwarding proxy if you need a different `tls_servername` for
 different upstreams you're out of luck.
 
-## Also See
+## See Also
 
 [RFC 7858](https://tools.ietf.org/html/rfc7858) for DNS over TLS.

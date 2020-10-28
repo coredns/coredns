@@ -95,6 +95,6 @@ trace tracinghost:9411 {
 }
 ~~~
 
-## Also See
+## See Also
 
 See the *debug* plugin for more information about debug logging.

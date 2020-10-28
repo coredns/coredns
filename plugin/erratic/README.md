@@ -84,6 +84,6 @@ example.org {
 }
 ~~~
 
-## Also See
+## See Also
 
 [RFC 3849](https://tools.ietf.org/html/rfc3849) and [RFC 5737](https://tools.ietf.org/html/rfc5737).

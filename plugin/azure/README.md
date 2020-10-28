@@ -55,6 +55,6 @@ example.org {
 }
 ~~~
 
-## Also See
+## See Also
 
 The [Azure DNS Overview](https://docs.microsoft.com/en-us/azure/dns/dns-overview).

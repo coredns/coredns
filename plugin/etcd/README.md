@@ -229,6 +229,6 @@ If you query the zone name for `TXT` now, you will get the following response:
 "this is a random text message."
 ~~~
 
-## Also See
+## See Also
 
 If you want to `round robin` A and AAAA responses look at the *loadbalance* plugin.
