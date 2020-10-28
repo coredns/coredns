@@ -134,34 +134,30 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 
 	if opts.initEndpointsCache {
 		var (
-			apiObj            runtime.Object
-			listWatch         *cache.ListWatch
-			toFuncFunc        func(bool) object.ToFunc
-			recordLatencyFunc object.RecordLatencyFunc
+			apiObj    runtime.Object
+			listWatch cache.ListWatch
+			to        func(bool) object.ToFunc
+			latency   object.RecordLatencyFunc
 		)
 		if opts.useEndpointSlices {
 			apiObj = &discovery.EndpointSlice{}
-			listWatch = &cache.ListWatch{
-				ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-				WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-			}
-			toFuncFunc = object.EndpointSliceToEndpoints
-			recordLatencyFunc = dns.recordEndpointSliceDNSProgrammingLatency
+			listWatch.ListFunc = endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
+			listWatch.WatchFunc = endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
+			to = object.EndpointSliceToEndpoints
+			latency = dns.recordEndpointSliceDNSProgrammingLatency
 		} else {
 			apiObj = &api.Endpoints{}
-			listWatch = &cache.ListWatch{
-				ListFunc:  endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-				WatchFunc: endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-			}
-			toFuncFunc = object.ToEndpoints
-			recordLatencyFunc = dns.recordEndpointDNSProgrammingLatency
+			listWatch.ListFunc = endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
+			listWatch.WatchFunc = endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
+			to = object.ToEndpoints
+			latency = dns.recordEndpointDNSProgrammingLatency
 		}
 		dns.epLister, dns.epController = object.NewIndexerInformer(
-			listWatch,
+			&listWatch,
 			apiObj,
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			object.DefaultProcessor(toFuncFunc(opts.skipAPIObjectsCleanup), recordLatencyFunc),
+			object.DefaultProcessor(to(opts.skipAPIObjectsCleanup), latency),
 		)
 	}
 
