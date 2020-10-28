@@ -39,17 +39,17 @@ func (APIConnTest) ServiceList() []*object.Service {
 		{
 			Name:      "dns-service",
 			Namespace: "kube-system",
-			ClusterIP: "10.0.0.111",
+			ClusterIPs: []string{"10.0.0.111"},
 		},
 		{
 			Name:      "hdls-dns-service",
 			Namespace: "kube-system",
-			ClusterIP: api.ClusterIPNone,
+			ClusterIPs: []string{api.ClusterIPNone},
 		},
 		{
 			Name:      "dns6-service",
 			Namespace: "kube-system",
-			ClusterIP: "10::111",
+			ClusterIPs: []string{"10::111"},
 		},
 	}
 	return svcs

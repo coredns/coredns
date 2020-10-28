@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
@@ -21,11 +22,19 @@ func TestDefaultProcessor(t *testing.T) {
 func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer) {
 	obj := &api.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "service1", Namespace: "test1"},
-		Spec:       api.ServiceSpec{ClusterIP: "1.2.3.4", Ports: []api.ServicePort{{Port: 80}}},
+		Spec: api.ServiceSpec{
+			ClusterIP:  "1.2.3.4",
+			ClusterIPs: []string{"1.2.3.4"},
+			Ports:      []api.ServicePort{{Port: 80}},
+		},
 	}
 	obj2 := &api.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "service2", Namespace: "test1"},
-		Spec:       api.ServiceSpec{ClusterIP: "5.6.7.8", Ports: []api.ServicePort{{Port: 80}}},
+		Spec: api.ServiceSpec{
+			ClusterIP:  "5.6.7.8",
+			ClusterIPs: []string{"5.6.7.8"},
+			Ports:      []api.ServicePort{{Port: 80}},
+		},
 	}
 
 	// Add the objects
@@ -47,8 +56,8 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	if !ok {
 		t.Fatal("object in index was incorrect type")
 	}
-	if svc.ClusterIP != obj.Spec.ClusterIP {
-		t.Fatalf("expected %v, got %v", obj.Spec.ClusterIP, svc.ClusterIP)
+	if fmt.Sprintf("%v", svc.ClusterIPs) != fmt.Sprintf("%v", obj.Spec.ClusterIPs) {
+		t.Fatalf("expected '%v', got '%v'", obj.Spec.ClusterIPs, svc.ClusterIPs)
 	}
 
 	// Update an object
@@ -71,8 +80,8 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	if !ok {
 		t.Fatal("object in index was incorrect type")
 	}
-	if svc.ClusterIP != obj.Spec.ClusterIP {
-		t.Fatalf("expected %v, got %v", obj.Spec.ClusterIP, svc.ClusterIP)
+	if fmt.Sprintf("%v", svc.ClusterIPs) != fmt.Sprintf("%v", obj.Spec.ClusterIPs) {
+		t.Fatalf("expected '%v', got '%v'", obj.Spec.ClusterIPs, svc.ClusterIPs)
 	}
 
 	// Delete an object

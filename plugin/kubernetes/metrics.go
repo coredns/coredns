@@ -58,7 +58,7 @@ func recordDNSProgrammingLatency(svcs []*object.Service, endpoints meta.Object) 
 	// don't change very often (comparing to much more frequent endpoints changes), cases when this method
 	// will return wrong answer should be relatively rare. Because of that we intentionally accept this
 	// flaw to keep the solution simple.
-	isHeadless := len(svcs) == 1 && svcs[0].ClusterIP == api.ClusterIPNone
+	isHeadless := len(svcs) == 1 && svcs[0].ClusterIPs[0] == api.ClusterIPNone
 
 	if endpoints == nil || !isHeadless || lastChangeTriggerTime.IsZero() {
 		return

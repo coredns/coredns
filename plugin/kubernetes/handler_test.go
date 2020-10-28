@@ -542,7 +542,7 @@ var svcIndex = map[string][]*object.Service{
 			Name:      "svc1",
 			Namespace: "testns",
 			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: "10.0.0.1",
+			ClusterIPs:   []string{"10.0.0.1"},
 			Ports: []api.ServicePort{
 				{Name: "http", Protocol: "tcp", Port: 80},
 			},
@@ -553,7 +553,7 @@ var svcIndex = map[string][]*object.Service{
 			Name:      "svcempty",
 			Namespace: "testns",
 			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: "10.0.0.1",
+			ClusterIPs:   []string{"10.0.0.1"},
 			Ports: []api.ServicePort{
 				{Name: "http", Protocol: "tcp", Port: 80},
 			},
@@ -564,7 +564,7 @@ var svcIndex = map[string][]*object.Service{
 			Name:      "svc6",
 			Namespace: "testns",
 			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: "1234:abcd::1",
+			ClusterIPs:   []string{"1234:abcd::1"},
 			Ports: []api.ServicePort{
 				{Name: "http", Protocol: "tcp", Port: 80},
 			},
@@ -575,7 +575,7 @@ var svcIndex = map[string][]*object.Service{
 			Name:      "hdls1",
 			Namespace: "testns",
 			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: api.ClusterIPNone,
+			ClusterIPs:   []string{api.ClusterIPNone},
 		},
 	},
 	"external.testns": {
@@ -605,7 +605,7 @@ var svcIndex = map[string][]*object.Service{
 			Name:      "hdlsprtls",
 			Namespace: "testns",
 			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: api.ClusterIPNone,
+			ClusterIPs:   []string{api.ClusterIPNone},
 		},
 	},
 	"svc1.unexposedns": {
@@ -613,7 +613,7 @@ var svcIndex = map[string][]*object.Service{
 			Name:      "svc1",
 			Namespace: "unexposedns",
 			Type:      api.ServiceTypeClusterIP,
-			ClusterIP: "10.0.0.2",
+			ClusterIPs:   []string{"10.0.0.2"},
 			Ports: []api.ServicePort{
 				{Name: "http", Protocol: "tcp", Port: 80},
 			},

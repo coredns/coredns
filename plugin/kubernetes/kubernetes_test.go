@@ -73,7 +73,7 @@ func (APIConnServiceTest) SvcIndex(string) []*object.Service {
 		{
 			Name:      "svc1",
 			Namespace: "testns",
-			ClusterIP: "10.0.0.1",
+			ClusterIPs: []string{"10.0.0.1"},
 			Ports: []api.ServicePort{
 				{Name: "http", Protocol: "tcp", Port: 80},
 			},
@@ -81,7 +81,7 @@ func (APIConnServiceTest) SvcIndex(string) []*object.Service {
 		{
 			Name:      "hdls1",
 			Namespace: "testns",
-			ClusterIP: api.ClusterIPNone,
+			ClusterIPs: []string{api.ClusterIPNone},
 		},
 		{
 			Name:         "external",
@@ -101,7 +101,7 @@ func (APIConnServiceTest) ServiceList() []*object.Service {
 		{
 			Name:      "svc1",
 			Namespace: "testns",
-			ClusterIP: "10.0.0.1",
+			ClusterIPs: []string{"10.0.0.1"},
 			Ports: []api.ServicePort{
 				{Name: "http", Protocol: "tcp", Port: 80},
 			},
@@ -109,7 +109,7 @@ func (APIConnServiceTest) ServiceList() []*object.Service {
 		{
 			Name:      "hdls1",
 			Namespace: "testns",
-			ClusterIP: api.ClusterIPNone,
+			ClusterIPs: []string{api.ClusterIPNone},
 		},
 		{
 			Name:         "external",

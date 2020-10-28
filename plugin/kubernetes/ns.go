@@ -37,7 +37,7 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 					continue
 				}
 				svcName := strings.Join([]string{svc.Name, svc.Namespace, Svc, zone}, ".")
-				if svc.ClusterIP == api.ClusterIPNone {
+				if svc.ClusterIPs[0] == api.ClusterIPNone {
 					// For a headless service, use the endpoints IPs
 					for _, s := range endpoint.Subsets {
 						for _, a := range s.Addresses {
@@ -47,7 +47,7 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 					}
 				} else {
 					svcNames = append(svcNames, svcName)
-					svcIPs = append(svcIPs, net.ParseIP(svc.ClusterIP))
+					svcIPs = append(svcIPs, net.ParseIP(svc.ClusterIPs[0]))
 				}
 			}
 		}

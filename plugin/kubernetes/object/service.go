@@ -45,11 +45,17 @@ func toService(skipCleanup bool, svc *api.Service) *Service {
 		Name:         svc.GetName(),
 		Namespace:    svc.GetNamespace(),
 		Index:        ServiceKey(svc.GetName(), svc.GetNamespace()),
-		ClusterIPs:   svc.Spec.ClusterIPs,
 		Type:         svc.Spec.Type,
 		ExternalName: svc.Spec.ExternalName,
 
 		ExternalIPs: make([]string, len(svc.Status.LoadBalancer.Ingress)+len(svc.Spec.ExternalIPs)),
+	}
+
+	if len(svc.Spec.ClusterIPs) > 0 {
+		s.ClusterIPs = make([]string, len(svc.Spec.Ports))
+		copy(s.ClusterIPs, svc.Spec.ClusterIPs)
+	} else {
+		s.ClusterIPs = []string{svc.Spec.ClusterIP}
 	}
 
 	if len(svc.Spec.Ports) == 0 {
@@ -86,12 +92,14 @@ func (s *Service) DeepCopyObject() runtime.Object {
 		Name:         s.Name,
 		Namespace:    s.Namespace,
 		Index:        s.Index,
-		ClusterIP:    s.ClusterIP,
 		Type:         s.Type,
 		ExternalName: s.ExternalName,
+		ClusterIPs:   make([]string, len(s.ClusterIPs)),
 		Ports:        make([]api.ServicePort, len(s.Ports)),
 		ExternalIPs:  make([]string, len(s.ExternalIPs)),
 	}
+
+	copy(s1.ClusterIPs, s.ClusterIPs)
 	copy(s1.Ports, s.Ports)
 	copy(s1.ExternalIPs, s.ExternalIPs)
 	return s1
