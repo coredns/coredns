@@ -68,7 +68,7 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 				},
 			},
 		},
-		Name:      "svc1-aaaaa",
+		Name:      "svc1-slice1",
 		Namespace: "testns",
 		Index:     object.EndpointsKey("svc1", "testns"),
 	}
@@ -85,7 +85,7 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 				},
 			},
 		},
-		Name:      "svc1-bbbbb",
+		Name:      "svc1-slice2",
 		Namespace: "testns",
 		Index:     object.EndpointsKey("svc1", "testns"),
 	}
@@ -115,7 +115,7 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 				},
 			},
 		},
-		Name:      "svc2-aaaaa",
+		Name:      "svc2-slice1",
 		Namespace: "testns",
 		Index:     object.EndpointsKey("svc2", "testns"),
 	}

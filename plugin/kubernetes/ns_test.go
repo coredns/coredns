@@ -61,19 +61,19 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 	}
 	eps := []*object.Endpoints{
 		{
-			Name:      "dns-service-aaaaa",
+			Name:      "dns-service-slice1",
 			Namespace: "kube-system",
 			Index:     object.EndpointsKey("dns-service", "kube-system"),
 			Subsets: []object.EndpointSubset{
 				{Addresses: []object.EndpointAddress{{IP: "10.244.0.20"}}},
 			},
 		},
-		// hdls-dns-service-aaaaa and hdls-dns-service-bbbbb represent object.Endpoints
+		// hdls-dns-service-slice1 and hdls-dns-service-slice2 represent object.Endpoints
 		// created by a pair two EndpointSlices of the same service, with EndpointSlice
 		// address duplication. It is expected that the duplicated address will only be
 		// listed once in the result.
 		{
-			Name:      "hdls-dns-service-aaaaa",
+			Name:      "hdls-dns-service-slice1",
 			Namespace: "kube-system",
 			Index:     object.EndpointsKey("hdls-dns-service", "kube-system"),
 			Subsets: []object.EndpointSubset{
@@ -81,7 +81,7 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 			},
 		},
 		{
-			Name:      "hdls-dns-service-bbbbb",
+			Name:      "hdls-dns-service-slice2",
 			Namespace: "kube-system",
 			Index:     object.EndpointsKey("hdls-dns-service", "kube-system"),
 			Subsets: []object.EndpointSubset{
@@ -89,7 +89,7 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 			},
 		},
 		{
-			Name:      "dns6-service-aaaaa",
+			Name:      "dns6-service-slice1",
 			Namespace: "kube-system",
 			Index:     object.EndpointsKey("dns6-service", "kube-system"),
 			Subsets: []object.EndpointSubset{
