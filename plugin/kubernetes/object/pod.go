@@ -47,6 +47,8 @@ func toPod(pod *api.Pod) *Pod {
 		Name:      pod.GetName(),
 	}
 
+	*pod = api.Pod{}
+
 	return p
 }
 

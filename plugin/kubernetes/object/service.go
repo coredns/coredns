@@ -70,6 +70,8 @@ func toService(svc *api.Service) *Service {
 
 	}
 
+	*svc = api.Service{}
+
 	return s
 }
 

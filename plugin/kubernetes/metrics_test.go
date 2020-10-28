@@ -20,7 +20,7 @@ const (
 	namespace = "testns"
 )
 
-func TestDNSProgrammingLatency(t *testing.T) {
+func testDNSProgrammingLatency(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	now := time.Now()
 	ctx := context.TODO()

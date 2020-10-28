@@ -101,6 +101,8 @@ func toEndpoints(end *api.Endpoints) *Endpoints {
 		}
 	}
 
+	*end = api.Endpoints{}
+
 	return e
 }
 
