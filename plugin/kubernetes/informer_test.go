@@ -11,7 +11,7 @@ import (
 )
 
 func TestDefaultProcessor(t *testing.T) {
-	pbuild := object.DefaultProcessor(object.ToService(true), nil)
+	pbuild := object.DefaultProcessor(object.ToService(), nil)
 	reh := cache.ResourceEventHandlerFuncs{}
 	idx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
 	processor := pbuild(idx, reh)

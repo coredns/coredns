@@ -89,9 +89,8 @@ type dnsControlOpts struct {
 	namespaceLabelSelector *meta.LabelSelector
 	namespaceSelector      labels.Selector
 
-	zones                 []string
-	endpointNameMode      bool
-	skipAPIObjectsCleanup bool
+	zones            []string
+	endpointNameMode bool
 }
 
 // newDNSController creates a controller for CoreDNS.
@@ -113,7 +112,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		&api.Service{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc},
-		object.DefaultProcessor(object.ToService(opts.skipAPIObjectsCleanup), nil),
+		object.DefaultProcessor(object.ToService(), nil),
 	)
 
 	if opts.initPodCache {
@@ -125,7 +124,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			&api.Pod{},
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{podIPIndex: podIPIndexFunc},
-			object.DefaultProcessor(object.ToPod(opts.skipAPIObjectsCleanup), nil),
+			object.DefaultProcessor(object.ToPod(), nil),
 		)
 	}
 
@@ -138,7 +137,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			&api.Endpoints{},
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			object.DefaultProcessor(object.ToEndpoints(opts.skipAPIObjectsCleanup), dns.recordDNSProgrammingLatency),
+			object.DefaultProcessor(object.ToEndpoints(), dns.recordDNSProgrammingLatency),
 		)
 	}
 

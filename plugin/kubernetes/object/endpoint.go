@@ -46,18 +46,18 @@ type EndpointPort struct {
 func EndpointsKey(name, namespace string) string { return name + "." + namespace }
 
 // ToEndpoints returns a function that converts an *api.Endpoints to a *Endpoints.
-func ToEndpoints(skipCleanup bool) ToFunc {
+func ToEndpoints() ToFunc {
 	return func(obj interface{}) (interface{}, error) {
 		eps, ok := obj.(*api.Endpoints)
 		if !ok {
 			return nil, fmt.Errorf("unexpected object %v", obj)
 		}
-		return toEndpoints(skipCleanup, eps), nil
+		return toEndpoints(eps), nil
 	}
 }
 
 // toEndpoints converts an *api.Endpoints to a *Endpoints.
-func toEndpoints(skipCleanup bool, end *api.Endpoints) *Endpoints {
+func toEndpoints(end *api.Endpoints) *Endpoints {
 	e := &Endpoints{
 		Version:   end.GetResourceVersion(),
 		Name:      end.GetName(),
@@ -99,10 +99,6 @@ func toEndpoints(skipCleanup bool, end *api.Endpoints) *Endpoints {
 		for _, a := range eps.Addresses {
 			e.IndexIP = append(e.IndexIP, a.IP)
 		}
-	}
-
-	if !skipCleanup {
-		*end = api.Endpoints{}
 	}
 
 	return e
