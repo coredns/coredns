@@ -390,7 +390,7 @@ var dnsTestCases = []test.Case{
 	{
 		Qname: "svc-dual-stack.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{test.SRV("svc-dual-stack.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc-dual-stack.testns.svc.cluster.local.")},
+		Answer: []dns.RR{test.SRV("svc-dual-stack.testns.svc.cluster.local.	5	IN	SRV	0 50 80 svc-dual-stack.testns.svc.cluster.local.")},
 		Extra: []dns.RR{
 			test.A("svc-dual-stack.testns.svc.cluster.local.  5       IN      A       10.0.0.3"),
 			test.AAAA("svc-dual-stack.testns.svc.cluster.local.  5       IN      AAAA       10::3"),
