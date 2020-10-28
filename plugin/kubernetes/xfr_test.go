@@ -113,6 +113,10 @@ hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2
 _http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--2.hdls1.testns.svc.cluster.local.
 hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20
 172-0-0-20.hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20
+svc-dual-stack.testns.svc.cluster.local.	5	IN	A	10.0.0.3
+svc-dual-stack.testns.svc.cluster.local.	5	IN	AAAA	10::3
+svc-dual-stack.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc-dual-stack.testns.svc.cluster.local.
+_http._tcp.svc-dual-stack.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc-dual-stack.testns.svc.cluster.local.
 svc1.testns.svc.cluster.local.	5	IN	A	10.0.0.1
 svc1.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc1.testns.svc.cluster.local.
 _http._tcp.svc1.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc1.testns.svc.cluster.local.
