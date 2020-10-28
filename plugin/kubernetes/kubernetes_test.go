@@ -160,21 +160,6 @@ func (APIConnServiceTest) EpIndex(string) []*object.Endpoints {
 			Subsets: []object.EndpointSubset{
 				{
 					Addresses: []object.EndpointAddress{
-						{IP: "172.0.0.2"},
-					},
-					Ports: []object.EndpointPort{
-						{Port: 80, Protocol: "tcp", Name: "http"},
-					},
-				},
-			},
-			Name:      "hdls1-slice2",
-			Namespace: "testns",
-			Index:     object.EndpointsKey("hdls1", "testns"),
-		},
-		{
-			Subsets: []object.EndpointSubset{
-				{
-					Addresses: []object.EndpointAddress{
 						{IP: "10.9.8.7", NodeName: "test.node.foo.bar"},
 					},
 				},
