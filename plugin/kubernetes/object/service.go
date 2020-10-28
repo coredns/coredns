@@ -14,7 +14,7 @@ type Service struct {
 	Name         string
 	Namespace    string
 	Index        string
-	ClusterIP    string
+	ClusterIPs   []string
 	Type         api.ServiceType
 	ExternalName string
 	Ports        []api.ServicePort
@@ -45,7 +45,7 @@ func toService(skipCleanup bool, svc *api.Service) *Service {
 		Name:         svc.GetName(),
 		Namespace:    svc.GetNamespace(),
 		Index:        ServiceKey(svc.GetName(), svc.GetNamespace()),
-		ClusterIP:    svc.Spec.ClusterIP,
+		ClusterIPs:   svc.Spec.ClusterIPs,
 		Type:         svc.Spec.Type,
 		ExternalName: svc.Spec.ExternalName,
 
