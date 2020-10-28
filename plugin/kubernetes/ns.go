@@ -65,33 +65,25 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 
 	// Create an RR slice of collected IPs
 	rrs := make([]dns.RR, len(svcIPs))
-	uniq := make(map[string]struct{}) // keep track of unique records
-	i := 0
-	for j, ip := range svcIPs {
-		if _, dup := uniq[ip.String()]; dup {
-			continue // this is a duplicate record
-		}
-		uniq[ip.String()] = struct{}{}
+	for i, ip := range svcIPs {
 		if ip.To4() == nil {
 			rr := new(dns.AAAA)
 			rr.Hdr.Class = dns.ClassINET
 			rr.Hdr.Rrtype = dns.TypeAAAA
-			rr.Hdr.Name = svcNames[j]
+			rr.Hdr.Name = svcNames[i]
 			rr.AAAA = ip
 			rrs[i] = rr
-			i++
 			continue
 		}
 		rr := new(dns.A)
 		rr.Hdr.Class = dns.ClassINET
 		rr.Hdr.Rrtype = dns.TypeA
-		rr.Hdr.Name = svcNames[j]
+		rr.Hdr.Name = svcNames[i]
 		rr.A = ip
 		rrs[i] = rr
-		i++
 	}
 
-	return rrs[0:i]
+	return rrs
 }
 
 const defaultNSName = "ns.dns."
