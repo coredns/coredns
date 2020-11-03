@@ -115,7 +115,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		&api.Service{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc},
-		object.DefaultProcessor(object.ToService(), nil, cleanService),
+		object.DefaultProcessor(object.ToService, nil, cleanService),
 	)
 
 	if opts.initPodCache {
@@ -127,7 +127,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			&api.Pod{},
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{podIPIndex: podIPIndexFunc},
-			object.DefaultProcessor(object.ToPod(), nil, cleanPod),
+			object.DefaultProcessor(object.ToPod, nil, cleanPod),
 		)
 	}
 
@@ -135,7 +135,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		var (
 			apiObj    runtime.Object
 			listWatch cache.ListWatch
-			to        func() object.ToFunc
+			to        object.ToFunc
 			latency   object.RecordLatencyFunc
 			clean     func(interface{})
 		)
@@ -159,7 +159,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			apiObj,
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			object.DefaultProcessor(to(), latency, clean),
+			object.DefaultProcessor(to, latency, clean),
 		)
 	}
 

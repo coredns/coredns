@@ -46,30 +46,12 @@ type EndpointPort struct {
 // EndpointsKey returns a string using for the index.
 func EndpointsKey(name, namespace string) string { return name + "." + namespace }
 
-// ToEndpoints returns a function that converts an *api.Endpoints to a *Endpoints.
-func ToEndpoints() ToFunc {
-	return func(obj interface{}) (interface{}, error) {
-		eps, ok := obj.(*api.Endpoints)
-		if !ok {
-			return nil, fmt.Errorf("unexpected object %v", obj)
-		}
-		return toEndpoints(eps), nil
-	}
-}
-
-// EndpointSliceToEndpoints returns a function that converts an *discovery.EndpointSlice to a *Endpoints.
-func EndpointSliceToEndpoints() ToFunc {
-	return func(obj interface{}) (interface{}, error) {
-		eps, ok := obj.(*discovery.EndpointSlice)
-		if !ok {
-			return nil, fmt.Errorf("unexpected object %v", obj)
-		}
-		return endpointSliceToEndpoints(eps), nil
-	}
-}
-
 // toEndpoints converts an *api.Endpoints to a *Endpoints.
-func toEndpoints(end *api.Endpoints) *Endpoints {
+func ToEndpoints(obj interface{}) (interface{}, error) {
+	end, ok := obj.(*api.Endpoints)
+	if !ok {
+		return nil, fmt.Errorf("unexpected object %v", obj)
+	}
 	e := &Endpoints{
 		Version:   end.GetResourceVersion(),
 		Name:      end.GetName(),
@@ -113,11 +95,15 @@ func toEndpoints(end *api.Endpoints) *Endpoints {
 		}
 	}
 
-	return e
+	return e, nil
 }
 
-// endpointSliceToEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
-func endpointSliceToEndpoints(ends *discovery.EndpointSlice) *Endpoints {
+// EndpointSliceToEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
+func EndpointSliceToEndpoints(obj interface{}) (interface{}, error) {
+	ends, ok := obj.(*discovery.EndpointSlice)
+	if !ok {
+		return nil, fmt.Errorf("unexpected object %v", obj)
+	}
 	e := &Endpoints{
 		Version:   ends.GetResourceVersion(),
 		Name:      ends.GetName(),
@@ -152,7 +138,7 @@ func endpointSliceToEndpoints(ends *discovery.EndpointSlice) *Endpoints {
 		}
 	}
 
-	return e
+	return e, nil
 }
 
 // CopyWithoutSubsets copies e, without the subsets.

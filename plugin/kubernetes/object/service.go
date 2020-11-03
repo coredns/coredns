@@ -28,18 +28,11 @@ type Service struct {
 // ServiceKey returns a string using for the index.
 func ServiceKey(name, namespace string) string { return name + "." + namespace }
 
-// ToService returns a function that converts an api.Service to a *Service.
-func ToService() ToFunc {
-	return func(obj interface{}) (interface{}, error) {
-		svc, ok := obj.(*api.Service)
-		if !ok {
-			return nil, fmt.Errorf("unexpected object %v", obj)
-		}
-		return toService(svc), nil
+func ToService(obj interface{}) (interface{}, error) {
+	svc, ok := obj.(*api.Service)
+	if !ok {
+		return nil, fmt.Errorf("unexpected object %v", obj)
 	}
-}
-
-func toService(svc *api.Service) *Service {
 	s := &Service{
 		Version:      svc.GetResourceVersion(),
 		Name:         svc.GetName(),
@@ -70,7 +63,7 @@ func toService(svc *api.Service) *Service {
 
 	}
 
-	return s
+	return s, nil
 }
 
 var _ runtime.Object = &Service{}

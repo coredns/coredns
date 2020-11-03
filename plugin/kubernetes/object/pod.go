@@ -22,32 +22,24 @@ type Pod struct {
 var errPodTerminating = errors.New("pod terminating")
 
 // ToPod returns a function that converts an api.Pod to a *Pod.
-func ToPod() ToFunc {
-	return func(obj interface{}) (interface{}, error) {
-		apiPod, ok := obj.(*api.Pod)
-		if !ok {
-			return nil, fmt.Errorf("unexpected object %v", obj)
-		}
-		pod := toPod(apiPod)
-		t := apiPod.ObjectMeta.DeletionTimestamp
-		if t != nil && !(*t).Time.IsZero() {
-			// if the pod is in the process of termination, return an error so it can be ignored
-			// during add/update event processing
-			return pod, errPodTerminating
-		}
-		return pod, nil
+func ToPod(obj interface{}) (interface{}, error) {
+	apiPod, ok := obj.(*api.Pod)
+	if !ok {
+		return nil, fmt.Errorf("unexpected object %v", obj)
 	}
-}
-
-func toPod(pod *api.Pod) *Pod {
-	p := &Pod{
-		Version:   pod.GetResourceVersion(),
-		PodIP:     pod.Status.PodIP,
-		Namespace: pod.GetNamespace(),
-		Name:      pod.GetName(),
+	pod := &Pod{
+		Version:   apiPod.GetResourceVersion(),
+		PodIP:     apiPod.Status.PodIP,
+		Namespace: apiPod.GetNamespace(),
+		Name:      apiPod.GetName(),
 	}
-
-	return p
+	t := apiPod.ObjectMeta.DeletionTimestamp
+	if t != nil && !(*t).Time.IsZero() {
+		// if the pod is in the process of termination, return an error so it can be ignored
+		// during add/update event processing
+		return pod, errPodTerminating
+	}
+	return pod, nil
 }
 
 var _ runtime.Object = &Pod{}
