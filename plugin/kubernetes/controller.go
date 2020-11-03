@@ -188,14 +188,14 @@ func cleanEndpoints(i interface{}) {
 }
 
 func cleanService(i interface{}) {
-	if e, ok := i.(*api.Service); ok {
-		*e = api.Service{}
+	if s, ok := i.(*api.Service); ok {
+		*s = api.Service{}
 	}
 }
 
 func cleanPod(i interface{}) {
-	if e, ok := i.(*api.Pod); ok {
-		*e = api.Pod{}
+	if p, ok := i.(*api.Pod); ok {
+		*p = api.Pod{}
 	}
 }
 
