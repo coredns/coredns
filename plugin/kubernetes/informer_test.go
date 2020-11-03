@@ -11,7 +11,7 @@ import (
 )
 
 func TestDefaultProcessor(t *testing.T) {
-	pbuild := object.DefaultProcessor(object.ToService(true), nil)
+	pbuild := object.DefaultProcessor(object.ToService(), nil, cleanService)
 	reh := cache.ResourceEventHandlerFuncs{}
 	idx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
 	processor := pbuild(idx, reh)
@@ -30,8 +30,8 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 
 	// Add the objects
 	err := processor(cache.Deltas{
-		{Type: cache.Added, Object: obj},
-		{Type: cache.Added, Object: obj2},
+		{Type: cache.Added, Object: obj.DeepCopy()},
+		{Type: cache.Added, Object: obj2.DeepCopy()},
 	})
 	if err != nil {
 		t.Fatalf("add failed: %v", err)
@@ -55,7 +55,7 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	obj.Spec.ClusterIP = "1.2.3.5"
 	err = processor(cache.Deltas{{
 		Type:   cache.Updated,
-		Object: obj,
+		Object: obj.DeepCopy(),
 	}})
 	if err != nil {
 		t.Fatalf("update failed: %v", err)
@@ -78,7 +78,7 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	// Delete an object
 	err = processor(cache.Deltas{{
 		Type:   cache.Deleted,
-		Object: obj2,
+		Object: obj2.DeepCopy(),
 	}})
 	if err != nil {
 		t.Fatalf("delete test failed: %v", err)

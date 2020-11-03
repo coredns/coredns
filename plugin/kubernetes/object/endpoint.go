@@ -47,29 +47,29 @@ type EndpointPort struct {
 func EndpointsKey(name, namespace string) string { return name + "." + namespace }
 
 // ToEndpoints returns a function that converts an *api.Endpoints to a *Endpoints.
-func ToEndpoints(skipCleanup bool) ToFunc {
+func ToEndpoints() ToFunc {
 	return func(obj interface{}) (interface{}, error) {
 		eps, ok := obj.(*api.Endpoints)
 		if !ok {
 			return nil, fmt.Errorf("unexpected object %v", obj)
 		}
-		return toEndpoints(skipCleanup, eps), nil
+		return toEndpoints(eps), nil
 	}
 }
 
 // EndpointSliceToEndpoints returns a function that converts an *discovery.EndpointSlice to a *Endpoints.
-func EndpointSliceToEndpoints(skipCleanup bool) ToFunc {
+func EndpointSliceToEndpoints() ToFunc {
 	return func(obj interface{}) (interface{}, error) {
 		eps, ok := obj.(*discovery.EndpointSlice)
 		if !ok {
 			return nil, fmt.Errorf("unexpected object %v", obj)
 		}
-		return endpointSliceToEndpoints(skipCleanup, eps), nil
+		return endpointSliceToEndpoints(eps), nil
 	}
 }
 
 // toEndpoints converts an *api.Endpoints to a *Endpoints.
-func toEndpoints(skipCleanup bool, end *api.Endpoints) *Endpoints {
+func toEndpoints(end *api.Endpoints) *Endpoints {
 	e := &Endpoints{
 		Version:   end.GetResourceVersion(),
 		Name:      end.GetName(),
@@ -113,15 +113,11 @@ func toEndpoints(skipCleanup bool, end *api.Endpoints) *Endpoints {
 		}
 	}
 
-	if !skipCleanup {
-		*end = api.Endpoints{}
-	}
-
 	return e
 }
 
 // endpointSliceToEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
-func endpointSliceToEndpoints(skipCleanup bool, ends *discovery.EndpointSlice) *Endpoints {
+func endpointSliceToEndpoints(ends *discovery.EndpointSlice) *Endpoints {
 	e := &Endpoints{
 		Version:   ends.GetResourceVersion(),
 		Name:      ends.GetName(),
@@ -154,10 +150,6 @@ func endpointSliceToEndpoints(skipCleanup bool, ends *discovery.EndpointSlice) *
 			e.Subsets[0].Addresses = append(e.Subsets[0].Addresses, ea)
 			e.IndexIP = append(e.IndexIP, a)
 		}
-	}
-
-	if !skipCleanup {
-		*ends = discovery.EndpointSlice{}
 	}
 
 	return e

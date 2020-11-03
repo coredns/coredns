@@ -22,13 +22,13 @@ type Pod struct {
 var errPodTerminating = errors.New("pod terminating")
 
 // ToPod returns a function that converts an api.Pod to a *Pod.
-func ToPod(skipCleanup bool) ToFunc {
+func ToPod() ToFunc {
 	return func(obj interface{}) (interface{}, error) {
 		apiPod, ok := obj.(*api.Pod)
 		if !ok {
 			return nil, fmt.Errorf("unexpected object %v", obj)
 		}
-		pod := toPod(skipCleanup, apiPod)
+		pod := toPod(apiPod)
 		t := apiPod.ObjectMeta.DeletionTimestamp
 		if t != nil && !(*t).Time.IsZero() {
 			// if the pod is in the process of termination, return an error so it can be ignored
@@ -39,16 +39,12 @@ func ToPod(skipCleanup bool) ToFunc {
 	}
 }
 
-func toPod(skipCleanup bool, pod *api.Pod) *Pod {
+func toPod(pod *api.Pod) *Pod {
 	p := &Pod{
 		Version:   pod.GetResourceVersion(),
 		PodIP:     pod.Status.PodIP,
 		Namespace: pod.GetNamespace(),
 		Name:      pod.GetName(),
-	}
-
-	if !skipCleanup {
-		*pod = api.Pod{}
 	}
 
 	return p

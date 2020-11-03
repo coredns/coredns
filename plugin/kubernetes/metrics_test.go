@@ -56,8 +56,6 @@ func TestDNSProgrammingLatencyEndpointSlices(t *testing.T) {
 	controller := newdnsController(ctx, client, dnsControlOpts{
 		initEndpointsCache: true,
 		useEndpointSlices:  true,
-		// This is needed as otherwise the fake k8s client doesn't work properly.
-		skipAPIObjectsCleanup: true,
 	})
 
 	durationSinceFunc = func(t time.Time) time.Duration {
@@ -103,8 +101,6 @@ func TestDnsProgrammingLatencyEndpoints(t *testing.T) {
 	controller := newdnsController(ctx, client, dnsControlOpts{
 		initEndpointsCache: true,
 		useEndpointSlices:  false,
-		// This is needed as otherwise the fake k8s client doesn't work properly.
-		skipAPIObjectsCleanup: true,
 	})
 
 	durationSinceFunc = func(t time.Time) time.Duration {
