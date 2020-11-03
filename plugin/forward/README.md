@@ -204,11 +204,6 @@ Or when you have multiple DoT upstreams with different `tls_servername`s, you ca
 }
 ~~~
 
-## Bugs
-
-The TLS config is global for the entire forwarding proxy if you need a different `tls_servername` for
-different upstreams you're out of luck.
-
 ## See Also
 
 [RFC 7858](https://tools.ietf.org/html/rfc7858) for DNS over TLS.
