@@ -1,6 +1,8 @@
 package object
 
 import (
+	api "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -25,7 +27,7 @@ func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.
 type RecordLatencyFunc func(meta.Object)
 
 // DefaultProcessor is based on the Process function from cache.NewIndexerInformer except it does a conversion.
-func DefaultProcessor(convert ToFunc, recordLatency RecordLatencyFunc, cleanup func(interface{})) ProcessorBuilder {
+func DefaultProcessor(convert ToFunc, recordLatency RecordLatencyFunc) ProcessorBuilder {
 	return func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
 		return func(obj interface{}) error {
 			for _, d := range obj.(cache.Deltas) {
@@ -68,10 +70,23 @@ func DefaultProcessor(convert ToFunc, recordLatency RecordLatencyFunc, cleanup f
 						recordLatency(d.Object.(meta.Object))
 					}
 				}
-				cleanup(d.Object)
+				cleanObj(d.Object)
 			}
 			return nil
 		}
+	}
+}
+
+func cleanObj(i interface{}) {
+	switch item := i.(type) {
+	case *discovery.EndpointSlice:
+		*item = discovery.EndpointSlice{}
+	case *api.Endpoints:
+		*item = api.Endpoints{}
+	case *api.Service:
+		*item = api.Service{}
+	case *api.Pod:
+		*item = api.Pod{}
 	}
 }
 
