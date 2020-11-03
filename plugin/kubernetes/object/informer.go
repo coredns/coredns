@@ -69,7 +69,6 @@ func DefaultProcessor(convert ToFunc, recordLatency RecordLatencyFunc, cleanup f
 					}
 				}
 				cleanup(d.Object)
-				println() // debug
 			}
 			return nil
 		}
