@@ -39,11 +39,20 @@ present in the dns response which is essential to complete the dns query succesf
 
 Pseudo code:
 
-type MinimalResponseWriter struct {
-  dns.ResponseWriter
+type Minimal struct {
+  Next plugin.Handler
 }
 
-func (m *MinimalResponseWriter) minimalMsg(res *dns.Msg) error {
+func (m Minimal) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	mm := &MinimalResponseWriter{w}
+	return plugin.NextOrFailure(rr.Name(), mm.Next, ctx, mm, r)
+}
+
+type MinimalResponseWriter struct {
+  dns.ResponseWriter
+} 
+
+func (m *MinimalResponseWriter) WriteMsg(res *dns.Msg) error {
   type := response.Typify(res)
 
   if type != response.NoError {
