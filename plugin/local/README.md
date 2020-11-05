@@ -46,7 +46,7 @@ debug log to get the client IP address.
 
 Only the `in-addr.arpa.` reverse zone is implemented, `ip6.arpa.` queries are not intercepted.
 
-## Also See
+## See Also
 
 BIND9's configuration in Debian comes with these zones preconfigured. See the *debug* plugin for
 enabling debug logging.
