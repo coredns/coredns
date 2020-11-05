@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	// LocalhostCounts report the number of times we've seen a localhost.<domain> query.
+	// LocalhostCount report the number of times we've seen a localhost.<domain> query.
 	LocalhostCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "local",
