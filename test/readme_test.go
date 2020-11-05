@@ -141,6 +141,10 @@ func sectionsFromReadme(readme string) error {
 	s := bufio.NewScanner(f)
 	for s.Scan() {
 		line := s.Text()
+		if strings.HasPrefix(line, "## Also See") {
+			return fmt.Errorf("Please use %q instead of %q", "See Also", "Also See")
+		}
+
 		switch section {
 		case 0:
 			if strings.HasPrefix(line, "## Name") {
