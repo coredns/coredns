@@ -5,7 +5,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/coredns/coredns/plugin/pkg/log"
 	tap "github.com/dnstap/golang-dnstap"
 )
 
