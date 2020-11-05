@@ -1,26 +1,24 @@
-package dnstapio
+package dnstap
 
 import (
 	"net"
 	"sync/atomic"
 	"time"
 
-	clog "github.com/coredns/coredns/plugin/pkg/log"
-
+	"github.com/coredns/coredns/plugin/pkg/log"
 	tap "github.com/dnstap/golang-dnstap"
 )
 
-var log = clog.NewWithPlugin("dnstap")
-
 const (
-	tcpWriteBufSize = 1024 * 1024 // there is no good explanation for why this number (see #xxx)
-	queueSize       = 10000       // see #xxxx
-	tcpTimeout      = 4 * time.Second
-	flushTimeout    = 1 * time.Second
+	tcpWriteBufSize = 1024 * 1024 // there is no good explanation for why this number has this value.
+	queueSize       = 10000       // idem.
+
+	tcpTimeout   = 4 * time.Second
+	flushTimeout = 1 * time.Second
 )
 
-// Tapper interface is used in testing to mock the Dnstap method.
-type Tapper interface {
+// tapper interface is used in testing to mock the Dnstap method.
+type tapper interface {
 	Dnstap(tap.Dnstap)
 }
 
@@ -29,7 +27,7 @@ type dio struct {
 	endpoint     string
 	proto        string
 	conn         net.Conn
-	enc          *Encoder
+	enc          *encoder
 	queue        chan tap.Dnstap
 	dropped      uint32
 	quit         chan struct{}
@@ -37,8 +35,8 @@ type dio struct {
 	tcpTimeout   time.Duration
 }
 
-// New returns a new and initialized pointer to a dio.
-func New(proto, endpoint string) *dio {
+// newIO returns a new and initialized pointer to a dio.
+func newIO(proto, endpoint string) *dio {
 	return &dio{
 		endpoint:     endpoint,
 		proto:        proto,
@@ -64,11 +62,10 @@ func (d *dio) dial() error {
 }
 
 // Connect connects to the dnstap endpoint.
-func (d *dio) Connect() {
-	if err := d.dial(); err != nil {
-		log.Errorf("No connection to dnstap endpoint: %s", err)
-	}
+func (d *dio) connect() error {
+	err := d.dial()
 	go d.serve()
+	return err
 }
 
 // Dnstap enqueues the payload for log.
@@ -80,8 +77,8 @@ func (d *dio) Dnstap(payload tap.Dnstap) {
 	}
 }
 
-// Close waits until the I/O routine is finished to return.
-func (d *dio) Close() { close(d.quit) }
+// close waits until the I/O routine is finished to return.
+func (d *dio) close() { close(d.quit) }
 
 func (d *dio) write(payload *tap.Dnstap) error {
 	if d.enc == nil {

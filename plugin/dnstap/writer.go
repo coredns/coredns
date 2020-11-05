@@ -9,25 +9,23 @@ import (
 )
 
 // ResponseWriter captures the client response and logs the query to dnstap.
-// Single request use.
 type ResponseWriter struct {
-	QueryTime time.Time
-	Query     *dns.Msg
+	queryTime time.Time
+	query     *dns.Msg
 	dns.ResponseWriter
 	Dnstap
 }
 
-// WriteMsg writes back the response to the client and THEN works on logging the request
-// and response to dnstap.
+// WriteMsg writes back the response to the client and THEN works on logging the request and response to dnstap.
 func (w *ResponseWriter) WriteMsg(resp *dns.Msg) error {
 	err := w.ResponseWriter.WriteMsg(resp)
 
 	q := new(tap.Message)
-	msg.SetQueryTime(q, w.QueryTime)
+	msg.SetQueryTime(q, w.queryTime)
 	msg.SetQueryAddress(q, w.RemoteAddr())
 
 	if w.IncludeRawMessage {
-		buf, _ := w.Query.Pack()
+		buf, _ := w.query.Pack()
 		q.QueryMessage = buf
 	}
 	msg.SetType(q, tap.Message_CLIENT_QUERY)
@@ -38,7 +36,7 @@ func (w *ResponseWriter) WriteMsg(resp *dns.Msg) error {
 	}
 
 	r := new(tap.Message)
-	msg.SetQueryTime(r, w.QueryTime)
+	msg.SetQueryTime(r, w.queryTime)
 	msg.SetResponseTime(r, time.Now())
 	msg.SetQueryAddress(r, w.RemoteAddr())
 

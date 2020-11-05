@@ -1,4 +1,4 @@
-package dnstapio
+package dnstap
 
 import (
 	"net"
@@ -14,7 +14,7 @@ import (
 
 var (
 	msgType = tap.Dnstap_MESSAGE
-	msg     = tap.Dnstap{Type: &msgType}
+	tmsg    = tap.Dnstap{Type: &msgType}
 )
 
 func accept(t *testing.T, l net.Listener, count int) {
@@ -42,14 +42,12 @@ func accept(t *testing.T, l net.Listener, count int) {
 }
 
 func TestTransport(t *testing.T) {
-
 	transport := [2][2]string{
 		{"tcp", ":0"},
 		{"unix", "dnstap.sock"},
 	}
 
 	for _, param := range transport {
-		// Start TCP listener
 		l, err := reuseport.Listen(param[0], param[1])
 		if err != nil {
 			t.Fatalf("Cannot start listener: %s", err)
@@ -62,16 +60,16 @@ func TestTransport(t *testing.T) {
 			wg.Done()
 		}()
 
-		dio := New(param[0], l.Addr().String())
+		dio := newIO(param[0], l.Addr().String())
 		dio.tcpTimeout = 10 * time.Millisecond
 		dio.flushTimeout = 30 * time.Millisecond
-		dio.Connect()
+		dio.connect()
 
-		dio.Dnstap(msg)
+		dio.Dnstap(tmsg)
 
 		wg.Wait()
 		l.Close()
-		dio.Close()
+		dio.close()
 	}
 }
 
@@ -91,17 +89,17 @@ func TestRace(t *testing.T) {
 		wg.Done()
 	}()
 
-	dio := New("tcp", l.Addr().String())
+	dio := newIO("tcp", l.Addr().String())
 	dio.tcpTimeout = 10 * time.Millisecond
 	dio.flushTimeout = 30 * time.Millisecond
-	dio.Connect()
-	defer dio.Close()
+	dio.connect()
+	defer dio.close()
 
 	wg.Add(count)
 	for i := 0; i < count; i++ {
 		go func() {
-			msg := tap.Dnstap_MESSAGE
-			dio.Dnstap(tap.Dnstap{Type: &msg})
+			tmsg := tap.Dnstap_MESSAGE
+			dio.Dnstap(tap.Dnstap{Type: &tmsg})
 			wg.Done()
 		}()
 	}
@@ -124,13 +122,13 @@ func TestReconnect(t *testing.T) {
 	}()
 
 	addr := l.Addr().String()
-	dio := New("tcp", addr)
+	dio := newIO("tcp", addr)
 	dio.tcpTimeout = 10 * time.Millisecond
 	dio.flushTimeout = 30 * time.Millisecond
-	dio.Connect()
-	defer dio.Close()
+	dio.connect()
+	defer dio.close()
 
-	dio.Dnstap(msg)
+	dio.Dnstap(tmsg)
 
 	wg.Wait()
 
@@ -151,7 +149,7 @@ func TestReconnect(t *testing.T) {
 
 	for i := 0; i < count; i++ {
 		time.Sleep(100 * time.Millisecond)
-		dio.Dnstap(msg)
+		dio.Dnstap(tmsg)
 	}
 	wg.Wait()
 }

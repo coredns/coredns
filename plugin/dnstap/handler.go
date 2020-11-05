@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/dnstap/dnstapio"
 
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
@@ -14,7 +13,7 @@ import (
 // Dnstap is the dnstap handler.
 type Dnstap struct {
 	Next plugin.Handler
-	io   dnstapio.Tapper
+	io   tapper
 
 	// IncludeRawMessage will include the raw DNS message into the dnstap messages if true.
 	IncludeRawMessage bool
@@ -31,8 +30,8 @@ func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	rw := &ResponseWriter{
 		ResponseWriter: w,
 		Dnstap:         h,
-		Query:          r,
-		QueryTime:      time.Now(),
+		query:          r,
+		queryTime:      time.Now(),
 	}
 
 	return plugin.NextOrFailure(h.Name(), h.Next, ctx, rw, r)

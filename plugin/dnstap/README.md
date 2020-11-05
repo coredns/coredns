@@ -18,7 +18,7 @@ Every message is sent to the socket as soon as it comes in, the *dnstap* plugin 
 dnstap SOCKET [full]
 ~~~
 
-* **SOCKET** is the socket path supplied to the dnstap command line tool.
+* **SOCKET** is the socket (path) supplied to the dnstap command line tool.
 * `full` to include the wire-format DNS message.
 
 ## Examples
