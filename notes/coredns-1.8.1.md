@@ -20,3 +20,4 @@ The CoreDNS team has released
 * plugin/{clouddns,azure,route53}: Use cancelable contexts for cloud provider plugin refreshes (https://github.com/coredns/coredns/pull/4226)
 * plugin/health: Fix health check endpoint (https://github.com/coredns/coredns/pull/4231)
 * plugin/local: add local plugin (https://github.com/coredns/coredns/pull/4262)
+* plugin/kubernetes: plugin/kubernetes: Watch EndpointSlices (https://github.com/coredns/coredns/pull/4209)
