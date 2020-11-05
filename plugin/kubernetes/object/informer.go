@@ -88,6 +88,7 @@ func cleanObj(i interface{}) {
 	case *api.Pod:
 		*item = api.Pod{}
 	}
+	return
 }
 
 const defaultResyncPeriod = 0
