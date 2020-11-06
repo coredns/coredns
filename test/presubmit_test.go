@@ -16,67 +16,6 @@ import (
 	"unicode"
 )
 
-func TestTrailingWhitespace(t *testing.T) {
-	walker := hasTrailingWhitespaceWalker{}
-	err := filepath.Walk("..", walker.walk)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if len(walker.Errors) > 0 {
-		for _, err = range walker.Errors {
-			t.Error(err)
-		}
-	}
-}
-
-type hasTrailingWhitespaceWalker struct {
-	Errors []error
-}
-
-func (w *hasTrailingWhitespaceWalker) walk(path string, info os.FileInfo, _ error) error {
-	// Only handle regular files, skip files that are executable and skip file in the
-	// root that start with a .
-	if !info.Mode().IsRegular() {
-		return nil
-	}
-	if info.Mode().Perm()&0111 != 0 {
-		return nil
-	}
-	if strings.HasPrefix(path, "../.") {
-		return nil
-	}
-	if strings.Contains(path, "/vendor") {
-		return nil
-	}
-
-	file, err := os.Open(path)
-	if err != nil {
-		return nil
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for i := 1; scanner.Scan(); i++ {
-		text := scanner.Text()
-		trimmed := strings.TrimRightFunc(text, unicode.IsSpace)
-		if len(text) != len(trimmed) {
-			absPath, _ := filepath.Abs(path)
-			w.Errors = append(w.Errors, fmt.Errorf("file %q has trailing whitespace at line %d, text: %q", absPath, i, text))
-		}
-	}
-
-	err = scanner.Err()
-
-	if err != nil {
-		absPath, _ := filepath.Abs(path)
-		err = fmt.Errorf("file %q: %v", absPath, err)
-	}
-
-	return err
-}
-
 func TestFileNameHyphen(t *testing.T) {
 	walker := hasHyphenWalker{}
 	err := filepath.Walk("..", walker.walk)
