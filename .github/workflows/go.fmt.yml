@@ -1,0 +1,36 @@
+name: Go Fmt
+
+on:
+  push:
+    branches:
+      - 'master'
+    paths:
+      - '*.go'
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v2
+      -
+        name: Fmt
+        run: |
+          find . -not -path '*/\.git/*' -type f -name '*.go' -exec gofmt -s -w {} \+
+      -
+        name: Set up Git
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "coredns-auto-go-mod-fmt[bot]"
+          git config user.email "coredns-auto-go-mod-fmt[bot]@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
+      -
+        name: Commit and push changes
+        run: |
+          git add .
+          if output=$(git status --porcelain) && [ ! -z "$output" ]; then
+            git commit -m 'auto go mod fmt'
+            git push
+          fi
