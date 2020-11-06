@@ -4,10 +4,8 @@ on:
   push:
     branches:
       - 'master'
-    paths:
-      - '**.go'
     paths-ignore:
-      - '.git/**'
+      - '**.go'
 
 jobs:
   fix:
