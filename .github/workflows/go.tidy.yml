@@ -1,4 +1,4 @@
-name: go tidy
+name: Go Tidy
 
 on:
   push:

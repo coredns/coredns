@@ -142,7 +142,7 @@ func TestAutoAXFR(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	time.Sleep(10 * time.Millisecond) // wait for it to be picked up
+	time.Sleep(50 * time.Millisecond) // wait for it to be picked up
 
 	tr := new(dns.Transfer)
 	m := new(dns.Msg)
