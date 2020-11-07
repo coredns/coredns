@@ -3,7 +3,6 @@ package test
 // These tests check for meta level items, like trailing whitespace, correct file naming etc.
 
 import (
-	"bufio"
 	"fmt"
 	"go/ast"
 	"go/parser"
