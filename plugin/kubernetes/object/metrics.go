@@ -1,12 +1,13 @@
-package kubernetes
+package object
 
 import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/kubernetes/object"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	api "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -25,42 +26,50 @@ var (
 	//   * headless_without_selector
 	DNSProgrammingLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
-		Subsystem: pluginName,
+		Subsystem: "kubernetes",
 		Name:      "dns_programming_duration_seconds",
 		// From 1 millisecond to ~17 minutes.
 		Buckets: prometheus.ExponentialBuckets(0.001, 2, 20),
 		Help:    "Histogram of the time (in seconds) it took to program a dns instance.",
 	}, []string{"service_kind"})
 
-	// durationSinceFunc returns the duration elapsed since the given time.
+	// DurationSinceFunc returns the duration elapsed since the given time.
 	// Added as a global variable to allow injection for testing.
-	durationSinceFunc = time.Since
+	DurationSinceFunc = time.Since
 )
 
-func recordDNSProgrammingLatency(svcs []*object.Service, endpoints meta.Object) {
-	// getLastChangeTriggerTime is the time.Time value of the EndpointsLastChangeTriggerTime
-	// annotation stored in the given endpoints object or the "zero" time if the annotation wasn't set
-	var lastChangeTriggerTime time.Time
-	stringVal, ok := endpoints.GetAnnotations()[api.EndpointsLastChangeTriggerTime]
+// EndpointLatencyRecorder records latency metric for endpoint objects
+type EndpointLatencyRecorder struct {
+	TT          time.Time
+	ServiceFunc func(meta.Object) []*Service
+	Services    []*Service
+}
+
+func (l *EndpointLatencyRecorder) init(o meta.Object) {
+	l.Services = l.ServiceFunc(o)
+	l.TT = time.Time{}
+	stringVal, ok := o.GetAnnotations()[api.EndpointsLastChangeTriggerTime]
 	if ok {
-		ts, err := time.Parse(time.RFC3339Nano, stringVal)
+		tt, err := time.Parse(time.RFC3339Nano, stringVal)
 		if err != nil {
 			log.Warningf("DnsProgrammingLatency cannot be calculated for Endpoints '%s/%s'; invalid %q annotation RFC3339 value of %q",
-				endpoints.GetNamespace(), endpoints.GetName(), api.EndpointsLastChangeTriggerTime, stringVal)
-			// In case of error val = time.Zero, which is ignored in the upstream code.
+				o.GetNamespace(), o.GetName(), api.EndpointsLastChangeTriggerTime, stringVal)
+			// In case of error val = time.Zero, which is ignored downstream.
 		}
-		lastChangeTriggerTime = ts
+		l.TT = tt
 	}
+}
 
+func (l *EndpointLatencyRecorder) record() {
 	// isHeadless indicates whether the endpoints object belongs to a headless
 	// service (i.e. clusterIp = None). Note that this can be a  false negatives if the service
 	// informer is lagging, i.e. we may not see a recently created service. Given that the services
 	// don't change very often (comparing to much more frequent endpoints changes), cases when this method
 	// will return wrong answer should be relatively rare. Because of that we intentionally accept this
 	// flaw to keep the solution simple.
-	isHeadless := len(svcs) == 1 && svcs[0].ClusterIP == api.ClusterIPNone
+	isHeadless := len(l.Services) == 1 && l.Services[0].ClusterIP == api.ClusterIPNone
 
-	if endpoints == nil || !isHeadless || lastChangeTriggerTime.IsZero() {
+	if !isHeadless || l.TT.IsZero() {
 		return
 	}
 
@@ -69,5 +78,5 @@ func recordDNSProgrammingLatency(svcs []*object.Service, endpoints meta.Object) 
 	// LastChangeTriggerTime annotation is set). It means that the corresponding service is a
 	// "headless service with selector".
 	DNSProgrammingLatency.WithLabelValues("headless_with_selector").
-		Observe(durationSinceFunc(lastChangeTriggerTime).Seconds())
+		Observe(DurationSinceFunc(l.TT).Seconds())
 }

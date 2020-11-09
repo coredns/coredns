@@ -64,6 +64,8 @@ func ToService(obj interface{}) (interface{}, error) {
 
 	}
 
+	*svc = api.Service{}
+
 	return s, nil
 }
 

@@ -1,8 +1,6 @@
 package object
 
 import (
-	api "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -27,10 +25,15 @@ func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.
 type RecordLatencyFunc func(meta.Object)
 
 // DefaultProcessor is based on the Process function from cache.NewIndexerInformer except it does a conversion.
-func DefaultProcessor(convert ToFunc, recordLatency RecordLatencyFunc) ProcessorBuilder {
+func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) ProcessorBuilder {
 	return func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
 		return func(obj interface{}) error {
 			for _, d := range obj.(cache.Deltas) {
+				if recordLatency != nil {
+					if o, ok := d.Object.(meta.Object); ok {
+						recordLatency.init(o)
+					}
+				}
 				switch d.Type {
 				case cache.Sync, cache.Added, cache.Updated:
 					obj, err := convert(d.Object)
@@ -49,7 +52,7 @@ func DefaultProcessor(convert ToFunc, recordLatency RecordLatencyFunc) Processor
 						h.OnAdd(obj)
 					}
 					if recordLatency != nil {
-						recordLatency(d.Object.(meta.Object))
+						recordLatency.record()
 					}
 				case cache.Deleted:
 					var obj interface{}
@@ -67,28 +70,13 @@ func DefaultProcessor(convert ToFunc, recordLatency RecordLatencyFunc) Processor
 					}
 					h.OnDelete(obj)
 					if !ok && recordLatency != nil {
-						recordLatency(d.Object.(meta.Object))
+						recordLatency.record()
 					}
 				}
-				cleanObj(d.Object)
 			}
 			return nil
 		}
 	}
-}
-
-func cleanObj(i interface{}) {
-	switch item := i.(type) {
-	case *discovery.EndpointSlice:
-		*item = discovery.EndpointSlice{}
-	case *api.Endpoints:
-		*item = api.Endpoints{}
-	case *api.Service:
-		*item = api.Service{}
-	case *api.Pod:
-		*item = api.Pod{}
-	}
-	return
 }
 
 const defaultResyncPeriod = 0

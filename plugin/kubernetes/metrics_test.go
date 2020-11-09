@@ -52,14 +52,13 @@ func TestDNSProgrammingLatencyEndpointSlices(t *testing.T) {
 	epIdx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
 
 	dns := dnsControl{svcLister: svcIdx}
-	latencyFunc := dns.recordEndpointSliceDNSProgrammingLatency
 	svcProc := object.DefaultProcessor(object.ToService, nil)(svcIdx, cache.ResourceEventHandlerFuncs{})
-	epProc := object.DefaultProcessor(object.EndpointSliceToEndpoints, latencyFunc)(epIdx, cache.ResourceEventHandlerFuncs{})
+	epProc := object.DefaultProcessor(object.EndpointSliceToEndpoints, dns.EndpointSliceLatencyRecorder())(epIdx, cache.ResourceEventHandlerFuncs{})
 
-	durationSinceFunc = func(t time.Time) time.Duration {
+	object.DurationSinceFunc = func(t time.Time) time.Duration {
 		return now.Sub(t)
 	}
-	DNSProgrammingLatency.Reset()
+	object.DNSProgrammingLatency.Reset()
 
 	endpoints1 := []discovery.Endpoint{{
 		Addresses: []string{"1.2.3.4"},
@@ -84,7 +83,7 @@ func TestDNSProgrammingLatencyEndpointSlices(t *testing.T) {
 	createService(t, svcProc, "headless-wrong-annotation", api.ClusterIPNone)
 	createEndpointSlice(t, epProc, "headless-wrong-annotation", "wrong-value", nil)
 
-	if err := testutil.CollectAndCompare(DNSProgrammingLatency, strings.NewReader(expected)); err != nil {
+	if err := testutil.CollectAndCompare(object.DNSProgrammingLatency, strings.NewReader(expected)); err != nil {
 		t.Error(err)
 	}
 }
@@ -96,14 +95,13 @@ func TestDnsProgrammingLatencyEndpoints(t *testing.T) {
 	epIdx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
 
 	dns := dnsControl{svcLister: svcIdx}
-	latencyFunc := dns.recordEndpointDNSProgrammingLatency
 	svcProc := object.DefaultProcessor(object.ToService, nil)(svcIdx, cache.ResourceEventHandlerFuncs{})
-	epProc := object.DefaultProcessor(object.ToEndpoints, latencyFunc)(epIdx, cache.ResourceEventHandlerFuncs{})
+	epProc := object.DefaultProcessor(object.ToEndpoints, dns.EndpointsLatencyRecorder())(epIdx, cache.ResourceEventHandlerFuncs{})
 
-	durationSinceFunc = func(t time.Time) time.Duration {
+	object.DurationSinceFunc = func(t time.Time) time.Duration {
 		return now.Sub(t)
 	}
-	DNSProgrammingLatency.Reset()
+	object.DNSProgrammingLatency.Reset()
 
 	subset1 := []api.EndpointSubset{{
 		Addresses: []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
@@ -128,7 +126,7 @@ func TestDnsProgrammingLatencyEndpoints(t *testing.T) {
 	createService(t, svcProc, "headless-wrong-annotation", api.ClusterIPNone)
 	createEndpoints(t, epProc, "headless-wrong-annotation", "wrong-value", nil)
 
-	if err := testutil.CollectAndCompare(DNSProgrammingLatency, strings.NewReader(expected)); err != nil {
+	if err := testutil.CollectAndCompare(object.DNSProgrammingLatency, strings.NewReader(expected)); err != nil {
 		t.Error(err)
 	}
 }

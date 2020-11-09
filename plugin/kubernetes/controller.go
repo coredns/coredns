@@ -136,20 +136,20 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			apiObj    runtime.Object
 			listWatch cache.ListWatch
 			to        object.ToFunc
-			latency   object.RecordLatencyFunc
+			latency   *object.EndpointLatencyRecorder
 		)
 		if opts.useEndpointSlices {
 			apiObj = &discovery.EndpointSlice{}
 			listWatch.ListFunc = endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
 			listWatch.WatchFunc = endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
 			to = object.EndpointSliceToEndpoints
-			latency = dns.recordEndpointSliceDNSProgrammingLatency
+			latency = dns.EndpointSliceLatencyRecorder()
 		} else {
 			apiObj = &api.Endpoints{}
 			listWatch.ListFunc = endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
 			listWatch.WatchFunc = endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
 			to = object.ToEndpoints
-			latency = dns.recordEndpointDNSProgrammingLatency
+			latency = dns.EndpointsLatencyRecorder()
 		}
 		dns.epLister, dns.epController = object.NewIndexerInformer(
 			&listWatch,
@@ -172,12 +172,19 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 	return &dns
 }
 
-func (dns *dnsControl) recordEndpointDNSProgrammingLatency(obj meta.Object) {
-	recordDNSProgrammingLatency(dns.getServices(obj.(*api.Endpoints)), obj)
+func (dns *dnsControl) EndpointsLatencyRecorder() *object.EndpointLatencyRecorder {
+	return &object.EndpointLatencyRecorder{
+		ServiceFunc: func(o meta.Object) []*object.Service {
+			return dns.SvcIndex(object.ServiceKey(o.GetName(), o.GetNamespace()))
+		},
+	}
 }
-
-func (dns *dnsControl) recordEndpointSliceDNSProgrammingLatency(obj meta.Object) {
-	recordDNSProgrammingLatency(dns.SvcIndex(object.ServiceKey(obj.GetLabels()[discovery.LabelServiceName], obj.GetNamespace())), obj)
+func (dns *dnsControl) EndpointSliceLatencyRecorder() *object.EndpointLatencyRecorder {
+	return &object.EndpointLatencyRecorder{
+		ServiceFunc: func(o meta.Object) []*object.Service {
+			return dns.SvcIndex(object.ServiceKey(o.GetLabels()[discovery.LabelServiceName], o.GetNamespace()))
+		},
+	}
 }
 
 func podIPIndexFunc(obj interface{}) ([]string, error) {
@@ -515,10 +522,6 @@ func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
 	default:
 		log.Warningf("Updates for %T not supported.", ob)
 	}
-}
-
-func (dns *dnsControl) getServices(endpoints *api.Endpoints) []*object.Service {
-	return dns.SvcIndex(object.ServiceKey(endpoints.GetName(), endpoints.GetNamespace()))
 }
 
 // subsetsEquivalent checks if two endpoint subsets are significantly equivalent

@@ -39,6 +39,9 @@ func ToPod(obj interface{}) (interface{}, error) {
 		// during add/update event processing
 		return pod, errPodTerminating
 	}
+
+	*apiPod = api.Pod{}
+
 	return pod, nil
 }
 

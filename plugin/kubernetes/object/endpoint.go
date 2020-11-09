@@ -95,6 +95,8 @@ func ToEndpoints(obj interface{}) (interface{}, error) {
 		}
 	}
 
+	*end = api.Endpoints{}
+
 	return e, nil
 }
 
@@ -137,6 +139,8 @@ func EndpointSliceToEndpoints(obj interface{}) (interface{}, error) {
 			e.IndexIP = append(e.IndexIP, a)
 		}
 	}
+
+	*ends = discovery.EndpointSlice{}
 
 	return e, nil
 }
