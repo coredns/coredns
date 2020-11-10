@@ -1,21 +1,13 @@
 # Makefile for releasing CoreDNS
 #
 # The release is controlled from coremain/version.go. The version found there is
-# used to tag the git repo and to build the assets that are uploaded to github
-# (after some sanity checks).
+# used to tag the git repo and to build the assets that are uploaded to GitHub.
 #
 # The release should be accompanied by release notes in the notes/ subdirectory.
 # These are published on coredns.io. For example see: notes/coredns-1.5.1.md
+# Use make -f Makefile.release DOCKER=bla notes to create a skeleton notes document.
 #
-# Getting the authors for this release is done with the following command line
-# See the 'authors' target.
-#
-# git log --pretty=format:'%an' $(git describe --tags --abbrev=0)..master | sort -u
-#
-# Getting all pull requests merged since the last tag can be done with this "oneliner"
-# See the 'prs' target.
-#
-# % git log $(git describe --tags --abbrev=0)..HEAD --oneline | awk ' { $1="";print } ' | sed 's/^ //' | sed -e 's|#\([0-9]\)|https://github.com/coredns/coredns/pull/\1|'
+# Be sure to prune the PR list a bit, not everything is not worthy!
 #
 # As seen in notes/coredns-1.5.1.md we want to style the notes in the following manner:
 #
@@ -167,12 +159,23 @@ clean:
 	rm -rf release
 	rm -rf build
 
+.PHONY: notes
+notes:
+	@$(MAKE) -s DOCKER=bla -f Makefile.release authors
+	@echo
+	@$(MAKE) -s DOCKER=bla -f Makefile.release prs
+
 .PHONY: prs
 prs:
-	git log $$(git describe --tags --abbrev=0)..HEAD --oneline | awk ' { $$1="";print } ' | sed 's/^ //' | sed -e 's|#\([0-9]\)|https://github.com/coredns/coredns/pull/\1|' | \
-		grep -v '^build(deps)' | \
-		grep -v '^auto go mod tidy'
+	@echo "## Noteworthy Changes"
+	@echo
+	@git log $$(git describe --tags --abbrev=0)..HEAD --oneline | awk ' { $$1="";print } ' | sed 's/^ //' | sed -e 's|#\([0-9]\)|https://github.com/coredns/coredns/pull/\1|' | \
+	    grep -v '^build(deps)' | \
+	    grep -v '^auto go mod tidy' | grep -v '^auto remove' | grep -v '^auto make' | sed 's/^/* /'
 
 .PHONY: authors
 authors:
-	git log --pretty=format:'%an' $$(git describe --tags --abbrev=0)..master | sort -u
+	@echo "## Brought to You By"
+	@echo
+	@git log --pretty=format:'%an' $$(git describe --tags --abbrev=0)..master | sort -u | grep -v '^coredns-auto' | grep -v '^dependabot-preview' | \
+	    tac | cat -n | sed -e 's/^[[:space:]]\+1[[:space:]]\+\(.*\)/\1./' | sed -e 's/^[[:space:]]\+[[:digit:]]\+[[:space:]]\+\(.*\)/\1,/' | tac # comma separate, with dot at the end
