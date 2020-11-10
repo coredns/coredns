@@ -5,7 +5,7 @@ on:
     branches:
       - 'master'
     paths:
-      - '*.go'
+      - '**.go'
 
 jobs:
   fix:
