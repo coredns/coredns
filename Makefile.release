@@ -5,7 +5,7 @@
 #
 # The release should be accompanied by release notes in the notes/ subdirectory.
 # These are published on coredns.io. For example see: notes/coredns-1.5.1.md
-# Use make -f Makefile.release DOCKER=bla notes to create a skeleton notes document.
+# Use make -f Makefile.release notes to create a skeleton notes document.
 #
 # Be sure to prune the PR list a bit, not everything is not worthy!
 #
@@ -57,10 +57,6 @@ DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
 LINUX_ARCH:=amd64 arm arm64 ppc64le s390x
 PLATFORMS:=$(subst $(SPACE),$(COMMA),$(foreach arch,$(LINUX_ARCH),linux/$(arch)))
 
-ifeq ($(DOCKER),)
-    $(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
-endif
-
 all:
 	@echo Use the 'release' target to build a release, 'docker' for docker build.
 
@@ -103,6 +99,9 @@ tar:
 
 .PHONY: github-push
 github-push:
+ifeq ($(GITHUB_ACCESS_TOKEN),)
+	$(error "Please set the GITHUB_ACCESS_TOKEN environment variable")
+else
 	@echo Releasing: $(VERSION)
 	@$(eval RELEASE:=$(shell curl -s -d '{"tag_name": "v$(VERSION)", "name": "v$(VERSION)"}' -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" "https://api.github.com/repos/$(GITHUB)/$(NAME)/releases" | grep -m 1 '"id"' | tr -cd '[[:digit:]]'))
 	@echo ReleaseID: $(RELEASE)
@@ -125,9 +124,13 @@ github-push:
 	      --data-binary "@$$asset" \
 	      "https://uploads.github.com/repos/$(GITHUB)/$(NAME)/releases/$(RELEASE)/assets?name=$${asset}" ; \
 	done )
+endif
 
 .PHONY: docker-build
 docker-build: tar
+ifeq ($(DOCKER),)
+	$(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
+else
 	@# Steps:
 	@# 1. Copy appropriate coredns binary to build/docker/linux/<arch>
 	@# 2. Copy Dockerfile to build/docker/linux/<arch>
@@ -139,9 +142,13 @@ docker-build: tar
 	    docker build -t coredns build/docker/linux/$$arch ;\
 	    docker tag coredns $(DOCKER_IMAGE_NAME):coredns-$$arch ;\
 	done
+endif
 
 .PHONY: docker-push
 docker-push:
+ifeq ($(DOCKER),)
+	$(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
+else
 	@echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_LOGIN) --password-stdin
 	@echo Pushing: $(VERSION) to $(DOCKER_IMAGE_NAME)
 	for arch in $(LINUX_ARCH); do \
@@ -149,6 +156,7 @@ docker-push:
 	done
 	manifest-tool push from-args --platforms $(PLATFORMS) --template $(DOCKER_IMAGE_NAME):coredns-ARCH --target $(DOCKER_IMAGE_NAME):$(VERSION)
 	manifest-tool push from-args --platforms $(PLATFORMS) --template $(DOCKER_IMAGE_NAME):coredns-ARCH --target $(DOCKER_IMAGE_NAME):latest
+endif
 
 .PHONY: version
 version:
@@ -161,9 +169,9 @@ clean:
 
 .PHONY: notes
 notes:
-	@$(MAKE) -s DOCKER=bla -f Makefile.release authors
+	@$(MAKE) -s -f Makefile.release authors
 	@echo
-	@$(MAKE) -s DOCKER=bla -f Makefile.release prs
+	@$(MAKE) -s -f Makefile.release prs
 
 .PHONY: prs
 prs:
