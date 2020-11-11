@@ -86,5 +86,4 @@ func TestLookupWildcard(t *testing.T) {
 			continue
 		}
 	}
-
 }

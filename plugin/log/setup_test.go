@@ -162,5 +162,4 @@ func TestLogParse(t *testing.T) {
 			}
 		}
 	}
-
 }

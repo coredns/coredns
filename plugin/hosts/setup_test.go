@@ -166,5 +166,4 @@ func TestHostsInlineParse(t *testing.T) {
 			}
 		}
 	}
-
 }

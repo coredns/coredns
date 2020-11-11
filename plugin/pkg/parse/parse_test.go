@@ -55,7 +55,5 @@ func TestTransferIn(t *testing.T) {
 				}
 			}
 		}
-
 	}
-
 }

@@ -76,7 +76,6 @@ func TestZoneReloadSOAChange(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Zone should not have been re-parsed")
 	}
-
 }
 
 const reloadZoneTest = `miek.nl.		1627	IN	SOA	linode.atoom.net. miek.miek.nl. 1460175181 14400 3600 604800 14400

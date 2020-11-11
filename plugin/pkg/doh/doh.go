@@ -50,7 +50,6 @@ func NewRequest(method, url string, m *dns.Msg) (*http.Request, error) {
 	default:
 		return nil, fmt.Errorf("method not allowed: %s", method)
 	}
-
 }
 
 // ResponseToMsg converts a http.Response to a dns message.
@@ -72,7 +71,6 @@ func RequestToMsg(req *http.Request) (*dns.Msg, error) {
 	default:
 		return nil, fmt.Errorf("method not allowed: %s", req.Method)
 	}
-
 }
 
 // requestToMsgPost extracts the dns message from the request body.

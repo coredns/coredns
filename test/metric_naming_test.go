@@ -37,7 +37,6 @@ func TestMetricNaming(t *testing.T) {
 			t.Fatalf("A slice of Problems indicating any issues found in the metrics stream: %s", problems)
 		}
 	}
-
 }
 
 type validMetricWalker struct {

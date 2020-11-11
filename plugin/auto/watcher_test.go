@@ -51,7 +51,6 @@ func TestWatcher(t *testing.T) {
 	if _, ok := a.Zones.Z["example.org."]; !ok {
 		t.Errorf("Expected %q to still be there.", "example.org.")
 	}
-
 }
 
 func TestSymlinks(t *testing.T) {
