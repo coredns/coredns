@@ -68,3 +68,76 @@ func doReverterTests(rules []Rule, t *testing.T) {
 		}
 	}
 }
+
+var srvTests = []struct {
+	from        string
+	fromType    uint16
+	answer      []dns.RR
+	extra       []dns.RR
+	to          string
+	toType      uint16
+	noRevert    bool
+	toSrvTarget string
+}{
+	{"my.domain.uk", dns.TypeSRV, []dns.RR{test.SRV("my.cluster.local.  5  IN  SRV 0 100 100 srv1.my.cluster.local.")}, []dns.RR{test.A("srv1.my.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeSRV, false, "srv1.my.domain.uk."},
+	{"my.domain.uk", dns.TypeSRV, []dns.RR{test.SRV("my.cluster.local.  5  IN  SRV 0 100 100 srv1.my.cluster.local.")}, []dns.RR{test.A("srv1.my.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeSRV, true, "srv1.my.cluster.local."},
+}
+
+func TestSrvResponseReverter(t *testing.T) {
+
+	rules := []Rule{}
+	r, _ := newNameRule("stop", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk")
+	rules = append(rules, r)
+
+	doSrvReverterTests(rules, t)
+
+	rules = []Rule{}
+	r, _ = newNameRule("continue", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk")
+	rules = append(rules, r)
+
+	doSrvReverterTests(rules, t)
+}
+
+func doSrvReverterTests(rules []Rule, t *testing.T) {
+	ctx := context.TODO()
+	for i, tc := range srvTests {
+		m := new(dns.Msg)
+		m.SetQuestion(tc.from, tc.fromType)
+		m.Question[0].Qclass = dns.ClassINET
+		m.Answer = tc.answer
+		m.Extra = tc.extra
+		rw := Rewrite{
+			Next:     plugin.HandlerFunc(msgPrinter),
+			Rules:    rules,
+			noRevert: tc.noRevert,
+		}
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		rw.ServeDNS(ctx, rec, m)
+		resp := rec.Msg
+		if resp.Question[0].Name != tc.to {
+			t.Errorf("Test %d: Expected Name to be %q but was %q", i, tc.to, resp.Question[0].Name)
+		}
+		if resp.Question[0].Qtype != tc.toType {
+			t.Errorf("Test %d: Expected Type to be '%d' but was '%d'", i, tc.toType, resp.Question[0].Qtype)
+		}
+
+		if len(resp.Answer) <= 0 || resp.Answer[0].Header().Rrtype != dns.TypeSRV {
+			t.Error("Unexpected Answer Record Type / No Answers")
+			return
+		}
+
+		srvTarget := resp.Answer[0].(*dns.SRV).Target
+		if srvTarget != tc.toSrvTarget {
+			t.Errorf("Test %d: Expected Srv Target to be '%s' but was '%s'", i, tc.toSrvTarget, srvTarget)
+		}
+
+		if len(resp.Extra) <= 0 || resp.Extra[0].Header().Rrtype != dns.TypeA {
+			t.Error("Unexpected Additional Record Type / No Additional Records")
+			return
+		}
+
+		if resp.Extra[0].Header().Name != tc.toSrvTarget {
+			t.Errorf("Test %d: Expected Extra Name to be %q but was %q", i, tc.to, resp.Question[0].Name)
+		}
+	}
+}

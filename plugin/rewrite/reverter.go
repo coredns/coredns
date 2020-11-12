@@ -40,43 +40,69 @@ func (r *ResponseReverter) WriteMsg(res *dns.Msg) error {
 	res.Question[0] = r.originalQuestion
 	if r.ResponseRewrite {
 		for _, rr := range res.Answer {
-			var (
-				isNameRewritten bool
-				isTTLRewritten  bool
-				name            = rr.Header().Name
-				ttl             = rr.Header().Ttl
-			)
-			for _, rule := range r.ResponseRules {
-				if rule.Type == "" {
-					rule.Type = "name"
-				}
-				switch rule.Type {
-				case "name":
-					regexGroups := rule.Pattern.FindStringSubmatch(name)
-					if len(regexGroups) == 0 {
-						continue
-					}
-					s := rule.Replacement
-					for groupIndex, groupValue := range regexGroups {
-						groupIndexStr := "{" + strconv.Itoa(groupIndex) + "}"
-						s = strings.Replace(s, groupIndexStr, groupValue, -1)
-					}
-					name = s
-					isNameRewritten = true
-				case "ttl":
-					ttl = rule.TTL
-					isTTLRewritten = true
-				}
-			}
-			if isNameRewritten {
-				rr.Header().Name = name
-			}
-			if isTTLRewritten {
-				rr.Header().Ttl = ttl
-			}
+			rewriteResourceRecord(res, rr, r)
+		}
+
+		for _, rr := range res.Extra {
+			rewriteResourceRecord(res, rr, r)
 		}
 	}
 	return r.ResponseWriter.WriteMsg(res)
+}
+
+func rewriteResourceRecord(res *dns.Msg, rr dns.RR, r *ResponseReverter) {
+	var (
+		isNameRewritten      bool
+		isTTLRewritten       bool
+		isSrvTargetRewritten bool
+		name                 = rr.Header().Name
+		ttl                  = rr.Header().Ttl
+		srvTarget            string
+	)
+
+	if rr.Header().Rrtype == dns.TypeSRV {
+		srvTarget = rr.(*dns.SRV).Target
+	}
+
+	for _, rule := range r.ResponseRules {
+		if rule.Type == "" {
+			rule.Type = "name"
+		}
+		switch rule.Type {
+		case "name":
+			rewriteName(rule, &name, &isNameRewritten)
+			if rr.Header().Rrtype == dns.TypeSRV {
+				rewriteName(rule, &srvTarget, &isSrvTargetRewritten)
+			}
+		case "ttl":
+			ttl = rule.TTL
+			isTTLRewritten = true
+		}
+	}
+	if isNameRewritten {
+		rr.Header().Name = name
+	}
+	if isTTLRewritten {
+		rr.Header().Ttl = ttl
+	}
+	if isSrvTargetRewritten {
+		rr.(*dns.SRV).Target = srvTarget
+	}
+}
+
+func rewriteName(rule ResponseRule, name *string, isNameRewritten *bool) {
+	regexGroups := rule.Pattern.FindStringSubmatch(*name)
+	if len(regexGroups) == 0 {
+		return
+	}
+	s := rule.Replacement
+	for groupIndex, groupValue := range regexGroups {
+		groupIndexStr := "{" + strconv.Itoa(groupIndex) + "}"
+		s = strings.Replace(s, groupIndexStr, groupValue, -1)
+	}
+
+	*isNameRewritten = true
+	*name = s
 }
 
 // Write is a wrapper that records the size of the message that gets written.
