@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	api "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -29,7 +30,7 @@ type Service struct {
 func ServiceKey(name, namespace string) string { return name + "." + namespace }
 
 // ToService returns a function that converts an api.Service to a *Service.
-func ToService(obj interface{}) (interface{}, error) {
+func ToService(obj meta.Object) (meta.Object, error) {
 	svc, ok := obj.(*api.Service)
 	if !ok {
 		return nil, fmt.Errorf("unexpected object %v", obj)

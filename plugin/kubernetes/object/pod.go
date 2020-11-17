@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	api "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -22,7 +23,7 @@ type Pod struct {
 var errPodTerminating = errors.New("pod terminating")
 
 // ToPod returns a function that converts an api.Pod to a *Pod.
-func ToPod(obj interface{}) (interface{}, error) {
+func ToPod(obj meta.Object) (meta.Object, error) {
 	apiPod, ok := obj.(*api.Pod)
 	if !ok {
 		return nil, fmt.Errorf("unexpected object %v", obj)

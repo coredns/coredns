@@ -5,6 +5,7 @@ import (
 
 	api "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1beta1"
+	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -47,7 +48,7 @@ type EndpointPort struct {
 func EndpointsKey(name, namespace string) string { return name + "." + namespace }
 
 // toEndpoints converts an *api.Endpoints to a *Endpoints.
-func ToEndpoints(obj interface{}) (interface{}, error) {
+func ToEndpoints(obj meta.Object) (meta.Object, error) {
 	end, ok := obj.(*api.Endpoints)
 	if !ok {
 		return nil, fmt.Errorf("unexpected object %v", obj)
@@ -101,7 +102,7 @@ func ToEndpoints(obj interface{}) (interface{}, error) {
 }
 
 // EndpointSliceToEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
-func EndpointSliceToEndpoints(obj interface{}) (interface{}, error) {
+func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
 	ends, ok := obj.(*discovery.EndpointSlice)
 	if !ok {
 		return nil, fmt.Errorf("unexpected object %v", obj)

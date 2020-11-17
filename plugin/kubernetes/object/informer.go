@@ -1,6 +1,8 @@
 package object
 
 import (
+	"fmt"
+
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/cache"
@@ -36,7 +38,7 @@ func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) Pr
 				}
 				switch d.Type {
 				case cache.Sync, cache.Added, cache.Updated:
-					obj, err := convert(d.Object)
+					obj, err := convert(d.Object.(meta.Object))
 					if err != nil {
 						return err
 					}
@@ -59,7 +61,11 @@ func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) Pr
 					obj, ok := d.Object.(cache.DeletedFinalStateUnknown)
 					if !ok {
 						var err error
-						obj, err = convert(d.Object)
+						metaObj, ok := d.Object.(meta.Object)
+						if !ok {
+							return fmt.Errorf("unexpected object %v", d.Object)
+						}
+						obj, err = convert(metaObj)
 						if err != nil && err != errPodTerminating {
 							return err
 						}
