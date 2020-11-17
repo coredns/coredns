@@ -29,7 +29,7 @@ type Service struct {
 // ServiceKey returns a string using for the index.
 func ServiceKey(name, namespace string) string { return name + "." + namespace }
 
-// ToService returns a function that converts an api.Service to a *Service.
+// ToService converts an api.Service to a *Service.
 func ToService(obj meta.Object) (meta.Object, error) {
 	svc, ok := obj.(*api.Service)
 	if !ok {

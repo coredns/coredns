@@ -22,7 +22,7 @@ type Pod struct {
 
 var errPodTerminating = errors.New("pod terminating")
 
-// ToPod returns a function that converts an api.Pod to a *Pod.
+// ToPod converts an api.Pod to a *Pod.
 func ToPod(obj meta.Object) (meta.Object, error) {
 	apiPod, ok := obj.(*api.Pod)
 	if !ok {
