@@ -39,6 +39,10 @@ func NewResponseReverter(w dns.ResponseWriter, r *dns.Msg) *ResponseReverter {
 func (r *ResponseReverter) WriteMsg(res *dns.Msg) error {
 	res.Question[0] = r.originalQuestion
 	if r.ResponseRewrite {
+		for _, rr := range res.Ns {
+			rewriteResourceRecord(res, rr, r)
+		}
+
 		for _, rr := range res.Answer {
 			rewriteResourceRecord(res, rr, r)
 		}
@@ -46,23 +50,22 @@ func (r *ResponseReverter) WriteMsg(res *dns.Msg) error {
 		for _, rr := range res.Extra {
 			rewriteResourceRecord(res, rr, r)
 		}
+
 	}
 	return r.ResponseWriter.WriteMsg(res)
 }
 
 func rewriteResourceRecord(res *dns.Msg, rr dns.RR, r *ResponseReverter) {
 	var (
-		isNameRewritten      bool
-		isTTLRewritten       bool
-		isSrvTargetRewritten bool
-		name                 = rr.Header().Name
-		ttl                  = rr.Header().Ttl
-		srvTarget            string
+		isNameRewritten   bool
+		isTTLRewritten    bool
+		isTargetRewritten bool
+		name              = rr.Header().Name
+		ttl               = rr.Header().Ttl
+		target            string
 	)
 
-	if rr.Header().Rrtype == dns.TypeSRV {
-		srvTarget = rr.(*dns.SRV).Target
-	}
+	target = getTargetNameForRewrite(rr)
 
 	for _, rule := range r.ResponseRules {
 		if rule.Type == "" {
@@ -71,8 +74,8 @@ func rewriteResourceRecord(res *dns.Msg, rr dns.RR, r *ResponseReverter) {
 		switch rule.Type {
 		case "name":
 			rewriteName(rule, &name, &isNameRewritten)
-			if rr.Header().Rrtype == dns.TypeSRV {
-				rewriteName(rule, &srvTarget, &isSrvTargetRewritten)
+			if target != "" {
+				rewriteName(rule, &target, &isTargetRewritten)
 			}
 		case "ttl":
 			ttl = rule.TTL
@@ -85,9 +88,52 @@ func rewriteResourceRecord(res *dns.Msg, rr dns.RR, r *ResponseReverter) {
 	if isTTLRewritten {
 		rr.Header().Ttl = ttl
 	}
-	if isSrvTargetRewritten {
-		rr.(*dns.SRV).Target = srvTarget
+	if isTargetRewritten {
+		setRewrittenTargetName(rr, target)
 	}
+}
+
+func getTargetNameForRewrite(rr dns.RR) (name string) {
+	var target string
+	switch rr.Header().Rrtype {
+	case dns.TypeSRV:
+		target = rr.(*dns.SRV).Target
+	case dns.TypeMX:
+		target = rr.(*dns.MX).Mx
+	case dns.TypeCNAME:
+		target = rr.(*dns.CNAME).Target
+	case dns.TypeNS:
+		target = rr.(*dns.NS).Ns
+	// TODO Need to do more reading/thinking about the following types
+	case dns.TypeDNAME:
+		target = rr.(*dns.DNAME).Target
+	case dns.TypeNAPTR:
+		target = rr.(*dns.NAPTR).Replacement
+	case dns.TypeSOA:
+		target = rr.(*dns.SOA).Ns
+	}
+	return target
+}
+
+func setRewrittenTargetName(rr dns.RR, name string) {
+	switch rr.Header().Rrtype {
+	case dns.TypeSRV:
+		rr.(*dns.SRV).Target = name
+	case dns.TypeMX:
+		rr.(*dns.MX).Mx = name
+	case dns.TypeCNAME:
+		rr.(*dns.CNAME).Target = name
+	case dns.TypeNS:
+		rr.(*dns.NS).Ns = name
+	// TODO Need to do more reading/thinking about the following types
+	case dns.TypeDNAME:
+		rr.(*dns.DNAME).Target = name
+	case dns.TypeNAPTR:
+		rr.(*dns.NAPTR).Replacement = name
+	case dns.TypeSOA:
+		rr.(*dns.SOA).Ns = name
+	}
+
 }
 
 func rewriteName(rule ResponseRule, name *string, isNameRewritten *bool) {
