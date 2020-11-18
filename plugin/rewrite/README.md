@@ -151,6 +151,62 @@ ftp-us-west-1.coredns.rocks. 0    IN A    10.20.20.20
 ftp-us-west-1.coredns.rocks. 0    IN A    10.30.30.30
 ```
 
+Note that names in SRV Record Targets and records in the `ADDITIONAL SECTION` 
+will also be rewritten following the `answer name` rule to keep the response 
+content consistent.
+
+For example, a user tries a SRV lookup for `_test._tcp.test-service.coredns.rocks`. 
+The CoreDNS configuration file has the following rule:
+
+```
+    rewrite stop {
+        name regex (.*)\.coredns\.rocks {1}.cluster.local
+    }
+```
+
+Without response rewriting the response would be as follows:
+
+```
+$ dig @10.1.1.1 _test._tcp.test-service.coredns.rocks SRV
+
+;; QUESTION SECTION:
+;_test._tcp.test-service.coredns.rocks. IN SRV
+
+;; ANSWER SECTION:
+_test._tcp.test-service.cluster.local. 15 IN SRV 0 50 1234 10-1-1-2.test-service.cluster.local.
+_test._tcp.test-service.cluster.local. 15 IN SRV 0 50 1234 10-1-1-3.test-service.cluster.local.
+
+;; ADDITIONAL SECTION:
+10-1-1-2.test-service.cluster.local. 15 IN A 10.1.1.2
+10-1-1-3.test-service.cluster.local. 15 IN A 10.1.1.3
+```
+
+If response rewriting is enabled with the following rule:
+
+```
+    rewrite stop {
+        name regex (.*)\.coredns\.rocks {1}.cluster.local
+        answer name (.*)\.cluster\.local {1}.coredns.rocks
+    }
+```
+
+The response would be rewritten as:
+
+```
+$ dig @10.1.1.1 _test._tcp.test-service.coredns.rocks SRV
+
+;; QUESTION SECTION:
+;_test._tcp.test-service.coredns.rocks. IN SRV
+
+;; ANSWER SECTION:
+_test._tcp.test-service.coredns.rocks. 15 IN SRV 0 50 1234 10-1-1-2.test-service.coredns.rocks.
+_test._tcp.test-service.coredns.rocks. 15 IN SRV 0 50 1234 10-1-1-3.test-service.coredns.rocks.
+
+;; ADDITIONAL SECTION:
+10-1-1-2.test-service.coredns.rocks. 15 IN A 10.1.1.2
+10-1-1-3.test-service.coredns.rocks. 15 IN A 10.1.1.3
+```
+
 The syntax for the rewrite of DNS request and response is as follows:
 
 ```
