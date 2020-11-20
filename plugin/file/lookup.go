@@ -364,7 +364,12 @@ func (z *Zone) doLookup(ctx context.Context, state request.Request, target strin
 	}
 	if m.Rcode == dns.RcodeNameError {
 		return m.Answer, NameError
-
+	}
+	if m.Rcode == dns.RcodeServerFailure {
+		return m.Answer, ServerFailure
+	}
+	if m.Rcode == dns.RcodeSuccess && len(m.Answer) == 0 {
+		return m.Answer, NoData
 	}
 	return m.Answer, Success
 }
