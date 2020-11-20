@@ -307,8 +307,9 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 	targetName := rrs[0].(*dns.CNAME).Target
 	elem, _ = z.Tree.Search(targetName)
 	if elem == nil {
-		rrs = append(rrs, z.doLookup(ctx, state, targetName, qtype)...)
-		return rrs, z.Apex.ns(do), nil, Success
+		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
+		rrs = append(rrs, lookupRRs...)
+		return rrs, z.Apex.ns(do), nil, result
 	}
 
 	i := 0
@@ -326,8 +327,9 @@ Redo:
 		targetName := cname[0].(*dns.CNAME).Target
 		elem, _ = z.Tree.Search(targetName)
 		if elem == nil {
-			rrs = append(rrs, z.doLookup(ctx, state, targetName, qtype)...)
-			return rrs, z.Apex.ns(do), nil, Success
+			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
+			rrs = append(rrs, lookupRRs...)
+			return rrs, z.Apex.ns(do), nil, result
 		}
 
 		i++
@@ -352,15 +354,19 @@ Redo:
 	return rrs, z.Apex.ns(do), nil, Success
 }
 
-func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) []dns.RR {
+func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result) {
 	m, e := z.Upstream.Lookup(ctx, state, target, qtype)
 	if e != nil {
-		return nil
+		return nil, Success
 	}
 	if m == nil {
-		return nil
+		return nil, Success
 	}
-	return m.Answer
+	if m.Rcode == dns.RcodeNameError {
+		return m.Answer, NameError
+
+	}
+	return m.Answer, Success
 }
 
 // additionalProcessing checks the current answer section and retrieves A or AAAA records
