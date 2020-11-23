@@ -58,6 +58,74 @@ www 3600 IN CNAME www.example.net.
 	}
 }
 
+func TestFileUpstreamNx(t *testing.T) {
+	name, rm, err := test.TempFile(".", `$ORIGIN example.org.
+@	3600 IN	SOA   sns.dns.icann.org. noc.dns.icann.org. (
+        2017042745 ; serial
+        7200       ; refresh (2 hours)
+        3600       ; retry (1 hour)
+        1209600    ; expire (2 weeks)
+        3600       ; minimum (1 hour)
+)
+
+    3600 IN NS    a.iana-servers.net.
+    3600 IN NS    b.iana-servers.net.
+
+chain   3600 IN CNAME deadend
+deadend 3600 IN CNAME non-existent.example.net.
+`)
+	if err != nil {
+		t.Fatalf("Failed to create zone: %s", err)
+	}
+	defer rm()
+
+	corefile := `.:0 {
+	template ANY ANY non-existent.example.net. {
+		rcode NXDOMAIN
+	}
+	file ` + name + ` example.org
+}`
+
+	i, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer i.Stop()
+
+	t.Run("Target", func(t *testing.T) {
+		m := new(dns.Msg)
+		m.SetQuestion("deadend.example.org.", dns.TypeA)
+		m.SetEdns0(4096, true)
+
+		r, err := dns.Exchange(m, udp)
+		if err != nil {
+			t.Fatalf("Could not exchange msg: %s", err)
+		}
+		if r.Rcode != dns.RcodeNameError {
+			t.Fatal("expected dns.RcodeNameError")
+		}
+		if n := len(r.Answer); n != 1 {
+			t.Errorf("Expected 1 answer, got %v", n)
+		}
+	})
+	t.Run("Chain", func(t *testing.T) {
+		m := new(dns.Msg)
+		m.SetQuestion("chain.example.org.", dns.TypeA)
+		m.SetEdns0(4096, true)
+
+		r, err := dns.Exchange(m, udp)
+		if err != nil {
+			t.Fatalf("Could not exchange msg: %s", err)
+		}
+		if r.Rcode != dns.RcodeNameError {
+			t.Fatal("expected dns.RcodeNameError")
+		}
+		if n := len(r.Answer); n != 2 {
+			t.Errorf("Expected 2 answers, got %v", n)
+		}
+	})
+}
+
 // TestFileUpstreamAdditional runs two CoreDNS servers that serve example.org and foo.example.org.
 // example.org contains a cname to foo.example.org; this should be resolved via upstream.Self.
 func TestFileUpstreamAdditional(t *testing.T) {
