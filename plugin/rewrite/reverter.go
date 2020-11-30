@@ -94,25 +94,24 @@ func rewriteResourceRecord(res *dns.Msg, rr dns.RR, r *ResponseReverter) {
 }
 
 func getTargetNameForRewrite(rr dns.RR) (name string) {
-	var target string
 	switch rr.Header().Rrtype {
 	case dns.TypeSRV:
-		target = rr.(*dns.SRV).Target
+		return rr.(*dns.SRV).Target
 	case dns.TypeMX:
-		target = rr.(*dns.MX).Mx
+		return rr.(*dns.MX).Mx
 	case dns.TypeCNAME:
-		target = rr.(*dns.CNAME).Target
+		return rr.(*dns.CNAME).Target
 	case dns.TypeNS:
-		target = rr.(*dns.NS).Ns
-	// TODO Need to do more reading/thinking about the following types
+		return rr.(*dns.NS).Ns
 	case dns.TypeDNAME:
-		target = rr.(*dns.DNAME).Target
+		return rr.(*dns.DNAME).Target
 	case dns.TypeNAPTR:
-		target = rr.(*dns.NAPTR).Replacement
+		return rr.(*dns.NAPTR).Replacement
 	case dns.TypeSOA:
-		target = rr.(*dns.SOA).Ns
+		return rr.(*dns.SOA).Ns
 	}
-	return target
+
+	return ""
 }
 
 func setRewrittenTargetName(rr dns.RR, name string) {
@@ -125,7 +124,6 @@ func setRewrittenTargetName(rr dns.RR, name string) {
 		rr.(*dns.CNAME).Target = name
 	case dns.TypeNS:
 		rr.(*dns.NS).Ns = name
-	// TODO Need to do more reading/thinking about the following types
 	case dns.TypeDNAME:
 		rr.(*dns.DNAME).Target = name
 	case dns.TypeNAPTR:
