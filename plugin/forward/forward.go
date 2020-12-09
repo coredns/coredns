@@ -83,7 +83,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		defer atomic.AddInt64(&(f.concurrent), -1)
 		if count > f.maxConcurrent {
 			MaxConcurrentRejectCount.Add(1)
-			return dns.RcodeServerFailure, f.ErrLimitExceeded
+			return dns.RcodeRefused, f.ErrLimitExceeded
 		}
 	}
 

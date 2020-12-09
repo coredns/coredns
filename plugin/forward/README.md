@@ -88,7 +88,7 @@ forward FROM TO... {
   * `no_rec` - optional argument that sets the RecursionDesired-flag of the dns-query used in health checking to `false`.
     The flag is default `true`.
 * `max_concurrent` **MAX** will limit the number of concurrent queries to **MAX**.  Any new query that would
-  raise the number of concurrent queries above the **MAX** will result in a SERVFAIL response. This
+  raise the number of concurrent queries above the **MAX** will result in a REFUSED response. This
   response does not count as a health failure. When choosing a value for **MAX**, pick a number
   at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
