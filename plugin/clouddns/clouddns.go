@@ -85,7 +85,7 @@ func (h *CloudDNS) Run(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Infof("Breaking out of CloudDNS update loop: %v", ctx.Err())
+				log.Debugf("Breaking out of CloudDNS update loop for %v: %v", h.zoneNames, ctx.Err())
 				return
 			case <-time.After(1 * time.Minute):
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
