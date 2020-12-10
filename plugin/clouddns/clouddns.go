@@ -89,7 +89,7 @@ func (h *CloudDNS) Run(ctx context.Context) error {
 				return
 			case <-time.After(1 * time.Minute):
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
-					log.Errorf("Failed to update zones: %v", err)
+					log.Errorf("Failed to update zones %v: %v", h.zoneNames, err)
 				}
 			}
 		}
