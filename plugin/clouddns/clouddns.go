@@ -85,11 +85,11 @@ func (h *CloudDNS) Run(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Debugf("Breaking out of CloudDNS update loop for %v: %v", h.zoneNames, ctx.Err())
+				log.Infof("Breaking out of CloudDNS update loop: %v", ctx.Err())
 				return
 			case <-time.After(1 * time.Minute):
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
-					log.Errorf("Failed to update zones %v: %v", h.zoneNames, err)
+					log.Errorf("Failed to update zones: %v", err)
 				}
 			}
 		}
@@ -189,7 +189,7 @@ func (h *CloudDNS) updateZones(ctx context.Context) error {
 			for i, hostedZone := range z {
 				newZ := file.NewZone(zName, "")
 				newZ.Upstream = h.upstream
-				rrListResponse, err = h.client.listRRSets(hostedZone.projectName, hostedZone.zoneName)
+				rrListResponse, err = h.client.listRRSets(ctx, hostedZone.projectName, hostedZone.zoneName)
 				if err != nil {
 					err = fmt.Errorf("failed to list resource records for %v:%v:%v from gcp: %v", zName, hostedZone.projectName, hostedZone.zoneName, err)
 					return
