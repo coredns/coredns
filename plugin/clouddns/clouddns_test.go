@@ -24,7 +24,7 @@ func (c fakeGCPClient) zoneExists(projectName, hostedZoneName string) error {
 	return nil
 }
 
-func (c fakeGCPClient) listRRSets(projectName, hostedZoneName string) (*gcp.ResourceRecordSetsListResponse, error) {
+func (c fakeGCPClient) listRRSets(ctx context.Context, projectName, hostedZoneName string) (*gcp.ResourceRecordSetsListResponse, error) {
 	if projectName == "bad-project" || hostedZoneName == "bad-zone" {
 		return nil, errors.New("the 'parameters.managedZone' resource named 'bad-zone' does not exist")
 	}
