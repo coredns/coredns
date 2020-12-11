@@ -80,7 +80,7 @@ trace http://tracinghost:9411/zipkin/api/v1/spans
 Using DataDog:
 
 ~~~
-trace datadog localhost:8125
+trace datadog localhost:8126
 ~~~
 
 Trace one query every 10000 queries, rename the service, and enable same span:
