@@ -33,7 +33,8 @@ type Config struct {
 	Transport string
 
 	// If this function is not nil it will be used to inspect and validate
-	// HTTP requests.
+	// HTTP requests. Although this isn't referenced in-tree, external plugins
+	// may depend on it.
 	HTTPRequestValidateFunc func(*http.Request) bool
 
 	// If this function is not nil it will be used to further filter access
