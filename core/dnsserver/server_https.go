@@ -26,7 +26,7 @@ type ServerHTTPS struct {
 	validRequest func(*http.Request) bool
 }
 
-// NewServerHTTPS returns a new CoreDNS GRPC server and compiles all plugins in to it.
+// NewServerHTTPS returns a new CoreDNS HTTPS server and compiles all plugins in to it.
 func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 	s, err := NewServer(addr, group)
 	if err != nil {
