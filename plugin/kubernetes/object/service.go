@@ -76,6 +76,7 @@ func ToService(obj meta.Object) (meta.Object, error) {
 	return s, nil
 }
 
+// Headless returns true if the service is headless
 func (s *Service) Headless() bool {
 	return s.ClusterIPs[0] == api.ClusterIPNone
 }
