@@ -47,7 +47,7 @@ func ToService(obj meta.Object) (meta.Object, error) {
 	}
 
 	if len(svc.Spec.ClusterIPs) > 0 {
-		s.ClusterIPs = make([]string, len(svc.Spec.Ports))
+		s.ClusterIPs = make([]string, len(svc.Spec.ClusterIPs))
 		copy(s.ClusterIPs, svc.Spec.ClusterIPs)
 	} else {
 		s.ClusterIPs = []string{svc.Spec.ClusterIP}
