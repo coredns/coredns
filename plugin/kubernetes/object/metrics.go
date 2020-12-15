@@ -67,7 +67,7 @@ func (l *EndpointLatencyRecorder) record() {
 	// don't change very often (comparing to much more frequent endpoints changes), cases when this method
 	// will return wrong answer should be relatively rare. Because of that we intentionally accept this
 	// flaw to keep the solution simple.
-	isHeadless := len(l.Services) == 1 && l.Services[0].ClusterIP == api.ClusterIPNone
+	isHeadless := len(l.Services) == 1 && l.Services[0].Headless()
 
 	if !isHeadless || l.TT.IsZero() {
 		return

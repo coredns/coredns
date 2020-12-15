@@ -30,10 +30,10 @@ func (APIConnReverseTest) SvcIndex(svc string) []*object.Service {
 	}
 	svcs := []*object.Service{
 		{
-			Name:      "svc1",
-			Namespace: "testns",
-			ClusterIP: "192.168.1.100",
-			Ports:     []api.ServicePort{{Name: "http", Protocol: "tcp", Port: 80}},
+			Name:       "svc1",
+			Namespace:  "testns",
+			ClusterIPs: []string{"192.168.1.100"},
+			Ports:      []api.ServicePort{{Name: "http", Protocol: "tcp", Port: 80}},
 		},
 	}
 	return svcs
@@ -46,10 +46,10 @@ func (APIConnReverseTest) SvcIndexReverse(ip string) []*object.Service {
 	}
 	svcs := []*object.Service{
 		{
-			Name:      "svc1",
-			Namespace: "testns",
-			ClusterIP: "192.168.1.100",
-			Ports:     []api.ServicePort{{Name: "http", Protocol: "tcp", Port: 80}},
+			Name:       "svc1",
+			Namespace:  "testns",
+			ClusterIPs: []string{"192.168.1.100"},
+			Ports:      []api.ServicePort{{Name: "http", Protocol: "tcp", Port: 80}},
 		},
 	}
 	return svcs

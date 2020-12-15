@@ -200,11 +200,13 @@ func svcIPIndexFunc(obj interface{}) ([]string, error) {
 	if !ok {
 		return nil, errObj
 	}
+	idx := make([]string, len(svc.ClusterIPs)+len(svc.ExternalIPs))
+	copy(idx, svc.ClusterIPs)
 	if len(svc.ExternalIPs) == 0 {
-		return []string{svc.ClusterIP}, nil
+		return idx, nil
 	}
-
-	return append([]string{svc.ClusterIP}, svc.ExternalIPs...), nil
+	copy(idx[len(svc.ClusterIPs):], svc.ExternalIPs)
+	return idx, nil
 }
 
 func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
