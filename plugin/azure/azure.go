@@ -106,7 +106,7 @@ func (h *Azure) updateZones(ctx context.Context) error {
 	errs := make([]string, 0)
 	for zName, z := range h.zones {
 		for i, hostedZone := range z {
-			var newZ = file.NewZone(zName, "")
+			newZ := file.NewZone(zName, "")
 			if hostedZone.private {
 				for privateSet, err = h.privateClient.List(ctx, hostedZone.id, hostedZone.zone, nil, ""); privateSet.NotDone(); err = privateSet.NextWithContext(ctx) {
 					updateZoneFromPrivateResourceSet(privateSet, newZ)
