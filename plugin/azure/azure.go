@@ -133,7 +133,7 @@ func (h *Azure) updateZones(ctx context.Context) error {
 
 }
 
-func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage, newZ *file.Zone) *file.Zone {
+func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage, newZ *file.Zone) {
 	for _, result := range *(recordSet.Response().Value) {
 		resultFqdn := *(result.RecordSetProperties.Fqdn)
 		resultTTL := uint32(*(result.RecordSetProperties.TTL))
@@ -217,7 +217,6 @@ func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage
 			newZ.Insert(cname)
 		}
 	}
-	return newZ
 }
 
 func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPage, newZ *file.Zone) {
