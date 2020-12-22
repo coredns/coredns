@@ -32,13 +32,7 @@ func (p *Probe) Do(f Func) {
 		return
 	}
 	p.inprogress = active
-	interval := p.expBackoff.NextBackOff()
-	// If exponential backoff has reached the maximum elapsed time (15 minutes),
-	// reset it and try again
-	if interval == -1 {
-		p.expBackoff.Reset()
-		interval = p.expBackoff.NextBackOff()
-	}
+	p.expBackoff.Reset()
 	p.Unlock()
 	// Passed the lock. Now run f for as long it returns false. If a true is returned
 	// we return from the goroutine and we can accept another Func to run.
@@ -48,13 +42,19 @@ func (p *Probe) Do(f Func) {
 			if err := f(); err == nil {
 				break
 			}
-			time.Sleep(interval)
 			p.Lock()
 			if p.inprogress == stop {
 				p.Unlock()
 				return
 			}
+			interval := p.expBackoff.NextBackOff()
+			// If exponential backoff has reached the maximum elapsed time, reset it
+			if interval == -1 {
+				p.expBackoff.Reset()
+				interval = p.expBackoff.NextBackOff()
+			}
 			p.Unlock()
+			time.Sleep(interval)
 			i++
 		}
 

@@ -1,6 +1,7 @@
 package up
 
 import (
+	"errors"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -36,5 +37,37 @@ func TestUp(t *testing.T) {
 	h := atomic.LoadInt32(&hits)
 	if h != 1 {
 		t.Errorf("Expected hits to be %d, got %d", 1, h)
+	}
+}
+
+func TestDoBackoff(t *testing.T) {
+	pr := New()
+	wg := sync.WaitGroup{}
+	pr.Start(time.Millisecond)
+	pr.Lock()
+	pr.expBackoff.RandomizationFactor = 0
+	pr.expBackoff.Multiplier = 2
+	pr.Unlock()
+	defer pr.Stop()
+
+	i := 0
+	upfunc := func() error {
+		if i > 5 {
+			wg.Done()
+			return nil
+		}
+		i++
+
+		return errors.New("test")
+	}
+	start := time.Now()
+	wg.Add(1)
+	pr.Do(upfunc)
+	wg.Wait()
+
+	elapsed := time.Now().Sub(start)
+	expected := time.Millisecond * (1 + 2 + 4 + 5 + 6) // plus execution time
+	if elapsed < expected {
+		t.Errorf("backoff was not exponential")
 	}
 }
