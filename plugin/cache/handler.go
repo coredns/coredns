@@ -39,46 +39,40 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		ttl = i.ttl(now)
 	}
 	if i == nil {
-		if !do {
-			setDo(rc)
-		}
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
-		return plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, rc)
+		return c.doRefresh(ctx, state, crr, do)
 	}
 	if ttl < 0 {
 		servedStale.WithLabelValues(server).Inc()
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
-		addr := w.LocalAddr() // See https://github.com/coredns/coredns/issues/4271, unclear how, but pull this out of the goroutine, and get the address here.
+		cw := newPrefetchResponseWriter(server, state, c, do)
+		go c.doRefresh(ctx, state, cw, do)
+	} else if c.shouldPrefetch(i, now) {
+		cachePrefetches.WithLabelValues(server).Inc()
+		cw := newPrefetchResponseWriter(server, state, c, do)
 		go func() {
-			if !do {
-				setDo(rc)
+			c.doRefresh(ctx, state, cw, do)
+
+			// When prefetching we loose the item i, and with it the frequency
+			// that we've gathered sofar. See we copy the frequencies info back
+			// into the new item that was stored in the cache.
+			if i1 := c.exists(state); i1 != nil {
+				i1.Freq.Reset(now, i.Freq.Hits())
 			}
-			crr := &ResponseWriter{Cache: c, state: state, server: server, prefetch: true, remoteAddr: addr, do: do}
-			plugin.NextOrFailure(c.Name(), c.Next, ctx, crr, rc)
 		}()
 	}
 	resp := i.toMsg(r, now, do)
 	w.WriteMsg(resp)
 
-	if c.shouldPrefetch(i, now) {
-		go c.doPrefetch(ctx, state, server, i, now)
-	}
 	return dns.RcodeSuccess, nil
 }
 
-func (c *Cache) doPrefetch(ctx context.Context, state request.Request, server string, i *item, now time.Time) {
-	cw := newPrefetchResponseWriter(server, state, c)
-
-	cachePrefetches.WithLabelValues(server).Inc()
-	plugin.NextOrFailure(c.Name(), c.Next, ctx, cw, state.Req)
-
-	// When prefetching we loose the item i, and with it the frequency
-	// that we've gathered sofar. See we copy the frequencies info back
-	// into the new item that was stored in the cache.
-	if i1 := c.exists(state); i1 != nil {
-		i1.Freq.Reset(now, i.Freq.Hits())
+func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw *ResponseWriter, do bool) (int, error) {
+	if !do {
+		setDo(state.Req)
 	}
+	return plugin.NextOrFailure(c.Name(), c.Next, ctx, cw, state.Req)
 }
 
 func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
