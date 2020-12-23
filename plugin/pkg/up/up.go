@@ -28,6 +28,7 @@ func (p *Probe) Do(f Func) {
 		p.Unlock()
 		return
 	}
+	p.inprogress = active
 	interval := p.interval
 	p.Unlock()
 	// Passed the lock. Now run f for as long it returns false. If a true is returned
