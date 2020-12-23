@@ -48,11 +48,6 @@ func (p *Probe) Do(f Func) {
 				return
 			}
 			interval := p.expBackoff.NextBackOff()
-			// If exponential backoff has reached the maximum elapsed time, reset it
-			if interval == backoff.Stop {
-				p.expBackoff.Reset()
-				interval = p.expBackoff.NextBackOff()
-			}
 			p.Unlock()
 			time.Sleep(interval)
 			i++
@@ -80,7 +75,7 @@ func (p *Probe) Start(interval time.Duration) {
 		RandomizationFactor: backoff.DefaultRandomizationFactor,
 		Multiplier:          backoff.DefaultMultiplier,
 		MaxInterval:         15 * time.Second,
-		MaxElapsedTime:      2 * time.Minute,
+		MaxElapsedTime:      0,
 		Stop:                backoff.Stop,
 		Clock:               backoff.SystemClock,
 	}
