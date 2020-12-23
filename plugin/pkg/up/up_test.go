@@ -66,7 +66,7 @@ func TestDoBackoff(t *testing.T) {
 	wg.Wait()
 
 	elapsed := time.Now().Sub(start)
-	expected := time.Millisecond * (1 + 2 + 4 + 5 + 6) // plus execution time
+	expected := time.Millisecond * (1 + 2 + 4 + 8 + 16) // plus execution time
 	if elapsed < expected {
 		t.Errorf("backoff was not exponential")
 	}
