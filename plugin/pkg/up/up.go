@@ -49,7 +49,7 @@ func (p *Probe) Do(f Func) {
 			}
 			interval := p.expBackoff.NextBackOff()
 			// If exponential backoff has reached the maximum elapsed time, reset it
-			if interval == -1 {
+			if interval == backoff.Stop {
 				p.expBackoff.Reset()
 				interval = p.expBackoff.NextBackOff()
 			}
