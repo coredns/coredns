@@ -18,6 +18,7 @@ func TestPrefetch(t *testing.T) {
 		qname         string
 		ttl           int
 		prefetch      int
+		staleUpTo     time.Duration
 		verifications []verification
 	}{
 		{
@@ -91,6 +92,24 @@ func TestPrefetch(t *testing.T) {
 				},
 			},
 		},
+		{
+			qname:     "stale.with.prefetch.example.org.",
+			ttl:       30,
+			prefetch:  1,
+			staleUpTo: time.Minute,
+			verifications: []verification{
+				{
+					after:  0 * time.Second,
+					answer: "stale.with.prefetch.example.org. 30 IN A 127.0.0.1", // fresh entry
+					fetch:  true,
+				},
+				{
+					after:  40 * time.Second,
+					answer: "stale.with.prefetch.example.org. 0 IN A 127.0.0.1", // stale entry (0 ttl)
+					fetch:  true,                                                // expect stale to trigger "prefetch"
+				},
+			},
+		},
 	}
 
 	t0, err := time.Parse(time.RFC3339, "2018-01-01T14:00:00+00:00")
@@ -103,6 +122,7 @@ func TestPrefetch(t *testing.T) {
 
 			c := New()
 			c.prefetch = tt.prefetch
+			c.staleUpTo = tt.staleUpTo
 			c.Next = prefetchHandler(tt.qname, tt.ttl, fetchc)
 
 			req := new(dns.Msg)
