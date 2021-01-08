@@ -46,26 +46,28 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		servedStale.WithLabelValues(server).Inc()
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
-		cw := newPrefetchResponseWriter(server, state, c, do)
-		go c.doRefresh(ctx, state, cw, do)
+		cw := newPrefetchResponseWriter(server, state, c)
+		go c.doPrefetch(ctx, state, cw, i, now, do)
 	} else if c.shouldPrefetch(i, now) {
-		cachePrefetches.WithLabelValues(server).Inc()
-		cw := newPrefetchResponseWriter(server, state, c, do)
-		go func() {
-			c.doRefresh(ctx, state, cw, do)
-
-			// When prefetching we loose the item i, and with it the frequency
-			// that we've gathered sofar. See we copy the frequencies info back
-			// into the new item that was stored in the cache.
-			if i1 := c.exists(state); i1 != nil {
-				i1.Freq.Reset(now, i.Freq.Hits())
-			}
-		}()
+		cw := newPrefetchResponseWriter(server, state, c)
+		go c.doPrefetch(ctx, state, cw, i, now, do)
 	}
 	resp := i.toMsg(r, now, do)
 	w.WriteMsg(resp)
 
 	return dns.RcodeSuccess, nil
+}
+
+func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time, do bool) {
+	cachePrefetches.WithLabelValues(cw.server).Inc()
+	c.doRefresh(ctx, state, cw, do)
+
+	// When prefetching we loose the item i, and with it the frequency
+	// that we've gathered sofar. See we copy the frequencies info back
+	// into the new item that was stored in the cache.
+	if i1 := c.exists(state); i1 != nil {
+		i1.Freq.Reset(now, i.Freq.Hits())
+	}
 }
 
 func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw *ResponseWriter, do bool) (int, error) {
