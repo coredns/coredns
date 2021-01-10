@@ -27,6 +27,7 @@ Matt Kulka, Miek Gieben, Serge, Yong Tang, ZouYu, mgugger
 * plugin/azure: return FQDN as MNAME in SOA record (https://github.com/coredns/coredns/pull/4286)
 * plugin/cache: Move .LocalAddr() out of goroutine (https://github.com/coredns/coredns/pull/4281)
 * plugin/cache: Fix concurrent prefetch (TODO)
+* plugin/dnssec: Change hash key input (https://github.com/coredns/coredns/pull/4372)
 * plugin/dnstap: remove config struct (https://github.com/coredns/coredns/pull/4258)
 * plugin/dnstap: remove custom encoder (https://github.com/coredns/coredns/pull/4242)
 * plugin/file: Use NXDOMAIN response if CNAME target is NXDOMAIN (https://github.com/coredns/coredns/pull/4303)
