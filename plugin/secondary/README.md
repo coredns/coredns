@@ -23,17 +23,17 @@ A working syntax would be:
 
 ~~~
 secondary [zones...] {
-    transfer from ADDRESS
+    transfer from ADDRESS [ADDRESS...]
 }
 ~~~
 
-* `transfer from` specifies from which address to fetch the zone. It can be specified multiple times;
-    if one does not work, another will be tried. Transfering this zone outwards again can be done by
-    enableing the *transfer* plugin.
+*  `transfer from` specifies from which **ADDRESS** to fetch the zone. It can be specified multiple
+   times; if one does not work, another will be tried. Transfering this zone outwards again can be
+   done by enabling the *transfer* plugin.
 
-When a zone is due to be refreshed (Refresh timer fires) a random jitter of 5 seconds is
-applied, before fetching. In the case of retry this will be 2 seconds. If there are any errors
-during the transfer in, the transfer fails; this will be logged.
+When a zone is due to be refreshed (refresh timer fires) a random jitter of 5 seconds is applied,
+before fetching. In the case of retry this will be 2 seconds. If there are any errors during the
+transfer in, the transfer fails; this will be logged.
 
 ## Examples
 
