@@ -8,7 +8,7 @@
 
 The azure plugin is useful for serving zones from Microsoft Azure DNS. The *azure* plugin supports
 all the DNS records supported by Azure, viz. A, AAAA, CNAME, MX, NS, PTR, SOA, SRV, and TXT
-record types.
+record types. NS record type is not supported by azure private DNS.
 
 ## Syntax
 
