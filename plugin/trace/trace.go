@@ -117,13 +117,17 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	rw := dnstest.NewRecorder(w)
 	ctx = ot.ContextWithSpan(ctx, span)
-	status, err := plugin.NextOrFailure(t.Name(), t.Next, ctx, rw, r)
-
+	rcodeFromNext, err := plugin.NextOrFailure(t.Name(), t.Next, ctx, rw, r)
+	rcodeRet := rcode.ToString(rw.Rcode)
+	if !plugin.ClientWrite(rcodeFromNext) && err != nil {
+		rcodeRet = rcode.ToString(rcodeFromNext)
+	}
+	
 	span.SetTag(tagName, req.Name())
 	span.SetTag(tagType, req.Type())
 	span.SetTag(tagProto, req.Proto())
 	span.SetTag(tagRemote, req.IP())
-	span.SetTag(tagRcode, rcode.ToString(rw.Rcode))
+	span.SetTag(tagRcode, rcodeRet)
 
-	return status, err
+	return rcodeFromNext, err
 }

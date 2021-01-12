@@ -24,11 +24,15 @@ func (m *Metrics) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 	// Record response to get status code and size of the reply.
 	rw := dnstest.NewRecorder(w)
-	status, err := plugin.NextOrFailure(m.Name(), m.Next, ctx, rw, r)
+	rcodeFromNext, err := plugin.NextOrFailure(m.Name(), m.Next, ctx, rw, r)
+	rcodeRet := rcode.ToString(rw.Rcode)
+	if !plugin.ClientWrite(rcodeFromNext) && err != nil {
+		rcodeRet = rcode.ToString(rcodeFromNext)
+	}
 
-	vars.Report(WithServer(ctx), state, zone, rcode.ToString(rw.Rcode), rw.Len, rw.Start)
+	vars.Report(WithServer(ctx), state, zone, rcodeRet, rw.Len, rw.Start)
 
-	return status, err
+	return rcodeFromNext, err
 }
 
 // Name implements the Handler interface.
