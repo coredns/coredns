@@ -16,7 +16,6 @@ import (
 func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	rc := r.Copy() // We potentially modify r, to prevent other plugins from seeing this (r is a pointer), copy r into rc.
 	state := request.Request{W: w, Req: rc}
-	do := state.Do()
 
 	zone := plugin.Zones(c.Zones).Matches(state.Name())
 	if zone == "" {
@@ -39,28 +38,28 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		ttl = i.ttl(now)
 	}
 	if i == nil {
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
-		return c.doRefresh(ctx, state, crr, do)
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: state.Do()}
+		return c.doRefresh(ctx, state, crr)
 	}
 	if ttl < 0 {
 		servedStale.WithLabelValues(server).Inc()
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
 		cw := newPrefetchResponseWriter(server, state, c)
-		go c.doPrefetch(ctx, state, cw, i, now, do)
+		go c.doPrefetch(ctx, state, cw, i, now)
 	} else if c.shouldPrefetch(i, now) {
 		cw := newPrefetchResponseWriter(server, state, c)
-		go c.doPrefetch(ctx, state, cw, i, now, do)
+		go c.doPrefetch(ctx, state, cw, i, now)
 	}
-	resp := i.toMsg(r, now, do)
+	resp := i.toMsg(r, now, state.Do())
 	w.WriteMsg(resp)
 
 	return dns.RcodeSuccess, nil
 }
 
-func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time, do bool) {
+func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time) {
 	cachePrefetches.WithLabelValues(cw.server).Inc()
-	c.doRefresh(ctx, state, cw, do)
+	c.doRefresh(ctx, state, cw)
 
 	// When prefetching we loose the item i, and with it the frequency
 	// that we've gathered sofar. See we copy the frequencies info back
@@ -70,8 +69,8 @@ func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *Respo
 	}
 }
 
-func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw *ResponseWriter, do bool) (int, error) {
-	if !do {
+func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw *ResponseWriter) (int, error) {
+	if !state.Do() {
 		setDo(state.Req)
 	}
 	return plugin.NextOrFailure(c.Name(), c.Next, ctx, cw, state.Req)
