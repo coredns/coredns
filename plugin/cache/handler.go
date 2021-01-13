@@ -16,6 +16,7 @@ import (
 func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	rc := r.Copy() // We potentially modify r, to prevent other plugins from seeing this (r is a pointer), copy r into rc.
 	state := request.Request{W: w, Req: rc}
+	do := state.Do()
 
 	zone := plugin.Zones(c.Zones).Matches(state.Name())
 	if zone == "" {
@@ -38,7 +39,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		ttl = i.ttl(now)
 	}
 	if i == nil {
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: state.Do()}
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
 		return c.doRefresh(ctx, state, crr)
 	}
 	if ttl < 0 {
@@ -51,7 +52,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		cw := newPrefetchResponseWriter(server, state, c)
 		go c.doPrefetch(ctx, state, cw, i, now)
 	}
-	resp := i.toMsg(r, now, state.Do())
+	resp := i.toMsg(r, now, do)
 	w.WriteMsg(resp)
 
 	return dns.RcodeSuccess, nil
