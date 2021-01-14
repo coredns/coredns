@@ -424,11 +424,11 @@ func NS(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 	state.Clear()
 	state.Req.Question[0].Name = dnsutil.Join("ns.dns.", zone)
 	services, err := b.Services(ctx, state, false, opt)
+	// ... and reset
+	state.Req.Question[0].Name = old
 	if err != nil {
 		return nil, nil, err
 	}
-	// ... and reset
-	state.Req.Question[0].Name = old
 
 	seen := map[string]bool{}
 
