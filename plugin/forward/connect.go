@@ -131,7 +131,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 
 	RequestCount.WithLabelValues(p.addr).Add(1)
 	RcodeCount.WithLabelValues(rc, p.addr).Add(1)
-	RequestDuration.WithLabelValues(p.addr).Observe(time.Since(start).Seconds())
+	RequestDuration.WithLabelValues(p.addr, rc, state.Type()).Observe(time.Since(start).Seconds())
 
 	return ret, nil
 }
