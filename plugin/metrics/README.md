@@ -13,7 +13,7 @@ The following metrics are exported:
 * `coredns_build_info{version, revision, goversion}` - info about CoreDNS itself.
 * `coredns_panics_total{}` - total number of panics.
 * `coredns_dns_requests_total{server, zone, proto, family, type}` - total query count.
-* `coredns_dns_request_duration_seconds{server, zone, type}` - duration to process each query.
+* `coredns_dns_request_duration_seconds{server, zone, type, rcode}` - duration to process each query.
 * `coredns_dns_request_size_bytes{server, zone, proto}` - size of the request in bytes.
 * `coredns_dns_do_requests_total{server, zone}` -  queries that have the DO bit set
 * `coredns_dns_response_size_bytes{server, zone, proto}` - response size in bytes.

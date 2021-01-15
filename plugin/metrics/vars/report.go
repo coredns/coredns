@@ -27,10 +27,10 @@ func Report(server string, req request.Request, zone, rcode string, size int, st
 
 	if _, known := monitorType[typ]; known {
 		RequestCount.WithLabelValues(server, zone, net, fam, dns.Type(typ).String()).Inc()
-		RequestDuration.WithLabelValues(server, zone, dns.Type(typ).String()).Observe(time.Since(start).Seconds())
+		RequestDuration.WithLabelValues(server, zone, dns.Type(typ).String(), rcode).Observe(time.Since(start).Seconds())
 	} else {
 		RequestCount.WithLabelValues(server, zone, net, fam, other).Inc()
-		RequestDuration.WithLabelValues(server, zone, other).Observe(time.Since(start).Seconds())
+		RequestDuration.WithLabelValues(server, zone, other, rcode).Observe(time.Since(start).Seconds())
 	}
 
 	ResponseSize.WithLabelValues(server, zone, net).Observe(float64(size))

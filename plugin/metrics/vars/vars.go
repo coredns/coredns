@@ -22,7 +22,7 @@ var (
 		Name:      "request_duration_seconds",
 		Buckets:   plugin.TimeBuckets,
 		Help:      "Histogram of the time (in seconds) each request took.",
-	}, []string{"server", "zone", "type"})
+	}, []string{"server", "zone", "type", "rcode"})
 
 	RequestSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
