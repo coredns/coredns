@@ -19,18 +19,6 @@ type ResponseWriter struct {
 // WriteMsg writes back the response to the client and THEN works on logging the request and response to dnstap.
 func (w *ResponseWriter) WriteMsg(resp *dns.Msg) error {
 	err := w.ResponseWriter.WriteMsg(resp)
-
-	q := new(tap.Message)
-	msg.SetQueryTime(q, w.queryTime)
-	msg.SetQueryAddress(q, w.RemoteAddr())
-
-	if w.IncludeRawMessage {
-		buf, _ := w.query.Pack()
-		q.QueryMessage = buf
-	}
-	msg.SetType(q, tap.Message_CLIENT_QUERY)
-	w.TapMessage(q)
-
 	if err != nil {
 		return err
 	}
