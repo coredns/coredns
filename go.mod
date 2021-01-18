@@ -4,8 +4,8 @@ go 1.13
 
 require (
 	github.com/Azure/azure-sdk-for-go v40.6.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.11.15
-	github.com/Azure/go-autorest/autorest/azure/auth v0.5.5
+	github.com/Azure/go-autorest/autorest v0.11.17
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.6
 	github.com/Azure/go-autorest/autorest/to v0.2.0 // indirect
 	github.com/DataDog/datadog-go v3.5.0+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.36.23
@@ -30,7 +30,7 @@ require (
 	github.com/prometheus/common v0.15.0
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200306183522-221f0cc107cb
 	go.uber.org/zap v1.14.1 // indirect
-	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/sys v0.0.0-20201214210602-f9fddec55a1e
 	google.golang.org/api v0.29.0
 	google.golang.org/grpc v1.29.1
