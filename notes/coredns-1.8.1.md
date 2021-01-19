@@ -3,7 +3,7 @@ title = "CoreDNS-1.8.1 Release"
 description = "CoreDNS-1.8.1 Release Notes."
 tags = ["Release", "1.8.1", "Notes"]
 release = "1.8.1"
-date = 2021-01-10T08:00:00+00:00
+date = 2021-01-20T08:00:00+00:00
 author = "coredns"
 draft = true
 +++
@@ -31,6 +31,7 @@ Bergström, luanphantiki, Matt Kulka, mgugger, Miek Gieben, Serge, sschepens, Yo
 * plugin/dnstap: remove custom encoder (https://github.com/coredns/coredns/pull/4242)
 * plugin/file: Use NXDOMAIN response if CNAME target is NXDOMAIN (https://github.com/coredns/coredns/pull/4303)
 * plugin/file: document wrong behavior in lookup fox Apex (https://github.com/coredns/coredns/pull/4376)
+* plugin/file: guard against cname loops (https://github.com/coredns/coredns/pull/4387)
 * plugin/forward: respond with REFUSED when max_concurrent is exceeded (https://github.com/coredns/coredns/pull/4326)
 * plugin/forward: HC every 0.5 seconds, do not do exponential backoff (https://github.com/coredns/coredns/pull/4371)
 * plugin/health: Fix health check endpoint (https://github.com/coredns/coredns/pull/4231)
@@ -40,3 +41,4 @@ Bergström, luanphantiki, Matt Kulka, mgugger, Miek Gieben, Serge, sschepens, Yo
 * plugin/kubernetes: Watch EndpointSlices (https://github.com/coredns/coredns/pull/4209)
 * plugin/local: add local plugin (https://github.com/coredns/coredns/pull/4262)
 * plugin/trace: Fix zipkin json_v2 (https://github.com/coredns/coredns/pull/4180)
+* plugin/transfer: Fix go-routine leak (https://github.com/coredns/coredns/pull/4380)
