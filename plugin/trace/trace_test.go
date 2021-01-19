@@ -28,6 +28,11 @@ func TestStartup(t *testing.T) {
 		t.Errorf("Error starting tracing plugin: %s", err)
 		return
 	}
+
+	if m.tagSet != tagByProvider["default"] {
+		t.Errorf("TagSet by proviser hasn't been corectly initialized")
+	}
+
 	if m.Tracer() == nil {
 		t.Errorf("Error, no tracer created")
 	}
@@ -51,7 +56,7 @@ func TestTrace(t *testing.T) {
 			question: new(dns.Msg).SetQuestion("example.net.", dns.TypeCNAME),
 		},
 	}
-
+	defaultTagSet := tagByProvider["default"]
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			w := dnstest.NewRecorder(&test.ResponseWriter{})
@@ -65,6 +70,7 @@ func TestTrace(t *testing.T) {
 				}),
 				every:  1,
 				tracer: m,
+				tagSet: defaultTagSet,
 			}
 			ctx := context.TODO()
 			if _, err := tr.ServeDNS(ctx, w, tc.question); err != nil {
@@ -83,20 +89,20 @@ func TestTrace(t *testing.T) {
 				t.Errorf("Unexpected span name: rootSpan.Name: want %v, got %v", defaultTopLevelSpanName, rootSpan.OperationName)
 			}
 
-			if rootSpan.Tag(tagName) != req.Name() {
-				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", tagName, req.Name(), rootSpan.Tag(tagName))
+			if rootSpan.Tag(defaultTagSet.Name) != req.Name() {
+				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", defaultTagSet.Name, req.Name(), rootSpan.Tag(defaultTagSet.Name))
 			}
-			if rootSpan.Tag(tagType) != req.Type() {
-				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", tagType, req.Type(), rootSpan.Tag(tagType))
+			if rootSpan.Tag(defaultTagSet.Type) != req.Type() {
+				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", defaultTagSet.Type, req.Type(), rootSpan.Tag(defaultTagSet.Type))
 			}
-			if rootSpan.Tag(tagProto) != req.Proto() {
-				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", tagProto, req.Proto(), rootSpan.Tag(tagProto))
+			if rootSpan.Tag(defaultTagSet.Proto) != req.Proto() {
+				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", defaultTagSet.Proto, req.Proto(), rootSpan.Tag(defaultTagSet.Proto))
 			}
-			if rootSpan.Tag(tagRemote) != req.IP() {
-				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", tagRemote, req.IP(), rootSpan.Tag(tagRemote))
+			if rootSpan.Tag(defaultTagSet.Remote) != req.IP() {
+				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", defaultTagSet.Remote, req.IP(), rootSpan.Tag(defaultTagSet.Remote))
 			}
-			if rootSpan.Tag(tagRcode) != rcode.ToString(tc.rcode) {
-				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", tagRcode, rcode.ToString(tc.rcode), rootSpan.Tag(tagRcode))
+			if rootSpan.Tag(defaultTagSet.Rcode) != rcode.ToString(tc.rcode) {
+				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", defaultTagSet.Rcode, rcode.ToString(tc.rcode), rootSpan.Tag(defaultTagSet.Rcode))
 			}
 		})
 	}
