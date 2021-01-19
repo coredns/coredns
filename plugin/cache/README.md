@@ -79,6 +79,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 * `coredns_cache_prefetch_total{server}` - Counter of times the cache has prefetched a cached item.
 * `coredns_cache_drops_total{server}` - Counter of responses excluded from the cache due to request/response question name mismatch.
 * `coredns_cache_served_stale_total{server}` - Counter of requests served from stale cache entries.
+* `coredns_cache_evictions_total{server, type}` - Counter of cache evictions.
 
 Cache types are either "denial" or "success". `Server` is the server handling the request, see the
 prometheus plugin for documentation.

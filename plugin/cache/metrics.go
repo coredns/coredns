@@ -50,4 +50,11 @@ var (
 		Name:      "served_stale_total",
 		Help:      "The number of requests served from stale cache entries.",
 	}, []string{"server"})
+	// evictions is the counter of cache evictions.
+	evictions = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "cache",
+		Name:      "evictions_total",
+		Help:      "The count of cache evictions.",
+	}, []string{"server", "type"})
 )

@@ -45,9 +45,10 @@ func New(size int) *Cache {
 }
 
 // Add adds a new element to the cache. If the element already exists it is overwritten.
-func (c *Cache) Add(key uint64, el interface{}) {
+// Returns true if an existing element was evicted to make room for this element.
+func (c *Cache) Add(key uint64, el interface{}) bool {
 	shard := key & (shardSize - 1)
-	c.shards[shard].Add(key, el)
+	return c.shards[shard].Add(key, el)
 }
 
 // Get looks up element index under key.
@@ -75,18 +76,22 @@ func (c *Cache) Len() int {
 func newShard(size int) *shard { return &shard{items: make(map[uint64]interface{}), size: size} }
 
 // Add adds element indexed by key into the cache. Any existing element is overwritten
-func (s *shard) Add(key uint64, el interface{}) {
+// Returns true if an existing element was evicted to make room for this element.
+func (s *shard) Add(key uint64, el interface{}) bool {
+	eviction := false
 	s.Lock()
 	if len(s.items) >= s.size {
 		if _, ok := s.items[key]; !ok {
 			for k := range s.items {
 				delete(s.items, k)
+				eviction = true
 				break
 			}
 		}
 	}
 	s.items[key] = el
 	s.Unlock()
+	return eviction
 }
 
 // Remove removes the element indexed by key from the cache.
