@@ -47,6 +47,9 @@ COMMA:=$(EMPTY),$(EMPTY)
 ifeq (, $(shell which curl))
     $(error "No curl in $$PATH, please install")
 endif
+ifeq (, $(shell which manifest-tool))
+    $(error "No manifest-tool in $$PATH, please install")
+endif
 
 DOCKER:=
 NAME:=coredns
