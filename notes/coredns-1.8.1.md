@@ -8,10 +8,13 @@ author = "coredns"
 draft = true
 +++
 
-DRAFT DRAFT DRAFT
-
 The CoreDNS team has released
 [CoreDNS-1.8.1](https://github.com/coredns/coredns/releases/tag/v1.8.1).
+
+This release fixes a bunch of bugs, and adds a (very) simple new plugin
+called [local](https://coredns.io/plugins/local/) to answer "local" queries. Bunch of work in
+the [kubernetes](https://coredns.io/plugins/kubernetes) plugin to add support for new upstream
+feautres.
 
 ## Brought to You By
 
