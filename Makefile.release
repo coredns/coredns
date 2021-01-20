@@ -60,13 +60,9 @@ PLATFORMS:=$(subst $(SPACE),$(COMMA),$(foreach arch,$(LINUX_ARCH),linux/$(arch))
 all:
 	@echo Use the 'release' target to build a release, 'docker' for docker build.
 
-release: pre build tar
+release: build tar
 
 docker: docker-build
-
-.PHONY: pre
-pre:
-	GO111MODULE=off go get github.com/estesp/manifest-tool
 
 .PHONY: build
 build:
