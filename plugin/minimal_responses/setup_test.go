@@ -1,8 +1,9 @@
 package minimal_responses
 
 import (
-	"github.com/coredns/caddy"
 	"testing"
+
+	"github.com/coredns/caddy"
 )
 
 func TestSetup(t *testing.T) {

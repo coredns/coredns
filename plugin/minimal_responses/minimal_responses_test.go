@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/plugin/test"
-
 	"github.com/miekg/dns"
 )
 
@@ -47,13 +46,13 @@ func TestMinimizeResponse(t *testing.T) {
 				answer: baseAnswer,
 				ns:     nil,
 				extra:  baseExtra,
-				rcode: 0,
+				rcode:  0,
 			},
 			minimal: responseStruct{
 				answer: baseAnswer,
 				ns:     nil,
 				extra:  nil,
-				rcode: 0,
+				rcode:  0,
 			},
 		},
 		{ // delegate response case
@@ -61,26 +60,26 @@ func TestMinimizeResponse(t *testing.T) {
 				answer: nil,
 				ns:     baseNs,
 				extra:  baseExtra,
-				rcode: 0,
+				rcode:  0,
 			},
 			minimal: responseStruct{
 				answer: nil,
 				ns:     baseNs,
 				extra:  baseExtra,
-				rcode: 0,
+				rcode:  0,
 			},
-		},{ // negative response case
+		}, { // negative response case
 			original: responseStruct{
 				answer: baseAnswer,
 				ns:     baseNs,
 				extra:  baseExtra,
-				rcode: 2,
+				rcode:  2,
 			},
 			minimal: responseStruct{
 				answer: baseAnswer,
 				ns:     baseNs,
 				extra:  baseExtra,
-				rcode: 2,
+				rcode:  2,
 			},
 		},
 	}
