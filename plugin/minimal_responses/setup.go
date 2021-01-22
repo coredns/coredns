@@ -6,8 +6,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 )
 
-//var log = clog.NewWithPlugin("minimal-responses")
-
 func init() {
 	caddy.RegisterPlugin("minimal-responses", caddy.Plugin{
 		ServerType: "dns",
