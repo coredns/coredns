@@ -12,6 +12,7 @@ type responseStruct struct {
 	answer []dns.RR
 	ns     []dns.RR
 	extra  []dns.RR
+	rcode  int
 }
 
 func TestMinimizeResponse(t *testing.T) {
@@ -41,28 +42,45 @@ func TestMinimizeResponse(t *testing.T) {
 		original responseStruct
 		minimal  responseStruct
 	}{
-		{
+		{ // minimization possible NoError case
 			original: responseStruct{
 				answer: baseAnswer,
 				ns:     nil,
 				extra:  baseExtra,
+				rcode: 0,
 			},
 			minimal: responseStruct{
 				answer: baseAnswer,
 				ns:     nil,
 				extra:  nil,
+				rcode: 0,
 			},
 		},
-		{
+		{ // delegate response case
 			original: responseStruct{
 				answer: nil,
 				ns:     baseNs,
 				extra:  baseExtra,
+				rcode: 0,
 			},
 			minimal: responseStruct{
 				answer: nil,
 				ns:     baseNs,
 				extra:  baseExtra,
+				rcode: 0,
+			},
+		},{ // negative response case
+			original: responseStruct{
+				answer: baseAnswer,
+				ns:     baseNs,
+				extra:  baseExtra,
+				rcode: 2,
+			},
+			minimal: responseStruct{
+				answer: baseAnswer,
+				ns:     baseNs,
+				extra:  baseExtra,
+				rcode: 2,
 			},
 		},
 	}
@@ -73,6 +91,7 @@ func TestMinimizeResponse(t *testing.T) {
 		req.Answer = tc.original.answer
 		req.Extra = tc.original.extra
 		req.Ns = tc.original.ns
+		req.Rcode = tc.original.rcode
 
 		o := &minimalResponse{}
 		req = o.minimizeResponse(req)
