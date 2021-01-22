@@ -4,3 +4,4 @@ coredns.exe
 build/
 release/
 vendor/
+.idea/
