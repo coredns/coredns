@@ -1,4 +1,4 @@
-package minimal_responses
+package minimal
 
 import (
 	"context"
