@@ -7,20 +7,17 @@ import (
 )
 
 func init() {
-	caddy.RegisterPlugin("minimal-responses", caddy.Plugin{
-		ServerType: "dns",
-		Action:     setup,
-	})
+	plugin.Register("minimal", setup)
 }
 
 func setup(c *caddy.Controller) error {
 	c.Next()
 	if c.NextArg() {
-		return plugin.Error("minimal-responses", c.ArgErr())
+		return plugin.Error("minimal", c.ArgErr())
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return &minimalResponse{Next: next}
+		return &minimalHandler{Next: next}
 	})
 
 	return nil

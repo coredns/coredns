@@ -1,28 +1,28 @@
-# minimal-responses
+# minimal
 
 ## Name
 
-*minimal-responses* - minimizes size of the DNS response message whenever possible.
+*minimal* - minimizes size of the DNS response message whenever possible.
 
 ## Description
 
-The *minimal-responses* plugin tries to minimize the size of the response. Depending on the response type it removes resource records from the AUTHORITY and ADDITIONAL sections.
+The *minimal* plugin tries to minimize the size of the response. Depending on the response type it removes resource records from the AUTHORITY and ADDITIONAL sections.
 
 
 ## Syntax
 
 ~~~ txt
-minimal-responses
+minimal
 ~~~
 
 ## Examples
 
-Enable minimal-responses:
+Enable minimal responses:
 
 ~~~ corefile
 example.org {
     whoami
-    minimal-responses
+    minimal
 }
 ~~~
 

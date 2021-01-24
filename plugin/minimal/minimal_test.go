@@ -16,24 +16,24 @@ type responseStruct struct {
 
 func TestMinimizeResponse(t *testing.T) {
 	baseAnswer := []dns.RR{
-		test.A("google.com.  293 IN A 142.250.76.46"),
+		test.A("example.com.  293 IN A 142.250.76.46"),
 	}
 	baseNs := []dns.RR{
-		test.NS("google.com.  157127 IN NS ns2.google.com."),
-		test.NS("google.com.  157127 IN NS ns1.google.com."),
-		test.NS("google.com.  157127 IN NS ns3.google.com."),
-		test.NS("google.com.  157127 IN NS ns4.google.com."),
+		test.NS("example.com.  157127 IN NS ns2.example.com."),
+		test.NS("example.com.  157127 IN NS ns1.example.com."),
+		test.NS("example.com.  157127 IN NS ns3.example.com."),
+		test.NS("example.com.  157127 IN NS ns4.example.com."),
 	}
 
 	baseExtra := []dns.RR{
-		test.A("ns2.google.com. 316273 IN A 216.239.34.10"),
-		test.AAAA("ns2.google.com. 157127 IN AAAA 2001:4860:4802:34::a"),
-		test.A("ns3.google.com. 316274 IN A 216.239.36.10"),
-		test.AAAA("ns3.google.com. 157127 IN AAAA 2001:4860:4802:36::a"),
-		test.A("ns1.google.com. 165555 IN A 216.239.32.10"),
-		test.AAAA("ns1.google.com. 165555 IN AAAA 2001:4860:4802:32::a"),
-		test.A("ns4.google.com. 190188 IN A 216.239.38.10"),
-		test.AAAA("ns4.google.com. 157127 IN AAAA 2001:4860:4802:38::a"),
+		test.A("ns2.example.com. 316273 IN A 216.239.34.10"),
+		test.AAAA("ns2.example.com. 157127 IN AAAA 2001:4860:4802:34::a"),
+		test.A("ns3.example.com. 316274 IN A 216.239.36.10"),
+		test.AAAA("ns3.example.com. 157127 IN AAAA 2001:4860:4802:36::a"),
+		test.A("ns1.example.com. 165555 IN A 216.239.32.10"),
+		test.AAAA("ns1.example.com. 165555 IN AAAA 2001:4860:4802:32::a"),
+		test.A("ns4.example.com. 190188 IN A 216.239.38.10"),
+		test.AAAA("ns4.example.com. 157127 IN AAAA 2001:4860:4802:38::a"),
 	}
 
 	tests := []struct {
@@ -86,13 +86,13 @@ func TestMinimizeResponse(t *testing.T) {
 
 	for i, tc := range tests {
 		req := new(dns.Msg)
-		req.SetQuestion("google.com", dns.TypeA)
+		req.SetQuestion("example.com", dns.TypeA)
 		req.Answer = tc.original.answer
 		req.Extra = tc.original.extra
 		req.Ns = tc.original.ns
 		req.Rcode = tc.original.rcode
 
-		o := &minimalResponse{}
+		o := &minimalHandler{}
 		req = o.minimizeResponse(req)
 
 		if len(tc.minimal.ns) != len(req.Ns) {

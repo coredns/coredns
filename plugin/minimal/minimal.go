@@ -10,14 +10,14 @@ import (
 	"github.com/miekg/dns"
 )
 
-// minimalResponse implements the plugin.Handler interface.
-type minimalResponse struct {
+// minimalHandler implements the plugin.Handler interface.
+type minimalHandler struct {
 	Next plugin.Handler
 }
 
-func (m *minimalResponse) Name() string { return "minimal-responses" }
+func (m *minimalHandler) Name() string { return "minimal" }
 
-func (m *minimalResponse) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (m *minimalHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	nw := nonwriter.New(w)
 
 	rcode, err := plugin.NextOrFailure(m.Name(), m.Next, ctx, nw, r)
@@ -28,7 +28,7 @@ func (m *minimalResponse) ServeDNS(ctx context.Context, w dns.ResponseWriter, r 
 	return rcode, err
 }
 
-func (m *minimalResponse) minimizeResponse(msg *dns.Msg) *dns.Msg {
+func (m *minimalHandler) minimizeResponse(msg *dns.Msg) *dns.Msg {
 	if ty, _ := response.Typify(msg, time.Now().UTC()); ty == response.NoError {
 		msg.Extra = nil
 		msg.Ns = nil
