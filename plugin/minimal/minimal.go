@@ -18,16 +18,12 @@ type minimalResponse struct {
 func (m *minimalResponse) Name() string { return "minimal-responses" }
 
 func (m *minimalResponse) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	// if plugin active, try minimizing response
 	nw := nonwriter.New(w)
 
-	// Call all the next plugin in the chain.
 	rcode, err := plugin.NextOrFailure(m.Name(), m.Next, ctx, nw, r)
 	if err != nil {
-		// if error received then just return the error
 		return rcode, err
 	}
-	// else write minimized response
 	w.WriteMsg(m.minimizeResponse(nw.Msg))
 	return rcode, err
 }
