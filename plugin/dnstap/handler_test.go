@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/dnstap/msg"
 	test "github.com/coredns/coredns/plugin/test"
+
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
 )
