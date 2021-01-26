@@ -6,8 +6,12 @@
 
 ## Description
 
-The *minimal* plugin tries to minimize the size of the response. Depending on the response type it removes resource records from the AUTHORITY and ADDITIONAL sections.
+The *minimal* plugin tries to minimize the size of the response. Depending on the response type it 
+removes resource records from the AUTHORITY and ADDITIONAL sections.
 
+Specifically this plugin looks at successful responses (this excludes negative responses, i.e.
+nodata or name error). If the successful response isn't a delegation only the RRs in the answer
+section are written to the client.
 
 ## Syntax
 
@@ -22,6 +26,7 @@ Enable minimal responses:
 ~~~ corefile
 example.org {
     whoami
+    forward . 8.8.8.8
     minimal
 }
 ~~~

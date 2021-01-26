@@ -1,7 +1,11 @@
 package minimal
 
 import (
+	"context"
 	"testing"
+
+	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
 
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/miekg/dns"
@@ -12,6 +16,27 @@ type responseStruct struct {
 	ns     []dns.RR
 	extra  []dns.RR
 	rcode  int
+}
+
+// testHandler implements plugin.Handler and will be used to create a stub handler for the test
+type testHandler struct {
+	Response *responseStruct
+	Next     plugin.Handler
+}
+
+func (t *testHandler) Name() string { return "test-handler" }
+
+func (t *testHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	d := new(dns.Msg)
+	d.SetReply(r)
+	if t.Response != nil {
+		d.Answer = t.Response.answer
+		d.Ns = t.Response.ns
+		d.Extra = t.Response.extra
+		d.Rcode = t.Response.rcode
+	}
+	w.WriteMsg(d)
+	return 0, nil
 }
 
 func TestMinimizeResponse(t *testing.T) {
@@ -87,31 +112,46 @@ func TestMinimizeResponse(t *testing.T) {
 	for i, tc := range tests {
 		req := new(dns.Msg)
 		req.SetQuestion("example.com", dns.TypeA)
-		req.Answer = tc.original.answer
-		req.Extra = tc.original.extra
-		req.Ns = tc.original.ns
-		req.Rcode = tc.original.rcode
 
-		o := &minimalHandler{}
-		req = o.minimizeResponse(req)
+		tHandler := &testHandler{
+			Response: &tc.original,
+			Next:     nil,
+		}
+		o := &minimalHandler{Next: tHandler}
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		_, err := o.ServeDNS(context.TODO(), rec, req)
 
-		if len(tc.minimal.ns) != len(req.Ns) {
+		if err != nil {
+			t.Errorf("Expected no error, but got %q", err)
+		}
+
+		if len(tc.minimal.answer) != len(rec.Msg.Answer) {
+			t.Errorf("Test %d: Expected %d Answer, but got %d", i, len(tc.minimal.answer), len(req.Answer))
+			continue
+		}
+		if len(tc.minimal.ns) != len(rec.Msg.Ns) {
 			t.Errorf("Test %d: Expected %d Ns, but got %d", i, len(tc.minimal.ns), len(req.Ns))
 			continue
 		}
 
-		if len(tc.minimal.extra) != len(req.Extra) {
+		if len(tc.minimal.extra) != len(rec.Msg.Extra) {
 			t.Errorf("Test %d: Expected %d Extras, but got %d", i, len(tc.minimal.extra), len(req.Extra))
 			continue
 		}
 
-		for j, a := range req.Ns {
+		for j, a := range rec.Msg.Answer {
+			if tc.minimal.answer[j].String() != a.String() {
+				t.Errorf("Test %d: Expected Answer %d to be %v, but got %v", i, j, tc.minimal.answer[j], a)
+			}
+		}
+
+		for j, a := range rec.Msg.Ns {
 			if tc.minimal.ns[j].String() != a.String() {
 				t.Errorf("Test %d: Expected NS %d to be %v, but got %v", i, j, tc.minimal.ns[j], a)
 			}
 		}
 
-		for j, a := range req.Extra {
+		for j, a := range rec.Msg.Extra {
 			if tc.minimal.extra[j].String() != a.String() {
 				t.Errorf("Test %d: Expected Extra %d to be %v, but got %v", i, j, tc.minimal.extra[j], a)
 			}

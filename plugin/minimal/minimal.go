@@ -2,6 +2,7 @@ package minimal
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -24,14 +25,30 @@ func (m *minimalHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *
 	if err != nil {
 		return rcode, err
 	}
-	w.WriteMsg(m.minimizeResponse(nw.Msg))
-	return rcode, err
-}
 
-func (m *minimalHandler) minimizeResponse(msg *dns.Msg) *dns.Msg {
-	if ty, _ := response.Typify(msg, time.Now().UTC()); ty == response.NoError {
-		msg.Extra = nil
-		msg.Ns = nil
+	ty, _ := response.Typify(nw.Msg, time.Now().UTC())
+	cl := response.Classify(ty)
+
+	// if response is Denial or Error pass through also if the type is Delegation pass through
+	if cl == response.Denial || cl == response.Error || ty == response.Delegation {
+		w.WriteMsg(nw.Msg)
+		return 0, nil
 	}
-	return msg
+	if ty != response.NoError {
+		w.WriteMsg(nw.Msg)
+		return 0, plugin.Error("minimal", fmt.Errorf("unhandled response type %q for %q", ty, nw.Msg.Question[0].Name))
+	}
+
+	// copy over the original Msg params, deep copy not required as RRs are not modified
+	d := &dns.Msg{
+		MsgHdr:   nw.Msg.MsgHdr,
+		Compress: nw.Msg.Compress,
+		Question: nw.Msg.Question,
+		Answer:   nw.Msg.Answer,
+		Ns:       nil,
+		Extra:    nil,
+	}
+
+	w.WriteMsg(d)
+	return 0, nil
 }
