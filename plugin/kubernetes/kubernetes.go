@@ -257,7 +257,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (err error) {
 		return err
 	}
 	major, _ := strconv.Atoi(sv.Major)
-	minor, _ := strconv.Atoi(sv.Minor)
+	minor, _ := strconv.Atoi(strings.TrimRight(sv.Minor, "+"))
 	if k.opts.useEndpointSlices && major <= 1 && minor <= 18 {
 		log.Info("watching Endpoints instead of EndpointSlices in k8s versions < 1.19")
 		k.opts.useEndpointSlices = false
