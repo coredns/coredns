@@ -1,15 +1,16 @@
 package forward
 
 import (
+	"context"
 	"math/rand"
 	"sync/atomic"
 
-	"github.com/miekg/dns"
+	"github.com/coredns/coredns/request"
 )
 
 // Policy defines a policy we use for selecting upstreams.
 type Policy interface {
-	List([]*Proxy, *dns.Msg) []*Proxy
+	List(context.Context, []*Proxy, *request.Request) []*Proxy
 	String() string
 }
 
@@ -18,7 +19,7 @@ type random struct{}
 
 func (r *random) String() string { return "random" }
 
-func (r *random) List(p []*Proxy, req *dns.Msg) []*Proxy {
+func (r *random) List(ctx context.Context, p []*Proxy, state *request.Request) []*Proxy {
 	switch len(p) {
 	case 1:
 		return p
@@ -45,7 +46,7 @@ type roundRobin struct {
 
 func (r *roundRobin) String() string { return "round_robin" }
 
-func (r *roundRobin) List(p []*Proxy, req *dns.Msg) []*Proxy {
+func (r *roundRobin) List(ctx context.Context, p []*Proxy, state *request.Request) []*Proxy {
 	poolLen := uint32(len(p))
 	i := atomic.AddUint32(&r.robin, 1) % poolLen
 
@@ -61,6 +62,6 @@ type sequential struct{}
 
 func (r *sequential) String() string { return "sequential" }
 
-func (r *sequential) List(p []*Proxy, req *dns.Msg) []*Proxy {
+func (r *sequential) List(ctx context.Context, p []*Proxy, state *request.Request) []*Proxy {
 	return p
 }

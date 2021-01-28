@@ -41,6 +41,8 @@ type Forward struct {
 	expire        time.Duration
 	maxConcurrent int64
 
+	policies map[string]Policy
+
 	opts options // also here for testing
 
 	// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded
@@ -92,7 +94,10 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	var upstreamErr error
 	span = ot.SpanFromContext(ctx)
 	i := 0
-	list := f.List(r)
+	list := f.List(ctx, &state)
+	if len(list) == 0 {
+		return dns.RcodeServerFailure, ErrNoHealthy
+	}
 	deadline := time.Now().Add(defaultTimeout)
 	start := time.Now()
 	for time.Now().Before(deadline) {
@@ -112,7 +117,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			// All upstream proxies are dead, assume healthcheck is completely broken and randomly
 			// select an upstream to connect to.
 			r := new(random)
-			proxy = r.List(f.proxies, state.Req)[0]
+			proxy = r.List(ctx, list, &state)[0]
 
 			HealthcheckBrokenCount.Add(1)
 		}
@@ -211,7 +216,9 @@ func (f *Forward) ForceTCP() bool { return f.opts.forceTCP }
 func (f *Forward) PreferUDP() bool { return f.opts.preferUDP }
 
 // List returns a set of proxies to be used for this client depending on the policy in f.
-func (f *Forward) List(req *dns.Msg) []*Proxy { return f.p.List(f.proxies, req) }
+func (f *Forward) List(ctx context.Context, state *request.Request) []*Proxy {
+	return f.p.List(ctx, f.proxies, state)
+}
 
 var (
 	// ErrNoHealthy means no healthy proxies left.
