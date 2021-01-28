@@ -11,7 +11,7 @@ func TestList(t *testing.T) {
 	}
 
 	expect := []*Proxy{{addr: "2.2.2.2:53"}, {addr: "1.1.1.1:53"}, {addr: "3.3.3.3:53"}}
-	got := f.List(nil)
+	got := f.List(nil,nil)
 
 	if len(got) != len(expect) {
 		t.Fatalf("Expected: %v results, got: %v", len(expect), len(got))

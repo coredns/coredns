@@ -69,6 +69,7 @@ func (f *Forward) OnShutdown() error {
 
 func (f *Forward) initPolicies(c *caddy.Controller) {
 	// default policies
+	f.policies = make(map[string]Policy, 3)
 	for _, pol := range []Policy{&random{}, &roundRobin{}, &sequential{}} {
 		f.policies[pol.String()] = pol
 	}
