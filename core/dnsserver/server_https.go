@@ -140,7 +140,11 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Create a DoHWriter with the correct addresses in it.
 	h, p, _ := net.SplitHostPort(r.RemoteAddr)
 	port, _ := strconv.Atoi(p)
-	dw := &DoHWriter{laddr: s.listenAddr, raddr: &net.TCPAddr{IP: net.ParseIP(h), Port: port}}
+	dw := &DoHWriter{
+		laddr:   s.listenAddr,
+		raddr:   &net.TCPAddr{IP: net.ParseIP(h), Port: port},
+		request: r,
+	}
 
 	// We just call the normal chain handler - all error handling is done there.
 	// We should expect a packet to be returned that we can send to the client.
