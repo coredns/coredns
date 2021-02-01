@@ -41,7 +41,7 @@ type Forward struct {
 	expire        time.Duration
 	maxConcurrent int64
 
-	policies map[string]Policy
+	extPolicy string
 
 	opts options // also here for testing
 

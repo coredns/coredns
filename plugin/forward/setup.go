@@ -43,7 +43,21 @@ func setup(c *caddy.Controller) error {
 		}
 		return nil
 	})
-
+	if f.extPolicy != "" {
+		c.OnStartup(func() error {
+			// get external policy
+			for _, h := range dnsserver.GetConfig(c).Handlers() {
+				if pol, ok := h.(Policy); ok {
+					if pol.String() != f.extPolicy {
+						continue
+					}
+					f.p = pol
+					return nil
+				}
+			}
+			return plugin.Error(f.Name(), fmt.Errorf("unknown policy '%v'", f.extPolicy))
+		})
+	}
 	c.OnShutdown(func() error {
 		return f.OnShutdown()
 	})
@@ -67,20 +81,6 @@ func (f *Forward) OnShutdown() error {
 	return nil
 }
 
-func (f *Forward) initPolicies(c *caddy.Controller) {
-	// default policies
-	f.policies = make(map[string]Policy, 3)
-	for _, pol := range []Policy{&random{}, &roundRobin{}, &sequential{}} {
-		f.policies[pol.String()] = pol
-	}
-	// external policies
-	for _, h := range dnsserver.GetConfig(c).Handlers() {
-		if pol, ok := h.(Policy); ok {
-			f.policies[pol.String()] = pol
-		}
-	}
-}
-
 func parseForward(c *caddy.Controller) (*Forward, error) {
 	var (
 		f   *Forward
@@ -102,8 +102,6 @@ func parseForward(c *caddy.Controller) (*Forward, error) {
 
 func parseStanza(c *caddy.Controller) (*Forward, error) {
 	f := New()
-
-	f.initPolicies(c)
 
 	if !c.Args(&f.from) {
 		return f, c.ArgErr()
@@ -246,11 +244,16 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
-		pol, ok := f.policies[c.Val()]
-		if !ok {
-			return c.Errf("unknown policy '%s'", c.Val())
+		switch x := c.Val(); x {
+		case "random":
+			f.p = &random{}
+		case "round_robin":
+			f.p = &roundRobin{}
+		case "sequential":
+			f.p = &sequential{}
+		default:
+			f.extPolicy = x
 		}
-		f.p = pol
 	case "max_concurrent":
 		if !c.NextArg() {
 			return c.ArgErr()
