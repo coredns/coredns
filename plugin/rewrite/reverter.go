@@ -36,7 +36,10 @@ func NewResponseReverter(w dns.ResponseWriter, r *dns.Msg) *ResponseReverter {
 }
 
 // WriteMsg records the status code and calls the underlying ResponseWriter's WriteMsg method.
-func (r *ResponseReverter) WriteMsg(res *dns.Msg) error {
+func (r *ResponseReverter) WriteMsg(res1 *dns.Msg) error {
+	// Deep copy 'res' as to not (e.g). rewrite a message that's also stored in the cache.
+	res := res1.Copy()
+
 	res.Question[0] = r.originalQuestion
 	if r.ResponseRewrite {
 		for _, rr := range res.Answer {
