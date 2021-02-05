@@ -329,6 +329,19 @@ kubernetes cluster.local`,
 		},
 		{
 			`kubernetes coredns.local {
+	kubeconfig file
+}`,
+			false,
+			"",
+			1,
+			0,
+			"",
+			"",
+			podModeDisabled,
+			fall.Zero,
+		},
+		{
+			`kubernetes coredns.local {
 	kubeconfig file context
 }`,
 			false,

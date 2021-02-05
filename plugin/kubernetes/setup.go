@@ -253,15 +253,18 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 			}
 		case "kubeconfig":
 			args := c.RemainingArgs()
-			if len(args) == 2 {
-				config := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-					&clientcmd.ClientConfigLoadingRules{ExplicitPath: args[0]},
-					&clientcmd.ConfigOverrides{CurrentContext: args[1]},
-				)
-				k8s.ClientConfig = config
-				continue
+			if len(args) != 1 && len(args) != 2 {
+				return nil, c.ArgErr()
 			}
-			return nil, c.ArgErr()
+			overrides := &clientcmd.ConfigOverrides{}
+			if len(args) == 2 {
+				overrides.CurrentContext = args[1]
+			}
+			config := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+				&clientcmd.ClientConfigLoadingRules{ExplicitPath: args[0]},
+				overrides,
+			)
+			k8s.ClientConfig = config
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}
