@@ -58,6 +58,10 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
+	if state.Proto() != "tcp" {
+		return dns.RcodeRefused, nil
+	}
+
 	x := longestMatch(t.xfrs, state.QName())
 	if x == nil {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)

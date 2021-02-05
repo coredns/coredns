@@ -20,7 +20,7 @@ func (w *badwriter) WriteMsg(res *dns.Msg) error { return fmt.Errorf("failed to 
 func TestWriteMessageFailed(t *testing.T) {
 	transfer := newTestTransfer()
 	ctx := context.TODO()
-	w := &badwriter{ResponseWriter: &test.ResponseWriter{}}
+	w := &badwriter{ResponseWriter: &test.ResponseWriter{TCP: true}}
 	m := &dns.Msg{}
 	m.SetAxfr("example.org.")
 

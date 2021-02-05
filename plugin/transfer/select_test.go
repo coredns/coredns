@@ -47,7 +47,7 @@ func TestZoneSelection(t *testing.T) {
 	}
 	r := new(dns.Msg)
 	r.SetAxfr("sub.example.org.")
-	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	w := dnstest.NewRecorder(&test.ResponseWriter{TCP: true})
 	_, err := tr.ServeDNS(context.TODO(), w, r)
 	if err == nil {
 		t.Fatal("Expected error, got nil")

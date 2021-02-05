@@ -91,7 +91,7 @@ func TestTransferNonZone(t *testing.T) {
 	ctx := context.TODO()
 
 	for _, tc := range []string{"sub.example.org.", "example.test."} {
-		w := dnstest.NewRecorder(&test.ResponseWriter{})
+		w := dnstest.NewRecorder(&test.ResponseWriter{TCP: true})
 		m := &dns.Msg{}
 		m.SetAxfr(tc)
 
@@ -114,7 +114,7 @@ func TestTransferNotAXFRorIXFR(t *testing.T) {
 	transfer := newTestTransfer()
 
 	ctx := context.TODO()
-	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	w := dnstest.NewRecorder(&test.ResponseWriter{TCP: true})
 	m := &dns.Msg{}
 	m.SetQuestion("test.domain.", dns.TypeA)
 
@@ -136,7 +136,7 @@ func TestTransferAXFRExampleOrg(t *testing.T) {
 	transfer := newTestTransfer()
 
 	ctx := context.TODO()
-	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true})
 	m := &dns.Msg{}
 	m.SetAxfr(transfer.xfrs[0].Zones[0])
 
@@ -152,7 +152,7 @@ func TestTransferAXFRExampleCom(t *testing.T) {
 	transfer := newTestTransfer()
 
 	ctx := context.TODO()
-	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true})
 	m := &dns.Msg{}
 	m.SetAxfr(transfer.xfrs[1].Zones[0])
 
@@ -170,7 +170,7 @@ func TestTransferIXFRCurrent(t *testing.T) {
 	testPlugin := transfer.Transferers[0].(*transfererPlugin)
 
 	ctx := context.TODO()
-	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true})
 	m := &dns.Msg{}
 	m.SetIxfr(transfer.xfrs[0].Zones[0], testPlugin.Serial, "ns.dns."+testPlugin.Zone, "hostmaster.dns."+testPlugin.Zone)
 
@@ -200,7 +200,7 @@ func TestTransferIXFRFallback(t *testing.T) {
 	testPlugin := transfer.Transferers[0].(*transfererPlugin)
 
 	ctx := context.TODO()
-	w := dnstest.NewMultiRecorder(&test.ResponseWriter{})
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true})
 	m := &dns.Msg{}
 	m.SetIxfr(
 		transfer.xfrs[0].Zones[0],
@@ -262,7 +262,7 @@ func TestTransferNotAllowed(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	w := dnstest.NewRecorder(&test.ResponseWriter{TCP: true})
 	m := &dns.Msg{}
 	m.SetAxfr(transfer.xfrs[0].Zones[0])
 
