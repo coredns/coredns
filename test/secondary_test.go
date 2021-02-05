@@ -100,7 +100,7 @@ func TestIxfrResponse(t *testing.T) {
 		}
 	}`
 
-	i, udp, _, err := CoreDNSServerAndPorts(corefile)
+	i, _, tcp, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
@@ -111,9 +111,11 @@ func TestIxfrResponse(t *testing.T) {
 	m.Ns = []dns.RR{test.SOA("example.org. IN SOA sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600")} // copied from exampleOrg
 
 	var r *dns.Msg
+	c := new(dns.Client)
+	c.Net = "tcp"
 	// This is now async; we need to wait for it to be transferred.
 	for i := 0; i < 10; i++ {
-		r, _ = dns.Exchange(m, udp)
+		r, _, _ = c.Exchange(m, tcp)
 		if len(r.Answer) != 0 {
 			break
 		}
