@@ -5,7 +5,7 @@ import "fmt"
 // startUpZones creates the text that we show when starting up:
 // grpc://example.com.:1055
 // example.com.:1053 on 127.0.0.1
-func startUpZones(protocol, addr string, zones map[string]*Config) string {
+func startUpZones(protocol, addr string, zones map[string][]*Config) string {
 	s := ""
 
 	for zone := range zones {

@@ -13,6 +13,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/transport"
+	"github.com/coredns/coredns/request"
 )
 
 const serverType = "dns"
@@ -81,14 +82,14 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 
 			ones, bits := za.IPNet.Mask.Size()
 			if (bits-ones)%8 != 0 { // only do this for non-octet boundaries
-				cfg.FilterFunc = func(s string) bool {
+				cfg.FilterFuncs = append(cfg.FilterFuncs, func(s request.Request) bool {
 					// TODO(miek): strings.ToLower! Slow and allocates new string.
-					addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s))
+					addr := dnsutil.ExtractAddressFromReverse(strings.ToLower(s.Req.Question[0].Name))
 					if addr == "" {
 						return true
 					}
 					return za.IPNet.Contains(net.ParseIP(addr))
-				}
+				})
 			}
 			h.saveConfig(keyConfig, cfg)
 		}
@@ -103,7 +104,9 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 	// lets verify that there is no overlap on the zones and addresses to listen for
 	errValid := h.validateZonesAndListeningAddresses()
 	if errValid != nil {
-		return nil, errValid
+		// TODO: Skip this for now. Due to filters, we need to permit overlap.
+		// TODO: Verify that server "order" is maintained.
+		// return nil, errValid
 	}
 
 	// we must map (group) each config to a bind address
@@ -145,6 +148,17 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 			servers = append(servers, s)
 		}
 
+	}
+
+	// For each server config, check for View Filter plugins
+	for _, c := range h.configs {
+		// Add filters in the plugin.cfg order for consistent filter
+		// evaluation order (matters a little for short circuiting).
+		for _, d := range Directives {
+			if vf, ok := c.registry[d].(Viewer); ok {
+				c.FilterFuncs = append(c.FilterFuncs, vf.Filter)
+			}
+		}
 	}
 
 	return servers, nil

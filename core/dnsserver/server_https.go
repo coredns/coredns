@@ -35,9 +35,11 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 	// The *tls* plugin must make sure that multiple conflicting
 	// TLS configuration returns an error: it can only be specified once.
 	var tlsConfig *tls.Config
-	for _, conf := range s.zones {
-		// Should we error if some configs *don't* have TLS?
-		tlsConfig = conf.TLSConfig
+	for _, z := range s.zones {
+		for _, conf := range z {
+			// Should we error if some configs *don't* have TLS?
+			tlsConfig = conf.TLSConfig
+		}
 	}
 	if tlsConfig == nil {
 		return nil, fmt.Errorf("DoH requires TLS to be configured, see the tls plugin")
@@ -48,8 +50,10 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 
 	// Use a custom request validation func or use the standard DoH path check.
 	var validator func(*http.Request) bool
-	for _, conf := range s.zones {
-		validator = conf.HTTPRequestValidateFunc
+	for _, z := range s.zones {
+		for _, conf := range z {
+			validator = conf.HTTPRequestValidateFunc
+		}
 	}
 	if validator == nil {
 		validator = func(r *http.Request) bool { return r.URL.Path == doh.Path }
