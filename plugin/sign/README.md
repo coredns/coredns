@@ -32,7 +32,7 @@ it do key or algorithm rollovers - it just signs.
     Both these dates are only checked on the SOA's signature(s). This concerns the DNSSEC data, the
     *sign* plugin will also take into account and resign if:
 
-     - the **mtime** of the zone has changed, since the last time it was checked.
+     - the **mtime** of the zone file has changed, since the last time it was checked.
 
      - the signed zone file doesn't exist on disk.
 
