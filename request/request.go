@@ -338,6 +338,8 @@ func (r *Request) Clear() {
 	r.port = ""
 	r.localPort = ""
 	r.family = 0
+	r.size = 0
+	r.do = false
 }
 
 // Match checks if the reply matches the qname and qtype from the request, it returns
