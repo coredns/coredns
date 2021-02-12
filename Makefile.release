@@ -44,7 +44,7 @@ EMPTY:=
 SPACE:=$(EMPTY) $(EMPTY)
 COMMA:=$(EMPTY),$(EMPTY)
 
-ifeq (, $(shell which -v curl))
+ifeq (, $(shell which curl))
     $(error "No curl in $$PATH, please install")
 endif
 
