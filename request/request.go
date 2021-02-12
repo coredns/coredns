@@ -10,6 +10,10 @@ import (
 	"github.com/miekg/dns"
 )
 
+// DefaultMaxUDPSize is the maximum size of a packet that we would send over UDP.
+// 1232 is based on [DNS Flag Day 2020](https://dnsflagday.net/2020/) value.
+const DefaultMaxUDPSize = uint16(1232)
+
 // Request contains some connection state and is useful in plugin.
 type Request struct {
 	Req *dns.Msg
@@ -17,6 +21,8 @@ type Request struct {
 
 	// Optional lowercased zone of this query.
 	Zone string
+	// The maximum UDP buffer size the server is willing to send out. 0 for default value
+	MaxUDPSize uint16
 
 	// Cache size after first call to Size or Do. If size is zero nothing has been cached yet.
 	// Both Size and Do set these values (and cache them).
@@ -35,7 +41,7 @@ type Request struct {
 // NewWithQuestion returns a new request based on the old, but with a new question
 // section in the request.
 func (r *Request) NewWithQuestion(name string, typ uint16) Request {
-	req1 := Request{W: r.W, Req: r.Req.Copy()}
+	req1 := Request{W: r.W, Req: r.Req.Copy(), MaxUDPSize: r.MaxUDPSize}
 	req1.Req.Question[0] = dns.Question{Name: dns.Fqdn(name), Qclass: dns.ClassINET, Qtype: typ}
 	return req1
 }
@@ -157,7 +163,9 @@ func (r *Request) Do() bool {
 // Len returns the length in bytes in the request.
 func (r *Request) Len() int { return r.Req.Len() }
 
-// Size returns if buffer size *advertised* in the requests OPT record.
+// Size returns the size that can be sent on the wire.
+// If buffer size is *advertised* in the requests OPT record, Size will be
+// min(advertised buffer size, maximum allowed by the server).
 // Or when the request was over TCP, we return the maximum allowed size of 64K.
 func (r *Request) Size() int {
 	if r.size != 0 {
@@ -165,9 +173,18 @@ func (r *Request) Size() int {
 	}
 
 	size := uint16(0)
+
 	if o := r.Req.IsEdns0(); o != nil {
 		r.do = o.Do()
-		size = o.UDPSize()
+		// client is providing EDNS0, make sure the provided bufsize
+		// is not greater than our MaxUDPSize
+		size = r.MaxUDPSize
+		if size == 0 {
+			size = DefaultMaxUDPSize
+		}
+		if size > o.UDPSize() {
+			size = o.UDPSize()
+		}
 	}
 
 	// normalize size

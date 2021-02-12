@@ -281,3 +281,46 @@ func TestRequestClear(t *testing.T) {
 		t.Errorf("Expected st.port to be cleared after Clear")
 	}
 }
+
+// TestRequestMaxSize tests that the server response size respect the value signaled
+// by the client while not exceeding the server's MaxUDPSize.
+func TestRequestMaxSize(t *testing.T) {
+	tests := []struct {
+		edns0        bool
+		bufsize      uint16
+		maxUDPSize   uint16
+		expectedSize uint16
+	}{
+		// UDP
+		// client set bufsize below DefaultMaxUDPSize, we expect client size to be honored.
+		{edns0: true, bufsize: DefaultMaxUDPSize - 1, expectedSize: DefaultMaxUDPSize - 1},
+		// client set bufsize above DefaultMaxUDPSize, we expect server size to be honored.
+		{edns0: true, bufsize: DefaultMaxUDPSize + 1, expectedSize: DefaultMaxUDPSize},
+		// client set bufsize below server MaxUDPSize, we expect client size to be honored.
+		{edns0: true, bufsize: 1234 - 1, maxUDPSize: 1234, expectedSize: 1234 - 1},
+		// client set bufsize above server MaxUDPSize, we expect server size to be honored.
+		{edns0: true, bufsize: 1234 + 1, maxUDPSize: 1234, expectedSize: 1234},
+		// client do not set EDNS0, we expect default MinMsgSize size to be honored.
+		{edns0: false, expectedSize: dns.MinMsgSize},
+	}
+	for i, tc := range tests {
+		for _, tcp := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%d-%t-%v", i, tcp, tc), func(t *testing.T) {
+				m := new(dns.Msg)
+				m.SetQuestion("example.com.", dns.TypeA)
+				if tc.edns0 {
+					m.SetEdns0(tc.bufsize, true)
+				}
+				req := Request{W: &test.ResponseWriter{TCP: tcp}, Req: m, MaxUDPSize: tc.maxUDPSize}
+				got := req.Size()
+				if tcp && got != dns.MaxMsgSize {
+					t.Errorf("Want Size to be equal to %d bytes, got %d bytes", dns.MaxMsgSize, got)
+				} else if !tcp && got != int(tc.expectedSize) {
+					t.Errorf("Want Size to be equal to %d bytes, got %d bytes", tc.expectedSize, got)
+				}
+
+			})
+		}
+	}
+
+}
