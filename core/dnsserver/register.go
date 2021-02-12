@@ -100,14 +100,16 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 // MakeServers uses the newly-created siteConfigs to create and return a list of server instances.
 func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 
-	// Now that all Keys and Directives are parsed and initialized
-	// lets verify that there is no overlap on the zones and addresses to listen for
-	errValid := h.validateZonesAndListeningAddresses()
-	if errValid != nil {
-		// TODO: Skip this for now. Due to filters, we need to permit overlap.
-		// TODO: Verify that server "order" is maintained.
-		// return nil, errValid
-	}
+	/*
+		// Now that all Keys and Directives are parsed and initialized
+		// lets verify that there is no overlap on the zones and addresses to listen for
+		errValid := h.validateZonesAndListeningAddresses()
+		if errValid != nil {
+			// TODO: Skip this for now. Due to filters, we need to permit overlap.
+			// TODO: Verify that server "order" is maintained.
+			// return nil, errValid
+		}
+	*/
 
 	// we must map (group) each config to a bind address
 	groups, err := groupConfigsByListenAddr(h.configs)
@@ -159,6 +161,13 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 				c.FilterFuncs = append(c.FilterFuncs, vf.Filter)
 			}
 		}
+	}
+
+	// Verify that there is no overlap on the zones and listen addresses
+	// for unfiltered server configs
+	errValid := h.validateZonesAndListeningAddresses()
+	if errValid != nil {
+		return nil, errValid
 	}
 
 	return servers, nil
@@ -216,7 +225,15 @@ func (h *dnsContext) validateZonesAndListeningAddresses() error {
 		for _, h := range conf.ListenHosts {
 			// Validate the overlapping of ZoneAddr
 			akey := zoneAddr{Transport: conf.Transport, Zone: conf.Zone, Address: h, Port: conf.Port}
-			existZone, overlapZone := checker.registerAndCheck(akey)
+			var existZone, overlapZone *zoneAddr
+			if len(conf.FilterFuncs) > 0 {
+				// Check for overlap, but do not register.
+				// A filtered config may not overlap an unfiltered config.
+				// Other configs are permitted to overlap a filtered config.
+				existZone, overlapZone = checker.check(akey)
+			} else {
+				existZone, overlapZone = checker.registerAndCheck(akey)
+			}
 			if existZone != nil {
 				return fmt.Errorf("cannot serve %s - it is already defined", akey.String())
 			}
