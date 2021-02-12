@@ -71,6 +71,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
+   - name: Install dependencies
+      run: |
+        sudo apt-get install make curl
+
     - name: Check out code
       uses: actions/checkout@v2
 
