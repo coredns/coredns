@@ -79,4 +79,4 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Test Makefile
-      run: make -f Makefile.release noop
+      run: make -f Makefile.release build
