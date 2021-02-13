@@ -62,13 +62,11 @@ func rewriteResourceRecord(res *dns.Msg, rr dns.RR, r *ResponseReverter) {
 	var (
 		isNameRewritten   bool
 		isTTLRewritten    bool
-		isTargetRewritten bool
+		isValueRewritten  bool
 		name              = rr.Header().Name
 		ttl               = rr.Header().Ttl
-		target            string
+		value             string
 	)
-
-	target = getTargetNameForRewrite(rr)
 
 	for _, rule := range r.ResponseRules {
 		if rule.Type == "" {
@@ -76,27 +74,30 @@ func rewriteResourceRecord(res *dns.Msg, rr dns.RR, r *ResponseReverter) {
 		}
 		switch rule.Type {
 		case "name":
-			rewriteName(rule, &name, &isNameRewritten)
-			if target != "" {
-				rewriteName(rule, &target, &isTargetRewritten)
+			rewriteString(rule, &name, &isNameRewritten)
+		case "value":
+			value = getRecordValueForRewrite(rr)
+			if value != "" {
+				rewriteString(rule, &value, &isValueRewritten)
 			}
 		case "ttl":
 			ttl = rule.TTL
 			isTTLRewritten = true
 		}
 	}
+
 	if isNameRewritten {
 		rr.Header().Name = name
 	}
 	if isTTLRewritten {
 		rr.Header().Ttl = ttl
 	}
-	if isTargetRewritten {
-		setRewrittenTargetName(rr, target)
+	if isValueRewritten {
+		setRewrittenRecordValue(rr, value)
 	}
 }
 
-func getTargetNameForRewrite(rr dns.RR) (name string) {
+func getRecordValueForRewrite(rr dns.RR) (name string) {
 	switch rr.Header().Rrtype {
 	case dns.TypeSRV:
 		return rr.(*dns.SRV).Target
@@ -112,33 +113,32 @@ func getTargetNameForRewrite(rr dns.RR) (name string) {
 		return rr.(*dns.NAPTR).Replacement
 	case dns.TypeSOA:
 		return rr.(*dns.SOA).Ns
+	default:
+		return ""
 	}
-
-	return ""
 }
 
-func setRewrittenTargetName(rr dns.RR, name string) {
+func setRewrittenRecordValue(rr dns.RR, value string) {
 	switch rr.Header().Rrtype {
 	case dns.TypeSRV:
-		rr.(*dns.SRV).Target = name
+		rr.(*dns.SRV).Target = value
 	case dns.TypeMX:
-		rr.(*dns.MX).Mx = name
+		rr.(*dns.MX).Mx = value
 	case dns.TypeCNAME:
-		rr.(*dns.CNAME).Target = name
+		rr.(*dns.CNAME).Target = value
 	case dns.TypeNS:
-		rr.(*dns.NS).Ns = name
+		rr.(*dns.NS).Ns = value
 	case dns.TypeDNAME:
-		rr.(*dns.DNAME).Target = name
+		rr.(*dns.DNAME).Target = value
 	case dns.TypeNAPTR:
-		rr.(*dns.NAPTR).Replacement = name
+		rr.(*dns.NAPTR).Replacement = value
 	case dns.TypeSOA:
-		rr.(*dns.SOA).Ns = name
+		rr.(*dns.SOA).Ns = value
 	}
-
 }
 
-func rewriteName(rule ResponseRule, name *string, isNameRewritten *bool) {
-	regexGroups := rule.Pattern.FindStringSubmatch(*name)
+func rewriteString(rule ResponseRule, str *string, isStringRewritten *bool) {
+	regexGroups := rule.Pattern.FindStringSubmatch(*str)
 	if len(regexGroups) == 0 {
 		return
 	}
@@ -148,8 +148,8 @@ func rewriteName(rule ResponseRule, name *string, isNameRewritten *bool) {
 		s = strings.Replace(s, groupIndexStr, groupValue, -1)
 	}
 
-	*isNameRewritten = true
-	*name = s
+	*isStringRewritten = true
+	*str = s
 }
 
 // Write is a wrapper that records the size of the message that gets written.

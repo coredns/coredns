@@ -69,7 +69,7 @@ func doReverterTests(rules []Rule, t *testing.T) {
 	}
 }
 
-var targetTests = []struct {
+var valueTests = []struct {
 	from             string
 	fromType         uint16
 	answer           []dns.RR
@@ -77,7 +77,7 @@ var targetTests = []struct {
 	to               string
 	toType           uint16
 	noRevert         bool
-	expectTarget     string
+	expectValue     string
 	expectAnswerType uint16
 	expectAddlName   string
 }{
@@ -95,24 +95,24 @@ var targetTests = []struct {
 	{"my.domain.uk", dns.TypeSOA, []dns.RR{test.SOA("my.cluster.local.		1800	IN	SOA	ns1.cluster.local. admin.cluster.local. 1502165581 14400 3600 604800 14400")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeSOA, true, "ns1.cluster.local.", dns.TypeSOA, "ns1.cluster.local."},
 }
 
-func TestTargetResponseReverter(t *testing.T) {
+func TestValueResponseReverter(t *testing.T) {
 
 	rules := []Rule{}
-	r, _ := newNameRule("stop", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk")
+	r, _ := newNameRule("stop", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
 	rules = append(rules, r)
 
-	doTargetReverterTests(rules, t)
+	doValueReverterTests(rules, t)
 
 	rules = []Rule{}
-	r, _ = newNameRule("continue", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk")
+	r, _ = newNameRule("continue", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
 	rules = append(rules, r)
 
-	doTargetReverterTests(rules, t)
+	doValueReverterTests(rules, t)
 }
 
-func doTargetReverterTests(rules []Rule, t *testing.T) {
+func doValueReverterTests(rules []Rule, t *testing.T) {
 	ctx := context.TODO()
-	for i, tc := range targetTests {
+	for i, tc := range valueTests {
 		m := new(dns.Msg)
 		m.SetQuestion(tc.from, tc.fromType)
 		m.Question[0].Qclass = dns.ClassINET
@@ -138,9 +138,9 @@ func doTargetReverterTests(rules []Rule, t *testing.T) {
 			return
 		}
 
-		target := getTargetNameForRewrite(resp.Answer[0])
-		if target != tc.expectTarget {
-			t.Errorf("Test %d: Expected Target to be '%s' but was '%s'", i, tc.expectTarget, target)
+		value := getRecordValueForRewrite(resp.Answer[0])
+		if value != tc.expectValue {
+			t.Errorf("Test %d: Expected Target to be '%s' but was '%s'", i, tc.expectValue, value)
 		}
 
 		if len(resp.Extra) <= 0 || resp.Extra[0].Header().Rrtype != dns.TypeA {

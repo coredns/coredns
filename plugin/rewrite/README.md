@@ -151,9 +151,16 @@ ftp-us-west-1.coredns.rocks. 0    IN A    10.20.20.20
 ftp-us-west-1.coredns.rocks. 0    IN A    10.30.30.30
 ```
 
+It is also possible to rewrite other values returned in the DNS response records 
+(e.g. the server names returned in `SRV` and `MX` records). This can be enabled by adding 
+the `answer value` to a name regex rule as specified below. `answer value` takes a 
+regular expression and a rewrite name as parameters and works in the same way as the 
+`answer name` rule.
+
 Note that names in the `AUTHORITY SECTION` and `ADDITIONAL SECTION` will also be
-rewritten following the `answer name` rule as will the names returned by the following
-record types: `CNAME`, `DNAME`, `SOA`, `SRV`, `MX`, `NAPTR`, `NS`
+rewritten following the specified rules. The names returned by the following
+record types: `CNAME`, `DNAME`, `SOA`, `SRV`, `MX`, `NAPTR`, `NS` will be rewritten 
+if the `answer value` rule is specified.
 
 The syntax for the rewrite of DNS request and response is as follows:
 
@@ -161,20 +168,20 @@ The syntax for the rewrite of DNS request and response is as follows:
 rewrite [continue|stop] {
     name regex STRING STRING
     answer name STRING STRING
+    [answer value STRING STRING]
 }
 ```
 
 Note that the above syntax is strict.  For response rewrites, only `name`
 rules are allowed to match the question section, and only by match type
 `regex`. The answer rewrite must be after the name, as in the
-syntax example. There must only be two lines (a `name` followed by an
-`answer`) in the brackets; additional rules are not supported.
+syntax example.
 
 An alternate syntax for rewriting a DNS request and response is as
 follows:
 
 ```
-rewrite [continue|stop] name regex STRING STRING answer name STRING STRING
+rewrite [continue|stop] name regex STRING STRING answer name STRING STRING [answer value STRING STRING]
 ```
 
 When using `exact` name rewrite rules, the answer gets rewritten automatically,

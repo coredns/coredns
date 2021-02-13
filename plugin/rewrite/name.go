@@ -37,10 +37,10 @@ type substringNameRule struct {
 }
 
 type regexNameRule struct {
-	NextAction  string
-	Pattern     *regexp.Regexp
-	Replacement string
-	ResponseRule
+	NextAction    string
+	Pattern       *regexp.Regexp
+	Replacement   string
+	ResponseRules []ResponseRule
 }
 
 const (
@@ -113,7 +113,6 @@ func (rule *regexNameRule) Rewrite(ctx context.Context, state request.Request) R
 // newNameRule creates a name matching rule based on exact, partial, or regex match
 func newNameRule(nextAction string, args ...string) (Rule, error) {
 	var matchType, rewriteQuestionFrom, rewriteQuestionTo string
-	var rewriteAnswerField, rewriteAnswerFrom, rewriteAnswerTo string
 	if len(args) < 2 {
 		return nil, fmt.Errorf("too few arguments for a name rule")
 	}
@@ -140,8 +139,9 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 		}
 	}
 
-	if len(args) > 3 && len(args) != 7 {
-		return nil, fmt.Errorf("response rewrites must consist only of a name rule with 3 arguments and an answer rule with 3 arguments")
+	//if len(args) > 3 && len(args) != 7 {
+	if len(args) > 3 && (len(args) - 3) % 4 != 0 {
+		return nil, fmt.Errorf("response rewrites must consist only of a name rule with 3 arguments and one or more answer rules with 3 arguments each")
 	}
 
 	if len(args) < 7 {
@@ -190,52 +190,73 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 				nextAction,
 				rewriteQuestionFromPattern,
 				rewriteQuestionTo,
-				ResponseRule{
+				[]ResponseRule{{
 					Type: "name",
-				},
+				}},
 			}, nil
 		default:
 			return nil, fmt.Errorf("name rule supports only exact, prefix, suffix, substring, and regex name matching, received: %s", matchType)
 		}
 	}
-	if len(args) == 7 {
+	//if len(args) == 7 {
+	if (len(args) - 3) % 4 == 0 {
 		if matchType == RegexMatch {
-			if args[3] != "answer" {
-				return nil, fmt.Errorf("exceeded the number of arguments for a regex name rule")
-			}
 			rewriteQuestionFromPattern, err := isValidRegexPattern(rewriteQuestionFrom, rewriteQuestionTo)
 			if err != nil {
 				return nil, err
 			}
-			rewriteAnswerField = strings.ToLower(args[4])
-			switch rewriteAnswerField {
-			case "name":
-			default:
-				return nil, fmt.Errorf("exceeded the number of arguments for a regex name rule")
-			}
-			rewriteAnswerFrom = args[5]
-			rewriteAnswerTo = args[6]
-			rewriteAnswerFromPattern, err := isValidRegexPattern(rewriteAnswerFrom, rewriteAnswerTo)
-			if err != nil {
-				return nil, err
-			}
 			rewriteQuestionTo = plugin.Name(args[2]).Normalize()
-			rewriteAnswerTo = plugin.Name(args[6]).Normalize()
+
+			responseRuleCount := (len(args) - 3) / 4
+			responseRules := make([]ResponseRule, responseRuleCount)
+			for i := 0; i < responseRuleCount; i ++ {
+				startIdx := 3 + (i * 4)
+				responseRule, err := newResponseRule(args[startIdx:startIdx + 4])
+				if err != nil {
+					return nil, err
+				}
+				responseRules[i] = *responseRule
+			}
+
 			return &regexNameRule{
 				nextAction,
 				rewriteQuestionFromPattern,
 				rewriteQuestionTo,
-				ResponseRule{
-					Active:      true,
-					Type:        "name",
-					Pattern:     rewriteAnswerFromPattern,
-					Replacement: rewriteAnswerTo,
-				},
+				// TODO This needs updating to be an array of these - slice the slice for 7 len and 11 len and feed two of these
+				responseRules,
 			}, nil
 		}
 		return nil, fmt.Errorf("the rewrite of response is supported only for name regex rule")
 	}
 	return nil, fmt.Errorf("the rewrite rule is invalid: %s", args)
+}
+
+// newResponseRule creates a new "answer name" or "answer value" response rule.
+func newResponseRule(args []string) (responseRule *ResponseRule, err error){
+	if args[0] != "answer" {
+		return nil, fmt.Errorf("exceeded the number of arguments for a regex name rule")
+	}
+	rewriteAnswerField := strings.ToLower(args[1])
+	switch rewriteAnswerField {
+	case "name":
+	case "value":
+	default:
+		return nil, fmt.Errorf("exceeded the number of arguments for a regex name rule")
+	}
+	rewriteAnswerFrom := args[2]
+	rewriteAnswerTo := args[3]
+	rewriteAnswerFromPattern, err := isValidRegexPattern(rewriteAnswerFrom, rewriteAnswerTo)
+	if err != nil {
+		return nil, err
+	}
+	rewriteAnswerTo = plugin.Name(args[3]).Normalize()
+
+	return &ResponseRule{
+		Active:      true,
+		Type:        rewriteAnswerField,
+		Pattern:     rewriteAnswerFromPattern,
+		Replacement: rewriteAnswerTo,
+	}, nil
 }
 
 // Mode returns the processing nextAction
@@ -245,20 +266,20 @@ func (rule *suffixNameRule) Mode() string    { return rule.NextAction }
 func (rule *substringNameRule) Mode() string { return rule.NextAction }
 func (rule *regexNameRule) Mode() string     { return rule.NextAction }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *exactNameRule) GetResponseRule() ResponseRule { return rule.ResponseRule }
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *exactNameRule) GetResponseRules() []ResponseRule { return []ResponseRule{rule.ResponseRule} }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *prefixNameRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *prefixNameRule) GetResponseRules() []ResponseRule { return []ResponseRule{} }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *suffixNameRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *suffixNameRule) GetResponseRules() []ResponseRule { return []ResponseRule{} }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *substringNameRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *substringNameRule) GetResponseRules() []ResponseRule { return []ResponseRule{} }
 
-// GetResponseRule returns a rule to rewrite the response with.
-func (rule *regexNameRule) GetResponseRule() ResponseRule { return rule.ResponseRule }
+// GetResponseRules returns rules to rewrite the response with.
+func (rule *regexNameRule) GetResponseRules() []ResponseRule { return rule.ResponseRules }
 
 // hasClosingDot returns true if s has a closing dot at the end.
 func hasClosingDot(s string) bool {

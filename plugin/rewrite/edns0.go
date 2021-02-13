@@ -73,8 +73,8 @@ func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) R
 // Mode returns the processing mode.
 func (rule *edns0NsidRule) Mode() string { return rule.mode }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *edns0NsidRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *edns0NsidRule) GetResponseRules() []ResponseRule { return []ResponseRule{} }
 
 // Rewrite will alter the request EDNS0 local options.
 func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) Result {
@@ -103,8 +103,8 @@ func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) 
 // Mode returns the processing mode.
 func (rule *edns0LocalRule) Mode() string { return rule.mode }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *edns0LocalRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRules returns a rule to rewrite the response with. Currently not implemented.
+func (rule *edns0LocalRule) GetResponseRules() []ResponseRule { return []ResponseRule{} }
 
 // newEdns0Rule creates an EDNS0 rule of the appropriate type based on the args
 func newEdns0Rule(mode string, args ...string) (Rule, error) {
@@ -253,8 +253,8 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 // Mode returns the processing mode.
 func (rule *edns0VariableRule) Mode() string { return rule.mode }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *edns0VariableRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *edns0VariableRule) GetResponseRules() []ResponseRule { return []ResponseRule{} }
 
 func isValidVariable(variable string) bool {
 	switch variable {
@@ -362,8 +362,8 @@ func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request)
 // Mode returns the processing mode
 func (rule *edns0SubnetRule) Mode() string { return rule.mode }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
-func (rule *edns0SubnetRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRules return rules to rewrite the response with. Currently not implemented.
+func (rule *edns0SubnetRule) GetResponseRules() []ResponseRule { return []ResponseRule{} }
 
 // These are all defined actions.
 const (

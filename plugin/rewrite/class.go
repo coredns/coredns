@@ -43,5 +43,5 @@ func (rule *classRule) Rewrite(ctx context.Context, state request.Request) Resul
 // Mode returns the processing mode.
 func (rule *classRule) Mode() string { return rule.NextAction }
 
-// GetResponseRule return a rule to rewrite the response with. Currently not implemented.
-func (rule *classRule) GetResponseRule() ResponseRule { return ResponseRule{} }
+// GetResponseRules return rules to rewrite the response with. Currently not implemented.
+func (rule *classRule) GetResponseRules() []ResponseRule { return []ResponseRule{} }

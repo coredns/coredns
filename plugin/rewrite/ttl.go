@@ -15,31 +15,31 @@ import (
 type exactTTLRule struct {
 	NextAction string
 	From       string
-	ResponseRule
+	ResponseRules []ResponseRule
 }
 
 type prefixTTLRule struct {
 	NextAction string
 	Prefix     string
-	ResponseRule
+	ResponseRules []ResponseRule
 }
 
 type suffixTTLRule struct {
 	NextAction string
 	Suffix     string
-	ResponseRule
+	ResponseRules []ResponseRule
 }
 
 type substringTTLRule struct {
 	NextAction string
 	Substring  string
-	ResponseRule
+	ResponseRules []ResponseRule
 }
 
 type regexTTLRule struct {
 	NextAction string
 	Pattern    *regexp.Regexp
-	ResponseRule
+	ResponseRules []ResponseRule
 }
 
 // Rewrite rewrites the current request based upon exact match of the name
@@ -108,41 +108,41 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 			return &exactTTLRule{
 				nextAction,
 				plugin.Name(args[1]).Normalize(),
-				ResponseRule{
+				[]ResponseRule{{
 					Active: true,
 					Type:   "ttl",
 					TTL:    ttl,
-				},
+				}},
 			}, nil
 		case PrefixMatch:
 			return &prefixTTLRule{
 				nextAction,
 				plugin.Name(args[1]).Normalize(),
-				ResponseRule{
+				[]ResponseRule{{
 					Active: true,
 					Type:   "ttl",
 					TTL:    ttl,
-				},
+				}},
 			}, nil
 		case SuffixMatch:
 			return &suffixTTLRule{
 				nextAction,
 				plugin.Name(args[1]).Normalize(),
-				ResponseRule{
+				[]ResponseRule{{
 					Active: true,
 					Type:   "ttl",
 					TTL:    ttl,
-				},
+				}},
 			}, nil
 		case SubstringMatch:
 			return &substringTTLRule{
 				nextAction,
 				plugin.Name(args[1]).Normalize(),
-				ResponseRule{
+				[]ResponseRule{{
 					Active: true,
 					Type:   "ttl",
 					TTL:    ttl,
-				},
+				}},
 			}, nil
 		case RegexMatch:
 			regexPattern, err := regexp.Compile(args[1])
@@ -152,11 +152,11 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 			return &regexTTLRule{
 				nextAction,
 				regexPattern,
-				ResponseRule{
+				[]ResponseRule{{
 					Active: true,
 					Type:   "ttl",
 					TTL:    ttl,
-				},
+				}},
 			}, nil
 		default:
 			return nil, fmt.Errorf("ttl rule supports only exact, prefix, suffix, substring, and regex name matching")
@@ -168,11 +168,11 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 	return &exactTTLRule{
 		nextAction,
 		plugin.Name(args[0]).Normalize(),
-		ResponseRule{
+		[]ResponseRule{{
 			Active: true,
 			Type:   "ttl",
 			TTL:    ttl,
-		},
+		}},
 	}, nil
 }
 
@@ -183,29 +183,29 @@ func (rule *suffixTTLRule) Mode() string    { return rule.NextAction }
 func (rule *substringTTLRule) Mode() string { return rule.NextAction }
 func (rule *regexTTLRule) Mode() string     { return rule.NextAction }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *exactTTLRule) GetResponseRule() ResponseRule {
-	return rule.ResponseRule
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *exactTTLRule) GetResponseRules() []ResponseRule {
+	return rule.ResponseRules
 }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *prefixTTLRule) GetResponseRule() ResponseRule {
-	return rule.ResponseRule
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *prefixTTLRule) GetResponseRules() []ResponseRule {
+	return rule.ResponseRules
 }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *suffixTTLRule) GetResponseRule() ResponseRule {
-	return rule.ResponseRule
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *suffixTTLRule) GetResponseRules() []ResponseRule {
+	return rule.ResponseRules
 }
 
-// GetResponseRule returns a rule to rewrite the response with. Currently not implemented.
-func (rule *substringTTLRule) GetResponseRule() ResponseRule {
-	return rule.ResponseRule
+// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
+func (rule *substringTTLRule) GetResponseRules() []ResponseRule {
+	return rule.ResponseRules
 }
 
-// GetResponseRule returns a rule to rewrite the response with.
-func (rule *regexTTLRule) GetResponseRule() ResponseRule {
-	return rule.ResponseRule
+// GetResponseRules returns rules to rewrite the response with.
+func (rule *regexTTLRule) GetResponseRules() []ResponseRule {
+	return rule.ResponseRules
 }
 
 // validTTL returns true if v is valid TTL value.
