@@ -18,7 +18,7 @@
 # Steps to release, first:
 #
 # 1. Up the version in coremain/version.go
-# 2. Do a make -f Makefile.doc
+# 2. Do a make -f Makefile.doc # This has been automated in GitHub, so you can probably skip this step
 # 3. go generate
 # 4. Send PR to get this merged.
 #
@@ -53,20 +53,16 @@ NAME:=coredns
 VERSION:=$(shell grep 'CoreVersion' coremain/version.go | awk '{ print $$3 }' | tr -d '"')
 GITHUB:=coredns
 DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
-# mips is not in LINUX_ARCH because it's not supported by the manifest-tool.
-LINUX_ARCH:=amd64 arm arm64 ppc64le s390x
+# mips is not in LINUX_ARCH because it's not supported by docker manifest
+LINUX_ARCH:=amd64 arm arm64 mips64le ppc64le s390x
 PLATFORMS:=$(subst $(SPACE),$(COMMA),$(foreach arch,$(LINUX_ARCH),linux/$(arch)))
 
 all:
 	@echo Use the 'release' target to build a release, 'docker' for docker build.
 
-release: pre build tar
+release: build tar
 
 docker: docker-build
-
-.PHONY: pre
-pre:
-	GO111MODULE=off go get github.com/estesp/manifest-tool
 
 .PHONY: build
 build:
@@ -78,8 +74,6 @@ build:
 	mkdir -p build/windows/amd64 && $(MAKE) coredns BINARY=build/windows/amd64/$(NAME).exe SYSTEM="GOOS=windows GOARCH=amd64" CHECKS="" BUILDOPTS=""
 	@echo Building: linux/mips - $(VERSION)
 	mkdir -p build/linux/mips  && $(MAKE) coredns BINARY=build/linux/mips/$(NAME) SYSTEM="GOOS=linux GOARCH=mips" CHECKS="" BUILDOPTS=""
-	@echo Building: linux/mips64le - $(VERSION)
-	mkdir -p build/linux/mips64le  && $(MAKE) coredns BINARY=build/linux/mips64le/$(NAME) SYSTEM="GOOS=linux GOARCH=mips64le" CHECKS="" BUILDOPTS=""
 	@echo Building: linux/$(LINUX_ARCH) - $(VERSION) ;\
 	for arch in $(LINUX_ARCH); do \
 	    mkdir -p build/linux/$$arch  && $(MAKE) coredns BINARY=build/linux/$$arch/$(NAME) SYSTEM="GOOS=linux GOARCH=$$arch" CHECKS="" BUILDOPTS="" ;\
@@ -136,11 +130,11 @@ else
 	@# 2. Copy Dockerfile to build/docker/linux/<arch>
 	@rm -rf build/docker
 	for arch in $(LINUX_ARCH); do \
-	    mkdir -p build/docker/linux/$$arch ;\
-	    tar -xzf release/$(NAME)_$(VERSION)_linux_$$arch.tgz -C build/docker/linux/$$arch ;\
-	    cp Dockerfile build/docker/linux/$$arch ;\
-	    docker build -t coredns build/docker/linux/$$arch ;\
-	    docker tag coredns $(DOCKER_IMAGE_NAME):coredns-$$arch ;\
+	    mkdir -p build/docker/linux/$${arch} ;\
+	    tar -xzf release/$(NAME)_$(VERSION)_linux_$${arch}.tgz -C build/docker/linux/$${arch} ;\
+	    cp Dockerfile build/docker/linux/$${arch} ;\
+	    docker build -t $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) build/docker/linux/$${arch} ;\
+	    docker tag $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
 	done
 endif
 
@@ -149,13 +143,27 @@ docker-push:
 ifeq ($(DOCKER),)
 	$(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
 else
+	@# Experimental CLI is required for docker manifest to work
+	@# Pushes coredns/coredns-$arch:$version images
+	@# Creates manifest for multi-arch image
+	@# Pushes multi-arch image to coredns/coredns:$version
+	export DOCKER_CLI_EXPERIMENTAL=enabled
 	@echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_LOGIN) --password-stdin
 	@echo Pushing: $(VERSION) to $(DOCKER_IMAGE_NAME)
 	for arch in $(LINUX_ARCH); do \
-	    docker push $(DOCKER_IMAGE_NAME):coredns-$$arch ;\
+		docker push $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) ;\
+		docker push $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
 	done
-	manifest-tool push from-args --platforms $(PLATFORMS) --template $(DOCKER_IMAGE_NAME):coredns-ARCH --target $(DOCKER_IMAGE_NAME):$(VERSION)
-	manifest-tool push from-args --platforms $(PLATFORMS) --template $(DOCKER_IMAGE_NAME):coredns-ARCH --target $(DOCKER_IMAGE_NAME):latest
+	DOCKER_IMAGE_LIST_VERSIONED:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:$(VERSION)~g")
+	DOCKER_IMAGE_LIST_LATEST:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:latest~g")
+	docker manifest create --amend $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_LIST_VERSIONED)
+	docker manifest create --amend $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_LIST_LATEST)
+	for arch in $(LINUX_ARCH); do \
+		docker manifest annotate --arch $${arch} $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) ;\
+		docker manifest annotate --arch $${arch} $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
+	done
+	docker manifest push --purge $(DOCKER_IMAGE_NAME):$(VERSION)
+	docker manifest push --purge $(DOCKER_IMAGE_NAME):latest
 endif
 
 .PHONY: version

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/cache/freq"
+
 	"github.com/miekg/dns"
 )
 

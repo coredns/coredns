@@ -34,7 +34,10 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 		ta = &net.TCPAddr{IP: ip, Port: int(port)}
 	}
 
-	msg.SetQueryAddress(q, ta)
+	// Forwarder dnstap messages are from the perspective of the downstream server
+	// (upstream is the forward server)
+	msg.SetQueryAddress(q, state.W.RemoteAddr())
+	msg.SetResponseAddress(q, ta)
 
 	if f.tapPlugin.IncludeRawMessage {
 		buf, _ := state.Req.Pack()
@@ -51,7 +54,8 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 			r.ResponseMessage = buf
 		}
 		msg.SetQueryTime(r, start)
-		msg.SetQueryAddress(r, ta)
+		msg.SetQueryAddress(r, state.W.RemoteAddr())
+		msg.SetResponseAddress(r, ta)
 		msg.SetResponseTime(r, time.Now())
 		msg.SetType(r, tap.Message_FORWARDER_RESPONSE)
 		f.tapPlugin.TapMessage(r)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/dnstap/msg"
 	test "github.com/coredns/coredns/plugin/test"
+
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
 )
@@ -42,10 +43,10 @@ func (w *writer) Dnstap(e tap.Dnstap) {
 	got := e.Message
 
 	if string(ex.QueryAddress) != string(got.QueryAddress) {
-		w.t.Errorf("Expected source adress %s, got %s", ex.QueryAddress, got.QueryAddress)
+		w.t.Errorf("Expected source address %s, got %s", ex.QueryAddress, got.QueryAddress)
 	}
 	if string(ex.ResponseAddress) != string(got.ResponseAddress) {
-		w.t.Errorf("Expected response adress %s, got %s", ex.ResponseAddress, got.ResponseAddress)
+		w.t.Errorf("Expected response address %s, got %s", ex.ResponseAddress, got.ResponseAddress)
 	}
 	if *ex.QueryPort != *got.QueryPort {
 		w.t.Errorf("Expected port %d, got %d", *ex.QueryPort, *got.QueryPort)

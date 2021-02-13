@@ -37,19 +37,19 @@ func (a APIConnTest) SvcIndex(s string) []*object.Service {
 func (APIConnTest) ServiceList() []*object.Service {
 	svcs := []*object.Service{
 		{
-			Name:      "dns-service",
-			Namespace: "kube-system",
-			ClusterIP: "10.0.0.111",
+			Name:       "dns-service",
+			Namespace:  "kube-system",
+			ClusterIPs: []string{"10.0.0.111"},
 		},
 		{
-			Name:      "hdls-dns-service",
-			Namespace: "kube-system",
-			ClusterIP: api.ClusterIPNone,
+			Name:       "hdls-dns-service",
+			Namespace:  "kube-system",
+			ClusterIPs: []string{api.ClusterIPNone},
 		},
 		{
-			Name:      "dns6-service",
-			Namespace: "kube-system",
-			ClusterIP: "10::111",
+			Name:       "dns6-service",
+			Namespace:  "kube-system",
+			ClusterIPs: []string{"10::111"},
 		},
 	}
 	return svcs

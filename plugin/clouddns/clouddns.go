@@ -189,7 +189,7 @@ func (h *CloudDNS) updateZones(ctx context.Context) error {
 			for i, hostedZone := range z {
 				newZ := file.NewZone(zName, "")
 				newZ.Upstream = h.upstream
-				rrListResponse, err = h.client.listRRSets(hostedZone.projectName, hostedZone.zoneName)
+				rrListResponse, err = h.client.listRRSets(ctx, hostedZone.projectName, hostedZone.zoneName)
 				if err != nil {
 					err = fmt.Errorf("failed to list resource records for %v:%v:%v from gcp: %v", zName, hostedZone.projectName, hostedZone.zoneName, err)
 					return

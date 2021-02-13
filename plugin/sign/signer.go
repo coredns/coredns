@@ -22,6 +22,7 @@ type Signer struct {
 	origin      string
 	dbfile      string
 	directory   string
+	modTime     time.Time
 	jitterIncep time.Duration
 	jitterExpir time.Duration
 
@@ -39,6 +40,11 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 	z, err := Parse(rd, s.origin, s.dbfile)
 	if err != nil {
 		return nil, err
+	}
+
+	// s.dbfile is a parseable zone file, track the mtime
+	if fi, err := os.Stat(s.dbfile); err == nil {
+		s.modTime = fi.ModTime()
 	}
 
 	mttl := z.Apex.SOA.Minttl
@@ -114,6 +120,12 @@ func (s *Signer) resign() error {
 	rd, err := os.Open(signedfile)
 	if err != nil && os.IsNotExist(err) {
 		return err
+	}
+	// if modtime of the input zone file has changed, we will also resign.
+	if fi, err := os.Stat(s.dbfile); err == nil {
+		if !s.modTime.IsZero() && fi.ModTime() != s.modTime {
+			return fmt.Errorf("zone's modification time %s; differs from last seen modification time: %s", fi.ModTime().Format(timeFmt), s.modTime.Format(timeFmt))
+		}
 	}
 
 	now := time.Now().UTC()

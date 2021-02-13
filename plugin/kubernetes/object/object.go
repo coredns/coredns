@@ -22,8 +22,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// ToFunc converts one empty interface to another.
-type ToFunc func(interface{}) (interface{}, error)
+// ToFunc converts one v1.Object to another v1.Object.
+type ToFunc func(v1.Object) (v1.Object, error)
 
 // ProcessorBuilder returns function to process cache events.
 type ProcessorBuilder func(cache.Indexer, cache.ResourceEventHandler) cache.ProcessFunc

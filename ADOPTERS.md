@@ -25,6 +25,6 @@
 * [AdGuard](https://adguard.com/) uses CoreDNS in [AdGuard Home](https://github.com/AdguardTeam/AdGuardHome) and, therefore, in production public AdGuard DNS servers.
 * [Skyscanner](https://www.skyscanner.net) uses CoreDNS within Kubernetes in production with the configuration tuned to use the Autopath plugin.
 * [Zinza Technology](https://zinza.com.vn) uses CoreDNS within Kubernetes in production, with standard configuration.
-* [Hualala](https://www.hualala.com/home)  uses CoreDNS in Kubernetes using default configuration, in its Lab. Expected to be in production soon.
+* [Hualala](https://www.hualala.com)  uses CoreDNS in Kubernetes using default configuration, in its Lab. Expected to be in production soon.
 * [Hellofresh](https://www.hellofresh.com/) uses CoreDNS in multiple Kubernetes clusters, with Forward plugin.
 * [Render](https://render.com) uses CoreDNS in production across all its Kubernetes clusters.

@@ -50,13 +50,16 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 			switch svc.Type {
 
 			case api.ServiceTypeClusterIP, api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
-				clusterIP := net.ParseIP(svc.ClusterIP)
+				clusterIP := net.ParseIP(svc.ClusterIPs[0])
 				if clusterIP != nil {
-					s := msg.Service{Host: svc.ClusterIP, TTL: k.ttl}
-					s.Key = strings.Join(svcBase, "/")
+					var host string
+					for _, ip := range svc.ClusterIPs {
+						s := msg.Service{Host: ip, TTL: k.ttl}
+						s.Key = strings.Join(svcBase, "/")
 
-					// Change host from IP to Name for SRV records
-					host := emitAddressRecord(ch, s)
+						// Change host from IP to Name for SRV records
+						host = emitAddressRecord(ch, s)
+					}
 
 					for _, p := range svc.Ports {
 						s := msg.Service{Host: host, Port: int(p.Port), TTL: k.ttl}

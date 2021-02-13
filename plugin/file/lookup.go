@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/file/rrutil"
 	"github.com/coredns/coredns/plugin/file/tree"
 	"github.com/coredns/coredns/request"
@@ -29,7 +30,6 @@ const (
 // Lookup looks up qname and qtype in the zone. When do is true DNSSEC records are included.
 // Three sets of records are returned, one for the answer, one for authority  and one for the additional section.
 func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) ([]dns.RR, []dns.RR, []dns.RR, Result) {
-
 	qtype := state.QType()
 	do := state.Do()
 
@@ -61,6 +61,16 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		i              int
 		elem, wildElem *tree.Elem
 	)
+
+	loop, _ := ctx.Value(dnsserver.LoopKey{}).(int)
+	if loop > 8 {
+		// We're back here for the 9th time; we have a loop and need to bail out.
+		// Note the answer we're returning will be incomplete (more cnames to be followed) or
+		// illegal (wildcard cname with multiple identical records). For now it's more important
+		// to protect ourselves then to give the client a valid answer. We return with an error
+		// to let the server handle what to do.
+		return nil, nil, nil, ServerFailure
+	}
 
 	// Lookup:
 	// * Per label from the right, look if it exists. We do this to find potential
@@ -105,6 +115,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			// Only one DNAME is allowed per name. We just pick the first one to synthesize from.
 			dname := dnamerrs[0]
 			if cname := synthesizeCNAME(state.Name(), dname.(*dns.DNAME)); cname != nil {
+				ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
 				answer, ns, extra, rcode := z.externalLookup(ctx, state, elem, []dns.RR{cname})
 
 				if do {
@@ -156,6 +167,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	if found && shot {
 
 		if rrs := elem.Type(dns.TypeCNAME); len(rrs) > 0 && qtype != dns.TypeCNAME {
+			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
 			return z.externalLookup(ctx, state, elem, rrs)
 		}
 
@@ -192,6 +204,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		auth := ap.ns(do)
 
 		if rrs := wildElem.TypeForWildcard(dns.TypeCNAME, qname); len(rrs) > 0 {
+			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
 			return z.externalLookup(ctx, state, wildElem, rrs)
 		}
 
@@ -307,8 +320,9 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 	targetName := rrs[0].(*dns.CNAME).Target
 	elem, _ = z.Tree.Search(targetName)
 	if elem == nil {
-		rrs = append(rrs, z.doLookup(ctx, state, targetName, qtype)...)
-		return rrs, z.Apex.ns(do), nil, Success
+		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
+		rrs = append(rrs, lookupRRs...)
+		return rrs, z.Apex.ns(do), nil, result
 	}
 
 	i := 0
@@ -326,8 +340,9 @@ Redo:
 		targetName := cname[0].(*dns.CNAME).Target
 		elem, _ = z.Tree.Search(targetName)
 		if elem == nil {
-			rrs = append(rrs, z.doLookup(ctx, state, targetName, qtype)...)
-			return rrs, z.Apex.ns(do), nil, Success
+			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
+			rrs = append(rrs, lookupRRs...)
+			return rrs, z.Apex.ns(do), nil, result
 		}
 
 		i++
@@ -352,15 +367,24 @@ Redo:
 	return rrs, z.Apex.ns(do), nil, Success
 }
 
-func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) []dns.RR {
+func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result) {
 	m, e := z.Upstream.Lookup(ctx, state, target, qtype)
 	if e != nil {
-		return nil
+		return nil, Success
 	}
 	if m == nil {
-		return nil
+		return nil, Success
 	}
-	return m.Answer
+	if m.Rcode == dns.RcodeNameError {
+		return m.Answer, NameError
+	}
+	if m.Rcode == dns.RcodeServerFailure {
+		return m.Answer, ServerFailure
+	}
+	if m.Rcode == dns.RcodeSuccess && len(m.Answer) == 0 {
+		return m.Answer, NoData
+	}
+	return m.Answer, Success
 }
 
 // additionalProcessing checks the current answer section and retrieves A or AAAA records

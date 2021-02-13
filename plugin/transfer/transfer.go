@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"sync"
 
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -59,6 +58,10 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
+	if state.Proto() != "tcp" {
+		return dns.RcodeRefused, nil
+	}
+
 	x := longestMatch(t.xfrs, state.QName())
 	if x == nil {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
@@ -107,11 +110,12 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	// Send response to client
 	ch := make(chan *dns.Envelope)
 	tr := new(dns.Transfer)
-	wg := new(sync.WaitGroup)
-	wg.Add(1)
+	errCh := make(chan error)
 	go func() {
-		tr.Out(w, r, ch)
-		wg.Done()
+		if err := tr.Out(w, r, ch); err != nil {
+			errCh <- err
+		}
+		close(errCh)
 	}()
 
 	rrs := []dns.RR{}
@@ -123,7 +127,11 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		}
 		rrs = append(rrs, records...)
 		if len(rrs) > 500 {
-			ch <- &dns.Envelope{RR: rrs}
+			select {
+			case ch <- &dns.Envelope{RR: rrs}:
+			case err := <-errCh:
+				return dns.RcodeServerFailure, err
+			}
 			l += len(rrs)
 			rrs = []dns.RR{}
 		}
@@ -134,7 +142,10 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	// need to return the SOA back to the client and return.
 	if len(rrs) == 1 && soa != nil { // soa should never be nil...
 		close(ch)
-		wg.Wait()
+		err := <-errCh
+		if err != nil {
+			return dns.RcodeServerFailure, err
+		}
 
 		m := new(dns.Msg)
 		m.SetReply(r)
@@ -146,12 +157,20 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	}
 
 	if len(rrs) > 0 {
-		ch <- &dns.Envelope{RR: rrs}
+		select {
+		case ch <- &dns.Envelope{RR: rrs}:
+		case err := <-errCh:
+			return dns.RcodeServerFailure, err
+		}
 		l += len(rrs)
+
 	}
 
-	close(ch) // Even though we close the channel here, we still have
-	wg.Wait() // to wait before we can return and close the connection.
+	close(ch)     // Even though we close the channel here, we still have
+	err = <-errCh // to wait before we can return and close the connection.
+	if err != nil {
+		return dns.RcodeServerFailure, err
+	}
 
 	logserial := uint32(0)
 	if soa != nil {

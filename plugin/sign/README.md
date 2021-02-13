@@ -7,9 +7,9 @@
 ## Description
 
 The *sign* plugin is used to sign (see RFC 6781) zones. In this process DNSSEC resource records are
-added. The signatures that sign the resource records sets have an expiration date, this means the
-signing process must be repeated before this expiration data is reached. Otherwise the zone's data
-will go BAD (RFC 4035, Section 5.5). The *sign* plugin takes care of this.
+added to the zone. The signatures that sign the resource records sets have an expiration date. This
+means the signing process must be repeated before this expiration data is reached. Otherwise the
+zone's data will go BAD (RFC 4035, Section 5.5). The *sign* plugin takes care of this.
 
 Only NSEC is supported, *sign* does *not* support NSEC3.
 
@@ -29,7 +29,12 @@ it do key or algorithm rollovers - it just signs.
 
      -  the signature only has 14 days left before expiring.
 
-    Both these dates are only checked on the SOA's signature(s).
+    Both these dates are only checked on the SOA's signature(s). This concerns the DNSSEC data, the
+    *sign* plugin will also take into account and resign if:
+
+     - the **mtime** of the zone file has changed, since the last time it was checked.
+
+     - the signed zone file doesn't exist on disk.
 
  *  Create RRSIGs that have an inception of -3 hours (minus a jitter between 0 and 18 hours)
     and a expiration of +32 (plus a jitter between 0 and 5 days) days for every given DNSKEY.

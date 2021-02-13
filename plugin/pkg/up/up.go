@@ -5,17 +5,21 @@ package up
 import (
 	"sync"
 	"time"
-
-	"github.com/cenkalti/backoff/v4"
 )
 
 // Probe is used to run a single Func until it returns true (indicating a target is healthy). If an Func
 // is already in progress no new one will be added, i.e. there is always a maximum of 1 checks in flight.
-// When failures start to happen we will back off every second failure up to maximum of 4 intervals.
+//
+// There is a tradeoff to be made in figuring out quickly that an upstream is healthy and not doing to much work
+// (sending queries) to find that out. Having some kind of exp. backoff here won't help much, because you don't won't
+// to backoff too much. You then also need random queries to be perfomed every so often to quickly detect a working
+// upstream. In the end we just send a query every 0.5 second to check the upstream. This hopefully strikes a balance
+// between getting information about the upstream state quickly and not doing too much work. Note that 0.5s is still an
+// eternity in DNS, so we may actually want to shorten it.
 type Probe struct {
 	sync.Mutex
 	inprogress int
-	expBackoff backoff.ExponentialBackOff
+	interval   time.Duration
 }
 
 // Func is used to determine if a target is alive. If so this function must return nil.
@@ -32,13 +36,7 @@ func (p *Probe) Do(f Func) {
 		return
 	}
 	p.inprogress = active
-	interval := p.expBackoff.NextBackOff()
-	// If exponential backoff has reached the maximum elapsed time (15 minutes),
-	// reset it and try again
-	if interval == -1 {
-		p.expBackoff.Reset()
-		interval = p.expBackoff.NextBackOff()
-	}
+	interval := p.interval
 	p.Unlock()
 	// Passed the lock. Now run f for as long it returns false. If a true is returned
 	// we return from the goroutine and we can accept another Func to run.
@@ -72,20 +70,9 @@ func (p *Probe) Stop() {
 }
 
 // Start will initialize the probe manager, after which probes can be initiated with Do.
-// Initializes exponential backoff using the given interval duration
 func (p *Probe) Start(interval time.Duration) {
 	p.Lock()
-	eB := &backoff.ExponentialBackOff{
-		InitialInterval:     interval,
-		RandomizationFactor: backoff.DefaultRandomizationFactor,
-		Multiplier:          backoff.DefaultMultiplier,
-		MaxInterval:         15 * time.Second,
-		MaxElapsedTime:      2 * time.Minute,
-		Stop:                backoff.Stop,
-		Clock:               backoff.SystemClock,
-	}
-	p.expBackoff = *eB
-	p.expBackoff.Reset()
+	p.interval = interval
 	p.Unlock()
 }
 

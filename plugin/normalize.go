@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/parse"
+
 	"github.com/miekg/dns"
 )
 

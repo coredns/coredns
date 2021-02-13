@@ -49,3 +49,23 @@ The following sample is equivalent to the preceding:
     bind ::1
 }
 ~~~
+
+## Bugs
+
+When defining more than one server block, take care not to bind more than one server to the same
+address and port. Doing so will result in unpredictable behavior (requests may be randomly
+served by either server). Keep in mind that *without* the *bind* plugin, a server will bind to all
+interfaces, and this will collide with another server if it's using *bind* to listen to an interface
+on the same port. For example, the following creates two servers that both listen on 127.0.0.1:53,
+which would result in unpredictable behavior for queries in `a.bad.example.com`:
+
+```
+a.bad.example.com {
+    bind 127.0.0.1
+    forward . 1.2.3.4
+}
+
+bad.example.com {
+    forward . 5.6.7.8
+}
+```

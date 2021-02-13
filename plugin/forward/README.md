@@ -88,7 +88,7 @@ forward FROM TO... {
   * `no_rec` - optional argument that sets the RecursionDesired-flag of the dns-query used in health checking to `false`.
     The flag is default `true`.
 * `max_concurrent` **MAX** will limit the number of concurrent queries to **MAX**.  Any new query that would
-  raise the number of concurrent queries above the **MAX** will result in a SERVFAIL response. This
+  raise the number of concurrent queries above the **MAX** will result in a REFUSED response. This
   response does not count as a health failure. When choosing a value for **MAX**, pick a number
   at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
@@ -107,7 +107,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 
 * `coredns_forward_requests_total{to}` - query count per upstream.
 * `coredns_forward_responses_total{to}` - Counter of responses received per upstream.
-* `coredns_forward_request_duration_seconds{to}` - duration per upstream interaction.
+* `coredns_forward_request_duration_seconds{to, rcode, type}` - duration per upstream, RCODE, type
 * `coredns_forward_responses_total{to, rcode}` - count of RCODEs per upstream.
 * `coredns_forward_healthcheck_failures_total{to}` - number of failed health checks per upstream.
 * `coredns_forward_healthcheck_broken_total{}` - counter of when all upstreams are unhealthy,

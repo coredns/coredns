@@ -110,6 +110,7 @@ func (s *Server) Serve(l net.Listener) error {
 	s.m.Lock()
 	s.server[tcp] = &dns.Server{Listener: l, Net: "tcp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
 		ctx := context.WithValue(context.Background(), Key{}, s)
+		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
 	})}
 	s.m.Unlock()
@@ -123,6 +124,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 	s.m.Lock()
 	s.server[udp] = &dns.Server{PacketConn: p, Net: "udp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
 		ctx := context.WithValue(context.Background(), Key{}, s)
+		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
 	})}
 	s.m.Unlock()
@@ -347,8 +349,13 @@ const (
 	udp = 1
 )
 
-// Key is the context key for the current server added to the context.
-type Key struct{}
+type (
+	// Key is the context key for the current server added to the context.
+	Key struct{}
+
+	// LoopKey is the context key to detect server wide loops.
+	LoopKey struct{}
+)
 
 // EnableChaos is a map with plugin names for which we should open CH class queries as we block these by default.
 var EnableChaos = map[string]struct{}{

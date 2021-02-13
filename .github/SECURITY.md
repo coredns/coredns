@@ -115,7 +115,7 @@ When in doubt push forward and go public ASAP.
 
 - the Fix Team will selectively choose all needed commits from the Master branch in order to create a new release on top of the current last version released.
 - Release process will be as usual.
-- The Fix Lead will request a CVE from [DWF](https://github.com/distributedweaknessfiling/DWF-Documentation)
+- The Fix Lead will request a CVE from [DWF](https://github.com/distributedweaknessfiling/cvelist)
   and include the CVSS and release details.
 - The Fix Lead will inform all users, devs and integrators, now that everything is public,
   announcing the new releases, the CVE number, and the relevant merged PRs to get wide distribution

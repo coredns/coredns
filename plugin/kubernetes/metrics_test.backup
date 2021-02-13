@@ -1,20 +1,16 @@
 package kubernetes
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
-
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	api "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 )
 
 const (
@@ -50,21 +46,19 @@ var expected = `
 	`
 
 func TestDNSProgrammingLatencyEndpointSlices(t *testing.T) {
-	client := fake.NewSimpleClientset()
 	now := time.Now()
-	ctx := context.TODO()
-	controller := newdnsController(ctx, client, dnsControlOpts{
-		initEndpointsCache: true,
-		useEndpointSlices:  true,
-		// This is needed as otherwise the fake k8s client doesn't work properly.
-		skipAPIObjectsCleanup: true,
-	})
 
-	durationSinceFunc = func(t time.Time) time.Duration {
+	svcIdx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc})
+	epIdx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
+
+	dns := dnsControl{svcLister: svcIdx}
+	svcProc := object.DefaultProcessor(object.ToService, nil)(svcIdx, cache.ResourceEventHandlerFuncs{})
+	epProc := object.DefaultProcessor(object.EndpointSliceToEndpoints, dns.EndpointSliceLatencyRecorder())(epIdx, cache.ResourceEventHandlerFuncs{})
+
+	object.DurationSinceFunc = func(t time.Time) time.Duration {
 		return now.Sub(t)
 	}
-	DNSProgrammingLatency.Reset()
-	go controller.Run()
+	object.DNSProgrammingLatency.Reset()
 
 	endpoints1 := []discovery.Endpoint{{
 		Addresses: []string{"1.2.3.4"},
@@ -74,44 +68,40 @@ func TestDNSProgrammingLatencyEndpointSlices(t *testing.T) {
 		Addresses: []string{"1.2.3.45"},
 	}}
 
-	createService(t, client, controller, "my-service", api.ClusterIPNone)
-	createEndpointSlice(t, client, "my-service", now.Add(-2*time.Second), endpoints1)
-	updateEndpointSlice(t, client, "my-service", now.Add(-1*time.Second), endpoints2)
+	createService(t, svcProc, "my-service", api.ClusterIPNone)
+	createEndpointSlice(t, epProc, "my-service", now.Add(-2*time.Second), endpoints1)
+	updateEndpointSlice(t, epProc, "my-service", now.Add(-1*time.Second), endpoints2)
 
-	createEndpointSlice(t, client, "endpoints-no-service", now.Add(-4*time.Second), nil)
+	createEndpointSlice(t, epProc, "endpoints-no-service", now.Add(-4*time.Second), nil)
 
-	createService(t, client, controller, "clusterIP-service", "10.40.0.12")
-	createEndpointSlice(t, client, "clusterIP-service", now.Add(-8*time.Second), nil)
+	createService(t, svcProc, "clusterIP-service", "10.40.0.12")
+	createEndpointSlice(t, epProc, "clusterIP-service", now.Add(-8*time.Second), nil)
 
-	createService(t, client, controller, "headless-no-annotation", api.ClusterIPNone)
-	createEndpointSlice(t, client, "headless-no-annotation", nil, nil)
+	createService(t, svcProc, "headless-no-annotation", api.ClusterIPNone)
+	createEndpointSlice(t, epProc, "headless-no-annotation", nil, nil)
 
-	createService(t, client, controller, "headless-wrong-annotation", api.ClusterIPNone)
-	createEndpointSlice(t, client, "headless-wrong-annotation", "wrong-value", nil)
+	createService(t, svcProc, "headless-wrong-annotation", api.ClusterIPNone)
+	createEndpointSlice(t, epProc, "headless-wrong-annotation", "wrong-value", nil)
 
-	controller.Stop()
-
-	if err := testutil.CollectAndCompare(DNSProgrammingLatency, strings.NewReader(expected)); err != nil {
+	if err := testutil.CollectAndCompare(object.DNSProgrammingLatency, strings.NewReader(expected)); err != nil {
 		t.Error(err)
 	}
 }
 
 func TestDnsProgrammingLatencyEndpoints(t *testing.T) {
-	client := fake.NewSimpleClientset()
 	now := time.Now()
-	ctx := context.TODO()
-	controller := newdnsController(ctx, client, dnsControlOpts{
-		initEndpointsCache: true,
-		useEndpointSlices:  false,
-		// This is needed as otherwise the fake k8s client doesn't work properly.
-		skipAPIObjectsCleanup: true,
-	})
 
-	durationSinceFunc = func(t time.Time) time.Duration {
+	svcIdx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc})
+	epIdx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
+
+	dns := dnsControl{svcLister: svcIdx}
+	svcProc := object.DefaultProcessor(object.ToService, nil)(svcIdx, cache.ResourceEventHandlerFuncs{})
+	epProc := object.DefaultProcessor(object.ToEndpoints, dns.EndpointsLatencyRecorder())(epIdx, cache.ResourceEventHandlerFuncs{})
+
+	object.DurationSinceFunc = func(t time.Time) time.Duration {
 		return now.Sub(t)
 	}
-	DNSProgrammingLatency.Reset()
-	go controller.Run()
+	object.DNSProgrammingLatency.Reset()
 
 	subset1 := []api.EndpointSubset{{
 		Addresses: []api.EndpointAddress{{IP: "1.2.3.4", Hostname: "foo"}},
@@ -121,24 +111,22 @@ func TestDnsProgrammingLatencyEndpoints(t *testing.T) {
 		Addresses: []api.EndpointAddress{{IP: "1.2.3.5", Hostname: "foo"}},
 	}}
 
-	createService(t, client, controller, "my-service", api.ClusterIPNone)
-	createEndpoints(t, client, "my-service", now.Add(-2*time.Second), subset1)
-	updateEndpoints(t, client, "my-service", now.Add(-1*time.Second), subset2)
+	createService(t, svcProc, "my-service", api.ClusterIPNone)
+	createEndpoints(t, epProc, "my-service", now.Add(-2*time.Second), subset1)
+	updateEndpoints(t, epProc, "my-service", now.Add(-1*time.Second), subset2)
 
-	createEndpoints(t, client, "endpoints-no-service", now.Add(-4*time.Second), nil)
+	createEndpoints(t, epProc, "endpoints-no-service", now.Add(-4*time.Second), nil)
 
-	createService(t, client, controller, "clusterIP-service", "10.40.0.12")
-	createEndpoints(t, client, "clusterIP-service", now.Add(-8*time.Second), nil)
+	createService(t, svcProc, "clusterIP-service", "10.40.0.12")
+	createEndpoints(t, epProc, "clusterIP-service", now.Add(-8*time.Second), nil)
 
-	createService(t, client, controller, "headless-no-annotation", api.ClusterIPNone)
-	createEndpoints(t, client, "headless-no-annotation", nil, nil)
+	createService(t, svcProc, "headless-no-annotation", api.ClusterIPNone)
+	createEndpoints(t, epProc, "headless-no-annotation", nil, nil)
 
-	createService(t, client, controller, "headless-wrong-annotation", api.ClusterIPNone)
-	createEndpoints(t, client, "headless-wrong-annotation", "wrong-value", nil)
+	createService(t, svcProc, "headless-wrong-annotation", api.ClusterIPNone)
+	createEndpoints(t, epProc, "headless-wrong-annotation", "wrong-value", nil)
 
-	controller.Stop()
-
-	if err := testutil.CollectAndCompare(DNSProgrammingLatency, strings.NewReader(expected)); err != nil {
+	if err := testutil.CollectAndCompare(object.DNSProgrammingLatency, strings.NewReader(expected)); err != nil {
 		t.Error(err)
 	}
 }
@@ -175,49 +163,41 @@ func buildEndpointSlice(name string, lastChangeTriggerTime interface{}, endpoint
 	}
 }
 
-func createEndpoints(t *testing.T, client kubernetes.Interface, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
-	ctx := context.TODO()
-	_, err := client.CoreV1().Endpoints(namespace).Create(ctx, buildEndpoints(name, triggerTime, subsets), meta.CreateOptions{})
+func createEndpoints(t *testing.T, processor cache.ProcessFunc, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
+	err := processor(cache.Deltas{{Type: cache.Added, Object: buildEndpoints(name, triggerTime, subsets)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func updateEndpoints(t *testing.T, client kubernetes.Interface, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
-	ctx := context.TODO()
-	_, err := client.CoreV1().Endpoints(namespace).Update(ctx, buildEndpoints(name, triggerTime, subsets), meta.UpdateOptions{})
+func updateEndpoints(t *testing.T, processor cache.ProcessFunc, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
+	err := processor(cache.Deltas{{Type: cache.Updated, Object: buildEndpoints(name, triggerTime, subsets)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func createEndpointSlice(t *testing.T, client kubernetes.Interface, name string, triggerTime interface{}, endpoints []discovery.Endpoint) {
-	ctx := context.TODO()
-	_, err := client.DiscoveryV1beta1().EndpointSlices(namespace).Create(ctx, buildEndpointSlice(name, triggerTime, endpoints), meta.CreateOptions{})
+func createEndpointSlice(t *testing.T, processor cache.ProcessFunc, name string, triggerTime interface{}, endpoints []discovery.Endpoint) {
+	err := processor(cache.Deltas{{Type: cache.Added, Object: buildEndpointSlice(name, triggerTime, endpoints)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func updateEndpointSlice(t *testing.T, client kubernetes.Interface, name string, triggerTime interface{}, endpoints []discovery.Endpoint) {
-	ctx := context.TODO()
-	_, err := client.DiscoveryV1beta1().EndpointSlices(namespace).Update(ctx, buildEndpointSlice(name, triggerTime, endpoints), meta.UpdateOptions{})
+func updateEndpointSlice(t *testing.T, processor cache.ProcessFunc, name string, triggerTime interface{}, endpoints []discovery.Endpoint) {
+	err := processor(cache.Deltas{{Type: cache.Updated, Object: buildEndpointSlice(name, triggerTime, endpoints)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func createService(t *testing.T, client kubernetes.Interface, controller dnsController, name string, clusterIp string) {
-	ctx := context.TODO()
-	if _, err := client.CoreV1().Services(namespace).Create(ctx, &api.Service{
+func createService(t *testing.T, processor cache.ProcessFunc, name string, clusterIp string) {
+	obj := &api.Service{
 		ObjectMeta: meta.ObjectMeta{Namespace: namespace, Name: name},
 		Spec:       api.ServiceSpec{ClusterIP: clusterIp},
-	}, meta.CreateOptions{}); err != nil {
-		t.Fatal(err)
 	}
-	if err := wait.PollImmediate(10*time.Millisecond, 10*time.Second, func() (bool, error) {
-		return len(controller.SvcIndex(object.ServiceKey(name, namespace))) == 1, nil
-	}); err != nil {
+	err := processor(cache.Deltas{{Type: cache.Added, Object: obj}})
+	if err != nil {
 		t.Fatal(err)
 	}
 }

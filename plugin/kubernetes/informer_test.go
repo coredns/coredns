@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
@@ -11,7 +12,7 @@ import (
 )
 
 func TestDefaultProcessor(t *testing.T) {
-	pbuild := object.DefaultProcessor(object.ToService(true), nil)
+	pbuild := object.DefaultProcessor(object.ToService, nil)
 	reh := cache.ResourceEventHandlerFuncs{}
 	idx := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, cache.Indexers{})
 	processor := pbuild(idx, reh)
@@ -21,17 +22,25 @@ func TestDefaultProcessor(t *testing.T) {
 func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer) {
 	obj := &api.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "service1", Namespace: "test1"},
-		Spec:       api.ServiceSpec{ClusterIP: "1.2.3.4", Ports: []api.ServicePort{{Port: 80}}},
+		Spec: api.ServiceSpec{
+			ClusterIP:  "1.2.3.4",
+			ClusterIPs: []string{"1.2.3.4"},
+			Ports:      []api.ServicePort{{Port: 80}},
+		},
 	}
 	obj2 := &api.Service{
 		ObjectMeta: metav1.ObjectMeta{Name: "service2", Namespace: "test1"},
-		Spec:       api.ServiceSpec{ClusterIP: "5.6.7.8", Ports: []api.ServicePort{{Port: 80}}},
+		Spec: api.ServiceSpec{
+			ClusterIP:  "5.6.7.8",
+			ClusterIPs: []string{"5.6.7.8"},
+			Ports:      []api.ServicePort{{Port: 80}},
+		},
 	}
 
 	// Add the objects
 	err := processor(cache.Deltas{
-		{Type: cache.Added, Object: obj},
-		{Type: cache.Added, Object: obj2},
+		{Type: cache.Added, Object: obj.DeepCopy()},
+		{Type: cache.Added, Object: obj2.DeepCopy()},
 	})
 	if err != nil {
 		t.Fatalf("add failed: %v", err)
@@ -47,15 +56,15 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	if !ok {
 		t.Fatal("object in index was incorrect type")
 	}
-	if svc.ClusterIP != obj.Spec.ClusterIP {
-		t.Fatalf("expected %v, got %v", obj.Spec.ClusterIP, svc.ClusterIP)
+	if fmt.Sprintf("%v", svc.ClusterIPs) != fmt.Sprintf("%v", obj.Spec.ClusterIPs) {
+		t.Fatalf("expected '%v', got '%v'", obj.Spec.ClusterIPs, svc.ClusterIPs)
 	}
 
 	// Update an object
 	obj.Spec.ClusterIP = "1.2.3.5"
 	err = processor(cache.Deltas{{
 		Type:   cache.Updated,
-		Object: obj,
+		Object: obj.DeepCopy(),
 	}})
 	if err != nil {
 		t.Fatalf("update failed: %v", err)
@@ -71,14 +80,14 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	if !ok {
 		t.Fatal("object in index was incorrect type")
 	}
-	if svc.ClusterIP != obj.Spec.ClusterIP {
-		t.Fatalf("expected %v, got %v", obj.Spec.ClusterIP, svc.ClusterIP)
+	if fmt.Sprintf("%v", svc.ClusterIPs) != fmt.Sprintf("%v", obj.Spec.ClusterIPs) {
+		t.Fatalf("expected '%v', got '%v'", obj.Spec.ClusterIPs, svc.ClusterIPs)
 	}
 
 	// Delete an object
 	err = processor(cache.Deltas{{
 		Type:   cache.Deleted,
-		Object: obj2,
+		Object: obj2.DeepCopy(),
 	}})
 	if err != nil {
 		t.Fatalf("delete test failed: %v", err)

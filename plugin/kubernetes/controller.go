@@ -92,9 +92,8 @@ type dnsControlOpts struct {
 	namespaceLabelSelector *meta.LabelSelector
 	namespaceSelector      labels.Selector
 
-	zones                 []string
-	endpointNameMode      bool
-	skipAPIObjectsCleanup bool
+	zones            []string
+	endpointNameMode bool
 }
 
 // newDNSController creates a controller for CoreDNS.
@@ -116,7 +115,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		&api.Service{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc},
-		object.DefaultProcessor(object.ToService(opts.skipAPIObjectsCleanup), nil),
+		object.DefaultProcessor(object.ToService, nil),
 	)
 
 	if opts.initPodCache {
@@ -128,7 +127,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			&api.Pod{},
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{podIPIndex: podIPIndexFunc},
-			object.DefaultProcessor(object.ToPod(opts.skipAPIObjectsCleanup), nil),
+			object.DefaultProcessor(object.ToPod, nil),
 		)
 	}
 
@@ -136,28 +135,28 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		var (
 			apiObj    runtime.Object
 			listWatch cache.ListWatch
-			to        func(bool) object.ToFunc
-			latency   object.RecordLatencyFunc
+			to        object.ToFunc
+			latency   *object.EndpointLatencyRecorder
 		)
 		if opts.useEndpointSlices {
 			apiObj = &discovery.EndpointSlice{}
 			listWatch.ListFunc = endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
 			listWatch.WatchFunc = endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
 			to = object.EndpointSliceToEndpoints
-			latency = dns.recordEndpointSliceDNSProgrammingLatency
+			latency = dns.EndpointSliceLatencyRecorder()
 		} else {
 			apiObj = &api.Endpoints{}
 			listWatch.ListFunc = endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
 			listWatch.WatchFunc = endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
 			to = object.ToEndpoints
-			latency = dns.recordEndpointDNSProgrammingLatency
+			latency = dns.EndpointsLatencyRecorder()
 		}
 		dns.epLister, dns.epController = object.NewIndexerInformer(
 			&listWatch,
 			apiObj,
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			object.DefaultProcessor(to(opts.skipAPIObjectsCleanup), latency),
+			object.DefaultProcessor(to, latency),
 		)
 	}
 
@@ -173,12 +172,19 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 	return &dns
 }
 
-func (dns *dnsControl) recordEndpointDNSProgrammingLatency(obj meta.Object) {
-	recordDNSProgrammingLatency(dns.getServices(obj.(*api.Endpoints)), obj)
+func (dns *dnsControl) EndpointsLatencyRecorder() *object.EndpointLatencyRecorder {
+	return &object.EndpointLatencyRecorder{
+		ServiceFunc: func(o meta.Object) []*object.Service {
+			return dns.SvcIndex(object.ServiceKey(o.GetName(), o.GetNamespace()))
+		},
+	}
 }
-
-func (dns *dnsControl) recordEndpointSliceDNSProgrammingLatency(obj meta.Object) {
-	recordDNSProgrammingLatency(dns.SvcIndex(object.ServiceKey(obj.GetLabels()[discovery.LabelServiceName], obj.GetNamespace())), obj)
+func (dns *dnsControl) EndpointSliceLatencyRecorder() *object.EndpointLatencyRecorder {
+	return &object.EndpointLatencyRecorder{
+		ServiceFunc: func(o meta.Object) []*object.Service {
+			return dns.SvcIndex(object.ServiceKey(o.GetLabels()[discovery.LabelServiceName], o.GetNamespace()))
+		},
+	}
 }
 
 func podIPIndexFunc(obj interface{}) ([]string, error) {
@@ -194,11 +200,13 @@ func svcIPIndexFunc(obj interface{}) ([]string, error) {
 	if !ok {
 		return nil, errObj
 	}
+	idx := make([]string, len(svc.ClusterIPs)+len(svc.ExternalIPs))
+	copy(idx, svc.ClusterIPs)
 	if len(svc.ExternalIPs) == 0 {
-		return []string{svc.ClusterIP}, nil
+		return idx, nil
 	}
-
-	return append([]string{svc.ClusterIP}, svc.ExternalIPs...), nil
+	copy(idx[len(svc.ClusterIPs):], svc.ExternalIPs)
+	return idx, nil
 }
 
 func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
@@ -516,10 +524,6 @@ func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
 	default:
 		log.Warningf("Updates for %T not supported.", ob)
 	}
-}
-
-func (dns *dnsControl) getServices(endpoints *api.Endpoints) []*object.Service {
-	return dns.SvcIndex(object.ServiceKey(endpoints.GetName(), endpoints.GetNamespace()))
 }
 
 // subsetsEquivalent checks if two endpoint subsets are significantly equivalent

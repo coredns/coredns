@@ -103,16 +103,18 @@ func (h *Azure) updateZones(ctx context.Context) error {
 	var err error
 	var publicSet publicdns.RecordSetListResultPage
 	var privateSet privatedns.RecordSetListResultPage
-	var newZ *file.Zone
 	errs := make([]string, 0)
 	for zName, z := range h.zones {
 		for i, hostedZone := range z {
+			newZ := file.NewZone(zName, "")
 			if hostedZone.private {
-				privateSet, err = h.privateClient.List(ctx, hostedZone.id, hostedZone.zone, nil, "")
-				newZ = updateZoneFromPrivateResourceSet(privateSet, zName)
+				for privateSet, err = h.privateClient.List(ctx, hostedZone.id, hostedZone.zone, nil, ""); privateSet.NotDone(); err = privateSet.NextWithContext(ctx) {
+					updateZoneFromPrivateResourceSet(privateSet, newZ)
+				}
 			} else {
-				publicSet, err = h.publicClient.ListByDNSZone(ctx, hostedZone.id, hostedZone.zone, nil, "")
-				newZ = updateZoneFromPublicResourceSet(publicSet, zName)
+				for publicSet, err = h.publicClient.ListByDNSZone(ctx, hostedZone.id, hostedZone.zone, nil, ""); publicSet.NotDone(); err = publicSet.NextWithContext(ctx) {
+					updateZoneFromPublicResourceSet(publicSet, newZ)
+				}
 			}
 			if err != nil {
 				errs = append(errs, fmt.Sprintf("failed to list resource records for %v from azure: %v", hostedZone.zone, err))
@@ -131,9 +133,7 @@ func (h *Azure) updateZones(ctx context.Context) error {
 
 }
 
-func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage, zName string) *file.Zone {
-	newZ := file.NewZone(zName, "")
-
+func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage, newZ *file.Zone) {
 	for _, result := range *(recordSet.Response().Value) {
 		resultFqdn := *(result.RecordSetProperties.Fqdn)
 		resultTTL := uint32(*(result.RecordSetProperties.TTL))
@@ -217,12 +217,9 @@ func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage
 			newZ.Insert(cname)
 		}
 	}
-	return newZ
 }
 
-func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPage, zName string) *file.Zone {
-	newZ := file.NewZone(zName, "")
-
+func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPage, newZ *file.Zone) {
 	for _, result := range *(recordSet.Response().Value) {
 		resultFqdn := *(result.RecordSetProperties.Fqdn)
 		resultTTL := uint32(*(result.RecordSetProperties.TTL))
@@ -298,7 +295,6 @@ func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPa
 		}
 
 	}
-	return newZ
 }
 
 // ServeDNS implements the plugin.Handler interface.

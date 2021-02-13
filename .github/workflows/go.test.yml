@@ -65,3 +65,18 @@ jobs:
       run: |
         go install github.com/fatih/faillint
         ( cd test; go test -race ./... )
+
+  test-makefile-release:
+    name: Test Makefile.release
+    runs-on: ubuntu-latest
+    steps:
+
+   - name: Install dependencies
+      run: |
+        sudo apt-get install make curl
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Test Makefile
+      run: make -f Makefile.release build

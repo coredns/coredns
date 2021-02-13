@@ -60,6 +60,16 @@ func TestTypifyImpossible(t *testing.T) {
 	}
 }
 
+func TestTypifyRefused(t *testing.T) {
+	m := new(dns.Msg)
+	m.SetQuestion("foo.example.org.", dns.TypeA)
+	m.Rcode = dns.RcodeRefused
+	mt, _ := Typify(m, time.Now().UTC())
+	if mt != OtherError {
+		t.Errorf("Refused message not typified as OtherError, got %s", mt)
+	}
+}
+
 func delegationMsg() *dns.Msg {
 	return &dns.Msg{
 		Ns: []dns.RR{

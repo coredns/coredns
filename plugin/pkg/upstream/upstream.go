@@ -32,7 +32,6 @@ func (u *Upstream) Lookup(ctx context.Context, state request.Request, name strin
 	req.SetEdns0(uint16(size), do)
 
 	nw := nonwriter.New(state.W)
-
 	server.ServeDNS(ctx, nw, req)
 
 	return nw.Msg, nil
