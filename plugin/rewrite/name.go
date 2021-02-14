@@ -222,7 +222,6 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 				nextAction,
 				rewriteQuestionFromPattern,
 				rewriteQuestionTo,
-				// TODO This needs updating to be an array of these - slice the slice for 7 len and 11 len and feed two of these
 				responseRules,
 			}, nil
 		}

@@ -93,6 +93,8 @@ var valueTests = []struct {
 	{"my.domain.uk", dns.TypeANY, []dns.RR{test.NS("my.cluster.local.	3600	IN	NS	ns1.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeANY, true, "ns1.cluster.local.", dns.TypeNS, "ns1.cluster.local."},
 	{"my.domain.uk", dns.TypeSOA, []dns.RR{test.SOA("my.cluster.local.		1800	IN	SOA	ns1.cluster.local. admin.cluster.local. 1502165581 14400 3600 604800 14400")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeSOA, false, "ns1.domain.uk.", dns.TypeSOA, "ns1.domain.uk."},
 	{"my.domain.uk", dns.TypeSOA, []dns.RR{test.SOA("my.cluster.local.		1800	IN	SOA	ns1.cluster.local. admin.cluster.local. 1502165581 14400 3600 604800 14400")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeSOA, true, "ns1.cluster.local.", dns.TypeSOA, "ns1.cluster.local."},
+	{"my.domain.uk", dns.TypeNAPTR, []dns.RR{test.NAPTR("my.cluster.local.  100  IN NAPTR 100 10 \"S\" \"SIP+D2U\" \"!^.*$!sip:customer-service@example.com!\" _sip._udp.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeNAPTR, false, "_sip._udp.domain.uk.", dns.TypeNAPTR, "ns1.domain.uk."},
+	{"my.domain.uk", dns.TypeNAPTR, []dns.RR{test.NAPTR("my.cluster.local.  100  IN NAPTR 100 10 \"S\" \"SIP+D2U\" \"!^.*$!sip:customer-service@example.com!\" _sip._udp.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeNAPTR, true, "_sip._udp.cluster.local.", dns.TypeNAPTR, "ns1.cluster.local."},
 }
 
 func TestValueResponseReverter(t *testing.T) {
