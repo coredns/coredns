@@ -8,11 +8,11 @@ import (
 )
 
 var (
-	// hostsEntries is the combined number of entries in hosts and Corefile.
+	// zoneFileEntriesByDomain is the number of entries in zone file grouped by domain name.
 	zoneFileEntriesByDomain = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "file",
 		Name:      "entries",
-		Help:      "The combined number of entries in zone file and Corefile.",
+		Help:      "The number of entries in zone file grouped by domain name.",
 	}, []string{"dns_name"})
 )
