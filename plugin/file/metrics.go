@@ -14,5 +14,5 @@ var (
 		Subsystem: "file",
 		Name:      "entries",
 		Help:      "The number of entries in zone file grouped by domain name.",
-	}, []string{"dns_name"})
+	}, []string{"domain_name"})
 )

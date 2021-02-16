@@ -36,6 +36,12 @@ file DBFILE [ZONES... ] {
 
 If you need outgoing zone transfers, take a look at the *transfer* plugin.
 
+## Metrics
+
+If monitoring is enabled (via the *prometheus* plugin) then the following metrics are exported:
+
+- `coredns_file_entries{domain_name:""}` - The number of entries in zone file grouped by domain name..
+
 ## Examples
 
 Load the `example.org` zone from `example.org.signed` and allow transfers to the internet, but send
