@@ -123,6 +123,7 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 	zp.SetIncludeAllowed(true)
 	z := NewZone(origin, fileName)
 	seenSOA := false
+	entriesByName := map[string]int{}
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
 		if err := zp.Err(); err != nil {
 			return nil, err
@@ -140,12 +141,16 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 			}
 		}
 
+		entriesByName[rr.Header().Name]++
 		if err := z.Insert(rr); err != nil {
 			return nil, err
 		}
 	}
 	if !seenSOA {
 		return nil, fmt.Errorf("file %q has no SOA record for origin %s", fileName, origin)
+	}
+	for name, entries := range entriesByName {
+		zoneFileEntriesByDomain.WithLabelValues(name).Set(float64(entries))
 	}
 
 	return z, nil
