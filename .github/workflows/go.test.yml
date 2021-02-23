@@ -71,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-   - name: Install dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get install make curl
 
