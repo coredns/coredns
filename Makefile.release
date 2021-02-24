@@ -39,6 +39,14 @@
 # * make docker
 # * make github-push
 # * make docker-push
+#
+# Testing this is hard-ish as you don't want to accidentially release a coredns. If not executing the github-push target
+# and using a non-coredns docker repo you should be fine.
+# Testing docker is done e.g. via:
+#
+#  export DOCKER_PASSWORD=<pass>
+# export DOCKER_LOGIN=miek
+# make DOCKER=miek -f Makefile.release build docker-build docker-push
 
 EMPTY:=
 SPACE:=$(EMPTY) $(EMPTY)
@@ -48,14 +56,17 @@ ifeq (, $(shell which curl))
     $(error "No curl in $$PATH, please install")
 endif
 
+# DOCKER is the docker image repo we need to push to.
 DOCKER:=
 NAME:=coredns
 VERSION:=$(shell grep 'CoreVersion' coremain/version.go | awk '{ print $$3 }' | tr -d '"')
 GITHUB:=coredns
-DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
 # mips is not in LINUX_ARCH because it's not supported by docker manifest
 LINUX_ARCH:=amd64 arm arm64 mips64le ppc64le s390x
+DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
 PLATFORMS:=$(subst $(SPACE),$(COMMA),$(foreach arch,$(LINUX_ARCH),linux/$(arch)))
+DOCKER_IMAGE_LIST_VERSIONED:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:$(VERSION)~g")
+DOCKER_IMAGE_LIST_LATEST:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:latest~g")
 
 all:
 	@echo Use the 'release' target to build a release, 'docker' for docker build.
@@ -66,6 +77,7 @@ docker: docker-build
 
 .PHONY: build
 build:
+	@go version
 	@echo Cleaning old builds
 	@rm -rf build && mkdir build
 	@echo Building: darwin/amd64 - $(VERSION)
@@ -154,8 +166,6 @@ else
 		docker push $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) ;\
 		docker push $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
 	done
-	DOCKER_IMAGE_LIST_VERSIONED:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:$(VERSION)~g")
-	DOCKER_IMAGE_LIST_LATEST:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:latest~g")
 	docker manifest create --amend $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_LIST_VERSIONED)
 	docker manifest create --amend $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_LIST_LATEST)
 	for arch in $(LINUX_ARCH); do \
