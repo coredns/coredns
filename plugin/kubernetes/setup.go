@@ -65,8 +65,8 @@ func setup(c *caddy.Controller) error {
 // If the API supports discovery v1 beta1, and the server versions >= 1.19, endpointslices will be watched.
 // This function should be removed, along with non-slice endpoint watch code, when support for k8s < 1.19 is dropped.
 func (k *Kubernetes) selectEndpointType(kubeClient *kubernetes.Clientset) {
+	ticker := time.NewTicker(100 * time.Millisecond)
 	for {
-		ticker := time.NewTicker(100 * time.Millisecond)
 		select {
 		case <-ticker.C:
 			sv, err := kubeClient.ServerVersion()
