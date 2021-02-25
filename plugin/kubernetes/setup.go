@@ -15,6 +15,8 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
+	discovery "k8s.io/api/discovery/v1beta1"
+	"k8s.io/client-go/kubernetes"
 
 	"github.com/miekg/dns"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,12 +41,10 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(pluginName, err)
 	}
 
-	err = k.InitKubeCache(context.Background())
+	err = k.InitKubeCache(context.Background(), c)
 	if err != nil {
 		return plugin.Error(pluginName, err)
 	}
-
-	k.RegisterKubeCache(c)
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		k.Next = next
@@ -60,10 +60,45 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
+// selectEndpointType will select which endpoint object type to watch (endpointslices or endpoints)
+// based on the supportability of endpointslices in the API and server version.
+// If the API supports discovery v1 beta1, and the server versions >= 1.19, endpointslices will be watched.
+// This function should be removed, along with non-slice endpoint watch code, when support for k8s < 1.19 is dropped.
+func (k *Kubernetes) selectEndpointType(kubeClient *kubernetes.Clientset) {
+	for {
+		ticker := time.NewTicker(100 * time.Millisecond)
+		select {
+		case <-ticker.C:
+			sv, err := kubeClient.ServerVersion()
+			if err != nil {
+				continue
+			}
+			// Enable use of endpoint slices if the API supports the discovery v1 beta1 api
+			if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(discovery.SchemeGroupVersion.String()); err == nil {
+				k.opts.useEndpointSlices = true
+			}
+			// Disable use of endpoint slices for k8s versions 1.18 and earlier. The Endpointslices API was enabled
+			// by default in 1.17 but Service -> Pod proxy continued to use Endpoints by default until 1.19.
+			// DNS results should be built from the same source data that the proxy uses.  This decision assumes
+			// k8s EndpointSliceProxying featuregate is at the default (i.e. only on for k8s >= 1.19).
+			major, _ := strconv.Atoi(sv.Major)
+			minor, _ := strconv.Atoi(strings.TrimRight(sv.Minor, "+"))
+			if k.opts.useEndpointSlices && major <= 1 && minor <= 18 {
+				log.Info("Watching Endpoints instead of EndpointSlices in k8s versions < 1.19")
+				k.opts.useEndpointSlices = false
+			}
+			return
+		}
+	}
+}
+
 // RegisterKubeCache registers KubeCache start and stop functions with Caddy
-func (k *Kubernetes) RegisterKubeCache(c *caddy.Controller) {
+func (k *Kubernetes) RegisterKubeCache(c *caddy.Controller, kubeClient *kubernetes.Clientset) {
 	c.OnStartup(func() error {
-		go k.APIConn.Run()
+		go func() {
+			k.selectEndpointType(kubeClient)
+			k.APIConn.Run()
+		}()
 
 		timeout := time.After(5 * time.Second)
 		ticker := time.NewTicker(100 * time.Millisecond)

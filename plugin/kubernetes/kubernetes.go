@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
@@ -19,7 +19,6 @@ import (
 
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -213,7 +212,7 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 }
 
 // InitKubeCache initializes a new Kubernetes cache.
-func (k *Kubernetes) InitKubeCache(ctx context.Context) (err error) {
+func (k *Kubernetes) InitKubeCache(ctx context.Context, c *caddy.Controller) (err error) {
 	config, err := k.getClientConfig()
 	if err != nil {
 		return err
@@ -246,23 +245,10 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (err error) {
 
 	k.opts.zones = k.Zones
 	k.opts.endpointNameMode = k.endpointNameMode
-	// Enable use of endpoint slices if the API supports the discovery v1 beta1 api
-	if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(discovery.SchemeGroupVersion.String()); err == nil {
-		k.opts.useEndpointSlices = true
-	}
-	// Disable use of endpoint slices for k8s versions 1.18 and earlier. Endpoint slices were
-	// introduced in 1.17 but EndpointSliceMirroring was not added until 1.19.
-	// if err != nil, we continue with the above default which is to use endpoint slices.
-	if sv, err := kubeClient.ServerVersion(); err == nil {
-		major, _ := strconv.Atoi(sv.Major)
-		minor, _ := strconv.Atoi(strings.TrimRight(sv.Minor, "+"))
-		if k.opts.useEndpointSlices && major <= 1 && minor <= 18 {
-			log.Info("Watching Endpoints instead of EndpointSlices in k8s versions < 1.19")
-			k.opts.useEndpointSlices = false
-		}
-	}
 
 	k.APIConn = newdnsController(ctx, kubeClient, k.opts)
+
+	k.RegisterKubeCache(c, kubeClient)
 
 	return err
 }
