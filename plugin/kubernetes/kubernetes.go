@@ -255,8 +255,11 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 	onStart = func() error {
 		go func() {
 			if initEndpointWatch {
-				useEpSlice := k.useEndpointSlices(kubeClient)
-				k.APIConn.(*dnsControl).AddEndpointsWatch(ctx, useEpSlice)
+				// Revert to watching Endpoints for incompatible K8s.
+				// This can be remove when all supported k8s versions support endpointslices.
+				if ok := k.endpointSliceSupported(kubeClient); !ok {
+					k.APIConn.(*dnsControl).WatchEndpoints(ctx)
+				}
 			}
 			k.APIConn.Run()
 		}()
@@ -283,12 +286,12 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 	return onStart, onShut, err
 }
 
-// useEndpointSlices will determine which endpoint object type to watch (endpointslices or endpoints)
+// endpointSliceSupported will determine which endpoint object type to watch (endpointslices or endpoints)
 // based on the supportability of endpointslices in the API and server version. It will return true when endpointslices
 // should be watched, and false when endpoints should be watched.
 // If the API supports discovery v1 beta1, and the server versions >= 1.19, endpointslices are watched.
 // This function should be removed, along with non-slice endpoint watch code, when support for k8s < 1.19 is dropped.
-func (k *Kubernetes) useEndpointSlices(kubeClient *kubernetes.Clientset) bool {
+func (k *Kubernetes) endpointSliceSupported(kubeClient *kubernetes.Clientset) bool {
 	useEndpointSlices := false
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()

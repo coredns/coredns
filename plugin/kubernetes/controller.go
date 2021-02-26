@@ -117,6 +117,19 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		object.DefaultProcessor(object.ToService, nil),
 	)
 
+	if opts.initEndpointsCache {
+		dns.epLister, dns.epController = object.NewIndexerInformer(
+			&cache.ListWatch{
+				ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			},
+			&discovery.EndpointSlice{},
+			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
+			object.DefaultProcessor(object.EndpointSliceToEndpoints, dns.EndpointSliceLatencyRecorder()),
+		)
+	}
+
 	if opts.initPodCache {
 		dns.podLister, dns.podController = object.NewIndexerInformer(
 			&cache.ListWatch{
@@ -142,32 +155,20 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 	return &dns
 }
 
-func (dns *dnsControl) AddEndpointsWatch(ctx context.Context, useEndpointSlices bool) {
-	var (
-		apiObj    runtime.Object
-		listWatch cache.ListWatch
-		to        object.ToFunc
-		latency   *object.EndpointLatencyRecorder
-	)
-	if useEndpointSlices {
-		apiObj = &discovery.EndpointSlice{}
-		listWatch.ListFunc = endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
-		listWatch.WatchFunc = endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
-		to = object.EndpointSliceToEndpoints
-		latency = dns.EndpointSliceLatencyRecorder()
-	} else {
-		apiObj = &api.Endpoints{}
-		listWatch.ListFunc = endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
-		listWatch.WatchFunc = endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
-		to = object.ToEndpoints
-		latency = dns.EndpointsLatencyRecorder()
-	}
+// WatchEndpoints will set the endpoint Lister and Controller to watch object.Endpoints
+// instead of the default discovery.EndpointSlice. This is used in older k8s clusters where
+// discovery.EndpointSlice is not fully supported.
+// This can be removed when all supported k8s versions fully support EndpointSlice.
+func (dns *dnsControl) WatchEndpoints(ctx context.Context) {
 	dns.epLister, dns.epController = object.NewIndexerInformer(
-		&listWatch,
-		apiObj,
+		&cache.ListWatch{
+			ListFunc:  endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			WatchFunc: endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+		},
+		&api.Endpoints{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-		object.DefaultProcessor(to, latency),
+		object.DefaultProcessor(object.ToEndpoints, dns.EndpointsLatencyRecorder()),
 	)
 }
 
