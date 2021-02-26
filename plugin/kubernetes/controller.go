@@ -83,7 +83,6 @@ type dnsControl struct {
 type dnsControlOpts struct {
 	initPodCache       bool
 	initEndpointsCache bool
-	useEndpointSlices  bool
 	ignoreEmptyService bool
 
 	// Label handling.
@@ -131,35 +130,6 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		)
 	}
 
-	if opts.initEndpointsCache {
-		var (
-			apiObj    runtime.Object
-			listWatch cache.ListWatch
-			to        object.ToFunc
-			latency   *object.EndpointLatencyRecorder
-		)
-		if opts.useEndpointSlices {
-			apiObj = &discovery.EndpointSlice{}
-			listWatch.ListFunc = endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
-			listWatch.WatchFunc = endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
-			to = object.EndpointSliceToEndpoints
-			latency = dns.EndpointSliceLatencyRecorder()
-		} else {
-			apiObj = &api.Endpoints{}
-			listWatch.ListFunc = endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
-			listWatch.WatchFunc = endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
-			to = object.ToEndpoints
-			latency = dns.EndpointsLatencyRecorder()
-		}
-		dns.epLister, dns.epController = object.NewIndexerInformer(
-			&listWatch,
-			apiObj,
-			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
-			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			object.DefaultProcessor(to, latency),
-		)
-	}
-
 	dns.nsLister, dns.nsController = cache.NewInformer(
 		&cache.ListWatch{
 			ListFunc:  namespaceListFunc(ctx, dns.client, dns.namespaceSelector),
@@ -170,6 +140,35 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		cache.ResourceEventHandlerFuncs{})
 
 	return &dns
+}
+
+func (dns *dnsControl) AddEndpointsWatch(ctx context.Context, useEndpointSlices bool) {
+	var (
+		apiObj    runtime.Object
+		listWatch cache.ListWatch
+		to        object.ToFunc
+		latency   *object.EndpointLatencyRecorder
+	)
+	if useEndpointSlices {
+		apiObj = &discovery.EndpointSlice{}
+		listWatch.ListFunc = endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
+		listWatch.WatchFunc = endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
+		to = object.EndpointSliceToEndpoints
+		latency = dns.EndpointSliceLatencyRecorder()
+	} else {
+		apiObj = &api.Endpoints{}
+		listWatch.ListFunc = endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
+		listWatch.WatchFunc = endpointsWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector)
+		to = object.ToEndpoints
+		latency = dns.EndpointsLatencyRecorder()
+	}
+	dns.epLister, dns.epController = object.NewIndexerInformer(
+		&listWatch,
+		apiObj,
+		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+		cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
+		object.DefaultProcessor(to, latency),
+	)
 }
 
 func (dns *dnsControl) EndpointsLatencyRecorder() *object.EndpointLatencyRecorder {

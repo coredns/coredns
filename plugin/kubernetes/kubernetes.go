@@ -249,10 +249,16 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context, c *caddy.Controller) (er
 	k.opts.zones = k.Zones
 	k.opts.endpointNameMode = k.endpointNameMode
 
+	k.APIConn = newdnsController(ctx, kubeClient, k.opts)
+
+	initEndpointWatch := k.opts.initEndpointsCache
+
 	c.OnStartup(func() error {
 		go func() {
-			k.selectEndpointType(kubeClient)
-			k.APIConn = newdnsController(ctx, kubeClient, k.opts)
+			if initEndpointWatch {
+				useEpSlice := k.useEndpointSlices(kubeClient)
+				k.APIConn.(*dnsControl).AddEndpointsWatch(ctx, useEpSlice)
+			}
 			k.APIConn.Run()
 		}()
 
@@ -278,11 +284,13 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context, c *caddy.Controller) (er
 	return err
 }
 
-// selectEndpointType will select which endpoint object type to watch (endpointslices or endpoints)
-// based on the supportability of endpointslices in the API and server version.
-// If the API supports discovery v1 beta1, and the server versions >= 1.19, endpointslices will be watched.
+// useEndpointSlices will determine which endpoint object type to watch (endpointslices or endpoints)
+// based on the supportability of endpointslices in the API and server version. It will return true when endpointslices
+// should be watched, and false when endpoints should be watched.
+// If the API supports discovery v1 beta1, and the server versions >= 1.19, endpointslices are watched.
 // This function should be removed, along with non-slice endpoint watch code, when support for k8s < 1.19 is dropped.
-func (k *Kubernetes) selectEndpointType(kubeClient *kubernetes.Clientset) {
+func (k *Kubernetes) useEndpointSlices(kubeClient *kubernetes.Clientset) bool {
+	useEndpointSlices := false
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -294,7 +302,7 @@ func (k *Kubernetes) selectEndpointType(kubeClient *kubernetes.Clientset) {
 			}
 			// Enable use of endpoint slices if the API supports the discovery v1 beta1 api
 			if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(discovery.SchemeGroupVersion.String()); err == nil {
-				k.opts.useEndpointSlices = true
+				useEndpointSlices = true
 			}
 			// Disable use of endpoint slices for k8s versions 1.18 and earlier. The Endpointslices API was enabled
 			// by default in 1.17 but Service -> Pod proxy continued to use Endpoints by default until 1.19.
@@ -302,11 +310,11 @@ func (k *Kubernetes) selectEndpointType(kubeClient *kubernetes.Clientset) {
 			// k8s EndpointSliceProxying featuregate is at the default (i.e. only enabled for k8s >= 1.19).
 			major, _ := strconv.Atoi(sv.Major)
 			minor, _ := strconv.Atoi(strings.TrimRight(sv.Minor, "+"))
-			if k.opts.useEndpointSlices && major <= 1 && minor <= 18 {
+			if useEndpointSlices && major <= 1 && minor <= 18 {
 				log.Info("Watching Endpoints instead of EndpointSlices in k8s versions < 1.19")
-				k.opts.useEndpointSlices = false
+				useEndpointSlices = false
 			}
-			return
+			return useEndpointSlices
 		}
 	}
 }
