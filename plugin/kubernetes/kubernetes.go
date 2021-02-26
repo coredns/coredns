@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
@@ -215,22 +214,22 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 }
 
 // InitKubeCache initializes a new Kubernetes cache.
-func (k *Kubernetes) InitKubeCache(ctx context.Context, c *caddy.Controller) (err error) {
+func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, onShut func() error, err error) {
 	config, err := k.getClientConfig()
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return fmt.Errorf("failed to create kubernetes notification controller: %q", err)
+		return nil, nil, fmt.Errorf("failed to create kubernetes notification controller: %q", err)
 	}
 
 	if k.opts.labelSelector != nil {
 		var selector labels.Selector
 		selector, err = meta.LabelSelectorAsSelector(k.opts.labelSelector)
 		if err != nil {
-			return fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", k.opts.labelSelector, err)
+			return nil, nil, fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", k.opts.labelSelector, err)
 		}
 		k.opts.selector = selector
 	}
@@ -239,7 +238,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context, c *caddy.Controller) (er
 		var selector labels.Selector
 		selector, err = meta.LabelSelectorAsSelector(k.opts.namespaceLabelSelector)
 		if err != nil {
-			return fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", k.opts.namespaceLabelSelector, err)
+			return nil, nil, fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", k.opts.namespaceLabelSelector, err)
 		}
 		k.opts.namespaceSelector = selector
 	}
@@ -253,7 +252,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context, c *caddy.Controller) (er
 
 	initEndpointWatch := k.opts.initEndpointsCache
 
-	c.OnStartup(func() error {
+	onStart = func() error {
 		go func() {
 			if initEndpointWatch {
 				useEpSlice := k.useEndpointSlices(kubeClient)
@@ -275,13 +274,13 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context, c *caddy.Controller) (er
 				return nil
 			}
 		}
-	})
+	}
 
-	c.OnShutdown(func() error {
+	onShut = func() error {
 		return k.APIConn.Stop()
-	})
+	}
 
-	return err
+	return onStart, onShut, err
 }
 
 // useEndpointSlices will determine which endpoint object type to watch (endpointslices or endpoints)

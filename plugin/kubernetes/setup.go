@@ -38,9 +38,15 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error(pluginName, err)
 	}
 
-	err = k.InitKubeCache(context.Background(), c)
+	onStart, onShut, err := k.InitKubeCache(context.Background())
 	if err != nil {
 		return plugin.Error(pluginName, err)
+	}
+	if onStart != nil {
+		c.OnStartup(onStart)
+	}
+	if onShut != nil {
+		c.OnShutdown(onShut)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
