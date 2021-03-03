@@ -12,7 +12,7 @@ func TestKubernetesParseReverseZone(t *testing.T) {
 		expectedZones []string // expected count of defined zones.
 	}{
 		{`kubernetes coredns.local 10.0.0.0/16`, []string{"coredns.local.", "0.10.in-addr.arpa."}},
-		{`kubernetes coredns.local 10.0.0.0/17`, []string{"coredns.local.", "0.10.in-addr.arpa."}},
+		{`kubernetes coredns.local 10.0.0.0/15`, []string{"coredns.local.", "0.10.in-addr.arpa.","1.10.in-addr.arpa."}},
 		{`kubernetes coredns.local fd00:77:30::0/110`, []string{"coredns.local.", "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa."}},
 	}
 
