@@ -144,7 +144,7 @@ func SplitHostPort(s string) (host, port string, ipnet *net.IPNet, err error) {
 	return host, port, n, nil
 }
 
-// return slice of subnets
+// Subnets return a slice of prefixes with the desired mask subnetted from original network
 func Subnets(network *net.IPNet, newPrefixLen int) ([]net.IPNet) {
 	prefixLen, _ := network.Mask.Size()
 	maxSubnets := int(math.Exp2(float64(newPrefixLen)) / math.Exp2(float64(prefixLen)))
@@ -158,7 +158,7 @@ func Subnets(network *net.IPNet, newPrefixLen int) ([]net.IPNet) {
 
 	return subnetsList
 }
-// Get CIDR and return slice of "classful" (/8, /16, /24 or /32 only) CIDR's
+// ClassfulFromCIDR return slice of "classful" (/8, /16, /24 or /32 only) CIDR's from any CIDR
 func ClassfulFromCIDR(s string) ([]string, error) {
 	_, n, err := net.ParseCIDR(s)
 
@@ -218,7 +218,9 @@ func intToIP(ipInt *big.Int, bits int) net.IP {
 	return net.IP(ret)
 }
 
-
+// NextSubnet returns the next available subnet of the desired mask size
+// starting for the maximum IP of the offset subnet
+// If the IP exceeds the maxium IP then the second return value is true
 func NextSubnet(network *net.IPNet, prefixLen int) (*net.IPNet, bool) {
 	_, currentLast := AddressRange(network)
 	mask := net.CIDRMask(prefixLen, 8*len(currentLast))
