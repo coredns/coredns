@@ -121,7 +121,17 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 	zones := c.RemainingArgs()
 
 	if len(zones) != 0 {
-		k8s.Zones = zones
+		var classfulZones []string
+		for i := 0; i < len(zones); i++ {
+			tmp, err := plugin.ClassfulFromCIDR(zones[i])
+			if err == nil {
+				classfulZones = append(classfulZones, tmp...)
+
+			} else {
+				classfulZones = append(classfulZones, zones[i])
+			}
+		}
+		k8s.Zones = classfulZones
 		for i := 0; i < len(k8s.Zones); i++ {
 			k8s.Zones[i] = plugin.Host(k8s.Zones[i]).Normalize()
 		}
