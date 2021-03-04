@@ -1,5 +1,7 @@
 FROM debian:stable-slim
 
+LABEL org.opencontainers.image.source="https://github.com/coredns/coredns"
+
 RUN apt-get update && apt-get -uy upgrade
 RUN apt-get -y install ca-certificates && update-ca-certificates
 
