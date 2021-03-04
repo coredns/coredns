@@ -166,24 +166,12 @@ func ClassfulFromCIDR(s string) ([]string, error) {
 	var cidrs []string
 	if err == nil {
 		ones, _ := n.Mask.Size()
-		if len(n.IP) == net.IPv6len {
-			// TODO Check if any ipv6 logic need to be done
+		if ones % 8 == 0 {
 			cidrs = append(cidrs, n.String())
 		} else {
-			// Greater equal to class A /8
-			if ones <= 8 {
-				networks = Subnets(n, 8)
-				// Greater equal to class B /16 (the range from /9 to /16)
-			} else if ones <= 16 {
-				networks = Subnets(n, 16)
-				// Greater equal to class C /24 (the range from /17 to /24)
-			} else if ones <= 24 {
-				networks = Subnets(n, 24)
-				// less than class C /24 (the range from /25 to /32)
-				// TODO add RFC2317 / RFC4183 support for smaller than /24 subnets? if so change the SplitHostPort to allow less than /32 subnets
-			} else if ones > 24 {
-				networks = Subnets(n, 32)
-			}
+			// TODO add RFC2317 / RFC4183 support for smaller than /24 subnets (if so need to ajust SplitHostPort to allow /32 subnets)
+			newMask := int(math.Ceil(float64(ones) / 8) ) * 8
+			networks = Subnets(n, newMask)
 		}
 		//cast to string
 		for i := 0; i < len(networks); i++ {
