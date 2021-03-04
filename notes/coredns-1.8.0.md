@@ -14,7 +14,7 @@ If you are running 1.7.1 you want to upgrade for the *cache* plugin fixes.
 
 This release also adds three backwards incompatible changes. This will only affect you if you have an
 **external plugin** or use **outgoing zone transfers**. If you're using `dnstap` in your plugin,
-you'll need to upgrade to the new API as detailed in it's [documentation](/plugins/dnstap).
+you'll need to upgrade to the new API as detailed in it's [documentation](/plugin/dnstap).
 
 Two, because Caddy is now developing a version 2 and we are using version 1, we've internalized
 Caddy into <https://github.com/coredns/caddy>. This means the `caddy` types change and *all* plugins
