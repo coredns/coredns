@@ -62,6 +62,11 @@ func (a Auto) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		return dns.RcodeServerFailure, nil
 	}
 
+	// If transfer is not loaded, we'll see these, answer with refused (no transfer allowed).
+	if state.QType() == dns.TypeAXFR || state.QType() == dns.TypeIXFR {
+		return dns.RcodeRefused, nil
+	}
+
 	answer, ns, extra, result := z.Lookup(ctx, state, qname)
 
 	m := new(dns.Msg)

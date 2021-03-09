@@ -47,6 +47,11 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		return dns.RcodeServerFailure, nil
 	}
 
+	// If transfer is not loaded, we'll see these, answer with refused (no transfer allowed).
+	if state.QType() == dns.TypeAXFR || state.QType() == dns.TypeIXFR {
+		return dns.RcodeRefused, nil
+	}
+
 	// This is only for when we are a secondary zones.
 	if r.Opcode == dns.OpcodeNotify {
 		if z.isNotify(state) {

@@ -1,9 +1,14 @@
 package file
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/test"
+	"github.com/miekg/dns"
 )
 
 func ExampleZone_All() {
@@ -39,5 +44,28 @@ func TestAllNewZone(t *testing.T) {
 	records := zone.All()
 	if len(records) != 0 {
 		t.Errorf("Expected %d records in empty zone, got %d", 0, len(records))
+	}
+}
+
+func TestAXFRWithOutTransferPlugin(t *testing.T) {
+	zone, err := Parse(strings.NewReader(dbMiekNL), testzone, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expected no error when reading zone, got %q", err)
+	}
+
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{testzone: zone}, Names: []string{testzone}}}
+	ctx := context.TODO()
+
+	m := new(dns.Msg)
+	m.SetQuestion("miek.nl.", dns.TypeAXFR)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	code, err := fm.ServeDNS(ctx, rec, m)
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+		return
+	}
+	if code != dns.RcodeRefused {
+		t.Errorf("Expecting REFUSED, got %d", code)
 	}
 }

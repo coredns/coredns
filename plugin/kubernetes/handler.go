@@ -44,6 +44,8 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		records, extra, err = plugin.SRV(ctx, &k, zone, state, plugin.Options{})
 	case dns.TypeSOA:
 		records, err = plugin.SOA(ctx, &k, zone, state, plugin.Options{})
+	case dns.TypeAXFR, dns.TypeIXFR:
+		return dns.RcodeRefused, nil
 	case dns.TypeNS:
 		if state.Name() == zone {
 			records, extra, err = plugin.NS(ctx, &k, zone, state, plugin.Options{})
