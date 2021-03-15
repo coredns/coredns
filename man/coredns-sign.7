@@ -8,9 +8,9 @@
 .SH "DESCRIPTION"
 .PP
 The \fIsign\fP plugin is used to sign (see RFC 6781) zones. In this process DNSSEC resource records are
-added to the zone. The signatures that sign the resource records sets have an expiration date. This
-means the signing process must be repeated before this expiration data is reached. Otherwise the
-zone's data will go BAD (RFC 4035, Section 5.5). The \fIsign\fP plugin takes care of this.
+added. The signatures that sign the resource records sets have an expiration date, this means the
+signing process must be repeated before this expiration data is reached. Otherwise the zone's data
+will go BAD (RFC 4035, Section 5.5). The \fIsign\fP plugin takes care of this.
 
 .PP
 Only NSEC is supported, \fIsign\fP does \fInot\fP support NSEC3.
@@ -40,16 +40,7 @@ the signature only has 14 days left before expiring.
 .RE
 
 
-Both these dates are only checked on the SOA's signature(s). This concerns the DNSSEC data, the
-\fIsign\fP plugin will also take into account and resign if:
-
-.RS
-.IP \(en 4
-the \fBmtime\fP of the zone file has changed, since the last time it was checked.
-.IP \(en 4
-the signed zone file doesn't exist on disk.
-
-.RE
+Both these dates are only checked on the SOA's signature(s).
 .IP \(bu 4
 Create RRSIGs that have an inception of -3 hours (minus a jitter between 0 and 18 hours)
 and a expiration of +32 (plus a jitter between 0 and 5 days) days for every given DNSKEY.
