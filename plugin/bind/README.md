@@ -11,7 +11,7 @@ another IP instead.
 
 If several addresses are provided, a listener will be open on each of the IP provided.
 
-Each address has to be an IP or name of one of the interfaces of the host.
+Each address has to be an IP or name of one of the interfaces of the host. If the given argument is an interface name, and that interface has serveral IP addresses, CoreDNS will listen on all of the interface IP addresses.
 
 ## Syntax
 
