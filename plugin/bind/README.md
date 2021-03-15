@@ -11,7 +11,7 @@ another IP instead.
 
 If several addresses are provided, a listener will be open on each of the IP provided.
 
-Each address has to be an IP of one of the interfaces of the host.
+Each address has to be an IP or name of one of the interfaces of the host.
 
 ## Syntax
 
@@ -47,6 +47,14 @@ The following sample is equivalent to the preceding:
 . {
     bind 127.0.0.1
     bind ::1
+}
+~~~
+
+The following example server block causes CoreDNS to listen on all the mentioned interfaces:
+
+~~~ corefile
+. {
+    bind 127.0.0.1 192.168.1.21 eth1 eth0
 }
 ~~~
 

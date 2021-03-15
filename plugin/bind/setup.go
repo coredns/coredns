@@ -15,16 +15,38 @@ func setup(c *caddy.Controller) error {
 	// addresses will be consolidated over all BIND directives available in that BlocServer
 	all := []string{}
 	for c.Next() {
-		addrs := c.RemainingArgs()
-		if len(addrs) == 0 {
-			return plugin.Error("bind", fmt.Errorf("at least one address is expected"))
+		args := c.RemainingArgs()
+		if len(args) == 0 {
+			return plugin.Error("bind", fmt.Errorf("at least one address or interface name is expected"))
 		}
-		for _, addr := range addrs {
-			if net.ParseIP(addr) == nil {
-				return plugin.Error("bind", fmt.Errorf("not a valid IP address: %s", addr))
+
+		ifaces, err := net.Interfaces()
+		if err != nil {
+			return plugin.Error("bind", fmt.Errorf("failed to get interfaces list"))
+		}
+
+		var isIface bool
+		for _, arg := range args {
+			isIface = false
+			for _, iface := range ifaces {
+				if arg == iface.Name {
+					isIface = true
+					addrs, err := iface.Addrs()
+					if err != nil {
+						return plugin.Error("bind", fmt.Errorf("failed to get the IP(s) of the interface: %s", arg))
+					}
+					for _, addr := range addrs {
+						all = append(all, addr.String())
+					}
+				}
+			}
+			if !isIface {
+				if net.ParseIP(arg) == nil {
+					return plugin.Error("bind", fmt.Errorf("not a valid IP address: %s", arg))
+				}
+				all = append(all, arg)
 			}
 		}
-		all = append(all, addrs...)
 	}
 	config.ListenHosts = all
 	return nil
