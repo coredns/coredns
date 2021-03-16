@@ -59,6 +59,10 @@ type dnsControl struct {
 	selector          labels.Selector
 	namespaceSelector labels.Selector
 
+	// epLock is used to lock reads of epLister and epController while they are being replaced
+	// with the api.Endpoints Lister/Controller on k8s systems that don't use discovery.EndpointSlices
+	epLock sync.RWMutex
+
 	svcController cache.Controller
 	podController cache.Controller
 	epController  cache.Controller
@@ -131,6 +135,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 	}
 
 	if opts.initEndpointsCache {
+		dns.epLock.Lock()
 		dns.epLister, dns.epController = object.NewIndexerInformer(
 			&cache.ListWatch{
 				ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
@@ -141,6 +146,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
 			object.DefaultProcessor(object.EndpointSliceToEndpoints, dns.EndpointSliceLatencyRecorder()),
 		)
+		dns.epLock.Unlock()
 	}
 
 	dns.nsLister, dns.nsController = cache.NewInformer(
@@ -160,6 +166,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 // discovery.EndpointSlice is not fully supported.
 // This can be removed when all supported k8s versions fully support EndpointSlice.
 func (dns *dnsControl) WatchEndpoints(ctx context.Context) {
+	dns.epLock.Lock()
 	dns.epLister, dns.epController = object.NewIndexerInformer(
 		&cache.ListWatch{
 			ListFunc:  endpointsListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
@@ -170,6 +177,7 @@ func (dns *dnsControl) WatchEndpoints(ctx context.Context) {
 		cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
 		object.DefaultProcessor(object.ToEndpoints, dns.EndpointsLatencyRecorder()),
 	)
+	dns.epLock.Unlock()
 }
 
 func (dns *dnsControl) EndpointsLatencyRecorder() *object.EndpointLatencyRecorder {
@@ -351,7 +359,11 @@ func (dns *dnsControl) Stop() error {
 func (dns *dnsControl) Run() {
 	go dns.svcController.Run(dns.stopCh)
 	if dns.epController != nil {
-		go dns.epController.Run(dns.stopCh)
+		go func() {
+			dns.epLock.RLock()
+			dns.epController.Run(dns.stopCh)
+			dns.epLock.RUnlock()
+		}()
 	}
 	if dns.podController != nil {
 		go dns.podController.Run(dns.stopCh)
@@ -365,7 +377,9 @@ func (dns *dnsControl) HasSynced() bool {
 	a := dns.svcController.HasSynced()
 	b := true
 	if dns.epController != nil {
+		dns.epLock.RLock()
 		b = dns.epController.HasSynced()
+		dns.epLock.RUnlock()
 	}
 	c := true
 	if dns.podController != nil {
@@ -388,6 +402,8 @@ func (dns *dnsControl) ServiceList() (svcs []*object.Service) {
 }
 
 func (dns *dnsControl) EndpointsList() (eps []*object.Endpoints) {
+	dns.epLock.RLock()
+	defer dns.epLock.RUnlock()
 	os := dns.epLister.List()
 	for _, o := range os {
 		ep, ok := o.(*object.Endpoints)
@@ -446,6 +462,8 @@ func (dns *dnsControl) SvcIndexReverse(ip string) (svcs []*object.Service) {
 }
 
 func (dns *dnsControl) EpIndex(idx string) (ep []*object.Endpoints) {
+	dns.epLock.RLock()
+	defer dns.epLock.RUnlock()
 	os, err := dns.epLister.ByIndex(epNameNamespaceIndex, idx)
 	if err != nil {
 		return nil
@@ -461,6 +479,8 @@ func (dns *dnsControl) EpIndex(idx string) (ep []*object.Endpoints) {
 }
 
 func (dns *dnsControl) EpIndexReverse(ip string) (ep []*object.Endpoints) {
+	dns.epLock.RLock()
+	defer dns.epLock.RUnlock()
 	os, err := dns.epLister.ByIndex(epIPIndex, ip)
 	if err != nil {
 		return nil

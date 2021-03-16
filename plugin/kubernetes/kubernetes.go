@@ -274,6 +274,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 					return nil
 				}
 			case <-timeout:
+				log.Warning("starting server with unsynced Kubernetes API")
 				return nil
 			}
 		}
