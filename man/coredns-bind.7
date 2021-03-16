@@ -14,7 +14,7 @@ another IP instead.
 If several addresses are provided, a listener will be open on each of the IP provided.
 
 .PP
-Each address has to be an IP or name of one of the interfaces of the host. If the given argument is an interface name, and that interface has serveral IP addresses, CoreDNS will listen on all of the interface IP addresses.
+Each address has to be an IP of one of the interfaces of the host.
 
 .SH "SYNTAX"
 .PP
@@ -75,20 +75,6 @@ The following sample is equivalent to the preceding:
 .fi
 .RE
 
-.PP
-The following example server block causes CoreDNS to listen on all the mentioned interfaces:
-
-.PP
-.RS
-
-.nf
-\&. {
-    bind 127.0.0.1 192.168.1.21 eth1 eth0
-}
-
-.fi
-.RE
-
 .SH "BUGS"
 .PP
 When defining more than one server block, take care not to bind more than one server to the same
@@ -113,4 +99,3 @@ bad.example.com {
 
 .fi
 .RE
-

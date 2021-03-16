@@ -11,7 +11,9 @@ another IP instead.
 
 If several addresses are provided, a listener will be open on each of the IP provided.
 
-Each address has to be an IP or name of one of the interfaces of the host. If the given argument is an interface name, and that interface has serveral IP addresses, CoreDNS will listen on all of the interface IP addresses.
+Each address has to be an IP or name of one of the interfaces of the host. Bind by interface name, binds to the IPs on that interface at the time of startup or reload (reload will happen with a SIGHUP or if the config file changes).
+
+If the given argument is an interface name, and that interface has serveral IP addresses, CoreDNS will listen on all of the interface IP addresses (including IPv4 and IPv6).
 
 ## Syntax
 
@@ -50,11 +52,11 @@ The following sample is equivalent to the preceding:
 }
 ~~~
 
-The following example server block causes CoreDNS to listen on all the mentioned interfaces:
+The following server block, binds on localhost with its interface name (both "127.0.0.1" and "::1"):
 
 ~~~ corefile
 . {
-    bind 127.0.0.1 192.168.1.21 eth1 eth0
+    bind lo
 }
 ~~~
 

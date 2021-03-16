@@ -36,7 +36,9 @@ func setup(c *caddy.Controller) error {
 						return plugin.Error("bind", fmt.Errorf("failed to get the IP(s) of the interface: %s", arg))
 					}
 					for _, addr := range addrs {
-						all = append(all, addr.String())
+						if ipnet, ok := addr.(*net.IPNet); ok {
+							all = append(all, ipnet.IP.String())
+						}
 					}
 				}
 			}
