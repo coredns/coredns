@@ -3,7 +3,6 @@ package plugin
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"net"
 	"strconv"
 	"strings"
@@ -181,31 +180,6 @@ func ClassfulFromCIDR(s string) ([]string, error) {
 	return cidrs, err
 }
 
-
-//Functions source https://github.com/apparentlymart/go-cidr
-func ipToInt(ip net.IP) (*big.Int, int) {
-	val := &big.Int{}
-	val.SetBytes([]byte(ip))
-	if len(ip) == net.IPv4len {
-		return val, 32
-	} else if len(ip) == net.IPv6len {
-		return val, 128
-	} else {
-		panic(fmt.Errorf("Unsupported address length %d", len(ip)))
-	}
-}
-
-func intToIP(ipInt *big.Int, bits int) net.IP {
-	ipBytes := ipInt.Bytes()
-	ret := make([]byte, bits/8)
-	// Pack our IP bytes into the end of the return array,
-	// since big.Int.Bytes() removes front zero padding.
-	for i := 1; i <= len(ipBytes); i++ {
-		ret[len(ret)-i] = ipBytes[len(ipBytes)-i]
-	}
-	return net.IP(ret)
-}
-
 // NextSubnet returns the next available subnet of the desired mask size
 // starting for the maximum IP of the offset subnet
 // If the IP exceeds the maxium IP then the second return value is true
@@ -235,6 +209,27 @@ func Inc(IP net.IP) net.IP {
 	return incIP
 }
 
+// NewIP returns a new IP with the given size. The size must be 4 for IPv4 and
+// 16 for IPv6.
+func NewIP(size int) net.IP {
+	if size == 4 {
+		return net.ParseIP("0.0.0.0").To4()
+	}
+	if size == 16 {
+		return net.ParseIP("::")
+	}
+	panic("Bad value for size")
+}
+
+// BroadcastAddr returns the last address in the given network, or the broadcast address.
+func BroadcastAddr(n *net.IPNet) net.IP {
+	broadcast := NewIP(len(n.IP))
+	for i := 0; i < len(n.IP); i++ {
+		broadcast[i] = n.IP[i] | ^n.Mask[i]
+	}
+	return broadcast
+}
+
 // AddressRange returns the first and last addresses in the given CIDR range.
 func AddressRange(network *net.IPNet) (net.IP, net.IP) {
 	// the first IP is easy
@@ -250,13 +245,6 @@ func AddressRange(network *net.IPNet) (net.IP, net.IP) {
 		copy(lastIP, firstIP)
 		return firstIP, lastIP
 	}
-
-	firstIPInt, bits := ipToInt(firstIP)
-	hostLen := uint(bits) - uint(prefixLen)
-	lastIPInt := big.NewInt(1)
-	lastIPInt.Lsh(lastIPInt, hostLen)
-	lastIPInt.Sub(lastIPInt, big.NewInt(1))
-	lastIPInt.Or(lastIPInt, firstIPInt)
-
-	return firstIP, intToIP(lastIPInt, bits)
+	lastIP := BroadcastAddr(network)
+	return firstIP, lastIP
 }
