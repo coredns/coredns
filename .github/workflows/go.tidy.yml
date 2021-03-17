@@ -34,6 +34,6 @@ jobs:
         run: |
           git add .
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
-            git commit -m 'auto go mod tidy'
+            git commit -s -m 'auto go mod tidy'
             git push
           fi

@@ -31,6 +31,6 @@ jobs:
         run: |
           git add .
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
-            git commit -m 'auto go fmt'
+            git commit -s -m 'auto go fmt'
             git push
           fi

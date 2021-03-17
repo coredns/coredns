@@ -38,6 +38,6 @@ jobs:
         run: |
           git add .
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
-            git commit -m 'auto make -f Makefile.doc'
+            git commit -s -m 'auto make -f Makefile.doc'
             git push
           fi
