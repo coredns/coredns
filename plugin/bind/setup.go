@@ -33,7 +33,7 @@ func setup(c *caddy.Controller) error {
 					isIface = true
 					addrs, err := iface.Addrs()
 					if err != nil {
-						return plugin.Error("bind", fmt.Errorf("failed to get the IP(s) of the interface: %s", arg))
+						return plugin.Error("bind", fmt.Errorf("failed to get the IP addresses of the interface: %q", arg))
 					}
 					for _, addr := range addrs {
 						if ipnet, ok := addr.(*net.IPNet); ok {
@@ -44,7 +44,7 @@ func setup(c *caddy.Controller) error {
 			}
 			if !isIface {
 				if net.ParseIP(arg) == nil {
-					return plugin.Error("bind", fmt.Errorf("not a valid IP address: %s", arg))
+					return plugin.Error("bind", fmt.Errorf("not a valid IP address or interface name: %q", arg))
 				}
 				all = append(all, arg)
 			}
