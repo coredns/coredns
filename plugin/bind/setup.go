@@ -36,8 +36,10 @@ func setup(c *caddy.Controller) error {
 						return plugin.Error("bind", fmt.Errorf("failed to get the IP(s) of the interface: %s", arg))
 					}
 					for _, addr := range addrs {
-						if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLinkLocalMulticast() && !ipnet.IP.IsLinkLocalUnicast() {
-							all = append(all, ipnet.IP.String())
+						if ipnet, ok := addr.(*net.IPNet); ok {
+							if ipnet.IP.To4() != nil || (!ipnet.IP.IsLinkLocalMulticast() && !ipnet.IP.IsLinkLocalUnicast()) {
+								all = append(all, ipnet.IP.String())
+							}
 						}
 					}
 				}
