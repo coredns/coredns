@@ -1,14 +1,8 @@
 name: Make Doc
 
 on:
-  push:
-    branches:
-      - 'master'
-    paths:
-      - '.github/workflows/make.doc.yml'
-      - 'coredns.1.md'
-      - 'corefile.5.md'
-      - 'plugin/*/README.md'
+  schedule:
+    - cron: '22 10 * * 0'
 
 jobs:
   fix:
@@ -30,8 +24,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "coredns-auto-go-mod-tidy[bot]"
-          git config user.email "coredns-auto-go-mod-tidy[bot]@users.noreply.github.com"
+          git config user.name "coredns[bot]"
+          git config user.email "bot@bot.coredns.io"
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
       -
         name: Commit and push changes

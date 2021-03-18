@@ -1,11 +1,8 @@
 name: Go Fmt
 
 on:
-  push:
-    branches:
-      - 'master'
-    paths:
-      - '**.go'
+  schedule:
+    - cron: '22 10 * * 1'
 
 jobs:
   fix:
@@ -23,8 +20,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "coredns-auto-go-fmt[bot]"
-          git config user.email "coredns-auto-go-fmt[bot]@users.noreply.github.com"
+          git config user.name "coredns[bot]"
+          git config user.email "bot@bot.coredns.io"
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
       -
         name: Commit and push changes

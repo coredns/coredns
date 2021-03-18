@@ -203,5 +203,5 @@ prs:
 authors:
 	@echo "## Brought to You By"
 	@echo
-	@git log --pretty=format:'%an' $$(git describe --tags --abbrev=0)..master | sort -u | grep -v '^coredns-auto' | grep -v '^dependabot-preview' | \
+	@git log --pretty=format:'%an' $$(git describe --tags --abbrev=0)..master | sort -u | grep -v '^coredns-auto' | grep -v '^coredns\[bot\]' | grep -v '^dependabot-preview' | \
 	    tac | cat -n | sed -e 's/^[[:space:]]\+1[[:space:]]\+\(.*\)/\1./' | sed -e 's/^[[:space:]]\+[[:digit:]]\+[[:space:]]\+\(.*\)/\1,/' | tac # comma separate, with dot at the end
