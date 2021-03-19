@@ -27,7 +27,7 @@ var (
 		Name:      "request_duration_seconds",
 		Buckets:   plugin.TimeBuckets,
 		Help:      "Histogram of the time each request took.",
-	}, []string{"to", "rcode", "type"})
+	}, []string{"to", "rcode"})
 	HealthcheckFailureCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",

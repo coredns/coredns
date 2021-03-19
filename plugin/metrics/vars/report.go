@@ -3,7 +3,6 @@ package vars
 import (
 	"time"
 
-	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
 )
 
@@ -18,14 +17,14 @@ func Report(server string, req request.Request, zone, rcode string, size int, st
 		fam = "2"
 	}
 
-	qtype := dnsutil.QTypeMonitorLabel(req.QType())
-
 	if req.Do() {
 		RequestDo.WithLabelValues(server, zone).Inc()
 	}
 
+	qtype := qTypeString(req.QType())
 	RequestCount.WithLabelValues(server, zone, net, fam, qtype).Inc()
-	RequestDuration.WithLabelValues(server, zone, qtype).Observe(time.Since(start).Seconds())
+
+	RequestDuration.WithLabelValues(server, zone).Observe(time.Since(start).Seconds())
 
 	ResponseSize.WithLabelValues(server, zone, net).Observe(float64(size))
 	RequestSize.WithLabelValues(server, zone, net).Observe(float64(req.Len()))

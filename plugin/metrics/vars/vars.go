@@ -21,14 +21,14 @@ var (
 		Subsystem: subsystem,
 		Name:      "request_duration_seconds",
 		Buckets:   plugin.TimeBuckets,
-		Help:      "Histogram of the time (in seconds) each request took.",
-	}, []string{"server", "zone", "type"})
+		Help:      "Histogram of the time (in seconds) each request took per zone.",
+	}, []string{"server", "zone"})
 
 	RequestSize = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: subsystem,
 		Name:      "request_size_bytes",
-		Help:      "Size of the EDNS0 UDP buffer in bytes (64K for TCP).",
+		Help:      "Size of the EDNS0 UDP buffer in bytes (64K for TCP) per zone and protocol.",
 		Buckets:   []float64{0, 100, 200, 300, 400, 511, 1023, 2047, 4095, 8291, 16e3, 32e3, 48e3, 64e3},
 	}, []string{"server", "zone", "proto"})
 

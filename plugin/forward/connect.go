@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -130,11 +129,9 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 		rc = strconv.Itoa(ret.Rcode)
 	}
 
-	qtype := dnsutil.QTypeMonitorLabel(state.QType())
-
 	RequestCount.WithLabelValues(p.addr).Add(1)
 	RcodeCount.WithLabelValues(rc, p.addr).Add(1)
-	RequestDuration.WithLabelValues(p.addr, rc, qtype).Observe(time.Since(start).Seconds())
+	RequestDuration.WithLabelValues(p.addr, rc).Observe(time.Since(start).Seconds())
 
 	return ret, nil
 }
