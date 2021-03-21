@@ -53,3 +53,57 @@ func chaosTest(t *testing.T, server string) {
 		t.Fatalf("Expected version.bind. reply, got %s", r.Answer[0].String())
 	}
 }
+
+func TestReverseExpansion(t *testing.T) {
+	// this test needs a fixed port, because with :0 the expanded reverse zone will listen on different
+	// addresses and we can't check which ones...
+	corefile := `10.0.0.0/15:5053 {
+		whoami
+	}`
+
+	server, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+
+	defer server.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("whoami.0.10.in-addr.arpa.", dns.TypeA)
+
+	r, err := dns.Exchange(m, udp)
+	if err != nil {
+		t.Fatalf("Could not send message: %s", err)
+	}
+	if r.Rcode != dns.RcodeSuccess {
+		t.Errorf("Expected NOERROR, got %d", r.Rcode)
+	}
+	if len(r.Extra) != 2 {
+		t.Errorf("Expected 2 RRs in additional section, got %d", len(r.Extra))
+	}
+
+	m.SetQuestion("whoami.1.10.in-addr.arpa.", dns.TypeA)
+	r, err = dns.Exchange(m, udp)
+	if err != nil {
+		t.Fatalf("Could not send message: %s", err)
+	}
+	if r.Rcode != dns.RcodeSuccess {
+		t.Errorf("Expected NOERROR, got %d", r.Rcode)
+	}
+	if len(r.Extra) != 2 {
+		t.Errorf("Expected 2 RRs in additional section, got %d", len(r.Extra))
+	}
+
+	// should be refused
+	m.SetQuestion("whoami.2.10.in-addr.arpa.", dns.TypeA)
+	r, err = dns.Exchange(m, udp)
+	if err != nil {
+		t.Fatalf("Could not send message: %s", err)
+	}
+	if r.Rcode != dns.RcodeRefused {
+		t.Errorf("Expected REFUSED, got %d", r.Rcode)
+	}
+	if len(r.Extra) != 0 {
+		t.Errorf("Expected 0 RRs in additional section, got %d", len(r.Extra))
+	}
+}

@@ -247,22 +247,11 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 				return
 			}
 			if r.Question[0].Qtype != dns.TypeDS {
-				if h.FilterFunc == nil {
-					rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
-					if !plugin.ClientWrite(rcode) {
-						errorFunc(s.Addr, w, r, rcode)
-					}
-					return
+				rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
+				if !plugin.ClientWrite(rcode) {
+					errorFunc(s.Addr, w, r, rcode)
 				}
-				// FilterFunc is set, call it to see if we should use this handler.
-				// This is given to full query name.
-				if h.FilterFunc(q) {
-					rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
-					if !plugin.ClientWrite(rcode) {
-						errorFunc(s.Addr, w, r, rcode)
-					}
-					return
-				}
+				return
 			}
 			// The type is DS, keep the handler, but keep on searching as maybe we are serving
 			// the parent as well and the DS should be routed to it - this will probably *misroute* DS

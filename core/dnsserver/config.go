@@ -37,11 +37,6 @@ type Config struct {
 	// may depend on it.
 	HTTPRequestValidateFunc func(*http.Request) bool
 
-	// If this function is not nil it will be used to further filter access
-	// to this handler. The primary use is to limit access to a reverse zone
-	// on a non-octet boundary, i.e. /17
-	FilterFunc func(string) bool
-
 	// TLSConfig when listening for encrypted connections (gRPC, DNS-over-TLS).
 	TLSConfig *tls.Config
 

@@ -1,6 +1,9 @@
 package dnsserver
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // startUpZones creates the text that we show when starting up:
 // grpc://example.com.:1055
@@ -8,7 +11,15 @@ import "fmt"
 func startUpZones(protocol, addr string, zones map[string]*Config) string {
 	s := ""
 
-	for zone := range zones {
+	keys := make([]string, len(zones))
+	i := 0
+	for k := range zones {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+
+	for _, zone := range keys {
 		// split addr into protocol, IP and Port
 		_, ip, port, err := SplitProtocolHostPort(addr)
 
