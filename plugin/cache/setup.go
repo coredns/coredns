@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -183,6 +184,19 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 						return nil, errors.New("invalid negative duration for serve_stale")
 					}
 					ca.staleUpTo = d
+				}
+			case "refresh_stale":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				switch x := strings.ToLower(args[0]); x {
+				case "async":
+					ca.refreshMode = refreshAsync
+				case "sync":
+					ca.refreshMode = refreshSync
+				default:
+					return nil, c.Errf("unknown refresh_stale mode '%s'", x)
 				}
 			default:
 				return nil, c.ArgErr()

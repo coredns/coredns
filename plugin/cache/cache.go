@@ -36,6 +36,7 @@ type Cache struct {
 	duration   time.Duration
 	percentage int
 
+	refreshMode string
 	staleUpTo time.Duration
 
 	// Testing.
@@ -222,6 +223,10 @@ const (
 	minTTL  = dnsutil.MinimalDefaultTTL
 	maxNTTL = dnsutil.MaximumDefaulTTL / 2
 	minNTTL = dnsutil.MinimalDefaultTTL
+
+	// serve_stale refresh mode.
+	refreshAsync = "async"
+	refreshSync = "sync"
 
 	defaultCap = 10000 // default capacity of the cache.
 
