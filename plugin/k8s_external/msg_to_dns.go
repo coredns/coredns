@@ -22,9 +22,7 @@ func (e *External) a(ctx context.Context, services []msg.Service, state request.
 			rr := s.NewCNAME(state.QName(), s.Host)
 			records = append(records, rr)
 			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeA); err == nil {
-				for _, rr := range resp.Answer {
-					records = append(records, rr)
-				}
+				records = append(records, resp.Answer...)
 			}
 
 		case dns.TypeA:
@@ -54,9 +52,7 @@ func (e *External) aaaa(ctx context.Context, services []msg.Service, state reque
 			rr := s.NewCNAME(state.QName(), s.Host)
 			records = append(records, rr)
 			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeAAAA); err == nil {
-				for _, rr := range resp.Answer {
-					records = append(records, rr)
-				}
+				records = append(records, resp.Answer...)
 			}
 
 		case dns.TypeA:
