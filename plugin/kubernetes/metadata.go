@@ -28,9 +28,7 @@ func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) contex
 	// possible optimization: cache r so it doesn't need to be calculated again in ServeDNS
 	r, err := parseRequest(state.Name(), zone)
 	if err != nil {
-		metadata.SetValueFunc(ctx, "kubernetes/parse-error", func() string {
-			return err.Error()
-		})
+		metadata.SetValueFunc(ctx, "kubernetes/parse-error", err.Error)
 		return ctx
 	}
 

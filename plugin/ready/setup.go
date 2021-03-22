@@ -21,8 +21,8 @@ func setup(c *caddy.Controller) error {
 	c.OnStartup(func() error { uniqAddr.Set(addr, rd.onStartup); return nil })
 	c.OnRestartFailed(func() error { uniqAddr.Set(addr, rd.onStartup); return nil })
 
-	c.OnStartup(func() error { return uniqAddr.ForEach() })
-	c.OnRestartFailed(func() error { return uniqAddr.ForEach() })
+	c.OnStartup(uniqAddr.ForEach)
+	c.OnRestartFailed(uniqAddr.ForEach)
 
 	c.OnStartup(func() error {
 		for _, p := range dnsserver.GetConfig(c).Handlers() {

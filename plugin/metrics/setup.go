@@ -31,8 +31,8 @@ func setup(c *caddy.Controller) error {
 	c.OnStartup(func() error { m.Reg = registry.getOrSet(m.Addr, m.Reg); u.Set(m.Addr, m.OnStartup); return nil })
 	c.OnRestartFailed(func() error { m.Reg = registry.getOrSet(m.Addr, m.Reg); u.Set(m.Addr, m.OnStartup); return nil })
 
-	c.OnStartup(func() error { return u.ForEach() })
-	c.OnRestartFailed(func() error { return u.ForEach() })
+	c.OnStartup(u.ForEach)
+	c.OnRestartFailed(u.ForEach)
 
 	c.OnStartup(func() error {
 		conf := dnsserver.GetConfig(c)
