@@ -291,6 +291,18 @@ rewrite edns0 subnet set 24 56
 * If the query's source IP address is an IPv4 address, the first 24 bits in the IP will be the network subnet.
 * If the query's source IP address is an IPv6 address, the first 56 bits in the IP will be the network subnet.
 
+### Flag Response Rewrites
+Using the FIELD `flag` you can set or clear the flags in the responses. The syntax of the rule is as follows:
+
+```
+rewrite [continue|stop] flag [set|clear] STRING
+```
+Following example add recursive available flag to the response:
+```
+rewrite flag set ra
+```
+Currently supported flag include `aa`, `ra` and `rd`.
+
 ## Full Syntax
 
 The full plugin usage syntax is harder to digest...

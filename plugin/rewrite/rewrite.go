@@ -128,6 +128,11 @@ func newRule(args ...string) (Rule, error) {
 		return newEdns0Rule(mode, args[startArg:]...)
 	case "ttl":
 		return newTTLRule(mode, args[startArg:]...)
+	case "flag":
+		if expectNumArgs != 3 {
+			return nil, fmt.Errorf("%s rules must have exactly two arguments", ruleType)
+		}
+		return newFlagRule(mode, args[startArg:]...)
 	default:
 		return nil, fmt.Errorf("invalid rule type %q", args[0])
 	}

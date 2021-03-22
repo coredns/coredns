@@ -15,6 +15,7 @@ type ResponseRule struct {
 	Pattern     *regexp.Regexp
 	Replacement string
 	TTL         uint32
+	Flag        *flagRule
 }
 
 // ResponseReverter reverses the operations done on the question section of a packet.
@@ -83,7 +84,12 @@ func rewriteResourceRecord(res *dns.Msg, rr dns.RR, r *ResponseReverter) {
 		case "ttl":
 			ttl = rule.TTL
 			isTTLRewritten = true
+		case "flag":
+			if rule.Flag != nil {
+				rule.Flag.rewriteFlag(res)
+			}
 		}
+
 	}
 
 	if isNameRewritten {
