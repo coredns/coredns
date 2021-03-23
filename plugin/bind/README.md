@@ -17,13 +17,25 @@ If the given argument is an interface name, and that interface has serveral IP a
 
 ## Syntax
 
+In its basic form, a simple bind uses this syntax:
+
 ~~~ txt
 bind ADDRESS  ...
 ~~~
 
-**ADDRESS** is an IP address to bind to.
-When several addresses are provided a listener will be opened on each of the addresses.
+You can also exclude some addresses with their IP address or interface name in expanded syntax:
 
+~~~
+bind ADDRESS ... {
+    except ADDRESS ...
+}
+~~~
+
+
+
+* **ADDRESS** is an IP address or interface name to bind to.
+When several addresses are provided a listener will be opened on each of the addresses. Please read the *Description* for more details.
+* `except`, exclude interfaces or ip addresses to bind to. `except` option only exclude addresses for the current `bind` directive if multiple `bind` directives are used in the same server block.
 ## Examples
 
 To make your socket accessible only to that machine, bind to IP 127.0.0.1 (localhost):
@@ -59,6 +71,15 @@ The following server block, binds on localhost with its interface name (both "12
     bind lo
 }
 ~~~
+
+You can exclude some addresses by their IP or interface name (The following will only listen on `::1`):
+
+~~~ corefile
+. {
+    bind lo {
+        exclude 127.0.0.1
+    }
+}
 
 ## Bugs
 

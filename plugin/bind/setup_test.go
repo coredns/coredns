@@ -20,6 +20,7 @@ func TestSetup(t *testing.T) {
 		{`bind ::1 1.2.3.4 ::5 127.9.9.0`, []string{"::1", "1.2.3.4", "::5", "127.9.9.0"}, false},
 		{`bind ::1 1.2.3.4 ::5 127.9.9.0 noone`, nil, true},
 		{`bind 1.2.3.4 lo`, []string{"1.2.3.4", "127.0.0.1", "::1"}, false},
+		{"bind lo {\nexcept 127.0.0.1\n}\n", []string{"::1"}, false},
 	} {
 		c := caddy.NewTestController("dns", test.config)
 		err := setup(c)
