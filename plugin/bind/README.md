@@ -20,22 +20,22 @@ If the given argument is an interface name, and that interface has serveral IP a
 In its basic form, a simple bind uses this syntax:
 
 ~~~ txt
-bind ADDRESS  ...
+bind ADDRESS|IFACE  ...
 ~~~
 
 You can also exclude some addresses with their IP address or interface name in expanded syntax:
 
 ~~~
-bind ADDRESS ... {
-    except ADDRESS ...
+bind ADDRESS|IFACE ... {
+    except ADDRESS|IFACE ...
 }
 ~~~
 
 
 
-* **ADDRESS** is an IP address or interface name to bind to.
+* **ADDRESS|IFACE** is an IP address or interface name to bind to.
 When several addresses are provided a listener will be opened on each of the addresses. Please read the *Description* for more details.
-* `except`, exclude interfaces or ip addresses to bind to. `except` option only exclude addresses for the current `bind` directive if multiple `bind` directives are used in the same server block.
+* `except`, excludes interfaces or ip addresses to bind to. `except` option only excludes addresses for the current `bind` directive if multiple `bind` directives are used in the same server block.
 ## Examples
 
 To make your socket accessible only to that machine, bind to IP 127.0.0.1 (localhost):
@@ -72,12 +72,12 @@ The following server block, binds on localhost with its interface name (both "12
 }
 ~~~
 
-You can exclude some addresses by their IP or interface name (The following will only listen on `::1`):
+You can exclude some addresses by their IP or interface name (The following will only listen on `::1` or whatever addresses have been assigned to the `lo` interface):
 
 ~~~ corefile
 . {
     bind lo {
-        exclude 127.0.0.1
+        except 127.0.0.1
     }
 }
 ~~~

@@ -8,9 +8,9 @@ import (
 func init() { plugin.Register("bind", setup) }
 
 type bind struct {
-	Next     plugin.Handler
-	includes []string
-	excludes []string
+	Next   plugin.Handler
+	addrs  []string
+	except []string
 }
 
 // Name implements plugin.Handler.

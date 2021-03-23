@@ -26,18 +26,18 @@ func setup(c *caddy.Controller) error {
 			return plugin.Error("bind", err)
 		}
 
-		includes, err := listIP(b.includes, ifaces)
+		ips, err := listIP(b.addrs, ifaces)
 		if err != nil {
 			return err
 		}
 
-		excludes, err := listIP(b.excludes, ifaces)
+		except, err := listIP(b.except, ifaces)
 		if err != nil {
 			return err
 		}
 
-		for _, ip := range includes {
-			if !isIn(ip, excludes) {
+		for _, ip := range ips {
+			if !isIn(ip, except) {
 				all = append(all, ip)
 			}
 		}
@@ -49,16 +49,16 @@ func setup(c *caddy.Controller) error {
 
 func parse(c *caddy.Controller) (*bind, error) {
 	b := &bind{}
-	b.includes = c.RemainingArgs()
-	if len(b.includes) == 0 {
+	b.addrs = c.RemainingArgs()
+	if len(b.addrs) == 0 {
 		return nil, plugin.Error("bind", fmt.Errorf("at least one address or interface name is expected"))
 	}
 	for c.NextBlock() {
 		switch c.Val() {
-		case "exclude":
-			b.excludes = c.RemainingArgs()
-			if len(b.excludes) == 0 {
-				return nil, errors.New("at least one exclude must be given to exclude subdirective")
+		case "except":
+			b.except = c.RemainingArgs()
+			if len(b.except) == 0 {
+				return nil, errors.New("at least one address or interface must be given to except subdirective")
 			}
 		default:
 			return nil, fmt.Errorf("invalid option %q", c.Val())
