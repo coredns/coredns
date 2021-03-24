@@ -17,7 +17,7 @@ func setup(c *caddy.Controller) error {
 	all := []string{}
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return plugin.Error("bind", fmt.Errorf("failed to get interfaces list"))
+		return plugin.Error("bind", fmt.Errorf("failed to get interfaces list: %s", err))
 	}
 
 	for c.Next() {
@@ -28,12 +28,12 @@ func setup(c *caddy.Controller) error {
 
 		ips, err := listIP(b.addrs, ifaces)
 		if err != nil {
-			return err
+			return plugin.Error("bind", err)
 		}
 
 		except, err := listIP(b.except, ifaces)
 		if err != nil {
-			return err
+			return plugin.Error("bind", err)
 		}
 
 		for _, ip := range ips {
@@ -51,7 +51,7 @@ func parse(c *caddy.Controller) (*bind, error) {
 	b := &bind{}
 	b.addrs = c.RemainingArgs()
 	if len(b.addrs) == 0 {
-		return nil, plugin.Error("bind", fmt.Errorf("at least one address or interface name is expected"))
+		return nil, errors.New("at least one address or interface name is expected")
 	}
 	for c.NextBlock() {
 		switch c.Val() {
@@ -78,7 +78,7 @@ func listIP(args []string, ifaces []net.Interface) ([]string, error) {
 				isIface = true
 				addrs, err := iface.Addrs()
 				if err != nil {
-					return nil, plugin.Error("bind", fmt.Errorf("failed to get the IP addresses of the interface: %q", a))
+					return nil, fmt.Errorf("failed to get the IP addresses of the interface: %q", a)
 				}
 				for _, addr := range addrs {
 					if ipnet, ok := addr.(*net.IPNet); ok {
@@ -91,7 +91,7 @@ func listIP(args []string, ifaces []net.Interface) ([]string, error) {
 		}
 		if !isIface {
 			if net.ParseIP(a) == nil {
-				return nil, plugin.Error("bind", fmt.Errorf("not a valid IP address or interface name: %q", a))
+				return nil, fmt.Errorf("not a valid IP address or interface name: %q", a)
 			}
 			all = append(all, a)
 		}

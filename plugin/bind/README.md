@@ -35,7 +35,7 @@ bind ADDRESS|IFACE ... {
 
 * **ADDRESS|IFACE** is an IP address or interface name to bind to.
 When several addresses are provided a listener will be opened on each of the addresses. Please read the *Description* for more details.
-* `except`, excludes interfaces or ip addresses to bind to. `except` option only excludes addresses for the current `bind` directive if multiple `bind` directives are used in the same server block.
+* `except`, excludes interfaces or IP addresses to bind to. `except` option only excludes addresses for the current `bind` directive if multiple `bind` directives are used in the same server block.
 ## Examples
 
 To make your socket accessible only to that machine, bind to IP 127.0.0.1 (localhost):
