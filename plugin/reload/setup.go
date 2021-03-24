@@ -70,7 +70,7 @@ func setup(c *caddy.Controller) error {
 	r.setUsage(used)
 	once.Do(func() {
 		caddy.RegisterEventHook("reload", hook)
-		c.OnRestart(func() error {
+		c.OnStartup(func() error {
 			metrics.MustRegister(c, reloadInfo, failedCount)
 			return nil
 		})
