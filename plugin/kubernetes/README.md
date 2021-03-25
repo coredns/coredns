@@ -104,6 +104,20 @@ kubernetes [ZONES...] {
 
 Enabling zone transfer is done by using the *transfer* plugin.
 
+## Startup
+
+When CoreDNS starts with the *kubernetes* plugin enabled, it will delay serving DNS for up to 5 seconds
+until it can connect to the Kubernetes API and synchronize all object watches.  If this cannot happen within
+5 seconds, then CoreDNS will start serving DNS while the *kubernetes* plugin continues to try to connect
+and synchronize all object watches.  CoreDNS will answer SERVFAIL to any request made for a Kubernetes record
+that has not yet been synchronized.
+
+## Monitoring Kubernetes Endpoints
+
+By default the *kubernetes* plugin watches Endpoints via the `discovery.EndpointSlices` API.  However the
+`api.Endpoints` API is used instead if the Kubernetes version does not support the `EndpointSliceProxying`
+feature gate by default (i.e. Kubernetes version < 1.19).
+
 ## Ready
 
 This plugin reports readiness to the ready plugin. This will happen after it has synced to the
