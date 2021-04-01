@@ -144,7 +144,7 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 		return s, e
 	}
 
-	internal := []msg.Service{}
+	var internal []msg.Service
 	for _, svc := range s {
 		if t, _ := svc.HostType(); t != dns.TypeCNAME {
 			internal = append(internal, svc)
