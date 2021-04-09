@@ -11,7 +11,8 @@ import (
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 
 	api "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1beta1"
+	discovery "k8s.io/api/discovery/v1"
+	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -180,6 +181,23 @@ func (dns *dnsControl) WatchEndpoints(ctx context.Context) {
 	dns.epLock.Unlock()
 }
 
+// WatchEndpointSliceV1beta1 will set the endpoint Lister and Controller to watch v1beta1
+// instead of the default v1.
+func (dns *dnsControl) WatchEndpointSliceV1beta1(ctx context.Context) {
+	dns.epLock.Lock()
+	dns.epLister, dns.epController = object.NewIndexerInformer(
+		&cache.ListWatch{
+			ListFunc:  endpointSliceListFuncV1beta1(ctx, dns.client, api.NamespaceAll, dns.selector),
+			WatchFunc: endpointSliceWatchFuncV1beta1(ctx, dns.client, api.NamespaceAll, dns.selector),
+		},
+		&discoveryV1beta1.EndpointSlice{},
+		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+		cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
+		object.DefaultProcessor(object.EndpointSliceV1beta1ToEndpoints, dns.EndpointSliceLatencyRecorder()),
+	)
+	dns.epLock.Unlock()
+}
+
 func (dns *dnsControl) EndpointsLatencyRecorder() *object.EndpointLatencyRecorder {
 	return &object.EndpointLatencyRecorder{
 		ServiceFunc: func(o meta.Object) []*object.Service {
@@ -262,13 +280,21 @@ func podListFunc(ctx context.Context, c kubernetes.Interface, ns string, s label
 		return c.CoreV1().Pods(ns).List(ctx, opts)
 	}
 }
+func endpointSliceListFuncV1beta1(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
+	return func(opts meta.ListOptions) (runtime.Object, error) {
+		if s != nil {
+			opts.LabelSelector = s.String()
+		}
+		return c.DiscoveryV1beta1().EndpointSlices(ns).List(ctx, opts)
+	}
+}
 
 func endpointSliceListFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
 	return func(opts meta.ListOptions) (runtime.Object, error) {
 		if s != nil {
 			opts.LabelSelector = s.String()
 		}
-		return c.DiscoveryV1beta1().EndpointSlices(ns).List(ctx, opts)
+		return c.DiscoveryV1().EndpointSlices(ns).List(ctx, opts)
 	}
 }
 
@@ -312,12 +338,21 @@ func podWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labe
 	}
 }
 
-func endpointSliceWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
+func endpointSliceWatchFuncV1beta1(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
 	return func(options meta.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
 		return c.DiscoveryV1beta1().EndpointSlices(ns).Watch(ctx, options)
+	}
+}
+
+func endpointSliceWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
+	return func(options meta.ListOptions) (watch.Interface, error) {
+		if s != nil {
+			options.LabelSelector = s.String()
+		}
+		return c.DiscoveryV1().EndpointSlices(ns).Watch(ctx, options)
 	}
 }
 
