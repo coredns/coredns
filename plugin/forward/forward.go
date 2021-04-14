@@ -88,13 +88,23 @@ func New() *Forward {
 func NewWithConfig(config ForwardConfig) (*Forward, error) {
 	f := New()
 	if config.From != "" {
-		f.from = plugin.Host(config.From).Normalize()
+		zones := plugin.Host(config.From).NormalizeExact()
+		f.from = zones[0] // there can only be one here, won't work with non-octet reverse
+
+		if len(zones) > 1 {
+			log.Warningf("Unsupported CIDR notation: '%s' expands to multiple zones. Using only '%s'.", config.From, f.from)
+		}
 	}
-	f.ignored = config.Except
+	for i := 0; i < len(config.Except); i++ {
+		f.ignored = append(f.ignored, plugin.Host(config.Except[i]).NormalizeExact()...)
+	}
 	if config.MaxFails != nil {
 		f.maxfails = *config.MaxFails
 	}
 	if config.HealthCheck != nil {
+		if *config.HealthCheck < 0 {
+			return nil, fmt.Errorf("health_check can't be negative: %s", *config.HealthCheck)
+		}
 		f.hcInterval = *config.HealthCheck
 	}
 	f.opts.hcRecursionDesired = !config.HealthCheckNoRec
@@ -109,10 +119,13 @@ func NewWithConfig(config ForwardConfig) (*Forward, error) {
 	}
 	if config.Expire != nil {
 		f.expire = *config.Expire
+		if *config.Expire < 0 {
+			return nil, fmt.Errorf("expire can't be negative: %s", *config.Expire)
+		}
 	}
 	if config.MaxConcurrent != nil {
 		if *config.MaxConcurrent < 0 {
-			return f, fmt.Errorf("MaxConcurrent can't be negative: %d", *config.MaxConcurrent)
+			return f, fmt.Errorf("max_concurrent can't be negative: %d", *config.MaxConcurrent)
 		}
 		f.ErrLimitExceeded = fmt.Errorf("concurrent queries exceeded maximum %d", *config.MaxConcurrent)
 		f.maxConcurrent = *config.MaxConcurrent
