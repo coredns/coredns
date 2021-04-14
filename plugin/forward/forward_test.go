@@ -30,7 +30,7 @@ func TestList(t *testing.T) {
 }
 
 func TestNewWithConfig(t *testing.T) {
-	expectedExcept := []string{"6.7.8.9", "7.8.9.10"}
+	expectedExcept := []string{"foo.com.", "example.com."}
 	expectedMaxFails := uint32(5)
 	expectedHealthCheck := 5 * time.Second
 	expectedServerName := "test"
@@ -41,7 +41,7 @@ func TestNewWithConfig(t *testing.T) {
 	f, err := NewWithConfig(ForwardConfig{
 		From:             "test",
 		To:               []string{"1.2.3.4:3053", "tls://4.5.6.7"},
-		Except:           expectedExcept,
+		Except:           []string{"FOO.com", "example.com"},
 		MaxFails:         &expectedMaxFails,
 		HealthCheck:      &expectedHealthCheck,
 		HealthCheckNoRec: true,
@@ -154,15 +154,39 @@ func TestNewWithConfig(t *testing.T) {
 	}
 }
 
+func TestNewWithConfigNegativeHealthCheck(t *testing.T) {
+	healthCheck, _ := time.ParseDuration("-5s")
+
+	_, err := NewWithConfig(ForwardConfig{
+		To:          []string{"1.2.3.4:3053", "4.5.6.7"},
+		HealthCheck: &healthCheck,
+	})
+	if err == nil || err.Error() != "health_check can't be negative: -5s" {
+		t.Fatalf("Expected error to be %s, got: %s", "health_check can't be negative: -5s", err)
+	}
+}
+
+func TestNewWithConfigNegativeExpire(t *testing.T) {
+	expire, _ := time.ParseDuration("-5s")
+
+	_, err := NewWithConfig(ForwardConfig{
+		To:     []string{"1.2.3.4:3053", "4.5.6.7"},
+		Expire: &expire,
+	})
+	if err == nil || err.Error() != "expire can't be negative: -5s" {
+		t.Fatalf("Expected error to be %s, got: %s", "expire can't be negative: -5s", err)
+	}
+}
+
 func TestNewWithConfigNegativeMaxConcurrent(t *testing.T) {
-	expectedMaxConcurrent := int64(-5)
+	maxConcurrent := int64(-5)
 
 	_, err := NewWithConfig(ForwardConfig{
 		To:            []string{"1.2.3.4:3053", "4.5.6.7"},
-		MaxConcurrent: &expectedMaxConcurrent,
+		MaxConcurrent: &maxConcurrent,
 	})
-	if err == nil || err.Error() != "MaxConcurrent can't be negative: -5" {
-		t.Fatalf("Expected error to be %s, got: %s", "MaxConcurrent can't be negative: -5", err)
+	if err == nil || err.Error() != "max_concurrent can't be negative: -5" {
+		t.Fatalf("Expected error to be %s, got: %s", "max_concurrent can't be negative: -5", err)
 	}
 }
 
