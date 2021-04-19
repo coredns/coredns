@@ -296,8 +296,10 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 // endpointSliceSupported will determine which endpoint object type to watch (endpointslices or endpoints)
 // based on the supportability of endpointslices in the API and server version. It will return true when endpointslices
 // should be watched, and false when endpoints should be watched.
-// If the API supports discovery v1 beta1, and the server versions >= 1.19, endpointslices are watched.
-// This function should be removed, along with non-slice endpoint watch code, when support for k8s < 1.19 is dropped.
+// If the API supports discovery, and the server versions >= 1.19, true is returned.
+// Also returned is the discovery version supported: "v1" if v1 is supported, and v1beta1 if v1beta1 is supported and
+// v1 is not supported.
+// This function should be removed, when all supported versions of k8s support v1.
 func (k *Kubernetes) endpointSliceSupported(kubeClient *kubernetes.Clientset) (bool, string) {
 	var sliceVer string
 	useEndpointSlices := false
