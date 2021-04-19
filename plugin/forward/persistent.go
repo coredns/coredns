@@ -2,6 +2,7 @@ package forward
 
 import (
 	"crypto/tls"
+	"net"
 	"sort"
 	"time"
 
@@ -20,6 +21,7 @@ type Transport struct {
 	conns       [typeTotalCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
 	expire      time.Duration                  // After this duration a connection is expired.
 	addr        string
+	localAddr	net.IP
 	tlsConfig   *tls.Config
 
 	dial  chan string
@@ -147,6 +149,9 @@ func (t *Transport) SetExpire(expire time.Duration) { t.expire = expire }
 
 // SetTLSConfig sets the TLS config in transport.
 func (t *Transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
+
+// SetLocalAddr sets the local address in transport.
+func (t *Transport) SetLocalAddr(ip net.IP) { t.localAddr = ip }
 
 const (
 	defaultExpire  = 10 * time.Second

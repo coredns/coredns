@@ -2,6 +2,7 @@ package forward
 
 import (
 	"crypto/tls"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 type HealthChecker interface {
 	Check(*Proxy) error
 	SetTLSConfig(*tls.Config)
+	SetLocalAddr(net.IP)
 	SetRecursionDesired(bool)
 	GetRecursionDesired() bool
 }
@@ -22,6 +24,7 @@ type HealthChecker interface {
 type dnsHc struct {
 	c                *dns.Client
 	recursionDesired bool
+	localAddr        net.IP
 }
 
 var (
@@ -48,6 +51,10 @@ func NewHealthChecker(trans string, recursionDesired bool) HealthChecker {
 func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
 	h.c.Net = "tcp-tls"
 	h.c.TLSConfig = cfg
+}
+
+func (h *dnsHc) SetLocalAddr(ip net.IP) {
+	h.localAddr = ip
 }
 
 func (h *dnsHc) SetRecursionDesired(recursionDesired bool) {

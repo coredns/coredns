@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -41,7 +42,8 @@ type Forward struct {
 	maxfails      uint32
 	expire        time.Duration
 	maxConcurrent int64
-
+	localAddr     net.IP
+	localAddrs     map[string]net.IP
 	opts options // also here for testing
 
 	// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded

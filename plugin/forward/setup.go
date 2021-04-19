@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"time"
 
@@ -138,6 +139,13 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		}
 		f.proxies[i].SetExpire(f.expire)
 		f.proxies[i].health.SetRecursionDesired(f.opts.hcRecursionDesired)
+
+		// set local address for proxies if defined
+		if addr, ok := f.localAddrs[f.proxies[i].addr]; ok {
+			f.proxies[i].SetLocalAddr(addr)
+		} else if addr, ok = f.localAddrs[""]; ok {
+			f.proxies[i].SetLocalAddr(addr)
+		}
 	}
 
 	return f, nil
@@ -253,6 +261,23 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		}
 		f.ErrLimitExceeded = errors.New("concurrent queries exceeded maximum " + c.Val())
 		f.maxConcurrent = int64(n)
+	case "local_addr":
+		args := c.RemainingArgs()
+		if len(args) != 1 && len(args) != 3 {
+			return c.ArgErr()
+		}
+		ip := net.ParseIP(args[0])
+		if ip == nil {
+			return fmt.Errorf("local_addr must specifiy a valid IP address: %s", c.Val())
+		}
+		if len(args) == 1 {
+			f.localAddrs[""] = ip
+			return nil
+		}
+		if args[1] != "to" {
+			return fmt.Errorf("local_addr expected \"to\" got: %s", args[1])
+		}
+		f.localAddrs[args[2]] = ip
 
 	default:
 		return c.Errf("unknown property '%s'", c.Val())

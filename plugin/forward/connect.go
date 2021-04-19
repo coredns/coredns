@@ -7,6 +7,7 @@ package forward
 import (
 	"context"
 	"io"
+	"net"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -61,12 +62,22 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
+	dialer := &net.Dialer{Timeout: timeout}
+	if t.localAddr != nil {
+		if proto == "udp" {
+			dialer.LocalAddr = &net.UDPAddr{IP: t.localAddr}
+		} else {
+			dialer.LocalAddr = &net.TCPAddr{IP: t.localAddr}
+		}
+	}
 	if proto == "tcp-tls" {
-		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
+		client := dns.Client{Net: proto, Dialer: dialer, TLSConfig: t.tlsConfig}
+		conn, err := client.Dial(t.addr)
 		t.updateDialTimeout(time.Since(reqTime))
 		return &persistConn{c: conn}, false, err
 	}
-	conn, err := dns.DialTimeout(proto, t.addr, timeout)
+	client := dns.Client{Net: proto, Dialer: dialer}
+	conn, err := client.Dial(t.addr)
 	t.updateDialTimeout(time.Since(reqTime))
 	return &persistConn{c: conn}, false, err
 }

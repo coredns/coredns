@@ -2,6 +2,7 @@ package forward
 
 import (
 	"crypto/tls"
+	"net"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -38,6 +39,12 @@ func NewProxy(addr, trans string) *Proxy {
 func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 	p.transport.SetTLSConfig(cfg)
 	p.health.SetTLSConfig(cfg)
+}
+
+// SetLocalAddr sets the local address in the lower p.transport and in the healthchecking client.
+func (p *Proxy) SetLocalAddr(ip net.IP) {
+	p.transport.SetLocalAddr(ip)
+	p.health.SetLocalAddr(ip)
 }
 
 // SetExpire sets the expire duration in the lower p.transport.
