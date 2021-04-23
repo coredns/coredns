@@ -43,8 +43,8 @@ type Forward struct {
 	expire        time.Duration
 	maxConcurrent int64
 	localAddr     net.IP
-	localAddrs     map[string]net.IP
-	opts options // also here for testing
+	localAddrs    map[string]net.IP
+	opts          options // also here for testing
 
 	// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded
 	// the maximum allowed (maxConcurrent)
