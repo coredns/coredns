@@ -42,7 +42,6 @@ type Forward struct {
 	maxfails      uint32
 	expire        time.Duration
 	maxConcurrent int64
-	localAddr     net.IP
 	localAddrs    map[string]net.IP
 	opts          options // also here for testing
 
@@ -58,6 +57,7 @@ type Forward struct {
 // New returns a new Forward.
 func New() *Forward {
 	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: options{forceTCP: false, preferUDP: false, hcRecursionDesired: true}}
+	f.localAddrs = make(map[string]net.IP)
 	return f
 }
 
