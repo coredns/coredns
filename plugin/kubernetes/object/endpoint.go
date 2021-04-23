@@ -135,7 +135,9 @@ func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
 			if end.TargetRef != nil {
 				ea.TargetRefName = end.TargetRef.Name
 			}
-			// EndpointSlice does not contain NodeName, leave blank
+			if end.NodeName != nil {
+				ea.NodeName = *end.NodeName
+			}
 			e.Subsets[0].Addresses = append(e.Subsets[0].Addresses, ea)
 			e.IndexIP = append(e.IndexIP, a)
 		}
