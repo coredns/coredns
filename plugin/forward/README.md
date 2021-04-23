@@ -51,7 +51,7 @@ forward FROM TO... {
     policy random|round_robin|sequential
     health_check DURATION [no_rec]
     max_concurrent MAX
-    local_address IP [to TO]
+    local_addr IP [to TO]
 }
 ~~~
 
@@ -93,9 +93,9 @@ forward FROM TO... {
   response does not count as a health failure. When choosing a value for **MAX**, pick a number
   at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
-* `local_address` **IP** `to` **TO** will send forwarded requests to the upstream **TO** using the local address **IP**,
+* `local_addr` **IP** `to` **TO** will send forwarded requests to the upstream **TO** using the local address **IP**,
   instead of letting the system select the local address.  **TO** must be in the form of `ip-address:port`.
-  If **TO** is omitted, the local address is used for all upstreams, providing that another `local_address` is not
+  If **TO** is omitted, the local address is used for all upstreams, providing that another `local_addr` is not
   defined for a given upstream.  This may be used more than once do define different local addresses for different upstreams.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
