@@ -117,11 +117,14 @@ func (h *Hostsfile) readHosts() {
 	defer file.Close()
 
 	stat, err := file.Stat()
+	if err != nil {
+		return
+	}
 	h.RLock()
 	size := h.size
 	h.RUnlock()
 
-	if err == nil && h.mtime.Equal(stat.ModTime()) && size == stat.Size() {
+	if h.mtime.Equal(stat.ModTime()) && size == stat.Size() {
 		return
 	}
 
