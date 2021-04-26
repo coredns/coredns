@@ -396,6 +396,13 @@ var dnsTestCases = []test.Case{
 			test.AAAA("svc-dual-stack.testns.svc.cluster.local.  5       IN      AAAA       10::3"),
 		},
 	},
+	{
+		Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypeSOA,
+		Rcode: dns.RcodeSuccess,
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
+		},
+	},
 }
 
 func TestServeDNS(t *testing.T) {
