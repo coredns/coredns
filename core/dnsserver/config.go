@@ -50,6 +50,10 @@ type Config struct {
 	// on them should register themselves here. The name should be the name as return by the
 	// Handler's Name method.
 	registry map[string]plugin.Handler
+
+	// firstConfigInBlock is used to reference the first config in a server block, for the
+	// purpose of sharing single instance of each plugin among all zones in a server block.
+	firstConfigInBlock *Config
 }
 
 // keyForConfig builds a key for identifying the configs during setup time

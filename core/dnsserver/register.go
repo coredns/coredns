@@ -108,6 +108,8 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 
 		serverBlocks[ib].Keys = s.Keys // important to save back the new keys that are potentially created here.
 
+		var firstConfigInBlock *Config
+
 		for ik := range s.Keys {
 			za := zoneAddrs[ik]
 			s.Keys[ik] = za.String()
@@ -118,6 +120,16 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 				Port:        za.Port,
 				Transport:   za.Transport,
 			}
+
+			// Set reference to the first config in the current block.
+			// This is used later by MakeServers to share a single plugin list
+			// for all zones in a server block.
+			if ik == 0 {
+				firstConfigInBlock = cfg
+			} else {
+				cfg.firstConfigInBlock = firstConfigInBlock
+			}
+
 			keyConfig := keyForConfig(ib, ik)
 			h.saveConfig(keyConfig, cfg)
 		}
@@ -133,6 +145,16 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 	errValid := h.validateZonesAndListeningAddresses()
 	if errValid != nil {
 		return nil, errValid
+	}
+
+	// Set the plugins of each config in a block to the plugins of the
+	// first config in the block. Doing this results in zones
+	// sharing the same plugin instances as other zones in
+	// the same block.
+	for _, c := range h.configs {
+		if c.firstConfigInBlock != nil {
+			c.Plugin = c.firstConfigInBlock.Plugin
+		}
 	}
 
 	// we must map (group) each config to a bind address
