@@ -37,12 +37,16 @@ var services = []*msg.Service{
 	{Host: "sub.server1", Port: 0, Key: "a.sub.region1.skydns.test."},
 	{Host: "sub.server2", Port: 80, Key: "b.sub.region1.skydns.test."},
 	{Host: "10.0.0.1", Port: 8080, Key: "c.sub.region1.skydns.test."},
+	// TargetStrip.
+	{Host: "10.0.0.1", Port: 8080, Key: "a.targetstrip.skydns.test.", TargetStrip: 1},
 	// Cname loop.
 	{Host: "a.cname.skydns.test", Key: "b.cname.skydns.test."},
 	{Host: "b.cname.skydns.test", Key: "a.cname.skydns.test."},
 	// Nameservers.
 	{Host: "10.0.0.2", Key: "a.ns.dns.skydns.test."},
 	{Host: "10.0.0.3", Key: "b.ns.dns.skydns.test."},
+	{Host: "10.0.0.4", Key: "ns1.c.ns.dns.skydns.test.", TargetStrip: 1},
+	{Host: "10.0.0.5", Key: "ns2.c.ns.dns.skydns.test.", TargetStrip: 1},
 	// Zone name as A record (basic, return all)
 	{Host: "10.0.0.2", Key: "x.skydns_zonea.test."},
 	{Host: "10.0.0.3", Key: "y.skydns_zonea.test."},
@@ -123,6 +127,14 @@ var dnsTestCases = []test.Case{
 			test.SRV("sub.region1.skydns.test. 300 IN SRV 10 33 8080 c.sub.region1.skydns.test."),
 		},
 		Extra: []dns.RR{test.A("c.sub.region1.skydns.test. 300 IN A 10.0.0.1")},
+	},
+	// SRV TargetStrip Test
+	{
+		Qname: "targetstrip.skydns.test.", Qtype: dns.TypeSRV,
+		Answer: []dns.RR{
+			test.SRV("targetstrip.skydns.test. 300 IN SRV 10 100 8080 targetstrip.skydns.test."),
+		},
+		Extra: []dns.RR{test.A("targetstrip.skydns.test. 300 IN A 10.0.0.1")},
 	},
 	// CNAME (unresolvable internal name)
 	{
@@ -217,10 +229,13 @@ var dnsTestCases = []test.Case{
 		Answer: []dns.RR{
 			test.NS("skydns.test. 300 NS a.ns.dns.skydns.test."),
 			test.NS("skydns.test. 300 NS b.ns.dns.skydns.test."),
+			test.NS("skydns.test. 300 NS c.ns.dns.skydns.test."),
 		},
 		Extra: []dns.RR{
 			test.A("a.ns.dns.skydns.test. 300 A 10.0.0.2"),
 			test.A("b.ns.dns.skydns.test. 300 A 10.0.0.3"),
+			test.A("c.ns.dns.skydns.test. 300 A 10.0.0.4"),
+			test.A("c.ns.dns.skydns.test. 300 A 10.0.0.5"),
 		},
 	},
 	// NS Record Test
@@ -234,6 +249,8 @@ var dnsTestCases = []test.Case{
 		Answer: []dns.RR{
 			test.A("ns.dns.skydns.test. 300 A 10.0.0.2"),
 			test.A("ns.dns.skydns.test. 300 A 10.0.0.3"),
+			test.A("ns.dns.skydns.test. 300 A 10.0.0.4"),
+			test.A("ns.dns.skydns.test. 300 A 10.0.0.5"),
 		},
 	},
 	{
