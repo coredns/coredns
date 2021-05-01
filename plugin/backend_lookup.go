@@ -440,8 +440,8 @@ func NS(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 
 		case dns.TypeA, dns.TypeAAAA:
 			serv.Host = msg.Domain(serv.Key)
-			extra = append(extra, newAddress(serv, serv.Host, ip, what))
 			ns := serv.NewNS(state.QName())
+			extra = append(extra, newAddress(serv, ns.Ns, ip, what))
 			if _, ok := seen[ns.Ns]; ok {
 				continue
 			}
