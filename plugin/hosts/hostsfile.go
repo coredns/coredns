@@ -118,6 +118,7 @@ func (h *Hostsfile) readHosts() {
 
 	stat, err := file.Stat()
 	if err != nil {
+		// We already log a warning if the file doesn't exist or can't be opened on setup. No need to return the error here.
 		return
 	}
 	h.RLock()
