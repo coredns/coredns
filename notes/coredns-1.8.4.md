@@ -28,4 +28,4 @@ Soumya Ghosh Dastidar.
 * plugin/forward: Add upstream metadata (https://github.com/coredns/coredns/pull/4521)
 * plugin/minimal: Add minimal-responses plugin (https://github.com/coredns/coredns/pull/4417)
 * plugin/transfer: reply with refused (https://github.com/coredns/coredns/pull/4510)
-* plugin/kubernetes: TODO endpoint slices
+* plugin/kubernetes: do endpoint/slice check in retry loop (https://github.com/coredns/coredns/pull/4492)
