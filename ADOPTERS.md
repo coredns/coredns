@@ -29,3 +29,4 @@
 * [Hellofresh](https://www.hellofresh.com/) uses CoreDNS in multiple Kubernetes clusters, with Forward plugin.
 * [Render](https://render.com) uses CoreDNS in production across all its Kubernetes clusters.
 * [BackMarket](https://www.backmarket.com) uses CoreDNS within Kubernetes in production, with standard configuration.
+* [Absa Group](https://www.absa.africa) uses CoreDNS as an integral part of Kubernetes Global Balancer project - [k8gb](https://www.k8gb.io/).
