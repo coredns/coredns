@@ -131,7 +131,7 @@ func (d Dnssec) set(key uint64, sigs []dns.RR) { d.cache.Add(key, sigs) }
 func (d Dnssec) get(key uint64, server string) ([]dns.RR, bool) {
 	if s, ok := d.cache.Get(key); ok {
 		// we sign for 8 days, check if a signature in the cache reached 3/4 of that
-		is75 := time.Now().UTC().Add(sixDays)
+		is75 := time.Now().UTC().Add(twoDays)
 		for _, rr := range s.([]dns.RR) {
 			if !rr.(*dns.RRSIG).ValidityPeriod(is75) {
 				cacheMisses.WithLabelValues(server).Inc()
@@ -154,6 +154,6 @@ func incepExpir(now time.Time) (uint32, uint32) {
 
 const (
 	eightDays  = 8 * 24 * time.Hour
-	sixDays    = 6 * 24 * time.Hour
+	twoDays    = 2 * 24 * time.Hour
 	defaultCap = 10000 // default capacity of the cache.
 )
