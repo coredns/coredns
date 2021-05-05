@@ -33,9 +33,10 @@ func periodicClean(c *cache.Cache, stop <-chan struct{}) {
 			// the signature
 			is75 := time.Now().UTC().Add(sixDays)
 			c.Walk(func(items map[uint64]interface{}, key uint64) bool {
-				sig := items[key].(*dns.RRSIG)
-				if !sig.ValidityPeriod(is75) {
-					delete(items, key)
+				for _, rr := range items[key].([]dns.RR) {
+					if !rr.(*dns.RRSIG).ValidityPeriod(is75) {
+						delete(items, key)
+					}
 				}
 				return true
 			})
