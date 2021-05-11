@@ -62,14 +62,8 @@ func autoPathParse(c *caddy.Controller) (*AutoPath, string, error) {
 			plugin.Zones(ap.search).Normalize()
 			ap.search = append(ap.search, "") // sentinel value as demanded.
 		}
-		ap.Zones = zoneAndresolv[:len(zoneAndresolv)-1]
-		if len(ap.Zones) == 0 {
-			ap.Zones = make([]string, len(c.ServerBlockKeys))
-			copy(ap.Zones, c.ServerBlockKeys)
-		}
-		for i, str := range ap.Zones {
-			ap.Zones[i] = plugin.Host(str).Normalize()
-		}
+		zones := zoneAndresolv[:len(zoneAndresolv)-1]
+		ap.Zones = plugin.OriginsFromArgsOrServerBlock(zones, c.ServerBlockKeys)
 	}
 	return ap, mw, nil
 }

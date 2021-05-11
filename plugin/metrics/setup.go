@@ -80,8 +80,9 @@ func parse(c *caddy.Controller) (*Metrics, error) {
 		}
 		i++
 
-		for _, z := range c.ServerBlockKeys {
-			met.AddZone(plugin.Host(z).Normalize())
+		zones := plugin.OriginsFromArgsOrServerBlock(nil /* args */, c.ServerBlockKeys)
+		for _, z := range zones {
+			met.AddZone(z)
 		}
 		args := c.RemainingArgs()
 

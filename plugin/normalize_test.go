@@ -1,6 +1,9 @@
 package plugin
 
-import "testing"
+import (
+	"sort"
+	"testing"
+)
 
 func TestZoneMatches(t *testing.T) {
 	child := "example.org."
@@ -69,55 +72,26 @@ func TestNameNormalize(t *testing.T) {
 }
 
 func TestHostNormalize(t *testing.T) {
-	hosts := []string{".:53", ".", "example.org:53", "example.org.", "example.org.:53", "example.org.",
-		"10.0.0.0/8:53", "10.in-addr.arpa.", "10.0.0.0/9", "10.in-addr.arpa.",
-		"dns://example.org", "example.org."}
-
-	for i := 0; i < len(hosts); i += 2 {
-		ts := hosts[i]
-		expected := hosts[i+1]
-		actual := Host(ts).Normalize()
-		if expected != actual {
-			t.Errorf("Expected %v, got %v", expected, actual)
-		}
+	tests := []struct {
+		in  string
+		out []string
+	}{
+		{".:53", []string{"."}},
+		{"example.org:53", []string{"example.org."}},
+		{"example.org.:53", []string{"example.org."}},
+		{"10.0.0.0/8:53", []string{"10.in-addr.arpa."}},
+		{"10.0.0.0/15", []string{"0.10.in-addr.arpa.", "1.10.in-addr.arpa."}},
+		{"dns://example.org", []string{"example.org."}},
 	}
-}
 
-func TestHostMustNormalizeFail(t *testing.T) {
-	hosts := []string{"..:53", "::", ""}
-	for i := 0; i < len(hosts); i++ {
-		ts := hosts[i]
-		h, err := Host(ts).MustNormalize()
-		if err == nil {
-			t.Errorf("Expected error, got %v", h)
-		}
-	}
-}
-
-func TestSplitHostPortReverse(t *testing.T) {
-	tests := map[string]int{
-		"example.org.": 0,
-		"10.0.0.0/9":   32 - 9,
-		"10.0.0.0/8":   32 - 8,
-		"10.0.0.0/17":  32 - 17,
-		"10.0.0.0/0":   32 - 0,
-		"10.0.0.0/64":  0,
-		"10.0.0.0":     0,
-		"10.0.0":       0,
-		"2003::1/65":   128 - 65,
-	}
-	for in, expect := range tests {
-		_, _, n, err := SplitHostPort(in)
-		if err != nil {
-			t.Errorf("Expected no error, got %q for %s", in, err)
-		}
-		if n == nil {
-			continue
-		}
-		ones, bits := n.Mask.Size()
-		got := bits - ones
-		if got != expect {
-			t.Errorf("Expected %d, got %d for %s", expect, got, in)
+	for i := range tests {
+		actual := Host(tests[i].in).Normalize()
+		expected := tests[i].out
+		sort.Strings(expected)
+		for j := range expected {
+			if expected[j] != actual[j] {
+				t.Errorf("Test %d, expected %v, got %v", i, expected, actual)
+			}
 		}
 	}
 }

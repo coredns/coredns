@@ -59,7 +59,7 @@ func setup(c *caddy.Controller) error {
 
 func parse(c *caddy.Controller) (*Loop, error) {
 	i := 0
-	zone := "."
+	zones := []string{"."}
 	for c.Next() {
 		if i > 0 {
 			return nil, plugin.ErrOnce
@@ -70,10 +70,10 @@ func parse(c *caddy.Controller) (*Loop, error) {
 		}
 
 		if len(c.ServerBlockKeys) > 0 {
-			zone = plugin.Host(c.ServerBlockKeys[0]).Normalize()
+			zones = plugin.Host(c.ServerBlockKeys[0]).Normalize()
 		}
 	}
-	return New(zone), nil
+	return New(zones[0]), nil
 }
 
 // qname returns a random name. <rand.Int()>.<rand.Int().<zone>.

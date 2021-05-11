@@ -13,6 +13,8 @@ The plugin will try to send the query for up to 30 seconds. This is done to give
 to start up. Once a query has been successfully sent, *loop* disables itself to prevent a query of
 death.
 
+Note that *loop* will _only_ send "looping queries" for the first zone given in the Server Block.
+
 The query sent is `<random number>.<random number>.zone` with type set to HINFO.
 
 ## Syntax

@@ -87,16 +87,8 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 
 	for c.Next() {
 		// auto [ZONES...]
-		a.Zones.origins = make([]string, len(c.ServerBlockKeys))
-		copy(a.Zones.origins, c.ServerBlockKeys)
-
 		args := c.RemainingArgs()
-		if len(args) > 0 {
-			a.Zones.origins = args
-		}
-		for i := range a.Zones.origins {
-			a.Zones.origins[i] = plugin.Host(a.Zones.origins[i]).Normalize()
-		}
+		a.Zones.origins = plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
 		a.loader.upstream = upstream.New()
 
 		for c.NextBlock() {

@@ -50,21 +50,12 @@ func parse(c *caddy.Controller) (*Sign, error) {
 			dbfile = filepath.Join(config.Root, dbfile)
 		}
 
-		origins := make([]string, len(c.ServerBlockKeys))
-		copy(origins, c.ServerBlockKeys)
-		args := c.RemainingArgs()
-		if len(args) > 0 {
-			origins = args
-		}
-		for i := range origins {
-			origins[i] = plugin.Host(origins[i]).Normalize()
-		}
-
+		origins := plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 		signers := make([]*Signer, len(origins))
 		for i := range origins {
 			signers[i] = &Signer{
 				dbfile:      dbfile,
-				origin:      plugin.Host(origins[i]).Normalize(),
+				origin:      origins[i],
 				jitterIncep: time.Duration(float32(durationInceptionJitter) * rand.Float32()),
 				jitterExpir: time.Duration(float32(durationExpirationDayJitter) * rand.Float32()),
 				directory:   "/var/lib/coredns",

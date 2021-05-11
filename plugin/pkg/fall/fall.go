@@ -31,10 +31,11 @@ func (f F) Through(qname string) bool {
 
 // setZones will set zones in f.
 func (f *F) setZones(zones []string) {
+	z := []string{}
 	for i := range zones {
-		zones[i] = plugin.Host(zones[i]).Normalize()
+		z = append(z, plugin.Host(zones[i]).Normalize()...)
 	}
-	f.Zones = zones
+	f.Zones = z
 }
 
 // SetZonesFromArgs sets zones in f to the passed value or to "." if the slice is empty.
@@ -47,7 +48,7 @@ func (f *F) SetZonesFromArgs(zones []string) {
 }
 
 // Equal returns true if f and g are equal.
-func (f F) Equal(g F) bool {
+func (f *F) Equal(g F) bool {
 	if len(f.Zones) != len(g.Zones) {
 		return false
 	}

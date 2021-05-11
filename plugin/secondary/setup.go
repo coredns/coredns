@@ -47,14 +47,8 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 
 		if c.Val() == "secondary" {
 			// secondary [origin]
-			origins := make([]string, len(c.ServerBlockKeys))
-			copy(origins, c.ServerBlockKeys)
-			args := c.RemainingArgs()
-			if len(args) > 0 {
-				origins = args
-			}
+			origins := plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 			for i := range origins {
-				origins[i] = plugin.Host(origins[i]).Normalize()
 				z[origins[i]] = file.NewZone(origins[i], "stdin")
 				names = append(names, origins[i])
 			}

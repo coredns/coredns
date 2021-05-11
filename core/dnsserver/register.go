@@ -11,6 +11,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/transport"
+
+	"github.com/miekg/dns"
 )
 
 const serverType = "dns"
@@ -60,31 +62,42 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 	for ib, s := range serverBlocks {
 		// Walk the s.Keys and expand any reverse address in their proper DNS in-addr zones. If the expansions leads for
 		// more than one reverse zone, replace the current value and add the rest to s.Keys.
+		zoneAddrs := []zoneAddr{}
 		for ik, k := range s.Keys {
-			_, k1 := parse.Transport(k) // get rid of any dns:// or other scheme.
-			_, port, ipnet, err := plugin.SplitHostPort(k1)
-			if ipnet == nil || err != nil { // err will be caught below
-				continue
+			trans, k1 := parse.Transport(k) // get rid of any dns:// or other scheme.
+			hosts, port, err := plugin.SplitHostPort(k1)
+			if err != nil {
+				return nil, err
 			}
-			if port != "" {
-				port = ":" + port
-			}
-			nets := classFromCIDR(ipnet)
-			if len(nets) > 1 {
-				s.Keys[ik] = nets[0] + port  // replace for the first
-				for _, n := range nets[1:] { // add  the rest
-					s.Keys = append(s.Keys, n+port)
+
+			if port == "" {
+				switch trans {
+				case transport.DNS:
+					port = Port
+				case transport.TLS:
+					port = transport.TLSPort
+				case transport.GRPC:
+					port = transport.GRPCPort
+				case transport.HTTPS:
+					port = transport.HTTPSPort
 				}
+			}
+
+			if len(hosts) > 1 {
+				s.Keys[ik] = hosts[0] + ":" + port // replace for the first
+				for _, h := range hosts[1:] {      // add the rest
+					s.Keys = append(s.Keys, h+":"+port)
+				}
+			}
+			for i := range hosts {
+				zoneAddrs = append(zoneAddrs, zoneAddr{Zone: dns.Fqdn(hosts[i]), Port: port, Transport: trans})
 			}
 		}
 
 		serverBlocks[ib].Keys = s.Keys // important to save back the new keys that are potentially created here.
 
-		for ik, k := range s.Keys {
-			za, err := normalizeZone(k)
-			if err != nil {
-				return nil, err
-			}
+		for ik := range s.Keys {
+			za := zoneAddrs[ik]
 			s.Keys[ik] = za.String()
 			// Save the config to our master list, and key it for lookups.
 			cfg := &Config{

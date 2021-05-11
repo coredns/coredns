@@ -82,13 +82,7 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 		}
 		fileName := c.Val()
 
-		origins := make([]string, len(c.ServerBlockKeys))
-		copy(origins, c.ServerBlockKeys)
-		args := c.RemainingArgs()
-		if len(args) > 0 {
-			origins = args
-		}
-
+		origins := plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 		if !filepath.IsAbs(fileName) && config.Root != "" {
 			fileName = filepath.Join(config.Root, fileName)
 		}
@@ -99,16 +93,14 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 		}
 
 		for i := range origins {
-			origins[i] = plugin.Host(origins[i]).Normalize()
 			z[origins[i]] = NewZone(origins[i], fileName)
 			if openErr == nil {
 				reader.Seek(0, 0)
 				zone, err := Parse(reader, origins[i], fileName, 0)
-				if err == nil {
-					z[origins[i]] = zone
-				} else {
+				if err != nil {
 					return Zones{}, err
 				}
+				z[origins[i]] = zone
 			}
 			names = append(names, origins[i])
 		}

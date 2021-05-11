@@ -233,7 +233,7 @@ func TestACLServeDNS(t *testing.T) {
 		},
 		{
 			"Fine-Grained 2 REFUSED",
-			`acl {
+			`acl example.org {
 				block net 192.168.1.0/24
 			}`,
 			[]string{"example.org"},
