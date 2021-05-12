@@ -13,7 +13,10 @@ The CoreDNS team has released
 This release fixes a bunch of bugs, and adds a (very) simple new plugin
 called [local](https://coredns.io/plugins/local/) to answer "local" queries. Bunch of work in
 the [kubernetes](https://coredns.io/plugins/kubernetes) plugin to add support for new upstream
-feautres.
+features.
+
+If using the [kubernetes](https://coredns.io/plugins/kubernetes) plugin for a Kubernetes
+cluster >= 1.19, CoreDNS must be granted `list` and `watch` access to `endpointslices`.
 
 ## Brought to You By
 
