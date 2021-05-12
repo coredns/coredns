@@ -3,22 +3,32 @@ title = "CoreDNS-1.8.4 Release"
 description = "CoreDNS-1.8.4 Release Notes."
 tags = ["Release", "1.8.4", "Notes"]
 release = "1.8.4"
-date = 2021-03-24T07:00:00+00:00
+date = 2021-05-12T07:00:00+00:00
 author = "coredns"
 +++
 
 The CoreDNS team has released
 [CoreDNS-1.8.4](https://github.com/coredns/coredns/releases/tag/v1.8.4). This release includes a
 bunch of bugfixes and a few enhancements, see below.
-TODO
 
 ## Brought to You By
 
 Chris O'Haver,
+Frank Riley,
+Keith Coleman,
 Miek Gieben,
 Mohammad Yosefpor,
 Paco Xu,
-Soumya Ghosh Dastidar.
+Soumya Ghosh Dastidar,
+Steve Greene,
+Théotime Lévêque,
+Uwe Krueger,
+Yong Tang,
+Yury Tsarev,
+cuirunxing-hub,
+milgradesec,
+ntoofu,
+wangchenglong01.
 
 ## Noteworthy Changes
 
