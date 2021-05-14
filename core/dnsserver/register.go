@@ -126,9 +126,8 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 			// for all zones in a server block.
 			if ik == 0 {
 				firstConfigInBlock = cfg
-			} else {
-				cfg.firstConfigInBlock = firstConfigInBlock
 			}
+			cfg.firstConfigInBlock = firstConfigInBlock
 
 			keyConfig := keyForConfig(ib, ik)
 			h.saveConfig(keyConfig, cfg)
@@ -152,9 +151,7 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 	// sharing the same plugin instances as other zones in
 	// the same block.
 	for _, c := range h.configs {
-		if c.firstConfigInBlock != nil {
 			c.Plugin = c.firstConfigInBlock.Plugin
-		}
 	}
 
 	// we must map (group) each config to a bind address
