@@ -128,7 +128,7 @@ func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
 	}
 
 	for _, end := range ends.Endpoints {
-		if end.Conditions.Ready == nil || !*end.Conditions.Ready {
+		if !endpointsliceReady(end.Conditions.Ready) {
 			continue
 		}
 		for _, a := range end.Addresses {
@@ -178,7 +178,7 @@ func EndpointSliceV1beta1ToEndpoints(obj meta.Object) (meta.Object, error) {
 	}
 
 	for _, end := range ends.Endpoints {
-		if end.Conditions.Ready == nil || !*end.Conditions.Ready {
+		if !endpointsliceReady(end.Conditions.Ready) {
 			continue
 		}
 		for _, a := range end.Addresses {
@@ -198,6 +198,15 @@ func EndpointSliceV1beta1ToEndpoints(obj meta.Object) (meta.Object, error) {
 	*ends = discoveryV1beta1.EndpointSlice{}
 
 	return e, nil
+}
+
+func endpointsliceReady(ready *bool) bool {
+	// Per API docs: a nil value indicates an unknown state. In most cases consumers
+	// should interpret this unknown state as ready.
+	if ready == nil {
+		return true
+	}
+	return *ready
 }
 
 // CopyWithoutSubsets copies e, without the subsets.
