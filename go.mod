@@ -26,7 +26,7 @@ require (
 	github.com/philhofer/fwd v1.1.1 // indirect
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/common v0.23.0
+	github.com/prometheus/common v0.24.0
 	go.etcd.io/etcd/api/v3 v3.5.0-alpha.0
 	go.etcd.io/etcd/client/v3 v3.5.0-alpha.0
 	go.uber.org/multierr v1.6.0 // indirect
