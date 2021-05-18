@@ -266,76 +266,6 @@ func TestLookupMultiWildcard(t *testing.T) {
 	}
 }
 
-var cornerCasesWildcardTestCases = []test.Case{
-	{
-		Qname: "r.c.d.example.org.", Qtype: dns.TypeA,
-		Answer: []dns.RR{test.A(`r.c.d.example.org. 3600	IN	A 127.0.1.56`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
-	},
-	{
-		Qname: "something.d.example.org.", Qtype: dns.TypeA,
-		Answer: []dns.RR{test.A(`something.d.example.org.	3600	IN	A	127.0.1.53`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
-	},
-	{
-		Qname: "else.something.d.example.org.", Qtype: dns.TypeA,
-		Answer: []dns.RR{test.A(`else.something.d.example.org.	3600	IN	A	127.0.1.53`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
-	},
-	{
-		Qname: "something.c.d.example.org.", Qtype: dns.TypeA,
-		Ns: []dns.RR{test.SOA(`example.org.		IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600`)},
-		Rcode: dns.RcodeNameError,
-	},
-	{
-		Qname: "something.r.c.d.example.org.", Qtype: dns.TypeA,
-		Ns: []dns.RR{test.SOA(`example.org.		IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600`)},
-		Rcode: dns.RcodeNameError,
-	},
-	{
-		Qname: "z.+.d.example.org.", Qtype: dns.TypeA,
-		Answer: []dns.RR{test.A(`z.+.d.example.org.	3600	IN	A	127.0.1.54`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
-	},
-	{
-		Qname: "x.&.d.example.org.", Qtype: dns.TypeA,
-		Answer: []dns.RR{test.A(`x.&.d.example.org.	3600	IN	A	127.0.1.55`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
-	},
-	{
-		Qname: "something.x.&.d.example.org.", Qtype: dns.TypeA,
-		Ns: []dns.RR{test.SOA(`example.org.		IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600`)},
-		Rcode: dns.RcodeNameError,
-	},
-}
-
-func TestLookupCornerCasesWildcard(t *testing.T) {
-	const name = "example.org."
-	zone, err := Parse(strings.NewReader(cornerCasesWildcard), name, "stdin", 0)
-	if err != nil {
-		t.Fatalf("Expect no error when reading zone, got %q", err)
-	}
-
-	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{name: zone}, Names: []string{name}}}
-	ctx := context.TODO()
-
-	for _, tc := range cornerCasesWildcardTestCases {
-		m := tc.Msg()
-
-		rec := dnstest.NewRecorder(&test.ResponseWriter{})
-		_, err := fm.ServeDNS(ctx, rec, m)
-		if err != nil {
-			t.Errorf("Expected no error, got %v", err)
-			return
-		}
-
-		resp := rec.Msg
-		if err := test.SortAndCheck(resp, tc); err != nil {
-			t.Error(err)
-		}
-	}
-}
-
 const exampleOrg = `; example.org test file
 $TTL 3600
 example.org.		IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600
@@ -365,14 +295,4 @@ example.org.		IN	NS	b.iana-servers.net.
 *.example.org.          IN      A       127.0.0.53
 *.intern.example.org.   IN      A       127.0.1.52
 foo.example.org.        IN      A       127.0.0.54
-`
-
-const cornerCasesWildcard = `; example.org test file with wildcard corner cases
-$TTL 3600
-example.org.		IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600
-example.org.		IN	NS	b.iana-servers.net.
-*.d.example.org.        IN      A       127.0.1.53
-z.+.d.example.org.		IN		A		127.0.1.54
-x.&.d.example.org.		IN		A		127.0.1.55
-r.c.d.example.org.      IN      A       127.0.1.56
 `
