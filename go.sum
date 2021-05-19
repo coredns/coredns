@@ -149,7 +149,6 @@ github.com/form3tech-oss/jwt-go v3.2.2+incompatible h1:TcekIExNqud5crz4xD2pavyTg
 github.com/form3tech-oss/jwt-go v3.2.2+incompatible/go.mod h1:pbq4aXjuKjdthFRnoDwaVPLA+WlJuPGy+QneDUgJi2k=
 github.com/franela/goblin v0.0.0-20200105215937-c9ffbefa60db/go.mod h1:7dvUGVsVBjqR7JHJk0brhHOZYGmfBYOrK0ZhYMEtBr4=
 github.com/franela/goreq v0.0.0-20171204163338-bcd34c9993f8/go.mod h1:ZhphrRTfi2rbfLwlschooIH4+wKKDR4Pdxhh+TRoA20=
-github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/ghodss/yaml v1.0.0/go.mod h1:4dBDuWmgqj2HViK6kFavaiC9ZROes6MMH2rRYeMEF04=
 github.com/go-gl/glfw v0.0.0-20190409004039-e6da0acd62b1/go.mod h1:vR7hzQXu2zJy9AVAgeJqvqgH9Q5CA+iKCZ2gyEVpxRU=
@@ -482,12 +481,12 @@ github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9dec
 go.etcd.io/bbolt v1.3.3/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738 h1:VcrIfasaLFkyjk6KNlXQSzO+B0fZcnECiDrKJsfxka0=
 go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738/go.mod h1:dnLIgRNXwCJa5e+c6mIZCrds/GIG4ncV9HhK5PX7jPg=
-go.etcd.io/etcd/api/v3 v3.5.0-beta.2 h1:w10aQXkmvpjG6GdRB6rlZA1LbXzLeZO9ljcCrSaZvp0=
-go.etcd.io/etcd/api/v3 v3.5.0-beta.2/go.mod h1:yF0YUmBghT48aC0/eTFrhULo+uKQAr5spQQ6sRhPauE=
-go.etcd.io/etcd/client/pkg/v3 v3.5.0-beta.2 h1:5koTOn5PEK7PrdUGgOtBQV59ljLao71nhoKVl6Q7tCA=
-go.etcd.io/etcd/client/pkg/v3 v3.5.0-beta.2/go.mod h1:a+pbz+UrcOpvve1Qxf6tGovi15PjgtRhi0QTO2Nlc4U=
-go.etcd.io/etcd/client/v3 v3.5.0-beta.2 h1:2LyPIsa5U5n+rDauYkZxcieYs/e/+7dY8djYGNbzR7I=
-go.etcd.io/etcd/client/v3 v3.5.0-beta.2/go.mod h1:7RNuUNe7rZj5/EcBS4CHBeHCv/b9dvG+1rr1dmfnkkM=
+go.etcd.io/etcd/api/v3 v3.5.0-beta.3 h1:FdNjTxZpH98oWWTtOjhz0EU7sILw9giVIW+M3dzZFOg=
+go.etcd.io/etcd/api/v3 v3.5.0-beta.3/go.mod h1:yF0YUmBghT48aC0/eTFrhULo+uKQAr5spQQ6sRhPauE=
+go.etcd.io/etcd/client/pkg/v3 v3.5.0-beta.3 h1:fh2cSzLD4OeGVy164WtilS9hAQYmQ2BC6Fh/akRR1b0=
+go.etcd.io/etcd/client/pkg/v3 v3.5.0-beta.3/go.mod h1:a+pbz+UrcOpvve1Qxf6tGovi15PjgtRhi0QTO2Nlc4U=
+go.etcd.io/etcd/client/v3 v3.5.0-beta.3 h1:r88iXU/blpfMu7FMSvhEZJPT/5IROselyNnlR2XCYA8=
+go.etcd.io/etcd/client/v3 v3.5.0-beta.3/go.mod h1:vWjHXU+j44Z92kL/WjCMh8sXV5J4Sk2e6cjYK9y6Yz8=
 go.opencensus.io v0.20.1/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.20.2/go.mod h1:6WKK9ahsWS3RSO+PY9ZHZUfv2irvY6gN279GOPZjmmk=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
