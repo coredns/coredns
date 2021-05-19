@@ -30,7 +30,7 @@ forward FROM TO...
 ~~~
 
 * **FROM** is the base domain to match for the request to be forwarded. Domains using CIDR notation
-  that expand to multiple reverse zones are not supported.
+  that expand to multiple reverse zones are not fully supported; only the first expanded zone is used.
 * **TO...** are the destination endpoints to forward to. The **TO** syntax allows you to specify
   a protocol, `tls://9.9.9.9` or `dns://` (or no protocol) for plain DNS. The number of upstreams is
   limited to 15.

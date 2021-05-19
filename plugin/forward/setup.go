@@ -96,7 +96,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	f.from = plugin.Host(f.from).Normalize()[0] // there can only be one here, won't work with non-octet reverse
 
 	if len(f.from) > 1 {
-		return f, fmt.Errorf("Unsupported CIDR notation: '%s' expands to multiple zones", origFrom)
+		log.Warningf("Unsupported CIDR notation: '%s' expands to multiple zones. Using only '%s'.", origFrom, f.from)
 	}
 
 	to := c.RemainingArgs()
