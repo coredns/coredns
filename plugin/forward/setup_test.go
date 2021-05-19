@@ -38,6 +38,7 @@ func TestSetup(t *testing.T) {
 		{`forward . ::1
 		forward com ::2`, true, "", nil, 0, options{hcRecursionDesired: true}, "plugin"},
 		{"forward . https://127.0.0.1 \n", true, ".", nil, 2, options{hcRecursionDesired: true}, "'https' is not supported as a destination protocol in forward: https://127.0.0.1"},
+		{"forward 10.0.0.0/18 127.0.0.1", true, "", nil, 2, options{hcRecursionDesired: true}, ""},
 	}
 
 	for i, test := range tests {
@@ -50,7 +51,7 @@ func TestSetup(t *testing.T) {
 
 		if err != nil {
 			if !test.shouldErr {
-				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+				t.Fatalf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
 			}
 
 			if !strings.Contains(err.Error(), test.expectedErr) {
