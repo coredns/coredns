@@ -22,6 +22,7 @@ import (
 	api "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -301,8 +302,6 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 // v1 is not supported.
 // This function should be removed, when all supported versions of k8s support v1.
 func (k *Kubernetes) endpointSliceSupported(kubeClient *kubernetes.Clientset) (bool, string) {
-	var sliceVer string
-	useEndpointSlices := false
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 	for {
@@ -310,27 +309,41 @@ func (k *Kubernetes) endpointSliceSupported(kubeClient *kubernetes.Clientset) (b
 		case <-ticker.C:
 			sv, err := kubeClient.ServerVersion()
 			if err != nil {
+				log.Warningf("Failed to get kubernetes version: %s", err)
 				continue
 			}
-			// Enable use of endpoint slices if the API supports the discovery api
-			if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(discovery.SchemeGroupVersion.String()); err == nil {
-				useEndpointSlices = true
-				sliceVer = discovery.SchemeGroupVersion.String()
-			} else if _, err := kubeClient.Discovery().ServerResourcesForGroupVersion(discoveryV1beta1.SchemeGroupVersion.String()); err == nil {
-				useEndpointSlices = true
-				sliceVer = discoveryV1beta1.SchemeGroupVersion.String()
-			}
+
 			// Disable use of endpoint slices for k8s versions 1.18 and earlier. The Endpointslices API was enabled
 			// by default in 1.17 but Service -> Pod proxy continued to use Endpoints by default until 1.19.
 			// DNS results should be built from the same source data that the proxy uses.  This decision assumes
 			// k8s EndpointSliceProxying featuregate is at the default (i.e. only enabled for k8s >= 1.19).
 			major, _ := strconv.Atoi(sv.Major)
 			minor, _ := strconv.Atoi(strings.TrimRight(sv.Minor, "+"))
-			if useEndpointSlices && major <= 1 && minor <= 18 {
+			if major <= 1 && minor <= 18 {
 				log.Info("Watching Endpoints instead of EndpointSlices in k8s versions < 1.19")
-				useEndpointSlices = false
+				return false, ""
 			}
-			return useEndpointSlices, sliceVer
+
+			// Enable use of endpoint slices if the API supports the discovery api
+			_, err = kubeClient.Discovery().ServerResourcesForGroupVersion(discovery.SchemeGroupVersion.String())
+			if err == nil {
+				return true, discovery.SchemeGroupVersion.String()
+			} else if !kerrors.IsNotFound(err) {
+				log.Warningf("Failed to discovery %s: %s", discovery.SchemeGroupVersion.String(), err)
+				continue
+			}
+
+			_, err = kubeClient.Discovery().ServerResourcesForGroupVersion(discoveryV1beta1.SchemeGroupVersion.String())
+			if err == nil {
+				return true, discoveryV1beta1.SchemeGroupVersion.String()
+			} else if !kerrors.IsNotFound(err) {
+				log.Warningf("Failed to discovery %s: %s", discoveryV1beta1.SchemeGroupVersion.String(), err)
+				continue
+			}
+
+			// Disable use of endpoint slices in case that it is disabled in k8s versions 1.19 and newer.
+			log.Info("Watching Endpoints instead of EndpointSlices")
+			return false, ""
 		}
 	}
 }
