@@ -66,6 +66,17 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 		for ik, k := range s.Keys {
 			trans, k1 := parse.Transport(k) // get rid of any dns:// or other scheme.
 			hosts, port, err := plugin.SplitHostPort(k1)
+			// We need to make this a fully qualified domain name to catch all errors here and not later when
+			// plugin.Normalize is called again on these strings, with the prime difference being that the domain
+			// name is fully qualified. This was found by fuzzing where "ȶ" is deemed OK, but "ȶ." is not (might be a
+			// bug in miekg/dns actually). But here we were checking ȶ, which is OK, and later we barf in ȶ. leading to
+			// "index out of range".
+			for ih := range hosts {
+				_, _, err := plugin.SplitHostPort(dns.Fqdn(hosts[ih]))
+				if err != nil {
+					return nil, err
+				}
+			}
 			if err != nil {
 				return nil, err
 			}

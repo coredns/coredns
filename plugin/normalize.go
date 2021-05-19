@@ -132,7 +132,11 @@ func OriginsFromArgsOrServerBlock(args, serverblock []string) []string {
 	}
 	s := []string{}
 	for i := range args {
-		s = append(s, Host(args[i]).Normalize()...)
+		sx := Host(args[i]).Normalize()
+		if len(sx) == 0 {
+			continue // silently ignores errors.
+		}
+		s = append(s, sx...)
 	}
 
 	return s
