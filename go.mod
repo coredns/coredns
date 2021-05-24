@@ -26,7 +26,7 @@ require (
 	github.com/philhofer/fwd v1.1.1 // indirect
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/common v0.24.0
+	github.com/prometheus/common v0.25.0
 	go.etcd.io/etcd/api/v3 v3.5.0-beta.3
 	go.etcd.io/etcd/client/v3 v3.5.0-beta.3
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
