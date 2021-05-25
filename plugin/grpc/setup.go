@@ -56,7 +56,7 @@ func parseStanza(c *caddy.Controller) (*GRPC, error) {
 	if !c.Args(&g.from) {
 		return g, c.ArgErr()
 	}
-	g.from = plugin.Host(g.from).Normalize()[0] // only the first is used.
+	g.from = plugin.Host(g.from).NormalizeExact()[0] // only the first is used.
 
 	to := c.RemainingArgs()
 	if len(to) == 0 {
@@ -100,7 +100,7 @@ func parseBlock(c *caddy.Controller, g *GRPC) error {
 			return c.ArgErr()
 		}
 		for i := 0; i < len(ignore); i++ {
-			g.ignored = append(g.ignored, plugin.Host(ignore[i]).Normalize()...)
+			g.ignored = append(g.ignored, plugin.Host(ignore[i]).NormalizeExact()...)
 		}
 	case "tls":
 		args := c.RemainingArgs()

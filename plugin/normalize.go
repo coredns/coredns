@@ -63,8 +63,34 @@ type (
 
 // Normalize will return the host portion of host, stripping
 // of any port or transport. The host will also be fully qualified and lowercased.
+// An empty string is returned on failure
+// Deprecated: use OriginsFromArgsOrServerBlock or NormalizeExact
+func (h Host) Normalize() string {
+	// The error can be ignored here, because this function should only be called after the corefile has already been vetted.
+	host, _ := h.MustNormalize()
+	return host
+}
+
+// MustNormalize will return the host portion of host, stripping
+// of any port or transport. The host will also be fully qualified and lowercased.
+// An error is returned on error
+// Deprecated: use OriginsFromArgsOrServerBlock or NormalizeExact
+func (h Host) MustNormalize() (string, error) {
+	s := string(h)
+	_, s = parse.Transport(s)
+
+	// The error can be ignored here, because this function is called after the corefile has already been vetted.
+	hosts, _, err := SplitHostPort(s)
+	if err != nil {
+		return "", err
+	}
+	return Name(hosts[0]).Normalize(), nil
+}
+
+// NormalizeExact will return the host portion of host, stripping
+// of any port or transport. The host will also be fully qualified and lowercased.
 // An empty slice is returned on failure
-func (h Host) Normalize() []string {
+func (h Host) NormalizeExact() []string {
 	// The error can be ignored here, because this function should only be called after the corefile has already been vetted.
 	s := string(h)
 	_, s = parse.Transport(s)
@@ -126,13 +152,13 @@ func OriginsFromArgsOrServerBlock(args, serverblock []string) []string {
 		s := make([]string, len(serverblock))
 		copy(s, serverblock)
 		for i := range s {
-			s[i] = Host(s[i]).Normalize()[0] // expansion of these already happened in dnsserver/registrer.go
+			s[i] = Host(s[i]).NormalizeExact()[0] // expansion of these already happened in dnsserver/register.go
 		}
 		return s
 	}
 	s := []string{}
 	for i := range args {
-		sx := Host(args[i]).Normalize()
+		sx := Host(args[i]).NormalizeExact()
 		if len(sx) == 0 {
 			continue // silently ignores errors.
 		}

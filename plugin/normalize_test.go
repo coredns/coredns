@@ -71,7 +71,7 @@ func TestNameNormalize(t *testing.T) {
 	}
 }
 
-func TestHostNormalize(t *testing.T) {
+func TestHostNormalizeExact(t *testing.T) {
 	tests := []struct {
 		in  string
 		out []string
@@ -85,7 +85,7 @@ func TestHostNormalize(t *testing.T) {
 	}
 
 	for i := range tests {
-		actual := Host(tests[i].in).Normalize()
+		actual := Host(tests[i].in).NormalizeExact()
 		expected := tests[i].out
 		sort.Strings(expected)
 		for j := range expected {
