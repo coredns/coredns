@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"net"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -67,9 +68,23 @@ type (
 // An empty string is returned on failure
 // Deprecated: use OriginsFromArgsOrServerBlock or NormalizeExact
 func (h Host) Normalize() string {
-	// The error can be ignored here, because this function should only be called after the corefile has already been vetted.
-	host, _ := h.MustNormalize()
-	return host
+	var caller string
+	if _, file, line, ok := runtime.Caller(1); ok {
+		caller = fmt.Sprintf("(%v line %d) ", file, line)
+	}
+	log.Warning("An external plugin " + caller + "is using the deprecated function Normalize. " +
+		"This will be removed in a future versions of CoreDNS. The plugin should be updated to use " +
+		"OriginsFromArgsOrServerBlock or NormalizeExact instead.")
+
+	s := string(h)
+	_, s = parse.Transport(s)
+
+	// The error can be ignored here, because this function is called after the corefile has already been vetted.
+	hosts, _, err := SplitHostPort(s)
+	if err != nil {
+		return ""
+	}
+	return Name(hosts[0]).Normalize()
 }
 
 // MustNormalize will return the host portion of host, stripping
@@ -77,9 +92,14 @@ func (h Host) Normalize() string {
 // An error is returned on error
 // Deprecated: use OriginsFromArgsOrServerBlock or NormalizeExact
 func (h Host) MustNormalize() (string, error) {
-	log.Warning("An external plugin is using deprecated functions Normalize or MustNormalize. " +
-		"These will be removed in a future versions of CoreDNS. The plugin should be updated to use " +
+	var caller string
+	if _, file, line, ok := runtime.Caller(1); ok {
+		caller = fmt.Sprintf("(%v line %d) ", file, line)
+	}
+	log.Warning("An external plugin " + caller + "is using the deprecated function MustNormalize. " +
+		"This will be removed in a future versions of CoreDNS. The plugin should be updated to use " +
 		"OriginsFromArgsOrServerBlock or NormalizeExact instead.")
+
 	s := string(h)
 	_, s = parse.Transport(s)
 
