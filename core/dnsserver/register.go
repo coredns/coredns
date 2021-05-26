@@ -146,12 +146,14 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 		return nil, errValid
 	}
 
-	// Set the plugins of each config in a block to the plugins of the
-	// first config in the block. Doing this results in zones
-	// sharing the same plugin instances as other zones in
+	// Copy the Plugin, ListenHosts and Debug from first config in the block
+	// to all other config in the same block . Doing this results in zones
+	// sharing the same plugin instances and settings as other zones in
 	// the same block.
 	for _, c := range h.configs {
-			c.Plugin = c.firstConfigInBlock.Plugin
+		c.Plugin = c.firstConfigInBlock.Plugin
+		c.ListenHosts = c.firstConfigInBlock.ListenHosts
+		c.Debug = c.firstConfigInBlock.Debug
 	}
 
 	// we must map (group) each config to a bind address
