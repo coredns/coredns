@@ -77,7 +77,9 @@ func (h Host) Normalize() string {
 // An error is returned on error
 // Deprecated: use OriginsFromArgsOrServerBlock or NormalizeExact
 func (h Host) MustNormalize() (string, error) {
-	log.Warning("Host.Normalize and Host.MustNormalize are Deprecated. Use OriginsFromArgsOrServerBlock or NormalizeExact.")
+	log.Warning("An external plugin is using deprecated functions Normalize or MustNormalize. " +
+		"These will be removed in a future versions of CoreDNS. The plugin should be updated to use " +
+		"OriginsFromArgsOrServerBlock or NormalizeExact instead.")
 	s := string(h)
 	_, s = parse.Transport(s)
 
