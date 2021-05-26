@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/cidr"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 
 	"github.com/miekg/dns"
@@ -76,6 +77,7 @@ func (h Host) Normalize() string {
 // An error is returned on error
 // Deprecated: use OriginsFromArgsOrServerBlock or NormalizeExact
 func (h Host) MustNormalize() (string, error) {
+	log.Warning("Host.Normalize and Host.MustNormalize are Deprecated. Use OriginsFromArgsOrServerBlock or NormalizeExact.")
 	s := string(h)
 	_, s = parse.Transport(s)
 
