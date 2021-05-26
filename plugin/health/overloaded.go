@@ -26,7 +26,8 @@ func (h *health) overloaded() {
 			start := time.Now()
 			resp, err := client.Get(url)
 			if err != nil {
-				HealthDuration.Observe(timeout.Seconds())
+				HealthDuration.Observe(time.Since(start).Seconds())
+				HealthFailures.Inc()
 				log.Warningf("Local health request to %q failed: %s", url, err)
 				continue
 			}
@@ -49,7 +50,14 @@ var (
 		Namespace: plugin.Namespace,
 		Subsystem: "health",
 		Name:      "request_duration_seconds",
-		Buckets:   plugin.TimeBuckets,
+		Buckets:   plugin.SlimTimeBuckets,
 		Help:      "Histogram of the time (in seconds) each request took.",
+	})
+	// HealthFailures is the metric used to count how many times the thealth request failed
+	HealthFailures = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "health",
+		Name:      "request_failures_total",
+		Help:      "The number of times the health check failed.",
 	})
 )
