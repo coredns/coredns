@@ -309,7 +309,6 @@ func (k *Kubernetes) endpointSliceSupported(kubeClient *kubernetes.Clientset) (b
 		case <-ticker.C:
 			sv, err := kubeClient.ServerVersion()
 			if err != nil {
-				log.Warningf("Failed to get kubernetes version: %s", err)
 				continue
 			}
 
@@ -329,7 +328,6 @@ func (k *Kubernetes) endpointSliceSupported(kubeClient *kubernetes.Clientset) (b
 			if err == nil {
 				return true, discovery.SchemeGroupVersion.String()
 			} else if !kerrors.IsNotFound(err) {
-				log.Warningf("Failed to discovery %s: %s", discovery.SchemeGroupVersion.String(), err)
 				continue
 			}
 
@@ -337,12 +335,11 @@ func (k *Kubernetes) endpointSliceSupported(kubeClient *kubernetes.Clientset) (b
 			if err == nil {
 				return true, discoveryV1beta1.SchemeGroupVersion.String()
 			} else if !kerrors.IsNotFound(err) {
-				log.Warningf("Failed to discovery %s: %s", discoveryV1beta1.SchemeGroupVersion.String(), err)
 				continue
 			}
 
 			// Disable use of endpoint slices in case that it is disabled in k8s versions 1.19 and newer.
-			log.Info("Watching Endpoints instead of EndpointSlices")
+			log.Info("Endpointslices API disabled. Watching Endpoints instead.")
 			return false, ""
 		}
 	}
