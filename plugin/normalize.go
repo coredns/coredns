@@ -163,6 +163,10 @@ func SplitHostPort(s string) (hosts []string, port string, err error) {
 		return []string{s}, port, nil
 	}
 
+	if strings.Contains(s, ":") && n.IP.To16() == nil {
+		return nil, "", fmt.Errorf("invalid CIDR %s", s)
+	}
+
 	// now check if multiple hosts must be returned.
 	nets := cidr.Class(n)
 	hosts = cidr.Reverse(nets)

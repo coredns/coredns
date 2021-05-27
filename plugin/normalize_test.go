@@ -123,6 +123,7 @@ func TestHostNormalizeExact(t *testing.T) {
 		{"2001:db8::/108", []string{
 			"0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
 		}},
+		{"::fFFF:B:F/115", nil},
 		{"dns://example.org", []string{"example.org."}},
 	}
 
