@@ -4,6 +4,7 @@ package cidr
 import (
 	"math"
 	"net"
+	"strings"
 
 	"github.com/apparentlymart/go-cidr/cidr"
 	"github.com/miekg/dns"
@@ -14,7 +15,8 @@ import (
 // for ipv6 this is any multiple of 4 bits
 func Class(n *net.IPNet) []string {
 	boundary := 8
-	if ipv6 := n.IP.To16(); ipv6 != nil {
+	nstr := n.String()
+	if strings.Contains(nstr,":") {
 		boundary = 4
 	}
 	ones, _ := n.Mask.Size()

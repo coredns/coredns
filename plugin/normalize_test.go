@@ -81,6 +81,7 @@ func TestHostNormalizeExact(t *testing.T) {
 		{"example.org.:53", []string{"example.org."}},
 		{"10.0.0.0/8:53", []string{"10.in-addr.arpa."}},
 		{"10.0.0.0/15", []string{"0.10.in-addr.arpa.", "1.10.in-addr.arpa."}},
+		{"10.9.3.0/18", []string{"0.9.10.in-addr.arpa.", "1.9.10.in-addr.arpa.", "2.9.10.in-addr.arpa."}},
 		{"2001:db8::/29", []string{
 			"8.b.d.0.1.0.0.2.ip6.arpa.",
 			"9.b.d.0.1.0.0.2.ip6.arpa.",
@@ -133,7 +134,7 @@ func TestHostNormalizeExact(t *testing.T) {
 		sort.Strings(expected)
 		for j := range expected {
 			if expected[j] != actual[j] {
-				t.Errorf("Test %d, expected %v, got %v", i, expected, actual)
+				t.Errorf("Test %d, expected %v, got %v", i, expected[j], actual[j])
 			}
 		}
 	}

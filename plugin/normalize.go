@@ -163,7 +163,7 @@ func SplitHostPort(s string) (hosts []string, port string, err error) {
 		return []string{s}, port, nil
 	}
 
-	if strings.Contains(s, ":") && n.IP.To16() == nil {
+	if s[0] == ':' || (s[0] == '0' && strings.Contains(s, ":")) {
 		return nil, "", fmt.Errorf("invalid CIDR %s", s)
 	}
 
