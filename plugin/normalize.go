@@ -168,7 +168,7 @@ func SplitHostPort(s string) (hosts []string, port string, err error) {
 	}
 
 	// now check if multiple hosts must be returned.
-	nets := cidr.Class(n)
+	nets := cidr.Split(n)
 	hosts = cidr.Reverse(nets)
 	return hosts, port, nil
 }

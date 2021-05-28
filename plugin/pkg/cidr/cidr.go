@@ -10,10 +10,11 @@ import (
 	"github.com/miekg/dns"
 )
 
-// Class return slice of "classful" CIDR's from the CIDR in net.
+// Split returns a slice of non-overlapping subnets that in union equal the subnet n,
+// and where each subnet falls on a reverse name segment boundary.
 // for ipv4 this is any multiple of 8 bits (/8, /16, /24 or /32)
 // for ipv6 this is any multiple of 4 bits
-func Class(n *net.IPNet) []string {
+func Split(n *net.IPNet) []string {
 	boundary := 8
 	nstr := n.String()
 	if strings.Contains(nstr,":") {
