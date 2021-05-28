@@ -12,7 +12,7 @@ The CoreDNS team has released
 bunch of bugfixes and a few enhancements mostly in the *dnssec* and *kubernetes* plugins, and a new
 (small) plugin called *minimal*.
 
-It also include a fix when using the "reverse zone syntax", i.e. 10.0.0.0/15, now return the proper
+It also include a fix when using the "reverse zone cidr syntax", e.g. 10.0.0.0/15, now return the proper
 set of reverse zones.
 
 ## Brought to You By
