@@ -41,7 +41,7 @@ Yury Tsarev.
 * plugins: fix Normalize (https://github.com/coredns/coredns/pull/4621)
 * plugin/bind: Bind by interface name (https://github.com/coredns/coredns/pull/4522)
 * plugin/bind: Exclude interface or ip address  (https://github.com/coredns/coredns/pull/4543)
-* plugin/dnssec: heck for two days of remaining validity (https://github.com/coredns/coredns/pull/4606)
+* plugin/dnssec: Check for two days of remaining validity (https://github.com/coredns/coredns/pull/4606)
 * plugin/dnssec: interface type correction for `periodicClean` sig validity check (https://github.com/coredns/coredns/pull/4608)
 * plugin/dnssec: use entire RRset as key input (https://github.com/coredns/coredns/pull/4537)
 * plugin/etcd: Fix etcd to use v3.5.0-alpha.0 (https://github.com/coredns/coredns/pull/4628)
