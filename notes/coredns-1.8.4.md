@@ -39,6 +39,7 @@ Yury Tsarev.
 
 * core: fix reverse zones expansion (https://github.com/coredns/coredns/pull/4538)
 * plugins: fix Normalize (https://github.com/coredns/coredns/pull/4621)
+* reverse zone: make Normalize return proper reverse zones (https://github.com/coredns/coredns/pull/4621)
 * plugin/bind: Bind by interface name (https://github.com/coredns/coredns/pull/4522)
 * plugin/bind: Exclude interface or ip address  (https://github.com/coredns/coredns/pull/4543)
 * plugin/dnssec: Check for two days of remaining validity (https://github.com/coredns/coredns/pull/4606)
