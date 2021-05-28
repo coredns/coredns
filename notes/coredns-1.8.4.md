@@ -3,7 +3,7 @@ title = "CoreDNS-1.8.4 Release"
 description = "CoreDNS-1.8.4 Release Notes."
 tags = ["Release", "1.8.4", "Notes"]
 release = "1.8.4"
-date = 2021-05-18T07:00:00+00:00
+date = 2021-05-28T07:00:00+00:00
 author = "coredns"
 +++
 
@@ -35,7 +35,6 @@ Yong Tang,
 Yury Tsarev.
 
 ## Noteworthy Changes
-
 
 * core: fix reverse zones expansion (https://github.com/coredns/coredns/pull/4538)
 * plugins: fix Normalize (https://github.com/coredns/coredns/pull/4621)
