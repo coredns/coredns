@@ -44,7 +44,7 @@ Yury Tsarev.
 * plugin/dnssec: Check for two days of remaining validity (https://github.com/coredns/coredns/pull/4606)
 * plugin/dnssec: interface type correction for `periodicClean` sig validity check (https://github.com/coredns/coredns/pull/4608)
 * plugin/dnssec: use entire RRset as key input (https://github.com/coredns/coredns/pull/4537)
-* plugin/etcd: Fix etcd to use v3.5.0-alpha.0 (https://github.com/coredns/coredns/pull/4628)
+* plugin/etcd: Bump etcd to v3.5.0-beta.3 (https://github.com/coredns/coredns/pull/4638)
 * plugin/forward: Add upstream metadata (https://github.com/coredns/coredns/pull/4521)
 * plugin/health: add logging for local health request (https://github.com/coredns/coredns/pull/4533)
 * plugin/kubernetes: consider nil ready as ready (https://github.com/coredns/coredns/pull/4632)
