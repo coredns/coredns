@@ -24,7 +24,7 @@ Available options:
 : specify Corefile to load, if not given CoreDNS will look for a `Corefile` in the current
   directory.
 
-**-dns.port** **PORT**
+**-dns.port** **PORT** or **-p** **PORT**
 : override default port (53) to listen on.
 
 **-pidfile** **FILE**
