@@ -1,6 +1,7 @@
 package secondary
 
 import (
+	"k8s.io/apimachinery/pkg/util/wait"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -29,13 +30,18 @@ func setup(c *caddy.Controller) error {
 			c.OnStartup(func() error {
 				z.StartupOnce.Do(func() {
 					go func() {
+						backoff := wait.Backoff{
+							Duration: time.Millisecond * 250,
+							Factor:   2,
+							Cap:      time.Second * 10,
+						}
 						for {
 							err := z.TransferIn()
 							if err == nil {
 								break
 							}
 							log.Warningf("All '%s' masters failed to transfer: %s, retrying in 10s", n, err)
-							time.Sleep(time.Second * 10)
+							time.Sleep(backoff.Step())
 						}
 						z.Update()
 					}()
