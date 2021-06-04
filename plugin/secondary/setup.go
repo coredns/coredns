@@ -5,9 +5,13 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
+	"time"
 )
+
+var log = clog.NewWithPlugin("secondary")
 
 func init() { plugin.Register("secondary", setup) }
 
@@ -24,7 +28,14 @@ func setup(c *caddy.Controller) error {
 			c.OnStartup(func() error {
 				z.StartupOnce.Do(func() {
 					go func() {
-						z.TransferIn()
+						for {
+							err := z.TransferIn()
+							if err == nil {
+								break
+							}
+							log.Warningf("All '%s' masters failed to transfer: %s, retrying in 10s", n, err)
+							time.Sleep(time.Second * 10)
+						}
 						z.Update()
 					}()
 				})
