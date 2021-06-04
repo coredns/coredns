@@ -1,7 +1,6 @@
 package secondary
 
 import (
-	"k8s.io/apimachinery/pkg/util/wait"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -11,6 +10,8 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
+
+	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 var log = clog.NewWithPlugin("secondary")
