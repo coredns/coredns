@@ -56,7 +56,7 @@ jobs:
           name: Run Kubernetes tests
           command: |
             cd ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci/test/kubernetes
-            go mod download
+            go mod tidy
             go test -v ./...
 
 workflows:
