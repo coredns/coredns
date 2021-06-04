@@ -7,7 +7,7 @@ import (
 	"github.com/coredns/coredns/plugin/transfer"
 )
 
-// Reload reloads a zone when it is changed on disk. If z.NoReload is true, no reloading will be done.
+// Reload reloads a zone when it is changed on disk. If z.ReloadInterval is zero, no reloading will be done.
 func (z *Zone) Reload(t *transfer.Transfer) error {
 	if z.ReloadInterval == 0 {
 		return nil
