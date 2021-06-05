@@ -16,11 +16,13 @@ type persistConn struct {
 
 // Transport hold the persistent cache.
 type Transport struct {
-	avgDialTime int64                          // kind of average time of dial time
-	conns       [typeTotalCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
-	expire      time.Duration                  // After this duration a connection is expired.
-	addr        string
-	tlsConfig   *tls.Config
+	avgDialTime    int64                          // kind of average time of dial time
+	conns          [typeTotalCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
+	expire         time.Duration                  // After this duration a connection is expired.
+	addr           string
+	tlsConfig      *tls.Config
+	minDialTimeout time.Duration
+	maxDialTimeout time.Duration
 
 	dial  chan string
 	yield chan *persistConn
@@ -30,7 +32,9 @@ type Transport struct {
 
 func newTransport(addr string) *Transport {
 	t := &Transport{
-		avgDialTime: int64(maxDialTimeout / 2),
+		// TODO(snebel29): Use forwarder.maxDialTimeout value as a better initial estimation.
+		//  May require to change the signature of proxy and transport "constructors".
+		avgDialTime: int64(defaultMaxDialTimeout / 2),
 		conns:       [typeTotalCount][]*persistConn{},
 		expire:      defaultExpire,
 		addr:        addr,
@@ -145,13 +149,19 @@ func (t *Transport) Stop() { close(t.stop) }
 // SetExpire sets the connection expire time in transport.
 func (t *Transport) SetExpire(expire time.Duration) { t.expire = expire }
 
+// SetMinDialTimeout sets the min connection timeout in transport.
+func (t *Transport) SetMinDialTimeout(min time.Duration) { t.minDialTimeout = min }
+
+// SetMaxDialTimeout sets the max connection timeout in transport.
+func (t *Transport) SetMaxDialTimeout(max time.Duration) { t.maxDialTimeout = max }
+
 // SetTLSConfig sets the TLS config in transport.
 func (t *Transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
 
 const (
-	defaultExpire  = 10 * time.Second
-	minDialTimeout = 1 * time.Second
-	maxDialTimeout = 30 * time.Second
+	defaultExpire         = 10 * time.Second
+	defaultMinDialTimeout = 1 * time.Second
+	defaultMaxDialTimeout = 30 * time.Second
 )
 
 // Make a var for minimizing this value in tests.

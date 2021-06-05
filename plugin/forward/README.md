@@ -52,6 +52,7 @@ forward FROM TO... {
     policy random|round_robin|sequential
     health_check DURATION [no_rec]
     max_concurrent MAX
+    min_max_dial_timeout DURATION DURATION
 }
 ~~~
 
@@ -93,13 +94,17 @@ forward FROM TO... {
   response does not count as a health failure. When choosing a value for **MAX**, pick a number
   at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
+* `min_max_dial_timeout` **DURATION** **DURATION** defines the lower (first) and upper (second) bound 
+   timeout values used to automatically configure the transport dialer timeout. When this option is not set 
+   its default values are `1s` for min and `30s` for max.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls-name` for different upstreams you're out of luck.
 
 On each endpoint, the timeouts for communication are set as follows:
 
-* The dial timeout by default is 30s, and can decrease automatically down to 100ms based on early results.
+* The dial timeout starts at max dial timeout, and can decrease automatically down to min dial timeout based on 
+  early results but always within the limits of min_max_dial_timeout.
 * The read timeout is static at 2s.
 
 ## Metadata

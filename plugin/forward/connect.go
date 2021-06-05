@@ -36,7 +36,7 @@ func averageTimeout(currentAvg *int64, observedDuration time.Duration, weight in
 }
 
 func (t *Transport) dialTimeout() time.Duration {
-	return limitTimeout(&t.avgDialTime, minDialTimeout, maxDialTimeout)
+	return limitTimeout(&t.avgDialTime, t.minDialTimeout, t.maxDialTimeout)
 }
 
 func (t *Transport) updateDialTimeout(newDialTime time.Duration) {

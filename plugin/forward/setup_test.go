@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredns/caddy"
 )
@@ -254,6 +255,50 @@ func TestSetupHealthCheck(t *testing.T) {
 		}
 		if !test.shouldErr && (f.opts.hcRecursionDesired != test.expectedVal || f.proxies[0].health.GetRecursionDesired() != test.expectedVal) {
 			t.Errorf("Test %d: expected: %t, got: %d", i, test.expectedVal, f.maxConcurrent)
+		}
+	}
+}
+
+func TestSetupMinMaxDialTimeout(t *testing.T) {
+	tests := []struct {
+		input          string
+		shouldErr      bool
+		expectedMinVal time.Duration
+		expectedMaxVal time.Duration
+		expectedErr    string
+	}{
+		// positive
+		{"forward . 127.0.0.1 {\nmin_max_dial_timeout 5s 25s\n}\n", false, 5 * time.Second, 25 * time.Second, ""},
+		// negative
+		{"forward . 127.0.0.1 {\nmin_max_dial_timeout 5 25\n}\n", true, 0, 0, "invalid min argument: time: missing unit in duration"},
+		{"forward . 127.0.0.1 {\nmin_max_dial_timeout 5s 25\n}\n", true, 0, 0, "invalid max argument: time: missing unit in duration"},
+		{"forward . 127.0.0.1 {\nmin_max_dial_timeout 5s\n}\n", true, 0, 0, "Wrong argument count"},
+		{"forward . 127.0.0.1 {\nmin_max_dial_timeout 5s 25s 35s\n}\n", true, 0, 0, "Wrong argument count"},
+		{"forward . 127.0.0.1 {\nmin_max_dial_timeout 25s 5s\n}\n", true, 0, 0, "min should be smaller than max"},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		f, err := parseForward(c)
+
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
+		}
+
+		if err != nil {
+			if !test.shouldErr {
+				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+			}
+
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
+			}
+		}
+		if !test.shouldErr && (f.minDialTimeout != test.expectedMinVal || f.proxies[0].transport.minDialTimeout != test.expectedMinVal) {
+			t.Errorf("Test %d: min expected: %d, got: %d and %d", i, test.expectedMinVal, f.minDialTimeout, f.proxies[0].transport.minDialTimeout)
+		}
+		if !test.shouldErr && (f.maxDialTimeout != test.expectedMaxVal || f.proxies[0].transport.maxDialTimeout != test.expectedMaxVal) {
+			t.Errorf("Test %d: max expected: %d, got: %d and %d", i, test.expectedMaxVal, f.maxDialTimeout, f.proxies[0].transport.maxDialTimeout)
 		}
 	}
 }

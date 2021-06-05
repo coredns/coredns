@@ -142,6 +142,8 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			f.proxies[i].SetTLSConfig(f.tlsConfig)
 		}
 		f.proxies[i].SetExpire(f.expire)
+		f.proxies[i].SetMinDialTimeout(f.minDialTimeout)
+		f.proxies[i].SetMaxDialTimeout(f.maxDialTimeout)
 		f.proxies[i].health.SetRecursionDesired(f.opts.hcRecursionDesired)
 	}
 
@@ -230,6 +232,35 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return fmt.Errorf("expire can't be negative: %s", dur)
 		}
 		f.expire = dur
+	case "min_max_dial_timeout":
+		args := c.RemainingArgs()
+		if len(args) != 2 {
+			return c.ArgErr()
+		}
+		parseArg := func(arg string) (time.Duration, error) {
+			dur, err := time.ParseDuration(arg)
+			if err != nil {
+				return dur, err
+			}
+			if dur < 0 {
+				return dur, fmt.Errorf("can't be negative: %s", dur)
+			}
+			return dur, nil
+		}
+		min, err := parseArg(args[0])
+		if err != nil {
+			return fmt.Errorf("invalid min argument: %v", err)
+		}
+		max, err := parseArg(args[1])
+		if err != nil {
+			return fmt.Errorf("invalid max argument: %v", err)
+		}
+		if min >= max {
+			return fmt.Errorf("min should be smaller than max")
+		}
+		f.minDialTimeout = min
+		f.maxDialTimeout = max
+
 	case "policy":
 		if !c.NextArg() {
 			return c.ArgErr()

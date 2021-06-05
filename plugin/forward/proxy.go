@@ -43,6 +43,12 @@ func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 // SetExpire sets the expire duration in the lower p.transport.
 func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
 
+// SetMinDialTimeout sets the min dial timeout in the lower p.transport.
+func (p *Proxy) SetMinDialTimeout(min time.Duration) { p.transport.SetMinDialTimeout(min) }
+
+// SetMaxDialTimeout sets the max dial timeout in the lower p.transport.
+func (p *Proxy) SetMaxDialTimeout(max time.Duration) { p.transport.SetMaxDialTimeout(max) }
+
 // Healthcheck kicks of a round of health checks for this proxy.
 func (p *Proxy) Healthcheck() {
 	if p.health == nil {

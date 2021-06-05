@@ -36,11 +36,13 @@ type Forward struct {
 	from    string
 	ignored []string
 
-	tlsConfig     *tls.Config
-	tlsServerName string
-	maxfails      uint32
-	expire        time.Duration
-	maxConcurrent int64
+	tlsConfig      *tls.Config
+	tlsServerName  string
+	maxfails       uint32
+	expire         time.Duration
+	maxConcurrent  int64
+	minDialTimeout time.Duration
+	maxDialTimeout time.Duration
 
 	opts options // also here for testing
 
@@ -55,7 +57,8 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: options{forceTCP: false, preferUDP: false, hcRecursionDesired: true}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval,
+		minDialTimeout: defaultMinDialTimeout, maxDialTimeout: defaultMaxDialTimeout, opts: options{forceTCP: false, preferUDP: false, hcRecursionDesired: true}}
 	return f
 }
 
