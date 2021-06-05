@@ -15,8 +15,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
@@ -120,9 +119,7 @@ func setup(c *caddy.Controller) error {
 			return plugin.Error("route53", err)
 		}
 
-		providers = append(providers, &credentials.EnvProvider{}, sharedProvider, &ec2rolecreds.EC2RoleProvider{
-			Client: ec2metadata.New(session),
-		})
+		providers = append(providers, &credentials.EnvProvider{}, sharedProvider, defaults.RemoteCredProvider(*session.Config, session.Handlers))
 		client := f(credentials.NewChainCredentials(providers))
 		ctx, cancel := context.WithCancel(context.Background())
 		h, err := New(ctx, client, keys, refresh)
