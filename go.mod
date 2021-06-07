@@ -24,13 +24,13 @@ require (
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5
 	github.com/openzipkin/zipkin-go v0.2.2
 	github.com/philhofer/fwd v1.1.1 // indirect
-	github.com/prometheus/client_golang v1.10.0
+	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/common v0.25.0
+	github.com/prometheus/common v0.26.0
 	go.etcd.io/etcd/api/v3 v3.5.0-rc.0
 	go.etcd.io/etcd/client/v3 v3.5.0-beta.4
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
-	golang.org/x/sys v0.0.0-20210514084401-e8d321eab015
+	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40
 	google.golang.org/api v0.47.0
 	google.golang.org/grpc v1.38.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.31.1
