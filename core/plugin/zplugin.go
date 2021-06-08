@@ -25,6 +25,7 @@ import (
 	_ "github.com/coredns/coredns/plugin/etcd"
 	_ "github.com/coredns/coredns/plugin/file"
 	_ "github.com/coredns/coredns/plugin/forward"
+	_ "github.com/coredns/coredns/plugin/forwardcrd"
 	_ "github.com/coredns/coredns/plugin/geoip"
 	_ "github.com/coredns/coredns/plugin/grpc"
 	_ "github.com/coredns/coredns/plugin/header"
