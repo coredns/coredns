@@ -17,7 +17,7 @@ jobs:
       -
         name: Update Docs
         run: |
-          ./.github/fixup_file_mtime.sh
+          bash -x -e ./.github/fixup_file_mtime.sh
           make -f Makefile.doc
       -
         name: Set up Git
@@ -30,6 +30,7 @@ jobs:
       -
         name: Commit and push changes
         run: |
+          set -x -e
           git add .
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
             git commit -s -m 'auto make -f Makefile.doc'
