@@ -1,7 +1,11 @@
 package test
 
 import (
+	"reflect"
 	"testing"
+	"unsafe"
+
+	"github.com/coredns/coredns/core/dnsserver"
 
 	"github.com/miekg/dns"
 )
@@ -106,4 +110,32 @@ func TestReverseExpansion(t *testing.T) {
 	if len(r.Extra) != 0 {
 		t.Errorf("Expected 0 RRs in additional section, got %d", len(r.Extra))
 	}
+}
+
+func TestMultiZoneBlockConfigs(t *testing.T) {
+	corefile := `.:40000 .:40001 .:40002 {
+		debug
+	}`
+
+	server, err := CoreDNSServer(corefile)
+
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+
+	// unsafe reflection to read unexported fields "context" and "configs" within context
+	ctxVal := reflect.ValueOf(server).Elem().FieldByName("context")
+	ctxVal2 := reflect.NewAt(ctxVal.Type(), unsafe.Pointer(ctxVal.UnsafeAddr())).Elem()
+	configs := reflect.ValueOf(ctxVal2.Interface()).Elem().FieldByName("configs")
+	configs2 := reflect.NewAt(configs.Type(), unsafe.Pointer(configs.UnsafeAddr())).Elem()
+
+	for i := 0; i < 3; i++ {
+		v := configs2.Index(i)
+		config := v.Interface().(*dnsserver.Config)
+		if !config.Debug {
+			t.Fatalf("Debug was not set for %s://%s:%s", config.Transport, config.Zone, config.Port)
+		}
+	}
+
+	defer server.Stop()
 }
