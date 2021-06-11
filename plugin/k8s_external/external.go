@@ -91,11 +91,13 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return 0, nil
 	}
 
+	var truncated bool
+
 	switch state.QType() {
 	case dns.TypeA:
-		m.Answer = e.a(ctx, svc, state)
+		m.Answer, truncated = e.a(ctx, svc, state)
 	case dns.TypeAAAA:
-		m.Answer = e.aaaa(ctx, svc, state)
+		m.Answer, truncated = e.aaaa(ctx, svc, state)
 	case dns.TypeSRV:
 		m.Answer, m.Extra = e.srv(svc, state)
 	default:
@@ -106,6 +108,8 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	if len(m.Answer) == 0 {
 		m.Ns = []dns.RR{e.soa(state)}
 	}
+
+	m.Truncated = truncated
 
 	w.WriteMsg(m)
 	return 0, nil
