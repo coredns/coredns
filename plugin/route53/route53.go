@@ -119,7 +119,7 @@ func (h *Route53) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	var result file.Result
 	for _, hostedZone := range z {
 		h.zMu.RLock()
-		m.Answer, m.Ns, m.Extra, result = hostedZone.z.Lookup(ctx, state, qname)
+		m.Answer, m.Ns, m.Extra, result, m.Truncated = hostedZone.z.Lookup(ctx, state, qname)
 		h.zMu.RUnlock()
 
 		// Take the answer if it's non-empty OR if there is another

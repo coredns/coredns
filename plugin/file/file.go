@@ -84,10 +84,11 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		return dns.RcodeServerFailure, nil
 	}
 
-	answer, ns, extra, result := z.Lookup(ctx, state, qname)
+	answer, ns, extra, result, tc := z.Lookup(ctx, state, qname)
 
 	m := new(dns.Msg)
 	m.SetReply(r)
+	m.Truncated = tc
 	m.Authoritative = true
 	m.Answer, m.Ns, m.Extra = answer, ns, extra
 

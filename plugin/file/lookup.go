@@ -29,10 +29,10 @@ const (
 
 // Lookup looks up qname and qtype in the zone. When do is true DNSSEC records are included.
 // Three sets of records are returned, one for the answer, one for authority  and one for the additional section.
-func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) ([]dns.RR, []dns.RR, []dns.RR, Result) {
+func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) ([]dns.RR, []dns.RR, []dns.RR, Result, bool) {
 	qtype := state.QType()
 	do := state.Do()
-
+	truncated := false
 	// If z is a secondary zone we might not have transferred it, meaning we have
 	// all zone context setup, except the actual record. This means (for one thing) the apex
 	// is empty and we don't have a SOA record.
@@ -41,17 +41,17 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	tr := z.Tree
 	z.RUnlock()
 	if ap.SOA == nil {
-		return nil, nil, nil, ServerFailure
+		return nil, nil, nil, ServerFailure, truncated
 	}
 
 	if qname == z.origin {
 		switch qtype {
 		case dns.TypeSOA:
-			return ap.soa(do), ap.ns(do), nil, Success
+			return ap.soa(do), ap.ns(do), nil, Success, truncated
 		case dns.TypeNS:
 			nsrrs := ap.ns(do)
 			glue := tr.Glue(nsrrs, do) // technically this isn't glue
-			return nsrrs, nil, glue, Success
+			return nsrrs, nil, glue, Success, truncated
 		}
 	}
 
@@ -69,7 +69,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		// illegal (wildcard cname with multiple identical records). For now it's more important
 		// to protect ourselves then to give the client a valid answer. We return with an error
 		// to let the server handle what to do.
-		return nil, nil, nil, ServerFailure
+		return nil, nil, nil, ServerFailure, truncated
 	}
 
 	// Lookup:
@@ -116,7 +116,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			dname := dnamerrs[0]
 			if cname := synthesizeCNAME(state.Name(), dname.(*dns.DNAME)); cname != nil {
 				ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
-				answer, ns, extra, rcode := z.externalLookup(ctx, state, elem, []dns.RR{cname})
+				answer, ns, extra, rcode, tc := z.externalLookup(ctx, state, elem, []dns.RR{cname})
 
 				if do {
 					sigs := elem.Type(dns.TypeRRSIG)
@@ -128,7 +128,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 				// if the DNAME is being employed as a substitution instruction.
 				answer = append(dnamerrs, answer...)
 
-				return answer, ns, extra, rcode
+				return answer, ns, extra, rcode, tc
 			}
 			// The domain name that owns a DNAME record is allowed to have other RR types
 			// at that domain name, except those have restrictions on what they can coexist
@@ -152,7 +152,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 				nsrrs = append(nsrrs, dss...)
 			}
 
-			return nil, nsrrs, glue, Delegation
+			return nil, nsrrs, glue, Delegation, false
 		}
 
 		i++
@@ -160,7 +160,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 	// What does found and !shot mean - do we ever hit it?
 	if found && !shot {
-		return nil, nil, nil, ServerFailure
+		return nil, nil, nil, ServerFailure, false
 	}
 
 	// Found entire name.
@@ -180,7 +180,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 				nsec := typeFromElem(elem, dns.TypeNSEC, do)
 				ret = append(ret, nsec...)
 			}
-			return nil, ret, nil, NoData
+			return nil, ret, nil, NoData, false
 		}
 
 		// Additional section processing for MX, SRV. Check response and see if any of the names are in bailiwick -
@@ -193,7 +193,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			rrs = append(rrs, sigs...)
 		}
 
-		return rrs, ap.ns(do), additional, Success
+		return rrs, ap.ns(do), additional, Success, false
 
 	}
 
@@ -217,7 +217,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 				nsec := typeFromElem(wildElem, dns.TypeNSEC, do)
 				ret = append(ret, nsec...)
 			}
-			return nil, ret, nil, Success
+			return nil, ret, nil, Success, false
 		}
 
 		if do {
@@ -232,7 +232,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			rrs = append(rrs, sigs...)
 
 		}
-		return rrs, auth, nil, Success
+		return rrs, auth, nil, Success, false
 	}
 
 	rcode := NameError
@@ -275,7 +275,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 	}
 Out:
-	return nil, ret, nil, rcode
+	return nil, ret, nil, rcode, false
 }
 
 // typeFromElem returns the type tp from e and adds signatures (if they exist) and do is true.
@@ -306,7 +306,7 @@ func (a Apex) ns(do bool) []dns.RR {
 }
 
 // externalLookup adds signatures and tries to resolve CNAMEs that point to external names.
-func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
+func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result, bool) {
 
 	qtype := state.QType()
 	do := state.Do()
@@ -320,9 +320,9 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 	targetName := rrs[0].(*dns.CNAME).Target
 	elem, _ = z.Tree.Search(targetName)
 	if elem == nil {
-		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
+		lookupRRs, result, tc := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
-		return rrs, z.Apex.ns(do), nil, result
+		return rrs, z.Apex.ns(do), nil, result, tc
 	}
 
 	i := 0
@@ -340,14 +340,14 @@ Redo:
 		targetName := cname[0].(*dns.CNAME).Target
 		elem, _ = z.Tree.Search(targetName)
 		if elem == nil {
-			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
+			lookupRRs, result, tc := z.doLookup(ctx, state, targetName, qtype)
 			rrs = append(rrs, lookupRRs...)
-			return rrs, z.Apex.ns(do), nil, result
+			return rrs, z.Apex.ns(do), nil, result, tc
 		}
 
 		i++
 		if i > 8 {
-			return rrs, z.Apex.ns(do), nil, Success
+			return rrs, z.Apex.ns(do), nil, Success, false
 		}
 
 		goto Redo
@@ -364,27 +364,27 @@ Redo:
 		}
 	}
 
-	return rrs, z.Apex.ns(do), nil, Success
+	return rrs, z.Apex.ns(do), nil, Success, false
 }
 
-func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result) {
+func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result, bool) {
 	m, e := z.Upstream.Lookup(ctx, state, target, qtype)
 	if e != nil {
-		return nil, Success
+		return nil, Success, false
 	}
 	if m == nil {
-		return nil, Success
+		return nil, Success, false
 	}
 	if m.Rcode == dns.RcodeNameError {
-		return m.Answer, NameError
+		return m.Answer, NameError, m.Truncated
 	}
 	if m.Rcode == dns.RcodeServerFailure {
-		return m.Answer, ServerFailure
+		return m.Answer, ServerFailure, m.Truncated
 	}
 	if m.Rcode == dns.RcodeSuccess && len(m.Answer) == 0 {
-		return m.Answer, NoData
+		return m.Answer, NoData, m.Truncated
 	}
-	return m.Answer, Success
+	return m.Answer, Success, m.Truncated
 }
 
 // additionalProcessing checks the current answer section and retrieves A or AAAA records
