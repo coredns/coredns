@@ -118,6 +118,7 @@ func TestMultiZoneBlockConfigs(t *testing.T) {
 	}`
 
 	server, err := CoreDNSServer(corefile)
+	defer server.Stop()
 
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
@@ -136,6 +137,4 @@ func TestMultiZoneBlockConfigs(t *testing.T) {
 			t.Fatalf("Debug was not set for %s://%s:%s", config.Transport, config.Zone, config.Port)
 		}
 	}
-
-	defer server.Stop()
 }
