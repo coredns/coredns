@@ -196,7 +196,7 @@ func (x xfr) allowed(state request.Request) bool {
 		}
 	}
 	for _, to := range x.toNet {
-		// If remote IP is contained by an allowed, we accept.
+		// If remote IP is contained by an allowed network, we accept.
 		stateIP := net.ParseIP(state.IP())
 		if stateIP != nil && to.Contains(stateIP) {
 			return true
