@@ -27,7 +27,7 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.28.0
-	go.etcd.io/etcd/api/v3 v3.5.0-rc.0
+	go.etcd.io/etcd/api/v3 v3.5.0-rc.1
 	go.etcd.io/etcd/client/v3 v3.5.0-rc.0
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/sys v0.0.0-20210603081109-ebe580a85c40
