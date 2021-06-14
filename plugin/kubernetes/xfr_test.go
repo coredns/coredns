@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"net"
 	"strings"
 	"testing"
 
@@ -10,7 +11,8 @@ import (
 func TestKubernetesAXFR(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
-	k.Namespaces = map[string]struct{}{"testns": {}}
+	k.Namespaces = map[string]struct{}{"testns": {}, "kube-system": {}}
+	k.localIPs = []net.IP{net.ParseIP("10.0.0.10")}
 
 	dnsmsg := &dns.Msg{}
 	dnsmsg.SetAxfr(k.Zones[0])
@@ -25,7 +27,8 @@ func TestKubernetesAXFR(t *testing.T) {
 func TestKubernetesIXFRFallback(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
-	k.Namespaces = map[string]struct{}{"testns": {}}
+	k.Namespaces = map[string]struct{}{"testns": {}, "kube-system": {}}
+	k.localIPs = []net.IP{net.ParseIP("10.0.0.10")}
 
 	dnsmsg := &dns.Msg{}
 	dnsmsg.SetAxfr(k.Zones[0])
@@ -40,7 +43,8 @@ func TestKubernetesIXFRFallback(t *testing.T) {
 func TestKubernetesIXFRCurrent(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
-	k.Namespaces = map[string]struct{}{"testns": {}}
+	k.Namespaces = map[string]struct{}{"testns": {}, "kube-system": {}}
+	k.localIPs = []net.IP{net.ParseIP("10.0.0.10")}
 
 	dnsmsg := &dns.Msg{}
 	dnsmsg.SetAxfr(k.Zones[0])
@@ -91,6 +95,8 @@ func validateAXFR(t *testing.T, ch <-chan []dns.RR) {
 
 const expectedZone = `
 cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 3 7200 1800 86400 5
+cluster.local.	5	IN	NS	ns.dns.cluster.local.
+ns.dns.cluster.local.	5	IN	A	10.0.0.10
 external.testns.svc.cluster.local.	5	IN	CNAME	ext.interwebs.test.
 external-to-service.testns.svc.cluster.local.	5	IN	CNAME	svc1.testns.svc.cluster.local.
 hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2
@@ -113,6 +119,9 @@ hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2
 _http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--2.hdls1.testns.svc.cluster.local.
 hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20
 172-0-0-20.hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20
+kubedns.kube-system.svc.cluster.local.	5	IN	A	10.0.0.10
+kubedns.kube-system.svc.cluster.local.	5	IN	SRV	0 100 53 kubedns.kube-system.svc.cluster.local.
+_dns._udp.kubedns.kube-system.svc.cluster.local.	5	IN	SRV	0 100 53 kubedns.kube-system.svc.cluster.local.
 svc-dual-stack.testns.svc.cluster.local.	5	IN	A	10.0.0.3
 svc-dual-stack.testns.svc.cluster.local.	5	IN	AAAA	10::3
 svc-dual-stack.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc-dual-stack.testns.svc.cluster.local.

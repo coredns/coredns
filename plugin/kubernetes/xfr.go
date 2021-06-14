@@ -38,6 +38,17 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 		}
 		ch <- soa
 
+		nsAddrs := k.nsAddrs(false, zone)
+		nsHosts := make(map[string]struct{})
+		for _, nsAddr := range nsAddrs {
+			nsHost := nsAddr.Header().Name
+			if _, ok := nsHosts[nsHost]; !ok {
+				nsHosts[nsHost] = struct{}{}
+				ch <- []dns.RR{&dns.NS{Hdr: dns.RR_Header{Name: zone, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: k.ttl}, Ns: nsHost}}
+			}
+			ch <- nsAddrs
+		}
+
 		sort.Slice(serviceList, func(i, j int) bool {
 			return serviceList[i].Name < serviceList[j].Name
 		})
