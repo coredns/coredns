@@ -11,7 +11,7 @@ This plugin answers zone transfers for authoritative plugins that implement `tra
 *transfer* answers full zone transfer (AXFR) requests and incremental zone transfer (IXFR) requests
 with AXFR fallback if the zone has changed.
 
-When a plugin wants to notify it's secondaries it will call back into the *transfer* plugin.
+When a plugin wants to notify its secondaries it will call back into the *transfer* plugin.
 
 The following plugins implement zone transfers using this plugin: *file*, *auto*, *secondary*, and
 *kubernetes*. See `transfer.go` for implementation details if you are a plugin author that wants to
@@ -31,9 +31,10 @@ transfer [ZONE...] {
     `transfer.Transferer`.
 
  *  `to` **ADDRESS...** The hosts *transfer* will transfer to. Use `*` to permit transfers to all
-    addresses. **ADDRESS** must be denoted in CIDR notation (e.g., 127.0.0.1/32) or just as plain
-    addresses. `to` may be specified multiple times.
+    addresses. **ADDRESS** may be an '*', an IP address, an IP:Port, or a network in CIDR notation
+    (e.g., 127.0.0.1/32). `to` may be specified multiple times. Notifies will be sent to all IP and
+    IP:Port specified.
 
 ## Examples
 
-See the specific plugins using this plugin for examples on it's usage.
+See the specific plugins using this plugin for examples on its usage.

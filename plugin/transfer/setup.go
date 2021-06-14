@@ -1,6 +1,8 @@
 package transfer
 
 import (
+	"net"
+
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -60,9 +62,14 @@ func parseTransfer(c *caddy.Controller) (*Transfer, error) {
 						x.to = append(x.to, host)
 						continue
 					}
+					_, net, err := net.ParseCIDR(host)
+					if err == nil {
+						x.toNet = append(x.toNet, net)
+						continue
+					}
 					normalized, err := parse.HostPort(host, transport.Port)
 					if err != nil {
-						return nil, err
+						return nil, plugin.Error("transfer", c.Errf("to must be a '*', IP:Port, IP, or CIDR: %q", host))
 					}
 					x.to = append(x.to, normalized)
 				}

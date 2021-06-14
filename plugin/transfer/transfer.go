@@ -24,6 +24,7 @@ type Transfer struct {
 type xfr struct {
 	Zones []string
 	to    []string
+	toNet []*net.IPNet
 }
 
 // Transferer may be implemented by plugins to enable zone transfers
@@ -189,11 +190,19 @@ func (x xfr) allowed(state request.Request) bool {
 		if err != nil {
 			return false
 		}
-		// If remote IP matches we accept. TODO(): make this works with ranges
+		// If remote IP matches we accept.
 		if to == state.IP() {
 			return true
 		}
 	}
+	for _, to := range x.toNet {
+		// If remote IP is contained by an allowed, we accept.
+		stateIP := net.ParseIP(state.IP())
+		if stateIP != nil && to.Contains(stateIP) {
+			return true
+		}
+	}
+
 	return false
 }
 

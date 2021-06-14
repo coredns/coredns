@@ -3,6 +3,7 @@ package transfer
 import (
 	"context"
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
@@ -274,5 +275,37 @@ func TestTransferNotAllowed(t *testing.T) {
 
 	if w.Msg.Rcode != dns.RcodeRefused {
 		t.Errorf("Expected REFUSED response code, got %s", dns.RcodeToString[w.Msg.Rcode])
+	}
+}
+
+func TestTransferAllowed(t *testing.T) {
+	nextPlugin := transfererPlugin{Zone: "example.org.", Serial: 12345}
+
+	transfer := Transfer{
+		Transferers: []Transferer{&nextPlugin},
+		xfrs: []*xfr{
+			{
+				Zones: []string{"example.org."},
+				toNet: []*net.IPNet{
+					{IP: net.IPv4(10, 240, 0, 0), Mask: net.CIDRMask(24, 32)},
+				},
+			},
+		},
+		Next: &nextPlugin,
+	}
+
+	ctx := context.TODO()
+	w := dnstest.NewRecorder(&test.ResponseWriter{TCP: true})
+	m := &dns.Msg{}
+	m.SetAxfr(transfer.xfrs[0].Zones[0])
+
+	_, err := transfer.ServeDNS(ctx, w, m)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	if w.Msg.Rcode != dns.RcodeSuccess {
+		t.Errorf("Expected SUCCESS response code, got %s", dns.RcodeToString[w.Msg.Rcode])
 	}
 }

@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"net"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -14,7 +15,7 @@ func TestParse(t *testing.T) {
 		exp       *Transfer
 	}{
 		{`transfer example.net example.org {
-			to 1.2.3.4 5.6.7.8:1053 [1::2]:34
+			to 1.2.3.4 5.6.7.8:1053 [1::2]:34 5.6.7.0/24 1::0/32
 		 }
          transfer example.com example.edu {
             to * 1.2.3.4
@@ -25,6 +26,10 @@ func TestParse(t *testing.T) {
 				xfrs: []*xfr{{
 					Zones: []string{"example.net.", "example.org."},
 					to:    []string{"1.2.3.4:53", "5.6.7.8:1053", "[1::2]:34"},
+					toNet: []*net.IPNet{
+						{IP: net.IPv4(5, 6, 7, 0), Mask: net.CIDRMask(24, 32)},
+						{IP: net.ParseIP("1::0"), Mask: net.CIDRMask(32, 128)},
+					},
 				}, {
 					Zones: []string{"example.com.", "example.edu."},
 					to:    []string{"*", "1.2.3.4:53"},
@@ -109,6 +114,15 @@ func TestParse(t *testing.T) {
 				if tc.exp.xfrs[j].to[k] != to {
 					t.Errorf("Test %d expected %v in 'to', got %v", i, tc.exp.xfrs[j].to[k], to)
 
+				}
+			}
+			// Check toNet
+			if len(tc.exp.xfrs[j].toNet) != len(x.toNet) {
+				t.Fatalf("Test %d expected %d 'toNet' values, got %d", i, len(tc.exp.xfrs[i].toNet), len(x.toNet))
+			}
+			for k, toNet := range x.toNet {
+				if tc.exp.xfrs[j].toNet[k].String() != toNet.String() {
+					t.Errorf("Test %d expected %v in 'toNet', got %v", i, tc.exp.xfrs[j].toNet[k], toNet.String())
 				}
 			}
 		}
