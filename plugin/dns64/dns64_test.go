@@ -382,6 +382,61 @@ func TestDNS64(t *testing.T) {
 				},
 			},
 		},
+		{
+			// no AAAA records, A record response truncated.
+			name: "truncated A response",
+			req: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Id:               42,
+					RecursionDesired: true,
+					Opcode:           dns.OpcodeQuery,
+				},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+			},
+			initResp: &dns.Msg{ //success, no answers
+				MsgHdr: dns.MsgHdr{
+					Id:               42,
+					Opcode:           dns.OpcodeQuery,
+					RecursionDesired: true,
+					Rcode:            dns.RcodeSuccess,
+					Response:         true,
+				},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Ns:       []dns.RR{test.SOA("example.com. 70 IN SOA foo bar 1 1 1 1 1")},
+			},
+			aResp: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Id:               43,
+					Opcode:           dns.OpcodeQuery,
+					RecursionDesired: true,
+					Truncated:        true,
+					Rcode:            dns.RcodeSuccess,
+					Response:         true,
+				},
+				Question: []dns.Question{{"example.com.", dns.TypeA, dns.ClassINET}},
+				Answer: []dns.RR{
+					test.A("example.com. 60 IN A 192.0.2.42"),
+					test.A("example.com. 5000 IN A 192.0.2.43"),
+				},
+			},
+
+			resp: &dns.Msg{
+				MsgHdr: dns.MsgHdr{
+					Id:               42,
+					Opcode:           dns.OpcodeQuery,
+					RecursionDesired: true,
+					Truncated:        true,
+					Rcode:            dns.RcodeSuccess,
+					Response:         true,
+				},
+				Question: []dns.Question{{"example.com.", dns.TypeAAAA, dns.ClassINET}},
+				Answer: []dns.RR{
+					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
+					// override RR ttl to SOA ttl, since it's lower
+					test.AAAA("example.com. 70 IN AAAA 64:ff9b::192.0.2.43"),
+				},
+			},
+		},
 	}
 
 	_, pfx, _ := net.ParseCIDR("64:ff9b::/96")

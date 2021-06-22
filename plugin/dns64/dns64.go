@@ -130,6 +130,9 @@ func (d *DNS64) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 	ret := dns.Msg{}
 	ret.SetReply(origReq)
 
+	// persist truncated state of AAAA response
+	ret.Truncated = resp.Truncated
+
 	// 5.3.2: DNS64 MUST pass the additional section unchanged
 	ret.Extra = resp.Extra
 	ret.Ns = resp.Ns
