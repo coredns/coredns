@@ -11,7 +11,6 @@ import (
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/fall"
-	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -35,7 +34,12 @@ type template struct {
 	qclass     uint16
 	qtype      uint16
 	fall       fall.F
-	upstream   *upstream.Upstream
+	upstream   Upstreamer
+}
+
+// Upstreamer looks up targets of CNAME templates
+type Upstreamer interface {
+	Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error)
 }
 
 type templateData struct {
@@ -100,8 +104,10 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			}
 			msg.Answer = append(msg.Answer, rr)
 			if template.upstream != nil && (state.QType() == dns.TypeA || state.QType() == dns.TypeAAAA) && rr.Header().Rrtype == dns.TypeCNAME {
-				up, _ := template.upstream.Lookup(ctx, state, rr.(*dns.CNAME).Target, state.QType())
-				msg.Answer = append(msg.Answer, up.Answer...)
+				if up, err := template.upstream.Lookup(ctx, state, rr.(*dns.CNAME).Target, state.QType()); err == nil && up != nil {
+					msg.Truncated = up.Truncated
+					msg.Answer = append(msg.Answer, up.Answer...)
+				}
 			}
 		}
 		for _, additional := range template.additional {
