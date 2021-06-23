@@ -99,9 +99,9 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 	switch state.QType() {
 	case dns.TypeA:
-		m.Answer = e.a(ctx, svc, state)
+		m.Answer, m.Truncated = e.a(ctx, svc, state)
 	case dns.TypeAAAA:
-		m.Answer = e.aaaa(ctx, svc, state)
+		m.Answer, m.Truncated = e.aaaa(ctx, svc, state)
 	case dns.TypeSRV:
 		m.Answer, m.Extra = e.srv(ctx, svc, state)
 	default:
