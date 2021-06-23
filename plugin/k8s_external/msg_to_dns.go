@@ -10,7 +10,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func (e *External) a(ctx context.Context, services []msg.Service, state request.Request) (records []dns.RR) {
+func (e *External) a(ctx context.Context, services []msg.Service, state request.Request) (records []dns.RR, truncated bool) {
 	dup := make(map[string]struct{})
 
 	for _, s := range services {
@@ -24,6 +24,9 @@ func (e *External) a(ctx context.Context, services []msg.Service, state request.
 			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeA); err == nil {
 				for _, rr := range resp.Answer {
 					records = append(records, rr)
+				}
+				if resp.Truncated {
+					truncated = true
 				}
 			}
 
@@ -39,10 +42,10 @@ func (e *External) a(ctx context.Context, services []msg.Service, state request.
 			// nada
 		}
 	}
-	return records
+	return records, truncated
 }
 
-func (e *External) aaaa(ctx context.Context, services []msg.Service, state request.Request) (records []dns.RR) {
+func (e *External) aaaa(ctx context.Context, services []msg.Service, state request.Request) (records []dns.RR, truncated bool) {
 	dup := make(map[string]struct{})
 
 	for _, s := range services {
@@ -56,6 +59,9 @@ func (e *External) aaaa(ctx context.Context, services []msg.Service, state reque
 			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeAAAA); err == nil {
 				for _, rr := range resp.Answer {
 					records = append(records, rr)
+				}
+				if resp.Truncated {
+					truncated = true
 				}
 			}
 
@@ -71,7 +77,7 @@ func (e *External) aaaa(ctx context.Context, services []msg.Service, state reque
 			}
 		}
 	}
-	return records
+	return records, truncated
 }
 
 func (e *External) srv(services []msg.Service, state request.Request) (records, extra []dns.RR) {
