@@ -21,16 +21,17 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	var (
 		records, extra []dns.RR
+		truncated      bool
 		err            error
 	)
 
 	switch state.QType() {
 	case dns.TypeA:
-		records, err = plugin.A(ctx, e, zone, state, nil, opt)
+		records, truncated, err = plugin.A(ctx, e, zone, state, nil, opt)
 	case dns.TypeAAAA:
-		records, err = plugin.AAAA(ctx, e, zone, state, nil, opt)
+		records, truncated, err = plugin.AAAA(ctx, e, zone, state, nil, opt)
 	case dns.TypeTXT:
-		records, err = plugin.TXT(ctx, e, zone, state, nil, opt)
+		records, truncated, err = plugin.TXT(ctx, e, zone, state, nil, opt)
 	case dns.TypeCNAME:
 		records, err = plugin.CNAME(ctx, e, zone, state, opt)
 	case dns.TypePTR:
@@ -49,7 +50,7 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		fallthrough
 	default:
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
-		_, err = plugin.A(ctx, e, zone, state, nil, opt)
+		_, _, err = plugin.A(ctx, e, zone, state, nil, opt)
 	}
 	if err != nil && e.IsNameError(err) {
 		if e.Fall.Through(state.Name()) {
@@ -68,6 +69,7 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	m := new(dns.Msg)
 	m.SetReply(r)
+	m.Truncated = truncated
 	m.Authoritative = true
 	m.Answer = append(m.Answer, records...)
 	m.Extra = append(m.Extra, extra...)
