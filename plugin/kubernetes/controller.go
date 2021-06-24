@@ -100,7 +100,7 @@ type dnsControlOpts struct {
 	endpointNameMode bool
 }
 
-// newDNSController creates a controller for CoreDNS.
+// newdnsController creates a controller for CoreDNS.
 func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
 		client:            kubeClient,
