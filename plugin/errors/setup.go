@@ -66,7 +66,7 @@ func parseBlock(c *caddy.Controller, h *errorHandler) error {
 	}
 
 	args := c.RemainingArgs()
-	if len(args) != 2 {
+	if len(args) < 2 || len(args) > 3 {
 		return c.ArgErr()
 	}
 	p, err := time.ParseDuration(args[0])
@@ -77,7 +77,30 @@ func parseBlock(c *caddy.Controller, h *errorHandler) error {
 	if err != nil {
 		return c.Err(err.Error())
 	}
-	h.patterns = append(h.patterns, &pattern{period: p, pattern: re})
+	lc, err := parseLogLevel(c, args)
+	if err != nil {
+		return err
+	}
+	h.patterns = append(h.patterns, &pattern{period: p, pattern: re, logCallback: lc})
 
 	return nil
+}
+
+func parseLogLevel(c *caddy.Controller, args []string) (func(format string, v ...interface{}), error) {
+	if len(args) != 3 {
+		return log.Errorf, nil
+	}
+
+	switch args[2] {
+	case "warn":
+		return log.Warningf, nil
+	case "error":
+		return log.Errorf, nil
+	case "info":
+		return log.Infof, nil
+	case "debug":
+		return log.Debugf, nil
+	default:
+		return nil, c.Err("unknown log level argument in consolidate")
+	}
 }

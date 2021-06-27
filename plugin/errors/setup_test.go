@@ -1,6 +1,10 @@
 package errors
 
 import (
+	"bytes"
+	corednslog "github.com/coredns/coredns/plugin/pkg/log"
+	golog "log"
+	"strings"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -65,5 +69,67 @@ func TestErrorsParse(t *testing.T) {
 			t.Errorf("Test %d: pattern count mismatch, expected %d, got %d",
 				i, test.optCount, len(h.patterns))
 		}
+	}
+}
+
+func TestProperLogCallbackIsSet(t *testing.T) {
+	tests := []struct {
+		name             string
+		inputErrorsRules string
+		wantLogLevel     string
+	}{
+		{
+			name: "warn is parsed properly",
+			inputErrorsRules: `errors {
+		        consolidate 1m .* warn
+		    }`,
+			wantLogLevel: "[WARNING]",
+		},
+		{
+			name: "error is parsed properly",
+			inputErrorsRules: `errors {
+		        consolidate 1m .* error
+		    }`,
+			wantLogLevel: "[ERROR]",
+		},
+		{
+			name: "info is parsed properly",
+			inputErrorsRules: `errors {
+		        consolidate 1m .* info
+		    }`,
+			wantLogLevel: "[INFO]",
+		},
+		{
+			name: "debug is parsed properly",
+			inputErrorsRules: `errors {
+		        consolidate 1m .* debug
+		    }`,
+			wantLogLevel: "[DEBUG]",
+		},
+		{
+			name: "default is error",
+			inputErrorsRules: `errors {
+		        consolidate 1m .*
+		    }`,
+			wantLogLevel: "[ERROR]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := bytes.Buffer{}
+			golog.SetOutput(&buf)
+			corednslog.D.Set()
+
+			c := caddy.NewTestController("dns", tt.inputErrorsRules)
+			h, _ := errorsParse(c)
+
+			l := h.patterns[0].logCallback
+			l("some error happened")
+
+			if log := buf.String(); !strings.Contains(log, tt.wantLogLevel) {
+				t.Errorf("Expected log %q, but got %q", tt.wantLogLevel, log)
+			}
+		})
 	}
 }

@@ -14,6 +14,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	corednslog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -71,21 +72,56 @@ func TestErrors(t *testing.T) {
 }
 
 func TestLogPattern(t *testing.T) {
-	buf := bytes.Buffer{}
-	golog.SetOutput(&buf)
-
-	h := &errorHandler{
-		patterns: []*pattern{{
-			count:   4,
-			period:  2 * time.Second,
-			pattern: regexp.MustCompile("^error.*!$"),
-		}},
+	type args struct {
+		logCallback func(format string, v ...interface{})
 	}
-	h.logPattern(0)
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "error log",
+			args: args{logCallback: log.Errorf},
+			want: "[ERROR] plugin/errors: 4 errors like '^error.*!$' occurred in last 2s",
+		},
+		{
+			name: "warn log",
+			args: args{logCallback: log.Warningf},
+			want: "[WARNING] plugin/errors: 4 errors like '^error.*!$' occurred in last 2s",
+		},
+		{
+			name: "info log",
+			args: args{logCallback: log.Infof},
+			want: "[INFO] plugin/errors: 4 errors like '^error.*!$' occurred in last 2s",
+		},
+		{
+			name: "debug log",
+			args: args{logCallback: log.Debugf},
+			want: "[DEBUG] plugin/errors: 4 errors like '^error.*!$' occurred in last 2s",
+		},
+	}
 
-	expLog := "4 errors like '^error.*!$' occurred in last 2s"
-	if log := buf.String(); !strings.Contains(log, expLog) {
-		t.Errorf("Expected log %q, but got %q", expLog, log)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := bytes.Buffer{}
+			corednslog.D.Set()
+			golog.SetOutput(&buf)
+
+			h := &errorHandler{
+				patterns: []*pattern{{
+					count:       4,
+					period:      2 * time.Second,
+					pattern:     regexp.MustCompile("^error.*!$"),
+					logCallback: tt.args.logCallback,
+				}},
+			}
+			h.logPattern(0)
+
+			if log := buf.String(); !strings.Contains(log, tt.want) {
+				t.Errorf("Expected log %q, but got %q", tt.want, log)
+			}
+		})
 	}
 }
 
@@ -154,6 +190,7 @@ func TestStop(t *testing.T) {
 		patterns: []*pattern{{
 			period:  2 * time.Second,
 			pattern: regexp.MustCompile("^error.*!$"),
+			logCallback: log.Errorf,
 		}},
 	}
 

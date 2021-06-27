@@ -18,10 +18,11 @@ import (
 var log = clog.NewWithPlugin("errors")
 
 type pattern struct {
-	ptimer  unsafe.Pointer
-	count   uint32
-	period  time.Duration
-	pattern *regexp.Regexp
+	ptimer      unsafe.Pointer
+	count       uint32
+	period      time.Duration
+	pattern     *regexp.Regexp
+	logCallback func(format string, v ...interface{})
 }
 
 func (p *pattern) timer() *time.Timer {
@@ -46,7 +47,7 @@ func newErrorHandler() *errorHandler {
 func (h *errorHandler) logPattern(i int) {
 	cnt := atomic.SwapUint32(&h.patterns[i].count, 0)
 	if cnt > 0 {
-		log.Errorf("%d errors like '%s' occurred in last %s",
+		h.patterns[i].logCallback("%d errors like '%s' occurred in last %s",
 			cnt, h.patterns[i].pattern.String(), h.patterns[i].period)
 	}
 }
