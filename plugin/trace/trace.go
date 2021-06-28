@@ -16,6 +16,8 @@ import (
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
+	otext "github.com/opentracing/opentracing-go/ext"
+	otlog "github.com/opentracing/opentracing-go/log"
 	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	"github.com/openzipkin/zipkin-go"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
@@ -148,6 +150,10 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	span.SetTag(t.tagSet.Proto, req.Proto())
 	span.SetTag(t.tagSet.Remote, req.IP())
 	span.SetTag(t.tagSet.Rcode, rcode.ToString(rw.Rcode))
+	if err != nil {
+		otext.Error.Set(span, true)
+		span.LogFields(otlog.Event("error"), otlog.Error(err))
+	}
 
 	return status, err
 }

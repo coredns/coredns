@@ -2,6 +2,7 @@ package trace
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -44,6 +45,7 @@ func TestTrace(t *testing.T) {
 		rcode    int
 		question *dns.Msg
 		server   string
+		err    error
 	}{
 		{
 			name:     "NXDOMAIN",
@@ -54,6 +56,12 @@ func TestTrace(t *testing.T) {
 			name:     "NOERROR",
 			rcode:    dns.RcodeSuccess,
 			question: new(dns.Msg).SetQuestion("example.net.", dns.TypeCNAME),
+		},
+		{
+			name:     "SERVFAIL",
+			rcode:    dns.RcodeServerFailure,
+			question: new(dns.Msg).SetQuestion("example.net.", dns.TypeA),
+			err:      errors.New("test error"),
 		},
 	}
 	defaultTagSet := tagByProvider["default"]
@@ -66,6 +74,9 @@ func TestTrace(t *testing.T) {
 					m := new(dns.Msg)
 					m.SetRcode(r, tc.rcode)
 					w.WriteMsg(m)
+					if tc.err != nil {
+						return tc.rcode, tc.err
+					}
 					return tc.rcode, nil
 				}),
 				every:  1,
@@ -73,7 +84,7 @@ func TestTrace(t *testing.T) {
 				tagSet: defaultTagSet,
 			}
 			ctx := context.TODO()
-			if _, err := tr.ServeDNS(ctx, w, tc.question); err != nil {
+			if _, err := tr.ServeDNS(ctx, w, tc.question); err != nil && tc.err == nil {
 				t.Fatalf("Error during tr.ServeDNS(ctx, w, %v): %v", tc.question, err)
 			}
 
@@ -103,6 +114,9 @@ func TestTrace(t *testing.T) {
 			}
 			if rootSpan.Tag(defaultTagSet.Rcode) != rcode.ToString(tc.rcode) {
 				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", defaultTagSet.Rcode, rcode.ToString(tc.rcode), rootSpan.Tag(defaultTagSet.Rcode))
+			}
+			if tc.err != nil && rootSpan.Tag("error") != true {
+				t.Errorf("Unexpected span tag: rootSpan.Tag(%v): want %v, got %v", "error", true, rootSpan.Tag("error"))
 			}
 		})
 	}
