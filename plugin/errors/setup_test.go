@@ -2,12 +2,12 @@ package errors
 
 import (
 	"bytes"
-	corednslog "github.com/coredns/coredns/plugin/pkg/log"
 	golog "log"
 	"strings"
 	"testing"
 
 	"github.com/coredns/caddy"
+	corednslog "github.com/coredns/coredns/plugin/pkg/log"
 )
 
 func TestErrorsParse(t *testing.T) {
