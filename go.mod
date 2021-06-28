@@ -19,7 +19,7 @@ require (
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/infobloxopen/go-trees v0.0.0-20200715205103-96a057b8dfb9
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
-	github.com/miekg/dns v1.1.42
+	github.com/miekg/dns v1.1.43
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5
 	github.com/openzipkin/zipkin-go v0.2.2
