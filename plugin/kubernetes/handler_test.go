@@ -782,16 +782,14 @@ func (APIConnServeTest) GetNodeByName(ctx context.Context, name string) (*api.No
 	}, nil
 }
 
-func (APIConnServeTest) GetNamespaceByName(name string) (*api.Namespace, error) {
+func (APIConnServeTest) GetNamespaceByName(name string) (*object.Namespace, error) {
 	if name == "pod-nons" { // handler_pod_verified_test.go uses this for non-existent namespace.
-		return &api.Namespace{}, nil
+		return nil, fmt.Errorf("namespace not found")
 	}
 	if name == "nsnoexist" {
 		return nil, fmt.Errorf("namespace not found")
 	}
-	return &api.Namespace{
-		ObjectMeta: meta.ObjectMeta{
-			Name: name,
-		},
+	return &object.Namespace{
+		Name: name,
 	}, nil
 }

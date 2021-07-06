@@ -142,11 +142,9 @@ func (APIConnReverseTest) GetNodeByName(ctx context.Context, name string) (*api.
 	}, nil
 }
 
-func (APIConnReverseTest) GetNamespaceByName(name string) (*api.Namespace, error) {
-	return &api.Namespace{
-		ObjectMeta: meta.ObjectMeta{
-			Name: name,
-		},
+func (APIConnReverseTest) GetNamespaceByName(name string) (*object.Namespace, error) {
+	return &object.Namespace{
+		Name: name,
 	}, nil
 }
 

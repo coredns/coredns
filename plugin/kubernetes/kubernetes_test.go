@@ -253,11 +253,9 @@ func (APIConnServiceTest) GetNodeByName(ctx context.Context, name string) (*api.
 	}, nil
 }
 
-func (APIConnServiceTest) GetNamespaceByName(name string) (*api.Namespace, error) {
-	return &api.Namespace{
-		ObjectMeta: meta.ObjectMeta{
-			Name: name,
-		},
+func (APIConnServiceTest) GetNamespaceByName(name string) (*object.Namespace, error) {
+	return &object.Namespace{
+		Name: name,
 	}, nil
 }
 
