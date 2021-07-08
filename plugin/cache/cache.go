@@ -181,6 +181,10 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	res.Ns = filterRRSlice(res.Ns, ttl, w.do, false)
 	res.Extra = filterRRSlice(res.Extra, ttl, w.do, false)
 
+	if !w.do {
+		res.AuthenticatedData = false // unset AD bit if client is not OK with DNSSEC
+	}
+
 	return w.ResponseWriter.WriteMsg(res)
 }
 
