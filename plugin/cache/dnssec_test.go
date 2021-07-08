@@ -23,7 +23,8 @@ func TestResponseWithDNSSEC(t *testing.T) {
 		},
 		{
 			Qname: "invent.example.org.", Qtype: dns.TypeA,
-			Do: true,
+			Do:                true,
+			AuthenticatedData: true,
 			Answer: []dns.RR{
 				test.CNAME("invent.example.org.		1781	IN	CNAME	leptone.example.org."),
 				test.RRSIG("invent.example.org.		1781	IN	RRSIG	CNAME 8 3 1800 20201012085750 20200912082613 57411 example.org. ijSv5FmsNjFviBcOFwQgqjt073lttxTTNqkno6oMa3DD3kC+"),
@@ -40,6 +41,9 @@ func TestResponseWithDNSSEC(t *testing.T) {
 		m := tc.Msg()
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		c.ServeDNS(context.TODO(), rec, m)
+		if tc.AuthenticatedData != rec.Msg.AuthenticatedData {
+			t.Errorf("Test %d, expected AuthenticatedData=%v", i, tc.AuthenticatedData)
+		}
 		if err := test.Section(tc, test.Answer, rec.Msg.Answer); err != nil {
 			t.Errorf("Test %d, expected no error, got %s", i, err)
 		}
@@ -64,6 +68,7 @@ func dnssecHandler() plugin.Handler {
 		m := new(dns.Msg)
 		m.SetQuestion("example.org.", dns.TypeA)
 
+		m.AuthenticatedData = true
 		m.Answer = make([]dns.RR, 4)
 		m.Answer[0] = test.CNAME("invent.example.org.		1781	IN	CNAME	leptone.example.org.")
 		m.Answer[1] = test.RRSIG("invent.example.org.		1781	IN	RRSIG	CNAME 8 3 1800 20201012085750 20200912082613 57411 example.org. ijSv5FmsNjFviBcOFwQgqjt073lttxTTNqkno6oMa3DD3kC+")
