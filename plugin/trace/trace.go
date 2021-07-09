@@ -149,7 +149,14 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	span.SetTag(t.tagSet.Type, req.Type())
 	span.SetTag(t.tagSet.Proto, req.Proto())
 	span.SetTag(t.tagSet.Remote, req.IP())
-	span.SetTag(t.tagSet.Rcode, rcode.ToString(rw.Rcode))
+	rc := rw.Rcode
+	if !plugin.ClientWrite(status) {
+		// when no response was written, fallback to status returned from next plugin as this status
+		// is actually used as rcode of DNS response
+		// see https://github.com/coredns/coredns/blob/master/core/dnsserver/server.go#L318
+		rc = status
+	}
+	span.SetTag(t.tagSet.Rcode, rcode.ToString(rc))
 	if err != nil {
 		otext.Error.Set(span, true)
 		span.LogFields(otlog.Event("error"), otlog.Error(err))

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 	"github.com/coredns/coredns/plugin/test"
@@ -43,23 +44,33 @@ func TestTrace(t *testing.T) {
 	cases := []struct {
 		name     string
 		rcode    int
+		status   int
 		question *dns.Msg
-		server   string
 		err      error
 	}{
 		{
 			name:     "NXDOMAIN",
 			rcode:    dns.RcodeNameError,
+			status:   dns.RcodeSuccess,
 			question: new(dns.Msg).SetQuestion("example.org.", dns.TypeA),
 		},
 		{
 			name:     "NOERROR",
 			rcode:    dns.RcodeSuccess,
+			status:   dns.RcodeSuccess,
 			question: new(dns.Msg).SetQuestion("example.net.", dns.TypeCNAME),
 		},
 		{
 			name:     "SERVFAIL",
 			rcode:    dns.RcodeServerFailure,
+			status:   dns.RcodeSuccess,
+			question: new(dns.Msg).SetQuestion("example.net.", dns.TypeA),
+			err:      errors.New("test error"),
+		},
+		{
+			name:     "No response written",
+			rcode:    dns.RcodeServerFailure,
+			status:   dns.RcodeServerFailure,
 			question: new(dns.Msg).SetQuestion("example.net.", dns.TypeA),
 			err:      errors.New("test error"),
 		},
@@ -71,13 +82,12 @@ func TestTrace(t *testing.T) {
 			m := mocktracer.New()
 			tr := &trace{
 				Next: test.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-					m := new(dns.Msg)
-					m.SetRcode(r, tc.rcode)
-					w.WriteMsg(m)
-					if tc.err != nil {
-						return tc.rcode, tc.err
+					if plugin.ClientWrite(tc.status) {
+						m := new(dns.Msg)
+						m.SetRcode(r, tc.rcode)
+						w.WriteMsg(m)
 					}
-					return tc.rcode, nil
+					return tc.status, tc.err
 				}),
 				every:  1,
 				tracer: m,
