@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
-	corednslog "github.com/coredns/coredns/plugin/pkg/log"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 )
 
 func TestErrorsParse(t *testing.T) {
@@ -119,7 +119,7 @@ func TestProperLogCallbackIsSet(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := bytes.Buffer{}
 			golog.SetOutput(&buf)
-			corednslog.D.Set()
+			clog.D.Set()
 
 			c := caddy.NewTestController("dns", tt.inputErrorsRules)
 			h, _ := errorsParse(c)

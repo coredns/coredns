@@ -14,7 +14,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
-	corednslog "github.com/coredns/coredns/plugin/pkg/log"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -105,7 +105,7 @@ func TestLogPattern(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := bytes.Buffer{}
-			corednslog.D.Set()
+			clog.D.Set()
 			golog.SetOutput(&buf)
 
 			h := &errorHandler{
