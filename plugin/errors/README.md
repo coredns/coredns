@@ -27,7 +27,7 @@ errors {
 ~~~
 
 Option `consolidate` allows collecting several error messages matching the regular expression **REGEXP** during **DURATION**. After the **DURATION** since receiving the first such message, the consolidated message will be printed to standard output with
-log level, which is configurable by optional option **LEVEL**. Supported options for **LEVEL** option are `warn`,`error`,`info` and `debug`.
+log level, which is configurable by optional option **LEVEL**. Supported options for **LEVEL** option are `warning`,`error`,`info` and `debug`.
 ~~~
 2 errors like '^read udp .* i/o timeout$' occurred in last 30s
 ~~~

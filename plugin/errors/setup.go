@@ -92,7 +92,7 @@ func parseLogLevel(c *caddy.Controller, args []string) (func(format string, v ..
 	}
 
 	switch args[2] {
-	case "warn":
+	case "warning":
 		return log.Warningf, nil
 	case "error":
 		return log.Errorf, nil
@@ -101,6 +101,6 @@ func parseLogLevel(c *caddy.Controller, args []string) (func(format string, v ..
 	case "debug":
 		return log.Debugf, nil
 	default:
-		return nil, c.Err("unknown log level argument in consolidate")
+		return nil, c.Errf("unknown log level argument in consolidate: %s", args[2])
 	}
 }

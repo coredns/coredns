@@ -79,9 +79,9 @@ func TestProperLogCallbackIsSet(t *testing.T) {
 		wantLogLevel     string
 	}{
 		{
-			name: "warn is parsed properly",
+			name: "warning is parsed properly",
 			inputErrorsRules: `errors {
-		        consolidate 1m .* warn
+		        consolidate 1m .* warning
 		    }`,
 			wantLogLevel: "[WARNING]",
 		},
