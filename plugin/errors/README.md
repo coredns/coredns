@@ -55,7 +55,7 @@ and errors with prefix "Failed to " as errors.
 . {
     forward . 8.8.8.8
     errors {
-        consolidate 5m ".* i/o timeout$" warn
+        consolidate 5m ".* i/o timeout$" warning
         consolidate 30s "^Failed to .+"
     }
 }
