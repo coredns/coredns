@@ -47,7 +47,9 @@ example.org {
 }
 ~~~
 
-Use the *forward* to resolve queries via 8.8.8.8 and print consolidated error messages for errors with suffix " i/o timeout" or with prefix "Failed to ".
+Use the *forward* plugin to resolve queries via 8.8.8.8 and print consolidated messages
+for errors with suffix " i/o timeout" as warnings,
+and errors with prefix "Failed to " as errors.
 
 ~~~ corefile
 . {
