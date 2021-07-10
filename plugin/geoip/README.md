@@ -30,10 +30,10 @@ The supported databases use city schema such as `City` and `Enterprise` . Other 
 You can download a [free and public City database](https://www.maxmind.com/en/geoip2-city).
 
 ## Syntax
-* **DBFILE** the mmdb database file path.
 ```txt
 geoip [DBFILE]
 ```
+* **DBFILE** the mmdb database file path.
 
 You can specifiy a list of languages for `names` fields.
 ```txt
