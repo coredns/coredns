@@ -58,7 +58,7 @@ The following configuration configures the `City` database adding names in Engli
 ## Metadatada Labels
 A limited set of fields will be exported as labels, all values are stored using strings **regardless of their underlying value type**, and therefore you may have to convert it back to its original type, note that numeric values are always represented in base 10.
 
-**LANG** Language location ISO??? code, if database does not have a name for the selected language the label
+**LANG** is the language  ISO code, if database does not have a name for the selected language the label
 will return a nil function, you should only configure languages available in your geoIP database, it's also your responsability to check the label function is not nil before calling it.
 
 | Label                                | Type      | Example          | Description
