@@ -6,7 +6,7 @@
 ## Description
 The *geoip* plugin add geo location data associated with the client IP, it allows you to configure a [geoIP2 maxmind database](https://dev.maxmind.com/geoip/docs/databases) to add the geo location data associated with the IP address.
 
-The data is added leveraging the [metadata](../metadata/README.md) plugin, values can then be retrieved using it as well, for example:
+The data is added leveraging the *metadata* plugin, values can then be retrieved using it as well, for example:
 
 ```go
 import (
