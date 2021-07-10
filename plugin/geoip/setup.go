@@ -40,15 +40,9 @@ func geoipParse(c *caddy.Controller) (*GeoIP, error) {
 		if len(c.RemainingArgs()) != 0 {
 			return nil, c.ArgErr()
 		}
-		// If there is config within a block read it.
-		for c.NextBlock() {
-			switch c.Val() {
-			case "languages":
-				langs = c.RemainingArgs()
-
-			default:
-				return nil, c.Errf("unknown property %q", c.Val())
-			}
+		// The plugin should not have any config block.
+		if c.NextBlock() {
+			return nil, c.Err("unexpected config block")
 		}
 	}
 

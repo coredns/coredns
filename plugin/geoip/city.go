@@ -8,24 +8,24 @@ import (
 	"github.com/oschwald/geoip2-golang"
 )
 
+const defaultLang = "en"
+
 func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 	// Set labels for city, country and continent names.
-	for _, lang := range g.langs {
-		if name, ok := data.City.Names[lang]; ok {
-			metadata.SetValueFunc(ctx, pluginName + "/city/names/" + lang, func() string {
-				return name
-			})
-		}
-		if name, ok := data.Country.Names[lang]; ok {
-			metadata.SetValueFunc(ctx, pluginName + "/country/names/" + lang, func() string {
-				return name
-			})
-		}
-		if name, ok := data.Continent.Names[lang]; ok {
-			metadata.SetValueFunc(ctx, pluginName + "/continent/names/" + lang, func() string {
-				return name
-			})
-		}
+	if name, ok := data.City.Names[defaultLang]; ok {
+		metadata.SetValueFunc(ctx, pluginName + "/city/name", func() string {
+			return name
+		})
+	}
+	if name, ok := data.Country.Names[defaultLang]; ok {
+		metadata.SetValueFunc(ctx, pluginName + "/country/name", func() string {
+			return name
+		})
+	}
+	if name, ok := data.Continent.Names[defaultLang]; ok {
+		metadata.SetValueFunc(ctx, pluginName + "/continent/name", func() string {
+			return name
+		})
 	}
 
 	countryCode := data.Country.IsoCode

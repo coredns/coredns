@@ -53,24 +53,24 @@ func TestGeoIPParse(t *testing.T) {
 		shouldErr      bool
 		config         string
 		expectedErr    string
-		expectedLang   []string
 		expectedDBType int
 	}{
 		// Valid
-		{false, fmt.Sprintf("%s %s\n", pluginName, enterpriseDBPath), "", defaultLanguages, enterprise},
-		{false, fmt.Sprintf("%s %s\n", pluginName, cityDBPath), "", defaultLanguages, city},
-		{false, fmt.Sprintf("%s %s\n", pluginName, countryDBPath), "", defaultLanguages, country},
-		{false, fmt.Sprintf("%s %s {\n\tlanguages en fr es zh-CN\n}\n", pluginName, cityDBPath), "", []string{"en", "fr", "es", "zh-CN"}, city},
+		{false, fmt.Sprintf("%s %s\n", pluginName, enterpriseDBPath), "", enterprise},
+		{false, fmt.Sprintf("%s %s\n", pluginName, cityDBPath), "", city},
+		{false, fmt.Sprintf("%s %s\n", pluginName, countryDBPath), "", country},
+		
 		
 		// Invalid
-		{true, pluginName, "Wrong argument count", nil, 0},
-		{true, fmt.Sprintf("%s %s\n%s %s\n", pluginName, cityDBPath, pluginName, countryDBPath), "configuring multiple databases is not supported", nil, 0},
-		{true, fmt.Sprintf("%s 1 2 3", pluginName), "Wrong argument count", nil, 0},
-		{true, fmt.Sprintf("%s { }", pluginName), "Error during parsing", nil, 0},
-		{true, fmt.Sprintf("%s /dbpath { city }", pluginName), "unknown property", nil, 0},
-		{true, fmt.Sprintf("%s /invalidPath\n", pluginName), "failed to open database file: open /invalidPath: no such file or directory", nil, 0},
-		{true, fmt.Sprintf("%s %s\n", pluginName, unknownDBPath), "reader does not support the \"UnknownDbType\" database type", defaultLanguages, 0},
-		{true, fmt.Sprintf("%s %s\n", pluginName, ispDBPath), "database does not provide city schema", nil, 0},
+		{true, pluginName, "Wrong argument count", 0},
+		{true, fmt.Sprintf("%s %s {\n\tlanguages en fr es zh-CN\n}\n", pluginName, cityDBPath), "unexpected config block", 0},
+		{true, fmt.Sprintf("%s %s\n%s %s\n", pluginName, cityDBPath, pluginName, countryDBPath), "configuring multiple databases is not supported", 0},
+		{true, fmt.Sprintf("%s 1 2 3", pluginName), "Wrong argument count", 0},
+		{true, fmt.Sprintf("%s { }", pluginName), "Error during parsing", 0},
+		{true, fmt.Sprintf("%s /dbpath { city }", pluginName), "unexpected config block", 0},
+		{true, fmt.Sprintf("%s /invalidPath\n", pluginName), "failed to open database file: open /invalidPath: no such file or directory", 0},
+		{true, fmt.Sprintf("%s %s\n", pluginName, unknownDBPath), "reader does not support the \"UnknownDbType\" database type", 0},
+		{true, fmt.Sprintf("%s %s\n", pluginName, ispDBPath), "database does not provide city schema", 0},
 	}
 
 	for i, test := range tests {
@@ -94,15 +94,6 @@ func TestGeoIPParse(t *testing.T) {
 
 		if geoIP.db.Reader == nil {
 			t.Errorf("Test %d: after parsing database reader should be initialized", i)
-		}
-		if len(geoIP.langs) != len(test.expectedLang) {
-			t.Errorf("Test %d: plugin languages %v != expected languages %v", i, geoIP.langs, test.expectedLang)
-		} else {
-			for i, l := range geoIP.langs {
-				if test.expectedLang[i] != l {
-					t.Errorf("Test %d: plugin language %q != expected language %q", i, l, test.expectedLang[i])
-				}
-			}
 		}
 	}
 

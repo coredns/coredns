@@ -22,7 +22,6 @@ var log = clog.NewWithPlugin(pluginName)
 type GeoIP struct {
 	Next          plugin.Handler
 	db            db
-	langs         []string
 }
 
 type db struct {
@@ -79,7 +78,7 @@ func newGeoIP(dbPath string, langs []string) (*GeoIP, error) {
 		return nil, fmt.Errorf("database does not provide city schema")
 	}
 
-	return &GeoIP{db: db, langs: langs}, nil
+	return &GeoIP{db: db}, nil
 }
 
 // ServeDNS implements the plugin.Handler interface.

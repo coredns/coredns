@@ -17,18 +17,15 @@ func TestMetadata(t *testing.T) {
 		label         string
 		expectedValue string
 	}{
-		{cityDBPath, "geoip/city/names/en", "Cambridge"},
-		{cityDBPath, "geoip/city/names/es", "Cambridge"},
+		{cityDBPath, "geoip/city/name", "Cambridge"},
 
 		{cityDBPath, "geoip/country/code", "GB"},
-		{cityDBPath, "geoip/country/names/en", "United Kingdom"},
-		{cityDBPath, "geoip/country/names/es", "Reino Unido"},
+		{cityDBPath, "geoip/country/name", "United Kingdom"},
 		// is_in_european_union is set to true only to work around bool zero value, and test is really being set.
 		{cityDBPath, "geoip/country/is_in_european_union", "true"},
 		
 		{cityDBPath, "geoip/continent/code", "EU"},
-		{cityDBPath, "geoip/continent/names/en", "Europe"},
-		{cityDBPath, "geoip/continent/names/es", "Europa"},
+		{cityDBPath, "geoip/continent/name", "Europe"},
 		
 		{cityDBPath, "geoip/latitude", "52.2242"},
 		{cityDBPath, "geoip/longitude", "0.1315"},
