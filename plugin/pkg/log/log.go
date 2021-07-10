@@ -20,6 +20,14 @@ import (
 // it can not be unset.
 var D = &d{}
 
+var levelToLabel = map[string]string{
+	debug:   debugLabel,
+	info:    infoLabel,
+	warning: warningLabel,
+	err:     errorLabel,
+	fatal:   fatalLabel,
+}
+
 type d struct {
 	on bool
 	sync.RWMutex
@@ -50,11 +58,13 @@ func (d *d) Value() bool {
 // logf calls log.Printf prefixed with level.
 func logf(level, format string, v ...interface{}) {
 	golog.Print(level, fmt.Sprintf(format, v...))
+	LogMessagesTotal.WithLabelValues(levelToLabel[level]).Inc()
 }
 
 // log calls log.Print prefixed with level.
 func log(level string, v ...interface{}) {
 	golog.Print(level, fmt.Sprint(v...))
+	LogMessagesTotal.WithLabelValues(levelToLabel[level]).Inc()
 }
 
 // Debug is equivalent to log.Print(), but prefixed with "[DEBUG] ". It only outputs something

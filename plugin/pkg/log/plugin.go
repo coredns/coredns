@@ -19,7 +19,7 @@ func (p P) logf(level, format string, v ...interface{}) {
 }
 
 func (p P) log(level string, v ...interface{}) {
-	log(level+p.plugin, v...)
+	log(level, p.plugin, fmt.Sprint(v...))
 }
 
 // Debug logs as log.Debug.
