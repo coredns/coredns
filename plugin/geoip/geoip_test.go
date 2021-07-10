@@ -10,12 +10,6 @@ import (
 	"github.com/coredns/coredns/plugin/metadata"
 )
 
-func TestGeoIPName(t *testing.T) {
-	geoIP := new(GeoIP)
-	if geoIP.Name() != pluginName {
-		t.Errorf("expected plugin name: %s, got %s", pluginName, geoIP.Name())
-	}
-}
 func TestMetadata(t *testing.T) {
 
 	tests := []struct {
