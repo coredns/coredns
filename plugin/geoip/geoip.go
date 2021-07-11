@@ -44,12 +44,8 @@ const (
 
 // probingIP is an arbitrary internet IP used to discover database types through database lookups.
 var probingIP = net.ParseIP("81.2.69.142")
-var defaultLanguages = []string{"en"}
 
-func newGeoIP(dbPath string, langs []string) (*GeoIP, error) {
-	if len(langs) == 0 {
-		langs = defaultLanguages
-	}
+func newGeoIP(dbPath string) (*GeoIP, error) {
 	reader, err := geoip2.Open(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database file: %v", err)

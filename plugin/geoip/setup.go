@@ -26,7 +26,6 @@ func setup(c *caddy.Controller) error {
 
 func geoipParse(c *caddy.Controller) (*GeoIP, error) {
 	var dbPath string
-	var langs []string
 
 	for c.Next() {
 		if !c.NextArg() {
@@ -46,7 +45,7 @@ func geoipParse(c *caddy.Controller) (*GeoIP, error) {
 		}
 	}
 
-	geoIP, err := newGeoIP(dbPath, langs)
+	geoIP, err := newGeoIP(dbPath)
 	if err != nil {
 		return geoIP, c.Err(err.Error())
 	}

@@ -34,7 +34,7 @@ func TestMetadata(t *testing.T) {
 	}
 
 	for i, _test := range tests {
-		geoIP, err := newGeoIP(_test.dbPath, []string{"en", "es"})
+		geoIP, err := newGeoIP(_test.dbPath)
 		if err != nil {
 			t.Fatalf("Test %d: unable to create geoIP plugin: %v", i, err)
 		}
