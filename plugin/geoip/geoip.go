@@ -42,8 +42,7 @@ const (
 	isp
 )
 
-// probingIP is an arbitrary internet IP used to discover database types through database lookups.
-var probingIP = net.ParseIP("81.2.69.142")
+var probingIP = net.ParseIP("127.0.0.1")
 
 func newGeoIP(dbPath string) (*GeoIP, error) {
 	reader, err := geoip2.Open(dbPath)
