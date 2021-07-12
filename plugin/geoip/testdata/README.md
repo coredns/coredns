@@ -1,5 +1,10 @@
-// This package is a helper function to create the mmdb databases used for testing in the
-// geoip plugin.
+# testdata
+This directory contains mmdb database files used during the testing of this plugin.
+
+# Create mmdb database files
+If you need to change them to add a new value, or field the best is to recreate them, the code snipped used to create them initially is provided next.
+
+```golang
 package main
 
 import (
@@ -104,3 +109,4 @@ func createCityDB(dbName, dbType string) {
 		log.Fatal(err)
 	}
 }
+```
