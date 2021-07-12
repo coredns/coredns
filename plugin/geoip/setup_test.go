@@ -12,9 +12,9 @@ import (
 )
 
 var (
-	fixturesDir      = "./testdata"
-	cityDBPath       = filepath.Join(fixturesDir, "GeoLite2-City.mmdb")
-	unknownDBPath    = filepath.Join(fixturesDir, "GeoLite2-UnknownDbType.mmdb")
+	fixturesDir   = "./testdata"
+	cityDBPath    = filepath.Join(fixturesDir, "GeoLite2-City.mmdb")
+	unknownDBPath = filepath.Join(fixturesDir, "GeoLite2-UnknownDbType.mmdb")
 )
 
 func TestProbingIP(t *testing.T) {
@@ -52,7 +52,7 @@ func TestGeoIPParse(t *testing.T) {
 	}{
 		// Valid
 		{false, fmt.Sprintf("%s %s\n", pluginName, cityDBPath), "", city},
-		
+
 		// Invalid
 		{true, pluginName, "Wrong argument count", 0},
 		{true, fmt.Sprintf("%s %s {\n\tlanguages en fr es zh-CN\n}\n", pluginName, cityDBPath), "unexpected config block", 0},

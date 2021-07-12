@@ -7,8 +7,8 @@ import (
 	"net"
 	"path/filepath"
 
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -20,8 +20,8 @@ var log = clog.NewWithPlugin(pluginName)
 // GeoIP is a plugin that add geo location data to the request context by looking up a maxmind
 // geoIP2 database, and which data can be later consumed by other middlewares.
 type GeoIP struct {
-	Next          plugin.Handler
-	db            db
+	Next plugin.Handler
+	db   db
 }
 
 type db struct {
