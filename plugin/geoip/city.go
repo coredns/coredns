@@ -12,21 +12,18 @@ const defaultLang = "en"
 
 func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 	// Set labels for city, country and continent names.
-	if name, ok := data.City.Names[defaultLang]; ok {
-		metadata.SetValueFunc(ctx, pluginName + "/city/name", func() string {
-			return name
-		})
-	}
-	if name, ok := data.Country.Names[defaultLang]; ok {
-		metadata.SetValueFunc(ctx, pluginName + "/country/name", func() string {
-			return name
-		})
-	}
-	if name, ok := data.Continent.Names[defaultLang]; ok {
-		metadata.SetValueFunc(ctx, pluginName + "/continent/name", func() string {
-			return name
-		})
-	}
+	cityName := data.City.Names[defaultLang]
+	metadata.SetValueFunc(ctx, pluginName + "/city/name", func() string {
+		return cityName
+	})
+	countryName := data.Country.Names[defaultLang]
+	metadata.SetValueFunc(ctx, pluginName + "/country/name", func() string {
+		return countryName
+	})
+	continentName := data.Continent.Names[defaultLang]
+	metadata.SetValueFunc(ctx, pluginName + "/continent/name", func() string {
+		return continentName
+	})
 
 	countryCode := data.Country.IsoCode
 	metadata.SetValueFunc(ctx, pluginName + "/country/code", func() string {
