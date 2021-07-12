@@ -91,7 +91,7 @@ func (g GeoIP) Metadata(ctx context.Context, state request.Request) context.Cont
 		data, err := g.db.City(srcIP)
 		if err != nil {
 			log.Debugf("Setting up metadata failed due to database lookup error: %v", err)
-			break
+			return ctx
 		}
 		g.setCityMetadata(ctx, data)
 	}
