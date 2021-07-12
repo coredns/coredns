@@ -16,20 +16,9 @@ const cdir = "81.2.69.142/32"
 
 // Create new mmdb database fixtures in this directory.
 func main() {
-	createDB("GeoIP2-Enterprise.mmdb", "GeoIP2-Enterprise")
-	createDB("GeoLite2-City.mmdb", "DBIP-City-Lite")
-	createDB("GeoLite2-Country.mmdb", "DBIP-Country-Lite")
+	createCityDB("GeoLite2-City.mmdb", "DBIP-City-Lite")
 	// Create unkwnon database type.
-	createDB("GeoLite2-UnknownDbType.mmdb", "UnknownDbType")
-	// Create a known geoIP2 database type but currently unsupported by geoip plugin.
-	createDB("GeoIP2-ISP.mmdb", "GeoIP2-ISP")
-}
-
-func createDB(dbName, dbType string) {
-	// Right now only city database is supported, we test for other database types and
-	// even databases that contain the City schema, such as Enterprise and Country, for 
-	// that reason we reuse the City schema for all database fixtures.
-	createCityDB(dbName, dbType)
+	createCityDB("GeoLite2-UnknownDbType.mmdb", "UnknownDbType")
 }
 
 func createCityDB(dbName, dbType string) {

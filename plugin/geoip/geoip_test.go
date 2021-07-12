@@ -39,7 +39,7 @@ func TestMetadata(t *testing.T) {
 			t.Fatalf("Test %d: unable to create geoIP plugin: %v", i, err)
 		}
 		state := request.Request{
-			W: &test.ResponseWriter{RemoteIP: "81.2.69.142"}, // The IP used to create the database fixtures.
+			W: &test.ResponseWriter{RemoteIP: "81.2.69.142"}, // This IP should be be part of the CDIR address range used to create the database fixtures.
 		}
 		ctx := metadata.ContextWithMetadata(context.Background())
 		rCtx := geoIP.Metadata(ctx, state)

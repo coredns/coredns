@@ -13,11 +13,8 @@ import (
 
 var (
 	fixturesDir      = "./testdata"
-	enterpriseDBPath = filepath.Join(fixturesDir, "GeoIP2-Enterprise.mmdb")
 	cityDBPath       = filepath.Join(fixturesDir, "GeoLite2-City.mmdb")
-	countryDBPath    = filepath.Join(fixturesDir, "GeoLite2-Country.mmdb")
 	unknownDBPath    = filepath.Join(fixturesDir, "GeoLite2-UnknownDbType.mmdb")
-	ispDBPath        = filepath.Join(fixturesDir, "GeoIP2-ISP.mmdb")
 )
 
 func TestProbingIP(t *testing.T) {
@@ -54,20 +51,17 @@ func TestGeoIPParse(t *testing.T) {
 		expectedDBType int
 	}{
 		// Valid
-		{false, fmt.Sprintf("%s %s\n", pluginName, enterpriseDBPath), "", city},
 		{false, fmt.Sprintf("%s %s\n", pluginName, cityDBPath), "", city},
-		{false, fmt.Sprintf("%s %s\n", pluginName, countryDBPath), "", city},
 		
 		// Invalid
 		{true, pluginName, "Wrong argument count", 0},
 		{true, fmt.Sprintf("%s %s {\n\tlanguages en fr es zh-CN\n}\n", pluginName, cityDBPath), "unexpected config block", 0},
-		{true, fmt.Sprintf("%s %s\n%s %s\n", pluginName, cityDBPath, pluginName, countryDBPath), "configuring multiple databases is not supported", 0},
+		{true, fmt.Sprintf("%s %s\n%s %s\n", pluginName, cityDBPath, pluginName, cityDBPath), "configuring multiple databases is not supported", 0},
 		{true, fmt.Sprintf("%s 1 2 3", pluginName), "Wrong argument count", 0},
 		{true, fmt.Sprintf("%s { }", pluginName), "Error during parsing", 0},
 		{true, fmt.Sprintf("%s /dbpath { city }", pluginName), "unexpected config block", 0},
 		{true, fmt.Sprintf("%s /invalidPath\n", pluginName), "failed to open database file: open /invalidPath: no such file or directory", 0},
 		{true, fmt.Sprintf("%s %s\n", pluginName, unknownDBPath), "reader does not support the \"UnknownDbType\" database type", 0},
-		{true, fmt.Sprintf("%s %s\n", pluginName, ispDBPath), "database does not provide city schema", 0},
 	}
 
 	for i, test := range tests {
