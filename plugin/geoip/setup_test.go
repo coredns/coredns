@@ -54,10 +54,9 @@ func TestGeoIPParse(t *testing.T) {
 		expectedDBType int
 	}{
 		// Valid
-		{false, fmt.Sprintf("%s %s\n", pluginName, enterpriseDBPath), "", enterprise},
+		{false, fmt.Sprintf("%s %s\n", pluginName, enterpriseDBPath), "", city},
 		{false, fmt.Sprintf("%s %s\n", pluginName, cityDBPath), "", city},
-		{false, fmt.Sprintf("%s %s\n", pluginName, countryDBPath), "", country},
-		
+		{false, fmt.Sprintf("%s %s\n", pluginName, countryDBPath), "", city},
 		
 		// Invalid
 		{true, pluginName, "Wrong argument count", 0},
@@ -92,6 +91,10 @@ func TestGeoIPParse(t *testing.T) {
 
 		if geoIP.db.Reader == nil {
 			t.Errorf("Test %d: after parsing database reader should be initialized", i)
+		}
+
+		if geoIP.db.provides&test.expectedDBType == 0 {
+			t.Errorf("Test %d: expected db type %d not found, database file provides %d", i, test.expectedDBType, geoIP.db.provides)
 		}
 	}
 

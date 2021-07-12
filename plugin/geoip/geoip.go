@@ -32,14 +32,7 @@ type db struct {
 }
 
 const (
-	anonymousIP = 1 << iota
-	asn
-	city
-	connectionType
-	country
-	domain
-	enterprise
-	isp
+	city = 1 << iota
 )
 
 var probingIP = net.ParseIP("127.0.0.1")
