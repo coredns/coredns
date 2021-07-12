@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -13,8 +12,7 @@ import (
 )
 
 var (
-	_, file, _, _    = runtime.Caller(0)
-	fixturesDir      = filepath.Join(filepath.Dir(file), "testdata")
+	fixturesDir      = "./testdata"
 	enterpriseDBPath = filepath.Join(fixturesDir, "GeoIP2-Enterprise.mmdb")
 	cityDBPath       = filepath.Join(fixturesDir, "GeoLite2-City.mmdb")
 	countryDBPath    = filepath.Join(fixturesDir, "GeoLite2-Country.mmdb")
