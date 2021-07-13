@@ -145,7 +145,7 @@ else
 	    mkdir -p build/docker/linux/$${arch} ;\
 	    tar -xzf release/$(NAME)_$(VERSION)_linux_$${arch}.tgz -C build/docker/linux/$${arch} ;\
 	    cp Dockerfile build/docker/linux/$${arch} ;\
-	    docker build -t $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) build/docker/linux/$${arch} ;\
+	    DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build --load --platform linux/$${arch} -t $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) build/docker/linux/$${arch} ;\
 	    docker tag $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
 	done
 endif
