@@ -125,11 +125,15 @@ In this example the *file* plugin is handling all names below (and including) `e
 a query comes in that is not a subdomain (or equal to) `example.org` the next plugin is called.
 
 Now, the world isn't perfect, and there are may be reasons to "fallthrough" to the next plugin,
-meaning a plugin is only responsible for a *subset* of names within the zone.
+meaning a plugin is only responsible for a *subset* of names within the zone. But this is a very
+dangerous route to take, because the multiple sources can have very different ideas on what names
+exist, this can confuse caches and resolvers.
 
 The `fallthrough` directive should optionally accept a list of zones. Only queries for records
 in one of those zones should be allowed to fallthrough. See `plugin/pkg/fallthrough` for the
 implementation.
+
+Use this directive should be a last resort and is almost never needed (nor a good idea).
 
 ## Mutating a Response
 
