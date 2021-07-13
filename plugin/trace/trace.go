@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
@@ -21,6 +22,7 @@ import (
 	zipkinot "github.com/openzipkin-contrib/zipkin-go-opentracing"
 	"github.com/openzipkin/zipkin-go"
 	zipkinhttp "github.com/openzipkin/zipkin-go/reporter/http"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/ext"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/opentracer"
 	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
@@ -28,6 +30,7 @@ import (
 
 const (
 	defaultTopLevelSpanName = "servedns"
+    metaTraceIdKey = "trace/traceid"
 )
 
 type traceTags struct {
@@ -140,6 +143,13 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	req := request.Request{W: w, Req: r}
 	span = t.Tracer().StartSpan(defaultTopLevelSpanName)
 	defer span.Finish()
+
+	switch spanCtx := span.Context().(type) {
+	case zipkinot.SpanContext:
+		metadata.SetValueFunc(ctx, metaTraceIdKey, func() string{ return spanCtx.TraceID.String() })
+	case ddtrace.SpanContext:
+		metadata.SetValueFunc(ctx, metaTraceIdKey, func() string{ return fmt.Sprint(spanCtx.TraceID()) })
+	}
 
 	rw := dnstest.NewRecorder(w)
 	ctx = ot.ContextWithSpan(ctx, span)
