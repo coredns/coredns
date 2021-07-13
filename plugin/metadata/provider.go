@@ -56,15 +56,11 @@ type Provider interface {
 // Func is the type of function in the metadata, when called they return the value of the label.
 type Func func() string
 
-// IsLabel checks that the provided name is a valid label name, i.e. two words separated by a slash.
+// IsLabel checks that the provided name is a valid label name, i.e. two or more words separated by a slash.
 func IsLabel(label string) bool {
 	p := strings.Index(label, "/")
 	if p <= 0 || p >= len(label)-1 {
 		// cannot accept namespace empty nor label empty
-		return false
-	}
-	if strings.LastIndex(label, "/") != p {
-		// several slash in the Label
 		return false
 	}
 	return true

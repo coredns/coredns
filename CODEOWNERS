@@ -30,6 +30,7 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/etcd/           @miekg @nitisht
 /plugin/file/           @miekg @yongtang @stp-ip
 /plugin/forward/        @johnbelamaric @miekg @rdrozhdzh
+/plugin/geoip/          @miekg @snebel29
 /plugin/grpc/           @inigohu @miekg @zouyee
 /plugin/health/         @fastest963 @miekg @zouyee
 /plugin/hosts/          @johnbelamaric @pmoroney

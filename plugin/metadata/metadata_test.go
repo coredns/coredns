@@ -72,12 +72,12 @@ func TestLabelFormat(t *testing.T) {
 		{"plugin/LABEL", true},
 		{"p/LABEL", true},
 		{"plugin/L", true},
+		{"PLUGIN/LABEL/SUB-LABEL", true},
 		// fails
 		{"LABEL", false},
 		{"plugin.LABEL", false},
 		{"/NO-PLUGIN-NOT-ACCEPTED", false},
 		{"ONLY-PLUGIN-NOT-ACCEPTED/", false},
-		{"PLUGIN/LABEL/SUB-LABEL", false},
 		{"/", false},
 		{"//", false},
 	}
