@@ -95,6 +95,12 @@ var dnsTestCases = []test.Case{
 		},
 		Ns: miekAuth,
 	},
+	{
+		Qname: "ent.miek.nl.", Qtype: dns.TypeA,
+		Ns: []dns.RR{
+			test.SOA("miek.nl.	1800	IN	SOA	linode.atoom.net. miek.miek.nl. 1282630057 14400 3600 604800 14400"),
+		},
+	},
 }
 
 const (
@@ -193,4 +199,6 @@ www             IN      CNAME   a
 archive         IN      CNAME   a
 
 srv		IN	SRV     10 10 8080 a.miek.nl.
-mx		IN	MX      10 a.miek.nl.`
+mx		IN	MX      10 a.miek.nl.
+
+test.ent	IN	A	139.162.196.79`

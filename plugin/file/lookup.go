@@ -56,10 +56,10 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	}
 
 	var (
-		found, shot    bool
-		parts          string
-		i              int
-		elem, wildElem *tree.Elem
+		found, shot              bool
+		parts                    string
+		i, maxLabelNum           int
+		elem, wildElem, nextElem *tree.Elem
 	)
 
 	loop, _ := ctx.Value(dnsserver.LoopKey{}).(int)
@@ -90,6 +90,12 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		// We overshot the name, break and check if we previously found something.
 		if shot {
 			break
+		}
+
+		if nextElem, found = tr.Next(parts); found {
+			if dns.IsSubDomain(parts, nextElem.Name()) {
+				maxLabelNum = z.origLen + i
+			}
 		}
 
 		elem, found = tr.Search(parts)
@@ -201,8 +207,18 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 	// Found wildcard.
 	if wildElem != nil {
-		auth := ap.ns(do)
+		// if the domain's longest matching parent domain is subdomain of the wildcard,
+		// in other words, the domain‘s max number of labels matched is >= number of labels of the wildcard
+		if maxLabelNum >= dns.CountLabel(wildElem.Name()) {
+			ret := ap.soa(do)
+			if do {
+				nsec := typeFromElem(wildElem, dns.TypeNSEC, do)
+				ret = append(ret, nsec...)
+			}
+			return nil, ret, nil, NameError
+		}
 
+		auth := ap.ns(do)
 		if rrs := wildElem.TypeForWildcard(dns.TypeCNAME, qname); len(rrs) > 0 {
 			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
 			return z.externalLookup(ctx, state, wildElem, rrs)
