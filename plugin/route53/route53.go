@@ -254,12 +254,55 @@ func (h *Route53) updateZones(ctx context.Context) error {
 				}
 				err = h.client.ListResourceRecordSetsPagesWithContext(ctx, in,
 					func(out *route53.ListResourceRecordSetsOutput, last bool) bool {
+						failoverList := map[string]map[string]*route53.ResourceRecordSet{}
 						for _, rrs := range out.ResourceRecordSets {
+							if rrs.SetIdentifier != nil {
+								if failoverList[*rrs.Name] == nil {
+									failoverList[*rrs.Name] = map[string]*route53.ResourceRecordSet{}
+								}
+								failoverList[*rrs.Name][*rrs.Failover] = rrs
+								continue
+							}
+
 							if err := updateZoneFromRRS(rrs, newZ); err != nil {
 								// Maybe unsupported record type. Log and carry on.
 								log.Warningf("Failed to process resource record set: %v", err)
 							}
 						}
+
+						for k := range failoverList {
+							primary := failoverList[k]["PRIMARY"]
+							secondary := failoverList[k]["SECONDARY"]
+
+							hcInput := &route53.GetHealthCheckStatusInput{
+								HealthCheckId: primary.HealthCheckId,
+							}
+							status, _ := h.client.GetHealthCheckStatus(hcInput)
+
+							count := len(status.HealthCheckObservations)
+							failedNum := 0
+							for _, v := range status.HealthCheckObservations {
+								if strings.HasPrefix(*v.StatusReport.Status, "Failure") {
+									failedNum++
+								}
+							}
+
+							if failedNum >= count/2 {
+								log.Warningf("primary hc failed, failed num %d, skip %s primary record, use secondary record", failedNum, *primary.SetIdentifier)
+								if secondary != nil {
+									if err := updateZoneFromRRS(secondary, newZ); err != nil {
+										// Maybe unsupported record type. Log and carry on.
+										log.Warningf("Failed to process resource record set: %v", err)
+									}
+								}
+							} else {
+								if err := updateZoneFromRRS(primary, newZ); err != nil {
+									// Maybe unsupported record type. Log and carry on.
+									log.Warningf("Failed to process resource record set: %v", err)
+								}
+							}
+						}
+
 						return true
 					})
 				if err != nil {
