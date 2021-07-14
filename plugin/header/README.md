@@ -5,7 +5,9 @@
 *header* - modifies the header for all the responses.
 
 ## Description
-It ensures that the flags are in the desired state for all the responses. The modifications are made transparently for the client.
+
+It ensures that the flags are in the desired state for all the responses. The modifications are made transparently for
+the client.
 
 ## Syntax
 
@@ -16,8 +18,14 @@ header {
 }
 ~~~
 
-* **ACTION**  defines the state for dns flags, allowed values set/clear. 
-* **FLAGS** are the dns flags that will be modified e.g `ra`, `aa` etc.
+* **ACTION** defines the state for dns flags. Actions are evaluated in the order they are defined so last one has the
+  most precedence. Allowed values are:
+    * `set`
+    * `clear`
+* **FLAGS** are the dns flags that will be modified. Current supported flags include:
+    * `aa` - Authoritative
+    * `ra` - RecursionAvailable
+    * `rd` - RecursionDesired
 
 ## Examples
 
@@ -30,7 +38,9 @@ Make sure recursive available `ra` flag is set in all the responses:
     }
 }
 ~~~
-Make sure recursive available `ra` and authoritative `aa` flags are set and recursive desired is cleared in all the responses:
+
+Make sure recursive available `ra` and authoritative `aa` flags are set and recursive desired is cleared in all the
+responses:
 
 ~~~ corefile
 . {
