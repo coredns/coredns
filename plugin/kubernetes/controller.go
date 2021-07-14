@@ -553,8 +553,8 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*api.Namespace, error) {
 	return nil, fmt.Errorf("namespace not found")
 }
 
-func (dns *dnsControl) Add(obj interface{})               { dns.updateModifed() }
-func (dns *dnsControl) Delete(obj interface{})            { dns.updateModifed() }
+func (dns *dnsControl) Add(obj interface{})               { dns.updateModified() }
+func (dns *dnsControl) Delete(obj interface{})            { dns.updateModified() }
 func (dns *dnsControl) Update(oldObj, newObj interface{}) { dns.detectChanges(oldObj, newObj) }
 
 // detectChanges detects changes in objects, and updates the modified timestamp
@@ -569,12 +569,12 @@ func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
 	}
 	switch ob := obj.(type) {
 	case *object.Service:
-		dns.updateModifed()
+		dns.updateModified()
 	case *object.Pod:
-		dns.updateModifed()
+		dns.updateModified()
 	case *object.Endpoints:
 		if !endpointsEquivalent(oldObj.(*object.Endpoints), newObj.(*object.Endpoints)) {
-			dns.updateModifed()
+			dns.updateModified()
 		}
 	default:
 		log.Warningf("Updates for %T not supported.", ob)
@@ -649,7 +649,7 @@ func (dns *dnsControl) Modified() int64 {
 }
 
 // updateModified set dns.modified to the current time.
-func (dns *dnsControl) updateModifed() {
+func (dns *dnsControl) updateModified() {
 	unix := time.Now().Unix()
 	atomic.StoreInt64(&dns.modified, unix)
 }
