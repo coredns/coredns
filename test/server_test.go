@@ -1,10 +1,13 @@
 package test
 
 import (
+	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
 	"unsafe"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 
 	"github.com/miekg/dns"
@@ -113,16 +116,33 @@ func TestReverseExpansion(t *testing.T) {
 }
 
 func TestMultiZoneBlockConfigs(t *testing.T) {
-	corefile := `.:40000 .:40001 .:40002 {
+	// We need fixed port numbers here to have multiple serving instances, using ".:0" wont work because that
+	// leads to a 'duplicate server instances' because '0' is used literary (only the kernel knows what port will
+	// be assigned).
+	//
+	// This makes the test flaky because we don't know if there are in-use or not. We add a random number to each base and
+	// retry when we fail to get a serving instance (up to 3 times).
+
+	var (
+		server *caddy.Instance
+		err    error
+	)
+	for j := 0; j < 3; j++ {
+		corefile := `.:%d .:%d .:%d {
 		debug
 	}`
+		corefile = fmt.Sprintf(corefile, 40000+rand.Intn(9000), 50000+rand.Intn(9000), 60000+rand.Intn(9000))
 
-	server, err := CoreDNSServer(corefile)
-	defer server.Stop()
-
-	if err != nil {
+		if server, err = CoreDNSServer(corefile); err != nil {
+			continue
+		}
+		t.Logf("Got running CoreDNS serving instance, after %d tries", j+1)
+		break // success
+	}
+	if server == nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
+	defer server.Stop()
 
 	// unsafe reflection to read unexported fields "context" and "configs" within context
 	ctxVal := reflect.ValueOf(server).Elem().FieldByName("context")
