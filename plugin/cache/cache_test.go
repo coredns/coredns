@@ -262,7 +262,7 @@ func TestServeFromStaleCache(t *testing.T) {
 	req.SetQuestion("cached.org.", dns.TypeA)
 	ctx := context.TODO()
 
-	// Cache example.org.
+	// Cache cached.org. with 60s TTL
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	c.staleUpTo = 1 * time.Hour
 	c.ServeDNS(ctx, rec, req)
@@ -296,6 +296,131 @@ func TestServeFromStaleCache(t *testing.T) {
 		r.SetQuestion(tt.name, dns.TypeA)
 		if ret, _ := c.ServeDNS(ctx, rec, r); ret != tt.expectedResult {
 			t.Errorf("Test %d: expecting %v; got %v", i, tt.expectedResult, ret)
+		}
+	}
+}
+
+func TestServeFromStaleCacheFetchBeforeWhenUpstreamAvailable(t *testing.T) {
+	c := New()
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// Cache cached.org. with 120s TTL
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.staleUpTo = 1 * time.Hour
+	c.staleFetchBefore = true
+	c.ServeDNS(ctx, rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+
+	// Different ttl backend to be able to tell responses apart. A TTL=200 response means we fetched upstream.
+	c.Next = ttlBackend(200)
+
+	tests := []struct {
+		name          string
+		futureMinutes int
+		expectedTtl   int
+		errorResponse bool
+	}{
+		// After the 2 minutes of initial TTL, we should see upstream responses because upstream is available
+		{"cached.org.", 1, 60, false},
+		{"cached.org.", 30, 200, false},
+		{"cached.org.", 60, 200, false},
+		{"cached.org.", 70, 200, false},
+
+		// Non cached names always go through to the upstream
+		{"notcached.org.", 1, 200, false},
+		{"notcached.org.", 30, 200, false},
+		{"notcached.org.", 60, 200, false},
+		{"notcached.org.", 70, 200, false},
+	}
+
+	for i, tt := range tests {
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureMinutes) * time.Minute) }
+		r := req.Copy()
+		r.SetQuestion(tt.name, dns.TypeA)
+		ret, _ := c.ServeDNS(ctx, rec, r)
+		if tt.errorResponse {
+			if ret == dns.RcodeSuccess {
+				t.Errorf("Test %d: expecting error response; got %v", i, ret)
+			}
+			continue
+		}
+		if ret != dns.RcodeSuccess {
+			t.Errorf("Test %d: unexpected error; got %v", i, ret)
+			continue
+		}
+		recTtl := rec.Msg.Answer[0].Header().Ttl
+		if tt.expectedTtl != int(recTtl) {
+			t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, recTtl)
+		}
+	}
+}
+func TestServeFromStaleCacheFetchBeforeWhenUpstreamUnavailable(t *testing.T) {
+	c := New()
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// Cache cached.org.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.staleUpTo = 1 * time.Hour
+	c.staleFetchBefore = true
+	c.ServeDNS(ctx, rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+
+	// Make upstream fail, should now rely on cache during the c.staleUpTo period
+	c.Next = plugin.HandlerFunc(func(context.Context, dns.ResponseWriter, *dns.Msg) (int, error) {
+		return dns.RcodeServerFailure, fmt.Errorf("some error from upstream")
+	})
+
+	tests := []struct {
+		name          string
+		futureMinutes int
+		expectedTtl   int
+		errorResponse bool
+	}{
+		// After the 2 minutes of initial TTL, we should see cached responses returned with TTL=0, because upstream is unavailable.
+		// After the 1hr duration of the serve-stale, we should see an error
+		{"cached.org.", 1, 60, false},
+		{"cached.org.", 30, 0, false},
+		{"cached.org.", 60, 0, false},
+		{"cached.org.", 70, -1, true},
+
+		// Non cached names always go through to the upstream
+		{"notcached.org.", 0, -1, true},
+		{"notcached.org.", 30, -1, true},
+		{"notcached.org.", 70, -1, true},
+	}
+
+	for i, tt := range tests {
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureMinutes) * time.Minute) }
+		r := req.Copy()
+		r.SetQuestion(tt.name, dns.TypeA)
+		ret, _ := c.ServeDNS(ctx, rec, r)
+		if tt.errorResponse {
+			if ret == dns.RcodeSuccess {
+				t.Errorf("Test %d: expecting error response; got %v", i, ret)
+			}
+			continue
+		}
+		if ret != dns.RcodeSuccess {
+			t.Errorf("Test %d: unexpected error; got %v", i, ret)
+			continue
+		}
+		recTtl := rec.Msg.Answer[0].Header().Ttl
+		if tt.expectedTtl != int(recTtl) {
+			t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, recTtl)
 		}
 	}
 }

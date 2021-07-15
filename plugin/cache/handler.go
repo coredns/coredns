@@ -38,9 +38,13 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	if i != nil {
 		ttl = i.ttl(now)
 	}
-	if i == nil {
+	if i == nil || (ttl < 0 && c.staleFetchBefore) {
+		// Try to resolve upstream if we have no cached record or the cached one is stale and staleFetchBefore is set to true.
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
-		return c.doRefresh(ctx, state, crr)
+		rcode, err := c.doRefresh(ctx, state, crr)
+		if i == nil || rcode == dns.RcodeSuccess {
+			return rcode, err
+		}
 	}
 	if ttl < 0 {
 		servedStale.WithLabelValues(server).Inc()

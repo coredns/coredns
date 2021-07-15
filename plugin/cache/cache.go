@@ -36,7 +36,9 @@ type Cache struct {
 	duration   time.Duration
 	percentage int
 
-	staleUpTo time.Duration
+	// Stale serve
+	staleUpTo        time.Duration
+	staleFetchBefore bool
 
 	// Testing.
 	now func() time.Time

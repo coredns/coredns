@@ -37,7 +37,7 @@ cache [TTL] [ZONES...] {
     success CAPACITY [TTL] [MINTTL]
     denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
-    serve_stale [DURATION]
+    serve_stale [DURATION] [REFRESH_MODE]
 }
 ~~~
 
@@ -57,7 +57,10 @@ cache [TTL] [ZONES...] {
 * `serve_stale`, when serve\_stale is set, cache always will serve an expired entry to a client if there is one
   available.  When this happens, cache will attempt to refresh the cache entry after sending the expired cache
   entry to the client. The responses have a TTL of 0. **DURATION** is how far back to consider
-  stale responses as fresh. The default duration is 1h.
+  stale responses as fresh. The default duration is 1h. **REFRESH_MODE** controls whether the attempt to refresh
+  the cache happens `before` or `after` returning a response. This defaults to `after`. Setting this value to
+  `before` could lead to increased latency when serving stale responses for unavailable upstreams, but will
+  reduce served stales specially on infrequent resolution usecases.
 
 ## Capacity and Eviction
 
