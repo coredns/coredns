@@ -36,6 +36,7 @@ var Directives = []string{
 	"loadbalance",
 	"cache",
 	"rewrite",
+	"header",
 	"dnssec",
 	"autopath",
 	"minimal",
