@@ -39,7 +39,7 @@ Make sure recursive available `ra` flag is set in all the responses:
 }
 ~~~
 
-Make sure "recursive available" `ra` and "authoritative answer" `aa` flags are set and "recursive desired" is cleared in all responses:
+Make sure "recursion available" `ra` and "authoritative answer" `aa` flags are set and "recursion desired" is cleared in all responses:
 
 ~~~ corefile
 . {
