@@ -32,6 +32,7 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/forward/        @johnbelamaric @miekg @rdrozhdzh
 /plugin/grpc/           @inigohu @miekg @zouyee
 /plugin/health/         @fastest963 @miekg @zouyee
+/plugin/header/         @miekg @mqasimsarfraz
 /plugin/hosts/          @johnbelamaric @pmoroney
 /plugin/k8s_external/   @miekg
 /plugin/kubernetes/     @bradbeam @chrisohaver @johnbelamaric @miekg @rajansandeep @yongtang @zouyee
