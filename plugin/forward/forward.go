@@ -20,6 +20,7 @@ import (
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
+	otext "github.com/opentracing/opentracing-go/ext"
 )
 
 var log = clog.NewWithPlugin("forward")
@@ -120,6 +121,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 		if span != nil {
 			child = span.Tracer().StartSpan("connect", ot.ChildOf(span.Context()))
+			otext.PeerAddress.Set(child, proxy.addr)
 			ctx = ot.ContextWithSpan(ctx, child)
 		}
 
