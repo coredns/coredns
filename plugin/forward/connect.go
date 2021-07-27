@@ -72,8 +72,24 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 }
 
 // Connect selects an upstream, sends the request and waits for a response.
-func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options) (*dns.Msg, error) {
+func (p *Proxy) Connect(_ context.Context, state request.Request, opts options) (res *dns.Msg, err error) {
 	start := time.Now()
+	defer func() {
+		var rcode string
+		if res != nil {
+			if rc, ok := dns.RcodeToString[res.Rcode]; ok {
+				rcode = rc
+			} else {
+				rcode = strconv.Itoa(res.Rcode)
+			}
+		} else {
+			rcode = "-"
+		}
+
+		RequestCount.WithLabelValues(p.addr).Add(1)
+		RcodeCount.WithLabelValues(rcode, p.addr).Add(1)
+		RequestDuration.WithLabelValues(p.addr, rcode).Observe(time.Since(start).Seconds())
+	}()
 
 	proto := ""
 	switch {
@@ -123,15 +139,6 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 	}
 
 	p.transport.Yield(pc)
-
-	rc, ok := dns.RcodeToString[ret.Rcode]
-	if !ok {
-		rc = strconv.Itoa(ret.Rcode)
-	}
-
-	RequestCount.WithLabelValues(p.addr).Add(1)
-	RcodeCount.WithLabelValues(rc, p.addr).Add(1)
-	RequestDuration.WithLabelValues(p.addr, rc).Observe(time.Since(start).Seconds())
 
 	return ret, nil
 }
