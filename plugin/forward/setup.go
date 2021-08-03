@@ -14,6 +14,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/transport"
+	"github.com/coredns/coredns/plugin/pkg/upstream"
 )
 
 func init() { plugin.Register("forward", setup) }
@@ -258,7 +259,9 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		}
 		f.ErrLimitExceeded = errors.New("concurrent queries exceeded maximum " + c.Val())
 		f.maxConcurrent = int64(n)
-
+	case "upstream":
+		c.RemainingArgs() // eats args
+		f.Upstream = upstream.New()
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}

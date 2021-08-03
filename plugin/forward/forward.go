@@ -16,6 +16,7 @@ import (
 	"github.com/coredns/coredns/plugin/dnstap"
 	"github.com/coredns/coredns/plugin/metadata"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -52,6 +53,8 @@ type Forward struct {
 	tapPlugin *dnstap.Dnstap // when the dnstap plugin is loaded, we use to this to send messages out.
 
 	Next plugin.Handler
+
+	Upstream *upstream.Upstream
 }
 
 // New returns a new Forward.
@@ -177,6 +180,30 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			formerr.SetRcode(state.Req, dns.RcodeFormatError)
 			w.WriteMsg(formerr)
 			return 0, nil
+		}
+
+		rr := ret.Answer[0]
+	resolveCname:
+		if f.Upstream != nil && rr.Header().Rrtype == dns.TypeCNAME {
+			up, err := f.Upstream.Lookup(ctx, state, rr.(*dns.CNAME).Target, state.QType())
+			if err != nil {
+				log.Errorf("Failed to lookup CNAME %+v from upstream: %+v", ret.Answer, err)
+			} else {
+				rr := up.Answer[0]
+				switch rr.Header().Rrtype {
+				case dns.TypeCNAME:
+					goto resolveCname
+				case dns.TypeA:
+					fallthrough
+				case dns.TypeAAAA:
+					rr.Header().Name = ret.Answer[0].Header().Name
+					ret.Answer = []dns.RR{
+						rr,
+					}
+				default:
+					log.Errorf("Upstream server returned unsupported type %+v for CNAME question %+v", rr, up.Question[0])
+				}
+			}
 		}
 
 		w.WriteMsg(ret)
