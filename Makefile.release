@@ -67,6 +67,10 @@ DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
 PLATFORMS:=$(subst $(SPACE),$(COMMA),$(foreach arch,$(LINUX_ARCH),linux/$(arch)))
 DOCKER_IMAGE_LIST_VERSIONED:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:$(VERSION)~g")
 DOCKER_IMAGE_LIST_LATEST:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:latest~g")
+QEMUVERSION=5.2.0-2
+
+# Experimental CLI is required for docker buildx/manifest to work
+export DOCKER_CLI_EXPERIMENTAL=enabled
 
 all:
 	@echo Use the 'release' target to build a release, 'docker' for docker build.
@@ -141,13 +145,25 @@ else
 	@# 1. Copy appropriate coredns binary to build/docker/linux/<arch>
 	@# 2. Copy Dockerfile to build/docker/linux/<arch>
 	@rm -rf build/docker
+
+	docker run --rm --privileged multiarch/qemu-user-static:$(QEMUVERSION) --reset -p yes
+	docker buildx version
+	BUILDER=$(shell docker buildx create --use)
+
 	for arch in $(LINUX_ARCH); do \
 	    mkdir -p build/docker/linux/$${arch} ;\
 	    tar -xzf release/$(NAME)_$(VERSION)_linux_$${arch}.tgz -C build/docker/linux/$${arch} ;\
 	    cp Dockerfile build/docker/linux/$${arch} ;\
-	    docker build -t $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) build/docker/linux/$${arch} ;\
+	    docker buildx build \
+			--pull \
+			--load \
+			--platform linux/$$arch \
+			-t $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) \
+			build/docker/linux/$${arch} ;\
 	    docker tag $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
 	done
+
+	docker buildx rm $$BUILDER
 endif
 
 .PHONY: docker-push
@@ -155,11 +171,9 @@ docker-push:
 ifeq ($(DOCKER),)
 	$(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
 else
-	@# Experimental CLI is required for docker manifest to work
 	@# Pushes coredns/coredns-$arch:$version images
 	@# Creates manifest for multi-arch image
 	@# Pushes multi-arch image to coredns/coredns:$version
-	export DOCKER_CLI_EXPERIMENTAL=enabled
 	@echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_LOGIN) --password-stdin
 	@echo Pushing: $(VERSION) to $(DOCKER_IMAGE_NAME)
 	for arch in $(LINUX_ARCH); do \
