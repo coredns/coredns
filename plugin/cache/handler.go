@@ -91,6 +91,7 @@ func (c *Cache) Name() string { return "cache" }
 
 func (c *Cache) get(now time.Time, state request.Request, server string) (*item, bool) {
 	k := hash(state.Name(), state.QType())
+	cacheRequests.WithLabelValues(server).Inc()
 
 	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
 		cacheHits.WithLabelValues(server, Denial).Inc()
@@ -108,6 +109,7 @@ func (c *Cache) get(now time.Time, state request.Request, server string) (*item,
 // getIgnoreTTL unconditionally returns an item if it exists in the cache.
 func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
 	k := hash(state.Name(), state.QType())
+	cacheRequests.WithLabelValues(server).Inc()
 
 	if i, ok := c.ncache.Get(k); ok {
 		ttl := i.(*item).ttl(now)
