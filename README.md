@@ -70,7 +70,7 @@ CoreDNS requires Go to compile. However, if you already have docker installed an
 setup a Go environment, you could build CoreDNS easily:
 
 ```
-$ docker run --rm -i -t -v $PWD:/v -w /v golang:1.14 make
+$ docker run --rm -i -t -v $PWD:/v -w /v golang:1.16 make
 ```
 
 The above command alone will have `coredns` binary generated.
