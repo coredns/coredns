@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -260,8 +261,29 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		f.ErrLimitExceeded = errors.New("concurrent queries exceeded maximum " + c.Val())
 		f.maxConcurrent = int64(n)
 	case "upstream":
-		c.RemainingArgs() // eats args
-		f.Upstream = upstream.New()
+		args := c.RemainingArgs()
+		f.upstream = upstream.New()
+		switch len(args) {
+		case 0:
+			// do nothing
+		case 1:
+			return c.ArgErr()
+		case 2:
+			if strings.EqualFold("max_depth", args[0]) {
+				n, err := strconv.Atoi(args[1])
+				if err != nil {
+					return err
+				}
+				if n <= 0 {
+					return fmt.Errorf("max_depth parameter must be greater than 0")
+				}
+				f.maxDepth = n
+			} else {
+				return fmt.Errorf("unsupported parameter %s for upstream setting", args[0])
+			}
+		default:
+			return c.ArgErr()
+		}
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}
