@@ -183,11 +183,11 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			return 0, nil
 		}
 
-		rr := ret.Answer[0]
-		if f.upstream != nil && rr.Header().Rrtype == dns.TypeCNAME {
+		if f.upstream != nil && ret.Answer != nil || len(ret.Answer) > 0 && ret.Answer[0].Header().Rrtype == dns.TypeCNAME {
 			// emulate hashset in go; https://emersion.fr/blog/2017/sets-in-go/
 			cnameVisited := make(map[string]struct{})
 			cnt := 0
+			rr := ret.Answer[0]
 
 		resolveCname:
 			log.Debugf("Trying to resolve CNAME [%+v] via upstream", rr)
