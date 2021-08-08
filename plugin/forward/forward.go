@@ -54,7 +54,8 @@ type Forward struct {
 
 	Next plugin.Handler
 
-	Upstream *upstream.Upstream
+	upstream *upstream.Upstream
+	maxDepth int
 }
 
 // New returns a new Forward.
@@ -183,25 +184,43 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 
 		rr := ret.Answer[0]
-	resolveCname:
-		if f.Upstream != nil && rr.Header().Rrtype == dns.TypeCNAME {
-			up, err := f.Upstream.Lookup(ctx, state, rr.(*dns.CNAME).Target, state.QType())
-			if err != nil {
-				log.Errorf("Failed to lookup CNAME %+v from upstream: %+v", ret.Answer, err)
+		if f.upstream != nil && rr.Header().Rrtype == dns.TypeCNAME {
+			// emulate hashset in go; https://emersion.fr/blog/2017/sets-in-go/
+			cnameVisited := make(map[string]struct{})
+			cnt := 0
+
+		resolveCname:
+			log.Debugf("Trying to resolve CNAME [%+v] via upstream", rr)
+
+			if f.maxDepth > 0 && cnt >= f.maxDepth {
+				log.Errorf("Max depth %d reached for resolving CNAME records", f.maxDepth)
+			} else if _, ok := cnameVisited[rr.(*dns.CNAME).Target]; ok {
+				log.Errorf("Detected circular reference in CNAME chain. CNAME [%s] already processed", rr.(*dns.CNAME).Target)
 			} else {
-				rr := up.Answer[0]
-				switch rr.Header().Rrtype {
-				case dns.TypeCNAME:
-					goto resolveCname
-				case dns.TypeA:
-					fallthrough
-				case dns.TypeAAAA:
-					rr.Header().Name = ret.Answer[0].Header().Name
-					ret.Answer = []dns.RR{
-						rr,
+				up, err := f.upstream.Lookup(ctx, state, rr.(*dns.CNAME).Target, state.QType())
+				if err != nil {
+					log.Errorf("Failed to lookup CNAME [%+v] from upstream: [%+v]", rr, err)
+				} else {
+					if up.Answer == nil || len(up.Answer) <= 0 {
+						log.Errorf("Received no answer from upstream: [%+v]", up)
+					} else {
+						rr = up.Answer[0]
+						switch rr.Header().Rrtype {
+						case dns.TypeCNAME:
+							cnt++
+							cnameVisited[up.Question[0].Name] = struct{}{}
+							goto resolveCname
+						case dns.TypeA:
+							fallthrough
+						case dns.TypeAAAA:
+							rr.Header().Name = ret.Answer[0].Header().Name
+							ret.Answer = []dns.RR{
+								rr,
+							}
+						default:
+							log.Errorf("Upstream server returned unsupported type [%+v] for CNAME question [%+v]", rr, up.Question[0])
+						}
 					}
-				default:
-					log.Errorf("Upstream server returned unsupported type %+v for CNAME question %+v", rr, up.Question[0])
 				}
 			}
 		}
