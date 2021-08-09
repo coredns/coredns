@@ -52,6 +52,7 @@ forward FROM TO... {
     policy random|round_robin|sequential
     health_check DURATION [no_rec]
     max_concurrent MAX
+    upstream [max_depth MAX]
 }
 ~~~
 
@@ -93,6 +94,11 @@ forward FROM TO... {
   response does not count as a health failure. When choosing a value for **MAX**, pick a number
   at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
+* `upstream` If upstream support is enabled the plugin will try to resolve CNAMEs and only return the resulting A or AAAA address.
+  If no A or AAAA record can be resolved the original (first) answer from a forwarder will be returned to the client. Circular dependencies are
+  detected and an error will be logged accordingly. In that case the original (first) answer from a forwarder will be returned to the client as well.
+  * `max_depth` **MAX** to limit the maximum calls to resolve a CNAME chain to the final A or AAAA record, a value `> 0` can be specified.
+    If the maximum depth is reached and no A or AAAA record could be found, the the original (first) from a forwarder answer will be returned to the client.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls-name` for different upstreams you're out of luck.
