@@ -1,6 +1,3 @@
-// +build go1.11
-// +build aix darwin dragonfly freebsd linux netbsd openbsd
-
 package reuseport
 
 import (
