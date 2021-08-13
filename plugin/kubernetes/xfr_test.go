@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/miekg/dns"
-
 	"github.com/coredns/coredns/plugin/transfer"
+
+	"github.com/miekg/dns"
 )
 
 func TestKubernetesTransferNonAuthZone(t *testing.T) {
