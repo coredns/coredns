@@ -72,8 +72,8 @@ Enable translation even if an existing AAAA record is present.
 }
 ~~~
 
-Apply translation even to the requests which arrived over IPv4 network. Beware that enabling this option for dual-stack
-clients might cause problems.
+Apply translation even to the requests which arrived over IPv4 network. Beware that enabling this option in CoreDNS handling combination 
+of dual-stack and IPv6 clients might cause problems by also doing DNS64 translations for requests of dual-stack clients.
 ~~~ corefile
 . {
     dns64 {
