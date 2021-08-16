@@ -27,11 +27,13 @@ Or use this slightly longer form with more options:
 dns64 [PREFIX] {
     [translate_all]
     prefix PREFIX
+    [allow_ipv4]
 }
 ~~~
 
 * `prefix` specifies any local IPv6 prefix to use, instead of the well known prefix (64:ff9b::/96)
 * `translate_all` translates all queries, including responses that have AAAA results.
+* `allow_ipv4` allow DNS queries, ignoring whether they came from over IPv4 or IPv6 network
 
 ## Examples
 
@@ -66,6 +68,15 @@ Enable translation even if an existing AAAA record is present.
 . {
     dns64 {
         translate_all
+    }
+}
+~~~
+
+Apply translation even to the requests which arrived over IPv4 network.
+~~~ corefile
+. {
+    dns64 {
+        allow_ipv4
     }
 }
 ~~~
