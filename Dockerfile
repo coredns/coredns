@@ -1,5 +1,6 @@
 FROM debian:stable-slim
 
+RUN sed -i.bak s@stable/update@stable-security/update@g /etc/apt/sources.list
 RUN apt-get update && apt-get -uy upgrade
 RUN apt-get -y install ca-certificates && update-ca-certificates
 
