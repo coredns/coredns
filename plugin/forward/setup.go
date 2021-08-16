@@ -114,7 +114,7 @@ func parseBlock(c *caddy.Controller, cfg *ForwardConfig) error {
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
-		n, err := strconv.Atoi(c.Val())
+		n, err := strconv.ParseInt(c.Val(), 10, 32)
 		if err != nil {
 			return err
 		}
