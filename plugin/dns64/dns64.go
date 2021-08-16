@@ -74,7 +74,9 @@ func (d *DNS64) Name() string { return "dns64" }
 // 2. The request is of type AAAA
 // 3. The request is of class INET
 func (d *DNS64) requestShouldIntercept(req *request.Request) bool {
-	if !d.AllowIPv4 && req.Family() == 1 { // If it came in over v4, don't do anything.
+	// Make sure that request came in over IPv4 unless AllowIPv4 option is enabled.
+	// Translating requests without taking into consideration client (source) IP might be problematic in dual-stack networks.
+	if !d.AllowIPv4 && req.Family() == 1 {
 		return false
 	}
 

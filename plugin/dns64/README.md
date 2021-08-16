@@ -72,7 +72,8 @@ Enable translation even if an existing AAAA record is present.
 }
 ~~~
 
-Apply translation even to the requests which arrived over IPv4 network.
+Apply translation even to the requests which arrived over IPv4 network. Beware that enabling this options may break dual-stack clients,
+by doing DNS64 translations for empty AAAA records (no IPv6 for the domain) and clients might prefer using synthetic records instead of using A records.
 ~~~ corefile
 . {
     dns64 {
