@@ -33,7 +33,7 @@ dns64 [PREFIX] {
 
 * `prefix` specifies any local IPv6 prefix to use, instead of the well known prefix (64:ff9b::/96)
 * `translate_all` translates all queries, including responses that have AAAA results.
-* `allow_ipv4` allow DNS queries, ignoring whether they came from over IPv4 or IPv6 network
+* `allow_ipv4` Allow translating queries if they come in over IPv4, default is IPv6 only translation.
 
 ## Examples
 

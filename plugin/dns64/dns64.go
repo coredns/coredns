@@ -70,7 +70,7 @@ func (d *DNS64) Name() string { return "dns64" }
 
 // requestShouldIntercept returns true if the request represents one that is eligible
 // for DNS64 rewriting:
-// 1. The request came in over IPv6, unless AllowIPv4 option is not set
+// 1. The request came in over IPv6 or the 'allow_ipv4' option is set
 // 2. The request is of type AAAA
 // 3. The request is of class INET
 func (d *DNS64) requestShouldIntercept(req *request.Request) bool {
