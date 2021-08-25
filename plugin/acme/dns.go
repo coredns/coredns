@@ -34,10 +34,6 @@ func getExternalIpAddress(zone string) (string, error) {
 	return "", fmt.Errorf("no A record found for zone %s", zone)
 }
 
-/*
-Referenced from caddyserver/certmagic
-*/
-
 func findZoneByFQDN(fqdn string, nameservers []string) (string, error) {
 	if !strings.HasSuffix(fqdn, ".") {
 		fqdn += "."
