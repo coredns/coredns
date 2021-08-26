@@ -11,7 +11,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/libdns/libdns"
 )
 
 const pluginName = "acme"
@@ -21,16 +20,16 @@ func init() {
 }
 
 func setup(c *caddy.Controller) error {
-	acmeTemplate, zone, err := parseACME(c)
+	acmeTemplate, zoneName, err := parseACME(c)
 	provider := Provider{
-		recordsForZone: make(map[string][]libdns.Record),
+		recordMap: make(map[string]*RecordStore),
 	}
 	if err != nil {
 		return plugin.Error(pluginName, err)
 	}
 	config := dnsserver.GetConfig(c)
 	acmeConfig := AcmeConfig{
-		Zone: zone,
+		Zone: zoneName,
 	}
 	acmeHandler := &AcmeHandler{
 		provider:   &provider,
@@ -42,7 +41,7 @@ func setup(c *caddy.Controller) error {
 	})
 	c.OnFirstStartup(func() error {
 		go func() error {
-			authoritativeNameservers, err := getAuthoritativeNameServers(zone)
+			authoritativeNameservers, err := getAuthoritativeNameServers(zoneName)
 			if err != nil {
 				return err
 			}
@@ -62,14 +61,14 @@ func setup(c *caddy.Controller) error {
 				Resolvers:   []string{ipAddr},
 			}
 
-			A := NewACME(acmeTemplate, zone)
-			err = A.IssueCert([]string{zone})
+			A := NewACME(acmeTemplate, zoneName)
+			err = A.IssueCert([]string{zoneName})
 			if err != nil {
 				log.Error(err)
 				return err
 			}
 			log.Info("Certificate Issued")
-			err = configureTLS(A, zone, config)
+			err = configureTLS(A, zoneName, config)
 			if err != nil {
 				log.Error(err)
 				return err
@@ -105,51 +104,45 @@ func parseACME(c *caddy.Controller) (certmagic.ACMEManager, string, error) {
 		DisableHTTPChallenge:    true,
 		DisableTLSALPNChallenge: true,
 	}
-	var err error
-	var zone string
+	var zoneName string
 	for c.Next() {
-		args := c.RemainingArgs()
-		if len(args) != 1 {
-			return acmeTemplate, zone, c.Errf("Unexpected number of arguments: %#v", args)
-		}
-		zone = args[0]
 		for c.NextBlock() {
-			challenge := strings.ToLower(c.Val())
-			switch challenge {
-			case HTTPChallenge:
+			term := strings.ToLower(c.Val())
+			switch term {
+			case DOMAIN:
 				args := c.RemainingArgs()
 				if len(args) > 1 {
-					return acmeTemplate, zone, c.Errf("Unexpected number of arguments: %#v", args)
+					return acmeTemplate, zoneName, c.Errf("unexpected number of arguments: %#v", args)
 				}
-				httpPort := 80
-				if len(args) == 1 {
-					httpPort, err = strconv.Atoi(args[0])
-					if err != nil {
-						return acmeTemplate, zone, c.Errf("HTTP port is not an int: %#v", args)
-					}
-				}
-				acmeTemplate.AltHTTPPort = httpPort
-				acmeTemplate.DisableHTTPChallenge = false
-			case TLPSALPNChallenge:
+				zoneName = args[0]
+			case CHALLENGE:
 				args := c.RemainingArgs()
-				if len(args) > 1 {
-					return acmeTemplate, zone, c.Errf("Unexpected number of arguments: %#v", args)
+				challenge := args[0]
+				if !(len(args) == 3 && args[1] == PORT) {
+					return acmeTemplate, zoneName, c.Errf("unexpected number of arguments: %#v", args)
 				}
-				var err error
-				tlsAlpnPort := 443
-				if len(args) == 1 {
-					tlsAlpnPort, err = strconv.Atoi(args[0])
-					if err != nil {
-						return acmeTemplate, zone, c.Errf("TlsAlpn port is not an int: %#v", args)
-					}
+				port, err := strconv.Atoi(args[2])
+				if err != nil {
+					return acmeTemplate, zoneName, c.Errf("%s port is not an int: %#v", challenge, args)
 				}
-				acmeTemplate.AltTLSALPNPort = tlsAlpnPort
-				acmeTemplate.DisableTLSALPNChallenge = false
+				switch challenge {
+				case HTTPChallenge:
+					acmeTemplate.AltHTTPPort = port
+					acmeTemplate.DisableHTTPChallenge = false
+				case TLPSALPNChallenge:
+					acmeTemplate.AltTLSALPNPort = port
+					acmeTemplate.DisableTLSALPNChallenge = false
+				default:
+					return acmeTemplate, zoneName, c.Errf("unexpected challenge %s: challenge should only be tlsalpn or http", challenge)
+				}
 			default:
-				return acmeTemplate, zone, c.Errf("Unexpected challenge: %s", challenge)
+				return acmeTemplate, zoneName, c.Errf("unexpected term: %s: term should only be challenge or domain", term)
 			}
 		}
 	}
-	acmeTemplate.CA = certmagic.LetsEncryptStagingCA
-	return acmeTemplate, zone, nil
+	if zoneName == "" {
+		return acmeTemplate, zoneName, c.Errf("Domain not provided")
+	}
+	acmeTemplate.CA = certmagic.LetsEncryptProductionCA
+	return acmeTemplate, zoneName, nil
 }

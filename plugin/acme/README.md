@@ -12,7 +12,7 @@ Make sure that:
 ## Syntax
 ~~~ txt
 acme {
-  domain DOMAIN
+  domain <DOMAIN>
 
   # optional parameters
   challenge <CHALLENGE> port <PORT>

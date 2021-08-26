@@ -10,9 +10,11 @@ import (
 )
 
 const (
-	HTTPChallenge     = "http01"
-	DNSChallenge      = "dns01"
+	HTTPChallenge     = "http"
 	TLPSALPNChallenge = "tlsalpn"
+	CHALLENGE         = "challenge"
+	DOMAIN            = "domain"
+	PORT              = "port"
 )
 
 type ACME struct {

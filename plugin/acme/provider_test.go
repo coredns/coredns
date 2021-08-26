@@ -2,7 +2,6 @@ package acme
 
 import (
 	"context"
-	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -26,39 +25,49 @@ func generateRandomRecords(n int) []libdns.Record {
 }
 func TestProviderAppendRecords(t *testing.T) {
 	provider := Provider{
-		recordsForZone: make(map[string][]libdns.Record),
+		recordMap: make(map[string]*RecordStore),
 	}
 	ctx := context.Background()
 	var wg sync.WaitGroup
-	type RecordsByZone struct {
-		zone    string
-		records []libdns.Record
+	type ZoneRecords struct {
+		zoneName string
+		records  []libdns.Record
 	}
-	recordsByZones := []RecordsByZone{}
+	zoneRecords := []ZoneRecords{}
 	for i := 0; i < 3; i++ {
-		recordsByZones = append(recordsByZones, RecordsByZone{
-			zone:    uuid.New().String(),
-			records: generateRandomRecords(5),
+		zoneRecords = append(zoneRecords, ZoneRecords{
+			zoneName: uuid.New().String(),
+			records:  generateRandomRecords(5),
 		})
 	}
-	wg.Add(len(recordsByZones))
-	for _, recordsByZone := range recordsByZones {
-		go func(zoneRecords RecordsByZone) {
+	wg.Add(len(zoneRecords))
+	for _, zoneRecord := range zoneRecords {
+		go func(zoneRecord ZoneRecords) {
 			defer wg.Done()
-			records, _ := provider.AppendRecords(ctx, zoneRecords.zone, zoneRecords.records)
-			if !reflect.DeepEqual(zoneRecords.records, records) {
-				t.Errorf("provider.AppendRecords: expected %+v but got %+v", zoneRecords.records, records)
+			records, _ := provider.AppendRecords(ctx, zoneRecord.zoneName, zoneRecord.records)
+			if len(zoneRecord.records) != len(records) {
+				t.Errorf("provider.AppendRecords: expected %+v records but got %+v records", len(zoneRecord.records), len(records))
 			}
-		}(recordsByZone)
+			for i, rec := range zoneRecord.records {
+				if !compareRecords(rec, records[i]) {
+					t.Errorf("provider.AppendRecords: expected %+v but got %+v", rec, records[i])
+				}
+			}
+		}(zoneRecord)
 	}
 	wg.Wait()
-	for _, recordsByZone := range recordsByZones {
-		records, err := provider.GetRecords(ctx, recordsByZone.zone)
+	for _, zoneRecord := range zoneRecords {
+		records, err := provider.GetRecords(ctx, zoneRecord.zoneName)
 		if err != nil {
 			t.Errorf("provider.GetRecords: %s", err.Error())
 		}
-		if !reflect.DeepEqual(recordsByZone.records, records) {
-			t.Errorf("Expected %+v but got %+v", records, recordsByZone.records)
+		if len(zoneRecord.records) != len(records) {
+			t.Errorf("provider.AppendRecords: expected %+v records but got %+v records", len(zoneRecord.records), len(records))
+		}
+		for i, rec := range zoneRecord.records {
+			if !compareRecords(rec, records[i]) {
+				t.Errorf("provider.AppendRecords: expected %+v but got %+v", rec, records[i])
+			}
 		}
 	}
 }
