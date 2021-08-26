@@ -24,13 +24,10 @@ func (u *Upstream) Lookup(ctx context.Context, state request.Request, name strin
 	if !ok {
 		return nil, fmt.Errorf("no full server is running")
 	}
-
-	req := state.Req.Copy()
-	// overwrite copied ID to a new one
-	req.SetQuestion(name, typ)
+	req := state.NewWithQuestion(name, typ)
 
 	nw := nonwriter.New(state.W)
-	server.ServeDNS(ctx, nw, req)
+	server.ServeDNS(ctx, nw, req.Req)
 
 	return nw.Msg, nil
 }
