@@ -203,7 +203,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	if wildElem != nil {
 		auth := ap.ns(do)
 
-		if rrs := wildElem.TypeForWildcard(dns.TypeCNAME, qname); len(rrs) > 0 {
+		if rrs := wildElem.TypeForWildcard(dns.TypeCNAME, qname); len(rrs) > 0 && qtype != dns.TypeCNAME {
 			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
 			return z.externalLookup(ctx, state, wildElem, rrs)
 		}
