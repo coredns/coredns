@@ -109,6 +109,14 @@ var dnsTestCases = []test.Case{
 		},
 		Ns: miekAuth,
 	},
+	{
+		Qname: "foo.dname.miek.nl.", Qtype: dns.TypeCNAME,
+		Answer: []dns.RR{
+			test.DNAME("dname.miek.nl.     1800    IN      DNAME       x.miek.nl."),
+			test.CNAME("foo.dname.miek.nl.     1800    IN      CNAME       foo.x.miek.nl."),
+		},
+		Ns: miekAuth,
+	},
 }
 
 const (
@@ -207,6 +215,7 @@ www             IN      CNAME   a
 archive         IN      CNAME   a
 *.x             IN      CNAME   www
 *.y             IN      A       139.162.196.78
+dname           IN      DNAME   x
 
 srv		IN	SRV     10 10 8080 a.miek.nl.
 mx		IN	MX      10 a.miek.nl.`
