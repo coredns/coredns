@@ -54,7 +54,10 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			}
 			wr.ResponseRules = append(wr.ResponseRules, respRules...)
 			if rule.Mode() == Stop {
-				break
+				if !rw.RevertPolicy.DoRevert() {
+					return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
+				}
+				return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
 			}
 		}
 	}

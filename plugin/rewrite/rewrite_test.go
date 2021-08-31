@@ -163,6 +163,59 @@ func TestNewRule(t *testing.T) {
 	}
 }
 
+func TestRewriteDefaultRevertPolicy(t *testing.T) {
+	rules := []Rule{}
+
+	r, _ := newNameRule("stop", "prefix", "prefix", "to")
+	rules = append(rules, r)
+	r, _ = newNameRule("stop", "suffix", ".suffix.", ".nl.")
+	rules = append(rules, r)
+	r, _ = newNameRule("stop", "substring", "from.substring", "to")
+	rules = append(rules, r)
+	r, _ = newNameRule("stop", "regex", "(f.*m)\\.regex\\.(nl)", "to.{2}")
+	rules = append(rules, r)
+
+	rw := Rewrite{
+		Next:  plugin.HandlerFunc(msgPrinter),
+		Rules: rules,
+		// use production (default) RevertPolicy
+	}
+
+	tests := []struct {
+		from  string
+		fromT uint16
+		fromC uint16
+		to    string
+		toT   uint16
+		toC   uint16
+	}{
+		{"prefix.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
+		{"to.suffix.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
+		{"from.substring.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
+		{"from.regex.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
+	}
+
+	ctx := context.TODO()
+	for i, tc := range tests {
+		m := new(dns.Msg)
+		m.SetQuestion(tc.from, tc.fromT)
+		m.Question[0].Qclass = tc.fromC
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		rw.ServeDNS(ctx, rec, m)
+
+		resp := rec.Msg
+
+		if resp.Question[0].Name != tc.from {
+			t.Errorf("Test %d: Expected Name in Question to be %q but was %q", i, tc.from, resp.Question[0].Name)
+		}
+
+		if resp.Answer[0].Header().Name != tc.to {
+			t.Errorf("Test %d: Expected Name in Answer to be %q but was %q", i, tc.to, resp.Answer[0].Header().Name)
+		}
+	}
+}
+
 func TestRewrite(t *testing.T) {
 	rules := []Rule{}
 	r, _ := newNameRule("stop", "from.nl.", "to.nl.")
