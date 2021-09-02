@@ -40,6 +40,11 @@ func NewServergRPC(addr string, group []*Config) (*ServergRPC, error) {
 		// Should we error if some configs *don't* have TLS?
 		tlsConfig = conf.TLSConfig
 	}
+	// http/2 is required when using gRPC. We need to specify it in next protos
+	// or the upgrade won't happen.
+	if tlsConfig != nil {
+		tlsConfig.NextProtos = []string{"h2"}
+	}
 
 	return &ServergRPC{Server: s, tlsConfig: tlsConfig}, nil
 }
