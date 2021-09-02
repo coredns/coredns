@@ -11,12 +11,14 @@ import (
 	"github.com/miekg/dns"
 )
 
+// AcmeHandler is a plugin that performs the ACME protocol
 type AcmeHandler struct {
 	Next     plugin.Handler
 	provider *Provider
 	*AcmeConfig
 }
 
+// AcmeConfig contains data needed to serve DNS queries
 type AcmeConfig struct {
 	Zone                    string
 	Ipv4Addr                net.IP
@@ -29,6 +31,7 @@ const (
 	certificateAuthority = "letsencrypt.org"
 )
 
+// Name implements the Handler interface.
 func (h AcmeHandler) Name() string { return pluginName }
 
 func (h AcmeHandler) getQualifiedZone(zone string) string {
@@ -37,6 +40,8 @@ func (h AcmeHandler) getQualifiedZone(zone string) string {
 	}
 	return zone
 }
+
+// ServeDNS implements the plugin.Handler interface.
 func (h AcmeHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	a := new(dns.Msg)

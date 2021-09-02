@@ -42,16 +42,19 @@ func newACME(acmeManagerTemplate certmagic.ACMEManager, zone string) ACME {
 	}
 }
 
+// IssueCert issues the certificates for zones
 func (a ACME) IssueCert(zones []string) error {
 	err := a.Config.ManageSync(zones)
 	return err
 }
 
+// GetCert obtains the certificates for a zone
 func (a ACME) GetCert(zone string) error {
 	err := a.Config.ObtainCert(context.Background(), zone, false)
 	return err
 }
 
+// RevokeCert revokes the certificates for a zone
 func (a ACME) RevokeCert(zone string) error {
 	err := a.Config.RevokeCert(context.Background(), zone, 0, false)
 	return err
