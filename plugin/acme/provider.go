@@ -43,7 +43,7 @@ func (r *recordStore) deleteRecords(recs []libdns.Record) []libdns.Record {
 	return deletedRecords
 }
 
-//  AppendRecords appends records to existing records in the zone.
+// AppendRecords appends records to existing records in the zone.
 func (p *Provider) AppendRecords(ctx context.Context, zoneName string, recs []libdns.Record) ([]libdns.Record, error) {
 	p.Lock()
 	defer p.Unlock()
@@ -56,7 +56,7 @@ func (p *Provider) AppendRecords(ctx context.Context, zoneName string, recs []li
 	return zoneRecordStore.entries, nil
 }
 
-//  DeleteRecords deletes records from existing records in the zone.
+// DeleteRecords deletes records from existing records in the zone.
 func (p *Provider) DeleteRecords(ctx context.Context, zoneName string, recs []libdns.Record) ([]libdns.Record, error) {
 	p.Lock()
 	defer p.Unlock()
@@ -68,7 +68,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zoneName string, recs []li
 	return deletedRecords, nil
 }
 
-//  GetRecords gets existing records in the zone.
+// GetRecords gets existing records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zoneName string) ([]libdns.Record, error) {
 	p.Lock()
 	defer p.Unlock()
