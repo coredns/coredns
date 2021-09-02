@@ -8,16 +8,17 @@ import (
 	"github.com/libdns/libdns"
 )
 
-type RecordStore struct {
+type recordStore struct {
 	entries []libdns.Record
 }
 
+// Provider has the necessary methods for CertMagic to modify DNS records
 type Provider struct {
 	sync.Mutex
-	recordMap map[string]*RecordStore
+	recordMap map[string]*recordStore
 }
 
-func (p *Provider) getZoneRecords(ctx context.Context, zoneName string) *RecordStore {
+func (p *Provider) getZoneRecords(ctx context.Context, zoneName string) *recordStore {
 	records, found := p.recordMap[zoneName]
 	if !found {
 		return nil
@@ -29,7 +30,7 @@ func compareRecords(a, b libdns.Record) bool {
 	return a.Type == b.Type && a.Name == b.Name && a.Value == b.Value && a.TTL == b.TTL
 }
 
-func (r *RecordStore) deleteRecords(recs []libdns.Record) []libdns.Record {
+func (r *recordStore) deleteRecords(recs []libdns.Record) []libdns.Record {
 	deletedRecords := []libdns.Record{}
 	for i, entry := range r.entries {
 		for _, record := range recs {
@@ -41,18 +42,21 @@ func (r *RecordStore) deleteRecords(recs []libdns.Record) []libdns.Record {
 	}
 	return deletedRecords
 }
+
+//  AppendRecords appends records to existing records in the zone.
 func (p *Provider) AppendRecords(ctx context.Context, zoneName string, recs []libdns.Record) ([]libdns.Record, error) {
 	p.Lock()
 	defer p.Unlock()
 	zoneRecordStore := p.getZoneRecords(ctx, zoneName)
 	if zoneRecordStore == nil {
-		zoneRecordStore = new(RecordStore)
+		zoneRecordStore = new(recordStore)
 		p.recordMap[zoneName] = zoneRecordStore
 	}
 	zoneRecordStore.entries = append(zoneRecordStore.entries, recs...)
 	return zoneRecordStore.entries, nil
 }
 
+//  DeleteRecords deletes records from existing records in the zone.
 func (p *Provider) DeleteRecords(ctx context.Context, zoneName string, recs []libdns.Record) ([]libdns.Record, error) {
 	p.Lock()
 	defer p.Unlock()
@@ -64,6 +68,7 @@ func (p *Provider) DeleteRecords(ctx context.Context, zoneName string, recs []li
 	return deletedRecords, nil
 }
 
+//  GetRecords gets existing records in the zone.
 func (p *Provider) GetRecords(ctx context.Context, zoneName string) ([]libdns.Record, error) {
 	p.Lock()
 	defer p.Unlock()

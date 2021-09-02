@@ -9,6 +9,7 @@ import (
 	"github.com/caddyserver/certmagic"
 )
 
+// Keywords to be used in parsing the Corefile
 const (
 	HTTPChallenge     = "http"
 	TLPSALPNChallenge = "tlsalpn"
@@ -17,13 +18,14 @@ const (
 	PORT              = "port"
 )
 
+// ACME contains the data needed to perform the protocol
 type ACME struct {
 	Manager *certmagic.ACMEManager
 	Config  *certmagic.Config
 	Zone    string
 }
 
-func NewACME(acmeManagerTemplate certmagic.ACMEManager, zone string) ACME {
+func newACME(acmeManagerTemplate certmagic.ACMEManager, zone string) ACME {
 	configTemplate := certmagic.NewDefault()
 	cache := certmagic.NewCache(certmagic.CacheOptions{
 		GetConfigForCert: func(cert certmagic.Certificate) (*certmagic.Config, error) {
@@ -38,22 +40,6 @@ func NewACME(acmeManagerTemplate certmagic.ACMEManager, zone string) ACME {
 		Manager: acmeManager,
 		Zone:    zone,
 	}
-}
-
-func (a ACME) OnStartup() error {
-	httpPort := fmt.Sprintf(":%d", a.Manager.AltHTTPPort)
-	tlsalpnPort := fmt.Sprintf(":%d", a.Manager.AltTLSALPNPort)
-	tlsConfig := a.Config.TLSConfig()
-	var err error
-	if !a.Manager.DisableTLSALPNChallenge {
-		go func() {
-			_, err = tls.Listen("tcp", tlsalpnPort, tlsConfig)
-		}()
-	}
-	if !a.Manager.DisableHTTPChallenge {
-		go func() { err = http.ListenAndServe(httpPort, a.Manager.HTTPChallengeHandler(http.NewServeMux())) }()
-	}
-	return err
 }
 
 func (a ACME) IssueCert(zones []string) error {

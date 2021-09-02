@@ -25,7 +25,7 @@ func generateRandomRecords(n int) []libdns.Record {
 }
 func TestProviderAppendRecords(t *testing.T) {
 	provider := Provider{
-		recordMap: make(map[string]*RecordStore),
+		recordMap: make(map[string]*recordStore),
 	}
 	ctx := context.Background()
 	var wg sync.WaitGroup

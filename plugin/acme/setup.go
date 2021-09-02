@@ -22,7 +22,7 @@ func init() {
 func setup(c *caddy.Controller) error {
 	acmeTemplate, zoneName, err := parseACME(c)
 	provider := Provider{
-		recordMap: make(map[string]*RecordStore),
+		recordMap: make(map[string]*recordStore),
 	}
 	if err != nil {
 		return plugin.Error(pluginName, err)
@@ -61,7 +61,7 @@ func setup(c *caddy.Controller) error {
 				Resolvers:   []string{ipAddr},
 			}
 
-			A := NewACME(acmeTemplate, zoneName)
+			A := newACME(acmeTemplate, zoneName)
 			err = A.IssueCert([]string{zoneName})
 			if err != nil {
 				log.Error(err)
