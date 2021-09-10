@@ -13,6 +13,9 @@ a bunch of plugins and not one, but two new plugins. A *geoip* plugin that can r
 query came from and a *header* plugin that allows you to fiddle with (some of) the header bits in a
 DNS message.
 
+With this release, the `coredns_cache_misses_total` metric is deprecated.  It will be removed in a later release.
+Users should migrate forumlas to use `coredns_cache_requests_total - coredns_cache_hits_total`.
+
 ## Brought to You By
 
 Ben Kochie,
