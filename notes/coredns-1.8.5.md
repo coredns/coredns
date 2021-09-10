@@ -14,7 +14,7 @@ query came from and a *header* plugin that allows you to fiddle with (some of) t
 DNS message.
 
 With this release, the `coredns_cache_misses_total` metric is deprecated.  It will be removed in a later release.
-Users should migrate forumlas to use `coredns_cache_requests_total - coredns_cache_hits_total`.
+Users should migrate their promQL  to use `coredns_cache_requests_total - coredns_cache_hits_total`.
 
 ## Brought to You By
 
