@@ -77,10 +77,17 @@ func TestFileUpstreamError(t *testing.T) {
 		},
 		"srvfail": {
 			Qname: "srvfail.example.org.", Qtype: dns.TypeA,
+			Answer: []dns.RR{
+				test.CNAME("srvfail.example.org.	3600	IN	CNAME	srvfail.example.net."),
+			},
 			Rcode: dns.RcodeServerFailure,
 		},
 		"srvfail-chain": {
 			Qname: "chain2.example.org.", Qtype: dns.TypeA,
+			Answer: []dns.RR{
+				test.CNAME("chain2.example.org.	3600	IN	CNAME	srvfail.example.org."),
+				test.CNAME("srvfail.example.org.	3600	IN	CNAME	srvfail.example.net."),
+			},
 			Rcode: dns.RcodeServerFailure,
 		},
 		"nodata": {
