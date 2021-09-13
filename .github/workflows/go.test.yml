@@ -79,4 +79,4 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Test Makefile
-      run:  make DOCKER=bla GITHUB_ACCESS_TOKEN=bla -n build docker github-push docker-push -f Makefile.release
+      run:  make GITHUB_ACCESS_TOKEN=bla -n build github-push -f Makefile.release
