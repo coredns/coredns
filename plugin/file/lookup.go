@@ -383,7 +383,7 @@ Redo:
 func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result) {
 	m, e := z.Upstream.Lookup(ctx, state, target, qtype)
 	if e != nil {
-		return nil, Success
+		return nil, ServerFailure
 	}
 	if m == nil {
 		return nil, Success

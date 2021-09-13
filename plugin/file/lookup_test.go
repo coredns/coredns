@@ -117,6 +117,14 @@ var dnsTestCases = []test.Case{
 		},
 		Ns: miekAuth,
 	},
+	{
+		Qname: "ext-cname.miek.nl.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.CNAME("ext-cname.miek.nl.	1800	IN	CNAME	example.com."),
+		},
+		Rcode: dns.RcodeServerFailure,
+		Ns:    miekAuth,
+	},
 }
 
 const (
@@ -218,4 +226,6 @@ archive         IN      CNAME   a
 dname           IN      DNAME   x
 
 srv		IN	SRV     10 10 8080 a.miek.nl.
-mx		IN	MX      10 a.miek.nl.`
+mx		IN	MX      10 a.miek.nl.
+
+ext-cname   IN   CNAME  example.com.`
