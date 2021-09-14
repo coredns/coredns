@@ -64,6 +64,7 @@ docker-build:
 ifeq ($(DOCKER),)
 	$(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
 else
+	docker version
 	@# 1. Copy appropriate coredns binary to build/docker/linux/<arch>
 	@# 2. Copy Dockerfile to build/docker/linux/<arch>
 	for arch in $(LINUX_ARCH); do \
