@@ -14,9 +14,9 @@
 #
 # Testing docker is done e.g. via:
 #
-#  export DOCKER_PASSWORD=<pass>
+# export DOCKER_PASSWORD=<pass>
 # export DOCKER_LOGIN=miek
-# make DOCKER=miek -f Makefile.release release docker-push
+# make VERSION=x.y.z DOCKER=miek -f Makefile.docker release docker-push
 
 ifeq (, $(shell which curl))
     $(error "No curl in $$PATH, please install")
