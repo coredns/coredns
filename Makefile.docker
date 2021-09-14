@@ -16,7 +16,7 @@
 #
 #  export DOCKER_PASSWORD=<pass>
 # export DOCKER_LOGIN=miek
-# make DOCKER=miek -f Makefile.release build docker-build docker-push
+# make DOCKER=miek -f Makefile.release release docker-push
 
 ifeq (, $(shell which curl))
     $(error "No curl in $$PATH, please install")
@@ -35,7 +35,7 @@ DOCKER_IMAGE_LIST_VERSIONED:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCK
 DOCKER_IMAGE_LIST_LATEST:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:latest~g")
 
 all:
-	@echo Use the 'release' target to build a release, 'docker' for docker build.
+	@echo Use the 'release' target to download released binaries and build containers per arch, 'docker-push' to build and push a multi arch manifest.
 	echo $(DOCKER_IMAGE_LIST_VERSIONED)
 	echo $(DOCKER_IMAGE_LIST_LATEST)
 
