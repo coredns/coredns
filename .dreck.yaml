@@ -9,3 +9,5 @@ aliases:
     /wai -> /label works as intended
   - |
     /release (.*) -> /exec /opt/bin/release-coredns $1
+  - |
+    /docker (.*) -> /exec /opt/bin/docker-coredns $1

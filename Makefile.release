@@ -40,10 +40,8 @@
 #
 # Testing this is hard-ish as you don't want to accidentially release a coredns. If not executing the github-push target
 # you should be fine.
-
-EMPTY:=
-SPACE:=$(EMPTY) $(EMPTY)
-COMMA:=$(EMPTY),$(EMPTY)
+# The Docker image creation and upload is now a seperate step because it was failing too often. See the Makefile.docker for
+# details.
 
 ifeq (, $(shell which curl))
     $(error "No curl in $$PATH, please install")
