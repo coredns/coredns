@@ -87,11 +87,11 @@ ifeq ($(GITHUB_ACCESS_TOKEN),)
 	$(error "Please set the GITHUB_ACCESS_TOKEN environment variable")
 else
 	@echo Releasing: $(VERSION)
-	@$(eval RELEASE:=$(shell curl -s -d '{"tag_name": "v$(VERSION)", "name": "v$(VERSION)"}' -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" "https://api.github.com/repos/$(GITHUB)/$(NAME)/releases" | grep -m 1 '"id"' | tr -cd '[[:digit:]]'))
+	@$(eval RELEASE:=$(shell curl --http1.1 -s -d '{"tag_name": "v$(VERSION)", "name": "v$(VERSION)"}' -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" "https://api.github.com/repos/$(GITHUB)/$(NAME)/releases" | grep -m 1 '"id"' | tr -cd '[[:digit:]]'))
 	@echo ReleaseID: $(RELEASE)
 	@( cd release; for asset in `ls -A *tgz`; do \
 	    echo $$asset; \
-	    curl -o /dev/null -X POST \
+	    curl --http1.1 -o /dev/null -X POST \
 	      -H "Content-Type: application/gzip" \
 	      -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" \
 	      --data-binary "@$$asset" \
@@ -102,7 +102,7 @@ else
 	done )
 	@( cd release; for asset in `ls -A *sha256`; do \
 	    echo $$asset; \
-	    curl -o /dev/null -X POST \
+	    curl --http1.1 -o /dev/null -X POST \
 	      -H "Content-Type: text/plain" \
 	      -H "Authorization: token ${GITHUB_ACCESS_TOKEN}" \
 	      --data-binary "@$$asset" \
