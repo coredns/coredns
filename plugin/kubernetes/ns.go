@@ -15,8 +15,9 @@ func isDefaultNS(name, zone string) bool {
 // it returns a record for the local address of the machine we're running on.
 func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 	var (
-		svcNames []string
-		svcIPs   []net.IP
+		svcNames     []string
+		svcIPs       []net.IP
+		foundService bool
 	)
 
 	// Find the CoreDNS Endpoints
@@ -27,6 +28,7 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 		for _, endpoint := range endpoints {
 			svcs := k.APIConn.SvcIndex(endpoint.Index)
 			for _, svc := range svcs {
+				foundService = true
 				if external {
 					svcName := strings.Join([]string{svc.Name, svc.Namespace, zone}, ".")
 					for _, exIP := range svc.ExternalIPs {
@@ -54,8 +56,8 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 		}
 	}
 
-	// If no local IPs matched any endpoints, use the localIPs directly
-	if len(svcIPs) == 0 {
+	// If no CoreDNS services were found, use the localIPs directly
+	if !foundService {
 		svcIPs = make([]net.IP, len(k.localIPs))
 		svcNames = make([]string, len(k.localIPs))
 		for i, localIP := range k.localIPs {
