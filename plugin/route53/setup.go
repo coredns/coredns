@@ -26,8 +26,13 @@ var log = clog.NewWithPlugin("route53")
 func init() { plugin.Register("route53", setup) }
 
 // exposed for testing
-var f = func(credential *credentials.Credentials) route53iface.Route53API {
-	return route53.New(session.Must(session.NewSession(&aws.Config{Credentials: credential})))
+var f = func(credential *credentials.Credentials, awsApiMaxRetries int) route53iface.Route53API {
+	return route53.New(session.Must(session.NewSessionWithOptions(
+		session.Options{
+			Config: aws.Config{
+				Credentials: credential,
+				MaxRetries:  &awsApiMaxRetries},
+		})))
 }
 
 func setup(c *caddy.Controller) error {
@@ -44,6 +49,7 @@ func setup(c *caddy.Controller) error {
 		sharedProvider := &credentials.SharedCredentialsProvider{}
 		var providers []credentials.Provider
 		var fall fall.F
+		var awsApiMaxRetries int = 0
 
 		refresh := time.Duration(1) * time.Minute // default update frequency to 1 minute
 
@@ -109,6 +115,20 @@ func setup(c *caddy.Controller) error {
 				} else {
 					return plugin.Error("route53", c.ArgErr())
 				}
+			case "aws_api_max_retries":
+				if c.NextArg() {
+					var err error
+					awsApiMaxRetries, err = strconv.Atoi(c.Val())
+					if err != nil {
+						return plugin.Error("route53", c.Errf("Unable to parse aws_api_max_retries: %v", err))
+					}
+					if awsApiMaxRetries <= 0 {
+						return plugin.Error("route53", c.Errf("aws_api_max_retries must be greater than 0: %q", awsApiMaxRetries))
+					}
+				} else {
+					return c.ArgErr()
+				}
+
 			default:
 				return plugin.Error("route53", c.Errf("unknown property %q", c.Val()))
 			}
@@ -120,7 +140,7 @@ func setup(c *caddy.Controller) error {
 		}
 
 		providers = append(providers, &credentials.EnvProvider{}, sharedProvider, defaults.RemoteCredProvider(*session.Config, session.Handlers))
-		client := f(credentials.NewChainCredentials(providers))
+		client := f(credentials.NewChainCredentials(providers), awsApiMaxRetries)
 		ctx, cancel := context.WithCancel(context.Background())
 		h, err := New(ctx, client, keys, refresh)
 		if err != nil {
