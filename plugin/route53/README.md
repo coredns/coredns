@@ -22,34 +22,38 @@ route53 [ZONE:HOSTED_ZONE_ID...] {
 }
 ~~~
 
-*   **ZONE** the name of the domain to be accessed. When there are multiple zones with overlapping
-    domains (private vs. public hosted zone), CoreDNS does the lookup in the given order here.
-    Therefore, for a non-existing resource record, SOA response will be from the rightmost zone.
+* **ZONE** the name of the domain to be accessed. When there are multiple zones with overlapping
+ domains (private vs. public hosted zone), CoreDNS does the lookup in the given order here.
+ Therefore, for a non-existing resource record, SOA response will be from the rightmost zone.
 
-*   **HOSTED\_ZONE\_ID** the ID of the hosted zone that contains the resource record sets to be
-    accessed.
+* **HOSTED\_ZONE\_ID** the ID of the hosted zone that contains the resource record sets to be
+ accessed.
 
-*   **AWS\_ACCESS\_KEY\_ID** and **AWS\_SECRET\_ACCESS\_KEY** the AWS access key ID and secret access key
-    to be used when query AWS (optional). If they are not provided, then coredns tries to access
-    AWS credentials the same way as AWS CLI, e.g., environmental variables, AWS credentials file,
-    instance profile credentials, etc.
+* **AWS\_ACCESS\_KEY\_ID** and **AWS\_SECRET\_ACCESS\_KEY** the AWS access key ID and secret access key
+ to be used when query AWS (optional). If they are not provided, then coredns tries to access
+ AWS credentials the same way as AWS CLI, e.g., environmental variables, AWS credentials file,
+ instance profile credentials, etc.
 
-*   `credentials` is used for reading the credential **FILENAME** and setting the **PROFILE** name for a given
-    zone. **PROFILE** is the AWS account profile name. Defaults to `default`. **FILENAME** is the
-    AWS credentials filename, defaults to `~/.aws/credentials`.
+* `credentials` is used for reading the credential **FILENAME** and setting the **PROFILE** name for a given
+ zone. **PROFILE** is the AWS account profile name. Defaults to `default`. **FILENAME** is the
+ AWS credentials filename, defaults to `~/.aws/credentials`.
 
-*   `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
-    If **ZONES** is omitted, then fallthrough happens for all zones for which the plugin is
-    authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then
-    only queries for those zones will be subject to fallthrough.
+* `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
+ If **ZONES** is omitted, then fallthrough happens for all zones for which the plugin is
+ authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then
+ only queries for those zones will be subject to fallthrough.
 
-*   `refresh` can be used to control how long between record retrievals from Route 53. It requires
-    a duration string as a parameter to specify the duration between update cycles. Each update
-    cycle may result in many AWS API calls depending on how many domains use this plugin and how
-    many records are in each. Adjusting the update frequency may help reduce the potential of API
-    rate-limiting imposed by AWS.
+* `refresh` can be used to control how long between record retrievals from Route 53. It requires
+ a duration string as a parameter to specify the duration between update cycles. Each update
+ cycle may result in many AWS API calls depending on how many domains use this plugin and how
+ many records are in each. Adjusting the update frequency may help reduce the potential of API
+ rate-limiting imposed by AWS.
 
-*   **DURATION** A duration string. Defaults to `1m`. If units are unspecified, seconds are assumed.
+* `aws_api_max_retries` can be used to retry recoverable errors on the AWS API. By default errors
+    are not retried and thus, in case of throttling on the AWS API, the plugin doesn't update the zone.
+    The default value is 0, meaning that the pluging doesn't retry.
+
+* **DURATION** A duration string. Defaults to `1m`. If units are unspecified, seconds are assumed.
 
 ## Examples
 
@@ -57,7 +61,7 @@ Enable route53 with implicit AWS credentials and resolve CNAMEs via 10.0.0.1:
 
 ~~~ txt
 example.org {
-	route53 example.org.:Z1Z2Z3Z4DZ5Z6Z7
+    route53 example.org.:Z1Z2Z3Z4DZ5Z6Z7
 }
 
 . {
@@ -94,6 +98,7 @@ example.org {
 ~~~
 
 Enable route53 and refresh records every 3 minutes
+
 ~~~ txt
 example.org {
     route53 example.org.:Z1Z2Z3Z4DZ5Z6Z7 {
