@@ -136,7 +136,8 @@ func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
 			if end.Hostname != nil {
 				ea.Hostname = *end.Hostname
 			}
-			if end.TargetRef != nil {
+			// ignore pod names that are too long to be a valid label
+			if end.TargetRef != nil && len(end.TargetRef.Name) < 64 {
 				ea.TargetRefName = end.TargetRef.Name
 			}
 			if end.NodeName != nil {
@@ -186,7 +187,8 @@ func EndpointSliceV1beta1ToEndpoints(obj meta.Object) (meta.Object, error) {
 			if end.Hostname != nil {
 				ea.Hostname = *end.Hostname
 			}
-			if end.TargetRef != nil {
+			// ignore pod names that are too long to be a valid label
+			if end.TargetRef != nil && len(end.TargetRef.Name) < 64 {
 				ea.TargetRefName = end.TargetRef.Name
 			}
 			// EndpointSlice does not contain NodeName, leave blank
