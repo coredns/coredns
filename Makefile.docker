@@ -66,7 +66,7 @@ ifeq ($(DOCKER),)
 else
 	docker version
 	for arch in $(LINUX_ARCH); do \
-	    docker build --platform linux/$${arch} -t $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) build/docker/$${arch}  && \
+	    docker build -t $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) build/docker/$${arch}  && \
 	    docker tag $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
 	done
 endif
