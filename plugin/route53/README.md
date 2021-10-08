@@ -49,6 +49,10 @@ route53 [ZONE:HOSTED_ZONE_ID...] {
     many records are in each. Adjusting the update frequency may help reduce the potential of API
     rate-limiting imposed by AWS.
 
+*   `max_retries` can be used to retry recoverable errors on the AWS API. By default errors
+    are not retried and thus, in case of throttling on the AWS API, the plugin doesn't update the zone.
+    The default value is 0, meaning that the pluging doesn't retry.
+
 *   **DURATION** A duration string. Defaults to `1m`. If units are unspecified, seconds are assumed.
 
 ## Examples
