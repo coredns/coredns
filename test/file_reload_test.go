@@ -1,7 +1,7 @@
 package test
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -45,7 +45,7 @@ func TestZoneReload(t *testing.T) {
 	}
 
 	// Remove RR from the Apex
-	ioutil.WriteFile(name, []byte(exampleOrgUpdated), 0644)
+	os.WriteFile(name, []byte(exampleOrgUpdated), 0644)
 
 	time.Sleep(20 * time.Millisecond) // reload time, with some race insurance
 

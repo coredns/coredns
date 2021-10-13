@@ -7,7 +7,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"sort"
@@ -35,7 +34,7 @@ var Owners = []string{`
 	// to prevent `No newline at end of file` with gofmt
 	golist += "\n"
 
-	if err := ioutil.WriteFile("plugin/chaos/zowners.go", []byte(golist), 0644); err != nil {
+	if err := os.WriteFile("plugin/chaos/zowners.go", []byte(golist), 0644); err != nil {
 		log.Fatal(err)
 	}
 	return

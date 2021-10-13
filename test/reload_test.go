@@ -3,7 +3,7 @@ package test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -105,7 +105,7 @@ func TestReloadMetricsHealth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ok, _ := ioutil.ReadAll(resp.Body)
+	ok, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if string(ok) != http.StatusText(http.StatusOK) {
 		t.Errorf("Failed to receive OK, got %s", ok)
@@ -117,7 +117,7 @@ func TestReloadMetricsHealth(t *testing.T) {
 		t.Fatal(err)
 	}
 	const proc = "coredns_build_info"
-	metrics, _ := ioutil.ReadAll(resp.Body)
+	metrics, _ := io.ReadAll(resp.Body)
 	if !bytes.Contains(metrics, []byte(proc)) {
 		t.Errorf("Failed to see %s in metric output", proc)
 	}
@@ -129,7 +129,7 @@ func collectMetricsInfo(addr string, procs ...string) error {
 	if err != nil {
 		return err
 	}
-	metrics, _ := ioutil.ReadAll(resp.Body)
+	metrics, _ := io.ReadAll(resp.Body)
 	for _, p := range procs {
 		if !bytes.Contains(metrics, []byte(p)) {
 			return fmt.Errorf("failed to see %s in metric output \n%s", p, metrics)

@@ -2,7 +2,6 @@ package file
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -56,7 +55,7 @@ func TestZoneReload(t *testing.T) {
 	if len(rrs) != 5 {
 		t.Fatalf("Expected 5 RRs, got %d", len(rrs))
 	}
-	if err := ioutil.WriteFile(fileName, []byte(reloadZone2Test), 0644); err != nil {
+	if err := os.WriteFile(fileName, []byte(reloadZone2Test), 0644); err != nil {
 		t.Fatalf("Failed to write new zone data: %s", err)
 	}
 	// Could still be racy, but we need to wait a bit for the event to be seen

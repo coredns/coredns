@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/miekg/dns"
@@ -93,7 +92,7 @@ func requestToMsgGet(req *http.Request) (*dns.Msg, error) {
 }
 
 func toMsg(r io.ReadCloser) (*dns.Msg, error) {
-	buf, err := ioutil.ReadAll(r)
+	buf, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}

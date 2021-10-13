@@ -3,7 +3,6 @@ package sign
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -15,7 +14,7 @@ import (
 
 // write writes out the zone file to a temporary file which is then moved into the correct place.
 func (s *Signer) write(z *file.Zone) error {
-	f, err := ioutil.TempFile(s.directory, "signed-")
+	f, err := os.CreateTemp(s.directory, "signed-")
 	if err != nil {
 		return err
 	}

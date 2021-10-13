@@ -1,7 +1,6 @@
 package test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +9,7 @@ import (
 )
 
 func setupProxyTargetCoreDNS(t *testing.T, fn func(string)) {
-	tmpdir, err := ioutil.TempDir(os.TempDir(), "coredns")
+	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,7 +23,7 @@ google.com. IN A 172.217.25.110
 `
 
 	path := filepath.Join(tmpdir, "file")
-	if err = ioutil.WriteFile(path, []byte(content), 0644); err != nil {
+	if err = os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("Could not write to temp file: %s", err)
 	}
 	defer os.Remove(path)

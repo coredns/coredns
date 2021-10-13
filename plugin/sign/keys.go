@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -70,7 +70,7 @@ func readKeyPair(public, private string) (Pair, error) {
 	if err != nil {
 		return Pair{}, err
 	}
-	b, err := ioutil.ReadAll(rk)
+	b, err := io.ReadAll(rk)
 	if err != nil {
 		return Pair{}, err
 	}

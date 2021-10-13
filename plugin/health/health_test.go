@@ -2,7 +2,7 @@ package health
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -25,7 +25,7 @@ func TestHealth(t *testing.T) {
 	if response.StatusCode != 200 {
 		t.Errorf("Invalid status code: expecting '200', got '%d'", response.StatusCode)
 	}
-	content, err := ioutil.ReadAll(response.Body)
+	content, err := io.ReadAll(response.Body)
 	if err != nil {
 		t.Fatalf("Unable to get response body from %s: %v", address, err)
 	}

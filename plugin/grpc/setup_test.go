@@ -1,7 +1,6 @@
 package grpc
 
 import (
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -105,7 +104,7 @@ tls
 
 func TestSetupResolvconf(t *testing.T) {
 	const resolv = "resolv.conf"
-	if err := ioutil.WriteFile(resolv,
+	if err := os.WriteFile(resolv,
 		[]byte(`nameserver 10.10.255.252
 nameserver 10.10.255.253`), 0666); err != nil {
 		t.Fatalf("Failed to write resolv.conf file: %s", err)

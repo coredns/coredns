@@ -3,7 +3,7 @@ package log
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"log"
 	"strings"
 	"testing"
@@ -240,7 +240,7 @@ func TestLogged(t *testing.T) {
 }
 
 func BenchmarkLogged(b *testing.B) {
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 
 	rule := Rule{
 		NameScope: ".",

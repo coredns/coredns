@@ -1,7 +1,6 @@
 package test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,7 +68,7 @@ func TestMetricsRefused(t *testing.T) {
 }
 
 func TestMetricsAuto(t *testing.T) {
-	tmpdir, err := ioutil.TempDir(os.TempDir(), "coredns")
+	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +94,7 @@ func TestMetricsAuto(t *testing.T) {
 	defer i.Stop()
 
 	// Write db.example.org to get example.org.
-	if err = ioutil.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(110 * time.Millisecond) // wait for it to be picked up
