@@ -45,6 +45,7 @@ type Cache struct {
 // New returns an initialized Cache with default settings. It's up to the
 // caller to set the Next handler.
 func New() *Cache {
+
 	return &Cache{
 		Zones:      []string{"."},
 		pcap:       defaultCap,
