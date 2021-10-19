@@ -227,6 +227,8 @@ var (
 	ErrNoForward = errors.New("no forwarder defined")
 	// ErrCachedClosed means cached connection was closed by peer.
 	ErrCachedClosed = errors.New("cached connection was closed by peer")
+	// ErrSocketRequestsLimit means transport is too busy to serve socket request.
+	ErrSocketRequestsLimit = errors.New("can't serve all socket requests")
 )
 
 // options holds various options that can be set.

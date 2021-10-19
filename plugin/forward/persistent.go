@@ -8,6 +8,9 @@ import (
 	"github.com/miekg/dns"
 )
 
+// dial channel size.
+var DIAL_CHAN_SIZE = 1000
+
 // a persistConn hold the dns.Conn and the last used time.
 type persistConn struct {
 	c    *dns.Conn
@@ -34,7 +37,7 @@ func newTransport(addr string) *Transport {
 		conns:       [typeTotalCount][]*persistConn{},
 		expire:      defaultExpire,
 		addr:        addr,
-		dial:        make(chan string),
+		dial:        make(chan string, DIAL_CHAN_SIZE),
 		yield:       make(chan *persistConn),
 		ret:         make(chan *persistConn),
 		stop:        make(chan bool),

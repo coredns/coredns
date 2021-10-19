@@ -50,7 +50,12 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 		proto = "tcp-tls"
 	}
 
-	t.dial <- proto
+    select {
+	    case t.dial <- proto:
+	    default:
+	        return nil, false, ErrSocketRequestsLimit
+	}
+
 	pc := <-t.ret
 
 	if pc != nil {
