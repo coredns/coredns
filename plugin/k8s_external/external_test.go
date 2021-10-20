@@ -154,6 +154,12 @@ var tests = []test.Case{
 		},
 	},
 	{
+		Qname: "_http._tcp.svc12.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.SRV("_http._tcp.svc12.testns.example.com.	5	IN	SRV	0 100 80 svc12.testns.example.com."),
+		},
+	},
+	{
 		Qname: "svc12.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.CNAME("svc12.testns.example.com.	5	IN	CNAME	dummy.hostname"),
