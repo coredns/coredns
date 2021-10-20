@@ -126,8 +126,17 @@ func (e *External) srv(ctx context.Context, services []msg.Service, state reques
 				case dns.TypeAAAA:
 					extra = append(extra, &dns.AAAA{Hdr: hdr, AAAA: ip})
 				case dns.TypeCNAME:
-					if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeA); err == nil {
-						extra = append(extra, resp.Answer...)
+					resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeA)
+					if err != nil {
+						break
+					}
+					for index, answer := range resp.Answer {
+						if answer.Header().Rrtype == dns.TypeCNAME {
+							srv.Target = answer.(*dns.CNAME).Target
+							extra = append(extra, resp.Answer[:index]...)
+							extra = append(extra, resp.Answer[index+1:]...)
+							break
+						}
 					}
 				}
 			}
