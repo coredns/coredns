@@ -108,7 +108,21 @@ func (e *External) srv(ctx context.Context, services []msg.Service, state reques
 
 		switch what {
 
-		case dns.TypeA, dns.TypeAAAA, dns.TypeCNAME:
+		case dns.TypeCNAME:
+			addr := dns.Fqdn(s.Host)
+			srv := s.NewSRV(state.QName(), weight)
+			if ok := isDuplicate(dup, srv.Target, "", srv.Port); !ok {
+				records = append(records, srv)
+			}
+			if ok := isDuplicate(dup, srv.Target, addr, 0); !ok {
+				if resp, err := e.upstream.Lookup(ctx, state, addr, dns.TypeA); err == nil {
+					extra = append(extra, resp.Answer...)
+				}
+				if resp, err := e.upstream.Lookup(ctx, state, addr, dns.TypeAAAA); err == nil {
+					extra = append(extra, resp.Answer...)
+				}
+			}
+		case dns.TypeA, dns.TypeAAAA:
 			addr := s.Host
 			s.Host = msg.Domain(s.Key)
 			srv := s.NewSRV(state.QName(), weight)
@@ -125,19 +139,6 @@ func (e *External) srv(ctx context.Context, services []msg.Service, state reques
 					extra = append(extra, &dns.A{Hdr: hdr, A: ip})
 				case dns.TypeAAAA:
 					extra = append(extra, &dns.AAAA{Hdr: hdr, AAAA: ip})
-				case dns.TypeCNAME:
-					resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeA)
-					if err != nil {
-						break
-					}
-					for index, answer := range resp.Answer {
-						if answer.Header().Rrtype == dns.TypeCNAME {
-							srv.Target = answer.(*dns.CNAME).Target
-							extra = append(extra, resp.Answer[:index]...)
-							extra = append(extra, resp.Answer[index+1:]...)
-							break
-						}
-					}
 				}
 			}
 		}
