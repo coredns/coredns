@@ -155,6 +155,7 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 		c.ListenHosts = c.firstConfigInBlock.ListenHosts
 		c.Debug = c.firstConfigInBlock.Debug
 		c.TLSConfig = c.firstConfigInBlock.TLSConfig
+		c.TsigSecret = c.firstConfigInBlock.TsigSecret
 	}
 
 	// we must map (group) each config to a bind address
