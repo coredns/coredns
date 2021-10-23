@@ -136,8 +136,8 @@ func (s *shard) Len() int {
 
 // Walk walks the shard for each element the function f is executed while holding a write lock.
 func (s *shard) Walk(f func(map[uint64]interface{}, uint64) bool) {
-	items := make([]uint64, len(s.items))
 	s.RLock()
+	items := make([]uint64, len(s.items))
 	i := 0
 	for k := range s.items {
 		items[i] = k
