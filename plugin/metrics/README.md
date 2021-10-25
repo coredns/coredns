@@ -30,7 +30,7 @@ Extra labels used are:
 * `proto` which holds the transport of the response ("udp" or "tcp")
 * The address family (`family`) of the transport (1 = IP (IP version 4), 2 = IP6 (IP version 6)).
 * `type` which holds the query type. It holds most common types (A, AAAA, MX, SOA, CNAME, PTR, TXT,
-  NS, SRV, DS, DNSKEY, RRSIG, NSEC, NSEC3, IXFR, AXFR and ANY) and "other" which lumps together all
+  NS, SRV, DS, DNSKEY, RRSIG, NSEC, NSEC3, HTTPS, IXFR, AXFR and ANY) and "other" which lumps together all
   other types.
 
 If monitoring is enabled, queries that do not enter the plugin chain are exported under the fake

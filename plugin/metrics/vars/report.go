@@ -21,8 +21,8 @@ func Report(server string, req request.Request, zone, rcode string, size int, st
 		RequestDo.WithLabelValues(server, zone).Inc()
 	}
 
-	qtype := qTypeString(req.QType())
-	RequestCount.WithLabelValues(server, zone, net, fam, qtype).Inc()
+	qType := qTypeString(req.QType())
+	RequestCount.WithLabelValues(server, zone, net, fam, qType).Inc()
 
 	RequestDuration.WithLabelValues(server, zone).Observe(time.Since(start).Seconds())
 

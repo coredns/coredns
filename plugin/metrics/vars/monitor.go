@@ -19,6 +19,7 @@ var monitorType = map[uint16]struct{}{
 	dns.TypeSOA:    {},
 	dns.TypeSRV:    {},
 	dns.TypeTXT:    {},
+	dns.TypeHTTPS:  {},
 	// Meta Qtypes
 	dns.TypeIXFR: {},
 	dns.TypeAXFR: {},
@@ -26,7 +27,7 @@ var monitorType = map[uint16]struct{}{
 }
 
 // qTypeString returns the RR type based on monitorType. It returns the text representation
-// of thosAe types. RR types not in that list will have "other" returned.
+// of those types. RR types not in that list will have "other" returned.
 func qTypeString(qtype uint16) string {
 	if _, known := monitorType[qtype]; known {
 		return dns.Type(qtype).String()
