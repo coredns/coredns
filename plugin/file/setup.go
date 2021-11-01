@@ -121,6 +121,7 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 				return Zones{}, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
+		reader.Close()
 	}
 
 	for origin := range z {
