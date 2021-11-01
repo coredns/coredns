@@ -40,7 +40,7 @@ See example below.
 
 ## Examples
 
-Use in conjuction with the _acl_ plugin to restrict access to subnet 10.1.0.0/16.
+Use in conjunction with the _acl_ plugin to restrict access to subnet 10.1.0.0/16.
 
 ```
 ...
