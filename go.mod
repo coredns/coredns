@@ -21,7 +21,7 @@ require (
 	github.com/miekg/dns v1.1.43
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.4.5
-	github.com/openzipkin/zipkin-go v0.2.2
+	github.com/openzipkin/zipkin-go v0.3.0
 	github.com/oschwald/geoip2-golang v1.5.0
 	github.com/philhofer/fwd v1.1.1 // indirect
 	github.com/prometheus/client_golang v1.11.0
@@ -30,7 +30,7 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.etcd.io/etcd/client/v3 v3.5.1
-	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
+	golang.org/x/crypto v0.0.0-20210920023735-84f357641f63
 	golang.org/x/sys v0.0.0-20211007075335-d3039528d8ac
 	google.golang.org/api v0.59.0
 	google.golang.org/grpc v1.41.0
