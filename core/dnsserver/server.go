@@ -75,8 +75,8 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		s.zones[site.Zone] = site
 
 		// copy tsig secrets
-		for zone, secret := range site.TsigSecret {
-			s.tsigSecret[zone] = secret
+		for key, secret := range site.TsigSecret {
+			s.tsigSecret[key] = secret
 		}
 
 		// compile custom plugin for everything
