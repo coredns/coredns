@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/coredns/caddy"
-
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/edns"

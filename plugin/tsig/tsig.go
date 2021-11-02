@@ -11,6 +11,7 @@ import (
 	"github.com/coredns/coredns/request"
 )
 
+// TSIGServer verifies tsig status and adds tsig to responses
 type TSIGServer struct {
 	Zones   []string
 	secrets map[string]string // [key-name]secret
@@ -21,31 +22,10 @@ type TSIGServer struct {
 
 type qTypes map[uint16]struct{}
 
+// Name implements plugin.Handler
 func (t TSIGServer) Name() string { return pluginName }
 
-type restoreTsigWriter struct {
-	dns.ResponseWriter
-	req     *dns.Msg  // original request excluding TSIG if it has one
-	reqTSIG *dns.TSIG // original TSIG
-}
-
-func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
-	// Make sure the response has an EDNS OPT RR if the request had it.
-	// Otherwise ScrubWriter would append it *after* TSIG, making it a non-compliant DNS message.
-	state := request.Request{Req: r.req, W: r.ResponseWriter}
-	state.SizeAndDo(m)
-
-	if r.reqTSIG != nil {
-		var repTSIG dns.TSIG
-		repTSIG.Hdr = dns.RR_Header{Name: r.reqTSIG.Hdr.Name, Rrtype: dns.TypeTSIG, Class: dns.ClassANY}
-		repTSIG.Algorithm = r.reqTSIG.Algorithm
-		repTSIG.OrigId = m.MsgHdr.Id
-		m.Extra = append(m.Extra, &repTSIG)
-	}
-
-	return r.ResponseWriter.WriteMsg(m)
-}
-
+// ServeDNS implements plugin.Handler
 func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	var err error
 	state := request.Request{Req: r, W: w}
@@ -109,6 +89,31 @@ func (t *TSIGServer) tsigRequired(qtype uint16) bool {
 		return true
 	}
 	return false
+}
+
+// restoreTsigWriter Implement Response Writer, and adds a TSIG RR to a response
+type restoreTsigWriter struct {
+	dns.ResponseWriter
+	req     *dns.Msg  // original request excluding TSIG if it has one
+	reqTSIG *dns.TSIG // original TSIG
+}
+
+// WriteMsg adds a TSIG RR to the response
+func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
+	// Make sure the response has an EDNS OPT RR if the request had it.
+	// Otherwise ScrubWriter would append it *after* TSIG, making it a non-compliant DNS message.
+	state := request.Request{Req: r.req, W: r.ResponseWriter}
+	state.SizeAndDo(m)
+
+	if r.reqTSIG != nil {
+		var repTSIG dns.TSIG
+		repTSIG.Hdr = dns.RR_Header{Name: r.reqTSIG.Hdr.Name, Rrtype: dns.TypeTSIG, Class: dns.ClassANY}
+		repTSIG.Algorithm = r.reqTSIG.Algorithm
+		repTSIG.OrigId = m.MsgHdr.Id
+		m.Extra = append(m.Extra, &repTSIG)
+	}
+
+	return r.ResponseWriter.WriteMsg(m)
 }
 
 const pluginName = "tsig"
