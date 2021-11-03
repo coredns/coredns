@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/miekg/dns"
-
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
+
+	"github.com/miekg/dns"
 )
 
 // TSIGServer verifies tsig status and adds tsig to responses

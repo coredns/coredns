@@ -2,10 +2,10 @@ package tsig
 
 import (
 	"github.com/coredns/caddy"
-	"github.com/miekg/dns"
-
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+
+	"github.com/miekg/dns"
 )
 
 func init() {
