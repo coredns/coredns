@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/coredns/caddy"
+
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
@@ -26,6 +27,8 @@ func setup(c *caddy.Controller) error {
 		if x, ok := m.(Externaler); ok {
 			e.externalFunc = x.External
 			e.externalAddrFunc = x.ExternalAddress
+			e.externalServicesFunc = x.ExternalServices
+			e.externalSerialFunc = x.ExternalSerial
 		}
 		return nil
 	})

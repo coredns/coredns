@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -169,4 +170,69 @@ func createExternalSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 			Type: api.ServiceTypeExternalName,
 		},
 	}, meta.CreateOptions{})
+}
+
+func TestServiceModified(t *testing.T) {
+	var tests = []struct {
+		oldSvc   interface{}
+		newSvc   interface{}
+		ichanged bool
+		echanged bool
+	}{
+		{
+			oldSvc:   nil,
+			newSvc:   &object.Service{},
+			ichanged: true,
+			echanged: false,
+		},
+		{
+			oldSvc:   &object.Service{},
+			newSvc:   nil,
+			ichanged: true,
+			echanged: false,
+		},
+		{
+			oldSvc:   nil,
+			newSvc:   &object.Service{ExternalIPs: []string{"10.0.0.1"}},
+			ichanged: true,
+			echanged: true,
+		},
+		{
+			oldSvc:   &object.Service{ExternalIPs: []string{"10.0.0.1"}},
+			newSvc:   nil,
+			ichanged: true,
+			echanged: true,
+		},
+		{
+			oldSvc:   &object.Service{ExternalIPs: []string{"10.0.0.1"}},
+			newSvc:   &object.Service{ExternalIPs: []string{"10.0.0.2"}},
+			ichanged: false,
+			echanged: true,
+		},
+		{
+			oldSvc:   &object.Service{ExternalName: "10.0.0.1"},
+			newSvc:   &object.Service{ExternalName: "10.0.0.2"},
+			ichanged: true,
+			echanged: false,
+		},
+		{
+			oldSvc:   &object.Service{Ports: []api.ServicePort{{Name: "test1"}}},
+			newSvc:   &object.Service{Ports: []api.ServicePort{{Name: "test2"}}},
+			ichanged: true,
+			echanged: true,
+		},
+		{
+			oldSvc:   &object.Service{Ports: []api.ServicePort{{Name: "test1"}}},
+			newSvc:   &object.Service{Ports: []api.ServicePort{{Name: "test2"}, {Name: "test3"}}},
+			ichanged: true,
+			echanged: true,
+		},
+	}
+
+	for i, test := range tests {
+		ichanged, echanged := serviceModified(test.oldSvc, test.newSvc)
+		if test.ichanged != ichanged || test.echanged != echanged {
+			t.Errorf("Expected %v, %v for test %v. Got %v, %v", test.ichanged, test.echanged, i, ichanged, echanged)
+		}
+	}
 }

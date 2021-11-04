@@ -20,7 +20,8 @@ func TestApex(t *testing.T) {
 	e.Zones = []string{"example.com."}
 	e.Next = test.NextHandler(dns.RcodeSuccess, nil)
 	e.externalFunc = k.External
-	e.externalAddrFunc = externalAddress // internal test function
+	e.externalAddrFunc = externalAddress  // internal test function
+	e.externalSerialFunc = externalSerial // internal test function
 
 	ctx := context.TODO()
 	for i, tc := range testsApex {
@@ -43,6 +44,16 @@ func TestApex(t *testing.T) {
 		if err := test.SortAndCheck(resp, tc); err != nil {
 			t.Error(err)
 		}
+		for i, rr := range tc.Ns {
+			expectsoa := rr.(*dns.SOA)
+			gotsoa, ok := resp.Ns[i].(*dns.SOA)
+			if !ok {
+				t.Fatalf("Unexpected record type in Authority section")
+			}
+			if expectsoa.Serial != gotsoa.Serial {
+				t.Fatalf("Expected soa serial %d, got %d", expectsoa.Serial, gotsoa.Serial)
+			}
+		}
 	}
 }
 
@@ -50,7 +61,7 @@ var testsApex = []test.Case{
 	{
 		Qname: "example.com.", Qtype: dns.TypeSOA, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.dns.example.com. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{
@@ -65,37 +76,37 @@ var testsApex = []test.Case{
 	{
 		Qname: "example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
-			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.dns.example.com. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{
 		Qname: "dns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
-			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.dns.example.com. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{
 		Qname: "dns.example.com.", Qtype: dns.TypeNS, Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
-			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.dns.example.com. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{
 		Qname: "ns1.dns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
-			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.dns.example.com. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{
 		Qname: "ns1.dns.example.com.", Qtype: dns.TypeNS, Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
-			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.dns.example.com. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{
 		Qname: "ns1.dns.example.com.", Qtype: dns.TypeAAAA, Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
-			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.dns.example.com. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{

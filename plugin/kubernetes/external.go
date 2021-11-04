@@ -92,3 +92,26 @@ func (k *Kubernetes) ExternalAddress(state request.Request) []dns.RR {
 	// plugin to bind to a different IP address.
 	return k.nsAddrs(true, state.Zone)
 }
+
+// ExternalServices returns all services with external IPs
+func (k *Kubernetes) ExternalServices(zone string) (services []msg.Service) {
+	zonePath := msg.Path(zone, coredns)
+	for _, svc := range k.APIConn.ServiceList() {
+		for _, ip := range svc.ExternalIPs {
+			for _, p := range svc.Ports {
+				s := msg.Service{Host: ip, Port: int(p.Port), TTL: k.ttl}
+				s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
+				services = append(services, s)
+				s.Key = strings.Join(append([]string{zonePath, svc.Namespace, svc.Name}, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+string(p.Name))), "/")
+				s.TargetStrip = 2
+				services = append(services, s)
+			}
+		}
+	}
+	return services
+}
+
+//ExternalSerial returns the serial of the external zone
+func (k *Kubernetes) ExternalSerial(string) uint32 {
+	return uint32(k.APIConn.ExtModified())
+}
