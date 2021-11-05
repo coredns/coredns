@@ -10,7 +10,7 @@ import (
 )
 
 func TestSetupRoute53(t *testing.T) {
-	f = func(credential *credentials.Credentials) route53iface.Route53API {
+	f = func(credential *credentials.Credentials, endpoint *string) route53iface.Route53API {
 		return fakeRoute53{}
 	}
 
@@ -70,6 +70,12 @@ func TestSetupRoute53(t *testing.T) {
 
 		{`route53 example.org {
 	}`, true},
+		{`route53 example.org:12345678 {
+    aws_endpoint
+}`, true},
+		{`route53 example.org:12345678 {
+    aws_endpoint https://localhost
+}`, false},
 	}
 
 	for _, test := range tests {
