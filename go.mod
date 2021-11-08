@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/Azure/azure-sdk-for-go v53.3.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.11.21
+	github.com/Azure/go-autorest/autorest v0.11.22
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.8
 	github.com/Azure/go-autorest/autorest/to v0.2.0 // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
@@ -30,7 +30,7 @@ require (
 	github.com/stretchr/objx v0.2.0 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.1
 	go.etcd.io/etcd/client/v3 v3.5.1
-	golang.org/x/crypto v0.0.0-20210920023735-84f357641f63
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/sys v0.0.0-20211025201205-69cdffdb9359
 	google.golang.org/api v0.60.0
 	google.golang.org/grpc v1.41.0
