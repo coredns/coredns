@@ -48,11 +48,12 @@ func (e *External) Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 			ch <- []dns.RR{nsRecords[i]}
 		}
 
-		// Add Service A/AAAA records
 		svcs := e.externalServicesFunc(zone)
+		srvSeen := make(map[string]struct{})
 		for i := range svcs {
 			name := msg.Domain(svcs[i].Key)
 			if svcs[i].TargetStrip == 0 {
+				// Add Service A/AAAA records
 				s := request.Request{Req: &dns.Msg{Question: []dns.Question{{Name: name}}}}
 				as := e.a(ctx, []msg.Service{svcs[i]}, s)
 				if len(as) > 0 {
@@ -62,20 +63,35 @@ func (e *External) Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 				if len(aaaas) > 0 {
 					ch <- aaaas
 				}
+				// Add bare SRV record, ensuring uniqueness
 				recs, _ := e.srv(ctx, []msg.Service{svcs[i]}, s)
-				if len(recs) > 0 {
-					ch <- recs
+				for _, srv := range recs {
+					if !nameSeen(srvSeen, srv) {
+						ch <- []dns.RR{srv}
+					}
 				}
 				continue
 			}
+			// Add full SRV record, ensuring uniqueness
 			s := request.Request{Req: &dns.Msg{Question: []dns.Question{{Name: name}}}}
 			recs, _ := e.srv(ctx, []msg.Service{svcs[i]}, s)
-			if len(recs) > 0 {
-				ch <- recs
+			for _, srv := range recs {
+				if !nameSeen(srvSeen, srv) {
+					ch <- []dns.RR{srv}
+				}
 			}
 		}
+		ch <- []dns.RR{soa}
 		close(ch)
 	}()
 
 	return ch, nil
+}
+
+func nameSeen(namesSeen map[string]struct{}, rr dns.RR) bool {
+	if _, duplicate := namesSeen[rr.Header().Name]; duplicate {
+		return true
+	}
+	namesSeen[rr.Header().Name] = struct{}{}
+	return false
 }

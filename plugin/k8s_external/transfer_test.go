@@ -50,7 +50,7 @@ func TestTransferAXFR(t *testing.T) {
 		}
 
 		for _, ans := range tc.Answer {
-			// Exclude wildcard searches
+			// Exclude wildcard test cases
 			if strings.Contains(ans.Header().Name, "*") {
 				continue
 			}
