@@ -1,12 +1,12 @@
 package external
 
 import (
+	"context"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
-
-	"context"
 
 	"github.com/miekg/dns"
 )
