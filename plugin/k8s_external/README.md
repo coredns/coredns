@@ -84,7 +84,7 @@ spec:
 ~~~
 
 The *k8s_external* plugin can be used in conjunction with the *transfer* plugin to enable
-zone transfers.
+zone transfers.  Notifies are not supported.
 
  ~~~
      . {
