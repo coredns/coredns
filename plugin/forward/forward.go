@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -17,8 +16,6 @@ import (
 	"github.com/coredns/coredns/plugin/dnstap"
 	"github.com/coredns/coredns/plugin/metadata"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/coredns/coredns/plugin/pkg/parse"
-	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -57,125 +54,10 @@ type Forward struct {
 	Next plugin.Handler
 }
 
-// ForwardConfig represents the configuration of the Forward Plugin. This can
-// be used with NewWithConfig to create a new configured instance of the
-// Forward Plugin.
-type ForwardConfig struct {
-	From             string
-	To               []string
-	Except           []string
-	MaxFails         *uint32
-	HealthCheck      *time.Duration
-	HealthCheckNoRec bool
-	ForceTCP         bool
-	PreferUDP        bool
-	TLSConfig        *tls.Config
-	TLSServerName    string
-	Expire           *time.Duration
-	MaxConcurrent    *int64
-	Policy           string
-	TapPlugin        *dnstap.Dnstap
-}
-
 // New returns a new Forward.
 func New() *Forward {
 	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: options{forceTCP: false, preferUDP: false, hcRecursionDesired: true}}
 	return f
-}
-
-// NewWithConfig returns a new Forward configured by the provided
-// ForwardConfig.
-func NewWithConfig(config ForwardConfig) (*Forward, error) {
-	f := New()
-	if config.From != "" {
-		zones := plugin.Host(config.From).NormalizeExact()
-		f.from = zones[0] // there can only be one here, won't work with non-octet reverse
-
-		if len(zones) > 1 {
-			log.Warningf("Unsupported CIDR notation: '%s' expands to multiple zones. Using only '%s'.", config.From, f.from)
-		}
-	}
-	for i := 0; i < len(config.Except); i++ {
-		f.ignored = append(f.ignored, plugin.Host(config.Except[i]).NormalizeExact()...)
-	}
-	if config.MaxFails != nil {
-		f.maxfails = *config.MaxFails
-	}
-	if config.HealthCheck != nil {
-		if *config.HealthCheck < 0 {
-			return nil, fmt.Errorf("health_check can't be negative: %s", *config.HealthCheck)
-		}
-		f.hcInterval = *config.HealthCheck
-	}
-	f.opts.hcRecursionDesired = !config.HealthCheckNoRec
-	f.opts.forceTCP = config.ForceTCP
-	f.opts.preferUDP = config.PreferUDP
-	if config.TLSConfig != nil {
-		f.tlsConfig = config.TLSConfig
-	}
-	f.tlsServerName = config.TLSServerName
-	if f.tlsServerName != "" {
-		f.tlsConfig.ServerName = f.tlsServerName
-	}
-	if config.Expire != nil {
-		f.expire = *config.Expire
-		if *config.Expire < 0 {
-			return nil, fmt.Errorf("expire can't be negative: %s", *config.Expire)
-		}
-	}
-	if config.MaxConcurrent != nil {
-		if *config.MaxConcurrent < 0 {
-			return f, fmt.Errorf("max_concurrent can't be negative: %d", *config.MaxConcurrent)
-		}
-		f.ErrLimitExceeded = fmt.Errorf("concurrent queries exceeded maximum %d", *config.MaxConcurrent)
-		f.maxConcurrent = *config.MaxConcurrent
-	}
-	if config.Policy != "" {
-		switch config.Policy {
-		case "random":
-			f.p = &random{}
-		case "round_robin":
-			f.p = &roundRobin{}
-		case "sequential":
-			f.p = &sequential{}
-		default:
-			return f, fmt.Errorf("unknown policy '%s'", config.Policy)
-		}
-	}
-	f.tapPlugin = config.TapPlugin
-
-	toHosts, err := parse.HostPortOrFile(config.To...)
-	if err != nil {
-		return f, err
-	}
-
-	transports := make([]string, len(toHosts))
-	allowedTrans := map[string]bool{"dns": true, "tls": true}
-	for i, host := range toHosts {
-		trans, h := parse.Transport(host)
-
-		if !allowedTrans[trans] {
-			return f, fmt.Errorf("'%s' is not supported as a destination protocol in forward: %s", trans, host)
-		}
-		p := NewProxy(h, trans)
-		f.proxies = append(f.proxies, p)
-		transports[i] = trans
-	}
-
-	// Initialize ClientSessionCache in tls.Config. This may speed up a TLS handshake
-	// in upcoming connections to the same TLS server.
-	f.tlsConfig.ClientSessionCache = tls.NewLRUClientSessionCache(len(f.proxies))
-
-	for i := range f.proxies {
-		// Only set this for proxies that need it.
-		if transports[i] == transport.TLS {
-			f.proxies[i].SetTLSConfig(f.tlsConfig)
-		}
-		f.proxies[i].SetExpire(f.expire)
-		f.proxies[i].health.SetRecursionDesired(f.opts.hcRecursionDesired)
-
-	}
-	return f, nil
 }
 
 // SetProxy appends p to the proxy list and starts healthchecking.
