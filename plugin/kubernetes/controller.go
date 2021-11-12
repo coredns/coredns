@@ -45,12 +45,9 @@ type dnsController interface {
 	HasSynced() bool
 	Stop() error
 
-	// Modified returns the timestamp of the most recent changes
-	Modified() int64
-
-	// ExtModified returns the timestamp of the most recent changes to
-	// services with external facing IP addresses
-	ExtModified() int64
+	// Modified returns the timestamp of the most recent changes to services.  If the passed bool is true, it should
+	// return the timestamp of the most recent changes to services with external facing IP addresses
+	Modified(bool) int64
 }
 
 type dnsControl struct {
@@ -714,14 +711,11 @@ func serviceModified(oldObj, newObj interface{}) (intSvc, extSvc bool) {
 	return intSvc, extSvc
 }
 
-func (dns *dnsControl) Modified() int64 {
-	unix := atomic.LoadInt64(&dns.modified)
-	return unix
-}
-
-func (dns *dnsControl) ExtModified() int64 {
-	unix := atomic.LoadInt64(&dns.extModified)
-	return unix
+func (dns *dnsControl) Modified(external bool) int64 {
+	if external {
+		return atomic.LoadInt64(&dns.extModified)
+	}
+	return atomic.LoadInt64(&dns.modified)
 }
 
 // updateModified set dns.modified to the current time.

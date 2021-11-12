@@ -29,8 +29,8 @@ type Externaler interface {
 	External(request.Request) ([]msg.Service, int)
 	// ExternalAddress should return a string slice of addresses for the nameserving endpoint.
 	ExternalAddress(state request.Request) []dns.RR
-	// ExternalServices returns all services in a slice of msg.Service.
-	ExternalServices(string) []msg.Service
+	// ExternalServices returns all services in the given zone as a slice of msg.Service.
+	ExternalServices(zone string) []msg.Service
 	// ExternalSerial gets the current serial.
 	ExternalSerial(string) uint32
 }
