@@ -2,6 +2,7 @@ package log
 
 import (
 	"strings"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -76,6 +77,7 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 
 		// Class refinements in an extra block.
 		classes := make(map[response.Class]struct{})
+		var minDuration time.Duration
 		for c.NextBlock() {
 			switch c.Val() {
 			// class followed by combinations of all, denial, error and success.
@@ -91,6 +93,21 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 					}
 					classes[cls] = struct{}{}
 				}
+			// minDuration followed by a duration specification, e.g. 1s or 1ms
+			case "minDuration":
+				durationArgs := c.RemainingArgs()
+				if len(durationArgs) > 1 {
+					return nil, c.ArgErr()
+				}
+				var err error
+				if len(durationArgs) == 1 {
+					minDuration, err = time.ParseDuration(durationArgs[0])
+					if err != nil {
+						return nil, c.Errf("Illegal duration found: '%s'", durationArgs[0])
+					}
+				} else {
+					minDuration, _ = time.ParseDuration(DefaultMinDuration)
+				}
 			default:
 				return nil, c.ArgErr()
 			}
@@ -101,6 +118,7 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 
 		for i := len(rules) - 1; i >= length; i-- {
 			rules[i].Class = classes
+			rules[i].MinDuration = minDuration
 		}
 	}
 

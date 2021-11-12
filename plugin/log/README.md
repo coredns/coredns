@@ -30,11 +30,12 @@ log [NAMES...] [FORMAT]
   for the Common Log Format. You can also use `{combined}` for a format that adds the query opcode
   `{>opcode}` to the Common Log Format.
 
-You can further specify the classes of responses that get logged:
+You can further specify the classes of responses that get logged and log slow responses:
 
 ~~~ txt
 log [NAMES...] [FORMAT] {
     class CLASSES...
+    minDuration [DURATION]
 }
 ~~~
 
@@ -51,6 +52,10 @@ The classes of responses have the following meaning:
   logged whatever we mix together with "all".
 
 If no class is specified, it defaults to `all`.
+
+* `DURATION` is a string representing a time duration, e.g. 1s or 100ms. Responses that are not
+already logged due to their class may be logged in case their duration exceeds the specified
+duration.
 
 ## Log Format
 
@@ -139,6 +144,17 @@ Log all queries on which we did not get errors
 . {
     log . {
         class denial success
+    }
+}
+~~~
+
+Log all queries on which we got errors or which took longer than 1 second.
+
+~~~ corefile
+. {
+    log . {
+        class error
+        minDuration 1s
     }
 }
 ~~~

@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -119,6 +120,7 @@ func TestLogged(t *testing.T) {
 		ShouldLog       bool
 		ShouldString    string
 		ShouldNOTString string // for test format
+		Latency         time.Duration
 	}{
 		// case for NameScope
 		{
@@ -202,6 +204,36 @@ func TestLogged(t *testing.T) {
 			ShouldLog:    true,
 			ShouldString: "\"0\"",
 		},
+
+		// case for latency
+		{
+			Rules: []Rule{
+				{
+					NameScope:   ".",
+					Format:      DefaultLogFormat,
+					Class:       map[response.Class]struct{}{},
+					MinDuration: 1 * time.Second,
+				},
+			},
+			Domain:       "example.org.",
+			ShouldLog:    true,
+			ShouldString: "A IN example.org.",
+			Latency:      1*time.Second + 1*time.Millisecond,
+		},
+		{
+			Rules: []Rule{
+				{
+					NameScope:   ".",
+					Format:      DefaultLogFormat,
+					Class:       map[response.Class]struct{}{},
+					MinDuration: 1 * time.Second,
+				},
+			},
+			Domain:       "example.org.",
+			ShouldLog:    false,
+			ShouldString: "",
+			Latency:      1 * time.Millisecond,
+		},
 	}
 
 	for _, tc := range tests {
@@ -210,8 +242,14 @@ func TestLogged(t *testing.T) {
 
 		logger := Logger{
 			Rules: tc.Rules,
-			Next:  test.ErrorHandler(),
-			repl:  replacer.New(),
+			Next: test.HandlerFunc(func(c context.Context, rw dns.ResponseWriter, m *dns.Msg) (int, error) {
+				if tc.Latency > 0 {
+					recorder := rw.(*dnstest.Recorder)
+					recorder.Start = recorder.Start.Add(-tc.Latency)
+				}
+				return test.ErrorHandler().ServeDNS(c, rw, m)
+			}),
+			repl: replacer.New(),
 		}
 
 		ctx := context.TODO()
