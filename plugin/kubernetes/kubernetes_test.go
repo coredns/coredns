@@ -34,6 +34,14 @@ func TestWildcard(t *testing.T) {
 			t.Errorf("Expected Wildcard result '%v' for example '%v', got '%v'.", te.expected, te.s, got)
 		}
 	}
+
+	k = Kubernetes{wildcardsDisabled: true}
+	for _, te := range tests {
+		got := k.wildcard(te.s)
+		if got != false {
+			t.Errorf("Expected Wildcard result '%v' for example '%v', got '%v'.", false, te.s, got)
+		}
+	}
 }
 
 func TestEndpointHostname(t *testing.T) {
