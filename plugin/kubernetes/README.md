@@ -42,6 +42,7 @@ kubernetes [ZONES...] {
     noendpoints
     fallthrough [ZONES...]
     ignore empty_service
+    wildcards enabled|disabled
 }
 ```
 
@@ -101,7 +102,9 @@ kubernetes [ZONES...] {
 * `ignore empty_service` returns NXDOMAIN for services without any ready endpoint addresses (e.g., ready pods).
   This allows the querying pod to continue searching for the service in the search path.
   The search path could, for example, include another Kubernetes cluster.
-
+* `wildcards enabled|disabled` enables or disables the wildcard query feature (see Wildcards section below).
+  Default is enabled.
+  
 Enabling zone transfer is done by using the *transfer* plugin.
 
 ## Startup

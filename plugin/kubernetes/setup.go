@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/coredns/caddy"
+
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
@@ -232,6 +233,20 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				overrides,
 			)
 			k8s.ClientConfig = config
+		case "wildcards":
+			args := c.RemainingArgs()
+			if len(args) == 1 {
+				switch args[0] {
+				case "enabled":
+					k8s.wildcardsDisabled = false
+				case "disabled":
+					k8s.wildcardsDisabled = true
+				default:
+					return nil, fmt.Errorf("wrong value for wildcards: %s,  must be one of: enabled, disabled", args[0])
+				}
+				continue
+			}
+			return nil, c.ArgErr()
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+
 	"github.com/coredns/coredns/plugin/pkg/fall"
 
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -607,6 +608,74 @@ func TestKubernetesParseIgnoreEmptyService(t *testing.T) {
 		foundIgnoreEmptyService := k8sController.opts.ignoreEmptyService
 		if foundIgnoreEmptyService != test.expectedEndpointsInit {
 			t.Errorf("Test %d: Expected kubernetes controller to be initialized with ignore empty_service '%v'. Instead found ignore empty_service watch '%v' for input '%s'", i, test.expectedEndpointsInit, foundIgnoreEmptyService, test.input)
+		}
+	}
+}
+
+func TestKubernetesParseWildcards(t *testing.T) {
+	tests := []struct {
+		input         string // Corefile data as string
+		shouldErr     bool   // true if test case is expected to produce an error.
+		expectedValue bool
+	}{
+		// valid
+		{
+			`kubernetes coredns.local {
+	wildcards disabled
+}`,
+			false,
+			true,
+		},
+		{
+			`kubernetes coredns.local {
+	wildcards enabled
+}`,
+			false,
+			false,
+		},
+		// invalid
+		{
+			`kubernetes coredns.local {
+	wildcards
+}`,
+			true,
+			false,
+		},
+		{
+			`kubernetes coredns.local {
+	wildcards invalid
+}`,
+			true,
+			false,
+		},
+		// default
+		{
+			`kubernetes coredns.local {
+}`,
+			false,
+			false,
+		},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		k8sController, err := kubernetesParse(c)
+
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %d: Expected error, but did not find error for input '%s'. Error was: '%v'", i, test.input, err)
+		}
+
+		if err != nil {
+			if !test.shouldErr {
+				t.Errorf("Test %d: Expected no error but found one for input %s. Error was: %v", i, test.input, err)
+				continue
+			}
+			continue
+		}
+
+		wildcardsDisabled := k8sController.wildcardsDisabled
+		if wildcardsDisabled != test.expectedValue {
+			t.Errorf("Test %d: Expected wildcardsDisabled = '%v'. Instead got '%v' for input '%s'", i, test.expectedValue, wildcardsDisabled, test.input)
 		}
 	}
 }

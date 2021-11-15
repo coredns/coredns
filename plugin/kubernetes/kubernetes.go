@@ -33,24 +33,25 @@ import (
 
 // Kubernetes implements a plugin that connects to a Kubernetes cluster.
 type Kubernetes struct {
-	Next             plugin.Handler
-	Zones            []string
-	Upstream         *upstream.Upstream
-	APIServerList    []string
-	APICertAuth      string
-	APIClientCert    string
-	APIClientKey     string
-	ClientConfig     clientcmd.ClientConfig
-	APIConn          dnsController
-	Namespaces       map[string]struct{}
-	podMode          string
-	endpointNameMode bool
-	Fall             fall.F
-	ttl              uint32
-	opts             dnsControlOpts
-	primaryZoneIndex int
-	localIPs         []net.IP
-	autoPathSearch   []string // Local search path from /etc/resolv.conf. Needed for autopath.
+	Next              plugin.Handler
+	Zones             []string
+	Upstream          *upstream.Upstream
+	APIServerList     []string
+	APICertAuth       string
+	APIClientCert     string
+	APIClientKey      string
+	ClientConfig      clientcmd.ClientConfig
+	APIConn           dnsController
+	Namespaces        map[string]struct{}
+	podMode           string
+	endpointNameMode  bool
+	wildcardsDisabled bool
+	Fall              fall.F
+	ttl               uint32
+	opts              dnsControlOpts
+	primaryZoneIndex  int
+	localIPs          []net.IP
+	autoPathSearch    []string // Local search path from /etc/resolv.conf. Needed for autopath.
 }
 
 // New returns a initialized Kubernetes. It default interfaceAddrFunc to return 127.0.0.1. All other
@@ -359,7 +360,7 @@ func (k *Kubernetes) Records(ctx context.Context, state request.Request, exact b
 		return nil, errNoItems
 	}
 
-	if !wildcard(r.namespace) && !k.namespaceExposed(r.namespace) {
+	if !k.wildcard(r.namespace) && !k.namespaceExposed(r.namespace) {
 		return nil, errNsNotExposed
 	}
 
@@ -394,7 +395,7 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 	}
 
 	namespace := r.namespace
-	if !wildcard(namespace) && !k.namespaceExposed(namespace) {
+	if !k.wildcard(namespace) && !k.namespaceExposed(namespace) {
 		return nil, errNoItems
 	}
 
@@ -402,7 +403,7 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 
 	// handle empty pod name
 	if podname == "" {
-		if k.namespaceExposed(namespace) || wildcard(namespace) {
+		if k.namespaceExposed(namespace) || k.wildcard(namespace) {
 			// NODATA
 			return nil, nil
 		}
@@ -419,7 +420,7 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 	}
 
 	if k.podMode == podModeInsecure {
-		if !wildcard(namespace) && !k.namespaceExposed(namespace) { // no wildcard, but namespace does not exist
+		if !k.wildcard(namespace) && !k.namespaceExposed(namespace) { // no wildcard, but namespace does not exist
 			return nil, errNoItems
 		}
 
@@ -433,7 +434,7 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 
 	// PodModeVerified
 	err = errNoItems
-	if wildcard(podname) && !wildcard(namespace) {
+	if k.wildcard(podname) && !k.wildcard(namespace) {
 		// If namespace exists, err should be nil, so that we return NODATA instead of NXDOMAIN
 		if k.namespaceExposed(namespace) {
 			err = nil
@@ -442,12 +443,12 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 
 	for _, p := range k.APIConn.PodIndex(ip) {
 		// If namespace has a wildcard, filter results against Corefile namespace list.
-		if wildcard(namespace) && !k.namespaceExposed(p.Namespace) {
+		if k.wildcard(namespace) && !k.namespaceExposed(p.Namespace) {
 			continue
 		}
 
 		// check for matching ip and namespace
-		if ip == p.PodIP && match(namespace, p.Namespace) {
+		if ip == p.PodIP && k.match(namespace, p.Namespace) {
 			s := msg.Service{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip, TTL: k.ttl}
 			pods = append(pods, s)
 
@@ -459,13 +460,13 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 
 // findServices returns the services matching r from the cache.
 func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.Service, err error) {
-	if !wildcard(r.namespace) && !k.namespaceExposed(r.namespace) {
+	if !k.wildcard(r.namespace) && !k.namespaceExposed(r.namespace) {
 		return nil, errNoItems
 	}
 
 	// handle empty service name
 	if r.service == "" {
-		if k.namespaceExposed(r.namespace) || wildcard(r.namespace) {
+		if k.namespaceExposed(r.namespace) || k.wildcard(r.namespace) {
 			// NODATA
 			return nil, nil
 		}
@@ -474,7 +475,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 	}
 
 	err = errNoItems
-	if wildcard(r.service) && !wildcard(r.namespace) {
+	if k.wildcard(r.service) && !k.wildcard(r.namespace) {
 		// If namespace exists, err should be nil, so that we return NODATA instead of NXDOMAIN
 		if k.namespaceExposed(r.namespace) {
 			err = nil
@@ -487,7 +488,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		serviceList       []*object.Service
 	)
 
-	if wildcard(r.service) || wildcard(r.namespace) {
+	if k.wildcard(r.service) || k.wildcard(r.namespace) {
 		serviceList = k.APIConn.ServiceList()
 		endpointsListFunc = func() []*object.Endpoints { return k.APIConn.EndpointsList() }
 	} else {
@@ -498,13 +499,13 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 	zonePath := msg.Path(zone, coredns)
 	for _, svc := range serviceList {
-		if !(match(r.namespace, svc.Namespace) && match(r.service, svc.Name)) {
+		if !(k.match(r.namespace, svc.Namespace) && k.match(r.service, svc.Name)) {
 			continue
 		}
 
 		// If request namespace is a wildcard, filter results against Corefile namespace list.
 		// (Namespaces without a wildcard were filtered before the call to this function.)
-		if wildcard(r.namespace) && !k.namespaceExposed(svc.Namespace) {
+		if k.wildcard(r.namespace) && !k.namespaceExposed(svc.Namespace) {
 			continue
 		}
 
@@ -551,13 +552,13 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 						// See comments in parse.go parseRequest about the endpoint handling.
 						if r.endpoint != "" {
-							if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+							if !k.match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
 								continue
 							}
 						}
 
 						for _, p := range eps.Ports {
-							if !(match(r.port, p.Name) && match(r.protocol, p.Protocol)) {
+							if !(k.match(r.port, p.Name) && k.match(r.protocol, p.Protocol)) {
 								continue
 							}
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
@@ -575,7 +576,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 		// ClusterIP service
 		for _, p := range svc.Ports {
-			if !(match(r.port, p.Name) && match(r.protocol, string(p.Protocol))) {
+			if !(k.match(r.port, p.Name) && k.match(r.protocol, string(p.Protocol))) {
 				continue
 			}
 
@@ -598,19 +599,19 @@ func (k *Kubernetes) Serial(state request.Request) uint32 { return uint32(k.APIC
 func (k *Kubernetes) MinTTL(state request.Request) uint32 { return k.ttl }
 
 // match checks if a and b are equal taking wildcards into account.
-func match(a, b string) bool {
-	if wildcard(a) {
+func (k *Kubernetes) match(a, b string) bool {
+	if k.wildcard(a) {
 		return true
 	}
-	if wildcard(b) {
+	if k.wildcard(b) {
 		return true
 	}
 	return strings.EqualFold(a, b)
 }
 
 // wildcard checks whether s contains a wildcard value defined as "*" or "any".
-func wildcard(s string) bool {
-	return s == "*" || s == "any"
+func (k *Kubernetes) wildcard(s string) bool {
+	return !k.wildcardsDisabled && (s == "*" || s == "any")
 }
 
 const coredns = "c" // used as a fake key prefix in msg.Service

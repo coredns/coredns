@@ -27,8 +27,9 @@ func TestWildcard(t *testing.T) {
 		{"myname*", false},
 	}
 
+	k := Kubernetes{wildcardsDisabled: false}
 	for _, te := range tests {
-		got := wildcard(te.s)
+		got := k.wildcard(te.s)
 		if got != te.expected {
 			t.Errorf("Expected Wildcard result '%v' for example '%v', got '%v'.", te.expected, te.s, got)
 		}

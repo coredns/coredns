@@ -69,7 +69,7 @@ func (k *Kubernetes) External(state request.Request) ([]msg.Service, int) {
 
 		for _, ip := range svc.ExternalIPs {
 			for _, p := range svc.Ports {
-				if !(match(port, p.Name) && match(protocol, string(p.Protocol))) {
+				if !(k.match(port, p.Name) && k.match(protocol, string(p.Protocol))) {
 					continue
 				}
 				rcode = dns.RcodeSuccess
