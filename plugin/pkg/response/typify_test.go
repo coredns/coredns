@@ -79,7 +79,8 @@ func TestTypifyNoDataType2(t *testing.T) {
 	m.SetQuestion("bar.www.example.org.", dns.TypeA)
 	m.Rcode = dns.RcodeNoError // No Error
 	m.Answer = []dns.RR{
-		test.CNAME("bar.www.example.org. IN CNAME foo.example.org.")
+		
+		test.CNAME("bar.www.example.org. IN CNAME foo.example.org."), 
 		test.SOA("example.org. 900 IN SOA ns.example.org. hostmaster.example.org 63121 3600 900 1209600 900")
 	} 
 	mt, _ := Typify(m, time.Now().UTC())
