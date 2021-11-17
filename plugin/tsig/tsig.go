@@ -50,9 +50,12 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	if err = w.TsigStatus(); err != nil {
 		log.Debugf("TSIG validation failed: %v %v", dns.TypeToString[state.QType()], err)
 		rcode = dns.RcodeNotAuth
-		if err == dns.ErrSecret {
+		switch err {
+		case dns.ErrSecret:
 			tsigRR.Error = dns.RcodeBadKey
-		} else {
+		case dns.ErrTime:
+			tsigRR.Error = dns.RcodeBadTime
+		default:
 			tsigRR.Error = dns.RcodeBadSig
 		}
 		resp := new(dns.Msg).SetRcode(r, rcode)
@@ -110,6 +113,7 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 		repTSIG.Hdr = dns.RR_Header{Name: r.reqTSIG.Hdr.Name, Rrtype: dns.TypeTSIG, Class: dns.ClassANY}
 		repTSIG.Algorithm = r.reqTSIG.Algorithm
 		repTSIG.OrigId = m.MsgHdr.Id
+		repTSIG.Error = r.reqTSIG.Error
 		m.Extra = append(m.Extra, &repTSIG)
 	}
 
