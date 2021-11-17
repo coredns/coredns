@@ -1,8 +1,11 @@
 package tsig
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"fmt"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
@@ -114,8 +117,22 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 		repTSIG.Algorithm = r.reqTSIG.Algorithm
 		repTSIG.OrigId = m.MsgHdr.Id
 		repTSIG.Error = r.reqTSIG.Error
+		if repTSIG.Error == dns.RcodeBadTime {
+			// per RFC 2854 4.5.2. client time goes into TimeSigned, server time in OtherData, OtherLen = 6 ...
+			repTSIG.TimeSigned = r.reqTSIG.TimeSigned
+			nowInt := time.Now().Unix()
+			nowBuf := new(bytes.Buffer)
+			// TimeSigned is networkbyte order. Assuming server time is expected to be the same.
+			binary.Write(nowBuf, binary.BigEndian, nowInt)
+			// truncate to 48 least significant bits (network order 6 rightmost) bytes
+			nowBytes := nowBuf.Bytes()[2:7]
+			repTSIG.OtherData = string(nowBytes)
+			repTSIG.OtherLen = 6
+		}
 		m.Extra = append(m.Extra, &repTSIG)
+		// TODO: message truncation case? rfc2845 3.1 where adding TSIG records would cause the message to be truncated.
 	}
+
 
 	return r.ResponseWriter.WriteMsg(m)
 }
