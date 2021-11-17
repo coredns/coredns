@@ -126,3 +126,52 @@ func TestAutoParse(t *testing.T) {
 		}
 	}
 }
+
+func TestSetupReload(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  string
+		wantErr bool
+	}{
+		{
+			name: "reload valid",
+			config: `auto {
+				directory .
+				reload 5s
+			}`,
+			wantErr: false,
+		},
+		{
+			name: "reload disable",
+			config: `auto {
+				directory .
+				reload 0
+			}`,
+			wantErr: false,
+		},
+		{
+			name: "reload invalid",
+			config: `auto {
+				directory .
+				reload -1s
+			}`,
+			wantErr: true,
+		},
+		{
+			name: "reload invalid",
+			config: `auto {
+				directory .
+				reload
+			}`,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctr := caddy.NewTestController("dns", tt.config)
+			if err := setup(ctr); (err != nil) != tt.wantErr {
+				t.Errorf("Error: setup() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}

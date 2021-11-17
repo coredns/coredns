@@ -1,6 +1,7 @@
 package file
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -108,7 +109,11 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 		for c.NextBlock() {
 			switch c.Val() {
 			case "reload":
-				d, err := time.ParseDuration(c.RemainingArgs()[0])
+				t := c.RemainingArgs()
+				if len(t) < 1 {
+					return Zones{}, errors.New("reload duration value is expected")
+				}
+				d, err := time.ParseDuration(t[0])
 				if err != nil {
 					return Zones{}, plugin.Error("file", err)
 				}
