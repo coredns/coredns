@@ -39,12 +39,12 @@ func TestMinimalTTL(t *testing.T) {
 	if dur != time.Duration(1800*time.Second) {
 		t.Fatalf("Expected minttl duration to be %d, got %d", 1800, dur)
 	}
-	
+
 }
 func TestMinimalTTLNoDataNoSOA(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("bar.www.example.org.", dns.TypeA)
-	m.Rcode = dns.RcodeNoError // No Error
+	m.Rcode = dns.RcodeNoError                                                        // No Error
 	m.Answer = []dns.RR{test.CNAME("bar.www.example.org. IN CNAME foo.example.org.")} // but we add a cname with the name!
 
 	utc := time.Now().UTC()
@@ -57,12 +57,8 @@ func TestMinimalTTLNoDataNoSOA(t *testing.T) {
 	if dur != MinimalDefaultTTL {
 		t.Fatalf("Expected minttl duration to be %d, got %d", 1800, dur)
 	}
-	
+
 }
-
-
-
-
 
 func BenchmarkMinimalTTL(b *testing.B) {
 	m := new(dns.Msg)

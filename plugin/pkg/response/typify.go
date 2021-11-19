@@ -86,21 +86,20 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 		}
 	}
 
-	answerMatch:= false
-	for _, r :=  range m.Answer{
-		if(m.Question[0].Qtype==r.Header().Rrtype){
-			answerMatch=true
+	answerMatch := false
+	for _, r := range m.Answer {
+		if m.Question[0].Qtype == r.Header().Rrtype {
+			answerMatch = true
 		}
 	}
-	
-	
+
 	if len(m.Answer) > 0 && m.Rcode == dns.RcodeSuccess && answerMatch {
 		return NoError, opt
 	}
 
 	soa := false
 	ns := 0
-	
+
 	for _, r := range m.Ns {
 		if r.Header().Rrtype == dns.TypeSOA {
 			soa = true
@@ -110,15 +109,15 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 			ns++
 		}
 	}
-	
+
 	if soa && m.Rcode == dns.RcodeSuccess {
 		return NoData, opt
 	}
 
-	if len(m.Answer)>0 && !answerMatch && m.Rcode == dns.RcodeSuccess && !soa {
+	if len(m.Answer) > 0 && !answerMatch && m.Rcode == dns.RcodeSuccess && !soa {
 		return NoData, opt
 	}
-	
+
 	if soa && m.Rcode == dns.RcodeNameError {
 		return NameError, opt
 	}

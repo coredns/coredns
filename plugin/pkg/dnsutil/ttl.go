@@ -20,11 +20,11 @@ func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
 		return MinimalDefaultTTL
 	}
 
-	if mt == response.NoData &&  len(m.Ns) == 0{
+	if mt == response.NoData && len(m.Ns) == 0 {
 		// Nodata and no NS, SOA
 		return MinimalDefaultTTL
 	}
-	
+
 	minTTL := MaximumDefaulTTL
 	for _, r := range m.Answer {
 		if r.Header().Ttl < uint32(minTTL.Seconds()) {
