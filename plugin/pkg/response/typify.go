@@ -87,12 +87,13 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 	}
 
 	answerMatch := false
-	for _, r := range m.Answer {
-		if m.Question[0].Qtype == r.Header().Rrtype {
-			answerMatch = true
+	if len(m.Question) > 0 {
+		for _, r := range m.Answer {
+			if m.Question[0].Qtype == r.Header().Rrtype {
+				answerMatch = true
+			}
 		}
 	}
-
 	if len(m.Answer) > 0 && m.Rcode == dns.RcodeSuccess && answerMatch {
 		return NoError, opt
 	}
