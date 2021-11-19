@@ -44,7 +44,7 @@ func TestMinimalTTL(t *testing.T) {
 func TestMinimalTTLNoDataNoSOA(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("bar.www.example.org.", dns.TypeA)
-	m.Rcode = dns.RcodeNoError                                                        // No Error
+	m.Rcode = dns.RcodeSuccess
 	m.Answer = []dns.RR{test.CNAME("bar.www.example.org. IN CNAME foo.example.org.")} // but we add a cname with the name!
 
 	utc := time.Now().UTC()
