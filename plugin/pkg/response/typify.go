@@ -87,20 +87,30 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 	}
 
 	answerMatch := false
+	addrLookup := false
 	if len(m.Question) > 0 {
+		addrLookup = m.Question[0].Qtype == dns.TypeA || m.Question[0].Qtype == dns.TypeAAAA
 		for _, r := range m.Answer {
 			if m.Question[0].Qtype == r.Header().Rrtype {
 				answerMatch = true
 			}
 		}
 	}
-	if len(m.Answer) > 0 && m.Rcode == dns.RcodeSuccess && answerMatch {
+
+	if len(m.Answer) > 0 && m.Rcode == dns.RcodeSuccess && answerMatch && addrLookup {
+		return NoError, opt
+	}
+
+	if len(m.Answer) > 0 && m.Rcode == dns.RcodeSuccess && !answerMatch && addrLookup {
+		return NoData, opt
+	}
+
+	if len(m.Answer) > 0 && m.Rcode == dns.RcodeSuccess {
 		return NoError, opt
 	}
 
 	soa := false
 	ns := 0
-
 	for _, r := range m.Ns {
 		if r.Header().Rrtype == dns.TypeSOA {
 			soa = true
@@ -112,10 +122,6 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 	}
 
 	if soa && m.Rcode == dns.RcodeSuccess {
-		return NoData, opt
-	}
-
-	if len(m.Answer) > 0 && !answerMatch && m.Rcode == dns.RcodeSuccess && !soa {
 		return NoData, opt
 	}
 
