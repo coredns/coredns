@@ -76,7 +76,7 @@ func TestMinimalTTLNoDataNoSOA(t *testing.T) {
 	if mt != response.NoData {
 		t.Fatalf("Expected type to be response.NoData, got %s", mt)
 	}
-	dur := MinimalTTL(m, mt) 
+	dur := MinimalTTL(m, mt)
 	if dur != MinimalDefaultTTL {
 		t.Fatalf("Expected minttl duration to be %d, got %d", MinimalDefaultTTL, dur)
 	}
