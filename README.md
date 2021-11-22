@@ -201,8 +201,15 @@ https://example.org {
     tls mycert mykey
 }
 ~~~
+in this setup, the CoreDNS will be responsible for TLS termination
 
-Note that you must have the *tls* plugin configured as DoH requires that to be setup.
+you can also start DNS server serving DoH without TLS termination (plain HTTP), but beware that in such scenario there has to be some kind
+of TLS termination proxy before CoreDNS instance, which forwards DNS requests otherwise clients will not be able to communicate via DoH with the server
+~~~ corefile
+https://example.org {
+    whoami
+}
+~~~
 
 Specifying ports works in the same way:
 
