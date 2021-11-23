@@ -18,7 +18,7 @@ tsig [ZONE...] {
 }
 ~~~
 
-   * **ZONE** - the zones *tsig* will TSIG.  By default, the zones from the server block are used. 
+   * **ZONE** - the zones *tsig* will TSIG.  By default, the zones from the server block are used.
 
    * `secret` **KEY** - specifies a TSIG secret for **NAME** with **KEY**. Use this option more than once
    to define multiple secrets. Secrets are global to the server instance, not just for the enclosing **ZONE**.

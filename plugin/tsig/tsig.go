@@ -1,10 +1,9 @@
 package tsig
 
 import (
-	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
+	"encoding/hex"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -56,6 +55,9 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 		switch err {
 		case dns.ErrSecret:
 			tsigRR.Error = dns.RcodeBadKey
+			// See RFC-2845: 4.7. Special considerations for forwarding servers
+			// We need to leave the TSIG alone/intact when forwarding.  This can be handled by proper corefile zone
+			// config, i.e. tsig plugin zone should not contain a forwarded zone.
 		case dns.ErrTime:
 			tsigRR.Error = dns.RcodeBadTime
 		default:
@@ -76,7 +78,7 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	if rcode == dns.RcodeSuccess {
 		rcode, err = plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 		if err != nil {
-			fmt.Printf("request handler returned an error: %v\n", err)
+			log.Errorf("request handler returned an error: %v\n", err)
 		}
 	}
 	// If not written yet, we have to return the response here to make sure it's TSIG signed.
@@ -111,28 +113,32 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 	state := request.Request{Req: r.req, W: r.ResponseWriter}
 	state.SizeAndDo(m)
 
-	if r.reqTSIG != nil {
-		var repTSIG dns.TSIG
+	repTSIG := m.IsTsig()
+	if r.reqTSIG != nil && repTSIG == nil {
+		repTSIG = new(dns.TSIG)
 		repTSIG.Hdr = dns.RR_Header{Name: r.reqTSIG.Hdr.Name, Rrtype: dns.TypeTSIG, Class: dns.ClassANY}
 		repTSIG.Algorithm = r.reqTSIG.Algorithm
 		repTSIG.OrigId = m.MsgHdr.Id
 		repTSIG.Error = r.reqTSIG.Error
+		repTSIG.MAC = r.reqTSIG.MAC
+		repTSIG.MACSize = r.reqTSIG.MACSize
 		if repTSIG.Error == dns.RcodeBadTime {
 			// per RFC 2854 4.5.2. client time goes into TimeSigned, server time in OtherData, OtherLen = 6 ...
 			repTSIG.TimeSigned = r.reqTSIG.TimeSigned
-			nowInt := time.Now().Unix()
-			nowBuf := new(bytes.Buffer)
-			// TimeSigned is networkbyte order. Assuming server time is expected to be the same.
-			binary.Write(nowBuf, binary.BigEndian, nowInt)
-			// truncate to 48 least significant bits (network order 6 rightmost) bytes
-			nowBytes := nowBuf.Bytes()[2:7]
-			repTSIG.OtherData = string(nowBytes)
+			b := make([]byte, 8)
+			// TimeSigned is network byte order.
+			binary.BigEndian.PutUint64(b, uint64(time.Now().Unix()))
+			// truncate to 48 least significant bits (network order 6 rightmost bytes)
+			repTSIG.OtherData = hex.EncodeToString(b[2:])
 			repTSIG.OtherLen = 6
 		}
-		m.Extra = append(m.Extra, &repTSIG)
-		// TODO: message truncation case? rfc2845 3.1 where adding TSIG records would cause the message to be truncated.
+		// empty MAC for TSIG errors (except BadTime)
+		if repTSIG.Error > 0 && repTSIG.Error != dns.RcodeBadTime {
+			repTSIG.MAC = ""
+			repTSIG.MACSize = 0
+		}
+		m.Extra = append(m.Extra, repTSIG)
 	}
-
 
 	return r.ResponseWriter.WriteMsg(m)
 }
