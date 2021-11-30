@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"github.com/coredns/caddy"
+
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/parse"
@@ -28,8 +29,10 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
+		config := dnsserver.GetConfig(c)
+		t.tsigSecret = config.TsigSecret
 		// find all plugins that implement Transferer and add them to Transferers
-		plugins := dnsserver.GetConfig(c).Handlers()
+		plugins := config.Handlers()
 		for _, pl := range plugins {
 			tr, ok := pl.(Transferer)
 			if !ok {
