@@ -140,7 +140,6 @@ func TestServeDNSTsigErrors(t *testing.T) {
 		tsigErr           error
 		expectRcode       int
 		expectError       int
-		expectMACLength   int
 		expectOtherLength int
 		expectTimeSigned  int64
 	}{
@@ -149,7 +148,6 @@ func TestServeDNSTsigErrors(t *testing.T) {
 			tsigErr:           dns.ErrSecret,
 			expectRcode:       dns.RcodeNotAuth,
 			expectError:       dns.RcodeBadKey,
-			expectMACLength:   0,
 			expectOtherLength: 0,
 			expectTimeSigned:  0,
 		},
@@ -158,7 +156,6 @@ func TestServeDNSTsigErrors(t *testing.T) {
 			tsigErr:           dns.ErrSig,
 			expectRcode:       dns.RcodeNotAuth,
 			expectError:       dns.RcodeBadSig,
-			expectMACLength:   0,
 			expectOtherLength: 0,
 			expectTimeSigned:  0,
 		},
@@ -167,7 +164,6 @@ func TestServeDNSTsigErrors(t *testing.T) {
 			tsigErr:           dns.ErrTime,
 			expectRcode:       dns.RcodeNotAuth,
 			expectError:       dns.RcodeBadTime,
-			expectMACLength:   32,
 			expectOtherLength: 6,
 			expectTimeSigned:  clientNow,
 		},
@@ -213,14 +209,6 @@ func TestServeDNSTsigErrors(t *testing.T) {
 
 			if int(ts.Error) != tc.expectError {
 				t.Errorf("expected TSIG error code %v, got %v", tc.expectError, ts.Error)
-			}
-
-			if len(ts.MAC)/2 != tc.expectMACLength {
-				t.Errorf("expected MAC of length %v, got %v", tc.expectMACLength, len(ts.MAC))
-			}
-
-			if int(ts.MACSize) != tc.expectMACLength {
-				t.Errorf("expected MACSize %v, got %v", tc.expectMACLength, ts.MACSize)
 			}
 
 			if len(ts.OtherData)/2 != tc.expectOtherLength {

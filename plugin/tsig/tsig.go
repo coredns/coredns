@@ -132,11 +132,6 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 			repTSIG.OtherData = hex.EncodeToString(b[2:])
 			repTSIG.OtherLen = 6
 		}
-		// empty MAC for TSIG errors (except BadTime)
-		if repTSIG.Error > 0 && repTSIG.Error != dns.RcodeBadTime {
-			repTSIG.MAC = ""
-			repTSIG.MACSize = 0
-		}
 		m.Extra = append(m.Extra, repTSIG)
 	}
 
