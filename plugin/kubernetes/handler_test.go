@@ -30,14 +30,6 @@ var dnsTestCases = []test.Case{
 			test.A("svcempty.testns.svc.cluster.local.	5	IN	A	10.0.0.1"),
 		},
 	},
-	// A Service (wildcard)
-	{
-		Qname: "svc1.*.svc.cluster.local.", Qtype: dns.TypeA,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.A("svc1.*.svc.cluster.local.  5       IN      A       10.0.0.1"),
-		},
-	},
 	{
 		Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
@@ -55,42 +47,6 @@ var dnsTestCases = []test.Case{
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{test.SRV("svc6.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc6.testns.svc.cluster.local.")},
 		Extra: []dns.RR{test.AAAA("svc6.testns.svc.cluster.local.  5       IN      AAAA       1234:abcd::1")},
-	},
-	// SRV Service (wildcard)
-	{
-		Qname: "svc1.*.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{test.SRV("svc1.*.svc.cluster.local.	5	IN	SRV	0 100 80 svc1.testns.svc.cluster.local.")},
-		Extra: []dns.RR{test.A("svc1.testns.svc.cluster.local.  5       IN      A       10.0.0.1")},
-	},
-	{
-		Qname: "svcempty.*.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{test.SRV("svcempty.*.svc.cluster.local.	5	IN	SRV	0 100 80 svcempty.testns.svc.cluster.local.")},
-		Extra: []dns.RR{test.A("svcempty.testns.svc.cluster.local.  5       IN      A       10.0.0.1")},
-	},
-	// SRV Service (wildcards)
-	{
-		Qname: "*.any.svc1.*.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{test.SRV("*.any.svc1.*.svc.cluster.local.	5	IN	SRV	0 100 80 svc1.testns.svc.cluster.local.")},
-		Extra: []dns.RR{test.A("svc1.testns.svc.cluster.local.  5       IN      A       10.0.0.1")},
-	},
-	// A Service (wildcards)
-	{
-		Qname: "*.any.svc1.*.svc.cluster.local.", Qtype: dns.TypeA,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.A("*.any.svc1.*.svc.cluster.local.  5       IN      A       10.0.0.1"),
-		},
-	},
-	// SRV Service Not udp/tcp
-	{
-		Qname: "*._not-udp-or-tcp.svc1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeNameError,
-		Ns: []dns.RR{
-			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
-		},
 	},
 	// SRV Service
 	{
@@ -193,14 +149,6 @@ var dnsTestCases = []test.Case{
 			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
 			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
 			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
-		},
-	},
-	// SRV Service (Headless and portless)
-	{
-		Qname: "*.*.hdlsprtls.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeSuccess,
-		Ns: []dns.RR{
-			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	// AAAA
@@ -406,7 +354,6 @@ var dnsTestCases = []test.Case{
 }
 
 func TestServeDNS(t *testing.T) {
-
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
 	k.Next = test.NextHandler(dns.RcodeSuccess, nil)
@@ -434,11 +381,11 @@ func TestServeDNS(t *testing.T) {
 
 		// Before sorting, make sure that CNAMES do not appear after their target records
 		if err := test.CNAMEOrder(resp); err != nil {
-			t.Error(err)
+			t.Errorf("Test %d, %v",i, err)
 		}
 
 		if err := test.SortAndCheck(resp, tc); err != nil {
-			t.Error(err)
+			t.Errorf("Test %d, %v",i, err)
 		}
 	}
 }

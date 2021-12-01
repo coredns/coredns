@@ -32,9 +32,6 @@ var extCases = []struct {
 		},
 	},
 	{
-		Qname: "*._not-udp-or-tcp.svc1.testns.example.com.", Rcode: dns.RcodeSuccess,
-	},
-	{
 		Qname: "_http._tcp.svc1.testns.example.com.", Rcode: dns.RcodeSuccess,
 		Msg: []msg.Service{
 			{Host: "1.2.3.4", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc1"},

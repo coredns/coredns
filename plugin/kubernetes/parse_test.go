@@ -15,10 +15,8 @@ func TestParseRequest(t *testing.T) {
 	}{
 		// valid SRV request
 		{"_http._tcp.webs.mynamespace.svc.inter.webs.tests.", "http.tcp..webs.mynamespace.svc"},
-		// wildcard acceptance
-		{"*.any.*.any.svc.inter.webs.tests.", "*.any..*.any.svc"},
 		// A request of endpoint
-		{"1-2-3-4.webs.mynamespace.svc.inter.webs.tests.", "*.*.1-2-3-4.webs.mynamespace.svc"},
+		{"1-2-3-4.webs.mynamespace.svc.inter.webs.tests.", "..1-2-3-4.webs.mynamespace.svc"},
 		// bare zone
 		{"inter.webs.tests.", "....."},
 		// bare svc type
