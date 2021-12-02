@@ -2,6 +2,8 @@ package kubernetes
 
 import (
 	"context"
+	"strings"
+	"sync/atomic"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
@@ -26,6 +28,10 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		extra   []dns.RR
 		err     error
 	)
+
+	if wildQuestion(state.Name()) {
+		atomic.AddUint64(&wildCount, 1)
+	}
 
 	switch state.QType() {
 	case dns.TypeA:
@@ -85,7 +91,12 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	m.Answer = append(m.Answer, records...)
 	m.Extra = append(m.Extra, extra...)
 	w.WriteMsg(m)
+
 	return dns.RcodeSuccess, nil
+}
+
+func wildQuestion(name string) bool {
+	return strings.HasPrefix(name, "*.") || strings.HasPrefix(name, "any.") || strings.Contains(name, ".*.") || strings.Contains(name, ".any.")
 }
 
 // Name implements the Handler interface.
