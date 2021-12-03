@@ -49,10 +49,11 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	// wrap the response writer so the response will be TSIG signed.
 	w = &restoreTsigWriter{w, r, tsigRR}
 
-	if err = w.TsigStatus(); err != nil {
-		log.Debugf("TSIG validation failed: %v %v", dns.TypeToString[state.QType()], err)
+	tsigStatus := w.TsigStatus()
+	if tsigStatus != nil {
+		log.Debugf("TSIG validation failed: %v %v", dns.TypeToString[state.QType()], tsigStatus)
 		rcode = dns.RcodeNotAuth
-		switch err {
+		switch tsigStatus {
 		case dns.ErrSecret:
 			tsigRR.Error = dns.RcodeBadKey
 		case dns.ErrTime:

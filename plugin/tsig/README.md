@@ -57,6 +57,10 @@ auth.zone {
 
 ## Bugs
 
+### Zone Transfer Notifies
+
+With the transfer plugin, zone transfer notifications from CoreDNS are not TSIG signed. 
+
 ### Special Considerations for Forwarding Servers (RFC 8945 5.5)
 
 https://datatracker.ietf.org/doc/html/rfc8945#section-5.5
