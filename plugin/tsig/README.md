@@ -54,3 +54,44 @@ auth.zone {
   forward . 10.1.0.2
 }
 ```
+
+## Bugs
+
+### Special Considerations for Forwarding Servers (RFC 8945 5.5)
+
+https://datatracker.ietf.org/doc/html/rfc8945#section-5.5
+
+CoreDNS does not implement this section as follows ...
+
+* RFC requirement:
+  > If the name on the TSIG is not
+of a secret that the server shares with the originator, the server
+MUST forward the message unchanged including the TSIG.
+
+  CoreDNS behavior:
+If ths zone of the request matches the _tsig_ plugin zones, then the TSIG record
+is always stripped. But even when the _tsig_ plugin is not involved, the _forward_ plugin
+may alter the message with compression, which would cause validation failure
+at the destination.
+
+
+* RFC requirement:
+  > If the TSIG passes all checks, the forwarding
+server MUST, if possible, include a TSIG of its own to the
+destination or the next forwarder.
+
+  CoreDNS behavior:
+If ths zone of the request matches the _tsig_ plugin zones, _forward_ plugin will
+proxy the request upstream without TSIG.
+
+
+* RFC requirement:
+  > If no transaction security is
+available to the destination and the message is a query, and if the
+corresponding response has the AD flag (see RFC4035) set, the
+forwarder MUST clear the AD flag before adding the TSIG to the
+response and returning the result to the system from which it
+received the query.
+
+  CoreDNS behavior:
+The AD flag is not cleared.

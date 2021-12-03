@@ -55,9 +55,6 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 		switch err {
 		case dns.ErrSecret:
 			tsigRR.Error = dns.RcodeBadKey
-			// See RFC-2845: 4.7. Special considerations for forwarding servers
-			// We need to leave the TSIG alone/intact when forwarding.  This can be handled by proper corefile zone
-			// config, i.e. tsig plugin zone should not contain a forwarded zone.
 		case dns.ErrTime:
 			tsigRR.Error = dns.RcodeBadTime
 		default:
@@ -69,6 +66,7 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	}
 
 	// strip the TSIG RR. Next, and subsequent plugins will not see the TSIG RRs.
+	// This violates forwarding cases (RFC 8945 5.5). See README.md Bugs
 	if len(r.Extra) > 1 {
 		r.Extra = r.Extra[0 : len(r.Extra)-1]
 	} else {
@@ -81,7 +79,7 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 			log.Errorf("request handler returned an error: %v\n", err)
 		}
 	}
-	// If not written yet, we have to return the response here to make sure it's TSIG signed.
+	// If the plugin chain result was not an error, restore the TSIG and write the response.
 	if !plugin.ClientWrite(rcode) {
 		resp := new(dns.Msg).SetRcode(r, rcode)
 		w.WriteMsg(resp)
@@ -123,7 +121,7 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 		repTSIG.MAC = r.reqTSIG.MAC
 		repTSIG.MACSize = r.reqTSIG.MACSize
 		if repTSIG.Error == dns.RcodeBadTime {
-			// per RFC 2854 4.5.2. client time goes into TimeSigned, server time in OtherData, OtherLen = 6 ...
+			// per RFC 8945 5.2.3. client time goes into TimeSigned, server time in OtherData, OtherLen = 6 ...
 			repTSIG.TimeSigned = r.reqTSIG.TimeSigned
 			b := make([]byte, 8)
 			// TimeSigned is network byte order.
