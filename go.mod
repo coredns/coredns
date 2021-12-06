@@ -3,7 +3,7 @@ module github.com/coredns/coredns
 go 1.16
 
 require (
-	github.com/Azure/azure-sdk-for-go v59.4.0+incompatible
+	github.com/Azure/azure-sdk-for-go v60.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.22
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.9
 	github.com/Azure/go-autorest/autorest/to v0.2.0 // indirect
