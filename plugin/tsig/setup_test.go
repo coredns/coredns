@@ -2,11 +2,14 @@ package tsig
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
+
 )
 
 func TestParse(t *testing.T) {
@@ -19,6 +22,17 @@ func TestParse(t *testing.T) {
 	for k, s := range secrets {
 		secretConfig += fmt.Sprintf("secret %s %s\n", k, s)
 	}
+	secretsFile, cleanup, err := test.TempFile(".", `key "name.key." {
+	secret "test-key";
+};
+key "name2.key." {
+	secret "test-key2";
+};`)
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer cleanup()
+
 	tests := []struct {
 		input           string
 		shouldErr       bool
@@ -29,6 +43,12 @@ func TestParse(t *testing.T) {
 	}{
 		{
 			input:           "tsig {\n " + secretConfig + "}",
+			expectedZones:   []string{"."},
+			expectedQTypes:  defaultQTypes,
+			expectedSecrets: secrets,
+		},
+		{
+			input:           "tsig {\n secrets " + secretsFile + "\n}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  defaultQTypes,
 			expectedSecrets: secrets,
@@ -130,6 +150,99 @@ func TestParse(t *testing.T) {
 				t.Errorf("Test %d required secrets '%v', but got '%v'.", i, test.expectedSecrets, ts.secrets)
 				break
 			}
+		}
+
+	}
+}
+
+func TestParseKeyFile(t *testing.T) {
+	var reader = strings.NewReader(`key "foo" {
+	algorithm hmac-sha256;
+	secret "36eowrtmxceNA3T5AdE+JNUOWFCw3amtcyHACnrDVgQ=";
+};
+key "bar" {
+	algorithm hmac-sha256;
+	secret "X28hl0BOfAL5G0jsmJWSacrwn7YRm2f6U5brnzwWEus=";
+};
+key "baz" {
+	secret "BycDPXSx/5YCD44Q4g5Nd2QNxNRDKwWTXddrU/zpIQM=";
+};`)
+
+	secrets, err := parseKeyFile(reader)
+	if err != nil {
+		t.Fatalf("Unexpected error: %q", err)
+	}
+	expectedSecrets := map[string]string{
+		"foo": "36eowrtmxceNA3T5AdE+JNUOWFCw3amtcyHACnrDVgQ=",
+		"bar": "X28hl0BOfAL5G0jsmJWSacrwn7YRm2f6U5brnzwWEus=",
+		"baz": "BycDPXSx/5YCD44Q4g5Nd2QNxNRDKwWTXddrU/zpIQM=",
+	}
+
+	if len(secrets) != len(expectedSecrets) {
+		t.Fatalf("result has %d keys. expected %d", len(secrets), len(expectedSecrets))
+	}
+
+	for k, sec := range secrets {
+		expectedSec, ok := expectedSecrets[k]
+		if !ok {
+			t.Errorf("unexpected key in result. %q", k)
+			continue
+		}
+		if sec != expectedSec {
+			t.Errorf("incorrect secret in result for key %q. expected %q got %q ", k, expectedSec, sec)
+		}
+	}
+}
+
+func TestParseKeyFileErrors(t *testing.T) {
+	tests := []struct {
+		in  string
+		err string
+	}{
+		{in: `key {`, err: "expected key name \"key {\""},
+		{in: `foo "key" {`, err: "unexpected token \"foo\""},
+		{
+			in: `key "foo" {
+		secret "36eowrtmxceNA3T5AdE+JNUOWFCw3amtcyHACnrDVgQ=";
+	};
+		key "foo" {
+		secret "X28hl0BOfAL5G0jsmJWSacrwn7YRm2f6U5brnzwWEus=";
+	}; `,
+			err: "key \"foo\" redefined",
+		},
+		{in: `key "foo" {
+	schmalgorithm hmac-sha256;`,
+			err: "unexpected token \"schmalgorithm\"",
+		},
+		{
+			in: `key "foo" {
+	schmecret "36eowrtmxceNA3T5AdE+JNUOWFCw3amtcyHACnrDVgQ=";`,
+			err: "unexpected token \"schmecret\"",
+		},
+		{
+			in: `key "foo" {
+	secret`,
+			err: "expected secret key \"\\tsecret\"",
+		},
+		{
+			in: `key "foo" {
+	secret ;`,
+			err: "expected secret key \"\\tsecret ;\"",
+		},
+		{
+			in: `key "foo" {
+	};`,
+			err: "expected secret for key \"foo\"",
+		},
+	}
+	for i, testcase := range tests {
+		_, err := parseKeyFile(strings.NewReader(testcase.in))
+		if err == nil {
+			t.Errorf("Test %d: expected error, got no error", i)
+			continue
+		}
+		if err.Error() != testcase.err {
+			t.Errorf("Test %d: Expected error: %q, got %q", i, testcase.err, err.Error())
 		}
 
 	}

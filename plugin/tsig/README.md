@@ -14,16 +14,26 @@ responses. It can also require TSIG for certain query types, refusing requests t
 ~~~
 tsig [ZONE...] {
   secret NAME KEY
+  secrets FILE
   require [QTYPE...]
 }
 ~~~
 
    * **ZONE** - the zones *tsig* will TSIG.  By default, the zones from the server block are used.
 
-   * `secret` **KEY** - specifies a TSIG secret for **NAME** with **KEY**. Use this option more than once
+   * `secret` **NAME** **KEY** - specifies a TSIG secret for **NAME** with **KEY**. Use this option more than once
    to define multiple secrets. Secrets are global to the server instance, not just for the enclosing **ZONE**.
 
-   * `require` **QTYPE...** - the query types that must be TSIG'd. Requests of the specified types
+   * `secrets` **FILE** - same as `secret`, but load the secrets from a file. The file may define any number
+     of unique keys, each in the following `named.conf` format:
+     ```cgo
+     key "example." {
+         secret "X28hl0BOfAL5G0jsmJWSacrwn7YRm2f6U5brnzwWEus=";
+     };
+     ```
+     Each key may also specify an `algorithm` e.g. `algorithm hmac-sha256;`, but this is currently ignored by the plugin.
+
+     * `require` **QTYPE...** - the query types that must be TSIG'd. Requests of the specified types
    will be `REFUSED` if they are not signed.`require all` will require requests of all types to be
    signed. `require none` will not require requests any types to be signed. Default behavior is to not require.
 
