@@ -3,7 +3,7 @@ title = "CoreDNS-1.8.7 Release"
 description = "CoreDNS-1.8.7 Release Notes."
 tags = ["Release", "1.8.7", "Notes"]
 release = "1.8.7"
-date = "2021-12-10T00:00:00+00:00"
+date = "2021-12-09T00:00:00+00:00"
 author = "coredns"
 +++
 
@@ -27,6 +27,7 @@ Hu Shuai,
 Humberto Leal,
 jayonlau,
 Johnny Bergström,
+LiuCongran,
 Matt Palmer,
 Miek Gieben,
 OctoHuman,
@@ -46,6 +47,7 @@ Zou Nengren
 * plugin/auto: Fix panic caused by config invalid reload value (https://github.com/coredns/coredns/pull/4986)
 * plugin/cache: fix data race (https://github.com/coredns/coredns/pull/4932)
 * plugin/file: Fix print tree error (https://github.com/coredns/coredns/pull/4962)
+* plugin/file: Fix issue of multiple file plugin have same reload time (https://github.com/coredns/coredns/pull/5020)
 * plugin/forward: Use new msg.Id for upstream queries (https://github.com/coredns/coredns/pull/4841)
 * plugin/grpc: Enable HTTP/2 in gRPC service (https://github.com/coredns/coredns/pull/4842)
 * plugin/k8s_external: Fix SRV queries doesn't work with AWS ELB/NLB (https://github.com/coredns/coredns/pull/4929)
