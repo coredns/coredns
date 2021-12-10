@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/coredns/caddy"
+
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 
@@ -58,7 +59,7 @@ func parse(c *caddy.Controller) (*TSIGServer, error) {
 				if len(args) != 2 {
 					return nil, c.ArgErr()
 				}
-				k := args[0]
+				k := plugin.Name(args[0]).Normalize()
 				if _, exists := t.secrets[k]; exists {
 					return nil, fmt.Errorf("key %q redefined", k)
 				}
@@ -128,6 +129,7 @@ func parseKeyFile(f io.Reader) (map[string]string, error) {
 		if len(key) == 0 {
 			return nil, fmt.Errorf("expected key name %q", s.Text())
 		}
+		key = plugin.Name(key).Normalize()
 		if _, ok := secrets[key]; ok {
 			return nil, fmt.Errorf("key %q redefined", key)
 		}

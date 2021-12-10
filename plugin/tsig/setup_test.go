@@ -6,10 +6,10 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
-
 )
 
 func TestParse(t *testing.T) {
@@ -173,9 +173,9 @@ key "baz" {
 		t.Fatalf("Unexpected error: %q", err)
 	}
 	expectedSecrets := map[string]string{
-		"foo": "36eowrtmxceNA3T5AdE+JNUOWFCw3amtcyHACnrDVgQ=",
-		"bar": "X28hl0BOfAL5G0jsmJWSacrwn7YRm2f6U5brnzwWEus=",
-		"baz": "BycDPXSx/5YCD44Q4g5Nd2QNxNRDKwWTXddrU/zpIQM=",
+		"foo.": "36eowrtmxceNA3T5AdE+JNUOWFCw3amtcyHACnrDVgQ=",
+		"bar.": "X28hl0BOfAL5G0jsmJWSacrwn7YRm2f6U5brnzwWEus=",
+		"baz.": "BycDPXSx/5YCD44Q4g5Nd2QNxNRDKwWTXddrU/zpIQM=",
 	}
 
 	if len(secrets) != len(expectedSecrets) {
@@ -208,7 +208,7 @@ func TestParseKeyFileErrors(t *testing.T) {
 		key "foo" {
 		secret "X28hl0BOfAL5G0jsmJWSacrwn7YRm2f6U5brnzwWEus=";
 	}; `,
-			err: "key \"foo\" redefined",
+			err: "key \"foo.\" redefined",
 		},
 		{in: `key "foo" {
 	schmalgorithm hmac-sha256;`,
@@ -232,7 +232,7 @@ func TestParseKeyFileErrors(t *testing.T) {
 		{
 			in: `key "foo" {
 	};`,
-			err: "expected secret for key \"foo\"",
+			err: "expected secret for key \"foo.\"",
 		},
 	}
 	for i, testcase := range tests {
