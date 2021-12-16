@@ -198,6 +198,8 @@ packet received by CoreDNS must be the IP address of the Pod that sent the reque
 
 ## Wildcards
 
+**NOTE: Wildcard queries are deprecated** and will no longer be supported in the next minor release.
+
 Some query labels accept a wildcard value to match any value.  If a label is a valid wildcard (\*,
 or the word "any"), then that label will match all values.  The labels that accept wildcards are:
 
