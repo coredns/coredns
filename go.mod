@@ -3,9 +3,9 @@ module github.com/coredns/coredns
 go 1.16
 
 require (
-	github.com/Azure/azure-sdk-for-go v60.1.0+incompatible
+	github.com/Azure/azure-sdk-for-go v60.2.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.23
-	github.com/Azure/go-autorest/autorest/azure/auth v0.5.9
+	github.com/Azure/go-autorest/autorest/azure/auth v0.5.10
 	github.com/Azure/go-autorest/autorest/to v0.2.0 // indirect
 	github.com/Microsoft/go-winio v0.5.0 // indirect
 	github.com/apparentlymart/go-cidr v1.1.0
@@ -35,7 +35,7 @@ require (
 	google.golang.org/api v0.63.0
 	google.golang.org/grpc v1.42.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.34.0
-	k8s.io/api v0.23.0
+	k8s.io/api v0.23.1
 	k8s.io/apimachinery v0.23.1
 	k8s.io/client-go v0.23.0
 	k8s.io/klog/v2 v2.30.0
