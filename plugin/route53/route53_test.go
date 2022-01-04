@@ -77,7 +77,8 @@ func (fakeRoute53) ListResourceRecordSetsPagesWithContext(_ aws.Context, in *rou
 }
 
 func TestRoute53(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	r, err := New(ctx, fakeRoute53{}, map[string][]string{"bad.": {"0987654321"}}, time.Minute)
 	if err != nil {
