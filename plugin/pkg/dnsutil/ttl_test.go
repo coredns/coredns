@@ -41,6 +41,40 @@ func TestMinimalTTL(t *testing.T) {
 	}
 }
 
+func TestMinimalTTLNoSOA(t *testing.T) {
+	m := new(dns.Msg)
+	m.SetQuestion("bar.www.example.org.", dns.TypeA)
+	m.Rcode = dns.RcodeSuccess
+	m.Answer = []dns.RR{test.CNAME("bar.www.example.org. 3500 IN CNAME foo.example.org.")} // but we add a cname with the name!
+
+	utc := time.Now().UTC()
+	mt, _ := response.Typify(m, utc)
+	dur := MinimalTTL(m, mt)
+	if dur != MinimalDefaultTTL {
+		t.Fatalf("Expected minttl duration to be %d, got %d", MinimalDefaultTTL, dur)
+	}
+
+}
+
+func TestMinimalTTLNoErrorWithSOA(t *testing.T) {
+	m := new(dns.Msg)
+	m.SetQuestion("bar.www.example.org.", dns.TypeA)
+	m.Rcode = dns.RcodeSuccess
+	m.Answer = []dns.RR{test.CNAME("bar.www.example.org. 3600 IN CNAME foo.example.org.")} // but we add a cname with the name!
+	m.Ns = []dns.RR{
+		test.SOA("example.org.       900    IN      SOA     ns.example.org. dns.example.org. 2025042470 10000 2400 604800 3600"),
+	}
+
+	utc := time.Now().UTC()
+
+	mt, _ := response.Typify(m, utc)
+	dur := MinimalTTL(m, mt)
+	if dur != time.Duration(900*time.Second) {
+		t.Fatalf("Expected minttl duration to be 900, got %d", dur)
+	}
+
+}
+
 func BenchmarkMinimalTTL(b *testing.B) {
 	m := new(dns.Msg)
 	m.SetQuestion("example.org.", dns.TypeA)

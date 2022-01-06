@@ -20,6 +20,21 @@ func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
 		return MinimalDefaultTTL
 	}
 
+	// Covers Cases where there is NoError also answer type doesnt match question and no SOA
+	answerMatch := false
+	if len(m.Question) > 0 && len(m.Ns) == 0 && len(m.Answer) > 0 {
+		if m.Question[0].Qtype == dns.TypeA || m.Question[0].Qtype == dns.TypeAAAA {
+			for _, r := range m.Answer {
+				if m.Question[0].Qtype == r.Header().Rrtype {
+					answerMatch = true
+				}
+			}
+			if !answerMatch {
+				return MinimalDefaultTTL
+			}
+		}
+	}
+
 	minTTL := MaximumDefaulTTL
 	for _, r := range m.Answer {
 		if r.Header().Ttl < uint32(minTTL.Seconds()) {
