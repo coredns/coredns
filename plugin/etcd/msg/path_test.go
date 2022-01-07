@@ -11,7 +11,7 @@ func TestPath(t *testing.T) {
 	}
 }
 
-func TestPath(t *testing.T) {
+func TestDomain(t *testing.T) {
 	result1 := Domain("/skydns/local/cluster/staging/service/")
 	if result1 != "service.staging.cluster.local." {
 		t.Errorf("==>%s", result1)
