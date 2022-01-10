@@ -26,7 +26,6 @@ func setup(c *caddy.Controller) error {
 	for i := range zones.Names {
 		n := zones.Names[i]
 		z := zones.Z[n]
-
 		if len(z.TransferFrom) > 0 {
 			c.OnStartup(func() error {
 				z.StartupOnce.Do(func() {
