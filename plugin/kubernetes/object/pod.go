@@ -30,7 +30,7 @@ func ToPod(obj meta.Object) (meta.Object, error) {
 	}
 	pod := &Pod{
 		Version:   apiPod.GetResourceVersion(),
-		PodIP:     apiPod.Status.PodIP,
+		PodIP:     stripLeadingZerosIPv4(apiPod.Status.PodIP),
 		Namespace: apiPod.GetNamespace(),
 		Name:      apiPod.GetName(),
 	}

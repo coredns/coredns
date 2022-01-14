@@ -73,7 +73,7 @@ func ToEndpoints(obj meta.Object) (meta.Object, error) {
 		}
 
 		for j, a := range eps.Addresses {
-			ea := EndpointAddress{IP: a.IP, Hostname: a.Hostname}
+			ea := EndpointAddress{IP: stripLeadingZerosIPv4(a.IP), Hostname: a.Hostname}
 			if a.NodeName != nil {
 				ea.NodeName = *a.NodeName
 			}
@@ -93,7 +93,7 @@ func ToEndpoints(obj meta.Object) (meta.Object, error) {
 
 	for _, eps := range end.Subsets {
 		for _, a := range eps.Addresses {
-			e.IndexIP = append(e.IndexIP, a.IP)
+			e.IndexIP = append(e.IndexIP, stripLeadingZerosIPv4(a.IP))
 		}
 	}
 
@@ -132,6 +132,7 @@ func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
 			continue
 		}
 		for _, a := range end.Addresses {
+			a = stripLeadingZerosIPv4(a)
 			ea := EndpointAddress{IP: a}
 			if end.Hostname != nil {
 				ea.Hostname = *end.Hostname
@@ -183,6 +184,7 @@ func EndpointSliceV1beta1ToEndpoints(obj meta.Object) (meta.Object, error) {
 			continue
 		}
 		for _, a := range end.Addresses {
+			a = stripLeadingZerosIPv4(a)
 			ea := EndpointAddress{IP: a}
 			if end.Hostname != nil {
 				ea.Hostname = *end.Hostname

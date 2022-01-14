@@ -48,9 +48,9 @@ func ToService(obj meta.Object) (meta.Object, error) {
 
 	if len(svc.Spec.ClusterIPs) > 0 {
 		s.ClusterIPs = make([]string, len(svc.Spec.ClusterIPs))
-		copy(s.ClusterIPs, svc.Spec.ClusterIPs)
+		copyAndStripLeadingZerosIPv4(s.ClusterIPs, svc.Spec.ClusterIPs)
 	} else {
-		s.ClusterIPs = []string{svc.Spec.ClusterIP}
+		s.ClusterIPs = []string{stripLeadingZerosIPv4(svc.Spec.ClusterIP)}
 	}
 
 	if len(svc.Spec.Ports) == 0 {
@@ -61,10 +61,10 @@ func ToService(obj meta.Object) (meta.Object, error) {
 		copy(s.Ports, svc.Spec.Ports)
 	}
 
-	li := copy(s.ExternalIPs, svc.Spec.ExternalIPs)
+	li := copyAndStripLeadingZerosIPv4(s.ExternalIPs, svc.Spec.ExternalIPs)
 	for i, lb := range svc.Status.LoadBalancer.Ingress {
 		if lb.IP != "" {
-			s.ExternalIPs[li+i] = lb.IP
+			s.ExternalIPs[li+i] = stripLeadingZerosIPv4(lb.IP)
 			continue
 		}
 		s.ExternalIPs[li+i] = lb.Hostname

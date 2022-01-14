@@ -16,6 +16,8 @@
 package object
 
 import (
+	"strings"
+
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -111,3 +113,46 @@ func (e *Empty) GetManagedFields() []v1.ManagedFieldsEntry { return nil }
 
 // SetManagedFields implements the metav1.Object interface.
 func (e *Empty) SetManagedFields(managedFields []v1.ManagedFieldsEntry) {}
+
+// stripLeadingZerosIPv4 strips leading zeros from IPv4 addresses.  Kubernetes (1.23) permits IPv4s with leading zeros,
+// and interprets them as decimal.  So, when storing an IP address from a Kubernetes API Object, we should strip
+// leading zeros so that later net.ParseIP/net.ParseCIDR operations will not fail.
+//
+// From the Kubertnetes 1.23 release notes:
+// Since golang 1.17 both net.ParseIP and net.ParseCIDR rejects leading zeros in the dot-decimal notation of IPv4
+// addresses, Kubernetes will keep allowing leading zeros on IPv4 address to not break the compatibility.
+// IMPORTANT: Kubernetes interprets leading zeros on IPv4 addresses as decimal, users must not rely on parser alignment
+// to not being impacted by the associated security advisory: CVE-2021-29923 golang standard library "net" - Improper
+// Input Validation of octal literals in golang 1.16.2 and below standard library "net" results in indeterminate SSRF
+// & RFI vulnerabilities.
+//
+func stripLeadingZerosIPv4(ip string) string {
+	if strings.Contains(ip, ":") {
+		return ip
+	}
+	octets := strings.Split(ip, ".")
+	if len(octets) != 4 {
+		return ip
+	}
+	for i := range octets {
+		if len(octets[i]) < 2 {
+			continue
+		}
+		j := 0
+		for j < len(octets[i])-1 {
+			if octets[i][j] != '0' {
+				break
+			}
+			j++
+		}
+		octets[i] = octets[i][j:]
+	}
+	return strings.Join(octets, ".")
+}
+
+func copyAndStripLeadingZerosIPv4(dst, src []string) int {
+	for i := range src {
+		dst[i] = stripLeadingZerosIPv4(src[i])
+	}
+	return len(dst)
+}
