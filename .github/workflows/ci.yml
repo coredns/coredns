@@ -24,6 +24,8 @@ jobs:
     needs:
       - test
     steps:
+      - name: make coredns file
+        run: make
       - uses: actions/checkout@v2
       - uses: docker/setup-qemu-action@v1
       - uses: docker/setup-buildx-action@v1
