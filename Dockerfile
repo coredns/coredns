@@ -6,7 +6,7 @@ WORKDIR /go/src/app
 RUN go mod download
 
 COPY . /go/src/app
-RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o coredns
+RUN make
 
 FROM debian:stable-slim AS slim
 
