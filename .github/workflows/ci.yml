@@ -20,6 +20,8 @@ jobs:
           files: coverage.out
   build:
     runs-on: ubuntu-latest  
+    needs:
+      - test
     steps:
     - uses: actions/checkout@v2
     - uses: actions/setup-go@v2
@@ -31,7 +33,7 @@ jobs:
     name: docker
     runs-on: ubuntu-latest
     needs:
-      - test
+      - build
     steps:
       - uses: actions/checkout@v2
       - uses: docker/setup-qemu-action@v1
