@@ -52,6 +52,46 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+func TestHealthTCP(t *testing.T) {
+	hcReadTimeout = 10 * time.Millisecond
+	hcWriteTimeout = 10 * time.Millisecond
+	readTimeout = 10 * time.Millisecond
+	defaultTimeout = 10 * time.Millisecond
+
+	i := uint32(0)
+	q := uint32(0)
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		if atomic.LoadUint32(&q) == 0 { //drop the first query to trigger health-checking
+			atomic.AddUint32(&q, 1)
+			return
+		}
+		if r.Question[0].Name == "." && r.RecursionDesired == true {
+			atomic.AddUint32(&i, 1)
+		}
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	p := NewProxy(s.Addr, transport.DNS)
+	p.health.SetTCPTransport()
+	f := New()
+	f.SetProxy(p)
+	defer f.OnShutdown()
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	f.ServeDNS(context.TODO(), &test.ResponseWriter{TCP: true}, req)
+
+	time.Sleep(20 * time.Millisecond)
+	i1 := atomic.LoadUint32(&i)
+	if i1 != 1 {
+		t.Errorf("Expected number of health checks with RecursionDesired==true to be %d, got %d", 1, i1)
+	}
+}
+
 func TestHealthNoRecursion(t *testing.T) {
 	hcReadTimeout = 10 * time.Millisecond
 	readTimeout = 10 * time.Millisecond

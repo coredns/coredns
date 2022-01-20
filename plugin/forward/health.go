@@ -16,6 +16,7 @@ type HealthChecker interface {
 	SetTLSConfig(*tls.Config)
 	SetRecursionDesired(bool)
 	GetRecursionDesired() bool
+	SetTCPTransport()
 }
 
 // dnsHc is a health checker for a DNS endpoint (DNS, and DoT).
@@ -55,6 +56,10 @@ func (h *dnsHc) SetRecursionDesired(recursionDesired bool) {
 }
 func (h *dnsHc) GetRecursionDesired() bool {
 	return h.recursionDesired
+}
+
+func (h *dnsHc) SetTCPTransport() {
+	h.c.Net = "tcp"
 }
 
 // For HC we send to . IN NS +[no]rec message to the upstream. Dial timeouts and empty
