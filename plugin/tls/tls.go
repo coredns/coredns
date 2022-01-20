@@ -33,7 +33,6 @@ func setTLSDefaults(tls *ctls.Config) {
 		ctls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
 		ctls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
 	}
-	tls.PreferServerCipherSuites = true
 }
 
 func parseTLS(c *caddy.Controller) error {
