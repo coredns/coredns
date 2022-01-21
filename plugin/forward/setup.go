@@ -144,7 +144,8 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		}
 		f.proxies[i].SetExpire(f.expire)
 		f.proxies[i].health.SetRecursionDesired(f.opts.hcRecursionDesired)
-		if f.opts.forceTCP {
+		// when TLS is used, checks are set to tcp-tls
+		if f.opts.forceTCP && transports[i] != transport.TLS {
 			f.proxies[i].health.SetTCPTransport()
 		}
 	}
