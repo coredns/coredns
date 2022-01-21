@@ -13,6 +13,7 @@
 
 CoreDNS is a DNS server/forwarder, written in Go, that chains [plugins](https://coredns.io/plugins).
 Each plugin performs a (DNS) function.
+This version has two plugin more than default named aaaa and retry.
 
 CoreDNS is a [Cloud Native Computing Foundation](https://cncf.io) graduated project.
 
