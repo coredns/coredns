@@ -16,7 +16,7 @@ RUN apt-get -y install ca-certificates && update-ca-certificates
 FROM scratch
 COPY --from=slim /etc/ssl/certs /etc/ssl/certs
 WORKDIR /
-COPY --from=builder /coredns /coredns
+COPY --from=builder /go/src/app/coredns /coredns
 
 EXPOSE 53 53/udp
 ENTRYPOINT ["/coredns"]
