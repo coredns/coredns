@@ -12,12 +12,11 @@ FROM debian:stable-slim AS slim
 
 RUN apt-get update && apt-get -uy upgrade
 RUN apt-get -y install ca-certificates && update-ca-certificates
-COPY --from=builder /go/src/app/coredns /coredns
 
 FROM scratch
 COPY --from=slim /etc/ssl/certs /etc/ssl/certs
 WORKDIR /
-COPY --from=slim /coredns /coredns
+COPY --from=builder /coredns /coredns
 
 EXPOSE 53 53/udp
 ENTRYPOINT ["/coredns"]
