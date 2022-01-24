@@ -129,7 +129,15 @@ var dnsTestCases = []test.Case{
 		Answer: []dns.RR{
 			test.CNAME("ext-cname.miek.nl.	1800	IN	CNAME	example.com."),
 		},
-		Rcode: dns.RcodeServerFailure,
+		Rcode: dns.RcodeSuccess,
+		Ns:    miekAuth,
+	},
+	{
+		Qname: "dangling-cname.miek.nl.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.CNAME("dangling-cname.miek.nl.	1800	IN	CNAME	no-record.miek.nl."),
+		},
+		Rcode: dns.RcodeNameError,
 		Ns:    miekAuth,
 	},
 }
@@ -236,4 +244,5 @@ dname           IN      DNAME   x
 srv		IN	SRV     10 10 8080 a.miek.nl.
 mx		IN	MX      10 a.miek.nl.
 
-ext-cname   IN   CNAME  example.com.`
+ext-cname   IN   CNAME  example.com.
+dangling-cname IN CNAME no-record`

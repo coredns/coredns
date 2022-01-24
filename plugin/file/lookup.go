@@ -331,13 +331,17 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 	}
 
 	targetName := rrs[0].(*dns.CNAME).Target
-	elem, _ = z.Tree.Search(targetName)
-	if elem == nil {
+	// if the target name is not in the zone, do an "external" lookup, otherwise just search the zone's tree
+	if !dns.IsSubDomain(z.SOA.Header().Name, targetName) {
 		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
 		return rrs, z.Apex.ns(do), nil, result
 	}
 
+	elem, _ = z.Tree.Search(targetName)
+	if elem == nil {
+		return rrs, z.Apex.ns(do), nil, NameError
+	}
 	i := 0
 
 Redo:
@@ -383,7 +387,9 @@ Redo:
 func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result) {
 	m, e := z.Upstream.Lookup(ctx, state, target, qtype)
 	if e != nil {
-		return nil, ServerFailure
+		// An error here usually indicates that we have no means or don't know how to do the lookup.
+		// Return a success here so a recursive resolver can accept the lone CNAME, and do the lookup itself.
+		return nil, Success
 	}
 	if m == nil {
 		return nil, Success
