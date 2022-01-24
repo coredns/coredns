@@ -32,7 +32,7 @@ require (
 	gopkg.in/DataDog/dd-trace-go.v1 v1.35.0
 	k8s.io/api v0.23.2
 	k8s.io/apimachinery v0.23.2
-	k8s.io/client-go v0.23.1
+	k8s.io/client-go v0.23.2
 	k8s.io/klog/v2 v2.40.1
 )
 
