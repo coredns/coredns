@@ -331,17 +331,13 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 	}
 
 	targetName := rrs[0].(*dns.CNAME).Target
-	// if the target name is not in the zone, do an "external" lookup, otherwise just search the zone's tree
-	if !dns.IsSubDomain(z.SOA.Header().Name, targetName) {
+	elem, _ = z.Tree.Search(targetName)
+	if elem == nil {
 		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
 		return rrs, z.Apex.ns(do), nil, result
 	}
 
-	elem, _ = z.Tree.Search(targetName)
-	if elem == nil {
-		return rrs, z.Apex.ns(do), nil, NameError
-	}
 	i := 0
 
 Redo:
