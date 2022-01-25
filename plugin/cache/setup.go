@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -185,6 +186,7 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 		}
 
 		ca.Zones = origins
+		ca.zonesMetricLabel = strings.Join(origins, ",")
 		ca.pcache = cache.New(ca.pcap)
 		ca.ncache = cache.New(ca.ncap)
 	}

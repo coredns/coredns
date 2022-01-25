@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"time"
 
@@ -43,7 +44,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return c.doRefresh(ctx, state, crr)
 	}
 	if ttl < 0 {
-		servedStale.WithLabelValues(server).Inc()
+		servedStale.WithLabelValues(server, c.zonesMetricLabel).Inc()
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
 		cw := newPrefetchResponseWriter(server, state, c)
@@ -59,7 +60,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 }
 
 func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time) {
-	cachePrefetches.WithLabelValues(cw.server).Inc()
+	cachePrefetches.WithLabelValues(cw.server, c.zonesMetricLabel).Inc()
 	c.doRefresh(ctx, state, cw)
 
 	// When prefetching we loose the item i, and with it the frequency
@@ -91,41 +92,42 @@ func (c *Cache) Name() string { return "cache" }
 
 func (c *Cache) get(now time.Time, state request.Request, server string) (*item, bool) {
 	k := hash(state.Name(), state.QType())
-	cacheRequests.WithLabelValues(server).Inc()
+	fmt.Println(c.zonesMetricLabel)
+	cacheRequests.WithLabelValues(server, c.zonesMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Denial).Inc()
+		cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel).Inc()
 		return i.(*item), true
 	}
 
 	if i, ok := c.pcache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Success).Inc()
+		cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel).Inc()
 		return i.(*item), true
 	}
-	cacheMisses.WithLabelValues(server).Inc()
+	cacheMisses.WithLabelValues(server, c.zonesMetricLabel).Inc()
 	return nil, false
 }
 
 // getIgnoreTTL unconditionally returns an item if it exists in the cache.
 func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
 	k := hash(state.Name(), state.QType())
-	cacheRequests.WithLabelValues(server).Inc()
+	cacheRequests.WithLabelValues(server, c.zonesMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok {
 		ttl := i.(*item).ttl(now)
 		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
-			cacheHits.WithLabelValues(server, Denial).Inc()
+			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel).Inc()
 			return i.(*item)
 		}
 	}
 	if i, ok := c.pcache.Get(k); ok {
 		ttl := i.(*item).ttl(now)
 		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
-			cacheHits.WithLabelValues(server, Success).Inc()
+			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel).Inc()
 			return i.(*item)
 		}
 	}
-	cacheMisses.WithLabelValues(server).Inc()
+	cacheMisses.WithLabelValues(server, c.zonesMetricLabel).Inc()
 	return nil
 }
 
