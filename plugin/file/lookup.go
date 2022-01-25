@@ -381,12 +381,7 @@ Redo:
 }
 
 func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result) {
-	m, e := z.Upstream.Lookup(ctx, state, target, qtype)
-	if e != nil {
-		// An error here usually indicates that we have no means or don't know how to do the lookup.
-		// Return a success here so a recursive resolver can accept the lone CNAME, and do the lookup itself.
-		return nil, Success
-	}
+	m, _ := z.Upstream.Lookup(ctx, state, target, qtype)
 	if m == nil {
 		return nil, Success
 	}
