@@ -65,6 +65,13 @@ var (
 		Name:      "plugin_enabled",
 		Help:      "A metric that indicates whether a plugin is enabled on per server and zone basis.",
 	}, []string{"server", "zone", "name"})
+
+	HTTPSResponsesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: subsystem,
+		Name:      "https_responses_total",
+		Help:      "Counter of DoH responses per server and http status code.",
+	}, []string{"server", "status"})
 )
 
 const (

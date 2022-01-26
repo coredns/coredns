@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/doh"
 	"github.com/coredns/coredns/plugin/pkg/response"
@@ -128,12 +129,14 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !s.validRequest(r) {
 		http.Error(w, "", http.StatusNotFound)
+		s.countResponse(http.StatusNotFound)
 		return
 	}
 
 	msg, err := doh.RequestToMsg(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		s.countResponse(http.StatusBadRequest)
 		return
 	}
 
@@ -157,6 +160,7 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// handler has not provided any response message.
 	if dw.Msg == nil {
 		http.Error(w, "No response", http.StatusInternalServerError)
+		s.countResponse(http.StatusInternalServerError)
 		return
 	}
 
@@ -169,8 +173,13 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%f", age.Seconds()))
 	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
 	w.WriteHeader(http.StatusOK)
+	s.countResponse(http.StatusOK)
 
 	w.Write(buf)
+}
+
+func (s *ServerHTTPS) countResponse(status int) {
+	vars.HTTPSResponsesCount.WithLabelValues(s.Addr, strconv.Itoa(status)).Inc()
 }
 
 // Shutdown stops the server (non gracefully).

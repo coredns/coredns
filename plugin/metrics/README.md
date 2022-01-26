@@ -18,9 +18,10 @@ The following metrics are exported:
 * `coredns_dns_do_requests_total{server, zone}` -  queries that have the DO bit set
 * `coredns_dns_response_size_bytes{server, zone, proto}` - response size in bytes.
 * `coredns_dns_responses_total{server, zone, rcode, plugin}` - response per zone, rcode and plugin.
+* `coredns_dns_https_responses_total{server, status}` - responses per server and http status code.
 * `coredns_plugin_enabled{server, zone, name}` - indicates whether a plugin is enabled on per server and zone basis.
 
-Each counter has a label `zone` which is the zonename used for the request/response.
+Almost each counter has a label `zone` which is the zonename used for the request/response.
 
 Extra labels used are:
 
@@ -32,6 +33,11 @@ Extra labels used are:
 * `type` which holds the query type. It holds most common types (A, AAAA, MX, SOA, CNAME, PTR, TXT,
   NS, SRV, DS, DNSKEY, RRSIG, NSEC, NSEC3, HTTPS, IXFR, AXFR and ANY) and "other" which lumps together all
   other types.
+* `status` which holds the https status code. Possible values are:
+  * 200 - request is processed,
+  * 404 - request has been rejected on validation,
+  * 400 - request to dns message conversion failed,
+  * 500 - processing ended up with no response. 
 * the `plugin` label holds the name of the plugin that made the write to the client. If the server
   did the write (on error for instance), the value is empty.
 
