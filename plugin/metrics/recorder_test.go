@@ -44,23 +44,23 @@ func TestRecorder_WriteMsg(t *testing.T) {
 			msg: &nxdomainResp,
 		},
 	}
-	for _, tt := range tests {
+	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tw := inmemoryWriter{ResponseWriter: test.ResponseWriter{}}
 			rec := NewRecorder(&tw)
 
 			if err := rec.WriteMsg(tt.msg); err != nil {
-				t.Error("WriteMsg() unexpected error", err)
+				t.Errorf("Test %d: WriteMsg() unexpected error %v", i, err)
 			}
 
 			if rec.Msg != tt.msg {
-				t.Errorf("Recorded msg '%v' differs from expected '%v'", rec.Msg, tt.msg)
+				t.Errorf("Test %d: Expected value %v for msg, but got %v", i, tt.msg, rec.Msg)
 			}
 			if rec.Len != tt.msg.Len() {
-				t.Errorf("Recorded len '%d' differs from expected '%d'", rec.Len, tt.msg.Len())
+				t.Errorf("Test %d: Expected value %d for len, but got %d", i, tt.msg.Len(), rec.Len)
 			}
 			if rec.Rcode != tt.msg.Rcode {
-				t.Errorf("Recorded rcode '%d' differs from expected '%d'", rec.Rcode, tt.msg.Rcode)
+				t.Errorf("Test %d: Expected value %d for rcode, but got %d", i, tt.msg.Rcode, rec.Rcode)
 			}
 		})
 	}
