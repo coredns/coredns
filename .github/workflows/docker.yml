@@ -1,0 +1,22 @@
+name: Docker Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  docker-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - run: |
+          set -x -e
+          echo "Docker release ${{ github.event.release.tag_name }}:"
+          release=${{ github.event.release.tag_name }}
+          version=${release:1}
+          export DOCKER_LOGIN=${{ secrets.DOCKERHUB_USERNAME }}
+          export DOCKER_PASSWORD=${{ secrets.DOCKERHUB_PASSWORD }}
+          make VERSION=${version} DOCKER=coredns -f Makefile.docker release
+          docker images
+          make VERSION=${version} DOCKER=coredns -f Makefile.docker docker-push
+          echo "Docker release ${{ github.event.release.tag_name }} successful"
