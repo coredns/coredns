@@ -27,7 +27,6 @@ func TestRewriteFailure(t *testing.T) {
 		t.Fatalf("Expected to receive reply, but didn't: %s", err)
 	}
 
-	// expect answer section with A record in it
 	if len(r.Question) == 0 {
 		t.Error("Invalid empty question section")
 	}
