@@ -19,11 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Build Docker Images
-        run: |
-          set -x -e
-          make VERSION=${RELEASE:1} DOCKER=yongtang -f Makefile.docker release
-          docker images
+        run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker release
+      - name: Show Docker Images
+        run: docker images
       - name: Publish Docker Images
-        run: |
-          set -x -e
-          make VERSION=${RELEASE:1} DOCKER=yongtang -f Makefile.docker docker-push
+        run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker docker-push
