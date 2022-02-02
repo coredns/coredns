@@ -5,81 +5,76 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.0'
+        id: go
 
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: '1.17.0'
-      id: go
+      - name: Check out code
+        uses: actions/checkout@v2
 
-    - name: Check out code
-      uses: actions/checkout@v2
+      - name: Build
+        run: go build -v ./...
 
-    - name: Build
-      run: go build -v ./...
-
-    - name: Test
-      run: |
-        ( cd request; go test -race ./... )
-        ( cd core; go test -race  ./... )
-        ( cd coremain; go test -race ./... )
+      - name: Test
+        run: |
+          ( cd request; go test -race ./... )
+          ( cd core; go test -race  ./... )
+          ( cd coremain; go test -race ./... )
 
   test-plugins:
     name: Test Plugins
     runs-on: ubuntu-latest
     steps:
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.0'
+        id: go
 
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: '1.17.0'
-      id: go
+      - name: Check out code
+        uses: actions/checkout@v2
 
-    - name: Check out code
-      uses: actions/checkout@v2
+      - name: Build
+        run: go build -v ./...
 
-    - name: Build
-      run: go build -v ./...
-
-    - name: Test
-      run: ( cd plugin; go test -race ./... )
+      - name: Test
+        run: ( cd plugin; go test -race ./... )
 
   test-e2e:
     name: Test e2e
     runs-on: ubuntu-latest
     steps:
+      - name: Install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.17.0'
+        id: go
 
-    - name: Install Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: '1.17.0'
-      id: go
+      - name: Check out code
+        uses: actions/checkout@v2
 
-    - name: Check out code
-      uses: actions/checkout@v2
+      - name: Build
+        run: go build -v ./...
 
-    - name: Build
-      run: go build -v ./...
-
-    - name: Test
-      run: |
-        go install github.com/fatih/faillint || true
-        ( cd test; go test -race ./... )
+      - name: Test
+        run: |
+          go install github.com/fatih/faillint || true
+          ( cd test; go test -race ./... )
 
   test-makefile-release:
     name: Test Makefile.release
     runs-on: ubuntu-latest
     steps:
+      - name: Install dependencies
+        run: sudo apt-get install make curl
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get install make curl
+      - name: Check out code
+        uses: actions/checkout@v2
 
-    - name: Check out code
-      uses: actions/checkout@v2
+      - name: Test Makefile.release
+        run: make GITHUB_ACCESS_TOKEN=x -n release github-push -f Makefile.release
 
-    - name: Test Makefile.release
-      run:  make GITHUB_ACCESS_TOKEN=x -n release github-push -f Makefile.release
-
-    - name: Test Makefile.docker
-      run:  make VERSION=x DOCKER=x -n release docker-push -f Makefile.docker
+      - name: Test Makefile.docker
+        run: make VERSION=x DOCKER=x -n release docker-push -f Makefile.docker

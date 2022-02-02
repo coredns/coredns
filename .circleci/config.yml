@@ -47,7 +47,7 @@ jobs:
       - checkout
       - run:
           name: Get CI repo
-          command : |
+          command: |
             mkdir -p ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci
             git clone https://github.com/${CIRCLE_PROJECT_USERNAME}/ci ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci
       - <<: *setupKubernetes

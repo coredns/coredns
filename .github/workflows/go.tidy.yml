@@ -8,30 +8,29 @@ jobs:
   fix:
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Install Go
+      - name: Install Go
         uses: actions/setup-go@v2
         with:
           go-version: '1.17.0'
         id: go
-      -
-        name: Checkout
+
+      - name: Checkout
         uses: actions/checkout@v2
-      -
-        name: Tidy
+
+      - name: Tidy
         run: |
           rm -f go.sum
           go mod tidy
-      -
-        name: Set up Git
+
+      - name: Set up Git
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "coredns[bot]"
           git config user.email "bot@bot.coredns.io"
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-      -
-        name: Commit and push changes
+
+      - name: Commit and push changes
         run: |
           git add .
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
