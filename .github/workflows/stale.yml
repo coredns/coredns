@@ -13,5 +13,5 @@ jobs:
           stale-pr-message: 'This pull request is stale because it has been open 30 days with no activity. Remove stale label or comment or this will be closed in 7 days'
           days-before-stale: 30
           days-before-close: 7
-          exempt-issue-labels: 'enhancement'
+          exempt-issue-labels: 'enhancement,needs maintainer response'
           exempt-all-milestones: true
