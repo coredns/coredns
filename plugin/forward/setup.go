@@ -163,12 +163,9 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
-		n, err := strconv.Atoi(c.Val())
+		n, err := strconv.ParseUint(c.Val(), 10, 32)
 		if err != nil {
 			return err
-		}
-		if n < 0 {
-			return fmt.Errorf("max_fails can't be negative: %d", n)
 		}
 		f.maxfails = uint32(n)
 	case "health_check":
