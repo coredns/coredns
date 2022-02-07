@@ -23,8 +23,8 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/prometheus/common v0.32.1
-	go.etcd.io/etcd/api/v3 v3.5.1
-	go.etcd.io/etcd/client/v3 v3.5.1
+	go.etcd.io/etcd/api/v3 v3.5.2
+	go.etcd.io/etcd/client/v3 v3.5.2
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9
 	google.golang.org/api v0.66.0
@@ -86,7 +86,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/objx v0.2.0 // indirect
 	github.com/tinylib/msgp v1.1.2 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.5.1 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.5.2 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
