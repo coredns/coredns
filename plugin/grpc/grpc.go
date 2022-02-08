@@ -37,10 +37,10 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	var (
-		span, child      ot.Span
-		ret              *dns.Msg
-		upstreamErr, err error
-		i                int
+		span, child ot.Span
+		ret         *dns.Msg
+		err         error
+		i           int
 	)
 	span = ot.SpanFromContext(ctx)
 	list := g.list()
@@ -74,8 +74,6 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			child.Finish()
 		}
 
-		upstreamErr = err
-
 		// Check if the reply is correct; if not return FormErr.
 		if !state.Match(ret) {
 			debug.Hexdumpf(ret, "Wrong reply for id: %d, %s %d", ret.Id, state.QName(), state.QType())
@@ -90,8 +88,10 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		return 0, nil
 	}
 
-	if upstreamErr != nil {
-		return dns.RcodeServerFailure, upstreamErr
+	// SERVFAIL if all healthy proxys returned errors.
+	if err != nil {
+		// just return the last error received
+		return dns.RcodeServerFailure, err
 	}
 
 	return dns.RcodeServerFailure, ErrNoHealthy
