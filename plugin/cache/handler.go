@@ -2,7 +2,6 @@ package cache
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"time"
 
@@ -92,7 +91,6 @@ func (c *Cache) Name() string { return "cache" }
 
 func (c *Cache) get(now time.Time, state request.Request, server string) (*item, bool) {
 	k := hash(state.Name(), state.QType())
-	fmt.Println(c.zonesMetricLabel)
 	cacheRequests.WithLabelValues(server, c.zonesMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
