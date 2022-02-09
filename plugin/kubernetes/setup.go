@@ -7,8 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync/atomic"
-	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -60,25 +58,6 @@ func setup(c *caddy.Controller) error {
 	// get locally bound addresses
 	c.OnStartup(func() error {
 		k.localIPs = boundIPs(c)
-		return nil
-	})
-
-	wildWarner := time.NewTicker(10 * time.Second)
-	c.OnStartup(func() error {
-		go func() {
-			for {
-				select {
-				case <-wildWarner.C:
-					if wc := atomic.SwapUint64(&wildCount, 0); wc > 0 {
-						log.Warningf("%d deprecated wildcard queries received. Wildcard queries will no longer be supported in the next minor release.", wc)
-					}
-				}
-			}
-		}()
-		return nil
-	})
-	c.OnShutdown(func() error {
-		wildWarner.Stop()
 		return nil
 	})
 
