@@ -19,5 +19,8 @@ xuweiwei
 
 ## Noteworthy Changes
 
+* plugin/kubernetes: remove wildcard query functionality (https://github.com/coredns/coredns/pull/5019)
+* Health-checks should respect force_tcp (https://github.com/coredns/coredns/pull/5109)
+```suggestion
 * plugin/prometheus: Write rcode properly to the metrics (https://github.com/coredns/coredns/pull/5126)
 * plugin/template: Persist truncated state to client if CNAME lookup response is truncated (https://github.com/coredns/coredns/pull/4713)
