@@ -2,6 +2,7 @@ package autopath
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -50,7 +51,7 @@ func autoPathParse(c *caddy.Controller) (*AutoPath, string, error) {
 			return ap, "", fmt.Errorf("no resolv-conf specified")
 		}
 		resolv := zoneAndresolv[len(zoneAndresolv)-1]
-		if resolv[0] == '@' {
+		if strings.HasPrefix(resolv, "@") {
 			mw = resolv[1:]
 		} else {
 			// assume file on disk
