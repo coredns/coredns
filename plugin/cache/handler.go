@@ -149,7 +149,11 @@ func setDo(m *dns.Msg) {
 		return
 	}
 
-	o = &dns.OPT{Hdr: dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT}}
+	o.Hdr.Name = "."
+	o.Hdr.Rrtype = dns.TypeOPT
+	o.SetVersion(0)
+	o.Hdr.Ttl &= 0xff00 // clear flags
+
 	o.SetDo()
 	o.SetUDPSize(defaultUDPBufSize)
 	m.Extra = append(m.Extra, o)
