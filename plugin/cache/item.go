@@ -29,7 +29,7 @@ type item struct {
 func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 	i := new(item)
 	if len(m.Question) != 0 {
-		i.Name = strings.ToLower(m.Question[0].Name)
+		i.Name = m.Question[0].Name
 		i.QType = m.Question[0].Qtype
 	}
 	i.Rcode = m.Rcode
@@ -97,7 +97,7 @@ func (i *item) ttl(now time.Time) int {
 }
 
 func (i *item) matches(state request.Request) bool {
-	if state.QType() == i.QType && state.Name() == i.Name {
+	if state.QType() == i.QType && strings.EqualFold(state.QName(), i.Name) {
 		return true
 	}
 	return false
