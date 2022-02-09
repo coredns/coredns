@@ -94,6 +94,9 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	}
 	origFrom := f.from
 	zones := plugin.Host(f.from).NormalizeExact()
+	if len(zones) == 0 {
+		return f, fmt.Errorf("unable to normalize '%s'", f.from)
+	}
 	f.from = zones[0] // there can only be one here, won't work with non-octet reverse
 
 	if len(zones) > 1 {
