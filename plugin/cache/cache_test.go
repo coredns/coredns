@@ -191,7 +191,7 @@ func TestCache(t *testing.T) {
 
 	c, crr := newTestCache(maxTTL)
 
-	for _, tc := range cacheTestCases {
+	for n, tc := range cacheTestCases {
 		m := tc.in.Msg()
 		m = cacheMsg(m, tc)
 
@@ -204,11 +204,15 @@ func TestCache(t *testing.T) {
 			crr.set(m, k, mt, c.pttl)
 		}
 
-		i, _ := c.get(time.Now().UTC(), state, "dns://:53")
+		i := c.getIgnoreTTL(time.Now().UTC(), state, "dns://:53")
 		ok := i != nil
 
-		if ok != tc.shouldCache {
-			t.Errorf("Cached message that should not have been cached: %s", state.Name())
+		if !tc.shouldCache && ok {
+			t.Errorf("Test %d: Cached message that should not have been cached: %s", n, state.Name())
+			continue
+		}
+		if tc.shouldCache && !ok {
+			t.Errorf("Test %d: Did not cache message that should have been cached: %s", n, state.Name())
 			continue
 		}
 

@@ -89,38 +89,23 @@ func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 // Name implements the Handler interface.
 func (c *Cache) Name() string { return "cache" }
 
-func (c *Cache) get(now time.Time, state request.Request, server string) (*item, bool) {
-	k := hash(state.Name(), state.QType())
-	cacheRequests.WithLabelValues(server, c.zonesMetricLabel).Inc()
-
-	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel).Inc()
-		return i.(*item), true
-	}
-
-	if i, ok := c.pcache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel).Inc()
-		return i.(*item), true
-	}
-	cacheMisses.WithLabelValues(server, c.zonesMetricLabel).Inc()
-	return nil, false
-}
-
 // getIgnoreTTL unconditionally returns an item if it exists in the cache.
 func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
 	k := hash(state.Name(), state.QType())
 	cacheRequests.WithLabelValues(server, c.zonesMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok {
-		ttl := i.(*item).ttl(now)
-		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
+		itm := i.(*item)
+		ttl := itm.ttl(now)
+		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
 			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel).Inc()
 			return i.(*item)
 		}
 	}
 	if i, ok := c.pcache.Get(k); ok {
-		ttl := i.(*item).ttl(now)
-		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
+		itm := i.(*item)
+		ttl := itm.ttl(now)
+		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
 			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel).Inc()
 			return i.(*item)
 		}
