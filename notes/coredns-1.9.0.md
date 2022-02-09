@@ -9,6 +9,8 @@ author = "coredns"
 
 This is a release with bug fixes and some new features added. Starting with 1.9.0
 the minimal required go version will be 1.17.
+Wildcard queries are no longer supported by the _kubernetes_ plugin.
+
 
 ## Brought to You By
 
