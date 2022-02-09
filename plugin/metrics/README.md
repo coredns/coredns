@@ -40,6 +40,9 @@ Extra labels used are:
 If monitoring is enabled, queries that do not enter the plugin chain are exported under the fake
 name "dropped" (without a closing dot - this is never a valid domain name).
 
+Other plugins may export additional stats when the _prometheus_ plugin is enabled.  Those stats are documented in each
+plugin's README.
+
 This plugin can only be used once per Server Block.
 
 ## Syntax
