@@ -16,6 +16,7 @@ Wildcard queries are no longer supported by the _kubernetes_ plugin.
 
 Chris O'Haver,
 Ondřej Benkovský,
+Tomas Hulata,
 Yong Tang,
 xuweiwei
 
