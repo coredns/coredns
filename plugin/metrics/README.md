@@ -8,7 +8,9 @@
 
 With *prometheus* you export metrics from CoreDNS and any plugin that has them.
 The default location for the metrics is `localhost:9153`. The metrics path is fixed to `/metrics`.
-The following metrics are exported:
+
+In addition to the default Go metrics exported by the [Prometheus Go client](https://prometheus.io/docs/guides/go-application/),
+the following metrics are exported:
 
 * `coredns_build_info{version, revision, goversion}` - info about CoreDNS itself.
 * `coredns_panics_total{}` - total number of panics.
