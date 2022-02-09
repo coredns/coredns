@@ -82,6 +82,9 @@ func parseRequest(name, zone string) (r recordRequest, err error) {
 
 // stripUnderscore removes a prefixed underscore from s.
 func stripUnderscore(s string) string {
+	if len(s) == 0 {
+		return s
+	}
 	if s[0] != '_' {
 		return s
 	}
