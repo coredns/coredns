@@ -587,8 +587,8 @@ func TestMultiSection(t *testing.T) {
 	if code == rcodeFallthrough {
 		t.Fatalf("TestMultiSection expected no fall through resolving something.example. IN MX")
 	}
-	if code != dns.RcodeNameError {
-		t.Fatalf("TestMultiSection expected NXDOMAIN resolving something.example. IN MX, got %v, %v", code, dns.RcodeToString[code])
+	if code != dns.RcodeServerFailure {
+		t.Fatalf("TestMultiSection expected SERVFAIL resolving something.example. IN MX, got %v, %v", code, dns.RcodeToString[code])
 	}
 }
 
