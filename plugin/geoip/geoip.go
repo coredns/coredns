@@ -79,6 +79,15 @@ func (g GeoIP) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 func (g GeoIP) Metadata(ctx context.Context, state request.Request) context.Context {
 	srcIP := net.ParseIP(state.IP())
 
+	if o := state.Req.IsEdns0(); o != nil {
+		for _, s := range o.Option {
+			if e, ok := s.(*dns.EDNS0_SUBNET); ok {
+				srcIP = e.Address
+				break
+			}
+		}
+	}
+
 	switch {
 	case g.db.provides&city == city:
 		data, err := g.db.City(srcIP)
