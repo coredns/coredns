@@ -37,7 +37,7 @@ func (a Auto) Walk() error {
 			return nil
 		}
 
-		reader, err := os.Open(path)
+		reader, err := os.Open(filepath.Clean(path))
 		if err != nil {
 			log.Warningf("Opening %s failed: %s", path, err)
 			return nil
