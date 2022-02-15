@@ -213,7 +213,7 @@ func TestCache(t *testing.T) {
 		}
 
 		if ok {
-			resp := i.toMsg(m, time.Now().UTC(), state.Do())
+			resp := i.toMsg(m, time.Now().UTC(), state.Do(), m.AuthenticatedData)
 
 			if err := test.Header(tc.Case, resp); err != nil {
 				t.Logf("Cache %v", resp)

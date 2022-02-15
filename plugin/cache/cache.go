@@ -107,6 +107,7 @@ type ResponseWriter struct {
 	server string // Server handling the request.
 
 	do         bool // When true the original request had the DO bit set.
+	ad         bool // When true the original request had the AD bit set.
 	prefetch   bool // When true write nothing back to the client.
 	remoteAddr net.Addr
 }
@@ -183,8 +184,10 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	res.Ns = filterRRSlice(res.Ns, ttl, w.do, false)
 	res.Extra = filterRRSlice(res.Extra, ttl, w.do, false)
 
-	if !w.do {
-		res.AuthenticatedData = false // unset AD bit if client is not OK with DNSSEC
+	if !w.do && !w.ad {
+		// unset AD bit if requester is not OK with DNSSEC
+		// But retain AD bit if requester set the AD bit in the request, per RFC6840 5.7-5.8
+		res.AuthenticatedData = false
 	}
 
 	return w.ResponseWriter.WriteMsg(res)
