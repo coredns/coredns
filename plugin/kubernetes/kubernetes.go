@@ -15,7 +15,6 @@ import (
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/fall"
-	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -35,7 +34,7 @@ import (
 type Kubernetes struct {
 	Next             plugin.Handler
 	Zones            []string
-	Upstream         *upstream.Upstream
+	Upstream         Upstreamer
 	APIServerList    []string
 	APICertAuth      string
 	APIClientCert    string
@@ -51,6 +50,11 @@ type Kubernetes struct {
 	primaryZoneIndex int
 	localIPs         []net.IP
 	autoPathSearch   []string // Local search path from /etc/resolv.conf. Needed for autopath.
+}
+
+// Upstreamer is used to resolve CNAME or other external targets
+type Upstreamer interface {
+	Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error)
 }
 
 // New returns a initialized Kubernetes. It default interfaceAddrFunc to return 127.0.0.1. All other
