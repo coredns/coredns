@@ -110,7 +110,7 @@ on port `53` and enables `whoami` plugin is:
 ~~~
 
 Sometimes port number 53 is occupied by system processes. In that case you can start the CoreDNS server
-while modifying the Corefile as given below so that the CoreDNS server starts on port 1053.
+while modifying the `Corefile` as given below so that the CoreDNS server starts on port 1053.
 
 ~~~ corefile
 .:1053 {
@@ -118,8 +118,28 @@ while modifying the Corefile as given below so that the CoreDNS server starts on
 }
 ~~~
 
-If you have a Corefile without a port number specified it will, by default, use port 53, but you can
+If you have a `Corefile` without a port number specified it will, by default, use port 53, but you can
 override the port with the `-dns.port` flag: `coredns -dns.port 1053`, runs the server on port 1053.
+
+You may import other text files into the `Corefile` using the _import_ directive.  You can use globs to match multiple
+files with a single _import_ directive.
+
+~~~ txt
+.:53 {
+    import example1.txt
+}
+import example2.txt
+~~~
+
+You can use environment variables in the `Corefile` with `{$VARIABLE}`.  Note that each environment variable is inserted
+into the `Corefile` as a single token. For example, an environment variable with a space in it will be treated as a single
+token, not as two separate tokens.
+
+~~~ txt
+.:53 {
+    {$ENV_VAR}
+}
+~~~
 
 A Corefile for a CoreDNS server that forward any queries to an upstream DNS (e.g., `8.8.8.8`) is as follows:
 
