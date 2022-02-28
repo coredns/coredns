@@ -307,7 +307,7 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 		rewriteQuestionFrom = plugin.Name(args[1]).Normalize()
 		rewriteQuestionTo = plugin.Name(args[2]).Normalize()
 	}
-	if matchType == RegexMatch {
+	if len(args) >= 3 && matchType == RegexMatch {
 		rewriteQuestionFrom = args[1]
 		rewriteQuestionTo = args[2]
 	}
