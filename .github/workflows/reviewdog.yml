@@ -10,14 +10,14 @@ jobs:
     name: Go Fmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
       - run: find . -not -path '*/\.git/*' -type f -name '*.go' -exec gofmt -s -w {} \+
-      - uses: reviewdog/action-suggester@v1
+      - uses: reviewdog/action-suggester@650721aae74ec5d8b0cae75cf980720f1b60cef3
 
   whitespace:
     name: Whitespace
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579
       - run: find . -not -path '*/\.git/*' -type f -not -name '*.go' -exec sed -i 's/[[:space:]]\{1,\}$//' {} \+
-      - uses: reviewdog/action-suggester@v1
+      - uses: reviewdog/action-suggester@650721aae74ec5d8b0cae75cf980720f1b60cef3
