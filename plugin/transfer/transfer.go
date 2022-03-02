@@ -16,7 +16,7 @@ var log = clog.NewWithPlugin("transfer")
 
 // Transfer is a plugin that handles zone transfers.
 type Transfer struct {
-	Transferers []Transferer // List of plugins that implement Transferer
+	Transfers []Transferer // List of plugins that implement Transferer
 	xfrs        []*xfr
 	Next        plugin.Handler
 }
@@ -91,7 +91,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	// Get a receiving channel from the first Transferer plugin that returns one.
 	var pchan <-chan []dns.RR
 	var err error
-	for _, p := range t.Transferers {
+	for _, p := range t.Transfers {
 		pchan, err = p.Transfer(state.QName(), serial)
 		if err == ErrNotAuthoritative {
 			// plugin was not authoritative for the zone, try next plugin

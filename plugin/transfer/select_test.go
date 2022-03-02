@@ -33,7 +33,7 @@ func (t t2) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 
 func TestZoneSelection(t *testing.T) {
 	tr := &Transfer{
-		Transferers: []Transferer{t1{}, t2{}},
+		Transfers: []Transferer{t1{}, t2{}},
 		xfrs: []*xfr{
 			{
 				Zones: []string{"example.org."},

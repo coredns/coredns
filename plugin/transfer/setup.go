@@ -28,14 +28,14 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
-		// find all plugins that implement Transferer and add them to Transferers
+		// find all plugins that implement Transferer and add them to Transfers
 		plugins := dnsserver.GetConfig(c).Handlers()
 		for _, pl := range plugins {
 			tr, ok := pl.(Transferer)
 			if !ok {
 				continue
 			}
-			t.Transferers = append(t.Transferers, tr)
+			t.Transfers = append(t.Transfers, tr)
 		}
 		return nil
 	})
