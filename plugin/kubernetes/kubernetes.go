@@ -275,19 +275,25 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 			k.APIConn.Run()
 		}()
 
-		timeout := time.After(5 * time.Second)
-		logWaiting := time.After(500 * time.Millisecond)
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
+		timeout := 5 * time.Second
+		timeoutTicker := time.NewTicker(timeout)
+		defer timeoutTicker.Stop()
+		logDelay := 500 * time.Millisecond
+		logTicker := time.NewTicker(logDelay)
+		defer logTicker.Stop()
+		checkSyncTicker := time.NewTicker(100 * time.Millisecond)
+		defer checkSyncTicker.Stop()
 		for {
+			timeoutTicker.Reset(timeout)
+			logTicker.Reset(logDelay)
 			select {
-			case <-ticker.C:
+			case <-checkSyncTicker.C:
 				if k.APIConn.HasSynced() {
 					return nil
 				}
-			case <-logWaiting:
+			case <-logTicker.C:
 				log.Info("waiting for Kubernetes API before starting server")
-			case <-timeout:
+			case <-timeoutTicker.C:
 				log.Warning("starting server with unsynced Kubernetes API")
 				return nil
 			}
