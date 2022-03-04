@@ -6,7 +6,7 @@ import (
 
 	tap "github.com/dnstap/golang-dnstap"
 	fs "github.com/farsightsec/golang-framestream"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // encoder wraps a golang-framestream.Encoder.
