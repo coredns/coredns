@@ -1,9 +1,10 @@
 package grpc
 
 import (
-	"math/rand"
 	"sync/atomic"
 	"time"
+
+	"github.com/coredns/coredns/plugin/pkg/rand"
 )
 
 // Policy defines a policy we use for selecting upstreams.
@@ -64,4 +65,4 @@ func (r *sequential) List(p []*Proxy) []*Proxy {
 	return p
 }
 
-var rn = rand.New(rand.NewSource(time.Now().UnixNano()))
+var rn = rand.New(time.Now().UnixNano())
