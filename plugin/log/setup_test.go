@@ -129,6 +129,26 @@ func TestLogParse(t *testing.T) {
 		{`log {
 			unknown
 		}`, true, []Rule{}},
+		{`log example.org "{combined} {/forward/upstream}"`, false, []Rule{{
+			NameScope: "example.org.",
+			Format:    CombinedLogFormat + " {/forward/upstream}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log example.org "{common} {/forward/upstream}"`, false, []Rule{{
+			NameScope: "example.org.",
+			Format:    CommonLogFormat + " {/forward/upstream}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log example.org "{when} {combined} {/forward/upstream}"`, false, []Rule{{
+			NameScope: "example.org.",
+			Format:    "{when} " + CombinedLogFormat + " {/forward/upstream}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
+		{`log example.org "{when} {common} {/forward/upstream}"`, false, []Rule{{
+			NameScope: "example.org.",
+			Format:    "{when} " + CommonLogFormat + " {/forward/upstream}",
+			Class:     map[response.Class]struct{}{response.All: {}},
+		}}},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputLogRules)
@@ -141,7 +161,7 @@ func TestLogParse(t *testing.T) {
 				i, test.inputLogRules, err)
 		}
 		if len(actualLogRules) != len(test.expectedLogRules) {
-			t.Fatalf("Test %d expected %d no of Log rules, but got %d ",
+			t.Fatalf("Test %d expected %d no of Log rules, but got %d",
 				i, len(test.expectedLogRules), len(actualLogRules))
 		}
 		for j, actualLogRule := range actualLogRules {
