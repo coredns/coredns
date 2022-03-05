@@ -80,6 +80,7 @@ func setup(c *caddy.Controller) error {
 						SecretAccessKey: v[1],
 					},
 				})
+				log.Warningf("Save aws_access_key in Corefile has been deprecated, please use other authentication methods instead")
 			case "aws_endpoint":
 				if c.NextArg() {
 					endpoint = c.Val()

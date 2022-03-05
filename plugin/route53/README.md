@@ -15,7 +15,7 @@ The route53 plugin can be used when coredns is deployed on AWS or elsewhere.
 
 ~~~ txt
 route53 [ZONE:HOSTED_ZONE_ID...] {
-    aws_access_key [AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY]
+    aws_access_key [AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY] # Deprecated, uses other authentication methods instead.
     aws_endpoint ENDPOINT
     credentials PROFILE [FILENAME]
     fallthrough [ZONES...]
@@ -34,6 +34,9 @@ route53 [ZONE:HOSTED_ZONE_ID...] {
     to be used when query AWS (optional). If they are not provided, then coredns tries to access
     AWS credentials the same way as AWS CLI, e.g., environmental variables, AWS credentials file,
     instance profile credentials, etc.
+    Note the usage of `aws_access_key` has been deprecated and may be removed in future versions. Instead,
+    user can use other methods to pass crentials, e.g., with environmental variable `AWS_ACCESS_KEY_ID` and
+    `AWS_SECRET_ACCESS_KEY`, respectively.
 
 *   `aws_endpoint` can be used to control the endpoint to use when querying AWS (optional). **ENDPOINT** is the
     URL of the endpoint to use. If this is not provided the default AWS endpoint resolution will occur.
@@ -74,7 +77,7 @@ Enable route53 with explicit AWS credentials:
 ~~~ txt
 example.org {
     route53 example.org.:Z1Z2Z3Z4DZ5Z6Z7 {
-      aws_access_key AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
+      aws_access_key AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY # Deprecated, uses other authentication methods instead.
     }
 }
 ~~~
@@ -115,3 +118,11 @@ example.org {
     }
 }
 ~~~
+
+## Authentication
+
+Route53 plugin uses [AWS Go SDK](https://docs.aws.amazon.com/sdk-for-go/v1/developer-guide/configuring-sdk.html)
+for authentication, where there is a list of accepted configuration methods.
+Note the usage of `aws_access_key` in Corefile has been deprecated and may be removed in future versions. Instead,
+user can use other methods to pass crentials, e.g., with environmental variable `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY`, respectively.
