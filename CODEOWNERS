@@ -1,6 +1,6 @@
 # @miekg, miek@miek.nl, project lead: 11/11/2022
 
-*                       @bradbeam @chrisohaver @dilyevsky @fastest963 @greenpau @isolus @johnbelamaric @miekg @pmoroney @rajansandeep @stp-ip @superq @yongtang
+*                       @bradbeam @chrisohaver @dilyevsky @jameshartig @greenpau @isolus @johnbelamaric @miekg @pmoroney @rajansandeep @stp-ip @superq @yongtang
 
 /.circleci/             @miekg @chrisohaver @rajansandeep
 /plugin/pkg/            @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
@@ -32,7 +32,7 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/forward/        @johnbelamaric @miekg @rdrozhdzh
 /plugin/geoip/          @miekg @snebel29
 /plugin/grpc/           @inigohu @miekg @zouyee
-/plugin/health/         @fastest963 @miekg @zouyee
+/plugin/health/         @jameshartig @miekg @zouyee
 /plugin/header/         @miekg @mqasimsarfraz
 /plugin/hosts/          @johnbelamaric @pmoroney
 /plugin/k8s_external/   @miekg
@@ -41,7 +41,7 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/log/            @miekg @nchrisdk
 /plugin/loop/           @miekg @chrisohaver
 /plugin/metadata/       @ekleiner @miekg
-/plugin/metrics/        @fastest963 @miekg @superq @greenpau
+/plugin/metrics/        @jameshartig @miekg @superq @greenpau
 /plugin/nsid/           @yongtang
 /plugin/pprof/          @miekg @zouyee
 /plugin/reload/         @johnbelamaric
