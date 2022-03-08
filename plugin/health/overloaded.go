@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -11,12 +12,14 @@ import (
 )
 
 // overloaded queries the health end point and updates a metrics showing how long it took.
-func (h *health) overloaded() {
-	timeout := time.Duration(3 * time.Second)
+func (h *health) overloaded(ctx context.Context) {
+	timeout := 3 * time.Second
 	client := http.Client{
 		Timeout: timeout,
 	}
+
 	url := "http://" + h.Addr + "/health"
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
 
@@ -24,7 +27,11 @@ func (h *health) overloaded() {
 		select {
 		case <-tick.C:
 			start := time.Now()
-			resp, err := client.Get(url)
+			resp, err := client.Do(req)
+			if err != nil && ctx.Err() == context.Canceled {
+				// request was cancelled by parent goroutine
+				return
+			}
 			if err != nil {
 				HealthDuration.Observe(time.Since(start).Seconds())
 				HealthFailures.Inc()
@@ -38,7 +45,7 @@ func (h *health) overloaded() {
 				log.Warningf("Local health request to %q took more than 1s: %s", url, elapsed)
 			}
 
-		case <-h.stop:
+		case <-ctx.Done():
 			return
 		}
 	}
