@@ -36,13 +36,13 @@ func TestMetadata(t *testing.T) {
 	}
 
 	knownIPAddr := "81.2.69.142" // This IP should be be part of the CDIR address range used to create the database fixtures.
-	geoIP, err := newGeoIP(cityDBPath)
-	if err != nil {
-		t.Fatalf("unable to create geoIP plugin: %v", err)
-	}
 	for _, tc := range tests {
 
 		t.Run(fmt.Sprintf("%s/%s", tc.label, "direct"), func(t *testing.T) {
+			geoIP, err := newGeoIP(cityDBPath, false)
+			if err != nil {
+				t.Fatalf("unable to create geoIP plugin: %v", err)
+			}
 			state := request.Request{
 				Req: new(dns.Msg),
 				W:   &test.ResponseWriter{RemoteIP: knownIPAddr},
@@ -51,6 +51,10 @@ func TestMetadata(t *testing.T) {
 		})
 
 		t.Run(fmt.Sprintf("%s/%s", tc.label, "subnet"), func(t *testing.T) {
+			geoIP, err := newGeoIP(cityDBPath, true)
+			if err != nil {
+				t.Fatalf("unable to create geoIP plugin: %v", err)
+			}
 			state := request.Request{
 				Req: new(dns.Msg),
 				W:   &test.ResponseWriter{RemoteIP: "127.0.0.1"},
