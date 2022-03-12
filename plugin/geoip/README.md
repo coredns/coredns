@@ -40,6 +40,18 @@ geoip [DBFILE]
 
 * **DBFILE** the mmdb database file path.
 
+By default, geoip plugin doesn't honor EDNS0 subnet extension, but it can be enabled using the extended syntax:
+
+```
+geoip [DBFILE] {
+    edns-subnet-processing
+}
+```
+
+* **DBFILE**: see above
+* `edns-subnet-processing` reads source IP from EDNS0 subnet when available. This makes
+  testing GeoIP processing easy: `dig +subnet=1.2.3.4 @dns-server.example.com www.geo-aware.com`.
+
 ## Examples
 
 The following configuration configures the `City` database.
