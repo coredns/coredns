@@ -200,8 +200,8 @@ func (external) HasSynced() bool                                                
 func (external) Run()                                                              {}
 func (external) Stop() error                                                       { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints                         { return nil }
-func (external) SvcIndexReverse(string) []*object.Service { return nil }
-func (external) Modified(bool) int64                      { return 0 }
+func (external) SvcIndexReverse(string) []*object.Service                          { return nil }
+func (external) Modified(bool) int64                                               { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints                              { return nil }
 func (external) EndpointsList() []*object.Endpoints                                { return nil }
 func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }
