@@ -3,6 +3,7 @@ package route53
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -14,8 +15,6 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
@@ -26,8 +25,10 @@ var log = clog.NewWithPlugin("route53")
 func init() { plugin.Register("route53", setup) }
 
 // exposed for testing
-var f = func(credential *credentials.Credentials, endpoint *string) route53iface.Route53API {
-	return route53.New(session.Must(session.NewSession(&aws.Config{Credentials: credential, Endpoint: endpoint})))
+var f = func(endpoint *string) route53iface.Route53API {
+	cfg := aws.Config{}
+	cfg.Endpoint = endpoint
+	return route53.New(session.Must(session.NewSession(&cfg)))
 }
 
 func setup(c *caddy.Controller) error {
@@ -41,8 +42,6 @@ func setup(c *caddy.Controller) error {
 		// With that said, even though a user doesn't define any credentials in
 		// Corefile, we should still attempt to read the default credentials file,
 		// ~/.aws/credentials with the default profile.
-		sharedProvider := &credentials.SharedCredentialsProvider{}
-		var providers []credentials.Provider
 		var fall fall.F
 		var endpoint string
 
@@ -74,12 +73,8 @@ func setup(c *caddy.Controller) error {
 				if len(v) < 2 {
 					return plugin.Error("route53", c.Errf("invalid access key: '%v'", v))
 				}
-				providers = append(providers, &credentials.StaticProvider{
-					Value: credentials.Value{
-						AccessKeyID:     v[0],
-						SecretAccessKey: v[1],
-					},
-				})
+				os.Setenv("AWS_ACCESS_KEY_ID", v[0])
+				os.Setenv("AWS_SECRET_ACCESS_KEY", v[1])
 				log.Warningf("Save aws_access_key in Corefile has been deprecated, please use other authentication methods instead")
 			case "aws_endpoint":
 				if c.NextArg() {
@@ -91,12 +86,12 @@ func setup(c *caddy.Controller) error {
 				c.RemainingArgs() // eats args
 			case "credentials":
 				if c.NextArg() {
-					sharedProvider.Profile = c.Val()
+					os.Setenv("AWS_PROFILE", c.Val())
 				} else {
 					return c.ArgErr()
 				}
 				if c.NextArg() {
-					sharedProvider.Filename = c.Val()
+					os.Setenv("AWS_SHARED_CREDENTIAL_FILE", c.Val())
 				}
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
@@ -122,15 +117,8 @@ func setup(c *caddy.Controller) error {
 			}
 		}
 
-		session, err := session.NewSession(&aws.Config{})
-		if err != nil {
-			return plugin.Error("route53", err)
-		}
-
-		providers = append(providers, &credentials.EnvProvider{}, sharedProvider, defaults.RemoteCredProvider(*session.Config, session.Handlers))
-		client := f(credentials.NewChainCredentials(providers), &endpoint)
 		ctx, cancel := context.WithCancel(context.Background())
-		h, err := New(ctx, client, keys, refresh)
+		h, err := New(ctx, f(&endpoint), keys, refresh)
 		if err != nil {
 			return plugin.Error("route53", c.Errf("failed to create route53 plugin: %v", err))
 		}
