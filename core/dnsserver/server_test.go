@@ -2,14 +2,32 @@ package dnsserver
 
 import (
 	"context"
+	"net"
+	"reflect"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/coredns/coredns/plugin/pkg/trace"
 	"github.com/coredns/coredns/plugin/test"
-
 	"github.com/miekg/dns"
 )
+
+// testHandler is a net.Listener that implements the net.Listener interface.
+type testHandler struct {
+}
+
+func (h *testHandler) Accept() (net.Conn, error) {
+	return nil, nil
+}
+func (h *testHandler) Close() error {
+	return nil
+}
+func (h *testHandler) Addr() net.Addr {
+	return nil
+}
 
 type testPlugin struct{}
 
@@ -91,5 +109,151 @@ func BenchmarkCoreServeDNS(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.ServeDNS(ctx, w, m)
+	}
+}
+
+func TestServer_WrapListener(t *testing.T) {
+	type fields struct {
+		Addr         string
+		server       [2]*dns.Server
+		m            sync.Mutex
+		zones        map[string]*Config
+		dnsWg        sync.WaitGroup
+		graceTimeout time.Duration
+		trace        trace.Trace
+		debug        bool
+		classChaos   bool
+	}
+	type args struct {
+		ln net.Listener
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   net.Listener
+	}{
+		{
+			name: "nil case",
+			fields: fields{
+				Addr:         ":53",
+				server:       [2]*dns.Server{},
+				m:            sync.Mutex{},
+				zones:        map[string]*Config{},
+				dnsWg:        sync.WaitGroup{},
+				graceTimeout: time.Second,
+				trace:        nil,
+				debug:        false,
+				classChaos:   false,
+			},
+			args: args{
+				ln: nil,
+			},
+			want: nil,
+		},
+		{
+			name: "non-nil case",
+			fields: fields{
+				Addr:         ":53",
+				server:       [2]*dns.Server{},
+				m:            sync.Mutex{},
+				zones:        map[string]*Config{},
+				dnsWg:        sync.WaitGroup{},
+				graceTimeout: time.Second,
+				trace:        nil,
+				debug:        false,
+				classChaos:   false,
+			},
+			args: args{
+				ln: &testHandler{},
+			},
+			want: &testHandler{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				Addr:         tt.fields.Addr,
+				server:       tt.fields.server,
+				m:            tt.fields.m,
+				zones:        tt.fields.zones,
+				dnsWg:        tt.fields.dnsWg,
+				graceTimeout: tt.fields.graceTimeout,
+				trace:        tt.fields.trace,
+				debug:        tt.fields.debug,
+				classChaos:   tt.fields.classChaos,
+			}
+			if got := s.WrapListener(tt.args.ln); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Server.WrapListener() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestServer_Address(t *testing.T) {
+	type fields struct {
+		Addr         string
+		server       [2]*dns.Server
+		m            sync.Mutex
+		zones        map[string]*Config
+		dnsWg        sync.WaitGroup
+		graceTimeout time.Duration
+		trace        trace.Trace
+		debug        bool
+		classChaos   bool
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name: "empty Addr case",
+			fields: fields{
+				Addr:         "",
+				server:       [2]*dns.Server{},
+				m:            sync.Mutex{},
+				zones:        map[string]*Config{},
+				dnsWg:        sync.WaitGroup{},
+				graceTimeout: time.Second,
+				trace:        nil,
+				debug:        false,
+				classChaos:   false,
+			},
+			want: "",
+		},
+		{
+			name: "nil case",
+			fields: fields{
+				Addr:         ":53",
+				server:       [2]*dns.Server{},
+				m:            sync.Mutex{},
+				zones:        map[string]*Config{},
+				dnsWg:        sync.WaitGroup{},
+				graceTimeout: time.Second,
+				trace:        nil,
+				debug:        false,
+				classChaos:   false,
+			},
+			want: ":53",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				Addr:         tt.fields.Addr,
+				server:       tt.fields.server,
+				m:            tt.fields.m,
+				zones:        tt.fields.zones,
+				dnsWg:        tt.fields.dnsWg,
+				graceTimeout: tt.fields.graceTimeout,
+				trace:        tt.fields.trace,
+				debug:        tt.fields.debug,
+				classChaos:   tt.fields.classChaos,
+			}
+			if got := s.Address(); got != tt.want {
+				t.Errorf("Server.Address() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
