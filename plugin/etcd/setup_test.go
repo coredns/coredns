@@ -1,3 +1,4 @@
+//go:build etcd
 // +build etcd
 
 package etcd
