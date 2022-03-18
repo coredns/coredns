@@ -8,6 +8,7 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/log"
 )
 
 func setup(c *caddy.Controller) error {
@@ -17,7 +18,7 @@ func setup(c *caddy.Controller) error {
 	all := []string{}
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return plugin.Error("bind", fmt.Errorf("failed to get interfaces list: %s", err))
+		log.Warning(plugin.Error("bind", fmt.Errorf("failed to get interfaces list, cannot bind by interface name: %s", err)))
 	}
 
 	for c.Next() {
