@@ -1,4 +1,4 @@
-//+build ignore
+//go:build ignore
 
 // generates plugin/chaos/zowners.go.
 
