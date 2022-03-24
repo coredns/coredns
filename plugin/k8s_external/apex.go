@@ -11,6 +11,7 @@ import (
 func (e *External) serveApex(state request.Request) (int, error) {
 	m := new(dns.Msg)
 	m.SetReply(state.Req)
+	m.Authoritative = true
 	switch state.QType() {
 	case dns.TypeSOA:
 		m.Answer = []dns.RR{e.soa(state)}
@@ -37,6 +38,7 @@ func (e *External) serveSubApex(state request.Request) (int, error) {
 
 	m := new(dns.Msg)
 	m.SetReply(state.Req)
+	m.Authoritative = true
 
 	// base is either dns. of ns1.dns (or another name), if it's longer return nxdomain
 	switch labels := dns.CountLabel(base); labels {

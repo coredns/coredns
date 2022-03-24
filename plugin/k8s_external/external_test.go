@@ -45,6 +45,9 @@ func TestExternal(t *testing.T) {
 		if resp == nil {
 			t.Fatalf("Test %d, got nil message and no error for %q", i, r.Question[0].Name)
 		}
+		if !resp.Authoritative {
+			t.Error("Expected authoritative answer")
+		}
 		if err = test.SortAndCheck(resp, tc); err != nil {
 			t.Error(err)
 		}
@@ -62,7 +65,7 @@ var tests = []test.Case{
 	{
 		Qname: "svc1.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{test.SRV("svc1.testns.example.com.	5	IN	SRV	0 100 80 svc1.testns.example.com.")},
-		Extra: []dns.RR{test.A("svc1.testns.example.com.  5       IN      A       1.2.3.4")},
+		Extra:  []dns.RR{test.A("svc1.testns.example.com.  5       IN      A       1.2.3.4")},
 	},
 	// SRV Service Not udp/tcp
 	{

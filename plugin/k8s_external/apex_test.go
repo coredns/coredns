@@ -41,6 +41,9 @@ func TestApex(t *testing.T) {
 		if resp == nil {
 			t.Fatalf("Test %d, got nil message and no error for %q", i, r.Question[0].Name)
 		}
+		if !resp.Authoritative {
+			t.Error("Expected authoritative answer")
+		}
 		if err := test.SortAndCheck(resp, tc); err != nil {
 			t.Error(err)
 		}
