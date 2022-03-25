@@ -31,8 +31,6 @@ func TestExternal(t *testing.T) {
 		r := tc.Msg()
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
-		e.upstream = tc.Upstream
-
 		_, err := e.ServeDNS(ctx, w, r)
 		if err != tc.Error {
 			t.Errorf("Test %d expected no error, got %v", i, err)
@@ -47,45 +45,34 @@ func TestExternal(t *testing.T) {
 		if resp == nil {
 			t.Fatalf("Test %d, got nil message and no error for %q", i, r.Question[0].Name)
 		}
-
-		if resp.Truncated != tc.Truncated {
-			t.Errorf("Test %d expected TC=%v, got TC=%v", i, tc.Truncated, resp.Truncated)
-		}
-
-		if err = test.SortAndCheck(resp, tc.Case); err != nil {
+		if err = test.SortAndCheck(resp, tc); err != nil {
 			t.Error(err)
 		}
 	}
 }
 
-type kubeTestCase struct {
-	Upstream  Upstreamer
-	Truncated bool
-	test.Case
-}
-
-var tests = []kubeTestCase{
+var tests = []test.Case{
 	// A Service
-	{Case: test.Case{
+	{
 		Qname: "svc1.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.A("svc1.testns.example.com.	5	IN	A	1.2.3.4"),
 		},
-	}},
-	{Case: test.Case{
+	},
+	{
 		Qname: "svc1.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{test.SRV("svc1.testns.example.com.	5	IN	SRV	0 100 80 svc1.testns.example.com.")},
 		Extra:  []dns.RR{test.A("svc1.testns.example.com.  5       IN      A       1.2.3.4")},
-	}},
+	},
 	// SRV Service Not udp/tcp
-	{Case: test.Case{
+	{
 		Qname: "*._not-udp-or-tcp.svc1.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
 		},
-	}},
+	},
 	// SRV Service
-	{Case: test.Case{
+	{
 		Qname: "_http._tcp.svc1.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("_http._tcp.svc1.testns.example.com.	5	IN	SRV	0 100 80 svc1.testns.example.com."),
@@ -93,44 +80,44 @@ var tests = []kubeTestCase{
 		Extra: []dns.RR{
 			test.A("svc1.testns.example.com.	5	IN	A	1.2.3.4"),
 		},
-	}},
+	},
 	// AAAA Service (with an existing A record, but no AAAA record)
-	{Case: test.Case{
+	{
 		Qname: "svc1.testns.example.com.", Qtype: dns.TypeAAAA, Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
 			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
 		},
-	}},
+	},
 	// AAAA Service (non-existing service)
-	{Case: test.Case{
+	{
 		Qname: "svc0.testns.example.com.", Qtype: dns.TypeAAAA, Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
 		},
-	}},
+	},
 	// A Service (non-existing service)
-	{Case: test.Case{
+	{
 		Qname: "svc0.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
 		},
-	}},
+	},
 	// A Service (non-existing namespace)
-	{Case: test.Case{
+	{
 		Qname: "svc0.svc-nons.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
 		},
-	}},
+	},
 	// AAAA Service
-	{Case: test.Case{
+	{
 		Qname: "svc6.testns.example.com.", Qtype: dns.TypeAAAA, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.AAAA("svc6.testns.example.com.	5	IN	AAAA	1:2::5"),
 		},
-	}},
+	},
 	// SRV
-	{Case: test.Case{
+	{
 		Qname: "_http._tcp.svc6.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("_http._tcp.svc6.testns.example.com.	5	IN	SRV	0 100 80 svc6.testns.example.com."),
@@ -138,9 +125,9 @@ var tests = []kubeTestCase{
 		Extra: []dns.RR{
 			test.AAAA("svc6.testns.example.com.	5	IN	AAAA	1:2::5"),
 		},
-	}},
+	},
 	// SRV
-	{Case: test.Case{
+	{
 		Qname: "svc6.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("svc6.testns.example.com.	5	IN	SRV	0 100 80 svc6.testns.example.com."),
@@ -148,27 +135,27 @@ var tests = []kubeTestCase{
 		Extra: []dns.RR{
 			test.AAAA("svc6.testns.example.com.	5	IN	AAAA	1:2::5"),
 		},
-	}},
-	{Case: test.Case{
+	},
+	{
 		Qname: "testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
 			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
 		},
-	}},
-	{Case: test.Case{
+	},
+	{
 		Qname: "testns.example.com.", Qtype: dns.TypeSOA, Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
 			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
 		},
-	}},
+	},
 	// svc11
-	{Case: test.Case{
+	{
 		Qname: "svc11.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.A("svc11.testns.example.com.	5	IN	A	1.2.3.4"),
 		},
-	}},
-	{Case: test.Case{
+	},
+	{
 		Qname: "_http._tcp.svc11.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("_http._tcp.svc11.testns.example.com.	5	IN	SRV	0 100 80 svc11.testns.example.com."),
@@ -176,8 +163,8 @@ var tests = []kubeTestCase{
 		Extra: []dns.RR{
 			test.A("svc11.testns.example.com.	5	IN	A	1.2.3.4"),
 		},
-	}},
-	{Case: test.Case{
+	},
+	{
 		Qname: "svc11.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("svc11.testns.example.com.	5	IN	SRV	0 100 80 svc11.testns.example.com."),
@@ -185,44 +172,26 @@ var tests = []kubeTestCase{
 		Extra: []dns.RR{
 			test.A("svc11.testns.example.com.	5	IN	A	1.2.3.4"),
 		},
-	}},
-
+	},
 	// svc12
-	{Case: test.Case{
+	{
 		Qname: "svc12.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.A("dummy.hostname.	300	IN	A	1.2.3.4"),
 			test.CNAME("svc12.testns.example.com.	5	IN	CNAME	dummy.hostname"),
 		},
 	},
-		Truncated: false,
-		Upstream:  &UpTrunc{Trunc: false},
-	},
-	{Case: test.Case{
-		Qname: "_http._tcp.svc12.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
-	}},
-	{Case: test.Case{
-		Qname: "svc12.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.A("dummy.hostname.	300	IN	A	1.2.3.4"),
-			test.CNAME("svc12.testns.example.com.	5	IN	CNAME	dummy.hostname"),
-		},
-	},
-		Truncated: true,
-		Upstream:  &UpTrunc{Trunc: true},
-	},
-	{Case: test.Case{
+	{
 		Qname: "_http._tcp.svc12.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("_http._tcp.svc12.testns.example.com.	5	IN	SRV	0 100 80 dummy.hostname."),
 		},
-	}},
-	{Case: test.Case{
+	},
+	{
 		Qname: "svc12.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.SRV("svc12.testns.example.com.	5	IN	SRV	0 100 80 dummy.hostname."),
 		},
-	}},
+	},
 }
 
 type external struct{}
@@ -301,22 +270,4 @@ func externalAddress(state request.Request) []dns.RR {
 
 func externalSerial(string) uint32 {
 	return 1499347823
-}
-
-// UpTrunc implements an Upstreamer that controls truncation bit for test purposes
-type UpTrunc struct {
-	Trunc bool
-}
-
-// Lookup returns a hard-coded response with TC bit set to Trunc
-func (t *UpTrunc) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
-	return &dns.Msg{
-		MsgHdr: dns.MsgHdr{
-			Response:  true,
-			Truncated: t.Trunc,
-			Rcode:     dns.RcodeSuccess,
-		},
-		Question: []dns.Question{{Name: "dummy.hostname.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
-		Answer:   []dns.RR{test.A("dummy.hostname.	300	IN	A	1.2.3.4")},
-	}, nil
 }

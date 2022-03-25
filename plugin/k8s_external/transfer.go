@@ -55,11 +55,11 @@ func (e *External) Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 			if svcs[i].TargetStrip == 0 {
 				// Add Service A/AAAA records
 				s := request.Request{Req: &dns.Msg{Question: []dns.Question{{Name: name}}}}
-				as := e.a(ctx, []msg.Service{svcs[i]}, s)
+				as, _ := e.a(ctx, []msg.Service{svcs[i]}, s)
 				if len(as) > 0 {
 					ch <- as
 				}
-				aaaas := e.aaaa(ctx, []msg.Service{svcs[i]}, s)
+				aaaas, _ := e.aaaa(ctx, []msg.Service{svcs[i]}, s)
 				if len(aaaas) > 0 {
 					ch <- aaaas
 				}

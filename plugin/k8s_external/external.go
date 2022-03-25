@@ -16,6 +16,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
+	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -43,7 +44,7 @@ type External struct {
 	apex       string
 	ttl        uint32
 
-	upstream Upstreamer
+	upstream *upstream.Upstream
 
 	externalFunc         func(request.Request) ([]msg.Service, int)
 	externalAddrFunc     func(request.Request) []dns.RR
@@ -118,8 +119,3 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 // Name implements the Handler interface.
 func (e *External) Name() string { return "k8s_external" }
-
-// Upstreamer is used to resolve CNAME or other external targets
-type Upstreamer interface {
-	Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error)
-}
