@@ -34,23 +34,22 @@ You can download a [free and public City database](https://dev.maxmind.com/geoip
 
 ## Syntax
 
-```txt
+```text
 geoip [DBFILE]
 ```
 
-* **DBFILE** the mmdb database file path.
+or
 
-By default, geoip plugin doesn't honor EDNS0 subnet extension, but it can be enabled using the extended syntax:
-
-```
+```text
 geoip [DBFILE] {
     edns-subnet-processing
 }
 ```
 
-* **DBFILE**: see above
-* `edns-subnet-processing` reads source IP from EDNS0 subnet when available. This makes
-  testing GeoIP processing easy: `dig +subnet=1.2.3.4 @dns-server.example.com www.geo-aware.com`.
+By default, geoip plugin doesn't honor EDNS0 subnet extension, but it can be enabled using the extended syntax:
+
+* **DBFILE** the mmdb database file path.
+* `edns-subnet-processing` (optional): by default, geoip plugin read client IP and ignores [EDNS0 subnet](https://en.wikipedia.org/wiki/EDNS_Client_Subnet) extension. Using this option enables reading source IP from EDNS0 subnet when available. This help identifying closest source IP address as well as making GeoIP test processing easy: `dig +subnet=1.2.3.4 @dns-server.example.com www.geo-aware.com`.
 
 ## Examples
 
@@ -58,7 +57,9 @@ The following configuration configures the `City` database.
 
 ```txt
 . {
-    geoip /opt/geoip2/db/GeoLite2-City.mmdb
+    geoip /opt/geoip2/db/GeoLite2-City.mmdb {
+      edns-subnet-processing
+    }
     metadata # Note that metadata plugin must be enabled as well.
 }
 ```
