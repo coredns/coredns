@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
@@ -28,7 +29,7 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 
 		switch what {
 		case dns.TypeCNAME:
-			if Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
+			if strings.EqualFold(state.Name(), dns.Fqdn(serv.Host)) {
 				// x CNAME x is a direct loop, don't add those
 				continue
 			}
@@ -102,7 +103,7 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 		switch what {
 		case dns.TypeCNAME:
 			// Try to resolve as CNAME if it's not an IP, but only if we don't create loops.
-			if Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
+			if strings.EqualFold(state.Name(), dns.Fqdn(serv.Host)) {
 				// x CNAME x is a direct loop, don't add those
 				continue
 			}
@@ -356,7 +357,7 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 
 		switch what {
 		case dns.TypeCNAME:
-			if Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
+			if strings.EqualFold(state.Name(), dns.Fqdn(serv.Host)) {
 				// x CNAME x is a direct loop, don't add those
 				continue
 			}
