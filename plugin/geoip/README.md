@@ -42,18 +42,16 @@ or
 
 ```text
 geoip [DBFILE] {
-    edns-subnet
+    [edns-subnet]
 }
 ```
 
-By default, geoip plugin doesn't honor EDNS0 subnet extension, but it can be enabled using the extended syntax:
-
 * **DBFILE** the mmdb database file path.
-* `edns-subnet` (optional): by default, geoip plugin read client IP and ignores [EDNS0 subnet](https://en.wikipedia.org/wiki/EDNS_Client_Subnet) extension. Using this option enables reading source IP from EDNS0 subnet when available. This help identifying closest source IP address as well as making GeoIP test processing easy: `dig +subnet=1.2.3.4 @dns-server.example.com www.geo-aware.com`.
+* `edns-subnet`: Optional. Use [EDNS0 subnet](https://en.wikipedia.org/wiki/EDNS_Client_Subnet) (if present) for Geo IP instead of the source IP of the DNS request. This helps with identifying the closest source IP address as well as making GeoIP testing easy: `dig +subnet=1.2.3.4 @dns-server.example.com www.geo-aware.com`.
 
 ## Examples
 
-The following configuration configures the `City` database.
+The following configuration configures the `City` database, and looks up geolocation based on EDNS0 subnet if present.
 
 ```txt
 . {
