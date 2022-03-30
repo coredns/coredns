@@ -42,7 +42,7 @@ func geoipParse(c *caddy.Controller) (*GeoIP, error) {
 		}
 
 		for c.NextBlock() {
-			if c.Val() != "edns-subnet-processing" {
+			if c.Val() != "edns-subnet" {
 				return nil, c.Errf("unknown property %q", c.Val())
 			}
 			edns0 = true

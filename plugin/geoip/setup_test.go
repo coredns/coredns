@@ -52,7 +52,7 @@ func TestGeoIPParse(t *testing.T) {
 	}{
 		// Valid
 		{false, fmt.Sprintf("%s %s\n", pluginName, cityDBPath), "", city},
-		{false, fmt.Sprintf("%s %s { edns-subnet-processing }", pluginName, cityDBPath), "", city},
+		{false, fmt.Sprintf("%s %s { edns-subnet }", pluginName, cityDBPath), "", city},
 
 		// Invalid
 		{true, pluginName, "Wrong argument count", 0},
