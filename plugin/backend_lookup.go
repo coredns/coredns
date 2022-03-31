@@ -343,7 +343,7 @@ func CNAME(ctx context.Context, b ServiceBackend, zone string, state request.Req
 // TXT returns TXT records from Backend or an error.
 func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
 
-	services, err := b.Services(ctx, state, true, opt)
+	services, err := b.Services(ctx, state, false, opt)
 	if err != nil {
 		return nil, false, err
 	}
@@ -398,9 +398,9 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			continue
 
 		case dns.TypeTXT:
-			if _, ok := dup[serv.Host]; !ok {
-				dup[serv.Host] = struct{}{}
-				return append(records, serv.NewTXT(state.QName())), truncated, nil
+			if _, ok := dup[serv.Text]; !ok {
+				dup[serv.Text] = struct{}{}
+				records = append(records, serv.NewTXT(state.QName()))
 			}
 
 		}

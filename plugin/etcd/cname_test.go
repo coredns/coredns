@@ -22,7 +22,7 @@ func TestCnameLookup(t *testing.T) {
 		set(t, etc, serv.Key, 0, serv)
 		defer delete(t, etc, serv.Key)
 	}
-	for _, tc := range dnsTestCasesCname {
+	for i, tc := range dnsTestCasesCname {
 		m := tc.Msg()
 
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
@@ -34,17 +34,17 @@ func TestCnameLookup(t *testing.T) {
 
 		resp := rec.Msg
 		if err := test.Header(tc, resp); err != nil {
-			t.Error(err)
+			t.Errorf("Test %d: %v", i, err)
 			continue
 		}
 		if err := test.Section(tc, test.Answer, resp.Answer); err != nil {
-			t.Error(err)
+			t.Errorf("Test %d: %v", i, err)
 		}
 		if err := test.Section(tc, test.Ns, resp.Ns); err != nil {
-			t.Error(err)
+			t.Errorf("Test %d: %v", i, err)
 		}
 		if err := test.Section(tc, test.Extra, resp.Extra); err != nil {
-			t.Error(err)
+			t.Errorf("Test %d: %v", i, err)
 		}
 	}
 }
@@ -57,16 +57,18 @@ var servicesCname = []*msg.Service{
 	{Host: "cname5.region2.skydns.test", Key: "cname4.region2.skydns.test."},
 	{Host: "cname6.region2.skydns.test", Key: "cname5.region2.skydns.test."},
 	{Host: "endpoint.region2.skydns.test", Key: "cname6.region2.skydns.test."},
+	{Host: "10.240.0.1", Key: "endpoint.region2.skydns.test."},
+
 	{Host: "mainendpoint.region2.skydns.test", Key: "region2.skydns.test."},
+
 	{Host: "cname2.region3.skydns.test", Key: "cname3.region3.skydns.test."},
 	{Host: "cname1.region3.skydns.test", Key: "cname2.region3.skydns.test."},
-	{Host: "region3.skydns.test", Key: "cname1.region3.skydns.test."},
-	{Host: "", Key: "region3.skydns.test.", Text: "SOME-RECORD-TEXT"},
-	{Host: "10.240.0.1", Key: "endpoint.region2.skydns.test."},
+	{Host: "endpoint.region3.skydns.test", Key: "cname1.region3.skydns.test."},
+	{Host: "", Key: "endpoint.region3.skydns.test.", Text: "SOME-RECORD-TEXT"},
 }
 
 var dnsTestCasesCname = []test.Case{
-	{
+	{ // Test 0
 		Qname: "a.server1.dev.region1.skydns.test.", Qtype: dns.TypeSRV,
 		Answer: []dns.RR{
 			test.SRV("a.server1.dev.region1.skydns.test.	300	IN	SRV	10 100 0 cname1.region2.skydns.test."),
@@ -81,26 +83,26 @@ var dnsTestCasesCname = []test.Case{
 			test.A("endpoint.region2.skydns.test.	300	IN	A	10.240.0.1"),
 		},
 	},
-	{
+	{ // Test 1
 		Qname: "region2.skydns.test.", Qtype: dns.TypeCNAME,
 		Answer: []dns.RR{
 			test.CNAME("region2.skydns.test.	300	IN	CNAME	mainendpoint.region2.skydns.test."),
 		},
 	},
-	{
-		Qname: "region3.skydns.test.", Qtype: dns.TypeCNAME,
+	{ // Test 2
+		Qname: "endpoint.region3.skydns.test.", Qtype: dns.TypeCNAME,
 		Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
 			test.SOA("skydns.test.	303	IN	SOA	ns.dns.skydns.test. hostmaster.skydns.test. 1546424605 7200 1800 86400 30"),
 		},
 	},
-	{
+	{ // Test 3
 		Qname: "cname3.region3.skydns.test.", Qtype: dns.TypeTXT,
 		Answer: []dns.RR{
 			test.CNAME("cname3.region3.skydns.test.	300	IN	CNAME	cname2.region3.skydns.test."),
 			test.CNAME("cname2.region3.skydns.test.	300	IN	CNAME	cname1.region3.skydns.test."),
-			test.CNAME("cname1.region3.skydns.test.	300	IN	CNAME	region3.skydns.test."),
-			test.TXT("region3.skydns.test. 300 IN TXT \"SOME-RECORD-TEXT\""),
+			test.CNAME("cname1.region3.skydns.test.	300	IN	CNAME	endpoint.region3.skydns.test."),
+			test.TXT("endpoint.region3.skydns.test. 300 IN TXT \"SOME-RECORD-TEXT\""),
 		},
 	},
 }
