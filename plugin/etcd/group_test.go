@@ -46,12 +46,15 @@ var servicesGroup = []*msg.Service{
 
 	{Host: "127.0.0.1", Key: "a.dom1.skydns.test.", Group: "g1"},
 	{Host: "127.0.0.2", Key: "b.sub.dom1.skydns.test.", Group: "g2"},
+
+	{Text: "foo", Key: "a.dom3.skydns.test.", Group: "g1"},
+	{Text: "bar", Key: "b.sub.dom3.skydns.test.", Group: "g1"},
 }
 
 var dnsTestCasesGroup = []test.Case{
 	// Groups
 	{
-		// hits the group 'g1' and only includes those records
+		// hits the group 'g1' and only includes those A records
 		Qname: "dom.skydns.test.", Qtype: dns.TypeA,
 		Answer: []dns.RR{
 			test.A("dom.skydns.test. 300 IN A 127.0.0.1"),
@@ -71,6 +74,14 @@ var dnsTestCasesGroup = []test.Case{
 		Qname: "dom1.skydns.test.", Qtype: dns.TypeA,
 		Answer: []dns.RR{
 			test.A("dom1.skydns.test. 300 IN A 127.0.0.1"),
+		},
+	},
+	{
+		// hits the group 'g1' and only includes those TXT records
+		Qname: "dom3.skydns.test.", Qtype: dns.TypeTXT,
+		Answer: []dns.RR{
+			test.TXT("dom3.skydns.test. 300 IN TXT bar"),
+			test.TXT("dom3.skydns.test. 300 IN TXT foo"),
 		},
 	},
 }
