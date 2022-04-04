@@ -19,6 +19,7 @@ type item struct {
 	Answer             []dns.RR
 	Ns                 []dns.RR
 	Extra              []dns.RR
+	wildcard           string
 
 	origTTL uint32
 	stored  time.Time

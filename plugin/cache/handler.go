@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
 
@@ -38,6 +39,9 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	i := c.getIgnoreTTL(now, state, server)
 	if i == nil {
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, ad: ad}
+		if f := metadata.ValueFunc(ctx, "file/wildcard"); f != nil {
+			crr.wildcard = f()
+		}
 		return c.doRefresh(ctx, state, crr)
 	}
 	ttl = i.ttl(now)
