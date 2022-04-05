@@ -216,7 +216,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	// Found wildcard.
 	if wildElem != nil {
 		// set metadata value for the wildcard record that synthesized the result
-		metadata.SetValueFunc(ctx, "file/wildcard", func() string {
+		metadata.SetValueFunc(ctx, "zone/wildcard", func() string {
 			return wildElem.Name()
 		})
 

@@ -107,14 +107,16 @@ func computeTTL(msgTTL, minTTL, maxTTL time.Duration) time.Duration {
 type ResponseWriter struct {
 	dns.ResponseWriter
 	*Cache
-	state    request.Request
-	server   string // Server handling the request.
-	wildcard string // Wildcard record name that synthesized the result.
+	state  request.Request
+	server string // Server handling the request.
 
 	do         bool // When true the original request had the DO bit set.
 	ad         bool // When true the original request had the AD bit set.
 	prefetch   bool // When true write nothing back to the client.
 	remoteAddr net.Addr
+
+	wildcardFunc func() string // function to retrieve wildcard name that synthesized the result.
+
 }
 
 // newPrefetchResponseWriter returns a Cache ResponseWriter to be used in
@@ -203,7 +205,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 	switch mt {
 	case response.NoError, response.Delegation:
 		i := newItem(m, w.now(), duration)
-		i.wildcard = w.wildcard
+		i.wildcard = w.wildcardFunc()
 		if w.pcache.Add(key, i) {
 			evictions.WithLabelValues(w.server, Success, w.zonesMetricLabel).Inc()
 		}
@@ -214,7 +216,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 
 	case response.NameError, response.NoData, response.ServerError:
 		i := newItem(m, w.now(), duration)
-		i.wildcard = w.wildcard
+		i.wildcard = w.wildcardFunc()
 		if w.ncache.Add(key, i) {
 			evictions.WithLabelValues(w.server, Denial, w.zonesMetricLabel).Inc()
 		}
