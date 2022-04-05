@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
-
 	"github.com/miekg/dns"
 )
 
@@ -577,4 +577,60 @@ func TestComputeTTL(t *testing.T) {
 			t.Errorf("Test %v: Expected ttl %v but found: %v", i, test.expectedTTL, ttl)
 		}
 	}
+}
+
+func TestCacheWildcardMetadata(t *testing.T) {
+	c := New()
+	qname := "foo.bar.example.org."
+	wildcard := "*.bar.example.org."
+	c.Next = wildcardMetadataBackend(qname, wildcard)
+
+	req := new(dns.Msg)
+	req.SetQuestion(qname, dns.TypeA)
+
+	// 1. Test writing wildcard metadata retrieved from backend to the cache
+
+	ctx := metadata.ContextWithMetadata(context.TODO())
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(ctx, w, req)
+	if c.pcache.Len() != 1 {
+		t.Errorf("Msg should have been cached")
+	}
+	_, k := key(qname, w.Msg, response.NoError)
+	i, _ := c.pcache.Get(k)
+	if i.(*item).wildcard != wildcard {
+		t.Errorf("expected wildcard reponse to enter cache with cache item's wildcard = %q, got %q", wildcard, i.(*item).wildcard)
+	}
+
+	// 2. Test retrieving the cached item from cache and writing its wildcard value to metadata
+
+	// reset context and response writer
+	ctx = metadata.ContextWithMetadata(context.TODO())
+	w = dnstest.NewRecorder(&test.ResponseWriter{})
+
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	f := metadata.ValueFunc(ctx, "zone/wildcard")
+	if f == nil {
+		t.Fatal("expected metadata func for wildcard response retrieved from cache, got nil")
+	}
+	if f() != wildcard {
+		t.Errorf("after retrieving wildcard item from cache, expected \"zone/wildcard\" metadata value to be %q, got %q", wildcard, i.(*item).wildcard)
+	}
+}
+
+// wildcardMetadataBackend mocks a backend that reponds with a response for qname synthesized by wildcard
+// and sets the zone/wildcard metadata value
+func wildcardMetadataBackend(qname, wildcard string) plugin.Handler {
+	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A(qname + " 300 IN A 127.0.0.1")}
+		metadata.SetValueFunc(ctx, "zone/wildcard", func() string {
+			return wildcard
+		})
+		w.WriteMsg(m)
+
+		return dns.RcodeSuccess, nil
+	})
 }
