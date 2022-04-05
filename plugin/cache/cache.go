@@ -205,7 +205,9 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 	switch mt {
 	case response.NoError, response.Delegation:
 		i := newItem(m, w.now(), duration)
-		i.wildcard = w.wildcardFunc()
+		if w.wildcardFunc != nil {
+			i.wildcard = w.wildcardFunc()
+		}
 		if w.pcache.Add(key, i) {
 			evictions.WithLabelValues(w.server, Success, w.zonesMetricLabel).Inc()
 		}
@@ -216,7 +218,9 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 
 	case response.NameError, response.NoData, response.ServerError:
 		i := newItem(m, w.now(), duration)
-		i.wildcard = w.wildcardFunc()
+		if w.wildcardFunc != nil {
+			i.wildcard = w.wildcardFunc()
+		}
 		if w.ncache.Add(key, i) {
 			evictions.WithLabelValues(w.server, Denial, w.zonesMetricLabel).Inc()
 		}
