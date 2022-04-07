@@ -8,8 +8,11 @@
 
 With `acl` enabled, users are able to block or filter suspicious DNS queries by configuring IP filter rule sets, i.e. allowing authorized queries to recurse or blocking unauthorized queries.
 
-Note the rule sets of `acl` are based on the source ip of the query observed by coredns server. If the source ip observed by coredns is different from
-the source ip of the sender client (e.g., in situations such as Source NAT), then rule sets based on client source ip may not work as expected.
+
+When evaluating the rule sets, _acl_ uses the source IP of the TCP/UDP headers of the DNS query received by CoreDNS.
+This source IP will be different than the IP of the client originating the request in cases where the source IP of the request is changed in transit.  For example:
+* if the request passes though an intermediate forwarding DNS server or recursive DNS server before reaching CoreDNS
+* if the request traverses a Source NAT before reaching CoreDNS
 
 This plugin can be used multiple times per Server Block.
 
