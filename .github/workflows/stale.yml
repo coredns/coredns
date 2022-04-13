@@ -23,4 +23,4 @@ jobs:
           exempt-all-milestones: true
           labels-to-remove-when-unstale: 'answered,needs info,needs update'
           any-of-issue-labels: 'answered,needs info'
-          any-of-pr-labels: 'needs update'
+          any-of-pr-labels: 'needs update,needs info'
