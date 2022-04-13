@@ -190,7 +190,7 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 				}
 			case "servfail":
 				args := c.RemainingArgs()
-				if len(args) > 1 {
+				if len(args) != 1 {
 					return nil, c.ArgErr()
 				}
 				d, err := time.ParseDuration(args[0])
