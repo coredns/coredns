@@ -32,6 +32,7 @@ type Cache struct {
 	pcap    int
 	pttl    time.Duration
 	minpttl time.Duration
+	failttl time.Duration // TTL for caching SERVFAIL responses
 
 	// Prefetch.
 	prefetch   int
@@ -59,6 +60,7 @@ func New() *Cache {
 		ncache:     cache.New(defaultCap),
 		nttl:       maxNTTL,
 		minnttl:    minNTTL,
+		failttl:    minNTTL,
 		prefetch:   0,
 		duration:   1 * time.Minute,
 		percentage: 10,
@@ -157,8 +159,7 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	if mt == response.NameError || mt == response.NoData {
 		duration = computeTTL(msgTTL, w.minnttl, w.nttl)
 	} else if mt == response.ServerError {
-		// use default ttl which is 5s
-		duration = minTTL
+		duration = w.failttl
 	} else {
 		duration = computeTTL(msgTTL, w.minpttl, w.pttl)
 	}
