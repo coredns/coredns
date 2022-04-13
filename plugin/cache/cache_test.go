@@ -258,6 +258,23 @@ func TestCacheZeroTTL(t *testing.T) {
 	}
 }
 
+func TestCacheServfailTTL0(t *testing.T) {
+	c := New()
+	c.minpttl = minTTL
+	c.minnttl = minNTTL
+	c.failttl = 0
+	c.Next = servFailBackend(0)
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	if c.ncache.Len() != 0 {
+		t.Errorf("SERVFAIL response should not have been cached")
+	}
+}
+
 func TestServeFromStaleCache(t *testing.T) {
 	c := New()
 	c.Next = ttlBackend(60)
