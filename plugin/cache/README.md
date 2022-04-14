@@ -124,5 +124,3 @@ example.org {
     }
 }
 ~~~
-
-poke
