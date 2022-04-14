@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coredns/coredns/core/dnsserver"
+
 	"github.com/coredns/caddy"
 )
 
@@ -262,5 +264,52 @@ func TestSetupHealthCheck(t *testing.T) {
 			f.opts.hcDomain != test.expectedDomain || f.proxies[0].health.GetDomain() != test.expectedDomain) {
 			t.Errorf("Test %d: expectedRec: %v, got: %v. expectedDomain: %s, got: %s. ", i, test.expectedRecVal, f.opts.hcRecursionDesired, test.expectedDomain, f.opts.hcDomain)
 		}
+	}
+}
+
+func TestMultiForward(t *testing.T) {
+	input := `
+      forward 1st.example.org 10.0.0.1
+      forward 2nd.example.org 10.0.0.2
+      forward 3rd.example.org 10.0.0.3
+    `
+
+	c := caddy.NewTestController("dns", input)
+	setup(c)
+	dnsserver.NewServer("", []*dnsserver.Config{dnsserver.GetConfig(c)})
+
+	handlers := dnsserver.GetConfig(c).Handlers()
+	f1, ok := handlers[0].(*Forward)
+	if !ok {
+		t.Fatalf("expected first plugin to be Forward, got %v", reflect.TypeOf(f1.Next))
+	}
+
+	if f1.from != "1st.example.org." {
+		t.Errorf("expected first forward from \"1st.example.org.\", got %q", f1.from)
+	}
+	if f1.Next == nil {
+		t.Fatal("expected first forward to point to next forward instance, not nil")
+	}
+
+	f2, ok := f1.Next.(*Forward)
+	if !ok {
+		t.Fatalf("expected second plugin to be Forward, got %v", reflect.TypeOf(f1.Next))
+	}
+	if f2.from != "2nd.example.org." {
+		t.Errorf("expected second forward from \"2nd.example.org.\", got %q", f2.from)
+	}
+	if f2.Next == nil {
+		t.Fatal("expected second forward to point to third forward instance, got nil")
+	}
+
+	f3, ok := f2.Next.(*Forward)
+	if !ok {
+		t.Fatalf("expected third plugin to be Forward, got %v", reflect.TypeOf(f2.Next))
+	}
+	if f3.from != "3rd.example.org." {
+		t.Errorf("expected third forward from \"3rd.example.org.\", got %q", f3.from)
+	}
+	if f3.Next != nil {
+		t.Error("expected third plugin to be last, but Next is not nil")
 	}
 }
