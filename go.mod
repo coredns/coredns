@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/Azure/azure-sdk-for-go v63.3.0+incompatible
-	github.com/Azure/go-autorest/autorest v0.11.25
+	github.com/Azure/go-autorest/autorest v0.11.27
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
 	github.com/apparentlymart/go-cidr v1.1.0
 	github.com/aws/aws-sdk-go v1.43.45
@@ -21,13 +21,13 @@ require (
 	github.com/oschwald/geoip2-golang v1.7.0
 	github.com/prometheus/client_golang v1.12.1
 	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/common v0.33.0
+	github.com/prometheus/common v0.34.0
 	go.etcd.io/etcd/api/v3 v3.5.3
 	go.etcd.io/etcd/client/v3 v3.5.3
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
 	golang.org/x/sys v0.0.0-20220328115105-d36c6a25d886
 	google.golang.org/api v0.74.0
-	google.golang.org/grpc v1.45.0
+	google.golang.org/grpc v1.46.0
 	google.golang.org/protobuf v1.28.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.37.1
 	k8s.io/api v0.23.5
