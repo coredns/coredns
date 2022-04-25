@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@dcd71f646680f2efd8db4afa5ad64fdcba30e748
       - run: find . -not -path '*/\.git/*' -type f -name '*.go' -exec gofmt -s -w {} \+
-      - uses: reviewdog/action-suggester@ecf27b2b88b6d83028e599a46517b4a1c18a72c6
+      - uses: reviewdog/action-suggester@8f83d27e749053b2029600995c115026a010408e
 
   whitespace:
     name: Whitespace
@@ -22,4 +22,4 @@ jobs:
     steps:
       - uses: actions/checkout@dcd71f646680f2efd8db4afa5ad64fdcba30e748
       - run: find . -not -path '*/\.git/*' -type f -not -name '*.go' -exec sed -i 's/[[:space:]]\{1,\}$//' {} \+
-      - uses: reviewdog/action-suggester@ecf27b2b88b6d83028e599a46517b4a1c18a72c6
+      - uses: reviewdog/action-suggester@8f83d27e749053b2029600995c115026a010408e
