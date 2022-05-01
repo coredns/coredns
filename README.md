@@ -281,9 +281,11 @@ And finally 1.4.1 that removes the config workarounds.
 
 ## Security
 
-### Security Audit
-A third party security audit was performed by Cure53, you can see the full report
-[here](https://coredns.io/assets/DNS-01-report.pdf).
+### Security Audits
+
+Third party security audits have been performed by:
+* [Cure53](https://cure53.de) in March 2018. [Full Report](https://coredns.io/assets/DNS-01-report.pdf)
+* [Trail of Bits](https://www.trailofbits.com) in March 2022. [Full Report](https://github.com/trailofbits/publications/blob/master/reviews/CoreDNS.pdf)
 
 ### Reporting security vulnerabilities
 
