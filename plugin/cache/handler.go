@@ -35,19 +35,29 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	ttl := 0
 	i := c.getIgnoreTTL(now, state, server)
-	if i != nil {
-		ttl = i.ttl(now)
-	}
 	if i == nil {
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
 		return c.doRefresh(ctx, state, crr)
 	}
+	ttl = i.ttl(now)
 	if ttl < 0 {
-		servedStale.WithLabelValues(server, c.zonesMetricLabel).Inc()
+		// serve stale behavior
+		if c.verifyStale {
+			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
+			cw := newVerifyStaleResponseWriter(crr)
+			ret, err := c.doRefresh(ctx, state, cw)
+			if cw.refreshed {
+				return ret, err
+			}
+		}
+
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
-		cw := newPrefetchResponseWriter(server, state, c)
-		go c.doPrefetch(ctx, state, cw, i, now)
+		if !c.verifyStale {
+			cw := newPrefetchResponseWriter(server, state, c)
+			go c.doPrefetch(ctx, state, cw, i, now)
+		}
+		servedStale.WithLabelValues(server, c.zonesMetricLabel).Inc()
 	} else if c.shouldPrefetch(i, now) {
 		cw := newPrefetchResponseWriter(server, state, c)
 		go c.doPrefetch(ctx, state, cw, i, now)
@@ -70,7 +80,7 @@ func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *Respo
 	}
 }
 
-func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw *ResponseWriter) (int, error) {
+func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw dns.ResponseWriter) (int, error) {
 	if !state.Do() {
 		setDo(state.Req)
 	}
