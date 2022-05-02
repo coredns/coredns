@@ -284,8 +284,6 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 		checkSyncTicker := time.NewTicker(100 * time.Millisecond)
 		defer checkSyncTicker.Stop()
 		for {
-			timeoutTicker.Reset(timeout)
-			logTicker.Reset(logDelay)
 			select {
 			case <-checkSyncTicker.C:
 				if k.APIConn.HasSynced() {
