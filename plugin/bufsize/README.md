@@ -5,7 +5,7 @@
 ## Description
 *bufsize* limits a requester's UDP payload size.
 It prevents IP fragmentation, mitigating certain DNS vulnerabilities.
-This will only affect query replies to EDNS0-capable clients; i.e. queries that have an OPT RR.
+This will only affect queries that have an OPT RR.
 
 ## Syntax
 ```txt
