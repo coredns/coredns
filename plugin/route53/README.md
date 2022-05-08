@@ -9,7 +9,7 @@
 The route53 plugin is useful for serving zones from resource record
 sets in AWS route53. This plugin supports all Amazon Route 53 records
 ([https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/ResourceRecordTypes.html](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/ResourceRecordTypes.html)).
-The route53 plugin can be used when coredns is deployed on AWS or elsewhere.
+The route53 plugin can be used when CoreDNS is deployed on AWS or elsewhere.
 
 ## Syntax
 
@@ -31,9 +31,9 @@ route53 [ZONE:HOSTED_ZONE_ID...] {
     accessed.
 
 *   **AWS\_ACCESS\_KEY\_ID** and **AWS\_SECRET\_ACCESS\_KEY** the AWS access key ID and secret access key
-    to be used when query AWS (optional). If they are not provided, then coredns tries to access
-    AWS credentials the same way as AWS CLI, e.g., environmental variables, AWS credentials file,
-    instance profile credentials, etc.
+    to be used when querying AWS (optional). If they are not provided, CoreDNS tries to access
+    AWS credentials the same way as AWS CLI - environment variables, shared credential file (and optionally
+    shared config file if `AWS_SDK_LOAD_CONFIG` env is set), and lastly EC2 Instance Roles.
     Note the usage of `aws_access_key` has been deprecated and may be removed in future versions. Instead,
     user can use other methods to pass crentials, e.g., with environmental variable `AWS_ACCESS_KEY_ID` and
     `AWS_SECRET_ACCESS_KEY`, respectively.
@@ -41,9 +41,12 @@ route53 [ZONE:HOSTED_ZONE_ID...] {
 *   `aws_endpoint` can be used to control the endpoint to use when querying AWS (optional). **ENDPOINT** is the
     URL of the endpoint to use. If this is not provided the default AWS endpoint resolution will occur.
 
-*   `credentials` is used for reading the credential **FILENAME** and setting the **PROFILE** name for a given
-    zone. **PROFILE** is the AWS account profile name. Defaults to `default`. **FILENAME** is the
-    AWS credentials filename, defaults to `~/.aws/credentials`.
+*   `credentials` is used for overriding the shared credentials **FILENAME** and the **PROFILE** name for a
+    given zone. **PROFILE** is the AWS account profile name. Defaults to `default`. **FILENAME** is the
+    AWS shared credentials filename, defaults to `~/.aws/credentials`. CoreDNS will only load shared credentials
+    file and not shared config file (`~/.aws/config`) by default. Set `AWS_SDK_LOAD_CONFIG` env variable to
+    a truthy value to enable also loading of `~/.aws/config` (e.g. if you want to provide assumed IAM role
+    configuration). Will be ignored if static keys are set via `aws_access_key`.
 
 *   `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
     If **ZONES** is omitted, then fallthrough happens for all zones for which the plugin is
