@@ -29,6 +29,7 @@ Currently CoreDNS is able to:
 * Serve zone data from a file; both DNSSEC (NSEC only) and DNS are supported (*file* and *auto*).
 * Retrieve zone data from primaries, i.e., act as a secondary server (AXFR only) (*secondary*).
 * Sign zone data on-the-fly (*dnssec*).
+* Advanced round-robin load balancing (*roundrobin*).
 * Load balancing of responses (*loadbalance*).
 * Allow for zone transfers, i.e., act as a primary server (*file* + *transfer*).
 * Automatically load zone files from disk (*auto*).
