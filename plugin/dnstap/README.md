@@ -41,6 +41,12 @@ Log to a remote endpoint.
 dnstap tcp://127.0.0.1:6000 full
 ~~~
 
+Log to a remote endpoint by FQDN.
+
+~~~ txt
+dnstap tcp://example.com:6000 full
+~~~
+
 ## Command Line Tool
 
 Dnstap has a command line tool that can be used to inspect the logging. The tool can be found
