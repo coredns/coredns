@@ -25,7 +25,6 @@ type tapper interface {
 type dio struct {
 	endpoint     string
 	proto        string
-	conn         net.Conn
 	enc          *encoder
 	queue        chan tap.Dnstap
 	dropped      uint32
