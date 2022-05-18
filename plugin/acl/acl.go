@@ -4,6 +4,8 @@ import (
 	"context"
 	"net"
 
+	"strings"
+
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
@@ -96,7 +98,13 @@ RulesCheckLoop:
 func matchWithPolicies(policies []policy, w dns.ResponseWriter, r *dns.Msg) action {
 	state := request.Request{W: w, Req: r}
 
-	ip := net.ParseIP(state.IP())
+	ip := net.ParseIP(strings.Split(state.IP(), "%")[0])
+
+	// if the parsing did not return a proper response then we simply return 'actionBlock' to
+	// block the query
+	if len(ip) == 0 {
+		return actionBlock
+	}
 	qtype := state.QType()
 	for _, policy := range policies {
 		// dns.TypeNone matches all query types.

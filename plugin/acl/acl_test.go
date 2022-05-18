@@ -19,6 +19,10 @@ func (t *testResponseWriter) setRemoteIP(ip string) {
 	t.RemoteIP = ip
 }
 
+func (t *testResponseWriter) setZone(zone string) {
+	t.Zone = zone
+}
+
 // WriteMsg implement dns.ResponseWriter interface.
 func (t *testResponseWriter) WriteMsg(m *dns.Msg) error {
 	t.Rcode = m.Rcode
@@ -392,6 +396,20 @@ func TestACLServeDNS(t *testing.T) {
 			dns.RcodeSuccess,
 			false,
 		},
+		{
+			"Blacklist Address%ifname",
+			`acl example.org {
+				block type AAAA net 2001:0db8:85a3:0000:0000:8a2e:0370:7334
+			}`,
+			[]string{"eth0"},
+			args{
+				"www.example.org.",
+				"2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+				dns.TypeAAAA,
+			},
+			dns.RcodeRefused,
+			false,
+		},
 	}
 
 	ctx := context.Background()
@@ -408,6 +426,9 @@ func TestACLServeDNS(t *testing.T) {
 			w := &testResponseWriter{}
 			m := new(dns.Msg)
 			w.setRemoteIP(tt.args.sourceIP)
+			if len(tt.zones) > 0 {
+				w.setZone(tt.zones[0])
+			}
 			m.SetQuestion(tt.args.domain, tt.args.qtype)
 			_, err = a.ServeDNS(ctx, w, m)
 			if (err != nil) != tt.wantErr {
