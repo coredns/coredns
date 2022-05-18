@@ -81,7 +81,7 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		data, match, fthrough := template.match(ctx, state)
 		if !match {
 			if !fthrough {
-				return dns.RcodeNameError, nil
+				return dns.RcodeServerFailure, nil
 			}
 			continue
 		}

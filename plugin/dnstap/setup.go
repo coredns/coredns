@@ -1,13 +1,13 @@
 package dnstap
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/coredns/coredns/plugin/pkg/parse"
 )
 
 var log = clog.NewWithPlugin("dnstap")
@@ -24,12 +24,12 @@ func parseConfig(c *caddy.Controller) (Dnstap, error) {
 	}
 
 	if strings.HasPrefix(endpoint, "tcp://") {
-		// remote IP endpoint
-		servers, err := parse.HostPortOrFile(endpoint[6:])
+		// remote network endpoint
+		endpointURL, err := url.Parse(endpoint)
 		if err != nil {
 			return d, c.ArgErr()
 		}
-		dio := newIO("tcp", servers[0])
+		dio := newIO("tcp", endpointURL.Host)
 		d = Dnstap{io: dio}
 	} else {
 		endpoint = strings.TrimPrefix(endpoint, "unix://")
