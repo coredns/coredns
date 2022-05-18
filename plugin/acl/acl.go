@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
 	"github.com/infobloxopen/go-trees/iptree"
@@ -98,11 +99,17 @@ RulesCheckLoop:
 func matchWithPolicies(policies []policy, w dns.ResponseWriter, r *dns.Msg) action {
 	state := request.Request{W: w, Req: r}
 
-	ip := net.ParseIP(strings.Split(state.IP(), "%")[0])
+	ip := []byte(nil)
+	if idx := strings.IndexByte(state.IP(), '%'); idx >= 0 {
+		ip = net.ParseIP(state.IP()[:idx])
+	} else {
+		ip = net.ParseIP(state.IP())
+	}
 
 	// if the parsing did not return a proper response then we simply return 'actionBlock' to
 	// block the query
-	if len(ip) == 0 {
+	if ip == nil {
+		log.Errorf("ParseIP failed for ip address: %v", state.IP())
 		return actionBlock
 	}
 	qtype := state.QType()
