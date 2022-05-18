@@ -196,27 +196,6 @@ packet received by CoreDNS must be the IP address of the Pod that sent the reque
         }
     }
 
-## Wildcards
-
-**NOTE: Wildcard queries are deprecated** and will no longer be supported in the next minor release.
-
-Some query labels accept a wildcard value to match any value.  If a label is a valid wildcard (\*,
-or the word "any"), then that label will match all values.  The labels that accept wildcards are:
-
- * _endpoint_ in an `A` record request: _endpoint_.service.namespace.svc.zone, e.g., `*.nginx.ns.svc.cluster.local`
- * _service_ in an `A` record request: _service_.namespace.svc.zone, e.g., `*.ns.svc.cluster.local`
- * _namespace_ in an `A` record request: service._namespace_.svc.zone, e.g., `nginx.*.svc.cluster.local`
- * _port and/or protocol_ in an `SRV` request: __port_.__protocol_.service.namespace.svc.zone.,
-   e.g., `_http.*.service.ns.svc.cluster.local`
- * multiple wildcards are allowed in a single query, e.g., `A` Request `*.*.svc.zone.` or `SRV` request `*.*.*.*.svc.zone.`
-
- For example, wildcards can be used to resolve all Endpoints for a Service as `A` records. e.g.: `*.service.ns.svc.myzone.local` will return the Endpoint IPs in the Service `service` in namespace `default`:
-
-```
-*.service.default.svc.cluster.local. 5	IN A	192.168.10.10
-*.service.default.svc.cluster.local. 5	IN A	192.168.25.15
-```
-
 ## Metadata
 
 The kubernetes plugin will publish the following metadata, if the *metadata*

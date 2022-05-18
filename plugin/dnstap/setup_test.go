@@ -17,6 +17,8 @@ func TestConfig(t *testing.T) {
 		{"dnstap dnstap.sock full", "dnstap.sock", true, "unix", false},
 		{"dnstap unix://dnstap.sock", "dnstap.sock", false, "unix", false},
 		{"dnstap tcp://127.0.0.1:6000", "127.0.0.1:6000", false, "tcp", false},
+		{"dnstap tcp://[::1]:6000", "[::1]:6000", false, "tcp", false},
+		{"dnstap tcp://example.com:6000", "example.com:6000", false, "tcp", false},
 		{"dnstap", "fail", false, "tcp", true},
 	}
 	for i, tc := range tests {

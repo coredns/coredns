@@ -21,6 +21,8 @@ type Cache struct {
 	Next  plugin.Handler
 	Zones []string
 
+	zonesMetricLabel string
+
 	ncache  *cache.Cache
 	ncap    int
 	nttl    time.Duration
@@ -36,7 +38,9 @@ type Cache struct {
 	duration   time.Duration
 	percentage int
 
-	staleUpTo time.Duration
+	// Stale serve
+	staleUpTo   time.Duration
+	verifyStale bool
 
 	// Testing.
 	now func() time.Time
@@ -162,11 +166,11 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	if hasKey && duration > 0 {
 		if w.state.Match(res) {
 			w.set(res, key, mt, duration)
-			cacheSize.WithLabelValues(w.server, Success).Set(float64(w.pcache.Len()))
-			cacheSize.WithLabelValues(w.server, Denial).Set(float64(w.ncache.Len()))
+			cacheSize.WithLabelValues(w.server, Success, w.zonesMetricLabel).Set(float64(w.pcache.Len()))
+			cacheSize.WithLabelValues(w.server, Denial, w.zonesMetricLabel).Set(float64(w.ncache.Len()))
 		} else {
 			// Don't log it, but increment counter
-			cacheDrops.WithLabelValues(w.server).Inc()
+			cacheDrops.WithLabelValues(w.server, w.zonesMetricLabel).Inc()
 		}
 	}
 
@@ -195,7 +199,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 	case response.NoError, response.Delegation:
 		i := newItem(m, w.now(), duration)
 		if w.pcache.Add(key, i) {
-			evictions.WithLabelValues(w.server, Success).Inc()
+			evictions.WithLabelValues(w.server, Success, w.zonesMetricLabel).Inc()
 		}
 		// when pre-fetching, remove the negative cache entry if it exists
 		if w.prefetch {
@@ -205,7 +209,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 	case response.NameError, response.NoData, response.ServerError:
 		i := newItem(m, w.now(), duration)
 		if w.ncache.Add(key, i) {
-			evictions.WithLabelValues(w.server, Denial).Inc()
+			evictions.WithLabelValues(w.server, Denial, w.zonesMetricLabel).Inc()
 		}
 
 	case response.OtherError:
@@ -223,6 +227,33 @@ func (w *ResponseWriter) Write(buf []byte) (int, error) {
 	}
 	n, err := w.ResponseWriter.Write(buf)
 	return n, err
+}
+
+// verifyStaleResponseWriter is a response writer that only writes messages if they should replace a
+// stale cache entry, and otherwise discards them.
+type verifyStaleResponseWriter struct {
+	*ResponseWriter
+	refreshed bool // set to true if the last WriteMsg wrote to ResponseWriter, false otherwise.
+}
+
+// newVerifyStaleResponseWriter returns a ResponseWriter to be used when verifying stale cache
+// entries. It only forward writes if an entry was successfully refreshed according to RFC8767,
+// section 4 (response is NoError or NXDomain), and ignores any other response.
+func newVerifyStaleResponseWriter(w *ResponseWriter) *verifyStaleResponseWriter {
+	return &verifyStaleResponseWriter{
+		w,
+		false,
+	}
+}
+
+// WriteMsg implements the dns.ResponseWriter interface.
+func (w *verifyStaleResponseWriter) WriteMsg(res *dns.Msg) error {
+	w.refreshed = false
+	if res.Rcode == dns.RcodeSuccess || res.Rcode == dns.RcodeNameError {
+		w.refreshed = true
+		return w.ResponseWriter.WriteMsg(res) // stores to the cache and send to client
+	}
+	return nil // else discard
 }
 
 const (

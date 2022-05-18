@@ -20,24 +20,27 @@ func TestSetup(t *testing.T) {
 		expectedErr     string
 	}{
 		// positive
-		{"forward . 127.0.0.1", false, ".", nil, 2, options{hcRecursionDesired: true}, ""},
-		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, options{hcRecursionDesired: true}, ""},
-		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, options{hcRecursionDesired: true}, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, options{forceTCP: true, hcRecursionDesired: true}, ""},
-		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, hcRecursionDesired: true}, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, forceTCP: true, hcRecursionDesired: true}, ""},
-		{"forward . 127.0.0.1:53", false, ".", nil, 2, options{hcRecursionDesired: true}, ""},
-		{"forward . 127.0.0.1:8080", false, ".", nil, 2, options{hcRecursionDesired: true}, ""},
-		{"forward . [::1]:53", false, ".", nil, 2, options{hcRecursionDesired: true}, ""},
-		{"forward . [2003::1]:53", false, ".", nil, 2, options{hcRecursionDesired: true}, ""},
-		{"forward . 127.0.0.1 \n", false, ".", nil, 2, options{hcRecursionDesired: true}, ""},
-		{"forward 10.9.3.0/18 127.0.0.1", false, "0.9.10.in-addr.arpa.", nil, 2, options{hcRecursionDesired: true}, ""},
+		{"forward . 127.0.0.1", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org\n}\n", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "example.org"}, ""},
+		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, options{forceTCP: true, hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, forceTCP: true, hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . 127.0.0.1:53", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . 127.0.0.1:8080", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . [::1]:53", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . [2003::1]:53", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . 127.0.0.1 \n", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward 10.9.3.0/18 127.0.0.1", false, "0.9.10.in-addr.arpa.", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
 		// negative
-		{"forward . a27.0.0.1", true, "", nil, 0, options{hcRecursionDesired: true}, "not an IP"},
-		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, options{hcRecursionDesired: true}, "unknown property"},
+		{"forward . a27.0.0.1", true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "not an IP"},
+		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "unknown property"},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "Wrong argument count or unexpected line ending after 'domain'"},
 		{`forward . ::1
-		forward com ::2`, true, "", nil, 0, options{hcRecursionDesired: true}, "plugin"},
-		{"forward . https://127.0.0.1 \n", true, ".", nil, 2, options{hcRecursionDesired: true}, "'https' is not supported as a destination protocol in forward: https://127.0.0.1"},
+		forward com ::2`, true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "plugin"},
+		{"forward . https://127.0.0.1 \n", true, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, "'https' is not supported as a destination protocol in forward: https://127.0.0.1"},
+		{"forward xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 127.0.0.1 \n", true, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, "unable to normalize 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"},
 	}
 
 	for i, test := range tests {
@@ -220,18 +223,23 @@ func TestSetupMaxConcurrent(t *testing.T) {
 
 func TestSetupHealthCheck(t *testing.T) {
 	tests := []struct {
-		input       string
-		shouldErr   bool
-		expectedVal bool
-		expectedErr string
+		input          string
+		shouldErr      bool
+		expectedRecVal bool
+		expectedDomain string
+		expectedErr    string
 	}{
 		// positive
-		{"forward . 127.0.0.1\n", false, true, ""},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s\n}\n", false, true, ""},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s no_rec\n}\n", false, false, ""},
+		{"forward . 127.0.0.1\n", false, true, ".", ""},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s\n}\n", false, true, ".", ""},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s no_rec\n}\n", false, false, ".", ""},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s no_rec domain example.org\n}\n", false, false, "example.org", ""},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org\n}\n", false, true, "example.org", ""},
 		// negative
-		{"forward . 127.0.0.1 {\nhealth_check no_rec\n}\n", true, true, "time: invalid duration"},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s rec\n}\n", true, true, "health_check: unknown option rec"},
+		{"forward . 127.0.0.1 {\nhealth_check no_rec\n}\n", true, true, ".", "time: invalid duration"},
+		{"forward . 127.0.0.1 {\nhealth_check domain example.org\n}\n", true, true, "example.org", "time: invalid duration"},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s rec\n}\n", true, true, ".", "health_check: unknown option rec"},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, true, ".", "Wrong argument count or unexpected line ending after 'domain'"},
 	}
 
 	for i, test := range tests {
@@ -246,13 +254,13 @@ func TestSetupHealthCheck(t *testing.T) {
 			if !test.shouldErr {
 				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
 			}
-
 			if !strings.Contains(err.Error(), test.expectedErr) {
 				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
 			}
 		}
-		if !test.shouldErr && (f.opts.hcRecursionDesired != test.expectedVal || f.proxies[0].health.GetRecursionDesired() != test.expectedVal) {
-			t.Errorf("Test %d: expected: %t, got: %d", i, test.expectedVal, f.maxConcurrent)
+		if !test.shouldErr && (f.opts.hcRecursionDesired != test.expectedRecVal || f.proxies[0].health.GetRecursionDesired() != test.expectedRecVal ||
+			f.opts.hcDomain != test.expectedDomain || f.proxies[0].health.GetDomain() != test.expectedDomain) {
+			t.Errorf("Test %d: expectedRec: %v, got: %v. expectedDomain: %s, got: %s. ", i, test.expectedRecVal, f.opts.hcRecursionDesired, test.expectedDomain, f.opts.hcDomain)
 		}
 	}
 }

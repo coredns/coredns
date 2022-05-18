@@ -45,15 +45,19 @@ type dnsController interface {
 	HasSynced() bool
 	Stop() error
 
-	// Modified returns the timestamp of the most recent changes
-	Modified() int64
+	// Modified returns the timestamp of the most recent changes to services.  If the passed bool is true, it should
+	// return the timestamp of the most recent changes to services with external facing IP addresses
+	Modified(bool) int64
 }
 
 type dnsControl struct {
-	// Modified tracks timestamp of the most recent changes
+	// modified tracks timestamp of the most recent changes
 	// It needs to be first because it is guaranteed to be 8-byte
 	// aligned ( we use sync.LoadAtomic with this )
 	modified int64
+	// extModified tracks timestamp of the most recent changes to
+	// services with external facing IP addresses
+	extModified int64
 
 	client kubernetes.Interface
 
@@ -572,7 +576,13 @@ func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
 	}
 	switch ob := obj.(type) {
 	case *object.Service:
-		dns.updateModified()
+		imod, emod := serviceModified(oldObj, newObj)
+		if imod {
+			dns.updateModified()
+		}
+		if emod {
+			dns.updateExtModifed()
+		}
 	case *object.Pod:
 		dns.updateModified()
 	case *object.Endpoints:
@@ -646,15 +656,78 @@ func endpointsEquivalent(a, b *object.Endpoints) bool {
 	return true
 }
 
-func (dns *dnsControl) Modified() int64 {
-	unix := atomic.LoadInt64(&dns.modified)
-	return unix
+// serviceModified checks the services passed for changes that result in changes
+// to internal and or external records.  It returns two booleans, one for internal
+// record changes, and a second for external record changes
+func serviceModified(oldObj, newObj interface{}) (intSvc, extSvc bool) {
+	if oldObj != nil && newObj == nil {
+		// deleted service only modifies external zone records if it had external ips
+		return true, len(oldObj.(*object.Service).ExternalIPs) > 0
+	}
+
+	if oldObj == nil && newObj != nil {
+		// added service only modifies external zone records if it has external ips
+		return true, len(newObj.(*object.Service).ExternalIPs) > 0
+	}
+
+	newSvc := newObj.(*object.Service)
+	oldSvc := oldObj.(*object.Service)
+
+	// External IPs are mutable, affecting external zone records
+	if len(oldSvc.ExternalIPs) != len(newSvc.ExternalIPs) {
+		extSvc = true
+	} else {
+		for i := range oldSvc.ExternalIPs {
+			if oldSvc.ExternalIPs[i] != newSvc.ExternalIPs[i] {
+				extSvc = true
+				break
+			}
+		}
+	}
+
+	// ExternalName is mutable, affecting internal zone records
+	intSvc = oldSvc.ExternalName != newSvc.ExternalName
+
+	if intSvc && extSvc {
+		return intSvc, extSvc
+	}
+
+	// All Port fields are mutable, affecting both internal/external zone records
+	if len(oldSvc.Ports) != len(newSvc.Ports) {
+		return true, true
+	}
+	for i := range oldSvc.Ports {
+		if oldSvc.Ports[i].Name != newSvc.Ports[i].Name {
+			return true, true
+		}
+		if oldSvc.Ports[i].Port != newSvc.Ports[i].Port {
+			return true, true
+		}
+		if oldSvc.Ports[i].Protocol != newSvc.Ports[i].Protocol {
+			return true, true
+		}
+	}
+
+	return intSvc, extSvc
+}
+
+func (dns *dnsControl) Modified(external bool) int64 {
+	if external {
+		return atomic.LoadInt64(&dns.extModified)
+	}
+	return atomic.LoadInt64(&dns.modified)
 }
 
 // updateModified set dns.modified to the current time.
 func (dns *dnsControl) updateModified() {
 	unix := time.Now().Unix()
 	atomic.StoreInt64(&dns.modified, unix)
+}
+
+// updateExtModified set dns.extModified to the current time.
+func (dns *dnsControl) updateExtModifed() {
+	unix := time.Now().Unix()
+	atomic.StoreInt64(&dns.extModified, unix)
 }
 
 var errObj = errors.New("obj was not of the correct type")

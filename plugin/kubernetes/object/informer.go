@@ -13,7 +13,7 @@ func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.
 	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, indexers)
 
 	cfg := &cache.Config{
-		Queue:            cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, clientState),
+		Queue:            cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState}),
 		ListerWatcher:    lw,
 		ObjectType:       objType,
 		FullResyncPeriod: defaultResyncPeriod,

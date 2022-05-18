@@ -5,6 +5,7 @@
 ## Description
 *bufsize* limits a requester's UDP payload size.
 It prevents IP fragmentation, mitigating certain DNS vulnerabilities.
+This will only affect queries that have an OPT RR.
 
 ## Syntax
 ```txt
@@ -36,4 +37,3 @@ Enable limiting the buffer size as an authoritative nameserver:
 
 ## Considerations
 - Setting 1232 bytes to bufsize may avoid fragmentation on the majority of networks in use today, but it depends on the MTU of the physical network links.
-- For now, if a client does not use EDNS, this plugin adds OPT RR.

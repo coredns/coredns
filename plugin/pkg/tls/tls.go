@@ -7,8 +7,25 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
+
+func setTLSDefaults(ctls *tls.Config) {
+	ctls.MinVersion = tls.VersionTLS12
+	ctls.MaxVersion = tls.VersionTLS13
+	ctls.CipherSuites = []uint16{
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+	}
+}
 
 // NewTLSConfigFromArgs returns a TLS config based upon the passed
 // in list of arguments. Typically these come straight from the
@@ -75,7 +92,10 @@ func NewTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 		return nil, err
 	}
 
-	return &tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: roots}, nil
+	tlsConfig := &tls.Config{Certificates: []tls.Certificate{cert}, RootCAs: roots}
+	setTLSDefaults(tlsConfig)
+
+	return tlsConfig, nil
 }
 
 // NewTLSClientConfig returns a TLS config for a client connection
@@ -86,7 +106,10 @@ func NewTLSClientConfig(caPath string) (*tls.Config, error) {
 		return nil, err
 	}
 
-	return &tls.Config{RootCAs: roots}, nil
+	tlsConfig := &tls.Config{RootCAs: roots}
+	setTLSDefaults(tlsConfig)
+
+	return tlsConfig, nil
 }
 
 func loadRoots(caPath string) (*x509.CertPool, error) {
@@ -95,7 +118,7 @@ func loadRoots(caPath string) (*x509.CertPool, error) {
 	}
 
 	roots := x509.NewCertPool()
-	pem, err := os.ReadFile(caPath)
+	pem, err := os.ReadFile(filepath.Clean(caPath))
 	if err != nil {
 		return nil, fmt.Errorf("error reading %s: %s", caPath, err)
 	}

@@ -2,8 +2,6 @@ package kubernetes
 
 import (
 	"context"
-	"strings"
-	"sync/atomic"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
@@ -24,22 +22,19 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	state.Zone = zone
 
 	var (
-		records []dns.RR
-		extra   []dns.RR
-		err     error
+		records   []dns.RR
+		extra     []dns.RR
+		truncated bool
+		err       error
 	)
-
-	if wildQuestion(state.Name()) {
-		atomic.AddUint64(&wildCount, 1)
-	}
 
 	switch state.QType() {
 	case dns.TypeA:
-		records, err = plugin.A(ctx, &k, zone, state, nil, plugin.Options{})
+		records, truncated, err = plugin.A(ctx, &k, zone, state, nil, plugin.Options{})
 	case dns.TypeAAAA:
-		records, err = plugin.AAAA(ctx, &k, zone, state, nil, plugin.Options{})
+		records, truncated, err = plugin.AAAA(ctx, &k, zone, state, nil, plugin.Options{})
 	case dns.TypeTXT:
-		records, err = plugin.TXT(ctx, &k, zone, state, nil, plugin.Options{})
+		records, truncated, err = plugin.TXT(ctx, &k, zone, state, nil, plugin.Options{})
 	case dns.TypeCNAME:
 		records, err = plugin.CNAME(ctx, &k, zone, state, plugin.Options{})
 	case dns.TypePTR:
@@ -64,7 +59,7 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 		// Do a fake A lookup, so we can distinguish between NODATA and NXDOMAIN
 		fake := state.NewWithQuestion(state.QName(), dns.TypeA)
 		fake.Zone = state.Zone
-		_, err = plugin.A(ctx, &k, zone, fake, nil, plugin.Options{})
+		_, _, err = plugin.A(ctx, &k, zone, fake, nil, plugin.Options{})
 	}
 
 	if k.IsNameError(err) {
@@ -87,16 +82,12 @@ func (k Kubernetes) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 
 	m := new(dns.Msg)
 	m.SetReply(r)
+	m.Truncated = truncated
 	m.Authoritative = true
 	m.Answer = append(m.Answer, records...)
 	m.Extra = append(m.Extra, extra...)
 	w.WriteMsg(m)
-
 	return dns.RcodeSuccess, nil
-}
-
-func wildQuestion(name string) bool {
-	return strings.HasPrefix(name, "*.") || strings.HasPrefix(name, "any.") || strings.Contains(name, ".*.") || strings.Contains(name, ".any.")
 }
 
 // Name implements the Handler interface.

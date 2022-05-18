@@ -84,10 +84,17 @@ You can exclude some addresses by their IP or interface name (The following will
 
 ## Bugs
 
-When defining more than one server block, take care not to bind more than one server to the same
-address and port. Doing so will result in unpredictable behavior (requests may be randomly
-served by either server). Keep in mind that *without* the *bind* plugin, a server will bind to all
-interfaces, and this will collide with another server if it's using *bind* to listen to an interface
+### Avoiding Listener Contention
+
+TL;DR, When adding the _bind_ plugin to a server block, it must also be added to all other server blocks that listen on the same port.
+
+When more than one server block is configured to listen to a common port, those server blocks must either
+all use the _bind_ plugin, or all use default binding (no _bind_ plugin).  Note that "port" here refers the TCP/UDP port that
+a server block is configured to serve (default 53) - not a network interface. For two server blocks listening on the same port,
+if one uses the bind plugin and the other does not, two separate listeners will be created that will contend for serving
+packets destined to the same address.  Doing so will result in unpredictable behavior (requests may be randomly
+served by either server). This happens because *without* the *bind* plugin, a server will bind to all
+interfaces, and this will collide with another server if it's using *bind* to listen to an address
 on the same port. For example, the following creates two servers that both listen on 127.0.0.1:53,
 which would result in unpredictable behavior for queries in `a.bad.example.com`:
 

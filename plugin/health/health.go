@@ -2,6 +2,7 @@
 package health
 
 import (
+	"context"
 	"io"
 	"net"
 	"net/http"
@@ -22,14 +23,13 @@ type health struct {
 	nlSetup bool
 	mux     *http.ServeMux
 
-	stop chan bool
+	stop context.CancelFunc
 }
 
 func (h *health) OnStartup() error {
 	if h.Addr == "" {
 		h.Addr = ":8080"
 	}
-	h.stop = make(chan bool)
 	ln, err := reuseport.Listen("tcp", h.Addr)
 	if err != nil {
 		return err
@@ -45,8 +45,11 @@ func (h *health) OnStartup() error {
 		io.WriteString(w, http.StatusText(http.StatusOK))
 	})
 
+	ctx := context.Background()
+	ctx, h.stop = context.WithCancel(ctx)
+
 	go func() { http.Serve(h.ln, h.mux) }()
-	go func() { h.overloaded() }()
+	go func() { h.overloaded(ctx) }()
 
 	return nil
 }
@@ -61,9 +64,9 @@ func (h *health) OnFinalShutdown() error {
 		time.Sleep(h.lameduck)
 	}
 
-	h.ln.Close()
+	h.stop()
 
+	h.ln.Close()
 	h.nlSetup = false
-	close(h.stop)
 	return nil
 }

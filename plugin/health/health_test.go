@@ -9,7 +9,7 @@ import (
 )
 
 func TestHealth(t *testing.T) {
-	h := &health{Addr: ":0", stop: make(chan bool)}
+	h := &health{Addr: ":0"}
 
 	if err := h.OnStartup(); err != nil {
 		t.Fatalf("Unable to startup the health server: %v", err)
@@ -37,7 +37,7 @@ func TestHealth(t *testing.T) {
 }
 
 func TestHealthLameduck(t *testing.T) {
-	h := &health{Addr: ":0", stop: make(chan bool), lameduck: 250 * time.Millisecond}
+	h := &health{Addr: ":0", lameduck: 250 * time.Millisecond}
 
 	if err := h.OnStartup(); err != nil {
 		t.Fatalf("Unable to startup the health server: %v", err)

@@ -20,8 +20,9 @@ var log = clog.NewWithPlugin(pluginName)
 // GeoIP is a plugin that add geo location data to the request context by looking up a maxmind
 // geoIP2 database, and which data can be later consumed by other middlewares.
 type GeoIP struct {
-	Next plugin.Handler
-	db   db
+	Next  plugin.Handler
+	db    db
+	edns0 bool
 }
 
 type db struct {
@@ -37,7 +38,7 @@ const (
 
 var probingIP = net.ParseIP("127.0.0.1")
 
-func newGeoIP(dbPath string) (*GeoIP, error) {
+func newGeoIP(dbPath string, edns0 bool) (*GeoIP, error) {
 	reader, err := geoip2.Open(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database file: %v", err)
@@ -66,7 +67,7 @@ func newGeoIP(dbPath string) (*GeoIP, error) {
 		return nil, fmt.Errorf("database does not provide city schema")
 	}
 
-	return &GeoIP{db: db}, nil
+	return &GeoIP{db: db, edns0: edns0}, nil
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -78,6 +79,17 @@ func (g GeoIP) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // the data associated with the source IP of every request.
 func (g GeoIP) Metadata(ctx context.Context, state request.Request) context.Context {
 	srcIP := net.ParseIP(state.IP())
+
+	if g.edns0 {
+		if o := state.Req.IsEdns0(); o != nil {
+			for _, s := range o.Option {
+				if e, ok := s.(*dns.EDNS0_SUBNET); ok {
+					srcIP = e.Address
+					break
+				}
+			}
+		}
+	}
 
 	switch {
 	case g.db.provides&city == city:

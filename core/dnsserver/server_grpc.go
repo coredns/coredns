@@ -22,6 +22,7 @@ import (
 // ServergRPC represents an instance of a DNS-over-gRPC server.
 type ServergRPC struct {
 	*Server
+	*pb.UnimplementedDnsServiceServer
 	grpcServer *grpc.Server
 	listenAddr net.Addr
 	tlsConfig  *tls.Config

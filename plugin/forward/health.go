@@ -16,12 +16,16 @@ type HealthChecker interface {
 	SetTLSConfig(*tls.Config)
 	SetRecursionDesired(bool)
 	GetRecursionDesired() bool
+	SetDomain(domain string)
+	GetDomain() string
+	SetTCPTransport()
 }
 
 // dnsHc is a health checker for a DNS endpoint (DNS, and DoT).
 type dnsHc struct {
 	c                *dns.Client
 	recursionDesired bool
+	domain           string
 }
 
 var (
@@ -30,7 +34,7 @@ var (
 )
 
 // NewHealthChecker returns a new HealthChecker based on transport.
-func NewHealthChecker(trans string, recursionDesired bool) HealthChecker {
+func NewHealthChecker(trans string, recursionDesired bool, domain string) HealthChecker {
 	switch trans {
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
@@ -38,7 +42,7 @@ func NewHealthChecker(trans string, recursionDesired bool) HealthChecker {
 		c.ReadTimeout = hcReadTimeout
 		c.WriteTimeout = hcWriteTimeout
 
-		return &dnsHc{c: c, recursionDesired: recursionDesired}
+		return &dnsHc{c: c, recursionDesired: recursionDesired, domain: domain}
 	}
 
 	log.Warningf("No healthchecker for transport %q", trans)
@@ -55,6 +59,17 @@ func (h *dnsHc) SetRecursionDesired(recursionDesired bool) {
 }
 func (h *dnsHc) GetRecursionDesired() bool {
 	return h.recursionDesired
+}
+
+func (h *dnsHc) SetDomain(domain string) {
+	h.domain = domain
+}
+func (h *dnsHc) GetDomain() string {
+	return h.domain
+}
+
+func (h *dnsHc) SetTCPTransport() {
+	h.c.Net = "tcp"
 }
 
 // For HC we send to . IN NS +[no]rec message to the upstream. Dial timeouts and empty
@@ -75,7 +90,7 @@ func (h *dnsHc) Check(p *Proxy) error {
 
 func (h *dnsHc) send(addr string) error {
 	ping := new(dns.Msg)
-	ping.SetQuestion(".", dns.TypeNS)
+	ping.SetQuestion(h.domain, dns.TypeNS)
 	ping.MsgHdr.RecursionDesired = h.recursionDesired
 
 	m, _, err := h.c.Exchange(ping, addr)

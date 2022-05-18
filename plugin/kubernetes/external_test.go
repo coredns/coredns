@@ -32,9 +32,6 @@ var extCases = []struct {
 		},
 	},
 	{
-		Qname: "*._not-udp-or-tcp.svc1.testns.example.com.", Rcode: dns.RcodeSuccess,
-	},
-	{
 		Qname: "_http._tcp.svc1.testns.example.com.", Rcode: dns.RcodeSuccess,
 		Msg: []msg.Service{
 			{Host: "1.2.3.4", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc1"},
@@ -83,7 +80,7 @@ func (external) Run()                                                           
 func (external) Stop() error                                                       { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints                         { return nil }
 func (external) SvcIndexReverse(string) []*object.Service                          { return nil }
-func (external) Modified() int64                                                   { return 0 }
+func (external) Modified(bool) int64                                               { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints                              { return nil }
 func (external) EndpointsList() []*object.Endpoints                                { return nil }
 func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }

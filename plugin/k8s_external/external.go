@@ -29,9 +29,13 @@ type Externaler interface {
 	External(request.Request) ([]msg.Service, int)
 	// ExternalAddress should return a string slice of addresses for the nameserving endpoint.
 	ExternalAddress(state request.Request) []dns.RR
+	// ExternalServices returns all services in the given zone as a slice of msg.Service.
+	ExternalServices(zone string) []msg.Service
+	// ExternalSerial gets the current serial.
+	ExternalSerial(string) uint32
 }
 
-// External resolves Ingress and Loadbalance IPs from kubernetes clusters.
+// External serves records for External IPs and Loadbalance IPs of Services in Kubernetes clusters.
 type External struct {
 	Next  plugin.Handler
 	Zones []string
@@ -42,8 +46,10 @@ type External struct {
 
 	upstream *upstream.Upstream
 
-	externalFunc     func(request.Request) ([]msg.Service, int)
-	externalAddrFunc func(request.Request) []dns.RR
+	externalFunc         func(request.Request) ([]msg.Service, int)
+	externalAddrFunc     func(request.Request) []dns.RR
+	externalSerialFunc   func(string) uint32
+	externalServicesFunc func(string) []msg.Service
 }
 
 // New returns a new and initialized *External.
@@ -83,6 +89,7 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 	m := new(dns.Msg)
 	m.SetReply(state.Req)
+	m.Authoritative = true
 
 	if len(svc) == 0 {
 		m.Rcode = rcode
@@ -93,9 +100,9 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 	switch state.QType() {
 	case dns.TypeA:
-		m.Answer = e.a(ctx, svc, state)
+		m.Answer, m.Truncated = e.a(ctx, svc, state)
 	case dns.TypeAAAA:
-		m.Answer = e.aaaa(ctx, svc, state)
+		m.Answer, m.Truncated = e.aaaa(ctx, svc, state)
 	case dns.TypeSRV:
 		m.Answer, m.Extra = e.srv(ctx, svc, state)
 	default:

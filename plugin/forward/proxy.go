@@ -29,7 +29,7 @@ func NewProxy(addr, trans string) *Proxy {
 		probe:     up.New(),
 		transport: newTransport(addr),
 	}
-	p.health = NewHealthChecker(trans, true)
+	p.health = NewHealthChecker(trans, true, ".")
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
 }

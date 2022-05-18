@@ -56,7 +56,11 @@ func parseStanza(c *caddy.Controller) (*GRPC, error) {
 	if !c.Args(&g.from) {
 		return g, c.ArgErr()
 	}
-	g.from = plugin.Host(g.from).NormalizeExact()[0] // only the first is used.
+	normalized := plugin.Host(g.from).NormalizeExact()
+	if len(normalized) == 0 {
+		return g, fmt.Errorf("unable to normalize '%s'", g.from)
+	}
+	g.from = normalized[0] // only the first is used.
 
 	to := c.RemainingArgs()
 	if len(to) == 0 {

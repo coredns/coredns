@@ -38,18 +38,6 @@ func parseRequest(name, zone string) (r recordRequest, err error) {
 	}
 	segs := dns.SplitDomainName(base)
 
-	r.port = "*"
-	r.protocol = "*"
-	// for r.name, r.namespace and r.endpoint, we need to know if they have been set or not...
-	// For endpoint: if empty we should skip the endpoint check in k.get(). Hence we cannot set if to "*".
-	// For name: myns.svc.cluster.local != *.myns.svc.cluster.local
-	// For namespace: svc.cluster.local != *.svc.cluster.local
-
-	// start at the right and fill out recordRequest with the bits we find, so we look for
-	// pod|svc.namespace.service and then either
-	// * endpoint
-	// *_protocol._port
-
 	last := len(segs) - 1
 	if last < 0 {
 		return r, nil
@@ -94,6 +82,9 @@ func parseRequest(name, zone string) (r recordRequest, err error) {
 
 // stripUnderscore removes a prefixed underscore from s.
 func stripUnderscore(s string) string {
+	if len(s) == 0 {
+		return s
+	}
 	if s[0] != '_' {
 		return s
 	}

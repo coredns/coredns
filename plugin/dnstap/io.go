@@ -25,7 +25,6 @@ type tapper interface {
 type dio struct {
 	endpoint     string
 	proto        string
-	conn         net.Conn
 	enc          *encoder
 	queue        chan tap.Dnstap
 	dropped      uint32
@@ -92,8 +91,10 @@ func (d *dio) write(payload *tap.Dnstap) error {
 }
 
 func (d *dio) serve() {
-	timeout := time.After(d.flushTimeout)
+	timeout := time.NewTimer(d.flushTimeout)
+	defer timeout.Stop()
 	for {
+		timeout.Reset(d.flushTimeout)
 		select {
 		case <-d.quit:
 			if d.enc == nil {
@@ -106,7 +107,7 @@ func (d *dio) serve() {
 			if err := d.write(&payload); err != nil {
 				d.dial()
 			}
-		case <-timeout:
+		case <-timeout.C:
 			if dropped := atomic.SwapUint32(&d.dropped, 0); dropped > 0 {
 				log.Warningf("Dropped dnstap messages: %d", dropped)
 			}
@@ -115,7 +116,6 @@ func (d *dio) serve() {
 			} else {
 				d.enc.flush()
 			}
-			timeout = time.After(d.flushTimeout)
 		}
 	}
 }

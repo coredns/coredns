@@ -10,7 +10,7 @@ This plugin allows automatic reload of a changed _Corefile_.
 To enable automatic reloading of _zone file_ changes, use the `auto` plugin.
 
 This plugin periodically checks if the Corefile has changed by reading
-it and calculating its MD5 checksum. If the file has changed, it reloads
+it and calculating its SHA512 checksum. If the file has changed, it reloads
 CoreDNS with the new Corefile. This eliminates the need to send a SIGHUP
 or SIGUSR1 after changing the Corefile.
 
@@ -101,7 +101,7 @@ CoreDNS v1.7.0 and later does parse the Corefile and supports detecting changes 
 * `coredns_reload_failed_total{}` - counts the number of failed reload attempts.
 * `coredns_reload_version_info{hash, value}` - record the hash value during reload.
 
-Currently the type of `hash` is "md5", the `value` is the returned hash value.
+Currently the type of `hash` is "sha512", the `value` is the returned hash value.
 
 ## See Also
 

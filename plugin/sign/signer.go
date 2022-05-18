@@ -111,7 +111,7 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 // resign checks if the signed zone exists, or needs resigning.
 func (s *Signer) resign() error {
 	signedfile := filepath.Join(s.directory, s.signedfile)
-	rd, err := os.Open(signedfile)
+	rd, err := os.Open(filepath.Clean(signedfile))
 	if err != nil && os.IsNotExist(err) {
 		return err
 	}

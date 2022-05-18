@@ -35,19 +35,29 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	ttl := 0
 	i := c.getIgnoreTTL(now, state, server)
-	if i != nil {
-		ttl = i.ttl(now)
-	}
 	if i == nil {
 		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
 		return c.doRefresh(ctx, state, crr)
 	}
+	ttl = i.ttl(now)
 	if ttl < 0 {
-		servedStale.WithLabelValues(server).Inc()
+		// serve stale behavior
+		if c.verifyStale {
+			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
+			cw := newVerifyStaleResponseWriter(crr)
+			ret, err := c.doRefresh(ctx, state, cw)
+			if cw.refreshed {
+				return ret, err
+			}
+		}
+
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
-		cw := newPrefetchResponseWriter(server, state, c)
-		go c.doPrefetch(ctx, state, cw, i, now)
+		if !c.verifyStale {
+			cw := newPrefetchResponseWriter(server, state, c)
+			go c.doPrefetch(ctx, state, cw, i, now)
+		}
+		servedStale.WithLabelValues(server, c.zonesMetricLabel).Inc()
 	} else if c.shouldPrefetch(i, now) {
 		cw := newPrefetchResponseWriter(server, state, c)
 		go c.doPrefetch(ctx, state, cw, i, now)
@@ -59,7 +69,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 }
 
 func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time) {
-	cachePrefetches.WithLabelValues(cw.server).Inc()
+	cachePrefetches.WithLabelValues(cw.server, c.zonesMetricLabel).Inc()
 	c.doRefresh(ctx, state, cw)
 
 	// When prefetching we loose the item i, and with it the frequency
@@ -70,7 +80,7 @@ func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *Respo
 	}
 }
 
-func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw *ResponseWriter) (int, error) {
+func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw dns.ResponseWriter) (int, error) {
 	if !state.Do() {
 		setDo(state.Req)
 	}
@@ -89,43 +99,28 @@ func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 // Name implements the Handler interface.
 func (c *Cache) Name() string { return "cache" }
 
-func (c *Cache) get(now time.Time, state request.Request, server string) (*item, bool) {
-	k := hash(state.Name(), state.QType())
-	cacheRequests.WithLabelValues(server).Inc()
-
-	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Denial).Inc()
-		return i.(*item), true
-	}
-
-	if i, ok := c.pcache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Success).Inc()
-		return i.(*item), true
-	}
-	cacheMisses.WithLabelValues(server).Inc()
-	return nil, false
-}
-
 // getIgnoreTTL unconditionally returns an item if it exists in the cache.
 func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
 	k := hash(state.Name(), state.QType())
-	cacheRequests.WithLabelValues(server).Inc()
+	cacheRequests.WithLabelValues(server, c.zonesMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok {
-		ttl := i.(*item).ttl(now)
-		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
-			cacheHits.WithLabelValues(server, Denial).Inc()
+		itm := i.(*item)
+		ttl := itm.ttl(now)
+		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel).Inc()
 			return i.(*item)
 		}
 	}
 	if i, ok := c.pcache.Get(k); ok {
-		ttl := i.(*item).ttl(now)
-		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
-			cacheHits.WithLabelValues(server, Success).Inc()
+		itm := i.(*item)
+		ttl := itm.ttl(now)
+		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel).Inc()
 			return i.(*item)
 		}
 	}
-	cacheMisses.WithLabelValues(server).Inc()
+	cacheMisses.WithLabelValues(server, c.zonesMetricLabel).Inc()
 	return nil
 }
 

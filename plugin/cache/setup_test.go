@@ -117,20 +117,25 @@ func TestSetup(t *testing.T) {
 
 func TestServeStale(t *testing.T) {
 	tests := []struct {
-		input     string
-		shouldErr bool
-		staleUpTo time.Duration
+		input       string
+		shouldErr   bool
+		staleUpTo   time.Duration
+		verifyStale bool
 	}{
-		{"serve_stale", false, 1 * time.Hour},
-		{"serve_stale 20m", false, 20 * time.Minute},
-		{"serve_stale 1h20m", false, 80 * time.Minute},
-		{"serve_stale 0m", false, 0},
-		{"serve_stale 0", false, 0},
+		{"serve_stale", false, 1 * time.Hour, false},
+		{"serve_stale 20m", false, 20 * time.Minute, false},
+		{"serve_stale 1h20m", false, 80 * time.Minute, false},
+		{"serve_stale 0m", false, 0, false},
+		{"serve_stale 0", false, 0, false},
+		{"serve_stale 0 verify", false, 0, true},
+		{"serve_stale 0 immediate", false, 0, false},
+		{"serve_stale 0 VERIFY", false, 0, true},
 		// fails
-		{"serve_stale 20", true, 0},
-		{"serve_stale -20m", true, 0},
-		{"serve_stale aa", true, 0},
-		{"serve_stale 1m nono", true, 0},
+		{"serve_stale 20", true, 0, false},
+		{"serve_stale -20m", true, 0, false},
+		{"serve_stale aa", true, 0, false},
+		{"serve_stale 1m nono", true, 0, false},
+		{"serve_stale 0 after nono", true, 0, false},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", test.input))

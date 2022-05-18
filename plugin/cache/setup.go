@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -165,11 +166,11 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 
 			case "serve_stale":
 				args := c.RemainingArgs()
-				if len(args) > 1 {
+				if len(args) > 2 {
 					return nil, c.ArgErr()
 				}
 				ca.staleUpTo = 1 * time.Hour
-				if len(args) == 1 {
+				if len(args) > 0 {
 					d, err := time.ParseDuration(args[0])
 					if err != nil {
 						return nil, err
@@ -179,12 +180,21 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					}
 					ca.staleUpTo = d
 				}
+				ca.verifyStale = false
+				if len(args) > 1 {
+					mode := strings.ToLower(args[1])
+					if mode != "immediate" && mode != "verify" {
+						return nil, fmt.Errorf("invalid value for serve_stale refresh mode: %s", mode)
+					}
+					ca.verifyStale = mode == "verify"
+				}
 			default:
 				return nil, c.ArgErr()
 			}
 		}
 
 		ca.Zones = origins
+		ca.zonesMetricLabel = strings.Join(origins, ",")
 		ca.pcache = cache.New(ca.pcap)
 		ca.ncache = cache.New(ca.ncap)
 	}

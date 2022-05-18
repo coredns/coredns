@@ -298,18 +298,19 @@ func newNameRule(nextAction string, args ...string) (Rule, error) {
 		return nil, fmt.Errorf("too few arguments for a name rule")
 	}
 	if len(args) == 2 {
-		matchType = "exact"
+		matchType = ExactMatch
 		rewriteQuestionFrom = plugin.Name(args[0]).Normalize()
 		rewriteQuestionTo = plugin.Name(args[1]).Normalize()
 	}
 	if len(args) >= 3 {
 		matchType = strings.ToLower(args[0])
-		rewriteQuestionFrom = plugin.Name(args[1]).Normalize()
-		rewriteQuestionTo = plugin.Name(args[2]).Normalize()
-	}
-	if matchType == RegexMatch {
-		rewriteQuestionFrom = args[1]
-		rewriteQuestionTo = args[2]
+		if matchType == RegexMatch {
+			rewriteQuestionFrom = args[1]
+			rewriteQuestionTo = args[2]
+		} else {
+			rewriteQuestionFrom = plugin.Name(args[1]).Normalize()
+			rewriteQuestionTo = plugin.Name(args[2]).Normalize()
+		}
 	}
 	if matchType == ExactMatch || matchType == SuffixMatch {
 		if !hasClosingDot(rewriteQuestionFrom) {

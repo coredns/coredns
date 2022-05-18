@@ -230,7 +230,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 				nsec := typeFromElem(wildElem, dns.TypeNSEC, do)
 				ret = append(ret, nsec...)
 			}
-			return nil, ret, nil, Success
+			return nil, ret, nil, NoData
 		}
 
 		if do {
@@ -366,7 +366,7 @@ Redo:
 		goto Redo
 	}
 
-	targets := rrutil.CNAMEForType(elem.All(), qtype)
+	targets := elem.Type(qtype)
 	if len(targets) > 0 {
 		rrs = append(rrs, targets...)
 

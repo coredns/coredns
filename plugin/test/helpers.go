@@ -82,6 +82,9 @@ func PTR(rr string) *dns.PTR { r, _ := dns.NewRR(rr); return r.(*dns.PTR) }
 // TXT returns a TXT record from rr. It panics on errors.
 func TXT(rr string) *dns.TXT { r, _ := dns.NewRR(rr); return r.(*dns.TXT) }
 
+// CAA returns a CAA record from rr. It panics on errors.
+func CAA(rr string) *dns.CAA { r, _ := dns.NewRR(rr); return r.(*dns.CAA) }
+
 // HINFO returns a HINFO record from rr. It panics on errors.
 func HINFO(rr string) *dns.HINFO { r, _ := dns.NewRR(rr); return r.(*dns.HINFO) }
 

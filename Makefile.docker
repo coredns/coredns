@@ -21,6 +21,9 @@
 ifeq (, $(shell which curl))
     $(error "No curl in $$PATH, please install")
 endif
+ifeq (, $(shell which jq))
+    $(error "No jq in $$PATH, please install")
+endif
 
 # VERSION is the version we should download and use.
 VERSION:=
@@ -31,8 +34,7 @@ GITHUB:=https://github.com/coredns/coredns/releases/download
 # mips is not in LINUX_ARCH because it's not supported by docker manifest. Keep this list in sync with the one in Makefile.release
 LINUX_ARCH:=amd64 arm arm64 mips64le ppc64le s390x
 DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
-DOCKER_IMAGE_LIST_VERSIONED:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:$(VERSION)~g")
-DOCKER_IMAGE_LIST_LATEST:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME)\-&:latest~g")
+DOCKER_IMAGE_LIST_VERSIONED:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME):&\-$(VERSION)~g")
 
 all:
 	@echo Use the 'release' target to download released binaries and build containers per arch, 'docker-push' to build and push a multi arch manifest.
@@ -47,6 +49,21 @@ ifeq ($(VERSION),)
 	$(error "Please specify a version use. Use VERSION=<version>")
 endif
 
+	@# 0. Check until all asset are alive, up to 10 min (asset may not be alive immediately after upload)
+	try_max=20; try_sleep=30; \
+	for arch in $(LINUX_ARCH); do \
+		asset=coredns_$(VERSION)_linux_$${arch}.tgz; \
+		for i in $$(seq 1 $$try_max ); do \
+			if [ $$(curl -I -L -s -o /dev/null -w "%{http_code}" $(GITHUB)/v$(VERSION)/$$asset) -eq 200 ]; then \
+				echo "$$asset is live" ; break; \
+			else  \
+				echo "$$asset is not live yet..." ; sleep $$try_sleep ; \
+			fi ; \
+		done ; \
+		if [ $$i -eq $$try_max ]; then \
+			echo "$$asset is not live after $$try_max tries" ; exit 1; \
+		fi ; \
+	done
 	@rm -rf build/docker
 	@mkdir -p build/docker
 	@# 1. Copy appropriate coredns binary to build/docker/<arch>
@@ -66,8 +83,7 @@ ifeq ($(DOCKER),)
 else
 	docker version
 	for arch in $(LINUX_ARCH); do \
-	    docker build -t $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) build/docker/$${arch}  && \
-	    docker tag $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
+	    docker build -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) build/docker/$${arch} ;\
 	done
 endif
 
@@ -82,15 +98,18 @@ else
 	@echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_LOGIN) --password-stdin
 	@echo Pushing: $(VERSION) to $(DOCKER_IMAGE_NAME)
 	for arch in $(LINUX_ARCH); do \
-		docker push $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) ;\
-		docker push $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
+		docker push $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) ;\
 	done
 	docker manifest create --amend $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_LIST_VERSIONED)
-	docker manifest create --amend $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_LIST_LATEST)
+	docker manifest create --amend $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_LIST_VERSIONED)
 	for arch in $(LINUX_ARCH); do \
-		docker manifest annotate --arch $${arch} $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_NAME)-$${arch}:$(VERSION) ;\
-		docker manifest annotate --arch $${arch} $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_NAME)-$${arch}:latest ;\
+		docker manifest annotate --arch $${arch} $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) ;\
+		docker manifest annotate --arch $${arch} $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) ;\
 	done
 	docker manifest push --purge $(DOCKER_IMAGE_NAME):$(VERSION)
 	docker manifest push --purge $(DOCKER_IMAGE_NAME):latest
+	TOKEN=$$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\":\"$(DOCKER_LOGIN)\",\"password\":\"$(DOCKER_PASSWORD)\"}" "https://hub.docker.com/v2/users/login/" | jq -r .token) ; \
+	for arch in $(LINUX_ARCH); do \
+		curl -X DELETE -H "Authorization: JWT $${TOKEN}" "https://hub.docker.com/v2/repositories/$(DOCKER_IMAGE_NAME)/tags/$${arch}-$(VERSION)/" ;\
+	done
 endif

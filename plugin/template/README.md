@@ -17,22 +17,24 @@ template CLASS TYPE [ZONE...] {
     additional RR
     authority RR
     rcode CODE
-    fallthrough [ZONE...]
+    fallthrough [FALLTHROUGH-ZONE...]
 }
 ~~~
 
 * **CLASS** the query class (usually IN or ANY).
 * **TYPE** the query type (A, PTR, ... can be ANY to match all types).
 * **ZONE** the zone scope(s) for this template. Defaults to the server zones.
-* **REGEX** [Go regexp](https://golang.org/pkg/regexp/) that are matched against the incoming question name. Specifying no regex matches everything (default: `.*`). First matching regex wins.
+* `match` **REGEX** [Go regexp](https://golang.org/pkg/regexp/) that are matched against the incoming question name.
+  Specifying no regex matches everything (default: `.*`). First matching regex wins.
 * `answer|additional|authority` **RR** A [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) style resource record fragment
-  built by a [Go template](https://golang.org/pkg/text/template/) that contains the reply.
-* `rcode` **CODE** A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `SUCCESS`.
-* `fallthrough` Continue with the next plugin if the zone matched but no regex matched.
-  If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only queries for
-  those zones will be subject to fallthrough.
-
-At least one `answer` or `rcode` directive is needed (e.g. `rcode NXDOMAIN`).
+  built by a [Go template](https://golang.org/pkg/text/template/) that contains the reply. Specifying no answer will result
+  in a response with an empty answer section.
+* `rcode` **CODE** A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `NOERROR`. Valid response code values are
+  per the `RcodeToString` map defined by the `miekg/dns` package in `msg.go`.
+* `fallthrough` Continue with the next _template_ instance if the _template_'s **ZONE** matches a query name but no regex match.
+  If there is no next _template_, continue resolution with the next plugin. If **[FALLTHROUGH-ZONE...]** are listed (for example
+  `in-addr.arpa` and `ip6.arpa`), then only queries for those zones will be subject to fallthrough. Without
+  `fallthrough`, when the _template_'s **ZONE** matches a query but no regex match then a `SERVFAIL` response is returned.
 
 [Also see](#also-see) contains an additional reading list.
 
