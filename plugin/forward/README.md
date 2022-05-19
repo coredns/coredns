@@ -103,7 +103,7 @@ Also note the TLS config is "global" for the whole forwarding proxy if you need 
 
 On each endpoint, the timeouts for communication are set as follows:
 
-* The dial timeout by default is 30s, and can decrease automatically down to 100ms based on early results.
+* The dial timeout by default is 30s, and can decrease automatically down to 1s based on early results.
 * The read timeout is static at 2s.
 
 ## Metadata
