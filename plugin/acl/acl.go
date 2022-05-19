@@ -8,11 +8,12 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
-	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
 	"github.com/infobloxopen/go-trees/iptree"
 	"github.com/miekg/dns"
+
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 )
 
 // ACL enforces access control policies on DNS queries.
@@ -51,6 +52,8 @@ const (
 	// actionFilter returns empty sets for queries towards protected DNS zones.
 	actionFilter
 )
+
+var log = clog.NewWithPlugin("acl")
 
 // ServeDNS implements the plugin.Handler interface.
 func (a ACL) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -109,7 +112,7 @@ func matchWithPolicies(policies []policy, w dns.ResponseWriter, r *dns.Msg) acti
 	// if the parsing did not return a proper response then we simply return 'actionBlock' to
 	// block the query
 	if ip == nil {
-		log.Errorf("ParseIP failed for ip address: %v", state.IP())
+		log.Errorf("Blocking request. Unable to parse source address: %v", state.IP())
 		return actionBlock
 	}
 	qtype := state.QType()
