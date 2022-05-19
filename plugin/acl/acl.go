@@ -102,7 +102,7 @@ RulesCheckLoop:
 func matchWithPolicies(policies []policy, w dns.ResponseWriter, r *dns.Msg) action {
 	state := request.Request{W: w, Req: r}
 
-	ip := []byte(nil)
+	var ip net.IP
 	if idx := strings.IndexByte(state.IP(), '%'); idx >= 0 {
 		ip = net.ParseIP(state.IP()[:idx])
 	} else {
