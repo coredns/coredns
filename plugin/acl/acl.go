@@ -3,17 +3,15 @@ package acl
 import (
 	"context"
 	"net"
-
 	"strings"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
 	"github.com/infobloxopen/go-trees/iptree"
 	"github.com/miekg/dns"
-
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 )
 
 // ACL enforces access control policies on DNS queries.
