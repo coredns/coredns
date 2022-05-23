@@ -56,7 +56,7 @@ cache [TTL] [ZONES...] {
   Note the percent sign is mandatory. **PERCENTAGE** is treated as an `int`.
 * `serve_stale`, when serve\_stale is set, cache will always serve an expired entry to a client if there is one
   available as long as it has not been expired for longer than **DURATION** (default 1 hour). By default, the _cache_ plugin will
-  attempt to refresh the cache entry after sending the expired cache entry to the client. The 
+  attempt to refresh the cache entry after sending the expired cache entry to the client. The
   responses have a TTL of 0. **REFRESH_MODE** controls the timing of the expired cache entry refresh.
   `verified` will first verify that an entry is still unavailable from the source before sending the expired entry to the client.
   `immediate` will immediately send the expired response to the client before
