@@ -13,9 +13,12 @@ import (
 
 // overloaded queries the health end point and updates a metrics showing how long it took.
 func (h *health) overloaded(ctx context.Context) {
+	bypassProxy := http.DefaultTransport
+	bypassProxy.(*http.Transport).Proxy = nil
 	timeout := 3 * time.Second
 	client := http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
+		Transport: bypassProxy,
 	}
 
 	url := "http://" + h.Addr + "/health"
