@@ -16,7 +16,7 @@ func TestErrorsParse(t *testing.T) {
 		inputErrorsRules        string
 		shouldErr               bool
 		optCount                int
-		panicRecoveryStacktrace bool
+		stacktrace bool
 	}{
 		{`errors`, false, 0, false},
 		{`errors stdout`, false, 0, false},
@@ -46,10 +46,10 @@ func TestErrorsParse(t *testing.T) {
 		    consolidate 1m ())
 		  }`, true, 0, false},
 		{`errors {
-            panicRecoveryStacktrace
+            stacktrace
 		  }`, false, 0, true},
 		{`errors {
-            panicRecoveryStacktrace
+            stacktrace
 		    consolidate 1m ^exact$
 		  }`, false, 1, true},
 		{`errors {
@@ -78,9 +78,9 @@ func TestErrorsParse(t *testing.T) {
 			t.Errorf("Test %d: pattern count mismatch, expected %d, got %d",
 				i, test.optCount, len(h.patterns))
 		}
-		if dnsserver.GetConfig(c).Stacktrace != test.panicRecoveryStacktrace {
-			t.Errorf("Test %d: panicRecoveryStacktrace, expected %t, got %t",
-				i, test.panicRecoveryStacktrace, dnsserver.GetConfig(c).Stacktrace)
+		if dnsserver.GetConfig(c).Stacktrace != test.stacktrace {
+			t.Errorf("Test %d: stacktrace, expected %t, got %t",
+				i, test.stacktrace, dnsserver.GetConfig(c).Stacktrace)
 		}
 	}
 }

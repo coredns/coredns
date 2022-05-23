@@ -53,7 +53,7 @@ func errorsParse(c *caddy.Controller) (*errorHandler, error) {
 
 		for c.NextBlock() {
 			switch c.Val() {
-			case "panicRecoveryStacktrace":
+			case "stacktrace":
 				dnsserver.GetConfig(c).Stacktrace = true
 			case "consolidate":
 				pattern, err := parseConsolidate(c)
