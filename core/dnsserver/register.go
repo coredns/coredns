@@ -154,6 +154,7 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 		c.Plugin = c.firstConfigInBlock.Plugin
 		c.ListenHosts = c.firstConfigInBlock.ListenHosts
 		c.Debug = c.firstConfigInBlock.Debug
+		c.Stacktrace = c.firstConfigInBlock.Stacktrace
 		c.TLSConfig = c.firstConfigInBlock.TLSConfig
 	}
 

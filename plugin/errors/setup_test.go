@@ -7,55 +7,64 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 )
 
 func TestErrorsParse(t *testing.T) {
 	tests := []struct {
-		inputErrorsRules string
-		shouldErr        bool
-		optCount         int
+		inputErrorsRules        string
+		shouldErr               bool
+		optCount                int
+		panicRecoveryStacktrace bool
 	}{
-		{`errors`, false, 0},
-		{`errors stdout`, false, 0},
-		{`errors errors.txt`, true, 0},
-		{`errors visible`, true, 0},
-		{`errors { log visible }`, true, 0},
+		{`errors`, false, 0, false},
+		{`errors stdout`, false, 0, false},
+		{`errors errors.txt`, true, 0, false},
+		{`errors visible`, true, 0, false},
+		{`errors { log visible }`, true, 0, false},
 		{`errors
-		  errors `, true, 0},
-		{`errors a b`, true, 0},
+		  errors `, true, 0, false},
+		{`errors a b`, true, 0, false},
 
 		{`errors {
 		    consolidate
-		  }`, true, 0},
+		  }`, true, 0, false},
 		{`errors {
 		    consolidate 1m
-		  }`, true, 0},
+		  }`, true, 0, false},
 		{`errors {
 		    consolidate 1m .* extra
-		  }`, true, 0},
+		  }`, true, 0, false},
 		{`errors {
 		    consolidate abc .*
-		  }`, true, 0},
+		  }`, true, 0, false},
 		{`errors {
 		    consolidate 1 .*
-		  }`, true, 0},
+		  }`, true, 0, false},
 		{`errors {
 		    consolidate 1m ())
-		  }`, true, 0},
+		  }`, true, 0, false},
+		{`errors {
+            panicRecoveryStacktrace
+		  }`, false, 0, true},
+		{`errors {
+            panicRecoveryStacktrace
+		    consolidate 1m ^exact$
+		  }`, false, 1, true},
 		{`errors {
 		    consolidate 1m ^exact$
-		  }`, false, 1},
+		  }`, false, 1, false},
 		{`errors {
 		    consolidate 1m error
-		  }`, false, 1},
+		  }`, false, 1, false},
 		{`errors {
 		    consolidate 1m "format error"
-		  }`, false, 1},
+		  }`, false, 1, false},
 		{`errors {
 		    consolidate 1m error1
 		    consolidate 5s error2
-		  }`, false, 2},
+		  }`, false, 2, false},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputErrorsRules)
@@ -68,6 +77,10 @@ func TestErrorsParse(t *testing.T) {
 		} else if h != nil && len(h.patterns) != test.optCount {
 			t.Errorf("Test %d: pattern count mismatch, expected %d, got %d",
 				i, test.optCount, len(h.patterns))
+		}
+		if dnsserver.GetConfig(c).Stacktrace != test.panicRecoveryStacktrace {
+			t.Errorf("Test %d: panicRecoveryStacktrace, expected %t, got %t",
+				i, test.panicRecoveryStacktrace, dnsserver.GetConfig(c).Stacktrace)
 		}
 	}
 }

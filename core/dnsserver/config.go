@@ -28,6 +28,9 @@ type Config struct {
 	// Debug controls the panic/recover mechanism that is enabled by default.
 	Debug bool
 
+	// Stacktrace controls including stacktrace as part of log from recover mechanism, it is disabled by default.
+	Stacktrace bool
+
 	// The transport we implement, normally just "dns" over TCP/UDP, but could be
 	// DNS-over-TLS or DNS-over-gRPC.
 	Transport string

@@ -22,9 +22,12 @@ Extra knobs are available with an expanded syntax:
 
 ~~~
 errors {
+	panicRecoveryStacktrace
 	consolidate DURATION REGEXP [LEVEL]
 }
 ~~~
+
+Option `panicRecoveryStacktrace` enables logging of stacktrace in case of panic recovery.
 
 Option `consolidate` allows collecting several error messages matching the regular expression **REGEXP** during **DURATION**. After the **DURATION** since receiving the first such message, the consolidated message will be printed to standard output with
 log level, which is configurable by optional option **LEVEL**. Supported options for **LEVEL** option are `warning`,`error`,`info` and `debug`.

@@ -42,6 +42,7 @@ type Server struct {
 	graceTimeout time.Duration      // the maximum duration of a graceful shutdown
 	trace        trace.Trace        // the trace plugin for the server
 	debug        bool               // disable recover()
+	stacktrace   bool               // enable stacktrace in recover error log
 	classChaos   bool               // allow non-INET class queries
 }
 
@@ -68,6 +69,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			s.debug = true
 			log.D.Set()
 		}
+		s.stacktrace = site.Stacktrace
 		// set the config per zone
 		s.zones[site.Zone] = site
 
@@ -214,7 +216,11 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			// In case the user doesn't enable error plugin, we still
 			// need to make sure that we stay alive up here
 			if rec := recover(); rec != nil {
-				log.Errorf("Recovered from panic in server: %q %v\n%s", s.Addr, rec, string(debug.Stack()))
+				if s.stacktrace {
+					log.Errorf("Recovered from panic in server: %q %v\n%s", s.Addr, rec, string(debug.Stack()))
+				} else {
+					log.Errorf("Recovered from panic in server: %q %v", s.Addr, rec)
+				}
 				vars.Panic.Inc()
 				errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
 			}
