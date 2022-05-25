@@ -50,7 +50,7 @@ Doing this is supported but both endpoints ":8080" and ":8081" will export the e
 
 If monitoring is enabled (via the *prometheus* plugin) then the following metrics are exported:
 
- * `coredns_health_request_duration_seconds{}` - The *health* plugin performs a self health check 
+ * `coredns_health_request_duration_seconds{}` - The *health* plugin performs a self health check
     once per second on the `/health` endpoint. This metric is the duration to process that request.
     As this is a local operation it should be fast. A (large) increase in this
     duration indicates the CoreDNS process is having trouble keeping up with its query load.
