@@ -59,7 +59,7 @@ cache [TTL] [ZONES...] {
   attempt to refresh the cache entry after sending the expired cache entry to the client. The
   responses have a TTL of 0. **REFRESH_MODE** controls the timing of the expired cache entry refresh.
   `verified` will first verify that an entry is still unavailable from the source before sending the expired entry to the client.
-  `immediate` will immediately send the expired response to the client before
+  `immediate` will immediately send the expired entry to the client before
   checking to see if the entry is available from the source. **REFRESH_MODE** defaults to `immediate`. Setting this
   value to `verified` can lead to increased latency when serving stale responses, but will prevent stale entries
   from ever being served if an updated response can be retrieved from the source.
