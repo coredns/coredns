@@ -7,7 +7,7 @@ date = "2022-05-27T00:00:00+00:00"
 author = "coredns"
 +++
 
-This is a release with a focus on security (CVE-2022-27191 and CVE-2022-28948) fixes. Additional,
+This is a release with a focus on security (CVE-2022-27191 and CVE-2022-28948) fixes. Additionally,
 several feature enhancements and bug fixes have also been added.
 
 ## Brought to You By
