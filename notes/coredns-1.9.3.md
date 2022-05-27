@@ -8,7 +8,7 @@ author = "coredns"
 +++
 
 This is a release with a focus on security (CVE-2022-27191 and CVE-2022-28948) fixes. Additionally,
-several feature enhancements and bug fixes have also been added.
+several feature enhancements and bug fixes have been added.
 
 ## Brought to You By
 
