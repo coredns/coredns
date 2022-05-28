@@ -2,8 +2,15 @@ package dnsserver
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 )
+
+// checkDomainName() returns true if the given domain name follows RFC1035 preferred syntax.
+func checkDomainName(domainName string) bool {
+	matchDomain, _ := regexp.Compile("[A-Za-z0-9-]{1,}\\.[A-Za-z0-9-]{1,}\\.$)|^\\.$")
+	return matchDomain.MatchString(domainName)
+}
 
 // startUpZones creates the text that we show when starting up:
 // grpc://example.com.:1055
@@ -20,6 +27,11 @@ func startUpZones(protocol, addr string, zones map[string]*Config) string {
 	sort.Strings(keys)
 
 	for _, zone := range keys {
+
+		if !checkDomainName(zone) {
+			s += fmt.Sprintln("Warning: Domain " + zone + " does not follow RFC1035 preferred syntax")
+		}
+
 		// split addr into protocol, IP and Port
 		_, ip, port, err := SplitProtocolHostPort(addr)
 
