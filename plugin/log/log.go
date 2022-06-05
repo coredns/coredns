@@ -46,7 +46,7 @@ func (l Logger) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 		if ok || ok1 {
 			logstr := l.repl.Replace(ctx, state, rrw, rule.Format)
-			clog.Infof(logstr)
+			clog.Info(logstr)
 		}
 
 		return rc, err
