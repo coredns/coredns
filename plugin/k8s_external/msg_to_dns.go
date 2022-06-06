@@ -152,6 +152,39 @@ func (e *External) srv(ctx context.Context, services []msg.Service, state reques
 	return records, extra
 }
 
+func (e *External) ptr(ctx context.Context, state request.Request) (records []dns.RR) {
+	dup := make(map[string]struct{})
+
+	for _, s := range services {
+
+		what, ip := s.HostType()
+
+		switch what {
+		case dns.TypeCNAME:
+			rr := s.NewCNAME(state.QName(), s.Host)
+			records = append(records, rr)
+			if resp, err := e.upstream.Lookup(ctx, state, dns.Fqdn(s.Host), dns.TypeA); err == nil {
+				records = append(records, resp.Answer...)
+				if resp.Truncated {
+					truncated = true
+				}
+			}
+
+		case dns.TypeA:
+			if _, ok := dup[s.Host]; !ok {
+				dup[s.Host] = struct{}{}
+				rr := s.NewA(state.QName(), ip)
+				rr.Hdr.Ttl = e.ttl
+				records = append(records, rr)
+			}
+
+		case dns.TypeAAAA:
+			// nada
+		}
+	}
+	return records, truncated
+}
+
 // not sure if this is even needed.
 
 // item holds records.

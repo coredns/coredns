@@ -1,8 +1,10 @@
 package kubernetes
 
 import (
+	"context"
 	"strings"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
@@ -110,4 +112,33 @@ func (k *Kubernetes) ExternalServices(zone string) (services []msg.Service) {
 //ExternalSerial returns the serial of the external zone
 func (k *Kubernetes) ExternalSerial(string) uint32 {
 	return uint32(k.APIConn.Modified(true))
+}
+
+// ExternalReverse does a reverse lookup for the external IPs
+func (k *Kubernetes) ExternalReverse(ctx context.Context, state request.Request, exact bool, opt plugin.Options) ([]msg.Service, error) {
+
+	ip := dnsutil.ExtractAddressFromReverse(state.Name())
+	if ip == "" {
+		_, e := k.Records(ctx, state, exact)
+		return nil, e
+	}
+
+	records := k.serviceRecordForExternalIP(ip, state.Name())
+	if len(records) == 0 {
+		return records, errNoItems
+	}
+	return records, nil
+}
+
+func (k *Kubernetes) serviceRecordForExternalIP(ip, externalZone string) []msg.Service {
+	// First check services with cluster ips
+	for _, service := range k.APIConn.SvcExtIndexReverse(ip) {
+		if len(k.Namespaces) > 0 && !k.namespaceExposed(service.Namespace) {
+			continue
+		}
+		domain := strings.Join([]string{service.Name, service.Namespace, Svc, externalZone}, ".")
+		return []msg.Service{{Host: domain, TTL: k.ttl}}
+	}
+	// none found
+	return nil
 }
