@@ -6,10 +6,10 @@ import (
 	"sort"
 )
 
-// checkDomainName() returns true if the given domain name follows RFC1035 preferred syntax.
-func checkDomainName(domainName string) bool {
-	matchDomain, _ := regexp.Compile("[A-Za-z0-9-]{1,}\\.[A-Za-z0-9-]{1,}\\.$)|^\\.$")
-	return matchDomain.MatchString(domainName)
+// compileRegexp() returns regexp-object for RFC1035 preferred syntax.
+func compileRegexp() *regexp.Regexp {
+	matchDomain, _ := regexp.Compile("(^([A-Za-z]([A-Za-z0-9-]*)(\\.([A-Za-z0-9-]+))*\\.)$)|^(\\.)$")
+	return matchDomain
 }
 
 // startUpZones creates the text that we show when starting up:
@@ -17,6 +17,7 @@ func checkDomainName(domainName string) bool {
 // example.com.:1053 on 127.0.0.1
 func startUpZones(protocol, addr string, zones map[string]*Config) string {
 	s := ""
+	regexpObj := compileRegexp() // regexpObj initialised and declared with a regexp-object for RFC1035 preferred syntax.
 
 	keys := make([]string, len(zones))
 	i := 0
@@ -27,11 +28,9 @@ func startUpZones(protocol, addr string, zones map[string]*Config) string {
 	sort.Strings(keys)
 
 	for _, zone := range keys {
-
-		if !checkDomainName(zone) {
+		if !regexpObj.MatchString(zone) {
 			s += fmt.Sprintln("Warning: Domain " + zone + " does not follow RFC1035 preferred syntax")
 		}
-
 		// split addr into protocol, IP and Port
 		_, ip, port, err := SplitProtocolHostPort(addr)
 
