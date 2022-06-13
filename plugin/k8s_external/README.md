@@ -10,7 +10,7 @@ This plugin allows an additional zone to resolve the external IP address(es) of 
 service. This plugin is only useful if the *kubernetes* plugin is also loaded.
 
 The plugin uses an external zone to resolve in-cluster IP addresses. It only handles queries for A,
-AAAA and SRV records; all others result in NODATA responses. To make it a proper DNS zone, it handles
+AAAA, SRV, and PTR records; all others result in NODATA responses. To make it a proper DNS zone, it handles
 SOA and NS queries for the apex of the zone.
 
 By default the apex of the zone will look like the following (assuming the zone used is `example.org`):
@@ -101,6 +101,3 @@ zone transfers.  Notifies are not supported.
 For some background see [resolve external IP address](https://github.com/kubernetes/dns/issues/242).
 And [A records for services with Load Balancer IP](https://github.com/coredns/coredns/issues/1851).
 
-# Bugs
-
-PTR queries for the reverse zone is not supported.
