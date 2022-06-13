@@ -71,20 +71,6 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 	}
 
-	if state.QType() == dns.TypePTR {
-
-		m := new(dns.Msg)
-		m.SetReply(state.Req)
-		m.Authoritative = true
-
-		m.Answer = e.ptr(ctx, state)
-
-		m.Ns = []dns.RR{e.soa(state)}
-
-		w.WriteMsg(m)
-		return 0, nil
-	}
-
 	state.Zone = zone
 	for _, z := range e.Zones {
 		// TODO(miek): save this in the External struct.
@@ -119,6 +105,8 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		m.Answer, m.Truncated = e.aaaa(ctx, svc, state)
 	case dns.TypeSRV:
 		m.Answer, m.Extra = e.srv(ctx, svc, state)
+	case dns.TypePTR:
+		m.Answer = e.ptr(svc, state)
 	default:
 		m.Ns = []dns.RR{e.soa(state)}
 	}

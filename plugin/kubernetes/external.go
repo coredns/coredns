@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
@@ -16,6 +15,14 @@ import (
 // External implements the ExternalFunc call from the external plugin.
 // It returns any services matching in the services' ExternalIPs.
 func (k *Kubernetes) External(state request.Request) ([]msg.Service, int) {
+	// handle reverse queries
+	if state.QType() == dns.TypePTR {
+		svcs, err := k.ExternalReverse(state)
+		if err != nil {
+			return nil, dns.RcodeNameError
+		}
+		return svcs, dns.RcodeSuccess
+	}
 	base, _ := dnsutil.TrimZone(state.Name(), state.Zone)
 
 	segs := dns.SplitDomainName(base)
@@ -115,28 +122,26 @@ func (k *Kubernetes) ExternalSerial(string) uint32 {
 }
 
 // ExternalReverse does a reverse lookup for the external IPs
-func (k *Kubernetes) ExternalReverse(ctx context.Context, state request.Request, exact bool, opt plugin.Options) ([]msg.Service, error) {
-
+func (k *Kubernetes) ExternalReverse(state request.Request) ([]msg.Service, error) {
 	ip := dnsutil.ExtractAddressFromReverse(state.Name())
 	if ip == "" {
-		_, e := k.Records(ctx, state, exact)
+		_, e := k.Records(context.TODO(), state, false)
 		return nil, e
 	}
 
-	records := k.serviceRecordForExternalIP(ip, state.Name())
+	records := k.serviceRecordForExternalIP(ip)
 	if len(records) == 0 {
 		return records, errNoItems
 	}
 	return records, nil
 }
 
-func (k *Kubernetes) serviceRecordForExternalIP(ip, externalZone string) []msg.Service {
-	// First check services with cluster ips
+func (k *Kubernetes) serviceRecordForExternalIP(ip string) []msg.Service {
 	for _, service := range k.APIConn.SvcExtIndexReverse(ip) {
 		if len(k.Namespaces) > 0 && !k.namespaceExposed(service.Namespace) {
 			continue
 		}
-		domain := strings.Join([]string{service.Name, service.Namespace, Svc, externalZone}, ".")
+		domain := strings.Join([]string{service.Name, service.Namespace}, ".")
 		return []msg.Service{{Host: domain, TTL: k.ttl}}
 	}
 	// none found

@@ -20,7 +20,7 @@ func TestExternal(t *testing.T) {
 	k.APIConn = &external{}
 
 	e := New()
-	e.Zones = []string{"example.com."}
+	e.Zones = []string{"example.com.", "in-addr.arpa."}
 	e.Next = test.NextHandler(dns.RcodeSuccess, nil)
 	e.externalFunc = k.External
 	e.externalAddrFunc = externalAddress  // internal test function
@@ -55,6 +55,13 @@ func TestExternal(t *testing.T) {
 }
 
 var tests = []test.Case{
+	// PTR reverse lookup
+	{
+		Qname: "4.3.2.1.in-addr.arpa.", Qtype: dns.TypePTR, Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.PTR("4.3.2.1.in-addr.arpa. 5 IN PTR svc1.testns.example.com."),
+		},
+	},
 	// A Service
 	{
 		Qname: "svc1.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
@@ -210,6 +217,20 @@ func (external) EndpointsList() []*object.Endpoints                             
 func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }
 func (external) SvcIndex(s string) []*object.Service                               { return svcIndexExternal[s] }
 func (external) PodIndex(string) []*object.Pod                                     { return nil }
+
+func (external) SvcExtIndexReverse(ip string) (result []*object.Service) {
+	for _, svcs := range svcIndexExternal {
+		for _, svc := range svcs {
+			for _, exIp := range svc.ExternalIPs {
+				if exIp != ip {
+					continue
+				}
+				result = append(result, svc)
+			}
+		}
+	}
+	return result
+}
 
 func (external) GetNamespaceByName(name string) (*object.Namespace, error) {
 	return &object.Namespace{

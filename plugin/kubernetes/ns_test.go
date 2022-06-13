@@ -14,14 +14,15 @@ import (
 
 type APIConnTest struct{}
 
-func (APIConnTest) HasSynced() bool                          { return true }
-func (APIConnTest) Run()                                     {}
-func (APIConnTest) Stop() error                              { return nil }
-func (APIConnTest) PodIndex(string) []*object.Pod            { return nil }
-func (APIConnTest) SvcIndexReverse(string) []*object.Service { return nil }
-func (APIConnTest) EpIndex(string) []*object.Endpoints       { return nil }
-func (APIConnTest) EndpointsList() []*object.Endpoints       { return nil }
-func (APIConnTest) Modified(bool) int64                      { return 0 }
+func (APIConnTest) HasSynced() bool                             { return true }
+func (APIConnTest) Run()                                        {}
+func (APIConnTest) Stop() error                                 { return nil }
+func (APIConnTest) PodIndex(string) []*object.Pod               { return nil }
+func (APIConnTest) SvcIndexReverse(string) []*object.Service    { return nil }
+func (APIConnTest) SvcExtIndexReverse(string) []*object.Service { return nil }
+func (APIConnTest) EpIndex(string) []*object.Endpoints          { return nil }
+func (APIConnTest) EndpointsList() []*object.Endpoints          { return nil }
+func (APIConnTest) Modified(bool) int64                         { return 0 }
 
 func (a APIConnTest) SvcIndex(s string) []*object.Service {
 	switch s {

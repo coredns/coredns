@@ -80,6 +80,7 @@ func (external) Run()                                                           
 func (external) Stop() error                                                       { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints                         { return nil }
 func (external) SvcIndexReverse(string) []*object.Service                          { return nil }
+func (external) SvcExtIndexReverse(string) []*object.Service                       { return nil }
 func (external) Modified(bool) int64                                               { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints                              { return nil }
 func (external) EndpointsList() []*object.Endpoints                                { return nil }

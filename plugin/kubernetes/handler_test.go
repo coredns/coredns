@@ -536,12 +536,13 @@ type APIConnServeTest struct {
 	notSynced bool
 }
 
-func (a APIConnServeTest) HasSynced() bool                         { return !a.notSynced }
-func (APIConnServeTest) Run()                                      {}
-func (APIConnServeTest) Stop() error                               { return nil }
-func (APIConnServeTest) EpIndexReverse(string) []*object.Endpoints { return nil }
-func (APIConnServeTest) SvcIndexReverse(string) []*object.Service  { return nil }
-func (APIConnServeTest) Modified(bool) int64                       { return int64(3) }
+func (a APIConnServeTest) HasSynced() bool                           { return !a.notSynced }
+func (APIConnServeTest) Run()                                        {}
+func (APIConnServeTest) Stop() error                                 { return nil }
+func (APIConnServeTest) EpIndexReverse(string) []*object.Endpoints   { return nil }
+func (APIConnServeTest) SvcIndexReverse(string) []*object.Service    { return nil }
+func (APIConnServeTest) SvcExtIndexReverse(string) []*object.Service { return nil }
+func (APIConnServeTest) Modified(bool) int64                         { return int64(3) }
 
 func (APIConnServeTest) PodIndex(ip string) []*object.Pod {
 	if ip != "10.240.0.1" {
