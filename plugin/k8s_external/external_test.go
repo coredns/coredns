@@ -49,7 +49,7 @@ func TestExternal(t *testing.T) {
 			t.Error("Expected authoritative answer")
 		}
 		if err = test.SortAndCheck(resp, tc); err != nil {
-			t.Error(err)
+			t.Errorf("Test %d: %v", i, err)
 		}
 	}
 }
@@ -60,6 +60,20 @@ var tests = []test.Case{
 		Qname: "4.3.2.1.in-addr.arpa.", Qtype: dns.TypePTR, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.PTR("4.3.2.1.in-addr.arpa. 5 IN PTR svc1.testns.example.com."),
+		},
+	},
+	// Bad PTR reverse lookup using existing service name
+	{
+		Qname: "svc1.testns.example.com.", Qtype: dns.TypePTR, Rcode: dns.RcodeSuccess,
+		Ns: []dns.RR{
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+		},
+	},
+	// Bad PTR reverse lookup using non-existing service name
+	{
+		Qname: "not-existing.testns.example.com.", Qtype: dns.TypePTR, Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	// A Service

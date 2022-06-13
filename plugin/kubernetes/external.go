@@ -1,7 +1,6 @@
 package kubernetes
 
 import (
-	"context"
 	"strings"
 
 	"github.com/coredns/coredns/plugin/etcd/msg"
@@ -15,14 +14,18 @@ import (
 // External implements the ExternalFunc call from the external plugin.
 // It returns any services matching in the services' ExternalIPs.
 func (k *Kubernetes) External(state request.Request) ([]msg.Service, int) {
-	// handle reverse queries
 	if state.QType() == dns.TypePTR {
-		svcs, err := k.ExternalReverse(state)
-		if err != nil {
-			return nil, dns.RcodeNameError
+		ip := dnsutil.ExtractAddressFromReverse(state.Name())
+		if ip != "" {
+			svcs, err := k.ExternalReverse(ip)
+			if err != nil {
+				return nil, dns.RcodeNameError
+			}
+			return svcs, dns.RcodeSuccess
 		}
-		return svcs, dns.RcodeSuccess
+		// for invalid reverse names, fall through to determine proper nxdomain/nodata response
 	}
+
 	base, _ := dnsutil.TrimZone(state.Name(), state.Zone)
 
 	segs := dns.SplitDomainName(base)
@@ -85,6 +88,10 @@ func (k *Kubernetes) External(state request.Request) ([]msg.Service, int) {
 			}
 		}
 	}
+	if state.QType() == dns.TypePTR {
+		// if this was a PTR request, return empty service list, but retain rcode for proper nxdomain/nodata response
+		return nil, rcode
+	}
 	return services, rcode
 }
 
@@ -122,13 +129,7 @@ func (k *Kubernetes) ExternalSerial(string) uint32 {
 }
 
 // ExternalReverse does a reverse lookup for the external IPs
-func (k *Kubernetes) ExternalReverse(state request.Request) ([]msg.Service, error) {
-	ip := dnsutil.ExtractAddressFromReverse(state.Name())
-	if ip == "" {
-		_, e := k.Records(context.TODO(), state, false)
-		return nil, e
-	}
-
+func (k *Kubernetes) ExternalReverse(ip string) ([]msg.Service, error) {
 	records := k.serviceRecordForExternalIP(ip)
 	if len(records) == 0 {
 		return records, errNoItems
