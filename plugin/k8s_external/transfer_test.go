@@ -59,6 +59,11 @@ func TestTransferAXFR(t *testing.T) {
 			if ans.Header().Rrtype == dns.TypeTXT {
 				continue
 			}
+
+			// Exclude PTR records
+			if ans.Header().Rrtype == dns.TypePTR {
+				continue
+			}
 			expect = append(expect, ans)
 		}
 	}
