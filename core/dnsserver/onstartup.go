@@ -9,7 +9,7 @@ import (
 
 // regex1035PrefSyntax() returns regexp-object for RFC1035 preferred syntax.
 func regex1035PrefSyntax() *regexp.Regexp {
-	matchDomain, _ := regexp.Compile("(^([A-Za-z]([A-Za-z0-9-]*)(\\.([A-Za-z0-9-]+))*\\.)$)|^(\\.)$")
+	matchDomain, _ := regexp.Compile("(^([A-Za-z]([A-Za-z0-9-]*[A-Za-z0-9])(\\.([A-Za-z0-9-]+))*\\.)$)|^(\\.)$")
 	return matchDomain
 }
 
