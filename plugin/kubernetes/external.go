@@ -138,13 +138,13 @@ func (k *Kubernetes) ExternalReverse(ip string) ([]msg.Service, error) {
 }
 
 func (k *Kubernetes) serviceRecordForExternalIP(ip string) []msg.Service {
+	var svcs []msg.Service
 	for _, service := range k.APIConn.SvcExtIndexReverse(ip) {
 		if len(k.Namespaces) > 0 && !k.namespaceExposed(service.Namespace) {
 			continue
 		}
 		domain := strings.Join([]string{service.Name, service.Namespace}, ".")
-		return []msg.Service{{Host: domain, TTL: k.ttl}}
+		svcs = append(svcs, msg.Service{Host: domain, TTL: k.ttl})
 	}
-	// none found
-	return nil
+	return svcs
 }
