@@ -176,7 +176,7 @@ var tests = []test.Case{
 	{
 		Qname: "svc11.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.A("svc11.testns.example.com.	5	IN	A	1.2.3.4"),
+			test.A("svc11.testns.example.com.	5	IN	A	2.3.4.5"),
 		},
 	},
 	{
@@ -185,7 +185,7 @@ var tests = []test.Case{
 			test.SRV("_http._tcp.svc11.testns.example.com.	5	IN	SRV	0 100 80 svc11.testns.example.com."),
 		},
 		Extra: []dns.RR{
-			test.A("svc11.testns.example.com.	5	IN	A	1.2.3.4"),
+			test.A("svc11.testns.example.com.	5	IN	A	2.3.4.5"),
 		},
 	},
 	{
@@ -194,7 +194,7 @@ var tests = []test.Case{
 			test.SRV("svc11.testns.example.com.	5	IN	SRV	0 100 80 svc11.testns.example.com."),
 		},
 		Extra: []dns.RR{
-			test.A("svc11.testns.example.com.	5	IN	A	1.2.3.4"),
+			test.A("svc11.testns.example.com.	5	IN	A	2.3.4.5"),
 		},
 	},
 	// svc12
@@ -278,7 +278,7 @@ var svcIndexExternal = map[string][]*object.Service{
 			Name:        "svc11",
 			Namespace:   "testns",
 			Type:        api.ServiceTypeLoadBalancer,
-			ExternalIPs: []string{"1.2.3.4"},
+			ExternalIPs: []string{"2.3.4.5"},
 			Ports:       []api.ServicePort{{Name: "http", Protocol: "tcp", Port: 80}},
 		},
 	},
