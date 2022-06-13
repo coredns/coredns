@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 )
 
-// compileRegexp() returns regexp-object for RFC1035 preferred syntax.
-func compileRegexp() *regexp.Regexp {
+// regex1035PrefSyntax() returns regexp-object for RFC1035 preferred syntax.
+func regex1035PrefSyntax() *regexp.Regexp {
 	matchDomain, _ := regexp.Compile("(^([A-Za-z]([A-Za-z0-9-]*)(\\.([A-Za-z0-9-]+))*\\.)$)|^(\\.)$")
 	return matchDomain
 }
@@ -17,7 +18,7 @@ func compileRegexp() *regexp.Regexp {
 // example.com.:1053 on 127.0.0.1
 func startUpZones(protocol, addr string, zones map[string]*Config) string {
 	s := ""
-	regexpObj := compileRegexp() // regexpObj initialised and declared with a regexp-object for RFC1035 preferred syntax.
+	regexpObj := regex1035PrefSyntax() // regexpObj initialised and declared with a regexp-object for RFC1035 preferred syntax.
 
 	keys := make([]string, len(zones))
 	i := 0
@@ -28,7 +29,7 @@ func startUpZones(protocol, addr string, zones map[string]*Config) string {
 	sort.Strings(keys)
 
 	for _, zone := range keys {
-		if !regexpObj.MatchString(zone) {
+		if dnsutil.IsReverse(zone) == 0 && !regexpObj.MatchString(zone) {
 			s += fmt.Sprintln("Warning: Domain " + zone + " does not follow RFC1035 preferred syntax")
 		}
 		// split addr into protocol, IP and Port
