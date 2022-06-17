@@ -58,10 +58,10 @@ cache [TTL] [ZONES...] {
   available as long as it has not been expired for longer than **DURATION** (default 1 hour). By default, the _cache_ plugin will
   attempt to refresh the cache entry after sending the expired cache entry to the client. The
   responses have a TTL of 0. **REFRESH_MODE** controls the timing of the expired cache entry refresh.
-  `verified` will first verify that an entry is still unavailable from the source before sending the expired entry to the client.
+  `verify` will first verify that an entry is still unavailable from the source before sending the expired entry to the client.
   `immediate` will immediately send the expired entry to the client before
   checking to see if the entry is available from the source. **REFRESH_MODE** defaults to `immediate`. Setting this
-  value to `verified` can lead to increased latency when serving stale responses, but will prevent stale entries
+  value to `verify` can lead to increased latency when serving stale responses, but will prevent stale entries
   from ever being served if an updated response can be retrieved from the source.
 
 ## Capacity and Eviction
