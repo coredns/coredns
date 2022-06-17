@@ -4,9 +4,11 @@ package trace
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 	"sync/atomic"
 
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -140,8 +142,15 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
+	var spanCtx ot.SpanContext
+	if val := ctx.Value(dnsserver.HTTPRequestKey{}); val != nil {
+		if httpReq, ok := val.(*http.Request); ok {
+			spanCtx, _ = t.Tracer().Extract(ot.HTTPHeaders, ot.HTTPHeadersCarrier(httpReq.Header))
+		}
+	}
+
 	req := request.Request{W: w, Req: r}
-	span = t.Tracer().StartSpan(defaultTopLevelSpanName)
+	span = t.Tracer().StartSpan(defaultTopLevelSpanName, otext.RPCServerOption(spanCtx))
 	defer span.Finish()
 
 	switch spanCtx := span.Context().(type) {
