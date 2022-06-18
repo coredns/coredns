@@ -8,11 +8,10 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 )
 
-// regex1035PrefSyntax() returns regexp-objects for RFC1035 preferred syntax.
-func regex1035PrefSyntax() (*regexp.Regexp, *regexp.Regexp) {
-	matchRootDomain, _ := regexp.Compile(`^(\.)$`)
-	matchOtherDomain, _ := regexp.Compile(`^([A-Za-z][A-Za-z0-9-]*[A-Za-z](\.[A-Za-z][A-Za-z0-9-]*[A-Za-z])*\.)$`)
-	return matchRootDomain, matchOtherDomain
+// checkZoneSyntax() checks whether the given string match 1035 Preferred Syntax or not.
+func checkZoneSyntax(zone string) bool {
+	regex1035PreferredSyntax, _ := regexp.MatchString(`^([A-Za-z][A-Za-z0-9-]*[A-Za-z](\.[A-Za-z][A-Za-z0-9-]*[A-Za-z])*\.)$`, zone)
+	return zone == "." || (dnsutil.IsReverse(zone) == 0 && regex1035PreferredSyntax)
 }
 
 // startUpZones creates the text that we show when starting up:
@@ -20,8 +19,6 @@ func regex1035PrefSyntax() (*regexp.Regexp, *regexp.Regexp) {
 // example.com.:1053 on 127.0.0.1
 func startUpZones(protocol, addr string, zones map[string]*Config) string {
 	s := ""
-	rootDomainRegex, otherDomainRegex := regex1035PrefSyntax() // rootDomainRegex and otherDomainRegex initialised and declared with regexp-objects for RFC1035 preferred syntax.
-
 	keys := make([]string, len(zones))
 	i := 0
 	for k := range zones {
@@ -31,7 +28,7 @@ func startUpZones(protocol, addr string, zones map[string]*Config) string {
 	sort.Strings(keys)
 
 	for _, zone := range keys {
-		if dnsutil.IsReverse(zone) == 0 && !rootDomainRegex.MatchString(zone) && !otherDomainRegex.MatchString(zone) {
+		if !checkZoneSyntax(zone) {
 			s += fmt.Sprintln("Warning: Domain " + zone + " does not follow RFC1035 preferred syntax")
 		}
 		// split addr into protocol, IP and Port
