@@ -155,3 +155,40 @@ func TestServeStale(t *testing.T) {
 		}
 	}
 }
+
+func TestServfail(t *testing.T) {
+	tests := []struct {
+		input     string
+		shouldErr bool
+		failttl   time.Duration
+	}{
+		{"servfail 1s", false, 1 * time.Second},
+		{"servfail 5m", false, 5 * time.Minute},
+		{"servfail 0s", false, 0},
+		{"servfail 0", false, 0},
+		// fails
+		{"servfail", true, minNTTL},
+		{"servfail 6m", true, minNTTL},
+		{"servfail 20", true, minNTTL},
+		{"servfail -1s", true, minNTTL},
+		{"servfail aa", true, minNTTL},
+		{"servfail 1m invalid", true, minNTTL},
+	}
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", test.input))
+		ca, err := cacheParse(c)
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %v: Expected error but found nil", i)
+			continue
+		} else if !test.shouldErr && err != nil {
+			t.Errorf("Test %v: Expected no error but found error: %v", i, err)
+			continue
+		}
+		if test.shouldErr && err != nil {
+			continue
+		}
+		if ca.failttl != test.failttl {
+			t.Errorf("Test %v: Expected stale %v but found: %v", i, test.failttl, ca.staleUpTo)
+		}
+	}
+}

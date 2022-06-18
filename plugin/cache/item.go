@@ -64,7 +64,7 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 // So we're forced to always set this to 1; regardless if the answer came from the cache or not.
 // On newer systems(e.g. ubuntu 16.04 with glib version 2.23), this issue is resolved.
 // So we may set this bit back to 0 in the future ?
-func (i *item) toMsg(m *dns.Msg, now time.Time, do bool) *dns.Msg {
+func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
 	m1 := new(dns.Msg)
 	m1.SetReply(m)
 
@@ -73,8 +73,10 @@ func (i *item) toMsg(m *dns.Msg, now time.Time, do bool) *dns.Msg {
 	// just set it to true.
 	m1.Authoritative = true
 	m1.AuthenticatedData = i.AuthenticatedData
-	if !do {
-		m1.AuthenticatedData = false // when DNSSEC was not wanted, it can't be authenticated data.
+	if !do && !ad {
+		// When DNSSEC was not wanted, it can't be authenticated data.
+		// However, retain the AD bit if the requester set the AD bit, per RFC6840 5.7-5.8
+		m1.AuthenticatedData = false
 	}
 	m1.RecursionAvailable = i.RecursionAvailable
 	m1.Rcode = i.Rcode

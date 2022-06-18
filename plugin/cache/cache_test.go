@@ -217,7 +217,7 @@ func TestCache(t *testing.T) {
 		}
 
 		if ok {
-			resp := i.toMsg(m, time.Now().UTC(), state.Do())
+			resp := i.toMsg(m, time.Now().UTC(), state.Do(), m.AuthenticatedData)
 
 			if err := test.Header(tc.Case, resp); err != nil {
 				t.Logf("Cache %v", resp)
@@ -255,6 +255,23 @@ func TestCacheZeroTTL(t *testing.T) {
 	}
 	if c.ncache.Len() != 0 {
 		t.Errorf("Msg with 0 TTL should not have been cached")
+	}
+}
+
+func TestCacheServfailTTL0(t *testing.T) {
+	c := New()
+	c.minpttl = minTTL
+	c.minnttl = minNTTL
+	c.failttl = 0
+	c.Next = servFailBackend(0)
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	if c.ncache.Len() != 0 {
+		t.Errorf("SERVFAIL response should not have been cached")
 	}
 }
 
