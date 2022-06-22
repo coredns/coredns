@@ -39,25 +39,67 @@ func (p P) Debugf(format string, v ...interface{}) {
 }
 
 // Info logs as log.Info.
-func (p P) Info(v ...interface{}) { p.log(info, v...) }
+func (p P) Info(v ...interface{}) {
+	if i != nil {
+		i.Info(p.plugin, v...)
+	}
+	p.log(info, v...)
+}
 
 // Infof logs as log.Infof.
-func (p P) Infof(format string, v ...interface{}) { p.logf(info, format, v...) }
+func (p P) Infof(format string, v ...interface{}) {
+	if i != nil {
+		i.Infof(p.plugin, format, v...)
+	}
+	p.logf(info, format, v...)
+}
 
 // Warning logs as log.Warning.
-func (p P) Warning(v ...interface{}) { p.log(warning, v...) }
+func (p P) Warning(v ...interface{}) {
+	if i != nil {
+		i.Warning(p.plugin, v...)
+	}
+	p.log(warning, v...)
+}
 
 // Warningf logs as log.Warningf.
-func (p P) Warningf(format string, v ...interface{}) { p.logf(warning, format, v...) }
+func (p P) Warningf(format string, v ...interface{}) {
+	if i != nil {
+		i.Warningf(p.plugin, format, v...)
+	}
+	p.logf(warning, format, v...)
+}
 
 // Error logs as log.Error.
-func (p P) Error(v ...interface{}) { p.log(err, v...) }
+func (p P) Error(v ...interface{}) {
+	if i != nil {
+		i.Error(p.plugin, v...)
+	}
+	p.log(err, v...)
+}
 
 // Errorf logs as log.Errorf.
-func (p P) Errorf(format string, v ...interface{}) { p.logf(err, format, v...) }
+func (p P) Errorf(format string, v ...interface{}) {
+	if i != nil {
+		i.Errorf(p.plugin, format, v...)
+	}
+	p.logf(err, format, v...)
+}
 
 // Fatal logs as log.Fatal and calls os.Exit(1).
-func (p P) Fatal(v ...interface{}) { p.log(fatal, v...); os.Exit(1) }
+func (p P) Fatal(v ...interface{}) {
+	if i != nil {
+		i.Fatal(p.plugin, v...)
+	}
+	p.log(fatal, v...)
+	os.Exit(1)
+}
 
 // Fatalf logs as log.Fatalf and calls os.Exit(1).
-func (p P) Fatalf(format string, v ...interface{}) { p.logf(fatal, format, v...); os.Exit(1) }
+func (p P) Fatalf(format string, v ...interface{}) {
+	if i != nil {
+		i.Fatalf(p.plugin, format, v...)
+	}
+	p.logf(fatal, format, v...)
+	os.Exit(1)
+}
