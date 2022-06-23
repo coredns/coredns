@@ -27,6 +27,11 @@ func (p P) Debug(v ...interface{}) {
 	if !D.Value() {
 		return
 	}
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Debug(p.plugin, v...)
+		}
+	}
 	p.log(debug, v...)
 }
 
@@ -35,61 +40,80 @@ func (p P) Debugf(format string, v ...interface{}) {
 	if !D.Value() {
 		return
 	}
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Debugf(p.plugin, format, v...)
+		}
+	}
 	p.logf(debug, format, v...)
 }
 
 // Info logs as log.Info.
 func (p P) Info(v ...interface{}) {
-	if i != nil {
-		i.Info(p.plugin, v...)
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Info(p.plugin, v...)
+		}
 	}
 	p.log(info, v...)
 }
 
 // Infof logs as log.Infof.
 func (p P) Infof(format string, v ...interface{}) {
-	if i != nil {
-		i.Infof(p.plugin, format, v...)
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Infof(p.plugin, format, v...)
+		}
 	}
 	p.logf(info, format, v...)
 }
 
 // Warning logs as log.Warning.
 func (p P) Warning(v ...interface{}) {
-	if i != nil {
-		i.Warning(p.plugin, v...)
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Warning(p.plugin, v...)
+		}
 	}
 	p.log(warning, v...)
 }
 
 // Warningf logs as log.Warningf.
 func (p P) Warningf(format string, v ...interface{}) {
-	if i != nil {
-		i.Warningf(p.plugin, format, v...)
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Warningf(p.plugin, format, v...)
+		}
 	}
 	p.logf(warning, format, v...)
 }
 
 // Error logs as log.Error.
 func (p P) Error(v ...interface{}) {
-	if i != nil {
-		i.Error(p.plugin, v...)
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Error(p.plugin, v...)
+		}
 	}
 	p.log(err, v...)
 }
 
 // Errorf logs as log.Errorf.
 func (p P) Errorf(format string, v ...interface{}) {
-	if i != nil {
-		i.Errorf(p.plugin, format, v...)
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Errorf(p.plugin, format, v...)
+		}
 	}
 	p.logf(err, format, v...)
 }
 
 // Fatal logs as log.Fatal and calls os.Exit(1).
 func (p P) Fatal(v ...interface{}) {
-	if i != nil {
-		i.Fatal(p.plugin, v...)
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Fatal(p.plugin, v...)
+		}
 	}
 	p.log(fatal, v...)
 	os.Exit(1)
@@ -97,8 +121,10 @@ func (p P) Fatal(v ...interface{}) {
 
 // Fatalf logs as log.Fatalf and calls os.Exit(1).
 func (p P) Fatalf(format string, v ...interface{}) {
-	if i != nil {
-		i.Fatalf(p.plugin, format, v...)
+	if listeners != nil {
+		for _, l := range listeners {
+			l.Fatalf(p.plugin, format, v...)
+		}
 	}
 	p.logf(fatal, format, v...)
 	os.Exit(1)
