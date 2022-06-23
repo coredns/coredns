@@ -4,13 +4,16 @@ package trace
 import (
 	"context"
 	"fmt"
+	stdlog "log"
+	"net/http"
 	"sync"
 	"sync/atomic"
 
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
-	"github.com/coredns/coredns/plugin/pkg/log"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 	_ "github.com/coredns/coredns/plugin/pkg/trace" // Plugin the trace package.
 	"github.com/coredns/coredns/request"
@@ -32,6 +35,8 @@ const (
 	defaultTopLevelSpanName = "servedns"
 	metaTraceIdKey          = "trace/traceid"
 )
+
+var log = clog.NewWithPlugin("trace")
 
 type traceTags struct {
 	Name   string
@@ -88,10 +93,11 @@ func (t *trace) OnStartup() error {
 		case "datadog":
 			tracer := opentracer.New(
 				tracer.WithAgentAddr(t.Endpoint),
-				tracer.WithDebugMode(log.D.Value()),
+				tracer.WithDebugMode(clog.D.Value()),
 				tracer.WithGlobalTag(ext.SpanTypeDNS, true),
 				tracer.WithServiceName(t.serviceName),
 				tracer.WithAnalyticsRate(t.datadogAnalyticsRate),
+				tracer.WithLogger(&loggerAdapter{log}),
 			)
 			t.tracer = tracer
 			t.tagSet = tagByProvider["datadog"]
@@ -103,7 +109,8 @@ func (t *trace) OnStartup() error {
 }
 
 func (t *trace) setupZipkin() error {
-	reporter := zipkinhttp.NewReporter(t.Endpoint)
+	logOpt := zipkinhttp.Logger(stdlog.New(&loggerAdapter{log}, "", 0))
+	reporter := zipkinhttp.NewReporter(t.Endpoint, logOpt)
 	recorder, err := zipkin.NewEndpoint(t.serviceName, t.serviceEndpoint)
 	if err != nil {
 		log.Warningf("build Zipkin endpoint found err: %v", err)
@@ -140,8 +147,15 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
+	var spanCtx ot.SpanContext
+	if val := ctx.Value(dnsserver.HTTPRequestKey{}); val != nil {
+		if httpReq, ok := val.(*http.Request); ok {
+			spanCtx, _ = t.Tracer().Extract(ot.HTTPHeaders, ot.HTTPHeadersCarrier(httpReq.Header))
+		}
+	}
+
 	req := request.Request{W: w, Req: r}
-	span = t.Tracer().StartSpan(defaultTopLevelSpanName)
+	span = t.Tracer().StartSpan(defaultTopLevelSpanName, otext.RPCServerOption(spanCtx))
 	defer span.Finish()
 
 	switch spanCtx := span.Context().(type) {

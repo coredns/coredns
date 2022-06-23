@@ -27,6 +27,9 @@ type ServerHTTPS struct {
 	validRequest func(*http.Request) bool
 }
 
+// HTTPRequestKey is the context key for the current processed HTTP request (if current processed request was done over DOH)
+type HTTPRequestKey struct{}
+
 // NewServerHTTPS returns a new CoreDNS HTTPS server and compiles all plugins in to it.
 func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 	s, err := NewServer(addr, group)
@@ -153,6 +156,7 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// We should expect a packet to be returned that we can send to the client.
 	ctx := context.WithValue(context.Background(), Key{}, s.Server)
 	ctx = context.WithValue(ctx, LoopKey{}, 0)
+	ctx = context.WithValue(ctx, HTTPRequestKey{}, r)
 	s.ServeDNS(ctx, dw, msg)
 
 	// See section 4.2.1 of RFC 8484.
