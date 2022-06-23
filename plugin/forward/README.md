@@ -139,6 +139,37 @@ example.org {
 }
 ~~~
 
+Send all requests within `lab.example.local.` `10.20.0.1`, all requests within `example.local.` (and not in
+`lab.example.local.`) to `10.0.0.1`, and all others requests to the servers defined in `/etc/resolv.conf`, and
+caches results.
+
+~~~ corefile
+. {
+    cache
+    forward lab.example.local 10.20.0.1
+    forward example.local 10.0.0.1
+    forward . /etc/resolv.conf
+}
+~~~
+
+The example above is almost equivalent to the following example, except that example below defines three separate plugin
+chains (and thus 3 separate instances of _cache_).
+
+~~~ corefile
+lab.example.local {
+    cache
+    forward . 10.20.0.1
+}
+example.local {
+    cache
+    forward . 10.0.0.1
+}
+. {
+    cache
+    forward . /etc/resolv.conf
+}
+~~~
+
 Load balance all requests between three resolvers, one of which has a IPv6 address.
 
 ~~~ corefile
