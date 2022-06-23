@@ -18,7 +18,7 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/azure/          @miekg @yongtang @darshanime
 /plugin/bind/           @miekg
 /plugin/bufsize/        @ykhr53
-/plugin/cache/          @miekg
+/plugin/cache/          @miekg @chrisohaver
 /plugin/cancel/         @miekg
 /plugin/chaos/          @miekg @zouyee
 /plugin/clouddns/       @miekg @yongtang
@@ -29,13 +29,13 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/errors/         @miekg @Tantalor93
 /plugin/etcd/           @miekg @nitisht
 /plugin/file/           @miekg @yongtang @stp-ip
-/plugin/forward/        @johnbelamaric @miekg @rdrozhdzh @Tantalor93
+/plugin/forward/        @johnbelamaric @miekg @rdrozhdzh @Tantalor93 @chrisohaver
 /plugin/geoip/          @miekg @snebel29
 /plugin/grpc/           @inigohu @miekg @zouyee
 /plugin/health/         @jameshartig @miekg @zouyee
 /plugin/header/         @miekg @mqasimsarfraz
 /plugin/hosts/          @johnbelamaric @pmoroney
-/plugin/k8s_external/   @miekg
+/plugin/k8s_external/   @miekg @chrisohaver
 /plugin/kubernetes/     @bradbeam @chrisohaver @johnbelamaric @miekg @rajansandeep @yongtang @zouyee
 /plugin/loadbalance/    @miekg
 /plugin/log/            @miekg @nchrisdk @Tantalor93
