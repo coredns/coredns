@@ -10,7 +10,7 @@ import (
 
 // checkZoneSyntax() checks whether the given string match 1035 Preferred Syntax or not.
 func checkZoneSyntax(zone string) bool {
-	regex1035PreferredSyntax, _ := regexp.MatchString(`^([A-Za-z][A-Za-z0-9-]*[A-Za-z](\.[A-Za-z][A-Za-z0-9-]*[A-Za-z])*\.)$`, zone)
+	regex1035PreferredSyntax, _ := regexp.MatchString(`^([A-Za-z][A-Za-z0-9-]*[A-Za-z0-9](\.[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9])*\.)$`, zone)
 	return zone == "." || (dnsutil.IsReverse(zone) == 0 && regex1035PreferredSyntax)
 }
 
