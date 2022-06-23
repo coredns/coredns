@@ -12,7 +12,7 @@ go.sum                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 
 /plugin/acl/            @miekg @ihac
-/plugin/any/            @miekg
+/plugin/any/            @miekg @yongtang
 /plugin/auto/           @miekg @stp-ip
 /plugin/autopath/       @chrisohaver @miekg
 /plugin/azure/          @miekg @yongtang @darshanime
@@ -46,11 +46,11 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/pprof/          @miekg @zouyee
 /plugin/reload/         @johnbelamaric
 /plugin/rewrite/        @greenpau @johnbelamaric
-/plugin/root/           @miekg
+/plugin/root/           @miekg @yongtang
 /plugin/route53/        @yongtang @dilyevsky
 /plugin/secondary/      @bradbeam @miekg
 /plugin/template/       @rtreffer
 /plugin/tls/            @johnbelamaric
 /plugin/trace/          @johnbelamaric @zouyee @Tantalor93
 /plugin/transfer/       @miekg @chrisohaver
-/plugin/whoami/         @miekg @chrisohaver
+/plugin/whoami/         @miekg @chrisohaver @yongtang
