@@ -28,12 +28,12 @@ func TestRegex1035PrefSyntax(t *testing.T) {
 	if !checkZoneSyntax("an-example.com.") {
 		t.Fatalf(`Expected true but received false for "an-example.com."`)
 	}
-	if !checkZoneSyntax("an.example.com.") {
+	if !checkZoneSyntax("a.example.com.") {
 		t.Fatalf(`Expected true but received false for "an.example.com."`)
 	}
 
 	// Negative Test cases
-	if !checkZoneSyntax("1a.example.com") {
+	if !checkZoneSyntax("1.example.com") {
 		t.Fatalf(`Expected false but received true for "example:."`)
 	}
 	if !checkZoneSyntax("example:.") {
