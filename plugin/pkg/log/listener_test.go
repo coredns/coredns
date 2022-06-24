@@ -14,8 +14,8 @@ func TestRegisterAndDeregisterListener(t *testing.T) {
 			t.Errorf("RegsiterListener Error %s", err)
 		}
 	}
-	if len(listeners) != 2 {
-		t.Errorf("Expected number of listeners to be %d, got %d", 2, len(listeners))
+	if len(ls.listeners) != 2 {
+		t.Errorf("Expected number of listeners to be %d, got %d", 2, len(ls.listeners))
 	}
 	for _, name := range []string{"listener1", "listener2"} {
 		err := DeregisterListener(NewMockListener(name))
@@ -23,8 +23,8 @@ func TestRegisterAndDeregisterListener(t *testing.T) {
 			t.Errorf("DeregsiterListener Error %s", err)
 		}
 	}
-	if len(listeners) != 0 {
-		t.Errorf("Expected number of listeners to be %d, got %d", 0, len(listeners))
+	if len(ls.listeners) != 0 {
+		t.Errorf("Expected number of listeners to be %d, got %d", 0, len(ls.listeners))
 	}
 }
 
