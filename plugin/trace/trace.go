@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
@@ -66,17 +67,20 @@ var tagByProvider = map[string]traceTags{
 type trace struct {
 	count uint64 // as per Go spec, needs to be first element in a struct
 
-	Next                 plugin.Handler
-	Endpoint             string
-	EndpointType         string
-	tracer               ot.Tracer
-	serviceEndpoint      string
-	serviceName          string
-	clientServer         bool
-	every                uint64
-	datadogAnalyticsRate float64
-	Once                 sync.Once
-	tagSet               traceTags
+	Next                   plugin.Handler
+	Endpoint               string
+	EndpointType           string
+	tracer                 ot.Tracer
+	serviceEndpoint        string
+	serviceName            string
+	clientServer           bool
+	every                  uint64
+	datadogAnalyticsRate   float64
+	zipkinMaxBacklogSize   int
+	zipkinMaxBatchSize     int
+	zipkinMaxBatchInterval time.Duration
+	Once                   sync.Once
+	tagSet                 traceTags
 }
 
 func (t *trace) Tracer() ot.Tracer {
@@ -109,8 +113,18 @@ func (t *trace) OnStartup() error {
 }
 
 func (t *trace) setupZipkin() error {
-	logOpt := zipkinhttp.Logger(stdlog.New(&loggerAdapter{log}, "", 0))
-	reporter := zipkinhttp.NewReporter(t.Endpoint, logOpt)
+	var opts []zipkinhttp.ReporterOption
+	opts = append(opts, zipkinhttp.Logger(stdlog.New(&loggerAdapter{log}, "", 0)))
+	if t.zipkinMaxBacklogSize != 0 {
+		opts = append(opts, zipkinhttp.MaxBacklog(t.zipkinMaxBacklogSize))
+	}
+	if t.zipkinMaxBatchSize != 0 {
+		opts = append(opts, zipkinhttp.BatchSize(t.zipkinMaxBatchSize))
+	}
+	if t.zipkinMaxBatchInterval != 0 {
+		opts = append(opts, zipkinhttp.BatchInterval(t.zipkinMaxBatchInterval))
+	}
+	reporter := zipkinhttp.NewReporter(t.Endpoint, opts...)
 	recorder, err := zipkin.NewEndpoint(t.serviceName, t.serviceEndpoint)
 	if err != nil {
 		log.Warningf("build Zipkin endpoint found err: %v", err)
