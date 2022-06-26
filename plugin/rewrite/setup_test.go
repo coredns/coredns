@@ -33,6 +33,7 @@ func TestParse(t *testing.T) {
     name regex foo bar
 }`, true, "must begin with a name rule"},
 		{`rewrite stop`, true, ""},
+		{`rewrite continue`, true, ""},
 	}
 
 	for i, test := range tests {
