@@ -141,7 +141,10 @@ example.org {
 
 Send all requests within `lab.example.local.` to `10.20.0.1`, all requests within `example.local.` (and not in
 `lab.example.local.`) to `10.0.0.1`, all others requests to the servers defined in `/etc/resolv.conf`, and
-caches results.
+caches results. Note that a CoreDNS server configured with multiple _forward_ plugins in a server block will evaluate those
+forward plugins in the order they are listed when serving a request.  Therefore, subdomains should be
+placed before parent domains otherwise subdomain requests will be forwarded to the parent domain's upstream.
+Accordingly, in this example `lab.example.local` is before `example.local`, and `example.local` is before `.`.
 
 ~~~ corefile
 . {
