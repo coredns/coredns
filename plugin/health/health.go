@@ -70,3 +70,15 @@ func (h *health) OnFinalShutdown() error {
 	h.nlSetup = false
 	return nil
 }
+
+func (h *health) OnReload() error {
+	if !h.nlSetup {
+		return nil
+	}
+
+	h.stop()
+
+	h.ln.Close()
+	h.nlSetup = false
+	return nil
+}

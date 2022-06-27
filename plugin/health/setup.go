@@ -20,7 +20,7 @@ func setup(c *caddy.Controller) error {
 	h := &health{Addr: addr, lameduck: lame}
 
 	c.OnStartup(h.OnStartup)
-	c.OnRestart(h.OnFinalShutdown)
+	c.OnRestart(h.OnReload)
 	c.OnFinalShutdown(h.OnFinalShutdown)
 	c.OnRestartFailed(h.OnStartup)
 
