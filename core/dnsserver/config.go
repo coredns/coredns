@@ -43,6 +43,9 @@ type Config struct {
 	// TLSConfig when listening for encrypted connections (gRPC, DNS-over-TLS).
 	TLSConfig *tls.Config
 
+	// TSIG secrets, [name]key.
+	TsigSecret map[string]string
+
 	// Plugin stack.
 	Plugin []plugin.Plugin
 
