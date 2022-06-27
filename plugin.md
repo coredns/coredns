@@ -113,7 +113,7 @@ are the standard domain names created for this purpose.
 In a perfect world the following would be true for plugin: "Either you are responsible for a zone or
 not". If the answer is "not", the plugin should call the next plugin in the chain. If "yes" it
 should handle *all* names that fall in this zone and the names below - i.e. it should handle the
-entire domain and all sub domains.
+entire domain and all subdomains.
 
 ~~~ txt
 . {
