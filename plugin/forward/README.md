@@ -139,8 +139,8 @@ example.org {
 }
 ~~~
 
-Send all requests within `lab.example.local.` `10.20.0.1`, all requests within `example.local.` (and not in
-`lab.example.local.`) to `10.0.0.1`, and all others requests to the servers defined in `/etc/resolv.conf`, and
+Send all requests within `lab.example.local.` to `10.20.0.1`, all requests within `example.local.` (and not in
+`lab.example.local.`) to `10.0.0.1`, all others requests to the servers defined in `/etc/resolv.conf`, and
 caches results.
 
 ~~~ corefile
