@@ -31,6 +31,13 @@ func TestRegex1035PrefSyntax(t *testing.T) {
 	if !checkZoneSyntax("a.example.com.") {
 		t.Fatalf(`Expected true but received false for "an.example.com."`)
 	}
+	if !checkZoneSyntax("1.0.0.2.ip6.arpa.") {
+		t.Fatalf(`Expected true but received false for "1.0.0.2.ip6.arpa." (reverse-domain-name)`)
+	}
+	if !checkZoneSyntax("0.10.in-addr.arpa.") {
+		t.Fatalf(`Expected true but received false for "0.10.in-addr.arpa." (reverse-domain-name)`)
+	}
+
 
 	// Negative Test cases
 	if !checkZoneSyntax("1.example.com") {
