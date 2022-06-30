@@ -13,7 +13,7 @@ func checkZoneSyntax(zone string) bool {
 	if(zone == "." || dnsutil.IsReverse(zone) != 0){
 		return true
 	}
-	regex1035PreferredSyntax, _ := regexp.MatchString(`^([A-Za-z]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z]([A-Za-z0-9-]*[A-Za-z0-9])?)*\.)$`, zone)
+	regex1035PreferredSyntax, _ := regexp.MatchString(`^(([A-Za-z]([A-Za-z0-9-]*[A-Za-z0-9])?)\.)+$`, zone)
 	return regex1035PreferredSyntax
 }
 
