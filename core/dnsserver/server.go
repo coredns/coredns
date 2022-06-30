@@ -44,6 +44,8 @@ type Server struct {
 	debug        bool               // disable recover()
 	stacktrace   bool               // enable stacktrace in recover error log
 	classChaos   bool               // allow non-INET class queries
+
+	tsigSecret map[string]string
 }
 
 // NewServer returns a new CoreDNS server and compiles all plugins in to it. By default CH class
@@ -54,6 +56,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		Addr:         addr,
 		zones:        make(map[string]*Config),
 		graceTimeout: 5 * time.Second,
+		tsigSecret: make(map[string]string),
 	}
 
 	// We have to bound our wg with one increment
@@ -72,6 +75,11 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		s.stacktrace = site.Stacktrace
 		// set the config per zone
 		s.zones[site.Zone] = site
+
+		// copy tsig secrets
+		for key, secret := range site.TsigSecret {
+			s.tsigSecret[key] = secret
+		}
 
 		// compile custom plugin for everything
 		var stack plugin.Handler
@@ -115,7 +123,7 @@ func (s *Server) Serve(l net.Listener) error {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	})}
+	}), TsigSecret: s.tsigSecret}
 	s.m.Unlock()
 
 	return s.server[tcp].ActivateAndServe()
@@ -129,7 +137,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	})}
+	}), TsigSecret: s.tsigSecret}
 	s.m.Unlock()
 
 	return s.server[udp].ActivateAndServe()
