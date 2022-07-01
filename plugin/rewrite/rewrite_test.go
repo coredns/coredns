@@ -43,6 +43,7 @@ func TestNewRule(t *testing.T) {
 		{[]string{"name", "suffix", "a.com", "b.com"}, false, reflect.TypeOf(&suffixNameRule{})},
 		{[]string{"name", "substring", "a.com", "b.com"}, false, reflect.TypeOf(&substringNameRule{})},
 		{[]string{"name", "regex", "([a])\\.com", "new-{1}.com"}, false, reflect.TypeOf(&regexNameRule{})},
+		{[]string{"name", "regex", "^(aks-[a-z]+-[\\d]+-vmss[0-9]+)$", "new-{1}.com"}, false, reflect.TypeOf(&regexNameRule{})},
 		{[]string{"name", "regex", "([a]\\.com", "new-{1}.com"}, true, nil},
 		{[]string{"name", "regex", "(dns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "name", "(core)\\.(dns)\\.(rocks)", "{2}.{1}.{3}"}, false, reflect.TypeOf(&regexNameRule{})},
 		{[]string{"name", "regex", "(adns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "name", "(core)\\.(adns)\\.(rocks)", "{2}.{1}.{3}", "too.long", "way.too.long"}, true, nil},
@@ -175,6 +176,7 @@ func TestRewriteDefaultRevertPolicy(t *testing.T) {
 	r, _ = newNameRule("stop", "regex", "(f.*m)\\.regex\\.(nl)", "to.{2}")
 	rules = append(rules, r)
 
+
 	rw := Rewrite{
 		Next:  plugin.HandlerFunc(msgPrinter),
 		Rules: rules,
@@ -232,6 +234,8 @@ func TestRewrite(t *testing.T) {
 	rules = append(rules, r)
 	r, _ = newNameRule("stop", "regex", "(f.*m)\\.regex\\.(nl)", "to.{2}")
 	rules = append(rules, r)
+	r, _ = newNameRule("stop", "regex", "^(aks-[a-z]{2,12}-[0-9]{4,12}-vmss[0-9]{4,8})\\.$", "{1}.example.internal")
+	rules = append(rules, r)
 	r, _ = newNameRule("continue", "regex", "consul\\.(rocks)", "core.dns.{1}")
 	rules = append(rules, r)
 	r, _ = newNameRule("stop", "core.dns.rocks", "to.nl.")
@@ -274,6 +278,8 @@ func TestRewrite(t *testing.T) {
 		// class gets rewritten twice because of continue/stop logic: HS to CH, CH to IN
 		{"a.nl.", dns.TypeANY, 4, "a.nl.", dns.TypeANY, dns.ClassINET},
 		{"core.dns.rocks.nl.", dns.TypeA, dns.ClassINET, "dns.core.rocks.nl.", dns.TypeA, dns.ClassINET},
+		// regex with quantifiers and begin/end markers also works. if including $, regex must also consider the final dot!
+		{"aks-data-09298389-vmss00004.", dns.TypeA, dns.ClassINET, "aks-data-09298389-vmss00004.example.internal.", dns.TypeA, dns.ClassINET},
 	}
 
 	ctx := context.TODO()
