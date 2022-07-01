@@ -53,4 +53,5 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/tls/            @johnbelamaric
 /plugin/trace/          @johnbelamaric @zouyee @Tantalor93
 /plugin/transfer/       @miekg @chrisohaver
+/plugin/tsig/           @chrisohaver
 /plugin/whoami/         @miekg @chrisohaver @yongtang
