@@ -33,7 +33,7 @@ func startUpZones(protocol, addr string, zones map[string]*Config) string {
 
 	for _, zone := range keys {
 		if !checkZoneSyntax(zone) {
-			s += fmt.Sprintln("Warning: Domain " + zone + " does not follow RFC1035 preferred syntax")
+			s += fmt.Sprintf("Warning: Domain %q does not follow RFC1035 preferred syntax\n", zone)
 		}
 		// split addr into protocol, IP and Port
 		_, ip, port, err := SplitProtocolHostPort(addr)
