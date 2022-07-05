@@ -9,8 +9,9 @@ import (
 )
 
 // checkZoneSyntax() checks whether the given string match 1035 Preferred Syntax or not.
+// The root zone, and all reverse zones always return true even though they technically don't meet 1035 Preferred Syntax.
 func checkZoneSyntax(zone string) bool {
-	if(zone == "." || dnsutil.IsReverse(zone) != 0){
+	if zone == "." || dnsutil.IsReverse(zone) != 0 {
 		return true
 	}
 	regex1035PreferredSyntax, _ := regexp.MatchString(`^(([A-Za-z]([A-Za-z0-9-]*[A-Za-z0-9])?)\.)+$`, zone)
@@ -33,7 +34,7 @@ func startUpZones(protocol, addr string, zones map[string]*Config) string {
 
 	for _, zone := range keys {
 		if !checkZoneSyntax(zone) {
-			s += fmt.Sprintln("Warning: Domain " + zone + " does not follow RFC1035 preferred syntax")
+			s += fmt.Sprintf("Warning: Domain %q does not follow RFC1035 preferred syntax\n", zone)
 		}
 		// split addr into protocol, IP and Port
 		_, ip, port, err := SplitProtocolHostPort(addr)
