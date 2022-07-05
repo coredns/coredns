@@ -56,7 +56,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		Addr:         addr,
 		zones:        make(map[string]*Config),
 		graceTimeout: 5 * time.Second,
-		tsigSecret: make(map[string]string),
+		tsigSecret:   make(map[string]string),
 	}
 
 	// We have to bound our wg with one increment
