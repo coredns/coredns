@@ -9,7 +9,7 @@ import (
 )
 
 // checkZoneSyntax() checks whether the given string match 1035 Preferred Syntax or not.
-// The root zone, and all reverse zones always return true even though they technically don't meet 1035 Preferred Syntax.
+// The root zone, and all reverse zones always return true even though they technically don't meet 1035 Preferred Syntax
 func checkZoneSyntax(zone string) bool {
 	if zone == "." || dnsutil.IsReverse(zone) != 0 {
 		return true
