@@ -13,6 +13,14 @@ type list struct {
 	names []string
 }
 
+// Reset resets l
+func (l *list) Reset() {
+	l.Lock()
+	defer l.Unlock()
+	l.rs = nil
+	l.names = nil
+}
+
 // Append adds a new readiness to l.
 func (l *list) Append(r Readiness, name string) {
 	l.Lock()
