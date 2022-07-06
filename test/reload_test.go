@@ -360,17 +360,10 @@ func TestReloadUnreadyPlugin(t *testing.T) {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
 
-	udp, _ := CoreDNSServerPorts(c, 0)
-
-	send(t, udp)
-
 	c1, err := c.Restart(coreInput)
 	if err != nil {
 		t.Fatal(err)
 	}
-	udp, _ = CoreDNSServerPorts(c1, 0)
-
-	send(t, udp)
 
 	resp, err := http.Get("http://127.0.0.1:53185/ready")
 	if err != nil {
