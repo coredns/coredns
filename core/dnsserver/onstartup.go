@@ -23,6 +23,7 @@ func checkZoneSyntax(zone string) bool {
 // example.com.:1053 on 127.0.0.1
 func startUpZones(protocol, addr string, zones map[string]*Config) string {
 	s := ""
+
 	keys := make([]string, len(zones))
 	i := 0
 
