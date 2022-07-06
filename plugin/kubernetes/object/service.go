@@ -2,6 +2,7 @@ package object
 
 import (
 	"fmt"
+	"strconv"
 
 	api "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +20,8 @@ type Service struct {
 	Type         api.ServiceType
 	ExternalName string
 	Ports        []api.ServicePort
+
+	HasAlphaPublishUnreadyAddressesAnnotation bool
 
 	// ExternalIPs we may want to export.
 	ExternalIPs []string
@@ -44,6 +47,10 @@ func ToService(obj meta.Object) (meta.Object, error) {
 		ExternalName: svc.Spec.ExternalName,
 
 		ExternalIPs: make([]string, len(svc.Status.LoadBalancer.Ingress)+len(svc.Spec.ExternalIPs)),
+	}
+
+	if v, ok := obj.GetAnnotations()["service.alpha.kubernetes.io/tolerate-unready-endpoints"]; ok {
+		s.HasAlphaPublishUnreadyAddressesAnnotation, _ = strconv.ParseBool(v)
 	}
 
 	if len(svc.Spec.ClusterIPs) > 0 {
@@ -94,7 +101,8 @@ func (s *Service) DeepCopyObject() runtime.Object {
 		ExternalName: s.ExternalName,
 		ClusterIPs:   make([]string, len(s.ClusterIPs)),
 		Ports:        make([]api.ServicePort, len(s.Ports)),
-		ExternalIPs:  make([]string, len(s.ExternalIPs)),
+		HasAlphaPublishUnreadyAddressesAnnotation: s.HasAlphaPublishUnreadyAddressesAnnotation,
+		ExternalIPs: make([]string, len(s.ExternalIPs)),
 	}
 	copy(s1.ClusterIPs, s.ClusterIPs)
 	copy(s1.Ports, s.Ports)

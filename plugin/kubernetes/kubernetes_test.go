@@ -135,6 +135,7 @@ func (APIConnServiceTest) EpIndex(string) []*object.Endpoints {
 			Name:      "svc1-slice1",
 			Namespace: "testns",
 			Index:     object.EndpointsKey("svc1", "testns"),
+			Ready:     true,
 		},
 		{
 			Subsets: []object.EndpointSubset{
@@ -150,6 +151,7 @@ func (APIConnServiceTest) EpIndex(string) []*object.Endpoints {
 			Name:      "hdls1-slice1",
 			Namespace: "testns",
 			Index:     object.EndpointsKey("hdls1", "testns"),
+			Ready:     true,
 		},
 		{
 			Subsets: []object.EndpointSubset{
@@ -159,6 +161,7 @@ func (APIConnServiceTest) EpIndex(string) []*object.Endpoints {
 					},
 				},
 			},
+			Ready: true,
 		},
 	}
 	return eps
@@ -180,6 +183,7 @@ func (APIConnServiceTest) EndpointsList() []*object.Endpoints {
 			Name:      "svc1-slice1",
 			Namespace: "testns",
 			Index:     object.EndpointsKey("svc1", "testns"),
+			Ready:     true,
 		},
 		{
 			Subsets: []object.EndpointSubset{
@@ -195,6 +199,7 @@ func (APIConnServiceTest) EndpointsList() []*object.Endpoints {
 			Name:      "hdls1-slice1",
 			Namespace: "testns",
 			Index:     object.EndpointsKey("hdls1", "testns"),
+			Ready:     true,
 		},
 		{
 			Subsets: []object.EndpointSubset{
@@ -210,6 +215,7 @@ func (APIConnServiceTest) EndpointsList() []*object.Endpoints {
 			Name:      "hdls1-slice2",
 			Namespace: "testns",
 			Index:     object.EndpointsKey("hdls1", "testns"),
+			Ready:     true,
 		},
 		{
 			Subsets: []object.EndpointSubset{
@@ -219,6 +225,7 @@ func (APIConnServiceTest) EndpointsList() []*object.Endpoints {
 					},
 				},
 			},
+			Ready: true,
 		},
 	}
 	return eps

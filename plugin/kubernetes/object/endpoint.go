@@ -19,6 +19,7 @@ type Endpoints struct {
 	Index     string
 	IndexIP   []string
 	Subsets   []EndpointSubset
+	Ready     bool
 
 	*Empty
 }
@@ -128,9 +129,7 @@ func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
 	}
 
 	for _, end := range ends.Endpoints {
-		if !endpointsliceReady(end.Conditions.Ready) {
-			continue
-		}
+		e.Ready = endpointsliceReady(end.Conditions.Ready)
 		for _, a := range end.Addresses {
 			ea := EndpointAddress{IP: a}
 			if end.Hostname != nil {
@@ -179,9 +178,7 @@ func EndpointSliceV1beta1ToEndpoints(obj meta.Object) (meta.Object, error) {
 	}
 
 	for _, end := range ends.Endpoints {
-		if !endpointsliceReady(end.Conditions.Ready) {
-			continue
-		}
+		e.Ready = endpointsliceReady(end.Conditions.Ready)
 		for _, a := range end.Addresses {
 			ea := EndpointAddress{IP: a}
 			if end.Hostname != nil {

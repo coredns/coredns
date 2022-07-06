@@ -540,6 +540,10 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 					continue
 				}
 
+				if !ep.Ready && !svc.HasAlphaPublishUnreadyAddressesAnnotation {
+					continue
+				}
+
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
 

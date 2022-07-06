@@ -684,6 +684,7 @@ var epsIndex = map[string][]*object.Endpoints{
 		Name:      "kubedns",
 		Namespace: "kube-system",
 		Index:     object.EndpointsKey("kubedns", "kube-system"),
+		Ready:     true,
 	}},
 	"svc1.testns": {{
 		Subsets: []object.EndpointSubset{
@@ -699,6 +700,7 @@ var epsIndex = map[string][]*object.Endpoints{
 		Name:      "svc1-slice1",
 		Namespace: "testns",
 		Index:     object.EndpointsKey("svc1", "testns"),
+		Ready:     true,
 	}},
 	"svcempty.testns": {{
 		Subsets: []object.EndpointSubset{
@@ -712,6 +714,7 @@ var epsIndex = map[string][]*object.Endpoints{
 		Name:      "svcempty-slice1",
 		Namespace: "testns",
 		Index:     object.EndpointsKey("svcempty", "testns"),
+		Ready:     true,
 	}},
 	"hdls1.testns": {{
 		Subsets: []object.EndpointSubset{
@@ -732,6 +735,7 @@ var epsIndex = map[string][]*object.Endpoints{
 		Name:      "hdls1-slice1",
 		Namespace: "testns",
 		Index:     object.EndpointsKey("hdls1", "testns"),
+		Ready:     true,
 	}},
 	"hdlsprtls.testns": {{
 		Subsets: []object.EndpointSubset{
@@ -745,6 +749,7 @@ var epsIndex = map[string][]*object.Endpoints{
 		Name:      "hdlsprtls-slice1",
 		Namespace: "testns",
 		Index:     object.EndpointsKey("hdlsprtls", "testns"),
+		Ready:     true,
 	}},
 }
 
