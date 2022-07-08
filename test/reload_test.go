@@ -332,12 +332,11 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 	// verify that metrics have not been pushed
 }
 
-
 // TestReloadUnreadyPlugin tests that the ready plugin properly resets the list of readiness implementors during a reload.
 // If it fails to do so, ready will respond with duplicate plugin names after a reload (e.g. in this test "unready,unready").
 func TestReloadUnreadyPlugin(t *testing.T) {
 	// Add/Register a perpetually unready plugin
-	dnsserver.Directives = append( []string{"unready"}, dnsserver.Directives...)
+	dnsserver.Directives = append([]string{"unready"}, dnsserver.Directives...)
 	u := new(unready)
 	plugin.Register("unready", func(c *caddy.Controller) error {
 		dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -382,9 +381,9 @@ type unready struct {
 	next plugin.Handler
 }
 
-func (u *unready) Ready() bool{return false}
+func (u *unready) Ready() bool { return false }
 
-func (u *unready) Name() string {return "unready"}
+func (u *unready) Name() string { return "unready" }
 
 func (u *unready) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	return u.next.ServeDNS(ctx, w, r)
