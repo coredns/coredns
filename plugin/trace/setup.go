@@ -103,34 +103,28 @@ func traceParse(c *caddy.Controller) (*trace, error) {
 				}
 			case "zipkin_max_backlog_size":
 				args := c.RemainingArgs()
-				if len(args) > 1 {
+				if len(args) != 1 {
 					return nil, c.ArgErr()
 				}
-				if len(args) == 1 {
-					tr.zipkinMaxBacklogSize, err = strconv.Atoi(args[0])
-				}
+				tr.zipkinMaxBacklogSize, err = strconv.Atoi(args[0])
 				if err != nil {
 					return nil, err
 				}
 			case "zipkin_max_batch_size":
 				args := c.RemainingArgs()
-				if len(args) > 1 {
+				if len(args) != 1 {
 					return nil, c.ArgErr()
 				}
-				if len(args) == 1 {
-					tr.zipkinMaxBatchSize, err = strconv.Atoi(args[0])
-				}
+				tr.zipkinMaxBatchSize, err = strconv.Atoi(args[0])
 				if err != nil {
 					return nil, err
 				}
 			case "zipkin_max_batch_interval":
 				args := c.RemainingArgs()
-				if len(args) > 1 {
+				if len(args) != 1 {
 					return nil, c.ArgErr()
 				}
-				if len(args) == 1 {
-					tr.zipkinMaxBatchInterval, err = time.ParseDuration(c.Val())
-				}
+				tr.zipkinMaxBatchInterval, err = time.ParseDuration(args[0])
 				if err != nil {
 					return nil, err
 				}
