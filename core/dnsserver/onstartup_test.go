@@ -5,7 +5,6 @@ import (
 )
 
 func TestRegex1035PrefSyntax(t *testing.T) {
-
 	testCases := []struct {
 		zone     string
 		expected bool

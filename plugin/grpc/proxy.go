@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 )
 
@@ -33,7 +34,7 @@ func newProxy(addr string, tlsConfig *tls.Config) (*Proxy, error) {
 	if tlsConfig != nil {
 		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
 	} else {
-		p.dialOpts = append(p.dialOpts, grpc.WithInsecure())
+		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
 	conn, err := grpc.Dial(p.addr, p.dialOpts...)

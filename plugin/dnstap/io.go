@@ -18,7 +18,7 @@ const (
 
 // tapper interface is used in testing to mock the Dnstap method.
 type tapper interface {
-	Dnstap(tap.Dnstap)
+	Dnstap(*tap.Dnstap)
 }
 
 // dio implements the Tapper interface.
@@ -26,7 +26,7 @@ type dio struct {
 	endpoint     string
 	proto        string
 	enc          *encoder
-	queue        chan tap.Dnstap
+	queue        chan *tap.Dnstap
 	dropped      uint32
 	quit         chan struct{}
 	flushTimeout time.Duration
@@ -38,7 +38,7 @@ func newIO(proto, endpoint string) *dio {
 	return &dio{
 		endpoint:     endpoint,
 		proto:        proto,
-		queue:        make(chan tap.Dnstap, queueSize),
+		queue:        make(chan *tap.Dnstap, queueSize),
 		quit:         make(chan struct{}),
 		flushTimeout: flushTimeout,
 		tcpTimeout:   tcpTimeout,
@@ -67,7 +67,7 @@ func (d *dio) connect() error {
 }
 
 // Dnstap enqueues the payload for log.
-func (d *dio) Dnstap(payload tap.Dnstap) {
+func (d *dio) Dnstap(payload *tap.Dnstap) {
 	select {
 	case d.queue <- payload:
 	default:
@@ -104,7 +104,7 @@ func (d *dio) serve() {
 			d.enc.close()
 			return
 		case payload := <-d.queue:
-			if err := d.write(&payload); err != nil {
+			if err := d.write(payload); err != nil {
 				d.dial()
 			}
 		case <-timeout.C:

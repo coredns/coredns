@@ -212,7 +212,6 @@ func maybeUnescape(s string) (string, error) {
 
 func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone) error {
 	for _, rr := range rrs.ResourceRecords {
-
 		n, err := maybeUnescape(aws.StringValue(rrs.Name))
 		if err != nil {
 			return fmt.Errorf("failed to unescape `%s' name: %v", aws.StringValue(rrs.Name), err)
@@ -273,7 +272,6 @@ func (h *Route53) updateZones(ctx context.Context) error {
 				(*z[i]).z = newZ
 				h.zMu.Unlock()
 			}
-
 		}(zName, z)
 	}
 	// Collect errors (if any). This will also sync on all zones updates

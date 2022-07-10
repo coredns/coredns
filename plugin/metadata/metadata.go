@@ -27,7 +27,6 @@ func ContextWithMetadata(ctx context.Context) context.Context {
 
 // ServeDNS implements the plugin.Handler interface.
 func (m *Metadata) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-
 	ctx = ContextWithMetadata(ctx)
 
 	state := request.Request{W: w, Req: r}

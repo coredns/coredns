@@ -87,7 +87,6 @@ func kubernetesParse(c *caddy.Controller) (*Kubernetes, error) {
 
 // ParseStanza parses a kubernetes stanza
 func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
-
 	k8s := New([]string{""})
 	k8s.autoPathSearch = searchFromResolvConf()
 

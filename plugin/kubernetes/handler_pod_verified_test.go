@@ -49,7 +49,6 @@ var podModeVerifiedCases = []test.Case{
 }
 
 func TestServeDNSModeVerified(t *testing.T) {
-
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
 	k.Next = test.NextHandler(dns.RcodeSuccess, nil)

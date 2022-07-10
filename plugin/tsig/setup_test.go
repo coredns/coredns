@@ -12,7 +12,6 @@ import (
 )
 
 func TestParse(t *testing.T) {
-
 	secrets := map[string]string{
 		"name.key.":  "test-key",
 		"name2.key.": "test-key-2",
@@ -150,7 +149,6 @@ key "name2.key." {
 				break
 			}
 		}
-
 	}
 }
 
@@ -243,6 +241,5 @@ func TestParseKeyFileErrors(t *testing.T) {
 		if err.Error() != testcase.err {
 			t.Errorf("Test %d: Expected error: %q, got %q", i, testcase.err, err.Error())
 		}
-
 	}
 }

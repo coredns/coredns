@@ -167,7 +167,6 @@ func sectionsFromReadme(readme string) error {
 		return fmt.Errorf("Sections incomplete or ordered wrong: %q, want (at least): Name, Descripion, Syntax and Examples", readme)
 	}
 	return nil
-
 }
 
 func create(c map[string]string) {

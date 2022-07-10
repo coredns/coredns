@@ -15,7 +15,6 @@ func (e *External) a(ctx context.Context, services []msg.Service, state request.
 	dup := make(map[string]struct{})
 
 	for _, s := range services {
-
 		what, ip := s.HostType()
 
 		switch what {
@@ -48,7 +47,6 @@ func (e *External) aaaa(ctx context.Context, services []msg.Service, state reque
 	dup := make(map[string]struct{})
 
 	for _, s := range services {
-
 		what, ip := s.HostType()
 
 		switch what {
@@ -127,7 +125,6 @@ func (e *External) srv(ctx context.Context, services []msg.Service, state reques
 		what, ip := s.HostType()
 
 		switch what {
-
 		case dns.TypeCNAME:
 			addr := dns.Fqdn(s.Host)
 			srv := s.NewSRV(state.QName(), weight)

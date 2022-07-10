@@ -51,7 +51,6 @@ type Server struct {
 // NewServer returns a new CoreDNS server and compiles all plugins in to it. By default CH class
 // queries are blocked unless queries from enableChaos are loaded.
 func NewServer(addr string, group []*Config) (*Server, error) {
-
 	s := &Server{
 		Addr:         addr,
 		zones:        make(map[string]*Config),
@@ -174,7 +173,6 @@ func (s *Server) ListenPacket() (net.PacketConn, error) {
 // immediately.
 // This implements Caddy.Stopper interface.
 func (s *Server) Stop() (err error) {
-
 	if runtime.GOOS != "windows" {
 		// force connections to close after timeout
 		done := make(chan struct{})

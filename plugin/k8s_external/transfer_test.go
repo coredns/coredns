@@ -83,7 +83,6 @@ func TestTransferAXFR(t *testing.T) {
 			t.Errorf("%+v", rec)
 		}
 	}
-
 }
 
 func TestTransferIXFR(t *testing.T) {
@@ -127,7 +126,6 @@ func TestTransferIXFR(t *testing.T) {
 			t.Errorf("%+v", rec)
 		}
 	}
-
 }
 
 // difference shows what we're missing when comparing two RR slices

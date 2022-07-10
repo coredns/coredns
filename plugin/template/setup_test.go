@@ -24,7 +24,6 @@ func TestSetup(t *testing.T) {
 }
 
 func TestSetupParse(t *testing.T) {
-
 	serverBlockKeys := []string{"domain.com.:8053", "dynamic.domain.com.:8053"}
 
 	tests := []struct {

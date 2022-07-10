@@ -35,7 +35,6 @@ func parse(c *caddy.Controller) error {
 		case 1:
 			if args[0] != "round_robin" {
 				return fmt.Errorf("unknown policy: %s", args[0])
-
 			}
 			return nil
 		}

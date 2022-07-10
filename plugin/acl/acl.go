@@ -88,7 +88,6 @@ RulesCheckLoop:
 				return dns.RcodeSuccess, nil
 			}
 		}
-
 	}
 
 	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx)).Inc()

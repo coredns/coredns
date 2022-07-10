@@ -40,7 +40,7 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 
 	etc.Upstream = upstream.New()
 
-	for c.Next() {
+	if c.Next() {
 		etc.Zones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 		for c.NextBlock() {
 			switch c.Val() {

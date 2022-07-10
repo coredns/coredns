@@ -8,7 +8,6 @@ import (
 )
 
 func TestParse(t *testing.T) {
-
 	tests := []struct {
 		inputFileRules string
 		shouldErr      bool
@@ -49,5 +48,4 @@ func TestParse(t *testing.T) {
 			t.Errorf("Test %d got wrong error for invalid response rewrite: '%v'\n---\n%s", i, err.Error(), test.inputFileRules)
 		}
 	}
-
 }

@@ -49,7 +49,6 @@ func newOverlapZone() *zoneOverlap {
 // registerAndCheck adds a new zoneAddr for validation, it returns information about existing or overlapping with already registered
 // we consider that an unbound address is overlapping all bound addresses for same zone, same port
 func (zo *zoneOverlap) registerAndCheck(z zoneAddr) (existingZone *zoneAddr, overlappingZone *zoneAddr) {
-
 	if exist, ok := zo.registeredAddr[z]; ok {
 		// exact same zone already registered
 		return &exist, nil

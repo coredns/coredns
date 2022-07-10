@@ -114,7 +114,6 @@ func TestGroupingServers(t *testing.T) {
 		for _, v := range test.expectedGroups {
 			if _, ok := groups[v]; !ok {
 				t.Errorf("Test %d : expected value %v to be in the group, was not", i, v)
-
 			}
 		}
 	}

@@ -32,5 +32,4 @@ func (r *Rand) Perm(n int) []int {
 	v := r.r.Perm(n)
 	r.m.Unlock()
 	return v
-
 }

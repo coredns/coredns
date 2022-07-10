@@ -285,7 +285,6 @@ func SortAndCheck(resp *dns.Msg, tc Case) error {
 	}
 	if err := Section(tc, Ns, resp.Ns); err != nil {
 		return err
-
 	}
 	return Section(tc, Extra, resp.Extra)
 }

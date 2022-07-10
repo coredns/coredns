@@ -50,7 +50,6 @@ func (l Logger) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 
 		return rc, err
-
 	}
 	return plugin.NextOrFailure(l.Name(), l.Next, ctx, w, r)
 }

@@ -609,7 +609,7 @@ func TestCacheWildcardMetadata(t *testing.T) {
 	ctx = metadata.ContextWithMetadata(context.TODO())
 	w = dnstest.NewRecorder(&test.ResponseWriter{})
 
-	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	c.ServeDNS(ctx, w, req)
 	f := metadata.ValueFunc(ctx, "zone/wildcard")
 	if f == nil {
 		t.Fatal("expected metadata func for wildcard response retrieved from cache, got nil")

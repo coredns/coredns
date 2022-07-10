@@ -30,7 +30,7 @@ func parse(c *caddy.Controller) (string, []string, error) {
 	chaosVersion = caddy.AppName + "-" + caddy.AppVersion
 	version := ""
 
-	for c.Next() {
+	if c.Next() {
 		args := c.RemainingArgs()
 		if len(args) == 0 {
 			return trim(chaosVersion), Owners, nil

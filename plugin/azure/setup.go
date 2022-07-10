@@ -29,20 +29,24 @@ func setup(c *caddy.Controller) error {
 
 	publicDNSClient := publicAzureDNS.NewRecordSetsClient(env.Values[auth.SubscriptionID])
 	if publicDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
+		cancel()
 		return plugin.Error("azure", err)
 	}
 
 	privateDNSClient := privateAzureDNS.NewRecordSetsClient(env.Values[auth.SubscriptionID])
 	if privateDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
+		cancel()
 		return plugin.Error("azure", err)
 	}
 
 	h, err := New(ctx, publicDNSClient, privateDNSClient, keys, accessMap)
 	if err != nil {
+		cancel()
 		return plugin.Error("azure", err)
 	}
 	h.Fall = fall
 	if err := h.Run(ctx); err != nil {
+		cancel()
 		return plugin.Error("azure", err)
 	}
 

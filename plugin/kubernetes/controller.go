@@ -755,5 +755,3 @@ func (dns *dnsControl) updateExtModifed() {
 }
 
 var errObj = errors.New("obj was not of the correct type")
-
-const defaultResyncPeriod = 0

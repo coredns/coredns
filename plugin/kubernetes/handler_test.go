@@ -494,7 +494,6 @@ var notSyncedTestCases = []test.Case{
 }
 
 func TestNotSyncedServeDNS(t *testing.T) {
-
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{
 		notSynced: true,

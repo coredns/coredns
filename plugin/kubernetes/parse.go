@@ -66,7 +66,6 @@ func parseRequest(name, zone string) (r recordRequest, err error) {
 	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol.
 	// Anything else is a query that is too long to answer and can safely be delegated to return an nxdomain.
 	switch last {
-
 	case 0: // endpoint only
 		r.endpoint = segs[last]
 	case 1: // service and port

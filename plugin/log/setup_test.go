@@ -165,7 +165,6 @@ func TestLogParse(t *testing.T) {
 				i, len(test.expectedLogRules), len(actualLogRules))
 		}
 		for j, actualLogRule := range actualLogRules {
-
 			if actualLogRule.NameScope != test.expectedLogRules[j].NameScope {
 				t.Errorf("Test %d expected %dth LogRule NameScope for '%s' to be  %s  , but got %s",
 					i, j, test.inputLogRules, test.expectedLogRules[j].NameScope, actualLogRule.NameScope)

@@ -167,7 +167,6 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 			return dns.RcodeServerFailure, err
 		}
 		l += len(rrs)
-
 	}
 
 	close(ch)     // Even though we close the channel here, we still have

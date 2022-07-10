@@ -138,7 +138,6 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 
 // MakeServers uses the newly-created siteConfigs to create and return a list of server instances.
 func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
-
 	// Now that all Keys and Directives are parsed and initialized
 	// lets verify that there is no overlap on the zones and addresses to listen for
 	errValid := h.validateZonesAndListeningAddresses()
@@ -197,7 +196,6 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 			}
 			servers = append(servers, s)
 		}
-
 	}
 
 	return servers, nil
@@ -262,11 +260,9 @@ func (h *dnsContext) validateZonesAndListeningAddresses() error {
 			if overlapZone != nil {
 				return fmt.Errorf("cannot serve %s - zone overlap listener capacity with %v", akey.String(), overlapZone.String())
 			}
-
 		}
 	}
 	return nil
-
 }
 
 // groupSiteConfigsByListenAddr groups site configs by their listen

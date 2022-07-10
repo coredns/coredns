@@ -14,7 +14,6 @@ import (
 )
 
 func TestMetadata(t *testing.T) {
-
 	tests := []struct {
 		label         string
 		expectedValue string
@@ -37,7 +36,6 @@ func TestMetadata(t *testing.T) {
 
 	knownIPAddr := "81.2.69.142" // This IP should be be part of the CDIR address range used to create the database fixtures.
 	for _, tc := range tests {
-
 		t.Run(fmt.Sprintf("%s/%s", tc.label, "direct"), func(t *testing.T) {
 			geoIP, err := newGeoIP(cityDBPath, false)
 			if err != nil {
@@ -89,5 +87,4 @@ func testMetadata(t *testing.T, state request.Request, geoIP *GeoIP, label, expe
 		t.Errorf("expected value for label %q should be %q, got %q instead",
 			label, expectedValue, value)
 	}
-
 }

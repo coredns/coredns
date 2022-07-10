@@ -151,7 +151,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 		// If we see NS records, it means the name as been delegated, and we should return the delegation.
 		if nsrrs := elem.Type(dns.TypeNS); nsrrs != nil {
-
 			// If the query is specifically for DS and the qname matches the delegated name, we should
 			// return the DS in the answer section and leave the rest empty, i.e. just continue the loop
 			// and continue searching.
@@ -179,7 +178,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 	// Found entire name.
 	if found && shot {
-
 		if rrs := elem.Type(dns.TypeCNAME); len(rrs) > 0 && qtype != dns.TypeCNAME {
 			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
 			return z.externalLookup(ctx, state, elem, rrs)
@@ -208,7 +206,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		}
 
 		return rrs, ap.ns(do), additional, Success
-
 	}
 
 	// Haven't found the original name.
@@ -248,7 +245,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			sigs := wildElem.TypeForWildcard(dns.TypeRRSIG, qname)
 			sigs = rrutil.SubTypeSignature(sigs, qtype)
 			rrs = append(rrs, sigs...)
-
 		}
 		return rrs, auth, nil, Success
 	}
@@ -290,7 +286,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 				}
 			}
 		}
-
 	}
 Out:
 	return nil, ret, nil, rcode
@@ -325,7 +320,6 @@ func (a Apex) ns(do bool) []dns.RR {
 
 // externalLookup adds signatures and tries to resolve CNAMEs that point to external names.
 func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
-
 	qtype := state.QType()
 	do := state.Do()
 

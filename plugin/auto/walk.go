@@ -12,7 +12,6 @@ import (
 
 // Walk will recursively walk of the file under l.directory and adds the one that match l.re.
 func (a Auto) Walk() error {
-
 	// TODO(miek): should add something so that we don't stomp on each other.
 
 	toDelete := make(map[string]bool)

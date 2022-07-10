@@ -96,7 +96,6 @@ func parseStanza(c *caddy.Controller) (*GRPC, error) {
 }
 
 func parseBlock(c *caddy.Controller, g *GRPC) error {
-
 	switch c.Val() {
 	case "except":
 		ignore := c.RemainingArgs()

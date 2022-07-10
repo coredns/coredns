@@ -52,7 +52,6 @@ func TestNameMatches(t *testing.T) {
 		if actual != m.expected {
 			t.Errorf("Expected %v for %s/%s, got %v", m.expected, m.parent, m.child, actual)
 		}
-
 	}
 }
 

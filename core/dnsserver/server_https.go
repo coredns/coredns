@@ -104,7 +104,6 @@ func (s *ServerHTTPS) ServePacket(p net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServerHTTPS) Listen() (net.Listener, error) {
-
 	l, err := reuseport.Listen("tcp", s.Addr[len(transport.HTTPS+"://"):])
 	if err != nil {
 		return nil, err
@@ -141,7 +140,6 @@ func (s *ServerHTTPS) Stop() error {
 // ServeHTTP is the handler that gets the HTTP request and converts to the dns format, calls the plugin
 // chain, converts it back and write it to the client.
 func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	if !s.validRequest(r) {
 		http.Error(w, "", http.StatusNotFound)
 		s.countResponse(http.StatusNotFound)

@@ -204,7 +204,6 @@ func (h *CloudDNS) updateZones(ctx context.Context) error {
 				(*z[i]).z = newZ
 				h.zMu.Unlock()
 			}
-
 		}(zName, z)
 	}
 	// Collect errors (if any). This will also sync on all zones updates

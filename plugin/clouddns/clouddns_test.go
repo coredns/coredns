@@ -152,7 +152,6 @@ func TestCloudDNS(t *testing.T) {
 
 			m.Authoritative = true
 			rcode = dns.RcodeSuccess
-
 		}
 
 		m.SetRcode(r, rcode)
