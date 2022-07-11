@@ -68,6 +68,8 @@ func parse(c *caddy.Controller) (*External, error) {
 					return nil, c.ArgErr()
 				}
 				e.apex = args[0]
+			case "headless":
+				e.headless = true
 			default:
 				return nil, c.Errf("unknown property '%s'", c.Val())
 			}

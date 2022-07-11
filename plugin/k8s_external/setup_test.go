@@ -8,16 +8,20 @@ import (
 
 func TestSetup(t *testing.T) {
 	tests := []struct {
-		input        string
-		shouldErr    bool
-		expectedZone string
-		expectedApex string
+		input            string
+		shouldErr        bool
+		expectedZone     string
+		expectedApex     string
+		expectedHeadless bool
 	}{
-		{`k8s_external`, false, "", "dns"},
-		{`k8s_external example.org`, false, "example.org.", "dns"},
+		{`k8s_external`, false, "", "dns", false},
+		{`k8s_external example.org`, false, "example.org.", "dns", false},
 		{`k8s_external example.org {
 			apex testdns
-}`, false, "example.org.", "testdns"},
+}`, false, "example.org.", "testdns", false},
+		{`k8s_external example.org {
+	headless
+}`, false, "example.org.", "dns", true},
 	}
 
 	for i, test := range tests {
@@ -42,6 +46,11 @@ func TestSetup(t *testing.T) {
 		if !test.shouldErr {
 			if test.expectedApex != e.apex {
 				t.Errorf("Test %d, expected apex %q for input %s, got: %q", i, test.expectedApex, test.input, e.apex)
+			}
+		}
+		if !test.shouldErr {
+			if test.expectedHeadless != e.headless {
+				t.Errorf("Test %d, expected headless %q for input %s, got: %v", i, test.expectedApex, test.input, e.headless)
 			}
 		}
 	}

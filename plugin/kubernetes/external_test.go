@@ -54,7 +54,7 @@ func TestExternal(t *testing.T) {
 	for i, tc := range extCases {
 		state := testRequest(tc.Qname)
 
-		svc, rcode := k.External(state)
+		svc, rcode := k.External(state, true)
 
 		if x := tc.Rcode; x != rcode {
 			t.Errorf("Test %d, expected rcode %d, got %d", i, x, rcode)

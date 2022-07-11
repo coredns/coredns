@@ -112,7 +112,7 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 
 	case dns.TypeNS:
 		// We can only get here if the qname equals the zone, see ServeDNS in handler.go.
-		nss := k.nsAddrs(false, state.Zone)
+		nss := k.nsAddrs(false, false, state.Zone)
 		var svcs []msg.Service
 		for _, ns := range nss {
 			if ns.Header().Rrtype == dns.TypeA {
@@ -127,7 +127,7 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 	}
 
 	if isDefaultNS(state.Name(), state.Zone) {
-		nss := k.nsAddrs(false, state.Zone)
+		nss := k.nsAddrs(false, false, state.Zone)
 		var svcs []msg.Service
 		for _, ns := range nss {
 			if ns.Header().Rrtype == dns.TypeA && state.QType() == dns.TypeA {

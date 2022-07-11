@@ -26,11 +26,11 @@ import (
 type Externaler interface {
 	// External returns a slice of msg.Services that are looked up in the backend and match
 	// the request.
-	External(request.Request) ([]msg.Service, int)
+	External(request.Request, bool) ([]msg.Service, int)
 	// ExternalAddress should return a string slice of addresses for the nameserving endpoint.
-	ExternalAddress(state request.Request) []dns.RR
+	ExternalAddress(state request.Request, headless bool) []dns.RR
 	// ExternalServices returns all services in the given zone as a slice of msg.Service.
-	ExternalServices(zone string) []msg.Service
+	ExternalServices(zone string, headless bool) []msg.Service
 	// ExternalSerial gets the current serial.
 	ExternalSerial(string) uint32
 }
@@ -40,16 +40,17 @@ type External struct {
 	Next  plugin.Handler
 	Zones []string
 
-	hostmaster string
-	apex       string
-	ttl        uint32
+	hostmaster 	string
+	apex       	string
+	ttl        	uint32
+	headless 	bool
 
 	upstream *upstream.Upstream
 
-	externalFunc         func(request.Request) ([]msg.Service, int)
-	externalAddrFunc     func(request.Request) []dns.RR
+	externalFunc         func(request.Request, bool) ([]msg.Service, int)
+	externalAddrFunc     func(request.Request, bool) []dns.RR
 	externalSerialFunc   func(string) uint32
-	externalServicesFunc func(string) []msg.Service
+	externalServicesFunc func(string, bool) []msg.Service
 }
 
 // New returns a new and initialized *External.
@@ -85,7 +86,7 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		}
 	}
 
-	svc, rcode := e.externalFunc(state)
+	svc, rcode := e.externalFunc(state, e.headless)
 
 	m := new(dns.Msg)
 	m.SetReply(state.Req)

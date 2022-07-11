@@ -103,7 +103,7 @@ func TestNsAddrs(t *testing.T) {
 	k.APIConn = &APIConnTest{}
 	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
 
-	cdrs := k.nsAddrs(false, k.Zones[0])
+	cdrs := k.nsAddrs(false, false, k.Zones[0])
 
 	if len(cdrs) != 3 {
 		t.Fatalf("Expected 3 results, got %v", len(cdrs))
@@ -143,7 +143,7 @@ func TestNsAddrsExternal(t *testing.T) {
 	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
 
 	// initially no services have an external IP ...
-	cdrs := k.nsAddrs(true, k.Zones[0])
+	cdrs := k.nsAddrs(true, false, k.Zones[0])
 
 	if len(cdrs) != 0 {
 		t.Fatalf("Expected 0 results, got %v", len(cdrs))
@@ -151,7 +151,7 @@ func TestNsAddrsExternal(t *testing.T) {
 
 	// Add an external IP to one of the services ...
 	svcs[0].ExternalIPs = []string{"1.2.3.4"}
-	cdrs = k.nsAddrs(true, k.Zones[0])
+	cdrs = k.nsAddrs(true, false, k.Zones[0])
 
 	if len(cdrs) != 1 {
 		t.Fatalf("Expected 1 results, got %v", len(cdrs))

@@ -13,7 +13,7 @@ func isDefaultNS(name, zone string) bool {
 
 // nsAddrs returns the A or AAAA records for the CoreDNS service in the cluster. If the service cannot be found,
 // it returns a record for the local address of the machine we're running on.
-func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
+func (k *Kubernetes) nsAddrs(external, headless bool, zone string) []dns.RR {
 	var (
 		svcNames      []string
 		svcIPs        []net.IP
@@ -31,10 +31,21 @@ func (k *Kubernetes) nsAddrs(external bool, zone string) []dns.RR {
 			for _, svc := range svcs {
 				if external {
 					svcName := strings.Join([]string{svc.Name, svc.Namespace, zone}, ".")
-					for _, exIP := range svc.ExternalIPs {
-						svcNames = append(svcNames, svcName)
-						svcIPs = append(svcIPs, net.ParseIP(exIP))
+
+					if headless && svc.Headless() {
+						for _, s := range endpoint.Subsets {
+							for _, a := range s.Addresses {
+								svcNames = append(svcNames, endpointHostname(a, k.endpointNameMode)+"."+svcName)
+								svcIPs = append(svcIPs, net.ParseIP(a.IP))
+							}
+						}
+					} else {
+						for _, exIP := range svc.ExternalIPs {
+							svcNames = append(svcNames, svcName)
+							svcIPs = append(svcIPs, net.ParseIP(exIP))
+						}
 					}
+
 					continue
 				}
 				svcName := strings.Join([]string{svc.Name, svc.Namespace, Svc, zone}, ".")

@@ -17,6 +17,7 @@ func TestApex(t *testing.T) {
 	k.APIConn = &external{}
 
 	e := New()
+	e.headless = true
 	e.Zones = []string{"example.com."}
 	e.Next = test.NextHandler(dns.RcodeSuccess, nil)
 	e.externalFunc = k.External

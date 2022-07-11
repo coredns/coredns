@@ -27,6 +27,7 @@ func TestTransferAXFR(t *testing.T) {
 	k.APIConn = &external{}
 
 	e := New()
+	e.headless = true
 	e.Zones = []string{"example.com."}
 	e.externalFunc = k.External
 	e.externalAddrFunc = externalAddress  // internal test function
@@ -64,6 +65,7 @@ func TestTransferAXFR(t *testing.T) {
 			if ans.Header().Rrtype == dns.TypePTR {
 				continue
 			}
+
 			expect = append(expect, ans)
 		}
 	}
@@ -92,6 +94,7 @@ func TestTransferIXFR(t *testing.T) {
 
 	e := New()
 	e.Zones = []string{"example.com."}
+	e.headless = true
 	e.externalFunc = k.External
 	e.externalAddrFunc = externalAddress  // internal test function
 	e.externalSerialFunc = externalSerial // internal test function
@@ -136,7 +139,9 @@ func difference(testRRs []dns.RR, gotRRs []dns.RR) []dns.RR {
 	}
 
 	foundRRs := []dns.RR{}
+	cmp := map[string]struct{}{}
 	for _, rr := range gotRRs {
+		cmp[rr.String()] = struct{}{}
 		if _, ok := expectedRRs[rr.String()]; !ok {
 			foundRRs = append(foundRRs, rr)
 		}
