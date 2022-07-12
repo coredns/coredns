@@ -32,7 +32,14 @@ func TestNewTTLRule(t *testing.T) {
 		{"continue", []string{"regex", `(srv1)\.(coredns)\.(rocks)`, "35"}, false},
 		{"stop", []string{"srv1.coredns.rocks", "12345678901234567890"}, true},
 		{"stop", []string{"srv1.coredns.rocks", "coredns.rocks"}, true},
-		{"stop", []string{"srv1.coredns.rocks", "-1"}, true},
+		{"stop", []string{"srv1.coredns.rocks", "#1"}, true},
+		{"stop", []string{"range.coredns.rocks", "1-2"}, false},
+		{"stop", []string{"ceil.coredns.rocks", "-2"}, false},
+		{"stop", []string{"floor.coredns.rocks", "1-"}, false},
+		{"stop", []string{"range.coredns.rocks", "2-2"}, false},
+		{"stop", []string{"invalid.coredns.rocks", "-"}, true},
+		{"stop", []string{"invalid.coredns.rocks", "2-1"}, true},
+		{"stop", []string{"invalid.coredns.rocks", "5-10-20"}, true},
 	}
 	for i, tc := range tests {
 		failed := false
@@ -78,6 +85,9 @@ func TestTtlRewrite(t *testing.T) {
 		{[]string{"stop", "ttl", "substring", "rv50", "50"}, reflect.TypeOf(&substringTTLRule{})},
 		{[]string{"stop", "ttl", "regex", `(srv10)\.(coredns)\.(rocks)`, "10"}, reflect.TypeOf(&regexTTLRule{})},
 		{[]string{"stop", "ttl", "regex", `(srv20)\.(coredns)\.(rocks)`, "20"}, reflect.TypeOf(&regexTTLRule{})},
+		{[]string{"stop", "ttl", "range.example.com.", "30-300"}, reflect.TypeOf(&exactTTLRule{})},
+		{[]string{"stop", "ttl", "ceil.example.com.", "-11"}, reflect.TypeOf(&exactTTLRule{})},
+		{[]string{"stop", "ttl", "floor.example.com.", "5-"}, reflect.TypeOf(&exactTTLRule{})},
 	}
 	for i, r := range ruleset {
 		rule, err := newRule(r.args...)
@@ -113,6 +123,13 @@ func doTTLTests(rules []Rule, t *testing.T) {
 			test.A("srv20.coredns.rocks.  5   IN  A  10.0.0.22"),
 			test.A("srv20.coredns.rocks.  5   IN  A  10.0.0.23"),
 		}, 20, false},
+		{"range.example.com.", dns.TypeA, []dns.RR{test.A("range.example.com.  5   IN  A  10.0.0.1")}, 30, false},
+		{"range.example.com.", dns.TypeA, []dns.RR{test.A("range.example.com.  55   IN  A  10.0.0.1")}, 55, false},
+		{"range.example.com.", dns.TypeA, []dns.RR{test.A("range.example.com.  500   IN  A  10.0.0.1")}, 300, false},
+		{"ceil.example.com.", dns.TypeA, []dns.RR{test.A("ceil.example.com.  5   IN  A  10.0.0.1")}, 5, false},
+		{"ceil.example.com.", dns.TypeA, []dns.RR{test.A("ceil.example.com.  15   IN  A  10.0.0.1")}, 11, false},
+		{"floor.example.com.", dns.TypeA, []dns.RR{test.A("floor.example.com.  0   IN  A  10.0.0.1")}, 5, false},
+		{"floor.example.com.", dns.TypeA, []dns.RR{test.A("floor.example.com.  30   IN  A  10.0.0.1")}, 30, false},
 	}
 	ctx := context.TODO()
 	for i, tc := range tests {

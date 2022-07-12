@@ -273,7 +273,27 @@ The syntax for the TTL rewrite rule is as follows. The meaning of
 An omitted type is defaulted to `exact`.
 
 ```
-rewrite [continue|stop] ttl [exact|prefix|suffix|substring|regex] STRING SECONDS
+rewrite [continue|stop] ttl [exact|prefix|suffix|substring|regex] STRING [SECONDS|MIN-MAX]
+```
+
+It is possible to supply a range of TTL values in the `SECONDS` parameters instead of a single value.
+If a range is supplied, the TTL value is set to `MIN` if it is below, or set to `MAX` if it is above.
+The TTL value is left unchanged if it is already inside the provided range.
+The ranges can be unbounded on either side.
+
+TTL examples with ranges:
+```
+# rewrite TTL to be between 30s and 300s
+rewrite ttl example.com. 30-300
+
+# cap TTL at 30s
+rewrite ttl example.com. -30 # equivalent to rewrite ttl example.com. 0-30
+
+# increase TTL to a minimum of 30s
+rewrite ttl example.com. 30-
+
+# set TTL to 30s
+rewrite ttl example.com. 30 # equivalent to rewrite ttl example.com. 30-30
 ```
 
 ## EDNS0 Options
