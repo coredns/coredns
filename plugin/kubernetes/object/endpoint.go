@@ -19,7 +19,6 @@ type Endpoints struct {
 	Index     string
 	IndexIP   []string
 	Subsets   []EndpointSubset
-	Ready     bool
 
 	*Empty
 }
@@ -37,6 +36,7 @@ type EndpointAddress struct {
 	Hostname      string
 	NodeName      string
 	TargetRefName string
+	Ready         bool
 }
 
 // EndpointPort is a tuple that describes a single port.
@@ -74,7 +74,7 @@ func ToEndpoints(obj meta.Object) (meta.Object, error) {
 		}
 
 		for j, a := range eps.Addresses {
-			ea := EndpointAddress{IP: a.IP, Hostname: a.Hostname}
+			ea := EndpointAddress{IP: a.IP, Hostname: a.Hostname, Ready: true}
 			if a.NodeName != nil {
 				ea.NodeName = *a.NodeName
 			}
@@ -129,9 +129,9 @@ func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
 	}
 
 	for _, end := range ends.Endpoints {
-		e.Ready = endpointsliceReady(end.Conditions.Ready)
 		for _, a := range end.Addresses {
 			ea := EndpointAddress{IP: a}
+			ea.Ready = endpointsliceReady(end.Conditions.Ready)
 			if end.Hostname != nil {
 				ea.Hostname = *end.Hostname
 			}
@@ -178,9 +178,9 @@ func EndpointSliceV1beta1ToEndpoints(obj meta.Object) (meta.Object, error) {
 	}
 
 	for _, end := range ends.Endpoints {
-		e.Ready = endpointsliceReady(end.Conditions.Ready)
 		for _, a := range end.Addresses {
 			ea := EndpointAddress{IP: a}
+			ea.Ready = endpointsliceReady(end.Conditions.Ready)
 			if end.Hostname != nil {
 				ea.Hostname = *end.Hostname
 			}
@@ -241,7 +241,7 @@ func (e *Endpoints) DeepCopyObject() runtime.Object {
 			Ports:     make([]EndpointPort, len(eps.Ports)),
 		}
 		for j, a := range eps.Addresses {
-			ea := EndpointAddress{IP: a.IP, Hostname: a.Hostname, NodeName: a.NodeName, TargetRefName: a.TargetRefName}
+			ea := EndpointAddress{IP: a.IP, Hostname: a.Hostname, NodeName: a.NodeName, TargetRefName: a.TargetRefName, Ready: a.Ready}
 			sub.Addresses[j] = ea
 		}
 		for k, p := range eps.Ports {

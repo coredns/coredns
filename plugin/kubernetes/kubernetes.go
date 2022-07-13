@@ -540,12 +540,11 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 					continue
 				}
 
-				if !ep.Ready && !svc.HasAlphaPublishUnreadyAddressesAnnotation {
-					continue
-				}
-
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
+						if !addr.Ready && !svc.HasAlphaPublishUnreadyAddressesAnnotation {
+							continue
+						}
 
 						// See comments in parse.go parseRequest about the endpoint handling.
 						if r.endpoint != "" {
