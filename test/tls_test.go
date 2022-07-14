@@ -54,7 +54,9 @@ func TestDNSoverTLS(t *testing.T) {
 			if n := len(r.Extra); n != 2 {
 				t.Errorf("Expected 2 RRs in additional section, but got %d", n)
 			}
-
+			if r.Rcode != dns.RcodeSuccess {
+				t.Errorf("Expected success but got %d", r.Rcode)
+			}
 		})
 	}
 }
