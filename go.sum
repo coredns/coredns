@@ -1543,11 +1543,13 @@ honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9
 inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6 h1:acCzuUSQ79tGsM/O50VRFySfMm19IoMKL+sZztZkCxw=
 inet.af/netaddr v0.0.0-20211027220019-c74959edd3b6/go.mod h1:y3MGhcFMlh0KZPMuXXow8mpjxxAk3yoDNsp4cQz54i8=
 k8s.io/api v0.17.0/go.mod h1:npsyOePkeP0CPwyGfXDHxvypiYMJxBWAMpQxCaJ4ZxI=
-k8s.io/api v0.24.2 h1:g518dPU/L7VRLxWfcadQn2OnsiGWVOadTLpdnqgY2OI=
 k8s.io/api v0.24.2/go.mod h1:AHqbSkTm6YrQ0ObxjO3Pmp/ubFF/KuM7jU+3khoBsOg=
+k8s.io/api v0.24.3 h1:tt55QEmKd6L2k5DP6G/ZzdMQKvG5ro4H4teClqm0sTY=
+k8s.io/api v0.24.3/go.mod h1:elGR/XSZrS7z7cSZPzVWaycpJuGIw57j9b95/1PdJNI=
 k8s.io/apimachinery v0.17.0/go.mod h1:b9qmWdKlLuU9EBh+06BtLcSf/Mu89rWL33naRxs1uZg=
-k8s.io/apimachinery v0.24.2 h1:5QlH9SL2C8KMcrNJPor+LbXVTaZRReml7svPEh4OKDM=
 k8s.io/apimachinery v0.24.2/go.mod h1:82Bi4sCzVBdpYjyI4jY6aHX+YCUchUIrZrXKedjd2UM=
+k8s.io/apimachinery v0.24.3 h1:hrFiNSA2cBZqllakVYyH/VyEh4B581bQRmqATJSeQTg=
+k8s.io/apimachinery v0.24.3/go.mod h1:82Bi4sCzVBdpYjyI4jY6aHX+YCUchUIrZrXKedjd2UM=
 k8s.io/client-go v0.17.0/go.mod h1:TYgR6EUHs6k45hb6KWjVD6jFZvJV4gHDikv/It0xz+k=
 k8s.io/client-go v0.24.2 h1:CoXFSf8if+bLEbinDqN9ePIDGzcLtqhfd6jpfnwGOFA=
 k8s.io/client-go v0.24.2/go.mod h1:zg4Xaoo+umDsfCWr4fCnmLEtQXyCNXCvJuSsglNcV30=
