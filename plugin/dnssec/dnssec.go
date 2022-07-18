@@ -52,7 +52,7 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 	}
 
 	if mt == response.NameError || mt == response.NoData {
-		if req.Ns[0].Header().Rrtype != dns.TypeSOA || len(req.Ns) > 1 {
+		if len(req.Ns) == 0 || req.Ns[0].Header().Rrtype != dns.TypeSOA || len(req.Ns) > 1 {
 			return req
 		}
 

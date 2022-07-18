@@ -105,7 +105,7 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 	if soa && m.Rcode == dns.RcodeSuccess {
 		return NoData, opt
 	}
-	if soa && m.Rcode == dns.RcodeNameError {
+	if m.Rcode == dns.RcodeNameError {
 		return NameError, opt
 	}
 

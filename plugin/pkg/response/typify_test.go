@@ -48,18 +48,6 @@ func TestTypifyRRSIG(t *testing.T) {
 	}
 }
 
-func TestTypifyImpossible(t *testing.T) {
-	// create impossible message that denies its own existence
-	m := new(dns.Msg)
-	m.SetQuestion("bar.www.example.org.", dns.TypeAAAA)
-	m.Rcode = dns.RcodeNameError                                                      // name does not exist
-	m.Answer = []dns.RR{test.CNAME("bar.www.example.org. IN CNAME foo.example.org.")} // but we add a cname with the name!
-	mt, _ := Typify(m, time.Now().UTC())
-	if mt != OtherError {
-		t.Errorf("Impossible message not typified as OtherError, got %s", mt)
-	}
-}
-
 func TestTypifyRefused(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("foo.example.org.", dns.TypeA)
@@ -67,6 +55,16 @@ func TestTypifyRefused(t *testing.T) {
 	mt, _ := Typify(m, time.Now().UTC())
 	if mt != OtherError {
 		t.Errorf("Refused message not typified as OtherError, got %s", mt)
+	}
+}
+
+func TestTypifyNameErrorWithoutSoa(t *testing.T) {
+	m := new(dns.Msg)
+	m.SetQuestion("foo.example.org.", dns.TypeA)
+	m.Rcode = dns.RcodeNameError
+	mt, _ := Typify(m, time.Now().UTC())
+	if mt != NameError {
+		t.Errorf("NameError without SOA message not typified as NameError, got %s", mt)
 	}
 }
 

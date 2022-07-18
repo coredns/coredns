@@ -123,6 +123,20 @@ func TestSigningEmpty(t *testing.T) {
 	}
 }
 
+func TestSigningNameErrorWithNoSoa(t *testing.T) {
+	d, rm1, rm2 := newDnssec(t, []string{"miek.nl."})
+	defer rm1()
+	defer rm2()
+
+	m := &dns.Msg{}
+	m.SetQuestion("a.miek.nl.", dns.TypeA)
+	state := request.Request{Req: m, Zone: "miek.nl."}
+	m = d.Sign(state, time.Now().UTC(), server)
+	if !section(m.Ns, 0) {
+		t.Errorf("Authority section should have 0 RRSIGs")
+	}
+}
+
 func section(rss []dns.RR, nrSigs int) bool {
 	i := 0
 	for _, r := range rss {
