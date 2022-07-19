@@ -65,7 +65,6 @@ func testListenersCalled(t *testing.T, listenerNames []string, outputs []string)
 			t.Errorf("DeregsiterListener Error %s", err)
 		}
 	}
-
 }
 
 type mockListener struct {

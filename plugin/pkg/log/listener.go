@@ -82,7 +82,6 @@ func (ls *listeners) info(plugin string, v ...interface{}) {
 		l.Info(plugin, v...)
 	}
 	ls.RUnlock()
-
 }
 
 func (ls *listeners) infof(plugin string, format string, v ...interface{}) {
