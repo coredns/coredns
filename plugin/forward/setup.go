@@ -19,7 +19,7 @@ import (
 func init() { plugin.Register("forward", setup) }
 
 func setup(c *caddy.Controller) error {
-	fs, err := parseMultiForward(c)
+	fs, err := parseForward(c)
 	if err != nil {
 		return plugin.Error("forward", err)
 	}
@@ -80,26 +80,7 @@ func (f *Forward) OnShutdown() error {
 	return nil
 }
 
-func parseForward(c *caddy.Controller) (*Forward, error) {
-	var (
-		f   *Forward
-		err error
-		i   int
-	)
-	for c.Next() {
-		if i > 0 {
-			return nil, plugin.ErrOnce
-		}
-		i++
-		f, err = parseStanza(c)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return f, nil
-}
-
-func parseMultiForward(c *caddy.Controller) ([]*Forward, error) {
+func parseForward(c *caddy.Controller) ([]*Forward, error) {
 	var fs = []*Forward{}
 	for c.Next() {
 		f, err := parseStanza(c)

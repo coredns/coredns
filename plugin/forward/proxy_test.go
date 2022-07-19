@@ -23,7 +23,8 @@ func TestProxy(t *testing.T) {
 	defer s.Close()
 
 	c := caddy.NewTestController("dns", "forward . "+s.Addr)
-	f, err := parseForward(c)
+	fs, err := parseForward(c)
+	f := fs[0]
 	if err != nil {
 		t.Errorf("Failed to create forwarder: %s", err)
 	}
@@ -53,7 +54,8 @@ func TestProxyTLSFail(t *testing.T) {
 	defer s.Close()
 
 	c := caddy.NewTestController("dns", "forward . tls://"+s.Addr)
-	f, err := parseForward(c)
+	fs, err := parseForward(c)
+	f := fs[0]
 	if err != nil {
 		t.Errorf("Failed to create forwarder: %s", err)
 	}
