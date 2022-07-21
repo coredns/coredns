@@ -83,7 +83,6 @@ func TestTtlRewrite(t *testing.T) {
 		rule, err := newRule(r.args...)
 		if err != nil {
 			t.Fatalf("Rule %d: FAIL, %s: %s", i, r.args, err)
-			continue
 		}
 		if reflect.TypeOf(rule) != r.expectedType {
 			t.Fatalf("Rule %d: FAIL, %s: rule type mismatch, expected %q, but got %q", i, r.args, r.expectedType, rule)
