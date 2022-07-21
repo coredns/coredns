@@ -10,21 +10,16 @@ The CoreDNS community adheres to the following principles:
 - Merit: Ideas and contributions are accepted according to their technical merit and alignment with
   project objectives, scope, and design principles.
 
-## Project Lead
+## Project Steering Committee
 
-The CoreDNS project has a project lead.
+The CoreDNS project has a project steering committee consisting of 3 members.
+The steering committee in CoreDNS has a final say in any decision concerning the CoreDNS project.
 
-A project lead in CoreDNS is
-a single person that has a final say in any decision concerning the CoreDNS project.
+The maximum term length of each steering committee member is one year, with no term limit restriction.
 
-The term of the project lead is one year, with no term limit restriction.
+Steering committee member are elected by CoreDNS maintainers.
 
-The project lead is elected by CoreDNS maintainers
-according to an individual's technical merit to CoreDNS project.
-
-The current project lead is identified in the [CODEOWNERS](CODEOWNERS) file with the string
-`project lead` and the term behind the name in a comment at the top of the file.
-
+The steering committee members are identified in the [CODEOWNERS](CODEOWNERS) file.
 
 ## Expectations from Maintainers
 
@@ -54,51 +49,53 @@ If a Maintainer feels she/he can not fulfill the "Expectations from Maintainers"
 step down.
 
 The CoreDNS organization will never forcefully remove a current Maintainer, unless a maintainer
-fails to meet the principles of CoreDNS community,
-or adhere to the [Code of Conduct](CODE-OF-CONDUCT.md).
+fails to meet the principles of CoreDNS community, or adhere to the [Code of Conduct](CODE-OF-CONDUCT.md).
 
-## Changes in Project Lead
+## Changes in Project Steering Committee Membership
 
-Changes in project lead or term is initiated by opening a github PR.
+Changes to the project steering committee membership are initiated by opening a separate GitHub PR updating
+the [CODEOWNERS](CODEOWNERS) file for each steering committee member candidate.
 
-Anyone from CoreDNS community can vote on the PR with either +1 or -1.
+Anyone from the CoreDNS community can vote on the PR with either +1 or -1.
 
 Only the following votes are binding:
 1) Any maintainer that has been listed in the [CODEOWNERS](CODEOWNERS) file before the PR is opened.
 2) Any maintainer from an organization may cast the vote for that organization. However, no organization
 should have more binding votes than 1/5 of the total number of maintainers defined in 1).
 
-The PR should only be opened no earlier than 6 weeks before the end of the project lead's term.
+The PR should be opened no earlier than 6 weeks before the end of affected committee member's term.
 The PR should be kept open for no less than 4 weeks. The PR can only be merged after the end of the
-last project lead's term, with more +1 than -1 in the binding votes.
+replaced committe member's term, with more +1 than -1 in the binding votes.
 
-When there are conflicting PRs about changes in project lead, the PR with the most binding +1 votes is merged.
+When there are conflicting PRs for changes to a project committee member, the PR with the most
+binding +1 votes is merged.
 
-The project lead can volunteer to step down.
+A project steering committee member may volunteer to step down, ending their term early.
 
 ## Changes in Project Governance
 
-Changes in project governance (GOVERNANCE.md) could be initiated by opening a github PR.
-The PR should only be opened no earlier than 6 weeks before the end of the project lead's term.
-The PR should be kept open for no less than 4 weeks. The PR can only be merged follow the same
-voting process as in `Changes in Project Lead`.
+Changes in project governance (GOVERNANCE.md) can be initiated by opening a GitHub PR.
+The PR should only be opened no earlier than 6 weeks before the end of a comittee member's term.
+The PR should be kept open for no less than 4 weeks. The PR can only be merged following the same
+voting process as in `Changes in Project Steeting Committee Membership`.
 
 ## Decision making process
 
 Decisions are build on consensus between maintainers.
-Proposals and ideas can either be submitted for agreement via a github issue or PR,
+Proposals and ideas can either be submitted for agreement via a GitHub issue or PR,
 or by sending an email to `maintainers@coredns.io`.
 
 In general, we prefer that technical issues and maintainer membership are amicably worked out between the persons involved.
-If a dispute cannot be decided independently, get a third-party maintainer (e.g. a mutual contact with some background
+If a dispute cannot be resolved independently, get a third-party maintainer (e.g. a mutual contact with some background
 on the issue, but not involved in the conflict) to intercede.
-If a dispute still cannot be decided, the project lead has the final say to decide an issue.
+If a dispute still cannot be resolved, the project steering committee has the final say to decide an issue.
+The project steering committee may reach this decision by consensus or else by a vote among committee members
+if necessary.
 
-Decision making process should be transparent to adhere to
-the principles of CoreDNS project.
+The decision making process should be transparent to adhere to the CoreDNS Code of Conduct.
 
-All proposals, ideas, and decisions by maintainers or the project lead
-should either be part of a github issue or PR, or be sent to `maintainers@coredns.io`.
+All proposals, ideas, and decisions by maintainers or the steering committee
+should either be part of a GitHub issue or PR, or be sent to `maintainers@coredns.io`.
 
 ## Github Project Administration
 
@@ -131,7 +128,7 @@ plugin.
 ## CoreDNS and CNCF
 
 CoreDNS is a CNCF project. As such, CoreDNS might be involved in CNCF (or other CNCF projects) related
-marketing, events, or activities. Any maintainer could help driving the CoreDNS involvement, as long as
+marketing, events, or activities. Any maintainer may participate in these activities, as long as
 she/he sends email to `maintainers@coredns.io` (or create a GitHub Pull Request) to call for participation
 from other maintainers. The `Call for Participation` should be kept open for no less than a week if time
 permits, or a _reasonable_ time frame to allow maintainers to have a chance to volunteer.
