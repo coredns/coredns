@@ -32,7 +32,6 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 	handler.Templates = make([]template, 0)
 
 	for c.Next() {
-
 		if !c.NextArg() {
 			return handler, c.ArgErr()
 		}

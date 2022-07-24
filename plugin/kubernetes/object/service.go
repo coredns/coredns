@@ -68,7 +68,6 @@ func ToService(obj meta.Object) (meta.Object, error) {
 			continue
 		}
 		s.ExternalIPs[li+i] = lb.Hostname
-
 	}
 
 	*svc = api.Service{}

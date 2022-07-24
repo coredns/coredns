@@ -39,13 +39,14 @@ func TestEndpointHostname(t *testing.T) {
 
 type APIConnServiceTest struct{}
 
-func (APIConnServiceTest) HasSynced() bool                           { return true }
-func (APIConnServiceTest) Run()                                      {}
-func (APIConnServiceTest) Stop() error                               { return nil }
-func (APIConnServiceTest) PodIndex(string) []*object.Pod             { return nil }
-func (APIConnServiceTest) SvcIndexReverse(string) []*object.Service  { return nil }
-func (APIConnServiceTest) EpIndexReverse(string) []*object.Endpoints { return nil }
-func (APIConnServiceTest) Modified(bool) int64                       { return 0 }
+func (APIConnServiceTest) HasSynced() bool                             { return true }
+func (APIConnServiceTest) Run()                                        {}
+func (APIConnServiceTest) Stop() error                                 { return nil }
+func (APIConnServiceTest) PodIndex(string) []*object.Pod               { return nil }
+func (APIConnServiceTest) SvcIndexReverse(string) []*object.Service    { return nil }
+func (APIConnServiceTest) SvcExtIndexReverse(string) []*object.Service { return nil }
+func (APIConnServiceTest) EpIndexReverse(string) []*object.Endpoints   { return nil }
+func (APIConnServiceTest) Modified(bool) int64                         { return 0 }
 
 func (APIConnServiceTest) SvcIndex(string) []*object.Service {
 	svcs := []*object.Service{

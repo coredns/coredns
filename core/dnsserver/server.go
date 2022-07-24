@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -41,17 +42,20 @@ type Server struct {
 	graceTimeout time.Duration      // the maximum duration of a graceful shutdown
 	trace        trace.Trace        // the trace plugin for the server
 	debug        bool               // disable recover()
+	stacktrace   bool               // enable stacktrace in recover error log
 	classChaos   bool               // allow non-INET class queries
+
+	tsigSecret map[string]string
 }
 
 // NewServer returns a new CoreDNS server and compiles all plugins in to it. By default CH class
 // queries are blocked unless queries from enableChaos are loaded.
 func NewServer(addr string, group []*Config) (*Server, error) {
-
 	s := &Server{
 		Addr:         addr,
 		zones:        make(map[string]*Config),
 		graceTimeout: 5 * time.Second,
+		tsigSecret:   make(map[string]string),
 	}
 
 	// We have to bound our wg with one increment
@@ -67,8 +71,14 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			s.debug = true
 			log.D.Set()
 		}
+		s.stacktrace = site.Stacktrace
 		// set the config per zone
 		s.zones[site.Zone] = site
+
+		// copy tsig secrets
+		for key, secret := range site.TsigSecret {
+			s.tsigSecret[key] = secret
+		}
 
 		// compile custom plugin for everything
 		var stack plugin.Handler
@@ -112,7 +122,7 @@ func (s *Server) Serve(l net.Listener) error {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	})}
+	}), TsigSecret: s.tsigSecret}
 	s.m.Unlock()
 
 	return s.server[tcp].ActivateAndServe()
@@ -126,7 +136,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	})}
+	}), TsigSecret: s.tsigSecret}
 	s.m.Unlock()
 
 	return s.server[udp].ActivateAndServe()
@@ -163,7 +173,6 @@ func (s *Server) ListenPacket() (net.PacketConn, error) {
 // immediately.
 // This implements Caddy.Stopper interface.
 func (s *Server) Stop() (err error) {
-
 	if runtime.GOOS != "windows" {
 		// force connections to close after timeout
 		done := make(chan struct{})
@@ -213,7 +222,11 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			// In case the user doesn't enable error plugin, we still
 			// need to make sure that we stay alive up here
 			if rec := recover(); rec != nil {
-				log.Errorf("Recovered from panic in server: %q %v", s.Addr, rec)
+				if s.stacktrace {
+					log.Errorf("Recovered from panic in server: %q %v\n%s", s.Addr, rec, string(debug.Stack()))
+				} else {
+					log.Errorf("Recovered from panic in server: %q %v", s.Addr, rec)
+				}
 				vars.Panic.Inc()
 				errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
 			}

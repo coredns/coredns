@@ -23,7 +23,7 @@ type Dnstap struct {
 // TapMessage sends the message m to the dnstap interface.
 func (h Dnstap) TapMessage(m *tap.Message) {
 	t := tap.Dnstap_MESSAGE
-	h.io.Dnstap(tap.Dnstap{Type: &t, Message: m})
+	h.io.Dnstap(&tap.Dnstap{Type: &t, Message: m})
 }
 
 func (h Dnstap) tapQuery(w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {

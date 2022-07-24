@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"time"
 
@@ -13,9 +14,22 @@ import (
 
 // overloaded queries the health end point and updates a metrics showing how long it took.
 func (h *health) overloaded(ctx context.Context) {
+	bypassProxy := &http.Transport{
+		Proxy: nil,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
 	timeout := 3 * time.Second
 	client := http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
+		Transport: bypassProxy,
 	}
 
 	url := "http://" + h.Addr + "/health"

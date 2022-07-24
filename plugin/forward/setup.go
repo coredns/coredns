@@ -19,34 +19,47 @@ import (
 func init() { plugin.Register("forward", setup) }
 
 func setup(c *caddy.Controller) error {
-	f, err := parseForward(c)
+	fs, err := parseForward(c)
 	if err != nil {
 		return plugin.Error("forward", err)
 	}
-	if f.Len() > max {
-		return plugin.Error("forward", fmt.Errorf("more than %d TOs configured: %d", max, f.Len()))
-	}
-
-	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		f.Next = next
-		return f
-	})
-
-	c.OnStartup(func() error {
-		return f.OnStartup()
-	})
-	c.OnStartup(func() error {
-		if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
-			if tapPlugin, ok := taph.(dnstap.Dnstap); ok {
-				f.tapPlugin = &tapPlugin
-			}
+	for i := range fs {
+		f := fs[i]
+		if f.Len() > max {
+			return plugin.Error("forward", fmt.Errorf("more than %d TOs configured: %d", max, f.Len()))
 		}
-		return nil
-	})
 
-	c.OnShutdown(func() error {
-		return f.OnShutdown()
-	})
+		if i == len(fs)-1 {
+			// last forward: point next to next plugin
+			dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
+				f.Next = next
+				return f
+			})
+		} else {
+			// middle forward: point next to next forward
+			nextForward := fs[i+1]
+			dnsserver.GetConfig(c).AddPlugin(func(plugin.Handler) plugin.Handler {
+				f.Next = nextForward
+				return f
+			})
+		}
+
+		c.OnStartup(func() error {
+			return f.OnStartup()
+		})
+		c.OnStartup(func() error {
+			if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
+				if tapPlugin, ok := taph.(dnstap.Dnstap); ok {
+					f.tapPlugin = &tapPlugin
+				}
+			}
+			return nil
+		})
+
+		c.OnShutdown(func() error {
+			return f.OnShutdown()
+		})
+	}
 
 	return nil
 }
@@ -67,23 +80,16 @@ func (f *Forward) OnShutdown() error {
 	return nil
 }
 
-func parseForward(c *caddy.Controller) (*Forward, error) {
-	var (
-		f   *Forward
-		err error
-		i   int
-	)
+func parseForward(c *caddy.Controller) ([]*Forward, error) {
+	var fs = []*Forward{}
 	for c.Next() {
-		if i > 0 {
-			return nil, plugin.ErrOnce
-		}
-		i++
-		f, err = parseStanza(c)
+		f, err := parseStanza(c)
 		if err != nil {
 			return nil, err
 		}
+		fs = append(fs, f)
 	}
-	return f, nil
+	return fs, nil
 }
 
 func parseStanza(c *caddy.Controller) (*Forward, error) {

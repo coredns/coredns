@@ -44,6 +44,5 @@ func TestFileLoop(t *testing.T) {
 	// For now: document current behavior in this test.
 	if r.Rcode != dns.RcodeServerFailure {
 		t.Errorf("Rcode should be dns.RcodeServerFailure: %d", r.Rcode)
-
 	}
 }

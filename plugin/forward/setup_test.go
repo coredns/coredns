@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 )
 
 func TestSetup(t *testing.T) {
@@ -33,19 +34,19 @@ func TestSetup(t *testing.T) {
 		{"forward . [2003::1]:53", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
 		{"forward . 127.0.0.1 \n", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
 		{"forward 10.9.3.0/18 127.0.0.1", false, "0.9.10.in-addr.arpa.", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{`forward . ::1
+		forward com ::2`, false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, "plugin"},
 		// negative
 		{"forward . a27.0.0.1", true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "not an IP"},
 		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "unknown property"},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "Wrong argument count or unexpected line ending after 'domain'"},
-		{`forward . ::1
-		forward com ::2`, true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "plugin"},
 		{"forward . https://127.0.0.1 \n", true, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, "'https' is not supported as a destination protocol in forward: https://127.0.0.1"},
 		{"forward xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 127.0.0.1 \n", true, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, "unable to normalize 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"},
 	}
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		f, err := parseForward(c)
+		fs, err := parseForward(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
@@ -61,19 +62,22 @@ func TestSetup(t *testing.T) {
 			}
 		}
 
-		if !test.shouldErr && f.from != test.expectedFrom {
-			t.Errorf("Test %d: expected: %s, got: %s", i, test.expectedFrom, f.from)
-		}
-		if !test.shouldErr && test.expectedIgnored != nil {
-			if !reflect.DeepEqual(f.ignored, test.expectedIgnored) {
-				t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedIgnored, f.ignored)
+		if !test.shouldErr {
+			f := fs[0]
+			if f.from != test.expectedFrom {
+				t.Errorf("Test %d: expected: %s, got: %s", i, test.expectedFrom, f.from)
 			}
-		}
-		if !test.shouldErr && f.maxfails != test.expectedFails {
-			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedFails, f.maxfails)
-		}
-		if !test.shouldErr && f.opts != test.expectedOpts {
-			t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedOpts, f.opts)
+			if test.expectedIgnored != nil {
+				if !reflect.DeepEqual(f.ignored, test.expectedIgnored) {
+					t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedIgnored, f.ignored)
+				}
+			}
+			if f.maxfails != test.expectedFails {
+				t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedFails, f.maxfails)
+			}
+			if f.opts != test.expectedOpts {
+				t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedOpts, f.opts)
+			}
 		}
 	}
 }
@@ -100,7 +104,8 @@ func TestSetupTLS(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		f, err := parseForward(c)
+		fs, err := parseForward(c)
+		f := fs[0]
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
@@ -149,7 +154,7 @@ nameserver 10.10.255.253`), 0666); err != nil {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		f, err := parseForward(c)
+		fs, err := parseForward(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
@@ -166,17 +171,18 @@ nameserver 10.10.255.253`), 0666); err != nil {
 			}
 		}
 
-		if !test.shouldErr {
-			for j, n := range test.expectedNames {
-				addr := f.proxies[j].addr
-				if n != addr {
-					t.Errorf("Test %d, expected %q, got %q", j, n, addr)
-				}
-			}
-		}
 		if test.shouldErr {
 			continue
 		}
+
+		f := fs[0]
+		for j, n := range test.expectedNames {
+			addr := f.proxies[j].addr
+			if n != addr {
+				t.Errorf("Test %d, expected %q, got %q", j, n, addr)
+			}
+		}
+
 		for _, p := range f.proxies {
 			p.health.Check(p) // this should almost always err, we don't care it shouldn't crash
 		}
@@ -199,7 +205,7 @@ func TestSetupMaxConcurrent(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		f, err := parseForward(c)
+		fs, err := parseForward(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
@@ -215,7 +221,11 @@ func TestSetupMaxConcurrent(t *testing.T) {
 			}
 		}
 
-		if !test.shouldErr && f.maxConcurrent != test.expectedVal {
+		if test.shouldErr {
+			continue
+		}
+		f := fs[0]
+		if f.maxConcurrent != test.expectedVal {
 			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedVal, f.maxConcurrent)
 		}
 	}
@@ -244,7 +254,7 @@ func TestSetupHealthCheck(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		f, err := parseForward(c)
+		fs, err := parseForward(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
@@ -258,9 +268,62 @@ func TestSetupHealthCheck(t *testing.T) {
 				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
 			}
 		}
-		if !test.shouldErr && (f.opts.hcRecursionDesired != test.expectedRecVal || f.proxies[0].health.GetRecursionDesired() != test.expectedRecVal ||
-			f.opts.hcDomain != test.expectedDomain || f.proxies[0].health.GetDomain() != test.expectedDomain) {
+
+		if test.shouldErr {
+			continue
+		}
+
+		f := fs[0]
+		if f.opts.hcRecursionDesired != test.expectedRecVal || f.proxies[0].health.GetRecursionDesired() != test.expectedRecVal ||
+			f.opts.hcDomain != test.expectedDomain || f.proxies[0].health.GetDomain() != test.expectedDomain {
 			t.Errorf("Test %d: expectedRec: %v, got: %v. expectedDomain: %s, got: %s. ", i, test.expectedRecVal, f.opts.hcRecursionDesired, test.expectedDomain, f.opts.hcDomain)
 		}
+	}
+}
+
+func TestMultiForward(t *testing.T) {
+	input := `
+      forward 1st.example.org 10.0.0.1
+      forward 2nd.example.org 10.0.0.2
+      forward 3rd.example.org 10.0.0.3
+    `
+
+	c := caddy.NewTestController("dns", input)
+	setup(c)
+	dnsserver.NewServer("", []*dnsserver.Config{dnsserver.GetConfig(c)})
+
+	handlers := dnsserver.GetConfig(c).Handlers()
+	f1, ok := handlers[0].(*Forward)
+	if !ok {
+		t.Fatalf("expected first plugin to be Forward, got %v", reflect.TypeOf(f1.Next))
+	}
+
+	if f1.from != "1st.example.org." {
+		t.Errorf("expected first forward from \"1st.example.org.\", got %q", f1.from)
+	}
+	if f1.Next == nil {
+		t.Fatal("expected first forward to point to next forward instance, not nil")
+	}
+
+	f2, ok := f1.Next.(*Forward)
+	if !ok {
+		t.Fatalf("expected second plugin to be Forward, got %v", reflect.TypeOf(f1.Next))
+	}
+	if f2.from != "2nd.example.org." {
+		t.Errorf("expected second forward from \"2nd.example.org.\", got %q", f2.from)
+	}
+	if f2.Next == nil {
+		t.Fatal("expected second forward to point to third forward instance, got nil")
+	}
+
+	f3, ok := f2.Next.(*Forward)
+	if !ok {
+		t.Fatalf("expected third plugin to be Forward, got %v", reflect.TypeOf(f2.Next))
+	}
+	if f3.from != "3rd.example.org." {
+		t.Errorf("expected third forward from \"3rd.example.org.\", got %q", f3.from)
+	}
+	if f3.Next != nil {
+		t.Error("expected third plugin to be last, but Next is not nil")
 	}
 }

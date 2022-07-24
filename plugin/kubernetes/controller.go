@@ -25,6 +25,7 @@ const (
 	podIPIndex            = "PodIP"
 	svcNameNamespaceIndex = "ServiceNameNamespace"
 	svcIPIndex            = "ServiceIP"
+	svcExtIPIndex         = "ServiceExternalIP"
 	epNameNamespaceIndex  = "EndpointNameNamespace"
 	epIPIndex             = "EndpointsIP"
 )
@@ -34,6 +35,7 @@ type dnsController interface {
 	EndpointsList() []*object.Endpoints
 	SvcIndex(string) []*object.Service
 	SvcIndexReverse(string) []*object.Service
+	SvcExtIndexReverse(string) []*object.Service
 	PodIndex(string) []*object.Pod
 	EpIndex(string) []*object.Endpoints
 	EpIndexReverse(string) []*object.Endpoints
@@ -122,7 +124,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		},
 		&api.Service{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
-		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc},
+		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc, svcExtIPIndex: svcExtIPIndexFunc},
 		object.DefaultProcessor(object.ToService, nil),
 	)
 
@@ -232,12 +234,18 @@ func svcIPIndexFunc(obj interface{}) ([]string, error) {
 	if !ok {
 		return nil, errObj
 	}
-	idx := make([]string, len(svc.ClusterIPs)+len(svc.ExternalIPs))
+	idx := make([]string, len(svc.ClusterIPs))
 	copy(idx, svc.ClusterIPs)
-	if len(svc.ExternalIPs) == 0 {
-		return idx, nil
+	return idx, nil
+}
+
+func svcExtIPIndexFunc(obj interface{}) ([]string, error) {
+	svc, ok := obj.(*object.Service)
+	if !ok {
+		return nil, errObj
 	}
-	copy(idx[len(svc.ClusterIPs):], svc.ExternalIPs)
+	idx := make([]string, len(svc.ExternalIPs))
+	copy(idx, svc.ExternalIPs)
 	return idx, nil
 }
 
@@ -502,6 +510,22 @@ func (dns *dnsControl) SvcIndexReverse(ip string) (svcs []*object.Service) {
 	return svcs
 }
 
+func (dns *dnsControl) SvcExtIndexReverse(ip string) (svcs []*object.Service) {
+	os, err := dns.svcLister.ByIndex(svcExtIPIndex, ip)
+	if err != nil {
+		return nil
+	}
+
+	for _, o := range os {
+		s, ok := o.(*object.Service)
+		if !ok {
+			continue
+		}
+		svcs = append(svcs, s)
+	}
+	return svcs
+}
+
 func (dns *dnsControl) EpIndex(idx string) (ep []*object.Endpoints) {
 	dns.epLock.RLock()
 	defer dns.epLock.RUnlock()
@@ -731,5 +755,3 @@ func (dns *dnsControl) updateExtModifed() {
 }
 
 var errObj = errors.New("obj was not of the correct type")
-
-const defaultResyncPeriod = 0

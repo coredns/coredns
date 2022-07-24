@@ -78,7 +78,5 @@ func TestHeader(t *testing.T) {
 			t.Errorf("Test %d: Expected flag state=%t, but got %t", i, test.expected, test.got(m))
 			continue
 		}
-
 	}
-
 }

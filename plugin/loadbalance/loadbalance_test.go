@@ -91,7 +91,6 @@ func TestLoadBalance(t *testing.T) {
 		if err != nil {
 			t.Errorf("Test %d: Expected no error, but got %s", i, err)
 			continue
-
 		}
 
 		cname, address, mx, sorted := countRecords(rec.Msg.Answer)

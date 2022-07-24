@@ -4,13 +4,17 @@ package trace
 import (
 	"context"
 	"fmt"
+	stdlog "log"
+	"net/http"
 	"sync"
 	"sync/atomic"
+	"time"
 
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
-	"github.com/coredns/coredns/plugin/pkg/log"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 	_ "github.com/coredns/coredns/plugin/pkg/trace" // Plugin the trace package.
 	"github.com/coredns/coredns/request"
@@ -32,6 +36,8 @@ const (
 	defaultTopLevelSpanName = "servedns"
 	metaTraceIdKey          = "trace/traceid"
 )
+
+var log = clog.NewWithPlugin("trace")
 
 type traceTags struct {
 	Name   string
@@ -61,17 +67,20 @@ var tagByProvider = map[string]traceTags{
 type trace struct {
 	count uint64 // as per Go spec, needs to be first element in a struct
 
-	Next                 plugin.Handler
-	Endpoint             string
-	EndpointType         string
-	tracer               ot.Tracer
-	serviceEndpoint      string
-	serviceName          string
-	clientServer         bool
-	every                uint64
-	datadogAnalyticsRate float64
-	Once                 sync.Once
-	tagSet               traceTags
+	Next                   plugin.Handler
+	Endpoint               string
+	EndpointType           string
+	tracer                 ot.Tracer
+	serviceEndpoint        string
+	serviceName            string
+	clientServer           bool
+	every                  uint64
+	datadogAnalyticsRate   float64
+	zipkinMaxBacklogSize   int
+	zipkinMaxBatchSize     int
+	zipkinMaxBatchInterval time.Duration
+	Once                   sync.Once
+	tagSet                 traceTags
 }
 
 func (t *trace) Tracer() ot.Tracer {
@@ -88,10 +97,11 @@ func (t *trace) OnStartup() error {
 		case "datadog":
 			tracer := opentracer.New(
 				tracer.WithAgentAddr(t.Endpoint),
-				tracer.WithDebugMode(log.D.Value()),
+				tracer.WithDebugMode(clog.D.Value()),
 				tracer.WithGlobalTag(ext.SpanTypeDNS, true),
 				tracer.WithServiceName(t.serviceName),
 				tracer.WithAnalyticsRate(t.datadogAnalyticsRate),
+				tracer.WithLogger(&loggerAdapter{log}),
 			)
 			t.tracer = tracer
 			t.tagSet = tagByProvider["datadog"]
@@ -103,7 +113,18 @@ func (t *trace) OnStartup() error {
 }
 
 func (t *trace) setupZipkin() error {
-	reporter := zipkinhttp.NewReporter(t.Endpoint)
+	var opts []zipkinhttp.ReporterOption
+	opts = append(opts, zipkinhttp.Logger(stdlog.New(&loggerAdapter{log}, "", 0)))
+	if t.zipkinMaxBacklogSize != 0 {
+		opts = append(opts, zipkinhttp.MaxBacklog(t.zipkinMaxBacklogSize))
+	}
+	if t.zipkinMaxBatchSize != 0 {
+		opts = append(opts, zipkinhttp.BatchSize(t.zipkinMaxBatchSize))
+	}
+	if t.zipkinMaxBatchInterval != 0 {
+		opts = append(opts, zipkinhttp.BatchInterval(t.zipkinMaxBatchInterval))
+	}
+	reporter := zipkinhttp.NewReporter(t.Endpoint, opts...)
 	recorder, err := zipkin.NewEndpoint(t.serviceName, t.serviceEndpoint)
 	if err != nil {
 		log.Warningf("build Zipkin endpoint found err: %v", err)
@@ -140,8 +161,15 @@ func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
+	var spanCtx ot.SpanContext
+	if val := ctx.Value(dnsserver.HTTPRequestKey{}); val != nil {
+		if httpReq, ok := val.(*http.Request); ok {
+			spanCtx, _ = t.Tracer().Extract(ot.HTTPHeaders, ot.HTTPHeadersCarrier(httpReq.Header))
+		}
+	}
+
 	req := request.Request{W: w, Req: r}
-	span = t.Tracer().StartSpan(defaultTopLevelSpanName)
+	span = t.Tracer().StartSpan(defaultTopLevelSpanName, otext.RPCServerOption(spanCtx))
 	defer span.Finish()
 
 	switch spanCtx := span.Context().(type) {

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -99,6 +100,33 @@ func traceParse(c *caddy.Controller) (*trace, error) {
 				}
 				if tr.datadogAnalyticsRate > 1 || tr.datadogAnalyticsRate < 0 {
 					return nil, fmt.Errorf("datadog analytics rate must be between 0 and 1, '%f' is not supported", tr.datadogAnalyticsRate)
+				}
+			case "zipkin_max_backlog_size":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				tr.zipkinMaxBacklogSize, err = strconv.Atoi(args[0])
+				if err != nil {
+					return nil, err
+				}
+			case "zipkin_max_batch_size":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				tr.zipkinMaxBatchSize, err = strconv.Atoi(args[0])
+				if err != nil {
+					return nil, err
+				}
+			case "zipkin_max_batch_interval":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				tr.zipkinMaxBatchInterval, err = time.ParseDuration(args[0])
+				if err != nil {
+					return nil, err
 				}
 			}
 		}

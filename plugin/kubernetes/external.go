@@ -14,6 +14,18 @@ import (
 // External implements the ExternalFunc call from the external plugin.
 // It returns any services matching in the services' ExternalIPs.
 func (k *Kubernetes) External(state request.Request) ([]msg.Service, int) {
+	if state.QType() == dns.TypePTR {
+		ip := dnsutil.ExtractAddressFromReverse(state.Name())
+		if ip != "" {
+			svcs, err := k.ExternalReverse(ip)
+			if err != nil {
+				return nil, dns.RcodeNameError
+			}
+			return svcs, dns.RcodeSuccess
+		}
+		// for invalid reverse names, fall through to determine proper nxdomain/nodata response
+	}
+
 	base, _ := dnsutil.TrimZone(state.Name(), state.Zone)
 
 	segs := dns.SplitDomainName(base)
@@ -76,6 +88,10 @@ func (k *Kubernetes) External(state request.Request) ([]msg.Service, int) {
 			}
 		}
 	}
+	if state.QType() == dns.TypePTR {
+		// if this was a PTR request, return empty service list, but retain rcode for proper nxdomain/nodata response
+		return nil, rcode
+	}
 	return services, rcode
 }
 
@@ -110,4 +126,25 @@ func (k *Kubernetes) ExternalServices(zone string) (services []msg.Service) {
 //ExternalSerial returns the serial of the external zone
 func (k *Kubernetes) ExternalSerial(string) uint32 {
 	return uint32(k.APIConn.Modified(true))
+}
+
+// ExternalReverse does a reverse lookup for the external IPs
+func (k *Kubernetes) ExternalReverse(ip string) ([]msg.Service, error) {
+	records := k.serviceRecordForExternalIP(ip)
+	if len(records) == 0 {
+		return records, errNoItems
+	}
+	return records, nil
+}
+
+func (k *Kubernetes) serviceRecordForExternalIP(ip string) []msg.Service {
+	var svcs []msg.Service
+	for _, service := range k.APIConn.SvcExtIndexReverse(ip) {
+		if len(k.Namespaces) > 0 && !k.namespaceExposed(service.Namespace) {
+			continue
+		}
+		domain := strings.Join([]string{service.Name, service.Namespace}, ".")
+		svcs = append(svcs, msg.Service{Host: domain, TTL: k.ttl})
+	}
+	return svcs
 }

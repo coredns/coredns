@@ -6,6 +6,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/file/rrutil"
 	"github.com/coredns/coredns/plugin/file/tree"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -150,7 +151,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 		// If we see NS records, it means the name as been delegated, and we should return the delegation.
 		if nsrrs := elem.Type(dns.TypeNS); nsrrs != nil {
-
 			// If the query is specifically for DS and the qname matches the delegated name, we should
 			// return the DS in the answer section and leave the rest empty, i.e. just continue the loop
 			// and continue searching.
@@ -178,7 +178,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 	// Found entire name.
 	if found && shot {
-
 		if rrs := elem.Type(dns.TypeCNAME); len(rrs) > 0 && qtype != dns.TypeCNAME {
 			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
 			return z.externalLookup(ctx, state, elem, rrs)
@@ -207,14 +206,16 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		}
 
 		return rrs, ap.ns(do), additional, Success
-
 	}
 
 	// Haven't found the original name.
 
 	// Found wildcard.
 	if wildElem != nil {
-		auth := ap.ns(do)
+		// set metadata value for the wildcard record that synthesized the result
+		metadata.SetValueFunc(ctx, "zone/wildcard", func() string {
+			return wildElem.Name()
+		})
 
 		if rrs := wildElem.TypeForWildcard(dns.TypeCNAME, qname); len(rrs) > 0 && qtype != dns.TypeCNAME {
 			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
@@ -233,6 +234,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			return nil, ret, nil, NoData
 		}
 
+		auth := ap.ns(do)
 		if do {
 			// An NSEC is needed to say no longer name exists under this wildcard.
 			if deny, found := tr.Prev(qname); found {
@@ -243,7 +245,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			sigs := wildElem.TypeForWildcard(dns.TypeRRSIG, qname)
 			sigs = rrutil.SubTypeSignature(sigs, qtype)
 			rrs = append(rrs, sigs...)
-
 		}
 		return rrs, auth, nil, Success
 	}
@@ -285,7 +286,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 				}
 			}
 		}
-
 	}
 Out:
 	return nil, ret, nil, rcode
@@ -320,7 +320,6 @@ func (a Apex) ns(do bool) []dns.RR {
 
 // externalLookup adds signatures and tries to resolve CNAMEs that point to external names.
 func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
-
 	qtype := state.QType()
 	do := state.Do()
 

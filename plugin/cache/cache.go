@@ -32,6 +32,7 @@ type Cache struct {
 	pcap    int
 	pttl    time.Duration
 	minpttl time.Duration
+	failttl time.Duration // TTL for caching SERVFAIL responses
 
 	// Prefetch.
 	prefetch   int
@@ -59,6 +60,7 @@ func New() *Cache {
 		ncache:     cache.New(defaultCap),
 		nttl:       maxNTTL,
 		minnttl:    minNTTL,
+		failttl:    minNTTL,
 		prefetch:   0,
 		duration:   1 * time.Minute,
 		percentage: 10,
@@ -109,8 +111,12 @@ type ResponseWriter struct {
 	server string // Server handling the request.
 
 	do         bool // When true the original request had the DO bit set.
+	ad         bool // When true the original request had the AD bit set.
 	prefetch   bool // When true write nothing back to the client.
 	remoteAddr net.Addr
+
+	wildcardFunc func() string // function to retrieve wildcard name that synthesized the result.
+
 }
 
 // newPrefetchResponseWriter returns a Cache ResponseWriter to be used in
@@ -157,8 +163,7 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	if mt == response.NameError || mt == response.NoData {
 		duration = computeTTL(msgTTL, w.minnttl, w.nttl)
 	} else if mt == response.ServerError {
-		// use default ttl which is 5s
-		duration = minTTL
+		duration = w.failttl
 	} else {
 		duration = computeTTL(msgTTL, w.minpttl, w.pttl)
 	}
@@ -185,8 +190,10 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	res.Ns = filterRRSlice(res.Ns, ttl, w.do, false)
 	res.Extra = filterRRSlice(res.Extra, ttl, w.do, false)
 
-	if !w.do {
-		res.AuthenticatedData = false // unset AD bit if client is not OK with DNSSEC
+	if !w.do && !w.ad {
+		// unset AD bit if requester is not OK with DNSSEC
+		// But retain AD bit if requester set the AD bit in the request, per RFC6840 5.7-5.8
+		res.AuthenticatedData = false
 	}
 
 	return w.ResponseWriter.WriteMsg(res)
@@ -198,6 +205,9 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 	switch mt {
 	case response.NoError, response.Delegation:
 		i := newItem(m, w.now(), duration)
+		if w.wildcardFunc != nil {
+			i.wildcard = w.wildcardFunc()
+		}
 		if w.pcache.Add(key, i) {
 			evictions.WithLabelValues(w.server, Success, w.zonesMetricLabel).Inc()
 		}
@@ -208,6 +218,9 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 
 	case response.NameError, response.NoData, response.ServerError:
 		i := newItem(m, w.now(), duration)
+		if w.wildcardFunc != nil {
+			i.wildcard = w.wildcardFunc()
+		}
 		if w.ncache.Add(key, i) {
 			evictions.WithLabelValues(w.server, Denial, w.zonesMetricLabel).Inc()
 		}

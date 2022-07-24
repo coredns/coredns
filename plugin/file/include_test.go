@@ -10,7 +10,6 @@ import (
 // Make sure the external miekg/dns dependency is up to date
 
 func TestInclude(t *testing.T) {
-
 	name, rm, err := test.TempFile(".", "foo\tIN\tA\t127.0.0.1\n")
 	if err != nil {
 		t.Fatalf("Unable to create tmpfile %q: %s", name, err)

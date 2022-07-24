@@ -276,7 +276,6 @@ func BenchmarkReplacer(b *testing.B) {
 }
 
 func BenchmarkReplacer_CommonLogFormat(b *testing.B) {
-
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 	r := new(dns.Msg)
 	r.SetQuestion("example.org.", dns.TypeHINFO)

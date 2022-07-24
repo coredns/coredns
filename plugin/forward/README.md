@@ -19,8 +19,6 @@ is taken as a healthy upstream. The health check uses the same protocol as speci
 When *all* upstreams are down it assumes health checking as a mechanism has failed and will try to
 connect to a random upstream (which may or may not work).
 
-This plugin can only be used once per Server Block.
-
 ## Syntax
 
 In its most basic form, a simple forwarder uses this syntax:
@@ -103,7 +101,7 @@ Also note the TLS config is "global" for the whole forwarding proxy if you need 
 
 On each endpoint, the timeouts for communication are set as follows:
 
-* The dial timeout by default is 30s, and can decrease automatically down to 100ms based on early results.
+* The dial timeout by default is 30s, and can decrease automatically down to 1s based on early results.
 * The read timeout is static at 2s.
 
 ## Metadata
@@ -138,6 +136,40 @@ Proxy all requests within `example.org.` to a nameserver running on a different 
 ~~~ corefile
 example.org {
     forward . 127.0.0.1:9005
+}
+~~~
+
+Send all requests within `lab.example.local.` to `10.20.0.1`, all requests within `example.local.` (and not in
+`lab.example.local.`) to `10.0.0.1`, all others requests to the servers defined in `/etc/resolv.conf`, and
+caches results. Note that a CoreDNS server configured with multiple _forward_ plugins in a server block will evaluate those
+forward plugins in the order they are listed when serving a request.  Therefore, subdomains should be
+placed before parent domains otherwise subdomain requests will be forwarded to the parent domain's upstream.
+Accordingly, in this example `lab.example.local` is before `example.local`, and `example.local` is before `.`.
+
+~~~ corefile
+. {
+    cache
+    forward lab.example.local 10.20.0.1
+    forward example.local 10.0.0.1
+    forward . /etc/resolv.conf
+}
+~~~
+
+The example above is almost equivalent to the following example, except that example below defines three separate plugin
+chains (and thus 3 separate instances of _cache_).
+
+~~~ corefile
+lab.example.local {
+    cache
+    forward . 10.20.0.1
+}
+example.local {
+    cache
+    forward . 10.0.0.1
+}
+. {
+    cache
+    forward . /etc/resolv.conf
 }
 ~~~
 

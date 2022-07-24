@@ -23,7 +23,6 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 	dup := make(map[string]struct{})
 
 	for _, serv := range services {
-
 		what, ip := serv.HostType()
 
 		switch what {
@@ -97,7 +96,6 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 	dup := make(map[string]struct{})
 
 	for _, serv := range services {
-
 		what, ip := serv.HostType()
 
 		switch what {
@@ -344,7 +342,6 @@ func CNAME(ctx context.Context, b ServiceBackend, zone string, state request.Req
 
 // TXT returns TXT records from Backend or an error.
 func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
-
 	services, err := b.Services(ctx, state, false, opt)
 	if err != nil {
 		return nil, false, err
@@ -353,7 +350,6 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 	dup := make(map[string]struct{})
 
 	for _, serv := range services {
-
 		what, _ := serv.HostType()
 
 		switch what {
@@ -405,7 +401,6 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 				dup[serv.Text] = struct{}{}
 				records = append(records, serv.NewTXT(state.QName()))
 			}
-
 		}
 	}
 
@@ -507,7 +502,6 @@ func BackendError(ctx context.Context, b ServiceBackend, zone string, rcode int,
 }
 
 func newAddress(s msg.Service, name string, ip net.IP, what uint16) dns.RR {
-
 	hdr := dns.RR_Header{Name: name, Rrtype: what, Class: dns.ClassINET, Ttl: s.TTL}
 
 	if what == dns.TypeA {

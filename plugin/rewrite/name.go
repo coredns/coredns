@@ -367,7 +367,6 @@ func parseAnswerRules(name string, args []string) (auto bool, rules ResponseRule
 		if last == "" && args[arg] != AnswerMatch {
 			if last == "" {
 				return false, nil, fmt.Errorf("exceeded the number of arguments for a non-answer rule argument for %s rule", name)
-
 			}
 			return false, nil, fmt.Errorf("exceeded the number of arguments for %s answer rule for %s rule", last, name)
 		}

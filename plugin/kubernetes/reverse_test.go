@@ -15,14 +15,15 @@ import (
 
 type APIConnReverseTest struct{}
 
-func (APIConnReverseTest) HasSynced() bool                    { return true }
-func (APIConnReverseTest) Run()                               {}
-func (APIConnReverseTest) Stop() error                        { return nil }
-func (APIConnReverseTest) PodIndex(string) []*object.Pod      { return nil }
-func (APIConnReverseTest) EpIndex(string) []*object.Endpoints { return nil }
-func (APIConnReverseTest) EndpointsList() []*object.Endpoints { return nil }
-func (APIConnReverseTest) ServiceList() []*object.Service     { return nil }
-func (APIConnReverseTest) Modified(bool) int64                { return 0 }
+func (APIConnReverseTest) HasSynced() bool                             { return true }
+func (APIConnReverseTest) Run()                                        {}
+func (APIConnReverseTest) Stop() error                                 { return nil }
+func (APIConnReverseTest) PodIndex(string) []*object.Pod               { return nil }
+func (APIConnReverseTest) EpIndex(string) []*object.Endpoints          { return nil }
+func (APIConnReverseTest) EndpointsList() []*object.Endpoints          { return nil }
+func (APIConnReverseTest) ServiceList() []*object.Service              { return nil }
+func (APIConnReverseTest) SvcExtIndexReverse(string) []*object.Service { return nil }
+func (APIConnReverseTest) Modified(bool) int64                         { return 0 }
 
 func (APIConnReverseTest) SvcIndex(svc string) []*object.Service {
 	if svc != "svc1.testns" {
@@ -37,7 +38,6 @@ func (APIConnReverseTest) SvcIndex(svc string) []*object.Service {
 		},
 	}
 	return svcs
-
 }
 
 func (APIConnReverseTest) SvcIndexReverse(ip string) []*object.Service {
@@ -149,7 +149,6 @@ func (APIConnReverseTest) GetNamespaceByName(name string) (*object.Namespace, er
 }
 
 func TestReverse(t *testing.T) {
-
 	k := New([]string{"cluster.local.", "0.10.in-addr.arpa.", "168.192.in-addr.arpa.", "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.d.c.b.a.4.3.2.1.ip6.arpa.", "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.3.0.0.7.7.0.0.0.0.d.f.ip6.arpa."})
 	k.APIConn = &APIConnReverseTest{}
 

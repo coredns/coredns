@@ -19,7 +19,6 @@ func TestMultiWriteMsg(t *testing.T) {
 
 	if len(record.Msgs) != 2 {
 		t.Fatalf("Expected 2 messages to be written, but instead found %d\n", len(record.Msgs))
-
 	}
 	if record.Len != responseTestMsg.Len()*2 {
 		t.Fatalf("Expected the bytes written counter to be %d, but instead found %d\n", responseTestMsg.Len()*2, record.Len)

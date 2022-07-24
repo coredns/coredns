@@ -180,7 +180,6 @@ func newEdns0VariableRule(mode, action, code, variable string) (*edns0VariableRu
 
 // ruleData returns the data specified by the variable.
 func (rule *edns0VariableRule) ruleData(ctx context.Context, state request.Request) ([]byte, error) {
-
 	switch rule.variable {
 	case queryName:
 		return []byte(state.QName()), nil

@@ -46,5 +46,4 @@ func parse(c *caddy.Controller) ([]Rule, error) {
 		}
 	}
 	return nil, c.ArgErr()
-
 }

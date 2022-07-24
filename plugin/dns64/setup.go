@@ -6,13 +6,10 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 )
 
 const pluginName = "dns64"
-
-var log = clog.NewWithPlugin(pluginName)
 
 func init() { plugin.Register(pluginName, setup) }
 

@@ -3,9 +3,11 @@ package acl
 import (
 	"context"
 	"net"
+	"strings"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
 	"github.com/infobloxopen/go-trees/iptree"
@@ -49,6 +51,8 @@ const (
 	actionFilter
 )
 
+var log = clog.NewWithPlugin("acl")
+
 // ServeDNS implements the plugin.Handler interface.
 func (a ACL) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
@@ -84,7 +88,6 @@ RulesCheckLoop:
 				return dns.RcodeSuccess, nil
 			}
 		}
-
 	}
 
 	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
@@ -96,7 +99,19 @@ RulesCheckLoop:
 func matchWithPolicies(policies []policy, w dns.ResponseWriter, r *dns.Msg) action {
 	state := request.Request{W: w, Req: r}
 
-	ip := net.ParseIP(state.IP())
+	var ip net.IP
+	if idx := strings.IndexByte(state.IP(), '%'); idx >= 0 {
+		ip = net.ParseIP(state.IP()[:idx])
+	} else {
+		ip = net.ParseIP(state.IP())
+	}
+
+	// if the parsing did not return a proper response then we simply return 'actionBlock' to
+	// block the query
+	if ip == nil {
+		log.Errorf("Blocking request. Unable to parse source address: %v", state.IP())
+		return actionBlock
+	}
 	qtype := state.QType()
 	for _, policy := range policies {
 		// dns.TypeNone matches all query types.

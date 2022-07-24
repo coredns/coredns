@@ -134,7 +134,6 @@ func (h *Azure) updateZones(ctx context.Context) error {
 		return fmt.Errorf("errors updating zones: %v", errs)
 	}
 	return nil
-
 }
 
 func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage, newZ *file.Zone) {
@@ -297,7 +296,6 @@ func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPa
 				Target: dns.Fqdn(*CNAME)}
 			newZ.Insert(cname)
 		}
-
 	}
 }
 

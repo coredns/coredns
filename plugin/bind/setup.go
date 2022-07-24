@@ -12,7 +12,6 @@ import (
 )
 
 func setup(c *caddy.Controller) error {
-
 	config := dnsserver.GetConfig(c)
 	// addresses will be consolidated over all BIND directives available in that BlocServer
 	all := []string{}

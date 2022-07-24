@@ -59,6 +59,11 @@ func TestTransferAXFR(t *testing.T) {
 			if ans.Header().Rrtype == dns.TypeTXT {
 				continue
 			}
+
+			// Exclude PTR records
+			if ans.Header().Rrtype == dns.TypePTR {
+				continue
+			}
 			expect = append(expect, ans)
 		}
 	}
@@ -78,7 +83,6 @@ func TestTransferAXFR(t *testing.T) {
 			t.Errorf("%+v", rec)
 		}
 	}
-
 }
 
 func TestTransferIXFR(t *testing.T) {
@@ -122,7 +126,6 @@ func TestTransferIXFR(t *testing.T) {
 			t.Errorf("%+v", rec)
 		}
 	}
-
 }
 
 // difference shows what we're missing when comparing two RR slices

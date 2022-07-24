@@ -38,6 +38,7 @@ cache [TTL] [ZONES...] {
     denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
     serve_stale [DURATION] [REFRESH_MODE]
+    servfail DURATION
 }
 ~~~
 
@@ -54,15 +55,18 @@ cache [TTL] [ZONES...] {
   **DURATION** defaults to 1m. Prefetching will happen when the TTL drops below **PERCENTAGE**,
   which defaults to `10%`, or latest 1 second before TTL expiration. Values should be in the range `[10%, 90%]`.
   Note the percent sign is mandatory. **PERCENTAGE** is treated as an `int`.
-* `serve_stale`, when serve\_stale is set, cache always will serve an expired entry to a client if there is one
-  available.  When this happens, cache will attempt to refresh the cache entry after sending the expired cache
-  entry to the client. The responses have a TTL of 0. **DURATION** is how far back to consider
-  stale responses as fresh. The default duration is 1h. **REFRESH_MODE** controls when the attempt to refresh
-  the cache happens. `verified` will first verify that an entry is still unavailable from the source before sending
-  the stale response to the client. `immediate` will immediately send the expired response to the client before
+* `serve_stale`, when serve\_stale is set, cache will always serve an expired entry to a client if there is one
+  available as long as it has not been expired for longer than **DURATION** (default 1 hour). By default, the _cache_ plugin will
+  attempt to refresh the cache entry after sending the expired cache entry to the client. The
+  responses have a TTL of 0. **REFRESH_MODE** controls the timing of the expired cache entry refresh.
+  `verify` will first verify that an entry is still unavailable from the source before sending the expired entry to the client.
+  `immediate` will immediately send the expired entry to the client before
   checking to see if the entry is available from the source. **REFRESH_MODE** defaults to `immediate`. Setting this
-  value to `verified` can lead to increased latency when serving stale responses, but will prevent stale entries
+  value to `verify` can lead to increased latency when serving stale responses, but will prevent stale entries
   from ever being served if an updated response can be retrieved from the source.
+* `servfail` cache SERVFAIL responses for **DURATION**.  Setting **DURATION** to 0 will disable caching of SERVFAIL
+  responses.  If this option is not set, SERVFAIL responses will be cached for 5 seconds.  **DURATION** may not be
+  greater than 5 minutes.
 
 ## Capacity and Eviction
 

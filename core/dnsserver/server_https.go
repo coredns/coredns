@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	stdlog "log"
 	"net"
 	"net/http"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/doh"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
@@ -26,6 +28,18 @@ type ServerHTTPS struct {
 	tlsConfig    *tls.Config
 	validRequest func(*http.Request) bool
 }
+
+// loggerAdapter is a simple adapter around CoreDNS logger made to implement io.Writer in order to log errors from HTTP server
+type loggerAdapter struct {
+}
+
+func (l *loggerAdapter) Write(p []byte) (n int, err error) {
+	clog.Debug(string(p))
+	return len(p), nil
+}
+
+// HTTPRequestKey is the context key for the current processed HTTP request (if current processed request was done over DOH)
+type HTTPRequestKey struct{}
 
 // NewServerHTTPS returns a new CoreDNS HTTPS server and compiles all plugins in to it.
 func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
@@ -60,6 +74,7 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  120 * time.Second,
+		ErrorLog:     stdlog.New(&loggerAdapter{}, "", 0),
 	}
 	sh := &ServerHTTPS{
 		Server: s, tlsConfig: tlsConfig, httpsServer: srv, validRequest: validator,
@@ -89,7 +104,6 @@ func (s *ServerHTTPS) ServePacket(p net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServerHTTPS) Listen() (net.Listener, error) {
-
 	l, err := reuseport.Listen("tcp", s.Addr[len(transport.HTTPS+"://"):])
 	if err != nil {
 		return nil, err
@@ -126,7 +140,6 @@ func (s *ServerHTTPS) Stop() error {
 // ServeHTTP is the handler that gets the HTTP request and converts to the dns format, calls the plugin
 // chain, converts it back and write it to the client.
 func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	if !s.validRequest(r) {
 		http.Error(w, "", http.StatusNotFound)
 		s.countResponse(http.StatusNotFound)
@@ -153,6 +166,7 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// We should expect a packet to be returned that we can send to the client.
 	ctx := context.WithValue(context.Background(), Key{}, s.Server)
 	ctx = context.WithValue(ctx, LoopKey{}, 0)
+	ctx = context.WithValue(ctx, HTTPRequestKey{}, r)
 	s.ServeDNS(ctx, dw, msg)
 
 	// See section 4.2.1 of RFC 8484.

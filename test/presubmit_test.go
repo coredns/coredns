@@ -158,7 +158,6 @@ func (l logfmt) Visit(n ast.Node) ast.Visitor {
 	for i, u := range bl.Value {
 		// disregard "
 		if i == 1 && !unicode.IsUpper(u) {
-			l.err = fmt.Errorf("test error message %s doesn't start with an uppercase", bl.Value)
 			return nil
 		}
 		if i == 1 {

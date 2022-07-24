@@ -188,6 +188,23 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					}
 					ca.verifyStale = mode == "verify"
 				}
+			case "servfail":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				d, err := time.ParseDuration(args[0])
+				if err != nil {
+					return nil, err
+				}
+				if d < 0 {
+					return nil, errors.New("invalid negative ttl for servfail")
+				}
+				if d > 5*time.Minute {
+					// RFC 2308 prohibits caching SERVFAIL longer than 5 minutes
+					return nil, errors.New("caching SERVFAIL responses over 5 minutes is not permitted")
+				}
+				ca.failttl = d
 			default:
 				return nil, c.ArgErr()
 			}

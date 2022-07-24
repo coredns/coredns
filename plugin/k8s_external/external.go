@@ -105,6 +105,8 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		m.Answer, m.Truncated = e.aaaa(ctx, svc, state)
 	case dns.TypeSRV:
 		m.Answer, m.Extra = e.srv(ctx, svc, state)
+	case dns.TypePTR:
+		m.Answer = e.ptr(svc, state)
 	default:
 		m.Ns = []dns.RR{e.soa(state)}
 	}

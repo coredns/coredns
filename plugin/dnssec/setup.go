@@ -58,7 +58,6 @@ func dnssecParse(c *caddy.Controller) ([]string, []*DNSKEY, int, bool, error) {
 		zones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 
 		for c.NextBlock() {
-
 			switch x := c.Val(); x {
 			case "key":
 				k, e := keyParse(c)
@@ -79,7 +78,6 @@ func dnssecParse(c *caddy.Controller) ([]string, []*DNSKEY, int, bool, error) {
 			default:
 				return nil, nil, 0, false, c.Errf("unknown property '%s'", x)
 			}
-
 		}
 	}
 	// Check if we have both KSKs and ZSKs.

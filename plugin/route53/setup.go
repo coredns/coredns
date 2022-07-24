@@ -126,10 +126,12 @@ func setup(c *caddy.Controller) error {
 		ctx, cancel := context.WithCancel(context.Background())
 		h, err := New(ctx, client, keys, refresh)
 		if err != nil {
+			cancel()
 			return plugin.Error("route53", c.Errf("failed to create route53 plugin: %v", err))
 		}
 		h.Fall = fall
 		if err := h.Run(ctx); err != nil {
+			cancel()
 			return plugin.Error("route53", c.Errf("failed to initialize route53 plugin: %v", err))
 		}
 		dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {

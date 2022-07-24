@@ -64,7 +64,6 @@ func IsLabel(label string) bool {
 		return false
 	}
 	return true
-
 }
 
 // Labels returns all metadata keys stored in the context. These label names should be named

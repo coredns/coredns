@@ -2,11 +2,16 @@ package test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin"
 
 	"github.com/miekg/dns"
 )
@@ -325,6 +330,63 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 
 	instReload.Stop()
 	// verify that metrics have not been pushed
+}
+
+// TestReloadUnreadyPlugin tests that the ready plugin properly resets the list of readiness implementors during a reload.
+// If it fails to do so, ready will respond with duplicate plugin names after a reload (e.g. in this test "unready,unready").
+func TestReloadUnreadyPlugin(t *testing.T) {
+	// Add/Register a perpetually unready plugin
+	dnsserver.Directives = append([]string{"unready"}, dnsserver.Directives...)
+	u := new(unready)
+	plugin.Register("unready", func(c *caddy.Controller) error {
+		dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
+			u.next = next
+			return u
+		})
+		return nil
+	})
+
+	corefile := `.:0 {
+		unready
+        whoami
+        ready 127.0.0.1:53185
+	}`
+
+	coreInput := NewInput(corefile)
+
+	c, err := CoreDNSServer(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+
+	c1, err := c.Restart(coreInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := http.Get("http://127.0.0.1:53185/ready")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bod, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if string(bod) != u.Name() {
+		t.Errorf("Expected /ready endpoint response body %q, got %q", u.Name(), bod)
+	}
+
+	c1.Stop()
+}
+
+type unready struct {
+	next plugin.Handler
+}
+
+func (u *unready) Ready() bool { return false }
+
+func (u *unready) Name() string { return "unready" }
+
+func (u *unready) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return u.next.ServeDNS(ctx, w, r)
 }
 
 const inUse = "address already in use"
