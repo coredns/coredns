@@ -82,12 +82,16 @@ func (h *CloudDNS) Run(ctx context.Context) error {
 		return err
 	}
 	go func() {
+		delay := 1 * time.Minute
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
 		for {
+			timer.Reset(delay)
 			select {
 			case <-ctx.Done():
 				log.Debugf("Breaking out of CloudDNS update loop for %v: %v", h.zoneNames, ctx.Err())
 				return
-			case <-time.After(1 * time.Minute):
+			case <-timer.C:
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
 					log.Errorf("Failed to update zones %v: %v", h.zoneNames, err)
 				}
@@ -200,7 +204,6 @@ func (h *CloudDNS) updateZones(ctx context.Context) error {
 				(*z[i]).z = newZ
 				h.zMu.Unlock()
 			}
-
 		}(zName, z)
 	}
 	// Collect errors (if any). This will also sync on all zones updates

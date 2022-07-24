@@ -1,7 +1,6 @@
 package grpc
 
 import (
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -31,6 +30,7 @@ func TestSetup(t *testing.T) {
 		{"grpc . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, "unknown property"},
 		{`grpc . ::1
 		grpc com ::2`, true, "", nil, "plugin"},
+		{"grpc xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 127.0.0.1", true, "", nil, "unable to normalize 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"},
 	}
 
 	for i, test := range tests {
@@ -105,7 +105,7 @@ tls
 
 func TestSetupResolvconf(t *testing.T) {
 	const resolv = "resolv.conf"
-	if err := ioutil.WriteFile(resolv,
+	if err := os.WriteFile(resolv,
 		[]byte(`nameserver 10.10.255.252
 nameserver 10.10.255.253`), 0666); err != nil {
 		t.Fatalf("Failed to write resolv.conf file: %s", err)

@@ -26,6 +26,7 @@ func setup(c *caddy.Controller) error {
 
 func geoipParse(c *caddy.Controller) (*GeoIP, error) {
 	var dbPath string
+	var edns0 bool
 
 	for c.Next() {
 		if !c.NextArg() {
@@ -39,13 +40,16 @@ func geoipParse(c *caddy.Controller) (*GeoIP, error) {
 		if len(c.RemainingArgs()) != 0 {
 			return nil, c.ArgErr()
 		}
-		// The plugin should not have any config block.
-		if c.NextBlock() {
-			return nil, c.Err("unexpected config block")
+
+		for c.NextBlock() {
+			if c.Val() != "edns-subnet" {
+				return nil, c.Errf("unknown property %q", c.Val())
+			}
+			edns0 = true
 		}
 	}
 
-	geoIP, err := newGeoIP(dbPath)
+	geoIP, err := newGeoIP(dbPath, edns0)
 	if err != nil {
 		return geoIP, c.Err(err.Error())
 	}

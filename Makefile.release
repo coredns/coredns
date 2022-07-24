@@ -38,9 +38,9 @@
 # * make release
 # * make github-push
 #
-# Testing this is hard-ish as you don't want to accidentially release a coredns. If not executing the github-push target
+# Testing this is hard-ish as you don't want to accidentally release a coredns. If not executing the github-push target
 # you should be fine.
-# The Docker image creation and upload is now a seperate step because it was failing too often. See the Makefile.docker for
+# Docker image creation and upload are now separate steps, because it often failed before. See the Makefile.docker for
 # details.
 
 ifeq (, $(shell which curl))

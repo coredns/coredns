@@ -23,7 +23,8 @@ func setup(c *caddy.Controller) error {
 	}
 
 	// Add startup functions to retrieve the zone and keep it up to date.
-	for _, n := range zones.Names {
+	for i := range zones.Names {
+		n := zones.Names[i]
 		z := zones.Z[n]
 		if len(z.TransferFrom) > 0 {
 			c.OnStartup(func() error {
@@ -63,7 +64,6 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 	z := make(map[string]*file.Zone)
 	names := []string{}
 	for c.Next() {
-
 		if c.Val() == "secondary" {
 			// secondary [origin]
 			origins := plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
@@ -73,8 +73,7 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 			}
 
 			for c.NextBlock() {
-
-				f := []string{}
+				var f []string
 
 				switch c.Val() {
 				case "transfer":

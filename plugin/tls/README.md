@@ -2,7 +2,7 @@
 
 ## Name
 
-*tls* - allows you to configure the server certificates for the TLS and gRPC servers.
+*tls* - allows you to configure the server certificates for the TLS, gRPC, DoH servers.
 
 ## Description
 
@@ -52,6 +52,14 @@ incoming queries.
 
 ~~~
 grpc://. {
+	tls cert.pem key.pem ca.pem
+	forward . /etc/resolv.conf
+}
+~~~
+
+Start a DoH server on port 443 that is similar to the previous example, but using DoH for incoming queries.
+~~~
+https://. {
 	tls cert.pem key.pem ca.pem
 	forward . /etc/resolv.conf
 }

@@ -63,7 +63,6 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 			}
 			svcBase := []string{zonePath, Svc, svc.Namespace, svc.Name}
 			switch svc.Type {
-
 			case api.ServiceTypeClusterIP, api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
 				clusterIP := net.ParseIP(svc.ClusterIPs[0])
 				if clusterIP != nil {

@@ -3,7 +3,6 @@ package test
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -52,7 +51,7 @@ func TestReadme(t *testing.T) {
 	defer remove(contents)
 
 	middle := filepath.Join("..", "plugin")
-	dirs, err := ioutil.ReadDir(middle)
+	dirs, err := os.ReadDir(middle)
 	if err != nil {
 		t.Fatalf("Could not read %s: %q", middle, err)
 	}
@@ -168,12 +167,11 @@ func sectionsFromReadme(readme string) error {
 		return fmt.Errorf("Sections incomplete or ordered wrong: %q, want (at least): Name, Descripion, Syntax and Examples", readme)
 	}
 	return nil
-
 }
 
 func create(c map[string]string) {
 	for name, content := range c {
-		ioutil.WriteFile(name, []byte(content), 0644)
+		os.WriteFile(name, []byte(content), 0644)
 	}
 }
 

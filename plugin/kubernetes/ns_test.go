@@ -14,14 +14,15 @@ import (
 
 type APIConnTest struct{}
 
-func (APIConnTest) HasSynced() bool                          { return true }
-func (APIConnTest) Run()                                     {}
-func (APIConnTest) Stop() error                              { return nil }
-func (APIConnTest) PodIndex(string) []*object.Pod            { return nil }
-func (APIConnTest) SvcIndexReverse(string) []*object.Service { return nil }
-func (APIConnTest) EpIndex(string) []*object.Endpoints       { return nil }
-func (APIConnTest) EndpointsList() []*object.Endpoints       { return nil }
-func (APIConnTest) Modified() int64                          { return 0 }
+func (APIConnTest) HasSynced() bool                             { return true }
+func (APIConnTest) Run()                                        {}
+func (APIConnTest) Stop() error                                 { return nil }
+func (APIConnTest) PodIndex(string) []*object.Pod               { return nil }
+func (APIConnTest) SvcIndexReverse(string) []*object.Service    { return nil }
+func (APIConnTest) SvcExtIndexReverse(string) []*object.Service { return nil }
+func (APIConnTest) EpIndex(string) []*object.Endpoints          { return nil }
+func (APIConnTest) EndpointsList() []*object.Endpoints          { return nil }
+func (APIConnTest) Modified(bool) int64                         { return 0 }
 
 func (a APIConnTest) SvcIndex(s string) []*object.Service {
 	switch s {
@@ -35,24 +36,25 @@ func (a APIConnTest) SvcIndex(s string) []*object.Service {
 	return nil
 }
 
+var svcs = []*object.Service{
+	{
+		Name:       "dns-service",
+		Namespace:  "kube-system",
+		ClusterIPs: []string{"10.0.0.111"},
+	},
+	{
+		Name:       "hdls-dns-service",
+		Namespace:  "kube-system",
+		ClusterIPs: []string{api.ClusterIPNone},
+	},
+	{
+		Name:       "dns6-service",
+		Namespace:  "kube-system",
+		ClusterIPs: []string{"10::111"},
+	},
+}
+
 func (APIConnTest) ServiceList() []*object.Service {
-	svcs := []*object.Service{
-		{
-			Name:       "dns-service",
-			Namespace:  "kube-system",
-			ClusterIPs: []string{"10.0.0.111"},
-		},
-		{
-			Name:       "hdls-dns-service",
-			Namespace:  "kube-system",
-			ClusterIPs: []string{api.ClusterIPNone},
-		},
-		{
-			Name:       "dns6-service",
-			Namespace:  "kube-system",
-			ClusterIPs: []string{"10::111"},
-		},
-	}
 	return svcs
 }
 
@@ -97,7 +99,6 @@ func (APIConnTest) GetNamespaceByName(name string) (*object.Namespace, error) {
 }
 
 func TestNsAddrs(t *testing.T) {
-
 	k := New([]string{"inter.webs.test."})
 	k.APIConn = &APIConnTest{}
 	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
@@ -106,7 +107,6 @@ func TestNsAddrs(t *testing.T) {
 
 	if len(cdrs) != 3 {
 		t.Fatalf("Expected 3 results, got %v", len(cdrs))
-
 	}
 	cdr := cdrs[0]
 	expected := "10.0.0.111"
@@ -134,5 +134,35 @@ func TestNsAddrs(t *testing.T) {
 	expected = "dns6-service.kube-system.svc.inter.webs.test."
 	if cdr.Header().Name != expected {
 		t.Errorf("Expected AAAA Header Name to be %q, got %q", expected, cdr.Header().Name)
+	}
+}
+
+func TestNsAddrsExternal(t *testing.T) {
+	k := New([]string{"example.com."})
+	k.APIConn = &APIConnTest{}
+	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
+
+	// initially no services have an external IP ...
+	cdrs := k.nsAddrs(true, k.Zones[0])
+
+	if len(cdrs) != 0 {
+		t.Fatalf("Expected 0 results, got %v", len(cdrs))
+	}
+
+	// Add an external IP to one of the services ...
+	svcs[0].ExternalIPs = []string{"1.2.3.4"}
+	cdrs = k.nsAddrs(true, k.Zones[0])
+
+	if len(cdrs) != 1 {
+		t.Fatalf("Expected 1 results, got %v", len(cdrs))
+	}
+	cdr := cdrs[0]
+	expected := "1.2.3.4"
+	if cdr.(*dns.A).A.String() != expected {
+		t.Errorf("Expected A address to be %q, got %q", expected, cdr.(*dns.A).A.String())
+	}
+	expected = "dns-service.kube-system.example.com."
+	if cdr.Header().Name != expected {
+		t.Errorf("Expected record name to be %q, got %q", expected, cdr.Header().Name)
 	}
 }

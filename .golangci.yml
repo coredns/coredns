@@ -1,0 +1,13 @@
+run:
+  timeout: 5m
+linters:
+  disable-all: true
+  enable:
+    - deadcode
+    - govet
+    - ineffassign
+    - staticcheck
+    - structcheck
+    - typecheck
+    - varcheck
+    - whitespace

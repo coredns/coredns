@@ -214,5 +214,4 @@ www    IN AAAA ::1
 			return
 		}
 	}
-
 }

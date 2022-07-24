@@ -4,9 +4,9 @@ package coremain
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -96,7 +96,7 @@ func confLoader(serverType string) (caddy.Input, error) {
 		return caddy.CaddyfileFromPipe(os.Stdin, serverType)
 	}
 
-	contents, err := ioutil.ReadFile(conf)
+	contents, err := os.ReadFile(filepath.Clean(conf))
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func confLoader(serverType string) (caddy.Input, error) {
 
 // defaultLoader loads the Corefile from the current working directory.
 func defaultLoader(serverType string) (caddy.Input, error) {
-	contents, err := ioutil.ReadFile(caddy.DefaultConfigFile)
+	contents, err := os.ReadFile(caddy.DefaultConfigFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil

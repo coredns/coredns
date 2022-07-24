@@ -1,6 +1,7 @@
 package file
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -87,7 +88,7 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 			fileName = filepath.Join(config.Root, fileName)
 		}
 
-		reader, err := os.Open(fileName)
+		reader, err := os.Open(filepath.Clean(fileName))
 		if err != nil {
 			openErr = err
 		}
@@ -108,7 +109,11 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 		for c.NextBlock() {
 			switch c.Val() {
 			case "reload":
-				d, err := time.ParseDuration(c.RemainingArgs()[0])
+				t := c.RemainingArgs()
+				if len(t) < 1 {
+					return Zones{}, errors.New("reload duration value is expected")
+				}
+				d, err := time.ParseDuration(t[0])
 				if err != nil {
 					return Zones{}, plugin.Error("file", err)
 				}
@@ -121,11 +126,11 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 				return Zones{}, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
-	}
 
-	for origin := range z {
-		z[origin].ReloadInterval = reload
-		z[origin].Upstream = upstream.New()
+		for i := range origins {
+			z[origins[i]].ReloadInterval = reload
+			z[origins[i]].Upstream = upstream.New()
+		}
 	}
 
 	if openErr != nil {
@@ -134,7 +139,6 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 			return Zones{}, plugin.Error("file", openErr)
 		}
 		log.Warningf("Failed to open %q: trying again in %s", openErr, reload)
-
 	}
 	return Zones{Z: z, Names: names}, nil
 }

@@ -24,7 +24,7 @@ func TestSetupHeader(t *testing.T) {
 					foo bar
 }`, true, "unknown flag action=foo, should be set or clear"},
 		{`header {
-					set ra 
+					set ra
 }`, false, ""},
 		{`header {
 			set ra aa

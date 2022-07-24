@@ -56,7 +56,7 @@ out-of-tree plugins.
 To compile CoreDNS, we assume you have a working Go setup. See various tutorials if you don’t have
 that already configured.
 
-First, make sure your golang version is 1.12 or higher as `go mod` support is needed.
+First, make sure your golang version is 1.17 or higher as `go mod` support and other api is needed.
 See [here](https://github.com/golang/go/wiki/Modules) for `go mod` details.
 Then, check out the project and run `make` to compile the binary:
 
@@ -74,7 +74,7 @@ CoreDNS requires Go to compile. However, if you already have docker installed an
 setup a Go environment, you could build CoreDNS easily:
 
 ```
-$ docker run --rm -i -t -v $PWD:/v -w /v golang:1.16 make
+$ docker run --rm -i -t -v $PWD:/v -w /v golang:1.18 make
 ```
 
 The above command alone will have `coredns` binary generated.
@@ -88,7 +88,7 @@ and starts listening on port 53 (override with `-dns.port`), it should show the 
 ~~~ txt
 .:53
 CoreDNS-1.6.6
-linux/amd64, go1.13.5, aa8c32
+linux/amd64, go1.16.10, aa8c32
 ~~~
 
 The following could be used to query the CoreDNS server that is running now:
@@ -111,7 +111,7 @@ on port `53` and enables `whoami` plugin is:
 ~~~
 
 Sometimes port number 53 is occupied by system processes. In that case you can start the CoreDNS server
-while modifying the Corefile as given below so that the CoreDNS server starts on port 1053.
+while modifying the `Corefile` as given below so that the CoreDNS server starts on port 1053.
 
 ~~~ corefile
 .:1053 {
@@ -119,8 +119,28 @@ while modifying the Corefile as given below so that the CoreDNS server starts on
 }
 ~~~
 
-If you have a Corefile without a port number specified it will, by default, use port 53, but you can
+If you have a `Corefile` without a port number specified it will, by default, use port 53, but you can
 override the port with the `-dns.port` flag: `coredns -dns.port 1053`, runs the server on port 1053.
+
+You may import other text files into the `Corefile` using the _import_ directive.  You can use globs to match multiple
+files with a single _import_ directive.
+
+~~~ txt
+.:53 {
+    import example1.txt
+}
+import example2.txt
+~~~
+
+You can use environment variables in the `Corefile` with `{$VARIABLE}`.  Note that each environment variable is inserted
+into the `Corefile` as a single token. For example, an environment variable with a space in it will be treated as a single
+token, not as two separate tokens.
+
+~~~ txt
+.:53 {
+    {$ENV_VAR}
+}
+~~~
 
 A Corefile for a CoreDNS server that forward any queries to an upstream DNS (e.g., `8.8.8.8`) is as follows:
 
@@ -202,8 +222,15 @@ https://example.org {
     tls mycert mykey
 }
 ~~~
+in this setup, the CoreDNS will be responsible for TLS termination
 
-Note that you must have the *tls* plugin configured as DoH requires that to be setup.
+you can also start DNS server serving DoH without TLS termination (plain HTTP), but beware that in such scenario there has to be some kind
+of TLS termination proxy before CoreDNS instance, which forwards DNS requests otherwise clients will not be able to communicate via DoH with the server
+~~~ corefile
+https://example.org {
+    whoami
+}
+~~~
 
 Specifying ports works in the same way:
 
@@ -255,9 +282,11 @@ And finally 1.4.1 that removes the config workarounds.
 
 ## Security
 
-### Security Audit
-A third party security audit was performed by Cure53, you can see the full report
-[here](https://coredns.io/assets/DNS-01-report.pdf).
+### Security Audits
+
+Third party security audits have been performed by:
+* [Cure53](https://cure53.de) in March 2018. [Full Report](https://coredns.io/assets/DNS-01-report.pdf)
+* [Trail of Bits](https://www.trailofbits.com) in March 2022. [Full Report](https://github.com/trailofbits/publications/blob/master/reviews/CoreDNS.pdf)
 
 ### Reporting security vulnerabilities
 

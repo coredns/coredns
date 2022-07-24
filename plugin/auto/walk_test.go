@@ -1,7 +1,6 @@
 package auto
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -67,13 +66,13 @@ func TestWalkNonExistent(t *testing.T) {
 }
 
 func createFiles() (string, error) {
-	dir, err := ioutil.TempDir(os.TempDir(), "coredns")
+	dir, err := os.MkdirTemp(os.TempDir(), "coredns")
 	if err != nil {
 		return dir, err
 	}
 
 	for _, name := range dbFiles {
-		if err := ioutil.WriteFile(filepath.Join(dir, name), []byte(zoneContent), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(zoneContent), 0644); err != nil {
 			return dir, err
 		}
 	}

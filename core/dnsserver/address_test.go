@@ -43,7 +43,6 @@ func TestSplitProtocolHostPort(t *testing.T) {
 		if port != test.port {
 			t.Errorf("Test %d: (address = %s) expected port with value %s but got %s", i, test.input, test.port, port)
 		}
-
 	}
 }
 
@@ -92,7 +91,6 @@ func TestOverlapAddressChecker(t *testing.T) {
 		},
 		},
 	} {
-
 		checker := newOverlapZone()
 		for _, call := range test.sequence {
 			same, overlap := checker.registerAndCheck(call.zone)
@@ -108,10 +106,8 @@ func TestOverlapAddressChecker(t *testing.T) {
 					if overlap.String() != call.overlapKey {
 						t.Errorf("Test %d: error, for zone %s, 'overlap Key' (%v) has not the expected value (%v)", i, sZone, overlap.String(), call.overlapKey)
 					}
-
 				}
 			}
-
 		}
 	}
 }

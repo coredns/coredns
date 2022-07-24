@@ -26,7 +26,7 @@ func isDNSSEC(r dns.RR) bool {
 // returned.
 func filterRRSlice(rrs []dns.RR, ttl uint32, do, dup bool) []dns.RR {
 	j := 0
-	rs := make([]dns.RR, len(rrs), len(rrs))
+	rs := make([]dns.RR, len(rrs))
 	for _, r := range rrs {
 		if !do && isDNSSEC(r) {
 			continue

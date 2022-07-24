@@ -16,14 +16,3 @@ func SubTypeSignature(rrs []dns.RR, subtype uint16) []dns.RR {
 	}
 	return sigs
 }
-
-// CNAMEForType returns the RR that have the qtype from targets.
-func CNAMEForType(rrs []dns.RR, qtype uint16) []dns.RR {
-	ret := []dns.RR{}
-	for _, target := range rrs {
-		if target.Header().Rrtype == qtype {
-			ret = append(ret, target)
-		}
-	}
-	return ret
-}

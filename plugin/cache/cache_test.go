@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/test"
@@ -191,7 +192,7 @@ func TestCache(t *testing.T) {
 
 	c, crr := newTestCache(maxTTL)
 
-	for _, tc := range cacheTestCases {
+	for n, tc := range cacheTestCases {
 		m := tc.in.Msg()
 		m = cacheMsg(m, tc)
 
@@ -204,16 +205,20 @@ func TestCache(t *testing.T) {
 			crr.set(m, k, mt, c.pttl)
 		}
 
-		i, _ := c.get(time.Now().UTC(), state, "dns://:53")
+		i := c.getIgnoreTTL(time.Now().UTC(), state, "dns://:53")
 		ok := i != nil
 
-		if ok != tc.shouldCache {
-			t.Errorf("Cached message that should not have been cached: %s", state.Name())
+		if !tc.shouldCache && ok {
+			t.Errorf("Test %d: Cached message that should not have been cached: %s", n, state.Name())
+			continue
+		}
+		if tc.shouldCache && !ok {
+			t.Errorf("Test %d: Did not cache message that should have been cached: %s", n, state.Name())
 			continue
 		}
 
 		if ok {
-			resp := i.toMsg(m, time.Now().UTC(), state.Do())
+			resp := i.toMsg(m, time.Now().UTC(), state.Do(), m.AuthenticatedData)
 
 			if err := test.Header(tc.Case, resp); err != nil {
 				t.Logf("Cache %v", resp)
@@ -254,6 +259,23 @@ func TestCacheZeroTTL(t *testing.T) {
 	}
 }
 
+func TestCacheServfailTTL0(t *testing.T) {
+	c := New()
+	c.minpttl = minTTL
+	c.minnttl = minNTTL
+	c.failttl = 0
+	c.Next = servFailBackend(0)
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	if c.ncache.Len() != 0 {
+		t.Errorf("SERVFAIL response should not have been cached")
+	}
+}
+
 func TestServeFromStaleCache(t *testing.T) {
 	c := New()
 	c.Next = ttlBackend(60)
@@ -262,7 +284,7 @@ func TestServeFromStaleCache(t *testing.T) {
 	req.SetQuestion("cached.org.", dns.TypeA)
 	ctx := context.TODO()
 
-	// Cache example.org.
+	// Cache cached.org. with 60s TTL
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	c.staleUpTo = 1 * time.Hour
 	c.ServeDNS(ctx, rec, req)
@@ -296,6 +318,80 @@ func TestServeFromStaleCache(t *testing.T) {
 		r.SetQuestion(tt.name, dns.TypeA)
 		if ret, _ := c.ServeDNS(ctx, rec, r); ret != tt.expectedResult {
 			t.Errorf("Test %d: expecting %v; got %v", i, tt.expectedResult, ret)
+		}
+	}
+}
+
+func TestServeFromStaleCacheFetchVerify(t *testing.T) {
+	c := New()
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// Cache cached.org. with 120s TTL
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.staleUpTo = 1 * time.Hour
+	c.verifyStale = true
+	c.ServeDNS(ctx, rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+
+	tests := []struct {
+		name          string
+		upstreamRCode int
+		upstreamTtl   int
+		futureMinutes int
+		expectedRCode int
+		expectedTtl   int
+	}{
+		// After 1 minutes of initial TTL, we should see a cached response
+		{"cached.org.", dns.RcodeSuccess, 200, 1, dns.RcodeSuccess, 60}, // ttl = 120 - 60 -- not refreshed
+
+		// After the 2 more minutes, we should see upstream responses because upstream is available
+		{"cached.org.", dns.RcodeSuccess, 200, 3, dns.RcodeSuccess, 200},
+
+		// After the TTL expired, if the server fails we should get the cached entry
+		{"cached.org.", dns.RcodeServerFailure, 200, 7, dns.RcodeSuccess, 0},
+
+		// After 1 more minutes, if the server serves nxdomain we should see them (despite being within the serve stale period)
+		{"cached.org.", dns.RcodeNameError, 150, 8, dns.RcodeNameError, 150},
+	}
+
+	for i, tt := range tests {
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureMinutes) * time.Minute) }
+
+		if tt.upstreamRCode == dns.RcodeSuccess {
+			c.Next = ttlBackend(tt.upstreamTtl)
+		} else if tt.upstreamRCode == dns.RcodeServerFailure {
+			// Make upstream fail, should now rely on cache during the c.staleUpTo period
+			c.Next = servFailBackend(tt.upstreamTtl)
+		} else if tt.upstreamRCode == dns.RcodeNameError {
+			c.Next = nxDomainBackend(tt.upstreamTtl)
+		} else {
+			t.Fatal("upstream code not implemented")
+		}
+
+		r := req.Copy()
+		r.SetQuestion(tt.name, dns.TypeA)
+		ret, _ := c.ServeDNS(ctx, rec, r)
+		if ret != tt.expectedRCode {
+			t.Errorf("Test %d: expected rcode=%v, got rcode=%v", i, tt.expectedRCode, ret)
+			continue
+		}
+		if ret == dns.RcodeSuccess {
+			recTtl := rec.Msg.Answer[0].Header().Ttl
+			if tt.expectedTtl != int(recTtl) {
+				t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, recTtl)
+			}
+		} else if ret == dns.RcodeNameError {
+			soaTtl := rec.Msg.Ns[0].Header().Ttl
+			if tt.expectedTtl != int(soaTtl) {
+				t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, soaTtl)
+			}
 		}
 	}
 }
@@ -450,6 +546,20 @@ func ttlBackend(ttl int) plugin.Handler {
 	})
 }
 
+func servFailBackend(ttl int) plugin.Handler {
+	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+
+		m.Ns = []dns.RR{test.SOA(fmt.Sprintf("example.org. %d IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600", ttl))}
+
+		m.MsgHdr.Rcode = dns.RcodeServerFailure
+		w.WriteMsg(m)
+		return dns.RcodeServerFailure, nil
+	})
+}
+
 func TestComputeTTL(t *testing.T) {
 	tests := []struct {
 		msgTTL      time.Duration
@@ -468,4 +578,60 @@ func TestComputeTTL(t *testing.T) {
 			t.Errorf("Test %v: Expected ttl %v but found: %v", i, test.expectedTTL, ttl)
 		}
 	}
+}
+
+func TestCacheWildcardMetadata(t *testing.T) {
+	c := New()
+	qname := "foo.bar.example.org."
+	wildcard := "*.bar.example.org."
+	c.Next = wildcardMetadataBackend(qname, wildcard)
+
+	req := new(dns.Msg)
+	req.SetQuestion(qname, dns.TypeA)
+
+	// 1. Test writing wildcard metadata retrieved from backend to the cache
+
+	ctx := metadata.ContextWithMetadata(context.TODO())
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(ctx, w, req)
+	if c.pcache.Len() != 1 {
+		t.Errorf("Msg should have been cached")
+	}
+	_, k := key(qname, w.Msg, response.NoError)
+	i, _ := c.pcache.Get(k)
+	if i.(*item).wildcard != wildcard {
+		t.Errorf("expected wildcard reponse to enter cache with cache item's wildcard = %q, got %q", wildcard, i.(*item).wildcard)
+	}
+
+	// 2. Test retrieving the cached item from cache and writing its wildcard value to metadata
+
+	// reset context and response writer
+	ctx = metadata.ContextWithMetadata(context.TODO())
+	w = dnstest.NewRecorder(&test.ResponseWriter{})
+
+	c.ServeDNS(ctx, w, req)
+	f := metadata.ValueFunc(ctx, "zone/wildcard")
+	if f == nil {
+		t.Fatal("expected metadata func for wildcard response retrieved from cache, got nil")
+	}
+	if f() != wildcard {
+		t.Errorf("after retrieving wildcard item from cache, expected \"zone/wildcard\" metadata value to be %q, got %q", wildcard, i.(*item).wildcard)
+	}
+}
+
+// wildcardMetadataBackend mocks a backend that reponds with a response for qname synthesized by wildcard
+// and sets the zone/wildcard metadata value
+func wildcardMetadataBackend(qname, wildcard string) plugin.Handler {
+	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A(qname + " 300 IN A 127.0.0.1")}
+		metadata.SetValueFunc(ctx, "zone/wildcard", func() string {
+			return wildcard
+		})
+		w.WriteMsg(m)
+
+		return dns.RcodeSuccess, nil
+	})
 }

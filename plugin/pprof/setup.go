@@ -57,7 +57,6 @@ func setup(c *caddy.Controller) error {
 				return plugin.Error("pprof", c.Errf("unknown property '%s'", c.Val()))
 			}
 		}
-
 	}
 
 	c.OnStartup(h.Startup)

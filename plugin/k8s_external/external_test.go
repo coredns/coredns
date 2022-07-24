@@ -20,10 +20,11 @@ func TestExternal(t *testing.T) {
 	k.APIConn = &external{}
 
 	e := New()
-	e.Zones = []string{"example.com."}
+	e.Zones = []string{"example.com.", "in-addr.arpa."}
 	e.Next = test.NextHandler(dns.RcodeSuccess, nil)
 	e.externalFunc = k.External
-	e.externalAddrFunc = externalAddress // internal test function
+	e.externalAddrFunc = externalAddress  // internal test function
+	e.externalSerialFunc = externalSerial // internal test function
 
 	ctx := context.TODO()
 	for i, tc := range tests {
@@ -44,13 +45,37 @@ func TestExternal(t *testing.T) {
 		if resp == nil {
 			t.Fatalf("Test %d, got nil message and no error for %q", i, r.Question[0].Name)
 		}
+		if !resp.Authoritative {
+			t.Error("Expected authoritative answer")
+		}
 		if err = test.SortAndCheck(resp, tc); err != nil {
-			t.Error(err)
+			t.Errorf("Test %d: %v", i, err)
 		}
 	}
 }
 
 var tests = []test.Case{
+	// PTR reverse lookup
+	{
+		Qname: "4.3.2.1.in-addr.arpa.", Qtype: dns.TypePTR, Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.PTR("4.3.2.1.in-addr.arpa. 5 IN PTR svc1.testns.example.com."),
+		},
+	},
+	// Bad PTR reverse lookup using existing service name
+	{
+		Qname: "svc1.testns.example.com.", Qtype: dns.TypePTR, Rcode: dns.RcodeSuccess,
+		Ns: []dns.RR{
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+		},
+	},
+	// Bad PTR reverse lookup using non-existing service name
+	{
+		Qname: "not-existing.testns.example.com.", Qtype: dns.TypePTR, Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
+		},
+	},
 	// A Service
 	{
 		Qname: "svc1.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
@@ -147,16 +172,48 @@ var tests = []test.Case{
 			test.SOA("example.com.	5	IN	SOA	ns1.dns.example.com. hostmaster.example.com. 1499347823 7200 1800 86400 5"),
 		},
 	},
+	// svc11
 	{
 		Qname: "svc11.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.A("svc11.testns.example.com.	5	IN	A	1.2.3.4"),
+			test.A("svc11.testns.example.com.	5	IN	A	2.3.4.5"),
 		},
 	},
+	{
+		Qname: "_http._tcp.svc11.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.SRV("_http._tcp.svc11.testns.example.com.	5	IN	SRV	0 100 80 svc11.testns.example.com."),
+		},
+		Extra: []dns.RR{
+			test.A("svc11.testns.example.com.	5	IN	A	2.3.4.5"),
+		},
+	},
+	{
+		Qname: "svc11.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.SRV("svc11.testns.example.com.	5	IN	SRV	0 100 80 svc11.testns.example.com."),
+		},
+		Extra: []dns.RR{
+			test.A("svc11.testns.example.com.	5	IN	A	2.3.4.5"),
+		},
+	},
+	// svc12
 	{
 		Qname: "svc12.testns.example.com.", Qtype: dns.TypeA, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.CNAME("svc12.testns.example.com.	5	IN	CNAME	dummy.hostname"),
+		},
+	},
+	{
+		Qname: "_http._tcp.svc12.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.SRV("_http._tcp.svc12.testns.example.com.	5	IN	SRV	0 100 80 dummy.hostname."),
+		},
+	},
+	{
+		Qname: "svc12.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.SRV("svc12.testns.example.com.	5	IN	SRV	0 100 80 dummy.hostname."),
 		},
 	},
 }
@@ -168,12 +225,26 @@ func (external) Run()                                                           
 func (external) Stop() error                                                       { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints                         { return nil }
 func (external) SvcIndexReverse(string) []*object.Service                          { return nil }
-func (external) Modified() int64                                                   { return 0 }
+func (external) Modified(bool) int64                                               { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints                              { return nil }
 func (external) EndpointsList() []*object.Endpoints                                { return nil }
 func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }
 func (external) SvcIndex(s string) []*object.Service                               { return svcIndexExternal[s] }
 func (external) PodIndex(string) []*object.Pod                                     { return nil }
+
+func (external) SvcExtIndexReverse(ip string) (result []*object.Service) {
+	for _, svcs := range svcIndexExternal {
+		for _, svc := range svcs {
+			for _, exIp := range svc.ExternalIPs {
+				if exIp != ip {
+					continue
+				}
+				result = append(result, svc)
+			}
+		}
+	}
+	return result
+}
 
 func (external) GetNamespaceByName(name string) (*object.Namespace, error) {
 	return &object.Namespace{
@@ -207,7 +278,7 @@ var svcIndexExternal = map[string][]*object.Service{
 			Name:        "svc11",
 			Namespace:   "testns",
 			Type:        api.ServiceTypeLoadBalancer,
-			ExternalIPs: []string{"1.2.3.4"},
+			ExternalIPs: []string{"2.3.4.5"},
 			Ports:       []api.ServicePort{{Name: "http", Protocol: "tcp", Port: 80}},
 		},
 	},
@@ -233,4 +304,8 @@ func (external) ServiceList() []*object.Service {
 func externalAddress(state request.Request) []dns.RR {
 	a := test.A("example.org. IN A 127.0.0.1")
 	return []dns.RR{a}
+}
+
+func externalSerial(string) uint32 {
+	return 1499347823
 }

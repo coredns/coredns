@@ -57,7 +57,17 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				if !rw.RevertPolicy.DoRevert() {
 					return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
 				}
-				return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
+				rcode, err := plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
+				if plugin.ClientWrite(rcode) {
+					return rcode, err
+				}
+				// The next plugins didn't write a response, so write one now with the ResponseReverter.
+				// If server.ServeDNS does this then it will create an answer mismatch.
+				res := new(dns.Msg).SetRcode(r, rcode)
+				state.SizeAndDo(res)
+				wr.WriteMsg(res)
+				// return success, so server does not write a second error response to client
+				return dns.RcodeSuccess, err
 			}
 		}
 	}
@@ -90,10 +100,16 @@ func newRule(args ...string) (Rule, error) {
 	switch arg0 {
 	case Continue:
 		mode = Continue
+		if len(args) < 2 {
+			return nil, fmt.Errorf("continue rule must begin with a rule type")
+		}
 		ruleType = strings.ToLower(args[1])
 		expectNumArgs = len(args) - 1
 		startArg = 2
 	case Stop:
+		if len(args) < 2 {
+			return nil, fmt.Errorf("stop rule must begin with a rule type")
+		}
 		ruleType = strings.ToLower(args[1])
 		expectNumArgs = len(args) - 1
 		startArg = 2

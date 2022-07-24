@@ -8,60 +8,44 @@ import (
 )
 
 func TestParse(t *testing.T) {
-	c := caddy.NewTestController("dns", `rewrite`)
-	_, err := rewriteParse(c)
-	if err == nil {
-		t.Errorf("Expected error but found nil for `rewrite`")
-	}
-	c = caddy.NewTestController("dns", `rewrite name`)
-	_, err = rewriteParse(c)
-	if err == nil {
-		t.Errorf("Expected error but found nil for `rewrite name`")
-	}
-	c = caddy.NewTestController("dns", `rewrite name a.com b.com`)
-	_, err = rewriteParse(c)
-	if err != nil {
-		t.Errorf("Expected success but found %s for `rewrite name a.com b.com`", err)
-	}
-
-	c = caddy.NewTestController("dns",
-		`rewrite stop {
+	tests := []struct {
+		inputFileRules string
+		shouldErr      bool
+		errContains    string
+	}{
+		// parse errors
+		{`rewrite`, true, ""},
+		{`rewrite name`, true, ""},
+		{`rewrite name a.com b.com`, false, ""},
+		{`rewrite stop {
     name regex foo bar
     answer name bar foo
-}`)
-	_, err = rewriteParse(c)
-	if err != nil {
-		t.Errorf("Expected success but found %s for valid response rewrite", err)
-	}
-
-	c = caddy.NewTestController("dns", `rewrite stop name regex foo bar answer name bar foo`)
-	_, err = rewriteParse(c)
-	if err != nil {
-		t.Errorf("Expected success but found %s for valid response rewrite", err)
-	}
-
-	c = caddy.NewTestController("dns",
-		`rewrite stop {
+}`, false, ""},
+		{`rewrite stop name regex foo bar answer name bar foo`, false, ""},
+		{`rewrite stop {
     name regex foo bar
     answer name bar foo
     name baz
-}`)
-	_, err = rewriteParse(c)
-	if err == nil {
-		t.Errorf("Expected error but got success for invalid response rewrite")
-	} else if !strings.Contains(err.Error(), "2 arguments required") {
-		t.Errorf("Got wrong error for invalid response rewrite: %v", err.Error())
-	}
-
-	c = caddy.NewTestController("dns",
-		`rewrite stop {
+}`, true, "2 arguments required"},
+		{`rewrite stop {
     answer name bar foo
     name regex foo bar
-}`)
-	_, err = rewriteParse(c)
-	if err == nil {
-		t.Errorf("Expected error but got success for invalid response rewrite")
-	} else if !strings.Contains(err.Error(), "must begin with a name rule") {
-		t.Errorf("Got wrong error for invalid response rewrite: %v", err.Error())
+}`, true, "must begin with a name rule"},
+		{`rewrite stop`, true, ""},
+		{`rewrite continue`, true, ""},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.inputFileRules)
+		_, err := rewriteParse(c)
+		if err == nil && test.shouldErr {
+			t.Fatalf("Test %d expected errors, but got no error\n---\n%s", i, test.inputFileRules)
+		} else if err != nil && !test.shouldErr {
+			t.Fatalf("Test %d expected no errors, but got '%v'\n---\n%s", i, err, test.inputFileRules)
+		}
+
+		if err != nil && test.errContains != "" && !strings.Contains(err.Error(), test.errContains) {
+			t.Errorf("Test %d got wrong error for invalid response rewrite: '%v'\n---\n%s", i, err.Error(), test.inputFileRules)
+		}
 	}
 }

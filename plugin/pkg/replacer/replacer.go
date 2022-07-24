@@ -271,6 +271,7 @@ func (r replacer) Replace(ctx context.Context, state request.Request, rr *dnstes
 		}
 	}
 	s := string(b)
+	//nolint:staticcheck
 	bufPool.Put(b[:0])
 	return s
 }

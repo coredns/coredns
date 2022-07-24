@@ -1,7 +1,6 @@
 package parse
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -61,7 +60,7 @@ func TestHostPortOrFile(t *testing.T) {
 		},
 	}
 
-	err := ioutil.WriteFile("resolv.conf", []byte("nameserver 127.0.0.1\n"), 0600)
+	err := os.WriteFile("resolv.conf", []byte("nameserver 127.0.0.1\n"), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write test resolv.conf")
 	}

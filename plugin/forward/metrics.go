@@ -40,12 +40,6 @@ var (
 		Name:      "healthcheck_broken_total",
 		Help:      "Counter of the number of complete failures of the healthchecks.",
 	})
-	SocketGauge = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "forward",
-		Name:      "sockets_open",
-		Help:      "Gauge of open sockets per upstream.",
-	}, []string{"to"})
 	MaxConcurrentRejectCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",

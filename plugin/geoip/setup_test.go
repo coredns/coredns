@@ -52,14 +52,15 @@ func TestGeoIPParse(t *testing.T) {
 	}{
 		// Valid
 		{false, fmt.Sprintf("%s %s\n", pluginName, cityDBPath), "", city},
+		{false, fmt.Sprintf("%s %s { edns-subnet }", pluginName, cityDBPath), "", city},
 
 		// Invalid
 		{true, pluginName, "Wrong argument count", 0},
-		{true, fmt.Sprintf("%s %s {\n\tlanguages en fr es zh-CN\n}\n", pluginName, cityDBPath), "unexpected config block", 0},
+		{true, fmt.Sprintf("%s %s {\n\tlanguages en fr es zh-CN\n}\n", pluginName, cityDBPath), "unknown property \"languages\"", 0},
 		{true, fmt.Sprintf("%s %s\n%s %s\n", pluginName, cityDBPath, pluginName, cityDBPath), "configuring multiple databases is not supported", 0},
 		{true, fmt.Sprintf("%s 1 2 3", pluginName), "Wrong argument count", 0},
 		{true, fmt.Sprintf("%s { }", pluginName), "Error during parsing", 0},
-		{true, fmt.Sprintf("%s /dbpath { city }", pluginName), "unexpected config block", 0},
+		{true, fmt.Sprintf("%s /dbpath { city }", pluginName), "unknown property \"city\"", 0},
 		{true, fmt.Sprintf("%s /invalidPath\n", pluginName), "failed to open database file: open /invalidPath: no such file or directory", 0},
 		{true, fmt.Sprintf("%s %s\n", pluginName, unknownDBPath), "reader does not support the \"UnknownDbType\" database type", 0},
 	}

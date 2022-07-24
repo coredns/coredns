@@ -14,27 +14,6 @@ import (
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func TestWildcard(t *testing.T) {
-	var tests = []struct {
-		s        string
-		expected bool
-	}{
-		{"mynamespace", false},
-		{"*", true},
-		{"any", true},
-		{"my*space", false},
-		{"*space", false},
-		{"myname*", false},
-	}
-
-	for _, te := range tests {
-		got := wildcard(te.s)
-		if got != te.expected {
-			t.Errorf("Expected Wildcard result '%v' for example '%v', got '%v'.", te.expected, te.s, got)
-		}
-	}
-}
-
 func TestEndpointHostname(t *testing.T) {
 	var tests = []struct {
 		ip               string
@@ -60,13 +39,14 @@ func TestEndpointHostname(t *testing.T) {
 
 type APIConnServiceTest struct{}
 
-func (APIConnServiceTest) HasSynced() bool                           { return true }
-func (APIConnServiceTest) Run()                                      {}
-func (APIConnServiceTest) Stop() error                               { return nil }
-func (APIConnServiceTest) PodIndex(string) []*object.Pod             { return nil }
-func (APIConnServiceTest) SvcIndexReverse(string) []*object.Service  { return nil }
-func (APIConnServiceTest) EpIndexReverse(string) []*object.Endpoints { return nil }
-func (APIConnServiceTest) Modified() int64                           { return 0 }
+func (APIConnServiceTest) HasSynced() bool                             { return true }
+func (APIConnServiceTest) Run()                                        {}
+func (APIConnServiceTest) Stop() error                                 { return nil }
+func (APIConnServiceTest) PodIndex(string) []*object.Pod               { return nil }
+func (APIConnServiceTest) SvcIndexReverse(string) []*object.Service    { return nil }
+func (APIConnServiceTest) SvcExtIndexReverse(string) []*object.Service { return nil }
+func (APIConnServiceTest) EpIndexReverse(string) []*object.Endpoints   { return nil }
+func (APIConnServiceTest) Modified(bool) int64                         { return 0 }
 
 func (APIConnServiceTest) SvcIndex(string) []*object.Service {
 	svcs := []*object.Service{

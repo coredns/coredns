@@ -1,7 +1,6 @@
 package loop
 
 import (
-	"math/rand"
 	"net"
 	"strconv"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+	"github.com/coredns/coredns/plugin/pkg/rand"
 )
 
 func init() { plugin.Register("loop", setup) }
@@ -84,4 +84,4 @@ func qname(zone string) string {
 	return dnsutil.Join(l1, l2, zone)
 }
 
-var r = rand.New(rand.NewSource(time.Now().UnixNano()))
+var r = rand.New(time.Now().UnixNano())

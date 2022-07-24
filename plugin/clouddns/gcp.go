@@ -31,9 +31,7 @@ func (c gcpClient) listRRSets(ctx context.Context, projectName, hostedZoneName s
 	req := c.ResourceRecordSets.List(projectName, hostedZoneName)
 	var rs []*gcp.ResourceRecordSet
 	if err := req.Pages(ctx, func(page *gcp.ResourceRecordSetsListResponse) error {
-		for _, rr := range page.Rrsets {
-			rs = append(rs, rr)
-		}
+		rs = append(rs, page.Rrsets...)
 		return nil
 	}); err != nil {
 		return nil, err

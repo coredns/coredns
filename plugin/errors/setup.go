@@ -52,38 +52,41 @@ func errorsParse(c *caddy.Controller) (*errorHandler, error) {
 		}
 
 		for c.NextBlock() {
-			if err := parseBlock(c, handler); err != nil {
-				return nil, err
+			switch c.Val() {
+			case "stacktrace":
+				dnsserver.GetConfig(c).Stacktrace = true
+			case "consolidate":
+				pattern, err := parseConsolidate(c)
+				if err != nil {
+					return nil, err
+				}
+				handler.patterns = append(handler.patterns, pattern)
+			default:
+				return handler, c.SyntaxErr("Unknown field " + c.Val())
 			}
 		}
 	}
 	return handler, nil
 }
 
-func parseBlock(c *caddy.Controller, h *errorHandler) error {
-	if c.Val() != "consolidate" {
-		return c.SyntaxErr("consolidate")
-	}
-
+func parseConsolidate(c *caddy.Controller) (*pattern, error) {
 	args := c.RemainingArgs()
 	if len(args) < 2 || len(args) > 3 {
-		return c.ArgErr()
+		return nil, c.ArgErr()
 	}
 	p, err := time.ParseDuration(args[0])
 	if err != nil {
-		return c.Err(err.Error())
+		return nil, c.Err(err.Error())
 	}
 	re, err := regexp.Compile(args[1])
 	if err != nil {
-		return c.Err(err.Error())
+		return nil, c.Err(err.Error())
 	}
 	lc, err := parseLogLevel(c, args)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	h.patterns = append(h.patterns, &pattern{period: p, pattern: re, logCallback: lc})
-
-	return nil
+	return &pattern{period: p, pattern: re, logCallback: lc}, nil
 }
 
 func parseLogLevel(c *caddy.Controller, args []string) (func(format string, v ...interface{}), error) {

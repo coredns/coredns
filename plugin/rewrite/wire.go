@@ -9,7 +9,6 @@ import (
 
 // ipToWire writes IP address to wire/binary format, 4 or 16 bytes depends on IPV4 or IPV6.
 func ipToWire(family int, ipAddr string) ([]byte, error) {
-
 	switch family {
 	case 1:
 		return net.ParseIP(ipAddr).To4(), nil
@@ -28,7 +27,6 @@ func uint16ToWire(data uint16) []byte {
 
 // portToWire writes port to wire/binary format, 2 bytes
 func portToWire(portStr string) ([]byte, error) {
-
 	port, err := strconv.ParseUint(portStr, 10, 16)
 	if err != nil {
 		return nil, err

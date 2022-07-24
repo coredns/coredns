@@ -18,7 +18,6 @@ func testCase(t *testing.T, tapq, tapr *tap.Message, q, r *dns.Msg) {
 	h := Dnstap{
 		Next: test.HandlerFunc(func(_ context.Context,
 			w dns.ResponseWriter, _ *dns.Msg) (int, error) {
-
 			return 0, w.WriteMsg(r)
 		}),
 		io: &w,
@@ -34,7 +33,7 @@ type writer struct {
 	queue []*tap.Message
 }
 
-func (w *writer) Dnstap(e tap.Dnstap) {
+func (w *writer) Dnstap(e *tap.Dnstap) {
 	if len(w.queue) == 0 {
 		w.t.Error("Message not expected")
 	}

@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 
@@ -31,6 +32,8 @@ type Metrics struct {
 	zoneNames []string
 	zoneMap   map[string]struct{}
 	zoneMu    sync.RWMutex
+
+	plugins map[string]struct{} // all available plugins, used to determine which plugin made the client write
 }
 
 // New returns a new instance of Metrics with the given address.
@@ -39,6 +42,7 @@ func New(addr string) *Metrics {
 		Addr:    addr,
 		Reg:     prometheus.DefaultRegisterer.(*prometheus.Registry),
 		zoneMap: make(map[string]struct{}),
+		plugins: pluginList(caddy.ListPlugins()),
 	}
 
 	return met
@@ -138,6 +142,19 @@ func keys(m map[string]struct{}) []string {
 		sx = append(sx, k)
 	}
 	return sx
+}
+
+// pluginList iterates over the returned plugin map from caddy and removes the "dns." prefix from them.
+func pluginList(m map[string][]string) map[string]struct{} {
+	pm := map[string]struct{}{}
+	for _, p := range m["others"] {
+		// only add 'dns.' plugins
+		if len(p) > 3 {
+			pm[p[4:]] = struct{}{}
+			continue
+		}
+	}
+	return pm
 }
 
 // ListenAddr is assigned the address of the prometheus listener. Its use is mainly in tests where

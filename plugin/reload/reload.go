@@ -3,7 +3,7 @@ package reload
 
 import (
 	"bytes"
-	"crypto/md5"
+	"crypto/sha512"
 	"encoding/hex"
 	"encoding/json"
 	"sync"
@@ -78,8 +78,8 @@ func hook(event caddy.EventName, info interface{}) error {
 		return err
 	}
 
-	md5sum := md5.Sum(parsedCorefile)
-	log.Infof("Running configuration MD5 = %x\n", md5sum)
+	sha512sum := sha512.Sum512(parsedCorefile)
+	log.Infof("Running configuration SHA512 = %x\n", sha512sum)
 
 	go func() {
 		tick := time.NewTicker(r.interval())
@@ -96,16 +96,16 @@ func hook(event caddy.EventName, info interface{}) error {
 					log.Warningf("Corefile parse failed: %s", err)
 					continue
 				}
-				s := md5.Sum(parsedCorefile)
-				if s != md5sum {
-					reloadInfo.Delete(prometheus.Labels{"hash": "md5", "value": hex.EncodeToString(md5sum[:])})
+				s := sha512.Sum512(parsedCorefile)
+				if s != sha512sum {
+					reloadInfo.Delete(prometheus.Labels{"hash": "sha512", "value": hex.EncodeToString(sha512sum[:])})
 					// Let not try to restart with the same file, even though it is wrong.
-					md5sum = s
+					sha512sum = s
 					// now lets consider that plugin will not be reload, unless appear in next config file
 					// change status of usage will be reset in setup if the plugin appears in config file
 					r.setUsage(maybeUsed)
 					_, err := instance.Restart(corefile)
-					reloadInfo.WithLabelValues("md5", hex.EncodeToString(md5sum[:])).Set(1)
+					reloadInfo.WithLabelValues("sha512", hex.EncodeToString(sha512sum[:])).Set(1)
 					if err != nil {
 						log.Errorf("Corefile changed but reload failed: %s", err)
 						failedCount.Add(1)

@@ -43,7 +43,6 @@ func periodicClean(c *cache.Cache, stop <-chan struct{}) {
 
 		case <-stop:
 			return
-
 		}
 	}
 }

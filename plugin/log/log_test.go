@@ -3,7 +3,7 @@ package log
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"log"
 	"strings"
 	"testing"
@@ -202,6 +202,19 @@ func TestLogged(t *testing.T) {
 			ShouldLog:    true,
 			ShouldString: "\"0\"",
 		},
+		{
+			Rules: []Rule{
+				{
+					NameScope: ".",
+					Format:    CombinedLogFormat,
+					Class:     map[response.Class]struct{}{response.All: {}},
+				},
+			},
+			Domain:          "foo.%s.example.org.",
+			ShouldLog:       true,
+			ShouldString:    "foo.%s.example.org.",
+			ShouldNOTString: "%!s(MISSING)",
+		},
 	}
 
 	for _, tc := range tests {
@@ -240,7 +253,7 @@ func TestLogged(t *testing.T) {
 }
 
 func BenchmarkLogged(b *testing.B) {
-	log.SetOutput(ioutil.Discard)
+	log.SetOutput(io.Discard)
 
 	rule := Rule{
 		NameScope: ".",

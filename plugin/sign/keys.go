@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -66,11 +66,11 @@ func keyParse(c *caddy.Controller) ([]Pair, error) {
 }
 
 func readKeyPair(public, private string) (Pair, error) {
-	rk, err := os.Open(public)
+	rk, err := os.Open(filepath.Clean(public))
 	if err != nil {
 		return Pair{}, err
 	}
-	b, err := ioutil.ReadAll(rk)
+	b, err := io.ReadAll(rk)
 	if err != nil {
 		return Pair{}, err
 	}
@@ -86,7 +86,7 @@ func readKeyPair(public, private string) (Pair, error) {
 		return Pair{}, fmt.Errorf("DNSKEY in %q is not a CSK/KSK", public)
 	}
 
-	rp, err := os.Open(private)
+	rp, err := os.Open(filepath.Clean(private))
 	if err != nil {
 		return Pair{}, err
 	}

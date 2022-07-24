@@ -19,8 +19,6 @@ is taken as a healthy upstream. The health check uses the same protocol as speci
 When *all* upstreams are down it assumes health checking as a mechanism has failed and will try to
 connect to a random upstream (which may or may not work).
 
-This plugin can only be used once per Server Block.
-
 ## Syntax
 
 In its most basic form, a simple forwarder uses this syntax:
@@ -50,7 +48,7 @@ forward FROM TO... {
     tls CERT KEY CA
     tls_servername NAME
     policy random|round_robin|sequential
-    health_check DURATION [no_rec]
+    health_check DURATION [no_rec] [domain DOMAIN]
     max_concurrent MAX
 }
 ~~~
@@ -79,7 +77,9 @@ forward FROM TO... {
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
   needs this to be set to `dns.quad9.net`. Multiple upstreams are still allowed in this scenario,
   but they have to use the same `tls_servername`. E.g. mixing 9.9.9.9 (QuadDNS) with 1.1.1.1
-  (Cloudflare) will not work.
+  (Cloudflare) will not work. Using TLS forwarding but not setting `tls_servername` results in anyone
+  being able to man-in-the-middle your connection to the DNS server you are forwarding to. Because of this,
+  it is strongly recommended to set this value when using TLS forwarding.
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
   * `random` is a policy that implements random upstream selection.
   * `round_robin` is a policy that selects hosts based on round robin ordering.
@@ -88,6 +88,8 @@ forward FROM TO... {
   * `<duration>` - use a different duration for health checking, the default duration is 0.5s.
   * `no_rec` - optional argument that sets the RecursionDesired-flag of the dns-query used in health checking to `false`.
     The flag is default `true`.
+  * `domain DOMAIN` - optional arguments that sets the domain of the dns-query used in health checking.
+    If not configured, the requested domain name is `.`. `DOMAIN` is used to configure the domain name.
 * `max_concurrent` **MAX** will limit the number of concurrent queries to **MAX**.  Any new query that would
   raise the number of concurrent queries above the **MAX** will result in a REFUSED response. This
   response does not count as a health failure. When choosing a value for **MAX**, pick a number
@@ -99,7 +101,7 @@ Also note the TLS config is "global" for the whole forwarding proxy if you need 
 
 On each endpoint, the timeouts for communication are set as follows:
 
-* The dial timeout by default is 30s, and can decrease automatically down to 100ms based on early results.
+* The dial timeout by default is 30s, and can decrease automatically down to 1s based on early results.
 * The read timeout is static at 2s.
 
 ## Metadata
@@ -134,6 +136,40 @@ Proxy all requests within `example.org.` to a nameserver running on a different 
 ~~~ corefile
 example.org {
     forward . 127.0.0.1:9005
+}
+~~~
+
+Send all requests within `lab.example.local.` to `10.20.0.1`, all requests within `example.local.` (and not in
+`lab.example.local.`) to `10.0.0.1`, all others requests to the servers defined in `/etc/resolv.conf`, and
+caches results. Note that a CoreDNS server configured with multiple _forward_ plugins in a server block will evaluate those
+forward plugins in the order they are listed when serving a request.  Therefore, subdomains should be
+placed before parent domains otherwise subdomain requests will be forwarded to the parent domain's upstream.
+Accordingly, in this example `lab.example.local` is before `example.local`, and `example.local` is before `.`.
+
+~~~ corefile
+. {
+    cache
+    forward lab.example.local 10.20.0.1
+    forward example.local 10.0.0.1
+    forward . /etc/resolv.conf
+}
+~~~
+
+The example above is almost equivalent to the following example, except that example below defines three separate plugin
+chains (and thus 3 separate instances of _cache_).
+
+~~~ corefile
+lab.example.local {
+    cache
+    forward . 10.20.0.1
+}
+example.local {
+    cache
+    forward . 10.0.0.1
+}
+. {
+    cache
+    forward . /etc/resolv.conf
 }
 ~~~
 
@@ -175,6 +211,18 @@ service with health checks.
     forward . tls://9.9.9.9 {
        tls_servername dns.quad9.net
        health_check 5s
+    }
+    cache 30
+}
+~~~
+
+Or configure other domain name for health check requests
+
+~~~ corefile
+. {
+    forward . tls://9.9.9.9 {
+       tls_servername dns.quad9.net
+       health_check 5s domain example.org
     }
     cache 30
 }

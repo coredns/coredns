@@ -31,7 +31,7 @@ func TestBufsize(t *testing.T) {
 			outgoingBufsize: 512,
 			expectedErr:     nil,
 		},
-		// If EDNS is not enabled, this plugin adds it
+		// If EDNS is not enabled, this plugin should not add it
 		{
 			next:            whoami.Whoami{},
 			qname:           ".",
@@ -65,6 +65,14 @@ func TestBufsize(t *testing.T) {
 					}
 				} else {
 					t.Errorf("Test %d: Not found OPT RR.", i)
+				}
+			}
+		}
+
+		if tc.inputBufsize == 0 {
+			for _, extra := range req.Extra {
+				if _, ok := extra.(*dns.OPT); ok {
+					t.Errorf("Test %d: Found OPT RR on reply to query with no OPT RR.", i)
 				}
 			}
 		}

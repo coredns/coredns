@@ -1,7 +1,6 @@
 package test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -12,7 +11,7 @@ import (
 
 func TestAuto(t *testing.T) {
 	t.Parallel()
-	tmpdir, err := ioutil.TempDir(os.TempDir(), "coredns")
+	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +41,7 @@ func TestAuto(t *testing.T) {
 	}
 
 	// Write db.example.org to get example.org.
-	if err = ioutil.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -71,7 +70,7 @@ func TestAuto(t *testing.T) {
 
 func TestAutoNonExistentZone(t *testing.T) {
 	t.Parallel()
-	tmpdir, err := ioutil.TempDir(os.TempDir(), "coredns")
+	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +109,7 @@ func TestAutoNonExistentZone(t *testing.T) {
 func TestAutoAXFR(t *testing.T) {
 	t.Parallel()
 
-	tmpdir, err := ioutil.TempDir(os.TempDir(), "coredns")
+	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +137,7 @@ func TestAutoAXFR(t *testing.T) {
 	defer i.Stop()
 
 	// Write db.example.org to get example.org.
-	if err = ioutil.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
 		t.Fatal(err)
 	}
 

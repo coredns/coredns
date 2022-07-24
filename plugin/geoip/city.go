@@ -39,11 +39,11 @@ func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 		return continentCode
 	})
 
-	latitude := strconv.FormatFloat(float64(data.Location.Latitude), 'f', -1, 64)
+	latitude := strconv.FormatFloat(data.Location.Latitude, 'f', -1, 64)
 	metadata.SetValueFunc(ctx, pluginName+"/latitude", func() string {
 		return latitude
 	})
-	longitude := strconv.FormatFloat(float64(data.Location.Longitude), 'f', -1, 64)
+	longitude := strconv.FormatFloat(data.Location.Longitude, 'f', -1, 64)
 	metadata.SetValueFunc(ctx, pluginName+"/longitude", func() string {
 		return longitude
 	})

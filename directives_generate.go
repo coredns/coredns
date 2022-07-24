@@ -1,11 +1,10 @@
-//+build ignore
+//go:build ignore
 
 package main
 
 import (
 	"bufio"
 	"go/format"
-	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -101,7 +100,7 @@ func formatAndWrite(file string, data string) error {
 		return err
 	}
 
-	if err = ioutil.WriteFile(file, res, 0644); err != nil {
+	if err = os.WriteFile(file, res, 0644); err != nil {
 		return err
 	}
 	return nil
