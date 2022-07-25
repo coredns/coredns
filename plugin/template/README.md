@@ -242,6 +242,22 @@ Named capture groups can be used to template one response for multiple patterns.
 }
 ~~~
 
+### Fabricate a CNAME
+
+This example responds with a CNAME to `google.com` for any DNS query made exactly for `foogle.com`.
+The answer will also contain a record for `google.com` if the upstream nameserver can return a record for it of the
+requested type.
+
+~~~ corefile
+. {
+  template IN ANY foogle.com {
+    match "^foogle\.com\.$"
+    answer "foogle.com 60 IN CNAME google.com"
+  }
+  forward . 8.8.8.8
+}
+~~~
+
 ## Also see
 
 * [Go regexp](https://golang.org/pkg/regexp/) for details about the regex implementation
