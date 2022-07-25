@@ -12,8 +12,12 @@ The CoreDNS community adheres to the following principles:
 
 ## Project Steering Committee
 
-The CoreDNS project has a project steering committee consisting of 3 members.
-The steering committee in CoreDNS has a final say in any decision concerning the CoreDNS project.
+The CoreDNS project has a project steering committee consisting of 5 members.
+The steering committee in CoreDNS has a final say in any decision concerning the CoreDNS project, with the exceptions of
+deciding steering committe membership, and changes to project governance. See `Changes in Project Steeting Committee Membership`
+and `Changes in Project Governance`.
+
+All decisions made must not conflict with CNCF policy.
 
 The maximum term length of each steering committee member is one year, with no term limit restriction.
 
@@ -79,7 +83,7 @@ The PR should only be opened no earlier than 6 weeks before the end of a comitte
 The PR should be kept open for no less than 4 weeks. The PR can only be merged following the same
 voting process as in `Changes in Project Steeting Committee Membership`.
 
-## Decision making process
+## Decision-making process
 
 Decisions are build on consensus between maintainers.
 Proposals and ideas can either be submitted for agreement via a GitHub issue or PR,
@@ -89,10 +93,10 @@ In general, we prefer that technical issues and maintainer membership are amicab
 If a dispute cannot be resolved independently, get a third-party maintainer (e.g. a mutual contact with some background
 on the issue, but not involved in the conflict) to intercede.
 If a dispute still cannot be resolved, the project steering committee has the final say to decide an issue.
-The project steering committee may reach this decision by consensus or else by a vote among committee members
-if necessary.
+The project steering committee may reach this decision by consensus or else by a simple majority vote among committee
+members if necessary.
 
-The decision making process should be transparent to adhere to the CoreDNS Code of Conduct.
+The decision-making process should be transparent to adhere to the CoreDNS Code of Conduct.
 
 All proposals, ideas, and decisions by maintainers or the steering committee
 should either be part of a GitHub issue or PR, or be sent to `maintainers@coredns.io`.
