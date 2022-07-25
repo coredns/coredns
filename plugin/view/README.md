@@ -70,7 +70,7 @@ answer for `test.` depending on client's IP address.  It returns ...
 
 #### Metadata Variables
 
-TODO
+Metadata variables are not currently supported in expressions for this plugin.
 
 ### Available Functions
 
