@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/request"
 )
 
 // Config configuration for a single server.
@@ -40,6 +41,11 @@ type Config struct {
 	// may depend on it.
 	HTTPRequestValidateFunc func(*http.Request) bool
 
+	// FilterFuncs is used to further filter access
+	// to this handler. E.g. to limit access to a reverse zone
+	// on a non-octet boundary, i.e. /17
+	FilterFuncs []FilterFunc
+
 	// TLSConfig when listening for encrypted connections (gRPC, DNS-over-TLS).
 	TLSConfig *tls.Config
 
@@ -61,6 +67,8 @@ type Config struct {
 	// purpose of sharing single instance of each plugin among all zones in a server block.
 	firstConfigInBlock *Config
 }
+
+type FilterFunc func(request.Request) bool
 
 // keyForConfig builds a key for identifying the configs during setup time
 func keyForConfig(blocIndex int, blocKeyIndex int) string {
