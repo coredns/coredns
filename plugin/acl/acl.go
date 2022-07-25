@@ -69,9 +69,9 @@ RulesCheckLoop:
 		switch action {
 		case actionBlock:
 			{
-				m := new(dns.Msg)
-				m.SetRcode(r, dns.RcodeRefused)
-				m = m.SetEdns0(4096, true)
+				m := new(dns.Msg).
+					SetRcode(r, dns.RcodeRefused).
+					SetEdns0(4096, true)
 				ede := dns.EDNS0_EDE{InfoCode: dns.ExtendedErrorCodeBlocked}
 				m.IsEdns0().Option = append(m.IsEdns0().Option, &ede)
 				w.WriteMsg(m)
@@ -84,9 +84,9 @@ RulesCheckLoop:
 			}
 		case actionFilter:
 			{
-				m := new(dns.Msg)
-				m.SetRcode(r, dns.RcodeSuccess)
-				m = m.SetEdns0(4096, true)
+				m := new(dns.Msg).
+					SetRcode(r, dns.RcodeSuccess).
+					SetEdns0(4096, true)
 				ede := dns.EDNS0_EDE{InfoCode: dns.ExtendedErrorCodeFiltered}
 				m.IsEdns0().Option = append(m.IsEdns0().Option, &ede)
 				w.WriteMsg(m)
