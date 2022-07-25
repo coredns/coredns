@@ -7,6 +7,7 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/expression"
 )
 
 func init() { plugin.Register("view", setup) }
@@ -28,8 +29,8 @@ func setup(c *caddy.Controller) error {
 func parse(c *caddy.Controller) (*View, error) {
 	 v := new(View)
 
-	v.extractors = makeExtractors()
-	funcs := makeFunctions()
+	v.extractors = expression.MakeExtractors()
+	funcs := expression.MakeFunctions()
 
 	for c.Next() {
 		args := c.RemainingArgs()

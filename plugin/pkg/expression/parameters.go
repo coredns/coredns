@@ -1,4 +1,4 @@
-package view
+package expression
 
 import (
 	"context"
@@ -13,13 +13,17 @@ import (
 type Parameters struct {
 	ctx        context.Context
 	state      *request.Request
-	extractors extractorMap
+	extractors ExtractorMap
 }
 
-type extractorMap map[string]func(state *request.Request) string
+func MakeParameters(state request.Request, extractors ExtractorMap) Parameters {
+	return Parameters{state: &state, extractors: extractors}
+}
 
-func makeExtractors() extractorMap {
-	return extractorMap{
+type ExtractorMap map[string]func(state *request.Request) string
+
+func MakeExtractors() ExtractorMap {
+	return ExtractorMap{
 		"type": func(state *request.Request) string {
 			return state.Type()
 		},

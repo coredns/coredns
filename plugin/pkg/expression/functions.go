@@ -1,4 +1,4 @@
-package view
+package expression
 
 import (
 	"errors"
@@ -7,7 +7,8 @@ import (
 	"github.com/Knetic/govaluate"
 )
 
-func makeFunctions() map[string]govaluate.ExpressionFunction {
+// MakeFunctions returns a list of custom functions available to expressions
+func MakeFunctions() map[string]govaluate.ExpressionFunction {
 	return map[string]govaluate.ExpressionFunction{
 		"incidr": func(args ...interface{}) (interface{}, error) {
 			if len(args) != 2 {
