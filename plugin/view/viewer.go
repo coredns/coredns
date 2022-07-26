@@ -9,7 +9,7 @@ import (
 
 // Filter implements dnsserver.Viewer.  It returns true if all View rules evaluate to true for the given state.
 func (v *View) Filter(state request.Request) bool {
-	// construct a new state extractor for retriving info from the state
+	// construct a new state extractor for retrieving info from the state
 	statex := expression.NewStateExtractor(context.TODO(), state, v.extractors)
 
 	// return true if all expressions evaluate to true
