@@ -3,11 +3,12 @@ package view
 import (
 	"strings"
 
-	"github.com/Knetic/govaluate"
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/expression"
+
+	"github.com/Knetic/govaluate"
 )
 
 func init() { plugin.Register("view", setup) }
