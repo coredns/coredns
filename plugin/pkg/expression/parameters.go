@@ -22,6 +22,7 @@ func NewStateExtractor(ctx context.Context, state request.Request, extractors Ex
 	return StateExtractor{ctx: ctx, state: &state, extractors: extractors}
 }
 
+// ExtractorMap defines a map of string variables that can be used in expressions, and the functions for evaluating them
 type ExtractorMap map[string]func(state *request.Request) string
 
 // DefaultExtractors returns the default set of variable that can be used in expressions, and how to extract
@@ -70,6 +71,7 @@ func DefaultExtractors() ExtractorMap {
 	}
 }
 
+// Get implements govaluate.Parameters
 func (p StateExtractor) Get(s string) (interface{}, error) {
 	if v, ok := p.Value(s); ok {
 		return v, nil
@@ -81,6 +83,7 @@ func (p StateExtractor) Get(s string) (interface{}, error) {
 	return f(), nil
 }
 
+// Value implements govaluate.Parameters
 func (p StateExtractor) Value(s string) (string, bool) {
 	fn := p.extractors[s]
 	if fn == nil {
