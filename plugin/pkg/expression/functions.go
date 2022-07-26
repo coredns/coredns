@@ -7,8 +7,8 @@ import (
 	"github.com/Knetic/govaluate"
 )
 
-// MakeFunctions returns a list of custom functions available to expressions
-func MakeFunctions() map[string]govaluate.ExpressionFunction {
+// DefaultFunctions returns the default set of custom functions available to for use in expressions.
+func DefaultFunctions() map[string]govaluate.ExpressionFunction {
 	return map[string]govaluate.ExpressionFunction{
 		"incidr": func(args ...interface{}) (interface{}, error) {
 			if len(args) != 2 {

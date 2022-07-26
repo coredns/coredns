@@ -1,12 +1,14 @@
 package view
 
 import (
+	"context"
+
 	"github.com/coredns/coredns/plugin/pkg/expression"
 	"github.com/coredns/coredns/request"
 )
 
 func (v *View) Filter(state request.Request) bool {
-	params := expression.MakeParameters(state, v.extractors)
+	params := expression.NewParameters(context.TODO(), state, v.extractors)
 	// return true if all expressions evaluate to true
 	for _, expr := range v.rules {
 		result, err := expr.Eval(params)

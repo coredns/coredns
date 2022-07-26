@@ -29,12 +29,11 @@ func setup(c *caddy.Controller) error {
 func parse(c *caddy.Controller) (*View, error) {
 	 v := new(View)
 
-	v.extractors = expression.MakeExtractors()
-	funcs := expression.MakeFunctions()
+	v.extractors = expression.DefaultExtractors()
 
 	for c.Next() {
 		args := c.RemainingArgs()
-		expr, err := govaluate.NewEvaluableExpressionWithFunctions(strings.Join(args, " "), funcs)
+		expr, err := govaluate.NewEvaluableExpressionWithFunctions(strings.Join(args, " "), expression.DefaultFunctions())
 		if err != nil {
 			return v, err
 		}

@@ -16,13 +16,15 @@ type Parameters struct {
 	extractors ExtractorMap
 }
 
-func MakeParameters(state request.Request, extractors ExtractorMap) Parameters {
-	return Parameters{state: &state, extractors: extractors}
+func NewParameters(ctx context.Context, state request.Request, extractors ExtractorMap) Parameters {
+	return Parameters{ctx: ctx, state: &state, extractors: extractors}
 }
 
 type ExtractorMap map[string]func(state *request.Request) string
 
-func MakeExtractors() ExtractorMap {
+// DefaultExtractors returns the default set of variable that can be used in expressions, and how to extract
+// them from state.
+func DefaultExtractors() ExtractorMap {
 	return ExtractorMap{
 		"type": func(state *request.Request) string {
 			return state.Type()
