@@ -10,14 +10,16 @@ import (
 	"github.com/coredns/coredns/request"
 )
 
-type Parameters struct {
+// StateExtractor extracts information from the state and metadata from context for expressions
+type StateExtractor struct {
 	ctx        context.Context
 	state      *request.Request
 	extractors ExtractorMap
 }
 
-func NewParameters(ctx context.Context, state request.Request, extractors ExtractorMap) Parameters {
-	return Parameters{ctx: ctx, state: &state, extractors: extractors}
+// NewStateExtractor creates a new state extractor with given state and context and default extractors
+func NewStateExtractor(ctx context.Context, state request.Request, extractors ExtractorMap) StateExtractor {
+	return StateExtractor{ctx: ctx, state: &state, extractors: extractors}
 }
 
 type ExtractorMap map[string]func(state *request.Request) string
@@ -68,7 +70,7 @@ func DefaultExtractors() ExtractorMap {
 	}
 }
 
-func (p Parameters) Get(s string) (interface{}, error) {
+func (p StateExtractor) Get(s string) (interface{}, error) {
 	if v, ok := p.Value(s); ok {
 		return v, nil
 	}
@@ -79,7 +81,7 @@ func (p Parameters) Get(s string) (interface{}, error) {
 	return f(), nil
 }
 
-func (p Parameters) Value(s string) (string, bool) {
+func (p StateExtractor) Value(s string) (string, bool) {
 	fn := p.extractors[s]
 	if fn == nil {
 		return "", false

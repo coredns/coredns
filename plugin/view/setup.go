@@ -29,10 +29,12 @@ func setup(c *caddy.Controller) error {
 func parse(c *caddy.Controller) (*View, error) {
 	 v := new(View)
 
+	 // define extractors used for retrieving information from the state when evaluating expressions
 	v.extractors = expression.DefaultExtractors()
 
 	for c.Next() {
 		args := c.RemainingArgs()
+		// compile an expression from the arguments using default functions
 		expr, err := govaluate.NewEvaluableExpressionWithFunctions(strings.Join(args, " "), expression.DefaultFunctions())
 		if err != nil {
 			return v, err

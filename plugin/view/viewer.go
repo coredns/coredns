@@ -7,17 +7,22 @@ import (
 	"github.com/coredns/coredns/request"
 )
 
+// Filter implements dnsserver.Viewer.  It returns true if all View rules evaluate to true for the given state.
 func (v *View) Filter(state request.Request) bool {
-	params := expression.NewParameters(context.TODO(), state, v.extractors)
+	// construct a new state extractor for retriving info from the state
+	statex := expression.NewStateExtractor(context.TODO(), state, v.extractors)
+
 	// return true if all expressions evaluate to true
 	for _, expr := range v.rules {
-		result, err := expr.Eval(params)
+		// evaluate the expression using the state extractor
+		result, err := expr.Eval(statex)
 		if err != nil {
 			return false
 		}
 		if b, ok := result.(bool); ok && b {
 			continue
 		}
+		// anything other than a boolean true result is considered false
 		return false
 	}
 	return true
