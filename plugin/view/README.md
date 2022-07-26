@@ -9,7 +9,7 @@
 *view* defines an expression that must evaluate to true for a DNS request to be routed to the server block.  
 This enables advanced server block routing functions such as split dns.    
 
-### Syntax
+## Syntax
 ```
 view  EXPRESSION
 ```
@@ -21,7 +21,7 @@ view  EXPRESSION
 
 For expression syntax and examples, see the Expressions and Examples sections.
 
-### Examples
+## Examples
 
 Implement CIDR based split DNS routing.  This will return a different
 answer for `test.` depending on client's IP address.  It returns ...
