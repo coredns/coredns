@@ -26,7 +26,7 @@ view name == 'example2.com.'`, false, 2},
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error but found none for input %s", i, test.input)
 		}
-		if err != nil && !test.shouldErr{
+		if err != nil && !test.shouldErr {
 			t.Errorf("Test %d: Expected no error but found one for input %s. Error was: %v", i, test.input, err)
 		}
 		if test.shouldErr {
@@ -37,4 +37,3 @@ view name == 'example2.com.'`, false, 2},
 		}
 	}
 }
-

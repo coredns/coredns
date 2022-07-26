@@ -27,9 +27,9 @@ func setup(c *caddy.Controller) error {
 }
 
 func parse(c *caddy.Controller) (*View, error) {
-	 v := new(View)
+	v := new(View)
 
-	 // define extractors used for retrieving information from the state when evaluating expressions
+	// define extractors used for retrieving information from the state when evaluating expressions
 	v.extractors = expression.DefaultExtractors()
 
 	for c.Next() {
@@ -46,4 +46,3 @@ func parse(c *caddy.Controller) (*View, error) {
 	}
 	return v, nil
 }
-

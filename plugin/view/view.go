@@ -11,4 +11,3 @@ type View struct {
 	extractors expression.ExtractorMap
 	Next       plugin.Handler
 }
-
