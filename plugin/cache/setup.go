@@ -205,6 +205,35 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					return nil, errors.New("caching SERVFAIL responses over 5 minutes is not permitted")
 				}
 				ca.failttl = d
+			case "disable":
+				// disable [success|denial] [zones]...
+				args := c.RemainingArgs()
+				if len(args) < 1 {
+					return nil, c.ArgErr()
+				}
+
+				var zones []string
+				if len(args) > 1 {
+					for _, z := range args[1:] { // args[1:] define the list of zones to disable
+						nz := plugin.Name(z).Normalize()
+						if nz == "" {
+							return nil, fmt.Errorf("invalid disabled zone: %s", z)
+						}
+						zones = append(zones, nz)
+					}
+				} else {
+					// if no zones specified, default to root
+					zones = []string{"."}
+				}
+
+				switch args[0] { // args[0] defines which cache to disable
+				case Denial:
+					ca.nexcept = zones
+				case Success:
+					ca.pexcept = zones
+				default:
+					return nil, fmt.Errorf("cache type for disable must be %q or %q", Success, Denial)
+				}
 			default:
 				return nil, c.ArgErr()
 			}

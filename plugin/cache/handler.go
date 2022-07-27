@@ -38,7 +38,8 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	ttl := 0
 	i := c.getIgnoreTTL(now, state, server)
 	if i == nil {
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, ad: ad, wildcardFunc: wildcardFunc(ctx)}
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, ad: ad,
+			nexcept: c.nexcept, pexcept: c.pexcept, wildcardFunc: wildcardFunc(ctx)}
 		return c.doRefresh(ctx, state, crr)
 	}
 	ttl = i.ttl(now)

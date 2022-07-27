@@ -43,6 +43,10 @@ type Cache struct {
 	staleUpTo   time.Duration
 	verifyStale bool
 
+	// Positive/negative zone exceptions
+	pexcept []string
+	nexcept []string
+
 	// Testing.
 	now func() time.Time
 }
@@ -117,6 +121,8 @@ type ResponseWriter struct {
 
 	wildcardFunc func() string // function to retrieve wildcard name that synthesized the result.
 
+	pexcept []string // positive zone exceptions
+	nexcept []string // negative zone exceptions
 }
 
 // newPrefetchResponseWriter returns a Cache ResponseWriter to be used in
@@ -204,6 +210,10 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 	// and key is valid
 	switch mt {
 	case response.NoError, response.Delegation:
+		if plugin.Zones(w.pexcept).Matches(m.Question[0].Name) != "" {
+			// zone is in exception list, do not cache
+			return
+		}
 		i := newItem(m, w.now(), duration)
 		if w.wildcardFunc != nil {
 			i.wildcard = w.wildcardFunc()
@@ -217,6 +227,10 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		}
 
 	case response.NameError, response.NoData, response.ServerError:
+		if plugin.Zones(w.nexcept).Matches(m.Question[0].Name) != "" {
+			// zone is in exception list, do not cache
+			return
+		}
 		i := newItem(m, w.now(), duration)
 		if w.wildcardFunc != nil {
 			i.wildcard = w.wildcardFunc()

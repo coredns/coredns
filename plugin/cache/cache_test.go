@@ -17,8 +17,8 @@ import (
 )
 
 type cacheTestCase struct {
-	test.Case
-	in                 test.Case
+	test.Case                    // the expected message coming "out" of cache
+	in                 test.Case // the test message going "in" to cache
 	AuthenticatedData  bool
 	RecursionAvailable bool
 	Truncated          bool
@@ -163,6 +163,62 @@ var cacheTestCases = []cacheTestCase{
 		},
 		shouldCache: true,
 	},
+	{
+		in: test.Case{
+			Rcode: dns.RcodeNameError,
+			Qname: "neg-disabled.example.org.", Qtype: dns.TypeA,
+			Ns: []dns.RR{
+				test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
+			},
+		},
+		Case:        test.Case{},
+		shouldCache: false,
+	},
+	{
+		in: test.Case{
+			Rcode: dns.RcodeSuccess,
+			Qname: "pos-disabled.example.org.", Qtype: dns.TypeA,
+			Answer: []dns.RR{
+				test.A("pos-disabled.example.org. 3600 IN	A	127.0.0.1"),
+			},
+		},
+		Case:        test.Case{},
+		shouldCache: false,
+	},
+	{
+		in: test.Case{
+			Rcode: dns.RcodeNameError,
+			Qname: "pos-disabled.example.org.", Qtype: dns.TypeA,
+			Ns: []dns.RR{
+				test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
+			},
+		},
+		Case: test.Case{
+			Rcode: dns.RcodeNameError,
+			Qname: "pos-disabled.example.org.", Qtype: dns.TypeA,
+			Ns: []dns.RR{
+				test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
+			},
+		},
+		shouldCache: true,
+	},
+	{
+		in: test.Case{
+			Rcode: dns.RcodeSuccess,
+			Qname: "neg-disabled.example.org.", Qtype: dns.TypeA,
+			Answer: []dns.RR{
+				test.A("neg-disabled.example.org. 3600 IN	A	127.0.0.1"),
+			},
+		},
+		Case: test.Case{
+			Rcode: dns.RcodeSuccess,
+			Qname: "neg-disabled.example.org.", Qtype: dns.TypeA,
+			Answer: []dns.RR{
+				test.A("neg-disabled.example.org. 3600 IN	A	127.0.0.1"),
+			},
+		},
+		shouldCache: true,
+	},
 }
 
 func cacheMsg(m *dns.Msg, tc cacheTestCase) *dns.Msg {
@@ -183,6 +239,9 @@ func newTestCache(ttl time.Duration) (*Cache, *ResponseWriter) {
 	c.nttl = ttl
 
 	crr := &ResponseWriter{ResponseWriter: nil, Cache: c}
+	crr.nexcept = []string{"neg-disabled.example.org."}
+	crr.pexcept = []string{"pos-disabled.example.org."}
+
 	return c, crr
 }
 
