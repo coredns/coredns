@@ -12,12 +12,12 @@ The CoreDNS community adheres to the following principles:
 
 ## Project Steering Committee
 
-The CoreDNS project has a project steering committee consisting of 5 members.
+The CoreDNS project has a project steering committee consisting of 5 members, with a maximum of 1 member from any single organization.
 The steering committee in CoreDNS has a final say in any decision concerning the CoreDNS project, with the exceptions of
 deciding steering committe membership, and changes to project governance. See `Changes in Project Steeting Committee Membership`
 and `Changes in Project Governance`.
 
-All decisions made must not conflict with CNCF policy.
+Any decision made must not conflict with CNCF policy.
 
 The maximum term length of each steering committee member is one year, with no term limit restriction.
 
@@ -74,6 +74,11 @@ replaced committe member's term, with more +1 than -1 in the binding votes.
 When there are conflicting PRs for changes to a project committee member, the PR with the most
 binding +1 votes is merged.
 
+During a vote there may be several candidates running for multiple committee seat vacancies. Maintainers and
+community members should cast a single vote per vacancy (although this does not need to be enforced). At the end of the
+voting period, candidates with the most binding votes will fill the vacancies. In the event of a
+multi-way tie for a set of remaining vacancies, the candidates who have been maintainers longest have precedence.
+
 A project steering committee member may volunteer to step down, ending their term early.
 
 ## Changes in Project Governance
@@ -94,7 +99,8 @@ If a dispute cannot be resolved independently, get a third-party maintainer (e.g
 on the issue, but not involved in the conflict) to intercede.
 If a dispute still cannot be resolved, the project steering committee has the final say to decide an issue.
 The project steering committee may reach this decision by consensus or else by a simple majority vote among committee
-members if necessary.
+members if necessary.  The steering should committee endeavor to make this decision within a reasonable amount of time,
+not to extend longer than two weeks.
 
 The decision-making process should be transparent to adhere to the CoreDNS Code of Conduct.
 
