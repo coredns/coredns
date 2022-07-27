@@ -39,6 +39,7 @@ cache [TTL] [ZONES...] {
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
     serve_stale [DURATION] [REFRESH_MODE]
     servfail DURATION
+    disable success|denial [ZONES...] 
 }
 ~~~
 
@@ -67,6 +68,8 @@ cache [TTL] [ZONES...] {
 * `servfail` cache SERVFAIL responses for **DURATION**.  Setting **DURATION** to 0 will disable caching of SERVFAIL
   responses.  If this option is not set, SERVFAIL responses will be cached for 5 seconds.  **DURATION** may not be
   greater than 5 minutes.
+* `disable`  disable the success or denial cache for the listed **ZONES**.  If no **ZONES** are given, the specified
+  cache will be disabled for all zones.
 
 ## Capacity and Eviction
 
@@ -121,6 +124,16 @@ example.org {
     cache {
         success 5000
         denial 2500
+    }
+}
+~~~
+
+Enable caching for `example.org`, but do not cache denials in `sub.example.org`:
+
+~~~ corefile
+example.org {
+    cache {
+        disable denial sub.example.org
     }
 }
 ~~~
