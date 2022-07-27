@@ -39,7 +39,7 @@ cache [TTL] [ZONES...] {
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
     serve_stale [DURATION] [REFRESH_MODE]
     servfail DURATION
-    disable success|denial [ZONES...] 
+    disable success|denial [ZONES...]
 }
 ~~~
 
