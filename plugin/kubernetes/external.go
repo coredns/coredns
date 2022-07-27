@@ -99,11 +99,11 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 					for _, addr := range eps.Addresses {
 
 						// See comments in parse.go parseRequest about the endpoint handling.
-						if endpoint != "" {
-							if !match(endpoint, endpointHostname(addr, k.endpointNameMode)) {
-								continue
-							}
+						
+						if endpoint != "" && !match(endpoint, endpointHostname(addr, k.endpointNameMode)) {
+							continue
 						}
+						
 
 						for _, p := range eps.Ports {
 							if !(matchPortAndProtocol(port, p.Name, protocol, p.Protocol)) {
