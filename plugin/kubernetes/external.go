@@ -164,6 +164,9 @@ func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []ms
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
 							s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
 							services = append(services, s)
+							s.Key = strings.Join(append([]string{zonePath, svc.Namespace, svc.Name}, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+string(p.Name))), "/")
+							s.TargetStrip = 2
+							services = append(services, s)
 						}
 					}
 				}
