@@ -95,7 +95,6 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
-
 						if endpoint != "" && !match(endpoint, endpointHostname(addr, k.endpointNameMode)) {
 							continue
 						}
@@ -115,7 +114,6 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 			}
 			continue
 		} else {
-
 			for _, ip := range svc.ExternalIPs {
 				for _, p := range svc.Ports {
 					if !(matchPortAndProtocol(port, p.Name, protocol, string(p.Protocol))) {
@@ -153,7 +151,6 @@ func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []ms
 	for _, svc := range k.APIConn.ServiceList() {
 		// Endpoint query or headless service
 		if headless && svc.Headless() {
-
 			idx := object.ServiceKey(svc.Name, svc.Namespace)
 		    endpointsList :=  k.APIConn.EpIndex(idx)
 			
