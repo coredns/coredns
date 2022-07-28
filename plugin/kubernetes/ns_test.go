@@ -161,36 +161,6 @@ func TestNsAddrs(t *testing.T) {
 	}
 }
 
-func TestNsAddrsExternal(t *testing.T) {
-	k := New([]string{"example.com."})
-	k.APIConn = &APIConnTest{}
-	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
-
-	// initially no services have an external IP ...
-	cdrs := k.nsAddrs(true, false, k.Zones[0])
-
-	if len(cdrs) != 0 {
-		t.Fatalf("Expected 0 results, got %v", len(cdrs))
-	}
-
-	// Add an external IP to one of the services ...
-	svcs[0].ExternalIPs = []string{"1.2.3.4"}
-	cdrs = k.nsAddrs(true, false, k.Zones[0])
-
-	if len(cdrs) != 1 {
-		t.Fatalf("Expected 1 results, got %v", len(cdrs))
-	}
-	cdr := cdrs[0]
-	expected := "1.2.3.4"
-	if cdr.(*dns.A).A.String() != expected {
-		t.Errorf("Expected A address to be %q, got %q", expected, cdr.(*dns.A).A.String())
-	}
-	expected = "dns-service.kube-system.example.com."
-	if cdr.Header().Name != expected {
-		t.Errorf("Expected record name to be %q, got %q", expected, cdr.Header().Name)
-	}
-}
-
 func TestNsAddrsExternalHeadless(t *testing.T) {
 	k := New([]string{"example.com."})
 	k.APIConn = &APIConnTest{}
@@ -218,6 +188,36 @@ func TestNsAddrsExternalHeadless(t *testing.T) {
 		t.Errorf("Expected A address to be %q, got %q", expected, cdr.(*dns.A).A.String())
 	}
 	expected = "10-244-0-21.headless-service.kube-system.example.com."
+	if cdr.Header().Name != expected {
+		t.Errorf("Expected record name to be %q, got %q", expected, cdr.Header().Name)
+	}
+}
+
+func TestNsAddrsExternal(t *testing.T) {
+	k := New([]string{"example.com."})
+	k.APIConn = &APIConnTest{}
+	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
+
+	// initially no services have an external IP ...
+	cdrs := k.nsAddrs(true, false, k.Zones[0])
+
+	if len(cdrs) != 0 {
+		t.Fatalf("Expected 0 results, got %v", len(cdrs))
+	}
+
+	// Add an external IP to one of the services ...
+	svcs[0].ExternalIPs = []string{"1.2.3.4"}
+	cdrs = k.nsAddrs(true, false, k.Zones[0])
+
+	if len(cdrs) != 1 {
+		t.Fatalf("Expected 1 results, got %v", len(cdrs))
+	}
+	cdr := cdrs[0]
+	expected := "1.2.3.4"
+	if cdr.(*dns.A).A.String() != expected {
+		t.Errorf("Expected A address to be %q, got %q", expected, cdr.(*dns.A).A.String())
+	}
+	expected = "dns-service.kube-system.example.com."
 	if cdr.Header().Name != expected {
 		t.Errorf("Expected record name to be %q, got %q", expected, cdr.Header().Name)
 	}
