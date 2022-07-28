@@ -64,14 +64,12 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 	}
 
 	var (
-		endpointsListFunc func() []*object.Endpoints
 		endpointsList     []*object.Endpoints
 		serviceList       []*object.Service
 	)
 
 	idx := object.ServiceKey(service, namespace)
 	serviceList = k.APIConn.SvcIndex(idx)
-	endpointsListFunc = func() []*object.Endpoints { return k.APIConn.EpIndex(idx) }
 
 	services := []msg.Service{}
 	zonePath := msg.Path(state.Zone, coredns)
@@ -85,9 +83,9 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 			continue
 		}
 
-		if svc.Headless() || endpoint != "" {
+		if headless && (svc.Headless() || endpoint != "") {
 			if endpointsList == nil {
-				endpointsList = endpointsListFunc()
+				endpointsList = k.APIConn.EpIndex(idx)
 			}
 			// Endpoint query or headless service
 			for _, ep := range endpointsList {
@@ -98,8 +96,6 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
 
-						// See comments in parse.go parseRequest about the endpoint handling.
-						
 						if endpoint != "" && !match(endpoint, endpointHostname(addr, k.endpointNameMode)) {
 							continue
 						}
@@ -157,23 +153,16 @@ func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []ms
 	for _, svc := range k.APIConn.ServiceList() {
 		// Endpoint query or headless service
 		if headless && svc.Headless() {
-			
+
 			idx := object.ServiceKey(svc.Name, svc.Namespace)
 		    endpointsList :=  k.APIConn.EpIndex(idx)
-	
+			
 			for _, ep := range endpointsList {
-				if ep.Name != svc.Name || ep.Namespace != svc.Namespace {
-					continue
-				}
-
 				for _, eps := range ep.Subsets {
-					
 					for _, addr := range eps.Addresses {
-
 						for _, p := range eps.Ports {
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							baseSvc := strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
-							s.Key = strings.Join([]string{baseSvc, endpointHostname(addr, k.endpointNameMode)}, "/")
+							s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
 							services = append(services, s)
 						}
 					}

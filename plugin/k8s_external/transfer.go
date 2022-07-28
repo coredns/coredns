@@ -50,7 +50,7 @@ func (e *External) Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 
 		svcs := e.externalServicesFunc(zone, e.headless)
 		srvSeen := make(map[string]struct{})
-		// svcsGroup := make(map[string][]msg.Service)
+
 		for i := range svcs {
 			name := msg.Domain(svcs[i].Key)
 

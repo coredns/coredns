@@ -139,9 +139,7 @@ func difference(testRRs []dns.RR, gotRRs []dns.RR) []dns.RR {
 	}
 
 	foundRRs := []dns.RR{}
-	cmp := map[string]struct{}{}
 	for _, rr := range gotRRs {
-		cmp[rr.String()] = struct{}{}
 		if _, ok := expectedRRs[rr.String()]; !ok {
 			foundRRs = append(foundRRs, rr)
 		}
