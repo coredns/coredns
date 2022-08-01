@@ -11,14 +11,14 @@ import (
 	"github.com/miekg/dns"
 )
 
+// Those constants are used to distinguish between records in ExternalServices headless
+// return values.
+// They are always appendedn to key in a map which is
+// either base service key eg. /com/example/namespace/service/endpoint or
+// /com/example/namespace/service/_http/_tcp/port.protocol
+// this will allow us to distinguish services in implementation of Transfer protocol
+// see plugin/k8s_external/transfer.go
 const (
-	// Those constants are used to distinguish between records in ExternalServices headless 
-	// return values.
-	// They are always appendedn to key in a map which is 
-	// either base service key eg. /com/example/namespace/service/endpoint or
-	// /com/example/namespace/service/_http/_tcp/port.protocol
-	// this will allow us to distinguish services in implementation of Transfer protocol
-	// see plugin/k8s_external/transfer.go
 	Endpoint     = "endpoint"
 	PortProtocol = "port.protocol"
 )
@@ -99,7 +99,7 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 		if headless && len(svc.ExternalIPs) == 0 && (svc.Headless() || endpoint != "") {
 			if endpointsList == nil {
 				endpointsList = k.APIConn.EpIndex(idx)
-			}	
+			}
 			// Endpoint query or headless service
 			for _, ep := range endpointsList {
 				if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
