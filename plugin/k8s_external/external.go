@@ -29,8 +29,8 @@ type Externaler interface {
 	External(request.Request, bool) ([]msg.Service, int)
 	// ExternalAddress should return a string slice of addresses for the nameserving endpoint.
 	ExternalAddress(state request.Request, headless bool) []dns.RR
-	// ExternalServices returns all services in the given zone as a slice of msg.Service.
-	ExternalServices(zone string, headless bool) []msg.Service
+	// ExternalServices returns all services in the given zone as a slice of msg.Service and if enabled, headless services as a map of services.
+	ExternalServices(zone string, headless bool) ([]msg.Service, map[string][]msg.Service)
 	// ExternalSerial gets the current serial.
 	ExternalSerial(string) uint32
 }
@@ -50,7 +50,7 @@ type External struct {
 	externalFunc         func(request.Request, bool) ([]msg.Service, int)
 	externalAddrFunc     func(request.Request, bool) []dns.RR
 	externalSerialFunc   func(string) uint32
-	externalServicesFunc func(string, bool) []msg.Service
+	externalServicesFunc func(string, bool) ([]msg.Service, map[string][]msg.Service)
 }
 
 // New returns a new and initialized *External.

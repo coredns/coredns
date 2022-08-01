@@ -239,8 +239,8 @@ var tests = []test.Case{
 	{
 		Qname: "_http._tcp.svc-headless.testns.example.com.", Qtype: dns.TypeSRV, Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.SRV("_http._tcp.svc-headless.testns.example.com.	5	IN	SRV	0 50 80 endpoint-svc-0.svc-headless.testns.example.com."),
-			test.SRV("_http._tcp.svc-headless.testns.example.com.	5	IN	SRV	0 50 80 endpoint-svc-1.svc-headless.testns.example.com."),
+			test.SRV("_http._tcp.svc-headless.testns.example.com.	5	IN	SRV	0	50	80	endpoint-svc-0.svc-headless.testns.example.com."),
+			test.SRV("_http._tcp.svc-headless.testns.example.com.	5	IN	SRV	0	50	80	endpoint-svc-1.svc-headless.testns.example.com."),
 		},
 		Extra: []dns.RR{
 			test.A("endpoint-svc-0.svc-headless.testns.example.com.	5	IN	A	1.2.3.4"),

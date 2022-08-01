@@ -2,12 +2,12 @@
 
 ## Name
 
-*k8s_external* - resolves load balancer and external IPs from outside Kubernetes clusters.
+*k8s_external* - resolves load balancer, external IPs from outside Kubernetes clusters and if enabled headless services.
 
 ## Description
 
 This plugin allows an additional zone to resolve the external IP address(es) of a Kubernetes
-service. This plugin is only useful if the *kubernetes* plugin is also loaded.
+service and headless services. This plugin is only useful if the *kubernetes* plugin is also loaded.
 
 The plugin uses an external zone to resolve in-cluster IP addresses. It only handles queries for A,
 AAAA, SRV, and PTR records; all others result in NODATA responses. To make it a proper DNS zone, it handles
@@ -56,6 +56,14 @@ k8s_external [ZONE...] {
 
 * **APEX** is the name (DNS label) to use for the apex records; it defaults to `dns`.
 * `ttl` allows you to set a custom **TTL** for responses. The default is 5 (seconds).
+
+If you want to enable headless service resolution, you can do so by adding `headless` option.
+
+~~~
+k8s_external [ZONE...] {
+    headless
+}
+~~~
 
 ## Examples
 

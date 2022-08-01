@@ -11,6 +11,11 @@ import (
 	"github.com/miekg/dns"
 )
 
+const (
+	Endpoint     = "endpoint"
+	PortProtocol = "port.protocol"
+)
+
 // External implements the ExternalFunc call from the external plugin.
 // It returns any services matching in the services' ExternalIPs and if enabled, headless endpoints..
 func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Service, int) {
@@ -33,9 +38,10 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 	if last < 0 {
 		return nil, dns.RcodeServerFailure
 	}
-	// We are dealing with a fairly normal domain name here, but we still need to have the service
-	// and the namespace:
-	// service.namespace.<base>
+	// We are dealing with a fairly normal domain name here, but we still need to have the service,
+	// namespace and if present, endpoint:
+	// service.namespace.<base> or
+	// endpoint.service.namespace.<base>
 	var port, protocol, endpoint string
 	namespace := segs[last]
 	if !k.namespaceExposed(namespace) {
@@ -64,8 +70,8 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 	}
 
 	var (
-		endpointsList     []*object.Endpoints
-		serviceList       []*object.Service
+		endpointsList []*object.Endpoints
+		serviceList   []*object.Service
 	)
 
 	idx := object.ServiceKey(service, namespace)
@@ -83,10 +89,10 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 			continue
 		}
 
-		if headless && (svc.Headless() || endpoint != "") {
+		if headless && len(svc.ExternalIPs) == 0 && (svc.Headless() || endpoint != "") {
 			if endpointsList == nil {
 				endpointsList = k.APIConn.EpIndex(idx)
-			}
+			}	
 			// Endpoint query or headless service
 			for _, ep := range endpointsList {
 				if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
@@ -98,7 +104,6 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 						if endpoint != "" && !match(endpoint, endpointHostname(addr, k.endpointNameMode)) {
 							continue
 						}
-						
 
 						for _, p := range eps.Ports {
 							if !(matchPortAndProtocol(port, p.Name, protocol, p.Protocol)) {
@@ -142,28 +147,40 @@ func (k *Kubernetes) ExternalAddress(state request.Request, headless bool) []dns
 	// If CoreDNS is running outside of the Kubernetes cluster: k.nsAddrs() will return the first non-loopback IP
 	// address seen on the local system it is running on. This could be the wrong answer if coredns is using the *bind*
 	// plugin to bind to a different IP address.
-	return k.nsAddrs(true, headless,  state.Zone)
+	return k.nsAddrs(true, headless, state.Zone)
 }
 
 // ExternalServices returns all services with external IPs and if enabled headless services
-func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []msg.Service) {
+func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []msg.Service, headlessServices map[string][]msg.Service) {
 	zonePath := msg.Path(zone, coredns)
+	headlessServices = make(map[string][]msg.Service)
 	for _, svc := range k.APIConn.ServiceList() {
-		// Endpoint query or headless service
-		if headless && svc.Headless() {
+		// Endpoints and headless services
+		if headless && len(svc.ExternalIPs) == 0 && svc.Headless() {
 			idx := object.ServiceKey(svc.Name, svc.Namespace)
-		    endpointsList :=  k.APIConn.EpIndex(idx)
-			
+			endpointsList := k.APIConn.EpIndex(idx)
+
 			for _, ep := range endpointsList {
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
+						// we need to have some answers grouped together
+						// 1. for endpoint requests eg. endpoint-0.service.example.com - will always have one endpoint
+						// 2. for service requests eg. service.example.com - can have multiple endpoints
+						// 3. for port.protocol requests eg. _http._tcp.service.example.com - can have multiple endpoints
 						for _, p := range eps.Ports {
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
-							services = append(services, s)
+							baseSvc := strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
+							s.Key = strings.Join([]string{baseSvc, endpointHostname(addr, k.endpointNameMode)}, "/")
+							headlessServices[strings.Join([]string{baseSvc, Endpoint}, "/")] = append(headlessServices[strings.Join([]string{baseSvc, Endpoint}, "/")], s)
+
+							// As per spec unnamed ports do not have a srv record
+							// https://github.com/kubernetes/dns/blob/master/docs/specification.md#232---srv-records
+							if p.Name == "" {
+								continue
+							}
+							s.Host = msg.Domain(s.Key)
 							s.Key = strings.Join(append([]string{zonePath, svc.Namespace, svc.Name}, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+string(p.Name))), "/")
-							s.TargetStrip = 2
-							services = append(services, s)
+							headlessServices[strings.Join([]string{s.Key, PortProtocol}, "/")] = append(headlessServices[strings.Join([]string{s.Key, PortProtocol}, "/")], s)
 						}
 					}
 				}
@@ -182,7 +199,7 @@ func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []ms
 			}
 		}
 	}
-	return services
+	return services, headlessServices
 }
 
 //ExternalSerial returns the serial of the external zone
