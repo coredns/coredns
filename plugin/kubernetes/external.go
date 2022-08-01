@@ -12,6 +12,13 @@ import (
 )
 
 const (
+	// Those constants are used to distinguish between records in ExternalServices headless 
+	// return values.
+	// They are always appendedn to key in a map which is 
+	// either base service key eg. /com/example/namespace/service/endpoint or
+	// /com/example/namespace/service/_http/_tcp/port.protocol
+	// this will allow us to distinguish services in implementation of Transfer protocol
+	// see plugin/k8s_external/transfer.go
 	Endpoint     = "endpoint"
 	PortProtocol = "port.protocol"
 )
