@@ -65,6 +65,8 @@ k8s_external [ZONE...] {
 }
 ~~~
 
+* if there is a headless service with external IPs set, external IPs will be resolved
+
 ## Examples
 
 Enable names under `example.org` to be resolved to in-cluster DNS addresses.
