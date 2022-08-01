@@ -5,9 +5,8 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/kubernetes"
-
 	"github.com/coredns/coredns/plugin/etcd/msg"
+	"github.com/coredns/coredns/plugin/kubernetes"
 	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
 
