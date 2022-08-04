@@ -22,8 +22,8 @@ func TestConfig(t *testing.T) {
 		{"dnstap tcp://[::1]:6000", "[::1]:6000", false, "tcp", false},
 		{"dnstap tcp://example.com:6000", "example.com:6000", false, "tcp", false},
 		{"dnstap", "fail", false, "tcp", true},
-		{"dnstap dnstap.sock { identity NAME version VER }", "dnstap.sock", false, "unix", false, "NAME", "VER"}
-		{"dnstap { identity NAME version VER }", "fail", false, "tcp", true}
+		{"dnstap dnstap.sock { identity NAME version VER }", "dnstap.sock", false, "unix", false, "NAME", "VER"},
+		{"dnstap { identity NAME version VER }", "fail", false, "tcp", true},
 	}
 	for i, tc := range tests {
 		c := caddy.NewTestController("dns", tc.in)
