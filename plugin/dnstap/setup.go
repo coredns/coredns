@@ -2,6 +2,7 @@ package dnstap
 
 import (
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/coredns/caddy"
@@ -38,6 +39,26 @@ func parseConfig(c *caddy.Controller) (Dnstap, error) {
 	}
 
 	d.IncludeRawMessage = c.NextArg() && c.Val() == "full"
+	
+	d.Identity, _ = os.Hostname()
+	d.Version = caddy.AppName + "-" + caddy.AppVersion 
+	
+	for c.NextBlock() {
+		switch c.Val() {
+			case "identity": {
+				if !c.NextArg() {
+					return d, c.ArgErr()
+				}
+				d.Identity = c.Val()
+			}
+  		case "version": {
+				if !c.NextArg() {
+					return d, c.ArgErr()
+				}
+				d.Version = c.Val()
+			}
+		}
+	}
 
 	return d, nil
 }

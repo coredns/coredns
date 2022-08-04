@@ -13,6 +13,8 @@ func TestConfig(t *testing.T) {
 		full     bool
 		proto    string
 		fail     bool
+		identity string
+		version  string
 	}{
 		{"dnstap dnstap.sock full", "dnstap.sock", true, "unix", false},
 		{"dnstap unix://dnstap.sock", "dnstap.sock", false, "unix", false},
@@ -20,6 +22,8 @@ func TestConfig(t *testing.T) {
 		{"dnstap tcp://[::1]:6000", "[::1]:6000", false, "tcp", false},
 		{"dnstap tcp://example.com:6000", "example.com:6000", false, "tcp", false},
 		{"dnstap", "fail", false, "tcp", true},
+		{"dnstap dnstap.sock { identity NAME version VER }", "dnstap.sock", false, "unix", false, "NAME", "VER"}
+		{"dnstap { identity NAME version VER }", "fail", false, "tcp", true}
 	}
 	for i, tc := range tests {
 		c := caddy.NewTestController("dns", tc.in)
@@ -42,6 +46,12 @@ func TestConfig(t *testing.T) {
 		}
 		if x := tap.IncludeRawMessage; x != tc.full {
 			t.Errorf("Test %d: expected IncludeRawMessage %t, got %t", i, tc.full, x)
+		}
+		if x := tap.Identity; x != tc.identity {
+			t.Errorf("Test %d: expected identity %s, got %s", i, tc.identity, x)
+		}
+		if x := tap.Version; x != tc.version {
+			t.Errorf("Test %d: expected version %s, got %s", i, tc.version, x)
 		}
 	}
 }
