@@ -40,8 +40,9 @@ func parseConfig(c *caddy.Controller) (Dnstap, error) {
 
 	d.IncludeRawMessage = c.NextArg() && c.Val() == "full"
 	
-	d.Identity, _ = os.Hostname()
-	d.Version = caddy.AppName + "-" + caddy.AppVersion 
+	hostname, _ := os.Hostname() 
+	d.Identity = []byte(hostname)
+	d.Version = []byte(caddy.AppName + "-" + caddy.AppVersion)
 	
 	for c.NextBlock() {
 		switch c.Val() {
@@ -49,13 +50,13 @@ func parseConfig(c *caddy.Controller) (Dnstap, error) {
 				if !c.NextArg() {
 					return d, c.ArgErr()
 				}
-				d.Identity = c.Val()
+				d.Identity = []byte(c.Val())
 			}
-  		case "version": {
+			case "version": {
 				if !c.NextArg() {
 					return d, c.ArgErr()
 				}
-				d.Version = c.Val()
+				d.Version = []byte(c.Val())
 			}
 		}
 	}
