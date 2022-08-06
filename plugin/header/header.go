@@ -26,18 +26,7 @@ type ResponseHeaderWriter struct {
 
 // WriteMsg implements the dns.ResponseWriter interface.
 func (r *ResponseHeaderWriter) WriteMsg(res *dns.Msg) error {
-	// handle all supported flags
-	for _, rule := range r.Rules {
-		switch rule.Flag {
-		case authoritative:
-			res.Authoritative = rule.State
-		case recursionAvailable:
-			res.RecursionAvailable = rule.State
-		case recursionDesired:
-			res.RecursionDesired = rule.State
-		}
-	}
-
+	applyRules(res, r.Rules)
 	return r.ResponseWriter.WriteMsg(res)
 }
 
@@ -89,4 +78,18 @@ func newRules(key string, args []string) ([]Rule, error) {
 	}
 
 	return rules, nil
+}
+
+func applyRules(res *dns.Msg, rules []Rule) {
+	// handle all supported flags
+	for _, rule := range rules {
+		switch rule.Flag {
+		case authoritative:
+			res.Authoritative = rule.State
+		case recursionAvailable:
+			res.RecursionAvailable = rule.State
+		case recursionDesired:
+			res.RecursionDesired = rule.State
+		}
+	}
 }

@@ -2,6 +2,7 @@ package header
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -11,39 +12,60 @@ import (
 func init() { plugin.Register("header", setup) }
 
 func setup(c *caddy.Controller) error {
-	rules, err := parse(c)
+	queryRules, responseRules, err := parse(c)
 	if err != nil {
 		return plugin.Error("header", err)
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		return Header{
-			Rules: rules,
-			Next:  next,
+			QueryRules:    queryRules,
+			ResponseRules: responseRules,
+			Next:          next,
 		}
 	})
 
 	return nil
 }
 
-func parse(c *caddy.Controller) ([]Rule, error) {
+func parse(c *caddy.Controller) ([]Rule, []Rule, error) {
 	for c.Next() {
-		var all []Rule
+		var queryRules []Rule
+		var responseRules []Rule
+
 		for c.NextBlock() {
-			v := c.Val()
-			args := c.RemainingArgs()
-			// set up rules
-			rules, err := newRules(v, args)
-			if err != nil {
-				return nil, fmt.Errorf("seting up rule: %w", err)
+			selector := strings.ToLower(c.Val())
+
+			var action string
+			if selector == "set" || selector == "clear" {
+				// In previous CoreDNS version, the headers plugin only modified
+				// flags in responses. Assume the rule targets DNS responses.
+				action = selector
+				selector = "response"
+			} else if selector == "query" || selector == "response" {
+				if c.NextArg() {
+					action = c.Val()
+				}
+			} else {
+				return nil, nil, fmt.Errorf("setting up rule: invalid selector=%s should be query or response", selector)
 			}
-			all = append(all, rules...)
+
+			args := c.RemainingArgs()
+			rules, err := newRules(action, args)
+			if err != nil {
+				return nil, nil, fmt.Errorf("setting up rule: %w", err)
+			}
+
+			if selector == "response" {
+				responseRules = append(responseRules, rules...)
+			} else {
+				queryRules = append(queryRules, rules...)
+			}
 		}
 
-		// return combined rules
-		if len(all) > 0 {
-			return all, nil
+		if len(queryRules) > 0 || len(responseRules) > 0 {
+			return queryRules, responseRules, nil
 		}
 	}
-	return nil, c.ArgErr()
+	return nil, nil, c.ArgErr()
 }

@@ -10,13 +10,16 @@ import (
 
 // Header modifies dns.MsgHdr in the responses
 type Header struct {
-	Rules []Rule
-	Next  plugin.Handler
+	QueryRules    []Rule
+	ResponseRules []Rule
+	Next          plugin.Handler
 }
 
 // ServeDNS implements the plugin.Handler interface.
 func (h Header) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	wr := ResponseHeaderWriter{ResponseWriter: w, Rules: h.Rules}
+	applyRules(r, h.QueryRules)
+
+	wr := ResponseHeaderWriter{ResponseWriter: w, Rules: h.ResponseRules}
 	return plugin.NextOrFailure(h.Name(), h.Next, ctx, &wr, r)
 }
 

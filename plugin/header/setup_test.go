@@ -19,13 +19,25 @@ func TestSetupHeader(t *testing.T) {
 }`, true, "invalid length for flags, at least one should be provided"},
 		{`header {
 					foo
+}`, true, "invalid selector=foo should be query or response"},
+		{`header {
+					query foo
 }`, true, "invalid length for flags, at least one should be provided"},
 		{`header {
-					foo bar
+					query foo rd
 }`, true, "unknown flag action=foo, should be set or clear"},
 		{`header {
 					set ra
 }`, false, ""},
+		{`header {
+					clear ra
+		}`, false, ""},
+		{`header {
+					query set rd
+		}`, false, ""},
+		{`header {
+					response set aa
+		}`, false, ""},
 		{`header {
 			set ra aa
 			clear rd

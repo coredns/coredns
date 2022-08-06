@@ -11,7 +11,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func TestHeader(t *testing.T) {
+func TestHeaderResponseRules(t *testing.T) {
 	wr := dnstest.NewRecorder(&test.ResponseWriter{})
 	next := plugin.HandlerFunc(func(ctx context.Context, writer dns.ResponseWriter, msg *dns.Msg) (int, error) {
 		writer.WriteMsg(msg)
@@ -25,8 +25,8 @@ func TestHeader(t *testing.T) {
 	}{
 		{
 			handler: Header{
-				Rules: []Rule{{Flag: recursionAvailable, State: true}},
-				Next:  next,
+				ResponseRules: []Rule{{Flag: recursionAvailable, State: true}},
+				Next:          next,
 			},
 			got: func(msg *dns.Msg) bool {
 				return msg.RecursionAvailable
@@ -35,18 +35,18 @@ func TestHeader(t *testing.T) {
 		},
 		{
 			handler: Header{
-				Rules: []Rule{{Flag: recursionAvailable, State: true}},
-				Next:  next,
+				ResponseRules: []Rule{{Flag: recursionAvailable, State: false}},
+				Next:          next,
 			},
 			got: func(msg *dns.Msg) bool {
 				return msg.RecursionAvailable
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			handler: Header{
-				Rules: []Rule{{Flag: recursionDesired, State: true}},
-				Next:  next,
+				ResponseRules: []Rule{{Flag: recursionDesired, State: true}},
+				Next:          next,
 			},
 			got: func(msg *dns.Msg) bool {
 				return msg.RecursionDesired
@@ -55,8 +55,8 @@ func TestHeader(t *testing.T) {
 		},
 		{
 			handler: Header{
-				Rules: []Rule{{Flag: authoritative, State: true}},
-				Next:  next,
+				ResponseRules: []Rule{{Flag: authoritative, State: true}},
+				Next:          next,
 			},
 			got: func(msg *dns.Msg) bool {
 				return msg.Authoritative
@@ -79,4 +79,23 @@ func TestHeader(t *testing.T) {
 			continue
 		}
 	}
+}
+
+func TestHeaderQueryRules(t *testing.T) {
+	wr := dnstest.NewRecorder(&test.ResponseWriter{})
+	next := plugin.HandlerFunc(func(ctx context.Context, writer dns.ResponseWriter, msg *dns.Msg) (int, error) {
+		if !msg.RecursionDesired {
+			t.Errorf("Expected RecursionDesired")
+		}
+		writer.WriteMsg(msg)
+		return dns.RcodeSuccess, nil
+	})
+
+	handler := Header{
+		QueryRules: []Rule{{Flag: recursionDesired, State: false}},
+		Next:       next,
+	}
+
+	m := new(dns.Msg)
+	handler.ServeDNS(context.TODO(), wr, m)
 }
