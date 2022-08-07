@@ -38,8 +38,11 @@ func parse(c *caddy.Controller) ([]Rule, []Rule, error) {
 
 			var action string
 			if selector == "set" || selector == "clear" {
-				// In previous CoreDNS version, the headers plugin only modified
-				// flags in responses. Assume the rule targets DNS responses.
+				log.Warningf("The selector for header rule in line %d isn't explicit defined. "+
+					"Assume rule applies for selector 'response'. This syntax is deprecated. "+
+					"In future versions of CoreDNS the selector must be explicit defined.",
+					c.Line())
+
 				action = selector
 				selector = "response"
 			} else if selector == "query" || selector == "response" {
