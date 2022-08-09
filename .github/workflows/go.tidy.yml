@@ -2,7 +2,7 @@ name: Go Tidy
 
 on:
   schedule:
-    - cron: '22 10 * * 3'
+    - cron: '22 10 * * *'
 
 permissions: read-all
 
@@ -24,7 +24,7 @@ jobs:
       - name: Tidy
         run: |
           rm -f go.sum
-          go mod tidy
+          go mod tidy -compat=1.17
 
       - name: Set up Git
         env:
