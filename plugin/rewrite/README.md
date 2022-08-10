@@ -205,7 +205,7 @@ regular expression and a rewrite name as parameters and works in the same way as
 
 Note that names in the `AUTHORITY SECTION` and `ADDITIONAL SECTION` will also be
 rewritten following the specified rules. The names returned by the following
-record types: `CNAME`, `DNAME`, `SOA`, `SRV`, `MX`, `NAPTR`, `NS` will be rewritten
+record types: `CNAME`, `DNAME`, `SOA`, `SRV`, `MX`, `NAPTR`, `NS`, `PTR` will be rewritten
 if the `answer value` rule is specified.
 
 The syntax for the rewrite of DNS request and response is as follows:
@@ -222,6 +222,43 @@ Note that the above syntax is strict.  For response rewrites, only `name`
 rules are allowed to match the question section. The answer rewrite must be
 after the name, as in the syntax example.
 
+#### Explicit Response Value Rewrite
+
+The original response contains the domain `service.consul.` in the `VALUE` part
+of the `ANSWER SECTION`
+
+```
+$ dig @10.1.1.1 30.30.30.10.in-addr.arpa PTR
+
+;; QUESTION SECTION:
+;30.30.30.10.in-addr.arpa. IN PTR
+
+;; ANSWER SECTION:
+30.30.30.10.in-addr.arpa. 60    IN PTR    ftp-us-west-1.service.consul.
+```
+
+The following configuration snippet allows for rewriting of the value
+in the `ANSWER SECTION`:
+
+```
+    rewrite stop {
+        name suffix .arpa .arpa
+        answer name auto
+        answer value (.*)\.service\.consul\. {1}.coredns.rocks.
+    }
+```
+
+Now, the `VALUE` in the `ANSWER SECTION` has been overwritten in the domain part:
+
+```
+$ dig @10.1.1.1 30.30.30.10.in-addr.arpa PTR
+
+;; QUESTION SECTION:
+;30.30.30.10.in-addr.arpa. IN PTR
+
+;; ANSWER SECTION:
+30.30.30.10.in-addr.arpa. 60    IN PTR    ftp-us-west-1.coredns.rocks.
+```
 #### Multiple Response Rewrites
 
 `name` and `value` rewrites can be chained by appending multiple answer rewrite

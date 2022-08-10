@@ -117,6 +117,8 @@ func getRecordValueForRewrite(rr dns.RR) (name string) {
 		return rr.(*dns.NAPTR).Replacement
 	case dns.TypeSOA:
 		return rr.(*dns.SOA).Ns
+	case dns.TypePTR:
+		return rr.(*dns.PTR).Ptr
 	default:
 		return ""
 	}
@@ -138,5 +140,7 @@ func setRewrittenRecordValue(rr dns.RR, value string) {
 		rr.(*dns.NAPTR).Replacement = value
 	case dns.TypeSOA:
 		rr.(*dns.SOA).Ns = value
+	case dns.TypePTR:
+		rr.(*dns.PTR).Ptr = value
 	}
 }
