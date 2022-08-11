@@ -259,6 +259,7 @@ $ dig @10.1.1.1 30.30.30.10.in-addr.arpa PTR
 ;; ANSWER SECTION:
 30.30.30.10.in-addr.arpa. 60    IN PTR    ftp-us-west-1.coredns.rocks.
 ```
+
 #### Multiple Response Rewrites
 
 `name` and `value` rewrites can be chained by appending multiple answer rewrite
