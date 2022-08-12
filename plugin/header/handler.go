@@ -8,7 +8,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// Header modifies dns.MsgHdr in the responses
+// Header modifies flags of dns.MsgHdr in queries and / or responses
 type Header struct {
 	QueryRules    []Rule
 	ResponseRules []Rule
