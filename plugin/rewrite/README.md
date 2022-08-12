@@ -222,7 +222,7 @@ Note that the above syntax is strict.  For response rewrites, only `name`
 rules are allowed to match the question section. The answer rewrite must be
 after the name, as in the syntax example.
 
-#### Explicit Response Value Rewrite
+##### Example: PTR Response Value Rewrite
 
 The original response contains the domain `service.consul.` in the `VALUE` part
 of the `ANSWER SECTION`
