@@ -13,7 +13,7 @@ func TestSetup(t *testing.T) {
 		progCount int
 	}{
 		{`view name() == 'example.com.'`, false, 1},
-		{`view incidr(client_ip, '10.0.0.0/24')`, false, 1},
+		{`view incidr(client_ip(), '10.0.0.0/24')`, false, 1},
 		{`view name() == 'example.com.'
 view name() == 'example2.com.'`, false, 2},
 		{`view`, true, 0},
