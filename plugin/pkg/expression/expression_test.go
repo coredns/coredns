@@ -26,7 +26,7 @@ func TestInCidr(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		r, err := incidr.(func(...interface {}) (interface {}, error))(c.cidr1, c.cidr2)
+		r, err := incidr.(func(string, string) (bool, error))(c.cidr1, c.cidr2)
 		if err != nil && !c.shouldErr {
 			t.Errorf("Test %d: unexpected error %v", i, err)
 			continue
