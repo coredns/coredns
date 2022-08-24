@@ -31,14 +31,14 @@ answer for `test.` depending on client's IP address.  It returns ...
 
 ```
 . {
-  view incidr(client_ip, '127.0.0.0/24')
+  view incidr(client_ip(), '127.0.0.0/24')
   hosts {
     1.1.1.1 test
   }
 }
 
 . {
-  view incidr(client_ip, '192.168.0.0/16')
+  view incidr(client_ip(), '192.168.0.0/16')
   hosts {
     2.2.2.2 test
   }
@@ -55,7 +55,7 @@ Send all `AAAA` requests to `10.0.0.6`, and all other requests to `10.0.0.1`.
 
 ```
 . {
-  view type == 'AAAA'
+  view type() == 'AAAA'
   forward . 10.0.0.6
 }
 
@@ -66,10 +66,11 @@ Send all `AAAA` requests to `10.0.0.6`, and all other requests to `10.0.0.1`.
 
 Send all requests for `abc.*.example.com` (where * can be any number of labels), to `10.0.0.2`, and all other
 requests to `10.0.0.1`.
+Note that the regex pattern is enclosed in single quotes, and backslashes are escaped with backslashes.
 
 ```
 . {
-  view name =~ '^abc\..*\.example\.com\.$'
+  view name() matches '^abc\\..*\\.example\.com\.$'
   forward . 10.0.0.2
 }
 
@@ -88,30 +89,32 @@ All expressions should be written to evaluate to a boolean value.
 
 See https://github.com/Knetic/govaluate/blob/master/MANUAL.md as a detailed reference for valid syntax.
 
-In the context of the *view* plugin, expressions can reference DNS query information (Available Variables) and
-use utility functions (Available Functions).
+### Available Expression Functions
 
-### Available Variables
+In the context of the *view* plugin, expressions can reference DNS query information by using utility
+functions defined below.
 
-* `type`: type of the request (A, AAAA, TXT, ...)
-* `name`: name of the request (the domain name requested)
-* `class`: class of the request (IN, CH, ...)
-* `proto`: protocol used (tcp or udp)
-* `client_ip`: client's IP address, for IPv6 addresses these are enclosed in brackets: `[::1]`
-* `size`: request size in bytes
-* `port`: client's port
-* `bufsize`: the EDNS0 buffer size advertised in the query
-* `do`: the EDNS0 DO (DNSSEC OK) bit set in the query
-* `id`: query ID
-* `opcode`: query OPCODE
-* `server_ip`: server's IP address; for IPv6 addresses these are enclosed in brackets: `[::1]`
-* `server_port` : client's port
+### DNS Query Functions
+
+* `bufsize() int`: the EDNS0 buffer size advertised in the query
+* `class() string`: class of the request (IN, CH, ...)
+* `client_ip() string`: client's IP address, for IPv6 addresses these are enclosed in brackets: `[::1]`
+* `do() bool`: the EDNS0 DO (DNSSEC OK) bit set in the query
+* `id() int`: query ID
+* `name() string`: name of the request (the domain name requested)
+* `opcode() int`: query OPCODE
+* `port() string`: client's port
+* `proto() string`: protocol used (tcp or udp)
+* `server_ip() string`: server's IP address; for IPv6 addresses these are enclosed in brackets: `[::1]`
+* `server_port() string` : client's port
+* `size() int`: request size in bytes
+* `type() string`: type of the request (A, AAAA, TXT, ...)
+
+#### Utility Functions
+
+* `incidr(ip,cidr) bool`: returns true if _ip_ (string) is within _cidr_ (string)
 
 #### Metadata Variables
 
-Metadata variables are not supported in expressions for this plugin.
-
-### Available Functions
-
-* `incidr(ip,cidr)`: returns true if _ip_ is within _cidr_ 
+Metadata variables are not available in expressions.
 

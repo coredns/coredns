@@ -3,12 +3,12 @@ package view
 import (
 	"strings"
 
+	"github.com/antonmedv/expr"
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/expression"
-
-	"github.com/Knetic/govaluate"
+	"github.com/coredns/coredns/request"
 )
 
 func init() { plugin.Register("view", setup) }
@@ -30,17 +30,14 @@ func setup(c *caddy.Controller) error {
 func parse(c *caddy.Controller) (*View, error) {
 	v := new(View)
 
-	// define extractors used for retrieving information from the state when evaluating expressions
-	v.extractors = expression.DefaultExtractors()
-
 	for c.Next() {
 		args := c.RemainingArgs()
-		// compile an expression from the arguments using default functions
-		expr, err := govaluate.NewEvaluableExpressionWithFunctions(strings.Join(args, " "), expression.DefaultFunctions())
+
+		prog, err := expr.Compile(strings.Join(args, " "), expr.Env(expression.DefaultEnv(&request.Request{})))
 		if err != nil {
 			return v, err
 		}
-		v.rules = append(v.rules, expr)
+		v.progs = append(v.progs, prog)
 		if err != nil {
 			return nil, err
 		}

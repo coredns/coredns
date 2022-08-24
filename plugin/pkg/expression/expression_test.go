@@ -2,10 +2,12 @@ package expression
 
 import (
 	"testing"
+
+	"github.com/coredns/coredns/request"
 )
 
 func TestInCidr(t *testing.T) {
-	incidr := DefaultFunctions()["incidr"]
+	incidr := DefaultEnv(&request.Request{})["incidr"]
 
 	cases := []struct {
 		cidr1     string
@@ -24,7 +26,7 @@ func TestInCidr(t *testing.T) {
 	}
 
 	for i, c := range cases {
-		r, err := incidr(c.cidr1, c.cidr2)
+		r, err := incidr.(func(...interface {}) (interface {}, error))(c.cidr1, c.cidr2)
 		if err != nil && !c.shouldErr {
 			t.Errorf("Test %d: unexpected error %v", i, err)
 			continue

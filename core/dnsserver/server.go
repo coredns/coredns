@@ -263,7 +263,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 				}
 
 				// If all filter funcs pass, use this handler.
-				if passAllFilterFuncs(h.FilterFuncs, request.Request{Req: r, W: w}) {
+				if passAllFilterFuncs(h.FilterFuncs, &request.Request{Req: r, W: w}) {
 					if r.Question[0].Qtype != dns.TypeDS {
 						rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 						if !plugin.ClientWrite(rcode) {
@@ -301,7 +301,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			if h.pluginChain == nil {
 				continue
 			}
-			if passAllFilterFuncs(h.FilterFuncs, request.Request{Req: r, W: w}) {
+			if passAllFilterFuncs(h.FilterFuncs, &request.Request{Req: r, W: w}) {
 				rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 				if !plugin.ClientWrite(rcode) {
 					errorFunc(s.Addr, w, r, rcode)
@@ -316,7 +316,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 }
 
 // passAllFilterFuncs returns true if all filter funcs evaluate to true for the given request
-func passAllFilterFuncs(filterFuncs []FilterFunc, req request.Request) bool {
+func passAllFilterFuncs(filterFuncs []FilterFunc, req *request.Request) bool {
 	for _, ff := range filterFuncs {
 		if !ff(req) {
 			return false

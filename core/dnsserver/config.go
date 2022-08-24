@@ -69,7 +69,7 @@ type Config struct {
 }
 
 // FilterFunc is a function that filters requests from the Config
-type FilterFunc func(request.Request) bool
+type FilterFunc func(*request.Request) bool
 
 // keyForConfig builds a key for identifying the configs during setup time
 func keyForConfig(blocIndex int, blocKeyIndex int) string {

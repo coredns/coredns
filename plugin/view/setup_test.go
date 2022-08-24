@@ -10,12 +10,12 @@ func TestSetup(t *testing.T) {
 	tests := []struct {
 		input     string
 		shouldErr bool
-		ruleCount int
+		progCount int
 	}{
-		{`view name == 'example.com.'`, false, 1},
+		{`view name() == 'example.com.'`, false, 1},
 		{`view incidr(client_ip, '10.0.0.0/24')`, false, 1},
-		{`view name == 'example.com.'
-view name == 'example2.com.'`, false, 2},
+		{`view name() == 'example.com.'
+view name() == 'example2.com.'`, false, 2},
 		{`view`, true, 0},
 		{`view invalid expression`, true, 0},
 	}
@@ -32,8 +32,8 @@ view name == 'example2.com.'`, false, 2},
 		if test.shouldErr {
 			continue
 		}
-		if test.ruleCount != len(v.rules) {
-			t.Errorf("Test %d: Expected rule length %d, but got %d for %s.", i, test.ruleCount, len(v.rules), test.input)
+		if test.progCount != len(v.progs) {
+			t.Errorf("Test %d: Expected prog length %d, but got %d for %s.", i, test.progCount, len(v.progs), test.input)
 		}
 	}
 }
