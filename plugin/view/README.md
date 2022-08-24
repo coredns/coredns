@@ -31,14 +31,14 @@ answer for `test.` depending on client's IP address.  It returns ...
 
 ```
 . {
-  view incidr(client_ip(), '127.0.0.0/24')
+  view incidr(client_ip(), "127.0.0.0/24")
   hosts {
     1.1.1.1 test
   }
 }
 
 . {
-  view incidr(client_ip(), '192.168.0.0/16')
+  view incidr(client_ip(), "192.168.0.0/16")
   hosts {
     2.2.2.2 test
   }
@@ -55,7 +55,7 @@ Send all `AAAA` requests to `10.0.0.6`, and all other requests to `10.0.0.1`.
 
 ```
 . {
-  view type() == 'AAAA'
+  view type() == "AAAA"
   forward . 10.0.0.6
 }
 
@@ -81,20 +81,20 @@ Note that the regex pattern is enclosed in single quotes, and backslashes are es
 
 ## Expressions
 
-Expressions use Kinetic.govaluate (https://github.com/Knetic/govaluate), which "Provides support for evaluating arbitrary
-C-like artithmetic/string expressions." For example, an expression could look like:
-`(type == 'A' && name == 'example.com') || client_ip == '1.2.3.4'`.
+To evaluate expressions, *view* uses the antonmedv/expr package (https://github.com/antonmedv/expr).
+For example, an expression could look like:
+`(type() == "A" && name() == "example.com") || client_ip() == "1.2.3.4"`.
 
 All expressions should be written to evaluate to a boolean value.
 
-See https://github.com/Knetic/govaluate/blob/master/MANUAL.md as a detailed reference for valid syntax.
+See https://github.com/antonmedv/expr/blob/master/docs/Language-Definition.md as a detailed reference for valid syntax.
 
 ### Available Expression Functions
 
 In the context of the *view* plugin, expressions can reference DNS query information by using utility
 functions defined below.
 
-### DNS Query Functions
+#### DNS Query Functions
 
 * `bufsize() int`: the EDNS0 buffer size advertised in the query
 * `class() string`: class of the request (IN, CH, ...)
@@ -114,7 +114,7 @@ functions defined below.
 
 * `incidr(ip,cidr) bool`: returns true if _ip_ (string) is within _cidr_ (string)
 
-#### Metadata Variables
+#### Metadata Functions
 
-Metadata variables are not available in expressions.
+Metadata are not available in expressions.
 
