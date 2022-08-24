@@ -36,9 +36,9 @@ func (v *View) Filter(state *request.Request) bool {
 }
 
 // Name implements the Handler interface
-func (c *View) Name() string { return "view" }
+func (*View) Name() string { return "view" }
 
 // ServeDNS implements the Handler interface.
-func (c *View) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, r)
+func (v *View) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return plugin.NextOrFailure(v.Name(), v.Next, ctx, w, r)
 }
