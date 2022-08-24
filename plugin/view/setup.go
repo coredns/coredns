@@ -3,13 +3,13 @@ package view
 import (
 	"strings"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/expression"
 	"github.com/coredns/coredns/request"
 
 	"github.com/antonmedv/expr"
-	"github.com/coredns/caddy"
 )
 
 func init() { plugin.Register("view", setup) }
