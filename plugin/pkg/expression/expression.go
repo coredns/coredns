@@ -1,15 +1,17 @@
 package expression
 
 import (
+	"context"
 	"errors"
 	"net"
 	"strings"
 
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/request"
 )
 
 // DefaultEnv returns the default set of custom state variables and functions available to for use in expression evaluation.
-func DefaultEnv(state *request.Request) map[string]interface{} {
+func DefaultEnv(ctx context.Context, state *request.Request) map[string]interface{} {
 	return map[string]interface{}{
 		"incidr": func(ipStr, cidrStr string) (bool, error) {
 			ip := net.ParseIP(ipStr)
@@ -21,6 +23,13 @@ func DefaultEnv(state *request.Request) map[string]interface{} {
 				return false, err
 			}
 			return cidr.Contains(ip), nil
+		},
+		"metadata": func(label string) (string){
+			f := metadata.ValueFunc(ctx, label)
+			if f == nil {
+				return ""
+			}
+			return f()
 		},
 		"type":        state.Type,
 		"name":        state.Name,

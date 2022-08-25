@@ -27,17 +27,16 @@ func ContextWithMetadata(ctx context.Context) context.Context {
 
 // ServeDNS implements the plugin.Handler interface.
 func (m *Metadata) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	ctx = ContextWithMetadata(ctx)
+	rcode, err := plugin.NextOrFailure(m.Name(), m.Next, ctx, w, r)
+	return rcode, err
+}
 
-	state := request.Request{W: w, Req: r}
+func (m *Metadata) Collect(ctx context.Context, state request.Request) {
+	ctx = ContextWithMetadata(ctx)
 	if plugin.Zones(m.Zones).Matches(state.Name()) != "" {
 		// Go through all Providers and collect metadata.
 		for _, p := range m.Providers {
 			ctx = p.Metadata(ctx, state)
 		}
 	}
-
-	rcode, err := plugin.NextOrFailure(m.Name(), m.Next, ctx, w, r)
-
-	return rcode, err
 }

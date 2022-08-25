@@ -1,6 +1,8 @@
 package dnsserver
 
 import (
+	"context"
+
 	"github.com/coredns/coredns/request"
 )
 
@@ -9,5 +11,5 @@ import (
 // serves a DNS request, it will route the request to the first Config (server block) that passes
 // all its filter functions.
 type Viewer interface {
-	Filter(req *request.Request) bool
+	Filter(ctx context.Context, req *request.Request) bool
 }

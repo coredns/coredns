@@ -19,8 +19,8 @@ type View struct {
 }
 
 // Filter implements dnsserver.Viewer.  It returns true if all View rules evaluate to true for the given state.
-func (v *View) Filter(state *request.Request) bool {
-	env := expression.DefaultEnv(state)
+func (v *View) Filter(ctx context.Context, state *request.Request) bool {
+	env := expression.DefaultEnv(ctx, state)
 	for _, prog := range v.progs {
 		result, err := expr.Run(prog, env)
 		if err != nil {

@@ -1,6 +1,7 @@
 package view
 
 import (
+	"context"
 	"strings"
 
 	"github.com/coredns/caddy"
@@ -33,7 +34,7 @@ func parse(c *caddy.Controller) (*View, error) {
 	for c.Next() {
 		args := c.RemainingArgs()
 
-		prog, err := expr.Compile(strings.Join(args, " "), expr.Env(expression.DefaultEnv(nil)))
+		prog, err := expr.Compile(strings.Join(args, " "), expr.Env(expression.DefaultEnv(context.TODO(), nil)))
 		if err != nil {
 			return v, err
 		}
