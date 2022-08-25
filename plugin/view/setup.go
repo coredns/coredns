@@ -3,13 +3,11 @@ package view
 import (
 	"strings"
 
+	"github.com/antonmedv/expr"
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/expression"
-	"github.com/coredns/coredns/request"
-
-	"github.com/antonmedv/expr"
 )
 
 func init() { plugin.Register("view", setup) }
@@ -34,7 +32,7 @@ func parse(c *caddy.Controller) (*View, error) {
 	for c.Next() {
 		args := c.RemainingArgs()
 
-		prog, err := expr.Compile(strings.Join(args, " "), expr.Env(expression.DefaultEnv(&request.Request{})))
+		prog, err := expr.Compile(strings.Join(args, " "), expr.Env(expression.DefaultEnv(nil)))
 		if err != nil {
 			return v, err
 		}
