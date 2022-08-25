@@ -31,14 +31,14 @@ answer for `test.` depending on client's IP address.  It returns ...
 
 ```
 . {
-  view incidr(client_ip(), "127.0.0.0/24")
+  view incidr(client_ip(), '127.0.0.0/24')
   hosts {
     1.1.1.1 test
   }
 }
 
 . {
-  view incidr(client_ip(), "192.168.0.0/16")
+  view incidr(client_ip(), '192.168.0.0/16')
   hosts {
     2.2.2.2 test
   }
@@ -55,7 +55,7 @@ Send all `AAAA` requests to `10.0.0.6`, and all other requests to `10.0.0.1`.
 
 ```
 . {
-  view type() == "AAAA"
+  view type() == 'AAAA'
   forward . 10.0.0.6
 }
 
@@ -83,7 +83,7 @@ Note that the regex pattern is enclosed in single quotes, and backslashes are es
 
 To evaluate expressions, *view* uses the antonmedv/expr package (https://github.com/antonmedv/expr).
 For example, an expression could look like:
-`(type() == "A" && name() == "example.com") || client_ip() == "1.2.3.4"`.
+`(type() == 'A' && name() == 'example.com') || client_ip() == '1.2.3.4'`.
 
 All expressions should be written to evaluate to a boolean value.
 
