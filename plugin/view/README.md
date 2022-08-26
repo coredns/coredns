@@ -6,7 +6,7 @@
 
 ## Description
 
-*view* defines an expression that must evaluate to true for a DNS request to be routed to the server block. 
+*view* defines an expression that must evaluate to true for a DNS request to be routed to the server block.
 This enables advanced server block routing functions such as split dns.
 
 ## Syntax
