@@ -47,7 +47,10 @@ func TestMetadataServeDNS(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	m.ServeDNS(ctx, &test.ResponseWriter{}, new(dns.Msg))
+	w := &test.ResponseWriter{}
+	r := new(dns.Msg)
+	ctx = m.Collect(ctx, request.Request{W: w, Req: r})
+	m.ServeDNS(ctx, w, r)
 	nctx := next.ctx
 
 	for _, expected := range expectedMetadata {
