@@ -340,12 +340,11 @@ func TestMetadataReplacement(t *testing.T) {
 		Next: next,
 	}
 
-	m.ServeDNS(context.TODO(), &test.ResponseWriter{}, new(dns.Msg))
-	ctx := next.ctx // important because the m.ServeDNS has only now populated the context
-
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 	r := new(dns.Msg)
 	r.SetQuestion("example.org.", dns.TypeHINFO)
+
+	ctx := m.Collect(context.TODO(), request.Request{W: w, Req: r})
 
 	repl := New()
 	state := request.Request{W: w, Req: r}
