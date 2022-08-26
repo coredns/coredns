@@ -67,6 +67,9 @@ type Config struct {
 	// firstConfigInBlock is used to reference the first config in a server block, for the
 	// purpose of sharing single instance of each plugin among all zones in a server block.
 	firstConfigInBlock *Config
+
+	// metaCollector references the first MetadataCollector plugin, if one exists
+	metaCollector *MetadataCollector
 }
 
 // FilterFunc is a function that filters requests from the Config

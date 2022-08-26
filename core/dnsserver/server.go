@@ -49,7 +49,7 @@ type Server struct {
 }
 
 type MetadataCollector interface {
-	Collect(context.Context, request.Request)
+	Collect(context.Context, request.Request) context.Context
 }
 
 // NewServer returns a new CoreDNS server and compiles all plugins in to it. By default CH class
@@ -92,6 +92,12 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 
 			// register the *handler* also
 			site.registerHandler(stack)
+
+			// If the current plugin is a MetadataCollector, bookmark it for later use. This loop traverses the plugin
+			// list backwards, so the first MetadataCollector plugin wins.
+			if mdc, ok := stack.(MetadataCollector); ok {
+				site.metaCollector = &mdc
+			}
 
 			if s.trace == nil && stack.Name() == "trace" {
 				// we have to stash away the plugin, not the
@@ -266,12 +272,9 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 					return
 				}
 
-				// Collect metadata now, so metadata can be used before we send a request down the plugin chain.
-				for _, plug := range h.Handlers() {
-					if meta, ok := plug.(MetadataCollector); ok {
-						meta.Collect(ctx, request.Request{Req: r, W: w})
-						break
-					}
+				if h.metaCollector != nil {
+					// Collect metadata now, so it can be used before we send a request down the plugin chain.
+					ctx = (*h.metaCollector).Collect(ctx, request.Request{Req: r, W: w})
 				}
 
 				// If all filter funcs pass, use this handler.
@@ -313,6 +316,12 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			if h.pluginChain == nil {
 				continue
 			}
+
+			if h.metaCollector != nil {
+				// Collect metadata now, so it can be used before we send a request down the plugin chain.
+				ctx = (*h.metaCollector).Collect(ctx, request.Request{Req: r, W: w})
+			}
+
 			if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
 				rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 				if !plugin.ClientWrite(rcode) {

@@ -31,7 +31,7 @@ func (m *Metadata) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	return rcode, err
 }
 
-func (m *Metadata) Collect(ctx context.Context, state request.Request) {
+func (m *Metadata) Collect(ctx context.Context, state request.Request) context.Context {
 	ctx = ContextWithMetadata(ctx)
 	if plugin.Zones(m.Zones).Matches(state.Name()) != "" {
 		// Go through all Providers and collect metadata.
@@ -39,4 +39,5 @@ func (m *Metadata) Collect(ctx context.Context, state request.Request) {
 			ctx = p.Metadata(ctx, state)
 		}
 	}
+	return ctx
 }
