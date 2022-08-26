@@ -1,13 +1,14 @@
 package expression
 
 import (
+	"context"
 	"testing"
 
 	"github.com/coredns/coredns/request"
 )
 
 func TestInCidr(t *testing.T) {
-	incidr := DefaultEnv(&request.Request{})["incidr"]
+	incidr := DefaultEnv(context.TODO(), &request.Request{})["incidr"]
 
 	cases := []struct {
 		cidr1     string
