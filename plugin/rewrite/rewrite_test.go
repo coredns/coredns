@@ -604,8 +604,8 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 		}
 		rw.Rules = []Rule{r}
 
-		ctx := context.TODO()
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		ctx := meta.Collect(context.TODO(), request.Request{W: rec, Req: m})
 		meta.ServeDNS(ctx, rec, m)
 
 		resp := rec.Msg
