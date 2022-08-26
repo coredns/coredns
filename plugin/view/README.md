@@ -112,9 +112,6 @@ functions defined below.
 
 #### Utility Functions
 
-* `incidr(ip,cidr) bool`: returns true if _ip_ (string) is within _cidr_ (string)
-
-#### Metadata Functions
-
-Metadata are not available in expressions.
+* `incidr(ip string, cidr string) bool`: returns true if _ip_ is within _cidr_
+* `metadata(label string)` - returns the value for the metadata matching _label_
 

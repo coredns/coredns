@@ -48,6 +48,7 @@ type Server struct {
 	tsigSecret map[string]string
 }
 
+// MetadataCollector is a plugin that can retrieve metadata functions from all metadata providing plugins
 type MetadataCollector interface {
 	Collect(context.Context, request.Request) context.Context
 }
