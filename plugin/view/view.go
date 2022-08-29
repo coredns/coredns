@@ -36,7 +36,7 @@ func (v *View) Filter(ctx context.Context, state *request.Request) bool {
 	return true
 }
 
-// Name implements dnsserver.Viewer, it returns the view name
+// ViewName implements dnsserver.Viewer. It returns the view name
 func (v *View) ViewName() string { return v.viewName }
 
 // Name implements the Handler interface

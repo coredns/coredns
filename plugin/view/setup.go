@@ -60,7 +60,6 @@ func parse(c *caddy.Controller) (*View, error) {
 				return nil, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
-
 	}
 	return v, nil
 }
