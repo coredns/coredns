@@ -12,12 +12,11 @@ func TestSetup(t *testing.T) {
 		shouldErr bool
 		progCount int
 	}{
-		{`view name() == 'example.com.'`, false, 1},
-		{`view incidr(client_ip(), '10.0.0.0/24')`, false, 1},
-		{`view name() == 'example.com.'
-view name() == 'example2.com.'`, false, 2},
-		{`view`, true, 0},
-		{`view invalid expression`, true, 0},
+		{"view example {\n expr name() == 'example.com.'\n}", false, 1},
+		{"view example {\n expr incidr(client_ip(), '10.0.0.0/24')\n}", false, 1},
+		{"view example {\n expr name() == 'example.com.'\n expr name() == 'example2.com.'\n}", false, 2},
+		{"view", true, 0},
+		{"view example {\n expr invalid expression\n}", true, 0},
 	}
 
 	for i, test := range tests {

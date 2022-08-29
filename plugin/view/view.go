@@ -14,8 +14,9 @@ import (
 
 // View is a plugin that enables configuring expression based advanced routing
 type View struct {
-	progs      []*vm.Program
-	Next       plugin.Handler
+	progs    []*vm.Program
+	viewName string
+	Next     plugin.Handler
 }
 
 // Filter implements dnsserver.Viewer.  It returns true if all View rules evaluate to true for the given state.
@@ -34,6 +35,9 @@ func (v *View) Filter(ctx context.Context, state *request.Request) bool {
 	}
 	return true
 }
+
+// Name implements dnsserver.Viewer, it returns the view name
+func (v *View) ViewName() string { return v.viewName }
 
 // Name implements the Handler interface
 func (*View) Name() string { return "view" }

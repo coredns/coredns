@@ -31,17 +31,36 @@ func setup(c *caddy.Controller) error {
 func parse(c *caddy.Controller) (*View, error) {
 	v := new(View)
 
+	i := 0
 	for c.Next() {
+		i++
+		if i > 1 {
+			return nil, plugin.ErrOnce
+		}
 		args := c.RemainingArgs()
+		if len(args) != 1 {
+			return nil, c.ArgErr()
+		}
+		v.viewName = args[0]
 
-		prog, err := expr.Compile(strings.Join(args, " "), expr.Env(expression.DefaultEnv(context.TODO(), nil)))
-		if err != nil {
-			return v, err
+		for c.NextBlock() {
+			switch c.Val() {
+			case "expr":
+				args := c.RemainingArgs()
+				prog, err := expr.Compile(strings.Join(args, " "), expr.Env(expression.DefaultEnv(context.TODO(), nil)))
+				if err != nil {
+					return v, err
+				}
+				v.progs = append(v.progs, prog)
+				if err != nil {
+					return nil, err
+				}
+				continue
+			default:
+				return nil, c.Errf("unknown property '%s'", c.Val())
+			}
 		}
-		v.progs = append(v.progs, prog)
-		if err != nil {
-			return nil, err
-		}
+
 	}
 	return v, nil
 }

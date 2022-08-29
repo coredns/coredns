@@ -278,8 +278,12 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 					ctx = (*h.metaCollector).Collect(ctx, request.Request{Req: r, W: w})
 				}
 
-				// If all filter funcs pass, use this handler.
+				// If all filter funcs pass, use this config.
 				if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+					if h.ViewName != "" {
+						// if there was a view defined for this Config, set the view name in the context
+						ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
+					}
 					if r.Question[0].Qtype != dns.TypeDS {
 						rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 						if !plugin.ClientWrite(rcode) {
@@ -323,7 +327,12 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 				ctx = (*h.metaCollector).Collect(ctx, request.Request{Req: r, W: w})
 			}
 
+			// If all filter funcs pass, use this config.
 			if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+				if h.ViewName != "" {
+					// if there was a view defined for this Config, set the view name in the context
+					ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
+				}
 				rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 				if !plugin.ClientWrite(rcode) {
 					errorFunc(s.Addr, w, r, rcode)
@@ -387,7 +396,7 @@ func errorAndMetricsFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int
 	answer.SetRcode(r, rc)
 	state.SizeAndDo(answer)
 
-	vars.Report(server, state, vars.Dropped, rcode.ToString(rc), "" /* plugin */, answer.Len(), time.Now())
+	vars.Report(server, state, vars.Dropped, "", rcode.ToString(rc), "" /* plugin */, answer.Len(), time.Now())
 
 	w.WriteMsg(answer)
 }
@@ -403,6 +412,9 @@ type (
 
 	// LoopKey is the context key to detect server wide loops.
 	LoopKey struct{}
+
+	// ViewKey is the context key for the current view, if defined
+	ViewKey struct{}
 )
 
 // EnableChaos is a map with plugin names for which we should open CH class queries as we block these by default.

@@ -11,10 +11,14 @@ This enables advanced server block routing functions such as split dns.
 
 ## Syntax
 ```
-view  EXPRESSION
+view NAME {
+  expr EXPRESSION
+}
 ```
 
-* `view` **EXPRESSION** - CoreDNS will only route incoming queries to the enclosing server block
+* `view` **NAME** - The name of the view used by metrics and exported as metadata for requests that match the
+  view's expression 
+* `expr` **EXPRESSION** - CoreDNS will only route incoming queries to the enclosing server block
   if the **EXPRESSION** evaluates to true. See the **Expressions** section for available variables and functions.
   If multiple instances of view are defined, all **EXPRESSION** must evaluate to true for CoreDNS will only route
   incoming queries to the enclosing server block.
@@ -31,14 +35,18 @@ answer for `test.` depending on client's IP address.  It returns ...
 
 ```
 . {
-  view incidr(client_ip(), '127.0.0.0/24')
+  view example1 {
+    expr incidr(client_ip(), '127.0.0.0/24')
+  }
   hosts {
     1.1.1.1 test
   }
 }
 
 . {
-  view incidr(client_ip(), '192.168.0.0/16')
+  view example2 {
+    expr incidr(client_ip(), '192.168.0.0/16')
+  }
   hosts {
     2.2.2.2 test
   }
@@ -51,11 +59,13 @@ answer for `test.` depending on client's IP address.  It returns ...
 }
 ```
 
-Send all `AAAA` requests to `10.0.0.6`, and all other requests to `10.0.0.1`.
+Send all `A` and `AAAA` requests to `10.0.0.6`, and all other requests to `10.0.0.1`.
 
 ```
 . {
-  view type() == 'AAAA'
+  view example {
+    expr type() in ['A', 'AAAA']
+  }
   forward . 10.0.0.6
 }
 
@@ -70,7 +80,9 @@ Note that the regex pattern is enclosed in single quotes, and backslashes are es
 
 ```
 . {
-  view name() matches '^abc\\..*\\.example\.com\.$'
+  view example {
+    expr name() matches '^abc\\..*\\.example\.com\.$'
+  }
   forward . 10.0.0.2
 }
 
@@ -115,3 +127,9 @@ functions defined below.
 * `incidr(ip string, cidr string) bool`: returns true if _ip_ is within _cidr_
 * `metadata(label string)` - returns the value for the metadata matching _label_
 
+## Metadata
+
+The view plugin will publish the following metadata, if the *metadata*
+plugin is also enabled:
+
+* `view/name`: the name of the view handling the current request

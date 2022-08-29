@@ -196,6 +196,10 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 		// Add filters in the plugin.cfg order for consistent filter func evaluation order.
 		for _, d := range Directives {
 			if vf, ok := c.registry[d].(Viewer); ok {
+				if c.ViewName != "" {
+					return nil, fmt.Errorf("multiple views defined in server block")
+				}
+				c.ViewName = vf.ViewName()
 				c.FilterFuncs = append(c.FilterFuncs, vf.Filter)
 			}
 		}

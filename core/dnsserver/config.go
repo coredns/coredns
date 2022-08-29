@@ -47,6 +47,9 @@ type Config struct {
 	// on a non-octet boundary, i.e. /17
 	FilterFuncs []FilterFunc
 
+	// ViewName is the name of the Viewer PLugin defined in the Config
+	ViewName string
+
 	// TLSConfig when listening for encrypted connections (gRPC, DNS-over-TLS).
 	TLSConfig *tls.Config
 
