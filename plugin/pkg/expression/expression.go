@@ -24,7 +24,7 @@ func DefaultEnv(ctx context.Context, state *request.Request) map[string]interfac
 			}
 			return cidr.Contains(ip), nil
 		},
-		"metadata": func(label string) (string){
+		"metadata": func(label string) string {
 			f := metadata.ValueFunc(ctx, label)
 			if f == nil {
 				return ""
@@ -36,17 +36,16 @@ func DefaultEnv(ctx context.Context, state *request.Request) map[string]interfac
 		"class":       state.Class,
 		"proto":       state.Proto,
 		"size":        state.Len,
-		"client_ip":   func() string {return addrToRFC3986(state.IP())},
-		"port":        func() string {return addrToRFC3986(state.Port())},
-		"id":          func() int {return int(state.Req.Id)},
-		"opcode":      func() int {return state.Req.Opcode},
+		"client_ip":   func() string { return addrToRFC3986(state.IP()) },
+		"port":        func() string { return addrToRFC3986(state.Port()) },
+		"id":          func() int { return int(state.Req.Id) },
+		"opcode":      func() int { return state.Req.Opcode },
 		"do":          state.Do,
 		"bufsize":     state.Size,
-		"server_ip":   func() string {return addrToRFC3986(state.LocalIP())},
-		"server_port": func() string {return addrToRFC3986(state.LocalPort())},
+		"server_ip":   func() string { return addrToRFC3986(state.LocalIP()) },
+		"server_port": func() string { return addrToRFC3986(state.LocalPort()) },
 	}
 }
-
 
 // addrToRFC3986 will add brackets to the address if it is an IPv6 address.
 func addrToRFC3986(addr string) string {
