@@ -593,7 +593,7 @@ func match(a, b string) bool {
 	return strings.EqualFold(a, b)
 }
 
-// matchPortAndProtocol matches port and protocol, permitting the the 'a' inputs to be wild
+// matchPortAndProtocol matches port and protocol, permitting the 'a' inputs to be wild
 func matchPortAndProtocol(aPort, bPort, aProtocol, bProtocol string) bool {
 	return (match(aPort, bPort) || aPort == "") && (match(aProtocol, bProtocol) || aProtocol == "")
 }
