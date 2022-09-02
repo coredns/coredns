@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"strings"
 
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/request"
@@ -36,21 +35,13 @@ func DefaultEnv(ctx context.Context, state *request.Request) map[string]interfac
 		"class":       state.Class,
 		"proto":       state.Proto,
 		"size":        state.Len,
-		"client_ip":   func() string { return addrToRFC3986(state.IP()) },
-		"port":        func() string { return addrToRFC3986(state.Port()) },
+		"client_ip":   state.IP,
+		"port":        state.Port,
 		"id":          func() int { return int(state.Req.Id) },
 		"opcode":      func() int { return state.Req.Opcode },
 		"do":          state.Do,
 		"bufsize":     state.Size,
-		"server_ip":   func() string { return addrToRFC3986(state.LocalIP()) },
-		"server_port": func() string { return addrToRFC3986(state.LocalPort()) },
+		"server_ip":   state.LocalIP,
+		"server_port": state.LocalPort,
 	}
-}
-
-// addrToRFC3986 will add brackets to the address if it is an IPv6 address.
-func addrToRFC3986(addr string) string {
-	if strings.Contains(addr, ":") {
-		return "[" + addr + "]"
-	}
-	return addr
 }
