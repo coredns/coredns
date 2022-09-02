@@ -64,6 +64,45 @@ func TestView(t *testing.T) {
           3.3.3.3 default.test.split-name
         }
       }
+
+     # metadata config: verifies that metadata is properly collected by the server,
+     # and that metadata function correctly looks up the value of the metadata.
+     metadata:` + port + ` {
+       metadata
+       view test-view-meta1 {
+         # This is never true
+         expr metadata('view/name') == 'not-the-view-name'
+	   }
+       hosts {
+         1.1.1.1 test.metadata
+       }
+     }
+     metadata:` + port + ` {
+       view test-view-meta2 {
+         # This is never true. The metadata plugin is not enabled in this server block so the metadata function returns
+         # an empty string
+         expr metadata('view/name') == 'test-view-meta2'
+	   }
+       hosts {
+         2.2.2.2 test.metadata
+       }
+     }
+     metadata:` + port + ` {
+       metadata
+       view test-view-meta3 {
+         # This is always true.  Queries in the zone 'metadata.' should always be served using this view.
+         expr metadata('view/name') == 'test-view-meta3'
+	   }
+       hosts {
+         2.2.2.2 test.metadata
+       }
+     }
+     metadata:` + port + ` {
+       # This block should never be reached since the prior view in the same zone is always true
+       hosts {
+         3.3.3.3 test.metadata
+       }
+     }
     `
 
 	i, addr, _, err := CoreDNSServerAndPorts(corefile)
@@ -95,6 +134,9 @@ func TestView(t *testing.T) {
 
 	viewTest(t, "split-name default.test.split-name", addr, "default.test.split-name.", dns.TypeA, dns.RcodeSuccess,
 		[]dns.RR{test.A("default.test.split-name.	303	IN	A	3.3.3.3")})
+
+	viewTest(t, "metadata test.metadata", addr, "test.metadata.", dns.TypeA, dns.RcodeSuccess,
+		[]dns.RR{test.A("test.metadata.	303	IN	A	2.2.2.2")})
 }
 
 func viewTest(t *testing.T, testName, addr, qname string, qtype uint16, expectRcode int, expectAnswers []dns.RR) {
