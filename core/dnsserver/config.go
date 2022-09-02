@@ -72,7 +72,7 @@ type Config struct {
 	firstConfigInBlock *Config
 
 	// metaCollector references the first MetadataCollector plugin, if one exists
-	metaCollector *MetadataCollector
+	metaCollector MetadataCollector
 }
 
 // FilterFunc is a function that filters requests from the Config

@@ -97,7 +97,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			// If the current plugin is a MetadataCollector, bookmark it for later use. This loop traverses the plugin
 			// list backwards, so the first MetadataCollector plugin wins.
 			if mdc, ok := stack.(MetadataCollector); ok {
-				site.metaCollector = &mdc
+				site.metaCollector = mdc
 			}
 
 			if s.trace == nil && stack.Name() == "trace" {
@@ -275,7 +275,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 				if h.metaCollector != nil {
 					// Collect metadata now, so it can be used before we send a request down the plugin chain.
-					ctx = (*h.metaCollector).Collect(ctx, request.Request{Req: r, W: w})
+					ctx = h.metaCollector.Collect(ctx, request.Request{Req: r, W: w})
 				}
 
 				// If all filter funcs pass, use this config.
@@ -324,7 +324,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 			if h.metaCollector != nil {
 				// Collect metadata now, so it can be used before we send a request down the plugin chain.
-				ctx = (*h.metaCollector).Collect(ctx, request.Request{Req: r, W: w})
+				ctx = h.metaCollector.Collect(ctx, request.Request{Req: r, W: w})
 			}
 
 			// If all filter funcs pass, use this config.
