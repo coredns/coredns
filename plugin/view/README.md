@@ -81,7 +81,7 @@ Note that the regex pattern is enclosed in single quotes, and backslashes are es
 ```
 . {
   view example {
-    expr name() matches '^abc\\..*\\.example\.com\.$'
+    expr name() matches '^abc\\..*\\.example\\.com\\.$'
   }
   forward . 10.0.0.2
 }
