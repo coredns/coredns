@@ -17,7 +17,7 @@ view NAME {
 ```
 
 * `view` **NAME** - The name of the view used by metrics and exported as metadata for requests that match the
-  view's expression 
+  view's expression
 * `expr` **EXPRESSION** - CoreDNS will only route incoming queries to the enclosing server block
   if the **EXPRESSION** evaluates to true. See the **Expressions** section for available variables and functions.
   If multiple instances of view are defined, all **EXPRESSION** must evaluate to true for CoreDNS will only route

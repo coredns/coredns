@@ -22,7 +22,7 @@ type Cache struct {
 	Zones []string
 
 	zonesMetricLabel string
-	viewMetricLabel string
+	viewMetricLabel  string
 
 	ncache  *cache.Cache
 	ncap    int
