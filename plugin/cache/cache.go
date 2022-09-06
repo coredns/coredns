@@ -22,6 +22,7 @@ type Cache struct {
 	Zones []string
 
 	zonesMetricLabel string
+	viewMetricLabel string
 
 	ncache  *cache.Cache
 	ncap    int
@@ -177,11 +178,11 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	if hasKey && duration > 0 {
 		if w.state.Match(res) {
 			w.set(res, key, mt, duration)
-			cacheSize.WithLabelValues(w.server, Success, w.zonesMetricLabel).Set(float64(w.pcache.Len()))
-			cacheSize.WithLabelValues(w.server, Denial, w.zonesMetricLabel).Set(float64(w.ncache.Len()))
+			cacheSize.WithLabelValues(w.server, Success, w.zonesMetricLabel, w.viewMetricLabel).Set(float64(w.pcache.Len()))
+			cacheSize.WithLabelValues(w.server, Denial, w.zonesMetricLabel, w.viewMetricLabel).Set(float64(w.ncache.Len()))
 		} else {
 			// Don't log it, but increment counter
-			cacheDrops.WithLabelValues(w.server, w.zonesMetricLabel).Inc()
+			cacheDrops.WithLabelValues(w.server, w.zonesMetricLabel, w.viewMetricLabel).Inc()
 		}
 	}
 
@@ -219,7 +220,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 			i.wildcard = w.wildcardFunc()
 		}
 		if w.pcache.Add(key, i) {
-			evictions.WithLabelValues(w.server, Success, w.zonesMetricLabel).Inc()
+			evictions.WithLabelValues(w.server, Success, w.zonesMetricLabel, w.viewMetricLabel).Inc()
 		}
 		// when pre-fetching, remove the negative cache entry if it exists
 		if w.prefetch {
@@ -236,7 +237,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 			i.wildcard = w.wildcardFunc()
 		}
 		if w.ncache.Add(key, i) {
-			evictions.WithLabelValues(w.server, Denial, w.zonesMetricLabel).Inc()
+			evictions.WithLabelValues(w.server, Denial, w.zonesMetricLabel, w.viewMetricLabel).Inc()
 		}
 
 	case response.OtherError:

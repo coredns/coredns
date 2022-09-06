@@ -60,7 +60,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 			cw := newPrefetchResponseWriter(server, state, c)
 			go c.doPrefetch(ctx, state, cw, i, now)
 		}
-		servedStale.WithLabelValues(server, c.zonesMetricLabel).Inc()
+		servedStale.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	} else if c.shouldPrefetch(i, now) {
 		cw := newPrefetchResponseWriter(server, state, c)
 		go c.doPrefetch(ctx, state, cw, i, now)
@@ -89,7 +89,7 @@ func wildcardFunc(ctx context.Context) func() string {
 }
 
 func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time) {
-	cachePrefetches.WithLabelValues(cw.server, c.zonesMetricLabel).Inc()
+	cachePrefetches.WithLabelValues(cw.server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	c.doRefresh(ctx, state, cw)
 
 	// When prefetching we loose the item i, and with it the frequency
@@ -122,13 +122,13 @@ func (c *Cache) Name() string { return "cache" }
 // getIgnoreTTL unconditionally returns an item if it exists in the cache.
 func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
 	k := hash(state.Name(), state.QType())
-	cacheRequests.WithLabelValues(server, c.zonesMetricLabel).Inc()
+	cacheRequests.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok {
 		itm := i.(*item)
 		ttl := itm.ttl(now)
 		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
-			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel).Inc()
+			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 			return i.(*item)
 		}
 	}
@@ -136,11 +136,11 @@ func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string
 		itm := i.(*item)
 		ttl := itm.ttl(now)
 		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
-			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel).Inc()
+			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 			return i.(*item)
 		}
 	}
-	cacheMisses.WithLabelValues(server, c.zonesMetricLabel).Inc()
+	cacheMisses.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	return nil
 }
 

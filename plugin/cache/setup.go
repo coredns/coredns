@@ -23,6 +23,7 @@ func setup(c *caddy.Controller) error {
 	if err != nil {
 		return plugin.Error("cache", err)
 	}
+	ca.viewMetricLabel = dnsserver.GetConfig(c).ViewName
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		ca.Next = next
 		return ca
