@@ -67,9 +67,13 @@ auth.zone {
 
 ## Bugs
 
+### Secondary
+
+TSIG transfers are not yet implemented for the *secondary* plugin.  The *secondary* plugin will not sign its zone transfer requests.
+
 ### Zone Transfer Notifies
 
-With the transfer plugin, zone transfer notifications from CoreDNS are not TSIG signed.
+With the *transfer* plugin, zone transfer notifications from CoreDNS are not TSIG signed.
 
 ### Special Considerations for Forwarding Servers (RFC 8945 5.5)
 
