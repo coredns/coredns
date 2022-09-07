@@ -1,4 +1,4 @@
-// Package bufsize implements a plugin that modifies EDNS0 buffer size.
+// Package bufsize implements a plugin that clamps EDNS0 buffer size preventing packet fragmentation.
 package bufsize
 
 import (
@@ -17,10 +17,9 @@ type Bufsize struct {
 
 // ServeDNS implements the plugin.Handler interface.
 func (buf Bufsize) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	if option := r.IsEdns0(); option != nil {
+	if option := r.IsEdns0(); option != nil && int(option.UDPSize()) > buf.Size {
 		option.SetUDPSize(uint16(buf.Size))
 	}
-
 	return plugin.NextOrFailure(buf.Name(), buf.Next, ctx, w, r)
 }
 

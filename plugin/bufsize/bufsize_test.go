@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/plugin/whoami"
 
@@ -12,69 +11,92 @@ import (
 )
 
 func TestBufsize(t *testing.T) {
-	em := Bufsize{
-		Size: 512,
+	const maxBufSize = 1024
+
+	setUpWithRequestBufsz := func(bufferSize uint16) (Bufsize, *dns.Msg) {
+		p := Bufsize{
+			Size: maxBufSize,
+			Next: whoami.Whoami{},
+		}
+		r := new(dns.Msg)
+		r.SetQuestion(dns.Fqdn("."), dns.TypeA)
+		r.Question[0].Qclass = dns.ClassINET
+		if bufferSize > 0 {
+			r.SetEdns0(bufferSize, false)
+		}
+		return p, r
 	}
 
-	tests := []struct {
-		next            plugin.Handler
-		qname           string
-		inputBufsize    uint16
-		outgoingBufsize uint16
-		expectedErr     error
-	}{
-		// This plugin is responsible for limiting outgoing query's bufize
-		{
-			next:            whoami.Whoami{},
-			qname:           ".",
-			inputBufsize:    1200,
-			outgoingBufsize: 512,
-			expectedErr:     nil,
-		},
-		// If EDNS is not enabled, this plugin should not add it
-		{
-			next:            whoami.Whoami{},
-			qname:           ".",
-			outgoingBufsize: 512,
-			expectedErr:     nil,
-		},
-	}
+	t.Run("Limit response buffer size", func(t *testing.T) {
+		// GIVEN
+		//		plugin initialized with maximum buffer size
+		//		request has larger buffer size than allowed
+		p, r := setUpWithRequestBufsz(maxBufSize + 128)
 
-	for i, tc := range tests {
-		req := new(dns.Msg)
-		req.SetQuestion(dns.Fqdn(tc.qname), dns.TypeA)
-		req.Question[0].Qclass = dns.ClassINET
-		em.Next = tc.next
+		// WHEN
+		//		request is processed
+		_, err := p.ServeDNS(context.Background(), &test.ResponseWriter{}, r)
 
-		if tc.inputBufsize != 0 {
-			req.SetEdns0(tc.inputBufsize, false)
+		// THEN
+		//		no error
+		//		OPT RR present
+		//		request buffer size is limited
+		if err != nil {
+			t.Errorf("unexpected error %s", err)
 		}
-
-		_, err := em.ServeDNS(context.Background(), &test.ResponseWriter{}, req)
-
-		if err != tc.expectedErr {
-			t.Errorf("Test %d: Expected error is %v, but got %v", i, tc.expectedErr, err)
+		option := r.IsEdns0()
+		if option == nil {
+			t.Errorf("OPT RR not present")
 		}
-
-		if tc.outgoingBufsize != 0 {
-			for _, extra := range req.Extra {
-				if option, ok := extra.(*dns.OPT); ok {
-					b := option.UDPSize()
-					if b != tc.outgoingBufsize {
-						t.Errorf("Test %d: Expected outgoing bufsize is %d, but got %d", i, tc.outgoingBufsize, b)
-					}
-				} else {
-					t.Errorf("Test %d: Not found OPT RR.", i)
-				}
-			}
+		if option.UDPSize() != maxBufSize {
+			t.Errorf("buffer size not limited")
 		}
+	})
 
-		if tc.inputBufsize == 0 {
-			for _, extra := range req.Extra {
-				if _, ok := extra.(*dns.OPT); ok {
-					t.Errorf("Test %d: Found OPT RR on reply to query with no OPT RR.", i)
-				}
-			}
+	t.Run("Do not increase response buffer size", func(t *testing.T) {
+		// GIVEN
+		//		plugin initialized with maximum buffer size
+		//		request has smaller buffer size than allowed
+		const smallerBufferSize = maxBufSize - 128
+		p, r := setUpWithRequestBufsz(smallerBufferSize)
+
+		// WHEN
+		//		request is processed
+		_, err := p.ServeDNS(context.Background(), &test.ResponseWriter{}, r)
+
+		// THEN
+		//		no error
+		//		request buffer size is not expanded
+		if err != nil {
+			t.Errorf("unexpected error %s", err)
 		}
-	}
+		option := r.IsEdns0()
+		if option == nil {
+			t.Errorf("OPT RR not present")
+		}
+		if option.UDPSize() != smallerBufferSize {
+			t.Errorf("buffer size should not be increased")
+		}
+	})
+
+	t.Run("Buffer size should not be set", func(t *testing.T) {
+		// GIVEN
+		//		plugin initialized with maximum buffer size
+		//		request has no EDNS0 option set
+		p, r := setUpWithRequestBufsz(0)
+
+		// WHEN
+		//		request is processed
+		_, err := p.ServeDNS(context.Background(), &test.ResponseWriter{}, r)
+
+		// THEN
+		//		no error
+		//		OPT RR is not appended
+		if err != nil {
+			t.Errorf("unexpected error %s", err)
+		}
+		if r.IsEdns0() != nil {
+			t.Errorf("EDNS0 enabled for incoming request")
+		}
+	})
 }
