@@ -8,7 +8,7 @@ author = "coredns"
 +++
 
 This is a release with many new features. The most notable addition is a new plugin tsig for validating
-TSIG requests and signing responses. This release also adds lots of enhancements and bug fixes. 
+TSIG requests and signing responses. This release also adds lots of enhancements and bug fixes.
 
 ## Brought to You By
 
