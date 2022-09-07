@@ -2,12 +2,15 @@
 
 ## Name
 
-*tsig* - validate incoming TSIG signed requests and sign responses.
+*tsig* - define TSIG keys, validate incoming TSIG signed requests and sign responses.
 
 ## Description
 
-With *tsig*, you can define a set of TSIG secret keys for validating incoming TSIG requests and signing
-responses. It can also require that imcoming requests be signed for certain query types, refusing requests that do not comply.
+With *tsig*, you can define CoreDNS's TSIG secret keys. Using those keys, *tsig* validates incoming TSIG requests and signs
+responses to those requests. It does not itself sign requests outgoing from CoreDNS; it is up to the
+respective plugins sending those requests to sign them using the keys defined by *tsig*.
+
+The *tsig* plugin can also require that incoming requests be signed for certain query types, refusing requests that do not comply.
 
 ## Syntax
 
