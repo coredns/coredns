@@ -2,12 +2,12 @@
 
 ## Name
 
-*tsig* - validate TSIG requests and sign responses.
+*tsig* - validate incoming TSIG signed requests and sign responses.
 
 ## Description
 
 With *tsig*, you can define a set of TSIG secret keys for validating incoming TSIG requests and signing
-responses. It can also require TSIG for certain query types, refusing requests that do not comply.
+responses. It can also require that imcoming requests be signed for certain query types, refusing requests that do not comply.
 
 ## Syntax
 
