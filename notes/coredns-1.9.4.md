@@ -8,7 +8,8 @@ author = "coredns"
 +++
 
 This is a release with many new features. The most notable addition is a new plugin tsig for validating
-TSIG requests and signing responses. This release also adds lots of enhancements and bug fixes.
+TSIG requests and signing responses. In header plugin a selector of `query` or `response` (default) is added for
+applying the actions. This release also adds lots of enhancements and bug fixes.
 
 ## Brought to You By
 
