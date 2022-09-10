@@ -54,6 +54,10 @@ Each resource record is a full-featured [Go template](https://golang.org/pkg/tex
 * `.Meta` a function that takes a metadata name and returns the value, if the
   metadata plugin is enabled. For example, `.Meta "kubernetes/client-namespace"`
 
+and the following predefined [template functions](https://golang.org/pkg/text/template#hdr-Functions)
+
+* `parseInt` interprets a string in the given base and bit size. Equivalent to [strconv.ParseUint](https://golang.org/pkg/strconv#ParseUint).
+
 The output of the template must be a [RFC 1035](https://tools.ietf.org/html/rfc1035) style resource record (commonly referred to as a "zone file").
 
 **WARNING** there is a syntactical problem with Go templates and CoreDNS config files. Expressions
@@ -176,6 +180,23 @@ Note that the A record is actually a wildcard: any subdomain of the IP address w
 Having templates to map certain PTR/A pairs is a common pattern.
 
 Fallthrough is needed for mixed domains where only some responses are templated.
+
+### Resolve hexadecimal ip pattern using parseInt
+
+~~~ corefile
+. {
+    forward . 8.8.8.8
+
+    template IN A example {
+      match "^ip0a(?P<b>[a-f0-9]{2})(?P<c>[a-f0-9]{2})(?P<d>[a-f0-9]{2})[.]example[.]$"
+      answer "{{ .Name }} 60 IN A 10.{{ parseInt .Group.b 16 8 }}.{{ parseInt .Group.c 16 8 }}.{{ parseInt .Group.d 16 8 }}"
+      fallthrough
+    }
+}
+~~~
+
+An IPv4 address can be expressed in a more compact form using its hexadecimal encoding.
+For example `ip-10-123-123.example.` can instead be expressed as `ip0a7b7b7b.example.`
 
 ### Resolve multiple ip patterns
 

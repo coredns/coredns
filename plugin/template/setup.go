@@ -2,6 +2,7 @@ package template
 
 import (
 	"regexp"
+	"strconv"
 	gotmpl "text/template"
 
 	"github.com/coredns/caddy"
@@ -30,6 +31,10 @@ func setupTemplate(c *caddy.Controller) error {
 
 func templateParse(c *caddy.Controller) (handler Handler, err error) {
 	handler.Templates = make([]template, 0)
+
+	funcMap := gotmpl.FuncMap{
+		"parseInt": strconv.ParseUint,
+	}
 
 	for c.Next() {
 		if !c.NextArg() {
@@ -80,7 +85,7 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 					return handler, c.ArgErr()
 				}
 				for _, answer := range args {
-					tmpl, err := gotmpl.New("answer").Parse(answer)
+					tmpl, err := gotmpl.New("answer").Funcs(funcMap).Parse(answer)
 					if err != nil {
 						return handler, c.Errf("could not compile template: %s, %v", c.Val(), err)
 					}
@@ -93,7 +98,7 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 					return handler, c.ArgErr()
 				}
 				for _, additional := range args {
-					tmpl, err := gotmpl.New("additional").Parse(additional)
+					tmpl, err := gotmpl.New("additional").Funcs(funcMap).Parse(additional)
 					if err != nil {
 						return handler, c.Errf("could not compile template: %s, %v\n", c.Val(), err)
 					}
@@ -106,7 +111,7 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 					return handler, c.ArgErr()
 				}
 				for _, authority := range args {
-					tmpl, err := gotmpl.New("authority").Parse(authority)
+					tmpl, err := gotmpl.New("authority").Funcs(funcMap).Parse(authority)
 					if err != nil {
 						return handler, c.Errf("could not compile template: %s, %v\n", c.Val(), err)
 					}

@@ -83,6 +83,20 @@ func TestSetupParse(t *testing.T) {
 			}`,
 			true,
 		},
+		{
+			`template ANY ANY {
+				answer "{{ notAFunction }}"
+			}`,
+			true,
+		},
+		{
+			`template ANY ANY {
+				answer "{{ parseInt }}"
+				additional "{{ parseInt }}"
+				authority "{{ parseInt }}"
+			}`,
+			false,
+		},
 		// examples
 		{`template ANY ANY (?P<x>`, false},
 		{
@@ -125,6 +139,13 @@ func TestSetupParse(t *testing.T) {
 				match ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$
 				answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
 				additional "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"
+			}`,
+			false,
+		},
+		{
+			`template IN A example {
+				match ^ip0a(?P<b>[a-f0-9]{2})(?P<c>[a-f0-9]{2})(?P<d>[a-f0-9]{2})[.]example[.]$
+				answer "{{ .Name }} 3600 IN A 10.{{ parseInt .Group.b 16 8 }}.{{ parseInt .Group.c 16 8 }}.{{ parseInt .Group.d 16 8 }}"
 			}`,
 			false,
 		},
