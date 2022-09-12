@@ -75,7 +75,7 @@ RulesCheckLoop:
 				ede := dns.EDNS0_EDE{InfoCode: dns.ExtendedErrorCodeBlocked}
 				m.IsEdns0().Option = append(m.IsEdns0().Option, &ede)
 				w.WriteMsg(m)
-				RequestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone).Inc()
+				RequestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
 				return dns.RcodeSuccess, nil
 			}
 		case actionAllow:
@@ -90,13 +90,13 @@ RulesCheckLoop:
 				ede := dns.EDNS0_EDE{InfoCode: dns.ExtendedErrorCodeFiltered}
 				m.IsEdns0().Option = append(m.IsEdns0().Option, &ede)
 				w.WriteMsg(m)
-				RequestFilterCount.WithLabelValues(metrics.WithServer(ctx), zone).Inc()
+				RequestFilterCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
 				return dns.RcodeSuccess, nil
 			}
 		}
 	}
 
-	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
+	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx), metrics.WithView(ctx)).Inc()
 	return plugin.NextOrFailure(state.Name(), a.Next, ctx, w, r)
 }
 
