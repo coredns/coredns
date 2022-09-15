@@ -284,7 +284,7 @@ func TestHandler(t *testing.T) {
 			qtype:        dns.TypeANY,
 			qname:        "test.example.",
 			expectedCode: dns.RcodeServerFailure,
-			expectedErr: "template: answer:1:26: executing \"answer\" at <parseInt \"gg\" 16 8>: error calling parseInt: strconv.ParseUint: parsing \"gg\": invalid syntax",
+			expectedErr:  "template: answer:1:26: executing \"answer\" at <parseInt \"gg\" 16 8>: error calling parseInt: strconv.ParseUint: parsing \"gg\": invalid syntax",
 			verifyResponse: func(r *dns.Msg) error {
 				return nil
 			},

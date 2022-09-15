@@ -151,10 +151,10 @@ func executeRRTemplate(server, view, section string, template *gotmpl.Template, 
 }
 
 func newTemplate(name, text string) (*gotmpl.Template, error) {
-  funcMap := gotmpl.FuncMap{
-    "parseInt": strconv.ParseUint,
-  }
-  return gotmpl.New(name).Funcs(funcMap).Parse(text)
+	funcMap := gotmpl.FuncMap{
+		"parseInt": strconv.ParseUint,
+	}
+	return gotmpl.New(name).Funcs(funcMap).Parse(text)
 }
 
 func (t template) match(ctx context.Context, state request.Request) (*templateData, bool, bool) {
