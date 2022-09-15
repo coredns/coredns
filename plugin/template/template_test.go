@@ -19,7 +19,15 @@ import (
 func TestHandler(t *testing.T) {
 	exampleDomainATemplate := template{
 		regex:  []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
-		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
+		qclass: dns.ClassANY,
+		qtype:  dns.TypeANY,
+		fall:   fall.Root,
+		zones:  []string{"."},
+	}
+	exampleDomainAParseIntTemplate := template{
+		regex:  []*regexp.Regexp{regexp.MustCompile("^ip0a(?P<b>[a-f0-9]{2})(?P<c>[a-f0-9]{2})(?P<d>[a-f0-9]{2})[.]example[.]$")},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }} 60 IN A 10.{{ parseInt .Group.b 16 8 }}.{{ parseInt .Group.c 16 8 }}.{{ parseInt .Group.d 16 8 }}"))},
 		qclass: dns.ClassANY,
 		qtype:  dns.TypeANY,
 		fall:   fall.Root,
@@ -27,7 +35,7 @@ func TestHandler(t *testing.T) {
 	}
 	exampleDomainIPATemplate := template{
 		regex:  []*regexp.Regexp{regexp.MustCompile(".*")},
-		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A {{ .Remote }}"))},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }} 60 IN A {{ .Remote }}"))},
 		qclass: dns.ClassINET,
 		qtype:  dns.TypeA,
 		fall:   fall.Root,
@@ -35,9 +43,9 @@ func TestHandler(t *testing.T) {
 	}
 	exampleDomainANSTemplate := template{
 		regex:      []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
-		answer:     []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
-		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("additional").Parse("ns0.example. IN A 203.0.113.8"))},
-		authority:  []*gotmpl.Template{gotmpl.Must(gotmpl.New("authority").Parse("example. IN NS ns0.example.com."))},
+		answer:     []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
+		additional: []*gotmpl.Template{gotmpl.Must(newTemplate("additional", "ns0.example. IN A 203.0.113.8"))},
+		authority:  []*gotmpl.Template{gotmpl.Must(newTemplate("authority", "example. IN NS ns0.example.com."))},
 		qclass:     dns.ClassANY,
 		qtype:      dns.TypeANY,
 		fall:       fall.Root,
@@ -45,8 +53,8 @@ func TestHandler(t *testing.T) {
 	}
 	exampleDomainMXTemplate := template{
 		regex:      []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
-		answer:     []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 MX 10 {{ .Name }}"))},
-		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("additional").Parse("{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
+		answer:     []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }} 60 MX 10 {{ .Name }}"))},
+		additional: []*gotmpl.Template{gotmpl.Must(newTemplate("additional", "{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}"))},
 		qclass:     dns.ClassANY,
 		qtype:      dns.TypeANY,
 		fall:       fall.Root,
@@ -55,7 +63,7 @@ func TestHandler(t *testing.T) {
 	invalidDomainTemplate := template{
 		regex:  []*regexp.Regexp{regexp.MustCompile("[.]invalid[.]$")},
 		rcode:  dns.RcodeNameError,
-		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("invalid. 60 {{ .Class }} SOA a.invalid. b.invalid. (1 60 60 60 60)"))},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "invalid. 60 {{ .Class }} SOA a.invalid. b.invalid. (1 60 60 60 60)"))},
 		qclass: dns.ClassANY,
 		qtype:  dns.TypeANY,
 		fall:   fall.Root,
@@ -71,7 +79,15 @@ func TestHandler(t *testing.T) {
 	}
 	brokenTemplate := template{
 		regex:  []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
-		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }} 60 IN TXT \"{{ index .Match 2 }}\""))},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }} 60 IN TXT \"{{ index .Match 2 }}\""))},
+		qclass: dns.ClassANY,
+		qtype:  dns.TypeANY,
+		fall:   fall.Root,
+		zones:  []string{"."},
+	}
+	brokenParseIntTemplate := template{
+		regex:  []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }} 60 IN TXT \"{{ parseInt \"gg\" 16 8 }}\""))},
 		qclass: dns.ClassANY,
 		qtype:  dns.TypeANY,
 		fall:   fall.Root,
@@ -79,7 +95,7 @@ func TestHandler(t *testing.T) {
 	}
 	nonRRTemplate := template{
 		regex:  []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
-		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }}"))},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }}"))},
 		qclass: dns.ClassANY,
 		qtype:  dns.TypeANY,
 		fall:   fall.Root,
@@ -87,7 +103,7 @@ func TestHandler(t *testing.T) {
 	}
 	nonRRAdditionalTemplate := template{
 		regex:      []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
-		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("{{ .Name }}"))},
+		additional: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }}"))},
 		qclass:     dns.ClassANY,
 		qtype:      dns.TypeANY,
 		fall:       fall.Root,
@@ -95,7 +111,7 @@ func TestHandler(t *testing.T) {
 	}
 	nonRRAuthoritativeTemplate := template{
 		regex:     []*regexp.Regexp{regexp.MustCompile("[.]example[.]$")},
-		authority: []*gotmpl.Template{gotmpl.Must(gotmpl.New("authority").Parse("{{ .Name }}"))},
+		authority: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "{{ .Name }}"))},
 		qclass:    dns.ClassANY,
 		qtype:     dns.TypeANY,
 		fall:      fall.Root,
@@ -103,7 +119,7 @@ func TestHandler(t *testing.T) {
 	}
 	cnameTemplate := template{
 		regex:  []*regexp.Regexp{regexp.MustCompile("example[.]net[.]")},
-		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse("example.net 60 IN CNAME target.example.com"))},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", "example.net 60 IN CNAME target.example.com"))},
 		qclass: dns.ClassANY,
 		qtype:  dns.TypeANY,
 		fall:   fall.Root,
@@ -111,9 +127,9 @@ func TestHandler(t *testing.T) {
 	}
 	mdTemplate := template{
 		regex:      []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
-		answer:     []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse(`{{ .Meta "foo" }}-{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}`))},
-		additional: []*gotmpl.Template{gotmpl.Must(gotmpl.New("additional").Parse(`{{ .Meta "bar" }}.example. IN A 203.0.113.8`))},
-		authority:  []*gotmpl.Template{gotmpl.Must(gotmpl.New("authority").Parse(`example. IN NS {{ .Meta "bar" }}.example.com.`))},
+		answer:     []*gotmpl.Template{gotmpl.Must(newTemplate("answer", `{{ .Meta "foo" }}-{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}`))},
+		additional: []*gotmpl.Template{gotmpl.Must(newTemplate("additional", `{{ .Meta "bar" }}.example. IN A 203.0.113.8`))},
+		authority:  []*gotmpl.Template{gotmpl.Must(newTemplate("authority", `example. IN NS {{ .Meta "bar" }}.example.com.`))},
 		qclass:     dns.ClassANY,
 		qtype:      dns.TypeANY,
 		fall:       fall.Root,
@@ -121,7 +137,7 @@ func TestHandler(t *testing.T) {
 	}
 	mdMissingTemplate := template{
 		regex:  []*regexp.Regexp{regexp.MustCompile("(^|[.])ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$")},
-		answer: []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse(`{{ .Meta "foofoo" }}{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}`))},
+		answer: []*gotmpl.Template{gotmpl.Must(newTemplate("answer", `{{ .Meta "foofoo" }}{{ .Name }} 60 IN A 10.{{ .Group.b }}.{{ .Group.c }}.{{ .Group.d }}`))},
 		qclass: dns.ClassANY,
 		qtype:  dns.TypeANY,
 		fall:   fall.Root,
@@ -239,6 +255,37 @@ func TestHandler(t *testing.T) {
 				if r.Answer[0].(*dns.A).A.String() != "10.95.12.8" {
 					return fmt.Errorf("expected an A record for 10.95.12.8, got %v", r.Answer[0].String())
 				}
+				return nil
+			},
+		},
+		{
+			name:   "ExampleDomainMatchHexIp",
+			tmpl:   exampleDomainAParseIntTemplate,
+			qclass: dns.ClassINET,
+			qtype:  dns.TypeA,
+			qname:  "ip0a5f0c09.example.",
+			verifyResponse: func(r *dns.Msg) error {
+				if len(r.Answer) != 1 {
+					return fmt.Errorf("expected 1 answer, got %v", len(r.Answer))
+				}
+				if r.Answer[0].Header().Rrtype != dns.TypeA {
+					return fmt.Errorf("expected an A record answer, got %v", dns.TypeToString[r.Answer[0].Header().Rrtype])
+				}
+				if r.Answer[0].(*dns.A).A.String() != "10.95.12.9" {
+					return fmt.Errorf("expected an A record for 10.95.12.9, got %v", r.Answer[0].String())
+				}
+				return nil
+			},
+		},
+		{
+			name:         "BrokenParseIntTemplate",
+			tmpl:         brokenParseIntTemplate,
+			qclass:       dns.ClassINET,
+			qtype:        dns.TypeANY,
+			qname:        "test.example.",
+			expectedCode: dns.RcodeServerFailure,
+			expectedErr: "template: answer:1:26: executing \"answer\" at <parseInt \"gg\" 16 8>: error calling parseInt: strconv.ParseUint: parsing \"gg\": invalid syntax",
+			verifyResponse: func(r *dns.Msg) error {
 				return nil
 			},
 		},

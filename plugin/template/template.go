@@ -150,6 +150,13 @@ func executeRRTemplate(server, section string, template *gotmpl.Template, data *
 	return rr, nil
 }
 
+func newTemplate(name, text string) (*gotmpl.Template, error) {
+  funcMap := gotmpl.FuncMap{
+    "parseInt": strconv.ParseUint,
+  }
+  return gotmpl.New(name).Funcs(funcMap).Parse(text)
+}
+
 func (t template) match(ctx context.Context, state request.Request) (*templateData, bool, bool) {
 	q := state.Req.Question[0]
 	data := &templateData{md: metadata.ValueFuncs(ctx), Remote: state.IP()}
