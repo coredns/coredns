@@ -3,11 +3,9 @@ run:
 linters:
   disable-all: true
   enable:
-    - deadcode
     - govet
     - ineffassign
     - staticcheck
-    - structcheck
     - typecheck
-    - varcheck
     - whitespace
+    - unused
