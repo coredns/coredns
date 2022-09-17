@@ -118,7 +118,7 @@ functions defined below.
 * `port() string`: client's port
 * `proto() string`: protocol used (tcp or udp)
 * `server_ip() string`: server's IP address; for IPv6 addresses these are enclosed in brackets: `[::1]`
-* `server_port() string` : client's port
+* `server_port() string` : server's port
 * `size() int`: request size in bytes
 * `type() string`: type of the request (A, AAAA, TXT, ...)
 
