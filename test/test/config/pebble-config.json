@@ -1,0 +1,10 @@
+{
+  "pebble": {
+    "listenAddress": "0.0.0.0:14963",
+    "managementListenAddress": "0.0.0.0:15963",
+    "certificate": "test/certs/localhost/cert.pem",
+    "privateKey": "test/certs/localhost/key.pem",
+    "ocspResponderURL": "",
+    "externalAccountBindingRequired": false
+  }
+}

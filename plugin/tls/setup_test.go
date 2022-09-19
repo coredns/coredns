@@ -16,7 +16,9 @@ func TestTLS(t *testing.T) {
 		expectedRoot       string // expected root, set to the controller. Empty for negative cases.
 		expectedErrContent string // substring from the expected error. Empty for positive cases.
 	}{
+		// regular tls
 		// positive
+		{"tls test_cert.pem test_key.pem", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth nocert\n}", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth request\n}", false, "", ""},
@@ -29,6 +31,17 @@ func TestTLS(t *testing.T) {
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth\n}", true, "", "Wrong argument"},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth none bogus\n}", true, "", "Wrong argument"},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth bogus\n}", true, "", "unknown authentication type"},
+
+		// acme
+		// positive
+        {"tls acme {\ndomain example.com\nca localhost:14963\n}", false, "", ""},
+		{"tls acme {\ndomain example.com\nca localhost:14963\n}", false, "", ""},
+		// negative
+		{"tls acme {\nunknown\n}", true, "", "unknown argument to acme"},
+		{"tls acme {\ndomain none none\n}", true, "", "Too many arguments to domain"},
+		{"tls acme {\ndomain example.com\n ca none none\n}", true, "", "Too many arguments to ca"},
+		{"tls acme {\ndomain example.com\n certpath none none\n}", true, "", "Too many arguments to certpath"},
+		{"tls acme {\ndomain example.com\n port none none\n}", true, "", "Too many arguments to port"},
 	}
 
 	for i, test := range tests {
