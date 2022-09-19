@@ -17,8 +17,10 @@ Abirdcfly
 Alex
 AndreasHuber-CH
 Andy Lindeman
+Chris Narkiewicz
 Chris O'Haver
 Christoph Heer
+Daniel Jolly
 Konstantin Demin
 Marius Kimmina
 Md Sahil
@@ -35,10 +37,12 @@ Yong Tang
 * core: log DoH HTTP server error logs in CoreDNS format (https://github.com/coredns/coredns/pull/5457)
 * core: warn when domain names are not in RFC1035 preferred syntax (https://github.com/coredns/coredns/pull/5414)
 * plugin/acl: add support for extended DNS errors (https://github.com/coredns/coredns/pull/5532)
+* plugin/bufsize: do not expand query UDP buffer size if already set to a smaller value (https://github.com/coredns/coredns/pull/5602)
 * plugin/cache: add cache disable option (https://github.com/coredns/coredns/pull/5540)
 * plugin/cache: add metadata for wildcard record responses (https://github.com/coredns/coredns/pull/5308)
 * plugin/cache: add option to adjust SERVFAIL response cache TTL (https://github.com/coredns/coredns/pull/5320)
 * plugin/cache: correct responses to Authenticated Data requests (https://github.com/coredns/coredns/pull/5191)
+* plugin/dnstap: add identity and version support for the dnstap plugin (https://github.com/coredns/coredns/pull/5555)
 * plugin/file: add metadata for wildcard record responses (https://github.com/coredns/coredns/pull/5308)
 * plugin/forward: enable multiple forward declarations (https://github.com/coredns/coredns/pull/5127)
 * plugin/forward: health_check needs to normalize a specified domain name (https://github.com/coredns/coredns/pull/5543)
