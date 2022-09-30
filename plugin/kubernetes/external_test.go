@@ -28,7 +28,7 @@ var extCases = []struct {
 	{
 		Qname: "svc6.testns.example.org.", Rcode: dns.RcodeSuccess,
 		Msg: []msg.Service{
-			{Host: "1:2::5", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc1"},
+			{Host: "1:2::5", Port: 80, TTL: 5, Key: "/c/org/example/testns/svc6"},
 		},
 	},
 	{
@@ -46,14 +46,14 @@ var extCases = []struct {
 	{
 		Qname: "svc-headless.testns.example.com.", Rcode: dns.RcodeSuccess,
 		Msg: []msg.Service{
-			{Host: "1.2.3.4", Port: 80, TTL: 5, Weight: 50, Key: "/c/org/example/testns/svc-headless"},
-			{Host: "1.2.3.5", Port: 80, TTL: 5, Weight: 50, Key: "/c/org/example/testns/svc-headless"},
+			{Host: "1.2.3.4", Port: 80, TTL: 5, Weight: 50, Key: "/c/org/example/testns/svc-headless/endpoint-svc-0"},
+			{Host: "1.2.3.5", Port: 80, TTL: 5, Weight: 50, Key: "/c/org/example/testns/svc-headless/endpoint-svc-1"},
 		},
 	},
 	{
-		Qname: "endpoint-0.svc-headless.testns.example.com.", Rcode: dns.RcodeSuccess,
+		Qname: "endpoint-svc-0.svc-headless.testns.example.com.", Rcode: dns.RcodeSuccess,
 		Msg: []msg.Service{
-			{Host: "1.2.3.4", Port: 80, TTL: 5, Weight: 100, Key: "/c/org/example/testns/svc-headless/endpoint-0"},
+			{Host: "1.2.3.4", Port: 80, TTL: 5, Weight: 100, Key: "/c/org/example/testns/svc-headless/endpoint-svc-0"},
 		},
 	},
 	{
@@ -84,7 +84,6 @@ func TestExternal(t *testing.T) {
 			if x := tc.Msg[j].Key; x != s.Key {
 				t.Errorf("Test %d, expected key %s, got %s", i, x, s.Key)
 			}
-			return
 		}
 	}
 }

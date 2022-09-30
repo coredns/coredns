@@ -116,6 +116,7 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 							if !(matchPortAndProtocol(port, p.Name, protocol, p.Protocol)) {
 								continue
 							}
+							rcode = dns.RcodeSuccess
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
 							s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
 
