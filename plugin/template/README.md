@@ -17,6 +17,7 @@ template CLASS TYPE [ZONE...] {
     additional RR
     authority RR
     rcode CODE
+    ederror EXTENDED_ERROR_CODE [EXTRA_REASON]
     fallthrough [FALLTHROUGH-ZONE...]
 }
 ~~~
@@ -31,6 +32,8 @@ template CLASS TYPE [ZONE...] {
   in a response with an empty answer section.
 * `rcode` **CODE** A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `NOERROR`. Valid response code values are
   per the `RcodeToString` map defined by the `miekg/dns` package in `msg.go`.
+* `ederror` **EXTENDED_ERROR_CODE** is an extended DNS error code as a number defined in `RFC8914` (0, 1, 2,..., 24).
+              **EXTRA_REASON** is an additional string explaining reason for receiving given extended DNS error.
 * `fallthrough` Continue with the next _template_ instance if the _template_'s **ZONE** matches a query name but no regex match.
   If there is no next _template_, continue resolution with the next plugin. If **[FALLTHROUGH-ZONE...]** are listed (for example
   `in-addr.arpa` and `ip6.arpa`), then only queries for those zones will be subject to fallthrough. Without
@@ -104,6 +107,7 @@ The `.invalid` domain is a reserved TLD (see [RFC 2606 Reserved Top Level DNS Na
     template ANY ANY invalid {
       rcode NXDOMAIN
       authority "invalid. 60 {{ .Class }} SOA ns.invalid. hostmaster.invalid. (1 60 60 60 60)"
+      ederror 21 "Blocked according to RFC2606"
     }
 }
 ~~~

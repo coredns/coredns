@@ -33,8 +33,14 @@ type template struct {
 	authority  []*gotmpl.Template
 	qclass     uint16
 	qtype      uint16
+	ederror    *ederror
 	fall       fall.F
 	upstream   Upstreamer
+}
+
+type ederror struct {
+	code   uint16
+	reason string
 }
 
 // Upstreamer looks up targets of CNAME templates
@@ -123,6 +129,12 @@ func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 				return dns.RcodeServerFailure, err
 			}
 			msg.Ns = append(msg.Ns, rr)
+		}
+
+		if template.ederror != nil {
+			msg = msg.SetEdns0(4096, true)
+			ede := dns.EDNS0_EDE{InfoCode: template.ederror.code, ExtraText: template.ederror.reason}
+			msg.IsEdns0().Option = append(msg.IsEdns0().Option, &ede)
 		}
 
 		w.WriteMsg(msg)

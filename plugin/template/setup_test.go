@@ -161,6 +161,30 @@ func TestSetupParse(t *testing.T) {
 				}`,
 			false,
 		},
+		{
+			`template ANY ANY invalid {
+					rcode NXDOMAIN
+					authority "invalid. 60 {{ .Class }} SOA ns.invalid. hostmaster.invalid. (1 60 60 60 60)"
+					ederror 21 "Blocked according to RFC2606"
+			  	}`,
+			false,
+		},
+		{
+			`template ANY ANY invalid {
+					rcode NXDOMAIN
+					authority "invalid. 60 {{ .Class }} SOA ns.invalid. hostmaster.invalid. (1 60 60 60 60)"
+					ederror invalid "Blocked according to RFC2606"
+			  	}`,
+			true,
+		},
+		{
+			`template ANY ANY invalid {
+					rcode NXDOMAIN
+					authority "invalid. 60 {{ .Class }} SOA ns.invalid. hostmaster.invalid. (1 60 60 60 60)"
+					ederror too many arguments
+			  	}`,
+			true,
+		},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputFileRules)

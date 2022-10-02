@@ -2,6 +2,7 @@ package template
 
 import (
 	"regexp"
+	"strconv"
 	gotmpl "text/template"
 
 	"github.com/coredns/caddy"
@@ -122,6 +123,22 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 					return handler, c.Errf("unknown rcode %s", c.Val())
 				}
 				t.rcode = rcode
+
+			case "ederror":
+				args := c.RemainingArgs()
+				if len(args) != 1 && len(args) != 2 {
+					return handler, c.ArgErr()
+				}
+
+				code, err := strconv.ParseUint(args[0], 10, 16)
+				if err != nil {
+					return handler, c.Errf("error parsing extended DNS error code %s, %v\n", c.Val(), err)
+				}
+				if len(args) == 2 {
+					t.ederror = &ederror{code: uint16(code), reason: args[1]}
+				} else {
+					t.ederror = &ederror{code: uint16(code)}
+				}
 
 			case "fallthrough":
 				t.fall.SetZonesFromArgs(c.RemainingArgs())

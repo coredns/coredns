@@ -143,6 +143,16 @@ func TestHandler(t *testing.T) {
 		fall:   fall.Root,
 		zones:  []string{"."},
 	}
+	templateWithEDE := template{
+		rcode:     dns.RcodeNameError,
+		regex:     []*regexp.Regexp{regexp.MustCompile(".*")},
+		authority: []*gotmpl.Template{gotmpl.Must(newTemplate("authority", "invalid. 60 {{ .Class }} SOA ns.invalid. hostmaster.invalid. (1 60 60 60 60)"))},
+		qclass:    dns.ClassANY,
+		qtype:     dns.TypeANY,
+		fall:      fall.Root,
+		zones:     []string{"."},
+		ederror:   &ederror{code: 21, reason: "Blocked due to RFC2606"},
+	}
 
 	tests := []struct {
 		tmpl           template
@@ -440,6 +450,33 @@ func TestHandler(t *testing.T) {
 			},
 			md: map[string]string{
 				"foo": "myfoo",
+			},
+		},
+		{
+			name:         "EDNS error",
+			tmpl:         templateWithEDE,
+			qclass:       dns.ClassINET,
+			qtype:        dns.TypeA,
+			qname:        "test.invalid.",
+			expectedCode: dns.RcodeNameError,
+			verifyResponse: func(r *dns.Msg) error {
+				if opt := r.IsEdns0(); opt != nil {
+					matched := false
+					for _, ednsopt := range opt.Option {
+						if ede, ok := ednsopt.(*dns.EDNS0_EDE); ok {
+							if ede.InfoCode != dns.ExtendedErrorCodeNotSupported {
+								return fmt.Errorf("unexpected EDE code = %v, want %v", ede.InfoCode, dns.ExtendedErrorCodeNotSupported)
+							}
+							matched = true
+						}
+					}
+					if !matched {
+						t.Error("Error: acl.ServeDNS() missing Extended DNS Error option")
+					}
+				} else {
+					return fmt.Errorf("expected EDNS enabled")
+				}
+				return nil
 			},
 		},
 	}
