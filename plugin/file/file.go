@@ -36,16 +36,35 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	state := request.Request{W: w, Req: r}
 
 	qname := state.Name()
-	// TODO(miek): match the qname better in the map
-	zone := plugin.Zones(f.Zones.Names).Matches(qname)
-	if zone == "" {
-		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
-	}
+        // Making qname search more efficient
+        var z *Zone
 
-	z, ok := f.Zones.Z[zone]
-	if !ok || z == nil {
-		return dns.RcodeServerFailure, nil
-	}
+        zone := ""
+        subdomain := qname
+        off := 0
+        end := false
+
+        for {
+                if y, ok := f.Zones.Z[subdomain]; ok {
+                        z = y
+                        zone = subdomain
+                        break
+                }
+
+                off, end = dns.NextLabel(qname, off)
+                if end {
+                        break
+                }
+                subdomain = qname[off:len(qname) - 1]
+        }
+
+        if zone == "" {
+                return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+        }
+
+        if z == nil {
+                return dns.RcodeServerFailure, nil
+        }
 
 	// If transfer is not loaded, we'll see these, answer with refused (no transfer allowed).
 	if state.QType() == dns.TypeAXFR || state.QType() == dns.TypeIXFR {
