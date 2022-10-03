@@ -1586,11 +1586,10 @@ inet.af/netaddr v0.0.0-20220617031823-097006376321 h1:B4dC8ySKTQXasnjDTMsoCMf1sQ
 inet.af/netaddr v0.0.0-20220617031823-097006376321/go.mod h1:OIezDfdzOgFhuw4HuWapWq2e9l0H9tK4F1j+ETRtF3k=
 k8s.io/api v0.17.0/go.mod h1:npsyOePkeP0CPwyGfXDHxvypiYMJxBWAMpQxCaJ4ZxI=
 k8s.io/api v0.24.4/go.mod h1:42pVfA0NRxrtJhZQOvRSyZcJihzAdU59WBtTjYcB0/M=
-k8s.io/api v0.25.1 h1:yL7du50yc93k17nH/Xe9jujAYrcDkI/i5DL1jPz4E3M=
-k8s.io/api v0.25.1/go.mod h1:hh4itDvrWSJsmeUc28rIFNri8MatNAAxJjKcQmhX6TU=
+k8s.io/api v0.25.2 h1:v6G8RyFcwf0HR5jQGIAYlvtRNrxMJQG1xJzaSeVnIS8=
+k8s.io/api v0.25.2/go.mod h1:qP1Rn4sCVFwx/xIhe+we2cwBLTXNcheRyYXwajonhy0=
 k8s.io/apimachinery v0.17.0/go.mod h1:b9qmWdKlLuU9EBh+06BtLcSf/Mu89rWL33naRxs1uZg=
 k8s.io/apimachinery v0.24.4/go.mod h1:82Bi4sCzVBdpYjyI4jY6aHX+YCUchUIrZrXKedjd2UM=
-k8s.io/apimachinery v0.25.1/go.mod h1:hqqA1X0bsgsxI6dXsJ4HnNTBOmJNxyPp8dw3u2fSHwA=
 k8s.io/apimachinery v0.25.2 h1:WbxfAjCx+AeN8Ilp9joWnyJ6xu9OMeS/fsfjK/5zaQs=
 k8s.io/apimachinery v0.25.2/go.mod h1:hqqA1X0bsgsxI6dXsJ4HnNTBOmJNxyPp8dw3u2fSHwA=
 k8s.io/client-go v0.17.0/go.mod h1:TYgR6EUHs6k45hb6KWjVD6jFZvJV4gHDikv/It0xz+k=
