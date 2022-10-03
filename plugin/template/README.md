@@ -33,7 +33,7 @@ template CLASS TYPE [ZONE...] {
 * `rcode` **CODE** A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `NOERROR`. Valid response code values are
   per the `RcodeToString` map defined by the `miekg/dns` package in `msg.go`.
 * `ederror` **EXTENDED_ERROR_CODE** is an extended DNS error code as a number defined in `RFC8914` (0, 1, 2,..., 24).
-              **EXTRA_REASON** is an additional string explaining reason for receiving given extended DNS error.
+              **EXTRA_REASON** is an additional string explaining the reason for returning the error.
 * `fallthrough` Continue with the next _template_ instance if the _template_'s **ZONE** matches a query name but no regex match.
   If there is no next _template_, continue resolution with the next plugin. If **[FALLTHROUGH-ZONE...]** are listed (for example
   `in-addr.arpa` and `ip6.arpa`), then only queries for those zones will be subject to fallthrough. Without
