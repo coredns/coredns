@@ -31,7 +31,7 @@ type (
 	}
 )
 
-// Making qname search in map
+// Matches implements qname search in a map.
 func (f File) Matches(qname string) (*Zone, string) {
         var z *Zone
         zone := ""
