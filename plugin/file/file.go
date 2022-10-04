@@ -31,16 +31,53 @@ type (
 	}
 )
 
+// Making qname search in map
+func (f File) Matches(qname string) (*Zone, string) {
+        var z *Zone
+        zone := ""
+
+        subdomain := qname
+        off := 0
+        end := false
+
+        for {
+                if y, ok := f.Zones.Z[subdomain]; ok {
+                        z = y
+                        zone = subdomain
+                        break
+                }
+
+                if subdomain == "." {
+                        break
+                }
+
+                off, end = dns.NextLabel(qname, off)
+                if end {
+                        // Last dot should also be checked
+                        subdomain = "."
+                        continue
+                }
+                subdomain = qname[off:len(qname)]
+        }
+
+        return z, zone
+}
+
 // ServeDNS implements the plugin.Handle interface.
 func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
 	qname := state.Name()
-	// TODO(miek): match the qname better in the map
-	zone := plugin.Zones(f.Zones.Names).Matches(qname)
-	if zone == "" {
-		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
-	}
+
+        z, zone := f.Matches(qname)
+
+        if zone == "" {
+                return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+        }
+
+        if z == nil {
+                return dns.RcodeServerFailure, nil
+        }
 
 	z, ok := f.Zones.Z[zone]
 	if !ok || z == nil {
