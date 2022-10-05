@@ -31,36 +31,36 @@ type (
 	}
 )
 
-// Making qname search in map
+// Matches implements qname search in a map.
 func (f File) Matches(qname string) (*Zone, string) {
-        var z *Zone
-        zone := ""
+	var z *Zone
+	zone := ""
 
-        subdomain := qname
-        off := 0
-        end := false
+	subdomain := qname
+	off := 0
+	end := false
 
-        for {
-                if y, ok := f.Zones.Z[subdomain]; ok {
-                        z = y
-                        zone = subdomain
-                        break
-                }
+	for {
+		if y, ok := f.Zones.Z[subdomain]; ok {
+			z = y
+			zone = subdomain
+			break
+		}
 
-                if subdomain == "." {
-                        break
-                }
+		if subdomain == "." {
+			break
+		}
 
-                off, end = dns.NextLabel(qname, off)
-                if end {
-                        // Last dot should also be checked
-                        subdomain = "."
-                        continue
-                }
-                subdomain = qname[off:len(qname)]
-        }
+		off, end = dns.NextLabel(qname, off)
+		if end {
+			// Last dot should also be checked
+			subdomain = "."
+			continue
+		}
+		subdomain = qname[off:len(qname)]
+	}
 
-        return z, zone
+	return z, zone
 }
 
 // ServeDNS implements the plugin.Handle interface.
@@ -69,15 +69,15 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 
 	qname := state.Name()
 
-        z, zone := f.Matches(qname)
+	z, zone := f.Matches(qname)
 
-        if zone == "" {
-                return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
-        }
+	if zone == "" {
+		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+	}
 
-        if z == nil {
-                return dns.RcodeServerFailure, nil
-        }
+	if z == nil {
+		return dns.RcodeServerFailure, nil
+	}
 
 	z, ok := f.Zones.Z[zone]
 	if !ok || z == nil {
