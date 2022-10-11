@@ -45,6 +45,7 @@ func newTransport(addr string) *Transport {
 // connManagers manages the persistent connection cache for UDP and TCP.
 func (t *Transport) connManager() {
 	ticker := time.NewTicker(defaultExpire)
+	defer ticker.Stop()
 Wait:
 	for {
 		select {
