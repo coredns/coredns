@@ -83,6 +83,7 @@ func hook(event caddy.EventName, info interface{}) error {
 
 	go func() {
 		tick := time.NewTicker(r.interval())
+		defer tick.Stop()
 
 		for {
 			select {
