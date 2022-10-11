@@ -92,6 +92,7 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 		if err != nil {
 			openErr = err
 		}
+		defer reader.Close()
 
 		for i := range origins {
 			z[origins[i]] = NewZone(origins[i], fileName)
