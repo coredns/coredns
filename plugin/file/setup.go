@@ -92,19 +92,27 @@ func fileParse(c *caddy.Controller) (Zones, error) {
 		if err != nil {
 			openErr = err
 		}
-		defer reader.Close()
 
-		for i := range origins {
-			z[origins[i]] = NewZone(origins[i], fileName)
-			if openErr == nil {
-				reader.Seek(0, 0)
-				zone, err := Parse(reader, origins[i], fileName, 0)
-				if err != nil {
-					return Zones{}, err
+		err = func() error {
+			defer reader.Close()
+
+			for i := range origins {
+				z[origins[i]] = NewZone(origins[i], fileName)
+				if openErr == nil {
+					reader.Seek(0, 0)
+					zone, err := Parse(reader, origins[i], fileName, 0)
+					if err != nil {
+						return err
+					}
+					z[origins[i]] = zone
 				}
-				z[origins[i]] = zone
+				names = append(names, origins[i])
 			}
-			names = append(names, origins[i])
+			return nil
+		}()
+
+		if err != nil {
+			return Zones{}, err
 		}
 
 		for c.NextBlock() {
