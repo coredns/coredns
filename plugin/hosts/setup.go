@@ -26,6 +26,7 @@ func periodicHostsUpdate(h *Hosts) chan bool {
 
 	go func() {
 		ticker := time.NewTicker(h.options.reload)
+		defer ticker.Stop()
 		for {
 			select {
 			case <-parseChan:
