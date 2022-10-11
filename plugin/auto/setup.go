@@ -50,6 +50,7 @@ func setup(c *caddy.Controller) error {
 		}
 		go func() {
 			ticker := time.NewTicker(a.loader.ReloadInterval)
+			defer ticker.Stop()
 			for {
 				select {
 				case <-walkChan:
