@@ -1,4 +1,4 @@
-FROM debian:stable-slim
+FROM --platform=$BUILDPLATFORM debian:stable-slim
 SHELL [ "/bin/sh", "-ec" ]
 
 RUN export DEBCONF_NONINTERACTIVE_SEEN=true \
@@ -10,7 +10,7 @@ RUN export DEBCONF_NONINTERACTIVE_SEEN=true \
     apt-get -yyqq install ca-certificates ; \
     apt-get clean
 
-FROM scratch
+FROM --platform=$TARGETPLATFORM scratch
 
 COPY --from=0 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ADD coredns /coredns

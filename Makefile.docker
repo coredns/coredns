@@ -83,7 +83,7 @@ ifeq ($(DOCKER),)
 else
 	docker version
 	for arch in $(LINUX_ARCH); do \
-	    docker build -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) build/docker/$${arch} ;\
+	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) build/docker/$${arch} ;\
 	done
 endif
 
@@ -102,10 +102,6 @@ else
 	done
 	docker manifest create --amend $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_LIST_VERSIONED)
 	docker manifest create --amend $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_LIST_VERSIONED)
-	for arch in $(LINUX_ARCH); do \
-		docker manifest annotate --arch $${arch} $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) ;\
-		docker manifest annotate --arch $${arch} $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) ;\
-	done
 	docker manifest push --purge $(DOCKER_IMAGE_NAME):$(VERSION)
 	docker manifest push --purge $(DOCKER_IMAGE_NAME):latest
 	TOKEN=$$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\":\"$(DOCKER_LOGIN)\",\"password\":\"$(DOCKER_PASSWORD)\"}" "https://hub.docker.com/v2/users/login/" | jq -r .token) ; \
