@@ -27,6 +27,7 @@ type cacheTestCase struct {
 
 var cacheTestCases = []cacheTestCase{
 	{
+		// Test with Authenticated Data bit
 		RecursionAvailable: true, AuthenticatedData: true,
 		Case: test.Case{
 			Qname: "miek.nl.", Qtype: dns.TypeMX,
@@ -45,6 +46,7 @@ var cacheTestCases = []cacheTestCase{
 		shouldCache: true,
 	},
 	{
+		// Test case sensitivity
 		RecursionAvailable: true, AuthenticatedData: true,
 		Case: test.Case{
 			Qname: "miek.nl.", Qtype: dns.TypeMX,
@@ -58,13 +60,12 @@ var cacheTestCases = []cacheTestCase{
 			Answer: []dns.RR{
 				test.MX("miek.nl.	3601	IN	MX	1 aspmx.l.google.com."),
 				test.MX("miek.nl.	3601	IN	MX	10 aspmx2.googlemail.com."),
-				// RRSIG must be here, because we are always doing DNSSEC lookups, and miek.nl MX is tested later in this list as well.
-				test.RRSIG("miek.nl.	3600	IN	RRSIG	MX 8 2 1800 20160521031301 20160421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
 			},
 		},
 		shouldCache: true,
 	},
 	{
+		// Test truncated responses don't get cached
 		Truncated: true,
 		Case: test.Case{
 			Qname: "miek.nl.", Qtype: dns.TypeMX,
@@ -74,6 +75,7 @@ var cacheTestCases = []cacheTestCase{
 		shouldCache: false,
 	},
 	{
+		// Test dns.RcodeNameError cache
 		RecursionAvailable: true,
 		Case: test.Case{
 			Rcode: dns.RcodeNameError,
@@ -92,6 +94,7 @@ var cacheTestCases = []cacheTestCase{
 		shouldCache: true,
 	},
 	{
+		// Test dns.RcodeServerFailure cache
 		RecursionAvailable: true,
 		Case: test.Case{
 			Rcode: dns.RcodeServerFailure,
@@ -106,6 +109,7 @@ var cacheTestCases = []cacheTestCase{
 		shouldCache: true,
 	},
 	{
+		// Test dns.RcodeNotImplemented cache
 		RecursionAvailable: true,
 		Case: test.Case{
 			Rcode: dns.RcodeNotImplemented,
@@ -120,6 +124,8 @@ var cacheTestCases = []cacheTestCase{
 		shouldCache: true,
 	},
 	{
+		// Test cache has separate items for query DO Bit value
+		// This doesn't cache because this RRSIG is expired and previous tests used DO Bit false
 		RecursionAvailable: true,
 		Case: test.Case{
 			Qname: "miek.nl.", Qtype: dns.TypeMX,
@@ -139,9 +145,10 @@ var cacheTestCases = []cacheTestCase{
 				test.RRSIG("miek.nl.	1800	IN	RRSIG	MX 8 2 1800 20160521031301 20160421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
 			},
 		},
-		shouldCache: true,
+		shouldCache: false,
 	},
 	{
+		// Test DO Bit with a RRSIG that is not expired
 		RecursionAvailable: true,
 		Case: test.Case{
 			Qname: "example.org.", Qtype: dns.TypeMX,
@@ -164,6 +171,7 @@ var cacheTestCases = []cacheTestCase{
 		shouldCache: true,
 	},
 	{
+		// Test negative zone exception
 		in: test.Case{
 			Rcode: dns.RcodeNameError,
 			Qname: "neg-disabled.example.org.", Qtype: dns.TypeA,
@@ -175,6 +183,7 @@ var cacheTestCases = []cacheTestCase{
 		shouldCache: false,
 	},
 	{
+		// Test positive zone exception
 		in: test.Case{
 			Rcode: dns.RcodeSuccess,
 			Qname: "pos-disabled.example.org.", Qtype: dns.TypeA,
@@ -186,6 +195,7 @@ var cacheTestCases = []cacheTestCase{
 		shouldCache: false,
 	},
 	{
+		// Test positive zone exception with negative answer
 		in: test.Case{
 			Rcode: dns.RcodeNameError,
 			Qname: "pos-disabled.example.org.", Qtype: dns.TypeA,
@@ -203,6 +213,7 @@ var cacheTestCases = []cacheTestCase{
 		shouldCache: true,
 	},
 	{
+		// Test negative zone exception with positive answer
 		in: test.Case{
 			Rcode: dns.RcodeSuccess,
 			Qname: "neg-disabled.example.org.", Qtype: dns.TypeA,
@@ -258,7 +269,7 @@ func TestCache(t *testing.T) {
 		state := request.Request{W: &test.ResponseWriter{}, Req: m}
 
 		mt, _ := response.Typify(m, utc)
-		valid, k := key(state.Name(), m, mt)
+		valid, k := key(state.Name(), m, mt, state.Do())
 
 		if valid {
 			crr.set(m, k, mt, c.pttl)
@@ -647,6 +658,7 @@ func TestCacheWildcardMetadata(t *testing.T) {
 
 	req := new(dns.Msg)
 	req.SetQuestion(qname, dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
 
 	// 1. Test writing wildcard metadata retrieved from backend to the cache
 
@@ -656,7 +668,7 @@ func TestCacheWildcardMetadata(t *testing.T) {
 	if c.pcache.Len() != 1 {
 		t.Errorf("Msg should have been cached")
 	}
-	_, k := key(qname, w.Msg, response.NoError)
+	_, k := key(qname, w.Msg, response.NoError, state.Do())
 	i, _ := c.pcache.Get(k)
 	if i.(*item).wildcard != wildcard {
 		t.Errorf("expected wildcard reponse to enter cache with cache item's wildcard = %q, got %q", wildcard, i.(*item).wildcard)

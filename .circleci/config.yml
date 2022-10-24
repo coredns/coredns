@@ -36,7 +36,7 @@ buildCoreDNSImage: &buildCoreDNSImage
       command: |
         cd ~/go/src/${CIRCLE_PROJECT_USERNAME}/coredns
         make coredns SYSTEM="GOOS=linux" && \
-        docker build -t coredns . && \
+        DOCKER_BUILDKIT=1 docker build -t coredns . && \
         kind load docker-image coredns
 
 jobs:
