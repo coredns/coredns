@@ -147,7 +147,9 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 		c.ListenHosts = c.firstConfigInBlock.ListenHosts
 		c.Debug = c.firstConfigInBlock.Debug
 		c.Stacktrace = c.firstConfigInBlock.Stacktrace
-		c.TLSConfig = c.firstConfigInBlock.TLSConfig
+
+		// Fork TLSConfig for each encrypted connection
+		c.TLSConfig = c.firstConfigInBlock.TLSConfig.Clone()
 		c.TsigSecret = c.firstConfigInBlock.TsigSecret
 	}
 
