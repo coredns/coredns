@@ -56,8 +56,10 @@ func parse(c *caddy.Controller) (ACL, error) {
 				p.action = actionBlock
 			} else if action == "filter" {
 				p.action = actionFilter
+			} else if action == "drop" {
+				p.action = actionDrop
 			} else {
-				return a, c.Errf("unexpected token %q; expect 'allow', 'block', or 'filter'", c.Val())
+				return a, c.Errf("unexpected token %q; expect 'allow', 'block', 'filter' or 'drop'", c.Val())
 			}
 
 			p.qtypes = make(map[uint16]struct{})

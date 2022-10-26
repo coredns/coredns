@@ -49,6 +49,8 @@ const (
 	actionBlock
 	// actionFilter returns empty sets for queries towards protected DNS zones.
 	actionFilter
+	// actionDrop does not respond for queries towards the protected DNS zones.
+	actionDrop
 )
 
 var log = clog.NewWithPlugin("acl")
@@ -67,6 +69,11 @@ RulesCheckLoop:
 
 		action := matchWithPolicies(rule.policies, w, r)
 		switch action {
+		case actionDrop:
+			{
+				RequestDropCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
+				return dns.RcodeSuccess, nil
+			}
 		case actionBlock:
 			{
 				m := new(dns.Msg).

@@ -58,6 +58,13 @@ func TestSetup(t *testing.T) {
 			false,
 		},
 		{
+			"Drop 1",
+			`acl {
+				drop type * net 192.168.0.0/16
+			}`,
+			false,
+		},
+		{
 			"fine-grained 1",
 			`acl a.example.org {
 				block type * net 192.168.1.0/24
@@ -172,6 +179,13 @@ func TestSetup(t *testing.T) {
 			`acl {
 				allow net 2001:db8:abcd:0012::0/64
 				block
+			}`,
+			false,
+		},
+		{
+			"Drop 1 IPv6",
+			`acl {
+				drop net 2001:db8:abcd:0012::0/64
 			}`,
 			false,
 		},

@@ -25,7 +25,7 @@ acl [ZONES...] {
 ```
 
 - **ZONES** zones it should be authoritative for. If empty, the zones from the configuration block are used.
-- **ACTION** (*allow*, *block*, or *filter*) defines the way to deal with DNS queries matched by this rule. The default action is *allow*, which means a DNS query not matched by any rules will be allowed to recurse. The difference between *block* and *filter* is that block returns status code of *REFUSED* while filter returns an empty set *NOERROR*
+- **ACTION** (*allow*, *block*, *filter*, or *drop*) defines the way to deal with DNS queries matched by this rule. The default action is *allow*, which means a DNS query not matched by any rules will be allowed to recurse. The difference between *block* and *filter* is that block returns status code of *REFUSED* while filter returns an empty set *NOERROR*. *drop* however returns no response to the client.
 - **QTYPE** is the query type to match for the requests to be allowed or blocked. Common resource record types are supported. `*` stands for all record types. The default behavior for an omitted `type QTYPE...` is to match all kinds of DNS queries (same as `type *`).
 - **SOURCE** is the source IP address to match for the requests to be allowed or blocked. Typical CIDR notation and single IP address are supported. `*` stands for all possible source IP addresses.
 
@@ -85,6 +85,16 @@ example.org {
 }
 ~~~
 
+Drop all DNS queries from 192.0.2.0/24:
+
+~~~ corefile
+. {
+    acl {
+        drop net 192.0.2.0/24
+    }
+}
+~~~
+
 ## Metrics
 
 If monitoring is enabled (via the _prometheus_ plugin) then the following metrics are exported:
@@ -94,5 +104,7 @@ If monitoring is enabled (via the _prometheus_ plugin) then the following metric
 - `coredns_acl_filtered_requests_total{server, zone, view}` - counter of DNS requests being filtered.
 
 - `coredns_acl_allowed_requests_total{server, view}` - counter of DNS requests being allowed.
+
+- `coredns_acl_dropped_requests_total{server, zone, view}` - counter of DNS requests being dropped.
 
 The `server` and `zone` labels are explained in the _metrics_ plugin documentation.

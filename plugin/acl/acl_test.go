@@ -51,6 +51,7 @@ func TestACLServeDNS(t *testing.T) {
 		wantRcode             int
 		wantErr               bool
 		wantExtendedErrorCode uint16
+		expectNoResponse      bool
 	}{
 		// IPv4 tests.
 		{
@@ -204,6 +205,79 @@ func TestACLServeDNS(t *testing.T) {
 			},
 			wantRcode:             dns.RcodeRefused,
 			wantExtendedErrorCode: dns.ExtendedErrorCodeBlocked,
+		},
+		{
+			name: "Drop 1 DROPPED",
+			config: `acl example.org {
+				drop net 192.168.0.0/16
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "192.168.0.2",
+				qtype:    dns.TypeA,
+			},
+			wantRcode:        dns.RcodeSuccess,
+			expectNoResponse: true,
+		},
+		{
+			name: "Subnet-Order 1 REFUSED",
+			config: `acl example.org {
+				block net 192.168.1.0/24
+				drop net 192.168.0.0/16
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "192.168.1.2",
+				qtype:    dns.TypeA,
+			},
+			wantRcode:             dns.RcodeRefused,
+			wantExtendedErrorCode: dns.ExtendedErrorCodeBlocked,
+		},
+		{
+			name: "Subnet-Order 2 DROPPED",
+			config: `acl example.org {
+				drop net 192.168.0.0/16
+				block net 192.168.1.0/24
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "192.168.1.1",
+				qtype:    dns.TypeA,
+			},
+			wantRcode:        dns.RcodeSuccess,
+			expectNoResponse: true,
+		},
+		{
+			name: "Drop-Type 1 DROPPED",
+			config: `acl example.org {
+				drop type A
+				allow net 192.168.0.0/16
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "192.168.1.1",
+				qtype:    dns.TypeA,
+			},
+			wantRcode:        dns.RcodeSuccess,
+			expectNoResponse: true,
+		},
+		{
+			name: "Drop-Type 2 ALLOWED",
+			config: `acl example.org {
+				drop type A
+				allow net 192.168.0.0/16
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "192.168.1.1",
+				qtype:    dns.TypeAAAA,
+			},
+			wantRcode: dns.RcodeSuccess,
 		},
 		{
 			name: "Fine-Grained 1 REFUSED",
@@ -402,6 +476,79 @@ func TestACLServeDNS(t *testing.T) {
 			wantRcode:             dns.RcodeRefused,
 			wantExtendedErrorCode: dns.ExtendedErrorCodeBlocked,
 		},
+		{
+			name: "Drop 1 DROPPED IPV6",
+			config: `acl example.org {
+				drop net 2001:0db8:85a3:0000:0000:8a2e:0370:7334
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+				qtype:    dns.TypeAAAA,
+			},
+			wantRcode:        dns.RcodeSuccess,
+			expectNoResponse: true,
+		},
+		{
+			name: "Subnet-Order 1 REFUSED IPv6",
+			config: `acl example.org {
+				block net 2001:db8:abcd:0012:8000::/66
+				drop net 2001:db8:abcd:0012::0/64
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "2001:db8:abcd:0012:8000::1",
+				qtype:    dns.TypeAAAA,
+			},
+			wantRcode:             dns.RcodeRefused,
+			wantExtendedErrorCode: dns.ExtendedErrorCodeBlocked,
+		},
+		{
+			name: "Subnet-Order 2 DROPPED IPv6",
+			config: `acl example.org {
+				drop net 2001:db8:abcd:0012::0/64
+				block net 2001:db8:abcd:0012:8000::/66
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "2001:db8:abcd:0012:8000::1",
+				qtype:    dns.TypeAAAA,
+			},
+			wantRcode:        dns.RcodeSuccess,
+			expectNoResponse: true,
+		},
+		{
+			name: "Drop-Type 1 DROPPED IPv6",
+			config: `acl example.org {
+				drop type A
+				allow net 2001:db8:85a3:0000::0/64
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+				qtype:    dns.TypeA,
+			},
+			wantRcode:        dns.RcodeSuccess,
+			expectNoResponse: true,
+		},
+		{
+			name: "Drop-Type 2 ALLOWED IPv6",
+			config: `acl example.org {
+				drop type A
+				allow net 2001:db8:85a3:0000::0/64
+			}`,
+			zones: []string{},
+			args: args{
+				domain:   "www.example.org.",
+				sourceIP: "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
+				qtype:    dns.TypeAAAA,
+			},
+			wantRcode: dns.RcodeSuccess,
+		},
 	}
 
 	ctx := context.Background()
@@ -429,6 +576,9 @@ func TestACLServeDNS(t *testing.T) {
 			}
 			if w.Rcode != tt.wantRcode {
 				t.Errorf("Error: acl.ServeDNS() Rcode = %v, want %v", w.Rcode, tt.wantRcode)
+			}
+			if tt.expectNoResponse && w.Msg != nil {
+				t.Errorf("Error: acl.ServeDNS() responded to client when not expected")
 			}
 			if tt.wantExtendedErrorCode != 0 {
 				matched := false

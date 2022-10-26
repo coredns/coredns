@@ -29,4 +29,11 @@ var (
 		Name:      "allowed_requests_total",
 		Help:      "Counter of DNS requests being allowed.",
 	}, []string{"server", "view"})
+	// RequestDropCount is the number of DNS requests being dropped.
+	RequestDropCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: pluginName,
+		Name:      "dropped_requests_total",
+		Help:      "Counter of DNS requests being dropped.",
+	}, []string{"server", "zone", "view"})
 )
