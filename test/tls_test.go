@@ -8,41 +8,68 @@ import (
 	"github.com/miekg/dns"
 )
 
-func TestDNSoverTLS(t *testing.T) {
-	dot, doh := ":1053", ":8443"
-	corefile := `tls://.%s https://.%s {
+func TestTLS(t *testing.T) {
+	tempCorefile := `%s {
         tls ../plugin/tls/test_cert.pem ../plugin/tls/test_key.pem
         whoami
     }`
-	qname := "example.com."
-	qtype := dns.TypeA
+
+	dot, doh := ":1053", ":8443"
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
 	answerLength := 0
 
-	ex, _, _, err := CoreDNSServerAndPorts(fmt.Sprintf(corefile, dot, doh))
-	if err != nil {
-		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	tests := []struct {
+		server string
+		client dns.Client
+	}{
+		{fmt.Sprintf("tls://.%s", dot),
+			dns.Client{
+				Net:       "tcp-tls",
+				TLSConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		},
+		{fmt.Sprintf("tls://.%s", dot),
+			dns.Client{
+				Net:       "tcp-tls",
+				TLSConfig: &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
+			},
+		},
+		{fmt.Sprintf("tls://.%s https://.%s", dot, doh),
+			dns.Client{
+				Net:       "tcp-tls",
+				TLSConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		},
+		{fmt.Sprintf("tls://.%s https://.%s", dot, doh),
+			dns.Client{
+				Net:       "tcp-tls",
+				TLSConfig: &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
+			},
+		},
 	}
-	defer ex.Stop()
 
-	m := new(dns.Msg)
-	m.SetQuestion(qname, qtype)
-	client := dns.Client{
-		Net:       "tcp-tls",
-		TLSConfig: &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
-	}
-	r, _, err := client.Exchange(m, dot)
+	for _, tc := range tests {
+		ex, _, _, err := CoreDNSServerAndPorts(fmt.Sprintf(tempCorefile, tc.server))
+		if err != nil {
+			t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+		}
 
-	if err != nil {
-		t.Fatalf("Could not exchange msg: %s", err)
-	}
+		r, _, err := tc.client.Exchange(m, dot)
 
-	if n := len(r.Answer); n != answerLength {
-		t.Fatalf("Expected %v answers, got %v", answerLength, n)
-	}
-	if n := len(r.Extra); n != 2 {
-		t.Errorf("Expected 2 RRs in additional section, but got %d", n)
-	}
-	if r.Rcode != dns.RcodeSuccess {
-		t.Errorf("Expected success but got %d", r.Rcode)
+		if err != nil {
+			t.Fatalf("Could not exchange msg: %s", err)
+		}
+
+		if n := len(r.Answer); n != answerLength {
+			t.Fatalf("Expected %v answers, got %v", answerLength, n)
+		}
+		if n := len(r.Extra); n != 2 {
+			t.Errorf("Expected 2 RRs in additional section, but got %d", n)
+		}
+		if r.Rcode != dns.RcodeSuccess {
+			t.Errorf("Expected success but got %d", r.Rcode)
+		}
+		ex.Stop()
 	}
 }
