@@ -2,13 +2,15 @@ package test
 
 import (
 	"crypto/tls"
+	"fmt"
 	"testing"
 
 	"github.com/miekg/dns"
 )
 
 func TestDNSoverTLS(t *testing.T) {
-	corefile := `tls://.:1053 https://.:8443 {
+	dot, doh := ":1053", ":8443"
+	corefile := `tls://.%s https://.%s {
         tls ../plugin/tls/test_cert.pem ../plugin/tls/test_key.pem
         whoami
     }`
@@ -16,7 +18,7 @@ func TestDNSoverTLS(t *testing.T) {
 	qtype := dns.TypeA
 	answerLength := 0
 
-	ex, _, tcp, err := CoreDNSServerAndPorts(corefile)
+	ex, _, _, err := CoreDNSServerAndPorts(fmt.Sprintf(corefile, dot, doh))
 	if err != nil {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
@@ -28,7 +30,7 @@ func TestDNSoverTLS(t *testing.T) {
 		Net:       "tcp-tls",
 		TLSConfig: &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
 	}
-	r, _, err := client.Exchange(m, tcp)
+	r, _, err := client.Exchange(m, dot)
 
 	if err != nil {
 		t.Fatalf("Could not exchange msg: %s", err)
