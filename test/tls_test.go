@@ -8,7 +8,7 @@ import (
 )
 
 func TestDNSoverTLS(t *testing.T) {
-	corefile := `tls://.:1053 {
+	corefile := `tls://.:1053 https://.:8443 {
         tls ../plugin/tls/test_cert.pem ../plugin/tls/test_key.pem
         whoami
     }`
@@ -26,7 +26,7 @@ func TestDNSoverTLS(t *testing.T) {
 	m.SetQuestion(qname, qtype)
 	client := dns.Client{
 		Net:       "tcp-tls",
-		TLSConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSConfig: &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
 	}
 	r, _, err := client.Exchange(m, tcp)
 
