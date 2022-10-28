@@ -20,32 +20,20 @@ func TestTLS(t *testing.T) {
 	answerLength := 0
 
 	tests := []struct {
-		server string
-		client dns.Client
+		server    string
+		tlsConfig *tls.Config
 	}{
 		{fmt.Sprintf("tls://.%s", dot),
-			dns.Client{
-				Net:       "tcp-tls",
-				TLSConfig: &tls.Config{InsecureSkipVerify: true},
-			},
+			&tls.Config{InsecureSkipVerify: true},
 		},
 		{fmt.Sprintf("tls://.%s", dot),
-			dns.Client{
-				Net:       "tcp-tls",
-				TLSConfig: &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
-			},
+			&tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
 		},
 		{fmt.Sprintf("tls://.%s https://.%s", dot, doh),
-			dns.Client{
-				Net:       "tcp-tls",
-				TLSConfig: &tls.Config{InsecureSkipVerify: true},
-			},
+			&tls.Config{InsecureSkipVerify: true},
 		},
 		{fmt.Sprintf("tls://.%s https://.%s", dot, doh),
-			dns.Client{
-				Net:       "tcp-tls",
-				TLSConfig: &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
-			},
+			&tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
 		},
 	}
 
@@ -55,7 +43,11 @@ func TestTLS(t *testing.T) {
 			t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 		}
 
-		r, _, err := tc.client.Exchange(m, dot)
+		client := dns.Client{
+			Net:       "tcp-tls",
+			TLSConfig: tc.tlsConfig,
+		}
+		r, _, err := client.Exchange(m, dot)
 
 		if err != nil {
 			t.Fatalf("Could not exchange msg: %s", err)
