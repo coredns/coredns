@@ -31,7 +31,7 @@ require (
 	google.golang.org/api v0.101.0
 	google.golang.org/grpc v1.50.1
 	google.golang.org/protobuf v1.28.1
-	gopkg.in/DataDog/dd-trace-go.v1 v1.43.0
+	gopkg.in/DataDog/dd-trace-go.v1 v1.43.1
 	k8s.io/api v0.25.3
 	k8s.io/apimachinery v0.25.3
 	k8s.io/client-go v0.24.4
@@ -100,6 +100,8 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
+	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
+	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/net v0.0.0-20221014081412-f15817d10f9b // indirect
 	golang.org/x/oauth2 v0.0.0-20221014153046-6fdb5e3db783 // indirect
@@ -113,6 +115,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	inet.af/netaddr v0.0.0-20220617031823-097006376321 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
