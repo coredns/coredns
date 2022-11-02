@@ -83,7 +83,8 @@ ifeq ($(DOCKER),)
 else
 	docker version
 	for arch in $(LINUX_ARCH); do \
-	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) build/docker/$${arch} ;\
+	    docker build -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) build/docker/$${arch} ;\
+	    docker image save $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) | ./patch-arch.sh $${arch} | docker image load; \
 	done
 endif
 
