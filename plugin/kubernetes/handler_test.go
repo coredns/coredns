@@ -39,21 +39,21 @@ var dnsTestCases = []kubeTestCase{
 	}},
 	{Case: test.Case{
 		Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeSuccess,
+		Rcode:  dns.RcodeSuccess,
 		Answer: []dns.RR{test.SRV("svc1.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc1.testns.svc.cluster.local.")},
-		Extra: []dns.RR{test.A("svc1.testns.svc.cluster.local.  5       IN      A       10.0.0.1")},
+		Extra:  []dns.RR{test.A("svc1.testns.svc.cluster.local.  5       IN      A       10.0.0.1")},
 	}},
 	{Case: test.Case{
 		Qname: "svcempty.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeSuccess,
+		Rcode:  dns.RcodeSuccess,
 		Answer: []dns.RR{test.SRV("svcempty.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svcempty.testns.svc.cluster.local.")},
-		Extra: []dns.RR{test.A("svcempty.testns.svc.cluster.local.  5       IN      A       10.0.0.1")},
+		Extra:  []dns.RR{test.A("svcempty.testns.svc.cluster.local.  5       IN      A       10.0.0.1")},
 	}},
 	{Case: test.Case{
 		Qname: "svc6.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeSuccess,
+		Rcode:  dns.RcodeSuccess,
 		Answer: []dns.RR{test.SRV("svc6.testns.svc.cluster.local.	5	IN	SRV	0 100 80 svc6.testns.svc.cluster.local.")},
-		Extra: []dns.RR{test.AAAA("svc6.testns.svc.cluster.local.  5       IN      AAAA       1234:abcd::1")},
+		Extra:  []dns.RR{test.AAAA("svc6.testns.svc.cluster.local.  5       IN      AAAA       1234:abcd::1")},
 	}},
 	// SRV Service
 	{Case: test.Case{
@@ -163,7 +163,7 @@ var dnsTestCases = []kubeTestCase{
 	// AAAA
 	{Case: test.Case{
 		Qname: "5678-abcd--2.hdls1.testns.svc.cluster.local", Qtype: dns.TypeAAAA,
-		Rcode: dns.RcodeSuccess,
+		Rcode:  dns.RcodeSuccess,
 		Answer: []dns.RR{test.AAAA("5678-abcd--2.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2")},
 	}},
 	// CNAME External
@@ -370,7 +370,7 @@ var dnsTestCases = []kubeTestCase{
 	}},
 	{Case: test.Case{
 		Qname: "svc-dual-stack.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeSuccess,
+		Rcode:  dns.RcodeSuccess,
 		Answer: []dns.RR{test.SRV("svc-dual-stack.testns.svc.cluster.local.	5	IN	SRV	0 50 80 svc-dual-stack.testns.svc.cluster.local.")},
 		Extra: []dns.RR{
 			test.A("svc-dual-stack.testns.svc.cluster.local.  5       IN      A       10.0.0.3"),
@@ -380,6 +380,14 @@ var dnsTestCases = []kubeTestCase{
 	{Case: test.Case{
 		Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypeSOA,
 		Rcode: dns.RcodeSuccess,
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
+		},
+	}},
+	// A query for a subdomain of an external service should not resolve to the external service
+	{Case: test.Case{
+		Qname: "endpoint.external.testns.svc.cluster.local.", Qtype: dns.TypeCNAME,
+		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
