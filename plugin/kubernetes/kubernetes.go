@@ -101,8 +101,7 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 		t, _ := dnsutil.TrimZone(state.Name(), state.Zone)
 
         // Check if we have an existing record for this query of another type
-        services, err := k.Records(ctx, state, false)
-		if err != nil { return nil, err }
+        services, _ := k.Records(ctx, state, false)
 
         if len(services) > 0 {
             // If so we return an empty NOERROR
