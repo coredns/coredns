@@ -247,6 +247,20 @@ var dnsTestCases = []kubeTestCase{
 			test.TXT("dns-version.cluster.local 28800 IN TXT 1.1.0"),
 		},
 	}},
+	// A TXT record does not exist but another record for the same FQDN does
+	{Case: test.Case{
+		Qname: "kubernetes.default.svc.cluster.local.", Qtype: dns.TypeTXT,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{},
+	}},
+	// A TXT record does not exist and neither does another record for the same FQDN
+	{Case: test.Case{
+		Qname: "svc0.svc-nons.svc.cluster.local.", Qtype: dns.TypeTXT,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
+		},
+	}},
 	// A Service (Headless) does not exist
 	{Case: test.Case{
 		Qname: "bogusendpoint.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
