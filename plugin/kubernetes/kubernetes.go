@@ -110,7 +110,7 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 
 		// Hard code the only valid TXT - "dns-version.<zone>"
 		segs := dns.SplitDomainName(t)
-		if segs[0] == "dns-version" {
+		if len(segs) == 1 && segs[0] == "dns-version" {
 		    svc := msg.Service{Text: DNSSchemaVersion, TTL: 28800, Key: msg.Path(state.QName(), coredns)}
 		    return []msg.Service{svc}, nil
 		}
