@@ -41,7 +41,6 @@ func TestLocal(t *testing.T) {
 		req.SetQuestion(tc.question, tc.qtype)
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := l.ServeDNS(context.TODO(), rec, req)
-
 		if err != nil {
 			t.Errorf("Test %d, expected no error, but got %q", i, err)
 			continue

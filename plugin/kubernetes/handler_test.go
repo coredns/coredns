@@ -57,7 +57,6 @@ var dnsTestCases = []kubeTestCase{
 	}},
 	// SRV Service
 	{Case: test.Case{
-
 		Qname: "_http._tcp.svc1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -68,7 +67,6 @@ var dnsTestCases = []kubeTestCase{
 		},
 	}},
 	{Case: test.Case{
-
 		Qname: "_http._tcp.svcempty.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{

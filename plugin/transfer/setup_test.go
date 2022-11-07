@@ -13,7 +13,8 @@ func TestParse(t *testing.T) {
 		shouldErr bool
 		exp       *Transfer
 	}{
-		{`transfer example.net example.org {
+		{
+			`transfer example.net example.org {
 			to 1.2.3.4 5.6.7.8:1053 [1::2]:34
 		 }
          transfer example.com example.edu {
@@ -32,13 +33,15 @@ func TestParse(t *testing.T) {
 			},
 		},
 		// errors
-		{`transfer example.net example.org {
+		{
+			`transfer example.net example.org {
 		 }`,
 			nil,
 			true,
 			nil,
 		},
-		{`transfer example.net example.org {
+		{
+			`transfer example.net example.org {
            invalid option
 		 }`,
 			nil,

@@ -22,7 +22,7 @@ func TestHealth(t *testing.T) {
 	i := uint32(0)
 	q := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
-		if atomic.LoadUint32(&q) == 0 { //drop the first query to trigger health-checking
+		if atomic.LoadUint32(&q) == 0 { // drop the first query to trigger health-checking
 			atomic.AddUint32(&q, 1)
 			return
 		}
@@ -61,7 +61,7 @@ func TestHealthTCP(t *testing.T) {
 	i := uint32(0)
 	q := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
-		if atomic.LoadUint32(&q) == 0 { //drop the first query to trigger health-checking
+		if atomic.LoadUint32(&q) == 0 { // drop the first query to trigger health-checking
 			atomic.AddUint32(&q, 1)
 			return
 		}
@@ -101,7 +101,7 @@ func TestHealthNoRecursion(t *testing.T) {
 	i := uint32(0)
 	q := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
-		if atomic.LoadUint32(&q) == 0 { //drop the first query to trigger health-checking
+		if atomic.LoadUint32(&q) == 0 { // drop the first query to trigger health-checking
 			atomic.AddUint32(&q, 1)
 			return
 		}
@@ -149,7 +149,7 @@ func TestHealthTimeout(t *testing.T) {
 			w.WriteMsg(ret)
 			return
 		}
-		if atomic.LoadUint32(&q) == 0 { //drop only first query
+		if atomic.LoadUint32(&q) == 0 { // drop only first query
 			atomic.AddUint32(&q, 1)
 			return
 		}
@@ -252,7 +252,7 @@ func TestHealthDomain(t *testing.T) {
 	i := uint32(0)
 	q := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
-		if atomic.LoadUint32(&q) == 0 { //drop the first query to trigger health-checking
+		if atomic.LoadUint32(&q) == 0 { // drop the first query to trigger health-checking
 			atomic.AddUint32(&q, 1)
 			return
 		}

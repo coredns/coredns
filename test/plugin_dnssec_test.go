@@ -57,7 +57,7 @@ func TestLookupBalanceRewriteCacheDnssec(t *testing.T) {
 func createKeyFile(t *testing.T) func() {
 	os.WriteFile(base+".key",
 		[]byte(`example.org. IN DNSKEY 256 3 13 tDyI0uEIDO4SjhTJh1AVTFBLpKhY3He5BdAlKztewiZ7GecWj94DOodg ovpN73+oJs+UfZ+p9zOSN5usGAlHrw==`),
-		0644)
+		0o644)
 	os.WriteFile(base+".private",
 		[]byte(`Private-key-format: v1.3
 Algorithm: 13 (ECDSAP256SHA256)
@@ -65,7 +65,7 @@ PrivateKey: HPmldSNfrkj/aDdUMFwuk/lgzaC5KIsVEG3uoYvF4pQ=
 Created: 20160426083115
 Publish: 20160426083115
 Activate: 20160426083115`),
-		0644)
+		0o644)
 	return func() {
 		os.Remove(base + ".key")
 		os.Remove(base + ".private")

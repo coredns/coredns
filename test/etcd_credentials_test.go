@@ -28,7 +28,7 @@ func TestEtcdCredentials(t *testing.T) {
 	key := "foo"
 	value := "bar"
 
-	var ctx = context.TODO()
+	ctx := context.TODO()
 
 	if _, err := etc.Client.Put(ctx, key, value); err != nil {
 		t.Errorf("Failed to put dummy value un etcd: %v", err)

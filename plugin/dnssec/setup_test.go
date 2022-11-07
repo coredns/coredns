@@ -9,19 +9,19 @@ import (
 )
 
 func TestSetupDnssec(t *testing.T) {
-	if err := os.WriteFile("Kcluster.local.key", []byte(keypub), 0644); err != nil {
+	if err := os.WriteFile("Kcluster.local.key", []byte(keypub), 0o644); err != nil {
 		t.Fatalf("Failed to write pub key file: %s", err)
 	}
 	defer func() { os.Remove("Kcluster.local.key") }()
-	if err := os.WriteFile("Kcluster.local.private", []byte(keypriv), 0644); err != nil {
+	if err := os.WriteFile("Kcluster.local.private", []byte(keypriv), 0o644); err != nil {
 		t.Fatalf("Failed to write private key file: %s", err)
 	}
 	defer func() { os.Remove("Kcluster.local.private") }()
-	if err := os.WriteFile("ksk_Kcluster.local.key", []byte(kskpub), 0644); err != nil {
+	if err := os.WriteFile("ksk_Kcluster.local.key", []byte(kskpub), 0o644); err != nil {
 		t.Fatalf("Failed to write pub key file: %s", err)
 	}
 	defer func() { os.Remove("ksk_Kcluster.local.key") }()
-	if err := os.WriteFile("ksk_Kcluster.local.private", []byte(kskpriv), 0644); err != nil {
+	if err := os.WriteFile("ksk_Kcluster.local.private", []byte(kskpriv), 0o644); err != nil {
 		t.Fatalf("Failed to write private key file: %s", err)
 	}
 	defer func() { os.Remove("ksk_Kcluster.local.private") }()

@@ -34,7 +34,7 @@ var Owners = []string{`
 	// to prevent `No newline at end of file` with gofmt
 	golist += "\n"
 
-	if err := os.WriteFile("plugin/chaos/zowners.go", []byte(golist), 0644); err != nil {
+	if err := os.WriteFile("plugin/chaos/zowners.go", []byte(golist), 0o644); err != nil {
 		log.Fatal(err)
 	}
 	return

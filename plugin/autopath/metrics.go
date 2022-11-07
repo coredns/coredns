@@ -7,12 +7,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var (
-	// autoPathCount is counter of successfully autopath-ed queries.
-	autoPathCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "autopath",
-		Name:      "success_total",
-		Help:      "Counter of requests that did autopath.",
-	}, []string{"server"})
-)
+// autoPathCount is counter of successfully autopath-ed queries.
+var autoPathCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	Namespace: plugin.Namespace,
+	Subsystem: "autopath",
+	Name:      "success_total",
+	Help:      "Counter of requests that did autopath.",
+}, []string{"server"})

@@ -18,7 +18,6 @@ import (
 func TestFileNameHyphen(t *testing.T) {
 	walker := hasHyphenWalker{}
 	err := filepath.Walk("..", walker.walk)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +60,6 @@ func (w *hasHyphenWalker) walk(path string, info os.FileInfo, _ error) error {
 func TestLowercaseLog(t *testing.T) {
 	walker := hasLowercaseWalker{}
 	err := filepath.Walk("..", walker.walk)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +168,6 @@ func (l logfmt) Visit(n ast.Node) ast.Visitor {
 func TestImportTesting(t *testing.T) {
 	walker := hasLowercaseWalker{}
 	err := filepath.Walk("..", walker.walk)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +182,6 @@ func TestImportTesting(t *testing.T) {
 func TestImportOrdering(t *testing.T) {
 	walker := testImportOrderingWalker{}
 	err := filepath.Walk("..", walker.walk)
-
 	if err != nil {
 		t.Fatal(err)
 	}

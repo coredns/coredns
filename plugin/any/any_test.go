@@ -17,7 +17,6 @@ func TestAny(t *testing.T) {
 
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	_, err := a.ServeDNS(context.TODO(), rec, req)
-
 	if err != nil {
 		t.Errorf("Expected no error, but got %q", err)
 	}

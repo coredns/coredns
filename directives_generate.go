@@ -70,7 +70,6 @@ func genImports(file, pack string, mi map[string]string) {
 }
 
 func genDirectives(file, pack string, md []string) {
-
 	outs := header + "package " + pack + "\n\n"
 	outs += `
 // Directives are registered in the order they should be
@@ -100,7 +99,7 @@ func formatAndWrite(file string, data string) error {
 		return err
 	}
 
-	if err = os.WriteFile(file, res, 0644); err != nil {
+	if err = os.WriteFile(file, res, 0o644); err != nil {
 		return err
 	}
 	return nil

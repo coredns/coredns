@@ -14,7 +14,7 @@ import (
 
 func TestResponseWithDNSSEC(t *testing.T) {
 	// We do 2 queries, one where we want non-dnssec and one with dnssec and check the responses in each of them
-	var tcs = []test.Case{
+	tcs := []test.Case{
 		{
 			Qname: "invent.example.org.", Qtype: dns.TypeA,
 			Answer: []dns.RR{

@@ -100,6 +100,7 @@ func (external) Modified(bool) int64                         { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints {
 	return epIndexExternal[s]
 }
+
 func (external) EndpointsList() []*object.Endpoints {
 	var eps []*object.Endpoints
 	for _, ep := range epIndexExternal {

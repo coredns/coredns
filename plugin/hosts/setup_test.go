@@ -26,11 +26,15 @@ func TestHostsParse(t *testing.T) {
 		},
 		{
 			`hosts /etc/hosts miek.nl.`,
-			false, "/etc/hosts", []string{"miek.nl."}, fall.Zero,
+			false, "/etc/hosts",
+			[]string{"miek.nl."},
+			fall.Zero,
 		},
 		{
 			`hosts /etc/hosts miek.nl. pun.gent.`,
-			false, "/etc/hosts", []string{"miek.nl.", "pun.gent."}, fall.Zero,
+			false, "/etc/hosts",
+			[]string{"miek.nl.", "pun.gent."},
+			fall.Zero,
 		},
 		{
 			`hosts {
@@ -48,13 +52,17 @@ func TestHostsParse(t *testing.T) {
 			`hosts /etc/hosts miek.nl. {
 				fallthrough
 			}`,
-			false, "/etc/hosts", []string{"miek.nl."}, fall.Root,
+			false, "/etc/hosts",
+			[]string{"miek.nl."},
+			fall.Root,
 		},
 		{
 			`hosts /etc/hosts miek.nl 10.0.0.9/8 {
 				fallthrough
 			}`,
-			false, "/etc/hosts", []string{"miek.nl.", "10.in-addr.arpa."}, fall.Root,
+			false, "/etc/hosts",
+			[]string{"miek.nl.", "10.in-addr.arpa."},
+			fall.Root,
 		},
 		{
 			`hosts /etc/hosts {

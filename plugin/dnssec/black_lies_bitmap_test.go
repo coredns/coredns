@@ -33,6 +33,7 @@ func TestBlackLiesBitmapNoData(t *testing.T) {
 		}
 	}
 }
+
 func TestBlackLiesBitmapNameError(t *testing.T) {
 	d, rm1, rm2 := newDnssec(t, []string{"example.org."})
 	defer rm1()
@@ -57,8 +58,9 @@ func TestBlackLiesBitmapNameError(t *testing.T) {
 }
 
 func testTLSAMsg() *dns.Msg {
-	return &dns.Msg{MsgHdr: dns.MsgHdr{Rcode: dns.RcodeSuccess},
+	return &dns.Msg{
+		MsgHdr:   dns.MsgHdr{Rcode: dns.RcodeSuccess},
 		Question: []dns.Question{{Name: "25._tcp.example.org.", Qclass: dns.ClassINET, Qtype: dns.TypeTLSA}},
-		Ns: []dns.RR{test.SOA("example.org.	1800	IN	SOA	linode.example.org. miek.example.org. 1461471181 14400 3600 604800 14400")},
+		Ns:       []dns.RR{test.SOA("example.org.	1800	IN	SOA	linode.example.org. miek.example.org. 1461471181 14400 3600 604800 14400")},
 	}
 }

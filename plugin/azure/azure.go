@@ -142,81 +142,99 @@ func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage
 		resultTTL := uint32(*(result.RecordSetProperties.TTL))
 		if result.RecordSetProperties.ARecords != nil {
 			for _, A := range *(result.RecordSetProperties.ARecords) {
-				a := &dns.A{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: resultTTL},
-					A: net.ParseIP(*(A.Ipv4Address))}
+				a := &dns.A{
+					Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: resultTTL},
+					A:   net.ParseIP(*(A.Ipv4Address)),
+				}
 				newZ.Insert(a)
 			}
 		}
 
 		if result.RecordSetProperties.AaaaRecords != nil {
 			for _, AAAA := range *(result.RecordSetProperties.AaaaRecords) {
-				aaaa := &dns.AAAA{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: resultTTL},
-					AAAA: net.ParseIP(*(AAAA.Ipv6Address))}
+				aaaa := &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: resultTTL},
+					AAAA: net.ParseIP(*(AAAA.Ipv6Address)),
+				}
 				newZ.Insert(aaaa)
 			}
 		}
 
 		if result.RecordSetProperties.MxRecords != nil {
 			for _, MX := range *(result.RecordSetProperties.MxRecords) {
-				mx := &dns.MX{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: resultTTL},
+				mx := &dns.MX{
+					Hdr:        dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: resultTTL},
 					Preference: uint16(*(MX.Preference)),
-					Mx:         dns.Fqdn(*(MX.Exchange))}
+					Mx:         dns.Fqdn(*(MX.Exchange)),
+				}
 				newZ.Insert(mx)
 			}
 		}
 
 		if result.RecordSetProperties.PtrRecords != nil {
 			for _, PTR := range *(result.RecordSetProperties.PtrRecords) {
-				ptr := &dns.PTR{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: resultTTL},
-					Ptr: dns.Fqdn(*(PTR.Ptrdname))}
+				ptr := &dns.PTR{
+					Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: resultTTL},
+					Ptr: dns.Fqdn(*(PTR.Ptrdname)),
+				}
 				newZ.Insert(ptr)
 			}
 		}
 
 		if result.RecordSetProperties.SrvRecords != nil {
 			for _, SRV := range *(result.RecordSetProperties.SrvRecords) {
-				srv := &dns.SRV{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: resultTTL},
+				srv := &dns.SRV{
+					Hdr:      dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: resultTTL},
 					Priority: uint16(*(SRV.Priority)),
 					Weight:   uint16(*(SRV.Weight)),
 					Port:     uint16(*(SRV.Port)),
-					Target:   dns.Fqdn(*(SRV.Target))}
+					Target:   dns.Fqdn(*(SRV.Target)),
+				}
 				newZ.Insert(srv)
 			}
 		}
 
 		if result.RecordSetProperties.TxtRecords != nil {
 			for _, TXT := range *(result.RecordSetProperties.TxtRecords) {
-				txt := &dns.TXT{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: resultTTL},
-					Txt: *(TXT.Value)}
+				txt := &dns.TXT{
+					Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: resultTTL},
+					Txt: *(TXT.Value),
+				}
 				newZ.Insert(txt)
 			}
 		}
 
 		if result.RecordSetProperties.NsRecords != nil {
 			for _, NS := range *(result.RecordSetProperties.NsRecords) {
-				ns := &dns.NS{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: resultTTL},
-					Ns: *(NS.Nsdname)}
+				ns := &dns.NS{
+					Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: resultTTL},
+					Ns:  *(NS.Nsdname),
+				}
 				newZ.Insert(ns)
 			}
 		}
 
 		if result.RecordSetProperties.SoaRecord != nil {
 			SOA := result.RecordSetProperties.SoaRecord
-			soa := &dns.SOA{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: resultTTL},
+			soa := &dns.SOA{
+				Hdr:     dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: resultTTL},
 				Minttl:  uint32(*(SOA.MinimumTTL)),
 				Expire:  uint32(*(SOA.ExpireTime)),
 				Retry:   uint32(*(SOA.RetryTime)),
 				Refresh: uint32(*(SOA.RefreshTime)),
 				Serial:  uint32(*(SOA.SerialNumber)),
 				Mbox:    dns.Fqdn(*(SOA.Email)),
-				Ns:      *(SOA.Host)}
+				Ns:      *(SOA.Host),
+			}
 			newZ.Insert(soa)
 		}
 
 		if result.RecordSetProperties.CnameRecord != nil {
 			CNAME := result.RecordSetProperties.CnameRecord.Cname
-			cname := &dns.CNAME{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: resultTTL},
-				Target: dns.Fqdn(*CNAME)}
+			cname := &dns.CNAME{
+				Hdr:    dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: resultTTL},
+				Target: dns.Fqdn(*CNAME),
+			}
 			newZ.Insert(cname)
 		}
 	}
@@ -228,72 +246,88 @@ func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPa
 		resultTTL := uint32(*(result.RecordSetProperties.TTL))
 		if result.RecordSetProperties.ARecords != nil {
 			for _, A := range *(result.RecordSetProperties.ARecords) {
-				a := &dns.A{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: resultTTL},
-					A: net.ParseIP(*(A.Ipv4Address))}
+				a := &dns.A{
+					Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: resultTTL},
+					A:   net.ParseIP(*(A.Ipv4Address)),
+				}
 				newZ.Insert(a)
 			}
 		}
 		if result.RecordSetProperties.AaaaRecords != nil {
 			for _, AAAA := range *(result.RecordSetProperties.AaaaRecords) {
-				aaaa := &dns.AAAA{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: resultTTL},
-					AAAA: net.ParseIP(*(AAAA.Ipv6Address))}
+				aaaa := &dns.AAAA{
+					Hdr:  dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeAAAA, Class: dns.ClassINET, Ttl: resultTTL},
+					AAAA: net.ParseIP(*(AAAA.Ipv6Address)),
+				}
 				newZ.Insert(aaaa)
 			}
 		}
 
 		if result.RecordSetProperties.MxRecords != nil {
 			for _, MX := range *(result.RecordSetProperties.MxRecords) {
-				mx := &dns.MX{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: resultTTL},
+				mx := &dns.MX{
+					Hdr:        dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: resultTTL},
 					Preference: uint16(*(MX.Preference)),
-					Mx:         dns.Fqdn(*(MX.Exchange))}
+					Mx:         dns.Fqdn(*(MX.Exchange)),
+				}
 				newZ.Insert(mx)
 			}
 		}
 
 		if result.RecordSetProperties.PtrRecords != nil {
 			for _, PTR := range *(result.RecordSetProperties.PtrRecords) {
-				ptr := &dns.PTR{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: resultTTL},
-					Ptr: dns.Fqdn(*(PTR.Ptrdname))}
+				ptr := &dns.PTR{
+					Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypePTR, Class: dns.ClassINET, Ttl: resultTTL},
+					Ptr: dns.Fqdn(*(PTR.Ptrdname)),
+				}
 				newZ.Insert(ptr)
 			}
 		}
 
 		if result.RecordSetProperties.SrvRecords != nil {
 			for _, SRV := range *(result.RecordSetProperties.SrvRecords) {
-				srv := &dns.SRV{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: resultTTL},
+				srv := &dns.SRV{
+					Hdr:      dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: resultTTL},
 					Priority: uint16(*(SRV.Priority)),
 					Weight:   uint16(*(SRV.Weight)),
 					Port:     uint16(*(SRV.Port)),
-					Target:   dns.Fqdn(*(SRV.Target))}
+					Target:   dns.Fqdn(*(SRV.Target)),
+				}
 				newZ.Insert(srv)
 			}
 		}
 
 		if result.RecordSetProperties.TxtRecords != nil {
 			for _, TXT := range *(result.RecordSetProperties.TxtRecords) {
-				txt := &dns.TXT{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: resultTTL},
-					Txt: *(TXT.Value)}
+				txt := &dns.TXT{
+					Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: resultTTL},
+					Txt: *(TXT.Value),
+				}
 				newZ.Insert(txt)
 			}
 		}
 
 		if result.RecordSetProperties.SoaRecord != nil {
 			SOA := result.RecordSetProperties.SoaRecord
-			soa := &dns.SOA{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: resultTTL},
+			soa := &dns.SOA{
+				Hdr:     dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: resultTTL},
 				Minttl:  uint32(*(SOA.MinimumTTL)),
 				Expire:  uint32(*(SOA.ExpireTime)),
 				Retry:   uint32(*(SOA.RetryTime)),
 				Refresh: uint32(*(SOA.RefreshTime)),
 				Serial:  uint32(*(SOA.SerialNumber)),
 				Mbox:    dns.Fqdn(*(SOA.Email)),
-				Ns:      dns.Fqdn(*(SOA.Host))}
+				Ns:      dns.Fqdn(*(SOA.Host)),
+			}
 			newZ.Insert(soa)
 		}
 
 		if result.RecordSetProperties.CnameRecord != nil {
 			CNAME := result.RecordSetProperties.CnameRecord.Cname
-			cname := &dns.CNAME{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: resultTTL},
-				Target: dns.Fqdn(*CNAME)}
+			cname := &dns.CNAME{
+				Hdr:    dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeCNAME, Class: dns.ClassINET, Ttl: resultTTL},
+				Target: dns.Fqdn(*CNAME),
+			}
 			newZ.Insert(cname)
 		}
 	}

@@ -517,7 +517,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 		// External service
 		if svc.Type == api.ServiceTypeExternalName {
-			//External services cannot have endpoints, so skip this service if an endpoint is present in the request
+			// External services cannot have endpoints, so skip this service if an endpoint is present in the request
 			if r.endpoint != "" {
 				continue
 			}

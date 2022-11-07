@@ -213,6 +213,7 @@ func (dns *dnsControl) EndpointsLatencyRecorder() *object.EndpointLatencyRecorde
 		},
 	}
 }
+
 func (dns *dnsControl) EndpointSliceLatencyRecorder() *object.EndpointLatencyRecorder {
 	return &object.EndpointLatencyRecorder{
 		ServiceFunc: func(o meta.Object) []*object.Service {
@@ -294,6 +295,7 @@ func podListFunc(ctx context.Context, c kubernetes.Interface, ns string, s label
 		return c.CoreV1().Pods(ns).List(ctx, opts)
 	}
 }
+
 func endpointSliceListFuncV1beta1(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
 	return func(opts meta.ListOptions) (runtime.Object, error) {
 		if s != nil {

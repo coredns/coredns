@@ -137,13 +137,14 @@ func testMsg() *dns.Msg {
 	// don't care about the message header
 	return &dns.Msg{
 		Answer: []dns.RR{test.MX("miek.nl.	1703	IN	MX	1 aspmx.l.google.com.")},
-		Ns: []dns.RR{test.NS("miek.nl.	1703	IN	NS	omval.tednet.nl.")},
+		Ns:     []dns.RR{test.NS("miek.nl.	1703	IN	NS	omval.tednet.nl.")},
 	}
 }
+
 func testMsgEx() *dns.Msg {
 	return &dns.Msg{
 		Answer: []dns.RR{test.MX("example.org.	1703	IN	MX	1 aspmx.l.google.com.")},
-		Ns: []dns.RR{test.NS("example.org.	1703	IN	NS	omval.tednet.nl.")},
+		Ns:     []dns.RR{test.NS("example.org.	1703	IN	NS	omval.tednet.nl.")},
 	}
 }
 

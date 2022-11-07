@@ -167,7 +167,7 @@ func newEdns0VariableRule(mode, action, code, variable string) (*edns0VariableRu
 	if err != nil {
 		return nil, err
 	}
-	//Validate
+	// Validate
 	if !isValidVariable(variable) {
 		return nil, fmt.Errorf("unsupported variable name %q", variable)
 	}
@@ -292,8 +292,10 @@ func newEdns0SubnetRule(mode, action, v4BitMaskLen, v6BitMaskLen string) (*edns0
 		return nil, fmt.Errorf("invalid IPv6 bit mask length %d", v6Len)
 	}
 
-	return &edns0SubnetRule{mode: mode, action: action,
-		v4BitMaskLen: uint8(v4Len), v6BitMaskLen: uint8(v6Len)}, nil
+	return &edns0SubnetRule{
+		mode: mode, action: action,
+		v4BitMaskLen: uint8(v4Len), v6BitMaskLen: uint8(v6Len),
+	}, nil
 }
 
 // fillEcsData sets the subnet data into the ecs option

@@ -59,36 +59,41 @@ type checkTest struct {
 
 func TestOverlapAddressChecker(t *testing.T) {
 	for i, test := range []checkTest{
-		{sequence: []checkCall{
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, true, false, ""},
+		{
+			sequence: []checkCall{
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, true, false, ""},
+			},
 		},
+		{
+			sequence: []checkCall{
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, true, "dns://.:53"},
+			},
 		},
-		{sequence: []checkCall{
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, true, "dns://.:53"},
+		{
+			sequence: []checkCall{
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, true, false, ""},
+			},
 		},
+		{
+			sequence: []checkCall{
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "128.0.0.1", Port: "53"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "129.0.0.1", Port: "53"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, true, "dns://.:53 on 129.0.0.1"},
+			},
 		},
-		{sequence: []checkCall{
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, true, false, ""},
-		},
-		},
-		{sequence: []checkCall{
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "54"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "128.0.0.1", Port: "53"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "129.0.0.1", Port: "53"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "", Port: "53"}, false, true, "dns://.:53 on 129.0.0.1"},
-		},
-		},
-		{sequence: []checkCall{
-			{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: "com.", Address: "127.0.0.1", Port: "53"}, false, false, ""},
-			{zoneAddr{Transport: "dns", Zone: "com.", Address: "", Port: "53"}, false, true, "dns://com.:53 on 127.0.0.1"},
-		},
+		{
+			sequence: []checkCall{
+				{zoneAddr{Transport: "dns", Zone: ".", Address: "127.0.0.1", Port: "53"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: "com.", Address: "127.0.0.1", Port: "53"}, false, false, ""},
+				{zoneAddr{Transport: "dns", Zone: "com.", Address: "", Port: "53"}, false, true, "dns://com.:53 on 127.0.0.1"},
+			},
 		},
 	} {
 		checker := newOverlapZone()

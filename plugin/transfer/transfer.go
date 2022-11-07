@@ -47,10 +47,8 @@ type Transferer interface {
 	Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 }
 
-var (
-	// ErrNotAuthoritative is returned by Transfer() when the plugin is not authoritative for the zone.
-	ErrNotAuthoritative = errors.New("not authoritative for zone")
-)
+// ErrNotAuthoritative is returned by Transfer() when the plugin is not authoritative for the zone.
+var ErrNotAuthoritative = errors.New("not authoritative for zone")
 
 // ServeDNS implements the plugin.Handler interface.
 func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {

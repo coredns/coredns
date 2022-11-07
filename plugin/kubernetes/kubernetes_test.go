@@ -15,7 +15,7 @@ import (
 )
 
 func TestEndpointHostname(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		ip               string
 		hostname         string
 		expected         string

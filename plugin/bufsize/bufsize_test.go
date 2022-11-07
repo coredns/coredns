@@ -36,7 +36,6 @@ func TestBufsize(t *testing.T) {
 		// WHEN
 		//		request is processed
 		_, err := p.ServeDNS(context.Background(), &test.ResponseWriter{}, r)
-
 		// THEN
 		//		no error
 		//		OPT RR present
@@ -63,7 +62,6 @@ func TestBufsize(t *testing.T) {
 		// WHEN
 		//		request is processed
 		_, err := p.ServeDNS(context.Background(), &test.ResponseWriter{}, r)
-
 		// THEN
 		//		no error
 		//		request buffer size is not expanded
@@ -88,7 +86,6 @@ func TestBufsize(t *testing.T) {
 		// WHEN
 		//		request is processed
 		_, err := p.ServeDNS(context.Background(), &test.ResponseWriter{}, r)
-
 		// THEN
 		//		no error
 		//		OPT RR is not appended

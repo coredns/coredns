@@ -45,7 +45,7 @@ func TestZoneReload(t *testing.T) {
 	}
 
 	// Remove RR from the Apex
-	os.WriteFile(name, []byte(exampleOrgUpdated), 0644)
+	os.WriteFile(name, []byte(exampleOrgUpdated), 0o644)
 
 	time.Sleep(20 * time.Millisecond) // reload time, with some race insurance
 

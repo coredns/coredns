@@ -7,7 +7,7 @@ import (
 )
 
 func supportedOptions(o []dns.EDNS0) []dns.EDNS0 {
-	var supported = make([]dns.EDNS0, 0, 3)
+	supported := make([]dns.EDNS0, 0, 3)
 	// For as long as possible try avoid looking up in the map, because that need an Rlock.
 	for _, opt := range o {
 		switch code := opt.Option(); code {

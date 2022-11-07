@@ -74,7 +74,7 @@ func TestPrint(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	//Redirect the printed results to a tmp file for later comparison
+	// Redirect the printed results to a tmp file for later comparison
 	os.Stdout = f
 
 	tree.Print()
@@ -91,7 +91,7 @@ func TestPrint(t *testing.T) {
 		t.Error(err)
 	}
 	height := strings.Count(string(buf), ". \n")
-	//Compare the height of the print with the actual height of the tree
+	// Compare the height of the print with the actual height of the tree
 	if height != 3 {
 		f.Close()
 		os.Remove("tmp")

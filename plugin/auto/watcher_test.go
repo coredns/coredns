@@ -81,7 +81,7 @@ func TestSymlinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	dataDir := filepath.Join(tempdir, "..data")
-	if err = os.Mkdir(dataDir, 0755); err != nil {
+	if err = os.Mkdir(dataDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	newFile := filepath.Join(dataDir, "db.example.com")

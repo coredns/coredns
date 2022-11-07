@@ -477,7 +477,8 @@ func SOA(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 	Mbox := dnsutil.Join(hostmaster, zone)
 	Ns := dnsutil.Join("ns.dns", zone)
 
-	soa := &dns.SOA{Hdr: header,
+	soa := &dns.SOA{
+		Hdr:     header,
 		Mbox:    Mbox,
 		Ns:      Ns,
 		Serial:  b.Serial(state),

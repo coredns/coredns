@@ -23,6 +23,7 @@ func (t t1) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	}
 	return nil, fmt.Errorf(z)
 }
+
 func (t t2) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	const z = "sub.example.org."
 	if zone != z {

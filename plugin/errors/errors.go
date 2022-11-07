@@ -82,7 +82,6 @@ func (h *errorHandler) stop() {
 // ServeDNS implements the plugin.Handler interface.
 func (h *errorHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	rcode, err := plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
-
 	if err != nil {
 		strErr := err.Error()
 		for i := range h.patterns {

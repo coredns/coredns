@@ -39,7 +39,6 @@ func startUpZones(protocol, addr string, zones map[string][]*Config) string {
 		}
 		// split addr into protocol, IP and Port
 		_, ip, port, err := SplitProtocolHostPort(addr)
-
 		if err != nil {
 			// this should not happen, but we need to take care of it anyway
 			s += fmt.Sprintln(protocol + zone + ":" + addr)

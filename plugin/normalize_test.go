@@ -58,7 +58,8 @@ func TestNameMatches(t *testing.T) {
 func TestNameNormalize(t *testing.T) {
 	names := []string{
 		"example.org", "example.org.",
-		"Example.ORG.", "example.org."}
+		"Example.ORG.", "example.org.",
+	}
 
 	for i := 0; i < len(names); i += 2 {
 		ts := names[i]

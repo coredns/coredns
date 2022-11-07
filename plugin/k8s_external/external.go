@@ -7,7 +7,6 @@ NXDOMAIN depending on the state of the cluster.
 
 A plugin willing to provide these services must implement the Externaler interface, although it
 likely only makes sense for the *kubernetes* plugin.
-
 */
 package external
 

@@ -8,6 +8,7 @@ package pb
 
 import (
 	context "context"
+
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -51,8 +52,7 @@ type DnsServiceServer interface {
 }
 
 // UnimplementedDnsServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedDnsServiceServer struct {
-}
+type UnimplementedDnsServiceServer struct{}
 
 func (UnimplementedDnsServiceServer) Query(context.Context, *DnsPacket) (*DnsPacket, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Query not implemented")

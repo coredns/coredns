@@ -23,16 +23,20 @@ func TestTLS(t *testing.T) {
 		server    string
 		tlsConfig *tls.Config
 	}{
-		{fmt.Sprintf("tls://.%s", dot),
+		{
+			fmt.Sprintf("tls://.%s", dot),
 			&tls.Config{InsecureSkipVerify: true},
 		},
-		{fmt.Sprintf("tls://.%s", dot),
+		{
+			fmt.Sprintf("tls://.%s", dot),
 			&tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
 		},
-		{fmt.Sprintf("tls://.%s https://.%s", dot, doh),
+		{
+			fmt.Sprintf("tls://.%s https://.%s", dot, doh),
 			&tls.Config{InsecureSkipVerify: true},
 		},
-		{fmt.Sprintf("tls://.%s https://.%s", dot, doh),
+		{
+			fmt.Sprintf("tls://.%s https://.%s", dot, doh),
 			&tls.Config{InsecureSkipVerify: true, NextProtos: []string{"dot"}},
 		},
 	}
@@ -48,7 +52,6 @@ func TestTLS(t *testing.T) {
 			TLSConfig: tc.tlsConfig,
 		}
 		r, _, err := client.Exchange(m, dot)
-
 		if err != nil {
 			t.Fatalf("Could not exchange msg: %s", err)
 		}

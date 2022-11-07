@@ -72,7 +72,7 @@ func createFiles() (string, error) {
 	}
 
 	for _, name := range dbFiles {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(zoneContent), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(zoneContent), 0o644); err != nil {
 			return dir, err
 		}
 	}

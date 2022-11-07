@@ -14,27 +14,32 @@ func TestTransferIn(t *testing.T) {
 	}{
 		{
 			`from 127.0.0.1`,
-			false, []string{"127.0.0.1:53"},
+			false,
+			[]string{"127.0.0.1:53"},
 		},
 		// OK transfer froms
 		{
 			`from 127.0.0.1 127.0.0.2`,
-			false, []string{"127.0.0.1:53", "127.0.0.2:53"},
+			false,
+			[]string{"127.0.0.1:53", "127.0.0.2:53"},
 		},
 		// Bad transfer from garbage
 		{
 			`from !@#$%^&*()`,
-			true, []string{},
+			true,
+			[]string{},
 		},
 		// Bad transfer from no args
 		{
 			`from`,
-			true, []string{},
+			true,
+			[]string{},
 		},
 		// Bad transfer from *
 		{
 			`from *`,
-			true, []string{},
+			true,
+			[]string{},
 		},
 	}
 

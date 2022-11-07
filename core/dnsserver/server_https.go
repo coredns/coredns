@@ -30,8 +30,7 @@ type ServerHTTPS struct {
 }
 
 // loggerAdapter is a simple adapter around CoreDNS logger made to implement io.Writer in order to log errors from HTTP server
-type loggerAdapter struct {
-}
+type loggerAdapter struct{}
 
 func (l *loggerAdapter) Write(p []byte) (n int, err error) {
 	clog.Debug(string(p))

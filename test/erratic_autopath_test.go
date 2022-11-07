@@ -23,7 +23,7 @@ google.com. IN A 172.217.25.110
 `
 
 	path := filepath.Join(tmpdir, "file")
-	if err = os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err = os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("Could not write to temp file: %s", err)
 	}
 	defer os.Remove(path)

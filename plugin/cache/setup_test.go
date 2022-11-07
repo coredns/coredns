@@ -205,8 +205,11 @@ func TestDisable(t *testing.T) {
 		{"disable success example.com example.org", false, nil, []string{"example.com.", "example.org."}},
 		{"disable denial", false, []string{"."}, nil},
 		{"disable success", false, nil, []string{"."}},
-		{"disable denial example.com example.org\ndisable success example.com example.org", false,
-			[]string{"example.com.", "example.org."}, []string{"example.com.", "example.org."}},
+		{
+			"disable denial example.com example.org\ndisable success example.com example.org", false,
+			[]string{"example.com.", "example.org."},
+			[]string{"example.com.", "example.org."},
+		},
 		// negative
 		{"disable invalid example.com example.org", true, nil, nil},
 	}

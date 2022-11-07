@@ -35,7 +35,6 @@ func TestTransferAXFR(t *testing.T) {
 	e.externalServicesFunc = k.ExternalServices
 
 	ch, err := e.Transfer("example.com.", 0)
-
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -101,7 +100,6 @@ func TestTransferIXFR(t *testing.T) {
 	e.externalServicesFunc = k.ExternalServices
 
 	ch, err := e.Transfer("example.com.", externalSerial("example.com."))
-
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}

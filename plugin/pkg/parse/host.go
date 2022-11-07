@@ -35,7 +35,6 @@ func HostPortOrFile(s ...string) ([]string, error) {
 		trans, host := Transport(h)
 
 		addr, _, err := net.SplitHostPort(host)
-
 		if err != nil {
 			// Parse didn't work, it is not a addr:port combo
 			hostNoZone := stripZone(host)

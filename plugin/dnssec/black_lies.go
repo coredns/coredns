@@ -11,7 +11,9 @@ import (
 // See https://tools.ietf.org/html/draft-valsorda-dnsop-black-lies-00
 // For example, a request for the non-existing name a.example.com would
 // cause the following NSEC record to be generated:
+//
 //	a.example.com. 3600 IN NSEC \000.a.example.com. ( RRSIG NSEC ... )
+//
 // This inturn makes every NXDOMAIN answer a NODATA one, don't forget to flip
 // the header rcode to NOERROR.
 func (d Dnssec) nsec(state request.Request, mt response.Type, ttl, incep, expir uint32, server string) ([]dns.RR, error) {

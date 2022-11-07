@@ -35,7 +35,7 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
-	var tsigRR = r.IsTsig()
+	tsigRR := r.IsTsig()
 	rcode := dns.RcodeSuccess
 	if !t.tsigRequired(state.QType()) && tsigRR == nil {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)

@@ -86,7 +86,8 @@ func TestMinimizeResponse(t *testing.T) {
 				Extra:  baseExtra,
 				Rcode:  0,
 			},
-		}, { // negative response case
+		},
+		{ // negative response case
 			original: test.Case{
 				Answer: baseAnswer,
 				Ns:     baseNs,
@@ -113,7 +114,6 @@ func TestMinimizeResponse(t *testing.T) {
 		o := &minimalHandler{Next: tHandler}
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		_, err := o.ServeDNS(context.TODO(), rec, req)
-
 		if err != nil {
 			t.Errorf("Expected no error, but got %q", err)
 		}

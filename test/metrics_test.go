@@ -97,7 +97,7 @@ func TestMetricsAuto(t *testing.T) {
 	defer i.Stop()
 
 	// Write db.example.org to get example.org.
-	if err = os.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
+	if err = os.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(110 * time.Millisecond) // wait for it to be picked up

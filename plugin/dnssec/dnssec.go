@@ -27,7 +27,8 @@ type Dnssec struct {
 
 // New returns a new Dnssec.
 func New(zones []string, keys []*DNSKEY, splitkeys bool, next plugin.Handler, c *cache.Cache) Dnssec {
-	return Dnssec{Next: next,
+	return Dnssec{
+		Next:      next,
 		zones:     zones,
 		keys:      keys,
 		splitkeys: splitkeys,

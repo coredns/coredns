@@ -44,7 +44,6 @@ func TestTruncatedCNAME(t *testing.T) {
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 	_, err := handler.ServeDNS(context.TODO(), w, r)
-
 	if err != nil {
 		t.Fatalf("Unexpecetd error %q", err)
 	}

@@ -20,7 +20,6 @@ import (
 func TestMetricNaming(t *testing.T) {
 	walker := validMetricWalker{}
 	err := filepath.Walk("..", walker.walk)
-
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +90,7 @@ func (l *metric) Visit(n ast.Node) ast.Visitor {
 	if !ok {
 		return l
 	}
-	if id.Name != "prometheus" { //prometheus
+	if id.Name != "prometheus" { // prometheus
 		return l
 	}
 	var metricsType dto.MetricType

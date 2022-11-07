@@ -153,7 +153,7 @@ key "name2.key." {
 }
 
 func TestParseKeyFile(t *testing.T) {
-	var reader = strings.NewReader(`key "foo" {
+	reader := strings.NewReader(`key "foo" {
 	algorithm hmac-sha256;
 	secret "36eowrtmxceNA3T5AdE+JNUOWFCw3amtcyHACnrDVgQ=";
 };
@@ -207,7 +207,8 @@ func TestParseKeyFileErrors(t *testing.T) {
 	}; `,
 			err: "key \"foo.\" redefined",
 		},
-		{in: `key "foo" {
+		{
+			in: `key "foo" {
 	schmalgorithm hmac-sha256;`,
 			err: "unexpected token \"schmalgorithm\"",
 		},

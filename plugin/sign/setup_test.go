@@ -12,7 +12,8 @@ func TestParse(t *testing.T) {
 		shouldErr bool
 		exp       *Signer
 	}{
-		{`sign testdata/db.miek.nl miek.nl {
+		{
+			`sign testdata/db.miek.nl miek.nl {
 			key file testdata/Kmiek.nl.+013+59725
 		 }`,
 			false,
@@ -24,7 +25,8 @@ func TestParse(t *testing.T) {
 				signedfile: "db.miek.nl.signed",
 			},
 		},
-		{`sign testdata/db.miek.nl example.org {
+		{
+			`sign testdata/db.miek.nl example.org {
 			key file testdata/Kmiek.nl.+013+59725
 			directory testdata
 		 }`,
@@ -38,7 +40,8 @@ func TestParse(t *testing.T) {
 			},
 		},
 		// errors
-		{`sign db.example.org {
+		{
+			`sign db.example.org {
 			key file /etc/coredns/keys/Kexample.org
 		 }`,
 			true,

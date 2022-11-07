@@ -83,7 +83,7 @@ func (f *Forward) OnShutdown() error {
 }
 
 func parseForward(c *caddy.Controller) ([]*Forward, error) {
-	var fs = []*Forward{}
+	fs := []*Forward{}
 	for c.Next() {
 		f, err := parseStanza(c)
 		if err != nil {

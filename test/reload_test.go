@@ -152,7 +152,7 @@ func collectMetricsInfo(addr string, procs ...string) error {
 // 4. remove the metrics plugin and trigger a final reload
 // 5. ensure the original prometheus exporter has not received more metrics
 func TestReloadSeveralTimeMetrics(t *testing.T) {
-	//TODO: add a tool that find an available port because this needs to be a port
+	// TODO: add a tool that find an available port because this needs to be a port
 	// that is not used in another test
 	promAddress := "127.0.0.1:53185"
 	proc := "coredns_build_info"
@@ -206,7 +206,7 @@ func TestReloadSeveralTimeMetrics(t *testing.T) {
 }
 
 func TestMetricsAvailableAfterReload(t *testing.T) {
-	//TODO: add a tool that find an available port because this needs to be a port
+	// TODO: add a tool that find an available port because this needs to be a port
 	// that is not used in another test
 	promAddress := "127.0.0.1:53186"
 	procMetric := "coredns_build_info"
@@ -260,7 +260,7 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 }
 
 func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
-	//TODO: add a tool that find an available port because this needs to be a port
+	// TODO: add a tool that find an available port because this needs to be a port
 	// that is not used in another test
 	promAddress := "127.0.0.1:53187"
 	procMetric := "coredns_build_info"

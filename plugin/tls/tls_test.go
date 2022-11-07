@@ -34,7 +34,7 @@ func TestTLS(t *testing.T) {
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
 		err := setup(c)
-		//cfg := dnsserver.GetConfig(c)
+		// cfg := dnsserver.GetConfig(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error but found %s for input %s", i, err, test.input)

@@ -49,7 +49,7 @@ $ORIGIN example.org.
 @       IN      SOA     linode miek.miek.nl. ( 1282630060 4H 1H 7D 4H )
         IN      NS      linode
 `
-	if err := os.WriteFile("db.apex-test.example.org", []byte(apex), 0644); err != nil {
+	if err := os.WriteFile("db.apex-test.example.org", []byte(apex), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove("db.apex-test.example.org")

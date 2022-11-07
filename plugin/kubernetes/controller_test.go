@@ -173,7 +173,7 @@ func createExternalSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 }
 
 func TestServiceModified(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		oldSvc   interface{}
 		newSvc   interface{}
 		ichanged bool

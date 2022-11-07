@@ -17,7 +17,8 @@ func testCase(t *testing.T, tapq, tapr *tap.Message, q, r *dns.Msg) {
 	w.queue = append(w.queue, tapq, tapr)
 	h := Dnstap{
 		Next: test.HandlerFunc(func(_ context.Context,
-			w dns.ResponseWriter, _ *dns.Msg) (int, error) {
+			w dns.ResponseWriter, _ *dns.Msg,
+		) (int, error) {
 			return 0, w.WriteMsg(r)
 		}),
 		io: &w,

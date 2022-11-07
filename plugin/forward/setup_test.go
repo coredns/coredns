@@ -137,7 +137,7 @@ func TestSetupResolvconf(t *testing.T) {
 	const resolv = "resolv.conf"
 	if err := os.WriteFile(resolv,
 		[]byte(`nameserver 10.10.255.252
-nameserver 10.10.255.253`), 0666); err != nil {
+nameserver 10.10.255.253`), 0o666); err != nil {
 		t.Fatalf("Failed to write resolv.conf file: %s", err)
 	}
 	defer os.Remove(resolv)

@@ -29,7 +29,7 @@ func TestEtcdCache(t *testing.T) {
 
 	etc := etcdPlugin()
 
-	var ctx = context.TODO()
+	ctx := context.TODO()
 	for _, serv := range servicesCacheTest {
 		set(ctx, t, etc, serv.Key, 0, serv)
 		defer delete(ctx, t, etc, serv.Key)

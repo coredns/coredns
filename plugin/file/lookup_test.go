@@ -197,7 +197,7 @@ func TestLookUpNoDataResult(t *testing.T) {
 
 	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{testzone: zone}, Names: []string{testzone}}}
 	ctx := context.TODO()
-	var noDataTestCases = []test.Case{
+	noDataTestCases := []test.Case{
 		{
 			Qname: "a.miek.nl.", Qtype: dns.TypeMX,
 		},

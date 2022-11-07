@@ -78,7 +78,7 @@ func setup(c *caddy.Controller) error {
 
 func autoParse(c *caddy.Controller) (Auto, error) {
 	nilInterval := -1 * time.Second
-	var a = Auto{
+	a := Auto{
 		loader: loader{
 			template:       "${1}",
 			re:             regexp.MustCompile(`db\.(.*)`),

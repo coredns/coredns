@@ -35,9 +35,11 @@ PrivateKey: f03VplaIEA+KHI9uizlemUSbUJH86hPBPjmcUninPoM=
 // actually works. Each corefile snippet is only used if the language is set to 'corefile':
 //
 // ~~~ corefile
-// . {
-//	# check-this-please
-// }
+//
+//	. {
+//		# check-this-please
+//	}
+//
 // ~~~
 //
 // While we're at it - we also check the README.md itself. It should at least have the sections:
@@ -171,7 +173,7 @@ func sectionsFromReadme(readme string) error {
 
 func create(c map[string]string) {
 	for name, content := range c {
-		os.WriteFile(name, []byte(content), 0644)
+		os.WriteFile(name, []byte(content), 0o644)
 	}
 }
 

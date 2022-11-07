@@ -108,7 +108,7 @@ func TestTo6(t *testing.T) {
 }
 
 func TestResponseShould(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		resp         dns.Msg
 		translateAll bool
 		expected     bool
@@ -190,7 +190,7 @@ func TestResponseShould(t *testing.T) {
 }
 
 func TestDNS64(t *testing.T) {
-	var cases = []struct {
+	cases := []struct {
 		// a brief summary of the test case
 		name string
 
@@ -217,7 +217,7 @@ func TestDNS64(t *testing.T) {
 				},
 				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
 			},
-			initResp: &dns.Msg{ //success, no answers
+			initResp: &dns.Msg{ // success, no answers
 				MsgHdr: dns.MsgHdr{
 					Id:               42,
 					Opcode:           dns.OpcodeQuery,
@@ -270,7 +270,7 @@ func TestDNS64(t *testing.T) {
 				},
 				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
 			},
-			initResp: &dns.Msg{ //success, no answers
+			initResp: &dns.Msg{ // success, no answers
 				MsgHdr: dns.MsgHdr{
 					Id:               42,
 					Opcode:           dns.OpcodeQuery,
@@ -444,7 +444,7 @@ func TestDNS64(t *testing.T) {
 				},
 				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
 			},
-			initResp: &dns.Msg{ //success, no answers
+			initResp: &dns.Msg{ // success, no answers
 				MsgHdr: dns.MsgHdr{
 					Id:               42,
 					Opcode:           dns.OpcodeQuery,
@@ -530,6 +530,7 @@ func (fh *fakeHandler) ServeDNS(_ context.Context, w dns.ResponseWriter, _ *dns.
 
 	return fh.reply.Rcode, nil
 }
+
 func (fh *fakeHandler) Name() string {
 	return "fake"
 }

@@ -43,8 +43,10 @@ func (s *Service) NewSRV(name string, weight uint16) *dns.SRV {
 		host = targetStrip(host, s.TargetStrip)
 	}
 
-	return &dns.SRV{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: s.TTL},
-		Priority: uint16(s.Priority), Weight: weight, Port: uint16(s.Port), Target: host}
+	return &dns.SRV{
+		Hdr:      dns.RR_Header{Name: name, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: s.TTL},
+		Priority: uint16(s.Priority), Weight: weight, Port: uint16(s.Port), Target: host,
+	}
 }
 
 // NewMX returns a new MX record based on the Service.
@@ -54,8 +56,10 @@ func (s *Service) NewMX(name string) *dns.MX {
 		host = targetStrip(host, s.TargetStrip)
 	}
 
-	return &dns.MX{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: s.TTL},
-		Preference: uint16(s.Priority), Mx: host}
+	return &dns.MX{
+		Hdr:        dns.RR_Header{Name: name, Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: s.TTL},
+		Preference: uint16(s.Priority), Mx: host,
+	}
 }
 
 // NewA returns a new A record based on the Service.

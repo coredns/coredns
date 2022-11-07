@@ -7,10 +7,11 @@
 package pb
 
 import (
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -93,10 +94,13 @@ func file_dns_proto_rawDescGZIP() []byte {
 	return file_dns_proto_rawDescData
 }
 
-var file_dns_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_dns_proto_goTypes = []interface{}{
-	(*DnsPacket)(nil), // 0: coredns.dns.DnsPacket
-}
+var (
+	file_dns_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+	file_dns_proto_goTypes  = []interface{}{
+		(*DnsPacket)(nil), // 0: coredns.dns.DnsPacket
+	}
+)
+
 var file_dns_proto_depIdxs = []int32{
 	0, // 0: coredns.dns.DnsService.Query:input_type -> coredns.dns.DnsPacket
 	0, // 1: coredns.dns.DnsService.Query:output_type -> coredns.dns.DnsPacket

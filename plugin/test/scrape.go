@@ -19,7 +19,6 @@
 //
 //	result := Scrape("http://localhost:9153/metrics")
 //	v := MetricValue("coredns_cache_capacity", result)
-//
 package test
 
 import (

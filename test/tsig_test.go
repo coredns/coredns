@@ -7,8 +7,10 @@ import (
 	"github.com/miekg/dns"
 )
 
-var tsigKey = "tsig.key."
-var tsigSecret = "i9M+00yrECfVZG2qCjr4mPpaGim/Bq+IWMiNrLjUO4Y="
+var (
+	tsigKey    = "tsig.key."
+	tsigSecret = "i9M+00yrECfVZG2qCjr4mPpaGim/Bq+IWMiNrLjUO4Y="
+)
 
 var corefile = `.:0 {
 		tsig {

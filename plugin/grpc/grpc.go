@@ -137,7 +137,5 @@ func (g *GRPC) list() []*Proxy { return g.p.List(g.proxies) }
 
 const defaultTimeout = 5 * time.Second
 
-var (
-	// ErrNoHealthy means no healthy proxies left.
-	ErrNoHealthy = errors.New("no healthy gRPC proxies")
-)
+// ErrNoHealthy means no healthy proxies left.
+var ErrNoHealthy = errors.New("no healthy gRPC proxies")

@@ -31,8 +31,10 @@ func TestTraceParse(t *testing.T) {
 		{"trace {\n every 100\n service foobar\nclient_server\n}", false, "http://localhost:9411/api/v2/spans", 100, `foobar`, true, 0, 0, 0},
 		{"trace {\n every 2\n client_server true\n}", false, "http://localhost:9411/api/v2/spans", 2, `coredns`, true, 0, 0, 0},
 		{"trace {\n client_server false\n}", false, "http://localhost:9411/api/v2/spans", 1, `coredns`, false, 0, 0, 0},
-		{"trace {\n zipkin_max_backlog_size 100\n zipkin_max_batch_size 200\n zipkin_max_batch_interval 10s\n}", false,
-			"http://localhost:9411/api/v2/spans", 1, `coredns`, false, 100, 200, 10 * time.Second},
+		{
+			"trace {\n zipkin_max_backlog_size 100\n zipkin_max_batch_size 200\n zipkin_max_batch_interval 10s\n}", false,
+			"http://localhost:9411/api/v2/spans", 1, `coredns`, false, 100, 200, 10 * time.Second,
+		},
 
 		// fails
 		{`trace footype localhost:4321`, true, "", 1, "", false, 0, 0, 0},

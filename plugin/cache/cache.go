@@ -89,8 +89,10 @@ func key(qname string, m *dns.Msg, t response.Type, do bool) (bool, uint64) {
 	return true, hash(qname, m.Question[0].Qtype, do)
 }
 
-var one = []byte("1")
-var zero = []byte("0")
+var (
+	one  = []byte("1")
+	zero = []byte("0")
+)
 
 func hash(qname string, qtype uint16, do bool) uint64 {
 	h := fnv.New64()

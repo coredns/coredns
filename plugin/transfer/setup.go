@@ -17,7 +17,6 @@ func init() {
 
 func setup(c *caddy.Controller) error {
 	t, err := parseTransfer(c)
-
 	if err != nil {
 		return plugin.Error("transfer", err)
 	}

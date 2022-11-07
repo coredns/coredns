@@ -92,7 +92,8 @@ func (e *External) serveSubApex(state request.Request) (int, error) {
 func (e *External) soa(state request.Request) *dns.SOA {
 	header := dns.RR_Header{Name: state.Zone, Rrtype: dns.TypeSOA, Ttl: e.ttl, Class: dns.ClassINET}
 
-	soa := &dns.SOA{Hdr: header,
+	soa := &dns.SOA{
+		Hdr:     header,
 		Mbox:    dnsutil.Join(e.hostmaster, e.apex, state.Zone),
 		Ns:      dnsutil.Join("ns1", e.apex, state.Zone),
 		Serial:  e.externalSerialFunc(state.Zone),

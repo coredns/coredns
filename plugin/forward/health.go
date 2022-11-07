@@ -57,6 +57,7 @@ func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
 func (h *dnsHc) SetRecursionDesired(recursionDesired bool) {
 	h.recursionDesired = recursionDesired
 }
+
 func (h *dnsHc) GetRecursionDesired() bool {
 	return h.recursionDesired
 }
@@ -64,6 +65,7 @@ func (h *dnsHc) GetRecursionDesired() bool {
 func (h *dnsHc) SetDomain(domain string) {
 	h.domain = domain
 }
+
 func (h *dnsHc) GetDomain() string {
 	return h.domain
 }
