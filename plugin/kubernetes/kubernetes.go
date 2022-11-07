@@ -103,16 +103,16 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 		// Hard code the only valid TXT - "dns-version.<zone>"
 		segs := dns.SplitDomainName(t)
 		if len(segs) == 1 && segs[0] == "dns-version" {
-				svc := msg.Service{Text: DNSSchemaVersion, TTL: 28800, Key: msg.Path(state.QName(), coredns)}
-				return []msg.Service{svc}, nil
+			svc := msg.Service{Text: DNSSchemaVersion, TTL: 28800, Key: msg.Path(state.QName(), coredns)}
+			return []msg.Service{svc}, nil
 		}
 
 		// Check if we have an existing record for this query of another type
 		services, _ := k.Records(ctx, state, false)
 
 		if len(services) > 0 {
-				// If so we return an empty NOERROR
-				return nil, nil
+			// If so we return an empty NOERROR
+			return nil, nil
 		}
 
 		// Return NXDOMAIN for no match
