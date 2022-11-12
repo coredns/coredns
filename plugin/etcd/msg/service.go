@@ -34,6 +34,10 @@ type Service struct {
 
 	// Etcd key where we found this service and ignored from json un-/marshalling
 	Key string `json:"-"`
+
+	// RName is the correct record name, if inferring it from msg.Domain() would return
+	// an incorrect result.
+	RName string `json:"-"`
 }
 
 // NewSRV returns a new SRV record based on the Service.
@@ -90,6 +94,16 @@ func (s *Service) NewNS(name string) *dns.NS {
 		host = targetStrip(host, s.TargetStrip)
 	}
 	return &dns.NS{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: s.TTL}, Ns: host}
+}
+
+// Domain returns the correct record name for the record. Individual plugins can override
+// this with the RName property, or preserve the default behavior of using msg.Domain() if
+// overriding isn't necessary.
+func (s *Service) Domain() string {
+	if s.RName != "" {
+		return s.RName
+	}
+	return Domain(s.Key)
 }
 
 // Group checks the services in sx, it looks for a Group attribute on the shortest

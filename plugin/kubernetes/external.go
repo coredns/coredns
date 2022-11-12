@@ -186,7 +186,7 @@ func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []ms
 							if p.Name == "" {
 								continue
 							}
-							s.Host = msg.Domain(s.Key)
+							s.Host = s.Domain()
 							s.Key = strings.Join(append([]string{zonePath, svc.Namespace, svc.Name}, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+string(p.Name))), "/")
 							headlessServices[strings.Join([]string{s.Key, PortProtocol}, "/")] = append(headlessServices[strings.Join([]string{s.Key, PortProtocol}, "/")], s)
 						}

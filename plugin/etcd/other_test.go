@@ -66,6 +66,9 @@ var servicesOther = []*msg.Service{
 	{Text: strings.Repeat("0", 600), Key: "large600.skydns.test."},
 	{Text: strings.Repeat("0", 2000), Key: "large2000.skydns.test."},
 
+	// ns
+	{Host: "172.17.1.1", Key: "ipv4.ns.dns.skydns.test.", RName: "ipv4.ns.dns.skydns.test."},
+
 	// duplicate ip address
 	{Host: "10.11.11.10", Key: "http.multiport.http.skydns.test.", Port: 80},
 	{Host: "10.11.11.10", Key: "https.multiport.http.skydns.test.", Port: 443},
@@ -128,6 +131,17 @@ var dnsTestCasesOther = []test.Case{
 		Qname: "large400.skydns.test.", Qtype: dns.TypeTXT,
 		Answer: []dns.RR{
 			test.TXT(fmt.Sprintf("large400.skydns.test. 300 IN TXT \"%s\"", strings.Repeat("0", 400))),
+		},
+	},
+	// NS queries transform the nameserver key back to a name. Ensure this is done
+	// correctly. Incorrect would look like "ipv4.ns.dns.skydns.test.zone1."
+	{
+		Qname: "skydns.test.", Qtype: dns.TypeNS,
+		Answer: []dns.RR{
+			test.NS("skydns.test. 300 IN NS ipv4.ns.dns.skydns.test."),
+		},
+		Extra: []dns.RR{
+			test.A("ipv4.ns.dns.skydns.test. 300 IN A 172.17.1.1"),
 		},
 	},
 	// Duplicate IP address test

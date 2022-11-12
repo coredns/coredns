@@ -54,7 +54,7 @@ func (e *External) Transfer(zone string, serial uint32) (<-chan []dns.RR, error)
 		srvSeen := make(map[string]struct{})
 
 		for i := range svcs {
-			name := msg.Domain(svcs[i].Key)
+			name := svcs[i].Domain()
 
 			if svcs[i].TargetStrip == 0 {
 				// Add Service A/AAAA records

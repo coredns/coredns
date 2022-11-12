@@ -32,6 +32,21 @@ func Domain(s string) string {
 	return dnsutil.Join(l[1 : len(l)-1]...)
 }
 
+// DomainWithPrefix behaves like Domain, but handles prefixes with multiple path components.
+func DomainWithPrefix(s, prefix string) string {
+	if strings.HasSuffix(prefix, "/") {
+		prefix = prefix[0 : len(prefix)-1]
+	}
+	l := strings.Split(s[len(prefix):], "/")
+	if l[len(l)-1] == "" {
+		l = l[:len(l)-1]
+	}
+	for i, j := 0, len(l)-1; i < j; i, j = i+1, j-1 {
+		l[i], l[j] = l[j], l[i]
+	}
+	return dnsutil.Join(l[0 : len(l)-1]...)
+}
+
 // PathWithWildcard acts as Path, but if a name contains wildcards (* or any), the name will be
 // chopped of before the (first) wildcard, and we do a higher level search and
 // later find the matching names.  So service.*.skydns.local, will look for all

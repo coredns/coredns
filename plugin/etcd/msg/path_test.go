@@ -22,3 +22,15 @@ func TestDomain(t *testing.T) {
 		t.Errorf("Failure to get domain from etcd key (without trailing '/'), expect: 'service.staging.cluster.local.' actually get: '%s'", result2)
 	}
 }
+
+func TestDomainWithPrefix(t *testing.T) {
+	result1 := DomainWithPrefix("/skydns/zone1/local/cluster/staging/service", "/skydns/zone1/")
+	if result1 != "service.staging.cluster.local." {
+		t.Errorf("Failure to get domain from etcd key (with customized prefix, with a trailing '/'), expect: 'service.staging.cluster.local.', actually get: '%s'", result1)
+	}
+
+	result2 := DomainWithPrefix("/skydns/zone1/local/cluster/staging/service", "/skydns/zone1")
+	if result2 != "service.staging.cluster.local." {
+		t.Errorf("Failure to get domain from etcd key (with customized prefix, without trailing '/'), expect: 'service.staging.cluster.local.' actually get: '%s'", result2)
+	}
+}

@@ -312,7 +312,7 @@ func newEtcdPlugin() *Etcd {
 
 	return &Etcd{
 		Upstream:   upstream.New(),
-		PathPrefix: "skydns",
+		PathPrefix: "skydns/zone1",
 		Zones:      []string{"skydns.test.", "skydns_extra.test.", "skydns_zonea.test.", "skydns_zoneb.test.", "skydns_zonec.test.", "skydns_zoned.test.", "in-addr.arpa."},
 		Client:     client,
 	}

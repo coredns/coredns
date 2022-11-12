@@ -141,7 +141,7 @@ func (e *External) srv(ctx context.Context, services []msg.Service, state reques
 			}
 		case dns.TypeA, dns.TypeAAAA:
 			addr := s.Host
-			s.Host = msg.Domain(s.Key)
+			s.Host = s.Domain()
 			srv := s.NewSRV(state.QName(), weight)
 
 			if ok := isDuplicate(dup, srv.Target, "", srv.Port); !ok {

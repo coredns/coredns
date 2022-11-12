@@ -243,7 +243,7 @@ func SRV(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 
 		case dns.TypeA, dns.TypeAAAA:
 			addr := serv.Host
-			serv.Host = msg.Domain(serv.Key)
+			serv.Host = serv.Domain()
 			srv := serv.NewSRV(state.QName(), weight)
 
 			if ok := isDuplicate(dup, srv.Target, "", srv.Port); !ok {
@@ -309,7 +309,7 @@ func MX(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 
 		case dns.TypeA, dns.TypeAAAA:
 			addr := serv.Host
-			serv.Host = msg.Domain(serv.Key)
+			serv.Host = serv.Domain()
 			mx := serv.NewMX(state.QName())
 
 			if ok := isDuplicate(dup, mx.Mx, "", mx.Preference); !ok {
@@ -451,7 +451,7 @@ func NS(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 			return nil, nil, fmt.Errorf("NS record must be an IP address: %s", serv.Host)
 
 		case dns.TypeA, dns.TypeAAAA:
-			serv.Host = msg.Domain(serv.Key)
+			serv.Host = serv.Domain()
 			ns := serv.NewNS(state.QName())
 			extra = append(extra, newAddress(serv, ns.Ns, ip, what))
 			if _, ok := seen[ns.Ns]; ok {

@@ -139,6 +139,7 @@ Nodes:
 			return nil, fmt.Errorf("%s: %s", n.Key, err.Error())
 		}
 		serv.Key = string(n.Key)
+		serv.RName = msg.DomainWithPrefix(serv.Key, e.PathPrefix)
 		if _, ok := bx[*serv]; ok {
 			continue
 		}
