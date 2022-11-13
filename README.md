@@ -76,6 +76,11 @@ $ docker run --rm -i -t -v $PWD:/v -w /v golang:1.18 make
 
 The above command alone will have `coredns` binary generated.
 
+## Running the binary
+
+Run `go run coredns.go`.\
+Override the port by running `go run coredns.go -dns.port ${port}` if the default port does not work.
+
 ## Examples
 
 When starting CoreDNS without any configuration, it loads the
