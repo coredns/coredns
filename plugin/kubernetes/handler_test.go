@@ -249,7 +249,7 @@ var dnsTestCases = []kubeTestCase{
 	}},
 	// A TXT record does not exist but another record for the same FQDN does
 	{Case: test.Case{
-		Qname: "kubernetes.default.svc.cluster.local.", Qtype: dns.TypeTXT,
+		Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypeTXT,
 		Rcode:  dns.RcodeSuccess,
 		Answer: []dns.RR{},
 	}},
