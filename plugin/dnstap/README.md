@@ -61,6 +61,15 @@ dnstap /tmp/dnstap.sock {
 }
 ~~~
 
+You can use _dnstap_ more than once to define multiple taps. The following logs information including the
+wire-format DNS message about client requests and responses to */tmp/dnstap.sock*,
+and also sends client requests and responses without wire-format DNS messages to a remote FQDN.
+
+~~~ txt
+dnstap /tmp/dnstap.sock full
+dnstap tcp://example.com:6000
+~~~
+
 ## Command Line Tool
 
 Dnstap has a command line tool that can be used to inspect the logging. The tool can be found
