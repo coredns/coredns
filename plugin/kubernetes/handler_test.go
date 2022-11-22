@@ -251,7 +251,9 @@ var dnsTestCases = []kubeTestCase{
 	{Case: test.Case{
 		Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypeTXT,
 		Rcode:  dns.RcodeSuccess,
-		Answer: []dns.RR{},
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
+		},
 	}},
 	// A TXT record does not exist and neither does another record for the same FQDN
 	{Case: test.Case{
