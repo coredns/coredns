@@ -98,12 +98,6 @@ func setup(c *caddy.Controller) error {
 			return nil
 		})
 
-		dnsserver.GetConfig(c).AddPlugin(
-			func(next plugin.Handler) plugin.Handler {
-				dnstap.Next = next
-				return dnstap
-			})
-
 		if i == len(dnstaps)-1 {
 			// last dnstap plugin in block: point next to next plugin
 			dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -112,9 +106,9 @@ func setup(c *caddy.Controller) error {
 			})
 		} else {
 			// not last dnstap plugin in block: point next to next dnstap
-			nextForward := dnstaps[i+1]
+			nextDnstap := dnstaps[i+1]
 			dnsserver.GetConfig(c).AddPlugin(func(plugin.Handler) plugin.Handler {
-				dnstap.Next = nextForward
+				dnstap.Next = nextDnstap
 				return dnstap
 			})
 		}

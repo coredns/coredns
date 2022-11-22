@@ -2,35 +2,37 @@ package dnstap
 
 import (
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 )
 
-type results struct{
-endpoint string
-full     bool
-proto    string
-identity []byte
-version  []byte
+type results struct {
+	endpoint string
+	full     bool
+	proto    string
+	identity []byte
+	version  []byte
 }
 
 func TestConfig(t *testing.T) {
 	hostname, _ := os.Hostname()
 	tests := []struct {
-		in       string
-		fail     bool
+		in     string
+		fail   bool
 		expect []results
 	}{
-		{"dnstap dnstap.sock full", false, []results{{"dnstap.sock", true, "unix",  []byte(hostname), []byte("-")}}},
+		{"dnstap dnstap.sock full", false, []results{{"dnstap.sock", true, "unix", []byte(hostname), []byte("-")}}},
 		{"dnstap unix://dnstap.sock", false, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-")}}},
-		{"dnstap tcp://127.0.0.1:6000",false, []results{{"127.0.0.1:6000", false, "tcp",  []byte(hostname), []byte("-")}}},
-		{"dnstap tcp://[::1]:6000", false,[]results{{"[::1]:6000", false, "tcp",  []byte(hostname), []byte("-")}}},
-		{"dnstap tcp://example.com:6000", false, []results{{"example.com:6000", false, "tcp",  []byte(hostname), []byte("-")}}},
-		{"dnstap", true, []results{{"fail", false, "tcp",  []byte(hostname), []byte("-")}}},
-		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\n}\n", false,[]results{{"dnstap.sock", true, "unix",  []byte("NAME"), []byte("VER")}}},
-		{"dnstap dnstap.sock {\nidentity NAME\nversion VER\n}\n", false,[]results{{"dnstap.sock", false, "unix",  []byte("NAME"), []byte("VER")}}},
-		{"dnstap {\nidentity NAME\nversion VER\n}\n", true,[]results{{"fail", false, "tcp",  []byte("NAME"), []byte("VER")}}},
+		{"dnstap tcp://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tcp", []byte(hostname), []byte("-")}}},
+		{"dnstap tcp://[::1]:6000", false, []results{{"[::1]:6000", false, "tcp", []byte(hostname), []byte("-")}}},
+		{"dnstap tcp://example.com:6000", false, []results{{"example.com:6000", false, "tcp", []byte(hostname), []byte("-")}}},
+		{"dnstap", true, []results{{"fail", false, "tcp", []byte(hostname), []byte("-")}}},
+		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\n}\n", false, []results{{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER")}}},
+		{"dnstap dnstap.sock {\nidentity NAME\nversion VER\n}\n", false, []results{{"dnstap.sock", false, "unix", []byte("NAME"), []byte("VER")}}},
+		{"dnstap {\nidentity NAME\nversion VER\n}\n", true, []results{{"fail", false, "tcp", []byte("NAME"), []byte("VER")}}},
 		{`dnstap dnstap.sock full {
                 identity NAME
                 version VER
@@ -38,9 +40,9 @@ func TestConfig(t *testing.T) {
               dnstap tcp://127.0.0.1:6000 {
                 identity NAME2
                 version VER2
-              }`, false,[]results{
-			{"dnstap.sock", true, "unix",  []byte("NAME"), []byte("VER")},
-			{"127.0.0.1:6000", false, "tcp",  []byte("NAME2"), []byte("VER2")},
+              }`, false, []results{
+			{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER")},
+			{"127.0.0.1:6000", false, "tcp", []byte("NAME2"), []byte("VER2")},
 		}},
 	}
 	for i, tc := range tests {
@@ -73,5 +75,52 @@ func TestConfig(t *testing.T) {
 				t.Errorf("Test %d: expected version %s, got %s", i, tc.expect[i].version, x)
 			}
 		}
+	}
+}
+
+func TestMultiDnstap(t *testing.T) {
+	input := `
+      dnstap dnstap1.sock
+      dnstap dnstap2.sock
+      dnstap dnstap3.sock
+    `
+
+	c := caddy.NewTestController("dns", input)
+	setup(c)
+	dnsserver.NewServer("", []*dnsserver.Config{dnsserver.GetConfig(c)})
+
+	handlers := dnsserver.GetConfig(c).Handlers()
+	d1, ok := handlers[0].(*Dnstap)
+	if !ok {
+		t.Fatalf("expected first plugin to be Dnstap, got %v", reflect.TypeOf(d1.Next))
+	}
+
+	if d1.io.(*dio).endpoint != "dnstap1.sock" {
+		t.Errorf("expected first dnstap to \"dnstap1.sock\", got %q", d1.io.(*dio).endpoint)
+	}
+	if d1.Next == nil {
+		t.Fatal("expected first dnstap to point to next dnstap instance")
+	}
+
+	d2, ok := d1.Next.(*Dnstap)
+	if !ok {
+		t.Fatalf("expected second plugin to be Dnstap, got %v", reflect.TypeOf(d1.Next))
+	}
+	if d2.io.(*dio).endpoint != "dnstap2.sock" {
+		t.Errorf("expected second dnstap to \"dnstap2.sock\", got %q", d2.io.(*dio).endpoint)
+	}
+	if d2.Next == nil {
+		t.Fatal("expected second dnstap to point to third dnstap instance")
+	}
+
+	d3, ok := d2.Next.(*Dnstap)
+	if !ok {
+		t.Fatalf("expected third plugin to be Dnstap, got %v", reflect.TypeOf(d2.Next))
+	}
+	if d3.io.(*dio).endpoint != "dnstap3.sock" {
+		t.Errorf("expected third dnstap to \"dnstap3.sock\", got %q", d3.io.(*dio).endpoint)
+	}
+	if d3.Next != nil {
+		t.Error("expected third plugin to be last, but Next is not nil")
 	}
 }
