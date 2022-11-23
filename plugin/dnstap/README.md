@@ -95,13 +95,15 @@ $ dnstap -l 127.0.0.1:6000
 
 ## Using Dnstap in your plugin
 
-In your setup function, check to see if the *dnstap* plugin is loaded:
+In your setup function, collect and store a list of all *dnstap* plugins loaded in the config:
 
 ~~~ go
+x :=  &ExamplePlugin{}
+
 c.OnStartup(func() error {
     if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
         if tapPlugin, ok := taph.(dnstap.Dnstap); ok {
-            f.tapPlugin = &tapPlugin
+            x.tapPlugins = append(x.tapPlugins, &tapPlugin)
         }
     }
     return nil
@@ -111,8 +113,13 @@ c.OnStartup(func() error {
 And then in your plugin:
 
 ~~~ go
-func (x RandomPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-    if tapPlugin != nil {
+import (
+  github.com/coredns/coredns/plugin/dnstap/msg
+  tap "github.com/dnstap/golang-dnstap"
+)
+
+func (x ExamplePlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+    for _, tapPlugin := range x.tapPlugins {
         q := new(msg.Msg)
         msg.SetQueryTime(q, time.Now())
         msg.SetQueryAddress(q, w.RemoteAddr())
