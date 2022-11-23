@@ -39,25 +39,27 @@ func toDnstap(f *Forward, host string, state request.Request, opts options, repl
 	msg.SetQueryAddress(q, state.W.RemoteAddr())
 	msg.SetResponseAddress(q, ta)
 
-	if f.tapPlugin.IncludeRawMessage {
-		buf, _ := state.Req.Pack()
-		q.QueryMessage = buf
-	}
-	msg.SetType(q, tap.Message_FORWARDER_QUERY)
-	f.tapPlugin.TapMessage(q)
-
-	// Response
-	if reply != nil {
-		r := new(tap.Message)
-		if f.tapPlugin.IncludeRawMessage {
-			buf, _ := reply.Pack()
-			r.ResponseMessage = buf
+	for _, t := range f.tapPlugins {
+		if t.IncludeRawMessage {
+			buf, _ := state.Req.Pack()
+			q.QueryMessage = buf
 		}
-		msg.SetQueryTime(r, start)
-		msg.SetQueryAddress(r, state.W.RemoteAddr())
-		msg.SetResponseAddress(r, ta)
-		msg.SetResponseTime(r, time.Now())
-		msg.SetType(r, tap.Message_FORWARDER_RESPONSE)
-		f.tapPlugin.TapMessage(r)
+		msg.SetType(q, tap.Message_FORWARDER_QUERY)
+		t.TapMessage(q)
+
+		// Response
+		if reply != nil {
+			r := new(tap.Message)
+			if t.IncludeRawMessage {
+				buf, _ := reply.Pack()
+				r.ResponseMessage = buf
+			}
+			msg.SetQueryTime(r, start)
+			msg.SetQueryAddress(r, state.W.RemoteAddr())
+			msg.SetResponseAddress(r, ta)
+			msg.SetResponseTime(r, time.Now())
+			msg.SetType(r, tap.Message_FORWARDER_RESPONSE)
+			t.TapMessage(r)
+		}
 	}
 }
