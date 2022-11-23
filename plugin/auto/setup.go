@@ -45,6 +45,9 @@ func setup(c *caddy.Controller) error {
 		if err != nil {
 			return err
 		}
+		if err := a.Notify(); err != nil {
+			log.Warning(err)
+		}
 		if a.loader.ReloadInterval == 0 {
 			return nil
 		}
@@ -57,6 +60,9 @@ func setup(c *caddy.Controller) error {
 					return
 				case <-ticker.C:
 					a.Walk()
+					if err := a.Notify(); err != nil {
+						log.Warning(err)
+					}
 				}
 			}
 		}()

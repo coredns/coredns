@@ -17,3 +17,15 @@ func (a Auto) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	}
 	return z.Transfer(serial)
 }
+
+// Notify sends notifies for all zones with secondaries configured with the transfer plugin
+func (a Auto) Notify() error {
+	var err error
+	for _, origin := range a.Zones.Names() {
+		e := a.transfer.Notify(origin)
+		if e != nil {
+			err = e
+		}
+	}
+	return err
+}

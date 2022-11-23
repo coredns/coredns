@@ -59,8 +59,6 @@ func (a Auto) Walk() error {
 			a.metrics.AddZone(origin)
 		}
 
-		a.transfer.Notify(origin)
-
 		log.Infof("Inserting zone `%s' from: %s", origin, path)
 
 		toDelete[origin] = false
