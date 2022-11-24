@@ -9,6 +9,7 @@ import (
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
+	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 type (
@@ -77,6 +78,13 @@ func NextOrFailure(name string, next Handler, ctx context.Context, w dns.Respons
 			defer child.Finish()
 			ctx = ot.ContextWithSpan(ctx, child)
 		}
+
+		if span := oteltrace.SpanFromContext(ctx); span.SpanContext().IsValid() {
+			var child oteltrace.Span
+			ctx, child = span.TracerProvider().Tracer(Namespace).Start(ctx, next.Name())
+			defer child.End()
+		}
+
 		return next.ServeDNS(ctx, w, r)
 	}
 

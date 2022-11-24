@@ -21,6 +21,7 @@ var Directives = []string{
 	"bind",
 	"debug",
 	"trace",
+	"opentelemetry",
 	"ready",
 	"health",
 	"pprof",
