@@ -45,7 +45,6 @@ func opentelemetryParse(c *caddy.Controller) (*opentelemetry, error) {
 	)
 
 	for c.Next() {
-		var err error
 		args := c.RemainingArgs()
 		switch len(args) {
 		case 0:
@@ -152,7 +151,7 @@ func normalizeEndpoint(epType, ep string) (string, string, error) {
 		}
 	} else if epType == "otelhttp" {
 		if strings.Contains(ep, "http") || strings.Contains(ep, "/") {
-			return "", "", fmt.Errorf("invalid format of opentelemetry endpoint: '%s', valid format: 'HOST:PORT'", ep)
+			return "", "", fmt.Errorf("invalid format of OpenTelemetry endpoint: '%s', valid format: 'HOST:PORT'", ep)
 		}
 	}
 
