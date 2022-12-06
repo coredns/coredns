@@ -66,6 +66,25 @@ The following configuration configures the `City` database, and looks up geoloca
 }
 ```
 
+The *view* plugin can use *geoip* metadata as selection criteria to provide GSLB functionality.
+In this example, clients from the city "Exampleshire" will receive answers for `example.com` from the zone defined in 
+`example.com.exampleshire-db`. All other clients will receive answers from the zone defined in `example.com.db`.
+
+```txt
+example.com {
+    view exampleshire {
+      expr metadata('geoip/city/name') == 'Exampleshire'
+    }
+    geoip /opt/geoip2/db/GeoLite2-City.mmdb
+    metadata
+    file example.com.exampleshire-db
+}
+
+example.com {
+    file example.com.db
+}
+```
+
 ## Metadata Labels
 
 A limited set of fields will be exported as labels, all values are stored using strings **regardless of their underlying value type**, and therefore you may have to convert it back to its original type, note that numeric values are always represented in base 10.
