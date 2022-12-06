@@ -69,6 +69,8 @@ The following configuration configures the `City` database, and looks up geoloca
 The *view* plugin can use *geoip* metadata as selection criteria to provide GSLB functionality.
 In this example, clients from the city "Exampleshire" will receive answers for `example.com` from the zone defined in 
 `example.com.exampleshire-db`. All other clients will receive answers from the zone defined in `example.com.db`.
+Note that the order of the two `example.com` server blocks below is important; the default viewless server block
+must be last.
 
 ```txt
 example.com {
