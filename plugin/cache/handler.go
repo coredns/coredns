@@ -121,18 +121,26 @@ func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string
 
 	if i, ok := c.ncache.Get(k); ok {
 		itm := i.(*item)
-		ttl := itm.ttl(now)
-		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
-			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-			return i.(*item)
+		if itm.stored.After(now) {
+			c.ncache.Remove(k)
+		} else {
+			ttl := itm.ttl(now)
+			if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+				cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+				return i.(*item)
+			}
 		}
 	}
 	if i, ok := c.pcache.Get(k); ok {
 		itm := i.(*item)
-		ttl := itm.ttl(now)
-		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
-			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-			return i.(*item)
+		if itm.stored.After(now) {
+			c.pcache.Remove(k)
+		} else {
+			ttl := itm.ttl(now)
+			if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+				cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+				return i.(*item)
+			}
 		}
 	}
 	cacheMisses.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
