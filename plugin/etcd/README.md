@@ -119,13 +119,11 @@ etcd skydns.local {
     endpoint http://localhost:2379 http://localhost:4001
 ...
 ~~~
-Before getting started with these examples, please setup `etcdctl` (with `etcdv3` API) as explained
+Before getting started with these examples, please setup `etcdctl` (with `etcdv3` API and version `3.5.0` or later) as explained
 [here](https://coreos.com/etcd/docs/latest/dev-guide/interacting_v3.html). This will help you to put
 sample keys in your etcd server.
 
-If you prefer, you can use `curl` to populate the `etcd` server, but with `curl` the
-endpoint URL depends on the version of `etcd`. For instance, `etcd v3.2` or before uses only
-[CLIENT-URL]/v3alpha/* while `etcd v3.5` or later uses [CLIENT-URL]/v3/* . Also, Key and Value must
+If you prefer, you can use `curl` to populate the `etcd` server. For instance, `etcd v3.5` or later uses [CLIENT-URL]/v3/* . Also, Key and Value must
 be base64 encoded in the JSON payload. With `etcdctl` these details are automatically taken care
 of. You can check [this document](https://github.com/coreos/etcd/blob/master/Documentation/dev-guide/api_grpc_gateway.md#notes)
 for details.
