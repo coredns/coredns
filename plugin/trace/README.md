@@ -1,5 +1,7 @@
 # trace
 
+**This plugin has been deprecated. Consider using [opentelemetry plugin](../opentelemetry) for tracing of DNS requests, because [OpenTracing project as such is deprecated](https://github.com/opentracing/specification/issues/163).**
+
 ## Name
 
 *trace* - enables OpenTracing-based tracing of DNS requests as they go through the plugin chain.
@@ -8,8 +10,6 @@
 
 With *trace* you enable OpenTracing of how a request flows through CoreDNS. Enable the *debug*
 plugin to get logs from the trace plugin.
-
-**Consider using [opentelemetry plugin](../opentelemetry) for tracing of DNS requests, because [OpenTracing project as such is deprecated](https://github.com/opentracing/specification/issues/163).**
 
 ## Syntax
 
