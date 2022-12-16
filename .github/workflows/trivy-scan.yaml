@@ -1,7 +1,7 @@
 name: Trivy Nightly Scan
 on:
   schedule:
-    - cron: '0 2 * * 5'  #run at 2AM UTC on every Friday
+    - cron: '0 2 * * 5'  #Run at 2AM UTC on every Friday
 
 permissions: read-all
 jobs:
