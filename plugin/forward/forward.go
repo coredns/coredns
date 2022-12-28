@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -86,6 +87,10 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			MaxConcurrentRejectCount.Add(1)
 			return dns.RcodeRefused, f.ErrLimitExceeded
 		}
+	}
+
+	if f.p.String() == "race" {
+		return f.serveByRacePolicy(ctx, state)
 	}
 
 	fails := 0
@@ -186,6 +191,131 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		return dns.RcodeServerFailure, upstreamErr
 	}
 
+	return dns.RcodeServerFailure, ErrNoHealthy
+}
+
+func (f *Forward) getOkProxies(list []*Proxy) []*Proxy {
+	ans := []*Proxy{}
+	for _, p := range list {
+		if p.Down(f.maxfails) {
+			continue
+		}
+		ans = append(ans, p)
+	}
+	return ans
+}
+
+func (f *Forward) serveByRacePolicy(ctx context.Context, state request.Request) (int, error) {
+	var span = ot.SpanFromContext(ctx)
+	var upstreamErr error
+	list := f.List()
+	start := time.Now()
+	okList := f.getOkProxies(list)
+	if len(okList) == 0 {
+		// All upstream proxies are dead, assume healthcheck is completely broken and randomly
+		// Assume all upstream proxies are ok
+		okList = list
+		HealthcheckBrokenCount.Add(1)
+	}
+
+	type retStruct struct {
+		proxy *Proxy
+		state request.Request
+		ret   *dns.Msg
+		err   error
+	}
+
+	retCh := make(chan *retStruct, len(okList))
+	var wg sync.WaitGroup
+	wg.Add(len(okList))
+
+	tryConnect := func(proxy *Proxy) {
+		defer wg.Done()
+
+		cctx := ctx
+		var child ot.Span
+		if span != nil {
+			child = span.Tracer().StartSpan("connect", ot.ChildOf(span.Context()))
+			otext.PeerAddress.Set(child, proxy.addr)
+			cctx = ot.ContextWithSpan(cctx, child)
+		}
+
+		stateC := request.Request{
+			W:   state.W,
+			Req: state.Req.Copy(),
+		}
+
+		var (
+			ret *dns.Msg
+			err error
+		)
+		opts := f.opts
+		for {
+			ret, err = proxy.Connect(ctx, stateC, opts)
+			if err == ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
+				continue
+			}
+			// Retry with TCP if truncated and prefer_udp configured.
+			if ret != nil && ret.Truncated && !opts.forceTCP && opts.preferUDP {
+				opts.forceTCP = true
+				continue
+			}
+			break
+		}
+
+		if child != nil {
+			child.Finish()
+		}
+		if len(f.tapPlugins) != 0 {
+			toDnstap(f, proxy.addr, stateC, opts, ret, start)
+		}
+
+		if err != nil {
+			// Kick off health check to see if *our* upstream is broken.
+			if f.maxfails != 0 {
+				proxy.Healthcheck()
+			}
+			upstreamErr = err
+			return
+		}
+
+		retCh <- &retStruct{
+			proxy: proxy,
+			state: stateC,
+			ret:   ret,
+			err:   err,
+		}
+	}
+
+	for _, proxy := range okList {
+		go tryConnect(proxy)
+	}
+
+	go func() {
+		wg.Wait()
+		close(retCh)
+	}()
+
+	for r := range retCh {
+		metadata.SetValueFunc(ctx, "forward/upstream", func() string { return r.proxy.addr })
+
+		// Check if the reply is correct; if not return FormErr.
+		if !r.state.Match(r.ret) {
+			debug.Hexdumpf(r.ret, "Wrong reply for id: %d, %s %d", r.ret.Id, r.state.QName(), r.state.QType())
+
+			formerr := new(dns.Msg)
+			formerr.SetRcode(r.state.Req, dns.RcodeFormatError)
+			r.state.W.WriteMsg(formerr)
+			return 0, nil
+		}
+
+		r.state.W.WriteMsg(r.ret)
+		return 0, nil
+	}
+
+	if upstreamErr != nil {
+		return dns.RcodeServerFailure, upstreamErr
+	}
 	return dns.RcodeServerFailure, ErrNoHealthy
 }
 

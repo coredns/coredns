@@ -65,4 +65,13 @@ func (r *sequential) List(p []*Proxy) []*Proxy {
 	return p
 }
 
+// race is a policy that try all hosts at once and pick the fastest result.
+type race struct{}
+
+func (r *race) String() string { return "race" }
+
+func (r *race) List(p []*Proxy) []*Proxy {
+	return p
+}
+
 var rn = rand.New(time.Now().UnixNano())

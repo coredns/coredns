@@ -47,7 +47,7 @@ forward FROM TO... {
     max_fails INTEGER
     tls CERT KEY CA
     tls_servername NAME
-    policy random|round_robin|sequential
+    policy random|round_robin|sequential|race
     health_check DURATION [no_rec] [domain FQDN]
     max_concurrent MAX
 }
@@ -84,6 +84,7 @@ forward FROM TO... {
   * `random` is a policy that implements random upstream selection.
   * `round_robin` is a policy that selects hosts based on round robin ordering.
   * `sequential` is a policy that selects hosts based on sequential ordering.
+  * `race` is a policy that try all hosts at once and pick the fastest result.
 * `health_check` configure the behaviour of health checking of the upstream servers
   * `<duration>` - use a different duration for health checking, the default duration is 0.5s.
   * `no_rec` - optional argument that sets the RecursionDesired-flag of the dns-query used in health checking to `false`.
