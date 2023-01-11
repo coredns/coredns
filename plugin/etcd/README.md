@@ -62,7 +62,7 @@ The *etcd* plugin leverages directory structure to look for related entries. For
 an entry `/skydns/test/skydns/mx` would have entries like `/skydns/test/skydns/mx/a`,
 `/skydns/test/skydns/mx/b` and so on. Similarly a directory `/skydns/test/skydns/mx1` will have all
 `mx1` entries. Note this plugin will search through the entire (sub)tree for records. In case of the
-first example, a query for `mx.skydns.text` will return both the contents of the `a` and `b` records.
+first example, a query for `mx.skydns.test` will return both the contents of the `a` and `b` records.
 If the directory extends deeper those records are returned as well.
 
 With etcd3, support for [hierarchical keys are
