@@ -32,7 +32,8 @@ func init() {
 
 	caddy.AppName = coreName
 	caddy.AppVersion = CoreVersion
-	dnsserver.RegisterServers(dnsserver.Directives)
+	defaultConfig := []byte(".:" + dnsserver.Port + " {\nwhoami\nlog\n}\n")
+	dnsserver.RegisterServers(dnsserver.Directives, defaultConfig)
 }
 
 // Run is CoreDNS's main() function.
