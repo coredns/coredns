@@ -32,7 +32,7 @@ func init() {
 
 	caddy.AppName = coreName
 	caddy.AppVersion = CoreVersion
-	dnsserver.RegisterServers(dnsserver.Directives)
+	dnsserver.RegisterPlugins(dnsserver.Directives)
 }
 
 // Run is CoreDNS's main() function.

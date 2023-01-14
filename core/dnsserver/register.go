@@ -16,9 +16,7 @@ import (
 
 const serverType = "dns"
 
-// Any flags defined here, need to be namespaced to the serverType other
-// wise they potentially clash with other server types.
-func RegisterServers(directives []string) {
+func RegisterPlugins(directives []string) {
 	caddy.RegisterServerType(serverType, caddy.ServerType{
 		Directives: func() []string { return directives },
 		DefaultInput: func() caddy.Input {
