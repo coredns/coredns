@@ -18,13 +18,13 @@ const serverType = "dns"
 
 // Any flags defined here, need to be namespaced to the serverType other
 // wise they potentially clash with other server types.
-func RegisterServers(directives []string, defaultConfig []byte) {
+func RegisterServers(directives []string) {
 	caddy.RegisterServerType(serverType, caddy.ServerType{
 		Directives: func() []string { return directives },
 		DefaultInput: func() caddy.Input {
 			return caddy.CaddyfileInput{
 				Filepath:       "Corefile",
-				Contents:       defaultConfig,
+				Contents:       []byte(".:" + Port + " {\nwhoami\nlog\n}\n"),
 				ServerTypeName: serverType,
 			}
 		},
