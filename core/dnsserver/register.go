@@ -16,6 +16,9 @@ import (
 
 const serverType = "dns"
 
+// Register the list of plugins used during initialization
+// The order of the plugins prvided determines the order of plugins used requests
+// Before calling caddy.Start()
 func RegisterPlugins(directives []string) {
 	caddy.RegisterServerType(serverType, caddy.ServerType{
 		Directives: func() []string { return directives },
