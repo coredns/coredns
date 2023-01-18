@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	_ "github.com/coredns/coredns/coremain"
 )
 
 func TestTimeouts(t *testing.T) {

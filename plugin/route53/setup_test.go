@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	_ "github.com/coredns/coredns/coremain"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"

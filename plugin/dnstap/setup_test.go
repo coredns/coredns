@@ -84,7 +84,7 @@ func TestMultiDnstap(t *testing.T) {
       dnstap dnstap2.sock
       dnstap dnstap3.sock
     `
-
+	dnsserver.RegisterPlugins(dnsserver.Directives)
 	c := caddy.NewTestController("dns", input)
 	setup(c)
 	dnsserver.NewServer("", []*dnsserver.Config{dnsserver.GetConfig(c)})
