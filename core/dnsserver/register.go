@@ -1,7 +1,6 @@
 package dnsserver
 
 import (
-	"flag"
 	"fmt"
 	"net"
 	"time"
@@ -17,14 +16,12 @@ import (
 
 const serverType = "dns"
 
-// Any flags defined here, need to be namespaced to the serverType other
-// wise they potentially clash with other server types.
-func init() {
-	flag.StringVar(&Port, serverType+".port", DefaultPort, "Default port")
-	flag.StringVar(&Port, "p", DefaultPort, "Default port")
-
+// RegisterPlugins registers the list of plugins used during initialization
+// The order of the plugins prvided determines the order of plugins used requests
+// Before calling caddy.Start()
+func RegisterPlugins(directives []string) {
 	caddy.RegisterServerType(serverType, caddy.ServerType{
-		Directives: func() []string { return Directives },
+		Directives: func() []string { return directives },
 		DefaultInput: func() caddy.Input {
 			return caddy.CaddyfileInput{
 				Filepath:       "Corefile",

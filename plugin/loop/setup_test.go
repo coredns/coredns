@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	_ "github.com/coredns/coredns/coremain"
 )
 
 func TestSetup(t *testing.T) {

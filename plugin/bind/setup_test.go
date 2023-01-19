@@ -8,6 +8,8 @@ import (
 )
 
 func TestSetup(t *testing.T) {
+	dnsserver.RegisterPlugins(dnsserver.Directives)
+
 	for i, test := range []struct {
 		config   string
 		expected []string

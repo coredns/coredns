@@ -24,12 +24,15 @@ func init() {
 	flag.StringVar(&caddy.PidFile, "pidfile", "", "Path to write pid file")
 	flag.BoolVar(&version, "version", false, "Show version")
 	flag.BoolVar(&dnsserver.Quiet, "quiet", false, "Quiet mode (no initialization output)")
+	flag.StringVar(&dnsserver.Port, serverType+".port", dnsserver.DefaultPort, "Default port")
+	flag.StringVar(&dnsserver.Port, "p", dnsserver.DefaultPort, "Default port")
 
 	caddy.RegisterCaddyfileLoader("flag", caddy.LoaderFunc(confLoader))
 	caddy.SetDefaultCaddyfileLoader("default", caddy.LoaderFunc(defaultLoader))
 
 	caddy.AppName = coreName
 	caddy.AppVersion = CoreVersion
+	dnsserver.RegisterPlugins(dnsserver.Directives)
 }
 
 // Run is CoreDNS's main() function.
