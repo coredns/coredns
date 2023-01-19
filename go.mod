@@ -3,12 +3,12 @@ module github.com/coredns/coredns
 go 1.18
 
 require (
-	github.com/Azure/azure-sdk-for-go v67.2.0+incompatible
+	github.com/Azure/azure-sdk-for-go v67.3.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.28
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.11
 	github.com/antonmedv/expr v1.9.0
 	github.com/apparentlymart/go-cidr v1.1.0
-	github.com/aws/aws-sdk-go v1.44.175
+	github.com/aws/aws-sdk-go v1.44.180
 	github.com/coredns/caddy v1.1.1
 	github.com/dnstap/golang-dnstap v0.4.0
 	github.com/farsightsec/golang-framestream v0.3.0
@@ -28,10 +28,10 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.6
 	golang.org/x/crypto v0.0.0-20221010152910-d6f0a8c073c2
 	golang.org/x/sys v0.4.0
-	google.golang.org/api v0.106.0
-	google.golang.org/grpc v1.51.0
+	google.golang.org/api v0.107.0
+	google.golang.org/grpc v1.52.0
 	google.golang.org/protobuf v1.28.1
-	gopkg.in/DataDog/dd-trace-go.v1 v1.45.1
+	gopkg.in/DataDog/dd-trace-go.v1 v1.46.0
 	k8s.io/api v0.26.0
 	k8s.io/apimachinery v0.26.0
 	k8s.io/client-go v0.26.0
