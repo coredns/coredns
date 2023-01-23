@@ -256,7 +256,7 @@ More resources can be found:
 ## Contribution guidelines
 
 If you want to contribute to CoreDNS, be sure to review the [contribution
-guidelines](CONTRIBUTING.md).
+guidelines](./.github/CONTRIBUTING.md).
 
 ## Deployment
 
@@ -292,4 +292,4 @@ issue, instead send your report privately to `security@coredns.io`. Security rep
 appreciated and we will publicly thank you for it.
 
 Please consult [security vulnerability disclosures and security fix and release process
-document](https://github.com/coredns/coredns/blob/master/SECURITY.md)
+document](https://github.com/coredns/coredns/blob/master/.github/SECURITY.md)
