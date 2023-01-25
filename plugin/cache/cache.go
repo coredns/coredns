@@ -48,6 +48,9 @@ type Cache struct {
 	pexcept []string
 	nexcept []string
 
+	// Keep ttl option
+	keepttl bool
+
 	// Testing.
 	now func() time.Time
 }

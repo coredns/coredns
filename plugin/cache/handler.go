@@ -71,6 +71,11 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		})
 	}
 
+	if c.keepttl {
+		// If keepttl is enabled we fake the current time to the stored
+		// one so that we always get the original TTL
+		now = i.stored
+	}
 	resp := i.toMsg(r, now, do, ad)
 	w.WriteMsg(resp)
 	return dns.RcodeSuccess, nil

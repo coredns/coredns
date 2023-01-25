@@ -39,6 +39,7 @@ cache [TTL] [ZONES...] {
     serve_stale [DURATION] [REFRESH_MODE]
     servfail DURATION
     disable success|denial [ZONES...]
+    keepttl
 }
 ~~~
 
@@ -69,6 +70,11 @@ cache [TTL] [ZONES...] {
   greater than 5 minutes.
 * `disable`  disable the success or denial cache for the listed **ZONES**.  If no **ZONES** are given, the specified
   cache will be disabled for all zones.
+* `keepttl` do not age TTL when serving responses from cache. The entry will still be removed from cache
+  when the TTL expires as normal, but until it expires responses will include the original TTL instead
+  of the remaining TTL. This can be useful if CoreDNS is used as an authoritative server and you want
+  to serve a consistent TTL to downstream clients. This is **NOT** recommended when CoreDNS is caching
+  records it is not authoritative for because it could result in downstream clients using stale answers.
 
 ## Capacity and Eviction
 

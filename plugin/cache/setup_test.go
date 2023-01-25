@@ -231,3 +231,32 @@ func TestDisable(t *testing.T) {
 		}
 	}
 }
+
+func TestKeepttl(t *testing.T) {
+	tests := []struct {
+		input     string
+		shouldErr bool
+	}{
+		// positive
+		{"keepttl", false},
+		// negative
+		{"keepttl arg1", true},
+	}
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", test.input))
+		ca, err := cacheParse(c)
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %v: Expected error but found nil", i)
+			continue
+		} else if !test.shouldErr && err != nil {
+			t.Errorf("Test %v: Expected no error but found error: %v", i, err)
+			continue
+		}
+		if test.shouldErr {
+			continue
+		}
+		if !ca.keepttl {
+			t.Errorf("Test %v: Expected keepttl enabled but disabled", i)
+		}
+	}
+}

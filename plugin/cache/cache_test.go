@@ -690,6 +690,44 @@ func TestCacheWildcardMetadata(t *testing.T) {
 	}
 }
 
+func TestCacheKeepTTL(t *testing.T) {
+	defaultTtl := 60
+
+	c := New()
+	c.Next = ttlBackend(defaultTtl)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// Cache cached.org. with 60s TTL
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.keepttl = true
+	c.ServeDNS(ctx, rec, req)
+
+	tests := []struct {
+		name          string
+		futureSeconds int
+	}{
+		{"cached.org.", 0},
+		{"cached.org.", 30},
+		{"uncached.org.", 60},
+	}
+
+	for i, tt := range tests {
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureSeconds) * time.Second) }
+		r := req.Copy()
+		r.SetQuestion(tt.name, dns.TypeA)
+		c.ServeDNS(ctx, rec, r)
+
+		recTtl := rec.Msg.Answer[0].Header().Ttl
+		if defaultTtl != int(recTtl) {
+			t.Errorf("Test %d: expecting TTL=%d, got TTL=%d", i, defaultTtl, recTtl)
+		}
+	}
+}
+
 // wildcardMetadataBackend mocks a backend that reponds with a response for qname synthesized by wildcard
 // and sets the zone/wildcard metadata value
 func wildcardMetadataBackend(qname, wildcard string) plugin.Handler {
