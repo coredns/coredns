@@ -11,12 +11,15 @@ This release fixes some bugs, and adds some new features including:
 * A new plugin *timeouts* that allows configuration of server listener timeout durations
 * *acl* can drop queries as an action
 * *template* supports creating responses with extended DNS errors
-
+* New weighted policy in *loadbalance*
+* Option to serve original record TTLs from *cache*
 
 ## Brought to You By
 
+Arthur Outhenin-Chalandre,
 Ben Kaplan,
 Chris O'Haver,
+Gabor Dozsa,
 Grant Spence,
 Kumiko as a Service,
 LAMRobinson,
@@ -41,3 +44,5 @@ sanyo0714
 * plugin/dnstap: Fix behavior when multiple dnstap plugins specified (https://github.com/coredns/coredns/pull/5773)
 * plugin/cache: cache now uses source query DNSSEC option for upstream refresh (https://github.com/coredns/coredns/pull/5671)
 * Workaround for incorrect architecture (https://github.com/coredns/coredns/pull/5691)
+* plugin/loadbalance: Add weighted policy (https://github.com/coredns/coredns/pull/5662)
+* plugin/cache: Add keepttl option (https://github.com/coredns/coredns/pull/5879)
