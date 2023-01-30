@@ -102,8 +102,8 @@ x :=  &ExamplePlugin{}
 
 c.OnStartup(func() error {
     if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
-        if tapPlugin, ok := taph.(dnstap.Dnstap); ok {
-            x.tapPlugins = append(x.tapPlugins, &tapPlugin)
+        for tapPlugin, ok := taph.(*dnstap.Dnstap); ok; tapPlugin, ok = tapPlugin.Next.(*dnstap.Dnstap) {
+            x.tapPlugins = append(x.tapPlugins, tapPlugin)
         }
     }
     return nil

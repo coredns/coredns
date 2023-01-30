@@ -66,6 +66,13 @@ func (f *Forward) SetProxy(p *Proxy) {
 	p.start(f.hcInterval)
 }
 
+// SetTapPlugin appends one or more dnstap plugins to the tap plugin list.
+func (f *Forward) SetTapPlugin(h plugin.Handler) {
+	for tapPlugin, ok := h.(*dnstap.Dnstap); ok; tapPlugin, ok = tapPlugin.Next.(*dnstap.Dnstap) {
+		f.tapPlugins = append(f.tapPlugins, tapPlugin)
+	}
+}
+
 // Len returns the number of configured proxies.
 func (f *Forward) Len() int { return len(f.proxies) }
 
