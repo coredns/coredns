@@ -1,12 +1,13 @@
 package forward
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/coredns/caddy"
 	"github.com/coredns/caddy/caddyfile"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/dnstap"
-	"strings"
-	"testing"
 )
 
 func TestList(t *testing.T) {
