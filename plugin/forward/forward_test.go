@@ -3,6 +3,7 @@ package forward
 import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin/dnstap"
 	"testing"
 )
 
@@ -42,7 +43,7 @@ func TestSetTapPlugin(t *testing.T) {
 
 	if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
 		f := New()
-		f.SetTapPlugin(taph)
+		f.SetTapPlugin(taph.(*dnstap.Dnstap))
 		if len(f.tapPlugins) != 2 {
 			t.Fatalf("Expected: 2 results, got: %v", len(f.tapPlugins))
 		}
