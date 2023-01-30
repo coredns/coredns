@@ -46,3 +46,4 @@ sanyo0714
 * Workaround for incorrect architecture (https://github.com/coredns/coredns/pull/5691)
 * plugin/loadbalance: Add weighted policy (https://github.com/coredns/coredns/pull/5662)
 * plugin/cache: Add keepttl option (https://github.com/coredns/coredns/pull/5879)
+* plugin/forward: Fix dnstap for forwarded request/response (https://github.com/coredns/coredns/pull/5890)
