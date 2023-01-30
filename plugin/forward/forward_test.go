@@ -32,7 +32,7 @@ func TestSetTapPlugin(t *testing.T) {
 	input := `forward . 127.0.0.1
 	dnstap /tmp/dnstap.sock full
 	dnstap tcp://example.com:6000
-    `
+	`
 	stanzas := strings.Split(input, "\n")
 	c := caddy.NewTestController("dns", strings.Join(stanzas[1:], "\n"))
 	dnstapSetup, err := caddy.DirectiveAction("dns", "dnstap")
