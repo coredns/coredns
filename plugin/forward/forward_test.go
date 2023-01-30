@@ -2,8 +2,10 @@ package forward
 
 import (
 	"github.com/coredns/caddy"
+	"github.com/coredns/caddy/caddyfile"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/dnstap"
+	"strings"
 	"testing"
 )
 
@@ -27,11 +29,12 @@ func TestList(t *testing.T) {
 }
 
 func TestSetTapPlugin(t *testing.T) {
-	input := `
-      dnstap /tmp/dnstap.sock full
-      dnstap tcp://example.com:6000
+	input := `forward . 127.0.0.1
+	dnstap /tmp/dnstap.sock full
+	dnstap tcp://example.com:6000
     `
-	c := caddy.NewTestController("dns", input)
+	stanzas := strings.Split(input, "\n")
+	c := caddy.NewTestController("dns", strings.Join(stanzas[1:], "\n"))
 	dnstapSetup, err := caddy.DirectiveAction("dns", "dnstap")
 	if err != nil {
 		t.Fatal(err)
@@ -39,18 +42,24 @@ func TestSetTapPlugin(t *testing.T) {
 	if err = dnstapSetup(c); err != nil {
 		t.Fatal(err)
 	}
+	c.Dispenser = caddyfile.NewDispenser("", strings.NewReader(stanzas[0]))
+	if err = setup(c); err != nil {
+		t.Fatal(err)
+	}
 	dnsserver.NewServer("", []*dnsserver.Config{dnsserver.GetConfig(c)})
-
-	if taph := dnsserver.GetConfig(c).Handler("dnstap"); taph != nil {
-		f := New()
-		f.SetTapPlugin(taph.(*dnstap.Dnstap))
-		if len(f.tapPlugins) != 2 {
-			t.Fatalf("Expected: 2 results, got: %v", len(f.tapPlugins))
-		}
-		if f.tapPlugins[0] != taph || f.tapPlugins[0].Next != f.tapPlugins[1] {
-			t.Fatal("Unexpected order of dnstap plugins")
-		}
-	} else {
-		t.Error("Expected first plugin to be dnstap")
+	f, ok := dnsserver.GetConfig(c).Handler("forward").(*Forward)
+	if !ok {
+		t.Fatal("Expected a forward plugin")
+	}
+	tap, ok := dnsserver.GetConfig(c).Handler("dnstap").(*dnstap.Dnstap)
+	if !ok {
+		t.Fatal("Expected a dnstap plugin")
+	}
+	f.SetTapPlugin(tap)
+	if len(f.tapPlugins) != 2 {
+		t.Fatalf("Expected: 2 results, got: %v", len(f.tapPlugins))
+	}
+	if f.tapPlugins[0] != tap || tap.Next != f.tapPlugins[1] {
+		t.Error("Unexpected order of dnstap plugins")
 	}
 }
