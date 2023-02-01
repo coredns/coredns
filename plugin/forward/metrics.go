@@ -28,6 +28,12 @@ var (
 		Buckets:   plugin.TimeBuckets,
 		Help:      "Histogram of the time each request took.",
 	}, []string{"to", "rcode"})
+	RequestFailures = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "forward",
+		Name:      "connect_failures_total",
+		Help:      "Counter of connection failures per remote IP address.",
+	}, []string{"to", "proto", "type"})
 	HealthcheckFailureCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",

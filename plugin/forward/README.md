@@ -119,6 +119,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 * `coredns_forward_responses_total{to}` - Counter of responses received per upstream.
 * `coredns_forward_request_duration_seconds{to, rcode, type}` - duration per upstream, RCODE, type
 * `coredns_forward_responses_total{to, rcode}` - count of RCODEs per upstream.
+* `coredns_forward_connection_failures_total{to, proto, type}` - count of connection errors per upstream IP address.
 * `coredns_forward_healthcheck_failures_total{to}` - number of failed health checks per upstream.
 * `coredns_forward_healthcheck_broken_total{}` - counter of when all upstreams are unhealthy,
   and we are randomly (this always uses the `random` policy) spraying to an upstream.

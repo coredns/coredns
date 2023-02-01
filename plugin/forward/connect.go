@@ -7,6 +7,7 @@ package forward
 import (
 	"context"
 	"io"
+	"net"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -41,6 +42,21 @@ func (t *Transport) dialTimeout() time.Duration {
 
 func (t *Transport) updateDialTimeout(newDialTime time.Duration) {
 	averageTimeout(&t.avgDialTime, newDialTime, cumulativeAvgWeight)
+}
+
+// observeRequestFailure unpacks some error structs to reduce label cardinality. Some errors
+// will include source ip/port and destination ip/port if they are simply converted to strings.
+func (t *Transport) observeRequestFailure(proto string, err error) {
+	opErr, ok := err.(*net.OpError)
+	if ok {
+		RequestFailures.WithLabelValues(opErr.Addr.String(), opErr.Net, opErr.Err.Error()).Add(1)
+		return
+	}
+	addrErr, ok := err.(*net.AddrError)
+	if ok {
+		RequestFailures.WithLabelValues(addrErr.Addr, proto, addrErr.Err).Add(1)
+	}
+	RequestFailures.WithLabelValues(t.addr, proto, err.Error()).Add(1)
 }
 
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
@@ -87,6 +103,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 
 	pc, cached, err := p.transport.Dial(proto)
 	if err != nil {
+		p.transport.observeRequestFailure(proto, err)
 		return nil, err
 	}
 
@@ -107,8 +124,10 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 	if err := pc.c.WriteMsg(state.Req); err != nil {
 		pc.c.Close() // not giving it back
 		if err == io.EOF && cached {
+			p.transport.observeRequestFailure(proto, ErrCachedClosed)
 			return nil, ErrCachedClosed
 		}
+		p.transport.observeRequestFailure(proto, err)
 		return nil, err
 	}
 
@@ -119,12 +138,14 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 		if err != nil {
 			pc.c.Close() // not giving it back
 			if err == io.EOF && cached {
+				p.transport.observeRequestFailure(proto, ErrCachedClosed)
 				return nil, ErrCachedClosed
 			}
 			// recovery the origin Id after upstream.
 			if ret != nil {
 				ret.Id = originId
 			}
+			p.transport.observeRequestFailure(proto, err)
 			return ret, err
 		}
 		// drop out-of-order responses
