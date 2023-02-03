@@ -43,7 +43,7 @@ type Forward struct {
 	expire        time.Duration
 	maxConcurrent int64
 
-	opts options // also here for testing
+	opts Options // also here for testing
 
 	// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded
 	// the maximum allowed (maxConcurrent)
@@ -56,14 +56,14 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: options{forceTCP: false, preferUDP: false, hcRecursionDesired: true, hcDomain: "."}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
 	return f
 }
 
 // SetProxy appends p to the proxy list and starts healthchecking.
 func (f *Forward) SetProxy(p *Proxy) {
 	f.proxies = append(f.proxies, p)
-	p.start(f.hcInterval)
+	p.Start(f.hcInterval)
 }
 
 // SetTapPlugin appends one or more dnstap plugins to the tap plugin list.
@@ -141,14 +141,15 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			err error
 		)
 		opts := f.opts
+
 		for {
 			ret, err = proxy.Connect(ctx, state, opts)
 			if err == ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
 				continue
 			}
 			// Retry with TCP if truncated and prefer_udp configured.
-			if ret != nil && ret.Truncated && !opts.forceTCP && opts.preferUDP {
-				opts.forceTCP = true
+			if ret != nil && ret.Truncated && !opts.ForceTCP && opts.PreferUDP {
+				opts.ForceTCP = true
 				continue
 			}
 			break
@@ -219,10 +220,10 @@ func (f *Forward) isAllowedDomain(name string) bool {
 }
 
 // ForceTCP returns if TCP is forced to be used even when the request comes in over UDP.
-func (f *Forward) ForceTCP() bool { return f.opts.forceTCP }
+func (f *Forward) ForceTCP() bool { return f.opts.ForceTCP }
 
 // PreferUDP returns if UDP is preferred to be used even when the request comes in over TCP.
-func (f *Forward) PreferUDP() bool { return f.opts.preferUDP }
+func (f *Forward) PreferUDP() bool { return f.opts.PreferUDP }
 
 // List returns a set of proxies to be used for this client depending on the policy in f.
 func (f *Forward) List() []*Proxy { return f.p.List(f.proxies) }
@@ -236,12 +237,16 @@ var (
 	ErrCachedClosed = errors.New("cached connection was closed by peer")
 )
 
-// options holds various options that can be set.
-type options struct {
-	forceTCP           bool
-	preferUDP          bool
-	hcRecursionDesired bool
-	hcDomain           string
+// Options holds various Options that can be set.
+type Options struct {
+	// ForceTCP use TCP protocol for upstream DNS request. Has precedence over PreferUDP flag
+	ForceTCP bool
+	// PreferUDP use UDP protocol for upstream DNS request.
+	PreferUDP bool
+	// HCRecursionDesired sets recursion desired flag for Proxy healthcheck requests
+	HCRecursionDesired bool
+	// HCDomain sets domain for Proxy healthcheck requests
+	HCDomain string
 }
 
 var defaultTimeout = 5 * time.Second

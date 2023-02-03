@@ -79,14 +79,14 @@ func TestProtocolSelection(t *testing.T) {
 	ctx := context.TODO()
 
 	go func() {
-		p.Connect(ctx, stateUDP, options{})
-		p.Connect(ctx, stateUDP, options{forceTCP: true})
-		p.Connect(ctx, stateUDP, options{preferUDP: true})
-		p.Connect(ctx, stateUDP, options{preferUDP: true, forceTCP: true})
-		p.Connect(ctx, stateTCP, options{})
-		p.Connect(ctx, stateTCP, options{forceTCP: true})
-		p.Connect(ctx, stateTCP, options{preferUDP: true})
-		p.Connect(ctx, stateTCP, options{preferUDP: true, forceTCP: true})
+		p.Connect(ctx, stateUDP, Options{})
+		p.Connect(ctx, stateUDP, Options{ForceTCP: true})
+		p.Connect(ctx, stateUDP, Options{PreferUDP: true})
+		p.Connect(ctx, stateUDP, Options{PreferUDP: true, ForceTCP: true})
+		p.Connect(ctx, stateTCP, Options{})
+		p.Connect(ctx, stateTCP, Options{ForceTCP: true})
+		p.Connect(ctx, stateTCP, Options{PreferUDP: true})
+		p.Connect(ctx, stateTCP, Options{PreferUDP: true, ForceTCP: true})
 	}()
 
 	for i, exp := range []string{"udp", "tcp", "udp", "tcp", "tcp", "tcp", "udp", "tcp"} {

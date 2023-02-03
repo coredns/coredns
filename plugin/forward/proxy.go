@@ -69,8 +69,8 @@ func (p *Proxy) Down(maxfails uint32) bool {
 func (p *Proxy) stop()      { p.probe.Stop() }
 func (p *Proxy) finalizer() { p.transport.Stop() }
 
-// start starts the proxy's healthchecking.
-func (p *Proxy) start(duration time.Duration) {
+// Start starts the proxy's healthchecking.
+func (p *Proxy) Start(duration time.Duration) {
 	p.probe.Start(duration)
 	p.transport.Start()
 }

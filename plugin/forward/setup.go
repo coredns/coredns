@@ -67,7 +67,7 @@ func setup(c *caddy.Controller) error {
 // OnStartup starts a goroutines for all proxies.
 func (f *Forward) OnStartup() (err error) {
 	for _, p := range f.proxies {
-		p.start(f.hcInterval)
+		p.Start(f.hcInterval)
 	}
 	return nil
 }
@@ -152,12 +152,12 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			f.proxies[i].SetTLSConfig(f.tlsConfig)
 		}
 		f.proxies[i].SetExpire(f.expire)
-		f.proxies[i].health.SetRecursionDesired(f.opts.hcRecursionDesired)
+		f.proxies[i].health.SetRecursionDesired(f.opts.HCRecursionDesired)
 		// when TLS is used, checks are set to tcp-tls
-		if f.opts.forceTCP && transports[i] != transport.TLS {
+		if f.opts.ForceTCP && transports[i] != transport.TLS {
 			f.proxies[i].health.SetTCPTransport()
 		}
-		f.proxies[i].health.SetDomain(f.opts.hcDomain)
+		f.proxies[i].health.SetDomain(f.opts.HCDomain)
 	}
 
 	return f, nil
@@ -194,12 +194,12 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return fmt.Errorf("health_check can't be negative: %d", dur)
 		}
 		f.hcInterval = dur
-		f.opts.hcDomain = "."
+		f.opts.HCDomain = "."
 
 		for c.NextArg() {
 			switch hcOpts := c.Val(); hcOpts {
 			case "no_rec":
-				f.opts.hcRecursionDesired = false
+				f.opts.HCRecursionDesired = false
 			case "domain":
 				if !c.NextArg() {
 					return c.ArgErr()
@@ -208,7 +208,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 				if _, ok := dns.IsDomainName(hcDomain); !ok {
 					return fmt.Errorf("health_check: invalid domain name %s", hcDomain)
 				}
-				f.opts.hcDomain = plugin.Name(hcDomain).Normalize()
+				f.opts.HCDomain = plugin.Name(hcDomain).Normalize()
 			default:
 				return fmt.Errorf("health_check: unknown option %s", hcOpts)
 			}
@@ -218,12 +218,12 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		if c.NextArg() {
 			return c.ArgErr()
 		}
-		f.opts.forceTCP = true
+		f.opts.ForceTCP = true
 	case "prefer_udp":
 		if c.NextArg() {
 			return c.ArgErr()
 		}
-		f.opts.preferUDP = true
+		f.opts.PreferUDP = true
 	case "tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {

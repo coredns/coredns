@@ -72,14 +72,14 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 }
 
 // Connect selects an upstream, sends the request and waits for a response.
-func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options) (*dns.Msg, error) {
+func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options) (*dns.Msg, error) {
 	start := time.Now()
 
 	proto := ""
 	switch {
-	case opts.forceTCP: // TCP flag has precedence over UDP flag
+	case opts.ForceTCP: // TCP flag has precedence over UDP flag
 		proto = "tcp"
-	case opts.preferUDP:
+	case opts.PreferUDP:
 		proto = "udp"
 	default:
 		proto = state.Proto()
