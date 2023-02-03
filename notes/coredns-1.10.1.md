@@ -8,6 +8,7 @@ author = "coredns"
 +++
 
 This release fixes some bugs, and adds some new features including:
+* Corrected architecture labels in multi-arch image manifest
 * A new plugin *timeouts* that allows configuration of server listener timeout durations
 * *acl* can drop queries as an action
 * *template* supports creating responses with extended DNS errors
