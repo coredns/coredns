@@ -139,6 +139,8 @@ func newRule(args ...string) (Rule, error) {
 		return newEdns0Rule(mode, args[startArg:]...)
 	case "ttl":
 		return newTTLRule(mode, args[startArg:]...)
+	case "cname":
+		return newCNAMERule(mode, args[startArg:]...)
 	default:
 		return nil, fmt.Errorf("invalid rule type %q", args[0])
 	}
