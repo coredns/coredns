@@ -21,8 +21,8 @@ integrationDefaults: &integrationDefaults
     image: ubuntu-2004:2022.04.2
   working_directory: ~/go/src/${CIRCLE_PROJECT_USERNAME}/coredns
   environment:
-    - K8S_VERSION: v1.22.0
-    - KIND_VERSION: v0.11.1
+    - K8S_VERSION: v1.26.0
+    - KIND_VERSION: v0.17.0
     - KUBECONFIG: /home/circleci/.kube/kind-config-kind
 
 setupKubernetes: &setupKubernetes
