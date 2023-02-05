@@ -18,7 +18,7 @@ type ttlResponseRule struct {
 	maxTTL uint32
 }
 
-func (r *ttlResponseRule) RewriteResponse(rr dns.RR) {
+func (r *ttlResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
 	if rr.Header().Ttl < r.minTTL {
 		rr.Header().Ttl = r.minTTL
 	} else if rr.Header().Ttl > r.maxTTL {

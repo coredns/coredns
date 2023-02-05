@@ -41,7 +41,7 @@ func NewRevertPolicy(noRevert, noRestore bool) RevertPolicy {
 
 // ResponseRule contains a rule to rewrite a response with.
 type ResponseRule interface {
-	RewriteResponse(rr dns.RR)
+	RewriteResponse(res *dns.Msg, rr dns.RR)
 }
 
 // ResponseRules describes an ordered list of response rules to apply
@@ -91,7 +91,7 @@ func (r *ResponseReverter) WriteMsg(res1 *dns.Msg) error {
 
 func (r *ResponseReverter) rewriteResourceRecord(res *dns.Msg, rr dns.RR) {
 	for _, rule := range r.ResponseRules {
-		rule.RewriteResponse(rr)
+		rule.RewriteResponse(res, rr)
 	}
 }
 
