@@ -204,7 +204,7 @@ func (w *weightedRR) topAddressIndex(address []dns.RR) int {
 	}
 
 	// we should never reach this
-	log.Errorf("Internal error: cannot find top addres (randv:%v wsum:%v)", v, wsum)
+	log.Errorf("Internal error: cannot find top address (randv:%v wsum:%v)", v, wsum)
 	return -1
 }
 
