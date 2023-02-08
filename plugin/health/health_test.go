@@ -22,7 +22,7 @@ func TestHealth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to query %s: %v", address, err)
 	}
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		t.Errorf("Invalid status code: expecting '200', got '%d'", response.StatusCode)
 	}
 	content, err := io.ReadAll(response.Body)

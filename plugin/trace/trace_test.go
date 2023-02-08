@@ -3,6 +3,7 @@ package trace
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -152,7 +153,7 @@ func TestTrace_DOH_TraceHeaderExtraction(t *testing.T) {
 	}
 	q := new(dns.Msg).SetQuestion("example.net.", dns.TypeA)
 
-	req := httptest.NewRequest("POST", "/dns-query", nil)
+	req := httptest.NewRequest(http.MethodPost, "/dns-query", nil)
 
 	outsideSpan := m.StartSpan("test-header-span")
 	outsideSpan.Tracer().Inject(outsideSpan.Context(), opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.Header))
