@@ -123,6 +123,7 @@ func TestReloadMetricsHealth(t *testing.T) {
 	}
 	const proc = "coredns_build_info"
 	metrics, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
 	if !bytes.Contains(metrics, []byte(proc)) {
 		t.Errorf("Failed to see %s in metric output", proc)
 	}
@@ -135,6 +136,7 @@ func collectMetricsInfo(addr string, procs ...string) error {
 		return err
 	}
 	metrics, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
 	for _, p := range procs {
 		if !bytes.Contains(metrics, []byte(p)) {
 			return fmt.Errorf("failed to see %s in metric output \n%s", p, metrics)
