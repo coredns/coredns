@@ -30,17 +30,26 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 
 		endpoint = args[0]
 
-		if strings.HasPrefix(endpoint, "tcp://") {
+		var dio *dio
+		if strings.HasPrefix(endpoint, "tls://") {
 			// remote network endpoint
 			endpointURL, err := url.Parse(endpoint)
 			if err != nil {
 				return nil, c.ArgErr()
 			}
-			dio := newIO("tcp", endpointURL.Host)
+			dio = newIO("tls", endpointURL.Host)
+			d = Dnstap{io: dio}
+		} else if strings.HasPrefix(endpoint, "tcp://") {
+			// remote network endpoint
+			endpointURL, err := url.Parse(endpoint)
+			if err != nil {
+				return nil, c.ArgErr()
+			}
+			dio = newIO("tcp", endpointURL.Host)
 			d = Dnstap{io: dio}
 		} else {
 			endpoint = strings.TrimPrefix(endpoint, "unix://")
-			dio := newIO("unix", endpoint)
+			dio = newIO("unix", endpoint)
 			d = Dnstap{io: dio}
 		}
 
@@ -52,6 +61,10 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 
 		for c.NextBlock() {
 			switch c.Val() {
+			case "skipverify":
+				{
+					dio.skipVerify = true
+				}
 			case "identity":
 				{
 					if !c.NextArg() {

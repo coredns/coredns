@@ -18,6 +18,7 @@ Every message is sent to the socket as soon as it comes in, the *dnstap* plugin 
 dnstap SOCKET [full] {
   [identity IDENTITY]
   [version VERSION]
+  [skipverify]
 }
 ~~~
 
@@ -25,6 +26,7 @@ dnstap SOCKET [full] {
 * `full` to include the wire-format DNS message.
 * **IDENTITY** to override the identity of the server. Defaults to the hostname.
 * **VERSION** to override the version field. Defaults to the CoreDNS version.
+* `skipverify` to skip tls verification during connection. Default to be secure
 
 ## Examples
 
@@ -58,6 +60,14 @@ Log to a socket, overriding the default identity and version.
 dnstap /tmp/dnstap.sock {
   identity my-dns-server1
   version MyDNSServer-1.2.3
+}
+~~~
+
+Log to a remote TLS endpoint.
+
+~~~ txt
+dnstap tls://127.0.0.1:6000 full {
+  skipverify
 }
 ~~~
 

@@ -1,6 +1,7 @@
 package dnstap
 
 import (
+	"crypto/tls"
 	"net"
 	"sync/atomic"
 	"time"
@@ -14,6 +15,8 @@ const (
 
 	tcpTimeout   = 4 * time.Second
 	flushTimeout = 1 * time.Second
+
+	skipVerify = false // by default, every tls connection is verified to be secure
 )
 
 // tapper interface is used in testing to mock the Dnstap method.
@@ -31,6 +34,7 @@ type dio struct {
 	quit         chan struct{}
 	flushTimeout time.Duration
 	tcpTimeout   time.Duration
+	skipVerify   bool
 }
 
 // newIO returns a new and initialized pointer to a dio.
@@ -42,14 +46,32 @@ func newIO(proto, endpoint string) *dio {
 		quit:         make(chan struct{}),
 		flushTimeout: flushTimeout,
 		tcpTimeout:   tcpTimeout,
+		skipVerify:   skipVerify,
 	}
 }
 
 func (d *dio) dial() error {
-	conn, err := net.DialTimeout(d.proto, d.endpoint, d.tcpTimeout)
-	if err != nil {
-		return err
+	var conn net.Conn
+	var err error
+
+	if d.proto == "tls" {
+		config := &tls.Config{
+			InsecureSkipVerify: d.skipVerify,
+		}
+		dialer := &net.Dialer{
+			Timeout: d.tcpTimeout,
+		}
+		conn, err = tls.DialWithDialer(dialer, "tcp", d.endpoint, config)
+		if err != nil {
+			return err
+		}
+	} else {
+		conn, err = net.DialTimeout(d.proto, d.endpoint, d.tcpTimeout)
+		if err != nil {
+			return err
+		}
 	}
+
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		tcpConn.SetWriteBuffer(tcpWriteBufSize)
 		tcpConn.SetNoDelay(false)
