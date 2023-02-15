@@ -73,7 +73,6 @@ endif
 		mkdir build/docker/$${arch}; \
 		curl -L $(GITHUB)/v$(VERSION)/coredns_$(VERSION)_linux_$${arch}.tgz > build/docker/$${arch}/coredns.tgz && \
 			( cd build/docker/$${arch}; tar xf coredns.tgz && rm coredns.tgz ); \
-			cp Dockerfile build/docker/$${arch} ; \
 	done
 
 .PHONY: docker-build
@@ -83,12 +82,16 @@ ifeq ($(DOCKER),)
 else
 	docker version
 	for arch in $(LINUX_ARCH); do \
+	    cp Dockerfile build/docker/$${arch} ; \
 	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) build/docker/$${arch} ;\
 	done
 endif
 
 .PHONY: docker-push
 docker-push:
+ifeq ($(VERSION),)
+	$(error "Please specify a version use. Use VERSION=<version>")
+endif
 ifeq ($(DOCKER),)
 	$(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
 else
