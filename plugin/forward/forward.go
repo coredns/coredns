@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -37,6 +38,7 @@ type Forward struct {
 	from    string
 	ignored []string
 
+	local         net.IP
 	tlsConfig     *tls.Config
 	tlsServerName string
 	maxfails      uint32

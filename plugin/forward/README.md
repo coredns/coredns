@@ -50,6 +50,7 @@ forward FROM TO... {
     policy random|round_robin|sequential
     health_check DURATION [no_rec] [domain FQDN]
     max_concurrent MAX
+    local ADDRESS
 }
 ~~~
 
@@ -95,6 +96,7 @@ forward FROM TO... {
   response does not count as a health failure. When choosing a value for **MAX**, pick a number
   at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
+* `local` **ADDRESS** specifies the source address to use for outbound queries.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls-name` for different upstreams you're out of luck.

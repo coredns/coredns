@@ -6,8 +6,11 @@ package forward
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
+	"net"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -43,6 +46,28 @@ func (t *Transport) updateDialTimeout(newDialTime time.Duration) {
 	averageTimeout(&t.avgDialTime, newDialTime, cumulativeAvgWeight)
 }
 
+func networkIP(network string, ip net.IP) net.Addr {
+	switch network {
+	case "tcp", "tcp-tls":
+		return &net.TCPAddr{IP: ip}
+	default:
+		return &net.UDPAddr{IP: ip}
+	}
+}
+
+func dialTimeoutLocal(network, address string, local net.IP, timeout time.Duration) (conn *dns.Conn, err error) {
+	client := dns.Client{Net: network, Dialer: &net.Dialer{Timeout: timeout, LocalAddr: networkIP(network, local)}}
+	return client.Dial(address)
+}
+
+func dialTimeoutLocalWithTLS(network, address string, local net.IP, tlsConfig *tls.Config, timeout time.Duration) (conn *dns.Conn, err error) {
+	if !strings.HasSuffix(network, "-tls") {
+		network += "-tls"
+	}
+	client := dns.Client{Net: network, Dialer: &net.Dialer{Timeout: timeout, LocalAddr: networkIP(network, local)}, TLSConfig: tlsConfig}
+	return client.Dial(address)
+}
+
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
 func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	// If tls has been configured; use it.
@@ -62,11 +87,11 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
 	if proto == "tcp-tls" {
-		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
+		conn, err := dialTimeoutLocalWithTLS("tcp", t.addr, t.local, t.tlsConfig, timeout)
 		t.updateDialTimeout(time.Since(reqTime))
 		return &persistConn{c: conn}, false, err
 	}
-	conn, err := dns.DialTimeout(proto, t.addr, timeout)
+	conn, err := dialTimeoutLocal(proto, t.addr, t.local, timeout)
 	t.updateDialTimeout(time.Since(reqTime))
 	return &persistConn{c: conn}, false, err
 }

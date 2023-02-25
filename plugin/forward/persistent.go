@@ -2,6 +2,7 @@ package forward
 
 import (
 	"crypto/tls"
+	"net"
 	"sort"
 	"time"
 
@@ -20,6 +21,7 @@ type Transport struct {
 	conns       [typeTotalCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
 	expire      time.Duration                  // After this duration a connection is expired.
 	addr        string
+	local       net.IP
 	tlsConfig   *tls.Config
 
 	dial  chan string
