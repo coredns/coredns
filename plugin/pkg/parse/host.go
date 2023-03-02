@@ -33,6 +33,14 @@ func HostPortOrFile(s ...string) ([]string, error) {
 	var servers []string
 	for _, h := range s {
 		trans, host := Transport(h)
+		if len(host) == 0 {
+			return servers, fmt.Errorf("invalid address: %q", h)
+		}
+
+		if trans == transport.UNIX {
+			servers = append(servers, trans+"://"+host)
+			continue
+		}
 
 		addr, _, err := net.SplitHostPort(host)
 

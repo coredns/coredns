@@ -6,6 +6,7 @@ const (
 	TLS   = "tls"
 	GRPC  = "grpc"
 	HTTPS = "https"
+	UNIX  = "unix"
 )
 
 // Port numbers for the various transports.

@@ -58,6 +58,16 @@ func TestHostPortOrFile(t *testing.T) {
 			"",
 			true,
 		},
+		{
+			"unix:///var/run/g.sock",
+			"unix:///var/run/g.sock",
+			false,
+		},
+		{
+			"unix://",
+			"",
+			true,
+		},
 	}
 
 	err := os.WriteFile("resolv.conf", []byte("nameserver 127.0.0.1\n"), 0600)
