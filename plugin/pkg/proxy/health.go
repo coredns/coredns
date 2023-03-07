@@ -1,12 +1,13 @@
-package forward
+package proxy
 
 import (
 	"crypto/tls"
 	"sync/atomic"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/transport"
-
+	
 	"github.com/miekg/dns"
 )
 
@@ -14,6 +15,7 @@ import (
 type HealthChecker interface {
 	Check(*Proxy) error
 	SetTLSConfig(*tls.Config)
+	GetTLSConfig() *tls.Config
 	SetRecursionDesired(bool)
 	GetRecursionDesired() bool
 	SetDomain(domain string)
@@ -54,6 +56,10 @@ func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
 	h.c.TLSConfig = cfg
 }
 
+func (h *dnsHc) GetTLSConfig() *tls.Config {
+	return h.c.TLSConfig
+}
+
 func (h *dnsHc) SetRecursionDesired(recursionDesired bool) {
 	h.recursionDesired = recursionDesired
 }
@@ -72,7 +78,7 @@ func (h *dnsHc) SetTCPTransport() {
 	h.c.Net = "tcp"
 }
 
-// For HC we send to . IN NS +[no]rec message to the upstream. Dial timeouts and empty
+// For HC, we send to . IN NS +[no]rec message to the upstream. Dial timeouts and empty
 // replies are considered fails, basically anything else constitutes a healthy upstream.
 
 // Check is used as the up.Func in the up.Probe.

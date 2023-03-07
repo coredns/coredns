@@ -8,23 +8,33 @@ import (
 	"github.com/coredns/caddy/caddyfile"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/dnstap"
+	"github.com/coredns/coredns/plugin/pkg/proxy"
+	"github.com/coredns/coredns/plugin/pkg/transport"
 )
 
 func TestList(t *testing.T) {
 	f := Forward{
-		proxies: []*Proxy{{addr: "1.1.1.1:53"}, {addr: "2.2.2.2:53"}, {addr: "3.3.3.3:53"}},
-		p:       &roundRobin{},
+		proxies: []*proxy.Proxy{
+			proxy.NewProxy("1.1.1.1:53", transport.DNS),
+			proxy.NewProxy("2.2.2.2:53", transport.DNS),
+			proxy.NewProxy("3.3.3.3:53", transport.DNS),
+		},
+		p: &roundRobin{},
 	}
 
-	expect := []*Proxy{{addr: "2.2.2.2:53"}, {addr: "1.1.1.1:53"}, {addr: "3.3.3.3:53"}}
+	expect := []*proxy.Proxy{
+		proxy.NewProxy("2.2.2.2:53", transport.DNS),
+		proxy.NewProxy("1.1.1.1:53", transport.DNS),
+		proxy.NewProxy("3.3.3.3:53", transport.DNS),
+	}
 	got := f.List()
 
 	if len(got) != len(expect) {
 		t.Fatalf("Expected: %v results, got: %v", len(expect), len(got))
 	}
 	for i, p := range got {
-		if p.addr != expect[i].addr {
-			t.Fatalf("Expected proxy %v to be '%v', got: '%v'", i, expect[i].addr, p.addr)
+		if p.Addr() != expect[i].Addr() {
+			t.Fatalf("Expected proxy %v to be '%v', got: '%v'", i, expect[i].Addr(), p.Addr())
 		}
 	}
 }

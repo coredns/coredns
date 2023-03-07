@@ -6,9 +6,7 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
-	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/plugin/test"
-	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -68,32 +66,5 @@ func TestProxyTLSFail(t *testing.T) {
 
 	if _, err := f.ServeDNS(context.TODO(), rec, m); err == nil {
 		t.Fatal("Expected *not* to receive reply, but got one")
-	}
-}
-
-func TestProtocolSelection(t *testing.T) {
-	p := NewProxy("bad_address", transport.DNS)
-
-	stateUDP := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
-	stateTCP := request.Request{W: &test.ResponseWriter{TCP: true}, Req: new(dns.Msg)}
-	ctx := context.TODO()
-
-	go func() {
-		p.Connect(ctx, stateUDP, Options{})
-		p.Connect(ctx, stateUDP, Options{ForceTCP: true})
-		p.Connect(ctx, stateUDP, Options{PreferUDP: true})
-		p.Connect(ctx, stateUDP, Options{PreferUDP: true, ForceTCP: true})
-		p.Connect(ctx, stateTCP, Options{})
-		p.Connect(ctx, stateTCP, Options{ForceTCP: true})
-		p.Connect(ctx, stateTCP, Options{PreferUDP: true})
-		p.Connect(ctx, stateTCP, Options{PreferUDP: true, ForceTCP: true})
-	}()
-
-	for i, exp := range []string{"udp", "tcp", "udp", "tcp", "tcp", "tcp", "udp", "tcp"} {
-		proto := <-p.transport.dial
-		p.transport.ret <- nil
-		if proto != exp {
-			t.Errorf("Unexpected protocol in case %d, expected %q, actual %q", i, exp, proto)
-		}
 	}
 }

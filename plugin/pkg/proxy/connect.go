@@ -2,7 +2,7 @@
 // client returns the upstream's Conn will be precached. Depending on how you benchmark this looks to be
 // 50% faster than just opening a new connection for every client. It works with UDP and TCP and uses
 // inband healthchecking.
-package forward
+package proxy
 
 import (
 	"context"

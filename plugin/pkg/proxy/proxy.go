@@ -1,4 +1,4 @@
-package forward
+package proxy
 
 import (
 	"crypto/tls"
@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/up"
 )
 
@@ -34,6 +35,8 @@ func NewProxy(addr, trans string) *Proxy {
 	return p
 }
 
+func (p *Proxy) Addr() string { return p.addr }
+
 // SetTLSConfig sets the TLS config in the lower p.transport and in the healthchecking client.
 func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 	p.transport.SetTLSConfig(cfg)
@@ -42,6 +45,10 @@ func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 
 // SetExpire sets the expire duration in the lower p.transport.
 func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
+
+func (p *Proxy) GetHealthchecker() HealthChecker {
+	return p.health
+}
 
 // Healthcheck kicks of a round of health checks for this proxy.
 func (p *Proxy) Healthcheck() {
@@ -65,8 +72,8 @@ func (p *Proxy) Down(maxfails uint32) bool {
 	return fails > maxfails
 }
 
-// close stops the health checking goroutine.
-func (p *Proxy) stop()      { p.probe.Stop() }
+// Stop close stops the health checking goroutine.
+func (p *Proxy) Stop()      { p.probe.Stop() }
 func (p *Proxy) finalizer() { p.transport.Stop() }
 
 // Start starts the proxy's healthchecking.
@@ -78,5 +85,3 @@ func (p *Proxy) Start(duration time.Duration) {
 const (
 	maxTimeout = 2 * time.Second
 )
-
-var hcInterval = 500 * time.Millisecond
