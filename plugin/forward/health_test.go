@@ -157,6 +157,30 @@ func TestHealthTimeout(t *testing.T) {
 	}
 }
 
+func TestHealthMaxFails(t *testing.T) {
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		// timeout
+	})
+	defer s.Close()
+
+	p := proxy.NewProxy(s.Addr, transport.DNS)
+	f := New()
+	f.maxfails = 2
+	f.SetProxy(p)
+	defer f.OnShutdown()
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
+
+	time.Sleep(100 * time.Millisecond)
+	fails := p.Fails()
+	if !p.Down(f.maxfails) {
+		t.Errorf("Expected Proxy fails to be greater than %d, got %d", f.maxfails, fails)
+	}
+}
+
 func TestHealthNoMaxFails(t *testing.T) {
 	i := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {

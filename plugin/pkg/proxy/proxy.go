@@ -50,6 +50,10 @@ func (p *Proxy) GetHealthchecker() HealthChecker {
 	return p.health
 }
 
+func (p *Proxy) Fails() uint32 {
+	return atomic.LoadUint32(&p.fails)
+}
+
 // Healthcheck kicks of a round of health checks for this proxy.
 func (p *Proxy) Healthcheck() {
 	if p.health == nil {
