@@ -17,6 +17,8 @@ type Proxy struct {
 
 	transport *Transport
 
+	readTimeout time.Duration
+
 	// health checking
 	probe  *up.Probe
 	health HealthChecker
@@ -25,10 +27,12 @@ type Proxy struct {
 // NewProxy returns a new proxy.
 func NewProxy(addr, trans string) *Proxy {
 	p := &Proxy{
-		addr:      addr,
-		fails:     0,
-		probe:     up.New(),
-		transport: newTransport(addr),
+		addr:  addr,
+		fails: 0,
+		probe: up.New(),
+		//		readTimeout: 2 * time.Second,
+		readTimeout: 10 * time.Millisecond,
+		transport:   newTransport(addr),
 	}
 	p.health = NewHealthChecker(trans, true, ".")
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
@@ -84,6 +88,10 @@ func (p *Proxy) finalizer() { p.transport.Stop() }
 func (p *Proxy) Start(duration time.Duration) {
 	p.probe.Start(duration)
 	p.transport.Start()
+}
+
+func (p *Proxy) SetReadTimeout(duration time.Duration) {
+	p.readTimeout = duration
 }
 
 const (

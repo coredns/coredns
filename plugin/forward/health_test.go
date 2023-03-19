@@ -15,6 +15,8 @@ import (
 )
 
 func TestHealth(t *testing.T) {
+	defaultTimeout = 10 * time.Millisecond
+
 	i := uint32(0)
 	q := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -32,6 +34,8 @@ func TestHealth(t *testing.T) {
 	defer s.Close()
 
 	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
+	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	f := New()
 	f.SetProxy(p)
 	defer f.OnShutdown()
@@ -49,6 +53,8 @@ func TestHealth(t *testing.T) {
 }
 
 func TestHealthTCP(t *testing.T) {
+	defaultTimeout = 10 * time.Millisecond
+
 	i := uint32(0)
 	q := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -66,6 +72,8 @@ func TestHealthTCP(t *testing.T) {
 	defer s.Close()
 
 	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
+	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetTCPTransport()
 	f := New()
 	f.SetProxy(p)
@@ -84,6 +92,8 @@ func TestHealthTCP(t *testing.T) {
 }
 
 func TestHealthNoRecursion(t *testing.T) {
+	defaultTimeout = 10 * time.Millisecond
+
 	i := uint32(0)
 	q := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -101,6 +111,8 @@ func TestHealthNoRecursion(t *testing.T) {
 	defer s.Close()
 
 	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
+	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetRecursionDesired(false)
 	f := New()
 	f.SetProxy(p)
@@ -119,6 +131,8 @@ func TestHealthNoRecursion(t *testing.T) {
 }
 
 func TestHealthTimeout(t *testing.T) {
+	defaultTimeout = 10 * time.Millisecond
+
 	i := uint32(0)
 	q := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -141,6 +155,8 @@ func TestHealthTimeout(t *testing.T) {
 	defer s.Close()
 
 	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
+	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	f := New()
 	f.SetProxy(p)
 	defer f.OnShutdown()
@@ -158,13 +174,20 @@ func TestHealthTimeout(t *testing.T) {
 }
 
 func TestHealthMaxFails(t *testing.T) {
+	defaultTimeout = 10 * time.Millisecond
+	//,hcInterval = 10 * time.Millisecond
+
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		// timeout
 	})
 	defer s.Close()
 
 	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p.SetReadTimeout(10 * time.Millisecond)
+	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
+	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	f := New()
+	f.hcInterval = 10 * time.Millisecond
 	f.maxfails = 2
 	f.SetProxy(p)
 	defer f.OnShutdown()
@@ -182,6 +205,8 @@ func TestHealthMaxFails(t *testing.T) {
 }
 
 func TestHealthNoMaxFails(t *testing.T) {
+	defaultTimeout = 10 * time.Millisecond
+
 	i := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		if r.Question[0].Name == "." {
@@ -195,6 +220,8 @@ func TestHealthNoMaxFails(t *testing.T) {
 	defer s.Close()
 
 	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
+	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	f := New()
 	f.maxfails = 0
 	f.SetProxy(p)
@@ -213,6 +240,8 @@ func TestHealthNoMaxFails(t *testing.T) {
 }
 
 func TestHealthDomain(t *testing.T) {
+	defaultTimeout = 10 * time.Millisecond
+
 	hcDomain := "example.org."
 	i := uint32(0)
 	q := uint32(0)
@@ -230,6 +259,8 @@ func TestHealthDomain(t *testing.T) {
 	})
 	defer s.Close()
 	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
+	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetDomain(hcDomain)
 	f := New()
 	f.SetProxy(p)

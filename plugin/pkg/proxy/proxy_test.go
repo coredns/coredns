@@ -24,6 +24,7 @@ func TestProxy(t *testing.T) {
 	defer s.Close()
 
 	p := NewProxy(s.Addr, transport.DNS)
+	p.readTimeout = 10 * time.Millisecond
 	p.Start(5 * time.Second)
 	m := new(dns.Msg)
 
@@ -53,6 +54,7 @@ func TestProxyTLSFail(t *testing.T) {
 	defer s.Close()
 
 	p := NewProxy(s.Addr, transport.TLS)
+	p.readTimeout = 10 * time.Millisecond
 	p.SetTLSConfig(&tls.Config{})
 	p.Start(5 * time.Second)
 	m := new(dns.Msg)
@@ -70,6 +72,7 @@ func TestProxyTLSFail(t *testing.T) {
 
 func TestProtocolSelection(t *testing.T) {
 	p := NewProxy("bad_address", transport.DNS)
+	p.readTimeout = 10 * time.Millisecond
 
 	stateUDP := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
 	stateTCP := request.Request{W: &test.ResponseWriter{TCP: true}, Req: new(dns.Msg)}

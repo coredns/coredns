@@ -113,7 +113,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	}
 
 	var ret *dns.Msg
-	pc.c.SetReadDeadline(time.Now().Add(readTimeout))
+	pc.c.SetReadDeadline(time.Now().Add(p.readTimeout))
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {

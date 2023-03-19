@@ -7,13 +7,11 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/transport"
+
 	"github.com/miekg/dns"
 )
 
 func TestHealth(t *testing.T) {
-	hcReadTimeout = 10 * time.Millisecond
-	hcWriteTimeout = 10 * time.Millisecond
-	readTimeout = 10 * time.Millisecond
 
 	i := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -27,8 +25,11 @@ func TestHealth(t *testing.T) {
 	defer s.Close()
 
 	hc := NewHealthChecker(transport.DNS, true, "")
+	hc.SetReadTimeout(10 * time.Millisecond)
+	hc.SetWriteTimeout(10 * time.Millisecond)
 
 	p := NewProxy(s.Addr, transport.DNS)
+	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err != nil {
 		t.Errorf("check failed: %v", err)
@@ -42,8 +43,6 @@ func TestHealth(t *testing.T) {
 }
 
 func TestHealthTCP(t *testing.T) {
-	hcReadTimeout = 10 * time.Millisecond
-	hcWriteTimeout = 10 * time.Millisecond
 	readTimeout = 10 * time.Millisecond
 
 	i := uint32(0)
@@ -59,8 +58,11 @@ func TestHealthTCP(t *testing.T) {
 
 	hc := NewHealthChecker(transport.DNS, true, "")
 	hc.SetTCPTransport()
+	hc.SetReadTimeout(10 * time.Millisecond)
+	hc.SetWriteTimeout(10 * time.Millisecond)
 
 	p := NewProxy(s.Addr, transport.DNS)
+	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err != nil {
 		t.Errorf("check failed: %v", err)
@@ -74,9 +76,7 @@ func TestHealthTCP(t *testing.T) {
 }
 
 func TestHealthNoRecursion(t *testing.T) {
-	hcReadTimeout = 10 * time.Millisecond
 	readTimeout = 10 * time.Millisecond
-	hcWriteTimeout = 10 * time.Millisecond
 
 	i := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -90,8 +90,11 @@ func TestHealthNoRecursion(t *testing.T) {
 	defer s.Close()
 
 	hc := NewHealthChecker(transport.DNS, false, "")
+	hc.SetReadTimeout(10 * time.Millisecond)
+	hc.SetWriteTimeout(10 * time.Millisecond)
 
 	p := NewProxy(s.Addr, transport.DNS)
+	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err != nil {
 		t.Errorf("check failed: %v", err)
@@ -105,8 +108,6 @@ func TestHealthNoRecursion(t *testing.T) {
 }
 
 func TestHealthTimeout(t *testing.T) {
-	hcReadTimeout = 10 * time.Millisecond
-	hcWriteTimeout = 10 * time.Millisecond
 	readTimeout = 10 * time.Millisecond
 
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -115,8 +116,11 @@ func TestHealthTimeout(t *testing.T) {
 	defer s.Close()
 
 	hc := NewHealthChecker(transport.DNS, false, "")
+	hc.SetReadTimeout(10 * time.Millisecond)
+	hc.SetWriteTimeout(10 * time.Millisecond)
 
 	p := NewProxy(s.Addr, transport.DNS)
+	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err == nil {
 		t.Errorf("expected error")
@@ -124,9 +128,7 @@ func TestHealthTimeout(t *testing.T) {
 }
 
 func TestHealthDomain(t *testing.T) {
-	hcReadTimeout = 10 * time.Millisecond
 	readTimeout = 10 * time.Millisecond
-	hcWriteTimeout = 10 * time.Millisecond
 
 	hcDomain := "example.org."
 
@@ -142,8 +144,11 @@ func TestHealthDomain(t *testing.T) {
 	defer s.Close()
 
 	hc := NewHealthChecker(transport.DNS, true, hcDomain)
+	hc.SetReadTimeout(10 * time.Millisecond)
+	hc.SetWriteTimeout(10 * time.Millisecond)
 
 	p := NewProxy(s.Addr, transport.DNS)
+	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err != nil {
 		t.Errorf("check failed: %v", err)
