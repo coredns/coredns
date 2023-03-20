@@ -38,7 +38,7 @@ type Forward struct {
 	from    string
 	ignored []string
 
-	local         net.IP
+	source        net.IP
 	tlsConfig     *tls.Config
 	tlsServerName string
 	maxfails      uint32

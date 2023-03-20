@@ -154,7 +154,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		}
 		f.proxies[i].SetExpire(f.expire)
 		f.proxies[i].health.SetRecursionDesired(f.opts.hcRecursionDesired)
-		f.proxies[i].transport.local = f.local
+		f.proxies[i].transport.source = f.source
 		// when TLS is used, checks are set to tcp-tls
 		if f.opts.forceTCP && transports[i] != transport.TLS {
 			f.proxies[i].health.SetTCPTransport()
@@ -281,14 +281,14 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		}
 		f.ErrLimitExceeded = errors.New("concurrent queries exceeded maximum " + c.Val())
 		f.maxConcurrent = int64(n)
-	case "local":
+	case "source":
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
-		local := c.Val()
-		f.local = net.ParseIP(local)
-		if f.local == nil {
-			return c.Errf("invalid local address '%s'", local)
+		source := c.Val()
+		f.source = net.ParseIP(source)
+		if f.source == nil {
+			return c.Errf("invalid source address '%s'", source)
 		}
 
 	default:

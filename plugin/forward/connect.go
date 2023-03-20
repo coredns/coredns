@@ -87,11 +87,11 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
 	if proto == "tcp-tls" {
-		conn, err := dialTimeoutLocalWithTLS("tcp", t.addr, t.local, t.tlsConfig, timeout)
+		conn, err := dialTimeoutLocalWithTLS("tcp", t.addr, t.source, t.tlsConfig, timeout)
 		t.updateDialTimeout(time.Since(reqTime))
 		return &persistConn{c: conn}, false, err
 	}
-	conn, err := dialTimeoutLocal(proto, t.addr, t.local, timeout)
+	conn, err := dialTimeoutLocal(proto, t.addr, t.source, timeout)
 	t.updateDialTimeout(time.Since(reqTime))
 	return &persistConn{c: conn}, false, err
 }
