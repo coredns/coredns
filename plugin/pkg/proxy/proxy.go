@@ -27,9 +27,9 @@ type Proxy struct {
 // NewProxy returns a new proxy.
 func NewProxy(addr, trans string) *Proxy {
 	p := &Proxy{
-		addr:  addr,
-		fails: 0,
-		probe: up.New(),
+		addr:        addr,
+		fails:       0,
+		probe:       up.New(),
 		readTimeout: 2 * time.Second,
 		transport:   newTransport(addr),
 	}

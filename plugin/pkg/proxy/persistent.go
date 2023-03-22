@@ -154,4 +154,3 @@ const (
 	minDialTimeout = 1 * time.Second
 	maxDialTimeout = 30 * time.Second
 )
-
