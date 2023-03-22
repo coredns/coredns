@@ -1,6 +1,8 @@
 package proxy
 
-import "errors"
+import (
+	"errors"
+)
 
 var (
 	// ErrNoHealthy means no healthy proxies left.

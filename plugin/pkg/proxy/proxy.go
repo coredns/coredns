@@ -30,8 +30,7 @@ func NewProxy(addr, trans string) *Proxy {
 		addr:  addr,
 		fails: 0,
 		probe: up.New(),
-		//		readTimeout: 2 * time.Second,
-		readTimeout: 10 * time.Millisecond,
+		readTimeout: 2 * time.Second,
 		transport:   newTransport(addr),
 	}
 	p.health = NewHealthChecker(trans, true, ".")

@@ -12,7 +12,6 @@ import (
 )
 
 func TestHealth(t *testing.T) {
-
 	i := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		if r.Question[0].Name == "." && r.RecursionDesired == true {
@@ -43,8 +42,6 @@ func TestHealth(t *testing.T) {
 }
 
 func TestHealthTCP(t *testing.T) {
-	readTimeout = 10 * time.Millisecond
-
 	i := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		if r.Question[0].Name == "." && r.RecursionDesired == true {
@@ -76,8 +73,6 @@ func TestHealthTCP(t *testing.T) {
 }
 
 func TestHealthNoRecursion(t *testing.T) {
-	readTimeout = 10 * time.Millisecond
-
 	i := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		if r.Question[0].Name == "." && r.RecursionDesired == false {
@@ -108,8 +103,6 @@ func TestHealthNoRecursion(t *testing.T) {
 }
 
 func TestHealthTimeout(t *testing.T) {
-	readTimeout = 10 * time.Millisecond
-
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		// timeout
 	})
@@ -128,8 +121,6 @@ func TestHealthTimeout(t *testing.T) {
 }
 
 func TestHealthDomain(t *testing.T) {
-	readTimeout = 10 * time.Millisecond
-
 	hcDomain := "example.org."
 
 	i := uint32(0)

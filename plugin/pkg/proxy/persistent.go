@@ -155,8 +155,3 @@ const (
 	maxDialTimeout = 30 * time.Second
 )
 
-// Make a var for minimizing this value in tests.
-var (
-	// Some resolves might take quite a while, usually (cached) responses are fast. Set to 2s to give us some time to retry a different upstream.
-	readTimeout = 2 * time.Second
-)
