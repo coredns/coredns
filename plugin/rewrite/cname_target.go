@@ -3,7 +3,6 @@ package rewrite
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/log"
@@ -34,25 +33,33 @@ func (r *cnameResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
 		// rename the target of the cname response
 		if cname, ok := rr.(*dns.CNAME); ok {
 			if cname.Target == r.fromTarget {
-				cname.Target = r.toTarget
+				// create upstream request to get the A record for the new target
+				r.state.Req.Question[0].Name = r.toTarget
+				upRes, err := r.Upstream.Lookup(r.ctx, r.state, r.toTarget, dns.TypeA)
+
+				if err != nil {
+					log.Infof("Error upstream request %v", err)
+				}
+
+				var newAnswer []dns.RR
+				// iterate over first upstram response
+				// add the cname record to the new answer
+				for _, rr := range res.Answer {
+					if cname, ok := rr.(*dns.CNAME); ok {
+						// change the target name in the response
+						cname.Target = r.toTarget
+						newAnswer = append(newAnswer, rr)
+					}
+				}
+				// iterate over upstream response made
+				for _, rr := range upRes.Answer {
+					if rr.Header().Name == r.toTarget {
+						newAnswer = append(newAnswer, rr)
+					}
+				}
+				res.Answer = newAnswer
 			}
 		}
-	case dns.TypeA:
-		// TODO: Get the new answer from upstream call, replace the A records in the response
-		// remove all exising A records and pack new A records got for toTarget name
-		log.Infof("Sending upstream request...")
-		resp, err := r.Upstream.Lookup(r.ctx, r.state, r.toTarget, dns.TypeA)
-		if err == nil {
-			log.Infof("Error upstream request %v", resp)
-		} else {
-			log.Infof("Error upstream request %v", err)
-		}
-
-		if a, ok := rr.(*dns.A); ok {
-			a.Header().Name = r.toTarget
-			a.A = net.IPv4(124, 43, 66, 43) // *targetIP
-		}
-
 	}
 }
 
@@ -77,12 +84,9 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 // Rewrite rewrites the current request.
 func (rule *cnameResponseRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	if len(rule.fromTarget) > 0 && len(rule.toTarget) > 0 {
-		// Create rule only if question is A record
 		rule.state = state
 		rule.ctx = ctx
-		if state.QType() == dns.TypeA {
-			return ResponseRules{rule}, RewriteDone
-		}
+		return ResponseRules{rule}, RewriteDone
 	}
 	return nil, RewriteIgnored
 }
