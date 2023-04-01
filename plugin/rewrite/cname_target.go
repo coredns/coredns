@@ -45,15 +45,15 @@ func (r *cnameResponseRule) getFromAndToTarget(inputCName string) (string, strin
 		return r.paramFromTarget, r.paramToTarget
 	case CNamePrefixMatch:
 		if strings.HasPrefix(inputCName, r.paramFromTarget) {
-			return inputCName, r.paramToTarget
+			return inputCName, r.paramToTarget + strings.TrimPrefix(inputCName, r.paramFromTarget)
 		}
 	case CNameSuffixMatch:
 		if strings.HasSuffix(inputCName, r.paramFromTarget) {
-			return inputCName, r.paramToTarget
+			return inputCName, strings.TrimSuffix(inputCName, r.paramFromTarget) + r.paramToTarget
 		}
 	case CNameSubstringMatch:
 		if strings.Contains(inputCName, r.paramFromTarget) {
-			return inputCName, r.paramToTarget
+			return inputCName, strings.Replace(inputCName, r.paramFromTarget, r.paramToTarget, -1)
 		}
 	case CNameRegexMatch:
 		pattern := regexp.MustCompile(r.paramFromTarget)
@@ -79,9 +79,9 @@ func (r *cnameResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
 		if cname, ok := rr.(*dns.CNAME); ok {
 			fromTarget, toTarget := r.getFromAndToTarget(cname.Target)
 			if cname.Target == fromTarget {
-				// create upstream request to get the A record for the new target
+				// create upstream request with the new target with the same qtype
 				r.state.Req.Question[0].Name = toTarget
-				upRes, err := r.Upstream.Lookup(r.ctx, r.state, toTarget, dns.TypeA)
+				upRes, err := r.Upstream.Lookup(r.ctx, r.state, toTarget, r.state.Req.Question[0].Qtype)
 
 				if err != nil {
 					log.Infof("Error upstream request %v", err)
@@ -134,13 +134,12 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 		nextAction:      nextAction,
 		Upstream:        upstream.New(),
 	}
-	log.Infof("cname rule created rule data %v'", rule)
 	return &rule, nil
 }
 
 // Rewrite rewrites the current request.
 func (rule *cnameResponseRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
-	if len(rule.paramFromTarget) > 0 && len(rule.paramToTarget) > 0 {
+	if len(rule.rewriteType) > 0 && len(rule.paramFromTarget) > 0 && len(rule.paramToTarget) > 0 {
 		rule.state = state
 		rule.ctx = ctx
 		return ResponseRules{rule}, RewriteDone
