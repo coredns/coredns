@@ -18,14 +18,20 @@ type UpstreamInt interface {
 	Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error)
 }
 
+// RewriteType is the type of cname target rewrite rules
 type RewriteType string
 
 const (
-	CNameExactMatch     RewriteType = "exact"
-	CNamePrefixMatch    RewriteType = "prefix"
-	CNameSuffixMatch    RewriteType = "suffix"
+	// CNameExactMatch is the type for exact match of cname target
+	CNameExactMatch RewriteType = "exact"
+	// CNamePrefixMatch is the type for prefix match of cname target
+	CNamePrefixMatch RewriteType = "prefix"
+	// CNameSuffixMatch is the type for suffix match of cname target
+	CNameSuffixMatch RewriteType = "suffix"
+	// CNameSubstringMatch is the type for substring match of cname target
 	CNameSubstringMatch RewriteType = "substring"
-	CNameRegexMatch     RewriteType = "regex"
+	// CNameRegexMatch is the type for regex match of cname target
+	CNameRegexMatch RewriteType = "regex"
 )
 
 // cnameTargetRule is cname target rewrite rule.
@@ -138,14 +144,14 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 }
 
 // Rewrite rewrites the current request.
-func (rule *cnameTargetRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
-	if len(rule.rewriteType) > 0 && len(rule.paramFromTarget) > 0 && len(rule.paramToTarget) > 0 {
-		rule.state = state
-		rule.ctx = ctx
-		return ResponseRules{rule}, RewriteDone
+func (r *cnameTargetRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+	if len(r.rewriteType) > 0 && len(r.paramFromTarget) > 0 && len(r.paramToTarget) > 0 {
+		r.state = state
+		r.ctx = ctx
+		return ResponseRules{r}, RewriteDone
 	}
 	return nil, RewriteIgnored
 }
 
 // Mode returns the processing mode.
-func (rule *cnameTargetRule) Mode() string { return rule.nextAction }
+func (r *cnameTargetRule) Mode() string { return r.nextAction }
