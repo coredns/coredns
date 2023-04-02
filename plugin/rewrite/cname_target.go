@@ -28,8 +28,8 @@ const (
 	CNameRegexMatch     RewriteType = "regex"
 )
 
-// cNameResponseRule is cname target rewrite rule.
-type cnameResponseRule struct {
+// cnameTargetRule is cname target rewrite rule.
+type cnameTargetRule struct {
 	rewriteType     RewriteType
 	paramFromTarget string
 	paramToTarget   string
@@ -39,7 +39,7 @@ type cnameResponseRule struct {
 	Upstream        UpstreamInt // Upstream for looking up external names during the resolution process.
 }
 
-func (r *cnameResponseRule) getFromAndToTarget(inputCName string) (string, string) {
+func (r *cnameTargetRule) getFromAndToTarget(inputCName string) (from string, to string) {
 	switch r.rewriteType {
 	case CNameExactMatch:
 		return r.paramFromTarget, r.paramToTarget
@@ -71,7 +71,7 @@ func (r *cnameResponseRule) getFromAndToTarget(inputCName string) (string, strin
 	return "", ""
 }
 
-func (r *cnameResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
+func (r *cnameTargetRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
 	// logic to rewrite the cname target of dns response
 	switch rr.Header().Rrtype {
 	case dns.TypeCNAME:
@@ -84,7 +84,7 @@ func (r *cnameResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
 				upRes, err := r.Upstream.Lookup(r.ctx, r.state, toTarget, r.state.Req.Question[0].Qtype)
 
 				if err != nil {
-					log.Infof("Error upstream request %v", err)
+					log.Errorf("Error upstream request %v", err)
 				}
 
 				var newAnswer []dns.RR
@@ -127,7 +127,7 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 	} else {
 		return nil, fmt.Errorf("too few (%d) arguments for a cname rule", len(args))
 	}
-	rule := cnameResponseRule{
+	rule := cnameTargetRule{
 		rewriteType:     rewriteType,
 		paramFromTarget: paramFromTarget,
 		paramToTarget:   paramToTarget,
@@ -138,7 +138,7 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 }
 
 // Rewrite rewrites the current request.
-func (rule *cnameResponseRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *cnameTargetRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	if len(rule.rewriteType) > 0 && len(rule.paramFromTarget) > 0 && len(rule.paramToTarget) > 0 {
 		rule.state = state
 		rule.ctx = ctx
@@ -148,4 +148,4 @@ func (rule *cnameResponseRule) Rewrite(ctx context.Context, state request.Reques
 }
 
 // Mode returns the processing mode.
-func (rule *cnameResponseRule) Mode() string { return rule.nextAction }
+func (rule *cnameTargetRule) Mode() string { return rule.nextAction }
