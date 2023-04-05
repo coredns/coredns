@@ -131,6 +131,9 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 			return nil, fmt.Errorf("unknown cname rewrite type: %s", rewriteType)
 		}
 		paramFromTarget, paramToTarget = strings.ToLower(args[1]), strings.ToLower(args[2])
+	} else if len(args) == 2 {
+		rewriteType = CNameExactMatch
+		paramFromTarget, paramToTarget = strings.ToLower(args[0]), strings.ToLower(args[1])
 	} else {
 		return nil, fmt.Errorf("too few (%d) arguments for a cname rule", len(args))
 	}
