@@ -15,8 +15,9 @@ require (
 	github.com/go-logr/logr v1.2.3
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 	github.com/infobloxopen/go-trees v0.0.0-20200715205103-96a057b8dfb9
+	github.com/jproxx/atlas v0.0.1
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
-	github.com/miekg/dns v1.1.51
+	github.com/miekg/dns v1.1.53
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.5.0
 	github.com/openzipkin/zipkin-go v0.4.1
@@ -30,13 +31,15 @@ require (
 	golang.org/x/sys v0.6.0
 	google.golang.org/api v0.114.0
 	google.golang.org/grpc v1.53.0
-	google.golang.org/protobuf v1.29.1
+	google.golang.org/protobuf v1.30.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.48.0
 	k8s.io/api v0.26.3
 	k8s.io/apimachinery v0.26.3
 	k8s.io/client-go v0.26.2
 	k8s.io/klog/v2 v2.90.1
 )
+
+replace github.com/jproxx/atlas v0.0.1 => ../atlas
 
 require (
 	cloud.google.com/go/compute v1.18.0 // indirect
@@ -55,6 +58,7 @@ require (
 	github.com/DataDog/go-tuf v0.3.0--fix-localmeta-fork // indirect
 	github.com/DataDog/sketches-go v1.2.1 // indirect
 	github.com/Microsoft/go-winio v0.5.1 // indirect
+	github.com/benbjohnson/clock v1.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
@@ -73,7 +77,7 @@ require (
 	github.com/golang-jwt/jwt/v4 v4.2.0 // indirect
 	github.com/golang/glog v1.0.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
@@ -89,6 +93,8 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/onsi/ginkgo/v2 v2.9.2 // indirect
+	github.com/onsi/gomega v1.27.6 // indirect
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
 	github.com/oschwald/maxminddb-golang v1.10.0 // indirect
 	github.com/philhofer/fwd v1.1.1 // indirect
@@ -99,18 +105,18 @@ require (
 	github.com/tinylib/msgp v1.1.6 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.7 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.17.0 // indirect
+	go.uber.org/atomic v1.10.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.24.0 // indirect
 	go4.org/intern v0.0.0-20211027215823-ae77deb06f29 // indirect
 	go4.org/unsafe/assume-no-moving-gc v0.0.0-20220617031537-928513b29760 // indirect
-	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/mod v0.9.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/oauth2 v0.6.0 // indirect
 	golang.org/x/term v0.6.0 // indirect
 	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
-	golang.org/x/tools v0.6.0 // indirect
+	golang.org/x/tools v0.7.0 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect

@@ -54,6 +54,7 @@ var Directives = []string{
 	"auto",
 	"secondary",
 	"etcd",
+	"atlas",
 	"loop",
 	"forward",
 	"grpc",
