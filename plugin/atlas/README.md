@@ -67,7 +67,9 @@ atlas {
 }
 ```
 
-### PostgreSQL
+### PostgreSQL / CockroachDB
+
+*Attention* socket connections are currently not supported.
 
 ```config
 atlas {
@@ -75,7 +77,9 @@ atlas {
 }
 ```
 
-### MySQL / MariaDB
+### MySQL / MariaDB / TiDB
+
+*Attention* socket connections are currently not supported.
 
 ```config
 atlas {

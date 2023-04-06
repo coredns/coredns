@@ -13,25 +13,33 @@ all: coredns
 
 .PHONY: coredns
 coredns: $(CHECKS)
-	CGO_ENABLED=$(CGO_ENABLED) $(SYSTEM) go build $(BUILDOPTS) -ldflags="-s -w -X github.com/coredns/coredns/coremain.GitCommit=$(GITCOMMIT)" -o $(BINARY)
+	@CGO_ENABLED=$(CGO_ENABLED) $(SYSTEM) go build $(BUILDOPTS) -ldflags="-s -w -X github.com/coredns/coredns/coremain.GitCommit=$(GITCOMMIT)" -o $(BINARY)
 
 .PHONY: check
 check: core/plugin/zplugin.go core/dnsserver/zdirectives.go
 
 core/plugin/zplugin.go core/dnsserver/zdirectives.go: plugin.cfg
-	go generate coredns.go
-	go get
+	@go generate coredns.go
+	@go get
 
 .PHONY: gen
 gen:
-	go generate coredns.go
-	go get
+	@go generate coredns.go
+	@go get
 
 .PHONY: pb
 pb:
-	$(MAKE) -C pb
+	@$(MAKE) -C pb
 
 .PHONY: clean
 clean:
-	go clean
-	rm -f coredns
+	@go clean
+	@rm -f coredns
+
+.PHONY: air
+air: ## run air - install with `go install github.com/cosmtrek/air@latest`
+	@air
+
+.PHONY: test
+test: ## test atlas with testify
+	@go test github.com/coredns/coredns/plugin/atlas

@@ -23,8 +23,7 @@ func init() {
 func setup(c *caddy.Controller) error {
 	for c.Next() {
 		args := c.RemainingArgs()
-		log.Infof("controller: %+v => %v\n", c, args)
-
+		log.Infof("controller: %+v\n => %v\n", c, args)
 	}
 
 	//if c.NextArg() {	//	// If there was another token, return an error, because we don't have any configuration.
