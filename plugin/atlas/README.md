@@ -2,7 +2,11 @@
 
 Atlas is a SQL DB agnostic dns provider to store domain and record resources in a database.
 
-It uses entgo.io as orm.
+It uses entgo.io as orm and [Ariga](https://ariga.io/) Atlas. Therefore the name was borrowed from that product and this software development is not related to Ariga!
+
+Since DNS makes the world go around, we have found: Atlas is the right service name!
+
+Moreover we are planning a GraphQL Service (closed source for now) that will work with the same database scheme, so we can better handle our day to day requirements.
 
 ## Supported Databases
 
@@ -46,3 +50,35 @@ Databases, that are supported by entgo.
 |             | SSHFP      | SSH Fingerprint                         |
 |             | TLSA       | Transport Layer Security Authentication |
 |             | TXT        | Text                                    |
+
+What about name flattening "ANAME" records?
+
+## Atlas Configuration
+
+### SQLite3
+
+#### SQLite3 InMemory (for testing)
+
+You should not working with in memory files, because all changes are lost after restart. This is mainly for testing purposes.
+
+```config
+atlas {
+    dsn "sqlite3://file:ent?mode=memory&cache=shared&_fk=1"
+}
+```
+
+### PostgreSQL
+
+```config
+atlas {
+    dsn "postgres://postgres:postgres@localhost:5432/corednsdb"
+}
+```
+
+### MySQL / MariaDB
+
+```config
+atlas {
+    dsn "mysql://someuser:somepassword@localhost:3306/corednsdb?parseTime=True"
+}
+```
