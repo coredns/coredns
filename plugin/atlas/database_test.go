@@ -41,6 +41,27 @@ func TestAtlas_GetDSN_MySQLWithPort(t *testing.T) {
 	require.Equal(t, "root:secret@tcp(localhost:3306)/db?parseTime=True", conn)
 }
 
+func TestAtlas_GetDSN_MySQLWithoutPort(t *testing.T) {
+	tp, conn, err := atlas.GetDSN("mysql://root:secret@localhost/db?parseTime=True")
+	require.Nil(t, err)
+	require.Equal(t, tp, "mysql")
+	require.Equal(t, "root:secret@tcp(localhost:3306)/db?parseTime=True", conn)
+}
+
+func TestAtlas_GetDSN_MySQLWithoutPassword(t *testing.T) {
+	tp, conn, err := atlas.GetDSN("mysql://root@localhost/db?parseTime=True")
+	require.Nil(t, err)
+	require.Equal(t, tp, "mysql")
+	require.Equal(t, "root@tcp(localhost:3306)/db?parseTime=True", conn)
+}
+
+func TestAtlas_GetDSN_MySQLWithoutParams(t *testing.T) {
+	tp, conn, err := atlas.GetDSN("mysql://root@localhost/db")
+	require.Nil(t, err)
+	require.Equal(t, tp, "mysql")
+	require.Equal(t, "root@tcp(localhost:3306)/db", conn)
+}
+
 func TestAtlas_GetDSN_SQLite3(t *testing.T) {
 	tp, conn, err := atlas.GetDSN("sqlite3://file:ent?mode=memory&cache=shared&_fk=1")
 	require.Nil(t, err)

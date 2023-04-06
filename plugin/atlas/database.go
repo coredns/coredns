@@ -77,9 +77,13 @@ func getMySQLDSN(u *url.URL) (t, c string, err error) {
 	}
 
 	if passwordExists {
-		c = fmt.Sprintf("%s:%s@tcp(%s)/%s?%s", user, password, getHostWithPort(u, 3306), dbname, strings.Join(params, "&"))
+		c = fmt.Sprintf("%s:%s@tcp(%s)/%s", user, password, getHostWithPort(u, 3306), dbname)
 	} else {
-		c = fmt.Sprintf("%s@tcp(%s)/%s?%s", user, getHostWithPort(u, 3306), dbname, strings.Join(params, "&"))
+		c = fmt.Sprintf("%s@tcp(%s)/%s", user, getHostWithPort(u, 3306), dbname)
+	}
+
+	if len(params) > 0 {
+		c += "?" + strings.Join(params, "&")
 	}
 
 	return "mysql", c, err
