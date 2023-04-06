@@ -1,6 +1,8 @@
-package forward
+package proxy
 
-import "net"
+import (
+	"net"
+)
 
 type transportType int
 

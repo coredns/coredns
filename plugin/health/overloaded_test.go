@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 )
@@ -21,6 +22,13 @@ func Test_health_overloaded_cancellation(t *testing.T) {
 		Addr: ts.URL,
 		stop: cancel,
 	}
+
+	var err error
+	h.healthURI, err = url.Parse(ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.healthURI.Path = "/health"
 
 	stopped := make(chan struct{})
 	go func() {

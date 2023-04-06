@@ -1,4 +1,4 @@
-package forward
+package proxy
 
 import (
 	"crypto/tls"
@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/up"
 )
 
@@ -16,6 +17,8 @@ type Proxy struct {
 
 	transport *Transport
 
+	readTimeout time.Duration
+
 	// health checking
 	probe  *up.Probe
 	health HealthChecker
@@ -24,15 +27,18 @@ type Proxy struct {
 // NewProxy returns a new proxy.
 func NewProxy(addr, trans string) *Proxy {
 	p := &Proxy{
-		addr:      addr,
-		fails:     0,
-		probe:     up.New(),
-		transport: newTransport(addr),
+		addr:        addr,
+		fails:       0,
+		probe:       up.New(),
+		readTimeout: 2 * time.Second,
+		transport:   newTransport(addr),
 	}
 	p.health = NewHealthChecker(trans, true, ".")
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
 }
+
+func (p *Proxy) Addr() string { return p.addr }
 
 // SetTLSConfig sets the TLS config in the lower p.transport and in the healthchecking client.
 func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
@@ -42,6 +48,14 @@ func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 
 // SetExpire sets the expire duration in the lower p.transport.
 func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
+
+func (p *Proxy) GetHealthchecker() HealthChecker {
+	return p.health
+}
+
+func (p *Proxy) Fails() uint32 {
+	return atomic.LoadUint32(&p.fails)
+}
 
 // Healthcheck kicks of a round of health checks for this proxy.
 func (p *Proxy) Healthcheck() {
@@ -65,18 +79,20 @@ func (p *Proxy) Down(maxfails uint32) bool {
 	return fails > maxfails
 }
 
-// close stops the health checking goroutine.
-func (p *Proxy) stop()      { p.probe.Stop() }
+// Stop close stops the health checking goroutine.
+func (p *Proxy) Stop()      { p.probe.Stop() }
 func (p *Proxy) finalizer() { p.transport.Stop() }
 
-// start starts the proxy's healthchecking.
-func (p *Proxy) start(duration time.Duration) {
+// Start starts the proxy's healthchecking.
+func (p *Proxy) Start(duration time.Duration) {
 	p.probe.Start(duration)
 	p.transport.Start()
+}
+
+func (p *Proxy) SetReadTimeout(duration time.Duration) {
+	p.readTimeout = duration
 }
 
 const (
 	maxTimeout = 2 * time.Second
 )
-
-var hcInterval = 500 * time.Millisecond

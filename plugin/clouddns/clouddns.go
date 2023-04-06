@@ -161,16 +161,18 @@ func updateZoneFromRRS(rrs *gcp.ResourceRecordSetsListResponse, z *file.Zone) er
 			if rr.Type == "CNAME" || rr.Type == "PTR" {
 				value = dns.Fqdn(value)
 			}
-
 			// Assemble RFC 1035 conforming record to pass into dns scanner.
 			rfc1035 = fmt.Sprintf("%s %d IN %s %s", dns.Fqdn(rr.Name), rr.Ttl, rr.Type, value)
 			r, err = dns.NewRR(rfc1035)
 			if err != nil {
 				return fmt.Errorf("failed to parse resource record: %v", err)
 			}
-		}
 
-		z.Insert(r)
+			err = z.Insert(r)
+			if err != nil {
+				return fmt.Errorf("failed to insert record: %v", err)
+			}
+		}
 	}
 	return nil
 }

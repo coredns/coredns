@@ -16,6 +16,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
@@ -39,6 +40,7 @@ type Externaler interface {
 type External struct {
 	Next  plugin.Handler
 	Zones []string
+	Fall  fall.F
 
 	hostmaster string
 	apex       string
@@ -68,10 +70,6 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
 	}
 
-	if e.externalFunc == nil {
-		return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
-	}
-
 	state.Zone = zone
 	for _, z := range e.Zones {
 		// TODO(miek): save this in the External struct.
@@ -93,6 +91,10 @@ func (e *External) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	m.Authoritative = true
 
 	if len(svc) == 0 {
+		if e.Fall.Through(state.Name()) && rcode == dns.RcodeNameError {
+			return plugin.NextOrFailure(e.Name(), e.Next, ctx, w, r)
+		}
+
 		m.Rcode = rcode
 		m.Ns = []dns.RR{e.soa(state)}
 		w.WriteMsg(m)

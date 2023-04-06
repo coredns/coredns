@@ -4,24 +4,33 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 )
 
 func TestSetup(t *testing.T) {
 	tests := []struct {
-		input            string
-		shouldErr        bool
-		expectedZone     string
-		expectedApex     string
-		expectedHeadless bool
+		input               string
+		shouldErr           bool
+		expectedZone        string
+		expectedApex        string
+		expectedHeadless    bool
+		expectedFallthrough fall.F
 	}{
-		{`k8s_external`, false, "", "dns", false},
-		{`k8s_external example.org`, false, "example.org.", "dns", false},
+		{`k8s_external`, false, "", "dns", false, fall.Zero},
+		{`k8s_external example.org`, false, "example.org.", "dns", false, fall.Zero},
 		{`k8s_external example.org {
 			apex testdns
-}`, false, "example.org.", "testdns", false},
+}`, false, "example.org.", "testdns", false, fall.Zero},
 		{`k8s_external example.org {
 	headless
-}`, false, "example.org.", "dns", true},
+}`, false, "example.org.", "dns", true, fall.Zero},
+		{`k8s_external example.org {
+	fallthrough
+}`, false, "example.org.", "dns", false, fall.Root},
+		{`k8s_external example.org {
+	fallthrough ip6.arpa inaddr.arpa foo.com
+}`, false, "example.org.", "dns", false,
+			fall.F{Zones: []string{"ip6.arpa.", "inaddr.arpa.", "foo.com."}}},
 	}
 
 	for i, test := range tests {
@@ -51,6 +60,11 @@ func TestSetup(t *testing.T) {
 		if !test.shouldErr {
 			if test.expectedHeadless != e.headless {
 				t.Errorf("Test %d, expected headless %q for input %s, got: %v", i, test.expectedApex, test.input, e.headless)
+			}
+		}
+		if !test.shouldErr {
+			if !e.Fall.Equal(test.expectedFallthrough) {
+				t.Errorf("Test %d, expected to be initialized with fallthrough %q for input %s, got: %v", i, test.expectedFallthrough, test.input, e.Fall)
 			}
 		}
 	}

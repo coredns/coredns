@@ -32,8 +32,7 @@ func (h *health) overloaded(ctx context.Context) {
 		Transport: bypassProxy,
 	}
 
-	url := "http://" + h.Addr + "/health"
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, h.healthURI.String(), nil)
 	tick := time.NewTicker(1 * time.Second)
 	defer tick.Stop()
 
@@ -49,14 +48,14 @@ func (h *health) overloaded(ctx context.Context) {
 			if err != nil {
 				HealthDuration.Observe(time.Since(start).Seconds())
 				HealthFailures.Inc()
-				log.Warningf("Local health request to %q failed: %s", url, err)
+				log.Warningf("Local health request to %q failed: %s", req.URL.String(), err)
 				continue
 			}
 			resp.Body.Close()
 			elapsed := time.Since(start)
 			HealthDuration.Observe(elapsed.Seconds())
 			if elapsed > time.Second { // 1s is pretty random, but a *local* scrape taking that long isn't good
-				log.Warningf("Local health request to %q took more than 1s: %s", url, elapsed)
+				log.Warningf("Local health request to %q took more than 1s: %s", req.URL.String(), elapsed)
 			}
 
 		case <-ctx.Done():

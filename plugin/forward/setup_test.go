@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin/pkg/proxy"
 
 	"github.com/miekg/dns"
 )
@@ -19,31 +20,31 @@ func TestSetup(t *testing.T) {
 		expectedFrom    string
 		expectedIgnored []string
 		expectedFails   uint32
-		expectedOpts    options
+		expectedOpts    proxy.Options
 		expectedErr     string
 	}{
 		// positive
-		{"forward . 127.0.0.1", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org\n}\n", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "example.org."}, ""},
-		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, options{hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, options{forceTCP: true, hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, options{preferUDP: true, forceTCP: true, hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . 127.0.0.1:53", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . 127.0.0.1:8080", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . [::1]:53", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . [2003::1]:53", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward . 127.0.0.1 \n", false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
-		{"forward 10.9.3.0/18 127.0.0.1", false, "0.9.10.in-addr.arpa.", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, ""},
+		{"forward . 127.0.0.1", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org\n}\n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "example.org."}, ""},
+		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, proxy.Options{ForceTCP: true, HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, proxy.Options{PreferUDP: true, HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, proxy.Options{PreferUDP: true, ForceTCP: true, HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1:53", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1:8080", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . [::1]:53", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . [2003::1]:53", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 \n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward 10.9.3.0/18 127.0.0.1", false, "0.9.10.in-addr.arpa.", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
 		{`forward . ::1
-		forward com ::2`, false, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, "plugin"},
+		forward com ::2`, false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "plugin"},
 		// negative
-		{"forward . a27.0.0.1", true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "not an IP"},
-		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "unknown property"},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, "", nil, 0, options{hcRecursionDesired: true, hcDomain: "."}, "Wrong argument count or unexpected line ending after 'domain'"},
-		{"forward . https://127.0.0.1 \n", true, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, "'https' is not supported as a destination protocol in forward: https://127.0.0.1"},
-		{"forward xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 127.0.0.1 \n", true, ".", nil, 2, options{hcRecursionDesired: true, hcDomain: "."}, "unable to normalize 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"},
+		{"forward . a27.0.0.1", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "not an IP"},
+		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unknown property"},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "Wrong argument count or unexpected line ending after 'domain'"},
+		{"forward . https://127.0.0.1 \n", true, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "'https' is not supported as a destination protocol in forward: https://127.0.0.1"},
+		{"forward xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 127.0.0.1 \n", true, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unable to normalize 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"},
 	}
 
 	for i, test := range tests {
@@ -127,8 +128,8 @@ func TestSetupTLS(t *testing.T) {
 			t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedServerName, f.tlsConfig.ServerName)
 		}
 
-		if !test.shouldErr && test.expectedServerName != "" && test.expectedServerName != f.proxies[0].health.(*dnsHc).c.TLSConfig.ServerName {
-			t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedServerName, f.proxies[0].health.(*dnsHc).c.TLSConfig.ServerName)
+		if !test.shouldErr && test.expectedServerName != "" && test.expectedServerName != f.proxies[0].GetHealthchecker().GetTLSConfig().ServerName {
+			t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedServerName, f.proxies[0].GetHealthchecker().GetTLSConfig().ServerName)
 		}
 	}
 }
@@ -179,14 +180,14 @@ nameserver 10.10.255.253`), 0666); err != nil {
 
 		f := fs[0]
 		for j, n := range test.expectedNames {
-			addr := f.proxies[j].addr
+			addr := f.proxies[j].Addr()
 			if n != addr {
 				t.Errorf("Test %d, expected %q, got %q", j, n, addr)
 			}
 		}
 
 		for _, p := range f.proxies {
-			p.health.Check(p) // this should almost always err, we don't care it shouldn't crash
+			p.Healthcheck() // this should almost always err, we don't care it shouldn't crash
 		}
 	}
 }
@@ -279,9 +280,9 @@ func TestSetupHealthCheck(t *testing.T) {
 		}
 
 		f := fs[0]
-		if f.opts.hcRecursionDesired != test.expectedRecVal || f.proxies[0].health.GetRecursionDesired() != test.expectedRecVal ||
-			f.opts.hcDomain != test.expectedDomain || f.proxies[0].health.GetDomain() != test.expectedDomain || !dns.IsFqdn(f.proxies[0].health.GetDomain()) {
-			t.Errorf("Test %d: expectedRec: %v, got: %v. expectedDomain: %s, got: %s. ", i, test.expectedRecVal, f.opts.hcRecursionDesired, test.expectedDomain, f.opts.hcDomain)
+		if f.opts.HCRecursionDesired != test.expectedRecVal || f.proxies[0].GetHealthchecker().GetRecursionDesired() != test.expectedRecVal ||
+			f.opts.HCDomain != test.expectedDomain || f.proxies[0].GetHealthchecker().GetDomain() != test.expectedDomain || !dns.IsFqdn(f.proxies[0].GetHealthchecker().GetDomain()) {
+			t.Errorf("Test %d: expectedRec: %v, got: %v. expectedDomain: %s, got: %s. ", i, test.expectedRecVal, f.opts.HCRecursionDesired, test.expectedDomain, f.opts.HCDomain)
 		}
 	}
 }

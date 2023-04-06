@@ -114,6 +114,15 @@ func (c fakeGCPClient) listRRSets(ctx context.Context, projectName, hostedZoneNa
 				Type:    "SOA",
 				Rrdatas: []string{"ns-cloud-e1.googledomains.com. cloud-dns-hostmaster.google.com. 1 21600 300 259200 300"},
 			},
+			{
+				Name: "_dummy._tcp.example.org.",
+				Ttl:  300,
+				Type: "SRV",
+				Rrdatas: []string{
+					"0 0 5269 split-example.org",
+					"0 0 5269 other-example.org",
+				},
+			},
 		}
 	}
 
@@ -260,6 +269,15 @@ func TestCloudDNS(t *testing.T) {
 			wantAnswer: []string{
 				"a.www.example.org.	300	IN	CNAME	www.example.org.",
 				"www.example.org.	300	IN	A	1.2.3.4",
+			},
+		},
+		// 13. example.org SRV found with 2 answers - success.
+		{
+			qname: "_dummy._tcp.example.org.",
+			qtype: dns.TypeSRV,
+			wantAnswer: []string{
+				"_dummy._tcp.example.org.	300	IN	SRV	0 0 5269 split-example.org.",
+				"_dummy._tcp.example.org.	300	IN	SRV	0 0 5269 other-example.org.",
 			},
 		},
 	}

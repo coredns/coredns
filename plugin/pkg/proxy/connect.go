@@ -1,8 +1,8 @@
-// Package forward implements a forwarding proxy. It caches an upstream net.Conn for some time, so if the same
+// Package proxy implements a forwarding proxy. It caches an upstream net.Conn for some time, so if the same
 // client returns the upstream's Conn will be precached. Depending on how you benchmark this looks to be
 // 50% faster than just opening a new connection for every client. It works with UDP and TCP and uses
 // inband healthchecking.
-package forward
+package proxy
 
 import (
 	"context"
@@ -72,14 +72,14 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 }
 
 // Connect selects an upstream, sends the request and waits for a response.
-func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options) (*dns.Msg, error) {
+func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options) (*dns.Msg, error) {
 	start := time.Now()
 
 	proto := ""
 	switch {
-	case opts.forceTCP: // TCP flag has precedence over UDP flag
+	case opts.ForceTCP: // TCP flag has precedence over UDP flag
 		proto = "tcp"
-	case opts.preferUDP:
+	case opts.PreferUDP:
 		proto = "udp"
 	default:
 		proto = state.Proto()
@@ -113,7 +113,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts options
 	}
 
 	var ret *dns.Msg
-	pc.c.SetReadDeadline(time.Now().Add(readTimeout))
+	pc.c.SetReadDeadline(time.Now().Add(p.readTimeout))
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
