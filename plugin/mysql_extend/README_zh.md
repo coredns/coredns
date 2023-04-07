@@ -29,7 +29,7 @@ mysql_extend 插件使用mysql作为DNS记录的后端存储. 此插件不依赖
 使用此插件的简单方法是通过向 plugin.cfg 中添加以下内容 [plugin.cfg](https://github.com/coredns/coredns/blob/master/plugin.cfg), 然后重新编译 [detailed on coredns.io](https://coredns.io/2017/07/25/compile-time-enabling-or-disabling-plugins/#build-with-compile-time-configuration-file).
 
 ~~~
-mysql:github.com/snail2sky/coredns_mysql_extend
+mysql_extend:github.com/snail2sky/coredns_mysql_extend
 ~~~
 
 将其放在插件列表的前面，以便 *mysql_extend* 在任何其他插件之前执行
@@ -45,7 +45,7 @@ go build
 ## Syntax
 
 ~~~ txt
-mysql {
+mysql_extend {
     dsn username:password@tcp(127.0.0.1:3306)/dns
     # 以下为默认值, 如无自定义要求, 可以留空
     [dump_file dump_dns.json]
@@ -107,7 +107,7 @@ mysql {
 ~~~ corefile
 internal.:53 in-addr.arpa.:53 {
   cache
-  mysql {
+  mysql_extend {
     dsn db_reader:qwer123@tcp(10.0.0.1:3306)/dns
     dump_file dns.json
   }

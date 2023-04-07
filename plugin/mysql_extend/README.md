@@ -29,7 +29,7 @@ The [manual](https://coredns.io/manual/toc/#what-is-coredns) will have more info
 A simple way to consume this plugin, is by adding the following on [plugin.cfg](https://github.com/coredns/coredns/blob/master/plugin.cfg), and recompile it as [detailed on coredns.io](https://coredns.io/2017/07/25/compile-time-enabling-or-disabling-plugins/#build-with-compile-time-configuration-file).
 
 ~~~
-mysql:github.com/snail2sky/coredns_mysql_extend
+mysql_extend:github.com/snail2sky/coredns_mysql_extend
 ~~~
 
 Put this early in the plugin list, so that *mysql_extend* is executed before any of the other plugins.
@@ -44,7 +44,7 @@ go build
 ## Syntax
 
 ~~~ txt
-mysql {
+mysql_extend {
     dsn username:password@tcp(127.0.0.1:3306)/dns
     # The following is the default value, if there is no custom requirement, you can leave it blank
     [dump_file dump_dns.json]
@@ -106,7 +106,7 @@ The `qtype` label indicated which dns query of type.
 ~~~ corefile
 internal.:53 in-addr.arpa.:53 {
   cache
-  mysql {
+  mysql_extend {
     dsn db_reader:qwer123@tcp(10.0.0.1:3306)/dns
     dump_file dns.json
   }
