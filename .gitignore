@@ -5,3 +5,4 @@ Corefile
 build/
 release/
 vendor/
+tmp/

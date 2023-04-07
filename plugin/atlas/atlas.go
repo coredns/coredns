@@ -23,8 +23,7 @@ type Atlas struct {
 // ServeDNS implements the plugin.Handler interface. This method gets called when atlas is used
 // in a Server.
 func (a Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	// Debug log that we've have seen the query. This will only be shown when the debug plugin is loaded.
-	log.Debug("Received response")
+	log.Info("Atlas ServeDNS context\n", ctx)
 
 	// Wrap.
 	pw := NewResponsePrinter(w)
