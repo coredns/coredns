@@ -41,6 +41,5 @@ func setup(c *caddy.Controller) error {
 		return mysql
 	})
 
-	// All OK, return a nil error.
 	return nil
 }
