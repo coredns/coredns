@@ -9,7 +9,6 @@ import (
 )
 
 func init() {
-	// registMatrics()
 	plugin.Register(pluginName, setup)
 }
 
