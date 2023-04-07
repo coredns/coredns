@@ -11,12 +11,15 @@ import (
 
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
+
+	// This plugin used go-sql-driver to connect mysql
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/miekg/dns"
 )
 
 var logger = clog.NewWithPlugin(pluginName)
 
+// ServeDNS The ServeDNS is current plugin process dns query main method
 func (m *Mysql) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	var records []record
 	state := request.Request{W: w, Req: r}
