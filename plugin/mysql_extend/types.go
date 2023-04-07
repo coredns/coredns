@@ -1,4 +1,4 @@
-package coredns_mysql_extend
+package mysql
 
 import (
 	"database/sql"
@@ -8,6 +8,7 @@ import (
 	"github.com/miekg/dns"
 )
 
+// Mysql The mysql plugin
 type Mysql struct {
 	*mysqlConfig
 
