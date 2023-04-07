@@ -1,4 +1,4 @@
-package coredns_mysql_extend
+package mysql
 
 import (
 	"strconv"
@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// Name The plugin name
 func (m *Mysql) Name() string {
 	return pluginName
 }

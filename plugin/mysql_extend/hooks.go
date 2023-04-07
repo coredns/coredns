@@ -1,4 +1,4 @@
-package coredns_mysql_extend
+package mysql
 
 import (
 	"database/sql"

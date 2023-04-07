@@ -1,4 +1,4 @@
-package coredns_mysql_extend
+package mysql
 
 import (
 	"database/sql"
@@ -9,10 +9,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+// MakeMysqlPlugin Will be make a empty plugin instance
 func MakeMysqlPlugin() *Mysql {
 	return &Mysql{}
 }
 
+// MakeMessage Use *dns.Msg to make dns.RR to reply this query
 func MakeMessage(r *dns.Msg, answers []dns.RR) *dns.Msg {
 	msg := new(dns.Msg)
 	msg.SetReply(r)
