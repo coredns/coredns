@@ -409,7 +409,7 @@ rewrite edns0 subnet set 24 56
 
 ### CNAME Feild Rewrites
 
-There might be a scenario where you want the `CNAME` target of the response to be rewritten. You can you this `CNAME` feild rewrite. This will generate new answer records according to the new cname target. 
+There might be a scenario where you want the `CNAME` target of the response to be rewritten. You can do this by using the `CNAME` field rewrite. This will generate new answer records according to the new `CNAME` target.
 
 The syntax for the CNAME rewrite rule is as follows. The meaning of
 `exact|prefix|suffix|substring|regex` is the same as with the name rewrite rules.
