@@ -23,39 +23,69 @@ Databases, that are supported by entgo.
 
 ## Supported Resource Records
 
-| Implemented | RR         | Remark                                  |
-| ----------- | ---------- | --------------------------------------- |
-|             | A          | IPv4 address                            |
-|             | AAAA       | IPv6 address                            |
-|             | CAA        | Certification Authority Authorization   |
-|             | CERT       | Certificate                             |
-|             | CNAME      | Canonical Name                          |
-|             | DNAME      | Delegation Name                         |
-|             | DNSKEY     | DNS Key                                 |
-|             | DS         | Delegation Signer                       |
-|             | HINFO      | Host Information                        |
-|             | IPSECKEY   | IPsec Key                               |
-|             | MX         | Mail Exchange                           |
-|             | NAPTR      | Naming Authority Pointer                |
-|             | NS         | Name Server                             |
-|             | NSEC       | Next-Secure                             |
-|             | NSEC3      | Next-Secure 3                           |
-|             | NSEC3PARAM | Next-Secure 3 Parameters                |
-|             | OPENPGPKEY | OpenPGP Key                             |
-|             | PTR        | Pointer                                 |
-|             | RRSIG      | Resource Record Signature               |
-|             | SOA        | Start of Authority                      |
-|             | SPF        | Sender Policy Framework                 |
-|             | SRV        | Service Locator                         |
-|             | SSHFP      | SSH Fingerprint                         |
-|             | TLSA       | Transport Layer Security Authentication |
-|             | TXT        | Text                                    |
+TODO: Check which RR's should/must be implemented.
+
+| Must Have | Implemented | RR         | Remark                                  |
+| --------- | ----------- | ---------- | --------------------------------------- |
+| ✓         |             | A          | IPv4 address                            |
+| ✓         |             | AAAA       | IPv6 address                            |
+| ✓         |             | CAA        | Certification Authority Authorization   |
+| ✓         |             | CNAME      | Canonical Name                          |
+| ✓         |             | MX         | Mail Exchange                           |
+| ✓         |             | NS         | Name Server                             |
+| ✓         |             | SOA        | Start of Authority                      |
+| ✓         |             | PTR        | Pointer                                 |
+| ✓         |             | SPF        | Sender Policy Framework                 |
+| ✓         |             | SRV        | Service Locator                         |
+| ✓         |             | TXT        | Text                                    |
+|           |             | CERT       | Certificate                             |
+|           |             | DNAME      | Delegation Name                         |
+|           |             | DNSKEY     | DNS Key                                 |
+|           |             | DS         | Delegation Signer                       |
+|           |             | HINFO      | Host Information                        |
+|           |             | IPSECKEY   | IPsec Key                               |
+|           |             | NAPTR      | Naming Authority Pointer                |
+|           |             | NSEC       | Next-Secure                             |
+|           |             | NSEC3      | Next-Secure 3                           |
+|           |             | NSEC3PARAM | Next-Secure 3 Parameters                |
+|           |             | OPENPGPKEY | OpenPGP Key                             |
+|           |             | RRSIG      | Resource Record Signature               |
+|           |             | SSHFP      | SSH Fingerprint                         |
+|           |             | TLSA       | Transport Layer Security Authentication |
 
 What about name flattening "ANAME" records?
 
-## Atlas Configuration
+## Database Configuration
 
-The configuration can be read from a file or can be set directly into the Corefile.
+The database credentials can be read from a file or can be set directly into the Corefile.
+
+### Example configurations
+
+#### Automigration with infile dsn
+
+```config
+atlas {
+    dsn postgres://postgres:postgres@localhost:5432/corednsdb
+    automigrate true
+}
+```
+
+#### Automigration with file dsn
+
+```config
+atlas {
+    file /path/to/vault-agent/generated/dsnfile.json
+    automigrate true
+}
+```
+
+The `dsnfile.json` has following expected format:
+
+```json
+{
+  "dsn": "sqlite3://file:ent?mode=memory&cache=shared&_fk=1"
+}
+```
 
 ### SQLite3
 
@@ -71,7 +101,7 @@ atlas {
 
 ### PostgreSQL / CockroachDB
 
-*Attention* socket connections are currently not supported.
+_Attention_ socket connections are currently not supported.
 
 ```config
 atlas {
@@ -81,7 +111,7 @@ atlas {
 
 ### MySQL / MariaDB / TiDB
 
-*Attention* socket connections are currently not supported.
+_Attention_ socket connections are currently not supported.
 
 ```config
 atlas {
