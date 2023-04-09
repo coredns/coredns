@@ -2,6 +2,7 @@ package atlas
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -15,6 +16,12 @@ var log = clog.NewWithPlugin(plgName)
 
 const plgName = "atlas"
 
+type config struct {
+	automigrate bool
+	dsn         string
+	dsnFile     string
+}
+
 // init registers this plugin.
 func init() {
 	plugin.Register(plgName, setup)
@@ -23,18 +30,36 @@ func init() {
 // setup is the function that gets called when the config parser see the token "atlas". Setup is responsible
 // for parsing any extra options the atlas plugin may have. The first token this function sees is "atlas".
 func setup(c *caddy.Controller) error {
-	var dsn string
+
+	cfg := config{
+		automigrate: false,
+	}
+
 	for c.Next() {
 		for c.NextBlock() {
 			switch c.Val() {
 			case "dsn":
 				args := c.RemainingArgs()
-				if len(args) != 1 {
-					return plugin.Error(plgName, fmt.Errorf("expected only one argument for atlas dsn: got %v", len(args)))
+				if len(args) <= 0 {
+					return plugin.Error(plgName, fmt.Errorf("atlas: argument for dsn expected"))
 				}
-				dsn = args[0]
+				cfg.dsn = args[0]
+			case "file":
+				args := c.RemainingArgs()
+				if len(args) <= 0 {
+					return plugin.Error(plgName, fmt.Errorf("atlas: argument for file expected"))
+				}
+				cfg.dsnFile = args[0]
+			case "automigrate":
+				var err error
+				args := c.RemainingArgs()
+				if len(args) <= 0 {
+					return plugin.Error(plgName, fmt.Errorf("atlas: argument for automigrate expected"))
+				}
+				if cfg.automigrate, err = strconv.ParseBool(args[0]); err != nil {
+					return err
+				}
 			default:
-				log.Infof("default: %+v\n", c.Val())
 				return plugin.Error(plgName, c.ArgErr())
 			}
 		}
@@ -42,8 +67,8 @@ func setup(c *caddy.Controller) error {
 
 	// Add the Plugin to CoreDNS, so Servers can use it in their plugin chain.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-
-		return Atlas{Next: next, Dsn: dsn}
+		fmt.Printf("%+v\n", cfg)
+		return Atlas{Next: next, cfg: cfg}
 	})
 
 	// All OK, return a nil error.

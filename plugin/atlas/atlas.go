@@ -15,9 +15,9 @@ import (
 
 // Atlas is an database plugin.
 type Atlas struct {
-	Next   plugin.Handler
-	Dsn    string
-	Client *ent.Client // should be lowercase
+	Next   plugin.Handler `json:",omitempty"`
+	cfg    config
+	Client *ent.Client `json:",omitempty"`
 }
 
 // ServeDNS implements the plugin.Handler interface. This method gets called when atlas is used

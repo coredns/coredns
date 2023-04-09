@@ -55,6 +55,8 @@ What about name flattening "ANAME" records?
 
 ## Atlas Configuration
 
+The configuration can be read from a file or can be set directly into the Corefile.
+
 ### SQLite3
 
 #### SQLite3 InMemory (for testing)
@@ -63,7 +65,7 @@ You should not working with in memory files, because all changes are lost after 
 
 ```config
 atlas {
-    dsn "sqlite3://file:ent?mode=memory&cache=shared&_fk=1"
+    dsn sqlite3://file:ent?mode=memory&cache=shared&_fk=1
 }
 ```
 
@@ -73,7 +75,7 @@ atlas {
 
 ```config
 atlas {
-    dsn "postgres://postgres:postgres@localhost:5432/corednsdb"
+    dsn postgres://postgres:postgres@localhost:5432/corednsdb
 }
 ```
 
@@ -83,6 +85,20 @@ atlas {
 
 ```config
 atlas {
-    dsn "mysql://someuser:somepassword@localhost:3306/corednsdb?parseTime=True"
+    dsn mysql://someuser:somepassword@localhost:3306/corednsdb?parseTime=True
 }
 ```
+
+### Read DSN from Credentials File
+
+The credentials can be read from a json file.
+
+If it is a relative path, the current working directory is concatenated with the config path.
+
+```config
+atlas {
+    file ./secrets/from/vault.json
+}
+```
+
+JSON Config file has following format
