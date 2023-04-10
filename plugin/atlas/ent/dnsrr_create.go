@@ -4,11 +4,14 @@ package ent
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/rs/xid"
 )
 
 // DnsRRCreate is the builder for creating a DnsRR entity.
@@ -18,6 +21,68 @@ type DnsRRCreate struct {
 	hooks    []Hook
 }
 
+// SetCreatedAt sets the "created_at" field.
+func (drc *DnsRRCreate) SetCreatedAt(t time.Time) *DnsRRCreate {
+	drc.mutation.SetCreatedAt(t)
+	return drc
+}
+
+// SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
+func (drc *DnsRRCreate) SetNillableCreatedAt(t *time.Time) *DnsRRCreate {
+	if t != nil {
+		drc.SetCreatedAt(*t)
+	}
+	return drc
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (drc *DnsRRCreate) SetUpdatedAt(t time.Time) *DnsRRCreate {
+	drc.mutation.SetUpdatedAt(t)
+	return drc
+}
+
+// SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
+func (drc *DnsRRCreate) SetNillableUpdatedAt(t *time.Time) *DnsRRCreate {
+	if t != nil {
+		drc.SetUpdatedAt(*t)
+	}
+	return drc
+}
+
+// SetName sets the "name" field.
+func (drc *DnsRRCreate) SetName(s string) *DnsRRCreate {
+	drc.mutation.SetName(s)
+	return drc
+}
+
+// SetActivated sets the "activated" field.
+func (drc *DnsRRCreate) SetActivated(b bool) *DnsRRCreate {
+	drc.mutation.SetActivated(b)
+	return drc
+}
+
+// SetNillableActivated sets the "activated" field if the given value is not nil.
+func (drc *DnsRRCreate) SetNillableActivated(b *bool) *DnsRRCreate {
+	if b != nil {
+		drc.SetActivated(*b)
+	}
+	return drc
+}
+
+// SetID sets the "id" field.
+func (drc *DnsRRCreate) SetID(x xid.ID) *DnsRRCreate {
+	drc.mutation.SetID(x)
+	return drc
+}
+
+// SetNillableID sets the "id" field if the given value is not nil.
+func (drc *DnsRRCreate) SetNillableID(x *xid.ID) *DnsRRCreate {
+	if x != nil {
+		drc.SetID(*x)
+	}
+	return drc
+}
+
 // Mutation returns the DnsRRMutation object of the builder.
 func (drc *DnsRRCreate) Mutation() *DnsRRMutation {
 	return drc.mutation
@@ -25,6 +90,7 @@ func (drc *DnsRRCreate) Mutation() *DnsRRMutation {
 
 // Save creates the DnsRR in the database.
 func (drc *DnsRRCreate) Save(ctx context.Context) (*DnsRR, error) {
+	drc.defaults()
 	return withHooks[*DnsRR, DnsRRMutation](ctx, drc.sqlSave, drc.mutation, drc.hooks)
 }
 
@@ -50,8 +116,45 @@ func (drc *DnsRRCreate) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (drc *DnsRRCreate) defaults() {
+	if _, ok := drc.mutation.CreatedAt(); !ok {
+		v := dnsrr.DefaultCreatedAt()
+		drc.mutation.SetCreatedAt(v)
+	}
+	if _, ok := drc.mutation.UpdatedAt(); !ok {
+		v := dnsrr.DefaultUpdatedAt()
+		drc.mutation.SetUpdatedAt(v)
+	}
+	if _, ok := drc.mutation.Activated(); !ok {
+		v := dnsrr.DefaultActivated
+		drc.mutation.SetActivated(v)
+	}
+	if _, ok := drc.mutation.ID(); !ok {
+		v := dnsrr.DefaultID()
+		drc.mutation.SetID(v)
+	}
+}
+
 // check runs all checks and user-defined validators on the builder.
 func (drc *DnsRRCreate) check() error {
+	if _, ok := drc.mutation.CreatedAt(); !ok {
+		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "DnsRR.created_at"`)}
+	}
+	if _, ok := drc.mutation.UpdatedAt(); !ok {
+		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "DnsRR.updated_at"`)}
+	}
+	if _, ok := drc.mutation.Name(); !ok {
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "DnsRR.name"`)}
+	}
+	if v, ok := drc.mutation.Name(); ok {
+		if err := dnsrr.NameValidator(v); err != nil {
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "DnsRR.name": %w`, err)}
+		}
+	}
+	if _, ok := drc.mutation.Activated(); !ok {
+		return &ValidationError{Name: "activated", err: errors.New(`ent: missing required field "DnsRR.activated"`)}
+	}
 	return nil
 }
 
@@ -66,8 +169,13 @@ func (drc *DnsRRCreate) sqlSave(ctx context.Context) (*DnsRR, error) {
 		}
 		return nil, err
 	}
-	id := _spec.ID.Value.(int64)
-	_node.ID = int(id)
+	if _spec.ID.Value != nil {
+		if id, ok := _spec.ID.Value.(*xid.ID); ok {
+			_node.ID = *id
+		} else if err := _node.ID.Scan(_spec.ID.Value); err != nil {
+			return nil, err
+		}
+	}
 	drc.mutation.id = &_node.ID
 	drc.mutation.done = true
 	return _node, nil
@@ -76,8 +184,28 @@ func (drc *DnsRRCreate) sqlSave(ctx context.Context) (*DnsRR, error) {
 func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 	var (
 		_node = &DnsRR{config: drc.config}
-		_spec = sqlgraph.NewCreateSpec(dnsrr.Table, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeInt))
+		_spec = sqlgraph.NewCreateSpec(dnsrr.Table, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeString))
 	)
+	if id, ok := drc.mutation.ID(); ok {
+		_node.ID = id
+		_spec.ID.Value = &id
+	}
+	if value, ok := drc.mutation.CreatedAt(); ok {
+		_spec.SetField(dnsrr.FieldCreatedAt, field.TypeTime, value)
+		_node.CreatedAt = value
+	}
+	if value, ok := drc.mutation.UpdatedAt(); ok {
+		_spec.SetField(dnsrr.FieldUpdatedAt, field.TypeTime, value)
+		_node.UpdatedAt = value
+	}
+	if value, ok := drc.mutation.Name(); ok {
+		_spec.SetField(dnsrr.FieldName, field.TypeString, value)
+		_node.Name = value
+	}
+	if value, ok := drc.mutation.Activated(); ok {
+		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
+		_node.Activated = value
+	}
 	return _node, _spec
 }
 
@@ -95,6 +223,7 @@ func (drcb *DnsRRCreateBulk) Save(ctx context.Context) ([]*DnsRR, error) {
 	for i := range drcb.builders {
 		func(i int, root context.Context) {
 			builder := drcb.builders[i]
+			builder.defaults()
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
 				mutation, ok := m.(*DnsRRMutation)
 				if !ok {
@@ -121,10 +250,6 @@ func (drcb *DnsRRCreateBulk) Save(ctx context.Context) ([]*DnsRR, error) {
 					return nil, err
 				}
 				mutation.id = &nodes[i].ID
-				if specs[i].ID.Value != nil {
-					id := specs[i].ID.Value.(int64)
-					nodes[i].ID = int(id)
-				}
 				mutation.done = true
 				return nodes[i], nil
 			})

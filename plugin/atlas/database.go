@@ -22,6 +22,7 @@ func OpenAtlasDB(conn string) (*ent.Client, error) {
 	return ent.Open(tp, co)
 }
 
+// GetDSN return the database type, the connection string and error if any
 func GetDSN(conn string) (t, cn string, err error) {
 	// we can't parse the sqlite3 url - this will fail
 	// so we have to split the conn string by '//' and

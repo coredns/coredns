@@ -10,7 +10,11 @@ import (
 var (
 	// DNSRrsColumns holds the columns for the "dns_rrs" table.
 	DNSRrsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "id", Type: field.TypeString},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
+		{Name: "name", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
+		{Name: "activated", Type: field.TypeBool, Default: true},
 	}
 	// DNSRrsTable holds the schema information for the "dns_rrs" table.
 	DNSRrsTable = &schema.Table{

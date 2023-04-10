@@ -2,8 +2,58 @@
 
 package ent
 
+import (
+	"time"
+
+	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/coredns/coredns/plugin/atlas/ent/schema"
+	"github.com/rs/xid"
+)
+
 // The init function reads all schema descriptors with runtime code
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	dnsrrMixin := schema.DnsRR{}.Mixin()
+	dnsrrMixinFields0 := dnsrrMixin[0].Fields()
+	_ = dnsrrMixinFields0
+	dnsrrFields := schema.DnsRR{}.Fields()
+	_ = dnsrrFields
+	// dnsrrDescCreatedAt is the schema descriptor for created_at field.
+	dnsrrDescCreatedAt := dnsrrMixinFields0[1].Descriptor()
+	// dnsrr.DefaultCreatedAt holds the default value on creation for the created_at field.
+	dnsrr.DefaultCreatedAt = dnsrrDescCreatedAt.Default.(func() time.Time)
+	// dnsrrDescUpdatedAt is the schema descriptor for updated_at field.
+	dnsrrDescUpdatedAt := dnsrrMixinFields0[2].Descriptor()
+	// dnsrr.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	dnsrr.DefaultUpdatedAt = dnsrrDescUpdatedAt.Default.(func() time.Time)
+	// dnsrr.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	dnsrr.UpdateDefaultUpdatedAt = dnsrrDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// dnsrrDescName is the schema descriptor for name field.
+	dnsrrDescName := dnsrrFields[0].Descriptor()
+	// dnsrr.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	dnsrr.NameValidator = func() func(string) error {
+		validators := dnsrrDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnsrrDescActivated is the schema descriptor for activated field.
+	dnsrrDescActivated := dnsrrFields[1].Descriptor()
+	// dnsrr.DefaultActivated holds the default value on creation for the activated field.
+	dnsrr.DefaultActivated = dnsrrDescActivated.Default.(bool)
+	// dnsrrDescID is the schema descriptor for id field.
+	dnsrrDescID := dnsrrMixinFields0[0].Descriptor()
+	// dnsrr.DefaultID holds the default value on creation for the id field.
+	dnsrr.DefaultID = dnsrrDescID.Default.(func() xid.ID)
 }

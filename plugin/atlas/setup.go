@@ -1,7 +1,10 @@
 package atlas
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/coredns/caddy"
@@ -16,10 +19,46 @@ var log = clog.NewWithPlugin(plgName)
 
 const plgName = "atlas"
 
-type config struct {
+type Config struct {
 	automigrate bool
 	dsn         string
 	dsnFile     string
+}
+
+type Credentials struct {
+	Dsn string `json:"dsn"`
+}
+
+func (c Config) Validate() error {
+	if len(c.dsn) > 0 && len(c.dsnFile) > 0 {
+		return fmt.Errorf("atlas: only one configuration paramater possible: file or dsn; not both of them")
+	}
+	return nil
+}
+
+func (c Config) fileIsSet() bool {
+	return len(c.dsnFile) > 0
+}
+
+func (c Config) GetDsn() (string, error) {
+	if c.fileIsSet() {
+		return c.readDsnFile()
+	}
+	return c.dsn, nil
+}
+
+func (c Config) readDsnFile() (dsn string, err error) {
+	var creds Credentials
+	inputBytes, err := os.ReadFile(c.dsnFile)
+	if err != nil {
+		return dsn, err
+	}
+
+	if err = json.Unmarshal(inputBytes, &creds); err != nil {
+		return dsn, err
+	}
+
+	return creds.Dsn, nil
 }
 
 // init registers this plugin.
@@ -31,7 +70,7 @@ func init() {
 // for parsing any extra options the atlas plugin may have. The first token this function sees is "atlas".
 func setup(c *caddy.Controller) error {
 
-	cfg := config{
+	cfg := Config{
 		automigrate: false,
 	}
 
@@ -65,10 +104,33 @@ func setup(c *caddy.Controller) error {
 		}
 	}
 
+	// validate configuration
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+
+	dsn, err := cfg.GetDsn()
+	if err != nil {
+		return err
+	}
+
+	client, err := OpenAtlasDB(dsn)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	if cfg.automigrate {
+		ctx := context.Background()
+		// Run database migration. Database user needs correct permissions
+		if err := client.Schema.Create(ctx); err != nil {
+			return fmt.Errorf("failed creating schema resources: %v", err)
+		}
+	}
+
 	// Add the Plugin to CoreDNS, so Servers can use it in their plugin chain.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		fmt.Printf("%+v\n", cfg)
-		return Atlas{Next: next, cfg: cfg}
+		return Atlas{Next: next, cfg: cfg, client: client}
 	})
 
 	// All OK, return a nil error.

@@ -40,7 +40,7 @@ func (drd *DnsRRDelete) ExecX(ctx context.Context) int {
 }
 
 func (drd *DnsRRDelete) sqlExec(ctx context.Context) (int, error) {
-	_spec := sqlgraph.NewDeleteSpec(dnsrr.Table, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewDeleteSpec(dnsrr.Table, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeString))
 	if ps := drd.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {

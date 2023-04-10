@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -27,6 +28,26 @@ func (dru *DnsRRUpdate) Where(ps ...predicate.DnsRR) *DnsRRUpdate {
 	return dru
 }
 
+// SetUpdatedAt sets the "updated_at" field.
+func (dru *DnsRRUpdate) SetUpdatedAt(t time.Time) *DnsRRUpdate {
+	dru.mutation.SetUpdatedAt(t)
+	return dru
+}
+
+// SetActivated sets the "activated" field.
+func (dru *DnsRRUpdate) SetActivated(b bool) *DnsRRUpdate {
+	dru.mutation.SetActivated(b)
+	return dru
+}
+
+// SetNillableActivated sets the "activated" field if the given value is not nil.
+func (dru *DnsRRUpdate) SetNillableActivated(b *bool) *DnsRRUpdate {
+	if b != nil {
+		dru.SetActivated(*b)
+	}
+	return dru
+}
+
 // Mutation returns the DnsRRMutation object of the builder.
 func (dru *DnsRRUpdate) Mutation() *DnsRRMutation {
 	return dru.mutation
@@ -34,6 +55,7 @@ func (dru *DnsRRUpdate) Mutation() *DnsRRMutation {
 
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (dru *DnsRRUpdate) Save(ctx context.Context) (int, error) {
+	dru.defaults()
 	return withHooks[int, DnsRRMutation](ctx, dru.sqlSave, dru.mutation, dru.hooks)
 }
 
@@ -59,14 +81,28 @@ func (dru *DnsRRUpdate) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (dru *DnsRRUpdate) defaults() {
+	if _, ok := dru.mutation.UpdatedAt(); !ok {
+		v := dnsrr.UpdateDefaultUpdatedAt()
+		dru.mutation.SetUpdatedAt(v)
+	}
+}
+
 func (dru *DnsRRUpdate) sqlSave(ctx context.Context) (n int, err error) {
-	_spec := sqlgraph.NewUpdateSpec(dnsrr.Table, dnsrr.Columns, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(dnsrr.Table, dnsrr.Columns, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeString))
 	if ps := dru.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
 			for i := range ps {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := dru.mutation.UpdatedAt(); ok {
+		_spec.SetField(dnsrr.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := dru.mutation.Activated(); ok {
+		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, dru.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -86,6 +122,26 @@ type DnsRRUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *DnsRRMutation
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (druo *DnsRRUpdateOne) SetUpdatedAt(t time.Time) *DnsRRUpdateOne {
+	druo.mutation.SetUpdatedAt(t)
+	return druo
+}
+
+// SetActivated sets the "activated" field.
+func (druo *DnsRRUpdateOne) SetActivated(b bool) *DnsRRUpdateOne {
+	druo.mutation.SetActivated(b)
+	return druo
+}
+
+// SetNillableActivated sets the "activated" field if the given value is not nil.
+func (druo *DnsRRUpdateOne) SetNillableActivated(b *bool) *DnsRRUpdateOne {
+	if b != nil {
+		druo.SetActivated(*b)
+	}
+	return druo
 }
 
 // Mutation returns the DnsRRMutation object of the builder.
@@ -108,6 +164,7 @@ func (druo *DnsRRUpdateOne) Select(field string, fields ...string) *DnsRRUpdateO
 
 // Save executes the query and returns the updated DnsRR entity.
 func (druo *DnsRRUpdateOne) Save(ctx context.Context) (*DnsRR, error) {
+	druo.defaults()
 	return withHooks[*DnsRR, DnsRRMutation](ctx, druo.sqlSave, druo.mutation, druo.hooks)
 }
 
@@ -133,8 +190,16 @@ func (druo *DnsRRUpdateOne) ExecX(ctx context.Context) {
 	}
 }
 
+// defaults sets the default values of the builder before save.
+func (druo *DnsRRUpdateOne) defaults() {
+	if _, ok := druo.mutation.UpdatedAt(); !ok {
+		v := dnsrr.UpdateDefaultUpdatedAt()
+		druo.mutation.SetUpdatedAt(v)
+	}
+}
+
 func (druo *DnsRRUpdateOne) sqlSave(ctx context.Context) (_node *DnsRR, err error) {
-	_spec := sqlgraph.NewUpdateSpec(dnsrr.Table, dnsrr.Columns, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewUpdateSpec(dnsrr.Table, dnsrr.Columns, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeString))
 	id, ok := druo.mutation.ID()
 	if !ok {
 		return nil, &ValidationError{Name: "id", err: errors.New(`ent: missing "DnsRR.id" for update`)}
@@ -158,6 +223,12 @@ func (druo *DnsRRUpdateOne) sqlSave(ctx context.Context) (_node *DnsRR, err erro
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := druo.mutation.UpdatedAt(); ok {
+		_spec.SetField(dnsrr.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := druo.mutation.Activated(); ok {
+		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
 	}
 	_node = &DnsRR{config: druo.config}
 	_spec.Assign = _node.assignValues

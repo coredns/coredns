@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
 	"github.com/coredns/coredns/plugin/atlas/ent/predicate"
+	"github.com/rs/xid"
 )
 
 // DnsRRQuery is the builder for querying DnsRR entities.
@@ -81,8 +82,8 @@ func (drq *DnsRRQuery) FirstX(ctx context.Context) *DnsRR {
 
 // FirstID returns the first DnsRR ID from the query.
 // Returns a *NotFoundError when no DnsRR ID was found.
-func (drq *DnsRRQuery) FirstID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (drq *DnsRRQuery) FirstID(ctx context.Context) (id xid.ID, err error) {
+	var ids []xid.ID
 	if ids, err = drq.Limit(1).IDs(setContextOp(ctx, drq.ctx, "FirstID")); err != nil {
 		return
 	}
@@ -94,7 +95,7 @@ func (drq *DnsRRQuery) FirstID(ctx context.Context) (id int, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (drq *DnsRRQuery) FirstIDX(ctx context.Context) int {
+func (drq *DnsRRQuery) FirstIDX(ctx context.Context) xid.ID {
 	id, err := drq.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -132,8 +133,8 @@ func (drq *DnsRRQuery) OnlyX(ctx context.Context) *DnsRR {
 // OnlyID is like Only, but returns the only DnsRR ID in the query.
 // Returns a *NotSingularError when more than one DnsRR ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (drq *DnsRRQuery) OnlyID(ctx context.Context) (id int, err error) {
-	var ids []int
+func (drq *DnsRRQuery) OnlyID(ctx context.Context) (id xid.ID, err error) {
+	var ids []xid.ID
 	if ids, err = drq.Limit(2).IDs(setContextOp(ctx, drq.ctx, "OnlyID")); err != nil {
 		return
 	}
@@ -149,7 +150,7 @@ func (drq *DnsRRQuery) OnlyID(ctx context.Context) (id int, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (drq *DnsRRQuery) OnlyIDX(ctx context.Context) int {
+func (drq *DnsRRQuery) OnlyIDX(ctx context.Context) xid.ID {
 	id, err := drq.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -177,7 +178,7 @@ func (drq *DnsRRQuery) AllX(ctx context.Context) []*DnsRR {
 }
 
 // IDs executes the query and returns a list of DnsRR IDs.
-func (drq *DnsRRQuery) IDs(ctx context.Context) (ids []int, err error) {
+func (drq *DnsRRQuery) IDs(ctx context.Context) (ids []xid.ID, err error) {
 	if drq.ctx.Unique == nil && drq.path != nil {
 		drq.Unique(true)
 	}
@@ -189,7 +190,7 @@ func (drq *DnsRRQuery) IDs(ctx context.Context) (ids []int, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (drq *DnsRRQuery) IDsX(ctx context.Context) []int {
+func (drq *DnsRRQuery) IDsX(ctx context.Context) []xid.ID {
 	ids, err := drq.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -257,6 +258,18 @@ func (drq *DnsRRQuery) Clone() *DnsRRQuery {
 
 // GroupBy is used to group vertices by one or more fields/columns.
 // It is often used with aggregate functions, like: count, max, mean, min, sum.
+//
+// Example:
+//
+//	var v []struct {
+//		CreatedAt time.Time `json:"created_at,omitempty"`
+//		Count int `json:"count,omitempty"`
+//	}
+//
+//	client.DnsRR.Query().
+//		GroupBy(dnsrr.FieldCreatedAt).
+//		Aggregate(ent.Count()).
+//		Scan(ctx, &v)
 func (drq *DnsRRQuery) GroupBy(field string, fields ...string) *DnsRRGroupBy {
 	drq.ctx.Fields = append([]string{field}, fields...)
 	grbuild := &DnsRRGroupBy{build: drq}
@@ -268,6 +281,16 @@ func (drq *DnsRRQuery) GroupBy(field string, fields ...string) *DnsRRGroupBy {
 
 // Select allows the selection one or more fields/columns for the given query,
 // instead of selecting all fields in the entity.
+//
+// Example:
+//
+//	var v []struct {
+//		CreatedAt time.Time `json:"created_at,omitempty"`
+//	}
+//
+//	client.DnsRR.Query().
+//		Select(dnsrr.FieldCreatedAt).
+//		Scan(ctx, &v)
 func (drq *DnsRRQuery) Select(fields ...string) *DnsRRSelect {
 	drq.ctx.Fields = append(drq.ctx.Fields, fields...)
 	sbuild := &DnsRRSelect{DnsRRQuery: drq}
@@ -342,7 +365,7 @@ func (drq *DnsRRQuery) sqlCount(ctx context.Context) (int, error) {
 }
 
 func (drq *DnsRRQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(dnsrr.Table, dnsrr.Columns, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeInt))
+	_spec := sqlgraph.NewQuerySpec(dnsrr.Table, dnsrr.Columns, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeString))
 	_spec.From = drq.sql
 	if unique := drq.ctx.Unique; unique != nil {
 		_spec.Unique = *unique

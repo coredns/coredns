@@ -9,6 +9,7 @@ import (
 	"log"
 
 	"github.com/coredns/coredns/plugin/atlas/ent/migrate"
+	"github.com/rs/xid"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
@@ -233,7 +234,7 @@ func (c *DnsRRClient) UpdateOne(dr *DnsRR) *DnsRRUpdateOne {
 }
 
 // UpdateOneID returns an update builder for the given id.
-func (c *DnsRRClient) UpdateOneID(id int) *DnsRRUpdateOne {
+func (c *DnsRRClient) UpdateOneID(id xid.ID) *DnsRRUpdateOne {
 	mutation := newDnsRRMutation(c.config, OpUpdateOne, withDnsRRID(id))
 	return &DnsRRUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
 }
@@ -250,7 +251,7 @@ func (c *DnsRRClient) DeleteOne(dr *DnsRR) *DnsRRDeleteOne {
 }
 
 // DeleteOneID returns a builder for deleting the given entity by its id.
-func (c *DnsRRClient) DeleteOneID(id int) *DnsRRDeleteOne {
+func (c *DnsRRClient) DeleteOneID(id xid.ID) *DnsRRDeleteOne {
 	builder := c.Delete().Where(dnsrr.ID(id))
 	builder.mutation.id = &id
 	builder.mutation.op = OpDeleteOne
@@ -267,12 +268,12 @@ func (c *DnsRRClient) Query() *DnsRRQuery {
 }
 
 // Get returns a DnsRR entity by its id.
-func (c *DnsRRClient) Get(ctx context.Context, id int) (*DnsRR, error) {
+func (c *DnsRRClient) Get(ctx context.Context, id xid.ID) (*DnsRR, error) {
 	return c.Query().Where(dnsrr.ID(id)).Only(ctx)
 }
 
 // GetX is like Get, but panics if an error occurs.
-func (c *DnsRRClient) GetX(ctx context.Context, id int) *DnsRR {
+func (c *DnsRRClient) GetX(ctx context.Context, id xid.ID) *DnsRR {
 	obj, err := c.Get(ctx, id)
 	if err != nil {
 		panic(err)
