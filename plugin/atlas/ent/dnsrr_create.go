@@ -55,6 +55,20 @@ func (drc *DnsRRCreate) SetName(s string) *DnsRRCreate {
 	return drc
 }
 
+// SetTTL sets the "ttl" field.
+func (drc *DnsRRCreate) SetTTL(i int32) *DnsRRCreate {
+	drc.mutation.SetTTL(i)
+	return drc
+}
+
+// SetNillableTTL sets the "ttl" field if the given value is not nil.
+func (drc *DnsRRCreate) SetNillableTTL(i *int32) *DnsRRCreate {
+	if i != nil {
+		drc.SetTTL(*i)
+	}
+	return drc
+}
+
 // SetActivated sets the "activated" field.
 func (drc *DnsRRCreate) SetActivated(b bool) *DnsRRCreate {
 	drc.mutation.SetActivated(b)
@@ -126,6 +140,10 @@ func (drc *DnsRRCreate) defaults() {
 		v := dnsrr.DefaultUpdatedAt()
 		drc.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := drc.mutation.TTL(); !ok {
+		v := dnsrr.DefaultTTL
+		drc.mutation.SetTTL(v)
+	}
 	if _, ok := drc.mutation.Activated(); !ok {
 		v := dnsrr.DefaultActivated
 		drc.mutation.SetActivated(v)
@@ -150,6 +168,14 @@ func (drc *DnsRRCreate) check() error {
 	if v, ok := drc.mutation.Name(); ok {
 		if err := dnsrr.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "DnsRR.name": %w`, err)}
+		}
+	}
+	if _, ok := drc.mutation.TTL(); !ok {
+		return &ValidationError{Name: "ttl", err: errors.New(`ent: missing required field "DnsRR.ttl"`)}
+	}
+	if v, ok := drc.mutation.TTL(); ok {
+		if err := dnsrr.TTLValidator(v); err != nil {
+			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsRR.ttl": %w`, err)}
 		}
 	}
 	if _, ok := drc.mutation.Activated(); !ok {
@@ -201,6 +227,10 @@ func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 	if value, ok := drc.mutation.Name(); ok {
 		_spec.SetField(dnsrr.FieldName, field.TypeString, value)
 		_node.Name = value
+	}
+	if value, ok := drc.mutation.TTL(); ok {
+		_spec.SetField(dnsrr.FieldTTL, field.TypeInt32, value)
+		_node.TTL = value
 	}
 	if value, ok := drc.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)

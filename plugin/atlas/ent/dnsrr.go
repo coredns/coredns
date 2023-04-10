@@ -24,6 +24,8 @@ type DnsRR struct {
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
+	// Time-to-live
+	TTL int32 `json:"ttl,omitempty"`
 	// only activated resource records will be served
 	Activated bool `json:"activated,omitempty"`
 }
@@ -35,6 +37,8 @@ func (*DnsRR) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case dnsrr.FieldActivated:
 			values[i] = new(sql.NullBool)
+		case dnsrr.FieldTTL:
+			values[i] = new(sql.NullInt64)
 		case dnsrr.FieldName:
 			values[i] = new(sql.NullString)
 		case dnsrr.FieldCreatedAt, dnsrr.FieldUpdatedAt:
@@ -80,6 +84,12 @@ func (dr *DnsRR) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				dr.Name = value.String
 			}
+		case dnsrr.FieldTTL:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field ttl", values[i])
+			} else if value.Valid {
+				dr.TTL = int32(value.Int64)
+			}
 		case dnsrr.FieldActivated:
 			if value, ok := values[i].(*sql.NullBool); !ok {
 				return fmt.Errorf("unexpected type %T for field activated", values[i])
@@ -122,6 +132,9 @@ func (dr *DnsRR) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(dr.Name)
+	builder.WriteString(", ")
+	builder.WriteString("ttl=")
+	builder.WriteString(fmt.Sprintf("%v", dr.TTL))
 	builder.WriteString(", ")
 	builder.WriteString("activated=")
 	builder.WriteString(fmt.Sprintf("%v", dr.Activated))

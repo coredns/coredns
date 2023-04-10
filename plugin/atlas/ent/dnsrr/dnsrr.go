@@ -19,6 +19,8 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
+	// FieldTTL holds the string denoting the ttl field in the database.
+	FieldTTL = "ttl"
 	// FieldActivated holds the string denoting the activated field in the database.
 	FieldActivated = "activated"
 	// Table holds the table name of the dnsrr in the database.
@@ -31,6 +33,7 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldUpdatedAt,
 	FieldName,
+	FieldTTL,
 	FieldActivated,
 }
 
@@ -53,6 +56,10 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultTTL holds the default value on creation for the "ttl" field.
+	DefaultTTL int32
+	// TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
+	TTLValidator func(int32) error
 	// DefaultActivated holds the default value on creation for the "activated" field.
 	DefaultActivated bool
 	// DefaultID holds the default value on creation for the "id" field.

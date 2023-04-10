@@ -14,6 +14,7 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "name", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
+		{Name: "ttl", Type: field.TypeInt32, Default: 3600},
 		{Name: "activated", Type: field.TypeBool, Default: true},
 	}
 	// DNSRrsTable holds the schema information for the "dns_rrs" table.

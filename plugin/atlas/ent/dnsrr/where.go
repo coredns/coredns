@@ -70,6 +70,11 @@ func Name(v string) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldEQ(FieldName, v))
 }
 
+// TTL applies equality check predicate on the "ttl" field. It's identical to TTLEQ.
+func TTL(v int32) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldTTL, v))
+}
+
 // Activated applies equality check predicate on the "activated" field. It's identical to ActivatedEQ.
 func Activated(v bool) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldEQ(FieldActivated, v))
@@ -218,6 +223,46 @@ func NameEqualFold(v string) predicate.DnsRR {
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
 func NameContainsFold(v string) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldContainsFold(FieldName, v))
+}
+
+// TTLEQ applies the EQ predicate on the "ttl" field.
+func TTLEQ(v int32) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldTTL, v))
+}
+
+// TTLNEQ applies the NEQ predicate on the "ttl" field.
+func TTLNEQ(v int32) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNEQ(FieldTTL, v))
+}
+
+// TTLIn applies the In predicate on the "ttl" field.
+func TTLIn(vs ...int32) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldIn(FieldTTL, vs...))
+}
+
+// TTLNotIn applies the NotIn predicate on the "ttl" field.
+func TTLNotIn(vs ...int32) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNotIn(FieldTTL, vs...))
+}
+
+// TTLGT applies the GT predicate on the "ttl" field.
+func TTLGT(v int32) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGT(FieldTTL, v))
+}
+
+// TTLGTE applies the GTE predicate on the "ttl" field.
+func TTLGTE(v int32) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGTE(FieldTTL, v))
+}
+
+// TTLLT applies the LT predicate on the "ttl" field.
+func TTLLT(v int32) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLT(FieldTTL, v))
+}
+
+// TTLLTE applies the LTE predicate on the "ttl" field.
+func TTLLTE(v int32) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLTE(FieldTTL, v))
 }
 
 // ActivatedEQ applies the EQ predicate on the "activated" field.

@@ -37,6 +37,8 @@ type DnsRRMutation struct {
 	created_at    *time.Time
 	updated_at    *time.Time
 	name          *string
+	ttl           *int32
+	addttl        *int32
 	activated     *bool
 	clearedFields map[string]struct{}
 	done          bool
@@ -256,6 +258,62 @@ func (m *DnsRRMutation) ResetName() {
 	m.name = nil
 }
 
+// SetTTL sets the "ttl" field.
+func (m *DnsRRMutation) SetTTL(i int32) {
+	m.ttl = &i
+	m.addttl = nil
+}
+
+// TTL returns the value of the "ttl" field in the mutation.
+func (m *DnsRRMutation) TTL() (r int32, exists bool) {
+	v := m.ttl
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTTL returns the old "ttl" field's value of the DnsRR entity.
+// If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DnsRRMutation) OldTTL(ctx context.Context) (v int32, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTTL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTTL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTTL: %w", err)
+	}
+	return oldValue.TTL, nil
+}
+
+// AddTTL adds i to the "ttl" field.
+func (m *DnsRRMutation) AddTTL(i int32) {
+	if m.addttl != nil {
+		*m.addttl += i
+	} else {
+		m.addttl = &i
+	}
+}
+
+// AddedTTL returns the value that was added to the "ttl" field in this mutation.
+func (m *DnsRRMutation) AddedTTL() (r int32, exists bool) {
+	v := m.addttl
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetTTL resets all changes to the "ttl" field.
+func (m *DnsRRMutation) ResetTTL() {
+	m.ttl = nil
+	m.addttl = nil
+}
+
 // SetActivated sets the "activated" field.
 func (m *DnsRRMutation) SetActivated(b bool) {
 	m.activated = &b
@@ -326,7 +384,7 @@ func (m *DnsRRMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DnsRRMutation) Fields() []string {
-	fields := make([]string, 0, 4)
+	fields := make([]string, 0, 5)
 	if m.created_at != nil {
 		fields = append(fields, dnsrr.FieldCreatedAt)
 	}
@@ -335,6 +393,9 @@ func (m *DnsRRMutation) Fields() []string {
 	}
 	if m.name != nil {
 		fields = append(fields, dnsrr.FieldName)
+	}
+	if m.ttl != nil {
+		fields = append(fields, dnsrr.FieldTTL)
 	}
 	if m.activated != nil {
 		fields = append(fields, dnsrr.FieldActivated)
@@ -353,6 +414,8 @@ func (m *DnsRRMutation) Field(name string) (ent.Value, bool) {
 		return m.UpdatedAt()
 	case dnsrr.FieldName:
 		return m.Name()
+	case dnsrr.FieldTTL:
+		return m.TTL()
 	case dnsrr.FieldActivated:
 		return m.Activated()
 	}
@@ -370,6 +433,8 @@ func (m *DnsRRMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldUpdatedAt(ctx)
 	case dnsrr.FieldName:
 		return m.OldName(ctx)
+	case dnsrr.FieldTTL:
+		return m.OldTTL(ctx)
 	case dnsrr.FieldActivated:
 		return m.OldActivated(ctx)
 	}
@@ -402,6 +467,13 @@ func (m *DnsRRMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetName(v)
 		return nil
+	case dnsrr.FieldTTL:
+		v, ok := value.(int32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTTL(v)
+		return nil
 	case dnsrr.FieldActivated:
 		v, ok := value.(bool)
 		if !ok {
@@ -416,13 +488,21 @@ func (m *DnsRRMutation) SetField(name string, value ent.Value) error {
 // AddedFields returns all numeric fields that were incremented/decremented during
 // this mutation.
 func (m *DnsRRMutation) AddedFields() []string {
-	return nil
+	var fields []string
+	if m.addttl != nil {
+		fields = append(fields, dnsrr.FieldTTL)
+	}
+	return fields
 }
 
 // AddedField returns the numeric value that was incremented/decremented on a field
 // with the given name. The second boolean return value indicates that this field
 // was not set, or was not defined in the schema.
 func (m *DnsRRMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case dnsrr.FieldTTL:
+		return m.AddedTTL()
+	}
 	return nil, false
 }
 
@@ -431,6 +511,13 @@ func (m *DnsRRMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *DnsRRMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case dnsrr.FieldTTL:
+		v, ok := value.(int32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddTTL(v)
+		return nil
 	}
 	return fmt.Errorf("unknown DnsRR numeric field %s", name)
 }
@@ -466,6 +553,9 @@ func (m *DnsRRMutation) ResetField(name string) error {
 		return nil
 	case dnsrr.FieldName:
 		m.ResetName()
+		return nil
+	case dnsrr.FieldTTL:
+		m.ResetTTL()
 		return nil
 	case dnsrr.FieldActivated:
 		m.ResetActivated()

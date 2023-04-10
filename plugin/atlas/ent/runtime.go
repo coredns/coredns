@@ -48,8 +48,28 @@ func init() {
 			return nil
 		}
 	}()
+	// dnsrrDescTTL is the schema descriptor for ttl field.
+	dnsrrDescTTL := dnsrrFields[1].Descriptor()
+	// dnsrr.DefaultTTL holds the default value on creation for the ttl field.
+	dnsrr.DefaultTTL = dnsrrDescTTL.Default.(int32)
+	// dnsrr.TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
+	dnsrr.TTLValidator = func() func(int32) error {
+		validators := dnsrrDescTTL.Validators
+		fns := [...]func(int32) error{
+			validators[0].(func(int32) error),
+			validators[1].(func(int32) error),
+		}
+		return func(ttl int32) error {
+			for _, fn := range fns {
+				if err := fn(ttl); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
 	// dnsrrDescActivated is the schema descriptor for activated field.
-	dnsrrDescActivated := dnsrrFields[1].Descriptor()
+	dnsrrDescActivated := dnsrrFields[2].Descriptor()
 	// dnsrr.DefaultActivated holds the default value on creation for the activated field.
 	dnsrr.DefaultActivated = dnsrrDescActivated.Default.(bool)
 	// dnsrrDescID is the schema descriptor for id field.

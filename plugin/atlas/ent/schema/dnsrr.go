@@ -24,6 +24,10 @@ func (DnsRR) Fields() []ent.Field {
 				dialect.Postgres: "varchar(255)",
 				dialect.SQLite:   "varchar", // check: SQLite has no varchar length
 			}),
+		field.Int32("ttl").
+			Min(360).
+			Max(2147483647).
+			Default(3600).Comment("Time-to-live"),
 		field.Bool("activated").
 			Default(true).
 			Comment("only activated resource records will be served"),

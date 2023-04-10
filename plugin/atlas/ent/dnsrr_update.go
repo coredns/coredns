@@ -34,6 +34,27 @@ func (dru *DnsRRUpdate) SetUpdatedAt(t time.Time) *DnsRRUpdate {
 	return dru
 }
 
+// SetTTL sets the "ttl" field.
+func (dru *DnsRRUpdate) SetTTL(i int32) *DnsRRUpdate {
+	dru.mutation.ResetTTL()
+	dru.mutation.SetTTL(i)
+	return dru
+}
+
+// SetNillableTTL sets the "ttl" field if the given value is not nil.
+func (dru *DnsRRUpdate) SetNillableTTL(i *int32) *DnsRRUpdate {
+	if i != nil {
+		dru.SetTTL(*i)
+	}
+	return dru
+}
+
+// AddTTL adds i to the "ttl" field.
+func (dru *DnsRRUpdate) AddTTL(i int32) *DnsRRUpdate {
+	dru.mutation.AddTTL(i)
+	return dru
+}
+
 // SetActivated sets the "activated" field.
 func (dru *DnsRRUpdate) SetActivated(b bool) *DnsRRUpdate {
 	dru.mutation.SetActivated(b)
@@ -89,7 +110,20 @@ func (dru *DnsRRUpdate) defaults() {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (dru *DnsRRUpdate) check() error {
+	if v, ok := dru.mutation.TTL(); ok {
+		if err := dnsrr.TTLValidator(v); err != nil {
+			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsRR.ttl": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (dru *DnsRRUpdate) sqlSave(ctx context.Context) (n int, err error) {
+	if err := dru.check(); err != nil {
+		return n, err
+	}
 	_spec := sqlgraph.NewUpdateSpec(dnsrr.Table, dnsrr.Columns, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeString))
 	if ps := dru.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
@@ -100,6 +134,12 @@ func (dru *DnsRRUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := dru.mutation.UpdatedAt(); ok {
 		_spec.SetField(dnsrr.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := dru.mutation.TTL(); ok {
+		_spec.SetField(dnsrr.FieldTTL, field.TypeInt32, value)
+	}
+	if value, ok := dru.mutation.AddedTTL(); ok {
+		_spec.AddField(dnsrr.FieldTTL, field.TypeInt32, value)
 	}
 	if value, ok := dru.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
@@ -127,6 +167,27 @@ type DnsRRUpdateOne struct {
 // SetUpdatedAt sets the "updated_at" field.
 func (druo *DnsRRUpdateOne) SetUpdatedAt(t time.Time) *DnsRRUpdateOne {
 	druo.mutation.SetUpdatedAt(t)
+	return druo
+}
+
+// SetTTL sets the "ttl" field.
+func (druo *DnsRRUpdateOne) SetTTL(i int32) *DnsRRUpdateOne {
+	druo.mutation.ResetTTL()
+	druo.mutation.SetTTL(i)
+	return druo
+}
+
+// SetNillableTTL sets the "ttl" field if the given value is not nil.
+func (druo *DnsRRUpdateOne) SetNillableTTL(i *int32) *DnsRRUpdateOne {
+	if i != nil {
+		druo.SetTTL(*i)
+	}
+	return druo
+}
+
+// AddTTL adds i to the "ttl" field.
+func (druo *DnsRRUpdateOne) AddTTL(i int32) *DnsRRUpdateOne {
+	druo.mutation.AddTTL(i)
 	return druo
 }
 
@@ -198,7 +259,20 @@ func (druo *DnsRRUpdateOne) defaults() {
 	}
 }
 
+// check runs all checks and user-defined validators on the builder.
+func (druo *DnsRRUpdateOne) check() error {
+	if v, ok := druo.mutation.TTL(); ok {
+		if err := dnsrr.TTLValidator(v); err != nil {
+			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsRR.ttl": %w`, err)}
+		}
+	}
+	return nil
+}
+
 func (druo *DnsRRUpdateOne) sqlSave(ctx context.Context) (_node *DnsRR, err error) {
+	if err := druo.check(); err != nil {
+		return _node, err
+	}
 	_spec := sqlgraph.NewUpdateSpec(dnsrr.Table, dnsrr.Columns, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeString))
 	id, ok := druo.mutation.ID()
 	if !ok {
@@ -226,6 +300,12 @@ func (druo *DnsRRUpdateOne) sqlSave(ctx context.Context) (_node *DnsRR, err erro
 	}
 	if value, ok := druo.mutation.UpdatedAt(); ok {
 		_spec.SetField(dnsrr.FieldUpdatedAt, field.TypeTime, value)
+	}
+	if value, ok := druo.mutation.TTL(); ok {
+		_spec.SetField(dnsrr.FieldTTL, field.TypeInt32, value)
+	}
+	if value, ok := druo.mutation.AddedTTL(); ok {
+		_spec.AddField(dnsrr.FieldTTL, field.TypeInt32, value)
 	}
 	if value, ok := druo.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
