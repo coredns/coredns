@@ -19,25 +19,9 @@ type UpstreamInt interface {
 	Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error)
 }
 
-// RewriteType is the type of cname target rewrite rules
-type RewriteType string
-
-const (
-	// CNameExactMatch is the type for exact match of cname target
-	CNameExactMatch RewriteType = "exact"
-	// CNamePrefixMatch is the type for prefix match of cname target
-	CNamePrefixMatch RewriteType = "prefix"
-	// CNameSuffixMatch is the type for suffix match of cname target
-	CNameSuffixMatch RewriteType = "suffix"
-	// CNameSubstringMatch is the type for substring match of cname target
-	CNameSubstringMatch RewriteType = "substring"
-	// CNameRegexMatch is the type for regex match of cname target
-	CNameRegexMatch RewriteType = "regex"
-)
-
 // cnameTargetRule is cname target rewrite rule.
 type cnameTargetRule struct {
-	rewriteType     RewriteType
+	rewriteType     string
 	paramFromTarget string
 	paramToTarget   string
 	nextAction      string
@@ -48,21 +32,21 @@ type cnameTargetRule struct {
 
 func (r *cnameTargetRule) getFromAndToTarget(inputCName string) (from string, to string) {
 	switch r.rewriteType {
-	case CNameExactMatch:
+	case ExactMatch:
 		return r.paramFromTarget, r.paramToTarget
-	case CNamePrefixMatch:
+	case PrefixMatch:
 		if strings.HasPrefix(inputCName, r.paramFromTarget) {
 			return inputCName, r.paramToTarget + strings.TrimPrefix(inputCName, r.paramFromTarget)
 		}
-	case CNameSuffixMatch:
+	case SuffixMatch:
 		if strings.HasSuffix(inputCName, r.paramFromTarget) {
 			return inputCName, strings.TrimSuffix(inputCName, r.paramFromTarget) + r.paramToTarget
 		}
-	case CNameSubstringMatch:
+	case SubstringMatch:
 		if strings.Contains(inputCName, r.paramFromTarget) {
 			return inputCName, strings.Replace(inputCName, r.paramFromTarget, r.paramToTarget, -1)
 		}
-	case CNameRegexMatch:
+	case RegexMatch:
 		pattern := regexp.MustCompile(r.paramFromTarget)
 		regexGroups := pattern.FindStringSubmatch(inputCName)
 		if len(regexGroups) == 0 {
@@ -117,22 +101,22 @@ func (r *cnameTargetRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
 }
 
 func newCNAMERule(nextAction string, args ...string) (Rule, error) {
-	var rewriteType RewriteType
+	var rewriteType string
 	var paramFromTarget, paramToTarget string
 	if len(args) == 3 {
-		rewriteType = (RewriteType)(strings.ToLower(args[0]))
+		rewriteType = (strings.ToLower(args[0]))
 		switch rewriteType {
-		case CNameExactMatch:
-		case CNamePrefixMatch:
-		case CNameSuffixMatch:
-		case CNameSubstringMatch:
-		case CNameRegexMatch:
+		case ExactMatch:
+		case PrefixMatch:
+		case SuffixMatch:
+		case SubstringMatch:
+		case RegexMatch:
 		default:
 			return nil, fmt.Errorf("unknown cname rewrite type: %s", rewriteType)
 		}
 		paramFromTarget, paramToTarget = strings.ToLower(args[1]), strings.ToLower(args[2])
 	} else if len(args) == 2 {
-		rewriteType = CNameExactMatch
+		rewriteType = ExactMatch
 		paramFromTarget, paramToTarget = strings.ToLower(args[0]), strings.ToLower(args[1])
 	} else {
 		return nil, fmt.Errorf("too few (%d) arguments for a cname rule", len(args))
