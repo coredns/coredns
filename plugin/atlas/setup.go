@@ -19,6 +19,7 @@ var log = clog.NewWithPlugin(plgName)
 
 const plgName = "atlas"
 
+// Config holds the configuration for Atlas
 type Config struct {
 	automigrate bool
 	dsn         string
@@ -29,17 +30,25 @@ type Credentials struct {
 	Dsn string `json:"dsn"`
 }
 
+// Validate validates the configuration
 func (c Config) Validate() error {
+	if len(c.dsn) == 0 && len(c.dsnFile) == 0 {
+		return fmt.Errorf("atlas: empty dsn detected. Please provide dsn or file parameter")
+	}
+
 	if len(c.dsn) > 0 && len(c.dsnFile) > 0 {
 		return fmt.Errorf("atlas: only one configuration paramater possible: file or dsn; not both of them")
 	}
+
 	return nil
 }
 
+// fileIsSet returns true if the file parameter is set in the `Corefile`
 func (c Config) fileIsSet() bool {
 	return len(c.dsnFile) > 0
 }
 
+// GetDsn gets the dsn from file or from the `Corefile`
 func (c Config) GetDsn() (string, error) {
 	if c.fileIsSet() {
 		return c.readDsnFile()
@@ -47,15 +56,16 @@ func (c Config) GetDsn() (string, error) {
 	return c.dsn, nil
 }
 
+// readDsnFile reads the credentials from configured file
 func (c Config) readDsnFile() (dsn string, err error) {
 	var creds Credentials
 	inputBytes, err := os.ReadFile(c.dsnFile)
 	if err != nil {
-		return dsn, err
+		return dsn, fmt.Errorf("atlas: file dsn error: %w", err)
 	}
 
 	if err = json.Unmarshal(inputBytes, &creds); err != nil {
-		return dsn, err
+		return dsn, fmt.Errorf("atlas: unable to unmarshal json file: %w", err)
 	}
 
 	return creds.Dsn, nil
@@ -67,7 +77,7 @@ func init() {
 }
 
 // setup is the function that gets called when the config parser see the token "atlas". Setup is responsible
-// for parsing any extra options the atlas plugin may have. The first token this function sees is "atlas".
+// for parsing any extra options the atlas plugin may have.
 func setup(c *caddy.Controller) error {
 
 	cfg := Config{
@@ -86,14 +96,14 @@ func setup(c *caddy.Controller) error {
 			case "file":
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf("atlas: argument for file expected"))
+					return plugin.Error(plgName, fmt.Errorf("atlas: argument for 'file' expected"))
 				}
 				cfg.dsnFile = args[0]
 			case "automigrate":
 				var err error
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf("atlas: argument for automigrate expected"))
+					return plugin.Error(plgName, fmt.Errorf("atlas: argument for 'automigrate' expected"))
 				}
 				if cfg.automigrate, err = strconv.ParseBool(args[0]); err != nil {
 					return err

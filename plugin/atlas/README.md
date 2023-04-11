@@ -51,8 +51,8 @@ atlas {
 }
 ```
 
-- `dsn` data source to connect to
-- `automigrate` if true, the Atlas plugin migrates the database automatically. Nice for development, but its not recommended for production usage!
+- `dsn` is a string with the data source to which a connection is to be made
+- If you set the `automigrate` option to true, the Atlas plugin will migrate the database automatically. Good for development, but not recommended for production use! If the parameter is omitted, automigrate will be false by default.
 
 ## Supported Databases
 
@@ -69,7 +69,7 @@ Databases, that are supported by entgo.
 
 ## Database Configuration
 
-The database credentials can be read from a file or can be set directly into the Corefile.
+The credentials for the database can be read from a file or set directly in the `Corefile`.
 
 ### Example configurations
 

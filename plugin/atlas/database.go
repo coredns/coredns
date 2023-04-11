@@ -12,7 +12,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// OpenAtlasDB opens a new database connection
+// OpenAtlasDB opens a new database connection and returns the database `Client`.
+// If errors are fired during establishing the connection, error contains a none nil error.
 func OpenAtlasDB(conn string) (*ent.Client, error) {
 	tp, co, err := GetDSN(conn)
 	if err != nil {
@@ -29,7 +30,7 @@ func GetDSN(conn string) (t, cn string, err error) {
 	// have to check for the sqlite3 scheme
 	schemer := strings.Split(conn, "//")
 	if len(schemer) == 0 {
-		return t, cn, fmt.Errorf("unexpected scheme")
+		return t, cn, fmt.Errorf("atlas: unexpected scheme")
 	}
 	if schemer[0] == "sqlite3:" {
 		return "sqlite3", strings.Join(schemer[1:], ""), nil
@@ -47,20 +48,21 @@ func GetDSN(conn string) (t, cn string, err error) {
 	case "mysql", "mariadb":
 		return getMySQLDSN(u)
 	default:
-		return t, cn, fmt.Errorf("unexpected scheme: %v", u.Scheme)
+		return t, cn, fmt.Errorf("atlas: unexpected scheme: %v", u.Scheme)
 	}
 }
 
+// getMysqlDSN parses the given MySQL url
 func getMySQLDSN(u *url.URL) (t, c string, err error) {
 	var user, password, dbname string
 	passwordExists := false
 
 	if u == nil {
-		return t, c, fmt.Errorf("unexpected mysql dsn")
+		return t, c, fmt.Errorf("atlas: unexpected mysql dsn")
 	}
 
 	if u.User == nil {
-		return t, c, fmt.Errorf("user expected")
+		return t, c, fmt.Errorf("atlas: user expected")
 	}
 
 	user = u.User.Username()
@@ -90,6 +92,7 @@ func getMySQLDSN(u *url.URL) (t, c string, err error) {
 	return "mysql", c, err
 }
 
+// getHostWithPort returns the host and port string. If the port is not set the `defaultPort` will be used.
 func getHostWithPort(u *url.URL, defaultPort int) string {
 	if len(u.Port()) == 0 {
 		return fmt.Sprintf("%s:%d", u.Hostname(), defaultPort)
