@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strconv"
 
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -23,6 +24,12 @@ type GeoIP struct {
 	Next  plugin.Handler
 	db    db
 	edns0 bool
+	ecs   ecs
+}
+
+type ecs struct {
+	address string
+	netmask string
 }
 
 type db struct {
@@ -85,6 +92,9 @@ func (g GeoIP) Metadata(ctx context.Context, state request.Request) context.Cont
 			for _, s := range o.Option {
 				if e, ok := s.(*dns.EDNS0_SUBNET); ok {
 					srcIP = e.Address
+					// Save ECS contents from request.
+					g.ecs.address = e.Address.String()
+					g.ecs.netmask = strconv.Itoa(int(e.SourceNetmask))
 					break
 				}
 			}

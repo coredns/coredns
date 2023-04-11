@@ -55,4 +55,8 @@ func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 	metadata.SetValueFunc(ctx, pluginName+"/postalcode", func() string {
 		return postalCode
 	})
+	ecs := g.ecs.address + "/" + g.ecs.netmask
+	metadata.SetValueFunc(ctx, pluginName+"/ecs", func() string {
+		return ecs
+	})
 }
