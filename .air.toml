@@ -4,7 +4,7 @@ tmp_dir = "tmp"
 
 [build]
   args_bin = []
-  bin = "./coredns"
+  bin = "./coredns -conf Corefile.postgres"
   cmd = "make"
   delay = 0
   exclude_dir = ["assets", "tmp", "vendor", "testdata"]

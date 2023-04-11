@@ -8,19 +8,6 @@ Since DNS makes the world go around, we have found: Atlas is the right service n
 
 Moreover we are planning a GraphQL Service (closed source for now) that will work with the same database scheme, so we can better handle our day to day requirements.
 
-## Supported Databases
-
-Databases, that are supported by entgo.
-
-| Database    | Version                       | Remarks                   |
-| ----------- | ----------------------------- | ------------------------- |
-| SQLite3     | 3.40.x, 3.41.x                | others unknown            |
-| PostgreSQL  | 10, 11, 12, 13, 14            |                           |
-| MariaDB     | 10.2, 10.3 and latest version |                           |
-| MySQL       | 5.6.35, 5.7.26, 8             |                           |
-| CockroachDB | v21.2.11                      | Preview                   |
-| TiDB        | 5.4.0, 6.0.0                  | Preview, MySQL compatible |
-
 ## Supported Resource Records
 
 TODO: Check which RR's should/must be implemented.
@@ -55,6 +42,31 @@ TODO: Check which RR's should/must be implemented.
 
 What about name flattening "ANAME" records?
 
+## Setup
+
+```config
+atlas {
+    dsn connectionstring
+    [automigrate bool]
+}
+```
+
+- `dsn` data source to connect to
+- `automigrate` if true, the Atlas plugin migrates the database automatically. Nice for development, but its not recommended for production usage!
+
+## Supported Databases
+
+Databases, that are supported by entgo.
+
+| Database    | Version                       | Remarks                   |
+| ----------- | ----------------------------- | ------------------------- |
+| SQLite3     | 3.40.x, 3.41.x                | others unknown            |
+| PostgreSQL  | 10, 11, 12, 13, 14            |                           |
+| MariaDB     | 10.2, 10.3 and latest version |                           |
+| MySQL       | 5.6.35, 5.7.26, 8             |                           |
+| CockroachDB | v21.2.11                      | Preview                   |
+| TiDB        | 5.4.0, 6.0.0                  | Preview, MySQL compatible |
+
 ## Database Configuration
 
 The database credentials can be read from a file or can be set directly into the Corefile.
@@ -65,7 +77,7 @@ The database credentials can be read from a file or can be set directly into the
 
 ```config
 atlas {
-    dsn postgres://postgres:postgres@localhost:5432/corednsdb
+    dsn postgres://postgres:postgres@localhost:5432/corednsdb?sslmode=disable
     automigrate true
 }
 ```
@@ -91,8 +103,6 @@ The `dsnfile.json` has following expected format:
 
 #### SQLite3 InMemory (for testing)
 
-You should not working with in memory files, because all changes are lost after restart. This is mainly for testing purposes.
-
 ```config
 atlas {
     dsn sqlite3://file:ent?mode=memory&cache=shared&_fk=1
@@ -105,7 +115,7 @@ _Attention_ socket connections are currently not supported.
 
 ```config
 atlas {
-    dsn postgres://postgres:postgres@localhost:5432/corednsdb
+    dsn postgres://postgres:postgres@localhost:5432/corednsdb?sslmode=disable
 }
 ```
 

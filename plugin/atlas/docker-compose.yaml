@@ -1,0 +1,19 @@
+version: '3.5'
+
+services:
+  postgres:
+    container_name: atlasdemo
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: corednsdb
+      PGDATA: /data/postgres
+    volumes:
+       - postgres-db:/data/postgres
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres-db:
+    driver: local
