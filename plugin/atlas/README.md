@@ -12,33 +12,33 @@ Moreover we are planning a GraphQL Service (closed source for now) that will wor
 
 TODO: Check which RR's should/must be implemented.
 
-| Must Have | Implemented | RR         | Remark                                  |
-| --------- | ----------- | ---------- | --------------------------------------- |
-| ✓         |             | A          | IPv4 address                            |
-| ✓         |             | AAAA       | IPv6 address                            |
-| ✓         |             | CAA        | Certification Authority Authorization   |
-| ✓         |             | CNAME      | Canonical Name                          |
-| ✓         |             | MX         | Mail Exchange                           |
-| ✓         |             | NS         | Name Server                             |
-| ✓         |             | SOA        | Start of Authority                      |
-| ✓         |             | PTR        | Pointer                                 |
-| ✓         |             | SPF        | Sender Policy Framework                 |
-| ✓         |             | SRV        | Service Locator                         |
-| ✓         |             | TXT        | Text                                    |
-|           |             | CERT       | Certificate                             |
-|           |             | DNAME      | Delegation Name                         |
-|           |             | DNSKEY     | DNS Key                                 |
-|           |             | DS         | Delegation Signer                       |
-|           |             | HINFO      | Host Information                        |
-|           |             | IPSECKEY   | IPsec Key                               |
-|           |             | NAPTR      | Naming Authority Pointer                |
-|           |             | NSEC       | Next-Secure                             |
-|           |             | NSEC3      | Next-Secure 3                           |
-|           |             | NSEC3PARAM | Next-Secure 3 Parameters                |
-|           |             | OPENPGPKEY | OpenPGP Key                             |
-|           |             | RRSIG      | Resource Record Signature               |
-|           |             | SSHFP      | SSH Fingerprint                         |
-|           |             | TLSA       | Transport Layer Security Authentication |
+| backend_plugin | Must Have | Implemented | RR         | Remark                                  |
+| -------------- | --------- | ----------- | ---------- | --------------------------------------- |
+| ✓              | ✓         |             | A          | IPv4 address                            |
+| ✓              | ✓         |             | AAAA       | IPv6 address                            |
+|                | ✓         |             | CAA        | Certification Authority Authorization   |
+| ✓              | ✓         |             | CNAME      | Canonical Name                          |
+| ✓              | ✓         |             | MX         | Mail Exchange                           |
+| ✓              | ✓         |             | NS         | Name Server                             |
+| ✓              | ✓         |             | SOA        | Start of Authority                      |
+| ✓              | ✓         |             | PTR        | Pointer                                 |
+|                | ✓         |             | SPF        | Sender Policy Framework                 |
+| ✓              | ✓         |             | SRV        | Service Locator                         |
+| ✓              | ✓         |             | TXT        | Text                                    |
+|                |           |             | CERT       | Certificate                             |
+|                |           |             | DNAME      | Delegation Name                         |
+|                |           |             | DNSKEY     | DNS Key                                 |
+|                |           |             | DS         | Delegation Signer                       |
+|                |           |             | HINFO      | Host Information                        |
+|                |           |             | IPSECKEY   | IPsec Key                               |
+|                |           |             | NAPTR      | Naming Authority Pointer                |
+|                |           |             | NSEC       | Next-Secure                             |
+|                |           |             | NSEC3      | Next-Secure 3                           |
+|                |           |             | NSEC3PARAM | Next-Secure 3 Parameters                |
+|                |           |             | OPENPGPKEY | OpenPGP Key                             |
+|                |           |             | RRSIG      | Resource Record Signature               |
+|                |           |             | SSHFP      | SSH Fingerprint                         |
+|                |           |             | TLSA       | Transport Layer Security Authentication |
 
 What about name flattening "ANAME" records?
 

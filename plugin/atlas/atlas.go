@@ -16,6 +16,7 @@ import (
 // Atlas is an database plugin.
 type Atlas struct {
 	Next   plugin.Handler
+	Zones  []string
 	cfg    Config
 	client *ent.Client
 }
