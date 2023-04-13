@@ -88,7 +88,7 @@ func (r *cnameTargetRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
 						newAnswer = append(newAnswer, rr)
 					}
 				}
-				// iterate over upstream response made
+				// iterate over upstream response recieved
 				for _, rr := range upRes.Answer {
 					if rr.Header().Name == toTarget {
 						newAnswer = append(newAnswer, rr)
