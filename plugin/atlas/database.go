@@ -30,7 +30,7 @@ func GetDSN(conn string) (t, cn string, err error) {
 	// have to check for the sqlite3 scheme
 	schemer := strings.Split(conn, "//")
 	if len(schemer) < 2 {
-		return t, cn, fmt.Errorf("atlas: unexpected scheme")
+		return t, cn, fmt.Errorf("unexpected scheme")
 	}
 	if schemer[0] == "sqlite3:" {
 		return "sqlite3", strings.Join(schemer[1:], ""), nil
@@ -48,7 +48,7 @@ func GetDSN(conn string) (t, cn string, err error) {
 	case "mysql", "mariadb":
 		return getMySQLDSN(u)
 	default:
-		return t, cn, fmt.Errorf("atlas: unexpected scheme")
+		return t, cn, fmt.Errorf("unexpected scheme")
 	}
 }
 
@@ -58,11 +58,11 @@ func getMySQLDSN(u *url.URL) (t, c string, err error) {
 	passwordExists := false
 
 	if u == nil {
-		return t, c, fmt.Errorf("atlas: unexpected mysql dsn")
+		return t, c, fmt.Errorf("unexpected mysql dsn")
 	}
 
 	if u.User == nil {
-		return t, c, fmt.Errorf("atlas: user expected")
+		return t, c, fmt.Errorf("user expected")
 	}
 
 	user = u.User.Username()
@@ -103,7 +103,7 @@ func getHostWithPort(u *url.URL, defaultPort int) string {
 // getPostgresDSN returns the type and connection string for postgres databases
 func getPostgresDSN(u *url.URL) (t, c string, err error) {
 	if u == nil {
-		return t, c, fmt.Errorf("atlas: unexpected postgres dsn")
+		return t, c, fmt.Errorf("unexpected postgres dsn")
 	}
 
 	var s []string
@@ -115,7 +115,7 @@ func getPostgresDSN(u *url.URL) (t, c string, err error) {
 	}
 
 	if u.User == nil {
-		return t, c, fmt.Errorf("atlas: user expected")
+		return t, c, fmt.Errorf("user expected")
 	}
 
 	v := u.User.Username()

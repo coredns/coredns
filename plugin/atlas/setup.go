@@ -33,11 +33,11 @@ type Credentials struct {
 // Validate validates the configuration
 func (c Config) Validate() error {
 	if len(c.dsn) == 0 && len(c.dsnFile) == 0 {
-		return fmt.Errorf("atlas: empty dsn detected. Please provide dsn or file parameter")
+		return fmt.Errorf("empty dsn detected. Please provide dsn or file parameter")
 	}
 
 	if len(c.dsn) > 0 && len(c.dsnFile) > 0 {
-		return fmt.Errorf("atlas: only one configuration paramater possible: file or dsn; not both of them")
+		return fmt.Errorf("only one configuration paramater possible: file or dsn; not both of them")
 	}
 
 	return nil
@@ -61,11 +61,11 @@ func (c Config) readDsnFile() (dsn string, err error) {
 	var creds Credentials
 	inputBytes, err := os.ReadFile(c.dsnFile)
 	if err != nil {
-		return dsn, fmt.Errorf("atlas: file dsn error: %w", err)
+		return dsn, fmt.Errorf("file dsn error: %w", err)
 	}
 
 	if err = json.Unmarshal(inputBytes, &creds); err != nil {
-		return dsn, fmt.Errorf("atlas: unable to unmarshal json file: %w", err)
+		return dsn, fmt.Errorf("unable to unmarshal json file: %w", err)
 	}
 
 	return creds.Dsn, nil

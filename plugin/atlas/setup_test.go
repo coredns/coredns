@@ -11,7 +11,7 @@ func TestAtlas_SetupWithoutDSN(t *testing.T) {
 	c := caddy.NewTestController("dns", `atlas`)
 	err := setup(c)
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: empty dsn detected. Please provide dsn or file parameter", err.Error())
+	require.Equal(t, "empty dsn detected. Please provide dsn or file parameter", err.Error())
 }
 
 func TestAtlas_SetupWithDSN(t *testing.T) {
@@ -116,7 +116,7 @@ func TestAtlas_ConfigInvalid(t *testing.T) {
 	cfg := Config{dsn: "bla", dsnFile: "blub"}
 	err := cfg.Validate()
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: only one configuration paramater possible: file or dsn; not both of them", err.Error())
+	require.Equal(t, "only one configuration paramater possible: file or dsn; not both of them", err.Error())
 }
 
 func TestAtlas_ConfigFromFile_SuccessfulRead(t *testing.T) {
@@ -130,12 +130,12 @@ func TestAtlas_ConfigFromFile_ErrorReadingFile(t *testing.T) {
 	cfg := Config{dsnFile: "test/vault.json"}
 	_, err := cfg.GetDsn()
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: file dsn error: open test/vault.json: no such file or directory", err.Error())
+	require.Equal(t, "file dsn error: open test/vault.json: no such file or directory", err.Error())
 }
 
 func TestAtlas_ConfigFromFile_ErrorUnmarshalDefectFile(t *testing.T) {
 	cfg := Config{dsnFile: "tests/defect.json"}
 	_, err := cfg.GetDsn()
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: unable to unmarshal json file: unexpected end of JSON input", err.Error())
+	require.Equal(t, "unable to unmarshal json file: unexpected end of JSON input", err.Error())
 }

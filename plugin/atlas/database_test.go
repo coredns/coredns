@@ -25,7 +25,7 @@ func TestAtlas_GetDSN_PostgresqlWithoutPort(t *testing.T) {
 func TestAtlas_GetDSN_PostgresqlWithoutUserInfo(t *testing.T) {
 	_, _, err := GetDSN("postgres://localhost/corednsdb?sslmode=verify-full")
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: user expected", err.Error())
+	require.Equal(t, "user expected", err.Error())
 }
 
 func TestAtlas_GetDSN_PostgresqlWitUser(t *testing.T) {
@@ -73,19 +73,19 @@ func TestAtlas_GetDSN_SQLite3(t *testing.T) {
 func TestAtlas_GetDSN_UnexpectedSchemeTest1(t *testing.T) {
 	_, _, err := GetDSN("some_strange_thing")
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: unexpected scheme", err.Error())
+	require.Equal(t, "unexpected scheme", err.Error())
 }
 
 func TestAtlas_GetDSN_UnexpectedSchemeTest2(t *testing.T) {
 	_, _, err := GetDSN("laladb://krank-the-film")
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: unexpected scheme", err.Error())
+	require.Equal(t, "unexpected scheme", err.Error())
 }
 
 func TestAtlas_getMySQLDsn(t *testing.T) {
 	_, _, err := getMySQLDSN(nil)
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: unexpected mysql dsn", err.Error())
+	require.Equal(t, "unexpected mysql dsn", err.Error())
 }
 
 func TestAtlas_getMySQLDsnWithoutUser(t *testing.T) {
@@ -93,7 +93,7 @@ func TestAtlas_getMySQLDsnWithoutUser(t *testing.T) {
 	require.Nil(t, err)
 	_, _, err = getMySQLDSN(u)
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: user expected", err.Error())
+	require.Equal(t, "user expected", err.Error())
 
 }
 
@@ -102,19 +102,19 @@ func TestAtlas_getPostgresDsn(t *testing.T) {
 	require.Nil(t, err)
 	_, _, err = getPostgresDSN(u)
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: user expected", err.Error())
+	require.Equal(t, "user expected", err.Error())
 }
 
 func TestAtlas_getPostgresDsnWithNilUrl(t *testing.T) {
 	_, _, err := getPostgresDSN(nil)
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: unexpected postgres dsn", err.Error())
+	require.Equal(t, "unexpected postgres dsn", err.Error())
 }
 
 func TestAtlas_OpenAtlasDB(t *testing.T) {
 	_, err := OpenAtlasDB("bla://bla")
 	require.NotNil(t, err)
-	require.Equal(t, "atlas: unexpected scheme", err.Error())
+	require.Equal(t, "unexpected scheme", err.Error())
 }
 
 func TestAtlas_OpenAtlasDB_TableNotFound(t *testing.T) {
