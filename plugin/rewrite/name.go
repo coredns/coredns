@@ -92,7 +92,7 @@ type nameRewriterResponseRule struct {
 	stringRewriter
 }
 
-func (r *nameRewriterResponseRule) RewriteResponse(rr dns.RR) {
+func (r *nameRewriterResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
 	rr.Header().Name = r.rewriteString(rr.Header().Name)
 }
 
@@ -101,7 +101,7 @@ type valueRewriterResponseRule struct {
 	stringRewriter
 }
 
-func (r *valueRewriterResponseRule) RewriteResponse(rr dns.RR) {
+func (r *valueRewriterResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
 	value := getRecordValueForRewrite(rr)
 	if value != "" {
 		new := r.rewriteString(value)
