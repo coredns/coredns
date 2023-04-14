@@ -123,7 +123,7 @@ func TestAtlas_ConfigFromFile_SuccessfulRead(t *testing.T) {
 	cfg := Config{dsnFile: "tests/vault.json"}
 	dsn, err := cfg.GetDsn()
 	require.Nil(t, err)
-	require.Equal(t, "postgres://postgres:secret@localhost:5432/corednsdb?sslmode=disable", dsn)
+	require.Equal(t, "sqlite3://file:ent?mode=memory&cache=shared&_fk=1", dsn)
 }
 
 func TestAtlas_ConfigFromFile_ErrorReadingFile(t *testing.T) {
