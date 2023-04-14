@@ -7,4 +7,5 @@ release/
 vendor/
 tmp/
 # plugin: atlas hashicorp vault agent config file 
-vault.json 
+vault.json
+.env

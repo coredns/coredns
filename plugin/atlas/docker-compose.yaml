@@ -5,9 +5,9 @@ services:
     container_name: atlasdemo
     image: postgres:latest
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret
-      POSTGRES_DB: corednsdb
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
       PGDATA: /data/postgres
     volumes:
        - postgres-db:/data/postgres
