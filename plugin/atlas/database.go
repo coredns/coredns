@@ -29,7 +29,7 @@ func GetDSN(conn string) (t, cn string, err error) {
 	// so we have to split the conn string by '//' and
 	// have to check for the sqlite3 scheme
 	schemer := strings.Split(conn, "//")
-	if len(schemer) == 0 {
+	if len(schemer) < 2 {
 		return t, cn, fmt.Errorf("atlas: unexpected scheme")
 	}
 	if schemer[0] == "sqlite3:" {
@@ -48,7 +48,7 @@ func GetDSN(conn string) (t, cn string, err error) {
 	case "mysql", "mariadb":
 		return getMySQLDSN(u)
 	default:
-		return t, cn, fmt.Errorf("atlas: unexpected scheme: %v", u.Scheme)
+		return t, cn, fmt.Errorf("atlas: unexpected scheme")
 	}
 }
 
@@ -103,7 +103,7 @@ func getHostWithPort(u *url.URL, defaultPort int) string {
 // getPostgresDSN returns the type and connection string for postgres databases
 func getPostgresDSN(u *url.URL) (t, c string, err error) {
 	if u == nil {
-		return t, c, fmt.Errorf("unexpected postgres dsn")
+		return t, c, fmt.Errorf("atlas: unexpected postgres dsn")
 	}
 
 	var s []string
@@ -115,7 +115,7 @@ func getPostgresDSN(u *url.URL) (t, c string, err error) {
 	}
 
 	if u.User == nil {
-		return t, c, fmt.Errorf("user expected")
+		return t, c, fmt.Errorf("atlas: user expected")
 	}
 
 	v := u.User.Username()

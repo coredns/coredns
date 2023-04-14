@@ -90,20 +90,20 @@ func setup(c *caddy.Controller) error {
 			case "dsn":
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf("atlas: argument for dsn expected"))
+					return plugin.Error(plgName, fmt.Errorf("argument for dsn expected"))
 				}
 				cfg.dsn = args[0]
 			case "file":
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf("atlas: argument for 'file' expected"))
+					return plugin.Error(plgName, fmt.Errorf("argument for 'file' expected"))
 				}
 				cfg.dsnFile = args[0]
 			case "automigrate":
 				var err error
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf("atlas: argument for 'automigrate' expected"))
+					return plugin.Error(plgName, fmt.Errorf("argument for 'automigrate' expected"))
 				}
 				if cfg.automigrate, err = strconv.ParseBool(args[0]); err != nil {
 					return err

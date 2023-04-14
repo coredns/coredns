@@ -12,3 +12,8 @@ pg.inspect:
 docker:
 	@docker compose up -d
 
+test:
+#	rm -rf coverage.html coverage.out
+	go test ./... -coverprofile coverage.out
+	go tool cover -html coverage.out -o coverage.html
+# 	@go test -race -covermode=atomic -coverprofile=coverage.out
