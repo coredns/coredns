@@ -7,7 +7,6 @@ package proxy
 import (
 	"context"
 	"io"
-	"net"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -118,15 +117,16 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
-			pc.c.Close() // not giving it back
 			if err == io.EOF && cached {
+				pc.c.Close() // connection closed by peer, close the persistent connection
 				return nil, ErrCachedClosed
 			}
 			// if the error is not the result of a timeout, continue waiting for an answer in case this was a spoofed
 			// malformed response.
-			if err, ok := err.(net.Error); ok && !err.Timeout() {
-				continue
-			}
+			//if err, ok := err.(net.Error); ok && !err.Timeout() {
+			//	continue
+			//}
+			pc.c.Close() // connection error or timeout, close persistent connection
 			// recovery the origin Id after upstream.
 			if ret != nil {
 				ret.Id = originId

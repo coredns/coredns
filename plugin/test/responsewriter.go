@@ -6,6 +6,8 @@ import (
 	"github.com/miekg/dns"
 )
 
+const SourcePort = 40212
+
 // ResponseWriter is useful for writing tests. It uses some fixed values for the client. The
 // remote will always be 10.240.0.1 and port 40212. The local address is always 127.0.0.1 and
 // port 53.
@@ -32,7 +34,7 @@ func (t *ResponseWriter) RemoteAddr() net.Addr {
 		remoteIP = t.RemoteIP
 	}
 	ip := net.ParseIP(remoteIP)
-	port := 40212
+	port := SourcePort
 	if t.TCP {
 		return &net.TCPAddr{IP: ip, Port: port, Zone: t.Zone}
 	}
@@ -74,7 +76,7 @@ func (t *ResponseWriter6) LocalAddr() net.Addr {
 // RemoteAddr returns the remote address, always fe80::42:ff:feca:4c65 port 40212 (UDP, TCP is t.TCP is true).
 func (t *ResponseWriter6) RemoteAddr() net.Addr {
 	if t.TCP {
-		return &net.TCPAddr{IP: net.ParseIP("fe80::42:ff:feca:4c65"), Port: 40212, Zone: ""}
+		return &net.TCPAddr{IP: net.ParseIP("fe80::42:ff:feca:4c65"), Port: SourcePort, Zone: ""}
 	}
-	return &net.UDPAddr{IP: net.ParseIP("fe80::42:ff:feca:4c65"), Port: 40212, Zone: ""}
+	return &net.UDPAddr{IP: net.ParseIP("fe80::42:ff:feca:4c65"), Port: SourcePort, Zone: ""}
 }
