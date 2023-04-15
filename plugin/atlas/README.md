@@ -48,11 +48,13 @@ What about name flattening "ANAME" records?
 atlas {
     dsn connectionstring
     [automigrate bool]
+    [debug bool]
 }
 ```
 
 - `dsn` is a string with the data source to which a connection is to be made
 - If you set the `automigrate` option to true, the Atlas plugin will migrate the database automatically. Good for development, but not recommended for production use! If the parameter is omitted, automigrate will be false by default.
+- `debug` true - logs all sql statements
 
 ## Supported Databases
 
@@ -103,6 +105,8 @@ The `dsnfile.json` has following expected format:
 
 #### SQLite3 InMemory (for testing)
 
+> **_NOTE:_** If you want to use SQLite3, you have to compile coredns with `CGO_ENABLED=1`!
+
 ```config
 atlas {
     dsn sqlite3://file:ent?mode=memory&cache=shared&_fk=1
@@ -111,7 +115,7 @@ atlas {
 
 ### PostgreSQL / CockroachDB
 
-_Attention_ socket connections are currently not supported.
+> **_NOTE:_** Socket connections are currently not supported.
 
 ```config
 atlas {
@@ -131,6 +135,8 @@ atlas {
 
 ### Read DSN from Credentials File
 
+> **_NOTE:_** Atlas does not detect file changes after starting coredns! Credential rotation is not supported at the moment.
+
 The credentials can be read from a json file.
 
 If it is a relative path, the current working directory is concatenated with the config path.
@@ -141,4 +147,10 @@ atlas {
 }
 ```
 
-JSON Config file has following format
+The JSON Config file has the following format:
+
+```json
+{
+    "dsn": "postgres://postgres:secret@localhost:5432/corednsdb?sslmode=disable"
+}
+```
