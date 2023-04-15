@@ -125,7 +125,7 @@ atlas {
 
 ### MySQL / MariaDB / TiDB
 
-_Attention_ socket connections are currently not supported.
+> **_NOTE:_** Socket connections are currently not supported.
 
 ```config
 atlas {
@@ -147,7 +147,7 @@ atlas {
 }
 ```
 
-The JSON Config file has the following format:
+The JSON config file has the following format:
 
 ```json
 {
