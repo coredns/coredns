@@ -1,6 +1,6 @@
 # Atlas
 
-Atlas is a SQL DB agnostic dns provider to store domain and record resources in a database.
+Atlas is a coredns SQL database plugin that stores zone and record resources in a relational database.
 
 It uses entgo.io as orm and [Ariga](https://ariga.io/) Atlas.
 

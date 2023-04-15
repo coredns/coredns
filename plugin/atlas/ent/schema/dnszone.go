@@ -3,6 +3,7 @@ package schema
 import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
@@ -91,7 +92,10 @@ func (DNSZone) Fields() []ent.Field {
 // Edges of the DNSZone.
 func (DNSZone) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.To("records", DnsRR.Type),
+		edge.To("records", DnsRR.Type).Annotations(
+			entsql.Annotation{
+				OnDelete: entsql.Cascade,
+			}),
 	}
 }
 

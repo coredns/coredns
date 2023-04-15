@@ -49,7 +49,7 @@ var (
 				Symbol:     "dns_rrs_dns_zones_records",
 				Columns:    []*schema.Column{DNSRrsColumns[6]},
 				RefColumns: []*schema.Column{DNSZonesColumns[0]},
-				OnDelete:   schema.NoAction,
+				OnDelete:   schema.Cascade,
 			},
 		},
 	}
