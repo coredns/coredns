@@ -6,5 +6,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// DNSZone is the predicate function for dnszone builders.
+type DNSZone func(*sql.Selector)
+
 // DnsRR is the predicate function for dnsrr builders.
 type DnsRR func(*sql.Selector)

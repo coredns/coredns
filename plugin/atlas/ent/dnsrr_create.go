@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/coredns/coredns/plugin/atlas/ent/dnszone"
 	"github.com/rs/xid"
 )
 
@@ -97,6 +98,17 @@ func (drc *DnsRRCreate) SetNillableID(x *xid.ID) *DnsRRCreate {
 	return drc
 }
 
+// SetZoneID sets the "zone" edge to the DNSZone entity by ID.
+func (drc *DnsRRCreate) SetZoneID(id xid.ID) *DnsRRCreate {
+	drc.mutation.SetZoneID(id)
+	return drc
+}
+
+// SetZone sets the "zone" edge to the DNSZone entity.
+func (drc *DnsRRCreate) SetZone(d *DNSZone) *DnsRRCreate {
+	return drc.SetZoneID(d.ID)
+}
+
 // Mutation returns the DnsRRMutation object of the builder.
 func (drc *DnsRRCreate) Mutation() *DnsRRMutation {
 	return drc.mutation
@@ -181,6 +193,9 @@ func (drc *DnsRRCreate) check() error {
 	if _, ok := drc.mutation.Activated(); !ok {
 		return &ValidationError{Name: "activated", err: errors.New(`ent: missing required field "DnsRR.activated"`)}
 	}
+	if _, ok := drc.mutation.ZoneID(); !ok {
+		return &ValidationError{Name: "zone", err: errors.New(`ent: missing required edge "DnsRR.zone"`)}
+	}
 	return nil
 }
 
@@ -235,6 +250,23 @@ func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 	if value, ok := drc.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
 		_node.Activated = value
+	}
+	if nodes := drc.mutation.ZoneIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   dnsrr.ZoneTable,
+			Columns: []string{dnsrr.ZoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dnszone.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.dns_zone_records = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

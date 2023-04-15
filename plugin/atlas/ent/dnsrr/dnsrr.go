@@ -23,8 +23,17 @@ const (
 	FieldTTL = "ttl"
 	// FieldActivated holds the string denoting the activated field in the database.
 	FieldActivated = "activated"
+	// EdgeZone holds the string denoting the zone edge name in mutations.
+	EdgeZone = "zone"
 	// Table holds the table name of the dnsrr in the database.
 	Table = "dns_rrs"
+	// ZoneTable is the table that holds the zone relation/edge.
+	ZoneTable = "dns_rrs"
+	// ZoneInverseTable is the table name for the DNSZone entity.
+	// It exists in this package in order to avoid circular dependency with the "dnszone" package.
+	ZoneInverseTable = "dns_zones"
+	// ZoneColumn is the table column denoting the zone relation/edge.
+	ZoneColumn = "dns_zone_records"
 )
 
 // Columns holds all SQL columns for dnsrr fields.
@@ -37,10 +46,21 @@ var Columns = []string{
 	FieldActivated,
 }
 
+// ForeignKeys holds the SQL foreign-keys that are owned by the "dns_rrs"
+// table and are not defined as standalone fields in the schema.
+var ForeignKeys = []string{
+	"dns_zone_records",
+}
+
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
 	for i := range Columns {
 		if column == Columns[i] {
+			return true
+		}
+	}
+	for i := range ForeignKeys {
+		if column == ForeignKeys[i] {
 			return true
 		}
 	}

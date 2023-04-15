@@ -24,6 +24,7 @@ type Config struct {
 	automigrate bool
 	dsn         string
 	dsnFile     string
+	debug       bool // log sql statements
 }
 
 type Credentials struct {
@@ -106,6 +107,15 @@ func setup(c *caddy.Controller) error {
 					return plugin.Error(plgName, fmt.Errorf("argument for 'automigrate' expected"))
 				}
 				if cfg.automigrate, err = strconv.ParseBool(args[0]); err != nil {
+					return err
+				}
+			case "debug":
+				var err error
+				args := c.RemainingArgs()
+				if len(args) <= 0 {
+					return plugin.Error(plgName, fmt.Errorf("argument for 'debug' expected"))
+				}
+				if cfg.debug, err = strconv.ParseBool(args[0]); err != nil {
 					return err
 				}
 			default:

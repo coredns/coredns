@@ -9,6 +9,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/coredns/coredns/plugin/atlas/ent/dnszone"
 	"github.com/rs/xid"
 )
 
@@ -28,6 +29,32 @@ type DnsRR struct {
 	TTL int32 `json:"ttl,omitempty"`
 	// only activated resource records will be served
 	Activated bool `json:"activated,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the DnsRRQuery when eager-loading is set.
+	Edges            DnsRREdges `json:"edges"`
+	dns_zone_records *xid.ID
+}
+
+// DnsRREdges holds the relations/edges for other nodes in the graph.
+type DnsRREdges struct {
+	// Zone holds the value of the zone edge.
+	Zone *DNSZone `json:"zone,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [1]bool
+}
+
+// ZoneOrErr returns the Zone value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e DnsRREdges) ZoneOrErr() (*DNSZone, error) {
+	if e.loadedTypes[0] {
+		if e.Zone == nil {
+			// Edge was loaded but was not found.
+			return nil, &NotFoundError{label: dnszone.Label}
+		}
+		return e.Zone, nil
+	}
+	return nil, &NotLoadedError{edge: "zone"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -45,6 +72,8 @@ func (*DnsRR) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullTime)
 		case dnsrr.FieldID:
 			values[i] = new(xid.ID)
+		case dnsrr.ForeignKeys[0]: // dns_zone_records
+			values[i] = &sql.NullScanner{S: new(xid.ID)}
 		default:
 			return nil, fmt.Errorf("unexpected column %q for type DnsRR", columns[i])
 		}
@@ -96,9 +125,21 @@ func (dr *DnsRR) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				dr.Activated = value.Bool
 			}
+		case dnsrr.ForeignKeys[0]:
+			if value, ok := values[i].(*sql.NullScanner); !ok {
+				return fmt.Errorf("unexpected type %T for field dns_zone_records", values[i])
+			} else if value.Valid {
+				dr.dns_zone_records = new(xid.ID)
+				*dr.dns_zone_records = *value.S.(*xid.ID)
+			}
 		}
 	}
 	return nil
+}
+
+// QueryZone queries the "zone" edge of the DnsRR entity.
+func (dr *DnsRR) QueryZone() *DNSZoneQuery {
+	return NewDnsRRClient(dr.config).QueryZone(dr)
 }
 
 // Update returns a builder for updating this DnsRR.

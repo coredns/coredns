@@ -9,6 +9,18 @@ import (
 	"github.com/coredns/coredns/plugin/atlas/ent"
 )
 
+// The DNSZoneFunc type is an adapter to allow the use of ordinary
+// function as DNSZone mutator.
+type DNSZoneFunc func(context.Context, *ent.DNSZoneMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DNSZoneFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DNSZoneMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DNSZoneMutation", m)
+}
+
 // The DnsRRFunc type is an adapter to allow the use of ordinary
 // function as DnsRR mutator.
 type DnsRRFunc func(context.Context, *ent.DnsRRMutation) (ent.Value, error)

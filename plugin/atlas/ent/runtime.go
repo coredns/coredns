@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/coredns/coredns/plugin/atlas/ent/dnszone"
 	"github.com/coredns/coredns/plugin/atlas/ent/schema"
 	"github.com/rs/xid"
 )
@@ -14,6 +15,186 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	dnszoneMixin := schema.DNSZone{}.Mixin()
+	dnszoneMixinFields0 := dnszoneMixin[0].Fields()
+	_ = dnszoneMixinFields0
+	dnszoneFields := schema.DNSZone{}.Fields()
+	_ = dnszoneFields
+	// dnszoneDescCreatedAt is the schema descriptor for created_at field.
+	dnszoneDescCreatedAt := dnszoneMixinFields0[1].Descriptor()
+	// dnszone.DefaultCreatedAt holds the default value on creation for the created_at field.
+	dnszone.DefaultCreatedAt = dnszoneDescCreatedAt.Default.(func() time.Time)
+	// dnszoneDescUpdatedAt is the schema descriptor for updated_at field.
+	dnszoneDescUpdatedAt := dnszoneMixinFields0[2].Descriptor()
+	// dnszone.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	dnszone.DefaultUpdatedAt = dnszoneDescUpdatedAt.Default.(func() time.Time)
+	// dnszone.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	dnszone.UpdateDefaultUpdatedAt = dnszoneDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// dnszoneDescName is the schema descriptor for name field.
+	dnszoneDescName := dnszoneFields[0].Descriptor()
+	// dnszone.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	dnszone.NameValidator = func() func(string) error {
+		validators := dnszoneDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnszoneDescMname is the schema descriptor for mname field.
+	dnszoneDescMname := dnszoneFields[1].Descriptor()
+	// dnszone.MnameValidator is a validator for the "mname" field. It is called by the builders before save.
+	dnszone.MnameValidator = func() func(string) error {
+		validators := dnszoneDescMname.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(mname string) error {
+			for _, fn := range fns {
+				if err := fn(mname); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnszoneDescRname is the schema descriptor for rname field.
+	dnszoneDescRname := dnszoneFields[2].Descriptor()
+	// dnszone.RnameValidator is a validator for the "rname" field. It is called by the builders before save.
+	dnszone.RnameValidator = func() func(string) error {
+		validators := dnszoneDescRname.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(rname string) error {
+			for _, fn := range fns {
+				if err := fn(rname); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnszoneDescTTL is the schema descriptor for ttl field.
+	dnszoneDescTTL := dnszoneFields[3].Descriptor()
+	// dnszone.DefaultTTL holds the default value on creation for the ttl field.
+	dnszone.DefaultTTL = dnszoneDescTTL.Default.(int32)
+	// dnszone.TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
+	dnszone.TTLValidator = func() func(int32) error {
+		validators := dnszoneDescTTL.Validators
+		fns := [...]func(int32) error{
+			validators[0].(func(int32) error),
+			validators[1].(func(int32) error),
+		}
+		return func(ttl int32) error {
+			for _, fn := range fns {
+				if err := fn(ttl); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnszoneDescRefresh is the schema descriptor for refresh field.
+	dnszoneDescRefresh := dnszoneFields[4].Descriptor()
+	// dnszone.DefaultRefresh holds the default value on creation for the refresh field.
+	dnszone.DefaultRefresh = dnszoneDescRefresh.Default.(int32)
+	// dnszone.RefreshValidator is a validator for the "refresh" field. It is called by the builders before save.
+	dnszone.RefreshValidator = func() func(int32) error {
+		validators := dnszoneDescRefresh.Validators
+		fns := [...]func(int32) error{
+			validators[0].(func(int32) error),
+			validators[1].(func(int32) error),
+		}
+		return func(refresh int32) error {
+			for _, fn := range fns {
+				if err := fn(refresh); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnszoneDescRetry is the schema descriptor for retry field.
+	dnszoneDescRetry := dnszoneFields[5].Descriptor()
+	// dnszone.DefaultRetry holds the default value on creation for the retry field.
+	dnszone.DefaultRetry = dnszoneDescRetry.Default.(int32)
+	// dnszone.RetryValidator is a validator for the "retry" field. It is called by the builders before save.
+	dnszone.RetryValidator = func() func(int32) error {
+		validators := dnszoneDescRetry.Validators
+		fns := [...]func(int32) error{
+			validators[0].(func(int32) error),
+			validators[1].(func(int32) error),
+		}
+		return func(retry int32) error {
+			for _, fn := range fns {
+				if err := fn(retry); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnszoneDescExpire is the schema descriptor for expire field.
+	dnszoneDescExpire := dnszoneFields[6].Descriptor()
+	// dnszone.DefaultExpire holds the default value on creation for the expire field.
+	dnszone.DefaultExpire = dnszoneDescExpire.Default.(int32)
+	// dnszone.ExpireValidator is a validator for the "expire" field. It is called by the builders before save.
+	dnszone.ExpireValidator = func() func(int32) error {
+		validators := dnszoneDescExpire.Validators
+		fns := [...]func(int32) error{
+			validators[0].(func(int32) error),
+			validators[1].(func(int32) error),
+		}
+		return func(expire int32) error {
+			for _, fn := range fns {
+				if err := fn(expire); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnszoneDescMinimum is the schema descriptor for minimum field.
+	dnszoneDescMinimum := dnszoneFields[7].Descriptor()
+	// dnszone.DefaultMinimum holds the default value on creation for the minimum field.
+	dnszone.DefaultMinimum = dnszoneDescMinimum.Default.(int32)
+	// dnszone.MinimumValidator is a validator for the "minimum" field. It is called by the builders before save.
+	dnszone.MinimumValidator = func() func(int32) error {
+		validators := dnszoneDescMinimum.Validators
+		fns := [...]func(int32) error{
+			validators[0].(func(int32) error),
+			validators[1].(func(int32) error),
+		}
+		return func(minimum int32) error {
+			for _, fn := range fns {
+				if err := fn(minimum); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnszoneDescActivated is the schema descriptor for activated field.
+	dnszoneDescActivated := dnszoneFields[8].Descriptor()
+	// dnszone.DefaultActivated holds the default value on creation for the activated field.
+	dnszone.DefaultActivated = dnszoneDescActivated.Default.(bool)
+	// dnszoneDescID is the schema descriptor for id field.
+	dnszoneDescID := dnszoneMixinFields0[0].Descriptor()
+	// dnszone.DefaultID holds the default value on creation for the id field.
+	dnszone.DefaultID = dnszoneDescID.Default.(func() xid.ID)
 	dnsrrMixin := schema.DnsRR{}.Mixin()
 	dnsrrMixinFields0 := dnsrrMixin[0].Fields()
 	_ = dnsrrMixinFields0

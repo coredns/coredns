@@ -14,7 +14,9 @@ import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/coredns/coredns/plugin/atlas/ent/dnszone"
 )
 
 // Client is the client that holds all ent builders.
@@ -22,6 +24,8 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// DNSZone is the client for interacting with the DNSZone builders.
+	DNSZone *DNSZoneClient
 	// DnsRR is the client for interacting with the DnsRR builders.
 	DnsRR *DnsRRClient
 }
@@ -37,6 +41,7 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.DNSZone = NewDNSZoneClient(c.config)
 	c.DnsRR = NewDnsRRClient(c.config)
 }
 
@@ -118,9 +123,10 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		DnsRR:  NewDnsRRClient(cfg),
+		ctx:     ctx,
+		config:  cfg,
+		DNSZone: NewDNSZoneClient(cfg),
+		DnsRR:   NewDnsRRClient(cfg),
 	}, nil
 }
 
@@ -138,16 +144,17 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		DnsRR:  NewDnsRRClient(cfg),
+		ctx:     ctx,
+		config:  cfg,
+		DNSZone: NewDNSZoneClient(cfg),
+		DnsRR:   NewDnsRRClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		DnsRR.
+//		DNSZone.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -169,22 +176,160 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.DNSZone.Use(hooks...)
 	c.DnsRR.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.DNSZone.Intercept(interceptors...)
 	c.DnsRR.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *DNSZoneMutation:
+		return c.DNSZone.mutate(ctx, m)
 	case *DnsRRMutation:
 		return c.DnsRR.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// DNSZoneClient is a client for the DNSZone schema.
+type DNSZoneClient struct {
+	config
+}
+
+// NewDNSZoneClient returns a client for the DNSZone from the given config.
+func NewDNSZoneClient(c config) *DNSZoneClient {
+	return &DNSZoneClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `dnszone.Hooks(f(g(h())))`.
+func (c *DNSZoneClient) Use(hooks ...Hook) {
+	c.hooks.DNSZone = append(c.hooks.DNSZone, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `dnszone.Intercept(f(g(h())))`.
+func (c *DNSZoneClient) Intercept(interceptors ...Interceptor) {
+	c.inters.DNSZone = append(c.inters.DNSZone, interceptors...)
+}
+
+// Create returns a builder for creating a DNSZone entity.
+func (c *DNSZoneClient) Create() *DNSZoneCreate {
+	mutation := newDNSZoneMutation(c.config, OpCreate)
+	return &DNSZoneCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of DNSZone entities.
+func (c *DNSZoneClient) CreateBulk(builders ...*DNSZoneCreate) *DNSZoneCreateBulk {
+	return &DNSZoneCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for DNSZone.
+func (c *DNSZoneClient) Update() *DNSZoneUpdate {
+	mutation := newDNSZoneMutation(c.config, OpUpdate)
+	return &DNSZoneUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *DNSZoneClient) UpdateOne(dz *DNSZone) *DNSZoneUpdateOne {
+	mutation := newDNSZoneMutation(c.config, OpUpdateOne, withDNSZone(dz))
+	return &DNSZoneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *DNSZoneClient) UpdateOneID(id xid.ID) *DNSZoneUpdateOne {
+	mutation := newDNSZoneMutation(c.config, OpUpdateOne, withDNSZoneID(id))
+	return &DNSZoneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for DNSZone.
+func (c *DNSZoneClient) Delete() *DNSZoneDelete {
+	mutation := newDNSZoneMutation(c.config, OpDelete)
+	return &DNSZoneDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *DNSZoneClient) DeleteOne(dz *DNSZone) *DNSZoneDeleteOne {
+	return c.DeleteOneID(dz.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *DNSZoneClient) DeleteOneID(id xid.ID) *DNSZoneDeleteOne {
+	builder := c.Delete().Where(dnszone.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &DNSZoneDeleteOne{builder}
+}
+
+// Query returns a query builder for DNSZone.
+func (c *DNSZoneClient) Query() *DNSZoneQuery {
+	return &DNSZoneQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeDNSZone},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a DNSZone entity by its id.
+func (c *DNSZoneClient) Get(ctx context.Context, id xid.ID) (*DNSZone, error) {
+	return c.Query().Where(dnszone.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *DNSZoneClient) GetX(ctx context.Context, id xid.ID) *DNSZone {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRecords queries the records edge of a DNSZone.
+func (c *DNSZoneClient) QueryRecords(dz *DNSZone) *DnsRRQuery {
+	query := (&DnsRRClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := dz.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(dnszone.Table, dnszone.FieldID, id),
+			sqlgraph.To(dnsrr.Table, dnsrr.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, dnszone.RecordsTable, dnszone.RecordsColumn),
+		)
+		fromV = sqlgraph.Neighbors(dz.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *DNSZoneClient) Hooks() []Hook {
+	return c.hooks.DNSZone
+}
+
+// Interceptors returns the client interceptors.
+func (c *DNSZoneClient) Interceptors() []Interceptor {
+	return c.inters.DNSZone
+}
+
+func (c *DNSZoneClient) mutate(ctx context.Context, m *DNSZoneMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&DNSZoneCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&DNSZoneUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&DNSZoneUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&DNSZoneDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown DNSZone mutation op: %q", m.Op())
 	}
 }
 
@@ -281,6 +426,22 @@ func (c *DnsRRClient) GetX(ctx context.Context, id xid.ID) *DnsRR {
 	return obj
 }
 
+// QueryZone queries the zone edge of a DnsRR.
+func (c *DnsRRClient) QueryZone(dr *DnsRR) *DNSZoneQuery {
+	query := (&DNSZoneClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := dr.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(dnsrr.Table, dnsrr.FieldID, id),
+			sqlgraph.To(dnszone.Table, dnszone.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, dnsrr.ZoneTable, dnsrr.ZoneColumn),
+		)
+		fromV = sqlgraph.Neighbors(dr.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *DnsRRClient) Hooks() []Hook {
 	return c.hooks.DnsRR
@@ -309,9 +470,9 @@ func (c *DnsRRClient) mutate(ctx context.Context, m *DnsRRMutation) (Value, erro
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		DnsRR []ent.Hook
+		DNSZone, DnsRR []ent.Hook
 	}
 	inters struct {
-		DnsRR []ent.Interceptor
+		DNSZone, DnsRR []ent.Interceptor
 	}
 )

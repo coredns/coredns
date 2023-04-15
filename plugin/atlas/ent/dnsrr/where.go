@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/coredns/coredns/plugin/atlas/ent/predicate"
 	"github.com/rs/xid"
 )
@@ -273,6 +274,33 @@ func ActivatedEQ(v bool) predicate.DnsRR {
 // ActivatedNEQ applies the NEQ predicate on the "activated" field.
 func ActivatedNEQ(v bool) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldNEQ(FieldActivated, v))
+}
+
+// HasZone applies the HasEdge predicate on the "zone" edge.
+func HasZone() predicate.DnsRR {
+	return predicate.DnsRR(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ZoneTable, ZoneColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasZoneWith applies the HasEdge predicate on the "zone" edge with a given conditions (other predicates).
+func HasZoneWith(preds ...predicate.DNSZone) predicate.DnsRR {
+	return predicate.DnsRR(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.To(ZoneInverseTable, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ZoneTable, ZoneColumn),
+		)
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

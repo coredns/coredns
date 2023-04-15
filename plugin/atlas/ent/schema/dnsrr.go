@@ -3,6 +3,7 @@ package schema
 import (
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
+	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
 
@@ -36,7 +37,12 @@ func (DnsRR) Fields() []ent.Field {
 
 // Edges of the DnsRR.
 func (DnsRR) Edges() []ent.Edge {
-	return nil
+	return []ent.Edge{
+		edge.From("zone", DNSZone.Type).
+			Ref("records").
+			Unique().
+			Required(),
+	}
 }
 
 // Mixin of the DNSRecord.

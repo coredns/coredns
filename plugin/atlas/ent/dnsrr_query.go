@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/coredns/coredns/plugin/atlas/ent/dnszone"
 	"github.com/coredns/coredns/plugin/atlas/ent/predicate"
 	"github.com/rs/xid"
 )
@@ -22,6 +23,8 @@ type DnsRRQuery struct {
 	order      []OrderFunc
 	inters     []Interceptor
 	predicates []predicate.DnsRR
+	withZone   *DNSZoneQuery
+	withFKs    bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -56,6 +59,28 @@ func (drq *DnsRRQuery) Unique(unique bool) *DnsRRQuery {
 func (drq *DnsRRQuery) Order(o ...OrderFunc) *DnsRRQuery {
 	drq.order = append(drq.order, o...)
 	return drq
+}
+
+// QueryZone chains the current query on the "zone" edge.
+func (drq *DnsRRQuery) QueryZone() *DNSZoneQuery {
+	query := (&DNSZoneClient{config: drq.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := drq.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := drq.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(dnsrr.Table, dnsrr.FieldID, selector),
+			sqlgraph.To(dnszone.Table, dnszone.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, dnsrr.ZoneTable, dnsrr.ZoneColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(drq.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first DnsRR entity from the query.
@@ -250,10 +275,22 @@ func (drq *DnsRRQuery) Clone() *DnsRRQuery {
 		order:      append([]OrderFunc{}, drq.order...),
 		inters:     append([]Interceptor{}, drq.inters...),
 		predicates: append([]predicate.DnsRR{}, drq.predicates...),
+		withZone:   drq.withZone.Clone(),
 		// clone intermediate query.
 		sql:  drq.sql.Clone(),
 		path: drq.path,
 	}
+}
+
+// WithZone tells the query-builder to eager-load the nodes that are connected to
+// the "zone" edge. The optional arguments are used to configure the query builder of the edge.
+func (drq *DnsRRQuery) WithZone(opts ...func(*DNSZoneQuery)) *DnsRRQuery {
+	query := (&DNSZoneClient{config: drq.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	drq.withZone = query
+	return drq
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -332,15 +369,26 @@ func (drq *DnsRRQuery) prepareQuery(ctx context.Context) error {
 
 func (drq *DnsRRQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*DnsRR, error) {
 	var (
-		nodes = []*DnsRR{}
-		_spec = drq.querySpec()
+		nodes       = []*DnsRR{}
+		withFKs     = drq.withFKs
+		_spec       = drq.querySpec()
+		loadedTypes = [1]bool{
+			drq.withZone != nil,
+		}
 	)
+	if drq.withZone != nil {
+		withFKs = true
+	}
+	if withFKs {
+		_spec.Node.Columns = append(_spec.Node.Columns, dnsrr.ForeignKeys...)
+	}
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*DnsRR).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &DnsRR{config: drq.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	for i := range hooks {
@@ -352,7 +400,46 @@ func (drq *DnsRRQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*DnsRR
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := drq.withZone; query != nil {
+		if err := drq.loadZone(ctx, query, nodes, nil,
+			func(n *DnsRR, e *DNSZone) { n.Edges.Zone = e }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (drq *DnsRRQuery) loadZone(ctx context.Context, query *DNSZoneQuery, nodes []*DnsRR, init func(*DnsRR), assign func(*DnsRR, *DNSZone)) error {
+	ids := make([]xid.ID, 0, len(nodes))
+	nodeids := make(map[xid.ID][]*DnsRR)
+	for i := range nodes {
+		if nodes[i].dns_zone_records == nil {
+			continue
+		}
+		fk := *nodes[i].dns_zone_records
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(dnszone.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "dns_zone_records" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
 }
 
 func (drq *DnsRRQuery) sqlCount(ctx context.Context) (int, error) {

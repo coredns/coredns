@@ -12,7 +12,9 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/coredns/coredns/plugin/atlas/ent/dnszone"
 	"github.com/coredns/coredns/plugin/atlas/ent/predicate"
+	"github.com/rs/xid"
 )
 
 // DnsRRUpdate is the builder for updating DnsRR entities.
@@ -69,9 +71,26 @@ func (dru *DnsRRUpdate) SetNillableActivated(b *bool) *DnsRRUpdate {
 	return dru
 }
 
+// SetZoneID sets the "zone" edge to the DNSZone entity by ID.
+func (dru *DnsRRUpdate) SetZoneID(id xid.ID) *DnsRRUpdate {
+	dru.mutation.SetZoneID(id)
+	return dru
+}
+
+// SetZone sets the "zone" edge to the DNSZone entity.
+func (dru *DnsRRUpdate) SetZone(d *DNSZone) *DnsRRUpdate {
+	return dru.SetZoneID(d.ID)
+}
+
 // Mutation returns the DnsRRMutation object of the builder.
 func (dru *DnsRRUpdate) Mutation() *DnsRRMutation {
 	return dru.mutation
+}
+
+// ClearZone clears the "zone" edge to the DNSZone entity.
+func (dru *DnsRRUpdate) ClearZone() *DnsRRUpdate {
+	dru.mutation.ClearZone()
+	return dru
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -117,6 +136,9 @@ func (dru *DnsRRUpdate) check() error {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsRR.ttl": %w`, err)}
 		}
 	}
+	if _, ok := dru.mutation.ZoneID(); dru.mutation.ZoneCleared() && !ok {
+		return errors.New(`ent: clearing a required unique edge "DnsRR.zone"`)
+	}
 	return nil
 }
 
@@ -143,6 +165,35 @@ func (dru *DnsRRUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	}
 	if value, ok := dru.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
+	}
+	if dru.mutation.ZoneCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   dnsrr.ZoneTable,
+			Columns: []string{dnsrr.ZoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dnszone.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := dru.mutation.ZoneIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   dnsrr.ZoneTable,
+			Columns: []string{dnsrr.ZoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dnszone.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if n, err = sqlgraph.UpdateNodes(ctx, dru.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
@@ -205,9 +256,26 @@ func (druo *DnsRRUpdateOne) SetNillableActivated(b *bool) *DnsRRUpdateOne {
 	return druo
 }
 
+// SetZoneID sets the "zone" edge to the DNSZone entity by ID.
+func (druo *DnsRRUpdateOne) SetZoneID(id xid.ID) *DnsRRUpdateOne {
+	druo.mutation.SetZoneID(id)
+	return druo
+}
+
+// SetZone sets the "zone" edge to the DNSZone entity.
+func (druo *DnsRRUpdateOne) SetZone(d *DNSZone) *DnsRRUpdateOne {
+	return druo.SetZoneID(d.ID)
+}
+
 // Mutation returns the DnsRRMutation object of the builder.
 func (druo *DnsRRUpdateOne) Mutation() *DnsRRMutation {
 	return druo.mutation
+}
+
+// ClearZone clears the "zone" edge to the DNSZone entity.
+func (druo *DnsRRUpdateOne) ClearZone() *DnsRRUpdateOne {
+	druo.mutation.ClearZone()
+	return druo
 }
 
 // Where appends a list predicates to the DnsRRUpdate builder.
@@ -266,6 +334,9 @@ func (druo *DnsRRUpdateOne) check() error {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsRR.ttl": %w`, err)}
 		}
 	}
+	if _, ok := druo.mutation.ZoneID(); druo.mutation.ZoneCleared() && !ok {
+		return errors.New(`ent: clearing a required unique edge "DnsRR.zone"`)
+	}
 	return nil
 }
 
@@ -309,6 +380,35 @@ func (druo *DnsRRUpdateOne) sqlSave(ctx context.Context) (_node *DnsRR, err erro
 	}
 	if value, ok := druo.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
+	}
+	if druo.mutation.ZoneCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   dnsrr.ZoneTable,
+			Columns: []string{dnsrr.ZoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dnszone.FieldID, field.TypeString),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := druo.mutation.ZoneIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   dnsrr.ZoneTable,
+			Columns: []string{dnsrr.ZoneColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(dnszone.FieldID, field.TypeString),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &DnsRR{config: druo.config}
 	_spec.Assign = _node.assignValues

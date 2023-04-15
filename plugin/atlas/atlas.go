@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/atlas/ent"
+	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
 	"github.com/coredns/coredns/plugin/metrics"
 
 	"github.com/miekg/dns"
@@ -24,7 +25,18 @@ type Atlas struct {
 // ServeDNS implements the plugin.Handler interface. This method gets called when atlas is used
 // in a Server.
 func (a Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+
 	log.Info("Atlas ServeDNS")
+	log.Debugf("request: %+v", r)
+	client := a.client
+
+	if a.cfg.debug {
+		client = client.Debug()
+	}
+
+	rrs, _ := client.DnsRR.Query().Select(dnsrr.FieldName).Where(dnsrr.Activated(true)).All(ctx)
+
+	log.Info(rrs)
 
 	// Wrap.
 	pw := NewResponsePrinter(w)
