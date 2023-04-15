@@ -2,11 +2,7 @@
 
 Atlas is a SQL DB agnostic dns provider to store domain and record resources in a database.
 
-It uses entgo.io as orm and [Ariga](https://ariga.io/) Atlas. Therefore the name was borrowed from that product and this software development is not related to Ariga!
-
-Since DNS makes the world go around, we have found: Atlas is the right service name!
-
-Moreover we are planning a GraphQL Service (closed source for now) that will work with the same database scheme, so we can better handle our day to day requirements.
+It uses entgo.io as orm and [Ariga](https://ariga.io/) Atlas.
 
 ## Supported Resource Records
 
