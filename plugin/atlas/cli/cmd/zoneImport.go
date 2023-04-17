@@ -107,7 +107,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.NS:
-			rec, err := record.NS{Ns: t.Ns}.Marshal()
+			rec, err := record.NewNS(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -131,7 +131,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.CNAME:
-			rec, err := record.CNAME{Target: t.Target}.Marshal()
+			rec, err := record.NewCNAME(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -139,7 +139,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.PTR:
-			rec, err := record.PTR{Ptr: t.Ptr}.Marshal()
+			rec, err := record.NewPTR(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -147,7 +147,55 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.HINFO:
-			rec, err := record.HINFO{Cpu: t.Cpu, Os: t.Os}.Marshal()
+			rec, err := record.NewHINFO(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.MB:
+			rec, err := record.NewMB(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.MINFO:
+			rec, err := record.NewMINFO(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.MG:
+			rec, err := record.NewMG(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.MR:
+			rec, err := record.NewMR(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.MF:
+			rec, err := record.NewMF(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.MD:
+			rec, err := record.NewMD(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -155,6 +203,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.TXT:
+			// TODO: fix dns.TXT generate
 			rec, err := record.TXT{Txt: t.Txt}.Marshal()
 			if err != nil {
 				return err
@@ -163,7 +212,31 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.MX:
-			rec, err := record.MX{Preference: t.Preference, Mx: t.Mx}.Marshal()
+			rec, err := record.NewMX(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.AFSDB:
+			rec, err := record.NewAFSDB(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.X25:
+			rec, err := record.NewX25(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.RT:
+			rec, err := record.NewRT(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -171,7 +244,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.RP:
-			rec, err := record.RP{Mbox: t.Mbox, Txt: t.Txt}.Marshal()
+			rec, err := record.NewRP(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -179,15 +252,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.LOC:
-			rec, err := record.LOC{
-				Version:   t.Version,
-				Size:      t.Size,
-				HorizPre:  t.HorizPre,
-				VertPre:   t.VertPre,
-				Latitude:  t.Latitude,
-				Longitude: t.Longitude,
-				Altitude:  t.Altitude,
-			}.Marshal()
+			rec, err := record.NewLOC(t).Marshal()
 
 			if err != nil {
 				return err
@@ -196,12 +261,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.SRV:
-			rec, err := record.SRV{
-				Priority: t.Priority,
-				Weight:   t.Weight,
-				Port:     t.Port,
-				Target:   t.Target,
-			}.Marshal()
+			rec, err := record.NewSRV(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -209,21 +269,15 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.DS:
-			rec, err := record.DS{KeyTag: t.KeyTag, Algorithm: t.Algorithm, DigestType: t.DigestType, Digest: t.Digest}.Marshal()
+			rec, err := record.NewDS(t).Marshal()
 			if err != nil {
 				return err
 			}
 			if err := importRecord(client, zone, t, rec); err != nil {
 				return err
 			}
-			fmt.Printf("DS: %+v => algorithm:%v digest:%v digestType:%v\n", t.Hdr, t.Algorithm, t.Digest, t.DigestType)
 		case *dns.TLSA:
-			rec, err := record.TLSA{
-				Usage:        t.Usage,
-				Selector:     t.Selector,
-				MatchingType: t.MatchingType,
-				Certificate:  t.Certificate,
-			}.Marshal()
+			rec, err := record.NewTLSA(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -231,7 +285,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.CAA:
-			rec, err := record.CAA{Flag: t.Flag, Tag: t.Tag, Value: t.Value}.Marshal()
+			rec, err := record.NewCAA(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -239,6 +293,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.SPF:
+			// TODO: fix dns.SPF generate
 			rec, err := record.SPF{Txt: t.Txt}.Marshal()
 			if err != nil {
 				return err
