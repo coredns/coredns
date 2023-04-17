@@ -128,7 +128,6 @@ func TestAtlas_OpenAtlasDB_MissingZone(t *testing.T) {
 		SetName("bla.com").
 		SetRrtype(dns.TypeA).
 		SetRrdata(`{"a":"1.2.3.4"}`).
-		SetRdlength(0).
 		Save(context.Background())
 	require.NotNil(t, err)
 	require.Equal(t, "ent: missing required edge \"DnsRR.zone\"", err.Error())

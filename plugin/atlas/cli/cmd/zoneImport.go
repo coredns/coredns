@@ -88,7 +88,6 @@ func (o *ZoneImportOptions) Run() error {
 		return err
 	}
 
-	fmt.Printf("file: %v\n", o.file)
 	f, err := os.Open(o.file)
 	if err != nil {
 		return err
@@ -112,7 +111,6 @@ func (o *ZoneImportOptions) Run() error {
 			if err != nil {
 				return err
 			}
-
 			if err := importRecord(client, zone, t, rec); err != nil {
 				return err
 			}
@@ -124,7 +122,6 @@ func (o *ZoneImportOptions) Run() error {
 			if err := importRecord(client, zone, t, rec); err != nil {
 				return err
 			}
-			fmt.Printf("A: %+v => %v\n", t.Hdr, t.A)
 		case *dns.AAAA:
 			rec, err := record.AAAA{AAAA: t.AAAA}.Marshal()
 			if err != nil {
@@ -174,20 +171,81 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.RP:
-			fmt.Printf("RP: %+v => mbox: %v txt: %v\n", t.Hdr, t.Mbox, t.Txt)
+			rec, err := record.RP{Mbox: t.Mbox, Txt: t.Txt}.Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
 		case *dns.LOC:
-			// this has more properties
-			fmt.Printf("LOC: %+v => altitude: %v lat: %v long: %v version: %v\n", t.Hdr, t.Altitude, t.Latitude, t.Longitude, t.Version)
+			rec, err := record.LOC{
+				Version:   t.Version,
+				Size:      t.Size,
+				HorizPre:  t.HorizPre,
+				VertPre:   t.VertPre,
+				Latitude:  t.Latitude,
+				Longitude: t.Longitude,
+				Altitude:  t.Altitude,
+			}.Marshal()
+
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
 		case *dns.SRV:
-			fmt.Printf("SRV: %+v => port:%v prio:%v target:%v weight:%v\n", t.Hdr, t.Port, t.Priority, t.Target, t.Weight)
+			rec, err := record.SRV{
+				Priority: t.Priority,
+				Weight:   t.Weight,
+				Port:     t.Port,
+				Target:   t.Target,
+			}.Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
 		case *dns.DS:
+			rec, err := record.DS{KeyTag: t.KeyTag, Algorithm: t.Algorithm, DigestType: t.DigestType, Digest: t.Digest}.Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
 			fmt.Printf("DS: %+v => algorithm:%v digest:%v digestType:%v\n", t.Hdr, t.Algorithm, t.Digest, t.DigestType)
 		case *dns.TLSA:
-			fmt.Printf("TLSA: %+v => cert:%v matchingType:%v selector:%v usage:%v\n", t.Hdr, t.Certificate, t.MatchingType, t.Selector, t.Usage)
+			rec, err := record.TLSA{
+				Usage:        t.Usage,
+				Selector:     t.Selector,
+				MatchingType: t.MatchingType,
+				Certificate:  t.Certificate,
+			}.Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
 		case *dns.CAA:
-			fmt.Printf("CAA: %+v => flag:%v tag:%v value:%v\n", t.Hdr, t.Flag, t.Tag, t.Value)
+			rec, err := record.CAA{Flag: t.Flag, Tag: t.Tag, Value: t.Value}.Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
 		case *dns.SPF:
-			fmt.Printf("SPF: %+v => %v\n", t.Hdr, t.Txt)
+			rec, err := record.SPF{Txt: t.Txt}.Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -211,7 +269,6 @@ func (o *ZoneImportOptions) importSOA(client *ent.Client, soa *dns.SOA) error {
 		SetRrtype(soa.Hdr.Rrtype).
 		SetClass(soa.Hdr.Class).
 		SetTTL(soa.Hdr.Ttl).
-		SetRdlength(soa.Hdr.Rdlength).
 		SetExpire(soa.Expire).
 		SetNs(soa.Ns).
 		SetMbox(soa.Mbox).
@@ -248,7 +305,6 @@ func importRecord[K DnsRecordResource](client *ent.Client, zone string, i K, zon
 		SetRrdata(zone_record).
 		SetClass(header.Class).
 		SetTTL(header.Ttl).
-		SetRdlength(header.Rdlength).
 		SetZoneID(zoneId).
 		Save(ctx)
 

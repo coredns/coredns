@@ -25,8 +25,6 @@ const (
 	FieldClass = "class"
 	// FieldTTL holds the string denoting the ttl field in the database.
 	FieldTTL = "ttl"
-	// FieldRdlength holds the string denoting the rdlength field in the database.
-	FieldRdlength = "rdlength"
 	// FieldNs holds the string denoting the ns field in the database.
 	FieldNs = "ns"
 	// FieldMbox holds the string denoting the mbox field in the database.
@@ -65,7 +63,6 @@ var Columns = []string{
 	FieldRrtype,
 	FieldClass,
 	FieldTTL,
-	FieldRdlength,
 	FieldNs,
 	FieldMbox,
 	FieldSerial,
@@ -103,8 +100,6 @@ var (
 	DefaultTTL uint32
 	// TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
 	TTLValidator func(uint32) error
-	// DefaultRdlength holds the default value on creation for the "rdlength" field.
-	DefaultRdlength uint16
 	// NsValidator is a validator for the "ns" field. It is called by the builders before save.
 	NsValidator func(string) error
 	// MboxValidator is a validator for the "mbox" field. It is called by the builders before save.

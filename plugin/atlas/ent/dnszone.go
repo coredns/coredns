@@ -30,8 +30,6 @@ type DnsZone struct {
 	Class uint16 `json:"class,omitempty"`
 	// Time-to-live
 	TTL uint32 `json:"ttl,omitempty"`
-	// length of data after header
-	Rdlength uint16 `json:"rdlength,omitempty"`
 	// primary master name server for this zone
 	Ns string `json:"ns,omitempty"`
 	// email address of the administrator responsible for this zone. (As usual, the email address is encoded as a name. The part of the email address before the @ becomes the first label of the name; the domain name after the @ becomes the rest of the name. In zone-file format, dots in labels are escaped with backslashes; thus the email address john.doe@example.com would be represented in a zone file as john.doe.example.com.)
@@ -78,7 +76,7 @@ func (*DnsZone) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case dnszone.FieldActivated:
 			values[i] = new(sql.NullBool)
-		case dnszone.FieldRrtype, dnszone.FieldClass, dnszone.FieldTTL, dnszone.FieldRdlength, dnszone.FieldSerial, dnszone.FieldRefresh, dnszone.FieldRetry, dnszone.FieldExpire, dnszone.FieldMinttl:
+		case dnszone.FieldRrtype, dnszone.FieldClass, dnszone.FieldTTL, dnszone.FieldSerial, dnszone.FieldRefresh, dnszone.FieldRetry, dnszone.FieldExpire, dnszone.FieldMinttl:
 			values[i] = new(sql.NullInt64)
 		case dnszone.FieldName, dnszone.FieldNs, dnszone.FieldMbox:
 			values[i] = new(sql.NullString)
@@ -142,12 +140,6 @@ func (dz *DnsZone) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field ttl", values[i])
 			} else if value.Valid {
 				dz.TTL = uint32(value.Int64)
-			}
-		case dnszone.FieldRdlength:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field rdlength", values[i])
-			} else if value.Valid {
-				dz.Rdlength = uint16(value.Int64)
 			}
 		case dnszone.FieldNs:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -247,9 +239,6 @@ func (dz *DnsZone) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("ttl=")
 	builder.WriteString(fmt.Sprintf("%v", dz.TTL))
-	builder.WriteString(", ")
-	builder.WriteString("rdlength=")
-	builder.WriteString(fmt.Sprintf("%v", dz.Rdlength))
 	builder.WriteString(", ")
 	builder.WriteString("ns=")
 	builder.WriteString(dz.Ns)

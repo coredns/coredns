@@ -91,11 +91,6 @@ func TTL(v uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldEQ(FieldTTL, v))
 }
 
-// Rdlength applies equality check predicate on the "rdlength" field. It's identical to RdlengthEQ.
-func Rdlength(v uint16) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldEQ(FieldRdlength, v))
-}
-
 // Activated applies equality check predicate on the "activated" field. It's identical to ActivatedEQ.
 func Activated(v bool) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldEQ(FieldActivated, v))
@@ -429,46 +424,6 @@ func TTLLT(v uint32) predicate.DnsRR {
 // TTLLTE applies the LTE predicate on the "ttl" field.
 func TTLLTE(v uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldLTE(FieldTTL, v))
-}
-
-// RdlengthEQ applies the EQ predicate on the "rdlength" field.
-func RdlengthEQ(v uint16) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldEQ(FieldRdlength, v))
-}
-
-// RdlengthNEQ applies the NEQ predicate on the "rdlength" field.
-func RdlengthNEQ(v uint16) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldNEQ(FieldRdlength, v))
-}
-
-// RdlengthIn applies the In predicate on the "rdlength" field.
-func RdlengthIn(vs ...uint16) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldIn(FieldRdlength, vs...))
-}
-
-// RdlengthNotIn applies the NotIn predicate on the "rdlength" field.
-func RdlengthNotIn(vs ...uint16) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldNotIn(FieldRdlength, vs...))
-}
-
-// RdlengthGT applies the GT predicate on the "rdlength" field.
-func RdlengthGT(v uint16) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldGT(FieldRdlength, v))
-}
-
-// RdlengthGTE applies the GTE predicate on the "rdlength" field.
-func RdlengthGTE(v uint16) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldGTE(FieldRdlength, v))
-}
-
-// RdlengthLT applies the LT predicate on the "rdlength" field.
-func RdlengthLT(v uint16) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldLT(FieldRdlength, v))
-}
-
-// RdlengthLTE applies the LTE predicate on the "rdlength" field.
-func RdlengthLTE(v uint16) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldLTE(FieldRdlength, v))
 }
 
 // ActivatedEQ applies the EQ predicate on the "activated" field.

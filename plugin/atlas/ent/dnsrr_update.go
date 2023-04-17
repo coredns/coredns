@@ -97,27 +97,6 @@ func (dru *DnsRRUpdate) AddTTL(u int32) *DnsRRUpdate {
 	return dru
 }
 
-// SetRdlength sets the "rdlength" field.
-func (dru *DnsRRUpdate) SetRdlength(u uint16) *DnsRRUpdate {
-	dru.mutation.ResetRdlength()
-	dru.mutation.SetRdlength(u)
-	return dru
-}
-
-// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
-func (dru *DnsRRUpdate) SetNillableRdlength(u *uint16) *DnsRRUpdate {
-	if u != nil {
-		dru.SetRdlength(*u)
-	}
-	return dru
-}
-
-// AddRdlength adds u to the "rdlength" field.
-func (dru *DnsRRUpdate) AddRdlength(u int16) *DnsRRUpdate {
-	dru.mutation.AddRdlength(u)
-	return dru
-}
-
 // SetActivated sets the "activated" field.
 func (dru *DnsRRUpdate) SetActivated(b bool) *DnsRRUpdate {
 	dru.mutation.SetActivated(b)
@@ -239,12 +218,6 @@ func (dru *DnsRRUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := dru.mutation.AddedTTL(); ok {
 		_spec.AddField(dnsrr.FieldTTL, field.TypeUint32, value)
 	}
-	if value, ok := dru.mutation.Rdlength(); ok {
-		_spec.SetField(dnsrr.FieldRdlength, field.TypeUint16, value)
-	}
-	if value, ok := dru.mutation.AddedRdlength(); ok {
-		_spec.AddField(dnsrr.FieldRdlength, field.TypeUint16, value)
-	}
 	if value, ok := dru.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
 	}
@@ -361,27 +334,6 @@ func (druo *DnsRRUpdateOne) SetNillableTTL(u *uint32) *DnsRRUpdateOne {
 // AddTTL adds u to the "ttl" field.
 func (druo *DnsRRUpdateOne) AddTTL(u int32) *DnsRRUpdateOne {
 	druo.mutation.AddTTL(u)
-	return druo
-}
-
-// SetRdlength sets the "rdlength" field.
-func (druo *DnsRRUpdateOne) SetRdlength(u uint16) *DnsRRUpdateOne {
-	druo.mutation.ResetRdlength()
-	druo.mutation.SetRdlength(u)
-	return druo
-}
-
-// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
-func (druo *DnsRRUpdateOne) SetNillableRdlength(u *uint16) *DnsRRUpdateOne {
-	if u != nil {
-		druo.SetRdlength(*u)
-	}
-	return druo
-}
-
-// AddRdlength adds u to the "rdlength" field.
-func (druo *DnsRRUpdateOne) AddRdlength(u int16) *DnsRRUpdateOne {
-	druo.mutation.AddRdlength(u)
 	return druo
 }
 
@@ -535,12 +487,6 @@ func (druo *DnsRRUpdateOne) sqlSave(ctx context.Context) (_node *DnsRR, err erro
 	}
 	if value, ok := druo.mutation.AddedTTL(); ok {
 		_spec.AddField(dnsrr.FieldTTL, field.TypeUint32, value)
-	}
-	if value, ok := druo.mutation.Rdlength(); ok {
-		_spec.SetField(dnsrr.FieldRdlength, field.TypeUint16, value)
-	}
-	if value, ok := druo.mutation.AddedRdlength(); ok {
-		_spec.AddField(dnsrr.FieldRdlength, field.TypeUint16, value)
 	}
 	if value, ok := druo.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)

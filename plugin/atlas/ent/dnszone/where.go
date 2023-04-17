@@ -86,11 +86,6 @@ func TTL(v uint32) predicate.DnsZone {
 	return predicate.DnsZone(sql.FieldEQ(FieldTTL, v))
 }
 
-// Rdlength applies equality check predicate on the "rdlength" field. It's identical to RdlengthEQ.
-func Rdlength(v uint16) predicate.DnsZone {
-	return predicate.DnsZone(sql.FieldEQ(FieldRdlength, v))
-}
-
 // Ns applies equality check predicate on the "ns" field. It's identical to NsEQ.
 func Ns(v string) predicate.DnsZone {
 	return predicate.DnsZone(sql.FieldEQ(FieldNs, v))
@@ -394,46 +389,6 @@ func TTLLT(v uint32) predicate.DnsZone {
 // TTLLTE applies the LTE predicate on the "ttl" field.
 func TTLLTE(v uint32) predicate.DnsZone {
 	return predicate.DnsZone(sql.FieldLTE(FieldTTL, v))
-}
-
-// RdlengthEQ applies the EQ predicate on the "rdlength" field.
-func RdlengthEQ(v uint16) predicate.DnsZone {
-	return predicate.DnsZone(sql.FieldEQ(FieldRdlength, v))
-}
-
-// RdlengthNEQ applies the NEQ predicate on the "rdlength" field.
-func RdlengthNEQ(v uint16) predicate.DnsZone {
-	return predicate.DnsZone(sql.FieldNEQ(FieldRdlength, v))
-}
-
-// RdlengthIn applies the In predicate on the "rdlength" field.
-func RdlengthIn(vs ...uint16) predicate.DnsZone {
-	return predicate.DnsZone(sql.FieldIn(FieldRdlength, vs...))
-}
-
-// RdlengthNotIn applies the NotIn predicate on the "rdlength" field.
-func RdlengthNotIn(vs ...uint16) predicate.DnsZone {
-	return predicate.DnsZone(sql.FieldNotIn(FieldRdlength, vs...))
-}
-
-// RdlengthGT applies the GT predicate on the "rdlength" field.
-func RdlengthGT(v uint16) predicate.DnsZone {
-	return predicate.DnsZone(sql.FieldGT(FieldRdlength, v))
-}
-
-// RdlengthGTE applies the GTE predicate on the "rdlength" field.
-func RdlengthGTE(v uint16) predicate.DnsZone {
-	return predicate.DnsZone(sql.FieldGTE(FieldRdlength, v))
-}
-
-// RdlengthLT applies the LT predicate on the "rdlength" field.
-func RdlengthLT(v uint16) predicate.DnsZone {
-	return predicate.DnsZone(sql.FieldLT(FieldRdlength, v))
-}
-
-// RdlengthLTE applies the LTE predicate on the "rdlength" field.
-func RdlengthLTE(v uint16) predicate.DnsZone {
-	return predicate.DnsZone(sql.FieldLTE(FieldRdlength, v))
 }
 
 // NsEQ applies the EQ predicate on the "ns" field.

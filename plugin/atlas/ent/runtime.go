@@ -73,12 +73,8 @@ func init() {
 			return nil
 		}
 	}()
-	// dnsrrDescRdlength is the schema descriptor for rdlength field.
-	dnsrrDescRdlength := dnsrrFields[5].Descriptor()
-	// dnsrr.DefaultRdlength holds the default value on creation for the rdlength field.
-	dnsrr.DefaultRdlength = dnsrrDescRdlength.Default.(uint16)
 	// dnsrrDescActivated is the schema descriptor for activated field.
-	dnsrrDescActivated := dnsrrFields[6].Descriptor()
+	dnsrrDescActivated := dnsrrFields[5].Descriptor()
 	// dnsrr.DefaultActivated holds the default value on creation for the activated field.
 	dnsrr.DefaultActivated = dnsrrDescActivated.Default.(bool)
 	// dnsrrDescID is the schema descriptor for id field.
@@ -147,12 +143,8 @@ func init() {
 			return nil
 		}
 	}()
-	// dnszoneDescRdlength is the schema descriptor for rdlength field.
-	dnszoneDescRdlength := dnszoneFields[4].Descriptor()
-	// dnszone.DefaultRdlength holds the default value on creation for the rdlength field.
-	dnszone.DefaultRdlength = dnszoneDescRdlength.Default.(uint16)
 	// dnszoneDescNs is the schema descriptor for ns field.
-	dnszoneDescNs := dnszoneFields[5].Descriptor()
+	dnszoneDescNs := dnszoneFields[4].Descriptor()
 	// dnszone.NsValidator is a validator for the "ns" field. It is called by the builders before save.
 	dnszone.NsValidator = func() func(string) error {
 		validators := dnszoneDescNs.Validators
@@ -171,7 +163,7 @@ func init() {
 		}
 	}()
 	// dnszoneDescMbox is the schema descriptor for mbox field.
-	dnszoneDescMbox := dnszoneFields[6].Descriptor()
+	dnszoneDescMbox := dnszoneFields[5].Descriptor()
 	// dnszone.MboxValidator is a validator for the "mbox" field. It is called by the builders before save.
 	dnszone.MboxValidator = func() func(string) error {
 		validators := dnszoneDescMbox.Validators
@@ -190,7 +182,7 @@ func init() {
 		}
 	}()
 	// dnszoneDescRefresh is the schema descriptor for refresh field.
-	dnszoneDescRefresh := dnszoneFields[8].Descriptor()
+	dnszoneDescRefresh := dnszoneFields[7].Descriptor()
 	// dnszone.DefaultRefresh holds the default value on creation for the refresh field.
 	dnszone.DefaultRefresh = dnszoneDescRefresh.Default.(uint32)
 	// dnszone.RefreshValidator is a validator for the "refresh" field. It is called by the builders before save.
@@ -210,7 +202,7 @@ func init() {
 		}
 	}()
 	// dnszoneDescRetry is the schema descriptor for retry field.
-	dnszoneDescRetry := dnszoneFields[9].Descriptor()
+	dnszoneDescRetry := dnszoneFields[8].Descriptor()
 	// dnszone.DefaultRetry holds the default value on creation for the retry field.
 	dnszone.DefaultRetry = dnszoneDescRetry.Default.(uint32)
 	// dnszone.RetryValidator is a validator for the "retry" field. It is called by the builders before save.
@@ -230,7 +222,7 @@ func init() {
 		}
 	}()
 	// dnszoneDescExpire is the schema descriptor for expire field.
-	dnszoneDescExpire := dnszoneFields[10].Descriptor()
+	dnszoneDescExpire := dnszoneFields[9].Descriptor()
 	// dnszone.DefaultExpire holds the default value on creation for the expire field.
 	dnszone.DefaultExpire = dnszoneDescExpire.Default.(uint32)
 	// dnszone.ExpireValidator is a validator for the "expire" field. It is called by the builders before save.
@@ -250,7 +242,7 @@ func init() {
 		}
 	}()
 	// dnszoneDescMinttl is the schema descriptor for minttl field.
-	dnszoneDescMinttl := dnszoneFields[11].Descriptor()
+	dnszoneDescMinttl := dnszoneFields[10].Descriptor()
 	// dnszone.DefaultMinttl holds the default value on creation for the minttl field.
 	dnszone.DefaultMinttl = dnszoneDescMinttl.Default.(uint32)
 	// dnszone.MinttlValidator is a validator for the "minttl" field. It is called by the builders before save.
@@ -270,7 +262,7 @@ func init() {
 		}
 	}()
 	// dnszoneDescActivated is the schema descriptor for activated field.
-	dnszoneDescActivated := dnszoneFields[12].Descriptor()
+	dnszoneDescActivated := dnszoneFields[11].Descriptor()
 	// dnszone.DefaultActivated holds the default value on creation for the activated field.
 	dnszone.DefaultActivated = dnszoneDescActivated.Default.(bool)
 	// dnszoneDescID is the schema descriptor for id field.

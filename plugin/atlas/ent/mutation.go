@@ -46,8 +46,6 @@ type DnsRRMutation struct {
 	addclass      *int16
 	ttl           *uint32
 	addttl        *int32
-	rdlength      *uint16
-	addrdlength   *int16
 	activated     *bool
 	clearedFields map[string]struct{}
 	zone          *xid.ID
@@ -473,62 +471,6 @@ func (m *DnsRRMutation) ResetTTL() {
 	m.addttl = nil
 }
 
-// SetRdlength sets the "rdlength" field.
-func (m *DnsRRMutation) SetRdlength(u uint16) {
-	m.rdlength = &u
-	m.addrdlength = nil
-}
-
-// Rdlength returns the value of the "rdlength" field in the mutation.
-func (m *DnsRRMutation) Rdlength() (r uint16, exists bool) {
-	v := m.rdlength
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRdlength returns the old "rdlength" field's value of the DnsRR entity.
-// If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DnsRRMutation) OldRdlength(ctx context.Context) (v uint16, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRdlength is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRdlength requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRdlength: %w", err)
-	}
-	return oldValue.Rdlength, nil
-}
-
-// AddRdlength adds u to the "rdlength" field.
-func (m *DnsRRMutation) AddRdlength(u int16) {
-	if m.addrdlength != nil {
-		*m.addrdlength += u
-	} else {
-		m.addrdlength = &u
-	}
-}
-
-// AddedRdlength returns the value that was added to the "rdlength" field in this mutation.
-func (m *DnsRRMutation) AddedRdlength() (r int16, exists bool) {
-	v := m.addrdlength
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetRdlength resets all changes to the "rdlength" field.
-func (m *DnsRRMutation) ResetRdlength() {
-	m.rdlength = nil
-	m.addrdlength = nil
-}
-
 // SetActivated sets the "activated" field.
 func (m *DnsRRMutation) SetActivated(b bool) {
 	m.activated = &b
@@ -638,7 +580,7 @@ func (m *DnsRRMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DnsRRMutation) Fields() []string {
-	fields := make([]string, 0, 9)
+	fields := make([]string, 0, 8)
 	if m.created_at != nil {
 		fields = append(fields, dnsrr.FieldCreatedAt)
 	}
@@ -659,9 +601,6 @@ func (m *DnsRRMutation) Fields() []string {
 	}
 	if m.ttl != nil {
 		fields = append(fields, dnsrr.FieldTTL)
-	}
-	if m.rdlength != nil {
-		fields = append(fields, dnsrr.FieldRdlength)
 	}
 	if m.activated != nil {
 		fields = append(fields, dnsrr.FieldActivated)
@@ -688,8 +627,6 @@ func (m *DnsRRMutation) Field(name string) (ent.Value, bool) {
 		return m.Class()
 	case dnsrr.FieldTTL:
 		return m.TTL()
-	case dnsrr.FieldRdlength:
-		return m.Rdlength()
 	case dnsrr.FieldActivated:
 		return m.Activated()
 	}
@@ -715,8 +652,6 @@ func (m *DnsRRMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldClass(ctx)
 	case dnsrr.FieldTTL:
 		return m.OldTTL(ctx)
-	case dnsrr.FieldRdlength:
-		return m.OldRdlength(ctx)
 	case dnsrr.FieldActivated:
 		return m.OldActivated(ctx)
 	}
@@ -777,13 +712,6 @@ func (m *DnsRRMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetTTL(v)
 		return nil
-	case dnsrr.FieldRdlength:
-		v, ok := value.(uint16)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRdlength(v)
-		return nil
 	case dnsrr.FieldActivated:
 		v, ok := value.(bool)
 		if !ok {
@@ -808,9 +736,6 @@ func (m *DnsRRMutation) AddedFields() []string {
 	if m.addttl != nil {
 		fields = append(fields, dnsrr.FieldTTL)
 	}
-	if m.addrdlength != nil {
-		fields = append(fields, dnsrr.FieldRdlength)
-	}
 	return fields
 }
 
@@ -825,8 +750,6 @@ func (m *DnsRRMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedClass()
 	case dnsrr.FieldTTL:
 		return m.AddedTTL()
-	case dnsrr.FieldRdlength:
-		return m.AddedRdlength()
 	}
 	return nil, false
 }
@@ -856,13 +779,6 @@ func (m *DnsRRMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddTTL(v)
-		return nil
-	case dnsrr.FieldRdlength:
-		v, ok := value.(int16)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddRdlength(v)
 		return nil
 	}
 	return fmt.Errorf("unknown DnsRR numeric field %s", name)
@@ -911,9 +827,6 @@ func (m *DnsRRMutation) ResetField(name string) error {
 		return nil
 	case dnsrr.FieldTTL:
 		m.ResetTTL()
-		return nil
-	case dnsrr.FieldRdlength:
-		m.ResetRdlength()
 		return nil
 	case dnsrr.FieldActivated:
 		m.ResetActivated()
@@ -1011,8 +924,6 @@ type DnsZoneMutation struct {
 	addclass       *int16
 	ttl            *uint32
 	addttl         *int32
-	rdlength       *uint16
-	addrdlength    *int16
 	ns             *string
 	mbox           *string
 	serial         *uint32
@@ -1413,62 +1324,6 @@ func (m *DnsZoneMutation) AddedTTL() (r int32, exists bool) {
 func (m *DnsZoneMutation) ResetTTL() {
 	m.ttl = nil
 	m.addttl = nil
-}
-
-// SetRdlength sets the "rdlength" field.
-func (m *DnsZoneMutation) SetRdlength(u uint16) {
-	m.rdlength = &u
-	m.addrdlength = nil
-}
-
-// Rdlength returns the value of the "rdlength" field in the mutation.
-func (m *DnsZoneMutation) Rdlength() (r uint16, exists bool) {
-	v := m.rdlength
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRdlength returns the old "rdlength" field's value of the DnsZone entity.
-// If the DnsZone object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DnsZoneMutation) OldRdlength(ctx context.Context) (v uint16, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRdlength is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRdlength requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRdlength: %w", err)
-	}
-	return oldValue.Rdlength, nil
-}
-
-// AddRdlength adds u to the "rdlength" field.
-func (m *DnsZoneMutation) AddRdlength(u int16) {
-	if m.addrdlength != nil {
-		*m.addrdlength += u
-	} else {
-		m.addrdlength = &u
-	}
-}
-
-// AddedRdlength returns the value that was added to the "rdlength" field in this mutation.
-func (m *DnsZoneMutation) AddedRdlength() (r int16, exists bool) {
-	v := m.addrdlength
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// ResetRdlength resets all changes to the "rdlength" field.
-func (m *DnsZoneMutation) ResetRdlength() {
-	m.rdlength = nil
-	m.addrdlength = nil
 }
 
 // SetNs sets the "ns" field.
@@ -1947,7 +1802,7 @@ func (m *DnsZoneMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DnsZoneMutation) Fields() []string {
-	fields := make([]string, 0, 15)
+	fields := make([]string, 0, 14)
 	if m.created_at != nil {
 		fields = append(fields, dnszone.FieldCreatedAt)
 	}
@@ -1965,9 +1820,6 @@ func (m *DnsZoneMutation) Fields() []string {
 	}
 	if m.ttl != nil {
 		fields = append(fields, dnszone.FieldTTL)
-	}
-	if m.rdlength != nil {
-		fields = append(fields, dnszone.FieldRdlength)
 	}
 	if m.ns != nil {
 		fields = append(fields, dnszone.FieldNs)
@@ -2013,8 +1865,6 @@ func (m *DnsZoneMutation) Field(name string) (ent.Value, bool) {
 		return m.Class()
 	case dnszone.FieldTTL:
 		return m.TTL()
-	case dnszone.FieldRdlength:
-		return m.Rdlength()
 	case dnszone.FieldNs:
 		return m.Ns()
 	case dnszone.FieldMbox:
@@ -2052,8 +1902,6 @@ func (m *DnsZoneMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldClass(ctx)
 	case dnszone.FieldTTL:
 		return m.OldTTL(ctx)
-	case dnszone.FieldRdlength:
-		return m.OldRdlength(ctx)
 	case dnszone.FieldNs:
 		return m.OldNs(ctx)
 	case dnszone.FieldMbox:
@@ -2120,13 +1968,6 @@ func (m *DnsZoneMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTTL(v)
-		return nil
-	case dnszone.FieldRdlength:
-		v, ok := value.(uint16)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRdlength(v)
 		return nil
 	case dnszone.FieldNs:
 		v, ok := value.(string)
@@ -2201,9 +2042,6 @@ func (m *DnsZoneMutation) AddedFields() []string {
 	if m.addttl != nil {
 		fields = append(fields, dnszone.FieldTTL)
 	}
-	if m.addrdlength != nil {
-		fields = append(fields, dnszone.FieldRdlength)
-	}
 	if m.addserial != nil {
 		fields = append(fields, dnszone.FieldSerial)
 	}
@@ -2233,8 +2071,6 @@ func (m *DnsZoneMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedClass()
 	case dnszone.FieldTTL:
 		return m.AddedTTL()
-	case dnszone.FieldRdlength:
-		return m.AddedRdlength()
 	case dnszone.FieldSerial:
 		return m.AddedSerial()
 	case dnszone.FieldRefresh:
@@ -2274,13 +2110,6 @@ func (m *DnsZoneMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddTTL(v)
-		return nil
-	case dnszone.FieldRdlength:
-		v, ok := value.(int16)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.AddRdlength(v)
 		return nil
 	case dnszone.FieldSerial:
 		v, ok := value.(int32)
@@ -2361,9 +2190,6 @@ func (m *DnsZoneMutation) ResetField(name string) error {
 		return nil
 	case dnszone.FieldTTL:
 		m.ResetTTL()
-		return nil
-	case dnszone.FieldRdlength:
-		m.ResetRdlength()
 		return nil
 	case dnszone.FieldNs:
 		m.ResetNs()

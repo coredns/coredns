@@ -101,20 +101,6 @@ func (dzc *DnsZoneCreate) SetNillableTTL(u *uint32) *DnsZoneCreate {
 	return dzc
 }
 
-// SetRdlength sets the "rdlength" field.
-func (dzc *DnsZoneCreate) SetRdlength(u uint16) *DnsZoneCreate {
-	dzc.mutation.SetRdlength(u)
-	return dzc
-}
-
-// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
-func (dzc *DnsZoneCreate) SetNillableRdlength(u *uint16) *DnsZoneCreate {
-	if u != nil {
-		dzc.SetRdlength(*u)
-	}
-	return dzc
-}
-
 // SetNs sets the "ns" field.
 func (dzc *DnsZoneCreate) SetNs(s string) *DnsZoneCreate {
 	dzc.mutation.SetNs(s)
@@ -287,10 +273,6 @@ func (dzc *DnsZoneCreate) defaults() {
 		v := dnszone.DefaultTTL
 		dzc.mutation.SetTTL(v)
 	}
-	if _, ok := dzc.mutation.Rdlength(); !ok {
-		v := dnszone.DefaultRdlength
-		dzc.mutation.SetRdlength(v)
-	}
 	if _, ok := dzc.mutation.Refresh(); !ok {
 		v := dnszone.DefaultRefresh
 		dzc.mutation.SetRefresh(v)
@@ -346,9 +328,6 @@ func (dzc *DnsZoneCreate) check() error {
 		if err := dnszone.TTLValidator(v); err != nil {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsZone.ttl": %w`, err)}
 		}
-	}
-	if _, ok := dzc.mutation.Rdlength(); !ok {
-		return &ValidationError{Name: "rdlength", err: errors.New(`ent: missing required field "DnsZone.rdlength"`)}
 	}
 	if _, ok := dzc.mutation.Ns(); !ok {
 		return &ValidationError{Name: "ns", err: errors.New(`ent: missing required field "DnsZone.ns"`)}
@@ -463,10 +442,6 @@ func (dzc *DnsZoneCreate) createSpec() (*DnsZone, *sqlgraph.CreateSpec) {
 	if value, ok := dzc.mutation.TTL(); ok {
 		_spec.SetField(dnszone.FieldTTL, field.TypeUint32, value)
 		_node.TTL = value
-	}
-	if value, ok := dzc.mutation.Rdlength(); ok {
-		_spec.SetField(dnszone.FieldRdlength, field.TypeUint16, value)
-		_node.Rdlength = value
 	}
 	if value, ok := dzc.mutation.Ns(); ok {
 		_spec.SetField(dnszone.FieldNs, field.TypeString, value)
@@ -631,24 +606,6 @@ func (u *DnsZoneUpsert) UpdateTTL() *DnsZoneUpsert {
 // AddTTL adds v to the "ttl" field.
 func (u *DnsZoneUpsert) AddTTL(v uint32) *DnsZoneUpsert {
 	u.Add(dnszone.FieldTTL, v)
-	return u
-}
-
-// SetRdlength sets the "rdlength" field.
-func (u *DnsZoneUpsert) SetRdlength(v uint16) *DnsZoneUpsert {
-	u.Set(dnszone.FieldRdlength, v)
-	return u
-}
-
-// UpdateRdlength sets the "rdlength" field to the value that was provided on create.
-func (u *DnsZoneUpsert) UpdateRdlength() *DnsZoneUpsert {
-	u.SetExcluded(dnszone.FieldRdlength)
-	return u
-}
-
-// AddRdlength adds v to the "rdlength" field.
-func (u *DnsZoneUpsert) AddRdlength(v uint16) *DnsZoneUpsert {
-	u.Add(dnszone.FieldRdlength, v)
 	return u
 }
 
@@ -906,27 +863,6 @@ func (u *DnsZoneUpsertOne) AddTTL(v uint32) *DnsZoneUpsertOne {
 func (u *DnsZoneUpsertOne) UpdateTTL() *DnsZoneUpsertOne {
 	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateTTL()
-	})
-}
-
-// SetRdlength sets the "rdlength" field.
-func (u *DnsZoneUpsertOne) SetRdlength(v uint16) *DnsZoneUpsertOne {
-	return u.Update(func(s *DnsZoneUpsert) {
-		s.SetRdlength(v)
-	})
-}
-
-// AddRdlength adds v to the "rdlength" field.
-func (u *DnsZoneUpsertOne) AddRdlength(v uint16) *DnsZoneUpsertOne {
-	return u.Update(func(s *DnsZoneUpsert) {
-		s.AddRdlength(v)
-	})
-}
-
-// UpdateRdlength sets the "rdlength" field to the value that was provided on create.
-func (u *DnsZoneUpsertOne) UpdateRdlength() *DnsZoneUpsertOne {
-	return u.Update(func(s *DnsZoneUpsert) {
-		s.UpdateRdlength()
 	})
 }
 
@@ -1368,27 +1304,6 @@ func (u *DnsZoneUpsertBulk) AddTTL(v uint32) *DnsZoneUpsertBulk {
 func (u *DnsZoneUpsertBulk) UpdateTTL() *DnsZoneUpsertBulk {
 	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateTTL()
-	})
-}
-
-// SetRdlength sets the "rdlength" field.
-func (u *DnsZoneUpsertBulk) SetRdlength(v uint16) *DnsZoneUpsertBulk {
-	return u.Update(func(s *DnsZoneUpsert) {
-		s.SetRdlength(v)
-	})
-}
-
-// AddRdlength adds v to the "rdlength" field.
-func (u *DnsZoneUpsertBulk) AddRdlength(v uint16) *DnsZoneUpsertBulk {
-	return u.Update(func(s *DnsZoneUpsert) {
-		s.AddRdlength(v)
-	})
-}
-
-// UpdateRdlength sets the "rdlength" field to the value that was provided on create.
-func (u *DnsZoneUpsertBulk) UpdateRdlength() *DnsZoneUpsertBulk {
-	return u.Update(func(s *DnsZoneUpsert) {
-		s.UpdateRdlength()
 	})
 }
 

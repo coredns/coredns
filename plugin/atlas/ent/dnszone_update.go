@@ -99,27 +99,6 @@ func (dzu *DnsZoneUpdate) AddTTL(u int32) *DnsZoneUpdate {
 	return dzu
 }
 
-// SetRdlength sets the "rdlength" field.
-func (dzu *DnsZoneUpdate) SetRdlength(u uint16) *DnsZoneUpdate {
-	dzu.mutation.ResetRdlength()
-	dzu.mutation.SetRdlength(u)
-	return dzu
-}
-
-// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
-func (dzu *DnsZoneUpdate) SetNillableRdlength(u *uint16) *DnsZoneUpdate {
-	if u != nil {
-		dzu.SetRdlength(*u)
-	}
-	return dzu
-}
-
-// AddRdlength adds u to the "rdlength" field.
-func (dzu *DnsZoneUpdate) AddRdlength(u int16) *DnsZoneUpdate {
-	dzu.mutation.AddRdlength(u)
-	return dzu
-}
-
 // SetNs sets the "ns" field.
 func (dzu *DnsZoneUpdate) SetNs(s string) *DnsZoneUpdate {
 	dzu.mutation.SetNs(s)
@@ -393,12 +372,6 @@ func (dzu *DnsZoneUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := dzu.mutation.AddedTTL(); ok {
 		_spec.AddField(dnszone.FieldTTL, field.TypeUint32, value)
 	}
-	if value, ok := dzu.mutation.Rdlength(); ok {
-		_spec.SetField(dnszone.FieldRdlength, field.TypeUint16, value)
-	}
-	if value, ok := dzu.mutation.AddedRdlength(); ok {
-		_spec.AddField(dnszone.FieldRdlength, field.TypeUint16, value)
-	}
 	if value, ok := dzu.mutation.Ns(); ok {
 		_spec.SetField(dnszone.FieldNs, field.TypeString, value)
 	}
@@ -569,27 +542,6 @@ func (dzuo *DnsZoneUpdateOne) SetNillableTTL(u *uint32) *DnsZoneUpdateOne {
 // AddTTL adds u to the "ttl" field.
 func (dzuo *DnsZoneUpdateOne) AddTTL(u int32) *DnsZoneUpdateOne {
 	dzuo.mutation.AddTTL(u)
-	return dzuo
-}
-
-// SetRdlength sets the "rdlength" field.
-func (dzuo *DnsZoneUpdateOne) SetRdlength(u uint16) *DnsZoneUpdateOne {
-	dzuo.mutation.ResetRdlength()
-	dzuo.mutation.SetRdlength(u)
-	return dzuo
-}
-
-// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
-func (dzuo *DnsZoneUpdateOne) SetNillableRdlength(u *uint16) *DnsZoneUpdateOne {
-	if u != nil {
-		dzuo.SetRdlength(*u)
-	}
-	return dzuo
-}
-
-// AddRdlength adds u to the "rdlength" field.
-func (dzuo *DnsZoneUpdateOne) AddRdlength(u int16) *DnsZoneUpdateOne {
-	dzuo.mutation.AddRdlength(u)
 	return dzuo
 }
 
@@ -895,12 +847,6 @@ func (dzuo *DnsZoneUpdateOne) sqlSave(ctx context.Context) (_node *DnsZone, err 
 	}
 	if value, ok := dzuo.mutation.AddedTTL(); ok {
 		_spec.AddField(dnszone.FieldTTL, field.TypeUint32, value)
-	}
-	if value, ok := dzuo.mutation.Rdlength(); ok {
-		_spec.SetField(dnszone.FieldRdlength, field.TypeUint16, value)
-	}
-	if value, ok := dzuo.mutation.AddedRdlength(); ok {
-		_spec.AddField(dnszone.FieldRdlength, field.TypeUint16, value)
 	}
 	if value, ok := dzuo.mutation.Ns(); ok {
 		_spec.SetField(dnszone.FieldNs, field.TypeString, value)

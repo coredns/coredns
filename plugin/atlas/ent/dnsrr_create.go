@@ -99,20 +99,6 @@ func (drc *DnsRRCreate) SetNillableTTL(u *uint32) *DnsRRCreate {
 	return drc
 }
 
-// SetRdlength sets the "rdlength" field.
-func (drc *DnsRRCreate) SetRdlength(u uint16) *DnsRRCreate {
-	drc.mutation.SetRdlength(u)
-	return drc
-}
-
-// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
-func (drc *DnsRRCreate) SetNillableRdlength(u *uint16) *DnsRRCreate {
-	if u != nil {
-		drc.SetRdlength(*u)
-	}
-	return drc
-}
-
 // SetActivated sets the "activated" field.
 func (drc *DnsRRCreate) SetActivated(b bool) *DnsRRCreate {
 	drc.mutation.SetActivated(b)
@@ -203,10 +189,6 @@ func (drc *DnsRRCreate) defaults() {
 		v := dnsrr.DefaultTTL
 		drc.mutation.SetTTL(v)
 	}
-	if _, ok := drc.mutation.Rdlength(); !ok {
-		v := dnsrr.DefaultRdlength
-		drc.mutation.SetRdlength(v)
-	}
 	if _, ok := drc.mutation.Activated(); !ok {
 		v := dnsrr.DefaultActivated
 		drc.mutation.SetActivated(v)
@@ -249,9 +231,6 @@ func (drc *DnsRRCreate) check() error {
 		if err := dnsrr.TTLValidator(v); err != nil {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsRR.ttl": %w`, err)}
 		}
-	}
-	if _, ok := drc.mutation.Rdlength(); !ok {
-		return &ValidationError{Name: "rdlength", err: errors.New(`ent: missing required field "DnsRR.rdlength"`)}
 	}
 	if _, ok := drc.mutation.Activated(); !ok {
 		return &ValidationError{Name: "activated", err: errors.New(`ent: missing required field "DnsRR.activated"`)}
@@ -322,10 +301,6 @@ func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 	if value, ok := drc.mutation.TTL(); ok {
 		_spec.SetField(dnsrr.FieldTTL, field.TypeUint32, value)
 		_node.TTL = value
-	}
-	if value, ok := drc.mutation.Rdlength(); ok {
-		_spec.SetField(dnsrr.FieldRdlength, field.TypeUint16, value)
-		_node.Rdlength = value
 	}
 	if value, ok := drc.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
@@ -475,24 +450,6 @@ func (u *DnsRRUpsert) UpdateTTL() *DnsRRUpsert {
 // AddTTL adds v to the "ttl" field.
 func (u *DnsRRUpsert) AddTTL(v uint32) *DnsRRUpsert {
 	u.Add(dnsrr.FieldTTL, v)
-	return u
-}
-
-// SetRdlength sets the "rdlength" field.
-func (u *DnsRRUpsert) SetRdlength(v uint16) *DnsRRUpsert {
-	u.Set(dnsrr.FieldRdlength, v)
-	return u
-}
-
-// UpdateRdlength sets the "rdlength" field to the value that was provided on create.
-func (u *DnsRRUpsert) UpdateRdlength() *DnsRRUpsert {
-	u.SetExcluded(dnsrr.FieldRdlength)
-	return u
-}
-
-// AddRdlength adds v to the "rdlength" field.
-func (u *DnsRRUpsert) AddRdlength(v uint16) *DnsRRUpsert {
-	u.Add(dnsrr.FieldRdlength, v)
 	return u
 }
 
@@ -650,27 +607,6 @@ func (u *DnsRRUpsertOne) AddTTL(v uint32) *DnsRRUpsertOne {
 func (u *DnsRRUpsertOne) UpdateTTL() *DnsRRUpsertOne {
 	return u.Update(func(s *DnsRRUpsert) {
 		s.UpdateTTL()
-	})
-}
-
-// SetRdlength sets the "rdlength" field.
-func (u *DnsRRUpsertOne) SetRdlength(v uint16) *DnsRRUpsertOne {
-	return u.Update(func(s *DnsRRUpsert) {
-		s.SetRdlength(v)
-	})
-}
-
-// AddRdlength adds v to the "rdlength" field.
-func (u *DnsRRUpsertOne) AddRdlength(v uint16) *DnsRRUpsertOne {
-	return u.Update(func(s *DnsRRUpsert) {
-		s.AddRdlength(v)
-	})
-}
-
-// UpdateRdlength sets the "rdlength" field to the value that was provided on create.
-func (u *DnsRRUpsertOne) UpdateRdlength() *DnsRRUpsertOne {
-	return u.Update(func(s *DnsRRUpsert) {
-		s.UpdateRdlength()
 	})
 }
 
@@ -993,27 +929,6 @@ func (u *DnsRRUpsertBulk) AddTTL(v uint32) *DnsRRUpsertBulk {
 func (u *DnsRRUpsertBulk) UpdateTTL() *DnsRRUpsertBulk {
 	return u.Update(func(s *DnsRRUpsert) {
 		s.UpdateTTL()
-	})
-}
-
-// SetRdlength sets the "rdlength" field.
-func (u *DnsRRUpsertBulk) SetRdlength(v uint16) *DnsRRUpsertBulk {
-	return u.Update(func(s *DnsRRUpsert) {
-		s.SetRdlength(v)
-	})
-}
-
-// AddRdlength adds v to the "rdlength" field.
-func (u *DnsRRUpsertBulk) AddRdlength(v uint16) *DnsRRUpsertBulk {
-	return u.Update(func(s *DnsRRUpsert) {
-		s.AddRdlength(v)
-	})
-}
-
-// UpdateRdlength sets the "rdlength" field to the value that was provided on create.
-func (u *DnsRRUpsertBulk) UpdateRdlength() *DnsRRUpsertBulk {
-	return u.Update(func(s *DnsRRUpsert) {
-		s.UpdateRdlength()
 	})
 }
 

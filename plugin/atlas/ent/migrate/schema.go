@@ -18,7 +18,6 @@ var (
 		{Name: "rrdata", Type: field.TypeString, Size: 2147483647},
 		{Name: "class", Type: field.TypeUint16, Default: 1},
 		{Name: "ttl", Type: field.TypeUint32, Default: 3600},
-		{Name: "rdlength", Type: field.TypeUint16, Default: 0},
 		{Name: "activated", Type: field.TypeBool, Default: true},
 		{Name: "dns_zone_records", Type: field.TypeString},
 	}
@@ -30,7 +29,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "dns_rrs_dns_zones_records",
-				Columns:    []*schema.Column{DNSRrsColumns[10]},
+				Columns:    []*schema.Column{DNSRrsColumns[9]},
 				RefColumns: []*schema.Column{DNSZonesColumns[0]},
 				OnDelete:   schema.Cascade,
 			},
@@ -44,7 +43,7 @@ var (
 			{
 				Name:    "dnsrr_activated",
 				Unique:  false,
-				Columns: []*schema.Column{DNSRrsColumns[9]},
+				Columns: []*schema.Column{DNSRrsColumns[8]},
 			},
 		},
 	}
@@ -57,7 +56,6 @@ var (
 		{Name: "rrtype", Type: field.TypeUint16, Default: 6},
 		{Name: "class", Type: field.TypeUint16, Default: 1},
 		{Name: "ttl", Type: field.TypeUint32, Default: 3600},
-		{Name: "rdlength", Type: field.TypeUint16, Default: 0},
 		{Name: "ns", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
 		{Name: "mbox", Type: field.TypeString, Size: 253, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
 		{Name: "serial", Type: field.TypeUint32},
@@ -76,7 +74,7 @@ var (
 			{
 				Name:    "dnszone_activated",
 				Unique:  false,
-				Columns: []*schema.Column{DNSZonesColumns[15]},
+				Columns: []*schema.Column{DNSZonesColumns[14]},
 			},
 		},
 	}

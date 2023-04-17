@@ -27,8 +27,6 @@ const (
 	FieldClass = "class"
 	// FieldTTL holds the string denoting the ttl field in the database.
 	FieldTTL = "ttl"
-	// FieldRdlength holds the string denoting the rdlength field in the database.
-	FieldRdlength = "rdlength"
 	// FieldActivated holds the string denoting the activated field in the database.
 	FieldActivated = "activated"
 	// EdgeZone holds the string denoting the zone edge name in mutations.
@@ -54,7 +52,6 @@ var Columns = []string{
 	FieldRrdata,
 	FieldClass,
 	FieldTTL,
-	FieldRdlength,
 	FieldActivated,
 }
 
@@ -94,8 +91,6 @@ var (
 	DefaultTTL uint32
 	// TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
 	TTLValidator func(uint32) error
-	// DefaultRdlength holds the default value on creation for the "rdlength" field.
-	DefaultRdlength uint16
 	// DefaultActivated holds the default value on creation for the "activated" field.
 	DefaultActivated bool
 	// DefaultID holds the default value on creation for the "id" field.

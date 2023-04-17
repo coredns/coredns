@@ -33,8 +33,6 @@ type DnsRR struct {
 	Class uint16 `json:"class,omitempty"`
 	// Time-to-live
 	TTL uint32 `json:"ttl,omitempty"`
-	// length of data after header
-	Rdlength uint16 `json:"rdlength,omitempty"`
 	// only activated resource records will be served
 	Activated bool `json:"activated,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -72,7 +70,7 @@ func (*DnsRR) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case dnsrr.FieldActivated:
 			values[i] = new(sql.NullBool)
-		case dnsrr.FieldRrtype, dnsrr.FieldClass, dnsrr.FieldTTL, dnsrr.FieldRdlength:
+		case dnsrr.FieldRrtype, dnsrr.FieldClass, dnsrr.FieldTTL:
 			values[i] = new(sql.NullInt64)
 		case dnsrr.FieldName, dnsrr.FieldRrdata:
 			values[i] = new(sql.NullString)
@@ -145,12 +143,6 @@ func (dr *DnsRR) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				dr.TTL = uint32(value.Int64)
 			}
-		case dnsrr.FieldRdlength:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field rdlength", values[i])
-			} else if value.Valid {
-				dr.Rdlength = uint16(value.Int64)
-			}
 		case dnsrr.FieldActivated:
 			if value, ok := values[i].(*sql.NullBool); !ok {
 				return fmt.Errorf("unexpected type %T for field activated", values[i])
@@ -217,9 +209,6 @@ func (dr *DnsRR) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("ttl=")
 	builder.WriteString(fmt.Sprintf("%v", dr.TTL))
-	builder.WriteString(", ")
-	builder.WriteString("rdlength=")
-	builder.WriteString(fmt.Sprintf("%v", dr.Rdlength))
 	builder.WriteString(", ")
 	builder.WriteString("activated=")
 	builder.WriteString(fmt.Sprintf("%v", dr.Activated))
