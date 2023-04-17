@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"crypto/tls"
+	"math"
 	"testing"
 	"time"
 
@@ -95,5 +96,35 @@ func TestProtocolSelection(t *testing.T) {
 		if proto != exp {
 			t.Errorf("Unexpected protocol in case %d, expected %q, actual %q", i, exp, proto)
 		}
+	}
+}
+
+func TestProxyIncrementFails(t *testing.T) {
+	var testCases = []struct {
+		name        string
+		fails       uint32
+		expectFails uint32
+	}{
+		{
+			name:        "increment fails counter overflows",
+			fails:       math.MaxUint32,
+			expectFails: math.MaxUint32,
+		},
+		{
+			name:        "increment fails counter",
+			fails:       0,
+			expectFails: 1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := NewProxy("bad_address", transport.DNS)
+			p.fails = tc.fails
+			p.incrementFails()
+			if p.fails != tc.expectFails {
+				t.Errorf("Expected fails to be %d, got %d", tc.expectFails, p.fails)
+			}
+		})
 	}
 }

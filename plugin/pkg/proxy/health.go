@@ -105,7 +105,7 @@ func (h *dnsHc) Check(p *Proxy) error {
 	err := h.send(p.addr)
 	if err != nil {
 		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
-		atomic.AddUint32(&p.fails, 1)
+		p.incrementFails()
 		return err
 	}
 

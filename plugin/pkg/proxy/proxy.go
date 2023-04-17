@@ -93,6 +93,16 @@ func (p *Proxy) SetReadTimeout(duration time.Duration) {
 	p.readTimeout = duration
 }
 
+// incrementFails increments the number of fails safely.
+func (p *Proxy) incrementFails() {
+	curVal := atomic.LoadUint32(&p.fails)
+	if curVal > curVal+1 {
+		// overflow occurred, do not update the counter again
+		return
+	}
+	atomic.AddUint32(&p.fails, 1)
+}
+
 const (
 	maxTimeout = 2 * time.Second
 )
