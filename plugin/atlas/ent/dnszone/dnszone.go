@@ -19,20 +19,28 @@ const (
 	FieldUpdatedAt = "updated_at"
 	// FieldName holds the string denoting the name field in the database.
 	FieldName = "name"
-	// FieldMname holds the string denoting the mname field in the database.
-	FieldMname = "mname"
-	// FieldRname holds the string denoting the rname field in the database.
-	FieldRname = "rname"
+	// FieldRrtype holds the string denoting the rrtype field in the database.
+	FieldRrtype = "rrtype"
+	// FieldClass holds the string denoting the class field in the database.
+	FieldClass = "class"
 	// FieldTTL holds the string denoting the ttl field in the database.
 	FieldTTL = "ttl"
+	// FieldRdlength holds the string denoting the rdlength field in the database.
+	FieldRdlength = "rdlength"
+	// FieldNs holds the string denoting the ns field in the database.
+	FieldNs = "ns"
+	// FieldMbox holds the string denoting the mbox field in the database.
+	FieldMbox = "mbox"
+	// FieldSerial holds the string denoting the serial field in the database.
+	FieldSerial = "serial"
 	// FieldRefresh holds the string denoting the refresh field in the database.
 	FieldRefresh = "refresh"
 	// FieldRetry holds the string denoting the retry field in the database.
 	FieldRetry = "retry"
 	// FieldExpire holds the string denoting the expire field in the database.
 	FieldExpire = "expire"
-	// FieldMinimum holds the string denoting the minimum field in the database.
-	FieldMinimum = "minimum"
+	// FieldMinttl holds the string denoting the minttl field in the database.
+	FieldMinttl = "minttl"
 	// FieldActivated holds the string denoting the activated field in the database.
 	FieldActivated = "activated"
 	// EdgeRecords holds the string denoting the records edge name in mutations.
@@ -54,13 +62,17 @@ var Columns = []string{
 	FieldCreatedAt,
 	FieldUpdatedAt,
 	FieldName,
-	FieldMname,
-	FieldRname,
+	FieldRrtype,
+	FieldClass,
 	FieldTTL,
+	FieldRdlength,
+	FieldNs,
+	FieldMbox,
+	FieldSerial,
 	FieldRefresh,
 	FieldRetry,
 	FieldExpire,
-	FieldMinimum,
+	FieldMinttl,
 	FieldActivated,
 }
 
@@ -83,30 +95,32 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
-	// MnameValidator is a validator for the "mname" field. It is called by the builders before save.
-	MnameValidator func(string) error
-	// RnameValidator is a validator for the "rname" field. It is called by the builders before save.
-	RnameValidator func(string) error
+	// DefaultClass holds the default value on creation for the "class" field.
+	DefaultClass uint16
 	// DefaultTTL holds the default value on creation for the "ttl" field.
-	DefaultTTL int32
+	DefaultTTL uint32
 	// TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
-	TTLValidator func(int32) error
+	TTLValidator func(uint32) error
+	// NsValidator is a validator for the "ns" field. It is called by the builders before save.
+	NsValidator func(string) error
+	// MboxValidator is a validator for the "mbox" field. It is called by the builders before save.
+	MboxValidator func(string) error
 	// DefaultRefresh holds the default value on creation for the "refresh" field.
-	DefaultRefresh int32
+	DefaultRefresh uint32
 	// RefreshValidator is a validator for the "refresh" field. It is called by the builders before save.
-	RefreshValidator func(int32) error
+	RefreshValidator func(uint32) error
 	// DefaultRetry holds the default value on creation for the "retry" field.
-	DefaultRetry int32
+	DefaultRetry uint32
 	// RetryValidator is a validator for the "retry" field. It is called by the builders before save.
-	RetryValidator func(int32) error
+	RetryValidator func(uint32) error
 	// DefaultExpire holds the default value on creation for the "expire" field.
-	DefaultExpire int32
+	DefaultExpire uint32
 	// ExpireValidator is a validator for the "expire" field. It is called by the builders before save.
-	ExpireValidator func(int32) error
-	// DefaultMinimum holds the default value on creation for the "minimum" field.
-	DefaultMinimum int32
-	// MinimumValidator is a validator for the "minimum" field. It is called by the builders before save.
-	MinimumValidator func(int32) error
+	ExpireValidator func(uint32) error
+	// DefaultMinttl holds the default value on creation for the "minttl" field.
+	DefaultMinttl uint32
+	// MinttlValidator is a validator for the "minttl" field. It is called by the builders before save.
+	MinttlValidator func(uint32) error
 	// DefaultActivated holds the default value on creation for the "activated" field.
 	DefaultActivated bool
 	// DefaultID holds the default value on creation for the "id" field.

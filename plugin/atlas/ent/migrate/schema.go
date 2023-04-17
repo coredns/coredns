@@ -14,13 +14,17 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "name", Type: field.TypeString, Unique: true, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
-		{Name: "mname", Type: field.TypeString, Unique: true, Size: 255, SchemaType: map[string]string{"mysql": "varchar(253)", "postgres": "varchar(253)", "sqlite3": "varchar(253)"}},
-		{Name: "rname", Type: field.TypeString, Size: 253, SchemaType: map[string]string{"mysql": "varchar(253)", "postgres": "varchar(253)", "sqlite3": "varchar(253)"}},
-		{Name: "ttl", Type: field.TypeInt32, Default: 3600},
-		{Name: "refresh", Type: field.TypeInt32, Default: 10800},
-		{Name: "retry", Type: field.TypeInt32, Default: 3600},
-		{Name: "expire", Type: field.TypeInt32, Default: 604800},
-		{Name: "minimum", Type: field.TypeInt32, Default: 3600},
+		{Name: "rrtype", Type: field.TypeUint16},
+		{Name: "class", Type: field.TypeUint16, Default: 1},
+		{Name: "ttl", Type: field.TypeUint32, Default: 3600},
+		{Name: "rdlength", Type: field.TypeUint16},
+		{Name: "ns", Type: field.TypeString, Unique: true, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
+		{Name: "mbox", Type: field.TypeString, Size: 253, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
+		{Name: "serial", Type: field.TypeUint32},
+		{Name: "refresh", Type: field.TypeUint32, Default: 10800},
+		{Name: "retry", Type: field.TypeUint32, Default: 3600},
+		{Name: "expire", Type: field.TypeUint32, Default: 604800},
+		{Name: "minttl", Type: field.TypeUint32, Default: 3600},
 		{Name: "activated", Type: field.TypeBool, Default: true},
 	}
 	// DNSZonesTable holds the schema information for the "dns_zones" table.
@@ -28,6 +32,13 @@ var (
 		Name:       "dns_zones",
 		Columns:    DNSZonesColumns,
 		PrimaryKey: []*schema.Column{DNSZonesColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "dnszone_activated",
+				Unique:  false,
+				Columns: []*schema.Column{DNSZonesColumns[15]},
+			},
+		},
 	}
 	// DNSRrsColumns holds the columns for the "dns_rrs" table.
 	DNSRrsColumns = []*schema.Column{
@@ -35,7 +46,11 @@ var (
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "name", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
-		{Name: "ttl", Type: field.TypeInt32, Default: 3600},
+		{Name: "rrtype", Type: field.TypeUint16},
+		{Name: "rrcontent", Type: field.TypeString, Size: 2147483647},
+		{Name: "class", Type: field.TypeUint16, Default: 1},
+		{Name: "ttl", Type: field.TypeUint32, Default: 3600},
+		{Name: "rdlength", Type: field.TypeUint16},
 		{Name: "activated", Type: field.TypeBool, Default: true},
 		{Name: "dns_zone_records", Type: field.TypeString},
 	}
@@ -47,9 +62,21 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "dns_rrs_dns_zones_records",
-				Columns:    []*schema.Column{DNSRrsColumns[6]},
+				Columns:    []*schema.Column{DNSRrsColumns[10]},
 				RefColumns: []*schema.Column{DNSZonesColumns[0]},
 				OnDelete:   schema.Cascade,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "dnsrr_name_rrtype",
+				Unique:  false,
+				Columns: []*schema.Column{DNSRrsColumns[3], DNSRrsColumns[4]},
+			},
+			{
+				Name:    "dnsrr_activated",
+				Unique:  false,
+				Columns: []*schema.Column{DNSRrsColumns[9]},
 			},
 		},
 	}

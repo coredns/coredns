@@ -71,9 +71,29 @@ func Name(v string) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldEQ(FieldName, v))
 }
 
+// Rrtype applies equality check predicate on the "rrtype" field. It's identical to RrtypeEQ.
+func Rrtype(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldRrtype, v))
+}
+
+// Rrcontent applies equality check predicate on the "rrcontent" field. It's identical to RrcontentEQ.
+func Rrcontent(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldRrcontent, v))
+}
+
+// Class applies equality check predicate on the "class" field. It's identical to ClassEQ.
+func Class(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldClass, v))
+}
+
 // TTL applies equality check predicate on the "ttl" field. It's identical to TTLEQ.
-func TTL(v int32) predicate.DnsRR {
+func TTL(v uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldEQ(FieldTTL, v))
+}
+
+// Rdlength applies equality check predicate on the "rdlength" field. It's identical to RdlengthEQ.
+func Rdlength(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldRdlength, v))
 }
 
 // Activated applies equality check predicate on the "activated" field. It's identical to ActivatedEQ.
@@ -226,44 +246,229 @@ func NameContainsFold(v string) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldContainsFold(FieldName, v))
 }
 
+// RrtypeEQ applies the EQ predicate on the "rrtype" field.
+func RrtypeEQ(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldRrtype, v))
+}
+
+// RrtypeNEQ applies the NEQ predicate on the "rrtype" field.
+func RrtypeNEQ(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNEQ(FieldRrtype, v))
+}
+
+// RrtypeIn applies the In predicate on the "rrtype" field.
+func RrtypeIn(vs ...uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldIn(FieldRrtype, vs...))
+}
+
+// RrtypeNotIn applies the NotIn predicate on the "rrtype" field.
+func RrtypeNotIn(vs ...uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNotIn(FieldRrtype, vs...))
+}
+
+// RrtypeGT applies the GT predicate on the "rrtype" field.
+func RrtypeGT(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGT(FieldRrtype, v))
+}
+
+// RrtypeGTE applies the GTE predicate on the "rrtype" field.
+func RrtypeGTE(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGTE(FieldRrtype, v))
+}
+
+// RrtypeLT applies the LT predicate on the "rrtype" field.
+func RrtypeLT(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLT(FieldRrtype, v))
+}
+
+// RrtypeLTE applies the LTE predicate on the "rrtype" field.
+func RrtypeLTE(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLTE(FieldRrtype, v))
+}
+
+// RrcontentEQ applies the EQ predicate on the "rrcontent" field.
+func RrcontentEQ(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldRrcontent, v))
+}
+
+// RrcontentNEQ applies the NEQ predicate on the "rrcontent" field.
+func RrcontentNEQ(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNEQ(FieldRrcontent, v))
+}
+
+// RrcontentIn applies the In predicate on the "rrcontent" field.
+func RrcontentIn(vs ...string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldIn(FieldRrcontent, vs...))
+}
+
+// RrcontentNotIn applies the NotIn predicate on the "rrcontent" field.
+func RrcontentNotIn(vs ...string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNotIn(FieldRrcontent, vs...))
+}
+
+// RrcontentGT applies the GT predicate on the "rrcontent" field.
+func RrcontentGT(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGT(FieldRrcontent, v))
+}
+
+// RrcontentGTE applies the GTE predicate on the "rrcontent" field.
+func RrcontentGTE(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGTE(FieldRrcontent, v))
+}
+
+// RrcontentLT applies the LT predicate on the "rrcontent" field.
+func RrcontentLT(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLT(FieldRrcontent, v))
+}
+
+// RrcontentLTE applies the LTE predicate on the "rrcontent" field.
+func RrcontentLTE(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLTE(FieldRrcontent, v))
+}
+
+// RrcontentContains applies the Contains predicate on the "rrcontent" field.
+func RrcontentContains(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldContains(FieldRrcontent, v))
+}
+
+// RrcontentHasPrefix applies the HasPrefix predicate on the "rrcontent" field.
+func RrcontentHasPrefix(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldHasPrefix(FieldRrcontent, v))
+}
+
+// RrcontentHasSuffix applies the HasSuffix predicate on the "rrcontent" field.
+func RrcontentHasSuffix(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldHasSuffix(FieldRrcontent, v))
+}
+
+// RrcontentEqualFold applies the EqualFold predicate on the "rrcontent" field.
+func RrcontentEqualFold(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEqualFold(FieldRrcontent, v))
+}
+
+// RrcontentContainsFold applies the ContainsFold predicate on the "rrcontent" field.
+func RrcontentContainsFold(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldContainsFold(FieldRrcontent, v))
+}
+
+// ClassEQ applies the EQ predicate on the "class" field.
+func ClassEQ(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldClass, v))
+}
+
+// ClassNEQ applies the NEQ predicate on the "class" field.
+func ClassNEQ(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNEQ(FieldClass, v))
+}
+
+// ClassIn applies the In predicate on the "class" field.
+func ClassIn(vs ...uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldIn(FieldClass, vs...))
+}
+
+// ClassNotIn applies the NotIn predicate on the "class" field.
+func ClassNotIn(vs ...uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNotIn(FieldClass, vs...))
+}
+
+// ClassGT applies the GT predicate on the "class" field.
+func ClassGT(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGT(FieldClass, v))
+}
+
+// ClassGTE applies the GTE predicate on the "class" field.
+func ClassGTE(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGTE(FieldClass, v))
+}
+
+// ClassLT applies the LT predicate on the "class" field.
+func ClassLT(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLT(FieldClass, v))
+}
+
+// ClassLTE applies the LTE predicate on the "class" field.
+func ClassLTE(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLTE(FieldClass, v))
+}
+
 // TTLEQ applies the EQ predicate on the "ttl" field.
-func TTLEQ(v int32) predicate.DnsRR {
+func TTLEQ(v uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldEQ(FieldTTL, v))
 }
 
 // TTLNEQ applies the NEQ predicate on the "ttl" field.
-func TTLNEQ(v int32) predicate.DnsRR {
+func TTLNEQ(v uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldNEQ(FieldTTL, v))
 }
 
 // TTLIn applies the In predicate on the "ttl" field.
-func TTLIn(vs ...int32) predicate.DnsRR {
+func TTLIn(vs ...uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldIn(FieldTTL, vs...))
 }
 
 // TTLNotIn applies the NotIn predicate on the "ttl" field.
-func TTLNotIn(vs ...int32) predicate.DnsRR {
+func TTLNotIn(vs ...uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldNotIn(FieldTTL, vs...))
 }
 
 // TTLGT applies the GT predicate on the "ttl" field.
-func TTLGT(v int32) predicate.DnsRR {
+func TTLGT(v uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldGT(FieldTTL, v))
 }
 
 // TTLGTE applies the GTE predicate on the "ttl" field.
-func TTLGTE(v int32) predicate.DnsRR {
+func TTLGTE(v uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldGTE(FieldTTL, v))
 }
 
 // TTLLT applies the LT predicate on the "ttl" field.
-func TTLLT(v int32) predicate.DnsRR {
+func TTLLT(v uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldLT(FieldTTL, v))
 }
 
 // TTLLTE applies the LTE predicate on the "ttl" field.
-func TTLLTE(v int32) predicate.DnsRR {
+func TTLLTE(v uint32) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldLTE(FieldTTL, v))
+}
+
+// RdlengthEQ applies the EQ predicate on the "rdlength" field.
+func RdlengthEQ(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldRdlength, v))
+}
+
+// RdlengthNEQ applies the NEQ predicate on the "rdlength" field.
+func RdlengthNEQ(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNEQ(FieldRdlength, v))
+}
+
+// RdlengthIn applies the In predicate on the "rdlength" field.
+func RdlengthIn(vs ...uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldIn(FieldRdlength, vs...))
+}
+
+// RdlengthNotIn applies the NotIn predicate on the "rdlength" field.
+func RdlengthNotIn(vs ...uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNotIn(FieldRdlength, vs...))
+}
+
+// RdlengthGT applies the GT predicate on the "rdlength" field.
+func RdlengthGT(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGT(FieldRdlength, v))
+}
+
+// RdlengthGTE applies the GTE predicate on the "rdlength" field.
+func RdlengthGTE(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGTE(FieldRdlength, v))
+}
+
+// RdlengthLT applies the LT predicate on the "rdlength" field.
+func RdlengthLT(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLT(FieldRdlength, v))
+}
+
+// RdlengthLTE applies the LTE predicate on the "rdlength" field.
+func RdlengthLTE(v uint16) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLTE(FieldRdlength, v))
 }
 
 // ActivatedEQ applies the EQ predicate on the "activated" field.

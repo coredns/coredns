@@ -36,114 +36,174 @@ func (dzu *DNSZoneUpdate) SetUpdatedAt(t time.Time) *DNSZoneUpdate {
 	return dzu
 }
 
-// SetRname sets the "rname" field.
-func (dzu *DNSZoneUpdate) SetRname(s string) *DNSZoneUpdate {
-	dzu.mutation.SetRname(s)
+// SetRrtype sets the "rrtype" field.
+func (dzu *DNSZoneUpdate) SetRrtype(u uint16) *DNSZoneUpdate {
+	dzu.mutation.ResetRrtype()
+	dzu.mutation.SetRrtype(u)
+	return dzu
+}
+
+// AddRrtype adds u to the "rrtype" field.
+func (dzu *DNSZoneUpdate) AddRrtype(u int16) *DNSZoneUpdate {
+	dzu.mutation.AddRrtype(u)
+	return dzu
+}
+
+// SetClass sets the "class" field.
+func (dzu *DNSZoneUpdate) SetClass(u uint16) *DNSZoneUpdate {
+	dzu.mutation.ResetClass()
+	dzu.mutation.SetClass(u)
+	return dzu
+}
+
+// SetNillableClass sets the "class" field if the given value is not nil.
+func (dzu *DNSZoneUpdate) SetNillableClass(u *uint16) *DNSZoneUpdate {
+	if u != nil {
+		dzu.SetClass(*u)
+	}
+	return dzu
+}
+
+// AddClass adds u to the "class" field.
+func (dzu *DNSZoneUpdate) AddClass(u int16) *DNSZoneUpdate {
+	dzu.mutation.AddClass(u)
 	return dzu
 }
 
 // SetTTL sets the "ttl" field.
-func (dzu *DNSZoneUpdate) SetTTL(i int32) *DNSZoneUpdate {
+func (dzu *DNSZoneUpdate) SetTTL(u uint32) *DNSZoneUpdate {
 	dzu.mutation.ResetTTL()
-	dzu.mutation.SetTTL(i)
+	dzu.mutation.SetTTL(u)
 	return dzu
 }
 
 // SetNillableTTL sets the "ttl" field if the given value is not nil.
-func (dzu *DNSZoneUpdate) SetNillableTTL(i *int32) *DNSZoneUpdate {
-	if i != nil {
-		dzu.SetTTL(*i)
+func (dzu *DNSZoneUpdate) SetNillableTTL(u *uint32) *DNSZoneUpdate {
+	if u != nil {
+		dzu.SetTTL(*u)
 	}
 	return dzu
 }
 
-// AddTTL adds i to the "ttl" field.
-func (dzu *DNSZoneUpdate) AddTTL(i int32) *DNSZoneUpdate {
-	dzu.mutation.AddTTL(i)
+// AddTTL adds u to the "ttl" field.
+func (dzu *DNSZoneUpdate) AddTTL(u int32) *DNSZoneUpdate {
+	dzu.mutation.AddTTL(u)
+	return dzu
+}
+
+// SetRdlength sets the "rdlength" field.
+func (dzu *DNSZoneUpdate) SetRdlength(u uint16) *DNSZoneUpdate {
+	dzu.mutation.ResetRdlength()
+	dzu.mutation.SetRdlength(u)
+	return dzu
+}
+
+// AddRdlength adds u to the "rdlength" field.
+func (dzu *DNSZoneUpdate) AddRdlength(u int16) *DNSZoneUpdate {
+	dzu.mutation.AddRdlength(u)
+	return dzu
+}
+
+// SetMbox sets the "mbox" field.
+func (dzu *DNSZoneUpdate) SetMbox(s string) *DNSZoneUpdate {
+	dzu.mutation.SetMbox(s)
+	return dzu
+}
+
+// SetSerial sets the "serial" field.
+func (dzu *DNSZoneUpdate) SetSerial(u uint32) *DNSZoneUpdate {
+	dzu.mutation.ResetSerial()
+	dzu.mutation.SetSerial(u)
+	return dzu
+}
+
+// AddSerial adds u to the "serial" field.
+func (dzu *DNSZoneUpdate) AddSerial(u int32) *DNSZoneUpdate {
+	dzu.mutation.AddSerial(u)
 	return dzu
 }
 
 // SetRefresh sets the "refresh" field.
-func (dzu *DNSZoneUpdate) SetRefresh(i int32) *DNSZoneUpdate {
+func (dzu *DNSZoneUpdate) SetRefresh(u uint32) *DNSZoneUpdate {
 	dzu.mutation.ResetRefresh()
-	dzu.mutation.SetRefresh(i)
+	dzu.mutation.SetRefresh(u)
 	return dzu
 }
 
 // SetNillableRefresh sets the "refresh" field if the given value is not nil.
-func (dzu *DNSZoneUpdate) SetNillableRefresh(i *int32) *DNSZoneUpdate {
-	if i != nil {
-		dzu.SetRefresh(*i)
+func (dzu *DNSZoneUpdate) SetNillableRefresh(u *uint32) *DNSZoneUpdate {
+	if u != nil {
+		dzu.SetRefresh(*u)
 	}
 	return dzu
 }
 
-// AddRefresh adds i to the "refresh" field.
-func (dzu *DNSZoneUpdate) AddRefresh(i int32) *DNSZoneUpdate {
-	dzu.mutation.AddRefresh(i)
+// AddRefresh adds u to the "refresh" field.
+func (dzu *DNSZoneUpdate) AddRefresh(u int32) *DNSZoneUpdate {
+	dzu.mutation.AddRefresh(u)
 	return dzu
 }
 
 // SetRetry sets the "retry" field.
-func (dzu *DNSZoneUpdate) SetRetry(i int32) *DNSZoneUpdate {
+func (dzu *DNSZoneUpdate) SetRetry(u uint32) *DNSZoneUpdate {
 	dzu.mutation.ResetRetry()
-	dzu.mutation.SetRetry(i)
+	dzu.mutation.SetRetry(u)
 	return dzu
 }
 
 // SetNillableRetry sets the "retry" field if the given value is not nil.
-func (dzu *DNSZoneUpdate) SetNillableRetry(i *int32) *DNSZoneUpdate {
-	if i != nil {
-		dzu.SetRetry(*i)
+func (dzu *DNSZoneUpdate) SetNillableRetry(u *uint32) *DNSZoneUpdate {
+	if u != nil {
+		dzu.SetRetry(*u)
 	}
 	return dzu
 }
 
-// AddRetry adds i to the "retry" field.
-func (dzu *DNSZoneUpdate) AddRetry(i int32) *DNSZoneUpdate {
-	dzu.mutation.AddRetry(i)
+// AddRetry adds u to the "retry" field.
+func (dzu *DNSZoneUpdate) AddRetry(u int32) *DNSZoneUpdate {
+	dzu.mutation.AddRetry(u)
 	return dzu
 }
 
 // SetExpire sets the "expire" field.
-func (dzu *DNSZoneUpdate) SetExpire(i int32) *DNSZoneUpdate {
+func (dzu *DNSZoneUpdate) SetExpire(u uint32) *DNSZoneUpdate {
 	dzu.mutation.ResetExpire()
-	dzu.mutation.SetExpire(i)
+	dzu.mutation.SetExpire(u)
 	return dzu
 }
 
 // SetNillableExpire sets the "expire" field if the given value is not nil.
-func (dzu *DNSZoneUpdate) SetNillableExpire(i *int32) *DNSZoneUpdate {
-	if i != nil {
-		dzu.SetExpire(*i)
+func (dzu *DNSZoneUpdate) SetNillableExpire(u *uint32) *DNSZoneUpdate {
+	if u != nil {
+		dzu.SetExpire(*u)
 	}
 	return dzu
 }
 
-// AddExpire adds i to the "expire" field.
-func (dzu *DNSZoneUpdate) AddExpire(i int32) *DNSZoneUpdate {
-	dzu.mutation.AddExpire(i)
+// AddExpire adds u to the "expire" field.
+func (dzu *DNSZoneUpdate) AddExpire(u int32) *DNSZoneUpdate {
+	dzu.mutation.AddExpire(u)
 	return dzu
 }
 
-// SetMinimum sets the "minimum" field.
-func (dzu *DNSZoneUpdate) SetMinimum(i int32) *DNSZoneUpdate {
-	dzu.mutation.ResetMinimum()
-	dzu.mutation.SetMinimum(i)
+// SetMinttl sets the "minttl" field.
+func (dzu *DNSZoneUpdate) SetMinttl(u uint32) *DNSZoneUpdate {
+	dzu.mutation.ResetMinttl()
+	dzu.mutation.SetMinttl(u)
 	return dzu
 }
 
-// SetNillableMinimum sets the "minimum" field if the given value is not nil.
-func (dzu *DNSZoneUpdate) SetNillableMinimum(i *int32) *DNSZoneUpdate {
-	if i != nil {
-		dzu.SetMinimum(*i)
+// SetNillableMinttl sets the "minttl" field if the given value is not nil.
+func (dzu *DNSZoneUpdate) SetNillableMinttl(u *uint32) *DNSZoneUpdate {
+	if u != nil {
+		dzu.SetMinttl(*u)
 	}
 	return dzu
 }
 
-// AddMinimum adds i to the "minimum" field.
-func (dzu *DNSZoneUpdate) AddMinimum(i int32) *DNSZoneUpdate {
-	dzu.mutation.AddMinimum(i)
+// AddMinttl adds u to the "minttl" field.
+func (dzu *DNSZoneUpdate) AddMinttl(u int32) *DNSZoneUpdate {
+	dzu.mutation.AddMinttl(u)
 	return dzu
 }
 
@@ -240,14 +300,14 @@ func (dzu *DNSZoneUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (dzu *DNSZoneUpdate) check() error {
-	if v, ok := dzu.mutation.Rname(); ok {
-		if err := dnszone.RnameValidator(v); err != nil {
-			return &ValidationError{Name: "rname", err: fmt.Errorf(`ent: validator failed for field "DNSZone.rname": %w`, err)}
-		}
-	}
 	if v, ok := dzu.mutation.TTL(); ok {
 		if err := dnszone.TTLValidator(v); err != nil {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DNSZone.ttl": %w`, err)}
+		}
+	}
+	if v, ok := dzu.mutation.Mbox(); ok {
+		if err := dnszone.MboxValidator(v); err != nil {
+			return &ValidationError{Name: "mbox", err: fmt.Errorf(`ent: validator failed for field "DNSZone.mbox": %w`, err)}
 		}
 	}
 	if v, ok := dzu.mutation.Refresh(); ok {
@@ -265,9 +325,9 @@ func (dzu *DNSZoneUpdate) check() error {
 			return &ValidationError{Name: "expire", err: fmt.Errorf(`ent: validator failed for field "DNSZone.expire": %w`, err)}
 		}
 	}
-	if v, ok := dzu.mutation.Minimum(); ok {
-		if err := dnszone.MinimumValidator(v); err != nil {
-			return &ValidationError{Name: "minimum", err: fmt.Errorf(`ent: validator failed for field "DNSZone.minimum": %w`, err)}
+	if v, ok := dzu.mutation.Minttl(); ok {
+		if err := dnszone.MinttlValidator(v); err != nil {
+			return &ValidationError{Name: "minttl", err: fmt.Errorf(`ent: validator failed for field "DNSZone.minttl": %w`, err)}
 		}
 	}
 	return nil
@@ -288,38 +348,62 @@ func (dzu *DNSZoneUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := dzu.mutation.UpdatedAt(); ok {
 		_spec.SetField(dnszone.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if value, ok := dzu.mutation.Rname(); ok {
-		_spec.SetField(dnszone.FieldRname, field.TypeString, value)
+	if value, ok := dzu.mutation.Rrtype(); ok {
+		_spec.SetField(dnszone.FieldRrtype, field.TypeUint16, value)
+	}
+	if value, ok := dzu.mutation.AddedRrtype(); ok {
+		_spec.AddField(dnszone.FieldRrtype, field.TypeUint16, value)
+	}
+	if value, ok := dzu.mutation.Class(); ok {
+		_spec.SetField(dnszone.FieldClass, field.TypeUint16, value)
+	}
+	if value, ok := dzu.mutation.AddedClass(); ok {
+		_spec.AddField(dnszone.FieldClass, field.TypeUint16, value)
 	}
 	if value, ok := dzu.mutation.TTL(); ok {
-		_spec.SetField(dnszone.FieldTTL, field.TypeInt32, value)
+		_spec.SetField(dnszone.FieldTTL, field.TypeUint32, value)
 	}
 	if value, ok := dzu.mutation.AddedTTL(); ok {
-		_spec.AddField(dnszone.FieldTTL, field.TypeInt32, value)
+		_spec.AddField(dnszone.FieldTTL, field.TypeUint32, value)
+	}
+	if value, ok := dzu.mutation.Rdlength(); ok {
+		_spec.SetField(dnszone.FieldRdlength, field.TypeUint16, value)
+	}
+	if value, ok := dzu.mutation.AddedRdlength(); ok {
+		_spec.AddField(dnszone.FieldRdlength, field.TypeUint16, value)
+	}
+	if value, ok := dzu.mutation.Mbox(); ok {
+		_spec.SetField(dnszone.FieldMbox, field.TypeString, value)
+	}
+	if value, ok := dzu.mutation.Serial(); ok {
+		_spec.SetField(dnszone.FieldSerial, field.TypeUint32, value)
+	}
+	if value, ok := dzu.mutation.AddedSerial(); ok {
+		_spec.AddField(dnszone.FieldSerial, field.TypeUint32, value)
 	}
 	if value, ok := dzu.mutation.Refresh(); ok {
-		_spec.SetField(dnszone.FieldRefresh, field.TypeInt32, value)
+		_spec.SetField(dnszone.FieldRefresh, field.TypeUint32, value)
 	}
 	if value, ok := dzu.mutation.AddedRefresh(); ok {
-		_spec.AddField(dnszone.FieldRefresh, field.TypeInt32, value)
+		_spec.AddField(dnszone.FieldRefresh, field.TypeUint32, value)
 	}
 	if value, ok := dzu.mutation.Retry(); ok {
-		_spec.SetField(dnszone.FieldRetry, field.TypeInt32, value)
+		_spec.SetField(dnszone.FieldRetry, field.TypeUint32, value)
 	}
 	if value, ok := dzu.mutation.AddedRetry(); ok {
-		_spec.AddField(dnszone.FieldRetry, field.TypeInt32, value)
+		_spec.AddField(dnszone.FieldRetry, field.TypeUint32, value)
 	}
 	if value, ok := dzu.mutation.Expire(); ok {
-		_spec.SetField(dnszone.FieldExpire, field.TypeInt32, value)
+		_spec.SetField(dnszone.FieldExpire, field.TypeUint32, value)
 	}
 	if value, ok := dzu.mutation.AddedExpire(); ok {
-		_spec.AddField(dnszone.FieldExpire, field.TypeInt32, value)
+		_spec.AddField(dnszone.FieldExpire, field.TypeUint32, value)
 	}
-	if value, ok := dzu.mutation.Minimum(); ok {
-		_spec.SetField(dnszone.FieldMinimum, field.TypeInt32, value)
+	if value, ok := dzu.mutation.Minttl(); ok {
+		_spec.SetField(dnszone.FieldMinttl, field.TypeUint32, value)
 	}
-	if value, ok := dzu.mutation.AddedMinimum(); ok {
-		_spec.AddField(dnszone.FieldMinimum, field.TypeInt32, value)
+	if value, ok := dzu.mutation.AddedMinttl(); ok {
+		_spec.AddField(dnszone.FieldMinttl, field.TypeUint32, value)
 	}
 	if value, ok := dzu.mutation.Activated(); ok {
 		_spec.SetField(dnszone.FieldActivated, field.TypeBool, value)
@@ -395,114 +479,174 @@ func (dzuo *DNSZoneUpdateOne) SetUpdatedAt(t time.Time) *DNSZoneUpdateOne {
 	return dzuo
 }
 
-// SetRname sets the "rname" field.
-func (dzuo *DNSZoneUpdateOne) SetRname(s string) *DNSZoneUpdateOne {
-	dzuo.mutation.SetRname(s)
+// SetRrtype sets the "rrtype" field.
+func (dzuo *DNSZoneUpdateOne) SetRrtype(u uint16) *DNSZoneUpdateOne {
+	dzuo.mutation.ResetRrtype()
+	dzuo.mutation.SetRrtype(u)
+	return dzuo
+}
+
+// AddRrtype adds u to the "rrtype" field.
+func (dzuo *DNSZoneUpdateOne) AddRrtype(u int16) *DNSZoneUpdateOne {
+	dzuo.mutation.AddRrtype(u)
+	return dzuo
+}
+
+// SetClass sets the "class" field.
+func (dzuo *DNSZoneUpdateOne) SetClass(u uint16) *DNSZoneUpdateOne {
+	dzuo.mutation.ResetClass()
+	dzuo.mutation.SetClass(u)
+	return dzuo
+}
+
+// SetNillableClass sets the "class" field if the given value is not nil.
+func (dzuo *DNSZoneUpdateOne) SetNillableClass(u *uint16) *DNSZoneUpdateOne {
+	if u != nil {
+		dzuo.SetClass(*u)
+	}
+	return dzuo
+}
+
+// AddClass adds u to the "class" field.
+func (dzuo *DNSZoneUpdateOne) AddClass(u int16) *DNSZoneUpdateOne {
+	dzuo.mutation.AddClass(u)
 	return dzuo
 }
 
 // SetTTL sets the "ttl" field.
-func (dzuo *DNSZoneUpdateOne) SetTTL(i int32) *DNSZoneUpdateOne {
+func (dzuo *DNSZoneUpdateOne) SetTTL(u uint32) *DNSZoneUpdateOne {
 	dzuo.mutation.ResetTTL()
-	dzuo.mutation.SetTTL(i)
+	dzuo.mutation.SetTTL(u)
 	return dzuo
 }
 
 // SetNillableTTL sets the "ttl" field if the given value is not nil.
-func (dzuo *DNSZoneUpdateOne) SetNillableTTL(i *int32) *DNSZoneUpdateOne {
-	if i != nil {
-		dzuo.SetTTL(*i)
+func (dzuo *DNSZoneUpdateOne) SetNillableTTL(u *uint32) *DNSZoneUpdateOne {
+	if u != nil {
+		dzuo.SetTTL(*u)
 	}
 	return dzuo
 }
 
-// AddTTL adds i to the "ttl" field.
-func (dzuo *DNSZoneUpdateOne) AddTTL(i int32) *DNSZoneUpdateOne {
-	dzuo.mutation.AddTTL(i)
+// AddTTL adds u to the "ttl" field.
+func (dzuo *DNSZoneUpdateOne) AddTTL(u int32) *DNSZoneUpdateOne {
+	dzuo.mutation.AddTTL(u)
+	return dzuo
+}
+
+// SetRdlength sets the "rdlength" field.
+func (dzuo *DNSZoneUpdateOne) SetRdlength(u uint16) *DNSZoneUpdateOne {
+	dzuo.mutation.ResetRdlength()
+	dzuo.mutation.SetRdlength(u)
+	return dzuo
+}
+
+// AddRdlength adds u to the "rdlength" field.
+func (dzuo *DNSZoneUpdateOne) AddRdlength(u int16) *DNSZoneUpdateOne {
+	dzuo.mutation.AddRdlength(u)
+	return dzuo
+}
+
+// SetMbox sets the "mbox" field.
+func (dzuo *DNSZoneUpdateOne) SetMbox(s string) *DNSZoneUpdateOne {
+	dzuo.mutation.SetMbox(s)
+	return dzuo
+}
+
+// SetSerial sets the "serial" field.
+func (dzuo *DNSZoneUpdateOne) SetSerial(u uint32) *DNSZoneUpdateOne {
+	dzuo.mutation.ResetSerial()
+	dzuo.mutation.SetSerial(u)
+	return dzuo
+}
+
+// AddSerial adds u to the "serial" field.
+func (dzuo *DNSZoneUpdateOne) AddSerial(u int32) *DNSZoneUpdateOne {
+	dzuo.mutation.AddSerial(u)
 	return dzuo
 }
 
 // SetRefresh sets the "refresh" field.
-func (dzuo *DNSZoneUpdateOne) SetRefresh(i int32) *DNSZoneUpdateOne {
+func (dzuo *DNSZoneUpdateOne) SetRefresh(u uint32) *DNSZoneUpdateOne {
 	dzuo.mutation.ResetRefresh()
-	dzuo.mutation.SetRefresh(i)
+	dzuo.mutation.SetRefresh(u)
 	return dzuo
 }
 
 // SetNillableRefresh sets the "refresh" field if the given value is not nil.
-func (dzuo *DNSZoneUpdateOne) SetNillableRefresh(i *int32) *DNSZoneUpdateOne {
-	if i != nil {
-		dzuo.SetRefresh(*i)
+func (dzuo *DNSZoneUpdateOne) SetNillableRefresh(u *uint32) *DNSZoneUpdateOne {
+	if u != nil {
+		dzuo.SetRefresh(*u)
 	}
 	return dzuo
 }
 
-// AddRefresh adds i to the "refresh" field.
-func (dzuo *DNSZoneUpdateOne) AddRefresh(i int32) *DNSZoneUpdateOne {
-	dzuo.mutation.AddRefresh(i)
+// AddRefresh adds u to the "refresh" field.
+func (dzuo *DNSZoneUpdateOne) AddRefresh(u int32) *DNSZoneUpdateOne {
+	dzuo.mutation.AddRefresh(u)
 	return dzuo
 }
 
 // SetRetry sets the "retry" field.
-func (dzuo *DNSZoneUpdateOne) SetRetry(i int32) *DNSZoneUpdateOne {
+func (dzuo *DNSZoneUpdateOne) SetRetry(u uint32) *DNSZoneUpdateOne {
 	dzuo.mutation.ResetRetry()
-	dzuo.mutation.SetRetry(i)
+	dzuo.mutation.SetRetry(u)
 	return dzuo
 }
 
 // SetNillableRetry sets the "retry" field if the given value is not nil.
-func (dzuo *DNSZoneUpdateOne) SetNillableRetry(i *int32) *DNSZoneUpdateOne {
-	if i != nil {
-		dzuo.SetRetry(*i)
+func (dzuo *DNSZoneUpdateOne) SetNillableRetry(u *uint32) *DNSZoneUpdateOne {
+	if u != nil {
+		dzuo.SetRetry(*u)
 	}
 	return dzuo
 }
 
-// AddRetry adds i to the "retry" field.
-func (dzuo *DNSZoneUpdateOne) AddRetry(i int32) *DNSZoneUpdateOne {
-	dzuo.mutation.AddRetry(i)
+// AddRetry adds u to the "retry" field.
+func (dzuo *DNSZoneUpdateOne) AddRetry(u int32) *DNSZoneUpdateOne {
+	dzuo.mutation.AddRetry(u)
 	return dzuo
 }
 
 // SetExpire sets the "expire" field.
-func (dzuo *DNSZoneUpdateOne) SetExpire(i int32) *DNSZoneUpdateOne {
+func (dzuo *DNSZoneUpdateOne) SetExpire(u uint32) *DNSZoneUpdateOne {
 	dzuo.mutation.ResetExpire()
-	dzuo.mutation.SetExpire(i)
+	dzuo.mutation.SetExpire(u)
 	return dzuo
 }
 
 // SetNillableExpire sets the "expire" field if the given value is not nil.
-func (dzuo *DNSZoneUpdateOne) SetNillableExpire(i *int32) *DNSZoneUpdateOne {
-	if i != nil {
-		dzuo.SetExpire(*i)
+func (dzuo *DNSZoneUpdateOne) SetNillableExpire(u *uint32) *DNSZoneUpdateOne {
+	if u != nil {
+		dzuo.SetExpire(*u)
 	}
 	return dzuo
 }
 
-// AddExpire adds i to the "expire" field.
-func (dzuo *DNSZoneUpdateOne) AddExpire(i int32) *DNSZoneUpdateOne {
-	dzuo.mutation.AddExpire(i)
+// AddExpire adds u to the "expire" field.
+func (dzuo *DNSZoneUpdateOne) AddExpire(u int32) *DNSZoneUpdateOne {
+	dzuo.mutation.AddExpire(u)
 	return dzuo
 }
 
-// SetMinimum sets the "minimum" field.
-func (dzuo *DNSZoneUpdateOne) SetMinimum(i int32) *DNSZoneUpdateOne {
-	dzuo.mutation.ResetMinimum()
-	dzuo.mutation.SetMinimum(i)
+// SetMinttl sets the "minttl" field.
+func (dzuo *DNSZoneUpdateOne) SetMinttl(u uint32) *DNSZoneUpdateOne {
+	dzuo.mutation.ResetMinttl()
+	dzuo.mutation.SetMinttl(u)
 	return dzuo
 }
 
-// SetNillableMinimum sets the "minimum" field if the given value is not nil.
-func (dzuo *DNSZoneUpdateOne) SetNillableMinimum(i *int32) *DNSZoneUpdateOne {
-	if i != nil {
-		dzuo.SetMinimum(*i)
+// SetNillableMinttl sets the "minttl" field if the given value is not nil.
+func (dzuo *DNSZoneUpdateOne) SetNillableMinttl(u *uint32) *DNSZoneUpdateOne {
+	if u != nil {
+		dzuo.SetMinttl(*u)
 	}
 	return dzuo
 }
 
-// AddMinimum adds i to the "minimum" field.
-func (dzuo *DNSZoneUpdateOne) AddMinimum(i int32) *DNSZoneUpdateOne {
-	dzuo.mutation.AddMinimum(i)
+// AddMinttl adds u to the "minttl" field.
+func (dzuo *DNSZoneUpdateOne) AddMinttl(u int32) *DNSZoneUpdateOne {
+	dzuo.mutation.AddMinttl(u)
 	return dzuo
 }
 
@@ -612,14 +756,14 @@ func (dzuo *DNSZoneUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (dzuo *DNSZoneUpdateOne) check() error {
-	if v, ok := dzuo.mutation.Rname(); ok {
-		if err := dnszone.RnameValidator(v); err != nil {
-			return &ValidationError{Name: "rname", err: fmt.Errorf(`ent: validator failed for field "DNSZone.rname": %w`, err)}
-		}
-	}
 	if v, ok := dzuo.mutation.TTL(); ok {
 		if err := dnszone.TTLValidator(v); err != nil {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DNSZone.ttl": %w`, err)}
+		}
+	}
+	if v, ok := dzuo.mutation.Mbox(); ok {
+		if err := dnszone.MboxValidator(v); err != nil {
+			return &ValidationError{Name: "mbox", err: fmt.Errorf(`ent: validator failed for field "DNSZone.mbox": %w`, err)}
 		}
 	}
 	if v, ok := dzuo.mutation.Refresh(); ok {
@@ -637,9 +781,9 @@ func (dzuo *DNSZoneUpdateOne) check() error {
 			return &ValidationError{Name: "expire", err: fmt.Errorf(`ent: validator failed for field "DNSZone.expire": %w`, err)}
 		}
 	}
-	if v, ok := dzuo.mutation.Minimum(); ok {
-		if err := dnszone.MinimumValidator(v); err != nil {
-			return &ValidationError{Name: "minimum", err: fmt.Errorf(`ent: validator failed for field "DNSZone.minimum": %w`, err)}
+	if v, ok := dzuo.mutation.Minttl(); ok {
+		if err := dnszone.MinttlValidator(v); err != nil {
+			return &ValidationError{Name: "minttl", err: fmt.Errorf(`ent: validator failed for field "DNSZone.minttl": %w`, err)}
 		}
 	}
 	return nil
@@ -677,38 +821,62 @@ func (dzuo *DNSZoneUpdateOne) sqlSave(ctx context.Context) (_node *DNSZone, err 
 	if value, ok := dzuo.mutation.UpdatedAt(); ok {
 		_spec.SetField(dnszone.FieldUpdatedAt, field.TypeTime, value)
 	}
-	if value, ok := dzuo.mutation.Rname(); ok {
-		_spec.SetField(dnszone.FieldRname, field.TypeString, value)
+	if value, ok := dzuo.mutation.Rrtype(); ok {
+		_spec.SetField(dnszone.FieldRrtype, field.TypeUint16, value)
+	}
+	if value, ok := dzuo.mutation.AddedRrtype(); ok {
+		_spec.AddField(dnszone.FieldRrtype, field.TypeUint16, value)
+	}
+	if value, ok := dzuo.mutation.Class(); ok {
+		_spec.SetField(dnszone.FieldClass, field.TypeUint16, value)
+	}
+	if value, ok := dzuo.mutation.AddedClass(); ok {
+		_spec.AddField(dnszone.FieldClass, field.TypeUint16, value)
 	}
 	if value, ok := dzuo.mutation.TTL(); ok {
-		_spec.SetField(dnszone.FieldTTL, field.TypeInt32, value)
+		_spec.SetField(dnszone.FieldTTL, field.TypeUint32, value)
 	}
 	if value, ok := dzuo.mutation.AddedTTL(); ok {
-		_spec.AddField(dnszone.FieldTTL, field.TypeInt32, value)
+		_spec.AddField(dnszone.FieldTTL, field.TypeUint32, value)
+	}
+	if value, ok := dzuo.mutation.Rdlength(); ok {
+		_spec.SetField(dnszone.FieldRdlength, field.TypeUint16, value)
+	}
+	if value, ok := dzuo.mutation.AddedRdlength(); ok {
+		_spec.AddField(dnszone.FieldRdlength, field.TypeUint16, value)
+	}
+	if value, ok := dzuo.mutation.Mbox(); ok {
+		_spec.SetField(dnszone.FieldMbox, field.TypeString, value)
+	}
+	if value, ok := dzuo.mutation.Serial(); ok {
+		_spec.SetField(dnszone.FieldSerial, field.TypeUint32, value)
+	}
+	if value, ok := dzuo.mutation.AddedSerial(); ok {
+		_spec.AddField(dnszone.FieldSerial, field.TypeUint32, value)
 	}
 	if value, ok := dzuo.mutation.Refresh(); ok {
-		_spec.SetField(dnszone.FieldRefresh, field.TypeInt32, value)
+		_spec.SetField(dnszone.FieldRefresh, field.TypeUint32, value)
 	}
 	if value, ok := dzuo.mutation.AddedRefresh(); ok {
-		_spec.AddField(dnszone.FieldRefresh, field.TypeInt32, value)
+		_spec.AddField(dnszone.FieldRefresh, field.TypeUint32, value)
 	}
 	if value, ok := dzuo.mutation.Retry(); ok {
-		_spec.SetField(dnszone.FieldRetry, field.TypeInt32, value)
+		_spec.SetField(dnszone.FieldRetry, field.TypeUint32, value)
 	}
 	if value, ok := dzuo.mutation.AddedRetry(); ok {
-		_spec.AddField(dnszone.FieldRetry, field.TypeInt32, value)
+		_spec.AddField(dnszone.FieldRetry, field.TypeUint32, value)
 	}
 	if value, ok := dzuo.mutation.Expire(); ok {
-		_spec.SetField(dnszone.FieldExpire, field.TypeInt32, value)
+		_spec.SetField(dnszone.FieldExpire, field.TypeUint32, value)
 	}
 	if value, ok := dzuo.mutation.AddedExpire(); ok {
-		_spec.AddField(dnszone.FieldExpire, field.TypeInt32, value)
+		_spec.AddField(dnszone.FieldExpire, field.TypeUint32, value)
 	}
-	if value, ok := dzuo.mutation.Minimum(); ok {
-		_spec.SetField(dnszone.FieldMinimum, field.TypeInt32, value)
+	if value, ok := dzuo.mutation.Minttl(); ok {
+		_spec.SetField(dnszone.FieldMinttl, field.TypeUint32, value)
 	}
-	if value, ok := dzuo.mutation.AddedMinimum(); ok {
-		_spec.AddField(dnszone.FieldMinimum, field.TypeInt32, value)
+	if value, ok := dzuo.mutation.AddedMinttl(); ok {
+		_spec.AddField(dnszone.FieldMinttl, field.TypeUint32, value)
 	}
 	if value, ok := dzuo.mutation.Activated(); ok {
 		_spec.SetField(dnszone.FieldActivated, field.TypeBool, value)

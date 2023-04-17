@@ -36,24 +36,77 @@ func (dru *DnsRRUpdate) SetUpdatedAt(t time.Time) *DnsRRUpdate {
 	return dru
 }
 
-// SetTTL sets the "ttl" field.
-func (dru *DnsRRUpdate) SetTTL(i int32) *DnsRRUpdate {
-	dru.mutation.ResetTTL()
-	dru.mutation.SetTTL(i)
+// SetRrtype sets the "rrtype" field.
+func (dru *DnsRRUpdate) SetRrtype(u uint16) *DnsRRUpdate {
+	dru.mutation.ResetRrtype()
+	dru.mutation.SetRrtype(u)
 	return dru
 }
 
-// SetNillableTTL sets the "ttl" field if the given value is not nil.
-func (dru *DnsRRUpdate) SetNillableTTL(i *int32) *DnsRRUpdate {
-	if i != nil {
-		dru.SetTTL(*i)
+// AddRrtype adds u to the "rrtype" field.
+func (dru *DnsRRUpdate) AddRrtype(u int16) *DnsRRUpdate {
+	dru.mutation.AddRrtype(u)
+	return dru
+}
+
+// SetRrcontent sets the "rrcontent" field.
+func (dru *DnsRRUpdate) SetRrcontent(s string) *DnsRRUpdate {
+	dru.mutation.SetRrcontent(s)
+	return dru
+}
+
+// SetClass sets the "class" field.
+func (dru *DnsRRUpdate) SetClass(u uint16) *DnsRRUpdate {
+	dru.mutation.ResetClass()
+	dru.mutation.SetClass(u)
+	return dru
+}
+
+// SetNillableClass sets the "class" field if the given value is not nil.
+func (dru *DnsRRUpdate) SetNillableClass(u *uint16) *DnsRRUpdate {
+	if u != nil {
+		dru.SetClass(*u)
 	}
 	return dru
 }
 
-// AddTTL adds i to the "ttl" field.
-func (dru *DnsRRUpdate) AddTTL(i int32) *DnsRRUpdate {
-	dru.mutation.AddTTL(i)
+// AddClass adds u to the "class" field.
+func (dru *DnsRRUpdate) AddClass(u int16) *DnsRRUpdate {
+	dru.mutation.AddClass(u)
+	return dru
+}
+
+// SetTTL sets the "ttl" field.
+func (dru *DnsRRUpdate) SetTTL(u uint32) *DnsRRUpdate {
+	dru.mutation.ResetTTL()
+	dru.mutation.SetTTL(u)
+	return dru
+}
+
+// SetNillableTTL sets the "ttl" field if the given value is not nil.
+func (dru *DnsRRUpdate) SetNillableTTL(u *uint32) *DnsRRUpdate {
+	if u != nil {
+		dru.SetTTL(*u)
+	}
+	return dru
+}
+
+// AddTTL adds u to the "ttl" field.
+func (dru *DnsRRUpdate) AddTTL(u int32) *DnsRRUpdate {
+	dru.mutation.AddTTL(u)
+	return dru
+}
+
+// SetRdlength sets the "rdlength" field.
+func (dru *DnsRRUpdate) SetRdlength(u uint16) *DnsRRUpdate {
+	dru.mutation.ResetRdlength()
+	dru.mutation.SetRdlength(u)
+	return dru
+}
+
+// AddRdlength adds u to the "rdlength" field.
+func (dru *DnsRRUpdate) AddRdlength(u int16) *DnsRRUpdate {
+	dru.mutation.AddRdlength(u)
 	return dru
 }
 
@@ -157,11 +210,32 @@ func (dru *DnsRRUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := dru.mutation.UpdatedAt(); ok {
 		_spec.SetField(dnsrr.FieldUpdatedAt, field.TypeTime, value)
 	}
+	if value, ok := dru.mutation.Rrtype(); ok {
+		_spec.SetField(dnsrr.FieldRrtype, field.TypeUint16, value)
+	}
+	if value, ok := dru.mutation.AddedRrtype(); ok {
+		_spec.AddField(dnsrr.FieldRrtype, field.TypeUint16, value)
+	}
+	if value, ok := dru.mutation.Rrcontent(); ok {
+		_spec.SetField(dnsrr.FieldRrcontent, field.TypeString, value)
+	}
+	if value, ok := dru.mutation.Class(); ok {
+		_spec.SetField(dnsrr.FieldClass, field.TypeUint16, value)
+	}
+	if value, ok := dru.mutation.AddedClass(); ok {
+		_spec.AddField(dnsrr.FieldClass, field.TypeUint16, value)
+	}
 	if value, ok := dru.mutation.TTL(); ok {
-		_spec.SetField(dnsrr.FieldTTL, field.TypeInt32, value)
+		_spec.SetField(dnsrr.FieldTTL, field.TypeUint32, value)
 	}
 	if value, ok := dru.mutation.AddedTTL(); ok {
-		_spec.AddField(dnsrr.FieldTTL, field.TypeInt32, value)
+		_spec.AddField(dnsrr.FieldTTL, field.TypeUint32, value)
+	}
+	if value, ok := dru.mutation.Rdlength(); ok {
+		_spec.SetField(dnsrr.FieldRdlength, field.TypeUint16, value)
+	}
+	if value, ok := dru.mutation.AddedRdlength(); ok {
+		_spec.AddField(dnsrr.FieldRdlength, field.TypeUint16, value)
 	}
 	if value, ok := dru.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
@@ -221,24 +295,77 @@ func (druo *DnsRRUpdateOne) SetUpdatedAt(t time.Time) *DnsRRUpdateOne {
 	return druo
 }
 
-// SetTTL sets the "ttl" field.
-func (druo *DnsRRUpdateOne) SetTTL(i int32) *DnsRRUpdateOne {
-	druo.mutation.ResetTTL()
-	druo.mutation.SetTTL(i)
+// SetRrtype sets the "rrtype" field.
+func (druo *DnsRRUpdateOne) SetRrtype(u uint16) *DnsRRUpdateOne {
+	druo.mutation.ResetRrtype()
+	druo.mutation.SetRrtype(u)
 	return druo
 }
 
-// SetNillableTTL sets the "ttl" field if the given value is not nil.
-func (druo *DnsRRUpdateOne) SetNillableTTL(i *int32) *DnsRRUpdateOne {
-	if i != nil {
-		druo.SetTTL(*i)
+// AddRrtype adds u to the "rrtype" field.
+func (druo *DnsRRUpdateOne) AddRrtype(u int16) *DnsRRUpdateOne {
+	druo.mutation.AddRrtype(u)
+	return druo
+}
+
+// SetRrcontent sets the "rrcontent" field.
+func (druo *DnsRRUpdateOne) SetRrcontent(s string) *DnsRRUpdateOne {
+	druo.mutation.SetRrcontent(s)
+	return druo
+}
+
+// SetClass sets the "class" field.
+func (druo *DnsRRUpdateOne) SetClass(u uint16) *DnsRRUpdateOne {
+	druo.mutation.ResetClass()
+	druo.mutation.SetClass(u)
+	return druo
+}
+
+// SetNillableClass sets the "class" field if the given value is not nil.
+func (druo *DnsRRUpdateOne) SetNillableClass(u *uint16) *DnsRRUpdateOne {
+	if u != nil {
+		druo.SetClass(*u)
 	}
 	return druo
 }
 
-// AddTTL adds i to the "ttl" field.
-func (druo *DnsRRUpdateOne) AddTTL(i int32) *DnsRRUpdateOne {
-	druo.mutation.AddTTL(i)
+// AddClass adds u to the "class" field.
+func (druo *DnsRRUpdateOne) AddClass(u int16) *DnsRRUpdateOne {
+	druo.mutation.AddClass(u)
+	return druo
+}
+
+// SetTTL sets the "ttl" field.
+func (druo *DnsRRUpdateOne) SetTTL(u uint32) *DnsRRUpdateOne {
+	druo.mutation.ResetTTL()
+	druo.mutation.SetTTL(u)
+	return druo
+}
+
+// SetNillableTTL sets the "ttl" field if the given value is not nil.
+func (druo *DnsRRUpdateOne) SetNillableTTL(u *uint32) *DnsRRUpdateOne {
+	if u != nil {
+		druo.SetTTL(*u)
+	}
+	return druo
+}
+
+// AddTTL adds u to the "ttl" field.
+func (druo *DnsRRUpdateOne) AddTTL(u int32) *DnsRRUpdateOne {
+	druo.mutation.AddTTL(u)
+	return druo
+}
+
+// SetRdlength sets the "rdlength" field.
+func (druo *DnsRRUpdateOne) SetRdlength(u uint16) *DnsRRUpdateOne {
+	druo.mutation.ResetRdlength()
+	druo.mutation.SetRdlength(u)
+	return druo
+}
+
+// AddRdlength adds u to the "rdlength" field.
+func (druo *DnsRRUpdateOne) AddRdlength(u int16) *DnsRRUpdateOne {
+	druo.mutation.AddRdlength(u)
 	return druo
 }
 
@@ -372,11 +499,32 @@ func (druo *DnsRRUpdateOne) sqlSave(ctx context.Context) (_node *DnsRR, err erro
 	if value, ok := druo.mutation.UpdatedAt(); ok {
 		_spec.SetField(dnsrr.FieldUpdatedAt, field.TypeTime, value)
 	}
+	if value, ok := druo.mutation.Rrtype(); ok {
+		_spec.SetField(dnsrr.FieldRrtype, field.TypeUint16, value)
+	}
+	if value, ok := druo.mutation.AddedRrtype(); ok {
+		_spec.AddField(dnsrr.FieldRrtype, field.TypeUint16, value)
+	}
+	if value, ok := druo.mutation.Rrcontent(); ok {
+		_spec.SetField(dnsrr.FieldRrcontent, field.TypeString, value)
+	}
+	if value, ok := druo.mutation.Class(); ok {
+		_spec.SetField(dnsrr.FieldClass, field.TypeUint16, value)
+	}
+	if value, ok := druo.mutation.AddedClass(); ok {
+		_spec.AddField(dnsrr.FieldClass, field.TypeUint16, value)
+	}
 	if value, ok := druo.mutation.TTL(); ok {
-		_spec.SetField(dnsrr.FieldTTL, field.TypeInt32, value)
+		_spec.SetField(dnsrr.FieldTTL, field.TypeUint32, value)
 	}
 	if value, ok := druo.mutation.AddedTTL(); ok {
-		_spec.AddField(dnsrr.FieldTTL, field.TypeInt32, value)
+		_spec.AddField(dnsrr.FieldTTL, field.TypeUint32, value)
+	}
+	if value, ok := druo.mutation.Rdlength(); ok {
+		_spec.SetField(dnsrr.FieldRdlength, field.TypeUint16, value)
+	}
+	if value, ok := druo.mutation.AddedRdlength(); ok {
+		_spec.AddField(dnsrr.FieldRdlength, field.TypeUint16, value)
 	}
 	if value, ok := druo.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)

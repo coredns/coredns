@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"time"
 
+	"entgo.io/ent/dialect"
+	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
@@ -20,6 +22,7 @@ type DnsRRCreate struct {
 	config
 	mutation *DnsRRMutation
 	hooks    []Hook
+	conflict []sql.ConflictOption
 }
 
 // SetCreatedAt sets the "created_at" field.
@@ -56,17 +59,49 @@ func (drc *DnsRRCreate) SetName(s string) *DnsRRCreate {
 	return drc
 }
 
+// SetRrtype sets the "rrtype" field.
+func (drc *DnsRRCreate) SetRrtype(u uint16) *DnsRRCreate {
+	drc.mutation.SetRrtype(u)
+	return drc
+}
+
+// SetRrcontent sets the "rrcontent" field.
+func (drc *DnsRRCreate) SetRrcontent(s string) *DnsRRCreate {
+	drc.mutation.SetRrcontent(s)
+	return drc
+}
+
+// SetClass sets the "class" field.
+func (drc *DnsRRCreate) SetClass(u uint16) *DnsRRCreate {
+	drc.mutation.SetClass(u)
+	return drc
+}
+
+// SetNillableClass sets the "class" field if the given value is not nil.
+func (drc *DnsRRCreate) SetNillableClass(u *uint16) *DnsRRCreate {
+	if u != nil {
+		drc.SetClass(*u)
+	}
+	return drc
+}
+
 // SetTTL sets the "ttl" field.
-func (drc *DnsRRCreate) SetTTL(i int32) *DnsRRCreate {
-	drc.mutation.SetTTL(i)
+func (drc *DnsRRCreate) SetTTL(u uint32) *DnsRRCreate {
+	drc.mutation.SetTTL(u)
 	return drc
 }
 
 // SetNillableTTL sets the "ttl" field if the given value is not nil.
-func (drc *DnsRRCreate) SetNillableTTL(i *int32) *DnsRRCreate {
-	if i != nil {
-		drc.SetTTL(*i)
+func (drc *DnsRRCreate) SetNillableTTL(u *uint32) *DnsRRCreate {
+	if u != nil {
+		drc.SetTTL(*u)
 	}
+	return drc
+}
+
+// SetRdlength sets the "rdlength" field.
+func (drc *DnsRRCreate) SetRdlength(u uint16) *DnsRRCreate {
+	drc.mutation.SetRdlength(u)
 	return drc
 }
 
@@ -152,6 +187,10 @@ func (drc *DnsRRCreate) defaults() {
 		v := dnsrr.DefaultUpdatedAt()
 		drc.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := drc.mutation.Class(); !ok {
+		v := dnsrr.DefaultClass
+		drc.mutation.SetClass(v)
+	}
 	if _, ok := drc.mutation.TTL(); !ok {
 		v := dnsrr.DefaultTTL
 		drc.mutation.SetTTL(v)
@@ -182,6 +221,15 @@ func (drc *DnsRRCreate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "DnsRR.name": %w`, err)}
 		}
 	}
+	if _, ok := drc.mutation.Rrtype(); !ok {
+		return &ValidationError{Name: "rrtype", err: errors.New(`ent: missing required field "DnsRR.rrtype"`)}
+	}
+	if _, ok := drc.mutation.Rrcontent(); !ok {
+		return &ValidationError{Name: "rrcontent", err: errors.New(`ent: missing required field "DnsRR.rrcontent"`)}
+	}
+	if _, ok := drc.mutation.Class(); !ok {
+		return &ValidationError{Name: "class", err: errors.New(`ent: missing required field "DnsRR.class"`)}
+	}
 	if _, ok := drc.mutation.TTL(); !ok {
 		return &ValidationError{Name: "ttl", err: errors.New(`ent: missing required field "DnsRR.ttl"`)}
 	}
@@ -189,6 +237,9 @@ func (drc *DnsRRCreate) check() error {
 		if err := dnsrr.TTLValidator(v); err != nil {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsRR.ttl": %w`, err)}
 		}
+	}
+	if _, ok := drc.mutation.Rdlength(); !ok {
+		return &ValidationError{Name: "rdlength", err: errors.New(`ent: missing required field "DnsRR.rdlength"`)}
 	}
 	if _, ok := drc.mutation.Activated(); !ok {
 		return &ValidationError{Name: "activated", err: errors.New(`ent: missing required field "DnsRR.activated"`)}
@@ -227,6 +278,7 @@ func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 		_node = &DnsRR{config: drc.config}
 		_spec = sqlgraph.NewCreateSpec(dnsrr.Table, sqlgraph.NewFieldSpec(dnsrr.FieldID, field.TypeString))
 	)
+	_spec.OnConflict = drc.conflict
 	if id, ok := drc.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = &id
@@ -243,9 +295,25 @@ func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 		_spec.SetField(dnsrr.FieldName, field.TypeString, value)
 		_node.Name = value
 	}
+	if value, ok := drc.mutation.Rrtype(); ok {
+		_spec.SetField(dnsrr.FieldRrtype, field.TypeUint16, value)
+		_node.Rrtype = value
+	}
+	if value, ok := drc.mutation.Rrcontent(); ok {
+		_spec.SetField(dnsrr.FieldRrcontent, field.TypeString, value)
+		_node.Rrcontent = value
+	}
+	if value, ok := drc.mutation.Class(); ok {
+		_spec.SetField(dnsrr.FieldClass, field.TypeUint16, value)
+		_node.Class = value
+	}
 	if value, ok := drc.mutation.TTL(); ok {
-		_spec.SetField(dnsrr.FieldTTL, field.TypeInt32, value)
+		_spec.SetField(dnsrr.FieldTTL, field.TypeUint32, value)
 		_node.TTL = value
+	}
+	if value, ok := drc.mutation.Rdlength(); ok {
+		_spec.SetField(dnsrr.FieldRdlength, field.TypeUint16, value)
+		_node.Rdlength = value
 	}
 	if value, ok := drc.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
@@ -271,10 +339,386 @@ func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 	return _node, _spec
 }
 
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.DnsRR.Create().
+//		SetCreatedAt(v).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.DnsRRUpsert) {
+//			SetCreatedAt(v+v).
+//		}).
+//		Exec(ctx)
+func (drc *DnsRRCreate) OnConflict(opts ...sql.ConflictOption) *DnsRRUpsertOne {
+	drc.conflict = opts
+	return &DnsRRUpsertOne{
+		create: drc,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.DnsRR.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (drc *DnsRRCreate) OnConflictColumns(columns ...string) *DnsRRUpsertOne {
+	drc.conflict = append(drc.conflict, sql.ConflictColumns(columns...))
+	return &DnsRRUpsertOne{
+		create: drc,
+	}
+}
+
+type (
+	// DnsRRUpsertOne is the builder for "upsert"-ing
+	//  one DnsRR node.
+	DnsRRUpsertOne struct {
+		create *DnsRRCreate
+	}
+
+	// DnsRRUpsert is the "OnConflict" setter.
+	DnsRRUpsert struct {
+		*sql.UpdateSet
+	}
+)
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *DnsRRUpsert) SetUpdatedAt(v time.Time) *DnsRRUpsert {
+	u.Set(dnsrr.FieldUpdatedAt, v)
+	return u
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *DnsRRUpsert) UpdateUpdatedAt() *DnsRRUpsert {
+	u.SetExcluded(dnsrr.FieldUpdatedAt)
+	return u
+}
+
+// SetRrtype sets the "rrtype" field.
+func (u *DnsRRUpsert) SetRrtype(v uint16) *DnsRRUpsert {
+	u.Set(dnsrr.FieldRrtype, v)
+	return u
+}
+
+// UpdateRrtype sets the "rrtype" field to the value that was provided on create.
+func (u *DnsRRUpsert) UpdateRrtype() *DnsRRUpsert {
+	u.SetExcluded(dnsrr.FieldRrtype)
+	return u
+}
+
+// AddRrtype adds v to the "rrtype" field.
+func (u *DnsRRUpsert) AddRrtype(v uint16) *DnsRRUpsert {
+	u.Add(dnsrr.FieldRrtype, v)
+	return u
+}
+
+// SetRrcontent sets the "rrcontent" field.
+func (u *DnsRRUpsert) SetRrcontent(v string) *DnsRRUpsert {
+	u.Set(dnsrr.FieldRrcontent, v)
+	return u
+}
+
+// UpdateRrcontent sets the "rrcontent" field to the value that was provided on create.
+func (u *DnsRRUpsert) UpdateRrcontent() *DnsRRUpsert {
+	u.SetExcluded(dnsrr.FieldRrcontent)
+	return u
+}
+
+// SetClass sets the "class" field.
+func (u *DnsRRUpsert) SetClass(v uint16) *DnsRRUpsert {
+	u.Set(dnsrr.FieldClass, v)
+	return u
+}
+
+// UpdateClass sets the "class" field to the value that was provided on create.
+func (u *DnsRRUpsert) UpdateClass() *DnsRRUpsert {
+	u.SetExcluded(dnsrr.FieldClass)
+	return u
+}
+
+// AddClass adds v to the "class" field.
+func (u *DnsRRUpsert) AddClass(v uint16) *DnsRRUpsert {
+	u.Add(dnsrr.FieldClass, v)
+	return u
+}
+
+// SetTTL sets the "ttl" field.
+func (u *DnsRRUpsert) SetTTL(v uint32) *DnsRRUpsert {
+	u.Set(dnsrr.FieldTTL, v)
+	return u
+}
+
+// UpdateTTL sets the "ttl" field to the value that was provided on create.
+func (u *DnsRRUpsert) UpdateTTL() *DnsRRUpsert {
+	u.SetExcluded(dnsrr.FieldTTL)
+	return u
+}
+
+// AddTTL adds v to the "ttl" field.
+func (u *DnsRRUpsert) AddTTL(v uint32) *DnsRRUpsert {
+	u.Add(dnsrr.FieldTTL, v)
+	return u
+}
+
+// SetRdlength sets the "rdlength" field.
+func (u *DnsRRUpsert) SetRdlength(v uint16) *DnsRRUpsert {
+	u.Set(dnsrr.FieldRdlength, v)
+	return u
+}
+
+// UpdateRdlength sets the "rdlength" field to the value that was provided on create.
+func (u *DnsRRUpsert) UpdateRdlength() *DnsRRUpsert {
+	u.SetExcluded(dnsrr.FieldRdlength)
+	return u
+}
+
+// AddRdlength adds v to the "rdlength" field.
+func (u *DnsRRUpsert) AddRdlength(v uint16) *DnsRRUpsert {
+	u.Add(dnsrr.FieldRdlength, v)
+	return u
+}
+
+// SetActivated sets the "activated" field.
+func (u *DnsRRUpsert) SetActivated(v bool) *DnsRRUpsert {
+	u.Set(dnsrr.FieldActivated, v)
+	return u
+}
+
+// UpdateActivated sets the "activated" field to the value that was provided on create.
+func (u *DnsRRUpsert) UpdateActivated() *DnsRRUpsert {
+	u.SetExcluded(dnsrr.FieldActivated)
+	return u
+}
+
+// UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
+// Using this option is equivalent to using:
+//
+//	client.DnsRR.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(dnsrr.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *DnsRRUpsertOne) UpdateNewValues() *DnsRRUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		if _, exists := u.create.mutation.ID(); exists {
+			s.SetIgnore(dnsrr.FieldID)
+		}
+		if _, exists := u.create.mutation.CreatedAt(); exists {
+			s.SetIgnore(dnsrr.FieldCreatedAt)
+		}
+		if _, exists := u.create.mutation.Name(); exists {
+			s.SetIgnore(dnsrr.FieldName)
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.DnsRR.Create().
+//	    OnConflict(sql.ResolveWithIgnore()).
+//	    Exec(ctx)
+func (u *DnsRRUpsertOne) Ignore() *DnsRRUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *DnsRRUpsertOne) DoNothing() *DnsRRUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the DnsRRCreate.OnConflict
+// documentation for more info.
+func (u *DnsRRUpsertOne) Update(set func(*DnsRRUpsert)) *DnsRRUpsertOne {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&DnsRRUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *DnsRRUpsertOne) SetUpdatedAt(v time.Time) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *DnsRRUpsertOne) UpdateUpdatedAt() *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// SetRrtype sets the "rrtype" field.
+func (u *DnsRRUpsertOne) SetRrtype(v uint16) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetRrtype(v)
+	})
+}
+
+// AddRrtype adds v to the "rrtype" field.
+func (u *DnsRRUpsertOne) AddRrtype(v uint16) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.AddRrtype(v)
+	})
+}
+
+// UpdateRrtype sets the "rrtype" field to the value that was provided on create.
+func (u *DnsRRUpsertOne) UpdateRrtype() *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateRrtype()
+	})
+}
+
+// SetRrcontent sets the "rrcontent" field.
+func (u *DnsRRUpsertOne) SetRrcontent(v string) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetRrcontent(v)
+	})
+}
+
+// UpdateRrcontent sets the "rrcontent" field to the value that was provided on create.
+func (u *DnsRRUpsertOne) UpdateRrcontent() *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateRrcontent()
+	})
+}
+
+// SetClass sets the "class" field.
+func (u *DnsRRUpsertOne) SetClass(v uint16) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetClass(v)
+	})
+}
+
+// AddClass adds v to the "class" field.
+func (u *DnsRRUpsertOne) AddClass(v uint16) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.AddClass(v)
+	})
+}
+
+// UpdateClass sets the "class" field to the value that was provided on create.
+func (u *DnsRRUpsertOne) UpdateClass() *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateClass()
+	})
+}
+
+// SetTTL sets the "ttl" field.
+func (u *DnsRRUpsertOne) SetTTL(v uint32) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetTTL(v)
+	})
+}
+
+// AddTTL adds v to the "ttl" field.
+func (u *DnsRRUpsertOne) AddTTL(v uint32) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.AddTTL(v)
+	})
+}
+
+// UpdateTTL sets the "ttl" field to the value that was provided on create.
+func (u *DnsRRUpsertOne) UpdateTTL() *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateTTL()
+	})
+}
+
+// SetRdlength sets the "rdlength" field.
+func (u *DnsRRUpsertOne) SetRdlength(v uint16) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetRdlength(v)
+	})
+}
+
+// AddRdlength adds v to the "rdlength" field.
+func (u *DnsRRUpsertOne) AddRdlength(v uint16) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.AddRdlength(v)
+	})
+}
+
+// UpdateRdlength sets the "rdlength" field to the value that was provided on create.
+func (u *DnsRRUpsertOne) UpdateRdlength() *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateRdlength()
+	})
+}
+
+// SetActivated sets the "activated" field.
+func (u *DnsRRUpsertOne) SetActivated(v bool) *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetActivated(v)
+	})
+}
+
+// UpdateActivated sets the "activated" field to the value that was provided on create.
+func (u *DnsRRUpsertOne) UpdateActivated() *DnsRRUpsertOne {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateActivated()
+	})
+}
+
+// Exec executes the query.
+func (u *DnsRRUpsertOne) Exec(ctx context.Context) error {
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for DnsRRCreate.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *DnsRRUpsertOne) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// Exec executes the UPSERT query and returns the inserted/updated ID.
+func (u *DnsRRUpsertOne) ID(ctx context.Context) (id xid.ID, err error) {
+	if u.create.driver.Dialect() == dialect.MySQL {
+		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
+		// fields from the database since MySQL does not support the RETURNING clause.
+		return id, errors.New("ent: DnsRRUpsertOne.ID is not supported by MySQL driver. Use DnsRRUpsertOne.Exec instead")
+	}
+	node, err := u.create.Save(ctx)
+	if err != nil {
+		return id, err
+	}
+	return node.ID, nil
+}
+
+// IDX is like ID, but panics if an error occurs.
+func (u *DnsRRUpsertOne) IDX(ctx context.Context) xid.ID {
+	id, err := u.ID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return id
+}
+
 // DnsRRCreateBulk is the builder for creating many DnsRR entities in bulk.
 type DnsRRCreateBulk struct {
 	config
 	builders []*DnsRRCreate
+	conflict []sql.ConflictOption
 }
 
 // Save creates the DnsRR entities in the database.
@@ -301,6 +745,7 @@ func (drcb *DnsRRCreateBulk) Save(ctx context.Context) ([]*DnsRR, error) {
 					_, err = mutators[i+1].Mutate(root, drcb.builders[i+1].mutation)
 				} else {
 					spec := &sqlgraph.BatchCreateSpec{Nodes: specs}
+					spec.OnConflict = drcb.conflict
 					// Invoke the actual operation on the latest mutation in the chain.
 					if err = sqlgraph.BatchCreate(ctx, drcb.driver, spec); err != nil {
 						if sqlgraph.IsConstraintError(err) {
@@ -347,6 +792,249 @@ func (drcb *DnsRRCreateBulk) Exec(ctx context.Context) error {
 // ExecX is like Exec, but panics if an error occurs.
 func (drcb *DnsRRCreateBulk) ExecX(ctx context.Context) {
 	if err := drcb.Exec(ctx); err != nil {
+		panic(err)
+	}
+}
+
+// OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
+// of the `INSERT` statement. For example:
+//
+//	client.DnsRR.CreateBulk(builders...).
+//		OnConflict(
+//			// Update the row with the new values
+//			// the was proposed for insertion.
+//			sql.ResolveWithNewValues(),
+//		).
+//		// Override some of the fields with custom
+//		// update values.
+//		Update(func(u *ent.DnsRRUpsert) {
+//			SetCreatedAt(v+v).
+//		}).
+//		Exec(ctx)
+func (drcb *DnsRRCreateBulk) OnConflict(opts ...sql.ConflictOption) *DnsRRUpsertBulk {
+	drcb.conflict = opts
+	return &DnsRRUpsertBulk{
+		create: drcb,
+	}
+}
+
+// OnConflictColumns calls `OnConflict` and configures the columns
+// as conflict target. Using this option is equivalent to using:
+//
+//	client.DnsRR.Create().
+//		OnConflict(sql.ConflictColumns(columns...)).
+//		Exec(ctx)
+func (drcb *DnsRRCreateBulk) OnConflictColumns(columns ...string) *DnsRRUpsertBulk {
+	drcb.conflict = append(drcb.conflict, sql.ConflictColumns(columns...))
+	return &DnsRRUpsertBulk{
+		create: drcb,
+	}
+}
+
+// DnsRRUpsertBulk is the builder for "upsert"-ing
+// a bulk of DnsRR nodes.
+type DnsRRUpsertBulk struct {
+	create *DnsRRCreateBulk
+}
+
+// UpdateNewValues updates the mutable fields using the new values that
+// were set on create. Using this option is equivalent to using:
+//
+//	client.DnsRR.Create().
+//		OnConflict(
+//			sql.ResolveWithNewValues(),
+//			sql.ResolveWith(func(u *sql.UpdateSet) {
+//				u.SetIgnore(dnsrr.FieldID)
+//			}),
+//		).
+//		Exec(ctx)
+func (u *DnsRRUpsertBulk) UpdateNewValues() *DnsRRUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
+		for _, b := range u.create.builders {
+			if _, exists := b.mutation.ID(); exists {
+				s.SetIgnore(dnsrr.FieldID)
+			}
+			if _, exists := b.mutation.CreatedAt(); exists {
+				s.SetIgnore(dnsrr.FieldCreatedAt)
+			}
+			if _, exists := b.mutation.Name(); exists {
+				s.SetIgnore(dnsrr.FieldName)
+			}
+		}
+	}))
+	return u
+}
+
+// Ignore sets each column to itself in case of conflict.
+// Using this option is equivalent to using:
+//
+//	client.DnsRR.Create().
+//		OnConflict(sql.ResolveWithIgnore()).
+//		Exec(ctx)
+func (u *DnsRRUpsertBulk) Ignore() *DnsRRUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
+	return u
+}
+
+// DoNothing configures the conflict_action to `DO NOTHING`.
+// Supported only by SQLite and PostgreSQL.
+func (u *DnsRRUpsertBulk) DoNothing() *DnsRRUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.DoNothing())
+	return u
+}
+
+// Update allows overriding fields `UPDATE` values. See the DnsRRCreateBulk.OnConflict
+// documentation for more info.
+func (u *DnsRRUpsertBulk) Update(set func(*DnsRRUpsert)) *DnsRRUpsertBulk {
+	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
+		set(&DnsRRUpsert{UpdateSet: update})
+	}))
+	return u
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (u *DnsRRUpsertBulk) SetUpdatedAt(v time.Time) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetUpdatedAt(v)
+	})
+}
+
+// UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
+func (u *DnsRRUpsertBulk) UpdateUpdatedAt() *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateUpdatedAt()
+	})
+}
+
+// SetRrtype sets the "rrtype" field.
+func (u *DnsRRUpsertBulk) SetRrtype(v uint16) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetRrtype(v)
+	})
+}
+
+// AddRrtype adds v to the "rrtype" field.
+func (u *DnsRRUpsertBulk) AddRrtype(v uint16) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.AddRrtype(v)
+	})
+}
+
+// UpdateRrtype sets the "rrtype" field to the value that was provided on create.
+func (u *DnsRRUpsertBulk) UpdateRrtype() *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateRrtype()
+	})
+}
+
+// SetRrcontent sets the "rrcontent" field.
+func (u *DnsRRUpsertBulk) SetRrcontent(v string) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetRrcontent(v)
+	})
+}
+
+// UpdateRrcontent sets the "rrcontent" field to the value that was provided on create.
+func (u *DnsRRUpsertBulk) UpdateRrcontent() *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateRrcontent()
+	})
+}
+
+// SetClass sets the "class" field.
+func (u *DnsRRUpsertBulk) SetClass(v uint16) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetClass(v)
+	})
+}
+
+// AddClass adds v to the "class" field.
+func (u *DnsRRUpsertBulk) AddClass(v uint16) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.AddClass(v)
+	})
+}
+
+// UpdateClass sets the "class" field to the value that was provided on create.
+func (u *DnsRRUpsertBulk) UpdateClass() *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateClass()
+	})
+}
+
+// SetTTL sets the "ttl" field.
+func (u *DnsRRUpsertBulk) SetTTL(v uint32) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetTTL(v)
+	})
+}
+
+// AddTTL adds v to the "ttl" field.
+func (u *DnsRRUpsertBulk) AddTTL(v uint32) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.AddTTL(v)
+	})
+}
+
+// UpdateTTL sets the "ttl" field to the value that was provided on create.
+func (u *DnsRRUpsertBulk) UpdateTTL() *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateTTL()
+	})
+}
+
+// SetRdlength sets the "rdlength" field.
+func (u *DnsRRUpsertBulk) SetRdlength(v uint16) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetRdlength(v)
+	})
+}
+
+// AddRdlength adds v to the "rdlength" field.
+func (u *DnsRRUpsertBulk) AddRdlength(v uint16) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.AddRdlength(v)
+	})
+}
+
+// UpdateRdlength sets the "rdlength" field to the value that was provided on create.
+func (u *DnsRRUpsertBulk) UpdateRdlength() *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateRdlength()
+	})
+}
+
+// SetActivated sets the "activated" field.
+func (u *DnsRRUpsertBulk) SetActivated(v bool) *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.SetActivated(v)
+	})
+}
+
+// UpdateActivated sets the "activated" field to the value that was provided on create.
+func (u *DnsRRUpsertBulk) UpdateActivated() *DnsRRUpsertBulk {
+	return u.Update(func(s *DnsRRUpsert) {
+		s.UpdateActivated()
+	})
+}
+
+// Exec executes the query.
+func (u *DnsRRUpsertBulk) Exec(ctx context.Context) error {
+	for i, b := range u.create.builders {
+		if len(b.conflict) != 0 {
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the DnsRRCreateBulk instead", i)
+		}
+	}
+	if len(u.create.conflict) == 0 {
+		return errors.New("ent: missing options for DnsRRCreateBulk.OnConflict")
+	}
+	return u.create.Exec(ctx)
+}
+
+// ExecX is like Exec, but panics if an error occurs.
+func (u *DnsRRUpsertBulk) ExecX(ctx context.Context) {
+	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }

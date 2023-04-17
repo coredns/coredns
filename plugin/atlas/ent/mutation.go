@@ -39,18 +39,26 @@ type DNSZoneMutation struct {
 	created_at     *time.Time
 	updated_at     *time.Time
 	name           *string
-	mname          *string
-	rname          *string
-	ttl            *int32
+	rrtype         *uint16
+	addrrtype      *int16
+	class          *uint16
+	addclass       *int16
+	ttl            *uint32
 	addttl         *int32
-	refresh        *int32
+	rdlength       *uint16
+	addrdlength    *int16
+	ns             *string
+	mbox           *string
+	serial         *uint32
+	addserial      *int32
+	refresh        *uint32
 	addrefresh     *int32
-	retry          *int32
+	retry          *uint32
 	addretry       *int32
-	expire         *int32
+	expire         *uint32
 	addexpire      *int32
-	minimum        *int32
-	addminimum     *int32
+	minttl         *uint32
+	addminttl      *int32
 	activated      *bool
 	clearedFields  map[string]struct{}
 	records        map[xid.ID]struct{}
@@ -273,86 +281,126 @@ func (m *DNSZoneMutation) ResetName() {
 	m.name = nil
 }
 
-// SetMname sets the "mname" field.
-func (m *DNSZoneMutation) SetMname(s string) {
-	m.mname = &s
+// SetRrtype sets the "rrtype" field.
+func (m *DNSZoneMutation) SetRrtype(u uint16) {
+	m.rrtype = &u
+	m.addrrtype = nil
 }
 
-// Mname returns the value of the "mname" field in the mutation.
-func (m *DNSZoneMutation) Mname() (r string, exists bool) {
-	v := m.mname
+// Rrtype returns the value of the "rrtype" field in the mutation.
+func (m *DNSZoneMutation) Rrtype() (r uint16, exists bool) {
+	v := m.rrtype
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldMname returns the old "mname" field's value of the DNSZone entity.
+// OldRrtype returns the old "rrtype" field's value of the DNSZone entity.
 // If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DNSZoneMutation) OldMname(ctx context.Context) (v string, err error) {
+func (m *DNSZoneMutation) OldRrtype(ctx context.Context) (v uint16, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldMname is only allowed on UpdateOne operations")
+		return v, errors.New("OldRrtype is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldMname requires an ID field in the mutation")
+		return v, errors.New("OldRrtype requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldMname: %w", err)
+		return v, fmt.Errorf("querying old value for OldRrtype: %w", err)
 	}
-	return oldValue.Mname, nil
+	return oldValue.Rrtype, nil
 }
 
-// ResetMname resets all changes to the "mname" field.
-func (m *DNSZoneMutation) ResetMname() {
-	m.mname = nil
+// AddRrtype adds u to the "rrtype" field.
+func (m *DNSZoneMutation) AddRrtype(u int16) {
+	if m.addrrtype != nil {
+		*m.addrrtype += u
+	} else {
+		m.addrrtype = &u
+	}
 }
 
-// SetRname sets the "rname" field.
-func (m *DNSZoneMutation) SetRname(s string) {
-	m.rname = &s
-}
-
-// Rname returns the value of the "rname" field in the mutation.
-func (m *DNSZoneMutation) Rname() (r string, exists bool) {
-	v := m.rname
+// AddedRrtype returns the value that was added to the "rrtype" field in this mutation.
+func (m *DNSZoneMutation) AddedRrtype() (r int16, exists bool) {
+	v := m.addrrtype
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldRname returns the old "rname" field's value of the DNSZone entity.
+// ResetRrtype resets all changes to the "rrtype" field.
+func (m *DNSZoneMutation) ResetRrtype() {
+	m.rrtype = nil
+	m.addrrtype = nil
+}
+
+// SetClass sets the "class" field.
+func (m *DNSZoneMutation) SetClass(u uint16) {
+	m.class = &u
+	m.addclass = nil
+}
+
+// Class returns the value of the "class" field in the mutation.
+func (m *DNSZoneMutation) Class() (r uint16, exists bool) {
+	v := m.class
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClass returns the old "class" field's value of the DNSZone entity.
 // If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DNSZoneMutation) OldRname(ctx context.Context) (v string, err error) {
+func (m *DNSZoneMutation) OldClass(ctx context.Context) (v uint16, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRname is only allowed on UpdateOne operations")
+		return v, errors.New("OldClass is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRname requires an ID field in the mutation")
+		return v, errors.New("OldClass requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRname: %w", err)
+		return v, fmt.Errorf("querying old value for OldClass: %w", err)
 	}
-	return oldValue.Rname, nil
+	return oldValue.Class, nil
 }
 
-// ResetRname resets all changes to the "rname" field.
-func (m *DNSZoneMutation) ResetRname() {
-	m.rname = nil
+// AddClass adds u to the "class" field.
+func (m *DNSZoneMutation) AddClass(u int16) {
+	if m.addclass != nil {
+		*m.addclass += u
+	} else {
+		m.addclass = &u
+	}
+}
+
+// AddedClass returns the value that was added to the "class" field in this mutation.
+func (m *DNSZoneMutation) AddedClass() (r int16, exists bool) {
+	v := m.addclass
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetClass resets all changes to the "class" field.
+func (m *DNSZoneMutation) ResetClass() {
+	m.class = nil
+	m.addclass = nil
 }
 
 // SetTTL sets the "ttl" field.
-func (m *DNSZoneMutation) SetTTL(i int32) {
-	m.ttl = &i
+func (m *DNSZoneMutation) SetTTL(u uint32) {
+	m.ttl = &u
 	m.addttl = nil
 }
 
 // TTL returns the value of the "ttl" field in the mutation.
-func (m *DNSZoneMutation) TTL() (r int32, exists bool) {
+func (m *DNSZoneMutation) TTL() (r uint32, exists bool) {
 	v := m.ttl
 	if v == nil {
 		return
@@ -363,7 +411,7 @@ func (m *DNSZoneMutation) TTL() (r int32, exists bool) {
 // OldTTL returns the old "ttl" field's value of the DNSZone entity.
 // If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DNSZoneMutation) OldTTL(ctx context.Context) (v int32, err error) {
+func (m *DNSZoneMutation) OldTTL(ctx context.Context) (v uint32, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldTTL is only allowed on UpdateOne operations")
 	}
@@ -377,12 +425,12 @@ func (m *DNSZoneMutation) OldTTL(ctx context.Context) (v int32, err error) {
 	return oldValue.TTL, nil
 }
 
-// AddTTL adds i to the "ttl" field.
-func (m *DNSZoneMutation) AddTTL(i int32) {
+// AddTTL adds u to the "ttl" field.
+func (m *DNSZoneMutation) AddTTL(u int32) {
 	if m.addttl != nil {
-		*m.addttl += i
+		*m.addttl += u
 	} else {
-		m.addttl = &i
+		m.addttl = &u
 	}
 }
 
@@ -401,14 +449,198 @@ func (m *DNSZoneMutation) ResetTTL() {
 	m.addttl = nil
 }
 
+// SetRdlength sets the "rdlength" field.
+func (m *DNSZoneMutation) SetRdlength(u uint16) {
+	m.rdlength = &u
+	m.addrdlength = nil
+}
+
+// Rdlength returns the value of the "rdlength" field in the mutation.
+func (m *DNSZoneMutation) Rdlength() (r uint16, exists bool) {
+	v := m.rdlength
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRdlength returns the old "rdlength" field's value of the DNSZone entity.
+// If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DNSZoneMutation) OldRdlength(ctx context.Context) (v uint16, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRdlength is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRdlength requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRdlength: %w", err)
+	}
+	return oldValue.Rdlength, nil
+}
+
+// AddRdlength adds u to the "rdlength" field.
+func (m *DNSZoneMutation) AddRdlength(u int16) {
+	if m.addrdlength != nil {
+		*m.addrdlength += u
+	} else {
+		m.addrdlength = &u
+	}
+}
+
+// AddedRdlength returns the value that was added to the "rdlength" field in this mutation.
+func (m *DNSZoneMutation) AddedRdlength() (r int16, exists bool) {
+	v := m.addrdlength
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRdlength resets all changes to the "rdlength" field.
+func (m *DNSZoneMutation) ResetRdlength() {
+	m.rdlength = nil
+	m.addrdlength = nil
+}
+
+// SetNs sets the "ns" field.
+func (m *DNSZoneMutation) SetNs(s string) {
+	m.ns = &s
+}
+
+// Ns returns the value of the "ns" field in the mutation.
+func (m *DNSZoneMutation) Ns() (r string, exists bool) {
+	v := m.ns
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNs returns the old "ns" field's value of the DNSZone entity.
+// If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DNSZoneMutation) OldNs(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNs is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNs requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNs: %w", err)
+	}
+	return oldValue.Ns, nil
+}
+
+// ResetNs resets all changes to the "ns" field.
+func (m *DNSZoneMutation) ResetNs() {
+	m.ns = nil
+}
+
+// SetMbox sets the "mbox" field.
+func (m *DNSZoneMutation) SetMbox(s string) {
+	m.mbox = &s
+}
+
+// Mbox returns the value of the "mbox" field in the mutation.
+func (m *DNSZoneMutation) Mbox() (r string, exists bool) {
+	v := m.mbox
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMbox returns the old "mbox" field's value of the DNSZone entity.
+// If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DNSZoneMutation) OldMbox(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMbox is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMbox requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMbox: %w", err)
+	}
+	return oldValue.Mbox, nil
+}
+
+// ResetMbox resets all changes to the "mbox" field.
+func (m *DNSZoneMutation) ResetMbox() {
+	m.mbox = nil
+}
+
+// SetSerial sets the "serial" field.
+func (m *DNSZoneMutation) SetSerial(u uint32) {
+	m.serial = &u
+	m.addserial = nil
+}
+
+// Serial returns the value of the "serial" field in the mutation.
+func (m *DNSZoneMutation) Serial() (r uint32, exists bool) {
+	v := m.serial
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSerial returns the old "serial" field's value of the DNSZone entity.
+// If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DNSZoneMutation) OldSerial(ctx context.Context) (v uint32, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSerial is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSerial requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSerial: %w", err)
+	}
+	return oldValue.Serial, nil
+}
+
+// AddSerial adds u to the "serial" field.
+func (m *DNSZoneMutation) AddSerial(u int32) {
+	if m.addserial != nil {
+		*m.addserial += u
+	} else {
+		m.addserial = &u
+	}
+}
+
+// AddedSerial returns the value that was added to the "serial" field in this mutation.
+func (m *DNSZoneMutation) AddedSerial() (r int32, exists bool) {
+	v := m.addserial
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetSerial resets all changes to the "serial" field.
+func (m *DNSZoneMutation) ResetSerial() {
+	m.serial = nil
+	m.addserial = nil
+}
+
 // SetRefresh sets the "refresh" field.
-func (m *DNSZoneMutation) SetRefresh(i int32) {
-	m.refresh = &i
+func (m *DNSZoneMutation) SetRefresh(u uint32) {
+	m.refresh = &u
 	m.addrefresh = nil
 }
 
 // Refresh returns the value of the "refresh" field in the mutation.
-func (m *DNSZoneMutation) Refresh() (r int32, exists bool) {
+func (m *DNSZoneMutation) Refresh() (r uint32, exists bool) {
 	v := m.refresh
 	if v == nil {
 		return
@@ -419,7 +651,7 @@ func (m *DNSZoneMutation) Refresh() (r int32, exists bool) {
 // OldRefresh returns the old "refresh" field's value of the DNSZone entity.
 // If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DNSZoneMutation) OldRefresh(ctx context.Context) (v int32, err error) {
+func (m *DNSZoneMutation) OldRefresh(ctx context.Context) (v uint32, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldRefresh is only allowed on UpdateOne operations")
 	}
@@ -433,12 +665,12 @@ func (m *DNSZoneMutation) OldRefresh(ctx context.Context) (v int32, err error) {
 	return oldValue.Refresh, nil
 }
 
-// AddRefresh adds i to the "refresh" field.
-func (m *DNSZoneMutation) AddRefresh(i int32) {
+// AddRefresh adds u to the "refresh" field.
+func (m *DNSZoneMutation) AddRefresh(u int32) {
 	if m.addrefresh != nil {
-		*m.addrefresh += i
+		*m.addrefresh += u
 	} else {
-		m.addrefresh = &i
+		m.addrefresh = &u
 	}
 }
 
@@ -458,13 +690,13 @@ func (m *DNSZoneMutation) ResetRefresh() {
 }
 
 // SetRetry sets the "retry" field.
-func (m *DNSZoneMutation) SetRetry(i int32) {
-	m.retry = &i
+func (m *DNSZoneMutation) SetRetry(u uint32) {
+	m.retry = &u
 	m.addretry = nil
 }
 
 // Retry returns the value of the "retry" field in the mutation.
-func (m *DNSZoneMutation) Retry() (r int32, exists bool) {
+func (m *DNSZoneMutation) Retry() (r uint32, exists bool) {
 	v := m.retry
 	if v == nil {
 		return
@@ -475,7 +707,7 @@ func (m *DNSZoneMutation) Retry() (r int32, exists bool) {
 // OldRetry returns the old "retry" field's value of the DNSZone entity.
 // If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DNSZoneMutation) OldRetry(ctx context.Context) (v int32, err error) {
+func (m *DNSZoneMutation) OldRetry(ctx context.Context) (v uint32, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldRetry is only allowed on UpdateOne operations")
 	}
@@ -489,12 +721,12 @@ func (m *DNSZoneMutation) OldRetry(ctx context.Context) (v int32, err error) {
 	return oldValue.Retry, nil
 }
 
-// AddRetry adds i to the "retry" field.
-func (m *DNSZoneMutation) AddRetry(i int32) {
+// AddRetry adds u to the "retry" field.
+func (m *DNSZoneMutation) AddRetry(u int32) {
 	if m.addretry != nil {
-		*m.addretry += i
+		*m.addretry += u
 	} else {
-		m.addretry = &i
+		m.addretry = &u
 	}
 }
 
@@ -514,13 +746,13 @@ func (m *DNSZoneMutation) ResetRetry() {
 }
 
 // SetExpire sets the "expire" field.
-func (m *DNSZoneMutation) SetExpire(i int32) {
-	m.expire = &i
+func (m *DNSZoneMutation) SetExpire(u uint32) {
+	m.expire = &u
 	m.addexpire = nil
 }
 
 // Expire returns the value of the "expire" field in the mutation.
-func (m *DNSZoneMutation) Expire() (r int32, exists bool) {
+func (m *DNSZoneMutation) Expire() (r uint32, exists bool) {
 	v := m.expire
 	if v == nil {
 		return
@@ -531,7 +763,7 @@ func (m *DNSZoneMutation) Expire() (r int32, exists bool) {
 // OldExpire returns the old "expire" field's value of the DNSZone entity.
 // If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DNSZoneMutation) OldExpire(ctx context.Context) (v int32, err error) {
+func (m *DNSZoneMutation) OldExpire(ctx context.Context) (v uint32, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldExpire is only allowed on UpdateOne operations")
 	}
@@ -545,12 +777,12 @@ func (m *DNSZoneMutation) OldExpire(ctx context.Context) (v int32, err error) {
 	return oldValue.Expire, nil
 }
 
-// AddExpire adds i to the "expire" field.
-func (m *DNSZoneMutation) AddExpire(i int32) {
+// AddExpire adds u to the "expire" field.
+func (m *DNSZoneMutation) AddExpire(u int32) {
 	if m.addexpire != nil {
-		*m.addexpire += i
+		*m.addexpire += u
 	} else {
-		m.addexpire = &i
+		m.addexpire = &u
 	}
 }
 
@@ -569,60 +801,60 @@ func (m *DNSZoneMutation) ResetExpire() {
 	m.addexpire = nil
 }
 
-// SetMinimum sets the "minimum" field.
-func (m *DNSZoneMutation) SetMinimum(i int32) {
-	m.minimum = &i
-	m.addminimum = nil
+// SetMinttl sets the "minttl" field.
+func (m *DNSZoneMutation) SetMinttl(u uint32) {
+	m.minttl = &u
+	m.addminttl = nil
 }
 
-// Minimum returns the value of the "minimum" field in the mutation.
-func (m *DNSZoneMutation) Minimum() (r int32, exists bool) {
-	v := m.minimum
+// Minttl returns the value of the "minttl" field in the mutation.
+func (m *DNSZoneMutation) Minttl() (r uint32, exists bool) {
+	v := m.minttl
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldMinimum returns the old "minimum" field's value of the DNSZone entity.
+// OldMinttl returns the old "minttl" field's value of the DNSZone entity.
 // If the DNSZone object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DNSZoneMutation) OldMinimum(ctx context.Context) (v int32, err error) {
+func (m *DNSZoneMutation) OldMinttl(ctx context.Context) (v uint32, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldMinimum is only allowed on UpdateOne operations")
+		return v, errors.New("OldMinttl is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldMinimum requires an ID field in the mutation")
+		return v, errors.New("OldMinttl requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldMinimum: %w", err)
+		return v, fmt.Errorf("querying old value for OldMinttl: %w", err)
 	}
-	return oldValue.Minimum, nil
+	return oldValue.Minttl, nil
 }
 
-// AddMinimum adds i to the "minimum" field.
-func (m *DNSZoneMutation) AddMinimum(i int32) {
-	if m.addminimum != nil {
-		*m.addminimum += i
+// AddMinttl adds u to the "minttl" field.
+func (m *DNSZoneMutation) AddMinttl(u int32) {
+	if m.addminttl != nil {
+		*m.addminttl += u
 	} else {
-		m.addminimum = &i
+		m.addminttl = &u
 	}
 }
 
-// AddedMinimum returns the value that was added to the "minimum" field in this mutation.
-func (m *DNSZoneMutation) AddedMinimum() (r int32, exists bool) {
-	v := m.addminimum
+// AddedMinttl returns the value that was added to the "minttl" field in this mutation.
+func (m *DNSZoneMutation) AddedMinttl() (r int32, exists bool) {
+	v := m.addminttl
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// ResetMinimum resets all changes to the "minimum" field.
-func (m *DNSZoneMutation) ResetMinimum() {
-	m.minimum = nil
-	m.addminimum = nil
+// ResetMinttl resets all changes to the "minttl" field.
+func (m *DNSZoneMutation) ResetMinttl() {
+	m.minttl = nil
+	m.addminttl = nil
 }
 
 // SetActivated sets the "activated" field.
@@ -749,7 +981,7 @@ func (m *DNSZoneMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DNSZoneMutation) Fields() []string {
-	fields := make([]string, 0, 11)
+	fields := make([]string, 0, 15)
 	if m.created_at != nil {
 		fields = append(fields, dnszone.FieldCreatedAt)
 	}
@@ -759,14 +991,26 @@ func (m *DNSZoneMutation) Fields() []string {
 	if m.name != nil {
 		fields = append(fields, dnszone.FieldName)
 	}
-	if m.mname != nil {
-		fields = append(fields, dnszone.FieldMname)
+	if m.rrtype != nil {
+		fields = append(fields, dnszone.FieldRrtype)
 	}
-	if m.rname != nil {
-		fields = append(fields, dnszone.FieldRname)
+	if m.class != nil {
+		fields = append(fields, dnszone.FieldClass)
 	}
 	if m.ttl != nil {
 		fields = append(fields, dnszone.FieldTTL)
+	}
+	if m.rdlength != nil {
+		fields = append(fields, dnszone.FieldRdlength)
+	}
+	if m.ns != nil {
+		fields = append(fields, dnszone.FieldNs)
+	}
+	if m.mbox != nil {
+		fields = append(fields, dnszone.FieldMbox)
+	}
+	if m.serial != nil {
+		fields = append(fields, dnszone.FieldSerial)
 	}
 	if m.refresh != nil {
 		fields = append(fields, dnszone.FieldRefresh)
@@ -777,8 +1021,8 @@ func (m *DNSZoneMutation) Fields() []string {
 	if m.expire != nil {
 		fields = append(fields, dnszone.FieldExpire)
 	}
-	if m.minimum != nil {
-		fields = append(fields, dnszone.FieldMinimum)
+	if m.minttl != nil {
+		fields = append(fields, dnszone.FieldMinttl)
 	}
 	if m.activated != nil {
 		fields = append(fields, dnszone.FieldActivated)
@@ -797,20 +1041,28 @@ func (m *DNSZoneMutation) Field(name string) (ent.Value, bool) {
 		return m.UpdatedAt()
 	case dnszone.FieldName:
 		return m.Name()
-	case dnszone.FieldMname:
-		return m.Mname()
-	case dnszone.FieldRname:
-		return m.Rname()
+	case dnszone.FieldRrtype:
+		return m.Rrtype()
+	case dnszone.FieldClass:
+		return m.Class()
 	case dnszone.FieldTTL:
 		return m.TTL()
+	case dnszone.FieldRdlength:
+		return m.Rdlength()
+	case dnszone.FieldNs:
+		return m.Ns()
+	case dnszone.FieldMbox:
+		return m.Mbox()
+	case dnszone.FieldSerial:
+		return m.Serial()
 	case dnszone.FieldRefresh:
 		return m.Refresh()
 	case dnszone.FieldRetry:
 		return m.Retry()
 	case dnszone.FieldExpire:
 		return m.Expire()
-	case dnszone.FieldMinimum:
-		return m.Minimum()
+	case dnszone.FieldMinttl:
+		return m.Minttl()
 	case dnszone.FieldActivated:
 		return m.Activated()
 	}
@@ -828,20 +1080,28 @@ func (m *DNSZoneMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldUpdatedAt(ctx)
 	case dnszone.FieldName:
 		return m.OldName(ctx)
-	case dnszone.FieldMname:
-		return m.OldMname(ctx)
-	case dnszone.FieldRname:
-		return m.OldRname(ctx)
+	case dnszone.FieldRrtype:
+		return m.OldRrtype(ctx)
+	case dnszone.FieldClass:
+		return m.OldClass(ctx)
 	case dnszone.FieldTTL:
 		return m.OldTTL(ctx)
+	case dnszone.FieldRdlength:
+		return m.OldRdlength(ctx)
+	case dnszone.FieldNs:
+		return m.OldNs(ctx)
+	case dnszone.FieldMbox:
+		return m.OldMbox(ctx)
+	case dnszone.FieldSerial:
+		return m.OldSerial(ctx)
 	case dnszone.FieldRefresh:
 		return m.OldRefresh(ctx)
 	case dnszone.FieldRetry:
 		return m.OldRetry(ctx)
 	case dnszone.FieldExpire:
 		return m.OldExpire(ctx)
-	case dnszone.FieldMinimum:
-		return m.OldMinimum(ctx)
+	case dnszone.FieldMinttl:
+		return m.OldMinttl(ctx)
 	case dnszone.FieldActivated:
 		return m.OldActivated(ctx)
 	}
@@ -874,54 +1134,82 @@ func (m *DNSZoneMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetName(v)
 		return nil
-	case dnszone.FieldMname:
-		v, ok := value.(string)
+	case dnszone.FieldRrtype:
+		v, ok := value.(uint16)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetMname(v)
+		m.SetRrtype(v)
 		return nil
-	case dnszone.FieldRname:
-		v, ok := value.(string)
+	case dnszone.FieldClass:
+		v, ok := value.(uint16)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetRname(v)
+		m.SetClass(v)
 		return nil
 	case dnszone.FieldTTL:
-		v, ok := value.(int32)
+		v, ok := value.(uint32)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTTL(v)
 		return nil
+	case dnszone.FieldRdlength:
+		v, ok := value.(uint16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRdlength(v)
+		return nil
+	case dnszone.FieldNs:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNs(v)
+		return nil
+	case dnszone.FieldMbox:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMbox(v)
+		return nil
+	case dnszone.FieldSerial:
+		v, ok := value.(uint32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSerial(v)
+		return nil
 	case dnszone.FieldRefresh:
-		v, ok := value.(int32)
+		v, ok := value.(uint32)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRefresh(v)
 		return nil
 	case dnszone.FieldRetry:
-		v, ok := value.(int32)
+		v, ok := value.(uint32)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRetry(v)
 		return nil
 	case dnszone.FieldExpire:
-		v, ok := value.(int32)
+		v, ok := value.(uint32)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetExpire(v)
 		return nil
-	case dnszone.FieldMinimum:
-		v, ok := value.(int32)
+	case dnszone.FieldMinttl:
+		v, ok := value.(uint32)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetMinimum(v)
+		m.SetMinttl(v)
 		return nil
 	case dnszone.FieldActivated:
 		v, ok := value.(bool)
@@ -938,8 +1226,20 @@ func (m *DNSZoneMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *DNSZoneMutation) AddedFields() []string {
 	var fields []string
+	if m.addrrtype != nil {
+		fields = append(fields, dnszone.FieldRrtype)
+	}
+	if m.addclass != nil {
+		fields = append(fields, dnszone.FieldClass)
+	}
 	if m.addttl != nil {
 		fields = append(fields, dnszone.FieldTTL)
+	}
+	if m.addrdlength != nil {
+		fields = append(fields, dnszone.FieldRdlength)
+	}
+	if m.addserial != nil {
+		fields = append(fields, dnszone.FieldSerial)
 	}
 	if m.addrefresh != nil {
 		fields = append(fields, dnszone.FieldRefresh)
@@ -950,8 +1250,8 @@ func (m *DNSZoneMutation) AddedFields() []string {
 	if m.addexpire != nil {
 		fields = append(fields, dnszone.FieldExpire)
 	}
-	if m.addminimum != nil {
-		fields = append(fields, dnszone.FieldMinimum)
+	if m.addminttl != nil {
+		fields = append(fields, dnszone.FieldMinttl)
 	}
 	return fields
 }
@@ -961,16 +1261,24 @@ func (m *DNSZoneMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *DNSZoneMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case dnszone.FieldRrtype:
+		return m.AddedRrtype()
+	case dnszone.FieldClass:
+		return m.AddedClass()
 	case dnszone.FieldTTL:
 		return m.AddedTTL()
+	case dnszone.FieldRdlength:
+		return m.AddedRdlength()
+	case dnszone.FieldSerial:
+		return m.AddedSerial()
 	case dnszone.FieldRefresh:
 		return m.AddedRefresh()
 	case dnszone.FieldRetry:
 		return m.AddedRetry()
 	case dnszone.FieldExpire:
 		return m.AddedExpire()
-	case dnszone.FieldMinimum:
-		return m.AddedMinimum()
+	case dnszone.FieldMinttl:
+		return m.AddedMinttl()
 	}
 	return nil, false
 }
@@ -980,12 +1288,40 @@ func (m *DNSZoneMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *DNSZoneMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case dnszone.FieldRrtype:
+		v, ok := value.(int16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRrtype(v)
+		return nil
+	case dnszone.FieldClass:
+		v, ok := value.(int16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddClass(v)
+		return nil
 	case dnszone.FieldTTL:
 		v, ok := value.(int32)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddTTL(v)
+		return nil
+	case dnszone.FieldRdlength:
+		v, ok := value.(int16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRdlength(v)
+		return nil
+	case dnszone.FieldSerial:
+		v, ok := value.(int32)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSerial(v)
 		return nil
 	case dnszone.FieldRefresh:
 		v, ok := value.(int32)
@@ -1008,12 +1344,12 @@ func (m *DNSZoneMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddExpire(v)
 		return nil
-	case dnszone.FieldMinimum:
+	case dnszone.FieldMinttl:
 		v, ok := value.(int32)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.AddMinimum(v)
+		m.AddMinttl(v)
 		return nil
 	}
 	return fmt.Errorf("unknown DNSZone numeric field %s", name)
@@ -1051,14 +1387,26 @@ func (m *DNSZoneMutation) ResetField(name string) error {
 	case dnszone.FieldName:
 		m.ResetName()
 		return nil
-	case dnszone.FieldMname:
-		m.ResetMname()
+	case dnszone.FieldRrtype:
+		m.ResetRrtype()
 		return nil
-	case dnszone.FieldRname:
-		m.ResetRname()
+	case dnszone.FieldClass:
+		m.ResetClass()
 		return nil
 	case dnszone.FieldTTL:
 		m.ResetTTL()
+		return nil
+	case dnszone.FieldRdlength:
+		m.ResetRdlength()
+		return nil
+	case dnszone.FieldNs:
+		m.ResetNs()
+		return nil
+	case dnszone.FieldMbox:
+		m.ResetMbox()
+		return nil
+	case dnszone.FieldSerial:
+		m.ResetSerial()
 		return nil
 	case dnszone.FieldRefresh:
 		m.ResetRefresh()
@@ -1069,8 +1417,8 @@ func (m *DNSZoneMutation) ResetField(name string) error {
 	case dnszone.FieldExpire:
 		m.ResetExpire()
 		return nil
-	case dnszone.FieldMinimum:
-		m.ResetMinimum()
+	case dnszone.FieldMinttl:
+		m.ResetMinttl()
 		return nil
 	case dnszone.FieldActivated:
 		m.ResetActivated()
@@ -1172,8 +1520,15 @@ type DnsRRMutation struct {
 	created_at    *time.Time
 	updated_at    *time.Time
 	name          *string
-	ttl           *int32
+	rrtype        *uint16
+	addrrtype     *int16
+	rrcontent     *string
+	class         *uint16
+	addclass      *int16
+	ttl           *uint32
 	addttl        *int32
+	rdlength      *uint16
+	addrdlength   *int16
 	activated     *bool
 	clearedFields map[string]struct{}
 	zone          *xid.ID
@@ -1395,14 +1750,162 @@ func (m *DnsRRMutation) ResetName() {
 	m.name = nil
 }
 
+// SetRrtype sets the "rrtype" field.
+func (m *DnsRRMutation) SetRrtype(u uint16) {
+	m.rrtype = &u
+	m.addrrtype = nil
+}
+
+// Rrtype returns the value of the "rrtype" field in the mutation.
+func (m *DnsRRMutation) Rrtype() (r uint16, exists bool) {
+	v := m.rrtype
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRrtype returns the old "rrtype" field's value of the DnsRR entity.
+// If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DnsRRMutation) OldRrtype(ctx context.Context) (v uint16, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRrtype is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRrtype requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRrtype: %w", err)
+	}
+	return oldValue.Rrtype, nil
+}
+
+// AddRrtype adds u to the "rrtype" field.
+func (m *DnsRRMutation) AddRrtype(u int16) {
+	if m.addrrtype != nil {
+		*m.addrrtype += u
+	} else {
+		m.addrrtype = &u
+	}
+}
+
+// AddedRrtype returns the value that was added to the "rrtype" field in this mutation.
+func (m *DnsRRMutation) AddedRrtype() (r int16, exists bool) {
+	v := m.addrrtype
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRrtype resets all changes to the "rrtype" field.
+func (m *DnsRRMutation) ResetRrtype() {
+	m.rrtype = nil
+	m.addrrtype = nil
+}
+
+// SetRrcontent sets the "rrcontent" field.
+func (m *DnsRRMutation) SetRrcontent(s string) {
+	m.rrcontent = &s
+}
+
+// Rrcontent returns the value of the "rrcontent" field in the mutation.
+func (m *DnsRRMutation) Rrcontent() (r string, exists bool) {
+	v := m.rrcontent
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRrcontent returns the old "rrcontent" field's value of the DnsRR entity.
+// If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DnsRRMutation) OldRrcontent(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRrcontent is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRrcontent requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRrcontent: %w", err)
+	}
+	return oldValue.Rrcontent, nil
+}
+
+// ResetRrcontent resets all changes to the "rrcontent" field.
+func (m *DnsRRMutation) ResetRrcontent() {
+	m.rrcontent = nil
+}
+
+// SetClass sets the "class" field.
+func (m *DnsRRMutation) SetClass(u uint16) {
+	m.class = &u
+	m.addclass = nil
+}
+
+// Class returns the value of the "class" field in the mutation.
+func (m *DnsRRMutation) Class() (r uint16, exists bool) {
+	v := m.class
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldClass returns the old "class" field's value of the DnsRR entity.
+// If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DnsRRMutation) OldClass(ctx context.Context) (v uint16, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldClass is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldClass requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldClass: %w", err)
+	}
+	return oldValue.Class, nil
+}
+
+// AddClass adds u to the "class" field.
+func (m *DnsRRMutation) AddClass(u int16) {
+	if m.addclass != nil {
+		*m.addclass += u
+	} else {
+		m.addclass = &u
+	}
+}
+
+// AddedClass returns the value that was added to the "class" field in this mutation.
+func (m *DnsRRMutation) AddedClass() (r int16, exists bool) {
+	v := m.addclass
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetClass resets all changes to the "class" field.
+func (m *DnsRRMutation) ResetClass() {
+	m.class = nil
+	m.addclass = nil
+}
+
 // SetTTL sets the "ttl" field.
-func (m *DnsRRMutation) SetTTL(i int32) {
-	m.ttl = &i
+func (m *DnsRRMutation) SetTTL(u uint32) {
+	m.ttl = &u
 	m.addttl = nil
 }
 
 // TTL returns the value of the "ttl" field in the mutation.
-func (m *DnsRRMutation) TTL() (r int32, exists bool) {
+func (m *DnsRRMutation) TTL() (r uint32, exists bool) {
 	v := m.ttl
 	if v == nil {
 		return
@@ -1413,7 +1916,7 @@ func (m *DnsRRMutation) TTL() (r int32, exists bool) {
 // OldTTL returns the old "ttl" field's value of the DnsRR entity.
 // If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DnsRRMutation) OldTTL(ctx context.Context) (v int32, err error) {
+func (m *DnsRRMutation) OldTTL(ctx context.Context) (v uint32, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldTTL is only allowed on UpdateOne operations")
 	}
@@ -1427,12 +1930,12 @@ func (m *DnsRRMutation) OldTTL(ctx context.Context) (v int32, err error) {
 	return oldValue.TTL, nil
 }
 
-// AddTTL adds i to the "ttl" field.
-func (m *DnsRRMutation) AddTTL(i int32) {
+// AddTTL adds u to the "ttl" field.
+func (m *DnsRRMutation) AddTTL(u int32) {
 	if m.addttl != nil {
-		*m.addttl += i
+		*m.addttl += u
 	} else {
-		m.addttl = &i
+		m.addttl = &u
 	}
 }
 
@@ -1449,6 +1952,62 @@ func (m *DnsRRMutation) AddedTTL() (r int32, exists bool) {
 func (m *DnsRRMutation) ResetTTL() {
 	m.ttl = nil
 	m.addttl = nil
+}
+
+// SetRdlength sets the "rdlength" field.
+func (m *DnsRRMutation) SetRdlength(u uint16) {
+	m.rdlength = &u
+	m.addrdlength = nil
+}
+
+// Rdlength returns the value of the "rdlength" field in the mutation.
+func (m *DnsRRMutation) Rdlength() (r uint16, exists bool) {
+	v := m.rdlength
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRdlength returns the old "rdlength" field's value of the DnsRR entity.
+// If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *DnsRRMutation) OldRdlength(ctx context.Context) (v uint16, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRdlength is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRdlength requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRdlength: %w", err)
+	}
+	return oldValue.Rdlength, nil
+}
+
+// AddRdlength adds u to the "rdlength" field.
+func (m *DnsRRMutation) AddRdlength(u int16) {
+	if m.addrdlength != nil {
+		*m.addrdlength += u
+	} else {
+		m.addrdlength = &u
+	}
+}
+
+// AddedRdlength returns the value that was added to the "rdlength" field in this mutation.
+func (m *DnsRRMutation) AddedRdlength() (r int16, exists bool) {
+	v := m.addrdlength
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetRdlength resets all changes to the "rdlength" field.
+func (m *DnsRRMutation) ResetRdlength() {
+	m.rdlength = nil
+	m.addrdlength = nil
 }
 
 // SetActivated sets the "activated" field.
@@ -1560,7 +2119,7 @@ func (m *DnsRRMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *DnsRRMutation) Fields() []string {
-	fields := make([]string, 0, 5)
+	fields := make([]string, 0, 9)
 	if m.created_at != nil {
 		fields = append(fields, dnsrr.FieldCreatedAt)
 	}
@@ -1570,8 +2129,20 @@ func (m *DnsRRMutation) Fields() []string {
 	if m.name != nil {
 		fields = append(fields, dnsrr.FieldName)
 	}
+	if m.rrtype != nil {
+		fields = append(fields, dnsrr.FieldRrtype)
+	}
+	if m.rrcontent != nil {
+		fields = append(fields, dnsrr.FieldRrcontent)
+	}
+	if m.class != nil {
+		fields = append(fields, dnsrr.FieldClass)
+	}
 	if m.ttl != nil {
 		fields = append(fields, dnsrr.FieldTTL)
+	}
+	if m.rdlength != nil {
+		fields = append(fields, dnsrr.FieldRdlength)
 	}
 	if m.activated != nil {
 		fields = append(fields, dnsrr.FieldActivated)
@@ -1590,8 +2161,16 @@ func (m *DnsRRMutation) Field(name string) (ent.Value, bool) {
 		return m.UpdatedAt()
 	case dnsrr.FieldName:
 		return m.Name()
+	case dnsrr.FieldRrtype:
+		return m.Rrtype()
+	case dnsrr.FieldRrcontent:
+		return m.Rrcontent()
+	case dnsrr.FieldClass:
+		return m.Class()
 	case dnsrr.FieldTTL:
 		return m.TTL()
+	case dnsrr.FieldRdlength:
+		return m.Rdlength()
 	case dnsrr.FieldActivated:
 		return m.Activated()
 	}
@@ -1609,8 +2188,16 @@ func (m *DnsRRMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldUpdatedAt(ctx)
 	case dnsrr.FieldName:
 		return m.OldName(ctx)
+	case dnsrr.FieldRrtype:
+		return m.OldRrtype(ctx)
+	case dnsrr.FieldRrcontent:
+		return m.OldRrcontent(ctx)
+	case dnsrr.FieldClass:
+		return m.OldClass(ctx)
 	case dnsrr.FieldTTL:
 		return m.OldTTL(ctx)
+	case dnsrr.FieldRdlength:
+		return m.OldRdlength(ctx)
 	case dnsrr.FieldActivated:
 		return m.OldActivated(ctx)
 	}
@@ -1643,12 +2230,40 @@ func (m *DnsRRMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetName(v)
 		return nil
+	case dnsrr.FieldRrtype:
+		v, ok := value.(uint16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRrtype(v)
+		return nil
+	case dnsrr.FieldRrcontent:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRrcontent(v)
+		return nil
+	case dnsrr.FieldClass:
+		v, ok := value.(uint16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetClass(v)
+		return nil
 	case dnsrr.FieldTTL:
-		v, ok := value.(int32)
+		v, ok := value.(uint32)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTTL(v)
+		return nil
+	case dnsrr.FieldRdlength:
+		v, ok := value.(uint16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRdlength(v)
 		return nil
 	case dnsrr.FieldActivated:
 		v, ok := value.(bool)
@@ -1665,8 +2280,17 @@ func (m *DnsRRMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *DnsRRMutation) AddedFields() []string {
 	var fields []string
+	if m.addrrtype != nil {
+		fields = append(fields, dnsrr.FieldRrtype)
+	}
+	if m.addclass != nil {
+		fields = append(fields, dnsrr.FieldClass)
+	}
 	if m.addttl != nil {
 		fields = append(fields, dnsrr.FieldTTL)
+	}
+	if m.addrdlength != nil {
+		fields = append(fields, dnsrr.FieldRdlength)
 	}
 	return fields
 }
@@ -1676,8 +2300,14 @@ func (m *DnsRRMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *DnsRRMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case dnsrr.FieldRrtype:
+		return m.AddedRrtype()
+	case dnsrr.FieldClass:
+		return m.AddedClass()
 	case dnsrr.FieldTTL:
 		return m.AddedTTL()
+	case dnsrr.FieldRdlength:
+		return m.AddedRdlength()
 	}
 	return nil, false
 }
@@ -1687,12 +2317,33 @@ func (m *DnsRRMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *DnsRRMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case dnsrr.FieldRrtype:
+		v, ok := value.(int16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRrtype(v)
+		return nil
+	case dnsrr.FieldClass:
+		v, ok := value.(int16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddClass(v)
+		return nil
 	case dnsrr.FieldTTL:
 		v, ok := value.(int32)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddTTL(v)
+		return nil
+	case dnsrr.FieldRdlength:
+		v, ok := value.(int16)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRdlength(v)
 		return nil
 	}
 	return fmt.Errorf("unknown DnsRR numeric field %s", name)
@@ -1730,8 +2381,20 @@ func (m *DnsRRMutation) ResetField(name string) error {
 	case dnsrr.FieldName:
 		m.ResetName()
 		return nil
+	case dnsrr.FieldRrtype:
+		m.ResetRrtype()
+		return nil
+	case dnsrr.FieldRrcontent:
+		m.ResetRrcontent()
+		return nil
+	case dnsrr.FieldClass:
+		m.ResetClass()
+		return nil
 	case dnsrr.FieldTTL:
 		m.ResetTTL()
+		return nil
+	case dnsrr.FieldRdlength:
+		m.ResetRdlength()
 		return nil
 	case dnsrr.FieldActivated:
 		m.ResetActivated()

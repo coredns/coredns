@@ -24,20 +24,28 @@ type DNSZone struct {
 	UpdatedAt time.Time `json:"updated_at,omitempty"`
 	// dns zone name must be end with a dot '.' ex: 'example.com.'
 	Name string `json:"name,omitempty"`
-	// primary master name server for this zone
-	Mname string `json:"mname,omitempty"`
-	// email address of the administrator responsible for this zone. (As usual, the email address is encoded as a name. The part of the email address before the @ becomes the first label of the name; the domain name after the @ becomes the rest of the name. In zone-file format, dots in labels are escaped with backslashes; thus the email address john.doe@example.com would be represented in a zone file as john.doe.example.com.)
-	Rname string `json:"rname,omitempty"`
+	// resource record type
+	Rrtype uint16 `json:"rrtype,omitempty"`
+	// class
+	Class uint16 `json:"class,omitempty"`
 	// Time-to-live
-	TTL int32 `json:"ttl,omitempty"`
+	TTL uint32 `json:"ttl,omitempty"`
+	// length of data after header
+	Rdlength uint16 `json:"rdlength,omitempty"`
+	// primary master name server for this zone
+	Ns string `json:"ns,omitempty"`
+	// email address of the administrator responsible for this zone. (As usual, the email address is encoded as a name. The part of the email address before the @ becomes the first label of the name; the domain name after the @ becomes the rest of the name. In zone-file format, dots in labels are escaped with backslashes; thus the email address john.doe@example.com would be represented in a zone file as john.doe.example.com.)
+	Mbox string `json:"mbox,omitempty"`
+	// serial
+	Serial uint32 `json:"serial,omitempty"`
 	// number of seconds after which secondary name servers should query the master for the SOA record, to detect zone changes. Recommendation for small and stable zones:[4] 86400 seconds (24 hours).
-	Refresh int32 `json:"refresh,omitempty"`
+	Refresh uint32 `json:"refresh,omitempty"`
 	// Number of seconds after which secondary name servers should retry to request the serial number from the master if the master does not respond. It must be less than Refresh. Recommendation for small and stable zones: 7200 seconds (2 hours).
-	Retry int32 `json:"retry,omitempty"`
+	Retry uint32 `json:"retry,omitempty"`
 	// Number of seconds after which secondary name servers should stop answering request for this zone if the master does not respond. This value must be bigger than the sum of Refresh and Retry. Recommendation for small and stable zones: 3600000 seconds (1000 hours).
-	Expire int32 `json:"expire,omitempty"`
+	Expire uint32 `json:"expire,omitempty"`
 	// The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone.
-	Minimum int32 `json:"minimum,omitempty"`
+	Minttl uint32 `json:"minttl,omitempty"`
 	// only activated zones will be served
 	Activated bool `json:"activated,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -70,9 +78,9 @@ func (*DNSZone) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case dnszone.FieldActivated:
 			values[i] = new(sql.NullBool)
-		case dnszone.FieldTTL, dnszone.FieldRefresh, dnszone.FieldRetry, dnszone.FieldExpire, dnszone.FieldMinimum:
+		case dnszone.FieldRrtype, dnszone.FieldClass, dnszone.FieldTTL, dnszone.FieldRdlength, dnszone.FieldSerial, dnszone.FieldRefresh, dnszone.FieldRetry, dnszone.FieldExpire, dnszone.FieldMinttl:
 			values[i] = new(sql.NullInt64)
-		case dnszone.FieldName, dnszone.FieldMname, dnszone.FieldRname:
+		case dnszone.FieldName, dnszone.FieldNs, dnszone.FieldMbox:
 			values[i] = new(sql.NullString)
 		case dnszone.FieldCreatedAt, dnszone.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -117,47 +125,71 @@ func (dz *DNSZone) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				dz.Name = value.String
 			}
-		case dnszone.FieldMname:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field mname", values[i])
+		case dnszone.FieldRrtype:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field rrtype", values[i])
 			} else if value.Valid {
-				dz.Mname = value.String
+				dz.Rrtype = uint16(value.Int64)
 			}
-		case dnszone.FieldRname:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field rname", values[i])
+		case dnszone.FieldClass:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field class", values[i])
 			} else if value.Valid {
-				dz.Rname = value.String
+				dz.Class = uint16(value.Int64)
 			}
 		case dnszone.FieldTTL:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field ttl", values[i])
 			} else if value.Valid {
-				dz.TTL = int32(value.Int64)
+				dz.TTL = uint32(value.Int64)
+			}
+		case dnszone.FieldRdlength:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field rdlength", values[i])
+			} else if value.Valid {
+				dz.Rdlength = uint16(value.Int64)
+			}
+		case dnszone.FieldNs:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field ns", values[i])
+			} else if value.Valid {
+				dz.Ns = value.String
+			}
+		case dnszone.FieldMbox:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field mbox", values[i])
+			} else if value.Valid {
+				dz.Mbox = value.String
+			}
+		case dnszone.FieldSerial:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field serial", values[i])
+			} else if value.Valid {
+				dz.Serial = uint32(value.Int64)
 			}
 		case dnszone.FieldRefresh:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field refresh", values[i])
 			} else if value.Valid {
-				dz.Refresh = int32(value.Int64)
+				dz.Refresh = uint32(value.Int64)
 			}
 		case dnszone.FieldRetry:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field retry", values[i])
 			} else if value.Valid {
-				dz.Retry = int32(value.Int64)
+				dz.Retry = uint32(value.Int64)
 			}
 		case dnszone.FieldExpire:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
 				return fmt.Errorf("unexpected type %T for field expire", values[i])
 			} else if value.Valid {
-				dz.Expire = int32(value.Int64)
+				dz.Expire = uint32(value.Int64)
 			}
-		case dnszone.FieldMinimum:
+		case dnszone.FieldMinttl:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field minimum", values[i])
+				return fmt.Errorf("unexpected type %T for field minttl", values[i])
 			} else if value.Valid {
-				dz.Minimum = int32(value.Int64)
+				dz.Minttl = uint32(value.Int64)
 			}
 		case dnszone.FieldActivated:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -207,14 +239,26 @@ func (dz *DNSZone) String() string {
 	builder.WriteString("name=")
 	builder.WriteString(dz.Name)
 	builder.WriteString(", ")
-	builder.WriteString("mname=")
-	builder.WriteString(dz.Mname)
+	builder.WriteString("rrtype=")
+	builder.WriteString(fmt.Sprintf("%v", dz.Rrtype))
 	builder.WriteString(", ")
-	builder.WriteString("rname=")
-	builder.WriteString(dz.Rname)
+	builder.WriteString("class=")
+	builder.WriteString(fmt.Sprintf("%v", dz.Class))
 	builder.WriteString(", ")
 	builder.WriteString("ttl=")
 	builder.WriteString(fmt.Sprintf("%v", dz.TTL))
+	builder.WriteString(", ")
+	builder.WriteString("rdlength=")
+	builder.WriteString(fmt.Sprintf("%v", dz.Rdlength))
+	builder.WriteString(", ")
+	builder.WriteString("ns=")
+	builder.WriteString(dz.Ns)
+	builder.WriteString(", ")
+	builder.WriteString("mbox=")
+	builder.WriteString(dz.Mbox)
+	builder.WriteString(", ")
+	builder.WriteString("serial=")
+	builder.WriteString(fmt.Sprintf("%v", dz.Serial))
 	builder.WriteString(", ")
 	builder.WriteString("refresh=")
 	builder.WriteString(fmt.Sprintf("%v", dz.Refresh))
@@ -225,8 +269,8 @@ func (dz *DNSZone) String() string {
 	builder.WriteString("expire=")
 	builder.WriteString(fmt.Sprintf("%v", dz.Expire))
 	builder.WriteString(", ")
-	builder.WriteString("minimum=")
-	builder.WriteString(fmt.Sprintf("%v", dz.Minimum))
+	builder.WriteString("minttl=")
+	builder.WriteString(fmt.Sprintf("%v", dz.Minttl))
 	builder.WriteString(", ")
 	builder.WriteString("activated=")
 	builder.WriteString(fmt.Sprintf("%v", dz.Activated))
