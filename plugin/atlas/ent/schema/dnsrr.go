@@ -59,7 +59,7 @@ func (DnsRR) Fields() []ent.Field {
 // Edges of the DnsRR.
 func (DnsRR) Edges() []ent.Edge {
 	return []ent.Edge{
-		edge.From("zone", DNSZone.Type).
+		edge.From("zone", DnsZone.Type).
 			Ref("records").
 			Unique().
 			Required(),

@@ -15,10 +15,76 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
-	dnszoneMixin := schema.DNSZone{}.Mixin()
+	dnsrrMixin := schema.DnsRR{}.Mixin()
+	dnsrrMixinFields0 := dnsrrMixin[0].Fields()
+	_ = dnsrrMixinFields0
+	dnsrrFields := schema.DnsRR{}.Fields()
+	_ = dnsrrFields
+	// dnsrrDescCreatedAt is the schema descriptor for created_at field.
+	dnsrrDescCreatedAt := dnsrrMixinFields0[1].Descriptor()
+	// dnsrr.DefaultCreatedAt holds the default value on creation for the created_at field.
+	dnsrr.DefaultCreatedAt = dnsrrDescCreatedAt.Default.(func() time.Time)
+	// dnsrrDescUpdatedAt is the schema descriptor for updated_at field.
+	dnsrrDescUpdatedAt := dnsrrMixinFields0[2].Descriptor()
+	// dnsrr.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	dnsrr.DefaultUpdatedAt = dnsrrDescUpdatedAt.Default.(func() time.Time)
+	// dnsrr.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	dnsrr.UpdateDefaultUpdatedAt = dnsrrDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// dnsrrDescName is the schema descriptor for name field.
+	dnsrrDescName := dnsrrFields[0].Descriptor()
+	// dnsrr.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	dnsrr.NameValidator = func() func(string) error {
+		validators := dnsrrDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+			validators[2].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnsrrDescClass is the schema descriptor for class field.
+	dnsrrDescClass := dnsrrFields[3].Descriptor()
+	// dnsrr.DefaultClass holds the default value on creation for the class field.
+	dnsrr.DefaultClass = dnsrrDescClass.Default.(uint16)
+	// dnsrrDescTTL is the schema descriptor for ttl field.
+	dnsrrDescTTL := dnsrrFields[4].Descriptor()
+	// dnsrr.DefaultTTL holds the default value on creation for the ttl field.
+	dnsrr.DefaultTTL = dnsrrDescTTL.Default.(uint32)
+	// dnsrr.TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
+	dnsrr.TTLValidator = func() func(uint32) error {
+		validators := dnsrrDescTTL.Validators
+		fns := [...]func(uint32) error{
+			validators[0].(func(uint32) error),
+			validators[1].(func(uint32) error),
+		}
+		return func(ttl uint32) error {
+			for _, fn := range fns {
+				if err := fn(ttl); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// dnsrrDescActivated is the schema descriptor for activated field.
+	dnsrrDescActivated := dnsrrFields[6].Descriptor()
+	// dnsrr.DefaultActivated holds the default value on creation for the activated field.
+	dnsrr.DefaultActivated = dnsrrDescActivated.Default.(bool)
+	// dnsrrDescID is the schema descriptor for id field.
+	dnsrrDescID := dnsrrMixinFields0[0].Descriptor()
+	// dnsrr.DefaultID holds the default value on creation for the id field.
+	dnsrr.DefaultID = dnsrrDescID.Default.(func() xid.ID)
+	dnszoneMixin := schema.DnsZone{}.Mixin()
 	dnszoneMixinFields0 := dnszoneMixin[0].Fields()
 	_ = dnszoneMixinFields0
-	dnszoneFields := schema.DNSZone{}.Fields()
+	dnszoneFields := schema.DnsZone{}.Fields()
 	_ = dnszoneFields
 	// dnszoneDescCreatedAt is the schema descriptor for created_at field.
 	dnszoneDescCreatedAt := dnszoneMixinFields0[1].Descriptor()
@@ -49,6 +115,10 @@ func init() {
 			return nil
 		}
 	}()
+	// dnszoneDescRrtype is the schema descriptor for rrtype field.
+	dnszoneDescRrtype := dnszoneFields[1].Descriptor()
+	// dnszone.DefaultRrtype holds the default value on creation for the rrtype field.
+	dnszone.DefaultRrtype = dnszoneDescRrtype.Default.(uint16)
 	// dnszoneDescClass is the schema descriptor for class field.
 	dnszoneDescClass := dnszoneFields[2].Descriptor()
 	// dnszone.DefaultClass holds the default value on creation for the class field.
@@ -73,6 +143,10 @@ func init() {
 			return nil
 		}
 	}()
+	// dnszoneDescRdlength is the schema descriptor for rdlength field.
+	dnszoneDescRdlength := dnszoneFields[4].Descriptor()
+	// dnszone.DefaultRdlength holds the default value on creation for the rdlength field.
+	dnszone.DefaultRdlength = dnszoneDescRdlength.Default.(uint16)
 	// dnszoneDescNs is the schema descriptor for ns field.
 	dnszoneDescNs := dnszoneFields[5].Descriptor()
 	// dnszone.NsValidator is a validator for the "ns" field. It is called by the builders before save.
@@ -199,70 +273,4 @@ func init() {
 	dnszoneDescID := dnszoneMixinFields0[0].Descriptor()
 	// dnszone.DefaultID holds the default value on creation for the id field.
 	dnszone.DefaultID = dnszoneDescID.Default.(func() xid.ID)
-	dnsrrMixin := schema.DnsRR{}.Mixin()
-	dnsrrMixinFields0 := dnsrrMixin[0].Fields()
-	_ = dnsrrMixinFields0
-	dnsrrFields := schema.DnsRR{}.Fields()
-	_ = dnsrrFields
-	// dnsrrDescCreatedAt is the schema descriptor for created_at field.
-	dnsrrDescCreatedAt := dnsrrMixinFields0[1].Descriptor()
-	// dnsrr.DefaultCreatedAt holds the default value on creation for the created_at field.
-	dnsrr.DefaultCreatedAt = dnsrrDescCreatedAt.Default.(func() time.Time)
-	// dnsrrDescUpdatedAt is the schema descriptor for updated_at field.
-	dnsrrDescUpdatedAt := dnsrrMixinFields0[2].Descriptor()
-	// dnsrr.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	dnsrr.DefaultUpdatedAt = dnsrrDescUpdatedAt.Default.(func() time.Time)
-	// dnsrr.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	dnsrr.UpdateDefaultUpdatedAt = dnsrrDescUpdatedAt.UpdateDefault.(func() time.Time)
-	// dnsrrDescName is the schema descriptor for name field.
-	dnsrrDescName := dnsrrFields[0].Descriptor()
-	// dnsrr.NameValidator is a validator for the "name" field. It is called by the builders before save.
-	dnsrr.NameValidator = func() func(string) error {
-		validators := dnsrrDescName.Validators
-		fns := [...]func(string) error{
-			validators[0].(func(string) error),
-			validators[1].(func(string) error),
-			validators[2].(func(string) error),
-		}
-		return func(name string) error {
-			for _, fn := range fns {
-				if err := fn(name); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
-	// dnsrrDescClass is the schema descriptor for class field.
-	dnsrrDescClass := dnsrrFields[3].Descriptor()
-	// dnsrr.DefaultClass holds the default value on creation for the class field.
-	dnsrr.DefaultClass = dnsrrDescClass.Default.(uint16)
-	// dnsrrDescTTL is the schema descriptor for ttl field.
-	dnsrrDescTTL := dnsrrFields[4].Descriptor()
-	// dnsrr.DefaultTTL holds the default value on creation for the ttl field.
-	dnsrr.DefaultTTL = dnsrrDescTTL.Default.(uint32)
-	// dnsrr.TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
-	dnsrr.TTLValidator = func() func(uint32) error {
-		validators := dnsrrDescTTL.Validators
-		fns := [...]func(uint32) error{
-			validators[0].(func(uint32) error),
-			validators[1].(func(uint32) error),
-		}
-		return func(ttl uint32) error {
-			for _, fn := range fns {
-				if err := fn(ttl); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
-	// dnsrrDescActivated is the schema descriptor for activated field.
-	dnsrrDescActivated := dnsrrFields[6].Descriptor()
-	// dnsrr.DefaultActivated holds the default value on creation for the activated field.
-	dnsrr.DefaultActivated = dnsrrDescActivated.Default.(bool)
-	// dnsrrDescID is the schema descriptor for id field.
-	dnsrrDescID := dnsrrMixinFields0[0].Descriptor()
-	// dnsrr.DefaultID holds the default value on creation for the id field.
-	dnsrr.DefaultID = dnsrrDescID.Default.(func() xid.ID)
 }

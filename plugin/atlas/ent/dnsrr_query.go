@@ -23,7 +23,7 @@ type DnsRRQuery struct {
 	order      []OrderFunc
 	inters     []Interceptor
 	predicates []predicate.DnsRR
-	withZone   *DNSZoneQuery
+	withZone   *DnsZoneQuery
 	withFKs    bool
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -62,8 +62,8 @@ func (drq *DnsRRQuery) Order(o ...OrderFunc) *DnsRRQuery {
 }
 
 // QueryZone chains the current query on the "zone" edge.
-func (drq *DnsRRQuery) QueryZone() *DNSZoneQuery {
-	query := (&DNSZoneClient{config: drq.config}).Query()
+func (drq *DnsRRQuery) QueryZone() *DnsZoneQuery {
+	query := (&DnsZoneClient{config: drq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := drq.prepareQuery(ctx); err != nil {
 			return nil, err
@@ -284,8 +284,8 @@ func (drq *DnsRRQuery) Clone() *DnsRRQuery {
 
 // WithZone tells the query-builder to eager-load the nodes that are connected to
 // the "zone" edge. The optional arguments are used to configure the query builder of the edge.
-func (drq *DnsRRQuery) WithZone(opts ...func(*DNSZoneQuery)) *DnsRRQuery {
-	query := (&DNSZoneClient{config: drq.config}).Query()
+func (drq *DnsRRQuery) WithZone(opts ...func(*DnsZoneQuery)) *DnsRRQuery {
+	query := (&DnsZoneClient{config: drq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
@@ -402,14 +402,14 @@ func (drq *DnsRRQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*DnsRR
 	}
 	if query := drq.withZone; query != nil {
 		if err := drq.loadZone(ctx, query, nodes, nil,
-			func(n *DnsRR, e *DNSZone) { n.Edges.Zone = e }); err != nil {
+			func(n *DnsRR, e *DnsZone) { n.Edges.Zone = e }); err != nil {
 			return nil, err
 		}
 	}
 	return nodes, nil
 }
 
-func (drq *DnsRRQuery) loadZone(ctx context.Context, query *DNSZoneQuery, nodes []*DnsRR, init func(*DnsRR), assign func(*DnsRR, *DNSZone)) error {
+func (drq *DnsRRQuery) loadZone(ctx context.Context, query *DnsZoneQuery, nodes []*DnsRR, init func(*DnsRR), assign func(*DnsRR, *DnsZone)) error {
 	ids := make([]xid.ID, 0, len(nodes))
 	nodeids := make(map[xid.ID][]*DnsRR)
 	for i := range nodes {

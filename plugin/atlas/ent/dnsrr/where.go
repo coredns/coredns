@@ -493,7 +493,7 @@ func HasZone() predicate.DnsRR {
 }
 
 // HasZoneWith applies the HasEdge predicate on the "zone" edge with a given conditions (other predicates).
-func HasZoneWith(preds ...predicate.DNSZone) predicate.DnsRR {
+func HasZoneWith(preds ...predicate.DnsZone) predicate.DnsRR {
 	return predicate.DnsRR(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),

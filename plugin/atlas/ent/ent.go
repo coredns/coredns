@@ -66,8 +66,8 @@ type OrderFunc func(*sql.Selector)
 // columnChecker returns a function indicates if the column exists in the given column.
 func columnChecker(table string) func(string) error {
 	checks := map[string]func(string) bool{
-		dnszone.Table: dnszone.ValidColumn,
 		dnsrr.Table:   dnsrr.ValidColumn,
+		dnszone.Table: dnszone.ValidColumn,
 	}
 	check, ok := checks[table]
 	if !ok {

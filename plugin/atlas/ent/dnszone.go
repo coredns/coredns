@@ -12,8 +12,8 @@ import (
 	"github.com/rs/xid"
 )
 
-// DNSZone is the model entity for the DNSZone schema.
-type DNSZone struct {
+// DnsZone is the model entity for the DnsZone schema.
+type DnsZone struct {
 	config `json:"-"`
 	// ID of the ent.
 	// record identifier
@@ -49,12 +49,12 @@ type DNSZone struct {
 	// only activated zones will be served
 	Activated bool `json:"activated,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
-	// The values are being populated by the DNSZoneQuery when eager-loading is set.
-	Edges DNSZoneEdges `json:"edges"`
+	// The values are being populated by the DnsZoneQuery when eager-loading is set.
+	Edges DnsZoneEdges `json:"edges"`
 }
 
-// DNSZoneEdges holds the relations/edges for other nodes in the graph.
-type DNSZoneEdges struct {
+// DnsZoneEdges holds the relations/edges for other nodes in the graph.
+type DnsZoneEdges struct {
 	// Records holds the value of the records edge.
 	Records []*DnsRR `json:"records,omitempty"`
 	// loadedTypes holds the information for reporting if a
@@ -64,7 +64,7 @@ type DNSZoneEdges struct {
 
 // RecordsOrErr returns the Records value or an error if the edge
 // was not loaded in eager-loading.
-func (e DNSZoneEdges) RecordsOrErr() ([]*DnsRR, error) {
+func (e DnsZoneEdges) RecordsOrErr() ([]*DnsRR, error) {
 	if e.loadedTypes[0] {
 		return e.Records, nil
 	}
@@ -72,7 +72,7 @@ func (e DNSZoneEdges) RecordsOrErr() ([]*DnsRR, error) {
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
-func (*DNSZone) scanValues(columns []string) ([]any, error) {
+func (*DnsZone) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
@@ -87,15 +87,15 @@ func (*DNSZone) scanValues(columns []string) ([]any, error) {
 		case dnszone.FieldID:
 			values[i] = new(xid.ID)
 		default:
-			return nil, fmt.Errorf("unexpected column %q for type DNSZone", columns[i])
+			return nil, fmt.Errorf("unexpected column %q for type DnsZone", columns[i])
 		}
 	}
 	return values, nil
 }
 
 // assignValues assigns the values that were returned from sql.Rows (after scanning)
-// to the DNSZone fields.
-func (dz *DNSZone) assignValues(columns []string, values []any) error {
+// to the DnsZone fields.
+func (dz *DnsZone) assignValues(columns []string, values []any) error {
 	if m, n := len(values), len(columns); m < n {
 		return fmt.Errorf("mismatch number of scan values: %d != %d", m, n)
 	}
@@ -202,33 +202,33 @@ func (dz *DNSZone) assignValues(columns []string, values []any) error {
 	return nil
 }
 
-// QueryRecords queries the "records" edge of the DNSZone entity.
-func (dz *DNSZone) QueryRecords() *DnsRRQuery {
-	return NewDNSZoneClient(dz.config).QueryRecords(dz)
+// QueryRecords queries the "records" edge of the DnsZone entity.
+func (dz *DnsZone) QueryRecords() *DnsRRQuery {
+	return NewDnsZoneClient(dz.config).QueryRecords(dz)
 }
 
-// Update returns a builder for updating this DNSZone.
-// Note that you need to call DNSZone.Unwrap() before calling this method if this DNSZone
+// Update returns a builder for updating this DnsZone.
+// Note that you need to call DnsZone.Unwrap() before calling this method if this DnsZone
 // was returned from a transaction, and the transaction was committed or rolled back.
-func (dz *DNSZone) Update() *DNSZoneUpdateOne {
-	return NewDNSZoneClient(dz.config).UpdateOne(dz)
+func (dz *DnsZone) Update() *DnsZoneUpdateOne {
+	return NewDnsZoneClient(dz.config).UpdateOne(dz)
 }
 
-// Unwrap unwraps the DNSZone entity that was returned from a transaction after it was closed,
+// Unwrap unwraps the DnsZone entity that was returned from a transaction after it was closed,
 // so that all future queries will be executed through the driver which created the transaction.
-func (dz *DNSZone) Unwrap() *DNSZone {
+func (dz *DnsZone) Unwrap() *DnsZone {
 	_tx, ok := dz.config.driver.(*txDriver)
 	if !ok {
-		panic("ent: DNSZone is not a transactional entity")
+		panic("ent: DnsZone is not a transactional entity")
 	}
 	dz.config.driver = _tx.drv
 	return dz
 }
 
 // String implements the fmt.Stringer.
-func (dz *DNSZone) String() string {
+func (dz *DnsZone) String() string {
 	var builder strings.Builder
-	builder.WriteString("DNSZone(")
+	builder.WriteString("DnsZone(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", dz.ID))
 	builder.WriteString("created_at=")
 	builder.WriteString(dz.CreatedAt.Format(time.ANSIC))
@@ -278,5 +278,5 @@ func (dz *DNSZone) String() string {
 	return builder.String()
 }
 
-// DNSZones is a parsable slice of DNSZone.
-type DNSZones []*DNSZone
+// DnsZones is a parsable slice of DnsZone.
+type DnsZones []*DnsZone

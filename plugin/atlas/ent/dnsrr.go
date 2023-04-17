@@ -46,7 +46,7 @@ type DnsRR struct {
 // DnsRREdges holds the relations/edges for other nodes in the graph.
 type DnsRREdges struct {
 	// Zone holds the value of the zone edge.
-	Zone *DNSZone `json:"zone,omitempty"`
+	Zone *DnsZone `json:"zone,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
 	loadedTypes [1]bool
@@ -54,7 +54,7 @@ type DnsRREdges struct {
 
 // ZoneOrErr returns the Zone value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
-func (e DnsRREdges) ZoneOrErr() (*DNSZone, error) {
+func (e DnsRREdges) ZoneOrErr() (*DnsZone, error) {
 	if e.loadedTypes[0] {
 		if e.Zone == nil {
 			// Edge was loaded but was not found.
@@ -170,7 +170,7 @@ func (dr *DnsRR) assignValues(columns []string, values []any) error {
 }
 
 // QueryZone queries the "zone" edge of the DnsRR entity.
-func (dr *DnsRR) QueryZone() *DNSZoneQuery {
+func (dr *DnsRR) QueryZone() *DnsZoneQuery {
 	return NewDnsRRClient(dr.config).QueryZone(dr)
 }
 

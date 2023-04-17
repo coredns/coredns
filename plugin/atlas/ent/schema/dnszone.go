@@ -10,13 +10,13 @@ import (
 	"github.com/miekg/dns"
 )
 
-// DNSZone holds the schema definition for the DNSZone entity.
-type DNSZone struct {
+// DnsZone holds the schema definition for the DnsZone entity.
+type DnsZone struct {
 	ent.Schema
 }
 
 // Fields of the DNSZone.
-func (DNSZone) Fields() []ent.Field {
+func (DnsZone) Fields() []ent.Field {
 	return []ent.Field{
 		// SOA.Hdr.Name
 		field.String("name").
@@ -34,6 +34,7 @@ func (DNSZone) Fields() []ent.Field {
 
 		// SOA.Hdr.Rrtype
 		field.Uint16("rrtype").
+			Default(dns.TypeSOA).
 			Comment("resource record type"),
 
 		// SOA.Hdr.Class
@@ -51,6 +52,7 @@ func (DNSZone) Fields() []ent.Field {
 		// SOA.Hdr.Rdlength
 		// should we save this?
 		field.Uint16("rdlength").
+			Default(0).
 			Comment("length of data after header"),
 
 		// SOA.Ns
@@ -58,8 +60,6 @@ func (DNSZone) Fields() []ent.Field {
 			MinLen(3).
 			MaxLen(255).
 			NotEmpty().
-			Unique().
-			Immutable().
 			SchemaType(map[string]string{
 				dialect.MySQL:    "varchar(255)",
 				dialect.Postgres: "varchar(255)",
@@ -118,7 +118,7 @@ func (DNSZone) Fields() []ent.Field {
 }
 
 // Edges of the DNSZone.
-func (DNSZone) Edges() []ent.Edge {
+func (DnsZone) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("records", DnsRR.Type).Annotations(
 			entsql.Annotation{
@@ -127,14 +127,14 @@ func (DNSZone) Edges() []ent.Edge {
 	}
 }
 
-func (DNSZone) Indexes() []ent.Index {
+func (DnsZone) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("activated"),
 	}
 }
 
 // Mixin of the DNZZone.
-func (DNSZone) Mixin() []ent.Mixin {
+func (DnsZone) Mixin() []ent.Mixin {
 	return []ent.Mixin{
 		XidMixin{},
 	}

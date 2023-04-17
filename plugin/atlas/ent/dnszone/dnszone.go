@@ -95,12 +95,16 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultRrtype holds the default value on creation for the "rrtype" field.
+	DefaultRrtype uint16
 	// DefaultClass holds the default value on creation for the "class" field.
 	DefaultClass uint16
 	// DefaultTTL holds the default value on creation for the "ttl" field.
 	DefaultTTL uint32
 	// TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
 	TTLValidator func(uint32) error
+	// DefaultRdlength holds the default value on creation for the "rdlength" field.
+	DefaultRdlength uint16
 	// NsValidator is a validator for the "ns" field. It is called by the builders before save.
 	NsValidator func(string) error
 	// MboxValidator is a validator for the "mbox" field. It is called by the builders before save.

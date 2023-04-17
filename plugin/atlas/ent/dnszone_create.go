@@ -17,22 +17,22 @@ import (
 	"github.com/rs/xid"
 )
 
-// DNSZoneCreate is the builder for creating a DNSZone entity.
-type DNSZoneCreate struct {
+// DnsZoneCreate is the builder for creating a DnsZone entity.
+type DnsZoneCreate struct {
 	config
-	mutation *DNSZoneMutation
+	mutation *DnsZoneMutation
 	hooks    []Hook
 	conflict []sql.ConflictOption
 }
 
 // SetCreatedAt sets the "created_at" field.
-func (dzc *DNSZoneCreate) SetCreatedAt(t time.Time) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetCreatedAt(t time.Time) *DnsZoneCreate {
 	dzc.mutation.SetCreatedAt(t)
 	return dzc
 }
 
 // SetNillableCreatedAt sets the "created_at" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableCreatedAt(t *time.Time) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableCreatedAt(t *time.Time) *DnsZoneCreate {
 	if t != nil {
 		dzc.SetCreatedAt(*t)
 	}
@@ -40,13 +40,13 @@ func (dzc *DNSZoneCreate) SetNillableCreatedAt(t *time.Time) *DNSZoneCreate {
 }
 
 // SetUpdatedAt sets the "updated_at" field.
-func (dzc *DNSZoneCreate) SetUpdatedAt(t time.Time) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetUpdatedAt(t time.Time) *DnsZoneCreate {
 	dzc.mutation.SetUpdatedAt(t)
 	return dzc
 }
 
 // SetNillableUpdatedAt sets the "updated_at" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableUpdatedAt(t *time.Time) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableUpdatedAt(t *time.Time) *DnsZoneCreate {
 	if t != nil {
 		dzc.SetUpdatedAt(*t)
 	}
@@ -54,25 +54,33 @@ func (dzc *DNSZoneCreate) SetNillableUpdatedAt(t *time.Time) *DNSZoneCreate {
 }
 
 // SetName sets the "name" field.
-func (dzc *DNSZoneCreate) SetName(s string) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetName(s string) *DnsZoneCreate {
 	dzc.mutation.SetName(s)
 	return dzc
 }
 
 // SetRrtype sets the "rrtype" field.
-func (dzc *DNSZoneCreate) SetRrtype(u uint16) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetRrtype(u uint16) *DnsZoneCreate {
 	dzc.mutation.SetRrtype(u)
 	return dzc
 }
 
+// SetNillableRrtype sets the "rrtype" field if the given value is not nil.
+func (dzc *DnsZoneCreate) SetNillableRrtype(u *uint16) *DnsZoneCreate {
+	if u != nil {
+		dzc.SetRrtype(*u)
+	}
+	return dzc
+}
+
 // SetClass sets the "class" field.
-func (dzc *DNSZoneCreate) SetClass(u uint16) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetClass(u uint16) *DnsZoneCreate {
 	dzc.mutation.SetClass(u)
 	return dzc
 }
 
 // SetNillableClass sets the "class" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableClass(u *uint16) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableClass(u *uint16) *DnsZoneCreate {
 	if u != nil {
 		dzc.SetClass(*u)
 	}
@@ -80,13 +88,13 @@ func (dzc *DNSZoneCreate) SetNillableClass(u *uint16) *DNSZoneCreate {
 }
 
 // SetTTL sets the "ttl" field.
-func (dzc *DNSZoneCreate) SetTTL(u uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetTTL(u uint32) *DnsZoneCreate {
 	dzc.mutation.SetTTL(u)
 	return dzc
 }
 
 // SetNillableTTL sets the "ttl" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableTTL(u *uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableTTL(u *uint32) *DnsZoneCreate {
 	if u != nil {
 		dzc.SetTTL(*u)
 	}
@@ -94,37 +102,45 @@ func (dzc *DNSZoneCreate) SetNillableTTL(u *uint32) *DNSZoneCreate {
 }
 
 // SetRdlength sets the "rdlength" field.
-func (dzc *DNSZoneCreate) SetRdlength(u uint16) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetRdlength(u uint16) *DnsZoneCreate {
 	dzc.mutation.SetRdlength(u)
 	return dzc
 }
 
+// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
+func (dzc *DnsZoneCreate) SetNillableRdlength(u *uint16) *DnsZoneCreate {
+	if u != nil {
+		dzc.SetRdlength(*u)
+	}
+	return dzc
+}
+
 // SetNs sets the "ns" field.
-func (dzc *DNSZoneCreate) SetNs(s string) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNs(s string) *DnsZoneCreate {
 	dzc.mutation.SetNs(s)
 	return dzc
 }
 
 // SetMbox sets the "mbox" field.
-func (dzc *DNSZoneCreate) SetMbox(s string) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetMbox(s string) *DnsZoneCreate {
 	dzc.mutation.SetMbox(s)
 	return dzc
 }
 
 // SetSerial sets the "serial" field.
-func (dzc *DNSZoneCreate) SetSerial(u uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetSerial(u uint32) *DnsZoneCreate {
 	dzc.mutation.SetSerial(u)
 	return dzc
 }
 
 // SetRefresh sets the "refresh" field.
-func (dzc *DNSZoneCreate) SetRefresh(u uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetRefresh(u uint32) *DnsZoneCreate {
 	dzc.mutation.SetRefresh(u)
 	return dzc
 }
 
 // SetNillableRefresh sets the "refresh" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableRefresh(u *uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableRefresh(u *uint32) *DnsZoneCreate {
 	if u != nil {
 		dzc.SetRefresh(*u)
 	}
@@ -132,13 +148,13 @@ func (dzc *DNSZoneCreate) SetNillableRefresh(u *uint32) *DNSZoneCreate {
 }
 
 // SetRetry sets the "retry" field.
-func (dzc *DNSZoneCreate) SetRetry(u uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetRetry(u uint32) *DnsZoneCreate {
 	dzc.mutation.SetRetry(u)
 	return dzc
 }
 
 // SetNillableRetry sets the "retry" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableRetry(u *uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableRetry(u *uint32) *DnsZoneCreate {
 	if u != nil {
 		dzc.SetRetry(*u)
 	}
@@ -146,13 +162,13 @@ func (dzc *DNSZoneCreate) SetNillableRetry(u *uint32) *DNSZoneCreate {
 }
 
 // SetExpire sets the "expire" field.
-func (dzc *DNSZoneCreate) SetExpire(u uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetExpire(u uint32) *DnsZoneCreate {
 	dzc.mutation.SetExpire(u)
 	return dzc
 }
 
 // SetNillableExpire sets the "expire" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableExpire(u *uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableExpire(u *uint32) *DnsZoneCreate {
 	if u != nil {
 		dzc.SetExpire(*u)
 	}
@@ -160,13 +176,13 @@ func (dzc *DNSZoneCreate) SetNillableExpire(u *uint32) *DNSZoneCreate {
 }
 
 // SetMinttl sets the "minttl" field.
-func (dzc *DNSZoneCreate) SetMinttl(u uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetMinttl(u uint32) *DnsZoneCreate {
 	dzc.mutation.SetMinttl(u)
 	return dzc
 }
 
 // SetNillableMinttl sets the "minttl" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableMinttl(u *uint32) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableMinttl(u *uint32) *DnsZoneCreate {
 	if u != nil {
 		dzc.SetMinttl(*u)
 	}
@@ -174,13 +190,13 @@ func (dzc *DNSZoneCreate) SetNillableMinttl(u *uint32) *DNSZoneCreate {
 }
 
 // SetActivated sets the "activated" field.
-func (dzc *DNSZoneCreate) SetActivated(b bool) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetActivated(b bool) *DnsZoneCreate {
 	dzc.mutation.SetActivated(b)
 	return dzc
 }
 
 // SetNillableActivated sets the "activated" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableActivated(b *bool) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableActivated(b *bool) *DnsZoneCreate {
 	if b != nil {
 		dzc.SetActivated(*b)
 	}
@@ -188,13 +204,13 @@ func (dzc *DNSZoneCreate) SetNillableActivated(b *bool) *DNSZoneCreate {
 }
 
 // SetID sets the "id" field.
-func (dzc *DNSZoneCreate) SetID(x xid.ID) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetID(x xid.ID) *DnsZoneCreate {
 	dzc.mutation.SetID(x)
 	return dzc
 }
 
 // SetNillableID sets the "id" field if the given value is not nil.
-func (dzc *DNSZoneCreate) SetNillableID(x *xid.ID) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) SetNillableID(x *xid.ID) *DnsZoneCreate {
 	if x != nil {
 		dzc.SetID(*x)
 	}
@@ -202,13 +218,13 @@ func (dzc *DNSZoneCreate) SetNillableID(x *xid.ID) *DNSZoneCreate {
 }
 
 // AddRecordIDs adds the "records" edge to the DnsRR entity by IDs.
-func (dzc *DNSZoneCreate) AddRecordIDs(ids ...xid.ID) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) AddRecordIDs(ids ...xid.ID) *DnsZoneCreate {
 	dzc.mutation.AddRecordIDs(ids...)
 	return dzc
 }
 
 // AddRecords adds the "records" edges to the DnsRR entity.
-func (dzc *DNSZoneCreate) AddRecords(d ...*DnsRR) *DNSZoneCreate {
+func (dzc *DnsZoneCreate) AddRecords(d ...*DnsRR) *DnsZoneCreate {
 	ids := make([]xid.ID, len(d))
 	for i := range d {
 		ids[i] = d[i].ID
@@ -216,19 +232,19 @@ func (dzc *DNSZoneCreate) AddRecords(d ...*DnsRR) *DNSZoneCreate {
 	return dzc.AddRecordIDs(ids...)
 }
 
-// Mutation returns the DNSZoneMutation object of the builder.
-func (dzc *DNSZoneCreate) Mutation() *DNSZoneMutation {
+// Mutation returns the DnsZoneMutation object of the builder.
+func (dzc *DnsZoneCreate) Mutation() *DnsZoneMutation {
 	return dzc.mutation
 }
 
-// Save creates the DNSZone in the database.
-func (dzc *DNSZoneCreate) Save(ctx context.Context) (*DNSZone, error) {
+// Save creates the DnsZone in the database.
+func (dzc *DnsZoneCreate) Save(ctx context.Context) (*DnsZone, error) {
 	dzc.defaults()
-	return withHooks[*DNSZone, DNSZoneMutation](ctx, dzc.sqlSave, dzc.mutation, dzc.hooks)
+	return withHooks[*DnsZone, DnsZoneMutation](ctx, dzc.sqlSave, dzc.mutation, dzc.hooks)
 }
 
 // SaveX calls Save and panics if Save returns an error.
-func (dzc *DNSZoneCreate) SaveX(ctx context.Context) *DNSZone {
+func (dzc *DnsZoneCreate) SaveX(ctx context.Context) *DnsZone {
 	v, err := dzc.Save(ctx)
 	if err != nil {
 		panic(err)
@@ -237,20 +253,20 @@ func (dzc *DNSZoneCreate) SaveX(ctx context.Context) *DNSZone {
 }
 
 // Exec executes the query.
-func (dzc *DNSZoneCreate) Exec(ctx context.Context) error {
+func (dzc *DnsZoneCreate) Exec(ctx context.Context) error {
 	_, err := dzc.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (dzc *DNSZoneCreate) ExecX(ctx context.Context) {
+func (dzc *DnsZoneCreate) ExecX(ctx context.Context) {
 	if err := dzc.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // defaults sets the default values of the builder before save.
-func (dzc *DNSZoneCreate) defaults() {
+func (dzc *DnsZoneCreate) defaults() {
 	if _, ok := dzc.mutation.CreatedAt(); !ok {
 		v := dnszone.DefaultCreatedAt()
 		dzc.mutation.SetCreatedAt(v)
@@ -259,6 +275,10 @@ func (dzc *DNSZoneCreate) defaults() {
 		v := dnszone.DefaultUpdatedAt()
 		dzc.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := dzc.mutation.Rrtype(); !ok {
+		v := dnszone.DefaultRrtype
+		dzc.mutation.SetRrtype(v)
+	}
 	if _, ok := dzc.mutation.Class(); !ok {
 		v := dnszone.DefaultClass
 		dzc.mutation.SetClass(v)
@@ -266,6 +286,10 @@ func (dzc *DNSZoneCreate) defaults() {
 	if _, ok := dzc.mutation.TTL(); !ok {
 		v := dnszone.DefaultTTL
 		dzc.mutation.SetTTL(v)
+	}
+	if _, ok := dzc.mutation.Rdlength(); !ok {
+		v := dnszone.DefaultRdlength
+		dzc.mutation.SetRdlength(v)
 	}
 	if _, ok := dzc.mutation.Refresh(); !ok {
 		v := dnszone.DefaultRefresh
@@ -294,96 +318,96 @@ func (dzc *DNSZoneCreate) defaults() {
 }
 
 // check runs all checks and user-defined validators on the builder.
-func (dzc *DNSZoneCreate) check() error {
+func (dzc *DnsZoneCreate) check() error {
 	if _, ok := dzc.mutation.CreatedAt(); !ok {
-		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "DNSZone.created_at"`)}
+		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "DnsZone.created_at"`)}
 	}
 	if _, ok := dzc.mutation.UpdatedAt(); !ok {
-		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "DNSZone.updated_at"`)}
+		return &ValidationError{Name: "updated_at", err: errors.New(`ent: missing required field "DnsZone.updated_at"`)}
 	}
 	if _, ok := dzc.mutation.Name(); !ok {
-		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "DNSZone.name"`)}
+		return &ValidationError{Name: "name", err: errors.New(`ent: missing required field "DnsZone.name"`)}
 	}
 	if v, ok := dzc.mutation.Name(); ok {
 		if err := dnszone.NameValidator(v); err != nil {
-			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "DNSZone.name": %w`, err)}
+			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "DnsZone.name": %w`, err)}
 		}
 	}
 	if _, ok := dzc.mutation.Rrtype(); !ok {
-		return &ValidationError{Name: "rrtype", err: errors.New(`ent: missing required field "DNSZone.rrtype"`)}
+		return &ValidationError{Name: "rrtype", err: errors.New(`ent: missing required field "DnsZone.rrtype"`)}
 	}
 	if _, ok := dzc.mutation.Class(); !ok {
-		return &ValidationError{Name: "class", err: errors.New(`ent: missing required field "DNSZone.class"`)}
+		return &ValidationError{Name: "class", err: errors.New(`ent: missing required field "DnsZone.class"`)}
 	}
 	if _, ok := dzc.mutation.TTL(); !ok {
-		return &ValidationError{Name: "ttl", err: errors.New(`ent: missing required field "DNSZone.ttl"`)}
+		return &ValidationError{Name: "ttl", err: errors.New(`ent: missing required field "DnsZone.ttl"`)}
 	}
 	if v, ok := dzc.mutation.TTL(); ok {
 		if err := dnszone.TTLValidator(v); err != nil {
-			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DNSZone.ttl": %w`, err)}
+			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsZone.ttl": %w`, err)}
 		}
 	}
 	if _, ok := dzc.mutation.Rdlength(); !ok {
-		return &ValidationError{Name: "rdlength", err: errors.New(`ent: missing required field "DNSZone.rdlength"`)}
+		return &ValidationError{Name: "rdlength", err: errors.New(`ent: missing required field "DnsZone.rdlength"`)}
 	}
 	if _, ok := dzc.mutation.Ns(); !ok {
-		return &ValidationError{Name: "ns", err: errors.New(`ent: missing required field "DNSZone.ns"`)}
+		return &ValidationError{Name: "ns", err: errors.New(`ent: missing required field "DnsZone.ns"`)}
 	}
 	if v, ok := dzc.mutation.Ns(); ok {
 		if err := dnszone.NsValidator(v); err != nil {
-			return &ValidationError{Name: "ns", err: fmt.Errorf(`ent: validator failed for field "DNSZone.ns": %w`, err)}
+			return &ValidationError{Name: "ns", err: fmt.Errorf(`ent: validator failed for field "DnsZone.ns": %w`, err)}
 		}
 	}
 	if _, ok := dzc.mutation.Mbox(); !ok {
-		return &ValidationError{Name: "mbox", err: errors.New(`ent: missing required field "DNSZone.mbox"`)}
+		return &ValidationError{Name: "mbox", err: errors.New(`ent: missing required field "DnsZone.mbox"`)}
 	}
 	if v, ok := dzc.mutation.Mbox(); ok {
 		if err := dnszone.MboxValidator(v); err != nil {
-			return &ValidationError{Name: "mbox", err: fmt.Errorf(`ent: validator failed for field "DNSZone.mbox": %w`, err)}
+			return &ValidationError{Name: "mbox", err: fmt.Errorf(`ent: validator failed for field "DnsZone.mbox": %w`, err)}
 		}
 	}
 	if _, ok := dzc.mutation.Serial(); !ok {
-		return &ValidationError{Name: "serial", err: errors.New(`ent: missing required field "DNSZone.serial"`)}
+		return &ValidationError{Name: "serial", err: errors.New(`ent: missing required field "DnsZone.serial"`)}
 	}
 	if _, ok := dzc.mutation.Refresh(); !ok {
-		return &ValidationError{Name: "refresh", err: errors.New(`ent: missing required field "DNSZone.refresh"`)}
+		return &ValidationError{Name: "refresh", err: errors.New(`ent: missing required field "DnsZone.refresh"`)}
 	}
 	if v, ok := dzc.mutation.Refresh(); ok {
 		if err := dnszone.RefreshValidator(v); err != nil {
-			return &ValidationError{Name: "refresh", err: fmt.Errorf(`ent: validator failed for field "DNSZone.refresh": %w`, err)}
+			return &ValidationError{Name: "refresh", err: fmt.Errorf(`ent: validator failed for field "DnsZone.refresh": %w`, err)}
 		}
 	}
 	if _, ok := dzc.mutation.Retry(); !ok {
-		return &ValidationError{Name: "retry", err: errors.New(`ent: missing required field "DNSZone.retry"`)}
+		return &ValidationError{Name: "retry", err: errors.New(`ent: missing required field "DnsZone.retry"`)}
 	}
 	if v, ok := dzc.mutation.Retry(); ok {
 		if err := dnszone.RetryValidator(v); err != nil {
-			return &ValidationError{Name: "retry", err: fmt.Errorf(`ent: validator failed for field "DNSZone.retry": %w`, err)}
+			return &ValidationError{Name: "retry", err: fmt.Errorf(`ent: validator failed for field "DnsZone.retry": %w`, err)}
 		}
 	}
 	if _, ok := dzc.mutation.Expire(); !ok {
-		return &ValidationError{Name: "expire", err: errors.New(`ent: missing required field "DNSZone.expire"`)}
+		return &ValidationError{Name: "expire", err: errors.New(`ent: missing required field "DnsZone.expire"`)}
 	}
 	if v, ok := dzc.mutation.Expire(); ok {
 		if err := dnszone.ExpireValidator(v); err != nil {
-			return &ValidationError{Name: "expire", err: fmt.Errorf(`ent: validator failed for field "DNSZone.expire": %w`, err)}
+			return &ValidationError{Name: "expire", err: fmt.Errorf(`ent: validator failed for field "DnsZone.expire": %w`, err)}
 		}
 	}
 	if _, ok := dzc.mutation.Minttl(); !ok {
-		return &ValidationError{Name: "minttl", err: errors.New(`ent: missing required field "DNSZone.minttl"`)}
+		return &ValidationError{Name: "minttl", err: errors.New(`ent: missing required field "DnsZone.minttl"`)}
 	}
 	if v, ok := dzc.mutation.Minttl(); ok {
 		if err := dnszone.MinttlValidator(v); err != nil {
-			return &ValidationError{Name: "minttl", err: fmt.Errorf(`ent: validator failed for field "DNSZone.minttl": %w`, err)}
+			return &ValidationError{Name: "minttl", err: fmt.Errorf(`ent: validator failed for field "DnsZone.minttl": %w`, err)}
 		}
 	}
 	if _, ok := dzc.mutation.Activated(); !ok {
-		return &ValidationError{Name: "activated", err: errors.New(`ent: missing required field "DNSZone.activated"`)}
+		return &ValidationError{Name: "activated", err: errors.New(`ent: missing required field "DnsZone.activated"`)}
 	}
 	return nil
 }
 
-func (dzc *DNSZoneCreate) sqlSave(ctx context.Context) (*DNSZone, error) {
+func (dzc *DnsZoneCreate) sqlSave(ctx context.Context) (*DnsZone, error) {
 	if err := dzc.check(); err != nil {
 		return nil, err
 	}
@@ -406,9 +430,9 @@ func (dzc *DNSZoneCreate) sqlSave(ctx context.Context) (*DNSZone, error) {
 	return _node, nil
 }
 
-func (dzc *DNSZoneCreate) createSpec() (*DNSZone, *sqlgraph.CreateSpec) {
+func (dzc *DnsZoneCreate) createSpec() (*DnsZone, *sqlgraph.CreateSpec) {
 	var (
-		_node = &DNSZone{config: dzc.config}
+		_node = &DnsZone{config: dzc.config}
 		_spec = sqlgraph.NewCreateSpec(dnszone.Table, sqlgraph.NewFieldSpec(dnszone.FieldID, field.TypeString))
 	)
 	_spec.OnConflict = dzc.conflict
@@ -498,7 +522,7 @@ func (dzc *DNSZoneCreate) createSpec() (*DNSZone, *sqlgraph.CreateSpec) {
 // OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
 // of the `INSERT` statement. For example:
 //
-//	client.DNSZone.Create().
+//	client.DnsZone.Create().
 //		SetCreatedAt(v).
 //		OnConflict(
 //			// Update the row with the new values
@@ -507,13 +531,13 @@ func (dzc *DNSZoneCreate) createSpec() (*DNSZone, *sqlgraph.CreateSpec) {
 //		).
 //		// Override some of the fields with custom
 //		// update values.
-//		Update(func(u *ent.DNSZoneUpsert) {
+//		Update(func(u *ent.DnsZoneUpsert) {
 //			SetCreatedAt(v+v).
 //		}).
 //		Exec(ctx)
-func (dzc *DNSZoneCreate) OnConflict(opts ...sql.ConflictOption) *DNSZoneUpsertOne {
+func (dzc *DnsZoneCreate) OnConflict(opts ...sql.ConflictOption) *DnsZoneUpsertOne {
 	dzc.conflict = opts
-	return &DNSZoneUpsertOne{
+	return &DnsZoneUpsertOne{
 		create: dzc,
 	}
 }
@@ -521,223 +545,235 @@ func (dzc *DNSZoneCreate) OnConflict(opts ...sql.ConflictOption) *DNSZoneUpsertO
 // OnConflictColumns calls `OnConflict` and configures the columns
 // as conflict target. Using this option is equivalent to using:
 //
-//	client.DNSZone.Create().
+//	client.DnsZone.Create().
 //		OnConflict(sql.ConflictColumns(columns...)).
 //		Exec(ctx)
-func (dzc *DNSZoneCreate) OnConflictColumns(columns ...string) *DNSZoneUpsertOne {
+func (dzc *DnsZoneCreate) OnConflictColumns(columns ...string) *DnsZoneUpsertOne {
 	dzc.conflict = append(dzc.conflict, sql.ConflictColumns(columns...))
-	return &DNSZoneUpsertOne{
+	return &DnsZoneUpsertOne{
 		create: dzc,
 	}
 }
 
 type (
-	// DNSZoneUpsertOne is the builder for "upsert"-ing
-	//  one DNSZone node.
-	DNSZoneUpsertOne struct {
-		create *DNSZoneCreate
+	// DnsZoneUpsertOne is the builder for "upsert"-ing
+	//  one DnsZone node.
+	DnsZoneUpsertOne struct {
+		create *DnsZoneCreate
 	}
 
-	// DNSZoneUpsert is the "OnConflict" setter.
-	DNSZoneUpsert struct {
+	// DnsZoneUpsert is the "OnConflict" setter.
+	DnsZoneUpsert struct {
 		*sql.UpdateSet
 	}
 )
 
 // SetUpdatedAt sets the "updated_at" field.
-func (u *DNSZoneUpsert) SetUpdatedAt(v time.Time) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetUpdatedAt(v time.Time) *DnsZoneUpsert {
 	u.Set(dnszone.FieldUpdatedAt, v)
 	return u
 }
 
 // UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateUpdatedAt() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateUpdatedAt() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldUpdatedAt)
 	return u
 }
 
 // SetRrtype sets the "rrtype" field.
-func (u *DNSZoneUpsert) SetRrtype(v uint16) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetRrtype(v uint16) *DnsZoneUpsert {
 	u.Set(dnszone.FieldRrtype, v)
 	return u
 }
 
 // UpdateRrtype sets the "rrtype" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateRrtype() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateRrtype() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldRrtype)
 	return u
 }
 
 // AddRrtype adds v to the "rrtype" field.
-func (u *DNSZoneUpsert) AddRrtype(v uint16) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) AddRrtype(v uint16) *DnsZoneUpsert {
 	u.Add(dnszone.FieldRrtype, v)
 	return u
 }
 
 // SetClass sets the "class" field.
-func (u *DNSZoneUpsert) SetClass(v uint16) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetClass(v uint16) *DnsZoneUpsert {
 	u.Set(dnszone.FieldClass, v)
 	return u
 }
 
 // UpdateClass sets the "class" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateClass() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateClass() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldClass)
 	return u
 }
 
 // AddClass adds v to the "class" field.
-func (u *DNSZoneUpsert) AddClass(v uint16) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) AddClass(v uint16) *DnsZoneUpsert {
 	u.Add(dnszone.FieldClass, v)
 	return u
 }
 
 // SetTTL sets the "ttl" field.
-func (u *DNSZoneUpsert) SetTTL(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetTTL(v uint32) *DnsZoneUpsert {
 	u.Set(dnszone.FieldTTL, v)
 	return u
 }
 
 // UpdateTTL sets the "ttl" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateTTL() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateTTL() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldTTL)
 	return u
 }
 
 // AddTTL adds v to the "ttl" field.
-func (u *DNSZoneUpsert) AddTTL(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) AddTTL(v uint32) *DnsZoneUpsert {
 	u.Add(dnszone.FieldTTL, v)
 	return u
 }
 
 // SetRdlength sets the "rdlength" field.
-func (u *DNSZoneUpsert) SetRdlength(v uint16) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetRdlength(v uint16) *DnsZoneUpsert {
 	u.Set(dnszone.FieldRdlength, v)
 	return u
 }
 
 // UpdateRdlength sets the "rdlength" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateRdlength() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateRdlength() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldRdlength)
 	return u
 }
 
 // AddRdlength adds v to the "rdlength" field.
-func (u *DNSZoneUpsert) AddRdlength(v uint16) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) AddRdlength(v uint16) *DnsZoneUpsert {
 	u.Add(dnszone.FieldRdlength, v)
 	return u
 }
 
+// SetNs sets the "ns" field.
+func (u *DnsZoneUpsert) SetNs(v string) *DnsZoneUpsert {
+	u.Set(dnszone.FieldNs, v)
+	return u
+}
+
+// UpdateNs sets the "ns" field to the value that was provided on create.
+func (u *DnsZoneUpsert) UpdateNs() *DnsZoneUpsert {
+	u.SetExcluded(dnszone.FieldNs)
+	return u
+}
+
 // SetMbox sets the "mbox" field.
-func (u *DNSZoneUpsert) SetMbox(v string) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetMbox(v string) *DnsZoneUpsert {
 	u.Set(dnszone.FieldMbox, v)
 	return u
 }
 
 // UpdateMbox sets the "mbox" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateMbox() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateMbox() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldMbox)
 	return u
 }
 
 // SetSerial sets the "serial" field.
-func (u *DNSZoneUpsert) SetSerial(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetSerial(v uint32) *DnsZoneUpsert {
 	u.Set(dnszone.FieldSerial, v)
 	return u
 }
 
 // UpdateSerial sets the "serial" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateSerial() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateSerial() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldSerial)
 	return u
 }
 
 // AddSerial adds v to the "serial" field.
-func (u *DNSZoneUpsert) AddSerial(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) AddSerial(v uint32) *DnsZoneUpsert {
 	u.Add(dnszone.FieldSerial, v)
 	return u
 }
 
 // SetRefresh sets the "refresh" field.
-func (u *DNSZoneUpsert) SetRefresh(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetRefresh(v uint32) *DnsZoneUpsert {
 	u.Set(dnszone.FieldRefresh, v)
 	return u
 }
 
 // UpdateRefresh sets the "refresh" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateRefresh() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateRefresh() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldRefresh)
 	return u
 }
 
 // AddRefresh adds v to the "refresh" field.
-func (u *DNSZoneUpsert) AddRefresh(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) AddRefresh(v uint32) *DnsZoneUpsert {
 	u.Add(dnszone.FieldRefresh, v)
 	return u
 }
 
 // SetRetry sets the "retry" field.
-func (u *DNSZoneUpsert) SetRetry(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetRetry(v uint32) *DnsZoneUpsert {
 	u.Set(dnszone.FieldRetry, v)
 	return u
 }
 
 // UpdateRetry sets the "retry" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateRetry() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateRetry() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldRetry)
 	return u
 }
 
 // AddRetry adds v to the "retry" field.
-func (u *DNSZoneUpsert) AddRetry(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) AddRetry(v uint32) *DnsZoneUpsert {
 	u.Add(dnszone.FieldRetry, v)
 	return u
 }
 
 // SetExpire sets the "expire" field.
-func (u *DNSZoneUpsert) SetExpire(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetExpire(v uint32) *DnsZoneUpsert {
 	u.Set(dnszone.FieldExpire, v)
 	return u
 }
 
 // UpdateExpire sets the "expire" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateExpire() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateExpire() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldExpire)
 	return u
 }
 
 // AddExpire adds v to the "expire" field.
-func (u *DNSZoneUpsert) AddExpire(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) AddExpire(v uint32) *DnsZoneUpsert {
 	u.Add(dnszone.FieldExpire, v)
 	return u
 }
 
 // SetMinttl sets the "minttl" field.
-func (u *DNSZoneUpsert) SetMinttl(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetMinttl(v uint32) *DnsZoneUpsert {
 	u.Set(dnszone.FieldMinttl, v)
 	return u
 }
 
 // UpdateMinttl sets the "minttl" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateMinttl() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateMinttl() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldMinttl)
 	return u
 }
 
 // AddMinttl adds v to the "minttl" field.
-func (u *DNSZoneUpsert) AddMinttl(v uint32) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) AddMinttl(v uint32) *DnsZoneUpsert {
 	u.Add(dnszone.FieldMinttl, v)
 	return u
 }
 
 // SetActivated sets the "activated" field.
-func (u *DNSZoneUpsert) SetActivated(v bool) *DNSZoneUpsert {
+func (u *DnsZoneUpsert) SetActivated(v bool) *DnsZoneUpsert {
 	u.Set(dnszone.FieldActivated, v)
 	return u
 }
 
 // UpdateActivated sets the "activated" field to the value that was provided on create.
-func (u *DNSZoneUpsert) UpdateActivated() *DNSZoneUpsert {
+func (u *DnsZoneUpsert) UpdateActivated() *DnsZoneUpsert {
 	u.SetExcluded(dnszone.FieldActivated)
 	return u
 }
@@ -745,7 +781,7 @@ func (u *DNSZoneUpsert) UpdateActivated() *DNSZoneUpsert {
 // UpdateNewValues updates the mutable fields using the new values that were set on create except the ID field.
 // Using this option is equivalent to using:
 //
-//	client.DNSZone.Create().
+//	client.DnsZone.Create().
 //		OnConflict(
 //			sql.ResolveWithNewValues(),
 //			sql.ResolveWith(func(u *sql.UpdateSet) {
@@ -753,7 +789,7 @@ func (u *DNSZoneUpsert) UpdateActivated() *DNSZoneUpsert {
 //			}),
 //		).
 //		Exec(ctx)
-func (u *DNSZoneUpsertOne) UpdateNewValues() *DNSZoneUpsertOne {
+func (u *DnsZoneUpsertOne) UpdateNewValues() *DnsZoneUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
 		if _, exists := u.create.mutation.ID(); exists {
@@ -765,9 +801,6 @@ func (u *DNSZoneUpsertOne) UpdateNewValues() *DNSZoneUpsertOne {
 		if _, exists := u.create.mutation.Name(); exists {
 			s.SetIgnore(dnszone.FieldName)
 		}
-		if _, exists := u.create.mutation.Ns(); exists {
-			s.SetIgnore(dnszone.FieldNs)
-		}
 	}))
 	return u
 }
@@ -775,282 +808,296 @@ func (u *DNSZoneUpsertOne) UpdateNewValues() *DNSZoneUpsertOne {
 // Ignore sets each column to itself in case of conflict.
 // Using this option is equivalent to using:
 //
-//	client.DNSZone.Create().
+//	client.DnsZone.Create().
 //	    OnConflict(sql.ResolveWithIgnore()).
 //	    Exec(ctx)
-func (u *DNSZoneUpsertOne) Ignore() *DNSZoneUpsertOne {
+func (u *DnsZoneUpsertOne) Ignore() *DnsZoneUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
 	return u
 }
 
 // DoNothing configures the conflict_action to `DO NOTHING`.
 // Supported only by SQLite and PostgreSQL.
-func (u *DNSZoneUpsertOne) DoNothing() *DNSZoneUpsertOne {
+func (u *DnsZoneUpsertOne) DoNothing() *DnsZoneUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.DoNothing())
 	return u
 }
 
-// Update allows overriding fields `UPDATE` values. See the DNSZoneCreate.OnConflict
+// Update allows overriding fields `UPDATE` values. See the DnsZoneCreate.OnConflict
 // documentation for more info.
-func (u *DNSZoneUpsertOne) Update(set func(*DNSZoneUpsert)) *DNSZoneUpsertOne {
+func (u *DnsZoneUpsertOne) Update(set func(*DnsZoneUpsert)) *DnsZoneUpsertOne {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
-		set(&DNSZoneUpsert{UpdateSet: update})
+		set(&DnsZoneUpsert{UpdateSet: update})
 	}))
 	return u
 }
 
 // SetUpdatedAt sets the "updated_at" field.
-func (u *DNSZoneUpsertOne) SetUpdatedAt(v time.Time) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetUpdatedAt(v time.Time) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetUpdatedAt(v)
 	})
 }
 
 // UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateUpdatedAt() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateUpdatedAt() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateUpdatedAt()
 	})
 }
 
 // SetRrtype sets the "rrtype" field.
-func (u *DNSZoneUpsertOne) SetRrtype(v uint16) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetRrtype(v uint16) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetRrtype(v)
 	})
 }
 
 // AddRrtype adds v to the "rrtype" field.
-func (u *DNSZoneUpsertOne) AddRrtype(v uint16) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) AddRrtype(v uint16) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddRrtype(v)
 	})
 }
 
 // UpdateRrtype sets the "rrtype" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateRrtype() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateRrtype() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateRrtype()
 	})
 }
 
 // SetClass sets the "class" field.
-func (u *DNSZoneUpsertOne) SetClass(v uint16) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetClass(v uint16) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetClass(v)
 	})
 }
 
 // AddClass adds v to the "class" field.
-func (u *DNSZoneUpsertOne) AddClass(v uint16) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) AddClass(v uint16) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddClass(v)
 	})
 }
 
 // UpdateClass sets the "class" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateClass() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateClass() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateClass()
 	})
 }
 
 // SetTTL sets the "ttl" field.
-func (u *DNSZoneUpsertOne) SetTTL(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetTTL(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetTTL(v)
 	})
 }
 
 // AddTTL adds v to the "ttl" field.
-func (u *DNSZoneUpsertOne) AddTTL(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) AddTTL(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddTTL(v)
 	})
 }
 
 // UpdateTTL sets the "ttl" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateTTL() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateTTL() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateTTL()
 	})
 }
 
 // SetRdlength sets the "rdlength" field.
-func (u *DNSZoneUpsertOne) SetRdlength(v uint16) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetRdlength(v uint16) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetRdlength(v)
 	})
 }
 
 // AddRdlength adds v to the "rdlength" field.
-func (u *DNSZoneUpsertOne) AddRdlength(v uint16) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) AddRdlength(v uint16) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddRdlength(v)
 	})
 }
 
 // UpdateRdlength sets the "rdlength" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateRdlength() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateRdlength() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateRdlength()
 	})
 }
 
+// SetNs sets the "ns" field.
+func (u *DnsZoneUpsertOne) SetNs(v string) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
+		s.SetNs(v)
+	})
+}
+
+// UpdateNs sets the "ns" field to the value that was provided on create.
+func (u *DnsZoneUpsertOne) UpdateNs() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
+		s.UpdateNs()
+	})
+}
+
 // SetMbox sets the "mbox" field.
-func (u *DNSZoneUpsertOne) SetMbox(v string) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetMbox(v string) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetMbox(v)
 	})
 }
 
 // UpdateMbox sets the "mbox" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateMbox() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateMbox() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateMbox()
 	})
 }
 
 // SetSerial sets the "serial" field.
-func (u *DNSZoneUpsertOne) SetSerial(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetSerial(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetSerial(v)
 	})
 }
 
 // AddSerial adds v to the "serial" field.
-func (u *DNSZoneUpsertOne) AddSerial(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) AddSerial(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddSerial(v)
 	})
 }
 
 // UpdateSerial sets the "serial" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateSerial() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateSerial() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateSerial()
 	})
 }
 
 // SetRefresh sets the "refresh" field.
-func (u *DNSZoneUpsertOne) SetRefresh(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetRefresh(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetRefresh(v)
 	})
 }
 
 // AddRefresh adds v to the "refresh" field.
-func (u *DNSZoneUpsertOne) AddRefresh(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) AddRefresh(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddRefresh(v)
 	})
 }
 
 // UpdateRefresh sets the "refresh" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateRefresh() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateRefresh() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateRefresh()
 	})
 }
 
 // SetRetry sets the "retry" field.
-func (u *DNSZoneUpsertOne) SetRetry(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetRetry(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetRetry(v)
 	})
 }
 
 // AddRetry adds v to the "retry" field.
-func (u *DNSZoneUpsertOne) AddRetry(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) AddRetry(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddRetry(v)
 	})
 }
 
 // UpdateRetry sets the "retry" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateRetry() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateRetry() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateRetry()
 	})
 }
 
 // SetExpire sets the "expire" field.
-func (u *DNSZoneUpsertOne) SetExpire(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetExpire(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetExpire(v)
 	})
 }
 
 // AddExpire adds v to the "expire" field.
-func (u *DNSZoneUpsertOne) AddExpire(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) AddExpire(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddExpire(v)
 	})
 }
 
 // UpdateExpire sets the "expire" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateExpire() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateExpire() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateExpire()
 	})
 }
 
 // SetMinttl sets the "minttl" field.
-func (u *DNSZoneUpsertOne) SetMinttl(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetMinttl(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetMinttl(v)
 	})
 }
 
 // AddMinttl adds v to the "minttl" field.
-func (u *DNSZoneUpsertOne) AddMinttl(v uint32) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) AddMinttl(v uint32) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddMinttl(v)
 	})
 }
 
 // UpdateMinttl sets the "minttl" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateMinttl() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateMinttl() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateMinttl()
 	})
 }
 
 // SetActivated sets the "activated" field.
-func (u *DNSZoneUpsertOne) SetActivated(v bool) *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) SetActivated(v bool) *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetActivated(v)
 	})
 }
 
 // UpdateActivated sets the "activated" field to the value that was provided on create.
-func (u *DNSZoneUpsertOne) UpdateActivated() *DNSZoneUpsertOne {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertOne) UpdateActivated() *DnsZoneUpsertOne {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateActivated()
 	})
 }
 
 // Exec executes the query.
-func (u *DNSZoneUpsertOne) Exec(ctx context.Context) error {
+func (u *DnsZoneUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
-		return errors.New("ent: missing options for DNSZoneCreate.OnConflict")
+		return errors.New("ent: missing options for DnsZoneCreate.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (u *DNSZoneUpsertOne) ExecX(ctx context.Context) {
+func (u *DnsZoneUpsertOne) ExecX(ctx context.Context) {
 	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}
 }
 
 // Exec executes the UPSERT query and returns the inserted/updated ID.
-func (u *DNSZoneUpsertOne) ID(ctx context.Context) (id xid.ID, err error) {
+func (u *DnsZoneUpsertOne) ID(ctx context.Context) (id xid.ID, err error) {
 	if u.create.driver.Dialect() == dialect.MySQL {
 		// In case of "ON CONFLICT", there is no way to get back non-numeric ID
 		// fields from the database since MySQL does not support the RETURNING clause.
-		return id, errors.New("ent: DNSZoneUpsertOne.ID is not supported by MySQL driver. Use DNSZoneUpsertOne.Exec instead")
+		return id, errors.New("ent: DnsZoneUpsertOne.ID is not supported by MySQL driver. Use DnsZoneUpsertOne.Exec instead")
 	}
 	node, err := u.create.Save(ctx)
 	if err != nil {
@@ -1060,7 +1107,7 @@ func (u *DNSZoneUpsertOne) ID(ctx context.Context) (id xid.ID, err error) {
 }
 
 // IDX is like ID, but panics if an error occurs.
-func (u *DNSZoneUpsertOne) IDX(ctx context.Context) xid.ID {
+func (u *DnsZoneUpsertOne) IDX(ctx context.Context) xid.ID {
 	id, err := u.ID(ctx)
 	if err != nil {
 		panic(err)
@@ -1068,24 +1115,24 @@ func (u *DNSZoneUpsertOne) IDX(ctx context.Context) xid.ID {
 	return id
 }
 
-// DNSZoneCreateBulk is the builder for creating many DNSZone entities in bulk.
-type DNSZoneCreateBulk struct {
+// DnsZoneCreateBulk is the builder for creating many DnsZone entities in bulk.
+type DnsZoneCreateBulk struct {
 	config
-	builders []*DNSZoneCreate
+	builders []*DnsZoneCreate
 	conflict []sql.ConflictOption
 }
 
-// Save creates the DNSZone entities in the database.
-func (dzcb *DNSZoneCreateBulk) Save(ctx context.Context) ([]*DNSZone, error) {
+// Save creates the DnsZone entities in the database.
+func (dzcb *DnsZoneCreateBulk) Save(ctx context.Context) ([]*DnsZone, error) {
 	specs := make([]*sqlgraph.CreateSpec, len(dzcb.builders))
-	nodes := make([]*DNSZone, len(dzcb.builders))
+	nodes := make([]*DnsZone, len(dzcb.builders))
 	mutators := make([]Mutator, len(dzcb.builders))
 	for i := range dzcb.builders {
 		func(i int, root context.Context) {
 			builder := dzcb.builders[i]
 			builder.defaults()
 			var mut Mutator = MutateFunc(func(ctx context.Context, m Mutation) (Value, error) {
-				mutation, ok := m.(*DNSZoneMutation)
+				mutation, ok := m.(*DnsZoneMutation)
 				if !ok {
 					return nil, fmt.Errorf("unexpected mutation type %T", m)
 				}
@@ -1129,7 +1176,7 @@ func (dzcb *DNSZoneCreateBulk) Save(ctx context.Context) ([]*DNSZone, error) {
 }
 
 // SaveX is like Save, but panics if an error occurs.
-func (dzcb *DNSZoneCreateBulk) SaveX(ctx context.Context) []*DNSZone {
+func (dzcb *DnsZoneCreateBulk) SaveX(ctx context.Context) []*DnsZone {
 	v, err := dzcb.Save(ctx)
 	if err != nil {
 		panic(err)
@@ -1138,13 +1185,13 @@ func (dzcb *DNSZoneCreateBulk) SaveX(ctx context.Context) []*DNSZone {
 }
 
 // Exec executes the query.
-func (dzcb *DNSZoneCreateBulk) Exec(ctx context.Context) error {
+func (dzcb *DnsZoneCreateBulk) Exec(ctx context.Context) error {
 	_, err := dzcb.Save(ctx)
 	return err
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (dzcb *DNSZoneCreateBulk) ExecX(ctx context.Context) {
+func (dzcb *DnsZoneCreateBulk) ExecX(ctx context.Context) {
 	if err := dzcb.Exec(ctx); err != nil {
 		panic(err)
 	}
@@ -1153,7 +1200,7 @@ func (dzcb *DNSZoneCreateBulk) ExecX(ctx context.Context) {
 // OnConflict allows configuring the `ON CONFLICT` / `ON DUPLICATE KEY` clause
 // of the `INSERT` statement. For example:
 //
-//	client.DNSZone.CreateBulk(builders...).
+//	client.DnsZone.CreateBulk(builders...).
 //		OnConflict(
 //			// Update the row with the new values
 //			// the was proposed for insertion.
@@ -1161,13 +1208,13 @@ func (dzcb *DNSZoneCreateBulk) ExecX(ctx context.Context) {
 //		).
 //		// Override some of the fields with custom
 //		// update values.
-//		Update(func(u *ent.DNSZoneUpsert) {
+//		Update(func(u *ent.DnsZoneUpsert) {
 //			SetCreatedAt(v+v).
 //		}).
 //		Exec(ctx)
-func (dzcb *DNSZoneCreateBulk) OnConflict(opts ...sql.ConflictOption) *DNSZoneUpsertBulk {
+func (dzcb *DnsZoneCreateBulk) OnConflict(opts ...sql.ConflictOption) *DnsZoneUpsertBulk {
 	dzcb.conflict = opts
-	return &DNSZoneUpsertBulk{
+	return &DnsZoneUpsertBulk{
 		create: dzcb,
 	}
 }
@@ -1175,26 +1222,26 @@ func (dzcb *DNSZoneCreateBulk) OnConflict(opts ...sql.ConflictOption) *DNSZoneUp
 // OnConflictColumns calls `OnConflict` and configures the columns
 // as conflict target. Using this option is equivalent to using:
 //
-//	client.DNSZone.Create().
+//	client.DnsZone.Create().
 //		OnConflict(sql.ConflictColumns(columns...)).
 //		Exec(ctx)
-func (dzcb *DNSZoneCreateBulk) OnConflictColumns(columns ...string) *DNSZoneUpsertBulk {
+func (dzcb *DnsZoneCreateBulk) OnConflictColumns(columns ...string) *DnsZoneUpsertBulk {
 	dzcb.conflict = append(dzcb.conflict, sql.ConflictColumns(columns...))
-	return &DNSZoneUpsertBulk{
+	return &DnsZoneUpsertBulk{
 		create: dzcb,
 	}
 }
 
-// DNSZoneUpsertBulk is the builder for "upsert"-ing
-// a bulk of DNSZone nodes.
-type DNSZoneUpsertBulk struct {
-	create *DNSZoneCreateBulk
+// DnsZoneUpsertBulk is the builder for "upsert"-ing
+// a bulk of DnsZone nodes.
+type DnsZoneUpsertBulk struct {
+	create *DnsZoneCreateBulk
 }
 
 // UpdateNewValues updates the mutable fields using the new values that
 // were set on create. Using this option is equivalent to using:
 //
-//	client.DNSZone.Create().
+//	client.DnsZone.Create().
 //		OnConflict(
 //			sql.ResolveWithNewValues(),
 //			sql.ResolveWith(func(u *sql.UpdateSet) {
@@ -1202,7 +1249,7 @@ type DNSZoneUpsertBulk struct {
 //			}),
 //		).
 //		Exec(ctx)
-func (u *DNSZoneUpsertBulk) UpdateNewValues() *DNSZoneUpsertBulk {
+func (u *DnsZoneUpsertBulk) UpdateNewValues() *DnsZoneUpsertBulk {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithNewValues())
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(s *sql.UpdateSet) {
 		for _, b := range u.create.builders {
@@ -1215,9 +1262,6 @@ func (u *DNSZoneUpsertBulk) UpdateNewValues() *DNSZoneUpsertBulk {
 			if _, exists := b.mutation.Name(); exists {
 				s.SetIgnore(dnszone.FieldName)
 			}
-			if _, exists := b.mutation.Ns(); exists {
-				s.SetIgnore(dnszone.FieldNs)
-			}
 		}
 	}))
 	return u
@@ -1226,276 +1270,290 @@ func (u *DNSZoneUpsertBulk) UpdateNewValues() *DNSZoneUpsertBulk {
 // Ignore sets each column to itself in case of conflict.
 // Using this option is equivalent to using:
 //
-//	client.DNSZone.Create().
+//	client.DnsZone.Create().
 //		OnConflict(sql.ResolveWithIgnore()).
 //		Exec(ctx)
-func (u *DNSZoneUpsertBulk) Ignore() *DNSZoneUpsertBulk {
+func (u *DnsZoneUpsertBulk) Ignore() *DnsZoneUpsertBulk {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWithIgnore())
 	return u
 }
 
 // DoNothing configures the conflict_action to `DO NOTHING`.
 // Supported only by SQLite and PostgreSQL.
-func (u *DNSZoneUpsertBulk) DoNothing() *DNSZoneUpsertBulk {
+func (u *DnsZoneUpsertBulk) DoNothing() *DnsZoneUpsertBulk {
 	u.create.conflict = append(u.create.conflict, sql.DoNothing())
 	return u
 }
 
-// Update allows overriding fields `UPDATE` values. See the DNSZoneCreateBulk.OnConflict
+// Update allows overriding fields `UPDATE` values. See the DnsZoneCreateBulk.OnConflict
 // documentation for more info.
-func (u *DNSZoneUpsertBulk) Update(set func(*DNSZoneUpsert)) *DNSZoneUpsertBulk {
+func (u *DnsZoneUpsertBulk) Update(set func(*DnsZoneUpsert)) *DnsZoneUpsertBulk {
 	u.create.conflict = append(u.create.conflict, sql.ResolveWith(func(update *sql.UpdateSet) {
-		set(&DNSZoneUpsert{UpdateSet: update})
+		set(&DnsZoneUpsert{UpdateSet: update})
 	}))
 	return u
 }
 
 // SetUpdatedAt sets the "updated_at" field.
-func (u *DNSZoneUpsertBulk) SetUpdatedAt(v time.Time) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetUpdatedAt(v time.Time) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetUpdatedAt(v)
 	})
 }
 
 // UpdateUpdatedAt sets the "updated_at" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateUpdatedAt() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateUpdatedAt() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateUpdatedAt()
 	})
 }
 
 // SetRrtype sets the "rrtype" field.
-func (u *DNSZoneUpsertBulk) SetRrtype(v uint16) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetRrtype(v uint16) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetRrtype(v)
 	})
 }
 
 // AddRrtype adds v to the "rrtype" field.
-func (u *DNSZoneUpsertBulk) AddRrtype(v uint16) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) AddRrtype(v uint16) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddRrtype(v)
 	})
 }
 
 // UpdateRrtype sets the "rrtype" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateRrtype() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateRrtype() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateRrtype()
 	})
 }
 
 // SetClass sets the "class" field.
-func (u *DNSZoneUpsertBulk) SetClass(v uint16) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetClass(v uint16) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetClass(v)
 	})
 }
 
 // AddClass adds v to the "class" field.
-func (u *DNSZoneUpsertBulk) AddClass(v uint16) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) AddClass(v uint16) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddClass(v)
 	})
 }
 
 // UpdateClass sets the "class" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateClass() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateClass() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateClass()
 	})
 }
 
 // SetTTL sets the "ttl" field.
-func (u *DNSZoneUpsertBulk) SetTTL(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetTTL(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetTTL(v)
 	})
 }
 
 // AddTTL adds v to the "ttl" field.
-func (u *DNSZoneUpsertBulk) AddTTL(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) AddTTL(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddTTL(v)
 	})
 }
 
 // UpdateTTL sets the "ttl" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateTTL() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateTTL() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateTTL()
 	})
 }
 
 // SetRdlength sets the "rdlength" field.
-func (u *DNSZoneUpsertBulk) SetRdlength(v uint16) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetRdlength(v uint16) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetRdlength(v)
 	})
 }
 
 // AddRdlength adds v to the "rdlength" field.
-func (u *DNSZoneUpsertBulk) AddRdlength(v uint16) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) AddRdlength(v uint16) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddRdlength(v)
 	})
 }
 
 // UpdateRdlength sets the "rdlength" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateRdlength() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateRdlength() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateRdlength()
 	})
 }
 
+// SetNs sets the "ns" field.
+func (u *DnsZoneUpsertBulk) SetNs(v string) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
+		s.SetNs(v)
+	})
+}
+
+// UpdateNs sets the "ns" field to the value that was provided on create.
+func (u *DnsZoneUpsertBulk) UpdateNs() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
+		s.UpdateNs()
+	})
+}
+
 // SetMbox sets the "mbox" field.
-func (u *DNSZoneUpsertBulk) SetMbox(v string) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetMbox(v string) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetMbox(v)
 	})
 }
 
 // UpdateMbox sets the "mbox" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateMbox() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateMbox() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateMbox()
 	})
 }
 
 // SetSerial sets the "serial" field.
-func (u *DNSZoneUpsertBulk) SetSerial(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetSerial(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetSerial(v)
 	})
 }
 
 // AddSerial adds v to the "serial" field.
-func (u *DNSZoneUpsertBulk) AddSerial(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) AddSerial(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddSerial(v)
 	})
 }
 
 // UpdateSerial sets the "serial" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateSerial() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateSerial() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateSerial()
 	})
 }
 
 // SetRefresh sets the "refresh" field.
-func (u *DNSZoneUpsertBulk) SetRefresh(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetRefresh(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetRefresh(v)
 	})
 }
 
 // AddRefresh adds v to the "refresh" field.
-func (u *DNSZoneUpsertBulk) AddRefresh(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) AddRefresh(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddRefresh(v)
 	})
 }
 
 // UpdateRefresh sets the "refresh" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateRefresh() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateRefresh() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateRefresh()
 	})
 }
 
 // SetRetry sets the "retry" field.
-func (u *DNSZoneUpsertBulk) SetRetry(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetRetry(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetRetry(v)
 	})
 }
 
 // AddRetry adds v to the "retry" field.
-func (u *DNSZoneUpsertBulk) AddRetry(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) AddRetry(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddRetry(v)
 	})
 }
 
 // UpdateRetry sets the "retry" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateRetry() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateRetry() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateRetry()
 	})
 }
 
 // SetExpire sets the "expire" field.
-func (u *DNSZoneUpsertBulk) SetExpire(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetExpire(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetExpire(v)
 	})
 }
 
 // AddExpire adds v to the "expire" field.
-func (u *DNSZoneUpsertBulk) AddExpire(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) AddExpire(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddExpire(v)
 	})
 }
 
 // UpdateExpire sets the "expire" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateExpire() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateExpire() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateExpire()
 	})
 }
 
 // SetMinttl sets the "minttl" field.
-func (u *DNSZoneUpsertBulk) SetMinttl(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetMinttl(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetMinttl(v)
 	})
 }
 
 // AddMinttl adds v to the "minttl" field.
-func (u *DNSZoneUpsertBulk) AddMinttl(v uint32) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) AddMinttl(v uint32) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.AddMinttl(v)
 	})
 }
 
 // UpdateMinttl sets the "minttl" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateMinttl() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateMinttl() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateMinttl()
 	})
 }
 
 // SetActivated sets the "activated" field.
-func (u *DNSZoneUpsertBulk) SetActivated(v bool) *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) SetActivated(v bool) *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.SetActivated(v)
 	})
 }
 
 // UpdateActivated sets the "activated" field to the value that was provided on create.
-func (u *DNSZoneUpsertBulk) UpdateActivated() *DNSZoneUpsertBulk {
-	return u.Update(func(s *DNSZoneUpsert) {
+func (u *DnsZoneUpsertBulk) UpdateActivated() *DnsZoneUpsertBulk {
+	return u.Update(func(s *DnsZoneUpsert) {
 		s.UpdateActivated()
 	})
 }
 
 // Exec executes the query.
-func (u *DNSZoneUpsertBulk) Exec(ctx context.Context) error {
+func (u *DnsZoneUpsertBulk) Exec(ctx context.Context) error {
 	for i, b := range u.create.builders {
 		if len(b.conflict) != 0 {
-			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the DNSZoneCreateBulk instead", i)
+			return fmt.Errorf("ent: OnConflict was set for builder %d. Set it on the DnsZoneCreateBulk instead", i)
 		}
 	}
 	if len(u.create.conflict) == 0 {
-		return errors.New("ent: missing options for DNSZoneCreateBulk.OnConflict")
+		return errors.New("ent: missing options for DnsZoneCreateBulk.OnConflict")
 	}
 	return u.create.Exec(ctx)
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (u *DNSZoneUpsertBulk) ExecX(ctx context.Context) {
+func (u *DnsZoneUpsertBulk) ExecX(ctx context.Context) {
 	if err := u.create.Exec(ctx); err != nil {
 		panic(err)
 	}

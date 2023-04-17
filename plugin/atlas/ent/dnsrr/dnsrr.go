@@ -37,7 +37,7 @@ const (
 	Table = "dns_rrs"
 	// ZoneTable is the table that holds the zone relation/edge.
 	ZoneTable = "dns_rrs"
-	// ZoneInverseTable is the table name for the DNSZone entity.
+	// ZoneInverseTable is the table name for the DnsZone entity.
 	// It exists in this package in order to avoid circular dependency with the "dnszone" package.
 	ZoneInverseTable = "dns_zones"
 	// ZoneColumn is the table column denoting the zone relation/edge.

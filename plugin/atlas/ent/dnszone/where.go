@@ -12,773 +12,773 @@ import (
 )
 
 // ID filters vertices based on their ID field.
-func ID(id xid.ID) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldID, id))
+func ID(id xid.ID) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldID, id))
 }
 
 // IDEQ applies the EQ predicate on the ID field.
-func IDEQ(id xid.ID) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldID, id))
+func IDEQ(id xid.ID) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldID, id))
 }
 
 // IDNEQ applies the NEQ predicate on the ID field.
-func IDNEQ(id xid.ID) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldID, id))
+func IDNEQ(id xid.ID) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldID, id))
 }
 
 // IDIn applies the In predicate on the ID field.
-func IDIn(ids ...xid.ID) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldID, ids...))
+func IDIn(ids ...xid.ID) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldID, ids...))
 }
 
 // IDNotIn applies the NotIn predicate on the ID field.
-func IDNotIn(ids ...xid.ID) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldID, ids...))
+func IDNotIn(ids ...xid.ID) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldID, ids...))
 }
 
 // IDGT applies the GT predicate on the ID field.
-func IDGT(id xid.ID) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldID, id))
+func IDGT(id xid.ID) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldID, id))
 }
 
 // IDGTE applies the GTE predicate on the ID field.
-func IDGTE(id xid.ID) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldID, id))
+func IDGTE(id xid.ID) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldID, id))
 }
 
 // IDLT applies the LT predicate on the ID field.
-func IDLT(id xid.ID) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldID, id))
+func IDLT(id xid.ID) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldID, id))
 }
 
 // IDLTE applies the LTE predicate on the ID field.
-func IDLTE(id xid.ID) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldID, id))
+func IDLTE(id xid.ID) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldID, id))
 }
 
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
-func CreatedAt(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldCreatedAt, v))
+func CreatedAt(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldCreatedAt, v))
 }
 
 // UpdatedAt applies equality check predicate on the "updated_at" field. It's identical to UpdatedAtEQ.
-func UpdatedAt(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldUpdatedAt, v))
+func UpdatedAt(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
 // Name applies equality check predicate on the "name" field. It's identical to NameEQ.
-func Name(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldName, v))
+func Name(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldName, v))
 }
 
 // Rrtype applies equality check predicate on the "rrtype" field. It's identical to RrtypeEQ.
-func Rrtype(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldRrtype, v))
+func Rrtype(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldRrtype, v))
 }
 
 // Class applies equality check predicate on the "class" field. It's identical to ClassEQ.
-func Class(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldClass, v))
+func Class(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldClass, v))
 }
 
 // TTL applies equality check predicate on the "ttl" field. It's identical to TTLEQ.
-func TTL(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldTTL, v))
+func TTL(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldTTL, v))
 }
 
 // Rdlength applies equality check predicate on the "rdlength" field. It's identical to RdlengthEQ.
-func Rdlength(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldRdlength, v))
+func Rdlength(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldRdlength, v))
 }
 
 // Ns applies equality check predicate on the "ns" field. It's identical to NsEQ.
-func Ns(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldNs, v))
+func Ns(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldNs, v))
 }
 
 // Mbox applies equality check predicate on the "mbox" field. It's identical to MboxEQ.
-func Mbox(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldMbox, v))
+func Mbox(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldMbox, v))
 }
 
 // Serial applies equality check predicate on the "serial" field. It's identical to SerialEQ.
-func Serial(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldSerial, v))
+func Serial(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldSerial, v))
 }
 
 // Refresh applies equality check predicate on the "refresh" field. It's identical to RefreshEQ.
-func Refresh(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldRefresh, v))
+func Refresh(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldRefresh, v))
 }
 
 // Retry applies equality check predicate on the "retry" field. It's identical to RetryEQ.
-func Retry(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldRetry, v))
+func Retry(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldRetry, v))
 }
 
 // Expire applies equality check predicate on the "expire" field. It's identical to ExpireEQ.
-func Expire(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldExpire, v))
+func Expire(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldExpire, v))
 }
 
 // Minttl applies equality check predicate on the "minttl" field. It's identical to MinttlEQ.
-func Minttl(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldMinttl, v))
+func Minttl(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldMinttl, v))
 }
 
 // Activated applies equality check predicate on the "activated" field. It's identical to ActivatedEQ.
-func Activated(v bool) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldActivated, v))
+func Activated(v bool) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldActivated, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
-func CreatedAtEQ(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldCreatedAt, v))
+func CreatedAtEQ(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldCreatedAt, v))
 }
 
 // CreatedAtNEQ applies the NEQ predicate on the "created_at" field.
-func CreatedAtNEQ(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldCreatedAt, v))
+func CreatedAtNEQ(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldCreatedAt, v))
 }
 
 // CreatedAtIn applies the In predicate on the "created_at" field.
-func CreatedAtIn(vs ...time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldCreatedAt, vs...))
+func CreatedAtIn(vs ...time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldCreatedAt, vs...))
 }
 
 // CreatedAtNotIn applies the NotIn predicate on the "created_at" field.
-func CreatedAtNotIn(vs ...time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldCreatedAt, vs...))
+func CreatedAtNotIn(vs ...time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldCreatedAt, vs...))
 }
 
 // CreatedAtGT applies the GT predicate on the "created_at" field.
-func CreatedAtGT(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldCreatedAt, v))
+func CreatedAtGT(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldCreatedAt, v))
 }
 
 // CreatedAtGTE applies the GTE predicate on the "created_at" field.
-func CreatedAtGTE(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldCreatedAt, v))
+func CreatedAtGTE(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldCreatedAt, v))
 }
 
 // CreatedAtLT applies the LT predicate on the "created_at" field.
-func CreatedAtLT(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldCreatedAt, v))
+func CreatedAtLT(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldCreatedAt, v))
 }
 
 // CreatedAtLTE applies the LTE predicate on the "created_at" field.
-func CreatedAtLTE(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldCreatedAt, v))
+func CreatedAtLTE(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldCreatedAt, v))
 }
 
 // UpdatedAtEQ applies the EQ predicate on the "updated_at" field.
-func UpdatedAtEQ(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldUpdatedAt, v))
+func UpdatedAtEQ(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldUpdatedAt, v))
 }
 
 // UpdatedAtNEQ applies the NEQ predicate on the "updated_at" field.
-func UpdatedAtNEQ(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldUpdatedAt, v))
+func UpdatedAtNEQ(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldUpdatedAt, v))
 }
 
 // UpdatedAtIn applies the In predicate on the "updated_at" field.
-func UpdatedAtIn(vs ...time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldUpdatedAt, vs...))
+func UpdatedAtIn(vs ...time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldUpdatedAt, vs...))
 }
 
 // UpdatedAtNotIn applies the NotIn predicate on the "updated_at" field.
-func UpdatedAtNotIn(vs ...time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldUpdatedAt, vs...))
+func UpdatedAtNotIn(vs ...time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldUpdatedAt, vs...))
 }
 
 // UpdatedAtGT applies the GT predicate on the "updated_at" field.
-func UpdatedAtGT(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldUpdatedAt, v))
+func UpdatedAtGT(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldUpdatedAt, v))
 }
 
 // UpdatedAtGTE applies the GTE predicate on the "updated_at" field.
-func UpdatedAtGTE(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldUpdatedAt, v))
+func UpdatedAtGTE(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldUpdatedAt, v))
 }
 
 // UpdatedAtLT applies the LT predicate on the "updated_at" field.
-func UpdatedAtLT(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldUpdatedAt, v))
+func UpdatedAtLT(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldUpdatedAt, v))
 }
 
 // UpdatedAtLTE applies the LTE predicate on the "updated_at" field.
-func UpdatedAtLTE(v time.Time) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldUpdatedAt, v))
+func UpdatedAtLTE(v time.Time) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldUpdatedAt, v))
 }
 
 // NameEQ applies the EQ predicate on the "name" field.
-func NameEQ(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldName, v))
+func NameEQ(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldName, v))
 }
 
 // NameNEQ applies the NEQ predicate on the "name" field.
-func NameNEQ(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldName, v))
+func NameNEQ(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldName, v))
 }
 
 // NameIn applies the In predicate on the "name" field.
-func NameIn(vs ...string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldName, vs...))
+func NameIn(vs ...string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldName, vs...))
 }
 
 // NameNotIn applies the NotIn predicate on the "name" field.
-func NameNotIn(vs ...string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldName, vs...))
+func NameNotIn(vs ...string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldName, vs...))
 }
 
 // NameGT applies the GT predicate on the "name" field.
-func NameGT(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldName, v))
+func NameGT(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldName, v))
 }
 
 // NameGTE applies the GTE predicate on the "name" field.
-func NameGTE(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldName, v))
+func NameGTE(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldName, v))
 }
 
 // NameLT applies the LT predicate on the "name" field.
-func NameLT(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldName, v))
+func NameLT(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldName, v))
 }
 
 // NameLTE applies the LTE predicate on the "name" field.
-func NameLTE(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldName, v))
+func NameLTE(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldName, v))
 }
 
 // NameContains applies the Contains predicate on the "name" field.
-func NameContains(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldContains(FieldName, v))
+func NameContains(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldContains(FieldName, v))
 }
 
 // NameHasPrefix applies the HasPrefix predicate on the "name" field.
-func NameHasPrefix(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldHasPrefix(FieldName, v))
+func NameHasPrefix(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldHasPrefix(FieldName, v))
 }
 
 // NameHasSuffix applies the HasSuffix predicate on the "name" field.
-func NameHasSuffix(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldHasSuffix(FieldName, v))
+func NameHasSuffix(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldHasSuffix(FieldName, v))
 }
 
 // NameEqualFold applies the EqualFold predicate on the "name" field.
-func NameEqualFold(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEqualFold(FieldName, v))
+func NameEqualFold(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEqualFold(FieldName, v))
 }
 
 // NameContainsFold applies the ContainsFold predicate on the "name" field.
-func NameContainsFold(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldContainsFold(FieldName, v))
+func NameContainsFold(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldContainsFold(FieldName, v))
 }
 
 // RrtypeEQ applies the EQ predicate on the "rrtype" field.
-func RrtypeEQ(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldRrtype, v))
+func RrtypeEQ(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldRrtype, v))
 }
 
 // RrtypeNEQ applies the NEQ predicate on the "rrtype" field.
-func RrtypeNEQ(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldRrtype, v))
+func RrtypeNEQ(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldRrtype, v))
 }
 
 // RrtypeIn applies the In predicate on the "rrtype" field.
-func RrtypeIn(vs ...uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldRrtype, vs...))
+func RrtypeIn(vs ...uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldRrtype, vs...))
 }
 
 // RrtypeNotIn applies the NotIn predicate on the "rrtype" field.
-func RrtypeNotIn(vs ...uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldRrtype, vs...))
+func RrtypeNotIn(vs ...uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldRrtype, vs...))
 }
 
 // RrtypeGT applies the GT predicate on the "rrtype" field.
-func RrtypeGT(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldRrtype, v))
+func RrtypeGT(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldRrtype, v))
 }
 
 // RrtypeGTE applies the GTE predicate on the "rrtype" field.
-func RrtypeGTE(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldRrtype, v))
+func RrtypeGTE(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldRrtype, v))
 }
 
 // RrtypeLT applies the LT predicate on the "rrtype" field.
-func RrtypeLT(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldRrtype, v))
+func RrtypeLT(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldRrtype, v))
 }
 
 // RrtypeLTE applies the LTE predicate on the "rrtype" field.
-func RrtypeLTE(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldRrtype, v))
+func RrtypeLTE(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldRrtype, v))
 }
 
 // ClassEQ applies the EQ predicate on the "class" field.
-func ClassEQ(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldClass, v))
+func ClassEQ(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldClass, v))
 }
 
 // ClassNEQ applies the NEQ predicate on the "class" field.
-func ClassNEQ(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldClass, v))
+func ClassNEQ(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldClass, v))
 }
 
 // ClassIn applies the In predicate on the "class" field.
-func ClassIn(vs ...uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldClass, vs...))
+func ClassIn(vs ...uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldClass, vs...))
 }
 
 // ClassNotIn applies the NotIn predicate on the "class" field.
-func ClassNotIn(vs ...uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldClass, vs...))
+func ClassNotIn(vs ...uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldClass, vs...))
 }
 
 // ClassGT applies the GT predicate on the "class" field.
-func ClassGT(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldClass, v))
+func ClassGT(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldClass, v))
 }
 
 // ClassGTE applies the GTE predicate on the "class" field.
-func ClassGTE(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldClass, v))
+func ClassGTE(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldClass, v))
 }
 
 // ClassLT applies the LT predicate on the "class" field.
-func ClassLT(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldClass, v))
+func ClassLT(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldClass, v))
 }
 
 // ClassLTE applies the LTE predicate on the "class" field.
-func ClassLTE(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldClass, v))
+func ClassLTE(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldClass, v))
 }
 
 // TTLEQ applies the EQ predicate on the "ttl" field.
-func TTLEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldTTL, v))
+func TTLEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldTTL, v))
 }
 
 // TTLNEQ applies the NEQ predicate on the "ttl" field.
-func TTLNEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldTTL, v))
+func TTLNEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldTTL, v))
 }
 
 // TTLIn applies the In predicate on the "ttl" field.
-func TTLIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldTTL, vs...))
+func TTLIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldTTL, vs...))
 }
 
 // TTLNotIn applies the NotIn predicate on the "ttl" field.
-func TTLNotIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldTTL, vs...))
+func TTLNotIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldTTL, vs...))
 }
 
 // TTLGT applies the GT predicate on the "ttl" field.
-func TTLGT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldTTL, v))
+func TTLGT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldTTL, v))
 }
 
 // TTLGTE applies the GTE predicate on the "ttl" field.
-func TTLGTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldTTL, v))
+func TTLGTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldTTL, v))
 }
 
 // TTLLT applies the LT predicate on the "ttl" field.
-func TTLLT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldTTL, v))
+func TTLLT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldTTL, v))
 }
 
 // TTLLTE applies the LTE predicate on the "ttl" field.
-func TTLLTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldTTL, v))
+func TTLLTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldTTL, v))
 }
 
 // RdlengthEQ applies the EQ predicate on the "rdlength" field.
-func RdlengthEQ(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldRdlength, v))
+func RdlengthEQ(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldRdlength, v))
 }
 
 // RdlengthNEQ applies the NEQ predicate on the "rdlength" field.
-func RdlengthNEQ(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldRdlength, v))
+func RdlengthNEQ(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldRdlength, v))
 }
 
 // RdlengthIn applies the In predicate on the "rdlength" field.
-func RdlengthIn(vs ...uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldRdlength, vs...))
+func RdlengthIn(vs ...uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldRdlength, vs...))
 }
 
 // RdlengthNotIn applies the NotIn predicate on the "rdlength" field.
-func RdlengthNotIn(vs ...uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldRdlength, vs...))
+func RdlengthNotIn(vs ...uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldRdlength, vs...))
 }
 
 // RdlengthGT applies the GT predicate on the "rdlength" field.
-func RdlengthGT(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldRdlength, v))
+func RdlengthGT(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldRdlength, v))
 }
 
 // RdlengthGTE applies the GTE predicate on the "rdlength" field.
-func RdlengthGTE(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldRdlength, v))
+func RdlengthGTE(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldRdlength, v))
 }
 
 // RdlengthLT applies the LT predicate on the "rdlength" field.
-func RdlengthLT(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldRdlength, v))
+func RdlengthLT(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldRdlength, v))
 }
 
 // RdlengthLTE applies the LTE predicate on the "rdlength" field.
-func RdlengthLTE(v uint16) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldRdlength, v))
+func RdlengthLTE(v uint16) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldRdlength, v))
 }
 
 // NsEQ applies the EQ predicate on the "ns" field.
-func NsEQ(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldNs, v))
+func NsEQ(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldNs, v))
 }
 
 // NsNEQ applies the NEQ predicate on the "ns" field.
-func NsNEQ(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldNs, v))
+func NsNEQ(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldNs, v))
 }
 
 // NsIn applies the In predicate on the "ns" field.
-func NsIn(vs ...string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldNs, vs...))
+func NsIn(vs ...string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldNs, vs...))
 }
 
 // NsNotIn applies the NotIn predicate on the "ns" field.
-func NsNotIn(vs ...string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldNs, vs...))
+func NsNotIn(vs ...string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldNs, vs...))
 }
 
 // NsGT applies the GT predicate on the "ns" field.
-func NsGT(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldNs, v))
+func NsGT(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldNs, v))
 }
 
 // NsGTE applies the GTE predicate on the "ns" field.
-func NsGTE(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldNs, v))
+func NsGTE(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldNs, v))
 }
 
 // NsLT applies the LT predicate on the "ns" field.
-func NsLT(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldNs, v))
+func NsLT(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldNs, v))
 }
 
 // NsLTE applies the LTE predicate on the "ns" field.
-func NsLTE(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldNs, v))
+func NsLTE(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldNs, v))
 }
 
 // NsContains applies the Contains predicate on the "ns" field.
-func NsContains(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldContains(FieldNs, v))
+func NsContains(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldContains(FieldNs, v))
 }
 
 // NsHasPrefix applies the HasPrefix predicate on the "ns" field.
-func NsHasPrefix(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldHasPrefix(FieldNs, v))
+func NsHasPrefix(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldHasPrefix(FieldNs, v))
 }
 
 // NsHasSuffix applies the HasSuffix predicate on the "ns" field.
-func NsHasSuffix(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldHasSuffix(FieldNs, v))
+func NsHasSuffix(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldHasSuffix(FieldNs, v))
 }
 
 // NsEqualFold applies the EqualFold predicate on the "ns" field.
-func NsEqualFold(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEqualFold(FieldNs, v))
+func NsEqualFold(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEqualFold(FieldNs, v))
 }
 
 // NsContainsFold applies the ContainsFold predicate on the "ns" field.
-func NsContainsFold(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldContainsFold(FieldNs, v))
+func NsContainsFold(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldContainsFold(FieldNs, v))
 }
 
 // MboxEQ applies the EQ predicate on the "mbox" field.
-func MboxEQ(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldMbox, v))
+func MboxEQ(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldMbox, v))
 }
 
 // MboxNEQ applies the NEQ predicate on the "mbox" field.
-func MboxNEQ(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldMbox, v))
+func MboxNEQ(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldMbox, v))
 }
 
 // MboxIn applies the In predicate on the "mbox" field.
-func MboxIn(vs ...string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldMbox, vs...))
+func MboxIn(vs ...string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldMbox, vs...))
 }
 
 // MboxNotIn applies the NotIn predicate on the "mbox" field.
-func MboxNotIn(vs ...string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldMbox, vs...))
+func MboxNotIn(vs ...string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldMbox, vs...))
 }
 
 // MboxGT applies the GT predicate on the "mbox" field.
-func MboxGT(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldMbox, v))
+func MboxGT(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldMbox, v))
 }
 
 // MboxGTE applies the GTE predicate on the "mbox" field.
-func MboxGTE(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldMbox, v))
+func MboxGTE(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldMbox, v))
 }
 
 // MboxLT applies the LT predicate on the "mbox" field.
-func MboxLT(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldMbox, v))
+func MboxLT(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldMbox, v))
 }
 
 // MboxLTE applies the LTE predicate on the "mbox" field.
-func MboxLTE(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldMbox, v))
+func MboxLTE(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldMbox, v))
 }
 
 // MboxContains applies the Contains predicate on the "mbox" field.
-func MboxContains(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldContains(FieldMbox, v))
+func MboxContains(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldContains(FieldMbox, v))
 }
 
 // MboxHasPrefix applies the HasPrefix predicate on the "mbox" field.
-func MboxHasPrefix(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldHasPrefix(FieldMbox, v))
+func MboxHasPrefix(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldHasPrefix(FieldMbox, v))
 }
 
 // MboxHasSuffix applies the HasSuffix predicate on the "mbox" field.
-func MboxHasSuffix(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldHasSuffix(FieldMbox, v))
+func MboxHasSuffix(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldHasSuffix(FieldMbox, v))
 }
 
 // MboxEqualFold applies the EqualFold predicate on the "mbox" field.
-func MboxEqualFold(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEqualFold(FieldMbox, v))
+func MboxEqualFold(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEqualFold(FieldMbox, v))
 }
 
 // MboxContainsFold applies the ContainsFold predicate on the "mbox" field.
-func MboxContainsFold(v string) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldContainsFold(FieldMbox, v))
+func MboxContainsFold(v string) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldContainsFold(FieldMbox, v))
 }
 
 // SerialEQ applies the EQ predicate on the "serial" field.
-func SerialEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldSerial, v))
+func SerialEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldSerial, v))
 }
 
 // SerialNEQ applies the NEQ predicate on the "serial" field.
-func SerialNEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldSerial, v))
+func SerialNEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldSerial, v))
 }
 
 // SerialIn applies the In predicate on the "serial" field.
-func SerialIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldSerial, vs...))
+func SerialIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldSerial, vs...))
 }
 
 // SerialNotIn applies the NotIn predicate on the "serial" field.
-func SerialNotIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldSerial, vs...))
+func SerialNotIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldSerial, vs...))
 }
 
 // SerialGT applies the GT predicate on the "serial" field.
-func SerialGT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldSerial, v))
+func SerialGT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldSerial, v))
 }
 
 // SerialGTE applies the GTE predicate on the "serial" field.
-func SerialGTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldSerial, v))
+func SerialGTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldSerial, v))
 }
 
 // SerialLT applies the LT predicate on the "serial" field.
-func SerialLT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldSerial, v))
+func SerialLT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldSerial, v))
 }
 
 // SerialLTE applies the LTE predicate on the "serial" field.
-func SerialLTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldSerial, v))
+func SerialLTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldSerial, v))
 }
 
 // RefreshEQ applies the EQ predicate on the "refresh" field.
-func RefreshEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldRefresh, v))
+func RefreshEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldRefresh, v))
 }
 
 // RefreshNEQ applies the NEQ predicate on the "refresh" field.
-func RefreshNEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldRefresh, v))
+func RefreshNEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldRefresh, v))
 }
 
 // RefreshIn applies the In predicate on the "refresh" field.
-func RefreshIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldRefresh, vs...))
+func RefreshIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldRefresh, vs...))
 }
 
 // RefreshNotIn applies the NotIn predicate on the "refresh" field.
-func RefreshNotIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldRefresh, vs...))
+func RefreshNotIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldRefresh, vs...))
 }
 
 // RefreshGT applies the GT predicate on the "refresh" field.
-func RefreshGT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldRefresh, v))
+func RefreshGT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldRefresh, v))
 }
 
 // RefreshGTE applies the GTE predicate on the "refresh" field.
-func RefreshGTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldRefresh, v))
+func RefreshGTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldRefresh, v))
 }
 
 // RefreshLT applies the LT predicate on the "refresh" field.
-func RefreshLT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldRefresh, v))
+func RefreshLT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldRefresh, v))
 }
 
 // RefreshLTE applies the LTE predicate on the "refresh" field.
-func RefreshLTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldRefresh, v))
+func RefreshLTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldRefresh, v))
 }
 
 // RetryEQ applies the EQ predicate on the "retry" field.
-func RetryEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldRetry, v))
+func RetryEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldRetry, v))
 }
 
 // RetryNEQ applies the NEQ predicate on the "retry" field.
-func RetryNEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldRetry, v))
+func RetryNEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldRetry, v))
 }
 
 // RetryIn applies the In predicate on the "retry" field.
-func RetryIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldRetry, vs...))
+func RetryIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldRetry, vs...))
 }
 
 // RetryNotIn applies the NotIn predicate on the "retry" field.
-func RetryNotIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldRetry, vs...))
+func RetryNotIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldRetry, vs...))
 }
 
 // RetryGT applies the GT predicate on the "retry" field.
-func RetryGT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldRetry, v))
+func RetryGT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldRetry, v))
 }
 
 // RetryGTE applies the GTE predicate on the "retry" field.
-func RetryGTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldRetry, v))
+func RetryGTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldRetry, v))
 }
 
 // RetryLT applies the LT predicate on the "retry" field.
-func RetryLT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldRetry, v))
+func RetryLT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldRetry, v))
 }
 
 // RetryLTE applies the LTE predicate on the "retry" field.
-func RetryLTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldRetry, v))
+func RetryLTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldRetry, v))
 }
 
 // ExpireEQ applies the EQ predicate on the "expire" field.
-func ExpireEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldExpire, v))
+func ExpireEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldExpire, v))
 }
 
 // ExpireNEQ applies the NEQ predicate on the "expire" field.
-func ExpireNEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldExpire, v))
+func ExpireNEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldExpire, v))
 }
 
 // ExpireIn applies the In predicate on the "expire" field.
-func ExpireIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldExpire, vs...))
+func ExpireIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldExpire, vs...))
 }
 
 // ExpireNotIn applies the NotIn predicate on the "expire" field.
-func ExpireNotIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldExpire, vs...))
+func ExpireNotIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldExpire, vs...))
 }
 
 // ExpireGT applies the GT predicate on the "expire" field.
-func ExpireGT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldExpire, v))
+func ExpireGT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldExpire, v))
 }
 
 // ExpireGTE applies the GTE predicate on the "expire" field.
-func ExpireGTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldExpire, v))
+func ExpireGTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldExpire, v))
 }
 
 // ExpireLT applies the LT predicate on the "expire" field.
-func ExpireLT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldExpire, v))
+func ExpireLT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldExpire, v))
 }
 
 // ExpireLTE applies the LTE predicate on the "expire" field.
-func ExpireLTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldExpire, v))
+func ExpireLTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldExpire, v))
 }
 
 // MinttlEQ applies the EQ predicate on the "minttl" field.
-func MinttlEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldMinttl, v))
+func MinttlEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldMinttl, v))
 }
 
 // MinttlNEQ applies the NEQ predicate on the "minttl" field.
-func MinttlNEQ(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldMinttl, v))
+func MinttlNEQ(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldMinttl, v))
 }
 
 // MinttlIn applies the In predicate on the "minttl" field.
-func MinttlIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldIn(FieldMinttl, vs...))
+func MinttlIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldIn(FieldMinttl, vs...))
 }
 
 // MinttlNotIn applies the NotIn predicate on the "minttl" field.
-func MinttlNotIn(vs ...uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNotIn(FieldMinttl, vs...))
+func MinttlNotIn(vs ...uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNotIn(FieldMinttl, vs...))
 }
 
 // MinttlGT applies the GT predicate on the "minttl" field.
-func MinttlGT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGT(FieldMinttl, v))
+func MinttlGT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGT(FieldMinttl, v))
 }
 
 // MinttlGTE applies the GTE predicate on the "minttl" field.
-func MinttlGTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldGTE(FieldMinttl, v))
+func MinttlGTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldGTE(FieldMinttl, v))
 }
 
 // MinttlLT applies the LT predicate on the "minttl" field.
-func MinttlLT(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLT(FieldMinttl, v))
+func MinttlLT(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLT(FieldMinttl, v))
 }
 
 // MinttlLTE applies the LTE predicate on the "minttl" field.
-func MinttlLTE(v uint32) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldLTE(FieldMinttl, v))
+func MinttlLTE(v uint32) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldLTE(FieldMinttl, v))
 }
 
 // ActivatedEQ applies the EQ predicate on the "activated" field.
-func ActivatedEQ(v bool) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldEQ(FieldActivated, v))
+func ActivatedEQ(v bool) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldEQ(FieldActivated, v))
 }
 
 // ActivatedNEQ applies the NEQ predicate on the "activated" field.
-func ActivatedNEQ(v bool) predicate.DNSZone {
-	return predicate.DNSZone(sql.FieldNEQ(FieldActivated, v))
+func ActivatedNEQ(v bool) predicate.DnsZone {
+	return predicate.DnsZone(sql.FieldNEQ(FieldActivated, v))
 }
 
 // HasRecords applies the HasEdge predicate on the "records" edge.
-func HasRecords() predicate.DNSZone {
-	return predicate.DNSZone(func(s *sql.Selector) {
+func HasRecords() predicate.DnsZone {
+	return predicate.DnsZone(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, RecordsTable, RecordsColumn),
@@ -788,8 +788,8 @@ func HasRecords() predicate.DNSZone {
 }
 
 // HasRecordsWith applies the HasEdge predicate on the "records" edge with a given conditions (other predicates).
-func HasRecordsWith(preds ...predicate.DnsRR) predicate.DNSZone {
-	return predicate.DNSZone(func(s *sql.Selector) {
+func HasRecordsWith(preds ...predicate.DnsRR) predicate.DnsZone {
+	return predicate.DnsZone(func(s *sql.Selector) {
 		step := sqlgraph.NewStep(
 			sqlgraph.From(Table, FieldID),
 			sqlgraph.To(RecordsInverseTable, FieldID),
@@ -804,8 +804,8 @@ func HasRecordsWith(preds ...predicate.DnsRR) predicate.DNSZone {
 }
 
 // And groups predicates with the AND operator between them.
-func And(predicates ...predicate.DNSZone) predicate.DNSZone {
-	return predicate.DNSZone(func(s *sql.Selector) {
+func And(predicates ...predicate.DnsZone) predicate.DnsZone {
+	return predicate.DnsZone(func(s *sql.Selector) {
 		s1 := s.Clone().SetP(nil)
 		for _, p := range predicates {
 			p(s1)
@@ -815,8 +815,8 @@ func And(predicates ...predicate.DNSZone) predicate.DNSZone {
 }
 
 // Or groups predicates with the OR operator between them.
-func Or(predicates ...predicate.DNSZone) predicate.DNSZone {
-	return predicate.DNSZone(func(s *sql.Selector) {
+func Or(predicates ...predicate.DnsZone) predicate.DnsZone {
+	return predicate.DnsZone(func(s *sql.Selector) {
 		s1 := s.Clone().SetP(nil)
 		for i, p := range predicates {
 			if i > 0 {
@@ -829,8 +829,8 @@ func Or(predicates ...predicate.DNSZone) predicate.DNSZone {
 }
 
 // Not applies the not operator on the given predicate.
-func Not(p predicate.DNSZone) predicate.DNSZone {
-	return predicate.DNSZone(func(s *sql.Selector) {
+func Not(p predicate.DnsZone) predicate.DnsZone {
+	return predicate.DnsZone(func(s *sql.Selector) {
 		p(s.Not())
 	})
 }

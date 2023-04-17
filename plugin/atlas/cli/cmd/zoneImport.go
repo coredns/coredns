@@ -18,11 +18,9 @@ var (
 )
 
 type ZoneImportOptions struct {
-	dsn              string
-	file             string
-	domain           string
-	tenantId         string
-	autocreateDomain bool
+	dsn    string
+	file   string
+	domain string
 }
 
 func NewZoneImportOptions() *ZoneImportOptions {
@@ -51,10 +49,8 @@ func init() {
 	}
 
 	importZoneFlags := zoneImportCmd.Flags()
-	importZoneFlags.BoolVarP(&zoneImportOptions.autocreateDomain, "autodomain", "a", false, "auto create domain")
 	importZoneFlags.StringVarP(&zoneImportOptions.domain, "domain", "d", "", "import directory")
 	importZoneFlags.StringVarP(&zoneImportOptions.file, "file", "f", "", "zone file name to import")
-	importZoneFlags.StringVarP(&zoneImportOptions.tenantId, "tenantID", "t", "", "tenant identifier")
 
 	rootCmd.AddCommand(zoneImportCmd)
 }
@@ -68,10 +64,6 @@ func (o *ZoneImportOptions) Complete(cmd *cobra.Command, args []string) (err err
 func (o *ZoneImportOptions) Validate() (err error) {
 	if len(o.file) == 0 {
 		return fmt.Errorf("no file found")
-	}
-
-	if len(o.tenantId) == 0 {
-		return fmt.Errorf("expected tenantID")
 	}
 
 	if len(o.domain) == 0 {
@@ -204,7 +196,7 @@ func (o *ZoneImportOptions) Run() error {
 
 func (o *ZoneImportOptions) importSOA(client *ent.Client, soa *dns.SOA) error {
 	ctx := context.Background()
-	count, err := client.Debug().DNSZone.Query().Where(dnszone.NameEQ(soa.Hdr.Name)).Count(ctx)
+	count, err := client.Debug().DnsZone.Query().Where(dnszone.NameEQ(soa.Hdr.Name)).Count(ctx)
 	if err != nil {
 		return err
 	}
@@ -214,7 +206,7 @@ func (o *ZoneImportOptions) importSOA(client *ent.Client, soa *dns.SOA) error {
 		return nil
 	}
 
-	_, err = client.Debug().DNSZone.Create().
+	_, err = client.Debug().DnsZone.Create().
 		SetName(soa.Hdr.Name).
 		SetRrtype(soa.Hdr.Rrtype).
 		SetClass(soa.Hdr.Class).
@@ -241,7 +233,7 @@ func importRecord[K DnsRecordResource](client *ent.Client, zone string, i K, zon
 	ctx := context.Background()
 	header := i.Header()
 
-	zoneId, err := client.Debug().DNSZone.Query().Where(
+	zoneId, err := client.Debug().DnsZone.Query().Where(
 		dnszone.And(
 			dnszone.NameEQ(zone),
 		),
@@ -250,7 +242,7 @@ func importRecord[K DnsRecordResource](client *ent.Client, zone string, i K, zon
 		return err
 	}
 
-	ns, err := client.Debug().DnsRR.Create().
+	_, err = client.Debug().DnsRR.Create().
 		SetName(header.Name).
 		SetRrtype(header.Rrtype).
 		SetRrcontent(zone_record).
@@ -260,10 +252,5 @@ func importRecord[K DnsRecordResource](client *ent.Client, zone string, i K, zon
 		SetZoneID(zoneId).
 		Save(ctx)
 
-	if err != nil {
-		return err
-	}
-	fmt.Printf("ns: %+v\n", ns)
-
-	return nil
+	return err
 }

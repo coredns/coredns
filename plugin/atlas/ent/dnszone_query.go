@@ -17,52 +17,52 @@ import (
 	"github.com/rs/xid"
 )
 
-// DNSZoneQuery is the builder for querying DNSZone entities.
-type DNSZoneQuery struct {
+// DnsZoneQuery is the builder for querying DnsZone entities.
+type DnsZoneQuery struct {
 	config
 	ctx         *QueryContext
 	order       []OrderFunc
 	inters      []Interceptor
-	predicates  []predicate.DNSZone
+	predicates  []predicate.DnsZone
 	withRecords *DnsRRQuery
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the DNSZoneQuery builder.
-func (dzq *DNSZoneQuery) Where(ps ...predicate.DNSZone) *DNSZoneQuery {
+// Where adds a new predicate for the DnsZoneQuery builder.
+func (dzq *DnsZoneQuery) Where(ps ...predicate.DnsZone) *DnsZoneQuery {
 	dzq.predicates = append(dzq.predicates, ps...)
 	return dzq
 }
 
 // Limit the number of records to be returned by this query.
-func (dzq *DNSZoneQuery) Limit(limit int) *DNSZoneQuery {
+func (dzq *DnsZoneQuery) Limit(limit int) *DnsZoneQuery {
 	dzq.ctx.Limit = &limit
 	return dzq
 }
 
 // Offset to start from.
-func (dzq *DNSZoneQuery) Offset(offset int) *DNSZoneQuery {
+func (dzq *DnsZoneQuery) Offset(offset int) *DnsZoneQuery {
 	dzq.ctx.Offset = &offset
 	return dzq
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (dzq *DNSZoneQuery) Unique(unique bool) *DNSZoneQuery {
+func (dzq *DnsZoneQuery) Unique(unique bool) *DnsZoneQuery {
 	dzq.ctx.Unique = &unique
 	return dzq
 }
 
 // Order specifies how the records should be ordered.
-func (dzq *DNSZoneQuery) Order(o ...OrderFunc) *DNSZoneQuery {
+func (dzq *DnsZoneQuery) Order(o ...OrderFunc) *DnsZoneQuery {
 	dzq.order = append(dzq.order, o...)
 	return dzq
 }
 
 // QueryRecords chains the current query on the "records" edge.
-func (dzq *DNSZoneQuery) QueryRecords() *DnsRRQuery {
+func (dzq *DnsZoneQuery) QueryRecords() *DnsRRQuery {
 	query := (&DnsRRClient{config: dzq.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := dzq.prepareQuery(ctx); err != nil {
@@ -83,9 +83,9 @@ func (dzq *DNSZoneQuery) QueryRecords() *DnsRRQuery {
 	return query
 }
 
-// First returns the first DNSZone entity from the query.
-// Returns a *NotFoundError when no DNSZone was found.
-func (dzq *DNSZoneQuery) First(ctx context.Context) (*DNSZone, error) {
+// First returns the first DnsZone entity from the query.
+// Returns a *NotFoundError when no DnsZone was found.
+func (dzq *DnsZoneQuery) First(ctx context.Context) (*DnsZone, error) {
 	nodes, err := dzq.Limit(1).All(setContextOp(ctx, dzq.ctx, "First"))
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func (dzq *DNSZoneQuery) First(ctx context.Context) (*DNSZone, error) {
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (dzq *DNSZoneQuery) FirstX(ctx context.Context) *DNSZone {
+func (dzq *DnsZoneQuery) FirstX(ctx context.Context) *DnsZone {
 	node, err := dzq.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -105,9 +105,9 @@ func (dzq *DNSZoneQuery) FirstX(ctx context.Context) *DNSZone {
 	return node
 }
 
-// FirstID returns the first DNSZone ID from the query.
-// Returns a *NotFoundError when no DNSZone ID was found.
-func (dzq *DNSZoneQuery) FirstID(ctx context.Context) (id xid.ID, err error) {
+// FirstID returns the first DnsZone ID from the query.
+// Returns a *NotFoundError when no DnsZone ID was found.
+func (dzq *DnsZoneQuery) FirstID(ctx context.Context) (id xid.ID, err error) {
 	var ids []xid.ID
 	if ids, err = dzq.Limit(1).IDs(setContextOp(ctx, dzq.ctx, "FirstID")); err != nil {
 		return
@@ -120,7 +120,7 @@ func (dzq *DNSZoneQuery) FirstID(ctx context.Context) (id xid.ID, err error) {
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (dzq *DNSZoneQuery) FirstIDX(ctx context.Context) xid.ID {
+func (dzq *DnsZoneQuery) FirstIDX(ctx context.Context) xid.ID {
 	id, err := dzq.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -128,10 +128,10 @@ func (dzq *DNSZoneQuery) FirstIDX(ctx context.Context) xid.ID {
 	return id
 }
 
-// Only returns a single DNSZone entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one DNSZone entity is found.
-// Returns a *NotFoundError when no DNSZone entities are found.
-func (dzq *DNSZoneQuery) Only(ctx context.Context) (*DNSZone, error) {
+// Only returns a single DnsZone entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one DnsZone entity is found.
+// Returns a *NotFoundError when no DnsZone entities are found.
+func (dzq *DnsZoneQuery) Only(ctx context.Context) (*DnsZone, error) {
 	nodes, err := dzq.Limit(2).All(setContextOp(ctx, dzq.ctx, "Only"))
 	if err != nil {
 		return nil, err
@@ -147,7 +147,7 @@ func (dzq *DNSZoneQuery) Only(ctx context.Context) (*DNSZone, error) {
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (dzq *DNSZoneQuery) OnlyX(ctx context.Context) *DNSZone {
+func (dzq *DnsZoneQuery) OnlyX(ctx context.Context) *DnsZone {
 	node, err := dzq.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -155,10 +155,10 @@ func (dzq *DNSZoneQuery) OnlyX(ctx context.Context) *DNSZone {
 	return node
 }
 
-// OnlyID is like Only, but returns the only DNSZone ID in the query.
-// Returns a *NotSingularError when more than one DNSZone ID is found.
+// OnlyID is like Only, but returns the only DnsZone ID in the query.
+// Returns a *NotSingularError when more than one DnsZone ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (dzq *DNSZoneQuery) OnlyID(ctx context.Context) (id xid.ID, err error) {
+func (dzq *DnsZoneQuery) OnlyID(ctx context.Context) (id xid.ID, err error) {
 	var ids []xid.ID
 	if ids, err = dzq.Limit(2).IDs(setContextOp(ctx, dzq.ctx, "OnlyID")); err != nil {
 		return
@@ -175,7 +175,7 @@ func (dzq *DNSZoneQuery) OnlyID(ctx context.Context) (id xid.ID, err error) {
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (dzq *DNSZoneQuery) OnlyIDX(ctx context.Context) xid.ID {
+func (dzq *DnsZoneQuery) OnlyIDX(ctx context.Context) xid.ID {
 	id, err := dzq.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -183,18 +183,18 @@ func (dzq *DNSZoneQuery) OnlyIDX(ctx context.Context) xid.ID {
 	return id
 }
 
-// All executes the query and returns a list of DNSZones.
-func (dzq *DNSZoneQuery) All(ctx context.Context) ([]*DNSZone, error) {
+// All executes the query and returns a list of DnsZones.
+func (dzq *DnsZoneQuery) All(ctx context.Context) ([]*DnsZone, error) {
 	ctx = setContextOp(ctx, dzq.ctx, "All")
 	if err := dzq.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*DNSZone, *DNSZoneQuery]()
-	return withInterceptors[[]*DNSZone](ctx, dzq, qr, dzq.inters)
+	qr := querierAll[[]*DnsZone, *DnsZoneQuery]()
+	return withInterceptors[[]*DnsZone](ctx, dzq, qr, dzq.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (dzq *DNSZoneQuery) AllX(ctx context.Context) []*DNSZone {
+func (dzq *DnsZoneQuery) AllX(ctx context.Context) []*DnsZone {
 	nodes, err := dzq.All(ctx)
 	if err != nil {
 		panic(err)
@@ -202,8 +202,8 @@ func (dzq *DNSZoneQuery) AllX(ctx context.Context) []*DNSZone {
 	return nodes
 }
 
-// IDs executes the query and returns a list of DNSZone IDs.
-func (dzq *DNSZoneQuery) IDs(ctx context.Context) (ids []xid.ID, err error) {
+// IDs executes the query and returns a list of DnsZone IDs.
+func (dzq *DnsZoneQuery) IDs(ctx context.Context) (ids []xid.ID, err error) {
 	if dzq.ctx.Unique == nil && dzq.path != nil {
 		dzq.Unique(true)
 	}
@@ -215,7 +215,7 @@ func (dzq *DNSZoneQuery) IDs(ctx context.Context) (ids []xid.ID, err error) {
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (dzq *DNSZoneQuery) IDsX(ctx context.Context) []xid.ID {
+func (dzq *DnsZoneQuery) IDsX(ctx context.Context) []xid.ID {
 	ids, err := dzq.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -224,16 +224,16 @@ func (dzq *DNSZoneQuery) IDsX(ctx context.Context) []xid.ID {
 }
 
 // Count returns the count of the given query.
-func (dzq *DNSZoneQuery) Count(ctx context.Context) (int, error) {
+func (dzq *DnsZoneQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, dzq.ctx, "Count")
 	if err := dzq.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, dzq, querierCount[*DNSZoneQuery](), dzq.inters)
+	return withInterceptors[int](ctx, dzq, querierCount[*DnsZoneQuery](), dzq.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (dzq *DNSZoneQuery) CountX(ctx context.Context) int {
+func (dzq *DnsZoneQuery) CountX(ctx context.Context) int {
 	count, err := dzq.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -242,7 +242,7 @@ func (dzq *DNSZoneQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (dzq *DNSZoneQuery) Exist(ctx context.Context) (bool, error) {
+func (dzq *DnsZoneQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, dzq.ctx, "Exist")
 	switch _, err := dzq.FirstID(ctx); {
 	case IsNotFound(err):
@@ -255,7 +255,7 @@ func (dzq *DNSZoneQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (dzq *DNSZoneQuery) ExistX(ctx context.Context) bool {
+func (dzq *DnsZoneQuery) ExistX(ctx context.Context) bool {
 	exist, err := dzq.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -263,18 +263,18 @@ func (dzq *DNSZoneQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the DNSZoneQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the DnsZoneQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (dzq *DNSZoneQuery) Clone() *DNSZoneQuery {
+func (dzq *DnsZoneQuery) Clone() *DnsZoneQuery {
 	if dzq == nil {
 		return nil
 	}
-	return &DNSZoneQuery{
+	return &DnsZoneQuery{
 		config:      dzq.config,
 		ctx:         dzq.ctx.Clone(),
 		order:       append([]OrderFunc{}, dzq.order...),
 		inters:      append([]Interceptor{}, dzq.inters...),
-		predicates:  append([]predicate.DNSZone{}, dzq.predicates...),
+		predicates:  append([]predicate.DnsZone{}, dzq.predicates...),
 		withRecords: dzq.withRecords.Clone(),
 		// clone intermediate query.
 		sql:  dzq.sql.Clone(),
@@ -284,7 +284,7 @@ func (dzq *DNSZoneQuery) Clone() *DNSZoneQuery {
 
 // WithRecords tells the query-builder to eager-load the nodes that are connected to
 // the "records" edge. The optional arguments are used to configure the query builder of the edge.
-func (dzq *DNSZoneQuery) WithRecords(opts ...func(*DnsRRQuery)) *DNSZoneQuery {
+func (dzq *DnsZoneQuery) WithRecords(opts ...func(*DnsRRQuery)) *DnsZoneQuery {
 	query := (&DnsRRClient{config: dzq.config}).Query()
 	for _, opt := range opts {
 		opt(query)
@@ -303,13 +303,13 @@ func (dzq *DNSZoneQuery) WithRecords(opts ...func(*DnsRRQuery)) *DNSZoneQuery {
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.DNSZone.Query().
+//	client.DnsZone.Query().
 //		GroupBy(dnszone.FieldCreatedAt).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-func (dzq *DNSZoneQuery) GroupBy(field string, fields ...string) *DNSZoneGroupBy {
+func (dzq *DnsZoneQuery) GroupBy(field string, fields ...string) *DnsZoneGroupBy {
 	dzq.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &DNSZoneGroupBy{build: dzq}
+	grbuild := &DnsZoneGroupBy{build: dzq}
 	grbuild.flds = &dzq.ctx.Fields
 	grbuild.label = dnszone.Label
 	grbuild.scan = grbuild.Scan
@@ -325,23 +325,23 @@ func (dzq *DNSZoneQuery) GroupBy(field string, fields ...string) *DNSZoneGroupBy
 //		CreatedAt time.Time `json:"created_at,omitempty"`
 //	}
 //
-//	client.DNSZone.Query().
+//	client.DnsZone.Query().
 //		Select(dnszone.FieldCreatedAt).
 //		Scan(ctx, &v)
-func (dzq *DNSZoneQuery) Select(fields ...string) *DNSZoneSelect {
+func (dzq *DnsZoneQuery) Select(fields ...string) *DnsZoneSelect {
 	dzq.ctx.Fields = append(dzq.ctx.Fields, fields...)
-	sbuild := &DNSZoneSelect{DNSZoneQuery: dzq}
+	sbuild := &DnsZoneSelect{DnsZoneQuery: dzq}
 	sbuild.label = dnszone.Label
 	sbuild.flds, sbuild.scan = &dzq.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a DNSZoneSelect configured with the given aggregations.
-func (dzq *DNSZoneQuery) Aggregate(fns ...AggregateFunc) *DNSZoneSelect {
+// Aggregate returns a DnsZoneSelect configured with the given aggregations.
+func (dzq *DnsZoneQuery) Aggregate(fns ...AggregateFunc) *DnsZoneSelect {
 	return dzq.Select().Aggregate(fns...)
 }
 
-func (dzq *DNSZoneQuery) prepareQuery(ctx context.Context) error {
+func (dzq *DnsZoneQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range dzq.inters {
 		if inter == nil {
 			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
@@ -367,19 +367,19 @@ func (dzq *DNSZoneQuery) prepareQuery(ctx context.Context) error {
 	return nil
 }
 
-func (dzq *DNSZoneQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*DNSZone, error) {
+func (dzq *DnsZoneQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*DnsZone, error) {
 	var (
-		nodes       = []*DNSZone{}
+		nodes       = []*DnsZone{}
 		_spec       = dzq.querySpec()
 		loadedTypes = [1]bool{
 			dzq.withRecords != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*DNSZone).scanValues(nil, columns)
+		return (*DnsZone).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &DNSZone{config: dzq.config}
+		node := &DnsZone{config: dzq.config}
 		nodes = append(nodes, node)
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
@@ -395,17 +395,17 @@ func (dzq *DNSZoneQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*DNS
 	}
 	if query := dzq.withRecords; query != nil {
 		if err := dzq.loadRecords(ctx, query, nodes,
-			func(n *DNSZone) { n.Edges.Records = []*DnsRR{} },
-			func(n *DNSZone, e *DnsRR) { n.Edges.Records = append(n.Edges.Records, e) }); err != nil {
+			func(n *DnsZone) { n.Edges.Records = []*DnsRR{} },
+			func(n *DnsZone, e *DnsRR) { n.Edges.Records = append(n.Edges.Records, e) }); err != nil {
 			return nil, err
 		}
 	}
 	return nodes, nil
 }
 
-func (dzq *DNSZoneQuery) loadRecords(ctx context.Context, query *DnsRRQuery, nodes []*DNSZone, init func(*DNSZone), assign func(*DNSZone, *DnsRR)) error {
+func (dzq *DnsZoneQuery) loadRecords(ctx context.Context, query *DnsRRQuery, nodes []*DnsZone, init func(*DnsZone), assign func(*DnsZone, *DnsRR)) error {
 	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[xid.ID]*DNSZone)
+	nodeids := make(map[xid.ID]*DnsZone)
 	for i := range nodes {
 		fks = append(fks, nodes[i].ID)
 		nodeids[nodes[i].ID] = nodes[i]
@@ -435,7 +435,7 @@ func (dzq *DNSZoneQuery) loadRecords(ctx context.Context, query *DnsRRQuery, nod
 	return nil
 }
 
-func (dzq *DNSZoneQuery) sqlCount(ctx context.Context) (int, error) {
+func (dzq *DnsZoneQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := dzq.querySpec()
 	_spec.Node.Columns = dzq.ctx.Fields
 	if len(dzq.ctx.Fields) > 0 {
@@ -444,7 +444,7 @@ func (dzq *DNSZoneQuery) sqlCount(ctx context.Context) (int, error) {
 	return sqlgraph.CountNodes(ctx, dzq.driver, _spec)
 }
 
-func (dzq *DNSZoneQuery) querySpec() *sqlgraph.QuerySpec {
+func (dzq *DnsZoneQuery) querySpec() *sqlgraph.QuerySpec {
 	_spec := sqlgraph.NewQuerySpec(dnszone.Table, dnszone.Columns, sqlgraph.NewFieldSpec(dnszone.FieldID, field.TypeString))
 	_spec.From = dzq.sql
 	if unique := dzq.ctx.Unique; unique != nil {
@@ -484,7 +484,7 @@ func (dzq *DNSZoneQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (dzq *DNSZoneQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (dzq *DnsZoneQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(dzq.driver.Dialect())
 	t1 := builder.Table(dnszone.Table)
 	columns := dzq.ctx.Fields
@@ -516,28 +516,28 @@ func (dzq *DNSZoneQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	return selector
 }
 
-// DNSZoneGroupBy is the group-by builder for DNSZone entities.
-type DNSZoneGroupBy struct {
+// DnsZoneGroupBy is the group-by builder for DnsZone entities.
+type DnsZoneGroupBy struct {
 	selector
-	build *DNSZoneQuery
+	build *DnsZoneQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (dzgb *DNSZoneGroupBy) Aggregate(fns ...AggregateFunc) *DNSZoneGroupBy {
+func (dzgb *DnsZoneGroupBy) Aggregate(fns ...AggregateFunc) *DnsZoneGroupBy {
 	dzgb.fns = append(dzgb.fns, fns...)
 	return dzgb
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (dzgb *DNSZoneGroupBy) Scan(ctx context.Context, v any) error {
+func (dzgb *DnsZoneGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, dzgb.build.ctx, "GroupBy")
 	if err := dzgb.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*DNSZoneQuery, *DNSZoneGroupBy](ctx, dzgb.build, dzgb, dzgb.build.inters, v)
+	return scanWithInterceptors[*DnsZoneQuery, *DnsZoneGroupBy](ctx, dzgb.build, dzgb, dzgb.build.inters, v)
 }
 
-func (dzgb *DNSZoneGroupBy) sqlScan(ctx context.Context, root *DNSZoneQuery, v any) error {
+func (dzgb *DnsZoneGroupBy) sqlScan(ctx context.Context, root *DnsZoneQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(dzgb.fns))
 	for _, fn := range dzgb.fns {
@@ -564,28 +564,28 @@ func (dzgb *DNSZoneGroupBy) sqlScan(ctx context.Context, root *DNSZoneQuery, v a
 	return sql.ScanSlice(rows, v)
 }
 
-// DNSZoneSelect is the builder for selecting fields of DNSZone entities.
-type DNSZoneSelect struct {
-	*DNSZoneQuery
+// DnsZoneSelect is the builder for selecting fields of DnsZone entities.
+type DnsZoneSelect struct {
+	*DnsZoneQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (dzs *DNSZoneSelect) Aggregate(fns ...AggregateFunc) *DNSZoneSelect {
+func (dzs *DnsZoneSelect) Aggregate(fns ...AggregateFunc) *DnsZoneSelect {
 	dzs.fns = append(dzs.fns, fns...)
 	return dzs
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (dzs *DNSZoneSelect) Scan(ctx context.Context, v any) error {
+func (dzs *DnsZoneSelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, dzs.ctx, "Select")
 	if err := dzs.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*DNSZoneQuery, *DNSZoneSelect](ctx, dzs.DNSZoneQuery, dzs, dzs.inters, v)
+	return scanWithInterceptors[*DnsZoneQuery, *DnsZoneSelect](ctx, dzs.DnsZoneQuery, dzs, dzs.inters, v)
 }
 
-func (dzs *DNSZoneSelect) sqlScan(ctx context.Context, root *DNSZoneQuery, v any) error {
+func (dzs *DnsZoneSelect) sqlScan(ctx context.Context, root *DnsZoneQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(dzs.fns))
 	for _, fn := range dzs.fns {

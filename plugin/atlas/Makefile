@@ -19,4 +19,4 @@ test:
 # 	@go test -race -covermode=atomic -coverprofile=coverage.out
 
 import:
-	go run cli/main.go --db.name ${DB_NAME} --db.hostname 127.0.0.1 --db.user ${DB_USER} --db.password ${DB_PASS} zoneImport -f tests/pri.example.com -t cglvu3q05k6lg4hu32l0 -d example.com
+	go run cli/main.go --db.name ${DB_NAME} --db.hostname 127.0.0.1 --db.user ${DB_USER} --db.password ${DB_PASS} zoneImport -f tests/pri.example.com -d example.com

@@ -4,7 +4,9 @@ import (
 	"context"
 	"net/url"
 	"testing"
+	"time"
 
+	"github.com/miekg/dns"
 	"github.com/stretchr/testify/require"
 )
 
@@ -117,24 +119,52 @@ func TestAtlas_OpenAtlasDB(t *testing.T) {
 	require.Equal(t, "unexpected scheme", err.Error())
 }
 
-func TestAtlas_OpenAtlasDB_TableNotFound(t *testing.T) {
+func TestAtlas_OpenAtlasDB_MissingZone(t *testing.T) {
 	client, _ := OpenAtlasDB("sqlite3://file:ent?mode=memory&cache=shared&_fk=1")
 	require.NotNil(t, client)
-	_, err := client.DnsRR.Create().SetName("bla.com").Save(context.Background())
+
+	_, err := client.DnsRR.Create().
+		SetName("bla.com").
+		SetRrtype(dns.TypeA).
+		SetRrcontent(`{"a":"1.2.3.4"}`).
+		SetRdlength(0).
+		Save(context.Background())
 	require.NotNil(t, err)
-	require.Equal(t, "no such table: dns_rrs", err.Error())
+	require.Equal(t, "ent: missing required edge \"DnsRR.zone\"", err.Error())
 }
 
 func TestAtlas_OpenAtlasDB_TableMigration(t *testing.T) {
+	ctx := context.Background()
 	client, _ := OpenAtlasDB("sqlite3://file:ent?mode=memory&cache=shared&_fk=1")
 	err := client.Schema.Create(context.Background())
 	require.Nil(t, err)
-	dnsrr, err := client.DnsRR.Create().SetName("bla.com").Save(context.Background())
+
+	zone, err := client.DnsZone.Create().
+		SetName("bla.com.").
+		SetNs("ns1.blubber.com.").
+		SetMbox("info.blubber.com.").
+		SetSerial(uint32(time.Now().Unix())).
+		Save(ctx)
+	if err != nil {
+		require.Equal(t, "", err.Error())
+	}
+	require.Nil(t, err)
+
+	dnsrr, err := client.DnsRR.Create().
+		SetName("bla.com.").
+		SetRrtype(dns.TypeA).
+		SetRrcontent(`{"a":"1.2.3.4"}`).
+		SetRdlength(0).
+		SetZoneID(zone.ID).
+		Save(ctx)
+	if err != nil {
+		require.NotNil(t, "", err.Error())
+	}
 	require.Nil(t, err)
 	require.NotNil(t, dnsrr)
 
-	require.Equal(t, "bla.com", dnsrr.Name)
-	require.Equal(t, int32(3600), dnsrr.TTL)
+	require.Equal(t, "bla.com.", dnsrr.Name)
+	require.Equal(t, uint32(3600), dnsrr.TTL)
 	require.Equal(t, 20, len(dnsrr.ID.String()))
 	require.True(t, dnsrr.Activated)
 }

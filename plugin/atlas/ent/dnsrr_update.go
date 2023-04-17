@@ -124,14 +124,14 @@ func (dru *DnsRRUpdate) SetNillableActivated(b *bool) *DnsRRUpdate {
 	return dru
 }
 
-// SetZoneID sets the "zone" edge to the DNSZone entity by ID.
+// SetZoneID sets the "zone" edge to the DnsZone entity by ID.
 func (dru *DnsRRUpdate) SetZoneID(id xid.ID) *DnsRRUpdate {
 	dru.mutation.SetZoneID(id)
 	return dru
 }
 
-// SetZone sets the "zone" edge to the DNSZone entity.
-func (dru *DnsRRUpdate) SetZone(d *DNSZone) *DnsRRUpdate {
+// SetZone sets the "zone" edge to the DnsZone entity.
+func (dru *DnsRRUpdate) SetZone(d *DnsZone) *DnsRRUpdate {
 	return dru.SetZoneID(d.ID)
 }
 
@@ -140,7 +140,7 @@ func (dru *DnsRRUpdate) Mutation() *DnsRRMutation {
 	return dru.mutation
 }
 
-// ClearZone clears the "zone" edge to the DNSZone entity.
+// ClearZone clears the "zone" edge to the DnsZone entity.
 func (dru *DnsRRUpdate) ClearZone() *DnsRRUpdate {
 	dru.mutation.ClearZone()
 	return dru
@@ -383,14 +383,14 @@ func (druo *DnsRRUpdateOne) SetNillableActivated(b *bool) *DnsRRUpdateOne {
 	return druo
 }
 
-// SetZoneID sets the "zone" edge to the DNSZone entity by ID.
+// SetZoneID sets the "zone" edge to the DnsZone entity by ID.
 func (druo *DnsRRUpdateOne) SetZoneID(id xid.ID) *DnsRRUpdateOne {
 	druo.mutation.SetZoneID(id)
 	return druo
 }
 
-// SetZone sets the "zone" edge to the DNSZone entity.
-func (druo *DnsRRUpdateOne) SetZone(d *DNSZone) *DnsRRUpdateOne {
+// SetZone sets the "zone" edge to the DnsZone entity.
+func (druo *DnsRRUpdateOne) SetZone(d *DnsZone) *DnsRRUpdateOne {
 	return druo.SetZoneID(d.ID)
 }
 
@@ -399,7 +399,7 @@ func (druo *DnsRRUpdateOne) Mutation() *DnsRRMutation {
 	return druo.mutation
 }
 
-// ClearZone clears the "zone" edge to the DNSZone entity.
+// ClearZone clears the "zone" edge to the DnsZone entity.
 func (druo *DnsRRUpdateOne) ClearZone() *DnsRRUpdateOne {
 	druo.mutation.ClearZone()
 	return druo

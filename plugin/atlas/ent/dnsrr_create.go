@@ -133,14 +133,14 @@ func (drc *DnsRRCreate) SetNillableID(x *xid.ID) *DnsRRCreate {
 	return drc
 }
 
-// SetZoneID sets the "zone" edge to the DNSZone entity by ID.
+// SetZoneID sets the "zone" edge to the DnsZone entity by ID.
 func (drc *DnsRRCreate) SetZoneID(id xid.ID) *DnsRRCreate {
 	drc.mutation.SetZoneID(id)
 	return drc
 }
 
-// SetZone sets the "zone" edge to the DNSZone entity.
-func (drc *DnsRRCreate) SetZone(d *DNSZone) *DnsRRCreate {
+// SetZone sets the "zone" edge to the DnsZone entity.
+func (drc *DnsRRCreate) SetZone(d *DnsZone) *DnsRRCreate {
 	return drc.SetZoneID(d.ID)
 }
 

@@ -12,26 +12,26 @@ import (
 	"github.com/coredns/coredns/plugin/atlas/ent/predicate"
 )
 
-// DNSZoneDelete is the builder for deleting a DNSZone entity.
-type DNSZoneDelete struct {
+// DnsZoneDelete is the builder for deleting a DnsZone entity.
+type DnsZoneDelete struct {
 	config
 	hooks    []Hook
-	mutation *DNSZoneMutation
+	mutation *DnsZoneMutation
 }
 
-// Where appends a list predicates to the DNSZoneDelete builder.
-func (dzd *DNSZoneDelete) Where(ps ...predicate.DNSZone) *DNSZoneDelete {
+// Where appends a list predicates to the DnsZoneDelete builder.
+func (dzd *DnsZoneDelete) Where(ps ...predicate.DnsZone) *DnsZoneDelete {
 	dzd.mutation.Where(ps...)
 	return dzd
 }
 
 // Exec executes the deletion query and returns how many vertices were deleted.
-func (dzd *DNSZoneDelete) Exec(ctx context.Context) (int, error) {
-	return withHooks[int, DNSZoneMutation](ctx, dzd.sqlExec, dzd.mutation, dzd.hooks)
+func (dzd *DnsZoneDelete) Exec(ctx context.Context) (int, error) {
+	return withHooks[int, DnsZoneMutation](ctx, dzd.sqlExec, dzd.mutation, dzd.hooks)
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (dzd *DNSZoneDelete) ExecX(ctx context.Context) int {
+func (dzd *DnsZoneDelete) ExecX(ctx context.Context) int {
 	n, err := dzd.Exec(ctx)
 	if err != nil {
 		panic(err)
@@ -39,7 +39,7 @@ func (dzd *DNSZoneDelete) ExecX(ctx context.Context) int {
 	return n
 }
 
-func (dzd *DNSZoneDelete) sqlExec(ctx context.Context) (int, error) {
+func (dzd *DnsZoneDelete) sqlExec(ctx context.Context) (int, error) {
 	_spec := sqlgraph.NewDeleteSpec(dnszone.Table, sqlgraph.NewFieldSpec(dnszone.FieldID, field.TypeString))
 	if ps := dzd.mutation.predicates; len(ps) > 0 {
 		_spec.Predicate = func(selector *sql.Selector) {
@@ -56,19 +56,19 @@ func (dzd *DNSZoneDelete) sqlExec(ctx context.Context) (int, error) {
 	return affected, err
 }
 
-// DNSZoneDeleteOne is the builder for deleting a single DNSZone entity.
-type DNSZoneDeleteOne struct {
-	dzd *DNSZoneDelete
+// DnsZoneDeleteOne is the builder for deleting a single DnsZone entity.
+type DnsZoneDeleteOne struct {
+	dzd *DnsZoneDelete
 }
 
-// Where appends a list predicates to the DNSZoneDelete builder.
-func (dzdo *DNSZoneDeleteOne) Where(ps ...predicate.DNSZone) *DNSZoneDeleteOne {
+// Where appends a list predicates to the DnsZoneDelete builder.
+func (dzdo *DnsZoneDeleteOne) Where(ps ...predicate.DnsZone) *DnsZoneDeleteOne {
 	dzdo.dzd.mutation.Where(ps...)
 	return dzdo
 }
 
 // Exec executes the deletion query.
-func (dzdo *DNSZoneDeleteOne) Exec(ctx context.Context) error {
+func (dzdo *DnsZoneDeleteOne) Exec(ctx context.Context) error {
 	n, err := dzdo.dzd.Exec(ctx)
 	switch {
 	case err != nil:
@@ -81,7 +81,7 @@ func (dzdo *DNSZoneDeleteOne) Exec(ctx context.Context) error {
 }
 
 // ExecX is like Exec, but panics if an error occurs.
-func (dzdo *DNSZoneDeleteOne) ExecX(ctx context.Context) {
+func (dzdo *DnsZoneDeleteOne) ExecX(ctx context.Context) {
 	if err := dzdo.Exec(ctx); err != nil {
 		panic(err)
 	}
