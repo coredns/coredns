@@ -76,9 +76,9 @@ func Rrtype(v uint16) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldEQ(FieldRrtype, v))
 }
 
-// Rrcontent applies equality check predicate on the "rrcontent" field. It's identical to RrcontentEQ.
-func Rrcontent(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldEQ(FieldRrcontent, v))
+// Rrdata applies equality check predicate on the "rrdata" field. It's identical to RrdataEQ.
+func Rrdata(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldRrdata, v))
 }
 
 // Class applies equality check predicate on the "class" field. It's identical to ClassEQ.
@@ -286,69 +286,69 @@ func RrtypeLTE(v uint16) predicate.DnsRR {
 	return predicate.DnsRR(sql.FieldLTE(FieldRrtype, v))
 }
 
-// RrcontentEQ applies the EQ predicate on the "rrcontent" field.
-func RrcontentEQ(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldEQ(FieldRrcontent, v))
+// RrdataEQ applies the EQ predicate on the "rrdata" field.
+func RrdataEQ(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEQ(FieldRrdata, v))
 }
 
-// RrcontentNEQ applies the NEQ predicate on the "rrcontent" field.
-func RrcontentNEQ(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldNEQ(FieldRrcontent, v))
+// RrdataNEQ applies the NEQ predicate on the "rrdata" field.
+func RrdataNEQ(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNEQ(FieldRrdata, v))
 }
 
-// RrcontentIn applies the In predicate on the "rrcontent" field.
-func RrcontentIn(vs ...string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldIn(FieldRrcontent, vs...))
+// RrdataIn applies the In predicate on the "rrdata" field.
+func RrdataIn(vs ...string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldIn(FieldRrdata, vs...))
 }
 
-// RrcontentNotIn applies the NotIn predicate on the "rrcontent" field.
-func RrcontentNotIn(vs ...string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldNotIn(FieldRrcontent, vs...))
+// RrdataNotIn applies the NotIn predicate on the "rrdata" field.
+func RrdataNotIn(vs ...string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldNotIn(FieldRrdata, vs...))
 }
 
-// RrcontentGT applies the GT predicate on the "rrcontent" field.
-func RrcontentGT(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldGT(FieldRrcontent, v))
+// RrdataGT applies the GT predicate on the "rrdata" field.
+func RrdataGT(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGT(FieldRrdata, v))
 }
 
-// RrcontentGTE applies the GTE predicate on the "rrcontent" field.
-func RrcontentGTE(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldGTE(FieldRrcontent, v))
+// RrdataGTE applies the GTE predicate on the "rrdata" field.
+func RrdataGTE(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldGTE(FieldRrdata, v))
 }
 
-// RrcontentLT applies the LT predicate on the "rrcontent" field.
-func RrcontentLT(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldLT(FieldRrcontent, v))
+// RrdataLT applies the LT predicate on the "rrdata" field.
+func RrdataLT(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLT(FieldRrdata, v))
 }
 
-// RrcontentLTE applies the LTE predicate on the "rrcontent" field.
-func RrcontentLTE(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldLTE(FieldRrcontent, v))
+// RrdataLTE applies the LTE predicate on the "rrdata" field.
+func RrdataLTE(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldLTE(FieldRrdata, v))
 }
 
-// RrcontentContains applies the Contains predicate on the "rrcontent" field.
-func RrcontentContains(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldContains(FieldRrcontent, v))
+// RrdataContains applies the Contains predicate on the "rrdata" field.
+func RrdataContains(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldContains(FieldRrdata, v))
 }
 
-// RrcontentHasPrefix applies the HasPrefix predicate on the "rrcontent" field.
-func RrcontentHasPrefix(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldHasPrefix(FieldRrcontent, v))
+// RrdataHasPrefix applies the HasPrefix predicate on the "rrdata" field.
+func RrdataHasPrefix(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldHasPrefix(FieldRrdata, v))
 }
 
-// RrcontentHasSuffix applies the HasSuffix predicate on the "rrcontent" field.
-func RrcontentHasSuffix(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldHasSuffix(FieldRrcontent, v))
+// RrdataHasSuffix applies the HasSuffix predicate on the "rrdata" field.
+func RrdataHasSuffix(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldHasSuffix(FieldRrdata, v))
 }
 
-// RrcontentEqualFold applies the EqualFold predicate on the "rrcontent" field.
-func RrcontentEqualFold(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldEqualFold(FieldRrcontent, v))
+// RrdataEqualFold applies the EqualFold predicate on the "rrdata" field.
+func RrdataEqualFold(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldEqualFold(FieldRrdata, v))
 }
 
-// RrcontentContainsFold applies the ContainsFold predicate on the "rrcontent" field.
-func RrcontentContainsFold(v string) predicate.DnsRR {
-	return predicate.DnsRR(sql.FieldContainsFold(FieldRrcontent, v))
+// RrdataContainsFold applies the ContainsFold predicate on the "rrdata" field.
+func RrdataContainsFold(v string) predicate.DnsRR {
+	return predicate.DnsRR(sql.FieldContainsFold(FieldRrdata, v))
 }
 
 // ClassEQ applies the EQ predicate on the "class" field.

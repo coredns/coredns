@@ -65,9 +65,9 @@ func (drc *DnsRRCreate) SetRrtype(u uint16) *DnsRRCreate {
 	return drc
 }
 
-// SetRrcontent sets the "rrcontent" field.
-func (drc *DnsRRCreate) SetRrcontent(s string) *DnsRRCreate {
-	drc.mutation.SetRrcontent(s)
+// SetRrdata sets the "rrdata" field.
+func (drc *DnsRRCreate) SetRrdata(s string) *DnsRRCreate {
+	drc.mutation.SetRrdata(s)
 	return drc
 }
 
@@ -102,6 +102,14 @@ func (drc *DnsRRCreate) SetNillableTTL(u *uint32) *DnsRRCreate {
 // SetRdlength sets the "rdlength" field.
 func (drc *DnsRRCreate) SetRdlength(u uint16) *DnsRRCreate {
 	drc.mutation.SetRdlength(u)
+	return drc
+}
+
+// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
+func (drc *DnsRRCreate) SetNillableRdlength(u *uint16) *DnsRRCreate {
+	if u != nil {
+		drc.SetRdlength(*u)
+	}
 	return drc
 }
 
@@ -195,6 +203,10 @@ func (drc *DnsRRCreate) defaults() {
 		v := dnsrr.DefaultTTL
 		drc.mutation.SetTTL(v)
 	}
+	if _, ok := drc.mutation.Rdlength(); !ok {
+		v := dnsrr.DefaultRdlength
+		drc.mutation.SetRdlength(v)
+	}
 	if _, ok := drc.mutation.Activated(); !ok {
 		v := dnsrr.DefaultActivated
 		drc.mutation.SetActivated(v)
@@ -224,8 +236,8 @@ func (drc *DnsRRCreate) check() error {
 	if _, ok := drc.mutation.Rrtype(); !ok {
 		return &ValidationError{Name: "rrtype", err: errors.New(`ent: missing required field "DnsRR.rrtype"`)}
 	}
-	if _, ok := drc.mutation.Rrcontent(); !ok {
-		return &ValidationError{Name: "rrcontent", err: errors.New(`ent: missing required field "DnsRR.rrcontent"`)}
+	if _, ok := drc.mutation.Rrdata(); !ok {
+		return &ValidationError{Name: "rrdata", err: errors.New(`ent: missing required field "DnsRR.rrdata"`)}
 	}
 	if _, ok := drc.mutation.Class(); !ok {
 		return &ValidationError{Name: "class", err: errors.New(`ent: missing required field "DnsRR.class"`)}
@@ -299,9 +311,9 @@ func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 		_spec.SetField(dnsrr.FieldRrtype, field.TypeUint16, value)
 		_node.Rrtype = value
 	}
-	if value, ok := drc.mutation.Rrcontent(); ok {
-		_spec.SetField(dnsrr.FieldRrcontent, field.TypeString, value)
-		_node.Rrcontent = value
+	if value, ok := drc.mutation.Rrdata(); ok {
+		_spec.SetField(dnsrr.FieldRrdata, field.TypeString, value)
+		_node.Rrdata = value
 	}
 	if value, ok := drc.mutation.Class(); ok {
 		_spec.SetField(dnsrr.FieldClass, field.TypeUint16, value)
@@ -418,15 +430,15 @@ func (u *DnsRRUpsert) AddRrtype(v uint16) *DnsRRUpsert {
 	return u
 }
 
-// SetRrcontent sets the "rrcontent" field.
-func (u *DnsRRUpsert) SetRrcontent(v string) *DnsRRUpsert {
-	u.Set(dnsrr.FieldRrcontent, v)
+// SetRrdata sets the "rrdata" field.
+func (u *DnsRRUpsert) SetRrdata(v string) *DnsRRUpsert {
+	u.Set(dnsrr.FieldRrdata, v)
 	return u
 }
 
-// UpdateRrcontent sets the "rrcontent" field to the value that was provided on create.
-func (u *DnsRRUpsert) UpdateRrcontent() *DnsRRUpsert {
-	u.SetExcluded(dnsrr.FieldRrcontent)
+// UpdateRrdata sets the "rrdata" field to the value that was provided on create.
+func (u *DnsRRUpsert) UpdateRrdata() *DnsRRUpsert {
+	u.SetExcluded(dnsrr.FieldRrdata)
 	return u
 }
 
@@ -585,17 +597,17 @@ func (u *DnsRRUpsertOne) UpdateRrtype() *DnsRRUpsertOne {
 	})
 }
 
-// SetRrcontent sets the "rrcontent" field.
-func (u *DnsRRUpsertOne) SetRrcontent(v string) *DnsRRUpsertOne {
+// SetRrdata sets the "rrdata" field.
+func (u *DnsRRUpsertOne) SetRrdata(v string) *DnsRRUpsertOne {
 	return u.Update(func(s *DnsRRUpsert) {
-		s.SetRrcontent(v)
+		s.SetRrdata(v)
 	})
 }
 
-// UpdateRrcontent sets the "rrcontent" field to the value that was provided on create.
-func (u *DnsRRUpsertOne) UpdateRrcontent() *DnsRRUpsertOne {
+// UpdateRrdata sets the "rrdata" field to the value that was provided on create.
+func (u *DnsRRUpsertOne) UpdateRrdata() *DnsRRUpsertOne {
 	return u.Update(func(s *DnsRRUpsert) {
-		s.UpdateRrcontent()
+		s.UpdateRrdata()
 	})
 }
 
@@ -928,17 +940,17 @@ func (u *DnsRRUpsertBulk) UpdateRrtype() *DnsRRUpsertBulk {
 	})
 }
 
-// SetRrcontent sets the "rrcontent" field.
-func (u *DnsRRUpsertBulk) SetRrcontent(v string) *DnsRRUpsertBulk {
+// SetRrdata sets the "rrdata" field.
+func (u *DnsRRUpsertBulk) SetRrdata(v string) *DnsRRUpsertBulk {
 	return u.Update(func(s *DnsRRUpsert) {
-		s.SetRrcontent(v)
+		s.SetRrdata(v)
 	})
 }
 
-// UpdateRrcontent sets the "rrcontent" field to the value that was provided on create.
-func (u *DnsRRUpsertBulk) UpdateRrcontent() *DnsRRUpsertBulk {
+// UpdateRrdata sets the "rrdata" field to the value that was provided on create.
+func (u *DnsRRUpsertBulk) UpdateRrdata() *DnsRRUpsertBulk {
 	return u.Update(func(s *DnsRRUpsert) {
-		s.UpdateRrcontent()
+		s.UpdateRrdata()
 	})
 }
 

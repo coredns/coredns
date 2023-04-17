@@ -245,7 +245,7 @@ func importRecord[K DnsRecordResource](client *ent.Client, zone string, i K, zon
 	_, err = client.Debug().DnsRR.Create().
 		SetName(header.Name).
 		SetRrtype(header.Rrtype).
-		SetRrcontent(zone_record).
+		SetRrdata(zone_record).
 		SetClass(header.Class).
 		SetTTL(header.Ttl).
 		SetRdlength(header.Rdlength).

@@ -49,9 +49,9 @@ func (dru *DnsRRUpdate) AddRrtype(u int16) *DnsRRUpdate {
 	return dru
 }
 
-// SetRrcontent sets the "rrcontent" field.
-func (dru *DnsRRUpdate) SetRrcontent(s string) *DnsRRUpdate {
-	dru.mutation.SetRrcontent(s)
+// SetRrdata sets the "rrdata" field.
+func (dru *DnsRRUpdate) SetRrdata(s string) *DnsRRUpdate {
+	dru.mutation.SetRrdata(s)
 	return dru
 }
 
@@ -101,6 +101,14 @@ func (dru *DnsRRUpdate) AddTTL(u int32) *DnsRRUpdate {
 func (dru *DnsRRUpdate) SetRdlength(u uint16) *DnsRRUpdate {
 	dru.mutation.ResetRdlength()
 	dru.mutation.SetRdlength(u)
+	return dru
+}
+
+// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
+func (dru *DnsRRUpdate) SetNillableRdlength(u *uint16) *DnsRRUpdate {
+	if u != nil {
+		dru.SetRdlength(*u)
+	}
 	return dru
 }
 
@@ -216,8 +224,8 @@ func (dru *DnsRRUpdate) sqlSave(ctx context.Context) (n int, err error) {
 	if value, ok := dru.mutation.AddedRrtype(); ok {
 		_spec.AddField(dnsrr.FieldRrtype, field.TypeUint16, value)
 	}
-	if value, ok := dru.mutation.Rrcontent(); ok {
-		_spec.SetField(dnsrr.FieldRrcontent, field.TypeString, value)
+	if value, ok := dru.mutation.Rrdata(); ok {
+		_spec.SetField(dnsrr.FieldRrdata, field.TypeString, value)
 	}
 	if value, ok := dru.mutation.Class(); ok {
 		_spec.SetField(dnsrr.FieldClass, field.TypeUint16, value)
@@ -308,9 +316,9 @@ func (druo *DnsRRUpdateOne) AddRrtype(u int16) *DnsRRUpdateOne {
 	return druo
 }
 
-// SetRrcontent sets the "rrcontent" field.
-func (druo *DnsRRUpdateOne) SetRrcontent(s string) *DnsRRUpdateOne {
-	druo.mutation.SetRrcontent(s)
+// SetRrdata sets the "rrdata" field.
+func (druo *DnsRRUpdateOne) SetRrdata(s string) *DnsRRUpdateOne {
+	druo.mutation.SetRrdata(s)
 	return druo
 }
 
@@ -360,6 +368,14 @@ func (druo *DnsRRUpdateOne) AddTTL(u int32) *DnsRRUpdateOne {
 func (druo *DnsRRUpdateOne) SetRdlength(u uint16) *DnsRRUpdateOne {
 	druo.mutation.ResetRdlength()
 	druo.mutation.SetRdlength(u)
+	return druo
+}
+
+// SetNillableRdlength sets the "rdlength" field if the given value is not nil.
+func (druo *DnsRRUpdateOne) SetNillableRdlength(u *uint16) *DnsRRUpdateOne {
+	if u != nil {
+		druo.SetRdlength(*u)
+	}
 	return druo
 }
 
@@ -505,8 +521,8 @@ func (druo *DnsRRUpdateOne) sqlSave(ctx context.Context) (_node *DnsRR, err erro
 	if value, ok := druo.mutation.AddedRrtype(); ok {
 		_spec.AddField(dnsrr.FieldRrtype, field.TypeUint16, value)
 	}
-	if value, ok := druo.mutation.Rrcontent(); ok {
-		_spec.SetField(dnsrr.FieldRrcontent, field.TypeString, value)
+	if value, ok := druo.mutation.Rrdata(); ok {
+		_spec.SetField(dnsrr.FieldRrdata, field.TypeString, value)
 	}
 	if value, ok := druo.mutation.Class(); ok {
 		_spec.SetField(dnsrr.FieldClass, field.TypeUint16, value)

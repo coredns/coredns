@@ -32,8 +32,8 @@ func (DnsRR) Fields() []ent.Field {
 		field.Uint16("rrtype").
 			Comment("resource record type"),
 
-		field.Text("rrcontent").
-			Comment("resource record content"),
+		field.Text("rrdata").
+			Comment("resource record data"),
 
 		// SOA.Hdr.Class
 		field.Uint16("class").
@@ -48,6 +48,7 @@ func (DnsRR) Fields() []ent.Field {
 		// SOA.Hdr.Rdlength
 		// should we save this?
 		field.Uint16("rdlength").
+			Default(0).
 			Comment("length of data after header"),
 
 		field.Bool("activated").

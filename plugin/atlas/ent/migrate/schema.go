@@ -15,10 +15,10 @@ var (
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "name", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
 		{Name: "rrtype", Type: field.TypeUint16},
-		{Name: "rrcontent", Type: field.TypeString, Size: 2147483647},
+		{Name: "rrdata", Type: field.TypeString, Size: 2147483647},
 		{Name: "class", Type: field.TypeUint16, Default: 1},
 		{Name: "ttl", Type: field.TypeUint32, Default: 3600},
-		{Name: "rdlength", Type: field.TypeUint16},
+		{Name: "rdlength", Type: field.TypeUint16, Default: 0},
 		{Name: "activated", Type: field.TypeBool, Default: true},
 		{Name: "dns_zone_records", Type: field.TypeString},
 	}

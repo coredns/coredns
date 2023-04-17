@@ -41,7 +41,7 @@ type DnsRRMutation struct {
 	name          *string
 	rrtype        *uint16
 	addrrtype     *int16
-	rrcontent     *string
+	rrdata        *string
 	class         *uint16
 	addclass      *int16
 	ttl           *uint32
@@ -325,40 +325,40 @@ func (m *DnsRRMutation) ResetRrtype() {
 	m.addrrtype = nil
 }
 
-// SetRrcontent sets the "rrcontent" field.
-func (m *DnsRRMutation) SetRrcontent(s string) {
-	m.rrcontent = &s
+// SetRrdata sets the "rrdata" field.
+func (m *DnsRRMutation) SetRrdata(s string) {
+	m.rrdata = &s
 }
 
-// Rrcontent returns the value of the "rrcontent" field in the mutation.
-func (m *DnsRRMutation) Rrcontent() (r string, exists bool) {
-	v := m.rrcontent
+// Rrdata returns the value of the "rrdata" field in the mutation.
+func (m *DnsRRMutation) Rrdata() (r string, exists bool) {
+	v := m.rrdata
 	if v == nil {
 		return
 	}
 	return *v, true
 }
 
-// OldRrcontent returns the old "rrcontent" field's value of the DnsRR entity.
+// OldRrdata returns the old "rrdata" field's value of the DnsRR entity.
 // If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DnsRRMutation) OldRrcontent(ctx context.Context) (v string, err error) {
+func (m *DnsRRMutation) OldRrdata(ctx context.Context) (v string, err error) {
 	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRrcontent is only allowed on UpdateOne operations")
+		return v, errors.New("OldRrdata is only allowed on UpdateOne operations")
 	}
 	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRrcontent requires an ID field in the mutation")
+		return v, errors.New("OldRrdata requires an ID field in the mutation")
 	}
 	oldValue, err := m.oldValue(ctx)
 	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRrcontent: %w", err)
+		return v, fmt.Errorf("querying old value for OldRrdata: %w", err)
 	}
-	return oldValue.Rrcontent, nil
+	return oldValue.Rrdata, nil
 }
 
-// ResetRrcontent resets all changes to the "rrcontent" field.
-func (m *DnsRRMutation) ResetRrcontent() {
-	m.rrcontent = nil
+// ResetRrdata resets all changes to the "rrdata" field.
+func (m *DnsRRMutation) ResetRrdata() {
+	m.rrdata = nil
 }
 
 // SetClass sets the "class" field.
@@ -651,8 +651,8 @@ func (m *DnsRRMutation) Fields() []string {
 	if m.rrtype != nil {
 		fields = append(fields, dnsrr.FieldRrtype)
 	}
-	if m.rrcontent != nil {
-		fields = append(fields, dnsrr.FieldRrcontent)
+	if m.rrdata != nil {
+		fields = append(fields, dnsrr.FieldRrdata)
 	}
 	if m.class != nil {
 		fields = append(fields, dnsrr.FieldClass)
@@ -682,8 +682,8 @@ func (m *DnsRRMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case dnsrr.FieldRrtype:
 		return m.Rrtype()
-	case dnsrr.FieldRrcontent:
-		return m.Rrcontent()
+	case dnsrr.FieldRrdata:
+		return m.Rrdata()
 	case dnsrr.FieldClass:
 		return m.Class()
 	case dnsrr.FieldTTL:
@@ -709,8 +709,8 @@ func (m *DnsRRMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldName(ctx)
 	case dnsrr.FieldRrtype:
 		return m.OldRrtype(ctx)
-	case dnsrr.FieldRrcontent:
-		return m.OldRrcontent(ctx)
+	case dnsrr.FieldRrdata:
+		return m.OldRrdata(ctx)
 	case dnsrr.FieldClass:
 		return m.OldClass(ctx)
 	case dnsrr.FieldTTL:
@@ -756,12 +756,12 @@ func (m *DnsRRMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetRrtype(v)
 		return nil
-	case dnsrr.FieldRrcontent:
+	case dnsrr.FieldRrdata:
 		v, ok := value.(string)
 		if !ok {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
-		m.SetRrcontent(v)
+		m.SetRrdata(v)
 		return nil
 	case dnsrr.FieldClass:
 		v, ok := value.(uint16)
@@ -903,8 +903,8 @@ func (m *DnsRRMutation) ResetField(name string) error {
 	case dnsrr.FieldRrtype:
 		m.ResetRrtype()
 		return nil
-	case dnsrr.FieldRrcontent:
-		m.ResetRrcontent()
+	case dnsrr.FieldRrdata:
+		m.ResetRrdata()
 		return nil
 	case dnsrr.FieldClass:
 		m.ResetClass()

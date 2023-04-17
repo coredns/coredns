@@ -21,8 +21,8 @@ const (
 	FieldName = "name"
 	// FieldRrtype holds the string denoting the rrtype field in the database.
 	FieldRrtype = "rrtype"
-	// FieldRrcontent holds the string denoting the rrcontent field in the database.
-	FieldRrcontent = "rrcontent"
+	// FieldRrdata holds the string denoting the rrdata field in the database.
+	FieldRrdata = "rrdata"
 	// FieldClass holds the string denoting the class field in the database.
 	FieldClass = "class"
 	// FieldTTL holds the string denoting the ttl field in the database.
@@ -51,7 +51,7 @@ var Columns = []string{
 	FieldUpdatedAt,
 	FieldName,
 	FieldRrtype,
-	FieldRrcontent,
+	FieldRrdata,
 	FieldClass,
 	FieldTTL,
 	FieldRdlength,
@@ -94,6 +94,8 @@ var (
 	DefaultTTL uint32
 	// TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
 	TTLValidator func(uint32) error
+	// DefaultRdlength holds the default value on creation for the "rdlength" field.
+	DefaultRdlength uint16
 	// DefaultActivated holds the default value on creation for the "activated" field.
 	DefaultActivated bool
 	// DefaultID holds the default value on creation for the "id" field.

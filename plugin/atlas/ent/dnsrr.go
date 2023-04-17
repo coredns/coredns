@@ -27,8 +27,8 @@ type DnsRR struct {
 	Name string `json:"name,omitempty"`
 	// resource record type
 	Rrtype uint16 `json:"rrtype,omitempty"`
-	// resource record content
-	Rrcontent string `json:"rrcontent,omitempty"`
+	// resource record data
+	Rrdata string `json:"rrdata,omitempty"`
 	// class
 	Class uint16 `json:"class,omitempty"`
 	// Time-to-live
@@ -74,7 +74,7 @@ func (*DnsRR) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case dnsrr.FieldRrtype, dnsrr.FieldClass, dnsrr.FieldTTL, dnsrr.FieldRdlength:
 			values[i] = new(sql.NullInt64)
-		case dnsrr.FieldName, dnsrr.FieldRrcontent:
+		case dnsrr.FieldName, dnsrr.FieldRrdata:
 			values[i] = new(sql.NullString)
 		case dnsrr.FieldCreatedAt, dnsrr.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -127,11 +127,11 @@ func (dr *DnsRR) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				dr.Rrtype = uint16(value.Int64)
 			}
-		case dnsrr.FieldRrcontent:
+		case dnsrr.FieldRrdata:
 			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field rrcontent", values[i])
+				return fmt.Errorf("unexpected type %T for field rrdata", values[i])
 			} else if value.Valid {
-				dr.Rrcontent = value.String
+				dr.Rrdata = value.String
 			}
 		case dnsrr.FieldClass:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -209,8 +209,8 @@ func (dr *DnsRR) String() string {
 	builder.WriteString("rrtype=")
 	builder.WriteString(fmt.Sprintf("%v", dr.Rrtype))
 	builder.WriteString(", ")
-	builder.WriteString("rrcontent=")
-	builder.WriteString(dr.Rrcontent)
+	builder.WriteString("rrdata=")
+	builder.WriteString(dr.Rrdata)
 	builder.WriteString(", ")
 	builder.WriteString("class=")
 	builder.WriteString(fmt.Sprintf("%v", dr.Class))

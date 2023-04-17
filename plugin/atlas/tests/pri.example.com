@@ -1,17 +1,29 @@
-$TTL        3600
-@       IN      SOA     ns1.example.com. info.example.com. (
-                        2022061501       ; serial, todays date + todays serial #
-                        10800            ; refresh, seconds
-                        3600             ; retry, seconds
-                        604800           ; expire, seconds
-                        3600 )           ; minimum, seconds
-;
+$TTL    30M
+$ORIGIN miek.nl.
+@       IN      SOA     linode.atoom.net. miek.miek.nl. (
+                             1282630057 ; Serial
+                             4H         ; Refresh
+                             1H         ; Retry
+                             7D         ; Expire
+                             4H )       ; Negative Cache TTL
+                IN      NS      linode.atoom.net.
+                IN      NS      ns-ext.nlnetlabs.nl.
+                IN      NS      omval.tednet.nl.
+                IN      NS      ext.ns.whyscream.net.
 
-example.com. 3600      A          1.2.3.4
-www          3600      A          1.2.3.4
-autoconfig   3600      CNAME      autoconfig.provider.com.
-mail         3600      CNAME      mx.provider.com.
-example.com. 3600      MX     10  mail.example.com.
-example.com.           NS         ns1.example.com.
-example.com.           NS         ns2.example.com.
-example.com. 3600      TXT        "some text record"
+                IN      MX      1  aspmx.l.google.com.
+                IN      MX      5  alt1.aspmx.l.google.com.
+                IN      MX      5  alt2.aspmx.l.google.com.
+                IN      MX      10 aspmx2.googlemail.com.
+                IN      MX      10 aspmx3.googlemail.com.
+
+		IN      A       139.162.196.78
+		IN      AAAA    2a01:7e00::f03c:91ff:fef1:6735
+
+a               IN      A       139.162.196.78
+                IN      AAAA    2a01:7e00::f03c:91ff:fef1:6735
+www             IN      CNAME   a
+archive         IN      CNAME   a
+
+srv		IN	SRV     10 10 8080 a.miek.nl.
+mx		IN	MX      10 a.miek.nl.

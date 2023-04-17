@@ -2,6 +2,7 @@ package atlas
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"testing"
 	"time"
@@ -126,7 +127,7 @@ func TestAtlas_OpenAtlasDB_MissingZone(t *testing.T) {
 	_, err := client.DnsRR.Create().
 		SetName("bla.com").
 		SetRrtype(dns.TypeA).
-		SetRrcontent(`{"a":"1.2.3.4"}`).
+		SetRrdata(`{"a":"1.2.3.4"}`).
 		SetRdlength(0).
 		Save(context.Background())
 	require.NotNil(t, err)
@@ -153,12 +154,11 @@ func TestAtlas_OpenAtlasDB_TableMigration(t *testing.T) {
 	dnsrr, err := client.DnsRR.Create().
 		SetName("bla.com.").
 		SetRrtype(dns.TypeA).
-		SetRrcontent(`{"a":"1.2.3.4"}`).
-		SetRdlength(0).
+		SetRrdata(`{"a":"1.2.3.4"}`).
 		SetZoneID(zone.ID).
 		Save(ctx)
 	if err != nil {
-		require.NotNil(t, "", err.Error())
+		fmt.Printf("%v\n", err.Error())
 	}
 	require.Nil(t, err)
 	require.NotNil(t, dnsrr)

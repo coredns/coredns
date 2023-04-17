@@ -73,6 +73,10 @@ func init() {
 			return nil
 		}
 	}()
+	// dnsrrDescRdlength is the schema descriptor for rdlength field.
+	dnsrrDescRdlength := dnsrrFields[5].Descriptor()
+	// dnsrr.DefaultRdlength holds the default value on creation for the rdlength field.
+	dnsrr.DefaultRdlength = dnsrrDescRdlength.Default.(uint16)
 	// dnsrrDescActivated is the schema descriptor for activated field.
 	dnsrrDescActivated := dnsrrFields[6].Descriptor()
 	// dnsrr.DefaultActivated holds the default value on creation for the activated field.

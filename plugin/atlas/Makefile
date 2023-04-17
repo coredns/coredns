@@ -14,7 +14,7 @@ docker:
 
 test:
 #	rm -rf coverage.html coverage.out
-	go test ./... -coverprofile coverage.out
+	go test -v ./... -coverprofile coverage.out
 	go tool cover -html coverage.out -o coverage.html
 # 	@go test -race -covermode=atomic -coverprofile=coverage.out
 
