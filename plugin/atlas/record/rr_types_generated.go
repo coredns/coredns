@@ -267,7 +267,9 @@ func (rec TXT) Marshal() (s string, e error) {
 
 // NewTXT creates a record.TXT from *dns.TXT
 func NewTXT(rec *dns.TXT) TXT {
-	return TXT{}
+	return TXT{
+		Txt: rec.Txt,
+	}
 }
 
 // Marshal SPF RR and return json string and error if any
@@ -281,7 +283,9 @@ func (rec SPF) Marshal() (s string, e error) {
 
 // NewSPF creates a record.SPF from *dns.SPF
 func NewSPF(rec *dns.SPF) SPF {
-	return SPF{}
+	return SPF{
+		Txt: rec.Txt,
+	}
 }
 
 // Marshal AVC RR and return json string and error if any
@@ -295,7 +299,9 @@ func (rec AVC) Marshal() (s string, e error) {
 
 // NewAVC creates a record.AVC from *dns.AVC
 func NewAVC(rec *dns.AVC) AVC {
-	return AVC{}
+	return AVC{
+		Txt: rec.Txt,
+	}
 }
 
 // Marshal SRV RR and return json string and error if any
@@ -496,6 +502,7 @@ func (rec NSEC) Marshal() (s string, e error) {
 func NewNSEC(rec *dns.NSEC) NSEC {
 	return NSEC{
 		NextDomain: rec.NextDomain,
+		TypeBitMap: rec.TypeBitMap,
 	}
 }
 
@@ -700,6 +707,7 @@ func NewNSEC3(rec *dns.NSEC3) NSEC3 {
 		Salt:       rec.Salt,
 		HashLength: rec.HashLength,
 		NextDomain: rec.NextDomain,
+		TypeBitMap: rec.TypeBitMap,
 	}
 }
 
@@ -836,6 +844,7 @@ func NewHIP(rec *dns.HIP) HIP {
 		PublicKeyLength:    rec.PublicKeyLength,
 		Hit:                rec.Hit,
 		PublicKey:          rec.PublicKey,
+		RendezvousServers:  rec.RendezvousServers,
 	}
 }
 
@@ -850,7 +859,9 @@ func (rec NINFO) Marshal() (s string, e error) {
 
 // NewNINFO creates a record.NINFO from *dns.NINFO
 func NewNINFO(rec *dns.NINFO) NINFO {
-	return NINFO{}
+	return NINFO{
+		ZSData: rec.ZSData,
+	}
 }
 
 // Marshal NID RR and return json string and error if any
@@ -1030,8 +1041,9 @@ func (rec CSYNC) Marshal() (s string, e error) {
 // NewCSYNC creates a record.CSYNC from *dns.CSYNC
 func NewCSYNC(rec *dns.CSYNC) CSYNC {
 	return CSYNC{
-		Serial: rec.Serial,
-		Flags:  rec.Flags,
+		Serial:     rec.Serial,
+		Flags:      rec.Flags,
+		TypeBitMap: rec.TypeBitMap,
 	}
 }
 
@@ -1276,6 +1288,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 
 		txt := dns.TXT{
 			Hdr: *header,
+			Txt: recTXT.Txt,
 		}
 
 		return &txt, nil
@@ -1288,6 +1301,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 
 		spf := dns.SPF{
 			Hdr: *header,
+			Txt: recSPF.Txt,
 		}
 
 		return &spf, nil
@@ -1300,6 +1314,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 
 		avc := dns.AVC{
 			Hdr: *header,
+			Txt: recAVC.Txt,
 		}
 
 		return &avc, nil
@@ -1470,6 +1485,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		nsec := dns.NSEC{
 			Hdr:        *header,
 			NextDomain: recNSEC.NextDomain,
+			TypeBitMap: recNSEC.TypeBitMap,
 		}
 
 		return &nsec, nil
@@ -1641,6 +1657,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 			Salt:       recNSEC3.Salt,
 			HashLength: recNSEC3.HashLength,
 			NextDomain: recNSEC3.NextDomain,
+			TypeBitMap: recNSEC3.TypeBitMap,
 		}
 
 		return &nsec3, nil
@@ -1756,6 +1773,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 			PublicKeyLength:    recHIP.PublicKeyLength,
 			Hit:                recHIP.Hit,
 			PublicKey:          recHIP.PublicKey,
+			RendezvousServers:  recHIP.RendezvousServers,
 		}
 
 		return &hip, nil
@@ -1767,7 +1785,8 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 
 		ninfo := dns.NINFO{
-			Hdr: *header,
+			Hdr:    *header,
+			ZSData: recNINFO.ZSData,
 		}
 
 		return &ninfo, nil
@@ -1914,9 +1933,10 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 
 		csync := dns.CSYNC{
-			Hdr:    *header,
-			Serial: recCSYNC.Serial,
-			Flags:  recCSYNC.Flags,
+			Hdr:        *header,
+			Serial:     recCSYNC.Serial,
+			Flags:      recCSYNC.Flags,
+			TypeBitMap: recCSYNC.TypeBitMap,
 		}
 
 		return &csync, nil

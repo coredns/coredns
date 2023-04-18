@@ -203,8 +203,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.TXT:
-			// TODO(jproxx): fix dns.TXT generate
-			rec, err := record.TXT{Txt: t.Txt}.Marshal()
+			rec, err := record.NewTXT(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -293,8 +292,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.SPF:
-			// TODO(jproxx): fix dns.SPF generate
-			rec, err := record.SPF{Txt: t.Txt}.Marshal()
+			rec, err := record.NewSPF(t).Marshal()
 			if err != nil {
 				return err
 			}

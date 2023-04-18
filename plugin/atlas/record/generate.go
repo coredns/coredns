@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
@@ -48,10 +49,8 @@ func (rec {{.Name}}) Marshal() (s string, e error) {
 func New{{.Name}}(rec *dns.{{.Name}}) {{.Name}} {
 	return {{.Name}}{
 	{{range .Fields -}}
-	{{if not .IsArray -}}
 	{{.FieldName}}: rec.{{.FieldName}},
 	{{end}}
-	{{- end}}
 	}
 }
 {{end}}
@@ -78,11 +77,9 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		
 		{{$n | toLower}} := dns.{{$n}}{
 			Hdr: *header,
-			{{range .Fields -}}
-			{{if not .IsArray -}}
+			{{range .Fields -}}			
 			{{.FieldName}}: rec{{$n}}.{{.FieldName}},
-			{{end}}
-			{{- end}}			
+			{{end}}			
 		}
 		
 		return &{{.Name | toLower}}, nil
@@ -131,26 +128,26 @@ func main() {
 						structType := typeSpec.Type.(*ast.StructType)
 						for _, field := range structType.Fields.List {
 							// TODO(jproxx): switch all types
-							// fmt.Printf("%v => %v\n", field, field.Type)
-							i, ok := field.Type.(*ast.Ident)
-							if ok {
-								fieldType := i.Name
+							switch tp := field.Type.(type) {
+							case *ast.Ident:
+								fieldType := tp.Name
 								for _, name := range field.Names {
-									//fmt.Printf("\tField: name=%s type=%s\n", name.Name, fieldType)
 									f := Field{FieldName: name.Name, Type: fieldType, IsArray: false}
 									t.Fields = append(t.Fields, f)
 								}
-							}
-							a, ok := field.Type.(*ast.ArrayType)
-							if ok {
-								i, identOk := a.Elt.(*ast.Ident)
-								if identOk {
-									//fmt.Printf("ArrayType: %+v => %v\n", a, i.Name)
-									f := Field{Type: i.Name, IsArray: true}
+
+							case *ast.ArrayType:
+								fieldType := fmt.Sprintf("[]%v", tp.Elt)
+								for _, name := range field.Names {
+									f := Field{FieldName: name.Name, Type: fieldType, IsArray: true}
 									t.Fields = append(t.Fields, f)
 								}
-							}
 
+							case *ast.SelectorExpr:
+								fmt.Printf("*ast.SelectorExpr: %+v => %T expr:%v selector:%v fieldNames:%+v\n", tp, tp, tp.X, tp.Sel.Name, field.Names)
+							default:
+								fmt.Printf("default: %+v => %T\n", tp, tp)
+							}
 						}
 					}
 					outTypes = append(outTypes, t)
