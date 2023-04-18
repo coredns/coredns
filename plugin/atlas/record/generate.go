@@ -63,20 +63,26 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 	}
 
 	header, err := GetRRHeaderFromDnsRR(rec)
-	if rec != nil {
+	if err != nil {
 		return nil, err
 	}
 
 	switch rec.Rrtype {
 {{range . -}}
-    case dns.Type{{.Name}}:
-		fmt.Printf("{{.Name}}: %+v\n", rec.Rrdata)
-		var rec{{.Name}} {{.Name}}
-		if err := json.Unmarshal([]byte(rec.Rrdata), &rec{{.Name}}); err != nil {
+	{{ $n := .Name }}
+    case dns.Type{{$n}}:
+		var rec{{$n}} {{$n}}
+		if err := json.Unmarshal([]byte(rec.Rrdata), &rec{{$n}}); err != nil {
 			return nil, err
 		}
-		{{.Name | toLower}} := dns.{{.Name}}{
+		
+		{{$n | toLower}} := dns.{{$n}}{
 			Hdr: *header,
+			{{range .Fields -}}
+			{{if not .IsArray -}}
+			{{.FieldName}}: rec{{$n}}.{{.FieldName}},
+			{{end}}
+			{{- end}}			
 		}
 		
 		return &{{.Name | toLower}}, nil

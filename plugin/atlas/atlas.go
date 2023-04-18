@@ -26,18 +26,19 @@ type Atlas struct {
 // ServeDNS implements the plugin.Handler interface. This method gets called when atlas is used
 // in a Server.
 func (a Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-
 	req := request.Request{W: w, Req: r}
 
 	questName := req.Name()
 	questType := req.QType()
-	zone := dns.Fqdn(questName)
 
 	log.Info("question name: ", questName)
 	log.Infof("question type: %v => %v", questType, req.Type())
-	log.Infof("zone: %v", zone)
 
-	a.getRRecords(ctx, questName, questType)
+	// TODO:(jproxx) do something with with the rrs
+	_, err := a.getRRecords(ctx, questName, questType)
+	if err != nil {
+		log.Error(err)
+	}
 
 	// Wrap.
 	pw := NewResponsePrinter(w)
@@ -70,6 +71,7 @@ func (a Atlas) getAtlasClient() (client *ent.Client, err error) {
 }
 
 func (a Atlas) getRRecords(ctx context.Context, reqName string, reqQType uint16) (rrs []dns.RR, err error) {
+	rrs = make([]dns.RR, 0)
 	client, err := a.getAtlasClient()
 	if err != nil {
 		return rrs, err
@@ -94,7 +96,13 @@ func (a Atlas) getRRecords(ctx context.Context, reqName string, reqQType uint16)
 	}
 
 	for _, r := range records {
-		record.From(r)
+		rec, err := record.From(r)
+		if err != nil {
+			log.Error(err)
+			return rrs, err
+		}
+		log.Info("rec ", rec)
+		rrs = append(rrs, rec)
 	}
 
 	return rrs, nil
