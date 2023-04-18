@@ -144,7 +144,12 @@ func main() {
 								}
 
 							case *ast.SelectorExpr:
-								fmt.Printf("*ast.SelectorExpr: %+v => %T expr:%v selector:%v fieldNames:%+v\n", tp, tp, tp.X, tp.Sel.Name, field.Names)
+								fieldType := fmt.Sprintf("%v.%v", tp.X, tp.Sel)
+								for _, name := range field.Names {
+									f := Field{FieldName: name.Name, Type: fieldType, IsArray: false}
+									t.Fields = append(t.Fields, f)
+								}
+
 							default:
 								fmt.Printf("default: %+v => %T\n", tp, tp)
 							}

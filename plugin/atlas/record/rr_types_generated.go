@@ -390,7 +390,9 @@ func (rec A) Marshal() (s string, e error) {
 
 // NewA creates a record.A from *dns.A
 func NewA(rec *dns.A) A {
-	return A{}
+	return A{
+		A: rec.A,
+	}
 }
 
 // Marshal AAAA RR and return json string and error if any
@@ -404,7 +406,9 @@ func (rec AAAA) Marshal() (s string, e error) {
 
 // NewAAAA creates a record.AAAA from *dns.AAAA
 func NewAAAA(rec *dns.AAAA) AAAA {
-	return AAAA{}
+	return AAAA{
+		AAAA: rec.AAAA,
+	}
 }
 
 // Marshal PX RR and return json string and error if any
@@ -630,6 +634,7 @@ func NewIPSECKEY(rec *dns.IPSECKEY) IPSECKEY {
 		Precedence:  rec.Precedence,
 		GatewayType: rec.GatewayType,
 		Algorithm:   rec.Algorithm,
+		GatewayAddr: rec.GatewayAddr,
 		GatewayHost: rec.GatewayHost,
 		PublicKey:   rec.PublicKey,
 	}
@@ -649,6 +654,7 @@ func NewAMTRELAY(rec *dns.AMTRELAY) AMTRELAY {
 	return AMTRELAY{
 		Precedence:  rec.Precedence,
 		GatewayType: rec.GatewayType,
+		GatewayAddr: rec.GatewayAddr,
 		GatewayHost: rec.GatewayHost,
 	}
 }
@@ -894,6 +900,7 @@ func (rec L32) Marshal() (s string, e error) {
 func NewL32(rec *dns.L32) L32 {
 	return L32{
 		Preference: rec.Preference,
+		Locator32:  rec.Locator32,
 	}
 }
 
@@ -1390,6 +1397,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 
 		a := dns.A{
 			Hdr: *header,
+			A:   recA.A,
 		}
 
 		return &a, nil
@@ -1401,7 +1409,8 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 
 		aaaa := dns.AAAA{
-			Hdr: *header,
+			Hdr:  *header,
+			AAAA: recAAAA.AAAA,
 		}
 
 		return &aaaa, nil
@@ -1592,6 +1601,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 			Precedence:  recIPSECKEY.Precedence,
 			GatewayType: recIPSECKEY.GatewayType,
 			Algorithm:   recIPSECKEY.Algorithm,
+			GatewayAddr: recIPSECKEY.GatewayAddr,
 			GatewayHost: recIPSECKEY.GatewayHost,
 			PublicKey:   recIPSECKEY.PublicKey,
 		}
@@ -1608,6 +1618,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 			Hdr:         *header,
 			Precedence:  recAMTRELAY.Precedence,
 			GatewayType: recAMTRELAY.GatewayType,
+			GatewayAddr: recAMTRELAY.GatewayAddr,
 			GatewayHost: recAMTRELAY.GatewayHost,
 		}
 
@@ -1814,6 +1825,7 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		l32 := dns.L32{
 			Hdr:        *header,
 			Preference: recL32.Preference,
+			Locator32:  recL32.Locator32,
 		}
 
 		return &l32, nil

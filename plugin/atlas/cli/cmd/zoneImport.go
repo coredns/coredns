@@ -115,7 +115,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.A:
-			rec, err := record.A{A: t.A}.Marshal()
+			rec, err := record.NewA(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -123,7 +123,7 @@ func (o *ZoneImportOptions) Run() error {
 				return err
 			}
 		case *dns.AAAA:
-			rec, err := record.AAAA{AAAA: t.AAAA}.Marshal()
+			rec, err := record.NewAAAA(t).Marshal()
 			if err != nil {
 				return err
 			}
