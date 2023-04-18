@@ -232,9 +232,9 @@ type SSHFP struct {
 
 // TODO(jproxx): fix that
 // KEY RR. See RFC RFC 2535.
-// type KEY struct {
-// 	DNSKEY
-// }
+//type KEY struct {
+//	DNSKEY
+//}
 
 // TODO(jproxx): fix that
 // CDNSKEY RR. See RFC 7344.

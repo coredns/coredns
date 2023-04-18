@@ -76,7 +76,9 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 		
 		{{$n | toLower}} := dns.{{$n}}{
+			{{if and (ne $n "KEY") (ne $n "CDNSKEY") -}}
 			Hdr: *header,
+			{{end -}}
 			{{range .Fields -}}			
 			{{.FieldName}}: rec{{$n}}.{{.FieldName}},
 			{{end}}			
