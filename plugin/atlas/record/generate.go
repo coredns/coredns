@@ -46,7 +46,8 @@ func New{{.Name}}(rec *dns.{{.Name}}) {{.Name}} {
 	{{- end}}
 	}
 }
-{{end}}`))
+{{end}}
+`))
 
 type Field struct {
 	Name    string
@@ -85,7 +86,7 @@ func main() {
 					case *ast.StructType:
 						structType := typeSpec.Type.(*ast.StructType)
 						for _, field := range structType.Fields.List {
-							// TODO: switch all types
+							// TODO(jproxx): switch all types
 							// fmt.Printf("%v => %v\n", field, field.Type)
 							i, ok := field.Type.(*ast.Ident)
 							if ok {

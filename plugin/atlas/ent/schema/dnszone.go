@@ -49,12 +49,6 @@ func (DnsZone) Fields() []ent.Field {
 			Default(3600).
 			Comment("Time-to-live"),
 
-		// SOA.Hdr.Rdlength
-		// should we save this?
-		// field.Uint16("rdlength").
-		// 	Default(0).
-		// 	Comment("length of data after header"),
-
 		// SOA.Ns
 		field.String("ns").
 			MinLen(3).

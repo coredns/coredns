@@ -32,6 +32,7 @@ func (DnsRR) Fields() []ent.Field {
 		field.Uint16("rrtype").
 			Comment("resource record type"),
 
+		// the data type of this json data belong to the rrtype
 		field.Text("rrdata").
 			Comment("resource record data"),
 
@@ -44,12 +45,6 @@ func (DnsRR) Fields() []ent.Field {
 			Min(360).
 			Max(2147483647).
 			Default(3600).Comment("Time-to-live"),
-
-		// SOA.Hdr.Rdlength
-		// should we save this?
-		// field.Uint16("rdlength").
-		// 	Default(0).
-		// 	Comment("length of data after header"),
 
 		field.Bool("activated").
 			Default(true).

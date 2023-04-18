@@ -5,38 +5,39 @@ package atlas
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/atlas/ent"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
 	"github.com/coredns/coredns/plugin/metrics"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
 
 // Atlas is an database plugin.
 type Atlas struct {
-	Next   plugin.Handler
-	Zones  []string
-	cfg    Config
-	client *ent.Client
+	Next  plugin.Handler
+	Zones []string
+	cfg   Config
 }
 
 // ServeDNS implements the plugin.Handler interface. This method gets called when atlas is used
 // in a Server.
 func (a Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 
-	log.Info("Atlas ServeDNS")
-	log.Debugf("request: %+v", r)
-	client := a.client
+	req := request.Request{W: w, Req: r}
 
-	if a.cfg.debug {
-		client = client.Debug()
-	}
+	questName := req.Name()
+	questType := req.QType()
+	zone := dns.Fqdn(questName)
 
-	rrs, _ := client.DnsRR.Query().Select(dnsrr.FieldName).Where(dnsrr.Activated(true)).All(ctx)
+	log.Info("question name: ", questName)
+	log.Infof("question type: %v => %v", questType, req.Type())
+	log.Infof("zone: %v", zone)
 
-	log.Info(rrs)
+	a.getRRecords(ctx, questName, questType)
 
 	// Wrap.
 	pw := NewResponsePrinter(w)
@@ -50,6 +51,59 @@ func (a Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 // Name implements the Handler interface.
 func (a Atlas) Name() string { return plgName }
+
+func (a Atlas) getAtlasClient() (client *ent.Client, err error) {
+	dsn, err := a.cfg.GetDsn()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err = OpenAtlasDB(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	if a.cfg.debug {
+		client = client.Debug()
+	}
+	return
+}
+
+func (a Atlas) getRRecords(ctx context.Context, reqName string, reqQType uint16) (rrs []dns.RR, err error) {
+	client, err := a.getAtlasClient()
+	if err != nil {
+		return rrs, err
+	}
+	defer client.Close()
+
+	records, err := client.DnsRR.Query().
+		Select(
+			dnsrr.FieldName,
+			dnsrr.FieldClass,
+			dnsrr.FieldRrtype,
+			dnsrr.FieldRrdata,
+			dnsrr.FieldTTL,
+			dnsrr.FieldActivated,
+		).
+		Where(
+			dnsrr.And(
+				dnsrr.NameEQ(reqName),
+				dnsrr.RrtypeEQ(reqQType),
+				dnsrr.ActivatedEQ(true), // we serve only activated records
+			),
+		).All(ctx)
+	if err != nil {
+		return rrs, err
+	}
+
+	for _, record := range records {
+		fmt.Printf("%+v\n\n", record)
+	}
+
+	log.Infof("records: %+v", records)
+
+	return rrs, nil
+}
 
 // ResponsePrinter wrap a dns.ResponseWriter and will write atlas to standard output when WriteMsg is called.
 type ResponsePrinter struct {

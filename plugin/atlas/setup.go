@@ -138,7 +138,13 @@ func setup(c *caddy.Controller) error {
 	if err != nil {
 		return err
 	}
-	defer client.Close()
+
+	defer func() {
+		if err := client.Close(); err != nil {
+			log.Errorf("close error:", err)
+		}
+		log.Info("client closed")
+	}()
 
 	if cfg.automigrate {
 		ctx := context.Background()
@@ -150,7 +156,7 @@ func setup(c *caddy.Controller) error {
 
 	// Add the Plugin to CoreDNS, so Servers can use it in their plugin chain.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return Atlas{Next: next, cfg: cfg, client: client}
+		return Atlas{Next: next, cfg: cfg}
 	})
 
 	// All OK, return a nil error.
