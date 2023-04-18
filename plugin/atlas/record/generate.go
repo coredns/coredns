@@ -127,7 +127,6 @@ func main() {
 					case *ast.StructType:
 						structType := typeSpec.Type.(*ast.StructType)
 						for _, field := range structType.Fields.List {
-							// TODO(jproxx): switch all types
 							switch tp := field.Type.(type) {
 							case *ast.Ident:
 								fieldType := tp.Name
