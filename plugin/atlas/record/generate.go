@@ -11,6 +11,7 @@ import (
 	"go/token"
 	"log"
 	"os"
+	"strings"
 	"text/template"
 )
 
@@ -21,12 +22,18 @@ package record
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/miekg/dns"
+	"github.com/coredns/coredns/plugin/atlas/ent"
 )
 `
 
-var marshalFunc = template.Must(template.New("marshalFunc").Parse(`
+var marshalFunc = template.Must(template.New("marshalFunc").Funcs(template.FuncMap{
+	"toLower": func(input string) string {
+		return strings.ToLower(input)
+	},
+}).Parse(`
 {{range .}}
 // Marshal {{.Name}} RR and return json string and error if any
 func (rec {{.Name}}) Marshal() (s string, e error) { 
@@ -37,22 +44,53 @@ func (rec {{.Name}}) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// New{{.Name}} creates a record.{{.Name}} from *dns.{{.Name}}
 func New{{.Name}}(rec *dns.{{.Name}}) {{.Name}} {
 	return {{.Name}}{
 	{{range .Fields -}}
 	{{if not .IsArray -}}
-	{{.Name}}: rec.{{.Name}},
-	{{- end}}
+	{{.FieldName}}: rec.{{.FieldName}},
+	{{end}}
 	{{- end}}
 	}
 }
 {{end}}
+
+// From returns a dns.RR from ent.DnsRR
+func From(rec *ent.DnsRR) (dns.RR, error) {
+	if rec == nil {
+		return nil, fmt.Errorf("unexpected DnsRR record")
+	}
+
+	header, err := GetRRHeaderFromDnsRR(rec)
+	if rec != nil {
+		return nil, err
+	}
+
+	switch rec.Rrtype {
+{{range . -}}
+    case dns.Type{{.Name}}:
+		fmt.Printf("{{.Name}}: %+v\n", rec.Rrdata)
+		var rec{{.Name}} {{.Name}}
+		if err := json.Unmarshal([]byte(rec.Rrdata), &rec{{.Name}}); err != nil {
+			return nil, err
+		}
+		{{.Name | toLower}} := dns.{{.Name}}{
+			Hdr: *header,
+		}
+		
+		return &{{.Name | toLower}}, nil
+{{end}}	
+	default:
+		return nil, fmt.Errorf("unknown dns.RR")
+	}
+}
 `))
 
 type Field struct {
-	Name    string
-	Type    string
-	IsArray bool
+	FieldName string
+	Type      string
+	IsArray   bool
 }
 
 type OutputType struct {
@@ -93,7 +131,7 @@ func main() {
 								fieldType := i.Name
 								for _, name := range field.Names {
 									//fmt.Printf("\tField: name=%s type=%s\n", name.Name, fieldType)
-									f := Field{Name: name.Name, Type: fieldType, IsArray: false}
+									f := Field{FieldName: name.Name, Type: fieldType, IsArray: false}
 									t.Fields = append(t.Fields, f)
 								}
 							}

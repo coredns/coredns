@@ -5,11 +5,11 @@ package atlas
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/atlas/ent"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/coredns/coredns/plugin/atlas/record"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
 
@@ -85,21 +85,17 @@ func (a Atlas) getRRecords(ctx context.Context, reqName string, reqQType uint16)
 			dnsrr.FieldTTL,
 		).
 		Where(
-			dnsrr.And(
-				dnsrr.NameEQ(reqName),
-				dnsrr.RrtypeEQ(reqQType),
-				dnsrr.ActivatedEQ(true), // we serve only activated records
-			),
+			dnsrr.NameEQ(reqName),
+			dnsrr.RrtypeEQ(reqQType),
+			dnsrr.ActivatedEQ(true), // we serve only activated records
 		).All(ctx)
 	if err != nil {
 		return rrs, err
 	}
 
-	for _, record := range records {
-		fmt.Printf("%+v\n\n", record)
+	for _, r := range records {
+		record.From(r)
 	}
-
-	log.Infof("records: %+v", records)
 
 	return rrs, nil
 }

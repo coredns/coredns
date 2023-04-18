@@ -4,7 +4,9 @@ package record
 
 import (
 	"encoding/json"
+	"fmt"
 
+	"github.com/coredns/coredns/plugin/atlas/ent"
 	"github.com/miekg/dns"
 )
 
@@ -17,6 +19,7 @@ func (rec CNAME) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewCNAME creates a record.CNAME from *dns.CNAME
 func NewCNAME(rec *dns.CNAME) CNAME {
 	return CNAME{
 		Target: rec.Target,
@@ -32,9 +35,11 @@ func (rec HINFO) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewHINFO creates a record.HINFO from *dns.HINFO
 func NewHINFO(rec *dns.HINFO) HINFO {
 	return HINFO{
-		Cpu: rec.Cpu, Os: rec.Os,
+		Cpu: rec.Cpu,
+		Os:  rec.Os,
 	}
 }
 
@@ -47,6 +52,7 @@ func (rec MB) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewMB creates a record.MB from *dns.MB
 func NewMB(rec *dns.MB) MB {
 	return MB{
 		Mb: rec.Mb,
@@ -62,6 +68,7 @@ func (rec MG) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewMG creates a record.MG from *dns.MG
 func NewMG(rec *dns.MG) MG {
 	return MG{
 		Mg: rec.Mg,
@@ -77,9 +84,11 @@ func (rec MINFO) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewMINFO creates a record.MINFO from *dns.MINFO
 func NewMINFO(rec *dns.MINFO) MINFO {
 	return MINFO{
-		Rmail: rec.Rmail, Email: rec.Email,
+		Rmail: rec.Rmail,
+		Email: rec.Email,
 	}
 }
 
@@ -92,6 +101,7 @@ func (rec MR) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewMR creates a record.MR from *dns.MR
 func NewMR(rec *dns.MR) MR {
 	return MR{
 		Mr: rec.Mr,
@@ -107,6 +117,7 @@ func (rec MF) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewMF creates a record.MF from *dns.MF
 func NewMF(rec *dns.MF) MF {
 	return MF{
 		Mf: rec.Mf,
@@ -122,6 +133,7 @@ func (rec MD) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewMD creates a record.MD from *dns.MD
 func NewMD(rec *dns.MD) MD {
 	return MD{
 		Md: rec.Md,
@@ -137,9 +149,11 @@ func (rec MX) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewMX creates a record.MX from *dns.MX
 func NewMX(rec *dns.MX) MX {
 	return MX{
-		Preference: rec.Preference, Mx: rec.Mx,
+		Preference: rec.Preference,
+		Mx:         rec.Mx,
 	}
 }
 
@@ -152,9 +166,11 @@ func (rec AFSDB) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewAFSDB creates a record.AFSDB from *dns.AFSDB
 func NewAFSDB(rec *dns.AFSDB) AFSDB {
 	return AFSDB{
-		Subtype: rec.Subtype, Hostname: rec.Hostname,
+		Subtype:  rec.Subtype,
+		Hostname: rec.Hostname,
 	}
 }
 
@@ -167,6 +183,7 @@ func (rec X25) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewX25 creates a record.X25 from *dns.X25
 func NewX25(rec *dns.X25) X25 {
 	return X25{
 		PSDNAddress: rec.PSDNAddress,
@@ -182,9 +199,11 @@ func (rec RT) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewRT creates a record.RT from *dns.RT
 func NewRT(rec *dns.RT) RT {
 	return RT{
-		Preference: rec.Preference, Host: rec.Host,
+		Preference: rec.Preference,
+		Host:       rec.Host,
 	}
 }
 
@@ -197,6 +216,7 @@ func (rec NS) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewNS creates a record.NS from *dns.NS
 func NewNS(rec *dns.NS) NS {
 	return NS{
 		Ns: rec.Ns,
@@ -212,6 +232,7 @@ func (rec PTR) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewPTR creates a record.PTR from *dns.PTR
 func NewPTR(rec *dns.PTR) PTR {
 	return PTR{
 		Ptr: rec.Ptr,
@@ -227,9 +248,11 @@ func (rec RP) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewRP creates a record.RP from *dns.RP
 func NewRP(rec *dns.RP) RP {
 	return RP{
-		Mbox: rec.Mbox, Txt: rec.Txt,
+		Mbox: rec.Mbox,
+		Txt:  rec.Txt,
 	}
 }
 
@@ -242,6 +265,7 @@ func (rec TXT) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewTXT creates a record.TXT from *dns.TXT
 func NewTXT(rec *dns.TXT) TXT {
 	return TXT{}
 }
@@ -255,6 +279,7 @@ func (rec SPF) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewSPF creates a record.SPF from *dns.SPF
 func NewSPF(rec *dns.SPF) SPF {
 	return SPF{}
 }
@@ -268,6 +293,7 @@ func (rec AVC) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewAVC creates a record.AVC from *dns.AVC
 func NewAVC(rec *dns.AVC) AVC {
 	return AVC{}
 }
@@ -281,9 +307,13 @@ func (rec SRV) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewSRV creates a record.SRV from *dns.SRV
 func NewSRV(rec *dns.SRV) SRV {
 	return SRV{
-		Priority: rec.Priority, Weight: rec.Weight, Port: rec.Port, Target: rec.Target,
+		Priority: rec.Priority,
+		Weight:   rec.Weight,
+		Port:     rec.Port,
+		Target:   rec.Target,
 	}
 }
 
@@ -296,9 +326,15 @@ func (rec NAPTR) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewNAPTR creates a record.NAPTR from *dns.NAPTR
 func NewNAPTR(rec *dns.NAPTR) NAPTR {
 	return NAPTR{
-		Order: rec.Order, Preference: rec.Preference, Flags: rec.Flags, Service: rec.Service, Regexp: rec.Regexp, Replacement: rec.Replacement,
+		Order:       rec.Order,
+		Preference:  rec.Preference,
+		Flags:       rec.Flags,
+		Service:     rec.Service,
+		Regexp:      rec.Regexp,
+		Replacement: rec.Replacement,
 	}
 }
 
@@ -311,9 +347,13 @@ func (rec CERT) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewCERT creates a record.CERT from *dns.CERT
 func NewCERT(rec *dns.CERT) CERT {
 	return CERT{
-		Type: rec.Type, KeyTag: rec.KeyTag, Algorithm: rec.Algorithm, Certificate: rec.Certificate,
+		Type:        rec.Type,
+		KeyTag:      rec.KeyTag,
+		Algorithm:   rec.Algorithm,
+		Certificate: rec.Certificate,
 	}
 }
 
@@ -326,6 +366,7 @@ func (rec DNAME) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewDNAME creates a record.DNAME from *dns.DNAME
 func NewDNAME(rec *dns.DNAME) DNAME {
 	return DNAME{
 		Target: rec.Target,
@@ -341,6 +382,7 @@ func (rec A) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewA creates a record.A from *dns.A
 func NewA(rec *dns.A) A {
 	return A{}
 }
@@ -354,6 +396,7 @@ func (rec AAAA) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewAAAA creates a record.AAAA from *dns.AAAA
 func NewAAAA(rec *dns.AAAA) AAAA {
 	return AAAA{}
 }
@@ -367,9 +410,12 @@ func (rec PX) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewPX creates a record.PX from *dns.PX
 func NewPX(rec *dns.PX) PX {
 	return PX{
-		Preference: rec.Preference, Map822: rec.Map822, Mapx400: rec.Mapx400,
+		Preference: rec.Preference,
+		Map822:     rec.Map822,
+		Mapx400:    rec.Mapx400,
 	}
 }
 
@@ -382,9 +428,12 @@ func (rec GPOS) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewGPOS creates a record.GPOS from *dns.GPOS
 func NewGPOS(rec *dns.GPOS) GPOS {
 	return GPOS{
-		Longitude: rec.Longitude, Latitude: rec.Latitude, Altitude: rec.Altitude,
+		Longitude: rec.Longitude,
+		Latitude:  rec.Latitude,
+		Altitude:  rec.Altitude,
 	}
 }
 
@@ -397,23 +446,17 @@ func (rec LOC) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewLOC creates a record.LOC from *dns.LOC
 func NewLOC(rec *dns.LOC) LOC {
 	return LOC{
-		Version: rec.Version, Size: rec.Size, HorizPre: rec.HorizPre, VertPre: rec.VertPre, Latitude: rec.Latitude, Longitude: rec.Longitude, Altitude: rec.Altitude,
+		Version:   rec.Version,
+		Size:      rec.Size,
+		HorizPre:  rec.HorizPre,
+		VertPre:   rec.VertPre,
+		Latitude:  rec.Latitude,
+		Longitude: rec.Longitude,
+		Altitude:  rec.Altitude,
 	}
-}
-
-// Marshal SIG RR and return json string and error if any
-func (rec SIG) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-func NewSIG(rec *dns.SIG) SIG {
-	return SIG{}
 }
 
 // Marshal RRSIG RR and return json string and error if any
@@ -425,9 +468,18 @@ func (rec RRSIG) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewRRSIG creates a record.RRSIG from *dns.RRSIG
 func NewRRSIG(rec *dns.RRSIG) RRSIG {
 	return RRSIG{
-		TypeCovered: rec.TypeCovered, Algorithm: rec.Algorithm, Labels: rec.Labels, OrigTtl: rec.OrigTtl, Expiration: rec.Expiration, Inception: rec.Inception, KeyTag: rec.KeyTag, SignerName: rec.SignerName, Signature: rec.Signature,
+		TypeCovered: rec.TypeCovered,
+		Algorithm:   rec.Algorithm,
+		Labels:      rec.Labels,
+		OrigTtl:     rec.OrigTtl,
+		Expiration:  rec.Expiration,
+		Inception:   rec.Inception,
+		KeyTag:      rec.KeyTag,
+		SignerName:  rec.SignerName,
+		Signature:   rec.Signature,
 	}
 }
 
@@ -440,36 +492,11 @@ func (rec NSEC) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewNSEC creates a record.NSEC from *dns.NSEC
 func NewNSEC(rec *dns.NSEC) NSEC {
 	return NSEC{
 		NextDomain: rec.NextDomain,
 	}
-}
-
-// Marshal DLV RR and return json string and error if any
-func (rec DLV) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-func NewDLV(rec *dns.DLV) DLV {
-	return DLV{}
-}
-
-// Marshal CDS RR and return json string and error if any
-func (rec CDS) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-func NewCDS(rec *dns.CDS) CDS {
-	return CDS{}
 }
 
 // Marshal DS RR and return json string and error if any
@@ -481,9 +508,13 @@ func (rec DS) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewDS creates a record.DS from *dns.DS
 func NewDS(rec *dns.DS) DS {
 	return DS{
-		KeyTag: rec.KeyTag, Algorithm: rec.Algorithm, DigestType: rec.DigestType, Digest: rec.Digest,
+		KeyTag:     rec.KeyTag,
+		Algorithm:  rec.Algorithm,
+		DigestType: rec.DigestType,
+		Digest:     rec.Digest,
 	}
 }
 
@@ -496,9 +527,11 @@ func (rec KX) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewKX creates a record.KX from *dns.KX
 func NewKX(rec *dns.KX) KX {
 	return KX{
-		Preference: rec.Preference, Exchanger: rec.Exchanger,
+		Preference: rec.Preference,
+		Exchanger:  rec.Exchanger,
 	}
 }
 
@@ -511,9 +544,13 @@ func (rec TA) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewTA creates a record.TA from *dns.TA
 func NewTA(rec *dns.TA) TA {
 	return TA{
-		KeyTag: rec.KeyTag, Algorithm: rec.Algorithm, DigestType: rec.DigestType, Digest: rec.Digest,
+		KeyTag:     rec.KeyTag,
+		Algorithm:  rec.Algorithm,
+		DigestType: rec.DigestType,
+		Digest:     rec.Digest,
 	}
 }
 
@@ -526,9 +563,11 @@ func (rec TALINK) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewTALINK creates a record.TALINK from *dns.TALINK
 func NewTALINK(rec *dns.TALINK) TALINK {
 	return TALINK{
-		PreviousName: rec.PreviousName, NextName: rec.NextName,
+		PreviousName: rec.PreviousName,
+		NextName:     rec.NextName,
 	}
 }
 
@@ -541,36 +580,13 @@ func (rec SSHFP) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewSSHFP creates a record.SSHFP from *dns.SSHFP
 func NewSSHFP(rec *dns.SSHFP) SSHFP {
 	return SSHFP{
-		Algorithm: rec.Algorithm, Type: rec.Type, FingerPrint: rec.FingerPrint,
+		Algorithm:   rec.Algorithm,
+		Type:        rec.Type,
+		FingerPrint: rec.FingerPrint,
 	}
-}
-
-// Marshal KEY RR and return json string and error if any
-func (rec KEY) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-func NewKEY(rec *dns.KEY) KEY {
-	return KEY{}
-}
-
-// Marshal CDNSKEY RR and return json string and error if any
-func (rec CDNSKEY) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-func NewCDNSKEY(rec *dns.CDNSKEY) CDNSKEY {
-	return CDNSKEY{}
 }
 
 // Marshal DNSKEY RR and return json string and error if any
@@ -582,9 +598,13 @@ func (rec DNSKEY) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewDNSKEY creates a record.DNSKEY from *dns.DNSKEY
 func NewDNSKEY(rec *dns.DNSKEY) DNSKEY {
 	return DNSKEY{
-		Flags: rec.Flags, Protocol: rec.Protocol, Algorithm: rec.Algorithm, PublicKey: rec.PublicKey,
+		Flags:     rec.Flags,
+		Protocol:  rec.Protocol,
+		Algorithm: rec.Algorithm,
+		PublicKey: rec.PublicKey,
 	}
 }
 
@@ -597,9 +617,14 @@ func (rec IPSECKEY) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewIPSECKEY creates a record.IPSECKEY from *dns.IPSECKEY
 func NewIPSECKEY(rec *dns.IPSECKEY) IPSECKEY {
 	return IPSECKEY{
-		Precedence: rec.Precedence, GatewayType: rec.GatewayType, Algorithm: rec.Algorithm, GatewayHost: rec.GatewayHost, PublicKey: rec.PublicKey,
+		Precedence:  rec.Precedence,
+		GatewayType: rec.GatewayType,
+		Algorithm:   rec.Algorithm,
+		GatewayHost: rec.GatewayHost,
+		PublicKey:   rec.PublicKey,
 	}
 }
 
@@ -612,9 +637,12 @@ func (rec AMTRELAY) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewAMTRELAY creates a record.AMTRELAY from *dns.AMTRELAY
 func NewAMTRELAY(rec *dns.AMTRELAY) AMTRELAY {
 	return AMTRELAY{
-		Precedence: rec.Precedence, GatewayType: rec.GatewayType, GatewayHost: rec.GatewayHost,
+		Precedence:  rec.Precedence,
+		GatewayType: rec.GatewayType,
+		GatewayHost: rec.GatewayHost,
 	}
 }
 
@@ -627,9 +655,13 @@ func (rec RKEY) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewRKEY creates a record.RKEY from *dns.RKEY
 func NewRKEY(rec *dns.RKEY) RKEY {
 	return RKEY{
-		Flags: rec.Flags, Protocol: rec.Protocol, Algorithm: rec.Algorithm, PublicKey: rec.PublicKey,
+		Flags:     rec.Flags,
+		Protocol:  rec.Protocol,
+		Algorithm: rec.Algorithm,
+		PublicKey: rec.PublicKey,
 	}
 }
 
@@ -642,6 +674,7 @@ func (rec NSAPPTR) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewNSAPPTR creates a record.NSAPPTR from *dns.NSAPPTR
 func NewNSAPPTR(rec *dns.NSAPPTR) NSAPPTR {
 	return NSAPPTR{
 		Ptr: rec.Ptr,
@@ -657,9 +690,16 @@ func (rec NSEC3) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewNSEC3 creates a record.NSEC3 from *dns.NSEC3
 func NewNSEC3(rec *dns.NSEC3) NSEC3 {
 	return NSEC3{
-		Hash: rec.Hash, Flags: rec.Flags, Iterations: rec.Iterations, SaltLength: rec.SaltLength, Salt: rec.Salt, HashLength: rec.HashLength, NextDomain: rec.NextDomain,
+		Hash:       rec.Hash,
+		Flags:      rec.Flags,
+		Iterations: rec.Iterations,
+		SaltLength: rec.SaltLength,
+		Salt:       rec.Salt,
+		HashLength: rec.HashLength,
+		NextDomain: rec.NextDomain,
 	}
 }
 
@@ -672,9 +712,14 @@ func (rec NSEC3PARAM) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewNSEC3PARAM creates a record.NSEC3PARAM from *dns.NSEC3PARAM
 func NewNSEC3PARAM(rec *dns.NSEC3PARAM) NSEC3PARAM {
 	return NSEC3PARAM{
-		Hash: rec.Hash, Flags: rec.Flags, Iterations: rec.Iterations, SaltLength: rec.SaltLength, Salt: rec.Salt,
+		Hash:       rec.Hash,
+		Flags:      rec.Flags,
+		Iterations: rec.Iterations,
+		SaltLength: rec.SaltLength,
+		Salt:       rec.Salt,
 	}
 }
 
@@ -687,24 +732,18 @@ func (rec TKEY) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewTKEY creates a record.TKEY from *dns.TKEY
 func NewTKEY(rec *dns.TKEY) TKEY {
 	return TKEY{
-		Algorithm: rec.Algorithm, Inception: rec.Inception, Expiration: rec.Expiration, Mode: rec.Mode, Error: rec.Error, KeySize: rec.KeySize, Key: rec.Key, OtherLen: rec.OtherLen, OtherData: rec.OtherData,
-	}
-}
-
-// Marshal RFC3597 RR and return json string and error if any
-func (rec RFC3597) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-func NewRFC3597(rec *dns.RFC3597) RFC3597 {
-	return RFC3597{
-		Rdata: rec.Rdata,
+		Algorithm:  rec.Algorithm,
+		Inception:  rec.Inception,
+		Expiration: rec.Expiration,
+		Mode:       rec.Mode,
+		Error:      rec.Error,
+		KeySize:    rec.KeySize,
+		Key:        rec.Key,
+		OtherLen:   rec.OtherLen,
+		OtherData:  rec.OtherData,
 	}
 }
 
@@ -717,9 +756,12 @@ func (rec URI) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewURI creates a record.URI from *dns.URI
 func NewURI(rec *dns.URI) URI {
 	return URI{
-		Priority: rec.Priority, Weight: rec.Weight, Target: rec.Target,
+		Priority: rec.Priority,
+		Weight:   rec.Weight,
+		Target:   rec.Target,
 	}
 }
 
@@ -732,6 +774,7 @@ func (rec DHCID) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewDHCID creates a record.DHCID from *dns.DHCID
 func NewDHCID(rec *dns.DHCID) DHCID {
 	return DHCID{
 		Digest: rec.Digest,
@@ -747,9 +790,13 @@ func (rec TLSA) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewTLSA creates a record.TLSA from *dns.TLSA
 func NewTLSA(rec *dns.TLSA) TLSA {
 	return TLSA{
-		Usage: rec.Usage, Selector: rec.Selector, MatchingType: rec.MatchingType, Certificate: rec.Certificate,
+		Usage:        rec.Usage,
+		Selector:     rec.Selector,
+		MatchingType: rec.MatchingType,
+		Certificate:  rec.Certificate,
 	}
 }
 
@@ -762,9 +809,13 @@ func (rec SMIMEA) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewSMIMEA creates a record.SMIMEA from *dns.SMIMEA
 func NewSMIMEA(rec *dns.SMIMEA) SMIMEA {
 	return SMIMEA{
-		Usage: rec.Usage, Selector: rec.Selector, MatchingType: rec.MatchingType, Certificate: rec.Certificate,
+		Usage:        rec.Usage,
+		Selector:     rec.Selector,
+		MatchingType: rec.MatchingType,
+		Certificate:  rec.Certificate,
 	}
 }
 
@@ -777,9 +828,14 @@ func (rec HIP) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewHIP creates a record.HIP from *dns.HIP
 func NewHIP(rec *dns.HIP) HIP {
 	return HIP{
-		HitLength: rec.HitLength, PublicKeyAlgorithm: rec.PublicKeyAlgorithm, PublicKeyLength: rec.PublicKeyLength, Hit: rec.Hit, PublicKey: rec.PublicKey,
+		HitLength:          rec.HitLength,
+		PublicKeyAlgorithm: rec.PublicKeyAlgorithm,
+		PublicKeyLength:    rec.PublicKeyLength,
+		Hit:                rec.Hit,
+		PublicKey:          rec.PublicKey,
 	}
 }
 
@@ -792,6 +848,7 @@ func (rec NINFO) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewNINFO creates a record.NINFO from *dns.NINFO
 func NewNINFO(rec *dns.NINFO) NINFO {
 	return NINFO{}
 }
@@ -805,9 +862,11 @@ func (rec NID) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewNID creates a record.NID from *dns.NID
 func NewNID(rec *dns.NID) NID {
 	return NID{
-		Preference: rec.Preference, NodeID: rec.NodeID,
+		Preference: rec.Preference,
+		NodeID:     rec.NodeID,
 	}
 }
 
@@ -820,6 +879,7 @@ func (rec L32) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewL32 creates a record.L32 from *dns.L32
 func NewL32(rec *dns.L32) L32 {
 	return L32{
 		Preference: rec.Preference,
@@ -835,9 +895,11 @@ func (rec L64) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewL64 creates a record.L64 from *dns.L64
 func NewL64(rec *dns.L64) L64 {
 	return L64{
-		Preference: rec.Preference, Locator64: rec.Locator64,
+		Preference: rec.Preference,
+		Locator64:  rec.Locator64,
 	}
 }
 
@@ -850,9 +912,11 @@ func (rec LP) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewLP creates a record.LP from *dns.LP
 func NewLP(rec *dns.LP) LP {
 	return LP{
-		Preference: rec.Preference, Fqdn: rec.Fqdn,
+		Preference: rec.Preference,
+		Fqdn:       rec.Fqdn,
 	}
 }
 
@@ -865,6 +929,7 @@ func (rec EUI48) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewEUI48 creates a record.EUI48 from *dns.EUI48
 func NewEUI48(rec *dns.EUI48) EUI48 {
 	return EUI48{
 		Address: rec.Address,
@@ -880,6 +945,7 @@ func (rec EUI64) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewEUI64 creates a record.EUI64 from *dns.EUI64
 func NewEUI64(rec *dns.EUI64) EUI64 {
 	return EUI64{
 		Address: rec.Address,
@@ -895,9 +961,12 @@ func (rec CAA) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewCAA creates a record.CAA from *dns.CAA
 func NewCAA(rec *dns.CAA) CAA {
 	return CAA{
-		Flag: rec.Flag, Tag: rec.Tag, Value: rec.Value,
+		Flag:  rec.Flag,
+		Tag:   rec.Tag,
+		Value: rec.Value,
 	}
 }
 
@@ -910,6 +979,7 @@ func (rec EID) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewEID creates a record.EID from *dns.EID
 func NewEID(rec *dns.EID) EID {
 	return EID{
 		Endpoint: rec.Endpoint,
@@ -925,6 +995,7 @@ func (rec NIMLOC) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewNIMLOC creates a record.NIMLOC from *dns.NIMLOC
 func NewNIMLOC(rec *dns.NIMLOC) NIMLOC {
 	return NIMLOC{
 		Locator: rec.Locator,
@@ -940,6 +1011,7 @@ func (rec OPENPGPKEY) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewOPENPGPKEY creates a record.OPENPGPKEY from *dns.OPENPGPKEY
 func NewOPENPGPKEY(rec *dns.OPENPGPKEY) OPENPGPKEY {
 	return OPENPGPKEY{
 		PublicKey: rec.PublicKey,
@@ -955,9 +1027,11 @@ func (rec CSYNC) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewCSYNC creates a record.CSYNC from *dns.CSYNC
 func NewCSYNC(rec *dns.CSYNC) CSYNC {
 	return CSYNC{
-		Serial: rec.Serial, Flags: rec.Flags,
+		Serial: rec.Serial,
+		Flags:  rec.Flags,
 	}
 }
 
@@ -970,36 +1044,690 @@ func (rec ZONEMD) Marshal() (s string, e error) {
 	return string(m), nil
 }
 
+// NewZONEMD creates a record.ZONEMD from *dns.ZONEMD
 func NewZONEMD(rec *dns.ZONEMD) ZONEMD {
 	return ZONEMD{
-		Serial: rec.Serial, Scheme: rec.Scheme, Hash: rec.Hash, Digest: rec.Digest,
+		Serial: rec.Serial,
+		Scheme: rec.Scheme,
+		Hash:   rec.Hash,
+		Digest: rec.Digest,
 	}
 }
 
-// Marshal APL RR and return json string and error if any
-func (rec APL) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
+// From returns a dns.RR from ent.DnsRR
+func From(rec *ent.DnsRR) (dns.RR, error) {
+	if rec == nil {
+		return nil, fmt.Errorf("unexpected DnsRR record")
 	}
-	return string(m), nil
-}
 
-func NewAPL(rec *dns.APL) APL {
-	return APL{}
-}
-
-// Marshal APLPrefix RR and return json string and error if any
-func (rec APLPrefix) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
+	header, err := GetRRHeaderFromDnsRR(rec)
+	if rec != nil {
+		return nil, err
 	}
-	return string(m), nil
-}
 
-func NewAPLPrefix(rec *dns.APLPrefix) APLPrefix {
-	return APLPrefix{
-		Negation: rec.Negation,
+	switch rec.Rrtype {
+	case dns.TypeCNAME:
+		fmt.Printf("CNAME: %+v\n", rec.Rrdata)
+		var recCNAME CNAME
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recCNAME); err != nil {
+			return nil, err
+		}
+		cname := dns.CNAME{
+			Hdr: *header,
+		}
+
+		return &cname, nil
+	case dns.TypeHINFO:
+		fmt.Printf("HINFO: %+v\n", rec.Rrdata)
+		var recHINFO HINFO
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recHINFO); err != nil {
+			return nil, err
+		}
+		hinfo := dns.HINFO{
+			Hdr: *header,
+		}
+
+		return &hinfo, nil
+	case dns.TypeMB:
+		fmt.Printf("MB: %+v\n", rec.Rrdata)
+		var recMB MB
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recMB); err != nil {
+			return nil, err
+		}
+		mb := dns.MB{
+			Hdr: *header,
+		}
+
+		return &mb, nil
+	case dns.TypeMG:
+		fmt.Printf("MG: %+v\n", rec.Rrdata)
+		var recMG MG
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recMG); err != nil {
+			return nil, err
+		}
+		mg := dns.MG{
+			Hdr: *header,
+		}
+
+		return &mg, nil
+	case dns.TypeMINFO:
+		fmt.Printf("MINFO: %+v\n", rec.Rrdata)
+		var recMINFO MINFO
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recMINFO); err != nil {
+			return nil, err
+		}
+		minfo := dns.MINFO{
+			Hdr: *header,
+		}
+
+		return &minfo, nil
+	case dns.TypeMR:
+		fmt.Printf("MR: %+v\n", rec.Rrdata)
+		var recMR MR
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recMR); err != nil {
+			return nil, err
+		}
+		mr := dns.MR{
+			Hdr: *header,
+		}
+
+		return &mr, nil
+	case dns.TypeMF:
+		fmt.Printf("MF: %+v\n", rec.Rrdata)
+		var recMF MF
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recMF); err != nil {
+			return nil, err
+		}
+		mf := dns.MF{
+			Hdr: *header,
+		}
+
+		return &mf, nil
+	case dns.TypeMD:
+		fmt.Printf("MD: %+v\n", rec.Rrdata)
+		var recMD MD
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recMD); err != nil {
+			return nil, err
+		}
+		md := dns.MD{
+			Hdr: *header,
+		}
+
+		return &md, nil
+	case dns.TypeMX:
+		fmt.Printf("MX: %+v\n", rec.Rrdata)
+		var recMX MX
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recMX); err != nil {
+			return nil, err
+		}
+		mx := dns.MX{
+			Hdr: *header,
+		}
+
+		return &mx, nil
+	case dns.TypeAFSDB:
+		fmt.Printf("AFSDB: %+v\n", rec.Rrdata)
+		var recAFSDB AFSDB
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recAFSDB); err != nil {
+			return nil, err
+		}
+		afsdb := dns.AFSDB{
+			Hdr: *header,
+		}
+
+		return &afsdb, nil
+	case dns.TypeX25:
+		fmt.Printf("X25: %+v\n", rec.Rrdata)
+		var recX25 X25
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recX25); err != nil {
+			return nil, err
+		}
+		x25 := dns.X25{
+			Hdr: *header,
+		}
+
+		return &x25, nil
+	case dns.TypeRT:
+		fmt.Printf("RT: %+v\n", rec.Rrdata)
+		var recRT RT
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recRT); err != nil {
+			return nil, err
+		}
+		rt := dns.RT{
+			Hdr: *header,
+		}
+
+		return &rt, nil
+	case dns.TypeNS:
+		fmt.Printf("NS: %+v\n", rec.Rrdata)
+		var recNS NS
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recNS); err != nil {
+			return nil, err
+		}
+		ns := dns.NS{
+			Hdr: *header,
+		}
+
+		return &ns, nil
+	case dns.TypePTR:
+		fmt.Printf("PTR: %+v\n", rec.Rrdata)
+		var recPTR PTR
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recPTR); err != nil {
+			return nil, err
+		}
+		ptr := dns.PTR{
+			Hdr: *header,
+		}
+
+		return &ptr, nil
+	case dns.TypeRP:
+		fmt.Printf("RP: %+v\n", rec.Rrdata)
+		var recRP RP
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recRP); err != nil {
+			return nil, err
+		}
+		rp := dns.RP{
+			Hdr: *header,
+		}
+
+		return &rp, nil
+	case dns.TypeTXT:
+		fmt.Printf("TXT: %+v\n", rec.Rrdata)
+		var recTXT TXT
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recTXT); err != nil {
+			return nil, err
+		}
+		txt := dns.TXT{
+			Hdr: *header,
+		}
+
+		return &txt, nil
+	case dns.TypeSPF:
+		fmt.Printf("SPF: %+v\n", rec.Rrdata)
+		var recSPF SPF
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recSPF); err != nil {
+			return nil, err
+		}
+		spf := dns.SPF{
+			Hdr: *header,
+		}
+
+		return &spf, nil
+	case dns.TypeAVC:
+		fmt.Printf("AVC: %+v\n", rec.Rrdata)
+		var recAVC AVC
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recAVC); err != nil {
+			return nil, err
+		}
+		avc := dns.AVC{
+			Hdr: *header,
+		}
+
+		return &avc, nil
+	case dns.TypeSRV:
+		fmt.Printf("SRV: %+v\n", rec.Rrdata)
+		var recSRV SRV
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recSRV); err != nil {
+			return nil, err
+		}
+		srv := dns.SRV{
+			Hdr: *header,
+		}
+
+		return &srv, nil
+	case dns.TypeNAPTR:
+		fmt.Printf("NAPTR: %+v\n", rec.Rrdata)
+		var recNAPTR NAPTR
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recNAPTR); err != nil {
+			return nil, err
+		}
+		naptr := dns.NAPTR{
+			Hdr: *header,
+		}
+
+		return &naptr, nil
+	case dns.TypeCERT:
+		fmt.Printf("CERT: %+v\n", rec.Rrdata)
+		var recCERT CERT
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recCERT); err != nil {
+			return nil, err
+		}
+		cert := dns.CERT{
+			Hdr: *header,
+		}
+
+		return &cert, nil
+	case dns.TypeDNAME:
+		fmt.Printf("DNAME: %+v\n", rec.Rrdata)
+		var recDNAME DNAME
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recDNAME); err != nil {
+			return nil, err
+		}
+		dname := dns.DNAME{
+			Hdr: *header,
+		}
+
+		return &dname, nil
+	case dns.TypeA:
+		fmt.Printf("A: %+v\n", rec.Rrdata)
+		var recA A
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recA); err != nil {
+			return nil, err
+		}
+		a := dns.A{
+			Hdr: *header,
+		}
+
+		return &a, nil
+	case dns.TypeAAAA:
+		fmt.Printf("AAAA: %+v\n", rec.Rrdata)
+		var recAAAA AAAA
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recAAAA); err != nil {
+			return nil, err
+		}
+		aaaa := dns.AAAA{
+			Hdr: *header,
+		}
+
+		return &aaaa, nil
+	case dns.TypePX:
+		fmt.Printf("PX: %+v\n", rec.Rrdata)
+		var recPX PX
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recPX); err != nil {
+			return nil, err
+		}
+		px := dns.PX{
+			Hdr: *header,
+		}
+
+		return &px, nil
+	case dns.TypeGPOS:
+		fmt.Printf("GPOS: %+v\n", rec.Rrdata)
+		var recGPOS GPOS
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recGPOS); err != nil {
+			return nil, err
+		}
+		gpos := dns.GPOS{
+			Hdr: *header,
+		}
+
+		return &gpos, nil
+	case dns.TypeLOC:
+		fmt.Printf("LOC: %+v\n", rec.Rrdata)
+		var recLOC LOC
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recLOC); err != nil {
+			return nil, err
+		}
+		loc := dns.LOC{
+			Hdr: *header,
+		}
+
+		return &loc, nil
+	case dns.TypeRRSIG:
+		fmt.Printf("RRSIG: %+v\n", rec.Rrdata)
+		var recRRSIG RRSIG
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recRRSIG); err != nil {
+			return nil, err
+		}
+		rrsig := dns.RRSIG{
+			Hdr: *header,
+		}
+
+		return &rrsig, nil
+	case dns.TypeNSEC:
+		fmt.Printf("NSEC: %+v\n", rec.Rrdata)
+		var recNSEC NSEC
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recNSEC); err != nil {
+			return nil, err
+		}
+		nsec := dns.NSEC{
+			Hdr: *header,
+		}
+
+		return &nsec, nil
+	case dns.TypeDS:
+		fmt.Printf("DS: %+v\n", rec.Rrdata)
+		var recDS DS
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recDS); err != nil {
+			return nil, err
+		}
+		ds := dns.DS{
+			Hdr: *header,
+		}
+
+		return &ds, nil
+	case dns.TypeKX:
+		fmt.Printf("KX: %+v\n", rec.Rrdata)
+		var recKX KX
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recKX); err != nil {
+			return nil, err
+		}
+		kx := dns.KX{
+			Hdr: *header,
+		}
+
+		return &kx, nil
+	case dns.TypeTA:
+		fmt.Printf("TA: %+v\n", rec.Rrdata)
+		var recTA TA
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recTA); err != nil {
+			return nil, err
+		}
+		ta := dns.TA{
+			Hdr: *header,
+		}
+
+		return &ta, nil
+	case dns.TypeTALINK:
+		fmt.Printf("TALINK: %+v\n", rec.Rrdata)
+		var recTALINK TALINK
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recTALINK); err != nil {
+			return nil, err
+		}
+		talink := dns.TALINK{
+			Hdr: *header,
+		}
+
+		return &talink, nil
+	case dns.TypeSSHFP:
+		fmt.Printf("SSHFP: %+v\n", rec.Rrdata)
+		var recSSHFP SSHFP
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recSSHFP); err != nil {
+			return nil, err
+		}
+		sshfp := dns.SSHFP{
+			Hdr: *header,
+		}
+
+		return &sshfp, nil
+	case dns.TypeDNSKEY:
+		fmt.Printf("DNSKEY: %+v\n", rec.Rrdata)
+		var recDNSKEY DNSKEY
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recDNSKEY); err != nil {
+			return nil, err
+		}
+		dnskey := dns.DNSKEY{
+			Hdr: *header,
+		}
+
+		return &dnskey, nil
+	case dns.TypeIPSECKEY:
+		fmt.Printf("IPSECKEY: %+v\n", rec.Rrdata)
+		var recIPSECKEY IPSECKEY
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recIPSECKEY); err != nil {
+			return nil, err
+		}
+		ipseckey := dns.IPSECKEY{
+			Hdr: *header,
+		}
+
+		return &ipseckey, nil
+	case dns.TypeAMTRELAY:
+		fmt.Printf("AMTRELAY: %+v\n", rec.Rrdata)
+		var recAMTRELAY AMTRELAY
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recAMTRELAY); err != nil {
+			return nil, err
+		}
+		amtrelay := dns.AMTRELAY{
+			Hdr: *header,
+		}
+
+		return &amtrelay, nil
+	case dns.TypeRKEY:
+		fmt.Printf("RKEY: %+v\n", rec.Rrdata)
+		var recRKEY RKEY
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recRKEY); err != nil {
+			return nil, err
+		}
+		rkey := dns.RKEY{
+			Hdr: *header,
+		}
+
+		return &rkey, nil
+	case dns.TypeNSAPPTR:
+		fmt.Printf("NSAPPTR: %+v\n", rec.Rrdata)
+		var recNSAPPTR NSAPPTR
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recNSAPPTR); err != nil {
+			return nil, err
+		}
+		nsapptr := dns.NSAPPTR{
+			Hdr: *header,
+		}
+
+		return &nsapptr, nil
+	case dns.TypeNSEC3:
+		fmt.Printf("NSEC3: %+v\n", rec.Rrdata)
+		var recNSEC3 NSEC3
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recNSEC3); err != nil {
+			return nil, err
+		}
+		nsec3 := dns.NSEC3{
+			Hdr: *header,
+		}
+
+		return &nsec3, nil
+	case dns.TypeNSEC3PARAM:
+		fmt.Printf("NSEC3PARAM: %+v\n", rec.Rrdata)
+		var recNSEC3PARAM NSEC3PARAM
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recNSEC3PARAM); err != nil {
+			return nil, err
+		}
+		nsec3param := dns.NSEC3PARAM{
+			Hdr: *header,
+		}
+
+		return &nsec3param, nil
+	case dns.TypeTKEY:
+		fmt.Printf("TKEY: %+v\n", rec.Rrdata)
+		var recTKEY TKEY
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recTKEY); err != nil {
+			return nil, err
+		}
+		tkey := dns.TKEY{
+			Hdr: *header,
+		}
+
+		return &tkey, nil
+	case dns.TypeURI:
+		fmt.Printf("URI: %+v\n", rec.Rrdata)
+		var recURI URI
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recURI); err != nil {
+			return nil, err
+		}
+		uri := dns.URI{
+			Hdr: *header,
+		}
+
+		return &uri, nil
+	case dns.TypeDHCID:
+		fmt.Printf("DHCID: %+v\n", rec.Rrdata)
+		var recDHCID DHCID
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recDHCID); err != nil {
+			return nil, err
+		}
+		dhcid := dns.DHCID{
+			Hdr: *header,
+		}
+
+		return &dhcid, nil
+	case dns.TypeTLSA:
+		fmt.Printf("TLSA: %+v\n", rec.Rrdata)
+		var recTLSA TLSA
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recTLSA); err != nil {
+			return nil, err
+		}
+		tlsa := dns.TLSA{
+			Hdr: *header,
+		}
+
+		return &tlsa, nil
+	case dns.TypeSMIMEA:
+		fmt.Printf("SMIMEA: %+v\n", rec.Rrdata)
+		var recSMIMEA SMIMEA
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recSMIMEA); err != nil {
+			return nil, err
+		}
+		smimea := dns.SMIMEA{
+			Hdr: *header,
+		}
+
+		return &smimea, nil
+	case dns.TypeHIP:
+		fmt.Printf("HIP: %+v\n", rec.Rrdata)
+		var recHIP HIP
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recHIP); err != nil {
+			return nil, err
+		}
+		hip := dns.HIP{
+			Hdr: *header,
+		}
+
+		return &hip, nil
+	case dns.TypeNINFO:
+		fmt.Printf("NINFO: %+v\n", rec.Rrdata)
+		var recNINFO NINFO
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recNINFO); err != nil {
+			return nil, err
+		}
+		ninfo := dns.NINFO{
+			Hdr: *header,
+		}
+
+		return &ninfo, nil
+	case dns.TypeNID:
+		fmt.Printf("NID: %+v\n", rec.Rrdata)
+		var recNID NID
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recNID); err != nil {
+			return nil, err
+		}
+		nid := dns.NID{
+			Hdr: *header,
+		}
+
+		return &nid, nil
+	case dns.TypeL32:
+		fmt.Printf("L32: %+v\n", rec.Rrdata)
+		var recL32 L32
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recL32); err != nil {
+			return nil, err
+		}
+		l32 := dns.L32{
+			Hdr: *header,
+		}
+
+		return &l32, nil
+	case dns.TypeL64:
+		fmt.Printf("L64: %+v\n", rec.Rrdata)
+		var recL64 L64
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recL64); err != nil {
+			return nil, err
+		}
+		l64 := dns.L64{
+			Hdr: *header,
+		}
+
+		return &l64, nil
+	case dns.TypeLP:
+		fmt.Printf("LP: %+v\n", rec.Rrdata)
+		var recLP LP
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recLP); err != nil {
+			return nil, err
+		}
+		lp := dns.LP{
+			Hdr: *header,
+		}
+
+		return &lp, nil
+	case dns.TypeEUI48:
+		fmt.Printf("EUI48: %+v\n", rec.Rrdata)
+		var recEUI48 EUI48
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recEUI48); err != nil {
+			return nil, err
+		}
+		eui48 := dns.EUI48{
+			Hdr: *header,
+		}
+
+		return &eui48, nil
+	case dns.TypeEUI64:
+		fmt.Printf("EUI64: %+v\n", rec.Rrdata)
+		var recEUI64 EUI64
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recEUI64); err != nil {
+			return nil, err
+		}
+		eui64 := dns.EUI64{
+			Hdr: *header,
+		}
+
+		return &eui64, nil
+	case dns.TypeCAA:
+		fmt.Printf("CAA: %+v\n", rec.Rrdata)
+		var recCAA CAA
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recCAA); err != nil {
+			return nil, err
+		}
+		caa := dns.CAA{
+			Hdr: *header,
+		}
+
+		return &caa, nil
+	case dns.TypeEID:
+		fmt.Printf("EID: %+v\n", rec.Rrdata)
+		var recEID EID
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recEID); err != nil {
+			return nil, err
+		}
+		eid := dns.EID{
+			Hdr: *header,
+		}
+
+		return &eid, nil
+	case dns.TypeNIMLOC:
+		fmt.Printf("NIMLOC: %+v\n", rec.Rrdata)
+		var recNIMLOC NIMLOC
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recNIMLOC); err != nil {
+			return nil, err
+		}
+		nimloc := dns.NIMLOC{
+			Hdr: *header,
+		}
+
+		return &nimloc, nil
+	case dns.TypeOPENPGPKEY:
+		fmt.Printf("OPENPGPKEY: %+v\n", rec.Rrdata)
+		var recOPENPGPKEY OPENPGPKEY
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recOPENPGPKEY); err != nil {
+			return nil, err
+		}
+		openpgpkey := dns.OPENPGPKEY{
+			Hdr: *header,
+		}
+
+		return &openpgpkey, nil
+	case dns.TypeCSYNC:
+		fmt.Printf("CSYNC: %+v\n", rec.Rrdata)
+		var recCSYNC CSYNC
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recCSYNC); err != nil {
+			return nil, err
+		}
+		csync := dns.CSYNC{
+			Hdr: *header,
+		}
+
+		return &csync, nil
+	case dns.TypeZONEMD:
+		fmt.Printf("ZONEMD: %+v\n", rec.Rrdata)
+		var recZONEMD ZONEMD
+		if err := json.Unmarshal([]byte(rec.Rrdata), &recZONEMD); err != nil {
+			return nil, err
+		}
+		zonemd := dns.ZONEMD{
+			Hdr: *header,
+		}
+
+		return &zonemd, nil
+
+	default:
+		return nil, fmt.Errorf("unknown dns.RR")
 	}
 }

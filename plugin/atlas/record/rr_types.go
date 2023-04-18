@@ -163,10 +163,11 @@ type LOC struct {
 	Altitude  uint32 `json:"altitude"`
 }
 
+// TODO(jproxx): fix that
 // SIG RR. See RFC 2535. The SIG RR is identical to RRSIG and nowadays only used for SIG(0), See RFC 2931.
-type SIG struct {
-	RRSIG
-}
+// type SIG struct {
+// 	RRSIG
+// }
 
 // RRSIG RR. See RFC 4034 and RFC 3755.
 type RRSIG struct {
@@ -187,11 +188,13 @@ type NSEC struct {
 	TypeBitMap []uint16 `json:"type_bit_map"`
 }
 
+// TODO(jproxx): fix that
 // DLV RR. See RFC 4431.
-type DLV struct{ DS }
+// type DLV struct{ DS }
 
+// TODO(jproxx): fix that
 // CDS RR. See RFC 7344.
-type CDS struct{ DS }
+// type CDS struct{ DS }
 
 // DS RR. See RFC 4034 and RFC 3658.
 type DS struct {
@@ -227,15 +230,17 @@ type SSHFP struct {
 	FingerPrint string `json:"finger_print"`
 }
 
+// TODO(jproxx): fix that
 // KEY RR. See RFC RFC 2535.
-type KEY struct {
-	DNSKEY
-}
+// type KEY struct {
+// 	DNSKEY
+// }
 
+// TODO(jproxx): fix that
 // CDNSKEY RR. See RFC 7344.
-type CDNSKEY struct {
-	DNSKEY
-}
+//type CDNSKEY struct {
+//	DNSKEY
+//}
 
 // DNSKEY RR. See RFC 4034 and RFC 3755.
 type DNSKEY struct {
@@ -310,10 +315,11 @@ type TKEY struct {
 	OtherData  string `json:"other_data"`
 }
 
+// TODO(jproxx): fix that
 // RFC3597 represents an unknown/generic RR. See RFC 3597.
-type RFC3597 struct {
-	Rdata string `json:"rdata"`
-}
+// type RFC3597 struct {
+// 	Rdata string `json:"rdata"`
+// }
 
 // URI RR. See RFC 7553.
 type URI struct {
@@ -428,13 +434,14 @@ type ZONEMD struct {
 	Digest string `json:"digest"`
 }
 
+// TODO(jproxx): fix that
 // APL RR. See RFC 3123.
-type APL struct {
-	Prefixes []APLPrefix `json:"prefixes"`
-}
-
+// type APL struct {
+// 	Prefixes []APLPrefix `json:"prefixes"`
+// }
+// TODO(jproxx): fix that
 // APLPrefix is an address prefix hold by an APL record.
-type APLPrefix struct {
-	Negation bool      `json:"negation"`
-	Network  net.IPNet `json:"network"`
-}
+// type APLPrefix struct {
+// 	Negation bool      `json:"negation"`
+// 	Network  net.IPNet `json:"network"`
+// }
