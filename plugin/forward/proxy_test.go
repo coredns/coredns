@@ -11,7 +11,9 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+
 	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/miekg/dns"
 )
@@ -148,59 +150,139 @@ func TestMalformedSpoof1(t *testing.T) {
 	}
 }
 
-func example() {
-
-}
-
+// TestMalformedSpoof tests that a malformed UDP response spoofed to the client's (proxy) source port shouldn't
+// block the real response from reaching the client. Note that the spoofed response is an invalid dns payload,
+// and contains no message id.
 func TestMalformedSpoof(t *testing.T) {
-	// Stucture:
+	// Test Flow/Stucture:
 	// [dnstest client] <-> [forward plugin controller] <-[packet sniffing and injection]-> [upstream dns]
+	// 1. dnstest client makes request to forward controller
+	// 2. forward controller sends the request upstream
+	// 3. packet sniffer detects the request and injects a malformed spoof response before the upstream server responds
+	//    with the real answer.
+	// 4. forward receives malformed response, rejects it, and continues waiting for a valid response.
+	// 5. forward receives valid response and forwards it down to dnstest client
 
+	inject := make(chan struct{})
 	// start upstream server
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		<-inject // wait until the request is intercepted and spoof is injected
+		if r.Question[0].Qtype == dns.TypeNS {
+			ret := new(dns.Msg)
+			ret.SetReply(r)
+
+			ret.Answer = append(ret.Answer, test.NS(". IN NS ."))
+			w.WriteMsg(ret)
+			return
+		}
 		ret := new(dns.Msg)
 		ret.SetReply(r)
 		ret.Answer = append(ret.Answer, test.A("example.org. IN A 1.2.3.4"))
 		w.WriteMsg(ret)
 	})
 	defer s.Close()
-	println("upstream dns listening on " + s.Addr)
 	_, serverPort, _ := plugin.SplitHostPort(s.Addr)
 
-	// Start packet sniffer
-	handle, err := pcap.OpenLive("lo0", 1024, true, 30 * time.Second)
+	// Start packet sniffer/injector
+	// open live capture on loopback device: NOTE -1 timeout = flush packets to channel immediately
+	handle, err := pcap.OpenLive("lo", 65535, false, -1) // linux naming
 	if err != nil {
-		t.Fatal(err)
+		handle, err = pcap.OpenLive("lo0", 65535, false, -1) // MacOS/BSD naming
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	defer handle.Close()
-	// Set filter
+	// set capture filter
 	var filter string = "udp and port " + serverPort
-	println("packet filter = "+ filter)
 	err = handle.SetBPFFilter(filter)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// process all packets
+	// process packets
+	malformedPayload := "malformedresponse"
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	go func() {
+		pktNum := 0
 		for packet := range packetSource.Packets() {
-			// Process packet here
-			fmt.Printf("sniffed packet: %v\n", packet)
+			if err != nil {
+				t.Fatal("failed to sniff request packet")
+			}
+			pktNum++
+			// log some info about the sniffed packet
+			if string(packet.ApplicationLayer().Payload()) == malformedPayload {
+				fmt.Printf("packet %v <- malformed/spoofed response\n", pktNum)
+			} else {
+				// decode the dns layer
+				dnsPkt := layers.DNS{}
+				err := dnsPkt.DecodeFromBytes(packet.ApplicationLayer().Payload(), nil)
+				if err != nil {
+					t.Fatalf("captured unexpected invalid dns packet: %v\n", err)
+				} else {
+					if uint16(dnsPkt.Questions[0].Type) == dns.TypeNS && !dnsPkt.QR {
+						fmt.Printf("packet %v -> forward health check request\n", pktNum)
+					}
+					if uint16(dnsPkt.Questions[0].Type) == dns.TypeNS && dnsPkt.QR {
+						fmt.Printf("packet %v <- server health response\n", pktNum)
+					}
+					if uint16(dnsPkt.Questions[0].Type) == dns.TypeA && !dnsPkt.QR {
+						fmt.Printf("packet %v -> forwarded A request\n", pktNum)
+					}
+					if uint16(dnsPkt.Questions[0].Type) == dns.TypeA && dnsPkt.QR {
+						fmt.Printf("packet %v <- server A response\n", pktNum)
+					}
+				}
+			}
+
+			// simulate some network delay
+			time.Sleep(time.Millisecond * 50)
+
+			// If this is a request (dest port == server's udp port), build and inject a spoofed response.
+			udp := packet.Layer(layers.LayerTypeUDP).(*layers.UDP)
+			if fmt.Sprintf("%v", udp.DstPort) == serverPort {
+				// construct spoofed response
+				var linkLayer gopacket.SerializableLayer
+				// handle bsd vs linux loopback link layer encapsulation differences
+				if linkLo, ok := packet.Layer(layers.LayerTypeLoopback).(*layers.Loopback); ok { //bsd
+					linkLayer = &layers.Loopback{Family: linkLo.Family}
+				} else if linkEth, ok := packet.Layer(layers.LayerTypeEthernet).(*layers.Ethernet); ok { //linux
+					linkLayer = &layers.Ethernet{SrcMAC: linkEth.SrcMAC, DstMAC: linkEth.DstMAC, EthernetType: linkEth.EthernetType}
+				}
+				ipv6 := packet.Layer(layers.LayerTypeIPv6).(*layers.IPv6)
+				ipLayer := &layers.IPv6{Version: 6, SrcIP: ipv6.DstIP, DstIP: ipv6.SrcIP, HopLimit: 64, NextHeader: layers.IPProtocolUDP}
+				udpLayer := &layers.UDP{SrcPort: udp.DstPort, DstPort: udp.SrcPort}
+				udpLayer.SetNetworkLayerForChecksum(ipLayer)
+				payload := gopacket.Payload(gopacket.Payload(malformedPayload))
+				spoof := gopacket.NewSerializeBuffer()
+				err := gopacket.SerializeLayers(spoof,
+					gopacket.SerializeOptions{ComputeChecksums: true, FixLengths: true},
+					linkLayer, ipLayer, udpLayer, payload,
+				)
+				if err != nil {
+					t.Fatalf("serialization of spoof failed: %v\n", err)
+				}
+
+				// inject spoofed response
+				err = handle.WritePacketData(spoof.Bytes())
+				if err != nil {
+					t.Fatalf("write spoof packet fail: %v\n", err)
+				}
+				// unblock the server, so it can send the real response
+				inject <- struct{}{}
+			}
 		}
 	}()
-	time.Sleep(30 * time.Second)
 
 	// Create forward plugin instance
 	// configure forward plugin to forward to upstream dns server
-	println("forward plugin to = " + s.Addr)
-	//c := caddy.NewTestController("dns", "forward . "+s.Addr)
-	c := caddy.NewTestController("dns", "forward . [::1]:"+serverPort)
+	c := caddy.NewTestController("dns", "forward . "+s.Addr)
 	fs, err := parseForward(c)
-	f := fs[0]
 	if err != nil {
 		t.Errorf("Failed to create forward plugin controller: %s", err)
 	}
+	f := fs[0]
+
 	f.OnStartup()
 	defer f.OnShutdown()
 
@@ -208,14 +290,11 @@ func TestMalformedSpoof(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("example.org.", dns.TypeA)
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
-	println("serving query " + m.Question[0].Name)
-
 	if _, err := f.ServeDNS(context.TODO(), rec, m); err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
-	println("got answer ")
 	if x := rec.Msg.Answer[0].Header().Name; x != "example.org." {
 		t.Errorf("Expected %s, got %s", "example.org.", x)
 	}
-	println("done test ")
+	time.Sleep(time.Second) // crude sleep to allow packet sniffer to see all packets before ending test
 }
