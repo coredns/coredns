@@ -276,11 +276,11 @@ func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 	}
 	if value, ok := drc.mutation.CreatedAt(); ok {
 		_spec.SetField(dnsrr.FieldCreatedAt, field.TypeTime, value)
-		_node.CreatedAt = value
+		_node.CreatedAt = &value
 	}
 	if value, ok := drc.mutation.UpdatedAt(); ok {
 		_spec.SetField(dnsrr.FieldUpdatedAt, field.TypeTime, value)
-		_node.UpdatedAt = value
+		_node.UpdatedAt = &value
 	}
 	if value, ok := drc.mutation.Name(); ok {
 		_spec.SetField(dnsrr.FieldName, field.TypeString, value)
@@ -304,7 +304,7 @@ func (drc *DnsRRCreate) createSpec() (*DnsRR, *sqlgraph.CreateSpec) {
 	}
 	if value, ok := drc.mutation.Activated(); ok {
 		_spec.SetField(dnsrr.FieldActivated, field.TypeBool, value)
-		_node.Activated = value
+		_node.Activated = &value
 	}
 	if nodes := drc.mutation.ZoneIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

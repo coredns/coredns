@@ -83,7 +83,6 @@ func (a Atlas) getRRecords(ctx context.Context, reqName string, reqQType uint16)
 			dnsrr.FieldRrtype,
 			dnsrr.FieldRrdata,
 			dnsrr.FieldTTL,
-			dnsrr.FieldActivated,
 		).
 		Where(
 			dnsrr.And(

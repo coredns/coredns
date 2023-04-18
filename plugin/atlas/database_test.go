@@ -165,5 +165,5 @@ func TestAtlas_OpenAtlasDB_TableMigration(t *testing.T) {
 	require.Equal(t, "bla.com.", dnsrr.Name)
 	require.Equal(t, uint32(3600), dnsrr.TTL)
 	require.Equal(t, 20, len(dnsrr.ID.String()))
-	require.True(t, dnsrr.Activated)
+	require.True(t, *dnsrr.Activated)
 }

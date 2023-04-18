@@ -48,6 +48,7 @@ func (DnsRR) Fields() []ent.Field {
 
 		field.Bool("activated").
 			Default(true).
+			Nillable().
 			Comment("only activated resource records will be served"),
 	}
 }

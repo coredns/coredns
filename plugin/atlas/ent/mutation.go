@@ -176,7 +176,7 @@ func (m *DnsRRMutation) CreatedAt() (r time.Time, exists bool) {
 // OldCreatedAt returns the old "created_at" field's value of the DnsRR entity.
 // If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DnsRRMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+func (m *DnsRRMutation) OldCreatedAt(ctx context.Context) (v *time.Time, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
 	}
@@ -212,7 +212,7 @@ func (m *DnsRRMutation) UpdatedAt() (r time.Time, exists bool) {
 // OldUpdatedAt returns the old "updated_at" field's value of the DnsRR entity.
 // If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DnsRRMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+func (m *DnsRRMutation) OldUpdatedAt(ctx context.Context) (v *time.Time, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
 	}
@@ -488,7 +488,7 @@ func (m *DnsRRMutation) Activated() (r bool, exists bool) {
 // OldActivated returns the old "activated" field's value of the DnsRR entity.
 // If the DnsRR object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DnsRRMutation) OldActivated(ctx context.Context) (v bool, err error) {
+func (m *DnsRRMutation) OldActivated(ctx context.Context) (v *bool, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldActivated is only allowed on UpdateOne operations")
 	}
@@ -1067,7 +1067,7 @@ func (m *DnsZoneMutation) CreatedAt() (r time.Time, exists bool) {
 // OldCreatedAt returns the old "created_at" field's value of the DnsZone entity.
 // If the DnsZone object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DnsZoneMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+func (m *DnsZoneMutation) OldCreatedAt(ctx context.Context) (v *time.Time, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
 	}
@@ -1103,7 +1103,7 @@ func (m *DnsZoneMutation) UpdatedAt() (r time.Time, exists bool) {
 // OldUpdatedAt returns the old "updated_at" field's value of the DnsZone entity.
 // If the DnsZone object wasn't provided to the builder, the object is fetched from the database.
 // An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *DnsZoneMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+func (m *DnsZoneMutation) OldUpdatedAt(ctx context.Context) (v *time.Time, err error) {
 	if !m.op.Is(OpUpdateOne) {
 		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
 	}

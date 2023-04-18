@@ -19,9 +19,9 @@ type DnsZone struct {
 	// record identifier
 	ID xid.ID `json:"id,omitempty"`
 	// record creation date
-	CreatedAt time.Time `json:"created_at,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
 	// record update date
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 	// dns zone name must be end with a dot '.' ex: 'example.com.'
 	Name string `json:"name,omitempty"`
 	// resource record type
@@ -109,13 +109,15 @@ func (dz *DnsZone) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
 			} else if value.Valid {
-				dz.CreatedAt = value.Time
+				dz.CreatedAt = new(time.Time)
+				*dz.CreatedAt = value.Time
 			}
 		case dnszone.FieldUpdatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
 			} else if value.Valid {
-				dz.UpdatedAt = value.Time
+				dz.UpdatedAt = new(time.Time)
+				*dz.UpdatedAt = value.Time
 			}
 		case dnszone.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -222,11 +224,15 @@ func (dz *DnsZone) String() string {
 	var builder strings.Builder
 	builder.WriteString("DnsZone(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", dz.ID))
-	builder.WriteString("created_at=")
-	builder.WriteString(dz.CreatedAt.Format(time.ANSIC))
+	if v := dz.CreatedAt; v != nil {
+		builder.WriteString("created_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
-	builder.WriteString("updated_at=")
-	builder.WriteString(dz.UpdatedAt.Format(time.ANSIC))
+	if v := dz.UpdatedAt; v != nil {
+		builder.WriteString("updated_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(dz.Name)

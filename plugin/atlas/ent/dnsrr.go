@@ -20,9 +20,9 @@ type DnsRR struct {
 	// record identifier
 	ID xid.ID `json:"id,omitempty"`
 	// record creation date
-	CreatedAt time.Time `json:"created_at,omitempty"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
 	// record update date
-	UpdatedAt time.Time `json:"updated_at,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
 	// Name holds the value of the "name" field.
 	Name string `json:"name,omitempty"`
 	// resource record type
@@ -34,7 +34,7 @@ type DnsRR struct {
 	// Time-to-live
 	TTL uint32 `json:"ttl,omitempty"`
 	// only activated resource records will be served
-	Activated bool `json:"activated,omitempty"`
+	Activated *bool `json:"activated,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the DnsRRQuery when eager-loading is set.
 	Edges            DnsRREdges `json:"edges"`
@@ -105,13 +105,15 @@ func (dr *DnsRR) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
 			} else if value.Valid {
-				dr.CreatedAt = value.Time
+				dr.CreatedAt = new(time.Time)
+				*dr.CreatedAt = value.Time
 			}
 		case dnsrr.FieldUpdatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field updated_at", values[i])
 			} else if value.Valid {
-				dr.UpdatedAt = value.Time
+				dr.UpdatedAt = new(time.Time)
+				*dr.UpdatedAt = value.Time
 			}
 		case dnsrr.FieldName:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -147,7 +149,8 @@ func (dr *DnsRR) assignValues(columns []string, values []any) error {
 			if value, ok := values[i].(*sql.NullBool); !ok {
 				return fmt.Errorf("unexpected type %T for field activated", values[i])
 			} else if value.Valid {
-				dr.Activated = value.Bool
+				dr.Activated = new(bool)
+				*dr.Activated = value.Bool
 			}
 		case dnsrr.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullScanner); !ok {
@@ -189,11 +192,15 @@ func (dr *DnsRR) String() string {
 	var builder strings.Builder
 	builder.WriteString("DnsRR(")
 	builder.WriteString(fmt.Sprintf("id=%v, ", dr.ID))
-	builder.WriteString("created_at=")
-	builder.WriteString(dr.CreatedAt.Format(time.ANSIC))
+	if v := dr.CreatedAt; v != nil {
+		builder.WriteString("created_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
-	builder.WriteString("updated_at=")
-	builder.WriteString(dr.UpdatedAt.Format(time.ANSIC))
+	if v := dr.UpdatedAt; v != nil {
+		builder.WriteString("updated_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
 	builder.WriteString(", ")
 	builder.WriteString("name=")
 	builder.WriteString(dr.Name)
@@ -210,8 +217,10 @@ func (dr *DnsRR) String() string {
 	builder.WriteString("ttl=")
 	builder.WriteString(fmt.Sprintf("%v", dr.TTL))
 	builder.WriteString(", ")
-	builder.WriteString("activated=")
-	builder.WriteString(fmt.Sprintf("%v", dr.Activated))
+	if v := dr.Activated; v != nil {
+		builder.WriteString("activated=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
 	builder.WriteByte(')')
 	return builder.String()
 }

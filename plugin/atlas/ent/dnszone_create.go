@@ -421,11 +421,11 @@ func (dzc *DnsZoneCreate) createSpec() (*DnsZone, *sqlgraph.CreateSpec) {
 	}
 	if value, ok := dzc.mutation.CreatedAt(); ok {
 		_spec.SetField(dnszone.FieldCreatedAt, field.TypeTime, value)
-		_node.CreatedAt = value
+		_node.CreatedAt = &value
 	}
 	if value, ok := dzc.mutation.UpdatedAt(); ok {
 		_spec.SetField(dnszone.FieldUpdatedAt, field.TypeTime, value)
-		_node.UpdatedAt = value
+		_node.UpdatedAt = &value
 	}
 	if value, ok := dzc.mutation.Name(); ok {
 		_spec.SetField(dnszone.FieldName, field.TypeString, value)

@@ -39,6 +39,7 @@ func (XidMixin) Fields() []ent.Field {
 		field.Time("created_at").
 			Immutable().
 			Default(time.Now).
+			Nillable().
 			Comment("record creation date").
 			Annotations(
 			//entgql.OrderField("CREATED_AT"),
@@ -49,6 +50,7 @@ func (XidMixin) Fields() []ent.Field {
 		field.Time("updated_at").
 			Default(time.Now).
 			UpdateDefault(time.Now).
+			Nillable().
 			Comment("record update date").
 			Annotations(
 			// entgql.OrderField("UPDATED_AT"),
