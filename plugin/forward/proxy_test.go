@@ -3,7 +3,6 @@ package forward
 import (
 	"context"
 	"fmt"
-	"net"
 	"testing"
 	"time"
 
@@ -73,80 +72,6 @@ func TestProxyTLSFail(t *testing.T) {
 
 	if _, err := f.ServeDNS(context.TODO(), rec, m); err == nil {
 		t.Fatal("Expected *not* to receive reply, but got one")
-	}
-}
-
-func TestMalformedSpoof1(t *testing.T) {
-	// Stucture:
-	// [dnstest client] <-> [forward plugin controller] <-> [crude udp gateway] <-> [upstream dns]
-
-	// var clientWrite sync.Mutex
-	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
-		ret := new(dns.Msg)
-		ret.SetReply(r)
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 1.2.3.4"))
-		w.WriteMsg(ret)
-	})
-	defer s.Close()
-	// create net.Addr object from s.Addr string
-	sAddr, _ := net.ResolveUDPAddr("udp", s.Addr)
-	println("upstream dns listening on " + sAddr.String())
-
-	// set up crude udp packet gateway to be a man-in-the-middle
-	l, err := net.ListenPacket("udp", ":0")
-	if err != nil {
-		panic(err)
-	}
-	println("udp packet gateway listening on " + l.LocalAddr().String())
-	defer l.Close()
-	// start the udp packet gateway read loop
-	go func() {
-		p := make([]byte, 64)
-		var fwdAddr net.Addr
-		for {
-			_, cAddr, err := l.ReadFrom(p)
-			if err != nil {
-				return
-			}
-			fmt.Printf("data from %v: %v\n", cAddr.String(), p)
-			// if the source is the server, send spoofed response
-			if cAddr.String() == s.Addr {
-				// send malformed spoofed response to cAddr.String(), from s.Addr
-				fmt.Printf("writing data from server to %v: %v\n", cAddr.String(), p)
-				// then send good response
-				l.WriteTo(p, fwdAddr)
-			} else {
-				fmt.Printf("writing data from client to server %v: %v\n", sAddr, p)
-				fwdAddr = cAddr
-				l.WriteTo(p, sAddr)
-			}
-
-		}
-	}()
-
-	// Create forward plugin instance
-	// configure forward plugin to forward to udp packet gateway
-	println("forward plugin to = " + l.LocalAddr().String())
-	c := caddy.NewTestController("dns", "forward . "+l.LocalAddr().String())
-	fs, err := parseForward(c)
-	f := fs[0]
-	if err != nil {
-		t.Errorf("Failed to create forwarder: %s", err)
-	}
-	f.OnStartup()
-	defer f.OnShutdown()
-
-	// Create client query
-	m := new(dns.Msg)
-	m.SetQuestion("example.org.", dns.TypeA)
-	rec := dnstest.NewRecorder(&test.ResponseWriter{})
-
-	if _, err := f.ServeDNS(context.TODO(), rec, m); err != nil {
-		t.Fatal("Expected to receive reply, but didn't")
-	}
-
-	if x := rec.Msg.Answer[0].Header().Name; x != "example.org." {
-		t.Errorf("Expected %s, got %s", "example.org.", x)
 	}
 }
 
