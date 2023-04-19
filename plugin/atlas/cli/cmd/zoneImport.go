@@ -154,54 +154,6 @@ func (o *ZoneImportOptions) Run() error {
 			if err := importRecord(client, zone, t, rec); err != nil {
 				return err
 			}
-		case *dns.MB:
-			rec, err := record.NewMB(t).Marshal()
-			if err != nil {
-				return err
-			}
-			if err := importRecord(client, zone, t, rec); err != nil {
-				return err
-			}
-		case *dns.MINFO:
-			rec, err := record.NewMINFO(t).Marshal()
-			if err != nil {
-				return err
-			}
-			if err := importRecord(client, zone, t, rec); err != nil {
-				return err
-			}
-		case *dns.MG:
-			rec, err := record.NewMG(t).Marshal()
-			if err != nil {
-				return err
-			}
-			if err := importRecord(client, zone, t, rec); err != nil {
-				return err
-			}
-		case *dns.MR:
-			rec, err := record.NewMR(t).Marshal()
-			if err != nil {
-				return err
-			}
-			if err := importRecord(client, zone, t, rec); err != nil {
-				return err
-			}
-		case *dns.MF:
-			rec, err := record.NewMF(t).Marshal()
-			if err != nil {
-				return err
-			}
-			if err := importRecord(client, zone, t, rec); err != nil {
-				return err
-			}
-		case *dns.MD:
-			rec, err := record.NewMD(t).Marshal()
-			if err != nil {
-				return err
-			}
-			if err := importRecord(client, zone, t, rec); err != nil {
-				return err
-			}
 		case *dns.TXT:
 			rec, err := record.NewTXT(t).Marshal()
 			if err != nil {
@@ -220,22 +172,6 @@ func (o *ZoneImportOptions) Run() error {
 			}
 		case *dns.AFSDB:
 			rec, err := record.NewAFSDB(t).Marshal()
-			if err != nil {
-				return err
-			}
-			if err := importRecord(client, zone, t, rec); err != nil {
-				return err
-			}
-		case *dns.X25:
-			rec, err := record.NewX25(t).Marshal()
-			if err != nil {
-				return err
-			}
-			if err := importRecord(client, zone, t, rec); err != nil {
-				return err
-			}
-		case *dns.RT:
-			rec, err := record.NewRT(t).Marshal()
 			if err != nil {
 				return err
 			}
@@ -285,14 +221,6 @@ func (o *ZoneImportOptions) Run() error {
 			}
 		case *dns.CAA:
 			rec, err := record.NewCAA(t).Marshal()
-			if err != nil {
-				return err
-			}
-			if err := importRecord(client, zone, t, rec); err != nil {
-				return err
-			}
-		case *dns.SPF:
-			rec, err := record.NewSPF(t).Marshal()
 			if err != nil {
 				return err
 			}

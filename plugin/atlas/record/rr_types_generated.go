@@ -43,103 +43,6 @@ func NewHINFO(rec *dns.HINFO) HINFO {
 	}
 }
 
-// Marshal MB RR and return json string and error if any
-func (rec MB) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewMB creates a record.MB from *dns.MB
-func NewMB(rec *dns.MB) MB {
-	return MB{
-		Mb: rec.Mb,
-	}
-}
-
-// Marshal MG RR and return json string and error if any
-func (rec MG) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewMG creates a record.MG from *dns.MG
-func NewMG(rec *dns.MG) MG {
-	return MG{
-		Mg: rec.Mg,
-	}
-}
-
-// Marshal MINFO RR and return json string and error if any
-func (rec MINFO) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewMINFO creates a record.MINFO from *dns.MINFO
-func NewMINFO(rec *dns.MINFO) MINFO {
-	return MINFO{
-		Rmail: rec.Rmail,
-		Email: rec.Email,
-	}
-}
-
-// Marshal MR RR and return json string and error if any
-func (rec MR) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewMR creates a record.MR from *dns.MR
-func NewMR(rec *dns.MR) MR {
-	return MR{
-		Mr: rec.Mr,
-	}
-}
-
-// Marshal MF RR and return json string and error if any
-func (rec MF) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewMF creates a record.MF from *dns.MF
-func NewMF(rec *dns.MF) MF {
-	return MF{
-		Mf: rec.Mf,
-	}
-}
-
-// Marshal MD RR and return json string and error if any
-func (rec MD) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewMD creates a record.MD from *dns.MD
-func NewMD(rec *dns.MD) MD {
-	return MD{
-		Md: rec.Md,
-	}
-}
-
 // Marshal MX RR and return json string and error if any
 func (rec MX) Marshal() (s string, e error) {
 	var m []byte
@@ -171,39 +74,6 @@ func NewAFSDB(rec *dns.AFSDB) AFSDB {
 	return AFSDB{
 		Subtype:  rec.Subtype,
 		Hostname: rec.Hostname,
-	}
-}
-
-// Marshal X25 RR and return json string and error if any
-func (rec X25) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewX25 creates a record.X25 from *dns.X25
-func NewX25(rec *dns.X25) X25 {
-	return X25{
-		PSDNAddress: rec.PSDNAddress,
-	}
-}
-
-// Marshal RT RR and return json string and error if any
-func (rec RT) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewRT creates a record.RT from *dns.RT
-func NewRT(rec *dns.RT) RT {
-	return RT{
-		Preference: rec.Preference,
-		Host:       rec.Host,
 	}
 }
 
@@ -268,38 +138,6 @@ func (rec TXT) Marshal() (s string, e error) {
 // NewTXT creates a record.TXT from *dns.TXT
 func NewTXT(rec *dns.TXT) TXT {
 	return TXT{
-		Txt: rec.Txt,
-	}
-}
-
-// Marshal SPF RR and return json string and error if any
-func (rec SPF) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewSPF creates a record.SPF from *dns.SPF
-func NewSPF(rec *dns.SPF) SPF {
-	return SPF{
-		Txt: rec.Txt,
-	}
-}
-
-// Marshal AVC RR and return json string and error if any
-func (rec AVC) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewAVC creates a record.AVC from *dns.AVC
-func NewAVC(rec *dns.AVC) AVC {
-	return AVC{
 		Txt: rec.Txt,
 	}
 }
@@ -408,42 +246,6 @@ func (rec AAAA) Marshal() (s string, e error) {
 func NewAAAA(rec *dns.AAAA) AAAA {
 	return AAAA{
 		AAAA: rec.AAAA,
-	}
-}
-
-// Marshal PX RR and return json string and error if any
-func (rec PX) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewPX creates a record.PX from *dns.PX
-func NewPX(rec *dns.PX) PX {
-	return PX{
-		Preference: rec.Preference,
-		Map822:     rec.Map822,
-		Mapx400:    rec.Mapx400,
-	}
-}
-
-// Marshal GPOS RR and return json string and error if any
-func (rec GPOS) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewGPOS creates a record.GPOS from *dns.GPOS
-func NewGPOS(rec *dns.GPOS) GPOS {
-	return GPOS{
-		Longitude: rec.Longitude,
-		Latitude:  rec.Latitude,
-		Altitude:  rec.Altitude,
 	}
 }
 
@@ -565,23 +367,6 @@ func NewTA(rec *dns.TA) TA {
 	}
 }
 
-// Marshal TALINK RR and return json string and error if any
-func (rec TALINK) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewTALINK creates a record.TALINK from *dns.TALINK
-func NewTALINK(rec *dns.TALINK) TALINK {
-	return TALINK{
-		PreviousName: rec.PreviousName,
-		NextName:     rec.NextName,
-	}
-}
-
 // Marshal SSHFP RR and return json string and error if any
 func (rec SSHFP) Marshal() (s string, e error) {
 	var m []byte
@@ -637,60 +422,6 @@ func NewIPSECKEY(rec *dns.IPSECKEY) IPSECKEY {
 		GatewayAddr: rec.GatewayAddr,
 		GatewayHost: rec.GatewayHost,
 		PublicKey:   rec.PublicKey,
-	}
-}
-
-// Marshal AMTRELAY RR and return json string and error if any
-func (rec AMTRELAY) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewAMTRELAY creates a record.AMTRELAY from *dns.AMTRELAY
-func NewAMTRELAY(rec *dns.AMTRELAY) AMTRELAY {
-	return AMTRELAY{
-		Precedence:  rec.Precedence,
-		GatewayType: rec.GatewayType,
-		GatewayAddr: rec.GatewayAddr,
-		GatewayHost: rec.GatewayHost,
-	}
-}
-
-// Marshal RKEY RR and return json string and error if any
-func (rec RKEY) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewRKEY creates a record.RKEY from *dns.RKEY
-func NewRKEY(rec *dns.RKEY) RKEY {
-	return RKEY{
-		Flags:     rec.Flags,
-		Protocol:  rec.Protocol,
-		Algorithm: rec.Algorithm,
-		PublicKey: rec.PublicKey,
-	}
-}
-
-// Marshal NSAPPTR RR and return json string and error if any
-func (rec NSAPPTR) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewNSAPPTR creates a record.NSAPPTR from *dns.NSAPPTR
-func NewNSAPPTR(rec *dns.NSAPPTR) NSAPPTR {
-	return NSAPPTR{
-		Ptr: rec.Ptr,
 	}
 }
 
@@ -854,90 +585,6 @@ func NewHIP(rec *dns.HIP) HIP {
 	}
 }
 
-// Marshal NINFO RR and return json string and error if any
-func (rec NINFO) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewNINFO creates a record.NINFO from *dns.NINFO
-func NewNINFO(rec *dns.NINFO) NINFO {
-	return NINFO{
-		ZSData: rec.ZSData,
-	}
-}
-
-// Marshal NID RR and return json string and error if any
-func (rec NID) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewNID creates a record.NID from *dns.NID
-func NewNID(rec *dns.NID) NID {
-	return NID{
-		Preference: rec.Preference,
-		NodeID:     rec.NodeID,
-	}
-}
-
-// Marshal L32 RR and return json string and error if any
-func (rec L32) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewL32 creates a record.L32 from *dns.L32
-func NewL32(rec *dns.L32) L32 {
-	return L32{
-		Preference: rec.Preference,
-		Locator32:  rec.Locator32,
-	}
-}
-
-// Marshal L64 RR and return json string and error if any
-func (rec L64) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewL64 creates a record.L64 from *dns.L64
-func NewL64(rec *dns.L64) L64 {
-	return L64{
-		Preference: rec.Preference,
-		Locator64:  rec.Locator64,
-	}
-}
-
-// Marshal LP RR and return json string and error if any
-func (rec LP) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewLP creates a record.LP from *dns.LP
-func NewLP(rec *dns.LP) LP {
-	return LP{
-		Preference: rec.Preference,
-		Fqdn:       rec.Fqdn,
-	}
-}
-
 // Marshal EUI48 RR and return json string and error if any
 func (rec EUI48) Marshal() (s string, e error) {
 	var m []byte
@@ -985,38 +632,6 @@ func NewCAA(rec *dns.CAA) CAA {
 		Flag:  rec.Flag,
 		Tag:   rec.Tag,
 		Value: rec.Value,
-	}
-}
-
-// Marshal EID RR and return json string and error if any
-func (rec EID) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewEID creates a record.EID from *dns.EID
-func NewEID(rec *dns.EID) EID {
-	return EID{
-		Endpoint: rec.Endpoint,
-	}
-}
-
-// Marshal NIMLOC RR and return json string and error if any
-func (rec NIMLOC) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewNIMLOC creates a record.NIMLOC from *dns.NIMLOC
-func NewNIMLOC(rec *dns.NIMLOC) NIMLOC {
-	return NIMLOC{
-		Locator: rec.Locator,
 	}
 }
 
@@ -1113,85 +728,6 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 
 		return &hinfo, nil
 
-	case dns.TypeMB:
-		var recMB MB
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recMB); err != nil {
-			return nil, err
-		}
-
-		mb := dns.MB{
-			Hdr: *header,
-			Mb:  recMB.Mb,
-		}
-
-		return &mb, nil
-
-	case dns.TypeMG:
-		var recMG MG
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recMG); err != nil {
-			return nil, err
-		}
-
-		mg := dns.MG{
-			Hdr: *header,
-			Mg:  recMG.Mg,
-		}
-
-		return &mg, nil
-
-	case dns.TypeMINFO:
-		var recMINFO MINFO
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recMINFO); err != nil {
-			return nil, err
-		}
-
-		minfo := dns.MINFO{
-			Hdr:   *header,
-			Rmail: recMINFO.Rmail,
-			Email: recMINFO.Email,
-		}
-
-		return &minfo, nil
-
-	case dns.TypeMR:
-		var recMR MR
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recMR); err != nil {
-			return nil, err
-		}
-
-		mr := dns.MR{
-			Hdr: *header,
-			Mr:  recMR.Mr,
-		}
-
-		return &mr, nil
-
-	case dns.TypeMF:
-		var recMF MF
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recMF); err != nil {
-			return nil, err
-		}
-
-		mf := dns.MF{
-			Hdr: *header,
-			Mf:  recMF.Mf,
-		}
-
-		return &mf, nil
-
-	case dns.TypeMD:
-		var recMD MD
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recMD); err != nil {
-			return nil, err
-		}
-
-		md := dns.MD{
-			Hdr: *header,
-			Md:  recMD.Md,
-		}
-
-		return &md, nil
-
 	case dns.TypeMX:
 		var recMX MX
 		if err := json.Unmarshal([]byte(rec.Rrdata), &recMX); err != nil {
@@ -1219,33 +755,6 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 
 		return &afsdb, nil
-
-	case dns.TypeX25:
-		var recX25 X25
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recX25); err != nil {
-			return nil, err
-		}
-
-		x25 := dns.X25{
-			Hdr:         *header,
-			PSDNAddress: recX25.PSDNAddress,
-		}
-
-		return &x25, nil
-
-	case dns.TypeRT:
-		var recRT RT
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recRT); err != nil {
-			return nil, err
-		}
-
-		rt := dns.RT{
-			Hdr:        *header,
-			Preference: recRT.Preference,
-			Host:       recRT.Host,
-		}
-
-		return &rt, nil
 
 	case dns.TypeNS:
 		var recNS NS
@@ -1299,32 +808,6 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 
 		return &txt, nil
-
-	case dns.TypeSPF:
-		var recSPF SPF
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recSPF); err != nil {
-			return nil, err
-		}
-
-		spf := dns.SPF{
-			Hdr: *header,
-			Txt: recSPF.Txt,
-		}
-
-		return &spf, nil
-
-	case dns.TypeAVC:
-		var recAVC AVC
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recAVC); err != nil {
-			return nil, err
-		}
-
-		avc := dns.AVC{
-			Hdr: *header,
-			Txt: recAVC.Txt,
-		}
-
-		return &avc, nil
 
 	case dns.TypeSRV:
 		var recSRV SRV
@@ -1414,36 +897,6 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 
 		return &aaaa, nil
-
-	case dns.TypePX:
-		var recPX PX
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recPX); err != nil {
-			return nil, err
-		}
-
-		px := dns.PX{
-			Hdr:        *header,
-			Preference: recPX.Preference,
-			Map822:     recPX.Map822,
-			Mapx400:    recPX.Mapx400,
-		}
-
-		return &px, nil
-
-	case dns.TypeGPOS:
-		var recGPOS GPOS
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recGPOS); err != nil {
-			return nil, err
-		}
-
-		gpos := dns.GPOS{
-			Hdr:       *header,
-			Longitude: recGPOS.Longitude,
-			Latitude:  recGPOS.Latitude,
-			Altitude:  recGPOS.Altitude,
-		}
-
-		return &gpos, nil
 
 	case dns.TypeLOC:
 		var recLOC LOC
@@ -1545,20 +998,6 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 
 		return &ta, nil
 
-	case dns.TypeTALINK:
-		var recTALINK TALINK
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recTALINK); err != nil {
-			return nil, err
-		}
-
-		talink := dns.TALINK{
-			Hdr:          *header,
-			PreviousName: recTALINK.PreviousName,
-			NextName:     recTALINK.NextName,
-		}
-
-		return &talink, nil
-
 	case dns.TypeSSHFP:
 		var recSSHFP SSHFP
 		if err := json.Unmarshal([]byte(rec.Rrdata), &recSSHFP); err != nil {
@@ -1607,51 +1046,6 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 
 		return &ipseckey, nil
-
-	case dns.TypeAMTRELAY:
-		var recAMTRELAY AMTRELAY
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recAMTRELAY); err != nil {
-			return nil, err
-		}
-
-		amtrelay := dns.AMTRELAY{
-			Hdr:         *header,
-			Precedence:  recAMTRELAY.Precedence,
-			GatewayType: recAMTRELAY.GatewayType,
-			GatewayAddr: recAMTRELAY.GatewayAddr,
-			GatewayHost: recAMTRELAY.GatewayHost,
-		}
-
-		return &amtrelay, nil
-
-	case dns.TypeRKEY:
-		var recRKEY RKEY
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recRKEY); err != nil {
-			return nil, err
-		}
-
-		rkey := dns.RKEY{
-			Hdr:       *header,
-			Flags:     recRKEY.Flags,
-			Protocol:  recRKEY.Protocol,
-			Algorithm: recRKEY.Algorithm,
-			PublicKey: recRKEY.PublicKey,
-		}
-
-		return &rkey, nil
-
-	case dns.TypeNSAPPTR:
-		var recNSAPPTR NSAPPTR
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recNSAPPTR); err != nil {
-			return nil, err
-		}
-
-		nsapptr := dns.NSAPPTR{
-			Hdr: *header,
-			Ptr: recNSAPPTR.Ptr,
-		}
-
-		return &nsapptr, nil
 
 	case dns.TypeNSEC3:
 		var recNSEC3 NSEC3
@@ -1789,75 +1183,6 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 
 		return &hip, nil
 
-	case dns.TypeNINFO:
-		var recNINFO NINFO
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recNINFO); err != nil {
-			return nil, err
-		}
-
-		ninfo := dns.NINFO{
-			Hdr:    *header,
-			ZSData: recNINFO.ZSData,
-		}
-
-		return &ninfo, nil
-
-	case dns.TypeNID:
-		var recNID NID
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recNID); err != nil {
-			return nil, err
-		}
-
-		nid := dns.NID{
-			Hdr:        *header,
-			Preference: recNID.Preference,
-			NodeID:     recNID.NodeID,
-		}
-
-		return &nid, nil
-
-	case dns.TypeL32:
-		var recL32 L32
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recL32); err != nil {
-			return nil, err
-		}
-
-		l32 := dns.L32{
-			Hdr:        *header,
-			Preference: recL32.Preference,
-			Locator32:  recL32.Locator32,
-		}
-
-		return &l32, nil
-
-	case dns.TypeL64:
-		var recL64 L64
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recL64); err != nil {
-			return nil, err
-		}
-
-		l64 := dns.L64{
-			Hdr:        *header,
-			Preference: recL64.Preference,
-			Locator64:  recL64.Locator64,
-		}
-
-		return &l64, nil
-
-	case dns.TypeLP:
-		var recLP LP
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recLP); err != nil {
-			return nil, err
-		}
-
-		lp := dns.LP{
-			Hdr:        *header,
-			Preference: recLP.Preference,
-			Fqdn:       recLP.Fqdn,
-		}
-
-		return &lp, nil
-
 	case dns.TypeEUI48:
 		var recEUI48 EUI48
 		if err := json.Unmarshal([]byte(rec.Rrdata), &recEUI48); err != nil {
@@ -1898,32 +1223,6 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 
 		return &caa, nil
-
-	case dns.TypeEID:
-		var recEID EID
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recEID); err != nil {
-			return nil, err
-		}
-
-		eid := dns.EID{
-			Hdr:      *header,
-			Endpoint: recEID.Endpoint,
-		}
-
-		return &eid, nil
-
-	case dns.TypeNIMLOC:
-		var recNIMLOC NIMLOC
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recNIMLOC); err != nil {
-			return nil, err
-		}
-
-		nimloc := dns.NIMLOC{
-			Hdr:     *header,
-			Locator: recNIMLOC.Locator,
-		}
-
-		return &nimloc, nil
 
 	case dns.TypeOPENPGPKEY:
 		var recOPENPGPKEY OPENPGPKEY

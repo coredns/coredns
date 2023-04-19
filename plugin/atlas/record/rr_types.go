@@ -5,6 +5,8 @@ import (
 )
 
 //go:generate go run generate.go
+
+// CNAME canonical Name RR
 type CNAME struct {
 	Target string `json:"target"`
 }
@@ -16,34 +18,35 @@ type HINFO struct {
 }
 
 // MB RR. See RFC 1035.
-type MB struct {
-	Mb string `json:"mb"`
-}
+// type MB struct {
+// 	Mb string `json:"mb"`
+// }
 
-type MG struct {
-	Mg string `json:"mg"`
-}
+// MG RR
+// type MG struct {
+// 	Mg string `json:"mg"`
+// }
 
 // MINFO RR. See RFC 1035.
-type MINFO struct {
-	Rmail string `json:"rmail"`
-	Email string `json:"email"`
-}
+// type MINFO struct {
+// 	Rmail string `json:"rmail"`
+// 	Email string `json:"email"`
+// }
 
 // MR RR. See RFC 1035.
-type MR struct {
-	Mr string `json:"mr"`
-}
+// type MR struct {
+// 	Mr string `json:"mr"`
+// }
 
 // MF RR. See RFC 1035.
-type MF struct {
-	Mf string `json:"mf"`
-}
+// type MF struct {
+// 	Mf string `json:"mf"`
+// }
 
 // MD RR. See RFC 1035.
-type MD struct {
-	Md string `json:"md"`
-}
+// type MD struct {
+// 	Md string `json:"md"`
+// }
 
 // MX RR. See RFC 1035.
 type MX struct {
@@ -58,16 +61,17 @@ type AFSDB struct {
 }
 
 // X25 RR. See RFC 1183, Section 3.1.
-type X25 struct {
-	PSDNAddress string `json:"psdnaddress"`
-}
+// type X25 struct {
+// 	PSDNAddress string `json:"psdnaddress"`
+// }
 
 // RT RR. See RFC 1183, Section 3.3.
-type RT struct {
-	Preference uint16 `json:"preference"`
-	Host       string `json:"host"` // RFC 3597 prohibits compressing records not defined in RFC 1035.
-}
+//type RT struct {
+//	Preference uint16 `json:"preference"`
+//	Host       string `json:"host"` // RFC 3597 prohibits compressing records not defined in RFC 1035.
+//}
 
+// NS
 type NS struct {
 	Ns string `json:"ns"`
 }
@@ -88,14 +92,14 @@ type TXT struct {
 }
 
 // SPF RR. See RFC 4408, Section 3.1.1.
-type SPF struct {
-	Txt []string `json:"txt"`
-}
+// type SPF struct {
+// 	Txt []string `json:"txt"`
+// }
 
 // AVC RR. See https://www.iana.org/assignments/dns-parameters/AVC/avc-completed-template.
-type AVC struct {
-	Txt []string `json:"txt"`
-}
+// type AVC struct {
+// 	Txt []string `json:"txt"`
+// }
 
 // SRV RR. See RFC 2782.
 type SRV struct {
@@ -139,18 +143,18 @@ type AAAA struct {
 }
 
 // PX RR. See RFC 2163.
-type PX struct {
-	Preference uint16 `json:"preference"`
-	Map822     string `json:"map822"`
-	Mapx400    string `json:"mapx400"`
-}
+// type PX struct {
+// 	Preference uint16 `json:"preference"`
+// 	Map822     string `json:"map822"`
+// 	Mapx400    string `json:"mapx400"`
+// }
 
 // GPOS RR. See RFC 1712.
-type GPOS struct {
-	Longitude string `json:"longitude"`
-	Latitude  string `json:"latitude"`
-	Altitude  string `json:"altitude"`
-}
+// type GPOS struct {
+// 	Longitude string `json:"longitude"`
+// 	Latitude  string `json:"latitude"`
+// 	Altitude  string `json:"altitude"`
+// }
 
 // LOC RR. See RFC RFC 1876.
 type LOC struct {
@@ -163,7 +167,6 @@ type LOC struct {
 	Altitude  uint32 `json:"altitude"`
 }
 
-// TODO(jproxx): fix that
 // SIG RR. See RFC 2535. The SIG RR is identical to RRSIG and nowadays only used for SIG(0), See RFC 2931.
 // type SIG struct {
 // 	RRSIG
@@ -218,10 +221,10 @@ type TA struct {
 	Digest     string `json:"digest"`
 }
 
-type TALINK struct {
-	PreviousName string `json:"previous_name"`
-	NextName     string `json:"next_name"`
-}
+// type TALINK struct {
+// 	PreviousName string `json:"previous_name"`
+// 	NextName     string `json:"next_name"`
+// }
 
 // SSHFP RR. See RFC RFC 4255.
 type SSHFP struct {
@@ -230,7 +233,6 @@ type SSHFP struct {
 	FingerPrint string `json:"finger_print"`
 }
 
-// TODO(jproxx): fix that
 // KEY RR. See RFC RFC 2535.
 //type KEY struct {
 //	DNSKEY
@@ -261,25 +263,25 @@ type IPSECKEY struct {
 }
 
 // AMTRELAY RR. See RFC 8777.
-type AMTRELAY struct {
-	Precedence  uint8  `json:"precedence"`
-	GatewayType uint8  `json:"gateway_type"` // discovery is packed in here at bit 0x80
-	GatewayAddr net.IP `json:"gateway_addr"` // packing/unpacking/parsing/etc handled together with GatewayHost
-	GatewayHost string `json:"gateway_host"`
-}
+// type AMTRELAY struct {
+// 	Precedence  uint8  `json:"precedence"`
+// 	GatewayType uint8  `json:"gateway_type"` // discovery is packed in here at bit 0x80
+// 	GatewayAddr net.IP `json:"gateway_addr"` // packing/unpacking/parsing/etc handled together with GatewayHost
+// 	GatewayHost string `json:"gateway_host"`
+// }
 
 // RKEY RR. See https://www.iana.org/assignments/dns-parameters/RKEY/rkey-completed-template.
-type RKEY struct {
-	Flags     uint16 `json:"flags"`
-	Protocol  uint8  `json:"protocol"`
-	Algorithm uint8  `json:"algorithm"`
-	PublicKey string `json:"public_key"`
-}
+// type RKEY struct {
+// 	Flags     uint16 `json:"flags"`
+// 	Protocol  uint8  `json:"protocol"`
+// 	Algorithm uint8  `json:"algorithm"`
+// 	PublicKey string `json:"public_key"`
+// }
 
 // NSAPPTR RR. See RFC 1348.
-type NSAPPTR struct {
-	Ptr string `json:"ptr"`
-}
+// type NSAPPTR struct {
+// 	Ptr string `json:"ptr"`
+// }
 
 // NSEC3 RR. See RFC 5155.
 type NSEC3 struct {
@@ -315,7 +317,6 @@ type TKEY struct {
 	OtherData  string `json:"other_data"`
 }
 
-// TODO(jproxx): fix that
 // RFC3597 represents an unknown/generic RR. See RFC 3597.
 // type RFC3597 struct {
 // 	Rdata string `json:"rdata"`
@@ -360,33 +361,33 @@ type HIP struct {
 }
 
 // NINFO RR. See https://www.iana.org/assignments/dns-parameters/NINFO/ninfo-completed-template.
-type NINFO struct {
-	ZSData []string `json:"zsdata"`
-}
+// type NINFO struct {
+// 	ZSData []string `json:"zsdata"`
+// }
 
 // NID RR. See RFC RFC 6742.
-type NID struct {
-	Preference uint16 `json:"preference"`
-	NodeID     uint64 `json:"node_id"`
-}
+// type NID struct {
+// 	Preference uint16 `json:"preference"`
+// 	NodeID     uint64 `json:"node_id"`
+// }
 
 // L32 RR, See RFC 6742.
-type L32 struct {
-	Preference uint16 `json:"preference"`
-	Locator32  net.IP `json:"locator32"`
-}
+// type L32 struct {
+// 	Preference uint16 `json:"preference"`
+// 	Locator32  net.IP `json:"locator32"`
+// }
 
 // L64 RR, See RFC 6742.
-type L64 struct {
-	Preference uint16 `json:"preference"`
-	Locator64  uint64 `json:"locator64"`
-}
+// type L64 struct {
+// 	Preference uint16 `json:"preference"`
+// 	Locator64  uint64 `json:"locator64"`
+// }
 
 // LP RR. See RFC 6742.
-type LP struct {
-	Preference uint16 `json:"preference"`
-	Fqdn       string `json:"fqdn"`
-}
+// type LP struct {
+// 	Preference uint16 `json:"preference"`
+// 	Fqdn       string `json:"fqdn"`
+// }
 
 // EUI48 RR. See RFC 7043.
 type EUI48 struct {
@@ -406,13 +407,13 @@ type CAA struct {
 }
 
 // EID RR. See http://ana-3.lcs.mit.edu/~jnc/nimrod/dns.txt.
-type EID struct {
-	Endpoint string `json:"endpoint"`
-}
+// type EID struct {
+// 	Endpoint string `json:"endpoint"`
+// }
 
-type NIMLOC struct {
-	Locator string `json:"locator"`
-}
+// type NIMLOC struct {
+// 	Locator string `json:"locator"`
+// }
 
 // OPENPGPKEY RR. See RFC 7929.
 type OPENPGPKEY struct {
@@ -440,6 +441,7 @@ type ZONEMD struct {
 // 	Prefixes []APLPrefix `json:"prefixes"`
 // }
 // TODO(jproxx): fix that
+// there is no APLPrefix record!!!
 // APLPrefix is an address prefix hold by an APL record.
 // type APLPrefix struct {
 // 	Negation bool      `json:"negation"`

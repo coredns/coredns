@@ -4,39 +4,110 @@ Atlas is a coredns SQL database plugin that stores zone and record resources in 
 
 It uses entgo.io as orm and [Ariga](https://ariga.io/) Atlas.
 
-## Supported Resource Records
+## Resource Records
 
-TODO: Check which RR's should/must be implemented.
+![Active DNS Record Types](https://upload.wikimedia.org/wikipedia/commons/5/59/All_active_dns_record_types.png)
+Image by Wikipedia and hopefully correct.
 
-| backend_plugin | Must Have | Implemented | RR         | Remark                                  |
-| -------------- | --------- | ----------- | ---------- | --------------------------------------- |
-| ✓              | ✓         |             | A          | IPv4 address                            |
-| ✓              | ✓         |             | AAAA       | IPv6 address                            |
-|                | ✓         |             | CAA        | Certification Authority Authorization   |
-| ✓              | ✓         |             | CNAME      | Canonical Name                          |
-| ✓              | ✓         |             | MX         | Mail Exchange                           |
-| ✓              | ✓         |             | NS         | Name Server                             |
-| ✓              | ✓         |             | SOA        | Start of Authority                      |
-| ✓              | ✓         |             | PTR        | Pointer                                 |
-|                | ✓         |             | SPF        | Sender Policy Framework                 |
-| ✓              | ✓         |             | SRV        | Service Locator                         |
-| ✓              | ✓         |             | TXT        | Text                                    |
-|                |           |             | CERT       | Certificate                             |
-|                |           |             | DNAME      | Delegation Name                         |
-|                |           |             | DNSKEY     | DNS Key                                 |
-|                |           |             | DS         | Delegation Signer                       |
-|                |           |             | HINFO      | Host Information                        |
-|                |           |             | IPSECKEY   | IPsec Key                               |
-|                |           |             | NAPTR      | Naming Authority Pointer                |
-|                |           |             | NSEC       | Next-Secure                             |
-|                |           |             | NSEC3      | Next-Secure 3                           |
-|                |           |             | NSEC3PARAM | Next-Secure 3 Parameters                |
-|                |           |             | OPENPGPKEY | OpenPGP Key                             |
-|                |           |             | RRSIG      | Resource Record Signature               |
-|                |           |             | SSHFP      | SSH Fingerprint                         |
-|                |           |             | TLSA       | Transport Layer Security Authentication |
+This overview shows the implemented resource record types.
 
-What about name flattening "ANAME" records?
+> **_ABBREVIATIONS:_**
+>
+> `bps`: coredns backend_plugin support
+>
+> `mh`: must have
+>
+> `zi`: zone import from file into database implemented ([example import](https://github.com/jproxx/coredns/blob/feature/atlas/plugin/atlas/cli/cmd/zoneImport.go))
+>
+> `rt`: record type exists and marshal/unmarshalling implemented
+
+### DNS (Meta) RR Types
+
+| bps | mh  | zi  | rt  | RR     | Remark                                      |
+| --- | --- | --- | --- | ------ | ------------------------------------------- |
+| ✓   | ✓   | ✓   | ✓   | NS     | Name Server                                 |
+| ✓   | ✓   | ✓   | ✓   | CNAME  | Canonical Name                              |
+| ✓   | ✓   | ✓   | ✓   | PTR    | Pointer                                     |
+|     |     |     | ?   | OPT    | EDNS Option (not in miekg/dns?)             |
+| ✓   | ✓   | ✓   | i   | SOA    | Start of Authority (implemented as DNSZone) |
+|     |     |     | ✓   | DNAME  | Delegation Name                             |
+|     |     |     | ✓   | NAPTR  | Naming Authority Pointer                    |
+|     |     |     | ✓   | CSYNC  | Child-to-Parent Synchronization             |
+|     |     |     | ✓   | TKEY   | Transaction Key                             |
+|     |     |     | ?   | TSIG   | Transaction Signature (not in miekg/dns?)   |
+|     |     |     | ✓   | ZONEMD | Message Digest for DNS Zones                |
+
+### IP RR Types
+
+| bps | mh  | zi  | rt    | RR       | Remark                       |
+| --- | --- | --- | ----- | -------- | ---------------------------- |
+| ✓   | ✓   | ✓   | ✓     | A        | IPv4 address                 |
+| ✓   | ✓   | ✓   | ✓     | AAAA     | IPv6 address                 |
+|     |     |     | TODO! | APL      | Adress Prefix List           |
+|     |     |     | ✓     | DHCID    | DHCP Identifier              |
+|     |     |     | ✓     | HIP      | Host Identification Protocol |
+|     |     |     | ✓     | IPSECKEY | IPsec Key                    |
+
+### Informational RR Types
+
+| bps | mh  | zi  | rt  | RR    | Remark                |
+| --- | --- | --- | --- | ----- | --------------------- |
+| ✓   | ✓   | ✓   | ✓   | TXT   | Text                  |
+|     | ✓   | ✓   | ✓   | HINFO | Host Information      |
+|     |     | ✓   | ✓   | RP    | Responsible Person    |
+|     |     | ✓   | ✓   | LOC   | Geographical Location |
+
+### Service Discovery RR Types
+
+| bps | mh  | zi  | rt  | RR  | Remark          |
+| --- | --- | --- | --- | --- | --------------- |
+| ✓   | ✓   | ✓   | ✓   | SRV | Service Locator |
+
+### Email RR Types
+
+| bps | mh  | zi  | rt  | RR         | Remark             |
+| --- | --- | --- | --- | ---------- | ------------------ |
+| ✓   | ✓   | ✓   | ✓   | MX         | Mail Exchange      |
+|     |     |     | ✓   | SMIMEA     | S/Mime Association |
+|     |     |     | ✓   | OPENPGPKEY | OpenPGP Key        |
+
+### DNSEC
+
+| bps | mh  | zi  | rt    | RR         | Remark                     |
+| --- | --- | --- | ----- | ---------- | -------------------------- |
+|     |     |     | ✓     | DNSKEY     | DNSSEC Key                 |
+|     |     |     | ✓     | RRSIG      | Resource Record Signature  |
+|     |     |     | ✓     | NSEC3      | Next-Secure 3              |
+|     |     | ✓   | ✓     | DS         | Delegation Signer          |
+|     |     |     | ✓     | TA         | DNSSEC Trust Authorities   |
+|     |     |     | TODO! | CDNSKEY    | Child Copy of DNSKEY       |
+|     |     |     | ✓     | NSEC       | Next Secure                |
+|     |     |     | ✓     | NSEC3PARAM | Next-Secure 3 Parameters   |
+|     |     |     | TODO! | CDS        | Child Copy of DS           |
+|     |     |     | TODO! | DLV        | DNSEC Lookaside Validation |
+
+### Security
+
+| bps | mh  | zi  | rt  | RR    | Remark                                  |
+| --- | --- | --- | --- | ----- | --------------------------------------- |
+|     |     |     | ✓   | SSHFP | SSH Public Key Fingerprint              |
+|     |     | ✓   | ✓   | TLSA  | Transport Layer Security Authentication |
+|     |     |     | ✓   | CERT  | Certificate                             |
+|     |     |     | ✓   | KX    | Key Exchange                            |
+|     |     | ✓   | ✓   | CAA   | Certification Authority Authorization   |
+
+### Miscellaneous
+
+> **_NOTE:_** What about name flattening `ANAME` records?
+
+| bps | mh  | zi  | rt  | RR    | Remark                              |
+| --- | --- | --- | --- | ----- | ----------------------------------- |
+|     |     | ✓   | ✓   | AFSDB | AFS Database Location               |
+|     |     |     | ✓   | EUI48 | MAC Address (EUI-48)                |
+|     |     |     | ✓   | EUI64 | MAC Address (EUI-64)                |
+|     |     |     | ✓   | URI   | Uniform Resource Identifier         |
+|     |     |     | ?   | SVCB  | Service Binding (not in miegk/dns?) |
+|     |     |     | ?   | HTTPS | HTTPS Binding (not in miegk/dns?)   |
 
 ## Setup
 
@@ -147,6 +218,6 @@ The JSON config file has the following format:
 
 ```json
 {
-    "dsn": "postgres://postgres:secret@localhost:5432/corednsdb?sslmode=disable"
+  "dsn": "postgres://postgres:secret@localhost:5432/corednsdb?sslmode=disable"
 }
 ```
