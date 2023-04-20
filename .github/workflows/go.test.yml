@@ -65,7 +65,7 @@ jobs:
         run: |
           go install github.com/fatih/faillint || true
           sudo apt-get install -y libpcap-dev
-          ( cd test; sudo go test -race ./... )
+          ( cd test; go test -race -exec sudo ./... )
 
   test-makefile-release:
     name: Test Makefile.release
