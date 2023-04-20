@@ -17,10 +17,10 @@ import (
 	"github.com/miekg/dns"
 )
 
-// TestMalformedSpoof tests that a malformed UDP response spoofed to the client's (proxy) source port shouldn't
+// TestLibpcapMalformedSpoof tests that a malformed UDP response spoofed to the client's (proxy) source port shouldn't
 // block the real response from reaching the client. Note that the spoofed response is an invalid dns payload,
 // and contains no message id.
-func TestMalformedSpoof(t *testing.T) {
+func TestLibpcapMalformedSpoof(t *testing.T) {
 	// Test Flow/Stucture:
 	// [dnstest client] <-> [coredns forwarder] <-[packet sniffing and injection]-> [upstream dns]
 	// 1. dnstest client makes request to coredns forwarder
@@ -166,5 +166,11 @@ func TestMalformedSpoof(t *testing.T) {
 	if x := resp.Answer[0].Header().Name; x != "example.org." {
 		t.Errorf("Expected %s, got %s", "example.org.", x)
 	}
+	if t.Failed() {
+		fmt.Println("Test failed")
+	} else {
+		fmt.Println("Test passed")
+	}
+
 	time.Sleep(time.Second) // crude sleep to allow packet sniffer to see all packets before ending test
 }
