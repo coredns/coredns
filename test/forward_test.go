@@ -73,9 +73,6 @@ func TestMalformedSpoof(t *testing.T) {
 	go func() {
 		pktNum := 0
 		for packet := range packetSource.Packets() {
-			if err != nil {
-				t.Fatal("failed to sniff request packet")
-			}
 			pktNum++
 			// log some info about the sniffed packet
 			if string(packet.ApplicationLayer().Payload()) == malformedPayload {
