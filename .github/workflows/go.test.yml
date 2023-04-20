@@ -65,8 +65,9 @@ jobs:
         run: |
           go install github.com/fatih/faillint || true
           ( cd test; go test -race ./... )
+
   test-e2e-libpcap:
-    name: Test e2e
+    name: Test e2e libpcap
     runs-on: ubuntu-latest
     steps:
       - name: Install Go
@@ -78,13 +79,11 @@ jobs:
       - name: Check out code
         uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
 
-      - name: Build
-        run: go build -v ./...
-
       - name: Test
         run: |
           sudo apt-get install -y libpcap-dev
           ( cd test; go test -race -tags libpcap -exec sudo -run TestLibpcap ./... )
+
   test-makefile-release:
     name: Test Makefile.release
     runs-on: ubuntu-latest
