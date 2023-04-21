@@ -2,7 +2,7 @@
 
 Atlas is a coredns SQL database plugin that stores zone and record resources in a relational database.
 
-It uses entgo.io as orm and [Ariga](https://ariga.io/) Atlas.
+It uses entgo.io as orm and [Ariga](https://ariga.io/) Atlas for database migrations.
 
 ## Setup
 
@@ -217,11 +217,11 @@ This overview shows the implemented resource record types.
 
 > **_NOTE:_** What about name flattening `ANAME` records?
 
-| bps | mh  | zi  | rt   | RR    | Remark                                                                                                                 |
-| --- | --- | --- | ---- | ----- | ---------------------------------------------------------------------------------------------------------------------- |
-|     |     | ✓   | ✓    | AFSDB | AFS Database Location                                                                                                  |
-|     |     | ✓   | ✓    | EUI48 | MAC Address (EUI-48)                                                                                                   |
-|     |     | ✓   | ✓    | EUI64 | MAC Address (EUI-64)                                                                                                   |
-|     |     | ✓   | ✓    | URI   | Uniform Resource Identifier                                                                                            |
-|     |     |     | TODO | SVCB  | Service Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L218)) |
-|     |     |     | TODO | HTTPS | HTTPS Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L231))   |
+| bps | mh  | zi   | rt   | RR    | Remark                                                                                                                 |
+| --- | --- | ---- | ---- | ----- | ---------------------------------------------------------------------------------------------------------------------- |
+|     |     | ✓    | ✓    | AFSDB | AFS Database Location                                                                                                  |
+|     |     | ✓    | ✓    | EUI48 | MAC Address (EUI-48)                                                                                                   |
+|     |     | ✓    | ✓    | EUI64 | MAC Address (EUI-64)                                                                                                   |
+|     |     | ✓    | ✓    | URI   | Uniform Resource Identifier                                                                                            |
+|     |     | TODO | TODO | SVCB  | Service Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L218)) |
+|     |     | TODO | TODO | HTTPS | HTTPS Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L231))   |
