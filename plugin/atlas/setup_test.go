@@ -7,6 +7,81 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestAtlas_SetupWithoutZoneDebugParam(t *testing.T) {
+	setupAtlas := `
+	atlas {
+		dsn sqlite3://file:ent?mode=memory&cache=shared&_fk=1
+		zone_update_duration
+	}	
+	`
+	c := caddy.NewTestController("dns", setupAtlas)
+	err := setup(c)
+	require.NotNil(t, err)
+	require.Equal(t, "plugin/atlas: argument for 'zone_update_duration' expected", err.Error())
+}
+
+func TestAtlas_SetupWithZoneDefectiveParam(t *testing.T) {
+	setupAtlas := `
+	atlas {
+		dsn sqlite3://file:ent?mode=memory&cache=shared&_fk=1
+		zone_update_duration 1
+	}	
+	`
+	c := caddy.NewTestController("dns", setupAtlas)
+	err := setup(c)
+	require.NotNil(t, err)
+	require.Equal(t, "time: missing unit in duration \"1\"", err.Error())
+}
+
+func TestAtlas_SetupWithZoneCorrectParam(t *testing.T) {
+	setupAtlas := `
+	atlas {
+		dsn sqlite3://file:ent?mode=memory&cache=shared&_fk=1
+		zone_update_duration 1s
+	}	
+	`
+	c := caddy.NewTestController("dns", setupAtlas)
+	err := setup(c)
+	require.Nil(t, err)
+}
+
+func TestAtlas_SetupWithoutDebugParam(t *testing.T) {
+	setupAtlas := `
+	atlas {
+		dsn sqlite3://file:ent?mode=memory&cache=shared&_fk=1
+		debug
+	}	
+	`
+	c := caddy.NewTestController("dns", setupAtlas)
+	err := setup(c)
+	require.NotNil(t, err)
+	require.Equal(t, "plugin/atlas: argument for 'debug' expected", err.Error())
+}
+
+func TestAtlas_SetupWithDebugParam(t *testing.T) {
+	setupAtlas := `
+	atlas {
+		dsn sqlite3://file:ent?mode=memory&cache=shared&_fk=1
+		debug true
+	}	
+	`
+	c := caddy.NewTestController("dns", setupAtlas)
+	err := setup(c)
+	require.Nil(t, err)
+}
+
+func TestAtlas_SetupWithDebugDefectParam(t *testing.T) {
+	setupAtlas := `
+	atlas {
+		dsn sqlite3://file:ent?mode=memory&cache=shared&_fk=1
+		debug bla
+	}	
+	`
+	c := caddy.NewTestController("dns", setupAtlas)
+	err := setup(c)
+	require.NotNil(t, err)
+}
+
 func TestAtlas_SetupWithoutDSN(t *testing.T) {
 	c := caddy.NewTestController("dns", `atlas`)
 	err := setup(c)

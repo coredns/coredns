@@ -127,12 +127,12 @@ func setup(c *caddy.Controller) error {
 				if cfg.debug, err = strconv.ParseBool(args[0]); err != nil {
 					return err
 				}
-			case "zone_update_time":
+			case "zone_update_duration":
 				var err error
 				var duration time.Duration
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf(ErrAtlasSetupArgExp, "zone_update_time"))
+					return plugin.Error(plgName, fmt.Errorf(ErrAtlasSetupArgExp, "zone_update_duration"))
 				}
 				if duration, err = time.ParseDuration(args[0]); err != nil {
 					return err

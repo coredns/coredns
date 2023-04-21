@@ -13,14 +13,14 @@ atlas {
     dsn connectionstring
     [automigrate bool]
     [debug bool]
-    [zone_update_time duration]
+    [zone_update_duration duration]
 }
 ```
 
 - `dsn` is a string with the data source to which a connection is to be made
 - If you set the `automigrate` option to true, the Atlas plugin will migrate the database automatically. Good for development, but not recommended for production use! If the parameter is omitted, automigrate will be false by default.
 - `debug` true - logs all sql statements
-- `zone_update_time` duration - loads the available zone all `duration` times; default: 1 minutes, duration can be ex `30s`econds, `1m`inute
+- `zone_update_duration` reload the zones every `N` times; default: 1 minutes, duration can be ex `30s`econds, `1m`inute
 
 ## Supported Databases
 
@@ -120,6 +120,11 @@ The JSON config file has the following format:
   "dsn": "postgres://postgres:secret@localhost:5432/corednsdb?sslmode=disable"
 }
 ```
+
+## Database Migrations
+
+We are using Atlas for our migrations
+
 
 ## Resource Records
 
