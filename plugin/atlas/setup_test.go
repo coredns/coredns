@@ -34,7 +34,7 @@ func TestAtlas_SetupWithDefectDSN(t *testing.T) {
 	c := caddy.NewTestController("dns", setupAtlas)
 	err := setup(c)
 	require.NotNil(t, err)
-	require.Equal(t, "plugin/atlas: argument for dsn expected", err.Error())
+	require.Equal(t, "plugin/atlas: argument for 'dsn' expected", err.Error())
 }
 
 func TestAtlas_SetupWithDefectFile(t *testing.T) {

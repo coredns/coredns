@@ -1,3 +1,10 @@
+// commented out RRs are deprecated or not used
+//
+// if you need a deprecated RR, remove the '//' and run `go generate ./...`
+// in the Atlas plugin directory.
+//
+// all RR's with a todo must be fixed in the code generator generate.go
+
 package record
 
 import (

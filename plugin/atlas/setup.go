@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -17,16 +18,22 @@ import (
 // friends to log.
 var log = clog.NewWithPlugin(plgName)
 
-const plgName = "atlas"
+const (
+	plgName               = "atlas"
+	defaultZoneUpdateTime = 1 * time.Minute
+	ErrAtlasSetupArgExp   = "argument for '%s' expected"
+)
 
 // Config holds the configuration for Atlas
 type Config struct {
-	automigrate bool
-	dsn         string
-	dsnFile     string
-	debug       bool // log sql statements
+	automigrate    bool
+	dsn            string
+	dsnFile        string
+	debug          bool // log sql statements
+	zoneUpdateTime time.Duration
 }
 
+// Credentials type for file based dsn
 type Credentials struct {
 	Dsn string `json:"dsn"`
 }
@@ -81,8 +88,10 @@ func init() {
 // for parsing any extra options the atlas plugin may have.
 func setup(c *caddy.Controller) error {
 
+	// set defaults
 	cfg := Config{
-		automigrate: false,
+		automigrate:    false,
+		zoneUpdateTime: defaultZoneUpdateTime,
 	}
 
 	for c.Next() {
@@ -91,20 +100,20 @@ func setup(c *caddy.Controller) error {
 			case "dsn":
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf("argument for dsn expected"))
+					return plugin.Error(plgName, fmt.Errorf(ErrAtlasSetupArgExp, "dsn"))
 				}
 				cfg.dsn = args[0]
 			case "file":
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf("argument for 'file' expected"))
+					return plugin.Error(plgName, fmt.Errorf(ErrAtlasSetupArgExp, "file"))
 				}
 				cfg.dsnFile = args[0]
 			case "automigrate":
 				var err error
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf("argument for 'automigrate' expected"))
+					return plugin.Error(plgName, fmt.Errorf(ErrAtlasSetupArgExp, "automigrate"))
 				}
 				if cfg.automigrate, err = strconv.ParseBool(args[0]); err != nil {
 					return err
@@ -113,11 +122,23 @@ func setup(c *caddy.Controller) error {
 				var err error
 				args := c.RemainingArgs()
 				if len(args) <= 0 {
-					return plugin.Error(plgName, fmt.Errorf("argument for 'debug' expected"))
+					return plugin.Error(plgName, fmt.Errorf(ErrAtlasSetupArgExp, "debug"))
 				}
 				if cfg.debug, err = strconv.ParseBool(args[0]); err != nil {
 					return err
 				}
+			case "zone_update_time":
+				var err error
+				var duration time.Duration
+				args := c.RemainingArgs()
+				if len(args) <= 0 {
+					return plugin.Error(plgName, fmt.Errorf(ErrAtlasSetupArgExp, "zone_update_time"))
+				}
+				if duration, err = time.ParseDuration(args[0]); err != nil {
+					return err
+				}
+				cfg.zoneUpdateTime = duration
+
 			default:
 				return plugin.Error(plgName, c.ArgErr())
 			}
@@ -141,24 +162,22 @@ func setup(c *caddy.Controller) error {
 
 	defer func() {
 		if err := client.Close(); err != nil {
-			log.Errorf("close error:", err)
+			log.Errorf("database close error: %v", err)
 		}
-		log.Info("client closed")
 	}()
 
 	if cfg.automigrate {
 		ctx := context.Background()
 		// Run database migration. Database user needs correct permissions
 		if err := client.Schema.Create(ctx); err != nil {
-			return fmt.Errorf("failed creating schema resources: %v", err)
+			return fmt.Errorf("an error occurred while creating the table schema: %v", err)
 		}
 	}
 
 	// Add the Plugin to CoreDNS, so Servers can use it in their plugin chain.
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return Atlas{Next: next, cfg: cfg}
+		return &Atlas{Next: next, cfg: &cfg}
 	})
 
-	// All OK, return a nil error.
 	return nil
 }

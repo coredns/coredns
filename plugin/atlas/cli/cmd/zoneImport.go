@@ -227,6 +227,119 @@ func (o *ZoneImportOptions) Run() error {
 			if err := importRecord(client, zone, t, rec); err != nil {
 				return err
 			}
+		case *dns.DNAME:
+			rec, err := record.NewDNAME(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.NAPTR:
+			rec, err := record.NewNAPTR(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.CSYNC:
+			rec, err := record.NewCSYNC(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.TKEY:
+			rec, err := record.NewTKEY(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.ZONEMD:
+			rec, err := record.NewZONEMD(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.DHCID:
+			rec, err := record.NewDHCID(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.HIP:
+			rec, err := record.NewHIP(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.SMIMEA:
+			rec, err := record.NewSMIMEA(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.OPENPGPKEY:
+			rec, err := record.NewOPENPGPKEY(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.SSHFP:
+			rec, err := record.NewSSHFP(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.KX:
+			rec, err := record.NewKX(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.EUI48:
+			rec, err := record.NewEUI48(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.EUI64:
+			rec, err := record.NewEUI64(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+		case *dns.URI:
+			rec, err := record.NewURI(t).Marshal()
+			if err != nil {
+				return err
+			}
+			if err := importRecord(client, zone, t, rec); err != nil {
+				return err
+			}
+
 		}
 	}
 

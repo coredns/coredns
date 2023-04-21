@@ -7,6 +7,8 @@ import (
 	"github.com/miekg/dns"
 )
 
+// GetRRHeaderFromDnsRR produces a `dns.RR_Header` from a database
+// record `ent.DnsRR`
 func GetRRHeaderFromDnsRR(rec *ent.DnsRR) (*dns.RR_Header, error) {
 	if rec == nil {
 		return nil, fmt.Errorf("unexpected atlas resource record")
