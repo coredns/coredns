@@ -29,7 +29,7 @@ type RecordLatencyFunc func(meta.Object)
 // DefaultProcessor is based on the Process function from cache.NewIndexerInformer except it does a conversion.
 func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) ProcessorBuilder {
 	return func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
-		return func(obj interface{}) error {
+		return func(obj interface{}, isInitialList bool) error {
 			for _, d := range obj.(cache.Deltas) {
 				if recordLatency != nil {
 					if o, ok := d.Object.(meta.Object); ok {
@@ -51,7 +51,7 @@ func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) Pr
 						if err := clientState.Add(obj); err != nil {
 							return err
 						}
-						h.OnAdd(obj)
+						h.OnAdd(obj, isInitialList)
 					}
 					if recordLatency != nil {
 						recordLatency.record()

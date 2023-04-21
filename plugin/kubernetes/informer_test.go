@@ -41,7 +41,7 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	err := processor(cache.Deltas{
 		{Type: cache.Added, Object: obj.DeepCopy()},
 		{Type: cache.Added, Object: obj2.DeepCopy()},
-	})
+	}, false)
 	if err != nil {
 		t.Fatalf("add failed: %v", err)
 	}
@@ -65,7 +65,7 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	err = processor(cache.Deltas{{
 		Type:   cache.Updated,
 		Object: obj.DeepCopy(),
-	}})
+	}}, false)
 	if err != nil {
 		t.Fatalf("update failed: %v", err)
 	}
@@ -88,7 +88,7 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	err = processor(cache.Deltas{{
 		Type:   cache.Deleted,
 		Object: obj2.DeepCopy(),
-	}})
+	}}, false)
 	if err != nil {
 		t.Fatalf("delete test failed: %v", err)
 	}
@@ -106,7 +106,7 @@ func testProcessor(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer)
 	err = processor(cache.Deltas{{
 		Type:   cache.Deleted,
 		Object: tombstone,
-	}})
+	}}, false)
 	if err != nil {
 		t.Fatalf("tombstone delete test failed: %v", err)
 	}
