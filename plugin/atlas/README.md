@@ -14,7 +14,7 @@ It uses [entgo.io](https://entgo.io/docs/getting-started) as ORM and [Ariga](htt
 
 ## Why [Ariga Atlas](https://atlasgo.io/getting-started)?
 
-- works with [entgo.io](https://entgo.io/docs/getting-started) (the orm that this plugin is using)
+- works with [entgo.io](https://entgo.io/docs/getting-started) (the ORM that this plugin is using)
 - cool features for database schema migrations
 - [CI migration support](https://atlasgo.io/integrations/github-actions) (Github Action)
 - [Terraform provider](https://atlasgo.io/integrations/terraform-provider)
