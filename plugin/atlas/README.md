@@ -4,6 +4,13 @@ Atlas is a coredns SQL database plugin that stores zone and record resources in 
 
 It uses entgo.io as orm and [Ariga](https://ariga.io/) Atlas for database migrations.
 
+Why Ariga Atlas?
+
+- works with entgo.io (the orm that this plugin is using)
+- cool features for database schema migrations
+- CI migration support (Github Action)
+- Terraform provider
+
 ## Setup
 
 Put this into your `Corefile`.
