@@ -199,22 +199,24 @@ This overview shows the implemented resource record types.
 > `zi`: zone import from file into database implemented ([example import](https://github.com/jproxx/coredns/blob/feature/atlas/plugin/atlas/cli/cmd/zoneImport.go))
 >
 > `rt`: record type exists and marshal/unmarshalling implemented
+>
+> `impl.`: implemented
 
 ### DNS (Meta) RR Types
 
-| bps | mh  | zi   | rt          | RR     | Remark                                                                                                                      |
-| --- | --- | ---- | ----------- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
-| ✓   | ✓   | ✓    | ✓           | NS     | Name Server                                                                                                                 |
-| ✓   | ✓   | ✓    | ✓           | CNAME  | Canonical Name                                                                                                              |
-| ✓   | ✓   | ✓    | ✓           | PTR    | Pointer                                                                                                                     |
-|     |     | TODO | TODO        | OPT    | EDNS Option ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/edns.go#L71))           |
-| ✓   | ✓   | ✓    | implemented | SOA    | Start of Authority (implemented as DNSZone)                                                                                 |
-|     |     | ✓    | ✓           | DNAME  | Delegation Name                                                                                                             |
-|     |     | ✓    | ✓           | NAPTR  | Naming Authority Pointer                                                                                                    |
-|     |     | ✓    | ✓           | CSYNC  | Child-to-Parent Synchronization                                                                                             |
-|     |     | ✓    | ✓           | TKEY   | Transaction Key                                                                                                             |
-|     |     | TODO | TODO        | TSIG   | Transaction Signature ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/tsig.go#L97)) |
-|     |     | ✓    | ✓           | ZONEMD | Message Digest for DNS Zones                                                                                                |
+| bps | mh  | zi   | rt    | RR     | Remark                                                                                                                      |
+| --- | --- | ---- | ----- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| ✓   | ✓   | ✓    | ✓     | NS     | Name Server                                                                                                                 |
+| ✓   | ✓   | ✓    | ✓     | CNAME  | Canonical Name                                                                                                              |
+| ✓   | ✓   | ✓    | ✓     | PTR    | Pointer                                                                                                                     |
+|     |     | TODO | TODO  | OPT    | EDNS Option ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/edns.go#L71))           |
+| ✓   | ✓   | ✓    | impl. | SOA    | Start of Authority (implemented as DnsZone)                                                                                 |
+|     |     | ✓    | ✓     | DNAME  | Delegation Name                                                                                                             |
+|     |     | ✓    | ✓     | NAPTR  | Naming Authority Pointer                                                                                                    |
+|     |     | ✓    | ✓     | CSYNC  | Child-to-Parent Synchronization                                                                                             |
+|     |     | ✓    | ✓     | TKEY   | Transaction Key                                                                                                             |
+|     |     | TODO | TODO  | TSIG   | Transaction Signature ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/tsig.go#L97)) |
+|     |     | ✓    | ✓     | ZONEMD | Message Digest for DNS Zones                                                                                                |
 
 ### IP RR Types
 
