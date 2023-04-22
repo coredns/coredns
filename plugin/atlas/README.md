@@ -311,11 +311,35 @@ This overview shows the implemented resource record types.
 
 ## Development
 
+### Direnv
+
+Atlas was developed on Ubuntu Linux using [direnv](https://installati.one/install-direnv-ubuntu-22-04/).
+
+Direnv helps you to automatically loading `.env` files. We are providing a `.env.sample` that works well
+with the `docker-compose.yaml`. Please copy the `.env.sample` to `.env`. If you enter the `plugin/atlas` directory the `.env` will be loaded.
+
+### Makefile
+
+```shell
+$make                                                                                                                                                                  
+docker               run docker compose
+generate             run go generate
+install              install Ariga Atlas
+pg-import            run postgres zoneimport
+pg-inspect           inspect postgres db with Ariga Atlas
+pg-status            get Atlas migration status
+test                 run unit tests
+```
+
+### Code Generation
+
 Atlas is using code generation to generate most of the plugin code.
 
 Since not all databases has native json support, we are marshal/unmarshal the RR types into the `rrdata` column in the `DnsRR` schema.
 
 If you dont know `ent`, first read the docs to understand how `ent` is working.
+
+### Database Schema
 
 You will find the `schema` in this [directory](ent/schema). This is the place, where the schema will be declared. If you make changes run `go generate ./...` in the plugin directory and run `make test`.
 
