@@ -202,30 +202,30 @@ This overview shows the implemented resource record types.
 
 ### DNS (Meta) RR Types
 
-| bps | mh  | zi   | rt   | RR     | Remark                                                                                                                      |
-| --- | --- | ---- | ---- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
-| ✓   | ✓   | ✓    | ✓    | NS     | Name Server                                                                                                                 |
-| ✓   | ✓   | ✓    | ✓    | CNAME  | Canonical Name                                                                                                              |
-| ✓   | ✓   | ✓    | ✓    | PTR    | Pointer                                                                                                                     |
-|     |     | TODO | TODO | OPT    | EDNS Option ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/edns.go#L71))           |
-| ✓   | ✓   | ✓    | i    | SOA    | Start of Authority (implemented as DNSZone)                                                                                 |
-|     |     | ✓    | ✓    | DNAME  | Delegation Name                                                                                                             |
-|     |     | ✓    | ✓    | NAPTR  | Naming Authority Pointer                                                                                                    |
-|     |     | ✓    | ✓    | CSYNC  | Child-to-Parent Synchronization                                                                                             |
-|     |     | ✓    | ✓    | TKEY   | Transaction Key                                                                                                             |
-|     |     | TODO | TODO | TSIG   | Transaction Signature ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/tsig.go#L97)) |
-|     |     | ✓    | ✓    | ZONEMD | Message Digest for DNS Zones                                                                                                |
+| bps | mh  | zi   | rt          | RR     | Remark                                                                                                                      |
+| --- | --- | ---- | ----------- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| ✓   | ✓   | ✓    | ✓           | NS     | Name Server                                                                                                                 |
+| ✓   | ✓   | ✓    | ✓           | CNAME  | Canonical Name                                                                                                              |
+| ✓   | ✓   | ✓    | ✓           | PTR    | Pointer                                                                                                                     |
+|     |     | TODO | TODO        | OPT    | EDNS Option ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/edns.go#L71))           |
+| ✓   | ✓   | ✓    | implemented | SOA    | Start of Authority (implemented as DNSZone)                                                                                 |
+|     |     | ✓    | ✓           | DNAME  | Delegation Name                                                                                                             |
+|     |     | ✓    | ✓           | NAPTR  | Naming Authority Pointer                                                                                                    |
+|     |     | ✓    | ✓           | CSYNC  | Child-to-Parent Synchronization                                                                                             |
+|     |     | ✓    | ✓           | TKEY   | Transaction Key                                                                                                             |
+|     |     | TODO | TODO        | TSIG   | Transaction Signature ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/tsig.go#L97)) |
+|     |     | ✓    | ✓           | ZONEMD | Message Digest for DNS Zones                                                                                                |
 
 ### IP RR Types
 
-| bps | mh  | zi   | rt    | RR       | Remark                       |
-| --- | --- | ---- | ----- | -------- | ---------------------------- |
-| ✓   | ✓   | ✓    | ✓     | A        | IPv4 address                 |
-| ✓   | ✓   | ✓    | ✓     | AAAA     | IPv6 address                 |
-|     |     |      | TODO! | APL      | Adress Prefix List           |
-|     |     | ✓    | ✓     | DHCID    | DHCP Identifier              |
-|     |     | ✓    | ✓     | HIP      | Host Identification Protocol |
-|     |     | TODO | ✓     | IPSECKEY | IPsec Key                    |
+| bps | mh  | zi   | rt   | RR       | Remark                       |
+| --- | --- | ---- | ---- | -------- | ---------------------------- |
+| ✓   | ✓   | ✓    | ✓    | A        | IPv4 address                 |
+| ✓   | ✓   | ✓    | ✓    | AAAA     | IPv6 address                 |
+|     |     | TODO | TODO | APL      | Adress Prefix List           |
+|     |     | ✓    | ✓    | DHCID    | DHCP Identifier              |
+|     |     | ✓    | ✓    | HIP      | Host Identification Protocol |
+|     |     | TODO | ✓    | IPSECKEY | IPsec Key                    |
 
 ### Informational RR Types
 
