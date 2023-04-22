@@ -138,16 +138,18 @@ You find the schema for your database in the Atlas [migrations](migrations) dire
 
 If you want to inspect your existing schema, you can use the following cli command.
 
+> **_NOTE:_** please go into the `plugin/atlas/migrations` directory if you want to generate migration files.
+
 #### HCL output
 
 ```shell
-atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" > migrations/schema.hcl
+atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" > schema.hcl
 ```
 
 #### SQL Output
 
 ```shell
-atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --format '{{ sql . }}' > migrations/pg-schema.sql
+atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --format '{{ sql . }}' > pg-schema.sql
 
 ```
 
@@ -160,7 +162,7 @@ atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NA
 If you use Atlas, you can use the `hcl` file for all supported databases. Please provide the correct DSN.
 
 ```shell
-atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --to file://migrations/schema.hcl
+atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --to file://schema.hcl
 ```
 
 If no changes are made, you'll get the message:
@@ -172,7 +174,7 @@ Schema is synced, no changes to be made.
 #### Postgres SQL file migration
 
 ```shell
-atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --to file://migrations/pg-schema.sql
+atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --to file://pg-schema.sql
 ```
 
 #### MySQL SQL file migration
@@ -182,6 +184,8 @@ TODO
 ## Zone file import
 
 There is a example cobra command [zoneImport](cli/cmd/zoneImport.go) file. You can use it to import a zone file into a postgres database.
+
+Please have a look at [root.go](cli/cmd/root.go). You have to import `_ "github.com/coredns/coredns/plugin/atlas/ent/runtime"` to omit circle import errors.b
 
 ## Resource Records
 
@@ -202,90 +206,90 @@ This overview shows the implemented resource record types.
 >
 > `impl.`: implemented
 
-### DNS (Meta) RR Types
+### DNS (Meta) RR (Resource Record) Types
 
-| bps | mh  | zi   | rt    | RR     | Remark                                                                                                                      |
-| --- | --- | ---- | ----- | ------ | --------------------------------------------------------------------------------------------------------------------------- |
-| ✓   | ✓   | ✓    | ✓     | NS     | Name Server                                                                                                                 |
-| ✓   | ✓   | ✓    | ✓     | CNAME  | Canonical Name                                                                                                              |
-| ✓   | ✓   | ✓    | ✓     | PTR    | Pointer                                                                                                                     |
-|     |     | TODO | TODO  | OPT    | EDNS Option ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/edns.go#L71))           |
-| ✓   | ✓   | ✓    | impl. | SOA    | Start of Authority (implemented as DnsZone)                                                                                 |
-|     |     | ✓    | ✓     | DNAME  | Delegation Name                                                                                                             |
-|     |     | ✓    | ✓     | NAPTR  | Naming Authority Pointer                                                                                                    |
-|     |     | ✓    | ✓     | CSYNC  | Child-to-Parent Synchronization                                                                                             |
-|     |     | ✓    | ✓     | TKEY   | Transaction Key                                                                                                             |
-|     |     | TODO | TODO  | TSIG   | Transaction Signature ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/tsig.go#L97)) |
-|     |     | ✓    | ✓     | ZONEMD | Message Digest for DNS Zones                                                                                                |
+| RR     | bps | mh  | zi   | rt    | Remark                                                                                                                      |
+| ------ | --- | --- | ---- | ----- | --------------------------------------------------------------------------------------------------------------------------- |
+| NS     | ✓   | ✓   | ✓    | ✓     | Name Server                                                                                                                 |
+| CNAME  | ✓   | ✓   | ✓    | ✓     | Canonical Name                                                                                                              |
+| PTR    | ✓   | ✓   | ✓    | ✓     | Pointer                                                                                                                     |
+| OPT    |     |     | TODO | TODO  | EDNS Option ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/edns.go#L71))           |
+| SOA    | ✓   | ✓   | ✓    | impl. | Start of Authority (implemented as DnsZone)                                                                                 |
+| DNAME  |     |     | ✓    | ✓     | Delegation Name                                                                                                             |
+| NAPTR  |     |     | ✓    | ✓     | Naming Authority Pointer                                                                                                    |
+| CSYNC  |     |     | ✓    | ✓     | Child-to-Parent Synchronization                                                                                             |
+| TKEY   |     |     | ✓    | ✓     | Transaction Key                                                                                                             |
+| TSIG   |     |     | TODO | TODO  | Transaction Signature ([miekg/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/tsig.go#L97)) |
+| ZONEMD |     |     | ✓    | ✓     | Message Digest for DNS Zones                                                                                                |
 
 ### IP RR Types
 
-| bps | mh  | zi   | rt   | RR       | Remark                       |
-| --- | --- | ---- | ---- | -------- | ---------------------------- |
-| ✓   | ✓   | ✓    | ✓    | A        | IPv4 address                 |
-| ✓   | ✓   | ✓    | ✓    | AAAA     | IPv6 address                 |
-|     |     | TODO | TODO | APL      | Adress Prefix List           |
-|     |     | ✓    | ✓    | DHCID    | DHCP Identifier              |
-|     |     | ✓    | ✓    | HIP      | Host Identification Protocol |
-|     |     | TODO | ✓    | IPSECKEY | IPsec Key                    |
+| RR       | bps | mh  | zi   | rt   | Remark                       |
+| -------- | --- | --- | ---- | ---- | ---------------------------- |
+| A        | ✓   | ✓   | ✓    | ✓    | IPv4 address                 |
+| AAAA     | ✓   | ✓   | ✓    | ✓    | IPv6 address                 |
+| APL      |     |     | TODO | TODO | Adress Prefix List           |
+| DHCID    |     |     | ✓    | ✓    | DHCP Identifier              |
+| HIP      |     |     | ✓    | ✓    | Host Identification Protocol |
+| IPSECKEY |     |     | TODO | ✓    | IPsec Key                    |
 
 ### Informational RR Types
 
-| bps | mh  | zi  | rt  | RR    | Remark                |
-| --- | --- | --- | --- | ----- | --------------------- |
-| ✓   | ✓   | ✓   | ✓   | TXT   | Text                  |
-|     | ✓   | ✓   | ✓   | HINFO | Host Information      |
-|     |     | ✓   | ✓   | RP    | Responsible Person    |
-|     |     | ✓   | ✓   | LOC   | Geographical Location |
+| RR    | bps | mh  | zi  | rt  | Remark                |
+| ----- | --- | --- | --- | --- | --------------------- |
+| TXT   | ✓   | ✓   | ✓   | ✓   | Text                  |
+| HINFO |     | ✓   | ✓   | ✓   | Host Information      |
+| RP    |     |     | ✓   | ✓   | Responsible Person    |
+| LOC   |     |     | ✓   | ✓   | Geographical Location |
 
 ### Service Discovery RR Types
 
-| bps | mh  | zi  | rt  | RR  | Remark          |
+| RR  | bps | mh  | zi  | rt  | Remark          |
 | --- | --- | --- | --- | --- | --------------- |
-| ✓   | ✓   | ✓   | ✓   | SRV | Service Locator |
+| SRV | ✓   | ✓   | ✓   | ✓   | Service Locator |
 
 ### Email RR Types
 
-| bps | mh  | zi  | rt  | RR         | Remark             |
-| --- | --- | --- | --- | ---------- | ------------------ |
-| ✓   | ✓   | ✓   | ✓   | MX         | Mail Exchange      |
-|     |     | ✓   | ✓   | SMIMEA     | S/Mime Association |
-|     |     | ✓   | ✓   | OPENPGPKEY | OpenPGP Key        |
+| RR         | bps | mh  | zi  | rt  | Remark             |
+| ---------- | --- | --- | --- | --- | ------------------ |
+| MX         | ✓   | ✓   | ✓   | ✓   | Mail Exchange      |
+| SMIMEA     |     |     | ✓   | ✓   | S/Mime Association |
+| OPENPGPKEY |     |     | ✓   | ✓   | OpenPGP Key        |
 
 ### DNSEC
 
-| bps | mh  | zi   | rt    | RR         | Remark                     |
-| --- | --- | ---- | ----- | ---------- | -------------------------- |
-|     |     | TODO | ✓     | DNSKEY     | DNSSEC Key                 |
-|     |     | TODO | ✓     | RRSIG      | Resource Record Signature  |
-|     |     | TODO | ✓     | NSEC3      | Next-Secure 3              |
-|     |     | ✓    | ✓     | DS         | Delegation Signer          |
-|     |     | TODO | ✓     | TA         | DNSSEC Trust Authorities   |
-|     |     | TODO | TODO! | CDNSKEY    | Child Copy of DNSKEY       |
-|     |     | TODO | ✓     | NSEC       | Next Secure                |
-|     |     | TODO | ✓     | NSEC3PARAM | Next-Secure 3 Parameters   |
-|     |     | TODO | TODO! | CDS        | Child Copy of DS           |
-|     |     | TODO | TODO! | DLV        | DNSEC Lookaside Validation |
+| RR         | bps | mh  | zi   | rt    | Remark                     |
+| ---------- | --- | --- | ---- | ----- | -------------------------- |
+| DNSKEY     |     |     | TODO | ✓     | DNSSEC Key                 |
+| RRSIG      |     |     | TODO | ✓     | Resource Record Signature  |
+| NSEC3      |     |     | TODO | ✓     | Next-Secure 3              |
+| DS         |     |     | ✓    | ✓     | Delegation Signer          |
+| TA         |     |     | TODO | ✓     | DNSSEC Trust Authorities   |
+| CDNSKEY    |     |     | TODO | TODO! | Child Copy of DNSKEY       |
+| NSEC       |     |     | TODO | ✓     | Next Secure                |
+| NSEC3PARAM |     |     | TODO | ✓     | Next-Secure 3 Parameters   |
+| CDS        |     |     | TODO | TODO! | Child Copy of DS           |
+| DLV        |     |     | TODO | TODO! | DNSEC Lookaside Validation |
 
 ### Security
 
-| bps | mh  | zi   | rt  | RR    | Remark                                  |
-| --- | --- | ---- | --- | ----- | --------------------------------------- |
-|     |     | ✓    | ✓   | SSHFP | SSH Public Key Fingerprint              |
-|     |     | ✓    | ✓   | TLSA  | Transport Layer Security Authentication |
-|     |     | TODO | ✓   | CERT  | Certificate                             |
-|     |     | ✓    | ✓   | KX    | Key Exchange                            |
-|     |     | ✓    | ✓   | CAA   | Certification Authority Authorization   |
+| RR    | bps | mh  | zi   | rt  | Remark                                  |
+| ----- | --- | --- | ---- | --- | --------------------------------------- |
+| SSHFP |     |     | ✓    | ✓   | SSH Public Key Fingerprint              |
+| TLSA  |     |     | ✓    | ✓   | Transport Layer Security Authentication |
+| CERT  |     |     | TODO | ✓   | Certificate                             |
+| KX    |     |     | ✓    | ✓   | Key Exchange                            |
+| CAA   |     |     | ✓    | ✓   | Certification Authority Authorization   |
 
 ### Miscellaneous
 
 > **_NOTE:_** What about name flattening `ANAME` records?
 
-| bps | mh  | zi   | rt   | RR    | Remark                                                                                                                 |
-| --- | --- | ---- | ---- | ----- | ---------------------------------------------------------------------------------------------------------------------- |
-|     |     | ✓    | ✓    | AFSDB | AFS Database Location                                                                                                  |
-|     |     | ✓    | ✓    | EUI48 | MAC Address (EUI-48)                                                                                                   |
-|     |     | ✓    | ✓    | EUI64 | MAC Address (EUI-64)                                                                                                   |
-|     |     | ✓    | ✓    | URI   | Uniform Resource Identifier                                                                                            |
-|     |     | TODO | TODO | SVCB  | Service Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L218)) |
-|     |     | TODO | TODO | HTTPS | HTTPS Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L231))   |
+| RR    | bps | mh  | zi   | rt   | Remark                                                                                                                 |
+| ----- | --- | --- | ---- | ---- | ---------------------------------------------------------------------------------------------------------------------- |
+| AFSDB |     |     | ✓    | ✓    | AFS Database Location                                                                                                  |
+| EUI48 |     |     | ✓    | ✓    | MAC Address (EUI-48)                                                                                                   |
+| EUI64 |     |     | ✓    | ✓    | MAC Address (EUI-64)                                                                                                   |
+| URI   |     |     | ✓    | ✓    | Uniform Resource Identifier                                                                                            |
+| SVCB  |     |     | TODO | TODO | Service Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L218)) |
+| HTTPS |     |     | TODO | TODO | HTTPS Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L231))   |
