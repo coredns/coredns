@@ -19,6 +19,8 @@ $ORIGIN miek.nl.
 
 		IN      A       139.162.196.78
 		IN      AAAA    2a01:7e00::f03c:91ff:fef1:6735
+                
+                IN      HINFO  "Please stop asking for ANY" "See draft-ietf-dnsop-refuse-any"
 
 a               IN      A       139.162.196.78
                 IN      AAAA    2a01:7e00::f03c:91ff:fef1:6735

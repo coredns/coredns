@@ -123,8 +123,52 @@ The JSON config file has the following format:
 
 ## Database Migrations
 
-We are using Atlas for our migrations
+Please install Atlas as described in the [Atlas doc](https://atlasgo.io/getting-started) or use Atlas on Docker.
 
+You find the schema for your database in the Atlas [migrations](migrations) directory.
+
+### DB Schema inspection
+
+If you want to inspect your existing schema, you can use the following cli command.
+
+#### HCL output
+
+```shell
+atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" > migrations/schema.hcl
+```
+
+#### SQL Output
+
+```shell
+atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --format '{{ sql . }}' > migrations/pg-schema.sql
+
+```
+
+### DB Schema Apply
+
+> **_NOTE:_** Ariga Atlas differentiate between MySQL and MariaDB schema migrations. Please use `mariadb` or `mysql` for migrations. The coredns Atlas plugin doesnt needs this and works with `mysql` only!
+
+#### HCL file migration
+
+If you use Atlas, you can use the `hcl` file for all supported databases. Please provide the correct DSN.
+
+```shell
+atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --to file://migrations/schema.hcl
+```
+
+If no changes are made, you'll get the message:
+
+```shell
+Schema is synced, no changes to be made.
+```
+
+#### Postgres SQL file migration
+
+```shell
+atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --to file://migrations/pg-schema.sql
+```
+
+#### MySQL SQL file migration
 
 ## Resource Records
 

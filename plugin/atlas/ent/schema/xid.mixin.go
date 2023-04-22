@@ -35,15 +35,17 @@ func (XidMixin) Fields() []ent.Field {
 		field.String("id").
 			GoType(xid.ID{}).
 			Comment("record identifier").
-			DefaultFunc(xid.New),
+			DefaultFunc(xid.New).
+			SchemaType(map[string]string{
+				dialect.MySQL:    "varchar(20)",
+				dialect.Postgres: "varchar(20)",
+				dialect.SQLite:   "varchar", // check: SQLite has no varchar length
+			}),
 		field.Time("created_at").
 			Immutable().
 			Default(time.Now).
 			Nillable().
 			Comment("record creation date").
-			Annotations(
-			//entgql.OrderField("CREATED_AT"),
-			).
 			SchemaType(map[string]string{
 				dialect.MySQL: "datetime(6)",
 			}),
@@ -52,9 +54,6 @@ func (XidMixin) Fields() []ent.Field {
 			UpdateDefault(time.Now).
 			Nillable().
 			Comment("record update date").
-			Annotations(
-			// entgql.OrderField("UPDATED_AT"),
-			).
 			SchemaType(map[string]string{
 				dialect.MySQL: "datetime(6)",
 			}),

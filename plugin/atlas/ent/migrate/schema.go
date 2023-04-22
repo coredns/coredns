@@ -10,7 +10,7 @@ import (
 var (
 	// DNSRrsColumns holds the columns for the "dns_rrs" table.
 	DNSRrsColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeString},
+		{Name: "id", Type: field.TypeString, SchemaType: map[string]string{"mysql": "varchar(20)", "postgres": "varchar(20)", "sqlite3": "varchar"}},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "name", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
@@ -19,7 +19,7 @@ var (
 		{Name: "class", Type: field.TypeUint16, Default: 1},
 		{Name: "ttl", Type: field.TypeUint32, Default: 3600},
 		{Name: "activated", Type: field.TypeBool, Default: true},
-		{Name: "dns_zone_records", Type: field.TypeString},
+		{Name: "dns_zone_records", Type: field.TypeString, SchemaType: map[string]string{"mysql": "varchar(20)", "postgres": "varchar(20)", "sqlite3": "varchar"}},
 	}
 	// DNSRrsTable holds the schema information for the "dns_rrs" table.
 	DNSRrsTable = &schema.Table{
@@ -49,7 +49,7 @@ var (
 	}
 	// DNSZonesColumns holds the columns for the "dns_zones" table.
 	DNSZonesColumns = []*schema.Column{
-		{Name: "id", Type: field.TypeString},
+		{Name: "id", Type: field.TypeString, SchemaType: map[string]string{"mysql": "varchar(20)", "postgres": "varchar(20)", "sqlite3": "varchar"}},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"mysql": "datetime(6)"}},
 		{Name: "name", Type: field.TypeString, Unique: true, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
