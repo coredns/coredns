@@ -130,7 +130,7 @@ The JSON config file has the following format:
 
 ## Database Migrations
 
-Please install Atlas as described in the [Atlas doc](https://atlasgo.io/getting-started) or use Atlas on Docker.
+Please install Atlas as described in the [Atlas doc](https://atlasgo.io/getting-started), use Atlas on Docker or use the provided SQL migration files.
 
 You find the schema for your database in the Atlas [migrations](migrations) directory.
 
