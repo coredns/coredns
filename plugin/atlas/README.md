@@ -153,7 +153,7 @@ atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NA
 
 ### DB Schema Apply
 
-> **_NOTE:_** Ariga Atlas differentiates between MySQL and MariaDB schema migrations. Please use `mariadb` or `mysql` for migrations. The coredns Atlas plugin doesnt needs this and works with `mysql` only!
+> **_NOTE:_** Ariga Atlas differentiates between MySQL and MariaDB schema migrations. Please use `mariadb` or `mysql` for migrations in your dsn. The coredns Atlas plugin doesnt needs this differntiation and works with `mysql` only!
 
 #### HCL file migration
 
