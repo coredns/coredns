@@ -1,4 +1,4 @@
-# Atlas
+# Atlas - WIP (work in progress)
 
 Atlas is a coredns SQL database plugin that stores zone and record resources in a relational database.
 
