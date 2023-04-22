@@ -11,6 +11,8 @@ Why [Ariga Atlas](https://atlasgo.io/getting-started)?
 - [CI migration support](https://atlasgo.io/integrations/github-actions) (Github Action)
 - [Terraform provider](https://atlasgo.io/integrations/terraform-provider)
 
+We don't force anyone to use Atlas! Use Flyway or whatever migration tool fits your workflow. But don't ask for support for other tools!
+
 ## Setup
 
 Put this into your `Corefile`.
