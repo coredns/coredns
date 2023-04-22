@@ -256,7 +256,7 @@ This overview shows the implemented resource record types.
 | SMIMEA     |     |     | ✓   | ✓   | S/Mime Association |
 | OPENPGPKEY |     |     | ✓   | ✓   | OpenPGP Key        |
 
-### DNSEC
+### DNSEC RR Types
 
 | RR         | bps | mh  | zi   | rt    | Remark                     |
 | ---------- | --- | --- | ---- | ----- | -------------------------- |
@@ -271,7 +271,7 @@ This overview shows the implemented resource record types.
 | CDS        |     |     | TODO | TODO! | Child Copy of DS           |
 | DLV        |     |     | TODO | TODO! | DNSEC Lookaside Validation |
 
-### Security
+### Security RR Types
 
 | RR    | bps | mh  | zi   | rt  | Remark                                  |
 | ----- | --- | --- | ---- | --- | --------------------------------------- |
@@ -281,7 +281,7 @@ This overview shows the implemented resource record types.
 | KX    |     |     | ✓    | ✓   | Key Exchange                            |
 | CAA   |     |     | ✓    | ✓   | Certification Authority Authorization   |
 
-### Miscellaneous
+### Miscellaneous RR Types
 
 > **_NOTE:_** What about name flattening `ANAME` records?
 
