@@ -170,6 +170,8 @@ atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME
 
 #### MySQL SQL file migration
 
+TODO
+
 ## Resource Records
 
 ![Active DNS Record Types](https://upload.wikimedia.org/wikipedia/commons/5/59/All_active_dns_record_types.png)
