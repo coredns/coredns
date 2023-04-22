@@ -2,16 +2,24 @@
 
 Atlas is a coredns SQL database plugin that stores zone and record resources in a relational database.
 
-It uses [entgo.io](https://entgo.io/docs/getting-started) as orm and [Ariga](https://ariga.io/) [Atlas](https://atlasgo.io/getting-started) for database migrations.
+It uses [entgo.io](https://entgo.io/docs/getting-started) as ORM and [Ariga](https://ariga.io/) [Atlas](https://atlasgo.io/getting-started) for database migrations.
 
-Why [Ariga Atlas](https://atlasgo.io/getting-started)?
+## Features
+
+- works as authoritative server
+- supports many relational databases
+- supports many resource record types (RRs)
+- supports database migrations
+- TODO: supports AXFR zone transfer
+
+## Why [Ariga Atlas](https://atlasgo.io/getting-started)?
 
 - works with [entgo.io](https://entgo.io/docs/getting-started) (the orm that this plugin is using)
 - cool features for database schema migrations
 - [CI migration support](https://atlasgo.io/integrations/github-actions) (Github Action)
 - [Terraform provider](https://atlasgo.io/integrations/terraform-provider)
 
-We don't force anyone to use Atlas! Use Flyway or whatever migration tool fits your workflow. But don't ask for support for other tools!
+We don't force anyone to use Ariga Atlas! Use Flyway or whatever migration tool fits your workflow. But please don't ask for support for other tools.
 
 ## Setup
 
@@ -35,14 +43,15 @@ atlas {
 
 Databases, that are supported by entgo.
 
-| Database    | Version                       | Remarks                   |
-| ----------- | ----------------------------- | ------------------------- |
-| SQLite3     | 3.40.x, 3.41.x                | others unknown            |
-| PostgreSQL  | 10, 11, 12, 13, 14            |                           |
-| MariaDB     | 10.2, 10.3 and latest version |                           |
-| MySQL       | 5.6.35, 5.7.26, 8             |                           |
-| CockroachDB | v21.2.11                      | Preview                   |
-| TiDB        | 5.4.0, 6.0.0                  | Preview, MySQL compatible |
+| Database    | Version                       | Remarks                                                                                             |
+| ----------- | ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| SQLite3     | 3.40.x, 3.41.x                | others unknown                                                                                      |
+| PostgreSQL  | 10, 11, 12, 13, 14            |                                                                                                     |
+| MariaDB     | 10.2, 10.3 and latest version |                                                                                                     |
+| MySQL       | 5.6.35, 5.7.26, 8             |                                                                                                     |
+| CockroachDB | v21.2.11                      | Preview                                                                                             |
+| TiDB        | 5.4.0, 6.0.0                  | Preview, MySQL compatible, [known issues](https://docs.pingcap.com/tidb/stable/mysql-compatibility) |
+| Gremlin     | experimental                  | does not support migration nor indexes                                                              |
 
 ## Database Configuration
 
@@ -180,6 +189,10 @@ atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME
 ```
 
 #### MySQL SQL file migration
+
+TODO
+
+#### MariaDB SQL file migration
 
 TODO
 
