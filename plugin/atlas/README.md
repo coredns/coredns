@@ -134,7 +134,7 @@ The JSON config file has the following format:
 
 Please install Atlas as described in the [Atlas doc](https://atlasgo.io/getting-started), use Atlas on Docker or use the provided SQL migration files.
 
-You find the schema for your database in the Atlas [migrations](migrations) directory.
+You will find the schema for your database in the Atlas [migrations](migrations) directory.
 
 ### DB Schema inspection
 
@@ -295,3 +295,19 @@ This overview shows the implemented resource record types.
 | URI   |     |     | ✓    | ✓    | Uniform Resource Identifier                                                                                            |
 | SVCB  |     |     | TODO | TODO | Service Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L218)) |
 | HTTPS |     |     | TODO | TODO | HTTPS Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L231))   |
+
+## Development
+
+Atlas is using code generation to generate most of the plugin code.
+
+Since not all databases has native json support, we are marshal/unmarshal the RR types into the `rrdata` column in the `DnsRR` schema.
+
+If you dont know `ent`, first read the docs to understand how `ent` is working.
+
+You will find the `schema` in this [directory](ent/schema). This is the place, where the schema will be declared. If you make changes run `go generate ./...` in the plugin directory and run `make test`.
+
+If you break anything, please fix it, provide or change the tests and make your contribution.
+
+## Finally
+
+Have fun!
