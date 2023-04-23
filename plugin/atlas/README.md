@@ -37,7 +37,11 @@ atlas {
 - `dsn` is a string with the data source to which a connection is to be made
 - If you set the `automigrate` option to true, the Atlas plugin will migrate the database automatically. Good for development, but not recommended for production use! If the parameter is omitted, automigrate will be false by default.
 - `debug` true - logs all sql statements
-- `zone_update_duration` reload the zones every `N` times; default: 1 minutes, duration can be ex `30s`econds, `1m`inute
+- `zone_update_duration` reload the zones every `N` times; default: 1 minutes, duration can be ex `30s` seconds, `1m` minute or whatever duration you want
+
+### Prepare the Database
+
+You can use our [schema files](migrations) or Ariga Atlas (see below).
 
 ## Supported Databases
 
@@ -147,65 +151,63 @@ You will find the schema for your database in the Atlas [migrations](migrations)
 
 ### DB Schema inspection
 
-If you want to inspect your existing schema, you can use the following cli command.
-
-> **_NOTE:_** please go into the `plugin/atlas/migrations` directory if you want to generate migration files.
+If you want to inspect your **existing** schema, you can use the following cli command.
 
 #### HCL output
 
 ```shell
-atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" > schema.hcl
+# postgres
+atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable"
+
+# mysql
+atlas schema inspect -u "mysql://${DB_USER}:${DB_PASS}@localhost:3306/${DB_NAME}"
+
+# mariadb - please note: port 3307 is not the standard port (see docker-compose.yaml)!!!
+atlas schema inspect -u "mariadb://${DB_USER}:${DB_PASS}@localhost:3307/${DB_NAME}"
 ```
 
 #### SQL Output
 
 ```shell
-atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --format '{{ sql . }}' > pg-schema.sql
+# postgres
+atlas schema inspect -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --format '{{ sql . }}'
 
+# mysql
+atlas schema inspect -u "mysql://${DB_USER}:${DB_PASS}@localhost:3306/${DB_NAME}" --format '{{ sql . }}'
+
+# mariadb
+atlas schema inspect -u "maria://${DB_USER}:${DB_PASS}@localhost:3307/${DB_NAME}" --format '{{ sql . }}'
 ```
 
 ### DB Schema Apply
 
-> **_NOTE:_** Ariga Atlas differentiates between MySQL and MariaDB schema migrations. Please use `mariadb` or `mysql` for migrations in your dsn. The coredns Atlas plugin doesnt needs this differntiation and works with `mysql` only!
+> **_NOTE:_** Ariga Atlas differentiates between MySQL and MariaDB schema migrations. Please use `mariadb` or `mysql` for migrations in your dsn. The coredns Atlas plugin doesnt needs this differntiation and works with `mysql` or `maria`, but it makes no difference because we are using the same database driver!
 
-#### HCL file migration
+#### Migrate the Database
 
-If you use Atlas, you can use the `hcl` file for all supported databases. Please provide the correct DSN.
-
-```shell
-atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --to file://schema.hcl
-```
-
-If no changes are made, you'll get the message:
+Please set the correct environment variables (see our [.env.sample](.env.sample)).
 
 ```shell
-Schema is synced, no changes to be made.
+# postgres
+atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --to file://migrations/postgres --auto-approve
+
+# mysql
+atlas schema apply -u "mysql://${DB_USER}:${DB_PASS}@localhost:3306/${DB_NAME}" --to file://migrations/mysql --auto-approve
+
+# mariadb
+atlas schema apply -u "mariadb://${DB_USER}:${DB_PASS}@localhost:3307/${DB_NAME}" --to file://migrations/mariadb --auto-approve
 ```
-
-#### Postgres SQL file migration
-
-```shell
-atlas schema apply -u "postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable" --to file://pg-schema.sql
-```
-
-#### MySQL SQL file migration
-
-TODO
-
-#### MariaDB SQL file migration
-
-TODO
 
 ## Zone file import
 
-There is a example cobra command [zoneImport](cli/cmd/zoneImport.go) file. You can use it to import a zone file into a postgres database.
+There is a example cobra command [zoneImport](cli/cmd/zoneImport.go) file. You can use it to import a zone file into a database (all databases are supported).
 
-Please have a look at [root.go](cli/cmd/root.go). You have to import `_ "github.com/coredns/coredns/plugin/atlas/ent/runtime"` to omit circle import errors.b
+Please have a look at [root.go](cli/cmd/root.go). You have to import `_ "github.com/coredns/coredns/plugin/atlas/ent/runtime"` to omit circle dependency import errors.
 
 ## Resource Records
 
 ![Active DNS Record Types](https://upload.wikimedia.org/wikipedia/commons/5/59/All_active_dns_record_types.png)
-Image by Wikipedia and hopefully correct.
+**The image was borrowed from Wikipedia and is hopefully correct.**
 
 This overview shows the implemented resource record types.
 
@@ -320,14 +322,23 @@ with the `docker-compose.yaml`. Please copy the `.env.sample` to `.env`. If you 
 
 ### Makefile
 
+Before you run commands, run `make docker` first.
+
 ```shell
 $make                                                                                                                                                                  
 docker               run docker compose
 generate             run go generate
 install              install Ariga Atlas
-pg-import            run postgres zoneimport
+ma-apply             apply changes to maria db with Ariga Atlas
+ma-import            run mariadb zoneimport from tests/pri.miek.nl for domain miek.nl 
+ma-inspect           inspect maria db with Ariga Atlas
+ma-status            get Atlas migration status for maria db
+my-import            run mysql zoneimport from tests/pri.miek.nl for domain miek.nl 
+my-inspect           inspect mysql db with Ariga Atlas
+my-status            get Atlas migration status for mysql db
+pg-import            run postgres zoneimport from tests/pri.miek.nl for domain miek.nl 
 pg-inspect           inspect postgres db with Ariga Atlas
-pg-status            get Atlas migration status
+pg-status            get Atlas migration status for postgres db
 test                 run unit tests
 ```
 

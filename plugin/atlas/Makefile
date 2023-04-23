@@ -24,13 +24,41 @@ test: ## run unit tests
 	@go tool cover -html coverage.out -o coverage.html
 
 .PHONY: pg-import
-pg-import: ## run postgres zoneimport
-	@go run cli/main.go --db.name ${DB_NAME} --db.hostname 127.0.0.1 --db.user ${DB_USER} --db.password ${DB_PASS} zoneImport -f tests/pri.miek.nl -d miek.nl
+pg-import: ## run postgres zoneimport from tests/pri.miek.nl for domain miek.nl 
+	@go run cli/main.go -u ${DSN0} zoneImport -f tests/pri.miek.nl -d miek.nl
 
 .PHONY: pg-status
-pg-status: ## get Atlas migration status
-	@atlas migrate status --url ${DSNPG} --dir "file://migrations"
+pg-status: ## get Atlas migration status for postgres db
+	@atlas migrate status --url ${DSN0} --dir "file://migrations/postgres"
 
 .PHONY: pg-inspect
 pg-inspect: ## inspect postgres db with Ariga Atlas
-	@atlas schema inspect -u ${DSNPG}	
+	@atlas schema inspect -u ${DSN0}
+
+.PHONY: my-import
+my-import: ## run mysql zoneimport from tests/pri.miek.nl for domain miek.nl 
+	@go run cli/main.go -u ${DSN1} zoneImport -f tests/pri.miek.nl -d miek.nl
+
+.PHONY: my-status
+my-status: ## get Atlas migration status for mysql db
+	@atlas migrate status --url ${DSN1} --dir "file://migrations/mysql"
+
+.PHONY: my-inspect
+my-inspect: ## inspect mysql db with Ariga Atlas
+	@atlas schema inspect -u ${DSN1}
+
+.PHONY: ma-import
+ma-import: ## run mariadb zoneimport from tests/pri.miek.nl for domain miek.nl 
+	@go run cli/main.go -u ${DSN2} zoneImport -f tests/pri.miek.nl -d miek.nl
+
+.PHONY: ma-status
+ma-status: ## get Atlas migration status for maria db
+	@atlas migrate status --url ${DSN2} --dir "file://migrations/mariadb"
+
+.PHONY: ma-inspect
+ma-inspect: ## inspect maria db with Ariga Atlas
+	@atlas schema inspect -u ${DSN2}
+
+.PHONY: ma-apply
+ma-apply: ## apply changes to maria db with Ariga Atlas
+	@atlas schema apply -u ${DSN2} --to "file://migrations/mariadb" 	

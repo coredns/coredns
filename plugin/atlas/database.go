@@ -45,7 +45,7 @@ func GetDSN(conn string) (t, cn string, err error) {
 	switch u.Scheme {
 	case "postgres", "postgresql":
 		return getPostgresDSN(u)
-	case "mysql", "mariadb":
+	case "mysql", "mariadb", "maria":
 		return getMySQLDSN(u)
 	default:
 		return t, cn, fmt.Errorf("unexpected scheme")

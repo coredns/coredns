@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"entgo.io/ent/dialect"
+	"github.com/coredns/coredns/plugin/atlas"
 	"github.com/coredns/coredns/plugin/atlas/ent"
 	"github.com/coredns/coredns/plugin/atlas/ent/dnszone"
 	"github.com/coredns/coredns/plugin/atlas/record"
@@ -56,7 +56,7 @@ func init() {
 }
 
 func (o *ZoneImportOptions) Complete(cmd *cobra.Command, args []string) (err error) {
-	o.dsn = cfg.db.GetDSN()
+	o.dsn = cfg.db.DSN
 
 	return nil
 }
@@ -77,11 +77,11 @@ func (o *ZoneImportOptions) Run() error {
 	var client *ent.Client
 	var err error
 
-	client, err = ent.Open(dialect.Postgres, o.dsn)
+	client, err = atlas.OpenAtlasDB(o.dsn)
 	if err != nil {
 		return err
 	}
-	defer client.Close() // fix this - handle error
+	defer client.Close()
 
 	err = client.Schema.Create(context.Background())
 	if err != nil {

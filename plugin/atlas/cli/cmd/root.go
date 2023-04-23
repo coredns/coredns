@@ -18,23 +18,7 @@ const CliName = "atlas"
 var cfgFile string
 
 type db struct {
-	Port     int
-	Name     string
-	Hostname string
-	Username string
-	Password string
-	SSL      bool
-}
-
-func (d db) GetDSN() string {
-	return fmt.Sprintf("host=%s port=%v user=%s dbname=%s password=%s sslmode=%s", d.Hostname, d.Port, d.Username, d.Name, d.Password, d.SSLMode())
-}
-
-func (d db) SSLMode() string {
-	if d.SSL {
-		return "require"
-	}
-	return "disable"
+	DSN string
 }
 
 type config struct {
@@ -81,12 +65,7 @@ func init() {
 
 	//rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.atlas.yaml)")
 	pflags := rootCmd.PersistentFlags()
-	pflags.StringVarP(&cfg.db.Hostname, "db.hostname", "", "localhost", "database hostname")
-	pflags.StringVarP(&cfg.db.Name, "db.name", "", "postgres", "database name")
-	pflags.IntVarP(&cfg.db.Port, "db.port", "", 5432, "database port")
-	pflags.StringVarP(&cfg.db.Username, "db.user", "", "", "database user")
-	pflags.StringVarP(&cfg.db.Password, "db.password", "", "", "database password")
-	pflags.BoolVarP(&cfg.db.SSL, "db.ssl", "", false, "database ssl mode")
+	pflags.StringVarP(&cfg.db.DSN, "dsn", "u", "", "database dsn")
 }
 
 // initConfig reads in config file and ENV variables if set.
