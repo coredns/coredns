@@ -12,17 +12,19 @@ type DnsRecordResource interface {
 	Header() *dns.RR_Header
 }
 
+// ImportRecord imports a zone, the RR_header and the zone_record into the database
+// the zone_record has to be a json string marshalled with New<RR>().Marshal().
+// The zone must exists.
 func ImportRecord[K DnsRecordResource](client *ent.Client, zone string, i K, zone_record string) error {
-
 	ctx := context.Background()
 	header := i.Header()
 
-	// if you dont want sql output strings, remove Debug().
-	zoneId, err := client.Debug().DnsZone.Query().Where(
-		dnszone.And(
+	zoneId, err := client.DnsZone.
+		Query().
+		Where(
 			dnszone.NameEQ(zone),
-		),
-	).FirstID(ctx)
+		).
+		FirstID(ctx)
 	if err != nil {
 		return err
 	}

@@ -9,14 +9,16 @@ import (
 	"github.com/miekg/dns"
 )
 
-func ImportZone(ctx context.Context, client *ent.Client, r io.Reader, origin string, file string) error {
-	z := dns.NewZoneParser(r, origin, file)
+// ImportZone imports an RFC 1035-compliant zone file into the database
+func ImportZone(ctx context.Context, client *ent.Client, reader io.Reader, origin string, file string) error {
+	z := dns.NewZoneParser(reader, origin, file)
 	if z.Err() != nil {
 		return z.Err()
 	}
 
-	// we dont have includes for our use case
+	// we dont use includes and including files is maybe a security risk
 	z.SetIncludeAllowed(false)
+
 	var zone string
 	for rr, ok := z.Next(); ok; rr, ok = z.Next() {
 		switch t := rr.(type) {

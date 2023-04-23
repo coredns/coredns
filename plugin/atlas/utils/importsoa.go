@@ -9,9 +9,10 @@ import (
 	"github.com/miekg/dns"
 )
 
+// ImportSOA imports a soa record into the database
 func ImportSOA(client *ent.Client, soa *dns.SOA) error {
 	ctx := context.Background()
-	count, err := client.Debug().DnsZone.Query().Where(dnszone.NameEQ(soa.Hdr.Name)).Count(ctx)
+	count, err := client.DnsZone.Query().Where(dnszone.NameEQ(soa.Hdr.Name)).Count(ctx)
 	if err != nil {
 		return err
 	}
@@ -21,7 +22,8 @@ func ImportSOA(client *ent.Client, soa *dns.SOA) error {
 		return nil
 	}
 
-	_, err = client.Debug().DnsZone.Create().
+	_, err = client.DnsZone.
+		Create().
 		SetName(soa.Hdr.Name).
 		SetRrtype(soa.Hdr.Rrtype).
 		SetClass(soa.Hdr.Class).
