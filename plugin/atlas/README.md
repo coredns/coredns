@@ -16,7 +16,7 @@ It uses [entgo.io](https://entgo.io/docs/getting-started) as ORM and [Ariga](htt
 
 - works with [entgo.io](https://entgo.io/docs/getting-started) (the ORM that this plugin is using)
 - cool features for database schema migrations
-- [CI migration support](https://atlasgo.io/integrations/github-actions) (Github Action)
+- [CI lint support](https://atlasgo.io/integrations/github-actions) (Github Action)
 - [Terraform provider](https://atlasgo.io/integrations/terraform-provider)
 
 We don't force anyone to use Ariga Atlas! Use Flyway or whatever migration tool fits your workflow. But please don't ask for support for other tools.
