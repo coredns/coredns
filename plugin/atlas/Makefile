@@ -35,6 +35,10 @@ pg-status: ## get Atlas migration status for postgres db
 pg-inspect: ## inspect postgres db with Ariga Atlas
 	@atlas schema inspect -u ${DSN0}
 
+.PHONY: pg-apply
+pg-apply: ## apply changes to postgres db with Ariga Atlas
+	@atlas schema apply -u ${DSN0} --to "file://migrations/postgres" 
+
 .PHONY: my-import
 my-import: ## run mysql zoneimport from tests/pri.miek.nl for domain miek.nl 
 	@go run cli/main.go -u ${DSN1} zoneImport -f tests/pri.miek.nl -d miek.nl
@@ -46,6 +50,10 @@ my-status: ## get Atlas migration status for mysql db
 .PHONY: my-inspect
 my-inspect: ## inspect mysql db with Ariga Atlas
 	@atlas schema inspect -u ${DSN1}
+
+.PHONY: my-apply
+my-apply: ## apply changes to mysql db with Ariga Atlas
+	@atlas schema apply -u ${DSN1} --to "file://migrations/mysql" 
 
 .PHONY: ma-import
 ma-import: ## run mariadb zoneimport from tests/pri.miek.nl for domain miek.nl 
