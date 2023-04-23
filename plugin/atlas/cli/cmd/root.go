@@ -10,7 +10,9 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	_ "github.com/coredns/coredns/plugin/atlas/ent/runtime"
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const CliName = "atlas"
