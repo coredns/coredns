@@ -27,6 +27,10 @@ test: ## run unit tests
 pg-import: ## run postgres zoneimport from tests/pri.miek.nl for domain miek.nl 
 	@go run cli/main.go -u ${DSN0} zoneImport -f tests/pri.miek.nl -d miek.nl
 
+.PHONY: pg-bulk-import
+pg-bulk-import: ## run postgres zoneimport from tests/pri.miek.nl for domain miek.nl 
+	@go run cli/main.go -u ${DSN0} zoneImport -b	
+
 .PHONY: pg-status
 pg-status: ## get Atlas migration status for postgres db
 	@atlas migrate status --url ${DSN0} --dir "file://migrations/postgres"

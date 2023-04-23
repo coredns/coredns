@@ -9,5 +9,6 @@ tmp/
 # plugin: atlas hashicorp vault agent config file 
 vault.json
 !plugin/atlas/tests/vault.json
+plugin/atlas/import
 .env
 coverage.*
