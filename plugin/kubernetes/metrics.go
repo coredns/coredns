@@ -13,28 +13,28 @@ import (
 )
 
 var (
-	// requestLatency measures K8s rest client requests latency grouped by verb and url.
+	// requestLatency measures K8s rest client requests latency grouped by verb and host.
 	requestLatency = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: plugin.Namespace,
 			Subsystem: "kubernetes",
 			Name:      "rest_client_request_duration_seconds",
-			Help:      "Request latency in seconds. Broken down by verb and URL.",
+			Help:      "Request latency in seconds. Broken down by verb and host.",
 			Buckets:   prometheus.DefBuckets,
 		},
-		[]string{"verb", "url"},
+		[]string{"verb", "host"},
 	)
 
-	// rateLimiterLatency measures K8s rest client rate limiter latency grouped by verb and url.
+	// rateLimiterLatency measures K8s rest client rate limiter latency grouped by verb and host.
 	rateLimiterLatency = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Namespace: plugin.Namespace,
 			Subsystem: "kubernetes",
 			Name:      "rest_client_rate_limiter_duration_seconds",
-			Help:      "Client side rate limiter latency in seconds. Broken down by verb and URL.",
+			Help:      "Client side rate limiter latency in seconds. Broken down by verb and host.",
 			Buckets:   prometheus.DefBuckets,
 		},
-		[]string{"verb", "url"},
+		[]string{"verb", "host"},
 	)
 
 	// requestResult measures K8s rest client request metrics grouped by status code, method & host.
