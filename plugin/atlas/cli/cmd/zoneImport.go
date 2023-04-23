@@ -49,7 +49,7 @@ func init() {
 	}
 
 	importZoneFlags := zoneImportCmd.Flags()
-	importZoneFlags.StringVarP(&zoneImportOptions.domain, "domain", "d", "", "import directory")
+	importZoneFlags.StringVarP(&zoneImportOptions.domain, "domain", "d", "", "domain to import to database")
 	importZoneFlags.StringVarP(&zoneImportOptions.file, "file", "f", "", "zone file name to import")
 
 	rootCmd.AddCommand(zoneImportCmd)
@@ -83,6 +83,7 @@ func (o *ZoneImportOptions) Run() error {
 	}
 	defer client.Close()
 
+	// this code migrates the database automatically!
 	err = client.Schema.Create(context.Background())
 	if err != nil {
 		return err
@@ -97,6 +98,7 @@ func (o *ZoneImportOptions) Run() error {
 		return z.Err()
 	}
 
+	// we dont have includes for our use case
 	z.SetIncludeAllowed(false)
 	var zone string
 	for rr, ok := z.Next(); ok; rr, ok = z.Next() {
@@ -339,7 +341,6 @@ func (o *ZoneImportOptions) Run() error {
 			if err := importRecord(client, zone, t, rec); err != nil {
 				return err
 			}
-
 		}
 	}
 
@@ -384,6 +385,7 @@ func importRecord[K DnsRecordResource](client *ent.Client, zone string, i K, zon
 	ctx := context.Background()
 	header := i.Header()
 
+	// if you dont want sql output strings, remove Debug().
 	zoneId, err := client.Debug().DnsZone.Query().Where(
 		dnszone.And(
 			dnszone.NameEQ(zone),

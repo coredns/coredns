@@ -33,7 +33,7 @@ var (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "atlas",
-	Short: "atlas for isp providers",
+	Short: "atlas for internet service providers",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
