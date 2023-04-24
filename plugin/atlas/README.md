@@ -11,6 +11,8 @@ It uses [entgo.io](https://entgo.io/docs/getting-started) as ORM and [Ariga](htt
 - supports many resource record types (RRs)
 - supports database migrations
 - TODO: supports AXFR zone transfer
+- example code for zone file import
+- example code for bulk directory import of zone files
 
 ## Why [Ariga Atlas](https://atlasgo.io/getting-started)?
 
@@ -201,6 +203,10 @@ atlas schema apply -u "mariadb://${DB_USER}:${DB_PASS}@localhost:3307/${DB_NAME}
 ## Zone file import
 
 There is a example cobra command [zoneImport](cli/cmd/zoneImport.go) file. You can use it to import a zone file into a database (all databases are supported).
+
+Furthermore you can bulk import a zone file directory. 
+
+> **_NOTE:_** Please note, that you should not double import a zone file or directory, because we are not checking for existing records.
 
 Please have a look at [root.go](cli/cmd/root.go). You have to import `_ "github.com/coredns/coredns/plugin/atlas/ent/runtime"` to omit circle dependency import errors.
 
