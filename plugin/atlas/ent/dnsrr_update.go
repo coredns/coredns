@@ -171,6 +171,16 @@ func (dru *DnsRRUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (dru *DnsRRUpdate) check() error {
+	if v, ok := dru.mutation.Rrtype(); ok {
+		if err := dnsrr.RrtypeValidator(v); err != nil {
+			return &ValidationError{Name: "rrtype", err: fmt.Errorf(`ent: validator failed for field "DnsRR.rrtype": %w`, err)}
+		}
+	}
+	if v, ok := dru.mutation.Class(); ok {
+		if err := dnsrr.ClassValidator(v); err != nil {
+			return &ValidationError{Name: "class", err: fmt.Errorf(`ent: validator failed for field "DnsRR.class": %w`, err)}
+		}
+	}
 	if v, ok := dru.mutation.TTL(); ok {
 		if err := dnsrr.TTLValidator(v); err != nil {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsRR.ttl": %w`, err)}
@@ -424,6 +434,16 @@ func (druo *DnsRRUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (druo *DnsRRUpdateOne) check() error {
+	if v, ok := druo.mutation.Rrtype(); ok {
+		if err := dnsrr.RrtypeValidator(v); err != nil {
+			return &ValidationError{Name: "rrtype", err: fmt.Errorf(`ent: validator failed for field "DnsRR.rrtype": %w`, err)}
+		}
+	}
+	if v, ok := druo.mutation.Class(); ok {
+		if err := dnsrr.ClassValidator(v); err != nil {
+			return &ValidationError{Name: "class", err: fmt.Errorf(`ent: validator failed for field "DnsRR.class": %w`, err)}
+		}
+	}
 	if v, ok := druo.mutation.TTL(); ok {
 		if err := dnsrr.TTLValidator(v); err != nil {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsRR.ttl": %w`, err)}

@@ -318,8 +318,18 @@ func (dzc *DnsZoneCreate) check() error {
 	if _, ok := dzc.mutation.Rrtype(); !ok {
 		return &ValidationError{Name: "rrtype", err: errors.New(`ent: missing required field "DnsZone.rrtype"`)}
 	}
+	if v, ok := dzc.mutation.Rrtype(); ok {
+		if err := dnszone.RrtypeValidator(v); err != nil {
+			return &ValidationError{Name: "rrtype", err: fmt.Errorf(`ent: validator failed for field "DnsZone.rrtype": %w`, err)}
+		}
+	}
 	if _, ok := dzc.mutation.Class(); !ok {
 		return &ValidationError{Name: "class", err: errors.New(`ent: missing required field "DnsZone.class"`)}
+	}
+	if v, ok := dzc.mutation.Class(); ok {
+		if err := dnszone.ClassValidator(v); err != nil {
+			return &ValidationError{Name: "class", err: fmt.Errorf(`ent: validator failed for field "DnsZone.class": %w`, err)}
+		}
 	}
 	if _, ok := dzc.mutation.TTL(); !ok {
 		return &ValidationError{Name: "ttl", err: errors.New(`ent: missing required field "DnsZone.ttl"`)}
@@ -347,6 +357,11 @@ func (dzc *DnsZoneCreate) check() error {
 	}
 	if _, ok := dzc.mutation.Serial(); !ok {
 		return &ValidationError{Name: "serial", err: errors.New(`ent: missing required field "DnsZone.serial"`)}
+	}
+	if v, ok := dzc.mutation.Serial(); ok {
+		if err := dnszone.SerialValidator(v); err != nil {
+			return &ValidationError{Name: "serial", err: fmt.Errorf(`ent: validator failed for field "DnsZone.serial": %w`, err)}
+		}
 	}
 	if _, ok := dzc.mutation.Refresh(); !ok {
 		return &ValidationError{Name: "refresh", err: errors.New(`ent: missing required field "DnsZone.refresh"`)}

@@ -301,6 +301,16 @@ func (dzu *DnsZoneUpdate) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (dzu *DnsZoneUpdate) check() error {
+	if v, ok := dzu.mutation.Rrtype(); ok {
+		if err := dnszone.RrtypeValidator(v); err != nil {
+			return &ValidationError{Name: "rrtype", err: fmt.Errorf(`ent: validator failed for field "DnsZone.rrtype": %w`, err)}
+		}
+	}
+	if v, ok := dzu.mutation.Class(); ok {
+		if err := dnszone.ClassValidator(v); err != nil {
+			return &ValidationError{Name: "class", err: fmt.Errorf(`ent: validator failed for field "DnsZone.class": %w`, err)}
+		}
+	}
 	if v, ok := dzu.mutation.TTL(); ok {
 		if err := dnszone.TTLValidator(v); err != nil {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsZone.ttl": %w`, err)}
@@ -314,6 +324,11 @@ func (dzu *DnsZoneUpdate) check() error {
 	if v, ok := dzu.mutation.Mbox(); ok {
 		if err := dnszone.MboxValidator(v); err != nil {
 			return &ValidationError{Name: "mbox", err: fmt.Errorf(`ent: validator failed for field "DnsZone.mbox": %w`, err)}
+		}
+	}
+	if v, ok := dzu.mutation.Serial(); ok {
+		if err := dnszone.SerialValidator(v); err != nil {
+			return &ValidationError{Name: "serial", err: fmt.Errorf(`ent: validator failed for field "DnsZone.serial": %w`, err)}
 		}
 	}
 	if v, ok := dzu.mutation.Refresh(); ok {
@@ -760,6 +775,16 @@ func (dzuo *DnsZoneUpdateOne) defaults() {
 
 // check runs all checks and user-defined validators on the builder.
 func (dzuo *DnsZoneUpdateOne) check() error {
+	if v, ok := dzuo.mutation.Rrtype(); ok {
+		if err := dnszone.RrtypeValidator(v); err != nil {
+			return &ValidationError{Name: "rrtype", err: fmt.Errorf(`ent: validator failed for field "DnsZone.rrtype": %w`, err)}
+		}
+	}
+	if v, ok := dzuo.mutation.Class(); ok {
+		if err := dnszone.ClassValidator(v); err != nil {
+			return &ValidationError{Name: "class", err: fmt.Errorf(`ent: validator failed for field "DnsZone.class": %w`, err)}
+		}
+	}
 	if v, ok := dzuo.mutation.TTL(); ok {
 		if err := dnszone.TTLValidator(v); err != nil {
 			return &ValidationError{Name: "ttl", err: fmt.Errorf(`ent: validator failed for field "DnsZone.ttl": %w`, err)}
@@ -773,6 +798,11 @@ func (dzuo *DnsZoneUpdateOne) check() error {
 	if v, ok := dzuo.mutation.Mbox(); ok {
 		if err := dnszone.MboxValidator(v); err != nil {
 			return &ValidationError{Name: "mbox", err: fmt.Errorf(`ent: validator failed for field "DnsZone.mbox": %w`, err)}
+		}
+	}
+	if v, ok := dzuo.mutation.Serial(); ok {
+		if err := dnszone.SerialValidator(v); err != nil {
+			return &ValidationError{Name: "serial", err: fmt.Errorf(`ent: validator failed for field "DnsZone.serial": %w`, err)}
 		}
 	}
 	if v, ok := dzuo.mutation.Refresh(); ok {

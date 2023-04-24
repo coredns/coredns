@@ -29,7 +29,7 @@ pg-import: ## run postgres zoneimport from tests/pri.miek.nl for domain miek.nl
 
 .PHONY: pg-bulk-import
 pg-bulk-import: ## run postgres zoneimport from tests/pri.miek.nl for domain miek.nl 
-	@go run cli/main.go -u ${DSN0} zoneImport -b	
+	@go run cli/main.go -u ${DSN0} zoneImport -b --dir import
 
 .PHONY: pg-status
 pg-status: ## get Atlas migration status for postgres db
@@ -41,7 +41,7 @@ pg-inspect: ## inspect postgres db with Ariga Atlas
 
 .PHONY: pg-apply
 pg-apply: ## apply changes to postgres db with Ariga Atlas
-	@atlas schema apply -u ${DSN0} --to "file://migrations/postgres" 
+	@atlas schema apply -u ${DSN0} --to "file://migrations/postgres" --auto-approve
 
 .PHONY: my-import
 my-import: ## run mysql zoneimport from tests/pri.miek.nl for domain miek.nl 
@@ -57,7 +57,7 @@ my-inspect: ## inspect mysql db with Ariga Atlas
 
 .PHONY: my-apply
 my-apply: ## apply changes to mysql db with Ariga Atlas
-	@atlas schema apply -u ${DSN1} --to "file://migrations/mysql" 
+	@atlas schema apply -u ${DSN1} --to "file://migrations/mysql" --auto-approve
 
 .PHONY: ma-import
 ma-import: ## run mariadb zoneimport from tests/pri.miek.nl for domain miek.nl 
@@ -73,4 +73,4 @@ ma-inspect: ## inspect maria db with Ariga Atlas
 
 .PHONY: ma-apply
 ma-apply: ## apply changes to maria db with Ariga Atlas
-	@atlas schema apply -u ${DSN2} --to "file://migrations/mariadb" 	
+	@atlas schema apply -u ${DSN2} --to "file://migrations/mariadb" --auto-approve	

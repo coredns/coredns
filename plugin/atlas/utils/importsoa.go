@@ -18,7 +18,7 @@ func ImportSOA(client *ent.Client, soa *dns.SOA) error {
 	}
 
 	if count > 0 {
-		fmt.Printf("zone already exists: %v\n", count)
+		fmt.Printf("zone already exists: %v\n", soa.Hdr.Name)
 		return nil
 	}
 

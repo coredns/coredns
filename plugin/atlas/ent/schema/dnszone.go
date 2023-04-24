@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"math"
+
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/entsql"
@@ -34,18 +36,20 @@ func (DnsZone) Fields() []ent.Field {
 
 		// SOA.Hdr.Rrtype
 		field.Uint16("rrtype").
+			Max(math.MaxUint16).
 			Default(dns.TypeSOA).
 			Comment("resource record type"),
 
 		// SOA.Hdr.Class
 		field.Uint16("class").
+			Max(math.MaxUint16).
 			Default(dns.ClassINET).
 			Comment("class"),
 
 		// SOA.Hdr.Ttl
 		field.Uint32("ttl").
-			Min(360).
-			Max(2147483647).
+			Min(60).
+			Max(math.MaxUint32).
 			Default(3600).
 			Comment("Time-to-live"),
 
@@ -64,7 +68,7 @@ func (DnsZone) Fields() []ent.Field {
 		// SOA.Mbox
 		field.String("mbox").
 			MinLen(3).
-			MaxLen(253).
+			MaxLen(255).
 			NotEmpty().
 			SchemaType(map[string]string{
 				dialect.MySQL:    "varchar(255)",
@@ -75,33 +79,34 @@ func (DnsZone) Fields() []ent.Field {
 
 		// SOA.Serial
 		field.Uint32("serial").
+			Max(math.MaxUint32).
 			Comment("serial"),
 
 		// SOA.Refresh
 		field.Uint32("refresh").
-			Min(360).
-			Max(2147483647).
+			Min(60).
+			Max(math.MaxUint32).
 			Default(10800).
 			Comment("number of seconds after which secondary name servers should query the master for the SOA record, to detect zone changes. Recommendation for small and stable zones:[4] 86400 seconds (24 hours)."),
 
 		// SOA.Retry
 		field.Uint32("retry").
-			Min(360).
-			Max(2147483647).
+			Min(60).
+			Max(math.MaxUint32).
 			Default(3600).
 			Comment("Number of seconds after which secondary name servers should retry to request the serial number from the master if the master does not respond. It must be less than Refresh. Recommendation for small and stable zones: 7200 seconds (2 hours)."),
 
 		// SOA.Expire
 		field.Uint32("expire").
-			Min(360).
-			Max(2147483647).
+			Min(60).
+			Max(math.MaxUint32).
 			Default(604800).
 			Comment("Number of seconds after which secondary name servers should stop answering request for this zone if the master does not respond. This value must be bigger than the sum of Refresh and Retry. Recommendation for small and stable zones: 3600000 seconds (1000 hours)."),
 
 		// SOA.Minttl
 		field.Uint32("minttl").
-			Min(360).
-			Max(2147483647).
+			Min(60).
+			Max(math.MaxUint32).
 			Default(3600).
 			Comment("The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone."),
 

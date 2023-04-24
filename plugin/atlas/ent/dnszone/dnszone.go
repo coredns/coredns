@@ -94,8 +94,12 @@ var (
 	NameValidator func(string) error
 	// DefaultRrtype holds the default value on creation for the "rrtype" field.
 	DefaultRrtype uint16
+	// RrtypeValidator is a validator for the "rrtype" field. It is called by the builders before save.
+	RrtypeValidator func(uint16) error
 	// DefaultClass holds the default value on creation for the "class" field.
 	DefaultClass uint16
+	// ClassValidator is a validator for the "class" field. It is called by the builders before save.
+	ClassValidator func(uint16) error
 	// DefaultTTL holds the default value on creation for the "ttl" field.
 	DefaultTTL uint32
 	// TTLValidator is a validator for the "ttl" field. It is called by the builders before save.
@@ -104,6 +108,8 @@ var (
 	NsValidator func(string) error
 	// MboxValidator is a validator for the "mbox" field. It is called by the builders before save.
 	MboxValidator func(string) error
+	// SerialValidator is a validator for the "serial" field. It is called by the builders before save.
+	SerialValidator func(uint32) error
 	// DefaultRefresh holds the default value on creation for the "refresh" field.
 	DefaultRefresh uint32
 	// RefreshValidator is a validator for the "refresh" field. It is called by the builders before save.

@@ -218,11 +218,21 @@ func (drc *DnsRRCreate) check() error {
 	if _, ok := drc.mutation.Rrtype(); !ok {
 		return &ValidationError{Name: "rrtype", err: errors.New(`ent: missing required field "DnsRR.rrtype"`)}
 	}
+	if v, ok := drc.mutation.Rrtype(); ok {
+		if err := dnsrr.RrtypeValidator(v); err != nil {
+			return &ValidationError{Name: "rrtype", err: fmt.Errorf(`ent: validator failed for field "DnsRR.rrtype": %w`, err)}
+		}
+	}
 	if _, ok := drc.mutation.Rrdata(); !ok {
 		return &ValidationError{Name: "rrdata", err: errors.New(`ent: missing required field "DnsRR.rrdata"`)}
 	}
 	if _, ok := drc.mutation.Class(); !ok {
 		return &ValidationError{Name: "class", err: errors.New(`ent: missing required field "DnsRR.class"`)}
+	}
+	if v, ok := drc.mutation.Class(); ok {
+		if err := dnsrr.ClassValidator(v); err != nil {
+			return &ValidationError{Name: "class", err: fmt.Errorf(`ent: validator failed for field "DnsRR.class": %w`, err)}
+		}
 	}
 	if _, ok := drc.mutation.TTL(); !ok {
 		return &ValidationError{Name: "ttl", err: errors.New(`ent: missing required field "DnsRR.ttl"`)}

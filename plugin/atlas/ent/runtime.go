@@ -49,10 +49,16 @@ func init() {
 			return nil
 		}
 	}()
+	// dnsrrDescRrtype is the schema descriptor for rrtype field.
+	dnsrrDescRrtype := dnsrrFields[1].Descriptor()
+	// dnsrr.RrtypeValidator is a validator for the "rrtype" field. It is called by the builders before save.
+	dnsrr.RrtypeValidator = dnsrrDescRrtype.Validators[0].(func(uint16) error)
 	// dnsrrDescClass is the schema descriptor for class field.
 	dnsrrDescClass := dnsrrFields[3].Descriptor()
 	// dnsrr.DefaultClass holds the default value on creation for the class field.
 	dnsrr.DefaultClass = dnsrrDescClass.Default.(uint16)
+	// dnsrr.ClassValidator is a validator for the "class" field. It is called by the builders before save.
+	dnsrr.ClassValidator = dnsrrDescClass.Validators[0].(func(uint16) error)
 	// dnsrrDescTTL is the schema descriptor for ttl field.
 	dnsrrDescTTL := dnsrrFields[4].Descriptor()
 	// dnsrr.DefaultTTL holds the default value on creation for the ttl field.
@@ -119,10 +125,14 @@ func init() {
 	dnszoneDescRrtype := dnszoneFields[1].Descriptor()
 	// dnszone.DefaultRrtype holds the default value on creation for the rrtype field.
 	dnszone.DefaultRrtype = dnszoneDescRrtype.Default.(uint16)
+	// dnszone.RrtypeValidator is a validator for the "rrtype" field. It is called by the builders before save.
+	dnszone.RrtypeValidator = dnszoneDescRrtype.Validators[0].(func(uint16) error)
 	// dnszoneDescClass is the schema descriptor for class field.
 	dnszoneDescClass := dnszoneFields[2].Descriptor()
 	// dnszone.DefaultClass holds the default value on creation for the class field.
 	dnszone.DefaultClass = dnszoneDescClass.Default.(uint16)
+	// dnszone.ClassValidator is a validator for the "class" field. It is called by the builders before save.
+	dnszone.ClassValidator = dnszoneDescClass.Validators[0].(func(uint16) error)
 	// dnszoneDescTTL is the schema descriptor for ttl field.
 	dnszoneDescTTL := dnszoneFields[3].Descriptor()
 	// dnszone.DefaultTTL holds the default value on creation for the ttl field.
@@ -181,6 +191,10 @@ func init() {
 			return nil
 		}
 	}()
+	// dnszoneDescSerial is the schema descriptor for serial field.
+	dnszoneDescSerial := dnszoneFields[6].Descriptor()
+	// dnszone.SerialValidator is a validator for the "serial" field. It is called by the builders before save.
+	dnszone.SerialValidator = dnszoneDescSerial.Validators[0].(func(uint32) error)
 	// dnszoneDescRefresh is the schema descriptor for refresh field.
 	dnszoneDescRefresh := dnszoneFields[7].Descriptor()
 	// dnszone.DefaultRefresh holds the default value on creation for the refresh field.

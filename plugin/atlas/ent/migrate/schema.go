@@ -57,7 +57,7 @@ var (
 		{Name: "class", Type: field.TypeUint16, Default: 1},
 		{Name: "ttl", Type: field.TypeUint32, Default: 3600},
 		{Name: "ns", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
-		{Name: "mbox", Type: field.TypeString, Size: 253, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
+		{Name: "mbox", Type: field.TypeString, Size: 255, SchemaType: map[string]string{"mysql": "varchar(255)", "postgres": "varchar(255)", "sqlite3": "varchar"}},
 		{Name: "serial", Type: field.TypeUint32},
 		{Name: "refresh", Type: field.TypeUint32, Default: 10800},
 		{Name: "retry", Type: field.TypeUint32, Default: 3600},

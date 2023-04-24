@@ -85,8 +85,12 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// RrtypeValidator is a validator for the "rrtype" field. It is called by the builders before save.
+	RrtypeValidator func(uint16) error
 	// DefaultClass holds the default value on creation for the "class" field.
 	DefaultClass uint16
+	// ClassValidator is a validator for the "class" field. It is called by the builders before save.
+	ClassValidator func(uint16) error
 	// DefaultTTL holds the default value on creation for the "ttl" field.
 	DefaultTTL uint32
 	// TTLValidator is a validator for the "ttl" field. It is called by the builders before save.

@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/atlas"
 	"github.com/coredns/coredns/plugin/atlas/ent"
@@ -16,16 +18,20 @@ var (
 )
 
 type ZoneImportOptions struct {
-	dsn        string
-	file       string
-	domain     string
-	bulk       bool
-	directory  string
-	fileNaming string
+	dsn         string
+	file        string
+	domain      string
+	bulk        bool
+	directory   string
+	fileNaming  string
+	automigrate bool
 }
 
 func NewZoneImportOptions() *ZoneImportOptions {
-	return &ZoneImportOptions{}
+	return &ZoneImportOptions{
+		bulk:        false,
+		automigrate: false,
+	}
 }
 
 func init() {
@@ -33,7 +39,7 @@ func init() {
 
 	zoneImportCmd := &cobra.Command{
 		Use:          "zoneImport",
-		Short:        "import a zone from a zone file or bulk import a directory",
+		Short:        "import a zone from a zone file or bulk import a zone directory",
 		SilenceUsage: true,
 		RunE: func(c *cobra.Command, args []string) error {
 			if err := zoneImportOptions.Complete(c, args); err != nil {
@@ -53,8 +59,9 @@ func init() {
 	importZoneFlags.StringVarP(&zoneImportOptions.domain, "domain", "d", "", "domain to import to database")
 	importZoneFlags.StringVarP(&zoneImportOptions.file, "file", "f", "", "zone file name to import")
 	importZoneFlags.BoolVarP(&zoneImportOptions.bulk, "bulk", "b", false, "enable bulk directory import")
+	importZoneFlags.BoolVarP(&zoneImportOptions.automigrate, "automigrate", "", false, "auto migrate the database")
 	importZoneFlags.StringVarP(&zoneImportOptions.directory, "dir", "", "", "bulk import directory")
-	importZoneFlags.StringVarP(&zoneImportOptions.fileNaming, "tpl", "", "pri.{.Domain}", "file template name")
+	importZoneFlags.StringVarP(&zoneImportOptions.fileNaming, "tpl", "", "pri.", "file template name")
 
 	rootCmd.AddCommand(zoneImportCmd)
 }
@@ -84,6 +91,7 @@ func (o *ZoneImportOptions) Validate() (err error) {
 func (o *ZoneImportOptions) Run() error {
 	var client *ent.Client
 	var err error
+	ctx := context.Background()
 
 	client, err = atlas.OpenAtlasDB(o.dsn)
 	if err != nil {
@@ -91,16 +99,48 @@ func (o *ZoneImportOptions) Run() error {
 	}
 	defer client.Close()
 
-	// this code migrates the database automatically!
-	err = client.Schema.Create(context.Background())
+	if o.automigrate {
+		err = client.Schema.Create(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	// single file import
+	if !o.bulk {
+		f, err := os.Open(o.file)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		return utils.ImportZone(ctx, client, f, o.domain, o.file)
+	}
+
+	// bulk import
+	splitAt := filepath.Join(o.directory, o.fileNaming)
+	matches, err := filepath.Glob(splitAt + "*")
 	if err != nil {
 		return err
 	}
 
-	f, err := os.Open(o.file)
-	if err != nil {
-		return err
-	}
+	for _, match := range matches {
+		domainSlice := strings.Split(match, splitAt)
+		if len(domainSlice) < 2 {
+			return fmt.Errorf("error processing zone file: %v", match)
+		}
+		domain := domainSlice[1]
 
-	return utils.ImportZone(context.Background(), client, f, o.domain, o.file)
+		f, err := os.Open(match)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		if err = utils.ImportZone(ctx, client, f, domain, match); err != nil {
+			fmt.Printf("Error processing file: %v\n", match)
+			return err
+		}
+	}
+	return nil
 }

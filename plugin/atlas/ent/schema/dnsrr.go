@@ -1,6 +1,8 @@
 package schema
 
 import (
+	"math"
+
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/schema/edge"
@@ -30,6 +32,7 @@ func (DnsRR) Fields() []ent.Field {
 
 		// dns.<type>.Hdr.Rrtype
 		field.Uint16("rrtype").
+			Max(math.MaxUint16).
 			Comment("resource record type"),
 
 		// the data type of this json data belong to the rrtype
@@ -38,12 +41,13 @@ func (DnsRR) Fields() []ent.Field {
 
 		// SOA.Hdr.Class
 		field.Uint16("class").
+			Max(math.MaxUint16).
 			Default(dns.ClassINET).
 			Comment("class"),
 
 		field.Uint32("ttl").
-			Min(360).
-			Max(2147483647).
+			Min(60).
+			Max(math.MaxUint32).
 			Default(3600).Comment("Time-to-live"),
 
 		field.Bool("activated").
