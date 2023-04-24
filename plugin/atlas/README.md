@@ -204,7 +204,7 @@ atlas schema apply -u "mariadb://${DB_USER}:${DB_PASS}@localhost:3307/${DB_NAME}
 
 There is a example cobra command [zoneImport](cli/cmd/zoneImport.go) file. You can use it to import a zone file into a database (all databases are supported).
 
-Furthermore you can bulk import a zone file directory. 
+Furthermore you can bulk import a zone file directory.
 
 > **_NOTE:_** Please note, that you should not double import a zone file or directory, because we are not checking for existing records.
 
