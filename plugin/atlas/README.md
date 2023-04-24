@@ -336,14 +336,17 @@ docker               run docker compose
 generate             run go generate
 install              install Ariga Atlas
 ma-apply             apply changes to maria db with Ariga Atlas
+ma-bulk-import       run mariadb bulk zoneimport from import directory (you must provide the directory) 
 ma-import            run mariadb zoneimport from tests/pri.miek.nl for domain miek.nl 
 ma-inspect           inspect maria db with Ariga Atlas
 ma-status            get Atlas migration status for maria db
 my-apply             apply changes to mysql db with Ariga Atlas
+my-bulk-import       run mysql bulk zoneimport from import directory (you must provide the directory) 
 my-import            run mysql zoneimport from tests/pri.miek.nl for domain miek.nl 
 my-inspect           inspect mysql db with Ariga Atlas
 my-status            get Atlas migration status for mysql db
 pg-apply             apply changes to postgres db with Ariga Atlas
+pg-bulk-import       run postgres bulk zoneimport from import directory (you must provide the directory) 
 pg-import            run postgres zoneimport from tests/pri.miek.nl for domain miek.nl 
 pg-inspect           inspect postgres db with Ariga Atlas
 pg-status            get Atlas migration status for postgres db

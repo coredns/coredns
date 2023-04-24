@@ -28,7 +28,7 @@ pg-import: ## run postgres zoneimport from tests/pri.miek.nl for domain miek.nl
 	@go run cli/main.go -u ${DSN0} zoneImport -f tests/pri.miek.nl -d miek.nl
 
 .PHONY: pg-bulk-import
-pg-bulk-import: ## run postgres zoneimport from tests/pri.miek.nl for domain miek.nl 
+pg-bulk-import: ## run postgres bulk zoneimport from import directory (you must provide the directory) 
 	@go run cli/main.go -u ${DSN0} zoneImport -b --dir import
 
 .PHONY: pg-status
@@ -46,6 +46,10 @@ pg-apply: ## apply changes to postgres db with Ariga Atlas
 .PHONY: my-import
 my-import: ## run mysql zoneimport from tests/pri.miek.nl for domain miek.nl 
 	@go run cli/main.go -u ${DSN1} zoneImport -f tests/pri.miek.nl -d miek.nl
+
+.PHONY: my-bulk-import
+my-bulk-import: ## run mysql bulk zoneimport from import directory (you must provide the directory) 
+	@go run cli/main.go -u ${DSN1} zoneImport -b --dir import
 
 .PHONY: my-status
 my-status: ## get Atlas migration status for mysql db
@@ -73,4 +77,8 @@ ma-inspect: ## inspect maria db with Ariga Atlas
 
 .PHONY: ma-apply
 ma-apply: ## apply changes to maria db with Ariga Atlas
-	@atlas schema apply -u ${DSN2} --to "file://migrations/mariadb" --auto-approve	
+	@atlas schema apply -u ${DSN2} --to "file://migrations/mariadb" --auto-approve
+
+.PHONY: ma-bulk-import
+ma-bulk-import: ## run mariadb bulk zoneimport from import directory (you must provide the directory) 
+	@go run cli/main.go -u ${DSN2} zoneImport -b --dir import
