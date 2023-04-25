@@ -605,7 +605,7 @@ func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
 			dns.updateModified()
 		}
 		if emod {
-			dns.updateExtModifed()
+			dns.updateExtModified()
 		}
 	case *object.Pod:
 		dns.updateModified()
@@ -749,7 +749,7 @@ func (dns *dnsControl) updateModified() {
 }
 
 // updateExtModified set dns.extModified to the current time.
-func (dns *dnsControl) updateExtModifed() {
+func (dns *dnsControl) updateExtModified() {
 	unix := time.Now().Unix()
 	atomic.StoreInt64(&dns.extModified, unix)
 }
