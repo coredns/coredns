@@ -1,15 +1,21 @@
 package atlas
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/coredns/coredns/plugin/atlas/ent"
+	"github.com/coredns/coredns/plugin/atlas/ent/dnsrr"
+	"github.com/coredns/coredns/plugin/atlas/ent/dnszone"
+	"github.com/coredns/coredns/plugin/atlas/record"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/miekg/dns"
 )
 
 // OpenAtlasDB opens a new database connection and returns the database `Client`.
@@ -142,4 +148,130 @@ func getPostgresDSN(u *url.URL) (t, c string, err error) {
 	}
 
 	return "postgres", strings.Join(s, " "), nil
+}
+
+func (a *Atlas) getAtlasClient() (client *ent.Client, err error) {
+	dsn, err := a.cfg.GetDsn()
+	if err != nil {
+		return nil, err
+	}
+
+	client, err = OpenAtlasDB(dsn)
+	if err != nil {
+		return nil, err
+	}
+
+	if a.cfg.debug {
+		client = client.Debug()
+	}
+	return
+}
+
+func (a *Atlas) getSOARecord(ctx context.Context, client *ent.Client, zone string) (rrs []dns.RR, err error) {
+	rrs = make([]dns.RR, 0)
+	if client == nil {
+		return rrs, fmt.Errorf("atlas client error")
+	}
+
+	soaRec, err := client.DnsZone.Query().
+		Where(
+			dnszone.Activated(true),
+			dnszone.NameEQ(zone),
+		).
+		First(ctx)
+
+	if err != nil {
+		return rrs, err
+	}
+
+	rec := &dns.SOA{
+		Hdr: dns.RR_Header{
+			Name:   soaRec.Name,
+			Rrtype: soaRec.Rrtype,
+			Class:  soaRec.Class,
+			Ttl:    soaRec.TTL,
+		},
+		Ns:      soaRec.Ns,
+		Mbox:    soaRec.Mbox,
+		Serial:  soaRec.Serial,
+		Refresh: soaRec.Refresh,
+		Retry:   soaRec.Retry,
+		Expire:  soaRec.Expire,
+		Minttl:  soaRec.Minttl,
+	}
+
+	return []dns.RR{rec}, nil
+}
+
+func (a *Atlas) loadZones(ctx context.Context, client *ent.Client) error {
+	zones := []string{}
+
+	if client == nil {
+		return fmt.Errorf("atlas client error")
+	}
+
+	records, err := client.DnsZone.
+		Query().
+		Select(dnszone.FieldName).
+		Where(dnszone.Activated(true)).
+		Order(ent.Asc(dnszone.FieldName)).
+		All(ctx)
+	if err != nil {
+		return err
+	}
+
+	log.Infof("loadZones - found %v zone(s)", len(records))
+
+	for _, zone := range records {
+		zones = append(zones, zone.Name)
+	}
+
+	a.zones = zones
+	a.lastZoneUpdate = time.Now()
+
+	return nil
+}
+
+func (a *Atlas) getNameServers(ctx context.Context, client *ent.Client, reqName string) (rrs []dns.RR, err error) {
+	return a.getRRecords(ctx, client, reqName, dns.TypeNS)
+}
+
+func (a *Atlas) getRRecords(ctx context.Context, client *ent.Client, reqName string, reqQType uint16) (rrs []dns.RR, err error) {
+	rrs = make([]dns.RR, 0)
+	if client == nil {
+		return rrs, fmt.Errorf("atlas client error")
+	}
+
+	records, err := client.DnsRR.Query().
+		Select(
+			dnsrr.FieldName,
+			dnsrr.FieldClass,
+			dnsrr.FieldRrtype,
+			dnsrr.FieldRrdata,
+			dnsrr.FieldTTL,
+		).
+		Where(
+			dnsrr.NameEQ(reqName),
+			dnsrr.RrtypeEQ(reqQType),
+			dnsrr.ActivatedEQ(true), // we serve only activated records
+		).
+		Order(ent.Asc(
+			dnsrr.FieldName,
+			dnsrr.FieldRrtype,
+		)).
+		All(ctx)
+	if err != nil {
+		return rrs, err
+	}
+
+	for _, r := range records {
+		rec, err := record.From(r)
+		if err != nil {
+			log.Error(err)
+			return rrs, err
+		}
+		rrs = append(rrs, rec)
+	}
+
+	return rrs, nil
 }
