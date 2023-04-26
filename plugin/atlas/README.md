@@ -18,7 +18,6 @@ It uses [entgo.io](https://entgo.io/docs/getting-started) as ORM and [Ariga](htt
 
 - zoneImport TXT RRs should split the string in 255 byte chunks (check for correctness!)
 - check authoritative, additional answers for each supported RR
-- make ServeDNS dry
 - write more tests
 
 ## Why [Ariga Atlas](https://atlasgo.io/getting-started)?

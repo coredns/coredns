@@ -88,14 +88,7 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 		responseMsg.Answer = append(responseMsg.Answer, soaRec...)
 
-		// TODO(jproxx): make it dry
-		state.SizeAndDo(responseMsg)
-		responseMsg = state.Scrub(responseMsg)
-		if err = w.WriteMsg(responseMsg); err != nil {
-			return dns.RcodeServerFailure, err
-		}
-
-		return dns.RcodeSuccess, nil
+		return a.write(state, w, responseMsg)
 	}
 
 	rrs, err := a.getRRecords(ctx, client, reqName, reqType)
@@ -111,14 +104,7 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 		responseMsg.Answer = append(responseMsg.Answer, soaRec...)
 
-		// TODO(jproxx): make it dry
-		state.SizeAndDo(responseMsg)
-		responseMsg = state.Scrub(responseMsg)
-		if err = w.WriteMsg(responseMsg); err != nil {
-			return dns.RcodeServerFailure, err
-		}
-
-		return dns.RcodeSuccess, nil
+		return a.write(state, w, responseMsg)
 	}
 
 	responseMsg.Answer = append(responseMsg.Answer, rrs...)
@@ -131,14 +117,7 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		responseMsg.Ns = nsRRs
 	}
 
-	// TODO(jproxx): make it dry
-	state.SizeAndDo(responseMsg)
-	responseMsg = state.Scrub(responseMsg)
-	if err = w.WriteMsg(responseMsg); err != nil {
-		return dns.RcodeServerFailure, err
-	}
-
-	return dns.RcodeSuccess, nil
+	return a.write(state, w, responseMsg)
 }
 
 // Name implements the Handler interface.
@@ -146,6 +125,16 @@ func (a *Atlas) Name() string { return plgName }
 
 func (a *Atlas) mustReloadZones() bool {
 	return time.Since(a.lastZoneUpdate) > a.cfg.zoneUpdateTime
+}
+
+func (handler *Atlas) write(state request.Request, w dns.ResponseWriter, msg *dns.Msg) (int, error) {
+	state.SizeAndDo(msg)
+	msg = state.Scrub(msg)
+	if err := w.WriteMsg(msg); err != nil {
+		return dns.RcodeServerFailure, err
+	}
+
+	return dns.RcodeSuccess, nil
 }
 
 func (handler *Atlas) errorResponse(state request.Request, rCode int, err error) (int, error) {
