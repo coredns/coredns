@@ -288,18 +288,18 @@ This overview shows the implemented resource record types.
 
 ### DNSEC RR Types
 
-| RR         | bps | mh  | zi   | rt    | Remark                     |
-| ---------- | --- | --- | ---- | ----- | -------------------------- |
-| DNSKEY     |     |     | TODO | ✓     | DNSSEC Key                 |
-| RRSIG      |     |     | TODO | ✓     | Resource Record Signature  |
-| NSEC3      |     |     | TODO | ✓     | Next-Secure 3              |
-| DS         |     |     | ✓    | ✓     | Delegation Signer          |
-| TA         |     |     | TODO | ✓     | DNSSEC Trust Authorities   |
-| CDNSKEY    |     |     | TODO | TODO! | Child Copy of DNSKEY       |
-| NSEC       |     |     | TODO | ✓     | Next Secure                |
-| NSEC3PARAM |     |     | TODO | ✓     | Next-Secure 3 Parameters   |
-| CDS        |     |     | TODO | TODO! | Child Copy of DS           |
-| DLV        |     |     | TODO | TODO! | DNSEC Lookaside Validation |
+| RR         | bps | mh  | zi            | rt      | Remark                     |
+| ---------- | --- | --- | ------------- | ------- | -------------------------- |
+| DNSKEY     |     |     | TODO          | ✓       | DNSSEC Key                 |
+| RRSIG      |     |     | TODO          | ✓       | Resource Record Signature  |
+| NSEC3      |     |     | NOT SUPPORTED | REMOVED | Next-Secure 3              |
+| DS         |     |     | ✓             | ✓       | Delegation Signer          |
+| TA         |     |     | TODO          | ✓       | DNSSEC Trust Authorities   |
+| CDNSKEY    |     |     | TODO          | TODO!   | Child Copy of DNSKEY       |
+| NSEC       |     |     | TODO          | ✓       | Next Secure                |
+| NSEC3PARAM |     |     | NOT SUPPORTED | REMOVED | Next-Secure 3 Parameters   |
+| CDS        |     |     | TODO          | TODO!   | Child Copy of DS           |
+| DLV        |     |     | TODO          | TODO!   | DNSEC Lookaside Validation |
 
 ### Security RR Types
 
