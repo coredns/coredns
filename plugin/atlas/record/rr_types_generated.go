@@ -425,49 +425,6 @@ func NewIPSECKEY(rec *dns.IPSECKEY) IPSECKEY {
 	}
 }
 
-// Marshal NSEC3 RR and return json string and error if any
-func (rec NSEC3) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewNSEC3 creates a record.NSEC3 from *dns.NSEC3
-func NewNSEC3(rec *dns.NSEC3) NSEC3 {
-	return NSEC3{
-		Hash:       rec.Hash,
-		Flags:      rec.Flags,
-		Iterations: rec.Iterations,
-		SaltLength: rec.SaltLength,
-		Salt:       rec.Salt,
-		HashLength: rec.HashLength,
-		NextDomain: rec.NextDomain,
-		TypeBitMap: rec.TypeBitMap,
-	}
-}
-
-// Marshal NSEC3PARAM RR and return json string and error if any
-func (rec NSEC3PARAM) Marshal() (s string, e error) {
-	var m []byte
-	if m, e = json.Marshal(rec); e != nil {
-		return
-	}
-	return string(m), nil
-}
-
-// NewNSEC3PARAM creates a record.NSEC3PARAM from *dns.NSEC3PARAM
-func NewNSEC3PARAM(rec *dns.NSEC3PARAM) NSEC3PARAM {
-	return NSEC3PARAM{
-		Hash:       rec.Hash,
-		Flags:      rec.Flags,
-		Iterations: rec.Iterations,
-		SaltLength: rec.SaltLength,
-		Salt:       rec.Salt,
-	}
-}
-
 // Marshal TKEY RR and return json string and error if any
 func (rec TKEY) Marshal() (s string, e error) {
 	var m []byte
@@ -1046,43 +1003,6 @@ func From(rec *ent.DnsRR) (dns.RR, error) {
 		}
 
 		return &ipseckey, nil
-
-	case dns.TypeNSEC3:
-		var recNSEC3 NSEC3
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recNSEC3); err != nil {
-			return nil, err
-		}
-
-		nsec3 := dns.NSEC3{
-			Hdr:        *header,
-			Hash:       recNSEC3.Hash,
-			Flags:      recNSEC3.Flags,
-			Iterations: recNSEC3.Iterations,
-			SaltLength: recNSEC3.SaltLength,
-			Salt:       recNSEC3.Salt,
-			HashLength: recNSEC3.HashLength,
-			NextDomain: recNSEC3.NextDomain,
-			TypeBitMap: recNSEC3.TypeBitMap,
-		}
-
-		return &nsec3, nil
-
-	case dns.TypeNSEC3PARAM:
-		var recNSEC3PARAM NSEC3PARAM
-		if err := json.Unmarshal([]byte(rec.Rrdata), &recNSEC3PARAM); err != nil {
-			return nil, err
-		}
-
-		nsec3param := dns.NSEC3PARAM{
-			Hdr:        *header,
-			Hash:       recNSEC3PARAM.Hash,
-			Flags:      recNSEC3PARAM.Flags,
-			Iterations: recNSEC3PARAM.Iterations,
-			SaltLength: recNSEC3PARAM.SaltLength,
-			Salt:       recNSEC3PARAM.Salt,
-		}
-
-		return &nsec3param, nil
 
 	case dns.TypeTKEY:
 		var recTKEY TKEY

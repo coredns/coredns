@@ -290,26 +290,28 @@ type IPSECKEY struct {
 // 	Ptr string `json:"ptr"`
 // }
 
+// not supported by coredns
 // NSEC3 RR. See RFC 5155.
-type NSEC3 struct {
-	Hash       uint8    `json:"hash"`
-	Flags      uint8    `json:"flags"`
-	Iterations uint16   `json:"iterations"`
-	SaltLength uint8    `json:"salt_length"`
-	Salt       string   `json:"salt"`
-	HashLength uint8    `json:"hash_length"`
-	NextDomain string   `json:"next_domain"`
-	TypeBitMap []uint16 `json:"type_bit_map"`
-}
+// type NSEC3 struct {
+// 	Hash       uint8    `json:"hash"`
+// 	Flags      uint8    `json:"flags"`
+// 	Iterations uint16   `json:"iterations"`
+// 	SaltLength uint8    `json:"salt_length"`
+// 	Salt       string   `json:"salt"`
+// 	HashLength uint8    `json:"hash_length"`
+// 	NextDomain string   `json:"next_domain"`
+// 	TypeBitMap []uint16 `json:"type_bit_map"`
+// }
 
+// not supported by coredns
 // NSEC3PARAM RR. See RFC 5155.
-type NSEC3PARAM struct {
-	Hash       uint8  `json:"hash"`
-	Flags      uint8  `json:"flags"`
-	Iterations uint16 `json:"iterations"`
-	SaltLength uint8  `json:"salt_length"`
-	Salt       string `json:"salt"`
-}
+// type NSEC3PARAM struct {
+// 	Hash       uint8  `json:"hash"`
+// 	Flags      uint8  `json:"flags"`
+// 	Iterations uint16 `json:"iterations"`
+// 	SaltLength uint8  `json:"salt_length"`
+// 	Salt       string `json:"salt"`
+// }
 
 // TKEY RR. See RFC 2930.
 type TKEY struct {

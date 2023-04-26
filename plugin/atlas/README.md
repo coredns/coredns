@@ -20,7 +20,6 @@ It uses [entgo.io](https://entgo.io/docs/getting-started) as ORM and [Ariga](htt
 - check authoritative, additional answers for each supported RR
 - make ServeDNS dry
 - write more tests
-- remove NSEC3 from record.rr_types because its not supported by coredns
 
 ## Why [Ariga Atlas](https://atlasgo.io/getting-started)?
 
