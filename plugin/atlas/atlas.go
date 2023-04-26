@@ -160,18 +160,3 @@ func (handler *Atlas) errorResponse(state request.Request, rCode int, err error)
 	// Return success as the rCode to signal we have written to the client.
 	return dns.RcodeSuccess, err
 }
-
-// ResponsePrinter wrap a dns.ResponseWriter and will write atlas to standard output when WriteMsg is called.
-type ResponsePrinter struct {
-	dns.ResponseWriter
-}
-
-// NewResponsePrinter returns ResponseWriter.
-func NewResponsePrinter(w dns.ResponseWriter) *ResponsePrinter {
-	return &ResponsePrinter{ResponseWriter: w}
-}
-
-// WriteMsg calls the underlying ResponseWriter's WriteMsg method and prints "atlas" to standard output.
-func (r *ResponsePrinter) WriteMsg(res *dns.Msg) error {
-	return r.ResponseWriter.WriteMsg(res)
-}
