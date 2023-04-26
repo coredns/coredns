@@ -39,7 +39,3 @@ clean:
 .PHONY: air
 air: ## run air - install with `go install github.com/cosmtrek/air@latest`
 	@CGO_ENABLED=1 air
-
-.PHONY: test
-test: ## test atlas with testify
-	@go test github.com/coredns/coredns/plugin/atlas
