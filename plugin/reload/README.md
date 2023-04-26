@@ -68,7 +68,7 @@ Check every 10 seconds (jitter is automatically set to 10 / 2 = 5 in this case):
 ## Bugs
 
 The reload happens without data loss (i.e. DNS queries keep flowing), but there is a corner case
-where the reload fails, and you loose functionality. Consider the following Corefile:
+where the reload fails, and you lose functionality. Consider the following Corefile:
 
 ~~~ txt
 . {

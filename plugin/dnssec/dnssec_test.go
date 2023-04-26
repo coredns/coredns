@@ -123,6 +123,60 @@ func TestSigningEmpty(t *testing.T) {
 	}
 }
 
+func TestDelegationSigned(t *testing.T) {
+	d, rm1, rm2 := newDnssec(t, []string{"miek.nl."})
+	defer rm1()
+	defer rm2()
+
+	m := testMsgDelegationSigned()
+	m.SetQuestion("sub.miek.nl.", dns.TypeNS)
+	state := request.Request{Req: m, Zone: "miek.nl."}
+	m = d.Sign(state, time.Now().UTC(), server)
+	if !section(m.Ns, 1) {
+		t.Errorf("Authority section should have 1 RRSIGs")
+	}
+	if !section(m.Extra, 0) {
+		t.Error("Extra section should not have RRSIGs")
+	}
+}
+
+func TestDelegationUnSigned(t *testing.T) {
+	d, rm1, rm2 := newDnssec(t, []string{"miek.nl."})
+	defer rm1()
+	defer rm2()
+
+	m := testMsgDelegationUnSigned()
+	m.SetQuestion("sub.miek.nl.", dns.TypeNS)
+	state := request.Request{Req: m, Zone: "miek.nl."}
+	m = d.Sign(state, time.Now().UTC(), server)
+	if !section(m.Ns, 1) {
+		t.Errorf("Authority section should have 1 RRSIG")
+	}
+	if !section(m.Extra, 0) {
+		t.Error("Extra section should not have RRSIG")
+	}
+	var nsec *dns.NSEC
+	var rrsig *dns.RRSIG
+	for _, r := range m.Ns {
+		if r.Header().Rrtype == dns.TypeNSEC {
+			nsec = r.(*dns.NSEC)
+		}
+		if r.Header().Rrtype == dns.TypeRRSIG {
+			rrsig = r.(*dns.RRSIG)
+		}
+	}
+	if nsec == nil {
+		t.Error("Authority section should hold a NSEC record")
+	}
+	if rrsig.TypeCovered != dns.TypeNSEC {
+		t.Errorf("RRSIG should cover type %s, got %s",
+			dns.TypeToString[dns.TypeNSEC], dns.TypeToString[rrsig.TypeCovered])
+	}
+	if !correctNsecForDS(nsec) {
+		t.Error("NSEC as invalid TypeBitMap for a DS")
+	}
+}
+
 func section(rss []dns.RR, nrSigs int) bool {
 	i := 0
 	for _, r := range rss {
@@ -137,13 +191,13 @@ func testMsg() *dns.Msg {
 	// don't care about the message header
 	return &dns.Msg{
 		Answer: []dns.RR{test.MX("miek.nl.	1703	IN	MX	1 aspmx.l.google.com.")},
-		Ns: []dns.RR{test.NS("miek.nl.	1703	IN	NS	omval.tednet.nl.")},
+		Ns:     []dns.RR{test.NS("miek.nl.	1703	IN	NS	omval.tednet.nl.")},
 	}
 }
 func testMsgEx() *dns.Msg {
 	return &dns.Msg{
 		Answer: []dns.RR{test.MX("example.org.	1703	IN	MX	1 aspmx.l.google.com.")},
-		Ns: []dns.RR{test.NS("example.org.	1703	IN	NS	omval.tednet.nl.")},
+		Ns:     []dns.RR{test.NS("example.org.	1703	IN	NS	omval.tednet.nl.")},
 	}
 }
 
@@ -159,6 +213,29 @@ func testMsgDname() *dns.Msg {
 			test.CNAME("a.dname.miek.nl.	1800	IN	CNAME	a.test.miek.nl."),
 			test.A("a.test.miek.nl.	1800	IN	A	139.162.196.78"),
 			test.DNAME("dname.miek.nl.	1800	IN	DNAME	test.miek.nl."),
+		},
+	}
+}
+
+func testMsgDelegationSigned() *dns.Msg {
+	return &dns.Msg{
+		Ns: []dns.RR{
+			test.NS("sub.miek.nl.	1800	IN	NS	ns1.sub.miek.nl."),
+			test.DS("sub." + dsKey),
+		},
+		Extra: []dns.RR{
+			test.A("ns1.sub.miek.nl.	1800	IN	A	192.0.2.1"),
+		},
+	}
+}
+
+func testMsgDelegationUnSigned() *dns.Msg {
+	return &dns.Msg{
+		Ns: []dns.RR{
+			test.NS("sub.miek.nl.	1800	IN	NS	ns1.sub.miek.nl."),
+		},
+		Extra: []dns.RR{
+			test.A("ns1.sub.miek.nl.	1800	IN	A	192.0.2.1"),
 		},
 	}
 }
@@ -197,6 +274,7 @@ Created: 20160423195532
 Publish: 20160423195532
 Activate: 20160423195532
 `
+	dsKey    = `miek.nl. IN DS 18512 13 2 D4E806322598BC97A003EF1ACDFF352EEFF7B42DBB0D41B8224714C36AEF08D9`
 	pubKey1  = `example.org. IN DNSKEY 257 3 13 tVRWNSGpHZbCi7Pr7OmbADVUO3MxJ0Lb8Lk3o/HBHqCxf5K/J50lFqRa 98lkdAIiFOVRy8LyMvjwmxZKwB5MNw==`
 	privKey1 = `Private-key-format: v1.3
 Algorithm: 13 (ECDSAP256SHA256)

@@ -287,7 +287,7 @@ func (h *dnsContext) validateZonesAndListeningAddresses() error {
 	return nil
 }
 
-// groupSiteConfigsByListenAddr groups site configs by their listen
+// groupConfigsByListenAddr groups site configs by their listen
 // (bind) address, so sites that use the same listener can be served
 // on the same server instance. The return value maps the listen
 // address (what you pass into net.Listen) to the list of site configs.
