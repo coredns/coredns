@@ -25,11 +25,23 @@ type Atlas struct {
 
 // ServeDNS implements the plugin.Handler interface. This method gets called when atlas is used
 // in a Server.
+//
+// A records cause no additional section processing.
+//
+// MX records cause type A additional section processing for the host specified by EXCHANGE.
+//
+// CNAME RRs cause no additional section processing, but name servers may
+// choose to restart the query at the canonical name in certain cases.  See
+// the description of name server logic in [RFC-1034](https://datatracker.ietf.org/doc/html/rfc1034) for details.
+//
+// NS records cause both the usual additional section processing to locate
+// a type A record, and, when used in a referral, a special search of the
+// zone in which they reside for glue information.
+//
+// PTR records cause no additional section processing.
+//
+// SOA records cause no additional section processing.
 func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-
-	// Wrap.
-	// pw := NewResponsePrinter(w)
-
 	responseMsg := new(dns.Msg)
 	responseMsg.SetReply(r)
 	responseMsg.Authoritative = true
@@ -59,10 +71,8 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	reqZone := plugin.Zones(a.zones).Matches(reqName)
 	if reqZone == "" {
-		log.Errorf("zone not found: %v", state.Name())
 		return plugin.NextOrFailure(a.Name(), a.Next, ctx, w, r)
 	}
-	log.Infof("zone found: %v for question: %v", reqZone, reqName)
 
 	// TODO(jproxx): implement axfr requests, because we are needing them
 	if reqType == dns.TypeAXFR {
@@ -78,6 +88,7 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 		responseMsg.Answer = append(responseMsg.Answer, soaRec...)
 
+		// TODO(jproxx): make it dry
 		state.SizeAndDo(responseMsg)
 		responseMsg = state.Scrub(responseMsg)
 		if err = w.WriteMsg(responseMsg); err != nil {
@@ -100,10 +111,10 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		}
 		responseMsg.Answer = append(responseMsg.Answer, soaRec...)
 
+		// TODO(jproxx): make it dry
 		state.SizeAndDo(responseMsg)
 		responseMsg = state.Scrub(responseMsg)
 		if err = w.WriteMsg(responseMsg); err != nil {
-			log.Error(err)
 			return dns.RcodeServerFailure, err
 		}
 
@@ -113,16 +124,17 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	responseMsg.Answer = append(responseMsg.Answer, rrs...)
 
 	// build authoritative section
+	// TODO(jproxx): check, when we have to provide a authoritative section + additional section!
 	if nsRRs, err := a.getNameServers(ctx, client, reqZone); err != nil {
 		return a.errorResponse(state, dns.RcodeServerFailure, err)
 	} else {
 		responseMsg.Ns = nsRRs
 	}
 
+	// TODO(jproxx): make it dry
 	state.SizeAndDo(responseMsg)
 	responseMsg = state.Scrub(responseMsg)
 	if err = w.WriteMsg(responseMsg); err != nil {
-		log.Error(err)
 		return dns.RcodeServerFailure, err
 	}
 
@@ -142,7 +154,9 @@ func (handler *Atlas) errorResponse(state request.Request, rCode int, err error)
 	m.Authoritative, m.RecursionAvailable, m.Compress = true, false, true
 
 	state.SizeAndDo(m)
-	_ = state.W.WriteMsg(m)
+	if writeErr := state.W.WriteMsg(m); writeErr != nil {
+		return dns.RcodeServerFailure, err
+	}
 	// Return success as the rCode to signal we have written to the client.
 	return dns.RcodeSuccess, err
 }

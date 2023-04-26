@@ -14,6 +14,14 @@ It uses [entgo.io](https://entgo.io/docs/getting-started) as ORM and [Ariga](htt
 - example code for zone file import
 - example code for bulk directory import of zone files
 
+## TODO
+
+- zoneImport TXT RRs should split the string in 255 byte chunks (check for correctness!)
+- check authoritative, additional answers for each supported RR
+- make ServeDNS dry
+- write more tests
+- remove NSEC3 from record.rr_types because its not supported by coredns
+
 ## Why [Ariga Atlas](https://atlasgo.io/getting-started)?
 
 - works with [entgo.io](https://entgo.io/docs/getting-started) (the ORM that this plugin is using)
@@ -317,6 +325,31 @@ This overview shows the implemented resource record types.
 | SVCB  |     |     | TODO | TODO | Service Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L218)) |
 | HTTPS |     |     | TODO | TODO | HTTPS Binding ([miegk/dns](https://github.com/miekg/dns/blob/a6f978594be8a97447dd1a5eab6df481c7a8d9dc/svcb.go#L231))   |
 
+### Sections
+
+The four sections are:
+
+| Section    | Description                                                                                                                               |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Question   | Carries the query name and other query parameters.                                                                                        |
+| Answer     | Carries RRs which directly answer the query.                                                                                              |
+| Authority  | Carries RRs which describe other authoritative servers. May optionally carry the SOA RR for the authoritative data in the answer section. |
+| Additional | Carries RRs which may be helpful in using the RRs in the other sections.                                                                  |
+
+### Additional Information
+
+#### [Standard Query Processing](https://datatracker.ietf.org/doc/html/rfc1035#section-6.2)
+
+The major algorithm for standard query processing is presented in [RFC-1034](https://datatracker.ietf.org/doc/html/rfc1034).
+
+When processing queries with QCLASS=\*, or some other QCLASS which
+matches multiple classes, the response should never be authoritative
+unless the server can guarantee that the response covers all classes.
+
+When composing a response, RRs which are to be inserted in the
+additional section, but duplicate RRs in the answer or authority
+sections, may be omitted from the additional section.
+
 ## Development
 
 ### Direnv
@@ -331,23 +364,23 @@ with the `docker-compose.yaml`. Please copy the `.env.sample` to `.env`. If you 
 Before you run commands, run `make docker` first.
 
 ```shell
-$make                                                                                                                                                                  
+$make
 docker               run docker compose
 generate             run go generate
 install              install Ariga Atlas
 ma-apply             apply changes to maria db with Ariga Atlas
-ma-bulk-import       run mariadb bulk zoneimport from import directory (you must provide the directory) 
-ma-import            run mariadb zoneimport from tests/pri.miek.nl for domain miek.nl 
+ma-bulk-import       run mariadb bulk zoneimport from import directory (you must provide the directory)
+ma-import            run mariadb zoneimport from tests/pri.miek.nl for domain miek.nl
 ma-inspect           inspect maria db with Ariga Atlas
 ma-status            get Atlas migration status for maria db
 my-apply             apply changes to mysql db with Ariga Atlas
-my-bulk-import       run mysql bulk zoneimport from import directory (you must provide the directory) 
-my-import            run mysql zoneimport from tests/pri.miek.nl for domain miek.nl 
+my-bulk-import       run mysql bulk zoneimport from import directory (you must provide the directory)
+my-import            run mysql zoneimport from tests/pri.miek.nl for domain miek.nl
 my-inspect           inspect mysql db with Ariga Atlas
 my-status            get Atlas migration status for mysql db
 pg-apply             apply changes to postgres db with Ariga Atlas
-pg-bulk-import       run postgres bulk zoneimport from import directory (you must provide the directory) 
-pg-import            run postgres zoneimport from tests/pri.miek.nl for domain miek.nl 
+pg-bulk-import       run postgres bulk zoneimport from import directory (you must provide the directory)
+pg-import            run postgres zoneimport from tests/pri.miek.nl for domain miek.nl
 pg-inspect           inspect postgres db with Ariga Atlas
 pg-status            get Atlas migration status for postgres db
 test                 run unit tests
