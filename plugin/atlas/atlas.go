@@ -39,12 +39,10 @@ type Atlas struct {
 // zone in which they reside for glue information.
 //
 // PTR records cause no additional section processing.
-//
-// SOA records cause no additional section processing.
 func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	responseMsg := new(dns.Msg)
 	responseMsg.SetReply(r)
-	responseMsg.Authoritative = true
+	responseMsg.Authoritative = true // TODO(jproxx): authoritative only, if question does not contain a "*"
 	responseMsg.RecursionAvailable = false
 	responseMsg.Compress = true
 
@@ -82,13 +80,13 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	// handle soa record
 	var soaRec []dns.RR
 	if reqType == dns.TypeSOA {
+		// SOA records cause no additional section processing.
 		soaRec, err = a.getSOARecord(ctx, client, reqZone)
 		if err != nil {
 			return a.errorResponse(state, dns.RcodeServerFailure, err)
 		}
-		responseMsg.Answer = append(responseMsg.Answer, soaRec...)
 
-		return a.write(state, w, responseMsg)
+		return a.write(state, w, responseMsg, soaRec)
 	}
 
 	rrs, err := a.getRRecords(ctx, client, reqName, reqType)
@@ -97,27 +95,24 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	}
 
 	if len(rrs) == 0 {
-		// to get bind compliance we are returning the SOA rr
 		soaRec, err = a.getSOARecord(ctx, client, reqZone)
 		if err != nil {
 			return a.errorResponse(state, dns.RcodeServerFailure, err)
 		}
-		responseMsg.Answer = append(responseMsg.Answer, soaRec...)
 
-		return a.write(state, w, responseMsg)
+		return a.write(state, w, responseMsg, soaRec)
 	}
-
-	responseMsg.Answer = append(responseMsg.Answer, rrs...)
 
 	// build authoritative section
 	// TODO(jproxx): check, when we have to provide a authoritative section + additional section!
-	if nsRRs, err := a.getNameServers(ctx, client, reqZone); err != nil {
-		return a.errorResponse(state, dns.RcodeServerFailure, err)
-	} else {
-		responseMsg.Ns = nsRRs
-	}
+	// TODO(jproxx): this behavior is not correct in all cases, so we removed it
+	// if nsRRs, err := a.getNameServers(ctx, client, reqZone); err != nil {
+	// 	return a.errorResponse(state, dns.RcodeServerFailure, err)
+	// } else {
+	// 	responseMsg.Ns = nsRRs
+	// }
 
-	return a.write(state, w, responseMsg)
+	return a.write(state, w, responseMsg, rrs)
 }
 
 // Name implements the Handler interface.
@@ -127,7 +122,8 @@ func (a *Atlas) mustReloadZones() bool {
 	return time.Since(a.lastZoneUpdate) > a.cfg.zoneUpdateTime
 }
 
-func (handler *Atlas) write(state request.Request, w dns.ResponseWriter, msg *dns.Msg) (int, error) {
+func (handler *Atlas) write(state request.Request, w dns.ResponseWriter, msg *dns.Msg, answerSection []dns.RR) (int, error) {
+	msg.Answer = append(msg.Answer, answerSection...)
 	state.SizeAndDo(msg)
 	msg = state.Scrub(msg)
 	if err := w.WriteMsg(msg); err != nil {

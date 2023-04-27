@@ -267,7 +267,6 @@ func (a *Atlas) getRRecords(ctx context.Context, client *ent.Client, reqName str
 	for _, r := range records {
 		rec, err := record.From(r)
 		if err != nil {
-			log.Error(err)
 			return rrs, err
 		}
 		rrs = append(rrs, rec)

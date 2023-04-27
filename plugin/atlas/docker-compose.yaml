@@ -1,6 +1,29 @@
 version: '3.5'
 
 services:
+  # coredns:
+  #   image: coredns/coredns
+  #   command: -conf /data/Corefile
+  #   ports:
+  #     - "2053:53/udp"
+  #     - "2053:53/tcp"
+  #     - "9153:9153/tcp"
+  #   volumes:
+  #     - coredns:/data:ro
+  #     # the volume must be created with "docker volume create coredns"
+  #   cap_drop:
+  #     - ALL
+  #   cap_add:
+  #     - NET_BIND_SERVICE
+  #   read_only: true
+  #   deploy:
+  #     mode: global
+  #     placement:
+  #       constraints:
+  #         - "node.labels.iface != extern"
+  #     restart_policy:
+  #       condition: on-failure
+
   postgres:
     container_name: atlaspg
     image: postgres:latest
@@ -36,3 +59,7 @@ services:
       MARIADB_PASSWORD: ${DB_PASS}
     ports:
       - "3307:3306"
+
+# volumes:
+#   coredns:
+#     external: true
