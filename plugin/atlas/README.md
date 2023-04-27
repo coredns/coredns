@@ -8,14 +8,14 @@ It uses [entgo.io](https://entgo.io/docs/getting-started) as ORM and [Ariga](htt
 
 - works as authoritative server
 - supports many relational databases
-- supports many resource record types (RRs)
+- supports many resource record types (35 RRs are supported)
 - supports database migrations
-- TODO: supports AXFR zone transfer
 - example code for zone file import
 - example code for bulk directory import of zone files
 
 ## TODO
 
+- AXFR zone transfer
 - zoneImport TXT RRs should split the string in 255 byte chunks (check for correctness!)
 - check authoritative, additional answers for each supported RR
 - write more tests
