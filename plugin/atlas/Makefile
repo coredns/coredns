@@ -1,4 +1,3 @@
-DSNPG="postgres://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}?sslmode=disable"
 
 .DEFAULT_GOAL := help
 
