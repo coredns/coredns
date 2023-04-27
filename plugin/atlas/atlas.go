@@ -1,6 +1,3 @@
-// package atlas is a CoreDNS plugin that prints "atlas" to stdout on every packet received.
-//
-// It serves as an atlas CoreDNS plugin with numerous code comments.
 package atlas
 
 import (
@@ -14,7 +11,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-// Atlas is an database plugin.
+// Atlas database plugin
 type Atlas struct {
 	Next plugin.Handler
 
@@ -118,10 +115,12 @@ func (a *Atlas) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 // Name implements the Handler interface.
 func (a *Atlas) Name() string { return plgName }
 
+// mustReloadZones "trigger" to load zones from database
 func (a *Atlas) mustReloadZones() bool {
 	return time.Since(a.lastZoneUpdate) > a.cfg.zoneUpdateTime
 }
 
+// write response message via dns.ResponseWriter
 func (handler *Atlas) write(state request.Request, w dns.ResponseWriter, msg *dns.Msg, answerSection []dns.RR) (int, error) {
 	msg.Answer = append(msg.Answer, answerSection...)
 	state.SizeAndDo(msg)
@@ -133,6 +132,7 @@ func (handler *Atlas) write(state request.Request, w dns.ResponseWriter, msg *dn
 	return dns.RcodeSuccess, nil
 }
 
+// errorResponse is used to send the error response
 func (handler *Atlas) errorResponse(state request.Request, rCode int, err error) (int, error) {
 	m := new(dns.Msg)
 	m.SetRcode(state.Req, rCode)
@@ -142,6 +142,5 @@ func (handler *Atlas) errorResponse(state request.Request, rCode int, err error)
 	if writeErr := state.W.WriteMsg(m); writeErr != nil {
 		return dns.RcodeServerFailure, err
 	}
-	// Return success as the rCode to signal we have written to the client.
 	return dns.RcodeSuccess, err
 }

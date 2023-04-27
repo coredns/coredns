@@ -220,7 +220,7 @@ func (a *Atlas) loadZones(ctx context.Context, client *ent.Client) error {
 		return err
 	}
 
-	log.Infof("loadZones - found %v zone(s)", len(records))
+	// log.Infof("loadZones - found %v zone(s)", len(records))
 
 	for _, zone := range records {
 		zones = append(zones, zone.Name)
