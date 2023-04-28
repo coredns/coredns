@@ -126,7 +126,7 @@ func (DnsZone) Edges() []ent.Edge {
 	}
 }
 
-// Index the columns
+// Indexes the columns
 func (DnsZone) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("activated"),
