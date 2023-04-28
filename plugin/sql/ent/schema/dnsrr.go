@@ -67,6 +67,7 @@ func (DnsRR) Edges() []ent.Edge {
 	}
 }
 
+// Index the columns
 func (DnsRR) Indexes() []ent.Index {
 	return []ent.Index{
 		// non-unique index.
