@@ -1,0 +1,3 @@
+{
+    "dsn": "sqlite3://file:ent?mode=memory&cache=shared&_fk=1"
+}

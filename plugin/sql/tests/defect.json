@@ -1,0 +1,2 @@
+{
+    "dsn": "postgres://postgres:secret@localhost:5432/corednsdb?sslmode=disable"
