@@ -70,10 +70,11 @@ func TestPrint(t *testing.T) {
 
 	*/
 
-	f, err := os.Create("tmp")
+	f, err := os.CreateTemp("", "print_test_tmp")
 	if err != nil {
 		t.Error(err)
 	}
+	defer os.Remove(f.Name())
 	//Redirect the printed results to a tmp file for later comparison
 	os.Stdout = f
 
@@ -86,17 +87,14 @@ func TestPrint(t *testing.T) {
 
 	buf := make([]byte, 256)
 	f.Seek(0, 0)
-	_, er := f.Read(buf)
-	if er != nil {
+	_, err = f.Read(buf)
+	if err != nil {
+		f.Close()
 		t.Error(err)
 	}
 	height := strings.Count(string(buf), ". \n")
 	//Compare the height of the print with the actual height of the tree
 	if height != 3 {
-		f.Close()
-		os.Remove("tmp")
 		t.Fatal("The number of rows is inconsistent with the actual number of rows in the tree itself.")
 	}
-	f.Close()
-	os.Remove("tmp")
 }
