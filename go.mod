@@ -27,7 +27,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.8
 	go.etcd.io/etcd/client/v3 v3.5.8
 	golang.org/x/crypto v0.8.0
-	golang.org/x/sys v0.7.0
+	golang.org/x/sys v0.8.0
 	google.golang.org/api v0.121.0
 	google.golang.org/grpc v1.54.0
 	google.golang.org/protobuf v1.30.0
