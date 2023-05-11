@@ -158,7 +158,7 @@ func TestCoreDNSOverflow(t *testing.T) {
 	defer s.Close()
 
 	p := NewProxy(s.Addr, transport.DNS)
-	p.readTimeout = 100 * time.Second
+	p.readTimeout = 10 * time.Millisecond
 	p.Start(5 * time.Second)
 
 	m := new(dns.Msg)
