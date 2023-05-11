@@ -128,3 +128,52 @@ func TestProxyIncrementFails(t *testing.T) {
 		})
 	}
 }
+
+func TestCoreDNSOverflow(t *testing.T) {
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.1"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.2"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.3"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.4"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.5"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.6"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.7"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.8"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.9"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.10"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.11"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.12"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.13"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.14"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.15"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.16"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.17"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.18"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.19"))
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.20"))
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	p := NewProxy(s.Addr, transport.DNS)
+	p.readTimeout = 100 * time.Second
+	p.Start(5 * time.Second)
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	req := request.Request{Req: m, W: rec}
+
+	resp, err := p.Connect(context.Background(), req, Options{PreferUDP: true})
+	if err != nil {
+		t.Errorf("Failed to connect to testdnsserver: %s", err)
+	}
+
+	// Verify that the TC (truncated) flag is set in the response
+	if !resp.Truncated {
+		t.Errorf("Expected truncated response, but the TC flag is not set")
+	}
+}
