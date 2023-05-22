@@ -45,3 +45,39 @@ func TestSetup(t *testing.T) {
 		}
 	}
 }
+
+func Test_isIn(t *testing.T) {
+	type args struct {
+		s    string
+		list []string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "test not exist",
+			args: args{
+				s:    "test",
+				list: []string{"test1", "test2", "test3"},
+			},
+			want: false,
+		},
+		{
+			name: "test exist",
+			args: args{
+				s:    "test",
+				list: []string{"test1", "test2", "test3", "test"},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isIn(tt.args.s, tt.args.list); got != tt.want {
+				t.Errorf("isIn() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

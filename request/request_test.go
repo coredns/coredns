@@ -2,6 +2,7 @@ package request
 
 import (
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/test"
@@ -279,5 +280,125 @@ func TestRequestClear(t *testing.T) {
 
 	if st.port != "" {
 		t.Errorf("Expected st.port to be cleared after Clear")
+	}
+}
+
+type fakeResponseWriter struct {
+	localAddr net.Addr
+}
+
+func (f fakeResponseWriter) LocalAddr() net.Addr {
+	return f.localAddr
+}
+
+func (f fakeResponseWriter) RemoteAddr() net.Addr {
+	return nil
+}
+
+func (f fakeResponseWriter) WriteMsg(msg *dns.Msg) error {
+	return nil
+}
+
+func (f fakeResponseWriter) Write(bytes []byte) (int, error) {
+	return len(bytes), nil
+}
+
+func (f fakeResponseWriter) Close() error {
+	return nil
+}
+
+func (f fakeResponseWriter) TsigStatus() error {
+	return nil
+}
+
+func (f fakeResponseWriter) TsigTimersOnly(b bool) {
+	return
+}
+
+func (f fakeResponseWriter) Hijack() {
+	return
+}
+
+func TestRequest_LocalPort(t *testing.T) {
+	tests := []struct {
+		name string
+		r    *Request
+		want string
+	}{
+		{
+			name: "test local port not empty",
+			r: &Request{
+				localPort: "1234",
+			},
+			want: "1234",
+		},
+		{
+			name: "test get local port from host failed",
+			r: &Request{
+				W: fakeResponseWriter{
+					localAddr: &net.TCPAddr{
+						IP: net.ParseIP("10.240.0.1"),
+					},
+				},
+			},
+			want: "0",
+		},
+		{
+			name: "test get local port from host",
+			r: &Request{
+				W: &test.ResponseWriter{
+					TCP: true,
+				},
+			},
+			want: "53",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.r.LocalPort(); got != tt.want {
+				t.Errorf("LocalPort() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRequest_Proto(t *testing.T) {
+	tests := []struct {
+		name string
+		r    *Request
+		want string
+	}{
+		{
+			name: "test proto udp",
+			r: &Request{
+				W: &test.ResponseWriter{
+					TCP: false,
+				},
+			},
+			want: "udp",
+		},
+		{
+			name: "test proto tcp",
+			r: &Request{
+				W: &test.ResponseWriter{
+					TCP: true,
+				},
+			},
+			want: "tcp",
+		},
+		{
+			name: "test default proto is udp",
+			r: &Request{
+				W: fakeResponseWriter{},
+			},
+			want: "udp",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.r.Proto(); got != tt.want {
+				t.Errorf("Proto() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
