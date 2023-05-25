@@ -5,6 +5,7 @@ package forward
 import (
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/fuzz"
+	"github.com/coredns/coredns/plugin/pkg/proxy"
 
 	"github.com/miekg/dns"
 )
@@ -16,8 +17,8 @@ var f *Forward
 func init() {
 	f = New()
 	s := dnstest.NewServer(r{}.reflectHandler)
-	f.SetProxy(NewProxy(s.Addr, "tcp"))
-	f.SetProxy(NewProxy(s.Addr, "udp"))
+	f.SetProxy(proxy.NewProxy(s.Addr, "tcp"))
+	f.SetProxy(proxy.NewProxy(s.Addr, "udp"))
 }
 
 // Fuzz fuzzes forward.
