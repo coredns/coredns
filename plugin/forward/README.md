@@ -97,7 +97,7 @@ forward FROM TO... {
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
-`tls-name` for different upstreams you're out of luck.
+`tls_servername` for different upstreams you're out of luck.
 
 On each endpoint, the timeouts for communication are set as follows:
 
@@ -248,13 +248,13 @@ Or when you have multiple DoT upstreams with different `tls_servername`s, you ca
 }
 
 .:5301 {
-    forward . 8.8.8.8 8.8.4.4 {
+    forward . tls://8.8.8.8 tls://8.8.4.4 {
         tls_servername dns.google
     }
 }
 
 .:5302 {
-    forward . 1.1.1.1 1.0.0.1 {
+    forward . tls://1.1.1.1 tls://1.0.0.1 {
         tls_servername cloudflare-dns.com
     }
 }
