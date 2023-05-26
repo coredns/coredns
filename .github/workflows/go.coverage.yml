@@ -1,0 +1,30 @@
+name: Go Coverage
+on: [pull_request]
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@4d34df0c2316fe8122ab82dc22947d607c0c91f9
+        with:
+          go-version: '1.20.0'
+        id: go
+
+      - name: Check out code
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test With Coverage
+        run: |
+          for d in request core coremain plugin test; do \
+             ( cd $d; go test -coverprofile=cover.out -covermode=atomic -race ./...; [ -f cover.out ] && cat cover.out >> ../coverage.txt ); \
+          done
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@894ff025c7b54547a9a2a1e9f228beae737ad3c2

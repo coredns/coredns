@@ -1,0 +1,7 @@
+# only add build artifacts concerning coredns - no editor related files
+coredns
+coredns.exe
+Corefile
+build/
+release/
+vendor/

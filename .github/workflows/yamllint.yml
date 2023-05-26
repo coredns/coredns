@@ -1,0 +1,19 @@
+name: 'Yamllint GitHub Actions'
+on:
+  - pull_request
+permissions: read-all
+jobs:
+  yamllint:
+    name: 'Yamllint'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Checkout'
+        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+      - name: 'Yamllint'
+        uses: karancode/yamllint-github-action@fdef6bc189425ecc84cc4543b2674566c0827053
+        with:
+          yamllint_file_or_dir: '.'
+          yamllint_strict: false
+          yamllint_comment: true
+        env:
+          GITHUB_ACCESS_TOKEN: ${{ secrets.GITHUB_TOKEN }}

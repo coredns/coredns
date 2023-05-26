@@ -1,0 +1,64 @@
+# This Makefile generates the manual pages from the markdown README.mds. It depends
+# on https://github.com/mmarkdown/mmark to be installed. Generally we want this to be
+# updated before doing a release. The Debian package, for instance, looks at these pages
+# and will install them on your system.
+
+MMARK_VERSION:=2.2.4
+PLUGINS:=$(wildcard plugin/*/README.md)
+READMES:=$(subst plugin/,,$(PLUGINS))
+READMES:=$(subst /README.md,,$(READMES))
+PLUGINS:=$(subst plugin/,coredns-,$(PLUGINS))
+PLUGINS:=$(subst /README.md,(7),$(PLUGINS))
+
+all: mmark man/coredns.1 man/corefile.5 plugins
+
+GO           ?= go
+GOHOSTOS     ?= $(shell $(GO) env GOHOSTOS)
+GOHOSTARCH   ?= $(shell $(GO) env GOHOSTARCH)
+GO_BUILD_PLATFORM ?= $(GOHOSTOS)_$(GOHOSTARCH)
+
+FIRST_GOPATH := $(firstword $(subst :, ,$(shell $(GO) env GOPATH)))
+MMARK_BIN    := $(FIRST_GOPATH)/bin/mmark
+MMARK        := $(FIRST_GOPATH)/bin/mmark -man
+
+MMARK_URL := https://github.com/mmarkdown/mmark/releases/download/v$(MMARK_VERSION)/mmark_$(MMARK_VERSION)_$(GO_BUILD_PLATFORM).tgz
+
+.PHONY: mmark
+mmark: $(MMARK_BIN)
+
+$(MMARK_BIN):
+	$(eval MMARK_TMP := $(shell mktemp -d))
+	curl -s -L $(MMARK_URL) | tar -xvzf - -C $(MMARK_TMP)
+	mkdir -p $(FIRST_GOPATH)/bin
+	cp $(MMARK_TMP)/mmark $(FIRST_GOPATH)/bin/mmark
+	rm -r $(MMARK_TMP)
+
+man/coredns.1: coredns.1.md
+	@/bin/echo -e '%%%\n title = "coredns 1"\n' \
+		'area = "CoreDNS"\n workgroup = "CoreDNS"\n%%%\n\n' > $@.header
+	@cat $@.header $< > $@.md && rm $@.header
+	@sed -i -e "s/@@PLUGINS@@/$(PLUGINS)/" $@.md
+	$(MMARK) $@.md > $@ && rm $@.md
+
+man/corefile.5: corefile.5.md
+	@/bin/echo -e '%%%\n title = "corefile 5"\n' \
+		'area = "CoreDNS"\n workgroup = "CoreDNS"\n%%%\n\n' > $@.header
+	@cat $@.header $< > $@.md && rm $@.header
+	$(MMARK) $@.md > $@ && rm $@.md
+
+.PHONY: plugins
+plugins:
+	for README in $(READMES); do \
+	    $(MAKE) -f Makefile.doc man/coredns-$$README.7; \
+	done
+
+man/coredns-%.7: plugin/%/README.md
+	@/bin/echo -e "%%%\n title = \"`basename $@ | sed s\/\.7\/\/` 7\"\n" \
+		'area = "CoreDNS"\n workgroup = "CoreDNS Plugins"\n%%%\n\n' > $@.header
+	@cat $@.header $< > $@.md && rm $@.header
+	@sed -i '/^# .*/d' $@.md
+	$(MMARK) $@.md > $@ && rm $@.md
+
+PHONY: clean
+clean:
+	rm -f man/*

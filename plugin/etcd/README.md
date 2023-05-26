@@ -1,0 +1,236 @@
+# etcd
+
+## Name
+
+*etcd* - enables SkyDNS service discovery from etcd.
+
+## Description
+
+The *etcd* plugin implements the (older) SkyDNS service discovery service. It is *not* suitable as
+a generic DNS zone data plugin. Only a subset of DNS record types are implemented, and subdomains
+and delegations are not handled at all. The plugin will also recursively descend the tree and return
+all records found, see "Special Behavior" below for details.
+
+The data in the etcd instance has to be encoded as
+a [message](https://github.com/skynetservices/skydns/blob/2fcff74cdc9f9a7dd64189a447ef27ac354b725f/msg/service.go#L26)
+like [SkyDNS](https://github.com/skynetservices/skydns). It works just like SkyDNS.
+
+The *etcd* plugin makes extensive use of the *forward* plugin to forward and query other servers in the
+network - if that plugin has been enabled as well.
+
+## Syntax
+
+~~~
+etcd [ZONES...]
+~~~
+
+* **ZONES** zones *etcd* should be authoritative for.
+
+The path will default to `/skydns` the local etcd3 proxy (http://localhost:2379). If no zones are
+specified the block's zone will be used as the zone.
+
+
+~~~
+etcd [ZONES...] {
+    fallthrough [ZONES...]
+    path PATH
+    endpoint ENDPOINT...
+    credentials USERNAME PASSWORD
+    tls CERT KEY CACERT
+}
+~~~
+
+* `fallthrough` If zone matches but no record can be generated, pass request to the next plugin.
+  If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
+  is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only
+  queries for those zones will be subject to fallthrough.
+* **PATH** the path inside etcd. Defaults to "/skydns".
+* **ENDPOINT** the etcd endpoints. Defaults to "http://localhost:2379".
+* `credentials` is used to set the **USERNAME** and **PASSWORD** for accessing the etcd cluster.
+* `tls` followed by:
+
+    * no arguments, if the server certificate is signed by a system-installed CA and no client cert is needed
+    * a single argument that is the CA PEM file, if the server cert is not signed by a system CA and no client cert is needed
+    * two arguments - path to cert PEM file, the path to private key PEM file - if the server certificate is signed by a system-installed CA and a client certificate is needed
+    * three arguments - path to cert PEM file, path to client private key PEM file, path to CA PEM
+      file - if the server certificate is not signed by a system-installed CA and client certificate
+      is needed.
+
+## Special Behaviour
+
+The *etcd* plugin leverages directory structure to look for related entries. For example
+an entry `/skydns/test/skydns/mx` would have entries like `/skydns/test/skydns/mx/a`,
+`/skydns/test/skydns/mx/b` and so on. Similarly a directory `/skydns/test/skydns/mx1` will have all
+`mx1` entries. Note this plugin will search through the entire (sub)tree for records. In case of the
+first example, a query for `mx.skydns.test` will return both the contents of the `a` and `b` records.
+If the directory extends deeper those records are returned as well.
+
+With etcd3, support for [hierarchical keys are
+dropped](https://coreos.com/etcd/docs/latest/learning/api.html). This means there are no directories
+but only flat keys with prefixes in etcd3. To accommodate lookups, the *etcd* plugin now does a lookup
+on prefix `/skydns/test/skydns/mx/` to search for entries like `/skydns/test/skydns/mx/a` etc, and
+if there is nothing found on `/skydns/test/skydns/mx/`, it looks for `/skydns/test/skydns/mx` to
+find entries like `/skydns/test/skydns/mx1`.
+
+This causes two lookups from CoreDNS to etcd in certain cases.
+
+## Examples
+
+This is the default SkyDNS setup, with everything specified in full:
+
+~~~ corefile
+skydns.local {
+    etcd {
+        path /skydns
+        endpoint http://localhost:2379
+    }
+    prometheus
+    cache
+    loadbalance
+}
+
+. {
+    forward . 8.8.8.8:53 8.8.4.4:53
+    cache
+}
+~~~
+
+Or a setup where we use `/etc/resolv.conf` as the basis for the proxy and the upstream
+when resolving external pointing CNAMEs.
+
+~~~ corefile
+skydns.local {
+    etcd {
+        path /skydns
+    }
+    cache
+}
+
+. {
+    forward . /etc/resolv.conf
+    cache
+}
+~~~
+
+Multiple endpoints are supported as well.
+
+~~~
+etcd skydns.local {
+    endpoint http://localhost:2379 http://localhost:4001
+...
+~~~
+Before getting started with these examples, please setup `etcdctl` (with `etcdv3` API) as explained
+[here](https://coreos.com/etcd/docs/latest/dev-guide/interacting_v3.html). This will help you to put
+sample keys in your etcd server.
+
+If you prefer, you can use `curl` to populate the `etcd` server, but with `curl` the
+endpoint URL depends on the version of `etcd`. For instance, `etcd v3.2` or before uses only
+[CLIENT-URL]/v3alpha/* while `etcd v3.5` or later uses [CLIENT-URL]/v3/* . Also, Key and Value must
+be base64 encoded in the JSON payload. With `etcdctl` these details are automatically taken care
+of. You can check [this document](https://github.com/coreos/etcd/blob/master/Documentation/dev-guide/api_grpc_gateway.md#notes)
+for details.
+
+### Reverse zones
+
+Reverse zones are supported. You need to make CoreDNS aware of the fact that you are also
+authoritative for the reverse. For instance if you want to add the reverse for 10.0.0.0/24, you'll
+need to add the zone `0.0.10.in-addr.arpa` to the list of zones. Showing a snippet of a Corefile:
+
+~~~
+etcd skydns.local 10.0.0.0/24 {
+...
+~~~
+
+Next you'll need to populate the zone with reverse records, here we add a reverse for
+10.0.0.127 pointing to reverse.skydns.local.
+
+~~~
+% etcdctl put /skydns/arpa/in-addr/10/0/0/127 '{"host":"reverse.skydns.local."}'
+~~~
+
+Querying with dig:
+
+~~~ sh
+% dig @localhost -x 10.0.0.127 +short
+reverse.skydns.local.
+~~~
+
+### Zone name as A record
+
+The zone name itself can be used as an `A` record. This behavior can be achieved by writing special
+entries to the ETCD path of your zone. If your zone is named `skydns.local` for example, you can
+create an `A` record for this zone as follows:
+
+~~~
+% etcdctl put /skydns/local/skydns/ '{"host":"1.1.1.1","ttl":60}'
+~~~
+
+If you query the zone name itself, you will receive the created `A` record:
+
+~~~ sh
+% dig +short skydns.local @localhost
+1.1.1.1
+~~~
+
+If you would like to use DNS RR for the zone name, you can set the following:
+~~~
+% etcdctl put /skydns/local/skydns/x1 '{"host":"1.1.1.1","ttl":60}'
+% etcdctl put /skydns/local/skydns/x2 '{"host":"1.1.1.2","ttl":60}'
+~~~
+
+If you query the zone name now, you will get the following response:
+
+~~~ sh
+% dig +short skydns.local @localhost
+1.1.1.1
+1.1.1.2
+~~~
+
+### Zone name as AAAA record
+
+If you would like to use `AAAA` records for the zone name too, you can set the following:
+~~~
+% etcdctl put /skydns/local/skydns/x3 '{"host":"2003::8:1","ttl":60}'
+% etcdctl put /skydns/local/skydns/x4 '{"host":"2003::8:2","ttl":60}'
+~~~
+
+If you query the zone name for `AAAA` now, you will get the following response:
+~~~ sh
+% dig +short skydns.local AAAA @localhost
+2003::8:1
+2003::8:2
+~~~
+
+### SRV record
+
+If you would like to use `SRV` records, you can set the following:
+~~~
+% etcdctl put /skydns/local/skydns/x5 '{"host":"skydns-local.server","ttl":60,"priority":10,"port":8080}'
+~~~
+Please notice that the key `host` is the `target` in `SRV`, so it should be a domain name.
+
+If you query the zone name for `SRV` now, you will get the following response:
+
+~~~ sh
+% dig +short skydns.local SRV @localhost
+10 100 8080 skydns-local.server.
+~~~
+
+### TXT record
+
+If you would like to use `TXT` records, you can set the following:
+~~~
+% etcdctl put /skydns/local/skydns/x6 '{"ttl":60,"text":"this is a random text message."}'
+% etcdctl put /skydns/local/skydns/x7 '{"ttl":60,"text":"this is a another random text message."}'
+~~~
+
+If you query the zone name for `TXT` now, you will get the following response:
+~~~ sh
+% dig +short skydns.local TXT @localhost
+"this is a random text message."
+"this is a another random text message."
+~~~
+
+## See Also
+
+If you want to `round robin` A and AAAA responses look at the *loadbalance* plugin.

@@ -1,0 +1,158 @@
+package hosts
+
+import (
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
+)
+
+var log = clog.NewWithPlugin("hosts")
+
+func init() { plugin.Register("hosts", setup) }
+
+func periodicHostsUpdate(h *Hosts) chan bool {
+	parseChan := make(chan bool)
+
+	if h.options.reload == 0 {
+		return parseChan
+	}
+
+	go func() {
+		ticker := time.NewTicker(h.options.reload)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-parseChan:
+				return
+			case <-ticker.C:
+				h.readHosts()
+			}
+		}
+	}()
+	return parseChan
+}
+
+func setup(c *caddy.Controller) error {
+	h, err := hostsParse(c)
+	if err != nil {
+		return plugin.Error("hosts", err)
+	}
+
+	parseChan := periodicHostsUpdate(&h)
+
+	c.OnStartup(func() error {
+		h.readHosts()
+		return nil
+	})
+
+	c.OnShutdown(func() error {
+		close(parseChan)
+		return nil
+	})
+
+	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
+		h.Next = next
+		return h
+	})
+
+	return nil
+}
+
+func hostsParse(c *caddy.Controller) (Hosts, error) {
+	config := dnsserver.GetConfig(c)
+
+	h := Hosts{
+		Hostsfile: &Hostsfile{
+			path:    "/etc/hosts",
+			hmap:    newMap(),
+			inline:  newMap(),
+			options: newOptions(),
+		},
+	}
+
+	inline := []string{}
+	i := 0
+	for c.Next() {
+		if i > 0 {
+			return h, plugin.ErrOnce
+		}
+		i++
+
+		args := c.RemainingArgs()
+
+		if len(args) >= 1 {
+			h.path = args[0]
+			args = args[1:]
+
+			if !filepath.IsAbs(h.path) && config.Root != "" {
+				h.path = filepath.Join(config.Root, h.path)
+			}
+			s, err := os.Stat(h.path)
+			if err != nil {
+				if os.IsNotExist(err) {
+					log.Warningf("File does not exist: %s", h.path)
+				} else {
+					return h, c.Errf("unable to access hosts file '%s': %v", h.path, err)
+				}
+			}
+			if s != nil && s.IsDir() {
+				log.Warningf("Hosts file %q is a directory", h.path)
+			}
+		}
+
+		h.Origins = plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
+
+		for c.NextBlock() {
+			switch c.Val() {
+			case "fallthrough":
+				h.Fall.SetZonesFromArgs(c.RemainingArgs())
+			case "no_reverse":
+				h.options.autoReverse = false
+			case "ttl":
+				remaining := c.RemainingArgs()
+				if len(remaining) < 1 {
+					return h, c.Errf("ttl needs a time in second")
+				}
+				ttl, err := strconv.Atoi(remaining[0])
+				if err != nil {
+					return h, c.Errf("ttl needs a number of second")
+				}
+				if ttl <= 0 || ttl > 65535 {
+					return h, c.Errf("ttl provided is invalid")
+				}
+				h.options.ttl = uint32(ttl)
+			case "reload":
+				remaining := c.RemainingArgs()
+				if len(remaining) != 1 {
+					return h, c.Errf("reload needs a duration (zero seconds to disable)")
+				}
+				reload, err := time.ParseDuration(remaining[0])
+				if err != nil {
+					return h, c.Errf("invalid duration for reload '%s'", remaining[0])
+				}
+				if reload < 0 {
+					return h, c.Errf("invalid negative duration for reload '%s'", remaining[0])
+				}
+				h.options.reload = reload
+			default:
+				if len(h.Fall.Zones) == 0 {
+					line := strings.Join(append([]string{c.Val()}, c.RemainingArgs()...), " ")
+					inline = append(inline, line)
+					continue
+				}
+				return h, c.Errf("unknown property '%s'", c.Val())
+			}
+		}
+	}
+
+	h.initInline(inline)
+
+	return h, nil
+}

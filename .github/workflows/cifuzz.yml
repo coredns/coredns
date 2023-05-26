@@ -1,0 +1,27 @@
+name: CIFuzz
+on:
+  pull_request:
+    branches:
+      - master
+jobs:
+  Fuzzing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Fuzzers
+        id: build
+        uses: google/oss-fuzz/infra/cifuzz/actions/build_fuzzers@master  # cifuzz can't be pinned https://github.com/google/oss-fuzz/issues/6836
+        with:
+          oss-fuzz-project-name: "go-coredns"
+          dry-run: false
+      - name: Run Fuzzers
+        uses: google/oss-fuzz/infra/cifuzz/actions/run_fuzzers@master  # cifuzz can't be pinned
+        with:
+          oss-fuzz-project-name: "go-coredns"
+          fuzz-seconds: 600
+          dry-run: false
+      - name: Upload Crash
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        if: failure() && steps.build.outcome == 'success'
+        with:
+          name: artifacts
+          path: ./out/artifacts

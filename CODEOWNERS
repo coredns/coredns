@@ -1,0 +1,62 @@
+# 5 steering committee members
+# @chrisohaver, term ends 26 Sept 2023
+# @johnbelamaric, term ends 26 Sept 2023
+# @stp-ip, term ends 26 Sept 2023
+# @superq, term ends 26 Sept 2023
+# @tantalor93, term ends 26 Sept 2023
+
+*                       @bradbeam @chrisohaver @dilyevsky @jameshartig @greenpau @isolus @johnbelamaric @miekg @pmoroney @rajansandeep @stp-ip @superq @yongtang @Tantalor93
+
+/.circleci/             @miekg @chrisohaver @rajansandeep
+/plugin/pkg/            @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
+/coremain/              @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
+/core/                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
+/request/               @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
+/plugin/*               @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
+go.sum                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
+go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
+
+/plugin/acl/            @miekg @ihac
+/plugin/any/            @miekg @yongtang
+/plugin/auto/           @miekg @stp-ip
+/plugin/autopath/       @chrisohaver @miekg
+/plugin/azure/          @miekg @yongtang @darshanime
+/plugin/bind/           @miekg
+/plugin/bufsize/        @ykhr53
+/plugin/cache/          @miekg @chrisohaver
+/plugin/cancel/         @miekg
+/plugin/chaos/          @miekg @zouyee
+/plugin/clouddns/       @miekg @yongtang
+/plugin/dns64           @superq
+/plugin/dnssec/         @isolus @miekg
+/plugin/dnstap/         @varyoo @yongtang
+/plugin/erratic/        @miekg
+/plugin/errors/         @miekg @Tantalor93
+/plugin/etcd/           @miekg @nitisht
+/plugin/file/           @miekg @yongtang @stp-ip
+/plugin/forward/        @johnbelamaric @miekg @rdrozhdzh @Tantalor93 @chrisohaver
+/plugin/geoip/          @miekg @snebel29
+/plugin/grpc/           @inigohu @miekg @zouyee
+/plugin/health/         @jameshartig @miekg @zouyee
+/plugin/header/         @miekg @mqasimsarfraz
+/plugin/hosts/          @johnbelamaric @pmoroney
+/plugin/k8s_external/   @miekg @chrisohaver
+/plugin/kubernetes/     @bradbeam @chrisohaver @johnbelamaric @miekg @rajansandeep @yongtang @zouyee
+/plugin/loadbalance/    @miekg
+/plugin/log/            @miekg @nchrisdk @Tantalor93
+/plugin/loop/           @miekg @chrisohaver
+/plugin/metadata/       @ekleiner @miekg @Tantalor93
+/plugin/metrics/        @jameshartig @miekg @superq @greenpau @Tantalor93
+/plugin/nsid/           @yongtang
+/plugin/pprof/          @miekg @zouyee
+/plugin/reload/         @johnbelamaric
+/plugin/rewrite/        @greenpau @johnbelamaric
+/plugin/root/           @miekg @yongtang
+/plugin/route53/        @yongtang @dilyevsky
+/plugin/secondary/      @bradbeam @miekg
+/plugin/template/       @rtreffer
+/plugin/tls/            @johnbelamaric
+/plugin/trace/          @johnbelamaric @zouyee @Tantalor93
+/plugin/transfer/       @miekg @chrisohaver
+/plugin/tsig/           @chrisohaver
+/plugin/whoami/         @miekg @chrisohaver @yongtang
