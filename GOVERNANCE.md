@@ -14,7 +14,7 @@ The CoreDNS community adheres to the following principles:
 
 The CoreDNS project has a project steering committee consisting of 5 members, with a maximum of 1 member from any single organization.
 The steering committee in CoreDNS has a final say in any decision concerning the CoreDNS project, with the exceptions of
-deciding steering committe membership, and changes to project governance. See `Changes in Project Steeting Committee Membership`
+deciding steering committee membership, and changes to project governance. See `Changes in Project Steeting Committee Membership`
 and `Changes in Project Governance`.
 
 Any decision made must not conflict with CNCF policy.
@@ -69,7 +69,7 @@ should have more binding votes than 1/5 of the total number of maintainers defin
 
 The PR should be opened no earlier than 6 weeks before the end of affected committee member's term.
 The PR should be kept open for no less than 4 weeks. The PR can only be merged after the end of the
-replaced committe member's term, with more +1 than -1 in the binding votes.
+replaced committee member's term, with more +1 than -1 in the binding votes.
 
 When there are conflicting PRs for changes to a project committee member, the PR with the most
 binding +1 votes is merged.
@@ -84,7 +84,7 @@ A project steering committee member may volunteer to step down, ending their ter
 ## Changes in Project Governance
 
 Changes in project governance (GOVERNANCE.md) can be initiated by opening a GitHub PR.
-The PR should only be opened no earlier than 6 weeks before the end of a comittee member's term.
+The PR should only be opened no earlier than 6 weeks before the end of a committee member's term.
 The PR should be kept open for no less than 4 weeks. The PR can only be merged following the same
 voting process as in `Changes in Project Steeting Committee Membership`.
 
