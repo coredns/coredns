@@ -9,6 +9,8 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
+
+	"k8s.io/utils/strings/slices"
 )
 
 func setup(c *caddy.Controller) error {
@@ -37,7 +39,7 @@ func setup(c *caddy.Controller) error {
 		}
 
 		for _, ip := range ips {
-			if !isIn(ip, except) {
+			if !slices.Contains(except, ip) {
 				all = append(all, ip)
 			}
 		}
@@ -97,15 +99,4 @@ func listIP(args []string, ifaces []net.Interface) ([]string, error) {
 		}
 	}
 	return all, nil
-}
-
-// isIn checks if a string array contains an element
-func isIn(s string, list []string) bool {
-	is := false
-	for _, l := range list {
-		if s == l {
-			is = true
-		}
-	}
-	return is
 }
