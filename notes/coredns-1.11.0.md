@@ -43,6 +43,7 @@ TODO: highlights
 ## Noteworthy Changes
 
 * add support unix socket for GRPC (https://github.com/coredns/coredns/pull/5943)
+* plugin/tls: respect the path specified by root plugin (https://github.com/coredns/coredns/pull/5944)
 * plugin/forward: Continue waiting after receiving malformed responses (https://github.com/coredns/coredns/pull/6014)
 * plugin/dnssec: on delegation, sign DS or NSEC of no DS. (https://github.com/coredns/coredns/pull/5899)
 * plugin/kubernetes: expose client-go internal request metrics (https://github.com/coredns/coredns/pull/5991)
