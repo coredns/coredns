@@ -128,33 +128,37 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, opts
 		object.DefaultProcessor(object.ToService, nil),
 	)
 
+	podLister, podController := object.NewIndexerInformer(
+		&cache.ListWatch{
+			ListFunc:  podListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			WatchFunc: podWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+		},
+		&api.Pod{},
+		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+		cache.Indexers{podIPIndex: podIPIndexFunc},
+		object.DefaultProcessor(object.ToPod, nil),
+	)
+	dns.podLister = podLister
 	if opts.initPodCache {
-		dns.podLister, dns.podController = object.NewIndexerInformer(
-			&cache.ListWatch{
-				ListFunc:  podListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-				WatchFunc: podWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-			},
-			&api.Pod{},
-			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
-			cache.Indexers{podIPIndex: podIPIndexFunc},
-			object.DefaultProcessor(object.ToPod, nil),
-		)
+		dns.podController = podController
 	}
 
+	epLister, epController := object.NewIndexerInformer(
+		&cache.ListWatch{
+			ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+		},
+		&discovery.EndpointSlice{},
+		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
+		cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
+		object.DefaultProcessor(object.EndpointSliceToEndpoints, dns.EndpointSliceLatencyRecorder()),
+	)
+	dns.epLock.Lock()
+	dns.epLister = epLister
 	if opts.initEndpointsCache {
-		dns.epLock.Lock()
-		dns.epLister, dns.epController = object.NewIndexerInformer(
-			&cache.ListWatch{
-				ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-				WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-			},
-			&discovery.EndpointSlice{},
-			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
-			cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-			object.DefaultProcessor(object.EndpointSliceToEndpoints, dns.EndpointSliceLatencyRecorder()),
-		)
-		dns.epLock.Unlock()
+		dns.epController = epController
 	}
+	dns.epLock.Unlock()
 
 	dns.nsLister, dns.nsController = object.NewIndexerInformer(
 		&cache.ListWatch{
@@ -561,8 +565,8 @@ func (dns *dnsControl) EpIndexReverse(ip string) (ep []*object.Endpoints) {
 }
 
 // GetNodeByName return the node by name. If nothing is found an error is
-// returned. This query causes a roundtrip to the k8s API server, so use
-// sparingly. Currently this is only used for Federation.
+// returned. This query causes a round trip to the k8s API server, so use
+// sparingly. Currently, this is only used for Federation.
 func (dns *dnsControl) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
 	v1node, err := dns.client.CoreV1().Nodes().Get(ctx, name, meta.GetOptions{})
 	return v1node, err
