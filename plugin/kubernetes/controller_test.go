@@ -80,7 +80,7 @@ func TestEndpointsDisabled(t *testing.T) {
 
 	rw := &dnstest.Recorder{ResponseWriter: &test.ResponseWriter{}}
 	m := new(dns.Msg)
-	m.SetQuestion("foo2.svc2.testns.svc.cluster.local.", dns.TypeA)
+	m.SetQuestion("svc2.testns.svc.cluster.local.", dns.TypeA)
 	k.ServeDNS(ctx, rw, m)
 	if rw.Msg.Rcode != dns.RcodeNameError {
 		t.Errorf("Expected NXDOMAIN, got %v", dns.RcodeToString[rw.Msg.Rcode])
@@ -99,7 +99,7 @@ func TestEndpointsEnabled(t *testing.T) {
 
 	rw := &dnstest.Recorder{ResponseWriter: &test.ResponseWriter{}}
 	m := new(dns.Msg)
-	m.SetQuestion("foo2.svc2.testns.svc.cluster.local.", dns.TypeA)
+	m.SetQuestion("svc2.testns.svc.cluster.local.", dns.TypeA)
 	k.ServeDNS(ctx, rw, m)
 	if rw.Msg.Rcode != dns.RcodeSuccess {
 		t.Errorf("Expected SUCCESS, got %v", dns.RcodeToString[rw.Msg.Rcode])
