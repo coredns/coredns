@@ -1,13 +1,16 @@
- package kubernetes
+package kubernetes
 
 import (
 	"context"
 	"net"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/kubernetes/object"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	discovery "k8s.io/api/discovery/v1"
 
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
@@ -25,23 +28,39 @@ func inc(ip net.IP) {
 	}
 }
 
-func BenchmarkController(b *testing.B) {
+func kubernertesWithFakeClient(ctx context.Context, zone, cidr string, initEndpointsCache bool, svcType string) *Kubernetes {
 	client := fake.NewSimpleClientset()
 	dco := dnsControlOpts{
-		zones: []string{"cluster.local."},
+		zones:              []string{zone},
+		initEndpointsCache: initEndpointsCache,
 	}
-	ctx := context.Background()
 	controller := newdnsController(ctx, client, dco)
-	cidr := "10.0.0.0/19"
 
 	// Add resources
-	generateEndpoints(cidr, client)
-	generateSvcs(cidr, "all", client)
-	m := new(dns.Msg)
-	m.SetQuestion("svc1.testns.svc.cluster.local.", dns.TypeA)
+	_, err := client.CoreV1().Namespaces().Create(ctx, &api.Namespace{ObjectMeta: meta.ObjectMeta{Name: "testns"}}, meta.CreateOptions{})
+	if err != nil {
+		println(err.Error())
+		log.Fatal(err)
+	}
+	generateSvcs(cidr, svcType, client)
+	generateEndpointSlices(cidr, client)
 	k := New([]string{"cluster.local."})
 	k.APIConn = controller
+	return k
+}
+
+func BenchmarkController(b *testing.B) {
+	ctx := context.Background()
+	k := kubernertesWithFakeClient(ctx, "cluster.local.", "10.0.0.0/24", true, "all")
+
+	go k.APIConn.Run()
+	for !k.APIConn.HasSynced() {
+		time.Sleep(time.Millisecond)
+	}
+
 	rw := &test.ResponseWriter{}
+	m := new(dns.Msg)
+	m.SetQuestion("svc1.testns.svc.cluster.local.", dns.TypeA)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -49,7 +68,45 @@ func BenchmarkController(b *testing.B) {
 	}
 }
 
-func generateEndpoints(cidr string, client kubernetes.Interface) {
+func TestEndpointsDisabled(t *testing.T) {
+	ctx := context.Background()
+	k := kubernertesWithFakeClient(ctx, "cluster.local.", "10.0.0.0/30", false, "headless")
+	k.opts.initEndpointsCache = false
+
+	go k.APIConn.Run()
+	for !k.APIConn.HasSynced() {
+		time.Sleep(time.Millisecond)
+	}
+
+	rw := &dnstest.Recorder{ResponseWriter: &test.ResponseWriter{}}
+	m := new(dns.Msg)
+	m.SetQuestion("foo2.svc2.testns.svc.cluster.local.", dns.TypeA)
+	k.ServeDNS(ctx, rw, m)
+	if rw.Msg.Rcode != dns.RcodeNameError {
+		t.Errorf("Expected NXDOMAIN, got %v", dns.RcodeToString[rw.Msg.Rcode])
+	}
+}
+
+func TestEndpointsEnabled(t *testing.T) {
+	ctx := context.Background()
+	k := kubernertesWithFakeClient(ctx, "cluster.local.", "10.0.0.0/30", true, "headless")
+	k.opts.initEndpointsCache = true
+
+	go k.APIConn.Run()
+	for !k.APIConn.HasSynced() {
+		time.Sleep(time.Millisecond)
+	}
+
+	rw := &dnstest.Recorder{ResponseWriter: &test.ResponseWriter{}}
+	m := new(dns.Msg)
+	m.SetQuestion("foo2.svc2.testns.svc.cluster.local.", dns.TypeA)
+	k.ServeDNS(ctx, rw, m)
+	if rw.Msg.Rcode != dns.RcodeSuccess {
+		t.Errorf("Expected SUCCESS, got %v", dns.RcodeToString[rw.Msg.Rcode])
+	}
+}
+
+func generateEndpointSlices(cidr string, client kubernetes.Interface) {
 	// https://groups.google.com/d/msg/golang-nuts/zlcYA4qk-94/TWRFHeXJCcYJ
 	ip, ipnet, err := net.ParseCIDR(cidr)
 	if err != nil {
@@ -57,30 +114,36 @@ func generateEndpoints(cidr string, client kubernetes.Interface) {
 	}
 
 	count := 1
-	ep := &api.Endpoints{
-		Subsets: []api.EndpointSubset{{
-			Ports: []api.EndpointPort{
-				{
-					Port:     80,
-					Protocol: "tcp",
-					Name:     "http",
-				},
+	port := int32(80)
+	protocol := api.Protocol("tcp")
+	name := "http"
+	eps := &discovery.EndpointSlice{
+		Ports: []discovery.EndpointPort{
+			{
+				Port:     &port,
+				Protocol: &protocol,
+				Name:     &name,
 			},
-		}},
+		},
 		ObjectMeta: meta.ObjectMeta{
 			Namespace: "testns",
 		},
 	}
 	ctx := context.TODO()
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-		ep.Subsets[0].Addresses = []api.EndpointAddress{
+		hostname := "foo" + strconv.Itoa(count)
+		eps.Endpoints = []discovery.Endpoint{
 			{
-				IP:       ip.String(),
-				Hostname: "foo" + strconv.Itoa(count),
+				Addresses: []string{ip.String()},
+				Hostname:  &hostname,
 			},
 		}
-		ep.ObjectMeta.Name = "svc" + strconv.Itoa(count)
-		client.CoreV1().Endpoints("testns").Create(ctx, ep, meta.CreateOptions{})
+		eps.ObjectMeta.Name = "svc" + strconv.Itoa(count)
+		eps.ObjectMeta.Labels = map[string]string{discovery.LabelServiceName: eps.ObjectMeta.Name}
+		_, err := client.DiscoveryV1().EndpointSlices("testns").Create(ctx, eps, meta.CreateOptions{})
+		if err != nil {
+			log.Fatal(err)
+		}
 		count++
 	}
 }
@@ -144,7 +207,7 @@ func createHeadlessSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 	ctx := context.TODO()
 	client.CoreV1().Services("testns").Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{
-			Name:      "hdls" + strconv.Itoa(suffix),
+			Name:      "svc" + strconv.Itoa(suffix),
 			Namespace: "testns",
 		},
 		Spec: api.ServiceSpec{
@@ -157,7 +220,7 @@ func createExternalSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 	ctx := context.TODO()
 	client.CoreV1().Services("testns").Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{
-			Name:      "external" + strconv.Itoa(suffix),
+			Name:      "svc" + strconv.Itoa(suffix),
 			Namespace: "testns",
 		},
 		Spec: api.ServiceSpec{
