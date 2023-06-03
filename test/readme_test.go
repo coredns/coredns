@@ -35,9 +35,11 @@ PrivateKey: f03VplaIEA+KHI9uizlemUSbUJH86hPBPjmcUninPoM=
 // actually works. Each corefile snippet is only used if the language is set to 'corefile':
 //
 // ~~~ corefile
-// . {
-//	# check-this-please
-// }
+//
+//	. {
+//		# check-this-please
+//	}
+//
 // ~~~
 //
 // While we're at it - we also check the README.md itself. It should at least have the sections:

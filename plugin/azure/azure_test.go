@@ -77,18 +77,18 @@ func TestAzure(t *testing.T) {
 		expectedErr  error
 	}{
 		{
-			qname: "example.org.",
-			qtype: dns.TypeA,
+			qname:      "example.org.",
+			qtype:      dns.TypeA,
 			wantAnswer: []string{"example.org.	300	IN	A	1.2.3.4"},
 		},
 		{
-			qname: "example.org",
-			qtype: dns.TypeAAAA,
+			qname:      "example.org",
+			qtype:      dns.TypeAAAA,
 			wantAnswer: []string{"example.org.	300	IN	AAAA	2001:db8:85a3::8a2e:370:7334"},
 		},
 		{
-			qname: "example.org",
-			qtype: dns.TypeSOA,
+			qname:      "example.org",
+			qtype:      dns.TypeSOA,
 			wantAnswer: []string{"org.	300	IN	SOA	ns1-06.azure-dns.com. azuredns-hostmaster.microsoft.com. 1 3600 300 2419200 300"},
 		},
 		{
@@ -98,38 +98,38 @@ func TestAzure(t *testing.T) {
 			wantMsgRCode: dns.RcodeServerFailure,
 		},
 		{
-			qname: "example.gov",
-			qtype: dns.TypeA,
+			qname:      "example.gov",
+			qtype:      dns.TypeA,
 			wantAnswer: []string{"example.gov.	300	IN	A	2.4.6.8"},
 		},
 		{
-			qname: "example.org",
-			qtype: dns.TypeSRV,
+			qname:      "example.org",
+			qtype:      dns.TypeSRV,
 			wantAnswer: []string{"example.org.	300	IN	SRV	1 10 5269 srv-1.example.com.", "example.org.	300	IN	SRV	1 10 5269 srv-2.example.com."},
 		},
 		{
-			qname: "cname.example.org.",
-			qtype: dns.TypeCNAME,
+			qname:      "cname.example.org.",
+			qtype:      dns.TypeCNAME,
 			wantAnswer: []string{"cname.example.org.	300	IN	CNAME	example.org."},
 		},
 		{
-			qname: "cname.example.org.",
-			qtype: dns.TypeA,
+			qname:      "cname.example.org.",
+			qtype:      dns.TypeA,
 			wantAnswer: []string{"cname.example.org.	300	IN	CNAME	example.org.", "example.org.	300	IN	A	1.2.3.4"},
 		},
 		{
-			qname: "mail.example.org.",
-			qtype: dns.TypeMX,
+			qname:      "mail.example.org.",
+			qtype:      dns.TypeMX,
 			wantAnswer: []string{"mail.example.org.	300	IN	MX	10 mailserver.example.com."},
 		},
 		{
-			qname: "ptr.example.org.",
-			qtype: dns.TypePTR,
+			qname:      "ptr.example.org.",
+			qtype:      dns.TypePTR,
 			wantAnswer: []string{"ptr.example.org.	300	IN	PTR	www.ptr-example.com."},
 		},
 		{
-			qname: "txt.example.org.",
-			qtype: dns.TypeTXT,
+			qname:      "txt.example.org.",
+			qtype:      dns.TypeTXT,
 			wantAnswer: []string{"txt.example.org.	300	IN	TXT	\"TXT for example.org\""},
 		},
 	}

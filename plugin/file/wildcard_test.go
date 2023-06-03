@@ -185,12 +185,12 @@ var apexWildcardTestCases = []test.Case{
 	{
 		Qname: "foo.example.org.", Qtype: dns.TypeA,
 		Answer: []dns.RR{test.A(`foo.example.org. 3600	IN	A 127.0.0.54`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
+		Ns:     []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
 	},
 	{
 		Qname: "bar.example.org.", Qtype: dns.TypeA,
 		Answer: []dns.RR{test.A(`bar.example.org. 3600	IN	A 127.0.0.53`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
+		Ns:     []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
 	},
 }
 
@@ -225,17 +225,17 @@ var multiWildcardTestCases = []test.Case{
 	{
 		Qname: "foo.example.org.", Qtype: dns.TypeA,
 		Answer: []dns.RR{test.A(`foo.example.org. 3600	IN	A 127.0.0.54`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
+		Ns:     []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
 	},
 	{
 		Qname: "bar.example.org.", Qtype: dns.TypeA,
 		Answer: []dns.RR{test.A(`bar.example.org. 3600	IN	A 127.0.0.53`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
+		Ns:     []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
 	},
 	{
 		Qname: "bar.intern.example.org.", Qtype: dns.TypeA,
 		Answer: []dns.RR{test.A(`bar.intern.example.org. 3600	IN	A 127.0.1.52`)},
-		Ns: []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
+		Ns:     []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
 	},
 }
 

@@ -31,28 +31,31 @@ func setTLSDefaults(ctls *tls.Config) {
 // in list of arguments. Typically these come straight from the
 // Corefile.
 // no args
-//  - creates a Config with no cert and using system CAs
-//  - use for a client that talks to a server with a public signed cert (CA installed in system)
-//  - the client will not be authenticated by the server since there is no cert
+//   - creates a Config with no cert and using system CAs
+//   - use for a client that talks to a server with a public signed cert (CA installed in system)
+//   - the client will not be authenticated by the server since there is no cert
+//
 // one arg: the path to CA PEM file
-//  - creates a Config with no cert using a specific CA
-//  - use for a client that talks to a server with a private signed cert (CA not installed in system)
-//  - the client will not be authenticated by the server since there is no cert
+//   - creates a Config with no cert using a specific CA
+//   - use for a client that talks to a server with a private signed cert (CA not installed in system)
+//   - the client will not be authenticated by the server since there is no cert
+//
 // two args: path to cert PEM file, the path to private key PEM file
-//  - creates a Config with a cert, using system CAs to validate the other end
-//  - use for:
-//    - a server; or,
-//    - a client that talks to a server with a public cert and needs certificate-based authentication
-//  - the other end will authenticate this end via the provided cert
-//  - the cert of the other end will be verified via system CAs
+//   - creates a Config with a cert, using system CAs to validate the other end
+//   - use for:
+//   - a server; or,
+//   - a client that talks to a server with a public cert and needs certificate-based authentication
+//   - the other end will authenticate this end via the provided cert
+//   - the cert of the other end will be verified via system CAs
+//
 // three args: path to cert PEM file, path to client private key PEM file, path to CA PEM file
-//  - creates a Config with the cert, using specified CA to validate the other end
-//  - use for:
-//    - a server; or,
-//    - a client that talks to a server with a privately signed cert and needs certificate-based
-//      authentication
-//  - the other end will authenticate this end via the provided cert
-//  - this end will verify the other end's cert using the specified CA
+//   - creates a Config with the cert, using specified CA to validate the other end
+//   - use for:
+//   - a server; or,
+//   - a client that talks to a server with a privately signed cert and needs certificate-based
+//     authentication
+//   - the other end will authenticate this end via the provided cert
+//   - this end will verify the other end's cert using the specified CA
 func NewTLSConfigFromArgs(args ...string) (*tls.Config, error) {
 	var err error
 	var c *tls.Config

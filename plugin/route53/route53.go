@@ -167,8 +167,9 @@ const escapeSeq = "\\"
 // for everything else.
 //
 // Example:
-//   `\\052.example.com.` -> `*.example.com`
-//   `\\137.example.com.` -> error ('_' is not valid)
+//
+//	`\\052.example.com.` -> `*.example.com`
+//	`\\137.example.com.` -> error ('_' is not valid)
 func maybeUnescape(s string) (string, error) {
 	var out string
 	for {

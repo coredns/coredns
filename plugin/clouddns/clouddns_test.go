@@ -183,20 +183,20 @@ func TestCloudDNS(t *testing.T) {
 	}{
 		// 0. example.org A found - success.
 		{
-			qname: "example.org",
-			qtype: dns.TypeA,
+			qname:      "example.org",
+			qtype:      dns.TypeA,
 			wantAnswer: []string{"example.org.	300	IN	A	1.2.3.4"},
 		},
 		// 1. example.org AAAA found - success.
 		{
-			qname: "example.org",
-			qtype: dns.TypeAAAA,
+			qname:      "example.org",
+			qtype:      dns.TypeAAAA,
 			wantAnswer: []string{"example.org.	300	IN	AAAA	2001:db8:85a3::8a2e:370:7334"},
 		},
 		// 2. exampled.org PTR found - success.
 		{
-			qname: "example.org",
-			qtype: dns.TypePTR,
+			qname:      "example.org",
+			qtype:      dns.TypePTR,
 			wantAnswer: []string{"example.org.	300	IN	PTR	ptr.example.org."},
 		},
 		// 3. sample.example.org points to example.org CNAME.
@@ -212,14 +212,14 @@ func TestCloudDNS(t *testing.T) {
 		// 4. Explicit CNAME query for sample.example.org.
 		// Query must return just CNAME.
 		{
-			qname: "sample.example.org",
-			qtype: dns.TypeCNAME,
+			qname:      "sample.example.org",
+			qtype:      dns.TypeCNAME,
 			wantAnswer: []string{"sample.example.org.	300	IN	CNAME	example.org."},
 		},
 		// 5. Explicit SOA query for example.org.
 		{
-			qname: "example.org",
-			qtype: dns.TypeNS,
+			qname:  "example.org",
+			qtype:  dns.TypeNS,
 			wantNS: []string{"org.	300	IN	SOA	ns-cloud-c1.googledomains.com. cloud-dns-hostmaster.google.com. 1 21600 300 259200 300"},
 		},
 		// 6. AAAA query for split-example.org must return NODATA.
@@ -227,7 +227,7 @@ func TestCloudDNS(t *testing.T) {
 			qname:       "split-example.gov",
 			qtype:       dns.TypeAAAA,
 			wantRetCode: dns.RcodeSuccess,
-			wantNS: []string{"org.	300	IN	SOA	ns-cloud-c1.googledomains.com. cloud-dns-hostmaster.google.com. 1 21600 300 259200 300"},
+			wantNS:      []string{"org.	300	IN	SOA	ns-cloud-c1.googledomains.com. cloud-dns-hostmaster.google.com. 1 21600 300 259200 300"},
 		},
 		// 7. Zone not configured.
 		{
@@ -242,24 +242,24 @@ func TestCloudDNS(t *testing.T) {
 			qtype:        dns.TypeA,
 			wantRetCode:  dns.RcodeSuccess,
 			wantMsgRCode: dns.RcodeNameError,
-			wantNS: []string{"org.	300	IN	SOA	ns-cloud-c1.googledomains.com. cloud-dns-hostmaster.google.com. 1 21600 300 259200 300"},
+			wantNS:       []string{"org.	300	IN	SOA	ns-cloud-c1.googledomains.com. cloud-dns-hostmaster.google.com. 1 21600 300 259200 300"},
 		},
 		// 9. No record found. Fallthrough.
 		{
-			qname: "example.gov",
-			qtype: dns.TypeA,
+			qname:      "example.gov",
+			qtype:      dns.TypeA,
 			wantAnswer: []string{"example.gov.	300	IN	A	2.4.6.8"},
 		},
 		// 10. other-zone.example.org is stored in a different hosted zone. success
 		{
-			qname: "other-example.org",
-			qtype: dns.TypeA,
+			qname:      "other-example.org",
+			qtype:      dns.TypeA,
 			wantAnswer: []string{"other-example.org.	300	IN	A	3.5.7.9"},
 		},
 		// 11. split-example.org only has A record. Expect NODATA.
 		{
-			qname: "split-example.org",
-			qtype: dns.TypeAAAA,
+			qname:  "split-example.org",
+			qtype:  dns.TypeAAAA,
 			wantNS: []string{"org.	300	IN	SOA	ns-cloud-e1.googledomains.com. cloud-dns-hostmaster.google.com. 1 21600 300 259200 300"},
 		},
 		// 12. *.www.example.org is a wildcard CNAME to www.example.org.

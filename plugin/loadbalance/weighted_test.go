@@ -21,7 +21,7 @@ w1,example.org
 `
 
 var testOneDomainWRR = map[string]weights{
-	"w1,example.org.": weights{
+	"w1,example.org.": {
 		&weightItem{net.ParseIP("192.168.1.15"), uint8(10)},
 		&weightItem{net.ParseIP("192.168.1.14"), uint8(20)},
 	},
@@ -43,12 +43,12 @@ w2.example.org
 `
 
 var testTwoDomainsWRR = map[string]weights{
-	"w1.example.org.": weights{
+	"w1.example.org.": {
 		&weightItem{net.ParseIP("192.168.1.15"), uint8(10)},
 		&weightItem{net.ParseIP("192.168.1.14"), uint8(20)},
 	},
-	"w2.example.org.": weights{},
-	"w3.example.org.": weights{
+	"w2.example.org.": {},
+	"w3.example.org.": {
 		&weightItem{net.ParseIP("192.168.2.16"), uint8(11)},
 		&weightItem{net.ParseIP("192.168.2.15"), uint8(12)},
 		&weightItem{net.ParseIP("192.168.2.14"), uint8(13)},
@@ -234,17 +234,17 @@ func TestLoadBalanceWRR(t *testing.T) {
 
 	// domain maps to test
 	oneDomain := map[string]weights{
-		"endpoint.region2.skydns.test.": weights{
+		"endpoint.region2.skydns.test.": {
 			&weightItem{net.ParseIP("10.240.0.2"), uint8(3)},
 			&weightItem{net.ParseIP("10.240.0.1"), uint8(2)},
 		},
 	}
 	twoDomains := map[string]weights{
-		"endpoint.region2.skydns.test.": weights{
+		"endpoint.region2.skydns.test.": {
 			&weightItem{net.ParseIP("10.240.0.2"), uint8(5)},
 			&weightItem{net.ParseIP("10.240.0.1"), uint8(2)},
 		},
-		"endpoint.region1.skydns.test.": weights{
+		"endpoint.region1.skydns.test.": {
 			&weightItem{net.ParseIP("::2"), uint8(4)},
 			&weightItem{net.ParseIP("::1"), uint8(3)},
 		},

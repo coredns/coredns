@@ -9,3 +9,4 @@ linters:
     - typecheck
     - whitespace
     - unused
+    - gofmt
