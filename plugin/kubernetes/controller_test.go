@@ -28,7 +28,7 @@ func inc(ip net.IP) {
 	}
 }
 
-func kubernertesWithFakeClient(ctx context.Context, zone, cidr string, initEndpointsCache bool, svcType string) *Kubernetes {
+func kubernetesWithFakeClient(ctx context.Context, zone, cidr string, initEndpointsCache bool, svcType string) *Kubernetes {
 	client := fake.NewSimpleClientset()
 	dco := dnsControlOpts{
 		zones:              []string{zone},
@@ -39,7 +39,6 @@ func kubernertesWithFakeClient(ctx context.Context, zone, cidr string, initEndpo
 	// Add resources
 	_, err := client.CoreV1().Namespaces().Create(ctx, &api.Namespace{ObjectMeta: meta.ObjectMeta{Name: "testns"}}, meta.CreateOptions{})
 	if err != nil {
-		println(err.Error())
 		log.Fatal(err)
 	}
 	generateSvcs(cidr, svcType, client)
@@ -51,9 +50,10 @@ func kubernertesWithFakeClient(ctx context.Context, zone, cidr string, initEndpo
 
 func BenchmarkController(b *testing.B) {
 	ctx := context.Background()
-	k := kubernertesWithFakeClient(ctx, "cluster.local.", "10.0.0.0/24", true, "all")
+	k := kubernetesWithFakeClient(ctx, "cluster.local.", "10.0.0.0/24", true, "all")
 
 	go k.APIConn.Run()
+	defer k.APIConn.Stop()
 	for !k.APIConn.HasSynced() {
 		time.Sleep(time.Millisecond)
 	}
@@ -70,10 +70,11 @@ func BenchmarkController(b *testing.B) {
 
 func TestEndpointsDisabled(t *testing.T) {
 	ctx := context.Background()
-	k := kubernertesWithFakeClient(ctx, "cluster.local.", "10.0.0.0/30", false, "headless")
+	k := kubernetesWithFakeClient(ctx, "cluster.local.", "10.0.0.0/30", false, "headless")
 	k.opts.initEndpointsCache = false
 
 	go k.APIConn.Run()
+	defer k.APIConn.Stop()
 	for !k.APIConn.HasSynced() {
 		time.Sleep(time.Millisecond)
 	}
@@ -89,10 +90,11 @@ func TestEndpointsDisabled(t *testing.T) {
 
 func TestEndpointsEnabled(t *testing.T) {
 	ctx := context.Background()
-	k := kubernertesWithFakeClient(ctx, "cluster.local.", "10.0.0.0/30", true, "headless")
+	k := kubernetesWithFakeClient(ctx, "cluster.local.", "10.0.0.0/30", true, "headless")
 	k.opts.initEndpointsCache = true
 
 	go k.APIConn.Run()
+	defer k.APIConn.Stop()
 	for !k.APIConn.HasSynced() {
 		time.Sleep(time.Millisecond)
 	}
