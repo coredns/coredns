@@ -6,6 +6,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strconv"
 	"strings"
@@ -16,6 +17,20 @@ import (
 
 	"github.com/miekg/dns"
 )
+
+// // Error represents a DNS error.
+// type Error struct{ err string }
+
+// func (e *Error) Error() string {
+// 	if e == nil {
+// 		return "dns: <nil>"
+// 	}
+// 	return "dns: " + e.err
+// }
+
+// var (
+// 	ErrBufFromhere error = &Error{err: "buffer size too small"}
+// )
 
 // limitTimeout is a utility function to auto-tune timeout values
 // average observed time is moved towards the last observed delay moderated by a weight
@@ -127,8 +142,27 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 			// Instead of returning an error, return an empty response with TC bit set. This will make the
 			// client retry over TCP (if that's supported) or at least receive a clean
 			// error. The connection is still good so we break before the close.
-			if proto == "udp" && strings.Contains(err.Error(), "overflow") {
+
+			// This is for scenario in which upstream sets the truncated flag, but doesn't truncate the response.
+			// We get a "buffer size too small" error instead of overflow. Retrying for this scenario.
+			// dnsErrBufOccured := false
+			// if dnsErr, ok := err.(*dns.Error); ok {
+			// 	if dnsErr.Error() == dns.ErrBuf.Error() {
+			// 		dnsErrBufOccured = ok
+			// 	}
+			// }
+
+			dnsErrBufOccured := false
+			var perr *dns.Error
+			if errors.As(err, &perr) {
+				if errors.Is(err, dns.ErrBuf) {
+					dnsErrBufOccured = true
+				}
+			}
+
+			if proto == "udp" && ((strings.Contains(err.Error(), "overflow")) || dnsErrBufOccured) {
 				newRet := state.Req.Copy()
+
 				// Clear AD bit in case request had set the AD bit. The empty response is not authenticated.
 				newRet.AuthenticatedData = false
 				newRet.RecursionAvailable = ret.RecursionAvailable
@@ -141,7 +175,8 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 					break
 				}
 			}
-			pc.c.Close() // connection closed by peer, close the persistent connection
+			// connection closed by peer, close the persistent connection.
+			pc.c.Close()
 			if err == io.EOF && cached {
 				return nil, ErrCachedClosed
 			}
