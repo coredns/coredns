@@ -255,14 +255,6 @@ func podListFunc(ctx context.Context, c kubernetes.Interface, ns string, s label
 		return c.CoreV1().Pods(ns).List(ctx, opts)
 	}
 }
-func endpointSliceListFuncV1beta1(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
-	return func(opts meta.ListOptions) (runtime.Object, error) {
-		if s != nil {
-			opts.LabelSelector = s.String()
-		}
-		return c.DiscoveryV1beta1().EndpointSlices(ns).List(ctx, opts)
-	}
-}
 
 func endpointSliceListFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
 	return func(opts meta.ListOptions) (runtime.Object, error) {
@@ -270,15 +262,6 @@ func endpointSliceListFunc(ctx context.Context, c kubernetes.Interface, ns strin
 			opts.LabelSelector = s.String()
 		}
 		return c.DiscoveryV1().EndpointSlices(ns).List(ctx, opts)
-	}
-}
-
-func endpointsListFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(meta.ListOptions) (runtime.Object, error) {
-	return func(opts meta.ListOptions) (runtime.Object, error) {
-		if s != nil {
-			opts.LabelSelector = s.String()
-		}
-		return c.CoreV1().Endpoints(ns).List(ctx, opts)
 	}
 }
 
@@ -313,30 +296,12 @@ func podWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labe
 	}
 }
 
-func endpointSliceWatchFuncV1beta1(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
-	return func(options meta.ListOptions) (watch.Interface, error) {
-		if s != nil {
-			options.LabelSelector = s.String()
-		}
-		return c.DiscoveryV1beta1().EndpointSlices(ns).Watch(ctx, options)
-	}
-}
-
 func endpointSliceWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
 	return func(options meta.ListOptions) (watch.Interface, error) {
 		if s != nil {
 			options.LabelSelector = s.String()
 		}
 		return c.DiscoveryV1().EndpointSlices(ns).Watch(ctx, options)
-	}
-}
-
-func endpointsWatchFunc(ctx context.Context, c kubernetes.Interface, ns string, s labels.Selector) func(options meta.ListOptions) (watch.Interface, error) {
-	return func(options meta.ListOptions) (watch.Interface, error) {
-		if s != nil {
-			options.LabelSelector = s.String()
-		}
-		return c.CoreV1().Endpoints(ns).Watch(ctx, options)
 	}
 }
 
