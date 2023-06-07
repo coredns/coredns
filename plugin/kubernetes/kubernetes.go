@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,9 +18,6 @@ import (
 
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
-	discoveryV1beta1 "k8s.io/api/discovery/v1beta1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
@@ -262,22 +258,8 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 
 	k.APIConn = newdnsController(ctx, kubeClient, k.opts)
 
-	initEndpointWatch := k.opts.initEndpointsCache
-
 	onStart = func() error {
 		go func() {
-			if initEndpointWatch {
-				// Revert to watching Endpoints for incompatible K8s.
-				// This can be removed when all supported k8s versions support endpointslices.
-				ok, v := k.endpointSliceSupported(kubeClient)
-				if !ok {
-					k.APIConn.(*dnsControl).WatchEndpoints(ctx)
-				}
-				// Revert to EndpointSlice v1beta1 if v1 is not supported
-				if ok && v == discoveryV1beta1.SchemeGroupVersion.String() {
-					k.APIConn.(*dnsControl).WatchEndpointSliceV1beta1(ctx)
-				}
-			}
 			k.APIConn.Run()
 		}()
 
@@ -309,68 +291,6 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 	}
 
 	return onStart, onShut, err
-}
-
-// endpointSliceSupported will determine which endpoint object type to watch (endpointslices or endpoints)
-// based on the supportability of endpointslices in the API and server version. It will return true when endpointslices
-// should be watched, and false when endpoints should be watched.
-// If the API supports discovery, and the server versions >= 1.19, true is returned.
-// Also returned is the discovery version supported: "v1" if v1 is supported, and v1beta1 if v1beta1 is supported and
-// v1 is not supported.
-// This function should be removed, when all supported versions of k8s support v1.
-func (k *Kubernetes) endpointSliceSupported(kubeClient *kubernetes.Clientset) (bool, string) {
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-	logTicker := time.NewTicker(10 * time.Second)
-	defer logTicker.Stop()
-	var connErr error
-	for {
-		select {
-		case <-logTicker.C:
-			if connErr == nil {
-				continue
-			}
-			log.Warningf("Kubernetes API connection failure: %v", connErr)
-		case <-ticker.C:
-			sv, err := kubeClient.ServerVersion()
-			if err != nil {
-				connErr = err
-				continue
-			}
-
-			// Disable use of endpoint slices for k8s versions 1.18 and earlier. The Endpointslices API was enabled
-			// by default in 1.17 but Service -> Pod proxy continued to use Endpoints by default until 1.19.
-			// DNS results should be built from the same source data that the proxy uses.  This decision assumes
-			// k8s EndpointSliceProxying feature gate is at the default (i.e. only enabled for k8s >= 1.19).
-			major, _ := strconv.Atoi(sv.Major)
-			minor, _ := strconv.Atoi(strings.TrimRight(sv.Minor, "+"))
-			if major <= 1 && minor <= 18 {
-				log.Info("Watching Endpoints instead of EndpointSlices in k8s versions < 1.19")
-				return false, ""
-			}
-
-			// Enable use of endpoint slices if the API supports the discovery api
-			_, err = kubeClient.Discovery().ServerResourcesForGroupVersion(discovery.SchemeGroupVersion.String())
-			if err == nil {
-				return true, discovery.SchemeGroupVersion.String()
-			} else if !kerrors.IsNotFound(err) {
-				connErr = err
-				continue
-			}
-
-			_, err = kubeClient.Discovery().ServerResourcesForGroupVersion(discoveryV1beta1.SchemeGroupVersion.String())
-			if err == nil {
-				return true, discoveryV1beta1.SchemeGroupVersion.String()
-			} else if !kerrors.IsNotFound(err) {
-				connErr = err
-				continue
-			}
-
-			// Disable use of endpoint slices in case that it is disabled in k8s versions 1.19 and newer.
-			log.Info("Endpointslices API disabled. Watching Endpoints instead.")
-			return false, ""
-		}
-	}
 }
 
 // Records looks up services in kubernetes.
