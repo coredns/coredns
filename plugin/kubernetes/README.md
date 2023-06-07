@@ -114,9 +114,7 @@ that has not yet been synchronized.
 
 ## Monitoring Kubernetes Endpoints
 
-By default the *kubernetes* plugin watches Endpoints via the `discovery.EndpointSlices` API.  However the
-`api.Endpoints` API is used instead if the Kubernetes version does not support the `EndpointSliceProxying`
-feature gate by default (i.e. Kubernetes version < 1.19).
+The *kubernetes* plugin watches Endpoints via the `discovery.EndpointSlices` API.
 
 ## Ready
 
