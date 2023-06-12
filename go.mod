@@ -28,7 +28,7 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.9
 	golang.org/x/crypto v0.9.0
 	golang.org/x/sys v0.8.0
-	google.golang.org/api v0.125.0
+	google.golang.org/api v0.126.0
 	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.51.0
