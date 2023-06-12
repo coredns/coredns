@@ -131,6 +131,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 
 			dnsErrBufOccured := false
 			var perr *dns.Error
+
 			if errors.As(err, &perr) {
 				if errors.Is(err, dns.ErrBuf) {
 					dnsErrBufOccured = true
@@ -142,6 +143,10 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 
 				// Clear AD bit in case request had set the AD bit. The empty response is not authenticated.
 				newRet.AuthenticatedData = false
+
+				// Clear AA bit in case request had set the AA bit.
+				newRet.Authoritative = false
+
 				newRet.RecursionAvailable = ret.RecursionAvailable
 				newRet.Response = true
 				newRet.Truncated = true
