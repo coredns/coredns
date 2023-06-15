@@ -408,6 +408,14 @@ var dnsTestCases = []kubeTestCase{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	}},
+	// A query for a subdomain of a subdomain of an external service should not resolve to the external service
+	{Case: test.Case{
+		Qname: "subdomain.subdomain.external.testns.svc.cluster.local.", Qtype: dns.TypeCNAME,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
+		},
+	}},
 }
 
 func TestServeDNS(t *testing.T) {
