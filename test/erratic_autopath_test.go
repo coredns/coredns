@@ -9,11 +9,7 @@ import (
 )
 
 func setupProxyTargetCoreDNS(t *testing.T, fn func(string)) {
-	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 
 	content := `
 example.org. IN SOA sns.dns.icann.org. noc.dns.icann.org. 1 3600 3600 3600 3600
@@ -23,7 +19,7 @@ google.com. IN A 172.217.25.110
 `
 
 	path := filepath.Join(tmpdir, "file")
-	if err = os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("Could not write to temp file: %s", err)
 	}
 	defer os.Remove(path)

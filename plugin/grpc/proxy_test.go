@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"os"
 	"path"
 	"testing"
 
@@ -72,11 +71,7 @@ func (m testServiceClient) Query(ctx context.Context, in *pb.DnsPacket, opts ...
 }
 
 func TestProxyUnix(t *testing.T) {
-	tdir, err := os.MkdirTemp("", "tmp*")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tdir)
+	tdir := t.TempDir()
 
 	fd := path.Join(tdir, "test.grpc")
 	listener, err := net.Listen("unix", fd)

@@ -11,11 +11,7 @@ import (
 
 func TestAuto(t *testing.T) {
 	t.Parallel()
-	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 
 	corefile := `org:0 {
 		auto {
@@ -70,11 +66,7 @@ func TestAuto(t *testing.T) {
 
 func TestAutoNonExistentZone(t *testing.T) {
 	t.Parallel()
-	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 
 	corefile := `.:0 {
 		auto {
@@ -109,11 +101,7 @@ func TestAutoNonExistentZone(t *testing.T) {
 func TestAutoAXFR(t *testing.T) {
 	t.Parallel()
 
-	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 
 	corefile := `org:0 {
 		auto {

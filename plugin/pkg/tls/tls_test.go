@@ -7,8 +7,8 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 )
 
-func getPEMFiles(t *testing.T) (rmFunc func(), cert, key, ca string) {
-	tempDir, rmFunc, err := test.WritePEMFiles("")
+func getPEMFiles(t *testing.T) (cert, key, ca string) {
+	tempDir, err := test.WritePEMFiles(t)
 	if err != nil {
 		t.Fatalf("Could not write PEM files: %s", err)
 	}
@@ -21,8 +21,7 @@ func getPEMFiles(t *testing.T) (rmFunc func(), cert, key, ca string) {
 }
 
 func TestNewTLSConfig(t *testing.T) {
-	rmFunc, cert, key, ca := getPEMFiles(t)
-	defer rmFunc()
+	cert, key, ca := getPEMFiles(t)
 
 	_, err := NewTLSConfig(cert, key, ca)
 	if err != nil {
@@ -31,8 +30,7 @@ func TestNewTLSConfig(t *testing.T) {
 }
 
 func TestNewTLSClientConfig(t *testing.T) {
-	rmFunc, _, _, ca := getPEMFiles(t)
-	defer rmFunc()
+	_, _, ca := getPEMFiles(t)
 
 	_, err := NewTLSClientConfig(ca)
 	if err != nil {
@@ -41,8 +39,7 @@ func TestNewTLSClientConfig(t *testing.T) {
 }
 
 func TestNewTLSConfigFromArgs(t *testing.T) {
-	rmFunc, cert, key, ca := getPEMFiles(t)
-	defer rmFunc()
+	cert, key, ca := getPEMFiles(t)
 
 	_, err := NewTLSConfigFromArgs()
 	if err != nil {
@@ -81,8 +78,7 @@ func TestNewTLSConfigFromArgs(t *testing.T) {
 }
 
 func TestNewHTTPSTransport(t *testing.T) {
-	rmFunc, _, _, ca := getPEMFiles(t)
-	defer rmFunc()
+	_, _, ca := getPEMFiles(t)
 
 	cc, err := NewTLSClientConfig(ca)
 	if err != nil {

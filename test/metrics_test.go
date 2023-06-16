@@ -71,11 +71,7 @@ func TestMetricsRefused(t *testing.T) {
 }
 
 func TestMetricsAuto(t *testing.T) {
-	tmpdir, err := os.MkdirTemp(os.TempDir(), "coredns")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tmpdir)
+	tmpdir := t.TempDir()
 
 	corefile := `org:0 {
 		auto {
