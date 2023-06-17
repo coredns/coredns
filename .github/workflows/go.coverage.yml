@@ -8,14 +8,14 @@ jobs:
     name: Coverage
     runs-on: ubuntu-latest
     steps:
-      - name: Install Go
-        uses: actions/setup-go@fac708d6674e30b6ba41289acaab6d4b75aa0753
-        with:
-          go-version: '1.20.0'
-        id: go
-
       - name: Check out code
-        uses: actions/checkout@93ea575cb5d8a053eaa0ac8fa3b40d7e05a33cc8
+        uses: actions/checkout@v3
+
+      - name: Install Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '~1.20.0'
+        id: go
 
       - name: Build
         run: go build -v ./...
