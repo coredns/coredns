@@ -47,6 +47,7 @@ entries) and cannot be created manually.
 ~~~
 hosts [FILE [ZONES...]] {
     [INLINE]
+    no_file
     ttl SECONDS
     no_reverse
     reload DURATION
@@ -62,6 +63,8 @@ hosts [FILE [ZONES...]] {
 * **INLINE** the hosts file contents inlined in Corefile. If there are any lines before fallthrough
    then all of them will be treated as the additional content for hosts file. The specified hosts
    file path will still be read but entries will be overridden.
+* `no_file` instructs the plugin not to load any hosts files. If `no_file` is set **FILE** should not be set and
+  and at least one **INLINE** rule must be defined.
 * `ttl` change the DNS TTL of the records generated (forward and reverse). The default is 3600 seconds (1 hour).
 * `reload` change the period between each hostsfile reload. A time of zero seconds disables the
   feature. Examples of valid durations: "300ms", "1.5h" or "2h45m". See Go's
