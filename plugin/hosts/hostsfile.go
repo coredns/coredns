@@ -84,12 +84,19 @@ func (h *Map) Len() int {
 	return l
 }
 
+const (
+	readyFile   = 0b00000001
+	readyInline = 0b00000010
+	readyAll    = 0b00000011
+)
+
 // Hostsfile contains known host entries.
 type Hostsfile struct {
 	sync.RWMutex
 
 	// list of zones we are authoritative for
 	Origins []string
+	ready int
 
 	// hosts maps for lookups
 	hmap *Map
@@ -109,6 +116,13 @@ type Hostsfile struct {
 
 // readHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
 func (h *Hostsfile) readHosts() {
+	if h.path == nil {
+		h.Lock()
+		h.ready |= readyFile
+		h.Unlock()
+		return
+	}
+
 	file, err := os.Open(*h.path)
 	if err != nil {
 		// We already log a warning if the file doesn't exist or can't be opened on setup. No need to return the error here.
@@ -140,15 +154,22 @@ func (h *Hostsfile) readHosts() {
 
 	hostsEntries.WithLabelValues().Set(float64(h.inline.Len() + h.hmap.Len()))
 	hostsReloadTime.Set(float64(stat.ModTime().UnixNano()) / 1e9)
+
+	h.ready |= readyFile
 	h.Unlock()
 }
 
 func (h *Hostsfile) initInline(inline []string) {
+	h.Lock()
+	defer h.Unlock()
+
 	if len(inline) == 0 {
+		h.ready |= readyInline
 		return
 	}
 
 	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")))
+	h.ready |= readyInline
 }
 
 // Parse reads the hostsfile and populates the byName and addr maps.
