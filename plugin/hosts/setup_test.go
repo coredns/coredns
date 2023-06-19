@@ -11,6 +11,7 @@ func TestHostsParse(t *testing.T) {
 	tests := []struct {
 		inputFileRules      string
 		shouldErr           bool
+		expectedNoPath      bool
 		expectedPath        string
 		expectedOrigins     []string
 		expectedFallthrough fall.F
@@ -18,43 +19,43 @@ func TestHostsParse(t *testing.T) {
 		{
 			`hosts
 `,
-			false, "/etc/hosts", nil, fall.Zero,
+			false, false, "/etc/hosts", nil, fall.Zero,
 		},
 		{
 			`hosts /tmp`,
-			false, "/tmp", nil, fall.Zero,
+			false, false, "/tmp", nil, fall.Zero,
 		},
 		{
 			`hosts /etc/hosts miek.nl.`,
-			false, "/etc/hosts", []string{"miek.nl."}, fall.Zero,
+			false, false, "/etc/hosts", []string{"miek.nl."}, fall.Zero,
 		},
 		{
 			`hosts /etc/hosts miek.nl. pun.gent.`,
-			false, "/etc/hosts", []string{"miek.nl.", "pun.gent."}, fall.Zero,
+			false, false, "/etc/hosts", []string{"miek.nl.", "pun.gent."}, fall.Zero,
 		},
 		{
 			`hosts {
 				fallthrough
 			}`,
-			false, "/etc/hosts", nil, fall.Root,
+			false, false, "/etc/hosts", nil, fall.Root,
 		},
 		{
 			`hosts /tmp {
 				fallthrough
 			}`,
-			false, "/tmp", nil, fall.Root,
+			false, false, "/tmp", nil, fall.Root,
 		},
 		{
 			`hosts /etc/hosts miek.nl. {
 				fallthrough
 			}`,
-			false, "/etc/hosts", []string{"miek.nl."}, fall.Root,
+			false, false, "/etc/hosts", []string{"miek.nl."}, fall.Root,
 		},
 		{
 			`hosts /etc/hosts miek.nl 10.0.0.9/8 {
 				fallthrough
 			}`,
-			false, "/etc/hosts", []string{"miek.nl.", "10.in-addr.arpa."}, fall.Root,
+			false, false, "/etc/hosts", []string{"miek.nl.", "10.in-addr.arpa."}, fall.Root,
 		},
 		{
 			`hosts /etc/hosts {
@@ -63,7 +64,27 @@ func TestHostsParse(t *testing.T) {
 			hosts /etc/hosts {
 				fallthrough
 			}`,
-			true, "/etc/hosts", nil, fall.Root,
+			true, false, "/etc/hosts", nil, fall.Root,
+		},
+		{
+			`hosts {
+				no_file
+			}`,
+			true, true, "", nil, fall.Zero,
+		},
+		{
+			`hosts /tmp {
+				no_file
+			}`,
+			true, false, "/tmp", nil, fall.Zero,
+		},
+		{
+			`hosts {
+				127.0.0.1 localhost
+
+				no_file
+			}`,
+			false, true, "", nil, fall.Zero,
 		},
 	}
 
@@ -76,8 +97,12 @@ func TestHostsParse(t *testing.T) {
 		} else if err != nil && !test.shouldErr {
 			t.Fatalf("Test %d expected no errors, but got '%v'", i, err)
 		} else if !test.shouldErr {
-			if h.path != test.expectedPath {
-				t.Fatalf("Test %d expected %v, got %v", i, test.expectedPath, h.path)
+			if h.path != nil && test.expectedNoPath {
+				t.Fatalf("Test %d expected no path, got %v", i, *h.path)
+			} else if h.path == nil && !test.expectedNoPath {
+				t.Fatalf("Test %d expected %v, got no path", i, test.expectedPath)
+			} else if !test.expectedNoPath && *h.path != test.expectedPath {
+				t.Fatalf("Test %d expected %v, got %v", i, test.expectedPath, *h.path)
 			}
 		} else {
 			if !h.Fall.Equal(test.expectedFallthrough) {

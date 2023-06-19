@@ -98,7 +98,7 @@ type Hostsfile struct {
 	inline *Map
 
 	// path to the hosts file
-	path string
+	path *string
 
 	// mtime and size are only read and modified by a single goroutine
 	mtime time.Time
@@ -109,7 +109,7 @@ type Hostsfile struct {
 
 // readHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
 func (h *Hostsfile) readHosts() {
-	file, err := os.Open(h.path)
+	file, err := os.Open(*h.path)
 	if err != nil {
 		// We already log a warning if the file doesn't exist or can't be opened on setup. No need to return the error here.
 		return

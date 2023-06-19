@@ -68,9 +68,10 @@ func setup(c *caddy.Controller) error {
 func hostsParse(c *caddy.Controller) (Hosts, error) {
 	config := dnsserver.GetConfig(c)
 
+	defaultPath := "/etc/hosts"
 	h := Hosts{
 		Hostsfile: &Hostsfile{
-			path:    "/etc/hosts",
+			path:    &defaultPath,
 			hmap:    newMap(),
 			inline:  newMap(),
 			options: newOptions(),
@@ -88,22 +89,23 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		args := c.RemainingArgs()
 
 		if len(args) >= 1 {
-			h.path = args[0]
+			h.path = &args[0]
 			args = args[1:]
 
-			if !filepath.IsAbs(h.path) && config.Root != "" {
-				h.path = filepath.Join(config.Root, h.path)
+			if !filepath.IsAbs(*h.path) && config.Root != "" {
+				path := filepath.Join(config.Root, *h.path)
+				h.path = &path
 			}
-			s, err := os.Stat(h.path)
+			s, err := os.Stat(*h.path)
 			if err != nil {
 				if os.IsNotExist(err) {
-					log.Warningf("File does not exist: %s", h.path)
+					log.Warningf("File does not exist: %s", *h.path)
 				} else {
-					return h, c.Errf("unable to access hosts file '%s': %v", h.path, err)
+					return h, c.Errf("unable to access hosts file '%s': %v", *h.path, err)
 				}
 			}
 			if s != nil && s.IsDir() {
-				log.Warningf("Hosts file %q is a directory", h.path)
+				log.Warningf("Hosts file %q is a directory", *h.path)
 			}
 		}
 
@@ -111,6 +113,11 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 
 		for c.NextBlock() {
 			switch c.Val() {
+			case "no_file":
+				if h.path != &defaultPath {
+					return h, c.Errf("no_file cannot be used in combination with an explicit file path")
+				}
+				h.path = nil
 			case "fallthrough":
 				h.Fall.SetZonesFromArgs(c.RemainingArgs())
 			case "no_reverse":
@@ -150,6 +157,10 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 				return h, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
+	}
+
+	if len(inline) == 0 && h.path == nil {
+		return h, c.Errf("if no_file is enabled at least one inline rule must be provided")
 	}
 
 	h.initInline(inline)

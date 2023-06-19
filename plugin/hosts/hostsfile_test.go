@@ -211,7 +211,7 @@ func testStaticAddr(t *testing.T, ent staticIPEntry, h *Hostsfile) {
 		ent.out[i] = plugin.Name(ent.out[i]).Normalize()
 	}
 	if !reflect.DeepEqual(hosts, ent.out) {
-		t.Errorf("%s, lookupStaticAddr(%s) = %v; want %v", h.path, ent.in, hosts, h)
+		t.Errorf("%s, lookupStaticAddr(%s) = %v; want %v", *h.path, ent.in, hosts, h)
 	}
 }
 
