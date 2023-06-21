@@ -2,6 +2,7 @@ package forward
 
 import (
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/proxy"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -9,6 +10,8 @@ import (
 
 // Variables declared for monitoring.
 var (
+	ProxyMetrics = proxy.NewMetricsWithSubsystem("forward")
+
 	HealthcheckBrokenCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",

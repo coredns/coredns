@@ -19,7 +19,9 @@ import (
 	"github.com/miekg/dns"
 )
 
-func init() { plugin.Register("forward", setup) }
+func init() {
+	plugin.Register("forward", setup)
+}
 
 func setup(c *caddy.Controller) error {
 	fs, err := parseForward(c)
@@ -128,7 +130,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		if !allowedTrans[trans] {
 			return f, fmt.Errorf("'%s' is not supported as a destination protocol in forward: %s", trans, host)
 		}
-		p := proxy.NewProxy(h, trans)
+		p := proxy.NewProxyWithMetrics(h, trans, ProxyMetrics)
 		f.proxies = append(f.proxies, p)
 		transports[i] = trans
 	}

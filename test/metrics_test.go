@@ -251,3 +251,38 @@ func TestMetricsAvailable(t *testing.T) {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 }
+
+func TestForwardMetricsCompatibility(t *testing.T) {
+	procForwardRequestsTotal := "coredns_forward_requests_total"
+	procForwardRequestDuration := "coredns_forward_request_duration_seconds_count"
+
+	corefileWithMetrics := `.:0 {
+		prometheus localhost:0
+		cache
+		forward . 8.8.8.8 {
+			force_tcp
+		}
+	}`
+
+	inst, _, tcp, err := CoreDNSServerAndPorts(corefileWithMetrics)
+	defer inst.Stop()
+	if err != nil {
+		if strings.Contains(err.Error(), "address already in use") {
+			return
+		}
+		t.Errorf("Could not get service instance: %s", err)
+	}
+	// send a query and check we can scrap corresponding metrics
+	cl := dns.Client{Net: "tcp"}
+	m := new(dns.Msg)
+	m.SetQuestion("www.example.org.", dns.TypeA)
+
+	if _, _, err := cl.Exchange(m, tcp); err != nil {
+		t.Fatalf("Could not send message: %s", err)
+	}
+
+	// we should have metrics from forward, cache, and metrics itself
+	if err := collectMetricsInfo(metrics.ListenAddr, procForwardRequestsTotal, procForwardRequestDuration); err != nil {
+		t.Errorf("Could not scrap one of expected stats : %s", err)
+	}
+}

@@ -32,10 +32,16 @@ type dnsHc struct {
 	c                *dns.Client
 	recursionDesired bool
 	domain           string
+
+	metrics healthCheckMetrics
 }
 
 // NewHealthChecker returns a new HealthChecker based on transport.
 func NewHealthChecker(trans string, recursionDesired bool, domain string) HealthChecker {
+	return NewHealthCheckerWithMetrics(trans, recursionDesired, domain, DefaultMetrics.healthCheckMetrics)
+}
+
+func NewHealthCheckerWithMetrics(trans string, recursionDesired bool, domain string, metrics healthCheckMetrics) HealthChecker {
 	switch trans {
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
@@ -47,6 +53,7 @@ func NewHealthChecker(trans string, recursionDesired bool, domain string) Health
 			c:                c,
 			recursionDesired: recursionDesired,
 			domain:           domain,
+			metrics:          metrics,
 		}
 	}
 
@@ -104,7 +111,7 @@ func (h *dnsHc) SetWriteTimeout(t time.Duration) {
 func (h *dnsHc) Check(p *Proxy) error {
 	err := h.send(p.addr)
 	if err != nil {
-		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
+		h.metrics.HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
 		p.incrementFails()
 		return err
 	}
