@@ -23,11 +23,11 @@ func TestHealth(t *testing.T) {
 	})
 	defer s.Close()
 
-	hc := NewHealthChecker(transport.DNS, true, "")
+	hc := NewHealthChecker("TestHealth", transport.DNS, true, "")
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy("TestHealth", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err != nil {
@@ -53,12 +53,12 @@ func TestHealthTCP(t *testing.T) {
 	})
 	defer s.Close()
 
-	hc := NewHealthChecker(transport.DNS, true, "")
+	hc := NewHealthChecker("TestHealthTCP", transport.DNS, true, "")
 	hc.SetTCPTransport()
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy("TestHealthTCP", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err != nil {
@@ -84,11 +84,11 @@ func TestHealthNoRecursion(t *testing.T) {
 	})
 	defer s.Close()
 
-	hc := NewHealthChecker(transport.DNS, false, "")
+	hc := NewHealthChecker("TestHealthNoRecursion", transport.DNS, false, "")
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy("TestHealthNoRecursion", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err != nil {
@@ -108,11 +108,11 @@ func TestHealthTimeout(t *testing.T) {
 	})
 	defer s.Close()
 
-	hc := NewHealthChecker(transport.DNS, false, "")
+	hc := NewHealthChecker("TestHealthTimeout", transport.DNS, false, "")
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy("TestHealthTimeout", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err == nil {
@@ -134,11 +134,11 @@ func TestHealthDomain(t *testing.T) {
 	})
 	defer s.Close()
 
-	hc := NewHealthChecker(transport.DNS, true, hcDomain)
+	hc := NewHealthChecker("TestHealthDomain", transport.DNS, true, hcDomain)
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy("TestHealthDomain", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	err := hc.Check(p)
 	if err != nil {

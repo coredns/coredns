@@ -33,7 +33,7 @@ func TestHealth(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p := proxy.NewProxy("TestHealth", s.Addr, transport.DNS)
 	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	f := New()
@@ -71,7 +71,7 @@ func TestHealthTCP(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p := proxy.NewProxy("TestHealthTCP", s.Addr, transport.DNS)
 	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetTCPTransport()
@@ -110,7 +110,7 @@ func TestHealthNoRecursion(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p := proxy.NewProxy("TestHealthNoRecursion", s.Addr, transport.DNS)
 	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetRecursionDesired(false)
@@ -154,7 +154,7 @@ func TestHealthTimeout(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p := proxy.NewProxy("TestHealthTimeout", s.Addr, transport.DNS)
 	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	f := New()
@@ -182,7 +182,7 @@ func TestHealthMaxFails(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p := proxy.NewProxy("TestHealthMaxFails", s.Addr, transport.DNS)
 	p.SetReadTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
@@ -219,7 +219,7 @@ func TestHealthNoMaxFails(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p := proxy.NewProxy("TestHealthNoMaxFails", s.Addr, transport.DNS)
 	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	f := New()
@@ -258,7 +258,7 @@ func TestHealthDomain(t *testing.T) {
 		w.WriteMsg(ret)
 	})
 	defer s.Close()
-	p := proxy.NewProxy(s.Addr, transport.DNS)
+	p := proxy.NewProxy("TestHealthDomain", s.Addr, transport.DNS)
 	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetWriteTimeout(10 * time.Millisecond)
 	p.GetHealthchecker().SetDomain(hcDomain)

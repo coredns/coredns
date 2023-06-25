@@ -21,7 +21,7 @@ type Transport struct {
 	expire      time.Duration                  // After this duration a connection is expired.
 	addr        string
 	tlsConfig   *tls.Config
-	metrics     transportMetrics
+	proxyName   string
 
 	dial  chan string
 	yield chan *persistConn
@@ -29,11 +29,7 @@ type Transport struct {
 	stop  chan bool
 }
 
-func newTransport(addr string) *Transport {
-	return newTransportWithMetrics(addr, DefaultMetrics.transportMetrics)
-}
-
-func newTransportWithMetrics(addr string, metrics transportMetrics) *Transport {
+func newTransport(proxyName, addr string) *Transport {
 	t := &Transport{
 		avgDialTime: int64(maxDialTimeout / 2),
 		conns:       [typeTotalCount][]*persistConn{},
@@ -43,7 +39,7 @@ func newTransportWithMetrics(addr string, metrics transportMetrics) *Transport {
 		yield:       make(chan *persistConn),
 		ret:         make(chan *persistConn),
 		stop:        make(chan bool),
-		metrics:     metrics,
+		proxyName:   proxyName,
 	}
 	return t
 }

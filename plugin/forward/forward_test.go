@@ -15,17 +15,17 @@ import (
 func TestList(t *testing.T) {
 	f := Forward{
 		proxies: []*proxy.Proxy{
-			proxy.NewProxy("1.1.1.1:53", transport.DNS),
-			proxy.NewProxy("2.2.2.2:53", transport.DNS),
-			proxy.NewProxy("3.3.3.3:53", transport.DNS),
+			proxy.NewProxy("TestList", "1.1.1.1:53", transport.DNS),
+			proxy.NewProxy("TestList", "2.2.2.2:53", transport.DNS),
+			proxy.NewProxy("TestList", "3.3.3.3:53", transport.DNS),
 		},
 		p: &roundRobin{},
 	}
 
 	expect := []*proxy.Proxy{
-		proxy.NewProxy("2.2.2.2:53", transport.DNS),
-		proxy.NewProxy("1.1.1.1:53", transport.DNS),
-		proxy.NewProxy("3.3.3.3:53", transport.DNS),
+		proxy.NewProxy("TestList", "2.2.2.2:53", transport.DNS),
+		proxy.NewProxy("TestList", "1.1.1.1:53", transport.DNS),
+		proxy.NewProxy("TestList", "3.3.3.3:53", transport.DNS),
 	}
 	got := f.List()
 

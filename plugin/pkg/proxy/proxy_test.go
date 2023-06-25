@@ -24,7 +24,7 @@ func TestProxy(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, transport.DNS)
+	p := NewProxy("TestProxy", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	p.Start(5 * time.Second)
 	m := new(dns.Msg)
@@ -54,7 +54,7 @@ func TestProxyTLSFail(t *testing.T) {
 	})
 	defer s.Close()
 
-	p := NewProxy(s.Addr, transport.TLS)
+	p := NewProxy("TestProxyTLSFail", s.Addr, transport.TLS)
 	p.readTimeout = 10 * time.Millisecond
 	p.SetTLSConfig(&tls.Config{})
 	p.Start(5 * time.Second)
@@ -72,7 +72,7 @@ func TestProxyTLSFail(t *testing.T) {
 }
 
 func TestProtocolSelection(t *testing.T) {
-	p := NewProxy("bad_address", transport.DNS)
+	p := NewProxy("TestProtocolSelection", "bad_address", transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 
 	stateUDP := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
@@ -119,7 +119,7 @@ func TestProxyIncrementFails(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			p := NewProxy("bad_address", transport.DNS)
+			p := NewProxy("TestProxyIncrementFails", "bad_address", transport.DNS)
 			p.fails = tc.fails
 			p.incrementFails()
 			if p.fails != tc.expectFails {

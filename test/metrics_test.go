@@ -253,8 +253,13 @@ func TestMetricsAvailable(t *testing.T) {
 }
 
 func TestForwardMetricsCompatibility(t *testing.T) {
-	procForwardRequestsTotal := "coredns_forward_requests_total"
-	procForwardRequestDuration := "coredns_forward_request_duration_seconds_count"
+	existingForwardMetrics := []string{
+		"coredns_forward_request_duration_seconds_count",
+		"coredns_forward_request_duration_seconds_sum",
+		"coredns_forward_request_duration_seconds_bucket",
+		"coredns_forward_requests_total",
+		"coredns_forward_responses_total",
+	}
 
 	corefileWithMetrics := `.:0 {
 		prometheus localhost:0
@@ -282,7 +287,7 @@ func TestForwardMetricsCompatibility(t *testing.T) {
 	}
 
 	// we should have metrics from forward, cache, and metrics itself
-	if err := collectMetricsInfo(metrics.ListenAddr, procForwardRequestsTotal, procForwardRequestDuration); err != nil {
+	if err := collectMetricsInfo(metrics.ListenAddr, existingForwardMetrics...); err != nil {
 		t.Errorf("Could not scrap one of expected stats : %s", err)
 	}
 }
