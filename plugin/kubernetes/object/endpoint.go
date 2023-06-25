@@ -66,7 +66,19 @@ func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
 	} else {
 		e.Subsets[0].Ports = make([]EndpointPort, len(ends.Ports))
 		for k, p := range ends.Ports {
-			ep := EndpointPort{Port: *p.Port, Name: *p.Name, Protocol: string(*p.Protocol)}
+			port := int32(-1)
+			name := ""
+			protocol := ""
+			if p.Port != nil {
+				port = *p.Port
+			}
+			if p.Name != nil {
+				name = *p.Name
+			}
+			if p.Protocol != nil {
+				protocol = string(*p.Protocol)
+			}
+			ep := EndpointPort{Port: port, Name: name, Protocol: protocol}
 			e.Subsets[0].Ports[k] = ep
 		}
 	}
@@ -146,7 +158,6 @@ func (e *Endpoints) DeepCopyObject() runtime.Object {
 			ep := EndpointPort{Port: p.Port, Name: p.Name, Protocol: p.Protocol}
 			sub.Ports[k] = ep
 		}
-
 		e1.Subsets[i] = sub
 	}
 	return e1
