@@ -128,6 +128,8 @@ Where `to` is one of the upstream servers (**TO** from the config), `rcode` is t
 from the upstream, `proto` is the transport protocol like `udp`, `tcp`, `tcp-tls`.
 
 The following metrics have recently been deprecated:
+* `coredns_forward_healthcheck_failures_total{to, rcode}`
+  * Can be replaced with `coredns_proxy_healthcheck_failures_total{proxy_name="forward", to, rcode}`
 * `coredns_forward_requests_total{to}`
   * Can be replaced with `sum(coredns_proxy_request_duration_seconds_count{proxy_name="forward", to})`
 * `coredns_forward_responses_total{to, rcode}`
