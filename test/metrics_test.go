@@ -257,8 +257,6 @@ func TestForwardMetricsCompatibility(t *testing.T) {
 		"coredns_forward_request_duration_seconds_count",
 		"coredns_forward_request_duration_seconds_sum",
 		"coredns_forward_request_duration_seconds_bucket",
-		"coredns_forward_requests_total",
-		"coredns_forward_responses_total",
 	}
 
 	corefileWithMetrics := `.:0 {

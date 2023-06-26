@@ -9,20 +9,6 @@ import (
 
 // Variables declared for monitoring.
 var (
-	RequestCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "proxy",
-		Name:      "requests_total",
-		Help:      "Counter of requests made per upstream.",
-	}, []string{"proxy_name", "to"})
-
-	RcodeCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "proxy",
-		Name:      "responses_total",
-		Help:      "Counter of responses received per upstream.",
-	}, []string{"proxy_name", "to", "rcode"})
-
 	RequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "proxy",

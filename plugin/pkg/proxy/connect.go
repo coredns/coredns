@@ -152,8 +152,6 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		rc = strconv.Itoa(ret.Rcode)
 	}
 
-	RequestCount.WithLabelValues(p.proxyName, p.addr).Add(1)
-	RcodeCount.WithLabelValues(p.proxyName, p.addr, rc).Add(1)
 	RequestDuration.WithLabelValues(p.proxyName, p.addr, rc).Observe(time.Since(start).Seconds())
 
 	return ret, nil
