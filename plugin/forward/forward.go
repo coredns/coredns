@@ -97,7 +97,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		count := atomic.AddInt64(&(f.concurrent), 1)
 		defer atomic.AddInt64(&(f.concurrent), -1)
 		if count > f.maxConcurrent {
-			MaxConcurrentRejectCount.Add(1)
+			maxConcurrentRejectCount.Add(1)
 			return dns.RcodeRefused, f.ErrLimitExceeded
 		}
 	}
@@ -129,7 +129,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			r := new(random)
 			proxy = r.List(f.proxies)[0]
 
-			HealthcheckBrokenCount.Add(1)
+			healthcheckBrokenCount.Add(1)
 		}
 
 		if span != nil {

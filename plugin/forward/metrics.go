@@ -13,7 +13,7 @@ import (
 
 // Variables declared for monitoring.
 var (
-	RequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	requestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
 		Name:      "request_duration_seconds",
@@ -21,14 +21,14 @@ var (
 		Help:      "Histogram of the time each request took.",
 	}, []string{"to", "rcode"})
 
-	HealthcheckBrokenCount = promauto.NewCounter(prometheus.CounterOpts{
+	healthcheckBrokenCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
 		Name:      "healthcheck_broken_total",
 		Help:      "Counter of the number of complete failures of the healthchecks.",
 	})
 
-	MaxConcurrentRejectCount = promauto.NewCounter(prometheus.CounterOpts{
+	maxConcurrentRejectCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
 		Name:      "max_concurrent_rejects_total",
@@ -43,6 +43,6 @@ func recordReqMetrics(addr string, start time.Time, res *dns.Msg) {
 		if !ok {
 			rc = strconv.Itoa(res.Rcode)
 		}
-		RequestDuration.WithLabelValues(addr, rc).Observe(time.Since(start).Seconds())
+		requestDuration.WithLabelValues(addr, rc).Observe(time.Since(start).Seconds())
 	}
 }

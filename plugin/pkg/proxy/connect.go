@@ -55,10 +55,10 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	pc := <-t.ret
 
 	if pc != nil {
-		ConnCacheHitsCount.WithLabelValues(t.proxyName, t.addr, proto).Add(1)
+		connCacheHitsCount.WithLabelValues(t.proxyName, t.addr, proto).Add(1)
 		return pc, true, nil
 	}
-	ConnCacheMissesCount.WithLabelValues(t.proxyName, t.addr, proto).Add(1)
+	connCacheMissesCount.WithLabelValues(t.proxyName, t.addr, proto).Add(1)
 
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
@@ -152,7 +152,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		rc = strconv.Itoa(ret.Rcode)
 	}
 
-	RequestDuration.WithLabelValues(p.proxyName, p.addr, rc).Observe(time.Since(start).Seconds())
+	requestDuration.WithLabelValues(p.proxyName, p.addr, rc).Observe(time.Since(start).Seconds())
 
 	return ret, nil
 }

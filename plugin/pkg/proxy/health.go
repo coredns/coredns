@@ -107,7 +107,7 @@ func (h *dnsHc) SetWriteTimeout(t time.Duration) {
 func (h *dnsHc) Check(p *Proxy) error {
 	err := h.send(p.addr)
 	if err != nil {
-		HealthcheckFailureCount.WithLabelValues(p.proxyName, p.addr).Add(1)
+		healthcheckFailureCount.WithLabelValues(p.proxyName, p.addr).Add(1)
 		p.incrementFails()
 		return err
 	}
