@@ -142,41 +142,17 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 		return
 	}
 
-	doqWriter := &DoQWriter{
-		raddr: conn.RemoteAddr(),
-		laddr: conn.LocalAddr(),
+	w := &quicResponse{
+		localAddr:  conn.LocalAddr(),
+		remoteAddr: conn.RemoteAddr(),
+		stream:     stream,
+		doqVersion: doqVersion,
+		Msg:        req,
 	}
 
 	dnsCtx := context.WithValue(context.Background(), Key{}, s.Server)
 	dnsCtx = context.WithValue(dnsCtx, LoopKey{}, 0)
-	s.ServeDNS(dnsCtx, doqWriter, req)
-
-	if doqWriter.Msg == nil {
-		return
-	}
-
-	bytes, err := doqWriter.Msg.Pack()
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	var respBuf []byte
-	switch doqVersion {
-	case DoQv1:
-		respBuf = AddPrefix(bytes)
-	case DoQv1Draft:
-		respBuf = bytes
-	default:
-		fmt.Printf("invalid protocol version: %d", doqVersion)
-	}
-
-	n, err = stream.Write(respBuf)
-	if err != nil {
-		fmt.Print(err)
-	}
-	if n != len(respBuf) {
-		fmt.Printf("conn.Write() returned with %d != %d", n, len(respBuf))
-	}
+	s.ServeDNS(dnsCtx, w, req)
 }
 
 // AddPrefix adds a 2-byte prefix with the DNS message length.
@@ -257,3 +233,43 @@ func readAll(r io.Reader, buf []byte) (n int, err error) {
 		}
 	}
 }
+
+type quicResponse struct {
+	localAddr  net.Addr
+	remoteAddr net.Addr
+	stream     quic.Stream
+	doqVersion DoQVersion
+	Msg        *dns.Msg
+}
+
+func (r *quicResponse) Write(b []byte) (int, error) {
+	var respBuf []byte
+	switch r.doqVersion {
+	case DoQv1:
+		respBuf = AddPrefix(b)
+	case DoQv1Draft:
+		respBuf = b
+	default:
+		return 0, fmt.Errorf("invalid protocol version: %d", r.doqVersion)
+	}
+
+	return r.stream.Write(respBuf)
+}
+
+func (r *quicResponse) WriteMsg(m *dns.Msg) error {
+	bytes, err := m.Pack()
+	if err != nil {
+		return err
+	}
+
+	_, err = r.Write(bytes)
+	return err
+}
+
+// These methods implement the dns.ResponseWriter interface from Go DNS.
+func (r *quicResponse) Close() error          { return nil }
+func (r *quicResponse) TsigStatus() error     { return nil }
+func (r *quicResponse) TsigTimersOnly(b bool) {}
+func (r *quicResponse) Hijack()               {}
+func (r *quicResponse) LocalAddr() net.Addr   { return r.localAddr }
+func (r *quicResponse) RemoteAddr() net.Addr  { return r.remoteAddr }
