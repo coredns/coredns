@@ -24,12 +24,13 @@ func setup(c *caddy.Controller) error {
 }
 
 func parse(c *caddy.Controller) (int, error) {
-	const defaultBufSize = 512
+	// value from http://www.dnsflagday.net/2020/
+	const defaultBufSize = 1232
 	for c.Next() {
 		args := c.RemainingArgs()
 		switch len(args) {
 		case 0:
-			// Nothing specified; use 512 as default
+			// Nothing specified; use defaultBufSize
 			return defaultBufSize, nil
 		case 1:
 			// Specified value is needed to verify
