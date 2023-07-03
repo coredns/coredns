@@ -3,9 +3,8 @@ package dnsserver
 import (
 	"context"
 	"crypto/tls"
-	"encoding/binary"
 	"fmt"
-	"github.com/coredns/coredns/plugin/metrics/vars"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/miekg/dns"
@@ -13,20 +12,17 @@ import (
 	"io"
 	"math"
 	"net"
-	"strconv"
 	"sync"
 )
 
-// DoQVersion is an enumeration with supported DoQ versions.
-type DoQVersion int
-
 const (
-	// DoQv1Draft represents old DoQ draft versions that do not send a 2-octet
-	// prefix with the DNS message length.
-	DoQv1Draft DoQVersion = 0x00
+	// DoQCodeNoError is used when the connection or stream needs to be closed,
+	// but there is no error to signal.
+	DoQCodeNoError quic.ApplicationErrorCode = 0
 
-	// DoQv1 represents DoQ v1.0: https://www.rfc-editor.org/rfc/rfc9250.html.
-	DoQv1 DoQVersion = 0x01
+	// DoQCodeProtocolError signals that the DoQ implementation encountered
+	// a protocol error and is forcibly aborting the connection.
+	DoQCodeProtocolError quic.ApplicationErrorCode = 1
 )
 
 // ServerQUIC represents an instance of a DNS-over-QUIC server.
@@ -58,7 +54,7 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 	}
 
 	if tlsConfig != nil {
-		tlsConfig.NextProtos = []string{"doq", "doq-i03"}
+		tlsConfig.NextProtos = []string{"doq"}
 	}
 
 	bytesPool := &sync.Pool{
@@ -90,10 +86,12 @@ func (s *ServerQUIC) ServePacket(p net.PacketConn) error {
 	return s.ServeQUIC()
 }
 
+// ServeQUIC listens for incoming QUIC packets.
 func (s *ServerQUIC) ServeQUIC() error {
 	for {
 		conn, err := s.quicListener.Accept(context.Background())
 		if err != nil {
+			closeQUICConn(conn, DoQCodeNoError)
 			return err
 		}
 
@@ -101,11 +99,16 @@ func (s *ServerQUIC) ServeQUIC() error {
 	}
 }
 
+// serveQUICConnection handles a new QUIC connection. It waits for new streams
+// and passes them to serveQUICStream.
 func (s *ServerQUIC) serveQUICConnection(conn quic.Connection) {
 	for {
+		// In DoQ, one query consumes one stream.
+		// The client MUST select the next available client-initiated bidirectional
+		// stream for each subsequent query on a QUIC connection.
 		stream, err := conn.AcceptStream(context.Background())
 		if err != nil {
-			// close connection with error
+			closeQUICConn(conn, DoQCodeNoError)
 			return
 		}
 
@@ -124,44 +127,51 @@ func (s *ServerQUIC) serveQUICConnection(conn quic.Connection) {
 func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 	bufPtr := s.bytesPool.Get().(*[]byte)
 	defer s.bytesPool.Put(bufPtr)
+
 	buf := *bufPtr
-	n, err := readAll(stream, buf)
+	_, err := readAll(stream, buf)
 
-	doqVersion := DoQv1
-	req := &dns.Msg{}
+	// io.EOF does not really mean that there's any error, it is just
+	// the STREAM FIN indicating that there will be no data to read
+	// anymore from this stream.
+	if err != nil && err != io.EOF {
+		closeQUICConn(conn, DoQCodeProtocolError)
 
-	packetLen := binary.BigEndian.Uint16(buf[:2])
-	if packetLen == uint16(n-2) {
-		err = req.Unpack(buf[2:])
-	} else {
-		err = req.Unpack(buf)
-		doqVersion = DoQv1Draft
-	}
-
-	if err != nil {
 		return
 	}
 
-	w := &quicResponse{
+	req := &dns.Msg{}
+
+	// Drafts of the RFC9250 did not require the 2-byte prefixed message length.
+	// Thus, we are only supporting the official version (DoQ v1).
+	err = req.Unpack(buf[2:])
+	if err != nil {
+		clog.Debug("unpacking quic packet: %s", err)
+		closeQUICConn(conn, DoQCodeProtocolError)
+
+		return
+	}
+
+	if !validRequest(req) {
+		// If a peer encounters such an error condition, it is considered a
+		// fatal error. It SHOULD forcibly abort the connection using QUIC's
+		// CONNECTION_CLOSE mechanism and SHOULD use the DoQ error code
+		// DOQ_PROTOCOL_ERROR.
+		closeQUICConn(conn, DoQCodeProtocolError)
+
+		return
+	}
+
+	w := &DoQWriter{
 		localAddr:  conn.LocalAddr(),
 		remoteAddr: conn.RemoteAddr(),
 		stream:     stream,
-		doqVersion: doqVersion,
 		Msg:        req,
 	}
 
 	dnsCtx := context.WithValue(context.Background(), Key{}, s.Server)
 	dnsCtx = context.WithValue(dnsCtx, LoopKey{}, 0)
 	s.ServeDNS(dnsCtx, w, req)
-}
-
-// AddPrefix adds a 2-byte prefix with the DNS message length.
-func AddPrefix(b []byte) (m []byte) {
-	m = make([]byte, 2+len(b))
-	binary.BigEndian.PutUint16(m, uint16(len(b)))
-	copy(m[2:], b)
-
-	return m
 }
 
 // ListenPacket implements caddy.UDPServer interface.
@@ -195,10 +205,6 @@ func (s *ServerQUIC) OnStartupComplete() {
 // Stop stops the server. It blocks until the server is totally stopped.
 func (s *ServerQUIC) Stop() error { return nil }
 
-func (s *ServerQUIC) countResponse(status int) {
-	vars.HTTPSResponsesCount.WithLabelValues(s.Addr, strconv.Itoa(status)).Inc()
-}
-
 // Shutdown stops the server (non gracefully).
 func (s *ServerQUIC) Shutdown() error { return nil }
 
@@ -207,6 +213,52 @@ func (s *ServerQUIC) Serve(l net.Listener) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServerQUIC) Listen() (net.Listener, error) { return nil, nil }
+
+// closeQUICConn quietly closes the QUIC connection.
+func closeQUICConn(conn quic.Connection, code quic.ApplicationErrorCode) {
+	clog.Debug("closing quic conn %s with code %d", conn.LocalAddr(), code)
+
+	err := conn.CloseWithError(code, "")
+	if err != nil {
+		clog.Debug("closing quic connection with code %d: %s", code, err)
+	}
+}
+
+// validRequest checks for protocol errors in the unpacked DNS message.
+// See https://www.rfc-editor.org/rfc/rfc9250.html#name-protocol-errors
+func validRequest(req *dns.Msg) (ok bool) {
+
+	// 1. a client or server receives a message with a non-zero Message ID.
+	if req.Id != 0 {
+		return false
+	}
+
+	// 2. an implementation receives a message containing the edns-tcp-keepalive
+	// EDNS(0) Option [RFC7828].
+	if opt := req.IsEdns0(); opt != nil {
+		for _, option := range opt.Option {
+			if option.Option() == dns.EDNS0TCPKEEPALIVE {
+				clog.Debug("client sent EDNS0 TCP keepalive option")
+
+				return false
+			}
+		}
+	}
+
+	// 3. the client or server does not indicate the expected STREAM FIN after
+	// sending requests or responses.
+	//
+	// This is quite problematic to validate this case since this would imply
+	// we have to wait until STREAM FIN is arrived before we start processing
+	// the message. So we're consciously ignoring this case in this
+	// implementation.
+
+	// 4. a server receives a "replayable" transaction in 0-RTT data
+	//
+	// The information necessary to validate this is not exposed by quic-go.
+
+	return true
+}
 
 // readAll reads from r until an error or io.EOF into the specified buffer buf.
 // A successful call returns err == nil, not err == io.EOF.  If the buffer is
@@ -233,43 +285,3 @@ func readAll(r io.Reader, buf []byte) (n int, err error) {
 		}
 	}
 }
-
-type quicResponse struct {
-	localAddr  net.Addr
-	remoteAddr net.Addr
-	stream     quic.Stream
-	doqVersion DoQVersion
-	Msg        *dns.Msg
-}
-
-func (r *quicResponse) Write(b []byte) (int, error) {
-	var respBuf []byte
-	switch r.doqVersion {
-	case DoQv1:
-		respBuf = AddPrefix(b)
-	case DoQv1Draft:
-		respBuf = b
-	default:
-		return 0, fmt.Errorf("invalid protocol version: %d", r.doqVersion)
-	}
-
-	return r.stream.Write(respBuf)
-}
-
-func (r *quicResponse) WriteMsg(m *dns.Msg) error {
-	bytes, err := m.Pack()
-	if err != nil {
-		return err
-	}
-
-	_, err = r.Write(bytes)
-	return err
-}
-
-// These methods implement the dns.ResponseWriter interface from Go DNS.
-func (r *quicResponse) Close() error          { return nil }
-func (r *quicResponse) TsigStatus() error     { return nil }
-func (r *quicResponse) TsigTimersOnly(b bool) {}
-func (r *quicResponse) Hijack()               {}
-func (r *quicResponse) LocalAddr() net.Addr   { return r.localAddr }
-func (r *quicResponse) RemoteAddr() net.Addr  { return r.remoteAddr }
