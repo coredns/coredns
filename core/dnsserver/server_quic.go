@@ -202,11 +202,17 @@ func (s *ServerQUIC) OnStartupComplete() {
 	}
 }
 
-// Stop stops the server. It blocks until the server is totally stopped.
-func (s *ServerQUIC) Stop() error { return nil }
+// Stop stops the server non-gracefully. It blocks until the server is totally stopped.
+func (s *ServerQUIC) Stop() error {
+	s.m.Lock()
+	defer s.m.Unlock()
 
-// Shutdown stops the server (non gracefully).
-func (s *ServerQUIC) Shutdown() error { return nil }
+	if s.quicListener != nil {
+		return s.quicListener.Close()
+	}
+
+	return nil
+}
 
 // Serve implements caddy.TCPServer interface.
 func (s *ServerQUIC) Serve(l net.Listener) error { return nil }
