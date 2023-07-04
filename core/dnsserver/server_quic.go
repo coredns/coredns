@@ -70,8 +70,8 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 		MaxIdleTimeout:        s.idleTimeout,
 		MaxIncomingStreams:    math.MaxUint16,
 		MaxIncomingUniStreams: math.MaxUint16,
-		// Disable 0-RTT by default for all connections on the server-side.
-		Allow0RTT: false,
+		// Enable 0-RTT by default for all connections on the server-side.
+		Allow0RTT: true,
 	}
 
 	return &ServerQUIC{Server: s, tlsConfig: tlsConfig, quicConfig: quicConfig, bytesPool: bytesPool}, nil
