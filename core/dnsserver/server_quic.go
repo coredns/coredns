@@ -146,7 +146,7 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 	// Thus, we are only supporting the official version (DoQ v1).
 	err = req.Unpack(buf[2:])
 	if err != nil {
-		clog.Debug("unpacking quic packet: %s", err)
+		clog.Debugf("unpacking quic packet: %s", err)
 		closeQUICConn(conn, DoQCodeProtocolError)
 
 		return
@@ -222,11 +222,11 @@ func (s *ServerQUIC) Listen() (net.Listener, error) { return nil, nil }
 
 // closeQUICConn quietly closes the QUIC connection.
 func closeQUICConn(conn quic.Connection, code quic.ApplicationErrorCode) {
-	clog.Debug("closing quic conn %s with code %d", conn.LocalAddr(), code)
+	clog.Debugf("closing quic conn %s with code %d", conn.LocalAddr(), code)
 
 	err := conn.CloseWithError(code, "")
 	if err != nil {
-		clog.Debug("closing quic connection with code %d: %s", code, err)
+		clog.Debugf("closing quic connection with code %d: %s", code, err)
 	}
 }
 
