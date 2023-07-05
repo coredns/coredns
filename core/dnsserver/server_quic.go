@@ -12,7 +12,6 @@ import (
 	"io"
 	"math"
 	"net"
-	"sync"
 )
 
 const (
@@ -32,9 +31,6 @@ type ServerQUIC struct {
 	tlsConfig    *tls.Config
 	quicConfig   *quic.Config
 	quicListener *quic.Listener
-
-	// bytesPool is a pool of byte slices used to read DNS packets.
-	bytesPool *sync.Pool
 }
 
 // NewServerQUIC returns a new CoreDNS QUIC server and compiles all plugin in to it.
@@ -57,14 +53,6 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 		tlsConfig.NextProtos = []string{"doq"}
 	}
 
-	bytesPool := &sync.Pool{
-		New: func() interface{} {
-			// 2 bytes may be used to store packet length (see TCP/TLS)
-			b := make([]byte, 2+dns.MaxMsgSize)
-			return &b
-		},
-	}
-
 	var quicConfig *quic.Config
 	quicConfig = &quic.Config{
 		MaxIdleTimeout:        s.idleTimeout,
@@ -74,7 +62,7 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 		Allow0RTT: true,
 	}
 
-	return &ServerQUIC{Server: s, tlsConfig: tlsConfig, quicConfig: quicConfig, bytesPool: bytesPool}, nil
+	return &ServerQUIC{Server: s, tlsConfig: tlsConfig, quicConfig: quicConfig}, nil
 }
 
 // ServePacket implements caddy.UDPServer interface.
@@ -125,11 +113,7 @@ func (s *ServerQUIC) serveQUICConnection(conn quic.Connection) {
 }
 
 func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
-	bufPtr := s.bytesPool.Get().(*[]byte)
-	defer s.bytesPool.Put(bufPtr)
-
-	buf := *bufPtr
-	_, err := readAll(stream, buf)
+	buf, err := io.ReadAll(stream)
 
 	// io.EOF does not really mean that there's any error, it is just
 	// the STREAM FIN indicating that there will be no data to read
@@ -180,6 +164,9 @@ func (s *ServerQUIC) ListenPacket() (net.PacketConn, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	s.m.Lock()
+	defer s.m.Unlock()
 
 	s.quicListener, err = quic.Listen(p, s.tlsConfig, s.quicConfig)
 	if err != nil {
@@ -264,30 +251,4 @@ func validRequest(req *dns.Msg) (ok bool) {
 	// The information necessary to validate this is not exposed by quic-go.
 
 	return true
-}
-
-// readAll reads from r until an error or io.EOF into the specified buffer buf.
-// A successful call returns err == nil, not err == io.EOF.  If the buffer is
-// too small, it returns error io.ErrShortBuffer.  This function has some
-// similarities to io.ReadAll, but it reads to the specified buffer and not
-// allocates (and grows) a new one.  Also, it is completely different from
-// io.ReadFull as that one reads the exact number of bytes (buffer length) and
-// readAll reads until io.EOF or until the buffer is filled.
-func readAll(r io.Reader, buf []byte) (n int, err error) {
-	for {
-		if n == len(buf) {
-			return n, io.ErrShortBuffer
-		}
-
-		var read int
-		read, err = r.Read(buf[n:])
-		n += read
-
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
-			return n, err
-		}
-	}
 }
