@@ -3,6 +3,7 @@ package dnsserver
 import (
 	"context"
 	"crypto/tls"
+	"encoding/binary"
 	"fmt"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
@@ -113,7 +114,7 @@ func (s *ServerQUIC) serveQUICConnection(conn quic.Connection) {
 }
 
 func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
-	buf, err := io.ReadAll(stream)
+	buf, err := readDOQMessage(stream)
 
 	// io.EOF does not really mean that there's any error, it is just
 	// the STREAM FIN indicating that there will be no data to read
@@ -125,10 +126,7 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 	}
 
 	req := &dns.Msg{}
-
-	// Drafts of the RFC9250 did not require the 2-byte prefixed message length.
-	// Thus, we are only supporting the official version (DoQ v1).
-	err = req.Unpack(buf[2:])
+	err = req.Unpack(buf)
 	if err != nil {
 		clog.Debugf("unpacking quic packet: %s", err)
 		closeQUICConn(conn, DoQCodeProtocolError)
@@ -251,4 +249,54 @@ func validRequest(req *dns.Msg) (ok bool) {
 	// The information necessary to validate this is not exposed by quic-go.
 
 	return true
+}
+
+// readDOQMessage reads a DNS over QUIC (DOQ) message from the given stream
+// and returns the message bytes.
+// Drafts of the RFC9250 did not require the 2-byte prefixed message length.
+// Thus, we are only supporting the official version (DoQ v1).
+func readDOQMessage(r io.Reader) ([]byte, error) {
+
+	// All DNS messages (queries and responses) sent over DoQ connections MUST
+	// be encoded as a 2-octet length field followed by the message content as specified
+	// in [RFC1035].
+	// See https://www.rfc-editor.org/rfc/rfc9250.html#section-4.2-4
+	sizeBuf := make([]byte, 2)
+	_, err := io.ReadFull(r, sizeBuf)
+	if err != nil {
+		return nil, err
+	}
+
+	size := binary.BigEndian.Uint16(sizeBuf)
+	buf := make([]byte, size)
+
+	_, err = readAll(r, buf)
+
+	return buf, err
+}
+
+// readAll reads from r until an error or io.EOF into the specified buffer buf.
+// A successful call returns err == nil, not err == io.EOF.  If the buffer is
+// too small, it returns error io.ErrShortBuffer.  This function has some
+// similarities to io.ReadAll, but it reads to the specified buffer and not
+// allocates (and grows) a new one.  Also, it is completely different from
+// io.ReadFull as that one reads the exact number of bytes (buffer length) and
+// readAll reads until io.EOF or until the buffer is filled.
+func readAll(r io.Reader, buf []byte) (n int, err error) {
+	for {
+		if n == len(buf) {
+			return n, io.ErrShortBuffer
+		}
+
+		var read int
+		read, err = r.Read(buf[n:])
+		n += read
+
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			return n, err
+		}
+	}
 }
