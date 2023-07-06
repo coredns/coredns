@@ -82,9 +82,12 @@ ifeq ($(DOCKER),)
 else
 	docker version
 	for arch in $(LINUX_ARCH); do \
-	    if [ -f Dockerfile.$${arch} ]; then DOCKERFILE=Dockerfile.$${arch}; else DOCKERFILE=Dockerfile; fi; \
-	    cp $${DOCKERFILE} build/docker/$${arch}/Dockerfile ; \
-	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) build/docker/$${arch} ;\
+	    cp Dockerfile build/docker/$${arch} ; \
+	    DOCKER_ARGS=""; \
+	    if [ "$${arch}" = "riscv64" ]; then \
+	        DOCKER_ARGS="--build-arg=DEBIAN_IMAGE=debian:unstable-slim --build-arg=BASE=ghcr.io/go-riscv/distroless/static-unstable:nonroot"; \
+	    fi; \
+	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) $${DOCKER_ARGS} build/docker/$${arch} ;\
 	done
 endif
 
