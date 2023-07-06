@@ -32,7 +32,7 @@ DOCKER:=
 NAME:=coredns
 GITHUB:=https://github.com/coredns/coredns/releases/download
 # mips is not in LINUX_ARCH because it's not supported by docker manifest. Keep this list in sync with the one in Makefile.release
-LINUX_ARCH:=amd64 arm arm64 mips64le ppc64le s390x
+LINUX_ARCH:=amd64 arm arm64 mips64le ppc64le s390x riscv64
 DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
 DOCKER_IMAGE_LIST_VERSIONED:=$(shell echo $(LINUX_ARCH) | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME):&\-$(VERSION)~g")
 
@@ -82,7 +82,8 @@ ifeq ($(DOCKER),)
 else
 	docker version
 	for arch in $(LINUX_ARCH); do \
-	    cp Dockerfile build/docker/$${arch} ; \
+	    if [ -f Dockerfile.$${arch} ]; then DOCKERFILE=Dockerfile.$${arch}; else DOCKERFILE=Dockerfile; fi; \
+	    cp $${DOCKERFILE} build/docker/$${arch}/Dockerfile ; \
 	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) build/docker/$${arch} ;\
 	done
 endif
