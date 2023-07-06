@@ -16,13 +16,14 @@ import (
 )
 
 const (
-	// DoQCodeNoError is used when the connection or stream needs to be closed,
-	// but there is no error to signal.
-	DoQCodeNoError quic.ApplicationErrorCode = 0
+	// DoQCodeInternalError signals that the DoQ implementation encountered
+	// an internal error and is incapable of pursuing the transaction or the
+	// connection.
+	DoQCodeInternalError quic.ApplicationErrorCode = 1
 
 	// DoQCodeProtocolError signals that the DoQ implementation encountered
 	// a protocol error and is forcibly aborting the connection.
-	DoQCodeProtocolError quic.ApplicationErrorCode = 1
+	DoQCodeProtocolError quic.ApplicationErrorCode = 2
 )
 
 // ServerQUIC represents an instance of a DNS-over-QUIC server.
@@ -80,7 +81,7 @@ func (s *ServerQUIC) ServeQUIC() error {
 	for {
 		conn, err := s.quicListener.Accept(context.Background())
 		if err != nil {
-			closeQUICConn(conn, DoQCodeNoError)
+			closeQUICConn(conn, DoQCodeInternalError)
 			return err
 		}
 
@@ -97,19 +98,11 @@ func (s *ServerQUIC) serveQUICConnection(conn quic.Connection) {
 		// stream for each subsequent query on a QUIC connection.
 		stream, err := conn.AcceptStream(context.Background())
 		if err != nil {
-			closeQUICConn(conn, DoQCodeNoError)
+			closeQUICConn(conn, DoQCodeInternalError)
 			return
 		}
 
-		go func() {
-			s.serveQUICStream(stream, conn)
-
-			// The server MUST send the response(s) on the same stream and MUST
-			// indicate, after the last response, through the STREAM FIN
-			// mechanism that no further data will be sent on that stream.
-			_ = stream.Close()
-		}()
-
+		go s.serveQUICStream(stream, conn)
 	}
 }
 
@@ -139,6 +132,7 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 		// fatal error. It SHOULD forcibly abort the connection using QUIC's
 		// CONNECTION_CLOSE mechanism and SHOULD use the DoQ error code
 		// DOQ_PROTOCOL_ERROR.
+		// See https://www.rfc-editor.org/rfc/rfc9250#section-4.3.3-3
 		closeQUICConn(conn, DoQCodeProtocolError)
 
 		return
@@ -258,8 +252,8 @@ func validRequest(req *dns.Msg) (ok bool) {
 func readDOQMessage(r io.Reader) ([]byte, error) {
 
 	// All DNS messages (queries and responses) sent over DoQ connections MUST
-	// be encoded as a 2-octet length field followed by the message content as specified
-	// in [RFC1035].
+	// be encoded as a 2-octet length field followed by the message content as
+	// specified in [RFC1035].
 	// See https://www.rfc-editor.org/rfc/rfc9250.html#section-4.2-4
 	sizeBuf := make([]byte, 2)
 	_, err := io.ReadFull(r, sizeBuf)
@@ -269,8 +263,14 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 
 	size := binary.BigEndian.Uint16(sizeBuf)
 	buf := make([]byte, size)
-
 	_, err = readAll(r, buf)
+
+	// A client or server receives a STREAM FIN before receiving all the bytes
+	// for a message indicated in the 2-octet length field.
+	// See https://www.rfc-editor.org/rfc/rfc9250#section-4.3.3-2.2
+	if size != uint16(len(buf)) {
+		return nil, fmt.Errorf("message size does not match 2-byte prefix")
+	}
 
 	return buf, err
 }
