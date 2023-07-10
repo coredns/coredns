@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: "Commit (e.g., 52f0348)"
+        default: "master"
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.inputs.commit }}
+      - name: Set up info
+        run: |
+          set -x -e
+          VERSION=$(make -f Makefile.release version)
+          COMMIT=$(git rev-parse --quiet --verify ${{ github.event.inputs.commit }})
+          if [[ "$(git tag -l v${VERSION})" == "v${VERSION}" ]]; then
+            echo "v${VERSION} already released"
+            exit 1
+          fi
+          echo "commit=${COMMIT}" >> $GITHUB_OUTPUT
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        id: info
+      - name: Build release binary
+        run: make -f Makefile.release release
+      - name: Build release binary sha256
+        run: (cd release; for asset in `ls -A *tgz`; do sha256sum $asset > $asset.sha256; done)
+      - name: Remove hidden section
+        run: sed '/+++/,//d' notes/coredns-${{ steps.info.outputs.version}}.md > release.md
+      - name: Log release info
+        run: |
+          set -x -e
+          git log -1
+          echo ${{ steps.info.outputs.commit }}
+          echo ${{ steps.info.outputs.version }}
+          cat release.md
+          sha256sum release/*.tgz
+      - name: Draft release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: release.md
+          name: v${{ steps.info.outputs.version }}
+          tag_name: v${{ steps.info.outputs.version }}
+          target_commitish: ${{ steps.info.outputs.commit }}
+          files: |
+            release/*.tgz
+            release/*.tgz.sha256
+          draft: true
