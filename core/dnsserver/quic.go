@@ -2,9 +2,10 @@ package dnsserver
 
 import (
 	"encoding/binary"
+	"net"
+
 	"github.com/miekg/dns"
 	"github.com/quic-go/quic-go"
-	"net"
 )
 
 type DoQWriter struct {

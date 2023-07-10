@@ -5,14 +5,16 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"fmt"
-	clog "github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/coredns/coredns/plugin/pkg/reuseport"
-	"github.com/coredns/coredns/plugin/pkg/transport"
-	"github.com/miekg/dns"
-	"github.com/quic-go/quic-go"
 	"io"
 	"math"
 	"net"
+
+	clog "github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/coredns/coredns/plugin/pkg/reuseport"
+	"github.com/coredns/coredns/plugin/pkg/transport"
+
+	"github.com/miekg/dns"
+	"github.com/quic-go/quic-go"
 )
 
 const (
@@ -201,6 +203,10 @@ func (s *ServerQUIC) Listen() (net.Listener, error) { return nil, nil }
 
 // closeQUICConn quietly closes the QUIC connection.
 func closeQUICConn(conn quic.Connection, code quic.ApplicationErrorCode) {
+	if conn == nil {
+		return
+	}
+
 	clog.Debugf("closing quic conn %s with code %d", conn.LocalAddr(), code)
 
 	err := conn.CloseWithError(code, "")
@@ -212,7 +218,6 @@ func closeQUICConn(conn quic.Connection, code quic.ApplicationErrorCode) {
 // validRequest checks for protocol errors in the unpacked DNS message.
 // See https://www.rfc-editor.org/rfc/rfc9250.html#name-protocol-errors
 func validRequest(req *dns.Msg) (ok bool) {
-
 	// 1. a client or server receives a message with a non-zero Message ID.
 	if req.Id != 0 {
 		return false
@@ -250,7 +255,6 @@ func validRequest(req *dns.Msg) (ok bool) {
 // Drafts of the RFC9250 did not require the 2-byte prefixed message length.
 // Thus, we are only supporting the official version (DoQ v1).
 func readDOQMessage(r io.Reader) ([]byte, error) {
-
 	// All DNS messages (queries and responses) sent over DoQ connections MUST
 	// be encoded as a 2-octet length field followed by the message content as
 	// specified in [RFC1035].
@@ -263,7 +267,7 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 
 	size := binary.BigEndian.Uint16(sizeBuf)
 	buf := make([]byte, size)
-	_, err = readAll(r, buf)
+	_, err = io.ReadFull(r, buf)
 
 	// A client or server receives a STREAM FIN before receiving all the bytes
 	// for a message indicated in the 2-octet length field.
@@ -273,30 +277,4 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 	}
 
 	return buf, err
-}
-
-// readAll reads from r until an error or io.EOF into the specified buffer buf.
-// A successful call returns err == nil, not err == io.EOF.  If the buffer is
-// too small, it returns error io.ErrShortBuffer.  This function has some
-// similarities to io.ReadAll, but it reads to the specified buffer and not
-// allocates (and grows) a new one.  Also, it is completely different from
-// io.ReadFull as that one reads the exact number of bytes (buffer length) and
-// readAll reads until io.EOF or until the buffer is filled.
-func readAll(r io.Reader, buf []byte) (n int, err error) {
-	for {
-		if n == len(buf) {
-			return n, io.ErrShortBuffer
-		}
-
-		var read int
-		read, err = r.Read(buf[n:])
-		n += read
-
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
-			return n, err
-		}
-	}
 }
