@@ -147,7 +147,7 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 		Msg:        req,
 	}
 
-	dnsCtx := context.WithValue(context.Background(), Key{}, s.Server)
+	dnsCtx := context.WithValue(stream.Context(), Key{}, s.Server)
 	dnsCtx = context.WithValue(dnsCtx, LoopKey{}, 0)
 	s.ServeDNS(dnsCtx, w, req)
 }
