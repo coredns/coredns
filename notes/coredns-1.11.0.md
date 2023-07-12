@@ -49,7 +49,7 @@ TODO: highlights
 * Prevent fail counter of a proxy overflows (https://github.com/coredns/coredns/pull/5990)
 * plugin/rewrite: Introduce cname target rewrite rule to rewrite plugin (https://github.com/coredns/coredns/pull/6004)
 * plugin/health: Poll localhost by default (https://github.com/coredns/coredns/pull/5934)
-* plugin/k8s_extenral: Supports fallthrough option (https://github.com/coredns/coredns/pull/5959)
+* plugin/k8s_external: Supports fallthrough option (https://github.com/coredns/coredns/pull/5959)
 * plugin/clouddns: fix answers limited to one response (https://github.com/coredns/coredns/pull/5986)
 * Run coredns as non root. (https://github.com/coredns/coredns/pull/5969)
 * DoH: Allow http as the protocol (https://github.com/coredns/coredns/pull/5762)
