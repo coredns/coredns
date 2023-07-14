@@ -227,6 +227,11 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return c.ArgErr()
 		}
 		f.opts.PreferUDP = true
+	case "ignore_server_failure":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		f.IgnoreServerFailure = true
 	case "tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {

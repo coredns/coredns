@@ -63,6 +63,7 @@ forward FROM TO... {
 * `max_fails` is the number of subsequent failed health checks that are needed before considering
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.
+* `ignore_server_failure`, squash any server failure errors returned from proxy.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
 * `tls` **CERT** **KEY** **CA** define the TLS properties for TLS connection. From 0 to 3 arguments can be
   provided with the meaning as described below

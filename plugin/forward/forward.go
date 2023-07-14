@@ -55,6 +55,9 @@ type Forward struct {
 	// the maximum allowed (maxConcurrent)
 	ErrLimitExceeded error
 
+	// IgnoreServerFailure passes back a success without any records if the remote server replies with an error
+	IgnoreServerFailure bool
+
 	tapPlugins []*dnstap.Dnstap // when dnstap plugins are loaded, we use to this to send messages out.
 
 	Next plugin.Handler
@@ -192,6 +195,10 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			formerr.SetRcode(state.Req, dns.RcodeFormatError)
 			w.WriteMsg(formerr)
 			return 0, nil
+		}
+
+		if f.IgnoreServerFailure && ret.MsgHdr.Rcode == dns.RcodeServerFailure {
+			ret.MsgHdr.Rcode = dns.RcodeSuccess
 		}
 
 		w.WriteMsg(ret)
