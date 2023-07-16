@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net"
 
+	"github.com/coredns/coredns/plugin/metrics/vars"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
@@ -18,6 +20,10 @@ import (
 )
 
 const (
+	// DoQCodeNoError  is used when the connection or stream needs to be
+	// closed, but there is no error to signal.
+	DoQCodeNoError quic.ApplicationErrorCode = 0
+
 	// DoQCodeInternalError signals that the DoQ implementation encountered
 	// an internal error and is incapable of pursuing the transaction or the
 	// connection.
@@ -83,7 +89,12 @@ func (s *ServerQUIC) ServeQUIC() error {
 	for {
 		conn, err := s.quicListener.Accept(context.Background())
 		if err != nil {
-			closeQUICConn(conn, DoQCodeInternalError)
+			if s.isExpectedErr(err) {
+				s.closeQUICConn(conn, DoQCodeNoError)
+				return err
+			}
+
+			s.closeQUICConn(conn, DoQCodeInternalError)
 			return err
 		}
 
@@ -100,7 +111,12 @@ func (s *ServerQUIC) serveQUICConnection(conn quic.Connection) {
 		// stream for each subsequent query on a QUIC connection.
 		stream, err := conn.AcceptStream(context.Background())
 		if err != nil {
-			closeQUICConn(conn, DoQCodeInternalError)
+			if s.isExpectedErr(err) {
+				s.closeQUICConn(conn, DoQCodeNoError)
+				return
+			}
+
+			s.closeQUICConn(conn, DoQCodeInternalError)
 			return
 		}
 
@@ -115,7 +131,7 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 	// the STREAM FIN indicating that there will be no data to read
 	// anymore from this stream.
 	if err != nil && err != io.EOF {
-		closeQUICConn(conn, DoQCodeProtocolError)
+		s.closeQUICConn(conn, DoQCodeProtocolError)
 
 		return
 	}
@@ -124,7 +140,7 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 	err = req.Unpack(buf)
 	if err != nil {
 		clog.Debugf("unpacking quic packet: %s", err)
-		closeQUICConn(conn, DoQCodeProtocolError)
+		s.closeQUICConn(conn, DoQCodeProtocolError)
 
 		return
 	}
@@ -135,7 +151,7 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 		// CONNECTION_CLOSE mechanism and SHOULD use the DoQ error code
 		// DOQ_PROTOCOL_ERROR.
 		// See https://www.rfc-editor.org/rfc/rfc9250#section-4.3.3-3
-		closeQUICConn(conn, DoQCodeProtocolError)
+		s.closeQUICConn(conn, DoQCodeProtocolError)
 
 		return
 	}
@@ -150,6 +166,7 @@ func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
 	dnsCtx := context.WithValue(stream.Context(), Key{}, s.Server)
 	dnsCtx = context.WithValue(dnsCtx, LoopKey{}, 0)
 	s.ServeDNS(dnsCtx, w, req)
+	s.countResponse(DoQCodeNoError)
 }
 
 // ListenPacket implements caddy.UDPServer interface.
@@ -202,16 +219,20 @@ func (s *ServerQUIC) Serve(l net.Listener) error { return nil }
 func (s *ServerQUIC) Listen() (net.Listener, error) { return nil, nil }
 
 // closeQUICConn quietly closes the QUIC connection.
-func closeQUICConn(conn quic.Connection, code quic.ApplicationErrorCode) {
+func (s *ServerQUIC) closeQUICConn(conn quic.Connection, code quic.ApplicationErrorCode) {
 	if conn == nil {
 		return
 	}
 
 	clog.Debugf("closing quic conn %s with code %d", conn.LocalAddr(), code)
-
 	err := conn.CloseWithError(code, "")
 	if err != nil {
-		clog.Debugf("closing quic connection with code %d: %s", code, err)
+		clog.Debugf("failed to close quic connection with code %d: %s", code, err)
+	}
+
+	// DoQCodeNoError metrics are already registered after s.ServeDNS()
+	if code != DoQCodeNoError {
+		s.countResponse(code)
 	}
 }
 
@@ -266,6 +287,11 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 	}
 
 	size := binary.BigEndian.Uint16(sizeBuf)
+
+	if size == 0 {
+		return nil, fmt.Errorf("message size is 0: probably unsupported DoQ version")
+	}
+
 	buf := make([]byte, size)
 	_, err = io.ReadFull(r, buf)
 
@@ -277,4 +303,44 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 	}
 
 	return buf, err
+}
+
+// isExpectedErr returns true if err is an expected error, likely related to
+// the current implementation.
+func (s *ServerQUIC) isExpectedErr(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// This error is returned when the QUIC listener was closed by us. As
+	// graceful shutdown is not implemented, the connection will be abruptly
+	// closed but there is no error to signal.
+	if errors.Is(err, quic.ErrServerClosed) {
+		return true
+	}
+
+	// This error happens when the connection was closed due to a DoQ
+	// protocol error but there's still something to read in the closed stream.
+	// For example, when the message was sent without the prefixed length.
+	var qAppErr *quic.ApplicationError
+	if errors.As(err, &qAppErr) && qAppErr.ErrorCode == 2 {
+		return true
+	}
+
+	// When a connection hits the idle timeout, quic.AcceptStream() returns
+	// an IdleTimeoutError. In this, case, we should just drop the connection
+	// with DoQCodeNoError.
+	var qIdleErr *quic.IdleTimeoutError
+	return errors.As(err, &qIdleErr)
+}
+
+func (s *ServerQUIC) countResponse(code quic.ApplicationErrorCode) {
+	switch code {
+	case DoQCodeNoError:
+		vars.QUICResponsesCount.WithLabelValues(s.Addr, "0x0").Inc()
+	case DoQCodeInternalError:
+		vars.QUICResponsesCount.WithLabelValues(s.Addr, "0x1").Inc()
+	case DoQCodeProtocolError:
+		vars.QUICResponsesCount.WithLabelValues(s.Addr, "0x2").Inc()
+	}
 }
