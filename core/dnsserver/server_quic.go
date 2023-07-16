@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	// DoQCodeNoError  is used when the connection or stream needs to be
+	// DoQCodeNoError is used when the connection or stream needs to be
 	// closed, but there is no error to signal.
 	DoQCodeNoError quic.ApplicationErrorCode = 0
 
