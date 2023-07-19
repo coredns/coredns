@@ -96,6 +96,37 @@ The most simplistic template is
 2. All queries will be answered (no `fallthrough`)
 3. The answer is always NXDOMAIN
 
+### Resolving SOA with dynamic HOSTNAME and static NS entries
+
+Return a start of authority record with a dynamic hostname:
+
+~~~ corefile
+engineering.coredns.io. {
+    template IN SOA {
+      match ^engineering\.coredns\.io\.$
+      answer "{{ .Zone }} 3600 IN SOA {$HOSTNAME}. engineering.coredns.io. (1 60 120 86400 3600)"
+      fallthrough
+    }
+    template IN SOA {
+      authority "{{ .Zone }} 3600 IN SOA {$HOSTNAME}. engineering.coredns.io. (1 60 120 86400 3600)"
+    }
+    template IN NS {
+      match ^engineering\.coredns\.io\.$
+      answer "{{ .Zone }} 900 IN NS ns1.engineering.coredns.io."
+      answer "{{ .Zone }} 900 IN NS ns2.engineering.coredns.io."
+      fallthrough
+    }
+    template IN NS {
+      authority "{{ .Zone }} 3600 IN SOA {$HOSTNAME}. engineering.coredns.io. (1 60 120 86400 3600)"
+    }
+}
+~~~
+
+1. This template uses the defined zone (`engineering.coredns.io.`)
+2. All queries to SOA will be answered, the fallthrough on the first SOA block allows the second SOA block to be parsed as the match will only match subdomains and non-matching results will be handled by the second.
+3. A SOA record is sent with the local HOSTNAME defined by the environment.
+4. A pair of NS record is sent for any NS requests to the zone directly, while requests to subdomains will be served an SOA record.
+
 ### Resolve .invalid as NXDOMAIN
 
 The `.invalid` domain is a reserved TLD (see [RFC 2606 Reserved Top Level DNS Names](https://tools.ietf.org/html/rfc2606#section-2)) to indicate invalid domains.
@@ -292,7 +323,7 @@ requested type.
 
 ## Bugs
 
-CoreDNS supports [caddyfile environment variables](https://caddyserver.com/docs/caddyfile#env)
+CoreDNS supports [caddyfile environment variables](https://caddyserver.com/docs/caddyfile-tutorial#environment-variables)
 with notion of `{$ENV_VAR}`. This parser feature will break [Go template variables](https://golang.org/pkg/text/template/#hdr-Variables) notations like`{{$variable}}`.
 The equivalent notation `{{ $variable }}` will work.
 Try to avoid Go template variables in the context of this plugin.
