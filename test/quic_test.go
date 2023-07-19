@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/binary"
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -111,10 +112,14 @@ func TestQUICProtocolError(t *testing.T) {
 		t.Errorf("Expected protocol error but got: %s", errorBuf)
 	}
 
-	// qerr.ApplicationError is internal in quic-go, so we can't check by type
-	if !strings.Contains(err.Error(), "0x2") {
+	if !isProtocolErr(err) {
 		t.Errorf("Expected \"Application Error 0x2\" but got: %s", err)
 	}
+}
+
+func isProtocolErr(err error) bool {
+	var qAppErr *quic.ApplicationError
+	return errors.As(err, &qAppErr) && qAppErr.ErrorCode == 2
 }
 
 // convertAddress transforms the address given in CoreDNSServerAndPorts to a format
