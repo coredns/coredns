@@ -55,6 +55,9 @@ type Forward struct {
 	// the maximum allowed (maxConcurrent)
 	ErrLimitExceeded error
 
+	// continueOnError passes the lookup to the next plugin if the proxy response has an error.
+	continueOnError bool
+
 	tapPlugins []*dnstap.Dnstap // when dnstap plugins are loaded, we use to this to send messages out.
 
 	Next plugin.Handler
@@ -184,6 +187,11 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			break
 		}
 
+		// If the response is not successful
+		if f.continueOnError && (ret.MsgHdr.Rcode != dns.RcodeSuccess || !state.Match(ret)) {
+			return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+		}
+
 		// Check if the reply is correct; if not return FormErr.
 		if !state.Match(ret) {
 			debug.Hexdumpf(ret, "Wrong reply for id: %d, %s %d", ret.Id, state.QName(), state.QType())
@@ -196,6 +204,10 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 		w.WriteMsg(ret)
 		return 0, nil
+	}
+
+	if f.continueOnError {
+		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
 	if upstreamErr != nil {

@@ -64,6 +64,7 @@ forward FROM TO... {
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
+* `continue_on_error`, passes the lookup to the next plugin if the proxy response has an error.
 * `tls` **CERT** **KEY** **CA** define the TLS properties for TLS connection. From 0 to 3 arguments can be
   provided with the meaning as described below
 
