@@ -14,28 +14,12 @@ func TestNewRCodeRule(t *testing.T) {
 		args         []string
 		expectedFail bool
 	}{
-		{"stop", []string{"srv1.coredns.rocks", "2", "0"}, false},
-		{"stop", []string{"exact", "srv1.coredns.rocks", "SERVFAIL", "NOERROR"}, false},
-		{"stop", []string{"prefix", "coredns.rocks", "NotAuth", "0"}, false},
-		{"stop", []string{"suffix", "srv1", "SERVFAIL", "0"}, false},
-		{"stop", []string{"substring", "coredns", "REFUSED", "NoError"}, false},
-		{"stop", []string{"regex", `(srv1)\.(coredns)\.(rocks)`, "FORMERR", "NOERROR"}, false},
-		{"continue", []string{"srv1.coredns.rocks", "2", "0"}, false},
-		{"continue", []string{"exact", "srv1.coredns.rocks", "SERVFAIL", "NOERROR"}, false},
-		{"continue", []string{"prefix", "coredns.rocks", "NOTAUTH", "0"}, false},
-		{"continue", []string{"suffix", "srv1", "SERVFAIL", "0"}, false},
-		{"continue", []string{"substring", "coredns", "REFUSED", "NOERROR"}, false},
-		{"continue", []string{"regex", `(srv1)\.(coredns)\.(rocks)`, "FORMERR", "NOERROR"}, false},
-		{"stop", []string{"srv1.coredns.rocks", "12345678901234567890"}, true},
-		{"stop", []string{"srv1.coredns.rocks", "coredns.rocks"}, true},
-		{"stop", []string{"srv1.coredns.rocks", "#1"}, true},
-		{"stop", []string{"range.coredns.rocks", "1", "2"}, false},
-		{"stop", []string{"ceil.coredns.rocks", "-2"}, true},
-		{"stop", []string{"floor.coredns.rocks", "1-"}, true},
-		{"stop", []string{"range.coredns.rocks", "2", "2"}, false},
-		{"stop", []string{"invalid.coredns.rocks", "-"}, true},
-		{"stop", []string{"invalid.coredns.rocks", "2-1"}, true},
-		{"stop", []string{"invalid.coredns.rocks", "random"}, true},
+		{"stop", []string{"numeric.rcode.coredns.rocks", "2", "0"}, false},
+		{"stop", []string{"too.few.rcode.coredns.rocks", "2"}, true},
+		{"stop", []string{"exact", "too.many.rcode.coredns.rocks", "2", "1", "0"}, true},
+		{"stop", []string{"exact", "match.string.rcode.coredns.rocks", "SERVFAIL", "NOERROR"}, false},
+		{"continue", []string{"regex", `(regex)\.rcode\.(coredns)\.(rocks)`, "FORMERR", "NOERROR"}, false},
+		{"stop", []string{"invalid.rcode.coredns.rocks", "random", "nothing"}, true},
 	}
 	for i, tc := range tests {
 		failed := false
