@@ -341,8 +341,8 @@ rewrite ttl example.com. 30 # equivalent to rewrite ttl example.com. 30-30
 At times, the need to rewrite a RCODE value could arise. For example, a DNS server
 may respond with a SERVFAIL instead of NOERROR records when AAAA records are requested.
 
-In the below example, the TTL in the answers for `coredns.rocks` domain are
-being set to `15`:
+In the below example, the rcode value the answer for `coredns.rocks` the replies with SERVFAIL
+is being switched to NOERROR.
 
 This example rewrites all the *.coredns.rocks domain SERVFAIL errors to NOERROR
 ```
@@ -351,15 +351,22 @@ This example rewrites all the *.coredns.rocks domain SERVFAIL errors to NOERROR
     }
 ```
 
+The same result numeric values:
+```
+    rewrite continue {
+        rcode regex (.*)\.coredns\.rocks 2 0
+    }
+```
+
 The syntax for the RCODE rewrite rule is as follows. The meaning of
 `exact|prefix|suffix|substring|regex` is the same as with the name rewrite rules.
 An omitted type is defaulted to `exact`.
 
 ```
-rewrite [continue|stop] rcode [exact|prefix|suffix|substring|regex] STRING OLD NEW
+rewrite [continue|stop] rcode [exact|prefix|suffix|substring|regex] STRING FROM TO
 ```
 
-The values of OLD and NEW can be any of the following:
+The values of FROM and TO can be any of the following, text value or numeric:
 
 ```
   0 NOERROR

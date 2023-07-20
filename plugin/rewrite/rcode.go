@@ -171,10 +171,8 @@ func isValidRCode(v string) (int, bool) {
 		return int(i), true
 	}
 
-	for RCodeInt, RCodeStr := range dns.RcodeToString {
-		if strings.EqualFold(RCodeStr, v) {
-			return RCodeInt, true
-		}
+	if RCodeInt, ok := dns.StringToRcode[strings.ToUpper(v)]; ok {
+		return RCodeInt, true
 	}
 	return 0, false
 }
