@@ -96,7 +96,7 @@ The most simplistic template is
 2. All queries will be answered (no `fallthrough`)
 3. The answer is always NXDOMAIN
 
-### Resolving SOA with dynamic HOSTNAME and static NS entries
+### Resolving SOA/NS for a dynamic domain
 
 Return a start of authority record with a dynamic hostname:
 
@@ -104,7 +104,7 @@ Return a start of authority record with a dynamic hostname:
 engineering.coredns.io. {
     template IN SOA {
       match ^engineering\.coredns\.io\.$
-      answer "{{ .Zone }} 3600 IN SOA {$HOSTNAME}. engineering.coredns.io. (1 60 120 86400 3600)"
+      answer "{{ .Zone }} 3600 IN SOA ns1.{{ .Zone }} admin.{{ .Zone }} (1 60 120 86400 3600)"
       fallthrough
     }
     template IN SOA {
@@ -123,9 +123,9 @@ engineering.coredns.io. {
 ~~~
 
 1. This template uses the defined zone (`engineering.coredns.io.`)
-2. All queries to SOA will be answered, the fallthrough on the first SOA block allows the second SOA block to be parsed as the match will only match subdomains and non-matching results will be handled by the second.
-3. A SOA record is sent with the local HOSTNAME defined by the environment.
-4. A pair of NS record is sent for any NS requests to the zone directly, while requests to subdomains will be served an SOA record.
+2. The hostname used as the SOA record name is retrieved from the HOSTNAME environment variable. HOSTNAME contains a fully qualified domain name, in the zone `engineering.coredns.io.`.
+3. All SOA/NS queries for the exact hostname will be answered with respective answers.
+4. For subdomains of the hostname, the templates will `fallthrough` to the next template and return an empty answer (NODATA) and include the SOA record in the authority section (as required for negative answers).
 
 ### Resolve .invalid as NXDOMAIN
 
