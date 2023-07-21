@@ -37,6 +37,8 @@ func (r *ResponseRecursionWriter) WriteMsg(res *dns.Msg) error {
 		return r.ResponseWriter.WriteMsg(res)
 	}
 
+	recursiveCount.Add(1) // Add to the recursion count, the number of handled requests
+
 	res.RecursionAvailable = true // Avoid loops
 
 	// Dedup all records for conciseness
@@ -60,7 +62,7 @@ func (r *ResponseRecursionWriter) WriteMsg(res *dns.Msg) error {
 recursionRetry:
 	for ; r.tries > 0; r.tries-- {
 		answers = append([]dns.RR{}, res.Answer...)
-		next := &dns.Msg{Question: []dns.Question{{Name: CNAMEs[rand.Intn(len(CNAMEs))].Target, Qclass: r.qClass, Qtype: r.qType}}}
+		next := &dns.Msg{Question: []dns.Question{{Name: CNAMEs[r.tries%len(CNAMEs)].Target, Qclass: r.qClass, Qtype: r.qType}}}
 
 		for depth := r.maxDepth; depth > 0; depth-- {
 			if err = r.ctx.Err(); err != nil {
@@ -77,10 +79,12 @@ recursionRetry:
 				subQueryCount.Add(1)
 				rcode, err = plugin.NextOrFailure(name, r.next, r.ctx, subQry, next)
 				if rcode != dns.RcodeSuccess {
+					// The lookup failed, trigger a retry
 					continue recursionRetry
 				}
 
 				subAnswer = subQry.Msg.Answer
+				subAnswer = dns.Dedup(res.Answer, subAnswer)
 				cachedQuery[next.Question[0].Name] = subAnswer
 			}
 
@@ -94,22 +98,32 @@ recursionRetry:
 				hasAlternates = true
 			}
 
+			// If the requested type is found or no CNAMES were returned
 			if hasType(subAnswer, r.qType) || (len(subCNAMEs) == 0 && !hasAlternates) {
 				res.RecursionAvailable = true
 				res.Answer = answers
 				return r.ResponseWriter.WriteMsg(res)
 			}
-			next.Question[0].Name = subCNAMEs[rand.Intn(len(subCNAMEs))].Target
+
+			// Pick a CNAME from the list returned to follow
+			if len(subCNAMEs) == 1 {
+				next.Question[0].Name = subCNAMEs[0].Target
+			} else {
+				next.Question[0].Name = subCNAMEs[rand.Intn(len(subCNAMEs))].Target
+			}
 		}
 	}
 
+	// At this point recursion failed to find the requested record type
+	recursiveFailedCount.Add(1) // Add to the recursion failed count
+
 	if rcode != dns.RcodeSuccess {
+		// Return the last response code found and answer table
 		res.Answer = answers
 		res.Rcode = rcode
-	} else {
-		res.Rcode = dns.RcodeServerFailure
 	}
 
+	// The flattening of the CNAMEs failed, but we'll return all that we have
 	r.ResponseWriter.WriteMsg(res)
 	if err != nil {
 		return fmt.Errorf("recursion failed, %s", err)

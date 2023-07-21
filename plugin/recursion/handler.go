@@ -29,17 +29,20 @@ type Recursion struct {
 
 // New returns a new Recursion.
 func New() *Recursion {
-	f := &Recursion{maxDepth: 8, timeout: defaultTimeout, maxTries: 1}
+	f := &Recursion{maxDepth: 8, timeout: defaultTimeout, maxTries: 2}
 	return f
 }
 
 // ServeDNS implements the plugin.Handler interface.
 func (f Recursion) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
+
+	// Passthrough doing nothing if recursion is not desired in the request
 	if !r.RecursionDesired || !f.match(state) || len(r.Question) != 1 {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
+	// Limit the number of parallel recursion lookups
 	if f.maxConcurrent > 0 {
 		count := atomic.AddInt64(&(f.concurrent), 1)
 		defer atomic.AddInt64(&(f.concurrent), -1)
@@ -49,8 +52,12 @@ func (f Recursion) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, f.timeout)
+	// Set a timeout for recursion lookups, if specified, so that run away lookups don't consume resources.
+	if f.timeout > 0 {
+		ctx, cancel := context.WithTimeout(ctx, f.timeout)
+	}
 
+	// Create a responce writer, which is where the bulk of the handling is done.
 	wr := ResponseRecursionWriter{
 		ResponseWriter: w,
 		maxDepth:       f.maxDepth,
@@ -61,7 +68,6 @@ func (f Recursion) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		ctx:            ctx,
 	}
 
-	recursiveCount.Add(1)
 	code, err := plugin.NextOrFailure(f.Name(), f.Next, ctx, &wr, r)
 
 	cancel()

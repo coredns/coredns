@@ -27,7 +27,7 @@ recursion {
 
 * **IGNORED_NAMES** in `except` is a space-separated list of domains to exclude from recursion. Requests that match none of these names will be passed through.
 
-* `max_retries` **MAX** will limit the number of attempts to resolve a DNS entry.  This only applies when a domain has multiple CNAME entry option in a reply.  Each retry will follow a random path of CNAME resolutions until the desired record type is found.  (default 3)
+* `max_retries` **MAX** will limit the number of attempts to resolve a DNS entry.  This only applies when a domain has multiple CNAME entry option in a reply.  Each retry will follow a random path of CNAME resolutions until the desired record type is found.  (default 2)
 
 * `max_depth` **MAX** will limit the depth of queries done.  A depth of 8 means a name can only be looked up 8 levels deep before giving up.  (default 8)
 

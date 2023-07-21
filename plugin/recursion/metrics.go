@@ -23,6 +23,13 @@ var (
 		Help:      "Counter of the number of queries initiating a recursive lookup.",
 	})
 
+	recursiveFailedCount = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "recursion",
+		Name:      "count",
+		Help:      "Counter of the number of queries which failed the recursive lookup.",
+	})
+
 	maxConcurrentRejectCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "recursion",
