@@ -3,39 +3,45 @@ title = "CoreDNS-1.11.0 Release"
 description = "CoreDNS-1.11.0 Release Notes."
 tags = ["Release", "1.11.0", "Notes"]
 release = "1.11.0"
-date = "2023-06-02T00:00:00+00:00"
+date = "2023-07-25T00:00:00+00:00"
 author = "coredns"
 +++
 
 ## Brought to You By
 
-    27	Amila Senadheera
-    26	Ayato Tokubi
-    25	Ben Kochie
-    24	Catena cyber
-    23	Chris O'Haver
-    22	Dan Salmon
-    21	Denis MACHARD
-    20	Fish-pro
-    19	Gabor Dozsa
-    18	Gary McDonald
-    17	Justin
-    16	Lio李歐
-    15	Marcos Mendez
-    14	Pat Downey
-    13	Rotem Kfir
-    12	Sebastian Dahlgren
-    11	Vancl
-    10	Vinayak Goyal
-     9	W. Trevor King
-     8	Yash Singh
-     7	Yashpal
-     6	Yong Tang
-     5	cui fliter
-     4	dependabot[bot]
-     3	jeremiejig
-     2	junhwong
-     1	yyzxw
+Amila Senadheera,
+Antony Chazapis,
+Ayato Tokubi,
+Ben Kochie,
+Catena cyber,
+Chris O'Haver,
+Dan Salmon,
+Dan Wilson,
+Denis MACHARD,
+Eng Zer Jun,
+Fish-pro,
+Gabor Dozsa,
+Gary McDonald,
+Justin,
+Lio李歐,
+Marcos Mendez,
+Marius Kimmina,
+Ondřej Benkovský,
+Pat Downey,
+Petr Menšík,
+Rotem Kfir,
+Sebastian Dahlgren,
+Vancl,
+Vinayak Goyal,
+W. Trevor King,
+Yash Singh,
+Yashpal,
+Yong Tang,
+cui fliter,
+jeremiejig,
+junhwong,
+rokkiter,
+yyzxw
 
 ## Noteworthy Changes
 
