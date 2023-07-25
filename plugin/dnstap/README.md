@@ -18,6 +18,7 @@ Every message is sent to the socket as soon as it comes in, the *dnstap* plugin 
 dnstap SOCKET [full] {
   [identity IDENTITY]
   [version VERSION]
+  [extra EXTRA]
   [skipverify]
 }
 ~~~
@@ -60,6 +61,14 @@ Log to a socket, overriding the default identity and version.
 dnstap /tmp/dnstap.sock {
   identity my-dns-server1
   version MyDNSServer-1.2.3
+}
+~~~
+
+Log to a socket, customize the "extra" field in dnstap payload.
+
+~~~ txt
+dnstap /tmp/dnstap.sock {
+  extra forward/upstream
 }
 ~~~
 
