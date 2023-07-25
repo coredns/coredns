@@ -79,6 +79,13 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 					}
 					d.Version = []byte(c.Val())
 				}
+			case "extra":
+				{
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					d.Extra = []byte(c.Val())
+				}
 			}
 		}
 		dnstaps = append(dnstaps, &d)

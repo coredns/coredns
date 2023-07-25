@@ -20,12 +20,20 @@ type Dnstap struct {
 	IncludeRawMessage bool
 	Identity          []byte
 	Version           []byte
+	Extra             []byte
 }
 
 // TapMessage sends the message m to the dnstap interface.
 func (h Dnstap) TapMessage(m *tap.Message) {
 	t := tap.Dnstap_MESSAGE
-	h.io.Dnstap(&tap.Dnstap{Type: &t, Message: m, Identity: h.Identity, Version: h.Version})
+	dt := &tap.Dnstap{
+		Type: &t,
+		Message: m,
+		Identity: h.Identity,
+		Version: h.Version,
+		Extra: h.Extra,
+	}
+	h.io.Dnstap(dt)
 }
 
 func (h Dnstap) tapQuery(w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {
