@@ -62,16 +62,14 @@ func (d *dio) dial() error {
 			Timeout: d.tcpTimeout,
 		}
 		conn, err = tls.DialWithDialer(dialer, "tcp", d.endpoint, config)
-		if err != nil {
-			return err
-		}
 	} else {
 		conn, err = net.DialTimeout(d.proto, d.endpoint, d.tcpTimeout)
-		if err != nil {
-			return err
-		}
 	}
 
+	if err != nil {
+		return err
+	}
+	
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		tcpConn.SetWriteBuffer(tcpWriteBufSize)
 		tcpConn.SetNoDelay(false)
@@ -103,9 +101,7 @@ func (d *dio) close() { close(d.quit) }
 func (d *dio) write(payload *tap.Dnstap) error {
 	if d.enc == nil {
 		atomic.AddUint32(&d.dropped, 1)
-		return nil
-	}
-	if err := d.enc.writeMsg(payload); err != nil {
+	} else if err := d.enc.writeMsg(payload); err != nil {
 		atomic.AddUint32(&d.dropped, 1)
 		return err
 	}
