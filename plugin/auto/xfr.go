@@ -22,10 +22,7 @@ func (a Auto) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 func (a Auto) Notify() error {
 	var err error
 	for _, origin := range a.Zones.Names() {
-		e := a.transfer.Notify(origin)
-		if e != nil {
-			err = e
-		}
+		err = a.transfer.Notify(origin)
 	}
 	return err
 }
