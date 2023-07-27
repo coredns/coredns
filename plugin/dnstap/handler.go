@@ -6,6 +6,9 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/dnstap/msg"
+	"github.com/coredns/coredns/plugin/pkg/replacer"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/request"
 
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
@@ -15,23 +18,37 @@ import (
 type Dnstap struct {
 	Next plugin.Handler
 	io   tapper
+	repl replacer.Replacer
 
 	// IncludeRawMessage will include the raw DNS message into the dnstap messages if true.
 	IncludeRawMessage bool
 	Identity          []byte
 	Version           []byte
-	Extra             []byte
+	ExtraFormat       string
 }
 
 // TapMessage sends the message m to the dnstap interface.
 func (h Dnstap) TapMessage(m *tap.Message) {
+	h.TapMessageWithMetadata(m, nil, nil, nil)
+}
+
+// TapMessageWithMetadata sends the message m to the dnstap interface, with "Extra" field being interpreted by the provided metadata context.
+func (h Dnstap) TapMessageWithMetadata(m *tap.Message, ctx context.Context, state *request.Request, rr *dnstest.Recorder) {
 	t := tap.Dnstap_MESSAGE
+	extraStr := h.ExtraFormat
+	if ctx != nil {
+		extraStr = h.repl.Replace(ctx, *state, rr, extraStr)
+	}
+	var extra []byte
+	if extraStr != "" {
+		extra = []byte(extraStr)
+	}
 	dt := &tap.Dnstap{
 		Type: &t,
 		Message: m,
 		Identity: h.Identity,
 		Version: h.Version,
-		Extra: h.Extra,
+		Extra: extra,
 	}
 	h.io.Dnstap(dt)
 }

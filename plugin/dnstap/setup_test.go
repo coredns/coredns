@@ -82,8 +82,8 @@ func TestConfig(t *testing.T) {
 			if x := string(tap.Version); x != string(tc.expect[i].version) {
 				t.Errorf("Test %d: expected version %s, got %s", i, tc.expect[i].version, x)
 			}
-			if x := string(tap.Extra); x != string(tc.expect[i].extra) {
-				t.Errorf("Test %d: expected extra %s, got %s", i, tc.expect[i].extra, x)
+			if x := tap.ExtraFormat; x != string(tc.expect[i].extra) {
+				t.Errorf("Test %d: expected extra format %s, got %s", i, tc.expect[i].extra, x)
 			}
 		}
 	}
