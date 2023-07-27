@@ -27,17 +27,17 @@ type Dnstap struct {
 	ExtraFormat       string
 }
 
-// TapMessage sends the message m to the dnstap interface.
+// TapMessage sends the message m to the dnstap interface, without interpreting the "Extra" field using metadata.
 func (h Dnstap) TapMessage(m *tap.Message) {
-	h.TapMessageWithMetadata(m, nil, nil, nil)
+	h.TapMessageWithMetadata(m, nil, request.Request{}, nil)
 }
 
 // TapMessageWithMetadata sends the message m to the dnstap interface, with "Extra" field being interpreted by the provided metadata context.
-func (h Dnstap) TapMessageWithMetadata(m *tap.Message, ctx context.Context, state *request.Request, rr *dnstest.Recorder) {
+func (h Dnstap) TapMessageWithMetadata(m *tap.Message, ctx context.Context, state request.Request, rr *dnstest.Recorder) {
 	t := tap.Dnstap_MESSAGE
 	extraStr := h.ExtraFormat
-	if ctx != nil {
-		extraStr = h.repl.Replace(ctx, *state, rr, extraStr)
+	if ctx != nil && rr != nil {
+		extraStr = h.repl.Replace(ctx, state, rr, extraStr)
 	}
 	var extra []byte
 	if extraStr != "" {
@@ -53,7 +53,7 @@ func (h Dnstap) TapMessageWithMetadata(m *tap.Message, ctx context.Context, stat
 	h.io.Dnstap(dt)
 }
 
-func (h Dnstap) tapQuery(w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {
+func (h Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {
 	q := new(tap.Message)
 	msg.SetQueryTime(q, queryTime)
 	msg.SetQueryAddress(q, w.RemoteAddr())
@@ -63,7 +63,9 @@ func (h Dnstap) tapQuery(w dns.ResponseWriter, query *dns.Msg, queryTime time.Ti
 		q.QueryMessage = buf
 	}
 	msg.SetType(q, tap.Message_CLIENT_QUERY)
-	h.TapMessage(q)
+	state := request.Request{W: w, Req: query}
+	rrw := dnstest.NewRecorder(w)
+	h.TapMessageWithMetadata(q, ctx, state, rrw)
 }
 
 // ServeDNS logs the client query and response to dnstap and passes the dnstap Context.
@@ -72,12 +74,13 @@ func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		ResponseWriter: w,
 		Dnstap:         h,
 		query:          r,
+		ctx:            &ctx,
 		queryTime:      time.Now(),
 	}
 
 	// The query tap message should be sent before sending the query to the
 	// forwarder. Otherwise, the tap messages will come out out of order.
-	h.tapQuery(w, r, rw.queryTime)
+	h.tapQuery(ctx, w, r, rw.queryTime)
 
 	return plugin.NextOrFailure(h.Name(), h.Next, ctx, rw, r)
 }

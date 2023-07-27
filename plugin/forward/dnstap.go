@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"context"
 	"net"
 	"strconv"
 	"time"
@@ -8,13 +9,14 @@ import (
 	"github.com/coredns/coredns/plugin/dnstap/msg"
 	"github.com/coredns/coredns/plugin/pkg/proxy"
 	"github.com/coredns/coredns/request"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
 
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
 )
 
 // toDnstap will send the forward and received message to the dnstap plugin.
-func toDnstap(f *Forward, host string, state request.Request, opts proxy.Options, reply *dns.Msg, start time.Time) {
+func toDnstap(f *Forward, host string, state request.Request, opts proxy.Options, reply *dns.Msg, start time.Time, ctx context.Context, w dns.ResponseWriter) {
 	h, p, _ := net.SplitHostPort(host)      // this is preparsed and can't err here
 	port, _ := strconv.ParseUint(p, 10, 32) // same here
 	ip := net.ParseIP(h)
@@ -32,6 +34,7 @@ func toDnstap(f *Forward, host string, state request.Request, opts proxy.Options
 		ta = &net.TCPAddr{IP: ip, Port: int(port)}
 	}
 
+	rrw := dnstest.NewRecorder(w)
 	for _, t := range f.tapPlugins {
 		// Query
 		q := new(tap.Message)
@@ -45,7 +48,7 @@ func toDnstap(f *Forward, host string, state request.Request, opts proxy.Options
 			q.QueryMessage = buf
 		}
 		msg.SetType(q, tap.Message_FORWARDER_QUERY)
-		t.TapMessage(q)
+		t.TapMessageWithMetadata(q, ctx, state, rrw)
 
 		// Response
 		if reply != nil {
@@ -59,7 +62,7 @@ func toDnstap(f *Forward, host string, state request.Request, opts proxy.Options
 			msg.SetResponseAddress(r, ta)
 			msg.SetResponseTime(r, time.Now())
 			msg.SetType(r, tap.Message_FORWARDER_RESPONSE)
-			t.TapMessage(r)
+			t.TapMessageWithMetadata(r, ctx, state, rrw)
 		}
 	}
 }

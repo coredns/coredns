@@ -64,11 +64,13 @@ dnstap /tmp/dnstap.sock {
 }
 ~~~
 
-Log to a socket, customize the "extra" field in dnstap payload.
+Log to a socket, customize the "extra" field in dnstap payload. You may use metadata provided by other plugins in the extra field.
 
 ~~~ txt
+forward . 8.8.8.8
+metadata
 dnstap /tmp/dnstap.sock {
-  extra forward/upstream
+  extra "upstream: {/forward/upstream}"
 }
 ~~~
 
@@ -133,7 +135,10 @@ And then in your plugin:
 
 ~~~ go
 import (
-  github.com/coredns/coredns/plugin/dnstap/msg
+  "github.com/coredns/coredns/plugin/dnstap/msg"
+  "github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/request"
+
   tap "github.com/dnstap/golang-dnstap"
 )
 
@@ -147,7 +152,12 @@ func (x ExamplePlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
             q.QueryMessage = buf
         }
         msg.SetType(q, tap.Message_CLIENT_QUERY)
+        
+        // if no metadata interpretation is needed, just send the message
         tapPlugin.TapMessage(q)
+
+        // OR: to interpret the metadata in "extra" field, give more context info
+        tapPlugin.TapMessageWithMetadata(q, ctx, request.Request{W: w, Req: query}, dnstest.NewRecorder(w))
     }
     // ...
 }
