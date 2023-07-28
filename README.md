@@ -249,7 +249,7 @@ We're most active on Github (and Slack):
 More resources can be found:
 
 - Website: <https://coredns.io>
-- Blog: <https://blog.coredns.io>
+- Blog: <https://coredns.io/blog/>
 - Twitter: [@corednsio](https://twitter.com/corednsio)
 - Mailing list/group: <coredns-discuss@googlegroups.com> (not very active)
 
