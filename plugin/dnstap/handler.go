@@ -7,7 +7,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/dnstap/msg"
 	"github.com/coredns/coredns/plugin/pkg/replacer"
-	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/request"
 
 	tap "github.com/dnstap/golang-dnstap"
@@ -29,15 +28,15 @@ type Dnstap struct {
 
 // TapMessage sends the message m to the dnstap interface, without interpreting the "Extra" field using metadata.
 func (h Dnstap) TapMessage(m *tap.Message) {
-	h.TapMessageWithMetadata(m, nil, request.Request{}, nil)
+	h.TapMessageWithMetadata(nil, m, request.Request{})
 }
 
 // TapMessageWithMetadata sends the message m to the dnstap interface, with "Extra" field being interpreted by the provided metadata context.
-func (h Dnstap) TapMessageWithMetadata(m *tap.Message, ctx context.Context, state request.Request, rr *dnstest.Recorder) {
+func (h Dnstap) TapMessageWithMetadata(ctx context.Context, m *tap.Message, state request.Request) {
 	t := tap.Dnstap_MESSAGE
 	extraStr := h.ExtraFormat
-	if ctx != nil && rr != nil {
-		extraStr = h.repl.Replace(ctx, state, rr, extraStr)
+	if ctx != nil {
+		extraStr = h.repl.Replace(ctx, state, nil, extraStr)
 	}
 	var extra []byte
 	if extraStr != "" {
@@ -64,8 +63,7 @@ func (h Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.M
 	}
 	msg.SetType(q, tap.Message_CLIENT_QUERY)
 	state := request.Request{W: w, Req: query}
-	rrw := dnstest.NewRecorder(w)
-	h.TapMessageWithMetadata(q, ctx, state, rrw)
+	h.TapMessageWithMetadata(ctx, q, state)
 }
 
 // ServeDNS logs the client query and response to dnstap and passes the dnstap Context.

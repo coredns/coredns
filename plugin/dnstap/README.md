@@ -136,7 +136,6 @@ And then in your plugin:
 ~~~ go
 import (
   "github.com/coredns/coredns/plugin/dnstap/msg"
-  "github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/request"
 
   tap "github.com/dnstap/golang-dnstap"
@@ -157,7 +156,7 @@ func (x ExamplePlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
         tapPlugin.TapMessage(q)
 
         // OR: to interpret the metadata in "extra" field, give more context info
-        tapPlugin.TapMessageWithMetadata(q, ctx, request.Request{W: w, Req: query}, dnstest.NewRecorder(w))
+        tapPlugin.TapMessageWithMetadata(ctx, q, request.Request{W: w, Req: query})
     }
     // ...
 }

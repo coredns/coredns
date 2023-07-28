@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/dnstap/msg"
-	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/request"
 
 	tap "github.com/dnstap/golang-dnstap"
@@ -40,7 +39,6 @@ func (w *ResponseWriter) WriteMsg(resp *dns.Msg) error {
 
 	msg.SetType(r, tap.Message_CLIENT_RESPONSE)
 	state := request.Request{W: w.ResponseWriter, Req: w.query}
-	rrw := dnstest.NewRecorder(w.ResponseWriter)
-	w.TapMessageWithMetadata(r, *(w.ctx), state, rrw)
+	w.TapMessageWithMetadata(*(w.ctx), r, state)
 	return nil
 }
