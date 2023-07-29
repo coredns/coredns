@@ -247,6 +247,8 @@ func TestLabels(t *testing.T) {
 
 	for lbl := range labels {
 		repl := replacer.Replace(ctx, state, w, lbl)
+		// test empty state won't panic
+		replacer.Replace(ctx, request.Request{}, w, lbl)
 		if lbl == "{duration}" {
 			if repl[len(repl)-1] != 's' {
 				t.Errorf("Expected seconds, got %q", repl)
