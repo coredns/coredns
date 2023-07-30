@@ -8,3 +8,6 @@ import "github.com/coredns/coredns/plugin/file"
 type Secondary struct {
 	file.File
 }
+
+// Name implements the Handler interface.
+func (s Secondary) Name() string { return "secondary" }
