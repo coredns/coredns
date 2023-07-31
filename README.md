@@ -18,9 +18,12 @@ CoreDNS is a fast and flexible DNS server. The key word here is *flexible*: with
 are able to do what you want with your DNS data by utilizing plugins. If some functionality is not
 provided out of the box you can add it by [writing a plugin](https://coredns.io/explugins).
 
-CoreDNS can listen for DNS requests coming in over UDP/TCP (go'old DNS), TLS ([RFC
-7858](https://tools.ietf.org/html/rfc7858)), also called DoT, DNS over HTTP/2 - DoH -
-([RFC 8484](https://tools.ietf.org/html/rfc8484)) and [gRPC](https://grpc.io) (not a standard).
+CoreDNS can listen for DNS requests coming in over:
+* UDP/TCP (go'old DNS).
+* TLS - DoT ([RFC 7858](https://tools.ietf.org/html/rfc7858)).
+* DNS over HTTP/2 - DoH ([RFC 8484](https://tools.ietf.org/html/rfc8484)).
+* DNS over QUIC - DoQ ([RFC 9250](https://tools.ietf.org/html/rfc9250)). 
+* [gRPC](https://grpc.io) (not a standard).
 
 Currently CoreDNS is able to:
 
@@ -208,6 +211,15 @@ Listening on TLS (DoT) and for gRPC? Use:
 ~~~ corefile
 tls://example.org grpc://example.org {
     whoami
+}
+~~~
+
+Similarly, for QUIC (DoQ):
+
+~~~ corefile
+quic://example.org {
+    whoami
+    tls mycert mykey
 }
 ~~~
 

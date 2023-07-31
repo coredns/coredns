@@ -72,6 +72,13 @@ var (
 		Name:      "https_responses_total",
 		Help:      "Counter of DoH responses per server and http status code.",
 	}, []string{"server", "status"})
+
+	QUICResponsesCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: subsystem,
+		Name:      "quic_responses_total",
+		Help:      "Counter of DoQ responses per server and QUIC application code.",
+	}, []string{"server", "status"})
 )
 
 const (
