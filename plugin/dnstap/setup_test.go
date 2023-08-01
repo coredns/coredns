@@ -11,11 +11,11 @@ import (
 
 type results struct {
 	endpoint string
-	full     bool
-	proto    string
-	identity []byte
-	version  []byte
-	extra    []byte
+	full        bool
+	proto       string
+	identity    []byte
+	version     []byte
+	extraFormat string
 }
 
 func TestConfig(t *testing.T) {
@@ -25,33 +25,33 @@ func TestConfig(t *testing.T) {
 		fail   bool
 		expect []results
 	}{
-		{"dnstap dnstap.sock full", false, []results{{"dnstap.sock", true, "unix", []byte(hostname), []byte("-"), nil}}},
-		{"dnstap unix://dnstap.sock", false, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), nil}}},
-		{"dnstap tcp://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tcp", []byte(hostname), []byte("-"), nil}}},
-		{"dnstap tcp://[::1]:6000", false, []results{{"[::1]:6000", false, "tcp", []byte(hostname), []byte("-"), nil}}},
-		{"dnstap tcp://example.com:6000", false, []results{{"example.com:6000", false, "tcp", []byte(hostname), []byte("-"), nil}}},
-		{"dnstap", true, []results{{"fail", false, "tcp", []byte(hostname), []byte("-"), nil}}},
-		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\n}\n", false, []results{{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), nil}}},
-		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", false, []results{{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), []byte("EXTRA")}}},
-		{"dnstap dnstap.sock {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", false, []results{{"dnstap.sock", false, "unix", []byte("NAME"), []byte("VER"), []byte("EXTRA")}}},
-		{"dnstap {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", true, []results{{"fail", false, "tcp", []byte("NAME"), []byte("VER"), []byte("EXTRA")}}},
+		{"dnstap dnstap.sock full", false, []results{{"dnstap.sock", true, "unix", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap unix://dnstap.sock", false, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap tcp://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tcp", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap tcp://[::1]:6000", false, []results{{"[::1]:6000", false, "tcp", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap tcp://example.com:6000", false, []results{{"example.com:6000", false, "tcp", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap", true, []results{{"fail", false, "tcp", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\n}\n", false, []results{{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), ""}}},
+		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", false, []results{{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), "EXTRA"}}},
+		{"dnstap dnstap.sock {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", false, []results{{"dnstap.sock", false, "unix", []byte("NAME"), []byte("VER"), "EXTRA"}}},
+		{"dnstap {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", true, []results{{"fail", false, "tcp", []byte("NAME"), []byte("VER"), "EXTRA"}}},
 		{`dnstap dnstap.sock full {
                 identity NAME
                 version VER
-				extra EXTRA
+                extra EXTRA
               }
               dnstap tcp://127.0.0.1:6000 {
                 identity NAME2
                 version VER2
-				extra EXTRA2
+                extra EXTRA2
               }`, false, []results{
-			{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), []byte("EXTRA")},
-			{"127.0.0.1:6000", false, "tcp", []byte("NAME2"), []byte("VER2"), []byte("EXTRA2")},
+			{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), "EXTRA"},
+			{"127.0.0.1:6000", false, "tcp", []byte("NAME2"), []byte("VER2"), "EXTRA2"},
 		}},
-		{"dnstap tls://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tls", []byte(hostname), []byte("-"), nil}}},
-		{"dnstap dnstap.sock {\nidentity\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), nil}}},
-		{"dnstap dnstap.sock {\nversion\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), nil}}},
-		{"dnstap dnstap.sock {\nextra\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), nil}}},
+		{"dnstap tls://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tls", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap dnstap.sock {\nidentity\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap dnstap.sock {\nversion\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap dnstap.sock {\nextra\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), ""}}},
 	}
 	for i, tc := range tests {
 		c := caddy.NewTestController("dns", tc.in)
@@ -82,8 +82,8 @@ func TestConfig(t *testing.T) {
 			if x := string(tap.Version); x != string(tc.expect[i].version) {
 				t.Errorf("Test %d: expected version %s, got %s", i, tc.expect[i].version, x)
 			}
-			if x := tap.ExtraFormat; x != string(tc.expect[i].extra) {
-				t.Errorf("Test %d: expected extra format %s, got %s", i, tc.expect[i].extra, x)
+			if x := tap.ExtraFormat; x != tc.expect[i].extraFormat {
+				t.Errorf("Test %d: expected extra format %s, got %s", i, tc.expect[i].extraFormat, x)
 			}
 		}
 	}

@@ -27,6 +27,7 @@ dnstap SOCKET [full] {
 * `full` to include the wire-format DNS message.
 * **IDENTITY** to override the identity of the server. Defaults to the hostname.
 * **VERSION** to override the version field. Defaults to the CoreDNS version.
+* **EXTRA** to define "extra" field in dnstap payload, [metadata](../metadata/) replacement available here.
 * `skipverify` to skip tls verification during connection. Default to be secure
 
 ## Examples

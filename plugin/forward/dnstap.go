@@ -15,7 +15,7 @@ import (
 )
 
 // toDnstap will send the forward and received message to the dnstap plugin.
-func toDnstap(ctx context.Context, f *Forward, host string, state request.Request, opts proxy.Options, reply *dns.Msg, start time.Time, w dns.ResponseWriter) {
+func toDnstap(ctx context.Context, f *Forward, host string, state request.Request, opts proxy.Options, reply *dns.Msg, start time.Time) {
 	h, p, _ := net.SplitHostPort(host)      // this is preparsed and can't err here
 	port, _ := strconv.ParseUint(p, 10, 32) // same here
 	ip := net.ParseIP(h)

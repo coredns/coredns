@@ -13,7 +13,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func testCase(t *testing.T, tapq, tapr *tap.Dnstap, q, r *dns.Msg) {
+func testCase(t *testing.T, tapq, tapr *tap.Dnstap, q, r *dns.Msg, extraFormat string) {
 	w := writer{t: t}
 	w.queue = append(w.queue, tapq, tapr)
 	h := Dnstap{
@@ -22,7 +22,7 @@ func testCase(t *testing.T, tapq, tapr *tap.Dnstap, q, r *dns.Msg) {
 			return 0, w.WriteMsg(r)
 		}),
 		io: &w,
-		ExtraFormat: "extra_field_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}",
+		ExtraFormat: extraFormat,
 	}
 	ctx := metadata.ContextWithMetadata(context.TODO())
 	ok := metadata.SetValueFunc(ctx, "metadata/test", func() string {
@@ -86,7 +86,8 @@ func TestDnstap(t *testing.T) {
 		Extra: []byte("extra_field_MetadataValue_A_example.org._IN_udp_29_10.240.0.1_40212_127.0.0.1"),
 	}
 	msg.SetType(tapr.Message, tap.Message_CLIENT_RESPONSE)
-	testCase(t, tapq, tapr, q, r)
+	extraFormat := "extra_field_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}"
+	testCase(t, tapq, tapr, q, r, extraFormat)
 }
 
 func testMessage() *tap.Message {
@@ -102,10 +103,11 @@ func testMessage() *tap.Message {
 }
 
 func TestTapMessage(t *testing.T) {
+	extraFormat := "extra_field_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}"
 	tapq := &tap.Dnstap {
 		Message: testMessage(),
-		// extra field would be replaced, since TapMessage does not pass context
-		Extra: []byte("extra_field_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}"),
+		// extra field would not be replaced, since TapMessage won't pass context
+		Extra: []byte(extraFormat),
 	}
 	msg.SetType(tapq.Message, tap.Message_CLIENT_QUERY)
 
@@ -117,7 +119,7 @@ func TestTapMessage(t *testing.T) {
 			return 0, w.WriteMsg(r)
 		}),
 		io: &w,
-		ExtraFormat: "extra_field_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}",
+		ExtraFormat: extraFormat,
 	}
 	h.TapMessage(tapq.Message)
 }
