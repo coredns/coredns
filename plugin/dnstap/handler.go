@@ -28,28 +28,26 @@ type Dnstap struct {
 
 // TapMessage sends the message m to the dnstap interface, without populating "Extra" field.
 func (h Dnstap) TapMessage(m *tap.Message) {
-	h.TapMessageWithMetadata(context.TODO(), m, request.Request{})
+	if h.ExtraFormat == "" {
+		h.tapWithExtra(m, nil)
+	} else {
+		h.tapWithExtra(m, []byte(h.ExtraFormat))
+	}
 }
 
 // TapMessageWithMetadata sends the message m to the dnstap interface, with "Extra" field being populated.
 func (h Dnstap) TapMessageWithMetadata(ctx context.Context, m *tap.Message, state request.Request) {
+	if h.ExtraFormat == "" {
+		h.tapWithExtra(m, nil)
+		return
+	}
+	extraStr := h.repl.Replace(ctx, state, nil, h.ExtraFormat)
+	h.tapWithExtra(m, []byte(extraStr))
+}
+
+func (h Dnstap) tapWithExtra(m *tap.Message, extra []byte) {
 	t := tap.Dnstap_MESSAGE
-	extraStr := h.ExtraFormat
-	var extra []byte
-	if extraStr != "" {
-		if ctx != context.TODO() {
-			extraStr = h.repl.Replace(ctx, state, nil, extraStr)
-		}
-		extra = []byte(extraStr)
-	}
-	dt := &tap.Dnstap{
-		Type:     &t,
-		Message:  m,
-		Identity: h.Identity,
-		Version:  h.Version,
-		Extra:    extra,
-	}
-	h.io.Dnstap(dt)
+	h.io.Dnstap(&tap.Dnstap{Type: &t, Message: m, Identity: h.Identity, Version: h.Version, Extra: extra})
 }
 
 func (h Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {
@@ -72,7 +70,7 @@ func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		ResponseWriter: w,
 		Dnstap:         h,
 		query:          r,
-		ctx:            &ctx,
+		ctx:            ctx,
 		queryTime:      time.Now(),
 	}
 

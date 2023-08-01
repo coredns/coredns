@@ -247,10 +247,6 @@ func TestLabels(t *testing.T) {
 
 	for lbl := range labels {
 		repl := replacer.Replace(ctx, state, w, lbl)
-		// test empty state and/or recorder won't panic
-		replacer.Replace(ctx, request.Request{}, w, lbl)
-		replacer.Replace(ctx, state, nil, lbl)
-		replacer.Replace(ctx, request.Request{}, nil, lbl)
 		if lbl == "{duration}" {
 			if repl[len(repl)-1] != 's' {
 				t.Errorf("Expected seconds, got %q", repl)
@@ -259,6 +255,12 @@ func TestLabels(t *testing.T) {
 		}
 		if repl != expect[lbl] {
 			t.Errorf("Expected value %q, got %q", expect[lbl], repl)
+		}
+
+		// test empty state and nil recorder won't panic
+		repl_empty := replacer.Replace(ctx, request.Request{}, nil, lbl)
+		if repl_empty != EmptyValue {
+			t.Errorf("Expected empty value %q, got %q", EmptyValue, repl_empty)
 		}
 	}
 }

@@ -114,7 +114,7 @@ func testMessage() *tap.Message {
 }
 
 func TestTapMessage(t *testing.T) {
-	extraFormat := "extra_field_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}"
+	extraFormat := "extra_field_no_replacement_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}"
 	tapq := &tap.Dnstap{
 		Message: testMessage(),
 		// extra field would not be replaced, since TapMessage won't pass context

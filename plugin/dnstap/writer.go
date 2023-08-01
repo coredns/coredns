@@ -15,7 +15,7 @@ import (
 type ResponseWriter struct {
 	queryTime time.Time
 	query     *dns.Msg
-	ctx       *context.Context
+	ctx       context.Context
 	dns.ResponseWriter
 	Dnstap
 }
@@ -39,6 +39,6 @@ func (w *ResponseWriter) WriteMsg(resp *dns.Msg) error {
 
 	msg.SetType(r, tap.Message_CLIENT_RESPONSE)
 	state := request.Request{W: w.ResponseWriter, Req: w.query}
-	w.TapMessageWithMetadata(*(w.ctx), r, state)
+	w.TapMessageWithMetadata(w.ctx, r, state)
 	return nil
 }
