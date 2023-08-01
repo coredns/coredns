@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/plugin/dnstap/msg"
-	test "github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/plugin/metadata"
+	test "github.com/coredns/coredns/plugin/test"
 
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
@@ -21,7 +21,7 @@ func testCase(t *testing.T, tapq, tapr *tap.Dnstap, q, r *dns.Msg, extraFormat s
 			w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 			return 0, w.WriteMsg(r)
 		}),
-		io: &w,
+		io:          &w,
 		ExtraFormat: extraFormat,
 	}
 	ctx := metadata.ContextWithMetadata(context.TODO())
@@ -76,18 +76,29 @@ func TestDnstap(t *testing.T) {
 			test.A("example.org. 3600	IN	A 10.0.0.1"),
 		},
 	}.Msg()
-	tapq := &tap.Dnstap {
-		Message: testMessage(), // leave type unset for deepEqual
-		Extra: []byte("extra_field_MetadataValue_A_example.org._IN_udp_29_10.240.0.1_40212_127.0.0.1"),
+
+	tapq := &tap.Dnstap{
+		Message: testMessage(),
 	}
 	msg.SetType(tapq.Message, tap.Message_CLIENT_QUERY)
-	tapr := &tap.Dnstap {
+	tapr := &tap.Dnstap{
 		Message: testMessage(),
-		Extra: []byte("extra_field_MetadataValue_A_example.org._IN_udp_29_10.240.0.1_40212_127.0.0.1"),
 	}
 	msg.SetType(tapr.Message, tap.Message_CLIENT_RESPONSE)
+	testCase(t, tapq, tapr, q, r, "")
+
+	tapq_with_extra := &tap.Dnstap{
+		Message: testMessage(), // leave type unset for deepEqual
+		Extra:   []byte("extra_field_MetadataValue_A_example.org._IN_udp_29_10.240.0.1_40212_127.0.0.1"),
+	}
+	msg.SetType(tapq_with_extra.Message, tap.Message_CLIENT_QUERY)
+	tapr_with_extra := &tap.Dnstap{
+		Message: testMessage(),
+		Extra:   []byte("extra_field_MetadataValue_A_example.org._IN_udp_29_10.240.0.1_40212_127.0.0.1"),
+	}
+	msg.SetType(tapr_with_extra.Message, tap.Message_CLIENT_RESPONSE)
 	extraFormat := "extra_field_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}"
-	testCase(t, tapq, tapr, q, r, extraFormat)
+	testCase(t, tapq_with_extra, tapr_with_extra, q, r, extraFormat)
 }
 
 func testMessage() *tap.Message {
@@ -104,7 +115,7 @@ func testMessage() *tap.Message {
 
 func TestTapMessage(t *testing.T) {
 	extraFormat := "extra_field_{/metadata/test}_{type}_{name}_{class}_{proto}_{size}_{remote}_{port}_{local}"
-	tapq := &tap.Dnstap {
+	tapq := &tap.Dnstap{
 		Message: testMessage(),
 		// extra field would not be replaced, since TapMessage won't pass context
 		Extra: []byte(extraFormat),
@@ -118,7 +129,7 @@ func TestTapMessage(t *testing.T) {
 			w dns.ResponseWriter, r *dns.Msg) (int, error) {
 			return 0, w.WriteMsg(r)
 		}),
-		io: &w,
+		io:          &w,
 		ExtraFormat: extraFormat,
 	}
 	h.TapMessage(tapq.Message)

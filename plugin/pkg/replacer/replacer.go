@@ -85,7 +85,7 @@ func appendValue(b []byte, state request.Request, rr *dnstest.Recorder, label st
 		}
 		return append(b, EmptyValue...)
 	}
-	
+
 	if (request.Request{}) == state {
 		return append(b, EmptyValue...)
 	}

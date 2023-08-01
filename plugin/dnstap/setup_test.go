@@ -10,7 +10,7 @@ import (
 )
 
 type results struct {
-	endpoint string
+	endpoint    string
 	full        bool
 	proto       string
 	identity    []byte

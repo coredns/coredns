@@ -28,7 +28,7 @@ type Dnstap struct {
 
 // TapMessage sends the message m to the dnstap interface, without populating "Extra" field.
 func (h Dnstap) TapMessage(m *tap.Message) {
-	h.TapMessageWithMetadata(nil, m, request.Request{})
+	h.TapMessageWithMetadata(context.TODO(), m, request.Request{})
 }
 
 // TapMessageWithMetadata sends the message m to the dnstap interface, with "Extra" field being populated.
@@ -37,17 +37,17 @@ func (h Dnstap) TapMessageWithMetadata(ctx context.Context, m *tap.Message, stat
 	extraStr := h.ExtraFormat
 	var extra []byte
 	if extraStr != "" {
-		if ctx != nil {
+		if ctx != context.TODO() {
 			extraStr = h.repl.Replace(ctx, state, nil, extraStr)
 		}
 		extra = []byte(extraStr)
 	}
 	dt := &tap.Dnstap{
-		Type: &t,
-		Message: m,
+		Type:     &t,
+		Message:  m,
 		Identity: h.Identity,
-		Version: h.Version,
-		Extra: extra,
+		Version:  h.Version,
+		Extra:    extra,
 	}
 	h.io.Dnstap(dt)
 }
