@@ -162,7 +162,7 @@ func (w *weightedRR) topAddressIndex(address []dns.RR) int {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	// Dertermine the weight value for each address in the answer
+	// Determine the weight value for each address in the answer
 	var wsum uint
 	type waddress struct {
 		index  int

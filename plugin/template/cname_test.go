@@ -46,10 +46,10 @@ func TestTruncatedCNAME(t *testing.T) {
 	_, err := handler.ServeDNS(context.TODO(), w, r)
 
 	if err != nil {
-		t.Fatalf("Unexpecetd error %q", err)
+		t.Fatalf("Unexpected error %q", err)
 	}
 	if w.Msg == nil {
-		t.Fatalf("Unexpecetd empty response.")
+		t.Fatalf("Unexpected empty response.")
 	}
 	if !w.Msg.Truncated {
 		t.Error("Expected reply to be marked truncated.")
