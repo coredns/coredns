@@ -9,6 +9,14 @@ author = "coredns"
 
 ## Brought to You By
 
+    35  Yuheng
+    34  Diogenes Pelisson
+    33  Petr Menšík
+    32  Antony Chazapis
+    31  rokkiter
+    30  Dan Wilson
+    29  Eng Zer Jun
+    28  Ondřej Benkovský
     27	Amila Senadheera
     26	Ayato Tokubi
     25	Ben Kochie
@@ -39,6 +47,15 @@ author = "coredns"
 
 ## Noteworthy Changes
 
+* Add QUIC server support (https://github.com/coredns/coredns/pull/#6182)
+* plugin/bufsize: Change default value to 1232 (https://github.com/coredns/coredns/pull/6183)
+* Add support for RISC-V (https://github.com/coredns/coredns/pull/6195)
+* plugin/forward: Fix forward metrics for backwards compatibility (https://github.com/coredns/coredns/pull/6178)
+* plugin/kubernetes: fix possible panic from endpoint ports (https://github.com/coredns/coredns/pull/6179)
+* plugin/kubernetes: filter ExternalName service queries for subdomains of subdomains (https://github.com/coredns/coredns/pull/6162)
+* plugin/kubernetes: Remove Endpoint and EndpointSlice v1beta Support (https://github.com/coredns/coredns/pull/6147)
+* plugin/kubernetes: fix headless/endpoint query panics when endpoints are disabled (https://github.com/coredns/coredns/pull/6137)
+* fix possible panic during zone transfer (https://github.com/coredns/coredns/pull/6120)
 * add support unix socket for GRPC (https://github.com/coredns/coredns/pull/5943)
 * plugin/forward: Continue waiting after receiving malformed responses (https://github.com/coredns/coredns/pull/6014)
 * plugin/dnssec: on delegation, sign DS or NSEC of no DS. (https://github.com/coredns/coredns/pull/5899)
