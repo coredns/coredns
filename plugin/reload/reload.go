@@ -22,8 +22,10 @@ const (
 )
 
 type reload struct {
+	sync.Mutex
 	dur  time.Duration
 	u    int
+	s    [64]byte
 	mtx  sync.RWMutex
 	quit chan bool
 }
@@ -73,15 +75,17 @@ func hook(event caddy.EventName, info interface{}) error {
 
 	// this should be an instance. ok to panic if not
 	instance := info.(*caddy.Instance)
-	parsedCorefile, err := parse(instance.Caddyfile())
-	if err != nil {
-		return err
-	}
-
-	sha512sum := sha512.Sum512(parsedCorefile)
-	log.Infof("Running configuration SHA512 = %x\n", sha512sum)
 
 	go func() {
+		r.Lock()
+		defer r.Unlock()
+
+		if r.s == [64]byte{} {
+			log.Info("Running for the first time")
+		} else {
+			log.Infof("Running configuration SHA512 = %x\n", r.s)
+		}
+
 		tick := time.NewTicker(r.interval())
 		defer tick.Stop()
 
@@ -98,15 +102,15 @@ func hook(event caddy.EventName, info interface{}) error {
 					continue
 				}
 				s := sha512.Sum512(parsedCorefile)
-				if s != sha512sum {
-					reloadInfo.Delete(prometheus.Labels{"hash": "sha512", "value": hex.EncodeToString(sha512sum[:])})
+				if s != r.s {
+					reloadInfo.Delete(prometheus.Labels{"hash": "sha512", "value": hex.EncodeToString(r.s[:])})
 					// Let not try to restart with the same file, even though it is wrong.
-					sha512sum = s
+					r.s = s
 					// now lets consider that plugin will not be reload, unless appear in next config file
 					// change status of usage will be reset in setup if the plugin appears in config file
 					r.setUsage(maybeUsed)
 					_, err := instance.Restart(corefile)
-					reloadInfo.WithLabelValues("sha512", hex.EncodeToString(sha512sum[:])).Set(1)
+					reloadInfo.WithLabelValues("sha512", hex.EncodeToString(r.s[:])).Set(1)
 					if err != nil {
 						log.Errorf("Corefile changed but reload failed: %s", err)
 						failedCount.Add(1)
