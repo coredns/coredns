@@ -13,6 +13,10 @@ author = "coredns"
 * Adds CNAME target rewrites to the _rewrite_ plugin.
 * Plus many bug fixes, and some security improvements.
 
+This release introduces the following backward incompatible changes:
+* In the _kubernetes_ plugin, we have dropped support for watching Endpoint and Endpointslice v1beta, since all supported K8s versions now use Endpointslice.
+* The _bufsize_ plugin changed its default size limit value to 1232
+* Some changes to _forward_ plugin metrics.
 ## Brought to You By
 
 Amila Senadheera,
