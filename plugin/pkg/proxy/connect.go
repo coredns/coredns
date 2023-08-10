@@ -6,9 +6,10 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"io"
-	"net"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -121,12 +122,43 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 			// For UDP, if the error is not a network error keep waiting for a valid response to prevent malformed
 			// spoofs from blocking the upstream response.
 			// In the case this is a legitimate malformed response from the upstream, this will result in a timeout.
-			if proto == "udp" {
-				if _, ok := err.(net.Error); !ok {
-					continue
+
+			// If the error is an overflow, we probably have an upstream misbehaving in some way.
+			// (e.g. sending >512 byte UDP responses without an eDNS0 OPT RR).
+			// Instead of returning an error, return an empty response with TC bit set. This will make the
+			// client retry over TCP (if that's supported) or at least receive a clean
+			// error. The connection is still good so we break before the close.
+
+			dnsErrBufOccured := false
+			var perr *dns.Error
+
+			if errors.As(err, &perr) {
+				if errors.Is(err, dns.ErrBuf) {
+					dnsErrBufOccured = true
 				}
 			}
-			pc.c.Close() // connection closed by peer, close the persistent connection
+
+			if proto == "udp" && ((strings.Contains(err.Error(), "overflow")) || dnsErrBufOccured) {
+				newRet := state.Req.Copy()
+
+				// Clear AD bit in case request had set the AD bit. The empty response is not authenticated.
+				newRet.AuthenticatedData = false
+
+				// Clear AA bit in case request had set the AA bit.
+				newRet.Authoritative = false
+
+				newRet.RecursionAvailable = ret.RecursionAvailable
+				newRet.Response = true
+				newRet.Truncated = true
+				ret = newRet
+
+				// break here only if response message id matches the request's message id.
+				if state.Req.Id == ret.Id {
+					break
+				}
+			}
+			// connection closed by peer, close the persistent connection.
+			pc.c.Close()
 			if err == io.EOF && cached {
 				return nil, ErrCachedClosed
 			}
