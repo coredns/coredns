@@ -407,7 +407,7 @@ rewrite edns0 subnet set 24 56
 * If the query's source IP address is an IPv6 address, the first 56 bits in the IP will be the network subnet.
 
 
-### CNAME Feild Rewrites
+### CNAME Field Rewrites
 
 There might be a scenario where you want the `CNAME` target of the response to be rewritten. You can do this by using the `CNAME` field rewrite. This will generate new answer records according to the new `CNAME` target.
 
