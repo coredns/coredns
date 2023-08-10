@@ -33,7 +33,8 @@ transfer [ZONE...] {
  *  `to` **ADDRESS...** The hosts *transfer* will transfer to. Use `*` to permit transfers to all
     addresses. Zone change notifications are sent to all **ADDRESS** that are an IP address or
     an IP address and port e.g. `1.2.3.4`, `12:34::56`, `1.2.3.4:5300`, `[12:34::56]:5300`.
-    `to` may be specified multiple times.
+    `to` may be specified multiple times. (Zone change notifications currently not implemented, see
+    "bugs" section.
 
 You can use the _acl_ plugin to further restrict hosts permitted to receive a zone transfer.
 See example below.
@@ -57,3 +58,7 @@ Use in conjunction with the _acl_ plugin to restrict access to subnet 10.1.0.0/1
 ```
 
 Each plugin that can use _transfer_ includes an example of use in their respective documentation.
+
+## Bugs
+
+Notification to secondary DNS servers is current not implemented (See [issue 5669](https://github.com/coredns/coredns/issues/5669)).
