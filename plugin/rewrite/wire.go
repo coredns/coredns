@@ -21,7 +21,7 @@ func ipToWire(family int, ipAddr string) ([]byte, error) {
 // uint16ToWire writes unit16 to wire/binary format
 func uint16ToWire(data uint16) []byte {
 	buf := make([]byte, 2)
-	binary.BigEndian.PutUint16(buf, uint16(data))
+	binary.BigEndian.PutUint16(buf, data)
 	return buf
 }
 
