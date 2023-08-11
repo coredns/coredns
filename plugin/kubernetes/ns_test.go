@@ -142,7 +142,7 @@ func TestNsAddrsExternalHeadless(t *testing.T) {
 	k.APIConn = &APIConnTest{}
 	k.localIPs = []net.IP{net.ParseIP("10.244.0.20")}
 
-	// there are only headless sevices
+	// there are only headless services
 	cdrs := k.nsAddrs(true, true, k.Zones[0])
 
 	if len(cdrs) != 1 {
