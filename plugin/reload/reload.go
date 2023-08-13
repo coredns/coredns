@@ -77,8 +77,10 @@ func hook(event caddy.EventName, info interface{}) error {
 	instance := info.(*caddy.Instance)
 
 	go func() {
+		log.Debug("Starting reload handler (waiting for previous handler to finish) ...")
 		r.Lock()
 		defer r.Unlock()
+		log.Debug("Reload handler running")
 
 		if r.s == [64]byte{} {
 			log.Info("Running for the first time")
@@ -94,6 +96,7 @@ func hook(event caddy.EventName, info interface{}) error {
 			case <-tick.C:
 				corefile, err := caddy.LoadCaddyfile(instance.Caddyfile().ServerType())
 				if err != nil {
+					log.Warningf("Corefile load failed: %s", err)
 					continue
 				}
 				parsedCorefile, err := parse(corefile)
@@ -120,9 +123,11 @@ func hook(event caddy.EventName, info interface{}) error {
 					if r.usage() == maybeUsed {
 						r.setUsage(unused)
 					}
+					log.Debug("Reload handler exiting (due to successful reload)")
 					return
 				}
 			case <-r.quit:
+				log.Debug("Reload handler exiting (forced)")
 				return
 			}
 		}
