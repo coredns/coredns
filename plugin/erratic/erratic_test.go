@@ -37,7 +37,7 @@ func TestErraticDrop(t *testing.T) {
 		if err != tc.expectedErr {
 			t.Errorf("Test %d: Expected error %q, but got %q", i, tc.expectedErr, err)
 		}
-		if code != int(tc.expectedCode) {
+		if code != tc.expectedCode {
 			t.Errorf("Test %d: Expected status code %d, but got %d", i, tc.expectedCode, code)
 		}
 
@@ -71,7 +71,7 @@ func TestErraticTruncate(t *testing.T) {
 		if err != tc.expectedErr {
 			t.Errorf("Test %d: Expected error %q, but got %q", i, tc.expectedErr, err)
 		}
-		if code != int(tc.expectedCode) {
+		if code != tc.expectedCode {
 			t.Errorf("Test %d: Expected status code %d, but got %d", i, tc.expectedCode, code)
 		}
 

@@ -28,7 +28,7 @@ func TestBlackLiesBitmapNoData(t *testing.T) {
 		}
 	}
 	for _, b := range nsec.TypeBitMap {
-		if uint16(b) == dns.TypeTLSA {
+		if b == dns.TypeTLSA {
 			t.Errorf("Type TLSA should not be present in the type bitmap: %v", nsec.TypeBitMap)
 		}
 	}
@@ -50,7 +50,7 @@ func TestBlackLiesBitmapNameError(t *testing.T) {
 		}
 	}
 	for _, b := range nsec.TypeBitMap {
-		if uint16(b) == dns.TypeTLSA {
+		if b == dns.TypeTLSA {
 			t.Errorf("Type TLSA should not be present in the type bitmap: %v", nsec.TypeBitMap)
 		}
 	}
