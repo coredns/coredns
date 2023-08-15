@@ -22,10 +22,9 @@ const (
 )
 
 type reload struct {
-	dur  time.Duration
-	u    int
-	mtx  sync.RWMutex
-	quit chan bool
+	dur time.Duration
+	u   int
+	mtx sync.RWMutex
 }
 
 func (r *reload) setUsage(u int) {
@@ -73,14 +72,23 @@ func hook(event caddy.EventName, info interface{}) error {
 
 	// this should be an instance. ok to panic if not
 	instance := info.(*caddy.Instance)
+
+	// stop the reload handler if the instance is shut down
+	quit := make(chan bool, 1)
+	instance.OnShutdown = append(instance.OnShutdown, func() error {
+		quit <- true
+		return nil
+	})
+
+	// calculate current configuration hash
 	parsedCorefile, err := parse(instance.Caddyfile())
 	if err != nil {
 		return err
 	}
-
 	sha512sum := sha512.Sum512(parsedCorefile)
 	log.Infof("Running configuration SHA512 = %x\n", sha512sum)
 
+	// start reload handler
 	go func() {
 		tick := time.NewTicker(r.interval())
 		defer tick.Stop()
@@ -118,7 +126,7 @@ func hook(event caddy.EventName, info interface{}) error {
 					}
 					return
 				}
-			case <-r.quit:
+			case <-quit:
 				return
 			}
 		}

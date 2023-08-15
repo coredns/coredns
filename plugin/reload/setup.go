@@ -3,7 +3,6 @@ package reload
 import (
 	"fmt"
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -17,11 +16,9 @@ func init() { plugin.Register("reload", setup) }
 
 // the info reload is global to all application, whatever number of reloads.
 // it is used to transmit data between Setup and start of the hook called 'onInstanceStartup'
-// channel for QUIT is never changed in purpose.
 // WARNING: this data may be unsync after an invalid attempt of reload Corefile.
 var (
-	r              = reload{dur: defaultInterval, u: unused, quit: make(chan bool)}
-	once, shutOnce sync.Once
+	r = reload{dur: defaultInterval, u: unused}
 )
 
 func setup(c *caddy.Controller) error {
@@ -66,16 +63,7 @@ func setup(c *caddy.Controller) error {
 	// prepare info for next onInstanceStartup event
 	r.setInterval(i)
 	r.setUsage(used)
-	once.Do(func() {
-		caddy.RegisterEventHook("reload", hook)
-	})
-	// re-register on finalShutDown as the instance most-likely will be changed
-	shutOnce.Do(func() {
-		c.OnFinalShutdown(func() error {
-			r.quit <- true
-			return nil
-		})
-	})
+	registerEventHook("reload", hook)
 	return nil
 }
 
@@ -85,3 +73,17 @@ const (
 	defaultInterval = 30 * time.Second
 	defaultJitter   = 15 * time.Second
 )
+
+// TODO: it would be nicer if github.com/coredns/caddy would expose some method RegisterEventHookIfNotRegistered()
+func registerEventHook(name string, hook caddy.EventHook) (changed bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			if s, ok := r.(string); !ok || s != "hook named "+name+" already registered" {
+				panic(r)
+			}
+		}
+	}()
+	caddy.RegisterEventHook(name, hook)
+	changed = true
+	return
+}
