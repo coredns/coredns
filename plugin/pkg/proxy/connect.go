@@ -6,8 +6,10 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"io"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -117,6 +119,42 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
+			// If the error is an overflow, we probably have an upstream misbehaving in some way.
+			// (e.g. sending >512 byte UDP responses without an eDNS0 OPT RR).
+			// Instead of returning an error, return an empty response with TC bit set. This will make the
+			// client retry over TCP (if that's supported) or at least receive a clean
+			// error. The connection is still good so we break before the close.
+			dnsErrBufOccured := false
+			var perr *dns.Error
+
+			if errors.As(err, &perr) {
+				if errors.Is(err, dns.ErrBuf) {
+					dnsErrBufOccured = true
+				}
+			}
+
+			if proto == "udp" && ((strings.Contains(err.Error(), "overflow")) || dnsErrBufOccured) {
+				newRet := state.Req.Copy()
+
+				// Clear AD bit in case request had set the AD bit. The empty response is not authenticated.
+				newRet.AuthenticatedData = false
+
+				// Clear AA bit in case request had set the AA bit.
+				newRet.Authoritative = false
+
+				newRet.RecursionAvailable = ret.RecursionAvailable
+				newRet.Response = true
+
+				// Set TC bit to indicate truncation.
+				newRet.Truncated = true
+				ret = newRet
+
+				// break here only if response message id matches the request's message id.
+				if state.Req.Id == ret.Id {
+					break
+				}
+			}
+
 			pc.c.Close() // not giving it back
 			if err == io.EOF && cached {
 				return nil, ErrCachedClosed
