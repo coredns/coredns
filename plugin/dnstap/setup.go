@@ -9,6 +9,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/coredns/coredns/plugin/pkg/replacer"
 )
 
 var log = clog.NewWithPlugin("dnstap")
@@ -21,6 +22,7 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 	for c.Next() { // directive name
 		d := Dnstap{}
 		endpoint := ""
+		d.repl = replacer.New()
 
 		args := c.RemainingArgs()
 
@@ -78,6 +80,13 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 						return nil, c.ArgErr()
 					}
 					d.Version = []byte(c.Val())
+				}
+			case "extra":
+				{
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					d.ExtraFormat = c.Val()
 				}
 			}
 		}

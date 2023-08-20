@@ -14,7 +14,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v4
         with:
-          go-version: '~1.20.0'
+          go-version: '~1.21.0'
         id: go
 
       - name: Build
@@ -36,7 +36,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v4
         with:
-          go-version: '~1.20.0'
+          go-version: '~1.21.0'
         id: go
 
       - name: Build
@@ -55,7 +55,7 @@ jobs:
       - name: Install Go
         uses: actions/setup-go@v4
         with:
-          go-version: '~1.20.0'
+          go-version: '~1.21.0'
         id: go
 
       - name: Build

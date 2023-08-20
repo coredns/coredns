@@ -199,7 +199,7 @@ func (w *weightedRR) topAddressIndex(address []dns.RR) int {
 	for _, wa := range weightedAddr {
 		psum += uint(wa.weight)
 		if v < psum {
-			return int(wa.index)
+			return wa.index
 		}
 	}
 

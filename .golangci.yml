@@ -10,3 +10,4 @@ linters:
     - whitespace
     - unused
     - gofmt
+    - unconvert
