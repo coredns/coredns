@@ -231,7 +231,7 @@ func TestRoute53(t *testing.T) {
 		if err != tc.expectedErr {
 			t.Fatalf("Test %d: Expected error %v, but got %v", ti, tc.expectedErr, err)
 		}
-		if code != int(tc.wantRetCode) {
+		if code != tc.wantRetCode {
 			t.Fatalf("Test %d: Expected returned status code %s, but got %s", ti, dns.RcodeToString[tc.wantRetCode], dns.RcodeToString[code])
 		}
 

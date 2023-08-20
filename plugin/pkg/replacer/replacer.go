@@ -59,31 +59,6 @@ var labels = map[string]struct{}{
 // appendValue appends the current value of label.
 func appendValue(b []byte, state request.Request, rr *dnstest.Recorder, label string) []byte {
 	switch label {
-	case "{type}":
-		return append(b, state.Type()...)
-	case "{name}":
-		return append(b, state.Name()...)
-	case "{class}":
-		return append(b, state.Class()...)
-	case "{proto}":
-		return append(b, state.Proto()...)
-	case "{size}":
-		return strconv.AppendInt(b, int64(state.Req.Len()), 10)
-	case "{remote}":
-		return appendAddrToRFC3986(b, state.IP())
-	case "{port}":
-		return append(b, state.Port()...)
-	case "{local}":
-		return appendAddrToRFC3986(b, state.LocalIP())
-	// Header placeholders (case-insensitive).
-	case headerReplacer + "id}":
-		return strconv.AppendInt(b, int64(state.Req.Id), 10)
-	case headerReplacer + "opcode}":
-		return strconv.AppendInt(b, int64(state.Req.Opcode), 10)
-	case headerReplacer + "do}":
-		return strconv.AppendBool(b, state.Do())
-	case headerReplacer + "bufsize}":
-		return strconv.AppendInt(b, int64(state.Size()), 10)
 	// Recorded replacements.
 	case "{rcode}":
 		if rr == nil || rr.Msg == nil {
@@ -109,6 +84,38 @@ func appendValue(b []byte, state request.Request, rr *dnstest.Recorder, label st
 			return appendFlags(b, rr.Msg.MsgHdr)
 		}
 		return append(b, EmptyValue...)
+	}
+
+	if (request.Request{}) == state {
+		return append(b, EmptyValue...)
+	}
+
+	switch label {
+	case "{type}":
+		return append(b, state.Type()...)
+	case "{name}":
+		return append(b, state.Name()...)
+	case "{class}":
+		return append(b, state.Class()...)
+	case "{proto}":
+		return append(b, state.Proto()...)
+	case "{size}":
+		return strconv.AppendInt(b, int64(state.Req.Len()), 10)
+	case "{remote}":
+		return appendAddrToRFC3986(b, state.IP())
+	case "{port}":
+		return append(b, state.Port()...)
+	case "{local}":
+		return appendAddrToRFC3986(b, state.LocalIP())
+	// Header placeholders (case-insensitive).
+	case headerReplacer + "id}":
+		return strconv.AppendInt(b, int64(state.Req.Id), 10)
+	case headerReplacer + "opcode}":
+		return strconv.AppendInt(b, int64(state.Req.Opcode), 10)
+	case headerReplacer + "do}":
+		return strconv.AppendBool(b, state.Do())
+	case headerReplacer + "bufsize}":
+		return strconv.AppendInt(b, int64(state.Size()), 10)
 	default:
 		return append(b, EmptyValue...)
 	}

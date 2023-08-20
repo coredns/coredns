@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"context"
 	"net"
 	"strconv"
 	"time"
@@ -14,7 +15,7 @@ import (
 )
 
 // toDnstap will send the forward and received message to the dnstap plugin.
-func toDnstap(f *Forward, host string, state request.Request, opts proxy.Options, reply *dns.Msg, start time.Time) {
+func toDnstap(ctx context.Context, f *Forward, host string, state request.Request, opts proxy.Options, reply *dns.Msg, start time.Time) {
 	h, p, _ := net.SplitHostPort(host)      // this is preparsed and can't err here
 	port, _ := strconv.ParseUint(p, 10, 32) // same here
 	ip := net.ParseIP(h)
@@ -45,7 +46,7 @@ func toDnstap(f *Forward, host string, state request.Request, opts proxy.Options
 			q.QueryMessage = buf
 		}
 		msg.SetType(q, tap.Message_FORWARDER_QUERY)
-		t.TapMessage(q)
+		t.TapMessageWithMetadata(ctx, q, state)
 
 		// Response
 		if reply != nil {
@@ -59,7 +60,7 @@ func toDnstap(f *Forward, host string, state request.Request, opts proxy.Options
 			msg.SetResponseAddress(r, ta)
 			msg.SetResponseTime(r, time.Now())
 			msg.SetType(r, tap.Message_FORWARDER_RESPONSE)
-			t.TapMessage(r)
+			t.TapMessageWithMetadata(ctx, r, state)
 		}
 	}
 }
