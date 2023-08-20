@@ -41,17 +41,11 @@ func TestReloadWithImports(t *testing.T) {
 		}
 	}
 
-	corefile := `.:0 {
-		import *.conf
+	updateCorefile(`.:0 {
+		debug
+		import ` + tmpdir + `/*.conf
 		reload 2s 1s
-	}`
-	err = os.WriteFile(tmpdir+"/Corefile", []byte(corefile), 0644)
-	if err != nil {
-		t.Fatalf("Could not write Corefile: %s", err)
-	}
-	caddy.RegisterCaddyfileLoader("test", caddy.LoaderFunc(func(serverType string) (caddy.Input, error) {
-		return caddy.CaddyfileInput{Filepath: tmpdir + "/Corefile", Contents: []byte(corefile), ServerTypeName: "dns"}, nil
-	}))
+	}`)
 	updateImport()
 
 	dnsserver.Directives = append([]string{pluginName}, dnsserver.Directives...)
@@ -84,15 +78,11 @@ func TestReloadWithImports(t *testing.T) {
 		return nil
 	})
 
-	coreInput, err := caddy.LoadCaddyfile("dns")
-	if err != nil {
-		t.Fatalf("Could not load corefile: %s", err)
-	}
-
-	_, err = caddy.Start(coreInput)
+	err = startInstance()
 	if err != nil {
 		t.Fatalf("Could not start CoreDNS instance: %s", err)
 	}
+	defer stopInstance()
 
 	updateImport()
 

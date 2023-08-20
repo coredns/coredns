@@ -2,6 +2,8 @@ module github.com/coredns/coredns
 
 go 1.20
 
+replace github.com/coredns/caddy => github.com/cbarbian-sap/caddy v0.0.1
+
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.29

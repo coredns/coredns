@@ -3,7 +3,6 @@ package reload
 import (
 	"fmt"
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -15,16 +14,8 @@ var log = clog.NewWithPlugin("reload")
 
 func init() { plugin.Register("reload", setup) }
 
-// the info reload is global to all application, whatever number of reloads.
-// it is used to transmit data between Setup and start of the hook called 'onInstanceStartup'
-// channel for QUIT is never changed in purpose.
-// WARNING: this data may be unsync after an invalid attempt of reload Corefile.
-var (
-	r              = reload{dur: defaultInterval, u: unused, quit: make(chan bool)}
-	once, shutOnce sync.Once
-)
-
 func setup(c *caddy.Controller) error {
+	log.Debug("setup called")
 	c.Next() // 'reload'
 	args := c.RemainingArgs()
 
@@ -63,19 +54,20 @@ func setup(c *caddy.Controller) error {
 	jitter := time.Duration(rand.Int63n(j.Nanoseconds()) - (j.Nanoseconds() / 2))
 	i = i + jitter
 
-	// prepare info for next onInstanceStartup event
-	r.setInterval(i)
-	r.setUsage(used)
-	once.Do(func() {
-		caddy.RegisterEventHook("reload", hook)
-	})
-	// re-register on finalShutDown as the instance most-likely will be changed
-	shutOnce.Do(func() {
-		c.OnFinalShutdown(func() error {
-			r.quit <- true
+	if r := c.Get("reload"); r != nil {
+		r.(*reload).interval = i
+	} else {
+		r := &reload{interval: i, quit: make(chan bool, 1)}
+		c.Set("reload", r)
+		c.OnShutdown(func() error {
+			select {
+			case r.quit <- true:
+			default:
+			}
 			return nil
 		})
-	})
+		caddy.RegisterOrUpdateEventHook("reload", hook)
+	}
 	return nil
 }
 
