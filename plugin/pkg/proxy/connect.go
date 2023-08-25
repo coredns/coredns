@@ -136,12 +136,6 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 			if proto == "udp" && ((strings.Contains(err.Error(), "overflow")) || dnsErrBufOccured) {
 				newRet := state.Req.Copy()
 
-				// Clear AD bit in case request had set the AD bit. The empty response is not authenticated.
-				newRet.AuthenticatedData = false
-
-				// Clear AA bit in case request had set the AA bit.
-				newRet.Authoritative = false
-
 				newRet.RecursionAvailable = ret.RecursionAvailable
 				newRet.Response = true
 
