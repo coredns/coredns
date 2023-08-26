@@ -18,9 +18,12 @@ CoreDNS is a fast and flexible DNS server. The key word here is *flexible*: with
 are able to do what you want with your DNS data by utilizing plugins. If some functionality is not
 provided out of the box you can add it by [writing a plugin](https://coredns.io/explugins).
 
-CoreDNS can listen for DNS requests coming in over UDP/TCP (go'old DNS), TLS ([RFC
-7858](https://tools.ietf.org/html/rfc7858)), also called DoT, DNS over HTTP/2 - DoH -
-([RFC 8484](https://tools.ietf.org/html/rfc8484)) and [gRPC](https://grpc.io) (not a standard).
+CoreDNS can listen for DNS requests coming in over:
+* UDP/TCP (go'old DNS).
+* TLS - DoT ([RFC 7858](https://tools.ietf.org/html/rfc7858)).
+* DNS over HTTP/2 - DoH ([RFC 8484](https://tools.ietf.org/html/rfc8484)).
+* DNS over QUIC - DoQ ([RFC 9250](https://tools.ietf.org/html/rfc9250)). 
+* [gRPC](https://grpc.io) (not a standard).
 
 Currently CoreDNS is able to:
 
@@ -71,7 +74,7 @@ CoreDNS requires Go to compile. However, if you already have docker installed an
 setup a Go environment, you could build CoreDNS easily:
 
 ```
-$ docker run --rm -i -t -v $PWD:/v -w /v golang:1.20 make
+$ docker run --rm -i -t -v $PWD:/v -w /v golang:1.21 make
 ```
 
 The above command alone will have `coredns` binary generated.
@@ -211,6 +214,15 @@ tls://example.org grpc://example.org {
 }
 ~~~
 
+Similarly, for QUIC (DoQ):
+
+~~~ corefile
+quic://example.org {
+    whoami
+    tls mycert mykey
+}
+~~~
+
 And for DNS over HTTP/2 (DoH) use:
 
 ~~~ corefile
@@ -249,7 +261,7 @@ We're most active on Github (and Slack):
 More resources can be found:
 
 - Website: <https://coredns.io>
-- Blog: <https://blog.coredns.io>
+- Blog: <https://coredns.io/blog/>
 - Twitter: [@corednsio](https://twitter.com/corednsio)
 - Mailing list/group: <coredns-discuss@googlegroups.com> (not very active)
 

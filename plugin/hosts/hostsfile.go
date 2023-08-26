@@ -45,7 +45,7 @@ func newOptions() *options {
 	return &options{
 		autoReverse: true,
 		ttl:         3600,
-		reload:      time.Duration(5 * time.Second),
+		reload:      5 * time.Second,
 	}
 }
 

@@ -671,7 +671,7 @@ func TestCacheWildcardMetadata(t *testing.T) {
 	_, k := key(qname, w.Msg, response.NoError, state.Do())
 	i, _ := c.pcache.Get(k)
 	if i.(*item).wildcard != wildcard {
-		t.Errorf("expected wildcard reponse to enter cache with cache item's wildcard = %q, got %q", wildcard, i.(*item).wildcard)
+		t.Errorf("expected wildcard response to enter cache with cache item's wildcard = %q, got %q", wildcard, i.(*item).wildcard)
 	}
 
 	// 2. Test retrieving the cached item from cache and writing its wildcard value to metadata
