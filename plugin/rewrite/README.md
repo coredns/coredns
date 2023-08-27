@@ -26,6 +26,7 @@ e.g., to rewrite ANY queries to HINFO, use `rewrite type ANY HINFO`.
    * `edns0` - an EDNS0 option can be appended to the request as described below in the **EDNS0 Options** section.
    * `ttl` - the TTL value in the _response_ is rewritten.
    * `cname` - the CNAME target if the response has a CNAME record
+   * `rcode` - the response code (RCODE) value in the _response_ is rewritten.
 
 * **TYPE** this optional element can be specified for a `name` or `ttl` field.
   If not given type `exact` will be assumed. If options should be specified the
@@ -334,6 +335,61 @@ rewrite ttl example.com. 30-
 # set TTL to 30s
 rewrite ttl example.com. 30 # equivalent to rewrite ttl example.com. 30-30
 ```
+
+### RCODE Field Rewrites
+
+At times, the need to rewrite a RCODE value could arise. For example, a DNS server
+may respond with a SERVFAIL instead of NOERROR records when AAAA records are requested.
+
+In the below example, the rcode value the answer for `coredns.rocks` the replies with SERVFAIL
+is being switched to NOERROR.
+
+This example rewrites all the *.coredns.rocks domain SERVFAIL errors to NOERROR
+```
+    rewrite continue {
+        rcode regex (.*)\.coredns\.rocks SERVFAIL NOERROR
+    }
+```
+
+The same result numeric values:
+```
+    rewrite continue {
+        rcode regex (.*)\.coredns\.rocks 2 0
+    }
+```
+
+The syntax for the RCODE rewrite rule is as follows. The meaning of
+`exact|prefix|suffix|substring|regex` is the same as with the name rewrite rules.
+An omitted type is defaulted to `exact`.
+
+```
+rewrite [continue|stop] rcode [exact|prefix|suffix|substring|regex] STRING FROM TO
+```
+
+The values of FROM and TO can be any of the following, text value or numeric:
+
+```
+  0 NOERROR
+  1 FORMERR
+  2 SERVFAIL
+  3 NXDOMAIN
+  4 NOTIMP
+  5 REFUSED
+  6 YXDOMAIN
+  7 YXRRSET
+  8 NXRRSET
+  9 NOTAUTH
+  10 NOTZONE
+  16 BADSIG
+  17 BADKEY
+  18 BADTIME
+  19 BADMODE
+  20 BADNAME
+  21 BADALG
+  22 BADTRUNC
+  23 BADCOOKIE
+```
+
 
 ## EDNS0 Options
 
