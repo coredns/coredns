@@ -124,27 +124,33 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 			// Instead of returning an error, return an empty response with TC bit set. This will make the
 			// client retry over TCP (if that's supported) or at least receive a clean
 			// error. The connection is still good so we break before the close.
+
 			dnsErrBufOccured := false
+			dnsErrOverflowOccured := false
 			var perr *dns.Error
 
-			if errors.As(err, &perr) {
-				if errors.Is(err, dns.ErrBuf) {
-					dnsErrBufOccured = true
+			if proto == "udp" {
+				if errors.As(err, &perr) {
+					if errors.Is(err, dns.ErrBuf) {
+						dnsErrBufOccured = true
+					}
+				}
+
+				if strings.Contains(err.Error(), "overflow") {
+					dnsErrOverflowOccured = true
 				}
 			}
 
-			if proto == "udp" && ((strings.Contains(err.Error(), "overflow")) || dnsErrBufOccured) {
-				newRet := state.Req.Copy()
-
-				newRet.RecursionAvailable = ret.RecursionAvailable
-				newRet.Response = true
-
-				// Set TC bit to indicate truncation.
-				newRet.Truncated = true
-				ret = newRet
-
-				// break here only if response message id matches the request's message id.
+			if dnsErrBufOccured || dnsErrOverflowOccured {
+				// Only if response message id matches the request message id -
+				// Copy the state, set TC bit and break.
 				if state.Req.Id == ret.Id {
+					newRet := state.Req.Copy()
+
+					// Set TC bit to indicate truncation.
+					newRet.Truncated = true
+
+					ret = newRet
 					break
 				}
 			}

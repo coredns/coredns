@@ -133,26 +133,31 @@ func TestCoreDNSOverflow(t *testing.T) {
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
 		ret.SetReply(r)
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.1"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.2"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.3"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.4"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.5"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.6"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.7"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.8"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.9"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.10"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.11"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.12"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.13"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.14"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.15"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.16"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.17"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.18"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.19"))
-		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.20"))
+
+		answers := []dns.RR{
+			test.A("example.org. IN A 127.0.0.1"),
+			test.A("example.org. IN A 127.0.0.2"),
+			test.A("example.org. IN A 127.0.0.3"),
+			test.A("example.org. IN A 127.0.0.4"),
+			test.A("example.org. IN A 127.0.0.5"),
+			test.A("example.org. IN A 127.0.0.6"),
+			test.A("example.org. IN A 127.0.0.7"),
+			test.A("example.org. IN A 127.0.0.8"),
+			test.A("example.org. IN A 127.0.0.9"),
+			test.A("example.org. IN A 127.0.0.10"),
+			test.A("example.org. IN A 127.0.0.11"),
+			test.A("example.org. IN A 127.0.0.12"),
+			test.A("example.org. IN A 127.0.0.13"),
+			test.A("example.org. IN A 127.0.0.14"),
+			test.A("example.org. IN A 127.0.0.15"),
+			test.A("example.org. IN A 127.0.0.16"),
+			test.A("example.org. IN A 127.0.0.17"),
+			test.A("example.org. IN A 127.0.0.18"),
+			test.A("example.org. IN A 127.0.0.19"),
+			test.A("example.org. IN A 127.0.0.20"),
+		}
+		ret.Answer = answers
+
 		w.WriteMsg(ret)
 	})
 	defer s.Close()
@@ -167,13 +172,23 @@ func TestCoreDNSOverflow(t *testing.T) {
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	req := request.Request{Req: m, W: rec}
 
-	resp, err := p.Connect(context.Background(), req, Options{PreferUDP: true})
+	respUDP, err := p.Connect(context.Background(), req, Options{PreferUDP: true})
 	if err != nil {
 		t.Errorf("Failed to connect to testdnsserver: %s", err)
 	}
 
 	// Verify that the TC (truncated) flag is set in the response
-	if !resp.Truncated {
+	if !respUDP.Truncated {
 		t.Errorf("Expected truncated response, but the TC flag is not set")
+	}
+
+	respTCP, err := p.Connect(context.Background(), req, Options{ForceTCP: true})
+	if err != nil {
+		t.Errorf("Failed to connect to testdnsserver: %s", err)
+	}
+
+	// Verify that the TC (truncated) flag is not set in the response
+	if respTCP.Truncated {
+		t.Errorf("Did not expect truncated response, but the TC flag is set")
 	}
 }
