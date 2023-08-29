@@ -147,6 +147,9 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 				if state.Req.Id == ret.Id {
 					newRet := state.Req.Copy()
 
+					newRet.RecursionAvailable = ret.RecursionAvailable
+					newRet.Response = ret.Response
+
 					// Set TC bit to indicate truncation.
 					newRet.Truncated = true
 
