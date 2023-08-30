@@ -120,6 +120,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
 			if proto == "udp" {
+
 				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
 				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
 				// Instead of returning an error, return an empty response with TC bit set. This will make the
