@@ -125,35 +125,28 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 			// client retry over TCP (if that's supported) or at least receive a clean
 			// error. The connection is still good so we break before the close.
 
-			dnsErrBufOccured := false
-			dnsErrOverflowOccured := false
+			isDNSBufferError := false
+			isDNSOverflowError := false
 			var perr *dns.Error
 
 			if proto == "udp" {
+				// This is to handle a scenario in which upstream sets the TC bit, but doesn't truncate the response
+				// and we get ErrBuf instead of overflow.
 				if errors.As(err, &perr) {
 					if errors.Is(err, dns.ErrBuf) {
-						dnsErrBufOccured = true
+						isDNSBufferError = true
 					}
 				}
 
 				if strings.Contains(err.Error(), "overflow") {
-					dnsErrOverflowOccured = true
+					isDNSOverflowError = true
 				}
 			}
 
-			if dnsErrBufOccured || dnsErrOverflowOccured {
-				// Only if response message id matches the request message id -
-				// Copy the state, set TC bit and break.
-				if state.Req.Id == ret.Id {
-					newRet := state.Req.Copy()
-
-					newRet.RecursionAvailable = ret.RecursionAvailable
-					newRet.Response = ret.Response
-
-					// Set TC bit to indicate truncation.
-					newRet.Truncated = true
-
-					ret = newRet
+			if isDNSBufferError || isDNSOverflowError {
+				// Only if response message id matches the request message id - return a truncated response.
+				if ret != nil && (state.Req.Id == ret.Id) {
+					ret = truncateResponse(ret)
 					break
 				}
 			}
@@ -189,3 +182,22 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 }
 
 const cumulativeAvgWeight = 4
+
+// Function to return an empty response with TC (truncated) bit set.
+// This is to mitigate the effects of an upstream server sending UDP responses that exceed the maximum size of 512 bytes.
+func truncateResponse(response *dns.Msg) *dns.Msg {
+
+	truncatedResponse := response.Copy()
+
+	// Clear out Answer, Extra, and AuthenticatedData sections
+	truncatedResponse.Answer = nil
+	truncatedResponse.Extra = nil
+
+	// Clearing AD bit to indicate that the response is not authenticated.
+	truncatedResponse.AuthenticatedData = false
+
+	// Set TC bit to indicate truncation.
+	truncatedResponse.Truncated = true
+
+	return truncatedResponse
+}
