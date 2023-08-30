@@ -187,17 +187,13 @@ const cumulativeAvgWeight = 4
 // This is to mitigate the effects of an upstream server sending UDP responses that exceed the maximum size of 512 bytes.
 func truncateResponse(response *dns.Msg) *dns.Msg {
 
-	truncatedResponse := response.Copy()
-
-	// Clear out Answer, Extra, and AuthenticatedData sections
-	truncatedResponse.Answer = nil
-	truncatedResponse.Extra = nil
-
-	// Clearing AD bit to indicate that the response is not authenticated.
-	truncatedResponse.AuthenticatedData = false
+	// Clear out Answer, Extra, and Ns sections
+	response.Answer = nil
+	response.Extra = nil
+	response.Ns = nil
 
 	// Set TC bit to indicate truncation.
-	truncatedResponse.Truncated = true
+	response.Truncated = true
 
-	return truncatedResponse
+	return response
 }
