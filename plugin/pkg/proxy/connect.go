@@ -151,7 +151,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 					}
 				}
 			}
-
+}
 			pc.c.Close() // not giving it back
 			if err == io.EOF && cached {
 				return nil, ErrCachedClosed
