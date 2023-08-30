@@ -129,17 +129,12 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 
 				isDNSBufferError := false
 				isDNSOverflowError := false
-				var perr *dns.Error
 
 				// This is to handle a scenario in which upstream sets the TC bit, but doesn't truncate the response
 				// and we get ErrBuf instead of overflow.
-				if errors.As(err, &perr) {
-					if errors.Is(err, dns.ErrBuf) {
-						isDNSBufferError = true
-					}
-				}
-
-				if strings.Contains(err.Error(), "overflow") {
+				if _, isDNSErr := err.(*dns.Error); isDNSErr && errors.Is(err, dns.ErrBuf) {
+					isDNSBufferError = true
+				} else if strings.Contains(err.Error(), "overflow") {
 					isDNSOverflowError = true
 				}
 
