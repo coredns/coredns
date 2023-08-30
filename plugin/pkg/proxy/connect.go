@@ -119,17 +119,17 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
-			// If the error is an overflow, we probably have an upstream misbehaving in some way.
-			// (e.g. sending >512 byte UDP responses without an eDNS0 OPT RR).
-			// Instead of returning an error, return an empty response with TC bit set. This will make the
-			// client retry over TCP (if that's supported) or at least receive a clean
-			// error. The connection is still good so we break before the close.
-
-			isDNSBufferError := false
-			isDNSOverflowError := false
-			var perr *dns.Error
-
 			if proto == "udp" {
+				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
+				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
+				// Instead of returning an error, return an empty response with TC bit set. This will make the
+				// client retry over TCP (if that's supported) or at least receive a clean
+				// error. The connection is still good so we break before the close.
+
+				isDNSBufferError := false
+				isDNSOverflowError := false
+				var perr *dns.Error
+
 				// This is to handle a scenario in which upstream sets the TC bit, but doesn't truncate the response
 				// and we get ErrBuf instead of overflow.
 				if errors.As(err, &perr) {
@@ -141,13 +141,13 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 				if strings.Contains(err.Error(), "overflow") {
 					isDNSOverflowError = true
 				}
-			}
 
-			if isDNSBufferError || isDNSOverflowError {
-				// Only if response message id matches the request message id - return a truncated response.
-				if ret != nil && (state.Req.Id == ret.Id) {
-					ret = truncateResponse(ret)
-					break
+				if isDNSBufferError || isDNSOverflowError {
+					// Only if response message id matches the request message id - return a truncated response.
+					if ret != nil && (state.Req.Id == ret.Id) {
+						ret = truncateResponse(ret)
+						break
+					}
 				}
 			}
 
@@ -184,7 +184,6 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 const cumulativeAvgWeight = 4
 
 // Function to return an empty response with TC (truncated) bit set.
-// This is to mitigate the effects of an upstream server sending UDP responses that exceed the maximum size of 512 bytes.
 func truncateResponse(response *dns.Msg) *dns.Msg {
 
 	// Clear out Answer, Extra, and Ns sections
