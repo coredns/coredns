@@ -120,13 +120,11 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
 			if proto == "udp" {
-
 				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
 				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
 				// Instead of returning an error, return an empty response with TC bit set. This will make the
 				// client retry over TCP (if that's supported) or at least receive a clean
 				// error. The connection is still good so we break before the close.
-
 				isDNSBufferError := false
 				isDNSOverflowError := false
 
@@ -146,7 +144,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 					}
 				}
 			}
-}
+
 			pc.c.Close() // not giving it back
 			if err == io.EOF && cached {
 				return nil, ErrCachedClosed
