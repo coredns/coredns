@@ -125,18 +125,17 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 				// Instead of returning an error, return an empty response with TC bit set. This will make the
 				// client retry over TCP (if that's supported) or at least receive a clean
 				// error. The connection is still good so we break before the close.
-				isDNSBufferError := false
-				isDNSOverflowError := false
+				shouldTruncate := false
 
 				// This is to handle a scenario in which upstream sets the TC bit, but doesn't truncate the response
 				// and we get ErrBuf instead of overflow.
 				if _, isDNSErr := err.(*dns.Error); isDNSErr && errors.Is(err, dns.ErrBuf) {
-					isDNSBufferError = true
+					shouldTruncate = true
 				} else if strings.Contains(err.Error(), "overflow") {
-					isDNSOverflowError = true
+					shouldTruncate = true
 				}
 
-				if isDNSBufferError || isDNSOverflowError {
+				if shouldTruncate {
 					// Only if response message id matches the request message id - return a truncated response.
 					if ret != nil && (state.Req.Id == ret.Id) {
 						ret = truncateResponse(ret)
