@@ -193,7 +193,7 @@ func TestCoreDNSOverflow(t *testing.T) {
 	// Test ForceTCP, expect no truncated response
 	testConnection("ForceTCP", Options{ForceTCP: true}, false)
 
-	// Test No options specified, expect no truncated response
+	// Test No options specified, expect truncated response
 	testConnection("NoOptionsSpecified", Options{}, true)
 
 	// Test both TCP and UDP provided, expect no truncated response
