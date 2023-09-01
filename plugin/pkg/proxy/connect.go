@@ -129,7 +129,9 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 
 				// Only if response message id matches the request message id - check for truncation and truncate response.
 				if ret != nil && (state.Req.Id == ret.Id) {
+					// Check if the response should be truncated based on the error.
 					if shouldTruncateResponse(err) {
+						// Truncate the response.
 						ret = truncateResponse(ret)
 						break
 					}
