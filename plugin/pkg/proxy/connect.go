@@ -119,23 +119,15 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
-			if proto == "udp" {
+			// If TLS has been configured, then actual protocol used is TCP.
+			if p.transport.transportTypeFromConn(pc) == typeUDP {
 				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
 				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
 				// Instead of returning an error, return an empty response with TC bit set. This will make the
 				// client retry over TCP (if that's supported) or at least receive a clean
 				// error. The connection is still good so we break before the close.
-				shouldTruncate := false
 
-				// This is to handle a scenario in which upstream sets the TC bit, but doesn't truncate the response
-				// and we get ErrBuf instead of overflow.
-				if _, isDNSErr := err.(*dns.Error); isDNSErr && errors.Is(err, dns.ErrBuf) {
-					shouldTruncate = true
-				} else if strings.Contains(err.Error(), "overflow") {
-					shouldTruncate = true
-				}
-
-				if shouldTruncate {
+				if shouldTruncateResponse(err) {
 					// Only if response message id matches the request message id - return a truncated response.
 					if ret != nil && (state.Req.Id == ret.Id) {
 						ret = truncateResponse(ret)
@@ -176,9 +168,20 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 
 const cumulativeAvgWeight = 4
 
+// Function to determine if a response should be truncated.
+func shouldTruncateResponse(err error) bool {
+	// This is to handle a scenario in which upstream sets the TC bit, but doesn't truncate the response
+	// and we get ErrBuf instead of overflow.
+	if _, isDNSErr := err.(*dns.Error); isDNSErr && errors.Is(err, dns.ErrBuf) {
+		return true
+	} else if strings.Contains(err.Error(), "overflow") {
+		return true
+	}
+	return false
+}
+
 // Function to return an empty response with TC (truncated) bit set.
 func truncateResponse(response *dns.Msg) *dns.Msg {
-
 	// Clear out Answer, Extra, and Ns sections
 	response.Answer = nil
 	response.Extra = nil
@@ -186,6 +189,5 @@ func truncateResponse(response *dns.Msg) *dns.Msg {
 
 	// Set TC bit to indicate truncation.
 	response.Truncated = true
-
 	return response
 }

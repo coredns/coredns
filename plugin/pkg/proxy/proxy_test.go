@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"math"
 	"testing"
 	"time"
@@ -157,7 +158,6 @@ func TestCoreDNSOverflow(t *testing.T) {
 			test.A("example.org. IN A 127.0.0.20"),
 		}
 		ret.Answer = answers
-
 		w.WriteMsg(ret)
 	})
 	defer s.Close()
@@ -165,30 +165,61 @@ func TestCoreDNSOverflow(t *testing.T) {
 	p := NewProxy("TestCoreDNSOverflow", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	p.Start(5 * time.Second)
+	defer p.Stop()
 
-	m := new(dns.Msg)
-	m.SetQuestion("example.org.", dns.TypeA)
+	// Test different connection modes
+	testConnection := func(proto string, options Options, expectTruncated bool) {
+		t.Helper()
 
-	rec := dnstest.NewRecorder(&test.ResponseWriter{})
-	req := request.Request{Req: m, W: rec}
+		queryMsg := new(dns.Msg)
+		queryMsg.SetQuestion("example.org.", dns.TypeA)
 
-	respUDP, err := p.Connect(context.Background(), req, Options{PreferUDP: true})
-	if err != nil {
-		t.Errorf("Failed to connect to testdnsserver: %s", err)
+		recorder := dnstest.NewRecorder(&test.ResponseWriter{})
+		request := request.Request{Req: queryMsg, W: recorder}
+
+		response, err := p.Connect(context.Background(), request, options)
+		if err != nil {
+			t.Errorf("Failed to connect to testdnsserver: %s", err)
+		}
+
+		if response.Truncated != expectTruncated {
+			t.Errorf("Expected truncated response for %s, but got TC flag %v", proto, response.Truncated)
+		}
 	}
 
-	// Verify that the TC (truncated) flag is set in the response
-	if !respUDP.Truncated {
-		t.Errorf("Expected truncated response, but the TC flag is not set")
+	// Test PreferUDP, expect truncated response
+	testConnection("PreferUDP", Options{PreferUDP: true}, true)
+
+	// Test ForceTCP, expect no truncated response
+	testConnection("ForceTCP", Options{ForceTCP: true}, false)
+
+	// Test No options specified, expect no truncated response
+	testConnection("NoOptionsSpecified", Options{}, true)
+
+	// Test both TCP and UDP provided, expect no truncated response
+	testConnection("BothTCPAndUDP", Options{PreferUDP: true, ForceTCP: true}, false)
+}
+
+func TestShouldTruncateResponse(t *testing.T) {
+	testCases := []struct {
+		testname string
+		err      error
+		expected bool
+	}{
+		{"BadAlgorithm", dns.ErrAlg, false},
+		{"BufferSizeTooSmall", dns.ErrBuf, true},
+		{"OverflowUnpackingA", errors.New("overflow unpacking a"), true},
+		{"OverflowingHeaderSize", errors.New("overflowing header size"), true},
+		{"OverflowpackingA", errors.New("overflow packing a"), true},
+		{"ErrSig", dns.ErrSig, false},
 	}
 
-	respTCP, err := p.Connect(context.Background(), req, Options{ForceTCP: true})
-	if err != nil {
-		t.Errorf("Failed to connect to testdnsserver: %s", err)
-	}
-
-	// Verify that the TC (truncated) flag is not set in the response
-	if respTCP.Truncated {
-		t.Errorf("Did not expect truncated response, but the TC flag is set")
+	for _, tc := range testCases {
+		t.Run(tc.testname, func(t *testing.T) {
+			result := shouldTruncateResponse(tc.err)
+			if result != tc.expected {
+				t.Errorf("For testname '%v', expected %v but got %v", tc.testname, tc.expected, result)
+			}
+		})
 	}
 }
