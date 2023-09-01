@@ -127,9 +127,9 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 				// client retry over TCP (if that's supported) or at least receive a clean
 				// error. The connection is still good so we break before the close.
 
-				if shouldTruncateResponse(err) {
-					// Only if response message id matches the request message id - return a truncated response.
-					if ret != nil && (state.Req.Id == ret.Id) {
+				// Only if response message id matches the request message id - check for truncation and truncate response.
+				if ret != nil && (state.Req.Id == ret.Id) {
+					if shouldTruncateResponse(err) {
 						ret = truncateResponse(ret)
 						break
 					}
