@@ -119,23 +119,16 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
-			// If TLS has been configured, then actual protocol used is TCP.
-			if p.transport.transportTypeFromConn(pc) == typeUDP {
+			if ret != nil && (state.Req.Id == ret.Id) && p.transport.transportTypeFromConn(pc) == typeUDP && shouldTruncateResponse(err) {
 				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
 				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
 				// Instead of returning an error, return an empty response with TC bit set. This will make the
 				// client retry over TCP (if that's supported) or at least receive a clean
 				// error. The connection is still good so we break before the close.
 
-				// Only if response message id matches the request message id - check for truncation and truncate response.
-				if ret != nil && (state.Req.Id == ret.Id) {
-					// Check if the response should be truncated based on the error.
-					if shouldTruncateResponse(err) {
-						// Truncate the response.
-						ret = truncateResponse(ret)
-						break
-					}
-				}
+				// Truncate the response.
+				ret = truncateResponse(ret)
+				break
 			}
 
 			pc.c.Close() // not giving it back
