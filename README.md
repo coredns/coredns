@@ -60,7 +60,7 @@ First, make sure your golang version is 1.20 or higher as `go mod` support and o
 See [here](https://github.com/golang/go/wiki/Modules) for `go mod` details.
 Then, check out the project and run `make` to compile the binary:
 
-~~~
+~~~ bash
 $ git clone https://github.com/coredns/coredns
 $ cd coredns
 $ make
@@ -73,11 +73,22 @@ This should yield a `coredns` binary.
 CoreDNS requires Go to compile. However, if you already have docker installed and prefer not to
 setup a Go environment, you could build CoreDNS easily:
 
-```
-$ docker run --rm -i -t -v $PWD:/v -w /v golang:1.21 make
-```
+~~~ bash
+# Builds the `coredns` binary and outputs to: $PWD/coredns
+$ docker run --rm -it -v $PWD:/src -w /src golang:1.21 make
+~~~
 
-The above command alone will have `coredns` binary generated.
+This fails on Linux if the git clone is not owned by `root` in the container.
+Either correct the ownership for the bind mount volume or run this instead:
+
+~~~ bash
+# Adjusts the build to be compatible with your user:
+$ docker run --rm -it \
+  --user "$(id -u):$(id -g)" \
+  --tmpfs "/.cache/:uid=$(id -u),gid=$(id -g)" \
+  --volume "${PWD}:/src" --workdir /src \
+  golang:1.21 make
+~~~
 
 ## Examples
 
