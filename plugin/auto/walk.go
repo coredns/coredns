@@ -19,8 +19,15 @@ func (a Auto) Walk() error {
 		toDelete[n] = true
 	}
 
-	filepath.Walk(a.loader.directory, func(path string, info os.FileInfo, _ error) error {
-		if info == nil || info.IsDir() {
+	filepath.Walk(a.loader.directory, func(path string, info os.FileInfo, e error) error {
+		if e != nil {
+			log.Warningf("error reading %v: %v", path, e)
+		}
+		if info == nil {
+			return nil
+		}
+
+		if info.IsDir() {
 			return nil
 		}
 
