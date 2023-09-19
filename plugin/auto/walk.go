@@ -23,11 +23,7 @@ func (a Auto) Walk() error {
 		if e != nil {
 			log.Warningf("error reading %v: %v", path, e)
 		}
-		if info == nil {
-			return nil
-		}
-
-		if info.IsDir() {
+		if info == nil || info.IsDir() {
 			return nil
 		}
 
