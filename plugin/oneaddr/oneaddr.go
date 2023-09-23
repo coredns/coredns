@@ -8,9 +8,9 @@ import (
 )
 
 type dedupKey struct {
-	name string
+	name   string
 	rrtype uint16
-	class uint16
+	class  uint16
 }
 
 type dedupSet = map[dedupKey]struct{}
@@ -18,9 +18,9 @@ type dedupSet = map[dedupKey]struct{}
 func makeDedupKey(rec dns.RR) dedupKey {
 	hdr := rec.Header()
 	return dedupKey{
-		name: strings.ToLower(hdr.Name),
+		name:   strings.ToLower(hdr.Name),
 		rrtype: hdr.Rrtype,
-		class: hdr.Class,
+		class:  hdr.Class,
 	}
 }
 
@@ -56,7 +56,9 @@ func trimRecords(in []dns.RR) []dns.RR {
 		switch rec.Header().Rrtype {
 		case dns.TypeA, dns.TypeAAAA:
 			key := makeDedupKey(rec)
-			if _, ok := seen[key]; ok { continue }
+			if _, ok := seen[key]; ok {
+				continue
+			}
 			seen[key] = struct{}{}
 			fallthrough
 		default:
