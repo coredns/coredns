@@ -34,6 +34,7 @@ var Directives = []string{
 	"acl",
 	"any",
 	"chaos",
+	"oneaddr",
 	"loadbalance",
 	"tsig",
 	"cache",
