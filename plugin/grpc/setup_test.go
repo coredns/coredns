@@ -19,6 +19,11 @@ func TestSetup(t *testing.T) {
 	}{
 		// positive
 		{"grpc . 127.0.0.1", false, ".", nil, ""},
+		{`grpc . 127.0.0.1 {
+             metadata cluster dev 
+             metadata name pcwang
+             metadata pwd xxxx
+        }`, false, ".", nil, ""},
 		{"grpc . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, ""},
 		{"grpc . 127.0.0.1", false, ".", nil, ""},
 		{"grpc . 127.0.0.1:53", false, ".", nil, ""},

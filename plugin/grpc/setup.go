@@ -135,6 +135,12 @@ func parseBlock(c *caddy.Controller, g *GRPC) error {
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
+	case "metadata":
+		args := c.RemainingArgs()
+		if len(args) != 2 {
+			return c.ArgErr()
+		}
+		g.metaData[args[0]] = args[1]
 	default:
 		if c.Val() != "}" {
 			return c.Errf("unknown property '%s'", c.Val())

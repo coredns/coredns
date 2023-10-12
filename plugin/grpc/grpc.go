@@ -12,6 +12,7 @@ import (
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
+	"google.golang.org/grpc/metadata"
 )
 
 // GRPC represents a plugin instance that can proxy requests to another (DNS) server via gRPC protocol.
@@ -25,6 +26,8 @@ type GRPC struct {
 
 	tlsConfig     *tls.Config
 	tlsServerName string
+
+	metaData map[string]string
 
 	Next plugin.Handler
 }
@@ -42,6 +45,15 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		err         error
 		i           int
 	)
+
+	if len(g.metaData) > 0 {
+		md := metadata.MD{}
+		for k, v := range g.metaData {
+			md[k] = []string{v}
+		}
+		ctx = metadata.NewOutgoingContext(ctx, md)
+	}
+
 	span = ot.SpanFromContext(ctx)
 	list := g.list()
 	deadline := time.Now().Add(defaultTimeout)
@@ -100,7 +112,8 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // NewGRPC returns a new GRPC.
 func newGRPC() *GRPC {
 	g := &GRPC{
-		p: new(random),
+		p:        new(random),
+		metaData: make(map[string]string),
 	}
 	return g
 }

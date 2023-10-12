@@ -31,6 +31,9 @@ Extra knobs are available with an expanded syntax:
 grpc FROM TO... {
     except IGNORED_NAMES...
     tls CERT KEY CA
+    metadata cluster dev
+    metadata clientid dev01
+    metadata pwd xxxx
     tls_servername NAME
     policy random|round_robin|sequential
 }
@@ -136,7 +139,17 @@ Forward requests to a local upstream listening on a Unix domain socket.
     grpc . unix:///path/to/grpc.sock
 }
 ~~~
+add metadata to request 
 
+~~~ corefile
+. {
+    grpc . 1.1.1.1 1.0.0.1 {
+       metadata cluster dev
+       metadata clientid dev01
+       metadata pwd xxx
+    }
+}
+~~~
 ## Bugs
 
 The TLS config is global for the whole grpc proxy if you need a different `tls_servername` for
