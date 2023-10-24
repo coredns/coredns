@@ -356,7 +356,7 @@ func testCoreDNSOverflow(t *testing.T, domainName string, noOfARecords int, eDNS
 
 	defer s.Close()
 
-	// When testing for AKS scenario, use upstream Azure DNS server address "168.63.129.16" instead of s.Addr
+	// When testing for AKS scenario, use upstream Azure DNS server address "168.63.129.16:53" instead of s.Addr
 	p := NewProxy("TestCoreDNSOverflow", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	p.Start(5 * time.Second)
