@@ -135,7 +135,6 @@ func TestCoreDNSOverflowWithoutEdns(t *testing.T) {
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
 		ret.SetReply(r)
-
 		answers := []dns.RR{
 			test.A("example123.org. IN A 127.0.0.1"),
 			test.A("example123.org. IN A 127.0.0.2"),
@@ -161,12 +160,10 @@ func TestCoreDNSOverflowWithoutEdns(t *testing.T) {
 		ret.Answer = answers
 		w.WriteMsg(ret)
 	})
-
 	defer s.Close()
 	p := NewProxy("TestCoreDNSOverflow", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	p.Start(5 * time.Second)
-
 	defer p.Stop()
 
 	// Test different connection modes
@@ -178,7 +175,6 @@ func TestCoreDNSOverflowWithoutEdns(t *testing.T) {
 
 		recorder := dnstest.NewRecorder(&test.ResponseWriter{})
 		request := request.Request{Req: queryMsg, W: recorder}
-
 		response, err := p.Connect(context.Background(), request, options)
 
 		if err != nil {
@@ -191,7 +187,6 @@ func TestCoreDNSOverflowWithoutEdns(t *testing.T) {
 			t.Errorf("Expected truncated response for %s, but got TC flag %v", proto, response.Truncated)
 		}
 	}
-
 	// Test PreferUDP, expect truncated response
 	testConnection("PreferUDP", Options{PreferUDP: true}, true)
 
@@ -345,11 +340,9 @@ func testCoreDNSOverflow(t *testing.T, domainName string, noOfARecords int, eDNS
 		for i := 0; i < noOfARecords; i++ {
 			answers = append(answers, test.A(""+domainName+" IN A 127.0.0."+strconv.Itoa(1+i)))
 		}
-
 		ret.Answer = answers
 		w.WriteMsg(ret)
 	})
-
 	defer s.Close()
 
 	// When testing for AKS scenario, use upstream Azure DNS server address "168.63.129.16:53" instead of s.Addr
@@ -357,14 +350,12 @@ func testCoreDNSOverflow(t *testing.T, domainName string, noOfARecords int, eDNS
 	p.readTimeout = 10 * time.Millisecond
 	p.Start(5 * time.Second)
 	defer p.Stop()
-
 	t.Helper()
 
 	queryMsg := new(dns.Msg)
 	queryMsg.SetQuestion(domainName, dns.TypeA)
 	recorder := dnstest.NewRecorder(&test.ResponseWriter{})
 	request := request.Request{Req: queryMsg, W: recorder}
-
 	request.Req.SetEdns0(eDNSUDPSize, true)
 
 	protocolOpt := Options{}
@@ -380,7 +371,6 @@ func testCoreDNSOverflow(t *testing.T, domainName string, noOfARecords int, eDNS
 
 	// Call the function defined in connect.go
 	response, err := p.Connect(context.Background(), request, protocolOpt)
-
 	if err != nil {
 		t.Errorf("Failed to connect to testdnsserver: %s", err)
 	}
