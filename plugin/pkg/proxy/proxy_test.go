@@ -132,7 +132,6 @@ func TestProxyIncrementFails(t *testing.T) {
 }
 
 func TestCoreDNSOverflowWithoutEdns(t *testing.T) {
-
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
 		ret.SetReply(r)
@@ -231,7 +230,6 @@ func TestShouldTruncateResponse(t *testing.T) {
 }
 
 func TestCoreDNSOverflowForDifferentRanges(t *testing.T) {
-
 	// Testing with 19 characters in the domain name.
 	// -----------------------------------------------------------------------------------------------------------
 	// Length of the response for 12 A records will be 478 bytes and UDPSize is 512.
@@ -335,11 +333,9 @@ func TestCoreDNSOverflowForDifferentRanges(t *testing.T) {
 	testCoreDNSOverflow(t, "exampl.", 24, 552, "PreferUDP", true)
 	testCoreDNSOverflow(t, "example.", 23, 554, "PreferUDP", true)
 	testCoreDNSOverflow(t, "example.org.", 19, 542, "PreferUDP", true)
-
 }
 
 func testCoreDNSOverflow(t *testing.T, domainName string, noOfARecords int, eDNSUDPSize uint16, proto string, expectTruncated bool) {
-
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
 		ret.SetReply(r)
