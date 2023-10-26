@@ -134,6 +134,7 @@ func TestCoreDNSOverflow(t *testing.T) {
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
 		ret.SetReply(r)
+
 		answers := []dns.RR{
 			test.A("example.org. IN A 127.0.0.1"),
 			test.A("example.org. IN A 127.0.0.2"),
@@ -160,6 +161,7 @@ func TestCoreDNSOverflow(t *testing.T) {
 		w.WriteMsg(ret)
 	})
 	defer s.Close()
+
 	p := NewProxy("TestCoreDNSOverflow", s.Addr, transport.DNS)
 	p.readTimeout = 10 * time.Millisecond
 	p.Start(5 * time.Second)
@@ -168,13 +170,14 @@ func TestCoreDNSOverflow(t *testing.T) {
 	// Test different connection modes
 	testConnection := func(proto string, options Options, expectTruncated bool) {
 		t.Helper()
+
 		queryMsg := new(dns.Msg)
 		queryMsg.SetQuestion("example.org.", dns.TypeA)
 
 		recorder := dnstest.NewRecorder(&test.ResponseWriter{})
 		request := request.Request{Req: queryMsg, W: recorder}
-		response, err := p.Connect(context.Background(), request, options)
 
+		response, err := p.Connect(context.Background(), request, options)
 		if err != nil {
 			t.Errorf("Failed to connect to testdnsserver: %s", err)
 		}
@@ -185,6 +188,7 @@ func TestCoreDNSOverflow(t *testing.T) {
 			t.Errorf("Expected truncated response for %s, but got TC flag %v", proto, response.Truncated)
 		}
 	}
+
 	// Test PreferUDP, expect truncated response
 	testConnection("PreferUDP", Options{PreferUDP: true}, true)
 
