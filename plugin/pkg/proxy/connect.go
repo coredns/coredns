@@ -141,9 +141,8 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 			}
 			return ret, err
 		}
-		// If an upstream server does not set TC bit and response length is greater or equal to state.Size() or 512 default buffer size, then we cannot be sure if the response is actually truncated or not.
-		// So we need to set TC bit for UDP protocol, and client can retry over TCP.
-		if ret.Len() >= int(pc.c.UDPSize) && p.transport.transportTypeFromConn(pc) == typeUDP {
+		// If an upstream server does not set TC bit and response length is greater than state.Size() or 512 default buffer size, we need to set TC bit for UDP protocol, and client can retry over TCP.
+		if ret.Len() > int(pc.c.UDPSize) && p.transport.transportTypeFromConn(pc) == typeUDP {
 			// Truncate the response.
 			ret = truncateResponse(ret)
 			break
