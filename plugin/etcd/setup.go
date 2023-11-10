@@ -101,7 +101,7 @@ func newEtcdClient(endpoints []string, cc *tls.Config, username, password string
 	etcdCfg := etcdcv3.Config{
 		Endpoints:         endpoints,
 		TLS:               cc,
-		DialKeepAliveTime: etcdTimeout + etcdTimeout/2,
+		DialKeepAliveTime: etcdTimeout,
 	}
 	if username != "" && password != "" {
 		etcdCfg.Username = username
