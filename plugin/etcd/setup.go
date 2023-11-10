@@ -99,8 +99,9 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 
 func newEtcdClient(endpoints []string, cc *tls.Config, username, password string) (*etcdcv3.Client, error) {
 	etcdCfg := etcdcv3.Config{
-		Endpoints: endpoints,
-		TLS:       cc,
+		Endpoints:         endpoints,
+		TLS:               cc,
+		DialKeepAliveTime: etcdTimeout,
 	}
 	if username != "" && password != "" {
 		etcdCfg.Username = username
