@@ -31,7 +31,7 @@ func TestTruncatedCNAME(t *testing.T) {
 	handler := Handler{
 		Zones: []string{"."},
 		Templates: []template{{
-			regex:    []*regexp.Regexp{regexp.MustCompile("^cname\\.test\\.$")},
+			regex:    []*regexp.Regexp{regexp.MustCompile(`^cname\.test\.$`)},
 			answer:   []*gotmpl.Template{gotmpl.Must(gotmpl.New("answer").Parse(up.Answer[0].String()))},
 			qclass:   dns.ClassINET,
 			qtype:    dns.TypeA,
