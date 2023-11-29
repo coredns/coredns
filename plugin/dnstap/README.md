@@ -95,7 +95,7 @@ dnstap tcp://example.com:6000
 ## Command Line Tool
 
 Dnstap has a command line tool that can be used to inspect the logging. The tool can be found
-at Github: <https://github.com/dnstap/golang-dnstap>. It's written in Go.
+at GitHub: <https://github.com/dnstap/golang-dnstap>. It's written in Go.
 
 The following command listens on the given socket and decodes messages to stdout.
 
