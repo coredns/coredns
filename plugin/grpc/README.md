@@ -139,7 +139,9 @@ Forward requests to a local upstream listening on a Unix domain socket.
     grpc . unix:///path/to/grpc.sock
 }
 ~~~
-add metadata to request 
+
+Add GRPC metadata to requests
+
 
 ~~~ corefile
 . {
