@@ -28,12 +28,12 @@ func TestPrefetch(t *testing.T) {
 				{
 					after:  0 * time.Second,
 					answer: "hits.reset.example.org. 80 IN A 127.0.0.1",
-					fetch:  true,
+					fetch:  true, // Initial fetch
 				},
 				{
 					after:  73 * time.Second,
 					answer: "hits.reset.example.org.  7 IN A 127.0.0.1",
-					fetch:  true,
+					fetch:  true, // Triggers prefetch with 7 TTL (10% of 80 = 8 TTL threshold)
 				},
 				{
 					after:  80 * time.Second,
@@ -91,6 +91,68 @@ func TestPrefetch(t *testing.T) {
 				},
 			},
 		},
+		{
+			// tests whether cache prefetches with the do bit
+			qname:    "do.prefetch.example.org.",
+			ttl:      80,
+			prefetch: 1,
+			verifications: []verification{
+				{
+					after:  0 * time.Second,
+					answer: "do.prefetch.example.org. 80 IN A 127.0.0.1",
+					do:     true,
+					fetch:  true,
+				},
+				{
+					after:  73 * time.Second,
+					answer: "do.prefetch.example.org.  7 IN A 127.0.0.1",
+					do:     true,
+					fetch:  true,
+				},
+				{
+					after:  80 * time.Second,
+					answer: "do.prefetch.example.org. 73 IN A 127.0.0.2",
+					do:     true,
+				},
+				{
+					// Should be 127.0.0.3 as 127.0.0.2 was the prefetch WITH do bit
+					after:  80 * time.Second,
+					answer: "do.prefetch.example.org. 80 IN A 127.0.0.3",
+					fetch:  true,
+				},
+			},
+		},
+		{
+			// tests whether cache prefetches with the cd bit
+			qname:    "cd.prefetch.example.org.",
+			ttl:      80,
+			prefetch: 1,
+			verifications: []verification{
+				{
+					after:  0 * time.Second,
+					answer: "cd.prefetch.example.org. 80 IN A 127.0.0.1",
+					cd:     true,
+					fetch:  true,
+				},
+				{
+					after:  73 * time.Second,
+					answer: "cd.prefetch.example.org.  7 IN A 127.0.0.1",
+					cd:     true,
+					fetch:  true,
+				},
+				{
+					after:  80 * time.Second,
+					answer: "cd.prefetch.example.org. 73 IN A 127.0.0.2",
+					cd:     true,
+				},
+				{
+					// Should be 127.0.0.3 as 127.0.0.2 was the prefetch WITH cd bit
+					after:  80 * time.Second,
+					answer: "cd.prefetch.example.org. 80 IN A 127.0.0.3",
+					fetch:  true,
+				},
+			},
+		},
 	}
 
 	t0, err := time.Parse(time.RFC3339, "2018-01-01T14:00:00+00:00")
@@ -102,28 +164,29 @@ func TestPrefetch(t *testing.T) {
 			fetchc := make(chan struct{}, 1)
 
 			c := New()
-			c.prefetch = tt.prefetch
 			c.Next = prefetchHandler(tt.qname, tt.ttl, fetchc)
+			c.prefetch = tt.prefetch
 
-			req := new(dns.Msg)
-			req.SetQuestion(tt.qname, dns.TypeA)
 			rec := dnstest.NewRecorder(&test.ResponseWriter{})
 
 			for _, v := range tt.verifications {
 				c.now = func() time.Time { return t0.Add(v.after) }
 
+				req := new(dns.Msg)
+				req.SetQuestion(tt.qname, dns.TypeA)
+				req.CheckingDisabled = v.cd
+				req.SetEdns0(512, v.do)
+
 				c.ServeDNS(context.TODO(), rec, req)
 				if v.fetch {
 					select {
 					case <-fetchc:
-						if !v.fetch {
-							t.Fatalf("After %s: want request to trigger a prefetch", v.after)
-						}
+						// Prefetch handler was called.
 					case <-time.After(time.Second):
 						t.Fatalf("After %s: want request to trigger a prefetch", v.after)
 					}
 				}
-				if want, got := rec.Rcode, dns.RcodeSuccess; want != got {
+				if want, got := dns.RcodeSuccess, rec.Rcode; want != got {
 					t.Errorf("After %s: want rcode %d, got %d", v.after, want, got)
 				}
 				if want, got := 1, len(rec.Msg.Answer); want != got {
@@ -140,6 +203,8 @@ func TestPrefetch(t *testing.T) {
 type verification struct {
 	after  time.Duration
 	answer string
+	do     bool
+	cd     bool
 	// fetch defines whether a request is sent to the next handler.
 	fetch bool
 }

@@ -23,7 +23,7 @@ func TestHealth(t *testing.T) {
 	})
 	defer s.Close()
 
-	hc := NewHealthChecker("TestHealth", transport.DNS, true, "")
+	hc := NewHealthChecker("TestHealth", transport.DNS, true, ".")
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
 
@@ -53,7 +53,7 @@ func TestHealthTCP(t *testing.T) {
 	})
 	defer s.Close()
 
-	hc := NewHealthChecker("TestHealthTCP", transport.DNS, true, "")
+	hc := NewHealthChecker("TestHealthTCP", transport.DNS, true, ".")
 	hc.SetTCPTransport()
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
@@ -84,7 +84,7 @@ func TestHealthNoRecursion(t *testing.T) {
 	})
 	defer s.Close()
 
-	hc := NewHealthChecker("TestHealthNoRecursion", transport.DNS, false, "")
+	hc := NewHealthChecker("TestHealthNoRecursion", transport.DNS, false, ".")
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
 
@@ -108,7 +108,7 @@ func TestHealthTimeout(t *testing.T) {
 	})
 	defer s.Close()
 
-	hc := NewHealthChecker("TestHealthTimeout", transport.DNS, false, "")
+	hc := NewHealthChecker("TestHealthTimeout", transport.DNS, false, ".")
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
 
