@@ -1,6 +1,7 @@
 package tls
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -22,7 +23,6 @@ func getPEMFiles(t *testing.T) (cert, key, ca string) {
 
 func TestNewTLSConfig(t *testing.T) {
 	cert, key, ca := getPEMFiles(t)
-
 	_, err := NewTLSConfig(cert, key, ca)
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
@@ -66,6 +66,36 @@ func TestNewTLSConfigFromArgs(t *testing.T) {
 	}
 	args := []string{cert, key, ca}
 	c, err = NewTLSConfigFromArgs(args...)
+	if err != nil {
+		t.Errorf("Failed to create TLSConfig: %s", err)
+	}
+	if c.RootCAs == nil {
+		t.Error("RootCAs should not be nil when three args passed")
+	}
+	if len(c.Certificates) != 1 {
+		t.Error("Certificates should have a single entry when three args passed")
+	}
+}
+
+func TestNewTLSConfigFromArgsWithRoot(t *testing.T) {
+	cert, key, ca := getPEMFiles(t)
+	tempDir, err := os.MkdirTemp("", "go-test-pemfiles")
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Error("failed to clean up temporary directory", err)
+		}
+	}()
+	if err != nil {
+		t.Error("failed to create temporary directory", err)
+	}
+	root := tempDir
+	args := []string{cert, key, ca}
+	for i := range args {
+		if !filepath.IsAbs(args[i]) && root != "" {
+			args[i] = filepath.Join(root, args[i])
+		}
+	}
+	c, err := NewTLSConfigFromArgs(args...)
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}

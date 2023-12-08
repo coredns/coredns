@@ -2,6 +2,7 @@ package etcd
 
 import (
 	"crypto/tls"
+	"path/filepath"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -29,6 +30,7 @@ func setup(c *caddy.Controller) error {
 }
 
 func etcdParse(c *caddy.Controller) (*Etcd, error) {
+	config := dnsserver.GetConfig(c)
 	etc := Etcd{PathPrefix: "skydns"}
 	var (
 		tlsConfig *tls.Config
@@ -66,6 +68,11 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 				c.RemainingArgs()
 			case "tls": // cert key cacertfile
 				args := c.RemainingArgs()
+				for i := range args {
+					if !filepath.IsAbs(args[i]) && config.Root != "" {
+						args[i] = filepath.Join(config.Root, args[i])
+					}
+				}
 				tlsConfig, err = mwtls.NewTLSConfigFromArgs(args...)
 				if err != nil {
 					return &Etcd{}, err
