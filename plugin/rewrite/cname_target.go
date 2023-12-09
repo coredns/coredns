@@ -25,9 +25,14 @@ type cnameTargetRule struct {
 	paramFromTarget string
 	paramToTarget   string
 	nextAction      string
-	state           request.Request
-	ctx             context.Context
 	Upstream        UpstreamInt // Upstream for looking up external names during the resolution process.
+}
+
+// cnameTargetRuleWithReqState is cname target rewrite rule state
+type cnameTargetRuleWithReqState struct {
+	rule  cnameTargetRule
+	state request.Request
+	ctx   context.Context
 }
 
 func (r *cnameTargetRule) getFromAndToTarget(inputCName string) (from string, to string) {
@@ -62,17 +67,17 @@ func (r *cnameTargetRule) getFromAndToTarget(inputCName string) (from string, to
 	return "", ""
 }
 
-func (r *cnameTargetRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
+func (r *cnameTargetRuleWithReqState) RewriteResponse(res *dns.Msg, rr dns.RR) {
 	// logic to rewrite the cname target of dns response
 	switch rr.Header().Rrtype {
 	case dns.TypeCNAME:
 		// rename the target of the cname response
 		if cname, ok := rr.(*dns.CNAME); ok {
-			fromTarget, toTarget := r.getFromAndToTarget(cname.Target)
+			fromTarget, toTarget := r.rule.getFromAndToTarget(cname.Target)
 			if cname.Target == fromTarget {
 				// create upstream request with the new target with the same qtype
 				r.state.Req.Question[0].Name = toTarget
-				upRes, err := r.Upstream.Lookup(r.ctx, r.state, toTarget, r.state.Req.Question[0].Qtype)
+				upRes, err := r.rule.Upstream.Lookup(r.ctx, r.state, toTarget, r.state.Req.Question[0].Qtype)
 
 				if err != nil {
 					log.Errorf("Error upstream request %v", err)
@@ -133,10 +138,12 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 
 // Rewrite rewrites the current request.
 func (r *cnameTargetRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
-	if len(r.rewriteType) > 0 && len(r.paramFromTarget) > 0 && len(r.paramToTarget) > 0 {
-		r.state = state
-		r.ctx = ctx
-		return ResponseRules{r}, RewriteDone
+	if r != nil && len(r.rewriteType) > 0 && len(r.paramFromTarget) > 0 && len(r.paramToTarget) > 0 {
+		return ResponseRules{&cnameTargetRuleWithReqState{
+			rule:  *r,
+			state: state,
+			ctx:   ctx,
+		}}, RewriteDone
 	}
 	return nil, RewriteIgnored
 }
