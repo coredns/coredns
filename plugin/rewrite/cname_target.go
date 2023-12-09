@@ -138,7 +138,7 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 
 // Rewrite rewrites the current request.
 func (r *cnameTargetRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
-	if len(r.rewriteType) > 0 && len(r.paramFromTarget) > 0 && len(r.paramToTarget) > 0 {
+	if r != nil && len(r.rewriteType) > 0 && len(r.paramFromTarget) > 0 && len(r.paramToTarget) > 0 {
 		return ResponseRules{&cnameTargetRuleWithReqState{
 			rule:  *r,
 			state: state,
