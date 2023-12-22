@@ -21,8 +21,15 @@ func (u *MockedUpstream) Lookup(ctx context.Context, state request.Request, name
 	m.Authoritative = true
 	switch state.Req.Question[0].Name {
 	case "xyz.example.com.":
-		m.Answer = []dns.RR{
-			test.A("xyz.example.com. 3600 IN A 3.4.5.6"),
+		switch state.Req.Question[0].Qtype {
+		case dns.TypeA:
+			m.Answer = []dns.RR{
+				test.A("xyz.example.com.  3600  IN  A 3.4.5.6"),
+			}
+		case dns.TypeAAAA:
+			m.Answer = []dns.RR{
+				test.AAAA("xyz.example.com.  3600  IN  AAAA 3a01:7e00::f03c:91ff:fe79:234c"),
+			}
 		}
 		return m, nil
 	case "bard.google.com.cdn.cloudflare.net.":
@@ -92,6 +99,16 @@ func doTestCNameTargetTests(rules []Rule, t *testing.T) {
 			[]dns.RR{
 				test.CNAME("abc.example.com.  5   IN  CNAME  xyz.example.com."),
 				test.A("xyz.example.com.  3600  IN  A  3.4.5.6"),
+			},
+		},
+		{"abc.example.com", dns.TypeAAAA,
+			[]dns.RR{
+				test.CNAME("abc.example.com.  5   IN  CNAME  def.example.com."),
+				test.AAAA("def.example.com.   5  IN  AAAA   2a01:7e00::f03c:91ff:fe79:234c"),
+			},
+			[]dns.RR{
+				test.CNAME("abc.example.com.  5   IN  CNAME  xyz.example.com."),
+				test.AAAA("xyz.example.com.  3600  IN  AAAA  3a01:7e00::f03c:91ff:fe79:234c"),
 			},
 		},
 		{"chat.openai.com", dns.TypeA,

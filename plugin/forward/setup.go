@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -167,6 +168,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 }
 
 func parseBlock(c *caddy.Controller, f *Forward) error {
+	config := dnsserver.GetConfig(c)
 	switch c.Val() {
 	case "except":
 		ignore := c.RemainingArgs()
@@ -233,6 +235,11 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return c.ArgErr()
 		}
 
+		for i := range args {
+			if !filepath.IsAbs(args[i]) && config.Root != "" {
+				args[i] = filepath.Join(config.Root, args[i])
+			}
+		}
 		tlsConfig, err := pkgtls.NewTLSConfigFromArgs(args...)
 		if err != nil {
 			return err
