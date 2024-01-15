@@ -12,7 +12,7 @@ require (
 	github.com/coredns/caddy v1.1.1
 	github.com/dnstap/golang-dnstap v0.4.0
 	github.com/farsightsec/golang-framestream v0.3.0
-	github.com/go-logr/logr v1.3.0
+	github.com/go-logr/logr v1.4.1
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
 	github.com/infobloxopen/go-trees v0.0.0-20200715205103-96a057b8dfb9
 	github.com/matttproud/golang_protobuf_extensions v1.0.4
