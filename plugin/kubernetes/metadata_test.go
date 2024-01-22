@@ -141,8 +141,10 @@ func TestMetadataPodsVerified(t *testing.T) {
 	k.Metadata(ctx, state)
 
 	expect := map[string]string{
-		"kubernetes/client-namespace": "podns",
-		"kubernetes/client-pod-name":  "foo",
+		"kubernetes/client-namespace":                    "podns",
+		"kubernetes/client-pod-name":                     "foo",
+		"kubernetes/client-label/app.kubernetes.io/name": "foo",
+		"kubernetes/client-label/bar":                    "baz",
 	}
 
 	md := make(map[string]string)
