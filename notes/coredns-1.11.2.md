@@ -9,7 +9,7 @@ author = "coredns"
 
 This release contains some new features, bug fixes, and package updates.
 New features include:
-* When the _forward_ plugin receives a malformed upstream response that is overflowed,
+* When the _forward_ plugin receives a malformed upstream response that overflows,
   it will now send an empty response to the client with the truncated (TC) bit set to prompt the client
   to retry over TCP.
 * The _rewrite_ plugin can now rewrite response codes.
