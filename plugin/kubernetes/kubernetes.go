@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"runtime"
 	"strings"
 	"time"
 
+	"github.com/coredns/coredns/coremain"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
@@ -192,6 +194,7 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 			return nil, err
 		}
 		cc.ContentType = "application/vnd.kubernetes.protobuf"
+		cc.UserAgent = fmt.Sprintf("%s/%s git_commit:%s (%s/%s/%s)", coremain.CoreName, coremain.CoreVersion, coremain.GitCommit, runtime.GOOS, runtime.GOARCH, runtime.Version())
 		return cc, err
 	}
 
@@ -218,6 +221,7 @@ func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
 		return nil, err
 	}
 	cc.ContentType = "application/vnd.kubernetes.protobuf"
+	cc.UserAgent = fmt.Sprintf("%s/%s git_commit:%s (%s/%s/%s)", coremain.CoreName, coremain.CoreVersion, coremain.GitCommit, runtime.GOOS, runtime.GOARCH, runtime.Version())
 	return cc, err
 }
 
