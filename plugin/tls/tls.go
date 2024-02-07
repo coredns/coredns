@@ -2,6 +2,7 @@ package tls
 
 import (
 	ctls "crypto/tls"
+	"path/filepath"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -55,6 +56,11 @@ func parseTLS(c *caddy.Controller) error {
 				}
 			default:
 				return c.Errf("unknown option '%s'", c.Val())
+			}
+		}
+		for i := range args {
+			if !filepath.IsAbs(args[i]) && config.Root != "" {
+				args[i] = filepath.Join(config.Root, args[i])
 			}
 		}
 		tls, err := tls.NewTLSConfigFromArgs(args...)
