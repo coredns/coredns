@@ -44,6 +44,7 @@ import (
 	_ "github.com/coredns/coredns/plugin/ready"
 	_ "github.com/coredns/coredns/plugin/reload"
 	_ "github.com/coredns/coredns/plugin/rewrite"
+	_ "github.com/coredns/coredns/plugin/rlc"
 	_ "github.com/coredns/coredns/plugin/root"
 	_ "github.com/coredns/coredns/plugin/route53"
 	_ "github.com/coredns/coredns/plugin/secondary"
