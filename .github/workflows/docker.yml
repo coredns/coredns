@@ -20,7 +20,7 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
       RELEASE: ${{ github.event.inputs.release || github.event.release.tag_name }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Build Docker Images
         run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker release
       - name: Show Docker Images

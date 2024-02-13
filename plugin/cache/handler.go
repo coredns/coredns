@@ -18,6 +18,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	rc := r.Copy() // We potentially modify r, to prevent other plugins from seeing this (r is a pointer), copy r into rc.
 	state := request.Request{W: w, Req: rc}
 	do := state.Do()
+	cd := r.CheckingDisabled
 	ad := r.AuthenticatedData
 
 	zone := plugin.Zones(c.Zones).Matches(state.Name())
@@ -36,7 +37,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	ttl := 0
 	i := c.getIgnoreTTL(now, state, server)
 	if i == nil {
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, ad: ad,
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, ad: ad, cd: cd,
 			nexcept: c.nexcept, pexcept: c.pexcept, wildcardFunc: wildcardFunc(ctx)}
 		return c.doRefresh(ctx, state, crr)
 	}
@@ -44,7 +45,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	if ttl < 0 {
 		// serve stale behavior
 		if c.verifyStale {
-			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
+			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, cd: cd}
 			cw := newVerifyStaleResponseWriter(crr)
 			ret, err := c.doRefresh(ctx, state, cw)
 			if cw.refreshed {
@@ -121,7 +122,7 @@ func (c *Cache) Name() string { return "cache" }
 
 // getIgnoreTTL unconditionally returns an item if it exists in the cache.
 func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
-	k := hash(state.Name(), state.QType(), state.Do())
+	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
 	cacheRequests.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok {
@@ -145,7 +146,7 @@ func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string
 }
 
 func (c *Cache) exists(state request.Request) *item {
-	k := hash(state.Name(), state.QType(), state.Do())
+	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
 	if i, ok := c.ncache.Get(k); ok {
 		return i.(*item)
 	}

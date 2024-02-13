@@ -6,9 +6,10 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"io"
-	"net"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -118,20 +119,23 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
-			// For UDP, if the error is not a network error keep waiting for a valid response to prevent malformed
-			// spoofs from blocking the upstream response.
-			// In the case this is a legitimate malformed response from the upstream, this will result in a timeout.
-			if proto == "udp" {
-				if _, ok := err.(net.Error); !ok {
-					continue
-				}
+			if ret != nil && (state.Req.Id == ret.Id) && p.transport.transportTypeFromConn(pc) == typeUDP && shouldTruncateResponse(err) {
+				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
+				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
+				// Instead of returning an error, return an empty response with TC bit set. This will make the
+				// client retry over TCP (if that's supported) or at least receive a clean
+				// error. The connection is still good so we break before the close.
+
+				// Truncate the response.
+				ret = truncateResponse(ret)
+				break
 			}
-			pc.c.Close() // connection closed by peer, close the persistent connection
+
+			pc.c.Close() // not giving it back
 			if err == io.EOF && cached {
 				return nil, ErrCachedClosed
 			}
-
-			// recover the origin Id after upstream.
+			// recovery the origin Id after upstream.
 			if ret != nil {
 				ret.Id = originId
 			}
@@ -158,3 +162,27 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 }
 
 const cumulativeAvgWeight = 4
+
+// Function to determine if a response should be truncated.
+func shouldTruncateResponse(err error) bool {
+	// This is to handle a scenario in which upstream sets the TC bit, but doesn't truncate the response
+	// and we get ErrBuf instead of overflow.
+	if _, isDNSErr := err.(*dns.Error); isDNSErr && errors.Is(err, dns.ErrBuf) {
+		return true
+	} else if strings.Contains(err.Error(), "overflow") {
+		return true
+	}
+	return false
+}
+
+// Function to return an empty response with TC (truncated) bit set.
+func truncateResponse(response *dns.Msg) *dns.Msg {
+	// Clear out Answer, Extra, and Ns sections
+	response.Answer = nil
+	response.Extra = nil
+	response.Ns = nil
+
+	// Set TC bit to indicate truncation.
+	response.Truncated = true
+	return response
+}

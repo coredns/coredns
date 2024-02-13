@@ -11,7 +11,7 @@ func TestRegisterAndDeregisterListener(t *testing.T) {
 	for _, name := range []string{"listener1", "listener2", "listener1"} {
 		err := RegisterListener(NewMockListener(name))
 		if err != nil {
-			t.Errorf("RegsiterListener Error %s", err)
+			t.Errorf("RegisterListener Error %s", err)
 		}
 	}
 	if len(ls.listeners) != 2 {
@@ -46,7 +46,7 @@ func testListenersCalled(t *testing.T, listenerNames []string, outputs []string)
 	for _, name := range listenerNames {
 		err := RegisterListener(NewMockListener(name))
 		if err != nil {
-			t.Errorf("RegsiterListener Error %s", err)
+			t.Errorf("RegisterListener Error %s", err)
 		}
 	}
 	var f bytes.Buffer

@@ -79,7 +79,7 @@ func New() *Cache {
 // key returns key under which we store the item, -1 will be returned if we don't store the message.
 // Currently we do not cache Truncated, errors zone transfers or dynamic update messages.
 // qname holds the already lowercased qname.
-func key(qname string, m *dns.Msg, t response.Type, do bool) (bool, uint64) {
+func key(qname string, m *dns.Msg, t response.Type, do, cd bool) (bool, uint64) {
 	// We don't store truncated responses.
 	if m.Truncated {
 		return false, 0
@@ -89,16 +89,22 @@ func key(qname string, m *dns.Msg, t response.Type, do bool) (bool, uint64) {
 		return false, 0
 	}
 
-	return true, hash(qname, m.Question[0].Qtype, do)
+	return true, hash(qname, m.Question[0].Qtype, do, cd)
 }
 
 var one = []byte("1")
 var zero = []byte("0")
 
-func hash(qname string, qtype uint16, do bool) uint64 {
+func hash(qname string, qtype uint16, do, cd bool) uint64 {
 	h := fnv.New64()
 
 	if do {
+		h.Write(one)
+	} else {
+		h.Write(zero)
+	}
+
+	if cd {
 		h.Write(one)
 	} else {
 		h.Write(zero)
@@ -129,6 +135,7 @@ type ResponseWriter struct {
 	server string // Server handling the request.
 
 	do         bool // When true the original request had the DO bit set.
+	cd         bool // When true the original request had the CD bit set.
 	ad         bool // When true the original request had the AD bit set.
 	prefetch   bool // When true write nothing back to the client.
 	remoteAddr net.Addr
@@ -159,6 +166,7 @@ func newPrefetchResponseWriter(server string, state request.Request, c *Cache) *
 		state:          state,
 		server:         server,
 		do:             state.Do(),
+		cd:             state.Req.CheckingDisabled,
 		prefetch:       true,
 		remoteAddr:     addr,
 	}
@@ -177,7 +185,7 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	mt, _ := response.Typify(res, w.now().UTC())
 
 	// key returns empty string for anything we don't want to cache.
-	hasKey, key := key(w.state.Name(), res, mt, w.do)
+	hasKey, key := key(w.state.Name(), res, mt, w.do, w.cd)
 
 	msgTTL := dnsutil.MinimalTTL(res, mt)
 	var duration time.Duration

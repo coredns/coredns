@@ -95,7 +95,7 @@ Note that the regex pattern is enclosed in single quotes, and backslashes are es
 
 To evaluate expressions, *view* uses the antonmedv/expr package (https://github.com/antonmedv/expr).
 For example, an expression could look like:
-`(type() == 'A' && name() == 'example.com') || client_ip() == '1.2.3.4'`.
+`(type() == 'A' && name() == 'example.com.') || client_ip() == '1.2.3.4'`.
 
 All expressions should be written to evaluate to a boolean value.
 
@@ -113,7 +113,7 @@ functions defined below.
 * `client_ip() string`: client's IP address, for IPv6 addresses these are enclosed in brackets: `[::1]`
 * `do() bool`: the EDNS0 DO (DNSSEC OK) bit set in the query
 * `id() int`: query ID
-* `name() string`: name of the request (the domain name requested)
+* `name() string`: name of the request (the domain name requested ending with a dot): `example.com.`
 * `opcode() int`: query OPCODE
 * `port() string`: client's port
 * `proto() string`: protocol used (tcp or udp)

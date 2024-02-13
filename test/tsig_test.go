@@ -40,7 +40,7 @@ func TestTsig(t *testing.T) {
 	}
 	tsig := r.IsTsig()
 	if tsig == nil {
-		t.Fatalf("Respose was not TSIG")
+		t.Fatalf("Response was not TSIG")
 	}
 	if tsig.Error != dns.RcodeSuccess {
 		t.Fatalf("TSIG Error code should be dns.RcodeSuccess")
@@ -70,7 +70,7 @@ func TestTsigBadKey(t *testing.T) {
 	}
 	tsig := r.IsTsig()
 	if tsig == nil {
-		t.Fatalf("Respose was not TSIG")
+		t.Fatalf("Response was not TSIG")
 	}
 	if tsig.Error != dns.RcodeBadKey {
 		t.Fatalf("TSIG Error code should be dns.RcodeBadKey")
@@ -109,7 +109,7 @@ func TestTsigBadSig(t *testing.T) {
 	}
 	tsig := r.IsTsig()
 	if tsig == nil {
-		t.Fatalf("Respose was not TSIG")
+		t.Fatalf("Response was not TSIG")
 	}
 	if tsig.Error != dns.RcodeBadSig {
 		t.Fatalf("TSIG Error code should be dns.RcodeBadSig")
@@ -149,7 +149,7 @@ func TestTsigBadTime(t *testing.T) {
 	}
 	tsig := r.IsTsig()
 	if tsig == nil {
-		t.Fatalf("Respose was not TSIG")
+		t.Fatalf("Response was not TSIG")
 	}
 	if tsig.Error != dns.RcodeBadTime {
 		t.Fatalf("TSIG Error code should be dns.RcodeBadTime")

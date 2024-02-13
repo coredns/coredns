@@ -256,6 +256,12 @@ func TestLabels(t *testing.T) {
 		if repl != expect[lbl] {
 			t.Errorf("Expected value %q, got %q", expect[lbl], repl)
 		}
+
+		// test empty state and nil recorder won't panic
+		repl_empty := replacer.Replace(ctx, request.Request{}, nil, lbl)
+		if repl_empty != EmptyValue {
+			t.Errorf("Expected empty value %q, got %q", EmptyValue, repl_empty)
+		}
 	}
 }
 

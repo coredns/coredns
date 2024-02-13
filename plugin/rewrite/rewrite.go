@@ -141,6 +141,8 @@ func newRule(args ...string) (Rule, error) {
 		return newTTLRule(mode, args[startArg:]...)
 	case "cname":
 		return newCNAMERule(mode, args[startArg:]...)
+	case "rcode":
+		return newRCodeRule(mode, args[startArg:]...)
 	default:
 		return nil, fmt.Errorf("invalid rule type %q", args[0])
 	}

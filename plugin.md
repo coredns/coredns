@@ -30,8 +30,8 @@ code.
 
 See a couple of blog posts on how to write and add plugin to CoreDNS:
 
-* <https://blog.coredns.io/2017/03/01/how-to-add-plugins-to-coredns/>
-* <https://blog.coredns.io/2016/12/19/writing-plugins-for-coredns/>, slightly older, but useful.
+* <https://coredns.io/2017/03/01/how-to-add-plugins-to-coredns/>
+* <https://coredns.io/2016/12/19/writing-plugins-for-coredns/>, slightly older, but useful.
 
 ## Logging
 

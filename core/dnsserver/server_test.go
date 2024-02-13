@@ -48,6 +48,11 @@ func TestNewServer(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error for NewServerTLS, got %s", err)
 	}
+
+	_, err = NewServerQUIC("127.0.0.1:53", []*Config{testConfig("quic", testPlugin{})})
+	if err != nil {
+		t.Errorf("Expected no error for NewServerQUIC, got %s", err)
+	}
 }
 
 func TestDebug(t *testing.T) {
