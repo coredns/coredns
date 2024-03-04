@@ -22,10 +22,11 @@ var (
 		Help:      "Counter of requests made per upstream.",
 	}, []string{"rcode", "to"})
 	RequestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "grpc",
-		Name:      "request_duration_seconds",
-		Buckets:   plugin.TimeBuckets,
-		Help:      "Histogram of the time each request took.",
+		Namespace:                   plugin.Namespace,
+		Subsystem:                   "grpc",
+		Name:                        "request_duration_seconds",
+		Buckets:                     plugin.TimeBuckets,
+		NativeHistogramBucketFactor: plugin.NativeHistogramBucketFactor,
+		Help:                        "Histogram of the time each request took.",
 	}, []string{"to"})
 )
