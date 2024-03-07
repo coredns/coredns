@@ -16,6 +16,7 @@ type Pod struct {
 	PodIP     string
 	Name      string
 	Namespace string
+	Labels    map[string]string
 
 	*Empty
 }
@@ -33,6 +34,7 @@ func ToPod(obj meta.Object) (meta.Object, error) {
 		PodIP:     apiPod.Status.PodIP,
 		Namespace: apiPod.GetNamespace(),
 		Name:      apiPod.GetName(),
+		Labels:    apiPod.GetLabels(),
 	}
 	t := apiPod.ObjectMeta.DeletionTimestamp
 	if t != nil && !(*t).Time.IsZero() {

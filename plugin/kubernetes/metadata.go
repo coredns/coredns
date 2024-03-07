@@ -19,6 +19,13 @@ func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) contex
 		metadata.SetValueFunc(ctx, "kubernetes/client-pod-name", func() string {
 			return pod.Name
 		})
+
+		for k, v := range pod.Labels {
+			v := v
+			metadata.SetValueFunc(ctx, "kubernetes/client-label/"+k, func() string {
+				return v
+			})
+		}
 	}
 
 	zone := plugin.Zones(k.Zones).Matches(state.Name())
