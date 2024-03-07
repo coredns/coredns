@@ -52,6 +52,10 @@ NAME:=coredns
 VERSION:=$(shell grep 'CoreVersion' coremain/version.go | awk '{ print $$3 }' | tr -d '"')
 GITHUB:=coredns
 LINUX_ARCH:=amd64 arm arm64 mips64le ppc64le s390x mips riscv64
+GOLANG_VERSION ?= $(shell cat .go-version)
+
+export GOSUMDB = sum.golang.org
+export GOTOOLCHAIN = go$(GOLANG_VERSION)
 
 all:
 	@echo Use the 'release' target to build a release
