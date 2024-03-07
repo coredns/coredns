@@ -7,7 +7,7 @@
 ## Description
 
 CoreDNS supports queries that are encrypted using TLS (DNS over Transport Layer Security, RFC 7858)
-or are using gRPC (https://grpc.io/, not an IETF standard). Normally DNS traffic isn't encrypted at
+or are using gRPC (https://grpc.io/ , not an IETF standard). Normally DNS traffic isn't encrypted at
 all (DNSSEC only signs resource records).
 
 The *tls* "plugin" allows you to configure the cryptographic keys that are needed for both

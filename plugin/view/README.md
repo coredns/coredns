@@ -93,7 +93,7 @@ Note that the regex pattern is enclosed in single quotes, and backslashes are es
 
 ## Expressions
 
-To evaluate expressions, *view* uses the antonmedv/expr package (https://github.com/antonmedv/expr).
+To evaluate expressions, *view* uses the antonmedv/expr package ( https://github.com/antonmedv/expr ).
 For example, an expression could look like:
 `(type() == 'A' && name() == 'example.com.') || client_ip() == '1.2.3.4'`.
 
