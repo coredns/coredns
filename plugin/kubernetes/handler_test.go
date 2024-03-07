@@ -580,7 +580,13 @@ func (APIConnServeTest) PodIndex(ip string) []*object.Pod {
 		return []*object.Pod{}
 	}
 	a := []*object.Pod{
-		{Namespace: "podns", Name: "foo", PodIP: "10.240.0.1"}, // Remote IP set in test.ResponseWriter
+		{
+			Namespace: "podns", Name: "foo", PodIP: "10.240.0.1",
+			Labels: map[string]string{
+				"app.kubernetes.io/name": "foo",
+				"bar":                    "baz",
+			},
+		}, // Remote IP set in test.ResponseWriter
 	}
 	return a
 }
