@@ -43,7 +43,7 @@ jobs:
           cat release.md
           sha256sum release/*.tgz
       - name: Draft release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           body_path: release.md
           name: v${{ steps.info.outputs.version }}
