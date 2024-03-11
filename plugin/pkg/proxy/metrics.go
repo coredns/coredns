@@ -10,11 +10,12 @@ import (
 // Variables declared for monitoring.
 var (
 	requestDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "proxy",
-		Name:      "request_duration_seconds",
-		Buckets:   plugin.TimeBuckets,
-		Help:      "Histogram of the time each request took.",
+		Namespace:                   plugin.Namespace,
+		Subsystem:                   "proxy",
+		Name:                        "request_duration_seconds",
+		Buckets:                     plugin.TimeBuckets,
+		NativeHistogramBucketFactor: plugin.NativeHistogramBucketFactor,
+		Help:                        "Histogram of the time each request took.",
 	}, []string{"proxy_name", "to", "rcode"})
 
 	healthcheckFailureCount = promauto.NewCounterVec(prometheus.CounterOpts{

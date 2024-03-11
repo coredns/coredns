@@ -67,11 +67,12 @@ func (h *health) overloaded(ctx context.Context) {
 var (
 	// HealthDuration is the metric used for exporting how fast we can retrieve the /health endpoint.
 	HealthDuration = promauto.NewHistogram(prometheus.HistogramOpts{
-		Namespace: plugin.Namespace,
-		Subsystem: "health",
-		Name:      "request_duration_seconds",
-		Buckets:   plugin.SlimTimeBuckets,
-		Help:      "Histogram of the time (in seconds) each request took.",
+		Namespace:                   plugin.Namespace,
+		Subsystem:                   "health",
+		Name:                        "request_duration_seconds",
+		Buckets:                     plugin.SlimTimeBuckets,
+		NativeHistogramBucketFactor: plugin.NativeHistogramBucketFactor,
+		Help:                        "Histogram of the time (in seconds) each request took.",
 	})
 	// HealthFailures is the metric used to count how many times the health request failed
 	HealthFailures = promauto.NewCounter(prometheus.CounterOpts{
