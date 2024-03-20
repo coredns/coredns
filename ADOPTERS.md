@@ -33,3 +33,4 @@
 * [Absa Group](https://www.absa.africa) uses CoreDNS as an integral part of Kubernetes Global Balancer project - [k8gb](https://www.k8gb.io/).
 * [Northflank](https://northflank.com/) uses CoreDNS on all of our Kubernetes clusters across GCP, AWS, and bare-metal.
 * [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net) uses CoreDNS on K8s in its highly-loaded internal infrastructure. 
+* [ZOZO, inc.](https://corp.zozo.com/) uses CoreDNS on Kubernetes in production with standard configuration.
