@@ -34,7 +34,7 @@ func TestMetadata(t *testing.T) {
 		{"geoip/postalcode", "CB4"},
 	}
 
-	knownIPAddr := "81.2.69.142" // This IP should be be part of the CDIR address range used to create the database fixtures.
+	knownIPAddr := "81.2.69.142" // This IP should be part of the CDIR address range used to create the database fixtures.
 	for _, tc := range tests {
 		t.Run(fmt.Sprintf("%s/%s", tc.label, "direct"), func(t *testing.T) {
 			geoIP, err := newGeoIP(cityDBPath, false)
