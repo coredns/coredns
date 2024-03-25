@@ -34,3 +34,4 @@
 * [Northflank](https://northflank.com/) uses CoreDNS on all of our Kubernetes clusters across GCP, AWS, and bare-metal.
 * [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net) uses CoreDNS on K8s in its highly-loaded internal infrastructure. 
 * [ZOZOTOWN](https://zozo.jp/) uses CoreDNS on Kubernetes in production with standard configuration.
+* [plusserver](https://www.plusserver.com) uses CoreDNS on K8s in its plusserver Kubernetes Engine.
