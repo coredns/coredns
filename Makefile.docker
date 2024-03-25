@@ -102,7 +102,6 @@ else
 	@# Pushes coredns/coredns-$arch:$version images
 	@# Creates manifest for multi-arch image
 	@# Pushes multi-arch image to coredns/coredns:$version
-	@echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_LOGIN) --password-stdin
 	@echo Pushing: $(VERSION) to $(DOCKER_IMAGE_NAME)
 	for arch in $(LINUX_ARCH); do \
 		docker push $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) ;\
@@ -111,7 +110,7 @@ else
 	docker manifest create --amend $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_LIST_VERSIONED)
 	docker manifest push --purge $(DOCKER_IMAGE_NAME):$(VERSION)
 	docker manifest push --purge $(DOCKER_IMAGE_NAME):latest
-	TOKEN=$$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\":\"$(DOCKER_LOGIN)\",\"password\":\"$(DOCKER_PASSWORD)\"}" "https://hub.docker.com/v2/users/login/" | jq -r .token) ; \
+	TOKEN=$$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\":\"$${DOCKER_LOGIN}\",\"password\":\"$${DOCKER_PASSWORD}\"}" "https://hub.docker.com/v2/users/login/" | jq -r .token) ; \
 	for arch in $(LINUX_ARCH); do \
 		curl -X DELETE -H "Authorization: JWT $${TOKEN}" "https://hub.docker.com/v2/repositories/$(DOCKER_IMAGE_NAME)/tags/$${arch}-$(VERSION)/" ;\
 	done
