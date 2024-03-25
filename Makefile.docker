@@ -102,7 +102,7 @@ else
 	@# Pushes coredns/coredns-$arch:$version images
 	@# Creates manifest for multi-arch image
 	@# Pushes multi-arch image to coredns/coredns:$version
-	@echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_LOGIN) --password-stdin
+	@echo $${DOCKER_PASSWORD} | docker login -u $${DOCKER_LOGIN} --password-stdin
 	@echo Pushing: $(VERSION) to $(DOCKER_IMAGE_NAME)
 	for arch in $(LINUX_ARCH); do \
 		docker push $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) ;\
