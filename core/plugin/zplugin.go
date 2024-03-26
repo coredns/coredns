@@ -4,6 +4,7 @@ package plugin
 
 import (
 	// Include all plugins.
+	_ "github.com/coredns/alternate"
 	_ "github.com/coredns/caddy/onevent"
 	_ "github.com/coredns/coredns/plugin/acl"
 	_ "github.com/coredns/coredns/plugin/any"
