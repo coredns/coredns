@@ -17,9 +17,6 @@ type supported struct {
 
 // SetSupportedOption adds a new supported option the set of EDNS0 options that we support. Plugins typically call
 // this in their setup code to signal support for a new option.
-// By default we support:
-// dns.EDNS0NSID, dns.EDNS0EXPIRE, dns.EDNS0COOKIE, dns.EDNS0TCPKEEPALIVE, dns.EDNS0PADDING. These
-// values are not in this map and checked directly in the server.
 func SetSupportedOption(option uint16) {
 	sup.Lock()
 	sup.m[option] = struct{}{}
@@ -68,4 +65,15 @@ func Size(proto string, size uint16) uint16 {
 		return dns.MinMsgSize
 	}
 	return size
+}
+
+func SupportedOptions(o []dns.EDNS0) []dns.EDNS0 {
+	var supported = make([]dns.EDNS0, 0, 3)
+	// For as long as possible try avoid looking up in the map, because that need an Rlock.
+	for _, opt := range o {
+		if SupportedOption(opt.Option()) {
+			supported = append(supported, opt)
+		}
+	}
+	return supported
 }

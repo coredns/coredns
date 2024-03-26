@@ -42,6 +42,7 @@ func TestRewrite(t *testing.T) {
 		rewrite edns0 local set 0xffee hello-world
 		erratic . {
 			drop 0
+			mirror_opt
 		}
 	}`
 
@@ -96,6 +97,9 @@ func testEdns0(t *testing.T, server string) {
 	if r.Answer[0].(*dns.A).A.String() != "192.0.2.53" {
 		t.Errorf("Expected 192.0.2.53, got: %s", r.Answer[0].(*dns.A).A.String())
 	}
+
+	// Due to option "mirror_opt", we can mirror the rewritten request into the response,
+	// so we can confirm rewrite of EDNS is working.
 	o := r.IsEdns0()
 	if o == nil || len(o.Option) == 0 {
 		t.Error("Expected EDNS0 options but got none")
