@@ -17,9 +17,9 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/route53"
-	"github.com/aws/aws-sdk-go/service/route53/route53iface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/route53"
+	"github.com/aws/aws-sdk-go-v2/service/route53/types"
 	"github.com/miekg/dns"
 )
 
@@ -29,7 +29,7 @@ type Route53 struct {
 	Fall fall.F
 
 	zoneNames []string
-	client    route53iface.Route53API
+	client    route53Client
 	upstream  *upstream.Upstream
 	refresh   time.Duration
 
@@ -50,12 +50,12 @@ type zones map[string][]*zone
 // does exist, and returns a new *Route53. In addition to this, upstream is use
 // for doing recursive queries against CNAMEs. Returns error if it cannot
 // verify any given domain name/zone id pair.
-func New(ctx context.Context, c route53iface.Route53API, keys map[string][]string, refresh time.Duration) (*Route53, error) {
+func New(ctx context.Context, c route53Client, keys map[string][]string, refresh time.Duration) (*Route53, error) {
 	zones := make(map[string][]*zone, len(keys))
 	zoneNames := make([]string, 0, len(keys))
 	for dns, hostedZoneIDs := range keys {
 		for _, hostedZoneID := range hostedZoneIDs {
-			_, err := c.ListHostedZonesByNameWithContext(ctx, &route53.ListHostedZonesByNameInput{
+			_, err := c.ListHostedZonesByName(ctx, &route53.ListHostedZonesByNameInput{
 				DNSName:      aws.String(dns),
 				HostedZoneId: aws.String(hostedZoneID),
 			})
@@ -211,19 +211,19 @@ func maybeUnescape(s string) (string, error) {
 	}
 }
 
-func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone) error {
+func updateZoneFromRRS(rrs *types.ResourceRecordSet, z *file.Zone) error {
 	for _, rr := range rrs.ResourceRecords {
-		n, err := maybeUnescape(aws.StringValue(rrs.Name))
+		n, err := maybeUnescape(aws.ToString(rrs.Name))
 		if err != nil {
-			return fmt.Errorf("failed to unescape `%s' name: %v", aws.StringValue(rrs.Name), err)
+			return fmt.Errorf("failed to unescape `%s' name: %v", aws.ToString(rrs.Name), err)
 		}
-		v, err := maybeUnescape(aws.StringValue(rr.Value))
+		v, err := maybeUnescape(aws.ToString(rr.Value))
 		if err != nil {
-			return fmt.Errorf("failed to unescape `%s' value: %v", aws.StringValue(rr.Value), err)
+			return fmt.Errorf("failed to unescape `%s' value: %v", aws.ToString(rr.Value), err)
 		}
 
 		// Assemble RFC 1035 conforming record to pass into dns scanner.
-		rfc1035 := fmt.Sprintf("%s %d IN %s %s", n, aws.Int64Value(rrs.TTL), aws.StringValue(rrs.Type), v)
+		rfc1035 := fmt.Sprintf("%s %d IN %s %s", n, aws.ToInt64(rrs.TTL), rrs.Type, v)
 		r, err := dns.NewRR(rfc1035)
 		if err != nil {
 			return fmt.Errorf("failed to parse resource record: %v", err)
@@ -253,21 +253,28 @@ func (h *Route53) updateZones(ctx context.Context) error {
 				newZ.Upstream = h.upstream
 				in := &route53.ListResourceRecordSetsInput{
 					HostedZoneId: aws.String(hostedZone.id),
-					MaxItems:     aws.String("1000"),
+					MaxItems:     aws.Int32(1000),
 				}
-				err = h.client.ListResourceRecordSetsPagesWithContext(ctx, in,
-					func(out *route53.ListResourceRecordSetsOutput, last bool) bool {
-						for _, rrs := range out.ResourceRecordSets {
-							if err := updateZoneFromRRS(rrs, newZ); err != nil {
-								// Maybe unsupported record type. Log and carry on.
-								log.Warningf("Failed to process resource record set: %v", err)
-							}
+				complete := false
+				var out *route53.ListResourceRecordSetsOutput
+				for out, err = h.client.ListResourceRecordSets(ctx, in); !complete; out, err = h.client.ListResourceRecordSets(ctx, in) {
+					if err != nil {
+						err = fmt.Errorf("failed to list resource records for %v:%v from route53: %v", zName, hostedZone.id, err)
+						return
+					}
+					for _, rrs := range out.ResourceRecordSets {
+						if err := updateZoneFromRRS(&rrs, newZ); err != nil {
+							// Maybe unsupported record type. Log and carry on.
+							log.Warningf("Failed to process resource record set: %v", err)
 						}
-						return true
-					})
-				if err != nil {
-					err = fmt.Errorf("failed to list resource records for %v:%v from route53: %v", zName, hostedZone.id, err)
-					return
+					}
+					if out.IsTruncated {
+						in.StartRecordName = out.NextRecordName
+						in.StartRecordType = out.NextRecordType
+						in.StartRecordIdentifier = out.NextRecordIdentifier
+					} else {
+						complete = true
+					}
 				}
 				h.zMu.Lock()
 				(*z[i]).z = newZ
