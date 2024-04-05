@@ -14,12 +14,10 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/defaults"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/route53"
-	"github.com/aws/aws-sdk-go/service/route53/route53iface"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/route53"
 )
 
 var log = clog.NewWithPlugin("route53")
@@ -27,8 +25,18 @@ var log = clog.NewWithPlugin("route53")
 func init() { plugin.Register("route53", setup) }
 
 // exposed for testing
-var f = func(opts session.Options) route53iface.Route53API {
-	return route53.New(session.Must(session.NewSessionWithOptions(opts)))
+type route53Client interface {
+	ActivateKeySigningKey(ctx context.Context, params *route53.ActivateKeySigningKeyInput, optFns ...func(*route53.Options)) (*route53.ActivateKeySigningKeyOutput, error)
+	ListHostedZonesByName(ctx context.Context, params *route53.ListHostedZonesByNameInput, optFns ...func(*route53.Options)) (*route53.ListHostedZonesByNameOutput, error)
+	ListResourceRecordSets(ctx context.Context, params *route53.ListResourceRecordSetsInput, optFns ...func(*route53.Options)) (*route53.ListResourceRecordSetsOutput, error)
+}
+
+var f = func(ctx context.Context, cfgOpts []func(*config.LoadOptions) error, clientOpts []func(*route53.Options)) (route53Client, error) {
+	cfg, err := config.LoadDefaultConfig(ctx, cfgOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return route53.NewFromConfig(cfg, clientOpts...), nil
 }
 
 func setup(c *caddy.Controller) error {
@@ -43,7 +51,8 @@ func setup(c *caddy.Controller) error {
 		// * Shared Credentials file
 		// * Shared Configuration file (if AWS_SDK_LOAD_CONFIG is set to truthy value)
 		// * EC2 Instance Metadata (credentials only)
-		opts := session.Options{}
+		cfgOpts := []func(*config.LoadOptions) error{}
+		clientOpts := []func(*route53.Options){}
 		var fall fall.F
 
 		refresh := time.Duration(1) * time.Minute // default update frequency to 1 minute
@@ -74,11 +83,13 @@ func setup(c *caddy.Controller) error {
 				if len(v) < 2 {
 					return plugin.Error("route53", c.Errf("invalid access key: '%v'", v))
 				}
-				opts.Config.Credentials = credentials.NewStaticCredentials(v[0], v[1], "")
+				cfgOpts = append(cfgOpts, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(v[0], v[1], "")))
 				log.Warningf("Save aws_access_key in Corefile has been deprecated, please use other authentication methods instead")
 			case "aws_endpoint":
 				if c.NextArg() {
-					opts.Config.Endpoint = aws.String(c.Val())
+					clientOpts = append(clientOpts, func(o *route53.Options) {
+						o.BaseEndpoint = aws.String(c.Val())
+					})
 				} else {
 					return plugin.Error("route53", c.ArgErr())
 				}
@@ -86,17 +97,18 @@ func setup(c *caddy.Controller) error {
 				c.RemainingArgs() // eats args
 			case "credentials":
 				if c.NextArg() {
-					opts.Profile = c.Val()
+					cfgOpts = append(cfgOpts, config.WithSharedConfigProfile(c.Val()))
 				} else {
 					return c.ArgErr()
 				}
 				if c.NextArg() {
-					opts.SharedConfigFiles = []string{c.Val()}
+					sharedConfigFiles := []string{c.Val()}
 					// If AWS_SDK_LOAD_CONFIG is set also load ~/.aws/config to stay consistent
 					// with default SDK behavior.
 					if ok, _ := strconv.ParseBool(os.Getenv("AWS_SDK_LOAD_CONFIG")); ok {
-						opts.SharedConfigFiles = append(opts.SharedConfigFiles, defaults.SharedConfigFilename())
+						sharedConfigFiles = append(sharedConfigFiles, config.DefaultSharedConfigFilename())
 					}
+					cfgOpts = append(cfgOpts, config.WithSharedConfigFiles(sharedConfigFiles))
 				}
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
@@ -122,8 +134,12 @@ func setup(c *caddy.Controller) error {
 			}
 		}
 
-		client := f(opts)
 		ctx, cancel := context.WithCancel(context.Background())
+		client, err := f(ctx, cfgOpts, clientOpts)
+		if err != nil {
+			cancel()
+			return plugin.Error("route53", c.Errf("failed to create route53 client: %v", err))
+		}
 		h, err := New(ctx, client, keys, refresh)
 		if err != nil {
 			cancel()
