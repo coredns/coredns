@@ -1,6 +1,8 @@
 module github.com/coredns/coredns
 
-go 1.20
+go 1.21
+
+toolchain go1.21.6
 
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
@@ -24,7 +26,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.45.0
-	github.com/quic-go/quic-go v0.40.1
+	github.com/quic-go/quic-go v0.42.0
 	go.etcd.io/etcd/api/v3 v3.5.12
 	go.etcd.io/etcd/client/v3 v3.5.11
 	golang.org/x/crypto v0.18.0
@@ -115,7 +117,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.22.0 // indirect
 	go.opentelemetry.io/otel/trace v1.22.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	go.uber.org/mock v0.3.0 // indirect
+	go.uber.org/mock v0.4.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.17.0 // indirect
 	go4.org/intern v0.0.0-20230525184215-6c62f75575cb // indirect
