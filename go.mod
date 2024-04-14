@@ -30,7 +30,7 @@ require (
 	golang.org/x/crypto v0.22.0
 	golang.org/x/sys v0.19.0
 	google.golang.org/api v0.172.0
-	google.golang.org/grpc v1.62.1
+	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/DataDog/dd-trace-go.v1 v1.61.0
 	k8s.io/api v0.29.3
@@ -41,7 +41,7 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.23.4 // indirect
+	cloud.google.com/go/compute v1.24.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/Azure/go-autorest/autorest/adal v0.9.22 // indirect
