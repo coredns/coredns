@@ -11,10 +11,13 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Setup Go Version
+        run: echo "GO_VERSION=$(cat .go-version)" >> $GITHUB_ENV
+
       - name: Install Go
         uses: actions/setup-go@v5
         with:
-          go-version: '~1.21.0'
+          go-version: ${{ env.GO_VERSION }}
         id: go
 
       - name: Build
@@ -28,4 +31,4 @@ jobs:
           done
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@4fe8c5f003fae66aa5ebb77cfd3e7bfbbda0b6b0
+        uses: codecov/codecov-action@84508663e988701840491b86de86b666e8a86bed

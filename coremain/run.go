@@ -45,7 +45,7 @@ func Run() {
 	}
 
 	log.SetOutput(os.Stdout)
-	log.SetFlags(0) // Set to 0 because we're doing our own time, with timezone
+	log.SetFlags(LogFlags)
 
 	if version {
 		showVersion()
@@ -169,6 +169,9 @@ var (
 	conf    string
 	version bool
 	plugins bool
+
+	// LogFlags are initially set to 0 for no extra output
+	LogFlags int
 )
 
 // Build information obtained with the help of -ldflags

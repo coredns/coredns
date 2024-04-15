@@ -110,7 +110,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	list := f.List()
 	deadline := time.Now().Add(defaultTimeout)
 	start := time.Now()
-	for time.Now().Before(deadline) {
+	for time.Now().Before(deadline) && ctx.Err() == nil {
 		if i >= len(list) {
 			// reached the end of list, reset to begin
 			i = 0

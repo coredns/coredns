@@ -11,6 +11,8 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out code
         uses: actions/checkout@v4
@@ -43,7 +45,7 @@ jobs:
           cat release.md
           sha256sum release/*.tgz
       - name: Draft release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564
         with:
           body_path: release.md
           name: v${{ steps.info.outputs.version }}
