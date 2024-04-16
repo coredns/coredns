@@ -16,7 +16,7 @@ This plugin can only be used once per Server Block.
 
 ~~~
 dnssec [ZONES... ] {
-    key file KEY...
+    key file|secret KEY...
     cache_capacity CAPACITY
 }
 ~~~
@@ -49,6 +49,22 @@ used.
     * generated public key `Kexample.org+013+45330.key`
     * generated private key `Kexample.org+013+45330.private`
 
+* `key secret` indicates that **KEY** secret(s) should be read from AWS Secrets Manager. Secret names or
+  ARNs may be used. After generating the keys as described in the `key file` section, you can store them
+  in AWS Secrets Manager using the following AWS CLI v2 command:
+
+  ```sh
+  aws secretsmanager create-secret --name "Kexample.org.+013+45330" \
+  --description "DNSSEC keys for example.org" \
+  --secret-string "$(jq -n --arg key "$(cat Kexample.org.+013+45330.key)" \
+  --arg private "$(cat Kexample.org.+013+45330.private)" \
+  '{key: $key, private: $private}')"
+  ```
+
+  This command reads the contents of the `.key` and `.private` files, constructs a JSON object, and stores it
+  as a new secret in AWS Secrets Manager with the specified name and description. CoreDNS will then fetch
+  the key data from AWS Secrets Manager when using the `key secret` directive.
+
 * `cache_capacity` indicates the capacity of the cache. The dnssec plugin uses a cache to store
   RRSIGs. The default for **CAPACITY** is 10000.
 
@@ -70,6 +86,17 @@ Sign responses for `example.org` with the key "Kexample.org.+013+45330.key".
 example.org {
     dnssec {
         key file Kexample.org.+013+45330
+    }
+    whoami
+}
+~~~
+
+Sign responses for `example.org` with the key stored in AWS Secrets Manager under the secret name "Kexample.org.+013+45330".
+
+~~~ corefile
+example.org {
+    dnssec {
+        key secret Kexample.org.+013+45330
     }
     whoami
 }
