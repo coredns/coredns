@@ -143,6 +143,13 @@ nameserver 10.10.255.253`), 0666); err != nil {
 	}
 	defer os.Remove(resolv)
 
+	const resolvIPV6 = "resolv-ipv6.conf"
+	if err := os.WriteFile(resolvIPV6,
+		[]byte(`nameserver 0388:d254:7aec:6892:9f7f:e93b:5806:1b0f%en0`), 0666); err != nil {
+		t.Fatalf("Failed to write %v file: %s", resolvIPV6, err)
+	}
+	defer os.Remove(resolvIPV6)
+
 	tests := []struct {
 		input         string
 		shouldErr     bool
@@ -153,6 +160,8 @@ nameserver 10.10.255.253`), 0666); err != nil {
 		{`forward . ` + resolv, false, "", []string{"10.10.255.252:53", "10.10.255.253:53"}},
 		// fail
 		{`forward . /dev/null`, true, "no nameservers", nil},
+		// IPV6 with local zone
+		{`forward . ` + resolvIPV6, false, "", []string{"[0388:d254:7aec:6892:9f7f:e93b:5806:1b0f]:53"}},
 	}
 
 	for i, test := range tests {
