@@ -134,3 +134,20 @@ func TestTapMessage(t *testing.T) {
 	}
 	h.TapMessage(tapq.Message)
 }
+
+func TestDnstap_MessageTypeEnabled(t *testing.T) {
+	// Ensures that the default enables all message types.
+	h := Dnstap{enabledMessageTypes: defaultEnabledMessageTypes}
+	for tyy, name := range tap.Message_Type_name {
+		if !h.MessageTypeEnabled(tap.Message_Type(tyy)) {
+			t.Errorf("Expected %s to be enabled", name)
+		}
+	}
+	h.enabledMessageTypes = parseMessageTypes("CLIENT_QUERY CLIENT_RESPONSE")
+	if !h.MessageTypeEnabled(tap.Message_CLIENT_QUERY) {
+		t.Error("Expected CLIENT_QUERY to be enabled")
+	}
+	if !h.MessageTypeEnabled(tap.Message_CLIENT_RESPONSE) {
+		t.Error("Expected CLIENT_RESPONSE to be enabled")
+	}
+}

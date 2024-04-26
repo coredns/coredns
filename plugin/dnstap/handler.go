@@ -24,6 +24,10 @@ type Dnstap struct {
 	Identity          []byte
 	Version           []byte
 	ExtraFormat       string
+	// enabledMessageTypes is a bitfield of enabled tap.Message_Types.
+	// There's 14 message types in total, so uint64 is enough to store all of them.
+	// https://github.com/dnstap/golang-dnstap/blob/ebb538e7d351a58861a8f348491828214a1d8db2/dnstap.pb.go#L216-L275
+	enabledMessageTypes uint64
 }
 
 // TapMessage sends the message m to the dnstap interface, without populating "Extra" field.
@@ -50,7 +54,8 @@ func (h *Dnstap) tapWithExtra(m *tap.Message, extra []byte) {
 	h.io.Dnstap(&tap.Dnstap{Type: &t, Message: m, Identity: h.Identity, Version: h.Version, Extra: extra})
 }
 
-func (h *Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {
+// tapClientQuery logs the client query to dnstap with the type tap.Message_CLIENT_QUERY.
+func (h *Dnstap) tapClientQuery(ctx context.Context, w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {
 	q := new(tap.Message)
 	msg.SetQueryTime(q, queryTime)
 	msg.SetQueryAddress(q, w.RemoteAddr())
@@ -66,20 +71,31 @@ func (h *Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.
 
 // ServeDNS logs the client query and response to dnstap and passes the dnstap Context.
 func (h *Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	rw := &ResponseWriter{
-		ResponseWriter: w,
-		Dnstap:         h,
-		query:          r,
-		ctx:            ctx,
-		queryTime:      time.Now(),
+	qt := time.Now()
+	if h.MessageTypeEnabled(tap.Message_CLIENT_RESPONSE) {
+		// Custom ResponseWriter is only used to tap CLIENT_RESPONSE messages, so we only create it if needed.
+		w = &ResponseWriter{
+			ResponseWriter: w,
+			Dnstap:         h,
+			query:          r,
+			ctx:            ctx,
+			queryTime:      qt,
+		}
 	}
 
 	// The query tap message should be sent before sending the query to the
 	// forwarder. Otherwise, the tap messages will come out out of order.
-	h.tapQuery(ctx, w, r, rw.queryTime)
-
-	return plugin.NextOrFailure(h.Name(), h.Next, ctx, rw, r)
+	if h.MessageTypeEnabled(tap.Message_CLIENT_QUERY) {
+		h.tapClientQuery(ctx, w, r, qt)
+	}
+	return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 }
 
 // Name implements the plugin.Plugin interface.
 func (h *Dnstap) Name() string { return "dnstap" }
+
+// MessageTypeEnabled returns true if the message type t is enabled by the `message_types` configuration.
+// All message types are enabled by default if the config is not provided.
+func (h *Dnstap) MessageTypeEnabled(t tap.Message_Type) bool {
+	return h.enabledMessageTypes&(1<<t) != 0
+}

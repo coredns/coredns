@@ -10,11 +10,15 @@ import (
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/replacer"
+	tap "github.com/dnstap/golang-dnstap"
 )
 
 var log = clog.NewWithPlugin("dnstap")
 
 func init() { plugin.Register("dnstap", setup) }
+
+// defaultEnabledMessageTypes is a bitfield of all message types enabled by default.
+const defaultEnabledMessageTypes = ^uint64(0)
 
 func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 	dnstaps := []*Dnstap{}
@@ -60,6 +64,7 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 		hostname, _ := os.Hostname()
 		d.Identity = []byte(hostname)
 		d.Version = []byte(caddy.AppName + "-" + caddy.AppVersion)
+		d.enabledMessageTypes = defaultEnabledMessageTypes
 
 		for c.NextBlock() {
 			switch c.Val() {
@@ -87,6 +92,13 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 						return nil, c.ArgErr()
 					}
 					d.ExtraFormat = c.Val()
+				}
+			case "message_types":
+				{
+					if !c.NextArg() {
+						return nil, c.ArgErr()
+					}
+					d.enabledMessageTypes = parseMessageTypes(c.Val())
 				}
 			}
 		}
@@ -137,4 +149,22 @@ func setup(c *caddy.Controller) error {
 	}
 
 	return nil
+}
+
+// parseMessageTypes parses a space-separated list of message types and returns a bitmap of the tap.Message_Type values.
+func parseMessageTypes(raw string) uint64 {
+	var bitmap uint64
+	for _, str := range strings.Split(raw, " ") {
+		typ, ok := tap.Message_Type_value[str]
+		if !ok {
+			log.Warningf("Unknown message type: %s", str)
+			continue
+		}
+		bitmap |= 1 << uint(typ)
+	}
+	if bitmap == 0 {
+		log.Warningf("No valid message types specified, enabling all message types")
+		bitmap = defaultEnabledMessageTypes
+	}
+	return bitmap
 }
