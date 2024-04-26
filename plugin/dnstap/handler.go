@@ -27,7 +27,7 @@ type Dnstap struct {
 }
 
 // TapMessage sends the message m to the dnstap interface, without populating "Extra" field.
-func (h Dnstap) TapMessage(m *tap.Message) {
+func (h *Dnstap) TapMessage(m *tap.Message) {
 	if h.ExtraFormat == "" {
 		h.tapWithExtra(m, nil)
 	} else {
@@ -36,7 +36,7 @@ func (h Dnstap) TapMessage(m *tap.Message) {
 }
 
 // TapMessageWithMetadata sends the message m to the dnstap interface, with "Extra" field being populated.
-func (h Dnstap) TapMessageWithMetadata(ctx context.Context, m *tap.Message, state request.Request) {
+func (h *Dnstap) TapMessageWithMetadata(ctx context.Context, m *tap.Message, state request.Request) {
 	if h.ExtraFormat == "" {
 		h.tapWithExtra(m, nil)
 		return
@@ -45,12 +45,12 @@ func (h Dnstap) TapMessageWithMetadata(ctx context.Context, m *tap.Message, stat
 	h.tapWithExtra(m, []byte(extraStr))
 }
 
-func (h Dnstap) tapWithExtra(m *tap.Message, extra []byte) {
+func (h *Dnstap) tapWithExtra(m *tap.Message, extra []byte) {
 	t := tap.Dnstap_MESSAGE
 	h.io.Dnstap(&tap.Dnstap{Type: &t, Message: m, Identity: h.Identity, Version: h.Version, Extra: extra})
 }
 
-func (h Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {
+func (h *Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {
 	q := new(tap.Message)
 	msg.SetQueryTime(q, queryTime)
 	msg.SetQueryAddress(q, w.RemoteAddr())
@@ -65,7 +65,7 @@ func (h Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.M
 }
 
 // ServeDNS logs the client query and response to dnstap and passes the dnstap Context.
-func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (h *Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	rw := &ResponseWriter{
 		ResponseWriter: w,
 		Dnstap:         h,
@@ -82,4 +82,4 @@ func (h Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 }
 
 // Name implements the plugin.Plugin interface.
-func (h Dnstap) Name() string { return "dnstap" }
+func (h *Dnstap) Name() string { return "dnstap" }
