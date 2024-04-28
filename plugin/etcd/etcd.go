@@ -183,3 +183,11 @@ func (e *Etcd) TTL(kv *mvccpb.KeyValue, serv *msg.Service) uint32 {
 func shouldInclude(serv *msg.Service, qType uint16) bool {
 	return (qType == dns.TypeTXT && serv.Text != "") || serv.Host != ""
 }
+
+// OnShutdown shuts down etcd client when caddy instance restart
+func (e *Etcd) OnShutdown() error {
+	if e.Client != nil {
+		e.Client.Close()
+	}
+	return nil
+}
