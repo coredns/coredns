@@ -10,6 +10,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/replacer"
+
 	tap "github.com/dnstap/golang-dnstap"
 )
 

@@ -1,13 +1,14 @@
 package dnstap
 
 import (
-	tap "github.com/dnstap/golang-dnstap"
 	"os"
 	"reflect"
 	"testing"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+
+	tap "github.com/dnstap/golang-dnstap"
 )
 
 type results struct {
