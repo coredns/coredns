@@ -21,8 +21,9 @@ func testCase(t *testing.T, tapq, tapr *tap.Dnstap, q, r *dns.Msg, extraFormat s
 			w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 			return 0, w.WriteMsg(r)
 		}),
-		io:          &w,
-		ExtraFormat: extraFormat,
+		io:                  &w,
+		ExtraFormat:         extraFormat,
+		enabledMessageTypes: defaultEnabledMessageTypes,
 	}
 	ctx := metadata.ContextWithMetadata(context.TODO())
 	ok := metadata.SetValueFunc(ctx, "metadata/test", func() string {

@@ -56,6 +56,7 @@ func TestConfig(t *testing.T) {
 		{"dnstap dnstap.sock {\nidentity\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
 		{"dnstap dnstap.sock {\nversion\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
 		{"dnstap dnstap.sock {\nextra\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap dnstap.sock {\nmessage_types\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
 	}
 	for i, tc := range tests {
 		c := caddy.NewTestController("dns", tc.in)
