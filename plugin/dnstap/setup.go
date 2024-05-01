@@ -18,7 +18,7 @@ var log = clog.NewWithPlugin("dnstap")
 
 func init() { plugin.Register("dnstap", setup) }
 
-// defaultEnabledMessageTypes is a bitfield of all message types enabled by default.
+// defaultEnabledMessageTypes is a bitmap of all message types enabled by default.
 const defaultEnabledMessageTypes = ^uint64(0)
 
 func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {

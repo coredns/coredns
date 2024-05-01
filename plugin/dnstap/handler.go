@@ -24,7 +24,7 @@ type Dnstap struct {
 	Identity          []byte
 	Version           []byte
 	ExtraFormat       string
-	// enabledMessageTypes is a bitfield of enabled tap.Message_Types.
+	// enabledMessageTypes is a bitmap of enabled tap.Message_Types.
 	// There's 14 message types in total, so uint64 is enough to store all of them.
 	// https://github.com/dnstap/golang-dnstap/blob/ebb538e7d351a58861a8f348491828214a1d8db2/dnstap.pb.go#L216-L275
 	enabledMessageTypes uint64
