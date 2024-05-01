@@ -141,21 +141,15 @@ func TestMultiDnstap(t *testing.T) {
 	}
 }
 
-func Test_initMessageTypesMap(t *testing.T) {
+func Test_messageTypesMap(t *testing.T) {
 	tests := []struct {
 		in     []string
 		expect uint64
 	}{
 		{in: nil, expect: ^uint64(0)},
-		{in: []string{"CLIENT_QUERY"}, expect: 1 << tap.Message_CLIENT_QUERY},
-		{
-			in:     []string{"CLIENT_QUERY", "CLIENT_RESPONSE"},
-			expect: (1 << tap.Message_CLIENT_QUERY) | (1 << tap.Message_CLIENT_RESPONSE),
-		},
-		{
-			in:     []string{"CLIENT_QUERY", "FORWARDER_QUERY", "FORWARDER_RESPONSE"},
-			expect: (1 << tap.Message_CLIENT_QUERY) | (1 << tap.Message_FORWARDER_QUERY) | (1 << tap.Message_FORWARDER_RESPONSE),
-		},
+		{in: []string{"CLIENT_QUERY"}, expect: 0b100000},
+		{in: []string{"CLIENT_QUERY", "CLIENT_RESPONSE"}, expect: 0b1100000},
+		{in: []string{"CLIENT_QUERY", "UPDATE_RESPONSE", "FORWARDER_RESPONSE"}, expect: 0b100000100100000},
 	}
 	for i, tc := range tests {
 		x := messageTypesMap(tc.in)
