@@ -7,8 +7,6 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
-
-	tap "github.com/dnstap/golang-dnstap"
 )
 
 type results struct {
@@ -50,7 +48,7 @@ func TestConfig(t *testing.T) {
 				message_types CLIENT_RESPONSE CLIENT_QUERY
               }`, false, []results{
 			{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), "EXTRA", defaultEnabledMessageTypes},
-			{"127.0.0.1:6000", false, "tcp", []byte("NAME2"), []byte("VER2"), "EXTRA2", 1<<tap.Message_CLIENT_RESPONSE | 1<<tap.Message_CLIENT_QUERY},
+			{"127.0.0.1:6000", false, "tcp", []byte("NAME2"), []byte("VER2"), "EXTRA2", 0b1100000},
 		}},
 		{"dnstap tls://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tls", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
 		{"dnstap dnstap.sock {\nidentity\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},

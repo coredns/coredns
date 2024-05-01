@@ -19,6 +19,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/proxy"
 	"github.com/coredns/coredns/request"
 
+	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 	otext "github.com/opentracing/opentracing-go/ext"
@@ -74,7 +75,12 @@ func (f *Forward) SetProxy(p *proxy.Proxy) {
 
 // SetTapPlugin appends one or more dnstap plugins to the tap plugin list.
 func (f *Forward) SetTapPlugin(tapPlugin *dnstap.Dnstap) {
-	f.tapPlugins = append(f.tapPlugins, tapPlugin)
+	// Forward should only tap FORWARDER_QUERY and FORWARDER_RESPONSE messages.
+	// If neither of these message types are enabled, then there is no need to set the tap plugin.
+	if tapPlugin.MessageTypeEnabled(tap.Message_FORWARDER_QUERY) ||
+		tapPlugin.MessageTypeEnabled(tap.Message_FORWARDER_RESPONSE) {
+		f.tapPlugins = append(f.tapPlugins, tapPlugin)
+	}
 	if nextPlugin, ok := tapPlugin.Next.(*dnstap.Dnstap); ok {
 		f.SetTapPlugin(nextPlugin)
 	}

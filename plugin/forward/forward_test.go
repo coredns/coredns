@@ -1,11 +1,9 @@
 package forward
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/coredns/caddy"
-	"github.com/coredns/caddy/caddyfile"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/dnstap"
 	"github.com/coredns/coredns/plugin/pkg/proxy"
@@ -40,37 +38,148 @@ func TestList(t *testing.T) {
 }
 
 func TestSetTapPlugin(t *testing.T) {
-	input := `forward . 127.0.0.1
-	dnstap /tmp/dnstap.sock full
-	dnstap tcp://example.com:6000
-	`
-	stanzas := strings.Split(input, "\n")
-	c := caddy.NewTestController("dns", strings.Join(stanzas[1:], "\n"))
-	dnstapSetup, err := caddy.DirectiveAction("dns", "dnstap")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = dnstapSetup(c); err != nil {
-		t.Fatal(err)
-	}
-	c.Dispenser = caddyfile.NewDispenser("", strings.NewReader(stanzas[0]))
-	if err = setup(c); err != nil {
-		t.Fatal(err)
-	}
-	dnsserver.NewServer("", []*dnsserver.Config{dnsserver.GetConfig(c)})
-	f, ok := dnsserver.GetConfig(c).Handler("forward").(*Forward)
-	if !ok {
-		t.Fatal("Expected a forward plugin")
-	}
-	tap, ok := dnsserver.GetConfig(c).Handler("dnstap").(*dnstap.Dnstap)
-	if !ok {
-		t.Fatal("Expected a dnstap plugin")
-	}
-	f.SetTapPlugin(tap)
-	if len(f.tapPlugins) != 2 {
-		t.Fatalf("Expected: 2 results, got: %v", len(f.tapPlugins))
-	}
-	if f.tapPlugins[0] != tap || tap.Next != f.tapPlugins[1] {
-		t.Error("Unexpected order of dnstap plugins")
+	for _, tt := range []struct {
+		name,
+		tapConfig string
+		assert func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap)
+	}{
+		{
+			name:      "one dnstap without message_types",
+			tapConfig: `dnstap tcp://example.com:6000`,
+			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
+				if len(actualTaps) != 1 {
+					t.Fatalf("Expected: 1 results, got: %v", len(actualTaps))
+				}
+				if actualTaps[0] != src {
+					t.Error("Unexpected dnstap plugin")
+				}
+			},
+		},
+		{
+			name: "one dnstap with message_types",
+			tapConfig: `dnstap tcp://example.com:6000 {
+	message_types FORWARDER_QUERY
+}`,
+			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
+				if len(actualTaps) != 1 {
+					t.Fatalf("Expected: 1 results, got: %v", len(actualTaps))
+				}
+				if actualTaps[0] != src {
+					t.Error("Unexpected dnstap plugin")
+				}
+			},
+		},
+		{
+			name: "one dnstap with non forward message_types",
+			tapConfig: `dnstap tcp://example.com:6000 {
+	message_types CLIENT_RESPONSE
+}`,
+			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
+				if len(actualTaps) != 0 {
+					t.Fatalf("Expected: 0 results, got: %v", len(actualTaps))
+				}
+			},
+		},
+		{
+			name: "two dnstaps without message_types",
+			tapConfig: `dnstap /tmp/dnstap.sock full
+	dnstap tcp://example.com:6000`,
+			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
+				if len(actualTaps) != 2 {
+					t.Fatalf("Expected: 2 results, got: %v", len(actualTaps))
+				}
+				if actualTaps[0] != src || src.Next != actualTaps[1] {
+					t.Error("Unexpected order of dnstap plugins")
+				}
+			},
+		},
+		{
+			name: "two dnstaps where one has forward message_types",
+			tapConfig: `dnstap /tmp/dnstap.sock full
+dnstap tcp://example.com:6000 {
+	message_types FORWARDER_QUERY FORWARDER_RESPONSE
+}`,
+			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
+				if len(actualTaps) != 2 {
+					t.Fatalf("Expected: 2 results, got: %v", len(actualTaps))
+				}
+				if actualTaps[0] != src || src.Next != actualTaps[1] {
+					t.Error("Unexpected order of dnstap plugins")
+				}
+			},
+		},
+		{
+			name: "two dnstaps where one has only non-forward message_types",
+			tapConfig: `dnstap tcp://example.com:6000 {
+	message_types CLIENT_RESPONSE
+}
+dnstap /tmp/dnstap.sock full`,
+			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
+				if len(actualTaps) != 1 {
+					t.Fatalf("Expected: 2 results, got: %v", len(actualTaps))
+				}
+				if actualTaps[0] != src.Next {
+					t.Error("Unexpected order of dnstap plugins")
+				}
+			},
+		},
+		{
+			name: "three dnstaps with only non-forward message types",
+			tapConfig: `dnstap tcp://example.com:6000 {
+	message_types CLIENT_RESPONSE
+}
+dnstap /tmp/dnstap.sock full {
+	message_types CLIENT_RESPONSE
+}`,
+			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
+				if len(actualTaps) != 0 {
+					t.Fatalf("Expected: 0 results, got: %v", len(actualTaps))
+				}
+			},
+		},
+		{
+			name: "three dnstaps with only one forward message types",
+			tapConfig: `dnstap tcp://example.com:6000 {
+	message_types CLIENT_RESPONSE
+}
+dnstap /tmp/dnstap.sock full {
+	message_types CLIENT_RESPONSE
+}
+dnstap tcp://example.com:6000 {
+	message_types FORWARDER_QUERY
+}`,
+			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
+				if len(actualTaps) != 1 {
+					t.Fatalf("Expected: 1 results, got: %v", len(actualTaps))
+				}
+
+				next, ok := src.Next.(*dnstap.Dnstap)
+				if !ok {
+					t.Fatal("Expected a dnstap plugin")
+				}
+				if actualTaps[0] != next.Next {
+					t.Error("Unexpected order of dnstap plugins")
+				}
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", tt.tapConfig)
+			dnstapSetup, err := caddy.DirectiveAction("dns", "dnstap")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = dnstapSetup(c); err != nil {
+				t.Fatal(err)
+			}
+			dnsserver.NewServer("", []*dnsserver.Config{dnsserver.GetConfig(c)})
+			tap, ok := dnsserver.GetConfig(c).Handler("dnstap").(*dnstap.Dnstap)
+			if !ok {
+				t.Fatal("Expected a dnstap plugin")
+			}
+			f := &Forward{}
+			f.SetTapPlugin(tap)
+			tt.assert(t, tap, f.tapPlugins)
+		})
 	}
 }

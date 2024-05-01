@@ -96,10 +96,11 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 				}
 			case "message_types":
 				{
-					if !c.NextArg() {
+					types := c.RemainingArgs()
+					if len(types) == 0 {
 						return nil, c.ArgErr()
 					}
-					d.enabledMessageTypes = messageTypesMap(c.RemainingArgs())
+					d.enabledMessageTypes = messageTypesMap(types)
 				}
 			}
 		}
