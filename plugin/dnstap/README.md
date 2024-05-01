@@ -20,6 +20,7 @@ dnstap SOCKET [full] {
   [version VERSION]
   [extra EXTRA]
   [skipverify]
+  [message_types MESSAGE_TYPES]
 }
 ~~~
 
@@ -29,6 +30,12 @@ dnstap SOCKET [full] {
 * **VERSION** to override the version field. Defaults to the CoreDNS version.
 * **EXTRA** to define "extra" field in dnstap payload, [metadata](../metadata/) replacement available here.
 * `skipverify` to skip tls verification during connection. Default to be secure
+* **MESSAGE_TYPES** is a space-separated list of [dnstap message types](https://github.com/dnstap/dnstap.pb/blob/1061e3ed4430f68a0adb87eecadbb9208e7b51dd/dnstap.proto#L156-L229) to be tapped.
+Defaults to tapping all message types. Currently, this plugin only supports the following message types: 
+  * `CLIENT_QUERY`
+  * `CLIENT_RESPONSE`
+  * `FORWARDER_QUERY`: only available when the forward plugin is used.
+  * `FORWARDER_RESPONSE`: only available when the forward plugin is used.
 
 ## Examples
 
@@ -80,6 +87,14 @@ Log to a remote TLS endpoint.
 ~~~ txt
 dnstap tls://127.0.0.1:6000 full {
   skipverify
+}
+~~~
+
+Log only `CLIENT_QUERY` and `CLIENT_RESPONSE` messages to a remote endpoint.
+
+~~~ txt
+dnstap tcp://example.com:6000 full {
+  message_types CLIENT_QUERY CLIENT_RESPONSE
 }
 ~~~
 
