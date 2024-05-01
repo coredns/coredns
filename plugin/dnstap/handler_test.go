@@ -151,4 +151,7 @@ func TestDnstap_MessageTypeEnabled(t *testing.T) {
 	if !h.MessageTypeEnabled(tap.Message_CLIENT_RESPONSE) {
 		t.Error("Expected CLIENT_RESPONSE to be enabled")
 	}
+	if h.MessageTypeEnabled(tap.Message_AUTH_RESPONSE) {
+		t.Error("Expected AUTH_RESPONSE to be disabled")
+	}
 }
