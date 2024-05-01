@@ -144,7 +144,7 @@ func TestDnstap_MessageTypeEnabled(t *testing.T) {
 			t.Errorf("Expected %s to be enabled", name)
 		}
 	}
-	h.enabledMessageTypes = parseMessageTypes("CLIENT_QUERY CLIENT_RESPONSE")
+	h.enabledMessageTypes = messageTypesMap([]string{"CLIENT_QUERY", "CLIENT_RESPONSE"})
 	if !h.MessageTypeEnabled(tap.Message_CLIENT_QUERY) {
 		t.Error("Expected CLIENT_QUERY to be enabled")
 	}

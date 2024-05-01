@@ -99,7 +99,7 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 					if !c.NextArg() {
 						return nil, c.ArgErr()
 					}
-					d.enabledMessageTypes = parseMessageTypes(c.Val())
+					d.enabledMessageTypes = messageTypesMap(c.RemainingArgs())
 				}
 			}
 		}
@@ -152,10 +152,10 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-// parseMessageTypes parses a space-separated list of message types and returns a bitmap of the tap.Message_Type values.
-func parseMessageTypes(raw string) uint64 {
+// messageTypesMap returns a bitmap of enabled message types from a list of message type strings.
+func messageTypesMap(types []string) uint64 {
 	var bitmap uint64
-	for _, str := range strings.Split(raw, " ") {
+	for _, str := range types {
 		typ, ok := tap.Message_Type_value[str]
 		if !ok {
 			log.Warningf("Unknown message type: %s", str)

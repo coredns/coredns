@@ -141,24 +141,24 @@ func TestMultiDnstap(t *testing.T) {
 	}
 }
 
-func Test_parseMessageTypes(t *testing.T) {
+func Test_initMessageTypesMap(t *testing.T) {
 	tests := []struct {
-		in     string
+		in     []string
 		expect uint64
 	}{
-		{in: "", expect: ^uint64(0)},
-		{in: "CLIENT_QUERY", expect: 1 << tap.Message_CLIENT_QUERY},
+		{in: nil, expect: ^uint64(0)},
+		{in: []string{"CLIENT_QUERY"}, expect: 1 << tap.Message_CLIENT_QUERY},
 		{
-			in:     "CLIENT_QUERY CLIENT_RESPONSE",
+			in:     []string{"CLIENT_QUERY", "CLIENT_RESPONSE"},
 			expect: (1 << tap.Message_CLIENT_QUERY) | (1 << tap.Message_CLIENT_RESPONSE),
 		},
 		{
-			in:     "CLIENT_QUERY FORWARDER_QUERY FORWARDER_RESPONSE",
+			in:     []string{"CLIENT_QUERY", "FORWARDER_QUERY", "FORWARDER_RESPONSE"},
 			expect: (1 << tap.Message_CLIENT_QUERY) | (1 << tap.Message_FORWARDER_QUERY) | (1 << tap.Message_FORWARDER_RESPONSE),
 		},
 	}
 	for i, tc := range tests {
-		x := parseMessageTypes(tc.in)
+		x := messageTypesMap(tc.in)
 		if x != tc.expect {
 			t.Errorf("Test %d: expected %d, got %d", i, tc.expect, x)
 		}
