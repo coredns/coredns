@@ -71,21 +71,26 @@ func (h *Dnstap) tapClientQuery(ctx context.Context, w dns.ResponseWriter, query
 
 // ServeDNS logs the client query and response to dnstap and passes the dnstap Context.
 func (h *Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	if h.MessageTypeEnabled(tap.Message_CLIENT_RESPONSE) {
+	crEnabled, cqEnabled := h.MessageTypeEnabled(tap.Message_CLIENT_RESPONSE), h.MessageTypeEnabled(tap.Message_CLIENT_QUERY)
+	var qt time.Time
+	if crEnabled || cqEnabled {
+		qt = time.Now()
+	}
+	if crEnabled {
 		// Custom ResponseWriter is only used to tap CLIENT_RESPONSE messages, so we only create it if needed.
 		w = &ResponseWriter{
 			ResponseWriter: w,
 			Dnstap:         h,
 			query:          r,
 			ctx:            ctx,
-			queryTime:      time.Now(),
+			queryTime:      qt,
 		}
 	}
 
 	// The query tap message should be sent before sending the query to the
 	// forwarder. Otherwise, the tap messages will come out out of order.
-	if h.MessageTypeEnabled(tap.Message_CLIENT_QUERY) {
-		h.tapClientQuery(ctx, w, r, time.Now())
+	if cqEnabled {
+		h.tapClientQuery(ctx, w, r, qt)
 	}
 	return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 }
