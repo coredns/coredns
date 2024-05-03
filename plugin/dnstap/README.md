@@ -31,11 +31,12 @@ dnstap SOCKET [full] {
 * **EXTRA** to define "extra" field in dnstap payload, [metadata](../metadata/) replacement available here.
 * `skipverify` to skip tls verification during connection. Default to be secure
 * **MESSAGE_TYPES** is a space-separated list of [dnstap message types](https://github.com/dnstap/dnstap.pb/blob/1061e3ed4430f68a0adb87eecadbb9208e7b51dd/dnstap.proto#L156-L229) to be tapped.
-Defaults to tapping all message types. Currently, this plugin only supports the following message types: 
+Defaults to tapping all message types. Currently, this plugin only supports the following message types by default:
   * `CLIENT_QUERY`
   * `CLIENT_RESPONSE`
   * `FORWARDER_QUERY`: only available when the forward plugin is used.
   * `FORWARDER_RESPONSE`: only available when the forward plugin is used.
+  * Other message types might be tapped by the custom plugins that use the dnstap as described in the [Using Dnstap in your plugin](#using-dnstap-in-your-plugin) section.
 
 ## Examples
 
