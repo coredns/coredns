@@ -165,7 +165,7 @@ dnstap tcp://example.com:6000 {
 					return
 				}
 				if actualTaps[0] != next.Next {
-					t.Error("Unexpected order of dnstap plugins")
+					t.Error("Unexpected dnstap plugins")
 				}
 			},
 		},
