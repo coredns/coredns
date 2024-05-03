@@ -48,7 +48,8 @@ func TestSetTapPlugin(t *testing.T) {
 			tapConfig: `dnstap tcp://example.com:6000`,
 			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
 				if len(actualTaps) != 1 {
-					t.Fatalf("Expected: 1 results, got: %v", len(actualTaps))
+					t.Errorf("Expected: 1 results, got: %v", len(actualTaps))
+					return
 				}
 				if actualTaps[0] != src {
 					t.Error("Unexpected dnstap plugin")
@@ -62,7 +63,8 @@ func TestSetTapPlugin(t *testing.T) {
 }`,
 			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
 				if len(actualTaps) != 1 {
-					t.Fatalf("Expected: 1 results, got: %v", len(actualTaps))
+					t.Errorf("Expected: 1 results, got: %v", len(actualTaps))
+					return
 				}
 				if actualTaps[0] != src {
 					t.Error("Unexpected dnstap plugin")
@@ -76,7 +78,7 @@ func TestSetTapPlugin(t *testing.T) {
 }`,
 			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
 				if len(actualTaps) != 0 {
-					t.Fatalf("Expected: 0 results, got: %v", len(actualTaps))
+					t.Errorf("Expected: 0 results, got: %v", len(actualTaps))
 				}
 			},
 		},
@@ -86,7 +88,8 @@ func TestSetTapPlugin(t *testing.T) {
 	dnstap tcp://example.com:6000`,
 			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
 				if len(actualTaps) != 2 {
-					t.Fatalf("Expected: 2 results, got: %v", len(actualTaps))
+					t.Errorf("Expected: 2 results, got: %v", len(actualTaps))
+					return
 				}
 				if actualTaps[0] != src || src.Next != actualTaps[1] {
 					t.Error("Unexpected order of dnstap plugins")
@@ -101,7 +104,8 @@ dnstap tcp://example.com:6000 {
 }`,
 			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
 				if len(actualTaps) != 2 {
-					t.Fatalf("Expected: 2 results, got: %v", len(actualTaps))
+					t.Errorf("Expected: 2 results, got: %v", len(actualTaps))
+					return
 				}
 				if actualTaps[0] != src || src.Next != actualTaps[1] {
 					t.Error("Unexpected order of dnstap plugins")
@@ -116,15 +120,16 @@ dnstap tcp://example.com:6000 {
 dnstap /tmp/dnstap.sock full`,
 			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
 				if len(actualTaps) != 1 {
-					t.Fatalf("Expected: 2 results, got: %v", len(actualTaps))
+					t.Errorf("Expected: 1 results, got: %v", len(actualTaps))
+					return
 				}
 				if actualTaps[0] != src.Next {
-					t.Error("Unexpected order of dnstap plugins")
+					t.Error("Unexpected dnstap plugins")
 				}
 			},
 		},
 		{
-			name: "three dnstaps with only non-forward message types",
+			name: "two dnstaps with only non-forward message types",
 			tapConfig: `dnstap tcp://example.com:6000 {
 	message_types CLIENT_RESPONSE
 }
@@ -133,7 +138,7 @@ dnstap /tmp/dnstap.sock full {
 }`,
 			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
 				if len(actualTaps) != 0 {
-					t.Fatalf("Expected: 0 results, got: %v", len(actualTaps))
+					t.Errorf("Expected: 0 results, got: %v", len(actualTaps))
 				}
 			},
 		},
@@ -150,12 +155,14 @@ dnstap tcp://example.com:6000 {
 }`,
 			assert: func(t *testing.T, src *dnstap.Dnstap, actualTaps []*dnstap.Dnstap) {
 				if len(actualTaps) != 1 {
-					t.Fatalf("Expected: 1 results, got: %v", len(actualTaps))
+					t.Errorf("Expected: 1 results, got: %v", len(actualTaps))
+					return
 				}
 
 				next, ok := src.Next.(*dnstap.Dnstap)
 				if !ok {
-					t.Fatal("Expected a dnstap plugin")
+					t.Errorf("Expected a dnstap plugin")
+					return
 				}
 				if actualTaps[0] != next.Next {
 					t.Error("Unexpected order of dnstap plugins")

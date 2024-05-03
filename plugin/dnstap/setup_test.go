@@ -48,7 +48,9 @@ func TestConfig(t *testing.T) {
 				message_types CLIENT_RESPONSE CLIENT_QUERY
               }`, false, []results{
 			{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), "EXTRA", defaultEnabledMessageTypes},
-			{"127.0.0.1:6000", false, "tcp", []byte("NAME2"), []byte("VER2"), "EXTRA2", 0b1100000},
+			{"127.0.0.1:6000", false, "tcp", []byte("NAME2"), []byte("VER2"), "EXTRA2",
+				// CLIENT_QUERY (6-th bit) and CLIENT_RESPONSE (7-th bit) are enabled.
+				0b1100000},
 		}},
 		{"dnstap tls://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tls", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
 		{"dnstap dnstap.sock {\nidentity\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
