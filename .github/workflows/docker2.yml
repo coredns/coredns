@@ -1,7 +1,7 @@
 name: ci
 
 on:
-  push:
+  workflow_dispatch:
 
 env:
   REGISTRY_IMAGE: chrisohaver/coredns
