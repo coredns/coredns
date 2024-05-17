@@ -13,7 +13,7 @@ RUN export DEBCONF_NONINTERACTIVE_SEEN=true \
 FROM --platform=$TARGETPLATFORM scratch
 
 COPY --from=0 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-ADD coredns /coredns
+# ADD coredns /coredns
 
 EXPOSE 53 53/udp
 ENTRYPOINT ["/coredns"]
