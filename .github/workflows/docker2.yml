@@ -1,4 +1,4 @@
-name: ci
+name: docker release
 
 on:
   workflow_dispatch:

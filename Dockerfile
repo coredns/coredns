@@ -1,6 +1,4 @@
-ARG DEBIAN_IMAGE=debian:stable-slim
-ARG BASE=gcr.io/distroless/static-debian11:nonroot
-FROM --platform=$BUILDPLATFORM ${DEBIAN_IMAGE} AS build
+FROM --platform=$BUILDPLATFORM debian:stable-slim
 SHELL [ "/bin/sh", "-ec" ]
 
 RUN export DEBCONF_NONINTERACTIVE_SEEN=true \
@@ -9,14 +7,13 @@ RUN export DEBCONF_NONINTERACTIVE_SEEN=true \
            TERM=linux ; \
     apt-get -qq update ; \
     apt-get -yyqq upgrade ; \
-    apt-get -yyqq install ca-certificates libcap2-bin; \
+    apt-get -yyqq install ca-certificates ; \
     apt-get clean
-COPY coredns /coredns
-RUN setcap cap_net_bind_service=+ep /coredns
 
-FROM --platform=$TARGETPLATFORM ${BASE}
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=build /coredns /coredns
-USER nonroot:nonroot
+FROM --platform=$TARGETPLATFORM scratch
+
+COPY --from=0 /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+ADD coredns /coredns
+
 EXPOSE 53 53/udp
 ENTRYPOINT ["/coredns"]
