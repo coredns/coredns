@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package coredns.rlc;
+option go_package = "../rlc";
+import "google/protobuf/timestamp.proto";
+
+message NameEntry {
+  string name = 1;
+  uint32 hits = 2;
+  google.protobuf.Timestamp last_access = 3;
+}
+
+message PTREntry {
+  bytes ip = 1;
+  map<string, NameEntry> names = 2;
+  google.protobuf.Timestamp last_access = 3;
+}
