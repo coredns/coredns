@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DOCKER_LOGIN: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
       RELEASE: ${{ github.event.inputs.release || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
@@ -26,9 +26,9 @@ jobs:
       - name: Show Docker Images
         run: docker images
       - name: Docker login
-        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20  # v3.1.0
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
       - name: Publish Docker Images
         run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker docker-push
