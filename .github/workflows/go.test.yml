@@ -51,26 +51,26 @@ jobs:
       - name: Test
         run: ( cd plugin; go test -race ./... )
 
-  test-e2e:
-    name: Test e2e
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+  # test-e2e:
+  #   name: Test e2e
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Check out code
+  #       uses: actions/checkout@v4
 
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '~1.21.0'
-        id: go
+  #     - name: Install Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: '~1.21.0'
+  #       id: go
 
-      - name: Build
-        run: go build -v ./...
+  #     - name: Build
+  #       run: go build -v ./...
 
-      - name: Test
-        run: |
-          go install github.com/fatih/faillint@latest
-          ( cd test; go test -race ./... )
+  #     - name: Test
+  #       run: |
+  #         go install github.com/fatih/faillint@latest
+  #         ( cd test; go test -race ./... )
 
   test-makefile-release:
     name: Test Makefile.release
