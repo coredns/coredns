@@ -30,7 +30,7 @@ VERSION:=
 # DOCKER is the docker image repo we need to push to.
 DOCKER:=
 NAME:=coredns
-GITHUB:=https://github.com/coredns/coredns/releases/download
+GITHUB:=https://github.com/heiko-braun/coredns/releases/download
 # mips is not in LINUX_ARCH because it's not supported by docker manifest. Keep this list in sync with the one in Makefile.release
 LINUX_ARCH:=amd64 arm arm64 mips64le ppc64le s390x riscv64
 DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
@@ -99,9 +99,9 @@ endif
 ifeq ($(DOCKER),)
 	$(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
 else
-	@# Pushes coredns/coredns-$arch:$version images
+	@# Pushes ikebraun/coredns-$arch:$version images
 	@# Creates manifest for multi-arch image
-	@# Pushes multi-arch image to coredns/coredns:$version
+	@# Pushes multi-arch image to ikebraun/coredns:$version
 	@echo Pushing: $(VERSION) to $(DOCKER_IMAGE_NAME)
 	for arch in $(LINUX_ARCH); do \
 		docker push $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) ;\
