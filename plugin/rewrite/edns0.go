@@ -130,6 +130,10 @@ func newEdns0Rule(mode string, args ...string) (Rule, error) {
 		if len(args) != 2 {
 			return nil, fmt.Errorf("EDNS0 NSID rules do not accept args")
 		}
+
+		// Add NSID code to the ones the server supports.
+		edns.SetSupportedOption(dns.EDNS0NSID)
+
 		return &edns0NsidRule{mode: mode, action: action}, nil
 	case "subnet":
 		if len(args) != 4 {

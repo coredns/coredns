@@ -15,6 +15,7 @@ import (
 	"github.com/coredns/coredns/plugin/debug"
 	"github.com/coredns/coredns/plugin/dnstap"
 	"github.com/coredns/coredns/plugin/metadata"
+	"github.com/coredns/coredns/plugin/pkg/edns"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/proxy"
 	"github.com/coredns/coredns/request"
@@ -91,6 +92,13 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	state := request.Request{W: w, Req: r}
 	if !f.match(state) {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+	}
+
+	// RFC6891 indicates EDNS is hop-by-hop.
+	// Remove all incoming EDNS options EXCEPT for the ones explicitly supported.
+	o := state.Req.IsEdns0()
+	if o != nil && len(o.Option) > 0 {
+		o.Option = edns.SupportedOptions(o.Option)
 	}
 
 	if f.maxConcurrent > 0 {
