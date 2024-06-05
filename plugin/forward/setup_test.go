@@ -342,3 +342,43 @@ func TestMultiForward(t *testing.T) {
 		t.Error("expected third plugin to be last, but Next is not nil")
 	}
 }
+func TestNextAlternate(t *testing.T) {
+	testsValid := []struct {
+		input    string
+		expected []int
+	}{
+		{"forward . 127.0.0.1 {\nnext NXDOMAIN\n}\n", []int{dns.RcodeNameError}},
+		{"forward . 127.0.0.1 {\nnext SERVFAIL\n}\n", []int{dns.RcodeServerFailure}},
+		{"forward . 127.0.0.1 {\nnext NXDOMAIN SERVFAIL\n}\n", []int{dns.RcodeNameError, dns.RcodeServerFailure}},
+		{"forward . 127.0.0.1 {\nnext NXDOMAIN SERVFAIL REFUSED\n}\n", []int{dns.RcodeNameError, dns.RcodeServerFailure, dns.RcodeRefused}},
+	}
+	for i, test := range testsValid {
+		c := caddy.NewTestController("dns", test.input)
+		f, err := parseForward(c)
+		forward := f[0]
+		if err != nil {
+			t.Errorf("Test %d: %v", i, err)
+		}
+		if len(forward.nextAlternateRcodes) != len(test.expected) {
+			t.Errorf("Test %d: expected %d next rcodes, got %d", i, len(test.expected), len(forward.nextAlternateRcodes))
+		}
+		for j, rcode := range forward.nextAlternateRcodes {
+			if rcode != test.expected[j] {
+				t.Errorf("Test %d: expected next rcode %d, got %d", i, test.expected[j], rcode)
+			}
+		}
+	}
+
+	testsInvalid := []string{
+		"forward . 127.0.0.1 {\nnext\n}\n",
+		"forward . 127.0.0.1 {\nnext INVALID\n}\n",
+		"forward . 127.0.0.1 {\nnext NXDOMAIN INVALID\n}\n",
+	}
+	for i, test := range testsInvalid {
+		c := caddy.NewTestController("dns", test)
+		_, err := parseForward(c)
+		if err == nil {
+			t.Errorf("Test %d: expected error, got nil", i)
+		}
+	}
+}
