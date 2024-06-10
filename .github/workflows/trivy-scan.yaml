@@ -20,7 +20,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@fd25fed6972e341ff0007ddb61f77e88103953c2  # master
+        uses: aquasecurity/trivy-action@595be6a0f6560a0a8fc419ddf630567fc623531d  # master
         with:
           image-ref: 'docker.io/coredns/coredns:${{ matrix.versions }}'
           severity: 'CRITICAL,HIGH'
