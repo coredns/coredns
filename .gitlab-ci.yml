@@ -1,0 +1,166 @@
+stages:
+  - test
+  - release
+  - end
+
+variables:
+  GIT_BASE_BRANCH: datadog-master
+  CI_IMAGE: registry.ddbuild.io/coredns/builder:32ae64711
+  SLACK_NOTIFIER_IMAGE: 486234852809.dkr.ecr.us-east-1.amazonaws.com/slack-notifier:sdm
+  NOTIFICATIONS_SLACK_CHANNEL: traffic-deployments
+  FF_USE_FASTZIP: 1
+
+default:
+  before_script:
+    - git config --global --add safe.directory /go/src/github.com/DataDog/coredns
+
+.slack-base-job:
+  image: $SLACK_NOTIFIER_IMAGE
+  tags: ["arch:amd64"]
+  allow_failure: true
+
+.coredns-release-script: &coredns-release-script |
+  commit=$(git rev-parse --short=8 --verify HEAD)
+  tag=$(git tag --points-at HEAD)
+  
+  if [[ -z $tag ]]; then
+    VERSION=v$CI_PIPELINE_ID-$commit;
+  else
+    VERSION=$tag;
+  fi
+
+  go generate coredns.go
+  go get
+
+  PLATFORMS=(linux/amd64 linux/arm64)
+  for platform in "${PLATFORMS[@]}"; do
+    GOOS=$(echo $platform | cut -d/ -f1)
+    GOARCH=$(echo $platform | cut -d/ -f2)
+    echo "Building for $GOOS/$GOARCH"
+  
+    GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build -o coredns-${GOOS}-${GOARCH} -v -ldflags "-X github.com/coredns/coredns/coremain.GitCommit=${VERSION} -w -s" .
+  done
+
+  METADATA_FILE=$(mktemp)
+  docker buildx build \
+    --platform linux/amd64,linux/arm64 \
+    --tag registry.ddbuild.io/coredns:${VERSION} \
+    --label git.repository=${CI_PROJECT_NAME} \
+    --label git.branch=${CI_COMMIT_REF_NAME} \
+    --label git.commit=${CI_COMMIT_SHA} \
+    --label ci.pipeline_id=${CI_PIPELINE_ID} \
+    --label ci.job_id=${CI_JOB_ID} \
+    --push \
+    --metadata-file ${METADATA_FILE} \
+    -f .datadog/image/Dockerfile .
+  ddsign sign registry.ddbuild.io/coredns:${VERSION} --docker-metadata-file ${METADATA_FILE}
+
+.slack-base-script: &slack-base-script |
+  if [[ $GITLAB_USER_LOGIN = "gitsync" || $GITLAB_USER_LOGIN = "codesync" ]]; then EMAIL=$(git show -s --format="%ae" HEAD); else EMAIL=$GITLAB_USER_EMAIL; fi
+
+  BUILD_URL="$CI_PROJECT_URL/pipelines/$CI_PIPELINE_ID"
+  POST_CHANNELS=()
+
+  # Map email to slack handle
+  SLACK_AUTHOR=$(echo $EMAIL | email2slackid)
+  if [ -z "$SLACK_AUTHOR" ]; then
+    echo "author not found or unsubscribed";
+  else
+    POST_CHANNELS+=("$SLACK_AUTHOR")
+  fi
+
+  if [[ $CI_COMMIT_BRANCH = "$GIT_BASE_BRANCH" || -n $CI_COMMIT_TAG ]]; then
+    POST_CHANNELS+=("$NOTIFICATIONS_SLACK_CHANNEL")
+  fi
+
+.slack-start-message: &slack-start-message |
+  MESSAGE_TEXT=":spin: $CI_PROJECT_NAME [origin/$CI_COMMIT_REF_NAME] pipeline <$BUILD_URL|$CI_PIPELINE_ID> was started by $EMAIL"
+
+  for CHANNEL in "${POST_CHANNELS[@]}"; do
+    postmessage "$CHANNEL" "$MESSAGE_TEXT" warning || true
+  done
+
+.slack-success-template: &slack-success-message |
+  MESSAGE_TEXT=":host-green: $CI_PROJECT_NAME [origin/$CI_COMMIT_REF_NAME] pipeline <$BUILD_URL|$CI_PIPELINE_ID> succeeded!"
+
+  for CHANNEL in "${POST_CHANNELS[@]}"; do
+    postmessage "$CHANNEL" "$MESSAGE_TEXT" success || true
+  done
+
+.slack-failure-template: &slack-failure-message |
+  MESSAGE_TEXT=":sad-egg: $CI_PROJECT_NAME [origin/$CI_COMMIT_REF_NAME] pipeline <$BUILD_URL|$CI_PIPELINE_ID> failed"
+
+  for CHANNEL in "${POST_CHANNELS[@]}"; do
+    postmessage "$CHANNEL" "$MESSAGE_TEXT" alert || true
+  done
+
+notify-start:
+  stage: .pre
+  extends:
+    - .slack-base-job
+  variables:
+    START_SUCCESS_OR_FAILURE: start
+  script:
+    - *slack-base-script
+    - *slack-start-message
+
+notify-success:
+  stage: end
+  when: on_success
+  extends:
+    - .slack-base-job
+  variables:
+    START_SUCCESS_OR_FAILURE: success
+  script:
+    - *slack-base-script
+    - *slack-success-message
+
+notify-failure:
+  stage: end
+  when: on_failure
+  extends:
+    - .slack-base-job
+  variables:
+    START_SUCCESS_OR_FAILURE: failure
+  script:
+    - *slack-base-script
+    - *slack-failure-message
+
+noop-test:
+  stage: test
+  extends:
+    - .slack-base-job
+  script:
+    - echo "Doing nothing on purpose"
+
+noop-release:
+  stage: release
+  extends:
+    - .slack-base-job
+  script:
+    - echo "Doing nothing on purpose"
+
+coredns-test:
+  stage: test
+  image: $CI_IMAGE
+  tags: 
+    - "arch:amd64"
+  rules:
+    - when: always
+      allow_failure: true
+  script:
+    - go test -v ./...
+
+coredns-release:
+  stage: release
+  image: $CI_IMAGE
+  tags:
+    - "arch:amd64"
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: on_success
+    - when: manual
+      allow_failure: true
+  script:
+    - *coredns-release-script
+
