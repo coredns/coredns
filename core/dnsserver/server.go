@@ -56,7 +56,7 @@ type MetadataCollector interface {
 	Collect(context.Context, request.Request) context.Context
 }
 
-// NewServer returns a new CoreDNS server and compiles all plugins in to it. By default CH class
+// NewServer returns a new CoreDNS server and compiles all plugins in to it. By default, CH class
 // queries are blocked unless queries from enableChaos are loaded.
 func NewServer(addr string, group []*Config) (*Server, error) {
 	s := &Server{
