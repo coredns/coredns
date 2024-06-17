@@ -1,34 +1,75 @@
-name: Docker Release
+# name: Docker Release
+
+# on:
+#   release:
+#     types: [published]
+#   workflow_dispatch:
+#     inputs:
+#       release:
+#         description: "Release (e.g., v1.9.0)"
+#         required: true
+
+# permissions:
+#   contents: read
+
+# jobs:
+#   docker-release:
+#     runs-on: ubuntu-latest
+#     env:
+#       DOCKER_LOGIN: ${{ secrets.DOCKERHUB_USERNAME }}
+#       DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+#       RELEASE: ${{ github.event.inputs.release || github.event.release.tag_name }}
+#     steps:
+#       - uses: actions/checkout@v4
+#       - name: Build Docker Images
+#         run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker release
+#       - name: Show Docker Images
+#         run: docker images
+#       - name: Docker login
+#         uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446  # v3.2.0
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_PASSWORD }}
+#       - name: Publish Docker Images
+#         run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker docker-push
+# .github/workflows/release.yml
+name: goreleaser
 
 on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      release:
-        description: "Release (e.g., v1.9.0)"
-        required: true
+  pull_request:
+  push:
+    # run only against tags
+    tags:
+      - "*"
 
 permissions:
-  contents: read
+  contents: write
+  # packages: write
+  # issues: write
 
 jobs:
-  docker-release:
+  goreleaser:
     runs-on: ubuntu-latest
-    env:
-      DOCKER_LOGIN: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
-      RELEASE: ${{ github.event.inputs.release || github.event.release.tag_name }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Build Docker Images
-        run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker release
-      - name: Show Docker Images
-        run: docker images
-      - name: Docker login
-        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446  # v3.2.0
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      - name: Publish Docker Images
-        run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker docker-push
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      # More assembly might be required: Docker logins, GPG, etc.
+      # It all depends on your needs.
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          # either 'goreleaser' (default) or 'goreleaser-pro'
+          distribution: goreleaser
+          # 'latest', 'nightly', or a semver
+          version: "~> v1"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution
+          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
