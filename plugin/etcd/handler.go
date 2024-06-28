@@ -71,8 +71,8 @@ func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	m.SetReply(r)
 	m.Truncated = truncated
 	m.Authoritative = true
-	m.Answer = append(m.Answer, records...)
-	m.Extra = append(m.Extra, extra...)
+	m.Answer = records
+	m.Extra = extra
 
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
