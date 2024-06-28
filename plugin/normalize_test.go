@@ -1,8 +1,10 @@
 package plugin
 
 import (
+	"github.com/miekg/dns"
 	"sort"
 	"testing"
+	"time"
 )
 
 func TestZoneMatches(t *testing.T) {
@@ -137,4 +139,24 @@ func TestHostNormalizeExact(t *testing.T) {
 			}
 		}
 	}
+}
+func TestIsSubDomain(t *testing.T) {
+	zones := Zones{"abc.xyz.com.local", "123.890.333.000"}
+	zone := "aabc.xyz.com.local"
+	println(IsSubDomain(zones[0], zone))
+	tt := time.Now()
+	for i := 0; i < 90000; i++ {
+		for _, z := range zones {
+			IsSubDomain(z, zone)
+		}
+	}
+	println(time.Now().Sub(tt))
+
+	tt = time.Now()
+	for i := 0; i < 90000; i++ {
+		for _, z := range zones {
+			dns.IsSubDomain(z, zone)
+		}
+	}
+	println(time.Now().Sub(tt))
 }
