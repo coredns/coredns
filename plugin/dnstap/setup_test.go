@@ -10,12 +10,13 @@ import (
 )
 
 type results struct {
-	endpoint    string
-	full        bool
-	proto       string
-	identity    []byte
-	version     []byte
-	extraFormat string
+	endpoint            string
+	full                bool
+	proto               string
+	identity            []byte
+	version             []byte
+	extraFormat         string
+	enabledMessageTypes uint64
 }
 
 func TestConfig(t *testing.T) {
@@ -25,16 +26,16 @@ func TestConfig(t *testing.T) {
 		fail   bool
 		expect []results
 	}{
-		{"dnstap dnstap.sock full", false, []results{{"dnstap.sock", true, "unix", []byte(hostname), []byte("-"), ""}}},
-		{"dnstap unix://dnstap.sock", false, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), ""}}},
-		{"dnstap tcp://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tcp", []byte(hostname), []byte("-"), ""}}},
-		{"dnstap tcp://[::1]:6000", false, []results{{"[::1]:6000", false, "tcp", []byte(hostname), []byte("-"), ""}}},
-		{"dnstap tcp://example.com:6000", false, []results{{"example.com:6000", false, "tcp", []byte(hostname), []byte("-"), ""}}},
-		{"dnstap", true, []results{{"fail", false, "tcp", []byte(hostname), []byte("-"), ""}}},
-		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\n}\n", false, []results{{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), ""}}},
-		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", false, []results{{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), "EXTRA"}}},
-		{"dnstap dnstap.sock {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", false, []results{{"dnstap.sock", false, "unix", []byte("NAME"), []byte("VER"), "EXTRA"}}},
-		{"dnstap {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", true, []results{{"fail", false, "tcp", []byte("NAME"), []byte("VER"), "EXTRA"}}},
+		{"dnstap dnstap.sock full", false, []results{{"dnstap.sock", true, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap unix://dnstap.sock", false, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap tcp://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tcp", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap tcp://[::1]:6000", false, []results{{"[::1]:6000", false, "tcp", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap tcp://example.com:6000", false, []results{{"example.com:6000", false, "tcp", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap", true, []results{{"fail", false, "tcp", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\n}\n", false, []results{{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), "", defaultEnabledMessageTypes}}},
+		{"dnstap dnstap.sock full {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", false, []results{{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), "EXTRA", defaultEnabledMessageTypes}}},
+		{"dnstap dnstap.sock {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", false, []results{{"dnstap.sock", false, "unix", []byte("NAME"), []byte("VER"), "EXTRA", defaultEnabledMessageTypes}}},
+		{"dnstap {\nidentity NAME\nversion VER\nextra EXTRA\n}\n", true, []results{{"fail", false, "tcp", []byte("NAME"), []byte("VER"), "EXTRA", defaultEnabledMessageTypes}}},
 		{`dnstap dnstap.sock full {
                 identity NAME
                 version VER
@@ -44,14 +45,18 @@ func TestConfig(t *testing.T) {
                 identity NAME2
                 version VER2
                 extra EXTRA2
+				message_types CLIENT_RESPONSE CLIENT_QUERY
               }`, false, []results{
-			{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), "EXTRA"},
-			{"127.0.0.1:6000", false, "tcp", []byte("NAME2"), []byte("VER2"), "EXTRA2"},
+			{"dnstap.sock", true, "unix", []byte("NAME"), []byte("VER"), "EXTRA", defaultEnabledMessageTypes},
+			{"127.0.0.1:6000", false, "tcp", []byte("NAME2"), []byte("VER2"), "EXTRA2",
+				// CLIENT_QUERY (6-th bit) and CLIENT_RESPONSE (7-th bit) are enabled.
+				0b1100000},
 		}},
-		{"dnstap tls://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tls", []byte(hostname), []byte("-"), ""}}},
-		{"dnstap dnstap.sock {\nidentity\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), ""}}},
-		{"dnstap dnstap.sock {\nversion\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), ""}}},
-		{"dnstap dnstap.sock {\nextra\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), ""}}},
+		{"dnstap tls://127.0.0.1:6000", false, []results{{"127.0.0.1:6000", false, "tls", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap dnstap.sock {\nidentity\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap dnstap.sock {\nversion\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap dnstap.sock {\nextra\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
+		{"dnstap dnstap.sock {\nmessage_types\n}\n", true, []results{{"dnstap.sock", false, "unix", []byte(hostname), []byte("-"), "", defaultEnabledMessageTypes}}},
 	}
 	for i, tc := range tests {
 		c := caddy.NewTestController("dns", tc.in)
@@ -133,5 +138,23 @@ func TestMultiDnstap(t *testing.T) {
 	}
 	if d3.Next != nil {
 		t.Error("expected third plugin to be last, but Next is not nil")
+	}
+}
+
+func Test_messageTypesMap(t *testing.T) {
+	tests := []struct {
+		in     []string
+		expect uint64
+	}{
+		{in: nil, expect: ^uint64(0)},
+		{in: []string{"CLIENT_QUERY"}, expect: 0b100000},
+		{in: []string{"CLIENT_QUERY", "CLIENT_RESPONSE"}, expect: 0b1100000},
+		{in: []string{"CLIENT_QUERY", "UPDATE_RESPONSE", "FORWARDER_RESPONSE"}, expect: 0b100000100100000},
+	}
+	for i, tc := range tests {
+		x := messageTypesMap(tc.in)
+		if x != tc.expect {
+			t.Errorf("Test %d: expected %d, got %d", i, tc.expect, x)
+		}
 	}
 }

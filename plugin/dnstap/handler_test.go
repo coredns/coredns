@@ -21,8 +21,9 @@ func testCase(t *testing.T, tapq, tapr *tap.Dnstap, q, r *dns.Msg, extraFormat s
 			w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 			return 0, w.WriteMsg(r)
 		}),
-		io:          &w,
-		ExtraFormat: extraFormat,
+		io:                  &w,
+		ExtraFormat:         extraFormat,
+		enabledMessageTypes: defaultEnabledMessageTypes,
 	}
 	ctx := metadata.ContextWithMetadata(context.TODO())
 	ok := metadata.SetValueFunc(ctx, "metadata/test", func() string {
@@ -133,4 +134,24 @@ func TestTapMessage(t *testing.T) {
 		ExtraFormat: extraFormat,
 	}
 	h.TapMessage(tapq.Message)
+}
+
+func TestDnstap_MessageTypeEnabled(t *testing.T) {
+	// Ensures that the default enables all message types.
+	h := Dnstap{enabledMessageTypes: defaultEnabledMessageTypes}
+	for tyy, name := range tap.Message_Type_name {
+		if !h.MessageTypeEnabled(tap.Message_Type(tyy)) {
+			t.Errorf("Expected %s to be enabled", name)
+		}
+	}
+	h.enabledMessageTypes = messageTypesMap([]string{"CLIENT_QUERY", "CLIENT_RESPONSE"})
+	if !h.MessageTypeEnabled(tap.Message_CLIENT_QUERY) {
+		t.Error("Expected CLIENT_QUERY to be enabled")
+	}
+	if !h.MessageTypeEnabled(tap.Message_CLIENT_RESPONSE) {
+		t.Error("Expected CLIENT_RESPONSE to be enabled")
+	}
+	if h.MessageTypeEnabled(tap.Message_AUTH_RESPONSE) {
+		t.Error("Expected AUTH_RESPONSE to be disabled")
+	}
 }

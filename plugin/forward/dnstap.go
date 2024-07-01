@@ -34,33 +34,37 @@ func toDnstap(ctx context.Context, f *Forward, host string, state request.Reques
 	}
 
 	for _, t := range f.tapPlugins {
-		// Query
-		q := new(tap.Message)
-		msg.SetQueryTime(q, start)
-		// Forwarder dnstap messages are from the perspective of the downstream server
-		// (upstream is the forward server)
-		msg.SetQueryAddress(q, state.W.RemoteAddr())
-		msg.SetResponseAddress(q, ta)
-		if t.IncludeRawMessage {
-			buf, _ := state.Req.Pack()
-			q.QueryMessage = buf
-		}
-		msg.SetType(q, tap.Message_FORWARDER_QUERY)
-		t.TapMessageWithMetadata(ctx, q, state)
-
-		// Response
-		if reply != nil {
-			r := new(tap.Message)
+		if t.MessageTypeEnabled(tap.Message_FORWARDER_QUERY) {
+			// Query
+			q := new(tap.Message)
+			msg.SetQueryTime(q, start)
+			// Forwarder dnstap messages are from the perspective of the downstream server
+			// (upstream is the forward server)
+			msg.SetQueryAddress(q, state.W.RemoteAddr())
+			msg.SetResponseAddress(q, ta)
 			if t.IncludeRawMessage {
-				buf, _ := reply.Pack()
-				r.ResponseMessage = buf
+				buf, _ := state.Req.Pack()
+				q.QueryMessage = buf
 			}
-			msg.SetQueryTime(r, start)
-			msg.SetQueryAddress(r, state.W.RemoteAddr())
-			msg.SetResponseAddress(r, ta)
-			msg.SetResponseTime(r, time.Now())
-			msg.SetType(r, tap.Message_FORWARDER_RESPONSE)
-			t.TapMessageWithMetadata(ctx, r, state)
+			msg.SetType(q, tap.Message_FORWARDER_QUERY)
+			t.TapMessageWithMetadata(ctx, q, state)
+		}
+
+		if t.MessageTypeEnabled(tap.Message_FORWARDER_RESPONSE) {
+			// Response
+			if reply != nil {
+				r := new(tap.Message)
+				if t.IncludeRawMessage {
+					buf, _ := reply.Pack()
+					r.ResponseMessage = buf
+				}
+				msg.SetQueryTime(r, start)
+				msg.SetQueryAddress(r, state.W.RemoteAddr())
+				msg.SetResponseAddress(r, ta)
+				msg.SetResponseTime(r, time.Now())
+				msg.SetType(r, tap.Message_FORWARDER_RESPONSE)
+				t.TapMessageWithMetadata(ctx, r, state)
+			}
 		}
 	}
 }
