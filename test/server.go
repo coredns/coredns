@@ -40,7 +40,7 @@ func CoreDNSServerPorts(i *caddy.Instance, k int) (udp, tcp string) {
 	if t != nil {
 		tcp = t.String()
 	}
-	return udp, tcp
+	return
 }
 
 // CoreDNSServerAndPorts combines CoreDNSServer and CoreDNSServerPorts to start a CoreDNS
