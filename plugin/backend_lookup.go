@@ -41,6 +41,9 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			if dnsutil.DuplicateCNAME(newRecord, previousRecords) {
 				continue
 			}
+			// Add an identifier here to indicate that if the current plugin cannot resolve the CNAME record,
+			// it needs to be processed further through the upstream of the plugin.
+			needLookup := true
 			if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
 				state1 := state.NewWithQuestion(serv.Host, state.QType())
 				state1.Zone = zone
@@ -51,27 +54,31 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 					if len(nextRecords) > 0 {
 						records = append(records, newRecord)
 						records = append(records, nextRecords...)
+						// If there is a record in the current plugin, set needLookup to false,
+						// and there is no need for the upstream DNS to continue processing.
+						needLookup = false
 					}
 				}
 				if tc {
 					truncated = true
 				}
+			}
+			if needLookup {
+				// This means we cannot complete the CNAME, try to look else where.
+				target := newRecord.Target
+				// Lookup
+				m1, e1 := b.Lookup(ctx, state, target, state.QType())
+				if e1 != nil {
+					continue
+				}
+				if m1.Truncated {
+					truncated = true
+				}
+				// Len(m1.Answer) > 0 here is well?
+				records = append(records, newRecord)
+				records = append(records, m1.Answer...)
 				continue
 			}
-			// This means we can not complete the CNAME, try to look else where.
-			target := newRecord.Target
-			// Lookup
-			m1, e1 := b.Lookup(ctx, state, target, state.QType())
-			if e1 != nil {
-				continue
-			}
-			if m1.Truncated {
-				truncated = true
-			}
-			// Len(m1.Answer) > 0 here is well?
-			records = append(records, newRecord)
-			records = append(records, m1.Answer...)
-			continue
 
 		case dns.TypeA:
 			if _, ok := dup[serv.Host]; !ok {
@@ -115,6 +122,7 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			if dnsutil.DuplicateCNAME(newRecord, previousRecords) {
 				continue
 			}
+			needLookup := true
 			if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
 				state1 := state.NewWithQuestion(serv.Host, state.QType())
 				state1.Zone = zone
@@ -125,27 +133,29 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 					if len(nextRecords) > 0 {
 						records = append(records, newRecord)
 						records = append(records, nextRecords...)
+						needLookup = false
 					}
 				}
 				if tc {
 					truncated = true
 				}
+			}
+			if needLookup {
+				// This means we cannot complete the CNAME, try to look else where.
+				target := newRecord.Target
+				m1, e1 := b.Lookup(ctx, state, target, state.QType())
+				if e1 != nil {
+					continue
+				}
+				if m1.Truncated {
+					truncated = true
+				}
+				// Len(m1.Answer) > 0 here is well?
+				records = append(records, newRecord)
+				records = append(records, m1.Answer...)
 				continue
+				// both here again
 			}
-			// This means we can not complete the CNAME, try to look else where.
-			target := newRecord.Target
-			m1, e1 := b.Lookup(ctx, state, target, state.QType())
-			if e1 != nil {
-				continue
-			}
-			if m1.Truncated {
-				truncated = true
-			}
-			// Len(m1.Answer) > 0 here is well?
-			records = append(records, newRecord)
-			records = append(records, m1.Answer...)
-			continue
-			// both here again
 
 		case dns.TypeA:
 			// nada
