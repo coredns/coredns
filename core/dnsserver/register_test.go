@@ -10,7 +10,7 @@ func TestHandler(t *testing.T) {
 	if _, err := NewServer("127.0.0.1:53", []*Config{c}); err != nil {
 		t.Errorf("Expected no error for NewServer, got %s", err)
 	}
-	if h := c.Handler("testplugin"); h != tp {
+	if h := c.Handler("local"); h != tp {
 		t.Errorf("Expected testPlugin from Handler, got %T", h)
 	}
 	if h := c.Handler("nothing"); h != nil {
