@@ -11,8 +11,9 @@ this. A relative root path is relative to the current working directory.
 **NOTE: The *root* directory is NOT currently supported by all plugins.** 
 Currently the following plugins respect the *root* plugin configuration:
 
-* file
-* tls
+* *file*
+* *tls*
+* *dnssec*
 
 This plugin can only be used once per Server Block. 
 
@@ -50,5 +51,6 @@ tls://example.com:853 {
 **NOTE: The *root* directory is NOT currently supported by all plugins.** 
 Currently the following plugins respect the *root* plugin configuration:
 
-* file
-* tls
+* *file*
+* *tls*
+* *dnssec*
