@@ -57,7 +57,7 @@ path) in the following case. To properly build the search path of a client *auto
 the namespace of the a Pod making a DNS request. To do this, it relies on the *kubernetes* plugin's
 Pod cache to resolve the client's IP address to a Pod. The Pod cache is maintained by an API watch
 on Pods. When Pod IP assignments change, the Kubernetes API notifies CoreDNS via the API watch.
-However, that notification is not instantaneous. In the case that a Pod is deleted, and it's IP is
+However, that notification is not instantaneous. In the case that a Pod is deleted, and its IP is
 immediately provisioned to a Pod in another namespace, and that new Pod make a DNS lookup *before*
 the API watch can notify CoreDNS of the change, *autopath* will resolve the IP to the previous Pod's
 namespace.

@@ -5,13 +5,16 @@ import (
 )
 
 func TestCorefile1(t *testing.T) {
-	corefile := `ȶ
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Expected no panic, but got %v", r)
+		}
+	}()
+
+	// this used to crash
+	corefile := `\\\\ȶ.
 acl
 `
-	// this crashed, now it should return an error.
-	i, _, _, err := CoreDNSServerAndPorts(corefile)
-	if err == nil {
-		defer i.Stop()
-		t.Fatalf("Expected an error got none")
-	}
+	i, _, _, _ := CoreDNSServerAndPorts(corefile)
+	defer i.Stop()
 }

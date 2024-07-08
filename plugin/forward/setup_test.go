@@ -143,6 +143,13 @@ nameserver 10.10.255.253`), 0666); err != nil {
 	}
 	defer os.Remove(resolv)
 
+	const resolvIPV6 = "resolv-ipv6.conf"
+	if err := os.WriteFile(resolvIPV6,
+		[]byte(`nameserver 0388:d254:7aec:6892:9f7f:e93b:5806:1b0f%en0`), 0666); err != nil {
+		t.Fatalf("Failed to write %v file: %s", resolvIPV6, err)
+	}
+	defer os.Remove(resolvIPV6)
+
 	tests := []struct {
 		input         string
 		shouldErr     bool
@@ -153,6 +160,8 @@ nameserver 10.10.255.253`), 0666); err != nil {
 		{`forward . ` + resolv, false, "", []string{"10.10.255.252:53", "10.10.255.253:53"}},
 		// fail
 		{`forward . /dev/null`, true, "no nameservers", nil},
+		// IPV6 with local zone
+		{`forward . ` + resolvIPV6, false, "", []string{"[0388:d254:7aec:6892:9f7f:e93b:5806:1b0f]:53"}},
 	}
 
 	for i, test := range tests {
@@ -331,5 +340,45 @@ func TestMultiForward(t *testing.T) {
 	}
 	if f3.Next != nil {
 		t.Error("expected third plugin to be last, but Next is not nil")
+	}
+}
+func TestNextAlternate(t *testing.T) {
+	testsValid := []struct {
+		input    string
+		expected []int
+	}{
+		{"forward . 127.0.0.1 {\nnext NXDOMAIN\n}\n", []int{dns.RcodeNameError}},
+		{"forward . 127.0.0.1 {\nnext SERVFAIL\n}\n", []int{dns.RcodeServerFailure}},
+		{"forward . 127.0.0.1 {\nnext NXDOMAIN SERVFAIL\n}\n", []int{dns.RcodeNameError, dns.RcodeServerFailure}},
+		{"forward . 127.0.0.1 {\nnext NXDOMAIN SERVFAIL REFUSED\n}\n", []int{dns.RcodeNameError, dns.RcodeServerFailure, dns.RcodeRefused}},
+	}
+	for i, test := range testsValid {
+		c := caddy.NewTestController("dns", test.input)
+		f, err := parseForward(c)
+		forward := f[0]
+		if err != nil {
+			t.Errorf("Test %d: %v", i, err)
+		}
+		if len(forward.nextAlternateRcodes) != len(test.expected) {
+			t.Errorf("Test %d: expected %d next rcodes, got %d", i, len(test.expected), len(forward.nextAlternateRcodes))
+		}
+		for j, rcode := range forward.nextAlternateRcodes {
+			if rcode != test.expected[j] {
+				t.Errorf("Test %d: expected next rcode %d, got %d", i, test.expected[j], rcode)
+			}
+		}
+	}
+
+	testsInvalid := []string{
+		"forward . 127.0.0.1 {\nnext\n}\n",
+		"forward . 127.0.0.1 {\nnext INVALID\n}\n",
+		"forward . 127.0.0.1 {\nnext NXDOMAIN INVALID\n}\n",
+	}
+	for i, test := range testsInvalid {
+		c := caddy.NewTestController("dns", test)
+		_, err := parseForward(c)
+		if err == nil {
+			t.Errorf("Test %d: expected error, got nil", i)
+		}
 	}
 }
