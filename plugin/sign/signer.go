@@ -133,10 +133,6 @@ func resign(rd io.Reader, now time.Time) (why error) {
 	i := 0
 
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		if err := zp.Err(); err != nil {
-			return err
-		}
-
 		switch x := rr.(type) {
 		case *dns.RRSIG:
 			if x.TypeCovered != dns.TypeSOA {
@@ -166,7 +162,7 @@ func resign(rd io.Reader, now time.Time) (why error) {
 		}
 	}
 
-	return nil
+	return zp.Err()
 }
 
 func signAndLog(s *Signer, why error) {

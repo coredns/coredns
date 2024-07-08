@@ -99,7 +99,7 @@ func tryFile(s string) ([]string, error) {
 
 	servers := []string{}
 	for _, s := range c.Servers {
-		servers = append(servers, net.JoinHostPort(s, c.Port))
+		servers = append(servers, net.JoinHostPort(stripZone(s), c.Port))
 	}
 	return servers, nil
 }
