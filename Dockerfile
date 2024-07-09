@@ -18,5 +18,6 @@ FROM --platform=$TARGETPLATFORM ${BASE}
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /coredns /coredns
 USER nonroot:nonroot
+WORKDIR /
 EXPOSE 53 53/udp
 ENTRYPOINT ["/coredns"]
