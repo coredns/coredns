@@ -204,10 +204,7 @@ func (r *Request) SizeAndDo(m *dns.Msg) bool {
 	o.Hdr.Rrtype = dns.TypeOPT
 	o.SetVersion(0)
 	o.Hdr.Ttl &= 0xff00 // clear flags
-
-	if len(o.Option) > 0 {
-		o.Option = supportedOptions(o.Option)
-	}
+	o.Option = nil      // don't copy ANY OPT RRs from client
 
 	m.Extra = append(m.Extra, o)
 	return true

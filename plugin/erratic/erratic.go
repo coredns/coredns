@@ -18,8 +18,9 @@ type Erratic struct {
 	delay    uint64
 	truncate uint64
 
-	duration time.Duration
-	large    bool // undocumented feature; return large responses for A request (>512B, to test compression).
+	duration  time.Duration
+	large     bool // undocumented feature; return large responses for A request (>512B, to test compression).
+	mirrorOPT bool // undocumented feature; mirror OPT RRs from the request to the response (to test rewrite plugin).
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -47,6 +48,11 @@ func (e *Erratic) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	m.Authoritative = true
 	if trunc {
 		m.Truncated = true
+	}
+
+	// Mirror the OPT RRs from the client request on the response.
+	if e.mirrorOPT {
+		m.Extra = r.Extra
 	}
 
 	// small dance to copy rrA or rrAAAA into a non-pointer var that allows us to overwrite the ownername
