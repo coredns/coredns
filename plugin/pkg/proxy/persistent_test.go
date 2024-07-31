@@ -34,8 +34,8 @@ func TestCached(t *testing.T) {
 	if !cached3 {
 		t.Error("Expected cached connection (c3)")
 	}
-	if c2 != c3 {
-		t.Error("Expected c2 == c3")
+	if c1 != c3 {
+		t.Error("Expected c1 == c3")
 	}
 
 	tr.Yield(c3)
@@ -57,7 +57,7 @@ func TestCleanupByTimer(t *testing.T) {
 	defer s.Close()
 
 	tr := newTransport("TestCleanupByTimer", s.Addr)
-	tr.SetExpire(100 * time.Millisecond)
+	tr.SetIdleTimeout(100 * time.Millisecond)
 	tr.Start()
 	defer tr.Stop()
 
@@ -82,28 +82,11 @@ func TestCleanupByTimer(t *testing.T) {
 	tr.Yield(c4)
 }
 
-func TestCleanupAll(t *testing.T) {
-	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
-		ret := new(dns.Msg)
-		ret.SetReply(r)
-		w.WriteMsg(ret)
-	})
-	defer s.Close()
+var jitter time.Duration
 
-	tr := newTransport("TestCleanupAll", s.Addr)
-
-	c1, _ := dns.DialTimeout("udp", tr.addr, maxDialTimeout)
-	c2, _ := dns.DialTimeout("udp", tr.addr, maxDialTimeout)
-	c3, _ := dns.DialTimeout("udp", tr.addr, maxDialTimeout)
-
-	tr.conns[typeUDP] = []*persistConn{{c1, time.Now()}, {c2, time.Now()}, {c3, time.Now()}}
-
-	if len(tr.conns[typeUDP]) != 3 {
-		t.Error("Expected 3 connections")
-	}
-	tr.cleanup(true)
-
-	if len(tr.conns[typeUDP]) > 0 {
-		t.Error("Expected no cached connections")
+func BenchmarkDeterministicJitter(b *testing.B) {
+	now := time.Now()
+	for i := 0; i < b.N; i++ {
+		jitter = deterministicJitter(now, 2*time.Minute)
 	}
 }
