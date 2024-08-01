@@ -24,7 +24,7 @@ The initial Product Security Team will consist of the set of maintainers that vo
 ### Private Disclosure Processes
 
 If you find a security vulnerability or any security related issues,
-please DO NOT file a public issue. Do not create a Github issue.
+please DO NOT file a public issue. Do not create a GitHub issue.
 Instead, send your report privately to security@coredns.io.
 Security reports are greatly appreciated and we will publicly thank you for it.
 
@@ -94,7 +94,7 @@ so that a realistic timeline can be communicated to users.
 
 **Disclosure of Forthcoming Fix to Users** (Completed within 1-7 days of Disclosure)
 
-- The Fix Lead will create a github issue in CoreDNS project to inform users that a security vulnerability
+- The Fix Lead will create a GitHub issue in CoreDNS project to inform users that a security vulnerability
 has been disclosed and that a fix will be made available, with an estimation of the Release Date.
 It will include any mitigating steps users can take until a fix is available.
 
