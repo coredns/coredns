@@ -79,6 +79,9 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Install dependencies
         run: sudo apt-get install make curl
 
@@ -86,4 +89,4 @@ jobs:
         run: make GITHUB_ACCESS_TOKEN=x -n release github-push -f Makefile.release
 
       - name: Test Makefile.docker
-        run: make VERSION=x DOCKER=x -n release docker-push -f Makefile.docker
+        run: make VERSION=x DOCKER=coredns -n DRY_RUN=1 release -f Makefile.docker
