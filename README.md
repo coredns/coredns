@@ -255,9 +255,9 @@ When no transport protocol is specified the default `dns://` is assumed.
 
 ## Community
 
-We're most active on Github (and Slack):
+We're most active on GitHub (and Slack):
 
-- Github: <https://github.com/coredns/coredns>
+- GitHub: <https://github.com/coredns/coredns>
 - Slack: #coredns on <https://slack.cncf.io>
 
 More resources can be found:

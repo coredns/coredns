@@ -36,7 +36,7 @@ maintainers.
 
 Every Maintainer is listed in the
 [CODEOWNERS](https://github.com/coredns/coredns/blob/master/CODEOWNERS)
-file, with their Github handle.
+file, with their GitHub handle.
 
 A Maintainer should be a member of `maintainers@coredns.io`, although this is not a hard requirement.
 
@@ -107,7 +107,7 @@ The decision-making process should be transparent to adhere to the CoreDNS Code 
 All proposals, ideas, and decisions by maintainers or the steering committee
 should either be part of a GitHub issue or PR, or be sent to `maintainers@coredns.io`.
 
-## Github Project Administration
+## GitHub Project Administration
 
 The __coredns__ GitHub project maintainers team reflects the list of Maintainers.
 
