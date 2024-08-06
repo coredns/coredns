@@ -44,8 +44,13 @@ func (k *Kubernetes) serviceRecordForIP(ip, name string) []msg.Service {
 		}
 		for _, eps := range ep.Subsets {
 			for _, addr := range eps.Addresses {
-				if addr.IP == ip {
-					domain := strings.Join([]string{endpointHostname(addr, k.endpointNameMode), ep.Index, Svc, k.primaryZone()}, ".")
+				// The endpoint's Hostname will be set if this endpoint is supposed to generate a PTR.
+				// So only return reverse records that match the IP AND have a non-empty hostname.
+				// Kubernetes more or less keeps this to one canonical service/endpoint per IP, but in the odd event there
+				// are multiple endpoints for the same IP with hostname set, return them all rather than selecting one
+				// arbitrarily.
+				if addr.IP == ip && addr.Hostname != "" {
+					domain := strings.Join([]string{addr.Hostname, ep.Index, Svc, k.primaryZone()}, ".")
 					svcs = append(svcs, msg.Service{Host: domain, TTL: k.ttl})
 				}
 			}
