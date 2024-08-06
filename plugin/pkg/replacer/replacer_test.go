@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -217,6 +218,7 @@ func TestLabels(t *testing.T) {
 	r.AuthenticatedData = true
 	r.CheckingDisabled = true
 	w.WriteMsg(r)
+	w.Start = time.Now()
 	state := request.Request{W: w, Req: r}
 
 	replacer := New()
@@ -239,6 +241,7 @@ func TestLabels(t *testing.T) {
 		"{rcode}":                   "NOERROR",
 		"{rsize}":                   "29",
 		"{duration}":                "0",
+		"{when}":                    w.Start.String(),
 		headerReplacer + "rflags}":  "rd,ad,cd",
 	}
 	if len(expect) != len(labels) {
