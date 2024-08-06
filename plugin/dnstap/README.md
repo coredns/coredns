@@ -15,7 +15,7 @@ Every message is sent to the socket as soon as it comes in, the *dnstap* plugin 
 ## Syntax
 
 ~~~ txt
-dnstap SOCKET [full] {
+dnstap SOCKET [full] [writebuffer] [queue] {
   [identity IDENTITY]
   [version VERSION]
   [extra EXTRA]
@@ -36,6 +36,12 @@ Log information about client requests and responses to */tmp/dnstap.sock*.
 
 ~~~ txt
 dnstap /tmp/dnstap.sock
+~~~
+
+Log information about client requests and responses and tcp write buffer is 1024*Mb and queue is 2048*10000. 
+
+~~~ txt
+dnstap /tmp/dnstap.sock full 1024 2048
 ~~~
 
 Log information including the wire-format DNS message about client requests and responses to */tmp/dnstap.sock*.

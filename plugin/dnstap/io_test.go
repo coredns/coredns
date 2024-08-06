@@ -60,7 +60,7 @@ func TestTransport(t *testing.T) {
 			wg.Done()
 		}()
 
-		dio := newIO(param[0], l.Addr().String())
+		dio := newIO(param[0], l.Addr().String(), 1, 1)
 		dio.tcpTimeout = 10 * time.Millisecond
 		dio.flushTimeout = 30 * time.Millisecond
 		dio.connect()
@@ -89,7 +89,7 @@ func TestRace(t *testing.T) {
 		wg.Done()
 	}()
 
-	dio := newIO("tcp", l.Addr().String())
+	dio := newIO("tcp", l.Addr().String(), 1, 1)
 	dio.tcpTimeout = 10 * time.Millisecond
 	dio.flushTimeout = 30 * time.Millisecond
 	dio.connect()
@@ -122,7 +122,7 @@ func TestReconnect(t *testing.T) {
 	}()
 
 	addr := l.Addr().String()
-	dio := newIO("tcp", addr)
+	dio := newIO("tcp", addr, 1, 1)
 	dio.tcpTimeout = 10 * time.Millisecond
 	dio.flushTimeout = 30 * time.Millisecond
 	dio.connect()

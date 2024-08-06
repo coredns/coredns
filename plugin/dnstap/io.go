@@ -26,27 +26,29 @@ type tapper interface {
 
 // dio implements the Tapper interface.
 type dio struct {
-	endpoint     string
-	proto        string
-	enc          *encoder
-	queue        chan *tap.Dnstap
-	dropped      uint32
-	quit         chan struct{}
-	flushTimeout time.Duration
-	tcpTimeout   time.Duration
-	skipVerify   bool
+	endpoint        string
+	proto           string
+	enc             *encoder
+	queue           chan *tap.Dnstap
+	dropped         uint32
+	quit            chan struct{}
+	flushTimeout    time.Duration
+	tcpTimeout      time.Duration
+	skipVerify      bool
+	tcpWriteBufSize int
 }
 
 // newIO returns a new and initialized pointer to a dio.
-func newIO(proto, endpoint string) *dio {
+func newIO(proto, endpoint string, multipleQueue int, multipleTcpWriteBuf int) *dio {
 	return &dio{
-		endpoint:     endpoint,
-		proto:        proto,
-		queue:        make(chan *tap.Dnstap, queueSize),
-		quit:         make(chan struct{}),
-		flushTimeout: flushTimeout,
-		tcpTimeout:   tcpTimeout,
-		skipVerify:   skipVerify,
+		endpoint:        endpoint,
+		proto:           proto,
+		queue:           make(chan *tap.Dnstap, multipleQueue*queueSize),
+		quit:            make(chan struct{}),
+		flushTimeout:    flushTimeout,
+		tcpTimeout:      tcpTimeout,
+		skipVerify:      skipVerify,
+		tcpWriteBufSize: multipleTcpWriteBuf * tcpWriteBufSize,
 	}
 }
 
@@ -73,7 +75,7 @@ func (d *dio) dial() error {
 	}
 
 	if tcpConn, ok := conn.(*net.TCPConn); ok {
-		tcpConn.SetWriteBuffer(tcpWriteBufSize)
+		tcpConn.SetWriteBuffer(d.tcpWriteBufSize)
 		tcpConn.SetNoDelay(false)
 	}
 
