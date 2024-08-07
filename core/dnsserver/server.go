@@ -37,16 +37,17 @@ type Server struct {
 	server [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
 	m      sync.Mutex     // protects the servers
 
-	zones        map[string][]*Config // zones keyed by their address
-	dnsWg        sync.WaitGroup       // used to wait on outstanding connections
-	graceTimeout time.Duration        // the maximum duration of a graceful shutdown
-	trace        trace.Trace          // the trace plugin for the server
-	debug        bool                 // disable recover()
-	stacktrace   bool                 // enable stacktrace in recover error log
-	classChaos   bool                 // allow non-INET class queries
-	idleTimeout  time.Duration        // Idle timeout for TCP
-	readTimeout  time.Duration        // Read timeout for TCP
-	writeTimeout time.Duration        // Write timeout for TCP
+	zones                map[string][]*Config // zones keyed by their address
+	dnsWg                sync.WaitGroup       // used to wait on outstanding connections
+	graceTimeout         time.Duration        // the maximum duration of a graceful shutdown
+	trace                trace.Trace          // the trace plugin for the server
+	debug                bool                 // disable recover()
+	stacktrace           bool                 // enable stacktrace in recover error log
+	classChaos           bool                 // allow non-INET class queries
+	idleTimeout          time.Duration        // Idle timeout for TCP
+	readTimeout          time.Duration        // Read timeout for TCP
+	writeTimeout         time.Duration        // Write timeout for TCP
+	maxConnectionQueries int                  // Max queries per connection before rest
 
 	tsigSecret map[string]string
 }
@@ -97,6 +98,9 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		if site.IdleTimeout != 0 {
 			s.idleTimeout = site.IdleTimeout
 		}
+		if site.MaxConnectionQueries != 0 {
+			s.maxConnectionQueries = site.MaxConnectionQueries
+		}
 
 		// copy tsig secrets
 		for key, secret := range site.TsigSecret {
@@ -146,12 +150,17 @@ var _ caddy.GracefulServer = &Server{}
 // Serve starts the server with an existing listener. It blocks until the server stops.
 // This implements caddy.TCPServer interface.
 func (s *Server) Serve(l net.Listener) error {
+	maxConnectionQueries := defaultMaxConnectionQueries
+	if s.maxConnectionQueries > 0 {
+		maxConnectionQueries = s.maxConnectionQueries
+	}
+
 	s.m.Lock()
 
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp",
 		TsigSecret:    s.tsigSecret,
-		MaxTCPQueries: tcpMaxQueries,
+		MaxTCPQueries: maxConnectionQueries,
 		ReadTimeout:   s.readTimeout,
 		WriteTimeout:  s.writeTimeout,
 		IdleTimeout: func() time.Duration {
@@ -433,7 +442,7 @@ const (
 	tcp = 0
 	udp = 1
 
-	tcpMaxQueries = -1
+	defaultMaxConnectionQueries = -1
 )
 
 type (

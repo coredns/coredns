@@ -14,8 +14,11 @@ Additionally some routers hold open connections when using DNS over TLS or DNS
 over HTTPS. Allowing a longer idle timeout helps performance and reduces issues
 with such routers.
 
+Some clients may never reset their connections to CoreDNS. Capping the number of
+queries on a connection can provide better load balancing across CoreDNS servers.
+
 The *timeouts* "plugin" allows you to configure CoreDNS server read, write and
-idle timeouts.
+idle timeouts, alongside a queries cap per connection, after which it gets reset.
 
 ## Syntax
 
@@ -24,12 +27,13 @@ timeouts {
 	read DURATION
 	write DURATION
 	idle DURATION
+	max_queries INTEGER
 }
 ~~~
 
-For any timeouts that are not provided, default values are used which may vary
-depending on the server type. At least one timeout must be specified otherwise
-the entire timeouts block should be omitted.
+For any timeouts or limits that are not provided, default values are used which
+may vary depending on the server type. At least one timeout or limit must be specified
+otherwise the entire timeouts block should be omitted.
 
 ## Examples
 
@@ -64,12 +68,14 @@ https://. {
 ~~~
 
 Start a standard TCP/UDP server on port 1053. A read and write timeout has been
-configured. The timeouts are only applied to the TCP side of the server.
+configured, as well as a maximum number of queries per connection. The timeouts
+and cap are only applied to the TCP side of the server.
 ~~~
 .:1053 {
 	timeouts {
 		read 15s
-                write 30s
+		write 30s
+		max_queries 200
 	}
 	forward . /etc/resolv.conf
 }
