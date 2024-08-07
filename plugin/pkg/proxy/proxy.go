@@ -49,8 +49,13 @@ func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 	p.health.SetTLSConfig(cfg)
 }
 
-// SetExpire sets the expire duration in the lower p.transport.
-func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
+// SetIdleTimeout sets the connection idle timeout in the lower p.transport.
+func (p *Proxy) SetIdleTimeout(idleTimeout time.Duration) { p.transport.SetIdleTimeout(idleTimeout) }
+
+// SetMaxConnectionAge sets the connection max age in the lower p.transport.
+func (p *Proxy) SetMaxConnectionAge(maxConnectionAge time.Duration) {
+	p.transport.SetMaxConnectionAge(maxConnectionAge)
+}
 
 func (p *Proxy) GetHealthchecker() HealthChecker {
 	return p.health
