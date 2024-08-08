@@ -71,6 +71,11 @@ func setup(c *caddy.Controller) error {
 
 	c.OnShutdown(func() error {
 		close(walkChan)
+		for _, z := range a.Zones.Z {
+			z.Lock()
+			z.OnShutdown()
+			z.Unlock()
+		}
 		return nil
 	})
 
