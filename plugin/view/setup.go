@@ -9,7 +9,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/expression"
 
-	"github.com/antonmedv/expr"
+	"github.com/expr-lang/expr"
 )
 
 func init() { plugin.Register("view", setup) }

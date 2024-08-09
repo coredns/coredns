@@ -7,8 +7,8 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/expression"
 	"github.com/coredns/coredns/request"
 
-	"github.com/antonmedv/expr"
-	"github.com/antonmedv/expr/vm"
+	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/vm"
 	"github.com/miekg/dns"
 )
 
