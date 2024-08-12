@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   docker-release:
@@ -21,14 +22,18 @@ jobs:
       RELEASE: ${{ github.event.inputs.release || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
-      - name: Build Docker Images
-        run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker release
-      - name: Show Docker Images
-        run: docker images
-      - name: Docker login
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: DockerHub login
         uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446  # v3.2.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-      - name: Publish Docker Images
-        run: make VERSION=${RELEASE:1} DOCKER=coredns -f Makefile.docker docker-push
+      - name: Docker login ghcr.io
+        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446  # v3.2.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and Publish Docker Images
+        run: make VERSION=${RELEASE:1} -f Makefile.docker docker-build
