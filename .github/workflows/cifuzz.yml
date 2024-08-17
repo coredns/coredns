@@ -3,6 +3,8 @@ on:
   pull_request:
     branches:
       - master
+permissions:  
+  contents: read
 jobs:
   Fuzzing:
     runs-on: ubuntu-latest
