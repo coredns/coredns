@@ -22,7 +22,7 @@ func TestGrpc(t *testing.T) {
 	}
 	defer g.Stop()
 
-	conn, err := grpc.NewClient(tcp, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.NewClient(tcp, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		t.Fatalf("Expected no error but got: %s", err)
 	}
