@@ -30,7 +30,7 @@ require (
 	golang.org/x/crypto v0.26.0
 	golang.org/x/sys v0.24.0
 	google.golang.org/api v0.192.0
-	google.golang.org/grpc v1.64.1
+	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/DataDog/dd-trace-go.v1 v1.66.0
 	k8s.io/api v0.29.3
