@@ -2,7 +2,7 @@ package transfer
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -21,14 +21,14 @@ func (t t1) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	if zone != z {
 		return nil, ErrNotAuthoritative
 	}
-	return nil, fmt.Errorf(z)
+	return nil, errors.New(z)
 }
 func (t t2) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 	const z = "sub.example.org."
 	if zone != z {
 		return nil, ErrNotAuthoritative
 	}
-	return nil, fmt.Errorf(z)
+	return nil, errors.New(z)
 }
 
 func TestZoneSelection(t *testing.T) {
