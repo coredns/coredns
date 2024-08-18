@@ -20,7 +20,7 @@ require (
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/openzipkin-contrib/zipkin-go-opentracing v0.5.0
 	github.com/openzipkin/zipkin-go v0.4.3
-	github.com/oschwald/geoip2-golang v1.9.0
+	github.com/oschwald/geoip2-golang v1.11.0
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.55.0
@@ -99,7 +99,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/onsi/ginkgo/v2 v2.13.0 // indirect
 	github.com/opentracing-contrib/go-observer v0.0.0-20170622124052-a52f23424492 // indirect
-	github.com/oschwald/maxminddb-golang v1.11.0 // indirect
+	github.com/oschwald/maxminddb-golang v1.13.0 // indirect
 	github.com/outcaste-io/ristretto v0.2.3 // indirect
 	github.com/philhofer/fwd v1.1.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
