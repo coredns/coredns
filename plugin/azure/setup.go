@@ -9,11 +9,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-
-	publicAzureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
-	privateAzureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/privatedns/mgmt/privatedns"
-	azurerest "github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/miekg/dns"
 )
 
 var log = clog.NewWithPlugin("azure")
@@ -21,25 +17,13 @@ var log = clog.NewWithPlugin("azure")
 func init() { plugin.Register("azure", setup) }
 
 func setup(c *caddy.Controller) error {
-	env, keys, accessMap, fall, err := parse(c)
+	zoneList, fall, err := parse(c)
 	if err != nil {
 		return plugin.Error("azure", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	publicDNSClient := publicAzureDNS.NewRecordSetsClient(env.Values[auth.SubscriptionID])
-	if publicDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
-		cancel()
-		return plugin.Error("azure", err)
-	}
-
-	privateDNSClient := privateAzureDNS.NewRecordSetsClient(env.Values[auth.SubscriptionID])
-	if privateDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
-		cancel()
-		return plugin.Error("azure", err)
-	}
-
-	h, err := New(ctx, publicDNSClient, privateDNSClient, keys, accessMap)
+	h, err := New(ctx, zoneList)
 	if err != nil {
 		cancel()
 		return plugin.Error("azure", err)
@@ -58,87 +42,98 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, map[string]string, fall.F, error) {
-	resourceGroupMapping := map[string][]string{}
-	accessMap := map[string]string{}
-	resourceGroupSet := map[string]struct{}{}
-	azureEnv := azurerest.PublicCloud
-	env := auth.EnvironmentSettings{Values: map[string]string{}}
-
+func parse(c *caddy.Controller) (zones, fall.F, error) {
 	var fall fall.F
-	var access string
-	var resourceGroup string
-	var zoneName string
+
+	zoneList := zones{}
+	uniqueZones := map[string]struct{}{}
 
 	for c.Next() {
+		var zoneData zone
+		var resourceGroup string
+		var zoneName string
+
 		args := c.RemainingArgs()
 
+		if len(args) > 1 {
+			return zoneList, fall, c.Errf("invalid resource group/zone: %q", args)
+		}
+
 		for i := 0; i < len(args); i++ {
-			parts := strings.SplitN(args[i], ":", 2)
+			parts := strings.Split(args[i], ":")
 			if len(parts) != 2 {
-				return env, resourceGroupMapping, accessMap, fall, c.Errf("invalid resource group/zone: %q", args[i])
+				return zoneList, fall, c.Errf("invalid resource group/zone: %q", args[i])
 			}
 			resourceGroup, zoneName = parts[0], parts[1]
 			if resourceGroup == "" || zoneName == "" {
-				return env, resourceGroupMapping, accessMap, fall, c.Errf("invalid resource group/zone: %q", args[i])
+				return zoneList, fall, c.Errf("invalid resource group/zone: %q", args[i])
 			}
-			if _, ok := resourceGroupSet[resourceGroup+zoneName]; ok {
-				return env, resourceGroupMapping, accessMap, fall, c.Errf("conflicting zone: %q", args[i])
-			}
-
-			resourceGroupSet[resourceGroup+zoneName] = struct{}{}
-			accessMap[resourceGroup+zoneName] = "public"
-			resourceGroupMapping[resourceGroup] = append(resourceGroupMapping[resourceGroup], zoneName)
 		}
+
+		zoneData.resourceGroup = resourceGroup
+		zoneData.zone = zoneName
 
 		for c.NextBlock() {
 			switch c.Val() {
 			case "subscription":
 				if !c.NextArg() {
-					return env, resourceGroupMapping, accessMap, fall, c.ArgErr()
+					return zoneList, fall, c.ArgErr()
 				}
-				env.Values[auth.SubscriptionID] = c.Val()
+				zoneData.subscriptionID = c.Val()
 			case "tenant":
 				if !c.NextArg() {
-					return env, resourceGroupMapping, accessMap, fall, c.ArgErr()
+					return zoneList, fall, c.ArgErr()
 				}
-				env.Values[auth.TenantID] = c.Val()
+				zoneData.tenantID = c.Val()
 			case "client":
 				if !c.NextArg() {
-					return env, resourceGroupMapping, accessMap, fall, c.ArgErr()
+					return zoneList, fall, c.ArgErr()
 				}
-				env.Values[auth.ClientID] = c.Val()
+				zoneData.clientID = c.Val()
 			case "secret":
 				if !c.NextArg() {
-					return env, resourceGroupMapping, accessMap, fall, c.ArgErr()
+					return zoneList, fall, c.ArgErr()
 				}
-				env.Values[auth.ClientSecret] = c.Val()
+				zoneData.clientSecret = c.Val()
 			case "environment":
 				if !c.NextArg() {
-					return env, resourceGroupMapping, accessMap, fall, c.ArgErr()
+					return zoneList, fall, c.ArgErr()
 				}
-				var err error
-				if azureEnv, err = azurerest.EnvironmentFromName(c.Val()); err != nil {
-					return env, resourceGroupMapping, accessMap, fall, c.Errf("cannot set azure environment: %q", err.Error())
+				if !isValidCloudType(c.Val()) {
+					return zoneList, fall, c.Errf("cannot set azure environment, invalid environment: %s", c.Val())
 				}
+				// convert to uppercase so we don't have to deal with all the different variations
+				// between the old go sdk and newer one
+				zoneData.environment = strings.ToUpper(c.Val())
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
 			case "access":
 				if !c.NextArg() {
-					return env, resourceGroupMapping, accessMap, fall, c.ArgErr()
+					return zoneList, fall, c.ArgErr()
 				}
-				access = c.Val()
-				if access != "public" && access != "private" {
-					return env, resourceGroupMapping, accessMap, fall, c.Errf("invalid access value: can be public/private, found: %s", access)
+				access := c.Val()
+				if access == "private" {
+					zoneData.private = true
+				} else if access == "public" || access == "" {
+					// if access is set to public or in the case it is not specified assume public
+					zoneData.private = false
+				} else {
+					return zoneList, fall, c.Errf("invalid access value: can be public/private, found: %s", access)
 				}
-				accessMap[resourceGroup+zoneName] = access
 			default:
-				return env, resourceGroupMapping, accessMap, fall, c.Errf("unknown property: %q", c.Val())
+				return zoneList, fall, c.Errf("unknown property: %q", c.Val())
 			}
 		}
+		// Check for duplicate / conflicting zones check that used to be here elsewhere
+		zKey := strings.Join([]string{zoneData.subscriptionID, resourceGroup, zoneName}, "#")
+		if _, ok := uniqueZones[zKey]; ok {
+			return zoneList, fall, c.Errf("conflicting zone: %q", zKey)
+		}
+		uniqueZones[zKey] = struct{}{}
+
+		fqdn := dns.Fqdn(zoneName)
+		zoneList[fqdn] = append(zoneList[fqdn], &zoneData)
 	}
 
-	env.Values[auth.Resource] = azureEnv.ResourceManagerEndpoint
-	env.Environment = azureEnv
-	return env, resourceGroupMapping, accessMap, fall, nil
+	return zoneList, fall, nil
 }
