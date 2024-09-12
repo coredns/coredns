@@ -24,6 +24,10 @@ type Config struct {
 	// The port to listen on.
 	Port string
 
+	// The number of servers that will listen on one port.
+	// By default, one server will be running.
+	NumSocks int
+
 	// Root points to a base directory we find user defined "things".
 	// First consumer is the file plugin to looks for zone files in this place.
 	Root string

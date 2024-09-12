@@ -115,6 +115,7 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 				ListenHosts: []string{""},
 				Port:        za.Port,
 				Transport:   za.Transport,
+				NumSocks:    1,
 			}
 
 			// Set reference to the first config in the current block.
@@ -143,6 +144,7 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 		c.ListenHosts = c.firstConfigInBlock.ListenHosts
 		c.Debug = c.firstConfigInBlock.Debug
 		c.Stacktrace = c.firstConfigInBlock.Stacktrace
+		c.NumSocks = c.firstConfigInBlock.NumSocks
 
 		// Fork TLSConfig for each encrypted connection
 		c.TLSConfig = c.firstConfigInBlock.TLSConfig.Clone()
@@ -160,42 +162,44 @@ func (h *dnsContext) MakeServers() ([]caddy.Server, error) {
 	// then we create a server for each group
 	var servers []caddy.Server
 	for addr, group := range groups {
-		// switch on addr
-		switch tr, _ := parse.Transport(addr); tr {
-		case transport.DNS:
-			s, err := NewServer(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
+		for range group[0].NumSocks {
+			// switch on addr
+			switch tr, _ := parse.Transport(addr); tr {
+			case transport.DNS:
+				s, err := NewServer(addr, group)
+				if err != nil {
+					return nil, err
+				}
+				servers = append(servers, s)
 
-		case transport.TLS:
-			s, err := NewServerTLS(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
+			case transport.TLS:
+				s, err := NewServerTLS(addr, group)
+				if err != nil {
+					return nil, err
+				}
+				servers = append(servers, s)
 
-		case transport.QUIC:
-			s, err := NewServerQUIC(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
+			case transport.QUIC:
+				s, err := NewServerQUIC(addr, group)
+				if err != nil {
+					return nil, err
+				}
+				servers = append(servers, s)
 
-		case transport.GRPC:
-			s, err := NewServergRPC(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
+			case transport.GRPC:
+				s, err := NewServergRPC(addr, group)
+				if err != nil {
+					return nil, err
+				}
+				servers = append(servers, s)
 
-		case transport.HTTPS:
-			s, err := NewServerHTTPS(addr, group)
-			if err != nil {
-				return nil, err
+			case transport.HTTPS:
+				s, err := NewServerHTTPS(addr, group)
+				if err != nil {
+					return nil, err
+				}
+				servers = append(servers, s)
 			}
-			servers = append(servers, s)
 		}
 	}
 
