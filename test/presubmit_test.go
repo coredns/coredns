@@ -308,7 +308,7 @@ func importtype(s string) string {
 	return "std"
 }
 
-// TestMetricNaming tests the imports path used for metrics. It depends on faillint to be installed: go install github.com/fatih/faillint
+// TestPrometheusImports tests the imports path used for metrics. It depends on faillint to be installed: go install github.com/fatih/faillint
 func TestPrometheusImports(t *testing.T) {
 	if _, err := exec.LookPath("faillint"); err != nil {
 		fmt.Fprintf(os.Stderr, "Not executing TestPrometheusImports: faillint not found\n")

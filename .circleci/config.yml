@@ -18,7 +18,7 @@ initWorkingDir: &initWorkingDir
 
 integrationDefaults: &integrationDefaults
   machine:
-    image: ubuntu-2004:2022.04.2
+    image: default
   working_directory: ~/go/src/${CIRCLE_PROJECT_USERNAME}/coredns
   environment:
     - K8S_VERSION: v1.22.0

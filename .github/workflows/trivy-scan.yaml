@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # v4.1.7
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@d710430a6722f083d3b36b8339ff66b32f22ee55  # master
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8  # master
         with:
           image-ref: 'docker.io/coredns/coredns:${{ matrix.versions }}'
           severity: 'CRITICAL,HIGH'
@@ -28,6 +28,6 @@ jobs:
           output: 'trivy-results.sarif'
 
       - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@1c270d01c75cd8a40d572ee225b0e4736a839e28  # v2.13.4
+        uses: github/codeql-action/upload-sarif@2c779ab0d087cd7fe7b826087247c2c81f27bfa6  # v3.26.5
         with:
           sarif_file: 'trivy-results.sarif'

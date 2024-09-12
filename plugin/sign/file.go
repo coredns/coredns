@@ -66,10 +66,6 @@ func Parse(f io.Reader, origin, fileName string) (*file.Zone, error) {
 	seenSOA := false
 
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		if err := zp.Err(); err != nil {
-			return nil, err
-		}
-
 		switch rr.(type) {
 		case *dns.DNSKEY, *dns.RRSIG, *dns.CDNSKEY, *dns.CDS:
 			continue
@@ -86,6 +82,10 @@ func Parse(f io.Reader, origin, fileName string) (*file.Zone, error) {
 	}
 	if !seenSOA {
 		return nil, fmt.Errorf("file %q has no SOA record", fileName)
+	}
+
+	if err := zp.Err(); err != nil {
+		return nil, err
 	}
 
 	return z, nil

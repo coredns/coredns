@@ -31,7 +31,7 @@ func init() {
 	flag.StringVar(&dnsserver.Port, serverType+".port", dnsserver.DefaultPort, "Default port")
 	flag.StringVar(&dnsserver.Port, "p", dnsserver.DefaultPort, "Default port")
 
-	caddy.AppName = coreName
+	caddy.AppName = CoreName
 	caddy.AppVersion = CoreVersion
 }
 

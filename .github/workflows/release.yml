@@ -15,7 +15,7 @@ jobs:
       contents: write
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332  # v4.1.7
         with:
           ref: ${{ github.event.inputs.commit }}
       - name: Set up info
@@ -45,7 +45,7 @@ jobs:
           cat release.md
           sha256sum release/*.tgz
       - name: Draft release
-        uses: softprops/action-gh-release@9d7c94cfd0a1f3ed45544c887983e9fa900f0564
+        uses: softprops/action-gh-release@c062e08bd532815e2082a85e87e3ef29c3e6d191  # v2.0.8
         with:
           body_path: release.md
           name: v${{ steps.info.outputs.version }}

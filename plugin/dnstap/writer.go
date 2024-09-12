@@ -17,7 +17,7 @@ type ResponseWriter struct {
 	query     *dns.Msg
 	ctx       context.Context
 	dns.ResponseWriter
-	Dnstap
+	*Dnstap
 }
 
 // WriteMsg writes back the response to the client and THEN works on logging the request and response to dnstap.

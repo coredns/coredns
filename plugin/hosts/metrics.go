@@ -14,7 +14,7 @@ var (
 		Subsystem: "hosts",
 		Name:      "entries",
 		Help:      "The combined number of entries in hosts and Corefile.",
-	}, []string{})
+	}, []string{"hostsfile"})
 	// hostsReloadTime is the timestamp of the last reload of hosts file.
 	hostsReloadTime = promauto.NewGauge(prometheus.GaugeOpts{
 		Namespace: plugin.Namespace,
