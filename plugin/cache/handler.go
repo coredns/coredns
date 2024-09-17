@@ -77,7 +77,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// one so that we always get the original TTL
 		now = i.stored
 	}
-	resp := i.toMsg(r, now, do, ad)
+        resp := i.toMsg(r, now, do, ad, c.zerottlflag, c.zerottl.Seconds())
 	w.WriteMsg(resp)
 	return dns.RcodeSuccess, nil
 }
