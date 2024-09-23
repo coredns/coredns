@@ -30,7 +30,7 @@ require (
 	go.etcd.io/etcd/api/v3 v3.5.15
 	go.etcd.io/etcd/client/v3 v3.5.15
 	golang.org/x/crypto v0.26.0
-	golang.org/x/sys v0.24.0
+	golang.org/x/sys v0.25.0
 	google.golang.org/api v0.194.0
 	google.golang.org/grpc v1.67.0
 	google.golang.org/protobuf v1.34.2
