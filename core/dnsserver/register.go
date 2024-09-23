@@ -263,7 +263,7 @@ func propagateConfigParams(configs []*Config) {
 		c.ListenHosts = c.firstConfigInBlock.ListenHosts
 		c.Debug = c.firstConfigInBlock.Debug
 		c.Stacktrace = c.firstConfigInBlock.Stacktrace
-		c.NumSocks = c.firstConfigInBlock.NumSocks
+		c.NumSockets = c.firstConfigInBlock.NumSockets
 
 		// Fork TLSConfig for each encrypted connection
 		c.TLSConfig = c.firstConfigInBlock.TLSConfig.Clone()
@@ -296,21 +296,21 @@ func groupConfigsByListenAddr(configs []*Config) (map[string][]*Config, error) {
 }
 
 // makeServersForGroup creates servers for a specific transport and group.
-// It creates as many servers as specified in the NumSocks configuration.
-// If the NumSocks param is not specified, one server is created by default.
+// It creates as many servers as specified in the NumSockets configuration.
+// If the NumSockets param is not specified, one server is created by default.
 func makeServersForGroup(addr string, group []*Config) ([]caddy.Server, error) {
 	// that is impossible, but better to check
 	if len(group) == 0 {
 		return nil, fmt.Errorf("no configs for group defined")
 	}
-	// create one server by default if no NumSocks specified
-	numSocks := 1
-	if group[0].NumSocks > 0 {
-		numSocks = group[0].NumSocks
+	// create one server by default if no NumSockets specified
+	numSockets := 1
+	if group[0].NumSockets > 0 {
+		numSockets = group[0].NumSockets
 	}
 
 	var servers []caddy.Server
-	for range numSocks {
+	for range numSockets {
 		// switch on addr
 		switch tr, _ := parse.Transport(addr); tr {
 		case transport.DNS:

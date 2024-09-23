@@ -1,4 +1,4 @@
-package reuseport
+package numsockets
 
 import (
 	"strings"
@@ -7,7 +7,7 @@ import (
 	"github.com/coredns/caddy"
 )
 
-func TestReuseport(t *testing.T) {
+func TestNumsockets(t *testing.T) {
 	tests := []struct {
 		input              string
 		shouldErr          bool
@@ -15,14 +15,14 @@ func TestReuseport(t *testing.T) {
 		expectedErrContent string // substring from the expected error. Empty for positive cases.
 	}{
 		// positive
-		{`reuseport 2`, false, "", ""},
-		{` reuseport 1`, false, "", ""},
-		{`reuseport text`, true, "", "invalid num socks"},
-		{`reuseport 0`, true, "", "num socks can not be zero or negative"},
-		{`reuseport -1`, true, "", "num socks can not be zero or negative"},
-		{`reuseport 2 2`, true, "", "Wrong argument count or unexpected line ending after '2'"},
-		{`reuseport`, true, "", "Wrong argument count or unexpected line ending after 'reuseport'"},
-		{`reuseport 2 {
+		{`numsockets 2`, false, "", ""},
+		{` numsockets 1`, false, "", ""},
+		{`numsockets text`, true, "", "invalid num sockets"},
+		{`numsockets 0`, true, "", "num sockets can not be zero or negative"},
+		{`numsockets -1`, true, "", "num sockets can not be zero or negative"},
+		{`numsockets 2 2`, true, "", "Wrong argument count or unexpected line ending after '2'"},
+		{`numsockets`, true, "", "Wrong argument count or unexpected line ending after 'numsockets'"},
+		{`numsockets 2 {
 			block
 		}`, true, "", "Unexpected token '{', expecting argument"},
 	}
