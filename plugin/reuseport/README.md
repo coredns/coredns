@@ -23,10 +23,10 @@ reuseport [NUM_SOCKS]
 
 ## Examples
 
-Start 5 TCP/UDP servers on port 53.
+Start 5 TCP/UDP servers on the same port.
 
 ~~~ corefile
-.:53 {
+. {
 	reuseport 5
 	forward . /etc/resolv.conf
 }
