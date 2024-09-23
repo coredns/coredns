@@ -1,13 +1,13 @@
-# reuseport
+# numsockets
 
 ## Name
 
-*reuseport* - allows to define the number of servers that will listen on one port.
+*numsockets* - allows to define the number of servers that will listen on one port.
 
 ## Description
 
-With *reuseport*, you can define the number of servers that will listen on the same port. The SO_REUSEPORT socket option
-allows to open multiple listening sockets at the same address and port. In this case, kernel distributes incoming 
+With *numsockets*, you can define the number of servers that will listen on the same port. The SO_REUSEPORT socket 
+option allows to open multiple listening sockets at the same address and port. In this case, kernel distributes incoming 
 connections between sockets.
 
 Enabling this option allows to start multiple servers, which increases the throughput of CoreDNS in environments with a 
@@ -16,10 +16,10 @@ large number of CPU cores.
 ## Syntax
 
 ~~~
-reuseport [NUM_SOCKS]
+numsockets [NUM_SOCKETS]
 ~~~
 
-* **NUM_SOCKS** - the number of servers that will listen on one port.
+* **NUM_SOCKETS** - the number of servers that will listen on one port.
 
 ## Examples
 
@@ -27,7 +27,7 @@ Start 5 TCP/UDP servers on the same port.
 
 ~~~ corefile
 . {
-	reuseport 5
+	numsockets 5
 	forward . /etc/resolv.conf
 }
 ~~~
