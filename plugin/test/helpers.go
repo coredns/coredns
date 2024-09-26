@@ -111,7 +111,7 @@ func DS(rr string) *dns.DS { r, _ := dns.NewRR(rr); return r.(*dns.DS) }
 func NAPTR(rr string) *dns.NAPTR { r, _ := dns.NewRR(rr); return r.(*dns.NAPTR) }
 
 // OPT returns an OPT record with UDP buffer size set to bufsize and the DO bit set to do.
-func OPT(bufsize int, do bool) *dns.OPT {
+func OPT(bufsize int, do bool, ednsOpts ...dns.EDNS0) *dns.OPT {
 	o := new(dns.OPT)
 	o.Hdr.Name = "."
 	o.Hdr.Rrtype = dns.TypeOPT
@@ -120,6 +120,7 @@ func OPT(bufsize int, do bool) *dns.OPT {
 	if do {
 		o.SetDo()
 	}
+	o.Option = ednsOpts
 	return o
 }
 
@@ -137,6 +138,20 @@ func Header(tc Case, resp *dns.Msg) error {
 	}
 	if len(resp.Extra) != len(tc.Extra) {
 		return fmt.Errorf("additional for %q contained %d results, %d expected", tc.Qname, len(resp.Extra), len(tc.Extra))
+	}
+	// TODO: Since Authoritative is often set to true, we need to modify a large amount of unit tests to specify
+	//      Authoritative=true in order to have have this check here.
+	//if resp.Authoritative != tc.Authoritative {
+	//	return fmt.Errorf("expected Authoritative Data bit to be %t, but got %t", tc.Authoritative, resp.Authoritative)
+	//}
+	if resp.AuthenticatedData != tc.AuthenticatedData {
+		return fmt.Errorf("expected Authenticated Data bit to be %t, but got %t", tc.AuthenticatedData, resp.AuthenticatedData)
+	}
+	if resp.RecursionAvailable != tc.RecursionAvailable {
+		return fmt.Errorf("expected Recursion Available bit to be %t, but got %t", tc.RecursionAvailable, resp.RecursionAvailable)
+	}
+	if resp.CheckingDisabled != tc.CheckingDisabled {
+		return fmt.Errorf("expected Checking Disabled bit to be %t, but got %t", tc.CheckingDisabled, resp.CheckingDisabled)
 	}
 	return nil
 }

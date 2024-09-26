@@ -307,23 +307,10 @@ func TestCacheInsertion(t *testing.T) {
 
 			if found {
 				resp := i.toMsg(m, time.Now().UTC(), state.Do(), m.AuthenticatedData)
-
-				// TODO: If we incorporate these individual checks into the
-				//       test.Header function, we can eliminate them from here.
 				// Cache entries are always Authoritative.
 				if resp.Authoritative != true {
 					t.Error("Expected Authoritative Answer bit to be true, but was false")
 				}
-				if resp.AuthenticatedData != tc.out.AuthenticatedData {
-					t.Errorf("Expected Authenticated Data bit to be %t, but got %t", tc.out.AuthenticatedData, resp.AuthenticatedData)
-				}
-				if resp.RecursionAvailable != tc.out.RecursionAvailable {
-					t.Errorf("Expected Recursion Available bit to be %t, but got %t", tc.out.RecursionAvailable, resp.RecursionAvailable)
-				}
-				if resp.CheckingDisabled != tc.out.CheckingDisabled {
-					t.Errorf("Expected Checking Disabled bit to be %t, but got %t", tc.out.CheckingDisabled, resp.CheckingDisabled)
-				}
-
 				if err := test.Header(tc.out, resp); err != nil {
 					t.Logf("Cache %v", resp)
 					t.Error(err)

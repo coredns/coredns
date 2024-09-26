@@ -100,6 +100,8 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 				e.truncate = uint64(amount)
 			case "large":
 				e.large = true
+			case "mirror_opt":
+				e.mirrorOPT = true
 			default:
 				return nil, c.Errf("unknown property '%s'", c.Val())
 			}
