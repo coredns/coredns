@@ -21,6 +21,8 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("etcd", err)
 	}
 
+	c.OnShutdown(e.OnShutdown)
+
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		e.Next = next
 		return e

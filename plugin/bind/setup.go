@@ -84,8 +84,15 @@ func listIP(args []string, ifaces []net.Interface) ([]string, error) {
 				}
 				for _, addr := range addrs {
 					if ipnet, ok := addr.(*net.IPNet); ok {
-						if ipnet.IP.To4() != nil || (!ipnet.IP.IsLinkLocalMulticast() && !ipnet.IP.IsLinkLocalUnicast()) {
-							all = append(all, ipnet.IP.String())
+						ipa, err := net.ResolveIPAddr("ip", ipnet.IP.String())
+						if err == nil {
+							if len(ipnet.IP) == net.IPv6len &&
+								(ipnet.IP.IsLinkLocalMulticast() || ipnet.IP.IsLinkLocalUnicast()) {
+								if ipa.Zone == "" {
+									ipa.Zone = iface.Name
+								}
+							}
+							all = append(all, ipa.String())
 						}
 					}
 				}

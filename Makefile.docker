@@ -68,7 +68,7 @@ endif
 	@mkdir -p build/docker
 	@# 1. Copy appropriate coredns binary to build/docker/<arch>
 	@# 2. Copy Dockerfile into the correct dir as well.
-	@# 3. Unpack the tgz from github into 'coredns' binary.
+	@# 3. Unpack the tgz from GitHub into 'coredns' binary.
 	for arch in $(LINUX_ARCH); do \
 		mkdir build/docker/$${arch}; \
 		curl -L $(GITHUB)/v$(VERSION)/coredns_$(VERSION)_linux_$${arch}.tgz > build/docker/$${arch}/coredns.tgz && \

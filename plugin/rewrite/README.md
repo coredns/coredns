@@ -51,6 +51,7 @@ will behave as follows:
 
    * `continue` will continue applying the next rule in the rule list.
    * `stop` will consider the current rule the last rule and will not continue.  The default behaviour is `stop`
+   * When multiple rules are matched, the request rewrite follows the line order in the configuration, while the response rewrite(`answer` option) is executed in reverse order.
 
 ## Examples
 

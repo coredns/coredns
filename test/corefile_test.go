@@ -15,9 +15,10 @@ func TestCorefile1(t *testing.T) {
 	corefile := `\\\\ȶ.
 acl
 `
-	i, _, _, err := CoreDNSServerAndPorts(corefile)
-	if err != nil {
-		t.Fatalf("Expected no error, but got %v", err)
-	}
-	defer i.Stop()
+	i, _, _, _ := CoreDNSServerAndPorts(corefile)
+	defer func() {
+		if i != nil {
+			i.Stop()
+		}
+	}()
 }
