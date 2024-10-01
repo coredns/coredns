@@ -44,6 +44,7 @@ var labels = map[string]struct{}{
 	"{remote}": {},
 	"{port}":   {},
 	"{local}":  {},
+	"{when}":   {},
 	// Header values.
 	headerReplacer + "id}":      {},
 	headerReplacer + "opcode}":  {},
@@ -79,6 +80,12 @@ func appendValue(b []byte, state request.Request, rr *dnstest.Recorder, label st
 		}
 		secs := time.Since(rr.Start).Seconds()
 		return append(strconv.AppendFloat(b, secs, 'f', -1, 64), 's')
+	case "{when}":
+		if rr == nil {
+			return append(b, EmptyValue...)
+		}
+		//return strconv.AppendInt(b, rr.Start.UnixMilli(), 10)
+		return append(b, rr.Start.String()...)
 	case headerReplacer + "rflags}":
 		if rr != nil && rr.Msg != nil {
 			return appendFlags(b, rr.Msg.MsgHdr)
