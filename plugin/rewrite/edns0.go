@@ -292,7 +292,7 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 					e.Data = data
 					return resp, RewriteDone
 				}
-				return nil, RewriteIgnored
+				return resp, RewriteIgnored
 			}
 		}
 	}
@@ -403,7 +403,7 @@ func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request)
 					resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_SUBNET]{code: e.Code, source: &old})
 				}
 				if rule.fillEcsData(state, e) == nil {
-					return nil, RewriteDone
+					return resp, RewriteDone
 				}
 			}
 			return resp, RewriteIgnored
