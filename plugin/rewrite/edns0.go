@@ -144,7 +144,7 @@ func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) 
 		return resp, RewriteDone
 	}
 
-	return resp, RewriteIgnored
+	return nil, RewriteIgnored
 }
 
 // Mode returns the processing mode.
@@ -292,7 +292,7 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 					e.Data = data
 					return resp, RewriteDone
 				}
-				return resp, RewriteIgnored
+				return nil, RewriteIgnored
 			}
 		}
 	}
@@ -406,7 +406,7 @@ func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request)
 					return resp, RewriteDone
 				}
 			}
-			return resp, RewriteIgnored
+			return nil, RewriteIgnored
 		}
 	}
 

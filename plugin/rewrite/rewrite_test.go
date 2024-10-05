@@ -119,6 +119,7 @@ func TestNewRule(t *testing.T) {
 		{[]string{"edns0", "subnet", "set", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"edns0", "subnet", "set", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"edns0", "subnet", "append", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"edns0", "subnet", "append", "24", "56", "72"}, true, nil},
 		{[]string{"edns0", "subnet", "append", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"edns0", "subnet", "replace", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
