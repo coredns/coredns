@@ -201,7 +201,6 @@ IP addresses are also allowed. They are automatically converted to reverse zones
     whoami
 }
 ~~~
-
 Means you are authoritative for `0.0.10.in-addr.arpa.`.
 
 This also works for IPv6 addresses. If for some reason you want to serve a zone named `10.0.0.0/24`
@@ -235,12 +234,10 @@ https://example.org {
     tls mycert mykey
 }
 ~~~
-
 in this setup, the CoreDNS will be responsible for TLS termination
 
 you can also start DNS server serving DoH without TLS termination (plain HTTP), but beware that in such scenario there has to be some kind
 of TLS termination proxy before CoreDNS instance, which forwards DNS requests otherwise clients will not be able to communicate via DoH with the server
-
 ~~~ corefile
 https://example.org {
     whoami
