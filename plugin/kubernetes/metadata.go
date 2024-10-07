@@ -10,8 +10,9 @@ import (
 
 // Metadata implements the metadata.Provider interface.
 func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) context.Context {
-	pod := k.podWithIP(state.IP())
-	if pod != nil {
+	pods := k.podsWithIP(state.IP())
+	if pods != nil {
+		pod := pods[0]
 		metadata.SetValueFunc(ctx, "kubernetes/client-namespace", func() string {
 			return pod.Namespace
 		})
