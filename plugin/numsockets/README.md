@@ -32,6 +32,26 @@ Start 5 TCP/UDP servers on the same port.
 }
 ~~~
 
+## Recommendations
+
+When choosing the optimal `numsockets` value, it is important to consider the specific environment and plugins used in 
+CoreDNS. To determine the optimal value, it is advisable to conduct performance tests with different `numsockets`, 
+measuring Queries Per Second (QPS) and system load.
+
+If conducting such tests is difficult, follow these recommendations:
+1. Determine the maximum CPU consumption of CoreDNS server without `numsockets` plugin. Estimate how much CPU CoreDNS
+   actually consumes in specific environment under maximum load.
+2. Align `numsockets` with the estimated CPU usage and CPU limits or system's available resources.
+   Examples:
+   - If CoreDNS consumes 4 CPUs and 8 CPUs are available, set `numsockets` to 2.
+   - If CoreDNS consumes 8 CPUs and 64 CPUs are available, set `numsockets` to 8.
+
+**Important:**
+- Tests have shown that increasing `numsockets` above 8 does not improve performance. Therefore, it is advised to use 
+  values greater than 8 only if performance tests justify such an increase.
+- Reaching a CPU limit means that increasing `numsockets` will not be useful. With the same CPU limit, increasing 
+  `numsockets` can decrease QPS. Use the plugin and set more `numsockets` only if absolutely necessary.
+
 ## Limitations
 
 The SO_REUSEPORT socket option is not available for some operating systems. It is available since Linux Kernel 3.9 and 
