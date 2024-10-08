@@ -463,8 +463,30 @@ rewrite edns0 subnet set 24 56
 * If the query's source IP address is an IPv4 address, the first 24 bits in the IP will be the network subnet.
 * If the query's source IP address is an IPv6 address, the first 56 bits in the IP will be the network subnet.
 
+### EDNS0 Revert
 
-### CNAME Field Rewrites
+Using the `revert` flag, you can revert the changes made by this rewrite call, so the response will not contain this option.
+
+This example sets option, but response will not contain it
+~~~ corefile
+. {
+    rewrite edns0 local set 0xffee abcd revert
+}
+~~~
+
+If only some calls contain the `revert` flag, then the value in the response will be changed to the previous one. So, in this example, the response will contain `abcd` data at `0xffee` 
+~~~ corefile
+. {
+    rewrite continue {
+        edns0 local set 0xffee abcd
+    }
+    
+    rewrite edns0 local replace 0xffee bcde revert
+}
+~~~
+
+
+## CNAME Field Rewrites
 
 There might be a scenario where you want the `CNAME` target of the response to be rewritten. You can do this by using the `CNAME` field rewrite. This will generate new answer records according to the new `CNAME` target.
 

@@ -22,6 +22,7 @@ type edns0LocalRule struct {
 	action string
 	code   uint16
 	data   []byte
+	revert bool
 }
 
 // edns0VariableRule is a rewrite rule for EDNS0_LOCAL options with variable.
@@ -30,12 +31,43 @@ type edns0VariableRule struct {
 	action   string
 	code     uint16
 	variable string
+	revert   bool
 }
 
 // ends0NsidRule is a rewrite rule for EDNS0_NSID options.
 type edns0NsidRule struct {
 	mode   string
 	action string
+	revert bool
+}
+
+type edns0SetResponseRule struct {
+	code uint16
+}
+
+func (r *edns0SetResponseRule) RewriteResponse(res *dns.Msg, _ dns.RR) {
+	ednsOpt := res.IsEdns0()
+	for idx, opt := range ednsOpt.Option {
+		if opt.Option() == r.code {
+			ednsOpt.Option = append(ednsOpt.Option[:idx], ednsOpt.Option[idx+1:]...)
+			return
+		}
+	}
+}
+
+type edns0ReplaceResponseRule[T dns.EDNS0] struct {
+	code   uint16
+	source T
+}
+
+func (r *edns0ReplaceResponseRule[T]) RewriteResponse(res *dns.Msg, _ dns.RR) {
+	ednsOpt := res.IsEdns0()
+	for idx, opt := range ednsOpt.Option {
+		if opt.Option() == r.code {
+			ednsOpt.Option[idx] = r.source
+			return
+		}
+	}
 }
 
 // setupEdns0Opt will retrieve the EDNS0 OPT or create it if it does not exist.
@@ -52,11 +84,17 @@ func setupEdns0Opt(r *dns.Msg) *dns.OPT {
 func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	o := setupEdns0Opt(state.Req)
 
+	var resp ResponseRules
+
 	for _, s := range o.Option {
 		if e, ok := s.(*dns.EDNS0_NSID); ok {
 			if rule.action == Replace || rule.action == Set {
+				if rule.revert {
+					old := *e
+					resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_NSID]{code: e.Code, source: &old})
+				}
 				e.Nsid = "" // make sure it is empty for request
-				return nil, RewriteDone
+				return resp, RewriteDone
 			}
 		}
 	}
@@ -64,7 +102,10 @@ func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) (
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""})
-		return nil, RewriteDone
+		if rule.revert {
+			resp = append(resp, &edns0SetResponseRule{code: dns.EDNS0NSID})
+		}
+		return resp, RewriteDone
 	}
 
 	return nil, RewriteIgnored
@@ -77,12 +118,18 @@ func (rule *edns0NsidRule) Mode() string { return rule.mode }
 func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	o := setupEdns0Opt(state.Req)
 
+	var resp ResponseRules
+
 	for _, s := range o.Option {
 		if e, ok := s.(*dns.EDNS0_LOCAL); ok {
 			if rule.code == e.Code {
 				if rule.action == Replace || rule.action == Set {
+					if rule.revert {
+						old := *e
+						resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_LOCAL]{code: rule.code, source: &old})
+					}
 					e.Data = rule.data
-					return nil, RewriteDone
+					return resp, RewriteDone
 				}
 			}
 		}
@@ -91,7 +138,10 @@ func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) 
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_LOCAL{Code: rule.code, Data: rule.data})
-		return nil, RewriteDone
+		if rule.revert {
+			resp = append(resp, &edns0SetResponseRule{code: rule.code})
+		}
+		return resp, RewriteDone
 	}
 
 	return nil, RewriteIgnored
@@ -116,32 +166,39 @@ func newEdns0Rule(mode string, args ...string) (Rule, error) {
 		return nil, fmt.Errorf("invalid action: %q", action)
 	}
 
+	// Extract "revert" parameter.
+	var revert bool
+	if args[len(args)-1] == "revert" {
+		revert = true
+		args = args[:len(args)-1]
+	}
+
 	switch ruleType {
 	case "local":
 		if len(args) != 4 {
-			return nil, fmt.Errorf("EDNS0 local rules require exactly three args")
+			return nil, fmt.Errorf("EDNS0 local rules require three or four args")
 		}
 		// Check for variable option.
 		if strings.HasPrefix(args[3], "{") && strings.HasSuffix(args[3], "}") {
-			return newEdns0VariableRule(mode, action, args[2], args[3])
+			return newEdns0VariableRule(mode, action, args[2], args[3], revert)
 		}
-		return newEdns0LocalRule(mode, action, args[2], args[3])
+		return newEdns0LocalRule(mode, action, args[2], args[3], revert)
 	case "nsid":
 		if len(args) != 2 {
-			return nil, fmt.Errorf("EDNS0 NSID rules do not accept args")
+			return nil, fmt.Errorf("EDNS0 NSID rules can accept no more than one arg")
 		}
-		return &edns0NsidRule{mode: mode, action: action}, nil
+		return &edns0NsidRule{mode: mode, action: action, revert: revert}, nil
 	case "subnet":
 		if len(args) != 4 {
-			return nil, fmt.Errorf("EDNS0 subnet rules require exactly three args")
+			return nil, fmt.Errorf("EDNS0 subnet rules require three or four args")
 		}
-		return newEdns0SubnetRule(mode, action, args[2], args[3])
+		return newEdns0SubnetRule(mode, action, args[2], args[3], revert)
 	default:
 		return nil, fmt.Errorf("invalid rule type %q", ruleType)
 	}
 }
 
-func newEdns0LocalRule(mode, action, code, data string) (*edns0LocalRule, error) {
+func newEdns0LocalRule(mode, action, code, data string, revert bool) (*edns0LocalRule, error) {
 	c, err := strconv.ParseUint(code, 0, 16)
 	if err != nil {
 		return nil, err
@@ -158,11 +215,11 @@ func newEdns0LocalRule(mode, action, code, data string) (*edns0LocalRule, error)
 	// Add this code to the ones the server supports.
 	edns.SetSupportedOption(uint16(c))
 
-	return &edns0LocalRule{mode: mode, action: action, code: uint16(c), data: decoded}, nil
+	return &edns0LocalRule{mode: mode, action: action, code: uint16(c), data: decoded, revert: revert}, nil
 }
 
 // newEdns0VariableRule creates an EDNS0 rule that handles variable substitution
-func newEdns0VariableRule(mode, action, code, variable string) (*edns0VariableRule, error) {
+func newEdns0VariableRule(mode, action, code, variable string, revert bool) (*edns0VariableRule, error) {
 	c, err := strconv.ParseUint(code, 0, 16)
 	if err != nil {
 		return nil, err
@@ -175,7 +232,7 @@ func newEdns0VariableRule(mode, action, code, variable string) (*edns0VariableRu
 	// Add this code to the ones the server supports.
 	edns.SetSupportedOption(uint16(c))
 
-	return &edns0VariableRule{mode: mode, action: action, code: uint16(c), variable: variable}, nil
+	return &edns0VariableRule{mode: mode, action: action, code: uint16(c), variable: variable, revert: revert}, nil
 }
 
 // ruleData returns the data specified by the variable.
@@ -221,13 +278,19 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 		return nil, RewriteIgnored
 	}
 
+	var resp ResponseRules
+
 	o := setupEdns0Opt(state.Req)
 	for _, s := range o.Option {
 		if e, ok := s.(*dns.EDNS0_LOCAL); ok {
 			if rule.code == e.Code {
 				if rule.action == Replace || rule.action == Set {
+					if rule.revert {
+						old := *e
+						resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_LOCAL]{code: rule.code, source: &old})
+					}
 					e.Data = data
-					return nil, RewriteDone
+					return resp, RewriteDone
 				}
 				return nil, RewriteIgnored
 			}
@@ -237,7 +300,10 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 	// add option if not found
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_LOCAL{Code: rule.code, Data: data})
-		return nil, RewriteDone
+		if rule.revert {
+			resp = append(resp, &edns0SetResponseRule{code: rule.code})
+		}
+		return resp, RewriteDone
 	}
 
 	return nil, RewriteIgnored
@@ -271,9 +337,10 @@ type edns0SubnetRule struct {
 	v4BitMaskLen uint8
 	v6BitMaskLen uint8
 	action       string
+	revert       bool
 }
 
-func newEdns0SubnetRule(mode, action, v4BitMaskLen, v6BitMaskLen string) (*edns0SubnetRule, error) {
+func newEdns0SubnetRule(mode, action, v4BitMaskLen, v6BitMaskLen string, revert bool) (*edns0SubnetRule, error) {
 	v4Len, err := strconv.ParseUint(v4BitMaskLen, 0, 16)
 	if err != nil {
 		return nil, err
@@ -293,7 +360,7 @@ func newEdns0SubnetRule(mode, action, v4BitMaskLen, v6BitMaskLen string) (*edns0
 	}
 
 	return &edns0SubnetRule{mode: mode, action: action,
-		v4BitMaskLen: uint8(v4Len), v6BitMaskLen: uint8(v6Len)}, nil
+		v4BitMaskLen: uint8(v4Len), v6BitMaskLen: uint8(v6Len), revert: revert}, nil
 }
 
 // fillEcsData sets the subnet data into the ecs option
@@ -326,11 +393,17 @@ func (rule *edns0SubnetRule) fillEcsData(state request.Request, ecs *dns.EDNS0_S
 func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	o := setupEdns0Opt(state.Req)
 
+	var resp ResponseRules
+
 	for _, s := range o.Option {
 		if e, ok := s.(*dns.EDNS0_SUBNET); ok {
 			if rule.action == Replace || rule.action == Set {
+				if rule.revert {
+					old := *e
+					resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_SUBNET]{code: e.Code, source: &old})
+				}
 				if rule.fillEcsData(state, e) == nil {
-					return nil, RewriteDone
+					return resp, RewriteDone
 				}
 			}
 			return nil, RewriteIgnored
@@ -342,7 +415,10 @@ func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request)
 		opt := &dns.EDNS0_SUBNET{Code: dns.EDNS0SUBNET}
 		if rule.fillEcsData(state, opt) == nil {
 			o.Option = append(o.Option, opt)
-			return nil, RewriteDone
+			if rule.revert {
+				resp = append(resp, &edns0SetResponseRule{code: dns.EDNS0SUBNET})
+			}
+			return resp, RewriteDone
 		}
 	}
 
