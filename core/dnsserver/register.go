@@ -263,8 +263,11 @@ func (c *Config) Handlers() []plugin.Handler {
 		return nil
 	}
 	hs := make([]plugin.Handler, 0, len(c.registry))
-	for k := range c.registry {
-		hs = append(hs, c.registry[k])
+	for _, k := range Directives {
+		registry := c.Handler(k)
+		if registry != nil {
+			hs = append(hs, registry)
+		}
 	}
 	return hs
 }
