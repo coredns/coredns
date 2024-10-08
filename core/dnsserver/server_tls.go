@@ -44,6 +44,11 @@ var _ caddy.GracefulServer = &Server{}
 
 // Serve implements caddy.TCPServer interface.
 func (s *ServerTLS) Serve(l net.Listener) error {
+	maxConnectionQueries := defaultMaxConnectionQueries
+	if s.maxConnectionQueries > 0 {
+		maxConnectionQueries = s.maxConnectionQueries
+	}
+
 	s.m.Lock()
 
 	if s.tlsConfig != nil {
@@ -53,7 +58,7 @@ func (s *ServerTLS) Serve(l net.Listener) error {
 	// Only fill out the TCP server for this one.
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp-tls",
-		MaxTCPQueries: tlsMaxQueries,
+		MaxTCPQueries: maxConnectionQueries,
 		ReadTimeout:   s.readTimeout,
 		WriteTimeout:  s.writeTimeout,
 		IdleTimeout: func() time.Duration {
@@ -97,7 +102,3 @@ func (s *ServerTLS) OnStartupComplete() {
 		fmt.Print(out)
 	}
 }
-
-const (
-	tlsMaxQueries = -1
-)
