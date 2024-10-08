@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -379,6 +380,37 @@ func TestNextAlternate(t *testing.T) {
 		_, err := parseForward(c)
 		if err == nil {
 			t.Errorf("Test %d: expected error, got nil", i)
+		}
+	}
+}
+
+func TestExpire(t *testing.T) {
+	tests := []struct {
+		input               string
+		expectedIdleTimeout time.Duration
+	}{
+		{"forward . 127.0.0.1\n", 10 * time.Second},
+		{"forward . 127.0.0.1 {\nexpire 20s\n}\n", 20 * time.Second},
+		{"forward . 127.0.0.1 {\nidle_timeout 30s\n}\n", 30 * time.Second},
+		{"forward . 127.0.0.1 {\nexpire 20s idle_timeout 30s\n}\n", 30 * time.Second},
+		{"forward . 127.0.0.1 {\nexpire 10s idle_timeout 30s\n}\n", 30 * time.Second},
+		{"forward . 127.0.0.1 {\nexpire 20s idle_timeout 10s\n}\n", 10 * time.Second},
+		{"forward . 127.0.0.1 {\nidle_timeout 30s expire 20s\n}\n", 30 * time.Second},
+		{"forward . 127.0.0.1 {\nidle_timeout 30s expire 10s\n}\n", 30 * time.Second},
+		{"forward . 127.0.0.1 {\nidle_timeout 10s expire 20s\n}\n", 10 * time.Second},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		fs, err := parseForward(c)
+
+		if err != nil {
+			t.Errorf("Test %d: expected no error but found %s for input %s", i, err, test.input)
+		}
+
+		f := fs[0]
+		if f.idleTimeout != test.expectedIdleTimeout {
+			t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedIdleTimeout, f.idleTimeout)
 		}
 	}
 }

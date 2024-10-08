@@ -27,8 +27,8 @@ import (
 var log = clog.NewWithPlugin("forward")
 
 const (
-	defaultExpire = 10 * time.Second
-	hcInterval    = 500 * time.Millisecond
+	defaultIdleTimeout = 10 * time.Second
+	hcInterval         = 500 * time.Millisecond
 )
 
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
@@ -45,11 +45,16 @@ type Forward struct {
 
 	nextAlternateRcodes []int
 
-	tlsConfig     *tls.Config
-	tlsServerName string
-	maxfails      uint32
-	expire        time.Duration
-	maxConcurrent int64
+	tlsConfig        *tls.Config
+	tlsServerName    string
+	maxfails         uint32
+	idleTimeout      time.Duration
+	maxConnectionAge time.Duration
+	maxConcurrent    int64
+
+	// used to determine if `idle_timeout`` has been explicitly set, in which case ignore `expire` block
+	// to be removed when `expire` has been fully deprecated
+	isIdleTimeoutSet bool
 
 	opts proxy.Options // also here for testing
 
@@ -64,7 +69,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: proxy.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), idleTimeout: defaultIdleTimeout, p: new(random), from: ".", hcInterval: hcInterval, opts: proxy.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
 	return f
 }
 
