@@ -16,7 +16,7 @@ large number of CPU cores.
 ## Syntax
 
 ~~~
-numsockets [NUM_SOCKETS]
+numsockets NUM_SOCKETS
 ~~~
 
 * **NUM_SOCKETS** - the number of servers that will listen on one port.
