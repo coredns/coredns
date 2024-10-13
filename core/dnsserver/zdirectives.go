@@ -12,6 +12,7 @@ package dnsserver
 var Directives = []string{
 	"root",
 	"metadata",
+	"rrl",
 	"geoip",
 	"cancel",
 	"tls",
