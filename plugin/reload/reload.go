@@ -26,7 +26,7 @@ type reload struct {
 	u      int
 	mtx    sync.RWMutex
 	quit   chan struct{} // Quit channel for stopping the goroutine
-	tick *time.Ticker  // Ticker to manage the periodic check
+	tick   *time.Ticker  // Ticker to manage the periodic check
 }
 
 func (r *reload) setUsage(u int) {
