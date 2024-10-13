@@ -64,7 +64,7 @@ func TestSetup(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.body)
-		if _, _, _, _, err := parse(c); (err == nil) == test.expectedError {
+		if _, _, err := parse(c); (err == nil) == test.expectedError {
 			t.Fatalf("Unexpected errors: %v in test: %d\n\t%s", err, i, test.body)
 		}
 	}
