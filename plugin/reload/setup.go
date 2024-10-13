@@ -64,7 +64,7 @@ func setup(c *caddy.Controller) error {
 	jitter := time.Duration(rand.Int63n(j.Nanoseconds()) - (j.Nanoseconds() / 2))
 	i = i + jitter
 
-	// Set the interval
+	// prepare info for next onInstanceStartup event
 	r.setInterval(i)
 	r.setUsage(used)
 
@@ -73,7 +73,7 @@ func setup(c *caddy.Controller) error {
 		caddy.RegisterEventHook("reload", hook)
 	})
 
-	// Register the shutdown hook
+	// re-register on finalShutDown as the instance most-likely will be changed
 	shutOnce.Do(func() {
 		c.OnFinalShutdown(func() error {
 			close(r.quit) // Close the quit channel to stop the old goroutine

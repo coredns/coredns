@@ -26,7 +26,7 @@ type reload struct {
 	u      int
 	mtx    sync.RWMutex
 	quit   chan struct{} // Quit channel for stopping the goroutine
-	ticker *time.Ticker  // Ticker to manage the periodic check
+	tick *time.Ticker  // Ticker to manage the periodic check
 }
 
 func (r *reload) setUsage(u int) {
@@ -79,7 +79,7 @@ func hook(event caddy.EventName, info interface{}) error {
 
 	// Create a new quit channel and ticker for the new goroutine
 	r.quit = make(chan struct{})
-	r.ticker = time.NewTicker(r.interval())
+	r.tick = time.NewTicker(r.interval())
 
 	// this should be an instance. ok to panic if not
 	instance := info.(*caddy.Instance)
@@ -93,11 +93,11 @@ func hook(event caddy.EventName, info interface{}) error {
 
 	// Start a new goroutine to periodically check for config changes
 	go func() {
-		defer r.ticker.Stop() // Ensure the ticker stops when the goroutine exits
+		defer r.tick.Stop() // Ensure the ticker stops when the goroutine exits
 
 		for {
 			select {
-			case <-r.ticker.C:
+			case <-r.tick.C:
 				corefile, err := caddy.LoadCaddyfile(instance.Caddyfile().ServerType())
 				if err != nil {
 					continue
