@@ -16,10 +16,10 @@ large number of CPU cores.
 ## Syntax
 
 ~~~
-numsockets NUM_SOCKETS
+numsockets [NUM_SOCKETS]
 ~~~
 
-* **NUM_SOCKETS** - the number of servers that will listen on one port.
+* **NUM_SOCKETS** - the number of servers that will listen on one port. Default value is 2.
 
 ## Examples
 
@@ -45,12 +45,6 @@ If conducting such tests is difficult, follow these recommendations:
    Examples:
    - If CoreDNS consumes 4 CPUs and 8 CPUs are available, set `numsockets` to 2.
    - If CoreDNS consumes 8 CPUs and 64 CPUs are available, set `numsockets` to 8.
-
-**Important:**
-- Tests have shown that increasing `numsockets` above 8 does not improve performance. Therefore, it is advised to use 
-  values greater than 8 only if performance tests justify such an increase.
-- Reaching a CPU limit means that increasing `numsockets` will not be useful. With the same CPU limit, increasing 
-  `numsockets` can decrease QPS. Use the plugin and set more `numsockets` only if absolutely necessary.
 
 ## Limitations
 

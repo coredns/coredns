@@ -5,32 +5,33 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 )
 
 func TestNumsockets(t *testing.T) {
 	tests := []struct {
 		input              string
 		shouldErr          bool
-		expectedRoot       string // expected root, set to the controller. Empty for negative cases.
+		expectedNumSockets int
 		expectedErrContent string // substring from the expected error. Empty for positive cases.
 	}{
 		// positive
-		{`numsockets 2`, false, "", ""},
-		{` numsockets 1`, false, "", ""},
-		{`numsockets text`, true, "", "invalid num sockets"},
-		{`numsockets 0`, true, "", "num sockets can not be zero or negative"},
-		{`numsockets -1`, true, "", "num sockets can not be zero or negative"},
-		{`numsockets 2 2`, true, "", "Wrong argument count or unexpected line ending after '2'"},
-		{`numsockets`, true, "", "Wrong argument count or unexpected line ending after 'numsockets'"},
+		{`numsockets`, false, defaultNumSockets, ""},
+		{`numsockets 2`, false, 2, ""},
+		{` numsockets 1`, false, 1, ""},
+		{`numsockets text`, true, 0, "invalid num sockets"},
+		{`numsockets 0`, true, 0, "num sockets can not be zero or negative"},
+		{`numsockets -1`, true, 0, "num sockets can not be zero or negative"},
+		{`numsockets 2 2`, true, 0, "Wrong argument count or unexpected line ending after '2'"},
 		{`numsockets 2 {
 			block
-		}`, true, "", "Unexpected token '{', expecting argument"},
+		}`, true, 0, "Unexpected token '{', expecting argument"},
 	}
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
 		err := setup(c)
-		//cfg := dnsserver.GetConfig(c)
+		cfg := dnsserver.GetConfig(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error but found %s for input %s", i, err, test.input)
@@ -44,6 +45,10 @@ func TestNumsockets(t *testing.T) {
 			if !strings.Contains(err.Error(), test.expectedErrContent) {
 				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErrContent, err, test.input)
 			}
+		}
+
+		if cfg.NumSockets != test.expectedNumSockets {
+			t.Errorf("Test %d: Expected num sockets to be %d, found %d", i, test.expectedNumSockets, cfg.NumSockets)
 		}
 	}
 }
