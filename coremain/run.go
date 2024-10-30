@@ -10,10 +10,10 @@ import (
 	"runtime"
 	"strings"
 
-	"go.uber.org/automaxprocs/maxprocs"
-
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+
+	"go.uber.org/automaxprocs/maxprocs"
 )
 
 func init() {
