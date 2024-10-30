@@ -10,6 +10,8 @@ import (
 	"runtime"
 	"strings"
 
+	"go.uber.org/automaxprocs/maxprocs"
+
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 )
@@ -46,6 +48,11 @@ func Run() {
 
 	log.SetOutput(os.Stdout)
 	log.SetFlags(LogFlags)
+
+	_, err := maxprocs.Set(maxprocs.Logger(log.Printf))
+	if err != nil {
+		mustLogFatal(err)
+	}
 
 	if version {
 		showVersion()
