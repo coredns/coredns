@@ -12,6 +12,7 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+
 	"go.uber.org/automaxprocs/maxprocs"
 )
 
