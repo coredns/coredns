@@ -1,7 +1,8 @@
-package numsockets
+package multisocket
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 
 	"github.com/coredns/caddy"
@@ -9,22 +10,21 @@ import (
 	"github.com/coredns/coredns/plugin"
 )
 
-// defaultNumSockets is the default number of sockets that will listen on one port.
-const defaultNumSockets = 2
+const pluginName = "multisocket"
 
-func init() { plugin.Register("numsockets", setup) }
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	err := parseNumSockets(c)
 	if err != nil {
-		return plugin.Error("numsockets", err)
+		return plugin.Error(pluginName, err)
 	}
 	return nil
 }
 
 func parseNumSockets(c *caddy.Controller) error {
 	config := dnsserver.GetConfig(c)
-	c.Next() // "numsockets"
+	c.Next() // "multisocket"
 
 	args := c.RemainingArgs()
 
@@ -33,8 +33,8 @@ func parseNumSockets(c *caddy.Controller) error {
 	}
 
 	if len(args) == 0 {
-		// Nothing specified; use default
-		config.NumSockets = defaultNumSockets
+		// Nothing specified; use default that is equal to GOMAXPROCS.
+		config.NumSockets = runtime.GOMAXPROCS(0)
 		return nil
 	}
 

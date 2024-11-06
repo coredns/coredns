@@ -16,7 +16,7 @@ var Directives = []string{
 	"cancel",
 	"tls",
 	"timeouts",
-	"numsockets",
+	"multisocket",
 	"reload",
 	"nsid",
 	"bufsize",

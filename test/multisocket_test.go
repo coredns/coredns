@@ -11,7 +11,7 @@ import (
 // These tests need a fixed port, because :0 selects a random port for each socket, but we need all sockets to be on
 // the same port.
 
-func TestNumsockets(t *testing.T) {
+func TestMultisocket(t *testing.T) {
 	tests := []struct {
 		name            string
 		corefile        string
@@ -20,32 +20,32 @@ func TestNumsockets(t *testing.T) {
 		expectedPort    string
 	}{
 		{
-			name: "no numsockets",
+			name: "no multisocket",
 			corefile: `.:5054 {
 			}`,
 			expectedServers: 1,
 			expectedPort:    "5054",
 		},
 		{
-			name: "numsockets 1",
+			name: "multisocket 1",
 			corefile: `.:5055 {
-				numsockets 1
+				multisocket 1
 			}`,
 			expectedServers: 1,
 			expectedPort:    "5055",
 		},
 		{
-			name: "numsockets 2",
+			name: "multisocket 2",
 			corefile: `.:5056 {
-				numsockets 2
+				multisocket 2
 			}`,
 			expectedServers: 2,
 			expectedPort:    "5056",
 		},
 		{
-			name: "numsockets 100",
+			name: "multisocket 100",
 			corefile: `.:5057 {
-				numsockets 100
+				multisocket 100
 			}`,
 			expectedServers: 100,
 			expectedPort:    "5057",
@@ -82,7 +82,7 @@ func TestNumsockets(t *testing.T) {
 	}
 }
 
-func TestNumsockets_Restart(t *testing.T) {
+func TestMultisocket_Restart(t *testing.T) {
 	tests := []struct {
 		name             string
 		numSocketsBefore int
@@ -108,7 +108,7 @@ func TestNumsockets_Restart(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			corefile := `.:5058 {
-				numsockets %d
+				multisocket %d
 			}`
 			srv, err := CoreDNSServer(fmt.Sprintf(corefile, test.numSocketsBefore))
 			if err != nil {
@@ -130,10 +130,10 @@ func TestNumsockets_Restart(t *testing.T) {
 	}
 }
 
-// Just check that server with numsockets works
-func TestNumsockets_WhoAmI(t *testing.T) {
+// Just check that server with multisocket works
+func TestMultisocket_WhoAmI(t *testing.T) {
 	corefile := `.:5059 {
-		numsockets 6
+		multisocket
 		whoami
 	}`
 	s, udp, tcp, err := CoreDNSServerAndPorts(corefile)

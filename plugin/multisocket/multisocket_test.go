@@ -1,6 +1,7 @@
-package numsockets
+package multisocket
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 
@@ -8,7 +9,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 )
 
-func TestNumsockets(t *testing.T) {
+func TestMultisocket(t *testing.T) {
 	tests := []struct {
 		input              string
 		shouldErr          bool
@@ -16,14 +17,14 @@ func TestNumsockets(t *testing.T) {
 		expectedErrContent string // substring from the expected error. Empty for positive cases.
 	}{
 		// positive
-		{`numsockets`, false, defaultNumSockets, ""},
-		{`numsockets 2`, false, 2, ""},
-		{` numsockets 1`, false, 1, ""},
-		{`numsockets text`, true, 0, "invalid num sockets"},
-		{`numsockets 0`, true, 0, "num sockets can not be zero or negative"},
-		{`numsockets -1`, true, 0, "num sockets can not be zero or negative"},
-		{`numsockets 2 2`, true, 0, "Wrong argument count or unexpected line ending after '2'"},
-		{`numsockets 2 {
+		{`multisocket`, false, runtime.GOMAXPROCS(0), ""},
+		{`multisocket 2`, false, 2, ""},
+		{` multisocket 1`, false, 1, ""},
+		{`multisocket text`, true, 0, "invalid num sockets"},
+		{`multisocket 0`, true, 0, "num sockets can not be zero or negative"},
+		{`multisocket -1`, true, 0, "num sockets can not be zero or negative"},
+		{`multisocket 2 2`, true, 0, "Wrong argument count or unexpected line ending after '2'"},
+		{`multisocket 2 {
 			block
 		}`, true, 0, "Unexpected token '{', expecting argument"},
 	}
