@@ -1,12 +1,17 @@
 package metadata
 
 import (
+	"fmt"
+	"text/template"
+
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+
+	"github.com/miekg/dns"
 )
 
-func init() { plugin.Register("metadata", setup) }
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	m, err := metadataParse(c)
@@ -37,8 +42,80 @@ func metadataParse(c *caddy.Controller) (*Metadata, error) {
 
 	m.Zones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 
-	if c.NextBlock() || c.Next() {
-		return nil, plugin.Error("metadata", c.ArgErr())
+	// parse mapping
+	if c.NextBlock() {
+		mapping, err := parseMap(c)
+		if err != nil {
+			return nil, plugin.Error(pluginName, err)
+		}
+		m.Map = mapping
 	}
+
+	// no more blocks or args expected
+	if c.NextBlock() || c.Next() {
+		fmt.Println("hello", c.Val())
+		return nil, plugin.Error(pluginName, c.ArgErr())
+	}
+	return m, nil
+}
+
+func parseMap(c *caddy.Controller) (*Map, error) {
+	// map
+	if c.Val() != "map" {
+		return nil, c.Errf("unexpected token '%s'; expect 'map'", c.Val())
+	}
+
+	// source
+	if !c.NextArg() {
+		return nil, c.Err("missing source")
+	}
+	source := c.Val()
+	tmpl, err := template.New(source).Parse(source)
+	if err != nil {
+		return nil, c.Err(err.Error())
+	}
+
+	m := &Map{
+		Mapping: make(map[string][]KeyValue),
+		Source:  tmpl,
+	}
+
+	// labels
+	labels := c.RemainingArgs()
+	if len(labels) == 0 {
+		return nil, c.Err("missing label(s)")
+	}
+	c.Next() // read "{"
+
+	for c.NextBlock() {
+		// input
+		sourceVal := c.Val()
+
+		// values
+		values := c.RemainingArgs()
+
+		// special vase to handle default RCODE
+		if sourceVal == defaultKey && len(values) == 1 {
+			if rcode, ok := dns.StringToRcode[values[0]]; ok {
+				m.RcodeOnMiss = rcode
+				continue
+			}
+		}
+
+		if len(values) != len(labels) {
+			return nil, c.Err("number of values must match labels")
+		}
+
+		for i := 0; i < len(values); i++ {
+			m.Mapping[sourceVal] = append(m.Mapping[sourceVal], KeyValue{Key: labels[i], Value: values[i]})
+		}
+	}
+
+	if len(m.Mapping) == 0 {
+		return nil, c.Err("missing value(s)")
+	}
+
+	c.Next() // read "}"
+
 	return m, nil
 }
