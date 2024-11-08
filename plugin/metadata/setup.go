@@ -1,7 +1,6 @@
 package metadata
 
 import (
-	"fmt"
 	"text/template"
 
 	"github.com/coredns/caddy"
@@ -53,7 +52,6 @@ func metadataParse(c *caddy.Controller) (*Metadata, error) {
 
 	// no more blocks or args expected
 	if c.NextBlock() || c.Next() {
-		fmt.Println("hello", c.Val())
 		return nil, plugin.Error(pluginName, c.ArgErr())
 	}
 	return m, nil
