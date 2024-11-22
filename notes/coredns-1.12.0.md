@@ -1,3 +1,11 @@
++++
+title = "CoreDNS-1.12.0 Release"
+description = "CoreDNS-1.12.0 Release Notes."
+tags = ["Release", "1.12.0", "Notes"]
+release = "1.12.0"
+date = "2024-11-21T00:00:00+00:00"
+author = "coredns"
++++
 
 This release adds some new features.  Of note:
 * New multisocket plugin - allows CoreDNS to listen on multiple sockets

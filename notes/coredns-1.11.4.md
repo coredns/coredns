@@ -1,4 +1,11 @@
-
++++
+title = "CoreDNS-1.11.4 Release"
+description = "CoreDNS-1.11.4 Release Notes."
+tags = ["Release", "1.11.4", "Notes"]
+release = "1.11.4"
+date = "2024-11-13T00:00:00+00:00"
+author = "coredns"
++++
 
 This release adds some new features and fixes some bugs.  New features of note:
   * forward plugin: new option `next`, to try alternate upstreams when receiving specified response codes upstreams on (functions like the external plugin _alternate_) 
@@ -51,7 +58,7 @@ zhangguanzhang
 * plugin/kubernetes: only create PTR records for endpoints with hostname defined (https://github.com/coredns/coredns/pull/6898)
 * plugin/rewrite: execute the reversion in reversed order (https://github.com/coredns/coredns/pull/6872)
 * plugin/etcd: fix etcd connection leakage during reload (https://github.com/coredns/coredns/pull/6646)
-* plugi/kubernetes: Add useragent (https://github.com/coredns/coredns/pull/6484)
+* plugin/kubernetes: Add useragent (https://github.com/coredns/coredns/pull/6484)
 * plugin/hosts: add hostsfile as label for coredns_hosts_entries (https://github.com/coredns/coredns/pull/6801)
 * plugin/file: Fix zone parser error handling (https://github.com/coredns/coredns/pull/6680)
 * plugin/forward: Add alternate option to forward plugin (https://github.com/coredns/coredns/pull/6681)
