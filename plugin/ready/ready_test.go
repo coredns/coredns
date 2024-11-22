@@ -53,7 +53,7 @@ func TestReady(t *testing.T) {
 	}
 	response.Body.Close()
 
-	// make erratic not-ready by giving it more queries, this should not change the process readiness
+	// make erratic not-ready by giving it more queries, this should change the process readiness
 	e.ServeDNS(context.TODO(), &test.ResponseWriter{}, m)
 	e.ServeDNS(context.TODO(), &test.ResponseWriter{}, m)
 	e.ServeDNS(context.TODO(), &test.ResponseWriter{}, m)
@@ -62,8 +62,8 @@ func TestReady(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to query %s: %v", address, err)
 	}
-	if response.StatusCode != http.StatusOK {
-		t.Errorf("Invalid status code: expecting %d, got %d", 200, response.StatusCode)
+	if response.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("Invalid status code: expecting %d, got %d", 503, response.StatusCode)
 	}
 	response.Body.Close()
 }
