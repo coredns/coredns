@@ -211,6 +211,20 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					return nil, errors.New("caching SERVFAIL responses over 5 minutes is not permitted")
 				}
 				ca.failttl = d
+			case "zerottl":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				d, err := time.ParseDuration(args[0])
+				if err != nil {
+					return nil, err
+				}
+				if d < 0 {
+					return nil, errors.New("invalid negative ttl for zerottl")
+				}
+				ca.zerottl = d
+				ca.zerottlflag = true
 			case "disable":
 				// disable [success|denial] [zones]...
 				args := c.RemainingArgs()
