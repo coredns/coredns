@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -45,11 +46,12 @@ type Forward struct {
 
 	nextAlternateRcodes []int
 
-	tlsConfig     *tls.Config
-	tlsServerName string
-	maxfails      uint32
-	expire        time.Duration
-	maxConcurrent int64
+	tlsConfig       *tls.Config
+	tlsServerName   string
+	maxfails        uint32
+	expire          time.Duration
+	maxConcurrent   int64
+	hcFailureAction string
 
 	opts proxy.Options // also here for testing
 
@@ -126,12 +128,18 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			if fails < len(f.proxies) {
 				continue
 			}
-			// All upstream proxies are dead, assume healthcheck is completely broken and randomly
-			// select an upstream to connect to.
-			r := new(random)
-			proxy = r.List(f.proxies)[0]
 
 			healthcheckBrokenCount.Add(1)
+			// All upstreams are dead, return servfail if all upstreams are down
+			if f.hcFailureAction == "servfail" {
+				upstreamErr = fmt.Errorf("all upstreams down: %s", proxy.Addr())
+				break
+			} else {
+				// assume healthcheck is completely broken and randomly
+				// select an upstream to connect to.
+				r := new(random)
+				proxy = r.List(f.proxies)[0]
+			}
 		}
 
 		if span != nil {
