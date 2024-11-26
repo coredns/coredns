@@ -1,9 +1,11 @@
 package forward
 
 import (
+	"bufio"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -100,18 +102,29 @@ func parseForward(c *caddy.Controller) ([]*Forward, error) {
 func parseStanza(c *caddy.Controller) (*Forward, error) {
 	f := New()
 
-	if !c.Args(&f.from) {
+	var origFrom string
+	if !c.Args(&origFrom) {
 		return f, c.ArgErr()
 	}
-	origFrom := f.from
-	zones := plugin.Host(f.from).NormalizeExact()
-	if len(zones) == 0 {
-		return f, fmt.Errorf("unable to normalize '%s'", f.from)
-	}
-	f.from = zones[0] // there can only be one here, won't work with non-octet reverse
 
-	if len(zones) > 1 {
-		log.Warningf("Unsupported CIDR notation: '%s' expands to multiple zones. Using only '%s'.", origFrom, f.from)
+	if strings.HasPrefix(origFrom, "file://") {
+		filePath := filepath.Clean(strings.TrimPrefix(origFrom, "file://"))
+		zones, err := parseFile(filePath)
+		if err != nil {
+			return f, err
+		}
+
+		f.from = zones
+	} else {
+		zones := plugin.Host(origFrom).NormalizeExact()
+		if len(zones) == 0 {
+			return f, fmt.Errorf("unable to normalize '%s'", f.from)
+		}
+
+		f.from = []string{zones[0]} // there can only be one here, won't work with non-octet reverse
+		if len(zones) > 1 {
+			log.Warningf("Unsupported CIDR notation: '%s' expands to multiple zones. Using only '%s'.", origFrom, zones[0])
+		}
 	}
 
 	to := c.RemainingArgs()
@@ -166,6 +179,51 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	}
 
 	return f, nil
+}
+
+// parseFile the file format should be:
+//
+// ```
+// # This is a comment
+// example.com
+// google.com
+// # This is another comment
+// github.com
+// ```
+//
+// If line start with `#`, this line will be treated as a comment and ignored. Every line is a domain
+func parseFile(path string) ([]string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open %s: %w", path, err)
+	}
+	defer file.Close()
+
+	var lines []string
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		zones := plugin.Host(line).NormalizeExact()
+		if len(zones) == 0 {
+			return nil, fmt.Errorf("unable to normalize '%s'", line)
+		}
+
+		lines = append(lines, zones[0])
+
+		if len(zones) > 1 {
+			log.Warningf("Unsupported CIDR notation: '%s' expands to multiple zones", line)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("failed to scan %s: %w", path, err)
+	}
+
+	return lines, nil
 }
 
 func parseBlock(c *caddy.Controller, f *Forward) error {
