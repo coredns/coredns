@@ -191,7 +191,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 // github.com
 // ```
 //
-// If line start with `#`, this line will be treated as a comment and ignored. Every line is a domain
+// Every line is a domain unless it starts with `#`, then it will be treated as a comment and ignored it.
 func parseFile(path string) ([]string, error) {
 	file, err := os.Open(path)
 	if err != nil {
