@@ -46,12 +46,12 @@ type Forward struct {
 
 	nextAlternateRcodes []int
 
-	tlsConfig       *tls.Config
-	tlsServerName   string
-	maxfails        uint32
-	expire          time.Duration
-	maxConcurrent   int64
-	hcFailureAction string
+	tlsConfig      *tls.Config
+	tlsServerName  string
+	maxfails       uint32
+	expire         time.Duration
+	maxConcurrent  int64
+	hcOnFailAction string
 
 	opts proxy.Options // also here for testing
 
@@ -131,7 +131,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 			healthcheckBrokenCount.Add(1)
 			// All upstreams are dead, return servfail if all upstreams are down
-			if f.hcFailureAction == "servfail" {
+			if f.hcOnFailAction == "servfail" {
 				upstreamErr = fmt.Errorf("all upstreams down: %s", proxy.Addr())
 				break
 			} else {

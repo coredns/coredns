@@ -215,15 +215,15 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 					return fmt.Errorf("health_check: invalid domain name %s", hcDomain)
 				}
 				f.opts.HCDomain = plugin.Name(hcDomain).Normalize()
-			case "onfailure":
+			case "on_fail":
 				if !c.NextArg() {
 					return c.ArgErr()
 				}
 				failAction := c.Val()
-				if failAction != "retry" && failAction != "servfail" {
-					return fmt.Errorf("invalid value for healthcheck onfailure: %s", failAction)
+				if failAction != "spray" && failAction != "servfail" {
+					return fmt.Errorf("invalid value for healthcheck on_fail: %s", failAction)
 				}
-				f.hcFailureAction = failAction
+				f.hcOnFailAction = failAction
 			default:
 				return fmt.Errorf("health_check: unknown option %s", hcOpts)
 			}

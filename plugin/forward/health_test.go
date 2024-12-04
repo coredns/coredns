@@ -283,7 +283,7 @@ func TestHealthAllUpstreamsDownServeFail(t *testing.T) {
 	// Setting bad address for healthcheck to fail
 	p := proxy.NewProxy("TestHealthAllUpstreamsDown", "test-serv-fail.coredns.local", transport.DNS)
 	f := New()
-	f.hcFailureAction = "servfail"
+	f.hcOnFailAction = "servfail"
 	f.SetProxy(p)
 	defer f.OnShutdown()
 
