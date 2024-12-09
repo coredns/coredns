@@ -12,6 +12,8 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+
+	"go.uber.org/automaxprocs/maxprocs"
 )
 
 func init() {
@@ -54,6 +56,11 @@ func Run() {
 	if plugins {
 		fmt.Println(caddy.DescribePlugins())
 		os.Exit(0)
+	}
+
+	_, err := maxprocs.Set(maxprocs.Logger(log.Printf))
+	if err != nil {
+		log.Println("[WARNING] Failed to set GOMAXPROCS:", err)
 	}
 
 	// Get Corefile input

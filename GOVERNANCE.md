@@ -5,7 +5,7 @@
 The CoreDNS community adheres to the following principles:
 
 - Open: CoreDNS is open source, advertised on [our website](https://coredns.io/community).
-- Welcoming and respectful: See [Code of Conduct](CODE-OF-CONDUCT.md).
+- Welcoming and respectful: See [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 - Transparent and accessible: Changes to the CoreDNS organization, CoreDNS code repositories, and CNCF related activities (e.g. level, involvement, etc) are done in public.
 - Merit: Ideas and contributions are accepted according to their technical merit and alignment with
   project objectives, scope, and design principles.
@@ -53,7 +53,7 @@ If a Maintainer feels she/he can not fulfill the "Expectations from Maintainers"
 step down.
 
 The CoreDNS organization will never forcefully remove a current Maintainer, unless a maintainer
-fails to meet the principles of CoreDNS community, or adhere to the [Code of Conduct](CODE-OF-CONDUCT.md).
+fails to meet the principles of CoreDNS community, or adhere to the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
 ## Changes in Project Steering Committee Membership
 
@@ -145,7 +145,7 @@ permits, or a _reasonable_ time frame to allow maintainers to have a chance to v
 
 ## Code of Conduct
 
-The [CoreDNS Code of Conduct](CODE-OF-CONDUCT.md) is aligned with the CNCF Code of Conduct.
+The [CoreDNS Code of Conduct](.github/CODE_OF_CONDUCT.md) is aligned with the CNCF Code of Conduct.
 
 ## Credits
 
