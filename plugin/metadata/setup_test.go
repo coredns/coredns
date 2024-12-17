@@ -169,6 +169,19 @@ func Test_parseMap(t *testing.T) {
 			},
 		},
 		{
+			name: "only_default",
+			input: `metadata {
+						map {{.Type}} key1     key2 {
+							default   SERVFAIL
+						}
+					}`,
+			expected: &Map{
+				Source:      template.Must(template.New("{{.Type}}").Parse("{{.Type}}")),
+				Mapping:     map[string][]KeyValue{},
+				RcodeOnMiss: dns.RcodeServerFailure,
+			},
+		},
+		{
 			name: "invalid_source",
 			input: `metadata {
 						map {{end}} key1     key2 {

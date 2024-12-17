@@ -109,7 +109,8 @@ func parseMap(c *caddy.Controller) (*Map, error) {
 		}
 	}
 
-	if len(m.Mapping) == 0 {
+	// no values and default are provided
+	if len(m.Mapping) == 0 && m.RcodeOnMiss == 0 {
 		return nil, c.Err("missing value(s)")
 	}
 
