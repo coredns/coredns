@@ -48,7 +48,7 @@ forward FROM TO... {
     tls CERT KEY CA
     tls_servername NAME
     policy random|round_robin|sequential
-    health_check DURATION [no_rec] [domain FQDN]
+    health_check DURATION [no_rec] [domain FQDN] [on_fail ONFAIL]
     max_concurrent MAX
     next RCODE_1 [RCODE_2] [RCODE_3...]
 }
@@ -91,6 +91,7 @@ forward FROM TO... {
     The flag is default `true`.
   * `domain FQDN` - set the domain name used for health checks to **FQDN**.
     If not configured, the domain name used for health checks is `.`.
+  * `on_fail ONFAIL` - controls how requests are handled when _all_ upstream servers are unhealthy and unresponsive to health checks. Allowed values for **ONFAIL** are `servfail` and `spray`.  `servfail` will immediately return SERVFAIL responses for all requests. `spray` will instead send requests to a random upstream.  The default behavior is `spray`.
 * `max_concurrent` **MAX** will limit the number of concurrent queries to **MAX**.  Any new query that would
   raise the number of concurrent queries above the **MAX** will result in a REFUSED response. This
   response does not count as a health failure. When choosing a value for **MAX**, pick a number
