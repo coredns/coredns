@@ -91,7 +91,7 @@ forward FROM TO... {
     The flag is default `true`.
   * `domain FQDN` - set the domain name used for health checks to **FQDN**.
     If not configured, the domain name used for health checks is `.`.
-  * `on_fail ONFAIL` - Allowed values for ONFAIL are **servfail** or **spray**. If healthcheck is broken for an upstream the setting servfail would return servfail response to clients and would not contact the upstreams whereas spray would keep health checking the upstreams even if upstreams are failing. It defaults to **spray**.
+  * `on_fail ONFAIL` - controls how requests are handled when _all_ upstream servers are unhealthy and unresponsive to health checks. Allowed values for **ONFAIL** are `servfail` and `spray`.  `servfail` will immediately return SERVFAIL responses for all requests. `spray` will instead send requests to a random upstream.  The default behavior is `spray`.
 * `max_concurrent` **MAX** will limit the number of concurrent queries to **MAX**.  Any new query that would
   raise the number of concurrent queries above the **MAX** will result in a REFUSED response. This
   response does not count as a health failure. When choosing a value for **MAX**, pick a number

@@ -279,12 +279,15 @@ func TestHealthDomain(t *testing.T) {
 }
 
 func TestHealthAllUpstreamsDownServeFail(t *testing.T) {
-
+	defaultTimeout = 20 * time.Second
 	// Setting bad address for healthcheck to fail
-	p := proxy.NewProxy("TestHealthAllUpstreamsDown", "test-serv-fail.coredns.local", transport.DNS)
+	p := proxy.NewProxy("TestHealthAllUpstreamsDown", "8.8.8.8:5003", transport.DNS)
+	p1 := proxy.NewProxy("TestHealthAllUpstreamsDown", "8.8.8.8:5004", transport.DNS)
 	f := New()
-	f.hcOnFailAction = "servfail"
 	f.SetProxy(p)
+	f.SetProxy(p1)
+	f.hcOnFailAction = "servfail"
+
 	defer f.OnShutdown()
 
 	req := new(dns.Msg)
