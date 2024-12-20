@@ -277,3 +277,24 @@ func TestHealthDomain(t *testing.T) {
 		t.Errorf("Expected number of health checks with Domain==%s to be %d, got %d", hcDomain, 1, i1)
 	}
 }
+
+func TestHealthAllUpstreamsDownServeFail(t *testing.T) {
+	defaultTimeout = 20 * time.Second
+	// Setting bad address for healthcheck to fail
+	p := proxy.NewProxy("TestHealthAllUpstreamsDown", "8.8.8.8:5003", transport.DNS)
+	p1 := proxy.NewProxy("TestHealthAllUpstreamsDown", "8.8.8.8:5004", transport.DNS)
+	f := New()
+	f.SetProxy(p)
+	f.SetProxy(p1)
+	f.hcOnFailAction = "servfail"
+
+	defer f.OnShutdown()
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	resp, _ := f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
+	if resp != dns.RcodeServerFailure {
+		t.Errorf("Expected Response code: %d, Got: %d", dns.RcodeServerFailure, resp)
+	}
+}

@@ -259,12 +259,16 @@ func TestSetupHealthCheck(t *testing.T) {
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org\n}\n", false, true, "example.org.", ""},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain .\n}\n", false, true, ".", ""},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org.\n}\n", false, true, "example.org.", ""},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s on_fail servfail\n}\n", false, true, ".", ""},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org. on_fail spray\n}\n", false, true, "example.org.", ""},
 		// negative
 		{"forward . 127.0.0.1 {\nhealth_check no_rec\n}\n", true, true, ".", "time: invalid duration"},
 		{"forward . 127.0.0.1 {\nhealth_check domain example.org\n}\n", true, true, "example.org", "time: invalid duration"},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s rec\n}\n", true, true, ".", "health_check: unknown option rec"},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, true, ".", "Wrong argument count or unexpected line ending after 'domain'"},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example..org\n}\n", true, true, ".", "health_check: invalid domain name"},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s on_fail invalidaction\n}\n", true, true, ".", "invalid value for healthcheck on_fail:"},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s on_fail\n}\n", true, true, ".", "unexpected line ending after 'on_fail'"},
 	}
 
 	for i, test := range tests {
