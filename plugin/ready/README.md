@@ -8,8 +8,7 @@
 
 By enabling *ready* an HTTP endpoint on port 8181 will return 200 OK, when all plugins that are able
 to signal readiness have done so. If some are not ready yet the endpoint will return a 503 with the
-body containing the list of plugins that are not ready. Once a plugin has signaled it is ready it
-will not be queried again.
+body containing the list of plugins that are not ready.
 
 Each Server Block that enables the *ready* plugin will have the plugins *in that server block*
 report readiness into the /ready endpoint that runs on the same port. This also means that the
