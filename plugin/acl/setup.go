@@ -20,6 +20,7 @@ func newDefaultFilter() *iptree.Tree {
 	defaultFilter := iptree.NewTree()
 	_, IPv4All, _ := net.ParseCIDR("0.0.0.0/0")
 	_, IPv6All, _ := net.ParseCIDR("::/0")
+	IPv4All.IP = IPv4All.IP.To4()
 	defaultFilter.InplaceInsertNet(IPv4All, struct{}{})
 	defaultFilter.InplaceInsertNet(IPv6All, struct{}{})
 	return defaultFilter
@@ -111,6 +112,9 @@ func parse(c *caddy.Controller) (ACL, error) {
 						_, source, err := net.ParseCIDR(token)
 						if err != nil {
 							return a, c.Errf("illegal CIDR notation %q", token)
+						}
+						if temp := source.IP.To4(); temp != nil {
+							source.IP = temp
 						}
 						p.filter.InplaceInsertNet(source, struct{}{})
 					}
