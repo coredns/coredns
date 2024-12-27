@@ -1,0 +1,1 @@
+We add an Alpine-based Dockerfile that includes dig and a sample Corefile to demonstrate issue #7009.
