@@ -7,6 +7,7 @@ import (
 	_ "github.com/coredns/caddy/onevent"
 	_ "github.com/coredns/coredns/plugin/acl"
 	_ "github.com/coredns/coredns/plugin/any"
+	_ "github.com/coredns/coredns/plugin/asnlookup"
 	_ "github.com/coredns/coredns/plugin/auto"
 	_ "github.com/coredns/coredns/plugin/autopath"
 	_ "github.com/coredns/coredns/plugin/azure"
