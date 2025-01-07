@@ -33,7 +33,7 @@ func setup(c *caddy.Controller) error {
 		}
 	}
 
-	asnLookup, err := newASNLookup(dbPath, edns0)
+	asnLookup, err := NewASNLookup(dbPath, edns0) // Gunakan NewASNLookup di sini
 	if err != nil {
 		return plugin.Error(pluginName, err)
 	}

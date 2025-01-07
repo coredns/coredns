@@ -1,4 +1,3 @@
-// Package asnlookup implements ASN lookup using MaxMind GeoLite2 ASN database.
 package asnlookup
 
 import (
@@ -17,17 +16,16 @@ import (
 
 const pluginName = "asnlookup"
 
-// ASNLookup is the CoreDNS plugin for ASN lookup.
 type ASNLookup struct {
 	Next  plugin.Handler
 	db    *geoip2.Reader
 	edns0 bool
 }
 
-var log = clog.NewWithPlugin(pluginName) // Using clog for logging.
+var log = clog.NewWithPlugin(pluginName)
 
-// newASNLookup initializes the plugin with the given database path.
-func newASNLookup(dbPath string, edns0 bool) (*ASNLookup, error) {
+// NewASNLookup initializes the plugin with the given database path.
+func NewASNLookup(dbPath string, edns0 bool) (*ASNLookup, error) {
 	reader, err := geoip2.Open(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open ASN database file: %v", err)
@@ -38,18 +36,22 @@ func newASNLookup(dbPath string, edns0 bool) (*ASNLookup, error) {
 
 // ServeDNS processes DNS requests.
 func (a ASNLookup) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	state := request.Request{W: w, Req: r}
+	log.Infof("Received DNS query for name: %s from IP: %s", state.Name(), state.IP())
 	return plugin.NextOrFailure(pluginName, a.Next, ctx, w, r)
 }
 
 // Metadata implements the metadata.Provider interface to add ASN information.
 func (a ASNLookup) Metadata(ctx context.Context, state request.Request) context.Context {
 	srcIP := net.ParseIP(state.IP())
+	log.Infof("Processing DNS query from IP: %s", srcIP)
 
 	// Handle EDNS0 Client Subnet if enabled.
 	if a.edns0 {
 		if o := state.Req.IsEdns0(); o != nil {
 			for _, s := range o.Option {
 				if e, ok := s.(*dns.EDNS0_SUBNET); ok {
+					log.Infof("Using EDNS0 Client Subnet address: %s", e.Address)
 					srcIP = e.Address
 					break
 				}
@@ -60,9 +62,12 @@ func (a ASNLookup) Metadata(ctx context.Context, state request.Request) context.
 	// Lookup ASN from the database.
 	record, err := a.db.ASN(srcIP)
 	if err != nil {
-		log.Debugf("ASN lookup failed for IP %s: %v", srcIP, err)
+		log.Errorf("ASN lookup failed for IP %s: %v", srcIP, err)
 		return ctx
 	}
+
+	log.Infof("ASN lookup successful for IP %s: ASN=%d, Org=%s",
+		srcIP, record.AutonomousSystemNumber, record.AutonomousSystemOrganization)
 
 	// Set ASN metadata.
 	metadata.SetValueFunc(ctx, pluginName+"/asn", func() string {
@@ -75,5 +80,4 @@ func (a ASNLookup) Metadata(ctx context.Context, state request.Request) context.
 	return ctx
 }
 
-// Name returns the plugin name.
 func (a ASNLookup) Name() string { return pluginName }
