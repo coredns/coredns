@@ -69,7 +69,7 @@ func (a ASNLookup) Metadata(ctx context.Context, state request.Request) context.
 	log.Infof("ASN lookup successful for IP %s: ASN=%d, Org=%s",
 		srcIP, record.AutonomousSystemNumber, record.AutonomousSystemOrganization)
 
-	// Set ASN metadata.
+	// Set ASN metadata in context using metadata.SetValueFunc.
 	metadata.SetValueFunc(ctx, pluginName+"/asn", func() string {
 		return fmt.Sprintf("%d", record.AutonomousSystemNumber)
 	})
