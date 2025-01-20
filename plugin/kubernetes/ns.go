@@ -4,10 +4,12 @@ import (
 	"net"
 	"strings"
 
+	"github.com/coredns/coredns/request"
+
 	"github.com/miekg/dns"
 )
 
-func isDefaultNS(name, zone string) bool {
+func IsDefaultNS(name, zone string) bool {
 	return strings.Index(name, defaultNSName) == 0 && strings.Index(name, zone) == len(defaultNSName)
 }
 
@@ -98,6 +100,12 @@ func (k *Kubernetes) nsAddrs(external, headless bool, zone string) []dns.RR {
 	}
 
 	return rrs
+}
+
+// NsAddrsPlugin expose nsAddrsPlugin to other plugins needing to handle NS request
+// like the kubernetes plugin does
+func (k *Kubernetes) NsAddrsPlugin(state request.Request, external, headless bool) []dns.RR {
+	return k.nsAddrs(external, headless, state.Zone)
 }
 
 const defaultNSName = "ns.dns."

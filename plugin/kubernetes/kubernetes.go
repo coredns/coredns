@@ -132,7 +132,7 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact 
 		return svcs, nil
 	}
 
-	if isDefaultNS(state.Name(), state.Zone) {
+	if IsDefaultNS(state.Name(), state.Zone) {
 		nss := k.nsAddrs(false, false, state.Zone)
 		var svcs []msg.Service
 		for _, ns := range nss {

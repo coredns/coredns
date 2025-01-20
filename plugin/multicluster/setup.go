@@ -2,6 +2,7 @@ package multicluster
 
 import (
 	"context"
+	"errors"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -42,6 +43,17 @@ func setup(c *caddy.Controller) error {
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		multiCluster.Next = next
 		return multiCluster
+	})
+
+	c.OnStartup(func() error {
+		m := dnsserver.GetConfig(c).Handler("kubernetes")
+		if m == nil {
+			return plugin.Error(pluginName, errors.New("kubernetes plugin not loaded"))
+		}
+
+		x := m.(kubernetes.Kubernetes) // if found this must be ok
+		multiCluster.nsAddrsFunc = x.NsAddrsPlugin
+		return nil
 	})
 
 	return nil

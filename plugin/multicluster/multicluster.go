@@ -11,6 +11,7 @@ import (
 	"github.com/coredns/coredns/coremain"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
+	corednsKubernetes "github.com/coredns/coredns/plugin/kubernetes"
 	k8sObject "github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/multicluster/object"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
@@ -55,6 +56,7 @@ type MultiCluster struct {
 	controller   controller
 	ttl          uint32
 	opts         controllerOpts
+	nsAddrsFunc  func(state request.Request, external, headless bool) []dns.RR
 }
 
 func New(zones []string) *MultiCluster {
@@ -220,7 +222,35 @@ func (m MultiCluster) Services(ctx context.Context, state request.Request, exact
 		// Return NXDOMAIN for no match
 		return nil, errNoItems
 
-		// TODO support TypeNS
+	case dns.TypeNS:
+		// We can only get here if the qname equals the zone, see ServeDNS in handler.go.
+		nss := m.nsAddrsFunc(state, false, false)
+		var svcs []msg.Service
+		for _, ns := range nss {
+			if ns.Header().Rrtype == dns.TypeA {
+				svcs = append(svcs, msg.Service{Host: ns.(*dns.A).A.String(), Key: msg.Path(ns.Header().Name, coredns), TTL: m.ttl})
+				continue
+			}
+			if ns.Header().Rrtype == dns.TypeAAAA {
+				svcs = append(svcs, msg.Service{Host: ns.(*dns.AAAA).AAAA.String(), Key: msg.Path(ns.Header().Name, coredns), TTL: m.ttl})
+			}
+		}
+		return svcs, nil
+	}
+
+	if corednsKubernetes.IsDefaultNS(state.Name(), state.Zone) {
+		nss := m.nsAddrsFunc(state, false, false)
+		var svcs []msg.Service
+		for _, ns := range nss {
+			if ns.Header().Rrtype == dns.TypeA && state.QType() == dns.TypeA {
+				svcs = append(svcs, msg.Service{Host: ns.(*dns.A).A.String(), Key: msg.Path(state.QName(), coredns), TTL: m.ttl})
+				continue
+			}
+			if ns.Header().Rrtype == dns.TypeAAAA && state.QType() == dns.TypeAAAA {
+				svcs = append(svcs, msg.Service{Host: ns.(*dns.AAAA).AAAA.String(), Key: msg.Path(state.QName(), coredns), TTL: m.ttl})
+			}
+		}
+		return svcs, nil
 	}
 
 	return m.Records(ctx, state, false)
