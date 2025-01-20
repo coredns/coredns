@@ -44,7 +44,6 @@ func (a ASNLookup) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 // Metadata implements the metadata.Provider interface to add ASN information.
 func (a ASNLookup) Metadata(ctx context.Context, state request.Request) context.Context {
 	srcIP := net.ParseIP(state.IP())
-	log.Infof("Processing DNS query from IP: %s", srcIP)
 
 	// Handle EDNS0 Client Subnet if enabled.
 	if a.edns0 {
