@@ -6,8 +6,11 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/kubernetes"
 
+	"github.com/go-logr/logr"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 )
 
 const pluginName = "multicluster"
@@ -16,6 +19,9 @@ const pluginName = "multicluster"
 func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
+	// Do not call klog.InitFlags(nil) here.  It will cause reload to panic.
+	klog.SetLogger(logr.New(&kubernetes.LoggerAdapter{P: log}))
+
 	multiCluster, err := ParseStanza(c)
 	if err != nil {
 		return plugin.Error(pluginName, err)

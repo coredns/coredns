@@ -30,7 +30,7 @@ func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	// Do not call klog.InitFlags(nil) here.  It will cause reload to panic.
-	klog.SetLogger(logr.New(&loggerAdapter{log}))
+	klog.SetLogger(logr.New(&LoggerAdapter{log}))
 
 	k, err := kubernetesParse(c)
 	if err != nil {
