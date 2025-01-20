@@ -6,9 +6,10 @@ import (
 	"testing"
 
 	k8sObject "github.com/coredns/coredns/plugin/kubernetes/object"
+	"github.com/coredns/coredns/plugin/multicluster/object"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
-	"github.com/coredns/multicluster/object"
+
 	"github.com/miekg/dns"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )

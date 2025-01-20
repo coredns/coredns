@@ -2,10 +2,10 @@ package object
 
 import (
 	"github.com/coredns/coredns/plugin/kubernetes/object"
-	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 // Endpoints is a stripped down api.Endpoints with only the items we need for CoreDNS.

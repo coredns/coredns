@@ -39,22 +39,6 @@ Handle all queries in the `clusterset.local` zone. Connect to Kubernetes in-clus
 
 ## Installation
 
-See CoreDNS documentation about [Compile Time Enabling or Disabling Plugins](https://coredns.io/2017/07/25/compile-time-enabling-or-disabling-plugins/).
-
-### Recompile coredns
-
-Add the plugin to  `plugins.cfg` file. The [ordering of plugins matters](https://coredns.io/2017/06/08/how-queries-are-processed-in-coredns/),
-add it just below `kubernetes` plugin that has very similar functionality:
-
-```
-...
-kubernetes:kubernetes
-multicluster:github.com/coredns/multicluster
-...
-```
-
-Follow the [coredns README](https://github.com/coredns/coredns#readme) file to build it.
-
 ### Modify cluster's corefile
 
 To enable the plugin for `clusterset.local` zone, add `multicluster` configuration to the `corefile`. Resulting `corefile` may look like this:

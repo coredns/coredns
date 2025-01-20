@@ -9,22 +9,21 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/coremain"
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	k8sObject "github.com/coredns/coredns/plugin/kubernetes/object"
+	"github.com/coredns/coredns/plugin/multicluster/object"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/fall"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
-	"github.com/coredns/multicluster/object"
+
+	"github.com/miekg/dns"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 	mcsClientset "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/typed/apis/v1alpha1"
-
-	"github.com/coredns/coredns/plugin"
-	clog "github.com/coredns/coredns/plugin/pkg/log"
-
-	"github.com/miekg/dns"
 )
 
 const (
