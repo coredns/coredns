@@ -24,7 +24,7 @@ func TestParseRequest(t *testing.T) {
 		// bare pod type
 		{"pod.inter.webs.tests.", "......"},
 		// SRV request with empty segments
-		{"..webs.mynamespace.svc.inter.webs.tests.", "...webs.mynamespace.svc"},
+		{"..webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc"},
 	}
 	for i, tc := range tests {
 		m := new(dns.Msg)
