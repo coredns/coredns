@@ -50,15 +50,15 @@ func (rd *ready) onStartup() error {
 			io.WriteString(w, "Shutting down")
 			return
 		}
-		ok, todo := plugins.Ready()
-		if ok {
+		ready, notReadyPlugins := plugins.Ready()
+		if ready {
 			w.WriteHeader(http.StatusOK)
 			io.WriteString(w, http.StatusText(http.StatusOK))
 			return
 		}
-		log.Infof("Still waiting on: %q", todo)
+		log.Infof("Plugins not ready: %q", notReadyPlugins)
 		w.WriteHeader(http.StatusServiceUnavailable)
-		io.WriteString(w, todo)
+		io.WriteString(w, notReadyPlugins)
 	})
 
 	go func() { http.Serve(rd.ln, rd.mux) }()

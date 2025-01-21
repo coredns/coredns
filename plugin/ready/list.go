@@ -40,13 +40,11 @@ func (l *list) Ready() (bool, string) {
 		if r == nil {
 			continue
 		}
-		if !r.Ready() {
-			ok = false
-			s = append(s, l.names[i])
-		} else {
-			// if ok, this plugin is ready and will not be queried anymore.
-			l.rs[i] = nil
+		if r.Ready() {
+			continue
 		}
+		ok = false
+		s = append(s, l.names[i])
 	}
 	if ok {
 		return true, ""
