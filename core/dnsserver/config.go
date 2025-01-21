@@ -58,10 +58,11 @@ type Config struct {
 	// TLSConfig when listening for encrypted connections (gRPC, DNS-over-TLS).
 	TLSConfig *tls.Config
 
-	// Timeouts for TCP, TLS and HTTPS servers.
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	IdleTimeout  time.Duration
+	// Timeouts and limits for TCP, TLS and HTTPS servers.
+	ReadTimeout          time.Duration
+	WriteTimeout         time.Duration
+	IdleTimeout          time.Duration
+	MaxConnectionQueries int // Max number of queries allowed per connection before it gets reset. Default is 0, meaning no limit.
 
 	// TSIG secrets, [name]key.
 	TsigSecret map[string]string
