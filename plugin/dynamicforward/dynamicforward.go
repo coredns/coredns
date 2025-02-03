@@ -43,7 +43,14 @@ func (df *DynamicForward) UpdateForwardServers(newServers []string, config Dynam
 	df.cond.L.Lock()
 
 	// Clear proxy list `Forwarder`
+	if df.forwarder != nil {
+		for _, oldProxy := range df.forwarder.List() {
+			oldProxy.Stop()
+		}
+	}
+
 	df.forwarder = forward.New()
+
 	// Fill up list servers
 	df.forwardTo = newServers
 
