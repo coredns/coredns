@@ -38,34 +38,30 @@ func (df *DynamicForward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r 
 
 // UpdateForwardServers update list servers for forward requests
 func (df *DynamicForward) UpdateForwardServers(newServers []string, config DynamicForwardConfig) {
-	//df.mu.Lock()
-	//defer df.mu.Unlock()
 	df.cond.L.Lock()
 
-	// Clear proxy list `Forwarder`
-	if df.forwarder != nil {
-		for _, oldProxy := range df.forwarder.List() {
-			oldProxy.Stop()
-		}
-	}
+	newForwarder := forward.New()
 
-	df.forwarder = forward.New()
-
-	// Fill up list servers
-	df.forwardTo = newServers
-
-	// Create new list proxy
 	for _, server := range newServers {
-		// Create proxy
 		proxyInstance := proxy.NewProxy(server, server, transport.DNS)
 		proxyInstance.SetExpire(config.Expire)
 		proxyInstance.SetReadTimeout(config.HealthCheck)
-
-		df.forwarder.SetProxy(proxyInstance)
+		newForwarder.SetProxy(proxyInstance)
 	}
 
+	oldForwarder := df.forwarder
+
+	// Fill up list servers
+	df.forwarder = newForwarder
+	df.forwardTo = newServers
 	df.cond.Broadcast()
 	df.cond.L.Unlock()
+
+	if oldForwarder != nil {
+		for _, oldProxy := range oldForwarder.List() {
+			oldProxy.Stop()
+		}
+	}
 
 	log.Printf("[dynamicforward] Forward servers updated: %v", newServers)
 }
