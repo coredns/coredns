@@ -17,21 +17,20 @@ import (
 const pluginName = "asnlookup"
 
 type ASNLookup struct {
-	Next  plugin.Handler
-	db    *geoip2.Reader
-	edns0 bool
+	Next plugin.Handler
+	db   *geoip2.Reader
 }
 
 var log = clog.NewWithPlugin(pluginName)
 
 // NewASNLookup initializes the plugin with the given database path.
-func NewASNLookup(dbPath string, edns0 bool) (*ASNLookup, error) {
+func NewASNLookup(dbPath string) (*ASNLookup, error) {
 	reader, err := geoip2.Open(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open ASN database file: %v", err)
 	}
 
-	return &ASNLookup{db: reader, edns0: edns0}, nil
+	return &ASNLookup{db: reader}, nil
 }
 
 // ServeDNS processes DNS requests.
@@ -44,19 +43,6 @@ func (a ASNLookup) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 // Metadata implements the metadata.Provider interface to add ASN information.
 func (a ASNLookup) Metadata(ctx context.Context, state request.Request) context.Context {
 	srcIP := net.ParseIP(state.IP())
-
-	// Handle EDNS0 Client Subnet if enabled.
-	if a.edns0 {
-		if o := state.Req.IsEdns0(); o != nil {
-			for _, s := range o.Option {
-				if e, ok := s.(*dns.EDNS0_SUBNET); ok {
-					log.Infof("Using EDNS0 Client Subnet address: %s", e.Address)
-					srcIP = e.Address
-					break
-				}
-			}
-		}
-	}
 
 	// Lookup ASN from the database.
 	record, err := a.db.ASN(srcIP)

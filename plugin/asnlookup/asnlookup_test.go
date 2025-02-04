@@ -25,7 +25,7 @@ func TestMetadata(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(fmt.Sprintf("%s/%s", tc.label, "direct"), func(t *testing.T) {
 			// Membuat plugin ASNLookup
-			asnLookup, err := NewASNLookup("testdata/GeoLite2-ASN.mmdb", false)
+			asnLookup, err := NewASNLookup("testdata/GeoLite2-ASN.mmdb")
 			if err != nil {
 				t.Fatalf("unable to create ASNLookup plugin: %v", err)
 			}
@@ -33,28 +33,6 @@ func TestMetadata(t *testing.T) {
 			state := request.Request{
 				Req: new(dns.Msg),
 				W:   &test.ResponseWriter{RemoteIP: tc.ipAddress},
-			}
-
-			testMetadata(t, state, asnLookup, tc.label, tc.expectedValue)
-		})
-
-		t.Run(fmt.Sprintf("%s/%s", tc.label, "subnet"), func(t *testing.T) {
-			asnLookup, err := NewASNLookup("testdata/GeoLite2-ASN.mmdb", true) // Dengan EDNS0
-			if err != nil {
-				t.Fatalf("unable to create ASNLookup plugin: %v", err)
-			}
-
-			state := request.Request{
-				Req: new(dns.Msg),
-				W:   &test.ResponseWriter{RemoteIP: "127.0.0.1"},
-			}
-			state.Req.SetEdns0(4096, false)
-			if o := state.Req.IsEdns0(); o != nil {
-				addr := net.ParseIP(tc.ipAddress)
-				o.Option = append(o.Option, (&dns.EDNS0_SUBNET{
-					SourceNetmask: 32,
-					Address:       addr,
-				}))
 			}
 
 			testMetadata(t, state, asnLookup, tc.label, tc.expectedValue)

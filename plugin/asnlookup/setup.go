@@ -10,7 +10,6 @@ func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	var dbPath string
-	var edns0 bool
 
 	for c.Next() {
 		if !c.NextArg() {
@@ -23,17 +22,9 @@ func setup(c *caddy.Controller) error {
 		if len(c.RemainingArgs()) != 0 {
 			return plugin.Error(pluginName, c.ArgErr())
 		}
-
-		// Parse block arguments.
-		for c.NextBlock() {
-			if c.Val() != "edns-subnet" {
-				return plugin.Error(pluginName, c.Errf("unknown property %q", c.Val()))
-			}
-			edns0 = true
-		}
 	}
 
-	asnLookup, err := NewASNLookup(dbPath, edns0) // Gunakan NewASNLookup di sini
+	asnLookup, err := NewASNLookup(dbPath)
 	if err != nil {
 		return plugin.Error(pluginName, err)
 	}
