@@ -1,0 +1,87 @@
+.Dd January 25, 2025
+.Dt DYNAMICFORWARD 8
+.Os
+.Sh NAME
+.Nm dynamicforward
+.Nd CoreDNS plugin for dynamically updating forwarders using Kubernetes Service
+.Sh SYNOPSIS
+.Nm dynamicforward
+.Op Fl options
+.Sh DESCRIPTION
+The
+.Nm dynamicforward
+plugin allows CoreDNS to dynamically update its list of DNS forwarders based on changes to Kubernetes Service of upstream DNS server. This is useful in environments where DNS servers are ephemeral or their configuration is managed dynamically.
+
+The plugin can be configured in the CoreDNS Corefile with the following syntax:
+.Bd -literal -offset indent
+dynamicforward {
+    namespace <namespace>
+    service_name <servicename>
+    port_name <portname>
+    expire <duration>
+    health_check <duration>
+}
+.Ed
+
+.Sh OPTIONS
+.Bl -tag -width indent
+.It Xo
+.Cm namespace
+.Ar <namespace>
+.Xc
+Specifies the Kubernetes namespace where the upstream DNS Service is. This parameter is required.
+
+.It Xo
+.Cm service_name
+.Ar <servicename>
+.Xc
+Defines the upstream DNS Service name.
+
+.It Xo
+.Cm portname
+.Ar <portname>
+.Xc
+Specifies the port name responsible for DNS serving in Service resource.
+
+.It Xo
+.Cm expire
+.Ar <duration>
+.Xc
+Expire (cached) connections after this time, the default is 10s.
+
+.It Xo
+.Cm health_check
+.Ar <duration>
+.Xc
+Configure the behaviour of health checking of the upstream servers. use a different duration for health checking, the default duration is 0.5s.
+.El
+
+.Sh USAGE
+To use the plugin, include it in the Corefile configuration for your CoreDNS server. An example configuration is shown below:
+.Bd -literal -offset indent
+.:53 {
+    errors
+    log
+    dynamicforward {
+        namespace kube-system
+        service_name kube-dns
+        port_name dns
+        expire 10m
+        health_check 5s
+    }
+}
+.Ed
+
+The plugin will automatically watch related to specified Service's EndpointSlices. Whenever an EndpointSlice is added, updated, or deleted, the list of forward servers will be updated dynamically.
+
+.Sh LOGGING
+The plugin logs important events such as updates to the forwarder list and errors encountered during operation.
+
+.Sh FILES
+None.
+
+.Sh BUGS
+No known bugs. If you encounter issues, please report them to the project's issue tracker.
+
+.Sh SEE ALSO
+.Xr coredns 8 ,
