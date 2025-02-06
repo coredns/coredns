@@ -12,12 +12,12 @@ import (
 // Pod is a stripped down api.Pod with only the items we need for CoreDNS.
 type Pod struct {
 	// Don't add new fields to this struct without talking to the CoreDNS maintainers.
-	Version   string
-	PodIP     string
-	Name      string
-	Namespace string
-	Labels    map[string]string
-
+	Version     string
+	PodIP       string
+	Name        string
+	Namespace   string
+	Labels      map[string]string
+	HostNetwork bool
 	*Empty
 }
 
@@ -30,11 +30,12 @@ func ToPod(obj meta.Object) (meta.Object, error) {
 		return nil, fmt.Errorf("unexpected object %v", obj)
 	}
 	pod := &Pod{
-		Version:   apiPod.GetResourceVersion(),
-		PodIP:     apiPod.Status.PodIP,
-		Namespace: apiPod.GetNamespace(),
-		Name:      apiPod.GetName(),
-		Labels:    apiPod.GetLabels(),
+		Version:     apiPod.GetResourceVersion(),
+		PodIP:       apiPod.Status.PodIP,
+		Namespace:   apiPod.GetNamespace(),
+		Name:        apiPod.GetName(),
+		Labels:      apiPod.GetLabels(),
+		HostNetwork: apiPod.Spec.HostNetwork,
 	}
 	t := apiPod.DeletionTimestamp
 	if t != nil && !(*t).Time.IsZero() {
@@ -53,10 +54,11 @@ var _ runtime.Object = &Pod{}
 // DeepCopyObject implements the ObjectKind interface.
 func (p *Pod) DeepCopyObject() runtime.Object {
 	p1 := &Pod{
-		Version:   p.Version,
-		PodIP:     p.PodIP,
-		Namespace: p.Namespace,
-		Name:      p.Name,
+		Version:     p.Version,
+		PodIP:       p.PodIP,
+		Namespace:   p.Namespace,
+		Name:        p.Name,
+		HostNetwork: p.HostNetwork,
 	}
 	return p1
 }
