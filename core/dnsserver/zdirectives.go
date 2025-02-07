@@ -63,4 +63,5 @@ var Directives = []string{
 	"on",
 	"sign",
 	"view",
+	"asnlookup",
 }
