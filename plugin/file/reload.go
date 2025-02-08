@@ -1,6 +1,7 @@
 package file
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -30,7 +31,8 @@ func (z *Zone) Reload(t *transfer.Transfer) error {
 				zone, err := Parse(reader, z.origin, zFile, serial)
 				reader.Close()
 				if err != nil {
-					if _, ok := err.(*serialErr); !ok {
+					var e *serialErr
+					if !errors.As(err, &e) {
 						log.Errorf("Parsing zone %q: %v", z.origin, err)
 					}
 					continue

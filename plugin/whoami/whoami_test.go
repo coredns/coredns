@@ -2,6 +2,7 @@ package whoami
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -63,7 +64,7 @@ func TestWhoami(t *testing.T) {
 		req.SetQuestion(dns.Fqdn(tc.qname), tc.qtype)
 		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: tc.remote})
 		code, err := wh.ServeDNS(ctx, rec, req)
-		if err != tc.expectedErr {
+		if !errors.Is(err, tc.expectedErr) {
 			t.Errorf("Test %d: Expected error %v, but got %v", i, tc.expectedErr, err)
 		}
 		if code != tc.expectedCode {

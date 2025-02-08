@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -53,10 +54,10 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	if tsigStatus != nil {
 		log.Debugf("TSIG validation failed: %v %v", dns.TypeToString[state.QType()], tsigStatus)
 		rcode = dns.RcodeNotAuth
-		switch tsigStatus {
-		case dns.ErrSecret:
+		switch {
+		case errors.Is(tsigStatus, dns.ErrSecret):
 			tsigRR.Error = dns.RcodeBadKey
-		case dns.ErrTime:
+		case errors.Is(tsigStatus, dns.ErrTime):
 			tsigRR.Error = dns.RcodeBadTime
 		default:
 			tsigRR.Error = dns.RcodeBadSig

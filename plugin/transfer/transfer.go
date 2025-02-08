@@ -94,7 +94,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	var err error
 	for _, p := range t.Transferers {
 		pchan, err = p.Transfer(state.QName(), serial)
-		if err == ErrNotAuthoritative {
+		if errors.Is(err, ErrNotAuthoritative) {
 			// plugin was not authoritative for the zone, try next plugin
 			continue
 		}

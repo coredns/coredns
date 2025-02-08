@@ -2,6 +2,7 @@ package erratic
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -34,7 +35,7 @@ func TestErraticDrop(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		code, err := e.ServeDNS(ctx, rec, req)
 
-		if err != tc.expectedErr {
+		if !errors.Is(err, tc.expectedErr) {
 			t.Errorf("Test %d: Expected error %q, but got %q", i, tc.expectedErr, err)
 		}
 		if code != tc.expectedCode {
@@ -68,7 +69,7 @@ func TestErraticTruncate(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		code, err := e.ServeDNS(ctx, rec, req)
 
-		if err != tc.expectedErr {
+		if !errors.Is(err, tc.expectedErr) {
 			t.Errorf("Test %d: Expected error %q, but got %q", i, tc.expectedErr, err)
 		}
 		if code != tc.expectedCode {

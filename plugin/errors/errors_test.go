@@ -56,7 +56,7 @@ func TestErrors(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		code, err := em.ServeDNS(ctx, rec, req)
 
-		if err != tc.expectedErr {
+		if !errors.Is(err, tc.expectedErr) {
 			t.Errorf("Test %d: Expected error %v, but got %v",
 				i, tc.expectedErr, err)
 		}

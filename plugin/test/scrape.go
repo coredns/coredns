@@ -22,6 +22,7 @@
 package test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -237,7 +238,7 @@ func fetchMetricFamilies(url string, ch chan<- *dto.MetricFamily) {
 		for {
 			mf := &dto.MetricFamily{}
 			if _, err = pbutil.ReadDelimited(resp.Body, mf); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				return

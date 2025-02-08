@@ -165,12 +165,12 @@ func updateZoneFromRRS(rrs *gcp.ResourceRecordSetsListResponse, z *file.Zone) er
 			rfc1035 = fmt.Sprintf("%s %d IN %s %s", dns.Fqdn(rr.Name), rr.Ttl, rr.Type, value)
 			r, err = dns.NewRR(rfc1035)
 			if err != nil {
-				return fmt.Errorf("failed to parse resource record: %v", err)
+				return fmt.Errorf("failed to parse resource record: %w", err)
 			}
 
 			err = z.Insert(r)
 			if err != nil {
-				return fmt.Errorf("failed to insert record: %v", err)
+				return fmt.Errorf("failed to insert record: %w", err)
 			}
 		}
 	}
@@ -197,7 +197,7 @@ func (h *CloudDNS) updateZones(ctx context.Context) error {
 				newZ.Upstream = h.upstream
 				rrListResponse, err = h.client.listRRSets(ctx, hostedZone.projectName, hostedZone.zoneName)
 				if err != nil {
-					err = fmt.Errorf("failed to list resource records for %v:%v:%v from gcp: %v", zName, hostedZone.projectName, hostedZone.zoneName, err)
+					err = fmt.Errorf("failed to list resource records for %v:%v:%v from gcp: %w", zName, hostedZone.projectName, hostedZone.zoneName, err)
 					return
 				}
 				updateZoneFromRRS(rrListResponse, newZ)
