@@ -118,11 +118,10 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 				}
 				_, err := os.Stat(a.directory)
 				if err != nil {
-					if os.IsNotExist(err) {
-						log.Warningf("Directory does not exist: %s", a.directory)
-					} else {
-						return a, c.Errf("Unable to access root path '%s': %v", a.directory, err)
+					if !os.IsNotExist(err) {
+						return a, c.Errf("Unable to access root path '%s': %v", a.loader.directory, err)
 					}
+					log.Warningf("Directory does not exist: %s", a.loader.directory)
 				}
 
 				// regexp template
