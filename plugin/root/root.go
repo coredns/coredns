@@ -26,13 +26,12 @@ func setup(c *caddy.Controller) error {
 	// Check if root path exists
 	_, err := os.Stat(config.Root)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// Allow this, because the folder might appear later.
-			// But make sure the user knows!
-			log.Warningf("Root path does not exist: %s", config.Root)
-		} else {
+		if !os.IsNotExist(err) {
 			return plugin.Error("root", c.Errf("unable to access root path '%s': %v", config.Root, err))
 		}
+		// Allow this, because the folder might appear later.
+		// But make sure the user knows!
+		log.Warningf("Root path does not exist: %s", config.Root)
 	}
 
 	return nil

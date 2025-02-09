@@ -212,9 +212,8 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				if ignore == "empty_service" {
 					k8s.opts.ignoreEmptyService = true
 					continue
-				} else {
-					return nil, fmt.Errorf("unable to parse ignore value: '%v'", ignore)
 				}
+				return nil, fmt.Errorf("unable to parse ignore value: '%v'", ignore)
 			}
 		case "kubeconfig":
 			args := c.RemainingArgs()

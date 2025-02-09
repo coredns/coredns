@@ -1,4 +1,9 @@
 version: "2"
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
 linters:
   default: none
   enable:
@@ -23,16 +28,82 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
+  settings:
+    revive:
+      rules:
+        - name: blank-imports
+
+        - name: context-as-argument
+          disabled: true
+          arguments:
+            - allowTypesBefore: "*testing.T"
+
+        - name: context-keys-type
+
+        - name: dot-imports
+
+        - name: early-return
+          arguments:
+            - "preserveScope"
+
+        - name: empty-block
+          disabled: true
+
+        - name: error-naming
+
+        - name: error-return
+
+        - name: error-strings
+
+        - name: errorf
+
+        - name: increment-decrement
+
+        - name: indent-error-flow
+          arguments:
+            - "preserveScope"
+
+        - name: range
+
+        - name: receiver-naming
+
+        - name: redefines-builtin-id
+          disabled: true
+
+        - name: superfluous-else
+          arguments:
+            - "preserveScope"
+
+        - name: time-naming
+          disabled: true
+
+        - name: unexported-return
+          disabled: true
+
+        - name: unnecessary-stmt
+          disabled: true
+
+        - name: unreachable-code
+
+        - name: unused-parameter
+          disabled: true
+          arguments:
+            - allowRegex: "^_"
+
+        - name: use-any
+          disabled: true
+
+        - name: var-declaration
+
+        - name: var-naming
+          disabled: true
+          arguments:
+            - ["ID"]
+            - ["VM"]
+            - - upperCaseConst: true
+
 formatters:
   enable:
     - gofmt
   exclusions:
     generated: lax
-    paths:
-      - third_party$
-      - builtin$
-      - examples$
