@@ -107,9 +107,9 @@ func (external) EndpointsList() []*object.Endpoints {
 	}
 	return eps
 }
-func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }
-func (external) SvcIndex(s string) []*object.Service                               { return svcIndexExternal[s] }
-func (external) PodIndex(string) []*object.Pod                                     { return nil }
+func (external) GetNodeByName(_ context.Context, _ string) (*api.Node, error) { return nil, nil }
+func (external) SvcIndex(s string) []*object.Service                          { return svcIndexExternal[s] }
+func (external) PodIndex(string) []*object.Pod                                { return nil }
 
 func (external) GetNamespaceByName(name string) (*object.Namespace, error) {
 	return &object.Namespace{

@@ -177,7 +177,7 @@ func TestHealthMaxFails(t *testing.T) {
 	defaultTimeout = 10 * time.Millisecond
 	//,hcInterval = 10 * time.Millisecond
 
-	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+	s := dnstest.NewServer(func(_ dns.ResponseWriter, _ *dns.Msg) {
 		// timeout
 	})
 	defer s.Close()

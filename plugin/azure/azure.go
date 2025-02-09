@@ -41,7 +41,7 @@ type Azure struct {
 }
 
 // New validates the input DNS zones and initializes the Azure struct.
-func New(ctx context.Context, publicClient publicdns.RecordSetsClient, privateClient privatedns.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
+func New(_ context.Context, publicClient publicdns.RecordSetsClient, privateClient privatedns.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
 	zones := make(map[string][]*zone, len(keys))
 	names := make([]string, len(keys))
 	var private bool

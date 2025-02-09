@@ -105,16 +105,16 @@ func (s *Service) DeepCopyObject() runtime.Object {
 func (s *Service) GetNamespace() string { return s.Namespace }
 
 // SetNamespace implements the metav1.Object interface.
-func (s *Service) SetNamespace(namespace string) {}
+func (s *Service) SetNamespace(_ string) {}
 
 // GetName implements the metav1.Object interface.
 func (s *Service) GetName() string { return s.Name }
 
 // SetName implements the metav1.Object interface.
-func (s *Service) SetName(name string) {}
+func (s *Service) SetName(_ string) {}
 
 // GetResourceVersion implements the metav1.Object interface.
 func (s *Service) GetResourceVersion() string { return s.Version }
 
 // SetResourceVersion implements the metav1.Object interface.
-func (s *Service) SetResourceVersion(version string) {}
+func (s *Service) SetResourceVersion(_ string) {}

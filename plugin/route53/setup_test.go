@@ -10,7 +10,7 @@ import (
 )
 
 func TestSetupRoute53(t *testing.T) {
-	f = func(opts session.Options) route53iface.Route53API {
+	f = func(_ session.Options) route53iface.Route53API {
 		return fakeRoute53{}
 	}
 

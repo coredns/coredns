@@ -104,7 +104,7 @@ func (s *ServerHTTPS) Serve(l net.Listener) error {
 }
 
 // ServePacket implements caddy.UDPServer interface.
-func (s *ServerHTTPS) ServePacket(p net.PacketConn) error { return nil }
+func (s *ServerHTTPS) ServePacket(_ net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServerHTTPS) Listen() (net.Listener, error) {

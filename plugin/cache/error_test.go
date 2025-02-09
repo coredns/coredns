@@ -28,7 +28,7 @@ func TestFormErr(t *testing.T) {
 
 // formErrHandler is a fake plugin implementation which returns a FORMERR for a reply.
 func formErrHandler() plugin.Handler {
-	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 		m := new(dns.Msg)
 		m.SetQuestion("example.net.", dns.TypeA)
 		m.Rcode = dns.RcodeFormatError

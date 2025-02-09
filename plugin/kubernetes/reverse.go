@@ -11,7 +11,7 @@ import (
 )
 
 // Reverse implements the ServiceBackend interface.
-func (k *Kubernetes) Reverse(ctx context.Context, state request.Request, exact bool, opt plugin.Options) ([]msg.Service, error) {
+func (k *Kubernetes) Reverse(ctx context.Context, state request.Request, exact bool, _ plugin.Options) ([]msg.Service, error) {
 	ip := dnsutil.ExtractAddressFromReverse(state.Name())
 	if ip == "" {
 		_, e := k.Records(ctx, state, exact)
@@ -27,7 +27,7 @@ func (k *Kubernetes) Reverse(ctx context.Context, state request.Request, exact b
 
 // serviceRecordForIP gets a service record with a cluster ip matching the ip argument
 // If a service cluster ip does not match, it checks all endpoints
-func (k *Kubernetes) serviceRecordForIP(ip, name string) []msg.Service {
+func (k *Kubernetes) serviceRecordForIP(ip, _ string) []msg.Service {
 	// First check services with cluster ips
 	for _, service := range k.APIConn.SvcIndexReverse(ip) {
 		if len(k.Namespaces) > 0 && !k.namespaceExposed(service.Namespace) {

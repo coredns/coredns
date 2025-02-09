@@ -214,7 +214,7 @@ type verification struct {
 // 127.0.0.1 and is incremented on every request.
 func prefetchHandler(qname string, ttl int, fetchc chan struct{}) plugin.Handler {
 	i := 0
-	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 		i++
 		m := new(dns.Msg)
 		m.SetQuestion(qname, dns.TypeA)

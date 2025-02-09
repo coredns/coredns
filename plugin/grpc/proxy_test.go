@@ -66,7 +66,7 @@ type testServiceClient struct {
 	err       error
 }
 
-func (m testServiceClient) Query(ctx context.Context, in *pb.DnsPacket, opts ...grpc.CallOption) (*pb.DnsPacket, error) {
+func (m testServiceClient) Query(_ context.Context, _ *pb.DnsPacket, _ ...grpc.CallOption) (*pb.DnsPacket, error) {
 	return m.dnsPacket, m.err
 }
 
@@ -109,7 +109,7 @@ type grpcDnsServiceServer struct {
 	pb.UnimplementedDnsServiceServer
 }
 
-func (*grpcDnsServiceServer) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket, error) {
+func (*grpcDnsServiceServer) Query(_ context.Context, in *pb.DnsPacket) (*pb.DnsPacket, error) {
 	msg := &dns.Msg{}
 	msg.Unpack(in.GetMsg())
 	answer := new(dns.Msg)

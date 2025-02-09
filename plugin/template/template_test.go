@@ -170,7 +170,7 @@ func TestHandler(t *testing.T) {
 			tmpl:         rcodeServfailTemplate,
 			qname:        "test.invalid.",
 			expectedCode: dns.RcodeServerFailure,
-			verifyResponse: func(r *dns.Msg) error {
+			verifyResponse: func(_ *dns.Msg) error {
 				return nil
 			},
 		},
@@ -190,7 +190,7 @@ func TestHandler(t *testing.T) {
 			qname:        "test.example.",
 			expectedCode: dns.RcodeServerFailure,
 			expectedErr:  `template: answer:1:26: executing "answer" at <index .Match 2>: error calling index: index out of range: 2`,
-			verifyResponse: func(r *dns.Msg) error {
+			verifyResponse: func(_ *dns.Msg) error {
 				return nil
 			},
 		},
@@ -202,7 +202,7 @@ func TestHandler(t *testing.T) {
 			qname:        "test.example.",
 			expectedCode: dns.RcodeServerFailure,
 			expectedErr:  `dns: not a TTL: "test.example." at line: 1:13`,
-			verifyResponse: func(r *dns.Msg) error {
+			verifyResponse: func(_ *dns.Msg) error {
 				return nil
 			},
 		},
@@ -214,7 +214,7 @@ func TestHandler(t *testing.T) {
 			qname:        "test.example.",
 			expectedCode: dns.RcodeServerFailure,
 			expectedErr:  `dns: not a TTL: "test.example." at line: 1:13`,
-			verifyResponse: func(r *dns.Msg) error {
+			verifyResponse: func(_ *dns.Msg) error {
 				return nil
 			},
 		},
@@ -226,7 +226,7 @@ func TestHandler(t *testing.T) {
 			qname:        "test.example.",
 			expectedCode: dns.RcodeServerFailure,
 			expectedErr:  `dns: not a TTL: "test.example." at line: 1:13`,
-			verifyResponse: func(r *dns.Msg) error {
+			verifyResponse: func(_ *dns.Msg) error {
 				return nil
 			},
 		},
@@ -295,7 +295,7 @@ func TestHandler(t *testing.T) {
 			qname:        "test.example.",
 			expectedCode: dns.RcodeServerFailure,
 			expectedErr:  "template: answer:1:26: executing \"answer\" at <parseInt \"gg\" 16 8>: error calling parseInt: strconv.ParseUint: parsing \"gg\": invalid syntax",
-			verifyResponse: func(r *dns.Msg) error {
+			verifyResponse: func(_ *dns.Msg) error {
 				return nil
 			},
 		},

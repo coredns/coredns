@@ -12,7 +12,7 @@ import (
 
 type testProvider map[string]Func
 
-func (tp testProvider) Metadata(ctx context.Context, state request.Request) context.Context {
+func (tp testProvider) Metadata(ctx context.Context, _ request.Request) context.Context {
 	for k, v := range tp {
 		SetValueFunc(ctx, k, v)
 	}
@@ -23,7 +23,7 @@ type testHandler struct{ ctx context.Context }
 
 func (m *testHandler) Name() string { return "test" }
 
-func (m *testHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (m *testHandler) ServeDNS(ctx context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
 	m.ctx = ctx
 	return 0, nil
 }

@@ -23,7 +23,7 @@ type Erratic struct {
 }
 
 // ServeDNS implements the plugin.Handler interface.
-func (e *Erratic) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (e *Erratic) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	drop := false
 	delay := false

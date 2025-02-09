@@ -29,7 +29,7 @@ type treebuf struct {
 	*bytes.Buffer
 }
 
-func (t *treebuf) printFunc(e *tree.Elem, rrs map[uint16][]dns.RR) error {
+func (t *treebuf) printFunc(_ *tree.Elem, rrs map[uint16][]dns.RR) error {
 	fmt.Fprintf(t.Buffer, "%v\n", rrs) // should be fixed order in new go versions.
 	return nil
 }

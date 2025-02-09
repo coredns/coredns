@@ -62,7 +62,7 @@ func (s *ServergRPC) Serve(l net.Listener) error {
 	s.m.Unlock()
 
 	if s.Tracer() != nil {
-		onlyIfParent := func(parentSpanCtx opentracing.SpanContext, method string, req, resp interface{}) bool {
+		onlyIfParent := func(parentSpanCtx opentracing.SpanContext, _ string, _, _ interface{}) bool {
 			return parentSpanCtx != nil
 		}
 		intercept := otgrpc.OpenTracingServerInterceptor(s.Tracer(), otgrpc.IncludingSpans(onlyIfParent))
@@ -80,7 +80,7 @@ func (s *ServergRPC) Serve(l net.Listener) error {
 }
 
 // ServePacket implements caddy.UDPServer interface.
-func (s *ServergRPC) ServePacket(p net.PacketConn) error { return nil }
+func (s *ServergRPC) ServePacket(_ net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServergRPC) Listen() (net.Listener, error) {
@@ -177,7 +177,7 @@ func (r *gRPCresponse) Write(b []byte) (int, error) {
 // These methods implement the dns.ResponseWriter interface from Go DNS.
 func (r *gRPCresponse) Close() error              { return nil }
 func (r *gRPCresponse) TsigStatus() error         { return nil }
-func (r *gRPCresponse) TsigTimersOnly(b bool)     {}
+func (r *gRPCresponse) TsigTimersOnly(_ bool)     {}
 func (r *gRPCresponse) Hijack()                   {}
 func (r *gRPCresponse) LocalAddr() net.Addr       { return r.localAddr }
 func (r *gRPCresponse) RemoteAddr() net.Addr      { return r.remoteAddr }

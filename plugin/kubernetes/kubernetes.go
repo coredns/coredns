@@ -91,7 +91,7 @@ var (
 )
 
 // Services implements the ServiceBackend interface.
-func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact bool, opt plugin.Options) (svcs []msg.Service, err error) {
+func (k *Kubernetes) Services(ctx context.Context, state request.Request, _ bool, _ plugin.Options) (svcs []msg.Service, err error) {
 	// We're looking again at types, which we've already done in ServeDNS, but there are some types k8s just can't answer.
 	switch state.QType() {
 	case dns.TypeTXT:
@@ -298,7 +298,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 }
 
 // Records looks up services in kubernetes.
-func (k *Kubernetes) Records(ctx context.Context, state request.Request, exact bool) ([]msg.Service, error) {
+func (k *Kubernetes) Records(_ context.Context, state request.Request, _ bool) ([]msg.Service, error) {
 	r, e := parseRequest(state.Name(), state.Zone)
 	if e != nil {
 		return nil, e
@@ -519,10 +519,10 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 }
 
 // Serial return the SOA serial.
-func (k *Kubernetes) Serial(state request.Request) uint32 { return uint32(k.APIConn.Modified(false)) }
+func (k *Kubernetes) Serial(_ request.Request) uint32 { return uint32(k.APIConn.Modified(false)) }
 
 // MinTTL returns the minimal TTL.
-func (k *Kubernetes) MinTTL(state request.Request) uint32 { return k.ttl }
+func (k *Kubernetes) MinTTL(_ request.Request) uint32 { return k.ttl }
 
 // match checks if a and b are equal.
 func match(a, b string) bool {

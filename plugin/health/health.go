@@ -54,7 +54,7 @@ func (h *health) OnStartup() error {
 	h.mux = http.NewServeMux()
 	h.nlSetup = true
 
-	h.mux.HandleFunc(h.healthURI.Path, func(w http.ResponseWriter, r *http.Request) {
+	h.mux.HandleFunc(h.healthURI.Path, func(w http.ResponseWriter, _ *http.Request) {
 		// We're always healthy.
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, http.StatusText(http.StatusOK))

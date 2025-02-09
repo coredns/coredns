@@ -15,7 +15,7 @@ import (
 
 type MockedUpstream struct{}
 
-func (u *MockedUpstream) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+func (u *MockedUpstream) Lookup(_ context.Context, state request.Request, _ string, _ uint16) (*dns.Msg, error) {
 	m := new(dns.Msg)
 	m.SetReply(state.Req)
 	m.Authoritative = true

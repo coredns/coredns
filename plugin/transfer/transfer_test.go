@@ -56,7 +56,7 @@ type terminatingPlugin struct{}
 func (*terminatingPlugin) Name() string { return "testplugin" }
 
 // ServeDNS implements plugin.Handler that returns NXDOMAIN for all requests.
-func (*terminatingPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (*terminatingPlugin) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	m := new(dns.Msg)
 	m.SetRcode(r, dns.RcodeNameError)
 	w.WriteMsg(m)

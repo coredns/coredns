@@ -8,7 +8,7 @@ import (
 )
 
 // Metadata implements the metadata.Provider interface.
-func (v *View) Metadata(ctx context.Context, state request.Request) context.Context {
+func (v *View) Metadata(ctx context.Context, _ request.Request) context.Context {
 	metadata.SetValueFunc(ctx, "view/name", func() string {
 		return v.viewName
 	})

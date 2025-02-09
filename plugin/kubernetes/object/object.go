@@ -38,37 +38,37 @@ func (e *Empty) GetObjectKind() schema.ObjectKind { return schema.EmptyObjectKin
 func (e *Empty) GetGenerateName() string { return "" }
 
 // SetGenerateName implements the metav1.Object interface.
-func (e *Empty) SetGenerateName(name string) {}
+func (e *Empty) SetGenerateName(_ string) {}
 
 // GetUID implements the metav1.Object interface.
 func (e *Empty) GetUID() types.UID { return "" }
 
 // SetUID implements the metav1.Object interface.
-func (e *Empty) SetUID(uid types.UID) {}
+func (e *Empty) SetUID(_ types.UID) {}
 
 // GetGeneration implements the metav1.Object interface.
 func (e *Empty) GetGeneration() int64 { return 0 }
 
 // SetGeneration implements the metav1.Object interface.
-func (e *Empty) SetGeneration(generation int64) {}
+func (e *Empty) SetGeneration(_ int64) {}
 
 // GetSelfLink implements the metav1.Object interface.
 func (e *Empty) GetSelfLink() string { return "" }
 
 // SetSelfLink implements the metav1.Object interface.
-func (e *Empty) SetSelfLink(selfLink string) {}
+func (e *Empty) SetSelfLink(_ string) {}
 
 // GetCreationTimestamp implements the metav1.Object interface.
 func (e *Empty) GetCreationTimestamp() v1.Time { return v1.Time{} }
 
 // SetCreationTimestamp implements the metav1.Object interface.
-func (e *Empty) SetCreationTimestamp(timestamp v1.Time) {}
+func (e *Empty) SetCreationTimestamp(_ v1.Time) {}
 
 // GetDeletionTimestamp implements the metav1.Object interface.
 func (e *Empty) GetDeletionTimestamp() *v1.Time { return &v1.Time{} }
 
 // SetDeletionTimestamp implements the metav1.Object interface.
-func (e *Empty) SetDeletionTimestamp(timestamp *v1.Time) {}
+func (e *Empty) SetDeletionTimestamp(_ *v1.Time) {}
 
 // GetDeletionGracePeriodSeconds implements the metav1.Object interface.
 func (e *Empty) GetDeletionGracePeriodSeconds() *int64 { return nil }
@@ -80,19 +80,19 @@ func (e *Empty) SetDeletionGracePeriodSeconds(*int64) {}
 func (e *Empty) GetLabels() map[string]string { return nil }
 
 // SetLabels implements the metav1.Object interface.
-func (e *Empty) SetLabels(labels map[string]string) {}
+func (e *Empty) SetLabels(_ map[string]string) {}
 
 // GetAnnotations implements the metav1.Object interface.
 func (e *Empty) GetAnnotations() map[string]string { return nil }
 
 // SetAnnotations implements the metav1.Object interface.
-func (e *Empty) SetAnnotations(annotations map[string]string) {}
+func (e *Empty) SetAnnotations(_ map[string]string) {}
 
 // GetFinalizers implements the metav1.Object interface.
 func (e *Empty) GetFinalizers() []string { return nil }
 
 // SetFinalizers implements the metav1.Object interface.
-func (e *Empty) SetFinalizers(finalizers []string) {}
+func (e *Empty) SetFinalizers(_ []string) {}
 
 // GetOwnerReferences implements the metav1.Object interface.
 func (e *Empty) GetOwnerReferences() []v1.OwnerReference { return nil }
@@ -104,10 +104,10 @@ func (e *Empty) SetOwnerReferences([]v1.OwnerReference) {}
 func (e *Empty) GetZZZ_DeprecatedClusterName() string { return "" }
 
 // SetZZZ_DeprecatedClusterName implements the metav1.Object interface.
-func (e *Empty) SetZZZ_DeprecatedClusterName(clusterName string) {}
+func (e *Empty) SetZZZ_DeprecatedClusterName(_ string) {}
 
 // GetManagedFields implements the metav1.Object interface.
 func (e *Empty) GetManagedFields() []v1.ManagedFieldsEntry { return nil }
 
 // SetManagedFields implements the metav1.Object interface.
-func (e *Empty) SetManagedFields(managedFields []v1.ManagedFieldsEntry) {}
+func (e *Empty) SetManagedFields(_ []v1.ManagedFieldsEntry) {}

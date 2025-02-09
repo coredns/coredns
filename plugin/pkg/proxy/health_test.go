@@ -103,7 +103,7 @@ func TestHealthNoRecursion(t *testing.T) {
 }
 
 func TestHealthTimeout(t *testing.T) {
-	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+	s := dnstest.NewServer(func(_ dns.ResponseWriter, _ *dns.Msg) {
 		// timeout
 	})
 	defer s.Close()

@@ -19,7 +19,7 @@ type testHandler struct {
 
 func (t *testHandler) Name() string { return "test-handler" }
 
-func (t *testHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (t *testHandler) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	d := new(dns.Msg)
 	d.SetReply(r)
 	if t.Response != nil {

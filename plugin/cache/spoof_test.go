@@ -58,7 +58,7 @@ func TestResponse(t *testing.T) {
 // spoofHandler is a fake plugin implementation which returns a single A records for example.org. The qname in the
 // question section is set to example.NET (i.e. they *don't* match).
 func spoofHandler(response bool) plugin.Handler {
-	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 		m := new(dns.Msg)
 		m.SetQuestion("example.net.", dns.TypeA)
 		m.Response = response
@@ -71,7 +71,7 @@ func spoofHandler(response bool) plugin.Handler {
 // spoofHandlerType is a fake plugin implementation which returns a single MX records for example.org. The qtype in the
 // question section is set to A.
 func spoofHandlerType() plugin.Handler {
-	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 		m := new(dns.Msg)
 		m.SetQuestion("example.org.", dns.TypeA)
 		m.Response = true

@@ -65,7 +65,7 @@ func TestResponseWithDNSSEC(t *testing.T) {
 }
 
 func dnssecHandler() plugin.Handler {
-	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		m := new(dns.Msg)
 		m.SetQuestion("example.org.", dns.TypeA)
 		state := request.Request{W: &test.ResponseWriter{}, Req: r}
