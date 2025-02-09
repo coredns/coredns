@@ -131,7 +131,7 @@ func TestDnsProgrammingLatencyEndpoints(t *testing.T) {
 	}
 }
 
-func buildEndpoints(name string, lastChangeTriggerTime interface{}, subsets []api.EndpointSubset) *api.Endpoints {
+func buildEndpoints(name string, lastChangeTriggerTime any, subsets []api.EndpointSubset) *api.Endpoints {
 	annotations := make(map[string]string)
 	switch v := lastChangeTriggerTime.(type) {
 	case string:
@@ -145,7 +145,7 @@ func buildEndpoints(name string, lastChangeTriggerTime interface{}, subsets []ap
 	}
 }
 
-func buildEndpointSlice(name string, lastChangeTriggerTime interface{}, endpoints []discovery.Endpoint) *discovery.EndpointSlice {
+func buildEndpointSlice(name string, lastChangeTriggerTime any, endpoints []discovery.Endpoint) *discovery.EndpointSlice {
 	annotations := make(map[string]string)
 	switch v := lastChangeTriggerTime.(type) {
 	case string:
@@ -163,28 +163,28 @@ func buildEndpointSlice(name string, lastChangeTriggerTime interface{}, endpoint
 	}
 }
 
-func createEndpoints(t *testing.T, processor cache.ProcessFunc, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
+func createEndpoints(t *testing.T, processor cache.ProcessFunc, name string, triggerTime any, subsets []api.EndpointSubset) {
 	err := processor(cache.Deltas{{Type: cache.Added, Object: buildEndpoints(name, triggerTime, subsets)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func updateEndpoints(t *testing.T, processor cache.ProcessFunc, name string, triggerTime interface{}, subsets []api.EndpointSubset) {
+func updateEndpoints(t *testing.T, processor cache.ProcessFunc, name string, triggerTime any, subsets []api.EndpointSubset) {
 	err := processor(cache.Deltas{{Type: cache.Updated, Object: buildEndpoints(name, triggerTime, subsets)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func createEndpointSlice(t *testing.T, processor cache.ProcessFunc, name string, triggerTime interface{}, endpoints []discovery.Endpoint) {
+func createEndpointSlice(t *testing.T, processor cache.ProcessFunc, name string, triggerTime any, endpoints []discovery.Endpoint) {
 	err := processor(cache.Deltas{{Type: cache.Added, Object: buildEndpointSlice(name, triggerTime, endpoints)}})
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func updateEndpointSlice(t *testing.T, processor cache.ProcessFunc, name string, triggerTime interface{}, endpoints []discovery.Endpoint) {
+func updateEndpointSlice(t *testing.T, processor cache.ProcessFunc, name string, triggerTime any, endpoints []discovery.Endpoint) {
 	err := processor(cache.Deltas{{Type: cache.Updated, Object: buildEndpointSlice(name, triggerTime, endpoints)}})
 	if err != nil {
 		t.Fatal(err)

@@ -182,7 +182,7 @@ func (dns *dnsControl) EndpointSliceLatencyRecorder() *object.EndpointLatencyRec
 	}
 }
 
-func podIPIndexFunc(obj interface{}) ([]string, error) {
+func podIPIndexFunc(obj any) ([]string, error) {
 	p, ok := obj.(*object.Pod)
 	if !ok {
 		return nil, errObj
@@ -190,7 +190,7 @@ func podIPIndexFunc(obj interface{}) ([]string, error) {
 	return []string{p.PodIP}, nil
 }
 
-func svcIPIndexFunc(obj interface{}) ([]string, error) {
+func svcIPIndexFunc(obj any) ([]string, error) {
 	svc, ok := obj.(*object.Service)
 	if !ok {
 		return nil, errObj
@@ -200,7 +200,7 @@ func svcIPIndexFunc(obj interface{}) ([]string, error) {
 	return idx, nil
 }
 
-func svcExtIPIndexFunc(obj interface{}) ([]string, error) {
+func svcExtIPIndexFunc(obj any) ([]string, error) {
 	svc, ok := obj.(*object.Service)
 	if !ok {
 		return nil, errObj
@@ -210,7 +210,7 @@ func svcExtIPIndexFunc(obj interface{}) ([]string, error) {
 	return idx, nil
 }
 
-func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
+func svcNameNamespaceIndexFunc(obj any) ([]string, error) {
 	s, ok := obj.(*object.Service)
 	if !ok {
 		return nil, errObj
@@ -218,7 +218,7 @@ func svcNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 	return []string{s.Index}, nil
 }
 
-func epNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
+func epNameNamespaceIndexFunc(obj any) ([]string, error) {
 	s, ok := obj.(*object.Endpoints)
 	if !ok {
 		return nil, errObj
@@ -226,7 +226,7 @@ func epNameNamespaceIndexFunc(obj interface{}) ([]string, error) {
 	return []string{s.Index}, nil
 }
 
-func epIPIndexFunc(obj interface{}) ([]string, error) {
+func epIPIndexFunc(obj any) ([]string, error) {
 	ep, ok := obj.(*object.Endpoints)
 	if !ok {
 		return nil, errObj
@@ -500,12 +500,12 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*object.Namespace, error
 	return ns, nil
 }
 
-func (dns *dnsControl) Add(obj interface{})               { dns.updateModified() }
-func (dns *dnsControl) Delete(obj interface{})            { dns.updateModified() }
-func (dns *dnsControl) Update(oldObj, newObj interface{}) { dns.detectChanges(oldObj, newObj) }
+func (dns *dnsControl) Add(obj any)               { dns.updateModified() }
+func (dns *dnsControl) Delete(obj any)            { dns.updateModified() }
+func (dns *dnsControl) Update(oldObj, newObj any) { dns.detectChanges(oldObj, newObj) }
 
 // detectChanges detects changes in objects, and updates the modified timestamp
-func (dns *dnsControl) detectChanges(oldObj, newObj interface{}) {
+func (dns *dnsControl) detectChanges(oldObj, newObj any) {
 	// If both objects have the same resource version, they are identical.
 	if newObj != nil && oldObj != nil && (oldObj.(meta.Object).GetResourceVersion() == newObj.(meta.Object).GetResourceVersion()) {
 		return
@@ -599,7 +599,7 @@ func endpointsEquivalent(a, b *object.Endpoints) bool {
 // serviceModified checks the services passed for changes that result in changes
 // to internal and or external records.  It returns two booleans, one for internal
 // record changes, and a second for external record changes
-func serviceModified(oldObj, newObj interface{}) (intSvc, extSvc bool) {
+func serviceModified(oldObj, newObj any) (intSvc, extSvc bool) {
 	if oldObj != nil && newObj == nil {
 		// deleted service only modifies external zone records if it had external ips
 		return true, len(oldObj.(*object.Service).ExternalIPs) > 0

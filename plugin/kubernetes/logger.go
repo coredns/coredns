@@ -21,15 +21,15 @@ func (l *loggerAdapter) Enabled(_ int) bool {
 	return true
 }
 
-func (l *loggerAdapter) Info(_ int, msg string, _ ...interface{}) {
+func (l *loggerAdapter) Info(_ int, msg string, _ ...any) {
 	l.P.Info(msg)
 }
 
-func (l *loggerAdapter) Error(_ error, msg string, _ ...interface{}) {
+func (l *loggerAdapter) Error(_ error, msg string, _ ...any) {
 	l.P.Error(msg)
 }
 
-func (l *loggerAdapter) WithValues(_ ...interface{}) logr.LogSink {
+func (l *loggerAdapter) WithValues(_ ...any) logr.LogSink {
 	return l
 }
 

@@ -23,7 +23,7 @@ import "sync"
 // call is an in-flight or completed Do call
 type call struct {
 	wg  sync.WaitGroup
-	val interface{}
+	val any
 	err error
 }
 
@@ -38,7 +38,7 @@ type Group struct {
 // sure that only one execution is in-flight for a given key at a
 // time. If a duplicate comes in, the duplicate caller waits for the
 // original to complete and receives the same results.
-func (g *Group) Do(key uint64, fn func() (interface{}, error)) (interface{}, error) {
+func (g *Group) Do(key uint64, fn func() (any, error)) (any, error) {
 	g.mu.Lock()
 	if g.m == nil {
 		g.m = make(map[uint64]*call)

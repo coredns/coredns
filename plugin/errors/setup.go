@@ -89,7 +89,7 @@ func parseConsolidate(c *caddy.Controller) (*pattern, error) {
 	return &pattern{period: p, pattern: re, logCallback: lc}, nil
 }
 
-func parseLogLevel(c *caddy.Controller, args []string) (func(format string, v ...interface{}), error) {
+func parseLogLevel(c *caddy.Controller, args []string) (func(format string, v ...any), error) {
 	if len(args) != 3 {
 		return log.Errorf, nil
 	}
