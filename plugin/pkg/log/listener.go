@@ -9,16 +9,16 @@ import (
 // A usage example is, the external plugin k8s_event will replicate log prints to Kubernetes events.
 type Listener interface {
 	Name() string
-	Debug(plugin string, v ...interface{})
-	Debugf(plugin string, format string, v ...interface{})
-	Info(plugin string, v ...interface{})
-	Infof(plugin string, format string, v ...interface{})
-	Warning(plugin string, v ...interface{})
-	Warningf(plugin string, format string, v ...interface{})
-	Error(plugin string, v ...interface{})
-	Errorf(plugin string, format string, v ...interface{})
-	Fatal(plugin string, v ...interface{})
-	Fatalf(plugin string, format string, v ...interface{})
+	Debug(plugin string, v ...any)
+	Debugf(plugin string, format string, v ...any)
+	Info(plugin string, v ...any)
+	Infof(plugin string, format string, v ...any)
+	Warning(plugin string, v ...any)
+	Warningf(plugin string, format string, v ...any)
+	Error(plugin string, v ...any)
+	Errorf(plugin string, format string, v ...any)
+	Fatal(plugin string, v ...any)
+	Fatalf(plugin string, format string, v ...any)
 }
 
 type listeners struct {
@@ -60,7 +60,7 @@ func DeregisterListener(old Listener) error {
 	return nil
 }
 
-func (ls *listeners) debug(plugin string, v ...interface{}) {
+func (ls *listeners) debug(plugin string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Debug(plugin, v...)
@@ -68,7 +68,7 @@ func (ls *listeners) debug(plugin string, v ...interface{}) {
 	ls.RUnlock()
 }
 
-func (ls *listeners) debugf(plugin string, format string, v ...interface{}) {
+func (ls *listeners) debugf(plugin string, format string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Debugf(plugin, format, v...)
@@ -76,7 +76,7 @@ func (ls *listeners) debugf(plugin string, format string, v ...interface{}) {
 	ls.RUnlock()
 }
 
-func (ls *listeners) info(plugin string, v ...interface{}) {
+func (ls *listeners) info(plugin string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Info(plugin, v...)
@@ -84,7 +84,7 @@ func (ls *listeners) info(plugin string, v ...interface{}) {
 	ls.RUnlock()
 }
 
-func (ls *listeners) infof(plugin string, format string, v ...interface{}) {
+func (ls *listeners) infof(plugin string, format string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Infof(plugin, format, v...)
@@ -92,7 +92,7 @@ func (ls *listeners) infof(plugin string, format string, v ...interface{}) {
 	ls.RUnlock()
 }
 
-func (ls *listeners) warning(plugin string, v ...interface{}) {
+func (ls *listeners) warning(plugin string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Warning(plugin, v...)
@@ -100,7 +100,7 @@ func (ls *listeners) warning(plugin string, v ...interface{}) {
 	ls.RUnlock()
 }
 
-func (ls *listeners) warningf(plugin string, format string, v ...interface{}) {
+func (ls *listeners) warningf(plugin string, format string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Warningf(plugin, format, v...)
@@ -108,7 +108,7 @@ func (ls *listeners) warningf(plugin string, format string, v ...interface{}) {
 	ls.RUnlock()
 }
 
-func (ls *listeners) error(plugin string, v ...interface{}) {
+func (ls *listeners) error(plugin string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Error(plugin, v...)
@@ -116,7 +116,7 @@ func (ls *listeners) error(plugin string, v ...interface{}) {
 	ls.RUnlock()
 }
 
-func (ls *listeners) errorf(plugin string, format string, v ...interface{}) {
+func (ls *listeners) errorf(plugin string, format string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Errorf(plugin, format, v...)
@@ -124,7 +124,7 @@ func (ls *listeners) errorf(plugin string, format string, v ...interface{}) {
 	ls.RUnlock()
 }
 
-func (ls *listeners) fatal(plugin string, v ...interface{}) {
+func (ls *listeners) fatal(plugin string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Fatal(plugin, v...)
@@ -132,7 +132,7 @@ func (ls *listeners) fatal(plugin string, v ...interface{}) {
 	ls.RUnlock()
 }
 
-func (ls *listeners) fatalf(plugin string, format string, v ...interface{}) {
+func (ls *listeners) fatalf(plugin string, format string, v ...any) {
 	ls.RLock()
 	for _, l := range ls.listeners {
 		l.Fatalf(plugin, format, v...)

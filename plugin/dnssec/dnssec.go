@@ -118,7 +118,7 @@ func (d Dnssec) sign(rrs []dns.RR, signerName string, ttl, incep, expir uint32, 
 		return sgs, nil
 	}
 
-	sigs, err := d.inflight.Do(k, func() (interface{}, error) {
+	sigs, err := d.inflight.Do(k, func() (any, error) {
 		var sigs []dns.RR
 		for _, k := range d.keys {
 			if d.splitkeys {

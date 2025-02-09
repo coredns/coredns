@@ -22,7 +22,7 @@ type pattern struct {
 	count       uint32
 	period      time.Duration
 	pattern     *regexp.Regexp
-	logCallback func(format string, v ...interface{})
+	logCallback func(format string, v ...any)
 }
 
 func (p *pattern) timer() *time.Timer {

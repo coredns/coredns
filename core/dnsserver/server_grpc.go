@@ -62,7 +62,7 @@ func (s *ServergRPC) Serve(l net.Listener) error {
 	s.m.Unlock()
 
 	if s.Tracer() != nil {
-		onlyIfParent := func(parentSpanCtx opentracing.SpanContext, method string, req, resp interface{}) bool {
+		onlyIfParent := func(parentSpanCtx opentracing.SpanContext, method string, req, resp any) bool {
 			return parentSpanCtx != nil
 		}
 		intercept := otgrpc.OpenTracingServerInterceptor(s.Tracer(), otgrpc.IncludingSpans(onlyIfParent))

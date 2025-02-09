@@ -89,7 +89,7 @@ func Run() {
 // enabled. If this process is an upgrade, however, and the user
 // might not be there anymore, this just logs to the process
 // log and exits.
-func mustLogFatal(args ...interface{}) {
+func mustLogFatal(args ...any) {
 	if !caddy.IsUpgrade() {
 		log.SetOutput(os.Stderr)
 	}

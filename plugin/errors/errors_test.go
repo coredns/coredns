@@ -73,7 +73,7 @@ func TestErrors(t *testing.T) {
 
 func TestLogPattern(t *testing.T) {
 	type args struct {
-		logCallback func(format string, v ...interface{})
+		logCallback func(format string, v ...any)
 	}
 	tests := []struct {
 		name string
