@@ -40,6 +40,9 @@ func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) Pr
 				case cache.Sync, cache.Added, cache.Updated:
 					obj, err := convert(d.Object.(meta.Object))
 					if err != nil {
+						if err == errPodTerminating {
+							continue
+						}
 						return err
 					}
 					if old, exists, err := clientState.Get(obj); err == nil && exists {
