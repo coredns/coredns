@@ -3,8 +3,12 @@ package metrics
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -34,15 +38,54 @@ type Metrics struct {
 	zoneMu    sync.RWMutex
 
 	plugins map[string]struct{} // all available plugins, used to determine which plugin made the client write
+
+	tlsConfig *tlsConfig
+}
+
+// tlsConfig is the TLS configuration for Metrics
+type tlsConfig struct {
+	// enabled controls whether TLS is active
+	// Optional: Defaults to true when tls block is present
+	enabled bool
+
+	// certFile is the path to the server's certificate file in PEM format
+	// Required when TLS is enabled
+	certFile string
+
+	// keyFile is the path to the server's private key file in PEM format
+	// Required when TLS is enabled
+	keyFile string
+
+	// clientCAFile is the path to the CA certificate file for client verification
+	// Optional: Only needed for client authentication
+	// Default: No client verification
+	// Can contain multiple CA certificates in a single PEM file
+	clientCAFile string
+
+	// minVersion is the minimum TLS version to accept
+	// Optional: Defaults to tls.VersionTLS13
+	// Possible values: tls.VersionTLS10 through tls.VersionTLS13
+	minVersion uint16
+
+	// clientAuthType controls how client certificates are handled
+	// Optional: Defaults to tls.RequireAndVerifyClientCert (strictest)
+	// Possible values:
+	//   - tls.NoClientCert: No client cert required
+	//   - tls.RequestClientCert: Request but don't require
+	//   - tls.RequireAnyClientCert: Require any valid cert
+	//   - tls.VerifyClientCertIfGiven: Verify if provided
+	//   - tls.RequireAndVerifyClientCert: Require and verify
+	clientAuthType tls.ClientAuthType
 }
 
 // New returns a new instance of Metrics with the given address.
 func New(addr string) *Metrics {
 	met := &Metrics{
-		Addr:    addr,
-		Reg:     prometheus.DefaultRegisterer.(*prometheus.Registry),
-		zoneMap: make(map[string]struct{}),
-		plugins: pluginList(caddy.ListPlugins()),
+		Addr:      addr,
+		Reg:       prometheus.DefaultRegisterer.(*prometheus.Registry),
+		zoneMap:   make(map[string]struct{}),
+		plugins:   pluginList(caddy.ListPlugins()),
+		tlsConfig: nil,
 	}
 
 	return met
@@ -83,6 +126,26 @@ func (m *Metrics) ZoneNames() []string {
 	return s
 }
 
+// validate validates the Metrics configuration
+func (m *Metrics) validate() error {
+	if m.tlsConfig != nil && m.tlsConfig.enabled {
+		if m.tlsConfig.certFile == "" {
+			return fmt.Errorf("TLS enabled but no certificate file specified")
+		}
+		if m.tlsConfig.keyFile == "" {
+			return fmt.Errorf("TLS enabled but no key file specified")
+		}
+		// Check if files exist
+		if _, err := os.Stat(m.tlsConfig.certFile); err != nil {
+			return fmt.Errorf("certificate file not found: %s", m.tlsConfig.certFile)
+		}
+		if _, err := os.Stat(m.tlsConfig.keyFile); err != nil {
+			return fmt.Errorf("key file not found: %s", m.tlsConfig.keyFile)
+		}
+	}
+	return nil
+}
+
 // OnStartup sets up the metrics on startup.
 func (m *Metrics) OnStartup() error {
 	ln, err := reuseport.Listen("tcp", m.Addr)
@@ -97,12 +160,50 @@ func (m *Metrics) OnStartup() error {
 	m.mux = http.NewServeMux()
 	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{}))
 
-	// creating some helper variables to avoid data races on m.srv and m.ln
+	// Create server with or without TLS based on configuration
 	server := &http.Server{Handler: m.mux}
 	m.srv = server
 
+	if m.tlsConfig != nil && m.tlsConfig.enabled {
+		// Load server certificate
+		cert, err := tls.LoadX509KeyPair(m.tlsConfig.certFile, m.tlsConfig.keyFile)
+		if err != nil {
+			return fmt.Errorf("failed to load server certificate: %v", err)
+		}
+
+		// Configure TLS
+		tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   m.tlsConfig.minVersion,
+			ClientAuth:   m.tlsConfig.clientAuthType,
+		}
+
+		// Load client CA if specified
+		if m.tlsConfig.clientCAFile != "" {
+			caCert, err := os.ReadFile(m.tlsConfig.clientCAFile)
+			if err != nil {
+				return fmt.Errorf("failed to read client CA certificate: %v", err)
+			}
+			caCertPool := x509.NewCertPool()
+			caCertPool.AppendCertsFromPEM(caCert)
+			tlsConfig.ClientCAs = caCertPool
+		}
+
+		server.TLSConfig = tlsConfig
+	}
+
 	go func() {
-		server.Serve(ln)
+		if m.tlsConfig != nil && m.tlsConfig.enabled {
+			// Start HTTPS server
+			if err := server.ServeTLS(ln, "", ""); err != nil && err != http.ErrServerClosed {
+				log.Errorf("Failed to start HTTPS metrics server: %s", err)
+			}
+		} else {
+			// Start HTTP server
+			if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+				log.Errorf("Failed to start HTTP metrics server: %s", err)
+			}
+		}
 	}()
 
 	ListenAddr = ln.Addr().String() // For tests.
