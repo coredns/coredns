@@ -153,7 +153,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		for {
 			ret, err = proxy.Connect(ctx, state, opts)
 
-			if err == ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
+			if errors.Is(err, ErrCachedClosed) { // Remote side closed conn, can only happen with TCP.
 				continue
 			}
 			// Retry with TCP if truncated and prefer_udp configured.
