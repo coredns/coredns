@@ -10,7 +10,7 @@ import (
 )
 
 func Test_health_overloaded_cancellation(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(1 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))

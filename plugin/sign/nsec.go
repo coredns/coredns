@@ -10,7 +10,7 @@ import (
 )
 
 // names returns the elements of the zone in nsec order.
-func names(origin string, z *file.Zone) []string {
+func names(_ string, z *file.Zone) []string {
 	// There will also be apex records other than NS and SOA (who are kept separate), as we
 	// are adding DNSKEY and CDS/CDNSKEY records in the apex *before* we sign.
 	n := []string{}

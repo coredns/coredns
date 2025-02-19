@@ -41,7 +41,7 @@ type Etcd struct {
 }
 
 // Services implements the ServiceBackend interface.
-func (e *Etcd) Services(ctx context.Context, state request.Request, exact bool, opt plugin.Options) (services []msg.Service, err error) {
+func (e *Etcd) Services(ctx context.Context, state request.Request, exact bool, _ plugin.Options) (services []msg.Service, err error) {
 	services, err = e.Records(ctx, state, exact)
 	if err != nil {
 		return

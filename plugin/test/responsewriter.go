@@ -40,7 +40,7 @@ func (t *ResponseWriter) RemoteAddr() net.Addr {
 }
 
 // WriteMsg implements dns.ResponseWriter interface.
-func (t *ResponseWriter) WriteMsg(m *dns.Msg) error { return nil }
+func (t *ResponseWriter) WriteMsg(_ *dns.Msg) error { return nil }
 
 // Write implements dns.ResponseWriter interface.
 func (t *ResponseWriter) Write(buf []byte) (int, error) { return len(buf), nil }

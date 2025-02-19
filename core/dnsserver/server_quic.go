@@ -76,7 +76,7 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 }
 
 // ServePacket implements caddy.UDPServer interface.
-func (s *ServerQUIC) ServePacket(p net.PacketConn) error {
+func (s *ServerQUIC) ServePacket(_ net.PacketConn) error {
 	s.m.Lock()
 	s.listenAddr = s.quicListener.Addr()
 	s.m.Unlock()
@@ -213,7 +213,7 @@ func (s *ServerQUIC) Stop() error {
 }
 
 // Serve implements caddy.TCPServer interface.
-func (s *ServerQUIC) Serve(l net.Listener) error { return nil }
+func (s *ServerQUIC) Serve(_ net.Listener) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServerQUIC) Listen() (net.Listener, error) { return nil, nil }

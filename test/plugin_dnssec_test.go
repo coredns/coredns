@@ -54,7 +54,7 @@ func TestLookupBalanceRewriteCacheDnssec(t *testing.T) {
 	}
 }
 
-func createKeyFile(t *testing.T) func() {
+func createKeyFile(_ *testing.T) func() {
 	os.WriteFile(base+".key",
 		[]byte(`example.org. IN DNSKEY 256 3 13 tDyI0uEIDO4SjhTJh1AVTFBLpKhY3He5BdAlKztewiZ7GecWj94DOodg ovpN73+oJs+UfZ+p9zOSN5usGAlHrw==`),
 		0644)

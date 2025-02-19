@@ -227,7 +227,7 @@ func TestServeDNSTsigErrors(t *testing.T) {
 }
 
 func testHandler() test.HandlerFunc {
-	return func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		state := request.Request{W: w, Req: r}
 		qname := state.Name()
 		m := new(dns.Msg)

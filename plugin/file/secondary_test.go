@@ -138,7 +138,7 @@ func TestIsNotify(t *testing.T) {
 	}
 }
 
-func newRequest(zone string, qtype uint16) request.Request {
+func newRequest(_ string, _ uint16) request.Request {
 	m := new(dns.Msg)
 	m.SetQuestion("example.com.", dns.TypeA)
 	m.SetEdns0(4097, true)
