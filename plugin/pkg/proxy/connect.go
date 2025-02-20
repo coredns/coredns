@@ -66,11 +66,11 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	if proto == "tcp-tls" {
 		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
 		t.updateDialTimeout(time.Since(reqTime))
-		return &persistConn{c: conn}, false, err
+		return &persistConn{c: conn, dialed: reqTime}, false, err
 	}
 	conn, err := dns.DialTimeout(proto, t.addr, timeout)
 	t.updateDialTimeout(time.Since(reqTime))
-	return &persistConn{c: conn}, false, err
+	return &persistConn{c: conn, dialed: reqTime}, false, err
 }
 
 // Connect selects an upstream, sends the request and waits for a response.

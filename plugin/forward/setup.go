@@ -156,7 +156,8 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		if transports[i] == transport.TLS {
 			f.proxies[i].SetTLSConfig(f.tlsConfig)
 		}
-		f.proxies[i].SetExpire(f.expire)
+		f.proxies[i].SetIdleTimeout(f.idleTimeout)
+		f.proxies[i].SetMaxConnectionAge(f.maxConnectionAge)
 		f.proxies[i].GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
 		// when TLS is used, checks are set to tcp-tls
 		if f.opts.ForceTCP && transports[i] != transport.TLS {
@@ -262,7 +263,34 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		if dur < 0 {
 			return fmt.Errorf("expire can't be negative: %s", dur)
 		}
-		f.expire = dur
+		if !f.isIdleTimeoutSet {
+			f.idleTimeout = dur
+		}
+	case "idle_timeout":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("idle_timeout can't be negative: %s", dur)
+		}
+		f.isIdleTimeoutSet = true
+		f.idleTimeout = dur
+	case "max_connection_age":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("max_connection_age can't be negative: %s", dur)
+		}
+		f.maxConnectionAge = dur
 	case "policy":
 		if !c.NextArg() {
 			return c.ArgErr()
