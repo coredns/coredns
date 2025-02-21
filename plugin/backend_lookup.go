@@ -13,6 +13,8 @@ import (
 	"github.com/miekg/dns"
 )
 
+const maxCnameChainLength = 10
+
 // A returns A records from Backend or an error.
 func A(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
 	services, err := checkForApex(ctx, b, zone, state, opt)
@@ -34,7 +36,7 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > maxCnameChainLength {
 				// don't add it, and just continue
 				continue
 			}
@@ -108,7 +110,7 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > maxCnameChainLength {
 				// don't add it, and just continue
 				continue
 			}
@@ -361,7 +363,7 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > maxCnameChainLength {
 				// don't add it, and just continue
 				continue
 			}
