@@ -1,7 +1,6 @@
 module github.com/coredns/coredns
 
 go 1.22.7
-
 toolchain go1.23.0
 
 require (
@@ -28,7 +27,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.62.0
-	github.com/quic-go/quic-go v0.49.0
+	github.com/quic-go/quic-go v0.50.0
 	go.etcd.io/etcd/api/v3 v3.5.18
 	go.etcd.io/etcd/client/v3 v3.5.18
 	go.uber.org/automaxprocs v1.6.0
