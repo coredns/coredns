@@ -2,7 +2,7 @@
 
 ## Name
 
-*timeouts* - allows you to configure the server read, write and idle timeouts for the TCP, TLS and DoH servers.
+*timeouts* - allows you to configure the server read, write and idle timeouts for the TCP, TLS, DoH and DoQ (idle only) servers.
 
 ## Description
 
@@ -63,13 +63,26 @@ https://. {
 }
 ~~~
 
+Start a DNS-over-QUIC server that has the idle timeout set to two minutes.
+
+~~~
+quic://.:853 {
+	tls cert.pem key.pem ca.pem
+	timeouts {
+		idle 2m
+	}
+	forward . /etc/resolv.conf
+}
+~~~
+
 Start a standard TCP/UDP server on port 1053. A read and write timeout has been
 configured. The timeouts are only applied to the TCP side of the server.
+
 ~~~
 .:1053 {
 	timeouts {
 		read 15s
-                write 30s
+		write 30s
 	}
 	forward . /etc/resolv.conf
 }
