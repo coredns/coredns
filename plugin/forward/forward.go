@@ -45,11 +45,12 @@ type Forward struct {
 
 	nextAlternateRcodes []int
 
-	tlsConfig     *tls.Config
-	tlsServerName string
-	maxfails      uint32
-	expire        time.Duration
-	maxConcurrent int64
+	tlsConfig         *tls.Config
+	tlsServerName     string
+	maxfails          uint32
+	expire            time.Duration
+	maxConcurrent     int64
+	proxyTransportNum uint
 
 	opts proxy.Options // also here for testing
 

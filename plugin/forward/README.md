@@ -50,6 +50,7 @@ forward FROM TO... {
     policy random|round_robin|sequential
     health_check DURATION [no_rec] [domain FQDN]
     max_concurrent MAX
+    proxy_multi_transport [TRANSPORT_PER_PROXY]
     next RCODE_1 [RCODE_2] [RCODE_3...]
 }
 ~~~
@@ -96,6 +97,7 @@ forward FROM TO... {
   response does not count as a health failure. When choosing a value for **MAX**, pick a number
   at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
+* `proxy_multi_transport` **TRANSPORT_PER_PROXY** allows multiple transports for each proxy, default value is GOMAXPROCS, enabling this could increase throughput on a multi core machine
 * `next` If the `RCODE` (i.e. `NXDOMAIN`) is returned by the remote then execute the next plugin. If no next plugin is defined, or the next plugin is not a `forward` plugin, this setting is ignored
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
