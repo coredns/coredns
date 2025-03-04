@@ -51,6 +51,7 @@ type Forward struct {
 	expire                     time.Duration
 	maxConcurrent              int64
 	failfastUnhealthyUpstreams bool
+	proxyTransportNum          uint
 
 	opts proxy.Options // also here for testing
 
