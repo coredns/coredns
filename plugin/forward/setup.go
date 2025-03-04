@@ -125,6 +125,13 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		return f, err
 	}
 
+	for c.NextBlock() {
+		if err := parseBlock(c, f); err != nil {
+			return f, err
+		}
+	}
+
+
 	transportPerProxy := uint(1)
 	if f.proxyTransportNum > 0 {
 		transportPerProxy = f.proxyTransportNum
@@ -141,12 +148,6 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		p := proxy.NewProxy("forward", h, trans, transportPerProxy)
 		f.proxies = append(f.proxies, p)
 		transports[i] = trans
-	}
-
-	for c.NextBlock() {
-		if err := parseBlock(c, f); err != nil {
-			return f, err
-		}
 	}
 
 	if f.tlsServerName != "" {
