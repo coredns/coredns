@@ -259,16 +259,12 @@ func TestSetupHealthCheck(t *testing.T) {
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org\n}\n", false, true, "example.org.", ""},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain .\n}\n", false, true, ".", ""},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org.\n}\n", false, true, "example.org.", ""},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s on_fail servfail\n}\n", false, true, ".", ""},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org. on_fail spray\n}\n", false, true, "example.org.", ""},
 		// negative
 		{"forward . 127.0.0.1 {\nhealth_check no_rec\n}\n", true, true, ".", "time: invalid duration"},
 		{"forward . 127.0.0.1 {\nhealth_check domain example.org\n}\n", true, true, "example.org", "time: invalid duration"},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s rec\n}\n", true, true, ".", "health_check: unknown option rec"},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, true, ".", "Wrong argument count or unexpected line ending after 'domain'"},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example..org\n}\n", true, true, ".", "health_check: invalid domain name"},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s on_fail invalidaction\n}\n", true, true, ".", "invalid value for healthcheck on_fail:"},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s on_fail\n}\n", true, true, ".", "unexpected line ending after 'on_fail'"},
 	}
 
 	for i, test := range tests {
@@ -383,6 +379,47 @@ func TestNextAlternate(t *testing.T) {
 		_, err := parseForward(c)
 		if err == nil {
 			t.Errorf("Test %d: expected error, got nil", i)
+		}
+	}
+}
+
+func TestFailfastAllUnhealthyUpstreams(t *testing.T) {
+	tests := []struct {
+		input          string
+		expectedRecVal bool
+		expectedErr    string
+	}{
+		// positive
+		{"forward . 127.0.0.1\n", false, ""},
+		{"forward . 127.0.0.1 {\nfailfast_all_unhealthy_upstreams\n}\n", true, ""},
+		// negative
+		{"forward . 127.0.0.1 {\nfailfast_all_unhealthy_upstreams false\n}\n", false, "Wrong argument count"},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		fs, err := parseForward(c)
+
+		if err != nil {
+			if test.expectedErr == "" {
+				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+			}
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
+			}
+		} else {
+			if test.expectedErr != "" {
+				t.Errorf("Test %d: expected error but found no error for input %s", i, test.input)
+			}
+		}
+
+		if test.expectedErr != "" {
+			continue
+		}
+
+		f := fs[0]
+		if f.failfastUnhealthyUpstreams != test.expectedRecVal {
+			t.Errorf("Test %d: Expected Rec:%v, got:%v", i, test.expectedRecVal, f.failfastUnhealthyUpstreams)
 		}
 	}
 }

@@ -278,23 +278,78 @@ func TestHealthDomain(t *testing.T) {
 	}
 }
 
-func TestHealthAllUpstreamsDownServeFail(t *testing.T) {
-	defaultTimeout = 20 * time.Second
-	// Setting bad address for healthcheck to fail
-	p := proxy.NewProxy("TestHealthAllUpstreamsDown", "8.8.8.8:5003", transport.DNS)
-	p1 := proxy.NewProxy("TestHealthAllUpstreamsDown", "8.8.8.8:5004", transport.DNS)
+func TestAllUpstreamsDown(t *testing.T) {
+	qs := uint32(0)
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		// count non-healthcheck queries
+		if r.Question[0].Name != "." {
+			atomic.AddUint32(&qs, 1)
+		}
+		// timeout
+	})
+	defer s.Close()
+
+	s1 := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		// count non-healthcheck queries
+		if r.Question[0].Name != "." {
+			atomic.AddUint32(&qs, 1)
+		}
+		// timeout
+	})
+	defer s1.Close()
+
+	p := proxy.NewProxy("TestHealthAllUpstreamsDown", s.Addr, transport.DNS)
+	p1 := proxy.NewProxy("TestHealthAllUpstreamsDown2", s1.Addr, transport.DNS)
+	p.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
+	p1.GetHealthchecker().SetReadTimeout(10 * time.Millisecond)
+
 	f := New()
 	f.SetProxy(p)
 	f.SetProxy(p1)
-	f.hcOnFailAction = "servfail"
+	f.failfastUnhealthyUpstreams = true
+	f.maxfails = 1
+	// Make proxys fail by checking health twice
+	// i.e, fails > maxfails
+	for range f.maxfails + 1 {
+		p.GetHealthchecker().Check(p)
+		p1.GetHealthchecker().Check(p1)
+	}
 
 	defer f.OnShutdown()
 
+	// Check if all proxies are down
+	if !p.Down(f.maxfails) || !p1.Down(f.maxfails) {
+		t.Fatalf("Expected all proxies to be down")
+	}
 	req := new(dns.Msg)
 	req.SetQuestion("example.org.", dns.TypeA)
+	resp, err := f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
 
-	resp, _ := f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
 	if resp != dns.RcodeServerFailure {
 		t.Errorf("Expected Response code: %d, Got: %d", dns.RcodeServerFailure, resp)
+	}
+
+	if err != ErrNoHealthy {
+		t.Errorf("Expected error message: no healthy proxies, Got: %s", err.Error())
+	}
+
+	q1 := atomic.LoadUint32(&qs)
+	if q1 != 0 {
+		t.Errorf("Expected queries to the upstream: 0, Got: %d", q1)
+	}
+
+	// set failfast to false to check if queries get answered
+	f.failfastUnhealthyUpstreams = false
+
+	req = new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	_, err = f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
+	if err == ErrNoHealthy {
+		t.Error("Unexpected error message: no healthy proxies")
+	}
+
+	q1 = atomic.LoadUint32(&qs)
+	if q1 != 1 {
+		t.Errorf("Expected queries to the upstream: 1, Got: %d", q1)
 	}
 }
