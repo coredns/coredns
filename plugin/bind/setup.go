@@ -4,13 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"slices"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
-
-	"k8s.io/utils/strings/slices"
 )
 
 func setup(c *caddy.Controller) error {
@@ -84,8 +83,15 @@ func listIP(args []string, ifaces []net.Interface) ([]string, error) {
 				}
 				for _, addr := range addrs {
 					if ipnet, ok := addr.(*net.IPNet); ok {
-						if ipnet.IP.To4() != nil || (!ipnet.IP.IsLinkLocalMulticast() && !ipnet.IP.IsLinkLocalUnicast()) {
-							all = append(all, ipnet.IP.String())
+						ipa, err := net.ResolveIPAddr("ip", ipnet.IP.String())
+						if err == nil {
+							if len(ipnet.IP) == net.IPv6len &&
+								(ipnet.IP.IsLinkLocalMulticast() || ipnet.IP.IsLinkLocalUnicast()) {
+								if ipa.Zone == "" {
+									ipa.Zone = iface.Name
+								}
+							}
+							all = append(all, ipa.String())
 						}
 					}
 				}

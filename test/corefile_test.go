@@ -16,5 +16,9 @@ func TestCorefile1(t *testing.T) {
 acl
 `
 	i, _, _, _ := CoreDNSServerAndPorts(corefile)
-	defer i.Stop()
+	defer func() {
+		if i != nil {
+			i.Stop()
+		}
+	}()
 }

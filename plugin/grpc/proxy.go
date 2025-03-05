@@ -37,7 +37,7 @@ func newProxy(addr string, tlsConfig *tls.Config) (*Proxy, error) {
 		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	conn, err := grpc.Dial(p.addr, p.dialOpts...)
+	conn, err := grpc.NewClient(p.addr, p.dialOpts...)
 	if err != nil {
 		return nil, err
 	}

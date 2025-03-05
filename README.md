@@ -8,6 +8,7 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/coredns/coredns.svg)](https://hub.docker.com/r/coredns/coredns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coredns/coredns)](https://goreportcard.com/report/coredns/coredns)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1250/badge)](https://bestpractices.coreinfrastructure.org/projects/1250)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/coredns/coredns/badge)](https://scorecard.dev/viewer/?uri=github.com/coredns/coredns)
 
 CoreDNS is a DNS server/forwarder, written in Go, that chains [plugins](https://coredns.io/plugins).
 Each plugin performs a (DNS) function.
@@ -76,7 +77,7 @@ setup a Go environment, you could build CoreDNS easily:
 ```
 docker run --rm -i -t \
     -v $PWD:/go/src/github.com/coredns/coredns -w /go/src/github.com/coredns/coredns \
-        golang:1.21 sh -c 'GOFLAGS="-buildvcs=false" make gen && GOFLAGS="-buildvcs=false" make'
+        golang:1.22 sh -c 'GOFLAGS="-buildvcs=false" make gen && GOFLAGS="-buildvcs=false" make'
 ```
 
 The above command alone will have `coredns` binary generated.
@@ -255,9 +256,9 @@ When no transport protocol is specified the default `dns://` is assumed.
 
 ## Community
 
-We're most active on Github (and Slack):
+We're most active on GitHub (and Slack):
 
-- Github: <https://github.com/coredns/coredns>
+- GitHub: <https://github.com/coredns/coredns>
 - Slack: #coredns on <https://slack.cncf.io>
 
 More resources can be found:

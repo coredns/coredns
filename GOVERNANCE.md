@@ -5,7 +5,7 @@
 The CoreDNS community adheres to the following principles:
 
 - Open: CoreDNS is open source, advertised on [our website](https://coredns.io/community).
-- Welcoming and respectful: See [Code of Conduct](CODE-OF-CONDUCT.md).
+- Welcoming and respectful: See [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 - Transparent and accessible: Changes to the CoreDNS organization, CoreDNS code repositories, and CNCF related activities (e.g. level, involvement, etc) are done in public.
 - Merit: Ideas and contributions are accepted according to their technical merit and alignment with
   project objectives, scope, and design principles.
@@ -36,7 +36,7 @@ maintainers.
 
 Every Maintainer is listed in the
 [CODEOWNERS](https://github.com/coredns/coredns/blob/master/CODEOWNERS)
-file, with their Github handle.
+file, with their GitHub handle.
 
 A Maintainer should be a member of `maintainers@coredns.io`, although this is not a hard requirement.
 
@@ -53,7 +53,7 @@ If a Maintainer feels she/he can not fulfill the "Expectations from Maintainers"
 step down.
 
 The CoreDNS organization will never forcefully remove a current Maintainer, unless a maintainer
-fails to meet the principles of CoreDNS community, or adhere to the [Code of Conduct](CODE-OF-CONDUCT.md).
+fails to meet the principles of CoreDNS community, or adhere to the [Code of Conduct](.github/CODE_OF_CONDUCT.md).
 
 ## Changes in Project Steering Committee Membership
 
@@ -107,7 +107,7 @@ The decision-making process should be transparent to adhere to the CoreDNS Code 
 All proposals, ideas, and decisions by maintainers or the steering committee
 should either be part of a GitHub issue or PR, or be sent to `maintainers@coredns.io`.
 
-## Github Project Administration
+## GitHub Project Administration
 
 The __coredns__ GitHub project maintainers team reflects the list of Maintainers.
 
@@ -145,7 +145,7 @@ permits, or a _reasonable_ time frame to allow maintainers to have a chance to v
 
 ## Code of Conduct
 
-The [CoreDNS Code of Conduct](CODE-OF-CONDUCT.md) is aligned with the CNCF Code of Conduct.
+The [CoreDNS Code of Conduct](.github/CODE_OF_CONDUCT.md) is aligned with the CNCF Code of Conduct.
 
 ## Credits
 

@@ -90,8 +90,9 @@ func (r *ResponseReverter) WriteMsg(res1 *dns.Msg) error {
 }
 
 func (r *ResponseReverter) rewriteResourceRecord(res *dns.Msg, rr dns.RR) {
-	for _, rule := range r.ResponseRules {
-		rule.RewriteResponse(res, rr)
+	// The reverting rules need to be done in reversed order.
+	for i := len(r.ResponseRules) - 1; i >= 0; i-- {
+		r.ResponseRules[i].RewriteResponse(res, rr)
 	}
 }
 

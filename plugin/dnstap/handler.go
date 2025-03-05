@@ -20,10 +20,12 @@ type Dnstap struct {
 	repl replacer.Replacer
 
 	// IncludeRawMessage will include the raw DNS message into the dnstap messages if true.
-	IncludeRawMessage bool
-	Identity          []byte
-	Version           []byte
-	ExtraFormat       string
+	IncludeRawMessage   bool
+	Identity            []byte
+	Version             []byte
+	ExtraFormat         string
+	MultipleTcpWriteBuf int // *Mb
+	MultipleQueue       int // *10000
 }
 
 // TapMessage sends the message m to the dnstap interface, without populating "Extra" field.

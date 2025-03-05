@@ -17,7 +17,7 @@ func (tp testPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	return 0, nil
 }
 
-func (tp testPlugin) Name() string { return "testplugin" }
+func (tp testPlugin) Name() string { return "local" }
 
 func testConfig(transport string, p plugin.Handler) *Config {
 	c := &Config{
