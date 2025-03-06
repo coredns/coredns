@@ -49,9 +49,17 @@ func (k *Kubernetes) serviceRecordForIP(ip, name string) []msg.Service {
 				// Kubernetes more or less keeps this to one canonical service/endpoint per IP, but in the odd event there
 				// are multiple endpoints for the same IP with hostname set, return them all rather than selecting one
 				// arbitrarily.
-				if addr.IP == ip && addr.Hostname != "" {
-					domain := strings.Join([]string{addr.Hostname, ep.Index, Svc, k.primaryZone()}, ".")
-					svcs = append(svcs, msg.Service{Host: domain, TTL: k.ttl})
+				if addr.IP == ip {
+					var domain string
+					// If the pod specifies a hostname (e.g., in a StatefulSet), use it for the PTR record.
+					if addr.Hostname != "" {
+						domain = strings.Join([]string{addr.Hostname, ep.Index, Svc, k.primaryZone()}, ".")
+						svcs = []msg.Service{{Host: domain, TTL: k.ttl}}
+						return svcs
+					} else {
+						domain = strings.Join([]string{endpointHostname(addr, k.endpointNameMode), ep.Index, Svc, k.primaryZone()}, ".")
+						svcs = []msg.Service{{Host: domain, TTL: k.ttl}}
+					}
 				}
 			}
 		}
