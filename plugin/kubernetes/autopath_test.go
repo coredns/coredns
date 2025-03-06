@@ -159,7 +159,7 @@ func TestAutoPath(t *testing.T) {
 		}
 		searchpath := k.AutoPath(state)
 		if !slices.Equal(searchpath, test.searchpath) {
-			t.Errorf("Expected searchpath %v, but got %v", test.searchpath, searchpath)
+			t.Errorf("Error in query %s: expected searchpath %v, but got %v", test.qname, test.searchpath, searchpath)
 		}
 		if test.zone != "" {
 			k.Zones[0] = defaultZone

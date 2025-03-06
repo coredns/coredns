@@ -1,13 +1,10 @@
 package kubernetes
 
 import (
-	"fmt"
-	"regexp"
-	"strings"
-
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/request"
+	"github.com/miekg/dns"
 )
 
 // AutoPath implements the AutoPathFunc call from the autopath plugin.
@@ -31,7 +28,6 @@ func (k *Kubernetes) AutoPath(state request.Request) []string {
 	}
 
 	ip := state.IP()
-	fmt.Println("ip", ip, "zone", zone)
 
 	var namespace string
 	pods := k.podsWithIP(ip)
@@ -42,21 +38,13 @@ func (k *Kubernetes) AutoPath(state request.Request) []string {
 	if len(pods) == 1 {
 		namespace = pods[0].Namespace
 	} else {
-		var expr *regexp.Regexp
-		nsMatcher := namespaceRegex(pods)
-		if zone == "." {
-			expr = regexp.MustCompile(fmt.Sprintf(`.+\.%s\.svc\.`, nsMatcher))
-		} else {
-			regexSafeZone := strings.ReplaceAll(zone, ".", "\\.")
-			expr = regexp.MustCompile(fmt.Sprintf(`.+\.%s\.svc\.%s`, nsMatcher, regexSafeZone))
-		}
-		matches := expr.FindStringSubmatch(state.Name())
-		//We are only matching <base-query>.<pod-namespace>.svc.<zone>
-		//since we only want to trigger autopath on the first query
-		if matches == nil {
+		matchedPods := k.matchQuery(pods, state.Name(), zone)
+		//If we can't find a match the namespace must be missing in the query, so this isn't the first query (searchpath <ns>.svc.<zone>)
+		//In this case we can return nil since autopath is only done on the first query.
+		if len(matchedPods) == 0 {
 			return nil
 		}
-		namespace = matches[1]
+		namespace = matchedPods[0].Namespace
 	}
 
 	search := make([]string, 3)
@@ -75,16 +63,19 @@ func (k *Kubernetes) AutoPath(state request.Request) []string {
 	return search
 }
 
-func namespaceRegex(pods []*object.Pod) string {
-	nsMap := map[string]struct{}{}
+// matchQuery only returns pods where the pod namespace matches the query namespace (if the query is <ns>.svc.<zone>)
+func (k *Kubernetes) matchQuery(pods []*object.Pod, query string, zone string) []*object.Pod {
+	zoneLength := dns.CountLabel(zone)
+	queryParts := dns.SplitDomainName(query)
+	// The namespace is always at the position before "svc", the second to last label before the zone.
+	namespace := queryParts[len(queryParts)-zoneLength-2]
+	var matchedPods []*object.Pod
 	for _, pod := range pods {
-		nsMap[pod.Namespace] = struct{}{}
+		if pod.Namespace == namespace {
+			matchedPods = append(matchedPods, pod)
+		}
 	}
-	var namespaces []string
-	for ns := range nsMap {
-		namespaces = append(namespaces, ns)
-	}
-	return fmt.Sprintf("(%s)", strings.Join(namespaces, "|"))
+	return matchedPods
 }
 
 // podsWithIP returns the list of api.Pod for source IP. It returns nil if nothing can be found.
