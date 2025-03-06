@@ -3,16 +3,18 @@ package dynamicforward
 import (
 	"fmt"
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/pkg/proxy"
+	"strconv"
 	"time"
 )
 
-// DynamicForwardConfig хранит параметры блока
 type DynamicForwardConfig struct {
 	Namespace   string
 	ServiceName string
 	PortName    string
 	Expire      time.Duration
 	HealthCheck time.Duration
+	opts        proxy.Options
 }
 
 // ParseConfig parse conf CoreFile
@@ -20,6 +22,12 @@ func ParseConfig(c *caddy.Controller) (*DynamicForwardConfig, error) {
 	config := &DynamicForwardConfig{
 		Expire:      30 * time.Minute, // Default value
 		HealthCheck: 10 * time.Second, // Default value
+		opts: proxy.Options{
+			ForceTCP:           false,
+			PreferUDP:          false,
+			HCRecursionDesired: true,
+			HCDomain:           ".",
+		},
 	}
 
 	c.RemainingArgs()
@@ -28,22 +36,22 @@ func ParseConfig(c *caddy.Controller) (*DynamicForwardConfig, error) {
 		switch c.Val() {
 		case "namespace":
 			if !c.NextArg() {
-				return nil, c.ArgErr() // Отсутствует значение
+				return nil, c.ArgErr()
 			}
 			config.Namespace = c.Val()
 		case "service_name":
 			if !c.NextArg() {
-				return nil, c.ArgErr() // Отсутствует значение
+				return nil, c.ArgErr()
 			}
 			config.ServiceName = c.Val()
 		case "port_name":
 			if !c.NextArg() {
-				return nil, c.ArgErr() // Отсутствует значение
+				return nil, c.ArgErr()
 			}
 			config.PortName = c.Val()
 		case "expire":
 			if !c.NextArg() {
-				return nil, c.ArgErr() // Отсутствует значение
+				return nil, c.ArgErr()
 			}
 			duration, err := time.ParseDuration(c.Val())
 			if err != nil {
@@ -52,13 +60,31 @@ func ParseConfig(c *caddy.Controller) (*DynamicForwardConfig, error) {
 			config.Expire = duration
 		case "health_check":
 			if !c.NextArg() {
-				return nil, c.ArgErr() // Отсутствует значение
+				return nil, c.ArgErr()
 			}
 			duration, err := time.ParseDuration(c.Val())
 			if err != nil {
 				return nil, fmt.Errorf("invalid health_check duration: %v", err)
 			}
 			config.HealthCheck = duration
+		case "force_tcp":
+			if !c.NextArg() {
+				return nil, c.ArgErr()
+			}
+			forceTCP, err := strconv.ParseBool(c.Val())
+			if err != nil {
+				return nil, fmt.Errorf("invalid force_tcp: %v", err)
+			}
+			config.opts.ForceTCP = forceTCP
+		case "prefer_udp":
+			if !c.NextArg() {
+				return nil, c.ArgErr()
+			}
+			preferUDP, err := strconv.ParseBool(c.Val())
+			if err != nil {
+				return nil, fmt.Errorf("invalid prefer_udp: %v", err)
+			}
+			config.opts.PreferUDP = preferUDP
 
 		default:
 			return nil, c.Errf("unknown parameter: %s", c.Val())

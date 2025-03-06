@@ -19,7 +19,7 @@ type DynamicForward struct {
 	forwardTo   []string
 	mu          sync.RWMutex
 	forwarder   *forward.Forward
-	options     *forward.Options
+	options     proxy.Options
 	cond        *sync.Cond
 }
 
@@ -47,6 +47,7 @@ func (df *DynamicForward) UpdateForwardServers(newServers []string, config Dynam
 		proxyInstance.SetExpire(config.Expire)
 		proxyInstance.SetReadTimeout(config.HealthCheck)
 		newForwarder.SetProxy(proxyInstance)
+		newForwarder.SetProxyOptions(df.options)
 	}
 
 	oldForwarder := df.forwarder

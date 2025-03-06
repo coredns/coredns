@@ -5,7 +5,6 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	"github.com/coredns/coredns/plugin/forward"
 	"log"
 	"sync"
 )
@@ -14,17 +13,9 @@ func init() { plugin.Register("dynamicforward", setup) }
 
 func setup(c *caddy.Controller) error {
 
-	version := "0.2.9"
+	version := "0.3.5"
 
 	log.Printf("\033[34m[dynamicforward] version: %s\033[0m\n", version)
-
-	// While unused, need add func SetOptions in plugin forward.
-	options := forward.Options{
-		ForceTCP:           false,
-		PreferUDP:          true,
-		HCRecursionDesired: false,
-		HCDomain:           "",
-	}
 
 	// parse config
 	config, err := ParseConfig(c)
@@ -36,7 +27,7 @@ func setup(c *caddy.Controller) error {
 		Namespace:   config.Namespace,
 		ServiceName: config.ServiceName, //kubernetes.io/service-name=d8-kube-dns
 		forwarder:   nil,
-		options:     &options,
+		options:     config.opts,
 		cond:        sync.NewCond(&sync.Mutex{}),
 	}
 
