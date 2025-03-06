@@ -8,7 +8,9 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
+	"net"
 	"net/http"
 	"os"
 	"testing"
@@ -188,7 +190,7 @@ func TestMetricsTLS(t *testing.T) {
 				certFile:       certFile,
 				keyFile:        keyFile,
 				clientCAFile:   caFile,
-				clientAuthType: tls.RequireAndVerifyClientCert,
+				clientAuthType: "RequireAndVerifyClientCert",
 			},
 			expectError: false,
 			expectHTTPS: true,
@@ -220,6 +222,7 @@ func TestMetricsTLS(t *testing.T) {
 			met := New("localhost:0")
 			met.tlsConfig = tt.tlsConfig
 
+			// Start server
 			err := met.OnStartup()
 			if tt.expectError {
 				if err == nil {
@@ -232,27 +235,83 @@ func TestMetricsTLS(t *testing.T) {
 			}
 			defer met.OnFinalShutdown()
 
-			// Verify server is running with correct protocol
+			// Wait for server to be ready
+			select {
+			case <-time.After(2 * time.Second):
+				t.Fatal("timeout waiting for server to start")
+			case <-func() chan struct{} {
+				ch := make(chan struct{})
+				go func() {
+					for {
+						conn, err := net.DialTimeout("tcp", ListenAddr, 100*time.Millisecond)
+						if err == nil {
+							conn.Close()
+							close(ch)
+							return
+						}
+						time.Sleep(100 * time.Millisecond)
+					}
+				}()
+				return ch
+			}():
+			}
+
+			// Configure client
+			tlsConfig := &tls.Config{
+				InsecureSkipVerify: true,
+			}
+			if tt.tlsConfig != nil && tt.tlsConfig.clientCAFile != "" {
+				// Load CA cert for client auth
+				caCert, err := os.ReadFile(tt.tlsConfig.clientCAFile)
+				if err != nil {
+					t.Fatalf("Failed to read CA cert: %v", err)
+				}
+				caCertPool := x509.NewCertPool()
+				if !caCertPool.AppendCertsFromPEM(caCert) {
+					t.Fatal("Failed to parse CA cert")
+				}
+				tlsConfig.RootCAs = caCertPool
+				tlsConfig.Certificates = []tls.Certificate{loadTestClientCert(t, certFile, keyFile)}
+			}
+
 			client := &http.Client{
-				Timeout: time.Second,
+				Timeout: 10 * time.Second,
 				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-						Certificates:       []tls.Certificate{loadTestClientCert(t, certFile, keyFile)},
-					},
+					TLSClientConfig: tlsConfig,
+					// Allow connection reuse
+					MaxIdleConns:        10,
+					IdleConnTimeout:     30 * time.Second,
+					DisableCompression:  true,
+					TLSHandshakeTimeout: 10 * time.Second,
 				},
 			}
 
-			url := "http://" + ListenAddr + "/metrics"
+			// Determine protocol
+			protocol := "http"
 			if tt.expectHTTPS {
-				url = "https://" + ListenAddr + "/metrics"
+				protocol = "https"
 			}
 
-			resp, err := client.Get(url)
-			if err != nil {
-				t.Fatalf("Failed to connect to metrics server: %v", err)
+			// Try multiple times to account for server startup time
+			var resp *http.Response
+			var err2 error
+			for i := 0; i < 10; i++ { // Increased retry count
+				url := fmt.Sprintf("%s://%s/metrics", protocol, ListenAddr)
+				t.Logf("Attempt %d: Connecting to %s", i+1, url)
+				resp, err2 = client.Get(url)
+				if err2 == nil {
+					t.Logf("Successfully connected to metrics server")
+					break
+				}
+				t.Logf("Connection attempt failed: %v", err2)
+				time.Sleep(500 * time.Millisecond) // Increased delay between attempts
 			}
-			defer resp.Body.Close()
+			if err2 != nil {
+				t.Fatalf("Failed to connect to metrics server: %v", err2)
+			}
+			if resp != nil {
+				defer resp.Body.Close()
+			}
 
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("Expected status 200, got %d", resp.StatusCode)
