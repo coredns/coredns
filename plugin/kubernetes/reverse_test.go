@@ -121,6 +121,36 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 		Namespace: "testns",
 		Index:     object.EndpointsKey("svc2", "testns"),
 	}
+	ep3 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.98", Hostname: "foo"},
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc3-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc3", "testns"),
+	}
+	ep4 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.98", Hostname: "bar"},
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc4-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc4", "testns"),
+	}
 	switch ip {
 	case "1234:abcd::1":
 		fallthrough
@@ -132,6 +162,8 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 		return []*object.Endpoints{&ep1s1, &ep1s3}
 	case "10.0.0.99": // two different Services select this IP
 		return []*object.Endpoints{&ep1s1, &ep2}
+	case "10.0.0.98":
+		return []*object.Endpoints{&ep3, &ep4}
 	}
 	return nil
 }
@@ -230,6 +262,14 @@ func TestReverse(t *testing.T) {
 			Rcode: dns.RcodeNameError,
 			Ns: []dns.RR{
 				test.SOA("cluster.local.       5     IN      SOA     ns.dns.cluster.local. hostmaster.cluster.local. 1502989566 7200 1800 86400 5"),
+			},
+		},
+		{
+			Qname: "98.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+			Rcode: dns.RcodeSuccess,
+			Answer: []dns.RR{
+				test.PTR("98.0.0.10.in-addr.arpa.      5    IN      PTR       bar.svc4.testns.svc.cluster.local."),
+				test.PTR("98.0.0.10.in-addr.arpa.      5    IN      PTR       foo.svc3.testns.svc.cluster.local."),
 			},
 		},
 	}
