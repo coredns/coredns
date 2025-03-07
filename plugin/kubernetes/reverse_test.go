@@ -121,6 +121,52 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 		Namespace: "testns",
 		Index:     object.EndpointsKey("svc2", "testns"),
 	}
+	ep3s1 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.98", Hostname: ""}, // has no hostname but we expect ep3s2 to take priority
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc3-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc3s1", "testns"),
+	}
+	ep3s2 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.98", Hostname: "ep3s2"}, // has hostname and takes priority over ep3s1
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc3-slice2",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc3s2", "testns"),
+	}
+	ep4 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.97", Hostname: ""}, // has no hostname and we expect the IP address in the PTR
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc3-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc3", "testns"),
+	}
+
 	switch ip {
 	case "1234:abcd::1":
 		fallthrough
@@ -132,6 +178,11 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 		return []*object.Endpoints{&ep1s1, &ep1s3}
 	case "10.0.0.99": // two different Services select this IP
 		return []*object.Endpoints{&ep1s1, &ep2}
+	case "10.0.0.98": // two different Services select this IP, the second match has a hostname set, and takes priority
+		return []*object.Endpoints{&ep3s1, &ep3s2}
+	case "10.0.0.97": // No hostname for this IP, so we expect the IP address in the PTR
+		return []*object.Endpoints{&ep4}
+
 	}
 	return nil
 }
@@ -167,6 +218,20 @@ func TestReverse(t *testing.T) {
 			Rcode: dns.RcodeSuccess,
 			Answer: []dns.RR{
 				test.PTR("100.0.0.10.in-addr.arpa.      5    IN      PTR       ep1a.svc1.testns.svc.cluster.local."),
+			},
+		},
+		{
+			Qname: "97.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+			Rcode: dns.RcodeSuccess,
+			Answer: []dns.RR{
+				test.PTR("97.0.0.10.in-addr.arpa.      5    IN      PTR       10-0-0-97.svc3.testns.svc.cluster.local."),
+			},
+		},
+		{
+			Qname: "98.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+			Rcode: dns.RcodeSuccess,
+			Answer: []dns.RR{
+				test.PTR("98.0.0.10.in-addr.arpa.      5    IN      PTR       ep3s2.svc3s2.testns.svc.cluster.local."),
 			},
 		},
 		{
