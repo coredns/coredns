@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin/pkg/proxy"
-	"strconv"
 	"time"
 )
 
@@ -68,23 +67,9 @@ func ParseConfig(c *caddy.Controller) (*DynamicForwardConfig, error) {
 			}
 			config.HealthCheck = duration
 		case "force_tcp":
-			if !c.NextArg() {
-				return nil, c.ArgErr()
-			}
-			forceTCP, err := strconv.ParseBool(c.Val())
-			if err != nil {
-				return nil, fmt.Errorf("invalid force_tcp: %v", err)
-			}
-			config.opts.ForceTCP = forceTCP
+			config.opts.ForceTCP = true
 		case "prefer_udp":
-			if !c.NextArg() {
-				return nil, c.ArgErr()
-			}
-			preferUDP, err := strconv.ParseBool(c.Val())
-			if err != nil {
-				return nil, fmt.Errorf("invalid prefer_udp: %v", err)
-			}
-			config.opts.PreferUDP = preferUDP
+			config.opts.PreferUDP = true
 
 		default:
 			return nil, c.Errf("unknown parameter: %s", c.Val())

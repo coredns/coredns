@@ -20,8 +20,8 @@ dynamicforward {
     port_name <portname>
     expire <duration>
     health_check <duration>
-    force_tcp <bool>
-    prefer_udp <bool>
+    force_tcp
+    prefer_udp
 }
 .Ed
 
@@ -70,8 +70,8 @@ To use the plugin, include it in the Corefile configuration for your CoreDNS ser
         port_name dns
         expire 10m
         health_check 5s
-        prefer_udp true
-        force_tcp false
+        prefer_udp
+        force_tcp
     }
 }
 .Ed
