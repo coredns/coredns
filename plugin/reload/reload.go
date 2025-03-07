@@ -60,7 +60,7 @@ func parse(corefile caddy.Input) ([]byte, error) {
 	return json.Marshal(serverBlocks)
 }
 
-func hook(event caddy.EventName, info interface{}) error {
+func hook(event caddy.EventName, info any) error {
 	if event != caddy.InstanceStartupEvent {
 		return nil
 	}

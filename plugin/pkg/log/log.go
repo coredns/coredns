@@ -40,18 +40,18 @@ func (d *d) Value() bool {
 }
 
 // logf calls log.Printf prefixed with level.
-func logf(level, format string, v ...interface{}) {
+func logf(level, format string, v ...any) {
 	golog.Print(level, fmt.Sprintf(format, v...))
 }
 
 // log calls log.Print prefixed with level.
-func log(level string, v ...interface{}) {
+func log(level string, v ...any) {
 	golog.Print(level, fmt.Sprint(v...))
 }
 
 // Debug is equivalent to log.Print(), but prefixed with "[DEBUG] ". It only outputs something
 // if D is true.
-func Debug(v ...interface{}) {
+func Debug(v ...any) {
 	if !D.Value() {
 		return
 	}
@@ -60,7 +60,7 @@ func Debug(v ...interface{}) {
 
 // Debugf is equivalent to log.Printf(), but prefixed with "[DEBUG] ". It only outputs something
 // if D is true.
-func Debugf(format string, v ...interface{}) {
+func Debugf(format string, v ...any) {
 	if !D.Value() {
 		return
 	}
@@ -68,30 +68,30 @@ func Debugf(format string, v ...interface{}) {
 }
 
 // Info is equivalent to log.Print, but prefixed with "[INFO] ".
-func Info(v ...interface{}) { log(info, v...) }
+func Info(v ...any) { log(info, v...) }
 
 // Infof is equivalent to log.Printf, but prefixed with "[INFO] ".
-func Infof(format string, v ...interface{}) { logf(info, format, v...) }
+func Infof(format string, v ...any) { logf(info, format, v...) }
 
 // Warning is equivalent to log.Print, but prefixed with "[WARNING] ".
-func Warning(v ...interface{}) { log(warning, v...) }
+func Warning(v ...any) { log(warning, v...) }
 
 // Warningf is equivalent to log.Printf, but prefixed with "[WARNING] ".
-func Warningf(format string, v ...interface{}) { logf(warning, format, v...) }
+func Warningf(format string, v ...any) { logf(warning, format, v...) }
 
 // Error is equivalent to log.Print, but prefixed with "[ERROR] ".
-func Error(v ...interface{}) { log(err, v...) }
+func Error(v ...any) { log(err, v...) }
 
 // Errorf is equivalent to log.Printf, but prefixed with "[ERROR] ".
-func Errorf(format string, v ...interface{}) { logf(err, format, v...) }
+func Errorf(format string, v ...any) { logf(err, format, v...) }
 
 // Fatal is equivalent to log.Print, but prefixed with "[FATAL] ", and calling
 // os.Exit(1).
-func Fatal(v ...interface{}) { log(fatal, v...); os.Exit(1) }
+func Fatal(v ...any) { log(fatal, v...); os.Exit(1) }
 
 // Fatalf is equivalent to log.Printf, but prefixed with "[FATAL] ", and calling
 // os.Exit(1)
-func Fatalf(format string, v ...interface{}) { logf(fatal, format, v...); os.Exit(1) }
+func Fatalf(format string, v ...any) { logf(fatal, format, v...); os.Exit(1) }
 
 // Discard sets the log output to /dev/null.
 func Discard() { golog.SetOutput(io.Discard) }

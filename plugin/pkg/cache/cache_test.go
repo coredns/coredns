@@ -63,7 +63,7 @@ func TestCacheWalk(t *testing.T) {
 		exp[i] = 1
 	}
 	got := make([]int, 10*2)
-	c.Walk(func(items map[uint64]interface{}, key uint64) bool {
+	c.Walk(func(items map[uint64]any, key uint64) bool {
 		got[key] = items[key].(int)
 		return true
 	})
