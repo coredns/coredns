@@ -121,6 +121,81 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 		Namespace: "testns",
 		Index:     object.EndpointsKey("svc2", "testns"),
 	}
+	ep3 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.98", Hostname: ""}, // This endpoint has no hostname
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc3-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc3", "testns"),
+	}
+	ep4 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.97", Hostname: ""}, // This endpoint has no hostname
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc4-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc4", "testns"),
+	}
+	ep5 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.97", Hostname: ""}, // This endpoint has no hostname
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc5-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc5", "testns"),
+	}
+	ep6 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.96", Hostname: "foo"}, // This endpoint is used by two services, see above
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc6-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc6", "testns"),
+	}
+	ep7 := object.Endpoints{
+		Subsets: []object.EndpointSubset{
+			{
+				Addresses: []object.EndpointAddress{
+					{IP: "10.0.0.96", Hostname: "bar"}, // This endpoint is used by two services, see above
+				},
+				Ports: []object.EndpointPort{
+					{Port: 80, Protocol: "tcp", Name: "http"},
+				},
+			},
+		},
+		Name:      "svc7-slice1",
+		Namespace: "testns",
+		Index:     object.EndpointsKey("svc7", "testns"),
+	}
 	switch ip {
 	case "1234:abcd::1":
 		fallthrough
@@ -132,6 +207,12 @@ func (APIConnReverseTest) EpIndexReverse(ip string) []*object.Endpoints {
 		return []*object.Endpoints{&ep1s1, &ep1s3}
 	case "10.0.0.99": // two different Services select this IP
 		return []*object.Endpoints{&ep1s1, &ep2}
+	case "10.0.0.98": // EndPointSlice with no hostname
+		return []*object.Endpoints{&ep3}
+	case "10.0.0.97": // two different Services with the same IP, no hostname
+		return []*object.Endpoints{&ep4, &ep5}
+	case "10.0.0.96": // two different Services with the same IP, each w/ hostname
+		return []*object.Endpoints{&ep6, &ep7}
 	}
 	return nil
 }
@@ -230,6 +311,29 @@ func TestReverse(t *testing.T) {
 			Rcode: dns.RcodeNameError,
 			Ns: []dns.RR{
 				test.SOA("cluster.local.       5     IN      SOA     ns.dns.cluster.local. hostmaster.cluster.local. 1502989566 7200 1800 86400 5"),
+			},
+		},
+		{
+			Qname: "98.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+			Rcode: dns.RcodeSuccess,
+			Answer: []dns.RR{
+				test.PTR("98.0.0.10.in-addr.arpa.      5    IN      PTR       10-0-0-98.svc3.testns.svc.cluster.local."),
+			},
+		},
+		{
+			Qname: "97.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+			Rcode: dns.RcodeSuccess,
+			Answer: []dns.RR{
+				test.PTR("97.0.0.10.in-addr.arpa.      5    IN      PTR       10-0-0-97.svc4.testns.svc.cluster.local."),
+				test.PTR("97.0.0.10.in-addr.arpa.      5    IN      PTR       10-0-0-97.svc5.testns.svc.cluster.local."),
+			},
+		},
+		{
+			Qname: "96.0.0.10.in-addr.arpa.", Qtype: dns.TypePTR,
+			Rcode: dns.RcodeSuccess,
+			Answer: []dns.RR{
+				test.PTR("96.0.0.10.in-addr.arpa.      5    IN      PTR       bar.svc7.testns.svc.cluster.local."),
+				test.PTR("96.0.0.10.in-addr.arpa.      5    IN      PTR       foo.svc6.testns.svc.cluster.local."),
 			},
 		},
 	}
