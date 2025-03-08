@@ -34,7 +34,7 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > 10 {
 				// don't add it, and just continue
 				continue
 			}
@@ -108,7 +108,7 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > 10 {
 				// don't add it, and just continue
 				continue
 			}
@@ -361,7 +361,7 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > 10 {
 				// don't add it, and just continue
 				continue
 			}
