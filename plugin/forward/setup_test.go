@@ -423,3 +423,36 @@ func TestFailfastAllUnhealthyUpstreams(t *testing.T) {
 		}
 	}
 }
+
+func TestSetupWithQueryTypeForMetrics(t *testing.T) {
+	tests := []struct {
+		input                 string
+		expectedLengthOnQType int
+		expectedErr           string
+	}{
+		{`forward . 127.0.0.1 {
+			qtype_for_metrics A AAAA PTR SRV
+		}`, 4, ""},
+		{`forward . 127.0.0.1 {
+			qtype_for_metrics
+		}`, 0, "Wrong argument count or unexpected line ending after 'qtype_for_metrics'"},
+	}
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		fs, err := parseForward(c)
+		if err != nil {
+			if test.expectedErr == "" {
+				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+			}
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
+			}
+		}
+		if test.expectedErr != "" {
+			continue
+		}
+		if len(fs[0].qTypeForMetrics) != test.expectedLengthOnQType {
+			t.Errorf("Test %d: expected %d qtypes, got %d", i, test.expectedLengthOnQType, len(fs[0].qTypeForMetrics))
+		}
+	}
+}

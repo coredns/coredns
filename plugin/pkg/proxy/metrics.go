@@ -18,6 +18,15 @@ var (
 		Help:                        "Histogram of the time each request took.",
 	}, []string{"proxy_name", "to", "rcode"})
 
+	requestDurationWithName = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace:                   plugin.Namespace,
+		Subsystem:                   "proxy",
+		Name:                        "request_duration_seconds_with_name",
+		Buckets:                     plugin.TimeBuckets,
+		NativeHistogramBucketFactor: plugin.NativeHistogramBucketFactor,
+		Help:                        "Histogram of the time each request took.",
+	}, []string{"proxy_name", "to", "rcode", "name", "type"})
+
 	healthcheckFailureCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "proxy",
