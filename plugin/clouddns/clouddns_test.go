@@ -289,7 +289,7 @@ func TestCloudDNS(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		code, err := r.ServeDNS(ctx, rec, req)
 
-		if err != tc.expectedErr {
+		if !errors.Is(err, tc.expectedErr) {
 			t.Fatalf("Test %d: Expected error %v, but got %v", ti, tc.expectedErr, err)
 		}
 		if code != tc.wantRetCode {

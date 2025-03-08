@@ -54,7 +54,7 @@ func parse(c *caddy.Controller) (string, time.Duration, error) {
 				}
 				l, err := time.ParseDuration(args[0])
 				if err != nil {
-					return "", 0, fmt.Errorf("unable to parse lameduck duration value: '%v' : %v", args[0], err)
+					return "", 0, fmt.Errorf("unable to parse lameduck duration value: '%v' : %w", args[0], err)
 				}
 				dur = l
 			default:

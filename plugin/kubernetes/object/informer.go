@@ -1,6 +1,7 @@
 package object
 
 import (
+	"errors"
 	"fmt"
 
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,7 +67,7 @@ func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) Pr
 							return fmt.Errorf("unexpected object %v", d.Object)
 						}
 						obj, err = convert(metaObj)
-						if err != nil && err != errPodTerminating {
+						if err != nil && !errors.Is(err, errPodTerminating) {
 							return err
 						}
 					}
