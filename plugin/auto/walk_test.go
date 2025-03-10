@@ -44,7 +44,7 @@ func TestWalk(t *testing.T) {
 	}
 }
 
-func TestWalkNonExistent(t *testing.T) {
+func TestWalkNonExistent(_ *testing.T) {
 	nonExistingDir := "highly_unlikely_to_exist_dir"
 
 	ldr := loader{

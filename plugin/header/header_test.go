@@ -13,7 +13,7 @@ import (
 
 func TestHeaderResponseRules(t *testing.T) {
 	wr := dnstest.NewRecorder(&test.ResponseWriter{})
-	next := plugin.HandlerFunc(func(ctx context.Context, writer dns.ResponseWriter, msg *dns.Msg) (int, error) {
+	next := plugin.HandlerFunc(func(_ context.Context, writer dns.ResponseWriter, msg *dns.Msg) (int, error) {
 		writer.WriteMsg(msg)
 		return dns.RcodeSuccess, nil
 	})
@@ -83,7 +83,7 @@ func TestHeaderResponseRules(t *testing.T) {
 
 func TestHeaderQueryRules(t *testing.T) {
 	wr := dnstest.NewRecorder(&test.ResponseWriter{})
-	next := plugin.HandlerFunc(func(ctx context.Context, writer dns.ResponseWriter, msg *dns.Msg) (int, error) {
+	next := plugin.HandlerFunc(func(_ context.Context, writer dns.ResponseWriter, msg *dns.Msg) (int, error) {
 		writer.WriteMsg(msg)
 		return dns.RcodeSuccess, nil
 	})

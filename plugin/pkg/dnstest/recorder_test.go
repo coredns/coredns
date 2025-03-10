@@ -8,7 +8,7 @@ import (
 
 type responseWriter struct{ dns.ResponseWriter }
 
-func (r *responseWriter) WriteMsg(m *dns.Msg) error     { return nil }
+func (r *responseWriter) WriteMsg(_ *dns.Msg) error     { return nil }
 func (r *responseWriter) Write(buf []byte) (int, error) { return len(buf), nil }
 
 func TestNewRecorder(t *testing.T) {

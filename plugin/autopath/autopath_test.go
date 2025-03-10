@@ -109,7 +109,7 @@ func TestAutoPathNoAnswer(t *testing.T) {
 // nextHandler returns a Handler that returns an answer for the question in the
 // request per the domain->answer map. On success an RR will be returned: "qname 3600 IN A 127.0.0.53"
 func nextHandler(mm map[string]int) test.Handler {
-	return test.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return test.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		rcode, ok := mm[r.Question[0].Name]
 		if !ok {
 			return dns.RcodeServerFailure, nil

@@ -205,7 +205,7 @@ func createClusterIPSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 	}, meta.CreateOptions{})
 }
 
-func createHeadlessSvc(suffix int, client kubernetes.Interface, ip net.IP) {
+func createHeadlessSvc(suffix int, client kubernetes.Interface, _ net.IP) {
 	ctx := context.TODO()
 	client.CoreV1().Services("testns").Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{
@@ -218,7 +218,7 @@ func createHeadlessSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 	}, meta.CreateOptions{})
 }
 
-func createExternalSvc(suffix int, client kubernetes.Interface, ip net.IP) {
+func createExternalSvc(suffix int, client kubernetes.Interface, _ net.IP) {
 	ctx := context.TODO()
 	client.CoreV1().Services("testns").Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{

@@ -97,6 +97,6 @@ func getTempDirPath() (string, error) {
 	return tempDir, nil
 }
 
-func getInaccessiblePath(file string) string {
+func getInaccessiblePath(_ string) string {
 	return filepath.Join("C:", "file\x00name") // null byte in filename is not allowed on Windows AND unix
 }

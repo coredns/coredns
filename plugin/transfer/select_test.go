@@ -16,14 +16,14 @@ type (
 	t2 struct{}
 )
 
-func (t t1) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
+func (t t1) Transfer(zone string, _ uint32) (<-chan []dns.RR, error) {
 	const z = "example.org."
 	if zone != z {
 		return nil, ErrNotAuthoritative
 	}
 	return nil, errors.New(z)
 }
-func (t t2) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
+func (t t2) Transfer(zone string, _ uint32) (<-chan []dns.RR, error) {
 	const z = "sub.example.org."
 	if zone != z {
 		return nil, ErrNotAuthoritative

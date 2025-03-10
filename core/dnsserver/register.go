@@ -30,7 +30,7 @@ func init() {
 	})
 }
 
-func newContext(i *caddy.Instance) caddy.Context {
+func newContext(_ *caddy.Instance) caddy.Context {
 	return &dnsContext{keysToConfigs: make(map[string]*Config)}
 }
 
@@ -52,7 +52,7 @@ var _ caddy.Context = &dnsContext{}
 // InspectServerBlocks make sure that everything checks out before
 // executing directives and otherwise prepares the directives to
 // be parsed and executed.
-func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddyfile.ServerBlock) ([]caddyfile.ServerBlock, error) {
+func (h *dnsContext) InspectServerBlocks(_ string, serverBlocks []caddyfile.ServerBlock) ([]caddyfile.ServerBlock, error) {
 	// Normalize and check all the zone names and check for duplicates
 	for ib, s := range serverBlocks {
 		// Walk the s.Keys and expand any reverse address in their proper DNS in-addr zones. If the expansions leads for

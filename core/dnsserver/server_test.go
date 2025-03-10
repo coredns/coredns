@@ -13,7 +13,7 @@ import (
 
 type testPlugin struct{}
 
-func (tp testPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (tp testPlugin) ServeDNS(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
 	return 0, nil
 }
 
@@ -29,7 +29,7 @@ func testConfig(transport string, p plugin.Handler) *Config {
 		Stacktrace:  false,
 	}
 
-	c.AddPlugin(func(next plugin.Handler) plugin.Handler { return p })
+	c.AddPlugin(func(_ plugin.Handler) plugin.Handler { return p })
 	return c
 }
 

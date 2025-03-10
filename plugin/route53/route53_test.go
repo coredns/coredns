@@ -23,7 +23,7 @@ type fakeRoute53 struct {
 	route53iface.Route53API
 }
 
-func (fakeRoute53) ListHostedZonesByNameWithContext(_ aws.Context, input *route53.ListHostedZonesByNameInput, _ ...request.Option) (*route53.ListHostedZonesByNameOutput, error) {
+func (fakeRoute53) ListHostedZonesByNameWithContext(_ aws.Context, _ *route53.ListHostedZonesByNameInput, _ ...request.Option) (*route53.ListHostedZonesByNameOutput, error) {
 	return nil, nil
 }
 
@@ -94,7 +94,7 @@ func TestRoute53(t *testing.T) {
 	}
 	r.Fall = fall.Zero
 	r.Fall.SetZonesFromArgs([]string{"gov."})
-	r.Next = test.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	r.Next = test.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		state := crequest.Request{W: w, Req: r}
 		qname := state.Name()
 		m := new(dns.Msg)

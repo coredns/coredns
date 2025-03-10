@@ -297,9 +297,9 @@ func (external) EndpointsList() []*object.Endpoints {
 	}
 	return eps
 }
-func (external) GetNodeByName(ctx context.Context, name string) (*api.Node, error) { return nil, nil }
-func (external) SvcIndex(s string) []*object.Service                               { return svcIndexExternal[s] }
-func (external) PodIndex(string) []*object.Pod                                     { return nil }
+func (external) GetNodeByName(_ context.Context, _ string) (*api.Node, error) { return nil, nil }
+func (external) SvcIndex(s string) []*object.Service                          { return svcIndexExternal[s] }
+func (external) PodIndex(string) []*object.Pod                                { return nil }
 
 func (external) SvcExtIndexReverse(ip string) (result []*object.Service) {
 	for _, svcs := range svcIndexExternal {
@@ -416,7 +416,7 @@ func (external) ServiceList() []*object.Service {
 	return svcs
 }
 
-func externalAddress(state request.Request, headless bool) []dns.RR {
+func externalAddress(_ request.Request, _ bool) []dns.RR {
 	a := test.A("example.org. IN A 127.0.0.1")
 	return []dns.RR{a}
 }
