@@ -1,8 +1,7 @@
 module github.com/coredns/coredns
 
 go 1.22.7
-
-toolchain go1.23.0
+toolchain go1.23.7
 
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
@@ -29,10 +28,10 @@ require (
 	github.com/prometheus/client_model v0.6.1
 	github.com/prometheus/common v0.62.0
 	github.com/quic-go/quic-go v0.49.0
-	go.etcd.io/etcd/api/v3 v3.5.18
-	go.etcd.io/etcd/client/v3 v3.5.18
+	go.etcd.io/etcd/api/v3 v3.5.19
+	go.etcd.io/etcd/client/v3 v3.5.19
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.33.0
+	golang.org/x/crypto v0.35.0
 	golang.org/x/sys v0.30.0
 	google.golang.org/api v0.221.0
 	google.golang.org/grpc v1.70.0
@@ -146,7 +145,7 @@ require (
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.5.18 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.5.19 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/collector/component v0.104.0 // indirect
 	go.opentelemetry.io/collector/config/configtelemetry v0.104.0 // indirect
@@ -163,7 +162,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
 	golang.org/x/mod v0.20.0 // indirect
-	golang.org/x/net v0.35.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
 	golang.org/x/oauth2 v0.26.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/term v0.29.0 // indirect
