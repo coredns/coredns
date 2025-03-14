@@ -1,17 +1,18 @@
 package route53
 
 import (
+	"context"
 	"testing"
 
 	"github.com/coredns/caddy"
 
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/route53/route53iface"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/route53"
 )
 
 func TestSetupRoute53(t *testing.T) {
-	f = func(opts session.Options) route53iface.Route53API {
-		return fakeRoute53{}
+	f = func(_ context.Context, _ []func(*config.LoadOptions) error, _ []func(*route53.Options)) (route53Client, error) {
+		return fakeRoute53{}, nil
 	}
 
 	tests := []struct {
