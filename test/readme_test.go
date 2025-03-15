@@ -166,7 +166,7 @@ func sectionsFromReadme(readme string) error {
 		}
 	}
 	if section != 4 {
-		return fmt.Errorf("Sections incomplete or ordered wrong: %q, want (at least): Name, Descripion, Syntax and Examples", readme)
+		return fmt.Errorf("Sections incomplete or ordered wrong: %q, want (at least): Name, Description, Syntax and Examples", readme)
 	}
 	return nil
 }

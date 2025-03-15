@@ -36,7 +36,7 @@ func TestStartup(t *testing.T) {
 	}
 
 	if m.tagSet != tagByProvider["default"] {
-		t.Errorf("TagSet by proviser hasn't been corectly initialized")
+		t.Errorf("TagSet by proviser hasn't been correctly initialized")
 	}
 
 	if m.Tracer() == nil {
