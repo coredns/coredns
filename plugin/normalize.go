@@ -25,7 +25,7 @@ type Zones []string
 func (z Zones) Matches(qname string) string {
 	zone := ""
 	for _, zname := range z {
-		if dns.IsSubDomain(zname, qname) {
+		if IsSubDomain(zname, qname) {
 			// We want the *longest* matching zone, otherwise we may end up in a parent
 			if len(zname) > len(zone) {
 				zone = zname
@@ -33,6 +33,21 @@ func (z Zones) Matches(qname string) string {
 		}
 	}
 	return zone
+}
+
+// dns.IsSubDomain is Inefficient methods
+func IsSubDomain(zone, qname string) bool {
+	if zone == "." {
+		return true
+	}
+	lz, lq := len(zone), len(qname)
+	if lz > lq {
+		return false
+	}
+	if lz < lq && qname[lq-lz-1] != '.' {
+		return false
+	}
+	return strings.EqualFold(qname[lq-lz:], zone)
 }
 
 // Normalize fully qualifies all zones in z. The zones in Z must be domain names, without
