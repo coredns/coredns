@@ -121,6 +121,11 @@ The *kubernetes* plugin watches Endpoints via the `discovery.EndpointSlices` API
 This plugin reports readiness to the ready plugin. This will happen after it has synced to the
 Kubernetes API.
 
+## PTR Records
+
+This plugin creates PTR records for every Pod selected by a Service. If a given Pod is selected by more than
+one Service a separate PTR record will exist for each Service selecting it.
+
 ## Examples
 
 Handle all queries in the `cluster.local` zone. Connect to Kubernetes in-cluster. Also handle all
