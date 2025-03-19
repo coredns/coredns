@@ -30,10 +30,16 @@ func TestTimeouts(t *testing.T) {
 			write 20
 			idle 60
 		}`, false, "", ""},
-		// negative
-		{`timeouts`, true, "", "block with no timeouts specified"},
 		{`timeouts {
-		}`, true, "", "block with no timeouts specified"},
+			read 10
+			write 20
+			idle 60
+			max_queries 100
+		}`, false, "", ""},
+		// negative
+		{`timeouts`, true, "", "block with no timeouts or limits specified"},
+		{`timeouts {
+		}`, true, "", "block with no timeouts or limits specified"},
 		{`timeouts {
 			read 10s
 			giraffe 30s
@@ -51,6 +57,9 @@ func TestTimeouts(t *testing.T) {
 		{`timeouts {
 			read 48h
 		}`, true, "", "needs to be between"},
+		{`timeouts {
+			max_queries -3
+		}`, true, "", "max_queries must be a positive integer"},
 	}
 
 	for i, test := range tests {
