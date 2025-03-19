@@ -30,6 +30,7 @@ import (
 	_ "github.com/coredns/coredns/plugin/header"
 	_ "github.com/coredns/coredns/plugin/health"
 	_ "github.com/coredns/coredns/plugin/hosts"
+	_ "github.com/coredns/coredns/plugin/json"
 	_ "github.com/coredns/coredns/plugin/k8s_external"
 	_ "github.com/coredns/coredns/plugin/kubernetes"
 	_ "github.com/coredns/coredns/plugin/loadbalance"

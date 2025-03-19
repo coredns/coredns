@@ -13,6 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.6
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.34.18
 	github.com/coredns/caddy v1.1.2-0.20241029205200-8de985351a98
+	github.com/coredns/coredns/plugin/json v0.0.0-00010101000000-000000000000
 	github.com/dnstap/golang-dnstap v0.4.0
 	github.com/expr-lang/expr v1.16.9
 	github.com/farsightsec/golang-framestream v0.3.0
@@ -184,3 +185,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
+
+replace github.com/coredns/coredns/plugin/json => /Users/zzn/ws/@namefi/coredns-repos/coredns/plugin/json
