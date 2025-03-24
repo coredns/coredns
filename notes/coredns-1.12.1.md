@@ -1,9 +1,9 @@
 +++
-title = "CoreDNS-1.12.0 Release"
-description = "CoreDNS-1.12.0 Release Notes."
-tags = ["Release", "1.12.0", "Notes"]
-release = "1.12.0"
-date = "2024-11-21T00:00:00+00:00"
+title = "CoreDNS-1.12.1 Release"
+description = "CoreDNS-1.12.1 Release Notes."
+tags = ["Release", "1.12.1", "Notes"]
+release = "1.12.1"
+date = "2024-03-24T00:00:00+00:00"
 author = "coredns"
 +++
 
