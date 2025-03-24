@@ -1,0 +1,33 @@
++++
+title = "CoreDNS-1.12.0 Release"
+description = "CoreDNS-1.12.0 Release Notes."
+tags = ["Release", "1.12.0", "Notes"]
+release = "1.12.0"
+date = "2024-11-21T00:00:00+00:00"
+author = "coredns"
++++
+
+In this release:
+* kubernetes: Revert recent change to only create PTR records for endpoints with hostname defined.
+* forward: added option to return SERVFAIL immediately if all upstreams are unhealthy.
+* view: expressions library update adds if-then-else and sequential statements
+
+## Brought to You By
+
+Adrian Moisey,
+Arthur Outhenin-Chalandre,
+Bartosz Borkowski,
+Chris O'Haver,
+Min Woo Kim,
+Puneet Loya,
+Rich,
+Viktor,
+momantech
+
+
+## Noteworthy Changes
+
+* Increase CNAME lookup limit from 7 to 10 (https://github.com/coredns/coredns/pull/7153)
+* Fix handling of pods having DeletionTimestamp set (https://github.com/coredns/coredns/pull/7119) (#7131)
+* Revert "only create PTR records for endpoints with hostname defined (https://github.com/coredns/coredns/pull/6898)" (#7194)
+* plugin/forward: added option `failfast_all_unhealthy_upstreams` to return servfail if all upstreams are down (https://github.com/coredns/coredns/pull/6999)
