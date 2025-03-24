@@ -17,6 +17,7 @@ In this release:
 Adrian Moisey,
 Arthur Outhenin-Chalandre,
 Bartosz Borkowski,
+Ben Kochie,
 Chris O'Haver,
 Min Woo Kim,
 Puneet Loya,
