@@ -129,11 +129,12 @@ func TestDefaultProcessorWithPod(t *testing.T) {
 }
 
 func testProcessorWithPod(t *testing.T, processor cache.ProcessFunc, idx cache.Indexer) {
+	container := api.Container{}
 	obj := &api.Pod{
 		ObjectMeta: metav1.ObjectMeta{Name: "pod1", Namespace: "test1"},
 		Spec: api.PodSpec{
 			Containers: []api.Container{
-				api.Container{},
+				container,
 			},
 		},
 	}
@@ -141,7 +142,7 @@ func testProcessorWithPod(t *testing.T, processor cache.ProcessFunc, idx cache.I
 		ObjectMeta: metav1.ObjectMeta{Name: "pod1", Namespace: "test1", DeletionTimestamp: &metav1.Time{Time: time.Now()}},
 		Spec: api.PodSpec{
 			Containers: []api.Container{
-				api.Container{},
+				container,
 			},
 		},
 	}
