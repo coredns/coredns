@@ -2,8 +2,6 @@ module github.com/coredns/coredns
 
 go 1.23.0
 
-toolchain go1.24.1
-
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.30
