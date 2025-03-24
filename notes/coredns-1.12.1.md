@@ -27,7 +27,7 @@ momantech
 
 ## Noteworthy Changes
 
-* Increase CNAME lookup limit from 7 to 10 (https://github.com/coredns/coredns/pull/7153)
-* Fix handling of pods having DeletionTimestamp set (https://github.com/coredns/coredns/pull/7119) (#7131)
-* Revert "only create PTR records for endpoints with hostname defined (https://github.com/coredns/coredns/pull/6898)" (#7194)
+* core: Increase CNAME lookup limit from 7 to 10 (https://github.com/coredns/coredns/pull/7153)
+* plugin/kubernetes: Fix handling of pods having DeletionTimestamp set (https://github.com/coredns/coredns/pull/7119) (#7131)
+* plugin/kubernetes: Revert "only create PTR records for endpoints with hostname defined (https://github.com/coredns/coredns/pull/6898)" (#7194)
 * plugin/forward: added option `failfast_all_unhealthy_upstreams` to return servfail if all upstreams are down (https://github.com/coredns/coredns/pull/6999)
