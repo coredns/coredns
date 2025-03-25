@@ -22,7 +22,7 @@ type Cache struct {
 
 // shard is a cache with random eviction.
 type shard struct {
-	items map[uint64]interface{}
+	items map[uint64]any
 	size  int
 
 	sync.RWMutex
@@ -46,13 +46,13 @@ func New(size int) *Cache {
 
 // Add adds a new element to the cache. If the element already exists it is overwritten.
 // Returns true if an existing element was evicted to make room for this element.
-func (c *Cache) Add(key uint64, el interface{}) bool {
+func (c *Cache) Add(key uint64, el any) bool {
 	shard := key & (shardSize - 1)
 	return c.shards[shard].Add(key, el)
 }
 
 // Get looks up element index under key.
-func (c *Cache) Get(key uint64) (interface{}, bool) {
+func (c *Cache) Get(key uint64) (any, bool) {
 	shard := key & (shardSize - 1)
 	return c.shards[shard].Get(key)
 }
@@ -73,18 +73,18 @@ func (c *Cache) Len() int {
 }
 
 // Walk walks each shard in the cache.
-func (c *Cache) Walk(f func(map[uint64]interface{}, uint64) bool) {
+func (c *Cache) Walk(f func(map[uint64]any, uint64) bool) {
 	for _, s := range &c.shards {
 		s.Walk(f)
 	}
 }
 
 // newShard returns a new shard with size.
-func newShard(size int) *shard { return &shard{items: make(map[uint64]interface{}), size: size} }
+func newShard(size int) *shard { return &shard{items: make(map[uint64]any), size: size} }
 
 // Add adds element indexed by key into the cache. Any existing element is overwritten
 // Returns true if an existing element was evicted to make room for this element.
-func (s *shard) Add(key uint64, el interface{}) bool {
+func (s *shard) Add(key uint64, el any) bool {
 	eviction := false
 	s.Lock()
 	if len(s.items) >= s.size {
@@ -119,7 +119,7 @@ func (s *shard) Evict() {
 }
 
 // Get looks up the element indexed under key.
-func (s *shard) Get(key uint64) (interface{}, bool) {
+func (s *shard) Get(key uint64) (any, bool) {
 	s.RLock()
 	el, found := s.items[key]
 	s.RUnlock()
@@ -135,7 +135,7 @@ func (s *shard) Len() int {
 }
 
 // Walk walks the shard for each element the function f is executed while holding a write lock.
-func (s *shard) Walk(f func(map[uint64]interface{}, uint64) bool) {
+func (s *shard) Walk(f func(map[uint64]any, uint64) bool) {
 	s.RLock()
 	items := make([]uint64, len(s.items))
 	i := 0
