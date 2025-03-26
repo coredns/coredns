@@ -59,13 +59,20 @@ func newRemapStringRewriter(orig, replacement string) stringRewriter {
 }
 
 func (r *remapStringRewriter) rewriteString(src string) string {
-	if src == r.orig {
-		return r.replacement
+	switch {
+	case len(r.orig) > len(src):
+		return src
+	case len(r.orig) == len(src):
+		if strings.EqualFold(src, r.orig) {
+			return r.replacement
+		}
+		return src
+	default:
+		if hasSuffixFold(src, "."+r.orig) {
+			return src[0:len(src)-len(r.orig)] + r.replacement
+		}
+		return src
 	}
-	if strings.HasSuffix(src, "."+r.orig) {
-		return src[0:len(src)-len(r.orig)] + r.replacement
-	}
-	return src
 }
 
 // suffixStringRewriter maps a dedicated suffix string to another string
@@ -81,8 +88,8 @@ func newSuffixStringRewriter(orig, replacement string) stringRewriter {
 }
 
 func (r *suffixStringRewriter) rewriteString(src string) string {
-	if strings.HasSuffix(src, r.suffix) {
-		return strings.TrimSuffix(src, r.suffix) + r.replacement
+	if hasSuffixFold(src, r.suffix) {
+		return src[:len(src)-len(r.suffix)] + r.replacement
 	}
 	return src
 }
@@ -446,4 +453,13 @@ func isValidRegexPattern(rewriteFrom, rewriteTo string) (*regexp.Regexp, error) 
 		return nil, fmt.Errorf("the rewrite regex pattern (%s) uses more subexpressions than its corresponding matching regex pattern (%s)", rewriteTo, rewriteFrom)
 	}
 	return rewriteFromPattern, nil
+}
+
+// hasSuffixFold is similiar to strings.HasSuffix but case insensitive
+func hasSuffixFold(s, suffix string) bool {
+	if len(s) < len(suffix) {
+		return false
+	}
+
+	return strings.EqualFold(s[len(s)-len(suffix):], suffix)
 }
