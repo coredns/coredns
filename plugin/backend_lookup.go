@@ -429,20 +429,20 @@ func PTR(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 	return records, nil
 }
 
-// NS returns NS records from  the backend
+// NS returns NS records from the backend
 func NS(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) (records, extra []dns.RR, err error) {
-	// NS record for this zone live in a special place, ns.dns.<zone>. Fake our lookup.
-	// only a tad bit fishy...
+	// NS record for this zone lives in a special place, ns.dns.<zone>. Fake our lookup.
+	// Only a tad bit fishy...
 	old := state.QName()
 
 	state.Clear()
 	state.Req.Question[0].Name = dnsutil.Join("ns.dns.", zone)
 	services, err := b.Services(ctx, state, false, opt)
+	// reset the query name to the original
+	state.Req.Question[0].Name = old
 	if err != nil {
 		return nil, nil, err
 	}
-	// ... and reset
-	state.Req.Question[0].Name = old
 
 	seen := map[string]bool{}
 
