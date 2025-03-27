@@ -3,6 +3,7 @@ package geoip
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -41,7 +42,7 @@ var probingIP = net.ParseIP("127.0.0.1")
 func newGeoIP(dbPath string, edns0 bool) (*GeoIP, error) {
 	reader, err := geoip2.Open(dbPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database file: %v", err)
+		return nil, fmt.Errorf("failed to open database file: %w", err)
 	}
 	db := db{Reader: reader}
 	schemas := []struct {
@@ -55,8 +56,9 @@ func newGeoIP(dbPath string, edns0 bool) (*GeoIP, error) {
 	for _, schema := range schemas {
 		if err := schema.validate(); err != nil {
 			// If we get an InvalidMethodError then we know this database does not provide that schema.
-			if _, ok := err.(geoip2.InvalidMethodError); !ok {
-				return nil, fmt.Errorf("unexpected failure looking up database %q schema %q: %v", filepath.Base(dbPath), schema.name, err)
+			var e geoip2.InvalidMethodError
+			if !errors.As(err, &e) {
+				return nil, fmt.Errorf("unexpected failure looking up database %q schema %q: %w", filepath.Base(dbPath), schema.name, err)
 			}
 		} else {
 			db.provides |= schema.provides

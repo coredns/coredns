@@ -175,7 +175,7 @@ func (k *Kubernetes) Lookup(ctx context.Context, state request.Request, name str
 
 // IsNameError implements the ServiceBackend interface.
 func (k *Kubernetes) IsNameError(err error) bool {
-	return err == errNoItems || err == errNsNotExposed || err == errInvalidRequest
+	return errors.Is(err, errNoItems) || errors.Is(err, errNsNotExposed) || errors.Is(err, errInvalidRequest)
 }
 
 func (k *Kubernetes) getClientConfig() (*rest.Config, error) {
@@ -234,14 +234,14 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 
 	kubeClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create kubernetes notification controller: %q", err)
+		return nil, nil, fmt.Errorf("failed to create kubernetes notification controller: %w", err)
 	}
 
 	if k.opts.labelSelector != nil {
 		var selector labels.Selector
 		selector, err = meta.LabelSelectorAsSelector(k.opts.labelSelector)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", k.opts.labelSelector, err)
+			return nil, nil, fmt.Errorf("unable to create Selector for LabelSelector '%s': %w", k.opts.labelSelector, err)
 		}
 		k.opts.selector = selector
 	}
@@ -250,7 +250,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 		var selector labels.Selector
 		selector, err = meta.LabelSelectorAsSelector(k.opts.namespaceLabelSelector)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", k.opts.namespaceLabelSelector, err)
+			return nil, nil, fmt.Errorf("unable to create Selector for LabelSelector '%s': %w", k.opts.namespaceLabelSelector, err)
 		}
 		k.opts.namespaceSelector = selector
 	}

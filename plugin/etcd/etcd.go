@@ -63,7 +63,7 @@ func (e *Etcd) Lookup(ctx context.Context, state request.Request, name string, t
 
 // IsNameError implements the ServiceBackend interface.
 func (e *Etcd) IsNameError(err error) bool {
-	return err == errKeyNotFound
+	return errors.Is(err, errKeyNotFound)
 }
 
 // Records looks up records in etcd. If exact is true, it will lookup just this

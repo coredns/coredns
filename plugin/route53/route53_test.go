@@ -228,7 +228,7 @@ func TestRoute53(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		code, err := r.ServeDNS(ctx, rec, req)
 
-		if err != tc.expectedErr {
+		if !errors.Is(err, tc.expectedErr) {
 			t.Fatalf("Test %d: Expected error %v, but got %v", ti, tc.expectedErr, err)
 		}
 		if code != tc.wantRetCode {
@@ -288,7 +288,7 @@ func TestMaybeUnescape(t *testing.T) {
 		{escaped: `example.com\0`, wantErr: errors.New(`invalid escape sequence: '\0'`)},
 	} {
 		got, gotErr := maybeUnescape(tc.escaped)
-		if tc.wantErr != gotErr && !reflect.DeepEqual(tc.wantErr, gotErr) {
+		if !errors.Is(gotErr, tc.wantErr) && !reflect.DeepEqual(tc.wantErr, gotErr) {
 			t.Fatalf("Test %d: Expected error: `%v', but got: `%v'", ti, tc.wantErr, gotErr)
 		}
 		if tc.want != got {

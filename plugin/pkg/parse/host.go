@@ -91,8 +91,8 @@ func HostPortOrFile(s ...string) ([]string, error) {
 // Try to open this is a file first.
 func tryFile(s string) ([]string, error) {
 	c, err := dns.ClientConfigFromFile(s)
-	if err == os.ErrNotExist {
-		return nil, fmt.Errorf("failed to open file %q: %q", s, err)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("failed to open file %q: %w", s, err)
 	} else if err != nil {
 		return nil, err
 	}

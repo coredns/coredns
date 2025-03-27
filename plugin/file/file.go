@@ -156,7 +156,7 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 		return nil, fmt.Errorf("file %q has no SOA record for origin %s", fileName, origin)
 	}
 	if zp.Err() != nil {
-		return nil, fmt.Errorf("failed to parse file %q for origin %s with error %v", fileName, origin, zp.Err())
+		return nil, fmt.Errorf("failed to parse file %q for origin %s with error %w", fileName, origin, zp.Err())
 	}
 
 	if err := zp.Err(); err != nil {

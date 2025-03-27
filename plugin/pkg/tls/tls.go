@@ -87,7 +87,7 @@ func NewTLSConfigFromArgs(args ...string) (*tls.Config, error) {
 func NewTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
 	if err != nil {
-		return nil, fmt.Errorf("could not load TLS cert: %s", err)
+		return nil, fmt.Errorf("could not load TLS cert: %w", err)
 	}
 
 	roots, err := loadRoots(caPath)
@@ -123,11 +123,11 @@ func loadRoots(caPath string) (*x509.CertPool, error) {
 	roots := x509.NewCertPool()
 	pem, err := os.ReadFile(filepath.Clean(caPath))
 	if err != nil {
-		return nil, fmt.Errorf("error reading %s: %s", caPath, err)
+		return nil, fmt.Errorf("error reading %s: %w", caPath, err)
 	}
 	ok := roots.AppendCertsFromPEM(pem)
 	if !ok {
-		return nil, fmt.Errorf("could not read root certs: %s", err)
+		return nil, fmt.Errorf("could not read root certs: %w", err)
 	}
 	return roots, nil
 }

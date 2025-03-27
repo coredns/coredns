@@ -3,6 +3,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"sync"
@@ -53,7 +54,8 @@ func (m *Metrics) MustRegister(c prometheus.Collector) {
 	err := m.Reg.Register(c)
 	if err != nil {
 		// ignore any duplicate error, but fatal on any other kind of error
-		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+		var e prometheus.AlreadyRegisteredError
+		if !errors.As(err, &e) {
 			log.Fatalf("Cannot register metrics collector: %s", err)
 		}
 	}
