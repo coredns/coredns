@@ -10,7 +10,7 @@ import (
 )
 
 func TestSetupCloudDNS(t *testing.T) {
-	f = func(ctx context.Context, opt option.ClientOption) (gcpDNS, error) {
+	f = func(_ context.Context, _ option.ClientOption) (gcpDNS, error) {
 		return fakeGCPClient{}, nil
 	}
 

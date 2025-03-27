@@ -180,7 +180,7 @@ func TestLookup(t *testing.T) {
 	}
 }
 
-func TestLookupNil(t *testing.T) {
+func TestLookupNil(_ *testing.T) {
 	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{testzone: nil}, Names: []string{testzone}}}
 	ctx := context.TODO()
 

@@ -54,7 +54,7 @@ func AddPrefix(b []byte) (m []byte) {
 
 // These methods implement the dns.ResponseWriter interface from Go DNS.
 func (w *DoQWriter) TsigStatus() error     { return nil }
-func (w *DoQWriter) TsigTimersOnly(b bool) {}
+func (w *DoQWriter) TsigTimersOnly(_ bool) {}
 func (w *DoQWriter) Hijack()               {}
 func (w *DoQWriter) LocalAddr() net.Addr   { return w.localAddr }
 func (w *DoQWriter) RemoteAddr() net.Addr  { return w.remoteAddr }

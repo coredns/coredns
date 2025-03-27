@@ -231,7 +231,7 @@ func TestStop(t *testing.T) {
 }
 
 func genErrorHandler(rcode int, err error) plugin.Handler {
-	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return plugin.HandlerFunc(func(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
 		return rcode, err
 	})
 }

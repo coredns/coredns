@@ -19,7 +19,7 @@ const name = "whoami"
 type Whoami struct{}
 
 // ServeDNS implements the plugin.Handler interface.
-func (wh Whoami) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (wh Whoami) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
 	a := new(dns.Msg)

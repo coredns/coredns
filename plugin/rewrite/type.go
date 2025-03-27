@@ -31,7 +31,7 @@ func newTypeRule(nextAction string, args ...string) (Rule, error) {
 }
 
 // Rewrite rewrites the current request.
-func (rule *typeRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *typeRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	if rule.fromType > 0 && rule.toType > 0 {
 		if state.QType() == rule.fromType {
 			state.Req.Question[0].Qtype = rule.toType

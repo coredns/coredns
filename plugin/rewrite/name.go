@@ -92,7 +92,7 @@ type nameRewriterResponseRule struct {
 	stringRewriter
 }
 
-func (r *nameRewriterResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
+func (r *nameRewriterResponseRule) RewriteResponse(_ *dns.Msg, rr dns.RR) {
 	rr.Header().Name = r.rewriteString(rr.Header().Name)
 }
 
@@ -101,7 +101,7 @@ type valueRewriterResponseRule struct {
 	stringRewriter
 }
 
-func (r *valueRewriterResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
+func (r *valueRewriterResponseRule) RewriteResponse(_ *dns.Msg, rr dns.RR) {
 	value := getRecordValueForRewrite(rr)
 	if value != "" {
 		new := r.rewriteString(value)
@@ -181,7 +181,7 @@ func newExactNameRule(nextAction string, orig, replacement string, answers Respo
 	}
 }
 
-func (rule *exactNameRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *exactNameRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	if rule.from == state.Name() {
 		state.Req.Question[0].Name = rule.replacement
 		return rule.responseRuleFor(state)
@@ -202,7 +202,7 @@ func newPrefixNameRule(nextAction string, auto bool, prefix, replacement string,
 	}
 }
 
-func (rule *prefixNameRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *prefixNameRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	if strings.HasPrefix(state.Name(), rule.prefix) {
 		state.Req.Question[0].Name = rule.replacement + strings.TrimPrefix(state.Name(), rule.prefix)
 		return rule.responseRuleFor(state)
@@ -233,7 +233,7 @@ func newSuffixNameRule(nextAction string, auto bool, suffix, replacement string,
 	}
 }
 
-func (rule *suffixNameRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *suffixNameRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	if strings.HasSuffix(state.Name(), rule.suffix) {
 		state.Req.Question[0].Name = strings.TrimSuffix(state.Name(), rule.suffix) + rule.replacement
 		return rule.responseRuleFor(state)
@@ -255,7 +255,7 @@ func newSubstringNameRule(nextAction string, auto bool, substring, replacement s
 	}
 }
 
-func (rule *substringNameRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *substringNameRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	if strings.Contains(state.Name(), rule.substring) {
 		state.Req.Question[0].Name = strings.Replace(state.Name(), rule.substring, rule.replacement, -1)
 		return rule.responseRuleFor(state)
@@ -277,7 +277,7 @@ func newRegexNameRule(nextAction string, auto bool, pattern *regexp.Regexp, repl
 	}
 }
 
-func (rule *regexNameRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *regexNameRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	regexGroups := rule.pattern.FindStringSubmatch(state.Name())
 	if len(regexGroups) == 0 {
 		return nil, RewriteIgnored

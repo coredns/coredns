@@ -18,7 +18,7 @@ type rcodeResponseRule struct {
 	new int
 }
 
-func (r *rcodeResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
+func (r *rcodeResponseRule) RewriteResponse(res *dns.Msg, _ dns.RR) {
 	if r.old == res.MsgHdr.Rcode {
 		res.MsgHdr.Rcode = r.new
 	}
@@ -73,29 +73,29 @@ type regexRCodeRule struct {
 
 // Rewrite rewrites the current request based upon exact match of the name
 // in the question section of the request.
-func (rule *exactRCodeRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *exactRCodeRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(rule.From == state.Name())
 }
 
 // Rewrite rewrites the current request when the name begins with the matching string.
-func (rule *prefixRCodeRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *prefixRCodeRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(strings.HasPrefix(state.Name(), rule.Prefix))
 }
 
 // Rewrite rewrites the current request when the name ends with the matching string.
-func (rule *suffixRCodeRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *suffixRCodeRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(strings.HasSuffix(state.Name(), rule.Suffix))
 }
 
 // Rewrite rewrites the current request based upon partial match of the
 // name in the question section of the request.
-func (rule *substringRCodeRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *substringRCodeRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(strings.Contains(state.Name(), rule.Substring))
 }
 
 // Rewrite rewrites the current request when the name in the question
 // section of the request matches a regular expression.
-func (rule *regexRCodeRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *regexRCodeRule) Rewrite(_ context.Context, state request.Request) (ResponseRules, Result) {
 	return rule.responseRule(len(rule.Pattern.FindStringSubmatch(state.Name())) != 0)
 }
 

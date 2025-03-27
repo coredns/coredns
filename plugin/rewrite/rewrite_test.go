@@ -16,7 +16,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func msgPrinter(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if len(r.Answer) == 0 {
 		r.Answer = []dns.RR{
 			test.A(fmt.Sprintf("%s  5   IN  A  10.0.0.1", r.Question[0].Name)),
@@ -700,7 +700,7 @@ func optsEqual(a, b []dns.EDNS0) bool {
 
 type testProvider map[string]metadata.Func
 
-func (tp testProvider) Metadata(ctx context.Context, state request.Request) context.Context {
+func (tp testProvider) Metadata(ctx context.Context, _ request.Request) context.Context {
 	for k, v := range tp {
 		metadata.SetValueFunc(ctx, k, v)
 	}
