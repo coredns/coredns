@@ -10,7 +10,6 @@ author = "coredns"
 In this release:
 * kubernetes: Revert recent change to only create PTR records for endpoints with hostname defined.
 * forward: added option to return SERVFAIL immediately if all upstreams are unhealthy.
-* view: expressions library update adds if-then-else and sequential statements
 
 ## Brought to You By
 
