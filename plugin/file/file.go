@@ -42,7 +42,7 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
-	z, ok := f.Zones.Z[zone]
+	z, ok := f.Z[zone]
 	if !ok || z == nil {
 		return dns.RcodeServerFailure, nil
 	}

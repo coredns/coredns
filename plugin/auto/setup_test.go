@@ -111,17 +111,17 @@ func TestAutoParse(t *testing.T) {
 		} else if err != nil && !test.shouldErr {
 			t.Fatalf("Test %d expected no errors, but got '%v'", i, err)
 		} else if !test.shouldErr {
-			if a.loader.directory != test.expectedDirectory {
-				t.Fatalf("Test %d expected %v, got %v", i, test.expectedDirectory, a.loader.directory)
+			if a.directory != test.expectedDirectory {
+				t.Fatalf("Test %d expected %v, got %v", i, test.expectedDirectory, a.directory)
 			}
-			if a.loader.template != test.expectedTempl {
-				t.Fatalf("Test %d expected %v, got %v", i, test.expectedTempl, a.loader.template)
+			if a.template != test.expectedTempl {
+				t.Fatalf("Test %d expected %v, got %v", i, test.expectedTempl, a.template)
 			}
-			if a.loader.re.String() != test.expectedRe {
-				t.Fatalf("Test %d expected %v, got %v", i, test.expectedRe, a.loader.re)
+			if a.re.String() != test.expectedRe {
+				t.Fatalf("Test %d expected %v, got %v", i, test.expectedRe, a.re)
 			}
-			if a.loader.ReloadInterval != test.expectedReloadInterval {
-				t.Fatalf("Test %d expected %v, got %v", i, test.expectedReloadInterval, a.loader.ReloadInterval)
+			if a.ReloadInterval != test.expectedReloadInterval {
+				t.Fatalf("Test %d expected %v, got %v", i, test.expectedReloadInterval, a.ReloadInterval)
 			}
 		}
 	}

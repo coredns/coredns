@@ -54,9 +54,9 @@ func (a Auto) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 		return plugin.NextOrFailure(a.Name(), a.Next, ctx, w, r)
 	}
 
-	a.Zones.RLock()
-	z, ok := a.Zones.Z[zone]
-	a.Zones.RUnlock()
+	a.RLock()
+	z, ok := a.Z[zone]
+	a.RUnlock()
 
 	if !ok || z == nil {
 		return dns.RcodeServerFailure, nil

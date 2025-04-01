@@ -40,7 +40,7 @@ func (r *regexStringRewriter) rewriteString(src string) string {
 	s := r.replacement
 	for groupIndex, groupValue := range regexGroups {
 		groupIndexStr := "{" + strconv.Itoa(groupIndex) + "}"
-		s = strings.Replace(s, groupIndexStr, groupValue, -1)
+		s = strings.ReplaceAll(s, groupIndexStr, groupValue)
 	}
 	return s
 }
@@ -257,7 +257,7 @@ func newSubstringNameRule(nextAction string, auto bool, substring, replacement s
 
 func (rule *substringNameRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	if strings.Contains(state.Name(), rule.substring) {
-		state.Req.Question[0].Name = strings.Replace(state.Name(), rule.substring, rule.replacement, -1)
+		state.Req.Question[0].Name = strings.ReplaceAll(state.Name(), rule.substring, rule.replacement)
 		return rule.responseRuleFor(state)
 	}
 	return nil, RewriteIgnored
@@ -285,7 +285,7 @@ func (rule *regexNameRule) Rewrite(ctx context.Context, state request.Request) (
 	s := rule.replacement
 	for groupIndex, groupValue := range regexGroups {
 		groupIndexStr := "{" + strconv.Itoa(groupIndex) + "}"
-		s = strings.Replace(s, groupIndexStr, groupValue, -1)
+		s = strings.ReplaceAll(s, groupIndexStr, groupValue)
 	}
 	state.Req.Question[0].Name = s
 	return rule.responseRuleFor(state)

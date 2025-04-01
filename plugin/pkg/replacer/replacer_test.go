@@ -21,7 +21,7 @@ func TestReplacer(t *testing.T) {
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 	r := new(dns.Msg)
 	r.SetQuestion("example.org.", dns.TypeHINFO)
-	r.MsgHdr.AuthenticatedData = true
+	r.AuthenticatedData = true
 	state := request.Request{W: w, Req: r}
 
 	replacer := New()
@@ -269,7 +269,7 @@ func BenchmarkReplacer(b *testing.B) {
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 	r := new(dns.Msg)
 	r.SetQuestion("example.org.", dns.TypeHINFO)
-	r.MsgHdr.AuthenticatedData = true
+	r.AuthenticatedData = true
 	state := request.Request{W: w, Req: r}
 
 	b.ResetTimer()
@@ -288,7 +288,7 @@ func BenchmarkReplacer_CommonLogFormat(b *testing.B) {
 	r.Id = 1053
 	r.AuthenticatedData = true
 	r.CheckingDisabled = true
-	r.MsgHdr.AuthenticatedData = true
+	r.AuthenticatedData = true
 	w.WriteMsg(r)
 	state := request.Request{W: w, Req: r}
 

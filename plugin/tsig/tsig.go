@@ -117,7 +117,7 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 		repTSIG = new(dns.TSIG)
 		repTSIG.Hdr = dns.RR_Header{Name: r.reqTSIG.Hdr.Name, Rrtype: dns.TypeTSIG, Class: dns.ClassANY}
 		repTSIG.Algorithm = r.reqTSIG.Algorithm
-		repTSIG.OrigId = m.MsgHdr.Id
+		repTSIG.OrigId = m.Id
 		repTSIG.Error = r.reqTSIG.Error
 		repTSIG.MAC = r.reqTSIG.MAC
 		repTSIG.MACSize = r.reqTSIG.MACSize

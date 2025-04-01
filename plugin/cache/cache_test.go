@@ -467,14 +467,15 @@ func TestServeFromStaleCacheFetchVerify(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureMinutes) * time.Minute) }
 
-		if tt.upstreamRCode == dns.RcodeSuccess {
+		switch tt.upstreamRCode {
+		case dns.RcodeSuccess:
 			c.Next = ttlBackend(tt.upstreamTtl)
-		} else if tt.upstreamRCode == dns.RcodeServerFailure {
+		case dns.RcodeServerFailure:
 			// Make upstream fail, should now rely on cache during the c.staleUpTo period
 			c.Next = servFailBackend(tt.upstreamTtl)
-		} else if tt.upstreamRCode == dns.RcodeNameError {
+		case dns.RcodeNameError:
 			c.Next = nxDomainBackend(tt.upstreamTtl)
-		} else {
+		default:
 			t.Fatal("upstream code not implemented")
 		}
 
@@ -485,12 +486,13 @@ func TestServeFromStaleCacheFetchVerify(t *testing.T) {
 			t.Errorf("Test %d: expected rcode=%v, got rcode=%v", i, tt.expectedRCode, ret)
 			continue
 		}
-		if ret == dns.RcodeSuccess {
+		switch ret {
+		case dns.RcodeSuccess:
 			recTtl := rec.Msg.Answer[0].Header().Ttl
 			if tt.expectedTtl != int(recTtl) {
 				t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, recTtl)
 			}
-		} else if ret == dns.RcodeNameError {
+		case dns.RcodeNameError:
 			soaTtl := rec.Msg.Ns[0].Header().Ttl
 			if tt.expectedTtl != int(soaTtl) {
 				t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, soaTtl)
@@ -631,7 +633,7 @@ func nxDomainBackend(ttl int) plugin.Handler {
 
 		m.Ns = []dns.RR{test.SOA(fmt.Sprintf("example.org. %d IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600", ttl))}
 
-		m.MsgHdr.Rcode = dns.RcodeNameError
+		m.Rcode = dns.RcodeNameError
 		w.WriteMsg(m)
 		return dns.RcodeNameError, nil
 	})
@@ -657,7 +659,7 @@ func servFailBackend(ttl int) plugin.Handler {
 
 		m.Ns = []dns.RR{test.SOA(fmt.Sprintf("example.org. %d IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600", ttl))}
 
-		m.MsgHdr.Rcode = dns.RcodeServerFailure
+		m.Rcode = dns.RcodeServerFailure
 		w.WriteMsg(m)
 		return dns.RcodeServerFailure, nil
 	})

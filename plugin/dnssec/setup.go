@@ -117,7 +117,8 @@ func keyParse(c *caddy.Controller) ([]*DNSKEY, error) {
 		return nil, c.ArgErr()
 	}
 	value := c.Val()
-	if value == "file" {
+	switch value {
+	case "file":
 		ks := c.RemainingArgs()
 		if len(ks) == 0 {
 			return nil, c.ArgErr()
@@ -141,7 +142,7 @@ func keyParse(c *caddy.Controller) ([]*DNSKEY, error) {
 			}
 			keys = append(keys, k)
 		}
-	} else if value == "aws_secretsmanager" {
+	case "aws_secretsmanager":
 		ks := c.RemainingArgs()
 		if len(ks) == 0 {
 			return nil, c.ArgErr()

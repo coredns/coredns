@@ -179,9 +179,7 @@ func TestServeDNSTsigErrors(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := context.TODO()
 
-			var w *dnstest.Recorder
-
-			w = dnstest.NewRecorder(&ErrWriter{err: tc.tsigErr})
+			var w = dnstest.NewRecorder(&ErrWriter{err: tc.tsigErr})
 
 			r := new(dns.Msg)
 			r.SetQuestion("test.example.", dns.TypeA)

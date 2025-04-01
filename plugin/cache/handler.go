@@ -100,7 +100,7 @@ func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *Respo
 	// that we've gathered sofar. See we copy the frequencies info back
 	// into the new item that was stored in the cache.
 	if i1 := c.exists(state); i1 != nil {
-		i1.Freq.Reset(now, i.Freq.Hits())
+		i1.Reset(now, i.Hits())
 	}
 }
 
@@ -112,9 +112,9 @@ func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 	if c.prefetch <= 0 {
 		return false
 	}
-	i.Freq.Update(c.duration, now)
+	i.Update(c.duration, now)
 	threshold := int(math.Ceil(float64(c.percentage) / 100 * float64(i.origTTL)))
-	return i.Freq.Hits() >= c.prefetch && i.ttl(now) <= threshold
+	return i.Hits() >= c.prefetch && i.ttl(now) <= threshold
 }
 
 // Name implements the Handler interface.

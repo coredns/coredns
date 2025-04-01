@@ -60,7 +60,7 @@ func TestTraceParse(t *testing.T) {
 			continue
 		}
 
-		if "" != m.serviceEndpoint {
+		if m.serviceEndpoint != "" {
 			t.Errorf("Test %v: Expected serviceEndpoint to be '' but found: %s", i, m.serviceEndpoint)
 		}
 		if test.endpoint != m.Endpoint {

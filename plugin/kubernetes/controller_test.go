@@ -140,8 +140,8 @@ func generateEndpointSlices(cidr string, client kubernetes.Interface) {
 				Hostname:  &hostname,
 			},
 		}
-		eps.ObjectMeta.Name = "svc" + strconv.Itoa(count)
-		eps.ObjectMeta.Labels = map[string]string{discovery.LabelServiceName: eps.ObjectMeta.Name}
+		eps.Name = "svc" + strconv.Itoa(count)
+		eps.Labels = map[string]string{discovery.LabelServiceName: eps.Name}
 		_, err := client.DiscoveryV1().EndpointSlices("testns").Create(ctx, eps, meta.CreateOptions{})
 		if err != nil {
 			log.Fatal(err)
@@ -175,11 +175,12 @@ func generateSvcs(cidr string, svcType string, client kubernetes.Interface) {
 		}
 	default:
 		for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
-			if count%3 == 0 {
+			switch count % 3 {
+			case 0:
 				createClusterIPSvc(count, client, ip)
-			} else if count%3 == 1 {
+			case 1:
 				createHeadlessSvc(count, client, ip)
-			} else if count%3 == 2 {
+			case 2:
 				createExternalSvc(count, client, ip)
 			}
 			count++

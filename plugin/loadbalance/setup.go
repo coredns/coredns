@@ -15,7 +15,7 @@ import (
 )
 
 var log = clog.NewWithPlugin("loadbalance")
-var errOpen = errors.New("Weight file open error")
+var errOpen = errors.New("weight file open error")
 
 func init() { plugin.Register("loadbalance", setup) }
 

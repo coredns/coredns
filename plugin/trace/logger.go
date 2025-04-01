@@ -11,10 +11,10 @@ type loggerAdapter struct {
 }
 
 func (l *loggerAdapter) Write(p []byte) (n int, err error) {
-	l.P.Warning(string(p))
+	l.Warning(string(p))
 	return len(p), nil
 }
 
 func (l *loggerAdapter) Log(msg string) {
-	l.P.Warning(msg)
+	l.Warning(msg)
 }

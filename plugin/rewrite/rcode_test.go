@@ -60,13 +60,13 @@ func TestRCodeRewrite(t *testing.T) {
 	m.SetQuestion("srv1.coredns.rocks.", dns.TypeA)
 	m.Question[0].Qclass = dns.ClassINET
 	m.Answer = []dns.RR{test.A("srv1.coredns.rocks.  5   IN  A  10.0.0.1")}
-	m.MsgHdr.Rcode = dns.RcodeServerFailure
+	m.Rcode = dns.RcodeServerFailure
 	request := request.Request{Req: m}
 
 	rcRule, _ := rule.(*exactRCodeRule)
 	var rr dns.RR
 	rcRule.response.RewriteResponse(request.Req, rr)
-	if request.Req.MsgHdr.Rcode != dns.RcodeFormatError {
+	if request.Req.Rcode != dns.RcodeFormatError {
 		t.Fatalf("RCode rewrite did not apply changes, request=%#v, err=%v", request.Req, err)
 	}
 }

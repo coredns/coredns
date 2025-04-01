@@ -37,7 +37,8 @@ func parse(c *caddy.Controller) ([]Rule, []Rule, error) {
 			selector := strings.ToLower(c.Val())
 
 			var action string
-			if selector == "set" || selector == "clear" {
+			switch selector {
+			case "set", "clear":
 				log.Warningf("The selector for header rule in line %d isn't explicit defined. "+
 					"Assume rule applies for selector 'response'. This syntax is deprecated. "+
 					"In future versions of CoreDNS the selector must be explicit defined.",
@@ -45,11 +46,11 @@ func parse(c *caddy.Controller) ([]Rule, []Rule, error) {
 
 				action = selector
 				selector = "response"
-			} else if selector == "query" || selector == "response" {
+			case "query", "response":
 				if c.NextArg() {
 					action = c.Val()
 				}
-			} else {
+			default:
 				return nil, nil, fmt.Errorf("setting up rule: invalid selector=%s should be query or response", selector)
 			}
 

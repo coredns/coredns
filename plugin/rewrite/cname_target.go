@@ -49,7 +49,7 @@ func (r *cnameTargetRule) getFromAndToTarget(inputCName string) (from string, to
 		}
 	case SubstringMatch:
 		if strings.Contains(inputCName, r.paramFromTarget) {
-			return inputCName, strings.Replace(inputCName, r.paramFromTarget, r.paramToTarget, -1)
+			return inputCName, strings.ReplaceAll(inputCName, r.paramFromTarget, r.paramToTarget)
 		}
 	case RegexMatch:
 		pattern := regexp.MustCompile(r.paramFromTarget)
@@ -60,7 +60,7 @@ func (r *cnameTargetRule) getFromAndToTarget(inputCName string) (from string, to
 		substitution := r.paramToTarget
 		for groupIndex, groupValue := range regexGroups {
 			groupIndexStr := "{" + strconv.Itoa(groupIndex) + "}"
-			substitution = strings.Replace(substitution, groupIndexStr, groupValue, -1)
+			substitution = strings.ReplaceAll(substitution, groupIndexStr, groupValue)
 		}
 		return inputCName, substitution
 	}

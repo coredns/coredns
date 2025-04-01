@@ -119,7 +119,7 @@ func (h *dnsHc) Check(p *Proxy) error {
 func (h *dnsHc) send(addr string) error {
 	ping := new(dns.Msg)
 	ping.SetQuestion(h.domain, dns.TypeNS)
-	ping.MsgHdr.RecursionDesired = h.recursionDesired
+	ping.RecursionDesired = h.recursionDesired
 
 	m, _, err := h.c.Exchange(ping, addr)
 	// If we got a header, we're alright, basically only care about I/O errors 'n stuff.

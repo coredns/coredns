@@ -27,10 +27,10 @@ func TestWatcher(t *testing.T) {
 	a.Walk()
 
 	// example.org and example.com should exist, we have 3 apex rrs and 1 "real" record. All() returns the non-apex ones.
-	if x := len(a.Zones.Z["example.org."].All()); x != 1 {
+	if x := len(a.Z["example.org."].All()); x != 1 {
 		t.Fatalf("Expected 1 RRs, got %d", x)
 	}
-	if x := len(a.Zones.Z["example.com."].All()); x != 1 {
+	if x := len(a.Z["example.com."].All()); x != 1 {
 		t.Fatalf("Expected 1 RRs, got %d", x)
 	}
 
@@ -41,10 +41,10 @@ func TestWatcher(t *testing.T) {
 
 	a.Walk()
 
-	if _, ok := a.Zones.Z["example.com."]; ok {
+	if _, ok := a.Z["example.com."]; ok {
 		t.Errorf("Expected %q to be gone.", "example.com.")
 	}
-	if _, ok := a.Zones.Z["example.org."]; !ok {
+	if _, ok := a.Z["example.org."]; !ok {
 		t.Errorf("Expected %q to still be there.", "example.org.")
 	}
 }
@@ -83,7 +83,7 @@ func TestSymlinks(t *testing.T) {
 
 	a.Walk()
 
-	if storedZone, ok := a.Zones.Z["example.com."]; ok {
+	if storedZone, ok := a.Z["example.com."]; ok {
 		storedFile := storedZone.File()
 		if storedFile != newFile {
 			t.Errorf("Expected %q to reflect new path %q", storedFile, newFile)

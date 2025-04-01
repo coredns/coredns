@@ -62,7 +62,7 @@ func (d *DNS64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	RequestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
 	w.WriteMsg(msg)
-	return msg.MsgHdr.Rcode, nil
+	return msg.Rcode, nil
 }
 
 // Name implements the Handler interface.

@@ -41,10 +41,10 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 		return nil, err
 	}
 
-	mttl := z.Apex.SOA.Minttl
-	ttl := z.Apex.SOA.Header().Ttl
+	mttl := z.SOA.Minttl
+	ttl := z.SOA.Header().Ttl
 	inception, expiration := lifetime(now, s.jitterIncep, s.jitterExpir)
-	z.Apex.SOA.Serial = uint32(now.Unix())
+	z.SOA.Serial = uint32(now.Unix())
 
 	for _, pair := range s.keys {
 		pair.Public.Header().Ttl = ttl // set TTL on key so it matches the RRSIG.
@@ -58,14 +58,14 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 	ln := len(names)
 
 	for _, pair := range s.keys {
-		rrsig, err := pair.signRRs([]dns.RR{z.Apex.SOA}, s.origin, ttl, inception, expiration)
+		rrsig, err := pair.signRRs([]dns.RR{z.SOA}, s.origin, ttl, inception, expiration)
 		if err != nil {
 			return nil, err
 		}
 		z.Insert(rrsig)
 		// NS apex may not be set if RR's have been discarded because the origin doesn't match.
-		if len(z.Apex.NS) > 0 {
-			rrsig, err = pair.signRRs(z.Apex.NS, s.origin, ttl, inception, expiration)
+		if len(z.NS) > 0 {
+			rrsig, err = pair.signRRs(z.NS, s.origin, ttl, inception, expiration)
 			if err != nil {
 				return nil, err
 			}
@@ -178,7 +178,7 @@ func signAndLog(s *Signer, why error) {
 		log.Warningf("Error signing %q: failed to move zone file into place: %s", s.origin, err)
 		return
 	}
-	log.Infof("Successfully signed zone %q in %q with key tags %q and %d SOA serial, elapsed %f, next: %s", s.origin, filepath.Join(s.directory, s.signedfile), keyTag(s.keys), z.Apex.SOA.Serial, time.Since(now).Seconds(), now.Add(durationRefreshHours).Format(timeFmt))
+	log.Infof("Successfully signed zone %q in %q with key tags %q and %d SOA serial, elapsed %f, next: %s", s.origin, filepath.Join(s.directory, s.signedfile), keyTag(s.keys), z.SOA.Serial, time.Since(now).Seconds(), now.Add(durationRefreshHours).Format(timeFmt))
 }
 
 // refresh checks every val if some zones need to be resigned.

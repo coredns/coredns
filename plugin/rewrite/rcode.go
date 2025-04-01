@@ -19,8 +19,8 @@ type rcodeResponseRule struct {
 }
 
 func (r *rcodeResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
-	if r.old == res.MsgHdr.Rcode {
-		res.MsgHdr.Rcode = r.new
+	if r.old == res.Rcode {
+		res.Rcode = r.new
 	}
 }
 

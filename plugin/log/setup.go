@@ -54,8 +54,8 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 
 			if strings.Contains(args[len(args)-1], "{") {
 				format = args[len(args)-1]
-				format = strings.Replace(format, "{common}", CommonLogFormat, -1)
-				format = strings.Replace(format, "{combined}", CombinedLogFormat, -1)
+				format = strings.ReplaceAll(format, "{common}", CommonLogFormat)
+				format = strings.ReplaceAll(format, "{combined}", CombinedLogFormat)
 				args = args[:len(args)-1]
 			}
 

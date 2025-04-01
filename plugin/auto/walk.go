@@ -15,11 +15,11 @@ func (a Auto) Walk() error {
 	// TODO(miek): should add something so that we don't stomp on each other.
 
 	toDelete := make(map[string]bool)
-	for _, n := range a.Zones.Names() {
+	for _, n := range a.Names() {
 		toDelete[n] = true
 	}
 
-	filepath.Walk(a.loader.directory, func(path string, info os.FileInfo, e error) error {
+	filepath.Walk(a.directory, func(path string, info os.FileInfo, e error) error {
 		if e != nil {
 			log.Warningf("error reading %v: %v", path, e)
 		}
@@ -27,12 +27,12 @@ func (a Auto) Walk() error {
 			return nil
 		}
 
-		match, origin := matches(a.loader.re, info.Name(), a.loader.template)
+		match, origin := matches(a.re, info.Name(), a.template)
 		if !match {
 			return nil
 		}
 
-		if z, ok := a.Zones.Z[origin]; ok {
+		if z, ok := a.Z[origin]; ok {
 			// we already have this zone
 			toDelete[origin] = false
 			z.SetFile(path)
@@ -53,10 +53,10 @@ func (a Auto) Walk() error {
 			return nil
 		}
 
-		zo.ReloadInterval = a.loader.ReloadInterval
-		zo.Upstream = a.loader.upstream
+		zo.ReloadInterval = a.ReloadInterval
+		zo.Upstream = a.upstream
 
-		a.Zones.Add(zo, origin, a.transfer)
+		a.Add(zo, origin, a.transfer)
 
 		if a.metrics != nil {
 			a.metrics.AddZone(origin)
@@ -78,7 +78,7 @@ func (a Auto) Walk() error {
 			a.metrics.RemoveZone(origin)
 		}
 
-		a.Zones.Remove(origin)
+		a.Remove(origin)
 
 		log.Infof("Deleting zone `%s'", origin)
 	}

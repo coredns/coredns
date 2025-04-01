@@ -332,10 +332,10 @@ func endpointHostname(addr object.EndpointAddress, endpointNameMode bool) string
 		return addr.TargetRefName
 	}
 	if strings.Contains(addr.IP, ".") {
-		return strings.Replace(addr.IP, ".", "-", -1)
+		return strings.ReplaceAll(addr.IP, ".", "-")
 	}
 	if strings.Contains(addr.IP, ":") {
-		return strings.Replace(addr.IP, ":", "-", -1)
+		return strings.ReplaceAll(addr.IP, ":", "-")
 	}
 	return ""
 }
@@ -428,7 +428,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 	zonePath := msg.Path(zone, coredns)
 	for _, svc := range serviceList {
-		if !(match(r.namespace, svc.Namespace) && match(r.service, svc.Name)) {
+		if !match(r.namespace, svc.Namespace) || !match(r.service, svc.Name) {
 			continue
 		}
 

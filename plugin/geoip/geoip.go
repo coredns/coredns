@@ -91,8 +91,8 @@ func (g GeoIP) Metadata(ctx context.Context, state request.Request) context.Cont
 		}
 	}
 
-	switch {
-	case g.db.provides&city == city:
+	switch g.db.provides & city {
+	case city:
 		data, err := g.db.City(srcIP)
 		if err != nil {
 			log.Debugf("Setting up metadata failed due to database lookup error: %v", err)

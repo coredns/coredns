@@ -96,11 +96,11 @@ func TestWeightFileUpdate(t *testing.T) {
 		{oneDomainWRR, false, testOneDomainWRR, ""},
 		{twoDomainsWRR, false, testTwoDomainsWRR, ""},
 		// negative
-		{missingWeightWRR, true, nil, "Wrong domain name"},
-		{missingDomainWRR, true, nil, "Missing domain name"},
-		{wrongIpWRR, true, nil, "Wrong IP address"},
-		{wrongWeightWRR, true, nil, "Wrong weight value"},
-		{zeroWeightWRR, true, nil, "Wrong weight value"},
+		{missingWeightWRR, true, nil, "wrong domain name"},
+		{missingDomainWRR, true, nil, "missing domain name"},
+		{wrongIpWRR, true, nil, "wrong IP address"},
+		{wrongWeightWRR, true, nil, "wrong weight value"},
+		{zeroWeightWRR, true, nil, "wrong weight value"},
 	}
 
 	for i, test := range tests {

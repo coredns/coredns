@@ -38,7 +38,7 @@ func TestWalk(t *testing.T) {
 
 	// db.example.org and db.example.com should be here (created in createFiles)
 	for _, name := range []string{"example.com.", "example.org."} {
-		if _, ok := a.Zones.Z[name]; !ok {
+		if _, ok := a.Z[name]; !ok {
 			t.Errorf("%s should have been added", name)
 		}
 	}

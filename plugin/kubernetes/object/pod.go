@@ -36,7 +36,7 @@ func ToPod(obj meta.Object) (meta.Object, error) {
 		Name:      apiPod.GetName(),
 		Labels:    apiPod.GetLabels(),
 	}
-	t := apiPod.ObjectMeta.DeletionTimestamp
+	t := apiPod.DeletionTimestamp
 	if t != nil && !(*t).Time.IsZero() {
 		// if the pod is in the process of termination, return an error so it can be ignored
 		// during add/update event processing

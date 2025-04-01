@@ -63,8 +63,7 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 		tlsConfig.NextProtos = []string{"doq"}
 	}
 
-	var quicConfig *quic.Config
-	quicConfig = &quic.Config{
+	var quicConfig = &quic.Config{
 		MaxIdleTimeout:        s.idleTimeout,
 		MaxIncomingStreams:    math.MaxUint16,
 		MaxIncomingUniStreams: math.MaxUint16,

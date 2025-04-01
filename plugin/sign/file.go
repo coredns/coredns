@@ -29,19 +29,19 @@ func (s *Signer) write(z *file.Zone) error {
 }
 
 func write(w io.Writer, z *file.Zone) error {
-	if _, err := io.WriteString(w, z.Apex.SOA.String()); err != nil {
+	if _, err := io.WriteString(w, z.SOA.String()); err != nil {
 		return err
 	}
 	w.Write([]byte("\n")) // RR Stringer() method doesn't include newline, which ends the RR in a zone file, write that here.
-	for _, rr := range z.Apex.SIGSOA {
+	for _, rr := range z.SIGSOA {
 		io.WriteString(w, rr.String())
 		w.Write([]byte("\n"))
 	}
-	for _, rr := range z.Apex.NS {
+	for _, rr := range z.NS {
 		io.WriteString(w, rr.String())
 		w.Write([]byte("\n"))
 	}
-	for _, rr := range z.Apex.SIGNS {
+	for _, rr := range z.SIGNS {
 		io.WriteString(w, rr.String())
 		w.Write([]byte("\n"))
 	}

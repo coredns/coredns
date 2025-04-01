@@ -330,11 +330,11 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 	}
 
 	targetName := rrs[0].(*dns.CNAME).Target
-	elem, _ = z.Tree.Search(targetName)
+	elem, _ = z.Search(targetName)
 	if elem == nil {
 		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
-		return rrs, z.Apex.ns(do), nil, result
+		return rrs, z.ns(do), nil, result
 	}
 
 	i := 0
@@ -350,16 +350,16 @@ Redo:
 			rrs = append(rrs, sigs...)
 		}
 		targetName := cname[0].(*dns.CNAME).Target
-		elem, _ = z.Tree.Search(targetName)
+		elem, _ = z.Search(targetName)
 		if elem == nil {
 			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 			rrs = append(rrs, lookupRRs...)
-			return rrs, z.Apex.ns(do), nil, result
+			return rrs, z.ns(do), nil, result
 		}
 
 		i++
 		if i > 8 {
-			return rrs, z.Apex.ns(do), nil, Success
+			return rrs, z.ns(do), nil, Success
 		}
 
 		goto Redo
@@ -376,7 +376,7 @@ Redo:
 		}
 	}
 
-	return rrs, z.Apex.ns(do), nil, Success
+	return rrs, z.ns(do), nil, Success
 }
 
 func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result) {
@@ -414,7 +414,7 @@ func (z *Zone) additionalProcessing(answer []dns.RR, do bool) (extra []dns.RR) {
 			continue
 		}
 
-		elem, _ := z.Tree.Search(name)
+		elem, _ := z.Search(name)
 		if elem == nil {
 			continue
 		}

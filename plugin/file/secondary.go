@@ -89,10 +89,10 @@ Transfer:
 	if serial == -1 {
 		return false, Err
 	}
-	if z.Apex.SOA == nil {
+	if z.SOA == nil {
 		return true, Err
 	}
-	return less(z.Apex.SOA.Serial, uint32(serial)), Err
+	return less(z.SOA.Serial, uint32(serial)), Err
 }
 
 // less returns true of a is smaller than b when taking RFC 1982 serial arithmetic into account.
@@ -109,15 +109,15 @@ func less(a, b uint32) bool {
 // will be marked expired.
 func (z *Zone) Update() error {
 	// If we don't have a SOA, we don't have a zone, wait for it to appear.
-	for z.Apex.SOA == nil {
+	for z.SOA == nil {
 		time.Sleep(1 * time.Second)
 	}
 	retryActive := false
 
 Restart:
-	refresh := time.Second * time.Duration(z.Apex.SOA.Refresh)
-	retry := time.Second * time.Duration(z.Apex.SOA.Retry)
-	expire := time.Second * time.Duration(z.Apex.SOA.Expire)
+	refresh := time.Second * time.Duration(z.SOA.Refresh)
+	retry := time.Second * time.Duration(z.SOA.Retry)
+	expire := time.Second * time.Duration(z.SOA.Expire)
 
 	refreshTicker := time.NewTicker(refresh)
 	retryTicker := time.NewTicker(retry)

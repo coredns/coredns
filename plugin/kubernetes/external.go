@@ -62,10 +62,11 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 
 	service := segs[last]
 	last--
-	if last == 0 {
+	switch last {
+	case 0:
 		endpoint = stripUnderscore(segs[last])
 		last--
-	} else if last == 1 {
+	case 1:
 		protocol = stripUnderscore(segs[last])
 		port = stripUnderscore(segs[last-1])
 		last -= 2

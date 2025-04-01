@@ -90,7 +90,7 @@ func createWeightedFuncs(weightFileName string,
 			randomGen: &randomUint{},
 		},
 	}
-	lb.weighted.randomGen.randInit()
+	lb.weighted.randInit()
 
 	lb.shuffleFunc = func(res *dns.Msg) *dns.Msg {
 		return weightedShuffle(res, lb.weighted)
@@ -285,7 +285,7 @@ func (w *weightedRR) parseWeights(scanner *bufio.Scanner) (map[string]weights, e
 		case 1:
 			// (domain) name sanity check
 			if net.ParseIP(fields[0]) != nil {
-				return nil, fmt.Errorf("Wrong domain name:\"%s\" in weight file %s. (Maybe a missing weight value?)",
+				return nil, fmt.Errorf("wrong domain name:\"%s\" in weight file %s. (Maybe a missing weight value?)",
 					fields[0], w.fileName)
 			}
 			dname = fields[0]
@@ -304,25 +304,25 @@ func (w *weightedRR) parseWeights(scanner *bufio.Scanner) (map[string]weights, e
 			// IP address and weight value
 			ip := net.ParseIP(fields[0])
 			if ip == nil {
-				return nil, fmt.Errorf("Wrong IP address:\"%s\" in weight file %s", fields[0], w.fileName)
+				return nil, fmt.Errorf("wrong IP address:\"%s\" in weight file %s", fields[0], w.fileName)
 			}
 			weight, err := strconv.ParseUint(fields[1], 10, 8)
 			if err != nil || weight == 0 {
-				return nil, fmt.Errorf("Wrong weight value:\"%s\" in weight file %s", fields[1], w.fileName)
+				return nil, fmt.Errorf("wrong weight value:\"%s\" in weight file %s", fields[1], w.fileName)
 			}
 			witem := &weightItem{address: ip, value: uint8(weight)}
 			if dname == "" {
-				return nil, fmt.Errorf("Missing domain name in weight file %s", w.fileName)
+				return nil, fmt.Errorf("missing domain name in weight file %s", w.fileName)
 			}
 			ws = append(ws, witem)
 			domains[dname] = ws
 		default:
-			return nil, fmt.Errorf("Could not parse weight line:\"%s\" in weight file %s", nextLine, w.fileName)
+			return nil, fmt.Errorf("could not parse weight line:\"%s\" in weight file %s", nextLine, w.fileName)
 		}
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("Weight file %s parsing error:%s", w.fileName, err)
+		return nil, fmt.Errorf("weight file %s parsing error:%s", w.fileName, err)
 	}
 
 	return domains, nil
