@@ -109,6 +109,7 @@ func New(ctx context.Context, zoneList zones) (*Azure, error) {
 			}
 
 			if zone.clientSecret != "" {
+				log.Debugf("authenticating to azure using client id (%s) and secret for zone %s", zone.clientID, zone.zone)
 				cred, err := azidentity.NewClientSecretCredential(zone.tenantID, zone.clientID, zone.clientSecret, nil)
 				if err != nil {
 					return nil, plugin.Error("azure", err)
@@ -122,6 +123,7 @@ func New(ctx context.Context, zoneList zones) (*Azure, error) {
 					return nil, plugin.Error("azure", err)
 				}
 			} else {
+				log.Debugf("authenticating to azure using managed identity client id (%s) for zone %s", zone.clientID, zone.zone)
 				// We could add a new field in the config for this plugin to specify the managed identity type
 				// but we won't do that for backwards compatibility reasons
 				clientID := azidentity.ClientID(zone.clientID)
