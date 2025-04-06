@@ -429,6 +429,11 @@ func updateZoneFromPrivateResourceSet(recordSet *runtime.Pager[privatedns.Record
 
 			if v.Properties.SoaRecord != nil {
 				SOA := v.Properties.SoaRecord
+
+				// For some reason Azure returns an NS field without the trailing dot/period
+				// When we later call WriteMsg we receive an error "domain must be fully qualified"
+				// So this is a workaround to add the trailing dot
+				nsFqdn := strings.TrimSuffix(*SOA.Host, ".") + "."
 				soa := &dns.SOA{
 					Hdr:     dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: resultTTL},
 					Minttl:  uint32(*(SOA.MinimumTTL)),
@@ -437,7 +442,7 @@ func updateZoneFromPrivateResourceSet(recordSet *runtime.Pager[privatedns.Record
 					Refresh: uint32(*(SOA.RefreshTime)),
 					Serial:  uint32(*(SOA.SerialNumber)),
 					Mbox:    dns.Fqdn(*(SOA.Email)),
-					Ns:      *(SOA.Host),
+					Ns:      nsFqdn,
 				}
 				newZ.Insert(soa)
 			}
