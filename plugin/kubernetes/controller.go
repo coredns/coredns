@@ -45,6 +45,7 @@ const (
 type dnsController interface {
 	ServiceList() []*object.Service
 	EndpointsList() []*object.Endpoints
+	ServiceImportList() []*object.ServiceImport
 	SvcIndex(string) []*object.Service
 	SvcIndexReverse(string) []*object.Service
 	SvcExtIndexReverse(string) []*object.Service
@@ -468,6 +469,18 @@ func (dns *dnsControl) ServiceList() (svcs []*object.Service) {
 	os := dns.svcLister.List()
 	for _, o := range os {
 		s, ok := o.(*object.Service)
+		if !ok {
+			continue
+		}
+		svcs = append(svcs, s)
+	}
+	return svcs
+}
+
+func (dns *dnsControl) ServiceImportList() (svcs []*object.ServiceImport) {
+	os := dns.svcImportLister.List()
+	for _, o := range os {
+		s, ok := o.(*object.ServiceImport)
 		if !ok {
 			continue
 		}
