@@ -28,6 +28,11 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 		return nil, transfer.ErrNotAuthoritative
 	}
 
+	if k.isMultiClusterZone(zone) {
+		// TODO: handle multicluster zones
+		return nil, transfer.ErrNotAuthoritative
+	}
+
 	ch := make(chan []dns.RR)
 
 	zonePath := msg.Path(zone, "coredns")

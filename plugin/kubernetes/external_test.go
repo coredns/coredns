@@ -90,16 +90,20 @@ func TestExternal(t *testing.T) {
 
 type external struct{}
 
-func (external) HasSynced() bool                             { return true }
-func (external) Run()                                        {}
-func (external) Stop() error                                 { return nil }
-func (external) EpIndexReverse(string) []*object.Endpoints   { return nil }
-func (external) SvcIndexReverse(string) []*object.Service    { return nil }
-func (external) SvcExtIndexReverse(string) []*object.Service { return nil }
-func (external) Modified(bool) int64                         { return 0 }
+func (external) HasSynced() bool                                  { return true }
+func (external) Run()                                             {}
+func (external) Stop() error                                      { return nil }
+func (external) EpIndexReverse(string) []*object.Endpoints        { return nil }
+func (external) SvcIndexReverse(string) []*object.Service         { return nil }
+func (external) SvcExtIndexReverse(string) []*object.Service      { return nil }
+func (external) SvcImportIndex(string) []*object.ServiceImport    { return nil }
+func (external) ServiceImportList() []*object.ServiceImport       { return nil }
+func (external) McEpIndex(string) []*object.MultiClusterEndpoints { return nil }
+func (external) Modified(ModifiedMode) int64                      { return 0 }
 func (external) EpIndex(s string) []*object.Endpoints {
 	return epIndexExternal[s]
 }
+
 func (external) EndpointsList() []*object.Endpoints {
 	var eps []*object.Endpoints
 	for _, ep := range epIndexExternal {

@@ -42,6 +42,7 @@ kubernetes [ZONES...] {
     noendpoints
     fallthrough [ZONES...]
     ignore empty_service
+    multicluster [ZONES...]
 }
 ```
 
@@ -101,6 +102,10 @@ kubernetes [ZONES...] {
 * `ignore empty_service` returns NXDOMAIN for services without any ready endpoint addresses (e.g., ready pods).
   This allows the querying pod to continue searching for the service in the search path.
   The search path could, for example, include another Kubernetes cluster.
+* `multicluster` defines the multicluster zones as defined by Multi-Cluster
+  Services API (MCS-API). Specifying this option is generally paired with the
+  installation of an MCS-API implementation and the ServiceImport and ServiceExport
+  CRDs. The plugin MUST be authoritative for the zones listed here.
 
 Enabling zone transfer is done by using the *transfer* plugin.
 
@@ -154,6 +159,14 @@ Connect to Kubernetes with CoreDNS running outside the cluster:
 kubernetes cluster.local {
     endpoint https://k8s-endpoint:8443
     tls cert key cacert
+}
+~~~
+
+Configure multicluster
+
+~~~ txt
+kubernetes cluster.local clusterset.local {
+    multicluster clusterset.local
 }
 ~~~
 
