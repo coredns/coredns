@@ -72,6 +72,7 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 				names = append(names, origins[i])
 			}
 
+			hasTransfer := false
 			for c.NextBlock() {
 				var f []string
 
@@ -82,6 +83,7 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 					if err != nil {
 						return file.Zones{}, err
 					}
+					hasTransfer = true
 				default:
 					return file.Zones{}, c.Errf("unknown property '%s'", c.Val())
 				}
@@ -92,6 +94,9 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 					}
 					z[origin].Upstream = upstream.New()
 				}
+			}
+			if !hasTransfer {
+				return file.Zones{}, c.Err("secondary zones require a transfer from property")
 			}
 		}
 	}

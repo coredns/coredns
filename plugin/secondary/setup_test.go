@@ -14,12 +14,6 @@ func TestSecondaryParse(t *testing.T) {
 		zones          []string
 	}{
 		{
-			`secondary`,
-			false, // TODO(miek): should actually be true, because without transfer lines this does not make sense
-			"",
-			nil,
-		},
-		{
 			`secondary {
 				transfer from 127.0.0.1
 			}`,
@@ -34,6 +28,20 @@ func TestSecondaryParse(t *testing.T) {
 			false,
 			"127.0.0.1:53",
 			[]string{"example.org."},
+		},
+		{
+			`secondary`,
+			true,
+			"",
+			nil,
+		},
+		{
+			`secondary example.org {
+				transferr from 127.0.0.1
+			}`,
+			true,
+			"",
+			nil,
 		},
 	}
 
