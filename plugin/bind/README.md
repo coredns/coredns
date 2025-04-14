@@ -108,6 +108,3 @@ bad.example.com {
     forward . 5.6.7.8
 }
 ```
-
-Also on MacOS there is an (open) bug where this doesn't work properly. See
-<https://github.com/miekg/dns/issues/724> for details, but no solution.
