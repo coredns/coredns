@@ -52,7 +52,7 @@ func NewRequest(method, url string, m *dns.Msg) (*http.Request, error) {
 	case http.MethodPost:
 		req, err := http.NewRequest(
 			http.MethodPost,
-			fmt.Sprintf("%s%s?bla=foo:443", url, Path),
+			fmt.Sprintf("%s%s", url, Path),
 			bytes.NewReader(buf),
 		)
 		if err != nil {
