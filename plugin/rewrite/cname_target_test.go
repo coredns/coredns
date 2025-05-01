@@ -53,6 +53,12 @@ func (u *MockedUpstream) Lookup(ctx context.Context, state request.Request, name
 			test.A("orders.webapp.eu.org.   120  IN  A   20.0.0.9"),
 		}
 		return m, nil
+	case "music.truncated.spotify.com.":
+		m.Answer = []dns.RR{
+			test.A("music.truncated.spotify.com.   120  IN  A   10.1.0.9"),
+		}
+		m.Truncated = true
+		return m, nil
 	}
 	return &dns.Msg{}, nil
 }
@@ -68,6 +74,7 @@ func TestCNameTargetRewrite(t *testing.T) {
 		{[]string{"continue", "cname", "suffix", "uvw.", "xyz."}, reflect.TypeOf(&cnameTargetRule{})},
 		{[]string{"continue", "cname", "substring", "efgh", "zzzz.www"}, reflect.TypeOf(&cnameTargetRule{})},
 		{[]string{"continue", "cname", "regex", `(.*)\.web\.(.*)\.site\.`, `{1}.webapp.{2}.org.`}, reflect.TypeOf(&cnameTargetRule{})},
+		{[]string{"continue", "cname", "exact", "music.truncated.spotify.com.", "music.truncated.spotify.com."}, reflect.TypeOf(&cnameTargetRule{})},
 	}
 	for i, r := range ruleset {
 		rule, err := newRule(r.args...)
@@ -86,10 +93,11 @@ func TestCNameTargetRewrite(t *testing.T) {
 
 func doTestCNameTargetTests(rules []Rule, t *testing.T) {
 	tests := []struct {
-		from           string
-		fromType       uint16
-		answer         []dns.RR
-		expectedAnswer []dns.RR
+		from              string
+		fromType          uint16
+		answer            []dns.RR
+		expectedAnswer    []dns.RR
+		expectedTruncated bool
 	}{
 		{"abc.example.com", dns.TypeA,
 			[]dns.RR{
@@ -100,6 +108,7 @@ func doTestCNameTargetTests(rules []Rule, t *testing.T) {
 				test.CNAME("abc.example.com.  5   IN  CNAME  xyz.example.com."),
 				test.A("xyz.example.com.  3600  IN  A  3.4.5.6"),
 			},
+			false,
 		},
 		{"abc.example.com", dns.TypeAAAA,
 			[]dns.RR{
@@ -110,6 +119,7 @@ func doTestCNameTargetTests(rules []Rule, t *testing.T) {
 				test.CNAME("abc.example.com.  5   IN  CNAME  xyz.example.com."),
 				test.AAAA("xyz.example.com.  3600  IN  AAAA  3a01:7e00::f03c:91ff:fe79:234c"),
 			},
+			false,
 		},
 		{"chat.openai.com", dns.TypeA,
 			[]dns.RR{
@@ -121,6 +131,7 @@ func doTestCNameTargetTests(rules []Rule, t *testing.T) {
 				test.CNAME("chat.openai.com.  20   IN  CNAME  bard.google.com.cdn.cloudflare.net."),
 				test.A("bard.google.com.cdn.cloudflare.net.  1800  IN  A  9.7.2.1"),
 			},
+			false,
 		},
 		{"coredns.io", dns.TypeA,
 			[]dns.RR{
@@ -131,6 +142,7 @@ func doTestCNameTargetTests(rules []Rule, t *testing.T) {
 				test.CNAME("coredns.io.  100   IN  CNAME  www.hosting.xyz."),
 				test.A("www.hosting.xyz.  500  IN  A  20.30.40.50"),
 			},
+			false,
 		},
 		{"core.dns.rocks", dns.TypeA,
 			[]dns.RR{
@@ -142,6 +154,7 @@ func doTestCNameTargetTests(rules []Rule, t *testing.T) {
 				test.A("abcd.zzzz.www.pqrst.   120  IN  A   101.20.5.1"),
 				test.A("abcd.zzzz.www.pqrst.   120  IN  A   101.20.5.2"),
 			},
+			false,
 		},
 		{"order.service.eu", dns.TypeA,
 			[]dns.RR{
@@ -152,6 +165,17 @@ func doTestCNameTargetTests(rules []Rule, t *testing.T) {
 				test.CNAME("order.service.eu.  200   IN  CNAME  orders.webapp.eu.org."),
 				test.A("orders.webapp.eu.org.   120  IN  A   20.0.0.9"),
 			},
+			false,
+		},
+		{"music.spotify.com", dns.TypeA,
+			[]dns.RR{
+				test.CNAME("music.spotify.com.  200   IN  CNAME  music.truncated.spotify.com."),
+			},
+			[]dns.RR{
+				test.CNAME("music.spotify.com.  200   IN  CNAME  music.truncated.spotify.com."),
+				test.A("music.truncated.spotify.com.   120  IN  A   10.1.0.9"),
+			},
+			true,
 		},
 	}
 	ctx := context.TODO()
@@ -175,6 +199,10 @@ func doTestCNameTargetTests(rules []Rule, t *testing.T) {
 			t.Errorf("Test %d: FAIL %s (%d) Actual are expected answer does not match, actual: %v, expected: %v",
 				i, tc.from, tc.fromType, resp.Answer, tc.expectedAnswer)
 			continue
+		}
+		if resp.Truncated != tc.expectedTruncated {
+			t.Errorf("Test %d: FAIL %s (%d) Actual and expected truncated flag do not match, actual: %v, expected: %v",
+				i, tc.from, tc.fromType, resp.Truncated, tc.expectedTruncated)
 		}
 	}
 }

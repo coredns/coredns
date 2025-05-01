@@ -100,6 +100,9 @@ func (r *cnameTargetRuleWithReqState) RewriteResponse(res *dns.Msg, rr dns.RR) {
 					}
 				}
 				res.Answer = newAnswer
+				// if not propagated, the truncated response might get cached,
+				// and it will be impossible to resolve the full response
+				res.Truncated = upRes.Truncated
 			}
 		}
 	}
