@@ -42,6 +42,7 @@ kubernetes [ZONES...] {
     noendpoints
     fallthrough [ZONES...]
     ignore empty_service
+    startup_timeout DURATION
 }
 ```
 
@@ -101,6 +102,8 @@ kubernetes [ZONES...] {
 * `ignore empty_service` returns NXDOMAIN for services without any ready endpoint addresses (e.g., ready pods).
   This allows the querying pod to continue searching for the service in the search path.
   The search path could, for example, include another Kubernetes cluster.
+* `startup_timeout` specifies the **DURATION** value that limits the time to wait for informer cache synced 
+  when the kubernetes plugin starts. If not specified, the default timeout will be 5s.
 
 Enabling zone transfer is done by using the *transfer* plugin.
 
@@ -110,7 +113,7 @@ When CoreDNS starts with the *kubernetes* plugin enabled, it will delay serving 
 until it can connect to the Kubernetes API and synchronize all object watches.  If this cannot happen within
 5 seconds, then CoreDNS will start serving DNS while the *kubernetes* plugin continues to try to connect
 and synchronize all object watches.  CoreDNS will answer SERVFAIL to any request made for a Kubernetes record
-that has not yet been synchronized.
+that has not yet been synchronized. You can also determine how long to wait by specifying `startup_timeout`.
 
 ## Monitoring Kubernetes Endpoints
 
