@@ -213,7 +213,7 @@ func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []ms
 
 // ExternalSerial returns the serial of the external zone
 func (k *Kubernetes) ExternalSerial(string) uint32 {
-	return uint32(k.APIConn.Modified(true))
+	return uint32(k.APIConn.Modified(ModifiedExternal))
 }
 
 // ExternalReverse does a reverse lookup for the external IPs

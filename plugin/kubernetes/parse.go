@@ -1,6 +1,8 @@
 package kubernetes
 
 import (
+	"strings"
+
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 
 	"github.com/miekg/dns"
@@ -14,6 +16,7 @@ type recordRequest struct {
 	// SRV record.
 	protocol string
 	endpoint string
+	cluster  string
 	// The servicename used in Kubernetes.
 	service string
 	// The namespace used in Kubernetes.
@@ -25,11 +28,12 @@ type recordRequest struct {
 // parseRequest parses the qname to find all the elements we need for querying k8s. Anything
 // that is not parsed will have the wildcard "*" value (except r.endpoint).
 // Potential underscores are stripped from _port and _protocol.
-func parseRequest(name, zone string) (r recordRequest, err error) {
-	// 3 Possible cases:
+func parseRequest(name, zone string, multicluster bool) (r recordRequest, err error) {
+	// 4 Possible cases:
 	// 1. _port._protocol.service.namespace.pod|svc.zone
 	// 2. (endpoint): endpoint.service.namespace.pod|svc.zone
 	// 3. (service): service.namespace.pod|svc.zone
+	// 4. (endpoint multicluster): endpoint.cluster.service.namespace.pod|svc.zone
 
 	base, _ := dnsutil.TrimZone(name, zone)
 	// return NODATA for apex queries
@@ -63,14 +67,19 @@ func parseRequest(name, zone string) (r recordRequest, err error) {
 		return r, nil
 	}
 
-	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol.
+	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol or endpoint and clusterid.
 	// Anything else is a query that is too long to answer and can safely be delegated to return an nxdomain.
 	switch last {
 	case 0: // endpoint only
 		r.endpoint = segs[last]
-	case 1: // service and port
-		r.protocol = stripUnderscore(segs[last])
-		r.port = stripUnderscore(segs[last-1])
+	case 1: // service and port or endpoint and clusterid
+		if !multicluster || strings.HasPrefix(segs[last], "_") || strings.HasPrefix(segs[last-1], "_") {
+			r.protocol = stripUnderscore(segs[last])
+			r.port = stripUnderscore(segs[last-1])
+		} else {
+			r.cluster = segs[last]
+			r.endpoint = segs[last-1]
+		}
 
 	default: // too long
 		return r, errInvalidRequest
@@ -96,6 +105,7 @@ func (r recordRequest) String() string {
 	s := r.port
 	s += "." + r.protocol
 	s += "." + r.endpoint
+	s += "." + r.cluster
 	s += "." + r.service
 	s += "." + r.namespace
 	s += "." + r.podOrSvc

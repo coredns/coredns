@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -229,6 +230,8 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				overrides,
 			)
 			k8s.ClientConfig = config
+		case "multicluster":
+			k8s.opts.multiclusterZones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), []string{})
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}
@@ -236,6 +239,13 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 
 	if len(k8s.Namespaces) != 0 && k8s.opts.namespaceLabelSelector != nil {
 		return nil, c.Errf("namespaces and namespace_labels cannot both be set")
+	}
+
+	for _, multiclusterZone := range k8s.opts.multiclusterZones {
+		if !slices.Contains(k8s.Zones, multiclusterZone) {
+			fmt.Println(k8s.Zones)
+			return nil, c.Errf("is not authoritative for the multicluster zone %s", multiclusterZone)
+		}
 	}
 
 	return k8s, nil

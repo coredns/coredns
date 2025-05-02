@@ -13,6 +13,7 @@ import (
 	"github.com/miekg/dns"
 	api "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
 type kubeTestCase struct {
@@ -21,7 +22,8 @@ type kubeTestCase struct {
 	test.Case
 }
 
-var dnsTestCases = []kubeTestCase{
+// test cases working for both regular and multicluster zone
+var commonDnsTestCases = []kubeTestCase{
 	// A Service
 	{Case: test.Case{
 		Qname: "svc1.testns.svc.cluster.local.", Qtype: dns.TypeA,
@@ -57,7 +59,6 @@ var dnsTestCases = []kubeTestCase{
 	}},
 	// SRV Service
 	{Case: test.Case{
-
 		Qname: "_http._tcp.svc1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -68,7 +69,6 @@ var dnsTestCases = []kubeTestCase{
 		},
 	}},
 	{Case: test.Case{
-
 		Qname: "_http._tcp.svcempty.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
@@ -95,116 +95,6 @@ var dnsTestCases = []kubeTestCase{
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
 			test.A("hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20"),
-		},
-	}},
-	// An Endpoint with no port
-	{Case: test.Case{
-		Qname: "172-0-0-20.hdlsprtls.testns.svc.cluster.local.", Qtype: dns.TypeA,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.A("172-0-0-20.hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20"),
-		},
-	}},
-	// An Endpoint ip
-	{Case: test.Case{
-		Qname: "172-0-0-2.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.A("172-0-0-2.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
-		},
-	}},
-	// A Endpoint ip
-	{Case: test.Case{
-		Qname: "172-0-0-3.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.A("172-0-0-3.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
-		},
-	}},
-	// An Endpoint by name
-	{Case: test.Case{
-		Qname: "dup-name.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.A("dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
-			test.A("dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
-		},
-	}},
-	// SRV Service (Headless)
-	{Case: test.Case{
-		Qname: "_http._tcp.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 172-0-0-2.hdls1.testns.svc.cluster.local."),
-			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 172-0-0-3.hdls1.testns.svc.cluster.local."),
-			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--1.hdls1.testns.svc.cluster.local."),
-			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--2.hdls1.testns.svc.cluster.local."),
-			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 dup-name.hdls1.testns.svc.cluster.local."),
-		},
-		Extra: []dns.RR{
-			test.A("172-0-0-2.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
-			test.A("172-0-0-3.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
-			test.AAAA("5678-abcd--1.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::1"),
-			test.AAAA("5678-abcd--2.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2"),
-			test.A("dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
-			test.A("dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
-		},
-	}},
-	{Case: test.Case{ // An A record query for an existing headless service should return a record for each of its ipv4 endpoints
-		Qname: "hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
-			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
-			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
-			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
-		},
-	}},
-	// AAAA
-	{Case: test.Case{
-		Qname: "5678-abcd--2.hdls1.testns.svc.cluster.local", Qtype: dns.TypeAAAA,
-		Rcode:  dns.RcodeSuccess,
-		Answer: []dns.RR{test.AAAA("5678-abcd--2.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2")},
-	}},
-	// CNAME External
-	{Case: test.Case{
-		Qname: "external.testns.svc.cluster.local.", Qtype: dns.TypeCNAME,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.CNAME("external.testns.svc.cluster.local.	5	IN	CNAME	ext.interwebs.test."),
-		},
-	}},
-	// CNAME External Truncated Lookup
-	{
-		Case: test.Case{
-			Qname: "external.testns.svc.cluster.local.", Qtype: dns.TypeA,
-			Rcode: dns.RcodeSuccess,
-			Answer: []dns.RR{
-				test.A("ext.interwebs.test.	5	IN	A	1.2.3.4"),
-				test.CNAME("external.testns.svc.cluster.local.	5	IN	CNAME	ext.interwebs.test."),
-			},
-		},
-		Upstream: &Upstub{
-			Truncated: true,
-			Qclass:    dns.ClassINET,
-			Case: test.Case{
-				Qname: "external.testns.svc.cluster.local.",
-				Qtype: dns.TypeA,
-				Answer: []dns.RR{
-					test.A("ext.interwebs.test.	5	IN	A	1.2.3.4"),
-					test.CNAME("external.testns.svc.cluster.local.	5	IN	CNAME	ext.interwebs.test."),
-				},
-			},
-		},
-		Truncated: true,
-	},
-	// CNAME External To Internal Service
-	{Case: test.Case{
-		Qname: "external-to-service.testns.svc.cluster.local", Qtype: dns.TypeA,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.CNAME("external-to-service.testns.svc.cluster.local.	5	IN	CNAME	svc1.testns.svc.cluster.local."),
-			test.A("svc1.testns.svc.cluster.local.	5	IN	A	10.0.0.1"),
 		},
 	}},
 	// AAAA Service (with an existing A record, but no AAAA record)
@@ -305,14 +195,6 @@ var dnsTestCases = []kubeTestCase{
 		Answer: []dns.RR{
 			test.AAAA("hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::1"),
 			test.AAAA("hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2"),
-		},
-	}},
-	// AAAA Endpoint
-	{Case: test.Case{
-		Qname: "5678-abcd--1.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeAAAA,
-		Rcode: dns.RcodeSuccess,
-		Answer: []dns.RR{
-			test.AAAA("5678-abcd--1.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::1"),
 		},
 	}},
 
@@ -418,6 +300,127 @@ var dnsTestCases = []kubeTestCase{
 	}},
 }
 
+var dnsTestCases = []kubeTestCase{
+	// SRV Service (Headless)
+	{Case: test.Case{
+		Qname: "_http._tcp.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 172-0-0-2.hdls1.testns.svc.cluster.local."),
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 172-0-0-3.hdls1.testns.svc.cluster.local."),
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--1.hdls1.testns.svc.cluster.local."),
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--2.hdls1.testns.svc.cluster.local."),
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 dup-name.hdls1.testns.svc.cluster.local."),
+		},
+		Extra: []dns.RR{
+			test.A("172-0-0-2.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
+			test.A("172-0-0-3.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
+			test.AAAA("5678-abcd--1.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::1"),
+			test.AAAA("5678-abcd--2.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2"),
+			test.A("dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
+			test.A("dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
+		},
+	}},
+	{Case: test.Case{ // An A record query for an existing headless service should return a record for each of its ipv4 endpoints
+		Qname: "hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
+			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
+			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
+			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
+		},
+	}},
+	// AAAA
+	{Case: test.Case{
+		Qname: "5678-abcd--2.hdls1.testns.svc.cluster.local", Qtype: dns.TypeAAAA,
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{test.AAAA("5678-abcd--2.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2")},
+	}},
+	// AAAA Endpoint
+	{Case: test.Case{
+		Qname: "5678-abcd--1.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeAAAA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.AAAA("5678-abcd--1.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::1"),
+		},
+	}},
+	// An Endpoint with no port
+	{Case: test.Case{
+		Qname: "172-0-0-20.hdlsprtls.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("172-0-0-20.hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20"),
+		},
+	}},
+	// An Endpoint ip
+	{Case: test.Case{
+		Qname: "172-0-0-2.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("172-0-0-2.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
+		},
+	}},
+	// A Endpoint ip
+	{Case: test.Case{
+		Qname: "172-0-0-3.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("172-0-0-3.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
+		},
+	}},
+	// An Endpoint by name
+	{Case: test.Case{
+		Qname: "dup-name.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
+			test.A("dup-name.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
+		},
+	}},
+	// CNAME External
+	{Case: test.Case{
+		Qname: "external.testns.svc.cluster.local.", Qtype: dns.TypeCNAME,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.CNAME("external.testns.svc.cluster.local.	5	IN	CNAME	ext.interwebs.test."),
+		},
+	}},
+	// CNAME External Truncated Lookup
+	{
+		Case: test.Case{
+			Qname: "external.testns.svc.cluster.local.", Qtype: dns.TypeA,
+			Rcode: dns.RcodeSuccess,
+			Answer: []dns.RR{
+				test.A("ext.interwebs.test.	5	IN	A	1.2.3.4"),
+				test.CNAME("external.testns.svc.cluster.local.	5	IN	CNAME	ext.interwebs.test."),
+			},
+		},
+		Upstream: &Upstub{
+			Truncated: true,
+			Qclass:    dns.ClassINET,
+			Case: test.Case{
+				Qname: "external.testns.svc.cluster.local.",
+				Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("ext.interwebs.test.	5	IN	A	1.2.3.4"),
+					test.CNAME("external.testns.svc.cluster.local.	5	IN	CNAME	ext.interwebs.test."),
+				},
+			},
+		},
+		Truncated: true,
+	},
+	// CNAME External To Internal Service
+	{Case: test.Case{
+		Qname: "external-to-service.testns.svc.cluster.local", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.CNAME("external-to-service.testns.svc.cluster.local.	5	IN	CNAME	svc1.testns.svc.cluster.local."),
+			test.A("svc1.testns.svc.cluster.local.	5	IN	A	10.0.0.1"),
+		},
+	}},
+}
+
 func TestServeDNS(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
@@ -425,7 +428,139 @@ func TestServeDNS(t *testing.T) {
 	k.Namespaces = map[string]struct{}{"testns": {}}
 	ctx := context.TODO()
 
-	for i, tc := range dnsTestCases {
+	for i, tc := range append(commonDnsTestCases, dnsTestCases...) {
+		k.Upstream = tc.Upstream
+
+		r := tc.Msg()
+
+		w := dnstest.NewRecorder(&test.ResponseWriter{})
+
+		_, err := k.ServeDNS(ctx, w, r)
+		if err != tc.Error {
+			t.Errorf("Test %d expected no error, got %v", i, err)
+			return
+		}
+		if tc.Error != nil {
+			continue
+		}
+
+		resp := w.Msg
+		if resp == nil {
+			t.Fatalf("Test %d, got nil message and no error for %q", i, r.Question[0].Name)
+		}
+
+		if tc.Truncated != resp.Truncated {
+			t.Errorf("Expected truncation %t, got truncation %t", tc.Truncated, resp.Truncated)
+		}
+
+		// Before sorting, make sure that CNAMES do not appear after their target records
+		if err := test.CNAMEOrder(resp); err != nil {
+			t.Errorf("Test %d, %v", i, err)
+		}
+
+		if err := test.SortAndCheck(resp, tc.Case); err != nil {
+			t.Errorf("Test %d, %v", i, err)
+		}
+	}
+}
+
+var multiclusterDnsTestCases = []kubeTestCase{
+	// SRV Service (Headless)
+	{Case: test.Case{
+		Qname: "_http._tcp.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 172-0-0-2.cluster1.hdls1.testns.svc.cluster.local."),
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 172-0-0-3.cluster1.hdls1.testns.svc.cluster.local."),
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--1.cluster1.hdls1.testns.svc.cluster.local."),
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 5678-abcd--2.cluster1.hdls1.testns.svc.cluster.local."),
+			test.SRV("_http._tcp.hdls1.testns.svc.cluster.local.	5	IN	SRV	0 16 80 dup-name.cluster1.hdls1.testns.svc.cluster.local."),
+		},
+		Extra: []dns.RR{
+			test.A("172-0-0-2.cluster1.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
+			test.A("172-0-0-3.cluster1.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
+			test.AAAA("5678-abcd--1.cluster1.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::1"),
+			test.AAAA("5678-abcd--2.cluster1.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2"),
+			test.A("dup-name.cluster1.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
+			test.A("dup-name.cluster1.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
+		},
+	}},
+	{Case: test.Case{ // An A record query for an existing headless service should return a record for each of its ipv4 endpoints
+		Qname: "hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
+			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
+			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
+			test.A("hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
+		},
+	}},
+	// AAAA
+	{Case: test.Case{
+		Qname: "5678-abcd--2.cluster1.hdls1.testns.svc.cluster.local", Qtype: dns.TypeAAAA,
+		Rcode:  dns.RcodeSuccess,
+		Answer: []dns.RR{test.AAAA("5678-abcd--2.cluster1.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::2")},
+	}},
+	// AAAA Endpoint
+	{Case: test.Case{
+		Qname: "5678-abcd--1.cluster1.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeAAAA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.AAAA("5678-abcd--1.cluster1.hdls1.testns.svc.cluster.local.	5	IN	AAAA	5678:abcd::1"),
+		},
+	}},
+	// An Endpoint with no port
+	{Case: test.Case{
+		Qname: "172-0-0-20.cluster1.hdlsprtls.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("172-0-0-20.cluster1.hdlsprtls.testns.svc.cluster.local.	5	IN	A	172.0.0.20"),
+		},
+	}},
+	// AAAA Endpoint without specifying the clusterid
+	{Case: test.Case{
+		Qname: "5678-abcd--1.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeAAAA,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
+		},
+	}},
+	// An Endpoint ip
+	{Case: test.Case{
+		Qname: "172-0-0-2.cluster1.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("172-0-0-2.cluster1.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
+		},
+	}},
+	// A Endpoint ip
+	{Case: test.Case{
+		Qname: "172-0-0-3.cluster1.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("172-0-0-3.cluster1.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
+		},
+	}},
+	// An Endpoint by name
+	{Case: test.Case{
+		Qname: "dup-name.cluster1.hdls1.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("dup-name.cluster1.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.4"),
+			test.A("dup-name.cluster1.hdls1.testns.svc.cluster.local.	5	IN	A	172.0.0.5"),
+		},
+	}},
+}
+
+func TestMultiClusterServeDNS(t *testing.T) {
+	k := New([]string{"cluster.local."})
+	k.opts.multiclusterZones = []string{"cluster.local."}
+	k.APIConn = &APIConnServeTest{}
+	k.Next = test.NextHandler(dns.RcodeSuccess, nil)
+	k.Namespaces = map[string]struct{}{"testns": {}}
+	ctx := context.TODO()
+
+	for i, tc := range append(commonDnsTestCases, multiclusterDnsTestCases...) {
 		k.Upstream = tc.Upstream
 
 		r := tc.Msg()
@@ -573,7 +708,7 @@ func (APIConnServeTest) Stop() error                                 { return ni
 func (APIConnServeTest) EpIndexReverse(string) []*object.Endpoints   { return nil }
 func (APIConnServeTest) SvcIndexReverse(string) []*object.Service    { return nil }
 func (APIConnServeTest) SvcExtIndexReverse(string) []*object.Service { return nil }
-func (APIConnServeTest) Modified(bool) int64                         { return int64(3) }
+func (APIConnServeTest) Modified(ModifiedMode) int64                 { return int64(3) }
 
 func (APIConnServeTest) PodIndex(ip string) []*object.Pod {
 	if ip != "10.240.0.1" {
@@ -788,6 +923,206 @@ var epsIndex = map[string][]*object.Endpoints{
 
 func (APIConnServeTest) EpIndex(s string) []*object.Endpoints {
 	return epsIndex[s]
+}
+
+var svcImportIndex = map[string][]*object.ServiceImport{
+	"kubedns.kube-system": {
+		{
+			Name:       "kubedns",
+			Namespace:  "kube-system",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"10.0.0.10"},
+			Ports: []mcs.ServicePort{
+				{Name: "dns", Protocol: "udp", Port: 53},
+			},
+		},
+	},
+	"svc1.testns": {
+		{
+			Name:       "svc1",
+			Namespace:  "testns",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"10.0.0.1"},
+			Ports: []mcs.ServicePort{
+				{Name: "http", Protocol: "tcp", Port: 80},
+			},
+		},
+	},
+	"svcempty.testns": {
+		{
+			Name:       "svcempty",
+			Namespace:  "testns",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"10.0.0.1"},
+			Ports: []mcs.ServicePort{
+				{Name: "http", Protocol: "tcp", Port: 80},
+			},
+		},
+	},
+	"svc6.testns": {
+		{
+			Name:       "svc6",
+			Namespace:  "testns",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"1234:abcd::1"},
+			Ports: []mcs.ServicePort{
+				{Name: "http", Protocol: "tcp", Port: 80},
+			},
+		},
+	},
+	"hdls1.testns": {
+		{
+			Name:       "hdls1",
+			Namespace:  "testns",
+			Type:       mcs.Headless,
+			ClusterIPs: []string{},
+		},
+	},
+	"hdlsprtls.testns": {
+		{
+			Name:      "hdlsprtls",
+			Namespace: "testns",
+			Type:      mcs.Headless,
+		},
+	},
+	"svc1.unexposedns": {
+		{
+			Name:       "svc1",
+			Namespace:  "unexposedns",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"10.0.0.2"},
+			Ports: []mcs.ServicePort{
+				{Name: "http", Protocol: "tcp", Port: 80},
+			},
+		},
+	},
+	"svc-dual-stack.testns": {
+		{
+			Name:       "svc-dual-stack",
+			Namespace:  "testns",
+			Type:       mcs.ClusterSetIP,
+			ClusterIPs: []string{"10.0.0.3", "10::3"},
+			Ports: []mcs.ServicePort{
+				{Name: "http", Protocol: "tcp", Port: 80},
+			},
+		},
+	},
+}
+
+func (APIConnServeTest) SvcImportIndex(s string) []*object.ServiceImport { return svcImportIndex[s] }
+
+func (APIConnServeTest) ServiceImportList() []*object.ServiceImport {
+	var svcs []*object.ServiceImport
+	for _, svc := range svcImportIndex {
+		svcs = append(svcs, svc...)
+	}
+	return svcs
+}
+
+var mcEpsIndex = map[string][]*object.MultiClusterEndpoints{
+	"kubedns.kube-system": {{
+		Endpoints: object.Endpoints{
+			Subsets: []object.EndpointSubset{
+				{
+					Addresses: []object.EndpointAddress{
+						{IP: "172.0.0.100"},
+					},
+					Ports: []object.EndpointPort{
+						{Port: 53, Protocol: "udp", Name: "dns"},
+					},
+				},
+			},
+			Name:      "kubedns",
+			Namespace: "kube-system",
+			Index:     object.EndpointsKey("kubedns", "kube-system"),
+		},
+		ClusterId: "cluster1",
+	}},
+	"svc1.testns": {{
+		Endpoints: object.Endpoints{
+			Subsets: []object.EndpointSubset{
+				{
+					Addresses: []object.EndpointAddress{
+						{IP: "172.0.0.1", Hostname: "ep1a"},
+					},
+					Ports: []object.EndpointPort{
+						{Port: 80, Protocol: "tcp", Name: "http"},
+					},
+				},
+			},
+			Name:      "svc1-slice1",
+			Namespace: "testns",
+			Index:     object.EndpointsKey("svc1", "testns"),
+		},
+		ClusterId: "cluster1",
+	}},
+	"svcempty.testns": {{
+		Endpoints: object.Endpoints{
+			Subsets: []object.EndpointSubset{
+				{
+					Addresses: nil,
+					Ports: []object.EndpointPort{
+						{Port: 80, Protocol: "tcp", Name: "http"},
+					},
+				},
+			},
+			Name:      "svcempty-slice1",
+			Namespace: "testns",
+			Index:     object.EndpointsKey("svcempty", "testns"),
+		},
+		ClusterId: "cluster1",
+	}},
+	"hdls1.testns": {{
+		Endpoints: object.Endpoints{
+			Subsets: []object.EndpointSubset{
+				{
+					Addresses: []object.EndpointAddress{
+						{IP: "172.0.0.2"},
+						{IP: "172.0.0.3"},
+						{IP: "172.0.0.4", Hostname: "dup-name"},
+						{IP: "172.0.0.5", Hostname: "dup-name"},
+						{IP: "5678:abcd::1"},
+						{IP: "5678:abcd::2"},
+					},
+					Ports: []object.EndpointPort{
+						{Port: 80, Protocol: "tcp", Name: "http"},
+					},
+				},
+			},
+			Name:      "hdls1-slice1",
+			Namespace: "testns",
+			Index:     object.EndpointsKey("hdls1", "testns"),
+		},
+		ClusterId: "cluster1",
+	}},
+	"hdlsprtls.testns": {{
+		Endpoints: object.Endpoints{
+			Subsets: []object.EndpointSubset{
+				{
+					Addresses: []object.EndpointAddress{
+						{IP: "172.0.0.20"},
+					},
+					Ports: []object.EndpointPort{{Port: -1}},
+				},
+			},
+			Name:      "hdlsprtls-slice1",
+			Namespace: "testns",
+			Index:     object.EndpointsKey("hdlsprtls", "testns"),
+		},
+		ClusterId: "cluster1",
+	}},
+}
+
+func (APIConnServeTest) McEpIndex(s string) []*object.MultiClusterEndpoints {
+	return mcEpsIndex[s]
+}
+
+func (APIConnServeTest) MultiClusterEndpointsList() []*object.MultiClusterEndpoints {
+	var eps []*object.MultiClusterEndpoints
+	for _, ep := range mcEpsIndex {
+		eps = append(eps, ep...)
+	}
+	return eps
 }
 
 func (APIConnServeTest) EndpointsList() []*object.Endpoints {
