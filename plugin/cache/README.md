@@ -142,3 +142,13 @@ example.org {
     }
 }
 ~~~
+
+Enable zerottl for `example.org`, set 30seconds when the cache is served from the stale record:
+
+~~~ corefile
+example.org {
+    cache {
+        zerottl 30s
+    }
+}
+~~~

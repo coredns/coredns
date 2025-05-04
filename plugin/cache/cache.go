@@ -51,6 +51,10 @@ type Cache struct {
 	// Keep ttl option
 	keepttl bool
 
+        // Zero ttl option
+        zerottl time.Duration
+        zerottlflag bool
+
 	// Testing.
 	now func() time.Time
 }
@@ -73,6 +77,8 @@ func New() *Cache {
 		duration:   1 * time.Minute,
 		percentage: 10,
 		now:        time.Now,
+                zerottl:    minNTTL,
+                zerottlflag: false,
 	}
 }
 
