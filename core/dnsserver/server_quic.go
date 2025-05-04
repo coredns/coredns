@@ -124,7 +124,7 @@ func (s *ServerQUIC) serveQUICConnection(conn quic.Connection) {
 }
 
 func (s *ServerQUIC) serveQUICStream(stream quic.Stream, conn quic.Connection) {
-	buf, err := readDOQMessage(stream)
+	buf, err := ReadDOQMessage(stream)
 
 	// io.EOF does not really mean that there's any error, it is just
 	// the STREAM FIN indicating that there will be no data to read
@@ -270,11 +270,11 @@ func validRequest(req *dns.Msg) (ok bool) {
 	return true
 }
 
-// readDOQMessage reads a DNS over QUIC (DOQ) message from the given stream
+// ReadDOQMessage reads a DNS over QUIC (DOQ) message from the given stream
 // and returns the message bytes.
 // Drafts of the RFC9250 did not require the 2-byte prefixed message length.
 // Thus, we are only supporting the official version (DoQ v1).
-func readDOQMessage(r io.Reader) ([]byte, error) {
+func ReadDOQMessage(r io.Reader) ([]byte, error) {
 	// All DNS messages (queries and responses) sent over DoQ connections MUST
 	// be encoded as a 2-octet length field followed by the message content as
 	// specified in [RFC1035].
