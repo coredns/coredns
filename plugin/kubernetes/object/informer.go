@@ -17,7 +17,6 @@ func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.
 		ListerWatcher:    lw,
 		ObjectType:       objType,
 		FullResyncPeriod: defaultResyncPeriod,
-		RetryOnError:     false,
 		Process:          builder(clientState, h),
 	}
 	return clientState, cache.New(cfg)
