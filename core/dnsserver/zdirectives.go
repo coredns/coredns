@@ -58,6 +58,7 @@ var Directives = []string{
 	"loop",
 	"forward",
 	"grpc",
+	"quic",
 	"erratic",
 	"whoami",
 	"on",

@@ -10,8 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	ctls "github.com/coredns/coredns/plugin/pkg/tls"
+	cquic "github.com/coredns/coredns/plugin/quic"
+	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
 	"github.com/quic-go/quic-go"
@@ -114,6 +118,38 @@ func TestQUICProtocolError(t *testing.T) {
 
 	if !isProtocolErr(err) {
 		t.Errorf("Expected \"Application Error 0x2\" but got: %s", err)
+	}
+}
+
+func TestQUICPlugin(t *testing.T) {
+	q, udp, _, err := CoreDNSServerAndPorts(quicCorefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer q.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+
+	c := caddy.NewTestController("dns", "quic . "+udp)
+	p, err := cquic.ParseQUIC(c)
+
+	if err != nil {
+		t.Errorf("Failed to create forwarder: %s", err)
+	}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	if _, err := p.ServeDNS(context.TODO(), rec, m); err != nil {
+		t.Fatal("Expected to receive reply, but didn't")
+	}
+
+	if rec.Msg.Rcode != dns.RcodeSuccess {
+		t.Errorf("Expected success but got %d", rec.Msg.Rcode)
+	}
+
+	if len(rec.Msg.Extra) != 2 {
+		t.Errorf("Expected 2 RRs in additional section, but got %d", len(rec.Msg.Extra))
 	}
 }
 
