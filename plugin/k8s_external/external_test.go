@@ -286,10 +286,17 @@ func (external) Run()                                      {}
 func (external) Stop() error                               { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints { return nil }
 func (external) SvcIndexReverse(string) []*object.Service  { return nil }
-func (external) Modified(bool) int64                       { return 0 }
+func (external) Modified(kubernetes.ModifiedMode) int64    { return 0 }
+
+func (external) SvcImportIndex(s string) []*object.ServiceImport                    { return nil }
+func (external) ServiceImportList() []*object.ServiceImport                         { return nil }
+func (external) McEpIndex(s string) []*object.MultiClusterEndpoints                 { return nil }
+func (external) MultiClusterEndpointsList(s string) []*object.MultiClusterEndpoints { return nil }
+
 func (external) EpIndex(s string) []*object.Endpoints {
 	return epIndexExternal[s]
 }
+
 func (external) EndpointsList() []*object.Endpoints {
 	var eps []*object.Endpoints
 	for _, ep := range epIndexExternal {

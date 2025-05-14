@@ -29,9 +29,7 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 	}
 
 	ch := make(chan []dns.RR)
-
 	zonePath := msg.Path(zone, "coredns")
-	serviceList := k.APIConn.ServiceList()
 
 	go func() {
 		// ixfr fallback
@@ -41,7 +39,6 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 			return
 		}
 		ch <- soa
-
 		nsAddrs := k.nsAddrs(false, false, zone)
 		nsHosts := make(map[string]struct{})
 		for _, nsAddr := range nsAddrs {
@@ -51,98 +48,191 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 				ch <- []dns.RR{&dns.NS{Hdr: dns.RR_Header{Name: zone, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: k.ttl}, Ns: nsHost}}
 			}
 			ch <- nsAddrs
-		}
 
-		sort.Slice(serviceList, func(i, j int) bool {
-			return serviceList[i].Name < serviceList[j].Name
-		})
-
-		for _, svc := range serviceList {
-			if !k.namespaceExposed(svc.Namespace) {
-				continue
+			if !k.isMultiClusterZone(zone) {
+				k.transferServices(ch, zonePath)
+			} else {
+				k.transferMultiClusterServices(ch, zonePath)
 			}
-			svcBase := []string{zonePath, Svc, svc.Namespace, svc.Name}
-			switch svc.Type {
-			case api.ServiceTypeClusterIP, api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
-				clusterIP := net.ParseIP(svc.ClusterIPs[0])
-				if clusterIP != nil {
-					var host string
-					for _, ip := range svc.ClusterIPs {
-						s := msg.Service{Host: ip, TTL: k.ttl}
-						s.Key = strings.Join(svcBase, "/")
 
-						// Change host from IP to Name for SRV records
-						host = emitAddressRecord(ch, s)
+			ch <- soa
+			close(ch)
+		}
+	}()
+	return ch, nil
+}
+
+func (k *Kubernetes) transferServices(ch chan []dns.RR, zonePath string) {
+	serviceList := k.APIConn.ServiceList()
+	sort.Slice(serviceList, func(i, j int) bool {
+		return serviceList[i].Name < serviceList[j].Name
+	})
+
+	for _, svc := range serviceList {
+		if !k.namespaceExposed(svc.Namespace) {
+			continue
+		}
+		svcBase := []string{zonePath, Svc, svc.Namespace, svc.Name}
+		switch svc.Type {
+		case api.ServiceTypeClusterIP, api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
+			clusterIP := net.ParseIP(svc.ClusterIPs[0])
+			if clusterIP != nil {
+				var host string
+				for _, ip := range svc.ClusterIPs {
+					s := msg.Service{Host: ip, TTL: k.ttl}
+					s.Key = strings.Join(svcBase, "/")
+
+					// Change host from IP to Name for SRV records
+					host = emitAddressRecord(ch, s)
+				}
+
+				for _, p := range svc.Ports {
+					s := msg.Service{Host: host, Port: int(p.Port), TTL: k.ttl}
+					s.Key = strings.Join(svcBase, "/")
+
+					// Need to generate this to handle use cases for peer-finder
+					// ref: https://github.com/coredns/coredns/pull/823
+					ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), 100)}
+
+					// As per spec unnamed ports do not have a srv record
+					// https://github.com/kubernetes/dns/blob/master/docs/specification.md#232---srv-records
+					if p.Name == "" {
+						continue
 					}
 
-					for _, p := range svc.Ports {
-						s := msg.Service{Host: host, Port: int(p.Port), TTL: k.ttl}
+					s.Key = strings.Join(append(svcBase, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+p.Name)), "/")
+
+					ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), 100)}
+				}
+
+				//  Skip endpoint discovery if clusterIP is defined
+				continue
+			}
+
+			endpointsList := k.APIConn.EpIndex(svc.Name + "." + svc.Namespace)
+
+			for _, ep := range endpointsList {
+				for _, eps := range ep.Subsets {
+					srvWeight := calcSRVWeight(len(eps.Addresses))
+					for _, addr := range eps.Addresses {
+						s := msg.Service{Host: addr.IP, TTL: k.ttl}
 						s.Key = strings.Join(svcBase, "/")
+						// We don't need to change the msg.Service host from IP to Name yet
+						// so disregard the return value here
+						emitAddressRecord(ch, s)
 
-						// Need to generate this to handle use cases for peer-finder
-						// ref: https://github.com/coredns/coredns/pull/823
-						ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), 100)}
+						s.Key = strings.Join(append(svcBase, endpointHostname(addr, k.endpointNameMode)), "/")
+						// Change host from IP to Name for SRV records
+						host := emitAddressRecord(ch, s)
+						s.Host = host
 
+						for _, p := range eps.Ports {
+							// As per spec unnamed ports do not have a srv record
+							// https://github.com/kubernetes/dns/blob/master/docs/specification.md#232---srv-records
+							if p.Name == "" {
+								continue
+							}
+
+							s.Port = int(p.Port)
+
+							s.Key = strings.Join(append(svcBase, strings.ToLower("_"+p.Protocol), strings.ToLower("_"+p.Name)), "/")
+							ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), srvWeight)}
+						}
+					}
+				}
+			}
+
+		case api.ServiceTypeExternalName:
+
+			s := msg.Service{Key: strings.Join(svcBase, "/"), Host: svc.ExternalName, TTL: k.ttl}
+			if t, _ := s.HostType(); t == dns.TypeCNAME {
+				ch <- []dns.RR{s.NewCNAME(msg.Domain(s.Key), s.Host)}
+			}
+		}
+	}
+}
+
+func (k *Kubernetes) transferMultiClusterServices(ch chan []dns.RR, zonePath string) {
+	serviceImportList := k.APIConn.ServiceImportList()
+	sort.Slice(serviceImportList, func(i, j int) bool {
+		return serviceImportList[i].Name < serviceImportList[j].Name
+	})
+
+	for _, svcImport := range serviceImportList {
+		if !k.namespaceExposed(svcImport.Namespace) {
+			continue
+		}
+		svcBase := []string{zonePath, Svc, svcImport.Namespace, svcImport.Name}
+		var clusterIP net.IP
+		if len(svcImport.ClusterIPs) > 0 {
+			clusterIP = net.ParseIP(svcImport.ClusterIPs[0])
+		}
+		if clusterIP != nil {
+			var host string
+			for _, ip := range svcImport.ClusterIPs {
+				s := msg.Service{Host: ip, TTL: k.ttl}
+				s.Key = strings.Join(svcBase, "/")
+
+				// Change host from IP to Name for SRV records
+				host = emitAddressRecord(ch, s)
+			}
+
+			for _, p := range svcImport.Ports {
+				s := msg.Service{Host: host, Port: int(p.Port), TTL: k.ttl}
+				s.Key = strings.Join(svcBase, "/")
+
+				// Need to generate this to handle use cases for peer-finder
+				// ref: https://github.com/coredns/coredns/pull/823
+				ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), 100)}
+
+				// As per spec unnamed ports do not have a srv record
+				// https://github.com/kubernetes/dns/blob/master/docs/specification.md#232---srv-records
+				if p.Name == "" {
+					continue
+				}
+
+				s.Key = strings.Join(append(svcBase, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+p.Name)), "/")
+
+				ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), 100)}
+			}
+
+			//  Skip endpoint discovery if clusterIP is defined
+			continue
+		}
+
+		endpointsList := k.APIConn.McEpIndex(svcImport.Name + "." + svcImport.Namespace)
+
+		for _, ep := range endpointsList {
+			for _, eps := range ep.Subsets {
+				srvWeight := calcSRVWeight(len(eps.Addresses))
+				for _, addr := range eps.Addresses {
+					s := msg.Service{Host: addr.IP, TTL: k.ttl}
+					s.Key = strings.Join(svcBase, "/")
+					// We don't need to change the msg.Service host from IP to Name yet
+					// so disregard the return value here
+					emitAddressRecord(ch, s)
+
+					s.Key = strings.Join(append(svcBase, endpointHostname(addr, k.endpointNameMode)), "/")
+					// Change host from IP to Name for SRV records
+					host := emitAddressRecord(ch, s)
+					s.Host = host
+
+					for _, p := range eps.Ports {
 						// As per spec unnamed ports do not have a srv record
 						// https://github.com/kubernetes/dns/blob/master/docs/specification.md#232---srv-records
 						if p.Name == "" {
 							continue
 						}
 
-						s.Key = strings.Join(append(svcBase, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+p.Name)), "/")
+						s.Port = int(p.Port)
 
-						ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), 100)}
+						s.Key = strings.Join(append(svcBase, strings.ToLower("_"+p.Protocol), strings.ToLower("_"+p.Name)), "/")
+						ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), srvWeight)}
 					}
-
-					//  Skip endpoint discovery if clusterIP is defined
-					continue
-				}
-
-				endpointsList := k.APIConn.EpIndex(svc.Name + "." + svc.Namespace)
-
-				for _, ep := range endpointsList {
-					for _, eps := range ep.Subsets {
-						srvWeight := calcSRVWeight(len(eps.Addresses))
-						for _, addr := range eps.Addresses {
-							s := msg.Service{Host: addr.IP, TTL: k.ttl}
-							s.Key = strings.Join(svcBase, "/")
-							// We don't need to change the msg.Service host from IP to Name yet
-							// so disregard the return value here
-							emitAddressRecord(ch, s)
-
-							s.Key = strings.Join(append(svcBase, endpointHostname(addr, k.endpointNameMode)), "/")
-							// Change host from IP to Name for SRV records
-							host := emitAddressRecord(ch, s)
-							s.Host = host
-
-							for _, p := range eps.Ports {
-								// As per spec unnamed ports do not have a srv record
-								// https://github.com/kubernetes/dns/blob/master/docs/specification.md#232---srv-records
-								if p.Name == "" {
-									continue
-								}
-
-								s.Port = int(p.Port)
-
-								s.Key = strings.Join(append(svcBase, strings.ToLower("_"+p.Protocol), strings.ToLower("_"+p.Name)), "/")
-								ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), srvWeight)}
-							}
-						}
-					}
-				}
-
-			case api.ServiceTypeExternalName:
-
-				s := msg.Service{Key: strings.Join(svcBase, "/"), Host: svc.ExternalName, TTL: k.ttl}
-				if t, _ := s.HostType(); t == dns.TypeCNAME {
-					ch <- []dns.RR{s.NewCNAME(msg.Domain(s.Key), s.Host)}
 				}
 			}
 		}
-		ch <- soa
-		close(ch)
-	}()
-	return ch, nil
+	}
 }
 
 // emitAddressRecord generates a new A or AAAA record based on the msg.Service and writes it to a channel.

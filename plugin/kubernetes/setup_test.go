@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -607,6 +608,77 @@ func TestKubernetesParseIgnoreEmptyService(t *testing.T) {
 		foundIgnoreEmptyService := k8sController.opts.ignoreEmptyService
 		if foundIgnoreEmptyService != test.expectedEndpointsInit {
 			t.Errorf("Test %d: Expected kubernetes controller to be initialized with ignore empty_service '%v'. Instead found ignore empty_service watch '%v' for input '%s'", i, test.expectedEndpointsInit, foundIgnoreEmptyService, test.input)
+		}
+	}
+}
+
+func TestKubernetesParseMulticluster(t *testing.T) {
+	tests := []struct {
+		input                     string // Corefile data as string
+		shouldErr                 bool   // true if test case is expected to produce an error.
+		expectedErrContent        string // substring from the expected error. Empty for positive cases.
+		expectedMulticlusterZones []string
+	}{
+		// valid
+		{
+			`kubernetes coredns.local clusterset.local {
+	multicluster clusterset.local
+}`,
+			false,
+			"",
+			[]string{"clusterset.local."},
+		},
+		// invalid
+		{
+			`kubernetes coredns.local {
+	multicluster clusterset.local
+}`,
+			true,
+			"Error during parsing: is not authoritative for the multicluster zone clusterset.local.",
+			[]string{"clusterset.local."},
+		},
+		{
+			`kubernetes coredns.local clusterset.local {
+	multicluster clusterset.local test.local
+}`,
+			true,
+			"Error during parsing: is not authoritative for the multicluster zone test.local.",
+			[]string{"clusterset.local.", "test.local."},
+		},
+		// not set
+		{
+			`kubernetes coredns.local {
+	multicluster
+}`,
+			false,
+			"",
+			[]string{},
+		},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		k8sController, err := kubernetesParse(c)
+
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %d: Expected error, but did not find error for input '%s'. Error was: '%v'", i, test.input, err)
+		}
+
+		if err != nil {
+			if !test.shouldErr {
+				t.Errorf("Test %d: Expected no error but found one for input %s. Error was: %v", i, test.input, err)
+				continue
+			}
+
+			if !strings.Contains(err.Error(), test.expectedErrContent) {
+				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErrContent, err, test.input)
+			}
+			continue
+		}
+
+		foundMulticlusterZones := k8sController.opts.multiclusterZones
+		if !slices.Equal(foundMulticlusterZones, test.expectedMulticlusterZones) {
+			t.Errorf("Test %d: Expected kubernetes controller to be initialized with multicluster '%v'. Instead found multicluster '%v' for input '%s'", i, test.expectedMulticlusterZones, foundMulticlusterZones, test.input)
 		}
 	}
 }
