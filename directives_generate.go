@@ -14,6 +14,26 @@ func main() {
 	mi := make(map[string]string, 0)
 	md := []string{}
 
+	parsePlugin := func(element string) {
+		items := strings.Split(element, ":")
+		if len(items) != 2 {
+			// ignore empty lines
+			return
+		}
+		name, repo := items[0], items[1]
+
+		if _, ok := mi[name]; ok {
+			log.Fatalf("Duplicate entry %q", name)
+		}
+
+		md = append(md, name)
+		mi[name] = pluginPath + repo // Default, unless overridden by 3rd arg
+
+		if _, err := os.Stat(pluginFSPath + repo); err != nil { // External package has been given
+			mi[name] = repo
+		}
+	}
+
 	file, err := os.Open(pluginFile)
 	if err != nil {
 		log.Fatalf("Failed to open %s: %q", pluginFile, err)
@@ -28,23 +48,11 @@ func main() {
 			continue
 		}
 
-		items := strings.Split(line, ":")
-		if len(items) != 2 {
-			// ignore empty lines
-			continue
-		}
-		name, repo := items[0], items[1]
+		parsePlugin(line)
+	}
 
-		if _, ok := mi[name]; ok {
-			log.Fatalf("Duplicate entry %q", name)
-		}
-
-		md = append(md, name)
-		mi[name] = pluginPath + repo // Default, unless overridden by 3rd arg
-
-		if _, err := os.Stat(pluginFSPath + repo); err != nil { // External package has been given
-			mi[name] = repo
-		}
+	for _, element := range strings.Split(os.Getenv("COREDNS_PLUGINS"), ",") {
+		parsePlugin(element)
 	}
 
 	genImports("core/plugin/zplugin.go", "plugin", mi)
