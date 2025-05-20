@@ -29,12 +29,12 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/clouddns/       @miekg @yongtang
 /plugin/dns64           @superq
 /plugin/dnssec/         @isolus @miekg
-/plugin/dnstap/         @varyoo @yongtang
+/plugin/dnstap/         @yongtang
 /plugin/erratic/        @miekg
 /plugin/errors/         @miekg @Tantalor93
 /plugin/etcd/           @miekg @nitisht
 /plugin/file/           @miekg @yongtang @stp-ip
-/plugin/forward/        @johnbelamaric @miekg @rdrozhdzh @Tantalor93 @chrisohaver
+/plugin/forward/        @johnbelamaric @miekg @Tantalor93 @chrisohaver
 /plugin/geoip/          @miekg @snebel29
 /plugin/grpc/           @inigohu @miekg @zouyee
 /plugin/health/         @jameshartig @miekg @zouyee
@@ -45,7 +45,7 @@ go.mod                  @miekg @chrisohaver @johnbelamaric @yongtang @stp-ip
 /plugin/loadbalance/    @miekg
 /plugin/log/            @miekg @nchrisdk @Tantalor93
 /plugin/loop/           @miekg @chrisohaver
-/plugin/metadata/       @ekleiner @miekg @Tantalor93
+/plugin/metadata/       @miekg @Tantalor93
 /plugin/metrics/        @jameshartig @miekg @superq @greenpau @Tantalor93
 /plugin/nsid/           @yongtang
 /plugin/pprof/          @miekg @zouyee
