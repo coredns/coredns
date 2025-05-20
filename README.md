@@ -67,6 +67,8 @@ $ cd coredns
 $ make
 ~~~
 
+> **_NOTE:_**  extra plugins may be enabled when building by setting the `COREDNS_PLUGINS` environment variable with comma separate list of plugins in the same format as plugin.cfg
+
 This should yield a `coredns` binary.
 
 ## Compilation with Docker
