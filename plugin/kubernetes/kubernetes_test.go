@@ -44,11 +44,39 @@ type APIConnServiceTest struct{}
 func (APIConnServiceTest) HasSynced() bool                             { return true }
 func (APIConnServiceTest) Run()                                        {}
 func (APIConnServiceTest) Stop() error                                 { return nil }
-func (APIConnServiceTest) PodIndex(string) []*object.Pod               { return nil }
 func (APIConnServiceTest) SvcIndexReverse(string) []*object.Service    { return nil }
 func (APIConnServiceTest) SvcExtIndexReverse(string) []*object.Service { return nil }
 func (APIConnServiceTest) EpIndexReverse(string) []*object.Endpoints   { return nil }
 func (APIConnServiceTest) Modified(ModifiedMode) int64                 { return 0 }
+
+func (APIConnServiceTest) PodIndex(ip string) []*object.Pod {
+	if ip == "10.240.0.1" { //Pod IP
+		return []*object.Pod{
+			{
+				Version:   "10245",
+				PodIP:     "10.240.0.1",
+				Name:      "test",
+				Namespace: "testns",
+			},
+		}
+	} else if ip == "10.16.0.1" { //Node IP
+		return []*object.Pod{
+			{
+				Version:   "12456",
+				PodIP:     "10.16.0.1",
+				Name:      "hostpod",
+				Namespace: "testns",
+			},
+			{
+				Version:   "13245",
+				PodIP:     "10.16.0.1",
+				Name:      "daemon",
+				Namespace: "other",
+			},
+		}
+	}
+	return nil
+}
 
 func (APIConnServiceTest) SvcIndex(string) []*object.Service {
 	svcs := []*object.Service{

@@ -10,8 +10,18 @@ import (
 
 // Metadata implements the metadata.Provider interface.
 func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) context.Context {
-	pod := k.podWithIP(state.IP())
-	if pod != nil {
+	pods := k.podsWithIP(state.IP())
+	zone := plugin.Zones(k.Zones).Matches(state.Name())
+	if pods != nil {
+		pod := pods[0]
+		if len(pods) > 1 {
+			matchedPods := k.matchQuery(pods, state.Name(), zone)
+			// If there's multiple host network pods in the same namespace we can't determine which one did the query
+			// Return the first one to keep the existing behavior
+			if len(matchedPods) > 0 {
+				pod = matchedPods[0]
+			}
+		}
 		metadata.SetValueFunc(ctx, "kubernetes/client-namespace", func() string {
 			return pod.Namespace
 		})
@@ -28,7 +38,6 @@ func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) contex
 		}
 	}
 
-	zone := plugin.Zones(k.Zones).Matches(state.Name())
 	if zone == "" {
 		return ctx
 	}
