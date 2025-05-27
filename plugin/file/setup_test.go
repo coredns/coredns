@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/test"
 )
 
@@ -22,24 +23,44 @@ func TestFileParse(t *testing.T) {
 	defer rm()
 
 	tests := []struct {
-		inputFileRules string
-		shouldErr      bool
-		expectedZones  Zones
+		inputFileRules      string
+		shouldErr           bool
+		expectedZones       Zones
+		expectedFallthrough fall.F
 	}{
 		{
 			`file ` + zoneFileName1 + ` miek.nl.`,
 			false,
 			Zones{Names: []string{"miek.nl."}},
+			fall.Zero,
 		},
 		{
 			`file ` + zoneFileName2 + ` dnssex.nl.`,
 			false,
 			Zones{Names: []string{"dnssex.nl."}},
+			fall.Zero,
 		},
 		{
 			`file ` + zoneFileName2 + ` 10.0.0.0/8`,
 			false,
 			Zones{Names: []string{"10.in-addr.arpa."}},
+			fall.Zero,
+		},
+		{
+			`file ` + zoneFileName2 + ` example.org. {
+					fallthrough
+				}`,
+			false,
+			Zones{Names: []string{"example.org."}},
+			fall.Root,
+		},
+		{
+			`file ` + zoneFileName2 + ` example.org. {
+					fallthrough www.example.org
+				}`,
+			false,
+			Zones{Names: []string{"example.org."}},
+			fall.F{Zones: []string{"www.example.org."}},
 		},
 		// errors.
 		{
@@ -48,11 +69,13 @@ func TestFileParse(t *testing.T) {
 			}`,
 			true,
 			Zones{},
+			fall.Zero,
 		},
 		{
 			`file`,
 			true,
 			Zones{},
+			fall.Zero,
 		},
 		{
 			`file ` + zoneFileName1 + ` example.net. {
@@ -60,6 +83,7 @@ func TestFileParse(t *testing.T) {
 			}`,
 			true,
 			Zones{},
+			fall.Zero,
 		},
 		{
 			`file ` + zoneFileName1 + ` example.net. {
@@ -67,12 +91,13 @@ func TestFileParse(t *testing.T) {
 			}`,
 			true,
 			Zones{},
+			fall.Zero,
 		},
 	}
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputFileRules)
-		actualZones, err := fileParse(c)
+		actualZones, actualFallthrough, err := fileParse(c)
 
 		if err == nil && test.shouldErr {
 			t.Fatalf("Test %d expected errors, but got no error", i)
@@ -86,6 +111,9 @@ func TestFileParse(t *testing.T) {
 				if actualZones.Names[j] != name {
 					t.Fatalf("Test %d expected %v for %d th zone, got %v", i, name, j, actualZones.Names[j])
 				}
+			}
+			if !actualFallthrough.Equal(test.expectedFallthrough) {
+				t.Errorf("Test %d expected fallthrough of %v, got %v", i, test.expectedFallthrough, actualFallthrough)
 			}
 		}
 	}
@@ -116,7 +144,7 @@ func TestParseReload(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		z, _ := fileParse(c)
+		z, _, _ := fileParse(c)
 		if x := z.Z["example.org."].ReloadInterval; x != test.reload {
 			t.Errorf("Test %d expected reload to be %s, but got %s", i, test.reload, x)
 		}

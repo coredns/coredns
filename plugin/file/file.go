@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
@@ -22,6 +23,8 @@ type (
 		Next plugin.Handler
 		Zones
 		transfer *transfer.Transfer
+
+		Fall fall.F
 	}
 
 	// Zones maps zone names to a *Zone.
@@ -85,6 +88,13 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	}
 
 	answer, ns, extra, result := z.Lookup(ctx, state, qname)
+
+	// Only on NXDOMAIN we will fallthrough.
+	// `z.Lookup` can also return NOERROR for NXDOMAIN see comment see comment "Hacky way to get around empty-non-terminals" inside `Zone.Lookup`.
+	// It's safe to fallthrough with `result` Sucess (NOERROR) since all other return points in Lookup with Success have answer(s).
+	if len(answer) == 0 && (result == NameError || result == Success) && f.Fall.Through(qname) {
+		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+	}
 
 	m := new(dns.Msg)
 	m.SetReply(r)

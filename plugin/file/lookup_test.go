@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
 
@@ -212,6 +213,85 @@ func TestLookUpNoDataResult(t *testing.T) {
 		_, _, _, result := fm.Z[testzone].Lookup(ctx, state, tc.Qname)
 		if result != NoData {
 			t.Errorf("Expected result == 3 but result == %v ", result)
+		}
+	}
+}
+
+func TestLookupFallthrough(t *testing.T) {
+	zone, err := Parse(strings.NewReader(dbMiekNL), testzone, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expected no error when reading zone, got %q", err)
+	}
+
+	type FallWithTestCases struct {
+		Fall  fall.F
+		Cases []test.Case
+	}
+	var fallsWithTestCases = []FallWithTestCases{
+		{
+			Fall: fall.Root,
+			Cases: []test.Case{
+				{
+					Qname: "doesnotexist.miek.nl.", Qtype: dns.TypeA,
+					Rcode: dns.RcodeServerFailure,
+				},
+				{
+					Qname: "x.miek.nl.", Qtype: dns.TypeA,
+					Rcode: dns.RcodeServerFailure,
+				},
+			},
+		},
+		{
+			Fall: fall.F{Zones: []string{"a.miek.nl."}},
+			Cases: []test.Case{
+				{
+					Qname: "a.miek.nl.", Qtype: dns.TypeA,
+					Rcode: dns.RcodeSuccess,
+				},
+				{
+					Qname: "doesnotexist.miek.nl.", Qtype: dns.TypeA,
+					Rcode: dns.RcodeNameError,
+				},
+				{
+					Qname: "passthrough.a.miek.nl.", Qtype: dns.TypeA,
+					Rcode:  dns.RcodeServerFailure,
+					Answer: []dns.RR{},
+				},
+			},
+		},
+		{
+			Fall: fall.F{Zones: []string{"x.miek.nl."}},
+			Cases: []test.Case{
+				{
+					Qname: "x.miek.nl.", Qtype: dns.TypeA,
+					Rcode: dns.RcodeServerFailure,
+				},
+				{
+					Qname: "wildcard.x.miek.nl.", Qtype: dns.TypeA,
+					Rcode: dns.RcodeSuccess,
+				},
+			},
+		},
+	}
+
+	for _, fallWithTestCases := range fallsWithTestCases {
+		fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{testzone: zone}, Names: []string{testzone}}, Fall: fallWithTestCases.Fall}
+		ctx := context.TODO()
+
+		for _, tc := range fallWithTestCases.Cases {
+			m := tc.Msg()
+
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+			_, err := fm.ServeDNS(ctx, rec, m)
+			if err != nil {
+				t.Errorf("Expected no error, got %v", err)
+				return
+			}
+
+			if rec.Msg.Rcode != tc.Rcode {
+				t.Errorf("rcode is %q, expected %q", dns.RcodeToString[rec.Msg.Rcode], dns.RcodeToString[tc.Rcode])
+				return
+			}
 		}
 	}
 }
