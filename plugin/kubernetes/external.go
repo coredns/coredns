@@ -127,18 +127,17 @@ func (k *Kubernetes) External(state request.Request, headless bool) ([]msg.Servi
 				}
 			}
 			continue
-		} else {
-			for _, ip := range svc.ExternalIPs {
-				for _, p := range svc.Ports {
-					if !(matchPortAndProtocol(port, p.Name, protocol, string(p.Protocol))) {
-						continue
-					}
-					rcode = dns.RcodeSuccess
-					s := msg.Service{Host: ip, Port: int(p.Port), TTL: k.ttl}
-					s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
-
-					services = append(services, s)
+		}
+		for _, ip := range svc.ExternalIPs {
+			for _, p := range svc.Ports {
+				if !(matchPortAndProtocol(port, p.Name, protocol, string(p.Protocol))) {
+					continue
 				}
+				rcode = dns.RcodeSuccess
+				s := msg.Service{Host: ip, Port: int(p.Port), TTL: k.ttl}
+				s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
+
+				services = append(services, s)
 			}
 		}
 	}
@@ -195,16 +194,15 @@ func (k *Kubernetes) ExternalServices(zone string, headless bool) (services []ms
 				}
 			}
 			continue
-		} else {
-			for _, ip := range svc.ExternalIPs {
-				for _, p := range svc.Ports {
-					s := msg.Service{Host: ip, Port: int(p.Port), TTL: k.ttl}
-					s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
-					services = append(services, s)
-					s.Key = strings.Join(append([]string{zonePath, svc.Namespace, svc.Name}, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+p.Name)), "/")
-					s.TargetStrip = 2
-					services = append(services, s)
-				}
+		}
+		for _, ip := range svc.ExternalIPs {
+			for _, p := range svc.Ports {
+				s := msg.Service{Host: ip, Port: int(p.Port), TTL: k.ttl}
+				s.Key = strings.Join([]string{zonePath, svc.Namespace, svc.Name}, "/")
+				services = append(services, s)
+				s.Key = strings.Join(append([]string{zonePath, svc.Namespace, svc.Name}, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+p.Name)), "/")
+				s.TargetStrip = 2
+				services = append(services, s)
 			}
 		}
 	}
