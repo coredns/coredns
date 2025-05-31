@@ -55,5 +55,8 @@ func (k *Kubernetes) podWithIP(ip string) *object.Pod {
 	if len(ps) == 0 {
 		return nil
 	}
+	if ps[0].HostNetwork {
+		return nil
+	}
 	return ps[0]
 }
