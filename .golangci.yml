@@ -34,7 +34,6 @@ linters:
         - name: blank-imports
 
         - name: context-as-argument
-          disabled: true
           arguments:
             - allowTypesBefore: "*testing.T"
 
