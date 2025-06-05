@@ -80,7 +80,6 @@ linters:
           disabled: true
 
         - name: unnecessary-stmt
-          disabled: true
 
         - name: unreachable-code
 
