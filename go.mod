@@ -1,8 +1,8 @@
 module github.com/coredns/coredns
 
+// Note this minimum version requirement. CoreDNS supports the last two
+// Go versions. This follows the upstream Go project support.
 go 1.23.0
-
-toolchain go1.24.2
 
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
@@ -68,7 +68,7 @@ require (
 	github.com/DataDog/datadog-go/v5 v5.6.0 // indirect
 	github.com/DataDog/go-libddwaf/v3 v3.5.3 // indirect
 	github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20241206090539-a14610dc22b6 // indirect
-	github.com/DataDog/go-sqllexer v0.1.0 // indirect
+	github.com/DataDog/go-sqllexer v0.1.6 // indirect
 	github.com/DataDog/go-tuf v1.1.0-0.5.2 // indirect
 	github.com/DataDog/opentelemetry-mapping-go/pkg/otlp/attributes v0.26.0 // indirect
 	github.com/DataDog/sketches-go v1.4.7 // indirect
