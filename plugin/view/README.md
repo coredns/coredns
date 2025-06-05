@@ -31,6 +31,7 @@ Implement CIDR based split DNS routing.  This will return a different
 answer for `test.` depending on client's IP address.  It returns ...
 * `test. 3600 IN A 1.1.1.1`, for queries with a source address in 127.0.0.0/24
 * `test. 3600 IN A 2.2.2.2`, for queries with a source address in 192.168.0.0/16
+* `test. 3600 IN AAAA 2001:0DB8::1`, for queries with a source address in 2001:0DB8::/32
 * `test. 3600 IN A 3.3.3.3`, for all others
 
 ```
@@ -50,6 +51,17 @@ answer for `test.` depending on client's IP address.  It returns ...
   hosts {
     2.2.2.2 test
   }
+}
+
+. {
+  view v6_example1 {
+    expr incidr(client_ip(), '2001:0DB8::/32')
+  }
+  hosts {
+    2001:0DB8::1 test
+  }
+}
+
 }
 
 . {
