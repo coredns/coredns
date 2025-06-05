@@ -84,7 +84,6 @@ linters:
         - name: unreachable-code
 
         - name: unused-parameter
-          disabled: true
           arguments:
             - allowRegex: "^_"
 
