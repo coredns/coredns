@@ -141,6 +141,8 @@ func parseBlock(c *caddy.Controller, g *GRPC) error {
 		default:
 			return c.Errf("unknown policy '%s'", x)
 		}
+	case "fallthrough":
+		g.Fall.SetZonesFromArgs(c.RemainingArgs())
 	default:
 		if c.Val() != "}" {
 			return c.Errf("unknown property '%s'", c.Val())

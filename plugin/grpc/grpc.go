@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/debug"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -26,6 +27,7 @@ type GRPC struct {
 	tlsConfig     *tls.Config
 	tlsServerName string
 
+	Fall fall.F
 	Next plugin.Handler
 }
 
@@ -33,7 +35,11 @@ type GRPC struct {
 func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	if !g.match(state) {
-		return plugin.NextOrFailure(g.Name(), g.Next, ctx, w, r)
+		if g.Next != nil {
+			return plugin.NextOrFailure(g.Name(), g.Next, ctx, w, r)
+		}
+		// No next plugin, return SERVFAIL
+		return dns.RcodeServerFailure, nil
 	}
 
 	var (
@@ -84,14 +90,31 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			return 0, nil
 		}
 
+		// Check if we should fallthrough on NXDOMAIN responses
+		if ret.Rcode == dns.RcodeNameError && g.Fall.Through(state.Name()) {
+			if g.Next != nil {
+				return plugin.NextOrFailure(g.Name(), g.Next, ctx, w, r)
+			}
+			// No next plugin to fallthrough to, return the NXDOMAIN response
+		}
+
 		w.WriteMsg(ret)
 		return 0, nil
 	}
 
 	// SERVFAIL if all healthy proxys returned errors.
 	if err != nil {
+		// If fallthrough is enabled, try the next plugin instead of returning SERVFAIL
+		if g.Fall.Through(state.Name()) && g.Next != nil {
+			return plugin.NextOrFailure(g.Name(), g.Next, ctx, w, r)
+		}
 		// just return the last error received
 		return dns.RcodeServerFailure, err
+	}
+
+	// If fallthrough is enabled, try the next plugin instead of returning SERVFAIL
+	if g.Fall.Through(state.Name()) && g.Next != nil {
+		return plugin.NextOrFailure(g.Name(), g.Next, ctx, w, r)
 	}
 
 	return dns.RcodeServerFailure, ErrNoHealthy
