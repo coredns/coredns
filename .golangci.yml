@@ -88,7 +88,6 @@ linters:
             - allowRegex: "^_"
 
         - name: use-any
-          disabled: true
 
         - name: var-declaration
 
