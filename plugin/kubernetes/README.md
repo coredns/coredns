@@ -43,6 +43,7 @@ kubernetes [ZONES...] {
     fallthrough [ZONES...]
     ignore empty_service
     multicluster [ZONES...]
+    startup_timeout DURATION
 }
 ```
 
@@ -106,6 +107,8 @@ kubernetes [ZONES...] {
   Services API (MCS-API). Specifying this option is generally paired with the
   installation of an MCS-API implementation and the ServiceImport and ServiceExport
   CRDs. The plugin MUST be authoritative for the zones listed here.
+* `startup_timeout` specifies the **DURATION** value that limits the time to wait for informer cache synced 
+  when the kubernetes plugin starts. If not specified, the default timeout will be 5s.
 
 Enabling zone transfer is done by using the *transfer* plugin.
 
@@ -115,7 +118,7 @@ When CoreDNS starts with the *kubernetes* plugin enabled, it will delay serving 
 until it can connect to the Kubernetes API and synchronize all object watches.  If this cannot happen within
 5 seconds, then CoreDNS will start serving DNS while the *kubernetes* plugin continues to try to connect
 and synchronize all object watches.  CoreDNS will answer SERVFAIL to any request made for a Kubernetes record
-that has not yet been synchronized.
+that has not yet been synchronized. You can also determine how long to wait by specifying `startup_timeout`.
 
 ## Monitoring Kubernetes Endpoints
 

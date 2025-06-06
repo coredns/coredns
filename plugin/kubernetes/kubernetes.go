@@ -48,7 +48,8 @@ type Kubernetes struct {
 	opts             dnsControlOpts
 	primaryZoneIndex int
 	localIPs         []net.IP
-	autoPathSearch   []string // Local search path from /etc/resolv.conf. Needed for autopath.
+	autoPathSearch   []string      // Local search path from /etc/resolv.conf. Needed for autopath.
+	startupTimeout   time.Duration // startupTimeout set timeout of startup
 }
 
 // Upstreamer is used to resolve CNAME or other external targets
@@ -276,8 +277,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 			k.APIConn.Run()
 		}()
 
-		timeout := 5 * time.Second
-		timeoutTicker := time.NewTicker(timeout)
+		timeoutTicker := time.NewTicker(k.startupTimeout)
 		defer timeoutTicker.Stop()
 		logDelay := 500 * time.Millisecond
 		logTicker := time.NewTicker(logDelay)

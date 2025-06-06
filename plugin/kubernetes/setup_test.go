@@ -4,12 +4,15 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var defaultStartupTimeout = time.Second * 5
 
 func TestKubernetesParse(t *testing.T) {
 	tests := []struct {
@@ -22,6 +25,7 @@ func TestKubernetesParse(t *testing.T) {
 		expectedNamespaceLabelSelector string // expected namespace label selector value
 		expectedPodMode                string
 		expectedFallthrough            fall.F
+		expectedStartupTimeout         time.Duration
 	}{
 		// positive
 		{
@@ -34,6 +38,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local test.local`,
@@ -45,6 +50,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -57,6 +63,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -70,6 +77,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -83,6 +91,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -96,6 +105,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -109,6 +119,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -122,6 +133,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -135,6 +147,7 @@ func TestKubernetesParse(t *testing.T) {
 			"istio-injection=enabled",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -149,6 +162,7 @@ func TestKubernetesParse(t *testing.T) {
 			"istio-injection=enabled",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local test.local {
@@ -165,6 +179,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Root,
+			defaultStartupTimeout,
 		},
 		// negative
 		{
@@ -179,6 +194,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -192,6 +208,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -205,6 +222,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -218,6 +236,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		// pods disabled
 		{
@@ -232,6 +251,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		// pods insecure
 		{
@@ -246,6 +266,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeInsecure,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		// pods verified
 		{
@@ -260,6 +281,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeVerified,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		// pods invalid
 		{
@@ -274,6 +296,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeVerified,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		// fallthrough with zones
 		{
@@ -288,6 +311,7 @@ func TestKubernetesParse(t *testing.T) {
 			"",
 			podModeDisabled,
 			fall.F{Zones: []string{"ip6.arpa.", "inaddr.arpa.", "foo.com."}},
+			defaultStartupTimeout,
 		},
 		// More than one Kubernetes not allowed
 		{
@@ -301,6 +325,7 @@ kubernetes cluster.local`,
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -314,6 +339,7 @@ kubernetes cluster.local`,
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -327,6 +353,7 @@ kubernetes cluster.local`,
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -340,6 +367,7 @@ kubernetes cluster.local`,
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
 		},
 		{
 			`kubernetes coredns.local {
@@ -353,6 +381,22 @@ kubernetes cluster.local`,
 			"",
 			podModeDisabled,
 			fall.Zero,
+			defaultStartupTimeout,
+		},
+		{
+			`kubernetes coredns.local {
+        kubeconfig file context
+        startup_timeout 1s
+}`,
+			false,
+			"",
+			1,
+			0,
+			"",
+			"",
+			podModeDisabled,
+			fall.Zero,
+			time.Second * 1,
 		},
 	}
 
@@ -413,6 +457,11 @@ kubernetes cluster.local`,
 		// fallthrough
 		if !k8sController.Fall.Equal(test.expectedFallthrough) {
 			t.Errorf("Test %d: Expected kubernetes controller to be initialized with fallthrough '%v'. Instead found fallthrough '%v' for input '%s'", i, test.expectedFallthrough, k8sController.Fall, test.input)
+		}
+
+		// startupTimeout
+		if k8sController.startupTimeout.String() != test.expectedStartupTimeout.String() {
+			t.Errorf("Test %d: Expected kubernetes controller to be initialized with startupTimeout '%v'. Instead found startupTimeout '%v' for input '%s'", i, test.expectedStartupTimeout, k8sController.startupTimeout, test.input)
 		}
 	}
 }
