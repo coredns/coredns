@@ -11,7 +11,7 @@ require (
 	github.com/apparentlymart/go-cidr v1.1.0
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/aws/aws-sdk-go-v2/config v1.29.15
-	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.35.4
+	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.35.5
 	github.com/coredns/caddy v1.1.2-0.20241029205200-8de985351a98
 	github.com/dnstap/golang-dnstap v0.4.0
 	github.com/expr-lang/expr v1.17.5
