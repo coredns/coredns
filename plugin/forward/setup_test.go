@@ -17,34 +17,34 @@ func TestSetup(t *testing.T) {
 	tests := []struct {
 		input           string
 		shouldErr       bool
-		expectedFrom    string
+		expectedFrom    []string
 		expectedIgnored []string
 		expectedFails   uint32
 		expectedOpts    proxy.Options
 		expectedErr     string
 	}{
 		// positive
-		{"forward . 127.0.0.1", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org\n}\n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "example.org."}, ""},
-		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, ".", nil, 3, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, ".", nil, 2, proxy.Options{ForceTCP: true, HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, ".", nil, 2, proxy.Options{PreferUDP: true, HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, ".", nil, 2, proxy.Options{PreferUDP: true, ForceTCP: true, HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . 127.0.0.1:53", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . 127.0.0.1:8080", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . [::1]:53", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . [2003::1]:53", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward . 127.0.0.1 \n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
-		{"forward 10.9.3.0/18 127.0.0.1", false, "0.9.10.in-addr.arpa.", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1", false, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain example.org\n}\n", false, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "example.org."}, ""},
+		{"forward . 127.0.0.1 {\nexcept miek.nl\n}\n", false, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nmax_fails 3\n}\n", false, []string{"."}, nil, 3, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\n}\n", false, []string{"."}, nil, 2, proxy.Options{ForceTCP: true, HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nprefer_udp\n}\n", false, []string{"."}, nil, 2, proxy.Options{PreferUDP: true, HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 {\nforce_tcp\nprefer_udp\n}\n", false, []string{"."}, nil, 2, proxy.Options{PreferUDP: true, ForceTCP: true, HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1:53", false, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1:8080", false, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . [::1]:53", false, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . [2003::1]:53", false, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . 127.0.0.1 \n", false, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward 10.9.3.0/18 127.0.0.1", false, []string{"0.9.10.in-addr.arpa."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
 		{`forward . ::1
-		forward com ::2`, false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "plugin"},
+		forward com ::2`, false, []string{"0.9.10.in-addr.arpa."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "plugin"},
 		// negative
-		{"forward . a27.0.0.1", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "not an IP"},
-		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unknown property"},
-		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "Wrong argument count or unexpected line ending after 'domain'"},
-		{"forward . https://127.0.0.1 \n", true, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "'https' is not supported as a destination protocol in forward: https://127.0.0.1"},
-		{"forward xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 127.0.0.1 \n", true, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unable to normalize 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"},
+		{"forward . a27.0.0.1", true, []string{""}, nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "not an IP"},
+		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, []string{""}, nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unknown property"},
+		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, []string{""}, nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "Wrong argument count or unexpected line ending after 'domain'"},
+		{"forward . https://127.0.0.1 \n", true, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "'https' is not supported as a destination protocol in forward: https://127.0.0.1"},
+		{"forward xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 127.0.0.1 \n", true, []string{"."}, nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unable to normalize 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"},
 	}
 
 	for i, test := range tests {
@@ -67,7 +67,7 @@ func TestSetup(t *testing.T) {
 
 		if !test.shouldErr {
 			f := fs[0]
-			if f.from != test.expectedFrom {
+			if !reflect.DeepEqual(f.from, test.expectedFrom) {
 				t.Errorf("Test %d: expected: %s, got: %s", i, test.expectedFrom, f.from)
 			}
 			if test.expectedIgnored != nil {
@@ -313,7 +313,7 @@ func TestMultiForward(t *testing.T) {
 		t.Fatalf("expected first plugin to be Forward, got %v", reflect.TypeOf(f1.Next))
 	}
 
-	if f1.from != "1st.example.org." {
+	if f1.from[0] != "1st.example.org." {
 		t.Errorf("expected first forward from \"1st.example.org.\", got %q", f1.from)
 	}
 	if f1.Next == nil {
@@ -324,7 +324,7 @@ func TestMultiForward(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected second plugin to be Forward, got %v", reflect.TypeOf(f1.Next))
 	}
-	if f2.from != "2nd.example.org." {
+	if f2.from[0] != "2nd.example.org." {
 		t.Errorf("expected second forward from \"2nd.example.org.\", got %q", f2.from)
 	}
 	if f2.Next == nil {
@@ -335,7 +335,7 @@ func TestMultiForward(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected third plugin to be Forward, got %v", reflect.TypeOf(f2.Next))
 	}
-	if f3.from != "3rd.example.org." {
+	if f3.from[0] != "3rd.example.org." {
 		t.Errorf("expected third forward from \"3rd.example.org.\", got %q", f3.from)
 	}
 	if f3.Next != nil {
