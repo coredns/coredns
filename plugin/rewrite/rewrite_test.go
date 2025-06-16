@@ -75,6 +75,9 @@ func TestNewRule(t *testing.T) {
 		{[]string{"edns0", "local", "append", "0xffee", "abcdefg", "revert"}, false, reflect.TypeOf(&edns0LocalRule{})},
 		{[]string{"edns0", "local", "replace", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
 		{[]string{"edns0", "local", "replace", "0xffee", "abcdefg", "revert"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "unset", "0xffee"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "unset", "0xffee", "abcdefg"}, true, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "unset", "0xffee", "revert"}, true, reflect.TypeOf(&edns0LocalRule{})},
 		{[]string{"edns0", "local", "foo", "0xffee", "abcdefg"}, true, nil},
 		{[]string{"edns0", "local", "set", "0xffee", "0xabcdefg"}, true, nil},
 		{[]string{"edns0", "nsid", "set", "junk"}, true, nil},
@@ -84,6 +87,8 @@ func TestNewRule(t *testing.T) {
 		{[]string{"edns0", "nsid", "append", "revert"}, false, reflect.TypeOf(&edns0NsidRule{})},
 		{[]string{"edns0", "nsid", "replace"}, false, reflect.TypeOf(&edns0NsidRule{})},
 		{[]string{"edns0", "nsid", "replace", "revert"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"edns0", "nsid", "unset"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"edns0", "nsid", "unset", "revert"}, true, reflect.TypeOf(&edns0NsidRule{})},
 		{[]string{"edns0", "nsid", "foo"}, true, nil},
 		{[]string{"edns0", "local", "set", "0xffee", "{dummy}"}, true, nil},
 		{[]string{"edns0", "local", "set", "0xffee", "{qname}"}, false, reflect.TypeOf(&edns0VariableRule{})},
@@ -123,6 +128,9 @@ func TestNewRule(t *testing.T) {
 		{[]string{"edns0", "subnet", "append", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"edns0", "subnet", "replace", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"edns0", "subnet", "unset"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"edns0", "subnet", "unset", "24", "56"}, true, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"edns0", "subnet", "unset", "revert"}, true, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"unknown-action", "name", "a.com", "b.com"}, true, nil},
 		{[]string{"stop", "name", "a.com", "b.com"}, false, reflect.TypeOf(&exactNameRule{})},
 		{[]string{"continue", "name", "a.com", "b.com"}, false, reflect.TypeOf(&exactNameRule{})},
@@ -157,9 +165,11 @@ func TestNewRule(t *testing.T) {
 		{[]string{"stop", "edns0", "subnet", "set", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"stop", "edns0", "subnet", "append", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"stop", "edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"stop", "edns0", "subnet", "unset"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"continue", "edns0", "subnet", "set", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"continue", "edns0", "subnet", "append", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"continue", "edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"continue", "edns0", "subnet", "unset"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 	}
 
 	for i, tc := range tests {
@@ -1041,6 +1051,104 @@ func TestRewriteEDNS0Revert(t *testing.T) {
 		if o.Do() != tc.doBool {
 			t.Errorf("Test %d: Expected %v but got %v", i, tc.doBool, o.Do())
 		}
+		if !optsEqual(o.Option, tc.toOpts) {
+			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
+		}
+	}
+}
+
+func TestRewriteEDNS0Unset(t *testing.T) {
+	rw := Rewrite{
+		Next:         plugin.HandlerFunc(msgPrinter),
+		RevertPolicy: NewRevertPolicy(false, false),
+	}
+
+	tests := []struct {
+		fromOpts []dns.EDNS0
+		args     []string
+		toOpts   []dns.EDNS0
+	}{
+		{
+			[]dns.EDNS0{},
+			[]string{"local", "unset", "0xffee"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0xab, 0xcd, 0xef}}},
+			[]string{"local", "unset", "0xffee"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0xab, 0xcd, 0xef}}},
+			[]string{"local", "unset", "0xffed"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0xab, 0xcd, 0xef}}},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]string{"nsid", "unset"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"nsid", "unset"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
+				Family:        0x1,
+				SourceNetmask: 0x0,
+				SourceScope:   0x0,
+				Address:       []byte{0x00, 0x00, 0x00, 0x00},
+			}},
+			[]string{"subnet", "unset"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"subnet", "unset"},
+			[]dns.EDNS0{},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]string{"nsid", "unset"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]string{"local", "unset", "0xffee"},
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]string{"subnet", "unset"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+		},
+	}
+
+	ctx := context.TODO()
+	for i, tc := range tests {
+		m := new(dns.Msg)
+		m.SetQuestion("example.com.", dns.TypeA)
+		m.Question[0].Qclass = dns.ClassINET
+		o := m.IsEdns0()
+		if tc.fromOpts != nil {
+			if o == nil {
+				m.SetEdns0(4096, true)
+				o = m.IsEdns0()
+			}
+			o.Option = append(o.Option, tc.fromOpts...)
+		}
+
+		r, err := newEdns0Rule("stop", tc.args...)
+		if err != nil {
+			t.Errorf("Error creating test rule: %s", err)
+			continue
+		}
+		rw.Rules = []Rule{r}
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		rw.ServeDNS(ctx, rec, m)
+		
 		if !optsEqual(o.Option, tc.toOpts) {
 			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
 		}
