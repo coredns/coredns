@@ -80,9 +80,24 @@ func setupEdns0Opt(r *dns.Msg) *dns.OPT {
 	return o
 }
 
+func unsetEdns0Option(opt *dns.OPT, code uint16) {
+    var newOpts []dns.EDNS0
+    for _, o := range opt.Option {
+        if o.Option() != code {
+            newOpts = append(newOpts, o)
+        }
+    }
+    opt.Option = newOpts
+}
+
 // Rewrite will alter the request EDNS0 NSID option
 func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	o := setupEdns0Opt(state.Req)
+
+	if rule.action == Unset {
+		unsetEdns0Option(o, dns.EDNS0NSID)
+		return nil, RewriteDone
+	}
 
 	var resp ResponseRules
 
@@ -117,6 +132,11 @@ func (rule *edns0NsidRule) Mode() string { return rule.mode }
 // Rewrite will alter the request EDNS0 local options.
 func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	o := setupEdns0Opt(state.Req)
+
+	if rule.action == Unset {
+		unsetEdns0Option(o, rule.code)
+		return nil, RewriteDone
+	}
 
 	var resp ResponseRules
 
@@ -162,6 +182,8 @@ func newEdns0Rule(mode string, args ...string) (Rule, error) {
 	case Append:
 	case Replace:
 	case Set:
+	case Unset:
+		return newEdns0UnsetRule(mode, action, ruleType, args...)
 	default:
 		return nil, fmt.Errorf("invalid action: %q", action)
 	}
@@ -193,6 +215,28 @@ func newEdns0Rule(mode string, args ...string) (Rule, error) {
 			return nil, fmt.Errorf("EDNS0 subnet rules require three or four args")
 		}
 		return newEdns0SubnetRule(mode, action, args[2], args[3], revert)
+	default:
+		return nil, fmt.Errorf("invalid rule type %q", ruleType)
+	}
+}
+
+func newEdns0UnsetRule(mode string, action string, ruleType string, args ...string) (Rule, error) {
+	switch ruleType {
+	case "local":
+		if len(args) != 3 {
+			return nil, fmt.Errorf("local unset action requires exactly two arguments")
+		}
+		return newEdns0LocalRule(mode, action, args[2], "", false)
+	case "nsid":
+		if len(args) != 2 {
+			return nil, fmt.Errorf("nsid unset action requires exactly one argument")
+		}
+		return &edns0NsidRule{mode, action, false}, nil
+	case "subnet":
+		if len(args) != 2 {
+			return nil, fmt.Errorf("subnet unset action requires exactly one argument")
+		}
+		return &edns0SubnetRule{mode, 0, 0, action, false}, nil
 	default:
 		return nil, fmt.Errorf("invalid rule type %q", ruleType)
 	}
@@ -393,6 +437,11 @@ func (rule *edns0SubnetRule) fillEcsData(state request.Request, ecs *dns.EDNS0_S
 func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	o := setupEdns0Opt(state.Req)
 
+	if rule.action == Unset {
+		unsetEdns0Option(o, dns.EDNS0SUBNET)
+		return nil, RewriteDone
+	}
+
 	var resp ResponseRules
 
 	for _, s := range o.Option {
@@ -433,6 +482,7 @@ const (
 	Replace = "replace"
 	Set     = "set"
 	Append  = "append"
+	Unset  = "unset"
 )
 
 // Supported local EDNS0 variables
