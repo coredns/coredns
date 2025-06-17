@@ -104,39 +104,44 @@ func TestAutoServeDNSZoneMatching(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name    string
-		origins []string
-		names   []string
-		qname   string
-		hasZone bool
+		name         string
+		origins      []string
+		names        []string
+		qname        string
+		hasZone      bool
+		shouldRefuse bool
 	}{
 		{
-			name:    "exact zone match",
-			origins: []string{"example.org."},
-			names:   []string{"example.org."},
-			qname:   "test.example.org.",
-			hasZone: true,
+			name:         "exact zone match",
+			origins:      []string{"example.org."},
+			names:        []string{"example.org."},
+			qname:        "test.example.org.",
+			hasZone:      true,
+			shouldRefuse: false,
 		},
 		{
-			name:    "subdomain zone match",
-			origins: []string{"example.org."},
-			names:   []string{"example.org."},
-			qname:   "sub.test.example.org.",
-			hasZone: true,
+			name:         "subdomain zone match",
+			origins:      []string{"example.org."},
+			names:        []string{"example.org."},
+			qname:        "sub.test.example.org.",
+			hasZone:      true,
+			shouldRefuse: false,
 		},
 		{
-			name:    "no origin match",
-			origins: []string{"other.org."},
-			names:   []string{"example.org."},
-			qname:   "test.example.org.",
-			hasZone: false,
+			name:         "no origin match",
+			origins:      []string{"other.org."},
+			names:        []string{"example.org."},
+			qname:        "test.example.org.",
+			hasZone:      false,
+			shouldRefuse: false,
 		},
 		{
-			name:    "origin match but no name match",
-			origins: []string{"example.org."},
-			names:   []string{"other.org."},
-			qname:   "test.example.org.",
-			hasZone: false,
+			name:         "origin match but no name match",
+			origins:      []string{"example.org."},
+			names:        []string{"other.org."},
+			qname:        "test.example.org.",
+			hasZone:      false,
+			shouldRefuse: true,
 		},
 	}
 
@@ -163,14 +168,18 @@ func TestAutoServeDNSZoneMatching(t *testing.T) {
 			rec := dnstest.NewRecorder(&test.ResponseWriter{})
 			ctx := context.Background()
 
-			_, err := a.ServeDNS(ctx, rec, m)
+			code, err := a.ServeDNS(ctx, rec, m)
 
 			if tt.hasZone {
 				if err != nil {
 					t.Errorf("Expected no error for zone match, got: %v", err)
 				}
 			} else {
-				if err == nil {
+				if tt.shouldRefuse {
+					if code != dns.RcodeRefused {
+						t.Errorf("Expected code %d, got %d", dns.RcodeRefused, code)
+					}
+				} else if err == nil {
 					t.Errorf("Expected error for no zone match, got nil")
 				}
 			}

@@ -42,6 +42,10 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	// TODO(miek): match the qname better in the map
 	zone := plugin.Zones(f.Zones.Names).Matches(qname)
 	if zone == "" {
+		// If no next plugin is configured, it's more correct to return REFUSED as file acts as an authoritative server
+		if f.Next == nil {
+			return dns.RcodeRefused, nil
+		}
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 	}
 
