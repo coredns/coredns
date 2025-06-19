@@ -81,13 +81,13 @@ func setupEdns0Opt(r *dns.Msg) *dns.OPT {
 }
 
 func unsetEdns0Option(opt *dns.OPT, code uint16) {
-    var newOpts []dns.EDNS0
-    for _, o := range opt.Option {
-        if o.Option() != code {
-            newOpts = append(newOpts, o)
-        }
-    }
-    opt.Option = newOpts
+	var newOpts []dns.EDNS0
+	for _, o := range opt.Option {
+		if o.Option() != code {
+			newOpts = append(newOpts, o)
+		}
+	}
+	opt.Option = newOpts
 }
 
 // Rewrite will alter the request EDNS0 NSID option
@@ -482,7 +482,7 @@ const (
 	Replace = "replace"
 	Set     = "set"
 	Append  = "append"
-	Unset  = "unset"
+	Unset   = "unset"
 )
 
 // Supported local EDNS0 variables

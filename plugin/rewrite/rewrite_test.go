@@ -1148,7 +1148,7 @@ func TestRewriteEDNS0Unset(t *testing.T) {
 
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		rw.ServeDNS(ctx, rec, m)
-		
+
 		if !optsEqual(o.Option, tc.toOpts) {
 			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
 		}
