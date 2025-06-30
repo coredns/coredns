@@ -49,8 +49,8 @@ github.com/DataDog/datadog-agent/pkg/version v0.64.2 h1:clAPToUGyhFWJIfN6pBR808Y
 github.com/DataDog/datadog-agent/pkg/version v0.64.2/go.mod h1:DgOVsfSRaNV4GZNl/qgoZjG3hJjoYUNWPPhbfTfTqtY=
 github.com/DataDog/datadog-go/v5 v5.6.0 h1:2oCLxjF/4htd55piM75baflj/KoE6VYS7alEUqFvRDw=
 github.com/DataDog/datadog-go/v5 v5.6.0/go.mod h1:K9kcYBlxkcPP8tvvjZZKs/m1edNAUFzBbdpTUKfCsuw=
-github.com/DataDog/dd-trace-go/v2 v2.0.0 h1:cHMEzD0Wcgtu+Rec9d1GuVgpIN5f+4vCaNzuFHJ0v+Y=
-github.com/DataDog/dd-trace-go/v2 v2.0.0/go.mod h1:WBtf7TA9bWr5uA8DjOyw1qlSKe3bw9gN5nc0Ta9dHFE=
+github.com/DataDog/dd-trace-go/v2 v2.0.1 h1:jXKeAtyNss+4RMm7MMKhtja+Soazuu9ZVxubHqqguz8=
+github.com/DataDog/dd-trace-go/v2 v2.0.1/go.mod h1:PU/vYHqgyMupXA4PV4Dxyw8CGHl7dyH1YMjtWZMCgUU=
 github.com/DataDog/go-libddwaf/v3 v3.5.4 h1:cLV5lmGhrUBnHG50EUXdqPQAlJdVCp9n3aQ5bDWJEAg=
 github.com/DataDog/go-libddwaf/v3 v3.5.4/go.mod h1:HoLUHdj0NybsPBth/UppTcg8/DKA4g+AXuk8cZ6nuoo=
 github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20250319104955-81009b9bad14 h1:tc5aVw7OcMyfVmJnrY4IOeiV1RTSaBuJBqF14BXxzIo=
@@ -522,8 +522,8 @@ google.golang.org/protobuf v1.21.0/go.mod h1:47Nbq4nVaFHyn7ilMalzfO3qCViNmqZ2kzi
 google.golang.org/protobuf v1.23.0/go.mod h1:EGpADcykh3NcUnDUJcl1+ZksZNG86OlYog2l/sGQquU=
 google.golang.org/protobuf v1.36.6 h1:z1NpPI8ku2WgiWnf+t9wTPsn6eP1L7ksHUlkfLvd9xY=
 google.golang.org/protobuf v1.36.6/go.mod h1:jduwjTPXsFjZGTmRluh+L6NjiWu7pchiJ2/5YcXBHnY=
-gopkg.in/DataDog/dd-trace-go.v1 v1.74.0 h1:wScziU1ff6Bnyr8MEyxATPSLJdnLxKz3p6RsA8FUaek=
-gopkg.in/DataDog/dd-trace-go.v1 v1.74.0/go.mod h1:ReNBsNfnsjVC7GsCe80zRcykL/n+nxvsNrg3NbjuleM=
+gopkg.in/DataDog/dd-trace-go.v1 v1.74.2 h1:hn8NLJyeqOAoB5v+NTf5XeYlVedNgrm+YRzQBFHGTXY=
+gopkg.in/DataDog/dd-trace-go.v1 v1.74.2/go.mod h1:DDBccwNqlHCT2fIUvAngHcM6KoYmLfmA74+bVqCFXLo=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EVd6muEfDQjcINNoR0C8j2r3qZ4Q=
