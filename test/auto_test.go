@@ -32,8 +32,8 @@ func TestAuto(t *testing.T) {
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
-	if resp.Rcode != dns.RcodeServerFailure {
-		t.Fatalf("Expected reply to be a SERVFAIL, got %d", resp.Rcode)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("Expected reply to be REFUSED, got %d", resp.Rcode)
 	}
 
 	// Write db.example.org to get example.org.
@@ -59,8 +59,8 @@ func TestAuto(t *testing.T) {
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
-	if resp.Rcode != dns.RcodeServerFailure {
-		t.Fatalf("Expected reply to be a SERVFAIL, got %d", resp.Rcode)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("Expected reply to be REFUSED, got %d", resp.Rcode)
 	}
 }
 
@@ -93,8 +93,8 @@ func TestAutoNonExistentZone(t *testing.T) {
 	if err != nil {
 		t.Fatal("Expected to receive reply, but didn't")
 	}
-	if resp.Rcode != dns.RcodeServerFailure {
-		t.Fatalf("Expected reply to be a SERVFAIL, got %d", resp.Rcode)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("Expected reply to be REFUSED, got %d", resp.Rcode)
 	}
 }
 
