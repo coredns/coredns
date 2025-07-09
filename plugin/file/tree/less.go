@@ -2,6 +2,7 @@ package tree
 
 import (
 	"bytes"
+	"strings"
 
 	"github.com/miekg/dns"
 )
@@ -27,8 +28,8 @@ func less(a, b string) int {
 
 		// sadly this []byte will allocate... TODO(miek): check if this is needed
 		// for a name, otherwise compare the strings.
-		ab := []byte(a[ai:aj])
-		bb := []byte(b[bi:bj])
+		ab := []byte(strings.ToLower(a[ai:aj]))
+		bb := []byte(strings.ToLower(b[bi:bj]))
 		doDDD(ab)
 		doDDD(bb)
 
