@@ -73,7 +73,10 @@ func (z *Zone) CopyWithoutApex() *Zone {
 
 // Insert inserts r into z.
 func (z *Zone) Insert(r dns.RR) error {
-	r.Header().Name = strings.ToLower(r.Header().Name)
+	// r.Header().Name = strings.ToLower(r.Header().Name)
+	if r.Header().Rrtype != dns.TypeSRV {
+		r.Header().Name = strings.ToLower(r.Header().Name)
+	}
 
 	switch h := r.Header().Rrtype; h {
 	case dns.TypeNS:
@@ -108,7 +111,7 @@ func (z *Zone) Insert(r dns.RR) error {
 	case dns.TypeMX:
 		r.(*dns.MX).Mx = strings.ToLower(r.(*dns.MX).Mx)
 	case dns.TypeSRV:
-		r.(*dns.SRV).Target = strings.ToLower(r.(*dns.SRV).Target)
+		// r.(*dns.SRV).Target = strings.ToLower(r.(*dns.SRV).Target)
 	}
 
 	z.Tree.Insert(r)
