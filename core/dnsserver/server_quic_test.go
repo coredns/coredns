@@ -2,14 +2,9 @@ package dnsserver
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
-	"encoding/binary"
 	"errors"
-	"io"
-	"net"
 	"testing"
-	"time"
 
 	"github.com/miekg/dns"
 	"github.com/quic-go/quic-go"
@@ -373,74 +368,6 @@ func TestReadDOQMessage(t *testing.T) {
 	}
 }
 
-func TestDoQWriter(t *testing.T) {
-	mockStream := &mockQUICStream{}
-	localAddr, _ := net.ResolveUDPAddr("udp", "127.0.0.1:53")
-	remoteAddr, _ := net.ResolveUDPAddr("udp", "127.0.0.1:12345")
-
-	writer := &DoQWriter{
-		localAddr:  localAddr,
-		remoteAddr: remoteAddr,
-		stream:     mockStream,
-	}
-
-	if writer.LocalAddr() != localAddr {
-		t.Errorf("LocalAddr() = %v, want %v", writer.LocalAddr(), localAddr)
-	}
-
-	if writer.RemoteAddr() != remoteAddr {
-		t.Errorf("RemoteAddr() = %v, want %v", writer.RemoteAddr(), remoteAddr)
-	}
-
-	testData := []byte("test message")
-	n, err := writer.Write(testData)
-	if err != nil {
-		t.Errorf("Write() failed: %v", err)
-	}
-
-	expectedLen := len(testData) + 2 // +2 for length prefix
-	if n != expectedLen {
-		t.Errorf("Write() returned %d, want %d", n, expectedLen)
-	}
-
-	// Verify the written data includes length prefix
-	written := mockStream.writtenData
-	if len(written) != expectedLen {
-		t.Errorf("Expected written data length %d, got %d", expectedLen, len(written))
-	}
-
-	// Check length prefix
-	expectedLength := uint16(len(testData))
-	actualLength := binary.BigEndian.Uint16(written[:2])
-	if actualLength != expectedLength {
-		t.Errorf("Expected length prefix %d, got %d", expectedLength, actualLength)
-	}
-
-	// Check message content
-	if !bytes.Equal(written[2:], testData) {
-		t.Errorf("Expected message content %v, got %v", testData, written[2:])
-	}
-
-	// Test WriteMsg method
-	msg := new(dns.Msg)
-	msg.SetQuestion("example.com.", dns.TypeA)
-	msg.Id = 0
-
-	mockStream.reset()
-	err = writer.WriteMsg(msg)
-	if err != nil {
-		t.Errorf("WriteMsg() failed: %v", err)
-	}
-
-	if !mockStream.closed {
-		t.Error("WriteMsg() should close the stream")
-	}
-
-	if err := writer.TsigStatus(); err != nil {
-		t.Errorf("TsigStatus() returned error: %v", err)
-	}
-}
-
 func TestAddPrefix(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -473,34 +400,3 @@ func TestAddPrefix(t *testing.T) {
 		})
 	}
 }
-
-type mockQUICStream struct {
-	writtenData []byte
-	closed      bool
-}
-
-func (m *mockQUICStream) Write(data []byte) (int, error) {
-	m.writtenData = append(m.writtenData, data...)
-	return len(data), nil
-}
-
-func (m *mockQUICStream) Read([]byte) (int, error) { return 0, io.EOF }
-
-func (m *mockQUICStream) Close() error {
-	m.closed = true
-	return nil
-}
-
-func (m *mockQUICStream) reset() {
-	m.writtenData = nil
-	m.closed = false
-}
-
-// Minimal implementation of other required methods
-func (m *mockQUICStream) StreamID() quic.StreamID          { return 0 }
-func (m *mockQUICStream) SetReadDeadline(time.Time) error  { return nil }
-func (m *mockQUICStream) SetWriteDeadline(time.Time) error { return nil }
-func (m *mockQUICStream) SetDeadline(time.Time) error      { return nil }
-func (m *mockQUICStream) Context() context.Context         { return context.Background() }
-func (m *mockQUICStream) CancelWrite(quic.StreamErrorCode) {}
-func (m *mockQUICStream) CancelRead(quic.StreamErrorCode)  {}

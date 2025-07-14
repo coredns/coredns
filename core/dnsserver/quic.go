@@ -2,6 +2,7 @@ package dnsserver
 
 import (
 	"encoding/binary"
+	"errors"
 	"net"
 
 	"github.com/miekg/dns"
@@ -11,11 +12,14 @@ import (
 type DoQWriter struct {
 	localAddr  net.Addr
 	remoteAddr net.Addr
-	stream     quic.Stream
+	stream     *quic.Stream
 	Msg        *dns.Msg
 }
 
 func (w *DoQWriter) Write(b []byte) (int, error) {
+	if w.stream == nil {
+		return 0, errors.New("stream is nil")
+	}
 	b = AddPrefix(b)
 	return w.stream.Write(b)
 }
@@ -40,6 +44,9 @@ func (w *DoQWriter) WriteMsg(m *dns.Msg) error {
 // mechanism that no further data will be sent on that stream.
 // See https://www.rfc-editor.org/rfc/rfc9250#section-4.2-7
 func (w *DoQWriter) Close() error {
+	if w.stream == nil {
+		return errors.New("stream is nil")
+	}
 	return w.stream.Close()
 }
 

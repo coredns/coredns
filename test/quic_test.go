@@ -153,7 +153,7 @@ func TestQUICStreamLimits(t *testing.T) {
 	var mu sync.Mutex
 
 	// Create a slice to store all the streams so we can keep them open
-	streams := make([]quic.Stream, 0, streamCount)
+	streams := make([]*quic.Stream, 0, streamCount)
 	streamsMu := sync.Mutex{}
 
 	// Attempt to open exactly the configured number of streams
