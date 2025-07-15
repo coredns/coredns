@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/miekg/dns"
 )
@@ -206,11 +207,12 @@ func Section(tc Case, sec sect, rr []dns.RR) error {
 				return fmt.Errorf("RR %d should have a Address of %q, but has %q", i, section[i].(*dns.AAAA).AAAA.String(), x.AAAA.String())
 			}
 		case *dns.TXT:
-			for j, txt := range x.Txt {
-				if txt != section[i].(*dns.TXT).Txt[j] {
-					return fmt.Errorf("RR %d should have a Txt of %q, but has %q", i, section[i].(*dns.TXT).Txt[j], txt)
-				}
+			actualTxt := strings.Join(x.Txt, "")
+			expectedTxt := strings.Join(section[i].(*dns.TXT).Txt, "")
+			if actualTxt != expectedTxt {
+				return fmt.Errorf("RR %d should have a TXT value of %q, but has %q", i, expectedTxt, actualTxt)
 			}
+
 		case *dns.HINFO:
 			if x.Cpu != section[i].(*dns.HINFO).Cpu {
 				return fmt.Errorf("RR %d should have a Cpu of %s, but has %s", i, section[i].(*dns.HINFO).Cpu, x.Cpu)
