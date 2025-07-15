@@ -39,6 +39,9 @@ func (t *ResponseWriter) RemoteAddr() net.Addr {
 	return &net.UDPAddr{IP: ip, Port: port, Zone: t.Zone}
 }
 
+// Network implements dns.ResponseWriter interface.
+func (t *ResponseWriter) Network() string { return "" }
+
 // WriteMsg implements dns.ResponseWriter interface.
 func (t *ResponseWriter) WriteMsg(m *dns.Msg) error { return nil }
 

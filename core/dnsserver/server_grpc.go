@@ -181,4 +181,5 @@ func (r *gRPCresponse) TsigTimersOnly(b bool)     {}
 func (r *gRPCresponse) Hijack()                   {}
 func (r *gRPCresponse) LocalAddr() net.Addr       { return r.localAddr }
 func (r *gRPCresponse) RemoteAddr() net.Addr      { return r.remoteAddr }
+func (r *gRPCresponse) Network() string           { return "" }
 func (r *gRPCresponse) WriteMsg(m *dns.Msg) error { r.Msg = m; return nil }

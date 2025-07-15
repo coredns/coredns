@@ -65,3 +65,4 @@ func (w *DoQWriter) TsigTimersOnly(b bool) {}
 func (w *DoQWriter) Hijack()               {}
 func (w *DoQWriter) LocalAddr() net.Addr   { return w.localAddr }
 func (w *DoQWriter) RemoteAddr() net.Addr  { return w.remoteAddr }
+func (w *DoQWriter) Network() string       { return "" }

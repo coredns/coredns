@@ -43,6 +43,11 @@ func (d *DoHWriter) LocalAddr() net.Addr {
 	return d.laddr
 }
 
+// Network no-op implementation.
+func (d *DoHWriter) Network() string {
+	return ""
+}
+
 // Request returns the HTTP request.
 func (d *DoHWriter) Request() *http.Request {
 	return d.request
