@@ -312,6 +312,15 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return c.ArgErr()
 		}
 		f.failfastUnhealthyUpstreams = true
+	case "qtype_for_metrics":
+		args := c.RemainingArgs()
+		if len(args) < 1 {
+			return c.ArgErr()
+		}
+		f.qTypeForMetrics = args
+		for _, p := range f.proxies {
+			p.SetQTypeForMetrics(args)
+		}
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}
