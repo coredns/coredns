@@ -16,7 +16,7 @@ type Proxy struct {
 	addr      string
 	proxyName string
 
-	transport *Transport
+	transport []*Transport
 
 	readTimeout time.Duration
 
@@ -26,13 +26,17 @@ type Proxy struct {
 }
 
 // NewProxy returns a new proxy.
-func NewProxy(proxyName, addr, trans string) *Proxy {
+func NewProxy(proxyName, addr, trans string, transportNum uint) *Proxy {
+	transport := []*Transport{}
+	for i := uint(0); i < transportNum; i++ {
+		transport = append(transport, newTransport(proxyName, addr))
+	}
 	p := &Proxy{
 		addr:        addr,
 		fails:       0,
 		probe:       up.New(),
 		readTimeout: 2 * time.Second,
-		transport:   newTransport(proxyName, addr),
+		transport:   transport,
 		health:      NewHealthChecker(proxyName, trans, true, "."),
 		proxyName:   proxyName,
 	}
@@ -45,12 +49,18 @@ func (p *Proxy) Addr() string { return p.addr }
 
 // SetTLSConfig sets the TLS config in the lower p.transport and in the healthchecking client.
 func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
-	p.transport.SetTLSConfig(cfg)
+	for _, t := range p.transport {
+		t.SetTLSConfig(cfg)
+	}
 	p.health.SetTLSConfig(cfg)
 }
 
 // SetExpire sets the expire duration in the lower p.transport.
-func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
+func (p *Proxy) SetExpire(expire time.Duration) {
+	for _, t := range p.transport {
+		t.SetExpire(expire)
+	}
+}
 
 func (p *Proxy) GetHealthchecker() HealthChecker {
 	return p.health
@@ -83,13 +93,19 @@ func (p *Proxy) Down(maxfails uint32) bool {
 }
 
 // Stop close stops the health checking goroutine.
-func (p *Proxy) Stop()      { p.probe.Stop() }
-func (p *Proxy) finalizer() { p.transport.Stop() }
+func (p *Proxy) Stop() { p.probe.Stop() }
+func (p *Proxy) finalizer() {
+	for _, t := range p.transport {
+		t.Stop()
+	}
+}
 
 // Start starts the proxy's healthchecking.
 func (p *Proxy) Start(duration time.Duration) {
 	p.probe.Start(duration)
-	p.transport.Start()
+	for _, t := range p.transport {
+		t.Start()
+	}
 }
 
 func (p *Proxy) SetReadTimeout(duration time.Duration) {
