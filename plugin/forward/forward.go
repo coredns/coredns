@@ -110,6 +110,17 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 	}
 
+	ecsKey := -1
+	o := r.IsEdns0()
+	if o != nil {
+		for k, s := range o.Option {
+			if _, ok := s.(*dns.EDNS0_SUBNET); ok {
+				ecsKey = k
+				break
+			}
+		}
+	}
+
 	fails := 0
 	var span, child ot.Span
 	var upstreamErr error
@@ -166,11 +177,22 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			if err == ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
 				continue
 			}
-			// Retry with TCP if truncated and prefer_udp configured.
-			if ret != nil && ret.Truncated && !opts.ForceTCP && opts.PreferUDP {
-				opts.ForceTCP = true
-				continue
+			if ret != nil {
+				// Retry with TCP if truncated and prefer_udp configured.
+				if ret.Truncated && !opts.ForceTCP && opts.PreferUDP {
+					opts.ForceTCP = true
+					continue
+				}
+
+				// Retry without ECS option in case of REFUSED as per RFC 7871
+				if ecsKey != -1 && ret.Rcode == dns.RcodeRefused {
+					o.Option[ecsKey] = o.Option[len(o.Option)-1]
+					o.Option = o.Option[:len(o.Option)-1]
+					ecsKey = -1
+					continue
+				}
 			}
+
 			break
 		}
 
