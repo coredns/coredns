@@ -17,6 +17,9 @@ func control(network, address string, c syscall.RawConn) error {
 		if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1); err != nil {
 			log.Warningf("Failed to set SO_REUSEPORT on socket: %s", err)
 		}
+		if err := unix.SetsockoptInt(int(fd), unix.SOL_IP, unix.IP_TRANSPARENT, 1); err != nil {
+			log.Warningf("Failed to set IP_TRANSPARENT on socket: %s", err)
+		}
 	})
 	return nil
 }
