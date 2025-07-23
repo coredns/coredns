@@ -40,7 +40,7 @@ type Forward struct {
 	p          Policy
 	hcInterval time.Duration
 
-	from    string
+	from    []string
 	ignored []string
 
 	nextAlternateRcodes []int
@@ -65,7 +65,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: proxy.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: []string{"."}, hcInterval: hcInterval, opts: proxy.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
 	return f
 }
 
@@ -227,15 +227,17 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 }
 
 func (f *Forward) match(state request.Request) bool {
-	if !plugin.Name(f.from).Matches(state.Name()) || !f.isAllowedDomain(state.Name()) {
-		return false
+	for _, from := range f.from {
+		if plugin.Name(from).Matches(state.Name()) && f.isAllowedDomain(from, state.Name()) {
+			return true
+		}
 	}
 
-	return true
+	return false
 }
 
-func (f *Forward) isAllowedDomain(name string) bool {
-	if dns.Name(name) == dns.Name(f.from) {
+func (f *Forward) isAllowedDomain(from, name string) bool {
+	if dns.Name(name) == dns.Name(from) {
 		return true
 	}
 
