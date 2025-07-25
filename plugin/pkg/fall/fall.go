@@ -13,6 +13,8 @@
 package fall
 
 import (
+	"slices"
+
 	"github.com/coredns/coredns/plugin"
 )
 
@@ -48,15 +50,7 @@ func (f *F) SetZonesFromArgs(zones []string) {
 
 // Equal returns true if f and g are equal.
 func (f *F) Equal(g F) bool {
-	if len(f.Zones) != len(g.Zones) {
-		return false
-	}
-	for i := range f.Zones {
-		if f.Zones[i] != g.Zones[i] {
-			return false
-		}
-	}
-	return true
+	return slices.Equal(f.Zones, g.Zones)
 }
 
 // Zero returns a zero valued F.
