@@ -17,7 +17,10 @@ RUN setcap cap_net_bind_service=+ep /coredns
 FROM --platform=$TARGETPLATFORM ${BASE}
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=build /coredns /coredns
-USER nonroot:nonroot
+
+# The UID of "nonroot" in distroless images. Using the UID rather than the name
+# allows checks like Kubernetes "runAsNonRoot" to succeed.
+USER 65532:65532
 WORKDIR /
 EXPOSE 53 53/udp
 ENTRYPOINT ["/coredns"]
