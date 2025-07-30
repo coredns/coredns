@@ -88,8 +88,8 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 	return sh, nil
 }
 
-// Compile-time check to ensure Server implements the caddy.GracefulServer interface
-var _ caddy.GracefulServer = &Server{}
+// Compile-time check to ensure ServerHTTPS implements the caddy.GracefulServer interface
+var _ caddy.GracefulServer = &ServerHTTPS{}
 
 // Serve implements caddy.TCPServer interface.
 func (s *ServerHTTPS) Serve(l net.Listener) error {

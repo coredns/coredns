@@ -39,8 +39,8 @@ func NewServerTLS(addr string, group []*Config) (*ServerTLS, error) {
 	return &ServerTLS{Server: s, tlsConfig: tlsConfig}, nil
 }
 
-// Compile-time check to ensure Server implements the caddy.GracefulServer interface
-var _ caddy.GracefulServer = &Server{}
+// Compile-time check to ensure ServerTLS implements the caddy.GracefulServer interface
+var _ caddy.GracefulServer = &ServerTLS{}
 
 // Serve implements caddy.TCPServer interface.
 func (s *ServerTLS) Serve(l net.Listener) error {
