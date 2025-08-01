@@ -30,6 +30,8 @@ func TestEndpointHostname(t *testing.T) {
 		{"10.11.12.13", "epname", "epname", "hello-abcde", false},
 		{"10.11.12.13", "epname", "epname", "hello-abcde", true},
 		{"10.11.12.13", "", "hello-abcde", "hello-abcde", true},
+		{"2001:db8:3333:4444:5555:6666:7777:8888", "", "2001-db8-3333-4444-5555-6666-7777-8888", "", false},
+		{"2001:db8:3333:4444:5555:6666::", "", "2001-db8-3333-4444-5555-6666--0", "", false},
 	}
 	for _, test := range tests {
 		result := endpointHostname(object.EndpointAddress{IP: test.ip, Hostname: test.hostname, TargetRefName: test.podName}, test.endpointNameMode)

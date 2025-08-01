@@ -351,7 +351,11 @@ func endpointHostname(addr object.EndpointAddress, endpointNameMode bool) string
 		return strings.ReplaceAll(addr.IP, ".", "-")
 	}
 	if strings.Contains(addr.IP, ":") {
-		return strings.ReplaceAll(addr.IP, ":", "-")
+		ipv6Hostname := strings.ReplaceAll(addr.IP, ":", "-")
+		if strings.HasSuffix(ipv6Hostname, "-") {
+			return ipv6Hostname + "0"
+		}
+		return ipv6Hostname
 	}
 	return ""
 }
