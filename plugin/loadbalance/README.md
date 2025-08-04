@@ -18,6 +18,7 @@ implementations (like glibc) are particular about that.
 ~~~
 loadbalance [round_robin | weighted WEIGHTFILE] {
 			reload DURATION
+			limit_answers NUM_ANSWERS
 }
 ~~~
 * `round_robin` policy randomizes the order of  A, AAAA, and MX records applying a uniform probability distribution. This is the default load balancing policy.
@@ -30,6 +31,7 @@ returned in the answer.
 
  * **DURATION** interval to reload `WEIGHTFILE` and update weight assignments if there are changes in the file. The default value is `30s`. A value of `0s` means to not scan for changes and reload.
 
+ * **NUM_ANSWERS** limits the number of RRs in the Answer section of a DNS response, by returning only the first **NUM_ANSWERS** after `round_robin` shuffling or `weighted` adjustment has happened.
 
 ## Weightfile
 
@@ -88,3 +90,13 @@ www.example.com
 100.64.1.3 2
 ~~~
 
+Limit the number of RRs in the Answer section of the response by using `limit_answers`:
+
+~~~ corefile
+example.com {
+        file ./db.example.com
+        loadbalance round_robin {
+                limit_answers 5
+        }
+}
+~~~
