@@ -3,7 +3,7 @@ title = "CoreDNS-1.12.3 Release"
 description = "CoreDNS-1.12.3 Release Notes."
 tags = ["Release", "1.12.3", "Notes"]
 release = "1.12.3"
-date = "2024-07-30T00:00:00+00:00"
+date = "2024-08-05T00:00:00+00:00"
 author = "coredns"
 +++
 
@@ -15,9 +15,11 @@ forward are fixed.
 ## Brought to You By
 
 blakebarnett
+Brennan Kinney
 Cameron Steel
 Dave Brown
 Dennis Simmons
+Guillaume Jacquet
 harshith-2411-2002
 houpo-bob
 Oleg Guba
@@ -40,6 +42,7 @@ Yoofi Quansah
 * plugin/forward: Handle cached connection closure in forward plugin (https://github.com/coredns/coredns/pull/7427)
 * plugin/grpc: Add support for fallthrough to the grpc plugin (https://github.com/coredns/coredns/pull/7359)
 * plugin/kubernetes: Add startup_timeout for kubernetes plugin (https://github.com/coredns/coredns/pull/7068)
+* plugin/kubernetes: Properly create hostname from IPv6 (https://github.com/coredns/coredns/pull/7431)
 * plugin/rewrite: Add EDNS0 unset action (https://github.com/coredns/coredns/pull/7380)
 * plugin/route53: Port to AWS Go SDK v2 (https://github.com/coredns/coredns/pull/6588)
 * plugin/test: Fix TXT record comparison logic for multi-string vs multi-record scenarios (https://github.com/coredns/coredns/pull/7413)
