@@ -13,12 +13,12 @@ The modifications are made transparently for the client and subsequent plugins.
 
 ~~~
 header {
-    [SELECTOR] ACTION FLAGS...
-    [SELECTOR] ACTION FLAGS...
+    SELECTOR ACTION FLAGS...
+    SELECTOR ACTION FLAGS...
 }
 ~~~
 
-* **SELECTOR** defines if the action should be applied on `query` or `response`. In future CoreDNS version the selector will be mandatory. For backwards compatibility the action will be applied on `response` if the selector is undefined.
+* **SELECTOR** defines if the action should be applied on `query` or `response`.
 
 * **ACTION** defines the state for DNS message header flags. Actions are evaluated in the order they are defined so last one has the
   most precedence. Allowed values are:
