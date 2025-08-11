@@ -39,7 +39,7 @@ require (
 	golang.org/x/sys v0.35.0
 	google.golang.org/api v0.246.0
 	google.golang.org/grpc v1.74.2
-	google.golang.org/protobuf v1.36.6
+	google.golang.org/protobuf v1.36.7
 	gopkg.in/DataDog/dd-trace-go.v1 v1.74.3
 	k8s.io/api v0.32.5
 	k8s.io/apimachinery v0.32.5
