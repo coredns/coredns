@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
-
+	"math/rand"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -117,7 +117,8 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		proto = state.Proto()
 	}
 
-	pc, cached, err := p.transport.Dial(proto)
+	index := rand.Intn(len(p.transport))
+	pc, cached, err := p.transport[index].Dial(proto)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +150,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
-			if ret != nil && (state.Req.Id == ret.Id) && p.transport.transportTypeFromConn(pc) == typeUDP && shouldTruncateResponse(err) {
+			if ret != nil && (state.Req.Id == ret.Id) && p.transport[index].transportTypeFromConn(pc) == typeUDP && shouldTruncateResponse(err) {
 				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
 				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
 				// Instead of returning an error, return an empty response with TC bit set. This will make the
@@ -179,7 +180,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	// recovery the origin Id after upstream.
 	ret.Id = originId
 
-	p.transport.Yield(pc)
+	p.transport[index].Yield(pc)
 
 	rc, ok := dns.RcodeToString[ret.Rcode]
 	if !ok {
