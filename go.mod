@@ -17,7 +17,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.38.0
 	github.com/coredns/caddy v1.1.2-0.20241029205200-8de985351a98
 	github.com/dnstap/golang-dnstap v0.4.0
-	github.com/expr-lang/expr v1.17.5
+	github.com/expr-lang/expr v1.17.6
 	github.com/farsightsec/golang-framestream v0.3.0
 	github.com/go-logr/logr v1.4.3
 	github.com/grpc-ecosystem/grpc-opentracing v0.0.0-20180507213350-8e809c8a8645
