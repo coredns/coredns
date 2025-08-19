@@ -16,7 +16,7 @@ func (z *Zone) ClosestEncloser(qname string) (*tree.Elem, bool) {
 		}
 		qname = qname[offset:]
 
-		offset, end = dns.NextLabel(qname, offset)
+		offset, end = dns.NextLabel(qname, 0)
 	}
 
 	return z.Search(z.origin)
