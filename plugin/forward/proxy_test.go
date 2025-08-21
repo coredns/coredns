@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 
@@ -12,6 +13,27 @@ import (
 )
 
 func TestProxy(t *testing.T) {
+
+	server_fail_s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		// return error
+		ret.Rcode = dns.RcodeServerFailure
+		ret.Answer = nil
+		w.WriteMsg(ret)
+	})
+	defer server_fail_s.Close()
+
+	refund_s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		// return error
+		ret.Rcode = dns.RcodeRefused
+		ret.Answer = nil
+		w.WriteMsg(ret)
+	})
+	defer refund_s.Close()
+
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
 		ret := new(dns.Msg)
 		ret.SetReply(r)
@@ -20,7 +42,7 @@ func TestProxy(t *testing.T) {
 	})
 	defer s.Close()
 
-	c := caddy.NewTestController("dns", "forward . "+s.Addr)
+	c := caddy.NewTestController("dns", "forward . "+server_fail_s.Addr+" "+refund_s.Addr+" "+s.Addr)
 	fs, err := parseForward(c)
 	f := fs[0]
 	if err != nil {
