@@ -2,6 +2,7 @@
 package auto
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/coredns/coredns/plugin/file"
@@ -68,10 +69,9 @@ func (z *Zones) Remove(name string) {
 	delete(z.Z, name)
 
 	// TODO(miek): just regenerate Names (might be bad if you have a lot of zones...)
-	z.names = []string{}
-	for n := range z.Z {
-		z.names = append(z.names, n)
+	deleteIndex := sort.SearchStrings(z.names, name)
+	if deleteIndex > -1 {
+		z.names = append(z.names[:deleteIndex], z.names[deleteIndex+1:]...)
 	}
-
 	z.Unlock()
 }
