@@ -11,14 +11,6 @@ var (
 	ErrNoForward = errors.New("no forwarder defined")
 	// ErrCachedClosed means cached connection was closed by peer.
 	ErrCachedClosed = errors.New("cached connection was closed by peer")
-	// ErrFormatError means that the dns server returned a format error
-	ErrFormatError = errors.New("dns format error")
-	// ErrServerFailure means that the dns server failed to process the request
-	ErrServerFailure = errors.New("server failure")
-	// ErrNotImplemented means that the dns server not implemented the requested type
-	ErrNotImplemented = errors.New("not implemented ")
-	// ErrRefused means that the dns server refused the request
-	ErrRefused = errors.New("refused")
 )
 
 // Options holds various Options that can be set.
@@ -31,20 +23,4 @@ type Options struct {
 	HCRecursionDesired bool
 	// HCDomain sets domain for Proxy healthcheck requests
 	HCDomain string
-}
-
-// RcodeToError converts a DNS response code to an error.
-func RcodeToError(rc int) error {
-	switch rc {
-	case 1:
-		return ErrFormatError
-	case 2:
-		return ErrServerFailure
-	case 4:
-		return ErrNotImplemented
-	case 5:
-		return ErrRefused
-	default:
-		return nil
-	}
 }

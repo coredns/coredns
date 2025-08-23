@@ -186,11 +186,6 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		rc = strconv.Itoa(ret.Rcode)
 	}
 
-	// return an error if the dns server error or refused to answer the question.
-	if ret.Rcode != dns.RcodeSuccess && ret.Rcode != dns.RcodeNameError {
-		return ret, RcodeToError(ret.Rcode)
-	}
-
 	requestDuration.WithLabelValues(p.proxyName, p.addr, rc).Observe(time.Since(start).Seconds())
 
 	return ret, nil

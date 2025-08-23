@@ -312,6 +312,27 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return c.ArgErr()
 		}
 		f.failfastUnhealthyUpstreams = true
+	case "failover":
+		args := c.RemainingArgs()
+		if len(args) == 0 {
+			return c.ArgErr()
+		}
+		toRcode := dns.StringToRcode
+
+		for _, rcode := range args {
+			var rc int
+			var ok bool
+
+			if rc, ok = toRcode[strings.ToUpper(rcode)]; !ok {
+				if rc == dns.RcodeSuccess {
+					return fmt.Errorf("NoError cannot be used in failover")
+				}
+
+				return fmt.Errorf("%s is not a valid rcode", rcode)
+			}
+
+			f.failoverRcodes = append(f.failoverRcodes, rc)
+		}
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}
