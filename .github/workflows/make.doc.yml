@@ -4,7 +4,8 @@ on:
   schedule:
     - cron: '22 10 * * 0'
 
-permissions: read-all
+permissions:
+  contents: read
 
 jobs:
   fix:
