@@ -25,7 +25,7 @@ jobs:
 
       - name: Test With Coverage
         run: |
-          go install github.com/fatih/faillint@latest
+          go install github.com/fatih/faillint@c56e3ec6dbfc933bbeb884fd31f2bcd41f712657 # v1.15.0
           for d in request core coremain plugin test; do \
              ( cd $d; go test -coverprofile=cover.out -covermode=atomic -race ./...; [ -f cover.out ] && cat cover.out >> ../coverage.txt ); \
           done

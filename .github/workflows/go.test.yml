@@ -72,7 +72,7 @@ jobs:
 
       - name: Test
         run: |
-          go install github.com/fatih/faillint@latest
+          go install github.com/fatih/faillint@c56e3ec6dbfc933bbeb884fd31f2bcd41f712657 # v1.15.0
           ( cd test; go test -race ./... )
 
   test-makefile-release:
