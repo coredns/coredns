@@ -29,6 +29,12 @@ func TestPProf(t *testing.T) {
 		{`pprof {
                    block 20 30
                 }`, true},
+		{`pprof {
+                   block invalid
+                }`, true},
+		{`pprof {
+                   unknown_property
+                }`, true},
 		{`pprof
           pprof`, true},
 	}
