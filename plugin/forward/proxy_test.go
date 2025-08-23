@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 
