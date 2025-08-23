@@ -2,7 +2,9 @@ package metrics
 
 import (
 	"context"
+	"net"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -78,5 +80,50 @@ func TestMetrics(t *testing.T) {
 				t.Errorf("Test %d: Expected value %s for metrics %s, but got %s", i, tc.expectedValue, tc.metric, got)
 			}
 		}
+	}
+}
+
+func TestMetricsHTTPTimeout(t *testing.T) {
+	met := New("localhost:0")
+	if err := met.OnStartup(); err != nil {
+		t.Fatalf("Failed to start metrics handler: %s", err)
+	}
+	defer met.OnFinalShutdown()
+
+	// Use context with timeout to prevent test from hanging indefinitely
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	done := make(chan error, 1)
+
+	go func() {
+		conn, err := net.Dial("tcp", ListenAddr)
+		if err != nil {
+			done <- err
+			return
+		}
+		defer conn.Close()
+
+		// Send partial HTTP request and then stop sending data
+		// This will cause the server to wait for more data and hit ReadTimeout
+		partialRequest := "GET /metrics HTTP/1.1\r\nHost: " + ListenAddr + "\r\nContent-Length: 100\r\n\r\n"
+		_, err = conn.Write([]byte(partialRequest))
+		if err != nil {
+			done <- err
+			return
+		}
+
+		// Now just wait - server should timeout trying to read the remaining data
+		// If server has no ReadTimeout, this will hang indefinitely
+		buffer := make([]byte, 1024)
+		_, err = conn.Read(buffer)
+		done <- err
+	}()
+
+	select {
+	case <-done:
+		t.Log("HTTP request timed out by server")
+	case <-ctx.Done():
+		t.Error("HTTP request did not time out")
 	}
 }
