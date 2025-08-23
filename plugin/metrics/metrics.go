@@ -98,7 +98,12 @@ func (m *Metrics) OnStartup() error {
 	m.mux.Handle("/metrics", promhttp.HandlerFor(m.Reg, promhttp.HandlerOpts{}))
 
 	// creating some helper variables to avoid data races on m.srv and m.ln
-	server := &http.Server{Handler: m.mux}
+	server := &http.Server{
+		Handler:      m.mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  5 * time.Second,
+	}
 	m.srv = server
 
 	go func() {
