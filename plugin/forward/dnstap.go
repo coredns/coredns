@@ -3,7 +3,7 @@ package forward
 import (
 	"context"
 	"net"
-	"strconv"
+	"net/netip"
 	"time"
 
 	"github.com/coredns/coredns/plugin/dnstap/msg"
@@ -16,11 +16,14 @@ import (
 
 // toDnstap will send the forward and received message to the dnstap plugin.
 func toDnstap(ctx context.Context, f *Forward, host string, state request.Request, opts proxy.Options, reply *dns.Msg, start time.Time) {
-	h, p, _ := net.SplitHostPort(host)      // this is preparsed and can't err here
-	port, _ := strconv.ParseUint(p, 10, 32) // same here
-	ip := net.ParseIP(h)
+	ap, _ := netip.ParseAddrPort(host) // this is preparsed and can't err here
+	ip := net.IP(ap.Addr().AsSlice())
+	port := int(ap.Port())
 
-	var ta net.Addr = &net.UDPAddr{IP: ip, Port: int(port)}
+	var ta net.Addr = &net.UDPAddr{
+		IP:   ip,
+		Port: port,
+	}
 	t := state.Proto()
 	switch {
 	case opts.ForceTCP:
@@ -30,7 +33,7 @@ func toDnstap(ctx context.Context, f *Forward, host string, state request.Reques
 	}
 
 	if t == "tcp" {
-		ta = &net.TCPAddr{IP: ip, Port: int(port)}
+		ta = &net.TCPAddr{IP: ip, Port: port}
 	}
 
 	for _, t := range f.tapPlugins {
