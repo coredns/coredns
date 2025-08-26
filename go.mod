@@ -40,7 +40,7 @@ require (
 	golang.org/x/sys v0.35.0
 	google.golang.org/api v0.248.0
 	google.golang.org/grpc v1.75.0
-	google.golang.org/protobuf v1.36.7
+	google.golang.org/protobuf v1.36.8
 	k8s.io/api v0.33.4
 	k8s.io/apimachinery v0.33.4
 	k8s.io/client-go v0.33.4
