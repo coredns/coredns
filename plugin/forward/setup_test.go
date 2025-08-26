@@ -466,7 +466,7 @@ func TestFailover(t *testing.T) {
 		{fmt.Sprintf(
 			`forward . %s %s %s {
 				policy sequential
-				}`, s.Addr, server_refused_s.Addr, s.Addr), false, "If failover is not set and the first upstream is not work, no records should be returned"},
+				}`, server_fail_s.Addr, server_refused_s.Addr, s.Addr), false, "If failover is not set and the first upstream is not work, no records should be returned"},
 		{fmt.Sprintf(
 			`forward . %s %s %s {
 				policy sequential
