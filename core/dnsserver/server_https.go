@@ -160,9 +160,16 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Create a DoHWriter with the correct addresses in it.
 	h, p, _ := net.SplitHostPort(r.RemoteAddr)
 	port, _ := strconv.Atoi(p)
+	realIp := r.Header.Get("X-Real-IP") // Since we might be placed behind a reverse proxy
+	ip := net.ParseIP(realIp)
+
+	if ip == nil {
+		ip = net.ParseIP(h)
+	}
+
 	dw := &DoHWriter{
 		laddr:   s.listenAddr,
-		raddr:   &net.TCPAddr{IP: net.ParseIP(h), Port: port},
+		raddr:   &net.TCPAddr{IP: ip, Port: port},
 		request: r,
 	}
 
