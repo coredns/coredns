@@ -11,7 +11,7 @@ require (
 	github.com/DataDog/dd-trace-go/v2 v2.2.2
 	github.com/apparentlymart/go-cidr v1.1.0
 	github.com/aws/aws-sdk-go-v2 v1.38.1
-	github.com/aws/aws-sdk-go-v2/config v1.31.0
+	github.com/aws/aws-sdk-go-v2/config v1.31.2
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.6
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.4
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.56.0
