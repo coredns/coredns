@@ -1,6 +1,8 @@
 package forward
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -8,7 +10,9 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/proxy"
+	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
 )
@@ -420,6 +424,75 @@ func TestFailfastAllUnhealthyUpstreams(t *testing.T) {
 		f := fs[0]
 		if f.failfastUnhealthyUpstreams != test.expectedRecVal {
 			t.Errorf("Test %d: Expected Rec:%v, got:%v", i, test.expectedRecVal, f.failfastUnhealthyUpstreams)
+		}
+	}
+}
+
+func TestFailover(t *testing.T) {
+
+	server_fail_s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetRcode(r, dns.RcodeServerFailure)
+		w.WriteMsg(ret)
+	})
+	defer server_fail_s.Close()
+
+	server_refused_s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetRcode(r, dns.RcodeRefused)
+		w.WriteMsg(ret)
+	})
+	defer server_refused_s.Close()
+
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.1"))
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	tests := []struct {
+		input     string
+		hasRecord bool
+		failMsg   string
+	}{
+		{fmt.Sprintf(
+			`forward . %s %s %s {
+				policy sequential
+				failover ServFail Refused
+				}`, server_fail_s.Addr, server_refused_s.Addr, s.Addr), true, "If failover is set, records should be returned as long as one of the upstreams is work"},
+		{fmt.Sprintf(
+			`forward . %s %s %s {
+				policy sequential
+				}`, server_fail_s.Addr, server_refused_s.Addr, s.Addr), false, "If failover is not set and the first upstream is not work, no records should be returned"},
+		{fmt.Sprintf(
+			`forward . %s %s %s {
+				policy sequential
+				}`, s.Addr, server_fail_s.Addr, server_refused_s.Addr), true, "Although failover is not set, as long as the first upstream is work, there should be has a record return"},
+	}
+
+	for _, testCase := range tests {
+		c := caddy.NewTestController("dns", testCase.input)
+		fs, err := parseForward(c)
+
+		f := fs[0]
+		if err != nil {
+			t.Errorf("Failed to create forwarder: %s", err)
+		}
+		f.OnStartup()
+		defer f.OnShutdown()
+
+		m := new(dns.Msg)
+		m.SetQuestion("example.org.", dns.TypeA)
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+		if _, err := f.ServeDNS(context.TODO(), rec, m); err != nil {
+			t.Fatal("Expected to receive reply, but didn't")
+		}
+
+		if (len(rec.Msg.Answer) > 0) != testCase.hasRecord {
+			t.Errorf(" %s: \n %s", testCase.failMsg, testCase.input)
 		}
 	}
 }

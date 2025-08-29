@@ -51,6 +51,7 @@ type Forward struct {
 	expire                     time.Duration
 	maxConcurrent              int64
 	failfastUnhealthyUpstreams bool
+	failoverRcodes             []int
 
 	opts proxyPkg.Options // also here for testing
 
@@ -204,6 +205,21 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			formerr.SetRcode(state.Req, dns.RcodeFormatError)
 			w.WriteMsg(formerr)
 			return 0, nil
+		}
+
+		// Check if we have a failover Rcode defined, check if we match on the code
+		tryNext := false
+		for _, failoverRcode := range f.failoverRcodes {
+			// if we match, we continue to the next upstream in the list
+			if failoverRcode == ret.Rcode {
+				if fails < len(f.proxies) {
+					tryNext = true
+				}
+			}
+		}
+		if tryNext {
+			fails++
+			continue
 		}
 
 		// Check if we have an alternate Rcode defined, check if we match on the code

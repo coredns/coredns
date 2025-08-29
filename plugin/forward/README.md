@@ -52,6 +52,7 @@ forward FROM TO... {
     max_concurrent MAX
     next RCODE_1 [RCODE_2] [RCODE_3...]
     failfast_all_unhealthy_upstreams
+    failover RCODE_1 [RCODE_2] [RCODE_3...]
 }
 ~~~
 
@@ -99,6 +100,7 @@ forward FROM TO... {
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
 * `next` If the `RCODE` (i.e. `NXDOMAIN`) is returned by the remote then execute the next plugin. If no next plugin is defined, or the next plugin is not a `forward` plugin, this setting is ignored
 * `failfast_all_unhealthy_upstreams` - determines the handling of requests when all upstream servers are unhealthy and unresponsive to health checks. Enabling this option will immediately return SERVFAIL responses for all requests. By default, requests are sent to a random upstream.
+* `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). If all upstreams have been tried, the response from the last attempt is returned.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls_servername` for different upstreams you're out of luck.
@@ -283,6 +285,17 @@ The following would try 1.2.3.4 first. If the response is `NXDOMAIN`, try 5.6.7.
     next NXDOMAIN
   }
   forward . 9.0.1.2 {
+  }
+}
+~~~
+
+In the following example, if the response from `1.2.3.4` is `SERVFAIL` or `REFUSED`, it will try `5.6.7.8`. If the response from `5.6.7.8` is `SERVFAIL ` or `REFUSED`, it will try `9.0.1.2`.
+
+~~~ corefile
+. {
+  forward . 1.2.3.4 5.6.7.8 9.0.1.2 {
+     policy sequential
+     failover SERVFAIL REFUSED
   }
 }
 ~~~

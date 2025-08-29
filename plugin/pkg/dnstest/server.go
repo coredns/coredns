@@ -58,6 +58,49 @@ func NewServer(f dns.HandlerFunc) *Server {
 	return &Server{s1: s1, s2: s2, Addr: s2.Listener.Addr().String()}
 }
 
+// NewMultipleServer starts and returns a new Server(multiple). The caller should call Close when
+// finished, to shut it down.
+func NewMultipleServer(f dns.HandlerFunc) *Server {
+	ch1 := make(chan bool)
+	ch2 := make(chan bool)
+
+	s1 := &dns.Server{
+		Handler: dns.HandlerFunc(f),
+	} // udp
+	s2 := &dns.Server{
+		Handler: dns.HandlerFunc(f),
+	} // tcp
+
+	for range 5 { // 5 attempts
+		s2.Listener, _ = reuseport.Listen("tcp", ":0")
+		if s2.Listener == nil {
+			continue
+		}
+
+		s1.PacketConn, _ = net.ListenPacket("udp", s2.Listener.Addr().String())
+		if s1.PacketConn != nil {
+			break
+		}
+
+		// perhaps UPD port is in use, try again
+		s2.Listener.Close()
+		s2.Listener = nil
+	}
+	if s2.Listener == nil {
+		panic("dnstest.NewServer(): failed to create new server")
+	}
+
+	s1.NotifyStartedFunc = func() { close(ch1) }
+	s2.NotifyStartedFunc = func() { close(ch2) }
+	go s1.ActivateAndServe()
+	go s2.ActivateAndServe()
+
+	<-ch1
+	<-ch2
+
+	return &Server{s1: s1, s2: s2, Addr: s2.Listener.Addr().String()}
+}
+
 // Close shuts down the server.
 func (s *Server) Close() {
 	s.s1.Shutdown()
