@@ -43,10 +43,10 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	var (
-		span, child ot.Span
-		ret         *dns.Msg
-		err         error
-		i           int
+		span ot.Span
+		ret  *dns.Msg
+		err  error
+		i    int
 	)
 	span = ot.SpanFromContext(ctx)
 	list := g.list()
@@ -65,19 +65,24 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		proxy := list[i]
 		i++
 
+		callCtx := ctx
+		var child ot.Span
 		if span != nil {
-			child = span.Tracer().StartSpan("query", ot.ChildOf(span.Context()))
-			ctx = ot.ContextWithSpan(ctx, child)
+			child, callCtx = ot.StartSpanFromContext(callCtx, "query")
 		}
 
-		ret, err = proxy.query(ctx, r)
-		if err != nil {
-			// Continue with the next proxy
-			continue
-		}
+		var cancel context.CancelFunc
+		callCtx, cancel = context.WithDeadline(callCtx, deadline)
+
+		ret, err = proxy.query(callCtx, r)
+		cancel()
 
 		if child != nil {
 			child.Finish()
+		}
+		if err != nil {
+			// Continue with the next proxy
+			continue
 		}
 
 		// Check if the reply is correct; if not return FormErr.
