@@ -212,11 +212,6 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		for _, failoverRcode := range f.failoverRcodes {
 			// if we match, we continue to the next upstream in the list
 			if failoverRcode == ret.Rcode {
-				// Kick off health check to see if *our* upstream is broken.
-				if f.maxfails != 0 {
-					proxy.Healthcheck()
-				}
-
 				if fails < len(f.proxies) {
 					tryNext = true
 				}
