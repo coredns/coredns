@@ -38,7 +38,8 @@ func (l *loggerAdapter) Write(p []byte) (n int, err error) {
 	return len(p), nil
 }
 
-// HTTPRequestKey is the context key for the current processed HTTP request (if current processed request was done over DOH)
+// HTTPRequestKey is the context key for the HTTP request when processing DNS-over-HTTPS.
+// Plugins can access the original HTTP request to retrieve headers, client IP, and metadata.
 type HTTPRequestKey struct{}
 
 // NewServerHTTPS returns a new CoreDNS HTTPS server and compiles all plugins in to it.
@@ -168,7 +169,11 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// We just call the normal chain handler - all error handling is done there.
 	// We should expect a packet to be returned that we can send to the client.
-	ctx := context.WithValue(context.Background(), Key{}, s.Server)
+
+	// Propagate HTTP request context to DNS processing chain. This ensures that
+	// HTTP request timeouts, cancellations, and other context values are properly
+	// inherited by the DNS processing pipeline.
+	ctx := context.WithValue(r.Context(), Key{}, s.Server)
 	ctx = context.WithValue(ctx, LoopKey{}, 0)
 	ctx = context.WithValue(ctx, HTTPRequestKey{}, r)
 	s.ServeDNS(ctx, dw, msg)
