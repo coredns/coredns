@@ -9,6 +9,7 @@ linters:
   enable:
     - canonicalheader
     - copyloopvar
+    - durationcheck
     - govet
     - ineffassign
     - intrange

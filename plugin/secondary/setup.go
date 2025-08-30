@@ -31,7 +31,6 @@ func setup(c *caddy.Controller) error {
 				z.StartupOnce.Do(func() {
 					go func() {
 						dur := time.Millisecond * 250
-						step := time.Duration(2)
 						max := time.Second * 10
 						for {
 							err := z.TransferIn()
@@ -40,7 +39,7 @@ func setup(c *caddy.Controller) error {
 							}
 							log.Warningf("All '%s' masters failed to transfer, retrying in %s: %s", n, dur.String(), err)
 							time.Sleep(dur)
-							dur = step * dur
+							dur <<= 1 // double the duration
 							if dur > max {
 								dur = max
 							}
