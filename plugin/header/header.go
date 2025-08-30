@@ -63,7 +63,7 @@ func newRules(key string, args []string) ([]Rule, error) {
 		return nil, fmt.Errorf("unknown flag action=%s, should be set or clear", action)
 	}
 
-	var rules []Rule
+	rules := make([]Rule, 0, len(args))
 	for _, arg := range args {
 		flag := strings.ToLower(arg)
 		switch flag {

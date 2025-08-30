@@ -257,8 +257,7 @@ func emitAddressRecord(c chan<- []dns.RR, s msg.Service) string {
 // calcSRVWeight borrows the logic implemented in plugin.SRV for dynamically
 // calculating the srv weight and priority
 func calcSRVWeight(numservices int) uint16 {
-	var services []msg.Service
-
+	services := make([]msg.Service, 0, numservices)
 	for range numservices {
 		services = append(services, msg.Service{})
 	}

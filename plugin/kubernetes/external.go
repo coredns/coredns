@@ -224,8 +224,10 @@ func (k *Kubernetes) ExternalReverse(ip string) ([]msg.Service, error) {
 }
 
 func (k *Kubernetes) serviceRecordForExternalIP(ip string) []msg.Service {
-	var svcs []msg.Service
-	for _, service := range k.APIConn.SvcExtIndexReverse(ip) {
+	svcList := k.APIConn.SvcExtIndexReverse(ip)
+	svcLen := len(svcList)
+	svcs := make([]msg.Service, 0, svcLen)
+	for _, service := range svcList {
 		if len(k.Namespaces) > 0 && !k.namespaceExposed(service.Namespace) {
 			continue
 		}

@@ -13,6 +13,7 @@ linters:
     - ineffassign
     - intrange
     - nolintlint
+    - prealloc
     - protogetter
     - staticcheck
     - thelper
