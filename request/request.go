@@ -276,16 +276,21 @@ func (r *Request) Name() string {
 	if r.name != "" {
 		return r.name
 	}
-	if r.Req == nil {
-		r.name = "."
-		return "."
-	}
-	if len(r.Req.Question) == 0 {
-		r.name = "."
-		return "."
+
+	r.name = "."
+	switch {
+	case r.Req == nil:
+	case len(r.Req.Question) > 0:
+		r.name = strings.ToLower(r.Req.Question[0].Name)
+	case len(r.Req.Stateful) > 0:
+		switch tlv := r.Req.Stateful[0].(type) {
+		case *dns.DSO8765Subscribe:
+			r.name = strings.ToLower(tlv.Name)
+		case *dns.DSO8765Reconfirm:
+			r.name = strings.ToLower(tlv.Rr.Header().Name)
+		}
 	}
 
-	r.name = strings.ToLower(dns.Name(r.Req.Question[0].Name).String())
 	return r.name
 }
 
