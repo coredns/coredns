@@ -7,13 +7,13 @@ import (
 	"net"
 	"runtime"
 	"runtime/debug"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
+	"github.com/coredns/coredns/plugin/pkg/dso"
 	"github.com/coredns/coredns/plugin/pkg/edns"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
@@ -49,6 +49,10 @@ type Server struct {
 	writeTimeout time.Duration        // Write timeout for TCP
 
 	tsigSecret map[string]string
+
+	opcodeDSO    bool                      // allow RFC 8490 DNS Stateful Operations messages
+	dsoSessions  map[net.Conn]*dso.Session // DSO sessions of active TCP connections
+	dsoSessionsM sync.RWMutex              // protects the DSO sessions
 }
 
 // MetadataCollector is a plugin that can retrieve metadata functions from all metadata providing plugins
@@ -105,8 +109,15 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 
 		// compile custom plugin for everything
 		var stack plugin.Handler
+		var dsoStack plugin.DSOHandler
 		for i := len(site.Plugin) - 1; i >= 0; i-- {
 			stack = site.Plugin[i](stack)
+
+			if h, ok := stack.(plugin.DSOHandler); ok {
+				h.SetNextDSO(dsoStack)
+				dsoStack = h
+				s.opcodeDSO = true
+			}
 
 			// register the *handler* also
 			site.registerHandler(stack)
@@ -130,6 +141,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			}
 		}
 		site.pluginChain = stack
+		site.dsoPluginChain = dsoStack
 	}
 
 	if !s.debug {
@@ -162,6 +174,21 @@ func (s *Server) Serve(l net.Listener) error {
 			ctx = context.WithValue(ctx, LoopKey{}, 0)
 			s.ServeDNS(ctx, w, r)
 		})}
+	if s.opcodeDSO {
+		s.dsoSessions = make(map[net.Conn]*dso.Session)
+		s.server[tcp].MsgAcceptFunc = func(dh dns.Header) dns.MsgAcceptAction {
+			opcode := int(dh.Bits>>11) & 0xF
+			if opcode == dns.OpcodeStateful {
+				// RFC 8490, Section 5.4: If ... any of the count fields are not zero,
+				// then a FORMERR MUST be returned.
+				if dh.Qdcount != 0 || dh.Ancount != 0 || dh.Nscount != 0 || dh.Arcount != 0 {
+					return dns.MsgReject
+				}
+				return dns.MsgAccept
+			}
+			return dns.DefaultMsgAcceptFunc(dh)
+		}
+	}
 
 	s.m.Unlock()
 
@@ -252,7 +279,20 @@ func (s *Server) Address() string { return s.Addr }
 func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) {
 	// The default dns.Mux checks the question section size, but we have our
 	// own mux here. Check if we have a question section. If not drop them here.
-	if r == nil || len(r.Question) == 0 {
+	if r == nil {
+		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
+		return
+	}
+	req := request.Request{Req: r, W: w}
+	if r.Opcode == dns.OpcodeStateful && req.Proto() != "tcp" {
+		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
+		return
+	}
+	if r.Opcode == dns.OpcodeStateful && !s.opcodeDSO {
+		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeNotImplemented)
+		return
+	}
+	if r.Opcode != dns.OpcodeStateful && len(r.Question) == 0 {
 		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
 		return
 	}
@@ -273,7 +313,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}()
 	}
 
-	if !s.classChaos && r.Question[0].Qclass != dns.ClassINET {
+	if !s.classChaos && r.Opcode != dns.OpcodeStateful && r.Question[0].Qclass != dns.ClassINET {
 		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
 		return
 	}
@@ -286,7 +326,8 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// Wrap the response writer in a ScrubWriter so we automatically make the reply fit in the client's buffer.
 	w = request.NewScrubWriter(r, w)
 
-	q := strings.ToLower(r.Question[0].Name)
+	req = request.Request{Req: r, W: w}
+	q := req.Name()
 	var (
 		off       int
 		end       bool
@@ -300,31 +341,43 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 					errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
 					return
 				}
+				if r.Opcode == dns.OpcodeStateful && h.dsoPluginChain == nil {
+					errorAndMetricsFunc(s.Addr, w, r, dns.RcodeNotImplemented)
+					return
+				}
 
 				if h.metaCollector != nil {
 					// Collect metadata now, so it can be used before we send a request down the plugin chain.
-					ctx = h.metaCollector.Collect(ctx, request.Request{Req: r, W: w})
+					ctx = h.metaCollector.Collect(ctx, req)
 				}
 
 				// If all filter funcs pass, use this config.
-				if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+				if passAllFilterFuncs(ctx, h.FilterFuncs, &req) {
+					if r.Opcode != dns.OpcodeStateful && r.Question[0].Qtype == dns.TypeDS {
+						// The type is DS, keep the handler, but keep on searching as maybe we are serving
+						// the parent as well and the DS should be routed to it - this will probably *misroute* DS
+						// queries to a possibly grand parent, but there is no way for us to know at this point
+						// if there is an actual delegation from grandparent -> parent -> zone.
+						// In all fairness: direct DS queries should not be needed.
+						dshandler = h
+						continue
+					}
+
 					if h.ViewName != "" {
 						// if there was a view defined for this Config, set the view name in the context
 						ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
 					}
-					if r.Question[0].Qtype != dns.TypeDS {
-						rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
-						if !plugin.ClientWrite(rcode) {
-							errorFunc(s.Addr, w, r, rcode)
-						}
-						return
+					var rcode int
+					switch r.Opcode {
+					case dns.OpcodeStateful:
+						rcode, _ = h.dsoPluginChain.ServeDSO(ctx, w, r)
+					default:
+						rcode, _ = h.pluginChain.ServeDNS(ctx, w, r)
 					}
-					// The type is DS, keep the handler, but keep on searching as maybe we are serving
-					// the parent as well and the DS should be routed to it - this will probably *misroute* DS
-					// queries to a possibly grand parent, but there is no way for us to know at this point
-					// if there is an actual delegation from grandparent -> parent -> zone.
-					// In all fairness: direct DS queries should not be needed.
-					dshandler = h
+					if !plugin.ClientWrite(rcode) {
+						errorFunc(s.Addr, w, r, rcode)
+					}
+					return
 				}
 			}
 		}
@@ -334,7 +387,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}
 	}
 
-	if r.Question[0].Qtype == dns.TypeDS && dshandler != nil && dshandler.pluginChain != nil {
+	if dshandler != nil {
 		// DS request, and we found a zone, use the handler for the query.
 		rcode, _ := dshandler.pluginChain.ServeDNS(ctx, w, r)
 		if !plugin.ClientWrite(rcode) {
@@ -349,19 +402,28 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			if h.pluginChain == nil {
 				continue
 			}
+			if r.Opcode == dns.OpcodeStateful && h.dsoPluginChain == nil {
+				continue
+			}
 
 			if h.metaCollector != nil {
 				// Collect metadata now, so it can be used before we send a request down the plugin chain.
-				ctx = h.metaCollector.Collect(ctx, request.Request{Req: r, W: w})
+				ctx = h.metaCollector.Collect(ctx, req)
 			}
 
 			// If all filter funcs pass, use this config.
-			if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+			if passAllFilterFuncs(ctx, h.FilterFuncs, &req) {
 				if h.ViewName != "" {
 					// if there was a view defined for this Config, set the view name in the context
 					ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
 				}
-				rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
+				var rcode int
+				switch {
+				case r.Opcode == dns.OpcodeStateful:
+					rcode, _ = h.dsoPluginChain.ServeDSO(ctx, w, r)
+				default:
+					rcode, _ = h.pluginChain.ServeDNS(ctx, w, r)
+				}
 				if !plugin.ClientWrite(rcode) {
 					errorFunc(s.Addr, w, r, rcode)
 				}
@@ -404,6 +466,45 @@ func (s *Server) Tracer() ot.Tracer {
 	}
 
 	return s.trace.Tracer()
+}
+
+// DSOSession returns appropriate DSO session for a given message.
+//
+// Returns nil if none of server's configs has a plugin that implements DSOHandler
+// or when called from an inappropriate context such as UDP.
+func (s *Server) DSOSession(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) *dso.Session {
+	if !s.opcodeDSO {
+		return nil
+	}
+	state := request.Request{Req: r, W: w}
+	if state.Proto() != "tcp" {
+		return nil
+	}
+
+	we := w.(dns.ResponseWriterExtra)
+	conn := we.Conn()
+	connCtx := we.Context()
+
+	s.dsoSessionsM.Lock()
+	defer s.dsoSessionsM.Unlock()
+
+	sesh, ok := s.dsoSessions[conn]
+	if !ok {
+		// If context is already cancelled (thus connection is closed) the AfterFunc
+		// below would be called immediatelly. Avoid the roundtrip.
+		if connCtx.Err() != nil {
+			return dso.NewClosedSession(s.idleTimeout)
+		}
+
+		sesh = dso.NewSession(s.idleTimeout)
+		s.dsoSessions[conn] = sesh
+		context.AfterFunc(connCtx, func() {
+			s.dsoSessionsM.Lock()
+			delete(s.dsoSessions, conn)
+			s.dsoSessionsM.Unlock()
+		})
+	}
+	return sesh
 }
 
 // errorFunc responds to an DNS request with an error.
