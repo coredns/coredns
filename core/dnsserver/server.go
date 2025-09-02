@@ -3,6 +3,7 @@ package dnsserver
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"runtime"
@@ -174,6 +175,8 @@ func (s *Server) Serve(l net.Listener) error {
 		s.server[tcp].MsgAcceptFunc = func(dh dns.Header) dns.MsgAcceptAction {
 			opcode := int(dh.Bits>>11) & 0xF
 			if opcode == dns.OpcodeStateful {
+				// RFC 8490, Section 5.4: If ... any of the count fields are not zero,
+				// then a FORMERR MUST be returned.
 				if dh.Qdcount != 0 || dh.Ancount != 0 || dh.Nscount != 0 || dh.Arcount != 0 {
 					return dns.MsgReject
 				}
@@ -273,15 +276,15 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// The default dns.Mux checks the question section size, but we have our
 	// own mux here. Check if we have a question section. If not drop them here.
 	if r == nil {
-		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
+		s.errorAndMetricsFunc(w, r, dns.RcodeServerFailure, nil)
 		return
 	}
 	if r.Opcode == dns.OpcodeStateful && !s.opcodeDSO {
-		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeNotImplemented)
+		s.errorAndMetricsFunc(w, r, dns.RcodeNotImplemented, nil)
 		return
 	}
 	if len(r.Question) == 0 {
-		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
+		s.errorAndMetricsFunc(w, r, dns.RcodeServerFailure, nil)
 		return
 	}
 
@@ -296,13 +299,13 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 					log.Errorf("Recovered from panic in server: %q %v", s.Addr, rec)
 				}
 				vars.Panic.Inc()
-				errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
+				s.errorAndMetricsFunc(w, r, dns.RcodeServerFailure, nil)
 			}
 		}()
 	}
 
 	if !s.classChaos && r.Opcode != dns.OpcodeStateful && r.Question[0].Qclass != dns.ClassINET {
-		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
+		s.errorAndMetricsFunc(w, r, dns.RcodeRefused, nil)
 		return
 	}
 
@@ -326,11 +329,11 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		if z, ok := s.zones[q[off:]]; ok {
 			for _, h := range z {
 				if h.pluginChain == nil { // zone defined, but has not got any plugins
-					errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
+					s.errorAndMetricsFunc(w, r, dns.RcodeRefused, nil)
 					return
 				}
 				if r.Opcode == dns.OpcodeStateful && h.dsoPluginChain == nil {
-					errorAndMetricsFunc(s.Addr, w, r, dns.RcodeNotImplemented)
+					s.errorAndMetricsFunc(w, r, dns.RcodeNotImplemented, nil)
 					return
 				}
 
@@ -355,15 +358,18 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 						// if there was a view defined for this Config, set the view name in the context
 						ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
 					}
-					var rcode int
+					var (
+						rcode int
+						err   error
+					)
 					switch r.Opcode {
-					case  dns.OpcodeStateful:
-						rcode, _ = h.dsoPluginChain.ServeDSO(ctx, w, r)
+					case dns.OpcodeStateful:
+						rcode, err = h.dsoPluginChain.ServeDSO(ctx, w, r)
 					default:
-						rcode, _ = h.pluginChain.ServeDNS(ctx, w, r)
+						rcode, err = h.pluginChain.ServeDNS(ctx, w, r)
 					}
 					if !plugin.ClientWrite(rcode) {
-						errorFunc(s.Addr, w, r, rcode)
+						s.errorFunc(w, r, rcode, err)
 					}
 					return
 				}
@@ -377,9 +383,9 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 	if dshandler != nil {
 		// DS request, and we found a zone, use the handler for the query.
-		rcode, _ := dshandler.pluginChain.ServeDNS(ctx, w, r)
+		rcode, err := dshandler.pluginChain.ServeDNS(ctx, w, r)
 		if !plugin.ClientWrite(rcode) {
-			errorFunc(s.Addr, w, r, rcode)
+			s.errorFunc(w, r, rcode, err)
 		}
 		return
 	}
@@ -405,15 +411,18 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 					// if there was a view defined for this Config, set the view name in the context
 					ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
 				}
-				var rcode int
+				var (
+					rcode int
+					err   error
+				)
 				switch {
 				case r.Opcode == dns.OpcodeStateful:
-					rcode, _ = h.dsoPluginChain.ServeDSO(ctx, w, r)
+					rcode, err = h.dsoPluginChain.ServeDSO(ctx, w, r)
 				default:
-					rcode, _ = h.pluginChain.ServeDNS(ctx, w, r)
+					rcode, err = h.pluginChain.ServeDNS(ctx, w, r)
 				}
 				if !plugin.ClientWrite(rcode) {
-					errorFunc(s.Addr, w, r, rcode)
+					s.errorFunc(w, r, rcode, err)
 				}
 				return
 			}
@@ -421,7 +430,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	}
 
 	// Still here? Error out with REFUSED.
-	errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
+	s.errorAndMetricsFunc(w, r, dns.RcodeRefused, nil)
 }
 
 // passAllFilterFuncs returns true if all filter funcs evaluate to true for the given request
@@ -457,24 +466,51 @@ func (s *Server) Tracer() ot.Tracer {
 }
 
 // errorFunc responds to an DNS request with an error.
-func errorFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
+func (s *Server) errorFunc(w dns.ResponseWriter, r *dns.Msg, rc int, err error) {
 	state := request.Request{W: w, Req: r}
 
 	answer := new(dns.Msg)
 	answer.SetRcode(r, rc)
+	if s.opcodeDSO && r.Opcode == dns.OpcodeStateful && state.Proto() == "tcp" && errors.Is(err, plugin.ErrNoPlugin) {
+		switch {
+		// RFC 8490, Section 5.5.2: If a client or server receives a response (QR=1) where
+		// the MESSAGE ID ... is any other value that does not match the MESSAGE ID of any of
+		// its outstanding operations, this is a fatal error and the recipient MUST forcibly abort
+		// the connection immediately.
+		case r.Response:
+			// TODO: abort the connection
+
+		// RFC 8490, Section 5.4.5: If a DSO unidirectional message is received containing
+		// ... an unrecognized Primary TLV ... , then this is a fatal error and the recipient
+		// MUST forcibly abort the connection immediately.
+		case r.Id == 0:
+			// TODO: abort the connection
+
+		default:
+			answer.Rcode = dns.RcodeStatefulTypeNotImplemented
+		}
+	}
 	state.SizeAndDo(answer)
 
 	w.WriteMsg(answer)
 }
 
-func errorAndMetricsFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
+func (s *Server) errorAndMetricsFunc(w dns.ResponseWriter, r *dns.Msg, rc int, err error) {
 	state := request.Request{W: w, Req: r}
 
 	answer := new(dns.Msg)
 	answer.SetRcode(r, rc)
+	if s.opcodeDSO && r.Opcode == dns.OpcodeStateful && state.Proto() == "tcp" && errors.Is(err, plugin.ErrNoPlugin) {
+		switch {
+		case r.Response: // TODO: abort the connection
+		case r.Id == 0: // TODO: abort the connection
+		default:
+			answer.Rcode = dns.RcodeStatefulTypeNotImplemented
+		}
+	}
 	state.SizeAndDo(answer)
 
-	vars.Report(server, state, vars.Dropped, "", rcode.ToString(rc), "" /* plugin */, answer.Len(), time.Now())
+	vars.Report(s.Addr, state, vars.Dropped, "", rcode.ToString(rc), "" /* plugin */, answer.Len(), time.Now())
 
 	w.WriteMsg(answer)
 }
