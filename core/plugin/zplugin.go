@@ -40,6 +40,7 @@ import (
 	_ "github.com/coredns/coredns/plugin/metrics"
 	_ "github.com/coredns/coredns/plugin/minimal"
 	_ "github.com/coredns/coredns/plugin/multisocket"
+	_ "github.com/coredns/coredns/plugin/nomad"
 	_ "github.com/coredns/coredns/plugin/nsid"
 	_ "github.com/coredns/coredns/plugin/pprof"
 	_ "github.com/coredns/coredns/plugin/quic"
