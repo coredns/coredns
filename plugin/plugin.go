@@ -52,6 +52,16 @@ type (
 		Name() string
 	}
 
+	// DSOHandler is implemented by plugins that can handle RFC 8490
+	// DNS Stateful Operations messages.
+	DSOHandler interface {
+		Handler
+		// ServeDSO is like Handler.ServeDNS, but for dns.OpcodeStateful messages.
+		ServeDSO(context.Context, dns.ResponseWriter, *dns.Msg) (int, error)
+		// SetNextDSO chains the receiver with the next DSOHandler.
+		SetNextDSO(DSOHandler)
+	}
+
 	// HandlerFunc is a convenience type like dns.HandlerFunc, except
 	// ServeDNS returns an rcode and an error. See Handler
 	// documentation for more information.
@@ -71,16 +81,23 @@ func Error(name string, err error) error { return fmt.Errorf("%s/%s: %w", "plugi
 
 // NextOrFailure calls next.ServeDNS when next is not nil, otherwise it will return, a ServerFailure and a `no next plugin found` error.
 func NextOrFailure(name string, next Handler, ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	if next != nil {
-		if span := ot.SpanFromContext(ctx); span != nil {
-			child := span.Tracer().StartSpan(next.Name(), ot.ChildOf(span.Context()))
-			defer child.Finish()
-			ctx = ot.ContextWithSpan(ctx, child)
-		}
-		return next.ServeDNS(ctx, w, r)
+	if next == nil {
+		return dns.RcodeServerFailure, Error(name, ErrNoPlugin)
 	}
 
-	return dns.RcodeServerFailure, Error(name, errors.New("no next plugin found"))
+	if span := ot.SpanFromContext(ctx); span != nil {
+		child := span.Tracer().StartSpan(next.Name(), ot.ChildOf(span.Context()))
+		defer child.Finish()
+		ctx = ot.ContextWithSpan(ctx, child)
+	}
+
+	switch r.Opcode {
+	case dns.OpcodeStateful:
+		// Caller is responsible to ensure that next is a DSOHandler (or nil).
+		return next.(DSOHandler).ServeDSO(ctx, w, r)
+	default:
+		return next.ServeDNS(ctx, w, r)
+	}
 }
 
 // ClientWrite returns true if the response has been written to the client.
@@ -112,5 +129,9 @@ var SlimTimeBuckets = prometheus.ExponentialBuckets(0.00025, 10, 5) // from 0.25
 // See: https://pkg.go.dev/github.com/prometheus/client_golang@v1.19.0/prometheus#section-readme
 var NativeHistogramBucketFactor = 1.05
 
-// ErrOnce is returned when a plugin doesn't support multiple setups per server.
-var ErrOnce = errors.New("this plugin can only be used once per Server Block")
+var (
+	// ErrOnce is returned when a plugin doesn't support multiple setups per server.
+	ErrOnce = errors.New("this plugin can only be used once per Server Block")
+	// ErrNoPlugin is returned when none of the plugins handled request.
+	ErrNoPlugin = errors.New("no next plugin found")
+)
