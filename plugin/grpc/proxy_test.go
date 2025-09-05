@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"path"
+	"slices"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -58,6 +59,33 @@ func TestProxy(t *testing.T) {
 				t.Fatalf("Error query(): %s", err.Error())
 			}
 		})
+	}
+}
+
+func TestProxy_RejectsOversizedReply(t *testing.T) {
+	p := &Proxy{}
+	oversized := make([]byte, maxDNSMessageBytes+1)
+	p.client = testServiceClient{dnsPacket: &pb.DnsPacket{Msg: oversized}, err: nil}
+	_, err := p.query(context.TODO(), new(dns.Msg))
+	if !errors.Is(err, ErrDNSMessageTooLarge) {
+		t.Fatalf("expected %v, got %v", ErrDNSMessageTooLarge, err)
+	}
+}
+
+func TestProxy_RejectsOversizedRequest(t *testing.T) {
+	p := &Proxy{}
+	p.client = testServiceClient{dnsPacket: &pb.DnsPacket{Msg: []byte("ok")}, err: nil}
+
+	oversizedMsg := &dns.Msg{}
+	oversizedMsg.SetQuestion("example.org.", dns.TypeA)
+	oversizedMsg.Extra = slices.Repeat([]dns.RR{&dns.TXT{
+		Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 300},
+		Txt: []string{"very long text record to make the message oversized when packed"},
+	}}, 2000)
+
+	_, err := p.query(context.TODO(), oversizedMsg)
+	if !errors.Is(err, ErrDNSMessageTooLarge) {
+		t.Fatalf("expected %v, got %v", ErrDNSMessageTooLarge, err)
 	}
 }
 
