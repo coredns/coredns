@@ -54,10 +54,10 @@ func (s *ServerTLS) Serve(l net.Listener) error {
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp-tls",
 		MaxTCPQueries: tlsMaxQueries,
-		ReadTimeout:   s.readTimeout,
-		WriteTimeout:  s.writeTimeout,
+		ReadTimeout:   s.ReadTimeout,
+		WriteTimeout:  s.WriteTimeout,
 		IdleTimeout: func() time.Duration {
-			return s.idleTimeout
+			return s.IdleTimeout
 		},
 		Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
 			ctx := context.WithValue(context.Background(), Key{}, s.Server)
