@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -124,6 +125,18 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		return f, err
 	}
 
+	for c.NextBlock() {
+		if err := parseBlock(c, f); err != nil {
+			return f, err
+		}
+	}
+
+
+	transportPerProxy := uint(1)
+	if f.proxyTransportNum > 0 {
+		transportPerProxy = f.proxyTransportNum
+	}
+
 	transports := make([]string, len(toHosts))
 	allowedTrans := map[string]bool{"dns": true, "tls": true}
 	for i, host := range toHosts {
@@ -132,15 +145,9 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		if !allowedTrans[trans] {
 			return f, fmt.Errorf("'%s' is not supported as a destination protocol in forward: %s", trans, host)
 		}
-		p := proxy.NewProxy("forward", h, trans)
+		p := proxy.NewProxy("forward", h, trans, transportPerProxy)
 		f.proxies = append(f.proxies, p)
 		transports[i] = trans
-	}
-
-	for c.NextBlock() {
-		if err := parseBlock(c, f); err != nil {
-			return f, err
-		}
 	}
 
 	if f.tlsServerName != "" {
@@ -171,6 +178,15 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 func parseBlock(c *caddy.Controller, f *Forward) error {
 	config := dnsserver.GetConfig(c)
 	switch c.Val() {
+	case "multi_conn_manager":
+		f.proxyTransportNum = uint(runtime.GOMAXPROCS(0))
+		if c.NextArg() {
+			n, err := strconv.ParseUint(c.Val(), 10, 32)
+			if err != nil {
+				return err
+			}
+			f.proxyTransportNum = uint(n)
+		}
 	case "except":
 		ignore := c.RemainingArgs()
 		if len(ignore) == 0 {
