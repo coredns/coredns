@@ -32,6 +32,7 @@ func TestMetadata(t *testing.T) {
 		{"geoip/longitude", "0.1315", cityDBPath, "81.2.69.142"},
 		{"geoip/timezone", "Europe/London", cityDBPath, "81.2.69.142"},
 		{"geoip/postalcode", "CB4", cityDBPath, "81.2.69.142"},
+		{"geoip/subdivisions/code", "ENG,CAM", cityDBPath, "81.2.69.142"},
 
 		// ASN database tests
 		{"geoip/asn/number", "12345", asnDBPath, "81.2.69.142"},

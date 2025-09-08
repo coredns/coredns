@@ -3,6 +3,7 @@ package geoip
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/metadata"
 
@@ -30,6 +31,18 @@ func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 	metadata.SetValueFunc(ctx, pluginName+"/country/code", func() string {
 		return countryCode
 	})
+
+	// Subdivisions represent administrative divisions (e.g., provinces, states) and are provided
+	// by the MaxMind database as a hierarchical list of up to 2 levels, ISO codes are set in metadata as
+	// a comma separated string, with the exact values provided by the database, even if those were empty strings.
+	subdivisionCodes := make([]string, 0, len(data.Subdivisions))
+	for _, sub := range data.Subdivisions {
+		subdivisionCodes = append(subdivisionCodes, sub.IsoCode)
+	}
+	metadata.SetValueFunc(ctx, pluginName+"/subdivisions/code", func() string {
+		return strings.Join(subdivisionCodes, ",")
+	})
+
 	isInEurope := strconv.FormatBool(data.Country.IsInEuropeanUnion)
 	metadata.SetValueFunc(ctx, pluginName+"/country/is_in_european_union", func() string {
 		return isInEurope

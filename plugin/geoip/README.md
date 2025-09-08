@@ -141,6 +141,7 @@ A limited set of fields will be exported as labels, all values are stored using 
 | `geoip/longitude`                    | `float64` | `0.1315`         | Base 10, max available precision.
 | `geoip/timezone`                     | `string`  | `Europe/London`  | The timezone.
 | `geoip/postalcode`                   | `string`  | `CB4`            | The postal code.
+| `geoip/subdivisions/code`            | `string`  | `ENG,TWH`        | Comma separated [ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2) subdivision(region) codes, e.g. first level (province), second level (state).
 | `geoip/asn/number`                   | `uint`    | `396982`         | The autonomous system number.
 | `geoip/asn/org`                      | `string`  | `GOOGLE-CLOUD-PLATFORM` | The autonomous system organization.
 
