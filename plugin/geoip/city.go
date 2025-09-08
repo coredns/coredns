@@ -30,6 +30,19 @@ func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 	metadata.SetValueFunc(ctx, pluginName+"/country/code", func() string {
 		return countryCode
 	})
+	
+	var regionCodes []string
+	if data.Subdivisions != nil {
+    	for _, sub := range data.Subdivisions {
+        	if sub.IsoCode != "" {
+            	regionCodes = append(regionCodes, sub.IsoCode)
+        	}
+    	}
+	}
+	metadata.SetValueFunc(ctx, pluginName+"/region/code", func() string {
+    	return strings.Join(regionCodes, ",")
+	})
+
 	isInEurope := strconv.FormatBool(data.Country.IsInEuropeanUnion)
 	metadata.SetValueFunc(ctx, pluginName+"/country/is_in_european_union", func() string {
 		return isInEurope
