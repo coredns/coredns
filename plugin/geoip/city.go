@@ -3,6 +3,7 @@ package geoip
 import (
 	"context"
 	"strconv"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/metadata"
 
@@ -30,6 +31,17 @@ func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 	metadata.SetValueFunc(ctx, pluginName+"/country/code", func() string {
 		return countryCode
 	})
+
+	var subdivisionCodes []string
+	for _, sub := range data.Subdivisions {
+		if sub.IsoCode != "" {
+			subdivisionCodes = append(subdivisionCodes, sub.IsoCode)
+		}
+	}
+	metadata.SetValueFunc(ctx, pluginName+"/subdivisions/code", func() string {
+		return strings.Join(subdivisionCodes, ",")
+	})
+
 	isInEurope := strconv.FormatBool(data.Country.IsInEuropeanUnion)
 	metadata.SetValueFunc(ctx, pluginName+"/country/is_in_european_union", func() string {
 		return isInEurope

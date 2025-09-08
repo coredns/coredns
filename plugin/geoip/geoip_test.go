@@ -32,6 +32,7 @@ func TestMetadata(t *testing.T) {
 		{"geoip/longitude", "0.1315"},
 		{"geoip/timezone", "Europe/London"},
 		{"geoip/postalcode", "CB4"},
+		{"geoip/subdivisions/code", "ENG,CAM"},
 	}
 
 	knownIPAddr := "81.2.69.142" // This IP should be part of the CDIR address range used to create the database fixtures.
