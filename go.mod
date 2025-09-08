@@ -37,7 +37,7 @@ require (
 	go.etcd.io/etcd/client/v3 v3.6.4
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.41.0
-	golang.org/x/sys v0.35.0
+	golang.org/x/sys v0.36.0
 	google.golang.org/api v0.248.0
 	google.golang.org/grpc v1.75.0
 	google.golang.org/protobuf v1.36.8
