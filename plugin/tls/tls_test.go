@@ -2,6 +2,8 @@ package tls
 
 import (
 	"crypto/tls"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -23,6 +25,7 @@ func TestTLS(t *testing.T) {
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth require\n}", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth verify_if_given\n}", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth require_and_verify\n}", false, "", ""},
+		{"tls test_cert.pem test_key.pem test_ca.pem {\nkeylog tls.log\n}", false, "", ""},
 		// negative
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nunknown\n}", true, "", "unknown option"},
 		// client_auth takes exactly one parameter, which must be one of known keywords.
@@ -84,4 +87,40 @@ func TestTLSClientAuthentication(t *testing.T) {
 			t.Errorf("Test %d: Unexpected client auth type: %d", i, cfg.TLSConfig.ClientAuth)
 		}
 	}
+}
+
+func TestTLSKeyLog(t *testing.T) {
+	t.Run("No Path", func(t *testing.T) {
+		input := "tls test_cert.pem test_key.pem test_ca.pem {\nkeylog\n}"
+		c := caddy.NewTestController("dns", input)
+		err := setup(c)
+		if err == nil {
+			t.Error("Expected error but found none")
+		}
+	})
+
+	t.Run("Bad Path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		os.Chmod(tmpDir, 0000)
+		input := "tls test_cert.pem test_key.pem test_ca.pem {\nkeylog " + filepath.Join(tmpDir, "tls.log") + "\n}"
+		c := caddy.NewTestController("dns", input)
+		err := setup(c)
+		if err == nil {
+			t.Error("Expected error but found none")
+		}
+	})
+
+	t.Run("Good Path", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		input := "tls test_cert.pem test_key.pem test_ca.pem {\nkeylog " + filepath.Join(tmpDir, "tls.log") + "\n}"
+		c := caddy.NewTestController("dns", input)
+		err := setup(c)
+		if err != nil {
+			t.Errorf("Expected no error but found %v", err)
+		}
+		cfg := dnsserver.GetConfig(c)
+		if cfg.TLSConfig.KeyLogWriter == nil {
+			t.Fatal("KeyLogWriter is not set")
+		}
+	})
 }
