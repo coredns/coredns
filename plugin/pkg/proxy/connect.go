@@ -183,6 +183,9 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		rc = strconv.Itoa(ret.Rcode)
 	}
 
+	if _, ok := p.qTypeForMetrics[state.Type()]; ok {
+		requestDurationWithName.WithLabelValues(p.proxyName, p.addr, rc, state.Name(), state.Type()).Observe(float64(time.Since(start).Seconds()))
+	}
 	requestDuration.WithLabelValues(p.proxyName, p.addr, rc).Observe(time.Since(start).Seconds())
 
 	return ret, nil

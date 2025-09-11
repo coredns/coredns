@@ -23,22 +23,31 @@ type Proxy struct {
 	// health checking
 	probe  *up.Probe
 	health HealthChecker
+
+	qTypeForMetrics map[string]bool
 }
 
 // NewProxy returns a new proxy.
 func NewProxy(proxyName, addr, trans string) *Proxy {
 	p := &Proxy{
-		addr:        addr,
-		fails:       0,
-		probe:       up.New(),
-		readTimeout: 2 * time.Second,
-		transport:   newTransport(proxyName, addr),
-		health:      NewHealthChecker(proxyName, trans, true, "."),
-		proxyName:   proxyName,
+		addr:            addr,
+		fails:           0,
+		probe:           up.New(),
+		readTimeout:     2 * time.Second,
+		transport:       newTransport(proxyName, addr),
+		health:          NewHealthChecker(proxyName, trans, true, "."),
+		proxyName:       proxyName,
+		qTypeForMetrics: make(map[string]bool),
 	}
 
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
+}
+
+func (p *Proxy) SetQTypeForMetrics(qTypes []string) {
+	for _, q := range qTypes {
+		p.qTypeForMetrics[q] = true
+	}
 }
 
 func (p *Proxy) Addr() string { return p.addr }
