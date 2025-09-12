@@ -2,13 +2,17 @@ package tls
 
 import (
 	ctls "crypto/tls"
+	"os"
 	"path/filepath"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/tls"
 )
+
+var log = clog.NewWithPlugin("tls")
 
 func init() { plugin.Register("tls", setup) }
 
@@ -33,6 +37,7 @@ func parseTLS(c *caddy.Controller) error {
 			return plugin.Error("tls", c.ArgErr())
 		}
 		clientAuth := ctls.NoClientCert
+		var keyLog string
 		for c.NextBlock() {
 			switch c.Val() {
 			case "client_auth":
@@ -54,6 +59,15 @@ func parseTLS(c *caddy.Controller) error {
 				default:
 					return c.Errf("unknown authentication type '%s'", authTypeArgs[0])
 				}
+			case "keylog":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return c.ArgErr()
+				}
+				keyLog = args[0]
+				if !filepath.IsAbs(keyLog) && config.Root != "" {
+					keyLog = filepath.Join(config.Root, keyLog)
+				}
 			default:
 				return c.Errf("unknown option '%s'", c.Val())
 			}
@@ -70,6 +84,16 @@ func parseTLS(c *caddy.Controller) error {
 		tls.ClientAuth = clientAuth
 		// NewTLSConfigFromArgs only sets RootCAs, so we need to let ClientCAs refer to it.
 		tls.ClientCAs = tls.RootCAs
+
+		if len(keyLog) > 0 {
+			writer, err := os.OpenFile(keyLog, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+			if err != nil {
+				return c.Errf("unable to write TLS Key Log: %s", err)
+			}
+			tls.KeyLogWriter = writer
+			keyLog, _ = filepath.Abs(keyLog)
+			log.Infof("Writing TLS Key Log to %q\n", keyLog)
+		}
 
 		config.TLSConfig = tls
 	}
