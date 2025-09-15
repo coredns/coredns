@@ -22,10 +22,11 @@ const (
 )
 
 type reload struct {
-	dur  time.Duration
-	u    int
-	mtx  sync.RWMutex
-	quit chan bool
+	dur    time.Duration
+	u      int
+	mtx    sync.RWMutex
+	quit   chan struct{} // Quit channel for stopping the goroutine
+	tick   *time.Ticker  // Ticker to manage the periodic check
 }
 
 func (r *reload) setUsage(u int) {
@@ -71,6 +72,15 @@ func hook(event caddy.EventName, info any) error {
 		return nil
 	}
 
+	// Stop any previous goroutine if it exists
+	if r.quit != nil {
+		close(r.quit) // Close the quit channel to stop the old goroutine
+	}
+
+	// Create a new quit channel and ticker for the new goroutine
+	r.quit = make(chan struct{})
+	r.tick = time.NewTicker(r.interval())
+
 	// this should be an instance. ok to panic if not
 	instance := info.(*caddy.Instance)
 	parsedCorefile, err := parse(instance.Caddyfile())
@@ -81,13 +91,13 @@ func hook(event caddy.EventName, info any) error {
 	sha512sum := sha512.Sum512(parsedCorefile)
 	log.Infof("Running configuration SHA512 = %x\n", sha512sum)
 
+	// Start a new goroutine to periodically check for config changes
 	go func() {
-		tick := time.NewTicker(r.interval())
-		defer tick.Stop()
+		defer r.tick.Stop() // Ensure the ticker stops when the goroutine exits
 
 		for {
 			select {
-			case <-tick.C:
+			case <-r.tick.C:
 				corefile, err := caddy.LoadCaddyfile(instance.Caddyfile().ServerType())
 				if err != nil {
 					continue
@@ -99,6 +109,7 @@ func hook(event caddy.EventName, info any) error {
 				}
 				s := sha512.Sum512(parsedCorefile)
 				if s != sha512sum {
+					// Configuration has changed, trigger a reload
 					reloadInfo.Delete(prometheus.Labels{"hash": "sha512", "value": hex.EncodeToString(sha512sum[:])})
 					// Let not try to restart with the same file, even though it is wrong.
 					sha512sum = s
@@ -119,7 +130,7 @@ func hook(event caddy.EventName, info any) error {
 					return
 				}
 			case <-r.quit:
-				return
+				return // Quit signal received, stop the goroutine
 			}
 		}
 	}()

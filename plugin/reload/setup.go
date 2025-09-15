@@ -20,7 +20,7 @@ func init() { plugin.Register("reload", setup) }
 // channel for QUIT is never changed in purpose.
 // WARNING: this data may be unsync after an invalid attempt of reload Corefile.
 var (
-	r              = reload{dur: defaultInterval, u: unused, quit: make(chan bool)}
+	r              = reload{dur: defaultInterval, u: unused, quit: make(chan struct{})}
 	once, shutOnce sync.Once
 )
 
@@ -60,22 +60,27 @@ func setup(c *caddy.Controller) error {
 		j = i / 2
 	}
 
+	// Add jitter to interval
 	jitter := time.Duration(rand.Int63n(j.Nanoseconds()) - (j.Nanoseconds() / 2))
 	i = i + jitter
 
 	// prepare info for next onInstanceStartup event
 	r.setInterval(i)
 	r.setUsage(used)
+
+	// Register the event hook
 	once.Do(func() {
 		caddy.RegisterEventHook("reload", hook)
 	})
+
 	// re-register on finalShutDown as the instance most-likely will be changed
 	shutOnce.Do(func() {
 		c.OnFinalShutdown(func() error {
-			r.quit <- true
+			close(r.quit) // Close the quit channel to stop the old goroutine
 			return nil
 		})
 	})
+
 	return nil
 }
 
