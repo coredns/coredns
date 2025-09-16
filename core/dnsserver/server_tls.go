@@ -64,6 +64,20 @@ func (s *ServerTLS) Serve(l net.Listener) error {
 			ctx = context.WithValue(ctx, LoopKey{}, 0)
 			s.ServeDNS(ctx, w, r)
 		})}
+	if s.opcodeDSO {
+		s.server[tcp].MsgAcceptFunc = func(dh dns.Header) dns.MsgAcceptAction {
+			opcode := int(dh.Bits>>11) & 0xF
+			if opcode == dns.OpcodeStateful {
+				// RFC 8490, Section 5.4: If ... any of the count fields are not zero,
+				// then a FORMERR MUST be returned.
+				if dh.Qdcount != 0 || dh.Ancount != 0 || dh.Nscount != 0 || dh.Arcount != 0 {
+					return dns.MsgReject
+				}
+				return dns.MsgAccept
+			}
+			return dns.DefaultMsgAcceptFunc(dh)
+		}
+	}
 
 	s.m.Unlock()
 

@@ -8,7 +8,6 @@ import (
 	"net"
 	"runtime"
 	"runtime/debug"
-	"strings"
 	"sync"
 	"time"
 
@@ -48,6 +47,7 @@ type Server struct {
 	debug        bool                 // disable recover()
 	stacktrace   bool                 // enable stacktrace in recover error log
 	classChaos   bool                 // allow non-INET class queries
+	opcodeDSO    bool                 // allow DSO (Opcode = 6) messages
 
 	tsigSecret map[string]string
 }
@@ -104,8 +104,15 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 
 		// compile custom plugin for everything
 		var stack plugin.Handler
+		var dsoStack plugin.DSOHandler
 		for i := len(site.Plugin) - 1; i >= 0; i-- {
 			stack = site.Plugin[i](stack)
+
+			if dso, ok := stack.(plugin.DSOHandler); ok {
+				dso.SetNextDSO(dsoStack)
+				dsoStack = dso
+				s.opcodeDSO = true
+			}
 
 			// register the *handler* also
 			site.registerHandler(stack)
@@ -129,6 +136,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			}
 		}
 		site.pluginChain = stack
+		site.dsoPluginChain = dsoStack
 	}
 
 	if !s.debug {
@@ -161,6 +169,20 @@ func (s *Server) Serve(l net.Listener) error {
 			ctx = context.WithValue(ctx, LoopKey{}, 0)
 			s.ServeDNS(ctx, w, r)
 		})}
+	if s.opcodeDSO {
+		s.server[tcp].MsgAcceptFunc = func(dh dns.Header) dns.MsgAcceptAction {
+			opcode := int(dh.Bits>>11) & 0xF
+			if opcode == dns.OpcodeStateful {
+				// RFC 8490, Section 5.4: If ... any of the count fields are not zero,
+				// then a FORMERR MUST be returned.
+				if dh.Qdcount != 0 || dh.Ancount != 0 || dh.Nscount != 0 || dh.Arcount != 0 {
+					return dns.MsgReject
+				}
+				return dns.MsgAccept
+			}
+			return dns.DefaultMsgAcceptFunc(dh)
+		}
+	}
 
 	s.m.Unlock()
 
@@ -251,7 +273,20 @@ func (s *Server) Address() string { return s.Addr }
 func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) {
 	// The default dns.Mux checks the question section size, but we have our
 	// own mux here. Check if we have a question section. If not drop them here.
-	if r == nil || len(r.Question) == 0 {
+	if r == nil {
+		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
+		return
+	}
+	req := request.Request{Req: r, W: w}
+	if r.Opcode == dns.OpcodeStateful && req.Proto() != "tcp" {
+		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
+		return
+	}
+	if r.Opcode == dns.OpcodeStateful && !s.opcodeDSO {
+		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeNotImplemented)
+		return
+	}
+	if r.Opcode != dns.OpcodeStateful && len(r.Question) == 0 {
 		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeServerFailure)
 		return
 	}
@@ -272,7 +307,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}()
 	}
 
-	if !s.classChaos && r.Question[0].Qclass != dns.ClassINET {
+	if !s.classChaos && r.Opcode != dns.OpcodeStateful && r.Question[0].Qclass != dns.ClassINET {
 		errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
 		return
 	}
@@ -285,14 +320,15 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// Wrap the response writer in a ScrubWriter so we automatically make the reply fit in the client's buffer.
 	w = request.NewScrubWriter(r, w)
 
-	q := strings.ToLower(r.Question[0].Name)
+	req = request.Request{Req: r, W: w}
+	q := req.Name()
 	var (
 		off       int
-		end       bool
+		end       = q == "." // root zone is handled at the end.
 		dshandler *Config
 	)
 
-	for {
+	for !end {
 		if z, ok := s.zones[q[off:]]; ok {
 			for _, h := range z {
 				if h.pluginChain == nil { // zone defined, but has not got any plugins
@@ -302,11 +338,11 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 				if h.metaCollector != nil {
 					// Collect metadata now, so it can be used before we send a request down the plugin chain.
-					ctx = h.metaCollector.Collect(ctx, request.Request{Req: r, W: w})
+					ctx = h.metaCollector.Collect(ctx, req)
 				}
 
 				// If all filter funcs pass, use this config.
-				if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+				if passAllFilterFuncs(ctx, h.FilterFuncs, &req) {
 					if h.ViewName != "" {
 						// if there was a view defined for this Config, set the view name in the context
 						ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
@@ -328,12 +364,9 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			}
 		}
 		off, end = dns.NextLabel(q, off)
-		if end {
-			break
-		}
 	}
 
-	if r.Question[0].Qtype == dns.TypeDS && dshandler != nil && dshandler.pluginChain != nil {
+	if dshandler != nil {
 		// DS request, and we found a zone, use the handler for the query.
 		rcode, _ := dshandler.pluginChain.ServeDNS(ctx, w, r)
 		if !plugin.ClientWrite(rcode) {
@@ -348,19 +381,28 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 			if h.pluginChain == nil {
 				continue
 			}
+			if r.Opcode == dns.OpcodeStateful && h.dsoPluginChain == nil {
+				continue
+			}
 
 			if h.metaCollector != nil {
 				// Collect metadata now, so it can be used before we send a request down the plugin chain.
-				ctx = h.metaCollector.Collect(ctx, request.Request{Req: r, W: w})
+				ctx = h.metaCollector.Collect(ctx, req)
 			}
 
 			// If all filter funcs pass, use this config.
-			if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+			if passAllFilterFuncs(ctx, h.FilterFuncs, &req) {
 				if h.ViewName != "" {
 					// if there was a view defined for this Config, set the view name in the context
 					ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
 				}
-				rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
+				var rcode int
+				switch r.Opcode {
+				case dns.OpcodeStateful:
+					rcode, _ = h.dsoPluginChain.ServeDSO(ctx, w, r)
+				default:
+					rcode, _ = h.pluginChain.ServeDNS(ctx, w, r)
+				}
 				if !plugin.ClientWrite(rcode) {
 					errorFunc(s.Addr, w, r, rcode)
 				}
