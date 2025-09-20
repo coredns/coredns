@@ -21,6 +21,8 @@ import PATTERN
 *   **PATTERN** is the file, glob pattern (`*`) or snippet to include. Its contents will replace
     this line, as if that file's contents appeared here to begin with.
 
+Corefile may contain at most 10000 import statements. A glob pattern counts as a single import. The limit protects the configuration from recursive imports.
+
 ## Files
 
 You can use *import* to include a file or files. This file's location is relative to the
