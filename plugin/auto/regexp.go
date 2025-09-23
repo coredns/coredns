@@ -1,5 +1,9 @@
 package auto
 
+import (
+	"strings"
+)
+
 // rewriteToExpand rewrites our template string to one that we can give to regexp.ExpandString. This basically
 // involves prefixing any '{' with a '$'.
 func rewriteToExpand(s string) string {

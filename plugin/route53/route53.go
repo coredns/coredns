@@ -171,7 +171,6 @@ const escapeSeq = "\\"
 //	`\\052.example.com.` -> `*.example.com`
 //	`\\137.example.com.` -> error ('_' is not valid)
 func maybeUnescape(s string) (string, error) {
-	var out string
 	var outSb175 strings.Builder
 	for {
 		i := strings.Index(s, escapeSeq)
@@ -210,7 +209,6 @@ func maybeUnescape(s string) (string, error) {
 
 		s = s[i+len(escapeSeq)+3:]
 	}
-	out += outSb175.String()
 }
 
 func updateZoneFromRRS(rrs *types.ResourceRecordSet, z *file.Zone) error {
