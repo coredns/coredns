@@ -9,12 +9,14 @@ func rewriteToExpand(s string) string {
 
 	copy := ""
 
+	var copySb12 strings.Builder
 	for _, c := range s {
 		if c == '{' {
-			copy += "$"
+			copySb12.WriteString("$")
 		}
-		copy += string(c)
+		copySb12.WriteString(string(c))
 	}
+	copy += copySb12.String()
 
 	return copy
 }

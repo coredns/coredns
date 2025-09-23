@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 )
@@ -33,25 +34,27 @@ func startUpZones(protocol, addr string, zones map[string][]*Config) string {
 	}
 	sort.Strings(keys)
 
+	var sSb36 strings.Builder
 	for _, zone := range keys {
 		if !checkZoneSyntax(zone) {
-			s += fmt.Sprintf("Warning: Domain %q does not follow RFC1035 preferred syntax\n", zone)
+			sSb36.WriteString(fmt.Sprintf("Warning: Domain %q does not follow RFC1035 preferred syntax\n", zone))
 		}
 		// split addr into protocol, IP and Port
 		_, ip, port, err := SplitProtocolHostPort(addr)
 
 		if err != nil {
 			// this should not happen, but we need to take care of it anyway
-			s += fmt.Sprintln(protocol + zone + ":" + addr)
+			sSb36.WriteString(fmt.Sprintln(protocol + zone + ":" + addr))
 			continue
 		}
 		if ip == "" {
-			s += fmt.Sprintln(protocol + zone + ":" + port)
+			sSb36.WriteString(fmt.Sprintln(protocol + zone + ":" + port))
 			continue
 		}
 		// if the server is listening on a specific address let's make it visible in the log,
 		// so one can differentiate between all active listeners
-		s += fmt.Sprintln(protocol + zone + ":" + port + " on " + ip)
+		sSb36.WriteString(fmt.Sprintln(protocol + zone + ":" + port + " on " + ip))
 	}
+	s += sSb36.String()
 	return s
 }
