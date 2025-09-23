@@ -4,6 +4,8 @@ module github.com/coredns/coredns
 // Go versions. This follows the upstream Go project support.
 go 1.24.0
 
+replace github.com/coredns/caddy => github.com/thevilledev/caddy v0.0.0-20250923182629-f892f40cb2b3
+
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.30
