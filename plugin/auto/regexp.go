@@ -1,5 +1,9 @@
 package auto
 
+import (
+	"strings"
+)
+
 // rewriteToExpand rewrites our template string to one that we can give to regexp.ExpandString. This basically
 // involves prefixing any '{' with a '$'.
 func rewriteToExpand(s string) string {
@@ -7,14 +11,13 @@ func rewriteToExpand(s string) string {
 	// Also wasteful as we build the string with +=. This is OKish
 	// as we do this during config parsing.
 
-	copy := ""
-
+	var copySb strings.Builder
 	for _, c := range s {
 		if c == '{' {
-			copy += "$"
+			copySb.WriteString("$")
 		}
-		copy += string(c)
+		copySb.WriteString(string(c))
 	}
 
-	return copy
+	return copySb.String()
 }

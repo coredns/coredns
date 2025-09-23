@@ -29,7 +29,7 @@ func NewRequest(method, url string, m *dns.Msg) (*http.Request, error) {
 	}
 
 	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		url = fmt.Sprintf("https://%s", url)
+		url = "https://" + url
 	}
 
 	switch method {
