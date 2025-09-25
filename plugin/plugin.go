@@ -52,6 +52,16 @@ type (
 		Name() string
 	}
 
+	// DSOHandler is implemented by plugins that can handle RFC 8490
+	// DNS Stateful Operations in addition to "standard" DNS.
+	DSOHandler interface {
+		Handler
+		// ServeDSO is like Handler.ServeDNS, but for dns.OpcodeStateful messages.
+		ServeDSO(context.Context, dns.ResponseWriter, *dns.Msg) (int, error)
+		// SetNextDSO chains the receiver with the next DSOHandler.
+		SetNextDSO(DSOHandler)
+	}
+
 	// HandlerFunc is a convenience type like dns.HandlerFunc, except
 	// ServeDNS returns an rcode and an error. See Handler
 	// documentation for more information.
@@ -77,7 +87,12 @@ func NextOrFailure(name string, next Handler, ctx context.Context, w dns.Respons
 			defer child.Finish()
 			ctx = ot.ContextWithSpan(ctx, child)
 		}
-		return next.ServeDNS(ctx, w, r)
+		switch r.Opcode {
+		case dns.OpcodeStateful:
+			return next.(DSOHandler).ServeDSO(ctx, w, r)
+		default:
+			return next.ServeDNS(ctx, w, r)
+		}
 	}
 
 	return dns.RcodeServerFailure, Error(name, errors.New("no next plugin found"))
