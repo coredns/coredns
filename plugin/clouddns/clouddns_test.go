@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sync"
 	"testing"
 
+	"github.com/coredns/coredns/plugin/file"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
@@ -324,4 +326,133 @@ func TestCloudDNS(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestCloudDNSConcurrentServeDNS stresses r.ServeDNS directly to trigger
+// concurrent Elem.Name() initialization from the file plugin.
+func TestCloudDNSConcurrentServeDNS(t *testing.T) {
+	ctx := context.Background()
+
+	r, err := New(ctx,
+		fakeGCPClient{},
+		map[string][]string{
+			"org.": {"sample-project-1:sample-zone-2", "sample-project-1:sample-zone-1"},
+		},
+		&upstream.Upstream{},
+	)
+	if err != nil {
+		t.Fatalf("Failed to create Cloud DNS: %v", err)
+	}
+	if err := r.Run(ctx); err != nil {
+		t.Fatalf("Failed to initialize Cloud DNS: %v", err)
+	}
+
+	queries := []struct {
+		qname string
+		qtype uint16
+	}{
+		{"example.org", dns.TypeA},
+		{"example.org", dns.TypeAAAA},
+		{"sample.example.org", dns.TypeA},
+		{"a.www.example.org", dns.TypeA},
+		{"split-example.org", dns.TypeA},
+		{"other-example.org", dns.TypeA},
+		{"_dummy._tcp.example.org.", dns.TypeSRV},
+	}
+
+	var wg sync.WaitGroup
+
+	// Concurrently refresh zones to race with Lookup reads.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range 50 {
+			_ = r.updateZones(ctx)
+		}
+	}()
+
+	const workers = 32
+	const iterations = 200
+	for w := range workers {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for i := range iterations {
+				tc := queries[(id+i)%len(queries)]
+				req := new(dns.Msg)
+				req.SetQuestion(dns.Fqdn(tc.qname), tc.qtype)
+				rec := dnstest.NewRecorder(&test.ResponseWriter{})
+				code, err := r.ServeDNS(ctx, rec, req)
+				if err != nil {
+					t.Errorf("ServeDNS error: %v", err)
+					return
+				}
+				if code != dns.RcodeSuccess {
+					t.Errorf("unexpected return code: %v", code)
+					return
+				}
+			}
+		}(w)
+	}
+
+	wg.Wait()
+}
+
+// TestCloudDNSConcurrentLookupNameCache stresses hostedZone.z.Lookup
+// directly to trigger concurrent Elem.Name() initialization from the file plugin.
+func TestCloudDNSConcurrentLookupNameCache(t *testing.T) {
+	ctx := context.Background()
+
+	r, err := New(ctx,
+		fakeGCPClient{},
+		map[string][]string{
+			"org.": {"sample-project-1:sample-zone-2", "sample-project-1:sample-zone-1"},
+		},
+		&upstream.Upstream{})
+	if err != nil {
+		t.Fatalf("Failed to create Cloud DNS: %v", err)
+	}
+	if err := r.Run(ctx); err != nil {
+		t.Fatalf("Failed to initialize Cloud DNS: %v", err)
+	}
+
+	// Use a fixed set of qnames that exist in the zones to maximize reuse of the same Elems.
+	queries := []struct {
+		qname string
+		qtype uint16
+	}{
+		{"example.org.", dns.TypeA},
+		{"example.org.", dns.TypeAAAA},
+		{"sample.example.org.", dns.TypeA},
+		{"a.www.example.org.", dns.TypeA},
+		{"split-example.org.", dns.TypeA},
+		{"other-example.org.", dns.TypeA},
+		{"_dummy._tcp.example.org.", dns.TypeSRV},
+	}
+
+	// Fan-out goroutines that repeatedly call Lookup on the same Zone pointer.
+	const workers = 32
+	const iterations = 300
+
+	var wg sync.WaitGroup
+	for _, hostedZones := range r.zones {
+		for _, hz := range hostedZones {
+			z := hz.z
+			wg.Add(workers)
+			for w := range workers {
+				go func(id int, zptr *file.Zone) {
+					defer wg.Done()
+					for i := range iterations {
+						tc := queries[(id+i)%len(queries)]
+						req := new(dns.Msg)
+						req.SetQuestion(tc.qname, tc.qtype)
+						rec := dnstest.NewRecorder(&test.ResponseWriter{})
+						state := request.Request{W: rec, Req: req}
+						_, _, _, _ = zptr.Lookup(ctx, state, tc.qname)
+					}
+				}(w, z)
+			}
+		}
+	}
+	wg.Wait()
 }
