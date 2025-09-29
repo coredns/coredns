@@ -90,8 +90,8 @@ github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.1 h1:oegbebP
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.1/go.mod h1:kemo5Myr9ac0U9JfSjMo9yHLtw+pECEHsFtJ9tqCEI8=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.7 h1:mLgc5QIgOy26qyh5bvW+nDoAppxgn3J2WV3m9ewq7+8=
 github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.7/go.mod h1:wXb/eQnqt8mDQIQTTmcw58B5mYGxzLGZGK8PWNFZ0BA=
-github.com/aws/aws-sdk-go-v2/service/route53 v1.58.2 h1:uqxTxY0i8b1ZFHxIf6pZYpUCOuYV/xxcgTv0vDz8Iig=
-github.com/aws/aws-sdk-go-v2/service/route53 v1.58.2/go.mod h1:py/7C8W37SHqyHk6tkvZKiFDvMA/WkfPv5Qd8dUXYQw=
+github.com/aws/aws-sdk-go-v2/service/route53 v1.58.4 h1:KycXrohD5OxAZ5h02YechO2gevvoHfAPAaJM5l8zqb0=
+github.com/aws/aws-sdk-go-v2/service/route53 v1.58.4/go.mod h1:xNLZLn4SusktBQ5moqUOgiDKGz3a7vHwF4W0KD+WBPc=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.39.6 h1:9PWl450XOG+m5lKv+qg5BXso1eLxpsZLqq7VPug5km0=
 github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.39.6/go.mod h1:hwt7auGsDcaNQ8pzLgE2kCNyIWouYlAKSjuUu5Dqr7I=
 github.com/aws/aws-sdk-go-v2/service/sso v1.29.3 h1:7PKX3VYsZ8LUWceVRuv0+PU+E7OtQb1lgmi5vmUE9CM=
