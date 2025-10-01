@@ -111,9 +111,10 @@ func keyTag(ps []Pair) string {
 	if len(ps) == 0 {
 		return ""
 	}
-	s := ""
+	var sb strings.Builder
 	for _, p := range ps {
-		s += strconv.Itoa(int(p.KeyTag)) + ","
+		sb.WriteString(strconv.Itoa(int(p.KeyTag)) + ",")
 	}
+	s := sb.String()
 	return s[:len(s)-1]
 }
