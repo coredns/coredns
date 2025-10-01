@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -48,6 +49,11 @@ func parse(c *caddy.Controller) (*Sign, error) {
 		dbfile := c.Val()
 		if !filepath.IsAbs(dbfile) && config.Root != "" {
 			dbfile = filepath.Join(config.Root, dbfile)
+		}
+
+		// Validate dbfile token to avoid infinite signing loops caused by invalid paths
+		if strings.ContainsRune(dbfile, '\uFFFD') {
+			return nil, fmt.Errorf("dbfile %q contains invalid characters", dbfile)
 		}
 
 		origins := plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
