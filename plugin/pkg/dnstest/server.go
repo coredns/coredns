@@ -13,8 +13,8 @@ import (
 type Server struct {
 	Addr string // Address where the server listening.
 
-	s1 *dns.Server // udp
-	s2 *dns.Server // tcp
+	UDP *dns.Server
+	TCP *dns.Server
 }
 
 // NewServer starts and returns a new Server. The caller should call Close when
@@ -22,87 +22,87 @@ type Server struct {
 func NewServer(f dns.HandlerFunc) *Server {
 	dns.HandleFunc(".", f)
 
-	ch1 := make(chan bool)
-	ch2 := make(chan bool)
+	udpC := make(chan bool)
+	tcpC := make(chan bool)
 
-	s1 := &dns.Server{} // udp
-	s2 := &dns.Server{} // tcp
+	udp := &dns.Server{}
+	tcp := &dns.Server{}
 
 	for range 5 { // 5 attempts
-		s2.Listener, _ = reuseport.Listen("tcp", ":0")
-		if s2.Listener == nil {
+		tcp.Listener, _ = reuseport.Listen("tcp", ":0")
+		if tcp.Listener == nil {
 			continue
 		}
 
-		s1.PacketConn, _ = net.ListenPacket("udp", s2.Listener.Addr().String())
-		if s1.PacketConn != nil {
+		udp.PacketConn, _ = net.ListenPacket("udp", tcp.Listener.Addr().String())
+		if udp.PacketConn != nil {
 			break
 		}
 
 		// perhaps UPD port is in use, try again
-		s2.Listener.Close()
-		s2.Listener = nil
+		tcp.Listener.Close()
+		tcp.Listener = nil
 	}
-	if s2.Listener == nil {
+	if tcp.Listener == nil {
 		panic("dnstest.NewServer(): failed to create new server")
 	}
 
-	s1.NotifyStartedFunc = func() { close(ch1) }
-	s2.NotifyStartedFunc = func() { close(ch2) }
-	go s1.ActivateAndServe()
-	go s2.ActivateAndServe()
+	udp.NotifyStartedFunc = func() { close(udpC) }
+	tcp.NotifyStartedFunc = func() { close(tcpC) }
+	go udp.ActivateAndServe()
+	go tcp.ActivateAndServe()
 
-	<-ch1
-	<-ch2
+	<-udpC
+	<-tcpC
 
-	return &Server{s1: s1, s2: s2, Addr: s2.Listener.Addr().String()}
+	return &Server{UDP: udp, TCP: tcp, Addr: tcp.Listener.Addr().String()}
 }
 
 // NewMultipleServer starts and returns a new Server(multiple). The caller should call Close when
 // finished, to shut it down.
 func NewMultipleServer(f dns.HandlerFunc) *Server {
-	ch1 := make(chan bool)
-	ch2 := make(chan bool)
+	udpC := make(chan bool)
+	tcpC := make(chan bool)
 
-	s1 := &dns.Server{
+	udp := &dns.Server{
 		Handler: f,
 	} // udp
-	s2 := &dns.Server{
+	tcp := &dns.Server{
 		Handler: f,
 	} // tcp
 
 	for range 5 { // 5 attempts
-		s2.Listener, _ = reuseport.Listen("tcp", ":0")
-		if s2.Listener == nil {
+		tcp.Listener, _ = reuseport.Listen("tcp", ":0")
+		if tcp.Listener == nil {
 			continue
 		}
 
-		s1.PacketConn, _ = net.ListenPacket("udp", s2.Listener.Addr().String())
-		if s1.PacketConn != nil {
+		udp.PacketConn, _ = net.ListenPacket("udp", tcp.Listener.Addr().String())
+		if udp.PacketConn != nil {
 			break
 		}
 
 		// perhaps UPD port is in use, try again
-		s2.Listener.Close()
-		s2.Listener = nil
+		tcp.Listener.Close()
+		tcp.Listener = nil
 	}
-	if s2.Listener == nil {
+	if tcp.Listener == nil {
 		panic("dnstest.NewServer(): failed to create new server")
 	}
 
-	s1.NotifyStartedFunc = func() { close(ch1) }
-	s2.NotifyStartedFunc = func() { close(ch2) }
-	go s1.ActivateAndServe()
-	go s2.ActivateAndServe()
+	udp.NotifyStartedFunc = func() { close(udpC) }
+	tcp.NotifyStartedFunc = func() { close(tcpC) }
+	go udp.ActivateAndServe()
+	go tcp.ActivateAndServe()
 
-	<-ch1
-	<-ch2
+	<-udpC
+	<-tcpC
 
-	return &Server{s1: s1, s2: s2, Addr: s2.Listener.Addr().String()}
+	return &Server{UDP: udp, TCP: tcp, Addr: tcp.Listener.Addr().String()}
 }
 
 // Close shuts down the server.
 func (s *Server) Close() {
-	s.s1.Shutdown()
-	s.s2.Shutdown()
+	s.UDP.Shutdown()
+	s.TCP.Shutdown()
 }
