@@ -368,3 +368,94 @@ func TestNewNameRule(t *testing.T) {
 		t.Fatalf("Test %d: FAIL, expected fail=%t, but received fail=%t: (%s) %s, rule=%v", i, tc.expectedFail, failed, tc.next, tc.args, rule)
 	}
 }
+
+// TestInternalRemapStringRewriter tests the internal remapStringRewriter and guarantee it's case insensitive. It's difficult to test with rules indirectly.
+func TestInternalRemapStringRewriter(t *testing.T) {
+	origDomain := "www.example.com.another.domain."
+	rw := newRemapStringRewriter("www.example.com.", origDomain)
+
+	possibleCachedKeys := [][2]string{
+		{"shorter.com.", "shorter.com."},                 // length of given name is shorter than orig
+		{"wwx.example.com.", "wwx.example.com."},         // mismatched name
+		{"www.example.com.", origDomain},                 // normal normal case
+		{"WWW.example.com.", origDomain},                 // partial upper case
+		{"WWW.EXAMPLE.COM.", origDomain},                 // all upper case
+		{"sub.WWW.EXAMPLE.COM.", "sub." + origDomain},    // upper case when matched as suffix
+		{"sub.WWX.EXAMPLE.COM.", "sub.WWX.EXAMPLE.COM."}, // mismatched suffix
+	}
+	for _, item := range possibleCachedKeys {
+		actual := rw.rewriteString(item[0])
+		if !strings.EqualFold(actual, item[1]) {
+			t.Fatalf("Expected %s but got %s", origDomain, actual)
+		}
+	}
+}
+
+// TestInternalSuffixStringRewriter tests the internal suffixStringRewriter and guarantee it's case insensitive. It's difficult to test with rules indirectly.
+func TestInternalSuffixStringRewriter(t *testing.T) {
+	origDomain := "www.example.com.another.domain."
+	rw := newSuffixStringRewriter(".com.", ".com.another.domain.")
+
+	possibleCachedKeys := [][2]string{
+		{"www.example.1com.", "www.example.1com."}, // mismatched suffix
+		{"www.example.com.", origDomain},           // normal good case
+		{"WWW.example.coM.", origDomain},           // partial upper case
+		{"WWW.EXAMPLE.COM.", origDomain},           // all upper case
+	}
+	for _, item := range possibleCachedKeys {
+		actual := rw.rewriteString(item[0])
+		if !strings.EqualFold(actual, item[1]) {
+			t.Fatalf("Expected %s but got %s", origDomain, actual)
+		}
+	}
+}
+
+func TestHasSuffixFold(t *testing.T) {
+	tests := []struct {
+		source, suffix string
+		expected       bool
+	}{
+		{
+			source:   "",
+			suffix:   "",
+			expected: true,
+		},
+		{
+			source:   "a",
+			suffix:   "",
+			expected: true,
+		},
+		{
+			source:   "",
+			suffix:   "a",
+			expected: false,
+		},
+		{
+			source:   "a",
+			suffix:   "a",
+			expected: true,
+		},
+		{
+			source:   "ab",
+			suffix:   "b",
+			expected: true,
+		},
+		{
+			source:   "ab",
+			suffix:   "B",
+			expected: true,
+		},
+		{
+			source:   "aB",
+			suffix:   "b",
+			expected: true,
+		},
+	}
+
+	for i, tc := range tests {
+		actual := hasSuffixFold(tc.source, tc.suffix)
+		if actual != tc.expected {
+			t.Fatalf("Test %d expects %t but got %t", i, tc.expected, actual)
+		}
+	}
+}
