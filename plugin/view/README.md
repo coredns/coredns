@@ -111,7 +111,7 @@ For example, an expression could look like:
 
 All expressions should be written to evaluate to a boolean value.
 
-See https://github.com/expr-lang/expr/blob/master/docs/Language-Definition.md as a detailed reference for valid syntax.
+See https://github.com/expr-lang/expr/blob/master/docs/language-definition.md as a detailed reference for valid syntax.
 
 ### Available Expression Functions
 
