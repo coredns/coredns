@@ -62,6 +62,9 @@ If conducting such tests is difficult, follow these recommendations:
 
 ## Limitations
 
+The `multisocket` setting is only respected on the first zone block in the Corefile. If it is enabled there, it will
+take effect on zones. The setting is ignored in all subsequent zone blocks.
+
 The SO_REUSEPORT socket option is not available for some operating systems. It is available since Linux Kernel 3.9 and 
 not available for Windows at all.
 
