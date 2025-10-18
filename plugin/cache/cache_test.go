@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
 
+	"github.com/infobloxopen/go-trees/iptree"
 	"github.com/miekg/dns"
 )
 
@@ -287,15 +289,15 @@ func TestCacheInsertion(t *testing.T) {
 			state := request.Request{W: &test.ResponseWriter{}, Req: m}
 
 			mt, _ := response.Typify(m, utc)
-			valid, k := key(state.Name(), m, mt, state.Do(), state.Req.CheckingDisabled)
+			valid, k := key(state.Name(), &zeroSubnet, m, mt, state.Do(), state.Req.CheckingDisabled)
 
 			if valid {
 				// Insert cache entry
-				crr.set(m, k, mt, c.pttl)
+				crr.set(m, k, mt, &zeroSubnet, c.pttl)
 			}
 
 			// Attempt to retrieve cache entry
-			i := c.getIgnoreTTL(time.Now().UTC(), state, "dns://:53")
+			i := c.getIgnoreTTL(time.Now().UTC(), state, &zeroSubnet, &zeroSubnet, net.IPv4zero.To4(), "dns://:53", false)
 			found := i != nil
 
 			if !tc.shouldCache && found {
@@ -558,7 +560,18 @@ func TestNegativeStaleMaskingPositiveCache(t *testing.T) {
 	// Confirm that prefetch removes the negative cache item.
 	waitFor := 3
 	for i := 1; i <= waitFor; i++ {
-		if c.ncache.Len() != 0 {
+		isEmpty := true
+		c.ncache.Walk(func(sub map[uint64]interface{}, _ uint64) bool {
+			for _, _value := range sub {
+				value := _value.(*iptree.Tree)
+				for range value.Enumerate() {
+					isEmpty = false
+					return false
+				}
+			}
+			return true
+		})
+		if !isEmpty {
 			if i == waitFor {
 				t.Errorf("Test 2 NOERROR from Backend: item still exists in negative cache")
 			}
@@ -701,8 +714,16 @@ func TestCacheWildcardMetadata(t *testing.T) {
 	if c.pcache.Len() != 1 {
 		t.Errorf("Msg should have been cached")
 	}
-	_, k := key(qname, w.Msg, response.NoError, state.Do(), state.Req.CheckingDisabled)
-	i, _ := c.pcache.Get(k)
+	_, k := key(qname, &zeroSubnet, w.Msg, response.NoError, state.Do(), state.Req.CheckingDisabled)
+	_iNet, ok := c.pcache.Get(k)
+	if !ok {
+		t.Fatal("Msg should have been cached")
+	}
+	iNet := _iNet.(*iptree.Tree)
+	i, ok := iNet.GetByIP(zeroSubnet.IP)
+	if !ok {
+		t.Fatal("Msg should have been cached")
+	}
 	if i.(*item).wildcard != wildcard {
 		t.Errorf("expected wildcard response to enter cache with cache item's wildcard = %q, got %q", wildcard, i.(*item).wildcard)
 	}
@@ -858,11 +879,11 @@ func TestCacheSeparation(t *testing.T) {
 			state := request.Request{W: &test.ResponseWriter{}, Req: m}
 
 			mt, _ := response.Typify(m, utc)
-			valid, k := key(state.Name(), m, mt, state.Do(), state.Req.CheckingDisabled)
+			valid, k := key(state.Name(), &zeroSubnet, m, mt, state.Do(), state.Req.CheckingDisabled)
 
 			if valid {
 				// Insert cache entry
-				crr.set(m, k, mt, c.pttl)
+				crr.set(m, k, mt, &zeroSubnet, c.pttl)
 			}
 
 			// Attempt to retrieve cache entry
@@ -870,7 +891,7 @@ func TestCacheSeparation(t *testing.T) {
 			m = cacheMsg(m, tc.query)
 			state = request.Request{W: &test.ResponseWriter{}, Req: m}
 
-			item := c.getIgnoreTTL(time.Now().UTC(), state, "dns://:53")
+			item := c.getIgnoreTTL(time.Now().UTC(), state, &zeroSubnet, &zeroSubnet, net.IPv4zero.To4(), "dns://:53", false)
 			found := item != nil
 
 			if !tc.expectCached && found {
