@@ -1,22 +1,18 @@
 package metrics
 
 import (
-	"crypto/tls"
 	"net"
 	"runtime"
-	"strconv"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/coremain"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/uniq"
 )
 
 var (
-	log      = clog.NewWithPlugin("prometheus")
 	u        = uniq.New()
 	registry = newReg()
 )
@@ -104,69 +100,22 @@ func parse(c *caddy.Controller) (*Metrics, error) {
 		for c.NextBlock() {
 			switch c.Val() {
 			case "tls":
-				if met.tlsConfig != nil {
+				if met.tlsConfigPath != "" {
 					return nil, c.Err("tls block already specified")
-				}
-				tlsCfg := &tlsConfig{
-					enabled:        true,
-					minVersion:     tls.VersionTLS13,
-					clientAuthType: "RequestClientCert",
 				}
 
 				// Get cert and key files as positional arguments
 				args := c.RemainingArgs()
-				if len(args) != 2 {
+				if len(args) != 1 {
 					return nil, c.ArgErr()
 				}
-				tlsCfg.certFile = args[0]
-				tlsCfg.keyFile = args[1]
+				tlsCfgPath := args[0]
 
-				// Handle optional tls block parameters
-				for c.NextBlock() {
-					switch c.Val() {
-					case "client_ca":
-						if !c.NextArg() {
-							return nil, c.ArgErr()
-						}
-						tlsCfg.clientCAFile = c.Val()
-					case "min_version":
-						if !c.NextArg() {
-							return nil, c.ArgErr()
-						}
-						ver, err := strconv.Atoi(c.Val())
-						if err != nil {
-							return nil, c.Err(err.Error())
-						}
-						// Validate TLS version
-						switch ver {
-						case tls.VersionTLS10, tls.VersionTLS11, tls.VersionTLS12, tls.VersionTLS13:
-							tlsCfg.minVersion = uint16(ver)
-						default:
-							return nil, c.Errf("invalid TLS version: %d", ver)
-						}
-					case "client_auth":
-						if !c.NextArg() {
-							return nil, c.ArgErr()
-						}
-						// Validate client auth type
-						switch c.Val() {
-						case "RequestClientCert", "RequireAnyClientCert", "VerifyClientCertIfGiven", "RequireAndVerifyClientCert", "NoClientCert":
-							tlsCfg.clientAuthType = c.Val()
-						default:
-							return nil, c.Errf("invalid client auth type: %s", c.Val())
-						}
-					default:
-						return nil, c.Errf("unknown tls option: %s", c.Val())
-					}
-				}
-				met.tlsConfig = tlsCfg
+				met.tlsConfigPath = tlsCfgPath
 			default:
 				return nil, c.Errf("unknown option: %s", c.Val())
 			}
 		}
-	}
-	if err := met.validate(); err != nil {
-		return nil, err
 	}
 	return met, nil
 }

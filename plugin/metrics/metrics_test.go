@@ -26,31 +26,75 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-func createTestCertFiles(t *testing.T) (certFile, keyFile, caFile string, cleanup func()) {
+const (
+	serverCertFile = "test_data/server.crt"
+	serverKeyFile  = "test_data/server.key"
+	clientCertFile = "test_data/client_selfsigned.crt"
+	clientKeyFile  = "test_data/client_selfsigned.key"
+	tlsCaChainFile = "test_data/tls-ca-chain.pem"
+)
+
+func createTestCertFiles(t *testing.T) error {
+	t.Helper()
 	// Generate CA certificate
 	caCert, caKey, err := generateCA()
 	if err != nil {
 		t.Fatalf("Failed to generate CA certificate: %v", err)
+		return err
 	}
 
 	// Generate server certificate signed by CA
 	cert, key, err := generateCert(caCert, caKey)
 	if err != nil {
 		t.Fatalf("Failed to generate server certificate: %v", err)
+		return err
 	}
+
+	// Generate client CA certificate
+	clientCaCert, clientCaKey, err := generateCA()
+	if err != nil {
+		t.Fatalf("Failed to generate client CA certificate: %v", err)
+		return err
+	}
+
+	// Generate client certificate signed by CA
+	clientCert, clientKey, err := generateCert(clientCaCert, clientCaKey)
+	if err != nil {
+		t.Fatalf("Failed to generate client certificate: %v", err)
+		return err
+	}
+
+	// Create ca chain file
+	caChain := append(caCert, clientCaCert...)
 
 	// Write certificates to temporary files
-	certFile = writeTempFile(t, string(cert))
-	keyFile = writeTempFile(t, string(key))
-	caFile = writeTempFile(t, string(caCert))
-
-	// Return cleanup function to remove files
-	cleanup = func() {
-		os.Remove(certFile)
-		os.Remove(keyFile)
-		os.Remove(caFile)
+	err = writeFile(t, string(cert), serverCertFile)
+	if err != nil {
+		t.Fatalf("Failed to write server certificate: %v", err)
+		return err
 	}
-	return certFile, keyFile, caFile, cleanup
+	err = writeFile(t, string(key), serverKeyFile)
+	if err != nil {
+		t.Fatalf("Failed to write server key: %v", err)
+		return err
+	}
+	err = writeFile(t, string(clientCert), clientCertFile)
+	if err != nil {
+		t.Fatalf("Failed to write client certificate: %v", err)
+		return err
+	}
+	err = writeFile(t, string(clientKey), clientKeyFile)
+	if err != nil {
+		t.Fatalf("Failed to write client key: %v", err)
+		return err
+	}
+	err = writeFile(t, string(caChain), tlsCaChainFile)
+	if err != nil {
+		t.Fatalf("Failed to write CA certificate: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 func generateCA() ([]byte, []byte, error) {
@@ -109,6 +153,7 @@ func generateCert(caCertPEM, caKeyPEM []byte) ([]byte, []byte, error) {
 			Organization: []string{"Test Server"},
 		},
 		DNSNames:    []string{"localhost"},
+		IPAddresses: []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
 		NotBefore:   time.Now(),
 		NotAfter:    time.Now().AddDate(1, 0, 0),
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
@@ -138,99 +183,147 @@ func generateCert(caCertPEM, caKeyPEM []byte) ([]byte, []byte, error) {
 	return certPEM, certPrivKeyPEM, nil
 }
 
-func loadTestClientCert(t *testing.T, certFile, keyFile string) tls.Certificate {
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
-	if err != nil {
-		t.Fatalf("Failed to load client certificate: %v", err)
-	}
-	return cert
+func cleanupTestCertFiles() {
+	os.Remove(serverCertFile)
+	os.Remove(serverKeyFile)
+	os.Remove(clientCertFile)
+	os.Remove(clientKeyFile)
+	os.Remove(tlsCaChainFile)
 }
 
-func writeTempFile(t *testing.T, content string) string {
-	tmpFile, err := os.CreateTemp("", "testcert")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
+func writeFile(t *testing.T, content, path string) error {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+		return err
 	}
-	defer tmpFile.Close()
-
-	if _, err := tmpFile.WriteString(content); err != nil {
-		t.Fatalf("Failed to write to temp file: %v", err)
-	}
-	return tmpFile.Name()
+	return nil
 }
 
+func getTLSClient(clientCertName bool) *http.Client {
+	cert, err := os.ReadFile(tlsCaChainFile)
+	if err != nil {
+		panic("Unable to start TLS client. Check cert path")
+	}
+
+	var clientCertficate tls.Certificate
+	if clientCertName {
+		clientCertficate, err = tls.LoadX509KeyPair(
+			clientCertFile,
+			clientKeyFile,
+		)
+		if err != nil {
+			panic(fmt.Sprintf("failed to load client certificate: %v", err))
+		}
+	}
+
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				RootCAs: func() *x509.CertPool {
+					caCertPool := x509.NewCertPool()
+					caCertPool.AppendCertsFromPEM(cert)
+					return caCertPool
+				}(),
+				GetClientCertificate: func(req *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+					return &clientCertficate, nil
+				},
+			},
+		},
+	}
+	return client
+}
 func TestMetricsTLS(t *testing.T) {
-	certFile, keyFile, caFile, cleanup := createTestCertFiles(t)
-	defer cleanup()
+	err := createTestCertFiles(t)
+	if err != nil {
+		t.Fatalf("Failed to create test certificate files: %v", err)
+	}
+	defer cleanupTestCertFiles()
 
 	tests := []struct {
-		name        string
-		tlsConfig   *tlsConfig
-		expectError bool
-		expectHTTPS bool
+		name               string
+		tlsConfigPath      string
+		UseTLSClient       bool
+		clientCertificate  bool
+		caFile             string
+		expectStartupError bool
+		expectRequestError bool
 	}{
 		{
-			name:        "No TLS",
-			tlsConfig:   nil,
-			expectError: false,
-			expectHTTPS: false,
+			name:          "No TLS config: starts a HTTP server, connect successfully with default client",
+			tlsConfigPath: "",
 		},
 		{
-			name: "Valid TLS",
-			tlsConfig: &tlsConfig{
-				enabled:    true,
-				certFile:   certFile,
-				keyFile:    keyFile,
-				minVersion: tls.VersionTLS13,
-			},
-			expectError: false,
-			expectHTTPS: true,
+			name:               "No TLS config: starts HTTP server, connection fails with TLS client",
+			tlsConfigPath:      "",
+			UseTLSClient:       true,
+			expectRequestError: true,
 		},
 		{
-			name: "TLS with client auth",
-			tlsConfig: &tlsConfig{
-				enabled:        true,
-				certFile:       certFile,
-				keyFile:        keyFile,
-				clientCAFile:   caFile,
-				clientAuthType: "RequireAndVerifyClientCert",
-				minVersion:     tls.VersionTLS13,
-			},
-			expectError: false,
-			expectHTTPS: true,
+			name:          "Empty TLS config: starts a HTTP server",
+			tlsConfigPath: "test_data/configs/empty.yml",
 		},
 		{
-			name: "Missing cert file",
-			tlsConfig: &tlsConfig{
-				enabled:    true,
-				certFile:   "missing.pem",
-				keyFile:    keyFile,
-				minVersion: tls.VersionTLS13,
-			},
-			expectError: true,
-			expectHTTPS: false,
+			name:          "Valid TLS config, no client cert, successful connection with TLS client",
+			tlsConfigPath: "test_data/configs/valid_verifyclientcertifgiven.yml",
+			UseTLSClient:  true,
 		},
 		{
-			name: "Missing key file",
-			tlsConfig: &tlsConfig{
-				enabled:    true,
-				certFile:   certFile,
-				keyFile:    "missing-key.pem",
-				minVersion: tls.VersionTLS13,
-			},
-			expectError: true,
-			expectHTTPS: false,
+			name:               `Valid TLS config, connection fails with default client`,
+			tlsConfigPath:      "test_data/configs/valid_verifyclientcertifgiven.yml",
+			expectRequestError: true,
+		},
+		{
+			name:              `Valid TLS config with RequireAnyClientCert, connection succeeds with TLS client presenting (valid) certificate`,
+			tlsConfigPath:     "test_data/configs/valid_requireanyclientcert.yml",
+			UseTLSClient:      true,
+			clientCertificate: true,
+		},
+		{
+			name:               "Wrong path to TLS config file fails to start server",
+			tlsConfigPath:      "test_data/configs/this-does-not-exist.yml",
+			UseTLSClient:       true,
+			expectStartupError: true,
+		},
+		{
+			name:               `TLS config hasinvalid structure, fails to start server`,
+			tlsConfigPath:      "test_data/configs/junk.yml",
+			UseTLSClient:       true,
+			expectStartupError: true,
+		},
+		{
+			name:               "Missing key file, fails to start server",
+			tlsConfigPath:      "test_data/configs/keyPath_empty.yml",
+			UseTLSClient:       true,
+			expectStartupError: true,
+		},
+		{
+			name:               "Missing cert file, fails to start server",
+			tlsConfigPath:      "test_data/configs/certPath_empty.yml",
+			UseTLSClient:       true,
+			expectStartupError: true,
+		},
+		{
+			name:               "Wrong key file path, fails to start server",
+			tlsConfigPath:      "test_data/configs/keyPath_invalid.yml",
+			UseTLSClient:       true,
+			expectStartupError: true,
+		},
+		{
+			name:               "Wrong cert file path, fails to start server",
+			tlsConfigPath:      "test_data/configs/certPath_invalid.yml",
+			UseTLSClient:       true,
+			expectStartupError: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			met := New("localhost:0")
-			met.tlsConfig = tt.tlsConfig
+			met.tlsConfigPath = tt.tlsConfigPath
 
 			// Start server
 			err := met.OnStartup()
-			if tt.expectError {
+			if tt.expectStartupError {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
@@ -262,46 +355,21 @@ func TestMetricsTLS(t *testing.T) {
 			}():
 			}
 
-			// Configure client
-			tlsConfig := &tls.Config{
-				InsecureSkipVerify: true,
-			}
-			if tt.tlsConfig != nil && tt.tlsConfig.clientCAFile != "" {
-				// Load CA cert for client auth
-				caCert, err := os.ReadFile(tt.tlsConfig.clientCAFile)
-				if err != nil {
-					t.Fatalf("Failed to read CA cert: %v", err)
-				}
-				caCertPool := x509.NewCertPool()
-				if !caCertPool.AppendCertsFromPEM(caCert) {
-					t.Fatal("Failed to parse CA cert")
-				}
-				tlsConfig.RootCAs = caCertPool
-				tlsConfig.Certificates = []tls.Certificate{loadTestClientCert(t, certFile, keyFile)}
-			}
-
-			client := &http.Client{
-				Timeout: 10 * time.Second,
-				Transport: &http.Transport{
-					TLSClientConfig: tlsConfig,
-					// Allow connection reuse
-					MaxIdleConns:        10,
-					IdleConnTimeout:     30 * time.Second,
-					DisableCompression:  true,
-					TLSHandshakeTimeout: 10 * time.Second,
-				},
-			}
-
-			// Determine protocol
-			protocol := "http"
-			if tt.expectHTTPS {
+			// Create appropriate client and protocol
+			var client *http.Client
+			var protocol string
+			if tt.UseTLSClient {
+				client = getTLSClient(tt.clientCertificate)
 				protocol = "https"
+			} else {
+				client = http.DefaultClient
+				protocol = "http"
 			}
 
 			// Try multiple times to account for server startup time
 			var resp *http.Response
 			var err2 error
-			for i := 0; i < 10; i++ { // Increased retry count
+			for i := range 10 {
 				url := fmt.Sprintf("%s://%s/metrics", protocol, ListenAddr)
 				t.Logf("Attempt %d: Connecting to %s", i+1, url)
 				resp, err2 = client.Get(url)
@@ -310,13 +378,27 @@ func TestMetricsTLS(t *testing.T) {
 					break
 				}
 				t.Logf("Connection attempt failed: %v", err2)
-				time.Sleep(500 * time.Millisecond) // Increased delay between attempts
+				time.Sleep(200 * time.Millisecond)
 			}
 			if err2 != nil {
+				if tt.expectRequestError {
+					return
+				}
 				t.Fatalf("Failed to connect to metrics server: %v", err2)
 			}
 			if resp != nil {
 				defer resp.Body.Close()
+			}
+
+			if tt.expectRequestError {
+				// If we expect a request error but got a response, check if it's a bad status code
+				// which indicates the connection succeeded but the request was invalid (e.g., HTTP to HTTPS server)
+				if resp.StatusCode == http.StatusBadRequest {
+					// Got expected error response
+					return
+				}
+				// Got unexpected response status
+				t.Fatalf("Expected request error with status %d but got response with status %d", http.StatusBadRequest, resp.StatusCode)
 			}
 
 			if resp.StatusCode != http.StatusOK {
