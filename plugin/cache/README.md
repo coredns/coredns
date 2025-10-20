@@ -40,6 +40,8 @@ cache [TTL] [ZONES...] {
     servfail DURATION
     disable success|denial [ZONES...]
     keepttl
+    mask_v4 32
+    mask_v6 128
 }
 ~~~
 
@@ -75,6 +77,8 @@ cache [TTL] [ZONES...] {
   of the remaining TTL. This can be useful if CoreDNS is used as an authoritative server and you want
   to serve a consistent TTL to downstream clients. This is **NOT** recommended when CoreDNS is caching
   records it is not authoritative for because it could result in downstream clients using stale answers.
+* `mask_v4` specifies the maximum cachable IPv4 prefix size, for queries containing ECS (EDNS0 Client Subnet) data.
+* `mask_v6` specifies the maximum cachable IPv6 prefix size, for queries containing ECS (EDNS0 Client Subnet) data.
 
 ## Capacity and Eviction
 
