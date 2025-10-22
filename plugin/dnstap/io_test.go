@@ -2,7 +2,6 @@ package dnstap
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"net"
 	"sync"
 	"testing"
@@ -12,6 +11,7 @@ import (
 
 	tap "github.com/dnstap/golang-dnstap"
 	fs "github.com/farsightsec/golang-framestream"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -141,8 +141,6 @@ func TestReconnect(t *testing.T) {
 		dio := newIO("tcp", addr, 1, 1)
 		dio.tcpTimeout = 10 * time.Millisecond
 		dio.flushTimeout = 30 * time.Millisecond
-		// Check error frequently to log every dropped message
-		dio.errorCheckTimeout = 20 * time.Millisecond
 		dio.logger = &logger
 		dio.connect()
 		defer dio.close()
@@ -198,7 +196,6 @@ func TestReconnect(t *testing.T) {
 		dio := newIO("tcp", addr, 1, 1)
 		dio.tcpTimeout = 10 * time.Millisecond
 		dio.flushTimeout = 30 * time.Millisecond
-		dio.errorCheckTimeout = 200 * time.Millisecond
 		dio.logger = &logger
 		dio.connect()
 		defer dio.close()
@@ -257,7 +254,6 @@ func TestFullQueueWriteFail(t *testing.T) {
 	logger := MockLogger{}
 	dio := newIO("unix", l.Addr().String(), 1, 1)
 	dio.flushTimeout = 500 * time.Millisecond
-	dio.errorCheckTimeout = 1 * time.Millisecond
 	dio.logger = &logger
 	dio.queue = make(chan *tap.Dnstap, 1)
 	dio.connect()
@@ -266,7 +262,7 @@ func TestFullQueueWriteFail(t *testing.T) {
 	// WHEN
 	//		messages overwhelms the queue
 	count := 100
-	for i := 0; i < count; i++ {
+	for _ = range count {
 		dio.Dnstap(&tmsg)
 	}
 	wg.Wait()
