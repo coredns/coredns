@@ -76,6 +76,7 @@ func TestTransport(t *testing.T) {
 		dio := newIO(param[0], l.Addr().String(), 1, 1)
 		dio.tcpTimeout = 10 * time.Millisecond
 		dio.flushTimeout = 30 * time.Millisecond
+		dio.errorCheckInterval = 50 * time.Millisecond
 		dio.connect()
 
 		dio.Dnstap(&tmsg)
@@ -105,6 +106,7 @@ func TestRace(t *testing.T) {
 	dio := newIO("tcp", l.Addr().String(), 1, 1)
 	dio.tcpTimeout = 10 * time.Millisecond
 	dio.flushTimeout = 30 * time.Millisecond
+	dio.errorCheckInterval = 50 * time.Millisecond
 	dio.connect()
 	defer dio.close()
 
@@ -141,6 +143,7 @@ func TestReconnect(t *testing.T) {
 		dio := newIO("tcp", addr, 1, 1)
 		dio.tcpTimeout = 10 * time.Millisecond
 		dio.flushTimeout = 30 * time.Millisecond
+		dio.errorCheckInterval = 50 * time.Millisecond
 		dio.logger = &logger
 		dio.connect()
 		defer dio.close()
@@ -196,6 +199,7 @@ func TestReconnect(t *testing.T) {
 		dio := newIO("tcp", addr, 1, 1)
 		dio.tcpTimeout = 10 * time.Millisecond
 		dio.flushTimeout = 30 * time.Millisecond
+		dio.errorCheckInterval = 50 * time.Millisecond
 		dio.logger = &logger
 		dio.connect()
 		defer dio.close()
@@ -254,6 +258,7 @@ func TestFullQueueWriteFail(t *testing.T) {
 	logger := MockLogger{}
 	dio := newIO("unix", l.Addr().String(), 1, 1)
 	dio.flushTimeout = 500 * time.Millisecond
+	dio.errorCheckInterval = 50 * time.Millisecond
 	dio.logger = &logger
 	dio.queue = make(chan *tap.Dnstap, 1)
 	dio.connect()
