@@ -124,28 +124,12 @@ func (d *dio) write(payload *tap.Dnstap) error {
 	return nil
 }
 
-func (d *dio) checkError() {
-	errorCheckTicker := time.NewTicker(d.errorCheckInterval)
-	defer errorCheckTicker.Stop()
-	for {
-		select {
-		case <-d.quit:
-			return
-		case <-errorCheckTicker.C:
-			if dropped := atomic.SwapUint32(&d.dropped, 0); dropped > 0 {
-				d.logger.Warningf("Dropped dnstap messages: %d\n", dropped)
-			}
-			if d.enc == nil {
-				d.dial()
-			}
-		}
-	}
-}
-
 func (d *dio) serve() {
 	flushTicker := time.NewTicker(d.flushTimeout)
+	errorCheckTicker := time.NewTicker(d.errorCheckInterval)
 	defer flushTicker.Stop()
-	go d.checkError()
+	defer errorCheckTicker.Stop()
+
 	for {
 		select {
 		case <-d.quit:
@@ -166,6 +150,13 @@ func (d *dio) serve() {
 		case <-flushTicker.C:
 			if d.enc != nil {
 				d.enc.flush()
+			}
+		case <-errorCheckTicker.C:
+			if dropped := atomic.SwapUint32(&d.dropped, 0); dropped > 0 {
+				d.logger.Warningf("Dropped dnstap messages: %d\n", dropped)
+			}
+			if d.enc == nil {
+				d.dial()
 			}
 		}
 	}
