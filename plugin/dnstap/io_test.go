@@ -267,7 +267,7 @@ func TestFullQueueWriteFail(t *testing.T) {
 	// WHEN
 	//		messages overwhelms the queue
 	count := 100
-	for _ = range count {
+	for range count {
 		dio.Dnstap(&tmsg)
 	}
 	wg.Wait()

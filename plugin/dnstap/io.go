@@ -46,7 +46,7 @@ type dio struct {
 	errorCheckInterval time.Duration
 }
 
-var noOutputError = errors.New("dnstap not connected to output socket")
+var errNoOutput = errors.New("dnstap not connected to output socket")
 
 // newIO returns a new and initialized pointer to a dio.
 func newIO(proto, endpoint string, multipleQueue int, multipleTcpWriteBuf int) *dio {
@@ -116,7 +116,7 @@ func (d *dio) close() { close(d.quit) }
 
 func (d *dio) write(payload *tap.Dnstap) error {
 	if d.enc == nil {
-		return noOutputError
+		return errNoOutput
 	}
 	if err := d.enc.writeMsg(payload); err != nil {
 		return err
@@ -124,28 +124,12 @@ func (d *dio) write(payload *tap.Dnstap) error {
 	return nil
 }
 
-func (d *dio) checkError() {
-	errorCheckTicker := time.NewTicker(d.errorCheckInterval)
-	defer errorCheckTicker.Stop()
-	for {
-		select {
-		case <-d.quit:
-			return
-		case <-errorCheckTicker.C:
-			if dropped := atomic.SwapUint32(&d.dropped, 0); dropped > 0 {
-				d.logger.Warningf("Dropped dnstap messages: %d\n", dropped)
-			}
-			if d.enc == nil {
-				d.dial()
-			}
-		}
-	}
-}
-
 func (d *dio) serve() {
 	flushTicker := time.NewTicker(d.flushTimeout)
+	errorCheckTicker := time.NewTicker(d.errorCheckInterval)
 	defer flushTicker.Stop()
-	go d.checkError()
+	defer errorCheckTicker.Stop()
+
 	for {
 		select {
 		case <-d.quit:
@@ -158,7 +142,7 @@ func (d *dio) serve() {
 		case payload := <-d.queue:
 			if err := d.write(payload); err != nil {
 				atomic.AddUint32(&d.dropped, 1)
-				if !errors.Is(err, noOutputError) {
+				if !errors.Is(err, errNoOutput) {
 					// Redial immediately if it's not an output connection error
 					d.dial()
 				}
@@ -166,6 +150,13 @@ func (d *dio) serve() {
 		case <-flushTicker.C:
 			if d.enc != nil {
 				d.enc.flush()
+			}
+		case <-errorCheckTicker.C:
+			if dropped := atomic.SwapUint32(&d.dropped, 0); dropped > 0 {
+				d.logger.Warningf("Dropped dnstap messages: %d\n", dropped)
+			}
+			if d.enc == nil {
+				d.dial()
 			}
 		}
 	}
