@@ -548,13 +548,13 @@ func TestFailover(t *testing.T) {
 				}`, s.Addr, server_fail_s.Addr, server_refused_s.Addr), true, "Although failover is not set, as long as the first upstream is work, there should be has a record return"},
 	}
 
-	for _, testCase := range tests {
+	for i, testCase := range tests {
 		c := caddy.NewTestController("dns", testCase.input)
 		fs, err := parseForward(c)
 
 		f := fs[0]
 		if err != nil {
-			t.Errorf("Failed to create forwarder: %s", err)
+			t.Errorf("Test #%d: Failed to create forwarder: %s", i, err)
 		}
 		f.OnStartup()
 		defer f.OnShutdown()
@@ -570,11 +570,11 @@ func TestFailover(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 
 		if _, err := f.ServeDNS(context.TODO(), rec, m); err != nil {
-			t.Fatal("Expected to receive reply, but didn't")
+			t.Fatalf("Test #%d: Expected to receive reply, but didn't", i)
 		}
 
 		if (len(rec.Msg.Answer) > 0) != testCase.hasRecord {
-			t.Errorf(" %s: \n %s", testCase.failMsg, testCase.input)
+			t.Errorf("Test #%d: %s: \n %s", i, testCase.failMsg, testCase.input)
 		}
 	}
 }
