@@ -50,6 +50,12 @@ autopath @kubernetes
 
 Use the search path dynamically retrieved from the *kubernetes* plugin.
 
+### Notes
+
+- The `pods` option in `kubernetes` plugin must be set to `verified` for this to function properly
+- The remote IP address in the DNS packet received by CoreDNS must match the IP address of the Pod that sent the request
+- The pod that sent the request must not be using host networking. Since host network pods don't have their own IP address, such pods cannot be uniquely identified. When handling DNS requests from this pod, *autopath* will do nothing.
+
 ## Bugs
 
 In Kubernetes, *autopath* can derive the wrong namespace of a client Pod (and therefore wrong search
