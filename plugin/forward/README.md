@@ -78,11 +78,16 @@ forward FROM TO... {
     The server certificate is verified using the specified CA file
 
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
-  needs this to be set to `dns.quad9.net`. Multiple upstreams are still allowed in this scenario,
-  but they have to use the same `tls_servername`. E.g. mixing 9.9.9.9 (QuadDNS) with 1.1.1.1
-  (Cloudflare) will not work. Using TLS forwarding but not setting `tls_servername` results in anyone
+  needs this to be set to `dns.quad9.net`. Using TLS forwarding but not setting `tls_servername` results in anyone
   being able to man-in-the-middle your connection to the DNS server you are forwarding to. Because of this,
   it is strongly recommended to set this value when using TLS forwarding.
+
+  Per destination endpoint TLS server name indication is possible in the form of `tls://9.9.9.9%dns.quad9.net`.
+  `tls_servername` must not be specified when using per destination endpoint TLS server name indication
+  as it would introduce clash between the server name indication spectifications. If destination endpoint
+  is to be reached via a port other than 853 then the port must be appended to the end of the destination
+  endpoint specifier. In case of port 10853, the above string would be: `tls://9.9.9.9%dns.quad9.net:10853`.
+
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
   * `random` is a policy that implements random upstream selection.
   * `round_robin` is a policy that selects hosts based on round robin ordering.

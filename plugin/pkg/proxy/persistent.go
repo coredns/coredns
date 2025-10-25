@@ -151,6 +151,9 @@ func (t *Transport) SetExpire(expire time.Duration) { t.expire = expire }
 // SetTLSConfig sets the TLS config in transport.
 func (t *Transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
 
+// GetTLSConfig returns the TLS config in transport.
+func (t *Transport) GetTLSConfig() *tls.Config { return t.tlsConfig }
+
 const (
 	defaultExpire  = 10 * time.Second
 	minDialTimeout = 1 * time.Second

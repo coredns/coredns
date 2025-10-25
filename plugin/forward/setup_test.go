@@ -90,6 +90,36 @@ func TestSetup(t *testing.T) {
 	}
 }
 
+func TestSplitZone(t *testing.T) {
+	tests := []struct {
+		input        string
+		expectedHost string
+		expectedZone string
+	}{
+		{
+			"tls://127.0.0.1%example.net:854", "tls://127.0.0.1:854", "example.net",
+		}, {
+			"tls://127.0.0.1%example.net", "tls://127.0.0.1", "example.net",
+		}, {
+			"tls://127.0.0.1:854", "tls://127.0.0.1:854", "",
+		}, {
+			"dns://127.0.0.1", "dns://127.0.0.1", "",
+		}, {
+			"foo%bar:baz", "foo:baz", "bar",
+		},
+	}
+	for i, test := range tests {
+		host, zone := splitZone(test.input)
+
+		if host != test.expectedHost {
+			t.Errorf("Test %d: expected host %q, actual: %q", i, test.expectedHost, host)
+		}
+		if zone != test.expectedZone {
+			t.Errorf("Test %d: expected host %q, actual: %q", i, test.expectedHost, host)
+		}
+	}
+}
+
 func TestSetupTLS(t *testing.T) {
 	tests := []struct {
 		input              string
@@ -101,6 +131,19 @@ func TestSetupTLS(t *testing.T) {
 		{`forward . tls://127.0.0.1 {
 				tls_servername dns
 			}`, false, "dns", ""},
+		{`forward . tls://127.0.0.1%example.net {
+				tls
+			}`, false, "example.net", ""},
+		{`forward . tls://127.0.0.1%example.net:854 tls://127.0.0.2%example.net tls://fe80::1%example.com {
+				tls
+			}`, false, "example.net", ""},
+		{`forward . tls://127.0.0.1%example.net:854 {
+				tls
+			}`, false, "example.net", ""},
+		// SNI specifications clash test
+		{`forward . tls://127.0.0.1%example.net:854 {
+				tls_servername foo
+			}`, true, "", "both forward ('foo') and proxy level ('example.net') TLS servernames are set for upstream proxy 'tls://127.0.0.1:854'"},
 		{`forward . 127.0.0.1 {
 				tls_servername dns
 			}`, false, "", ""},
@@ -126,16 +169,48 @@ func TestSetupTLS(t *testing.T) {
 			if !strings.Contains(err.Error(), test.expectedErr) {
 				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
 			}
+			continue
 		}
+		/*
+			if len(fs) == 0 {
+				continue
+			}
+		*/
 
 		f := fs[0]
 
-		if !test.shouldErr && test.expectedServerName != "" && test.expectedServerName != f.tlsConfig.ServerName {
-			t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedServerName, f.tlsConfig.ServerName)
+		if !test.shouldErr && test.expectedServerName != "" && test.expectedServerName != f.proxies[0].GetTransport().GetTLSConfig().ServerName {
+			t.Errorf("Test %d: expected server name: %q, actual: %q", i, test.expectedServerName, f.proxies[0].GetTransport().GetTLSConfig().ServerName)
 		}
 
 		if !test.shouldErr && test.expectedServerName != "" && test.expectedServerName != f.proxies[0].GetHealthchecker().GetTLSConfig().ServerName {
-			t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedServerName, f.proxies[0].GetHealthchecker().GetTLSConfig().ServerName)
+			t.Errorf("Test %d: expected server name: %q, actual: %q", i, test.expectedServerName, f.proxies[0].GetHealthchecker().GetTLSConfig().ServerName)
+		}
+	}
+}
+
+func TestSetupTLSclientSessionCacheCount(t *testing.T) {
+	tests := []struct {
+		input string
+	}{
+		{`forward . tls://127.0.0.1%foo tls://127.0.0.2%foo tls://127.0.0.3%foo tls://127.0.0.4%bar tls://127.0.0.5%bar { }`},
+		{`forward . tls://127.0.0.1%foo tls://127.0.0.2%foo tls://127.0.0.3%bar tls://127.0.0.4%bar tls://127.0.0.5%bar { }`},
+	}
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		fs, err := parseForward(c)
+		if err != nil {
+			t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+		}
+
+		if fs[0].proxies[0].GetTransport().GetTLSConfig() == fs[0].proxies[len(fs[0].proxies)-1].GetTransport().GetTLSConfig() {
+			t.Errorf("Test %d: tlsConfig is the same for both the first and last proxies", i)
+		}
+		if fs[0].proxies[0].GetTransport().GetTLSConfig() != fs[0].proxies[1].GetTransport().GetTLSConfig() {
+			t.Errorf("Test %d: tlsConfig differs for the first two proxies", i)
+		}
+		if fs[0].proxies[len(fs[0].proxies)-1].GetTransport().GetTLSConfig() != fs[0].proxies[len(fs[0].proxies)-2].GetTransport().GetTLSConfig() {
+			t.Errorf("Test %d: tlsConfig differs for the last two proxies", i)
 		}
 	}
 }
@@ -473,13 +548,13 @@ func TestFailover(t *testing.T) {
 				}`, s.Addr, server_fail_s.Addr, server_refused_s.Addr), true, "Although failover is not set, as long as the first upstream is work, there should be has a record return"},
 	}
 
-	for _, testCase := range tests {
+	for i, testCase := range tests {
 		c := caddy.NewTestController("dns", testCase.input)
 		fs, err := parseForward(c)
 
 		f := fs[0]
 		if err != nil {
-			t.Errorf("Failed to create forwarder: %s", err)
+			t.Errorf("Test #%d: Failed to create forwarder: %s", i, err)
 		}
 		f.OnStartup()
 		defer f.OnShutdown()
@@ -495,11 +570,11 @@ func TestFailover(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 
 		if _, err := f.ServeDNS(context.TODO(), rec, m); err != nil {
-			t.Fatal("Expected to receive reply, but didn't")
+			t.Fatalf("Test #%d: Expected to receive reply, but didn't", i)
 		}
 
 		if (len(rec.Msg.Answer) > 0) != testCase.hasRecord {
-			t.Errorf(" %s: \n %s", testCase.failMsg, testCase.input)
+			t.Errorf("Test #%d: %s: \n %s", i, testCase.failMsg, testCase.input)
 		}
 	}
 }
