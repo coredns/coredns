@@ -10,10 +10,10 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.13
 	github.com/DataDog/dd-trace-go/v2 v2.2.3
 	github.com/apparentlymart/go-cidr v1.1.0
-	github.com/aws/aws-sdk-go-v2 v1.39.3
+	github.com/aws/aws-sdk-go-v2 v1.39.4
 	github.com/aws/aws-sdk-go-v2/config v1.31.13
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.17
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.10
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.11
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.58.5
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.39.7
 	github.com/coredns/caddy v1.1.4-0.20250930002214-15135a999495
