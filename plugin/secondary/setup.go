@@ -22,6 +22,22 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("secondary", err)
 	}
 
+	// Configure TSIG secrets for all zones first
+	c.OnStartup(func() error {
+		config := dnsserver.GetConfig(c)
+		tsigSecrets := config.TsigSecret
+		if len(tsigSecrets) > 0 {
+			log.Infof("[SECONDARY-TSIG] Found %d TSIG key(s) in server config", len(tsigSecrets))
+			for _, name := range zones.Names {
+				if zone := zones.Z[name]; zone != nil {
+					zone.TsigSecret = tsigSecrets
+					log.Infof("[SECONDARY-TSIG] Configured TSIG for zone '%s' with %d key(s)", name, len(tsigSecrets))
+				}
+			}
+		}
+		return nil
+	})
+
 	// Add startup functions to retrieve the zone and keep it up to date.
 	for i := range zones.Names {
 		n := zones.Names[i]

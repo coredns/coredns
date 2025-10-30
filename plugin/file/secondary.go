@@ -15,6 +15,16 @@ func (z *Zone) TransferIn() error {
 	m := new(dns.Msg)
 	m.SetAxfr(z.origin)
 
+	// Sign the request with TSIG if secrets are configured
+	if len(z.TsigSecret) > 0 {
+		// Use the first available TSIG key
+		for keyName := range z.TsigSecret {
+			m.SetTsig(keyName, dns.HmacSHA256, 300, time.Now().Unix())
+			log.Infof("[SECONDARY-TSIG] Signing AXFR request for zone '%s' with TSIG key '%s'", z.origin, keyName)
+			break // Use first key
+		}
+	}
+
 	z1 := z.CopyWithoutApex()
 	var (
 		Err error
@@ -24,6 +34,11 @@ func (z *Zone) TransferIn() error {
 Transfer:
 	for _, tr = range z.TransferFrom {
 		t := new(dns.Transfer)
+		// Configure TSIG secrets on the transfer object
+		if len(z.TsigSecret) > 0 {
+			t.TsigSecret = z.TsigSecret
+			log.Infof("[SECONDARY-TSIG] Configured %d TSIG key(s) for transfer from '%s'", len(z.TsigSecret), tr)
+		}
 		c, err := t.In(m, tr)
 		if err != nil {
 			log.Errorf("Failed to setup transfer `%s' with `%q': %v", z.origin, tr, err)
@@ -65,8 +80,20 @@ Transfer:
 func (z *Zone) shouldTransfer() (bool, error) {
 	c := new(dns.Client)
 	c.Net = "tcp" // do this query over TCP to minimize spoofing
+	// Configure TSIG on the client
+	if len(z.TsigSecret) > 0 {
+		c.TsigSecret = z.TsigSecret
+	}
 	m := new(dns.Msg)
 	m.SetQuestion(z.origin, dns.TypeSOA)
+	// Sign the SOA query with TSIG if secrets are configured
+	if len(z.TsigSecret) > 0 {
+		for keyName := range z.TsigSecret {
+			m.SetTsig(keyName, dns.HmacSHA256, 300, time.Now().Unix())
+			log.Infof("[SECONDARY-TSIG] Signing SOA query for zone '%s' with TSIG key '%s'", z.origin, keyName)
+			break // Use first key
+		}
+	}
 
 	var Err error
 	serial := -1

@@ -26,6 +26,7 @@ type Zone struct {
 
 	StartupOnce  sync.Once
 	TransferFrom []string
+	TsigSecret   map[string]string // TSIG secrets for zone transfers (key name -> secret)
 
 	ReloadInterval time.Duration
 	reloadShutdown chan bool
