@@ -1,0 +1,4 @@
+tls_server_config:
+  cert_file: "../server.crt"
+  key_file: "../server.key"
+  client_auth_type: "RequireAnyClientCert"
