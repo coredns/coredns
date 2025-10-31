@@ -27,7 +27,7 @@ type tapper interface {
 }
 
 type WarnLogger interface {
-	Warningf(format string, v ...interface{})
+	Warningf(format string, v ...any)
 }
 
 // dio implements the Tapper interface.

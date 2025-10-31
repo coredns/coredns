@@ -24,7 +24,7 @@ type MockLogger struct {
 	WarnLog   string
 }
 
-func (l *MockLogger) Warningf(format string, v ...interface{}) {
+func (l *MockLogger) Warningf(format string, v ...any) {
 	l.WarnCount++
 	l.WarnLog += fmt.Sprintf(format, v...)
 }
