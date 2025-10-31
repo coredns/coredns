@@ -2,6 +2,7 @@ package dnstap
 
 import (
 	"crypto/tls"
+	"errors"
 	"net"
 	"sync/atomic"
 	"time"
@@ -13,8 +14,9 @@ const (
 	tcpWriteBufSize = 1024 * 1024 // there is no good explanation for why this number has this value.
 	queueSize       = 10000       // idem.
 
-	tcpTimeout   = 4 * time.Second
-	flushTimeout = 1 * time.Second
+	tcpTimeout         = 4 * time.Second
+	flushTimeout       = 1 * time.Second
+	errorCheckInterval = 10 * time.Second
 
 	skipVerify = false // by default, every tls connection is verified to be secure
 )
@@ -24,31 +26,41 @@ type tapper interface {
 	Dnstap(*tap.Dnstap)
 }
 
+type WarnLogger interface {
+	Warningf(format string, v ...any)
+}
+
 // dio implements the Tapper interface.
 type dio struct {
-	endpoint        string
-	proto           string
-	enc             *encoder
-	queue           chan *tap.Dnstap
-	dropped         uint32
-	quit            chan struct{}
-	flushTimeout    time.Duration
-	tcpTimeout      time.Duration
-	skipVerify      bool
-	tcpWriteBufSize int
+	endpoint           string
+	proto              string
+	enc                *encoder
+	queue              chan *tap.Dnstap
+	dropped            uint32
+	quit               chan struct{}
+	flushTimeout       time.Duration
+	tcpTimeout         time.Duration
+	skipVerify         bool
+	tcpWriteBufSize    int
+	logger             WarnLogger
+	errorCheckInterval time.Duration
 }
+
+var errNoOutput = errors.New("dnstap not connected to output socket")
 
 // newIO returns a new and initialized pointer to a dio.
 func newIO(proto, endpoint string, multipleQueue int, multipleTcpWriteBuf int) *dio {
 	return &dio{
-		endpoint:        endpoint,
-		proto:           proto,
-		queue:           make(chan *tap.Dnstap, multipleQueue*queueSize),
-		quit:            make(chan struct{}),
-		flushTimeout:    flushTimeout,
-		tcpTimeout:      tcpTimeout,
-		skipVerify:      skipVerify,
-		tcpWriteBufSize: multipleTcpWriteBuf * tcpWriteBufSize,
+		endpoint:           endpoint,
+		proto:              proto,
+		queue:              make(chan *tap.Dnstap, multipleQueue*queueSize),
+		quit:               make(chan struct{}),
+		flushTimeout:       flushTimeout,
+		tcpTimeout:         tcpTimeout,
+		skipVerify:         skipVerify,
+		tcpWriteBufSize:    multipleTcpWriteBuf * tcpWriteBufSize,
+		logger:             log,
+		errorCheckInterval: errorCheckInterval,
 	}
 }
 
@@ -104,21 +116,21 @@ func (d *dio) close() { close(d.quit) }
 
 func (d *dio) write(payload *tap.Dnstap) error {
 	if d.enc == nil {
-		atomic.AddUint32(&d.dropped, 1)
-		return nil
+		return errNoOutput
 	}
 	if err := d.enc.writeMsg(payload); err != nil {
-		atomic.AddUint32(&d.dropped, 1)
 		return err
 	}
 	return nil
 }
 
 func (d *dio) serve() {
-	timeout := time.NewTimer(d.flushTimeout)
-	defer timeout.Stop()
+	flushTicker := time.NewTicker(d.flushTimeout)
+	errorCheckTicker := time.NewTicker(d.errorCheckInterval)
+	defer flushTicker.Stop()
+	defer errorCheckTicker.Stop()
+
 	for {
-		timeout.Reset(d.flushTimeout)
 		select {
 		case <-d.quit:
 			if d.enc == nil {
@@ -129,16 +141,22 @@ func (d *dio) serve() {
 			return
 		case payload := <-d.queue:
 			if err := d.write(payload); err != nil {
-				d.dial()
+				atomic.AddUint32(&d.dropped, 1)
+				if !errors.Is(err, errNoOutput) {
+					// Redial immediately if it's not an output connection error
+					d.dial()
+				}
 			}
-		case <-timeout.C:
+		case <-flushTicker.C:
+			if d.enc != nil {
+				d.enc.flush()
+			}
+		case <-errorCheckTicker.C:
 			if dropped := atomic.SwapUint32(&d.dropped, 0); dropped > 0 {
-				log.Warningf("Dropped dnstap messages: %d", dropped)
+				d.logger.Warningf("Dropped dnstap messages: %d\n", dropped)
 			}
 			if d.enc == nil {
 				d.dial()
-			} else {
-				d.enc.flush()
 			}
 		}
 	}
