@@ -1,6 +1,8 @@
 package file
 
 import (
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/file/tree"
@@ -32,6 +34,92 @@ func TestNameFromRight(t *testing.T) {
 		if shot != tc.shot {
 			t.Errorf("Test %d: expected shot to be %t, got %t", i, tc.shot, shot)
 		}
+	}
+}
+
+// Benchmark: measure performance across representative inputs and overshoot cases.
+func BenchmarkNameFromRight(b *testing.B) {
+	origin := "example.org."
+	a := &Zone{origin: origin, origLen: dns.CountLabel(origin)}
+
+	cases := []struct {
+		name  string
+		qname string
+		i     int
+	}{
+		{"i0_origin", origin, 0},
+		{"eq_origin_i1_shot", origin, 1},
+		{"two_labels_i1", "a.b." + origin, 1},
+		{"two_labels_i2", "a.b." + origin, 2},
+		{"two_labels_i3_shot", "a.b." + origin, 3},
+		{"ten_labels_i5", strings.Repeat("a.", 10) + origin, 5},
+		{"ten_labels_i11_shot", strings.Repeat("a.", 10) + origin, 11},
+		{"not_subdomain_shot", "other.tld.", 1},
+	}
+
+	var sink int
+	for _, tc := range cases {
+		b.Run(tc.name, func(b *testing.B) {
+			qn, i := tc.qname, tc.i
+			for b.Loop() {
+				s, shot := a.nameFromRight(qn, i)
+				sink += len(s)
+				if shot {
+					sink++
+				}
+			}
+		})
+	}
+	if sink == 42 { // prevent elimination
+		b.Log(sink)
+	}
+}
+
+// BenchmarkNameFromRightRandomized iterates over a prebuilt pool
+// of qnames and i values to emulate mixed workloads.
+func BenchmarkNameFromRightRandomized(b *testing.B) {
+	origin := "example.org."
+	a := &Zone{origin: origin, origLen: dns.CountLabel(origin)}
+
+	const poolSize = 1024
+	type pair struct {
+		q string
+		i int
+	}
+	pool := make([]pair, 0, poolSize)
+
+	// Build a variety of qnames with 1..8 labels before origin and various i, including overshoot.
+	for n := 1; n <= 8; n++ {
+		var sb strings.Builder
+		for k := range n {
+			sb.WriteString("l")
+			sb.WriteString(strconv.Itoa(k))
+			sb.WriteByte('.')
+		}
+		sb.WriteString(origin)
+		q := sb.String()
+		for i := 0; i <= n+2; i++ {
+			pool = append(pool, pair{q: q, i: i})
+		}
+	}
+	// Add some non-subdomain and shorter-than-origin cases.
+	pool = append(pool, pair{"org.", 1}, pair{"other.tld.", 1})
+
+	// Ensure pool length is power-of-two for fast masking; if not, trim.
+	// Here we just rely on modulo since the pool isn't huge.
+
+	b.ReportAllocs()
+	var sink int
+	for n := range b.N {
+		p := pool[n%len(pool)]
+		s, shot := a.nameFromRight(p.q, p.i)
+		sink += len(s)
+		if shot {
+			sink++
+		}
+	}
+	if sink == 43 {
+		b.Log(sink)
 	}
 }
 
