@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"bytes"
 	"sort"
 	"strings"
 	"sync"
@@ -118,4 +119,71 @@ func TestLess_ConcurrentNameAccess(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func BenchmarkLess(b *testing.B) {
+	// The original less function, serving as the benchmark test baseline.
+	less0 := func(a, b string) int {
+		i := 1
+		aj := len(a)
+		bj := len(b)
+		for {
+			ai, oka := dns.PrevLabel(a, i)
+			bi, okb := dns.PrevLabel(b, i)
+			if oka && okb {
+				return 0
+			}
+
+			// sadly this []byte will allocate... TODO(miek): check if this is needed
+			// for a name, otherwise compare the strings.
+			ab := []byte(strings.ToLower(a[ai:aj]))
+			bb := []byte(strings.ToLower(b[bi:bj]))
+			doDDD(ab)
+			doDDD(bb)
+
+			res := bytes.Compare(ab, bb)
+			if res != 0 {
+				return res
+			}
+
+			i++
+			aj, bj = ai, bi
+		}
+	}
+
+	tests := []set{
+		{"aaa.powerdns.de", "bbb.powerdns.net.", "xxx.powerdns.com."},
+		{"aaa.POWERDNS.de", "bbb.PoweRdnS.net.", "xxx.powerdns.com."},
+		{"aaa.aaaa.aa.", "aa.aaa.a.", "bbb.bbbb.bb."},
+		{"aaaaa.", "aaa.", "bbb."},
+		{"a.a.a.a.", "a.a.", "a.a.a."},
+		{"example.", "z.example.", "a.example."},
+		{"a.example.", "Z.a.example.", "z.example.", "yljkjljk.a.example.", "\\001.z.example.", "example.", "*.z.example.", "\\200.z.example.", "zABC.a.EXAMPLE."},
+		{"a.example.", "Z.a.example.", "z.example.", "yljkjljk.a.example.", "example.", "*.z.example.", "zABC.a.EXAMPLE."},
+	}
+	b.ResetTimer()
+
+	b.Run("base", func(b *testing.B) {
+		for b.Loop() {
+			for _, t := range tests {
+				for m := range len(t) - 1 {
+					for n := m + 1; n < len(t); n++ {
+						less0(t[m], t[n])
+					}
+				}
+			}
+		}
+	})
+
+	b.Run("optimized", func(b *testing.B) {
+		for b.Loop() {
+			for _, t := range tests {
+				for m := range len(t) - 1 {
+					for n := m + 1; n < len(t); n++ {
+						less(t[m], t[n])
+					}
+				}
+			}
+		}
+	})
 }

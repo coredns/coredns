@@ -16,12 +16,11 @@ import (
 //
 // The values of a and b are *not* lowercased before the comparison!
 func less(a, b string) int {
-	i := 1
 	aj := len(a)
 	bj := len(b)
 	for {
-		ai, oka := dns.PrevLabel(a, i)
-		bi, okb := dns.PrevLabel(b, i)
+		ai, oka := dns.PrevLabel(a[:aj], 1)
+		bi, okb := dns.PrevLabel(b[:bj], 1)
 		if oka && okb {
 			return 0
 		}
@@ -38,7 +37,6 @@ func less(a, b string) int {
 			return res
 		}
 
-		i++
 		aj, bj = ai, bi
 	}
 }
