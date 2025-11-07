@@ -4,7 +4,6 @@
 ![CodeQL](https://github.com/coredns/coredns/actions/workflows/codeql-analysis.yml/badge.svg)
 ![Go Tests](https://github.com/coredns/coredns/actions/workflows/go.test.yml/badge.svg)
 [![CircleCI](https://circleci.com/gh/coredns/coredns.svg?style=shield)](https://circleci.com/gh/coredns/coredns)
-[![Code Coverage](https://img.shields.io/codecov/c/github/coredns/coredns/master.svg)](https://codecov.io/github/coredns/coredns?branch=master)
 [![Docker Pulls](https://img.shields.io/docker/pulls/coredns/coredns.svg)](https://hub.docker.com/r/coredns/coredns)
 [![Go Report Card](https://goreportcard.com/badge/github.com/coredns/coredns)](https://goreportcard.com/report/coredns/coredns)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/1250/badge)](https://bestpractices.coreinfrastructure.org/projects/1250)
