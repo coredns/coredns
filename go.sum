@@ -72,8 +72,8 @@ github.com/apparentlymart/go-cidr v1.1.0 h1:2mAhrMoF+nhXqxTzSZMUzDHkLjmIHC+Zzn4t
 github.com/apparentlymart/go-cidr v1.1.0/go.mod h1:EBcsNrHc3zQeuaeCeCtQruQm+n9/YjEn/vI25Lg7Gwc=
 github.com/aws/aws-sdk-go-v2 v1.39.6 h1:2JrPCVgWJm7bm83BDwY5z8ietmeJUbh3O2ACnn+Xsqk=
 github.com/aws/aws-sdk-go-v2 v1.39.6/go.mod h1:c9pm7VwuW0UPxAEYGyTmyurVcNrbF6Rt/wixFqDhcjE=
-github.com/aws/aws-sdk-go-v2/config v1.31.16 h1:E4Tz+tJiPc7kGnXwIfCyUj6xHJNpENlY11oKpRTgsjc=
-github.com/aws/aws-sdk-go-v2/config v1.31.16/go.mod h1:2S9hBElpCyGMifv14WxQ7EfPumgoeCPZUpuPX8VtW34=
+github.com/aws/aws-sdk-go-v2/config v1.31.18 h1:RouG3AcF2fLFhw+Z0qbnuIl9HZ0Kh4E/U9sKwTMRpMI=
+github.com/aws/aws-sdk-go-v2/config v1.31.18/go.mod h1:aXZ13mSQC8S2VEHwGfL1COMuJ1Zty6pX5xU7hyqjvCg=
 github.com/aws/aws-sdk-go-v2/credentials v1.18.22 h1:hyIVGBHhQPaNP9D4BaVRwpjLMCwMMdAkHqB3gGMiykU=
 github.com/aws/aws-sdk-go-v2/credentials v1.18.22/go.mod h1:B9E2qHs3/YGfeQZ4jrIE/nPvqxtyafZrJ5EQiZBG6pk=
 github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.13 h1:T1brd5dR3/fzNFAQch/iBKeX07/ffu/cLu+q+RuzEWk=
