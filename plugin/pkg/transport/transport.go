@@ -2,12 +2,13 @@ package transport
 
 // These transports are supported by CoreDNS.
 const (
-	DNS   = "dns"
-	TLS   = "tls"
-	QUIC  = "quic"
-	GRPC  = "grpc"
-	HTTPS = "https"
-	UNIX  = "unix"
+	DNS    = "dns"
+	TLS    = "tls"
+	QUIC   = "quic"
+	GRPC   = "grpc"
+	HTTPS  = "https"
+	HTTPS3 = "https3"
+	UNIX   = "unix"
 )
 
 // Port numbers for the various transports.
