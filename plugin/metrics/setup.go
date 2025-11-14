@@ -9,12 +9,10 @@ import (
 	"github.com/coredns/coredns/coremain"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/uniq"
 )
 
 var (
-	log      = clog.NewWithPlugin("prometheus")
 	u        = uniq.New()
 	registry = newReg()
 )
@@ -96,6 +94,27 @@ func parse(c *caddy.Controller) (*Metrics, error) {
 			}
 		default:
 			return met, c.ArgErr()
+		}
+
+		// Parse TLS block if present
+		for c.NextBlock() {
+			switch c.Val() {
+			case "tls":
+				if met.tlsConfigPath != "" {
+					return nil, c.Err("tls block already specified")
+				}
+
+				// Get cert and key files as positional arguments
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				tlsCfgPath := args[0]
+
+				met.tlsConfigPath = tlsCfgPath
+			default:
+				return nil, c.Errf("unknown option: %s", c.Val())
+			}
 		}
 	}
 	return met, nil
