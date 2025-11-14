@@ -190,5 +190,5 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *ServerHTTPS3) countResponse(status int) {
-	vars.HTTPSResponsesCount.WithLabelValues(s.Addr, strconv.Itoa(status)).Inc()
+	vars.HTTPS3ResponsesCount.WithLabelValues(s.Addr, strconv.Itoa(status)).Inc()
 }
