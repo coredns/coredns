@@ -302,9 +302,9 @@ func (w *verifyStaleResponseWriter) WriteMsg(res *dns.Msg) error {
 }
 
 const (
-	maxTTL  = dnsutil.MaximumDefaulTTL
+	maxTTL  = dnsutil.MaximumDefaultTTL
 	minTTL  = dnsutil.MinimalDefaultTTL
-	maxNTTL = dnsutil.MaximumDefaulTTL / 2
+	maxNTTL = dnsutil.MaximumDefaultTTL / 2
 	minNTTL = dnsutil.MinimalDefaultTTL
 
 	defaultCap = 10000 // default capacity of the cache.
