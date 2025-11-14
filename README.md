@@ -22,6 +22,7 @@ CoreDNS can listen for DNS requests coming in over:
 * UDP/TCP (go'old DNS).
 * TLS - DoT ([RFC 7858](https://tools.ietf.org/html/rfc7858)).
 * DNS over HTTP/2 - DoH ([RFC 8484](https://tools.ietf.org/html/rfc8484)).
+* DNS over HTTP/3 - DoH3
 * DNS over QUIC - DoQ ([RFC 9250](https://tools.ietf.org/html/rfc9250)). 
 * [gRPC](https://grpc.io) (not a standard).
 
@@ -252,6 +253,17 @@ grpc://example.org:1443 https://example.org:1444 {
     # ...
 }
 ~~~
+
+And for DNS over HTTP/3 (DoH3) use:
+
+~~~ corefile
+https3://example.org {
+    whoami
+    tls mycert mykey
+}
+~~~
+in this setup, the CoreDNS will be responsible for TLS termination
+
 
 When no transport protocol is specified the default `dns://` is assumed.
 
