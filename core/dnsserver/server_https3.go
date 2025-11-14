@@ -106,7 +106,7 @@ func (s *ServerHTTPS3) ServePacket(pc net.PacketConn) error {
 	return s.httpsServer.Serve(pc)
 }
 
-// For compatibility (not used in HTTP/3)
+// Listen function not used in HTTP/3, but defined for compatibility
 func (s *ServerHTTPS3) Listen() (net.Listener, error) { return nil, nil }
 func (s *ServerHTTPS3) Serve(l net.Listener) error    { return nil }
 
@@ -140,7 +140,7 @@ func (s *ServerHTTPS3) Shutdown() error {
 	return nil
 }
 
-// Handle DoH3 requests
+// ServeHTTP is the handler for the DoH3 requests
 func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !s.validRequest(r) {
 		http.Error(w, "", http.StatusNotFound)
