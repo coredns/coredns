@@ -103,6 +103,14 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 // ServePacket implements caddy.UDPServer interface.
 func (s *ServerQUIC) ServePacket(p net.PacketConn) error {
 	s.m.Lock()
+	if s.quicListener == nil {
+		listener, err := quic.Listen(p, s.tlsConfig, s.quicConfig)
+		if err != nil {
+			s.m.Unlock()
+			return err
+		}
+		s.quicListener = listener
+	}
 	s.listenAddr = s.quicListener.Addr()
 	s.m.Unlock()
 
