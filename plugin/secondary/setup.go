@@ -27,7 +27,15 @@ func setup(c *caddy.Controller) error {
 		n := zones.Names[i]
 		z := zones.Z[n]
 		if len(z.TransferFrom) > 0 {
+			// In order to support hot update tsig key.
+			updateShutdown := make(chan bool)
+
 			c.OnStartup(func() error {
+				config := dnsserver.GetConfig(c)
+
+				z.TsigSecret = config.TsigSecret
+				z.TsigAlgorithm = config.TsigAlgorithm
+
 				z.StartupOnce.Do(func() {
 					go func() {
 						dur := time.Millisecond * 250
@@ -43,10 +51,19 @@ func setup(c *caddy.Controller) error {
 							if dur > max {
 								dur = max
 							}
+							select {
+							case <-updateShutdown:
+								return
+							default:
+							}
 						}
-						z.Update()
+						z.Update(updateShutdown)
 					}()
 				})
+				return nil
+			})
+			c.OnShutdown(func() error {
+				updateShutdown <- true
 				return nil
 			})
 		}

@@ -4,8 +4,13 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/coredns/coredns/core/dnsserver"
+
 	"github.com/miekg/dns"
 )
+
+// RFC8945 recommended value
+const defaultFudge = 300
 
 // TransferIn retrieves the zone from the masters, parses it and sets it live.
 func (z *Zone) TransferIn() error {
@@ -24,6 +29,11 @@ func (z *Zone) TransferIn() error {
 Transfer:
 	for _, tr = range z.TransferFrom {
 		t := new(dns.Transfer)
+		if z.needTsig() {
+			tsigName := z.getTsigName()
+			m.SetTsig(tsigName, z.TsigAlgorithm[tsigName], defaultFudge, time.Now().Unix())
+			t.TsigProvider = dnsserver.NewTsigProvider(z.TsigSecret, z.TsigAlgorithm)
+		}
 		c, err := t.In(m, tr)
 		if err != nil {
 			log.Errorf("Failed to setup transfer `%s' with `%q': %v", z.origin, tr, err)
@@ -68,6 +78,12 @@ func (z *Zone) shouldTransfer() (bool, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(z.origin, dns.TypeSOA)
 
+	if z.needTsig() {
+		tsigName := z.getTsigName()
+		m.SetTsig(tsigName, z.TsigAlgorithm[tsigName], defaultFudge, time.Now().Unix())
+		c.TsigProvider = dnsserver.NewTsigProvider(z.TsigSecret, z.TsigAlgorithm)
+	}
+
 	var Err error
 	serial := -1
 
@@ -107,7 +123,7 @@ func less(a, b uint32) bool {
 // and uses the SOA parameters. Every refresh it will check for a new SOA number. If that fails (for all
 // server) it will retry every retry interval. If the zone failed to transfer before the expire, the zone
 // will be marked expired.
-func (z *Zone) Update() error {
+func (z *Zone) Update(updateShutdown chan bool) error {
 	// If we don't have a SOA, we don't have a zone, wait for it to appear.
 	for z.SOA == nil {
 		time.Sleep(1 * time.Second)
@@ -183,6 +199,12 @@ Restart:
 			retryTicker.Stop()
 			expireTicker.Stop()
 			goto Restart
+
+		case <-updateShutdown:
+			refreshTicker.Stop()
+			retryTicker.Stop()
+			expireTicker.Stop()
+			return nil
 		}
 	}
 }
