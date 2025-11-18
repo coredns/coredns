@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
@@ -16,10 +17,11 @@ var log = clog.NewWithPlugin("transfer")
 
 // Transfer is a plugin that handles zone transfers.
 type Transfer struct {
-	Transferers []Transferer // List of plugins that implement Transferer
-	xfrs        []*xfr
-	tsigSecret  map[string]string
-	Next        plugin.Handler
+	Transferers   []Transferer // List of plugins that implement Transferer
+	xfrs          []*xfr
+	tsigSecret    map[string]string
+	tsigAlgorithm map[string]string
+	Next          plugin.Handler
 }
 
 type xfr struct {
@@ -112,7 +114,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	ch := make(chan *dns.Envelope)
 	tr := new(dns.Transfer)
 	if r.IsTsig() != nil {
-		tr.TsigSecret = t.tsigSecret
+		tr.TsigProvider = dnsserver.NewTsigProvider(t.tsigSecret, t.tsigAlgorithm)
 	}
 	errCh := make(chan error)
 	go func() {

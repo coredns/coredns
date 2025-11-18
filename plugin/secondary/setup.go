@@ -28,6 +28,11 @@ func setup(c *caddy.Controller) error {
 		z := zones.Z[n]
 		if len(z.TransferFrom) > 0 {
 			c.OnStartup(func() error {
+				config := dnsserver.GetConfig(c)
+
+				z.TsigSecret = config.TsigSecret
+				z.TsigAlgorithm = config.TsigAlgorithm
+
 				z.StartupOnce.Do(func() {
 					go func() {
 						dur := time.Millisecond * 250

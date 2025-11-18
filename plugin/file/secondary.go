@@ -4,8 +4,13 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/coredns/coredns/core/dnsserver"
+
 	"github.com/miekg/dns"
 )
+
+// RFC8945 recommended value
+const defaultFudge = 300
 
 // TransferIn retrieves the zone from the masters, parses it and sets it live.
 func (z *Zone) TransferIn() error {
@@ -24,6 +29,11 @@ func (z *Zone) TransferIn() error {
 Transfer:
 	for _, tr = range z.TransferFrom {
 		t := new(dns.Transfer)
+		if z.needTsig() {
+			tsigName := z.getTsigName()
+			m.SetTsig(tsigName, z.TsigAlgorithm[tsigName], defaultFudge, time.Now().Unix())
+			t.TsigProvider = dnsserver.NewTsigProvider(z.TsigSecret, z.TsigAlgorithm)
+		}
 		c, err := t.In(m, tr)
 		if err != nil {
 			log.Errorf("Failed to setup transfer `%s' with `%q': %v", z.origin, tr, err)
@@ -67,6 +77,12 @@ func (z *Zone) shouldTransfer() (bool, error) {
 	c.Net = "tcp" // do this query over TCP to minimize spoofing
 	m := new(dns.Msg)
 	m.SetQuestion(z.origin, dns.TypeSOA)
+
+	if z.needTsig() {
+		tsigName := z.getTsigName()
+		m.SetTsig(tsigName, z.TsigAlgorithm[tsigName], defaultFudge, time.Now().Unix())
+		c.TsigProvider = dnsserver.NewTsigProvider(z.TsigSecret, z.TsigAlgorithm)
+	}
 
 	var Err error
 	serial := -1

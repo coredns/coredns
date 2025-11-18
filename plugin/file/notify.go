@@ -15,6 +15,12 @@ func (z *Zone) isNotify(state request.Request) bool {
 	if state.Req.Opcode != dns.OpcodeNotify {
 		return false
 	}
+	// https://datatracker.ietf.org/doc/html/rfc9103#section-5.3.1-4
+	// But since the only query type (QTYPE) for NOTIFY defined at the time of this writing is SOA,
+	// this does not pose a potential leak.
+	if len(state.Req.Question) != 1 || state.Req.Question[0].Qtype != dns.TypeSOA {
+		return false
+	}
 	if len(z.TransferFrom) == 0 {
 		return false
 	}

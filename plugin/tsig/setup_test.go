@@ -154,7 +154,7 @@ key "name2.key." {
 
 func TestParseKeyFile(t *testing.T) {
 	var reader = strings.NewReader(`key "foo" {
-	algorithm hmac-sha256;
+	algorithm hmac-sha224;
 	secret "36eowrtmxceNA3T5AdE+JNUOWFCw3amtcyHACnrDVgQ=";
 };
 key "bar" {
@@ -165,7 +165,7 @@ key "baz" {
 	secret "BycDPXSx/5YCD44Q4g5Nd2QNxNRDKwWTXddrU/zpIQM=";
 };`)
 
-	secrets, err := parseKeyFile(reader)
+	secrets, algorithms, err := parseKeyFile(reader)
 	if err != nil {
 		t.Fatalf("Unexpected error: %q", err)
 	}
@@ -174,9 +174,18 @@ key "baz" {
 		"bar.": "X28hl0BOfAL5G0jsmJWSacrwn7YRm2f6U5brnzwWEus=",
 		"baz.": "BycDPXSx/5YCD44Q4g5Nd2QNxNRDKwWTXddrU/zpIQM=",
 	}
+	expectedAlgorithms := map[string]string{
+		"foo.": dns.HmacSHA224,
+		"bar.": dns.HmacSHA256,
+		"baz.": dns.HmacSHA256,
+	}
 
 	if len(secrets) != len(expectedSecrets) {
 		t.Fatalf("result has %d keys. expected %d", len(secrets), len(expectedSecrets))
+	}
+
+	if len(algorithms) != len(expectedAlgorithms) {
+		t.Fatalf("result has %d algorithms. expected %d", len(algorithms), len(algorithms))
 	}
 
 	for k, sec := range secrets {
@@ -187,6 +196,17 @@ key "baz" {
 		}
 		if sec != expectedSec {
 			t.Errorf("incorrect secret in result for key %q. expected %q got %q ", k, expectedSec, sec)
+		}
+	}
+
+	for k, algorithm := range algorithms {
+		expectedAlgorithm, ok := expectedAlgorithms[k]
+		if !ok {
+			t.Errorf("unexpected algorithm in result. %q", k)
+			continue
+		}
+		if algorithm != expectedAlgorithm {
+			t.Errorf("incorrect algorithm in result for key %q. expected %q got %q ", k, expectedAlgorithms, algorithm)
 		}
 	}
 }
@@ -233,7 +253,7 @@ func TestParseKeyFileErrors(t *testing.T) {
 		},
 	}
 	for i, testcase := range tests {
-		_, err := parseKeyFile(strings.NewReader(testcase.in))
+		_, _, err := parseKeyFile(strings.NewReader(testcase.in))
 		if err == nil {
 			t.Errorf("Test %d: expected error, got no error", i)
 			continue
