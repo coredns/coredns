@@ -70,12 +70,12 @@ func TestCNameTargetRewrite(t *testing.T) {
 		args         []string
 		expectedType reflect.Type
 	}{
-		{[]string{"continue", "cname", "exact", "def.example.com.", "xyz.example.com."}, reflect.TypeOf(&cnameTargetRule{})},
-		{[]string{"continue", "cname", "prefix", "chat.openai.com", "bard.google.com"}, reflect.TypeOf(&cnameTargetRule{})},
-		{[]string{"continue", "cname", "suffix", "uvw.", "xyz."}, reflect.TypeOf(&cnameTargetRule{})},
-		{[]string{"continue", "cname", "substring", "efgh", "zzzz.www"}, reflect.TypeOf(&cnameTargetRule{})},
-		{[]string{"continue", "cname", "regex", `(.*)\.web\.(.*)\.site\.`, `{1}.webapp.{2}.org.`}, reflect.TypeOf(&cnameTargetRule{})},
-		{[]string{"continue", "cname", "exact", "music.truncated.spotify.com.", "music.truncated.spotify.com."}, reflect.TypeOf(&cnameTargetRule{})},
+		{[]string{"continue", "cname", "exact", "def.example.com.", "xyz.example.com."}, reflect.TypeFor[*cnameTargetRule]()},
+		{[]string{"continue", "cname", "prefix", "chat.openai.com", "bard.google.com"}, reflect.TypeFor[*cnameTargetRule]()},
+		{[]string{"continue", "cname", "suffix", "uvw.", "xyz."}, reflect.TypeFor[*cnameTargetRule]()},
+		{[]string{"continue", "cname", "substring", "efgh", "zzzz.www"}, reflect.TypeFor[*cnameTargetRule]()},
+		{[]string{"continue", "cname", "regex", `(.*)\.web\.(.*)\.site\.`, `{1}.webapp.{2}.org.`}, reflect.TypeFor[*cnameTargetRule]()},
+		{[]string{"continue", "cname", "exact", "music.truncated.spotify.com.", "music.truncated.spotify.com."}, reflect.TypeFor[*cnameTargetRule]()},
 	}
 	for i, r := range ruleset {
 		rule, err := newRule(r.args...)

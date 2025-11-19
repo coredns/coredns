@@ -318,7 +318,7 @@ func TestCloudDNS(t *testing.T) {
 			for i, ns := range rec.Msg.Ns {
 				got, ok := ns.(*dns.SOA)
 				if !ok {
-					t.Errorf("Test %d: Unexpected NS type. Want: SOA, got: %v", ti, reflect.TypeOf(got))
+					t.Errorf("Test %d: Unexpected NS type. Want: SOA, got: %v", ti, reflect.TypeFor[*dns.SOA]())
 				}
 				if got.String() != tc.wantNS[i] {
 					t.Errorf("Test %d: Unexpected NS.\nWant: %v\nGot: %v", ti, tc.wantNS[i], got)
