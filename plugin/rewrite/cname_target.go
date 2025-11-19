@@ -25,7 +25,8 @@ type cnameTargetRule struct {
 	paramFromTarget string
 	paramToTarget   string
 	nextAction      string
-	Upstream        UpstreamInt // Upstream for looking up external names during the resolution process.
+	pattern         *regexp.Regexp // Compiled paramFromTarget regex for RegexMatch
+	Upstream        UpstreamInt    // Upstream for looking up external names during the resolution process.
 }
 
 // cnameTargetRuleWithReqState is cname target rewrite rule state
@@ -52,8 +53,7 @@ func (r *cnameTargetRule) getFromAndToTarget(inputCName string) (from string, to
 			return inputCName, strings.ReplaceAll(inputCName, r.paramFromTarget, r.paramToTarget)
 		}
 	case RegexMatch:
-		pattern := regexp.MustCompile(r.paramFromTarget)
-		regexGroups := pattern.FindStringSubmatch(inputCName)
+		regexGroups := r.pattern.FindStringSubmatch(inputCName)
 		if len(regexGroups) == 0 {
 			return "", ""
 		}
@@ -142,6 +142,13 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 		paramToTarget:   paramToTarget,
 		nextAction:      nextAction,
 		Upstream:        upstream.New(),
+	}
+	if rewriteType == RegexMatch {
+		re, err := regexp.Compile(paramFromTarget)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cname rewrite regex pattern: %w", err)
+		}
+		rule.pattern = re
 	}
 	return &rule, nil
 }
