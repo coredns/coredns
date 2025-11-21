@@ -257,12 +257,14 @@ func loadFormat(s string) replacer {
 // bufPool stores pointers to scratch buffers.
 var bufPool = sync.Pool{
 	New: func() any {
-		return make([]byte, 0, 256)
+		b := make([]byte, 0, 256)
+		return &b
 	},
 }
 
 func (r replacer) Replace(ctx context.Context, state request.Request, rr *dnstest.Recorder) string {
-	b := bufPool.Get().([]byte)
+	p := bufPool.Get().(*[]byte)
+	b := *p
 	for _, s := range r {
 		switch s.typ {
 		case typeLabel:
@@ -278,7 +280,7 @@ func (r replacer) Replace(ctx context.Context, state request.Request, rr *dnstes
 		}
 	}
 	s := string(b)
-	//nolint:staticcheck
-	bufPool.Put(b[:0])
+	*p = b[:0]
+	bufPool.Put(p)
 	return s
 }
