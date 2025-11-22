@@ -72,7 +72,6 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 	if m.Opcode == dns.OpcodeNotify {
 		return Meta, opt
 	}
-
 	if len(m.Question) > 0 {
 		if m.Question[0].Qtype == dns.TypeAXFR || m.Question[0].Qtype == dns.TypeIXFR {
 			return Meta, opt
@@ -107,6 +106,10 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 	}
 	if soa && m.Rcode == dns.RcodeNameError {
 		return NameError, opt
+	}
+
+	if !soa && m.Rcode == dns.RcodeNameError {
+		negativeMissingSoa.WithLabelValues().Add(1)
 	}
 
 	if m.Rcode == dns.RcodeServerFailure || m.Rcode == dns.RcodeNotImplemented {
