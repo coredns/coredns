@@ -77,6 +77,12 @@ func parse(c *caddy.Controller, n *Nomad) error {
 				return c.Err("at least one address is required")
 			}
 			addresses = append(addresses, args...)
+		case "filter":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return c.Err("exactly one filter is required")
+			}
+			n.filter = args[0]
 		case "token":
 			args := c.RemainingArgs()
 			if len(args) != 1 {

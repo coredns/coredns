@@ -10,10 +10,11 @@ import (
 
 func TestSetupNomad(t *testing.T) {
 	tests := []struct {
-		name        string
-		config      string
-		shouldErr   bool
-		expectedTTL uint32
+		name           string
+		config         string
+		shouldErr      bool
+		expectedFilter string
+		expectedTTL    uint32
 	}{
 		{
 			name: "valid_config_default_ttl",
@@ -22,19 +23,22 @@ nomad service.nomad {
     address http://127.0.0.1:4646
     token test-token
 }`,
-			shouldErr:   false,
-			expectedTTL: uint32(defaultTTL),
+			shouldErr:      false,
+			expectedFilter: "",
+			expectedTTL:    uint32(defaultTTL),
 		},
 		{
-			name: "valid_config_custom_ttl",
+			name: "valid_config_custom_filter_and_ttl",
 			config: `
 nomad service.nomad {
     address http://127.0.0.1:4646
+	filter "Tags not contains candidate"
     token test-token
     ttl 60
 }`,
-			shouldErr:   false,
-			expectedTTL: 60,
+			shouldErr:      false,
+			expectedFilter: "Tags not contains candidate",
+			expectedTTL:    60,
 		},
 		{
 			name: "invalid_ttl_negative",
@@ -85,6 +89,7 @@ nomad service.nomad {
 				ttl:     uint32(defaultTTL),
 				clients: make([]*nomad.Client, 0),
 				current: -1,
+				filter:  "",
 			}
 
 			err := parse(c, n)

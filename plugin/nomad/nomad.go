@@ -29,6 +29,7 @@ type Nomad struct {
 	Zone    string
 	clients []*api.Client
 	current int
+	filter  string
 }
 
 func (n *Nomad) Name() string {
@@ -103,7 +104,7 @@ func fetchServiceRegistrations(n Nomad, serviceName, namespace string) ([]*api.S
 	if err != nil {
 		return nil, nil, err
 	}
-	return nc.Services().Get(serviceName, (&api.QueryOptions{Namespace: namespace}))
+	return nc.Services().Get(serviceName, (&api.QueryOptions{Namespace: namespace, Filter: n.filter}))
 }
 
 func handleServiceLookupError(w dns.ResponseWriter, m *dns.Msg, ctx context.Context, namespace string) (int, error) {

@@ -80,12 +80,15 @@ With only the plugin specified, the *nomad* plugin will default to `service.noma
 ~~~ txt
 nomad [ZONE] {
     address URL
+    filter FILTER
     token TOKEN
     ttl DURATION
 }
 ~~~
 
 * `address` The address where a Nomad agent (server) is available. **URL** defaults to `http://127.0.0.1:4646`.
+
+* `filter` allows you to filter Nomad services. **FILTER** defaults to `""`. Uses [filtering](https://developer.hashicorp.com/nomad/api-docs#filtering) syntax.
 
 * `token` The SecretID of an ACL token to use to authenticate API requests with if the Nomad cluster has ACL enabled. **TOKEN** defaults to `""`.
 
