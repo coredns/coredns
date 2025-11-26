@@ -65,6 +65,27 @@ func TestErrorsParse(t *testing.T) {
 		    consolidate 1m error1
 		    consolidate 5s error2
 		  }`, false, 2, false},
+		{`errors {
+		    consolidate 1m error show_first
+		  }`, false, 1, false},
+		{`errors {
+		    consolidate 1m error warning show_first
+		  }`, false, 1, false},
+		{`errors {
+		    consolidate 1m error invalid_option
+		  }`, true, 0, false},
+		{`errors {
+		    consolidate 1m error warning error
+		  }`, true, 0, false},
+		{`errors {
+		    consolidate 1m error info debug
+		  }`, true, 0, false},
+		{`errors {
+		    consolidate 1m error show_first warning
+		  }`, true, 0, false},
+		{`errors {
+		    consolidate 1m error show_first info
+		  }`, true, 0, false},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputErrorsRules)
@@ -142,6 +163,89 @@ func TestProperLogCallbackIsSet(t *testing.T) {
 
 			if log := buf.String(); !strings.Contains(log, tt.wantLogLevel) {
 				t.Errorf("Expected log %q, but got %q", tt.wantLogLevel, log)
+			}
+		})
+	}
+}
+
+func TestShowFirstOption(t *testing.T) {
+	tests := []struct {
+		name             string
+		inputErrorsRules string
+		wantShowFirst    bool
+		wantLogLevel     string
+	}{
+		{
+			name: "show_first without log level",
+			inputErrorsRules: `errors {
+		        consolidate 1m .* show_first
+		    }`,
+			wantShowFirst: true,
+			wantLogLevel:  "[ERROR]", // default
+		},
+		{
+			name: "show_first with warning log level",
+			inputErrorsRules: `errors {
+		        consolidate 1m .* warning show_first
+		    }`,
+			wantShowFirst: true,
+			wantLogLevel:  "[WARNING]",
+		},
+		{
+			name: "show_first with error log level",
+			inputErrorsRules: `errors {
+		        consolidate 1m .* error show_first
+		    }`,
+			wantShowFirst: true,
+			wantLogLevel:  "[ERROR]",
+		},
+		{
+			name: "no show_first",
+			inputErrorsRules: `errors {
+		        consolidate 1m .*
+		    }`,
+			wantShowFirst: false,
+			wantLogLevel:  "[ERROR]",
+		},
+		{
+			name: "no show_first with log level",
+			inputErrorsRules: `errors {
+		        consolidate 1m .* info
+		    }`,
+			wantShowFirst: false,
+			wantLogLevel:  "[INFO]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := bytes.Buffer{}
+			golog.SetOutput(&buf)
+			clog.D.Set()
+
+			c := caddy.NewTestController("dns", tt.inputErrorsRules)
+			h, err := errorsParse(c)
+
+			if err != nil {
+				t.Errorf("Failed to parse: %v", err)
+				return
+			}
+
+			if len(h.patterns) != 1 {
+				t.Errorf("Expected 1 pattern, got %d", len(h.patterns))
+				return
+			}
+
+			if h.patterns[0].showFirst != tt.wantShowFirst {
+				t.Errorf("Expected showFirst=%v, got %v", tt.wantShowFirst, h.patterns[0].showFirst)
+			}
+
+			// Test log level
+			l := h.patterns[0].logCallback
+			l("test log")
+
+			if log := buf.String(); !strings.Contains(log, tt.wantLogLevel) {
+				t.Errorf("Expected log level %q, but got %q", tt.wantLogLevel, log)
 			}
 		})
 	}

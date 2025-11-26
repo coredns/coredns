@@ -134,13 +134,13 @@ func TestInc(t *testing.T) {
 		}},
 	}
 
-	ret := h.inc(0)
+	ret := h.consolidateError(0)
 	if ret {
 		t.Error("Unexpected return value, expected false, actual true")
 	}
 
 	h.stopFlag = 0
-	ret = h.inc(0)
+	ret = h.consolidateError(0)
 	if !ret {
 		t.Error("Unexpected return value, expected true, actual false")
 	}
@@ -156,7 +156,7 @@ func TestInc(t *testing.T) {
 		t.Error("Unexpected 'timer', expected not nil")
 	}
 
-	ret = h.inc(0)
+	ret = h.consolidateError(0)
 	if !ret {
 		t.Error("Unexpected return value, expected true, actual false")
 	}
@@ -194,13 +194,14 @@ func TestStop(t *testing.T) {
 		}},
 	}
 
-	h.inc(0)
-	h.inc(0)
-	h.inc(0)
+	h.consolidateError(0)
+	h.consolidateError(0)
+	h.consolidateError(0)
 	expCnt := uint32(3)
 	actCnt := atomic.LoadUint32(&h.patterns[0].count)
 	if actCnt != expCnt {
-		t.Fatalf("Unexpected initial 'count', expected %d, actual %d", expCnt, actCnt)
+		t.Errorf("Unexpected initial 'count', expected %d, actual %d", expCnt, actCnt)
+		return
 	}
 
 	h.stop()
@@ -227,6 +228,94 @@ func TestStop(t *testing.T) {
 	expLog := "3 errors like '^error.*!$' occurred in last 2s"
 	if log := buf.String(); !strings.Contains(log, expLog) {
 		t.Errorf("Expected log %q, but got %q", expLog, log)
+	}
+}
+
+func TestShowFirst(t *testing.T) {
+	tests := []struct {
+		name              string
+		errorCount        int
+		expectSummary     string
+		shouldHaveSummary bool
+	}{
+		{
+			name:              "multiple errors",
+			errorCount:        3,
+			expectSummary:     "3 errors like '^error.*!$' occurred in last 2s",
+			shouldHaveSummary: true,
+		},
+		{
+			name:              "single error",
+			errorCount:        1,
+			expectSummary:     "",
+			shouldHaveSummary: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			buf := bytes.Buffer{}
+			clog.D.Set()
+			golog.SetOutput(&buf)
+
+			h := &errorHandler{
+				patterns: []*pattern{{
+					count:       0,
+					period:      2 * time.Second,
+					pattern:     regexp.MustCompile("^error.*!$"),
+					logCallback: log.Errorf,
+					showFirst:   true,
+				}},
+			}
+
+			// Add errors and verify return values
+			for i := range tt.errorCount {
+				ret := h.consolidateError(0)
+				if i == 0 {
+					// First call should return false (showFirst enabled)
+					if ret {
+						t.Errorf("First consolidateError call: expected false, got true")
+					}
+					// Simulate ServeDNS logging with pattern's logCallback
+					h.patterns[0].logCallback("2 example.org. A: error %d!", i+1)
+				} else {
+					// Subsequent calls should return true (consolidated)
+					if !ret {
+						t.Errorf("consolidateError call %d: expected true, got false", i+1)
+					}
+				}
+			}
+
+			// Check count
+			expCnt := uint32(tt.errorCount)
+			actCnt := atomic.LoadUint32(&h.patterns[0].count)
+			if actCnt != expCnt {
+				t.Errorf("Unexpected 'count', expected %d, actual %d", expCnt, actCnt)
+				return
+			}
+
+			// Check that first error was logged
+			output1 := buf.String()
+			if !strings.Contains(output1, "2 example.org. A: error 1!") {
+				t.Errorf("Expected first error to be logged, but got: %q", output1)
+			}
+
+			// Clear buffer and trigger log pattern
+			buf.Reset()
+			h.logPattern(0)
+
+			// Verify summary in logPattern output
+			output2 := buf.String()
+			if tt.shouldHaveSummary {
+				if !strings.Contains(output2, tt.expectSummary) {
+					t.Errorf("Expected summary %q not found in logPattern output: %q", tt.expectSummary, output2)
+				}
+			} else {
+				if strings.Contains(output2, "errors like") {
+					t.Errorf("Did not expect summary for single error, but got: %q", output2)
+				}
+			}
+		})
 	}
 }
 

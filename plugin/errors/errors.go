@@ -23,6 +23,7 @@ type pattern struct {
 	period      time.Duration
 	pattern     *regexp.Regexp
 	logCallback func(format string, v ...any)
+	showFirst   bool
 }
 
 func (p *pattern) timer() *time.Timer {
@@ -46,17 +47,24 @@ func newErrorHandler() *errorHandler {
 
 func (h *errorHandler) logPattern(i int) {
 	cnt := atomic.SwapUint32(&h.patterns[i].count, 0)
-	if cnt > 0 {
+	if cnt == 0 {
+		return
+	}
+	if cnt > 1 || !h.patterns[i].showFirst {
 		h.patterns[i].logCallback("%d errors like '%s' occurred in last %s",
 			cnt, h.patterns[i].pattern.String(), h.patterns[i].period)
 	}
 }
 
-func (h *errorHandler) inc(i int) bool {
+// consolidateError records an error occurrence for pattern i.
+// Returns false when cnt == 1 and showFirst is configured, so the error
+// will be printed by the caller using the pattern's logCallback.
+func (h *errorHandler) consolidateError(i int) bool {
 	if atomic.LoadUint32(&h.stopFlag) > 0 {
 		return false
 	}
-	if atomic.AddUint32(&h.patterns[i].count, 1) == 1 {
+	cnt := atomic.AddUint32(&h.patterns[i].count, 1)
+	if cnt == 1 {
 		ind := i
 		t := time.AfterFunc(h.patterns[ind].period, func() {
 			h.logPattern(ind)
@@ -65,6 +73,9 @@ func (h *errorHandler) inc(i int) bool {
 		if atomic.LoadUint32(&h.stopFlag) > 0 && t.Stop() {
 			h.logPattern(ind)
 		}
+		// If showFirst is enabled, return false so the first error
+		// will be printed by the caller using the pattern's logCallback
+		return !h.patterns[i].showFirst
 	}
 	return true
 }
@@ -85,16 +96,26 @@ func (h *errorHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dn
 
 	if err != nil {
 		strErr := err.Error()
+		state := request.Request{W: w, Req: r}
+
+		// Default to error logging
+		logFunc := log.Errorf
+
 		for i := range h.patterns {
 			if h.patterns[i].pattern.MatchString(strErr) {
-				if h.inc(i) {
+				if h.consolidateError(i) {
+					// Error is consolidated, no need to log
 					return rcode, err
 				}
+				// consolidateError returned false (showFirst case)
+				// Use the pattern's configured log level
+				logFunc = h.patterns[i].logCallback
 				break
 			}
 		}
-		state := request.Request{W: w, Req: r}
-		log.Errorf("%d %s %s: %s", rcode, state.Name(), state.Type(), strErr)
+
+		// Log with the appropriate log level
+		logFunc("%d %s %s: %s", rcode, state.Name(), state.Type(), strErr)
 	}
 
 	return rcode, err
