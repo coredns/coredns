@@ -25,8 +25,8 @@ func (l *loggerAdapter) Info(_ int, msg string, _ ...any) {
 	l.P.Info(msg)
 }
 
-func (l *loggerAdapter) Error(_ error, msg string, _ ...any) {
-	l.P.Error(msg)
+func (l *loggerAdapter) Error(err error, msg string, _ ...any) {
+	l.Errorf("%s: %s", msg, err)
 }
 
 func (l *loggerAdapter) WithValues(_ ...any) logr.LogSink {
