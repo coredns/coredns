@@ -43,9 +43,6 @@ linters:
     govet:
       enable:
         - nilness
-    modernize:
-      disable:
-        - reflecttypefor
     perfsprint:
       error-format: false
     revive:
