@@ -14,6 +14,7 @@ import (
 var (
 	fixturesDir   = "./testdata"
 	cityDBPath    = filepath.Join(fixturesDir, "GeoLite2-City.mmdb")
+	asnDBPath     = filepath.Join(fixturesDir, "GeoLite2-ASN.mmdb")
 	unknownDBPath = filepath.Join(fixturesDir, "GeoLite2-UnknownDbType.mmdb")
 )
 
@@ -50,9 +51,12 @@ func TestGeoIPParse(t *testing.T) {
 		expectedErr    string
 		expectedDBType int
 	}{
-		// Valid
+		// Valid - City database
 		{false, fmt.Sprintf("%s %s\n", pluginName, cityDBPath), "", city},
 		{false, fmt.Sprintf("%s %s { edns-subnet }", pluginName, cityDBPath), "", city},
+		// Valid - ASN database
+		{false, fmt.Sprintf("%s %s\n", pluginName, asnDBPath), "", asn},
+		{false, fmt.Sprintf("%s %s { edns-subnet }", pluginName, asnDBPath), "", asn},
 
 		// Invalid
 		{true, pluginName, "Wrong argument count", 0},
