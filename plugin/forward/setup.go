@@ -227,6 +227,15 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return err
 		}
 		f.maxfails = uint32(n)
+	case "max_connect_attempts":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		n, err := strconv.ParseUint(c.Val(), 10, 32)
+		if err != nil {
+			return err
+		}
+		f.maxConnectAttempts = uint32(n)
 	case "health_check":
 		if !c.NextArg() {
 			return c.ArgErr()

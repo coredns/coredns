@@ -45,6 +45,7 @@ forward FROM TO... {
     prefer_udp
     expire DURATION
     max_fails INTEGER
+    max_connect_attempts INTEGER
     tls CERT KEY CA
     tls_servername NAME
     policy random|round_robin|sequential
@@ -66,6 +67,9 @@ forward FROM TO... {
 * `max_fails` is the number of subsequent failed health checks that are needed before considering
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.
+* `max_connect_attempts` caps the total number of upstream connect attempts
+  performed for a single incoming DNS request. Default value of 0 means no per-request
+  cap.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
 * `tls` **CERT** **KEY** **CA** define the TLS properties for TLS connection. From 0 to 3 arguments can be
   provided with the meaning as described below

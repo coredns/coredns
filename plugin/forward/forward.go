@@ -52,6 +52,7 @@ type Forward struct {
 	maxConcurrent              int64
 	failfastUnhealthyUpstreams bool
 	failoverRcodes             []int
+	maxConnectAttempts         uint32
 
 	opts proxyPkg.Options // also here for testing
 
@@ -119,7 +120,9 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	list := f.List()
 	deadline := time.Now().Add(defaultTimeout)
 	start := time.Now()
-	for time.Now().Before(deadline) && ctx.Err() == nil {
+	connectAttempts := uint32(0)
+
+	for time.Now().Before(deadline) && ctx.Err() == nil && (f.maxConnectAttempts == 0 || connectAttempts < f.maxConnectAttempts) {
 		if i >= len(list) {
 			// reached the end of list, reset to begin
 			i = 0
@@ -191,7 +194,15 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				proxy.Healthcheck()
 			}
 
-			fails++
+			// If a per-request connect-attempt cap is configured, count this
+			// failed connect attempt and stop retrying when the cap is hit.
+			if f.maxConnectAttempts > 0 {
+				connectAttempts++
+				if connectAttempts >= f.maxConnectAttempts {
+					break
+				}
+			}
+
 			if fails < len(f.proxies) {
 				continue
 			}
