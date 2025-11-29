@@ -14,42 +14,50 @@ import (
 )
 
 func TestMetadata(t *testing.T) {
-	cityTests := []struct {
+	tests := []struct {
 		label         string
 		expectedValue string
+		dbPath        string
+		remoteIP      string
 	}{
-		{"geoip/city/name", "Cambridge"},
-
-		{"geoip/country/code", "GB"},
-		{"geoip/country/name", "United Kingdom"},
+		// City database tests
+		{"geoip/city/name", "Cambridge", cityDBPath, "81.2.69.142"},
+		{"geoip/country/code", "GB", cityDBPath, "81.2.69.142"},
+		{"geoip/country/name", "United Kingdom", cityDBPath, "81.2.69.142"},
 		// is_in_european_union is set to true only to work around bool zero value, and test is really being set.
-		{"geoip/country/is_in_european_union", "true"},
+		{"geoip/country/is_in_european_union", "true", cityDBPath, "81.2.69.142"},
+		{"geoip/continent/code", "EU", cityDBPath, "81.2.69.142"},
+		{"geoip/continent/name", "Europe", cityDBPath, "81.2.69.142"},
+		{"geoip/latitude", "52.2242", cityDBPath, "81.2.69.142"},
+		{"geoip/longitude", "0.1315", cityDBPath, "81.2.69.142"},
+		{"geoip/timezone", "Europe/London", cityDBPath, "81.2.69.142"},
+		{"geoip/postalcode", "CB4", cityDBPath, "81.2.69.142"},
 
-		{"geoip/continent/code", "EU"},
-		{"geoip/continent/name", "Europe"},
+		// ASN database tests
+		{"geoip/asn/number", "12345", asnDBPath, "81.2.69.142"},
+		{"geoip/asn/org", "Test ASN Organization", asnDBPath, "81.2.69.142"},
 
-		{"geoip/latitude", "52.2242"},
-		{"geoip/longitude", "0.1315"},
-		{"geoip/timezone", "Europe/London"},
-		{"geoip/postalcode", "CB4"},
+		// ASN "Not routed" edge case tests (ASN=0)
+		// Test data from iptoasn.com where some IP ranges have no assigned ASN.
+		{"geoip/asn/number", "0", asnDBPath, "10.0.0.1"},
+		{"geoip/asn/org", "Not routed", asnDBPath, "10.0.0.1"},
 	}
 
-	knownIPAddr := "81.2.69.142" // This IP should be part of the CDIR address range used to create the database fixtures.
-	for _, tc := range cityTests {
+	for _, tc := range tests {
 		t.Run(fmt.Sprintf("%s/%s", tc.label, "direct"), func(t *testing.T) {
-			geoIP, err := newGeoIP(cityDBPath, false)
+			geoIP, err := newGeoIP(tc.dbPath, false)
 			if err != nil {
 				t.Fatalf("unable to create geoIP plugin: %v", err)
 			}
 			state := request.Request{
 				Req: new(dns.Msg),
-				W:   &test.ResponseWriter{RemoteIP: knownIPAddr},
+				W:   &test.ResponseWriter{RemoteIP: tc.remoteIP},
 			}
 			testMetadata(t, state, geoIP, tc.label, tc.expectedValue)
 		})
 
 		t.Run(fmt.Sprintf("%s/%s", tc.label, "subnet"), func(t *testing.T) {
-			geoIP, err := newGeoIP(cityDBPath, true)
+			geoIP, err := newGeoIP(tc.dbPath, true)
 			if err != nil {
 				t.Fatalf("unable to create geoIP plugin: %v", err)
 			}
@@ -59,79 +67,11 @@ func TestMetadata(t *testing.T) {
 			}
 			state.Req.SetEdns0(4096, false)
 			if o := state.Req.IsEdns0(); o != nil {
-				addr := net.ParseIP(knownIPAddr)
+				addr := net.ParseIP(tc.remoteIP)
 				o.Option = append(o.Option, (&dns.EDNS0_SUBNET{
 					SourceNetmask: 32,
 					Address:       addr,
 				}))
-			}
-			testMetadata(t, state, geoIP, tc.label, tc.expectedValue)
-		})
-	}
-
-	// ASN metadata tests
-	asnTests := []struct {
-		label         string
-		expectedValue string
-	}{
-		{"geoip/asn/number", "12345"},
-		{"geoip/asn/org", "Test ASN Organization"},
-	}
-
-	for _, tc := range asnTests {
-		t.Run(fmt.Sprintf("%s/%s", tc.label, "direct"), func(t *testing.T) {
-			geoIP, err := newGeoIP(asnDBPath, false)
-			if err != nil {
-				t.Fatalf("unable to create geoIP plugin: %v", err)
-			}
-			state := request.Request{
-				Req: new(dns.Msg),
-				W:   &test.ResponseWriter{RemoteIP: knownIPAddr},
-			}
-			testMetadata(t, state, geoIP, tc.label, tc.expectedValue)
-		})
-
-		t.Run(fmt.Sprintf("%s/%s", tc.label, "subnet"), func(t *testing.T) {
-			geoIP, err := newGeoIP(asnDBPath, true)
-			if err != nil {
-				t.Fatalf("unable to create geoIP plugin: %v", err)
-			}
-			state := request.Request{
-				Req: new(dns.Msg),
-				W:   &test.ResponseWriter{RemoteIP: "127.0.0.1"},
-			}
-			state.Req.SetEdns0(4096, false)
-			if o := state.Req.IsEdns0(); o != nil {
-				addr := net.ParseIP(knownIPAddr)
-				o.Option = append(o.Option, (&dns.EDNS0_SUBNET{
-					SourceNetmask: 32,
-					Address:       addr,
-				}))
-			}
-			testMetadata(t, state, geoIP, tc.label, tc.expectedValue)
-		})
-	}
-
-	// ASN "Not routed" edge case tests (ASN=0)
-	// Tests data from iptoasn.com where some IP ranges have no assigned ASN.
-	notRoutedTests := []struct {
-		label         string
-		expectedValue string
-	}{
-		{"geoip/asn/number", "0"},
-		{"geoip/asn/org", "Not routed"},
-	}
-
-	notRoutedIPAddr := "10.0.0.1" // Private IP range with ASN=0 in test fixture.
-	for _, tc := range notRoutedTests {
-		t.Run(fmt.Sprintf("%s/%s", tc.label, "not_routed"), func(t *testing.T) {
-			geoIP, err := newGeoIP(asnDBPath, false)
-			if err != nil {
-				t.Fatalf("unable to create geoIP plugin: %v", err)
-			}
-			state := request.Request{
-				Req: new(dns.Msg),
-				W:   &test.ResponseWriter{RemoteIP: notRoutedIPAddr},
 			}
 			testMetadata(t, state, geoIP, tc.label, tc.expectedValue)
 		})
