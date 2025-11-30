@@ -6,7 +6,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/metadata"
 
-	"github.com/oschwald/geoip2-golang"
+	"github.com/oschwald/geoip2-golang/v2"
 )
 
 func (g GeoIP) setASNMetadata(ctx context.Context, data *geoip2.ASN) {

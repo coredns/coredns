@@ -4,7 +4,7 @@ package geoip
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 	"path/filepath"
 
 	"github.com/coredns/coredns/plugin"
@@ -12,7 +12,7 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"github.com/oschwald/geoip2-golang"
+	"github.com/oschwald/geoip2-golang/v2"
 )
 
 var log = clog.NewWithPlugin(pluginName)
@@ -37,7 +37,7 @@ const (
 	asn
 )
 
-var probingIP = net.ParseIP("127.0.0.1")
+var probingIP = netip.MustParseAddr("127.0.0.1")
 
 func newGeoIP(dbPath string, edns0 bool) (*GeoIP, error) {
 	reader, err := geoip2.Open(dbPath)
@@ -80,13 +80,22 @@ func (g GeoIP) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // Metadata implements the metadata.Provider Interface in the metadata plugin, and is used to store
 // the data associated with the source IP of every request.
 func (g GeoIP) Metadata(ctx context.Context, state request.Request) context.Context {
-	srcIP := net.ParseIP(state.IP())
+	srcIP, err := netip.ParseAddr(state.IP())
+	if err != nil {
+		log.Debugf("Failed to parse source IP %q: %v", state.IP(), err)
+		return ctx
+	}
 
 	if g.edns0 {
 		if o := state.Req.IsEdns0(); o != nil {
 			for _, s := range o.Option {
 				if e, ok := s.(*dns.EDNS0_SUBNET); ok {
-					srcIP = e.Address
+					// e.Address is still a net.IP type
+					if addr, ok := netip.AddrFromSlice(e.Address); ok {
+						srcIP = addr
+					} else {
+						log.Debugf("Failed to parse EDNS0 subnet address %v", e.Address)
+					}
 					break
 				}
 			}

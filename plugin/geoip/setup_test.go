@@ -2,7 +2,6 @@ package geoip
 
 import (
 	"fmt"
-	"net"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,7 +18,7 @@ var (
 )
 
 func TestProbingIP(t *testing.T) {
-	if probingIP == nil {
+	if !probingIP.IsValid() {
 		t.Fatalf("Invalid probing IP: %q", probingIP)
 	}
 }
@@ -95,20 +94,5 @@ func TestGeoIPParse(t *testing.T) {
 		if geoIP.db.provides&test.expectedDBType == 0 {
 			t.Errorf("Test %d: expected db type %d not found, database file provides %d", i, test.expectedDBType, geoIP.db.provides)
 		}
-	}
-
-	// Set nil probingIP to test unexpected validate error()
-	defer func(ip net.IP) { probingIP = ip }(probingIP)
-	probingIP = nil
-
-	c = caddy.NewTestController("dns", fmt.Sprintf("%s %s\n", pluginName, cityDBPath))
-	_, err := geoipParse(c)
-	if err != nil {
-		expectedErr := "unexpected failure looking up database"
-		if !strings.Contains(err.Error(), expectedErr) {
-			t.Errorf("expected error to contain: %s", expectedErr)
-		}
-	} else {
-		t.Errorf("with a nil probingIP test is expected to fail")
 	}
 }

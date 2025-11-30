@@ -156,3 +156,7 @@ A limited set of fields will be exported as labels, all values are stored using 
 | NA    | North America  |
 | OC    | Oceania        |
 | SA    | South America  |
+
+## Notable changes
+
+- In CoreDNS v1.13.2, the `geoip` plugin was upgraded to use [`oschwald/geoip2-golang/v2`](https://github.com/oschwald/geoip2-golang/blob/main/MIGRATION.md), the Go library that reads and parses [`.mmdb`](https://maxmind.github.io/MaxMind-DB/) databases. It has a small, but possibly-breaking change, where the `Location.Latitude` and `Location.Longitude` structs changed from value types to pointers (`float64` → `*float64`). In `oschwald/geoip2-golang` v1, missing coordinates returned "0" (which is a [valid location](https://en.wikipedia.org/wiki/Null_Island)), and in v2 they now return an empty string "".
