@@ -9,81 +9,96 @@ import (
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
-	//"github.com/miekg/dns"
+
+	"github.com/miekg/dns"
 )
 
+type ttlResponseRule struct {
+	minTTL uint32
+	maxTTL uint32
+}
+
+func (r *ttlResponseRule) RewriteResponse(res *dns.Msg, rr dns.RR) {
+	if rr.Header().Ttl < r.minTTL {
+		rr.Header().Ttl = r.minTTL
+	} else if rr.Header().Ttl > r.maxTTL {
+		rr.Header().Ttl = r.maxTTL
+	}
+}
+
+type ttlRuleBase struct {
+	nextAction string
+	response   ttlResponseRule
+}
+
+func newTTLRuleBase(nextAction string, minTtl, maxTtl uint32) ttlRuleBase {
+	return ttlRuleBase{
+		nextAction: nextAction,
+		response:   ttlResponseRule{minTTL: minTtl, maxTTL: maxTtl},
+	}
+}
+
+func (rule *ttlRuleBase) responseRule(match bool) (ResponseRules, Result) {
+	if match {
+		return ResponseRules{&rule.response}, RewriteDone
+	}
+	return nil, RewriteIgnored
+}
+
+// Mode returns the processing nextAction
+func (rule *ttlRuleBase) Mode() string { return rule.nextAction }
+
 type exactTTLRule struct {
-	NextAction    string
-	From          string
-	ResponseRules []ResponseRule
+	ttlRuleBase
+	From string
 }
 
 type prefixTTLRule struct {
-	NextAction    string
-	Prefix        string
-	ResponseRules []ResponseRule
+	ttlRuleBase
+	Prefix string
 }
 
 type suffixTTLRule struct {
-	NextAction    string
-	Suffix        string
-	ResponseRules []ResponseRule
+	ttlRuleBase
+	Suffix string
 }
 
 type substringTTLRule struct {
-	NextAction    string
-	Substring     string
-	ResponseRules []ResponseRule
+	ttlRuleBase
+	Substring string
 }
 
 type regexTTLRule struct {
-	NextAction    string
-	Pattern       *regexp.Regexp
-	ResponseRules []ResponseRule
+	ttlRuleBase
+	Pattern *regexp.Regexp
 }
 
 // Rewrite rewrites the current request based upon exact match of the name
 // in the question section of the request.
-func (rule *exactTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
-	if rule.From == state.Name() {
-		return RewriteDone
-	}
-	return RewriteIgnored
+func (rule *exactTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+	return rule.responseRule(rule.From == state.Name())
 }
 
 // Rewrite rewrites the current request when the name begins with the matching string.
-func (rule *prefixTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
-	if strings.HasPrefix(state.Name(), rule.Prefix) {
-		return RewriteDone
-	}
-	return RewriteIgnored
+func (rule *prefixTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+	return rule.responseRule(strings.HasPrefix(state.Name(), rule.Prefix))
 }
 
 // Rewrite rewrites the current request when the name ends with the matching string.
-func (rule *suffixTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
-	if strings.HasSuffix(state.Name(), rule.Suffix) {
-		return RewriteDone
-	}
-	return RewriteIgnored
+func (rule *suffixTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+	return rule.responseRule(strings.HasSuffix(state.Name(), rule.Suffix))
 }
 
 // Rewrite rewrites the current request based upon partial match of the
 // name in the question section of the request.
-func (rule *substringTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
-	if strings.Contains(state.Name(), rule.Substring) {
-		return RewriteDone
-	}
-	return RewriteIgnored
+func (rule *substringTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+	return rule.responseRule(strings.Contains(state.Name(), rule.Substring))
 }
 
 // Rewrite rewrites the current request when the name in the question
 // section of the request matches a regular expression.
-func (rule *regexTTLRule) Rewrite(ctx context.Context, state request.Request) Result {
-	regexGroups := rule.Pattern.FindStringSubmatch(state.Name())
-	if len(regexGroups) == 0 {
-		return RewriteIgnored
-	}
-	return RewriteDone
+func (rule *regexTTLRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
+	return rule.responseRule(len(rule.Pattern.FindStringSubmatch(state.Name())) != 0)
 }
 
 // newTTLRule creates a name matching rule based on exact, partial, or regex match
@@ -98,7 +113,7 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 	if len(args) == 3 {
 		s = args[2]
 	}
-	ttl, valid := isValidTTL(s)
+	minTtl, maxTtl, valid := isValidTTL(s)
 	if !valid {
 		return nil, fmt.Errorf("invalid TTL '%s' for a ttl rule", s)
 	}
@@ -106,43 +121,23 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 		switch strings.ToLower(args[0]) {
 		case ExactMatch:
 			return &exactTTLRule{
-				nextAction,
+				newTTLRuleBase(nextAction, minTtl, maxTtl),
 				plugin.Name(args[1]).Normalize(),
-				[]ResponseRule{{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
-				}},
 			}, nil
 		case PrefixMatch:
 			return &prefixTTLRule{
-				nextAction,
+				newTTLRuleBase(nextAction, minTtl, maxTtl),
 				plugin.Name(args[1]).Normalize(),
-				[]ResponseRule{{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
-				}},
 			}, nil
 		case SuffixMatch:
 			return &suffixTTLRule{
-				nextAction,
+				newTTLRuleBase(nextAction, minTtl, maxTtl),
 				plugin.Name(args[1]).Normalize(),
-				[]ResponseRule{{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
-				}},
 			}, nil
 		case SubstringMatch:
 			return &substringTTLRule{
-				nextAction,
+				newTTLRuleBase(nextAction, minTtl, maxTtl),
 				plugin.Name(args[1]).Normalize(),
-				[]ResponseRule{{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
-				}},
 			}, nil
 		case RegexMatch:
 			regexPattern, err := regexp.Compile(args[1])
@@ -150,13 +145,8 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 				return nil, fmt.Errorf("invalid regex pattern in a ttl rule: %s", args[1])
 			}
 			return &regexTTLRule{
-				nextAction,
+				newTTLRuleBase(nextAction, minTtl, maxTtl),
 				regexPattern,
-				[]ResponseRule{{
-					Active: true,
-					Type:   "ttl",
-					TTL:    ttl,
-				}},
 			}, nil
 		default:
 			return nil, fmt.Errorf("ttl rule supports only exact, prefix, suffix, substring, and regex name matching")
@@ -166,59 +156,50 @@ func newTTLRule(nextAction string, args ...string) (Rule, error) {
 		return nil, fmt.Errorf("many few arguments for a ttl rule")
 	}
 	return &exactTTLRule{
-		nextAction,
+		newTTLRuleBase(nextAction, minTtl, maxTtl),
 		plugin.Name(args[0]).Normalize(),
-		[]ResponseRule{{
-			Active: true,
-			Type:   "ttl",
-			TTL:    ttl,
-		}},
 	}, nil
 }
 
-// Mode returns the processing nextAction
-func (rule *exactTTLRule) Mode() string     { return rule.NextAction }
-func (rule *prefixTTLRule) Mode() string    { return rule.NextAction }
-func (rule *suffixTTLRule) Mode() string    { return rule.NextAction }
-func (rule *substringTTLRule) Mode() string { return rule.NextAction }
-func (rule *regexTTLRule) Mode() string     { return rule.NextAction }
-
-// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
-func (rule *exactTTLRule) GetResponseRules() []ResponseRule {
-	return rule.ResponseRules
-}
-
-// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
-func (rule *prefixTTLRule) GetResponseRules() []ResponseRule {
-	return rule.ResponseRules
-}
-
-// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
-func (rule *suffixTTLRule) GetResponseRules() []ResponseRule {
-	return rule.ResponseRules
-}
-
-// GetResponseRules returns rules to rewrite the response with. Currently not implemented.
-func (rule *substringTTLRule) GetResponseRules() []ResponseRule {
-	return rule.ResponseRules
-}
-
-// GetResponseRules returns rules to rewrite the response with.
-func (rule *regexTTLRule) GetResponseRules() []ResponseRule {
-	return rule.ResponseRules
-}
-
 // validTTL returns true if v is valid TTL value.
-func isValidTTL(v string) (uint32, bool) {
-	i, err := strconv.Atoi(v)
-	if err != nil {
-		return uint32(0), false
+func isValidTTL(v string) (uint32, uint32, bool) {
+	s := strings.Split(v, "-")
+	if len(s) == 1 {
+		i, err := strconv.ParseUint(s[0], 10, 32)
+		if err != nil {
+			return 0, 0, false
+		}
+		return uint32(i), uint32(i), true
 	}
-	if i > 2147483647 {
-		return uint32(0), false
+	if len(s) == 2 {
+		var min, max uint64
+		var err error
+		if s[0] == "" {
+			min = 0
+		} else {
+			min, err = strconv.ParseUint(s[0], 10, 32)
+			if err != nil {
+				return 0, 0, false
+			}
+		}
+		if s[1] == "" {
+			if s[0] == "" {
+				// explicitly reject ttl directive "-" that would otherwise be interpreted
+				// as 0-2147483647 which is pretty useless
+				return 0, 0, false
+			}
+			max = 2147483647
+		} else {
+			max, err = strconv.ParseUint(s[1], 10, 32)
+			if err != nil {
+				return 0, 0, false
+			}
+		}
+		if min > max {
+			// reject invalid range
+			return 0, 0, false
+		}
+		return uint32(min), uint32(max), true
 	}
-	if i < 0 {
-		return uint32(0), false
-	}
-	return uint32(i), true
+	return 0, 0, false
 }

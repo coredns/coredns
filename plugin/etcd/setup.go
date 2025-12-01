@@ -2,6 +2,7 @@ package etcd
 
 import (
 	"crypto/tls"
+	"path/filepath"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -9,7 +10,7 @@ import (
 	mwtls "github.com/coredns/coredns/plugin/pkg/tls"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
-	etcdcv3 "go.etcd.io/etcd/clientv3"
+	etcdcv3 "go.etcd.io/etcd/client/v3"
 )
 
 func init() { plugin.Register("etcd", setup) }
@@ -20,6 +21,8 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("etcd", err)
 	}
 
+	c.OnShutdown(e.OnShutdown)
+
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		e.Next = next
 		return e
@@ -29,6 +32,7 @@ func setup(c *caddy.Controller) error {
 }
 
 func etcdParse(c *caddy.Controller) (*Etcd, error) {
+	config := dnsserver.GetConfig(c)
 	etc := Etcd{PathPrefix: "skydns"}
 	var (
 		tlsConfig *tls.Config
@@ -40,16 +44,8 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 
 	etc.Upstream = upstream.New()
 
-	for c.Next() {
-		etc.Zones = c.RemainingArgs()
-		if len(etc.Zones) == 0 {
-			etc.Zones = make([]string, len(c.ServerBlockKeys))
-			copy(etc.Zones, c.ServerBlockKeys)
-		}
-		for i, str := range etc.Zones {
-			etc.Zones[i] = plugin.Host(str).Normalize()
-		}
-
+	if c.Next() {
+		etc.Zones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 		for c.NextBlock() {
 			switch c.Val() {
 			case "stubzones":
@@ -74,6 +70,11 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 				c.RemainingArgs()
 			case "tls": // cert key cacertfile
 				args := c.RemainingArgs()
+				for i := range args {
+					if !filepath.IsAbs(args[i]) && config.Root != "" {
+						args[i] = filepath.Join(config.Root, args[i])
+					}
+				}
 				tlsConfig, err = mwtls.NewTLSConfigFromArgs(args...)
 				if err != nil {
 					return &Etcd{}, err
@@ -107,8 +108,9 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 
 func newEtcdClient(endpoints []string, cc *tls.Config, username, password string) (*etcdcv3.Client, error) {
 	etcdCfg := etcdcv3.Config{
-		Endpoints: endpoints,
-		TLS:       cc,
+		Endpoints:         endpoints,
+		TLS:               cc,
+		DialKeepAliveTime: etcdTimeout,
 	}
 	if username != "" && password != "" {
 		etcdCfg.Username = username

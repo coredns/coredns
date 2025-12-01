@@ -61,6 +61,7 @@ func TestCustomHTTPRequestValidator(t *testing.T) {
 			if res.StatusCode != tc.expected {
 				t.Error("unexpected HTTP code", res.StatusCode)
 			}
+			res.Body.Close()
 		})
 	}
 }

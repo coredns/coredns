@@ -66,6 +66,5 @@ func TestIsReverse(t *testing.T) {
 		if got != tc.expected {
 			t.Errorf("Test %d, got %d, expected %d for %s", i, got, tc.expected, tc.name)
 		}
-
 	}
 }

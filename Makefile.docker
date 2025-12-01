@@ -1,0 +1,117 @@
+# Makefile for creating and uploading CoreDNS docker image.
+#
+# First you should do a release and then call this Makefile to create and upload
+# the image.
+#
+# 1. Reuse the issue for this release
+# 2. In an issue give the command: /docker VERSION
+#    Where VERSION is the version of the release.
+# 3. (to test as release /docker -t VERSION can be used.
+#
+# To release we run, these target from the this Makefile.docker ordered like:
+# * make release
+# * make docker-push
+#
+# Testing docker is done e.g. via:
+#
+# export DOCKER_PASSWORD=<pass>
+# export DOCKER_LOGIN=miek
+# make VERSION=x.y.z DOCKER=miek -f Makefile.docker release docker-push
+
+ifeq (, $(shell which curl))
+    $(error "No curl in $$PATH, please install")
+endif
+ifeq (, $(shell which jq))
+    $(error "No jq in $$PATH, please install")
+endif
+
+# VERSION is the version we should download and use.
+VERSION:=
+# DOCKER is the docker image repo we need to push to.
+DOCKER:=
+NAME:=coredns
+GITHUB:=https://github.com/coredns/coredns/releases/download
+# mips is not in LINUX_ARCH because it's not supported by docker manifest. Keep this list in sync with the one in Makefile.release
+LINUX_ARCH:=amd64 arm arm64 mips64le ppc64le s390x riscv64
+DOCKER_IMAGE_NAME:=$(DOCKER)/$(NAME)
+DOCKER_IMAGE_LIST_VERSIONED:=$(shell echo $(LINUX_ARCH) | sed -e "s~mips64le ~~g" | sed -e "s~[^ ]*~$(DOCKER_IMAGE_NAME):&\-$(VERSION)~g")
+
+all:
+	@echo Use the 'release' target to download released binaries and build containers per arch, 'docker-push' to build and push a multi arch manifest.
+	echo $(DOCKER_IMAGE_LIST_VERSIONED)
+	echo $(DOCKER_IMAGE_LIST_LATEST)
+
+release: image-download docker-build
+
+.PHONY: image-download
+image-download:
+ifeq ($(VERSION),)
+	$(error "Please specify a version use. Use VERSION=<version>")
+endif
+
+	@# 0. Check until all asset are alive, up to 10 min (asset may not be alive immediately after upload)
+	try_max=20; try_sleep=30; \
+	for arch in $(LINUX_ARCH); do \
+		asset=coredns_$(VERSION)_linux_$${arch}.tgz; \
+		for i in $$(seq 1 $$try_max ); do \
+			if [ $$(curl -I -L -s -o /dev/null -w "%{http_code}" $(GITHUB)/v$(VERSION)/$$asset) -eq 200 ]; then \
+				echo "$$asset is live" ; break; \
+			else  \
+				echo "$$asset is not live yet..." ; sleep $$try_sleep ; \
+			fi ; \
+		done ; \
+		if [ $$i -eq $$try_max ]; then \
+			echo "$$asset is not live after $$try_max tries" ; exit 1; \
+		fi ; \
+	done
+	@rm -rf build/docker
+	@mkdir -p build/docker
+	@# 1. Copy appropriate coredns binary to build/docker/<arch>
+	@# 2. Copy Dockerfile into the correct dir as well.
+	@# 3. Unpack the tgz from GitHub into 'coredns' binary.
+	for arch in $(LINUX_ARCH); do \
+		mkdir build/docker/$${arch}; \
+		curl -L $(GITHUB)/v$(VERSION)/coredns_$(VERSION)_linux_$${arch}.tgz > build/docker/$${arch}/coredns.tgz && \
+			( cd build/docker/$${arch}; tar xf coredns.tgz && rm coredns.tgz ); \
+	done
+
+.PHONY: docker-build
+docker-build:
+ifeq ($(DOCKER),)
+	$(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
+else
+	docker version
+	for arch in $(LINUX_ARCH); do \
+	    cp Dockerfile build/docker/$${arch} ; \
+	    DOCKER_ARGS=""; \
+	    if [ "$${arch}" = "riscv64" ]; then \
+	        DOCKER_ARGS="--build-arg=DEBIAN_IMAGE=debian:unstable-slim --build-arg=BASE=ghcr.io/go-riscv/distroless/static-unstable:nonroot"; \
+	    fi; \
+	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) $${DOCKER_ARGS} build/docker/$${arch} ;\
+	done
+endif
+
+.PHONY: docker-push
+docker-push:
+ifeq ($(VERSION),)
+	$(error "Please specify a version use. Use VERSION=<version>")
+endif
+ifeq ($(DOCKER),)
+	$(error "Please specify Docker registry to use. Use DOCKER=coredns for releases")
+else
+	@# Pushes coredns/coredns-$arch:$version images
+	@# Creates manifest for multi-arch image
+	@# Pushes multi-arch image to coredns/coredns:$version
+	@echo Pushing: $(VERSION) to $(DOCKER_IMAGE_NAME)
+	for arch in $(LINUX_ARCH); do \
+		docker push $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) ;\
+	done
+	docker manifest create --amend $(DOCKER_IMAGE_NAME):$(VERSION) $(DOCKER_IMAGE_LIST_VERSIONED)
+	docker manifest create --amend $(DOCKER_IMAGE_NAME):latest $(DOCKER_IMAGE_LIST_VERSIONED)
+	docker manifest push --purge $(DOCKER_IMAGE_NAME):$(VERSION)
+	docker manifest push --purge $(DOCKER_IMAGE_NAME):latest
+	TOKEN=$$(curl -s -H "Content-Type: application/json" -X POST -d "{\"username\":\"$${DOCKER_LOGIN}\",\"password\":\"$${DOCKER_PASSWORD}\"}" "https://hub.docker.com/v2/users/login/" | jq -r .token) ; \
+	for arch in $(LINUX_ARCH); do \
+		curl -X DELETE -H "Authorization: JWT $${TOKEN}" "https://hub.docker.com/v2/repositories/$(DOCKER_IMAGE_NAME)/tags/$${arch}-$(VERSION)/" ;\
+	done
+endif

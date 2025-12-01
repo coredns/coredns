@@ -29,14 +29,19 @@ func (p RRSet) Less(i, j int) bool { return p[i].String() < p[j].String() }
 // Case represents a test case that encapsulates various data from a query and response.
 // Note that is the TTL of a record is 303 we don't compare it with the TTL.
 type Case struct {
-	Qname  string
-	Qtype  uint16
-	Rcode  int
-	Do     bool
-	Answer []dns.RR
-	Ns     []dns.RR
-	Extra  []dns.RR
-	Error  error
+	Qname              string
+	Qtype              uint16
+	Rcode              int
+	Do                 bool
+	CheckingDisabled   bool
+	RecursionAvailable bool
+	AuthenticatedData  bool
+	Authoritative      bool
+	Truncated          bool
+	Answer             []dns.RR
+	Ns                 []dns.RR
+	Extra              []dns.RR
+	Error              error
 }
 
 // Msg returns a *dns.Msg embedded in c.
@@ -80,6 +85,9 @@ func PTR(rr string) *dns.PTR { r, _ := dns.NewRR(rr); return r.(*dns.PTR) }
 
 // TXT returns a TXT record from rr. It panics on errors.
 func TXT(rr string) *dns.TXT { r, _ := dns.NewRR(rr); return r.(*dns.TXT) }
+
+// CAA returns a CAA record from rr. It panics on errors.
+func CAA(rr string) *dns.CAA { r, _ := dns.NewRR(rr); return r.(*dns.CAA) }
 
 // HINFO returns a HINFO record from rr. It panics on errors.
 func HINFO(rr string) *dns.HINFO { r, _ := dns.NewRR(rr); return r.(*dns.HINFO) }
@@ -281,7 +289,6 @@ func SortAndCheck(resp *dns.Msg, tc Case) error {
 	}
 	if err := Section(tc, Ns, resp.Ns); err != nil {
 		return err
-
 	}
 	return Section(tc, Extra, resp.Extra)
 }

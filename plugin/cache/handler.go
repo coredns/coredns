@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/request"
 
@@ -17,6 +18,8 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	rc := r.Copy() // We potentially modify r, to prevent other plugins from seeing this (r is a pointer), copy r into rc.
 	state := request.Request{W: w, Req: rc}
 	do := state.Do()
+	cd := r.CheckingDisabled
+	ad := r.AuthenticatedData
 
 	zone := plugin.Zones(c.Zones).Matches(state.Name())
 	if zone == "" {
@@ -26,40 +29,71 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	now := c.now().UTC()
 	server := metrics.WithServer(ctx)
 
-	// On cache miss, if the request has the OPT record and the DO bit set we leave the message as-is. If there isn't a DO bit
-	// set we will modify the request to _add_ one. This means we will always do DNSSEC lookups on cache misses.
-	// When writing to cache, any DNSSEC RRs in the response are written to cache with the response.
-	// When sending a response to a non-DNSSEC client, we remove DNSSEC RRs from the response. We use a 2048 buffer size, which is
-	// less than 4096 (and older default) and more than 1024 which may be too small. We might need to tweaks this
-	// value to be smaller still to prevent UDP fragmentation?
+	// On cache refresh, we will just use the DO bit from the incoming query for the refresh since we key our cache
+	// with the query DO bit. That means two separate cache items for the query DO bit true or false. In the situation
+	// in which upstream doesn't support DNSSEC, the two cache items will effectively be the same. Regardless, any
+	// DNSSEC RRs in the response are written to cache with the response.
 
 	ttl := 0
 	i := c.getIgnoreTTL(now, state, server)
-	if i != nil {
-		ttl = i.ttl(now)
-	}
 	if i == nil {
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do}
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, ad: ad, cd: cd,
+			nexcept: c.nexcept, pexcept: c.pexcept, wildcardFunc: wildcardFunc(ctx)}
 		return c.doRefresh(ctx, state, crr)
 	}
+	ttl = i.ttl(now)
 	if ttl < 0 {
-		servedStale.WithLabelValues(server).Inc()
+		// serve stale behavior
+		if c.verifyStale {
+			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, cd: cd}
+			cw := newVerifyStaleResponseWriter(crr)
+			ret, err := c.doRefresh(ctx, state, cw)
+			if cw.refreshed {
+				return ret, err
+			}
+		}
+
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
-		cw := newPrefetchResponseWriter(server, state, c)
-		go c.doPrefetch(ctx, state, cw, i, now)
+		if !c.verifyStale {
+			cw := newPrefetchResponseWriter(server, state, c)
+			go c.doPrefetch(ctx, state, cw, i, now)
+		}
+		servedStale.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	} else if c.shouldPrefetch(i, now) {
 		cw := newPrefetchResponseWriter(server, state, c)
 		go c.doPrefetch(ctx, state, cw, i, now)
 	}
-	resp := i.toMsg(r, now, do)
-	w.WriteMsg(resp)
 
+	if i.wildcard != "" {
+		// Set wildcard source record name to metadata
+		metadata.SetValueFunc(ctx, "zone/wildcard", func() string {
+			return i.wildcard
+		})
+	}
+
+	if c.keepttl {
+		// If keepttl is enabled we fake the current time to the stored
+		// one so that we always get the original TTL
+		now = i.stored
+	}
+	resp := i.toMsg(r, now, do, ad)
+	w.WriteMsg(resp)
 	return dns.RcodeSuccess, nil
 }
 
+func wildcardFunc(ctx context.Context) func() string {
+	return func() string {
+		// Get wildcard source record name from metadata
+		if f := metadata.ValueFunc(ctx, "zone/wildcard"); f != nil {
+			return f()
+		}
+		return ""
+	}
+}
+
 func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time) {
-	cachePrefetches.WithLabelValues(cw.server).Inc()
+	cachePrefetches.WithLabelValues(cw.server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	c.doRefresh(ctx, state, cw)
 
 	// When prefetching we loose the item i, and with it the frequency
@@ -70,10 +104,7 @@ func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *Respo
 	}
 }
 
-func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw *ResponseWriter) (int, error) {
-	if !state.Do() {
-		setDo(state.Req)
-	}
+func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw dns.ResponseWriter) (int, error) {
 	return plugin.NextOrFailure(c.Name(), c.Next, ctx, cw, state.Req)
 }
 
@@ -89,46 +120,33 @@ func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 // Name implements the Handler interface.
 func (c *Cache) Name() string { return "cache" }
 
-func (c *Cache) get(now time.Time, state request.Request, server string) (*item, bool) {
-	k := hash(state.Name(), state.QType())
-
-	if i, ok := c.ncache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Denial).Inc()
-		return i.(*item), true
-	}
-
-	if i, ok := c.pcache.Get(k); ok && i.(*item).ttl(now) > 0 {
-		cacheHits.WithLabelValues(server, Success).Inc()
-		return i.(*item), true
-	}
-	cacheMisses.WithLabelValues(server).Inc()
-	return nil, false
-}
-
 // getIgnoreTTL unconditionally returns an item if it exists in the cache.
 func (c *Cache) getIgnoreTTL(now time.Time, state request.Request, server string) *item {
-	k := hash(state.Name(), state.QType())
+	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
+	cacheRequests.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok {
-		ttl := i.(*item).ttl(now)
-		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
-			cacheHits.WithLabelValues(server, Denial).Inc()
+		itm := i.(*item)
+		ttl := itm.ttl(now)
+		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 			return i.(*item)
 		}
 	}
 	if i, ok := c.pcache.Get(k); ok {
-		ttl := i.(*item).ttl(now)
-		if ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds())) {
-			cacheHits.WithLabelValues(server, Success).Inc()
+		itm := i.(*item)
+		ttl := itm.ttl(now)
+		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 			return i.(*item)
 		}
 	}
-	cacheMisses.WithLabelValues(server).Inc()
+	cacheMisses.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	return nil
 }
 
 func (c *Cache) exists(state request.Request) *item {
-	k := hash(state.Name(), state.QType())
+	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
 	if i, ok := c.ncache.Get(k); ok {
 		return i.(*item)
 	}
@@ -137,22 +155,3 @@ func (c *Cache) exists(state request.Request) *item {
 	}
 	return nil
 }
-
-// setDo sets the DO bit and UDP buffer size in the message m.
-func setDo(m *dns.Msg) {
-	o := m.IsEdns0()
-	if o != nil {
-		o.SetDo()
-		o.SetUDPSize(defaultUDPBufSize)
-		return
-	}
-
-	o = &dns.OPT{Hdr: dns.RR_Header{Name: ".", Rrtype: dns.TypeOPT}}
-	o.SetDo()
-	o.SetUDPSize(defaultUDPBufSize)
-	m.Extra = append(m.Extra, o)
-}
-
-// defaultUDPBufsize is the bufsize the cache plugin uses on outgoing requests that don't
-// have an OPT RR.
-const defaultUDPBufSize = 2048

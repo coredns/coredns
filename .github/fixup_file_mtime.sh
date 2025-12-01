@@ -9,7 +9,7 @@ if [[ ! -f 'coredns.1.md' ]]; then
   exit 1
 fi
 
-for file in coredns.1.md corefile.5.md plugin/*/README.md; do
+for file in coredns.1.md corefile.5.md plugin/*/README.md man/*.1 man/*.5 man/*.7; do
   time=$(git log --pretty=format:%cd -n 1 --date='format:%Y%m%d%H%M.%S' "${file}")
   touch -m -t "${time}" "${file}"
 done

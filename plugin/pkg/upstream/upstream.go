@@ -18,21 +18,18 @@ type Upstream struct{}
 // New creates a new Upstream to resolve names using the coredns process.
 func New() *Upstream { return &Upstream{} }
 
-// Lookup routes lookups to our selves or forward to a remote.
+// Lookup routes lookups to our selves to make it follow the plugin chain *again*, but with a (possibly) new query. As
+// we are doing the query against ourselves again, there is no actual new hop, as such RFC 6891 does not apply and we
+// need the EDNS0 option present in the *original* query to be present here too.
 func (u *Upstream) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
 	server, ok := ctx.Value(dnsserver.Key{}).(*dnsserver.Server)
 	if !ok {
 		return nil, fmt.Errorf("no full server is running")
 	}
-
-	size := state.Size()
-	do := state.Do()
-	req := new(dns.Msg)
-	req.SetQuestion(name, typ)
-	req.SetEdns0(uint16(size), do)
+	req := state.NewWithQuestion(name, typ)
 
 	nw := nonwriter.New(state.W)
-	server.ServeDNS(ctx, nw, req)
+	server.ServeDNS(ctx, nw, req.Req)
 
 	return nw.Msg, nil
 }

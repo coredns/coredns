@@ -10,3 +10,15 @@ func TestPath(t *testing.T) {
 		}
 	}
 }
+
+func TestDomain(t *testing.T) {
+	result1 := Domain("/skydns/local/cluster/staging/service/")
+	if result1 != "service.staging.cluster.local." {
+		t.Errorf("Failure to get domain from etcd key (with a trailing '/'), expect: 'service.staging.cluster.local.', actually get: '%s'", result1)
+	}
+
+	result2 := Domain("/skydns/local/cluster/staging/service")
+	if result2 != "service.staging.cluster.local." {
+		t.Errorf("Failure to get domain from etcd key (without trailing '/'), expect: 'service.staging.cluster.local.' actually get: '%s'", result2)
+	}
+}

@@ -256,6 +256,12 @@ func TestLabels(t *testing.T) {
 		if repl != expect[lbl] {
 			t.Errorf("Expected value %q, got %q", expect[lbl], repl)
 		}
+
+		// test empty state and nil recorder won't panic
+		repl_empty := replacer.Replace(ctx, request.Request{}, nil, lbl)
+		if repl_empty != EmptyValue {
+			t.Errorf("Expected empty value %q, got %q", EmptyValue, repl_empty)
+		}
 	}
 }
 
@@ -276,7 +282,6 @@ func BenchmarkReplacer(b *testing.B) {
 }
 
 func BenchmarkReplacer_CommonLogFormat(b *testing.B) {
-
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 	r := new(dns.Msg)
 	r.SetQuestion("example.org.", dns.TypeHINFO)
@@ -341,12 +346,11 @@ func TestMetadataReplacement(t *testing.T) {
 		Next: next,
 	}
 
-	m.ServeDNS(context.TODO(), &test.ResponseWriter{}, new(dns.Msg))
-	ctx := next.ctx // important because the m.ServeDNS has only now populated the context
-
 	w := dnstest.NewRecorder(&test.ResponseWriter{})
 	r := new(dns.Msg)
 	r.SetQuestion("example.org.", dns.TypeHINFO)
+
+	ctx := m.Collect(context.TODO(), request.Request{W: w, Req: r})
 
 	repl := New()
 	state := request.Request{W: w, Req: r}
@@ -390,6 +394,55 @@ func TestMetadataMalformed(t *testing.T) {
 		r := repl.Replace(ctx, state, nil, ts.expr)
 		if r != ts.result {
 			t.Errorf("Test %d - expr : %s, expected %q, got %q", i, ts.expr, ts.result, r)
+		}
+	}
+}
+
+func TestNoResponseWasWritten(t *testing.T) {
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeHINFO)
+	r.Id = 1053
+	r.AuthenticatedData = true
+	r.CheckingDisabled = true
+	state := request.Request{W: w, Req: r}
+
+	replacer := New()
+	ctx := context.TODO()
+
+	// This couples the test very tightly to the code, but so be it.
+	expect := map[string]string{
+		"{type}":                    "HINFO",
+		"{name}":                    "example.org.",
+		"{class}":                   "IN",
+		"{proto}":                   "udp",
+		"{size}":                    "29",
+		"{remote}":                  "10.240.0.1",
+		"{port}":                    "40212",
+		"{local}":                   "127.0.0.1",
+		headerReplacer + "id}":      "1053",
+		headerReplacer + "opcode}":  "0",
+		headerReplacer + "do}":      "false",
+		headerReplacer + "bufsize}": "512",
+		"{rcode}":                   "-",
+		"{rsize}":                   "0",
+		"{duration}":                "0",
+		headerReplacer + "rflags}":  "-",
+	}
+	if len(expect) != len(labels) {
+		t.Fatalf("Expect %d labels, got %d", len(expect), len(labels))
+	}
+
+	for lbl := range labels {
+		repl := replacer.Replace(ctx, state, w, lbl)
+		if lbl == "{duration}" {
+			if repl[len(repl)-1] != 's' {
+				t.Errorf("Expected seconds, got %q", repl)
+			}
+			continue
+		}
+		if repl != expect[lbl] {
+			t.Errorf("Expected value %q, got %q", expect[lbl], repl)
 		}
 	}
 }

@@ -183,7 +183,6 @@ Restart:
 			retryTicker.Stop()
 			expireTicker.Stop()
 			goto Restart
-
 		}
 	}
 }
@@ -192,7 +191,6 @@ Restart:
 func jitter(n int) time.Duration {
 	r := rand.Intn(n)
 	return time.Duration(r) * time.Millisecond
-
 }
 
 // MaxSerialIncrement is the maximum difference between two serial numbers. If the difference between

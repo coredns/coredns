@@ -2,12 +2,12 @@
 
 ## Name
 
-*tls* - allows you to configure the server certificates for the TLS and gRPC servers.
+*tls* - allows you to configure the server certificates for the TLS, gRPC, DoH servers.
 
 ## Description
 
 CoreDNS supports queries that are encrypted using TLS (DNS over Transport Layer Security, RFC 7858)
-or are using gRPC (https://grpc.io/, not an IETF standard). Normally DNS traffic isn't encrypted at
+or are using gRPC (https://grpc.io/ , not an IETF standard). Normally DNS traffic isn't encrypted at
 all (DNSSEC only signs resource records).
 
 The *tls* "plugin" allows you to configure the cryptographic keys that are needed for both
@@ -52,6 +52,14 @@ incoming queries.
 
 ~~~
 grpc://. {
+	tls cert.pem key.pem ca.pem
+	forward . /etc/resolv.conf
+}
+~~~
+
+Start a DoH server on port 443 that is similar to the previous example, but using DoH for incoming queries.
+~~~
+https://. {
 	tls cert.pem key.pem ca.pem
 	forward . /etc/resolv.conf
 }

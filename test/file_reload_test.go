@@ -1,7 +1,7 @@
 package test
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -45,9 +45,9 @@ func TestZoneReload(t *testing.T) {
 	}
 
 	// Remove RR from the Apex
-	ioutil.WriteFile(name, []byte(exampleOrgUpdated), 0644)
+	os.WriteFile(name, []byte(exampleOrgUpdated), 0644)
 
-	time.Sleep(10 * time.Millisecond) // reload time
+	time.Sleep(20 * time.Millisecond) // reload time, with some race insurance
 
 	resp, err = dns.Exchange(m, udp)
 	if err != nil {
@@ -55,7 +55,7 @@ func TestZoneReload(t *testing.T) {
 	}
 
 	if len(resp.Answer) != 1 {
-		t.Fatalf("Expected two RR in answer section got %d", len(resp.Answer))
+		t.Fatalf("Expected one RR in answer section got %d", len(resp.Answer))
 	}
 }
 

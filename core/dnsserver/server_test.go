@@ -17,7 +17,7 @@ func (tp testPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	return 0, nil
 }
 
-func (tp testPlugin) Name() string { return "testplugin" }
+func (tp testPlugin) Name() string { return "local" }
 
 func testConfig(transport string, p plugin.Handler) *Config {
 	c := &Config{
@@ -26,6 +26,7 @@ func testConfig(transport string, p plugin.Handler) *Config {
 		ListenHosts: []string{"127.0.0.1"},
 		Port:        "53",
 		Debug:       false,
+		Stacktrace:  false,
 	}
 
 	c.AddPlugin(func(next plugin.Handler) plugin.Handler { return p })
@@ -46,6 +47,11 @@ func TestNewServer(t *testing.T) {
 	_, err = NewServerTLS("127.0.0.1:53", []*Config{testConfig("tls", testPlugin{})})
 	if err != nil {
 		t.Errorf("Expected no error for NewServerTLS, got %s", err)
+	}
+
+	_, err = NewServerQUIC("127.0.0.1:53", []*Config{testConfig("quic", testPlugin{})})
+	if err != nil {
+		t.Errorf("Expected no error for NewServerQUIC, got %s", err)
 	}
 }
 
@@ -73,6 +79,27 @@ func TestDebug(t *testing.T) {
 	}
 	if log.D.Value() {
 		t.Errorf("Expected debug logging disabled")
+	}
+}
+
+func TestStacktrace(t *testing.T) {
+	configNoStacktrace, configStacktrace := testConfig("dns", testPlugin{}), testConfig("dns", testPlugin{})
+	configStacktrace.Stacktrace = true
+
+	s1, err := NewServer("127.0.0.1:53", []*Config{configStacktrace, configStacktrace})
+	if err != nil {
+		t.Errorf("Expected no error for NewServer, got %s", err)
+	}
+	if !s1.stacktrace {
+		t.Errorf("Expected stacktrace mode enabled for server s1")
+	}
+
+	s2, err := NewServer("127.0.0.1:53", []*Config{configNoStacktrace})
+	if err != nil {
+		t.Errorf("Expected no error for NewServer, got %s", err)
+	}
+	if s2.stacktrace {
+		t.Errorf("Expected stacktrace disabled for server s2")
 	}
 }
 

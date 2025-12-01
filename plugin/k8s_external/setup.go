@@ -1,6 +1,7 @@
 package external
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/coredns/caddy"
@@ -9,7 +10,9 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 )
 
-func init() { plugin.Register("k8s_external", setup) }
+const pluginName = "k8s_external"
+
+func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	e, err := parse(c)
@@ -21,12 +24,18 @@ func setup(c *caddy.Controller) error {
 	c.OnStartup(func() error {
 		m := dnsserver.GetConfig(c).Handler("kubernetes")
 		if m == nil {
-			return nil
+			return plugin.Error(pluginName, errors.New("kubernetes plugin not loaded"))
 		}
-		if x, ok := m.(Externaler); ok {
-			e.externalFunc = x.External
-			e.externalAddrFunc = x.ExternalAddress
+
+		x, ok := m.(Externaler)
+		if !ok {
+			return plugin.Error(pluginName, errors.New("kubernetes plugin does not implement the Externaler interface"))
 		}
+
+		e.externalFunc = x.External
+		e.externalAddrFunc = x.ExternalAddress
+		e.externalServicesFunc = x.ExternalServices
+		e.externalSerialFunc = x.ExternalSerial
 		return nil
 	})
 
@@ -44,15 +53,7 @@ func parse(c *caddy.Controller) (*External, error) {
 	e := New()
 
 	for c.Next() { // external
-		zones := c.RemainingArgs()
-		e.Zones = zones
-		if len(zones) == 0 {
-			e.Zones = make([]string, len(c.ServerBlockKeys))
-			copy(e.Zones, c.ServerBlockKeys)
-		}
-		for i, str := range e.Zones {
-			e.Zones[i] = plugin.Host(str).Normalize()
-		}
+		e.Zones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 		for c.NextBlock() {
 			switch c.Val() {
 			case "ttl":
@@ -74,6 +75,10 @@ func parse(c *caddy.Controller) (*External, error) {
 					return nil, c.ArgErr()
 				}
 				e.apex = args[0]
+			case "headless":
+				e.headless = true
+			case "fallthrough":
+				e.Fall.SetZonesFromArgs(c.RemainingArgs())
 			default:
 				return nil, c.Errf("unknown property '%s'", c.Val())
 			}

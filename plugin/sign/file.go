@@ -3,7 +3,6 @@ package sign
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -15,7 +14,7 @@ import (
 
 // write writes out the zone file to a temporary file which is then moved into the correct place.
 func (s *Signer) write(z *file.Zone) error {
-	f, err := ioutil.TempFile(s.directory, "signed-")
+	f, err := os.CreateTemp(s.directory, "signed-")
 	if err != nil {
 		return err
 	}
@@ -67,10 +66,6 @@ func Parse(f io.Reader, origin, fileName string) (*file.Zone, error) {
 	seenSOA := false
 
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		if err := zp.Err(); err != nil {
-			return nil, err
-		}
-
 		switch rr.(type) {
 		case *dns.DNSKEY, *dns.RRSIG, *dns.CDNSKEY, *dns.CDS:
 			continue
@@ -87,6 +82,10 @@ func Parse(f io.Reader, origin, fileName string) (*file.Zone, error) {
 	}
 	if !seenSOA {
 		return nil, fmt.Errorf("file %q has no SOA record", fileName)
+	}
+
+	if err := zp.Err(); err != nil {
+		return nil, err
 	}
 
 	return z, nil

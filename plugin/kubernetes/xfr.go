@@ -18,6 +18,10 @@ import (
 
 // Transfer implements the transfer.Transfer interface.
 func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
+	match := plugin.Zones(k.Zones).Matches(zone)
+	if match == "" {
+		return nil, transfer.ErrNotAuthoritative
+	}
 	// state is not used here, hence the empty request.Request{]
 	soa, err := plugin.SOA(context.TODO(), k, zone, request.Request{}, plugin.Options{})
 	if err != nil {
@@ -38,6 +42,17 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 		}
 		ch <- soa
 
+		nsAddrs := k.nsAddrs(false, false, zone)
+		nsHosts := make(map[string]struct{})
+		for _, nsAddr := range nsAddrs {
+			nsHost := nsAddr.Header().Name
+			if _, ok := nsHosts[nsHost]; !ok {
+				nsHosts[nsHost] = struct{}{}
+				ch <- []dns.RR{&dns.NS{Hdr: dns.RR_Header{Name: zone, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: k.ttl}, Ns: nsHost}}
+			}
+			ch <- nsAddrs
+		}
+
 		sort.Slice(serviceList, func(i, j int) bool {
 			return serviceList[i].Name < serviceList[j].Name
 		})
@@ -48,7 +63,6 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 			}
 			svcBase := []string{zonePath, Svc, svc.Namespace, svc.Name}
 			switch svc.Type {
-
 			case api.ServiceTypeClusterIP, api.ServiceTypeNodePort, api.ServiceTypeLoadBalancer:
 				clusterIP := net.ParseIP(svc.ClusterIPs[0])
 				if clusterIP != nil {
@@ -75,7 +89,7 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 							continue
 						}
 
-						s.Key = strings.Join(append(svcBase, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+string(p.Name))), "/")
+						s.Key = strings.Join(append(svcBase, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+p.Name)), "/")
 
 						ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), 100)}
 					}
@@ -110,7 +124,7 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 
 								s.Port = int(p.Port)
 
-								s.Key = strings.Join(append(svcBase, strings.ToLower("_"+string(p.Protocol)), strings.ToLower("_"+string(p.Name))), "/")
+								s.Key = strings.Join(append(svcBase, strings.ToLower("_"+p.Protocol), strings.ToLower("_"+p.Name)), "/")
 								ch <- []dns.RR{s.NewSRV(msg.Domain(s.Key), srvWeight)}
 							}
 						}
@@ -150,7 +164,7 @@ func emitAddressRecord(c chan<- []dns.RR, s msg.Service) string {
 	return ""
 }
 
-// calcSrvWeight borrows the logic implemented in plugin.SRV for dynamically
+// calcSRVWeight borrows the logic implemented in plugin.SRV for dynamically
 // calculating the srv weight and priority
 func calcSRVWeight(numservices int) uint16 {
 	var services []msg.Service

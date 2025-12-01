@@ -60,12 +60,12 @@ func TestTransport(t *testing.T) {
 			wg.Done()
 		}()
 
-		dio := newIO(param[0], l.Addr().String())
+		dio := newIO(param[0], l.Addr().String(), 1, 1)
 		dio.tcpTimeout = 10 * time.Millisecond
 		dio.flushTimeout = 30 * time.Millisecond
 		dio.connect()
 
-		dio.Dnstap(tmsg)
+		dio.Dnstap(&tmsg)
 
 		wg.Wait()
 		l.Close()
@@ -89,7 +89,7 @@ func TestRace(t *testing.T) {
 		wg.Done()
 	}()
 
-	dio := newIO("tcp", l.Addr().String())
+	dio := newIO("tcp", l.Addr().String(), 1, 1)
 	dio.tcpTimeout = 10 * time.Millisecond
 	dio.flushTimeout = 30 * time.Millisecond
 	dio.connect()
@@ -99,7 +99,7 @@ func TestRace(t *testing.T) {
 	for i := 0; i < count; i++ {
 		go func() {
 			tmsg := tap.Dnstap_MESSAGE
-			dio.Dnstap(tap.Dnstap{Type: &tmsg})
+			dio.Dnstap(&tap.Dnstap{Type: &tmsg})
 			wg.Done()
 		}()
 	}
@@ -122,13 +122,13 @@ func TestReconnect(t *testing.T) {
 	}()
 
 	addr := l.Addr().String()
-	dio := newIO("tcp", addr)
+	dio := newIO("tcp", addr, 1, 1)
 	dio.tcpTimeout = 10 * time.Millisecond
 	dio.flushTimeout = 30 * time.Millisecond
 	dio.connect()
 	defer dio.close()
 
-	dio.Dnstap(tmsg)
+	dio.Dnstap(&tmsg)
 
 	wg.Wait()
 
@@ -149,7 +149,7 @@ func TestReconnect(t *testing.T) {
 
 	for i := 0; i < count; i++ {
 		time.Sleep(100 * time.Millisecond)
-		dio.Dnstap(tmsg)
+		dio.Dnstap(&tmsg)
 	}
 	wg.Wait()
 }

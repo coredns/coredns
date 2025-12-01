@@ -100,11 +100,11 @@ func (e *Empty) GetOwnerReferences() []v1.OwnerReference { return nil }
 // SetOwnerReferences implements the metav1.Object interface.
 func (e *Empty) SetOwnerReferences([]v1.OwnerReference) {}
 
-// GetClusterName implements the metav1.Object interface.
-func (e *Empty) GetClusterName() string { return "" }
+// GetZZZ_DeprecatedClusterName implements the metav1.Object interface.
+func (e *Empty) GetZZZ_DeprecatedClusterName() string { return "" }
 
-// SetClusterName implements the metav1.Object interface.
-func (e *Empty) SetClusterName(clusterName string) {}
+// SetZZZ_DeprecatedClusterName implements the metav1.Object interface.
+func (e *Empty) SetZZZ_DeprecatedClusterName(clusterName string) {}
 
 // GetManagedFields implements the metav1.Object interface.
 func (e *Empty) GetManagedFields() []v1.ManagedFieldsEntry { return nil }

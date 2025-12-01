@@ -99,7 +99,14 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	case Delegation:
 		m.Authoritative = false
 	case ServerFailure:
-		return dns.RcodeServerFailure, nil
+		// If the result is SERVFAIL and the answer is non-empty, then the SERVFAIL came from an
+		// external CNAME lookup and the answer contains the CNAME with no target record. We should
+		// write the CNAME record to the client instead of sending an empty SERVFAIL response.
+		if len(m.Answer) == 0 {
+			return dns.RcodeServerFailure, nil
+		}
+		//  The rcode in the response should be the rcode received from the target lookup. RFC 6604 section 3
+		m.Rcode = dns.RcodeServerFailure
 	}
 
 	w.WriteMsg(m)
@@ -129,10 +136,6 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 	z := NewZone(origin, fileName)
 	seenSOA := false
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		if err := zp.Err(); err != nil {
-			return nil, err
-		}
-
 		if !seenSOA {
 			if s, ok := rr.(*dns.SOA); ok {
 				seenSOA = true
@@ -151,6 +154,13 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 	}
 	if !seenSOA {
 		return nil, fmt.Errorf("file %q has no SOA record for origin %s", fileName, origin)
+	}
+	if zp.Err() != nil {
+		return nil, fmt.Errorf("failed to parse file %q for origin %s with error %v", fileName, origin, zp.Err())
+	}
+
+	if err := zp.Err(); err != nil {
+		return nil, err
 	}
 
 	return z, nil

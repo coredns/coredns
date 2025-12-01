@@ -32,7 +32,7 @@ func TestNoDebug(t *testing.T) {
 	}
 }
 
-func ExampleLogHexdump() {
+func ExampleHexdump() {
 	buf, _ := msg().Pack()
 	h := hexdump(buf)
 	fmt.Println(string(h))

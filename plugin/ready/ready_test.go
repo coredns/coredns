@@ -32,7 +32,7 @@ func TestReady(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to query %s: %v", address, err)
 	}
-	if response.StatusCode != 503 {
+	if response.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("Invalid status code: expecting %d, got %d", 503, response.StatusCode)
 	}
 	response.Body.Close()
@@ -48,7 +48,7 @@ func TestReady(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to query %s: %v", address, err)
 	}
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		t.Errorf("Invalid status code: expecting %d, got %d", 200, response.StatusCode)
 	}
 	response.Body.Close()
@@ -62,7 +62,7 @@ func TestReady(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unable to query %s: %v", address, err)
 	}
-	if response.StatusCode != 200 {
+	if response.StatusCode != http.StatusOK {
 		t.Errorf("Invalid status code: expecting %d, got %d", 200, response.StatusCode)
 	}
 	response.Body.Close()

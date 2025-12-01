@@ -25,6 +25,7 @@ func setup(c *caddy.Controller) error {
 	c.OnRestartFailed(func() error { return uniqAddr.ForEach() })
 
 	c.OnStartup(func() error {
+		plugins.Reset()
 		for _, p := range dnsserver.GetConfig(c).Handlers() {
 			if r, ok := p.(Readiness); ok {
 				plugins.Append(r, p.Name())

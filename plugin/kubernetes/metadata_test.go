@@ -29,8 +29,8 @@ var metadataCases = []struct {
 			"kubernetes/endpoint":  "",
 			"kubernetes/kind":      "pod",
 			"kubernetes/namespace": "podns",
-			"kubernetes/port-name": "*",
-			"kubernetes/protocol":  "*",
+			"kubernetes/port-name": "",
+			"kubernetes/protocol":  "",
 			"kubernetes/service":   "10-240-0-1",
 		},
 	},
@@ -40,8 +40,8 @@ var metadataCases = []struct {
 			"kubernetes/endpoint":  "",
 			"kubernetes/kind":      "svc",
 			"kubernetes/namespace": "ns",
-			"kubernetes/port-name": "*",
-			"kubernetes/protocol":  "*",
+			"kubernetes/port-name": "",
+			"kubernetes/protocol":  "",
 			"kubernetes/service":   "s",
 		},
 	},
@@ -52,8 +52,8 @@ var metadataCases = []struct {
 			"kubernetes/endpoint":  "",
 			"kubernetes/kind":      "svc",
 			"kubernetes/namespace": "ns",
-			"kubernetes/port-name": "*",
-			"kubernetes/protocol":  "*",
+			"kubernetes/port-name": "",
+			"kubernetes/protocol":  "",
 			"kubernetes/service":   "s",
 		},
 	},
@@ -76,8 +76,8 @@ var metadataCases = []struct {
 			"kubernetes/endpoint":  "ep",
 			"kubernetes/kind":      "svc",
 			"kubernetes/namespace": "ns",
-			"kubernetes/port-name": "*",
-			"kubernetes/protocol":  "*",
+			"kubernetes/port-name": "",
+			"kubernetes/protocol":  "",
 			"kubernetes/service":   "s",
 		},
 	},
@@ -141,8 +141,10 @@ func TestMetadataPodsVerified(t *testing.T) {
 	k.Metadata(ctx, state)
 
 	expect := map[string]string{
-		"kubernetes/client-namespace": "podns",
-		"kubernetes/client-pod-name":  "foo",
+		"kubernetes/client-namespace":                    "podns",
+		"kubernetes/client-pod-name":                     "foo",
+		"kubernetes/client-label/app.kubernetes.io/name": "foo",
+		"kubernetes/client-label/bar":                    "baz",
 	}
 
 	md := make(map[string]string)

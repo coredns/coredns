@@ -31,7 +31,6 @@ var tests = []struct {
 }
 
 func TestResponseReverter(t *testing.T) {
-
 	rules := []Rule{}
 	r, _ := newNameRule("stop", "regex", `(core)\.(dns)\.(rocks)`, "{2}.{1}.{3}", "answer", "name", `(dns)\.(core)\.(rocks)`, "{2}.{1}.{3}")
 	rules = append(rules, r)
@@ -53,9 +52,9 @@ func doReverterTests(rules []Rule, t *testing.T) {
 		m.Question[0].Qclass = dns.ClassINET
 		m.Answer = tc.answer
 		rw := Rewrite{
-			Next:     plugin.HandlerFunc(msgPrinter),
-			Rules:    rules,
-			noRevert: tc.noRevert,
+			Next:         plugin.HandlerFunc(msgPrinter),
+			Rules:        rules,
+			RevertPolicy: NewRevertPolicy(tc.noRevert, false),
 		}
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		rw.ServeDNS(ctx, rec, m)
@@ -81,38 +80,73 @@ var valueTests = []struct {
 	expectAnswerType uint16
 	expectAddlName   string
 }{
-	{"my.domain.uk", dns.TypeSRV, []dns.RR{test.SRV("my.cluster.local.  5  IN  SRV 0 100 100 srv1.my.cluster.local.")}, []dns.RR{test.A("srv1.my.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeSRV, false, "srv1.my.domain.uk.", dns.TypeSRV, "srv1.my.domain.uk."},
-	{"my.domain.uk", dns.TypeSRV, []dns.RR{test.SRV("my.cluster.local.  5  IN  SRV 0 100 100 srv1.my.cluster.local.")}, []dns.RR{test.A("srv1.my.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeSRV, true, "srv1.my.cluster.local.", dns.TypeSRV, "srv1.my.cluster.local."},
-	{"my.domain.uk", dns.TypeANY, []dns.RR{test.CNAME("my.cluster.local.  3600 IN CNAME cname.cluster.local.")}, []dns.RR{test.A("cname.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeANY, false, "cname.domain.uk.", dns.TypeCNAME, "cname.domain.uk."},
-	{"my.domain.uk", dns.TypeANY, []dns.RR{test.CNAME("my.cluster.local.  3600 IN CNAME cname.cluster.local.")}, []dns.RR{test.A("cname.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeANY, true, "cname.cluster.local.", dns.TypeCNAME, "cname.cluster.local."},
-	{"my.domain.uk", dns.TypeANY, []dns.RR{test.DNAME("my.cluster.local.  3600 IN DNAME dname.cluster.local.")}, []dns.RR{test.A("dname.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeANY, false, "dname.domain.uk.", dns.TypeDNAME, "dname.domain.uk."},
-	{"my.domain.uk", dns.TypeANY, []dns.RR{test.DNAME("my.cluster.local.  3600 IN DNAME dname.cluster.local.")}, []dns.RR{test.A("dname.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeANY, true, "dname.cluster.local.", dns.TypeDNAME, "dname.cluster.local."},
-	{"my.domain.uk", dns.TypeMX, []dns.RR{test.MX("my.cluster.local.	3600	IN	MX	1 mx1.cluster.local.")}, []dns.RR{test.A("mx1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeMX, false, "mx1.domain.uk.", dns.TypeMX, "mx1.domain.uk."},
-	{"my.domain.uk", dns.TypeMX, []dns.RR{test.MX("my.cluster.local.	3600	IN	MX	1 mx1.cluster.local.")}, []dns.RR{test.A("mx1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeMX, true, "mx1.cluster.local.", dns.TypeMX, "mx1.cluster.local."},
-	{"my.domain.uk", dns.TypeANY, []dns.RR{test.NS("my.cluster.local.	3600	IN	NS	ns1.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeANY, false, "ns1.domain.uk.", dns.TypeNS, "ns1.domain.uk."},
-	{"my.domain.uk", dns.TypeANY, []dns.RR{test.NS("my.cluster.local.	3600	IN	NS	ns1.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeANY, true, "ns1.cluster.local.", dns.TypeNS, "ns1.cluster.local."},
-	{"my.domain.uk", dns.TypeSOA, []dns.RR{test.SOA("my.cluster.local.		1800	IN	SOA	ns1.cluster.local. admin.cluster.local. 1502165581 14400 3600 604800 14400")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeSOA, false, "ns1.domain.uk.", dns.TypeSOA, "ns1.domain.uk."},
-	{"my.domain.uk", dns.TypeSOA, []dns.RR{test.SOA("my.cluster.local.		1800	IN	SOA	ns1.cluster.local. admin.cluster.local. 1502165581 14400 3600 604800 14400")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeSOA, true, "ns1.cluster.local.", dns.TypeSOA, "ns1.cluster.local."},
-	{"my.domain.uk", dns.TypeNAPTR, []dns.RR{test.NAPTR("my.cluster.local.  100  IN NAPTR 100 10 \"S\" \"SIP+D2U\" \"!^.*$!sip:customer-service@example.com!\" _sip._udp.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk", dns.TypeNAPTR, false, "_sip._udp.domain.uk.", dns.TypeNAPTR, "ns1.domain.uk."},
-	{"my.domain.uk", dns.TypeNAPTR, []dns.RR{test.NAPTR("my.cluster.local.  100  IN NAPTR 100 10 \"S\" \"SIP+D2U\" \"!^.*$!sip:customer-service@example.com!\" _sip._udp.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeNAPTR, true, "_sip._udp.cluster.local.", dns.TypeNAPTR, "ns1.cluster.local."},
+	{"my.domain.uk.", dns.TypeSRV, []dns.RR{test.SRV("my.cluster.local.  5  IN  SRV 0 100 100 srv1.my.cluster.local.")}, []dns.RR{test.A("srv1.my.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk.", dns.TypeSRV, false, "srv1.my.domain.uk.", dns.TypeSRV, "srv1.my.domain.uk."},
+	{"my.domain.uk.", dns.TypeSRV, []dns.RR{test.SRV("my.cluster.local.  5  IN  SRV 0 100 100 srv1.my.cluster.local.")}, []dns.RR{test.A("srv1.my.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeSRV, true, "srv1.my.cluster.local.", dns.TypeSRV, "srv1.my.cluster.local."},
+	{"my.domain.uk.", dns.TypeANY, []dns.RR{test.CNAME("my.cluster.local.  3600 IN CNAME cname.cluster.local.")}, []dns.RR{test.A("cname.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk.", dns.TypeANY, false, "cname.domain.uk.", dns.TypeCNAME, "cname.domain.uk."},
+	{"my.domain.uk.", dns.TypeANY, []dns.RR{test.CNAME("my.cluster.local.  3600 IN CNAME cname.cluster.local.")}, []dns.RR{test.A("cname.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeANY, true, "cname.cluster.local.", dns.TypeCNAME, "cname.cluster.local."},
+	{"my.domain.uk.", dns.TypeANY, []dns.RR{test.DNAME("my.cluster.local.  3600 IN DNAME dname.cluster.local.")}, []dns.RR{test.A("dname.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk.", dns.TypeANY, false, "dname.domain.uk.", dns.TypeDNAME, "dname.domain.uk."},
+	{"my.domain.uk.", dns.TypeANY, []dns.RR{test.DNAME("my.cluster.local.  3600 IN DNAME dname.cluster.local.")}, []dns.RR{test.A("dname.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeANY, true, "dname.cluster.local.", dns.TypeDNAME, "dname.cluster.local."},
+	{"my.domain.uk.", dns.TypeMX, []dns.RR{test.MX("my.cluster.local.	3600	IN	MX	1 mx1.cluster.local.")}, []dns.RR{test.A("mx1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk.", dns.TypeMX, false, "mx1.domain.uk.", dns.TypeMX, "mx1.domain.uk."},
+	{"my.domain.uk.", dns.TypeMX, []dns.RR{test.MX("my.cluster.local.	3600	IN	MX	1 mx1.cluster.local.")}, []dns.RR{test.A("mx1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeMX, true, "mx1.cluster.local.", dns.TypeMX, "mx1.cluster.local."},
+	{"my.domain.uk.", dns.TypeANY, []dns.RR{test.NS("my.cluster.local.	3600	IN	NS	ns1.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk.", dns.TypeANY, false, "ns1.domain.uk.", dns.TypeNS, "ns1.domain.uk."},
+	{"my.domain.uk.", dns.TypeANY, []dns.RR{test.NS("my.cluster.local.	3600	IN	NS	ns1.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeANY, true, "ns1.cluster.local.", dns.TypeNS, "ns1.cluster.local."},
+	{"my.domain.uk.", dns.TypeSOA, []dns.RR{test.SOA("my.cluster.local.		1800	IN	SOA	ns1.cluster.local. admin.cluster.local. 1502165581 14400 3600 604800 14400")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk.", dns.TypeSOA, false, "ns1.domain.uk.", dns.TypeSOA, "ns1.domain.uk."},
+	{"my.domain.uk.", dns.TypeSOA, []dns.RR{test.SOA("my.cluster.local.		1800	IN	SOA	ns1.cluster.local. admin.cluster.local. 1502165581 14400 3600 604800 14400")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeSOA, true, "ns1.cluster.local.", dns.TypeSOA, "ns1.cluster.local."},
+	{"my.domain.uk.", dns.TypeNAPTR, []dns.RR{test.NAPTR("my.cluster.local.  100  IN NAPTR 100 10 \"S\" \"SIP+D2U\" \"!^.*$!sip:customer-service@example.com!\" _sip._udp.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.domain.uk.", dns.TypeNAPTR, false, "_sip._udp.domain.uk.", dns.TypeNAPTR, "ns1.domain.uk."},
+	{"my.domain.uk.", dns.TypeNAPTR, []dns.RR{test.NAPTR("my.cluster.local.  100  IN NAPTR 100 10 \"S\" \"SIP+D2U\" \"!^.*$!sip:customer-service@example.com!\" _sip._udp.cluster.local.")}, []dns.RR{test.A("ns1.cluster.local.  5   IN  A  10.0.0.1")}, "my.cluster.local.", dns.TypeNAPTR, true, "_sip._udp.cluster.local.", dns.TypeNAPTR, "ns1.cluster.local."},
 }
 
 func TestValueResponseReverter(t *testing.T) {
-
 	rules := []Rule{}
-	r, _ := newNameRule("stop", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
+	r, err := newNameRule("stop", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
+	if err != nil {
+		t.Errorf("cannot parse rule: %s", err)
+		return
+	}
 	rules = append(rules, r)
 
-	doValueReverterTests(rules, t)
+	doValueReverterTests("stop", rules, t)
 
 	rules = []Rule{}
-	r, _ = newNameRule("continue", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
+	r, err = newNameRule("continue", "regex", `(.*)\.domain\.uk`, "{1}.cluster.local", "answer", "name", `(.*)\.cluster\.local`, "{1}.domain.uk", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
+	if err != nil {
+		t.Errorf("cannot parse rule: %s", err)
+		return
+	}
 	rules = append(rules, r)
 
-	doValueReverterTests(rules, t)
+	doValueReverterTests("continue", rules, t)
+
+	rules = []Rule{}
+	r, err = newNameRule("stop", "suffix", `.domain.uk`, ".cluster.local", "answer", "auto", "answer", "value", `(.*)\.cluster\.local`, "{1}.domain.uk")
+	if err != nil {
+		t.Errorf("cannot parse rule: %s", err)
+		return
+	}
+	rules = append(rules, r)
+
+	doValueReverterTests("suffix", rules, t)
+
+	// multiple rules
+	rules = []Rule{}
+	r, err = newNameRule("continue", "suffix", `.domain.uk`, ".domain.us", "answer", "auto")
+	if err != nil {
+		t.Errorf("cannot parse rule: %s", err)
+		return
+	}
+	rules = append(rules, r)
+
+	r, err = newNameRule("stop", "suffix", `.domain.us`, ".cluster.local", "answer", "auto")
+	if err != nil {
+		t.Errorf("cannot parse rule: %s", err)
+		return
+	}
+	rules = append(rules, r)
+
+	doValueReverterTests("suffix_multiple", rules, t)
 }
 
-func doValueReverterTests(rules []Rule, t *testing.T) {
+func doValueReverterTests(name string, rules []Rule, t *testing.T) {
 	ctx := context.TODO()
 	for i, tc := range valueTests {
 		m := new(dns.Msg)
@@ -121,37 +155,41 @@ func doValueReverterTests(rules []Rule, t *testing.T) {
 		m.Answer = tc.answer
 		m.Extra = tc.extra
 		rw := Rewrite{
-			Next:     plugin.HandlerFunc(msgPrinter),
-			Rules:    rules,
-			noRevert: tc.noRevert,
+			Next:         plugin.HandlerFunc(msgPrinter),
+			Rules:        rules,
+			RevertPolicy: NewRevertPolicy(tc.noRevert, false),
 		}
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		rw.ServeDNS(ctx, rec, m)
 		resp := rec.Msg
 		if resp.Question[0].Name != tc.to {
-			t.Errorf("Test %d: Expected Name to be %q but was %q", i, tc.to, resp.Question[0].Name)
+			t.Errorf("Test %s.%d: Expected Name to be %q but was %q", name, i, tc.to, resp.Question[0].Name)
 		}
 		if resp.Question[0].Qtype != tc.toType {
-			t.Errorf("Test %d: Expected Type to be '%d' but was '%d'", i, tc.toType, resp.Question[0].Qtype)
+			t.Errorf("Test %s.%d: Expected Type to be '%d' but was '%d'", name, i, tc.toType, resp.Question[0].Qtype)
 		}
 
-		if len(resp.Answer) <= 0 || resp.Answer[0].Header().Rrtype != tc.expectAnswerType {
-			t.Error("Unexpected Answer Record Type / No Answers")
+		if len(resp.Answer) <= 0 {
+			t.Errorf("Test %s.%d: No Answers", name, i)
+			return
+		}
+		if len(resp.Answer) > 0 && resp.Answer[0].Header().Rrtype != tc.expectAnswerType {
+			t.Errorf("Test %s.%d: Unexpected Answer Record Type %d", name, i, resp.Answer[0].Header().Rrtype)
 			return
 		}
 
 		value := getRecordValueForRewrite(resp.Answer[0])
 		if value != tc.expectValue {
-			t.Errorf("Test %d: Expected Target to be '%s' but was '%s'", i, tc.expectValue, value)
+			t.Errorf("Test %s.%d: Expected Target to be '%s' but was '%s'", name, i, tc.expectValue, value)
 		}
 
 		if len(resp.Extra) <= 0 || resp.Extra[0].Header().Rrtype != dns.TypeA {
-			t.Error("Unexpected Additional Record Type / No Additional Records")
+			t.Errorf("Test %s.%d: Unexpected Additional Record Type / No Additional Records", name, i)
 			return
 		}
 
 		if resp.Extra[0].Header().Name != tc.expectAddlName {
-			t.Errorf("Test %d: Expected Extra Name to be %q but was %q", i, tc.expectAddlName, resp.Extra[0].Header().Name)
+			t.Errorf("Test %s.%d: Expected Extra Name to be %q but was %q", name, i, tc.expectAddlName, resp.Extra[0].Header().Name)
 		}
 	}
 }

@@ -16,8 +16,8 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	etcdcv3 "go.etcd.io/etcd/clientv3"
-	"go.etcd.io/etcd/mvcc/mvccpb"
+	"go.etcd.io/etcd/api/v3/mvccpb"
+	etcdcv3 "go.etcd.io/etcd/client/v3"
 )
 
 const (
@@ -182,4 +182,12 @@ func (e *Etcd) TTL(kv *mvccpb.KeyValue, serv *msg.Service) uint32 {
 // value while the TXT field will be empty.
 func shouldInclude(serv *msg.Service, qType uint16) bool {
 	return (qType == dns.TypeTXT && serv.Text != "") || serv.Host != ""
+}
+
+// OnShutdown shuts down etcd client when caddy instance restart
+func (e *Etcd) OnShutdown() error {
+	if e.Client != nil {
+		e.Client.Close()
+	}
+	return nil
 }

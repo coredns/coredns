@@ -1,6 +1,9 @@
 package plugin
 
-import "testing"
+import (
+	"sort"
+	"testing"
+)
 
 func TestZoneMatches(t *testing.T) {
 	child := "example.org."
@@ -49,7 +52,6 @@ func TestNameMatches(t *testing.T) {
 		if actual != m.expected {
 			t.Errorf("Expected %v for %s/%s, got %v", m.expected, m.parent, m.child, actual)
 		}
-
 	}
 }
 
@@ -68,56 +70,71 @@ func TestNameNormalize(t *testing.T) {
 	}
 }
 
-func TestHostNormalize(t *testing.T) {
-	hosts := []string{".:53", ".", "example.org:53", "example.org.", "example.org.:53", "example.org.",
-		"10.0.0.0/8:53", "10.in-addr.arpa.", "10.0.0.0/9", "10.in-addr.arpa.",
-		"dns://example.org", "example.org."}
-
-	for i := 0; i < len(hosts); i += 2 {
-		ts := hosts[i]
-		expected := hosts[i+1]
-		actual := Host(ts).Normalize()
-		if expected != actual {
-			t.Errorf("Expected %v, got %v", expected, actual)
-		}
+func TestHostNormalizeExact(t *testing.T) {
+	tests := []struct {
+		in  string
+		out []string
+	}{
+		{".:53", []string{"."}},
+		{"example.org:53", []string{"example.org."}},
+		{"example.org.:53", []string{"example.org."}},
+		{"10.0.0.0/8:53", []string{"10.in-addr.arpa."}},
+		{"10.0.0.0/15", []string{"0.10.in-addr.arpa.", "1.10.in-addr.arpa."}},
+		{"10.9.3.0/18", []string{"0.9.10.in-addr.arpa.", "1.9.10.in-addr.arpa.", "2.9.10.in-addr.arpa."}},
+		{"2001:db8::/29", []string{
+			"8.b.d.0.1.0.0.2.ip6.arpa.",
+			"9.b.d.0.1.0.0.2.ip6.arpa.",
+			"a.b.d.0.1.0.0.2.ip6.arpa.",
+			"b.b.d.0.1.0.0.2.ip6.arpa.",
+			"c.b.d.0.1.0.0.2.ip6.arpa.",
+			"d.b.d.0.1.0.0.2.ip6.arpa.",
+			"e.b.d.0.1.0.0.2.ip6.arpa.",
+			"f.b.d.0.1.0.0.2.ip6.arpa.",
+		}},
+		{"2001:db8::/30", []string{
+			"8.b.d.0.1.0.0.2.ip6.arpa.",
+			"9.b.d.0.1.0.0.2.ip6.arpa.",
+			"a.b.d.0.1.0.0.2.ip6.arpa.",
+			"b.b.d.0.1.0.0.2.ip6.arpa.",
+		}},
+		{"2001:db8::/115", []string{
+			"0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+		}},
+		{"2001:db8::/114", []string{
+			"0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"3.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+		}},
+		{"2001:db8::/113", []string{
+			"0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"3.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"4.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"5.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"6.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+			"7.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+		}},
+		{"2001:db8::/112", []string{
+			"0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+		}},
+		{"2001:db8::/108", []string{
+			"0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa.",
+		}},
+		{"::fFFF:B:F/115", nil},
+		{"dns://example.org", []string{"example.org."}},
 	}
-}
 
-func TestHostMustNormalizeFail(t *testing.T) {
-	hosts := []string{"..:53", "::", ""}
-	for i := 0; i < len(hosts); i++ {
-		ts := hosts[i]
-		h, err := Host(ts).MustNormalize()
-		if err == nil {
-			t.Errorf("Expected error, got %v", h)
-		}
-	}
-}
-
-func TestSplitHostPortReverse(t *testing.T) {
-	tests := map[string]int{
-		"example.org.": 0,
-		"10.0.0.0/9":   32 - 9,
-		"10.0.0.0/8":   32 - 8,
-		"10.0.0.0/17":  32 - 17,
-		"10.0.0.0/0":   32 - 0,
-		"10.0.0.0/64":  0,
-		"10.0.0.0":     0,
-		"10.0.0":       0,
-		"2003::1/65":   128 - 65,
-	}
-	for in, expect := range tests {
-		_, _, n, err := SplitHostPort(in)
-		if err != nil {
-			t.Errorf("Expected no error, got %q for %s", in, err)
-		}
-		if n == nil {
-			continue
-		}
-		ones, bits := n.Mask.Size()
-		got := bits - ones
-		if got != expect {
-			t.Errorf("Expected %d, got %d for %s", expect, got, in)
+	for i := range tests {
+		actual := Host(tests[i].in).NormalizeExact()
+		expected := tests[i].out
+		sort.Strings(expected)
+		for j := range expected {
+			if expected[j] != actual[j] {
+				t.Errorf("Test %d, expected %v, got %v", i, expected[j], actual[j])
+			}
 		}
 	}
 }

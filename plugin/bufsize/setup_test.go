@@ -14,10 +14,11 @@ func TestSetupBufsize(t *testing.T) {
 		expectedData       int
 		expectedErrContent string // substring from the expected error. Empty for positive cases.
 	}{
-		{`bufsize`, false, 512, ""},
-		{`bufsize "1232"`, false, 1232, ""},
+		{`bufsize`, false, 1232, ""},
+		{`bufsize "1220"`, false, 1220, ""},
 		{`bufsize "5000"`, true, -1, "plugin"},
 		{`bufsize "512 512"`, true, -1, "plugin"},
+		{`bufsize "511"`, true, -1, "plugin"},
 		{`bufsize "abc123"`, true, -1, "plugin"},
 	}
 

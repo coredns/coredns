@@ -13,7 +13,7 @@ func NewIndexerInformer(lw cache.ListerWatcher, objType runtime.Object, h cache.
 	clientState := cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, indexers)
 
 	cfg := &cache.Config{
-		Queue:            cache.NewDeltaFIFO(cache.MetaNamespaceKeyFunc, clientState),
+		Queue:            cache.NewDeltaFIFOWithOptions(cache.DeltaFIFOOptions{KeyFunction: cache.MetaNamespaceKeyFunc, KnownObjects: clientState}),
 		ListerWatcher:    lw,
 		ObjectType:       objType,
 		FullResyncPeriod: defaultResyncPeriod,
@@ -29,7 +29,7 @@ type RecordLatencyFunc func(meta.Object)
 // DefaultProcessor is based on the Process function from cache.NewIndexerInformer except it does a conversion.
 func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) ProcessorBuilder {
 	return func(clientState cache.Indexer, h cache.ResourceEventHandler) cache.ProcessFunc {
-		return func(obj interface{}) error {
+		return func(obj interface{}, isInitialList bool) error {
 			for _, d := range obj.(cache.Deltas) {
 				if recordLatency != nil {
 					if o, ok := d.Object.(meta.Object); ok {
@@ -40,6 +40,9 @@ func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) Pr
 				case cache.Sync, cache.Added, cache.Updated:
 					obj, err := convert(d.Object.(meta.Object))
 					if err != nil {
+						if err == errPodTerminating {
+							continue
+						}
 						return err
 					}
 					if old, exists, err := clientState.Get(obj); err == nil && exists {
@@ -51,7 +54,7 @@ func DefaultProcessor(convert ToFunc, recordLatency *EndpointLatencyRecorder) Pr
 						if err := clientState.Add(obj); err != nil {
 							return err
 						}
-						h.OnAdd(obj)
+						h.OnAdd(obj, isInitialList)
 					}
 					if recordLatency != nil {
 						recordLatency.record()

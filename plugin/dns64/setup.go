@@ -6,13 +6,10 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 )
 
 const pluginName = "dns64"
-
-var log = clog.NewWithPlugin(pluginName)
 
 func init() { plugin.Register(pluginName, setup) }
 
@@ -66,6 +63,8 @@ func dns64Parse(c *caddy.Controller) (*DNS64, error) {
 				dns64.Prefix = pref
 			case "translate_all":
 				dns64.TranslateAll = true
+			case "allow_ipv4":
+				dns64.AllowIPv4 = true
 			default:
 				return nil, c.Errf("unknown property '%s'", c.Val())
 			}

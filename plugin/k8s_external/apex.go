@@ -11,13 +11,14 @@ import (
 func (e *External) serveApex(state request.Request) (int, error) {
 	m := new(dns.Msg)
 	m.SetReply(state.Req)
+	m.Authoritative = true
 	switch state.QType() {
 	case dns.TypeSOA:
 		m.Answer = []dns.RR{e.soa(state)}
 	case dns.TypeNS:
 		m.Answer = []dns.RR{e.ns(state)}
 
-		addr := e.externalAddrFunc(state)
+		addr := e.externalAddrFunc(state, e.headless)
 		for _, rr := range addr {
 			rr.Header().Ttl = e.ttl
 			rr.Header().Name = dnsutil.Join("ns1", e.apex, state.QName())
@@ -37,6 +38,7 @@ func (e *External) serveSubApex(state request.Request) (int, error) {
 
 	m := new(dns.Msg)
 	m.SetReply(state.Req)
+	m.Authoritative = true
 
 	// base is either dns. of ns1.dns (or another name), if it's longer return nxdomain
 	switch labels := dns.CountLabel(base); labels {
@@ -56,7 +58,7 @@ func (e *External) serveSubApex(state request.Request) (int, error) {
 			return 0, nil
 		}
 
-		addr := e.externalAddrFunc(state)
+		addr := e.externalAddrFunc(state, e.headless)
 		for _, rr := range addr {
 			rr.Header().Ttl = e.ttl
 			rr.Header().Name = state.QName()
@@ -93,7 +95,7 @@ func (e *External) soa(state request.Request) *dns.SOA {
 	soa := &dns.SOA{Hdr: header,
 		Mbox:    dnsutil.Join(e.hostmaster, e.apex, state.Zone),
 		Ns:      dnsutil.Join("ns1", e.apex, state.Zone),
-		Serial:  12345, // Also dynamic?
+		Serial:  e.externalSerialFunc(state.Zone),
 		Refresh: 7200,
 		Retry:   1800,
 		Expire:  86400,

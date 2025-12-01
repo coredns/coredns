@@ -98,7 +98,6 @@ func TestParse(t *testing.T) {
 			for k, zone := range x.Zones {
 				if tc.exp.xfrs[j].Zones[k] != zone {
 					t.Errorf("Test %d expected zone %v, got %v", i, tc.exp.xfrs[j].Zones[k], zone)
-
 				}
 			}
 			// Check to
@@ -108,7 +107,6 @@ func TestParse(t *testing.T) {
 			for k, to := range x.to {
 				if tc.exp.xfrs[j].to[k] != to {
 					t.Errorf("Test %d expected %v in 'to', got %v", i, tc.exp.xfrs[j].to[k], to)
-
 				}
 			}
 		}

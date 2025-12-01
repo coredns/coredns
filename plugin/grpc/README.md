@@ -129,6 +129,14 @@ Or with multiple upstreams from the same provider
 }
 ~~~
 
+Forward requests to a local upstream listening on a Unix domain socket.
+
+~~~ corefile
+. {
+    grpc . unix:///path/to/grpc.sock
+}
+~~~
+
 ## Bugs
 
 The TLS config is global for the whole grpc proxy if you need a different `tls_servername` for

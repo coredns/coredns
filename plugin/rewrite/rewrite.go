@@ -31,40 +31,47 @@ const (
 
 // Rewrite is a plugin to rewrite requests internally before being handled.
 type Rewrite struct {
-	Next     plugin.Handler
-	Rules    []Rule
-	noRevert bool
+	Next  plugin.Handler
+	Rules []Rule
+	RevertPolicy
 }
 
 // ServeDNS implements the plugin.Handler interface.
 func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	wr := NewResponseReverter(w, r)
+	if rw.RevertPolicy == nil {
+		rw.RevertPolicy = NewRevertPolicy(false, false)
+	}
+	wr := NewResponseReverter(w, r, rw.RevertPolicy)
 	state := request.Request{W: w, Req: r}
 
 	for _, rule := range rw.Rules {
-		switch result := rule.Rewrite(ctx, state); result {
-		case RewriteDone:
+		respRules, result := rule.Rewrite(ctx, state)
+		if result == RewriteDone {
 			if _, ok := dns.IsDomainName(state.Req.Question[0].Name); !ok {
 				err := fmt.Errorf("invalid name after rewrite: %s", state.Req.Question[0].Name)
 				state.Req.Question[0] = wr.originalQuestion
 				return dns.RcodeServerFailure, err
 			}
-			for _, respRule := range rule.GetResponseRules() {
-				if respRule.Active {
-					wr.ResponseRewrite = true
-					wr.ResponseRules = append(wr.ResponseRules, respRule)
-				}
-			}
+			wr.ResponseRules = append(wr.ResponseRules, respRules...)
 			if rule.Mode() == Stop {
-				if rw.noRevert {
+				if !rw.RevertPolicy.DoRevert() {
 					return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
 				}
-				return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
+				rcode, err := plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
+				if plugin.ClientWrite(rcode) {
+					return rcode, err
+				}
+				// The next plugins didn't write a response, so write one now with the ResponseReverter.
+				// If server.ServeDNS does this then it will create an answer mismatch.
+				res := new(dns.Msg).SetRcode(r, rcode)
+				state.SizeAndDo(res)
+				wr.WriteMsg(res)
+				// return success, so server does not write a second error response to client
+				return dns.RcodeSuccess, err
 			}
-		case RewriteIgnored:
 		}
 	}
-	if rw.noRevert || len(wr.ResponseRules) == 0 {
+	if !rw.RevertPolicy.DoRevert() || len(wr.ResponseRules) == 0 {
 		return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
 	}
 	return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
@@ -76,11 +83,9 @@ func (rw Rewrite) Name() string { return "rewrite" }
 // Rule describes a rewrite rule.
 type Rule interface {
 	// Rewrite rewrites the current request.
-	Rewrite(ctx context.Context, state request.Request) Result
+	Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result)
 	// Mode returns the processing mode stop or continue.
 	Mode() string
-	// GetResponseRules returns rules to rewrite response with, if any.
-	GetResponseRules() []ResponseRule
 }
 
 func newRule(args ...string) (Rule, error) {
@@ -95,10 +100,16 @@ func newRule(args ...string) (Rule, error) {
 	switch arg0 {
 	case Continue:
 		mode = Continue
+		if len(args) < 2 {
+			return nil, fmt.Errorf("continue rule must begin with a rule type")
+		}
 		ruleType = strings.ToLower(args[1])
 		expectNumArgs = len(args) - 1
 		startArg = 2
 	case Stop:
+		if len(args) < 2 {
+			return nil, fmt.Errorf("stop rule must begin with a rule type")
+		}
 		ruleType = strings.ToLower(args[1])
 		expectNumArgs = len(args) - 1
 		startArg = 2
@@ -128,6 +139,10 @@ func newRule(args ...string) (Rule, error) {
 		return newEdns0Rule(mode, args[startArg:]...)
 	case "ttl":
 		return newTTLRule(mode, args[startArg:]...)
+	case "cname":
+		return newCNAMERule(mode, args[startArg:]...)
+	case "rcode":
+		return newRCodeRule(mode, args[startArg:]...)
 	default:
 		return nil, fmt.Errorf("invalid rule type %q", args[0])
 	}

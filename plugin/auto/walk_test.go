@@ -1,7 +1,6 @@
 package auto
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,14 +18,10 @@ www IN A 127.0.0.1
 `
 
 func TestWalk(t *testing.T) {
-	tempdir, err := createFiles()
+	tempdir, err := createFiles(t)
 	if err != nil {
-		if tempdir != "" {
-			os.RemoveAll(tempdir)
-		}
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempdir)
 
 	ldr := loader{
 		directory: tempdir,
@@ -66,22 +61,19 @@ func TestWalkNonExistent(t *testing.T) {
 	a.Walk()
 }
 
-func createFiles() (string, error) {
-	dir, err := ioutil.TempDir(os.TempDir(), "coredns")
-	if err != nil {
-		return dir, err
-	}
+func createFiles(t *testing.T) (string, error) {
+	dir := t.TempDir()
 
 	for _, name := range dbFiles {
-		if err := ioutil.WriteFile(filepath.Join(dir, name), []byte(zoneContent), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(zoneContent), 0644); err != nil {
 			return dir, err
 		}
 	}
 	// symlinks
-	if err = os.Symlink(filepath.Join(dir, "db.example.org"), filepath.Join(dir, "db.example.com")); err != nil {
+	if err := os.Symlink(filepath.Join(dir, "db.example.org"), filepath.Join(dir, "db.example.com")); err != nil {
 		return dir, err
 	}
-	if err = os.Symlink(filepath.Join(dir, "db.example.org"), filepath.Join(dir, "aa.example.com")); err != nil {
+	if err := os.Symlink(filepath.Join(dir, "db.example.org"), filepath.Join(dir, "aa.example.com")); err != nil {
 		return dir, err
 	}
 

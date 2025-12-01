@@ -29,9 +29,9 @@ func (n *Node) print() {
 		}
 		if nodesInCurrentLevel == 0 {
 			fmt.Println()
+			nodesInCurrentLevel = nodesInNextLevel
+			nodesInNextLevel = 0
 		}
-		nodesInCurrentLevel = nodesInNextLevel
-		nodesInNextLevel = 0
 	}
 	fmt.Println()
 }

@@ -25,9 +25,9 @@ autopath.Func. Note the searchpath must be ending with the empty string.
 
 I.e:
 
-func (m Plugins ) AutoPath(state request.Request) []string {
-	return []string{"first", "second", "last", ""}
-}
+	func (m Plugins ) AutoPath(state request.Request) []string {
+		return []string{"first", "second", "last", ""}
+	}
 */
 package autopath
 
@@ -135,7 +135,6 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		w.WriteMsg(msg)
 		autoPathCount.WithLabelValues(metrics.WithServer(ctx)).Add(1)
 		return rcode, err
-
 	}
 	if plugin.ClientWrite(firstRcode) {
 		w.WriteMsg(firstReply)

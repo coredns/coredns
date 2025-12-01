@@ -47,7 +47,10 @@ func TestMetadataServeDNS(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	m.ServeDNS(ctx, &test.ResponseWriter{}, new(dns.Msg))
+	w := &test.ResponseWriter{}
+	r := new(dns.Msg)
+	ctx = m.Collect(ctx, request.Request{W: w, Req: r})
+	m.ServeDNS(ctx, w, r)
 	nctx := next.ctx
 
 	for _, expected := range expectedMetadata {
@@ -72,12 +75,12 @@ func TestLabelFormat(t *testing.T) {
 		{"plugin/LABEL", true},
 		{"p/LABEL", true},
 		{"plugin/L", true},
+		{"PLUGIN/LABEL/SUB-LABEL", true},
 		// fails
 		{"LABEL", false},
 		{"plugin.LABEL", false},
 		{"/NO-PLUGIN-NOT-ACCEPTED", false},
 		{"ONLY-PLUGIN-NOT-ACCEPTED/", false},
-		{"PLUGIN/LABEL/SUB-LABEL", false},
 		{"/", false},
 		{"//", false},
 	}

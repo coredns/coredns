@@ -92,7 +92,7 @@ Each of these logs will be outputted with `log.Infof`, so a typical example look
 
 ~~~ txt
 [INFO] [::1]:50759 - 29008 "A IN example.org. udp 41 false 4096" NOERROR qr,rd,ra,ad 68 0.037990251s
-~~~~
+~~~
 
 ## Examples
 

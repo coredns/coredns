@@ -8,14 +8,10 @@ import (
 )
 
 func TestWatcher(t *testing.T) {
-	tempdir, err := createFiles()
+	tempdir, err := createFiles(t)
 	if err != nil {
-		if tempdir != "" {
-			os.RemoveAll(tempdir)
-		}
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempdir)
 
 	ldr := loader{
 		directory: tempdir,
@@ -54,14 +50,10 @@ func TestWatcher(t *testing.T) {
 }
 
 func TestSymlinks(t *testing.T) {
-	tempdir, err := createFiles()
+	tempdir, err := createFiles(t)
 	if err != nil {
-		if tempdir != "" {
-			os.RemoveAll(tempdir)
-		}
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tempdir)
 
 	ldr := loader{
 		directory: tempdir,

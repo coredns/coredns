@@ -13,28 +13,30 @@ import (
 	"github.com/miekg/dns"
 )
 
+const maxCnameChainLength = 10
+
 // A returns A records from Backend or an error.
-func A(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, err error) {
+func A(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
 	services, err := checkForApex(ctx, b, zone, state, opt)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	dup := make(map[string]struct{})
 
 	for _, serv := range services {
-
 		what, ip := serv.HostType()
 
 		switch what {
 		case dns.TypeCNAME:
 			if Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
 				// x CNAME x is a direct loop, don't add those
+				// in etcd/skydns w.x CNAME x is also direct loop due to the "recursive" nature of search results
 				continue
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > maxCnameChainLength {
 				// don't add it, and just continue
 				continue
 			}
@@ -44,7 +46,7 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
 				state1 := state.NewWithQuestion(serv.Host, state.QType())
 				state1.Zone = zone
-				nextRecords, err := A(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
+				nextRecords, tc, err := A(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
 
 				if err == nil {
 					// Not only have we found something we should add the CNAME and the IP addresses.
@@ -52,6 +54,9 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 						records = append(records, newRecord)
 						records = append(records, nextRecords...)
 					}
+				}
+				if tc {
+					truncated = true
 				}
 				continue
 			}
@@ -61,6 +66,9 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			m1, e1 := b.Lookup(ctx, state, target, state.QType())
 			if e1 != nil {
 				continue
+			}
+			if m1.Truncated {
+				truncated = true
 			}
 			// Len(m1.Answer) > 0 here is well?
 			records = append(records, newRecord)
@@ -77,20 +85,19 @@ func A(ctx context.Context, b ServiceBackend, zone string, state request.Request
 			// nada
 		}
 	}
-	return records, nil
+	return records, truncated, nil
 }
 
 // AAAA returns AAAA records from Backend or an error.
-func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, err error) {
+func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
 	services, err := checkForApex(ctx, b, zone, state, opt)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	dup := make(map[string]struct{})
 
 	for _, serv := range services {
-
 		what, ip := serv.HostType()
 
 		switch what {
@@ -98,11 +105,12 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			// Try to resolve as CNAME if it's not an IP, but only if we don't create loops.
 			if Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
 				// x CNAME x is a direct loop, don't add those
+				// in etcd/skydns w.x CNAME x is also direct loop due to the "recursive" nature of search results
 				continue
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > maxCnameChainLength {
 				// don't add it, and just continue
 				continue
 			}
@@ -112,7 +120,7 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
 				state1 := state.NewWithQuestion(serv.Host, state.QType())
 				state1.Zone = zone
-				nextRecords, err := AAAA(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
+				nextRecords, tc, err := AAAA(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
 
 				if err == nil {
 					// Not only have we found something we should add the CNAME and the IP addresses.
@@ -121,6 +129,9 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 						records = append(records, nextRecords...)
 					}
 				}
+				if tc {
+					truncated = true
+				}
 				continue
 			}
 			// This means we can not complete the CNAME, try to look else where.
@@ -128,6 +139,9 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			m1, e1 := b.Lookup(ctx, state, target, state.QType())
 			if e1 != nil {
 				continue
+			}
+			if m1.Truncated {
+				truncated = true
 			}
 			// Len(m1.Answer) > 0 here is well?
 			records = append(records, newRecord)
@@ -145,7 +159,7 @@ func AAAA(ctx context.Context, b ServiceBackend, zone string, state request.Requ
 			}
 		}
 	}
-	return records, nil
+	return records, truncated, nil
 }
 
 // SRV returns SRV records from the Backend.
@@ -223,7 +237,7 @@ func SRV(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			// Internal name, we should have some info on them, either v4 or v6
 			// Clients expect a complete answer, because we are a recursor in their view.
 			state1 := state.NewWithQuestion(srv.Target, dns.TypeA)
-			addr, e1 := A(ctx, b, zone, state1, nil, opt)
+			addr, _, e1 := A(ctx, b, zone, state1, nil, opt)
 			if e1 == nil {
 				extra = append(extra, addr...)
 			}
@@ -289,7 +303,7 @@ func MX(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 			}
 			// Internal name
 			state1 := state.NewWithQuestion(mx.Mx, dns.TypeA)
-			addr, e1 := A(ctx, b, zone, state1, nil, opt)
+			addr, _, e1 := A(ctx, b, zone, state1, nil, opt)
 			if e1 == nil {
 				extra = append(extra, addr...)
 			}
@@ -329,28 +343,27 @@ func CNAME(ctx context.Context, b ServiceBackend, zone string, state request.Req
 }
 
 // TXT returns TXT records from Backend or an error.
-func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, err error) {
-
-	services, err := b.Services(ctx, state, true, opt)
+func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Request, previousRecords []dns.RR, opt Options) (records []dns.RR, truncated bool, err error) {
+	services, err := b.Services(ctx, state, false, opt)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	dup := make(map[string]struct{})
 
 	for _, serv := range services {
-
 		what, _ := serv.HostType()
 
 		switch what {
 		case dns.TypeCNAME:
 			if Name(state.Name()).Matches(dns.Fqdn(serv.Host)) {
 				// x CNAME x is a direct loop, don't add those
+				// in etcd/skydns w.x CNAME x is also direct loop due to the "recursive" nature of search results
 				continue
 			}
 
 			newRecord := serv.NewCNAME(state.QName(), serv.Host)
-			if len(previousRecords) > 7 {
+			if len(previousRecords) > maxCnameChainLength {
 				// don't add it, and just continue
 				continue
 			}
@@ -360,8 +373,10 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			if dns.IsSubDomain(zone, dns.Fqdn(serv.Host)) {
 				state1 := state.NewWithQuestion(serv.Host, state.QType())
 				state1.Zone = zone
-				nextRecords, err := TXT(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
-
+				nextRecords, tc, err := TXT(ctx, b, zone, state1, append(previousRecords, newRecord), opt)
+				if tc {
+					truncated = true
+				}
 				if err == nil {
 					// Not only have we found something we should add the CNAME and the IP addresses.
 					if len(nextRecords) > 0 {
@@ -384,15 +399,14 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			continue
 
 		case dns.TypeTXT:
-			if _, ok := dup[serv.Host]; !ok {
-				dup[serv.Host] = struct{}{}
-				return append(records, serv.NewTXT(state.QName())), nil
+			if _, ok := dup[serv.Text]; !ok {
+				dup[serv.Text] = struct{}{}
+				records = append(records, serv.NewTXT(state.QName()))
 			}
-
 		}
 	}
 
-	return records, nil
+	return records, truncated, nil
 }
 
 // PTR returns the PTR records from the backend, only services that have a domain name as host are included.
@@ -440,8 +454,8 @@ func NS(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 
 		case dns.TypeA, dns.TypeAAAA:
 			serv.Host = msg.Domain(serv.Key)
-			extra = append(extra, newAddress(serv, serv.Host, ip, what))
 			ns := serv.NewNS(state.QName())
+			extra = append(extra, newAddress(serv, ns.Ns, ip, what))
 			if _, ok := seen[ns.Ns]; ok {
 				continue
 			}
@@ -490,7 +504,6 @@ func BackendError(ctx context.Context, b ServiceBackend, zone string, rcode int,
 }
 
 func newAddress(s msg.Service, name string, ip net.IP, what uint16) dns.RR {
-
 	hdr := dns.RR_Header{Name: name, Rrtype: what, Class: dns.ClassINET, Ttl: s.TTL}
 
 	if what == dns.TypeA {

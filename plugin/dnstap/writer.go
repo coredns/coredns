@@ -1,9 +1,11 @@
 package dnstap
 
 import (
+	"context"
 	"time"
 
 	"github.com/coredns/coredns/plugin/dnstap/msg"
+	"github.com/coredns/coredns/request"
 
 	tap "github.com/dnstap/golang-dnstap"
 	"github.com/miekg/dns"
@@ -13,8 +15,9 @@ import (
 type ResponseWriter struct {
 	queryTime time.Time
 	query     *dns.Msg
+	ctx       context.Context
 	dns.ResponseWriter
-	Dnstap
+	*Dnstap
 }
 
 // WriteMsg writes back the response to the client and THEN works on logging the request and response to dnstap.
@@ -35,6 +38,7 @@ func (w *ResponseWriter) WriteMsg(resp *dns.Msg) error {
 	}
 
 	msg.SetType(r, tap.Message_CLIENT_RESPONSE)
-	w.TapMessage(r)
+	state := request.Request{W: w.ResponseWriter, Req: w.query}
+	w.TapMessageWithMetadata(w.ctx, r, state)
 	return nil
 }

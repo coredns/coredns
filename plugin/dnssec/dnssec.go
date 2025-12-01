@@ -48,6 +48,22 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 
 	mt, _ := response.Typify(req, time.Now().UTC()) // TODO(miek): need opt record here?
 	if mt == response.Delegation {
+		// We either sign DS or NSEC of DS.
+		ttl := req.Ns[0].Header().Ttl
+
+		ds := []dns.RR{}
+		for i := range req.Ns {
+			if req.Ns[i].Header().Rrtype == dns.TypeDS {
+				ds = append(ds, req.Ns[i])
+			}
+		}
+		if len(ds) == 0 {
+			if sigs, err := d.nsec(state, mt, ttl, incep, expir, server); err == nil {
+				req.Ns = append(req.Ns, sigs...)
+			}
+		} else if sigs, err := d.sign(ds, state.Zone, ttl, incep, expir, server); err == nil {
+			req.Ns = append(req.Ns, sigs...)
+		}
 		return req
 	}
 
@@ -66,6 +82,10 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 		}
 		if len(req.Ns) > 1 { // actually added nsec and sigs, reset the rcode
 			req.Rcode = dns.RcodeSuccess
+			if state.QType() == dns.TypeNSEC { // If original query was NSEC move Ns to Answer without SOA
+				req.Answer = req.Ns[len(req.Ns)-2 : len(req.Ns)]
+				req.Ns = nil
+			}
 		}
 		return req
 	}
@@ -131,7 +151,7 @@ func (d Dnssec) set(key uint64, sigs []dns.RR) { d.cache.Add(key, sigs) }
 func (d Dnssec) get(key uint64, server string) ([]dns.RR, bool) {
 	if s, ok := d.cache.Get(key); ok {
 		// we sign for 8 days, check if a signature in the cache reached 3/4 of that
-		is75 := time.Now().UTC().Add(sixDays)
+		is75 := time.Now().UTC().Add(twoDays)
 		for _, rr := range s.([]dns.RR) {
 			if !rr.(*dns.RRSIG).ValidityPeriod(is75) {
 				cacheMisses.WithLabelValues(server).Inc()
@@ -154,6 +174,6 @@ func incepExpir(now time.Time) (uint32, uint32) {
 
 const (
 	eightDays  = 8 * 24 * time.Hour
-	sixDays    = 6 * 24 * time.Hour
+	twoDays    = 2 * 24 * time.Hour
 	defaultCap = 10000 // default capacity of the cache.
 )

@@ -111,7 +111,7 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 // resign checks if the signed zone exists, or needs resigning.
 func (s *Signer) resign() error {
 	signedfile := filepath.Join(s.directory, s.signedfile)
-	rd, err := os.Open(signedfile)
+	rd, err := os.Open(filepath.Clean(signedfile))
 	if err != nil && os.IsNotExist(err) {
 		return err
 	}
@@ -133,10 +133,6 @@ func resign(rd io.Reader, now time.Time) (why error) {
 	i := 0
 
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		if err := zp.Err(); err != nil {
-			return err
-		}
-
 		switch x := rr.(type) {
 		case *dns.RRSIG:
 			if x.TypeCovered != dns.TypeSOA {
@@ -166,7 +162,7 @@ func resign(rd io.Reader, now time.Time) (why error) {
 		}
 	}
 
-	return nil
+	return zp.Err()
 }
 
 func signAndLog(s *Signer, why error) {

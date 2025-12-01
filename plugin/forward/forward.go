@@ -16,53 +16,71 @@ import (
 	"github.com/coredns/coredns/plugin/dnstap"
 	"github.com/coredns/coredns/plugin/metadata"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/coredns/coredns/plugin/pkg/proxy"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
+	otext "github.com/opentracing/opentracing-go/ext"
 )
 
 var log = clog.NewWithPlugin("forward")
+
+const (
+	defaultExpire = 10 * time.Second
+	hcInterval    = 500 * time.Millisecond
+)
 
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
 // of proxies each representing one upstream proxy.
 type Forward struct {
 	concurrent int64 // atomic counters need to be first in struct for proper alignment
 
-	proxies    []*Proxy
+	proxies    []*proxy.Proxy
 	p          Policy
 	hcInterval time.Duration
 
 	from    string
 	ignored []string
 
-	tlsConfig     *tls.Config
-	tlsServerName string
-	maxfails      uint32
-	expire        time.Duration
-	maxConcurrent int64
+	nextAlternateRcodes []int
 
-	opts options // also here for testing
+	tlsConfig                  *tls.Config
+	tlsServerName              string
+	maxfails                   uint32
+	expire                     time.Duration
+	maxConcurrent              int64
+	failfastUnhealthyUpstreams bool
+
+	opts proxy.Options // also here for testing
 
 	// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded
 	// the maximum allowed (maxConcurrent)
 	ErrLimitExceeded error
 
-	tapPlugin *dnstap.Dnstap // when the dnstap plugin is loaded, we use to this to send messages out.
+	tapPlugins []*dnstap.Dnstap // when dnstap plugins are loaded, we use to this to send messages out.
 
 	Next plugin.Handler
 }
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: options{forceTCP: false, preferUDP: false, hcRecursionDesired: true}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: proxy.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
 	return f
 }
 
 // SetProxy appends p to the proxy list and starts healthchecking.
-func (f *Forward) SetProxy(p *Proxy) {
+func (f *Forward) SetProxy(p *proxy.Proxy) {
 	f.proxies = append(f.proxies, p)
-	p.start(f.hcInterval)
+	p.Start(f.hcInterval)
+}
+
+// SetTapPlugin appends one or more dnstap plugins to the tap plugin list.
+func (f *Forward) SetTapPlugin(tapPlugin *dnstap.Dnstap) {
+	f.tapPlugins = append(f.tapPlugins, tapPlugin)
+	if nextPlugin, ok := tapPlugin.Next.(*dnstap.Dnstap); ok {
+		f.SetTapPlugin(nextPlugin)
+	}
 }
 
 // Len returns the number of configured proxies.
@@ -73,7 +91,6 @@ func (f *Forward) Name() string { return "forward" }
 
 // ServeDNS implements plugin.Handler.
 func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-
 	state := request.Request{W: w, Req: r}
 	if !f.match(state) {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
@@ -83,7 +100,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		count := atomic.AddInt64(&(f.concurrent), 1)
 		defer atomic.AddInt64(&(f.concurrent), -1)
 		if count > f.maxConcurrent {
-			MaxConcurrentRejectCount.Add(1)
+			maxConcurrentRejectCount.Add(1)
 			return dns.RcodeRefused, f.ErrLimitExceeded
 		}
 	}
@@ -96,7 +113,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	list := f.List()
 	deadline := time.Now().Add(defaultTimeout)
 	start := time.Now()
-	for time.Now().Before(deadline) {
+	for time.Now().Before(deadline) && ctx.Err() == nil {
 		if i >= len(list) {
 			// reached the end of list, reset to begin
 			i = 0
@@ -110,21 +127,26 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			if fails < len(f.proxies) {
 				continue
 			}
-			// All upstream proxies are dead, assume healthcheck is completely broken and randomly
+
+			healthcheckBrokenCount.Add(1)
+			// All upstreams are dead, return servfail if all upstreams are down
+			if f.failfastUnhealthyUpstreams {
+				break
+			}
+			// assume healthcheck is completely broken and randomly
 			// select an upstream to connect to.
 			r := new(random)
 			proxy = r.List(f.proxies)[0]
-
-			HealthcheckBrokenCount.Add(1)
 		}
 
 		if span != nil {
 			child = span.Tracer().StartSpan("connect", ot.ChildOf(span.Context()))
+			otext.PeerAddress.Set(child, proxy.Addr())
 			ctx = ot.ContextWithSpan(ctx, child)
 		}
 
 		metadata.SetValueFunc(ctx, "forward/upstream", func() string {
-			return proxy.addr
+			return proxy.Addr()
 		})
 
 		var (
@@ -132,14 +154,16 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			err error
 		)
 		opts := f.opts
+
 		for {
 			ret, err = proxy.Connect(ctx, state, opts)
+
 			if err == ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
 				continue
 			}
 			// Retry with TCP if truncated and prefer_udp configured.
-			if ret != nil && ret.Truncated && !opts.forceTCP && opts.preferUDP {
-				opts.forceTCP = true
+			if ret != nil && ret.Truncated && !opts.ForceTCP && opts.PreferUDP {
+				opts.ForceTCP = true
 				continue
 			}
 			break
@@ -149,8 +173,8 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			child.Finish()
 		}
 
-		if f.tapPlugin != nil {
-			toDnstap(f, proxy.addr, state, opts, ret, start)
+		if len(f.tapPlugins) != 0 {
+			toDnstap(ctx, f, proxy.Addr(), state, opts, ret, start)
 		}
 
 		upstreamErr = err
@@ -175,6 +199,15 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			formerr.SetRcode(state.Req, dns.RcodeFormatError)
 			w.WriteMsg(formerr)
 			return 0, nil
+		}
+
+		// Check if we have an alternate Rcode defined, check if we match on the code
+		for _, alternateRcode := range f.nextAlternateRcodes {
+			if alternateRcode == ret.Rcode && f.Next != nil { // In case we do not have a Next handler, just continue normally
+				if _, ok := f.Next.(*Forward); ok { // Only continue if the next forwarder is also a Forworder
+					return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+				}
+			}
 		}
 
 		w.WriteMsg(ret)
@@ -210,13 +243,13 @@ func (f *Forward) isAllowedDomain(name string) bool {
 }
 
 // ForceTCP returns if TCP is forced to be used even when the request comes in over UDP.
-func (f *Forward) ForceTCP() bool { return f.opts.forceTCP }
+func (f *Forward) ForceTCP() bool { return f.opts.ForceTCP }
 
 // PreferUDP returns if UDP is preferred to be used even when the request comes in over TCP.
-func (f *Forward) PreferUDP() bool { return f.opts.preferUDP }
+func (f *Forward) PreferUDP() bool { return f.opts.PreferUDP }
 
 // List returns a set of proxies to be used for this client depending on the policy in f.
-func (f *Forward) List() []*Proxy { return f.p.List(f.proxies) }
+func (f *Forward) List() []*proxy.Proxy { return f.p.List(f.proxies) }
 
 var (
 	// ErrNoHealthy means no healthy proxies left.
@@ -227,11 +260,16 @@ var (
 	ErrCachedClosed = errors.New("cached connection was closed by peer")
 )
 
-// options holds various options that can be set.
-type options struct {
-	forceTCP           bool
-	preferUDP          bool
-	hcRecursionDesired bool
+// Options holds various Options that can be set.
+type Options struct {
+	// ForceTCP use TCP protocol for upstream DNS request. Has precedence over PreferUDP flag
+	ForceTCP bool
+	// PreferUDP use UDP protocol for upstream DNS request.
+	PreferUDP bool
+	// HCRecursionDesired sets recursion desired flag for Proxy healthcheck requests
+	HCRecursionDesired bool
+	// HCDomain sets domain for Proxy healthcheck requests
+	HCDomain string
 }
 
 var defaultTimeout = 5 * time.Second

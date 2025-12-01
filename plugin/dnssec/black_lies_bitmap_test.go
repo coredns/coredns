@@ -28,7 +28,7 @@ func TestBlackLiesBitmapNoData(t *testing.T) {
 		}
 	}
 	for _, b := range nsec.TypeBitMap {
-		if uint16(b) == dns.TypeTLSA {
+		if b == dns.TypeTLSA {
 			t.Errorf("Type TLSA should not be present in the type bitmap: %v", nsec.TypeBitMap)
 		}
 	}
@@ -50,7 +50,7 @@ func TestBlackLiesBitmapNameError(t *testing.T) {
 		}
 	}
 	for _, b := range nsec.TypeBitMap {
-		if uint16(b) == dns.TypeTLSA {
+		if b == dns.TypeTLSA {
 			t.Errorf("Type TLSA should not be present in the type bitmap: %v", nsec.TypeBitMap)
 		}
 	}
@@ -59,6 +59,6 @@ func TestBlackLiesBitmapNameError(t *testing.T) {
 func testTLSAMsg() *dns.Msg {
 	return &dns.Msg{MsgHdr: dns.MsgHdr{Rcode: dns.RcodeSuccess},
 		Question: []dns.Question{{Name: "25._tcp.example.org.", Qclass: dns.ClassINET, Qtype: dns.TypeTLSA}},
-		Ns: []dns.RR{test.SOA("example.org.	1800	IN	SOA	linode.example.org. miek.example.org. 1461471181 14400 3600 604800 14400")},
+		Ns:       []dns.RR{test.SOA("example.org.	1800	IN	SOA	linode.example.org. miek.example.org. 1461471181 14400 3600 604800 14400")},
 	}
 }

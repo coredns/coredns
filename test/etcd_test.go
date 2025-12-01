@@ -1,4 +1,4 @@
-// +build etcd
+//go:build etcd
 
 package test
 
@@ -12,7 +12,7 @@ import (
 	"github.com/coredns/coredns/plugin/etcd/msg"
 
 	"github.com/miekg/dns"
-	etcdcv3 "go.etcd.io/etcd/clientv3"
+	etcdcv3 "go.etcd.io/etcd/client/v3"
 )
 
 func etcdPlugin() *etcd.Etcd {

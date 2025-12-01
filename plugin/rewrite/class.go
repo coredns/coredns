@@ -30,18 +30,15 @@ func newClassRule(nextAction string, args ...string) (Rule, error) {
 }
 
 // Rewrite rewrites the current request.
-func (rule *classRule) Rewrite(ctx context.Context, state request.Request) Result {
+func (rule *classRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	if rule.fromClass > 0 && rule.toClass > 0 {
 		if state.Req.Question[0].Qclass == rule.fromClass {
 			state.Req.Question[0].Qclass = rule.toClass
-			return RewriteDone
+			return nil, RewriteDone
 		}
 	}
-	return RewriteIgnored
+	return nil, RewriteIgnored
 }
 
 // Mode returns the processing mode.
 func (rule *classRule) Mode() string { return rule.NextAction }
-
-// GetResponseRules return rules to rewrite the response with. Currently not implemented.
-func (rule *classRule) GetResponseRules() []ResponseRule { return []ResponseRule{} }

@@ -29,8 +29,9 @@ var (
 		Subsystem: "kubernetes",
 		Name:      "dns_programming_duration_seconds",
 		// From 1 millisecond to ~17 minutes.
-		Buckets: prometheus.ExponentialBuckets(0.001, 2, 20),
-		Help:    "Histogram of the time (in seconds) it took to program a dns instance.",
+		Buckets:                     prometheus.ExponentialBuckets(0.001, 2, 20),
+		NativeHistogramBucketFactor: plugin.NativeHistogramBucketFactor,
+		Help:                        "Histogram of the time (in seconds) it took to program a dns instance.",
 	}, []string{"service_kind"})
 
 	// DurationSinceFunc returns the duration elapsed since the given time.

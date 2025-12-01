@@ -105,5 +105,12 @@ const Namespace = "coredns"
 // TimeBuckets is based on Prometheus client_golang prometheus.DefBuckets
 var TimeBuckets = prometheus.ExponentialBuckets(0.00025, 2, 16) // from 0.25ms to 8 seconds
 
+// SlimTimeBuckets is low cardinality set of duration buckets.
+var SlimTimeBuckets = prometheus.ExponentialBuckets(0.00025, 10, 5) // from 0.25ms to 2.5 seconds
+
+// NativeHistogramBucketFactor controls the resolution of Prometheus native histogram buckets.
+// See: https://pkg.go.dev/github.com/prometheus/client_golang@v1.19.0/prometheus#section-readme
+var NativeHistogramBucketFactor = 1.05
+
 // ErrOnce is returned when a plugin doesn't support multiple setups per server.
 var ErrOnce = errors.New("this plugin can only be used once per Server Block")

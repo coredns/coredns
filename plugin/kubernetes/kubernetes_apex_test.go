@@ -60,7 +60,6 @@ var kubeApexCases = []test.Case{
 }
 
 func TestServeDNSApex(t *testing.T) {
-
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnServeTest{}
 	k.Next = test.NextHandler(dns.RcodeSuccess, nil)

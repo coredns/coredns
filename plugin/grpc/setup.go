@@ -3,6 +3,7 @@ package grpc
 import (
 	"crypto/tls"
 	"fmt"
+	"path/filepath"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -56,7 +57,11 @@ func parseStanza(c *caddy.Controller) (*GRPC, error) {
 	if !c.Args(&g.from) {
 		return g, c.ArgErr()
 	}
-	g.from = plugin.Host(g.from).Normalize()
+	normalized := plugin.Host(g.from).NormalizeExact()
+	if len(normalized) == 0 {
+		return g, fmt.Errorf("unable to normalize '%s'", g.from)
+	}
+	g.from = normalized[0] // only the first is used.
 
 	to := c.RemainingArgs()
 	if len(to) == 0 {
@@ -92,7 +97,6 @@ func parseStanza(c *caddy.Controller) (*GRPC, error) {
 }
 
 func parseBlock(c *caddy.Controller, g *GRPC) error {
-
 	switch c.Val() {
 	case "except":
 		ignore := c.RemainingArgs()
@@ -100,15 +104,19 @@ func parseBlock(c *caddy.Controller, g *GRPC) error {
 			return c.ArgErr()
 		}
 		for i := 0; i < len(ignore); i++ {
-			ignore[i] = plugin.Host(ignore[i]).Normalize()
+			g.ignored = append(g.ignored, plugin.Host(ignore[i]).NormalizeExact()...)
 		}
-		g.ignored = ignore
 	case "tls":
 		args := c.RemainingArgs()
 		if len(args) > 3 {
 			return c.ArgErr()
 		}
 
+		for i := range args {
+			if !filepath.IsAbs(args[i]) && dnsserver.GetConfig(c).Root != "" {
+				args[i] = filepath.Join(dnsserver.GetConfig(c).Root, args[i])
+			}
+		}
 		tlsConfig, err := pkgtls.NewTLSConfigFromArgs(args...)
 		if err != nil {
 			return err

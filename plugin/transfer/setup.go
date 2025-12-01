@@ -28,8 +28,10 @@ func setup(c *caddy.Controller) error {
 	})
 
 	c.OnStartup(func() error {
+		config := dnsserver.GetConfig(c)
+		t.tsigSecret = config.TsigSecret
 		// find all plugins that implement Transferer and add them to Transferers
-		plugins := dnsserver.GetConfig(c).Handlers()
+		plugins := config.Handlers()
 		for _, pl := range plugins {
 			tr, ok := pl.(Transferer)
 			if !ok {
@@ -47,28 +49,7 @@ func parseTransfer(c *caddy.Controller) (*Transfer, error) {
 	t := &Transfer{}
 	for c.Next() {
 		x := &xfr{}
-		zones := c.RemainingArgs()
-
-		if len(zones) != 0 {
-			x.Zones = zones
-			for i := 0; i < len(x.Zones); i++ {
-				nzone, err := plugin.Host(x.Zones[i]).MustNormalize()
-				if err != nil {
-					return nil, err
-				}
-				x.Zones[i] = nzone
-			}
-		} else {
-			x.Zones = make([]string, len(c.ServerBlockKeys))
-			for i := 0; i < len(c.ServerBlockKeys); i++ {
-				nzone, err := plugin.Host(c.ServerBlockKeys[i]).MustNormalize()
-				if err != nil {
-					return nil, err
-				}
-				x.Zones[i] = nzone
-			}
-		}
-
+		x.Zones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 		for c.NextBlock() {
 			switch c.Val() {
 			case "to":

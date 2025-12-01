@@ -12,7 +12,6 @@ import (
 
 // Walk will recursively walk of the file under l.directory and adds the one that match l.re.
 func (a Auto) Walk() error {
-
 	// TODO(miek): should add something so that we don't stomp on each other.
 
 	toDelete := make(map[string]bool)
@@ -20,7 +19,10 @@ func (a Auto) Walk() error {
 		toDelete[n] = true
 	}
 
-	filepath.Walk(a.loader.directory, func(path string, info os.FileInfo, _ error) error {
+	filepath.Walk(a.loader.directory, func(path string, info os.FileInfo, e error) error {
+		if e != nil {
+			log.Warningf("error reading %v: %v", path, e)
+		}
 		if info == nil || info.IsDir() {
 			return nil
 		}
@@ -37,7 +39,7 @@ func (a Auto) Walk() error {
 			return nil
 		}
 
-		reader, err := os.Open(path)
+		reader, err := os.Open(filepath.Clean(path))
 		if err != nil {
 			log.Warningf("Opening %s failed: %s", path, err)
 			return nil
@@ -59,8 +61,6 @@ func (a Auto) Walk() error {
 		if a.metrics != nil {
 			a.metrics.AddZone(origin)
 		}
-
-		a.transfer.Notify(origin)
 
 		log.Infof("Inserting zone `%s' from: %s", origin, path)
 

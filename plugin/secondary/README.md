@@ -10,6 +10,9 @@ With *secondary* you can transfer (via AXFR) a zone from another server. The ret
 *not committed* to disk (a violation of the RFC). This means restarting CoreDNS will cause it to
 retrieve all secondary zones.
 
+If the primary server(s) don't respond when CoreDNS is starting up, the AXFR will be retried
+indefinitely every 10s.
+
 ## Syntax
 
 ~~~
@@ -28,7 +31,7 @@ secondary [zones...] {
 ~~~
 
 *  `transfer from` specifies from which **ADDRESS** to fetch the zone. It can be specified multiple
-   times; if one does not work, another will be tried. Transfering this zone outwards again can be
+   times; if one does not work, another will be tried. Transferring this zone outwards again can be
    done by enabling the *transfer* plugin.
 
 When a zone is due to be refreshed (refresh timer fires) a random jitter of 5 seconds is applied,
@@ -67,3 +70,4 @@ Only AXFR is supported and the retrieved zone is not committed to disk.
 ## See Also
 
 See the *transfer* plugin to enable zone transfers _to_ other servers.
+And RFC 5936 detailing the AXFR protocol.

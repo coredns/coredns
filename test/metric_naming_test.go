@@ -18,7 +18,6 @@ import (
 )
 
 func TestMetricNaming(t *testing.T) {
-
 	walker := validMetricWalker{}
 	err := filepath.Walk("..", walker.walk)
 

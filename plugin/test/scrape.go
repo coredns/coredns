@@ -19,7 +19,6 @@
 //
 //	result := Scrape("http://localhost:9153/metrics")
 //	v := MetricValue("coredns_cache_capacity", result)
-//
 package test
 
 import (
@@ -80,7 +79,6 @@ func Scrape(url string) []*MetricFamily {
 // ScrapeMetricAsInt provides a sum of all metrics collected for the name and label provided.
 // if the metric is not a numeric value, it will be counted a 0.
 func ScrapeMetricAsInt(addr string, name string, label string, nometricvalue int) int {
-
 	valueToInt := func(m metric) int {
 		v := m.Value
 		r, err := strconv.Atoi(v)
@@ -141,7 +139,6 @@ func MetricValueLabel(name, label string, mfs []*MetricFamily) (string, map[stri
 						return m.(metric).Value, m.(metric).Labels
 					}
 				}
-
 			}
 		}
 	}
@@ -219,7 +216,7 @@ func makeBuckets(m *dto.Metric) map[string]string {
 
 func fetchMetricFamilies(url string, ch chan<- *dto.MetricFamily) {
 	defer close(ch)
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return
 	}

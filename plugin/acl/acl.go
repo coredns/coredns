@@ -3,9 +3,11 @@ package acl
 import (
 	"context"
 	"net"
+	"strings"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/request"
 
 	"github.com/infobloxopen/go-trees/iptree"
@@ -47,7 +49,11 @@ const (
 	actionBlock
 	// actionFilter returns empty sets for queries towards protected DNS zones.
 	actionFilter
+	// actionDrop does not respond for queries towards the protected DNS zones.
+	actionDrop
 )
+
+var log = clog.NewWithPlugin("acl")
 
 // ServeDNS implements the plugin.Handler interface.
 func (a ACL) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -63,12 +69,20 @@ RulesCheckLoop:
 
 		action := matchWithPolicies(rule.policies, w, r)
 		switch action {
+		case actionDrop:
+			{
+				RequestDropCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
+				return dns.RcodeSuccess, nil
+			}
 		case actionBlock:
 			{
-				m := new(dns.Msg)
-				m.SetRcode(r, dns.RcodeRefused)
+				m := new(dns.Msg).
+					SetRcode(r, dns.RcodeRefused).
+					SetEdns0(4096, true)
+				ede := dns.EDNS0_EDE{InfoCode: dns.ExtendedErrorCodeBlocked}
+				m.IsEdns0().Option = append(m.IsEdns0().Option, &ede)
 				w.WriteMsg(m)
-				RequestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone).Inc()
+				RequestBlockCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
 				return dns.RcodeSuccess, nil
 			}
 		case actionAllow:
@@ -77,17 +91,19 @@ RulesCheckLoop:
 			}
 		case actionFilter:
 			{
-				m := new(dns.Msg)
-				m.SetRcode(r, dns.RcodeSuccess)
+				m := new(dns.Msg).
+					SetRcode(r, dns.RcodeSuccess).
+					SetEdns0(4096, true)
+				ede := dns.EDNS0_EDE{InfoCode: dns.ExtendedErrorCodeFiltered}
+				m.IsEdns0().Option = append(m.IsEdns0().Option, &ede)
 				w.WriteMsg(m)
-				RequestFilterCount.WithLabelValues(metrics.WithServer(ctx), zone).Inc()
+				RequestFilterCount.WithLabelValues(metrics.WithServer(ctx), zone, metrics.WithView(ctx)).Inc()
 				return dns.RcodeSuccess, nil
 			}
 		}
-
 	}
 
-	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
+	RequestAllowCount.WithLabelValues(metrics.WithServer(ctx), metrics.WithView(ctx)).Inc()
 	return plugin.NextOrFailure(state.Name(), a.Next, ctx, w, r)
 }
 
@@ -96,7 +112,19 @@ RulesCheckLoop:
 func matchWithPolicies(policies []policy, w dns.ResponseWriter, r *dns.Msg) action {
 	state := request.Request{W: w, Req: r}
 
-	ip := net.ParseIP(state.IP())
+	var ip net.IP
+	if idx := strings.IndexByte(state.IP(), '%'); idx >= 0 {
+		ip = net.ParseIP(state.IP()[:idx])
+	} else {
+		ip = net.ParseIP(state.IP())
+	}
+
+	// if the parsing did not return a proper response then we simply return 'actionBlock' to
+	// block the query
+	if ip == nil {
+		log.Errorf("Blocking request. Unable to parse source address: %v", state.IP())
+		return actionBlock
+	}
 	qtype := state.QType()
 	for _, policy := range policies {
 		// dns.TypeNone matches all query types.

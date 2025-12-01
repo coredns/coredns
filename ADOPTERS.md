@@ -1,3 +1,4 @@
+* [Qwilt](https://www.qwilt.com) uses CoreDNS in production, implementing a global DNS service allowing access to our ISP edge and regional locations.
 * [Infoblox](https://www.infoblox.com) uses CoreDNS in its Active Trust Cloud SaaS service, as well as for Kubernetes cluster DNS.
 * [Sky Betting & Gaming](https://engineering.skybettingandgaming.com) uses CoreDNS for Kubernetes cluster DNS.
 * [Kismia](https://kismia.com) uses CoreDNS for Kubernetes cluster DNS.
@@ -28,3 +29,8 @@
 * [Hualala](https://www.hualala.com)  uses CoreDNS in Kubernetes using default configuration, in its Lab. Expected to be in production soon.
 * [Hellofresh](https://www.hellofresh.com/) uses CoreDNS in multiple Kubernetes clusters, with Forward plugin.
 * [Render](https://render.com) uses CoreDNS in production across all its Kubernetes clusters.
+* [BackMarket](https://www.backmarket.com) uses CoreDNS within Kubernetes in production, with standard configuration.
+* [Absa Group](https://www.absa.africa) uses CoreDNS as an integral part of Kubernetes Global Balancer project - [k8gb](https://www.k8gb.io/).
+* [Northflank](https://northflank.com/) uses CoreDNS on all of our Kubernetes clusters across GCP, AWS, and bare-metal.
+* [PITS Global Data Recovery Services](https://www.pitsdatarecovery.net) uses CoreDNS on K8s in its highly-loaded internal infrastructure.
+* [plusserver](https://www.plusserver.com) uses CoreDNS on K8s in its plusserver Kubernetes Engine.

@@ -41,7 +41,7 @@ func (z *Zones) Zones(name string) *file.Zone {
 	return zo
 }
 
-// Add adds a new zone into z. If zo.NoReload is false, the
+// Add adds a new zone into z. If z.ReloadInterval is not zero, the
 // reload goroutine is started.
 func (z *Zones) Add(zo *file.Zone, name string, t *transfer.Transfer) {
 	z.Lock()

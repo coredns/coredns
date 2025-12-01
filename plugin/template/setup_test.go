@@ -24,7 +24,6 @@ func TestSetup(t *testing.T) {
 }
 
 func TestSetupParse(t *testing.T) {
-
 	serverBlockKeys := []string{"domain.com.:8053", "dynamic.domain.com.:8053"}
 
 	tests := []struct {
@@ -84,6 +83,20 @@ func TestSetupParse(t *testing.T) {
 			}`,
 			true,
 		},
+		{
+			`template ANY ANY {
+				answer "{{ notAFunction }}"
+			}`,
+			true,
+		},
+		{
+			`template ANY ANY {
+				answer "{{ parseInt }}"
+				additional "{{ parseInt }}"
+				authority "{{ parseInt }}"
+			}`,
+			false,
+		},
 		// examples
 		{`template ANY ANY (?P<x>`, false},
 		{
@@ -130,6 +143,13 @@ func TestSetupParse(t *testing.T) {
 			false,
 		},
 		{
+			`template IN A example {
+				match ^ip0a(?P<b>[a-f0-9]{2})(?P<c>[a-f0-9]{2})(?P<d>[a-f0-9]{2})[.]example[.]$
+				answer "{{ .Name }} 3600 IN A 10.{{ parseInt .Group.b 16 8 }}.{{ parseInt .Group.c 16 8 }}.{{ parseInt .Group.d 16 8 }}"
+			}`,
+			false,
+		},
+		{
 			`template IN MX example {
 					match ^ip-10-(?P<b>[0-9]*)-(?P<c>[0-9]*)-(?P<d>[0-9]*)[.]example[.]$
 					answer "{{ .Name }} 60 IN MX 10 {{ .Name }}"
@@ -140,6 +160,30 @@ func TestSetupParse(t *testing.T) {
 					additional "ns1.example. 60 IN A 198.51.100.8"
 				}`,
 			false,
+		},
+		{
+			`template ANY ANY invalid {
+					rcode NXDOMAIN
+					authority "invalid. 60 {{ .Class }} SOA ns.invalid. hostmaster.invalid. (1 60 60 60 60)"
+					ederror 21 "Blocked according to RFC2606"
+			  	}`,
+			false,
+		},
+		{
+			`template ANY ANY invalid {
+					rcode NXDOMAIN
+					authority "invalid. 60 {{ .Class }} SOA ns.invalid. hostmaster.invalid. (1 60 60 60 60)"
+					ederror invalid "Blocked according to RFC2606"
+			  	}`,
+			true,
+		},
+		{
+			`template ANY ANY invalid {
+					rcode NXDOMAIN
+					authority "invalid. 60 {{ .Class }} SOA ns.invalid. hostmaster.invalid. (1 60 60 60 60)"
+					ederror too many arguments
+			  	}`,
+			true,
 		},
 	}
 	for i, test := range tests {

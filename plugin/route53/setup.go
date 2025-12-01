@@ -3,6 +3,7 @@ package route53
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -15,8 +16,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/credentials/ec2rolecreds"
-	"github.com/aws/aws-sdk-go/aws/ec2metadata"
+	"github.com/aws/aws-sdk-go/aws/defaults"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	"github.com/aws/aws-sdk-go/service/route53/route53iface"
@@ -27,8 +27,8 @@ var log = clog.NewWithPlugin("route53")
 func init() { plugin.Register("route53", setup) }
 
 // exposed for testing
-var f = func(credential *credentials.Credentials) route53iface.Route53API {
-	return route53.New(session.Must(session.NewSession(&aws.Config{Credentials: credential})))
+var f = func(opts session.Options) route53iface.Route53API {
+	return route53.New(session.Must(session.NewSessionWithOptions(opts)))
 }
 
 func setup(c *caddy.Controller) error {
@@ -36,14 +36,14 @@ func setup(c *caddy.Controller) error {
 		keyPairs := map[string]struct{}{}
 		keys := map[string][]string{}
 
-		// Route53 plugin attempts to find AWS credentials by using ChainCredentials.
-		// And the order of that provider chain is as follows:
-		// Static AWS keys -> Environment Variables -> Credentials file -> IAM role
-		// With that said, even though a user doesn't define any credentials in
-		// Corefile, we should still attempt to read the default credentials file,
-		// ~/.aws/credentials with the default profile.
-		sharedProvider := &credentials.SharedCredentialsProvider{}
-		var providers []credentials.Provider
+		// Route53 plugin attempts to load AWS credentials following default SDK chaining.
+		// The order configuration is loaded in is:
+		// * Static AWS keys set in Corefile (deprecated)
+		// * Environment Variables
+		// * Shared Credentials file
+		// * Shared Configuration file (if AWS_SDK_LOAD_CONFIG is set to truthy value)
+		// * EC2 Instance Metadata (credentials only)
+		opts := session.Options{}
 		var fall fall.F
 
 		refresh := time.Duration(1) * time.Minute // default update frequency to 1 minute
@@ -74,22 +74,29 @@ func setup(c *caddy.Controller) error {
 				if len(v) < 2 {
 					return plugin.Error("route53", c.Errf("invalid access key: '%v'", v))
 				}
-				providers = append(providers, &credentials.StaticProvider{
-					Value: credentials.Value{
-						AccessKeyID:     v[0],
-						SecretAccessKey: v[1],
-					},
-				})
+				opts.Config.Credentials = credentials.NewStaticCredentials(v[0], v[1], "")
+				log.Warningf("Save aws_access_key in Corefile has been deprecated, please use other authentication methods instead")
+			case "aws_endpoint":
+				if c.NextArg() {
+					opts.Config.Endpoint = aws.String(c.Val())
+				} else {
+					return plugin.Error("route53", c.ArgErr())
+				}
 			case "upstream":
 				c.RemainingArgs() // eats args
 			case "credentials":
 				if c.NextArg() {
-					sharedProvider.Profile = c.Val()
+					opts.Profile = c.Val()
 				} else {
 					return c.ArgErr()
 				}
 				if c.NextArg() {
-					sharedProvider.Filename = c.Val()
+					opts.SharedConfigFiles = []string{c.Val()}
+					// If AWS_SDK_LOAD_CONFIG is set also load ~/.aws/config to stay consistent
+					// with default SDK behavior.
+					if ok, _ := strconv.ParseBool(os.Getenv("AWS_SDK_LOAD_CONFIG")); ok {
+						opts.SharedConfigFiles = append(opts.SharedConfigFiles, defaults.SharedConfigFilename())
+					}
 				}
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
@@ -115,22 +122,16 @@ func setup(c *caddy.Controller) error {
 			}
 		}
 
-		session, err := session.NewSession(&aws.Config{})
-		if err != nil {
-			return plugin.Error("route53", err)
-		}
-
-		providers = append(providers, &credentials.EnvProvider{}, sharedProvider, &ec2rolecreds.EC2RoleProvider{
-			Client: ec2metadata.New(session),
-		})
-		client := f(credentials.NewChainCredentials(providers))
+		client := f(opts)
 		ctx, cancel := context.WithCancel(context.Background())
 		h, err := New(ctx, client, keys, refresh)
 		if err != nil {
+			cancel()
 			return plugin.Error("route53", c.Errf("failed to create route53 plugin: %v", err))
 		}
 		h.Fall = fall
 		if err := h.Run(ctx); err != nil {
+			cancel()
 			return plugin.Error("route53", c.Errf("failed to initialize route53 plugin: %v", err))
 		}
 		dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {

@@ -8,33 +8,32 @@
 //
 // Implement the Provider interface for a plugin p:
 //
-//    func (p P) Metadata(ctx context.Context, state request.Request) context.Context {
-//       metadata.SetValueFunc(ctx, "test/something", func() string { return "myvalue" })
-//	 return ctx
-//    }
+//	   func (p P) Metadata(ctx context.Context, state request.Request) context.Context {
+//	      metadata.SetValueFunc(ctx, "test/something", func() string { return "myvalue" })
+//		 return ctx
+//	   }
 //
 // Basic example with caching:
 //
-//    func (p P) Metadata(ctx context.Context, state request.Request) context.Context {
-//       cached := ""
-//       f := func() string {
-//		if cached != "" {
-//                 return cached
-//             }
-//             cached = expensiveFunc()
-//             return cached
-//       }
-//       metadata.SetValueFunc(ctx, "test/something", f)
-//	 return ctx
-//    }
+//	   func (p P) Metadata(ctx context.Context, state request.Request) context.Context {
+//	      cached := ""
+//	      f := func() string {
+//			if cached != "" {
+//	                return cached
+//	            }
+//	            cached = expensiveFunc()
+//	            return cached
+//	      }
+//	      metadata.SetValueFunc(ctx, "test/something", f)
+//		 return ctx
+//	   }
 //
 // If you need access to this metadata from another plugin:
 //
-//    // ...
-//    valueFunc := metadata.ValueFunc(ctx, "test/something")
-//    value := valueFunc()
-//    // use 'value'
-//
+//	// ...
+//	valueFunc := metadata.ValueFunc(ctx, "test/something")
+//	value := valueFunc()
+//	// use 'value'
 package metadata
 
 import (
@@ -56,19 +55,14 @@ type Provider interface {
 // Func is the type of function in the metadata, when called they return the value of the label.
 type Func func() string
 
-// IsLabel checks that the provided name is a valid label name, i.e. two words separated by a slash.
+// IsLabel checks that the provided name is a valid label name, i.e. two or more words separated by a slash.
 func IsLabel(label string) bool {
 	p := strings.Index(label, "/")
 	if p <= 0 || p >= len(label)-1 {
 		// cannot accept namespace empty nor label empty
 		return false
 	}
-	if strings.LastIndex(label, "/") != p {
-		// several slash in the Label
-		return false
-	}
 	return true
-
 }
 
 // Labels returns all metadata keys stored in the context. These label names should be named

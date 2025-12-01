@@ -45,7 +45,7 @@ func newOptions() *options {
 	return &options{
 		autoReverse: true,
 		ttl:         3600,
-		reload:      time.Duration(5 * time.Second),
+		reload:      5 * time.Second,
 	}
 }
 
@@ -117,11 +117,14 @@ func (h *Hostsfile) readHosts() {
 	defer file.Close()
 
 	stat, err := file.Stat()
+	if err != nil {
+		return
+	}
 	h.RLock()
 	size := h.size
 	h.RUnlock()
 
-	if err == nil && h.mtime.Equal(stat.ModTime()) && size == stat.Size() {
+	if h.mtime.Equal(stat.ModTime()) && size == stat.Size() {
 		return
 	}
 
@@ -135,7 +138,7 @@ func (h *Hostsfile) readHosts() {
 	h.mtime = stat.ModTime()
 	h.size = stat.Size()
 
-	hostsEntries.WithLabelValues().Set(float64(h.inline.Len() + h.hmap.Len()))
+	hostsEntries.WithLabelValues(h.path).Set(float64(h.inline.Len() + h.hmap.Len()))
 	hostsReloadTime.Set(float64(stat.ModTime().UnixNano()) / 1e9)
 	h.Unlock()
 }

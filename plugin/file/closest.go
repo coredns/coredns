@@ -8,7 +8,6 @@ import (
 
 // ClosestEncloser returns the closest encloser for qname.
 func (z *Zone) ClosestEncloser(qname string) (*tree.Elem, bool) {
-
 	offset, end := dns.NextLabel(qname, 0)
 	for !end {
 		elem, _ := z.Tree.Search(qname)

@@ -12,10 +12,9 @@ import (
 
 type badwriter struct {
 	dns.ResponseWriter
-	count int
 }
 
-func (w *badwriter) WriteMsg(res *dns.Msg) error { return fmt.Errorf("failed to write msg") }
+func (w *badwriter) WriteMsg(_ *dns.Msg) error { return fmt.Errorf("failed to write msg") }
 
 func TestWriteMessageFailed(t *testing.T) {
 	transfer := newTestTransfer()

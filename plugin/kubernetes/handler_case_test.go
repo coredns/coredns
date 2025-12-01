@@ -38,6 +38,13 @@ var dnsPreserveCaseCases = []test.Case{
 			test.A("svc1.testns.svc.cLuStEr.LoCaL.	5	IN	A	10.0.0.1"),
 		},
 	},
+	{
+		Qname: "Cluster.local.", Qtype: dns.TypeSOA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.SOA("Cluster.local.	5	IN	SOA	ns.dns.Cluster.local. hostmaster.Cluster.local. 1499347823 7200 1800 86400 5"),
+		},
+	},
 }
 
 func TestPreserveCase(t *testing.T) {

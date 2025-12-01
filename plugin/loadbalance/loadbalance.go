@@ -5,11 +5,19 @@ import (
 	"github.com/miekg/dns"
 )
 
-// RoundRobinResponseWriter is a response writer that shuffles A, AAAA and MX records.
-type RoundRobinResponseWriter struct{ dns.ResponseWriter }
+const (
+	ramdomShufflePolicy      = "round_robin"
+	weightedRoundRobinPolicy = "weighted"
+)
+
+// LoadBalanceResponseWriter is a response writer that shuffles A, AAAA and MX records.
+type LoadBalanceResponseWriter struct {
+	dns.ResponseWriter
+	shuffle func(*dns.Msg) *dns.Msg
+}
 
 // WriteMsg implements the dns.ResponseWriter interface.
-func (r *RoundRobinResponseWriter) WriteMsg(res *dns.Msg) error {
+func (r *LoadBalanceResponseWriter) WriteMsg(res *dns.Msg) error {
 	if res.Rcode != dns.RcodeSuccess {
 		return r.ResponseWriter.WriteMsg(res)
 	}
@@ -18,11 +26,14 @@ func (r *RoundRobinResponseWriter) WriteMsg(res *dns.Msg) error {
 		return r.ResponseWriter.WriteMsg(res)
 	}
 
+	return r.ResponseWriter.WriteMsg(r.shuffle(res))
+}
+
+func randomShuffle(res *dns.Msg) *dns.Msg {
 	res.Answer = roundRobin(res.Answer)
 	res.Ns = roundRobin(res.Ns)
 	res.Extra = roundRobin(res.Extra)
-
-	return r.ResponseWriter.WriteMsg(res)
+	return res
 }
 
 func roundRobin(in []dns.RR) []dns.RR {
@@ -61,21 +72,20 @@ func roundRobinShuffle(records []dns.RR) {
 			records[0], records[1] = records[1], records[0]
 		}
 	default:
-		for j := 0; j < l*(int(dns.Id())%4+1); j++ {
-			q := int(dns.Id()) % l
-			p := int(dns.Id()) % l
-			if q == p {
-				p = (p + 1) % l
+		for j := 0; j < l; j++ {
+			p := j + (int(dns.Id()) % (l - j))
+			if j == p {
+				continue
 			}
-			records[q], records[p] = records[p], records[q]
+			records[j], records[p] = records[p], records[j]
 		}
 	}
 }
 
 // Write implements the dns.ResponseWriter interface.
-func (r *RoundRobinResponseWriter) Write(buf []byte) (int, error) {
+func (r *LoadBalanceResponseWriter) Write(buf []byte) (int, error) {
 	// Should we pack and unpack here to fiddle with the packet... Not likely.
-	log.Warning("RoundRobin called with Write: not shuffling records")
+	log.Warning("LoadBalance called with Write: not shuffling records")
 	n, err := r.ResponseWriter.Write(buf)
 	return n, err
 }

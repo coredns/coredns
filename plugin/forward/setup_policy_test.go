@@ -24,7 +24,7 @@ func TestSetupPolicy(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		f, err := parseForward(c)
+		fs, err := parseForward(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
@@ -40,8 +40,8 @@ func TestSetupPolicy(t *testing.T) {
 			}
 		}
 
-		if !test.shouldErr && f.p.String() != test.expectedPolicy {
-			t.Errorf("Test %d: expected: %s, got: %s", i, test.expectedPolicy, f.p.String())
+		if !test.shouldErr && (len(fs) == 0 || fs[0].p.String() != test.expectedPolicy) {
+			t.Errorf("Test %d: expected: %s, got: %s", i, test.expectedPolicy, fs[0].p.String())
 		}
 	}
 }

@@ -34,19 +34,8 @@ func setup(c *caddy.Controller) error {
 func metadataParse(c *caddy.Controller) (*Metadata, error) {
 	m := &Metadata{}
 	c.Next()
-	zones := c.RemainingArgs()
 
-	if len(zones) != 0 {
-		m.Zones = zones
-		for i := 0; i < len(m.Zones); i++ {
-			m.Zones[i] = plugin.Host(m.Zones[i]).Normalize()
-		}
-	} else {
-		m.Zones = make([]string, len(c.ServerBlockKeys))
-		for i := 0; i < len(c.ServerBlockKeys); i++ {
-			m.Zones[i] = plugin.Host(c.ServerBlockKeys[i]).Normalize()
-		}
-	}
+	m.Zones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 
 	if c.NextBlock() || c.Next() {
 		return nil, plugin.Error("metadata", c.ArgErr())

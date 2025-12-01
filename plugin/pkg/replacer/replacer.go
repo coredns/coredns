@@ -59,6 +59,38 @@ var labels = map[string]struct{}{
 // appendValue appends the current value of label.
 func appendValue(b []byte, state request.Request, rr *dnstest.Recorder, label string) []byte {
 	switch label {
+	// Recorded replacements.
+	case "{rcode}":
+		if rr == nil || rr.Msg == nil {
+			return append(b, EmptyValue...)
+		}
+		if rcode := dns.RcodeToString[rr.Rcode]; rcode != "" {
+			return append(b, rcode...)
+		}
+		return strconv.AppendInt(b, int64(rr.Rcode), 10)
+	case "{rsize}":
+		if rr == nil {
+			return append(b, EmptyValue...)
+		}
+		return strconv.AppendInt(b, int64(rr.Len), 10)
+	case "{duration}":
+		if rr == nil {
+			return append(b, EmptyValue...)
+		}
+		secs := time.Since(rr.Start).Seconds()
+		return append(strconv.AppendFloat(b, secs, 'f', -1, 64), 's')
+	case headerReplacer + "rflags}":
+		if rr != nil && rr.Msg != nil {
+			return appendFlags(b, rr.Msg.MsgHdr)
+		}
+		return append(b, EmptyValue...)
+	}
+
+	if (request.Request{}) == state {
+		return append(b, EmptyValue...)
+	}
+
+	switch label {
 	case "{type}":
 		return append(b, state.Type()...)
 	case "{name}":
@@ -84,31 +116,6 @@ func appendValue(b []byte, state request.Request, rr *dnstest.Recorder, label st
 		return strconv.AppendBool(b, state.Do())
 	case headerReplacer + "bufsize}":
 		return strconv.AppendInt(b, int64(state.Size()), 10)
-	// Recorded replacements.
-	case "{rcode}":
-		if rr == nil {
-			return append(b, EmptyValue...)
-		}
-		if rcode := dns.RcodeToString[rr.Rcode]; rcode != "" {
-			return append(b, rcode...)
-		}
-		return strconv.AppendInt(b, int64(rr.Rcode), 10)
-	case "{rsize}":
-		if rr == nil {
-			return append(b, EmptyValue...)
-		}
-		return strconv.AppendInt(b, int64(rr.Len), 10)
-	case "{duration}":
-		if rr == nil {
-			return append(b, EmptyValue...)
-		}
-		secs := time.Since(rr.Start).Seconds()
-		return append(strconv.AppendFloat(b, secs, 'f', -1, 64), 's')
-	case headerReplacer + "rflags}":
-		if rr != nil && rr.Msg != nil {
-			return appendFlags(b, rr.Msg.MsgHdr)
-		}
-		return append(b, EmptyValue...)
 	default:
 		return append(b, EmptyValue...)
 	}
@@ -271,6 +278,7 @@ func (r replacer) Replace(ctx context.Context, state request.Request, rr *dnstes
 		}
 	}
 	s := string(b)
+	//nolint:staticcheck
 	bufPool.Put(b[:0])
 	return s
 }

@@ -81,16 +81,19 @@ func setup(c *caddy.Controller) error {
 		ctx, cancel := context.WithCancel(context.Background())
 		client, err := f(ctx, opt)
 		if err != nil {
+			cancel()
 			return err
 		}
 
 		h, err := New(ctx, client, keys, up)
 		if err != nil {
+			cancel()
 			return plugin.Error("clouddns", c.Errf("failed to create plugin: %v", err))
 		}
 		h.Fall = fall
 
 		if err := h.Run(ctx); err != nil {
+			cancel()
 			return plugin.Error("clouddns", c.Errf("failed to initialize plugin: %v", err))
 		}
 

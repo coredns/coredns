@@ -3,6 +3,7 @@ package rewrite
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -16,6 +17,11 @@ import (
 )
 
 func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	if len(r.Answer) == 0 {
+		r.Answer = []dns.RR{
+			test.A(fmt.Sprintf("%s  5   IN  A  10.0.0.1", r.Question[0].Name)),
+		}
+	}
 	w.WriteMsg(r)
 	return 0, nil
 }
@@ -44,7 +50,7 @@ func TestNewRule(t *testing.T) {
 		{[]string{"name", "regex", "(cdns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "ttl", "(core)\\.(cdns)\\.(rocks)", "{2}.{1}.{3}"}, true, nil},
 		{[]string{"name", "regex", "(ddns)\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "name", "\xecore\\.(ddns)\\.(rocks)", "{2}.{1}.{3}"}, true, nil},
 		{[]string{"name", "regex", "\xedns\\.(core)\\.(rocks)", "{2}.{1}.{3}", "answer", "name", "(core)\\.(edns)\\.(rocks)", "{2}.{1}.{3}"}, true, nil},
-		{[]string{"name", "substring", "fcore.dns.rocks", "dns.fcore.rocks", "answer", "name", "(fcore)\\.(dns)\\.(rocks)", "{2}.{1}.{3}"}, true, nil},
+		{[]string{"name", "substring", "fcore.dns.rocks", "dns.fcore.rocks", "answer", "name", "(fcore)\\.(dns)\\.(rocks)", "{2}.{1}.{3}"}, false, reflect.TypeOf(&substringNameRule{})},
 		{[]string{"name", "substring", "a.com", "b.com", "c.com"}, true, nil},
 		{[]string{"type"}, true, nil},
 		{[]string{"type", "a"}, true, nil},
@@ -64,14 +70,20 @@ func TestNewRule(t *testing.T) {
 		{[]string{"edns0", "local", "set", "0xffee"}, true, nil},
 		{[]string{"edns0", "local", "set", "65518", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
 		{[]string{"edns0", "local", "set", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "set", "0xffee", "abcdefg", "revert"}, false, reflect.TypeOf(&edns0LocalRule{})},
 		{[]string{"edns0", "local", "append", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "append", "0xffee", "abcdefg", "revert"}, false, reflect.TypeOf(&edns0LocalRule{})},
 		{[]string{"edns0", "local", "replace", "0xffee", "abcdefg"}, false, reflect.TypeOf(&edns0LocalRule{})},
+		{[]string{"edns0", "local", "replace", "0xffee", "abcdefg", "revert"}, false, reflect.TypeOf(&edns0LocalRule{})},
 		{[]string{"edns0", "local", "foo", "0xffee", "abcdefg"}, true, nil},
 		{[]string{"edns0", "local", "set", "0xffee", "0xabcdefg"}, true, nil},
 		{[]string{"edns0", "nsid", "set", "junk"}, true, nil},
 		{[]string{"edns0", "nsid", "set"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"edns0", "nsid", "set", "revert"}, false, reflect.TypeOf(&edns0NsidRule{})},
 		{[]string{"edns0", "nsid", "append"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"edns0", "nsid", "append", "revert"}, false, reflect.TypeOf(&edns0NsidRule{})},
 		{[]string{"edns0", "nsid", "replace"}, false, reflect.TypeOf(&edns0NsidRule{})},
+		{[]string{"edns0", "nsid", "replace", "revert"}, false, reflect.TypeOf(&edns0NsidRule{})},
 		{[]string{"edns0", "nsid", "foo"}, true, nil},
 		{[]string{"edns0", "local", "set", "0xffee", "{dummy}"}, true, nil},
 		{[]string{"edns0", "local", "set", "0xffee", "{qname}"}, false, reflect.TypeOf(&edns0VariableRule{})},
@@ -81,6 +93,7 @@ func TestNewRule(t *testing.T) {
 		{[]string{"edns0", "local", "set", "0xffee", "{protocol}"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "set", "0xffee", "{server_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "set", "0xffee", "{server_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
+		{[]string{"edns0", "local", "set", "0xffee", "{server_port}", "revert"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "append", "0xffee", "{dummy}"}, true, nil},
 		{[]string{"edns0", "local", "append", "0xffee", "{qname}"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "append", "0xffee", "{qtype}"}, false, reflect.TypeOf(&edns0VariableRule{})},
@@ -89,6 +102,7 @@ func TestNewRule(t *testing.T) {
 		{[]string{"edns0", "local", "append", "0xffee", "{protocol}"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "append", "0xffee", "{server_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "append", "0xffee", "{server_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
+		{[]string{"edns0", "local", "append", "0xffee", "{server_port}", "revert"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "replace", "0xffee", "{dummy}"}, true, nil},
 		{[]string{"edns0", "local", "replace", "0xffee", "{qname}"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "replace", "0xffee", "{qtype}"}, false, reflect.TypeOf(&edns0VariableRule{})},
@@ -97,13 +111,18 @@ func TestNewRule(t *testing.T) {
 		{[]string{"edns0", "local", "replace", "0xffee", "{protocol}"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "replace", "0xffee", "{server_ip}"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "local", "replace", "0xffee", "{server_port}"}, false, reflect.TypeOf(&edns0VariableRule{})},
+		{[]string{"edns0", "local", "replace", "0xffee", "{server_port}", "revert"}, false, reflect.TypeOf(&edns0VariableRule{})},
 		{[]string{"edns0", "subnet", "set", "-1", "56"}, true, nil},
 		{[]string{"edns0", "subnet", "set", "24", "-56"}, true, nil},
 		{[]string{"edns0", "subnet", "set", "33", "56"}, true, nil},
 		{[]string{"edns0", "subnet", "set", "24", "129"}, true, nil},
 		{[]string{"edns0", "subnet", "set", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"edns0", "subnet", "set", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"edns0", "subnet", "append", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"edns0", "subnet", "append", "24", "56", "72"}, true, nil},
+		{[]string{"edns0", "subnet", "append", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"edns0", "subnet", "replace", "24", "56"}, false, reflect.TypeOf(&edns0SubnetRule{})},
+		{[]string{"edns0", "subnet", "replace", "24", "56", "revert"}, false, reflect.TypeOf(&edns0SubnetRule{})},
 		{[]string{"unknown-action", "name", "a.com", "b.com"}, true, nil},
 		{[]string{"stop", "name", "a.com", "b.com"}, false, reflect.TypeOf(&exactNameRule{})},
 		{[]string{"continue", "name", "a.com", "b.com"}, false, reflect.TypeOf(&exactNameRule{})},
@@ -157,6 +176,59 @@ func TestNewRule(t *testing.T) {
 	}
 }
 
+func TestRewriteDefaultRevertPolicy(t *testing.T) {
+	rules := []Rule{}
+
+	r, _ := newNameRule("stop", "prefix", "prefix", "to")
+	rules = append(rules, r)
+	r, _ = newNameRule("stop", "suffix", ".suffix.", ".nl.")
+	rules = append(rules, r)
+	r, _ = newNameRule("stop", "substring", "from.substring", "to")
+	rules = append(rules, r)
+	r, _ = newNameRule("stop", "regex", "(f.*m)\\.regex\\.(nl)", "to.{2}")
+	rules = append(rules, r)
+
+	rw := Rewrite{
+		Next:  plugin.HandlerFunc(msgPrinter),
+		Rules: rules,
+		// use production (default) RevertPolicy
+	}
+
+	tests := []struct {
+		from  string
+		fromT uint16
+		fromC uint16
+		to    string
+		toT   uint16
+		toC   uint16
+	}{
+		{"prefix.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
+		{"to.suffix.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
+		{"from.substring.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
+		{"from.regex.nl.", dns.TypeA, dns.ClassINET, "to.nl.", dns.TypeA, dns.ClassINET},
+	}
+
+	ctx := context.TODO()
+	for i, tc := range tests {
+		m := new(dns.Msg)
+		m.SetQuestion(tc.from, tc.fromT)
+		m.Question[0].Qclass = tc.fromC
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		rw.ServeDNS(ctx, rec, m)
+
+		resp := rec.Msg
+
+		if resp.Question[0].Name != tc.from {
+			t.Errorf("Test %d: Expected Name in Question to be %q but was %q", i, tc.from, resp.Question[0].Name)
+		}
+
+		if resp.Answer[0].Header().Name != tc.to {
+			t.Errorf("Test %d: Expected Name in Answer to be %q but was %q", i, tc.to, resp.Answer[0].Header().Name)
+		}
+	}
+}
+
 func TestRewrite(t *testing.T) {
 	rules := []Rule{}
 	r, _ := newNameRule("stop", "from.nl.", "to.nl.")
@@ -185,9 +257,9 @@ func TestRewrite(t *testing.T) {
 	rules = append(rules, r)
 
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		Rules:    rules,
-		noRevert: true,
+		Next:         plugin.HandlerFunc(msgPrinter),
+		Rules:        rules,
+		RevertPolicy: NoRevertPolicy(),
 	}
 
 	tests := []struct {
@@ -248,8 +320,8 @@ func TestRewrite(t *testing.T) {
 
 func TestRewriteEDNS0Local(t *testing.T) {
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		noRevert: true,
+		Next:         plugin.HandlerFunc(msgPrinter),
+		RevertPolicy: NoRevertPolicy(),
 	}
 
 	tests := []struct {
@@ -328,30 +400,207 @@ func TestRewriteEDNS0Local(t *testing.T) {
 	}
 }
 
-func TestEdns0LocalMultiRule(t *testing.T) {
-	rules := []Rule{}
-	r, _ := newEdns0Rule("stop", "local", "replace", "0xffee", "abcdef")
-	rules = append(rules, r)
-	r, _ = newEdns0Rule("stop", "local", "set", "0xffee", "fedcba")
-	rules = append(rules, r)
-
-	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		Rules:    rules,
-		noRevert: true,
-	}
-
+func TestEdns0MultiRule(t *testing.T) {
 	tests := []struct {
-		fromOpts []dns.EDNS0
-		toOpts   []dns.EDNS0
+		rules        [][]string
+		fromOpts     []dns.EDNS0
+		toOpts       []dns.EDNS0
+		revertPolicy RevertPolicy
 	}{
+		// Local.
 		{
+			[][]string{
+				{"stop", "local", "replace", "0xffee", "abcdef"},
+				{"stop", "local", "set", "0xffee", "fedcba"},
+			},
 			nil,
 			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("fedcba")}},
+			NoRevertPolicy(),
 		},
 		{
+			[][]string{
+				{"stop", "local", "replace", "0xffee", "abcdef"},
+				{"stop", "local", "set", "0xffee", "fedcba"},
+			},
 			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
 			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("abcdef")}},
+			NoRevertPolicy(),
+		},
+		// Local with "revert".
+		{
+			[][]string{
+				{"stop", "local", "replace", "0xffee", "abcdef", "revert"},
+				{"stop", "local", "set", "0xffee", "fedcba", "revert"},
+			},
+			nil,
+			[]dns.EDNS0{},
+			NewRevertPolicy(false, false),
+		},
+		{
+			[][]string{
+				{"stop", "local", "replace", "0xffee", "abcdef", "revert"},
+				{"stop", "local", "set", "0xffee", "fedcba", "revert"},
+			},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+			NewRevertPolicy(false, false),
+		},
+		// Local variable.
+		{
+			[][]string{
+				{"stop", "local", "replace", "0xffee", "{qname}"},
+				{"stop", "local", "set", "0xffee", "{qtype}"},
+			},
+			nil,
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte{0x00, 0x01}}},
+			NoRevertPolicy(),
+		},
+		{
+			[][]string{
+				{"stop", "local", "replace", "0xffee", "{qname}"},
+				{"stop", "local", "set", "0xffee", "{qtype}"},
+			},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("example.com.")}},
+			NoRevertPolicy(),
+		},
+		// Local variable with "revert".
+		{
+			[][]string{
+				{"stop", "local", "replace", "0xffee", "{qname}", "revert"},
+				{"stop", "local", "set", "0xffee", "{qtype}", "revert"},
+			},
+			nil,
+			[]dns.EDNS0{},
+			NewRevertPolicy(false, false),
+		},
+		{
+			[][]string{
+				{"stop", "local", "replace", "0xffee", "{qname}", "revert"},
+				{"stop", "local", "set", "0xffee", "{qtype}", "revert"},
+			},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+			NewRevertPolicy(false, false),
+		},
+		// Nsid.
+		{
+			[][]string{
+				{"stop", "nsid", "replace"},
+				{"stop", "nsid", "set"},
+			},
+			nil,
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			NoRevertPolicy(),
+		},
+		{
+			[][]string{
+				{"stop", "nsid", "replace"},
+				{"stop", "nsid", "set"},
+			},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			NoRevertPolicy(),
+		},
+		{
+			[][]string{
+				{"stop", "nsid", "replace"},
+				{"stop", "nsid", "set"},
+			},
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			NoRevertPolicy(),
+		},
+		// Nsid with "revert".
+		{
+			[][]string{
+				{"stop", "nsid", "replace", "revert"},
+				{"stop", "nsid", "set", "revert"},
+			},
+			nil,
+			[]dns.EDNS0{},
+			NewRevertPolicy(false, false),
+		},
+		{
+			[][]string{
+				{"stop", "nsid", "replace", "revert"},
+				{"stop", "nsid", "set", "revert"},
+			},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffee, Data: []byte("foobar")}},
+			NewRevertPolicy(false, false),
+		},
+		{
+			[][]string{
+				{"stop", "nsid", "replace", "revert"},
+				{"stop", "nsid", "set", "revert"},
+			},
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			[]dns.EDNS0{&dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""}},
+			NewRevertPolicy(false, false),
+		},
+		// Subnet.
+		{
+			[][]string{
+				{"stop", "subnet", "replace", "32", "56"},
+				{"stop", "subnet", "set", "0", "56"},
+			},
+			nil,
+			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
+				Family:        0x1,
+				SourceNetmask: 0x0,
+				SourceScope:   0x0,
+				Address:       []byte{0x00, 0x00, 0x00, 0x00},
+			}},
+			NoRevertPolicy(),
+		},
+		{
+			[][]string{
+				{"stop", "subnet", "replace", "32", "56"},
+				{"stop", "subnet", "set", "0", "56"},
+			},
+			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
+				Family:        0x1,
+				SourceNetmask: 0x0,
+				SourceScope:   0x0,
+				Address:       []byte{0x00, 0x00, 0x00, 0x00},
+			}},
+			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
+				Family:        0x1,
+				SourceNetmask: 0x20,
+				SourceScope:   0x0,
+				Address:       []byte{0x0A, 0xF0, 0x00, 0x01},
+			}},
+			NoRevertPolicy(),
+		},
+		// Subnet with "revert".
+		{
+			[][]string{
+				{"stop", "subnet", "replace", "32", "56", "revert"},
+				{"stop", "subnet", "set", "0", "56", "revert"},
+			},
+			nil,
+			[]dns.EDNS0{},
+			NewRevertPolicy(false, false),
+		},
+		{
+			[][]string{
+				{"stop", "subnet", "replace", "32", "56", "revert"},
+				{"stop", "subnet", "set", "0", "56", "revert"},
+			},
+			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
+				Family:        0x1,
+				SourceNetmask: 0x0,
+				SourceScope:   0x0,
+				Address:       []byte{0x00, 0x00, 0x00, 0x00},
+			}},
+			[]dns.EDNS0{&dns.EDNS0_SUBNET{Code: 0x8,
+				Family:        0x1,
+				SourceNetmask: 0x0,
+				SourceScope:   0x0,
+				Address:       []byte{0x00, 0x00, 0x00, 0x00},
+			}},
+			NewRevertPolicy(false, false),
 		},
 	}
 
@@ -369,6 +618,19 @@ func TestEdns0LocalMultiRule(t *testing.T) {
 			o.Option = append(o.Option, tc.fromOpts...)
 		}
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+		rules := make([]Rule, 0, len(tc.rules))
+		for _, rule := range tc.rules {
+			r, _ := newEdns0Rule(rule[0], rule[1:]...)
+			rules = append(rules, r)
+		}
+
+		rw := Rewrite{
+			Next:         plugin.HandlerFunc(msgPrinter),
+			Rules:        rules,
+			RevertPolicy: tc.revertPolicy,
+		}
+
 		rw.ServeDNS(ctx, rec, m)
 
 		resp := rec.Msg
@@ -447,8 +709,8 @@ func (tp testProvider) Metadata(ctx context.Context, state request.Request) cont
 
 func TestRewriteEDNS0LocalVariable(t *testing.T) {
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		noRevert: true,
+		Next:         plugin.HandlerFunc(msgPrinter),
+		RevertPolicy: NoRevertPolicy(),
 	}
 
 	expectedMetadata := []metadata.Provider{
@@ -545,8 +807,8 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 		}
 		rw.Rules = []Rule{r}
 
-		ctx := context.TODO()
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		ctx := meta.Collect(context.TODO(), request.Request{W: rec, Req: m})
 		meta.ServeDNS(ctx, rec, m)
 
 		resp := rec.Msg
@@ -569,8 +831,8 @@ func TestRewriteEDNS0LocalVariable(t *testing.T) {
 
 func TestRewriteEDNS0Subnet(t *testing.T) {
 	rw := Rewrite{
-		Next:     plugin.HandlerFunc(msgPrinter),
-		noRevert: true,
+		Next:         plugin.HandlerFunc(msgPrinter),
+		RevertPolicy: NoRevertPolicy(),
 	}
 
 	tests := []struct {
@@ -674,6 +936,104 @@ func TestRewriteEDNS0Subnet(t *testing.T) {
 		resp := rec.Msg
 		o := resp.IsEdns0()
 		o.SetDo(tc.doBool)
+		if o == nil {
+			t.Errorf("Test %d: EDNS0 options not set", i)
+			continue
+		}
+		if o.Do() != tc.doBool {
+			t.Errorf("Test %d: Expected %v but got %v", i, tc.doBool, o.Do())
+		}
+		if !optsEqual(o.Option, tc.toOpts) {
+			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
+		}
+	}
+}
+
+func TestRewriteEDNS0Revert(t *testing.T) {
+	rw := Rewrite{
+		Next:         plugin.HandlerFunc(msgPrinter),
+		RevertPolicy: NewRevertPolicy(false, false),
+	}
+
+	tests := []struct {
+		fromOpts []dns.EDNS0
+		args     []string
+		toOpts   []dns.EDNS0
+		doBool   bool
+	}{
+		{
+			[]dns.EDNS0{},
+			[]string{"local", "set", "0xffee", "0xabcdef", "revert"},
+			[]dns.EDNS0{},
+			false,
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"local", "append", "0xffee", "abcdefghijklmnop", "revert"},
+			[]dns.EDNS0{},
+			false,
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"local", "replace", "0xffee", "abcdefghijklmnop", "revert"},
+			[]dns.EDNS0{},
+			true,
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"nsid", "set", "revert"},
+			[]dns.EDNS0{},
+			false,
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"nsid", "append", "revert"},
+			[]dns.EDNS0{},
+			true,
+		},
+		{
+			[]dns.EDNS0{},
+			[]string{"nsid", "replace"},
+			[]dns.EDNS0{},
+			true,
+		},
+
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffed, Data: []byte{0xab, 0xcd, 0xef}}},
+			[]string{"local", "set", "0xffee", "0xabcd", "revert"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffed, Data: []byte{0xab, 0xcd, 0xef}}},
+			false,
+		},
+		{
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffef, Data: []byte{0xab, 0xcd, 0xef}}},
+			[]string{"local", "replace", "0xffee", "abcdefghijklmnop"},
+			[]dns.EDNS0{&dns.EDNS0_LOCAL{Code: 0xffef, Data: []byte{0xab, 0xcd, 0xef}}},
+			true,
+		},
+	}
+
+	ctx := context.TODO()
+	for i, tc := range tests {
+		m := new(dns.Msg)
+		m.SetQuestion("example.com.", dns.TypeA)
+		m.Question[0].Qclass = dns.ClassINET
+
+		r, err := newEdns0Rule("stop", tc.args...)
+		if err != nil {
+			t.Errorf("Error creating test rule: %s", err)
+			continue
+		}
+		rw.Rules = []Rule{r}
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		rw.ServeDNS(ctx, rec, m)
+
+		resp := rec.Msg
+		o := resp.IsEdns0()
+		o.SetDo(tc.doBool)
+		if tc.fromOpts != nil {
+			o.Option = append(o.Option, tc.fromOpts...)
+		}
 		if o == nil {
 			t.Errorf("Test %d: EDNS0 options not set", i)
 			continue

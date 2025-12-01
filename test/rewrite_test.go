@@ -7,6 +7,34 @@ import (
 	"github.com/miekg/dns"
 )
 
+func TestRewriteFailure(t *testing.T) {
+	t.Parallel()
+	i, udp, _, err := CoreDNSServerAndPorts(`.:0 {
+        rewrite name regex (.*)\.test\.$ {1}. answer auto
+        # no next plugin to induce SERVFAIL
+    }`)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+
+	defer i.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.test.", dns.TypeMX)
+
+	r, err := dns.Exchange(m, udp)
+	if err != nil {
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
+	}
+
+	if len(r.Question) == 0 {
+		t.Error("Invalid empty question section")
+	}
+	if r.Question[0].Name != "example.test." {
+		t.Errorf("Question section mismatch. expected \"example.test.\" got %q", r.Question[0].Name)
+	}
+}
+
 func TestRewrite(t *testing.T) {
 	t.Parallel()
 	corefile := `.:0 {

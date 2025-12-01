@@ -1,4 +1,4 @@
-// +build etcd
+//go:build etcd
 
 // tests mx and txt records
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/test"
@@ -15,163 +16,15 @@ import (
 	"github.com/miekg/dns"
 )
 
-type cacheTestCase struct {
-	test.Case
-	in                 test.Case
-	AuthenticatedData  bool
-	RecursionAvailable bool
-	Truncated          bool
-	shouldCache        bool
-}
-
-var cacheTestCases = []cacheTestCase{
-	{
-		RecursionAvailable: true, AuthenticatedData: true,
-		Case: test.Case{
-			Qname: "miek.nl.", Qtype: dns.TypeMX,
-			Answer: []dns.RR{
-				test.MX("miek.nl.	3600	IN	MX	1 aspmx.l.google.com."),
-				test.MX("miek.nl.	3600	IN	MX	10 aspmx2.googlemail.com."),
-			},
-		},
-		in: test.Case{
-			Qname: "miek.nl.", Qtype: dns.TypeMX,
-			Answer: []dns.RR{
-				test.MX("miek.nl.	3601	IN	MX	1 aspmx.l.google.com."),
-				test.MX("miek.nl.	3601	IN	MX	10 aspmx2.googlemail.com."),
-			},
-		},
-		shouldCache: true,
-	},
-	{
-		RecursionAvailable: true, AuthenticatedData: true,
-		Case: test.Case{
-			Qname: "miek.nl.", Qtype: dns.TypeMX,
-			Answer: []dns.RR{
-				test.MX("miek.nl.	3600	IN	MX	1 aspmx.l.google.com."),
-				test.MX("miek.nl.	3600	IN	MX	10 aspmx2.googlemail.com."),
-			},
-		},
-		in: test.Case{
-			Qname: "mIEK.nL.", Qtype: dns.TypeMX,
-			Answer: []dns.RR{
-				test.MX("miek.nl.	3601	IN	MX	1 aspmx.l.google.com."),
-				test.MX("miek.nl.	3601	IN	MX	10 aspmx2.googlemail.com."),
-				// RRSIG must be here, because we are always doing DNSSEC lookups, and miek.nl MX is tested later in this list as well.
-				test.RRSIG("miek.nl.	3600	IN	RRSIG	MX 8 2 1800 20160521031301 20160421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
-			},
-		},
-		shouldCache: true,
-	},
-	{
-		Truncated: true,
-		Case: test.Case{
-			Qname: "miek.nl.", Qtype: dns.TypeMX,
-			Answer: []dns.RR{test.MX("miek.nl.	1800	IN	MX	1 aspmx.l.google.com.")},
-		},
-		in:          test.Case{},
-		shouldCache: false,
-	},
-	{
-		RecursionAvailable: true,
-		Case: test.Case{
-			Rcode: dns.RcodeNameError,
-			Qname: "example.org.", Qtype: dns.TypeA,
-			Ns: []dns.RR{
-				test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
-			},
-		},
-		in: test.Case{
-			Rcode: dns.RcodeNameError,
-			Qname: "example.org.", Qtype: dns.TypeA,
-			Ns: []dns.RR{
-				test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
-			},
-		},
-		shouldCache: true,
-	},
-	{
-		RecursionAvailable: true,
-		Case: test.Case{
-			Rcode: dns.RcodeServerFailure,
-			Qname: "example.org.", Qtype: dns.TypeA,
-			Ns: []dns.RR{},
-		},
-		in: test.Case{
-			Rcode: dns.RcodeServerFailure,
-			Qname: "example.org.", Qtype: dns.TypeA,
-			Ns: []dns.RR{},
-		},
-		shouldCache: true,
-	},
-	{
-		RecursionAvailable: true,
-		Case: test.Case{
-			Rcode: dns.RcodeNotImplemented,
-			Qname: "example.org.", Qtype: dns.TypeA,
-			Ns: []dns.RR{},
-		},
-		in: test.Case{
-			Rcode: dns.RcodeNotImplemented,
-			Qname: "example.org.", Qtype: dns.TypeA,
-			Ns: []dns.RR{},
-		},
-		shouldCache: true,
-	},
-	{
-		RecursionAvailable: true,
-		Case: test.Case{
-			Qname: "miek.nl.", Qtype: dns.TypeMX,
-			Do: true,
-			Answer: []dns.RR{
-				test.MX("miek.nl.	3600	IN	MX	1 aspmx.l.google.com."),
-				test.MX("miek.nl.	3600	IN	MX	10 aspmx2.googlemail.com."),
-				test.RRSIG("miek.nl.	3600	IN	RRSIG	MX 8 2 1800 20160521031301 20160421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
-			},
-		},
-		in: test.Case{
-			Qname: "miek.nl.", Qtype: dns.TypeMX,
-			Do: true,
-			Answer: []dns.RR{
-				test.MX("miek.nl.	3600	IN	MX	1 aspmx.l.google.com."),
-				test.MX("miek.nl.	3600	IN	MX	10 aspmx2.googlemail.com."),
-				test.RRSIG("miek.nl.	1800	IN	RRSIG	MX 8 2 1800 20160521031301 20160421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
-			},
-		},
-		shouldCache: true,
-	},
-	{
-		RecursionAvailable: true,
-		Case: test.Case{
-			Qname: "example.org.", Qtype: dns.TypeMX,
-			Do: true,
-			Answer: []dns.RR{
-				test.MX("example.org.	3600	IN	MX	1 aspmx.l.google.com."),
-				test.MX("example.org.	3600	IN	MX	10 aspmx2.googlemail.com."),
-				test.RRSIG("example.org.	3600	IN	RRSIG	MX 8 2 1800 20170521031301 20170421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
-			},
-		},
-		in: test.Case{
-			Qname: "example.org.", Qtype: dns.TypeMX,
-			Do: true,
-			Answer: []dns.RR{
-				test.MX("example.org.	3600	IN	MX	1 aspmx.l.google.com."),
-				test.MX("example.org.	3600	IN	MX	10 aspmx2.googlemail.com."),
-				test.RRSIG("example.org.	1800	IN	RRSIG	MX 8 2 1800 20170521031301 20170421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
-			},
-		},
-		shouldCache: true,
-	},
-}
-
-func cacheMsg(m *dns.Msg, tc cacheTestCase) *dns.Msg {
+func cacheMsg(m *dns.Msg, tc test.Case) *dns.Msg {
 	m.RecursionAvailable = tc.RecursionAvailable
 	m.AuthenticatedData = tc.AuthenticatedData
-	m.Authoritative = true
+	m.CheckingDisabled = tc.CheckingDisabled
+	m.Authoritative = tc.Authoritative
 	m.Rcode = tc.Rcode
 	m.Truncated = tc.Truncated
-	m.Answer = tc.in.Answer
-	m.Ns = tc.in.Ns
+	m.Answer = tc.Answer
+	m.Ns = tc.Ns
 	// m.Extra = tc.in.Extra don't copy Extra, because we don't care and fake EDNS0 DO with tc.Do.
 	return m
 }
@@ -182,56 +35,311 @@ func newTestCache(ttl time.Duration) (*Cache, *ResponseWriter) {
 	c.nttl = ttl
 
 	crr := &ResponseWriter{ResponseWriter: nil, Cache: c}
+	crr.nexcept = []string{"neg-disabled.example.org."}
+	crr.pexcept = []string{"pos-disabled.example.org."}
+
 	return c, crr
 }
 
-func TestCache(t *testing.T) {
+// TestCacheInsertion verifies the insertion of items to the cache.
+func TestCacheInsertion(t *testing.T) {
+	cacheTestCases := []struct {
+		name        string
+		out         test.Case // the expected message coming "out" of cache
+		in          test.Case // the test message going "in" to cache
+		shouldCache bool
+	}{
+		{
+			name: "test ad bit cache",
+			out: test.Case{
+				Qname: "miek.nl.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.MX("miek.nl.	3600	IN	MX	1 aspmx.l.google.com."),
+					test.MX("miek.nl.	3600	IN	MX	10 aspmx2.googlemail.com."),
+				},
+				RecursionAvailable: true,
+				AuthenticatedData:  true,
+			},
+			in: test.Case{
+				Qname: "miek.nl.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.MX("miek.nl.	3601	IN	MX	1 aspmx.l.google.com."),
+					test.MX("miek.nl.	3601	IN	MX	10 aspmx2.googlemail.com."),
+				},
+				RecursionAvailable: true,
+				AuthenticatedData:  true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test case sensitivity cache",
+			out: test.Case{
+				Qname: "miek.nl.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.MX("miek.nl.	3600	IN	MX	1 aspmx.l.google.com."),
+					test.MX("miek.nl.	3600	IN	MX	10 aspmx2.googlemail.com."),
+				},
+				RecursionAvailable: true,
+				AuthenticatedData:  true,
+			},
+			in: test.Case{
+				Qname: "mIEK.nL.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.MX("miek.nl.	3601	IN	MX	1 aspmx.l.google.com."),
+					test.MX("miek.nl.	3601	IN	MX	10 aspmx2.googlemail.com."),
+				},
+				RecursionAvailable: true,
+				AuthenticatedData:  true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test truncated responses shouldn't cache",
+			in: test.Case{
+				Qname: "miek.nl.", Qtype: dns.TypeMX,
+				Answer:    []dns.RR{test.MX("miek.nl.	1800	IN	MX	1 aspmx.l.google.com.")},
+				Truncated: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test dns.RcodeNameError cache",
+			out: test.Case{
+				Rcode: dns.RcodeNameError,
+				Qname: "example.org.", Qtype: dns.TypeA,
+				Ns: []dns.RR{
+					test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
+				},
+				RecursionAvailable: true,
+			},
+			in: test.Case{
+				Rcode: dns.RcodeNameError,
+				Qname: "example.org.", Qtype: dns.TypeA,
+				Ns: []dns.RR{
+					test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test dns.RcodeServerFailure cache",
+			out: test.Case{
+				Rcode: dns.RcodeServerFailure,
+				Qname: "example.org.", Qtype: dns.TypeA,
+				Ns:                 []dns.RR{},
+				RecursionAvailable: true,
+			},
+			in: test.Case{
+				Rcode: dns.RcodeServerFailure,
+				Qname: "example.org.", Qtype: dns.TypeA,
+				Ns:                 []dns.RR{},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test dns.RcodeNotImplemented cache",
+			out: test.Case{
+				Rcode: dns.RcodeNotImplemented,
+				Qname: "example.org.", Qtype: dns.TypeA,
+				Ns:                 []dns.RR{},
+				RecursionAvailable: true,
+			},
+			in: test.Case{
+				Rcode: dns.RcodeNotImplemented,
+				Qname: "example.org.", Qtype: dns.TypeA,
+				Ns:                 []dns.RR{},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test expired RRSIG doesn't cache",
+			in: test.Case{
+				Qname: "miek.nl.", Qtype: dns.TypeMX,
+				Do: true,
+				Answer: []dns.RR{
+					test.MX("miek.nl.	3600	IN	MX	1 aspmx.l.google.com."),
+					test.MX("miek.nl.	3600	IN	MX	10 aspmx2.googlemail.com."),
+					test.RRSIG("miek.nl.	1800	IN	RRSIG	MX 8 2 1800 20160521031301 20160421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test DO bit with RRSIG not expired cache",
+			out: test.Case{
+				Qname: "example.org.", Qtype: dns.TypeMX,
+				Do: true,
+				Answer: []dns.RR{
+					test.MX("example.org.	3600	IN	MX	1 aspmx.l.google.com."),
+					test.MX("example.org.	3600	IN	MX	10 aspmx2.googlemail.com."),
+					test.RRSIG("example.org.	3600	IN	RRSIG	MX 8 2 1800 20170521031301 20170421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
+				},
+				RecursionAvailable: true,
+			},
+			in: test.Case{
+				Qname: "example.org.", Qtype: dns.TypeMX,
+				Do: true,
+				Answer: []dns.RR{
+					test.MX("example.org.	3600	IN	MX	1 aspmx.l.google.com."),
+					test.MX("example.org.	3600	IN	MX	10 aspmx2.googlemail.com."),
+					test.RRSIG("example.org.	1800	IN	RRSIG	MX 8 2 1800 20170521031301 20170421031301 12051 miek.nl. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test CD bit cache",
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "dnssec-failed.org.",
+				Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("dnssec-failed.org. 3600 IN	A	127.0.0.1"),
+				},
+				CheckingDisabled: true,
+			},
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "dnssec-failed.org.",
+				Answer: []dns.RR{
+					test.A("dnssec-failed.org. 3600 IN	A	127.0.0.1"),
+				},
+				Qtype:            dns.TypeA,
+				CheckingDisabled: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test negative zone exception shouldn't cache",
+			in: test.Case{
+				Rcode: dns.RcodeNameError,
+				Qname: "neg-disabled.example.org.", Qtype: dns.TypeA,
+				Ns: []dns.RR{
+					test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
+				},
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test positive zone exception shouldn't cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "pos-disabled.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("pos-disabled.example.org. 3600 IN	A	127.0.0.1"),
+				},
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test positive zone exception with negative answer cache",
+			in: test.Case{
+				Rcode: dns.RcodeNameError,
+				Qname: "pos-disabled.example.org.", Qtype: dns.TypeA,
+				Ns: []dns.RR{
+					test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
+				},
+			},
+			out: test.Case{
+				Rcode: dns.RcodeNameError,
+				Qname: "pos-disabled.example.org.", Qtype: dns.TypeA,
+				Ns: []dns.RR{
+					test.SOA("example.org. 3600 IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600"),
+				},
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test negative zone exception with positive answer cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "neg-disabled.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("neg-disabled.example.org. 3600 IN	A	127.0.0.1"),
+				},
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "neg-disabled.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("neg-disabled.example.org. 3600 IN	A	127.0.0.1"),
+				},
+			},
+			shouldCache: true,
+		},
+	}
 	now, _ := time.Parse(time.UnixDate, "Fri Apr 21 10:51:21 BST 2017")
 	utc := now.UTC()
 
-	c, crr := newTestCache(maxTTL)
-
 	for _, tc := range cacheTestCases {
-		m := tc.in.Msg()
-		m = cacheMsg(m, tc)
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a new cache every time to prevent accidental comparison with a previous item.
+			c, crr := newTestCache(maxTTL)
 
-		state := request.Request{W: &test.ResponseWriter{}, Req: m}
+			m := tc.in.Msg()
+			m = cacheMsg(m, tc.in)
 
-		mt, _ := response.Typify(m, utc)
-		valid, k := key(state.Name(), m, mt)
+			state := request.Request{W: &test.ResponseWriter{}, Req: m}
 
-		if valid {
-			crr.set(m, k, mt, c.pttl)
-		}
+			mt, _ := response.Typify(m, utc)
+			valid, k := key(state.Name(), m, mt, state.Do(), state.Req.CheckingDisabled)
 
-		i, _ := c.get(time.Now().UTC(), state, "dns://:53")
-		ok := i != nil
-
-		if ok != tc.shouldCache {
-			t.Errorf("Cached message that should not have been cached: %s", state.Name())
-			continue
-		}
-
-		if ok {
-			resp := i.toMsg(m, time.Now().UTC(), state.Do())
-
-			if err := test.Header(tc.Case, resp); err != nil {
-				t.Logf("Cache %v", resp)
-				t.Error(err)
-				continue
+			if valid {
+				// Insert cache entry
+				crr.set(m, k, mt, c.pttl)
 			}
 
-			if err := test.Section(tc.Case, test.Answer, resp.Answer); err != nil {
-				t.Logf("Cache %v -- %v", test.Answer, resp.Answer)
-				t.Error(err)
+			// Attempt to retrieve cache entry
+			i := c.getIgnoreTTL(time.Now().UTC(), state, "dns://:53")
+			found := i != nil
+
+			if !tc.shouldCache && found {
+				t.Fatalf("Cached message that should not have been cached: %s", state.Name())
 			}
-			if err := test.Section(tc.Case, test.Ns, resp.Ns); err != nil {
-				t.Error(err)
+			if tc.shouldCache && !found {
+				t.Fatalf("Did not cache message that should have been cached: %s", state.Name())
 			}
-			if err := test.Section(tc.Case, test.Extra, resp.Extra); err != nil {
-				t.Error(err)
+
+			if found {
+				resp := i.toMsg(m, time.Now().UTC(), state.Do(), m.AuthenticatedData)
+
+				// TODO: If we incorporate these individual checks into the
+				//       test.Header function, we can eliminate them from here.
+				// Cache entries are always Authoritative.
+				if resp.Authoritative != true {
+					t.Error("Expected Authoritative Answer bit to be true, but was false")
+				}
+				if resp.AuthenticatedData != tc.out.AuthenticatedData {
+					t.Errorf("Expected Authenticated Data bit to be %t, but got %t", tc.out.AuthenticatedData, resp.AuthenticatedData)
+				}
+				if resp.RecursionAvailable != tc.out.RecursionAvailable {
+					t.Errorf("Expected Recursion Available bit to be %t, but got %t", tc.out.RecursionAvailable, resp.RecursionAvailable)
+				}
+				if resp.CheckingDisabled != tc.out.CheckingDisabled {
+					t.Errorf("Expected Checking Disabled bit to be %t, but got %t", tc.out.CheckingDisabled, resp.CheckingDisabled)
+				}
+
+				if err := test.Header(tc.out, resp); err != nil {
+					t.Logf("Cache %v", resp)
+					t.Error(err)
+				}
+				if err := test.Section(tc.out, test.Answer, resp.Answer); err != nil {
+					t.Logf("Cache %v -- %v", test.Answer, resp.Answer)
+					t.Error(err)
+				}
+				if err := test.Section(tc.out, test.Ns, resp.Ns); err != nil {
+					t.Error(err)
+				}
+				if err := test.Section(tc.out, test.Extra, resp.Extra); err != nil {
+					t.Error(err)
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -254,6 +362,23 @@ func TestCacheZeroTTL(t *testing.T) {
 	}
 }
 
+func TestCacheServfailTTL0(t *testing.T) {
+	c := New()
+	c.minpttl = minTTL
+	c.minnttl = minNTTL
+	c.failttl = 0
+	c.Next = servFailBackend(0)
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+	if c.ncache.Len() != 0 {
+		t.Errorf("SERVFAIL response should not have been cached")
+	}
+}
+
 func TestServeFromStaleCache(t *testing.T) {
 	c := New()
 	c.Next = ttlBackend(60)
@@ -262,7 +387,7 @@ func TestServeFromStaleCache(t *testing.T) {
 	req.SetQuestion("cached.org.", dns.TypeA)
 	ctx := context.TODO()
 
-	// Cache example.org.
+	// Cache cached.org. with 60s TTL
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	c.staleUpTo = 1 * time.Hour
 	c.ServeDNS(ctx, rec, req)
@@ -296,6 +421,80 @@ func TestServeFromStaleCache(t *testing.T) {
 		r.SetQuestion(tt.name, dns.TypeA)
 		if ret, _ := c.ServeDNS(ctx, rec, r); ret != tt.expectedResult {
 			t.Errorf("Test %d: expecting %v; got %v", i, tt.expectedResult, ret)
+		}
+	}
+}
+
+func TestServeFromStaleCacheFetchVerify(t *testing.T) {
+	c := New()
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// Cache cached.org. with 120s TTL
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.staleUpTo = 1 * time.Hour
+	c.verifyStale = true
+	c.ServeDNS(ctx, rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+
+	tests := []struct {
+		name          string
+		upstreamRCode int
+		upstreamTtl   int
+		futureMinutes int
+		expectedRCode int
+		expectedTtl   int
+	}{
+		// After 1 minutes of initial TTL, we should see a cached response
+		{"cached.org.", dns.RcodeSuccess, 200, 1, dns.RcodeSuccess, 60}, // ttl = 120 - 60 -- not refreshed
+
+		// After the 2 more minutes, we should see upstream responses because upstream is available
+		{"cached.org.", dns.RcodeSuccess, 200, 3, dns.RcodeSuccess, 200},
+
+		// After the TTL expired, if the server fails we should get the cached entry
+		{"cached.org.", dns.RcodeServerFailure, 200, 7, dns.RcodeSuccess, 0},
+
+		// After 1 more minutes, if the server serves nxdomain we should see them (despite being within the serve stale period)
+		{"cached.org.", dns.RcodeNameError, 150, 8, dns.RcodeNameError, 150},
+	}
+
+	for i, tt := range tests {
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureMinutes) * time.Minute) }
+
+		if tt.upstreamRCode == dns.RcodeSuccess {
+			c.Next = ttlBackend(tt.upstreamTtl)
+		} else if tt.upstreamRCode == dns.RcodeServerFailure {
+			// Make upstream fail, should now rely on cache during the c.staleUpTo period
+			c.Next = servFailBackend(tt.upstreamTtl)
+		} else if tt.upstreamRCode == dns.RcodeNameError {
+			c.Next = nxDomainBackend(tt.upstreamTtl)
+		} else {
+			t.Fatal("upstream code not implemented")
+		}
+
+		r := req.Copy()
+		r.SetQuestion(tt.name, dns.TypeA)
+		ret, _ := c.ServeDNS(ctx, rec, r)
+		if ret != tt.expectedRCode {
+			t.Errorf("Test %d: expected rcode=%v, got rcode=%v", i, tt.expectedRCode, ret)
+			continue
+		}
+		if ret == dns.RcodeSuccess {
+			recTtl := rec.Msg.Answer[0].Header().Ttl
+			if tt.expectedTtl != int(recTtl) {
+				t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, recTtl)
+			}
+		} else if ret == dns.RcodeNameError {
+			soaTtl := rec.Msg.Ns[0].Header().Ttl
+			if tt.expectedTtl != int(soaTtl) {
+				t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, soaTtl)
+			}
 		}
 	}
 }
@@ -450,6 +649,20 @@ func ttlBackend(ttl int) plugin.Handler {
 	})
 }
 
+func servFailBackend(ttl int) plugin.Handler {
+	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+
+		m.Ns = []dns.RR{test.SOA(fmt.Sprintf("example.org. %d IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600", ttl))}
+
+		m.MsgHdr.Rcode = dns.RcodeServerFailure
+		w.WriteMsg(m)
+		return dns.RcodeServerFailure, nil
+	})
+}
+
 func TestComputeTTL(t *testing.T) {
 	tests := []struct {
 		msgTTL      time.Duration
@@ -468,4 +681,221 @@ func TestComputeTTL(t *testing.T) {
 			t.Errorf("Test %v: Expected ttl %v but found: %v", i, test.expectedTTL, ttl)
 		}
 	}
+}
+
+func TestCacheWildcardMetadata(t *testing.T) {
+	c := New()
+	qname := "foo.bar.example.org."
+	wildcard := "*.bar.example.org."
+	c.Next = wildcardMetadataBackend(qname, wildcard)
+
+	req := new(dns.Msg)
+	req.SetQuestion(qname, dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+
+	// 1. Test writing wildcard metadata retrieved from backend to the cache
+
+	ctx := metadata.ContextWithMetadata(context.TODO())
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(ctx, w, req)
+	if c.pcache.Len() != 1 {
+		t.Errorf("Msg should have been cached")
+	}
+	_, k := key(qname, w.Msg, response.NoError, state.Do(), state.Req.CheckingDisabled)
+	i, _ := c.pcache.Get(k)
+	if i.(*item).wildcard != wildcard {
+		t.Errorf("expected wildcard response to enter cache with cache item's wildcard = %q, got %q", wildcard, i.(*item).wildcard)
+	}
+
+	// 2. Test retrieving the cached item from cache and writing its wildcard value to metadata
+
+	// reset context and response writer
+	ctx = metadata.ContextWithMetadata(context.TODO())
+	w = dnstest.NewRecorder(&test.ResponseWriter{})
+
+	c.ServeDNS(ctx, w, req)
+	f := metadata.ValueFunc(ctx, "zone/wildcard")
+	if f == nil {
+		t.Fatal("expected metadata func for wildcard response retrieved from cache, got nil")
+	}
+	if f() != wildcard {
+		t.Errorf("after retrieving wildcard item from cache, expected \"zone/wildcard\" metadata value to be %q, got %q", wildcard, i.(*item).wildcard)
+	}
+}
+
+func TestCacheKeepTTL(t *testing.T) {
+	defaultTtl := 60
+
+	c := New()
+	c.Next = ttlBackend(defaultTtl)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// Cache cached.org. with 60s TTL
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.keepttl = true
+	c.ServeDNS(ctx, rec, req)
+
+	tests := []struct {
+		name          string
+		futureSeconds int
+	}{
+		{"cached.org.", 0},
+		{"cached.org.", 30},
+		{"uncached.org.", 60},
+	}
+
+	for i, tt := range tests {
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		c.now = func() time.Time { return time.Now().Add(time.Duration(tt.futureSeconds) * time.Second) }
+		r := req.Copy()
+		r.SetQuestion(tt.name, dns.TypeA)
+		c.ServeDNS(ctx, rec, r)
+
+		recTtl := rec.Msg.Answer[0].Header().Ttl
+		if defaultTtl != int(recTtl) {
+			t.Errorf("Test %d: expecting TTL=%d, got TTL=%d", i, defaultTtl, recTtl)
+		}
+	}
+}
+
+// TestCacheSeparation verifies whether the cache maintains separation for specific DNS query types and options.
+func TestCacheSeparation(t *testing.T) {
+	now, _ := time.Parse(time.UnixDate, "Fri Apr 21 10:51:21 BST 2017")
+	utc := now.UTC()
+
+	testCases := []struct {
+		name         string
+		initial      test.Case
+		query        test.Case
+		expectCached bool // if a cache entry should be found before inserting
+	}{
+		{
+			name: "query type should be unique",
+			initial: test.Case{
+				Qname: "example.org.",
+				Qtype: dns.TypeA,
+			},
+			query: test.Case{
+				Qname: "example.org.",
+				Qtype: dns.TypeAAAA,
+			},
+		},
+		{
+			name: "DO bit should be unique",
+			initial: test.Case{
+				Qname: "example.org.",
+				Qtype: dns.TypeA,
+			},
+			query: test.Case{
+				Qname: "example.org.",
+				Qtype: dns.TypeA,
+				Do:    true,
+			},
+		},
+		{
+			name: "CD bit should be unique",
+			initial: test.Case{
+				Qname: "example.org.",
+				Qtype: dns.TypeA,
+			},
+			query: test.Case{
+				Qname:            "example.org.",
+				Qtype:            dns.TypeA,
+				CheckingDisabled: true,
+			},
+		},
+		{
+			name: "CD bit and DO bit should be unique",
+			initial: test.Case{
+				Qname: "example.org.",
+				Qtype: dns.TypeA,
+			},
+			query: test.Case{
+				Qname:            "example.org.",
+				Qtype:            dns.TypeA,
+				CheckingDisabled: true,
+				Do:               true,
+			},
+		},
+		{
+			name: "CD bit, DO bit, and query type should be unique",
+			initial: test.Case{
+				Qname: "example.org.",
+				Qtype: dns.TypeA,
+			},
+			query: test.Case{
+				Qname:            "example.org.",
+				Qtype:            dns.TypeMX,
+				CheckingDisabled: true,
+				Do:               true,
+			},
+		},
+		{
+			name: "authoritative answer bit should NOT be unique",
+			initial: test.Case{
+				Qname: "example.org.",
+				Qtype: dns.TypeA,
+			},
+			query: test.Case{
+				Qname:         "example.org.",
+				Qtype:         dns.TypeA,
+				Authoritative: true,
+			},
+			expectCached: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := New()
+			crr := &ResponseWriter{ResponseWriter: nil, Cache: c}
+
+			// Insert initial cache entry
+			m := tc.initial.Msg()
+			m = cacheMsg(m, tc.initial)
+			state := request.Request{W: &test.ResponseWriter{}, Req: m}
+
+			mt, _ := response.Typify(m, utc)
+			valid, k := key(state.Name(), m, mt, state.Do(), state.Req.CheckingDisabled)
+
+			if valid {
+				// Insert cache entry
+				crr.set(m, k, mt, c.pttl)
+			}
+
+			// Attempt to retrieve cache entry
+			m = tc.query.Msg()
+			m = cacheMsg(m, tc.query)
+			state = request.Request{W: &test.ResponseWriter{}, Req: m}
+
+			item := c.getIgnoreTTL(time.Now().UTC(), state, "dns://:53")
+			found := item != nil
+
+			if !tc.expectCached && found {
+				t.Fatal("Found cache message should that should not exist prior to inserting")
+			}
+			if tc.expectCached && !found {
+				t.Fatal("Did not find cache message that should exist prior to inserting")
+			}
+		})
+	}
+}
+
+// wildcardMetadataBackend mocks a backend that responds with a response for qname synthesized by wildcard
+// and sets the zone/wildcard metadata value
+func wildcardMetadataBackend(qname, wildcard string) plugin.Handler {
+	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A(qname + " 300 IN A 127.0.0.1")}
+		metadata.SetValueFunc(ctx, "zone/wildcard", func() string {
+			return wildcard
+		})
+		w.WriteMsg(m)
+
+		return dns.RcodeSuccess, nil
+	})
 }

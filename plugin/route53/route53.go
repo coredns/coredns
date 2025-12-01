@@ -84,12 +84,15 @@ func (h *Route53) Run(ctx context.Context) error {
 		return err
 	}
 	go func() {
+		timer := time.NewTimer(h.refresh)
+		defer timer.Stop()
 		for {
+			timer.Reset(h.refresh)
 			select {
 			case <-ctx.Done():
 				log.Debugf("Breaking out of Route53 update loop for %v: %v", h.zoneNames, ctx.Err())
 				return
-			case <-time.After(h.refresh):
+			case <-timer.C:
 				if err := h.updateZones(ctx); err != nil && ctx.Err() == nil /* Don't log error if ctx expired. */ {
 					log.Errorf("Failed to update zones %v: %v", h.zoneNames, err)
 				}
@@ -164,8 +167,9 @@ const escapeSeq = "\\"
 // for everything else.
 //
 // Example:
-//   `\\052.example.com.` -> `*.example.com`
-//   `\\137.example.com.` -> error ('_' is not valid)
+//
+//	`\\052.example.com.` -> `*.example.com`
+//	`\\137.example.com.` -> error ('_' is not valid)
 func maybeUnescape(s string) (string, error) {
 	var out string
 	for {
@@ -209,7 +213,6 @@ func maybeUnescape(s string) (string, error) {
 
 func updateZoneFromRRS(rrs *route53.ResourceRecordSet, z *file.Zone) error {
 	for _, rr := range rrs.ResourceRecords {
-
 		n, err := maybeUnescape(aws.StringValue(rrs.Name))
 		if err != nil {
 			return fmt.Errorf("failed to unescape `%s' name: %v", aws.StringValue(rrs.Name), err)
@@ -270,7 +273,6 @@ func (h *Route53) updateZones(ctx context.Context) error {
 				(*z[i]).z = newZ
 				h.zMu.Unlock()
 			}
-
 		}(zName, z)
 	}
 	// Collect errors (if any). This will also sync on all zones updates
