@@ -45,12 +45,13 @@ type Forward struct {
 
 	nextAlternateRcodes []int
 
-	tlsConfig                  *tls.Config
-	tlsServerName              string
-	maxfails                   uint32
-	expire                     time.Duration
-	maxConcurrent              int64
-	failfastUnhealthyUpstreams bool
+	tlsConfig                                     *tls.Config
+	tlsServerName                                 string
+	maxfails                                      uint32
+	expire                                        time.Duration
+	maxConcurrent                                 int64
+	failfastUnhealthyUpstreams                    bool
+	appendDefaultInfobloxGatewayForCustomGateways bool
 
 	opts proxy.Options // also here for testing
 
@@ -91,6 +92,7 @@ func (f *Forward) Name() string { return "forward" }
 
 // ServeDNS implements plugin.Handler.
 func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	log.Infof("Forward ServeDNS for question: %s", r.Question[0].String())
 	state := request.Request{W: w, Req: r}
 	if !f.match(state) {
 		return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
@@ -108,9 +110,21 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	fails := 0
 	var span, child ot.Span
 	var upstreamErr error
+	var list []*proxy.Proxy
 	span = ot.SpanFromContext(ctx)
 	i := 0
-	list := f.List()
+	custom := f.getCustomProxies(ctx, w)
+	customCount := len(custom)
+	log.Infof("Custom upstream count: %d", customCount)
+	if customCount > 0 {
+		list = custom
+		if f.appendDefaultInfobloxGatewayForCustomGateways {
+			log.Infof("Appending default upstreams to custom upstreams")
+			list = append(list, f.List()...) // default + normal upstreams appended
+		}
+	} else {
+		list = f.List()
+	}
 	deadline := time.Now().Add(defaultTimeout)
 	start := time.Now()
 	for time.Now().Before(deadline) && ctx.Err() == nil {
@@ -191,6 +205,12 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			break
 		}
 
+		if customCount > 0 && (i-1) < customCount && ret.Rcode != dns.RcodeSuccess && ret.Rcode != dns.RcodeNameError {
+			log.Infof("Received non-success Rcode %d from custom upstream %s", ret.Rcode, proxy.Addr())
+			// move to next custom proxy
+			continue
+		}
+
 		// Check if the reply is correct; if not return FormErr.
 		if !state.Match(ret) {
 			debug.Hexdumpf(ret, "Wrong reply for id: %d, %s %d", ret.Id, state.QName(), state.QType())
@@ -210,6 +230,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			}
 		}
 
+		log.Infof("Response given by upstream %s for question %s: Rcode %d", proxy.Addr(), r.Question[0].String(), ret.Rcode)
 		w.WriteMsg(ret)
 		return 0, nil
 	}

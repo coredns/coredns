@@ -20,6 +20,8 @@ type Options struct {
 	// PreferUDP use UDP protocol for upstream DNS request.
 	PreferUDP bool
 	// HCRecursionDesired sets recursion desired flag for Proxy healthcheck requests
+	ForceDoH bool
+	// ForceDoH use DoH protocol for upstream DNS request.
 	HCRecursionDesired bool
 	// HCDomain sets domain for Proxy healthcheck requests
 	HCDomain string

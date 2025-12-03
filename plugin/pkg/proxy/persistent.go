@@ -10,8 +10,9 @@ import (
 
 // a persistConn hold the dns.Conn and the last used time.
 type persistConn struct {
-	c    *dns.Conn
-	used time.Time
+	c         *dns.Conn
+	dohClient *dohDNSClient
+	used      time.Time
 }
 
 // Transport hold the persistent cache.
@@ -22,6 +23,8 @@ type Transport struct {
 	addr        string
 	tlsConfig   *tls.Config
 	proxyName   string
+
+	dohURL string
 
 	dial  chan string
 	yield chan *persistConn
@@ -88,7 +91,9 @@ Wait:
 // closeConns closes connections.
 func closeConns(conns []*persistConn) {
 	for _, pc := range conns {
-		pc.c.Close()
+		if pc.c != nil {
+			pc.c.Close()
+		}
 	}
 }
 
@@ -135,6 +140,9 @@ func (t *Transport) Yield(pc *persistConn) {
 	case t.yield <- pc:
 		return
 	case <-time.After(yieldTimeout):
+		if pc.c != nil {
+			pc.c.Close()
+		}
 		return
 	}
 }

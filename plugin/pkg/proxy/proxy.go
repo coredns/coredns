@@ -37,6 +37,11 @@ func NewProxy(proxyName, addr, trans string) *Proxy {
 		proxyName:   proxyName,
 	}
 
+	// For DoH, set the URL in transport
+	if trans == "doh" {
+		p.transport.dohURL = addr
+	}
+
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
 }

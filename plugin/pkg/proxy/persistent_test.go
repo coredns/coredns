@@ -96,7 +96,7 @@ func TestCleanupAll(t *testing.T) {
 	c2, _ := dns.DialTimeout("udp", tr.addr, maxDialTimeout)
 	c3, _ := dns.DialTimeout("udp", tr.addr, maxDialTimeout)
 
-	tr.conns[typeUDP] = []*persistConn{{c1, time.Now()}, {c2, time.Now()}, {c3, time.Now()}}
+	tr.conns[typeUDP] = []*persistConn{{c1, nil, time.Now()}, {c2, nil, time.Now()}, {c3, nil, time.Now()}}
 
 	if len(tr.conns[typeUDP]) != 3 {
 		t.Error("Expected 3 connections")

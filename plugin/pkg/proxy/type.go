@@ -10,6 +10,7 @@ const (
 	typeUDP transportType = iota
 	typeTCP
 	typeTLS
+	typeDoH
 	typeTotalCount // keep this last
 )
 
@@ -21,12 +22,18 @@ func stringToTransportType(s string) transportType {
 		return typeTCP
 	case "tcp-tls":
 		return typeTLS
+	case "doh", "https": // Add DoH support
+		return typeDoH
 	}
 
 	return typeUDP
 }
 
 func (t *Transport) transportTypeFromConn(pc *persistConn) transportType {
+	if pc.dohClient != nil {
+		return typeDoH
+	}
+
 	if _, ok := pc.c.Conn.(*net.UDPConn); ok {
 		return typeUDP
 	}
