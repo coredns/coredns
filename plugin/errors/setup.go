@@ -71,7 +71,7 @@ func errorsParse(c *caddy.Controller) (*errorHandler, error) {
 
 func parseConsolidate(c *caddy.Controller) (*pattern, error) {
 	args := c.RemainingArgs()
-	if len(args) < 2 || len(args) > 3 {
+	if len(args) < 2 || len(args) > 4 {
 		return nil, c.ArgErr()
 	}
 	p, err := time.ParseDuration(args[0])
@@ -82,28 +82,48 @@ func parseConsolidate(c *caddy.Controller) (*pattern, error) {
 	if err != nil {
 		return nil, c.Err(err.Error())
 	}
-	lc, err := parseLogLevel(c, args)
+
+	lc, showFirst, err := parseOptionalParams(c, args[2:])
 	if err != nil {
 		return nil, err
 	}
-	return &pattern{period: p, pattern: re, logCallback: lc}, nil
+
+	return &pattern{period: p, pattern: re, logCallback: lc, showFirst: showFirst}, nil
 }
 
-func parseLogLevel(c *caddy.Controller, args []string) (func(format string, v ...any), error) {
-	if len(args) != 3 {
-		return log.Errorf, nil
+// parseOptionalParams parses optional parameters (log level and show_first flag).
+// Order: log level (optional) must come before show_first (optional).
+func parseOptionalParams(c *caddy.Controller, args []string) (func(format string, v ...any), bool, error) {
+	logLevels := map[string]func(format string, v ...any){
+		"warning": log.Warningf,
+		"error":   log.Errorf,
+		"info":    log.Infof,
+		"debug":   log.Debugf,
 	}
 
-	switch args[2] {
-	case "warning":
-		return log.Warningf, nil
-	case "error":
-		return log.Errorf, nil
-	case "info":
-		return log.Infof, nil
-	case "debug":
-		return log.Debugf, nil
-	default:
-		return nil, c.Errf("unknown log level argument in consolidate: %s", args[2])
+	var logCallback func(format string, v ...any) // nil means not set yet
+	showFirst := false
+
+	for _, arg := range args {
+		if callback, isLogLevel := logLevels[arg]; isLogLevel {
+			if logCallback != nil {
+				return nil, false, c.Errf("multiple log levels specified in consolidate")
+			}
+			if showFirst {
+				return nil, false, c.Errf("log level must come before show_first in consolidate")
+			}
+			logCallback = callback
+		} else if arg == "show_first" {
+			showFirst = true
+		} else {
+			return nil, false, c.Errf("unknown option in consolidate: %s", arg)
+		}
 	}
+
+	// Use default log level if not specified
+	if logCallback == nil {
+		logCallback = log.Errorf
+	}
+
+	return logCallback, showFirst, nil
 }
