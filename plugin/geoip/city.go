@@ -7,27 +7,25 @@ import (
 
 	"github.com/coredns/coredns/plugin/metadata"
 
-	"github.com/oschwald/geoip2-golang"
+	"github.com/oschwald/geoip2-golang/v2"
 )
-
-const defaultLang = "en"
 
 func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 	// Set labels for city, country and continent names.
-	cityName := data.City.Names[defaultLang]
+	cityName := data.City.Names.English
 	metadata.SetValueFunc(ctx, pluginName+"/city/name", func() string {
 		return cityName
 	})
-	countryName := data.Country.Names[defaultLang]
+	countryName := data.Country.Names.English
 	metadata.SetValueFunc(ctx, pluginName+"/country/name", func() string {
 		return countryName
 	})
-	continentName := data.Continent.Names[defaultLang]
+	continentName := data.Continent.Names.English
 	metadata.SetValueFunc(ctx, pluginName+"/continent/name", func() string {
 		return continentName
 	})
 
-	countryCode := data.Country.IsoCode
+	countryCode := data.Country.ISOCode
 	metadata.SetValueFunc(ctx, pluginName+"/country/code", func() string {
 		return countryCode
 	})
@@ -37,7 +35,7 @@ func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 	// a comma separated string, with the exact values provided by the database, even if those were empty strings.
 	subdivisionCodes := make([]string, 0, len(data.Subdivisions))
 	for _, sub := range data.Subdivisions {
-		subdivisionCodes = append(subdivisionCodes, sub.IsoCode)
+		subdivisionCodes = append(subdivisionCodes, sub.ISOCode)
 	}
 	metadata.SetValueFunc(ctx, pluginName+"/subdivisions/code", func() string {
 		return strings.Join(subdivisionCodes, ",")
@@ -52,11 +50,17 @@ func (g GeoIP) setCityMetadata(ctx context.Context, data *geoip2.City) {
 		return continentCode
 	})
 
-	latitude := strconv.FormatFloat(data.Location.Latitude, 'f', -1, 64)
+	var latitude string
+	if data.Location.Latitude != nil {
+		latitude = strconv.FormatFloat(*data.Location.Latitude, 'f', -1, 64)
+	}
 	metadata.SetValueFunc(ctx, pluginName+"/latitude", func() string {
 		return latitude
 	})
-	longitude := strconv.FormatFloat(data.Location.Longitude, 'f', -1, 64)
+	var longitude string
+	if data.Location.Longitude != nil {
+		longitude = strconv.FormatFloat(*data.Location.Longitude, 'f', -1, 64)
+	}
 	metadata.SetValueFunc(ctx, pluginName+"/longitude", func() string {
 		return longitude
 	})
