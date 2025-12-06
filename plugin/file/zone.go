@@ -27,6 +27,9 @@ type Zone struct {
 	StartupOnce  sync.Once
 	TransferFrom []string
 
+	TsigSecret    map[string]string
+	TsigAlgorithm map[string]string
+
 	ReloadInterval time.Duration
 	reloadShutdown chan bool
 
@@ -181,4 +184,15 @@ func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 		}
 	}
 	return qname[n:], false
+}
+
+func (z *Zone) needTsig() bool {
+	return len(z.TsigSecret) > 0
+}
+
+func (z *Zone) getTsigName() string {
+	for name := range z.TsigSecret {
+		return name
+	}
+	return ""
 }

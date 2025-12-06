@@ -15,11 +15,12 @@ import (
 
 // TSIGServer verifies tsig status and adds tsig to responses
 type TSIGServer struct {
-	Zones   []string
-	secrets map[string]string // [key-name]secret
-	types   qTypes
-	all     bool
-	Next    plugin.Handler
+	Zones      []string
+	secrets    map[string]string // [key-name]secret
+	algorithms map[string]string // [key-name]algorithm
+	types      qTypes
+	all        bool
+	Next       plugin.Handler
 }
 
 type qTypes map[uint16]struct{}
@@ -54,7 +55,13 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 		log.Debugf("TSIG validation failed: %v %v", dns.TypeToString[state.QType()], tsigStatus)
 		rcode = dns.RcodeNotAuth
 		switch tsigStatus {
-		case dns.ErrSecret:
+		// reference: https://datatracker.ietf.org/doc/html/rfc8945#section-5.2.1-1
+		// If a non-forwarding server does not recognize the key or algorithm
+		// used by the client (or recognizes the algorithm but does not implement it),
+		// the server MUST generate an error response with RCODE 9 (NOTAUTH) and TSIG ERROR 17 (BADKEY).
+		// This response MUST be unsigned as specified in Section 5.3.2. The server SHOULD log the error.
+		// (Special considerations apply to forwarding servers; see Section 5.5.)
+		case dns.ErrSecret, dns.ErrKey:
 			tsigRR.Error = dns.RcodeBadKey
 		case dns.ErrTime:
 			tsigRR.Error = dns.RcodeBadTime
