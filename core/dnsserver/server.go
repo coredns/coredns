@@ -16,6 +16,7 @@ import (
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/edns"
 	"github.com/coredns/coredns/plugin/pkg/log"
+	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/trace"
@@ -24,6 +25,7 @@ import (
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
+	"github.com/pires/go-proxyproto"
 )
 
 // Server represents an instance of a server, which serves
@@ -36,6 +38,8 @@ type Server struct {
 	IdleTimeout  time.Duration // Idle timeout for TCP
 	ReadTimeout  time.Duration // Read timeout for TCP
 	WriteTimeout time.Duration // Write timeout for TCP
+
+	connPolicy proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
 
 	server [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
 	m      sync.Mutex     // protects the servers
@@ -123,6 +127,9 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			}
 		}
 		site.pluginChain = stack
+		if site.ProxyProtoConnPolicy != nil {
+			s.connPolicy = site.ProxyProtoConnPolicy
+		}
 	}
 
 	if !s.debug {
@@ -181,6 +188,9 @@ func (s *Server) Listen() (net.Listener, error) {
 	if err != nil {
 		return nil, err
 	}
+	if s.connPolicy != nil {
+		l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
+	}
 	return l, nil
 }
 
@@ -195,7 +205,9 @@ func (s *Server) ListenPacket() (net.PacketConn, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	if s.connPolicy != nil {
+		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy}
+	}
 	return p, nil
 }
 

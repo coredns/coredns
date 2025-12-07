@@ -15,6 +15,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/miekg/dns"
 	"github.com/opentracing/opentracing-go"
+	"github.com/pires/go-proxyproto"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
@@ -135,6 +136,9 @@ func (s *ServergRPC) Listen() (net.Listener, error) {
 	l, err := reuseport.Listen("tcp", s.Addr[len(transport.GRPC+"://"):])
 	if err != nil {
 		return nil, err
+	}
+	if s.connPolicy != nil {
+		l = &proxyproto.Listener{Listener: l, ConnPolicy: s.connPolicy}
 	}
 	return l, nil
 }
