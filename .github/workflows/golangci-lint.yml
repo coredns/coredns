@@ -11,13 +11,13 @@ jobs:
     name: lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3  # v6.0.0
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
       - name: Setup Go Version
         run: echo "GO_VERSION=$(cat .go-version)" >> $GITHUB_ENV
       - uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c  # v6.1.0
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@e7fa5ac41e1cf5b7d48e45e42232ce7ada589601  # v9.1.0
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20  # v9.2.0
         with:
           version: v2.6.0

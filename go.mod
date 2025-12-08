@@ -10,11 +10,11 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.5.13
 	github.com/DataDog/dd-trace-go/v2 v2.4.0
 	github.com/apparentlymart/go-cidr v1.1.0
-	github.com/aws/aws-sdk-go-v2 v1.40.0
+	github.com/aws/aws-sdk-go-v2 v1.40.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.1
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.1
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.14
-	github.com/aws/aws-sdk-go-v2/service/route53 v1.60.1
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.15
+	github.com/aws/aws-sdk-go-v2/service/route53 v1.61.1
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.40.1
 	github.com/coredns/caddy v1.1.4-0.20250930002214-15135a999495
 	github.com/dnstap/golang-dnstap v0.4.0
@@ -39,8 +39,8 @@ require (
 	go.etcd.io/etcd/client/v3 v3.6.6
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.45.0
-	golang.org/x/sys v0.38.0
-	google.golang.org/api v0.256.0
+	golang.org/x/sys v0.39.0
+	google.golang.org/api v0.257.0
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.10
 	k8s.io/api v0.34.2
@@ -78,8 +78,8 @@ require (
 	github.com/DataDog/sketches-go v1.4.7 // indirect
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.14 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.14 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.15 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.15 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/ini v1.8.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.3 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.13.14 // indirect
@@ -87,7 +87,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.30.4 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.9 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.1 // indirect
-	github.com/aws/smithy-go v1.23.2 // indirect
+	github.com/aws/smithy-go v1.24.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
@@ -189,7 +189,7 @@ require (
 	golang.org/x/tools v0.38.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251022142026-3a174f9686a8 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251103181224-f26f9409b101 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251124214823-79d6a2a48846 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
