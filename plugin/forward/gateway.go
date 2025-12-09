@@ -14,8 +14,8 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/nonwriter"
 	"github.com/coredns/coredns/plugin/pkg/proxy"
-
 	"github.com/coredns/coredns/plugin/pkg/transport"
+
 	"github.com/miekg/dns"
 )
 
