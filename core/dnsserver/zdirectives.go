@@ -15,6 +15,7 @@ var Directives = []string{
 	"geoip",
 	"cancel",
 	"tls",
+	"proxyproto",
 	"quic",
 	"timeouts",
 	"multisocket",
