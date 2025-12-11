@@ -47,7 +47,8 @@ type Server struct {
 	stacktrace   bool                 // enable stacktrace in recover error log
 	classChaos   bool                 // allow non-INET class queries
 
-	tsigSecret map[string]string
+	tsigSecret    map[string]string
+	tsigAlgorithm map[string]string
 
 	// Ensure Stop is idempotent when invoked concurrently (e.g., during reload and SIGTERM).
 	stopOnce sync.Once
@@ -63,13 +64,14 @@ type MetadataCollector interface {
 // queries are blocked unless queries from enableChaos are loaded.
 func NewServer(addr string, group []*Config) (*Server, error) {
 	s := &Server{
-		Addr:         addr,
-		zones:        make(map[string][]*Config),
-		graceTimeout: 5 * time.Second,
-		IdleTimeout:  10 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		tsigSecret:   make(map[string]string),
+		Addr:          addr,
+		zones:         make(map[string][]*Config),
+		graceTimeout:  5 * time.Second,
+		IdleTimeout:   10 * time.Second,
+		ReadTimeout:   3 * time.Second,
+		WriteTimeout:  5 * time.Second,
+		tsigSecret:    make(map[string]string),
+		tsigAlgorithm: make(map[string]string),
 	}
 
 	for _, site := range group {
@@ -93,8 +95,9 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 			s.IdleTimeout = site.IdleTimeout
 		}
 
-		// copy tsig secrets
+		// copy tsig secrets, algorithms
 		maps.Copy(s.tsigSecret, site.TsigSecret)
+		maps.Copy(s.tsigAlgorithm, site.TsigAlgorithm)
 
 		// compile custom plugin for everything
 		var stack plugin.Handler
@@ -143,7 +146,7 @@ func (s *Server) Serve(l net.Listener) error {
 
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp",
-		TsigSecret:    s.tsigSecret,
+		TsigProvider:  NewTsigProvider(s.tsigSecret, s.tsigAlgorithm),
 		MaxTCPQueries: tcpMaxQueries,
 		ReadTimeout:   s.ReadTimeout,
 		WriteTimeout:  s.WriteTimeout,
@@ -169,7 +172,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	}), TsigSecret: s.tsigSecret}
+	}), TsigProvider: NewTsigProvider(s.tsigSecret, s.tsigAlgorithm)}
 	s.m.Unlock()
 
 	return s.server[udp].ActivateAndServe()

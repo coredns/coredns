@@ -74,6 +74,9 @@ type Config struct {
 	// TSIG secrets, [name]key.
 	TsigSecret map[string]string
 
+	// TSIG algorithms, [name]algorithm.
+	TsigAlgorithm map[string]string
+
 	// Plugin stack.
 	Plugin []plugin.Plugin
 

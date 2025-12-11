@@ -31,6 +31,11 @@ func setup(c *caddy.Controller) error {
 			updateShutdown := make(chan bool)
 
 			c.OnStartup(func() error {
+				config := dnsserver.GetConfig(c)
+
+				z.TsigSecret = config.TsigSecret
+				z.TsigAlgorithm = config.TsigAlgorithm
+
 				z.StartupOnce.Do(func() {
 					go func() {
 						dur := time.Millisecond * 250
