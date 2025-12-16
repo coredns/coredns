@@ -731,3 +731,65 @@ func TestKubernetesParseMulticluster(t *testing.T) {
 		}
 	}
 }
+
+func TestKubernetesParseAPIRateLimiting(t *testing.T) {
+	tests := []struct {
+		input              string
+		shouldErr          bool
+		expectedErrContent string
+		expectedQPS        float32
+		expectedBurst      int
+		expectedMaxInf     int
+	}{
+		{
+			`kubernetes coredns.local {
+	apiserver_qps 50.0
+	apiserver_burst 100
+	apiserver_max_inflight 25
+}`,
+			false, "", 50.0, 100, 25,
+		},
+		{
+			`kubernetes coredns.local {
+	apiserver_qps -10
+}`, true, "apiserver_qps must be >= 0", 0, 0, 0},
+		{
+			`kubernetes coredns.local {
+	apiserver_burst -5
+}`, true, "apiserver_burst must be >= 0", 0, 0, 0},
+		{
+			`kubernetes coredns.local {
+	apiserver_max_inflight -1
+}`, true, "apiserver_max_inflight must be >= 0", 0, 0, 0},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		k8s, err := kubernetesParse(c)
+
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %d: Expected error but got none for input '%s'", i, test.input)
+			continue
+		}
+		if !test.shouldErr && err != nil {
+			t.Errorf("Test %d: Expected no error but got: %v", i, err)
+			continue
+		}
+		if err != nil {
+			if !strings.Contains(err.Error(), test.expectedErrContent) {
+				t.Errorf("Test %d: Expected error to contain '%s', got: %v", i, test.expectedErrContent, err)
+			}
+			continue
+		}
+
+		if k8s.apiQPS != test.expectedQPS {
+			t.Errorf("Test %d: Expected apiQPS=%v, got %v", i, test.expectedQPS, k8s.apiQPS)
+		}
+		if k8s.apiBurst != test.expectedBurst {
+			t.Errorf("Test %d: Expected apiBurst=%v, got %v", i, test.expectedBurst, k8s.apiBurst)
+		}
+		if k8s.apiMaxInflight != test.expectedMaxInf {
+			t.Errorf("Test %d: Expected apiMaxInflight=%v, got %v", i, test.expectedMaxInf, k8s.apiMaxInflight)
+		}
+	}
+}
