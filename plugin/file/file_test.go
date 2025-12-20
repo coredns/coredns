@@ -57,3 +57,64 @@ www          IN  A      192.168.0.14
 mail         IN  A      192.168.0.15
 imap         IN  CNAME  mail
 `
+
+func TestParseMalformedSOA(t *testing.T) {
+	_, err := Parse(strings.NewReader(dbMalformedSOA), "example.org.", "stdin", 0)
+	if err == nil {
+		t.Fatalf("Zone %q should have failed to load", "example.org.")
+	}
+	if strings.Contains(err.Error(), "no SOA record") {
+		t.Fatalf("Zone %q should not fail with 'no SOA record', but with parse error: %s", "example.org.", err)
+	}
+	// Should contain parse error, not "no SOA"
+}
+
+const dbMalformedSOA = `
+$TTL         1M
+$ORIGIN      example.org.
+
+@            IN  SOA    ns1.example.com. admin.example.com.  (
+                               abc ; Serial - invalid
+                               1200       ; Refresh
+                               144        ; Retry
+                               1814400    ; Expire
+                               2h )       ; Minimum
+@            IN  NS     ns1.example.com.
+
+www          IN  A      192.168.0.14
+func TestParseSOASerialTooLarge(t *testing.T) {
+	_, err := Parse(strings.NewReader(dbSOASerialTooLarge), "example.org.", "stdin", 0)
+	t.Logf("Error: %s", err)
+	if err == nil {
+		t.Fatalf("Zone %q should have failed to load", "example.org.")
+	}
+	if strings.Contains(err.Error(), "no SOA record") {
+		t.Fatalf("Zone %q should not fail with 'no SOA record', but with parse error: %s", "example.org.", err)
+	}
+	// Should contain parse error for serial exceeding uint32 max
+}
+`
+
+	if err == nil {
+		t.Fatalf("Zone %q should have failed to load", "example.org.")
+	}
+	if strings.Contains(err.Error(), "no SOA record") {
+		t.Fatalf("Zone %q should not fail with 'no SOA record', but with parse error: %s", "example.org.", err)
+	}
+	// Should contain parse error for serial exceeding uint32 max
+}
+
+const dbSOASerialTooLarge = `
+$TTL         1M
+$ORIGIN      example.org.
+
+@            IN  SOA    ns1.example.com. admin.example.com.  (
+                               202512200817 ; Serial - exceeds 32-bit uint
+                               1200       ; Refresh
+                               144        ; Retry
+                               1814400    ; Expire
+                               2h )       ; Minimum
+@            IN  NS     ns1.example.com.
+
+www          IN  A      192.168.0.14
+`
