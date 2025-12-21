@@ -63,10 +63,9 @@ func TestParseMalformedSOA(t *testing.T) {
 	if err == nil {
 		t.Fatalf("Zone %q should have failed to load", "example.org.")
 	}
-	if strings.Contains(err.Error(), "no SOA record") {
-		t.Fatalf("Zone %q should not fail with 'no SOA record', but with parse error: %s", "example.org.", err)
+	if !strings.Contains(err.Error(), "bad SOA zone parameter") {
+		t.Fatalf("Expected parse error containing 'bad SOA zone parameter', got: %s", err)
 	}
-	// Should contain parse error, not "no SOA"
 }
 
 const dbMalformedSOA = `
@@ -86,14 +85,12 @@ www          IN  A      192.168.0.14
 
 func TestParseSOASerialTooLarge(t *testing.T) {
 	_, err := Parse(strings.NewReader(dbSOASerialTooLarge), "example.org.", "stdin", 0)
-	t.Logf("Error: %s", err)
 	if err == nil {
 		t.Fatalf("Zone %q should have failed to load", "example.org.")
 	}
-	if strings.Contains(err.Error(), "no SOA record") {
-		t.Fatalf("Zone %q should not fail with 'no SOA record', but with parse error: %s", "example.org.", err)
+	if !strings.Contains(err.Error(), "bad SOA zone parameter") {
+		t.Fatalf("Expected parse error containing 'bad SOA zone parameter', got: %s", err)
 	}
-	// Should contain parse error for serial exceeding uint32 max
 }
 
 const dbSOASerialTooLarge = `
