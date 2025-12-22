@@ -27,6 +27,7 @@ Parameter CA is optional. If not set, system CAs can be used to verify the clien
 ~~~ txt
 tls CERT KEY [CA] {
     client_auth nocert|request|require|verify_if_given|require_and_verify
+    keylog FILE
 }
 ~~~
 
@@ -34,6 +35,9 @@ If client\_auth option is specified, it controls the client authentication polic
 The option value corresponds to the [ClientAuthType values of the Go tls package](https://golang.org/pkg/crypto/tls/#ClientAuthType): NoClientCert, RequestClientCert, RequireAnyClientCert, VerifyClientCertIfGiven, and RequireAndVerifyClientCert, respectively.
 The default is "nocert".  Note that it makes no sense to specify parameter CA unless this option is
 set to verify\_if\_given or require\_and\_verify.
+
+The keylog can be specified to export TLS master secrets in key log format to allow external programs
+to decrypt TLS connections. It compromises security and should only be used for debugging!
 
 ## Examples
 
