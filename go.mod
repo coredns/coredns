@@ -35,8 +35,8 @@ require (
 	github.com/prometheus/common v0.67.4
 	github.com/quic-go/quic-go v0.58.0
 	github.com/stretchr/testify v1.11.1
-	go.etcd.io/etcd/api/v3 v3.6.6
-	go.etcd.io/etcd/client/v3 v3.6.6
+	go.etcd.io/etcd/api/v3 v3.6.7
+	go.etcd.io/etcd/client/v3 v3.6.7
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.46.0
 	golang.org/x/sys v0.39.0
@@ -162,7 +162,7 @@ require (
 	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.6.6 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.7 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/collector/component v1.39.0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.39.0 // indirect
