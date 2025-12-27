@@ -65,7 +65,7 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 // So we're forced to always set this to 1; regardless if the answer came from the cache or not.
 // On newer systems(e.g. ubuntu 16.04 with glib version 2.23), this issue is resolved.
 // So we may set this bit back to 0 in the future ?
-func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
+func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool, zeroflag bool, zerottl float64) *dns.Msg {
 	m1 := new(dns.Msg)
 	m1.SetReply(m)
 
@@ -83,6 +83,12 @@ func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
 	m1.Rcode = i.Rcode
 
 	ttl := uint32(i.ttl(now))
+        // Zerottl handling, when flag is set and ttl is zero.
+        // Update the ttl with the defined value.
+        if zeroflag && ttl <= 0 {
+                ttl = uint32(zerottl)
+        }
+
 	m1.Answer = filterRRSlice(i.Answer, ttl, true)
 	m1.Ns = filterRRSlice(i.Ns, ttl, true)
 	m1.Extra = filterRRSlice(i.Extra, ttl, true)
