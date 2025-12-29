@@ -290,8 +290,8 @@ github.com/openzipkin-contrib/zipkin-go-opentracing v0.5.0 h1:uhcF5Jd7rP9DVEL10S
 github.com/openzipkin-contrib/zipkin-go-opentracing v0.5.0/go.mod h1:+oCZ5GXXr7KPI/DNOQORPTq5AWHfALJj9c72b0+YsEY=
 github.com/openzipkin/zipkin-go v0.4.3 h1:9EGwpqkgnwdEIJ+Od7QVSEIH+ocmm5nPat0G7sjsSdg=
 github.com/openzipkin/zipkin-go v0.4.3/go.mod h1:M9wCJZFWCo2RiY+o1eBCEMe0Dp2S5LDHcMZmk3RmK7c=
-github.com/oschwald/geoip2-golang/v2 v2.0.1 h1:YcYoG/L+gmSfk7AlToTmoL0JvblNyhGC8NyVhwDzzi8=
-github.com/oschwald/geoip2-golang/v2 v2.0.1/go.mod h1:qdVmcPgrTJ4q2eP9tHq/yldMTdp2VMr33uVdFbHBiBc=
+github.com/oschwald/geoip2-golang/v2 v2.1.0 h1:DjnLhNJu9WHwTrmoiQFvgmyJoczhdnm7LB23UBI2Amo=
+github.com/oschwald/geoip2-golang/v2 v2.1.0/go.mod h1:qdVmcPgrTJ4q2eP9tHq/yldMTdp2VMr33uVdFbHBiBc=
 github.com/oschwald/maxminddb-golang/v2 v2.1.1 h1:lA8FH0oOrM4u7mLvowq8IT6a3Q/qEnqRzLQn9eH5ojc=
 github.com/oschwald/maxminddb-golang/v2 v2.1.1/go.mod h1:PLdx6PR+siSIoXqqy7C7r3SB3KZnhxWr1Dp6g0Hacl8=
 github.com/outcaste-io/ristretto v0.2.3 h1:AK4zt/fJ76kjlYObOeNwh4T3asEuaCmp26pOvUOL9w0=
