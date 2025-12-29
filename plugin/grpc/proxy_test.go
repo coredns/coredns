@@ -63,9 +63,10 @@ func TestProxy(t *testing.T) {
 }
 
 func TestProxy_RejectsOversizedReply(t *testing.T) {
-	p := &Proxy{}
 	oversized := make([]byte, maxDNSMessageBytes+1)
-	p.client = testServiceClient{dnsPacket: &pb.DnsPacket{Msg: oversized}, err: nil}
+	mock := &testServiceClient{dnsPacket: &pb.DnsPacket{Msg: oversized}, err: nil}
+	p := &Proxy{addr: "test", client: mock}
+
 	_, err := p.query(context.TODO(), new(dns.Msg))
 	if !errors.Is(err, ErrDNSMessageTooLarge) {
 		t.Fatalf("expected %v, got %v", ErrDNSMessageTooLarge, err)
@@ -73,8 +74,8 @@ func TestProxy_RejectsOversizedReply(t *testing.T) {
 }
 
 func TestProxy_RejectsOversizedRequest(t *testing.T) {
-	p := &Proxy{}
-	p.client = testServiceClient{dnsPacket: &pb.DnsPacket{Msg: []byte("ok")}, err: nil}
+	mock := &testServiceClient{dnsPacket: &pb.DnsPacket{Msg: []byte("ok")}, err: nil}
+	p := &Proxy{addr: "test", client: mock}
 
 	oversizedMsg := &dns.Msg{}
 	oversizedMsg.SetQuestion("example.org.", dns.TypeA)
@@ -121,6 +122,12 @@ func TestProxyUnix(t *testing.T) {
 		t.Errorf("Failed to create forwarder: %s", err)
 	}
 
+	// Start the transports (this would normally be done by OnStartup)
+	if err := g.OnStartup(); err != nil {
+		t.Fatalf("Failed to start: %s", err)
+	}
+	defer g.OnShutdown()
+
 	m := new(dns.Msg)
 	m.SetQuestion("example.org.", dns.TypeA)
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
@@ -145,4 +152,17 @@ func (*grpcDnsServiceServer) Query(ctx context.Context, in *pb.DnsPacket) (*pb.D
 	answer.SetRcode(msg, dns.RcodeSuccess)
 	buf, _ := answer.Pack()
 	return &pb.DnsPacket{Msg: buf}, nil
+}
+
+// TestProxy_PooledPath tests the pooled dispatch path (transport != nil).
+func TestProxy_PooledPath(t *testing.T) {
+	msg, _ := new(dns.Msg).Pack()
+	mock := &testServiceClient{dnsPacket: &pb.DnsPacket{Msg: msg}, err: nil}
+	p := newTestPooledProxy("test", mock)
+	defer p.Stop()
+
+	_, err := p.query(context.TODO(), new(dns.Msg))
+	if err != nil {
+		t.Fatalf("Expected no error on pooled path, got: %v", err)
+	}
 }

@@ -4,6 +4,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"path/filepath"
+	"strconv"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -29,6 +31,15 @@ func setup(c *caddy.Controller) error {
 		return g
 	})
 
+	// Register lifecycle hooks for pooled proxies (no-ops for single-connection proxies).
+	c.OnStartup(func() error {
+		return g.OnStartup()
+	})
+
+	c.OnShutdown(func() error {
+		return g.OnShutdown()
+	})
+
 	return nil
 }
 
@@ -51,8 +62,20 @@ func parseGRPC(c *caddy.Controller) (*GRPC, error) {
 	return g, nil
 }
 
+// defaultProxyOptions returns default configuration for proxy options.
+// maxFails defaults to 0 (health checking disabled).
+func defaultProxyOptions() *proxyOptions {
+	return &proxyOptions{
+		poolSize:   1,
+		expire:     10 * time.Second,
+		maxFails:   0,
+		hcInterval: 500 * time.Millisecond,
+	}
+}
+
 func parseStanza(c *caddy.Controller) (*GRPC, error) {
 	g := newGRPC()
+	opts := defaultProxyOptions()
 
 	if !c.Args(&g.from) {
 		return g, c.ArgErr()
@@ -73,8 +96,9 @@ func parseStanza(c *caddy.Controller) (*GRPC, error) {
 		return g, err
 	}
 
+	// Parse configuration block before creating proxies
 	for c.NextBlock() {
-		if err := parseBlock(c, g); err != nil {
+		if err := parseBlock(c, g, opts); err != nil {
 			return g, err
 		}
 	}
@@ -85,8 +109,16 @@ func parseStanza(c *caddy.Controller) (*GRPC, error) {
 		}
 		g.tlsConfig.ServerName = g.tlsServerName
 	}
+
+	// Create proxies: use single-connection model by default (pool_size=1),
+	// and the pooled model only when explicitly opted into (pool_size > 1).
 	for _, host := range toHosts {
-		pr, err := newProxy(host, g.tlsConfig)
+		var pr *Proxy
+		if opts.poolSize > 1 {
+			pr, err = newPooledProxy(host, g.tlsConfig, opts)
+		} else {
+			pr, err = newProxy(host, g.tlsConfig)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +128,7 @@ func parseStanza(c *caddy.Controller) (*GRPC, error) {
 	return g, nil
 }
 
-func parseBlock(c *caddy.Controller, g *GRPC) error {
+func parseBlock(c *caddy.Controller, g *GRPC, opts *proxyOptions) error {
 	switch c.Val() {
 	case "except":
 		ignore := c.RemainingArgs()
@@ -143,6 +175,61 @@ func parseBlock(c *caddy.Controller, g *GRPC) error {
 		}
 	case "fallthrough":
 		g.Fall.SetZonesFromArgs(c.RemainingArgs())
+
+	// Connection pooling directives (only take effect when pool_size > 1)
+	case "pool_size":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		n, err := strconv.Atoi(c.Val())
+		if err != nil {
+			return err
+		}
+		if n < 1 {
+			return fmt.Errorf("pool_size must be at least 1")
+		}
+		if n > 100 {
+			return fmt.Errorf("pool_size cannot exceed 100")
+		}
+		opts.poolSize = n
+
+	case "expire":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("expire can't be negative: %s", dur)
+		}
+		opts.expire = dur
+
+	case "health_check":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("health_check can't be negative: %s", dur)
+		}
+		opts.hcInterval = dur
+
+	case "max_fails":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		n, err := strconv.ParseUint(c.Val(), 10, 32)
+		if err != nil {
+			return err
+		}
+		g.maxFails = uint32(n)
+		opts.maxFails = uint32(n)
+
 	default:
 		if c.Val() != "}" {
 			return c.Errf("unknown property '%s'", c.Val())

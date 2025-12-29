@@ -197,3 +197,81 @@ func TestSetupFallthrough(t *testing.T) {
 		}
 	}
 }
+
+func TestSetupPooling(t *testing.T) {
+	tests := []struct {
+		input     string
+		shouldErr bool
+		errStr    string
+	}{
+		// valid
+		{"grpc . 127.0.0.1 {\npool_size 2\n}", false, ""},
+		{"grpc . 127.0.0.1 {\npool_size 100\n}", false, ""},
+		{"grpc . 127.0.0.1 {\npool_size 2\nexpire 30s\nhealth_check 1s\nmax_fails 3\n}", false, ""},
+		// invalid
+		{"grpc . 127.0.0.1 {\npool_size 0\n}", true, "pool_size must be at least 1"},
+		{"grpc . 127.0.0.1 {\npool_size 101\n}", true, "pool_size cannot exceed 100"},
+		{"grpc . 127.0.0.1 {\npool_size -1\n}", true, ""},
+		{"grpc . 127.0.0.1 {\nexpire -1s\n}", true, "expire can't be negative"},
+		{"grpc . 127.0.0.1 {\nhealth_check -1s\n}", true, "health_check can't be negative"},
+	}
+	for i, tc := range tests {
+		c := caddy.NewTestController("dns", tc.input)
+		g, err := parseGRPC(c)
+		if tc.shouldErr && err == nil {
+			t.Errorf("Test %d: expected error but got none for input: %s", i, tc.input)
+		}
+		if !tc.shouldErr && err != nil {
+			t.Errorf("Test %d: expected no error but got: %v for input: %s", i, err, tc.input)
+		}
+		if tc.shouldErr && err != nil && tc.errStr != "" && !strings.Contains(err.Error(), tc.errStr) {
+			t.Errorf("Test %d: expected error containing %q, got: %v", i, tc.errStr, err)
+		}
+		// cleanup pooled proxies to avoid goroutine leaks
+		if err == nil && g != nil {
+			for _, p := range g.proxies {
+				p.Stop()
+			}
+		}
+	}
+}
+
+func TestSetupPooled_ProxyHasTransport(t *testing.T) {
+	// pool_size > 1 → proxy must have a transport
+	c := caddy.NewTestController("dns", "grpc . 127.0.0.1 {\npool_size 3\n}")
+	g, err := parseGRPC(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(g.proxies) == 0 {
+		t.Fatal("expected at least one proxy")
+	}
+	if g.proxies[0].transport == nil {
+		t.Error("expected proxy to have a transport when pool_size > 1")
+	}
+	if g.proxies[0].client != nil {
+		t.Error("expected proxy to NOT have a direct client when pool_size > 1")
+	}
+	// cleanup
+	for _, p := range g.proxies {
+		p.Stop()
+	}
+}
+
+func TestSetupSingle_ProxyHasClient(t *testing.T) {
+	// pool_size=1 (default) → proxy must have a client, no transport
+	c := caddy.NewTestController("dns", "grpc . 127.0.0.1")
+	g, err := parseGRPC(c)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(g.proxies) == 0 {
+		t.Fatal("expected at least one proxy")
+	}
+	if g.proxies[0].client == nil {
+		t.Error("expected proxy to have a direct client when pool_size=1")
+	}
+	if g.proxies[0].transport != nil {
+		t.Error("expected proxy to NOT have a transport when pool_size=1")
+	}
+}
