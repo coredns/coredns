@@ -6,15 +6,18 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/coredns/coredns/pb"
+	"github.com/coredns/coredns/plugin/pkg/up"
 
 	"github.com/miekg/dns"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/status"
 )
 
@@ -36,15 +39,29 @@ var (
 type Proxy struct {
 	addr string
 
-	// connection
-	client   pb.DnsServiceClient
-	dialOpts []grpc.DialOption
+	// connection pooling
+	dialOpts  []grpc.DialOption
+	transport *grpcTransport
+
+	// health checking
+	probe    *up.Probe
+	fails    uint32 // atomic counter
+	maxFails uint32
 }
 
-// newProxy returns a new proxy.
-func newProxy(addr string, tlsConfig *tls.Config) (*Proxy, error) {
+// proxyOptions holds configuration for creating a proxy.
+type proxyOptions struct {
+	poolSize int
+	expire   time.Duration
+	maxFails uint32
+}
+
+// newProxy returns a new proxy with connection pooling and health checking.
+func newProxy(addr string, tlsConfig *tls.Config, opts *proxyOptions) (*Proxy, error) {
 	p := &Proxy{
-		addr: addr,
+		addr:     addr,
+		maxFails: opts.maxFails,
+		probe:    up.New(),
 	}
 
 	if tlsConfig != nil {
@@ -53,8 +70,15 @@ func newProxy(addr string, tlsConfig *tls.Config) (*Proxy, error) {
 		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	// Cap send/recv sizes to avoid oversized messages.
-	// Note: gRPC size limits apply to the serialized protobuf message size.
+	// Add keepalive parameters for connection health
+	p.dialOpts = append(p.dialOpts,
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                opts.expire,
+			Timeout:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
+	)
+
 	p.dialOpts = append(p.dialOpts,
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(maxProtobufPayloadBytes),
@@ -62,11 +86,7 @@ func newProxy(addr string, tlsConfig *tls.Config) (*Proxy, error) {
 		),
 	)
 
-	conn, err := grpc.NewClient(p.addr, p.dialOpts...)
-	if err != nil {
-		return nil, err
-	}
-	p.client = pb.NewDnsServiceClient(conn)
+	p.transport = newTransport("grpc", p.addr, p.dialOpts, opts.poolSize, opts.expire)
 
 	return p, nil
 }
@@ -84,17 +104,24 @@ func (p *Proxy) query(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
 		return nil, err
 	}
 
-	reply, err := p.client.Query(ctx, &pb.DnsPacket{Msg: msg})
+	gc, _, err := p.transport.Dial(ctx)
 	if err != nil {
-		// if not found message, return empty message with NXDomain code
+		return nil, err
+	}
+
+	reply, err := gc.client.Query(ctx, &pb.DnsPacket{Msg: msg})
+	if err != nil {
 		if status.Code(err) == codes.NotFound {
 			m := new(dns.Msg).SetRcode(req, dns.RcodeNameError)
 			return m, nil
 		}
+		if status.Code(err) == codes.Unavailable {
+			p.transport.RemoveConn(gc)
+		}
 		return nil, err
 	}
-	wire := reply.GetMsg()
 
+	wire := reply.GetMsg()
 	if err := validateDNSSize(wire); err != nil {
 		return nil, err
 	}
@@ -122,4 +149,79 @@ func validateDNSSize(data []byte) error {
 		return fmt.Errorf("%w: %d bytes (limit %d)", ErrDNSMessageTooLarge, l, maxDNSMessageBytes)
 	}
 	return nil
+}
+
+// Down returns true if this proxy has exceeded the max failure threshold.
+func (p *Proxy) Down(maxfails uint32) bool {
+	if maxfails == 0 {
+		return false
+	}
+	fails := atomic.LoadUint32(&p.fails)
+	return fails >= maxfails
+}
+
+// Healthcheck triggers a health check probe for this proxy.
+// Uses the single-flight pattern to prevent concurrent health checks.
+func (p *Proxy) Healthcheck() {
+	if p.probe == nil {
+		return
+	}
+	p.probe.Do(func() error {
+		return p.healthCheck()
+	})
+}
+
+// healthCheck performs a health check by sending a DNS query.
+func (p *Proxy) healthCheck() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	gc, _, err := p.transport.Dial(ctx)
+	if err != nil {
+		atomic.AddUint32(&p.fails, 1)
+		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
+		return err
+	}
+
+	ping := new(dns.Msg)
+	ping.SetQuestion(".", dns.TypeNS)
+	msg, err := ping.Pack()
+	if err != nil {
+		atomic.AddUint32(&p.fails, 1)
+		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
+		return err
+	}
+
+	_, err = gc.client.Query(ctx, &pb.DnsPacket{Msg: msg})
+	if err != nil {
+		atomic.AddUint32(&p.fails, 1)
+		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)
+		if status.Code(err) == codes.Unavailable {
+			p.transport.RemoveConn(gc)
+		}
+		return err
+	}
+
+	atomic.StoreUint32(&p.fails, 0)
+	return nil
+}
+
+// Start starts the proxy's transport and health checking.
+func (p *Proxy) Start(hcInterval time.Duration) {
+	if p.transport != nil {
+		p.transport.Start()
+	}
+	if p.probe != nil {
+		p.probe.Start(hcInterval)
+	}
+}
+
+// Stop stops the proxy's transport and health checking.
+func (p *Proxy) Stop() {
+	if p.probe != nil {
+		p.probe.Stop()
+	}
+	if p.transport != nil {
+		p.transport.Stop()
+	}
 }
