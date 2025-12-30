@@ -68,8 +68,8 @@ func TestDial_TransportStoppedDuringRetWait(t *testing.T) {
 	tr.ret = make(chan *persistConn) // Test-controlled, unbuffered
 	// tr.stop remains the original transport stop channel
 
-	// Start connManager and use our controlled channels.
-	tr.Start()
+	// NOTE: We purposefully do not call tr.Start() here, instead we
+	// manually simulate connManager behavior below
 
 	dialErrChan := make(chan error, 1)
 	wg := sync.WaitGroup{}
@@ -91,9 +91,9 @@ func TestDial_TransportStoppedDuringRetWait(t *testing.T) {
 	var protoFromDial string
 	select {
 	case protoFromDial = <-tr.dial:
-		t.Logf("Test: Simulated connManager read '%s' from Dial via test-controlled tr.dial", protoFromDial)
+		t.Logf("Simulated connManager read '%s' from Dial via test-controlled tr.dial", protoFromDial)
 	case <-time.After(500 * time.Millisecond):
-		t.Fatal("Test: Timeout waiting for Dial to send on test-controlled tr.dial")
+		t.Fatal("Timeout waiting for Dial to send on test-controlled tr.dial")
 	}
 
 	// Stop the transport and the tr.stop channel
@@ -114,7 +114,7 @@ func TestDial_TransportStoppedDuringRetWait(t *testing.T) {
 		t.Errorf("%s: got '%v', want '%s' (or potentially '%s' if timing is very tight)",
 			testMsgWrongError, err, ErrTransportStoppedDuringRetWait, ErrTransportStopped)
 	} else {
-		t.Logf("SUCCESS: Dial correctly returned '%s'", ErrTransportStoppedDuringRetWait)
+		t.Logf("Dial correctly returned '%s'", ErrTransportStoppedDuringRetWait)
 	}
 }
 
@@ -151,18 +151,18 @@ func TestDial_Returns_ErrTransportStoppedRetClosed(t *testing.T) {
 	case proto := <-testDialChan:
 		if proto != "udp" {
 			wg.Done()
-			t.Fatalf("Test: Dial sent wrong proto on testDialChan: got %s, want udp", proto)
+			t.Fatalf("Dial sent wrong proto on testDialChan: got %s, want udp", proto)
 		}
-		t.Logf("Test: Simulated connManager received '%s' from Dial via testDialChan.", proto)
+		t.Logf("Simulated connManager received '%s' from Dial via testDialChan.", proto)
 	case <-time.After(500 * time.Millisecond):
 		// If Dial didn't send, the test is flawed or Dial is stuck before sending.
 		wg.Done()
-		t.Fatal("Test: Timeout waiting for Dial to send on testDialChan.")
+		t.Fatal("Timeout waiting for Dial to send on testDialChan.")
 	}
 
 	// Step 2: Simulate connManager stopping and closing its 'ret' channel.
 	close(testRetChan)
-	t.Logf("Test: Closed testRetChan (simulating connManager closing tr.ret).")
+	t.Logf("Closed testRetChan (simulating connManager closing tr.ret).")
 
 	// Step 3: Wait for the Dial goroutine to complete.
 	wg.Wait()
@@ -175,7 +175,7 @@ func TestDial_Returns_ErrTransportStoppedRetClosed(t *testing.T) {
 	if err.Error() != ErrTransportStoppedRetClosed {
 		t.Errorf("%s: got '%v', want '%s'", testMsgWrongError, err, ErrTransportStoppedRetClosed)
 	} else {
-		t.Logf("SUCCESS: Dial correctly returned '%s'", ErrTransportStoppedRetClosed)
+		t.Logf("Dial correctly returned '%s'", ErrTransportStoppedRetClosed)
 	}
 
 	// Call tr.Stop() for completeness to close the original tr.stop channel.
@@ -210,14 +210,14 @@ func TestDial_ConnManagerClosesRetOnStop(t *testing.T) {
 	select {
 	case _, ok := <-tr.ret:
 		if !ok {
-			t.Logf("SUCCESS: tr.ret channel is closed as expected after transport stop.")
+			t.Logf("tr.ret channel is closed as expected after transport stop.")
 		} else {
-			t.Errorf("FAIL: tr.ret channel was not closed after transport stop, or a value was read unexpectedly.")
+			t.Errorf("tr.ret channel was not closed after transport stop, or a value was read unexpectedly.")
 		}
 	default:
 		// This case means tr.ret is open but blocking (empty).
 		// This would be unexpected if connManager is supposed to close it on stop.
-		t.Errorf("FAIL: tr.ret channel is not closed and is blocking (or empty but open).")
+		t.Errorf("tr.ret channel is not closed and is blocking (or empty but open).")
 	}
 
 	// Drain the error channel from the initial interaction Dial to ensure the goroutine finishes.

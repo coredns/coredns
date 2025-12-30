@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"context"
-	"path/filepath"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
@@ -36,9 +35,9 @@ func (m *Metrics) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		// see https://github.com/coredns/coredns/blob/master/core/dnsserver/server.go#L318
 		rc = status
 	}
-	plugin := m.authoritativePlugin(rw.Caller)
 	// Pass the original request size to vars.Report
-	vars.Report(WithServer(ctx), state, zone, WithView(ctx), rcode.ToString(rc), plugin,
+	// rw.Plugin is set automatically by the plugin chain via the PluginTracker interface
+	vars.Report(WithServer(ctx), state, zone, WithView(ctx), rcode.ToString(rc), rw.Plugin,
 		rw.Len, rw.Start, vars.WithOriginalReqSize(originalSize))
 
 	return status, err
@@ -46,17 +45,3 @@ func (m *Metrics) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 // Name implements the Handler interface.
 func (m *Metrics) Name() string { return "prometheus" }
-
-// authoritativePlugin returns which of made the write, if none is found the empty string is returned.
-func (m *Metrics) authoritativePlugin(caller [3]string) string {
-	// a b and c contain the full path of the caller, the plugin name 2nd last elements
-	// .../coredns/plugin/whoami/whoami.go --> whoami
-	// this is likely FS specific, so use filepath.
-	for _, c := range caller {
-		plug := filepath.Base(filepath.Dir(c))
-		if _, ok := m.plugins[plug]; ok {
-			return plug
-		}
-	}
-	return ""
-}

@@ -45,6 +45,7 @@ forward FROM TO... {
     prefer_udp
     expire DURATION
     max_fails INTEGER
+    max_connect_attempts INTEGER
     tls CERT KEY CA
     tls_servername NAME
     policy random|round_robin|sequential
@@ -66,6 +67,9 @@ forward FROM TO... {
 * `max_fails` is the number of subsequent failed health checks that are needed before considering
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.
+* `max_connect_attempts` caps the total number of upstream connect attempts
+  performed for a single incoming DNS request. Default value of 0 means no per-request
+  cap.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
 * `tls` **CERT** **KEY** **CA** define the TLS properties for TLS connection. From 0 to 3 arguments can be
   provided with the meaning as described below
@@ -78,11 +82,16 @@ forward FROM TO... {
     The server certificate is verified using the specified CA file
 
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
-  needs this to be set to `dns.quad9.net`. Multiple upstreams are still allowed in this scenario,
-  but they have to use the same `tls_servername`. E.g. mixing 9.9.9.9 (QuadDNS) with 1.1.1.1
-  (Cloudflare) will not work. Using TLS forwarding but not setting `tls_servername` results in anyone
+  needs this to be set to `dns.quad9.net`. Using TLS forwarding but not setting `tls_servername` results in anyone
   being able to man-in-the-middle your connection to the DNS server you are forwarding to. Because of this,
   it is strongly recommended to set this value when using TLS forwarding.
+
+  Per destination endpoint TLS server name indication is possible in the form of `tls://9.9.9.9%dns.quad9.net`.
+  `tls_servername` must not be specified when using per destination endpoint TLS server name indication
+  as it would introduce clash between the server name indication spectifications. If destination endpoint
+  is to be reached via a port other than 853 then the port must be appended to the end of the destination
+  endpoint specifier. In case of port 10853, the above string would be: `tls://9.9.9.9%dns.quad9.net:10853`.
+
 * `policy` specifies the policy to use for selecting upstream servers. The default is `random`.
   * `random` is a policy that implements random upstream selection.
   * `round_robin` is a policy that selects hosts based on round robin ordering.
@@ -100,7 +109,7 @@ forward FROM TO... {
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
 * `next` If the `RCODE` (i.e. `NXDOMAIN`) is returned by the remote then execute the next plugin. If no next plugin is defined, or the next plugin is not a `forward` plugin, this setting is ignored
 * `failfast_all_unhealthy_upstreams` - determines the handling of requests when all upstream servers are unhealthy and unresponsive to health checks. Enabling this option will immediately return SERVFAIL responses for all requests. By default, requests are sent to a random upstream.
-* `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). If all upstreams have been tried, the response from the last attempt is returned.
+* `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls_servername` for different upstreams you're out of luck.

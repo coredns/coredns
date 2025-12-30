@@ -17,7 +17,7 @@ type Rand struct {
 
 // New returns a new Rand from seed.
 func New(seed int64) *Rand {
-	return &Rand{r: rand.New(rand.NewSource(seed))}
+	return &Rand{r: rand.New(rand.NewSource(seed))} // #nosec G404 -- non-cryptographic RNG by design (load balancing only).
 }
 
 // Int returns a non-negative pseudo-random int from the Source in Rand.r.

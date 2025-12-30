@@ -192,6 +192,6 @@ var (
 	gitShortStat     string // git diff-index --shortstat
 	gitFilesModified string // git diff-index --name-only HEAD
 
-	// Gitcommit contains the commit where we built CoreDNS from.
+	// GitCommit contains the commit where we built CoreDNS from.
 	GitCommit string
 )

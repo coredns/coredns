@@ -171,14 +171,14 @@ const escapeSeq = "\\"
 //	`\\052.example.com.` -> `*.example.com`
 //	`\\137.example.com.` -> error ('_' is not valid)
 func maybeUnescape(s string) (string, error) {
-	var out string
+	var outSb strings.Builder
 	for {
 		i := strings.Index(s, escapeSeq)
 		if i < 0 {
-			return out + s, nil
+			return outSb.String() + s, nil
 		}
 
-		out += s[:i]
+		outSb.WriteString(s[:i])
 
 		li, ri := i+len(escapeSeq), i+len(escapeSeq)+3
 		if ri > len(s) {
@@ -196,7 +196,7 @@ func maybeUnescape(s string) (string, error) {
 		case r >= rune('a') && r <= rune('z'): // Route53 converts everything to lowercase.
 		case r >= rune('0') && r <= rune('9'):
 		case r == rune('*'):
-			if out != "" {
+			if outSb.Len() != 0 {
 				return "", errors.New("`*' only supported as wildcard (leftmost label)")
 			}
 		case r == rune('-'):
@@ -205,7 +205,7 @@ func maybeUnescape(s string) (string, error) {
 			return "", fmt.Errorf("invalid character: %s%#03o", escapeSeq, r)
 		}
 
-		out += string(r)
+		outSb.WriteString(string(r))
 
 		s = s[i+len(escapeSeq)+3:]
 	}

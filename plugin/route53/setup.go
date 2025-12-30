@@ -127,7 +127,7 @@ func setup(c *caddy.Controller) error {
 					refreshStr := c.Val()
 					_, err := strconv.Atoi(refreshStr)
 					if err == nil {
-						refreshStr = fmt.Sprintf("%ss", c.Val())
+						refreshStr = c.Val() + "s"
 					}
 					refresh, err = time.ParseDuration(refreshStr)
 					if err != nil {

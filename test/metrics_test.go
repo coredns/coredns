@@ -329,9 +329,7 @@ func TestMetricsSeveralBlocs(t *testing.T) {
 	}
 
 	endCacheSize := test.ScrapeMetricAsInt(addrMetrics, cacheSizeMetricName, "", 0)
-	if err != nil {
-		t.Errorf("Unexpected metric data retrieved for %s : %s", cacheSizeMetricName, err)
-	}
+
 	if endCacheSize-beginCacheSize != 1 {
 		t.Errorf("Expected metric data retrieved for %s, expected %d, got %d", cacheSizeMetricName, 1, endCacheSize-beginCacheSize)
 	}

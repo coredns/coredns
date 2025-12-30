@@ -107,7 +107,7 @@ func less(a, b uint32) bool {
 // and uses the SOA parameters. Every refresh it will check for a new SOA number. If that fails (for all
 // server) it will retry every retry interval. If the zone failed to transfer before the expire, the zone
 // will be marked expired.
-func (z *Zone) Update() error {
+func (z *Zone) Update(updateShutdown chan bool) error {
 	// If we don't have a SOA, we don't have a zone, wait for it to appear.
 	for z.SOA == nil {
 		time.Sleep(1 * time.Second)
@@ -183,13 +183,19 @@ Restart:
 			retryTicker.Stop()
 			expireTicker.Stop()
 			goto Restart
+
+		case <-updateShutdown:
+			refreshTicker.Stop()
+			retryTicker.Stop()
+			expireTicker.Stop()
+			return nil
 		}
 	}
 }
 
 // jitter returns a random duration between [0,n) * time.Millisecond
 func jitter(n int) time.Duration {
-	r := rand.Intn(n)
+	r := rand.Intn(n) // #nosec G404 -- non-cryptographic jitter to spread transfer attempts.
 	return time.Duration(r) * time.Millisecond
 }
 

@@ -18,7 +18,7 @@ jobs:
       contents: write
     steps:
       - name: Check out code
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8  # v6.0.1
         with:
           ref: ${{ github.event.inputs.commit }}
       - name: Set up info
@@ -48,7 +48,7 @@ jobs:
           cat release.md
           sha256sum release/*.tgz
       - name: Draft release
-        uses: softprops/action-gh-release@6cbd405e2c4e67a21c47fa9e383d020e4e28b836  # v2.3.3
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b  # v2.5.0
         with:
           body_path: release.md
           name: v${{ steps.info.outputs.version }}

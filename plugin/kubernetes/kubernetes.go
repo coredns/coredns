@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"runtime"
 	"strings"
 	"time"
@@ -50,6 +51,9 @@ type Kubernetes struct {
 	localIPs         []net.IP
 	autoPathSearch   []string      // Local search path from /etc/resolv.conf. Needed for autopath.
 	startupTimeout   time.Duration // startupTimeout set timeout of startup
+	apiQPS           float32       // Maximum queries per second from the client to the API server
+	apiBurst         int           // Maximum burst for throttle
+	apiMaxInflight   int           // Maximum number of concurrent requests in flight to the API server
 }
 
 // Upstreamer is used to resolve CNAME or other external targets
@@ -263,6 +267,24 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 			return nil, nil, fmt.Errorf("unable to create Selector for LabelSelector '%s': %q", k.opts.namespaceLabelSelector, err)
 		}
 		k.opts.namespaceSelector = selector
+	}
+
+	if k.apiQPS > 0 {
+		config.QPS = k.apiQPS
+	}
+
+	if k.apiBurst > 0 {
+		config.Burst = k.apiBurst
+	}
+
+	if k.apiMaxInflight > 0 {
+		existingWrap := config.WrapTransport
+		config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+			if existingWrap != nil {
+				rt = existingWrap(rt)
+			}
+			return newMaxInflightRoundTripper(rt, k.apiMaxInflight)
+		}
 	}
 
 	k.opts.initPodCache = k.podMode == podModeVerified
@@ -671,3 +693,28 @@ func matchPortAndProtocol(aPort, bPort, aProtocol, bProtocol string) bool {
 }
 
 const coredns = "c" // used as a fake key prefix in msg.Service
+
+// roundTripperFunc is an adapter to allow use of ordinary functions as http.RoundTrippers
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+// newMaxInflightRoundTripper returns RoundTripper that limits the number of concurrent requests
+func newMaxInflightRoundTripper(next http.RoundTripper, max int) http.RoundTripper {
+	if max <= 0 {
+		return next
+	}
+	sem := make(chan struct{}, max)
+
+	return roundTripperFunc(func(r *http.Request) (*http.Response, error) {
+		select {
+		case sem <- struct{}{}:
+			defer func() { <-sem }()
+			return next.RoundTrip(r)
+		case <-r.Context().Done():
+			return nil, r.Context().Err()
+		}
+	})
+}

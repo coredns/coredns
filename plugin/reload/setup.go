@@ -60,7 +60,7 @@ func setup(c *caddy.Controller) error {
 		j = i / 2
 	}
 
-	jitter := time.Duration(rand.Int63n(j.Nanoseconds()) - (j.Nanoseconds() / 2))
+	jitter := time.Duration(rand.Int63n(j.Nanoseconds()) - (j.Nanoseconds() / 2)) // #nosec G404 -- non-cryptographic jitter.
 	i = i + jitter
 
 	// prepare info for next onInstanceStartup event

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
@@ -77,11 +78,59 @@ func NextOrFailure(name string, next Handler, ctx context.Context, w dns.Respons
 			defer child.Finish()
 			ctx = ot.ContextWithSpan(ctx, child)
 		}
-		return next.ServeDNS(ctx, w, r)
+		// Wrap the ResponseWriter to track which plugin writes the response
+		pw := &pluginWriter{ResponseWriter: w, plugin: next.Name()}
+		return next.ServeDNS(ctx, pw, r)
 	}
 
 	return dns.RcodeServerFailure, Error(name, errors.New("no next plugin found"))
 }
+
+// PluginTracker is an interface for ResponseWriters that track which plugin wrote the response.
+type PluginTracker interface {
+	SetPlugin(name string)
+	GetPlugin() string
+}
+
+// pluginWriter wraps a dns.ResponseWriter to track which plugin writes the response.
+type pluginWriter struct {
+	dns.ResponseWriter
+	plugin string
+}
+
+// WriteMsg implements dns.ResponseWriter and tracks the plugin that wrote the response.
+func (pw *pluginWriter) WriteMsg(m *dns.Msg) error {
+	if tracker, ok := pw.ResponseWriter.(PluginTracker); ok {
+		tracker.SetPlugin(pw.plugin)
+	}
+	return pw.ResponseWriter.WriteMsg(m)
+}
+
+// Write implements dns.ResponseWriter.
+func (pw *pluginWriter) Write(b []byte) (int, error) {
+	if tracker, ok := pw.ResponseWriter.(PluginTracker); ok {
+		tracker.SetPlugin(pw.plugin)
+	}
+	return pw.ResponseWriter.Write(b)
+}
+
+// LocalAddr implements dns.ResponseWriter.
+func (pw *pluginWriter) LocalAddr() net.Addr { return pw.ResponseWriter.LocalAddr() }
+
+// RemoteAddr implements dns.ResponseWriter.
+func (pw *pluginWriter) RemoteAddr() net.Addr { return pw.ResponseWriter.RemoteAddr() }
+
+// Close implements dns.ResponseWriter.
+func (pw *pluginWriter) Close() error { return pw.ResponseWriter.Close() }
+
+// TsigStatus implements dns.ResponseWriter.
+func (pw *pluginWriter) TsigStatus() error { return pw.ResponseWriter.TsigStatus() }
+
+// TsigTimersOnly implements dns.ResponseWriter.
+func (pw *pluginWriter) TsigTimersOnly(b bool) { pw.ResponseWriter.TsigTimersOnly(b) }
+
+// Hijack implements dns.ResponseWriter.
+func (pw *pluginWriter) Hijack() { pw.ResponseWriter.Hijack() }
 
 // ClientWrite returns true if the response has been written to the client.
 // Each plugin to adhere to this protocol.

@@ -14,7 +14,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package test will scrape a target and you can inspect the variables.
+// Package test contains helper functions for writing plugin tests.
+// For example to scrape a target and inspect the variables.
 // Basic usage:
 //
 //	result := Scrape("http://localhost:9153/metrics")
@@ -157,14 +158,14 @@ func newMetricFamily(dtoMF *dto.MetricFamily) *MetricFamily {
 			mf.Metrics[i] = summary{
 				Labels:    makeLabels(m),
 				Quantiles: makeQuantiles(m),
-				Count:     fmt.Sprint(m.GetSummary().GetSampleCount()),
+				Count:     strconv.FormatUint(m.GetSummary().GetSampleCount(), 10),
 				Sum:       fmt.Sprint(m.GetSummary().GetSampleSum()),
 			}
 		} else if dtoMF.GetType() == dto.MetricType_HISTOGRAM {
 			mf.Metrics[i] = histogram{
 				Labels:  makeLabels(m),
 				Buckets: makeBuckets(m),
-				Count:   fmt.Sprint(m.GetHistogram().GetSampleCount()),
+				Count:   strconv.FormatUint(m.GetHistogram().GetSampleCount(), 10),
 				Sum:     fmt.Sprint(m.GetSummary().GetSampleSum()),
 			}
 		} else {
@@ -209,7 +210,7 @@ func makeQuantiles(m *dto.Metric) map[string]string {
 func makeBuckets(m *dto.Metric) map[string]string {
 	result := map[string]string{}
 	for _, b := range m.GetHistogram().GetBucket() {
-		result[fmt.Sprint(b.GetUpperBound())] = fmt.Sprint(b.GetCumulativeCount())
+		result[fmt.Sprint(b.GetUpperBound())] = strconv.FormatUint(b.GetCumulativeCount(), 10)
 	}
 	return result
 }

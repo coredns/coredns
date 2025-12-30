@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"runtime"
 	"testing"
 	"time"
 
@@ -105,5 +106,33 @@ func TestCleanupAll(t *testing.T) {
 
 	if len(tr.conns[typeUDP]) > 0 {
 		t.Error("Expected no cached connections")
+	}
+}
+
+func BenchmarkYield(b *testing.B) {
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	tr := newTransport("BenchmarkYield", s.Addr)
+	tr.Start()
+	defer tr.Stop()
+
+	c, _, _ := tr.Dial("udp")
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		tr.Yield(c)
+		// Drain the yield channel so we can yield again without blocking/timing out
+		// We need to simulate the consumer side slightly to keep Yield flowing
+		select {
+		case <-tr.yield:
+		default:
+		}
+		runtime.Gosched()
 	}
 }

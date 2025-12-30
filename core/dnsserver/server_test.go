@@ -2,8 +2,11 @@ package dnsserver
 
 import (
 	"context"
+	"errors"
+	"net"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
@@ -19,6 +22,24 @@ func (tp testPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 }
 
 func (tp testPlugin) Name() string { return "local" }
+
+// blockingPlugin uses sync.Mutex to simulate extended processing.
+type blockingPlugin struct {
+	sync.Mutex
+}
+
+func (b *blockingPlugin) Name() string { return "blocking" }
+
+func (b *blockingPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	// Respond immediately to avoid waiting in dns.Exchange
+	m := new(dns.Msg)
+	m.SetRcodeFormatError(r)
+	w.WriteMsg(m)
+
+	b.Lock()
+	defer b.Unlock()
+	return dns.RcodeSuccess, nil
+}
 
 func testConfig(transport string, p plugin.Handler) *Config {
 	c := &Config{
@@ -104,6 +125,44 @@ func TestStacktrace(t *testing.T) {
 	}
 }
 
+func TestGracefulStopTimeout_Internal(t *testing.T) {
+	p := new(blockingPlugin)
+	cfg := testConfig("dns", p)
+
+	s, err := NewServer("127.0.0.1:0", []*Config{cfg})
+	if err != nil {
+		t.Fatalf("NewServer failed: %v", err)
+	}
+
+	// Shorten the graceful timeout
+	s.graceTimeout = 500 * time.Millisecond
+
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("ListenPacket failed: %v", err)
+	}
+	defer pc.Close()
+
+	go s.ServePacket(pc)
+	udp := pc.LocalAddr().String()
+
+	// Block the handler
+	p.Lock()
+	defer p.Unlock()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	_, err = dns.Exchange(m, udp)
+	if err != nil {
+		t.Fatalf("dns.Exchange failed: %v", err)
+	}
+
+	err = s.Stop()
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected context.DeadlineExceeded, got %v", err)
+	}
+}
+
 func BenchmarkCoreServeDNS(b *testing.B) {
 	s, err := NewServer("127.0.0.1:53", []*Config{testConfig("dns", testPlugin{})})
 	if err != nil {
@@ -120,23 +179,4 @@ func BenchmarkCoreServeDNS(b *testing.B) {
 	for b.Loop() {
 		s.ServeDNS(ctx, w, m)
 	}
-}
-
-// Validates Stop is idempotent and safe under concurrent calls.
-func TestStopIsIdempotent(t *testing.T) {
-	t.Parallel()
-
-	s := &Server{}
-	s.dnsWg.Add(1)
-
-	const n = 10
-	var wg sync.WaitGroup
-	wg.Add(n)
-	for range n {
-		go func() {
-			defer wg.Done()
-			_ = s.Stop()
-		}()
-	}
-	wg.Wait()
 }

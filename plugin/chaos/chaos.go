@@ -36,7 +36,7 @@ func (c Chaos) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	default:
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, r)
 	case "authors.bind.":
-		rnd := rand.New(rand.NewSource(time.Now().Unix()))
+		rnd := rand.New(rand.NewSource(time.Now().Unix())) // #nosec G404 -- non-cryptographic randomness for shuffling authors.
 
 		for _, i := range rnd.Perm(len(c.Authors)) {
 			m.Answer = append(m.Answer, &dns.TXT{Hdr: hdr, Txt: []string{c.Authors[i]}})

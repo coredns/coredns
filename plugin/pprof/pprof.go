@@ -43,6 +43,7 @@ func (h *handler) Startup() error {
 	runtime.SetBlockProfileRate(h.rateBloc)
 
 	go func() {
+		// #nosec G114 -- TODO
 		http.Serve(h.ln, h.mux)
 	}()
 	return nil

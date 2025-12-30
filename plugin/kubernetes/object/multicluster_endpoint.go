@@ -8,7 +8,7 @@ import (
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
 
-// Endpoints is a stripped down api.Endpoints with only the items we need for CoreDNS.
+// MultiClusterEndpoints is a stripped down api.Endpoints with only the items we need for CoreDNS.
 type MultiClusterEndpoints struct {
 	Endpoints
 	ClusterId string
@@ -18,7 +18,7 @@ type MultiClusterEndpoints struct {
 // MultiClusterEndpointsKey returns a string using for the index.
 func MultiClusterEndpointsKey(name, namespace string) string { return name + "." + namespace }
 
-// EndpointSliceToEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
+// EndpointSliceToMultiClusterEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
 func EndpointSliceToMultiClusterEndpoints(obj meta.Object) (meta.Object, error) {
 	labels := maps.Clone(obj.GetLabels())
 	ends, err := EndpointSliceToEndpoints(obj)

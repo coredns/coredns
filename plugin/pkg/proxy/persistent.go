@@ -128,9 +128,15 @@ const yieldTimeout = 25 * time.Millisecond
 func (t *Transport) Yield(pc *persistConn) {
 	pc.used = time.Now() // update used time
 
-	// Make this non-blocking, because in the case of a very busy forwarder we will *block* on this yield. This
-	// blocks the outer go-routine and stuff will just pile up.  We timeout when the send fails to as returning
-	// these connection is an optimization anyway.
+	// Optimization: Try to return the connection immediately without creating a timer.
+	// If the receiver is not ready, we fall back to a timeout-based send to avoid blocking forever.
+	// Returning the connection is just an optimization, so dropping it on timeout is fine.
+	select {
+	case t.yield <- pc:
+		return
+	default:
+	}
+
 	select {
 	case t.yield <- pc:
 		return
@@ -150,6 +156,9 @@ func (t *Transport) SetExpire(expire time.Duration) { t.expire = expire }
 
 // SetTLSConfig sets the TLS config in transport.
 func (t *Transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
+
+// GetTLSConfig returns the TLS config in transport.
+func (t *Transport) GetTLSConfig() *tls.Config { return t.tlsConfig }
 
 const (
 	defaultExpire  = 10 * time.Second

@@ -1,10 +1,10 @@
-// Package geoip implements a max mind database plugin.
+// Package geoip implements an MMDB database plugin for geo/network IP lookups.
 package geoip
 
 import (
 	"context"
 	"fmt"
-	"net"
+	"net/netip"
 	"path/filepath"
 
 	"github.com/coredns/coredns/plugin"
@@ -12,13 +12,13 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
-	"github.com/oschwald/geoip2-golang"
+	"github.com/oschwald/geoip2-golang/v2"
 )
 
 var log = clog.NewWithPlugin(pluginName)
 
-// GeoIP is a plugin that add geo location data to the request context by looking up a maxmind
-// geoIP2 database, and which data can be later consumed by other middlewares.
+// GeoIP is a plugin that adds geo location and network data to the request context by looking up
+// an MMDB format database, and which data can be later consumed by other middlewares.
 type GeoIP struct {
 	Next  plugin.Handler
 	db    db
@@ -34,9 +34,10 @@ type db struct {
 
 const (
 	city = 1 << iota
+	asn
 )
 
-var probingIP = net.ParseIP("127.0.0.1")
+var probingIP = netip.MustParseAddr("127.0.0.1")
 
 func newGeoIP(dbPath string, edns0 bool) (*GeoIP, error) {
 	reader, err := geoip2.Open(dbPath)
@@ -50,6 +51,7 @@ func newGeoIP(dbPath string, edns0 bool) (*GeoIP, error) {
 		validate func() error
 	}{
 		{name: "city", provides: city, validate: func() error { _, err := reader.City(probingIP); return err }},
+		{name: "asn", provides: asn, validate: func() error { _, err := reader.ASN(probingIP); return err }},
 	}
 	// Query the database to figure out the database type.
 	for _, schema := range schemas {
@@ -63,8 +65,8 @@ func newGeoIP(dbPath string, edns0 bool) (*GeoIP, error) {
 		}
 	}
 
-	if db.provides&city == 0 {
-		return nil, fmt.Errorf("database does not provide city schema")
+	if db.provides == 0 {
+		return nil, fmt.Errorf("database does not provide any supported schema (city, asn)")
 	}
 
 	return &GeoIP{db: db, edns0: edns0}, nil
@@ -78,27 +80,43 @@ func (g GeoIP) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 // Metadata implements the metadata.Provider Interface in the metadata plugin, and is used to store
 // the data associated with the source IP of every request.
 func (g GeoIP) Metadata(ctx context.Context, state request.Request) context.Context {
-	srcIP := net.ParseIP(state.IP())
+	srcIP, err := netip.ParseAddr(state.IP())
+	if err != nil {
+		log.Debugf("Failed to parse source IP %q: %v", state.IP(), err)
+		return ctx
+	}
 
 	if g.edns0 {
 		if o := state.Req.IsEdns0(); o != nil {
 			for _, s := range o.Option {
 				if e, ok := s.(*dns.EDNS0_SUBNET); ok {
-					srcIP = e.Address
+					// e.Address is still a net.IP type
+					if addr, ok := netip.AddrFromSlice(e.Address); ok {
+						srcIP = addr
+					} else {
+						log.Debugf("Failed to parse EDNS0 subnet address %v", e.Address)
+					}
 					break
 				}
 			}
 		}
 	}
 
-	switch g.db.provides & city {
-	case city:
+	if g.db.provides&city != 0 {
 		data, err := g.db.City(srcIP)
 		if err != nil {
-			log.Debugf("Setting up metadata failed due to database lookup error: %v", err)
-			return ctx
+			log.Debugf("Setting up city metadata failed due to database lookup error: %v", err)
+		} else {
+			g.setCityMetadata(ctx, data)
 		}
-		g.setCityMetadata(ctx, data)
+	}
+	if g.db.provides&asn != 0 {
+		data, err := g.db.ASN(srcIP)
+		if err != nil {
+			log.Debugf("Setting up asn metadata failed due to database lookup error: %v", err)
+		} else {
+			g.setASNMetadata(ctx, data)
+		}
 	}
 	return ctx
 }

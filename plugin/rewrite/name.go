@@ -81,8 +81,8 @@ func newSuffixStringRewriter(orig, replacement string) stringRewriter {
 }
 
 func (r *suffixStringRewriter) rewriteString(src string) string {
-	if strings.HasSuffix(src, r.suffix) {
-		return strings.TrimSuffix(src, r.suffix) + r.replacement
+	if before, ok := strings.CutSuffix(src, r.suffix); ok {
+		return before + r.replacement
 	}
 	return src
 }
@@ -234,8 +234,8 @@ func newSuffixNameRule(nextAction string, auto bool, suffix, replacement string,
 }
 
 func (rule *suffixNameRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
-	if strings.HasSuffix(state.Name(), rule.suffix) {
-		state.Req.Question[0].Name = strings.TrimSuffix(state.Name(), rule.suffix) + rule.replacement
+	if before, ok := strings.CutSuffix(state.Name(), rule.suffix); ok {
+		state.Req.Question[0].Name = before + rule.replacement
 		return rule.responseRuleFor(state)
 	}
 	return nil, RewriteIgnored

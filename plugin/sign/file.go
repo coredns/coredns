@@ -80,12 +80,11 @@ func Parse(f io.Reader, origin, fileName string) (*file.Zone, error) {
 			}
 		}
 	}
-	if !seenSOA {
-		return nil, fmt.Errorf("file %q has no SOA record", fileName)
-	}
-
 	if err := zp.Err(); err != nil {
 		return nil, err
+	}
+	if !seenSOA {
+		return nil, fmt.Errorf("file %q has no SOA record", fileName)
 	}
 
 	return z, nil

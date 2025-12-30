@@ -63,6 +63,7 @@ func (h *health) OnStartup() error {
 	ctx := context.Background()
 	ctx, h.stop = context.WithCancel(ctx)
 
+	// #nosec G114 -- TODO
 	go func() { http.Serve(h.ln, h.mux) }()
 	go func() { h.overloaded(ctx) }()
 

@@ -18,15 +18,23 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
+
+	"golang.org/x/net/netutil"
+)
+
+const (
+	// DefaultHTTPSMaxConnections is the default maximum number of concurrent connections.
+	DefaultHTTPSMaxConnections = 200
 )
 
 // ServerHTTPS represents an instance of a DNS-over-HTTPS server.
 type ServerHTTPS struct {
 	*Server
-	httpsServer  *http.Server
-	listenAddr   net.Addr
-	tlsConfig    *tls.Config
-	validRequest func(*http.Request) bool
+	httpsServer    *http.Server
+	listenAddr     net.Addr
+	tlsConfig      *tls.Config
+	validRequest   func(*http.Request) bool
+	maxConnections int
 }
 
 // loggerAdapter is a simple adapter around CoreDNS logger made to implement io.Writer in order to log errors from HTTP server
@@ -81,8 +89,17 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 		IdleTimeout:  s.IdleTimeout,
 		ErrorLog:     stdlog.New(&loggerAdapter{}, "", 0),
 	}
+	maxConnections := DefaultHTTPSMaxConnections
+	if len(group) > 0 && group[0] != nil && group[0].MaxHTTPSConnections != nil {
+		maxConnections = *group[0].MaxHTTPSConnections
+	}
+
 	sh := &ServerHTTPS{
-		Server: s, tlsConfig: tlsConfig, httpsServer: srv, validRequest: validator,
+		Server:         s,
+		tlsConfig:      tlsConfig,
+		httpsServer:    srv,
+		validRequest:   validator,
+		maxConnections: maxConnections,
 	}
 	sh.httpsServer.Handler = sh
 
@@ -98,9 +115,15 @@ func (s *ServerHTTPS) Serve(l net.Listener) error {
 	s.listenAddr = l.Addr()
 	s.m.Unlock()
 
+	// Wrap listener to limit concurrent connections (before TLS)
+	if s.maxConnections > 0 {
+		l = netutil.LimitListener(l, s.maxConnections)
+	}
+
 	if s.tlsConfig != nil {
 		l = tls.NewListener(l, s.tlsConfig)
 	}
+
 	return s.httpsServer.Serve(l)
 }
 

@@ -244,6 +244,45 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 					return nil, fmt.Errorf("failed to parse startup_timeout: %v, %s", args[0], err)
 				}
 			}
+		case "apiserver_qps":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return nil, c.ArgErr()
+			}
+			qps, err := strconv.ParseFloat(args[0], 32)
+			if err != nil {
+				return nil, c.Errf("invalid apiserver_qps %q: %v", args[0], err)
+			}
+			if qps < 0 {
+				return nil, c.Errf("apiserver_qps must be >= 0")
+			}
+			k8s.apiQPS = float32(qps)
+		case "apiserver_burst":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return nil, c.ArgErr()
+			}
+			burst, err := strconv.Atoi(args[0])
+			if err != nil {
+				return nil, c.Errf("invalid apiserver_burst %q: %v", args[0], err)
+			}
+			if burst < 0 {
+				return nil, c.Errf("apiserver_burst must be >= 0")
+			}
+			k8s.apiBurst = burst
+		case "apiserver_max_inflight":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return nil, c.ArgErr()
+			}
+			max, err := strconv.Atoi(args[0])
+			if err != nil {
+				return nil, c.Errf("invalid apiserver_max_inflight %q: %v", args[0], err)
+			}
+			if max < 0 {
+				return nil, c.Errf("apiserver_max_inflight must be >= 0")
+			}
+			k8s.apiMaxInflight = max
 		default:
 			return nil, c.Errf("unknown property '%s'", c.Val())
 		}

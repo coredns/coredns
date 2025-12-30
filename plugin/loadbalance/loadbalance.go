@@ -1,4 +1,3 @@
-// Package loadbalance shuffles A, AAAA and MX records.
 package loadbalance
 
 import (

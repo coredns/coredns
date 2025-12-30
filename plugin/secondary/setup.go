@@ -27,6 +27,9 @@ func setup(c *caddy.Controller) error {
 		n := zones.Names[i]
 		z := zones.Z[n]
 		if len(z.TransferFrom) > 0 {
+			// In order to support secondary plugin reloading.
+			updateShutdown := make(chan bool)
+
 			c.OnStartup(func() error {
 				z.StartupOnce.Do(func() {
 					go func() {
@@ -43,10 +46,19 @@ func setup(c *caddy.Controller) error {
 							if dur > max {
 								dur = max
 							}
+							select {
+							case <-updateShutdown:
+								return
+							default:
+							}
 						}
-						z.Update()
+						z.Update(updateShutdown)
 					}()
 				})
+				return nil
+			})
+			c.OnShutdown(func() error {
+				updateShutdown <- true
 				return nil
 			})
 		}

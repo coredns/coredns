@@ -3,7 +3,7 @@ package loadbalance
 import (
 	"bufio"
 	"bytes"
-	"crypto/md5"
+	"crypto/md5" // #nosec G501 -- used only as a checksum for file change detection (not for security).
 	"errors"
 	"fmt"
 	"io"
@@ -52,7 +52,7 @@ type randomUint struct {
 }
 
 func (r *randomUint) randInit() {
-	r.rn = rand.New(rand.NewSource(time.Now().UnixNano()))
+	r.rn = rand.New(rand.NewSource(time.Now().UnixNano())) // #nosec G404 -- non-cryptographic randomness for load balancing.
 }
 
 func (r *randomUint) randUint(limit uint) uint {
@@ -245,7 +245,7 @@ func (w *weightedRR) updateWeights() error {
 	if err != nil {
 		return err
 	}
-	md5sum := md5.Sum(bytes)
+	md5sum := md5.Sum(bytes) // #nosec G401 -- used only as a checksum for file change detection (not for security).
 	if md5sum == w.md5sum {
 		// file contents has not changed
 		return nil

@@ -19,10 +19,12 @@ func TestMultisocket(t *testing.T) {
 		// positive
 		{`multisocket`, false, runtime.GOMAXPROCS(0), ""},
 		{`multisocket 2`, false, 2, ""},
+		{`multisocket 1024`, false, 1024, ""},
 		{` multisocket 1`, false, 1, ""},
 		{`multisocket text`, true, 0, "invalid num sockets"},
 		{`multisocket 0`, true, 0, "num sockets can not be zero or negative"},
 		{`multisocket -1`, true, 0, "num sockets can not be zero or negative"},
+		{`multisocket 1025`, true, 0, "num sockets exceeds maximum"},
 		{`multisocket 2 2`, true, 0, "Wrong argument count or unexpected line ending after '2'"},
 		{`multisocket 2 {
 			block

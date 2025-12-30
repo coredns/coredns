@@ -72,6 +72,67 @@ func TestCustomHTTPRequestValidator(t *testing.T) {
 	}
 }
 
+func TestNewServerHTTPSWithCustomLimits(t *testing.T) {
+	maxConnections := 100
+	c := Config{
+		Zone:                "example.com.",
+		Transport:           "https",
+		TLSConfig:           &tls.Config{},
+		ListenHosts:         []string{"127.0.0.1"},
+		Port:                "443",
+		MaxHTTPSConnections: &maxConnections,
+	}
+
+	server, err := NewServerHTTPS("127.0.0.1:443", []*Config{&c})
+	if err != nil {
+		t.Fatalf("NewServerHTTPS() with custom limits failed: %v", err)
+	}
+
+	if server.maxConnections != maxConnections {
+		t.Errorf("Expected maxConnections = %d, got %d", maxConnections, server.maxConnections)
+	}
+}
+
+func TestNewServerHTTPSDefaults(t *testing.T) {
+	c := Config{
+		Zone:        "example.com.",
+		Transport:   "https",
+		TLSConfig:   &tls.Config{},
+		ListenHosts: []string{"127.0.0.1"},
+		Port:        "443",
+	}
+
+	server, err := NewServerHTTPS("127.0.0.1:443", []*Config{&c})
+	if err != nil {
+		t.Fatalf("NewServerHTTPS() failed: %v", err)
+	}
+
+	if server.maxConnections != DefaultHTTPSMaxConnections {
+		t.Errorf("Expected default maxConnections = %d, got %d", DefaultHTTPSMaxConnections, server.maxConnections)
+	}
+}
+
+func TestNewServerHTTPSZeroLimits(t *testing.T) {
+	zero := 0
+	c := Config{
+		Zone:                "example.com.",
+		Transport:           "https",
+		TLSConfig:           &tls.Config{},
+		ListenHosts:         []string{"127.0.0.1"},
+		Port:                "443",
+		MaxHTTPSConnections: &zero,
+	}
+
+	server, err := NewServerHTTPS("127.0.0.1:443", []*Config{&c})
+	if err != nil {
+		t.Fatalf("NewServerHTTPS() with zero limits failed: %v", err)
+	}
+
+	if server.maxConnections != 0 {
+		t.Errorf("Expected maxConnections = 0, got %d", server.maxConnections)
+	}
+}
+
 type contextCapturingPlugin struct {
 	capturedContext  context.Context
 	contextCancelled bool

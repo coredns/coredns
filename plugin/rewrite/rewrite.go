@@ -23,9 +23,9 @@ const (
 
 // These are defined processing mode.
 const (
-	// Processing should stop after completing this rule
+	// Stop processing should stop after completing this rule
 	Stop = "stop"
-	// Processing should continue to next rule
+	// Continue processing should continue to next rule
 	Continue = "continue"
 )
 

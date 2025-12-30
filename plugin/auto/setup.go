@@ -18,6 +18,8 @@ import (
 
 var log = clog.NewWithPlugin("auto")
 
+const maxRegexpLen = 10000
+
 func init() { plugin.Register("auto", setup) }
 
 func setup(c *caddy.Controller) error {
@@ -126,6 +128,9 @@ func autoParse(c *caddy.Controller) (Auto, error) {
 
 				// regexp template
 				if c.NextArg() {
+					if len(c.Val()) > maxRegexpLen {
+						return a, c.Errf("regexp too large")
+					}
 					a.re, err = regexp.Compile(c.Val())
 					if err != nil {
 						return a, err

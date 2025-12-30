@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -50,14 +51,19 @@ func parse(c *caddy.Controller) (*Sign, error) {
 			dbfile = filepath.Join(config.Root, dbfile)
 		}
 
+		// Validate dbfile token to avoid infinite signing loops caused by invalid paths
+		if strings.ContainsRune(dbfile, '\uFFFD') {
+			return nil, fmt.Errorf("dbfile %q contains invalid characters", dbfile)
+		}
+
 		origins := plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 		signers := make([]*Signer, len(origins))
 		for i := range origins {
 			signers[i] = &Signer{
 				dbfile:      dbfile,
 				origin:      origins[i],
-				jitterIncep: time.Duration(float32(durationInceptionJitter) * rand.Float32()),
-				jitterExpir: time.Duration(float32(durationExpirationDayJitter) * rand.Float32()),
+				jitterIncep: time.Duration(float32(durationInceptionJitter) * rand.Float32()),     // #nosec G404 -- non-cryptographic jitter.
+				jitterExpir: time.Duration(float32(durationExpirationDayJitter) * rand.Float32()), // #nosec G404 -- non-cryptographic jitter.
 				directory:   "/var/lib/coredns",
 				stop:        make(chan struct{}),
 				signedfile:  fmt.Sprintf("db.%ssigned", origins[i]), // origins[i] is a fqdn, so it ends with a dot, hence %ssigned.

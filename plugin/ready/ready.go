@@ -61,6 +61,7 @@ func (rd *ready) onStartup() error {
 		io.WriteString(w, notReadyPlugins)
 	})
 
+	// #nosec G114 -- TODO
 	go func() { http.Serve(rd.ln, rd.mux) }()
 
 	return nil

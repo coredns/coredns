@@ -92,6 +92,8 @@ func wildcardFunc(ctx context.Context) func() string {
 }
 
 func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time) {
+	// Use a fresh metadata map to avoid concurrent writes to the original request's metadata.
+	ctx = metadata.ContextWithMetadata(ctx)
 	cachePrefetches.WithLabelValues(cw.server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	c.doRefresh(ctx, state, cw)
 

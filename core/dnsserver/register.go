@@ -88,6 +88,8 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 					port = transport.GRPCPort
 				case transport.HTTPS:
 					port = transport.HTTPSPort
+				case transport.HTTPS3:
+					port = transport.HTTPSPort
 				}
 			}
 
@@ -343,6 +345,13 @@ func makeServersForGroup(addr string, group []*Config) ([]caddy.Server, error) {
 
 		case transport.HTTPS:
 			s, err := NewServerHTTPS(addr, group)
+			if err != nil {
+				return nil, err
+			}
+			servers = append(servers, s)
+
+		case transport.HTTPS3:
+			s, err := NewServerHTTPS3(addr, group)
 			if err != nil {
 				return nil, err
 			}

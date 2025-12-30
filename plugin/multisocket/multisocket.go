@@ -11,6 +11,7 @@ import (
 )
 
 const pluginName = "multisocket"
+const maxNumSockets = 1024
 
 func init() { plugin.Register(pluginName, setup) }
 
@@ -44,6 +45,9 @@ func parseNumSockets(c *caddy.Controller) error {
 	}
 	if numSockets < 1 {
 		return fmt.Errorf("num sockets can not be zero or negative: %d", numSockets)
+	}
+	if numSockets > maxNumSockets {
+		return fmt.Errorf("num sockets exceeds maximum (%d): %d", maxNumSockets, numSockets)
 	}
 	config.NumSockets = numSockets
 

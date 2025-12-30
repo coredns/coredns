@@ -34,6 +34,9 @@ kubernetes [ZONES...] {
     endpoint URL
     tls CERT KEY CACERT
     kubeconfig KUBECONFIG [CONTEXT]
+    apiserver_qps QPS
+    apiserver_burst BURST
+    apiserver_max_inflight MAX
     namespaces NAMESPACE...
     labels EXPRESSION
     pods POD-MODE
@@ -55,6 +58,12 @@ kubernetes [ZONES...] {
    **[CONTEXT]** is optional, if not set, then the current context specified in kubeconfig will be used.
    It supports TLS, username and password, or token-based authentication.
    This option is ignored if connecting in-cluster (i.e., the endpoint is not specified).
+* `apiserver_qps` **QPS** sets the maximum queries per second (QPS) rate limit for requests.
+   This allows you to control the rate at which the plugin sends requests to the API server to prevent overwhelming it.
+* `apiserver_burst` **BURST** sets the maximum burst size for requests.
+   This allows temporary spikes in request rate up to this value, even if it exceeds the QPS limit.
+* `apiserver_max_inflight` **MAX** sets the maximum number of concurrent in-flight requests.
+   This caps the total number of simultaneous requests the plugin can make to the API server.
 * `namespaces` **NAMESPACE [NAMESPACE...]** only exposes the k8s namespaces listed.
    If this option is omitted all namespaces are exposed
 * `namespace_labels` **EXPRESSION** only expose the records for Kubernetes namespaces that match this label selector.

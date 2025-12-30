@@ -2,6 +2,7 @@ package auto
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -203,5 +204,21 @@ func TestSetupReload(t *testing.T) {
 				t.Errorf("Error: setup() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestAutoParseLargeRegex(t *testing.T) {
+	largeRegex := strings.Repeat("a", maxRegexpLen+1)
+	config := fmt.Sprintf(`auto {
+        directory /tmp %s {1}
+    }`, largeRegex)
+
+	c := caddy.NewTestController("dns", config)
+	_, err := autoParse(c)
+	if err == nil {
+		t.Fatal("Expected error for large regex, got nil")
+	}
+	if !strings.Contains(err.Error(), "regexp too large") {
+		t.Errorf("Expected 'regexp too large' error, got: %v", err)
 	}
 }

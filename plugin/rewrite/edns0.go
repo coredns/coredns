@@ -1,4 +1,3 @@
-// Package rewrite is a plugin for rewriting requests internally to something different.
 package rewrite
 
 import (

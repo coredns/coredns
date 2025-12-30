@@ -2,6 +2,9 @@ package clouddns
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/coredns/caddy"
@@ -67,7 +70,11 @@ func setup(c *caddy.Controller) error {
 				c.RemainingArgs()
 			case "credentials":
 				if c.NextArg() {
-					opt = option.WithCredentialsFile(c.Val())
+					credType, err := getCredType(c.Val())
+					if err != nil {
+						return plugin.Error("clouddns", c.Errf("invalid credentials file %q: %v", c.Val(), err))
+					}
+					opt = option.WithAuthCredentialsFile(credType, c.Val())
 				} else {
 					return plugin.Error("clouddns", c.ArgErr())
 				}
@@ -105,4 +112,31 @@ func setup(c *caddy.Controller) error {
 	}
 
 	return nil
+}
+
+func getCredType(filename string) (option.CredentialsType, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	var f struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &f); err != nil {
+		return "", err
+	}
+	if f.Type == "" {
+		return "", fmt.Errorf("missing `type` field in credential")
+	}
+
+	// Check against allowed types
+	ct := option.CredentialsType(f.Type)
+	switch ct {
+	case option.ServiceAccount,
+		option.AuthorizedUser,
+		option.ImpersonatedServiceAccount,
+		option.ExternalAccount:
+		return ct, nil
+	}
+	return "", fmt.Errorf("unknown credential type: %s", f.Type)
 }

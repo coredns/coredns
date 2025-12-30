@@ -2,9 +2,12 @@
 // identical events will only be processed once.
 package uniq
 
+import "sync"
+
 // U keeps track of item to be done.
 type U struct {
-	u map[string]item
+	mu sync.RWMutex
+	u  map[string]item
 }
 
 type item struct {
@@ -13,10 +16,24 @@ type item struct {
 }
 
 // New returns a new initialized U.
-func New() U { return U{u: make(map[string]item)} }
+func New() *U { return &U{u: make(map[string]item)} }
 
 // Set sets function f in U under key. If the key already exists it is not overwritten.
-func (u U) Set(key string, f func() error) {
+func (u *U) Set(key string, f func() error) {
+	// Read lock for check
+	u.mu.RLock()
+	_, exists := u.u[key]
+	u.mu.RUnlock()
+
+	if exists {
+		return
+	}
+
+	// Write lock for modification
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
+	// Double-check to avoid TOCTOU
 	if _, ok := u.u[key]; ok {
 		return
 	}
@@ -24,12 +41,17 @@ func (u U) Set(key string, f func() error) {
 }
 
 // Unset removes the key.
-func (u U) Unset(key string) {
+func (u *U) Unset(key string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
 	delete(u.u, key)
 }
 
 // ForEach iterates over u and executes f for each element that is 'todo' and sets it to 'done'.
-func (u U) ForEach() error {
+func (u *U) ForEach() error {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	for k, v := range u.u {
 		if v.state == todo {
 			v.f()

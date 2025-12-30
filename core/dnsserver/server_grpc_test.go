@@ -69,6 +69,61 @@ func TestNewServergRPCWithTLS(t *testing.T) {
 	}
 }
 
+func TestNewServergRPCWithCustomLimits(t *testing.T) {
+	config := testConfig("grpc", testPlugin{})
+	maxStreams := 50
+	maxConnections := 100
+	config.MaxGRPCStreams = &maxStreams
+	config.MaxGRPCConnections = &maxConnections
+
+	server, err := NewServergRPC("127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServergRPC() with custom limits failed: %v", err)
+	}
+
+	if server.maxStreams != maxStreams {
+		t.Errorf("Expected maxStreams = %d, got %d", maxStreams, server.maxStreams)
+	}
+
+	if server.maxConnections != maxConnections {
+		t.Errorf("Expected maxConnections = %d, got %d", maxConnections, server.maxConnections)
+	}
+}
+
+func TestNewServergRPCDefaults(t *testing.T) {
+	server, err := NewServergRPC("127.0.0.1:0", []*Config{testConfig("grpc", testPlugin{})})
+	if err != nil {
+		t.Fatalf("NewServergRPC() failed: %v", err)
+	}
+
+	if server.maxStreams != DefaultGRPCMaxStreams {
+		t.Errorf("Expected default maxStreams = %d, got %d", DefaultGRPCMaxStreams, server.maxStreams)
+	}
+
+	if server.maxConnections != DefaultGRPCMaxConnections {
+		t.Errorf("Expected default maxConnections = %d, got %d", DefaultGRPCMaxConnections, server.maxConnections)
+	}
+}
+
+func TestNewServergRPCZeroLimits(t *testing.T) {
+	config := testConfig("grpc", testPlugin{})
+	zero := 0
+	config.MaxGRPCStreams = &zero
+	config.MaxGRPCConnections = &zero
+
+	server, err := NewServergRPC("127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServergRPC() with zero limits failed: %v", err)
+	}
+
+	if server.maxStreams != 0 {
+		t.Errorf("Expected maxStreams = 0, got %d", server.maxStreams)
+	}
+	if server.maxConnections != 0 {
+		t.Errorf("Expected maxConnections = 0, got %d", server.maxConnections)
+	}
+}
+
 func TestServergRPC_Listen(t *testing.T) {
 	server, err := NewServergRPC(transport.GRPC+"://127.0.0.1:0", []*Config{testConfig("grpc", testPlugin{})})
 	if err != nil {
@@ -326,5 +381,69 @@ func TestGRPCResponse_WriteInvalidMessage(t *testing.T) {
 	_, err := r.Write([]byte("invalid dns message"))
 	if err == nil {
 		t.Error("Write() should return error for invalid DNS message")
+	}
+}
+
+func TestServergRPC_Query_LargeMessage(t *testing.T) {
+	server, err := NewServergRPC("127.0.0.1:0", []*Config{testConfig("grpc", testPlugin{})})
+	if err != nil {
+		t.Fatalf("NewServergRPC failed: %v", err)
+	}
+
+	// Create oversized message (> dns.MaxMsgSize = 65535)
+	oversizedMsg := make([]byte, dns.MaxMsgSize+1)
+	dnsPacket := &pb.DnsPacket{Msg: oversizedMsg}
+
+	tcpAddr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:12345")
+	p := &peer.Peer{Addr: tcpAddr}
+	ctx := peer.NewContext(context.Background(), p)
+
+	server.listenAddr = tcpAddr
+
+	_, err = server.Query(ctx, dnsPacket)
+	if err == nil {
+		t.Error("Expected error for oversized message")
+	}
+
+	expectedError := "dns message exceeds size limit: 65536"
+	if err.Error() != expectedError {
+		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
+	}
+}
+
+func TestServergRPC_Query_MaxSizeMessage(t *testing.T) {
+	server, err := NewServergRPC("127.0.0.1:0", []*Config{testConfig("grpc", testPlugin{})})
+	if err != nil {
+		t.Fatalf("NewServergRPC failed: %v", err)
+	}
+
+	// Create message exactly at the size limit (dns.MaxMsgSize = 65535)
+	msg := new(dns.Msg)
+	msg.SetQuestion("example.com.", dns.TypeA)
+	packed, err := msg.Pack()
+	if err != nil {
+		t.Fatalf("Failed to pack DNS message: %v", err)
+	}
+
+	// Pad the message to exactly max size
+	if len(packed) > dns.MaxMsgSize {
+		t.Fatalf("Packed message is already larger than max size: %d", len(packed))
+	}
+
+	maxSizeMsg := make([]byte, dns.MaxMsgSize)
+	copy(maxSizeMsg, packed)
+
+	dnsPacket := &pb.DnsPacket{Msg: maxSizeMsg}
+
+	tcpAddr, _ := net.ResolveTCPAddr("tcp", "127.0.0.1:12345")
+	p := &peer.Peer{Addr: tcpAddr}
+	ctx := peer.NewContext(context.Background(), p)
+
+	server.listenAddr = tcpAddr
+
+	// Should not return an error for exactly max size message
+	_, err = server.Query(ctx, dnsPacket)
+	if err != nil {
+		t.Errorf("Expected no error for max size message, got: %v", err)
 	}
 }

@@ -27,7 +27,8 @@ are used.
   used to extract the origin. **ORIGIN_TEMPLATE** will be used as a template for the origin. Strings
   like `{<number>}` are replaced with the respective matches in the file name, e.g. `{1}` is the
   first match, `{2}` is the second. The default is: `db\.(.*)  {1}` i.e. from a file with the
-  name `db.example.com`, the extracted origin will be `example.com`.
+  name `db.example.com`, the extracted origin will be `example.com`. **REGEXP** must not be longer
+  than 10000 characters.
 * `reload` interval to perform reloads of zones if SOA version changes and zonefiles. It specifies how often CoreDNS should scan the directory to watch for file removal and addition. Default is one minute.
   Value of `0` means to not scan for changes and reload. eg. `30s` checks zonefile every 30 seconds
   and reloads zone when serial changes.
