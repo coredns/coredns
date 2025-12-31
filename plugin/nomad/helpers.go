@@ -11,7 +11,7 @@ func addSRVRecord(m *dns.Msg, s *api.ServiceRegistration, header dns.RR_Header, 
 	srvRecord := &dns.SRV{
 		Hdr:      header,
 		Target:   originalQName,
-		Port:     uint16(s.Port),
+		Port:     uint16(s.Port), // #nosec G115 -- port numbers are bounded (1-65535)
 		Priority: 10,
 		Weight:   10,
 	}

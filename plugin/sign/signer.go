@@ -44,7 +44,7 @@ func (s *Signer) Sign(now time.Time) (*file.Zone, error) {
 	mttl := z.SOA.Minttl
 	ttl := z.SOA.Header().Ttl
 	inception, expiration := lifetime(now, s.jitterIncep, s.jitterExpir)
-	z.SOA.Serial = uint32(now.Unix())
+	z.SOA.Serial = uint32(now.Unix()) // #nosec G115 -- Unix time to SOA serial, Year 2106 problem accepted
 
 	for _, pair := range s.keys {
 		pair.Public.Header().Ttl = ttl // set TTL on key so it matches the RRSIG.
@@ -200,7 +200,7 @@ func (s *Signer) refresh(val time.Duration) {
 }
 
 func lifetime(now time.Time, jitterInception, jitterExpiration time.Duration) (uint32, uint32) {
-	incep := uint32(now.Add(durationSignatureInceptionHours).Add(jitterInception).Unix())
-	expir := uint32(now.Add(durationSignatureExpireDays).Add(jitterExpiration).Unix())
+	incep := uint32(now.Add(durationSignatureInceptionHours).Add(jitterInception).Unix()) // #nosec G115 -- DNSSEC signature inception, Year 2106 problem accepted
+	expir := uint32(now.Add(durationSignatureExpireDays).Add(jitterExpiration).Unix())    // #nosec G115 -- DNSSEC signature expiration, Year 2106 problem accepted
 	return incep, expir
 }

@@ -18,7 +18,7 @@ type Bufsize struct {
 // ServeDNS implements the plugin.Handler interface.
 func (buf Bufsize) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if option := r.IsEdns0(); option != nil && int(option.UDPSize()) > buf.Size {
-		option.SetUDPSize(uint16(buf.Size))
+		option.SetUDPSize(uint16(buf.Size)) // #nosec G115 -- buffer size fits in uint16
 	}
 	return plugin.NextOrFailure(buf.Name(), buf.Next, ctx, w, r)
 }

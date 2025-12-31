@@ -82,7 +82,7 @@ func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
 	m1.RecursionAvailable = i.RecursionAvailable
 	m1.Rcode = i.Rcode
 
-	ttl := uint32(i.ttl(now))
+	ttl := uint32(i.ttl(now)) // #nosec G115 -- ttl is bounded by DNS TTL limits
 	m1.Answer = filterRRSlice(i.Answer, ttl, true)
 	m1.Ns = filterRRSlice(i.Ns, ttl, true)
 	m1.Extra = filterRRSlice(i.Extra, ttl, true)

@@ -47,7 +47,7 @@ type roundRobin struct {
 func (r *roundRobin) String() string { return "round_robin" }
 
 func (r *roundRobin) List(p []*proxy.Proxy) []*proxy.Proxy {
-	poolLen := uint32(len(p))
+	poolLen := uint32(len(p)) // #nosec G115 -- pool length is small
 	i := atomic.AddUint32(&r.robin, 1) % poolLen
 
 	robin := []*proxy.Proxy{p[i]}

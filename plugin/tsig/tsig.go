@@ -126,7 +126,7 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 			repTSIG.TimeSigned = r.reqTSIG.TimeSigned
 			b := make([]byte, 8)
 			// TimeSigned is network byte order.
-			binary.BigEndian.PutUint64(b, uint64(time.Now().Unix()))
+			binary.BigEndian.PutUint64(b, uint64(time.Now().Unix())) // #nosec G115 -- Unix time fits in uint64
 			// truncate to 48 least significant bits (network order 6 rightmost bytes)
 			repTSIG.OtherData = hex.EncodeToString(b[2:])
 			repTSIG.OtherLen = 6

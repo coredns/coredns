@@ -23,7 +23,7 @@ func SetQueryAddress(t *tap.Message, addr net.Addr) error {
 		t.SocketProtocol = &protoTCP
 		t.QueryAddress = a.IP
 
-		p := uint32(a.Port)
+		p := uint32(a.Port) // #nosec G115 -- Port is inherently bounded (1-65535)
 		t.QueryPort = &p
 
 		if a.IP.To4() == nil {
@@ -34,7 +34,7 @@ func SetQueryAddress(t *tap.Message, addr net.Addr) error {
 		t.SocketProtocol = &protoUDP
 		t.QueryAddress = a.IP
 
-		p := uint32(a.Port)
+		p := uint32(a.Port) // #nosec G115 -- Port is inherently bounded (1-65535)
 		t.QueryPort = &p
 
 		if a.IP.To4() == nil {
@@ -54,7 +54,7 @@ func SetResponseAddress(t *tap.Message, addr net.Addr) error {
 		t.SocketProtocol = &protoTCP
 		t.ResponseAddress = a.IP
 
-		p := uint32(a.Port)
+		p := uint32(a.Port) // #nosec G115 -- Port is inherently bounded (1-65535)
 		t.ResponsePort = &p
 
 		if a.IP.To4() == nil {
@@ -65,7 +65,7 @@ func SetResponseAddress(t *tap.Message, addr net.Addr) error {
 		t.SocketProtocol = &protoUDP
 		t.ResponseAddress = a.IP
 
-		p := uint32(a.Port)
+		p := uint32(a.Port) // #nosec G115 -- Port is inherently bounded (1-65535)
 		t.ResponsePort = &p
 
 		if a.IP.To4() == nil {
@@ -79,16 +79,16 @@ func SetResponseAddress(t *tap.Message, addr net.Addr) error {
 
 // SetQueryTime sets the time of the query in t.
 func SetQueryTime(t *tap.Message, ti time.Time) {
-	qts := uint64(ti.Unix())
-	qtn := uint32(ti.Nanosecond())
+	qts := uint64(ti.Unix())       // #nosec G115 -- Unix time fits in uint64
+	qtn := uint32(ti.Nanosecond()) // #nosec G115 -- Nanoseconds (0-999999999) fit in uint32
 	t.QueryTimeSec = &qts
 	t.QueryTimeNsec = &qtn
 }
 
 // SetResponseTime sets the time of the response in t.
 func SetResponseTime(t *tap.Message, ti time.Time) {
-	rts := uint64(ti.Unix())
-	rtn := uint32(ti.Nanosecond())
+	rts := uint64(ti.Unix())       // #nosec G115 -- Unix time fits in uint64
+	rtn := uint32(ti.Nanosecond()) // #nosec G115 -- Nanoseconds (0-999999999) fit in uint32
 	t.ResponseTimeSec = &rts
 	t.ResponseTimeNsec = &rtn
 }

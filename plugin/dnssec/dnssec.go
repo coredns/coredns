@@ -167,8 +167,8 @@ func (d Dnssec) get(key uint64, server string) ([]dns.RR, bool) {
 }
 
 func incepExpir(now time.Time) (uint32, uint32) {
-	incep := uint32(now.Add(-3 * time.Hour).Unix()) // -(2+1) hours, be sure to catch daylight saving time and such
-	expir := uint32(now.Add(eightDays).Unix())      // sign for 8 days
+	incep := uint32(now.Add(-3 * time.Hour).Unix()) // #nosec G115 -- DNSSEC inception, Year 2106 problem accepted // -(2+1) hours, be sure to catch daylight saving time and such
+	expir := uint32(now.Add(eightDays).Unix())      // #nosec G115 -- DNSSEC expiration, Year 2106 problem accepted      // sign for 8 days
 	return incep, expir
 }
 

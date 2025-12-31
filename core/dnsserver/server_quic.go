@@ -363,7 +363,8 @@ func readDOQMessage(r io.Reader) ([]byte, error) {
 	// A client or server receives a STREAM FIN before receiving all the bytes
 	// for a message indicated in the 2-octet length field.
 	// See https://www.rfc-editor.org/rfc/rfc9250#section-4.3.3-2.2
-	if size != uint16(len(buf)) {
+	//nolint:gosec
+	if size != uint16(len(buf)) { // #nosec G115 -- buf length fits in uint16
 		return nil, fmt.Errorf("message size does not match 2-byte prefix")
 	}
 

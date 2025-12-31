@@ -101,7 +101,7 @@ func (s *ServergRPC) Serve(l net.Listener) error {
 
 	// Only set MaxConcurrentStreams if not unbounded (0)
 	if s.maxStreams > 0 {
-		serverOpts = append(serverOpts, grpc.MaxConcurrentStreams(uint32(s.maxStreams)))
+		serverOpts = append(serverOpts, grpc.MaxConcurrentStreams(uint32(s.maxStreams))) // #nosec G115 -- maxStreams is bounded
 	}
 
 	if s.Tracer() != nil {

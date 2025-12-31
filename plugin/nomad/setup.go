@@ -19,7 +19,7 @@ func init() { plugin.Register(pluginName, setup) }
 // for parsing any extra options the nomad plugin may have. The first token this function sees is "nomad".
 func setup(c *caddy.Controller) error {
 	n := &Nomad{
-		ttl:     uint32(defaultTTL),
+		ttl:     uint32(defaultTTL), // #nosec G115 -- defaultTTL is a constant that fits in uint32
 		clients: make([]*nomad.Client, 0),
 		current: -1,
 	}

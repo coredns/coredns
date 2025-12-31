@@ -56,7 +56,7 @@ func (r *randomUint) randInit() {
 }
 
 func (r *randomUint) randUint(limit uint) uint {
-	return uint(r.rn.Intn(int(limit)))
+	return uint(r.rn.Intn(int(limit))) // #nosec G115 -- limit is bounded by RR count
 }
 
 func weightedShuffle(res *dns.Msg, w *weightedRR) *dns.Msg {

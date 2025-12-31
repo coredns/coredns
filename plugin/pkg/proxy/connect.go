@@ -123,7 +123,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	}
 
 	// Set buffer size correctly for this client.
-	pc.c.UDPSize = max(uint16(state.Size()), 512)
+	pc.c.UDPSize = max(uint16(state.Size()), 512) // #nosec G115 -- UDP size fits in uint16
 
 	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
 	// records the origin Id before upstream.

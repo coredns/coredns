@@ -117,7 +117,7 @@ func OPT(bufsize int, do bool) *dns.OPT {
 	o.Hdr.Name = "."
 	o.Hdr.Rrtype = dns.TypeOPT
 	o.SetVersion(0)
-	o.SetUDPSize(uint16(bufsize))
+	o.SetUDPSize(uint16(bufsize)) // #nosec G115 -- buffer size fits in uint16
 	if do {
 		o.SetDo()
 	}

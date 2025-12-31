@@ -51,7 +51,7 @@ func (r *roundRobin) List(p []*Proxy) []*Proxy {
 	if len(p) == 0 {
 		return nil
 	}
-	poolLen := uint32(len(p))
+	poolLen := uint32(len(p)) // #nosec G115 -- pool length is small
 	i := atomic.AddUint32(&r.robin, 1) % poolLen
 
 	robin := []*Proxy{p[i]}

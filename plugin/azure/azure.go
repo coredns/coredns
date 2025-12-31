@@ -139,7 +139,7 @@ func (h *Azure) updateZones(ctx context.Context) error {
 func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage, newZ *file.Zone) {
 	for _, result := range *(recordSet.Response().Value) {
 		resultFqdn := *(result.Fqdn)
-		resultTTL := uint32(*(result.TTL))
+		resultTTL := uint32(*(result.TTL)) // #nosec G115 -- Azure API guarantees TTL fits in uint32
 		if result.ARecords != nil {
 			for _, A := range *(result.ARecords) {
 				a := &dns.A{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: resultTTL},
@@ -159,7 +159,7 @@ func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage
 		if result.MxRecords != nil {
 			for _, MX := range *(result.MxRecords) {
 				mx := &dns.MX{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: resultTTL},
-					Preference: uint16(*(MX.Preference)),
+					Preference: uint16(*(MX.Preference)), // #nosec G115 -- MX preference fits in uint16
 					Mx:         dns.Fqdn(*(MX.Exchange))}
 				newZ.Insert(mx)
 			}
@@ -176,9 +176,9 @@ func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage
 		if result.SrvRecords != nil {
 			for _, SRV := range *(result.SrvRecords) {
 				srv := &dns.SRV{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: resultTTL},
-					Priority: uint16(*(SRV.Priority)),
-					Weight:   uint16(*(SRV.Weight)),
-					Port:     uint16(*(SRV.Port)),
+					Priority: uint16(*(SRV.Priority)), // #nosec G115 -- SRV priority fits in uint16
+					Weight:   uint16(*(SRV.Weight)),   // #nosec G115 -- SRV weight fits in uint16
+					Port:     uint16(*(SRV.Port)),     // #nosec G115 -- Port fits in uint16
 					Target:   dns.Fqdn(*(SRV.Target))}
 				newZ.Insert(srv)
 			}
@@ -203,11 +203,11 @@ func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage
 		if result.SoaRecord != nil {
 			SOA := result.SoaRecord
 			soa := &dns.SOA{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: resultTTL},
-				Minttl:  uint32(*(SOA.MinimumTTL)),
-				Expire:  uint32(*(SOA.ExpireTime)),
-				Retry:   uint32(*(SOA.RetryTime)),
-				Refresh: uint32(*(SOA.RefreshTime)),
-				Serial:  uint32(*(SOA.SerialNumber)),
+				Minttl:  uint32(*(SOA.MinimumTTL)),   // #nosec G115 -- DNS protocol mandates uint32 for SOA
+				Expire:  uint32(*(SOA.ExpireTime)),   // #nosec G115 -- DNS protocol mandates uint32 for SOA
+				Retry:   uint32(*(SOA.RetryTime)),    // #nosec G115 -- DNS protocol mandates uint32 for SOA
+				Refresh: uint32(*(SOA.RefreshTime)),  // #nosec G115 -- DNS protocol mandates uint32 for SOA
+				Serial:  uint32(*(SOA.SerialNumber)), // #nosec G115 -- DNS protocol mandates uint32 for SOA
 				Mbox:    dns.Fqdn(*(SOA.Email)),
 				Ns:      *(SOA.Host)}
 			newZ.Insert(soa)
@@ -225,7 +225,7 @@ func updateZoneFromPublicResourceSet(recordSet publicdns.RecordSetListResultPage
 func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPage, newZ *file.Zone) {
 	for _, result := range *(recordSet.Response().Value) {
 		resultFqdn := *(result.Fqdn)
-		resultTTL := uint32(*(result.TTL))
+		resultTTL := uint32(*(result.TTL)) // #nosec G115 -- Azure API guarantees TTL fits in uint32
 		if result.ARecords != nil {
 			for _, A := range *(result.ARecords) {
 				a := &dns.A{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: resultTTL},
@@ -244,7 +244,7 @@ func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPa
 		if result.MxRecords != nil {
 			for _, MX := range *(result.MxRecords) {
 				mx := &dns.MX{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: resultTTL},
-					Preference: uint16(*(MX.Preference)),
+					Preference: uint16(*(MX.Preference)), // #nosec G115 -- MX preference fits in uint16
 					Mx:         dns.Fqdn(*(MX.Exchange))}
 				newZ.Insert(mx)
 			}
@@ -261,9 +261,9 @@ func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPa
 		if result.SrvRecords != nil {
 			for _, SRV := range *(result.SrvRecords) {
 				srv := &dns.SRV{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSRV, Class: dns.ClassINET, Ttl: resultTTL},
-					Priority: uint16(*(SRV.Priority)),
-					Weight:   uint16(*(SRV.Weight)),
-					Port:     uint16(*(SRV.Port)),
+					Priority: uint16(*(SRV.Priority)), // #nosec G115 -- SRV priority fits in uint16
+					Weight:   uint16(*(SRV.Weight)),   // #nosec G115 -- SRV weight fits in uint16
+					Port:     uint16(*(SRV.Port)),     // #nosec G115 -- Port fits in uint16
 					Target:   dns.Fqdn(*(SRV.Target))}
 				newZ.Insert(srv)
 			}
@@ -280,11 +280,11 @@ func updateZoneFromPrivateResourceSet(recordSet privatedns.RecordSetListResultPa
 		if result.SoaRecord != nil {
 			SOA := result.SoaRecord
 			soa := &dns.SOA{Hdr: dns.RR_Header{Name: resultFqdn, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: resultTTL},
-				Minttl:  uint32(*(SOA.MinimumTTL)),
-				Expire:  uint32(*(SOA.ExpireTime)),
-				Retry:   uint32(*(SOA.RetryTime)),
-				Refresh: uint32(*(SOA.RefreshTime)),
-				Serial:  uint32(*(SOA.SerialNumber)),
+				Minttl:  uint32(*(SOA.MinimumTTL)),   // #nosec G115 -- DNS protocol mandates uint32 for SOA
+				Expire:  uint32(*(SOA.ExpireTime)),   // #nosec G115 -- DNS protocol mandates uint32 for SOA
+				Retry:   uint32(*(SOA.RetryTime)),    // #nosec G115 -- DNS protocol mandates uint32 for SOA
+				Refresh: uint32(*(SOA.RefreshTime)),  // #nosec G115 -- DNS protocol mandates uint32 for SOA
+				Serial:  uint32(*(SOA.SerialNumber)), // #nosec G115 -- DNS protocol mandates uint32 for SOA
 				Mbox:    dns.Fqdn(*(SOA.Email)),
 				Ns:      dns.Fqdn(*(SOA.Host))}
 			newZ.Insert(soa)

@@ -199,7 +199,7 @@ func isValidTTL(v string) (uint32, uint32, bool) {
 			// reject invalid range
 			return 0, 0, false
 		}
-		return uint32(min), uint32(max), true
+		return uint32(min), uint32(max), true // #nosec G115 -- min/max parsed with 32-bit limit
 	}
 	return 0, 0, false
 }

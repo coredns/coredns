@@ -156,7 +156,8 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 
 				// -1 is valid serial is we failed to load the file on startup.
 
-				if serial >= 0 && s.Serial == uint32(serial) { // same serial
+				//nolint:gosec
+				if serial >= 0 && s.Serial == uint32(serial) { // #nosec G115 -- serial is validated non-negative, fits in uint32
 					return nil, &serialErr{err: "no change in SOA serial", origin: origin, zone: fileName, serial: serial}
 				}
 			}

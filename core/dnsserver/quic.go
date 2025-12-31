@@ -53,7 +53,7 @@ func (w *DoQWriter) Close() error {
 // AddPrefix adds a 2-byte prefix with the DNS message length.
 func AddPrefix(b []byte) (m []byte) {
 	m = make([]byte, 2+len(b))
-	binary.BigEndian.PutUint16(m, uint16(len(b)))
+	binary.BigEndian.PutUint16(m, uint16(len(b))) // #nosec G115 -- DNS message length fits in uint16
 	copy(m[2:], b)
 
 	return m

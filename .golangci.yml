@@ -42,9 +42,6 @@ linters:
           - perfsprint
           - gosec
   settings:
-    gosec:
-      excludes:
-        - G115
     govet:
       enable:
         - nilness

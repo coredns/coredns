@@ -8,7 +8,7 @@ import (
 
 // Serial returns the serial number to use.
 func (e *Etcd) Serial(state request.Request) uint32 {
-	return uint32(time.Now().Unix())
+	return uint32(time.Now().Unix()) // #nosec G115 -- Unix time to SOA serial, Year 2106 problem accepted
 }
 
 // MinTTL returns the minimal TTL.

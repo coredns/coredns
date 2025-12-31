@@ -190,7 +190,7 @@ func (e *Etcd) TTL(kv *mvccpb.KeyValue, serv *msg.Service) uint32 {
 				leaseTTL = maxTTL64
 			}
 
-			etcdTTL = uint32(leaseTTL)
+			etcdTTL = uint32(leaseTTL) // #nosec G115 -- leaseTTL is bounded by minTTL64/maxTTL64
 		}
 	}
 
