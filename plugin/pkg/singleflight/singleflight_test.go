@@ -64,8 +64,7 @@ func TestDoDupSuppress(t *testing.T) {
 	const n = 10
 	var wg sync.WaitGroup
 	for range n {
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			v, err := g.Do(1, fn)
 			if err != nil {
 				t.Errorf("Do error: %v", err)
@@ -73,8 +72,7 @@ func TestDoDupSuppress(t *testing.T) {
 			if v.(string) != "bar" {
 				t.Errorf("Got %q; want %q", v, "bar")
 			}
-			wg.Done()
-		}()
+		})
 	}
 	time.Sleep(100 * time.Millisecond) // let goroutines above block
 	c <- "bar"

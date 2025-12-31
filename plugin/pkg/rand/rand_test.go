@@ -124,30 +124,26 @@ func TestConcurrentAccess(t *testing.T) {
 
 	// Test concurrent Int() calls
 	for range numGoroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range numOperations {
 				val := r.Int()
 				if val < 0 {
 					errors <- nil
 				}
 			}
-		}()
+		})
 	}
 
 	// Test concurrent Perm() calls
 	for range numGoroutines {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			for range numOperations {
 				perm := r.Perm(5)
 				if len(perm) != 5 {
 					errors <- nil
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

@@ -363,13 +363,11 @@ func TestCloudDNSConcurrentServeDNS(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// Concurrently refresh zones to race with Lookup reads.
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		for range 50 {
 			_ = r.updateZones(ctx)
 		}
-	}()
+	})
 
 	const workers = 32
 	const iterations = 200

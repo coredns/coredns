@@ -73,10 +73,8 @@ func TestDial_TransportStoppedDuringRetWait(t *testing.T) {
 
 	dialErrChan := make(chan error, 1)
 	wg := sync.WaitGroup{}
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// Dial will:
 		// 1. Pass initial stop check.
 		// 2. Send on our tr.dial.
@@ -84,7 +82,7 @@ func TestDial_TransportStoppedDuringRetWait(t *testing.T) {
 		//    When tr.Stop() is called, this 3rd select should pick <-tr.stop.
 		_, _, err := tr.Dial("udp")
 		dialErrChan <- err
-	}()
+	})
 
 	// Simulate connManager reading from our tr.dial.
 	// This unblocks the Dial goroutine's send.
@@ -132,10 +130,8 @@ func TestDial_Returns_ErrTransportStoppedRetClosed(t *testing.T) {
 
 	dialErrChan := make(chan error, 1)
 	var wg sync.WaitGroup
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		// Dial will:
 		// 1. Pass initial stop check (tr.stop is open).
 		// 2. Send "udp" on tr.dial (which is testDialChan).
@@ -143,7 +139,7 @@ func TestDial_Returns_ErrTransportStoppedRetClosed(t *testing.T) {
 		//    When testRetChan is closed, it will read (nil, false), hitting the target error.
 		_, _, err := tr.Dial("udp")
 		dialErrChan <- err
-	}()
+	})
 
 	// Step 1: Simulate connManager reading the dial request from Dial.
 	// Read from testDialChan. This unblocks the Dial goroutine's send to testDialChan.

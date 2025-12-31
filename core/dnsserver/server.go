@@ -217,11 +217,9 @@ func (s *Server) Stop() error {
 				continue
 			}
 
-			wg.Add(1)
-			go func() {
+			wg.Go(func() {
 				s1.ShutdownContext(ctx)
-				wg.Done()
-			}()
+			})
 		}
 		s.m.Unlock()
 		wg.Wait()
