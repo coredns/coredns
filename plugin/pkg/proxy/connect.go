@@ -141,6 +141,8 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		return nil, err
 	}
 
+	upstreamStart := time.Now()
+
 	var ret *dns.Msg
 	pc.c.SetReadDeadline(time.Now().Add(p.readTimeout))
 	for {
@@ -173,6 +175,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 			break
 		}
 	}
+
 	// recovery the origin Id after upstream.
 	ret.Id = originId
 
@@ -182,6 +185,8 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	if !ok {
 		rc = strconv.Itoa(ret.Rcode)
 	}
+
+	upstreamResponseDuration.WithLabelValues(p.addr, proto, rc, p.proxyName).Observe(time.Since(upstreamStart).Seconds())
 
 	requestDuration.WithLabelValues(p.proxyName, p.addr, rc).Observe(time.Since(start).Seconds())
 
