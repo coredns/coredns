@@ -5,10 +5,12 @@
 package ready
 
 import (
+	"context"
 	"io"
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
@@ -26,9 +28,12 @@ type ready struct {
 
 	sync.RWMutex
 	ln   net.Listener
+	srv  *http.Server
 	done bool
 	mux  *http.ServeMux
 }
+
+const shutdownTimeout = 5 * time.Second
 
 func (rd *ready) onStartup() error {
 	ln, err := reuseport.Listen("tcp", rd.Addr)
@@ -61,8 +66,14 @@ func (rd *ready) onStartup() error {
 		io.WriteString(w, notReadyPlugins)
 	})
 
-	// #nosec G114 -- TODO
-	go func() { http.Serve(rd.ln, rd.mux) }()
+	rd.srv = &http.Server{
+		Handler:      rd.mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  5 * time.Second,
+	}
+
+	go func() { rd.srv.Serve(rd.ln) }()
 
 	return nil
 }
@@ -76,7 +87,11 @@ func (rd *ready) onFinalShutdown() error {
 
 	uniqAddr.Unset(rd.Addr)
 
-	rd.ln.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := rd.srv.Shutdown(ctx); err != nil {
+		log.Infof("Failed to stop ready http server: %s", err)
+	}
 	rd.done = false
 	return nil
 }

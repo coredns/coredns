@@ -22,11 +22,14 @@ type health struct {
 	healthURI *url.URL
 
 	ln      net.Listener
+	srv     *http.Server
 	nlSetup bool
 	mux     *http.ServeMux
 
 	stop context.CancelFunc
 }
+
+const shutdownTimeout = 5 * time.Second
 
 func (h *health) OnStartup() error {
 	if h.Addr == "" {
@@ -63,8 +66,14 @@ func (h *health) OnStartup() error {
 	ctx := context.Background()
 	ctx, h.stop = context.WithCancel(ctx)
 
-	// #nosec G114 -- TODO
-	go func() { http.Serve(h.ln, h.mux) }()
+	h.srv = &http.Server{
+		Handler:      h.mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  5 * time.Second,
+	}
+
+	go func() { h.srv.Serve(h.ln) }()
 	go func() { h.overloaded(ctx) }()
 
 	return nil
@@ -82,7 +91,11 @@ func (h *health) OnFinalShutdown() error {
 
 	h.stop()
 
-	h.ln.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := h.srv.Shutdown(ctx); err != nil {
+		log.Infof("Failed to stop health http server: %s", err)
+	}
 	h.nlSetup = false
 	return nil
 }
@@ -94,7 +107,11 @@ func (h *health) OnReload() error {
 
 	h.stop()
 
-	h.ln.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := h.srv.Shutdown(ctx); err != nil {
+		log.Infof("Failed to stop health http server: %s", err)
+	}
 	h.nlSetup = false
 	return nil
 }
