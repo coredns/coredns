@@ -295,7 +295,7 @@ func TestCacheInsertion(t *testing.T) {
 			}
 
 			// Attempt to retrieve cache entry
-			i := c.getIgnoreTTL(time.Now().UTC(), state, "dns://:53")
+			i := c.getIfNotStale(time.Now().UTC(), state, "dns://:53")
 			found := i != nil
 
 			if !tc.shouldCache && found {
@@ -879,7 +879,7 @@ func TestCacheSeparation(t *testing.T) {
 			m = cacheMsg(m, tc.query)
 			state = request.Request{W: &test.ResponseWriter{}, Req: m}
 
-			item := c.getIgnoreTTL(time.Now().UTC(), state, "dns://:53")
+			item := c.getIfNotStale(time.Now().UTC(), state, "dns://:53")
 			found := item != nil
 
 			if !tc.expectCached && found {
