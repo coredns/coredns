@@ -1,8 +1,14 @@
 package test
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"testing"
 
+	"github.com/coredns/coredns/plugin/forward"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/pkg/proxy"
 	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
@@ -76,3 +82,72 @@ func BenchmarkProxyLookup(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkProxyWithMultipleBackends verifies the serialization issue by running concurrent load
+// against 1, 2, and 3 backend proxies using the forward plugin.
+func BenchmarkProxyWithMultipleBackends(b *testing.B) {
+	// Start a dummy upstream server
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	counts := []int{1, 2, 3}
+
+	for _, n := range counts {
+		b.Run(fmt.Sprintf("%d-Backends", n), func(b *testing.B) {
+			f := forward.New()
+			f.SetProxyOptions(proxy.Options{PreferUDP: true})
+
+			proxies := make([]*proxy.Proxy, n)
+			for i := range n {
+				p := proxy.NewProxy(fmt.Sprintf("proxy-%d", i), s.Addr, "dns")
+				f.SetProxy(p)
+				proxies[i] = p
+			}
+			defer func() {
+				for _, p := range proxies {
+					p.Stop()
+				}
+			}()
+
+			// Pre-warm connections
+			ctx := context.Background()
+			m := new(dns.Msg)
+			m.SetQuestion("example.org.", dns.TypeA)
+			noop := &benchmarkResponseWriter{}
+
+			for range n * 10 {
+				f.ServeDNS(ctx, noop, m)
+			}
+
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			b.RunParallel(func(pb *testing.PB) {
+				m := new(dns.Msg)
+				m.SetQuestion("example.org.", dns.TypeA)
+				ctx := context.Background()
+				w := &benchmarkResponseWriter{}
+
+				for pb.Next() {
+					// forward plugin handles selection via its policy (default random)
+					f.ServeDNS(ctx, w, m)
+				}
+			})
+		})
+	}
+}
+
+type benchmarkResponseWriter struct{}
+
+func (b *benchmarkResponseWriter) LocalAddr() net.Addr         { return nil }
+func (b *benchmarkResponseWriter) RemoteAddr() net.Addr        { return nil }
+func (b *benchmarkResponseWriter) WriteMsg(m *dns.Msg) error   { return nil }
+func (b *benchmarkResponseWriter) Write(p []byte) (int, error) { return len(p), nil }
+func (b *benchmarkResponseWriter) Close() error                { return nil }
+func (b *benchmarkResponseWriter) TsigStatus() error           { return nil }
+func (b *benchmarkResponseWriter) TsigTimersOnly(bool)         {}
+func (b *benchmarkResponseWriter) Hijack()                     {}

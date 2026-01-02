@@ -365,6 +365,48 @@ func TestSetupMaxConnectAttempts(t *testing.T) {
 	}
 }
 
+func TestSetupMaxIdleConns(t *testing.T) {
+	tests := []struct {
+		input       string
+		shouldErr   bool
+		expectedVal int
+		expectedErr string
+	}{
+		{"forward . 127.0.0.1\n", false, 0, ""},
+		{"forward . 127.0.0.1 {\nmax_idle_conns 10\n}\n", false, 10, ""},
+		{"forward . 127.0.0.1 {\nmax_idle_conns 0\n}\n", false, 0, ""},
+		{"forward . 127.0.0.1 {\nmax_idle_conns many\n}\n", true, 0, "invalid"},
+		{"forward . 127.0.0.1 {\nmax_idle_conns -1\n}\n", true, 0, "negative"},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		fs, err := parseForward(c)
+
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %d: expected error but found none for input %s", i, test.input)
+		}
+
+		if err != nil {
+			if !test.shouldErr {
+				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+			}
+
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
+			}
+		}
+
+		if test.shouldErr {
+			continue
+		}
+		f := fs[0]
+		if f.maxIdleConns != test.expectedVal {
+			t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedVal, f.maxIdleConns)
+		}
+	}
+}
+
 func TestSetupHealthCheck(t *testing.T) {
 	tests := []struct {
 		input          string

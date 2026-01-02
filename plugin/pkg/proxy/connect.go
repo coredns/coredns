@@ -1,7 +1,6 @@
-// Package proxy implements a forwarding proxy. It caches an upstream net.Conn for some time, so if the same
-// client returns the upstream's Conn will be precached. Depending on how you benchmark this looks to be
-// 50% faster than just opening a new connection for every client. It works with UDP and TCP and uses
-// inband healthchecking.
+// Package proxy implements a forwarding proxy with connection caching.
+// It manages a pool of upstream connections (UDP and TCP) to reuse them for subsequent requests,
+// reducing latency and handshake overhead. It supports in-band health checking.
 package proxy
 
 import (
@@ -19,10 +18,7 @@ import (
 )
 
 const (
-	ErrTransportStopped              = "proxy: transport stopped"
-	ErrTransportStoppedDuringDial    = "proxy: transport stopped during dial"
-	ErrTransportStoppedRetClosed     = "proxy: transport stopped, ret channel closed"
-	ErrTransportStoppedDuringRetWait = "proxy: transport stopped during ret wait"
+	ErrTransportStopped = "proxy: transport stopped"
 )
 
 // limitTimeout is a utility function to auto-tune timeout values
@@ -66,41 +62,35 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	default:
 	}
 
-	// Use select to avoid blocking if connManager has stopped
-	select {
-	case t.dial <- proto:
-		// Successfully sent dial request
-	case <-t.stop:
-		return nil, false, errors.New(ErrTransportStoppedDuringDial)
+	transtype := stringToTransportType(proto)
+
+	t.mu.Lock()
+	// FIFO: take the oldest conn (front of slice) for source port diversity
+	for len(t.conns[transtype]) > 0 {
+		pc := t.conns[transtype][0]
+		t.conns[transtype] = t.conns[transtype][1:]
+		if time.Since(pc.used) > t.expire {
+			pc.c.Close()
+			continue
+		}
+		t.mu.Unlock()
+		connCacheHitsCount.WithLabelValues(t.proxyName, t.addr, proto).Add(1)
+		return pc, true, nil
 	}
+	t.mu.Unlock()
 
-	// Receive response with stop awareness
-	select {
-	case pc, ok := <-t.ret:
-		if !ok {
-			// ret channel was closed by connManager during stop
-			return nil, false, errors.New(ErrTransportStoppedRetClosed)
-		}
+	connCacheMissesCount.WithLabelValues(t.proxyName, t.addr, proto).Add(1)
 
-		if pc != nil {
-			connCacheHitsCount.WithLabelValues(t.proxyName, t.addr, proto).Add(1)
-			return pc, true, nil
-		}
-		connCacheMissesCount.WithLabelValues(t.proxyName, t.addr, proto).Add(1)
-
-		reqTime := time.Now()
-		timeout := t.dialTimeout()
-		if proto == "tcp-tls" {
-			conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
-			t.updateDialTimeout(time.Since(reqTime))
-			return &persistConn{c: conn}, false, err
-		}
-		conn, err := dns.DialTimeout(proto, t.addr, timeout)
+	reqTime := time.Now()
+	timeout := t.dialTimeout()
+	if proto == "tcp-tls" {
+		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
 		t.updateDialTimeout(time.Since(reqTime))
 		return &persistConn{c: conn}, false, err
-	case <-t.stop:
-		return nil, false, errors.New(ErrTransportStoppedDuringRetWait)
 	}
+	conn, err := dns.DialTimeout(proto, t.addr, timeout)
+	t.updateDialTimeout(time.Since(reqTime))
+	return &persistConn{c: conn}, false, err
 }
 
 // Connect selects an upstream, sends the request and waits for a response.

@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"math"
+	"net"
 	"testing"
 	"time"
 
@@ -73,30 +74,66 @@ func TestProxyTLSFail(t *testing.T) {
 }
 
 func TestProtocolSelection(t *testing.T) {
-	p := NewProxy("TestProtocolSelection", "bad_address", transport.DNS)
-	p.readTimeout = 10 * time.Millisecond
+	testCases := []struct {
+		name          string
+		requestTCP    bool // true = TCP request, false = UDP request
+		opts          Options
+		expectedProto string
+	}{
+		{"UDP request, no options", false, Options{}, "udp"},
+		{"UDP request, ForceTCP", false, Options{ForceTCP: true}, "tcp"},
+		{"UDP request, PreferUDP", false, Options{PreferUDP: true}, "udp"},
+		{"UDP request, ForceTCP+PreferUDP", false, Options{ForceTCP: true, PreferUDP: true}, "tcp"},
+		{"TCP request, no options", true, Options{}, "tcp"},
+		{"TCP request, ForceTCP", true, Options{ForceTCP: true}, "tcp"},
+		{"TCP request, PreferUDP", true, Options{PreferUDP: true}, "udp"},
+		{"TCP request, ForceTCP+PreferUDP", true, Options{ForceTCP: true, PreferUDP: true}, "tcp"},
+	}
 
-	stateUDP := request.Request{W: &test.ResponseWriter{}, Req: new(dns.Msg)}
-	stateTCP := request.Request{W: &test.ResponseWriter{TCP: true}, Req: new(dns.Msg)}
-	ctx := context.TODO()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Track which protocol the server received (use channel to avoid data race)
+			protoChan := make(chan string, 1)
+			s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+				// Determine protocol from the connection type
+				if _, ok := w.RemoteAddr().(*net.TCPAddr); ok {
+					protoChan <- "tcp"
+				} else {
+					protoChan <- "udp"
+				}
+				ret := new(dns.Msg)
+				ret.SetReply(r)
+				ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.1"))
+				w.WriteMsg(ret)
+			})
+			defer s.Close()
 
-	go func() {
-		p.Connect(ctx, stateUDP, Options{})
-		p.Connect(ctx, stateUDP, Options{ForceTCP: true})
-		p.Connect(ctx, stateUDP, Options{PreferUDP: true})
-		p.Connect(ctx, stateUDP, Options{PreferUDP: true, ForceTCP: true})
-		p.Connect(ctx, stateTCP, Options{})
-		p.Connect(ctx, stateTCP, Options{ForceTCP: true})
-		p.Connect(ctx, stateTCP, Options{PreferUDP: true})
-		p.Connect(ctx, stateTCP, Options{PreferUDP: true, ForceTCP: true})
-	}()
+			p := NewProxy("TestProtocolSelection", s.Addr, transport.DNS)
+			p.readTimeout = 1 * time.Second
+			p.Start(5 * time.Second)
+			defer p.Stop()
 
-	for i, exp := range []string{"udp", "tcp", "udp", "tcp", "tcp", "tcp", "udp", "tcp"} {
-		proto := <-p.transport.dial
-		p.transport.ret <- nil
-		if proto != exp {
-			t.Errorf("Unexpected protocol in case %d, expected %q, actual %q", i, exp, proto)
-		}
+			m := new(dns.Msg)
+			m.SetQuestion("example.org.", dns.TypeA)
+
+			req := request.Request{
+				W:   &test.ResponseWriter{TCP: tc.requestTCP},
+				Req: m,
+			}
+
+			resp, err := p.Connect(context.Background(), req, tc.opts)
+			if err != nil {
+				t.Fatalf("Connect failed: %v", err)
+			}
+			if resp == nil {
+				t.Fatal("Expected response, got nil")
+			}
+
+			receivedProto := <-protoChan
+			if receivedProto != tc.expectedProto {
+				t.Errorf("Expected protocol %q, but server received %q", tc.expectedProto, receivedProto)
+			}
+		})
 	}
 }
 
