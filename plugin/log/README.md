@@ -94,6 +94,19 @@ Each of these logs will be outputted with `log.Infof`, so a typical example look
 [INFO] [::1]:50759 - 29008 "A IN example.org. udp 41 false 4096" NOERROR qr,rd,ra,ad 68 0.037990251s
 ~~~
 
+## Additional metadata
+
+The log plugin adds the following metadata to allow for granular differentiation of NOERROR denial vs success messages. These are mapped from `plugin/pkg/response/classify.go` and `plugin/pkg/response/typify.go`.
+
+* `{/log/class}`: success, denial
+* `{/log/type}`: NODATA, NXDOMAIN, NOERROR
+
+~~~ corefile
+. {
+    log . "{proto} Request: {name} {type} {/log/class} {/log/type}"
+}
+~~~
+
 ## Examples
 
 Log all requests to stdout

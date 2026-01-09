@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/replacer"
@@ -35,13 +36,21 @@ func (l Logger) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		rrw := dnstest.NewRecorder(w)
 		rc, err := plugin.NextOrFailure(l.Name(), l.Next, ctx, rrw, r)
 
+		tpe, _ := response.Typify(rrw.Msg, time.Now().UTC())
+		metadata.SetValueFunc(ctx, "log/type", func() string {
+			return tpe.String()
+		})
+
+		class := response.Classify(tpe)
+		metadata.SetValueFunc(ctx, "log/class", func() string {
+			return class.String()
+		})
+
 		// If we don't set up a class in config, the default "all" will be added
 		// and we shouldn't have an empty rule.Class.
 		_, ok := rule.Class[response.All]
 		var ok1 bool
 		if !ok {
-			tpe, _ := response.Typify(rrw.Msg, time.Now().UTC())
-			class := response.Classify(tpe)
 			_, ok1 = rule.Class[class]
 		}
 		if ok || ok1 {
