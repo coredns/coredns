@@ -331,7 +331,7 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 
 	targetName := rrs[0].(*dns.CNAME).Target
 	elem, _ = z.Search(targetName)
-	if elem == nil {
+	if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
 		return rrs, z.ns(do), nil, result
@@ -351,7 +351,7 @@ Redo:
 		}
 		targetName := cname[0].(*dns.CNAME).Target
 		elem, _ = z.Search(targetName)
-		if elem == nil {
+		if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 			rrs = append(rrs, lookupRRs...)
 			return rrs, z.ns(do), nil, result
