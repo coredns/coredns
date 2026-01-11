@@ -8,6 +8,8 @@ GOPATH?=$(HOME)/go
 MAKEPWD:=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 CGO_ENABLED?=0
 GOLANG_VERSION ?= $(shell cat .go-version)
+STRIP_FLAGS?=-s -w
+LDFLAGS?=-ldflags="$(STRIP_FLAGS) -X github.com/coredns/coredns/coremain.GitCommit=$(GITCOMMIT)"
 
 export GOSUMDB = sum.golang.org
 export GOTOOLCHAIN = go$(GOLANG_VERSION)
@@ -17,7 +19,7 @@ all: coredns
 
 .PHONY: coredns
 coredns: $(CHECKS)
-	CGO_ENABLED=$(CGO_ENABLED) $(SYSTEM) go build $(BUILDOPTS) -ldflags="-s -w -X github.com/coredns/coredns/coremain.GitCommit=$(GITCOMMIT)" -o $(BINARY)
+	CGO_ENABLED=$(CGO_ENABLED) $(SYSTEM) go build $(BUILDOPTS) $(LDFLAGS) -o $(BINARY)
 
 .PHONY: check
 check: core/plugin/zplugin.go core/dnsserver/zdirectives.go
