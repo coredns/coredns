@@ -84,6 +84,28 @@ docker run --rm -i -t \
 
 The above command alone will have `coredns` binary generated.
 
+## Quick Start
+
+Create a minimal Corefile:
+
+```bash
+cat > Corefile <<EOF
+.:53 {
+    forward . 8.8.8.8
+    log
+}
+EOF
+```
+Run CoreDNS:
+```
+$ ./coredns -conf Corefile
+```
+
+Test it:
+```
+$ dig @127.0.0.1 google.com
+```
+
 ## Examples
 
 When starting CoreDNS without any configuration, it loads the
