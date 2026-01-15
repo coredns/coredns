@@ -17,40 +17,48 @@ func TestServeDNS(t *testing.T) {
 	cases := []struct {
 		zones       []string
 		reqTypes    qTypes
+		reqOpCodes  opCodes
 		qType       uint16
-		qTsig, all  bool
+		opcode      int
+		qTsig       bool
+		allTypes    bool
+		allOpcodes  bool
 		expectRcode int
 		expectTsig  bool
 		statusError bool
 	}{
 		{
 			zones:       []string{"."},
-			all:         true,
+			allTypes:    true,
 			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
 			qTsig:       true,
 			expectRcode: dns.RcodeSuccess,
 			expectTsig:  true,
 		},
 		{
 			zones:       []string{"."},
-			all:         true,
+			allTypes:    true,
 			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
 			qTsig:       false,
 			expectRcode: dns.RcodeRefused,
 			expectTsig:  false,
 		},
 		{
 			zones:       []string{"another.domain."},
-			all:         true,
+			allTypes:    true,
 			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
 			qTsig:       false,
 			expectRcode: dns.RcodeSuccess,
 			expectTsig:  false,
 		},
 		{
 			zones:       []string{"another.domain."},
-			all:         true,
+			allTypes:    true,
 			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
 			qTsig:       true,
 			expectRcode: dns.RcodeSuccess,
 			expectTsig:  false,
@@ -59,6 +67,7 @@ func TestServeDNS(t *testing.T) {
 			zones:       []string{"."},
 			reqTypes:    qTypes{dns.TypeAXFR: {}},
 			qType:       dns.TypeAXFR,
+			opcode:      dns.OpcodeQuery,
 			qTsig:       true,
 			expectRcode: dns.RcodeSuccess,
 			expectTsig:  true,
@@ -67,6 +76,7 @@ func TestServeDNS(t *testing.T) {
 			zones:       []string{"."},
 			reqTypes:    qTypes{},
 			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
 			qTsig:       false,
 			expectRcode: dns.RcodeSuccess,
 			expectTsig:  false,
@@ -75,28 +85,99 @@ func TestServeDNS(t *testing.T) {
 			zones:       []string{"."},
 			reqTypes:    qTypes{},
 			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
 			qTsig:       true,
 			expectRcode: dns.RcodeSuccess,
 			expectTsig:  true,
 		},
 		{
 			zones:       []string{"."},
-			all:         true,
+			allTypes:    true,
 			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
 			qTsig:       true,
 			expectRcode: dns.RcodeNotAuth,
 			expectTsig:  true,
 			statusError: true,
+		},
+		// Opcode-based tests
+		{
+			zones:       []string{"."},
+			reqOpCodes:  opCodes{dns.OpcodeUpdate: {}},
+			qType:       dns.TypeSOA,
+			opcode:      dns.OpcodeUpdate,
+			qTsig:       true,
+			expectRcode: dns.RcodeSuccess,
+			expectTsig:  true,
+		},
+		{
+			zones:       []string{"."},
+			reqOpCodes:  opCodes{dns.OpcodeUpdate: {}},
+			qType:       dns.TypeSOA,
+			opcode:      dns.OpcodeUpdate,
+			qTsig:       false,
+			expectRcode: dns.RcodeRefused,
+			expectTsig:  false,
+		},
+		{
+			zones:       []string{"."},
+			reqOpCodes:  opCodes{dns.OpcodeUpdate: {}},
+			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
+			qTsig:       false,
+			expectRcode: dns.RcodeSuccess,
+			expectTsig:  false,
+		},
+		{
+			zones:       []string{"."},
+			reqOpCodes:  opCodes{dns.OpcodeNotify: {}},
+			qType:       dns.TypeSOA,
+			opcode:      dns.OpcodeNotify,
+			qTsig:       true,
+			expectRcode: dns.RcodeSuccess,
+			expectTsig:  true,
+		},
+		// Combined qtype and opcode requirement
+		{
+			zones:       []string{"."},
+			reqTypes:    qTypes{dns.TypeAXFR: {}},
+			reqOpCodes:  opCodes{dns.OpcodeUpdate: {}},
+			qType:       dns.TypeA,
+			opcode:      dns.OpcodeUpdate,
+			qTsig:       true,
+			expectRcode: dns.RcodeSuccess,
+			expectTsig:  true,
+		},
+		// allOpcodes test
+		{
+			zones:       []string{"."},
+			allOpcodes:  true,
+			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
+			qTsig:       true,
+			expectRcode: dns.RcodeSuccess,
+			expectTsig:  true,
+		},
+		{
+			zones:       []string{"."},
+			allOpcodes:  true,
+			qType:       dns.TypeA,
+			opcode:      dns.OpcodeQuery,
+			qTsig:       false,
+			expectRcode: dns.RcodeRefused,
+			expectTsig:  false,
 		},
 	}
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			tsig := TSIGServer{
-				Zones: tc.zones,
-				all:   tc.all,
-				types: tc.reqTypes,
-				Next:  testHandler(),
+				Zones:      tc.zones,
+				allTypes:   tc.allTypes,
+				allOpcodes: tc.allOpcodes,
+				types:      tc.reqTypes,
+				opcodes:    tc.reqOpCodes,
+				Next:       testHandler(),
 			}
 
 			ctx := context.TODO()
@@ -109,6 +190,7 @@ func TestServeDNS(t *testing.T) {
 			}
 			r := new(dns.Msg)
 			r.SetQuestion("test.example.", tc.qType)
+			r.Opcode = tc.opcode
 			if tc.qTsig {
 				r.SetTsig("test.key.", dns.HmacSHA256, 300, time.Now().Unix())
 			}
@@ -170,9 +252,9 @@ func TestServeDNSTsigErrors(t *testing.T) {
 	}
 
 	tsig := TSIGServer{
-		Zones: []string{"."},
-		all:   true,
-		Next:  testHandler(),
+		Zones:    []string{"."},
+		allTypes: true,
+		Next:     testHandler(),
 	}
 
 	for _, tc := range cases {

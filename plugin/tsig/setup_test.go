@@ -32,49 +32,85 @@ key "name2.key." {
 	defer cleanup()
 
 	tests := []struct {
-		input           string
-		shouldErr       bool
-		expectedZones   []string
-		expectedQTypes  qTypes
-		expectedSecrets map[string]string
-		expectedAll     bool
+		input              string
+		shouldErr          bool
+		expectedZones      []string
+		expectedQTypes     qTypes
+		expectedOpCodes    opCodes
+		expectedSecrets    map[string]string
+		expectedAllTypes   bool
+		expectedAllOpcodes bool
 	}{
 		{
 			input:           "tsig {\n " + secretConfig + "}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  defaultQTypes,
+			expectedOpCodes: defaultOpCodes,
 			expectedSecrets: secrets,
 		},
 		{
 			input:           "tsig {\n secrets " + secretsFile + "\n}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  defaultQTypes,
+			expectedOpCodes: defaultOpCodes,
 			expectedSecrets: secrets,
 		},
 		{
 			input:           "tsig example.com {\n " + secretConfig + "}",
 			expectedZones:   []string{"example.com."},
 			expectedQTypes:  defaultQTypes,
+			expectedOpCodes: defaultOpCodes,
 			expectedSecrets: secrets,
 		},
 		{
-			input:           "tsig {\n " + secretConfig + " require all \n}",
-			expectedZones:   []string{"."},
-			expectedQTypes:  qTypes{},
-			expectedAll:     true,
-			expectedSecrets: secrets,
+			input:            "tsig {\n " + secretConfig + " require all \n}",
+			expectedZones:    []string{"."},
+			expectedQTypes:   qTypes{},
+			expectedOpCodes:  defaultOpCodes,
+			expectedAllTypes: true,
+			expectedSecrets:  secrets,
 		},
 		{
 			input:           "tsig {\n " + secretConfig + " require none \n}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  qTypes{},
-			expectedAll:     false,
+			expectedOpCodes: defaultOpCodes,
 			expectedSecrets: secrets,
 		},
 		{
 			input:           "tsig {\n " + secretConfig + " \n require A AAAA \n}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  qTypes{dns.TypeA: {}, dns.TypeAAAA: {}},
+			expectedOpCodes: defaultOpCodes,
+			expectedSecrets: secrets,
+		},
+		{
+			input:           "tsig {\n " + secretConfig + " \n require_opcode UPDATE NOTIFY \n}",
+			expectedZones:   []string{"."},
+			expectedQTypes:  defaultQTypes,
+			expectedOpCodes: opCodes{dns.OpcodeUpdate: {}, dns.OpcodeNotify: {}},
+			expectedSecrets: secrets,
+		},
+		{
+			input:              "tsig {\n " + secretConfig + " \n require_opcode all \n}",
+			expectedZones:      []string{"."},
+			expectedQTypes:     defaultQTypes,
+			expectedOpCodes:    opCodes{},
+			expectedAllOpcodes: true,
+			expectedSecrets:    secrets,
+		},
+		{
+			input:           "tsig {\n " + secretConfig + " \n require_opcode none \n}",
+			expectedZones:   []string{"."},
+			expectedQTypes:  defaultQTypes,
+			expectedOpCodes: opCodes{},
+			expectedSecrets: secrets,
+		},
+		{
+			input:           "tsig {\n " + secretConfig + " \n require AXFR \n require_opcode UPDATE \n}",
+			expectedZones:   []string{"."},
+			expectedQTypes:  qTypes{dns.TypeAXFR: {}},
+			expectedOpCodes: opCodes{dns.OpcodeUpdate: {}},
 			expectedSecrets: secrets,
 		},
 		{
@@ -91,6 +127,14 @@ key "name2.key." {
 		},
 		{
 			input:     "tsig {\n require invalid-qtype \n}",
+			shouldErr: true,
+		},
+		{
+			input:     "tsig {\n require_opcode \n}",
+			shouldErr: true,
+		},
+		{
+			input:     "tsig {\n require_opcode INVALID \n}",
 			shouldErr: true,
 		},
 	}
@@ -121,8 +165,12 @@ key "name2.key." {
 			}
 		}
 
-		if test.expectedAll != ts.all {
-			t.Errorf("Test %d expected require all to be '%v', but got '%v'.", i, test.expectedAll, ts.all)
+		if test.expectedAllTypes != ts.allTypes {
+			t.Errorf("Test %d expected require all types to be '%v', but got '%v'.", i, test.expectedAllTypes, ts.allTypes)
+		}
+
+		if test.expectedAllOpcodes != ts.allOpcodes {
+			t.Errorf("Test %d expected require all opcodes to be '%v', but got '%v'.", i, test.expectedAllOpcodes, ts.allOpcodes)
 		}
 
 		if len(test.expectedQTypes) != len(ts.types) {
@@ -131,6 +179,16 @@ key "name2.key." {
 		for qt := range test.expectedQTypes {
 			if _, ok := ts.types[qt]; !ok {
 				t.Errorf("Test %d required types '%v', but got '%v'.", i, test.expectedQTypes, ts.types)
+				break
+			}
+		}
+
+		if len(test.expectedOpCodes) != len(ts.opcodes) {
+			t.Fatalf("Test %d expected required opcodes '%v', but got '%v'.", i, test.expectedOpCodes, ts.opcodes)
+		}
+		for op := range test.expectedOpCodes {
+			if _, ok := ts.opcodes[op]; !ok {
+				t.Errorf("Test %d required opcodes '%v', but got '%v'.", i, test.expectedOpCodes, ts.opcodes)
 				break
 			}
 		}
