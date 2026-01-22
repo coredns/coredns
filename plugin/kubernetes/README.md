@@ -51,13 +51,14 @@ kubernetes [ZONES...] {
 ```
 
 * `endpoint` specifies the **URL** for a remote k8s API endpoint.
-   If omitted, it will connect to k8s in-cluster using the cluster service account.
+   If omitted, it will connect to k8s in-cluster using the cluster service account. Needs `tls` for clusters with authentication.
+   This option is ignored if `kubeconfig` is set.
 * `tls` **CERT** **KEY** **CACERT** are the TLS cert, key and the CA cert file names for remote k8s connection.
    This option is ignored if connecting in-cluster (i.e. endpoint is not specified).
 * `kubeconfig` **KUBECONFIG [CONTEXT]** authenticates the connection to a remote k8s cluster using a kubeconfig file.
    **[CONTEXT]** is optional, if not set, then the current context specified in kubeconfig will be used.
    It supports TLS, username and password, or token-based authentication.
-   This option is ignored if connecting in-cluster (i.e., the endpoint is not specified).
+   This option is ignored if omitted. The cluster address in the `kubeconfig` is given preference.
 * `apiserver_qps` **QPS** sets the maximum queries per second (QPS) rate limit for requests.
    This allows you to control the rate at which the plugin sends requests to the API server to prevent overwhelming it.
 * `apiserver_burst` **BURST** sets the maximum burst size for requests.
