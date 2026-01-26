@@ -23,12 +23,15 @@ func TestTLS(t *testing.T) {
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth require\n}", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth verify_if_given\n}", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth require_and_verify\n}", false, "", ""},
+		{"tls test_cert.pem test_key.pem test_ca.pem {\nkeylog tls.log\n}", false, "", ""},
 		// negative
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nunknown\n}", true, "", "unknown option"},
 		// client_auth takes exactly one parameter, which must be one of known keywords.
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth\n}", true, "", "Wrong argument"},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth none bogus\n}", true, "", "Wrong argument"},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth bogus\n}", true, "", "unknown authentication type"},
+		{"tls test_cert.pem test_key.pem test_ca.pem {\nkeylog\n}", true, "", "Wrong argument"},
+		{"tls test_cert.pem test_key.pem test_ca.pem {\nkeylog /../tls.log\n}", true, "", "unable to write TLS Key Log"},
 	}
 
 	for i, test := range tests {
@@ -83,5 +86,18 @@ func TestTLSClientAuthentication(t *testing.T) {
 		if cfg.TLSConfig.ClientAuth != test.expectedType {
 			t.Errorf("Test %d: Unexpected client auth type: %d", i, cfg.TLSConfig.ClientAuth)
 		}
+	}
+}
+
+func TestTLSKeyLog(t *testing.T) {
+	input := "tls test_cert.pem test_key.pem test_ca.pem {\nkeylog tls.log\n}"
+	c := caddy.NewTestController("dns", input)
+	err := setup(c)
+	if err != nil {
+		t.Fatalf("TLS config is unexpectedly rejected: %v", err)
+	}
+	cfg := dnsserver.GetConfig(c)
+	if cfg.TLSConfig.KeyLogWriter == nil {
+		t.Fatalf("TLS Key Log is not configured")
 	}
 }
