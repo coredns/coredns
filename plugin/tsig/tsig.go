@@ -15,14 +15,17 @@ import (
 
 // TSIGServer verifies tsig status and adds tsig to responses
 type TSIGServer struct {
-	Zones   []string
-	secrets map[string]string // [key-name]secret
-	types   qTypes
-	all     bool
-	Next    plugin.Handler
+	Zones      []string
+	secrets    map[string]string // [key-name]secret
+	types      qTypes
+	opcodes    opCodes
+	allTypes   bool
+	allOpcodes bool
+	Next       plugin.Handler
 }
 
 type qTypes map[uint16]struct{}
+type opCodes map[int]struct{}
 
 // Name implements plugin.Handler
 func (t TSIGServer) Name() string { return pluginName }
@@ -37,7 +40,7 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 
 	var tsigRR = r.IsTsig()
 	rcode := dns.RcodeSuccess
-	if !t.tsigRequired(state.QType()) && tsigRR == nil {
+	if !t.tsigRequired(state.QType(), r.Opcode) && tsigRR == nil {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
 
@@ -88,14 +91,18 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	return dns.RcodeSuccess, nil
 }
 
-func (t *TSIGServer) tsigRequired(qtype uint16) bool {
-	if t.all {
-		return true
+func (t *TSIGServer) tsigRequired(qtype uint16, opcode int) bool {
+	typeMatches := t.allTypes
+	if !typeMatches {
+		_, typeMatches = t.types[qtype]
 	}
-	if _, ok := t.types[qtype]; ok {
-		return true
+
+	opcodeMatches := t.allOpcodes
+	if !opcodeMatches {
+		_, opcodeMatches = t.opcodes[opcode]
 	}
-	return false
+
+	return typeMatches || opcodeMatches
 }
 
 // restoreTsigWriter Implement Response Writer, and adds a TSIG RR to a response
