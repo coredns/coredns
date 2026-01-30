@@ -37,10 +37,8 @@ func init() {
 	caddy.AppVersion = CoreVersion
 }
 
-// Run is CoreDNS's main() function.
-func Run() {
+func Run() *caddy.Instance {
 	caddy.TrapSignals()
-	flag.Parse()
 
 	if len(flag.Args()) > 0 {
 		mustLogFatal(fmt.Errorf("extra command line arguments: %s", flag.Args()))
@@ -78,6 +76,13 @@ func Run() {
 	if !dnsserver.Quiet {
 		showVersion()
 	}
+
+	return instance
+}
+
+// Run is CoreDNS's main() function.
+func RunForever() {
+	instance := Run()
 
 	// Twiddle your thumbs
 	instance.Wait()
