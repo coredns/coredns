@@ -12,6 +12,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/cache"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+
+	"github.com/miekg/dns"
 )
 
 var log = clog.NewWithPlugin("dnssec")
@@ -24,7 +26,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("dnssec", err)
 	}
 
-	ca := cache.New(capacity)
+	ca := cache.New[[]dns.RR](capacity)
 	stop := make(chan struct{})
 
 	c.OnShutdown(func() error {

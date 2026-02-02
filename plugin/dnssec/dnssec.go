@@ -22,11 +22,11 @@ type Dnssec struct {
 	keys      []*DNSKEY
 	splitkeys bool
 	inflight  *singleflight.Group
-	cache     *cache.Cache
+	cache     *cache.Cache[[]dns.RR]
 }
 
 // New returns a new Dnssec.
-func New(zones []string, keys []*DNSKEY, splitkeys bool, next plugin.Handler, c *cache.Cache) Dnssec {
+func New(zones []string, keys []*DNSKEY, splitkeys bool, next plugin.Handler, c *cache.Cache[[]dns.RR]) Dnssec {
 	return Dnssec{Next: next,
 		zones:     zones,
 		keys:      keys,
@@ -152,7 +152,7 @@ func (d Dnssec) get(key uint64, server string) ([]dns.RR, bool) {
 	if s, ok := d.cache.Get(key); ok {
 		// we sign for 8 days, check if a signature in the cache reached 3/4 of that
 		is75 := time.Now().UTC().Add(twoDays)
-		for _, rr := range s.([]dns.RR) {
+		for _, rr := range s {
 			if !rr.(*dns.RRSIG).ValidityPeriod(is75) {
 				cacheMisses.WithLabelValues(server).Inc()
 				return nil, false
@@ -160,7 +160,7 @@ func (d Dnssec) get(key uint64, server string) ([]dns.RR, bool) {
 		}
 
 		cacheHits.WithLabelValues(server).Inc()
-		return s.([]dns.RR), true
+		return s, true
 	}
 	cacheMisses.WithLabelValues(server).Inc()
 	return nil, false

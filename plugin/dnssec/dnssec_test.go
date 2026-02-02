@@ -69,7 +69,7 @@ func TestSigningDifferentZone(t *testing.T) {
 
 	m := testMsgEx()
 	state := request.Request{Req: m, Zone: "example.org."}
-	c := cache.New(defaultCap)
+	c := cache.New[[]dns.RR](defaultCap)
 	d := New([]string{"example.org."}, []*DNSKEY{key}, false, nil, c)
 	m = d.Sign(state, time.Now().UTC(), server)
 	if !section(m.Answer, 1) {
@@ -250,7 +250,7 @@ func testEmptyMsg() *dns.Msg {
 func newDnssec(t *testing.T, zones []string) (Dnssec, func(), func()) {
 	t.Helper()
 	k, rm1, rm2 := newKey(t)
-	c := cache.New(defaultCap)
+	c := cache.New[[]dns.RR](defaultCap)
 	d := New(zones, []*DNSKEY{k}, false, nil, c)
 	return d, rm1, rm2
 }

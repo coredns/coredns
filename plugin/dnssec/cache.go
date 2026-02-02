@@ -23,7 +23,7 @@ func hash(rrs []dns.RR) uint64 {
 	return h.Sum64()
 }
 
-func periodicClean(c *cache.Cache, stop <-chan struct{}) {
+func periodicClean(c *cache.Cache[[]dns.RR], stop <-chan struct{}) {
 	tick := time.NewTicker(8 * time.Hour)
 	defer tick.Stop()
 	for {
@@ -32,8 +32,8 @@ func periodicClean(c *cache.Cache, stop <-chan struct{}) {
 			// we sign for 8 days, check if a signature in the cache reached 75% of that (i.e. 6), if found delete
 			// the signature
 			is75 := time.Now().UTC().Add(twoDays)
-			c.Walk(func(items map[uint64]any, key uint64) bool {
-				for _, rr := range items[key].([]dns.RR) {
+			c.Walk(func(items map[uint64][]dns.RR, key uint64) bool {
+				for _, rr := range items[key] {
 					if !rr.(*dns.RRSIG).ValidityPeriod(is75) {
 						delete(items, key)
 					}

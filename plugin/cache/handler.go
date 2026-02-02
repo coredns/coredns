@@ -127,19 +127,17 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 	cacheRequests.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok {
-		itm := i.(*item)
-		ttl := itm.ttl(now)
-		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+		ttl := i.ttl(now)
+		if i.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
 			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-			return i.(*item)
+			return i
 		}
 	}
 	if i, ok := c.pcache.Get(k); ok {
-		itm := i.(*item)
-		ttl := itm.ttl(now)
-		if itm.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+		ttl := i.ttl(now)
+		if i.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
 			cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-			return i.(*item)
+			return i
 		}
 	}
 	cacheMisses.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
@@ -150,10 +148,10 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 func (c *Cache) exists(state request.Request) *item {
 	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
 	if i, ok := c.ncache.Get(k); ok {
-		return i.(*item)
+		return i
 	}
 	if i, ok := c.pcache.Get(k); ok {
-		return i.(*item)
+		return i
 	}
 	return nil
 }

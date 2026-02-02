@@ -6,7 +6,7 @@ import (
 
 func TestCacheAddAndGet(t *testing.T) {
 	const N = shardSize * 4
-	c := New(N)
+	c := New[int](N)
 	c.Add(1, 1)
 
 	if _, found := c.Get(1); !found {
@@ -25,7 +25,7 @@ func TestCacheAddAndGet(t *testing.T) {
 }
 
 func TestCacheLen(t *testing.T) {
-	c := New(4)
+	c := New[int](4)
 
 	c.Add(1, 1)
 	if l := c.Len(); l != 1 {
@@ -44,7 +44,7 @@ func TestCacheLen(t *testing.T) {
 }
 
 func TestCacheSharding(t *testing.T) {
-	c := New(shardSize)
+	c := New[int](shardSize)
 	for i := range shardSize * 2 {
 		c.Add(uint64(i), 1)
 	}
@@ -56,15 +56,15 @@ func TestCacheSharding(t *testing.T) {
 }
 
 func TestCacheWalk(t *testing.T) {
-	c := New(10)
+	c := New[int](10)
 	exp := make([]int, 10*2)
 	for i := range 10 * 2 {
 		c.Add(uint64(i), 1)
 		exp[i] = 1
 	}
 	got := make([]int, 10*2)
-	c.Walk(func(items map[uint64]any, key uint64) bool {
-		got[key] = items[key].(int)
+	c.Walk(func(items map[uint64]int, key uint64) bool {
+		got[key] = items[key]
 		return true
 	})
 	for i := range exp {
@@ -77,7 +77,7 @@ func TestCacheWalk(t *testing.T) {
 func BenchmarkCache(b *testing.B) {
 	b.ReportAllocs()
 
-	c := New(4)
+	c := New[int](4)
 	for b.Loop() {
 		c.Add(1, 1)
 		c.Get(1)

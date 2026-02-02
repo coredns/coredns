@@ -712,8 +712,8 @@ func TestCacheWildcardMetadata(t *testing.T) {
 	}
 	_, k := key(qname, w.Msg, response.NoError, state.Do(), state.Req.CheckingDisabled)
 	i, _ := c.pcache.Get(k)
-	if i.(*item).wildcard != wildcard {
-		t.Errorf("expected wildcard response to enter cache with cache item's wildcard = %q, got %q", wildcard, i.(*item).wildcard)
+	if i.wildcard != wildcard {
+		t.Errorf("expected wildcard response to enter cache with cache item's wildcard = %q, got %q", wildcard, i.wildcard)
 	}
 
 	// 2. Test retrieving the cached item from cache and writing its wildcard value to metadata
@@ -728,7 +728,7 @@ func TestCacheWildcardMetadata(t *testing.T) {
 		t.Fatal("expected metadata func for wildcard response retrieved from cache, got nil")
 	}
 	if f() != wildcard {
-		t.Errorf("after retrieving wildcard item from cache, expected \"zone/wildcard\" metadata value to be %q, got %q", wildcard, i.(*item).wildcard)
+		t.Errorf("after retrieving wildcard item from cache, expected \"zone/wildcard\" metadata value to be %q, got %q", wildcard, i.wildcard)
 	}
 }
 

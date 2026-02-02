@@ -24,12 +24,12 @@ type Cache struct {
 	zonesMetricLabel string
 	viewMetricLabel  string
 
-	ncache  *cache.Cache
+	ncache  *cache.Cache[*item]
 	ncap    int
 	nttl    time.Duration
 	minnttl time.Duration
 
-	pcache  *cache.Cache
+	pcache  *cache.Cache[*item]
 	pcap    int
 	pttl    time.Duration
 	minpttl time.Duration
@@ -61,11 +61,11 @@ func New() *Cache {
 	return &Cache{
 		Zones:      []string{"."},
 		pcap:       defaultCap,
-		pcache:     cache.New(defaultCap),
+		pcache:     cache.New[*item](defaultCap),
 		pttl:       maxTTL,
 		minpttl:    minTTL,
 		ncap:       defaultCap,
-		ncache:     cache.New(defaultCap),
+		ncache:     cache.New[*item](defaultCap),
 		nttl:       maxNTTL,
 		minnttl:    minNTTL,
 		failttl:    minNTTL,

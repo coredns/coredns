@@ -6,7 +6,7 @@ import (
 )
 
 func TestShardAddAndGet(t *testing.T) {
-	s := newShard(1)
+	s := newShard[int](1)
 	s.Add(1, 1)
 
 	if _, found := s.Get(1); !found {
@@ -24,7 +24,7 @@ func TestShardAddAndGet(t *testing.T) {
 
 func TestAddEvict(t *testing.T) {
 	const size = 1024
-	s := newShard(size)
+	s := newShard[int](size)
 
 	for i := range size {
 		s.Add(uint64(i), 1)
@@ -38,7 +38,7 @@ func TestAddEvict(t *testing.T) {
 }
 
 func TestShardLen(t *testing.T) {
-	s := newShard(4)
+	s := newShard[int](4)
 
 	s.Add(1, 1)
 	if l := s.Len(); l != 1 {
@@ -57,7 +57,7 @@ func TestShardLen(t *testing.T) {
 }
 
 func TestShardEvict(t *testing.T) {
-	s := newShard(1)
+	s := newShard[int](1)
 	s.Add(1, 1)
 	s.Add(2, 2)
 	// 1 should be gone
@@ -68,7 +68,7 @@ func TestShardEvict(t *testing.T) {
 }
 
 func TestShardLenEvict(t *testing.T) {
-	s := newShard(4)
+	s := newShard[int](4)
 	s.Add(1, 1)
 	s.Add(2, 1)
 	s.Add(3, 1)
@@ -95,7 +95,7 @@ func TestShardLenEvict(t *testing.T) {
 }
 
 func TestShardEvictParallel(t *testing.T) {
-	s := newShard(shardSize)
+	s := newShard[struct{}](shardSize)
 	for i := range shardSize {
 		s.Add(uint64(i), struct{}{})
 	}
@@ -117,7 +117,7 @@ func TestShardEvictParallel(t *testing.T) {
 }
 
 func BenchmarkShard(b *testing.B) {
-	s := newShard(shardSize)
+	s := newShard[int](shardSize)
 	b.ResetTimer()
 	for i := range b.N {
 		k := uint64(i) % shardSize * 2
@@ -127,7 +127,7 @@ func BenchmarkShard(b *testing.B) {
 }
 
 func BenchmarkShardParallel(b *testing.B) {
-	s := newShard(shardSize)
+	s := newShard[int](shardSize)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for i := uint64(0); pb.Next(); i++ {
