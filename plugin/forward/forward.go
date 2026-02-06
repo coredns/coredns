@@ -37,6 +37,7 @@ type Forward struct {
 	concurrent int64 // atomic counters need to be first in struct for proper alignment
 
 	proxies    []*proxyPkg.Proxy
+	proxiesAddr string // string of all proxy addresses joined by +
 	p          Policy
 	hcInterval time.Duration
 
@@ -138,7 +139,9 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				continue
 			}
 
-			healthcheckBrokenCount.Add(1)
+			// All upstreams are dead, increment healthcheck broken count with from and to labels
+			healthcheckBrokenCount.WithLabelValues(f.from, f.proxiesAddr).Add(1)
+			
 			// All upstreams are dead, return servfail if all upstreams are down
 			if f.failfastUnhealthyUpstreams {
 				break
