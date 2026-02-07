@@ -27,6 +27,12 @@ type GRPC struct {
 	tlsConfig     *tls.Config
 	tlsServerName string
 
+	// connection pooling and health checking
+	maxFails   uint32
+	poolSize   int
+	expire     time.Duration
+	hcInterval time.Duration
+
 	Fall fall.F
 	Next plugin.Handler
 }
@@ -43,10 +49,11 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	var (
-		span ot.Span
-		ret  *dns.Msg
-		err  error
-		i    int
+		span  ot.Span
+		ret   *dns.Msg
+		err   error
+		i     int
+		fails int
 	)
 	span = ot.SpanFromContext(ctx)
 	list := g.list()
@@ -65,6 +72,16 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		proxy := list[i]
 		i++
 
+		// Check if proxy is down due to health checks
+		if proxy.Down(g.maxFails) {
+			fails++
+			if fails < len(g.proxies) {
+				// Skip this down proxy and try next
+				continue
+			}
+			// All proxies are down, try anyway (last resort)
+		}
+
 		callCtx := ctx
 		var child ot.Span
 		if span != nil {
@@ -81,6 +98,10 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			child.Finish()
 		}
 		if err != nil {
+			// Trigger health check on error if health checking is enabled
+			if g.maxFails != 0 {
+				proxy.Healthcheck()
+			}
 			// Continue with the next proxy
 			continue
 		}
@@ -125,10 +146,14 @@ func (g *GRPC) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	return dns.RcodeServerFailure, ErrNoHealthy
 }
 
-// NewGRPC returns a new GRPC.
+// newGRPC returns a new GRPC with default configuration.
 func newGRPC() *GRPC {
 	g := &GRPC{
-		p: new(random),
+		p:          new(random),
+		maxFails:   2,
+		poolSize:   1,
+		expire:     10 * time.Second,
+		hcInterval: 500 * time.Millisecond,
 	}
 	return g
 }
@@ -162,6 +187,22 @@ func (g *GRPC) isAllowedDomain(name string) bool {
 
 // List returns a set of proxies to be used for this client depending on the policy in p.
 func (g *GRPC) list() []*Proxy { return g.p.List(g.proxies) }
+
+// OnStartup starts all proxies (connection pools and health checking).
+func (g *GRPC) OnStartup() error {
+	for _, p := range g.proxies {
+		p.Start(g.hcInterval)
+	}
+	return nil
+}
+
+// OnShutdown stops all proxies cleanly.
+func (g *GRPC) OnShutdown() error {
+	for _, p := range g.proxies {
+		p.Stop()
+	}
+	return nil
+}
 
 const defaultTimeout = 5 * time.Second
 
