@@ -11,6 +11,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
+	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
@@ -239,6 +240,10 @@ func (s *ServerQUIC) ListenPacket() (net.PacketConn, error) {
 	p, err := reuseport.ListenPacket("udp", s.Addr[len(transport.QUIC+"://"):])
 	if err != nil {
 		return nil, err
+	}
+
+	if s.connPolicy != nil {
+		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy}
 	}
 
 	s.m.Lock()

@@ -13,6 +13,7 @@ import (
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/doh"
+	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
@@ -89,7 +90,7 @@ func NewServerHTTPS3(addr string, group []*Config) (*ServerHTTPS3, error) {
 		TLSConfig:       tlsConfig,
 		EnableDatagrams: true,
 		QUICConfig:      qconf,
-		//Logger: stdlog.New(&loggerAdapter{}, "", 0), TODO: Fix it
+		// Logger: stdlog.New(&loggerAdapter{}, "", 0), TODO: Fix it
 	}
 
 	sh := &ServerHTTPS3{
@@ -110,7 +111,14 @@ var _ caddy.GracefulServer = &ServerHTTPS3{}
 
 // ListenPacket opens the UDP socket for QUIC.
 func (s *ServerHTTPS3) ListenPacket() (net.PacketConn, error) {
-	return reuseport.ListenPacket("udp", s.Addr[len(transport.HTTPS3+"://"):])
+	p, err := reuseport.ListenPacket("udp", s.Addr[len(transport.HTTPS3+"://"):])
+	if err != nil {
+		return nil, err
+	}
+	if s.connPolicy != nil {
+		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy}
+	}
+	return p, nil
 }
 
 // ServePacket starts serving QUIC+HTTP/3 on an existing UDP socket.
