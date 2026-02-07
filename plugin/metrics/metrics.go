@@ -3,18 +3,22 @@ package metrics
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/exporter-toolkit/web"
 )
 
 // Metrics holds the prometheus configuration. The metrics' path is fixed to be /metrics .
@@ -34,15 +38,18 @@ type Metrics struct {
 	zoneMu    sync.RWMutex
 
 	plugins map[string]struct{} // all available plugins, used to determine which plugin made the client write
+
+	tlsConfigPath string
 }
 
 // New returns a new instance of Metrics with the given address.
 func New(addr string) *Metrics {
 	met := &Metrics{
-		Addr:    addr,
-		Reg:     prometheus.DefaultRegisterer.(*prometheus.Registry),
-		zoneMap: make(map[string]struct{}),
-		plugins: pluginList(caddy.ListPlugins()),
+		Addr:          addr,
+		Reg:           prometheus.DefaultRegisterer.(*prometheus.Registry),
+		zoneMap:       make(map[string]struct{}),
+		plugins:       pluginList(caddy.ListPlugins()),
+		tlsConfigPath: "",
 	}
 
 	return met
@@ -99,6 +106,7 @@ func (m *Metrics) OnStartup() error {
 
 	// creating some helper variables to avoid data races on m.srv and m.ln
 	server := &http.Server{
+		Addr:         m.Addr,
 		Handler:      m.mux,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
@@ -106,9 +114,51 @@ func (m *Metrics) OnStartup() error {
 	}
 	m.srv = server
 
+	if m.tlsConfigPath == "" {
+		go func() {
+			if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+				log.Errorf("Failed to start HTTP metrics server: %s", err)
+			}
+		}()
+		ListenAddr = ln.Addr().String() // For tests.
+		return nil
+	}
+
+	// Check TLS config file existence
+	if _, err := os.Stat(m.tlsConfigPath); os.IsNotExist(err) {
+		log.Errorf("TLS config file does not exist: %s", m.tlsConfigPath)
+		return err
+	}
+
+	// Create web config for ListenAndServe
+	webConfig := &web.FlagConfig{
+		WebListenAddresses: &[]string{m.Addr},
+		WebSystemdSocket:   new(bool), // false by default
+		WebConfigFile:      &m.tlsConfigPath,
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	// Create channels for synchronization
+	startResult := make(chan error, 1)
+
 	go func() {
-		server.Serve(ln)
+		// Try to start the server and immediately report result
+		err := web.Serve(m.ln, server, webConfig, logger)
+		if err != nil && err != http.ErrServerClosed {
+			slog.Error("Failed to start HTTPS metrics server", "error", err)
+			startResult <- err
+		}
+		// If we get here without error, server is running
 	}()
+
+	// Wait for startup errors
+	select {
+	case err := <-startResult:
+		return err
+	case <-time.After(200 * time.Millisecond):
+		// No immediate error, server likely started successfully
+		// web.Serve() validates TLS config at startup
+	}
 
 	ListenAddr = ln.Addr().String() // For tests.
 	return nil
