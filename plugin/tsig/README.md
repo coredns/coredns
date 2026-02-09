@@ -16,7 +16,7 @@ The *tsig* plugin can also require that incoming requests be signed for certain 
 
 ~~~
 tsig [ZONE...] {
-  secret NAME KEY
+  secret NAME KEY [ALGORITHM]
   secrets FILE
   require [QTYPE...]
 }
@@ -24,8 +24,9 @@ tsig [ZONE...] {
 
    * **ZONE** - the zones *tsig* will TSIG.  By default, the zones from the server block are used.
 
-   * `secret` **NAME** **KEY** - specifies a TSIG secret for **NAME** with **KEY**. Use this option more than once
-   to define multiple secrets. Secrets are global to the server instance, not just for the enclosing **ZONE**.
+   * `secret` **NAME** **KEY** **ALGORITHM** - specifies a TSIG secret for **NAME** with **KEY** and **ALGORITHM**. Use this option more than once
+   to define multiple secrets. Secrets are global to the server instance, not just for the enclosing **ZONE**. If then **ALGORITHM** is not specified,
+   then default is  `hmac-sha256`.
 
    * `secrets` **FILE** - same as `secret`, but load the secrets from a file. The file may define any number
      of unique keys, each in the following `named.conf` format:
@@ -34,7 +35,7 @@ tsig [ZONE...] {
          secret "X28hl0BOfAL5G0jsmJWSacrwn7YRm2f6U5brnzwWEus=";
      };
      ```
-     Each key may also specify an `algorithm` e.g. `algorithm hmac-sha256;`, but this is currently ignored by the plugin.
+     Each key may also specify an `algorithm` e.g. `algorithm hmac-sha256;`, which defaults to `hmac-sha256`.
 
      * `require` **QTYPE...** - the query types that must be TSIG'd. Requests of the specified types
    will be `REFUSED` if they are not signed.`require all` will require requests of all types to be
@@ -69,14 +70,6 @@ auth.zone {
 ```
 
 ## Bugs
-
-### Secondary
-
-TSIG transfers are not yet implemented for the *secondary* plugin.  The *secondary* plugin will not sign its zone transfer requests.
-
-### Zone Transfer Notifies
-
-With the *transfer* plugin, zone transfer notifications from CoreDNS are not TSIG signed.
 
 ### Special Considerations for Forwarding Servers (RFC 8945 5.5)
 
