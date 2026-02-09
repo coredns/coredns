@@ -15,6 +15,7 @@ import (
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestProxy(t *testing.T) {
@@ -258,5 +259,48 @@ func TestShouldTruncateResponse(t *testing.T) {
 				t.Errorf("For testname '%v', expected %v but got %v", tc.testname, tc.expected, result)
 			}
 		})
+	}
+}
+
+func TestUpstreamResponseDurationMetric(t *testing.T) {
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		time.Sleep(25 * time.Millisecond) // Artificial delay
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Answer = append(m.Answer, test.A("example.org. IN A 127.0.0.1"))
+		w.WriteMsg(m)
+	})
+	defer s.Close()
+
+	p := NewProxy("TestMetric", s.Addr, transport.DNS)
+	p.readTimeout = 50 * time.Millisecond
+	p.Start(5 * time.Second)
+	defer p.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	req := request.Request{Req: m, W: rec}
+
+	_, err := p.Connect(context.Background(), req, Options{PreferUDP: true})
+	if err != nil {
+		t.Fatalf("Failed to connect to test server: %v", err)
+	}
+
+	metricFamilies, err := prometheus.DefaultGatherer.Gather()
+	if err != nil {
+		t.Fatalf("Failed to gather Prometheus metrics: %v", err)
+	}
+
+	found := false
+	for _, mf := range metricFamilies {
+		if mf.GetName() == "coredns_proxy_upstream_response_duration_seconds" {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Errorf("Metric coredns_proxy_upstream_response_duration_seconds not found in registry")
 	}
 }
