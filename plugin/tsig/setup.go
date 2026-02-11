@@ -43,6 +43,7 @@ func parse(c *caddy.Controller) (*TSIGServer, error) {
 	t := &TSIGServer{
 		secrets: make(map[string]string),
 		types:   defaultQTypes,
+		opcodes: defaultOpCodes,
 	}
 
 	for i := 0; c.Next(); i++ {
@@ -89,7 +90,7 @@ func parse(c *caddy.Controller) (*TSIGServer, error) {
 					return nil, c.ArgErr()
 				}
 				if args[0] == "all" {
-					t.all = true
+					t.allTypes = true
 					continue
 				}
 				if args[0] == "none" {
@@ -101,6 +102,26 @@ func parse(c *caddy.Controller) (*TSIGServer, error) {
 						return nil, c.Errf("unknown query type '%s'", str)
 					}
 					t.types[qt] = struct{}{}
+				}
+			case "require_opcode":
+				t.opcodes = opCodes{}
+				args := c.RemainingArgs()
+				if len(args) == 0 {
+					return nil, c.ArgErr()
+				}
+				if args[0] == "all" {
+					t.allOpcodes = true
+					continue
+				}
+				if args[0] == "none" {
+					continue
+				}
+				for _, str := range args {
+					op, ok := dns.StringToOpcode[str]
+					if !ok {
+						return nil, c.Errf("unknown opcode '%s'", str)
+					}
+					t.opcodes[op] = struct{}{}
 				}
 			default:
 				return nil, c.Errf("unknown property '%s'", c.Val())
@@ -166,3 +187,4 @@ func parseKeyFile(f io.Reader) (map[string]string, error) {
 }
 
 var defaultQTypes = qTypes{}
+var defaultOpCodes = opCodes{}
