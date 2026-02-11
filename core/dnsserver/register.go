@@ -1,6 +1,7 @@
 package dnsserver
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -53,12 +54,19 @@ var _ caddy.Context = &dnsContext{}
 // executing directives and otherwise prepares the directives to
 // be parsed and executed.
 func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddyfile.ServerBlock) ([]caddyfile.ServerBlock, error) {
+	hasBind := 0
+	numberOfServerBlocks := len(serverBlocks)
 	// Normalize and check all the zone names and check for duplicates
 	for ib, s := range serverBlocks {
 		// Walk the s.Keys and expand any reverse address in their proper DNS in-addr zones. If the expansions leads for
 		// more than one reverse zone, replace the current value and add the rest to s.Keys.
 		zoneAddrs := []zoneAddr{}
+		if _, ok := s.Tokens["bind"]; ok {
+			hasBind++
+		}
+
 		for ik, k := range s.Keys {
+
 			trans, k1 := parse.Transport(k) // get rid of any dns:// or other scheme.
 			hosts, port, err := plugin.SplitHostPort(k1)
 			// We need to make this a fully qualified domain name to catch all errors here and not later when
@@ -130,6 +138,9 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 			keyConfig := keyForConfig(ib, ik)
 			h.saveConfig(keyConfig, cfg)
 		}
+	}
+	if hasBind != 0 && hasBind != numberOfServerBlocks {
+		return nil, errors.New("mixed configuration: all server blocks must use 'bind' or none should")
 	}
 	return serverBlocks, nil
 }
