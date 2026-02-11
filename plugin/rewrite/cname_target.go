@@ -91,20 +91,22 @@ func (r *cnameTargetRuleWithReqState) RewriteResponse(res *dns.Msg, rr dns.RR) {
 				}
 
 				var newAnswer []dns.RR
-				// iterate over first upstram response
+				// iterate over first upstream response
 				// add the cname record to the new answer
 				for _, rr := range res.Answer {
 					if cname, ok := rr.(*dns.CNAME); ok {
-						// change the target name in the response
-						cname.Target = toTarget
+						// preserve CNAME records until the rewrite target
 						newAnswer = append(newAnswer, rr)
+						if cname.Target == fromTarget {
+							// change the target name in the response
+							cname.Target = toTarget
+							break
+						}
 					}
 				}
 				// iterate over upstream response received
 				for _, rr := range upRes.Answer {
-					if rr.Header().Name == toTarget {
-						newAnswer = append(newAnswer, rr)
-					}
+					newAnswer = append(newAnswer, rr)
 				}
 				res.Answer = newAnswer
 				// if not propagated, the truncated response might get cached,
