@@ -298,7 +298,7 @@ func (external) EpIndex(s string) []*object.Endpoints {
 }
 
 func (external) EndpointsList() []*object.Endpoints {
-	var eps []*object.Endpoints
+	eps := make([]*object.Endpoints, 0, len(epIndexExternal))
 	for _, ep := range epIndexExternal {
 		eps = append(eps, ep...)
 	}
@@ -416,7 +416,7 @@ var svcIndexExternal = map[string][]*object.Service{
 }
 
 func (external) ServiceList() []*object.Service {
-	var svcs []*object.Service
+	svcs := make([]*object.Service, 0, len(svcIndexExternal))
 	for _, svc := range svcIndexExternal {
 		svcs = append(svcs, svc...)
 	}

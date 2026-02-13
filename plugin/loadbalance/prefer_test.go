@@ -23,8 +23,8 @@ func TestSortPreferred(t *testing.T) {
 		test.CNAME("example.org. 300 IN CNAME alias.example.org."),
 	}
 
-	subnets := []*net.IPNet{}
 	cidrs := []string{"2001:db8::/32", "10.9.20.0/24", "10.9.30.0/24"}
+	subnets := make([]*net.IPNet, 0, len(cidrs))
 	for _, cidr := range cidrs {
 		_, subnet, err := net.ParseCIDR(cidr)
 		if err != nil {

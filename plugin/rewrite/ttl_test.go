@@ -74,7 +74,6 @@ func TestNewTTLRule(t *testing.T) {
 }
 
 func TestTtlRewrite(t *testing.T) {
-	rules := []Rule{}
 	ruleset := []struct {
 		args         []string
 		expectedType reflect.Type
@@ -90,6 +89,7 @@ func TestTtlRewrite(t *testing.T) {
 		{[]string{"stop", "ttl", "ceil.example.com.", "-11"}, reflect.TypeFor[*exactTTLRule]()},
 		{[]string{"stop", "ttl", "floor.example.com.", "5-"}, reflect.TypeFor[*exactTTLRule]()},
 	}
+	rules := make([]Rule, 0, len(ruleset))
 	for i, r := range ruleset {
 		rule, err := newRule(r.args...)
 		if err != nil {

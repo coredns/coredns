@@ -191,7 +191,7 @@ func TestNewRule(t *testing.T) {
 }
 
 func TestRewriteDefaultRevertPolicy(t *testing.T) {
-	rules := []Rule{}
+	rules := make([]Rule, 0, 4)
 
 	r, _ := newNameRule("stop", "prefix", "prefix", "to")
 	rules = append(rules, r)
@@ -244,7 +244,7 @@ func TestRewriteDefaultRevertPolicy(t *testing.T) {
 }
 
 func TestRewrite(t *testing.T) {
-	rules := []Rule{}
+	rules := make([]Rule, 0, 12)
 	r, _ := newNameRule("stop", "from.nl.", "to.nl.")
 	rules = append(rules, r)
 	r, _ = newNameRule("stop", "regex", "(core)\\.(dns)\\.(rocks)\\.(nl)", "{2}.{1}.{3}.{4}", "answer", "name", "(dns)\\.(core)\\.(rocks)\\.(nl)", "{2}.{1}.{3}.{4}")
