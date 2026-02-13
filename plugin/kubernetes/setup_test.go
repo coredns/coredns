@@ -1,12 +1,14 @@
 package kubernetes
 
 import (
+	"net"
 	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -791,5 +793,39 @@ func TestKubernetesParseAPIRateLimiting(t *testing.T) {
 		if k8s.apiMaxInflight != test.expectedMaxInf {
 			t.Errorf("Test %d: Expected apiMaxInflight=%v, got %v", i, test.expectedMaxInf, k8s.apiMaxInflight)
 		}
+	}
+}
+
+func TestBoundIPs(t *testing.T) {
+	tests := []struct {
+		name        string
+		listenHosts []string
+		expectIP    net.IP
+	}{
+		{"nil ListenHosts", nil, nil},
+		{"empty slice ListenHosts", []string{}, nil},
+		{"single empty string", []string{""}, nil},
+		{"valid CIDR address", []string{"192.168.1.1/24"}, net.ParseIP("192.168.1.1")},
+		{"loopback filtered", []string{"127.0.0.1/8"}, nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", "kubernetes cluster.local")
+			cfg := dnsserver.GetConfig(c)
+			cfg.ListenHosts = tc.listenHosts
+
+			ips := boundIPs(c)
+
+			if tc.expectIP == nil {
+				return
+			}
+			for _, ip := range ips {
+				if ip.Equal(tc.expectIP) {
+					return
+				}
+			}
+			t.Errorf("expected %v in result, got %v", tc.expectIP, ips)
+		})
 	}
 }
