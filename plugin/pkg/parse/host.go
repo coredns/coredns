@@ -46,6 +46,7 @@ func HostPortOrFile(s ...string) ([]string, error) {
 
 		if err != nil {
 			// Parse didn't work, it is not a addr:port combo
+			host = strings.Trim(host, "[]")
 			hostNoZone := stripZone(host)
 			if net.ParseIP(hostNoZone) == nil {
 				ss, err := tryFile(host)
