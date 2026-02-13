@@ -99,16 +99,27 @@ func parseForward(c *caddy.Controller) ([]*Forward, error) {
 
 // Splits the zone, preserving any port that comes after the zone
 func splitZone(host string) (newHost string, zone string) {
+	trans, host, found := strings.Cut(host, "://")
+	if !found {
+		host, trans = trans, ""
+	}
 	newHost = host
 	if strings.Contains(host, "%") {
 		lastPercent := strings.LastIndex(host, "%")
 		newHost = host[:lastPercent]
+		if strings.HasPrefix(newHost, "[") {
+			newHost = newHost + "]"
+		}
 		zone = host[lastPercent+1:]
 		if strings.Contains(zone, ":") {
 			lastColon := strings.LastIndex(zone, ":")
 			newHost += zone[lastColon:]
 			zone = zone[:lastColon]
+			zone = strings.TrimSuffix(zone, "]")
 		}
+	}
+	if trans != "" {
+		newHost = trans + "://" + newHost
 	}
 	return
 }

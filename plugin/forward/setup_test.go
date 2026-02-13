@@ -44,6 +44,7 @@ func TestSetup(t *testing.T) {
 		{"forward 10.9.3.0/18 127.0.0.1", false, "0.9.10.in-addr.arpa.", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
 		{`forward . ::1
 		forward com ::2`, false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "plugin"},
+		{"forward . tls://[2400:3200::1%dns.alidns.com]:853 {\ntls\n}\n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
 		// negative
 		{"forward . a27.0.0.1", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "not an IP"},
 		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unknown property"},
@@ -106,6 +107,8 @@ func TestSplitZone(t *testing.T) {
 			"dns://127.0.0.1", "dns://127.0.0.1", "",
 		}, {
 			"foo%bar:baz", "foo:baz", "bar",
+		}, {
+			"tls://[::1%example.net]:853", "tls://[::1]:853", "example.net",
 		},
 	}
 	for i, test := range tests {
@@ -115,7 +118,7 @@ func TestSplitZone(t *testing.T) {
 			t.Errorf("Test %d: expected host %q, actual: %q", i, test.expectedHost, host)
 		}
 		if zone != test.expectedZone {
-			t.Errorf("Test %d: expected host %q, actual: %q", i, test.expectedHost, host)
+			t.Errorf("Test %d: expected zone %q, actual: %q", i, test.expectedZone, zone)
 		}
 	}
 }
@@ -151,6 +154,13 @@ func TestSetupTLS(t *testing.T) {
 				tls
 			}`, false, "", ""},
 		{`forward . tls://127.0.0.1`, false, "", ""},
+		{`forward . tls://[2400:3200::1%dns.alidns.com]:853 {
+				tls
+			}`, false, "dns.alidns.com", ""},
+		{`forward . tls://[2400:3200::1]:853 {
+				tls
+				tls_servername dns.alidns.com
+			}`, false, "dns.alidns.com", ""},
 	}
 
 	for i, test := range tests {
