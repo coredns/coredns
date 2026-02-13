@@ -106,6 +106,8 @@ func TestSplitZone(t *testing.T) {
 			"dns://127.0.0.1", "dns://127.0.0.1", "",
 		}, {
 			"foo%bar:baz", "foo:baz", "bar",
+		}, {
+			"tls://[::1%example.net]:854", "tls://[::1]:854", "example.net",
 		},
 	}
 	for i, test := range tests {
@@ -115,7 +117,7 @@ func TestSplitZone(t *testing.T) {
 			t.Errorf("Test %d: expected host %q, actual: %q", i, test.expectedHost, host)
 		}
 		if zone != test.expectedZone {
-			t.Errorf("Test %d: expected host %q, actual: %q", i, test.expectedHost, host)
+			t.Errorf("Test %d: expected zone %q, actual: %q", i, test.expectedZone, zone)
 		}
 	}
 }
@@ -151,6 +153,12 @@ func TestSetupTLS(t *testing.T) {
 				tls
 			}`, false, "", ""},
 		{`forward . tls://127.0.0.1`, false, "", ""},
+		{`forward . tls://[::1%example.net] {
+				tls
+			}`, false, "example.net", ""},
+		{`forward . tls://[2001:4860:4860::8888%example.net]:854 {
+				tls
+			}`, false, "example.net", ""},
 	}
 
 	for i, test := range tests {
