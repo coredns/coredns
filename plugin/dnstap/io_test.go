@@ -67,11 +67,9 @@ func TestTransport(t *testing.T) {
 		}
 
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			accept(t, l, 1)
-			wg.Done()
-		}()
+		})
 
 		dio := newIO(param[0], l.Addr().String(), 1, 1)
 		dio.tcpTimeout = 10 * time.Millisecond
@@ -97,11 +95,9 @@ func TestRace(t *testing.T) {
 	defer l.Close()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		accept(t, l, count)
-		wg.Done()
-	}()
+	})
 
 	dio := newIO("tcp", l.Addr().String(), 1, 1)
 	dio.tcpTimeout = 10 * time.Millisecond
@@ -132,11 +128,9 @@ func TestReconnect(t *testing.T) {
 		}
 
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			accept(t, l, 1)
-			wg.Done()
-		}()
+		})
 
 		addr := l.Addr().String()
 		logger := MockLogger{}
@@ -164,11 +158,9 @@ func TestReconnect(t *testing.T) {
 		}
 		defer l.Close()
 
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			accept(t, l, 1)
-			wg.Done()
-		}()
+		})
 
 		messageCount := 5
 		for range messageCount {
@@ -249,11 +241,9 @@ func TestFullQueueWriteFail(t *testing.T) {
 	defer l.Close()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
+	wg.Go(func() {
 		accept(t, l, 1)
-		wg.Done()
-	}()
+	})
 
 	logger := MockLogger{}
 	dio := newIO("unix", l.Addr().String(), 1, 1)

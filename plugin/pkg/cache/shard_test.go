@@ -102,12 +102,10 @@ func TestShardEvictParallel(t *testing.T) {
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for range shardSize {
-		wg.Add(1)
-		go func() {
+		wg.Go(func() {
 			<-start
 			s.Evict()
-			wg.Done()
-		}()
+		})
 	}
 	close(start) // start evicting in parallel
 	wg.Wait()
