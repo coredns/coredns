@@ -835,7 +835,7 @@ var svcIndex = map[string][]*object.Service{
 func (APIConnServeTest) SvcIndex(s string) []*object.Service { return svcIndex[s] }
 
 func (APIConnServeTest) ServiceList() []*object.Service {
-	var svcs []*object.Service
+	svcs := make([]*object.Service, 0, len(svcIndex))
 	for _, svc := range svcIndex {
 		svcs = append(svcs, svc...)
 	}
@@ -1012,7 +1012,7 @@ var svcImportIndex = map[string][]*object.ServiceImport{
 func (APIConnServeTest) SvcImportIndex(s string) []*object.ServiceImport { return svcImportIndex[s] }
 
 func (APIConnServeTest) ServiceImportList() []*object.ServiceImport {
-	var svcs []*object.ServiceImport
+	svcs := make([]*object.ServiceImport, 0, len(svcImportIndex))
 	for _, svc := range svcImportIndex {
 		svcs = append(svcs, svc...)
 	}
@@ -1118,7 +1118,7 @@ func (APIConnServeTest) McEpIndex(s string) []*object.MultiClusterEndpoints {
 }
 
 func (APIConnServeTest) MultiClusterEndpointsList() []*object.MultiClusterEndpoints {
-	var eps []*object.MultiClusterEndpoints
+	eps := make([]*object.MultiClusterEndpoints, 0, len(mcEpsIndex))
 	for _, ep := range mcEpsIndex {
 		eps = append(eps, ep...)
 	}
@@ -1126,7 +1126,7 @@ func (APIConnServeTest) MultiClusterEndpointsList() []*object.MultiClusterEndpoi
 }
 
 func (APIConnServeTest) EndpointsList() []*object.Endpoints {
-	var eps []*object.Endpoints
+	eps := make([]*object.Endpoints, 0, len(epsIndex))
 	for _, ep := range epsIndex {
 		eps = append(eps, ep...)
 	}

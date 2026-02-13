@@ -38,7 +38,7 @@ func TestTransferAXFR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	var records []dns.RR
+	var records []dns.RR //nolint:prealloc // records are read from a channel
 	for rrs := range ch {
 		records = append(records, rrs...)
 	}
@@ -104,7 +104,7 @@ func TestTransferIXFR(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	var records []dns.RR
+	var records []dns.RR //nolint:prealloc // records are read from a channel
 	for rrs := range ch {
 		records = append(records, rrs...)
 	}

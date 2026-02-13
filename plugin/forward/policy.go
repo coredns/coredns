@@ -50,7 +50,8 @@ func (r *roundRobin) List(p []*proxy.Proxy) []*proxy.Proxy {
 	poolLen := uint32(len(p)) // #nosec G115 -- pool length is small
 	i := atomic.AddUint32(&r.robin, 1) % poolLen
 
-	robin := []*proxy.Proxy{p[i]}
+	robin := make([]*proxy.Proxy, 0, len(p))
+	robin = append(robin, p[i])
 	robin = append(robin, p[:i]...)
 	robin = append(robin, p[i+1:]...)
 

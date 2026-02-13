@@ -49,7 +49,7 @@ func (e *Elem) TypeForWildcard(qtype uint16, qname string) []dns.RR {
 
 // All returns all RRs from e, regardless of type.
 func (e *Elem) All() []dns.RR {
-	list := []dns.RR{}
+	list := make([]dns.RR, 0, len(e.m))
 	for _, rrs := range e.m {
 		list = append(list, rrs...)
 	}

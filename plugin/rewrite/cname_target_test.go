@@ -66,7 +66,6 @@ func (u *MockedUpstream) Lookup(ctx context.Context, state request.Request, name
 }
 
 func TestCNameTargetRewrite(t *testing.T) {
-	rules := []Rule{}
 	ruleset := []struct {
 		args         []string
 		expectedType reflect.Type
@@ -78,6 +77,7 @@ func TestCNameTargetRewrite(t *testing.T) {
 		{[]string{"continue", "cname", "regex", `(.*)\.web\.(.*)\.site\.`, `{1}.webapp.{2}.org.`}, reflect.TypeFor[*cnameTargetRule]()},
 		{[]string{"continue", "cname", "exact", "music.truncated.spotify.com.", "music.truncated.spotify.com."}, reflect.TypeFor[*cnameTargetRule]()},
 	}
+	rules := make([]Rule, 0, len(ruleset))
 	for i, r := range ruleset {
 		rule, err := newRule(r.args...)
 		if err != nil {

@@ -34,7 +34,7 @@ func TestMetadataServeDNS(t *testing.T) {
 		{"test/key2": func() string { return "two" }, "test/key3": func() string { return "testvalue3" }},
 	}
 	// Create fake Providers based on expectedMetadata
-	providers := []Provider{}
+	providers := make([]Provider, 0, len(expectedMetadata))
 	for _, e := range expectedMetadata {
 		providers = append(providers, e)
 	}
