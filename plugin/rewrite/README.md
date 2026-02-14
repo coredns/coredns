@@ -503,9 +503,9 @@ If only some calls contain the `revert` flag, then the value in the response wil
 
 ## CNAME Field Rewrites
 
-There might be a scenario where you want the `CNAME` target of the response to be rewritten. You can do this by using the `CNAME` field rewrite. This will generate new answer records according to the new `CNAME` target.
+There might be a scenario where you want the `CNAME` target of the response to be rewritten. You can do this by using the `CNAME` field rewrite. Answer records preceding the `CNAME` target are kept unchanged, the `CNAME` target is rewritten, and the subsequent records are replaced with the lookup result of the rewritten `CNAME` target.
 
-The syntax for the CNAME rewrite rule is as follows. The meaning of
+The syntax for the `CNAME` rewrite rule is as follows. The meaning of
 `exact|prefix|suffix|substring|regex` is the same as with the name rewrite rules.
 An omitted type is defaulted to `exact`.
 
@@ -527,7 +527,8 @@ $ dig @10.1.1.1 my-app.com
 ;my-app.com. IN A
 
 ;; ANSWER SECTION:
-my-app.com.                  200  IN  CNAME  my-app.com.cdn.example.net.
+my-app.com.                  200  IN  CNAME  my-app.example.
+my-app.example.              200  IN  CNAME  my-app.com.cdn.example.net.
 my-app.com.cdn.example.net.  300  IN  A      20.2.0.1
 my-app.com.cdn.example.net.  300  IN  A      20.2.0.2
 ```
@@ -541,7 +542,8 @@ $ dig @10.1.1.1 my-app.com
 ;my-app.com. IN A
 
 ;; ANSWER SECTION:
-my-app.com.                  200  IN  CNAME  my-app.com.other.cdn.com.
+my-app.com.                  200  IN  CNAME  my-app.example.
+my-app.example.              200  IN  CNAME  my-app.com.other.cdn.com.
 my-app.com.other.cdn.com.    100  IN  A      30.3.1.2
 ```
 Note that the answer will contain a completely different set of answer records after rewriting the `CNAME` target.
