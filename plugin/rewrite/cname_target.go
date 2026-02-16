@@ -104,10 +104,8 @@ func (r *cnameTargetRuleWithReqState) RewriteResponse(res *dns.Msg, rr dns.RR) {
 						}
 					}
 				}
-				// iterate over upstream response received
-				for _, rr := range upRes.Answer {
-					newAnswer = append(newAnswer, rr)
-				}
+				// add the upstream response to the new answer
+				newAnswer = append(newAnswer, upRes.Answer...)
 				res.Answer = newAnswer
 				// if not propagated, the truncated response might get cached,
 				// and it will be impossible to resolve the full response
