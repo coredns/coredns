@@ -546,4 +546,5 @@ my-app.com.                  200  IN  CNAME  my-app.example.
 my-app.example.              200  IN  CNAME  my-app.com.other.cdn.com.
 my-app.com.other.cdn.com.    100  IN  A      30.3.1.2
 ```
+
 Note that the answer will contain a completely different set of answer records after rewriting the `CNAME` target.
