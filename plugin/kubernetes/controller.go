@@ -140,10 +140,13 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsC
 	}
 
 	dns.svcLister, dns.svcController = object.NewIndexerInformer(
-		&cache.ListWatch{
-			ListFunc:  serviceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-			WatchFunc: serviceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-		},
+		cache.ToListWatcherWithWatchListSemantics(
+			&cache.ListWatch{
+				ListFunc:  serviceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: serviceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			},
+			kubeClient,
+		),
 		&api.Service{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{svcNameNamespaceIndex: svcNameNamespaceIndexFunc, svcIPIndex: svcIPIndexFunc, svcExtIPIndex: svcExtIPIndexFunc},
@@ -151,10 +154,13 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsC
 	)
 
 	podLister, podController := object.NewIndexerInformer(
-		&cache.ListWatch{
-			ListFunc:  podListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-			WatchFunc: podWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-		},
+		cache.ToListWatcherWithWatchListSemantics(
+			&cache.ListWatch{
+				ListFunc:  podListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: podWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			},
+			kubeClient,
+		),
 		&api.Pod{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{podIPIndex: podIPIndexFunc},
@@ -166,10 +172,13 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsC
 	}
 
 	epLister, epController := object.NewIndexerInformer(
-		&cache.ListWatch{
-			ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-			WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
-		},
+		cache.ToListWatcherWithWatchListSemantics(
+			&cache.ListWatch{
+				ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+				WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, dns.selector),
+			},
+			kubeClient,
+		),
 		&discovery.EndpointSlice{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
@@ -181,10 +190,13 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsC
 	}
 
 	dns.nsLister, dns.nsController = object.NewIndexerInformer(
-		&cache.ListWatch{
-			ListFunc:  namespaceListFunc(ctx, dns.client, dns.namespaceSelector),
-			WatchFunc: namespaceWatchFunc(ctx, dns.client, dns.namespaceSelector),
-		},
+		cache.ToListWatcherWithWatchListSemantics(
+			&cache.ListWatch{
+				ListFunc:  namespaceListFunc(ctx, dns.client, dns.namespaceSelector),
+				WatchFunc: namespaceWatchFunc(ctx, dns.client, dns.namespaceSelector),
+			},
+			kubeClient,
+		),
 		&api.Namespace{},
 		cache.ResourceEventHandlerFuncs{},
 		cache.Indexers{},
@@ -199,20 +211,26 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsC
 		}
 		mcsEpSelector = mcsEpSelector.Add(*mcsEpReq)
 		dns.mcEpLister, dns.mcEpController = object.NewIndexerInformer(
-			&cache.ListWatch{
-				ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, mcsEpSelector),
-				WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, mcsEpSelector),
-			},
+			cache.ToListWatcherWithWatchListSemantics(
+				&cache.ListWatch{
+					ListFunc:  endpointSliceListFunc(ctx, dns.client, api.NamespaceAll, mcsEpSelector),
+					WatchFunc: endpointSliceWatchFunc(ctx, dns.client, api.NamespaceAll, mcsEpSelector),
+				},
+				kubeClient,
+			),
 			&discovery.EndpointSlice{},
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{mcEpNameNamespaceIndex: mcEpNameNamespaceIndexFunc},
 			object.DefaultProcessor(object.EndpointSliceToMultiClusterEndpoints, dns.EndpointSliceLatencyRecorder()),
 		)
 		dns.svcImportLister, dns.svcImportController = object.NewIndexerInformer(
-			&cache.ListWatch{
-				ListFunc:  serviceImportListFunc(ctx, dns.mcsClient, api.NamespaceAll, dns.namespaceSelector),
-				WatchFunc: serviceImportWatchFunc(ctx, dns.mcsClient, api.NamespaceAll, dns.namespaceSelector),
-			},
+			cache.ToListWatcherWithWatchListSemantics(
+				&cache.ListWatch{
+					ListFunc:  serviceImportListFunc(ctx, dns.mcsClient, api.NamespaceAll, dns.namespaceSelector),
+					WatchFunc: serviceImportWatchFunc(ctx, dns.mcsClient, api.NamespaceAll, dns.namespaceSelector),
+				},
+				kubeClient,
+			),
 			&mcs.ServiceImport{},
 			cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 			cache.Indexers{svcImportNameNamespaceIndex: svcImportNameNamespaceIndexFunc},

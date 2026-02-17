@@ -33,7 +33,7 @@ func inc(ip net.IP) {
 }
 
 func kubernetesWithFakeClient(ctx context.Context, cidr string, initEndpointsCache bool, svcType string) *Kubernetes {
-	client := fake.NewSimpleClientset()
+	client := fake.NewClientset()
 	mcsClient := mcsClientsetFake.NewSimpleClientset()
 	dco := dnsControlOpts{
 		zones:              []string{"cluster.local.", "clusterset.local."},
