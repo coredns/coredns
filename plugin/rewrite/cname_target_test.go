@@ -61,6 +61,12 @@ func (u *MockedUpstream) Lookup(ctx context.Context, state request.Request, name
 		}
 		m.Truncated = true
 		return m, nil
+	case "cname1.example.com.":
+		m.Answer = []dns.RR{
+			test.CNAME("cname1.example.com.   200   IN  CNAME  cname2.example.com."),
+			test.A("cname2.example.com.   3600  IN  A   3.4.5.6"),
+		}
+		return m, nil
 	}
 	return &dns.Msg{}, nil
 }
@@ -76,6 +82,7 @@ func TestCNameTargetRewrite(t *testing.T) {
 		{[]string{"continue", "cname", "substring", "efgh", "zzzz.www"}, reflect.TypeFor[*cnameTargetRule]()},
 		{[]string{"continue", "cname", "regex", `(.*)\.web\.(.*)\.site\.`, `{1}.webapp.{2}.org.`}, reflect.TypeFor[*cnameTargetRule]()},
 		{[]string{"continue", "cname", "exact", "music.truncated.spotify.com.", "music.truncated.spotify.com."}, reflect.TypeFor[*cnameTargetRule]()},
+		{[]string{"continue", "cname", "exact", "cname.example.com.", "cname1.example.com."}, reflect.TypeFor[*cnameTargetRule]()},
 	}
 	rules := make([]Rule, 0, len(ruleset))
 	for i, r := range ruleset {
@@ -179,6 +186,18 @@ func doTestCNameTargetTests(t *testing.T, rules []Rule) {
 				test.A("music.truncated.spotify.com.   120  IN  A   10.1.0.9"),
 			},
 			true,
+		},
+		{"double-cname-rewrite.example.com", dns.TypeA,
+			[]dns.RR{
+				test.CNAME("double-cname-rewrite.example.com.  200  IN  CNAME  cname.example.com."),
+				test.A("cname.example.com.    200  IN  A   1.2.3.4"),
+			},
+			[]dns.RR{
+				test.CNAME("double-cname-rewrite.example.com.  200   IN  CNAME  cname1.example.com."),
+				test.CNAME("cname1.example.com.   200   IN  CNAME  cname2.example.com."),
+				test.A("cname2.example.com.   3600  IN  A   3.4.5.6"),
+			},
+			false,
 		},
 	}
 	ctx := context.TODO()
