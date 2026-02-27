@@ -4,6 +4,7 @@ BINARY:=coredns
 SYSTEM:=
 CHECKS:=check
 BUILDOPTS?=-v
+GOTAGS?=grpcnotrace
 GOPATH?=$(HOME)/go
 MAKEPWD:=$(dir $(realpath $(firstword $(MAKEFILE_LIST))))
 CGO_ENABLED?=0
@@ -19,7 +20,7 @@ all: coredns
 
 .PHONY: coredns
 coredns: $(CHECKS)
-	CGO_ENABLED=$(CGO_ENABLED) $(SYSTEM) go build $(BUILDOPTS) $(LDFLAGS) -o $(BINARY)
+	CGO_ENABLED=$(CGO_ENABLED) $(SYSTEM) go build $(BUILDOPTS) -tags="$(GOTAGS)" $(LDFLAGS) -o $(BINARY)
 
 .PHONY: check
 check: core/plugin/zplugin.go core/dnsserver/zdirectives.go
