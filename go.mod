@@ -52,7 +52,7 @@ require (
 
 require (
 	github.com/pires/go-proxyproto v0.11.0
-	golang.org/x/net v0.50.0
+	golang.org/x/net v0.51.0
 )
 
 require (
