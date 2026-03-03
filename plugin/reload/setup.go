@@ -52,16 +52,19 @@ func setup(c *caddy.Controller) error {
 		}
 		j = d
 	}
-	if j < minJitter {
-		return plugin.Error("reload", fmt.Errorf("jitter value must be greater or equal to %v", minJitter))
+
+	if j != 0 && j < minJitter {
+		return plugin.Error("reload", fmt.Errorf("jitter value must be 0 or greater or equal to %v", minJitter))
 	}
 
-	if j > i/2 {
+	if j > 0 && j > i/2 {
 		j = i / 2
 	}
 
-	jitter := time.Duration(rand.Int63n(j.Nanoseconds()) - (j.Nanoseconds() / 2)) // #nosec G404 -- non-cryptographic jitter.
-	i = i + jitter
+	if j > 0 {
+		jitter := time.Duration(rand.Int63n(j.Nanoseconds()) - (j.Nanoseconds() / 2)) // #nosec G404 -- non-cryptographic jitter.
+		i = i + jitter
+	}
 
 	// prepare info for next onInstanceStartup event
 	r.setInterval(i)
