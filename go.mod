@@ -51,6 +51,7 @@ require (
 )
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/pires/go-proxyproto v0.11.0
 	golang.org/x/net v0.51.0
 )
@@ -117,7 +118,6 @@ require (
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.12 // indirect
 	github.com/googleapis/gax-go/v2 v2.17.0 // indirect
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
