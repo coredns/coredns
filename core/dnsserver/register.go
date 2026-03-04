@@ -64,7 +64,6 @@ func (h *dnsContext) InspectServerBlocks(sourceFile string, serverBlocks []caddy
 		if _, ok := s.Tokens["bind"]; ok {
 			hasBind++
 		}
-
 		for ik, k := range s.Keys {
 
 			trans, k1 := parse.Transport(k) // get rid of any dns:// or other scheme.
