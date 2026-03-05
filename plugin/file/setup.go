@@ -29,10 +29,10 @@ func setup(c *caddy.Controller) error {
 		if t == nil {
 			return nil
 		}
-		f.transfer = t.(*transfer.Transfer) // if found this must be OK.
+		f.Xfer = t.(*transfer.Transfer) // if found this must be OK.
 		go func() {
 			for _, n := range zones.Names {
-				f.transfer.Notify(n)
+				f.Xfer.Notify(n)
 			}
 		}()
 		return nil
@@ -45,7 +45,7 @@ func setup(c *caddy.Controller) error {
 		}
 		go func() {
 			for _, n := range zones.Names {
-				f.transfer.Notify(n)
+				f.Xfer.Notify(n)
 			}
 		}()
 		return nil
@@ -55,7 +55,7 @@ func setup(c *caddy.Controller) error {
 		z := zones.Z[n]
 		c.OnShutdown(z.OnShutdown)
 		c.OnStartup(func() error {
-			z.StartupOnce.Do(func() { z.Reload(f.transfer) })
+			z.StartupOnce.Do(func() { z.Reload(f.Xfer) })
 			return nil
 		})
 	}

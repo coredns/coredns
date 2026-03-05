@@ -1,6 +1,7 @@
 package test
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -213,5 +214,119 @@ www    IN AAAA ::1
 			t.Fatal("Timed out trying for successful response.")
 			return
 		}
+	}
+}
+
+func TestSecondaryZoneNotify(t *testing.T) {
+
+	// Now spin up the master server
+	name, rm, err := test.TempFile(".", `$ORIGIN example.org.
+@ 3600 IN SOA  sns.dns.icann.org. noc.dns.icann.org. (
+        2017042745 ; serial
+        7200       ; refresh (2 hours)
+        3600       ; retry (1 hour)
+        1209600    ; expire (2 weeks)
+        3600       ; minimum (1 hour)
+)
+
+  3600 IN NS   a.iana-servers.net.
+  3600 IN NS   b.iana-servers.net.
+`)
+	if err != nil {
+		t.Fatalf("Failed to create zone: %s", err)
+	}
+	defer rm()
+
+	corefileMaster := `example.org:53553 {
+    bind 127.0.0.1
+	file ` + name + ` {
+		reload 0.01s
+	}
+	transfer {
+		to 127.0.0.1:53554
+	}
+}`
+
+	master, _, _, err := CoreDNSServerAndPorts(corefileMaster)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer master.Stop()
+
+	corefileSecondary := `example.org:53554 {
+		bind 127.0.0.1
+		secondary {
+			transfer from 127.0.0.1:53553 
+		}
+		transfer {
+			to 127.0.0.1:53555
+		}
+	}`
+	secondary, _, _, err := CoreDNSServerAndPorts(corefileSecondary)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer secondary.Stop()
+
+	corefile = `example.org:53555 {
+        bind 127.0.0.1
+		secondary {
+			transfer from 127.0.0.1:53554
+		}
+	}`
+
+	svr, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer svr.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeSOA)
+
+	var r *dns.Msg
+	// This is now async; we need to wait for it to be transferred.
+	for range 10 {
+		r, _ = dns.Exchange(m, udp)
+		if len(r.Answer) != 0 {
+			break
+		}
+		time.Sleep(1000 * time.Microsecond)
+	}
+	if len(r.Answer) == 0 {
+		t.Fatalf("Expected answer section")
+	}
+
+	m = new(dns.Msg)
+	m.SetQuestion("www.example.org.", dns.TypeA)
+	r, _ = dns.Exchange(m, udp)
+	if len(r.Answer) != 0 {
+		t.Fatalf("Expected no answer section, got %d answers", len(r.Answer))
+	}
+
+	os.WriteFile(name, []byte(`$ORIGIN example.org.
+@ 3600 IN SOA  sns.dns.icann.org. noc.dns.icann.org. (
+        2017042746 ; serial
+        7200       ; refresh (2 hours)
+        3600       ; retry (1 hour)
+        1209600    ; expire (2 weeks)
+        3600       ; minimum (1 hour)
+)
+
+  3600 IN NS   a.iana-servers.net.
+  3600 IN NS   b.iana-servers.net.
+www    IN A    127.0.0.1
+`), 0644)
+
+	// This is now async; we need to wait for it to be transferred.
+	for range 10 {
+		r, _ = dns.Exchange(m, udp)
+		if len(r.Answer) != 0 {
+			break
+		}
+		time.Sleep(1000 * time.Microsecond)
+	}
+	if len(r.Answer) != 1 {
+		t.Fatalf("Expected one RR in answer section got %d", len(r.Answer))
 	}
 }

@@ -1,6 +1,7 @@
 package secondary
 
 import (
+	"github.com/coredns/coredns/plugin/transfer"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -22,6 +23,17 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("secondary", err)
 	}
 
+	s := &Secondary{file.File{Zones: zones}}
+	var x *transfer.Transfer
+	c.OnStartup(func() error {
+		t := dnsserver.GetConfig(c).Handler("transfer")
+		if t != nil {
+			x = t.(*transfer.Transfer)
+			s.File.Xfer = x // if found this must be OK.
+		}
+		return nil
+	})
+
 	// Add startup functions to retrieve the zone and keep it up to date.
 	for i := range zones.Names {
 		n := zones.Names[i]
@@ -36,7 +48,7 @@ func setup(c *caddy.Controller) error {
 						dur := time.Millisecond * 250
 						max := time.Second * 10
 						for {
-							err := z.TransferIn()
+							err := z.TransferIn(x)
 							if err == nil {
 								break
 							}
@@ -52,7 +64,7 @@ func setup(c *caddy.Controller) error {
 							default:
 							}
 						}
-						z.Update(updateShutdown)
+						z.Update(updateShutdown, x)
 					}()
 				})
 				return nil
@@ -65,7 +77,8 @@ func setup(c *caddy.Controller) error {
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
-		return Secondary{file.File{Next: next, Zones: zones}}
+		s.Next = next
+		return s
 	})
 
 	return nil

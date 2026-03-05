@@ -22,7 +22,7 @@ type (
 	File struct {
 		Next plugin.Handler
 		Zones
-		transfer *transfer.Transfer
+		Xfer *transfer.Transfer
 
 		Fall fall.F
 	}
@@ -70,7 +70,7 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 			log.Infof("Notify from %s for %s: checking transfer", state.IP(), zone)
 			ok, err := z.shouldTransfer()
 			if ok {
-				z.TransferIn()
+				z.TransferIn(f.Xfer)
 			} else {
 				log.Infof("Notify from %s for %s: no SOA serial increase seen", state.IP(), zone)
 			}

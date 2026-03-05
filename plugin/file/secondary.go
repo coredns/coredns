@@ -1,6 +1,7 @@
 package file
 
 import (
+	"github.com/coredns/coredns/plugin/transfer"
 	"math/rand"
 	"time"
 
@@ -8,7 +9,7 @@ import (
 )
 
 // TransferIn retrieves the zone from the masters, parses it and sets it live.
-func (z *Zone) TransferIn() error {
+func (z *Zone) TransferIn(t *transfer.Transfer) error {
 	if len(z.TransferFrom) == 0 {
 		return nil
 	}
@@ -57,6 +58,13 @@ Transfer:
 	z.Expired = false
 	z.Unlock()
 	log.Infof("Transferred: %s from %s", z.origin, tr)
+
+	// Send notify messages to secondary servers
+	if t != nil {
+		if err := t.Notify(z.origin); err != nil {
+			log.Warningf("Failed sending notifies: %s", err)
+		}
+	}
 	return nil
 }
 
@@ -107,7 +115,7 @@ func less(a, b uint32) bool {
 // and uses the SOA parameters. Every refresh it will check for a new SOA number. If that fails (for all
 // server) it will retry every retry interval. If the zone failed to transfer before the expire, the zone
 // will be marked expired.
-func (z *Zone) Update(updateShutdown chan bool) error {
+func (z *Zone) Update(updateShutdown chan bool, t *transfer.Transfer) error {
 	// If we don't have a SOA, we don't have a zone, wait for it to appear.
 	for z.SOA == nil {
 		time.Sleep(1 * time.Second)
@@ -145,7 +153,7 @@ Restart:
 			}
 
 			if ok {
-				if err := z.TransferIn(); err != nil {
+				if err := z.TransferIn(t); err != nil {
 					// transfer failed, leave retryActive true
 					break
 				}
@@ -170,7 +178,7 @@ Restart:
 			}
 
 			if ok {
-				if err := z.TransferIn(); err != nil {
+				if err := z.TransferIn(t); err != nil {
 					// transfer failed
 					retryActive = true
 					break
