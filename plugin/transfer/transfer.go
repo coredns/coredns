@@ -63,7 +63,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		return dns.RcodeRefused, nil
 	}
 
-	x := longestMatch(t.xfrs, state.QName())
+	x := longestMatch(t.xfrs, state.Name())
 	if x == nil {
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	}
@@ -93,7 +93,7 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	var pchan <-chan []dns.RR
 	var err error
 	for _, p := range t.Transferers {
-		pchan, err = p.Transfer(state.QName(), serial)
+		pchan, err = p.Transfer(state.Name(), serial)
 		if err == ErrNotAuthoritative {
 			// plugin was not authoritative for the zone, try next plugin
 			continue
