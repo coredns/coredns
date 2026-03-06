@@ -35,23 +35,23 @@ func startUpZones(protocol, addr string, zones map[string][]*Config) string {
 	var sb strings.Builder
 	for _, zone := range keys {
 		if !checkZoneSyntax(zone) {
-			sb.WriteString(fmt.Sprintf("Warning: Domain %q does not follow RFC1035 preferred syntax\n", zone))
+			fmt.Fprintf(&sb, "Warning: Domain %q does not follow RFC1035 preferred syntax\n", zone)
 		}
 		// split addr into protocol, IP and Port
 		_, ip, port, err := SplitProtocolHostPort(addr)
 
 		if err != nil {
 			// this should not happen, but we need to take care of it anyway
-			sb.WriteString(fmt.Sprintln(protocol + zone + ":" + addr))
+			fmt.Fprintln(&sb, protocol+zone+":"+addr)
 			continue
 		}
 		if ip == "" {
-			sb.WriteString(fmt.Sprintln(protocol + zone + ":" + port))
+			fmt.Fprintln(&sb, protocol+zone+":"+port)
 			continue
 		}
 		// if the server is listening on a specific address let's make it visible in the log,
 		// so one can differentiate between all active listeners
-		sb.WriteString(fmt.Sprintln(protocol + zone + ":" + port + " on " + ip))
+		fmt.Fprintln(&sb, protocol+zone+":"+port+" on "+ip)
 	}
 	return sb.String()
 }

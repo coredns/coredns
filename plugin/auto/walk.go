@@ -39,7 +39,7 @@ func (a Auto) Walk() error {
 			return nil
 		}
 
-		reader, err := os.Open(filepath.Clean(path))
+		reader, err := os.Open(filepath.Clean(path)) //nolint:gosec // G122: path is from filepath.Walk rooted in a.directory; symlinks must be followed for configmap-style mounts
 		if err != nil {
 			log.Warningf("Opening %s failed: %s", path, err)
 			return nil

@@ -2,6 +2,7 @@
 package cache
 
 import (
+	"encoding/binary"
 	"hash/fnv"
 	"net"
 	"time"
@@ -110,8 +111,9 @@ func hash(qname string, qtype uint16, do, cd bool) uint64 {
 		h.Write(zero)
 	}
 
-	h.Write([]byte{byte(qtype >> 8)})
-	h.Write([]byte{byte(qtype)})
+	var qtypeBytes [2]byte
+	binary.BigEndian.PutUint16(qtypeBytes[:], qtype)
+	h.Write(qtypeBytes[:])
 	h.Write([]byte(qname))
 	return h.Sum64()
 }

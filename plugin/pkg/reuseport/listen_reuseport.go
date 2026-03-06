@@ -14,7 +14,13 @@ import (
 
 func control(network, address string, c syscall.RawConn) error {
 	c.Control(func(fd uintptr) {
-		if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1); err != nil {
+		const maxInt = int(^uint(0) >> 1)
+		if fd > uintptr(maxInt) {
+			log.Warningf("Failed to set SO_REUSEPORT on socket: invalid file descriptor %d", fd)
+			return
+		}
+
+		if err := unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1); err != nil { // #nosec G115 -- fd is range-checked above
 			log.Warningf("Failed to set SO_REUSEPORT on socket: %s", err)
 		}
 	})

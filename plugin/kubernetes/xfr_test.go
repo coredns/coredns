@@ -88,7 +88,7 @@ func TestKubernetesIXFRCurrent(t *testing.T) {
 		t.Error(err)
 	}
 
-	var gotRRs []dns.RR //nolint:prealloc // records are read from a channel
+	var gotRRs []dns.RR
 	for rrs := range ch {
 		gotRRs = append(gotRRs, rrs...)
 	}

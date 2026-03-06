@@ -161,10 +161,11 @@ func (rule *nameRuleBase) responseRuleFor(state request.Request) (ResponseRules,
 	}
 
 	rewriter := newRemapStringRewriter(state.Req.Question[0].Name, state.Name())
-	rules := ResponseRules{
+	rules := make(ResponseRules, 0, 2+len(rule.static))
+	rules = append(rules,
 		&nameRewriterResponseRule{rewriter},
 		&valueRewriterResponseRule{rewriter},
-	}
+	)
 	return append(rules, rule.static...), RewriteDone
 }
 
@@ -221,15 +222,16 @@ type suffixNameRule struct {
 }
 
 func newSuffixNameRule(nextAction string, auto bool, suffix, replacement string, answers ResponseRules) Rule {
-	var rules ResponseRules
+	rules := make(ResponseRules, 0, len(answers))
 	if auto {
 		// for a suffix rewriter better standard response rewrites can be done
 		// just by using the original suffix/replacement in the opposite order
 		rewriter := newSuffixStringRewriter(replacement, suffix)
-		rules = ResponseRules{
+		rules = make(ResponseRules, 0, 2+len(answers))
+		rules = append(rules,
 			&nameRewriterResponseRule{rewriter},
 			&valueRewriterResponseRule{rewriter},
-		}
+		)
 	}
 	return &suffixNameRule{
 		newNameRuleBase(nextAction, false, replacement, append(rules, answers...)),
