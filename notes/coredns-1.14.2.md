@@ -3,7 +3,7 @@ title = "CoreDNS-1.14.2 Release"
 description = "CoreDNS-1.14.2 Release Notes."
 tags = ["Release", "1.14.2", "Notes"]
 release = "1.14.2"
-date = "2026-03-15T00:00:00+00:00"
+date = "2026-03-06T00:00:00+00:00"
 author = "coredns"
 +++
 
