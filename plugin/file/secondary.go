@@ -101,7 +101,8 @@ Transfer:
 	if !z.hasSOA() {
 		return true, Err
 	}
-	return less(z.SOA.Serial, uint32(serial)), Err // #nosec G115 -- serial fits in uint32 per DNS RFC
+	soa := z.getSOA()
+	return less(soa.Serial, uint32(serial)), Err // #nosec G115 -- serial fits in uint32 per DNS RFC
 }
 
 // less returns true of a is smaller than b when taking RFC 1982 serial arithmetic into account.
