@@ -11,9 +11,10 @@ This release adds the new proxyproto plugin to support Proxy Protocol and preser
 client IPs behind load balancers. It also includes enhancements such as improved DNS
 logging metadata and stronger randomness for loop detection (CVE-2026-26018), along
 with several bug fixes including TLS+IPv6 forwarding, improved CNAME handling and
-rewriting, prevention of an ACL bypass (CVE-2026-26017), and a Kubernetes plugin crash
-fix. In addition, the release updates the build to Go 1.26.1 / 1.25.8, which include
-security fixes addressing CVE-2026-27137, CVE-2026-27138, CVE-2026-25679, CVE-2026-27142.
+rewriting, allowing jitter disabling, prevention of an ACL bypass (CVE-2026-26017),
+and a Kubernetes plugin crash fix. In addition, the release updates the build to
+Go 1.26.1, which include security fixes addressing CVE-2026-27137, CVE-2026-27138, CVE-2026-27139,
+CVE-2026-25679, and CVE-2026-27142.
 
 ## Brought to You By
 
@@ -37,4 +38,5 @@ YOUNEVSKY
 * plugin/loop: Use crypto/rand for query name generation (https://github.com/coredns/coredns/pull/7881)
 * plugin/kubernetes: Fix panic on empty ListenHosts (https://github.com/coredns/coredns/pull/7857)
 * plugin/proxyproto: Add proxy protocol support (https://github.com/coredns/coredns/pull/7738)
+* plugin/reload: Allow disabling jitter with 0s (https://github.com/coredns/coredns/pull/7896)
 * plugin/rewrite: Fix cname target rewrite for CNAME chains (https://github.com/coredns/coredns/pull/7853)
