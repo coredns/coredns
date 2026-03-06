@@ -1,7 +1,6 @@
 package secondary
 
 import (
-	"github.com/coredns/coredns/plugin/transfer"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -11,6 +10,7 @@ import (
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
+	"github.com/coredns/coredns/plugin/transfer"
 )
 
 var log = clog.NewWithPlugin("secondary")
@@ -29,7 +29,7 @@ func setup(c *caddy.Controller) error {
 		t := dnsserver.GetConfig(c).Handler("transfer")
 		if t != nil {
 			x = t.(*transfer.Transfer)
-			s.File.Xfer = x // if found this must be OK.
+			s.Xfer = x // if found this must be OK.
 		}
 		return nil
 	})

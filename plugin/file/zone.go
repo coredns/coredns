@@ -182,3 +182,15 @@ func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 	}
 	return qname[n:], false
 }
+
+func (z *Zone) hasSOA() bool {
+	z.RLock()
+	defer z.RUnlock()
+	return z.SOA != nil
+}
+
+func (z *Zone) getSOA() *dns.SOA {
+	z.RLock()
+	defer z.RUnlock()
+	return z.SOA
+}

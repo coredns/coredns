@@ -1,9 +1,10 @@
 package file
 
 import (
-	"github.com/coredns/coredns/plugin/transfer"
 	"math/rand"
 	"time"
+
+	"github.com/coredns/coredns/plugin/transfer"
 
 	"github.com/miekg/dns"
 )
@@ -97,7 +98,7 @@ Transfer:
 	if serial == -1 {
 		return false, Err
 	}
-	if z.SOA == nil {
+	if !z.hasSOA() {
 		return true, Err
 	}
 	return less(z.SOA.Serial, uint32(serial)), Err // #nosec G115 -- serial fits in uint32 per DNS RFC
@@ -117,15 +118,16 @@ func less(a, b uint32) bool {
 // will be marked expired.
 func (z *Zone) Update(updateShutdown chan bool, t *transfer.Transfer) error {
 	// If we don't have a SOA, we don't have a zone, wait for it to appear.
-	for z.SOA == nil {
+	for !z.hasSOA() {
 		time.Sleep(1 * time.Second)
 	}
 	retryActive := false
 
 Restart:
-	refresh := time.Second * time.Duration(z.SOA.Refresh)
-	retry := time.Second * time.Duration(z.SOA.Retry)
-	expire := time.Second * time.Duration(z.SOA.Expire)
+	soa := z.getSOA()
+	refresh := time.Second * time.Duration(soa.Refresh)
+	retry := time.Second * time.Duration(soa.Retry)
+	expire := time.Second * time.Duration(soa.Expire)
 
 	refreshTicker := time.NewTicker(refresh)
 	retryTicker := time.NewTicker(retry)

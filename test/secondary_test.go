@@ -218,7 +218,6 @@ www    IN AAAA ::1
 }
 
 func TestSecondaryZoneNotify(t *testing.T) {
-
 	// Now spin up the master server
 	name, rm, err := test.TempFile(".", `$ORIGIN example.org.
 @ 3600 IN SOA  sns.dns.icann.org. noc.dns.icann.org. (
