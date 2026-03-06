@@ -267,7 +267,7 @@ func TestSecondaryZoneNotify(t *testing.T) {
 	}
 	defer secondary.Stop()
 
-	corefile = `example.org:53555 {
+	corefile := `example.org:53555 {
         bind 127.0.0.1
 		secondary {
 			transfer from 127.0.0.1:53554
