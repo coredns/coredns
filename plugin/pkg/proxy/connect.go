@@ -65,11 +65,20 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	transtype := stringToTransportType(proto)
 
 	t.mu.Lock()
+	// Pre-compute max-age deadline outside the loop to avoid repeated time.Now() calls.
+	var maxAgeDeadline time.Time
+	if t.maxAge > 0 {
+		maxAgeDeadline = time.Now().Add(-t.maxAge)
+	}
 	// FIFO: take the oldest conn (front of slice) for source port diversity
 	for len(t.conns[transtype]) > 0 {
 		pc := t.conns[transtype][0]
 		t.conns[transtype] = t.conns[transtype][1:]
 		if time.Since(pc.used) > t.expire {
+			pc.c.Close()
+			continue
+		}
+		if !maxAgeDeadline.IsZero() && pc.created.Before(maxAgeDeadline) {
 			pc.c.Close()
 			continue
 		}
@@ -86,11 +95,11 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	if proto == "tcp-tls" {
 		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
 		t.updateDialTimeout(time.Since(reqTime))
-		return &persistConn{c: conn}, false, err
+		return &persistConn{c: conn, created: time.Now()}, false, err
 	}
 	conn, err := dns.DialTimeout(proto, t.addr, timeout)
 	t.updateDialTimeout(time.Since(reqTime))
-	return &persistConn{c: conn}, false, err
+	return &persistConn{c: conn, created: time.Now()}, false, err
 }
 
 // Connect selects an upstream, sends the request and waits for a response.
