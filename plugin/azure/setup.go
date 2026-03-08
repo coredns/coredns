@@ -10,8 +10,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 
-	publicAzureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
-	privateAzureDNS "github.com/Azure/azure-sdk-for-go/profiles/latest/privatedns/mgmt/privatedns"
 	azurerest "github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 )
@@ -27,19 +25,7 @@ func setup(c *caddy.Controller) error {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	publicDNSClient := publicAzureDNS.NewRecordSetsClient(env.Values[auth.SubscriptionID])
-	if publicDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
-		cancel()
-		return plugin.Error("azure", err)
-	}
-
-	privateDNSClient := privateAzureDNS.NewRecordSetsClient(env.Values[auth.SubscriptionID])
-	if privateDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
-		cancel()
-		return plugin.Error("azure", err)
-	}
-
-	h, err := New(ctx, publicDNSClient, privateDNSClient, keys, accessMap)
+	h, err := New(ctx, env, keys, accessMap)
 	if err != nil {
 		cancel()
 		return plugin.Error("azure", err)
@@ -59,18 +45,18 @@ func setup(c *caddy.Controller) error {
 }
 
 func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, map[string]string, fall.F, error) {
-	resourceGroupMapping := map[string][]string{}
 	accessMap := map[string]string{}
 	resourceGroupSet := map[string]struct{}{}
+	subResourceGroupMapping := map[string][]string{}
 	azureEnv := azurerest.PublicCloud
 	env := auth.EnvironmentSettings{Values: map[string]string{}}
-
 	var fall fall.F
 	var access string
 	var resourceGroup string
 	var zoneName string
 
 	for c.Next() {
+		resourceGroupMapping := map[string][]string{}
 		args := c.RemainingArgs()
 
 		for i := range args {
@@ -136,9 +122,12 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 				return env, resourceGroupMapping, accessMap, fall, c.Errf("unknown property: %q", c.Val())
 			}
 		}
+		for k, v := range resourceGroupMapping {
+			subResourceGroupMapping[env.Values[auth.SubscriptionID]+"/"+k] = v
+		}
 	}
 
 	env.Values[auth.Resource] = azureEnv.ResourceManagerEndpoint
 	env.Environment = azureEnv
-	return env, resourceGroupMapping, accessMap, fall, nil
+	return env, subResourceGroupMapping, accessMap, fall, nil
 }
