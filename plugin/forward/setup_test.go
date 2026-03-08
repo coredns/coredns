@@ -707,3 +707,78 @@ func TestFailoverValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestSetupMaxAge(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		shouldErr   bool
+		expectedVal time.Duration
+		expectedErr string
+	}{
+		{
+			name:        "default (no max_age)",
+			input:       "forward . 127.0.0.1\n",
+			expectedVal: 0,
+		},
+		{
+			name:        "valid max_age",
+			input:       "forward . 127.0.0.1 {\nmax_age 30s\n}\n",
+			expectedVal: 30 * time.Second,
+		},
+		{
+			name:        "max_age equal to expire",
+			input:       "forward . 127.0.0.1 {\nexpire 10s\nmax_age 10s\n}\n",
+			expectedVal: 10 * time.Second,
+		},
+		{
+			name:        "max_age zero (unlimited)",
+			input:       "forward . 127.0.0.1 {\nmax_age 0s\n}\n",
+			expectedVal: 0,
+		},
+		{
+			name:        "negative max_age",
+			input:       "forward . 127.0.0.1 {\nmax_age -1s\n}\n",
+			shouldErr:   true,
+			expectedErr: "negative",
+		},
+		{
+			name:        "invalid max_age value",
+			input:       "forward . 127.0.0.1 {\nmax_age invalid\n}\n",
+			shouldErr:   true,
+			expectedErr: "invalid",
+		},
+		{
+			name:        "max_age less than expire",
+			input:       "forward . 127.0.0.1 {\nexpire 30s\nmax_age 10s\n}\n",
+			shouldErr:   true,
+			expectedErr: "max_age",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", test.input)
+			fs, err := parseForward(c)
+
+			if test.shouldErr {
+				if err == nil {
+					t.Errorf("expected error but found none for input %s", test.input)
+					return
+				}
+				if !strings.Contains(err.Error(), test.expectedErr) {
+					t.Errorf("expected error to contain %q, got: %v", test.expectedErr, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("expected no error but found: %v", err)
+				return
+			}
+			if fs[0].maxAge != test.expectedVal {
+				t.Errorf("expected maxAge %v, got %v", test.expectedVal, fs[0].maxAge)
+			}
+		})
+	}
+}

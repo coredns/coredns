@@ -157,6 +157,10 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		}
 	}
 
+	if f.maxAge > 0 && f.maxAge < f.expire {
+		return f, fmt.Errorf("max_age (%s) must not be less than expire (%s)", f.maxAge, f.expire)
+	}
+
 	tlsServerNames := make([]string, len(toHosts))
 	perServerNameProxyCount := make(map[string]int)
 	transports := make([]string, len(toHosts))
@@ -207,6 +211,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			}
 		}
 		f.proxies[i].SetExpire(f.expire)
+		f.proxies[i].SetMaxAge(f.maxAge)
 		f.proxies[i].SetMaxIdleConns(f.maxIdleConns)
 		f.proxies[i].GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
 		// when TLS is used, checks are set to tcp-tls
@@ -323,6 +328,18 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return fmt.Errorf("expire can't be negative: %s", dur)
 		}
 		f.expire = dur
+	case "max_age":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("max_age can't be negative: %s", dur)
+		}
+		f.maxAge = dur
 	case "max_idle_conns":
 		if !c.NextArg() {
 			return c.ArgErr()

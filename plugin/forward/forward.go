@@ -49,6 +49,7 @@ type Forward struct {
 	tlsServerName              string
 	maxfails                   uint32
 	expire                     time.Duration
+	maxAge                     time.Duration
 	maxIdleConns               int
 	maxConcurrent              int64
 	failfastUnhealthyUpstreams bool

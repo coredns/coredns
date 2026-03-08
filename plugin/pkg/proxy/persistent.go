@@ -9,17 +9,19 @@ import (
 	"github.com/miekg/dns"
 )
 
-// a persistConn hold the dns.Conn and the last used time.
+// a persistConn holds the dns.Conn, its creation time, and the last used time.
 type persistConn struct {
-	c    *dns.Conn
-	used time.Time
+	c       *dns.Conn
+	created time.Time
+	used    time.Time
 }
 
 // Transport hold the persistent cache.
 type Transport struct {
 	avgDialTime  int64                          // kind of average time of dial time
 	conns        [typeTotalCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
-	expire       time.Duration                  // After this duration a connection is expired.
+	expire       time.Duration                  // After this duration an idle connection is expired.
+	maxAge       time.Duration                  // After this duration a connection is closed regardless of activity; 0 means unlimited.
 	maxIdleConns int                            // Max idle connections per transport type; 0 means unlimited.
 	addr         string
 	tlsConfig    *tls.Config
@@ -68,7 +70,13 @@ func (t *Transport) cleanup(all bool) {
 	var toClose []*persistConn
 
 	t.mu.Lock()
-	staleTime := time.Now().Add(-t.expire)
+	now := time.Now()
+	staleTime := now.Add(-t.expire)
+	// Pre-compute max-age deadline outside the loop to avoid repeated time.Now() calls.
+	var maxAgeDeadline time.Time
+	if t.maxAge > 0 {
+		maxAgeDeadline = now.Add(-t.maxAge)
+	}
 	for transtype, stack := range t.conns {
 		if len(stack) == 0 {
 			continue
@@ -78,10 +86,26 @@ func (t *Transport) cleanup(all bool) {
 			toClose = append(toClose, stack...)
 			continue
 		}
-		if stack[0].used.After(staleTime) {
+
+		// When max-age is set, use a linear scan to evaluate both the idle-timeout
+		// (expire, based on last-used time) and the max-age (based on creation time).
+		if t.maxAge > 0 {
+			var alive []*persistConn
+			for _, pc := range stack {
+				if !pc.used.After(staleTime) || pc.created.Before(maxAgeDeadline) {
+					toClose = append(toClose, pc)
+				} else {
+					alive = append(alive, pc)
+				}
+			}
+			t.conns[transtype] = alive
 			continue
 		}
 
+		// Original expire-only path: connections are sorted by "used"; use binary search.
+		if stack[0].used.After(staleTime) {
+			continue
+		}
 		// connections in stack are sorted by "used"
 		good := sort.Search(len(stack), func(i int) bool {
 			return stack[i].used.After(staleTime)
@@ -129,6 +153,10 @@ func (t *Transport) Stop() { close(t.stop) }
 
 // SetExpire sets the connection expire time in transport.
 func (t *Transport) SetExpire(expire time.Duration) { t.expire = expire }
+
+// SetMaxAge sets the maximum lifetime of a connection regardless of activity.
+// A value of 0 (default) disables max-age and connections are only closed by expire (idle-timeout).
+func (t *Transport) SetMaxAge(maxAge time.Duration) { t.maxAge = maxAge }
 
 // SetMaxIdleConns sets the maximum idle connections per transport type.
 // A value of 0 means unlimited (default).
