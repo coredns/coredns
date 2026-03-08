@@ -339,3 +339,33 @@ func TestTransferDrainsProducerOnClientError(t *testing.T) {
 		t.Fatal("producer goroutine did not finish; channel likely not drained on client error")
 	}
 }
+
+type nopHandler struct{}
+
+func (nopHandler) Name() string { return "nop" }
+func (nopHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return dns.RcodeSuccess, nil
+}
+
+func TestAXFRZoneMatchCaseInsensitive(t *testing.T) {
+	next := &transfererPlugin{Zone: "example.org.", Serial: 12345}
+	next.Next = nopHandler{}
+
+	tr := &Transfer{
+		Transferers: []Transferer{next},
+		xfrs:        []*xfr{{Zones: []string{"example.org."}, to: []string{"*"}}},
+		Next:        next,
+	}
+
+	ctx := context.TODO()
+	w := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true})
+	m := new(dns.Msg)
+	m.SetAxfr("ExAmPlE.OrG.") // mixed case
+
+	_, err := tr.ServeDNS(ctx, w, m)
+	if err != nil {
+		t.Fatalf("ServeDNS error: %v", err)
+	}
+
+	validateAXFRResponse(t, w)
+}
