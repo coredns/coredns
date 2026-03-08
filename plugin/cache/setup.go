@@ -59,6 +59,8 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 				}
 				ca.pttl = time.Duration(ttl) * time.Second
 				ca.nttl = time.Duration(ttl) * time.Second
+				ca.minpttl = time.Duration(ttl) * time.Second
+				ca.minnttl = time.Duration(ttl) * time.Second
 				args = args[1:]
 			}
 		}
