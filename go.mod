@@ -47,7 +47,7 @@ require (
 	k8s.io/apimachinery v0.35.2
 	k8s.io/client-go v0.35.2
 	k8s.io/klog/v2 v2.140.0
-	sigs.k8s.io/mcs-api v0.3.0
+	sigs.k8s.io/mcs-api v0.4.0
 )
 
 require (
