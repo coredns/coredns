@@ -89,6 +89,32 @@ func (m *Metrics) ZoneNames() []string {
 	return s
 }
 
+// startupListener wraps a net.Listener to detect when Accept() is first called
+type startupListener struct {
+	net.Listener
+	readyOnce sync.Once
+	ready     chan struct{}
+}
+
+func newStartupListener(l net.Listener) *startupListener {
+	return &startupListener{
+		Listener: l,
+		ready:    make(chan struct{}),
+	}
+}
+
+func (sl *startupListener) Accept() (net.Conn, error) {
+	// Signal ready on first Accept() call (server is running)
+	sl.readyOnce.Do(func() {
+		close(sl.ready)
+	})
+	return sl.Listener.Accept()
+}
+
+func (sl *startupListener) Ready() <-chan struct{} {
+	return sl.ready
+}
+
 // OnStartup sets up the metrics on startup.
 func (m *Metrics) OnStartup() error {
 	ln, err := reuseport.Listen("tcp", m.Addr)
@@ -97,7 +123,9 @@ func (m *Metrics) OnStartup() error {
 		return err
 	}
 
-	m.ln = ln
+	startupListener := newStartupListener(ln)
+
+	m.ln = startupListener
 	m.lnSetup = true
 
 	m.mux = http.NewServeMux()
@@ -138,27 +166,26 @@ func (m *Metrics) OnStartup() error {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	// Create channels for synchronization
-	startResult := make(chan error, 1)
+	startUpErr := make(chan error, 1)
 
 	go func() {
 		// Try to start the server and report result if there an error.
 		// web.Serve() never returns nil, it always returns a non-nil error and
 		// it doesn't retun anything if server starts successfully.
-		// We can be sure that if it returns an error, the server didn't start.
+		// startupListener handles capturing succesful startup.
 		err := web.Serve(m.ln, server, webConfig, logger)
 		if err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start HTTPS metrics server: %v", err)
-			startResult <- err
+			startUpErr <- err
 		}
 	}()
 
 	// Wait for startup errors
 	select {
-	case err := <-startResult:
+	case err := <-startUpErr:
 		return err
-	case <-time.After(200 * time.Millisecond):
-		// No immediate error, server likely started successfully
-		// web.Serve() validates TLS config at startup
+	case <-startupListener.Ready():
+		log.Infof("Server is ready and accepting connections")
 	}
 
 	ListenAddr = ln.Addr().String() // For tests.
