@@ -1,0 +1,197 @@
+###############################################################################
+# DNS Configuration: zoo.network zone
+# Cloudflare Zone ID: d9c81c5b54f0f713105d483ddbd61656
+# Last updated: 2026-03-12
+###############################################################################
+---
+records:
+  - name: api-explore.zoo.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-explorer.zoo.network
+    type: A
+    content: "67.205.158.227"
+    proxied: false
+
+  - name: api.cloud.zoo.network
+    type: A
+    content: "143.198.158.137"
+    proxied: true
+
+  - name: api.cloud.zoo.network
+    type: A
+    content: "137.184.2.107"
+    proxied: true
+
+  - name: api.cloud.zoo.network
+    type: A
+    content: "209.38.69.69"
+    proxied: true
+
+  - name: api.cloud.zoo.network
+    type: A
+    content: "209.38.68.66"
+    proxied: true
+
+  - name: api.cloud.zoo.network
+    type: A
+    content: "165.232.146.176"
+    proxied: true
+
+  - name: api.cloud.zoo.network
+    type: A
+    content: "146.190.121.87"
+    proxied: true
+
+  - name: api.zoo.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: cloud.zoo.network
+    type: A
+    content: "143.198.158.137"
+    proxied: true
+
+  - name: cloud.zoo.network
+    type: A
+    content: "137.184.2.107"
+    proxied: true
+
+  - name: cloud.zoo.network
+    type: A
+    content: "209.38.69.69"
+    proxied: true
+
+  - name: cloud.zoo.network
+    type: A
+    content: "209.38.68.66"
+    proxied: true
+
+  - name: cloud.zoo.network
+    type: A
+    content: "165.232.146.176"
+    proxied: true
+
+  - name: cloud.zoo.network
+    type: A
+    content: "146.190.121.87"
+    proxied: true
+
+  - name: explore.zoo.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: iam.zoo.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: id.zoo.network
+    type: CNAME
+    content: "hanzo-id.pages.dev"
+    proxied: true
+
+  - name: kms.zoo.network
+    type: A
+    content: "143.198.158.137"
+    proxied: true
+
+  - name: kms.zoo.network
+    type: A
+    content: "137.184.2.107"
+    proxied: true
+
+  - name: kms.zoo.network
+    type: A
+    content: "209.38.69.69"
+    proxied: true
+
+  - name: kms.zoo.network
+    type: A
+    content: "209.38.68.66"
+    proxied: true
+
+  - name: kms.zoo.network
+    type: A
+    content: "165.232.146.176"
+    proxied: true
+
+  - name: kms.zoo.network
+    type: A
+    content: "146.190.121.87"
+    proxied: true
+
+  - name: mpc-api.zoo.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: mpc.zoo.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: status.zoo.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: ws.cloud.zoo.network
+    type: A
+    content: "143.198.158.137"
+    proxied: true
+
+  - name: ws.cloud.zoo.network
+    type: A
+    content: "137.184.2.107"
+    proxied: true
+
+  - name: ws.cloud.zoo.network
+    type: A
+    content: "209.38.69.69"
+    proxied: true
+
+  - name: ws.cloud.zoo.network
+    type: A
+    content: "209.38.68.66"
+    proxied: true
+
+  - name: ws.cloud.zoo.network
+    type: A
+    content: "165.232.146.176"
+    proxied: true
+
+  - name: ws.cloud.zoo.network
+    type: A
+    content: "146.190.121.87"
+    proxied: true
+
+  - name: www.zoo.network
+    type: CNAME
+    content: "zoo-labs.github.io"
+    proxied: false
+
+  - name: zoo.network
+    type: A
+    content: "185.199.111.153"
+    proxied: false
+
+  - name: zoo.network
+    type: A
+    content: "185.199.110.153"
+    proxied: false
+
+  - name: zoo.network
+    type: A
+    content: "185.199.109.153"
+    proxied: false
+
+  - name: zoo.network
+    type: A
+    content: "185.199.108.153"
+    proxied: false
+

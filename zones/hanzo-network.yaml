@@ -1,0 +1,107 @@
+###############################################################################
+# DNS Configuration: hanzo.network zone
+# Cloudflare Zone ID: c7b46289ad8a039c2cf4ccc24b11128a
+# Last updated: 2026-03-12
+###############################################################################
+---
+records:
+  - name: api-explore.hanzo.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-explorer.hanzo.network
+    type: A
+    content: "67.205.158.227"
+    proxied: false
+
+  - name: api.cloud.hanzo.network
+    type: A
+    content: "134.199.138.57"
+    proxied: false
+
+  - name: api.hanzo.network
+    type: A
+    content: "67.205.158.227"
+    proxied: false
+
+  - name: cloud.hanzo.network
+    type: A
+    content: "134.199.138.57"
+    proxied: true
+
+  - name: exchange.hanzo.network
+    type: A
+    content: "67.205.158.227"
+    proxied: true
+
+  - name: explore.hanzo.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explorer.hanzo.network
+    type: CNAME
+    content: "explore.hanzo.network"
+    proxied: true
+
+  - name: hanzo.network
+    type: CNAME
+    content: "hanzo-network.pages.dev"
+    proxied: true
+
+  - name: hanzo.network
+    type: MX
+    content: "alt3.aspmx.l.google.com"
+    proxied: false
+
+  - name: hanzo.network
+    type: MX
+    content: "alt2.aspmx.l.google.com"
+    proxied: false
+
+  - name: hanzo.network
+    type: MX
+    content: "aspmx.l.google.com"
+    proxied: false
+
+  - name: hanzo.network
+    type: MX
+    content: "alt4.aspmx.l.google.com"
+    proxied: false
+
+  - name: hanzo.network
+    type: MX
+    content: "alt1.aspmx.l.google.com"
+    proxied: false
+
+  - name: status.hanzo.network
+    type: A
+    content: "165.232.146.176"
+    proxied: true
+
+  - name: status.hanzo.network
+    type: A
+    content: "143.198.158.137"
+    proxied: true
+
+  - name: status.hanzo.network
+    type: A
+    content: "137.184.2.107"
+    proxied: true
+
+  - name: status.hanzo.network
+    type: A
+    content: "209.38.69.69"
+    proxied: true
+
+  - name: status.hanzo.network
+    type: A
+    content: "209.38.68.66"
+    proxied: true
+
+  - name: status.hanzo.network
+    type: A
+    content: "146.190.121.87"
+    proxied: true
+

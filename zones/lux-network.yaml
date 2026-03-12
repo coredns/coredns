@@ -1,0 +1,600 @@
+###############################################################################
+# DNS Configuration: lux.network zone
+#
+# Cloudflare Zone ID: 287bdfd07cf016bd102f6394892e4759
+# Primary LB: 134.199.138.27 (lux-k8s hanzo-ingress, lux-system namespace)
+# Cloud LB: 134.199.136.205 (web3/cloud services)
+#
+# RULES:
+# - All lux-k8s services MUST use DNS-only (proxied=false)
+# - CF Argo Tunnel CNAMEs are proxied (required by CF tunnel)
+# - CF Pages/GitHub Pages CNAMEs may be proxied for CDN
+# - TXT records for ACME challenges are auto-managed by Traefik
+#
+# This file is the source of truth for DNS. Any changes should be made
+# here first, then applied via `scripts/dns-sync.sh` or CF API.
+#
+# Last updated: 2026-03-12
+###############################################################################
+
+---
+# ============================================================
+# Core Infrastructure (lux-k8s LB: 134.199.138.27)
+# ============================================================
+records:
+
+  # --- API Gateway ---
+  - name: api.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+    comment: "KrakenD API gateway (lux-gateway namespace)"
+
+  - name: api.devnet.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api.testnet.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  # --- Bridge ---
+  - name: bridge.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+    comment: "bridge-ui:3000 (lux-bridge namespace)"
+
+  - name: bridge-api.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+    comment: "bridge-server:3000 (lux-bridge namespace)"
+
+  # --- MPC ---
+  - name: mpc.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+    comment: "mpc-dashboard-svc:3000 (lux-mpc namespace)"
+
+  - name: mpc-api.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+    comment: "mpc-api-svc:8081 (lux-mpc namespace)"
+
+  # --- Block Explorers (frontends) ---
+  - name: explore.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+    comment: "C-chain Blockscout frontend"
+
+  - name: explore-zoo.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explore-hanzo.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explore-spc.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explore-pars.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explore-test.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explore-dev.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  # --- Block Explorer APIs ---
+  - name: api-explore.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+    comment: "Blockscout API backend"
+
+  - name: api-explore-zoo.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-explore-hanzo.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-explore-spc.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-explore-pars.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-explore-test.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-explore-dev.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  # --- Indexer APIs ---
+  - name: api-indexer.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+    comment: "C-chain indexer"
+
+  - name: api-indexer-pchain.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-xchain.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-achain.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-bchain.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-qchain.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-tchain.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-zchain.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-kchain.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-zoo.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-hanzo.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-spc.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-indexer-pars.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  # --- Exchange / DEX ---
+  - name: exchange.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: markets.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: market.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-exchange.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: dex.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: dex-api.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: subgraph.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  # --- Other Services ---
+  - name: safe.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: kms.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: status.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: build.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explorer.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+    comment: "Legacy explorer URL (use explore.lux.network)"
+
+  - name: explorer.devnet.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explorer.testnet.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explorer.pars.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explorer.spc.lux.network
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+# ============================================================
+# Cloud Services (LB: 134.199.136.205)
+# ============================================================
+  - name: cloud.lux.network
+    type: A
+    content: "134.199.136.205"
+    proxied: true
+    comment: "Lux Cloud platform"
+
+  - name: api.cloud.lux.network
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: ws.cloud.lux.network
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: web3.lux.network
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: api.web3.lux.network
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: ws.web3.lux.network
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+# ============================================================
+# Static Sites / CDN (Vercel, GitHub Pages, CF Pages, Netlify)
+# ============================================================
+  - name: www.lux.network
+    type: CNAME
+    content: cname.vercel-dns.com
+    proxied: false
+
+  - name: assets.lux.network
+    type: CNAME
+    content: cname.vercel-dns.com
+    proxied: false
+
+  - name: bridge3.lux.network
+    type: CNAME
+    content: cname.vercel-dns.com
+    proxied: false
+
+  - name: ico.lux.network
+    type: CNAME
+    content: cname.vercel-dns.com
+    proxied: false
+
+  - name: login.lux.network
+    type: CNAME
+    content: cname.vercel-dns.com
+    proxied: false
+
+  - name: tokens.lux.network
+    type: CNAME
+    content: cname.vercel-dns.com
+    proxied: false
+
+  - name: explore.bridge.lux.network
+    type: CNAME
+    content: cname.vercel-dns.com
+    proxied: false
+
+  - name: apply.lux.network
+    type: CNAME
+    content: apply-lux-network.netlify.app
+    proxied: false
+
+  - name: beta.lux.network
+    type: CNAME
+    content: apply-lux-network.netlify.app
+    proxied: false
+
+  - name: consensus.lux.network
+    type: CNAME
+    content: luxfi.github.io
+    proxied: false
+
+  - name: papers.lux.network
+    type: CNAME
+    content: luxfi.github.io
+    proxied: false
+
+  - name: docs.lux.network
+    type: CNAME
+    content: lux-docs.pages.dev
+    proxied: true
+
+  - name: wallet.lux.network
+    type: CNAME
+    content: lux-wallet.pages.dev
+    proxied: true
+
+  - name: iam.lux.network
+    type: CNAME
+    content: hanzo-id.pages.dev
+    proxied: true
+
+  - name: id.lux.network
+    type: CNAME
+    content: hanzo-id.pages.dev
+    proxied: true
+
+  - name: vote.lux.network
+    type: CNAME
+    content: luxdao.github.io
+    proxied: true
+
+  - name: help.lux.network
+    type: CNAME
+    content: reamaze.lida.clearalias.com
+    proxied: false
+
+  - name: lamport.lux.network
+    type: CNAME
+    content: luxfi.github.io
+    proxied: true
+
+  - name: lps.lux.network
+    type: CNAME
+    content: luxfi.github.io
+    proxied: true
+
+  - name: standard.lux.network
+    type: CNAME
+    content: luxfi.github.io
+    proxied: true
+
+  - name: precompile.lux.network
+    type: CNAME
+    content: luxfi.github.io
+    proxied: true
+
+  - name: dao.lux.network
+    type: CNAME
+    content: lux.vote
+    proxied: true
+
+  - name: ama.lux.network
+    type: CNAME
+    content: calendly.com
+    proxied: true
+
+# ============================================================
+# Cloudflare Argo Tunnel (proxied required)
+# Tunnel ID: 9bc28e0f-b27b-41c4-81b0-32f0398489b9
+# ============================================================
+  - name: graph.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: graph-admin.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: graphs.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: ipfs.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: monitor.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: sc-verifier.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: sig.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: spc.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: stats.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: teleport.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: teleport-0.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: teleport-1.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: teleport-2.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: user-ops.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: viz.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+
+  - name: api-bridge.lux.network
+    type: CNAME
+    content: 9bc28e0f-b27b-41c4-81b0-32f0398489b9.cfargotunnel.com
+    proxied: true
+    comment: "Legacy bridge API (use bridge-api.lux.network)"
+
+# ============================================================
+# Other / Legacy
+# ============================================================
+  - name: auth.lux.network
+    type: A
+    content: "134.199.138.57"
+    proxied: true
+    comment: "hanzo-k8s auth service"
+
+  - name: main.lux.network
+    type: A
+    content: "134.199.143.51"
+    proxied: true
+
+  - name: mainnet.lux.network
+    type: A
+    content: "134.199.143.51"
+    proxied: true
+
+  - name: node.lux.network
+    type: A
+    content: "134.199.143.51"
+    proxied: true
+
+  - name: dev.lux.network
+    type: A
+    content: "209.38.7.201"
+    proxied: true
+
+  - name: devnet.lux.network
+    type: A
+    content: "209.38.7.201"
+    proxied: true
+
+  - name: test.lux.network
+    type: A
+    content: "146.190.1.172"
+    proxied: true
+
+  - name: testnet.lux.network
+    type: A
+    content: "146.190.1.172"
+    proxied: true
+
+  - name: mail.lux.network
+    type: CNAME
+    content: lux.network
+    proxied: true
+
+# ============================================================
+# Apex Domain (GitHub Pages)
+# ============================================================
+  - name: lux.network
+    type: A
+    content: "185.199.108.153"
+    proxied: false
+
+  - name: lux.network
+    type: A
+    content: "185.199.109.153"
+    proxied: false
+
+  - name: lux.network
+    type: A
+    content: "185.199.110.153"
+    proxied: false
+
+  - name: lux.network
+    type: A
+    content: "185.199.111.153"
+    proxied: false

@@ -1,0 +1,115 @@
+# pars-network.yaml — Cloudflare zone config for pars.network
+# Zone ID: 83fa188f7872fba1077981000498ea42
+# Source of truth for pars.network DNS records
+# Last synced: 2026-03-12
+---
+zone: pars.network
+zone_id: "83fa188f7872fba1077981000498ea42"
+
+records:
+  ###########################################################################
+  # Apex Domain (GitHub Pages - Pars website)
+  ###########################################################################
+  - type: A
+    name: "@"
+    content: "185.199.108.153"
+    proxied: true
+  - type: A
+    name: "@"
+    content: "185.199.109.153"
+    proxied: true
+  - type: A
+    name: "@"
+    content: "185.199.110.153"
+    proxied: true
+  - type: A
+    name: "@"
+    content: "185.199.111.153"
+    proxied: true
+
+  ###########################################################################
+  # Lux Infrastructure (DNS-only -> lux-k8s LB 134.199.138.27)
+  ###########################################################################
+  - type: A
+    name: explore
+    content: "134.199.138.27"
+    proxied: false
+    comment: "Pars explorer frontend (lux-k8s Traefik)"
+
+  - type: A
+    name: api-explore
+    content: "134.199.138.27"
+    proxied: false
+    comment: "Pars explorer API backend (lux-k8s Traefik)"
+
+  - type: A
+    name: bridge
+    content: "134.199.138.27"
+    proxied: false
+    comment: "Bridge UI"
+
+  - type: A
+    name: mpc-api
+    content: "134.199.138.27"
+    proxied: false
+    comment: "MPC API"
+
+  - type: A
+    name: iam
+    content: "134.199.138.27"
+    proxied: false
+    comment: "IAM service"
+
+  - type: A
+    name: cloud-api
+    content: "134.199.138.27"
+    proxied: false
+    comment: "Cloud API"
+
+  ###########################################################################
+  # CNAME Aliases
+  ###########################################################################
+  - type: CNAME
+    name: explorer
+    content: explore.pars.network
+    proxied: true
+    comment: "Legacy alias for explore.pars.network"
+
+  - type: CNAME
+    name: pips
+    content: parsdao.github.io
+    proxied: true
+    comment: "Pars Improvement Proposals (GitHub Pages)"
+
+  ###########################################################################
+  # CDN
+  ###########################################################################
+  - type: AAAA
+    name: cdn
+    content: "100::"
+    proxied: true
+    comment: "Cloudflare CDN endpoint"
+
+  ###########################################################################
+  # Status Page
+  ###########################################################################
+  - type: A
+    name: status
+    content: "24.199.77.209"
+    proxied: true
+    comment: "Status page (DO droplet)"
+
+  ###########################################################################
+  # ACME Challenge (Traefik TLS)
+  ###########################################################################
+  - type: TXT
+    name: _acme-challenge.explore
+    content: "zW6uFdOx69GFDJl0dhqwpX79lvyxQbw6WMRumhGeT9E"
+    ttl: 120
+    comment: "Traefik ACME DNS challenge for explore.pars.network"
+
+  - type: TXT
+    name: _acme-challenge.api-explore
+    content: "nJk82FDsnjCw28hqhVmgIRsvw_6Y5yC2cYhXOhuT2Tk"
+    ttl: 120
+    comment: "Traefik ACME DNS challenge for api-explore.pars.network"

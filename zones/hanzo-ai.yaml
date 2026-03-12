@@ -1,0 +1,287 @@
+###############################################################################
+# DNS Configuration: hanzo.ai zone
+# Cloudflare Zone ID: bac51c3900e73fd28aa75a59898bcee0
+# Last updated: 2026-03-12
+###############################################################################
+---
+records:
+  - name: *.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: admin.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: api-explore.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api.cloud.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api.web3.hanzo.ai
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: app.insights.hanzo.ai
+    type: CNAME
+    content: "app-insights-redirect.pages.dev"
+    proxied: true
+
+  - name: auth.hanzo.ai
+    type: CNAME
+    content: "hanzo-id.pages.dev"
+    proxied: true
+
+  - name: bridge-dev.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: bridge.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: captable.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: cdn.hanzo.ai
+    type: AAAA
+    content: "100::"
+    proxied: true
+
+  - name: cloud-dev.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: commerce-admin.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: commerce-api.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: commerce.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: dataroom.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: dev.hanzo.ai
+    type: CNAME
+    content: "dev-docs-22b.pages.dev"
+    proxied: true
+
+  - name: docs-insights.hanzo.ai
+    type: CNAME
+    content: "insights-docs.pages.dev"
+    proxied: true
+
+  - name: docs.hanzo.ai
+    type: CNAME
+    content: "hanzo-docs.pages.dev"
+    proxied: true
+
+  - name: download.hanzo.ai
+    type: CNAME
+    content: "public.r2.dev"
+    proxied: true
+
+  - name: edge.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: false
+
+  - name: engine.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: false
+
+  - name: erp.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: explore.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explorer.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: faucet.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - name: gallery.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - name: hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - name: hanzo.ai
+    type: MX
+    content: "alt2.aspmx.l.google.com"
+    proxied: false
+
+  - name: hanzo.ai
+    type: MX
+    content: "alt1.aspmx.l.google.com"
+    proxied: false
+
+  - name: hanzo.ai
+    type: MX
+    content: "alt4.aspmx.l.google.com"
+    proxied: false
+
+  - name: hanzo.ai
+    type: MX
+    content: "alt3.aspmx.l.google.com"
+    proxied: false
+
+  - name: hanzo.ai
+    type: MX
+    content: "aspmx.l.google.com"
+    proxied: false
+
+  - name: help.hanzo.ai
+    type: CNAME
+    content: "reamaze.lida.clearalias.com"
+    proxied: true
+
+  - name: hips.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - name: iam-dev.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: iam.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: identity.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - name: kratom.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: mail.hanzo.ai
+    type: A
+    content: "165.227.92.111"
+    proxied: false
+
+  - name: operative-app.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: operative-vnc.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: operative.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: papers.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: false
+
+  - name: pay.hanzo.ai
+    type: A
+    content: "3.33.255.208"
+    proxied: false
+
+  - name: sign.hanzo.ai
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: staging.platform.hanzo.ai
+    type: A
+    content: "165.227.92.111"
+    proxied: false
+
+  - name: store.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - name: team.hanzo.ai
+    type: CNAME
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - name: ui.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - name: web3.hanzo.ai
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: ws.web3.hanzo.ai
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: www.hanzo.ai
+    type: CNAME
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - name: zap.hanzo.ai
+    type: A
+    content: "64.225.88.110"
+    proxied: false
+
+  - name: zen-live.hanzo.ai
+    type: CNAME
+    content: "814d5cd2-0a53-4408-9dae-002bfc8eeb15.cfargotunnel.com"
+    proxied: true
+
+  - name: zerotrust.hanzo.ai
+    type: CNAME
+    content: "zt-docs.pages.dev"
+    proxied: true
+

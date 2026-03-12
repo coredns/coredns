@@ -1,0 +1,292 @@
+###############################################################################
+# DNS Configuration: zoo.ngo zone
+# Cloudflare Zone ID: 9c6372f69d53e64bc2ba21b96263fceb
+# Last updated: 2026-03-12
+###############################################################################
+---
+records:
+  - name: ai.zoo.ngo
+    type: CNAME
+    content: "zooai-chat.pages.dev"
+    proxied: true
+
+  - name: api-explore.zoo.ngo
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: api-test.zoo.ngo
+    type: A
+    content: "34.22.245.55"
+    proxied: false
+
+  - name: api.explore-test.zoo.ngo
+    type: A
+    content: "34.22.245.55"
+    proxied: false
+
+  - name: api.explore.zoo.ngo
+    type: A
+    content: "34.22.248.74"
+    proxied: false
+
+  - name: api.web3.zoo.ngo
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: api.zoo.ngo
+    type: A
+    content: "34.22.248.74"
+    proxied: false
+
+  - name: auth.zoo.ngo
+    type: A
+    content: "143.198.158.137"
+    proxied: true
+
+  - name: auth.zoo.ngo
+    type: A
+    content: "137.184.2.107"
+    proxied: true
+
+  - name: auth.zoo.ngo
+    type: A
+    content: "209.38.69.69"
+    proxied: true
+
+  - name: auth.zoo.ngo
+    type: A
+    content: "209.38.68.66"
+    proxied: true
+
+  - name: auth.zoo.ngo
+    type: A
+    content: "165.232.146.176"
+    proxied: true
+
+  - name: auth.zoo.ngo
+    type: A
+    content: "146.190.121.87"
+    proxied: true
+
+  - name: blog.zoo.ngo
+    type: CNAME
+    content: "zoo-blog.pages.dev"
+    proxied: true
+
+  - name: bridge.zoo.ngo
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: cdn.zoo.ngo
+    type: AAAA
+    content: "100::"
+    proxied: true
+
+  - name: chat.zoo.ngo
+    type: CNAME
+    content: "zooai-chat.pages.dev"
+    proxied: true
+
+  - name: donate.zoo.ngo
+    type: CNAME
+    content: "hosted-checkout.stripecdn.com"
+    proxied: false
+
+  - name: download.zoo.ngo
+    type: CNAME
+    content: "public.r2.dev"
+    proxied: true
+
+  - name: explore-test.zoo.ngo
+    type: A
+    content: "34.22.245.55"
+    proxied: false
+
+  - name: explore.zoo.ngo
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: explorer.zoo.ngo
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: foundation.zoo.ngo
+    type: CNAME
+    content: "zoo-apps.github.io"
+    proxied: false
+
+  - name: gym.zoo.ngo
+    type: CNAME
+    content: "zooai.github.io"
+    proxied: false
+
+  - name: kms.zoo.ngo
+    type: A
+    content: "134.199.138.27"
+    proxied: false
+
+  - name: papers.zoo.ngo
+    type: CNAME
+    content: "zooai.github.io"
+    proxied: false
+
+  - name: s3.zoo.ngo
+    type: A
+    content: "143.198.158.137"
+    proxied: true
+
+  - name: s3.zoo.ngo
+    type: A
+    content: "137.184.2.107"
+    proxied: true
+
+  - name: s3.zoo.ngo
+    type: A
+    content: "209.38.69.69"
+    proxied: true
+
+  - name: s3.zoo.ngo
+    type: A
+    content: "209.38.68.66"
+    proxied: true
+
+  - name: s3.zoo.ngo
+    type: A
+    content: "165.232.146.176"
+    proxied: true
+
+  - name: s3.zoo.ngo
+    type: A
+    content: "146.190.121.87"
+    proxied: true
+
+  - name: sig.explore-test.zoo.ngo
+    type: A
+    content: "34.22.245.55"
+    proxied: false
+
+  - name: sig.explore.zoo.ngo
+    type: A
+    content: "34.22.248.74"
+    proxied: false
+
+  - name: stats.explore-test.zoo.ngo
+    type: A
+    content: "34.22.245.55"
+    proxied: false
+
+  - name: stats.explore.zoo.ngo
+    type: A
+    content: "34.22.248.74"
+    proxied: false
+
+  - name: ui.zoo.ngo
+    type: CNAME
+    content: "zoo-labs.github.io"
+    proxied: false
+
+  - name: viz.explore-test.zoo.ngo
+    type: A
+    content: "34.22.245.55"
+    proxied: false
+
+  - name: viz.explore.zoo.ngo
+    type: A
+    content: "34.22.248.74"
+    proxied: false
+
+  - name: vote.zoo.ngo
+    type: CNAME
+    content: "zoo-apps.github.io"
+    proxied: false
+
+  - name: web3.zoo.ngo
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: ws.web3.zoo.ngo
+    type: A
+    content: "134.199.136.205"
+    proxied: false
+
+  - name: www.zoo.ngo
+    type: CNAME
+    content: "zoo-apps.github.io"
+    proxied: false
+
+  - name: zips.zoo.ngo
+    type: CNAME
+    content: "zooai.github.io"
+    proxied: true
+
+  - name: zoo.ngo
+    type: A
+    content: "185.199.111.153"
+    proxied: false
+
+  - name: zoo.ngo
+    type: A
+    content: "185.199.110.153"
+    proxied: false
+
+  - name: zoo.ngo
+    type: A
+    content: "185.199.109.153"
+    proxied: false
+
+  - name: zoo.ngo
+    type: A
+    content: "185.199.108.153"
+    proxied: false
+
+  - name: zoo.ngo
+    type: AAAA
+    content: "2606:50c0:8003::153"
+    proxied: false
+
+  - name: zoo.ngo
+    type: AAAA
+    content: "2606:50c0:8001::153"
+    proxied: false
+
+  - name: zoo.ngo
+    type: AAAA
+    content: "2606:50c0:8000::153"
+    proxied: false
+
+  - name: zoo.ngo
+    type: AAAA
+    content: "2606:50c0:8002::153"
+    proxied: false
+
+  - name: zoo.ngo
+    type: MX
+    content: "alt3.aspmx.l.google.com"
+    proxied: false
+
+  - name: zoo.ngo
+    type: MX
+    content: "aspmx.l.google.com"
+    proxied: false
+
+  - name: zoo.ngo
+    type: MX
+    content: "alt1.aspmx.l.google.com"
+    proxied: false
+
+  - name: zoo.ngo
+    type: MX
+    content: "alt2.aspmx.l.google.com"
+    proxied: false
+
+  - name: zoo.ngo
+    type: MX
+    content: "alt4.aspmx.l.google.com"
+    proxied: false
+
