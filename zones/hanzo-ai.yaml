@@ -1,287 +1,473 @@
-###############################################################################
-# DNS Configuration: hanzo.ai zone
-# Cloudflare Zone ID: bac51c3900e73fd28aa75a59898bcee0
-# Last updated: 2026-03-12
-###############################################################################
+# hanzo-ai.yaml — Cloudflare zone config for hanzo.ai
+# Zone ID: bac51c3900e73fd28aa75a59898bcee0
+# Source of truth for hanzo.ai DNS records
+# Last synced: 2026-03-12
 ---
+zone: hanzo.ai
+zone_id: "bac51c3900e73fd28aa75a59898bcee0"
+
 records:
-  - name: *.hanzo.ai
-    type: A
+  - type: A
+    name: "*"
     content: "134.199.138.27"
     proxied: false
 
-  - name: admin.hanzo.ai
-    type: CNAME
-    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
-    proxied: true
-
-  - name: api-explore.hanzo.ai
-    type: A
+  - type: A
+    name: api-explore
     content: "134.199.138.27"
     proxied: false
 
-  - name: api.cloud.hanzo.ai
-    type: A
+  - type: A
+    name: api.cloud
     content: "134.199.138.27"
     proxied: false
 
-  - name: api.web3.hanzo.ai
-    type: A
+  - type: A
+    name: api.web3
     content: "134.199.136.205"
     proxied: false
+    ttl: 300
 
-  - name: app.insights.hanzo.ai
-    type: CNAME
-    content: "app-insights-redirect.pages.dev"
-    proxied: true
-
-  - name: auth.hanzo.ai
-    type: CNAME
-    content: "hanzo-id.pages.dev"
-    proxied: true
-
-  - name: bridge-dev.hanzo.ai
-    type: CNAME
-    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
-    proxied: true
-
-  - name: bridge.hanzo.ai
-    type: A
+  - type: A
+    name: bridge
     content: "134.199.138.27"
     proxied: false
 
-  - name: captable.hanzo.ai
-    type: A
+  - type: A
+    name: captable
     content: "134.199.138.27"
     proxied: false
 
-  - name: cdn.hanzo.ai
-    type: AAAA
-    content: "100::"
-    proxied: true
-
-  - name: cloud-dev.hanzo.ai
-    type: CNAME
-    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
-    proxied: true
-
-  - name: commerce-admin.hanzo.ai
-    type: A
+  - type: A
+    name: commerce-admin
     content: "134.199.138.27"
     proxied: false
 
-  - name: commerce-api.hanzo.ai
-    type: A
+  - type: A
+    name: commerce-api
     content: "134.199.138.27"
     proxied: false
 
-  - name: commerce.hanzo.ai
-    type: A
+  - type: A
+    name: commerce
     content: "134.199.138.27"
     proxied: false
 
-  - name: dataroom.hanzo.ai
-    type: A
+  - type: A
+    name: dataroom
     content: "134.199.138.27"
     proxied: false
 
-  - name: dev.hanzo.ai
-    type: CNAME
-    content: "dev-docs-22b.pages.dev"
-    proxied: true
-
-  - name: docs-insights.hanzo.ai
-    type: CNAME
-    content: "insights-docs.pages.dev"
-    proxied: true
-
-  - name: docs.hanzo.ai
-    type: CNAME
-    content: "hanzo-docs.pages.dev"
-    proxied: true
-
-  - name: download.hanzo.ai
-    type: CNAME
-    content: "public.r2.dev"
-    proxied: true
-
-  - name: edge.hanzo.ai
-    type: CNAME
-    content: "hanzoai.github.io"
-    proxied: false
-
-  - name: engine.hanzo.ai
-    type: CNAME
-    content: "hanzoai.github.io"
-    proxied: false
-
-  - name: erp.hanzo.ai
-    type: CNAME
-    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
-    proxied: true
-
-  - name: explore.hanzo.ai
-    type: A
+  - type: A
+    name: explore
     content: "134.199.138.27"
     proxied: false
 
-  - name: explorer.hanzo.ai
-    type: A
+  - type: A
+    name: explorer
     content: "134.199.138.27"
     proxied: false
 
-  - name: faucet.hanzo.ai
-    type: CNAME
-    content: "hanzoai.github.io"
-    proxied: true
-
-  - name: gallery.hanzo.ai
-    type: CNAME
-    content: "hanzoai.github.io"
-    proxied: true
-
-  - name: hanzo.ai
-    type: CNAME
-    content: "hanzoai.github.io"
-    proxied: true
-
-  - name: hanzo.ai
-    type: MX
-    content: "alt2.aspmx.l.google.com"
-    proxied: false
-
-  - name: hanzo.ai
-    type: MX
-    content: "alt1.aspmx.l.google.com"
-    proxied: false
-
-  - name: hanzo.ai
-    type: MX
-    content: "alt4.aspmx.l.google.com"
-    proxied: false
-
-  - name: hanzo.ai
-    type: MX
-    content: "alt3.aspmx.l.google.com"
-    proxied: false
-
-  - name: hanzo.ai
-    type: MX
-    content: "aspmx.l.google.com"
-    proxied: false
-
-  - name: help.hanzo.ai
-    type: CNAME
-    content: "reamaze.lida.clearalias.com"
-    proxied: true
-
-  - name: hips.hanzo.ai
-    type: CNAME
-    content: "hanzoai.github.io"
-    proxied: true
-
-  - name: iam-dev.hanzo.ai
-    type: CNAME
-    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
-    proxied: true
-
-  - name: iam.hanzo.ai
-    type: A
+  - type: A
+    name: iam
     content: "134.199.138.27"
     proxied: false
 
-  - name: identity.hanzo.ai
-    type: CNAME
-    content: "hanzoai.github.io"
-    proxied: true
-
-  - name: kratom.hanzo.ai
-    type: CNAME
-    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
-    proxied: true
-
-  - name: mail.hanzo.ai
-    type: A
+  - type: A
+    name: mail
     content: "165.227.92.111"
     proxied: false
 
-  - name: operative-app.hanzo.ai
-    type: CNAME
-    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
-    proxied: true
-
-  - name: operative-vnc.hanzo.ai
-    type: CNAME
-    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
-    proxied: true
-
-  - name: operative.hanzo.ai
-    type: CNAME
-    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
-    proxied: true
-
-  - name: papers.hanzo.ai
-    type: CNAME
-    content: "hanzoai.github.io"
-    proxied: false
-
-  - name: pay.hanzo.ai
-    type: A
+  - type: A
+    name: pay
     content: "3.33.255.208"
     proxied: false
 
-  - name: sign.hanzo.ai
-    type: A
+  - type: A
+    name: sign
     content: "134.199.138.27"
     proxied: false
 
-  - name: staging.platform.hanzo.ai
-    type: A
+  - type: A
+    name: staging.platform
     content: "165.227.92.111"
     proxied: false
 
-  - name: store.hanzo.ai
-    type: CNAME
-    content: "hanzoai.github.io"
+  - type: A
+    name: web3
+    content: "134.199.136.205"
+    proxied: false
+    ttl: 300
+
+  - type: A
+    name: ws.web3
+    content: "134.199.136.205"
+    proxied: false
+    ttl: 300
+
+  - type: A
+    name: zap
+    content: "64.225.88.110"
+    proxied: false
+    ttl: 60
+
+  - type: AAAA
+    name: cdn
+    content: "100::"
     proxied: true
 
-  - name: team.hanzo.ai
-    type: CNAME
+  - type: CNAME
+    name: admin
     content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
     proxied: true
 
-  - name: ui.hanzo.ai
-    type: CNAME
+  - type: CNAME
+    name: app.insights
+    content: "app-insights-redirect.pages.dev"
+    proxied: true
+
+  - type: CNAME
+    name: auth
+    content: "hanzo-id.pages.dev"
+    proxied: true
+
+  - type: CNAME
+    name: bridge-dev
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - type: CNAME
+    name: cloud-dev
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - type: CNAME
+    name: dev
+    content: "dev-docs-22b.pages.dev"
+    proxied: true
+
+  - type: CNAME
+    name: docs-insights
+    content: "insights-docs.pages.dev"
+    proxied: true
+
+  - type: CNAME
+    name: docs
+    content: "hanzo-docs.pages.dev"
+    proxied: true
+
+  - type: CNAME
+    name: download
+    content: "public.r2.dev"
+    proxied: true
+
+  - type: CNAME
+    name: edge
+    content: "hanzoai.github.io"
+    proxied: false
+
+  - type: CNAME
+    name: engine
+    content: "hanzoai.github.io"
+    proxied: false
+
+  - type: CNAME
+    name: erp
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - type: CNAME
+    name: faucet
     content: "hanzoai.github.io"
     proxied: true
 
-  - name: web3.hanzo.ai
-    type: A
-    content: "134.199.136.205"
-    proxied: false
-
-  - name: ws.web3.hanzo.ai
-    type: A
-    content: "134.199.136.205"
-    proxied: false
-
-  - name: www.hanzo.ai
-    type: CNAME
+  - type: CNAME
+    name: gallery
     content: "hanzoai.github.io"
     proxied: true
 
-  - name: zap.hanzo.ai
-    type: A
-    content: "64.225.88.110"
+  - type: CNAME
+    name: "@"
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - type: CNAME
+    name: help
+    content: "reamaze.lida.clearalias.com"
+    proxied: true
+
+  - type: CNAME
+    name: hips
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - type: CNAME
+    name: iam-dev
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - type: CNAME
+    name: identity
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - type: CNAME
+    name: kratom
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - type: CNAME
+    name: operative-app
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - type: CNAME
+    name: operative-vnc
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - type: CNAME
+    name: operative
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - type: CNAME
+    name: papers
+    content: "hanzoai.github.io"
     proxied: false
 
-  - name: zen-live.hanzo.ai
-    type: CNAME
+  - type: CNAME
+    name: store
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - type: CNAME
+    name: team
+    content: "59ec23c3-bd7b-4648-9b9e-89ed68c03456.cfargotunnel.com"
+    proxied: true
+
+  - type: CNAME
+    name: ui
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - type: CNAME
+    name: www
+    content: "hanzoai.github.io"
+    proxied: true
+
+  - type: CNAME
+    name: zen-live
     content: "814d5cd2-0a53-4408-9dae-002bfc8eeb15.cfargotunnel.com"
     proxied: true
 
-  - name: zerotrust.hanzo.ai
-    type: CNAME
+  - type: CNAME
+    name: zerotrust
     content: "zt-docs.pages.dev"
     proxied: true
 
+  - type: MX
+    name: "@"
+    content: "alt2.aspmx.l.google.com"
+
+  - type: MX
+    name: "@"
+    content: "alt1.aspmx.l.google.com"
+
+  - type: MX
+    name: "@"
+    content: "alt4.aspmx.l.google.com"
+
+  - type: MX
+    name: "@"
+    content: "alt3.aspmx.l.google.com"
+
+  - type: MX
+    name: "@"
+    content: "aspmx.l.google.com"
+
+  - type: TXT
+    name: "_acme-challenge.api-explore"
+    content: '3H6dqcZgiyPrWhsFLT19lWhpOJekzsnoiVBPXkqWahg'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.api.commerce"
+    content: 'z7_FH-mUDrccAhXoSnxkzczN7Iut5o897nh8SZXsRuI'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.auto"
+    content: 'qDq09FgEz82YfCpAuLBx7aKNM7QaWdg-FE7Ieg41aVo'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.auto"
+    content: '_wfO8zOwmuF5p6LdPV_Wjdm3GFZBvmuX_vJdz3SvkSA'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.billing"
+    content: '5IvdcWKZ5jgYanMGTqcF7T-Zyqx8dREOUzv7-eVDe2M'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.bot"
+    content: 'TYkw9JiavxXla6UwZc1pf7RH11ygb6i91WIG6WE5REo'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.chat"
+    content: '5P9nS980bclqHHd7yrtYawUwAACWhTijbXiBlaOwRUw'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.chat"
+    content: 'fQgfc4SK8KEpom_IZZ3dHmcjJBu3JoXrKUHM2_Dt2aA'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.cloud-api"
+    content: 'kTce9_UZdYstA3abqK_Obt0e5VMO98OBAHK7PMV38uY'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.cloud"
+    content: 'lUEHSJ8bqXq6xbiJn_jXAZwJ-VP7N5maXsPqJ5-jv8k'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.commerce"
+    content: 'Q7wuxz5gMT2N1ETL8bTD48Idlc-jYlilFTy1oapvzP4'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.explore"
+    content: 'lXiPeoaDCvQNEq9mSh9EoWLlrKfFPGMAm1mQstGjTG4'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.explore"
+    content: 'yOIRJLUQczAoVEmEBew6psvvzVOHaDUgb1DjAoTxgW0'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.flow"
+    content: 'yLK_MikMoPDYgl8ihNTt73EIpQyHTCAXwVHQ7A0xQ-c'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.iam"
+    content: 'QmOZLpYmiioPEQttxlq_oemj0vwiXAVcew-itQ3SiNI'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.iam"
+    content: 'UsNSscWdpl6eGnCCB2P5YMXB49O1i_3ORbr9Z6jatCM'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.kms"
+    content: 'gSVHiK8c5rKaQSLeNKUYyvJQkhsvGJv8Tv8GhMuYtQU'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.mpc"
+    content: 'tXPqsQdko6BC3Fb5x1qTB-3wv4mXJlLMsfZM1MpwImM'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.mpc"
+    content: 'Cwm2y_luBanU0wGIp6E394gb3bN8wMItyLgaDERaFzM'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.oauth.platform"
+    content: 'p_bCew2oKaqiQxVxpIUrZG3BAaBcGOhnhagWD2byqT0'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.orm"
+    content: 'gTS81MAqEFUIBm1JbjzZDHCNidVaJ1rk8XPnFsY_hkQ'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.platform"
+    content: 'uFLNwhtDvnFtSs972oFA48WuMsm7a6remkzPzb8wksk'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.registry"
+    content: 'EX-3VdiNFWHC4mmFZdsI8SfMQgrX2l6dJQ6R3VuazzE'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.status"
+    content: '4T4fJ2_ywFdM9H7UyEnLpvdM2c4bHdPGP-UeAq2BRj8'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.studio"
+    content: 'XjkmYWfUgHW0RlUldGNfhaNsaU-HpLS9bKwQxuhZb4s'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.sync.platform"
+    content: 'SmO5kPc-1_E5tMI124P_yctgwR8c39byzdXr7lFp2HE'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.vm"
+    content: '_gZn_k8e0i7r7lVpUAcSCOEKU-DHG42iuGG4uXAltF0'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.webhook.platform"
+    content: '6YyloVIg9rcyUASdmzX_jmwNtx_06bzFdkFqdS-K3Mc'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.webhook.platform"
+    content: 'FVsBpkqKl9NAkb6SqyCfwHj4KNGk24Rc75punT4bwKY'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.webhook.platform"
+    content: 'H5iNB21zeu6l2rp7AAxmVGSRWAVcIJbfGOsdMAKx07k'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.zen"
+    content: '_esZYUdXThCe62B6HTKcbZ6NoG9gLZs2VHbVjbld-Ws'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.zt-api"
+    content: '0KqL12ChGXgylLvyYDHHZOrrlvpn_WRaKBF8a-4WHXQ'
+    ttl: 120
+
+  - type: TXT
+    name: "_acme-challenge.zt-api"
+    content: 'bJqU-glRv7xrTc9NSZWQmWFrTYwn8CpMd0i8O1Hvsr4'
+    ttl: 120
+
+  - type: TXT
+    name: "_dmarc"
+    content: 'v=DMARC1;  p=none; rua=mailto:6f9245e396ee4b4d935c58361d31ebf6@dmarc-reports.cloudflare.net'
+
+  - type: TXT
+    name: "_vercel"
+    content: 'vc-domain-verify=search.hanzo.ai,9a65aea280c25bf37d48,dc'
+    ttl: 600
+
+  - type: TXT
+    name: google._domainkey
+    content: 'v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqcjNmDBzdQmkkOkZ84I6Wp9V3T086IypNalxJzj98fxc2lE8ryuTPmI7YbOa69G2WZ0biX9BLUB3o3USC69hLKFRuM1os22LhJu9P3cbC43AXOKz/XVob8LpzV6DBnIjkK5bV5wIwpPlXCyOsdOkyZMZcU2n8LSLf2CovQ83jVs8vEuTU9gxPK/oiIPFwuA6f" "6hTaJ9ot1FU3bCfQWmstCtaKl+61DA4MaBfzTpdFFNdfxC+hJXfERDl5efAwM6M3/FI6RyPExRpAna5YtAJqo3yj4zazB6I6wdA+Cpsh3yEiZ1fdQV4yjmkulaBaV0pTNn5pXYVl22Q6iRaejJYhwIDAQAB'
+
+  - type: TXT
+    name: "@"
+    content: 'v=spf1 include:_spf.google.com ~all'
+
+  - type: TXT
+    name: "@"
+    content: 'google-site-verification=P4wQKqy1Ec4f0rYdYQlFMH899dUYIMTzCN3ZaCUDTwU'
