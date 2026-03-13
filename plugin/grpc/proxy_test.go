@@ -52,7 +52,17 @@ func TestProxy(t *testing.T) {
 			} else {
 				mock = &testServiceClient{nil, errors.New("server error")}
 			}
-			tt.p.client = mock
+			// Update proxy with mock transport
+			tt.p.transport = &grpcTransport{
+				addr:      "test",
+				poolSize:  1,
+				stop:      make(chan struct{}),
+				done:      make(chan struct{}),
+				proxyName: "grpc",
+			}
+			tt.p.transport.connList.Store(&connList{conns: []*grpcConn{{client: mock}}})
+			tt.p.transport.Start()
+			defer tt.p.transport.Stop()
 
 			_, err := tt.p.query(context.TODO(), new(dns.Msg))
 			if err != nil && !tt.wantErr {
@@ -63,9 +73,11 @@ func TestProxy(t *testing.T) {
 }
 
 func TestProxy_RejectsOversizedReply(t *testing.T) {
-	p := &Proxy{}
 	oversized := make([]byte, maxDNSMessageBytes+1)
-	p.client = testServiceClient{dnsPacket: &pb.DnsPacket{Msg: oversized}, err: nil}
+	mock := testServiceClient{dnsPacket: &pb.DnsPacket{Msg: oversized}, err: nil}
+	p := newTestProxy("test", mock)
+	defer p.transport.Stop()
+
 	_, err := p.query(context.TODO(), new(dns.Msg))
 	if !errors.Is(err, ErrDNSMessageTooLarge) {
 		t.Fatalf("expected %v, got %v", ErrDNSMessageTooLarge, err)
@@ -73,8 +85,9 @@ func TestProxy_RejectsOversizedReply(t *testing.T) {
 }
 
 func TestProxy_RejectsOversizedRequest(t *testing.T) {
-	p := &Proxy{}
-	p.client = testServiceClient{dnsPacket: &pb.DnsPacket{Msg: []byte("ok")}, err: nil}
+	mock := testServiceClient{dnsPacket: &pb.DnsPacket{Msg: []byte("ok")}, err: nil}
+	p := newTestProxy("test", mock)
+	defer p.transport.Stop()
 
 	oversizedMsg := &dns.Msg{}
 	oversizedMsg.SetQuestion("example.org.", dns.TypeA)
@@ -120,6 +133,12 @@ func TestProxyUnix(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create forwarder: %s", err)
 	}
+
+	// Start the transports (this would normally be done by OnStartup)
+	if err := g.OnStartup(); err != nil {
+		t.Fatalf("Failed to start: %s", err)
+	}
+	defer g.OnShutdown()
 
 	m := new(dns.Msg)
 	m.SetQuestion("example.org.", dns.TypeA)
