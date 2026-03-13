@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,47 +16,64 @@ import (
 
 	publicdns "github.com/Azure/azure-sdk-for-go/profiles/latest/dns/mgmt/dns"
 	privatedns "github.com/Azure/azure-sdk-for-go/profiles/latest/privatedns/mgmt/privatedns"
+	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/miekg/dns"
 )
 
 type zone struct {
-	id      string
-	z       *file.Zone
-	zone    string
-	private bool
+	id            string
+	z             *file.Zone
+	zone          string
+	subscription  string
+	publicClient  publicdns.RecordSetsClient
+	privateClient privatedns.RecordSetsClient
+	private       bool
 }
 
 type zones map[string][]*zone
 
 // Azure is the core struct of the azure plugin.
 type Azure struct {
-	zoneNames     []string
-	publicClient  publicdns.RecordSetsClient
-	privateClient privatedns.RecordSetsClient
-	upstream      *upstream.Upstream
-	zMu           sync.RWMutex
-	zones         zones
+	zoneNames []string
+	upstream  *upstream.Upstream
+	zMu       sync.RWMutex
+	zones     zones
 
 	Next plugin.Handler
 	Fall fall.F
 }
 
 // New validates the input DNS zones and initializes the Azure struct.
-func New(ctx context.Context, publicClient publicdns.RecordSetsClient, privateClient privatedns.RecordSetsClient, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
+func New(ctx context.Context, env auth.EnvironmentSettings, keys map[string][]string, accessMap map[string]string) (*Azure, error) {
 	zones := make(map[string][]*zone, len(keys))
 	names := make([]string, 0, len(keys))
 	var private bool
 
-	for resourceGroup, znames := range keys {
+	for subResourceGroup, znames := range keys {
+		azureIds := strings.Split(subResourceGroup, "/")
+		subscription := azureIds[0]
+		resourceGroup := azureIds[1]
+		var err error
+
 		for _, name := range znames {
+			publicDNSClient := publicdns.NewRecordSetsClient(subscription)
+			if publicDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
+				return nil, plugin.Error("azure", err)
+			}
+
+			privateDNSClient := privatedns.NewRecordSetsClient(subscription)
+			if privateDNSClient.Authorizer, err = env.GetAuthorizer(); err != nil {
+				return nil, plugin.Error("azure", err)
+			}
+
 			switch accessMap[resourceGroup+name] {
 			case "public":
-				if _, err := publicClient.ListAllByDNSZone(context.Background(), resourceGroup, name, nil, ""); err != nil {
+				if _, err := publicDNSClient.ListAllByDNSZone(context.Background(), resourceGroup, name, nil, ""); err != nil {
 					return nil, err
 				}
 				private = false
 			case "private":
-				if _, err := privateClient.ListComplete(context.Background(), resourceGroup, name, nil, ""); err != nil {
+				if _, err := privateDNSClient.ListComplete(context.Background(), resourceGroup, name, nil, ""); err != nil {
 					return nil, err
 				}
 				private = true
@@ -65,16 +83,14 @@ func New(ctx context.Context, publicClient publicdns.RecordSetsClient, privateCl
 			if _, ok := zones[fqdn]; !ok {
 				names = append(names, fqdn)
 			}
-			zones[fqdn] = append(zones[fqdn], &zone{id: resourceGroup, zone: name, private: private, z: file.NewZone(fqdn, "")})
+			zones[fqdn] = append(zones[fqdn], &zone{subscription: subscription, publicClient: publicDNSClient, privateClient: privateDNSClient, id: resourceGroup, zone: name, private: private, z: file.NewZone(fqdn, "")})
 		}
 	}
 
 	return &Azure{
-		publicClient:  publicClient,
-		privateClient: privateClient,
-		zones:         zones,
-		zoneNames:     names,
-		upstream:      upstream.New(),
+		zones:     zones,
+		zoneNames: names,
+		upstream:  upstream.New(),
 	}, nil
 }
 
@@ -112,11 +128,11 @@ func (h *Azure) updateZones(ctx context.Context) error {
 		for i, hostedZone := range z {
 			newZ := file.NewZone(zName, "")
 			if hostedZone.private {
-				for privateSet, err = h.privateClient.List(ctx, hostedZone.id, hostedZone.zone, nil, ""); privateSet.NotDone(); err = privateSet.NextWithContext(ctx) {
+				for privateSet, err = hostedZone.privateClient.List(ctx, hostedZone.id, hostedZone.zone, nil, ""); privateSet.NotDone(); err = privateSet.NextWithContext(ctx) {
 					updateZoneFromPrivateResourceSet(privateSet, newZ)
 				}
 			} else {
-				for publicSet, err = h.publicClient.ListByDNSZone(ctx, hostedZone.id, hostedZone.zone, nil, ""); publicSet.NotDone(); err = publicSet.NextWithContext(ctx) {
+				for publicSet, err = hostedZone.publicClient.ListByDNSZone(ctx, hostedZone.id, hostedZone.zone, nil, ""); publicSet.NotDone(); err = publicSet.NextWithContext(ctx) {
 					updateZoneFromPublicResourceSet(publicSet, newZ)
 				}
 			}
