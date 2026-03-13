@@ -16,10 +16,10 @@ CoreDNS is a [Cloud Native Computing Foundation](https://cncf.io) graduated proj
 
 CoreDNS is a fast and flexible DNS server. The key word here is *flexible*: with CoreDNS you
 are able to do what you want with your DNS data by utilizing plugins. If some functionality is not
-provided out of the box you can add it by [writing a plugin](https://coredns.io/explugins).
+provided out of the box, you can add it by [writing a plugin](https://coredns.io/explugins).
 
 CoreDNS can listen for DNS requests coming in over:
-* UDP/TCP (go'old DNS).
+* UDP/TCP (good old DNS).
 * TLS - DoT ([RFC 7858](https://tools.ietf.org/html/rfc7858)).
 * DNS over HTTP/2 - DoH ([RFC 8484](https://tools.ietf.org/html/rfc8484)).
 * DNS over HTTP/3 - DoH3
@@ -67,7 +67,7 @@ $ cd coredns
 $ make
 ~~~
 
-> **_NOTE:_**  extra plugins may be enabled when building by setting the `COREDNS_PLUGINS` environment variable with comma separate list of plugins in the same format as plugin.cfg
+> **_NOTE:_**  Extra plugins may be enabled when building by setting the `COREDNS_PLUGINS` environment variable with comma separate list of plugins in the same format as plugin.cfg
 
 This should yield a `coredns` binary.
 
@@ -225,7 +225,7 @@ IP addresses are also allowed. They are automatically converted to reverse zones
     whoami
 }
 ~~~
-Means you are authoritative for `0.0.10.in-addr.arpa.`.
+This Means you are authoritative for `0.0.10.in-addr.arpa.`.
 
 This also works for IPv6 addresses. If for some reason you want to serve a zone named `10.0.0.0/24`
 add the closing dot: `10.0.0.0/24.` as this also stops the conversion.
