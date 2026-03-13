@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -56,6 +57,14 @@ type Forward struct {
 	failoverRcodes             []int
 	maxConnectAttempts         uint32
 
+	// Hostname resolution fields
+	resolver        []string      // custom resolver IPs for hostname TO resolution
+	resolveInterval time.Duration // interval for background hostname re-resolution
+	hostEntries     []hostEntry   // hostname-based TO entries needing DNS resolution
+	staticCount     int           // number of static (IP-based) proxies at start of proxies slice
+	proxyMu         sync.RWMutex  // protects proxies slice for dynamic updates
+	stopResolve     chan struct{} // stop channel for background resolution goroutine
+
 	opts proxyPkg.Options // also here for testing
 
 	// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded
@@ -69,7 +78,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: proxyPkg.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, resolveInterval: defaultResolveInterval, p: new(random), from: ".", hcInterval: hcInterval, opts: proxyPkg.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
 	return f
 }
 
@@ -93,7 +102,11 @@ func (f *Forward) SetTapPlugin(tapPlugin *dnstap.Dnstap) {
 }
 
 // Len returns the number of configured proxies.
-func (f *Forward) Len() int { return len(f.proxies) }
+func (f *Forward) Len() int {
+	f.proxyMu.RLock()
+	defer f.proxyMu.RUnlock()
+	return len(f.proxies)
+}
 
 // Name implements plugin.Handler.
 func (f *Forward) Name() string { return "forward" }
@@ -135,7 +148,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		i++
 		if proxy.Down(f.maxfails) {
 			fails++
-			if fails < len(f.proxies) {
+			if fails < len(list) {
 				continue
 			}
 
@@ -205,7 +218,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				}
 			}
 
-			if fails < len(f.proxies) {
+			if fails < len(list) {
 				continue
 			}
 			break
@@ -226,7 +239,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		for _, failoverRcode := range f.failoverRcodes {
 			// if we match, we continue to the next upstream in the list
 			if failoverRcode == ret.Rcode {
-				if fails < len(f.proxies) {
+				if fails < len(list) {
 					tryNext = true
 				}
 			}
@@ -284,7 +297,12 @@ func (f *Forward) ForceTCP() bool { return f.opts.ForceTCP }
 func (f *Forward) PreferUDP() bool { return f.opts.PreferUDP }
 
 // List returns a set of proxies to be used for this client depending on the policy in f.
-func (f *Forward) List() []*proxyPkg.Proxy { return f.p.List(f.proxies) }
+func (f *Forward) List() []*proxyPkg.Proxy {
+	f.proxyMu.RLock()
+	proxies := f.proxies
+	f.proxyMu.RUnlock()
+	return f.p.List(proxies)
+}
 
 var (
 	// ErrNoHealthy means no healthy proxies left.

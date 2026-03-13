@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -74,11 +75,13 @@ func (f *Forward) OnStartup() (err error) {
 	for _, p := range f.proxies {
 		p.Start(f.hcInterval)
 	}
+	f.startResolveLoop()
 	return nil
 }
 
 // OnShutdown stops all configured proxies.
 func (f *Forward) OnShutdown() error {
+	f.stopResolveLoop()
 	for _, p := range f.proxies {
 		p.Stop()
 	}
@@ -146,11 +149,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		return f, c.ArgErr()
 	}
 
-	toHosts, err := parse.HostPortOrFile(to...)
-	if err != nil {
-		return f, err
-	}
-
+	// Parse block first to get resolver and other options before processing TO addresses.
 	for c.NextBlock() {
 		if err := parseBlock(c, f); err != nil {
 			return f, err
@@ -160,6 +159,29 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	if f.maxAge > 0 && f.maxAge < f.expire {
 		return f, fmt.Errorf("max_age (%s) must not be less than expire (%s)", f.maxAge, f.expire)
 	}
+
+	// Classify TO addresses: IPs/files are used directly, hostnames need resolution.
+	ipAddrs, hostnames, err := classifyToAddrs(to)
+	if err != nil {
+		return f, err
+	}
+	f.hostEntries = hostnames
+
+	// Resolve hostname entries to IPs (initial resolution).
+	var resolvedAddrs []string
+	if len(hostnames) > 0 {
+		resolvedAddrs, err = resolveHostEntries(hostnames, f.resolver)
+		if err != nil {
+			return f, err
+		}
+	}
+
+	// Combine static (IP/file) and resolved (hostname) addresses.
+	toHosts := append(ipAddrs, resolvedAddrs...)
+	if len(toHosts) == 0 {
+		return f, fmt.Errorf("no valid upstream addresses found")
+	}
+	f.staticCount = len(ipAddrs)
 
 	tlsServerNames := make([]string, len(toHosts))
 	perServerNameProxyCount := make(map[string]int)
@@ -419,6 +441,29 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 
 			f.failoverRcodes = append(f.failoverRcodes, rc)
 		}
+	case "resolver":
+		args := c.RemainingArgs()
+		if len(args) == 0 {
+			return c.ArgErr()
+		}
+		for _, arg := range args {
+			if net.ParseIP(arg) == nil {
+				return fmt.Errorf("resolver must be an IP address: %q", arg)
+			}
+		}
+		f.resolver = args
+	case "resolve_interval":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("resolve_interval can't be negative: %s", dur)
+		}
+		f.resolveInterval = dur
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}
