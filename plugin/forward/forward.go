@@ -60,8 +60,7 @@ type Forward struct {
 	// Hostname resolution fields
 	resolver        []string      // custom resolver IPs for hostname TO resolution
 	resolveInterval time.Duration // interval for background hostname re-resolution
-	hostEntries     []hostEntry   // hostname-based TO entries needing DNS resolution
-	staticCount     int           // number of static (IP-based) proxies at start of proxies slice
+	toEntries       []toEntry     // ordered TO entries preserving config order
 	proxyMu         sync.RWMutex  // protects proxies slice for dynamic updates
 	stopResolve     chan struct{} // stop channel for background resolution goroutine
 

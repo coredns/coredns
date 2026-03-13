@@ -25,63 +25,63 @@ func TestClassifyToAddrs(t *testing.T) {
 	defer os.Remove(resolv)
 
 	tests := []struct {
-		name          string
-		input         []string
-		wantIPs       int
-		wantHostnames int
-		wantErr       bool
-		errContains   string
+		name         string
+		input        []string
+		wantStatic   int
+		wantDynamic  int
+		wantErr      bool
+		errContains  string
 	}{
 		{
-			name:    "simple IP",
-			input:   []string{"127.0.0.1"},
-			wantIPs: 1,
+			name:       "simple IP",
+			input:      []string{"127.0.0.1"},
+			wantStatic: 1,
 		},
 		{
-			name:    "IP with port",
-			input:   []string{"127.0.0.1:8053"},
-			wantIPs: 1,
+			name:       "IP with port",
+			input:      []string{"127.0.0.1:8053"},
+			wantStatic: 1,
 		},
 		{
-			name:    "IPv6",
-			input:   []string{"::1"},
-			wantIPs: 1,
+			name:       "IPv6",
+			input:      []string{"::1"},
+			wantStatic: 1,
 		},
 		{
-			name:    "TLS IP",
-			input:   []string{"tls://127.0.0.1"},
-			wantIPs: 1,
+			name:       "TLS IP",
+			input:      []string{"tls://127.0.0.1"},
+			wantStatic: 1,
 		},
 		{
-			name:    "resolv.conf file",
-			input:   []string{resolv},
-			wantIPs: 1,
+			name:       "resolv.conf file",
+			input:      []string{resolv},
+			wantStatic: 1,
 		},
 		{
-			name:          "hostname",
-			input:         []string{"dns.example.com"},
-			wantHostnames: 1,
+			name:        "hostname",
+			input:       []string{"dns.example.com"},
+			wantDynamic: 1,
 		},
 		{
-			name:          "hostname with port",
-			input:         []string{"dns.example.com:5353"},
-			wantHostnames: 1,
+			name:        "hostname with port",
+			input:       []string{"dns.example.com:5353"},
+			wantDynamic: 1,
 		},
 		{
-			name:          "TLS hostname",
-			input:         []string{"tls://dns.example.com"},
-			wantHostnames: 1,
+			name:        "TLS hostname",
+			input:       []string{"tls://dns.example.com"},
+			wantDynamic: 1,
 		},
 		{
-			name:          "k8s service name",
-			input:         []string{"rbldnsd.rbldnsd.svc.cluster.local"},
-			wantHostnames: 1,
+			name:        "k8s service name",
+			input:       []string{"rbldnsd.rbldnsd.svc.cluster.local"},
+			wantDynamic: 1,
 		},
 		{
-			name:          "mixed IPs and hostnames",
-			input:         []string{"127.0.0.1", "dns.example.com", "10.0.0.1"},
-			wantIPs:       2,
-			wantHostnames: 1,
+			name:        "mixed IPs and hostnames",
+			input:       []string{"127.0.0.1", "dns.example.com", "10.0.0.1"},
+			wantStatic:  2,
+			wantDynamic: 1,
 		},
 		{
 			name:        "/dev/null returns file error",
@@ -93,7 +93,7 @@ func TestClassifyToAddrs(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			ips, hostnames, err := classifyToAddrs(tc.input)
+			entries, err := classifyToAddrs(tc.input)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatal("expected error, got nil")
@@ -106,13 +106,42 @@ func TestClassifyToAddrs(t *testing.T) {
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if len(ips) != tc.wantIPs {
-				t.Errorf("expected %d IPs, got %d: %v", tc.wantIPs, len(ips), ips)
+
+			staticCount := 0
+			dynamicCount := 0
+			for _, e := range entries {
+				if e.static {
+					staticCount++
+				} else {
+					dynamicCount++
+				}
 			}
-			if len(hostnames) != tc.wantHostnames {
-				t.Errorf("expected %d hostnames, got %d: %v", tc.wantHostnames, len(hostnames), hostnames)
+			if staticCount != tc.wantStatic {
+				t.Errorf("expected %d static entries, got %d", tc.wantStatic, staticCount)
+			}
+			if dynamicCount != tc.wantDynamic {
+				t.Errorf("expected %d dynamic entries, got %d", tc.wantDynamic, dynamicCount)
 			}
 		})
+	}
+}
+
+func TestClassifyToAddrsPreservesOrder(t *testing.T) {
+	entries, err := classifyToAddrs([]string{"dns.example.com", "127.0.0.1", "other.example.com"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
+	}
+	if entries[0].static || entries[0].entry.hostname != "dns.example.com" {
+		t.Errorf("entry 0: expected dynamic dns.example.com, got static=%v entry=%v", entries[0].static, entries[0].entry)
+	}
+	if !entries[1].static || entries[1].addrs[0] != "127.0.0.1:53" {
+		t.Errorf("entry 1: expected static 127.0.0.1:53, got static=%v addrs=%v", entries[1].static, entries[1].addrs)
+	}
+	if entries[2].static || entries[2].entry.hostname != "other.example.com" {
+		t.Errorf("entry 2: expected dynamic other.example.com, got static=%v entry=%v", entries[2].static, entries[2].entry)
 	}
 }
 
@@ -185,6 +214,91 @@ func TestFormatResolvedAddr(t *testing.T) {
 				t.Errorf("expected %q, got %q", tc.expected, result)
 			}
 		})
+	}
+}
+
+func TestExpandAndDedup(t *testing.T) {
+	// Start a test DNS server that returns different IPs for different hostnames
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		if r.Question[0].Qtype == dns.TypeA {
+			switch r.Question[0].Name {
+			case "host1.example.com.":
+				ret.Answer = append(ret.Answer,
+					test.A("host1.example.com. IN A 10.0.0.1"),
+					test.A("host1.example.com. IN A 10.0.0.2"),
+				)
+			case "host2.example.com.":
+				ret.Answer = append(ret.Answer,
+					test.A("host2.example.com. IN A 10.0.0.2"),
+					test.A("host2.example.com. IN A 10.0.0.3"),
+				)
+			}
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	// Simulate: forward . host1(→10.0.0.1,10.0.0.2) host2(→10.0.0.2,10.0.0.3) 10.0.0.3 10.0.0.2
+	entries := []toEntry{
+		{static: false, entry: hostEntry{hostname: "host1.example.com", port: "53", transport: "dns"}},
+		{static: false, entry: hostEntry{hostname: "host2.example.com", port: "53", transport: "dns"}},
+		{static: true, addrs: []string{"10.0.0.3:53"}},
+		{static: true, addrs: []string{"10.0.0.2:53"}},
+	}
+
+	result, err := expandAndDedup(entries, []string{s.Addr})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Expected: 10.0.0.1, 10.0.0.2, 10.0.0.3 (first-seen order, deduped)
+	expected := []string{"10.0.0.1:53", "10.0.0.2:53", "10.0.0.3:53"}
+	if len(result) != len(expected) {
+		t.Fatalf("expected %d addresses, got %d: %v", len(expected), len(result), result)
+	}
+	for i, addr := range result {
+		normalized := normalizeAddr(addr)
+		if normalized != expected[i] {
+			t.Errorf("position %d: expected %s, got %s", i, expected[i], normalized)
+		}
+	}
+}
+
+func TestExpandAndDedupOrderPreserved(t *testing.T) {
+	// Start a test DNS server
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		if r.Question[0].Qtype == dns.TypeA {
+			ret.Answer = append(ret.Answer, test.A("myhost.example.com. IN A 10.0.0.42"))
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	// Config order: hostname first, then static IP
+	// forward . myhost.example.com 192.168.1.1
+	entries := []toEntry{
+		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
+		{static: true, addrs: []string{"192.168.1.1:53"}},
+	}
+
+	result, err := expandAndDedup(entries, []string{s.Addr})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// hostname resolved IP should come first, then static
+	if len(result) != 2 {
+		t.Fatalf("expected 2 addresses, got %d: %v", len(result), result)
+	}
+	if normalizeAddr(result[0]) != "10.0.0.42:53" {
+		t.Errorf("expected first addr 10.0.0.42:53, got %s", normalizeAddr(result[0]))
+	}
+	if normalizeAddr(result[1]) != "192.168.1.1:53" {
+		t.Errorf("expected second addr 192.168.1.1:53, got %s", normalizeAddr(result[1]))
 	}
 }
 
@@ -365,9 +479,9 @@ func TestSetupWithHostnameTO(t *testing.T) {
 	})
 	defer s.Close()
 
-	// Resolve hostname entries directly using the test server's address (with port)
-	entries := []hostEntry{{hostname: "myupstream.example.com", port: "53", transport: "dns"}}
-	addrs, err := resolveHostEntries(entries, []string{s.Addr})
+	// Test resolving a hostname entry directly
+	entry := hostEntry{hostname: "myupstream.example.com", port: "53", transport: "dns"}
+	addrs, err := resolveHostEntry(entry, []string{s.Addr})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -378,18 +492,19 @@ func TestSetupWithHostnameTO(t *testing.T) {
 		t.Errorf("expected resolved addr 10.0.0.42:53, got %s", addrs[0])
 	}
 
-	// Now test full integration: manually build the Forward with resolver containing port
+	// Test full integration: manually build the Forward with resolver
 	f := New()
 	f.from = "."
-	f.resolver = []string{s.Addr} // includes port for testing
-	f.hostEntries = entries
+	f.resolver = []string{s.Addr}
+	f.toEntries = []toEntry{
+		{static: false, entry: entry},
+	}
 
-	resolvedAddrs, err := resolveHostEntries(f.hostEntries, f.resolver)
+	resolvedAddrs, err := expandAndDedup(f.toEntries, f.resolver)
 	if err != nil {
 		t.Fatalf("resolution failed: %v", err)
 	}
 
-	// Create proxies from resolved addresses
 	for _, addr := range resolvedAddrs {
 		host, _ := splitZone(addr)
 		trans, h := parse.Transport(host)
@@ -417,47 +532,37 @@ func TestSetupMixedIPAndHostnameTO(t *testing.T) {
 	})
 	defer s.Close()
 
-	// Manually build Forward to test mixed IP + hostname with test server port
+	// Manually build Forward to test mixed hostname + IP (hostname first for order test)
 	f := New()
 	f.from = "."
 	f.resolver = []string{s.Addr}
-
-	// Classify addresses
-	ipAddrs, hostnames, err := classifyToAddrs([]string{"127.0.0.1", "myupstream.example.com"})
-	if err != nil {
-		t.Fatalf("classify error: %v", err)
-	}
-	f.hostEntries = hostnames
-	f.staticCount = len(ipAddrs)
-
-	// Resolve hostnames
-	resolvedAddrs, err := resolveHostEntries(hostnames, f.resolver)
-	if err != nil {
-		t.Fatalf("resolve error: %v", err)
+	f.toEntries = []toEntry{
+		{static: false, entry: hostEntry{hostname: "myupstream.example.com", port: "53", transport: "dns"}},
+		{static: true, addrs: []string{"127.0.0.1:53"}},
 	}
 
-	// Create proxies
-	toHosts := append(ipAddrs, resolvedAddrs...)
-	for _, addr := range toHosts {
+	resolvedAddrs, err := expandAndDedup(f.toEntries, f.resolver)
+	if err != nil {
+		t.Fatalf("expand error: %v", err)
+	}
+
+	for _, addr := range resolvedAddrs {
 		host, _ := splitZone(addr)
 		trans, h := parse.Transport(host)
 		p := proxy.NewProxy("forward", h, trans)
 		f.proxies = append(f.proxies, p)
 	}
 
-	// Should have 2 proxies: one static IP + one resolved hostname
+	// Should have 2 proxies: resolved hostname first, then static IP
 	if len(f.proxies) != 2 {
 		t.Fatalf("expected 2 proxies, got %d", len(f.proxies))
 	}
 
-	if f.proxies[0].Addr() != "127.0.0.1:53" {
-		t.Errorf("expected first proxy 127.0.0.1:53, got %s", f.proxies[0].Addr())
+	if f.proxies[0].Addr() != "10.0.0.42:53" {
+		t.Errorf("expected first proxy 10.0.0.42:53, got %s", f.proxies[0].Addr())
 	}
-	if f.proxies[1].Addr() != "10.0.0.42:53" {
-		t.Errorf("expected second proxy 10.0.0.42:53, got %s", f.proxies[1].Addr())
-	}
-	if f.staticCount != 1 {
-		t.Errorf("expected staticCount 1, got %d", f.staticCount)
+	if f.proxies[1].Addr() != "127.0.0.1:53" {
+		t.Errorf("expected second proxy 127.0.0.1:53, got %s", f.proxies[1].Addr())
 	}
 }
 
@@ -469,7 +574,6 @@ func TestReResolve(t *testing.T) {
 		ret.SetReply(r)
 		callCount++
 		if r.Question[0].Qtype == dns.TypeA {
-			// Return different IPs on different calls
 			if callCount <= 2 {
 				ret.Answer = append(ret.Answer, test.A("myhost.example.com. IN A 10.0.0.1"))
 			} else {
@@ -480,53 +584,58 @@ func TestReResolve(t *testing.T) {
 	})
 	defer s.Close()
 
-	// Manually build Forward with test server resolver (includes port)
 	f := New()
 	f.from = "."
 	f.resolver = []string{s.Addr}
-	f.hostEntries = []hostEntry{{hostname: "myhost.example.com", port: "53", transport: "dns"}}
-	f.staticCount = 1
-
-	// Create static proxy
-	p := proxy.NewProxy("forward", "127.0.0.1:53", "dns")
-	f.proxies = append(f.proxies, p)
-
-	// Initial resolution
-	resolvedAddrs, err := resolveHostEntries(f.hostEntries, f.resolver)
-	if err != nil {
-		t.Fatalf("initial resolve error: %v", err)
+	f.toEntries = []toEntry{
+		{static: true, addrs: []string{"127.0.0.1:53"}},
+		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
 	}
-	for _, addr := range resolvedAddrs {
+
+	// Initial expand
+	addrs, err := expandAndDedup(f.toEntries, f.resolver)
+	if err != nil {
+		t.Fatalf("initial expand error: %v", err)
+	}
+	for _, addr := range addrs {
 		host, _ := splitZone(addr)
 		trans, h := parse.Transport(host)
-		dp := proxy.NewProxy("forward", h, trans)
-		f.proxies = append(f.proxies, dp)
+		p := proxy.NewProxy("forward", h, trans)
+		f.proxies = append(f.proxies, p)
 	}
 
 	f.OnStartup()
 	defer f.OnShutdown()
 
-	// Initial state: 2 proxies (1 static + 1 dynamic)
+	// Initial state: 2 proxies (static + resolved)
 	if len(f.proxies) != 2 {
 		t.Fatalf("expected 2 proxies, got %d", len(f.proxies))
 	}
+	// Order: static first, then hostname
+	if f.proxies[0].Addr() != "127.0.0.1:53" {
+		t.Errorf("expected first proxy 127.0.0.1:53, got %s", f.proxies[0].Addr())
+	}
 	if f.proxies[1].Addr() != "10.0.0.1:53" {
-		t.Errorf("expected initial proxy 10.0.0.1:53, got %s", f.proxies[1].Addr())
+		t.Errorf("expected second proxy 10.0.0.1:53, got %s", f.proxies[1].Addr())
 	}
 
-	// Trigger re-resolution (simulates background timer)
+	// Trigger re-resolution
 	f.reResolve()
 
-	// After re-resolve, the IP should have changed
 	f.proxyMu.RLock()
 	if len(f.proxies) != 2 {
 		t.Fatalf("expected 2 proxies after re-resolve, got %d", len(f.proxies))
 	}
-	newAddr := f.proxies[1].Addr()
+	// Order preserved: static first, then new resolved
+	firstAddr := f.proxies[0].Addr()
+	secondAddr := f.proxies[1].Addr()
 	f.proxyMu.RUnlock()
 
-	if newAddr != "10.0.0.2:53" {
-		t.Errorf("expected re-resolved proxy 10.0.0.2:53, got %s", newAddr)
+	if firstAddr != "127.0.0.1:53" {
+		t.Errorf("expected first proxy still 127.0.0.1:53, got %s", firstAddr)
+	}
+	if secondAddr != "10.0.0.2:53" {
+		t.Errorf("expected re-resolved proxy 10.0.0.2:53, got %s", secondAddr)
 	}
 }
 
@@ -541,19 +650,18 @@ func TestReResolveNoChange(t *testing.T) {
 	})
 	defer s.Close()
 
-	// Manually build Forward with test server resolver
 	f := New()
 	f.from = "."
 	f.resolver = []string{s.Addr}
-	f.hostEntries = []hostEntry{{hostname: "myhost.example.com", port: "53", transport: "dns"}}
-	f.staticCount = 0
-
-	// Initial resolution
-	resolvedAddrs, err := resolveHostEntries(f.hostEntries, f.resolver)
-	if err != nil {
-		t.Fatalf("initial resolve error: %v", err)
+	f.toEntries = []toEntry{
+		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
 	}
-	for _, addr := range resolvedAddrs {
+
+	addrs, err := expandAndDedup(f.toEntries, f.resolver)
+	if err != nil {
+		t.Fatalf("initial expand error: %v", err)
+	}
+	for _, addr := range addrs {
 		host, _ := splitZone(addr)
 		trans, h := parse.Transport(host)
 		p := proxy.NewProxy("forward", h, trans)
@@ -563,7 +671,6 @@ func TestReResolveNoChange(t *testing.T) {
 	f.OnStartup()
 	defer f.OnShutdown()
 
-	// Get initial proxy pointer
 	f.proxyMu.RLock()
 	initialProxy := f.proxies[0]
 	f.proxyMu.RUnlock()
@@ -571,7 +678,6 @@ func TestReResolveNoChange(t *testing.T) {
 	// Trigger re-resolution with same result
 	f.reResolve()
 
-	// Proxy should not have changed (same IP returned)
 	f.proxyMu.RLock()
 	currentProxy := f.proxies[0]
 	f.proxyMu.RUnlock()
@@ -579,6 +685,133 @@ func TestReResolveNoChange(t *testing.T) {
 	if initialProxy != currentProxy {
 		t.Error("proxy should not have changed when IPs are the same")
 	}
+}
+
+func TestReResolveDedup(t *testing.T) {
+	// Test that dedup works during re-resolve: if a hostname's IP changes
+	// to one already present from another source, it gets deduped.
+	callCount := 0
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		callCount++
+		if r.Question[0].Qtype == dns.TypeA {
+			if callCount <= 2 {
+				// Initial: hostname resolves to 10.0.0.99
+				ret.Answer = append(ret.Answer, test.A("myhost.example.com. IN A 10.0.0.99"))
+			} else {
+				// After: hostname resolves to 10.0.0.1 (same as static)
+				ret.Answer = append(ret.Answer, test.A("myhost.example.com. IN A 10.0.0.1"))
+			}
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	f := New()
+	f.from = "."
+	f.resolver = []string{s.Addr}
+	f.toEntries = []toEntry{
+		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
+		{static: true, addrs: []string{"10.0.0.1:53"}},
+	}
+
+	addrs, err := expandAndDedup(f.toEntries, f.resolver)
+	if err != nil {
+		t.Fatalf("initial expand error: %v", err)
+	}
+	for _, addr := range addrs {
+		host, _ := splitZone(addr)
+		trans, h := parse.Transport(host)
+		p := proxy.NewProxy("forward", h, trans)
+		f.proxies = append(f.proxies, p)
+	}
+
+	f.OnStartup()
+	defer f.OnShutdown()
+
+	// Initial: 2 proxies (10.0.0.99 from hostname, 10.0.0.1 from static)
+	if len(f.proxies) != 2 {
+		t.Fatalf("expected 2 initial proxies, got %d", len(f.proxies))
+	}
+
+	// Trigger re-resolve: hostname now returns 10.0.0.1 (same as static)
+	f.reResolve()
+
+	f.proxyMu.RLock()
+	proxyCount := len(f.proxies)
+	f.proxyMu.RUnlock()
+
+	// After dedup: should be 1 proxy (10.0.0.1 seen from hostname first, static deduped)
+	if proxyCount != 1 {
+		t.Errorf("expected 1 proxy after dedup, got %d", proxyCount)
+	}
+}
+
+func TestReResolveNoChangeOnReorder(t *testing.T) {
+	// DNS returns IPs in different order on re-resolve, but same set.
+	// This should NOT trigger a proxy rebuild.
+	callCount := 0
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		callCount++
+		if r.Question[0].Qtype == dns.TypeA {
+			if callCount <= 2 {
+				ret.Answer = append(ret.Answer,
+					test.A("myhost.example.com. IN A 10.0.0.1"),
+					test.A("myhost.example.com. IN A 10.0.0.2"),
+				)
+			} else {
+				// Same IPs, different order
+				ret.Answer = append(ret.Answer,
+					test.A("myhost.example.com. IN A 10.0.0.2"),
+					test.A("myhost.example.com. IN A 10.0.0.1"),
+				)
+			}
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	f := New()
+	f.from = "."
+	f.resolver = []string{s.Addr}
+	f.toEntries = []toEntry{
+		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
+	}
+
+	addrs, err := expandAndDedup(f.toEntries, f.resolver)
+	if err != nil {
+		t.Fatalf("initial expand error: %v", err)
+	}
+	for _, addr := range addrs {
+		host, _ := splitZone(addr)
+		trans, h := parse.Transport(host)
+		p := proxy.NewProxy("forward", h, trans)
+		f.proxies = append(f.proxies, p)
+	}
+
+	f.OnStartup()
+	defer f.OnShutdown()
+
+	// Save initial proxy pointers
+	f.proxyMu.RLock()
+	initialProxies := make([]*proxy.Proxy, len(f.proxies))
+	copy(initialProxies, f.proxies)
+	f.proxyMu.RUnlock()
+
+	// Re-resolve — same IPs but different order from DNS
+	f.reResolve()
+
+	// Proxies should NOT have been replaced
+	f.proxyMu.RLock()
+	for i, p := range f.proxies {
+		if p != initialProxies[i] {
+			t.Errorf("proxy %d was replaced despite same IP set", i)
+		}
+	}
+	f.proxyMu.RUnlock()
 }
 
 func TestSetupResolverWithProxyOptions(t *testing.T) {
@@ -592,22 +825,22 @@ func TestSetupResolverWithProxyOptions(t *testing.T) {
 	})
 	defer s.Close()
 
-	// Build Forward manually with test server resolver and options
 	f := New()
 	f.from = "."
 	f.resolver = []string{s.Addr}
-	f.hostEntries = []hostEntry{{hostname: "myhost.example.com", port: "53", transport: "dns"}}
+	f.toEntries = []toEntry{
+		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
+	}
 	f.maxfails = 3
 	f.opts.ForceTCP = true
 	f.opts.HCDomain = "example.org."
 	f.opts.HCRecursionDesired = true
 
-	// Resolve and create proxies
-	resolvedAddrs, err := resolveHostEntries(f.hostEntries, f.resolver)
+	addrs, err := expandAndDedup(f.toEntries, f.resolver)
 	if err != nil {
-		t.Fatalf("resolve error: %v", err)
+		t.Fatalf("expand error: %v", err)
 	}
-	for _, addr := range resolvedAddrs {
+	for _, addr := range addrs {
 		host, zone := splitZone(addr)
 		trans, h := parse.Transport(host)
 		p := proxy.NewProxy("forward", h, trans)
@@ -625,13 +858,59 @@ func TestSetupResolverWithProxyOptions(t *testing.T) {
 		t.Errorf("expected HCDomain example.org., got %s", f.opts.HCDomain)
 	}
 
-	// Verify proxy options are applied via configureProxy
 	p := f.proxies[0]
 	if p.GetHealthchecker().GetDomain() != "example.org." {
 		t.Errorf("expected healthcheck domain example.org., got %s", p.GetHealthchecker().GetDomain())
 	}
 	if !p.GetHealthchecker().GetRecursionDesired() {
 		t.Error("expected recursion desired to be true")
+	}
+}
+
+func TestExpandAndDedupTLS(t *testing.T) {
+	// tls://hostname1(A 9.9.9.9, A 149.112.112.112) hostname2(A 149.112.112.112, A 9.9.9.10) 149.112.112.112 9.9.9.10
+	// Expected after dedup: 9.9.9.9 149.112.112.112 9.9.9.10 (first-seen order)
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		if r.Question[0].Qtype == dns.TypeA {
+			switch r.Question[0].Name {
+			case "dns1.example.com.":
+				ret.Answer = append(ret.Answer,
+					test.A("dns1.example.com. IN A 9.9.9.9"),
+					test.A("dns1.example.com. IN A 149.112.112.112"),
+				)
+			case "dns2.example.com.":
+				ret.Answer = append(ret.Answer,
+					test.A("dns2.example.com. IN A 149.112.112.112"),
+					test.A("dns2.example.com. IN A 9.9.9.10"),
+				)
+			}
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	entries := []toEntry{
+		{static: false, entry: hostEntry{hostname: "dns1.example.com", port: "853", transport: "tls"}},
+		{static: false, entry: hostEntry{hostname: "dns2.example.com", port: "853", transport: "tls"}},
+		{static: true, addrs: []string{"tls://149.112.112.112:853"}},
+		{static: true, addrs: []string{"tls://9.9.9.10:853"}},
+	}
+
+	result, err := expandAndDedup(entries, []string{s.Addr})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	expected := []string{"9.9.9.9:853", "149.112.112.112:853", "9.9.9.10:853"}
+	if len(result) != len(expected) {
+		t.Fatalf("expected %d addresses after dedup, got %d: %v", len(expected), len(result), result)
+	}
+	for i, addr := range result {
+		if normalizeAddr(addr) != expected[i] {
+			t.Errorf("position %d: expected %s, got %s", i, expected[i], normalizeAddr(addr))
+		}
 	}
 }
 
@@ -649,7 +928,6 @@ func TestResolverWithHCOptions(t *testing.T) {
 		t.Errorf("unexpected resolver: %v", f.resolver)
 	}
 
-	// Test the proxy opts are set (default values)
 	expectedOpts := proxy.Options{HCRecursionDesired: true, HCDomain: "."}
 	if f.opts != expectedOpts {
 		t.Errorf("expected opts %v, got %v", expectedOpts, f.opts)

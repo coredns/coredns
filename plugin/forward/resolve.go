@@ -24,14 +24,22 @@ type hostEntry struct {
 	zone      string // TLS server name zone (from %zone syntax)
 }
 
-// classifyToAddrs separates TO addresses into IP/file-based addresses (already
-// validated by HostPortOrFile) and hostname entries that need DNS resolution.
-func classifyToAddrs(toAddrs []string) (ipOrFile []string, hostnames []hostEntry, err error) {
+// toEntry represents a single TO address from the config, preserving order.
+type toEntry struct {
+	static bool      // true for IP/file-based entries
+	addrs  []string  // for static: resolved by HostPortOrFile
+	entry  hostEntry // for dynamic: hostname to resolve
+}
+
+// classifyToAddrs processes TO addresses in order, returning an ordered list of
+// toEntries that preserves config ordering.
+func classifyToAddrs(toAddrs []string) ([]toEntry, error) {
+	var entries []toEntry
 	for _, h := range toAddrs {
 		// Try HostPortOrFile first - this handles IPs and files
 		hosts, parseErr := parse.HostPortOrFile(h)
 		if parseErr == nil {
-			ipOrFile = append(ipOrFile, hosts...)
+			entries = append(entries, toEntry{static: true, addrs: hosts})
 			continue
 		}
 
@@ -39,17 +47,17 @@ func classifyToAddrs(toAddrs []string) (ipOrFile []string, hostnames []hostEntry
 		// indicates the address is not an IP or file. Other errors (like
 		// "no nameservers found" from file parsing) should be propagated.
 		if !strings.Contains(parseErr.Error(), "not an IP address or file") {
-			return nil, nil, parseErr
+			return nil, parseErr
 		}
 
 		// Not an IP or file - check if it's a valid hostname
 		entry, ok := parseAsHostEntry(h)
 		if !ok {
-			return nil, nil, fmt.Errorf("not an IP address, file, or valid domain: %q", h)
+			return nil, fmt.Errorf("not an IP address, file, or valid domain: %q", h)
 		}
-		hostnames = append(hostnames, entry)
+		entries = append(entries, toEntry{static: false, entry: entry})
 	}
-	return ipOrFile, hostnames, nil
+	return entries, nil
 }
 
 // parseAsHostEntry attempts to parse a TO address as a hostname-based entry.
@@ -94,19 +102,53 @@ func parseAsHostEntry(h string) (hostEntry, bool) {
 	}, true
 }
 
-// resolveHostEntries resolves all hostname entries to addresses suitable for
-// proxy creation. The returned addresses are in the same format as HostPortOrFile
-// output (e.g., "10.0.0.1:53" or "tls://10.0.0.1:853").
-func resolveHostEntries(entries []hostEntry, resolvers []string) ([]string, error) {
-	var addrs []string
+// expandAndDedup resolves all toEntries in order, expands hostnames to IPs,
+// and deduplicates by first-seen address. Returns the deduplicated address list.
+func expandAndDedup(entries []toEntry, resolvers []string) ([]string, error) {
+	seen := make(map[string]bool)
+	var result []string
+
 	for _, e := range entries {
-		ips, err := lookupHost(e.hostname, resolvers)
-		if err != nil {
-			return nil, fmt.Errorf("failed to resolve %q: %v", e.hostname, err)
+		var addrs []string
+		if e.static {
+			addrs = e.addrs
+		} else {
+			resolved, err := resolveHostEntry(e.entry, resolvers)
+			if err != nil {
+				return nil, err
+			}
+			addrs = resolved
 		}
-		for _, ip := range ips {
-			addrs = append(addrs, formatResolvedAddr(ip, e.port, e.transport, e.zone))
+
+		for _, addr := range addrs {
+			// Normalize the address for dedup comparison
+			key := normalizeAddr(addr)
+			if !seen[key] {
+				seen[key] = true
+				result = append(result, addr)
+			}
 		}
+	}
+	return result, nil
+}
+
+// normalizeAddr extracts the canonical IP:port from an address string
+// (stripping transport prefix and zone) for deduplication.
+func normalizeAddr(addr string) string {
+	host, _ := splitZone(addr)
+	_, h := parse.Transport(host)
+	return h
+}
+
+// resolveHostEntry resolves a single hostname entry and returns its addresses.
+func resolveHostEntry(entry hostEntry, resolvers []string) ([]string, error) {
+	ips, err := lookupHost(entry.hostname, resolvers)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve %q: %v", entry.hostname, err)
+	}
+	var addrs []string
+	for _, ip := range ips {
+		addrs = append(addrs, formatResolvedAddr(ip, entry.port, entry.transport, entry.zone))
 	}
 	return addrs, nil
 }
@@ -218,10 +260,20 @@ func dnsLookup(hostname string, resolvers []string) ([]string, error) {
 	return nil, fmt.Errorf("no addresses found for %q", hostname)
 }
 
+// hasDynamicEntries returns true if any toEntry is dynamic (hostname-based).
+func hasDynamicEntries(entries []toEntry) bool {
+	for _, e := range entries {
+		if !e.static {
+			return true
+		}
+	}
+	return false
+}
+
 // startResolveLoop starts a background goroutine that periodically re-resolves
 // hostname-based TO addresses and updates the proxy list.
 func (f *Forward) startResolveLoop() {
-	if len(f.hostEntries) == 0 {
+	if !hasDynamicEntries(f.toEntries) {
 		return
 	}
 
@@ -247,35 +299,32 @@ func (f *Forward) stopResolveLoop() {
 	}
 }
 
-// reResolve re-resolves hostname entries and updates proxies if IPs changed.
+// reResolve re-resolves all hostname entries, deduplicates globally preserving
+// first-seen order, and updates the proxy list if the result changed.
 func (f *Forward) reResolve() {
-	resolvedAddrs, err := resolveHostEntries(f.hostEntries, f.resolver)
+	newAddrs, err := expandAndDedup(f.toEntries, f.resolver)
 	if err != nil {
 		log.Warningf("Failed to re-resolve upstream hostnames: %v", err)
 		return
 	}
 
-	// Check if addresses changed
+	// Compare as sorted sets to avoid false positives from DNS response reordering
+	newNormalized := make([]string, len(newAddrs))
+	for i, addr := range newAddrs {
+		newNormalized[i] = normalizeAddr(addr)
+	}
+	sort.Strings(newNormalized)
+
 	f.proxyMu.RLock()
-	currentDynamic := f.proxies[f.staticCount:]
-	changed := len(currentDynamic) != len(resolvedAddrs)
+	changed := len(f.proxies) != len(newAddrs)
 	if !changed {
-		currentAddrs := make([]string, len(currentDynamic))
-		for i, p := range currentDynamic {
+		currentAddrs := make([]string, len(f.proxies))
+		for i, p := range f.proxies {
 			currentAddrs[i] = p.Addr()
 		}
 		sort.Strings(currentAddrs)
-
-		newAddrs := make([]string, len(resolvedAddrs))
-		for i, addr := range resolvedAddrs {
-			host, _ := splitZone(addr)
-			_, h := parse.Transport(host)
-			newAddrs[i] = h
-		}
-		sort.Strings(newAddrs)
-
 		for i := range currentAddrs {
-			if currentAddrs[i] != newAddrs[i] {
+			if currentAddrs[i] != newNormalized[i] {
 				changed = true
 				break
 			}
@@ -287,31 +336,27 @@ func (f *Forward) reResolve() {
 		return
 	}
 
-	log.Infof("Upstream hostname addresses changed, updating proxies")
+	log.Infof("Upstream addresses changed, updating proxies")
 
-	// Create new dynamic proxies
-	var newDynamic []*proxy.Proxy
-	for _, addr := range resolvedAddrs {
+	// Build new proxy list
+	var newProxies []*proxy.Proxy
+	for _, addr := range newAddrs {
 		host, zone := splitZone(addr)
 		trans, h := parse.Transport(host)
 		p := proxy.NewProxy("forward", h, trans)
 		f.configureProxy(p, trans, zone)
 		p.Start(f.hcInterval)
-		newDynamic = append(newDynamic, p)
+		newProxies = append(newProxies, p)
 	}
 
-	// Swap proxies atomically
+	// Swap atomically
 	f.proxyMu.Lock()
-	oldDynamic := make([]*proxy.Proxy, len(f.proxies)-f.staticCount)
-	copy(oldDynamic, f.proxies[f.staticCount:])
-	newProxies := make([]*proxy.Proxy, f.staticCount+len(newDynamic))
-	copy(newProxies, f.proxies[:f.staticCount])
-	copy(newProxies[f.staticCount:], newDynamic)
+	oldProxies := f.proxies
 	f.proxies = newProxies
 	f.proxyMu.Unlock()
 
-	// Stop old dynamic proxies (outside lock)
-	for _, p := range oldDynamic {
+	// Stop old proxies (outside lock)
+	for _, p := range oldProxies {
 		p.Stop()
 	}
 }

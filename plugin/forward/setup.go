@@ -33,8 +33,8 @@ func setup(c *caddy.Controller) error {
 	}
 	for i := range fs {
 		f := fs[i]
-		if f.Len() > max {
-			return plugin.Error("forward", fmt.Errorf("more than %d TOs configured: %d", max, f.Len()))
+		if len(f.toEntries) > max {
+			return plugin.Error("forward", fmt.Errorf("more than %d TOs configured: %d", max, len(f.toEntries)))
 		}
 
 		if i == len(fs)-1 {
@@ -160,28 +160,21 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		return f, fmt.Errorf("max_age (%s) must not be less than expire (%s)", f.maxAge, f.expire)
 	}
 
-	// Classify TO addresses: IPs/files are used directly, hostnames need resolution.
-	ipAddrs, hostnames, err := classifyToAddrs(to)
+	// Classify TO addresses in order, preserving config ordering.
+	entries, err := classifyToAddrs(to)
 	if err != nil {
 		return f, err
 	}
-	f.hostEntries = hostnames
+	f.toEntries = entries
 
-	// Resolve hostname entries to IPs (initial resolution).
-	var resolvedAddrs []string
-	if len(hostnames) > 0 {
-		resolvedAddrs, err = resolveHostEntries(hostnames, f.resolver)
-		if err != nil {
-			return f, err
-		}
+	// Expand hostnames and deduplicate globally (first-seen order wins).
+	toHosts, err := expandAndDedup(entries, f.resolver)
+	if err != nil {
+		return f, err
 	}
-
-	// Combine static (IP/file) and resolved (hostname) addresses.
-	toHosts := append(ipAddrs, resolvedAddrs...)
 	if len(toHosts) == 0 {
 		return f, fmt.Errorf("no valid upstream addresses found")
 	}
-	f.staticCount = len(ipAddrs)
 
 	tlsServerNames := make([]string, len(toHosts))
 	perServerNameProxyCount := make(map[string]int)
