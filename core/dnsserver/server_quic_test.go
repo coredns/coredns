@@ -406,7 +406,7 @@ func TestAcquireQUICWorkerWaitsForSlot(t *testing.T) {
 	pool := make(chan struct{}, 1)
 	pool <- struct{}{}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	done := make(chan bool, 1)
