@@ -2,6 +2,7 @@ package dnsserver
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"testing"
@@ -398,5 +399,43 @@ func TestAddPrefix(t *testing.T) {
 				t.Errorf("AddPrefix() = %v, want %v", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestAcquireQUICWorkerWaitsForSlot(t *testing.T) {
+	pool := make(chan struct{}, 1)
+	pool <- struct{}{}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	done := make(chan bool, 1)
+	go func() {
+		done <- acquireQUICWorker(ctx, pool)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("acquireQUICWorker returned before a slot was released")
+	default:
+	}
+
+	<-pool
+
+	got := <-done
+	if !got {
+		t.Fatal("expected acquireQUICWorker to succeed after slot release")
+	}
+}
+
+func TestAcquireQUICWorkerReturnsFalseOnCancelledContext(t *testing.T) {
+	pool := make(chan struct{}, 1)
+	pool <- struct{}{}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if got := acquireQUICWorker(ctx, pool); got {
+		t.Fatal("expected acquireQUICWorker to return false when context is cancelled")
 	}
 }
