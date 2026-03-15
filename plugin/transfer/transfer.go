@@ -209,7 +209,7 @@ func longestMatch(xfrs []*xfr, name string) *xfr {
 	zone := "" // longest zone match wins
 	for _, xfr := range xfrs {
 		if z := plugin.Zones(xfr.Zones).Matches(name); z != "" {
-			if z > zone {
+			if len(z) > len(zone) || (len(z) == len(zone) && z > zone) {
 				zone = z
 				x = xfr
 			}
