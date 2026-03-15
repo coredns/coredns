@@ -136,6 +136,15 @@ func (s *ServerQUIC) ServeQUIC() error {
 	}
 }
 
+func acquireQUICWorker(ctx context.Context, pool chan struct{}) bool {
+	select {
+	case pool <- struct{}{}:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
 // serveQUICConnection handles a new QUIC connection. It waits for new streams
 // and passes them to serveQUICStream.
 func (s *ServerQUIC) serveQUICConnection(conn *quic.Conn) {
@@ -157,29 +166,15 @@ func (s *ServerQUIC) serveQUICConnection(conn *quic.Conn) {
 			return
 		}
 
-		// Use a bounded worker pool with context cancellation
-		select {
-		case s.streamProcessPool <- struct{}{}:
-			// Got worker slot immediately
-			go func(st *quic.Stream, cn *quic.Conn) {
-				defer func() { <-s.streamProcessPool }() // Release worker slot
-				s.serveQUICStream(st, cn)
-			}(stream, conn)
-		default:
-			// Worker pool full, check for context cancellation
-			go func(st *quic.Stream, cn *quic.Conn) {
-				select {
-				case s.streamProcessPool <- struct{}{}:
-					// Got worker slot after waiting
-					defer func() { <-s.streamProcessPool }() // Release worker slot
-					s.serveQUICStream(st, cn)
-				case <-conn.Context().Done():
-					// Connection context was cancelled while waiting
-					st.Close()
-					return
-				}
-			}(stream, conn)
+		if !acquireQUICWorker(conn.Context(), s.streamProcessPool) {
+			_ = stream.Close()
+			return
 		}
+
+		go func(st *quic.Stream, cn *quic.Conn) {
+			defer func() { <-s.streamProcessPool }()
+			s.serveQUICStream(st, cn)
+		}(stream, conn)
 	}
 }
 
