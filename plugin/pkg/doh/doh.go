@@ -105,6 +105,13 @@ func requestToMsgGet(req *http.Request) (*dns.Msg, error) {
 	if len(b64) != 1 {
 		return nil, fmt.Errorf("multiple 'dns' query values found")
 	}
+
+	// 65536 decoded bytes is the existing POST-side limit.
+	// For base64url without padding, max encoded length is ceil(65536*8/6) = 87382.
+	if len(b64[0]) > (65536*8+5)/6 {
+		return nil, fmt.Errorf("dns query too large")
+	}
+
 	return base64ToMsg(b64[0])
 }
 
