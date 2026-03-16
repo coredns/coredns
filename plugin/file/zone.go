@@ -56,9 +56,12 @@ func NewZone(name, file string) *Zone {
 func (z *Zone) Copy() *Zone {
 	z1 := NewZone(z.origin, z.file)
 	z1.TransferFrom = z.TransferFrom
-	z1.Expired = z.Expired
 
+	z.RLock()
+	z1.Expired = z.Expired
 	z1.Apex = z.Apex
+	z.RUnlock()
+
 	return z1
 }
 
@@ -66,7 +69,10 @@ func (z *Zone) Copy() *Zone {
 func (z *Zone) CopyWithoutApex() *Zone {
 	z1 := NewZone(z.origin, z.file)
 	z1.TransferFrom = z.TransferFrom
+
+	z.RLock()
 	z1.Expired = z.Expired
+	z.RUnlock()
 
 	return z1
 }

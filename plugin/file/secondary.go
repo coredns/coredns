@@ -140,7 +140,9 @@ Restart:
 			if !retryActive {
 				break
 			}
+			z.Lock()
 			z.Expired = true
+			z.Unlock()
 
 		case <-retryTicker.C:
 			if !retryActive {
