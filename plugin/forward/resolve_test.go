@@ -25,12 +25,12 @@ func TestClassifyToAddrs(t *testing.T) {
 	defer os.Remove(resolv)
 
 	tests := []struct {
-		name         string
-		input        []string
-		wantStatic   int
-		wantDynamic  int
-		wantErr      bool
-		errContains  string
+		name        string
+		input       []string
+		wantStatic  int
+		wantDynamic int
+		wantErr     bool
+		errContains string
 	}{
 		{
 			name:       "simple IP",

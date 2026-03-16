@@ -320,7 +320,7 @@ In the following example, if the response from `1.2.3.4` is `SERVFAIL` or `REFUS
 
 Forward to an upstream identified by hostname, using a specific resolver to look it up:
 
-~~~ corefile
+~~~ txt
 . {
     forward . dns.example.local {
         resolver 10.0.0.1
