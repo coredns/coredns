@@ -26,6 +26,10 @@ cache [TTL] [ZONES...]
 * **ZONES** zones it should cache for. If empty, the zones from the configuration block are used.
 
 Each element in the cache is cached according to its TTL (with **TTL** as the max).
+Note that **TTL** only caps the cache duration and does not extend it. A record with a 30s TTL
+will still be cached for 30s even with `cache 600`. The minimum cache duration defaults to 5
+seconds and can be adjusted per cache type using **MINTTL** in the `success` or `denial` directives.
+
 A cache is divided into 256 shards, each holding up to 39 items by default - for a total size
 of 256 * 39 = 9984 items.
 
