@@ -439,3 +439,15 @@ func TestAcquireQUICWorkerReturnsFalseOnCancelledContext(t *testing.T) {
 		t.Fatal("expected acquireQUICWorker to return false when context is cancelled")
 	}
 }
+
+func TestDoQWriterTsigStatusReturnsStoredStatus(t *testing.T) {
+	want := errors.New("bad tsig")
+
+	w := &DoQWriter{
+		tsigStatus: want,
+	}
+
+	if got := w.TsigStatus(); got != want {
+		t.Fatalf("TsigStatus() = %v, want %v", got, want)
+	}
+}

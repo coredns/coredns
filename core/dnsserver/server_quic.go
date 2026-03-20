@@ -224,6 +224,14 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 		Msg:        req,
 	}
 
+	if tsig := req.IsTsig(); tsig != nil {
+		if s.tsigSecret == nil {
+			w.tsigStatus = dns.ErrSecret
+		} else if _, ok := s.tsigSecret[tsig.Hdr.Name]; !ok {
+			w.tsigStatus = dns.ErrSecret
+		}
+	}
+
 	dnsCtx := context.WithValue(stream.Context(), Key{}, s.Server)
 	dnsCtx = context.WithValue(dnsCtx, LoopKey{}, 0)
 	s.ServeDNS(dnsCtx, w, req)
