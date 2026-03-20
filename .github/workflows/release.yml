@@ -36,7 +36,7 @@ jobs:
       - name: Build release binary
         run: make -f Makefile.release release
       - name: Build release binary sha256
-        run: (cd release; for asset in `ls -A *tgz`; do sha256sum $asset > $asset.sha256; done)
+        run: (cd release; for asset in `ls -A *.tgz *.zip`; do sha256sum $asset > $asset.sha256; done)
       - name: Remove hidden section
         run: sed '/+++/,//d' notes/coredns-${{ steps.info.outputs.version}}.md > release.md
       - name: Log release info
@@ -46,7 +46,7 @@ jobs:
           echo ${{ steps.info.outputs.commit }}
           echo ${{ steps.info.outputs.version }}
           cat release.md
-          sha256sum release/*.tgz
+          sha256sum release/*.tgz release/*.zip
       - name: Draft release
         uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe  # v2.6.1
         with:
@@ -57,4 +57,6 @@ jobs:
           files: |
             release/*.tgz
             release/*.tgz.sha256
+            release/*.zip
+            release/*.zip.sha256
           draft: true
