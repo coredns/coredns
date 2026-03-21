@@ -84,6 +84,7 @@ tar:
 	@rm -rf release && mkdir release
 	tar -zcf release/$(NAME)_$(VERSION)_darwin_amd64.tgz -C build/darwin/amd64 $(NAME)
 	tar -zcf release/$(NAME)_$(VERSION)_darwin_arm64.tgz -C build/darwin/arm64 $(NAME)
+	tar -zcf release/$(NAME)_$(VERSION)_windows_amd64.tgz -C build/windows/amd64 $(NAME).exe
 	zip -j release/$(NAME)_$(VERSION)_windows_amd64.zip build/windows/amd64/$(NAME).exe
 	for arch in $(LINUX_ARCH); do \
 	    tar -zcf release/$(NAME)_$(VERSION)_linux_$$arch.tgz -C build/linux/$$arch $(NAME) ;\
