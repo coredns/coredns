@@ -267,7 +267,7 @@ The following are client level metrics to monitor apiserver request latency & st
 
 ## Bugs
 
-The duration metric only supports the "headless\_with\_selector" service currently.
+The duration metric does not yet support the `headless_without_selector` service kind.
 
 ## See Also
 
