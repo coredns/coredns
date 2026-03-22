@@ -118,6 +118,10 @@ func (z *Zone) Insert(r dns.RR) error {
 		r.(*dns.MX).Mx = strings.ToLower(r.(*dns.MX).Mx)
 	case dns.TypeSRV:
 		// r.(*dns.SRV).Target = strings.ToLower(r.(*dns.SRV).Target)
+	case dns.TypeSVCB:
+		r.(*dns.SVCB).Target = strings.ToLower(r.(*dns.SVCB).Target)
+	case dns.TypeHTTPS:
+		r.(*dns.HTTPS).SVCB.Target = strings.ToLower(r.(*dns.HTTPS).SVCB.Target)
 	}
 
 	z.Tree.Insert(r)

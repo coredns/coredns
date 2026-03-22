@@ -409,6 +409,10 @@ func (z *Zone) additionalProcessing(answer []dns.RR, do bool) (extra []dns.RR) {
 			name = x.Target
 		case *dns.MX:
 			name = x.Mx
+		case *dns.SVCB:
+			name = x.Target
+		case *dns.HTTPS:
+			name = x.SVCB.Target
 		}
 		if len(name) == 0 || !dns.IsSubDomain(z.origin, name) {
 			continue
