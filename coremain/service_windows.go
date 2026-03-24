@@ -45,18 +45,18 @@ func (s *corednsService) Execute(args []string, r <-chan svc.ChangeRequest, chan
 
 func runService(instance *caddy.Instance) {
 	if windowsService {
-		isInteractive, err := svc.IsAnInteractiveSession()
+		isService, err := svc.IsWindowsService()
 		if err != nil {
-			log.Fatalf("failed to determine if interactive session: %v", err)
+			log.Fatalf("failed to determine if running as service: %v", err)
 		}
-		if !isInteractive {
+		if isService {
 			err = svc.Run("CoreDNS", &corednsService{instance: instance})
 			if err != nil {
 				log.Fatalf("failed to start service: %v", err)
 			}
 			return
 		} else {
-			log.Printf("Windows service flag provided, but running in an interactive session.")
+			log.Printf("Windows service flag provided, but not running as a Windows service.")
 		}
 	}
 	instance.Wait()
