@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -150,30 +149,23 @@ func TestDefaultLoader(t *testing.T) {
 		}
 	}
 
-	// Create a file but make it unreadable
-	tmpFile := filepath.Join(tmpDir, "Corefile")
-	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-
-	if runtime.GOOS == "windows" {
-		// Use icacls to explicitly deny read access for the file on Windows
-		cmd := exec.Command("icacls", tmpFile, "/deny", "Everyone:(R)")
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("Failed to deny read permission using icacls: %v", err)
+	if runtime.GOOS != "windows" {
+		// Create a file but make it unreadable
+		tmpFile := filepath.Join(tmpDir, "Corefile")
+		if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
 		}
-	} else {
 		if err := os.Chmod(tmpFile, 0000); err != nil {
 			t.Fatalf("Failed to change permissions: %v", err)
 		}
-	}
 
-	input, err = defaultLoader("dns")
-	if err == nil {
-		t.Error("Expected error for unreadable Corefile but got none")
-	}
-	if input != nil {
-		t.Error("Expected nil input for unreadable Corefile")
+		input, err = defaultLoader("dns")
+		if err == nil {
+			t.Error("Expected error for unreadable Corefile but got none")
+		}
+		if input != nil {
+			t.Error("Expected nil input for unreadable Corefile")
+		}
 	}
 }
 
