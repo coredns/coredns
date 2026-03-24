@@ -55,13 +55,11 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
 		if !c.verifyStale {
-			cw := newPrefetchResponseWriter(server, rc, do, cd, c)
-			go c.doPrefetch(ctx, cw, i, now)
+			c.tryPrefetch(ctx, i, server, rc, do, cd, now)
 		}
 		servedStale.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	} else if c.shouldPrefetch(i, now) {
-		cw := newPrefetchResponseWriter(server, rc, do, cd, c)
-		go c.doPrefetch(ctx, cw, i, now)
+		c.tryPrefetch(ctx, i, server, rc, do, cd, now)
 	}
 
 	if i.wildcard != "" {
@@ -89,6 +87,20 @@ func wildcardFunc(ctx context.Context) func() string {
 		}
 		return ""
 	}
+}
+
+// tryPrefetch dispatches a background prefetch for i if one is not already in
+// flight. The CAS on i.refreshing ensures at most one prefetch goroutine per
+// item, so prefetch load scales with distinct stale keys rather than QPS.
+func (c *Cache) tryPrefetch(ctx context.Context, i *item, server string, req *dns.Msg, do, cd bool, now time.Time) {
+	if !i.refreshing.CompareAndSwap(false, true) {
+		return
+	}
+	cw := newPrefetchResponseWriter(server, req, do, cd, c)
+	go func() {
+		defer i.refreshing.Store(false)
+		c.doPrefetch(ctx, cw, i, now)
+	}()
 }
 
 func (c *Cache) doPrefetch(ctx context.Context, cw *ResponseWriter, i *item, now time.Time) {

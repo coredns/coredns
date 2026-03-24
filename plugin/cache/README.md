@@ -60,6 +60,9 @@ cache [TTL] [ZONES...] {
   **DURATION** defaults to 1m. Prefetching will happen when the TTL drops below **PERCENTAGE**,
   which defaults to `10%`, or latest 1 second before TTL expiration. Values should be in the range `[10%, 90%]`.
   Note the percent sign is mandatory. **PERCENTAGE** is treated as an `int`.
+  Concurrent requests that trigger a prefetch for the same cache entry dispatch at most one
+  background fetch, so prefetch load scales with the number of distinct eligible entries rather
+  than request rate.
 * `serve_stale`, when serve\_stale is set, cache will always serve an expired entry to a client if there is one
   available as long as it has not been expired for longer than **DURATION** (default 1 hour). By default, the _cache_ plugin will
   attempt to refresh the cache entry after sending the expired cache entry to the client. The
@@ -69,6 +72,8 @@ cache [TTL] [ZONES...] {
   checking to see if the entry is available from the source. **REFRESH_MODE** defaults to `immediate`. Setting this
   value to `verify` can lead to increased latency when serving stale responses, but will prevent stale entries
   from ever being served if an updated response can be retrieved from the source.
+  In `immediate` mode, concurrent requests for the same expired entry dispatch at most one
+  background refresh.
 * `servfail` cache SERVFAIL responses for **DURATION**.  Setting **DURATION** to 0 will disable caching of SERVFAIL
   responses.  If this option is not set, SERVFAIL responses will be cached for 5 seconds.  **DURATION** may not be
   greater than 5 minutes.
