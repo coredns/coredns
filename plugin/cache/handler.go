@@ -55,13 +55,13 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
 		if !c.verifyStale {
-			cw := newPrefetchResponseWriter(server, state, c)
-			go c.doPrefetch(ctx, state, cw, i, now)
+			cw := newPrefetchResponseWriter(server, rc, do, cd, c)
+			go c.doPrefetch(ctx, cw, i, now)
 		}
 		servedStale.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	} else if c.shouldPrefetch(i, now) {
-		cw := newPrefetchResponseWriter(server, state, c)
-		go c.doPrefetch(ctx, state, cw, i, now)
+		cw := newPrefetchResponseWriter(server, rc, do, cd, c)
+		go c.doPrefetch(ctx, cw, i, now)
 	}
 
 	if i.wildcard != "" {
@@ -91,16 +91,16 @@ func wildcardFunc(ctx context.Context) func() string {
 	}
 }
 
-func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time) {
+func (c *Cache) doPrefetch(ctx context.Context, cw *ResponseWriter, i *item, now time.Time) {
 	// Use a fresh metadata map to avoid concurrent writes to the original request's metadata.
 	ctx = metadata.ContextWithMetadata(ctx)
 	cachePrefetches.WithLabelValues(cw.server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-	c.doRefresh(ctx, state, cw)
+	c.doRefresh(ctx, cw.state, cw)
 
 	// When prefetching we loose the item i, and with it the frequency
 	// that we've gathered sofar. See we copy the frequencies info back
 	// into the new item that was stored in the cache.
-	if i1 := c.exists(state); i1 != nil {
+	if i1 := c.exists(cw.state.Name(), cw.state.QType(), cw.do, cw.cd); i1 != nil {
 		i1.Reset(now, i.Hits())
 	}
 }
@@ -145,8 +145,8 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 }
 
 // exists unconditionally returns an item if it exists in the cache.
-func (c *Cache) exists(state request.Request) *item {
-	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
+func (c *Cache) exists(name string, qtype uint16, do, cd bool) *item {
+	k := hash(name, qtype, do, cd)
 	if i, ok := c.ncache.Get(k); ok {
 		return i
 	}

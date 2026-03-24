@@ -142,30 +142,26 @@ type ResponseWriter struct {
 	nexcept []string // negative zone exceptions
 }
 
-// newPrefetchResponseWriter returns a Cache ResponseWriter to be used in
-// prefetch requests. It ensures RemoteAddr() can be called even after the
-// original connection has already been closed.
-func newPrefetchResponseWriter(server string, state request.Request, c *Cache) *ResponseWriter {
-	// Resolve the address now, the connection might be already closed when the
-	// actual prefetch request is made.
-	addr := state.W.RemoteAddr()
-	// The protocol of the client triggering a cache prefetch doesn't matter.
-	// The address type is used by request.Proto to determine the response size,
-	// and using TCP ensures the message isn't unnecessarily truncated.
-	if u, ok := addr.(*net.UDPAddr); ok {
-		addr = &net.TCPAddr{IP: u.IP, Port: u.Port, Zone: u.Zone}
-	}
+// prefetchAddr is the synthetic remote address for prefetch requests. There is
+// no client connection, and per request.Proto the address type is what selects
+// the response-size budget; TCP ensures upstream replies aren't truncated.
+var prefetchAddr = &net.TCPAddr{}
 
-	return &ResponseWriter{
-		ResponseWriter: state.W,
-		Cache:          c,
-		state:          state,
-		server:         server,
-		do:             state.Do(),
-		cd:             state.Req.CheckingDisabled,
-		prefetch:       true,
-		remoteAddr:     addr,
+// newPrefetchResponseWriter returns a ResponseWriter for prefetch requests.
+// Prefetch has no client connection: the inner ResponseWriter is nil, WriteMsg
+// short-circuits after caching when w.prefetch is true, and the nil-safe
+// overrides below make the remaining dns.ResponseWriter methods well-defined.
+func newPrefetchResponseWriter(server string, req *dns.Msg, do, cd bool, c *Cache) *ResponseWriter {
+	cw := &ResponseWriter{
+		Cache:      c,
+		server:     server,
+		do:         do,
+		cd:         cd,
+		prefetch:   true,
+		remoteAddr: prefetchAddr,
 	}
+	cw.state = request.Request{Req: req}
+	return cw
 }
 
 // RemoteAddr implements the dns.ResponseWriter interface.
@@ -174,6 +170,46 @@ func (w *ResponseWriter) RemoteAddr() net.Addr {
 		return w.remoteAddr
 	}
 	return w.ResponseWriter.RemoteAddr()
+}
+
+// The following overrides make a nil inner ResponseWriter well-defined.
+// Prefetch constructs a ResponseWriter with no client connection; WriteMsg
+// and Write already short-circuit on w.prefetch before delegating, and
+// RemoteAddr uses w.remoteAddr. These cover the rest of the interface.
+
+func (w *ResponseWriter) LocalAddr() net.Addr {
+	if w.ResponseWriter == nil {
+		return prefetchAddr
+	}
+	return w.ResponseWriter.LocalAddr()
+}
+
+func (w *ResponseWriter) Close() error {
+	if w.ResponseWriter == nil {
+		return nil
+	}
+	return w.ResponseWriter.Close()
+}
+
+func (w *ResponseWriter) TsigStatus() error {
+	if w.ResponseWriter == nil {
+		return nil
+	}
+	return w.ResponseWriter.TsigStatus()
+}
+
+func (w *ResponseWriter) TsigTimersOnly(b bool) {
+	if w.ResponseWriter == nil {
+		return
+	}
+	w.ResponseWriter.TsigTimersOnly(b)
+}
+
+func (w *ResponseWriter) Hijack() {
+	if w.ResponseWriter == nil {
+		return
+	}
+	w.ResponseWriter.Hijack()
 }
 
 // WriteMsg implements the dns.ResponseWriter interface.
