@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -154,8 +155,17 @@ func TestDefaultLoader(t *testing.T) {
 	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
 		t.Fatalf("Failed to create test file: %v", err)
 	}
-	if err := os.Chmod(tmpFile, 0000); err != nil {
-		t.Fatalf("Failed to change permissions: %v", err)
+
+	if runtime.GOOS == "windows" {
+		// Use icacls to explicitly deny read access for the file on Windows
+		cmd := exec.Command("icacls", tmpFile, "/deny", "Everyone:(R)")
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("Failed to deny read permission using icacls: %v", err)
+		}
+	} else {
+		if err := os.Chmod(tmpFile, 0000); err != nil {
+			t.Fatalf("Failed to change permissions: %v", err)
+		}
 	}
 
 	input, err = defaultLoader("dns")
