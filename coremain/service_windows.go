@@ -36,7 +36,7 @@ func (s *corednsService) Execute(args []string, r <-chan svc.ChangeRequest, chan
 			}
 			return false, 0
 		default:
-			log.Printf("unexpected control request #%d", req)
+			log.Printf("unexpected control request #%d", req.Cmd)
 		}
 	}
 
