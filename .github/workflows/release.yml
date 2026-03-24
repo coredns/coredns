@@ -21,11 +21,14 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ github.event.inputs.commit }}
+          persist-credentials: false
       - name: Set up info
+        env:
+          INPUT_COMMIT: ${{ github.event.inputs.commit }}
         run: |
           set -x -e
           VERSION=$(make -f Makefile.release version)
-          COMMIT=$(git rev-parse --quiet --verify ${{ github.event.inputs.commit }})
+          COMMIT=$(git rev-parse --quiet --verify "${INPUT_COMMIT}")
           if [[ "$(git tag -l v${VERSION})" == "v${VERSION}" ]]; then
             echo "v${VERSION} already released"
             exit 1
@@ -38,13 +41,18 @@ jobs:
       - name: Build release binary sha256
         run: (cd release; for asset in `ls -A *.tgz *.zip`; do sha256sum $asset > $asset.sha256; done)
       - name: Remove hidden section
-        run: sed '/+++/,//d' notes/coredns-${{ steps.info.outputs.version}}.md > release.md
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+        run: sed '/+++/,//d' "notes/coredns-${VERSION}.md" > release.md
       - name: Log release info
+        env:
+          COMMIT: ${{ steps.info.outputs.commit }}
+          VERSION: ${{ steps.info.outputs.version }}
         run: |
           set -x -e
           git log -1
-          echo ${{ steps.info.outputs.commit }}
-          echo ${{ steps.info.outputs.version }}
+          echo "${COMMIT}"
+          echo "${VERSION}"
           cat release.md
           sha256sum release/*.tgz release/*.zip
       - name: Draft release
