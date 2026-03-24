@@ -50,6 +50,7 @@ require (
 )
 
 require (
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/pires/go-proxyproto v0.11.0
 	github.com/prometheus/exporter-toolkit v0.15.1
 	golang.org/x/net v0.52.0
