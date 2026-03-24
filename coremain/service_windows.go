@@ -1,5 +1,4 @@
 //go:build windows
-// +build windows
 
 package coremain
 
@@ -8,6 +7,7 @@ import (
 	"log"
 
 	"github.com/coredns/caddy"
+
 	"golang.org/x/sys/windows/svc"
 )
 
