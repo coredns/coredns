@@ -369,3 +369,22 @@ func TestAXFRZoneMatchCaseInsensitive(t *testing.T) {
 
 	validateAXFRResponse(t, w)
 }
+
+func TestLongestMatchMostSpecificZone(t *testing.T) {
+	x1 := &xfr{Zones: []string{"example.org."}}
+	x2 := &xfr{Zones: []string{"a.example.org."}}
+
+	got := longestMatch([]*xfr{x1, x2}, "host.a.example.org.")
+	if got != x2 {
+		t.Fatalf("expected most specific zone (a.example.org.) to match, got %+v", got)
+	}
+}
+
+func TestLongestMatchNilWhenNoMatch(t *testing.T) {
+	x1 := &xfr{Zones: []string{"example.org."}}
+
+	got := longestMatch([]*xfr{x1}, "other.net.")
+	if got != nil {
+		t.Fatalf("expected nil when no zones match, got %+v", got)
+	}
+}

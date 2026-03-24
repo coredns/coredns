@@ -3,6 +3,7 @@ package dnsserver
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
 	"testing"
 
@@ -445,5 +446,17 @@ func TestServergRPC_Query_MaxSizeMessage(t *testing.T) {
 	_, err = server.Query(ctx, dnsPacket)
 	if err != nil {
 		t.Errorf("Expected no error for max size message, got: %v", err)
+	}
+}
+
+func TestGRPCResponseTsigStatusReturnsStoredStatus(t *testing.T) {
+	want := errors.New("bad tsig")
+
+	r := &gRPCresponse{
+		tsigStatus: want,
+	}
+
+	if got := r.TsigStatus(); got != want {
+		t.Fatalf("TsigStatus() = %v, want %v", got, want)
 	}
 }

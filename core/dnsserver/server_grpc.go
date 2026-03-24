@@ -195,6 +195,14 @@ func (s *ServergRPC) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket
 
 	w := &gRPCresponse{localAddr: s.listenAddr, remoteAddr: a, Msg: msg}
 
+	if tsig := msg.IsTsig(); tsig != nil {
+		if s.tsigSecret == nil {
+			w.tsigStatus = dns.ErrSecret
+		} else if _, ok := s.tsigSecret[tsig.Hdr.Name]; !ok {
+			w.tsigStatus = dns.ErrSecret
+		}
+	}
+
 	dnsCtx := context.WithValue(ctx, Key{}, s.Server)
 	dnsCtx = context.WithValue(dnsCtx, LoopKey{}, 0)
 	s.ServeDNS(dnsCtx, w, msg)
@@ -219,6 +227,7 @@ type gRPCresponse struct {
 	localAddr  net.Addr
 	remoteAddr net.Addr
 	Msg        *dns.Msg
+	tsigStatus error
 }
 
 // Write is the hack that makes this work. It does not actually write the message
@@ -232,7 +241,7 @@ func (r *gRPCresponse) Write(b []byte) (int, error) {
 // These methods implement the dns.ResponseWriter interface from Go DNS.
 
 func (r *gRPCresponse) Close() error              { return nil }
-func (r *gRPCresponse) TsigStatus() error         { return nil }
+func (r *gRPCresponse) TsigStatus() error         { return r.tsigStatus }
 func (r *gRPCresponse) TsigTimersOnly(b bool)     {}
 func (r *gRPCresponse) Hijack()                   {}
 func (r *gRPCresponse) LocalAddr() net.Addr       { return r.localAddr }
