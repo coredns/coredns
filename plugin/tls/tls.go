@@ -86,14 +86,20 @@ func parseTLS(c *caddy.Controller) error {
 		tls.ClientCAs = tls.RootCAs
 
 		if len(keyLog) > 0 {
-			keyLog, err = filepath.Abs(keyLog)
-			if err == nil {
-				tls.KeyLogWriter, err = os.OpenFile(keyLog, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
-			}
+			absKeyLog, err := filepath.Abs(keyLog)
 			if err != nil {
 				return c.Errf("unable to write TLS Key Log to %q: %s", keyLog, err)
 			}
-			log.Warningf("Writing TLS Key Log to %q\n", keyLog)
+			f, err := os.OpenFile(absKeyLog, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
+			if err != nil {
+				return c.Errf("unable to write TLS Key Log to %q: %s", absKeyLog, err)
+			}
+			c.OnShutdown(func() error {
+				f.Close()
+				return nil
+			})
+			tls.KeyLogWriter = f
+			log.Warningf("Writing TLS Key Log to %q\n", absKeyLog)
 		}
 
 		config.TLSConfig = tls
