@@ -118,7 +118,7 @@ forward FROM TO... {
 * `failfast_all_unhealthy_upstreams` - determines the handling of requests when all upstream servers are unhealthy and unresponsive to health checks. Enabling this option will immediately return SERVFAIL responses for all requests. By default, requests are sent to a random upstream.
 * `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
 * `resolver` **IP [IP...]** specifies one or more DNS resolver IP addresses used to resolve hostname-based **TO** endpoints. If not specified, the system resolver (`/etc/resolv.conf`) is used. Only IP addresses (IPv4 or IPv6) are accepted. Multiple IPs can be specified for redundancy. If re-resolution fails or returns NXDOMAIN, the previously resolved addresses are kept.
-* `resolve_interval` **DURATION** sets the interval for background re-resolution of hostname-based **TO** endpoints. Default is `30s`.
+* `resolve_interval` **DURATION** sets the interval for background re-resolution of hostname-based **TO** endpoints. Default is `30s`. Set to `0` to disable background re-resolution (hostnames are only resolved at startup).
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls_servername` for different upstreams you're out of luck.

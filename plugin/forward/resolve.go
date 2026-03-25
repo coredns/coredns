@@ -273,7 +273,7 @@ func hasDynamicEntries(entries []toEntry) bool {
 // startResolveLoop starts a background goroutine that periodically re-resolves
 // hostname-based TO addresses and updates the proxy list.
 func (f *Forward) startResolveLoop() {
-	if !hasDynamicEntries(f.toEntries) {
+	if !hasDynamicEntries(f.toEntries) || f.resolveInterval == 0 {
 		return
 	}
 
