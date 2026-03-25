@@ -48,10 +48,10 @@ func TestZoneSigningDouble(t *testing.T) {
 	state := request.Request{Req: m, Zone: "miek.nl."}
 	m = d.Sign(state, time.Now().UTC(), server)
 	if !section(m.Answer, 2) {
-		t.Errorf("Answer section should have 1 RRSIG")
+		t.Errorf("Answer section should have 2 RRSIGs")
 	}
 	if !section(m.Ns, 2) {
-		t.Errorf("Authority section should have 1 RRSIG")
+		t.Errorf("Authority section should have 2 RRSIGs")
 	}
 }
 
