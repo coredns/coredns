@@ -39,6 +39,9 @@ Available options:
 **-version**
 : show version and quit.
 
+**-windows-service**
+: run as a Windows service (only available on Windows builds, default false).
+
 ## Authors
 
 CoreDNS Authors.
