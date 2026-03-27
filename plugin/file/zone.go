@@ -121,7 +121,7 @@ func (z *Zone) Insert(r dns.RR) error {
 	case dns.TypeSVCB:
 		r.(*dns.SVCB).Target = strings.ToLower(r.(*dns.SVCB).Target)
 	case dns.TypeHTTPS:
-		r.(*dns.HTTPS).SVCB.Target = strings.ToLower(r.(*dns.HTTPS).SVCB.Target)
+		r.(*dns.HTTPS).Target = strings.ToLower(r.(*dns.HTTPS).Target)
 	}
 
 	z.Tree.Insert(r)
