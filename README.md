@@ -225,7 +225,7 @@ IP addresses are also allowed. They are automatically converted to reverse zones
     whoami
 }
 ~~~
-This Means you are authoritative for `0.0.10.in-addr.arpa.`.
+This means you are authoritative for `0.0.10.in-addr.arpa.`.
 
 This also works for IPv6 addresses. If for some reason you want to serve a zone named `10.0.0.0/24`
 add the closing dot: `10.0.0.0/24.` as this also stops the conversion.
