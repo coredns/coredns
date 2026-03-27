@@ -37,10 +37,10 @@ jobs:
             -ldflags="-s -w -X github.com/coredns/coredns/coremain.GitCommit=${GITCOMMIT}" \
             -o coredns
 
-      - name: Verify hanzoapi plugin
+      - name: Verify hanzodns plugin
         run: |
           chmod +x coredns
-          ./coredns -plugins | grep hanzoapi
+          ./coredns -plugins | grep hanzodns
 
       - name: Docker meta
         id: meta

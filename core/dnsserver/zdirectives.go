@@ -59,7 +59,7 @@ var Directives = []string{
 	"auto",
 	"secondary",
 	"etcd",
-	"hanzoapi",
+	"hanzodns",
 	"loop",
 	"forward",
 	"grpc",
