@@ -157,7 +157,7 @@ func TestHandlerStartupInvalidAddress(t *testing.T) {
 
 	err := h.Startup()
 	if err == nil {
-		t.Fatal("Expected error for invalid address format")
 		defer h.Shutdown()
+		t.Fatal("Expected error for invalid address format")
 	}
 }

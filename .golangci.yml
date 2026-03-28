@@ -99,7 +99,6 @@ linters:
           disabled: true
 
         - name: unreachable-code
-          disabled: true
 
         - name: unused-parameter
           disabled: true
