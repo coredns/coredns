@@ -330,7 +330,7 @@ func (APIConnServiceTest) McEpIndex(string) []*object.MultiClusterEndpoints {
 	return eps
 }
 
-func (APIConnServiceTest) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
+func (APIConnServiceTest) GetNodeByName(_ctx context.Context, _name string) (*api.Node, error) {
 	return &api.Node{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "test.node.foo.bar",

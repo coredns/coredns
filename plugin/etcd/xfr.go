@@ -7,11 +7,11 @@ import (
 )
 
 // Serial returns the serial number to use.
-func (e *Etcd) Serial(state request.Request) uint32 {
+func (e *Etcd) Serial(_state request.Request) uint32 {
 	return uint32(time.Now().Unix()) // #nosec G115 -- Unix time to SOA serial, Year 2106 problem accepted
 }
 
 // MinTTL returns the minimal TTL.
-func (e *Etcd) MinTTL(state request.Request) uint32 {
+func (e *Etcd) MinTTL(_state request.Request) uint32 {
 	return 30
 }

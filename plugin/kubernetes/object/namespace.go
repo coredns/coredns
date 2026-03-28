@@ -46,16 +46,16 @@ func (n *Namespace) DeepCopyObject() runtime.Object {
 func (n *Namespace) GetNamespace() string { return "" }
 
 // SetNamespace implements the metav1.Object interface.
-func (n *Namespace) SetNamespace(namespace string) {}
+func (n *Namespace) SetNamespace(_namespace string) {}
 
 // GetName implements the metav1.Object interface.
 func (n *Namespace) GetName() string { return n.Name }
 
 // SetName implements the metav1.Object interface.
-func (n *Namespace) SetName(name string) {}
+func (n *Namespace) SetName(_name string) {}
 
 // GetResourceVersion implements the metav1.Object interface.
 func (n *Namespace) GetResourceVersion() string { return n.Version }
 
 // SetResourceVersion implements the metav1.Object interface.
-func (n *Namespace) SetResourceVersion(version string) {}
+func (n *Namespace) SetResourceVersion(_version string) {}

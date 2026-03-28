@@ -163,7 +163,7 @@ func testConfigWithPlugin(p *contextCapturingPlugin) *Config {
 		ListenHosts: []string{"127.0.0.1"},
 		Port:        "443",
 	}
-	c.AddPlugin(func(next plugin.Handler) plugin.Handler { return p })
+	c.AddPlugin(func(_next plugin.Handler) plugin.Handler { return p })
 	return c
 }
 

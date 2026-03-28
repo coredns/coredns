@@ -57,7 +57,7 @@ type terminatingPlugin struct{}
 func (*terminatingPlugin) Name() string { return "testplugin" }
 
 // ServeDNS implements plugin.Handler that returns NXDOMAIN for all requests.
-func (*terminatingPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (*terminatingPlugin) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	m := new(dns.Msg)
 	m.SetRcode(r, dns.RcodeNameError)
 	w.WriteMsg(m)
@@ -284,7 +284,7 @@ type errWriter struct {
 	test.ResponseWriter
 }
 
-func (e *errWriter) WriteMsg(m *dns.Msg) error { return fmt.Errorf("write error") }
+func (e *errWriter) WriteMsg(_m *dns.Msg) error { return fmt.Errorf("write error") }
 
 // blockingTransferer produces many records into the channel and signals when done.
 type blockingTransferer struct {
@@ -293,10 +293,10 @@ type blockingTransferer struct {
 }
 
 func (b *blockingTransferer) Name() string { return "blockingtransferer" }
-func (b *blockingTransferer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (b *blockingTransferer) ServeDNS(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 	return 0, nil
 }
-func (b *blockingTransferer) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
+func (b *blockingTransferer) Transfer(zone string, _serial uint32) (<-chan []dns.RR, error) {
 	if zone != b.Zone {
 		return nil, ErrNotAuthoritative
 	}
@@ -343,7 +343,7 @@ func TestTransferDrainsProducerOnClientError(t *testing.T) {
 type nopHandler struct{}
 
 func (nopHandler) Name() string { return "nop" }
-func (nopHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (nopHandler) ServeDNS(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 	return dns.RcodeSuccess, nil
 }
 

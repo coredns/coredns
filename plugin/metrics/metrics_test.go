@@ -224,7 +224,7 @@ func getTLSClient(clientCertName bool) *http.Client {
 					caCertPool.AppendCertsFromPEM(cert)
 					return caCertPool
 				}(),
-				GetClientCertificate: func(req *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+				GetClientCertificate: func(_req *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 					return &clientCertficate, nil
 				},
 			},
@@ -523,7 +523,7 @@ func TestMetricsHTTPTimeout(t *testing.T) {
 	}
 }
 
-func TestMustRegister_DuplicateOK(t *testing.T) {
+func TestMustRegister_DuplicateOK(_t *testing.T) {
 	met := New("localhost:0")
 	met.Reg = prometheus.NewRegistry()
 

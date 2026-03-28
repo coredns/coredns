@@ -137,7 +137,7 @@ func TestInsertPreservesSRVCase(t *testing.T) {
 	}
 
 	found := false
-	err = z.Walk(func(elem *tree.Elem, rrsets map[uint16][]dns.RR) error {
+	err = z.Walk(func(_elem *tree.Elem, rrsets map[uint16][]dns.RR) error {
 		for _, rrs := range rrsets {
 			for _, rr := range rrs {
 				if srvRR, ok := rr.(*dns.SRV); ok {

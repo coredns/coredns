@@ -22,11 +22,11 @@ type fakeRoute53 struct {
 	route53Client
 }
 
-func (fakeRoute53) ListHostedZonesByName(_ context.Context, input *route53.ListHostedZonesByNameInput, optFns ...func(*route53.Options)) (*route53.ListHostedZonesByNameOutput, error) {
+func (fakeRoute53) ListHostedZonesByName(_ context.Context, _input *route53.ListHostedZonesByNameInput, _optFns ...func(*route53.Options)) (*route53.ListHostedZonesByNameOutput, error) {
 	return nil, nil
 }
 
-func (fakeRoute53) ListResourceRecordSets(_ context.Context, in *route53.ListResourceRecordSetsInput, optFns ...func(*route53.Options)) (*route53.ListResourceRecordSetsOutput, error) {
+func (fakeRoute53) ListResourceRecordSets(_ context.Context, in *route53.ListResourceRecordSetsInput, _optFns ...func(*route53.Options)) (*route53.ListResourceRecordSetsOutput, error) {
 	if aws.ToString(in.HostedZoneId) == "0987654321" {
 		return nil, errors.New("bad. zone is bad")
 	}
@@ -91,7 +91,7 @@ func TestRoute53(t *testing.T) {
 	}
 	r.Fall = fall.Zero
 	r.Fall.SetZonesFromArgs([]string{"gov."})
-	r.Next = test.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	r.Next = test.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		state := crequest.Request{W: w, Req: r}
 		qname := state.Name()
 		m := new(dns.Msg)

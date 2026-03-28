@@ -241,7 +241,7 @@ func createClusterIPSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 	}, meta.CreateOptions{})
 }
 
-func createHeadlessSvc(suffix int, client kubernetes.Interface, ip net.IP) {
+func createHeadlessSvc(suffix int, client kubernetes.Interface, _ip net.IP) {
 	ctx := context.TODO()
 	client.CoreV1().Services("testns").Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{
@@ -254,7 +254,7 @@ func createHeadlessSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 	}, meta.CreateOptions{})
 }
 
-func createExternalSvc(suffix int, client kubernetes.Interface, ip net.IP) {
+func createExternalSvc(suffix int, client kubernetes.Interface, _ip net.IP) {
 	ctx := context.TODO()
 	client.CoreV1().Services("testns").Create(ctx, &api.Service{
 		ObjectMeta: meta.ObjectMeta{
@@ -273,7 +273,7 @@ func createExternalSvc(suffix int, client kubernetes.Interface, ip net.IP) {
 	}, meta.CreateOptions{})
 }
 
-func createMultiClusterHeadlessSvc(suffix int, mcsClient mcsClientset.MulticlusterV1alpha1Interface, ip net.IP) {
+func createMultiClusterHeadlessSvc(suffix int, mcsClient mcsClientset.MulticlusterV1alpha1Interface, _ip net.IP) {
 	ctx := context.TODO()
 	mcsClient.ServiceImports("testns").Create(ctx, &mcs.ServiceImport{
 		ObjectMeta: meta.ObjectMeta{

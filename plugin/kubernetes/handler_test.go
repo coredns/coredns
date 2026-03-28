@@ -1133,7 +1133,7 @@ func (APIConnServeTest) EndpointsList() []*object.Endpoints {
 	return eps
 }
 
-func (APIConnServeTest) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
+func (APIConnServeTest) GetNodeByName(_ctx context.Context, _name string) (*api.Node, error) {
 	return &api.Node{
 		ObjectMeta: meta.ObjectMeta{
 			Name: "test.node.foo.bar",
@@ -1161,7 +1161,7 @@ type Upstub struct {
 }
 
 // Lookup returns a set response
-func (t *Upstub) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+func (t *Upstub) Lookup(_ctx context.Context, _state request.Request, _name string, _typ uint16) (*dns.Msg, error) {
 	var answer []dns.RR
 	// if query type is not CNAME, remove any CNAME with same name as qname from the answer
 	if t.Qtype != dns.TypeCNAME {

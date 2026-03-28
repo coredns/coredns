@@ -665,8 +665,8 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*object.Namespace, error
 	return ns, nil
 }
 
-func (dns *dnsControl) Add(obj any)               { dns.updateModified() }
-func (dns *dnsControl) Delete(obj any)            { dns.updateModified() }
+func (dns *dnsControl) Add(_obj any)              { dns.updateModified() }
+func (dns *dnsControl) Delete(_obj any)           { dns.updateModified() }
 func (dns *dnsControl) Update(oldObj, newObj any) { dns.detectChanges(oldObj, newObj) }
 
 // detectChanges detects changes in objects, and updates the modified timestamp

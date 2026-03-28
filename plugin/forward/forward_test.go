@@ -84,14 +84,14 @@ func TestSetTapPlugin(t *testing.T) {
 
 type mockResponseWriter struct{}
 
-func (m *mockResponseWriter) LocalAddr() net.Addr         { return nil }
-func (m *mockResponseWriter) RemoteAddr() net.Addr        { return nil }
-func (m *mockResponseWriter) WriteMsg(msg *dns.Msg) error { return nil }
-func (m *mockResponseWriter) Write([]byte) (int, error)   { return 0, nil }
-func (m *mockResponseWriter) Close() error                { return nil }
-func (m *mockResponseWriter) TsigStatus() error           { return nil }
-func (m *mockResponseWriter) TsigTimersOnly(bool)         {}
-func (m *mockResponseWriter) Hijack()                     {}
+func (m *mockResponseWriter) LocalAddr() net.Addr          { return nil }
+func (m *mockResponseWriter) RemoteAddr() net.Addr         { return nil }
+func (m *mockResponseWriter) WriteMsg(_msg *dns.Msg) error { return nil }
+func (m *mockResponseWriter) Write([]byte) (int, error)    { return 0, nil }
+func (m *mockResponseWriter) Close() error                 { return nil }
+func (m *mockResponseWriter) TsigStatus() error            { return nil }
+func (m *mockResponseWriter) TsigTimersOnly(bool)          {}
+func (m *mockResponseWriter) Hijack()                      {}
 
 // TestForward_Regression_NoBusyLoop ensures that ServeDNS does not perform
 // an unbounded number of upstream connect attempts for a single request when

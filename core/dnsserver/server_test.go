@@ -17,7 +17,7 @@ import (
 
 type testPlugin struct{}
 
-func (tp testPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (tp testPlugin) ServeDNS(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 	return 0, nil
 }
 
@@ -30,7 +30,7 @@ type blockingPlugin struct {
 
 func (b *blockingPlugin) Name() string { return "blocking" }
 
-func (b *blockingPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (b *blockingPlugin) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	// Respond immediately to avoid waiting in dns.Exchange
 	m := new(dns.Msg)
 	m.SetRcodeFormatError(r)
@@ -51,7 +51,7 @@ func testConfig(transport string, p plugin.Handler) *Config {
 		Stacktrace:  false,
 	}
 
-	c.AddPlugin(func(next plugin.Handler) plugin.Handler { return p })
+	c.AddPlugin(func(_next plugin.Handler) plugin.Handler { return p })
 	return c
 }
 

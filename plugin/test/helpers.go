@@ -325,7 +325,7 @@ func SortAndCheck(resp *dns.Msg, tc Case) error {
 
 // ErrorHandler returns a Handler that returns ServerFailure error when called.
 func ErrorHandler() Handler {
-	return HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		m := new(dns.Msg)
 		m.SetRcode(r, dns.RcodeServerFailure)
 		w.WriteMsg(m)
@@ -335,7 +335,7 @@ func ErrorHandler() Handler {
 
 // NextHandler returns a Handler that returns rcode and err.
 func NextHandler(rcode int, err error) Handler {
-	return HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return HandlerFunc(func(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 		return rcode, err
 	})
 }

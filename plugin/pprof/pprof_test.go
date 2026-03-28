@@ -127,7 +127,7 @@ func TestHandlerPprofRedirect(t *testing.T) {
 
 	// Create a client that doesn't follow redirects
 	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_req *http.Request, _via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}

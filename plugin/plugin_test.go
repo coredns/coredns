@@ -42,7 +42,7 @@ type mockHandler struct {
 	returnErr error
 }
 
-func (m *mockHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (m *mockHandler) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if m.writeMsg {
 		resp := new(dns.Msg)
 		resp.SetReply(r)

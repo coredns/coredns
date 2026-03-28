@@ -145,7 +145,7 @@ type benchmarkResponseWriter struct{}
 
 func (b *benchmarkResponseWriter) LocalAddr() net.Addr         { return nil }
 func (b *benchmarkResponseWriter) RemoteAddr() net.Addr        { return nil }
-func (b *benchmarkResponseWriter) WriteMsg(m *dns.Msg) error   { return nil }
+func (b *benchmarkResponseWriter) WriteMsg(_m *dns.Msg) error  { return nil }
 func (b *benchmarkResponseWriter) Write(p []byte) (int, error) { return len(p), nil }
 func (b *benchmarkResponseWriter) Close() error                { return nil }
 func (b *benchmarkResponseWriter) TsigStatus() error           { return nil }

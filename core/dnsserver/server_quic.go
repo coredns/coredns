@@ -286,7 +286,7 @@ func (s *ServerQUIC) Stop() error {
 }
 
 // Serve implements caddy.TCPServer interface.
-func (s *ServerQUIC) Serve(l net.Listener) error { return nil }
+func (s *ServerQUIC) Serve(_l net.Listener) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServerQUIC) Listen() (net.Listener, error) { return nil, nil }

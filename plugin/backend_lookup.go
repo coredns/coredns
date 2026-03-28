@@ -327,7 +327,7 @@ func MX(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 }
 
 // CNAME returns CNAME records from the backend or an error.
-func CNAME(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) (records []dns.RR, err error) {
+func CNAME(ctx context.Context, b ServiceBackend, _zone string, state request.Request, opt Options) (records []dns.RR, err error) {
 	services, err := b.Services(ctx, state, true, opt)
 	if err != nil {
 		return nil, err
@@ -410,7 +410,7 @@ func TXT(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 }
 
 // PTR returns the PTR records from the backend, only services that have a domain name as host are included.
-func PTR(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) (records []dns.RR, err error) {
+func PTR(ctx context.Context, b ServiceBackend, _zone string, state request.Request, opt Options) (records []dns.RR, err error) {
 	services, err := b.Reverse(ctx, state, true, opt)
 	if err != nil {
 		return nil, err
@@ -467,7 +467,7 @@ func NS(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 }
 
 // SOA returns a SOA record from the backend.
-func SOA(ctx context.Context, b ServiceBackend, zone string, state request.Request, opt Options) ([]dns.RR, error) {
+func SOA(_ctx context.Context, b ServiceBackend, zone string, state request.Request, _opt Options) ([]dns.RR, error) {
 	minTTL := b.MinTTL(state)
 	ttl := min(minTTL, uint32(300))
 

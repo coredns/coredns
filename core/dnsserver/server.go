@@ -414,7 +414,7 @@ func (s *Server) Tracer() ot.Tracer {
 }
 
 // errorFunc responds to an DNS request with an error.
-func errorFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
+func errorFunc(_server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
 	state := request.Request{W: w, Req: r}
 
 	answer := new(dns.Msg)

@@ -132,7 +132,7 @@ func (s *ServerHTTPS3) ServePacket(pc net.PacketConn) error {
 
 // Listen function not used in HTTP/3, but defined for compatibility
 func (s *ServerHTTPS3) Listen() (net.Listener, error) { return nil, nil }
-func (s *ServerHTTPS3) Serve(l net.Listener) error    { return nil }
+func (s *ServerHTTPS3) Serve(_l net.Listener) error   { return nil }
 
 // OnStartupComplete lists the sites served by this server
 // and any relevant information, assuming Quiet is false.

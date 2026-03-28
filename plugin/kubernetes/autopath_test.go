@@ -23,25 +23,25 @@ var (
 // Mock API connector for testing
 type mockAPIConnector struct{}
 
-func (m *mockAPIConnector) PodIndex(ip string) []*object.Pod {
+func (m *mockAPIConnector) PodIndex(_ip string) []*object.Pod {
 	return []*object.Pod{mockPod}
 }
 
 // Minimal implementation of other required methods
-func (m *mockAPIConnector) ServiceList() []*object.Service                     { return nil }
-func (m *mockAPIConnector) EndpointsList() []*object.Endpoints                 { return nil }
-func (m *mockAPIConnector) ServiceImportList() []*object.ServiceImport         { return nil }
-func (m *mockAPIConnector) SvcIndex(s string) []*object.Service                { return nil }
-func (m *mockAPIConnector) SvcIndexReverse(s string) []*object.Service         { return nil }
-func (m *mockAPIConnector) SvcExtIndexReverse(s string) []*object.Service      { return nil }
-func (m *mockAPIConnector) SvcImportIndex(s string) []*object.ServiceImport    { return nil }
-func (m *mockAPIConnector) EpIndex(s string) []*object.Endpoints               { return nil }
-func (m *mockAPIConnector) EpIndexReverse(s string) []*object.Endpoints        { return nil }
-func (m *mockAPIConnector) McEpIndex(s string) []*object.MultiClusterEndpoints { return nil }
-func (m *mockAPIConnector) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
+func (m *mockAPIConnector) ServiceList() []*object.Service                      { return nil }
+func (m *mockAPIConnector) EndpointsList() []*object.Endpoints                  { return nil }
+func (m *mockAPIConnector) ServiceImportList() []*object.ServiceImport          { return nil }
+func (m *mockAPIConnector) SvcIndex(_s string) []*object.Service                { return nil }
+func (m *mockAPIConnector) SvcIndexReverse(_s string) []*object.Service         { return nil }
+func (m *mockAPIConnector) SvcExtIndexReverse(_s string) []*object.Service      { return nil }
+func (m *mockAPIConnector) SvcImportIndex(_s string) []*object.ServiceImport    { return nil }
+func (m *mockAPIConnector) EpIndex(_s string) []*object.Endpoints               { return nil }
+func (m *mockAPIConnector) EpIndexReverse(_s string) []*object.Endpoints        { return nil }
+func (m *mockAPIConnector) McEpIndex(_s string) []*object.MultiClusterEndpoints { return nil }
+func (m *mockAPIConnector) GetNodeByName(_ctx context.Context, _name string) (*api.Node, error) {
 	return nil, nil
 }
-func (m *mockAPIConnector) GetNamespaceByName(name string) (*object.Namespace, error) {
+func (m *mockAPIConnector) GetNamespaceByName(_name string) (*object.Namespace, error) {
 	return nil, nil
 }
 func (m *mockAPIConnector) Run()                        {}

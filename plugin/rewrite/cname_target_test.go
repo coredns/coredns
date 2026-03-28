@@ -17,7 +17,7 @@ import (
 
 type MockedUpstream struct{}
 
-func (u *MockedUpstream) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+func (u *MockedUpstream) Lookup(_ctx context.Context, state request.Request, _name string, _typ uint16) (*dns.Msg, error) {
 	m := new(dns.Msg)
 	m.SetReply(state.Req)
 	m.Authoritative = true
@@ -235,14 +235,14 @@ func doTestCNameTargetTests(t *testing.T, rules []Rule) {
 // nilUpstream returns a nil message to simulate an upstream failure path.
 type nilUpstream struct{}
 
-func (f *nilUpstream) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+func (f *nilUpstream) Lookup(_ctx context.Context, _state request.Request, _name string, _typ uint16) (*dns.Msg, error) {
 	return nil, nil
 }
 
 // errUpstream returns a nil message with an error to simulate an upstream failure path.
 type errUpstream struct{}
 
-func (f *errUpstream) Lookup(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+func (f *errUpstream) Lookup(_ctx context.Context, _state request.Request, _name string, _typ uint16) (*dns.Msg, error) {
 	return nil, errors.New("upstream failure")
 }
 

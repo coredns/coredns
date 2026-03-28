@@ -73,7 +73,7 @@ func (s *ServerTLS) Serve(l net.Listener) error {
 }
 
 // ServePacket implements caddy.UDPServer interface.
-func (s *ServerTLS) ServePacket(p net.PacketConn) error { return nil }
+func (s *ServerTLS) ServePacket(_p net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServerTLS) Listen() (net.Listener, error) {
