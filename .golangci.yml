@@ -23,6 +23,7 @@ linters:
     - protogetter
     - staticcheck
     - thelper
+    - revive
     - unconvert
     - unused
     - usetesting
@@ -52,16 +53,14 @@ linters:
         - name: blank-imports
 
         - name: context-as-argument
-          arguments:
-            - allowTypesBefore: "*testing.T"
+          disabled: true
 
         - name: context-keys-type
 
         - name: dot-imports
 
         - name: early-return
-          arguments:
-            - "preserveScope"
+          disabled: true
 
         - name: empty-block
           disabled: true
@@ -77,8 +76,7 @@ linters:
         - name: increment-decrement
 
         - name: indent-error-flow
-          arguments:
-            - "preserveScope"
+          disabled: true
 
         - name: range
 
@@ -98,12 +96,13 @@ linters:
           disabled: true
 
         - name: unnecessary-stmt
+          disabled: true
 
         - name: unreachable-code
+          disabled: true
 
         - name: unused-parameter
-          arguments:
-            - allowRegex: "^_"
+          disabled: true
 
         - name: use-any
 
