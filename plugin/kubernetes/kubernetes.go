@@ -669,9 +669,8 @@ func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (ser
 func (k *Kubernetes) Serial(state request.Request) uint32 {
 	if !k.isMultiClusterZone(state.Zone) {
 		return uint32(k.APIConn.Modified(ModifiedInternal)) // #nosec G115 -- Unix time to SOA serial
-	} else {
-		return uint32(k.APIConn.Modified(ModifiedMultiCluster)) // #nosec G115 -- Unix time to SOA serial
 	}
+	return uint32(k.APIConn.Modified(ModifiedMultiCluster)) // #nosec G115 -- Unix time to SOA serial
 }
 
 // MinTTL returns the minimal TTL.
