@@ -69,15 +69,14 @@ func setup(c *caddy.Controller) error {
 			case "upstream":
 				c.RemainingArgs()
 			case "credentials":
-				if c.NextArg() {
-					credType, err := getCredType(c.Val())
-					if err != nil {
-						return plugin.Error("clouddns", c.Errf("invalid credentials file %q: %v", c.Val(), err))
-					}
-					opt = option.WithAuthCredentialsFile(credType, c.Val())
-				} else {
+				if !c.NextArg() {
 					return plugin.Error("clouddns", c.ArgErr())
 				}
+				credType, err := getCredType(c.Val())
+				if err != nil {
+					return plugin.Error("clouddns", c.Errf("invalid credentials file %q: %v", c.Val(), err))
+				}
+				opt = option.WithAuthCredentialsFile(credType, c.Val())
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
 			default:

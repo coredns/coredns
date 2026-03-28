@@ -46,25 +46,25 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 
 		if len(args) >= 3 {
 			tcpWriteBuf := args[2]
-			if v, err := strconv.Atoi(tcpWriteBuf); err == nil {
-				if v < 1 || v > maxMultipleTcpWriteBuf {
-					return nil, c.Errf("dnstap: MultipleTcpWriteBuf must be between 1 and %d (MiB units): %d", maxMultipleTcpWriteBuf, v)
-				}
-				d.MultipleTcpWriteBuf = v
-			} else {
+			v, err := strconv.Atoi(tcpWriteBuf)
+			if err != nil {
 				return nil, c.Errf("dnstap: invalid MultipleTcpWriteBuf %q: %v", tcpWriteBuf, err)
 			}
+			if v < 1 || v > maxMultipleTcpWriteBuf {
+				return nil, c.Errf("dnstap: MultipleTcpWriteBuf must be between 1 and %d (MiB units): %d", maxMultipleTcpWriteBuf, v)
+			}
+			d.MultipleTcpWriteBuf = v
 		}
 		if len(args) >= 4 {
 			qSize := args[3]
-			if v, err := strconv.Atoi(qSize); err == nil {
-				if v < 1 || v > maxMultipleQueue {
-					return nil, c.Errf("dnstap: MultipleQueue must be between 1 and %d (x10k messages): %d", maxMultipleQueue, v)
-				}
-				d.MultipleQueue = v
-			} else {
+			v, err := strconv.Atoi(qSize)
+			if err != nil {
 				return nil, c.Errf("dnstap: invalid MultipleQueue %q: %v", qSize, err)
 			}
+			if v < 1 || v > maxMultipleQueue {
+				return nil, c.Errf("dnstap: MultipleQueue must be between 1 and %d (x10k messages): %d", maxMultipleQueue, v)
+			}
+			d.MultipleQueue = v
 		}
 
 		var dio *dio

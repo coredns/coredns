@@ -666,42 +666,42 @@ func optsEqual(a, b []dns.EDNS0) bool {
 	for i := range a {
 		switch aa := a[i].(type) {
 		case *dns.EDNS0_LOCAL:
-			if bb, ok := b[i].(*dns.EDNS0_LOCAL); ok {
-				if aa.Code != bb.Code {
-					return false
-				}
-				if !bytes.Equal(aa.Data, bb.Data) {
-					return false
-				}
-			} else {
+			bb, ok := b[i].(*dns.EDNS0_LOCAL)
+			if !ok {
+				return false
+			}
+			if aa.Code != bb.Code {
+				return false
+			}
+			if !bytes.Equal(aa.Data, bb.Data) {
 				return false
 			}
 		case *dns.EDNS0_NSID:
-			if bb, ok := b[i].(*dns.EDNS0_NSID); ok {
-				if aa.Nsid != bb.Nsid {
-					return false
-				}
-			} else {
+			bb, ok := b[i].(*dns.EDNS0_NSID)
+			if !ok {
+				return false
+			}
+			if aa.Nsid != bb.Nsid {
 				return false
 			}
 		case *dns.EDNS0_SUBNET:
-			if bb, ok := b[i].(*dns.EDNS0_SUBNET); ok {
-				if aa.Code != bb.Code {
-					return false
-				}
-				if aa.Family != bb.Family {
-					return false
-				}
-				if aa.SourceNetmask != bb.SourceNetmask {
-					return false
-				}
-				if aa.SourceScope != bb.SourceScope {
-					return false
-				}
-				if !aa.Address.Equal(bb.Address) {
-					return false
-				}
-			} else {
+			bb, ok := b[i].(*dns.EDNS0_SUBNET)
+			if !ok {
+				return false
+			}
+			if aa.Code != bb.Code {
+				return false
+			}
+			if aa.Family != bb.Family {
+				return false
+			}
+			if aa.SourceNetmask != bb.SourceNetmask {
+				return false
+			}
+			if aa.SourceScope != bb.SourceScope {
+				return false
+			}
+			if !aa.Address.Equal(bb.Address) {
 				return false
 			}
 
