@@ -65,7 +65,6 @@ func roundRobin(in []dns.RR) []dns.RR {
 func roundRobinShuffle(records []dns.RR) {
 	switch l := len(records); l {
 	case 0, 1:
-		break
 	case 2:
 		if dns.Id()%2 == 0 {
 			records[0], records[1] = records[1], records[0]

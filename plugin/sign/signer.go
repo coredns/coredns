@@ -133,8 +133,7 @@ func resign(rd io.Reader, now time.Time) (why error) {
 	i := 0
 
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
-		switch x := rr.(type) {
-		case *dns.RRSIG:
+		if x, ok := rr.(*dns.RRSIG); ok {
 			if x.TypeCovered != dns.TypeSOA {
 				continue
 			}

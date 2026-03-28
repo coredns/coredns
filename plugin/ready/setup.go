@@ -90,8 +90,7 @@ func parse(c *caddy.Controller) (string, monitorType, error) {
 		}
 
 		for c.NextBlock() {
-			switch c.Val() {
-			case "monitor":
+			if c.Val() == "monitor" {
 				args := c.RemainingArgs()
 				if len(args) != 1 {
 					return "", "", c.ArgErr()
