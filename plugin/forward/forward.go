@@ -60,6 +60,7 @@ type Forward struct {
 	// Hostname resolution fields
 	resolver        []string      // custom resolver IPs for hostname TO resolution
 	resolveInterval time.Duration // interval for background hostname re-resolution
+	resolveHold     time.Duration // max TTL cap for hostname re-resolution (0 = no cap)
 	toEntries       []toEntry     // ordered TO entries preserving config order
 	proxyMu         sync.RWMutex  // protects proxies slice for dynamic updates
 	stopResolve     chan struct{} // stop channel for background resolution goroutine
@@ -159,7 +160,9 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			// assume healthcheck is completely broken and randomly
 			// select an upstream to connect to.
 			r := new(random)
+			f.proxyMu.RLock()
 			proxy = r.List(f.proxies)[0]
+			f.proxyMu.RUnlock()
 		}
 
 		if span != nil {

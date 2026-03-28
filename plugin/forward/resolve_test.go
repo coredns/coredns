@@ -248,7 +248,7 @@ func TestExpandAndDedup(t *testing.T) {
 		{static: true, addrs: []string{"10.0.0.2:53"}},
 	}
 
-	result, err := expandAndDedup(entries, []string{s.Addr})
+	result, err := expandAndDedup(entries, []string{s.Addr}, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -285,7 +285,7 @@ func TestExpandAndDedupOrderPreserved(t *testing.T) {
 		{static: true, addrs: []string{"192.168.1.1:53"}},
 	}
 
-	result, err := expandAndDedup(entries, []string{s.Addr})
+	result, err := expandAndDedup(entries, []string{s.Addr}, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -315,7 +315,7 @@ func TestDnsLookup(t *testing.T) {
 	defer s.Close()
 
 	// Use the full server address (IP:port) since the test server uses a random port
-	ips, err := dnsLookup("myhost.example.com", []string{s.Addr})
+	ips, _, err := dnsLookup("myhost.example.com", []string{s.Addr})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -486,7 +486,7 @@ func TestSetupWithHostnameTO(t *testing.T) {
 
 	// Test resolving a hostname entry directly
 	entry := hostEntry{hostname: "myupstream.example.com", port: "53", transport: "dns"}
-	addrs, err := resolveHostEntry(entry, []string{s.Addr})
+	addrs, _, err := resolveHostEntry(entry, []string{s.Addr})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -505,7 +505,7 @@ func TestSetupWithHostnameTO(t *testing.T) {
 		{static: false, entry: entry},
 	}
 
-	resolvedAddrs, err := expandAndDedup(f.toEntries, f.resolver)
+	resolvedAddrs, err := expandAndDedup(f.toEntries, f.resolver, 0)
 	if err != nil {
 		t.Fatalf("resolution failed: %v", err)
 	}
@@ -546,7 +546,7 @@ func TestSetupMixedIPAndHostnameTO(t *testing.T) {
 		{static: true, addrs: []string{"127.0.0.1:53"}},
 	}
 
-	resolvedAddrs, err := expandAndDedup(f.toEntries, f.resolver)
+	resolvedAddrs, err := expandAndDedup(f.toEntries, f.resolver, 0)
 	if err != nil {
 		t.Fatalf("expand error: %v", err)
 	}
@@ -579,11 +579,14 @@ func TestReResolve(t *testing.T) {
 		ret.SetReply(r)
 		callCount++
 		if r.Question[0].Qtype == dns.TypeA {
+			var rr *dns.A
 			if callCount <= 2 {
-				ret.Answer = append(ret.Answer, test.A("myhost.example.com. IN A 10.0.0.1"))
+				rr = test.A("myhost.example.com. IN A 10.0.0.1")
 			} else {
-				ret.Answer = append(ret.Answer, test.A("myhost.example.com. IN A 10.0.0.2"))
+				rr = test.A("myhost.example.com. IN A 10.0.0.2")
 			}
+			rr.Hdr.Ttl = 0 // TTL=0 so re-resolve always happens
+			ret.Answer = append(ret.Answer, rr)
 		}
 		w.WriteMsg(ret)
 	})
@@ -598,7 +601,7 @@ func TestReResolve(t *testing.T) {
 	}
 
 	// Initial expand
-	addrs, err := expandAndDedup(f.toEntries, f.resolver)
+	addrs, err := expandAndDedup(f.toEntries, f.resolver, 0)
 	if err != nil {
 		t.Fatalf("initial expand error: %v", err)
 	}
@@ -662,7 +665,7 @@ func TestReResolveNoChange(t *testing.T) {
 		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
 	}
 
-	addrs, err := expandAndDedup(f.toEntries, f.resolver)
+	addrs, err := expandAndDedup(f.toEntries, f.resolver, 0)
 	if err != nil {
 		t.Fatalf("initial expand error: %v", err)
 	}
@@ -701,13 +704,16 @@ func TestReResolveDedup(t *testing.T) {
 		ret.SetReply(r)
 		callCount++
 		if r.Question[0].Qtype == dns.TypeA {
+			var rr *dns.A
 			if callCount <= 2 {
 				// Initial: hostname resolves to 10.0.0.99
-				ret.Answer = append(ret.Answer, test.A("myhost.example.com. IN A 10.0.0.99"))
+				rr = test.A("myhost.example.com. IN A 10.0.0.99")
 			} else {
 				// After: hostname resolves to 10.0.0.1 (same as static)
-				ret.Answer = append(ret.Answer, test.A("myhost.example.com. IN A 10.0.0.1"))
+				rr = test.A("myhost.example.com. IN A 10.0.0.1")
 			}
+			rr.Hdr.Ttl = 0 // TTL=0 so re-resolve always happens
+			ret.Answer = append(ret.Answer, rr)
 		}
 		w.WriteMsg(ret)
 	})
@@ -721,7 +727,7 @@ func TestReResolveDedup(t *testing.T) {
 		{static: true, addrs: []string{"10.0.0.1:53"}},
 	}
 
-	addrs, err := expandAndDedup(f.toEntries, f.resolver)
+	addrs, err := expandAndDedup(f.toEntries, f.resolver, 0)
 	if err != nil {
 		t.Fatalf("initial expand error: %v", err)
 	}
@@ -786,7 +792,7 @@ func TestReResolveNoChangeOnReorder(t *testing.T) {
 		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
 	}
 
-	addrs, err := expandAndDedup(f.toEntries, f.resolver)
+	addrs, err := expandAndDedup(f.toEntries, f.resolver, 0)
 	if err != nil {
 		t.Fatalf("initial expand error: %v", err)
 	}
@@ -841,7 +847,7 @@ func TestSetupResolverWithProxyOptions(t *testing.T) {
 	f.opts.HCDomain = "example.org."
 	f.opts.HCRecursionDesired = true
 
-	addrs, err := expandAndDedup(f.toEntries, f.resolver)
+	addrs, err := expandAndDedup(f.toEntries, f.resolver, 0)
 	if err != nil {
 		t.Fatalf("expand error: %v", err)
 	}
@@ -903,7 +909,7 @@ func TestExpandAndDedupTLS(t *testing.T) {
 		{static: true, addrs: []string{"tls://9.9.9.10:853"}},
 	}
 
-	result, err := expandAndDedup(entries, []string{s.Addr})
+	result, err := expandAndDedup(entries, []string{s.Addr}, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -936,5 +942,387 @@ func TestResolverWithHCOptions(t *testing.T) {
 	expectedOpts := proxy.Options{HCRecursionDesired: true, HCDomain: "."}
 	if f.opts != expectedOpts {
 		t.Errorf("expected opts %v, got %v", expectedOpts, f.opts)
+	}
+}
+
+func TestReResolveTTLHonored(t *testing.T) {
+	// DNS server returns records with TTL=3600. On re-resolve, entries with
+	// valid TTL should be skipped (cached addresses used).
+	resolveCount := 0
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		resolveCount++
+		if r.Question[0].Qtype == dns.TypeA {
+			rr := test.A("myhost.example.com. IN A 10.0.0.1")
+			rr.Hdr.Ttl = 3600
+			ret.Answer = append(ret.Answer, rr)
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	f := New()
+	f.from = "."
+	f.resolver = []string{s.Addr}
+	f.resolveInterval = 5 * time.Second
+	f.toEntries = []toEntry{
+		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
+	}
+
+	// Initial expand sets TTL
+	addrs, err := expandAndDedup(f.toEntries, f.resolver, f.resolveHold)
+	if err != nil {
+		t.Fatalf("initial expand error: %v", err)
+	}
+	for _, addr := range addrs {
+		host, _ := splitZone(addr)
+		trans, h := parse.Transport(host)
+		p := proxy.NewProxy("forward", h, trans)
+		f.proxies = append(f.proxies, p)
+	}
+
+	initialResolveCount := resolveCount
+
+	// Trigger re-resolve — TTL is 3600s, should skip and use cached
+	f.reResolve()
+
+	if resolveCount != initialResolveCount {
+		t.Errorf("expected no new DNS queries (TTL valid), but resolve count went from %d to %d",
+			initialResolveCount, resolveCount)
+	}
+}
+
+func TestReResolveTTLExpired(t *testing.T) {
+	// DNS server returns TTL=1. After expiry, re-resolve should query DNS again.
+	resolveCount := 0
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		resolveCount++
+		if r.Question[0].Qtype == dns.TypeA {
+			rr := test.A("myhost.example.com. IN A 10.0.0.1")
+			rr.Hdr.Ttl = 1
+			ret.Answer = append(ret.Answer, rr)
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	f := New()
+	f.from = "."
+	f.resolver = []string{s.Addr}
+	f.resolveInterval = 5 * time.Second
+	f.toEntries = []toEntry{
+		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
+	}
+
+	addrs, err := expandAndDedup(f.toEntries, f.resolver, f.resolveHold)
+	if err != nil {
+		t.Fatalf("initial expand error: %v", err)
+	}
+	for _, addr := range addrs {
+		host, _ := splitZone(addr)
+		trans, h := parse.Transport(host)
+		p := proxy.NewProxy("forward", h, trans)
+		f.proxies = append(f.proxies, p)
+	}
+
+	initialResolveCount := resolveCount
+
+	// Wait for TTL to expire
+	time.Sleep(1100 * time.Millisecond)
+
+	// Trigger re-resolve — TTL expired, should query DNS
+	f.reResolve()
+
+	if resolveCount == initialResolveCount {
+		t.Error("expected new DNS queries after TTL expired, but none happened")
+	}
+}
+
+func TestResolveHoldCapsTTL(t *testing.T) {
+	// DNS returns TTL=3600 but resolve_hold=1s caps it.
+	// After hold expires, re-resolve should query DNS again.
+	resolveCount := 0
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		resolveCount++
+		if r.Question[0].Qtype == dns.TypeA {
+			rr := test.A("myhost.example.com. IN A 10.0.0.1")
+			rr.Hdr.Ttl = 3600
+			ret.Answer = append(ret.Answer, rr)
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	f := New()
+	f.from = "."
+	f.resolver = []string{s.Addr}
+	f.resolveInterval = 5 * time.Second
+	f.resolveHold = 1 * time.Second // cap TTL to 1s
+	f.toEntries = []toEntry{
+		{static: false, entry: hostEntry{hostname: "myhost.example.com", port: "53", transport: "dns"}},
+	}
+
+	addrs, err := expandAndDedup(f.toEntries, f.resolver, f.resolveHold)
+	if err != nil {
+		t.Fatalf("initial expand error: %v", err)
+	}
+	for _, addr := range addrs {
+		host, _ := splitZone(addr)
+		trans, h := parse.Transport(host)
+		p := proxy.NewProxy("forward", h, trans)
+		f.proxies = append(f.proxies, p)
+	}
+
+	initialResolveCount := resolveCount
+
+	// TTL=3600 but hold=1s — immediately should still be cached
+	f.reResolve()
+	if resolveCount != initialResolveCount {
+		t.Error("expected cached result immediately after expand")
+	}
+
+	// Wait for hold to expire
+	time.Sleep(1100 * time.Millisecond)
+
+	f.reResolve()
+	if resolveCount == initialResolveCount {
+		t.Error("expected new DNS queries after resolve_hold expired, but none happened")
+	}
+}
+
+func TestReResolveTTLDedupWithMixedEntries(t *testing.T) {
+	// Synthetic test: two dynamic entries, one with TTL expired and one still valid.
+	// The expired one changes IP to match a static entry — dedup must still work.
+	callCount := 0
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		callCount++
+		if r.Question[0].Qtype == dns.TypeA {
+			switch r.Question[0].Name {
+			case "host1.example.com.":
+				rr := test.A("host1.example.com. IN A 10.0.0.1")
+				rr.Hdr.Ttl = 3600 // long TTL — won't re-resolve
+				ret.Answer = append(ret.Answer, rr)
+			case "host2.example.com.":
+				rr := test.A("host2.example.com. IN A 10.0.0.99")
+				rr.Hdr.Ttl = 1 // short TTL — will expire
+				if callCount > 4 {
+					// After expiry, host2 changes to 10.0.0.1 (same as host1 = dedup)
+					rr = test.A("host2.example.com. IN A 10.0.0.1")
+					rr.Hdr.Ttl = 1
+				}
+				ret.Answer = append(ret.Answer, rr)
+			}
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	f := New()
+	f.from = "."
+	f.resolver = []string{s.Addr}
+	f.resolveInterval = 5 * time.Second
+	f.toEntries = []toEntry{
+		{static: false, entry: hostEntry{hostname: "host1.example.com", port: "53", transport: "dns"}},
+		{static: false, entry: hostEntry{hostname: "host2.example.com", port: "53", transport: "dns"}},
+		{static: true, addrs: []string{"10.0.0.50:53"}},
+	}
+
+	addrs, err := expandAndDedup(f.toEntries, f.resolver, f.resolveHold)
+	if err != nil {
+		t.Fatalf("initial expand error: %v", err)
+	}
+	for _, addr := range addrs {
+		host, _ := splitZone(addr)
+		trans, h := parse.Transport(host)
+		p := proxy.NewProxy("forward", h, trans)
+		f.proxies = append(f.proxies, p)
+	}
+
+	// Initial: host1=10.0.0.1, host2=10.0.0.99, static=10.0.0.50 → 3 proxies
+	f.proxyMu.RLock()
+	if len(f.proxies) != 3 {
+		t.Fatalf("expected 3 initial proxies, got %d", len(f.proxies))
+	}
+	f.proxyMu.RUnlock()
+
+	// Wait for host2 TTL to expire (host1 TTL=3600 stays valid)
+	time.Sleep(1100 * time.Millisecond)
+
+	// Re-resolve: host1 uses cache (10.0.0.1), host2 re-resolves to 10.0.0.1 (deduped)
+	f.reResolve()
+
+	f.proxyMu.RLock()
+	proxyCount := len(f.proxies)
+	var proxyAddrs []string
+	for _, p := range f.proxies {
+		proxyAddrs = append(proxyAddrs, p.Addr())
+	}
+	f.proxyMu.RUnlock()
+
+	// After dedup: host1=10.0.0.1, host2=10.0.0.1 (deduped), static=10.0.0.50 → 2 proxies
+	if proxyCount != 2 {
+		t.Errorf("expected 2 proxies after dedup, got %d: %v", proxyCount, proxyAddrs)
+	}
+}
+
+func TestSetupResolveHold(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		shouldErr   bool
+		expectedErr string
+		expected    time.Duration
+	}{
+		{
+			name:     "default hold (disabled)",
+			input:    "forward . 127.0.0.1\n",
+			expected: 0 * time.Second,
+		},
+		{
+			name:     "custom hold",
+			input:    "forward . 127.0.0.1 {\nresolve_hold 60s\n}\n",
+			expected: 60 * time.Second,
+		},
+		{
+			name:     "hold 5 minutes",
+			input:    "forward . 127.0.0.1 {\nresolve_hold 5m\n}\n",
+			expected: 5 * time.Minute,
+		},
+		{
+			name:     "hold zero (no cap)",
+			input:    "forward . 127.0.0.1 {\nresolve_hold 0s\n}\n",
+			expected: 0 * time.Second,
+		},
+		{
+			name:        "negative hold",
+			input:       "forward . 127.0.0.1 {\nresolve_hold -5s\n}\n",
+			shouldErr:   true,
+			expectedErr: "can't be negative",
+		},
+		{
+			name:        "invalid duration",
+			input:       "forward . 127.0.0.1 {\nresolve_hold notaduration\n}\n",
+			shouldErr:   true,
+			expectedErr: "invalid duration",
+		},
+		{
+			name:        "no args",
+			input:       "forward . 127.0.0.1 {\nresolve_hold\n}\n",
+			shouldErr:   true,
+			expectedErr: "Wrong argument count",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", tc.input)
+			fs, err := parseForward(c)
+
+			if tc.shouldErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tc.expectedErr) {
+					t.Errorf("expected error to contain %q, got: %v", tc.expectedErr, err)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			f := fs[0]
+			if f.resolveHold != tc.expected {
+				t.Errorf("expected resolve_hold %v, got %v", tc.expected, f.resolveHold)
+			}
+		})
+	}
+}
+
+func TestDnsLookupReturnsTTL(t *testing.T) {
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		if r.Question[0].Qtype == dns.TypeA {
+			rr := test.A("myhost.example.com. IN A 10.0.0.42")
+			rr.Hdr.Ttl = 300
+			ret.Answer = append(ret.Answer, rr)
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	ips, ttl, err := dnsLookup("myhost.example.com", []string{s.Addr})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(ips) == 0 {
+		t.Fatal("expected at least one IP")
+	}
+	if ttl != 300 {
+		t.Errorf("expected TTL 300, got %d", ttl)
+	}
+}
+
+func TestDnsLookupReturnsMinTTL(t *testing.T) {
+	s := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		if r.Question[0].Qtype == dns.TypeA {
+			rr1 := test.A("myhost.example.com. IN A 10.0.0.1")
+			rr1.Hdr.Ttl = 600
+			rr2 := test.A("myhost.example.com. IN A 10.0.0.2")
+			rr2.Hdr.Ttl = 120
+			ret.Answer = append(ret.Answer, rr1, rr2)
+		}
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	_, ttl, err := dnsLookup("myhost.example.com", []string{s.Addr})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ttl != 120 {
+		t.Errorf("expected min TTL 120, got %d", ttl)
+	}
+}
+
+func TestTtlToExpiry(t *testing.T) {
+	now := time.Now()
+
+	// TTL 0 → zero time (no TTL info)
+	exp := ttlToExpiry(0, 0)
+	if !exp.IsZero() {
+		t.Errorf("expected zero time for TTL=0, got %v", exp)
+	}
+
+	// TTL 300, no hold → ~300s from now
+	exp = ttlToExpiry(300, 0)
+	diff := exp.Sub(now)
+	if diff < 299*time.Second || diff > 301*time.Second {
+		t.Errorf("expected ~300s expiry, got %v", diff)
+	}
+
+	// TTL 3600, hold 60s → ~60s from now (capped)
+	exp = ttlToExpiry(3600, 60*time.Second)
+	diff = exp.Sub(now)
+	if diff < 59*time.Second || diff > 61*time.Second {
+		t.Errorf("expected ~60s expiry (capped), got %v", diff)
+	}
+
+	// TTL 30, hold 60s → ~30s from now (TTL < hold, no cap needed)
+	exp = ttlToExpiry(30, 60*time.Second)
+	diff = exp.Sub(now)
+	if diff < 29*time.Second || diff > 31*time.Second {
+		t.Errorf("expected ~30s expiry (under hold), got %v", diff)
 	}
 }
