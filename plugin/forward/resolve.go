@@ -14,7 +14,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-const defaultResolveInterval = 30 * time.Second
+const defaultResolveInterval = 0 * time.Second // disabled by default; hostnames resolved only at startup
 
 // hostEntry represents a hostname-based TO address that needs DNS resolution.
 type hostEntry struct {

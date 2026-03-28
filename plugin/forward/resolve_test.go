@@ -406,9 +406,9 @@ func TestSetupResolveInterval(t *testing.T) {
 		expected    time.Duration
 	}{
 		{
-			name:     "default interval",
+			name:     "default interval (disabled)",
 			input:    "forward . 127.0.0.1\n",
-			expected: 30 * time.Second,
+			expected: 0 * time.Second,
 		},
 		{
 			name:     "custom interval",
@@ -423,7 +423,7 @@ func TestSetupResolveInterval(t *testing.T) {
 		{
 			name:     "zero disables re-resolution",
 			input:    "forward . 127.0.0.1 {\nresolve_interval 0s\n}\n",
-			expected: 0,
+			expected: 0 * time.Second,
 		},
 		{
 			name:        "negative interval",
