@@ -53,15 +53,15 @@ func (n Nomad) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	svcRegistrations, _, err := fetchServiceRegistrations(n, serviceName, namespace)
 	if err != nil {
 		log.Warning(err)
-		return handleServiceLookupError(w, m, ctx, namespace)
+		return handleServiceLookupError(ctx, w, m, namespace)
 	}
 
 	if len(svcRegistrations) == 0 {
-		return handleResponseError(n, w, m, originalQName, n.ttl, ctx, namespace, err)
+		return handleResponseError(ctx, n, w, m, originalQName, n.ttl, namespace, err)
 	}
 
 	if err := addServiceResponses(m, svcRegistrations, header, state.QType(), originalQName, n.ttl); err != nil {
-		return handleResponseError(n, w, m, originalQName, n.ttl, ctx, namespace, err)
+		return handleResponseError(ctx, n, w, m, originalQName, n.ttl, namespace, err)
 	}
 
 	err = w.WriteMsg(m)
@@ -107,7 +107,7 @@ func fetchServiceRegistrations(n Nomad, serviceName, namespace string) ([]*api.S
 	return nc.Services().Get(serviceName, (&api.QueryOptions{Namespace: namespace, Filter: n.filter}))
 }
 
-func handleServiceLookupError(w dns.ResponseWriter, m *dns.Msg, ctx context.Context, namespace string) (int, error) {
+func handleServiceLookupError(ctx context.Context, w dns.ResponseWriter, m *dns.Msg, namespace string) (int, error) {
 	m.Rcode = dns.RcodeSuccess
 	err := w.WriteMsg(m)
 	requestFailedCount.WithLabelValues(metrics.WithServer(ctx), namespace).Inc()
@@ -145,7 +145,7 @@ func addServiceResponses(m *dns.Msg, svcRegistrations []*api.ServiceRegistration
 	return nil
 }
 
-func handleResponseError(n Nomad, w dns.ResponseWriter, m *dns.Msg, originalQName string, ttl uint32, ctx context.Context, namespace string, err error) (int, error) {
+func handleResponseError(ctx context.Context, n Nomad, w dns.ResponseWriter, m *dns.Msg, originalQName string, ttl uint32, namespace string, err error) (int, error) {
 	m.Rcode = dns.RcodeNameError
 	m.Answer = append(m.Answer, createSOARecord(originalQName, ttl, n.Zone))
 
