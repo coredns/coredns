@@ -35,7 +35,6 @@ grpc FROM TO... {
     policy random|round_robin|sequential
     fallthrough [ZONES...]
     pool_size SIZE
-    expire DURATION
     health_check DURATION
     max_fails COUNT
 }
@@ -68,9 +67,6 @@ grpc FROM TO... {
 * `pool_size` **SIZE** sets the maximum number of gRPC connections to maintain in the pool for each
   upstream server. Default is `1` (no pooling). Maximum is `100`. Setting this to a value greater than 1
   enables connection pooling for improved performance in high-throughput scenarios.
-* `expire` **DURATION** sets the idle TTL for pooled connections. A connection that has not been used
-  for this duration is closed and removed from the pool during the next maintenance cycle. Default is
-  `10s`. Only applies when `pool_size > 1`. Examples: `30s`, `1m`, `5m`.
 * `health_check` **DURATION** sets the interval for health check probes to upstream servers. Only active
   when `max_fails > 0`. Default is `500ms`.
 * `max_fails` **COUNT** sets the number of consecutive failures before marking an upstream server as down.
@@ -180,7 +176,6 @@ Enable connection pooling with 5 connections per upstream for high-throughput sc
 . {
     grpc . 10.0.0.10:9005 10.0.0.11:9005 {
         pool_size 5
-        expire 30s
         health_check 1s
         max_fails 3
         policy round_robin

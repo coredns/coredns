@@ -52,7 +52,6 @@ type Proxy struct {
 // proxyOptions holds configuration for creating a pooled proxy.
 type proxyOptions struct {
 	poolSize   int
-	expire     time.Duration
 	maxFails   uint32
 	hcInterval time.Duration
 }
@@ -109,7 +108,7 @@ func newPooledProxy(addr string, tlsConfig *tls.Config, opts *proxyOptions) (*Pr
 		),
 	)
 
-	p.transport = newTransport("grpc", p.addr, dialOpts, opts.poolSize, opts.expire)
+	p.transport = newTransport("grpc", p.addr, dialOpts, opts.poolSize)
 
 	// Only create probe and set hcInterval when health checking is opted into.
 	if opts.maxFails > 0 {
@@ -139,7 +138,7 @@ func (p *Proxy) query(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
 		gc     *grpcConn
 	)
 	if p.transport != nil {
-		gc, _, err = p.transport.Dial(ctx)
+		gc, err = p.transport.Dial(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -217,7 +216,7 @@ func (p *Proxy) healthCheck() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	gc, _, err := p.transport.Dial(ctx)
+	gc, err := p.transport.Dial(ctx)
 	if err != nil {
 		atomic.AddUint32(&p.fails, 1)
 		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)

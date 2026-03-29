@@ -207,12 +207,12 @@ func TestSetupPooling(t *testing.T) {
 		// valid
 		{"grpc . 127.0.0.1 {\npool_size 2\n}", false, ""},
 		{"grpc . 127.0.0.1 {\npool_size 100\n}", false, ""},
-		{"grpc . 127.0.0.1 {\npool_size 2\nexpire 30s\nhealth_check 1s\nmax_fails 3\n}", false, ""},
+		{"grpc . 127.0.0.1 {\npool_size 2\nhealth_check 1s\nmax_fails 3\n}", false, ""},
 		// invalid
 		{"grpc . 127.0.0.1 {\npool_size 0\n}", true, "pool_size must be at least 1"},
 		{"grpc . 127.0.0.1 {\npool_size 101\n}", true, "pool_size cannot exceed 100"},
 		{"grpc . 127.0.0.1 {\npool_size -1\n}", true, ""},
-		{"grpc . 127.0.0.1 {\nexpire -1s\n}", true, "expire can't be negative"},
+		{"grpc . 127.0.0.1 {\nexpire 30s\n}", true, "unknown property"},
 		{"grpc . 127.0.0.1 {\nhealth_check -1s\n}", true, "health_check can't be negative"},
 	}
 	for i, tc := range tests {

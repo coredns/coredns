@@ -20,9 +20,8 @@ import (
 
 // newTestPooledProxy creates a Proxy with a mock transport for testing pooled behavior.
 func newTestPooledProxy(addr string, client pb.DnsServiceClient) *Proxy {
-	tr := newTransport("grpc", addr, nil, 1, 0)
+	tr := newTransport("grpc", addr, nil, 1)
 	tr.connList.Store(&connList{conns: []*grpcConn{{client: client}}})
-	tr.Start()
 	return &Proxy{addr: addr, transport: tr}
 }
 

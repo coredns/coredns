@@ -5,33 +5,16 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/coredns/coredns/pb"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 )
-
-const poolMaintainInterval = 5 * time.Second
 
 // grpcConn wraps a gRPC connection with its client for shared access.
 type grpcConn struct {
-	conn     *grpc.ClientConn
-	client   pb.DnsServiceClient
-	lastUsed atomic.Int64 // unix nanoseconds; updated on every Dial hit
-}
-
-// touch records the current time as the last-used time for this connection.
-func (gc *grpcConn) touch() { gc.lastUsed.Store(time.Now().UnixNano()) }
-
-// idleFor returns how long this connection has been idle.
-func (gc *grpcConn) idleFor() time.Duration {
-	last := gc.lastUsed.Load()
-	if last == 0 {
-		return 0
-	}
-	return time.Since(time.Unix(0, last))
+	conn   *grpc.ClientConn
+	client pb.DnsServiceClient
 }
 
 // connList is an immutable slice of connections for lock-free access.
@@ -41,43 +24,34 @@ type connList struct {
 
 // grpcTransport manages a pool of shared gRPC connections to a single upstream.
 // Uses lock-free atomic operations on the hot path for maximum throughput.
+//
+// gRPC ClientConn manages its own connection lifecycle: it reconnects
+// automatically on failure and multiplexes RPCs across a single connection.
+// No background maintenance goroutine is needed.
 type grpcTransport struct {
 	addr     string
 	dialOpts []grpc.DialOption
 	poolSize int
-	expire   time.Duration // idle TTL; zero means no TTL eviction
 
-	// Hot path: lock-free access via atomic pointer
+	// Hot path: lock-free access via atomic pointer.
 	connList atomic.Pointer[connList]
 	idx      atomic.Uint64
 
-	// Cold path: mutex for modifications
+	// Cold path: mutex for modifications.
 	mu sync.Mutex
 
-	// stopped is set before close(stop) to allow Dial to detect shutdown without a panic.
+	// stopped is set in Stop to prevent new connections from being added after shutdown.
 	stopped atomic.Bool
-	// started tracks whether Start() has been called, to avoid deadlock in Stop().
-	started atomic.Bool
-
-	stop chan struct{}
-	done chan struct{}
 
 	proxyName string
-
-	// Metrics counters (updated atomically, flushed periodically)
-	hits   atomic.Uint64
-	misses atomic.Uint64
 }
 
 // newTransport creates a new gRPC connection transport with shared connections.
-func newTransport(proxyName, addr string, dialOpts []grpc.DialOption, poolSize int, expire time.Duration) *grpcTransport {
+func newTransport(proxyName, addr string, dialOpts []grpc.DialOption, poolSize int) *grpcTransport {
 	t := &grpcTransport{
 		addr:      addr,
 		dialOpts:  dialOpts,
 		poolSize:  poolSize,
-		expire:    expire,
-		stop:      make(chan struct{}),
-		done:      make(chan struct{}),
 		proxyName: proxyName,
 	}
 	t.connList.Store(&connList{conns: make([]*grpcConn, 0, poolSize)})
@@ -86,9 +60,9 @@ func newTransport(proxyName, addr string, dialOpts []grpc.DialOption, poolSize i
 
 // Dial returns a shared connection from the pool using round-robin.
 // Returns ErrTransportStopped if the transport has been shut down.
-func (t *grpcTransport) Dial(ctx context.Context) (*grpcConn, bool, error) {
+func (t *grpcTransport) Dial(ctx context.Context) (*grpcConn, error) {
 	if t.stopped.Load() {
-		return nil, false, ErrTransportStopped
+		return nil, ErrTransportStopped
 	}
 
 	list := t.connList.Load()
@@ -97,19 +71,13 @@ func (t *grpcTransport) Dial(ctx context.Context) (*grpcConn, bool, error) {
 		idx := t.idx.Add(1)
 		gc := list.conns[idx%uint64(n)]
 		if gc != nil && gc.client != nil {
-			gc.touch()
-			t.hits.Add(1)
-			return gc, false, nil
+			PoolHitsCount.WithLabelValues(t.addr).Inc()
+			return gc, nil
 		}
 	}
 
-	t.misses.Add(1)
-	gc, err := t.createConn(ctx)
-	if err != nil {
-		return nil, false, err
-	}
-
-	return gc, true, nil
+	PoolMissesCount.WithLabelValues(t.addr).Inc()
+	return t.createConn(ctx)
 }
 
 // createConn creates a new gRPC connection and attempts to add it to the pool.
@@ -125,7 +93,6 @@ func (t *grpcTransport) createConn(ctx context.Context) (*grpcConn, error) {
 		conn:   conn,
 		client: pb.NewDnsServiceClient(conn),
 	}
-	gc.touch()
 
 	if !t.addConn(gc) {
 		// Pool is full (concurrent creation race). Close the new connection
@@ -139,13 +106,19 @@ func (t *grpcTransport) createConn(ctx context.Context) (*grpcConn, error) {
 		return nil, ErrTransportStopped
 	}
 
+	PoolSizeGauge.WithLabelValues(t.addr).Inc()
 	return gc, nil
 }
 
-// addConn adds a connection to the pool. Returns false if the pool is already full.
+// addConn adds a connection to the pool. Returns false if the pool is already full
+// or the transport has been stopped.
 func (t *grpcTransport) addConn(gc *grpcConn) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	if t.stopped.Load() {
+		return false
+	}
 
 	oldList := t.connList.Load()
 	if len(oldList.conns) >= t.poolSize {
@@ -176,33 +149,18 @@ func (t *grpcTransport) RemoveConn(gc *grpcConn) {
 	t.connList.Store(&connList{conns: newConns})
 	t.mu.Unlock()
 
+	PoolSizeGauge.WithLabelValues(t.addr).Dec()
+
 	if gc.conn != nil {
 		gc.conn.Close()
 	}
 }
 
-// healthChecker periodically maintains the connection pool.
-func (t *grpcTransport) healthChecker() {
-	ticker := time.NewTicker(poolMaintainInterval)
-	defer ticker.Stop()
-	defer close(t.done)
-
-	t.prewarm()
-
-	for {
-		select {
-		case <-ticker.C:
-			t.cleanupDeadConns()
-			t.flushMetrics()
-			t.prewarm()
-		case <-t.stop:
-			return
-		}
-	}
-}
-
-// prewarm creates connections up to pool size.
-func (t *grpcTransport) prewarm() {
+// Start pre-populates the pool up to poolSize.
+// grpc.NewClient is lazy: no TCP connection is established until the first RPC,
+// so this just pre-allocates ClientConn objects to avoid createConn overhead on
+// the first few requests.
+func (t *grpcTransport) Start() {
 	list := t.connList.Load()
 	needed := t.poolSize - len(list.conns)
 	for range needed {
@@ -218,68 +176,13 @@ func (t *grpcTransport) prewarm() {
 			conn.Close() // pool filled concurrently; don't leak
 			break
 		}
+		PoolSizeGauge.WithLabelValues(t.addr).Inc()
 	}
-}
-
-// flushMetrics updates Prometheus metrics from atomic counters.
-func (t *grpcTransport) flushMetrics() {
-	hits := t.hits.Swap(0)
-	misses := t.misses.Swap(0)
-	if hits > 0 {
-		PoolHitsCount.WithLabelValues(t.addr).Add(float64(hits))
-	}
-	if misses > 0 {
-		PoolMissesCount.WithLabelValues(t.addr).Add(float64(misses))
-	}
-	list := t.connList.Load()
-	PoolSizeGauge.WithLabelValues(t.addr).Set(float64(len(list.conns)))
-}
-
-// cleanupDeadConns removes connections that are in a failed gRPC state or have
-// exceeded the idle TTL (expire duration).
-func (t *grpcTransport) cleanupDeadConns() {
-	t.mu.Lock()
-	oldList := t.connList.Load()
-	var toClose []*grpcConn
-	newConns := make([]*grpcConn, 0, len(oldList.conns))
-
-	for _, gc := range oldList.conns {
-		if gc == nil || gc.conn == nil {
-			continue
-		}
-		state := gc.conn.GetState()
-		expired := t.expire > 0 && gc.idleFor() > t.expire
-		if state == connectivity.Shutdown || state == connectivity.TransientFailure || expired {
-			toClose = append(toClose, gc)
-		} else {
-			newConns = append(newConns, gc)
-		}
-	}
-
-	if len(toClose) > 0 {
-		t.connList.Store(&connList{conns: newConns})
-	}
-	t.mu.Unlock()
-
-	for _, gc := range toClose {
-		gc.conn.Close()
-	}
-}
-
-// Start starts the transport's connection pool maintenance goroutine.
-func (t *grpcTransport) Start() {
-	t.started.Store(true)
-	go t.healthChecker()
 }
 
 // Stop shuts down the transport and closes all pooled connections.
 func (t *grpcTransport) Stop() {
 	t.stopped.Store(true)
-	close(t.stop)
-	// Only wait for healthChecker to exit if Start() was called.
-	if t.started.Load() {
-		<-t.done
-	}
 
 	t.mu.Lock()
 	list := t.connList.Load()

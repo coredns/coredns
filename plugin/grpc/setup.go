@@ -67,7 +67,6 @@ func parseGRPC(c *caddy.Controller) (*GRPC, error) {
 func defaultProxyOptions() *proxyOptions {
 	return &proxyOptions{
 		poolSize:   1,
-		expire:     10 * time.Second,
 		maxFails:   0,
 		hcInterval: 500 * time.Millisecond,
 	}
@@ -192,19 +191,6 @@ func parseBlock(c *caddy.Controller, g *GRPC, opts *proxyOptions) error {
 			return fmt.Errorf("pool_size cannot exceed 100")
 		}
 		opts.poolSize = n
-
-	case "expire":
-		if !c.NextArg() {
-			return c.ArgErr()
-		}
-		dur, err := time.ParseDuration(c.Val())
-		if err != nil {
-			return err
-		}
-		if dur < 0 {
-			return fmt.Errorf("expire can't be negative: %s", dur)
-		}
-		opts.expire = dur
 
 	case "health_check":
 		if !c.NextArg() {
