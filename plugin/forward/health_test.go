@@ -15,7 +15,9 @@ import (
 )
 
 func TestHealth(t *testing.T) {
+	origTimeout := defaultTimeout
 	defaultTimeout = 10 * time.Millisecond
+	defer func() { defaultTimeout = origTimeout }()
 
 	i := uint32(0)
 	q := uint32(0)
@@ -53,7 +55,9 @@ func TestHealth(t *testing.T) {
 }
 
 func TestHealthTCP(t *testing.T) {
+	origTimeout := defaultTimeout
 	defaultTimeout = 10 * time.Millisecond
+	defer func() { defaultTimeout = origTimeout }()
 
 	i := uint32(0)
 	q := uint32(0)
@@ -92,7 +96,9 @@ func TestHealthTCP(t *testing.T) {
 }
 
 func TestHealthNoRecursion(t *testing.T) {
+	origTimeout := defaultTimeout
 	defaultTimeout = 10 * time.Millisecond
+	defer func() { defaultTimeout = origTimeout }()
 
 	i := uint32(0)
 	q := uint32(0)
@@ -131,7 +137,9 @@ func TestHealthNoRecursion(t *testing.T) {
 }
 
 func TestHealthTimeout(t *testing.T) {
+	origTimeout := defaultTimeout
 	defaultTimeout = 10 * time.Millisecond
+	defer func() { defaultTimeout = origTimeout }()
 
 	i := uint32(0)
 	q := uint32(0)
@@ -174,7 +182,9 @@ func TestHealthTimeout(t *testing.T) {
 }
 
 func TestHealthMaxFails(t *testing.T) {
+	origTimeout := defaultTimeout
 	defaultTimeout = 10 * time.Millisecond
+	defer func() { defaultTimeout = origTimeout }()
 	//,hcInterval = 10 * time.Millisecond
 
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -205,7 +215,9 @@ func TestHealthMaxFails(t *testing.T) {
 }
 
 func TestHealthNoMaxFails(t *testing.T) {
+	origTimeout := defaultTimeout
 	defaultTimeout = 10 * time.Millisecond
+	defer func() { defaultTimeout = origTimeout }()
 
 	i := uint32(0)
 	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
@@ -240,7 +252,9 @@ func TestHealthNoMaxFails(t *testing.T) {
 }
 
 func TestHealthDomain(t *testing.T) {
+	origTimeout := defaultTimeout
 	defaultTimeout = 10 * time.Millisecond
+	defer func() { defaultTimeout = origTimeout }()
 
 	hcDomain := "example.org."
 	i := uint32(0)
