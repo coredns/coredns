@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -26,18 +27,13 @@ jobs:
           bash -x -e ./.github/fixup_file_mtime.sh
           make -f Makefile.doc
 
-      - name: Set up Git
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "coredns[bot]"
-          git config user.email "bot@bot.coredns.io"
-          git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git
-
-      - name: Commit and push changes
-        run: |
-          git add .
-          if output=$(git status --porcelain) && [ ! -z "$output" ]; then
-            git commit -s -m 'auto make -f Makefile.doc'
-            git push
-          fi
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0  # v8.1.0
+        with:
+          commit-message: 'auto make -f Makefile.doc'
+          title: 'Update generated documentation'
+          body: 'Automated doc generation via `make -f Makefile.doc`'
+          branch: bot/make-doc
+          committer: 'coredns[bot] <bot@coredns.io>'
+          author: 'coredns[bot] <bot@coredns.io>'
+          signoff: true
