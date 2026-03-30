@@ -3,6 +3,7 @@ package metrics
 import (
 	"net"
 	"runtime"
+	"sync"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -10,11 +11,19 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/uniq"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 )
 
 var (
 	u        = uniq.New()
 	registry = newReg()
+
+	// There is one Go runtime per process, so this is a latch: the first server
+	// block to enable runtime_metrics swaps the collector for everyone, and the
+	// swap persists across reloads until process restart.
+	runtimeMetricsOnce sync.Once
 )
 
 func init() { plugin.Register("prometheus", setup) }
@@ -96,9 +105,18 @@ func parse(c *caddy.Controller) (*Metrics, error) {
 			return met, c.ArgErr()
 		}
 
-		// Parse TLS block if present
 		for c.NextBlock() {
 			switch c.Val() {
+			case "runtime_metrics":
+				if len(c.RemainingArgs()) != 0 {
+					return nil, c.ArgErr()
+				}
+				runtimeMetricsOnce.Do(func() {
+					prometheus.Unregister(collectors.NewGoCollector())
+					prometheus.MustRegister(collectors.NewGoCollector(
+						collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll),
+					))
+				})
 			case "tls":
 				if met.tlsConfigPath != "" {
 					return nil, c.Err("tls block already specified")
