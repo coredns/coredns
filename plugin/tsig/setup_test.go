@@ -16,9 +16,9 @@ func TestParse(t *testing.T) {
 		"name.key.":  "test-key",
 		"name2.key.": "test-key-2",
 	}
-	secretConfig := ""
+	var secretConfig strings.Builder
 	for k, s := range secrets {
-		secretConfig += fmt.Sprintf("secret %s %s\n", k, s)
+		fmt.Fprintf(&secretConfig, "secret %s %s\n", k, s)
 	}
 	secretsFile, cleanup, err := test.TempFile(".", `key "name.key." {
 	secret "test-key";
@@ -42,7 +42,7 @@ key "name2.key." {
 		expectedAllOpcodes bool
 	}{
 		{
-			input:           "tsig {\n " + secretConfig + "}",
+			input:           "tsig {\n " + secretConfig.String() + "}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  defaultQTypes,
 			expectedOpCodes: defaultOpCodes,
@@ -56,14 +56,14 @@ key "name2.key." {
 			expectedSecrets: secrets,
 		},
 		{
-			input:           "tsig example.com {\n " + secretConfig + "}",
+			input:           "tsig example.com {\n " + secretConfig.String() + "}",
 			expectedZones:   []string{"example.com."},
 			expectedQTypes:  defaultQTypes,
 			expectedOpCodes: defaultOpCodes,
 			expectedSecrets: secrets,
 		},
 		{
-			input:            "tsig {\n " + secretConfig + " require all \n}",
+			input:            "tsig {\n " + secretConfig.String() + " require all \n}",
 			expectedZones:    []string{"."},
 			expectedQTypes:   qTypes{},
 			expectedOpCodes:  defaultOpCodes,
@@ -71,28 +71,28 @@ key "name2.key." {
 			expectedSecrets:  secrets,
 		},
 		{
-			input:           "tsig {\n " + secretConfig + " require none \n}",
+			input:           "tsig {\n " + secretConfig.String() + " require none \n}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  qTypes{},
 			expectedOpCodes: defaultOpCodes,
 			expectedSecrets: secrets,
 		},
 		{
-			input:           "tsig {\n " + secretConfig + " \n require A AAAA \n}",
+			input:           "tsig {\n " + secretConfig.String() + " \n require A AAAA \n}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  qTypes{dns.TypeA: {}, dns.TypeAAAA: {}},
 			expectedOpCodes: defaultOpCodes,
 			expectedSecrets: secrets,
 		},
 		{
-			input:           "tsig {\n " + secretConfig + " \n require_opcode UPDATE NOTIFY \n}",
+			input:           "tsig {\n " + secretConfig.String() + " \n require_opcode UPDATE NOTIFY \n}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  defaultQTypes,
 			expectedOpCodes: opCodes{dns.OpcodeUpdate: {}, dns.OpcodeNotify: {}},
 			expectedSecrets: secrets,
 		},
 		{
-			input:              "tsig {\n " + secretConfig + " \n require_opcode all \n}",
+			input:              "tsig {\n " + secretConfig.String() + " \n require_opcode all \n}",
 			expectedZones:      []string{"."},
 			expectedQTypes:     defaultQTypes,
 			expectedOpCodes:    opCodes{},
@@ -100,14 +100,14 @@ key "name2.key." {
 			expectedSecrets:    secrets,
 		},
 		{
-			input:           "tsig {\n " + secretConfig + " \n require_opcode none \n}",
+			input:           "tsig {\n " + secretConfig.String() + " \n require_opcode none \n}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  defaultQTypes,
 			expectedOpCodes: opCodes{},
 			expectedSecrets: secrets,
 		},
 		{
-			input:           "tsig {\n " + secretConfig + " \n require AXFR \n require_opcode UPDATE \n}",
+			input:           "tsig {\n " + secretConfig.String() + " \n require AXFR \n require_opcode UPDATE \n}",
 			expectedZones:   []string{"."},
 			expectedQTypes:  qTypes{dns.TypeAXFR: {}},
 			expectedOpCodes: opCodes{dns.OpcodeUpdate: {}},
