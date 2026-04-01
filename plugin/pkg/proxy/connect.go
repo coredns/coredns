@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -102,10 +103,7 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	return &persistConn{c: conn, created: time.Now()}, false, err
 }
 
-// Connect selects an upstream, sends the request and waits for a response.
-func (p *Proxy) Connect(_ctx context.Context, state request.Request, opts Options) (*dns.Msg, error) {
-	start := time.Now()
-
+func (p *Proxy) connectDNS(_ctx context.Context, state request.Request, opts Options) (*dns.Msg, error) {
 	var proto string
 	switch {
 	case opts.ForceTCP: // TCP flag has precedence over UDP flag
@@ -172,10 +170,32 @@ func (p *Proxy) Connect(_ctx context.Context, state request.Request, opts Option
 			break
 		}
 	}
+	p.transport.Yield(pc)
+
+	return ret, nil
+}
+
+// Connect selects an upstream, sends the request and waits for a response.
+func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options) (*dns.Msg, error) {
+	start := time.Now()
+	originId := state.Req.Id
+
+	var (
+		ret *dns.Msg
+		err error
+	)
+	switch p.transport.transport {
+	case transport.HTTPS:
+		panic("Not yet implemented!")
+	default:
+		ret, err = p.connectDNS(ctx, state, opts)
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	// recovery the origin Id after upstream.
 	ret.Id = originId
-
-	p.transport.Yield(pc)
 
 	rc, ok := dns.RcodeToString[ret.Rcode]
 	if !ok {
