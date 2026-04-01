@@ -59,6 +59,22 @@ func TestCacheNotValidExpired(t *testing.T) {
 	}
 }
 
+func TestCacheEmptySigsNotCached(t *testing.T) {
+	c := cache.New[[]dns.RR](defaultCap)
+	m := testMsg()
+	state := request.Request{Req: m, Zone: "miek.nl."}
+	k := hash(m.Answer)
+
+	// Create a Dnssec instance with no keys; sign() will produce no signatures.
+	d := New([]string{"miek.nl."}, []*DNSKEY{}, false, nil, c)
+	d.Sign(state, time.Now().UTC(), server)
+
+	_, ok := d.get(k, server)
+	if ok {
+		t.Errorf("Empty signatures should not be cached")
+	}
+}
+
 func TestCacheNotValidYet(t *testing.T) {
 	fPriv, rmPriv, _ := test.TempFile(".", privKey)
 	fPub, rmPub, _ := test.TempFile(".", pubKey)
