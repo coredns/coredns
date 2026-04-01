@@ -143,7 +143,9 @@ func (d Dnssec) sign(rrs []dns.RR, signerName string, ttl, incep, expir uint32, 
 			}
 			sigs = append(sigs, sig)
 		}
-		d.set(k, sigs)
+		if len(sigs) > 0 {
+			d.set(k, sigs)
+		}
 		return sigs, nil
 	})
 	return sigs.([]dns.RR), err
