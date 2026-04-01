@@ -48,6 +48,9 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 
 	mt, _ := response.Typify(req, time.Now().UTC()) // TODO(miek): need opt record here?
 	if mt == response.Delegation {
+		if len(req.Ns) == 0 {
+			return req
+		}
 		// We either sign DS or NSEC of DS.
 		ttl := req.Ns[0].Header().Ttl
 
@@ -68,7 +71,7 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 	}
 
 	if mt == response.NameError || mt == response.NoData {
-		if req.Ns[0].Header().Rrtype != dns.TypeSOA || len(req.Ns) > 1 {
+		if len(req.Ns) != 1 || req.Ns[0].Header().Rrtype != dns.TypeSOA {
 			return req
 		}
 
