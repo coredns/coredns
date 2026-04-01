@@ -3,6 +3,8 @@ package proxy
 import (
 	"testing"
 	"time"
+
+	"github.com/coredns/coredns/plugin/pkg/transport"
 )
 
 const (
@@ -14,7 +16,7 @@ const (
 // TestDial_TransportStopped_InitialCheck tests that Dial returns ErrTransportStopped
 // if the transport is stopped before Dial is called.
 func TestDial_TransportStopped_InitialCheck(t *testing.T) {
-	tr := newTransport("test_initial_stop", "127.0.0.1:0")
+	tr := newTransport("test_initial_stop", "127.0.0.1:0", transport.DNS)
 	tr.Start()
 
 	tr.Stop()
@@ -32,7 +34,7 @@ func TestDial_TransportStopped_InitialCheck(t *testing.T) {
 // TestDial_MultipleCallsAfterStop tests that multiple Dial calls after Stop
 // consistently return ErrTransportStopped.
 func TestDial_MultipleCallsAfterStop(t *testing.T) {
-	tr := newTransport("test_multiple_after_stop", "127.0.0.1:0")
+	tr := newTransport("test_multiple_after_stop", "127.0.0.1:0", transport.DNS)
 	tr.Start()
 
 	tr.Stop()

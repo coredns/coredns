@@ -19,19 +19,20 @@ type persistConn struct {
 // Transport hold the persistent cache.
 type Transport struct {
 	avgDialTime  int64                          // kind of average time of dial time
-	conns        [typeTotalCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
+	conns        [typeTotalCount][]*persistConn // Buckets for udp and tcp connections
 	expire       time.Duration                  // After this duration an idle connection is expired.
 	maxAge       time.Duration                  // After this duration a connection is closed regardless of activity; 0 means unlimited.
 	maxIdleConns int                            // Max idle connections per transport type; 0 means unlimited.
 	addr         string
 	tlsConfig    *tls.Config
 	proxyName    string
+	transport    string
 
 	mu   sync.Mutex
 	stop chan struct{}
 }
 
-func newTransport(proxyName, addr string) *Transport {
+func newTransport(proxyName, addr, trans string) *Transport {
 	t := &Transport{
 		avgDialTime: int64(maxDialTimeout / 2),
 		conns:       [typeTotalCount][]*persistConn{},
@@ -39,6 +40,7 @@ func newTransport(proxyName, addr string) *Transport {
 		addr:        addr,
 		stop:        make(chan struct{}),
 		proxyName:   proxyName,
+		transport:   trans,
 	}
 	return t
 }
