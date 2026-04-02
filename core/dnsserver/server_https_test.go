@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -164,6 +165,109 @@ func testConfigWithPlugin(p *contextCapturingPlugin) *Config {
 		Port:        "443",
 	}
 	c.AddPlugin(func(_next plugin.Handler) plugin.Handler { return p })
+	return c
+}
+
+func TestDoHWriterLaddrFromConnContext(t *testing.T) {
+	capturer := &addrCapturingPlugin{}
+	cfg := testConfigWithHandler(capturer)
+
+	s, err := NewServerHTTPS("127.0.0.1:443", []*Config{cfg})
+	if err != nil {
+		t.Fatal("could not create HTTPS server:", err)
+	}
+	s.listenAddr = &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 443}
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	buf, err := m.Pack()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate a PROXY protocol destination that differs from listenAddr.
+	ppDst := &net.TCPAddr{IP: net.ParseIP("10.0.0.1"), Port: 443}
+
+	r := httptest.NewRequest(http.MethodPost, "/dns-query", io.NopCloser(bytes.NewReader(buf)))
+	ctx := context.WithValue(r.Context(), connAddrKey{}, ppDst)
+	r = r.WithContext(ctx)
+	w := httptest.NewRecorder()
+
+	s.ServeHTTP(w, r)
+
+	if !capturer.called {
+		t.Fatal("plugin was not called")
+	}
+	if capturer.localAddr == nil {
+		t.Fatal("DoHWriter.laddr is nil")
+	}
+	if capturer.localAddr.String() != ppDst.String() {
+		t.Errorf("expected laddr %s (PP destination), got %s", ppDst, capturer.localAddr)
+	}
+}
+
+func TestDoHWriterLaddrFallback(t *testing.T) {
+	capturer := &addrCapturingPlugin{}
+	cfg := testConfigWithHandler(capturer)
+
+	s, err := NewServerHTTPS("127.0.0.1:443", []*Config{cfg})
+	if err != nil {
+		t.Fatal("could not create HTTPS server:", err)
+	}
+	s.listenAddr = &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 443}
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	buf, err := m.Pack()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// No connAddrKey in context; should fall back to s.listenAddr.
+	r := httptest.NewRequest(http.MethodPost, "/dns-query", io.NopCloser(bytes.NewReader(buf)))
+	w := httptest.NewRecorder()
+
+	s.ServeHTTP(w, r)
+
+	if !capturer.called {
+		t.Fatal("plugin was not called")
+	}
+	if capturer.localAddr == nil {
+		t.Fatal("DoHWriter.laddr is nil")
+	}
+	if capturer.localAddr.String() != s.listenAddr.String() {
+		t.Errorf("expected fallback laddr %s, got %s", s.listenAddr, capturer.localAddr)
+	}
+}
+
+type addrCapturingPlugin struct {
+	called     bool
+	localAddr  net.Addr
+	remoteAddr net.Addr
+}
+
+func (p *addrCapturingPlugin) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	p.called = true
+	p.localAddr = w.LocalAddr()
+	p.remoteAddr = w.RemoteAddr()
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Authoritative = true
+	w.WriteMsg(m)
+	return dns.RcodeSuccess, nil
+}
+
+func (p *addrCapturingPlugin) Name() string { return "addr_capturing" }
+
+func testConfigWithHandler(h plugin.Handler) *Config {
+	c := &Config{
+		Zone:        "example.com.",
+		Transport:   "https",
+		TLSConfig:   &tls.Config{},
+		ListenHosts: []string{"127.0.0.1"},
+		Port:        "443",
+	}
+	c.AddPlugin(func(_next plugin.Handler) plugin.Handler { return h })
 	return c
 }
 
