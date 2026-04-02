@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -177,7 +178,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	tlsServerNames := make([]string, len(toHosts))
 	perServerNameProxyCount := make(map[string]int)
 	transports := make([]string, len(toHosts))
-	allowedTrans := map[string]bool{"dns": true, "tls": true}
+	allowedTrans := map[string]bool{"dns": true, "tls": true, "https": true}
 	for i, hostWithZone := range toHosts {
 		host, serverName := splitZone(hostWithZone)
 		trans, h := parse.Transport(host)
@@ -223,6 +224,19 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 				f.proxies[i].SetTLSConfig(f.tlsConfig)
 			}
 		}
+
+		if transports[i] == transport.HTTPS {
+			c := http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig:   f.tlsConfig,
+					ForceAttemptHTTP2: true,
+					MaxIdleConns:      f.maxIdleConns,
+				},
+				Timeout: 2 * time.Second,
+			}
+			f.proxies[i].SetHTTPClient(&c)
+		}
+
 		f.proxies[i].SetExpire(f.expire)
 		f.proxies[i].SetMaxAge(f.maxAge)
 		f.proxies[i].SetMaxIdleConns(f.maxIdleConns)
