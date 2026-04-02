@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/tls"
+	"net/http"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -61,6 +62,10 @@ func (p *Proxy) SetMaxAge(maxAge time.Duration) { p.transport.SetMaxAge(maxAge) 
 // SetMaxIdleConns sets the maximum idle connections per transport type.
 // A value of 0 means unlimited (default).
 func (p *Proxy) SetMaxIdleConns(n int) { p.transport.SetMaxIdleConns(n) }
+
+func (p *Proxy) SetHTTPClient(client *http.Client) {
+	p.transport.httpClient = client
+}
 
 func (p *Proxy) GetHealthchecker() HealthChecker {
 	return p.health

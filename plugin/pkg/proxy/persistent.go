@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/tls"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ type Transport struct {
 	maxIdleConns int                            // Max idle connections per protocol type; 0 means unlimited.
 	addr         string
 	tlsConfig    *tls.Config
+	httpClient   *http.Client
 	proxyName    string
 
 	mu   sync.Mutex
@@ -40,6 +42,7 @@ func newTransport(proxyName, addr string) *Transport {
 		stop:        make(chan struct{}),
 		proxyName:   proxyName,
 	}
+
 	return t
 }
 
