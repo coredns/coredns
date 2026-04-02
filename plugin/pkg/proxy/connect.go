@@ -6,12 +6,15 @@ package proxy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/doh"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/request"
 
@@ -103,7 +106,7 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	return &persistConn{c: conn, created: time.Now()}, false, err
 }
 
-func (p *Proxy) connectDNS(_ctx context.Context, state request.Request, opts Options) (*dns.Msg, error) {
+func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Options) (*dns.Msg, error) {
 	var proto string
 	switch {
 	case opts.ForceTCP: // TCP flag has precedence over UDP flag
@@ -175,6 +178,27 @@ func (p *Proxy) connectDNS(_ctx context.Context, state request.Request, opts Opt
 	return ret, nil
 }
 
+func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options) (*dns.Msg, error) {
+	// TODO: Is defaulting to POST the right thing?
+	req, err := doh.NewRequestWithContext(ctx, http.MethodPost, p.addr, state.Req)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := p.transport.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	ret, err := doh.ResponseToMsg(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 // Connect selects an upstream, sends the request and waits for a response.
 func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options) (*dns.Msg, error) {
 	start := time.Now()
@@ -186,9 +210,11 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 	)
 	switch p.protocol {
 	case transport.HTTPS:
-		panic("Not yet implemented!")
+		ret, err = p.lookupDoH(ctx, state, opts)
+	case transport.DNS, transport.TLS:
+		ret, err = p.lookupDNS(ctx, state, opts)
 	default:
-		ret, err = p.connectDNS(ctx, state, opts)
+		return nil, fmt.Errorf("transport %s not supported to proxy", p.protocol)
 	}
 	if err != nil {
 		return nil, err
