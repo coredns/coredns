@@ -189,8 +189,8 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 
+	// ResponseToMsg always closes the body via defer resp.Body.Close().
 	ret, err := doh.ResponseToMsg(resp)
 	if err != nil {
 		return nil, err
