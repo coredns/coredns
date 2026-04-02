@@ -162,3 +162,134 @@ func viewTest(t *testing.T, testName, addr, qname string, qtype uint16, expectRc
 		}
 	})
 }
+
+func TestViewServerBlockOrdering(t *testing.T) {
+	// Verify that filtered and unfiltered server blocks sharing the same
+	// zone/port start without error regardless of declaration order, and
+	// that queries are routed correctly.
+	//
+	// Declaration order matters: server blocks are evaluated top-to-bottom
+	// and the first block whose filter matches (or has no filter) handles
+	// the query. An unfiltered block declared before a filtered block will
+	// catch all queries, shadowing the filtered block.
+	//
+	// See https://github.com/coredns/coredns/issues/7733
+
+	corefile := `example.org:0 {
+		erratic
+	}`
+	tmp, addr, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	port := addr[strings.LastIndex(addr, ":")+1:]
+	tmp.Stop()
+
+	t.Run("filtered blocks before unfiltered", func(t *testing.T) {
+		// Filtered blocks are listed first, unfiltered catch-all is last.
+		// Each view handles its matching queries; the catch-all handles the rest.
+		corefile := `
+      order-test:` + port + ` {
+        view v-a {
+          expr type() == 'A'
+        }
+        hosts {
+          1.2.3.4 test.order-test
+        }
+      }
+      order-test:` + port + ` {
+        view v-aaaa {
+          expr type() == 'AAAA'
+        }
+        hosts {
+          1:2:3::4 test.order-test
+        }
+      }
+      order-test:` + port + ` {
+        hosts {
+          5.6.7.8 test.order-test
+        }
+      }
+    `
+		i, addr, _, err := CoreDNSServerAndPorts(corefile)
+		if err != nil {
+			t.Fatalf("Could not start server: %s", err)
+		}
+		defer i.Stop()
+
+		viewTest(t, "A routed to v-a", addr, "test.order-test.", dns.TypeA, dns.RcodeSuccess,
+			[]dns.RR{test.A("test.order-test.	303	IN	A	1.2.3.4")})
+		viewTest(t, "AAAA routed to v-aaaa", addr, "test.order-test.", dns.TypeAAAA, dns.RcodeSuccess,
+			[]dns.RR{test.AAAA("test.order-test.	303	IN	AAAA	1:2:3::4")})
+	})
+
+	t.Run("unfiltered block first", func(t *testing.T) {
+		// Unfiltered block is declared first. It matches all queries, so the
+		// filtered block below it is effectively shadowed.
+		corefile := `
+      order-test2:` + port + ` {
+        hosts {
+          5.6.7.8 test.order-test2
+        }
+      }
+      order-test2:` + port + ` {
+        view v-a {
+          expr type() == 'A'
+        }
+        hosts {
+          1.2.3.4 test.order-test2
+        }
+      }
+    `
+		i, addr, _, err := CoreDNSServerAndPorts(corefile)
+		if err != nil {
+			t.Fatalf("Could not start server: %s", err)
+		}
+		defer i.Stop()
+
+		// The unfiltered block catches everything, so A goes to it (5.6.7.8).
+		viewTest(t, "A hits unfiltered", addr, "test.order-test2.", dns.TypeA, dns.RcodeSuccess,
+			[]dns.RR{test.A("test.order-test2.	303	IN	A	5.6.7.8")})
+	})
+
+	t.Run("unfiltered block in the middle", func(t *testing.T) {
+		// A filtered block, then unfiltered, then another filtered block.
+		// The first view catches A queries. The unfiltered block catches
+		// everything else, shadowing the second filtered block.
+		corefile := `
+      order-test3:` + port + ` {
+        view v-a {
+          expr type() == 'A'
+        }
+        hosts {
+          1.2.3.4 test.order-test3
+        }
+      }
+      order-test3:` + port + ` {
+        hosts {
+          5.6.7.8 test.order-test3
+        }
+      }
+      order-test3:` + port + ` {
+        view v-aaaa {
+          expr type() == 'AAAA'
+        }
+        hosts {
+          1:2:3::4 test.order-test3
+        }
+      }
+    `
+		i, addr, _, err := CoreDNSServerAndPorts(corefile)
+		if err != nil {
+			t.Fatalf("Could not start server: %s", err)
+		}
+		defer i.Stop()
+
+		// A is caught by v-a (first block).
+		viewTest(t, "A routed to v-a", addr, "test.order-test3.", dns.TypeA, dns.RcodeSuccess,
+			[]dns.RR{test.A("test.order-test3.	303	IN	A	1.2.3.4")})
+		// MX has no matching view, hits the unfiltered block -> 5.6.7.8 (hosts only has A).
+		// AAAA view is shadowed by unfiltered, so AAAA also hits unfiltered.
+		viewTest(t, "AAAA hits unfiltered (shadowed view)", addr, "test.order-test3.", dns.TypeAAAA, dns.RcodeSuccess, nil)
+	})
+}
