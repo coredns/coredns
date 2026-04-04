@@ -124,25 +124,33 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 
 	rrs := []dns.RR{}
 	l := 0
+	batchSize := 0
 	var soa *dns.SOA
 	for records := range pchan {
 		if x, ok := records[0].(*dns.SOA); ok && soa == nil {
 			soa = x
 		}
-		rrs = append(rrs, records...)
-		if len(rrs) > 500 {
-			select {
-			case ch <- &dns.Envelope{RR: rrs}:
-			case err := <-errCh:
-				// Client errored; drain pchan to avoid blocking the producer goroutine.
-				go func() {
-					for range pchan {
-					}
-				}()
-				return dns.RcodeServerFailure, err
+		for _, rr := range records {
+			rrLen := dns.Len(rr)
+			// Flush the batch before it exceeds the 64KB TCP message limit.
+			// The 12-byte header and question section are not counted in rrLen,
+			// so we use a conservative threshold to leave room for framing.
+			if len(rrs) > 0 && batchSize+rrLen > 63000 {
+				select {
+				case ch <- &dns.Envelope{RR: rrs}:
+				case err := <-errCh:
+					go func() {
+						for range pchan {
+						}
+					}()
+					return dns.RcodeServerFailure, err
+				}
+				l += len(rrs)
+				rrs = []dns.RR{}
+				batchSize = 0
 			}
-			l += len(rrs)
-			rrs = []dns.RR{}
+			rrs = append(rrs, rr)
+			batchSize += rrLen
 		}
 	}
 
@@ -166,7 +174,12 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	}
 
 	if len(rrs) > 0 {
-		ch <- &dns.Envelope{RR: rrs}
+		select {
+		case ch <- &dns.Envelope{RR: rrs}:
+		case err := <-errCh:
+			close(ch)
+			return dns.RcodeServerFailure, err
+		}
 		l += len(rrs)
 	}
 
