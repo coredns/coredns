@@ -27,7 +27,7 @@ type Transport struct {
 	addr         string
 	tlsConfig    *tls.Config
 	proxyName    string
-	localAddress net.Addr
+	localAddress net.IP
 
 	mu   sync.Mutex
 	stop chan struct{}
@@ -170,7 +170,7 @@ func (t *Transport) SetTLSConfig(cfg *tls.Config) { t.tlsConfig = cfg }
 // GetTLSConfig returns the TLS config in transport.
 func (t *Transport) GetTLSConfig() *tls.Config { return t.tlsConfig }
 
-func (t *Transport) SetLocalAddress(addr net.Addr) {
+func (t *Transport) SetLocalAddress(addr net.IP) {
 	t.localAddress = addr
 }
 

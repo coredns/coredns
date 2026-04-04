@@ -427,9 +427,9 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
-		addr, err := net.ResolveIPAddr("ip", c.Val())
-		if err != nil {
-			return err
+		addr := net.ParseIP(c.Val())
+		if addr == nil {
+			return c.Errf("invalid IP address: %s", c.Val())
 		}
 		f.localAddress = addr
 	default:

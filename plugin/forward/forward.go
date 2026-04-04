@@ -56,7 +56,7 @@ type Forward struct {
 	failfastUnhealthyUpstreams bool
 	failoverRcodes             []int
 	maxConnectAttempts         uint32
-	localAddress               net.Addr
+	localAddress               net.IP
 
 	opts proxyPkg.Options // also here for testing
 

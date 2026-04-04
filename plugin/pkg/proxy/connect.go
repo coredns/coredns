@@ -96,9 +96,9 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	var client dns.Client
 
 	if proto == "tcp-tls" {
-		client = dns.Client{Net: proto, Dialer: &net.Dialer{LocalAddr: t.localAddress, Timeout: timeout}, TLSConfig: t.tlsConfig}
+		client = dns.Client{Net: proto, Dialer: &net.Dialer{LocalAddr: &net.TCPAddr{IP: t.localAddress}, Timeout: timeout}, TLSConfig: t.tlsConfig}
 	} else {
-		client = dns.Client{Net: proto, Dialer: &net.Dialer{LocalAddr: t.localAddress, Timeout: timeout}}
+		client = dns.Client{Net: proto, Dialer: &net.Dialer{LocalAddr: &net.UDPAddr{IP: t.localAddress}, Timeout: timeout}}
 	}
 	conn, err := client.Dial(t.addr)
 

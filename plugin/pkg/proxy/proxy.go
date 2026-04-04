@@ -120,7 +120,7 @@ func (p *Proxy) incrementFails() {
 }
 
 // SetLocalAddress sets the local address for the proxy, used as a traffic source to the specified net.Addr.
-func (p *Proxy) SetLocalAddress(addr net.Addr) {
+func (p *Proxy) SetLocalAddress(addr net.IP) {
 	p.transport.SetLocalAddress(addr)
 }
 
