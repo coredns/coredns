@@ -12,6 +12,7 @@ import (
 )
 
 func TestTLS(t *testing.T) {
+	tmpDir := t.TempDir()
 	tests := []struct {
 		input              string
 		shouldErr          bool
@@ -25,7 +26,7 @@ func TestTLS(t *testing.T) {
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth require\n}", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth verify_if_given\n}", false, "", ""},
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nclient_auth require_and_verify\n}", false, "", ""},
-		{"tls test_cert.pem test_key.pem test_ca.pem {\nkeylog tls.log\n}", false, "", ""},
+		{"tls test_cert.pem test_key.pem test_ca.pem {\nkeylog " + filepath.Join(tmpDir, "tls.log") + "\n}", false, "", ""},
 		// negative
 		{"tls test_cert.pem test_key.pem test_ca.pem {\nunknown\n}", true, "", "unknown option"},
 		// client_auth takes exactly one parameter, which must be one of known keywords.
