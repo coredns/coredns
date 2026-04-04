@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -55,6 +56,7 @@ type Forward struct {
 	failfastUnhealthyUpstreams bool
 	failoverRcodes             []int
 	maxConnectAttempts         uint32
+	localAddress               net.Addr
 
 	opts proxyPkg.Options // also here for testing
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -92,12 +93,15 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
+	var client dns.Client
+
 	if proto == "tcp-tls" {
-		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
-		t.updateDialTimeout(time.Since(reqTime))
-		return &persistConn{c: conn, created: time.Now()}, false, err
+		client = dns.Client{Net: proto, Dialer: &net.Dialer{LocalAddr: t.localAddress, Timeout: timeout}, TLSConfig: t.tlsConfig}
+	} else {
+		client = dns.Client{Net: proto, Dialer: &net.Dialer{LocalAddr: t.localAddress, Timeout: timeout}}
 	}
-	conn, err := dns.DialTimeout(proto, t.addr, timeout)
+	conn, err := client.Dial(t.addr)
+
 	t.updateDialTimeout(time.Since(reqTime))
 	return &persistConn{c: conn, created: time.Now()}, false, err
 }

@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"net"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -219,6 +220,9 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			f.proxies[i].GetHealthchecker().SetTCPTransport()
 		}
 		f.proxies[i].GetHealthchecker().SetDomain(f.opts.HCDomain)
+		if f.localAddress != nil {
+			f.proxies[i].SetLocalAddress(f.localAddress)
+		}
 	}
 
 	return f, nil
@@ -419,6 +423,15 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 
 			f.failoverRcodes = append(f.failoverRcodes, rc)
 		}
+	case "local_address":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		addr, err := net.ResolveIPAddr("ip", c.Val())
+		if err != nil {
+			return err
+		}
+		f.localAddress = addr
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}

@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/tls"
+	"net"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -116,6 +117,11 @@ func (p *Proxy) incrementFails() {
 		return
 	}
 	atomic.AddUint32(&p.fails, 1)
+}
+
+// SetLocalAddress sets the local address for the proxy, used as a traffic source to the specified net.Addr.
+func (p *Proxy) SetLocalAddress(addr net.Addr) {
+	p.transport.SetLocalAddress(addr)
 }
 
 const (
