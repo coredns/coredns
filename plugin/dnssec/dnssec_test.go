@@ -1,6 +1,9 @@
 package dnssec
 
 import (
+	"crypto"
+	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -244,6 +247,52 @@ func testEmptyMsg() *dns.Msg {
 	// don't care about the message header
 	return &dns.Msg{
 		Ns: []dns.RR{test.SOA("miek.nl.	1800	IN	SOA	ns.miek.nl. dnsmaster.miek.nl. 2017100301 200 100 604800 3600")},
+	}
+}
+
+// errSigner is a crypto.Signer that always returns an error. Used to simulate
+// signing failures in tests without panicking on nil keys.
+type errSigner struct {
+	pub crypto.PublicKey
+}
+
+func (e *errSigner) Public() crypto.PublicKey { return e.pub }
+func (e *errSigner) Sign(_ io.Reader, _ []byte, _ crypto.SignerOpts) ([]byte, error) {
+	return nil, errors.New("simulated signing failure")
+}
+
+// TestSignReturnsNilOnError verifies that when a signing operation fails mid-way
+// through multiple keys, sign() returns (nil, error) rather than (partial_sigs, error).
+// Before the fix, the inflight function returned the partially-accumulated sigs slice
+// alongside the error. While callers checked err before using the sigs, returning
+// partial results from an error path is incorrect and could cause a nil-assertion
+// panic if the error guard were ever removed.
+func TestSignReturnsNilOnError(t *testing.T) {
+	// Get a valid key that will sign successfully.
+	k1, rm1, rm2 := newKey(t)
+	defer rm1()
+	defer rm2()
+
+	// Create a second key that will fail during signing.
+	brokenKey := &DNSKEY{
+		K:   dns.Copy(k1.K).(*dns.DNSKEY),
+		s:   &errSigner{pub: k1.s.Public()},
+		tag: k1.tag + 1,
+	}
+
+	c := cache.New[[]dns.RR](defaultCap)
+	// k1 succeeds, brokenKey fails — sign() should return nil, not k1's partial sig.
+	d := New([]string{"miek.nl."}, []*DNSKEY{k1, brokenKey}, false, nil, c)
+
+	m := testMsg()
+	incep, expir := incepExpir(time.Now().UTC())
+	sigs, err := d.sign(m.Answer, "miek.nl.", 1703, incep, expir, server)
+
+	if err == nil {
+		t.Fatal("Expected error from broken key, got nil")
+	}
+	if sigs != nil {
+		t.Errorf("Expected nil sigs on signing error, got %d sig(s)", len(sigs))
 	}
 }
 

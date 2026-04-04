@@ -139,7 +139,7 @@ func (d Dnssec) sign(rrs []dns.RR, signerName string, ttl, incep, expir uint32, 
 			}
 			sig := k.newRRSIG(signerName, ttl, incep, expir)
 			if e := sig.Sign(k.s, rrs); e != nil {
-				return sigs, e
+				return nil, e
 			}
 			sigs = append(sigs, sig)
 		}
@@ -148,7 +148,10 @@ func (d Dnssec) sign(rrs []dns.RR, signerName string, ttl, incep, expir uint32, 
 		}
 		return sigs, nil
 	})
-	return sigs.([]dns.RR), err
+	if err != nil {
+		return nil, err
+	}
+	return sigs.([]dns.RR), nil
 }
 
 func (d Dnssec) set(key uint64, sigs []dns.RR) { d.cache.Add(key, sigs) }
