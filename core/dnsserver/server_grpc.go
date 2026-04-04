@@ -198,8 +198,10 @@ func (s *ServergRPC) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket
 	if tsig := msg.IsTsig(); tsig != nil {
 		if s.tsigSecret == nil {
 			w.tsigStatus = dns.ErrSecret
-		} else if _, ok := s.tsigSecret[tsig.Hdr.Name]; !ok {
+		} else if secret, ok := s.tsigSecret[tsig.Hdr.Name]; !ok {
 			w.tsigStatus = dns.ErrSecret
+		} else {
+			w.tsigStatus = dns.TsigVerify(in.GetMsg(), secret, "", false)
 		}
 	}
 
