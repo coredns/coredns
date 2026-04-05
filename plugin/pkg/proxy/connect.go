@@ -94,12 +94,18 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
 	var client dns.Client
-
-	if proto == "tcp-tls" || proto == "tcp" {
-		client = dns.Client{Net: "tcp-tls", Dialer: &net.Dialer{LocalAddr: &net.TCPAddr{IP: t.localAddress}, Timeout: timeout}, TLSConfig: t.tlsConfig}
-	} else {
-		client = dns.Client{Net: proto, Dialer: &net.Dialer{LocalAddr: &net.UDPAddr{IP: t.localAddress}, Timeout: timeout}}
+	var localAddr net.Addr
+	if t.localAddress != nil {
+		if proto == "tcp-tls" || proto == "tcp" {
+			localAddr = &net.TCPAddr{IP: t.localAddress}
+		} else {
+			localAddr = &net.UDPAddr{IP: t.localAddress}
+		}
 	}
+	// pass nil localAddr to use system default
+	// pass nil tlsConfig to use system default
+	client = dns.Client{Net: proto, Dialer: &net.Dialer{LocalAddr: localAddr, Timeout: timeout}, TLSConfig: t.tlsConfig}
+
 	conn, err := client.Dial(t.addr)
 
 	t.updateDialTimeout(time.Since(reqTime))
