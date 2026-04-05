@@ -220,8 +220,8 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			f.proxies[i].GetHealthchecker().SetTCPTransport()
 		}
 		f.proxies[i].GetHealthchecker().SetDomain(f.opts.HCDomain)
-		if f.localAddress != nil {
-			f.proxies[i].SetLocalAddress(f.localAddress)
+		if f.sourceAddress != nil {
+			f.proxies[i].SetLocalAddress(f.sourceAddress)
 		}
 	}
 
@@ -423,7 +423,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 
 			f.failoverRcodes = append(f.failoverRcodes, rc)
 		}
-	case "local_address":
+	case "source_address":
 		if !c.NextArg() {
 			return c.ArgErr()
 		}
@@ -431,7 +431,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 		if addr == nil {
 			return c.Errf("invalid IP address: %s", c.Val())
 		}
-		f.localAddress = addr
+		f.sourceAddress = addr
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}
