@@ -104,7 +104,7 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	}
 	// pass nil localAddr to use system default
 	// pass nil tlsConfig to use system default
-	client := dns.Client{Net: proto, Dialer: dialer, Timeout: timeout, TLSConfig: t.tlsConfig}
+	client := dns.Client{Net: proto, Dialer: dialer, TLSConfig: t.tlsConfig}
 
 	conn, err := client.Dial(t.addr)
 
