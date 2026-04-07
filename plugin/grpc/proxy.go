@@ -56,27 +56,30 @@ type proxyOptions struct {
 	hcInterval time.Duration
 }
 
+// buildDialOpts constructs the gRPC dial options shared by all proxy types.
+func buildDialOpts(tlsConfig *tls.Config) []grpc.DialOption {
+	var opts []grpc.DialOption
+	if tlsConfig != nil {
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+	// Cap send/recv sizes to avoid oversized messages.
+	// Note: gRPC size limits apply to the serialized protobuf message size.
+	opts = append(opts, grpc.WithDefaultCallOptions(
+		grpc.MaxCallRecvMsgSize(maxProtobufPayloadBytes),
+		grpc.MaxCallSendMsgSize(maxProtobufPayloadBytes),
+	))
+	return opts
+}
+
 // newProxy returns a new proxy with a single shared connection.
 // This is the default (pool_size=1) path, identical to the upstream model.
 func newProxy(addr string, tlsConfig *tls.Config) (*Proxy, error) {
 	p := &Proxy{
-		addr: addr,
+		addr:     addr,
+		dialOpts: buildDialOpts(tlsConfig),
 	}
-
-	if tlsConfig != nil {
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
-	} else {
-		p.dialOpts = append(p.dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-
-	// Cap send/recv sizes to avoid oversized messages.
-	// Note: gRPC size limits apply to the serialized protobuf message size.
-	p.dialOpts = append(p.dialOpts,
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(maxProtobufPayloadBytes),
-			grpc.MaxCallSendMsgSize(maxProtobufPayloadBytes),
-		),
-	)
 
 	conn, err := grpc.NewClient(p.addr, p.dialOpts...)
 	if err != nil {
@@ -94,21 +97,7 @@ func newPooledProxy(addr string, tlsConfig *tls.Config, opts *proxyOptions) (*Pr
 		addr: addr,
 	}
 
-	var dialOpts []grpc.DialOption
-	if tlsConfig != nil {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
-	} else {
-		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-
-	dialOpts = append(dialOpts,
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(maxProtobufPayloadBytes),
-			grpc.MaxCallSendMsgSize(maxProtobufPayloadBytes),
-		),
-	)
-
-	p.transport = newTransport("grpc", p.addr, dialOpts, opts.poolSize)
+	p.transport = newTransport("grpc", p.addr, buildDialOpts(tlsConfig), opts.poolSize)
 
 	// Only create probe and set hcInterval when health checking is opted into.
 	if opts.maxFails > 0 {
@@ -138,7 +127,7 @@ func (p *Proxy) query(ctx context.Context, req *dns.Msg) (*dns.Msg, error) {
 		gc     *grpcConn
 	)
 	if p.transport != nil {
-		gc, err = p.transport.Dial(ctx)
+		gc, err = p.transport.Dial()
 		if err != nil {
 			return nil, err
 		}
@@ -216,7 +205,7 @@ func (p *Proxy) healthCheck() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	gc, err := p.transport.Dial(ctx)
+	gc, err := p.transport.Dial()
 	if err != nil {
 		atomic.AddUint32(&p.fails, 1)
 		HealthcheckFailureCount.WithLabelValues(p.addr).Add(1)

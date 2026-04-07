@@ -1,7 +1,6 @@
 package grpc
 
 import (
-	"context"
 	"errors"
 	"sync"
 	"sync/atomic"
@@ -60,7 +59,7 @@ func newTransport(proxyName, addr string, dialOpts []grpc.DialOption, poolSize i
 
 // Dial returns a shared connection from the pool using round-robin.
 // Returns ErrTransportStopped if the transport has been shut down.
-func (t *grpcTransport) Dial(ctx context.Context) (*grpcConn, error) {
+func (t *grpcTransport) Dial() (*grpcConn, error) {
 	if t.stopped.Load() {
 		return nil, ErrTransportStopped
 	}
@@ -77,13 +76,13 @@ func (t *grpcTransport) Dial(ctx context.Context) (*grpcConn, error) {
 	}
 
 	PoolMissesCount.WithLabelValues(t.addr).Inc()
-	return t.createConn(ctx)
+	return t.createConn()
 }
 
 // createConn creates a new gRPC connection and attempts to add it to the pool.
 // If the pool is already full, the new connection is closed and an existing
 // pool connection is returned to avoid leaking resources.
-func (t *grpcTransport) createConn(ctx context.Context) (*grpcConn, error) {
+func (t *grpcTransport) createConn() (*grpcConn, error) {
 	conn, err := grpc.NewClient(t.addr, t.dialOpts...)
 	if err != nil {
 		return nil, err
@@ -133,6 +132,8 @@ func (t *grpcTransport) addConn(gc *grpcConn) bool {
 }
 
 // RemoveConn removes a failed connection from the pool and closes it.
+// If gc is not found in the pool (e.g. already removed by a concurrent call),
+// the gauge is not decremented and the connection is not closed again.
 func (t *grpcTransport) RemoveConn(gc *grpcConn) {
 	if gc == nil {
 		return
@@ -141,18 +142,24 @@ func (t *grpcTransport) RemoveConn(gc *grpcConn) {
 	t.mu.Lock()
 	oldList := t.connList.Load()
 	newConns := make([]*grpcConn, 0, len(oldList.conns))
+	removed := false
 	for _, c := range oldList.conns {
 		if c != gc {
 			newConns = append(newConns, c)
+		} else {
+			removed = true
 		}
 	}
-	t.connList.Store(&connList{conns: newConns})
+	if removed {
+		t.connList.Store(&connList{conns: newConns})
+	}
 	t.mu.Unlock()
 
-	PoolSizeGauge.WithLabelValues(t.addr).Dec()
-
-	if gc.conn != nil {
-		gc.conn.Close()
+	if removed {
+		PoolSizeGauge.WithLabelValues(t.addr).Dec()
+		if gc.conn != nil {
+			gc.conn.Close()
+		}
 	}
 }
 
