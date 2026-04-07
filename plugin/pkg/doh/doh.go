@@ -136,11 +136,6 @@ func toMsgWire(r io.ReadCloser) (*dns.Msg, []byte, error) {
 	return m, buf, err
 }
 
-func base64ToMsg(b64 string) (*dns.Msg, error) {
-	m, _, err := base64ToMsgWire(b64)
-	return m, err
-}
-
 func base64ToMsgWire(b64 string) (*dns.Msg, []byte, error) {
 	buf, err := b64Enc.DecodeString(b64)
 	if err != nil {
