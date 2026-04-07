@@ -18,6 +18,7 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
+	"github.com/miekg/dns"
 	"github.com/quic-go/quic-go"
 	"github.com/quic-go/quic-go/http3"
 )
@@ -172,7 +173,7 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg, err := doh.RequestToMsg(r)
+	msg, raw, err := doh.RequestToMsgWire(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		s.countResponse(http.StatusBadRequest)
@@ -186,6 +187,16 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		laddr:   s.listenAddr,
 		raddr:   &net.UDPAddr{IP: net.ParseIP(h), Port: port},
 		request: r,
+	}
+
+	if tsig := msg.IsTsig(); tsig != nil {
+		if s.tsigSecret == nil {
+			dw.tsigStatus = dns.ErrSecret
+		} else if secret, ok := s.tsigSecret[tsig.Hdr.Name]; !ok {
+			dw.tsigStatus = dns.ErrSecret
+		} else {
+			dw.tsigStatus = dns.TsigVerify(raw, secret, "", false)
+		}
 	}
 
 	ctx := context.WithValue(r.Context(), Key{}, s.Server)
