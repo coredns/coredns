@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -395,4 +396,121 @@ func TestHTTPRequestContextPropagation(t *testing.T) {
 			t.Error("Context deadline is zero")
 		}
 	})
+}
+
+type tsigStatusPlugin struct{}
+
+func (p *tsigStatusPlugin) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Authoritative = true
+
+	switch {
+	case r.IsTsig() == nil:
+		m.Rcode = dns.RcodeRefused
+	case w.TsigStatus() != nil:
+		m.Rcode = dns.RcodeNotAuth
+	default:
+		m.Rcode = dns.RcodeSuccess
+	}
+
+	if err := w.WriteMsg(m); err != nil {
+		return dns.RcodeServerFailure, err
+	}
+	return dns.RcodeSuccess, nil
+}
+
+func (p *tsigStatusPlugin) Name() string { return "tsig_status" }
+
+func testConfigWithTSIGStatusPlugin() *Config {
+	c := &Config{
+		Zone:        "example.com.",
+		Transport:   "https",
+		TLSConfig:   &tls.Config{},
+		ListenHosts: []string{"127.0.0.1"},
+		Port:        "443",
+		TsigSecret: map[string]string{
+			"tsig-key.": "MTIzNA==",
+		},
+	}
+	c.AddPlugin(func(_next plugin.Handler) plugin.Handler { return &tsigStatusPlugin{} })
+	return c
+}
+
+func testServerHTTPSMsg(t *testing.T, cfg *Config, req *dns.Msg) *dns.Msg {
+	t.Helper()
+
+	s, err := NewServerHTTPS("127.0.0.1:443", []*Config{cfg})
+	if err != nil {
+		t.Fatal("could not create HTTPS server:", err)
+	}
+
+	buf, err := req.Pack()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := httptest.NewRequest(http.MethodPost, "/dns-query", bytes.NewReader(buf))
+	r.RemoteAddr = "127.0.0.1:12345"
+	w := httptest.NewRecorder()
+
+	s.ServeHTTP(w, r)
+
+	res := w.Result()
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected HTTP status: got %d", res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m := new(dns.Msg)
+	if err := m.Unpack(body); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func forgedTSIGMsg() *dns.Msg {
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+
+	m.Extra = append(m.Extra, &dns.TSIG{
+		Hdr: dns.RR_Header{
+			Name:   "bogus-key.",
+			Rrtype: dns.TypeTSIG,
+			Class:  dns.ClassANY,
+			Ttl:    0,
+		},
+		Algorithm:  dns.HmacSHA256,
+		TimeSigned: uint64(time.Now().Unix()),
+		Fudge:      300,
+		MACSize:    32,
+		MAC:        strings.Repeat("00", 32),
+		OrigId:     m.Id,
+		Error:      dns.RcodeSuccess,
+	})
+	return m
+}
+
+func TestServeHTTPRejectsUnsignedTSIGRequiredRequest(t *testing.T) {
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+
+	resp := testServerHTTPSMsg(t, testConfigWithTSIGStatusPlugin(), m)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("expected REFUSED for unsigned request, got %s", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+func TestServeHTTPRejectsForgedTSIG(t *testing.T) {
+	resp := testServerHTTPSMsg(t, testConfigWithTSIGStatusPlugin(), forgedTSIGMsg())
+
+	if resp.Rcode != dns.RcodeNotAuth {
+		t.Fatalf("expected NOTAUTH for forged TSIG, got %s", dns.RcodeToString[resp.Rcode])
+	}
 }
