@@ -126,7 +126,6 @@ func TestSourceAddress(t *testing.T) {
 			if !test.expectedSourceAddress.Equal(f.sourceAddress) {
 				t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedSourceAddress, f.opts)
 			}
-
 		}
 	}
 }
