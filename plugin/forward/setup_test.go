@@ -95,51 +95,38 @@ func TestSetup(t *testing.T) {
 func TestSourceAddress(t *testing.T) {
 	tests := []struct {
 		input                 string
-		shouldErr             bool
-		expectedFrom          string
-		expectedIgnored       []string
-		expectedFails         uint32
 		expectedSourceAddress net.IP
 		expectedErr           string
 	}{
-		{"forward . 127.0.0.1 {\nsource_address 192.0.2.1\n}\n", false, ".", nil, 2, net.ParseIP("192.0.2.1"), ""},
-		{"forward . 127.0.0.1 {\nsource_address not-an-ip\n}\n", true, "", nil, 0, nil, "invalid IP address"},
+
+		{"forward . 127.0.0.1 {\nsource_address 192.0.2.1\n}\n", net.ParseIP("192.0.2.1"), ""},
+		{"forward . 127.0.0.1 {\nsource_address not-an-ip\n}\n", nil, "invalid IP address"},
+		{"forward . 127.0.0.1 {\nsource_address 2001:0db8:85a3:0000:1319:8a2e:0370:7344\n}\n", net.ParseIP("2001:0db8:85a3:0000:1319:8a2e:0370:7344"), ""},
+		{"forward . 127.0.0.1 {\nsource_address ::ffff:192.0.2.1\n}\n", net.ParseIP("192.0.2.1"), ""},
 	}
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
 		fs, err := parseForward(c)
 
-		if test.shouldErr && err == nil {
+		if test.expectedErr != "" && err == nil {
 			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
 		}
-
 		if err != nil {
-			if !test.shouldErr {
-				t.Fatalf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+			if test.expectedErr == "" {
+				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
 			}
 
 			if !strings.Contains(err.Error(), test.expectedErr) {
 				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
 			}
 		}
-
-		if !test.shouldErr {
+		if test.expectedErr == "" {
 			f := fs[0]
-			if f.from != test.expectedFrom {
-				t.Errorf("Test %d: expected: %s, got: %s", i, test.expectedFrom, f.from)
-			}
-			if test.expectedIgnored != nil {
-				if !reflect.DeepEqual(f.ignored, test.expectedIgnored) {
-					t.Errorf("Test %d: expected: %q, actual: %q", i, test.expectedIgnored, f.ignored)
-				}
-			}
-			if f.maxfails != test.expectedFails {
-				t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedFails, f.maxfails)
-			}
 			if !test.expectedSourceAddress.Equal(f.sourceAddress) {
 				t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedSourceAddress, f.opts)
 			}
+
 		}
 	}
 }
