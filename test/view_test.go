@@ -173,6 +173,9 @@ func TestViewServerBlockOrdering(t *testing.T) {
 	// the query. An unfiltered block declared before a filtered block will
 	// catch all queries, shadowing the filtered block.
 	//
+	// All scenarios use distinct zone names and are combined into a single
+	// Corefile/server instance to avoid stop/start races with SO_REUSEPORT.
+	//
 	// See https://github.com/coredns/coredns/issues/7733
 
 	corefile := `example.org:0 {
@@ -183,12 +186,11 @@ func TestViewServerBlockOrdering(t *testing.T) {
 		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
 	}
 	port := addr[strings.LastIndex(addr, ":")+1:]
-	tmp.Stop()
 
-	t.Run("filtered blocks before unfiltered", func(t *testing.T) {
-		// Filtered blocks are listed first, unfiltered catch-all is last.
-		// Each view handles its matching queries; the catch-all handles the rest.
-		corefile := `
+	corefile = `
+      # Scenario: filtered blocks before unfiltered (order-test)
+      # Filtered blocks are listed first, unfiltered catch-all is last.
+      # Each view handles its matching queries; the catch-all handles the rest.
       order-test:` + port + ` {
         view v-a {
           expr type() == 'A'
@@ -210,23 +212,10 @@ func TestViewServerBlockOrdering(t *testing.T) {
           5.6.7.8 test.order-test
         }
       }
-    `
-		i, addr, _, err := CoreDNSServerAndPorts(corefile)
-		if err != nil {
-			t.Fatalf("Could not start server: %s", err)
-		}
-		defer i.Stop()
 
-		viewTest(t, "A routed to v-a", addr, "test.order-test.", dns.TypeA, dns.RcodeSuccess,
-			[]dns.RR{test.A("test.order-test.	303	IN	A	1.2.3.4")})
-		viewTest(t, "AAAA routed to v-aaaa", addr, "test.order-test.", dns.TypeAAAA, dns.RcodeSuccess,
-			[]dns.RR{test.AAAA("test.order-test.	303	IN	AAAA	1:2:3::4")})
-	})
-
-	t.Run("unfiltered block first", func(t *testing.T) {
-		// Unfiltered block is declared first. It matches all queries, so the
-		// filtered block below it is effectively shadowed.
-		corefile := `
+      # Scenario: unfiltered block first (order-test2)
+      # Unfiltered block is declared first. It matches all queries, so the
+      # filtered block below it is effectively shadowed.
       order-test2:` + port + ` {
         hosts {
           5.6.7.8 test.order-test2
@@ -240,23 +229,10 @@ func TestViewServerBlockOrdering(t *testing.T) {
           1.2.3.4 test.order-test2
         }
       }
-    `
-		i, addr, _, err := CoreDNSServerAndPorts(corefile)
-		if err != nil {
-			t.Fatalf("Could not start server: %s", err)
-		}
-		defer i.Stop()
 
-		// The unfiltered block catches everything, so A goes to it (5.6.7.8).
-		viewTest(t, "A hits unfiltered", addr, "test.order-test2.", dns.TypeA, dns.RcodeSuccess,
-			[]dns.RR{test.A("test.order-test2.	303	IN	A	5.6.7.8")})
-	})
-
-	t.Run("unfiltered block in the middle", func(t *testing.T) {
-		// A filtered block, then unfiltered, then another filtered block.
-		// The first view catches A queries. The unfiltered block catches
-		// everything else, shadowing the second filtered block.
-		corefile := `
+      # Scenario: unfiltered block in the middle (order-test3)
+      # The first view catches A queries. The unfiltered block catches
+      # everything else, shadowing the second filtered block.
       order-test3:` + port + ` {
         view v-a {
           expr type() == 'A'
@@ -278,18 +254,52 @@ func TestViewServerBlockOrdering(t *testing.T) {
           1:2:3::4 test.order-test3
         }
       }
-    `
-		i, addr, _, err := CoreDNSServerAndPorts(corefile)
-		if err != nil {
-			t.Fatalf("Could not start server: %s", err)
-		}
-		defer i.Stop()
 
-		// A is caught by v-a (first block).
-		viewTest(t, "A routed to v-a", addr, "test.order-test3.", dns.TypeA, dns.RcodeSuccess,
-			[]dns.RR{test.A("test.order-test3.	303	IN	A	1.2.3.4")})
-		// MX has no matching view, hits the unfiltered block -> 5.6.7.8 (hosts only has A).
-		// AAAA view is shadowed by unfiltered, so AAAA also hits unfiltered.
-		viewTest(t, "AAAA hits unfiltered (shadowed view)", addr, "test.order-test3.", dns.TypeAAAA, dns.RcodeSuccess, nil)
-	})
+      # Scenario: no catch-all (order-test4)
+      # Only filtered blocks. Queries not matching any view get REFUSED.
+      order-test4:` + port + ` {
+        view v-a {
+          expr type() == 'A'
+        }
+        hosts {
+          1.2.3.4 test.order-test4
+        }
+      }
+      order-test4:` + port + ` {
+        view v-aaaa {
+          expr type() == 'AAAA'
+        }
+        hosts {
+          1:2:3::4 test.order-test4
+        }
+      }
+    `
+
+	i, addr, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not start server: %s", err)
+	}
+	defer i.Stop()
+	tmp.Stop()
+
+	// filtered blocks before unfiltered — views handle matching types, catch-all handles the rest
+	viewTest(t, "A routed to v-a", addr, "test.order-test.", dns.TypeA, dns.RcodeSuccess,
+		[]dns.RR{test.A("test.order-test.	303	IN	A	1.2.3.4")})
+	viewTest(t, "AAAA routed to v-aaaa", addr, "test.order-test.", dns.TypeAAAA, dns.RcodeSuccess,
+		[]dns.RR{test.AAAA("test.order-test.	303	IN	AAAA	1:2:3::4")})
+	viewTest(t, "MX falls through to catch-all", addr, "test.order-test.", dns.TypeMX, dns.RcodeSuccess, nil)
+
+	// unfiltered block first — catches everything, view is shadowed
+	viewTest(t, "A hits unfiltered", addr, "test.order-test2.", dns.TypeA, dns.RcodeSuccess,
+		[]dns.RR{test.A("test.order-test2.	303	IN	A	5.6.7.8")})
+
+	// unfiltered block in the middle — v-a catches A, unfiltered shadows v-aaaa
+	viewTest(t, "A routed to v-a (middle)", addr, "test.order-test3.", dns.TypeA, dns.RcodeSuccess,
+		[]dns.RR{test.A("test.order-test3.	303	IN	A	1.2.3.4")})
+	viewTest(t, "AAAA hits unfiltered (shadowed view)", addr, "test.order-test3.", dns.TypeAAAA, dns.RcodeSuccess, nil)
+
+	// no catch-all — matching view works, non-matching type is REFUSED
+	viewTest(t, "A routed to v-a (no catch-all)", addr, "test.order-test4.", dns.TypeA, dns.RcodeSuccess,
+		[]dns.RR{test.A("test.order-test4.	303	IN	A	1.2.3.4")})
+	viewTest(t, "MX refused without catch-all", addr, "test.order-test4.", dns.TypeMX, dns.RcodeRefused, nil)
 }
