@@ -155,17 +155,6 @@ func TestHealthDomain(t *testing.T) {
 }
 
 func TestHealthLocalAddress(t *testing.T) {
-	i := uint32(0)
-	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
-		if r.Question[0].Name == "." && r.RecursionDesired == true {
-			atomic.AddUint32(&i, 1)
-		}
-		ret := new(dns.Msg)
-		ret.SetReply(r)
-		w.WriteMsg(ret)
-	})
-	defer s.Close()
-
 	hc := NewHealthChecker("TestHealthLocalAddress", transport.DNS, true, ".")
 	hc.SetReadTimeout(10 * time.Millisecond)
 	hc.SetWriteTimeout(10 * time.Millisecond)
