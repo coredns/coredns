@@ -1,6 +1,8 @@
 package proxy
 
 import (
+	"crypto/tls"
+	"net"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -150,4 +152,57 @@ func TestHealthDomain(t *testing.T) {
 	if i1 != 1 {
 		t.Errorf("Expected number of health checks with Domain==%s to be %d, got %d", hcDomain, 1, i1)
 	}
+}
+
+func TestHealthLocalAddress(t *testing.T) {
+	i := uint32(0)
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		if r.Question[0].Name == "." && r.RecursionDesired == true {
+			atomic.AddUint32(&i, 1)
+		}
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		w.WriteMsg(ret)
+	})
+	defer s.Close()
+
+	hc := NewHealthChecker("TestHealthLocalAddress", transport.DNS, true, ".")
+	hc.SetReadTimeout(10 * time.Millisecond)
+	hc.SetWriteTimeout(10 * time.Millisecond)
+	currLocalAddress := hc.GetLocalAddress()
+	if currLocalAddress != nil {
+		t.Errorf("Expected local address to be nil, got %s", currLocalAddress.String())
+	}
+
+	hc.SetLocalAddress(net.ParseIP("127.0.0.1"))
+	dnsClient := hc.(*dnsHc).c
+	if dnsClient.Dialer.LocalAddr.String() != "127.0.0.1:0" {
+		t.Errorf("Expected local address to be 127.0.0.1:0, got %s", dnsClient.Dialer.LocalAddr.String())
+	}
+
+	// check type of underline transport
+	_, ok := dnsClient.Dialer.LocalAddr.(*net.UDPAddr)
+	if !ok {
+		t.Error("Expected local address to be udp")
+	}
+
+	// set TCP transport
+	hc.SetTCPTransport()
+
+	// check update of underline transport
+	_, ok = dnsClient.Dialer.LocalAddr.(*net.TCPAddr)
+	if !ok {
+		t.Error("Expected local address to be tcp")
+	}
+
+	tlsConfig := new(tls.Config)
+	// set TLS transport
+	hc.SetTLSConfig(tlsConfig)
+
+	// check update of underline transport
+	_, ok = dnsClient.Dialer.LocalAddr.(*net.TCPAddr)
+	if !ok {
+		t.Error("Expected local address to be tcp")
+	}
+
 }

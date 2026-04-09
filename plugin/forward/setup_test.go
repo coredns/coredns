@@ -103,6 +103,7 @@ func TestSourceAddress(t *testing.T) {
 		{"forward . 127.0.0.1 {\nsource_address not-an-ip\n}\n", nil, "invalid IP address"},
 		{"forward . 127.0.0.1 {\nsource_address 2001:0db8:85a3:0000:1319:8a2e:0370:7344\n}\n", net.ParseIP("2001:0db8:85a3:0000:1319:8a2e:0370:7344"), ""},
 		{"forward . 127.0.0.1 {\nsource_address ::ffff:192.0.2.1\n}\n", net.ParseIP("192.0.2.1"), ""},
+		{"forward . 127.0.0.1 {\nsource_address \n}\n", nil, "Error during parsing: Wrong argument count or unexpected line ending after 'source_address'"},
 	}
 
 	for i, test := range tests {

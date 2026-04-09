@@ -102,7 +102,7 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 			dialer.LocalAddr = &net.TCPAddr{IP: t.localAddress}
 		}
 	}
-	// pass nil localAddr to use system default
+
 	// pass nil tlsConfig to use system default
 	client := dns.Client{Net: proto, Dialer: dialer, TLSConfig: t.tlsConfig}
 

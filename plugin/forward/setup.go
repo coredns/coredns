@@ -222,6 +222,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		f.proxies[i].GetHealthchecker().SetDomain(f.opts.HCDomain)
 		if f.sourceAddress != nil {
 			f.proxies[i].SetLocalAddress(f.sourceAddress)
+			f.proxies[i].GetHealthchecker().SetLocalAddress(f.sourceAddress)
 		}
 	}
 

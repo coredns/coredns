@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"crypto/tls"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -25,6 +26,8 @@ type HealthChecker interface {
 	SetReadTimeout(time.Duration)
 	GetWriteTimeout() time.Duration
 	SetWriteTimeout(time.Duration)
+	SetLocalAddress(net.IP)
+	GetLocalAddress() net.IP
 }
 
 // dnsHc is a health checker for a DNS endpoint (DNS, and DoT).
@@ -34,6 +37,8 @@ type dnsHc struct {
 	domain           string
 
 	proxyName string
+
+	localAddress net.IP
 }
 
 // NewHealthChecker returns a new HealthChecker based on transport.
@@ -60,6 +65,8 @@ func NewHealthChecker(proxyName, trans string, recursionDesired bool, domain str
 func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
 	h.c.Net = "tcp-tls"
 	h.c.TLSConfig = cfg
+	// update the dialer accordingly with the protocol changed
+	h.setDialer()
 }
 
 func (h *dnsHc) GetTLSConfig() *tls.Config {
@@ -82,6 +89,8 @@ func (h *dnsHc) GetDomain() string {
 
 func (h *dnsHc) SetTCPTransport() {
 	h.c.Net = "tcp"
+	// update the dialer accordingly with the protocol changed
+	h.setDialer()
 }
 
 func (h *dnsHc) GetReadTimeout() time.Duration {
@@ -131,4 +140,27 @@ func (h *dnsHc) send(addr string) error {
 	}
 
 	return err
+}
+
+// SetLocalAddress sets the local address in transport.
+func (h *dnsHc) SetLocalAddress(localAddr net.IP) {
+	h.localAddress = localAddr
+	h.setDialer()
+}
+
+// GetLocalAddress returns the local address in transport.
+func (h *dnsHc) GetLocalAddress() net.IP {
+	return h.localAddress
+}
+
+// setDialer sets the local address in the underline dialer
+func (h *dnsHc) setDialer() {
+	if h.c.Dialer == nil {
+		h.c.Dialer = new(net.Dialer)
+	}
+	if h.c.Net == "udp" {
+		h.c.Dialer.LocalAddr = &net.UDPAddr{IP: h.localAddress}
+	} else {
+		h.c.Dialer.LocalAddr = &net.TCPAddr{IP: h.localAddress}
+	}
 }
