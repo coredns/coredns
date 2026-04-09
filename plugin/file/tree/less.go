@@ -25,12 +25,8 @@ func less(a, b string) int {
 			return 0
 		}
 
-		// sadly this []byte will allocate... TODO(miek): check if this is needed
-		// for a name, otherwise compare the strings.
-		ab := []byte(strings.ToLower(a[ai:aj]))
-		bb := []byte(strings.ToLower(b[bi:bj]))
-		doDDD(ab)
-		doDDD(bb)
+		ab := normalizeLabel(a[ai:aj])
+		bb := normalizeLabel(b[bi:bj])
 
 		res := bytes.Compare(ab, bb)
 		if res != 0 {
@@ -41,17 +37,29 @@ func less(a, b string) int {
 	}
 }
 
-func doDDD(b []byte) {
-	lb := len(b)
-	for i := 0; i < lb; i++ {
-		if i+3 < lb && b[i] == '\\' && isDigit(b[i+1]) && isDigit(b[i+2]) && isDigit(b[i+3]) {
-			b[i] = dddToByte(b[i:])
-			for j := i + 1; j < lb-3; j++ {
-				b[j] = b[j+3]
-			}
-			lb -= 3
+func normalizeLabel(label string) []byte {
+	// Compare canonical label bytes, not presentation-format escapes.
+	b := []byte(strings.ToLower(label))
+	lb := 0
+	for i := 0; i < len(b); i++ {
+		if b[i] != '\\' || i+1 >= len(b) {
+			b[lb] = b[i]
+			lb++
+			continue
 		}
+
+		if i+3 < len(b) && isDigit(b[i+1]) && isDigit(b[i+2]) && isDigit(b[i+3]) {
+			b[lb] = dddToByte(b[i:])
+			i += 3
+			lb++
+			continue
+		}
+
+		b[lb] = b[i+1]
+		i++
+		lb++
 	}
+	return b[:lb]
 }
 
 func isDigit(b byte) bool     { return b >= '0' && b <= '9' }

@@ -98,6 +98,25 @@ func TestLess_EmptyVsEmpty(t *testing.T) {
 	}
 }
 
+func TestLess_EquivalentEscapes(t *testing.T) {
+	tests := []struct {
+		a string
+		b string
+	}{
+		{a: "has\\046dot.example.", b: "has\\.dot.example."},
+		{a: "escaped\\032space.example.", b: "escaped\\ space.example."},
+	}
+
+	for _, tc := range tests {
+		if d := less(tc.a, tc.b); d != 0 {
+			t.Fatalf("expected %q and %q to compare equal, got %d", tc.a, tc.b, d)
+		}
+		if d := less(tc.b, tc.a); d != 0 {
+			t.Fatalf("expected %q and %q to compare equal, got %d", tc.b, tc.a, d)
+		}
+	}
+}
+
 // Test that concurrent calls to Less (which calls Elem.Name) do not race or panic.
 // See issue #7561 for reference.
 func TestLess_ConcurrentNameAccess(t *testing.T) {
@@ -122,7 +141,7 @@ func TestLess_ConcurrentNameAccess(t *testing.T) {
 }
 
 func BenchmarkLess(b *testing.B) {
-	// The original less function, serving as the benchmark test baseline.
+	// A copy of the comparison loop, serving as the benchmark test baseline.
 	less0 := func(a, b string) int {
 		i := 1
 		aj := len(a)
@@ -136,10 +155,8 @@ func BenchmarkLess(b *testing.B) {
 
 			// sadly this []byte will allocate... TODO(miek): check if this is needed
 			// for a name, otherwise compare the strings.
-			ab := []byte(strings.ToLower(a[ai:aj]))
-			bb := []byte(strings.ToLower(b[bi:bj]))
-			doDDD(ab)
-			doDDD(bb)
+			ab := normalizeLabel(a[ai:aj])
+			bb := normalizeLabel(b[bi:bj])
 
 			res := bytes.Compare(ab, bb)
 			if res != 0 {
