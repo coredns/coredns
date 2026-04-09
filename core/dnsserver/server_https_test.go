@@ -23,6 +23,12 @@ var (
 	validator = func(r *http.Request) bool { return validPath.MatchString(r.URL.Path) }
 )
 
+const (
+	testTSIGKeyName     = "tsig-key."
+	testTSIGSecret      = "MTIzNA=="
+	testTSIGWrongSecret = "NTY3OA=="
+)
+
 func testServerHTTPS(t *testing.T, path string, validator func(*http.Request) bool) *http.Response {
 	t.Helper()
 	c := Config{
@@ -430,7 +436,7 @@ func testConfigWithTSIGStatusPlugin() *Config {
 		ListenHosts: []string{"127.0.0.1"},
 		Port:        "443",
 		TsigSecret: map[string]string{
-			"tsig-key.": "MTIzNA==",
+			testTSIGKeyName: testTSIGSecret,
 		},
 	}
 	c.AddPlugin(func(_next plugin.Handler) plugin.Handler { return &tsigStatusPlugin{} })
@@ -448,6 +454,39 @@ func testServerHTTPSMsg(t *testing.T, cfg *Config, req *dns.Msg) *dns.Msg {
 	buf, err := req.Pack()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	r := httptest.NewRequest(http.MethodPost, "/dns-query", bytes.NewReader(buf))
+	r.RemoteAddr = "127.0.0.1:12345"
+	w := httptest.NewRecorder()
+
+	s.ServeHTTP(w, r)
+
+	res := w.Result()
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected HTTP status: got %d", res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m := new(dns.Msg)
+	if err := m.Unpack(body); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func testServerHTTPSRaw(t *testing.T, cfg *Config, buf []byte) *dns.Msg {
+	t.Helper()
+
+	s, err := NewServerHTTPS("127.0.0.1:443", []*Config{cfg})
+	if err != nil {
+		t.Fatal("could not create HTTPS server:", err)
 	}
 
 	r := httptest.NewRequest(http.MethodPost, "/dns-query", bytes.NewReader(buf))
@@ -497,6 +536,11 @@ func forgedTSIGMsg() *dns.Msg {
 	return m
 }
 
+func mustSignedTSIGQueryBytes(t *testing.T, keyName, secret string) []byte {
+	t.Helper()
+	return mustPackSignedTSIGQuery(t, keyName, secret, time.Now().Unix())
+}
+
 func TestServeHTTPRejectsUnsignedTSIGRequiredRequest(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("example.com.", dns.TypeA)
@@ -507,10 +551,35 @@ func TestServeHTTPRejectsUnsignedTSIGRequiredRequest(t *testing.T) {
 	}
 }
 
-func TestServeHTTPRejectsForgedTSIG(t *testing.T) {
+func TestServeHTTPRejectsTSIGWithUnknownKey(t *testing.T) {
 	resp := testServerHTTPSMsg(t, testConfigWithTSIGStatusPlugin(), forgedTSIGMsg())
 
 	if resp.Rcode != dns.RcodeNotAuth {
-		t.Fatalf("expected NOTAUTH for forged TSIG, got %s", dns.RcodeToString[resp.Rcode])
+		t.Fatalf("expected NOTAUTH for unknown TSIG key, got %s", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+func TestServeHTTPRejectsTSIGWithBadMAC(t *testing.T) {
+	buf := mustSignedTSIGQueryBytes(t, testTSIGKeyName, testTSIGWrongSecret)
+
+	resp := testServerHTTPSRaw(t, testConfigWithTSIGStatusPlugin(), buf)
+	if resp.Rcode != dns.RcodeNotAuth {
+		t.Fatalf("expected NOTAUTH for bad TSIG MAC, got %s", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+func TestServeHTTPAcceptsValidTSIG(t *testing.T) {
+	buf := mustSignedTSIGQueryBytes(t, testTSIGKeyName, testTSIGSecret)
+
+	resp := testServerHTTPSRaw(t, testConfigWithTSIGStatusPlugin(), buf)
+	if resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected NOERROR for valid TSIG, got %s", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+func TestDoHWriterTsigStatusReturnsStoredStatus(t *testing.T) {
+	dw := &DoHWriter{tsigStatus: dns.ErrSecret}
+	if dw.TsigStatus() != dns.ErrSecret {
+		t.Fatal("expected TsigStatus to return stored tsigStatus")
 	}
 }
