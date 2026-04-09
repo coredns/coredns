@@ -204,5 +204,4 @@ func TestHealthLocalAddress(t *testing.T) {
 	if !ok {
 		t.Error("Expected local address to be tcp")
 	}
-
 }
