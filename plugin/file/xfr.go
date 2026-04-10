@@ -19,8 +19,12 @@ func (f File) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
 // Transfer transfers a zone with serial in the returned channel and implements IXFR fallback, by just
 // sending a single SOA record.
 func (z *Zone) Transfer(serial uint32) (<-chan []dns.RR, error) {
-	// get soa and apex
-	apex, err := z.ApexIfDefined()
+	// Snapshot apex and tree under one read lock so the goroutine walks the
+	// same generation the SOA came from, even if TransferIn swaps them mid-AXFR.
+	z.RLock()
+	apex, err := z.apexIfDefinedLocked()
+	t := z.Tree
+	z.RUnlock()
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +39,7 @@ func (z *Zone) Transfer(serial uint32) (<-chan []dns.RR, error) {
 		}
 
 		ch <- apex
-		z.Walk(func(e *tree.Elem, _ map[uint16][]dns.RR) error { ch <- e.All(); return nil })
+		t.Walk(func(e *tree.Elem, _ map[uint16][]dns.RR) error { ch <- e.All(); return nil })
 		ch <- []dns.RR{apex[0]}
 
 		close(ch)

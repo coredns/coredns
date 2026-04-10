@@ -290,7 +290,7 @@ func TestSecondaryZoneNotify(t *testing.T) {
 		if len(r.Answer) != 0 {
 			break
 		}
-		time.Sleep(1000 * time.Microsecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 	if len(r.Answer) == 0 {
 		t.Fatalf("Expected answer section")
@@ -323,7 +323,7 @@ www    IN A    127.0.0.1
 		if len(r.Answer) != 0 {
 			break
 		}
-		time.Sleep(1000 * time.Microsecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 	if len(r.Answer) != 1 {
 		t.Fatalf("Expected one RR in answer section got %d", len(r.Answer))

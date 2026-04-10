@@ -146,6 +146,11 @@ func (z *Zone) SetFile(path string) {
 func (z *Zone) ApexIfDefined() ([]dns.RR, error) {
 	z.RLock()
 	defer z.RUnlock()
+	return z.apexIfDefinedLocked()
+}
+
+// apexIfDefinedLocked is ApexIfDefined without locking; caller must hold z's read lock.
+func (z *Zone) apexIfDefinedLocked() ([]dns.RR, error) {
 	if z.SOA == nil {
 		return nil, fmt.Errorf("no SOA")
 	}
