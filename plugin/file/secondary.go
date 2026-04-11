@@ -53,11 +53,7 @@ Transfer:
 		return Err
 	}
 
-	z.Lock()
-	z.Tree = z1.Tree
-	z.Apex = z1.Apex
-	z.Expired = false
-	z.Unlock()
+	z.setData(z1.Apex, z1.Tree)
 	log.Infof("Transferred: %s from %s", z.origin, tr)
 
 	// Send notify messages to secondary servers
@@ -98,10 +94,10 @@ Transfer:
 	if serial == -1 {
 		return false, Err
 	}
-	if !z.hasSOA() {
+	soa := z.getSOA()
+	if soa == nil {
 		return true, Err
 	}
-	soa := z.getSOA()
 	return less(soa.Serial, uint32(serial)), Err // #nosec G115 -- serial fits in uint32 per DNS RFC
 }
 
@@ -119,7 +115,7 @@ func less(a, b uint32) bool {
 // will be marked expired.
 func (z *Zone) Update(updateShutdown chan bool, t *transfer.Transfer) error {
 	// If we don't have a SOA, we don't have a zone, wait for it to appear.
-	for !z.hasSOA() {
+	for z.getSOA() == nil {
 		time.Sleep(1 * time.Second)
 	}
 	retryActive := false

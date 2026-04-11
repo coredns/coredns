@@ -142,32 +142,42 @@ func (z *Zone) SetFile(path string) {
 	z.Unlock()
 }
 
-// ApexIfDefined returns the apex nodes from z. The SOA record is the first record, if it does not exist, an error is returned.
-func (z *Zone) ApexIfDefined() ([]dns.RR, error) {
+// snapshot returns the apex and tree under a single read lock so callers see
+// a consistent zone generation even if TransferIn or Reload swaps them.
+func (z *Zone) snapshot() (Apex, *tree.Tree) {
 	z.RLock()
 	defer z.RUnlock()
-	return z.apexIfDefinedLocked()
+	return z.Apex, z.Tree
 }
 
-// apexIfDefinedLocked is ApexIfDefined without locking; caller must hold z's read lock.
-func (z *Zone) apexIfDefinedLocked() ([]dns.RR, error) {
-	if z.SOA == nil {
+// setData atomically replaces the zone's apex and tree and clears the expired
+// flag. It is the write-side counterpart to snapshot.
+func (z *Zone) setData(ap Apex, t *tree.Tree) {
+	z.Lock()
+	z.Apex = ap
+	z.Tree = t
+	z.Expired = false
+	z.Unlock()
+}
+
+// records returns the apex records in zone-file order (SOA, RRSIG(SOA), NS,
+// RRSIG(NS)), or an error if no SOA is set.
+func (a Apex) records() ([]dns.RR, error) {
+	if a.SOA == nil {
 		return nil, fmt.Errorf("no SOA")
 	}
-
-	rrs := []dns.RR{z.SOA}
-
-	if len(z.SIGSOA) > 0 {
-		rrs = append(rrs, z.SIGSOA...)
-	}
-	if len(z.NS) > 0 {
-		rrs = append(rrs, z.NS...)
-	}
-	if len(z.SIGNS) > 0 {
-		rrs = append(rrs, z.SIGNS...)
-	}
-
+	rrs := make([]dns.RR, 0, 1+len(a.SIGSOA)+len(a.NS)+len(a.SIGNS))
+	rrs = append(rrs, a.SOA)
+	rrs = append(rrs, a.SIGSOA...)
+	rrs = append(rrs, a.NS...)
+	rrs = append(rrs, a.SIGNS...)
 	return rrs, nil
+}
+
+// ApexIfDefined returns the apex nodes from z. The SOA record is the first record, if it does not exist, an error is returned.
+func (z *Zone) ApexIfDefined() ([]dns.RR, error) {
+	ap, _ := z.snapshot()
+	return ap.records()
 }
 
 // NameFromRight returns the labels from the right, staring with the
@@ -195,12 +205,6 @@ func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 		n = m
 	}
 	return qname[n:], false
-}
-
-func (z *Zone) hasSOA() bool {
-	z.RLock()
-	defer z.RUnlock()
-	return z.SOA != nil
 }
 
 func (z *Zone) getSOA() *dns.SOA {
