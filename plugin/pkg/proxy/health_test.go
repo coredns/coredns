@@ -169,7 +169,7 @@ func TestHealthLocalAddress(t *testing.T) {
 		t.Errorf("Expected local address to be 127.0.0.1:0, got %s", dnsClient.Dialer.LocalAddr.String())
 	}
 
-	// check type of underline transport
+	// check type of underlying transport
 	_, ok := dnsClient.Dialer.LocalAddr.(*net.UDPAddr)
 	if !ok {
 		t.Error("Expected local address to be udp")
@@ -178,7 +178,7 @@ func TestHealthLocalAddress(t *testing.T) {
 	// set TCP transport
 	hc.SetTCPTransport()
 
-	// check update of underline transport
+	// check update of underlying transport
 	_, ok = dnsClient.Dialer.LocalAddr.(*net.TCPAddr)
 	if !ok {
 		t.Error("Expected local address to be tcp")
@@ -188,7 +188,7 @@ func TestHealthLocalAddress(t *testing.T) {
 	// set TLS transport
 	hc.SetTLSConfig(tlsConfig)
 
-	// check update of underline transport
+	// check update of underlying transport
 	_, ok = dnsClient.Dialer.LocalAddr.(*net.TCPAddr)
 	if !ok {
 		t.Error("Expected local address to be tcp")

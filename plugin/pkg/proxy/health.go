@@ -153,7 +153,7 @@ func (h *dnsHc) GetLocalAddress() net.IP {
 	return h.localAddress
 }
 
-// setDialer sets the local address in the underline dialer
+// setDialer sets the local address in the underlying dialer
 func (h *dnsHc) setDialer() {
 	if h.c.Dialer == nil {
 		h.c.Dialer = new(net.Dialer)

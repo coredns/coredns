@@ -119,7 +119,7 @@ func (p *Proxy) incrementFails() {
 	atomic.AddUint32(&p.fails, 1)
 }
 
-// SetLocalAddress sets the local address for the proxy, used as a traffic source to the specified net.Addr.
+// SetLocalAddress sets the local address for the proxy, used as the source address for outbound connections.
 func (p *Proxy) SetLocalAddress(addr net.IP) {
 	p.transport.SetLocalAddress(addr)
 }
