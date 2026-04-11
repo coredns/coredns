@@ -105,6 +105,9 @@ func TestLess_EquivalentEscapes(t *testing.T) {
 	}{
 		{a: "has\\046dot.example.", b: "has\\.dot.example."},
 		{a: "escaped\\032space.example.", b: "escaped\\ space.example."},
+		{a: "slash\\\\back.example.", b: "slash\\092back.example."},
+		{a: "\\097.example.", b: "a.example."},
+		{a: "has\\046dot.example.", b: "has\\046dot.example."},
 	}
 
 	for _, tc := range tests {
@@ -113,6 +116,26 @@ func TestLess_EquivalentEscapes(t *testing.T) {
 		}
 		if d := less(tc.b, tc.a); d != 0 {
 			t.Fatalf("expected %q and %q to compare equal, got %d", tc.b, tc.a, d)
+		}
+	}
+}
+
+func TestLess_MixedEscapedAndPlainSortOrder(t *testing.T) {
+	names := []string{
+		"hasdot.example.",
+		"has\\.dot.example.",
+		"has.example.",
+	}
+	want := []string{
+		"has.example.",
+		"has\\.dot.example.",
+		"hasdot.example.",
+	}
+
+	sort.Sort(set(names))
+	for i := range names {
+		if names[i] != want[i] {
+			t.Fatalf("expected %q at index %d, got %q", want[i], i, names[i])
 		}
 	}
 }
@@ -141,7 +164,22 @@ func TestLess_ConcurrentNameAccess(t *testing.T) {
 }
 
 func BenchmarkLess(b *testing.B) {
-	// A copy of the comparison loop, serving as the benchmark test baseline.
+	normalizeLabel0 := func(label string) []byte {
+		b := []byte(strings.ToLower(label))
+		lb := len(b)
+		for i := 0; i < lb; i++ {
+			if i+3 < lb && b[i] == '\\' && isDigit(b[i+1]) && isDigit(b[i+2]) && isDigit(b[i+3]) {
+				b[i] = dddToByte(b[i:])
+				for j := i + 1; j < lb-3; j++ {
+					b[j] = b[j+3]
+				}
+				lb -= 3
+			}
+		}
+		return b[:lb]
+	}
+
+	// The original less function, serving as the benchmark test baseline.
 	less0 := func(a, b string) int {
 		i := 1
 		aj := len(a)
@@ -155,8 +193,8 @@ func BenchmarkLess(b *testing.B) {
 
 			// sadly this []byte will allocate... TODO(miek): check if this is needed
 			// for a name, otherwise compare the strings.
-			ab := normalizeLabel(a[ai:aj])
-			bb := normalizeLabel(b[bi:bj])
+			ab := normalizeLabel0(a[ai:aj])
+			bb := normalizeLabel0(b[bi:bj])
 
 			res := bytes.Compare(ab, bb)
 			if res != 0 {

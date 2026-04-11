@@ -40,6 +40,10 @@ func less(a, b string) int {
 func normalizeLabel(label string) []byte {
 	// Compare canonical label bytes, not presentation-format escapes.
 	b := []byte(strings.ToLower(label))
+	if bytes.IndexByte(b, '\\') < 0 {
+		return b
+	}
+
 	lb := 0
 	for i := 0; i < len(b); i++ {
 		if b[i] != '\\' || i+1 >= len(b) {
