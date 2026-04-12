@@ -55,12 +55,13 @@ func NewHealthChecker(proxyName, protocol string, recursionDesired bool, domain 
 			proxyName:        proxyName,
 		}
 	case transport.HTTPS:
+		httpTransport := http.DefaultTransport.(*http.Transport).Clone()
+		httpTransport.TLSClientConfig = new(tls.Config)
+
 		return &dohHc{
 			client: &http.Client{
-				Timeout: 3 * time.Second,
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{},
-				},
+				Transport: httpTransport,
+				Timeout:   2 * time.Second,
 			},
 			recursionDesired: recursionDesired,
 			domain:           domain,
@@ -173,7 +174,7 @@ func (h *dohHc) send(addr string) error {
 	ping.SetQuestion(h.domain, dns.TypeNS)
 	ping.RecursionDesired = h.recursionDesired
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // TODO
+	ctx, cancel := context.WithTimeout(context.Background(), h.client.Timeout)
 	defer cancel()
 
 	req, err := doh.NewRequestWithContext(ctx, http.MethodPost, addr, ping)
@@ -227,17 +228,17 @@ func (h *dohHc) SetTCPTransport() {
 }
 
 func (h *dohHc) GetReadTimeout() time.Duration {
-	return h.client.Timeout // TODO
+	return h.client.Transport.(*http.Transport).ResponseHeaderTimeout
 }
 
 func (h *dohHc) SetReadTimeout(t time.Duration) {
-	h.client.Timeout = t // TODO
+	h.client.Transport.(*http.Transport).ResponseHeaderTimeout = t
 }
 
 func (h *dohHc) GetWriteTimeout() time.Duration {
-	return h.client.Timeout // TODO
+	return h.client.Timeout
 }
 
 func (h *dohHc) SetWriteTimeout(t time.Duration) {
-	h.client.Timeout = t // TODO
+	h.client.Timeout = t
 }
