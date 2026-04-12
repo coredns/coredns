@@ -213,13 +213,14 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		}
 
 		if transports[i] == transport.HTTPS {
+			httpTransport := http.DefaultTransport.(*http.Transport).Clone()
+			httpTransport.TLSClientConfig = f.tlsConfig
+			httpTransport.MaxIdleConns = f.maxIdleConns
+			httpTransport.MaxIdleConnsPerHost = f.maxIdleConnsPerHost
+
 			c := http.Client{
-				Transport: &http.Transport{
-					TLSClientConfig:   f.tlsConfig,
-					ForceAttemptHTTP2: true,
-					MaxIdleConns:      f.maxIdleConns,
-				},
-				Timeout: 2 * time.Second,
+				Transport: httpTransport,
+				Timeout:   2 * time.Second,
 			}
 			f.proxies[i].SetHTTPClient(&c)
 		}
@@ -366,6 +367,18 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return fmt.Errorf("max_idle_conns can't be negative: %d", n)
 		}
 		f.maxIdleConns = n
+	case "max_idle_conns_per_host":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		n, err := strconv.Atoi(c.Val())
+		if err != nil {
+			return err
+		}
+		if n < 0 {
+			return fmt.Errorf("max_idle_conns_per_host can't be negative: %d", n)
+		}
+		f.maxIdleConnsPerHost = n
 	case "policy":
 		if !c.NextArg() {
 			return c.ArgErr()
