@@ -50,6 +50,9 @@ func (p *Proxy) Addr() string { return p.addr }
 func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 	p.transport.SetTLSConfig(cfg)
 	p.health.SetTLSConfig(cfg)
+	if p.transport.httpClient != nil {
+		p.transport.httpClient.Transport.(*http.Transport).TLSClientConfig = cfg
+	}
 }
 
 // SetExpire sets the expire duration in the lower p.transport.
