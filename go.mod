@@ -34,8 +34,8 @@ require (
 	github.com/prometheus/common v0.67.5
 	github.com/quic-go/quic-go v0.59.0
 	github.com/stretchr/testify v1.11.1
-	go.etcd.io/etcd/api/v3 v3.6.9
-	go.etcd.io/etcd/client/v3 v3.6.9
+	go.etcd.io/etcd/api/v3 v3.6.10
+	go.etcd.io/etcd/client/v3 v3.6.10
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.49.0
 	golang.org/x/sys v0.43.0
@@ -174,7 +174,7 @@ require (
 	github.com/trailofbits/go-mutexasserts v0.0.0-20250514102930-c1f3d2e37561 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
-	go.etcd.io/etcd/client/pkg/v3 v3.6.9 // indirect
+	go.etcd.io/etcd/client/pkg/v3 v3.6.10 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/collector/component v1.51.1-0.20260205185216-81bc641f26c0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.51.1-0.20260205185216-81bc641f26c0 // indirect
