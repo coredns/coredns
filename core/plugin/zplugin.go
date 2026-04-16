@@ -16,6 +16,7 @@ import (
 	_ "github.com/coredns/coredns/plugin/cancel"
 	_ "github.com/coredns/coredns/plugin/chaos"
 	_ "github.com/coredns/coredns/plugin/clouddns"
+	_ "github.com/coredns/coredns/plugin/dane"
 	_ "github.com/coredns/coredns/plugin/debug"
 	_ "github.com/coredns/coredns/plugin/dns64"
 	_ "github.com/coredns/coredns/plugin/dnssec"
