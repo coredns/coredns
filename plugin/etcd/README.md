@@ -131,7 +131,7 @@ If you prefer, you can use `curl` to populate the `etcd` server, but with `curl`
 endpoint URL depends on the version of `etcd`. For instance, `etcd v3.2` or before uses only
 [CLIENT-URL]/v3alpha/* while `etcd v3.5` or later uses [CLIENT-URL]/v3/* . Also, Key and Value must
 be base64 encoded in the JSON payload. With `etcdctl` these details are automatically taken care
-of. You can check [this document](https://github.com/coreos/etcd/blob/master/Documentation/dev-guide/api_grpc_gateway.md#notes)
+of. You can check [this document](https://github.com/etcd-io/website/blob/main/content/en/docs/v3.2/dev-guide/api_grpc_gateway.md)
 for details.
 
 ### Reverse zones

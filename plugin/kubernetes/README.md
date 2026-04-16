@@ -69,12 +69,12 @@ kubernetes [ZONES...] {
    If this option is omitted all namespaces are exposed
 * `namespace_labels` **EXPRESSION** only expose the records for Kubernetes namespaces that match this label selector.
    The label selector syntax is described in the
-   [Kubernetes User Guide - Labels](https://kubernetes.io/docs/user-guide/labels/). An example that
+   [Kubernetes Documentation - Labels and Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/). An example that
    only exposes namespaces labeled as "istio-injection=enabled", would use:
    `labels istio-injection=enabled`.
 * `labels` **EXPRESSION** only exposes the records for Kubernetes objects that match this label selector.
    The label selector syntax is described in the
-   [Kubernetes User Guide - Labels](https://kubernetes.io/docs/user-guide/labels/). An example that
+   [Kubernetes Documentation - Labels and Selectors](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/). An example that
    only exposes objects labeled as "application=nginx" in the "staging" or "qa" environments, would
    use: `labels environment in (staging, qa),application=nginx`.
 * `pods` **POD-MODE** sets the mode for handling IP-based pod A records, e.g.
