@@ -266,6 +266,7 @@ func forgedTSIGMsgHTTPS3() *dns.Msg {
 
 func TestServeHTTP3RejectsUnsignedTSIGRequiredRequest(t *testing.T) {
 	cfg := testConfigWithTSIGCheckPluginHTTPS3(t, func(t *testing.T, err error) {
+		t.Helper()
 		if err != nil {
 			t.Fatalf("expected nil TsigStatus for unsigned request, got %v", err)
 		}
@@ -282,6 +283,7 @@ func TestServeHTTP3RejectsUnsignedTSIGRequiredRequest(t *testing.T) {
 
 func TestServeHTTP3RejectsTSIGWithUnknownKey(t *testing.T) {
 	cfg := testConfigWithTSIGCheckPluginHTTPS3(t, func(t *testing.T, err error) {
+		t.Helper()
 		if !errors.Is(err, dns.ErrSecret) {
 			t.Fatalf("expected dns.ErrSecret for unknown TSIG key, got %v", err)
 		}
@@ -295,6 +297,7 @@ func TestServeHTTP3RejectsTSIGWithUnknownKey(t *testing.T) {
 
 func TestServeHTTP3RejectsTSIGWithBadMAC(t *testing.T) {
 	cfg := testConfigWithTSIGCheckPluginHTTPS3(t, func(t *testing.T, err error) {
+		t.Helper()
 		if err == nil {
 			t.Fatal("expected non-nil TsigStatus for bad TSIG MAC")
 		}
@@ -310,6 +313,7 @@ func TestServeHTTP3RejectsTSIGWithBadMAC(t *testing.T) {
 
 func TestServeHTTP3AcceptsValidTSIG(t *testing.T) {
 	cfg := testConfigWithTSIGCheckPluginHTTPS3(t, func(t *testing.T, err error) {
+		t.Helper()
 		if err != nil {
 			t.Fatalf("expected nil TsigStatus for valid TSIG, got %v", err)
 		}
