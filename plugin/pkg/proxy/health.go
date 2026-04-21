@@ -37,8 +37,8 @@ type dnsHc struct {
 }
 
 // NewHealthChecker returns a new HealthChecker based on transport.
-func NewHealthChecker(proxyName, trans string, recursionDesired bool, domain string) HealthChecker {
-	switch trans {
+func NewHealthChecker(proxyName, protocol string, recursionDesired bool, domain string) HealthChecker {
+	switch protocol {
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
 		c.Net = "udp"
@@ -53,7 +53,7 @@ func NewHealthChecker(proxyName, trans string, recursionDesired bool, domain str
 		}
 	}
 
-	log.Warningf("No healthchecker for transport %q", trans)
+	log.Warningf("No healthchecker for transport %q", protocol)
 	return nil
 }
 

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
-	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/miekg/dns"
 )
@@ -19,7 +18,7 @@ func TestCached(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport("TestCached", s.Addr, transport.DNS)
+	tr := newTransport("TestCached", s.Addr)
 	tr.Start()
 	defer tr.Stop()
 
@@ -59,7 +58,7 @@ func TestCleanupByTimer(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport("TestCleanupByTimer", s.Addr, transport.DNS)
+	tr := newTransport("TestCleanupByTimer", s.Addr)
 	tr.SetExpire(100 * time.Millisecond)
 	tr.Start()
 	defer tr.Stop()
@@ -93,7 +92,7 @@ func TestCleanupAll(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport("TestCleanupAll", s.Addr, transport.DNS)
+	tr := newTransport("TestCleanupAll", s.Addr)
 
 	c1, _ := dns.DialTimeout("udp", tr.addr, maxDialTimeout)
 	c2, _ := dns.DialTimeout("udp", tr.addr, maxDialTimeout)
@@ -124,7 +123,7 @@ func TestMaxIdleConns(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport("TestMaxIdleConns", s.Addr, transport.DNS)
+	tr := newTransport("TestMaxIdleConns", s.Addr)
 	tr.SetMaxIdleConns(2) // Limit to 2 connections per type
 	tr.Start()
 	defer tr.Stop()
@@ -172,7 +171,7 @@ func TestMaxIdleConnsUnlimited(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport("TestMaxIdleConnsUnlimited", s.Addr, transport.DNS)
+	tr := newTransport("TestMaxIdleConnsUnlimited", s.Addr)
 	// maxIdleConns defaults to 0 (unlimited)
 	tr.Start()
 	defer tr.Stop()
@@ -204,7 +203,7 @@ func TestYieldAfterStop(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport("TestYieldAfterStop", s.Addr, transport.DNS)
+	tr := newTransport("TestYieldAfterStop", s.Addr)
 	tr.Start()
 
 	// Dial a connection while transport is running
@@ -244,7 +243,7 @@ func TestMaxAgeExpireByCreation(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport("TestMaxAgeExpireByCreation", s.Addr, transport.DNS)
+	tr := newTransport("TestMaxAgeExpireByCreation", s.Addr)
 	tr.SetExpire(10 * time.Second)       // long idle-timeout: would not expire the connection
 	tr.SetMaxAge(100 * time.Millisecond) // short max-age: should close old connection
 	tr.Start()
@@ -283,7 +282,7 @@ func TestMaxAgeFIFORotation(t *testing.T) {
 	})
 	defer s.Close()
 
-	tr := newTransport("TestMaxAgeFIFORotation", s.Addr, transport.DNS)
+	tr := newTransport("TestMaxAgeFIFORotation", s.Addr)
 	tr.SetExpire(10 * time.Second)       // long idle-timeout: FIFO rotation keeps connections alive
 	tr.SetMaxAge(100 * time.Millisecond) // max-age: connections must be closed by creation age
 	tr.Start()
@@ -323,7 +322,7 @@ func BenchmarkYield(b *testing.B) {
 	})
 	defer s.Close()
 
-	tr := newTransport("BenchmarkYield", s.Addr, transport.DNS)
+	tr := newTransport("BenchmarkYield", s.Addr)
 	tr.Start()
 	defer tr.Stop()
 

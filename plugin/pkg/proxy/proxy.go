@@ -17,6 +17,7 @@ type Proxy struct {
 	proxyName string
 
 	transport *Transport
+	protocol  string
 
 	readTimeout time.Duration
 
@@ -26,14 +27,15 @@ type Proxy struct {
 }
 
 // NewProxy returns a new proxy.
-func NewProxy(proxyName, addr, trans string) *Proxy {
+func NewProxy(proxyName, addr, protocol string) *Proxy {
 	p := &Proxy{
 		addr:        addr,
 		fails:       0,
 		probe:       up.New(),
 		readTimeout: 2 * time.Second,
-		transport:   newTransport(proxyName, addr, trans),
-		health:      NewHealthChecker(proxyName, trans, true, "."),
+		transport:   newTransport(proxyName, addr),
+		protocol:    protocol,
+		health:      NewHealthChecker(proxyName, protocol, true, "."),
 		proxyName:   proxyName,
 	}
 
