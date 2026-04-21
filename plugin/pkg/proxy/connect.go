@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -179,8 +178,7 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 }
 
 func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options) (*dns.Msg, error) {
-	// TODO: Is defaulting to POST the right thing?
-	req, err := doh.NewRequestWithContext(ctx, http.MethodPost, p.addr, state.Req)
+	req, err := doh.NewRequestWithContext(ctx, p.dohMethod, p.addr, state.Req)
 	if err != nil {
 		return nil, err
 	}
