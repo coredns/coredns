@@ -184,7 +184,7 @@ func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options
 		ret *dns.Msg
 		err error
 	)
-	switch p.transport.transport {
+	switch p.protocol {
 	case transport.HTTPS:
 		panic("Not yet implemented!")
 	default:

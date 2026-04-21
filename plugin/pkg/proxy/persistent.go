@@ -22,17 +22,16 @@ type Transport struct {
 	conns        [typeTotalCount][]*persistConn // Buckets for udp and tcp connections
 	expire       time.Duration                  // After this duration an idle connection is expired.
 	maxAge       time.Duration                  // After this duration a connection is closed regardless of activity; 0 means unlimited.
-	maxIdleConns int                            // Max idle connections per transport type; 0 means unlimited.
+	maxIdleConns int                            // Max idle connections per protocol type; 0 means unlimited.
 	addr         string
 	tlsConfig    *tls.Config
 	proxyName    string
-	transport    string
 
 	mu   sync.Mutex
 	stop chan struct{}
 }
 
-func newTransport(proxyName, addr, trans string) *Transport {
+func newTransport(proxyName, addr string) *Transport {
 	t := &Transport{
 		avgDialTime: int64(maxDialTimeout / 2),
 		conns:       [typeTotalCount][]*persistConn{},
@@ -40,7 +39,6 @@ func newTransport(proxyName, addr, trans string) *Transport {
 		addr:        addr,
 		stop:        make(chan struct{}),
 		proxyName:   proxyName,
-		transport:   trans,
 	}
 	return t
 }
