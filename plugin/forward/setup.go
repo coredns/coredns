@@ -223,6 +223,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 				Timeout:   2 * time.Second,
 			}
 			f.proxies[i].SetHTTPClient(&c)
+			f.proxies[i].SetDOHRequestOptions(f.dohMethod)
 		}
 
 		f.proxies[i].SetExpire(f.expire)
@@ -379,6 +380,16 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return fmt.Errorf("max_idle_conns_per_host can't be negative: %d", n)
 		}
 		f.maxIdleConnsPerHost = n
+	case "doh_method":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		switch c.Val() {
+		case http.MethodPost, http.MethodGet:
+			f.dohMethod = c.Val()
+		default:
+			return fmt.Errorf("doh_method must be either %s or %s", http.MethodPost, http.MethodGet)
+		}
 	case "policy":
 		if !c.NextArg() {
 			return c.ArgErr()

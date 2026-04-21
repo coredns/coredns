@@ -48,6 +48,7 @@ forward FROM TO... {
     max_idle_conns_per_host INTEGER
     max_fails INTEGER
     max_connect_attempts INTEGER
+    doh_method GET|POST
     tls CERT KEY CA
     tls_servername NAME
     policy random|round_robin|sequential
@@ -73,6 +74,7 @@ forward FROM TO... {
   performed for a single incoming DNS request. Default value of 0 means no per-request
   cap.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
+* `doh_method` **GET|POST**, whether to use GET or POST http method for DoH requests (defaults to POST).
 * `max_idle_conns` **INTEGER**, maximum number of idle connections to cache per upstream for reuse.
   Default is 0, which means unlimited.
 * `max_idle_conns_per_host` **INTEGER**, maximum number of idle connections to cache per https upstream per host for reuse.

@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net/http"
 	"sync/atomic"
 	"time"
 
@@ -52,6 +53,7 @@ type Forward struct {
 	maxAge                     time.Duration
 	maxIdleConns               int
 	maxIdleConnsPerHost        int
+	dohMethod                  string
 	maxConcurrent              int64
 	failfastUnhealthyUpstreams bool
 	failoverRcodes             []int
@@ -70,7 +72,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: proxyPkg.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, dohMethod: http.MethodPost, opts: proxyPkg.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
 	return f
 }
 
