@@ -51,7 +51,7 @@ require (
 
 require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/pires/go-proxyproto v0.11.0
+	github.com/pires/go-proxyproto v0.12.0
 	github.com/prometheus/exporter-toolkit v0.16.0
 	golang.org/x/net v0.52.0
 )
