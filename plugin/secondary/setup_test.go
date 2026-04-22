@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 )
 
 func TestSecondaryParse(t *testing.T) {
@@ -12,6 +13,7 @@ func TestSecondaryParse(t *testing.T) {
 		shouldErr      bool
 		transferFrom   string
 		zones          []string
+		fall           fall.F
 	}{
 		{
 			`secondary {
@@ -20,6 +22,7 @@ func TestSecondaryParse(t *testing.T) {
 			false,
 			"127.0.0.1:53",
 			nil,
+			fall.F{},
 		},
 		{
 			`secondary example.org {
@@ -28,12 +31,14 @@ func TestSecondaryParse(t *testing.T) {
 			false,
 			"127.0.0.1:53",
 			[]string{"example.org."},
+			fall.F{},
 		},
 		{
 			`secondary`,
 			true,
 			"",
 			nil,
+			fall.F{},
 		},
 		{
 			`secondary example.org {
@@ -42,12 +47,35 @@ func TestSecondaryParse(t *testing.T) {
 			true,
 			"",
 			nil,
+			fall.F{},
+		},
+		// fallthrough: bare (all zones)
+		{
+			`secondary {
+				transfer from 127.0.0.1
+				fallthrough
+			}`,
+			false,
+			"127.0.0.1:53",
+			nil,
+			fall.Root,
+		},
+		// fallthrough: specific zone
+		{
+			`secondary example.org {
+				transfer from 127.0.0.1
+				fallthrough example.org
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"example.org."},
+			fall.F{Zones: []string{"example.org."}},
 		},
 	}
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputFileRules)
-		s, err := secondaryParse(c)
+		s, f, err := secondaryParse(c)
 
 		if err == nil && test.shouldErr {
 			t.Fatalf("Test %d expected errors, but got no error", i)
@@ -66,6 +94,10 @@ func TestSecondaryParse(t *testing.T) {
 			if x := v.TransferFrom[0]; x != test.transferFrom {
 				t.Fatalf("Test %d transform from names don't match expected %q, but got %q", i, test.transferFrom, x)
 			}
+		}
+
+		if !f.Equal(test.fall) {
+			t.Fatalf("Test %d fallthrough not equal: expected %v, got %v", i, test.fall, f)
 		}
 	}
 }

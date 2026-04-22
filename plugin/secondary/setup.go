@@ -7,6 +7,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
@@ -18,12 +19,12 @@ var log = clog.NewWithPlugin("secondary")
 func init() { plugin.Register("secondary", setup) }
 
 func setup(c *caddy.Controller) error {
-	zones, err := secondaryParse(c)
+	zones, fall, err := secondaryParse(c)
 	if err != nil {
 		return plugin.Error("secondary", err)
 	}
 
-	s := &Secondary{file.File{Zones: zones}}
+	s := &Secondary{file.File{Zones: zones, Fall: fall}}
 	var x *transfer.Transfer
 	c.OnStartup(func() error {
 		t := dnsserver.GetConfig(c).Handler("transfer")
@@ -84,9 +85,10 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func secondaryParse(c *caddy.Controller) (file.Zones, error) {
+func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, error) {
 	z := make(map[string]*file.Zone)
 	names := []string{}
+	fall := fall.F{}
 	for c.Next() {
 		if c.Val() == "secondary" {
 			// secondary [origin]
@@ -105,11 +107,13 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 					var err error
 					f, err = parse.TransferIn(c)
 					if err != nil {
-						return file.Zones{}, err
+						return file.Zones{}, fall, err
 					}
 					hasTransfer = true
+				case "fallthrough":
+					fall.SetZonesFromArgs(c.RemainingArgs())
 				default:
-					return file.Zones{}, c.Errf("unknown property '%s'", c.Val())
+					return file.Zones{}, fall, c.Errf("unknown property '%s'", c.Val())
 				}
 
 				for _, origin := range origins {
@@ -120,9 +124,9 @@ func secondaryParse(c *caddy.Controller) (file.Zones, error) {
 				}
 			}
 			if !hasTransfer {
-				return file.Zones{}, c.Err("secondary zones require a transfer from property")
+				return file.Zones{}, fall, c.Err("secondary zones require a transfer from property")
 			}
 		}
 	}
-	return file.Zones{Z: z, Names: names}, nil
+	return file.Zones{Z: z, Names: names}, fall, nil
 }
