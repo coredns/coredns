@@ -236,11 +236,13 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			continue
 		}
 
-		// Check if we have an alternate Rcode defined, check if we match on the code
-		for _, alternateRcode := range f.nextAlternateRcodes {
-			if alternateRcode == ret.Rcode && f.Next != nil { // In case we do not have a Next handler, just continue normally
-				if _, ok := f.Next.(*Forward); ok { // Only continue if the next forwarder is also a Forworder
-					return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+		if ret.Rcode != dns.RcodeSuccess || isEmpty(ret) { // NOERROR should not call Next handler, unless it is a NODATA-error response.
+			// Check if we have an alternate Rcode defined, check if we match on the code
+			for _, alternateRcode := range f.nextAlternateRcodes {
+				if alternateRcode == ret.Rcode && f.Next != nil { // In case we do not have a Next handler, just continue normally
+					if _, ok := f.Next.(*Forward); ok { // Only continue if the next forwarder is also a Forworder
+						return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+					}
 				}
 			}
 		}
@@ -271,6 +273,19 @@ func (f *Forward) isAllowedDomain(name string) bool {
 
 	for _, ignore := range f.ignored {
 		if plugin.Name(ignore).Matches(name) {
+			return false
+		}
+	}
+	return true
+}
+
+func isEmpty(r *dns.Msg) bool {
+	if len(r.Answer) == 0 {
+		return true
+	}
+
+	for _, r := range r.Answer {
+		if r != nil {
 			return false
 		}
 	}
