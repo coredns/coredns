@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_tsig
+
 package tsig
 
 import (
@@ -13,13 +15,6 @@ import (
 
 	"github.com/miekg/dns"
 )
-
-func init() {
-	caddy.RegisterPlugin(pluginName, caddy.Plugin{
-		ServerType: "dns",
-		Action:     setup,
-	})
-}
 
 func setup(c *caddy.Controller) error {
 	t, err := parse(c)

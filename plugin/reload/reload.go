@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_reload
+
 // Package reload periodically checks if the Corefile has changed, and reloads if so.
 package reload
 

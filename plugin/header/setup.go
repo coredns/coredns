@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_header
+
 package header
 
 import (
@@ -8,8 +10,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() { plugin.Register("header", setup) }
 
 func setup(c *caddy.Controller) error {
 	queryRules, responseRules, err := parse(c)

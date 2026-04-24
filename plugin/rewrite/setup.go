@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_rewrite
+
 package rewrite
 
 import (
@@ -5,8 +7,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() { plugin.Register("rewrite", setup) }
 
 func setup(c *caddy.Controller) error {
 	rewrites, err := rewriteParse(c)

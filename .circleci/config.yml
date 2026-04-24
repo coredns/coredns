@@ -57,7 +57,7 @@ jobs:
           command: |
             cd ~/go/src/${CIRCLE_PROJECT_USERNAME}/ci/test/kubernetes
             go mod tidy
-            go test -v ./...
+            go test -v -tags coredns_all ./...
 
 workflows:
   version: 2

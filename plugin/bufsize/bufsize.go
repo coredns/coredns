@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_bufsize
+
 // Package bufsize implements a plugin that clamps EDNS0 buffer size preventing packet fragmentation.
 package bufsize
 

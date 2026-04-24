@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_whoami
+
 // Package whoami implements a plugin that returns details about the resolving
 // querying it.
 package whoami

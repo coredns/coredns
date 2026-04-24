@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_trace
+
 package trace
 
 import (
@@ -10,8 +12,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() { plugin.Register("trace", setup) }
 
 func setup(c *caddy.Controller) error {
 	t, err := traceParse(c)

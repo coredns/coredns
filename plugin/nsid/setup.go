@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_nsid
+
 package nsid
 
 import (
@@ -8,8 +10,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() { plugin.Register("nsid", setup) }
 
 func setup(c *caddy.Controller) error {
 	nsid, err := nsidParse(c)

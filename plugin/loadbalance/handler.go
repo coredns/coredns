@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_loadbalance
+
 // Package loadbalance is a plugin for rewriting responses to do "load balancing".
 package loadbalance
 

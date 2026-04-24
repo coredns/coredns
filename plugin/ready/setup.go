@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_ready
+
 package ready
 
 import (
@@ -7,8 +9,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() { plugin.Register("ready", setup) }
 
 func setup(c *caddy.Controller) error {
 	plugins.Reset()

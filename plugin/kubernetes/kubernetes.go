@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_kubernetes || coredns_k8s_external
+
 // Package kubernetes provides the kubernetes backend.
 package kubernetes
 

@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_pprof
+
 // Package pprof implements a debug endpoint for getting profiles using the
 // go pprof tooling.
 package pprof

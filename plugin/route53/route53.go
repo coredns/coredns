@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_route53
+
 // Package route53 implements a plugin that returns resource records
 // from AWS route53.
 package route53
