@@ -10,6 +10,7 @@ linters:
     - canonicalheader
     - copyloopvar
     - durationcheck
+    - errorlint
     - godoclint
     - gosec
     - govet

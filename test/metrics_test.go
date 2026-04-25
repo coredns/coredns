@@ -110,7 +110,7 @@ func getBucketCount(mf *test.MetricFamily, bucketLabel string) (int, error) {
 
 	count, err := strconv.Atoi(countStr)
 	if err != nil {
-		return 0, fmt.Errorf("could not parse bucket count '%s' for %s: %v", countStr, mf.Name, err)
+		return 0, fmt.Errorf("could not parse bucket count %q for %s: %w", countStr, mf.Name, err)
 	}
 	return count, nil
 }
@@ -126,11 +126,11 @@ func extractRequestSizeBucketCounts(t *testing.T, metrics []*test.MetricFamily, 
 			t.Logf("  %s: %v", mf.Name, mf.Metrics)
 			countBelow100, err = getBucketCount(mf, "100")
 			if err != nil {
-				return 0, 0, fmt.Errorf("%s: error getting bucket count for 100: %v", label, err)
+				return 0, 0, fmt.Errorf("%s: error getting bucket count for 100: %w", label, err)
 			}
 			countAbove100, err = getBucketCount(mf, "1023")
 			if err != nil {
-				return 0, 0, fmt.Errorf("%s: error getting bucket count for 1023: %v", label, err)
+				return 0, 0, fmt.Errorf("%s: error getting bucket count for 1023: %w", label, err)
 			}
 			return countBelow100, countAbove100, nil
 		}

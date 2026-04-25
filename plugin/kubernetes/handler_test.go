@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -436,7 +437,7 @@ func TestServeDNS(t *testing.T) {
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 		_, err := k.ServeDNS(ctx, w, r)
-		if err != tc.Error {
+		if !errors.Is(err, tc.Error) {
 			t.Errorf("Test %d expected no error, got %v", i, err)
 			return
 		}
@@ -568,7 +569,7 @@ func TestMultiClusterServeDNS(t *testing.T) {
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 		_, err := k.ServeDNS(ctx, w, r)
-		if err != tc.Error {
+		if !errors.Is(err, tc.Error) {
 			t.Errorf("Test %d expected no error, got %v", i, err)
 			return
 		}
@@ -629,7 +630,7 @@ func TestServeNamespaceDNS(t *testing.T) {
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 		_, err := k.ServeDNS(ctx, w, r)
-		if err != tc.Error {
+		if !errors.Is(err, tc.Error) {
 			t.Errorf("Test %d expected no error, got %v", i, err)
 			return
 		}
@@ -675,7 +676,7 @@ func TestNotSyncedServeDNS(t *testing.T) {
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 		_, err := k.ServeDNS(ctx, w, r)
-		if err != tc.Error {
+		if !errors.Is(err, tc.Error) {
 			t.Errorf("Test %d expected no error, got %v", i, err)
 			return
 		}

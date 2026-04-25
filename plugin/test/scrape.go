@@ -24,6 +24,7 @@ package test
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
@@ -240,7 +241,7 @@ func fetchMetricFamilies(url string, ch chan<- *dto.MetricFamily) {
 		for {
 			mf := &dto.MetricFamily{}
 			if err = protodelim.UnmarshalFrom(reader, mf); err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					break
 				}
 				return

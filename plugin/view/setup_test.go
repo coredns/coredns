@@ -57,7 +57,7 @@ func TestServeDNS_DelegatesToNext(t *testing.T) {
 	if gotCode != wantCode {
 		t.Fatalf("rcode: got %d, want %d", gotCode, wantCode)
 	}
-	if gotErr != wantErr {
+	if !errors.Is(gotErr, wantErr) {
 		t.Fatalf("error: got %v, want %v", gotErr, wantErr)
 	}
 }
