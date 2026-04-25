@@ -3,6 +3,7 @@ package metrics
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net"
 	"net/http"
@@ -59,7 +60,8 @@ func (m *Metrics) MustRegister(c prometheus.Collector) {
 	err := m.Reg.Register(c)
 	if err != nil {
 		// ignore any duplicate error, but fatal on any other kind of error
-		if _, ok := err.(prometheus.AlreadyRegisteredError); !ok {
+		var alreadyRegisteredErr prometheus.AlreadyRegisteredError
+		if !errors.As(err, &alreadyRegisteredErr) {
 			log.Fatalf("Cannot register metrics collector: %s", err)
 		}
 	}
@@ -143,7 +145,7 @@ func (m *Metrics) OnStartup() error {
 
 	if m.tlsConfigPath == "" {
 		go func() {
-			if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
+			if err := server.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Errorf("Failed to start HTTP metrics server: %s", err)
 			}
 		}()
@@ -174,7 +176,7 @@ func (m *Metrics) OnStartup() error {
 		// it doesn't retun anything if server starts successfully.
 		// startupListener handles capturing succesful startup.
 		err := web.Serve(m.ln, server, webConfig, logger)
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Errorf("Failed to start HTTPS metrics server: %v", err)
 			startUpErr <- err
 		}

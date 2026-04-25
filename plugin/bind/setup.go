@@ -18,7 +18,7 @@ func setup(c *caddy.Controller) error {
 	all := []string{}
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		log.Warning(plugin.Error("bind", fmt.Errorf("failed to get interfaces list, cannot bind by interface name: %s", err)))
+		log.Warning(plugin.Error("bind", fmt.Errorf("failed to get interfaces list, cannot bind by interface name: %w", err)))
 	}
 
 	for c.Next() {

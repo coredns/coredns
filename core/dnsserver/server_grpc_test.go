@@ -457,7 +457,7 @@ func TestGRPCResponseTsigStatusReturnsStoredStatus(t *testing.T) {
 		tsigStatus: want,
 	}
 
-	if got := r.TsigStatus(); got != want {
+	if got := r.TsigStatus(); !errors.Is(got, want) {
 		t.Fatalf("TsigStatus() = %v, want %v", got, want)
 	}
 }

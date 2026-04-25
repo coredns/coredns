@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"errors"
 	"net"
 	"strings"
 	"testing"
@@ -20,7 +21,7 @@ func TestKubernetesTransferNonAuthZone(t *testing.T) {
 	dnsmsg.SetAxfr("example.com")
 
 	_, err := k.Transfer("example.com", 0)
-	if err != transfer.ErrNotAuthoritative {
+	if !errors.Is(err, transfer.ErrNotAuthoritative) {
 		t.Error(err)
 	}
 }

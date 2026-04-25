@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -579,7 +580,7 @@ func TestServeHTTPAcceptsValidTSIG(t *testing.T) {
 
 func TestDoHWriterTsigStatusReturnsStoredStatus(t *testing.T) {
 	dw := &DoHWriter{tsigStatus: dns.ErrSecret}
-	if dw.TsigStatus() != dns.ErrSecret {
+	if !errors.Is(dw.TsigStatus(), dns.ErrSecret) {
 		t.Fatal("expected TsigStatus to return stored tsigStatus")
 	}
 }

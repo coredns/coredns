@@ -455,7 +455,7 @@ func TestDoQWriterTsigStatusReturnsStoredStatus(t *testing.T) {
 		tsigStatus: want,
 	}
 
-	if got := w.TsigStatus(); got != want {
+	if got := w.TsigStatus(); !errors.Is(got, want) {
 		t.Fatalf("TsigStatus() = %v, want %v", got, want)
 	}
 }
