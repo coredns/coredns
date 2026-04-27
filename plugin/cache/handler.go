@@ -45,9 +45,18 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// serve stale behavior
 		if c.verifyStale {
 			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, cd: cd}
+			if c.verifyStaleTimeout > 0 {
+				// Background verify: cache the response but do not write to the wire.
+				// On timeout, we serve the stale entry below and let the goroutine continue.
+				crr.prefetch = true
+			}
 			cw := newVerifyStaleResponseWriter(crr)
-			ret, err := c.doRefresh(ctx, state, cw)
-			if cw.refreshed {
+			if c.verifyStaleTimeout == 0 {
+				ret, err := c.doRefresh(ctx, state, cw)
+				if cw.refreshed {
+					return ret, err
+				}
+			} else if served, ret, err := c.verifyWithTimeout(ctx, state, w, cw, r, do, ad); served {
 				return ret, err
 			}
 		}
@@ -119,6 +128,48 @@ func (c *Cache) doPrefetch(ctx context.Context, cw *ResponseWriter, i *item, now
 
 func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw dns.ResponseWriter) (int, error) {
 	return plugin.NextOrFailure(c.Name(), c.Next, ctx, cw, state.Req)
+}
+
+// verifyWithTimeout runs the upstream verify in a background goroutine and races it
+// against verifyStaleTimeout. If the verify completes within the timeout and the
+// response is cacheable (NoError or NXDomain), the freshly cached entry is served
+// to the client and served is true. Otherwise served is false and the caller falls
+// through to serve stale; the goroutine continues to run and any successful response
+// will update the cache without writing to the (now-detached) client connection.
+func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w dns.ResponseWriter, cw *verifyStaleResponseWriter, r *dns.Msg, do, ad bool) (served bool, code int, err error) {
+	type result struct {
+		code int
+		err  error
+	}
+	done := make(chan result, 1)
+	go func() {
+		rc, re := c.doRefresh(ctx, state, cw)
+		done <- result{rc, re}
+	}()
+	timer := time.NewTimer(c.verifyStaleTimeout)
+	defer timer.Stop()
+	select {
+	case res := <-done:
+		if !cw.refreshed {
+			return false, 0, nil
+		}
+		fresh := c.exists(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
+		if fresh == nil {
+			// Should not happen: refreshed=true means the upstream response was cacheable.
+			return true, res.code, res.err
+		}
+		now := c.now().UTC()
+		if c.keepttl {
+			now = fresh.stored
+		}
+		resp := fresh.toMsg(r, now, do, ad)
+		if err := w.WriteMsg(resp); err != nil {
+			return true, dns.RcodeServerFailure, err
+		}
+		return true, dns.RcodeSuccess, nil
+	case <-timer.C:
+		return false, 0, nil
+	}
 }
 
 func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
