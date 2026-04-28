@@ -53,7 +53,6 @@ type Forward struct {
 	expire                     time.Duration
 	maxAge                     time.Duration
 	maxIdleConns               int
-	maxIdleConnsPerHost        int
 	dohMethod                  string
 	maxConcurrent              int64
 	failfastUnhealthyUpstreams bool
