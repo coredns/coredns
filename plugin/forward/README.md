@@ -30,8 +30,8 @@ forward FROM TO...
 * **FROM** is the base domain to match for the request to be forwarded. Domains using CIDR notation
   that expand to multiple reverse zones are not fully supported; only the first expanded zone is used.
 * **TO...** are the destination endpoints to forward to. The **TO** syntax allows you to specify
-  a protocol, `tls://9.9.9.9`, `https://9.9.9.9` or `dns://` (or no protocol) for plain DNS. The number of upstreams is
-  limited to 15.
+  a protocol, `tls://9.9.9.9`, `https://9.9.9.9` (DoH defaults to `/dns-query` path) or `dns://` (or no protocol)
+  for plain DNS. The number of upstreams is limited to 15.
 
 Multiple upstreams are randomized (see `policy`) on first use. When a healthy proxy returns an error
 during the exchange the next upstream in the list is tried.
@@ -45,7 +45,6 @@ forward FROM TO... {
     prefer_udp
     expire DURATION
     max_idle_conns INTEGER
-    max_idle_conns_per_host INTEGER
     max_fails INTEGER
     max_connect_attempts INTEGER
     doh_method GET|POST
@@ -77,8 +76,6 @@ forward FROM TO... {
 * `doh_method` **GET|POST**, whether to use GET or POST http method for DoH requests (defaults to POST).
 * `max_idle_conns` **INTEGER**, maximum number of idle connections to cache per upstream for reuse.
   Default is 0, which means unlimited.
-* `max_idle_conns_per_host` **INTEGER**, maximum number of idle connections to cache per https upstream per host for reuse.
-  Default is 0, which will limit the number of idle connections to 2 (see http.DefaultMaxIdleConnsPerHost) - only applicable when `https` is used.
 * `tls` **CERT** **KEY** **CA** define the TLS properties for TLS connection. From 0 to 3 arguments can be
   provided with the meaning as described below
 
@@ -247,7 +244,8 @@ service with health checks.
 }
 ~~~
 
-The same configuration but using DNS-over-HTTPS (DoH) protocol.
+The same configuration but using DNS-over-HTTPS (DoH) protocol. Note that the implementation uses the default `/dns-query`
+path.
 
 ~~~ corefile
 . {
