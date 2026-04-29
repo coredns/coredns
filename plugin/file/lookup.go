@@ -168,11 +168,6 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		i++
 	}
 
-	// What does found and !shot mean - do we ever hit it?
-	if found && !shot {
-		return nil, nil, nil, ServerFailure
-	}
-
 	// Found entire name.
 	if found && shot {
 		if rrs := elem.Type(dns.TypeCNAME); len(rrs) > 0 && qtype != dns.TypeCNAME {
