@@ -117,6 +117,9 @@ func SVCB(rr string) *dns.SVCB { r, _ := dns.NewRR(rr); return r.(*dns.SVCB) }
 // HTTPS returns an HTTPS record from rr. It panics on errors.
 func HTTPS(rr string) *dns.HTTPS { r, _ := dns.NewRR(rr); return r.(*dns.HTTPS) }
 
+// TLSA returns an TLSA record from rr. It panics on errors.
+func TLSA(rr string) *dns.TLSA { r, _ := dns.NewRR(rr); return r.(*dns.TLSA) }
+
 // OPT returns an OPT record with UDP buffer size set to bufsize and the DO bit set to do.
 func OPT(bufsize int, do bool) *dns.OPT {
 	o := new(dns.OPT)
@@ -283,6 +286,20 @@ func Section(tc Case, sec sect, rr []dns.RR) error {
 			}
 			if x.String() != tt.String() {
 				return fmt.Errorf("RR %d should have value %q, but has %q", i, tt.String(), x.String())
+			}
+		case *dns.TLSA:
+			tt := section[i].(*dns.TLSA)
+			if x.Selector != tt.Selector {
+				return fmt.Errorf("RR %d should have a Selector of %d, but has %d", i, tt.Selector, x.Selector)
+			}
+			if x.MatchingType != tt.MatchingType {
+				return fmt.Errorf("RR %d should have a MatchingType of %d, but has %d", i, tt.MatchingType, x.MatchingType)
+			}
+			if x.Usage != tt.Usage {
+				return fmt.Errorf("RR %d should have a Usage of %d, but has %d", i, tt.Usage, x.Usage)
+			}
+			if x.Certificate != tt.Certificate {
+				return fmt.Errorf("RR %d should have a Certificate of %s, but has %s", i, tt.Certificate, x.Certificate)
 			}
 		}
 	}
