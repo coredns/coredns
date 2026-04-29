@@ -42,8 +42,9 @@ type Cache struct {
 	percentage int
 
 	// Stale serve
-	staleUpTo   time.Duration
-	verifyStale bool
+	staleUpTo          time.Duration
+	verifyStale        bool
+	verifyStaleTimeout time.Duration // 0 means wait for upstream until its own timeout (current default).
 
 	// Positive/negative zone exceptions
 	pexcept []string
