@@ -55,6 +55,7 @@ forward FROM TO... {
     next RCODE_1 [RCODE_2] [RCODE_3...]
     failfast_all_unhealthy_upstreams
     failover RCODE_1 [RCODE_2] [RCODE_3...]
+    source_address IP
 }
 ~~~
 
@@ -113,6 +114,7 @@ forward FROM TO... {
 * `next` If the `RCODE` (i.e. `NXDOMAIN`) is returned by the remote then execute the next plugin. If no next plugin is defined, or the next plugin is not a `forward` plugin, this setting is ignored
 * `failfast_all_unhealthy_upstreams` - determines the handling of requests when all upstream servers are unhealthy and unresponsive to health checks. Enabling this option will immediately return SERVFAIL responses for all requests. By default, requests are sent to a random upstream.
 * `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
+* `source_address` **IP** - set the address to use for all outgoing requests as source address (also health check query). This works reliably when upstream servers are reachable from that address. However, if upstream servers belong to different networks, care must be taken. The selected source address may not be valid for all upstreams, and responses may fail if return routing is not properly configured. In such cases, make sure that upstream servers have a route back to the configured source address.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls_servername` for different upstreams you're out of luck.
