@@ -497,7 +497,7 @@ func TestDNS64(t *testing.T) {
 			d := DNS64{
 				Next:     &fakeHandler{t, tc.initResp},
 				Prefix:   pfx,
-				Upstream: &fakeUpstream{t, tc.req.Question[0].Name, tc.aResp},
+				Upstream: &fakeUpstream{t: t, qname: tc.req.Question[0].Name, resp: tc.aResp},
 			}
 
 			rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
@@ -537,20 +537,301 @@ func (fh *fakeHandler) Name() string {
 type fakeUpstream struct {
 	t     *testing.T
 	qname string
-	resp  *dns.Msg
+	resp  *dns.Msg // A-query response
+	soa   *dns.Msg // optional SOA-query response; nil means "no SOA found"
+}
+
+// TestSynthesizeEDE asserts that synthesised AAAA responses carry EDE code 29
+// ("Synthesized") when the client's query included OPT, and that we do not add
+// OPT (or EDE) when the client did not opt into EDNS.
+func TestSynthesizeEDE(t *testing.T) {
+	_, pfx, _ := net.ParseCIDR("64:ff9b::/96")
+
+	aResp := &dns.Msg{
+		MsgHdr:   dns.MsgHdr{Id: 43, Response: true, Rcode: dns.RcodeSuccess},
+		Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+		Answer:   []dns.RR{test.A("v4only.example. 60 IN A 192.0.2.42")},
+	}
+	emptyAAAA := &dns.Msg{
+		MsgHdr:   dns.MsgHdr{Id: 42, Response: true, Rcode: dns.RcodeSuccess},
+		Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+		Ns:       []dns.RR{test.SOA("v4only.example. 70 IN SOA foo bar 1 1 1 1 1")},
+	}
+	newDNS64 := func() *DNS64 {
+		return &DNS64{
+			Next:     &fakeHandler{t, emptyAAAA},
+			Prefix:   pfx,
+			Upstream: &fakeUpstream{t: t, qname: "v4only.example.", resp: aResp},
+		}
+	}
+
+	t.Run("EDNS-aware AAAA query gets EDE 29 Synthesized", func(t *testing.T) {
+		d := newDNS64()
+		req := &dns.Msg{Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}}}
+		req.SetEdns0(4096, false)
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+		if _, err := d.ServeDNS(context.Background(), rec, req); err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		opt := rec.Msg.IsEdns0()
+		if opt == nil {
+			t.Fatal("expected OPT with EDE, got no OPT")
+		}
+		found := false
+		for _, o := range opt.Option {
+			if ede, ok := o.(*dns.EDNS0_EDE); ok && ede.InfoCode == dns.ExtendedErrorCodeSynthesized {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("expected EDE InfoCode %d (Synthesized), got %#v", dns.ExtendedErrorCodeSynthesized, opt.Option)
+		}
+	})
+
+	t.Run("non-EDNS AAAA query stays non-EDNS", func(t *testing.T) {
+		d := newDNS64()
+		req := &dns.Msg{Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}}}
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+		if _, err := d.ServeDNS(context.Background(), rec, req); err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if rec.Msg.IsEdns0() != nil {
+			t.Fatal("response must not include OPT when the query had no OPT")
+		}
+	})
+}
+
+// TestFilterA covers the filter_a option. Subtests assert:
+//   - external A queries → NOERROR/NODATA + EDE 17 (when EDNS present).
+//   - AAAA queries still synthesise (internal A lookup bypasses the filter
+//     via dns64InternalKey).
+//   - internal A lookups carrying dns64InternalKey are passed through.
+//   - RFC 6891: no OPT in query → no OPT in response.
+//   - RFC 2308: the internal SOA lookup populates the authority section, from
+//     either Answer (zone apex) or Ns (non-apex), with a graceful fallback
+//     when the lookup returns no SOA.
+//   - non-INET class is not filtered.
+func TestFilterA(t *testing.T) {
+	_, pfx, _ := net.ParseCIDR("64:ff9b::/96")
+
+	aResp := &dns.Msg{
+		MsgHdr:   dns.MsgHdr{Id: 43, Response: true, Rcode: dns.RcodeSuccess},
+		Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+		Answer:   []dns.RR{test.A("v4only.example. 60 IN A 192.0.2.42")},
+	}
+	emptyAAAA := &dns.Msg{
+		MsgHdr:   dns.MsgHdr{Id: 42, Response: true, Rcode: dns.RcodeSuccess},
+		Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+		Ns:       []dns.RR{test.SOA("v4only.example. 70 IN SOA foo bar 1 1 1 1 1")},
+	}
+
+	newDNS64 := func() *DNS64 {
+		return &DNS64{
+			Next:         &fakeHandler{t, emptyAAAA},
+			Prefix:       pfx,
+			AllowIPv4:    true,
+			FilterA:      true,
+			TranslateAll: true,
+			Upstream:     &fakeUpstream{t: t, qname: "v4only.example.", resp: aResp},
+		}
+	}
+
+	t.Run("external A suppressed with EDE 17", func(t *testing.T) {
+		d := newDNS64()
+		req := &dns.Msg{Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeA, Qclass: dns.ClassINET}}}
+		req.SetEdns0(4096, false) // EDE is only emitted when the client signalled EDNS.
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "127.0.0.1"})
+
+		rc, err := d.ServeDNS(context.Background(), rec, req)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if rc != dns.RcodeSuccess {
+			t.Fatalf("rcode: want NOERROR, got %s", dns.RcodeToString[rc])
+		}
+		if len(rec.Msg.Answer) != 0 {
+			t.Fatalf("answer section: want empty, got %v", rec.Msg.Answer)
+		}
+		opt := rec.Msg.IsEdns0()
+		if opt == nil {
+			t.Fatal("expected OPT record carrying EDE, got none")
+		}
+		found := false
+		for _, o := range opt.Option {
+			if ede, ok := o.(*dns.EDNS0_EDE); ok && ede.InfoCode == dns.ExtendedErrorCodeFiltered {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("expected EDE InfoCode %d (Filtered) in options, got %#v", dns.ExtendedErrorCodeFiltered, opt.Option)
+		}
+	})
+
+	t.Run("AAAA still synthesised when filter_a is set", func(t *testing.T) {
+		d := newDNS64()
+		req := &dns.Msg{Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}}}
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+
+		rc, err := d.ServeDNS(context.Background(), rec, req)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if rc != dns.RcodeSuccess {
+			t.Fatalf("rcode: want NOERROR, got %s", dns.RcodeToString[rc])
+		}
+		if len(rec.Msg.Answer) != 1 {
+			t.Fatalf("want 1 synthesised AAAA, got %v", rec.Msg.Answer)
+		}
+		aaaa, ok := rec.Msg.Answer[0].(*dns.AAAA)
+		if !ok {
+			t.Fatalf("want AAAA RR, got %T", rec.Msg.Answer[0])
+		}
+		want := net.ParseIP("64:ff9b::192.0.2.42")
+		if !aaaa.AAAA.Equal(want) {
+			t.Fatalf("want %s, got %s", want, aaaa.AAAA)
+		}
+	})
+
+	t.Run("internal A lookup bypasses filter_a", func(t *testing.T) {
+		d := newDNS64()
+		req := &dns.Msg{Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeA, Qclass: dns.ClassINET}}}
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+
+		// Marked exactly as DoDNS64 does before re-entering the chain.
+		ctx := context.WithValue(context.Background(), dns64InternalKey{}, true)
+
+		// fakeHandler's reply is empty-AAAA — not useful here. Swap for the A
+		// response so we can assert the internal call passes through.
+		d.Next = &fakeHandler{t, aResp}
+
+		if _, err := d.ServeDNS(ctx, rec, req); err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if len(rec.Msg.Answer) != 1 || rec.Msg.Answer[0].Header().Rrtype != dns.TypeA {
+			t.Fatalf("internal A lookup should have passed through to next with an A record, got %v", rec.Msg.Answer)
+		}
+	})
+
+	t.Run("no OPT in query means no OPT in response", func(t *testing.T) {
+		// RFC 6891 forbids OPT in a response when the query had no OPT.
+		d := newDNS64()
+		req := &dns.Msg{Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeA, Qclass: dns.ClassINET}}}
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "127.0.0.1"})
+		if _, err := d.ServeDNS(context.Background(), rec, req); err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if rec.Msg.IsEdns0() != nil {
+			t.Fatal("response must not include OPT when the query had no OPT")
+		}
+	})
+
+	t.Run("SOA from Authority section is included for RFC 2308 negative caching", func(t *testing.T) {
+		d := newDNS64()
+		// Upstream returns NODATA for SOA-at-non-apex with the zone's SOA in Ns.
+		d.Upstream = &fakeUpstream{
+			t:     t,
+			qname: "v4only.example.",
+			soa: &dns.Msg{
+				MsgHdr: dns.MsgHdr{Response: true, Rcode: dns.RcodeSuccess},
+				Ns:     []dns.RR{test.SOA("example. 3600 IN SOA ns.example. hostmaster.example. 1 7200 900 1209600 86400")},
+			},
+		}
+		req := &dns.Msg{Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeA, Qclass: dns.ClassINET}}}
+		req.SetEdns0(4096, false)
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "127.0.0.1"})
+		if _, err := d.ServeDNS(context.Background(), rec, req); err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if len(rec.Msg.Ns) != 1 {
+			t.Fatalf("want 1 SOA in authority section, got %d: %v", len(rec.Msg.Ns), rec.Msg.Ns)
+		}
+		soa, ok := rec.Msg.Ns[0].(*dns.SOA)
+		if !ok {
+			t.Fatalf("want SOA RR in authority section, got %T", rec.Msg.Ns[0])
+		}
+		if soa.Hdr.Name != "example." {
+			t.Fatalf("want SOA name example., got %s", soa.Hdr.Name)
+		}
+	})
+
+	t.Run("SOA from Answer section is included when the queried name is a zone apex", func(t *testing.T) {
+		d := newDNS64()
+		d.Upstream = &fakeUpstream{
+			t:     t,
+			qname: "apex.example.",
+			soa: &dns.Msg{
+				MsgHdr: dns.MsgHdr{Response: true, Rcode: dns.RcodeSuccess},
+				Answer: []dns.RR{test.SOA("apex.example. 3600 IN SOA ns.apex.example. hostmaster.apex.example. 1 7200 900 1209600 86400")},
+			},
+		}
+		req := &dns.Msg{Question: []dns.Question{{Name: "apex.example.", Qtype: dns.TypeA, Qclass: dns.ClassINET}}}
+		req.SetEdns0(4096, false)
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "127.0.0.1"})
+		if _, err := d.ServeDNS(context.Background(), rec, req); err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if len(rec.Msg.Ns) != 1 {
+			t.Fatalf("want 1 SOA in authority section, got %d", len(rec.Msg.Ns))
+		}
+	})
+
+	t.Run("SOA lookup failure falls back to NODATA without SOA", func(t *testing.T) {
+		d := newDNS64()
+		// Upstream returns an empty message for SOA (no Answer, no Ns). Production
+		// code treats this as "no SOA" and returns NODATA without Ns — it does
+		// not SERVFAIL.
+		d.Upstream = &fakeUpstream{t: t, qname: "v4only.example.", resp: aResp /* soa unset → empty SOA response */}
+		req := &dns.Msg{Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeA, Qclass: dns.ClassINET}}}
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "127.0.0.1"})
+		rc, err := d.ServeDNS(context.Background(), rec, req)
+		if err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		if rc != dns.RcodeSuccess {
+			t.Fatalf("want NOERROR, got %s", dns.RcodeToString[rc])
+		}
+		if len(rec.Msg.Ns) != 0 {
+			t.Fatalf("want no SOA when upstream didn't return one, got %v", rec.Msg.Ns)
+		}
+	})
+
+	t.Run("non-INET A class is not filtered", func(t *testing.T) {
+		d := newDNS64()
+		req := &dns.Msg{Question: []dns.Question{{Name: "v4only.example.", Qtype: dns.TypeA, Qclass: dns.ClassCHAOS}}}
+		rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+		// With filter_a skipped and not an AAAA, we just defer to Next.
+		d.Next = &fakeHandler{t, aResp}
+		if _, err := d.ServeDNS(context.Background(), rec, req); err != nil {
+			t.Fatalf("unexpected err: %v", err)
+		}
+		// Presence of the A answer from fakeHandler proves filter_a didn't fire.
+		if len(rec.Msg.Answer) != 1 {
+			t.Fatalf("class CHAOS A should pass through unfiltered, got %v", rec.Msg.Answer)
+		}
+	})
 }
 
 func (fu *fakeUpstream) Lookup(_ context.Context, _ request.Request, name string, typ uint16) (*dns.Msg, error) {
 	if fu.qname == "" {
-		fu.t.Fatalf("Unexpected A lookup for %s", name)
+		fu.t.Fatalf("Unexpected lookup for %s", name)
 	}
 	if name != fu.qname {
-		fu.t.Fatalf("Wrong A lookup for %s, expected %s", name, fu.qname)
+		fu.t.Fatalf("Wrong lookup for %s, expected %s", name, fu.qname)
 	}
 
-	if typ != dns.TypeA {
-		fu.t.Fatalf("Wrong lookup type %d, expected %d", typ, dns.TypeA)
+	switch typ {
+	case dns.TypeA:
+		return fu.resp, nil
+	case dns.TypeSOA:
+		// filter_a issues an SOA lookup to populate the authority section for
+		// RFC 2308 negative caching. Tests that don't set soa get a synthetic
+		// empty response — the production code treats that as "no SOA found"
+		// and returns NODATA without a SOA, which is the correct fallback.
+		if fu.soa != nil {
+			return fu.soa, nil
+		}
+		return &dns.Msg{}, nil
 	}
-
-	return fu.resp, nil
+	fu.t.Fatalf("Wrong lookup type %d", typ)
+	return nil, nil // unreachable (t.Fatalf halts the goroutine); required by the compiler
 }
