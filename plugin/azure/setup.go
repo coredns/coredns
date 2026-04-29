@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_azure
+
 package azure
 
 import (
@@ -17,8 +19,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("azure")
-
-func init() { plugin.Register("azure", setup) }
 
 func setup(c *caddy.Controller) error {
 	env, keys, accessMap, fall, err := parse(c)

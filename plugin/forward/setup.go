@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_forward
+
 package forward
 
 import (
@@ -20,10 +22,6 @@ import (
 
 	"github.com/miekg/dns"
 )
-
-func init() {
-	plugin.Register("forward", setup)
-}
 
 func setup(c *caddy.Controller) error {
 	fs, err := parseForward(c)

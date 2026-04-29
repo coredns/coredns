@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_trace
+
 // Package trace implements OpenTracing-based tracing
 package trace
 

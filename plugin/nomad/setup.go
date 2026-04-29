@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_nomad
+
 package nomad
 
 import (
@@ -11,9 +13,6 @@ import (
 
 	nomad "github.com/hashicorp/nomad/api"
 )
-
-// init registers this plugin.
-func init() { plugin.Register(pluginName, setup) }
 
 // setup is the function that gets called when the config parser sees the token "nomad". Setup is responsible
 // for parsing any extra options the nomad plugin may have. The first token this function sees is "nomad".

@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_cancel
+
 // Package cancel implements a plugin adds a canceling context to each request.
 package cancel
 
@@ -12,8 +14,6 @@ import (
 
 	"github.com/miekg/dns"
 )
-
-func init() { plugin.Register("cancel", setup) }
 
 func setup(c *caddy.Controller) error {
 	ca := Cancel{}

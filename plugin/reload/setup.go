@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_reload
+
 package reload
 
 import (
@@ -12,8 +14,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("reload")
-
-func init() { plugin.Register("reload", setup) }
 
 // the info reload is global to all application, whatever number of reloads.
 // it is used to transmit data between Setup and start of the hook called 'onInstanceStartup'

@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_log
+
 // Package log implements basic but useful request (access) logging plugin.
 package log
 

@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_acl
+
 package acl
 
 import (
@@ -13,8 +15,6 @@ import (
 )
 
 const pluginName = "acl"
-
-func init() { plugin.Register(pluginName, setup) }
 
 func newDefaultFilter() *iptree.Tree {
 	defaultFilter := iptree.NewTree()

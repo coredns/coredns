@@ -51,11 +51,29 @@ func main() {
 		parsePlugin(line)
 	}
 
-	for _, element := range strings.Split(os.Getenv("COREDNS_PLUGINS"), ",") {
+	for element := range strings.SplitSeq(os.Getenv("COREDNS_PLUGINS"), ",") {
 		parsePlugin(element)
 	}
 
-	genImports("core/plugin/zplugin.go", "plugin", mi)
+	// Separate internal (in-tree) from external (third-party) plugins.
+	internalMI := make(map[string]string)
+	externalMI := make(map[string]string)
+
+	for name, path := range mi {
+		if strings.HasPrefix(path, pluginPath) {
+			internalMI[name] = path
+		} else {
+			externalMI[name] = path
+		}
+	}
+
+	cleanExternalPluginFiles("core/plugin/")
+	genImports("core/plugin/zplugin.go", "plugin", internalMI)
+
+	for name, path := range externalMI {
+		genExternalImport("core/plugin/", "plugin", name, path)
+	}
+
 	genDirectives("core/dnsserver/zdirectives.go", "dnsserver", md)
 }
 
@@ -66,18 +84,21 @@ func genImports(file, pack string, mi map[string]string) {
 		outs += "\n"
 	}
 
-	coreDnsImports := ""
+	coreDnsImports := strings.Builder{}
 	thirdPartyImports := ""
 
 	outs += "// Include all plugins.\n"
+
 	for _, v := range mi {
 		if strings.HasPrefix(v, githubOrg) {
-			coreDnsImports += `_ "` + v + `"` + "\n"
+			coreDnsImports.WriteString(`_ "` + v + `"` + "\n")
 		} else {
 			thirdPartyImports += `_ "` + v + `"` + "\n"
 		}
 	}
-	outs += coreDnsImports
+
+	outs += coreDnsImports.String()
+
 	if thirdPartyImports != "" {
 		outs += "\n" + thirdPartyImports
 	}
@@ -89,10 +110,44 @@ func genImports(file, pack string, mi map[string]string) {
 	}
 }
 
+// cleanExternalPluginFiles removes all previously generated zplugin_ext_*.go files.
+func cleanExternalPluginFiles(dir string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		log.Fatalf("Failed to read dir %s: %v", dir, err)
+	}
+
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "zplugin_ext_") && strings.HasSuffix(e.Name(), ".go") {
+			if err := os.Remove(dir + e.Name()); err != nil {
+				log.Fatalf("Failed to remove %s: %v", e.Name(), err)
+			}
+		}
+	}
+}
+
+// genExternalImport generates a single-plugin file with a build tag so the
+// external import is opt-in via -tags coredns_all or -tags coredns_<name>.
+func genExternalImport(dir, pack, name, importPath string) {
+	filename := dir + "zplugin_ext_" + name + ".go"
+	outs := header +
+		"//go:build coredns_all || coredns_" + name + "\n\n" +
+		"package " + pack + "\n\n" +
+		"import (\n" +
+		`_ "` + importPath + `"` + "\n" +
+		")\n"
+
+	if err := formatAndWrite(filename, outs); err != nil {
+		log.Fatalf("Failed to format and write %s: %q", filename, err)
+	}
+}
+
 func genDirectives(file, pack string, md []string) {
 
-	outs := header + "package " + pack + "\n\n"
-	outs += `
+	outs := strings.Builder{}
+
+	outs.WriteString(header + "package " + pack + "\n\n")
+	outs.WriteString(`
 // Directives are registered in the order they should be
 // executed.
 //
@@ -101,15 +156,15 @@ func genDirectives(file, pack string, md []string) {
 // (after) them during a request, but they must not
 // care what plugin above them are doing.
 var Directives = []string{
-`
+`)
 
 	for i := range md {
-		outs += `"` + md[i] + `",` + "\n"
+		outs.WriteString(`"` + md[i] + `",` + "\n")
 	}
 
-	outs += "}\n"
+	outs.WriteString("}\n")
 
-	if err := formatAndWrite(file, outs); err != nil {
+	if err := formatAndWrite(file, outs.String()); err != nil {
 		log.Fatalf("Failed to format and write: %q", err)
 	}
 }

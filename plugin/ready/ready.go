@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_ready
+
 // Package ready is used to signal readiness of the CoreDNS process. Once all
 // plugins have called in the plugin will signal readiness by returning a 200
 // OK on the HTTP handler (on port 8181). If not ready yet, the handler will

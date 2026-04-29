@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_https
+
 package https
 
 import (
@@ -7,13 +9,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() {
-	caddy.RegisterPlugin("https", caddy.Plugin{
-		ServerType: "dns",
-		Action:     setup,
-	})
-}
 
 func setup(c *caddy.Controller) error {
 	err := parseDOH(c)

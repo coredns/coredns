@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_pprof
+
 package pprof
 
 import (
@@ -12,8 +14,6 @@ import (
 var log = clog.NewWithPlugin("pprof")
 
 const defaultAddr = "localhost:6053"
-
-func init() { plugin.Register("pprof", setup) }
 
 func setup(c *caddy.Controller) error {
 	h := &handler{addr: defaultAddr}

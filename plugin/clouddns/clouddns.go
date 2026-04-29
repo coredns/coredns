@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_clouddns
+
 // Package clouddns implements a plugin that returns resource records
 // from GCP Cloud DNS.
 package clouddns

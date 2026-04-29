@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_dns64
+
 // Package dns64 implements a plugin that performs DNS64.
 //
 // See: RFC 6147 (https://tools.ietf.org/html/rfc6147)

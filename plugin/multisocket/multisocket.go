@@ -13,8 +13,6 @@ import (
 const pluginName = "multisocket"
 const maxNumSockets = 1024
 
-func init() { plugin.Register(pluginName, setup) }
-
 func setup(c *caddy.Controller) error {
 	err := parseNumSockets(c)
 	if err != nil {

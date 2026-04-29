@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_tls
+
 package tls
 
 import (
@@ -13,8 +15,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("tls")
-
-func init() { plugin.Register("tls", setup) }
 
 func setup(c *caddy.Controller) error {
 	err := parseTLS(c)
