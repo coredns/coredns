@@ -39,6 +39,8 @@ type Server struct {
 	ReadTimeout  time.Duration // Read timeout for TCP
 	WriteTimeout time.Duration // Write timeout for TCP
 
+	netProto string // IP version suffix: "4" for IPv4-only, "6" for IPv6-only, "" for dual-stack
+
 	connPolicy                    proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
 	udpSessionTrackingTTL         time.Duration             // TTL for UDP PPv2 session tracking (0 = disabled)
 	udpSessionTrackingMaxSessions int                       // LRU cap for UDP session tracking (0 = default)
@@ -76,6 +78,15 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		ReadTimeout:  3 * time.Second,
 		WriteTimeout: 5 * time.Second,
 		tsigSecret:   make(map[string]string),
+	}
+
+	// Look up the per-address network protocol suffix set by the bind
+	// plugin's ipv4/ipv6 keywords.
+	if len(group) > 0 && group[0].ListenNetProtos != nil {
+		if parts := strings.SplitN(addr, "://", 2); len(parts) == 2 {
+			host, _, _ := net.SplitHostPort(parts[1])
+			s.netProto = group[0].ListenNetProtos[host]
+		}
 	}
 
 	for _, site := range group {
@@ -190,9 +201,17 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 	return s.server[udp].ActivateAndServe()
 }
 
+// net returns the network string for the given base protocol (e.g. "tcp" or
+// "udp"), qualified with the IP version suffix when the server is configured
+// for single-stack operation via the bind plugin's ipv4/ipv6 keywords.
+func (s *Server) net(proto string) string {
+	return proto + s.netProto
+}
+
 // Listen implements caddy.TCPServer interface.
 func (s *Server) Listen() (net.Listener, error) {
-	l, err := reuseport.Listen("tcp", s.Addr[len(transport.DNS+"://"):])
+	addr := s.Addr[len(transport.DNS+"://"):]
+	l, err := reuseport.Listen(s.net("tcp"), addr)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +228,8 @@ func (s *Server) WrapListener(ln net.Listener) net.Listener {
 
 // ListenPacket implements caddy.UDPServer interface.
 func (s *Server) ListenPacket() (net.PacketConn, error) {
-	p, err := reuseport.ListenPacket("udp", s.Addr[len(transport.DNS+"://"):])
+	addr := s.Addr[len(transport.DNS+"://"):]
+	p, err := reuseport.ListenPacket(s.net("udp"), addr)
 	if err != nil {
 		return nil, err
 	}
