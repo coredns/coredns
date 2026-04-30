@@ -141,6 +141,17 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 	if i, ok := c.ncache.Get(k); ok {
 		ttl := i.ttl(now)
 		if i.matches(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+			// SERVFAIL is transient; prefer a valid positive cache entry if one
+			// exists, so a cached SERVFAIL does not shadow a previously good answer.
+			if i.Rcode == dns.RcodeServerFailure {
+				if p, pok := c.pcache.Get(k); pok {
+					pttl := p.ttl(now)
+					if p.matches(state) && (pttl > 0 || (c.staleUpTo > 0 && -pttl < int(c.staleUpTo.Seconds()))) {
+						cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+						return p
+					}
+				}
+			}
 			cacheHits.WithLabelValues(server, Denial, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 			return i
 		}

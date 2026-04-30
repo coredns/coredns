@@ -908,3 +908,42 @@ func wildcardMetadataBackend(qname, wildcard string) plugin.Handler {
 		return dns.RcodeSuccess, nil
 	})
 }
+
+func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour // enable serve_stale
+	c.failttl = 5 * time.Second
+	now := time.Now()
+	c.now = func() time.Time { return now }
+
+	// Manually insert a positive entry in pcache (stored 30s ago, TTL 120s -> still valid).
+	posMsg := new(dns.Msg)
+	posMsg.SetQuestion("example.org.", dns.TypeA)
+	posMsg.Response = true
+	posMsg.Answer = []dns.RR{test.A("example.org. 120 IN A 127.0.0.53")}
+	posItem := newItem(posMsg, now.Add(-30*time.Second), 120*time.Second)
+	k := hash("example.org.", dns.TypeA, false, false)
+	c.pcache.Add(k, posItem)
+
+	// Manually insert a SERVFAIL entry in ncache (stored just now, TTL 5s).
+	failMsg := new(dns.Msg)
+	failMsg.SetQuestion("example.org.", dns.TypeA)
+	failMsg.Response = true
+	failMsg.Rcode = dns.RcodeServerFailure
+	failMsg.Ns = []dns.RR{test.SOA("example.org. 5 IN SOA sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600")}
+	failItem := newItem(failMsg, now, 5*time.Second)
+	c.ncache.Add(k, failItem)
+
+	// Lookup should prefer the positive entry over the SERVFAIL.
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+
+	got := c.getIfNotStale(now.Add(time.Second), state, "test")
+	if got == nil {
+		t.Fatal("expected a cached item, got nil")
+	}
+	if got.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected positive cache entry (rcode 0), got rcode %d", got.Rcode)
+	}
+}
