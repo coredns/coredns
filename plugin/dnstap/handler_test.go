@@ -149,3 +149,30 @@ func TestTapMessage(t *testing.T) {
 	}
 	h.TapMessage(tapq.GetMessage())
 }
+
+// TestNilIoAndListener tests that the handler works correctly when io or listener is nil
+func TestNilIoAndListener(t *testing.T) {
+	testMsg := testMessage()
+	msg.SetType(testMsg, tap.Message_CLIENT_QUERY)
+
+	// Test with nil io (listener-only mode)
+	h1 := Dnstap{
+		io:       nil,
+		listener: nil,
+	}
+	// Should not panic
+	h1.TapMessage(testMsg)
+
+	// Test with only io set
+	w := &writer{t: t}
+	tapq := &tap.Dnstap{Message: testMsg}
+	w.queue = append(w.queue, tapq)
+	h2 := Dnstap{
+		io:       w,
+		listener: nil,
+	}
+	h2.TapMessage(testMsg)
+	if len(w.queue) != 0 {
+		t.Errorf("Expected io to receive message")
+	}
+}
