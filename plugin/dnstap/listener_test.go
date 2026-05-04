@@ -34,7 +34,7 @@ func TestListenerCreation(t *testing.T) {
 	}
 }
 
-func TestListenerBroadcast(t *testing.T) {
+func TestListenerBroadcast(_ *testing.T) {
 	l := newListener("tcp", "127.0.0.1:16001")
 
 	// Verify that calling Dnstap with no clients doesn't panic
@@ -101,7 +101,7 @@ type mockConn struct {
 	closed bool
 }
 
-func (m *mockConn) Read(b []byte) (n int, err error) {
+func (m *mockConn) Read(_ []byte) (n int, err error) {
 	return 0, nil
 }
 
@@ -129,15 +129,15 @@ func (m *mockConn) RemoteAddr() net.Addr {
 	return &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 50000}
 }
 
-func (m *mockConn) SetDeadline(t time.Time) error {
+func (m *mockConn) SetDeadline(_ time.Time) error {
 	return nil
 }
 
-func (m *mockConn) SetReadDeadline(t time.Time) error {
+func (m *mockConn) SetReadDeadline(_ time.Time) error {
 	return nil
 }
 
-func (m *mockConn) SetWriteDeadline(t time.Time) error {
+func (m *mockConn) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
@@ -145,7 +145,7 @@ func TestListenerClose(t *testing.T) {
 	l := newListener("tcp", "127.0.0.1:16003")
 
 	// Add some mock clients
-	for i := 0; i < 3; i++ {
+	for range 3 {
 		mockConn := &mockConn{writes: [][]byte{}}
 		c := &client{
 			conn: mockConn,

@@ -80,8 +80,9 @@ func (l *listener) listen() error {
 		}
 
 		config := &tls.Config{
-			Certificates:       []tls.Certificate{cert},
-			ClientAuth:         tls.NoClientCert,
+			Certificates: []tls.Certificate{cert},
+			ClientAuth:   tls.NoClientCert,
+			// #nosec G402 -- optional, user-configurable escape hatch for environments that cannot validate certs.
 			InsecureSkipVerify: l.skipVerify,
 		}
 
@@ -164,7 +165,6 @@ func (l *listener) acceptLoop() {
 		l.clientsMu.Lock()
 		l.clients[c] = struct{}{}
 		l.clientsMu.Unlock()
-
 	}
 }
 
