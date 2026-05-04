@@ -20,13 +20,26 @@ func (z *Zone) Reload(t *transfer.Transfer) error {
 			select {
 			case <-tick.C:
 				zFile := z.File()
+				serial := z.SOASerialIfDefined()
+
+				if z.ReloadByMtime {
+					fi, err := os.Stat(zFile)
+					if err != nil {
+						log.Errorf("Failed to stat zone %q in %q: %v", z.origin, zFile, err)
+						continue
+					}
+					if !fi.ModTime().After(z.file_mtime) {
+						continue
+					}
+					serial = 0 // force reload of the zone
+				}
+
 				reader, err := os.Open(filepath.Clean(zFile))
 				if err != nil {
 					log.Errorf("Failed to open zone %q in %q: %v", z.origin, zFile, err)
 					continue
 				}
 
-				serial := z.SOASerialIfDefined()
 				zone, err := Parse(reader, z.origin, zFile, serial)
 				reader.Close()
 				if err != nil {

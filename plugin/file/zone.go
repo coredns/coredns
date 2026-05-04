@@ -15,9 +15,10 @@ import (
 
 // Zone is a structure that contains all data related to a DNS zone.
 type Zone struct {
-	origin  string
-	origLen int
-	file    string
+	origin     string
+	origLen    int
+	file       string
+	file_mtime time.Time
 	*tree.Tree
 	Apex
 	Expired bool
@@ -28,6 +29,7 @@ type Zone struct {
 	TransferFrom []string
 
 	ReloadInterval time.Duration
+	ReloadByMtime  bool
 	reloadShutdown chan bool
 
 	Upstream *upstream.Upstream // Upstream for looking up external names during the resolution process.
