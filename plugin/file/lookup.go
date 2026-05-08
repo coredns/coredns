@@ -100,6 +100,9 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			if wild, found := tr.Search(wildcard); found {
 				wildElem = wild
 			}
+			if x, found := tr.Next(parts); found && dns.IsSubDomain(parts, x.Name()) {
+				wildElem = nil
+			}
 
 			// Keep on searching, because maybe we hit an empty-non-terminal (which aren't
 			// stored in the tree. Only when we have match the full qname (and possible wildcard
