@@ -593,7 +593,7 @@ func mustMakeQUICServerTLSConfig(t *testing.T) *tls.Config {
 
 func mustMakeQUICClientTLSConfig() *tls.Config {
 	return &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: false,
 		NextProtos:         []string{"doq"},
 	}
 }
