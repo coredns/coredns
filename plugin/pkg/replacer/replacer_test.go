@@ -308,7 +308,7 @@ func BenchmarkParseFormat(b *testing.B) {
 
 type testProvider map[string]metadata.Func
 
-func (tp testProvider) Metadata(ctx context.Context, state request.Request) context.Context {
+func (tp testProvider) Metadata(ctx context.Context, _state request.Request) context.Context {
 	for k, v := range tp {
 		metadata.SetValueFunc(ctx, k, v)
 	}
@@ -319,7 +319,7 @@ type testHandler struct{ ctx context.Context }
 
 func (m *testHandler) Name() string { return "test" }
 
-func (m *testHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (m *testHandler) ServeDNS(ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 	m.ctx = ctx
 	return 0, nil
 }

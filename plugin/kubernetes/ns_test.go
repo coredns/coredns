@@ -94,11 +94,11 @@ func (APIConnTest) EpIndexReverse(ip string) []*object.Endpoints {
 	return eps
 }
 
-func (APIConnTest) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
+func (APIConnTest) GetNodeByName(_ctx context.Context, _name string) (*api.Node, error) {
 	return &api.Node{}, nil
 }
 
-func (APIConnTest) GetNamespaceByName(name string) (*object.Namespace, error) {
+func (APIConnTest) GetNamespaceByName(_name string) (*object.Namespace, error) {
 	return nil, fmt.Errorf("namespace not found")
 }
 

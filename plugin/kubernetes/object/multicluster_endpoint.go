@@ -49,16 +49,16 @@ func (e *MultiClusterEndpoints) DeepCopyObject() runtime.Object {
 func (e *MultiClusterEndpoints) GetNamespace() string { return e.Endpoints.GetNamespace() }
 
 // SetNamespace implements the metav1.Object interface.
-func (e *MultiClusterEndpoints) SetNamespace(namespace string) {}
+func (e *MultiClusterEndpoints) SetNamespace(_namespace string) {}
 
 // GetName implements the metav1.Object interface.
 func (e *MultiClusterEndpoints) GetName() string { return e.Endpoints.GetName() }
 
 // SetName implements the metav1.Object interface.
-func (e *MultiClusterEndpoints) SetName(name string) {}
+func (e *MultiClusterEndpoints) SetName(_name string) {}
 
 // GetResourceVersion implements the metav1.Object interface.
 func (e *MultiClusterEndpoints) GetResourceVersion() string { return e.Endpoints.GetResourceVersion() }
 
 // SetResourceVersion implements the metav1.Object interface.
-func (e *MultiClusterEndpoints) SetResourceVersion(version string) {}
+func (e *MultiClusterEndpoints) SetResourceVersion(_version string) {}

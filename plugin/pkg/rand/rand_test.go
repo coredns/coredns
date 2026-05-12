@@ -170,7 +170,7 @@ func TestConcurrentMixedOperations(t *testing.T) {
 	// Mix of Int() and Perm() operations running concurrently
 	for i := range numGoroutines {
 		wg.Add(1)
-		go func(id int) {
+		go func(_id int) {
 			defer wg.Done()
 			for j := range numOperations {
 				if j%2 == 0 {

@@ -97,7 +97,7 @@ var (
 )
 
 // Services implements the ServiceBackend interface.
-func (k *Kubernetes) Services(ctx context.Context, state request.Request, exact bool, opt plugin.Options) (svcs []msg.Service, err error) {
+func (k *Kubernetes) Services(ctx context.Context, state request.Request, _exact bool, _opt plugin.Options) (svcs []msg.Service, err error) {
 	// We're looking again at types, which we've already done in ServeDNS, but there are some types k8s just can't answer.
 	switch state.QType() {
 	case dns.TypeTXT:
@@ -329,7 +329,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 }
 
 // Records looks up services in kubernetes.
-func (k *Kubernetes) Records(ctx context.Context, state request.Request, exact bool) ([]msg.Service, error) {
+func (k *Kubernetes) Records(_ctx context.Context, state request.Request, _exact bool) ([]msg.Service, error) {
 	multicluster := k.isMultiClusterZone(state.Zone)
 	r, e := parseRequest(state.Name(), state.Zone, multicluster)
 	if e != nil {
@@ -669,13 +669,12 @@ func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (ser
 func (k *Kubernetes) Serial(state request.Request) uint32 {
 	if !k.isMultiClusterZone(state.Zone) {
 		return uint32(k.APIConn.Modified(ModifiedInternal)) // #nosec G115 -- Unix time to SOA serial
-	} else {
-		return uint32(k.APIConn.Modified(ModifiedMultiCluster)) // #nosec G115 -- Unix time to SOA serial
 	}
+	return uint32(k.APIConn.Modified(ModifiedMultiCluster)) // #nosec G115 -- Unix time to SOA serial
 }
 
 // MinTTL returns the minimal TTL.
-func (k *Kubernetes) MinTTL(state request.Request) uint32 { return k.ttl }
+func (k *Kubernetes) MinTTL(_state request.Request) uint32 { return k.ttl }
 
 func (k *Kubernetes) isMultiClusterZone(zone string) bool {
 	z := plugin.Zones(k.opts.multiclusterZones).Matches(zone)

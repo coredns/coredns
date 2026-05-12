@@ -63,7 +63,7 @@ var tagByProvider = map[string]traceTags{
 }
 
 type trace struct {
-	count uint64 // as per Go spec, needs to be first element in a struct
+	count atomic.Uint64 // as per Go spec, needs to be first element in a struct
 
 	Next                   plugin.Handler
 	Endpoint               string
@@ -155,7 +155,7 @@ func (t *trace) Name() string { return "trace" }
 func (t *trace) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	shouldTrace := false
 	if t.every > 0 {
-		queryNr := atomic.AddUint64(&t.count, 1)
+		queryNr := t.count.Add(1)
 		if queryNr%t.every == 0 {
 			shouldTrace = true
 		}

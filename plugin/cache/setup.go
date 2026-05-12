@@ -172,7 +172,7 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 
 			case "serve_stale":
 				args := c.RemainingArgs()
-				if len(args) > 2 {
+				if len(args) > 3 {
 					return nil, c.ArgErr()
 				}
 				ca.staleUpTo = 1 * time.Hour
@@ -187,12 +187,26 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					ca.staleUpTo = d
 				}
 				ca.verifyStale = false
+				ca.verifyStaleTimeout = 0
 				if len(args) > 1 {
 					mode := strings.ToLower(args[1])
 					if mode != "immediate" && mode != "verify" {
 						return nil, fmt.Errorf("invalid value for serve_stale refresh mode: %s", mode)
 					}
 					ca.verifyStale = mode == "verify"
+				}
+				if len(args) > 2 {
+					if !ca.verifyStale {
+						return nil, errors.New("serve_stale timeout is only valid with the verify refresh mode")
+					}
+					t, err := time.ParseDuration(args[2])
+					if err != nil {
+						return nil, fmt.Errorf("invalid serve_stale verify timeout: %w", err)
+					}
+					if t < 0 {
+						return nil, errors.New("invalid negative timeout for serve_stale verify")
+					}
+					ca.verifyStaleTimeout = t
 				}
 			case "servfail":
 				args := c.RemainingArgs()

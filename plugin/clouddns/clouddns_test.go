@@ -22,11 +22,11 @@ type fakeGCPClient struct {
 	*gcp.Service
 }
 
-func (c fakeGCPClient) zoneExists(projectName, hostedZoneName string) error {
+func (c fakeGCPClient) zoneExists(_projectName, _hostedZoneName string) error {
 	return nil
 }
 
-func (c fakeGCPClient) listRRSets(ctx context.Context, projectName, hostedZoneName string) (*gcp.ResourceRecordSetsListResponse, error) {
+func (c fakeGCPClient) listRRSets(_ctx context.Context, projectName, hostedZoneName string) (*gcp.ResourceRecordSetsListResponse, error) {
 	if projectName == "bad-project" || hostedZoneName == "bad-zone" {
 		return nil, errors.New("the 'parameters.managedZone' resource named 'bad-zone' does not exist")
 	}
@@ -148,7 +148,7 @@ func TestCloudDNS(t *testing.T) {
 	}
 	r.Fall = fall.Zero
 	r.Fall.SetZonesFromArgs([]string{"gov."})
-	r.Next = test.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	r.Next = test.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		state := request.Request{W: w, Req: r}
 		qname := state.Name()
 		m := new(dns.Msg)

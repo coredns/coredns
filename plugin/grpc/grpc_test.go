@@ -115,7 +115,7 @@ type deadlineCheckingClient struct {
 	err          error
 }
 
-func (c *deadlineCheckingClient) Query(ctx context.Context, in *pb.DnsPacket, opts ...grpcgo.CallOption) (*pb.DnsPacket, error) {
+func (c *deadlineCheckingClient) Query(ctx context.Context, _in *pb.DnsPacket, _opts ...grpcgo.CallOption) (*pb.DnsPacket, error) {
 	if dl, ok := ctx.Deadline(); ok {
 		c.sawDeadline = true
 		c.lastDeadline = dl

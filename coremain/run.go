@@ -80,7 +80,7 @@ func Run() {
 	}
 
 	// Twiddle your thumbs
-	instance.Wait()
+	runService(instance)
 }
 
 // mustLogFatal wraps log.Fatal() in a way that ensures the

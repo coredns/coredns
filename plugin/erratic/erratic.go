@@ -13,7 +13,7 @@ import (
 
 // Erratic is a plugin that returns erratic responses to each client.
 type Erratic struct {
-	q        uint64 // counter of queries
+	q        atomic.Uint64 // counter of queries
 	drop     uint64
 	delay    uint64
 	truncate uint64
@@ -23,14 +23,14 @@ type Erratic struct {
 }
 
 // ServeDNS implements the plugin.Handler interface.
-func (e *Erratic) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (e *Erratic) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 	drop := false
 	delay := false
 	trunc := false
 
-	queryNr := atomic.LoadUint64(&e.q)
-	atomic.AddUint64(&e.q, 1)
+	queryNr := e.q.Load()
+	e.q.Add(1)
 
 	if e.drop > 0 && queryNr%e.drop == 0 {
 		drop = true

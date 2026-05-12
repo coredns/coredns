@@ -149,21 +149,23 @@ func TestDefaultLoader(t *testing.T) {
 		}
 	}
 
-	// Create a file but make it unreadable
-	tmpFile := filepath.Join(tmpDir, "Corefile")
-	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
-	if err := os.Chmod(tmpFile, 0000); err != nil {
-		t.Fatalf("Failed to change permissions: %v", err)
-	}
+	if runtime.GOOS != "windows" {
+		// Create a file but make it unreadable
+		tmpFile := filepath.Join(tmpDir, "Corefile")
+		if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
+			t.Fatalf("Failed to create test file: %v", err)
+		}
+		if err := os.Chmod(tmpFile, 0000); err != nil {
+			t.Fatalf("Failed to change permissions: %v", err)
+		}
 
-	input, err = defaultLoader("dns")
-	if err == nil {
-		t.Error("Expected error for unreadable Corefile but got none")
-	}
-	if input != nil {
-		t.Error("Expected nil input for unreadable Corefile")
+		input, err = defaultLoader("dns")
+		if err == nil {
+			t.Error("Expected error for unreadable Corefile but got none")
+		}
+		if input != nil {
+			t.Error("Expected nil input for unreadable Corefile")
+		}
 	}
 }
 

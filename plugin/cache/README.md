@@ -26,6 +26,10 @@ cache [TTL] [ZONES...]
 * **ZONES** zones it should cache for. If empty, the zones from the configuration block are used.
 
 Each element in the cache is cached according to its TTL (with **TTL** as the max).
+Note that **TTL** only caps the cache duration and does not extend it. A record with a 30s TTL
+will still be cached for 30s even with `cache 600`. The minimum cache duration defaults to 5
+seconds and can be adjusted per cache type using **MINTTL** in the `success` or `denial` directives.
+
 A cache is divided into 256 shards, each holding up to 39 items by default - for a total size
 of 256 * 39 = 9984 items.
 
@@ -36,7 +40,7 @@ cache [TTL] [ZONES...] {
     success CAPACITY [TTL] [MINTTL]
     denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
-    serve_stale [DURATION] [REFRESH_MODE]
+    serve_stale [DURATION] [REFRESH_MODE [VERIFY_TIMEOUT]]
     servfail DURATION
     disable success|denial [ZONES...]
     keepttl
@@ -56,6 +60,9 @@ cache [TTL] [ZONES...] {
   **DURATION** defaults to 1m. Prefetching will happen when the TTL drops below **PERCENTAGE**,
   which defaults to `10%`, or latest 1 second before TTL expiration. Values should be in the range `[10%, 90%]`.
   Note the percent sign is mandatory. **PERCENTAGE** is treated as an `int`.
+  Concurrent requests that trigger a prefetch for the same cache entry dispatch at most one
+  background fetch, so prefetch load scales with the number of distinct eligible entries rather
+  than request rate.
 * `serve_stale`, when serve\_stale is set, cache will always serve an expired entry to a client if there is one
   available as long as it has not been expired for longer than **DURATION** (default 1 hour). By default, the _cache_ plugin will
   attempt to refresh the cache entry after sending the expired cache entry to the client. The
@@ -65,6 +72,12 @@ cache [TTL] [ZONES...] {
   checking to see if the entry is available from the source. **REFRESH_MODE** defaults to `immediate`. Setting this
   value to `verify` can lead to increased latency when serving stale responses, but will prevent stale entries
   from ever being served if an updated response can be retrieved from the source.
+  In `immediate` mode, concurrent requests for the same expired entry dispatch at most one
+  background refresh.
+  **VERIFY_TIMEOUT** is only valid with `verify` and bounds how long the cache waits for the upstream
+  verify before falling back to the stale entry. The verify continues in the background and refreshes the
+  cache when it eventually succeeds, so subsequent queries see the fresh entry. The default of `0` means
+  wait until the upstream's own timeout (the original `verify` behavior). Example: `serve_stale 1h verify 100ms`.
 * `servfail` cache SERVFAIL responses for **DURATION**.  Setting **DURATION** to 0 will disable caching of SERVFAIL
   responses.  If this option is not set, SERVFAIL responses will be cached for 5 seconds.  **DURATION** may not be
   greater than 5 minutes.

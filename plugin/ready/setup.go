@@ -11,6 +11,7 @@ import (
 func init() { plugin.Register("ready", setup) }
 
 func setup(c *caddy.Controller) error {
+	plugins.Reset()
 	addr, monType, err := parse(c)
 	if err != nil {
 		return plugin.Error("ready", err)
@@ -32,7 +33,6 @@ func setup(c *caddy.Controller) error {
 	c.OnRestartFailed(func() error { return uniqAddr.ForEach() })
 
 	c.OnStartup(func() error {
-		plugins.Reset()
 		for _, p := range dnsserver.GetConfig(c).Handlers() {
 			if r, ok := p.(Readiness); ok {
 				plugins.Append(r, p.Name())
@@ -90,8 +90,7 @@ func parse(c *caddy.Controller) (string, monitorType, error) {
 		}
 
 		for c.NextBlock() {
-			switch c.Val() {
-			case "monitor":
+			if c.Val() == "monitor" {
 				args := c.RemainingArgs()
 				if len(args) != 1 {
 					return "", "", c.ArgErr()

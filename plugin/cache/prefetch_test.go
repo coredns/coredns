@@ -3,6 +3,8 @@ package cache
 import (
 	"context"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -209,12 +211,93 @@ type verification struct {
 	fetch bool
 }
 
+// TestPrefetchDedup verifies that concurrent hits on a single cache item
+// dispatch at most one prefetch goroutine, on both the serve_stale and
+// shouldPrefetch paths. See https://github.com/coredns/coredns/issues/7904.
+func TestPrefetchDedup(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		staleUpTo  time.Duration
+		prefetch   int
+		percentage int
+		hitAt      time.Duration // all concurrent hits land here
+	}{
+		{name: "serve_stale", staleUpTo: time.Hour, hitAt: 110 * time.Second},
+		{name: "prefetch", prefetch: 1, percentage: 50, hitAt: 70 * time.Second},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			const N = 200
+			var upstream atomic.Int32
+			release := make(chan struct{})
+			done := make(chan struct{}, N)
+
+			c := New()
+			c.staleUpTo = tc.staleUpTo
+			c.prefetch = tc.prefetch
+			c.percentage = tc.percentage
+			c.duration = time.Minute
+			c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+				n := upstream.Add(1)
+				if n > 1 {
+					// Block the prefetch so all concurrent hits race against
+					// the in-flight flag, not a completed refresh.
+					<-release
+					defer func() { done <- struct{}{} }()
+				}
+				m := new(dns.Msg)
+				m.SetReply(r)
+				m.Response = true
+				m.Answer = []dns.RR{test.A("dedup.example.org. 100 IN A 127.0.0.1")}
+				w.WriteMsg(m)
+				return dns.RcodeSuccess, nil
+			})
+
+			t0 := time.Now().UTC()
+			c.now = func() time.Time { return t0 }
+			req := new(dns.Msg)
+			req.SetQuestion("dedup.example.org.", dns.TypeA)
+			c.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
+			if upstream.Load() != 1 {
+				t.Fatalf("initial populate: want 1 upstream call, got %d", upstream.Load())
+			}
+
+			// Fire N concurrent hits while the item is prefetch-eligible.
+			// Without dedup each would spawn its own prefetch goroutine;
+			// with dedup only the CAS winner spawns one, and the remaining
+			// N-1 hits serve from cache without touching upstream.
+			c.now = func() time.Time { return t0.Add(tc.hitAt) }
+			var wg sync.WaitGroup
+			wg.Add(N)
+			for range N {
+				go func() {
+					defer wg.Done()
+					req := new(dns.Msg)
+					req.SetQuestion("dedup.example.org.", dns.TypeA)
+					c.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
+				}()
+			}
+			wg.Wait()
+
+			close(release)
+			select {
+			case <-done:
+			case <-time.After(2 * time.Second):
+				t.Fatal("prefetch goroutine never completed")
+			}
+
+			if got := upstream.Load(); got != 2 {
+				t.Fatalf("want exactly 2 upstream calls (populate + 1 deduped prefetch), got %d", got)
+			}
+		})
+	}
+}
+
 // prefetchHandler is a fake plugin implementation which returns a single A
 // record with the given qname and ttl. The returned IP address starts at
 // 127.0.0.1 and is incremented on every request.
 func prefetchHandler(qname string, ttl int, fetchc chan struct{}) plugin.Handler {
 	i := 0
-	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	return plugin.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 		i++
 		m := new(dns.Msg)
 		m.SetQuestion(qname, dns.TypeA)

@@ -16,7 +16,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func msgPrinter(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func msgPrinter(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if len(r.Answer) == 0 {
 		r.Answer = []dns.RR{
 			test.A(fmt.Sprintf("%s  5   IN  A  10.0.0.1", r.Question[0].Name)),
@@ -666,42 +666,42 @@ func optsEqual(a, b []dns.EDNS0) bool {
 	for i := range a {
 		switch aa := a[i].(type) {
 		case *dns.EDNS0_LOCAL:
-			if bb, ok := b[i].(*dns.EDNS0_LOCAL); ok {
-				if aa.Code != bb.Code {
-					return false
-				}
-				if !bytes.Equal(aa.Data, bb.Data) {
-					return false
-				}
-			} else {
+			bb, ok := b[i].(*dns.EDNS0_LOCAL)
+			if !ok {
+				return false
+			}
+			if aa.Code != bb.Code {
+				return false
+			}
+			if !bytes.Equal(aa.Data, bb.Data) {
 				return false
 			}
 		case *dns.EDNS0_NSID:
-			if bb, ok := b[i].(*dns.EDNS0_NSID); ok {
-				if aa.Nsid != bb.Nsid {
-					return false
-				}
-			} else {
+			bb, ok := b[i].(*dns.EDNS0_NSID)
+			if !ok {
+				return false
+			}
+			if aa.Nsid != bb.Nsid {
 				return false
 			}
 		case *dns.EDNS0_SUBNET:
-			if bb, ok := b[i].(*dns.EDNS0_SUBNET); ok {
-				if aa.Code != bb.Code {
-					return false
-				}
-				if aa.Family != bb.Family {
-					return false
-				}
-				if aa.SourceNetmask != bb.SourceNetmask {
-					return false
-				}
-				if aa.SourceScope != bb.SourceScope {
-					return false
-				}
-				if !aa.Address.Equal(bb.Address) {
-					return false
-				}
-			} else {
+			bb, ok := b[i].(*dns.EDNS0_SUBNET)
+			if !ok {
+				return false
+			}
+			if aa.Code != bb.Code {
+				return false
+			}
+			if aa.Family != bb.Family {
+				return false
+			}
+			if aa.SourceNetmask != bb.SourceNetmask {
+				return false
+			}
+			if aa.SourceScope != bb.SourceScope {
+				return false
+			}
+			if !aa.Address.Equal(bb.Address) {
 				return false
 			}
 
@@ -714,7 +714,7 @@ func optsEqual(a, b []dns.EDNS0) bool {
 
 type testProvider map[string]metadata.Func
 
-func (tp testProvider) Metadata(ctx context.Context, state request.Request) context.Context {
+func (tp testProvider) Metadata(ctx context.Context, _state request.Request) context.Context {
 	for k, v := range tp {
 		metadata.SetValueFunc(ctx, k, v)
 	}

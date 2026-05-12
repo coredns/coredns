@@ -48,6 +48,9 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 
 	mt, _ := response.Typify(req, time.Now().UTC()) // TODO(miek): need opt record here?
 	if mt == response.Delegation {
+		if len(req.Ns) == 0 {
+			return req
+		}
 		// We either sign DS or NSEC of DS.
 		ttl := req.Ns[0].Header().Ttl
 
@@ -68,7 +71,7 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 	}
 
 	if mt == response.NameError || mt == response.NoData {
-		if req.Ns[0].Header().Rrtype != dns.TypeSOA || len(req.Ns) > 1 {
+		if len(req.Ns) != 1 || req.Ns[0].Header().Rrtype != dns.TypeSOA {
 			return req
 		}
 
@@ -136,14 +139,19 @@ func (d Dnssec) sign(rrs []dns.RR, signerName string, ttl, incep, expir uint32, 
 			}
 			sig := k.newRRSIG(signerName, ttl, incep, expir)
 			if e := sig.Sign(k.s, rrs); e != nil {
-				return sigs, e
+				return nil, e
 			}
 			sigs = append(sigs, sig)
 		}
-		d.set(k, sigs)
+		if len(sigs) > 0 {
+			d.set(k, sigs)
+		}
 		return sigs, nil
 	})
-	return sigs.([]dns.RR), err
+	if err != nil {
+		return nil, err
+	}
+	return sigs.([]dns.RR), nil
 }
 
 func (d Dnssec) set(key uint64, sigs []dns.RR) { d.cache.Add(key, sigs) }

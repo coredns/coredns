@@ -23,15 +23,16 @@
 package test
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"mime"
 	"net/http"
 	"strconv"
 
-	"github.com/matttproud/golang_protobuf_extensions/pbutil"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/prometheus/common/expfmt"
+	"google.golang.org/protobuf/encoding/protodelim"
 )
 
 type (
@@ -235,9 +236,10 @@ func fetchMetricFamilies(url string, ch chan<- *dto.MetricFamily) {
 	if err == nil && mediatype == "application/vnd.google.protobuf" &&
 		params["encoding"] == "delimited" &&
 		params["proto"] == "io.prometheus.client.MetricFamily" {
+		reader := bufio.NewReader(resp.Body)
 		for {
 			mf := &dto.MetricFamily{}
-			if _, err = pbutil.ReadDelimited(resp.Body, mf); err != nil {
+			if err = protodelim.UnmarshalFrom(reader, mf); err != nil {
 				if err == io.EOF {
 					break
 				}

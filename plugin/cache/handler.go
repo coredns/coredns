@@ -45,9 +45,18 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// serve stale behavior
 		if c.verifyStale {
 			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, cd: cd}
+			if c.verifyStaleTimeout > 0 {
+				// Background verify: cache the response but do not write to the wire.
+				// On timeout, we serve the stale entry below and let the goroutine continue.
+				crr.prefetch = true
+			}
 			cw := newVerifyStaleResponseWriter(crr)
-			ret, err := c.doRefresh(ctx, state, cw)
-			if cw.refreshed {
+			if c.verifyStaleTimeout == 0 {
+				ret, err := c.doRefresh(ctx, state, cw)
+				if cw.refreshed {
+					return ret, err
+				}
+			} else if served, ret, err := c.verifyWithTimeout(ctx, state, w, cw, r, do, ad); served {
 				return ret, err
 			}
 		}
@@ -55,13 +64,11 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// Adjust the time to get a 0 TTL in the reply built from a stale item.
 		now = now.Add(time.Duration(ttl) * time.Second)
 		if !c.verifyStale {
-			cw := newPrefetchResponseWriter(server, state, c)
-			go c.doPrefetch(ctx, state, cw, i, now)
+			c.tryPrefetch(ctx, i, server, rc, do, cd, now)
 		}
 		servedStale.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 	} else if c.shouldPrefetch(i, now) {
-		cw := newPrefetchResponseWriter(server, state, c)
-		go c.doPrefetch(ctx, state, cw, i, now)
+		c.tryPrefetch(ctx, i, server, rc, do, cd, now)
 	}
 
 	if i.wildcard != "" {
@@ -91,22 +98,78 @@ func wildcardFunc(ctx context.Context) func() string {
 	}
 }
 
-func (c *Cache) doPrefetch(ctx context.Context, state request.Request, cw *ResponseWriter, i *item, now time.Time) {
+// tryPrefetch dispatches a background prefetch for i if one is not already in
+// flight. The CAS on i.refreshing ensures at most one prefetch goroutine per
+// item, so prefetch load scales with distinct stale keys rather than QPS.
+func (c *Cache) tryPrefetch(ctx context.Context, i *item, server string, req *dns.Msg, do, cd bool, now time.Time) {
+	if !i.refreshing.CompareAndSwap(false, true) {
+		return
+	}
+	cw := newPrefetchResponseWriter(server, req, do, cd, c)
+	go func() {
+		defer i.refreshing.Store(false)
+		c.doPrefetch(ctx, cw, i, now)
+	}()
+}
+
+func (c *Cache) doPrefetch(ctx context.Context, cw *ResponseWriter, i *item, now time.Time) {
 	// Use a fresh metadata map to avoid concurrent writes to the original request's metadata.
 	ctx = metadata.ContextWithMetadata(ctx)
 	cachePrefetches.WithLabelValues(cw.server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-	c.doRefresh(ctx, state, cw)
+	c.doRefresh(ctx, cw.state, cw)
 
 	// When prefetching we loose the item i, and with it the frequency
 	// that we've gathered sofar. See we copy the frequencies info back
 	// into the new item that was stored in the cache.
-	if i1 := c.exists(state); i1 != nil {
+	if i1 := c.exists(cw.state.Name(), cw.state.QType(), cw.do, cw.cd); i1 != nil {
 		i1.Reset(now, i.Hits())
 	}
 }
 
 func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw dns.ResponseWriter) (int, error) {
 	return plugin.NextOrFailure(c.Name(), c.Next, ctx, cw, state.Req)
+}
+
+// verifyWithTimeout runs the upstream verify in a background goroutine and races it
+// against verifyStaleTimeout. If the verify completes within the timeout and the
+// response is cacheable (NoError or NXDomain), the freshly cached entry is served
+// to the client and served is true. Otherwise served is false and the caller falls
+// through to serve stale; the goroutine continues to run and any successful response
+// will update the cache without writing to the (now-detached) client connection.
+func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w dns.ResponseWriter, cw *verifyStaleResponseWriter, r *dns.Msg, do, ad bool) (served bool, code int, err error) {
+	type result struct {
+		code int
+		err  error
+	}
+	done := make(chan result, 1)
+	go func() {
+		rc, re := c.doRefresh(ctx, state, cw)
+		done <- result{rc, re}
+	}()
+	timer := time.NewTimer(c.verifyStaleTimeout)
+	defer timer.Stop()
+	select {
+	case res := <-done:
+		if !cw.refreshed {
+			return false, 0, nil
+		}
+		fresh := c.exists(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
+		if fresh == nil {
+			// Should not happen: refreshed=true means the upstream response was cacheable.
+			return true, res.code, res.err
+		}
+		now := c.now().UTC()
+		if c.keepttl {
+			now = fresh.stored
+		}
+		resp := fresh.toMsg(r, now, do, ad)
+		if err := w.WriteMsg(resp); err != nil {
+			return true, dns.RcodeServerFailure, err
+		}
+		return true, dns.RcodeSuccess, nil
+	case <-timer.C:
+		return false, 0, nil
+	}
 }
 
 func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
@@ -145,8 +208,8 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 }
 
 // exists unconditionally returns an item if it exists in the cache.
-func (c *Cache) exists(state request.Request) *item {
-	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
+func (c *Cache) exists(name string, qtype uint16, do, cd bool) *item {
+	k := hash(name, qtype, do, cd)
 	if i, ok := c.ncache.Get(k); ok {
 		return i
 	}

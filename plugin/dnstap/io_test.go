@@ -20,13 +20,28 @@ var (
 )
 
 type MockLogger struct {
-	WarnCount int
-	WarnLog   string
+	mu        sync.Mutex
+	warnCount int
+	warnLog   string
 }
 
 func (l *MockLogger) Warningf(format string, v ...any) {
-	l.WarnCount++
-	l.WarnLog += fmt.Sprintf(format, v...)
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.warnCount++
+	l.warnLog += fmt.Sprintf(format, v...)
+}
+
+func (l *MockLogger) WarnCount() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.warnCount
+}
+
+func (l *MockLogger) WarnLog() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.warnLog
 }
 
 func accept(t *testing.T, l net.Listener, count int) {
@@ -172,9 +187,10 @@ func TestReconnect(t *testing.T) {
 		// THEN
 		//		DnsTap is able to reconnect
 		//		Messages can be sent eventually
-		require.NotNil(t, dio.enc)
-		require.Equal(t, 0, len(dio.queue))
-		require.Less(t, logger.WarnCount, messageCount)
+		require.Eventually(t, func() bool {
+			return len(dio.queue) == 0
+		}, time.Second, 10*time.Millisecond, "queue should be drained by serve goroutine")
+		require.Less(t, logger.WarnCount(), messageCount)
 	})
 
 	t.Run("NotConnectedOnStart", func(t *testing.T) {
@@ -225,9 +241,10 @@ func TestReconnect(t *testing.T) {
 		// THEN
 		//		DnsTap is able to reconnect
 		//		Messages can be sent eventually
-		require.NotNil(t, dio.enc)
-		require.Equal(t, 0, len(dio.queue))
-		require.Less(t, logger.WarnCount, messageCount)
+		require.Eventually(t, func() bool {
+			return len(dio.queue) == 0
+		}, time.Second, 10*time.Millisecond, "queue should be drained by serve goroutine")
+		require.Less(t, logger.WarnCount(), messageCount)
 	})
 }
 
@@ -264,6 +281,6 @@ func TestFullQueueWriteFail(t *testing.T) {
 
 	// THEN
 	//		Dropped messages are logged
-	require.NotEqual(t, 0, logger.WarnCount)
-	require.Contains(t, logger.WarnLog, "Dropped dnstap messages")
+	require.NotEqual(t, 0, logger.WarnCount())
+	require.Contains(t, logger.WarnLog(), "Dropped dnstap messages")
 }

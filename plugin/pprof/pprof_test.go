@@ -127,7 +127,7 @@ func TestHandlerPprofRedirect(t *testing.T) {
 
 	// Create a client that doesn't follow redirects
 	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		CheckRedirect: func(_req *http.Request, _via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
@@ -157,7 +157,7 @@ func TestHandlerStartupInvalidAddress(t *testing.T) {
 
 	err := h.Startup()
 	if err == nil {
-		t.Fatal("Expected error for invalid address format")
 		defer h.Shutdown()
+		t.Fatal("Expected error for invalid address format")
 	}
 }

@@ -96,21 +96,19 @@ func setup(c *caddy.Controller) error {
 				cfgOpts = append(cfgOpts, config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(v[0], v[1], "")))
 				log.Warningf("Save aws_access_key in Corefile has been deprecated, please use other authentication methods instead")
 			case "aws_endpoint":
-				if c.NextArg() {
-					clientOpts = append(clientOpts, func(o *route53.Options) {
-						o.BaseEndpoint = aws.String(c.Val())
-					})
-				} else {
+				if !c.NextArg() {
 					return plugin.Error("route53", c.ArgErr())
 				}
+				clientOpts = append(clientOpts, func(o *route53.Options) {
+					o.BaseEndpoint = aws.String(c.Val())
+				})
 			case "upstream":
 				c.RemainingArgs() // eats args
 			case "credentials":
-				if c.NextArg() {
-					cfgOpts = append(cfgOpts, config.WithSharedConfigProfile(c.Val()))
-				} else {
+				if !c.NextArg() {
 					return c.ArgErr()
 				}
+				cfgOpts = append(cfgOpts, config.WithSharedConfigProfile(c.Val()))
 				if c.NextArg() {
 					sharedConfigFiles := []string{c.Val()}
 					// If AWS_SDK_LOAD_CONFIG is set also load ~/.aws/config to stay consistent
@@ -123,21 +121,20 @@ func setup(c *caddy.Controller) error {
 			case "fallthrough":
 				fall.SetZonesFromArgs(c.RemainingArgs())
 			case "refresh":
-				if c.NextArg() {
-					refreshStr := c.Val()
-					_, err := strconv.Atoi(refreshStr)
-					if err == nil {
-						refreshStr = c.Val() + "s"
-					}
-					refresh, err = time.ParseDuration(refreshStr)
-					if err != nil {
-						return plugin.Error("route53", c.Errf("Unable to parse duration: %v", err))
-					}
-					if refresh <= 0 {
-						return plugin.Error("route53", c.Errf("refresh interval must be greater than 0: %q", refreshStr))
-					}
-				} else {
+				if !c.NextArg() {
 					return plugin.Error("route53", c.ArgErr())
+				}
+				refreshStr := c.Val()
+				_, err := strconv.Atoi(refreshStr)
+				if err == nil {
+					refreshStr = c.Val() + "s"
+				}
+				refresh, err = time.ParseDuration(refreshStr)
+				if err != nil {
+					return plugin.Error("route53", c.Errf("Unable to parse duration: %v", err))
+				}
+				if refresh <= 0 {
+					return plugin.Error("route53", c.Errf("refresh interval must be greater than 0: %q", refreshStr))
 				}
 			default:
 				return plugin.Error("route53", c.Errf("unknown property %q", c.Val()))

@@ -39,7 +39,9 @@ type Server struct {
 	ReadTimeout  time.Duration // Read timeout for TCP
 	WriteTimeout time.Duration // Write timeout for TCP
 
-	connPolicy proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
+	connPolicy                    proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
+	udpSessionTrackingTTL         time.Duration             // TTL for UDP PPv2 session tracking (0 = disabled)
+	udpSessionTrackingMaxSessions int                       // LRU cap for UDP session tracking (0 = default)
 
 	server [2]*dns.Server // 0 is a net.Listener, 1 is a net.PacketConn (a *UDPConn) in our case.
 	m      sync.Mutex     // protects the servers
@@ -130,6 +132,12 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		if site.ProxyProtoConnPolicy != nil {
 			s.connPolicy = site.ProxyProtoConnPolicy
 		}
+		if site.ProxyProtoUDPSessionTrackingTTL > 0 {
+			s.udpSessionTrackingTTL = site.ProxyProtoUDPSessionTrackingTTL
+		}
+		if site.ProxyProtoUDPSessionTrackingMaxSessions > 0 {
+			s.udpSessionTrackingMaxSessions = site.ProxyProtoUDPSessionTrackingMaxSessions
+		}
 	}
 
 	if !s.debug {
@@ -206,7 +214,7 @@ func (s *Server) ListenPacket() (net.PacketConn, error) {
 		return nil, err
 	}
 	if s.connPolicy != nil {
-		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy}
+		p = &cproxyproto.PacketConn{PacketConn: p, ConnPolicy: s.connPolicy, UDPSessionTrackingTTL: s.udpSessionTrackingTTL, UDPSessionTrackingMaxSessions: s.udpSessionTrackingMaxSessions}
 	}
 	return p, nil
 }
@@ -406,7 +414,7 @@ func (s *Server) Tracer() ot.Tracer {
 }
 
 // errorFunc responds to an DNS request with an error.
-func errorFunc(server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
+func errorFunc(_server string, w dns.ResponseWriter, r *dns.Msg, rc int) {
 	state := request.Request{W: w, Req: r}
 
 	answer := new(dns.Msg)

@@ -26,14 +26,14 @@ type mockBackend struct {
 	serial       uint32
 }
 
-func (m *mockBackend) Serial(state request.Request) uint32 {
+func (m *mockBackend) Serial(_state request.Request) uint32 {
 	if m.serial == 0 {
 		return uint32(time.Now().Unix())
 	}
 	return m.serial
 }
 
-func (m *mockBackend) MinTTL(state request.Request) uint32 {
+func (m *mockBackend) MinTTL(_state request.Request) uint32 {
 	if m.minTTL == 0 {
 		return 30
 	}
@@ -52,7 +52,7 @@ func (m *mockBackend) Lookup(ctx context.Context, state request.Request, name st
 	return m.mockLookup(ctx, state, name, typ)
 }
 
-func (m *mockBackend) IsNameError(err error) bool {
+func (m *mockBackend) IsNameError(_err error) bool {
 	return false
 }
 
@@ -63,7 +63,7 @@ func (m *mockBackend) Records(ctx context.Context, state request.Request, exact 
 func TestNSStateReset(t *testing.T) {
 	// Create a mock backend that always returns error
 	mock := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return nil, fmt.Errorf("mock error")
 		},
 	}
@@ -99,7 +99,7 @@ func TestNSStateReset(t *testing.T) {
 
 func TestARecords_Dedup(t *testing.T) {
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{
 				{Host: "1.2.3.4", TTL: 60},
 				{Host: "1.2.3.4", TTL: 60},
@@ -127,7 +127,7 @@ func TestARecords_Dedup(t *testing.T) {
 
 func TestAAAARecords_Dedup(t *testing.T) {
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{
 				{Host: "::1", TTL: 60},
 				{Host: "::1", TTL: 60},
@@ -155,7 +155,7 @@ func TestAAAARecords_Dedup(t *testing.T) {
 
 func TestTXTWithInternalCNAME(t *testing.T) {
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			switch state.QName() {
 			case "txt.example.org.":
 				return []msg.Service{{Host: "target.example.org.", TTL: 50}}, nil
@@ -189,7 +189,7 @@ func TestTXTWithInternalCNAME(t *testing.T) {
 
 func TestCNAMEHostIsNameAndIpIgnored(t *testing.T) {
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{
 				{Host: "target.example.org.", TTL: 50},
 				{Host: "1.2.3.4", TTL: 50},
@@ -223,7 +223,7 @@ func TestCNAMEChainLimitAndLoop(t *testing.T) {
 		chain[names[i]] = names[i+1]
 	}
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			if nxt, ok := chain[state.QName()]; ok {
 				return []msg.Service{{Host: nxt, TTL: 10}}, nil
 			}
@@ -245,7 +245,7 @@ func TestCNAMEChainLimitAndLoop(t *testing.T) {
 
 	// Now create a direct loop: qname CNAME qname should be ignored
 	b2 := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{{Host: state.QName(), TTL: 10}}, nil
 		},
 	}
@@ -263,10 +263,10 @@ func TestCNAMEChainLimitAndLoop(t *testing.T) {
 
 func TestAWithExternalCNAMELookupTruncated(t *testing.T) {
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{{Host: "alias.external."}}, nil
 		},
-		mockLookup: func(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+		mockLookup: func(_ctx context.Context, _state request.Request, name string, typ uint16) (*dns.Msg, error) {
 			if name != "alias.external." || typ != dns.TypeA {
 				t.Fatalf("unexpected mockLookup: %s %d", name, typ)
 			}
@@ -303,7 +303,7 @@ func TestAAAAWithInternalCNAMEChain(t *testing.T) {
 	names := []string{"c0.example.org.", "c1.example.org.", "final.example.org."}
 	chain := map[string]string{names[0]: names[1], names[1]: names[2]}
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			if nxt, ok := chain[state.QName()]; ok {
 				return []msg.Service{{Host: nxt, TTL: 10}}, nil
 			}
@@ -339,10 +339,10 @@ func TestAAAAWithInternalCNAMEChain(t *testing.T) {
 
 func TestAAAAWithExternalCNAMELookupTruncated(t *testing.T) {
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{{Host: "alias.external."}}, nil
 		},
-		mockLookup: func(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+		mockLookup: func(_ctx context.Context, _state request.Request, name string, typ uint16) (*dns.Msg, error) {
 			if name != "alias.external." || typ != dns.TypeAAAA {
 				t.Fatalf("unexpected mockLookup: %s %d", name, typ)
 			}
@@ -376,7 +376,7 @@ func TestAAAAWithExternalCNAMELookupTruncated(t *testing.T) {
 
 func TestPTRDomainOnly(t *testing.T) {
 	b := &mockBackend{
-		mockReverse: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockReverse: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{
 				{Host: "name.example.org.", TTL: 20},
 				{Host: "1.2.3.4", TTL: 20},
@@ -400,7 +400,7 @@ func TestPTRDomainOnly(t *testing.T) {
 
 func TestNSSuccess(t *testing.T) {
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{
 				{Host: "1.2.3.4", TTL: 30, Key: "/skydns/org/example/ns1"},
 				{Host: "::1", TTL: 30, Key: "/skydns/org/example/ns2"},
@@ -426,13 +426,13 @@ func TestSRVAddressesAndExternalLookup(t *testing.T) {
 	// First service is IP host -> produces SRV + extra address; second is CNAME target -> triggers external lookup
 	lookedUp := false
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{
 				{Host: "1.2.3.4", Port: 80, Priority: 10, Weight: 5, TTL: 30, Key: "/skydns/org/example/s1"},
 				{Host: "alias.external.", Port: 80, Priority: 10, Weight: 5, TTL: 30, Key: "/skydns/org/example/s2"},
 			}, nil
 		},
-		mockLookup: func(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+		mockLookup: func(_ctx context.Context, _state request.Request, name string, typ uint16) (*dns.Msg, error) {
 			if name == "alias.external." && (typ == dns.TypeA || typ == dns.TypeAAAA) {
 				lookedUp = true
 				m := new(dns.Msg)
@@ -467,13 +467,13 @@ func TestSRVAddressesAndExternalLookup(t *testing.T) {
 func TestMXInternalAndExternalTargets(t *testing.T) {
 	lookedUp := false
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, _state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			return []msg.Service{
 				{Host: "1.2.3.4", Mail: true, Priority: 10, TTL: 60, Key: "/skydns/org/example/mx1"},
 				{Host: "alias.external.", Mail: true, Priority: 20, TTL: 60, Key: "/skydns/org/example/mx2"},
 			}, nil
 		},
-		mockLookup: func(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error) {
+		mockLookup: func(_ctx context.Context, _state request.Request, name string, typ uint16) (*dns.Msg, error) {
 			if name == "alias.external." && (typ == dns.TypeA || typ == dns.TypeAAAA) {
 				lookedUp = true
 				m := new(dns.Msg)
@@ -549,7 +549,7 @@ func TestBackendError(t *testing.T) {
 
 func TestCheckForApex(t *testing.T) {
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			if state.QName() == "apex.dns.example.org." {
 				return []msg.Service{{Host: "1.2.3.4", TTL: 10}}, nil
 			}
@@ -570,7 +570,7 @@ func TestCheckForApex(t *testing.T) {
 
 func TestCheckForApexFallback(t *testing.T) {
 	b := &mockBackend{
-		mockServices: func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error) {
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
 			if state.QName() == "apex.dns.example.org." {
 				return nil, dns.ErrRcode
 			}

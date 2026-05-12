@@ -70,13 +70,13 @@ type dnsControl struct {
 	// modified tracks timestamp of the most recent changes
 	// It needs to be first because it is guaranteed to be 8-byte
 	// aligned ( we use sync.LoadAtomic with this )
-	modified int64
+	modified atomic.Int64
 	// multiClusterModified tracks timestamp of the most recent changes to
 	// multi cluster services
-	multiClusterModified int64
+	multiClusterModified atomic.Int64
 	// extModified tracks timestamp of the most recent changes to
 	// services with external facing IP addresses
-	extModified int64
+	extModified atomic.Int64
 
 	client    kubernetes.Interface
 	mcsClient mcsClientset.MulticlusterV1alpha1Interface
@@ -665,8 +665,8 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*object.Namespace, error
 	return ns, nil
 }
 
-func (dns *dnsControl) Add(obj any)               { dns.updateModified() }
-func (dns *dnsControl) Delete(obj any)            { dns.updateModified() }
+func (dns *dnsControl) Add(_obj any)              { dns.updateModified() }
+func (dns *dnsControl) Delete(_obj any)           { dns.updateModified() }
 func (dns *dnsControl) Update(oldObj, newObj any) { dns.detectChanges(oldObj, newObj) }
 
 // detectChanges detects changes in objects, and updates the modified timestamp
@@ -880,11 +880,11 @@ func serviceImportEquivalent(oldObj, newObj any) bool {
 func (dns *dnsControl) Modified(mode ModifiedMode) int64 {
 	switch mode {
 	case ModifiedInternal:
-		return atomic.LoadInt64(&dns.modified)
+		return dns.modified.Load()
 	case ModifiedExternal:
-		return atomic.LoadInt64(&dns.extModified)
+		return dns.extModified.Load()
 	case ModifiedMultiCluster:
-		return atomic.LoadInt64(&dns.multiClusterModified)
+		return dns.multiClusterModified.Load()
 	}
 	return -1
 }
@@ -892,19 +892,19 @@ func (dns *dnsControl) Modified(mode ModifiedMode) int64 {
 // updateModified set dns.modified to the current time.
 func (dns *dnsControl) updateModified() {
 	unix := time.Now().Unix()
-	atomic.StoreInt64(&dns.modified, unix)
+	dns.modified.Store(unix)
 }
 
 // updateMultiClusterModified set dns.modified to the current time.
 func (dns *dnsControl) updateMultiClusterModified() {
 	unix := time.Now().Unix()
-	atomic.StoreInt64(&dns.multiClusterModified, unix)
+	dns.multiClusterModified.Store(unix)
 }
 
 // updateExtModified set dns.extModified to the current time.
 func (dns *dnsControl) updateExtModified() {
 	unix := time.Now().Unix()
-	atomic.StoreInt64(&dns.extModified, unix)
+	dns.extModified.Store(unix)
 }
 
 var errObj = errors.New("obj was not of the correct type")

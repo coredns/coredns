@@ -56,6 +56,13 @@ func TestSymlinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Resolve tempdir to handle platforms where temp paths contain symlinks
+	// (e.g., macOS where /var -> /private/var). Walk resolves the directory
+	// via EvalSymlinks, so stored paths use the resolved prefix.
+	tempdir, err = filepath.EvalSymlinks(tempdir)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	ldr := loader{
 		directory: tempdir,

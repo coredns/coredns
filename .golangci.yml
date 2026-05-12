@@ -23,6 +23,7 @@ linters:
     - protogetter
     - staticcheck
     - thelper
+    - revive
     - unconvert
     - unused
     - usetesting

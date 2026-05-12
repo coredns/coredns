@@ -3,7 +3,7 @@
 # updated before doing a release. The Debian package, for instance, looks at these pages
 # and will install them on your system.
 
-MMARK_VERSION:=2.2.4
+MMARK_VERSION:=2.2.47
 PLUGINS:=$(wildcard plugin/*/README.md)
 READMES:=$(subst plugin/,,$(PLUGINS))
 READMES:=$(subst /README.md,,$(READMES))
@@ -23,26 +23,39 @@ MMARK        := $(FIRST_GOPATH)/bin/mmark -man
 
 MMARK_URL := https://github.com/mmarkdown/mmark/releases/download/v$(MMARK_VERSION)/mmark_$(MMARK_VERSION)_$(GO_BUILD_PLATFORM).tgz
 
+# SHA-256 checksums for mmark v2.2.47 release tarballs.
+# See: https://github.com/mmarkdown/mmark/releases/tag/v2.2.47
+MMARK_SHA256_darwin_amd64  := 941e963489e328c9da188629688438f9f3e93b6a4895c6ef943d55fbbfa84a3c
+MMARK_SHA256_darwin_arm64  := 641cbc566edec29dd989ac15432b7f007be54ebc163cf6d98cd1d3df295ef9c4
+MMARK_SHA256_linux_amd64   := e0585cc9628c562e0f1be36e45221e84c6fc84957c999168ce4ba35594264ff2
+MMARK_SHA256_linux_arm     := f6e1059c032b9ec0a74da40d8e901968d0bb41d92a160ef4782febbbf298d22d
+MMARK_SHA256_linux_arm64   := 9a3c9b2e525b5addf97f968ec28829947520f628fdf4850134be784e220149ca
+MMARK_SHA256_windows_amd64 := 9c73231e4427651d1f7911d4a9014aa2d87e735aac9c93e4e400061bc1de6714
+MMARK_SHA256 := $(MMARK_SHA256_$(GO_BUILD_PLATFORM))
+
 .PHONY: mmark
 mmark: $(MMARK_BIN)
 
 $(MMARK_BIN):
 	$(eval MMARK_TMP := $(shell mktemp -d))
-	curl -s -L $(MMARK_URL) | tar -xvzf - -C $(MMARK_TMP)
+	curl -s -L -o $(MMARK_TMP)/mmark.tgz $(MMARK_URL)
+	@if [ -z "$(MMARK_SHA256)" ]; then \
+		echo "error: no known checksum for platform $(GO_BUILD_PLATFORM)" >&2; exit 1; \
+	fi
+	@echo "$(MMARK_SHA256)  $(MMARK_TMP)/mmark.tgz" | shasum -a 256 -c -
+	tar -xzf $(MMARK_TMP)/mmark.tgz -C $(MMARK_TMP)
 	mkdir -p $(FIRST_GOPATH)/bin
 	cp $(MMARK_TMP)/mmark $(FIRST_GOPATH)/bin/mmark
 	rm -r $(MMARK_TMP)
 
 man/coredns.1: coredns.1.md
-	@/bin/echo -e '%%%\n title = "coredns 1"\n' \
-		'area = "CoreDNS"\n workgroup = "CoreDNS"\n%%%\n\n' > $@.header
+	@printf '%%%%%%\n title = "coredns 1"\n area = "CoreDNS"\n workgroup = "CoreDNS"\n%%%%%%\n\n' > $@.header
 	@cat $@.header $< > $@.md && rm $@.header
-	@sed -i -e "s/@@PLUGINS@@/$(PLUGINS)/" $@.md
+	@sed -e "s/@@PLUGINS@@/$(PLUGINS)/" $@.md > $@.md.tmp && mv $@.md.tmp $@.md
 	$(MMARK) $@.md > $@ && rm $@.md
 
 man/corefile.5: corefile.5.md
-	@/bin/echo -e '%%%\n title = "corefile 5"\n' \
-		'area = "CoreDNS"\n workgroup = "CoreDNS"\n%%%\n\n' > $@.header
+	@printf '%%%%%%\n title = "corefile 5"\n area = "CoreDNS"\n workgroup = "CoreDNS"\n%%%%%%\n\n' > $@.header
 	@cat $@.header $< > $@.md && rm $@.header
 	$(MMARK) $@.md > $@ && rm $@.md
 
@@ -53,10 +66,9 @@ plugins:
 	done
 
 man/coredns-%.7: plugin/%/README.md
-	@/bin/echo -e "%%%\n title = \"`basename $@ | sed s\/\.7\/\/` 7\"\n" \
-		'area = "CoreDNS"\n workgroup = "CoreDNS Plugins"\n%%%\n\n' > $@.header
+	@printf '%%%%%%\n title = "%s 7"\n area = "CoreDNS"\n workgroup = "CoreDNS Plugins"\n%%%%%%\n\n' "`basename $@ | sed s/\.7//`" > $@.header
 	@cat $@.header $< > $@.md && rm $@.header
-	@sed -i '/^# .*/d' $@.md
+	@sed -e '/^# .*/d' $@.md > $@.md.tmp && mv $@.md.tmp $@.md
 	$(MMARK) $@.md > $@ && rm $@.md
 
 PHONY: clean

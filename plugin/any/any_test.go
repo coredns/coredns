@@ -46,7 +46,7 @@ func TestAnyNonANYQuery(t *testing.T) {
 
 			nextCalled := false
 			a := &Any{
-				Next: test.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+				Next: test.HandlerFunc(func(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 					nextCalled = true
 					return 0, nil
 				}),

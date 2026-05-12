@@ -14,6 +14,7 @@ type DoQWriter struct {
 	remoteAddr net.Addr
 	stream     *quic.Stream
 	Msg        *dns.Msg
+	tsigStatus error
 }
 
 func (w *DoQWriter) Write(b []byte) (int, error) {
@@ -61,9 +62,9 @@ func AddPrefix(b []byte) (m []byte) {
 
 // These methods implement the dns.ResponseWriter interface from Go DNS.
 
-func (w *DoQWriter) TsigStatus() error     { return nil }
-func (w *DoQWriter) TsigTimersOnly(b bool) {}
-func (w *DoQWriter) Hijack()               {}
-func (w *DoQWriter) LocalAddr() net.Addr   { return w.localAddr }
-func (w *DoQWriter) RemoteAddr() net.Addr  { return w.remoteAddr }
-func (w *DoQWriter) Network() string       { return "" }
+func (w *DoQWriter) TsigStatus() error      { return w.tsigStatus }
+func (w *DoQWriter) TsigTimersOnly(_b bool) {}
+func (w *DoQWriter) Hijack()                {}
+func (w *DoQWriter) LocalAddr() net.Addr    { return w.localAddr }
+func (w *DoQWriter) RemoteAddr() net.Addr   { return w.remoteAddr }
+func (w *DoQWriter) Network() string        { return "" }

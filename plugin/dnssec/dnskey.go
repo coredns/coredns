@@ -71,7 +71,7 @@ func ParseKeyFile(pubFile, privFile string) (*DNSKEY, error) {
 	if s, ok := p.(ed25519.PrivateKey); ok {
 		return &DNSKEY{K: dk, D: dk.ToDS(dns.SHA256), s: s, tag: dk.KeyTag()}, nil
 	}
-	return &DNSKEY{K: dk, D: dk.ToDS(dns.SHA256), s: nil, tag: 0}, errors.New("no private key found")
+	return nil, errors.New("no private key found")
 }
 
 // ParseKeyFromAWSSecretsManager retrieves and parses a DNSSEC key pair from AWS Secrets Manager.

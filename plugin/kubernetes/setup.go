@@ -237,12 +237,11 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 			args := c.RemainingArgs()
 			if len(args) == 0 {
 				return nil, c.ArgErr()
-			} else {
-				var err error
-				k8s.startupTimeout, err = time.ParseDuration(args[0])
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse startup_timeout: %v, %s", args[0], err)
-				}
+			}
+			var err error
+			k8s.startupTimeout, err = time.ParseDuration(args[0])
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse startup_timeout: %v, %s", args[0], err)
 			}
 		case "apiserver_qps":
 			args := c.RemainingArgs()

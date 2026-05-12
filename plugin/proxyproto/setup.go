@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -21,8 +23,10 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("proxyproto", errors.New("proxy protocol already configured for this server instance"))
 	}
 	var (
-		allowedIPNets []*net.IPNet
-		policy        = proxyproto.IGNORE
+		allowedIPNets              []*net.IPNet
+		policy                     = proxyproto.IGNORE
+		sessionTrackingTTL         time.Duration
+		sessionTrackingMaxSessions int
 	)
 	for c.Next() {
 		args := c.RemainingArgs()
@@ -56,6 +60,23 @@ func setup(c *caddy.Controller) error {
 				default:
 					return plugin.Error("proxyproto", c.ArgErr())
 				}
+			case "udp_session_tracking":
+				v := c.RemainingArgs()
+				if len(v) < 1 || len(v) > 2 {
+					return plugin.Error("proxyproto", c.ArgErr())
+				}
+				d, err := time.ParseDuration(v[0])
+				if err != nil {
+					return plugin.Error("proxyproto", fmt.Errorf("udp_session_tracking: invalid duration %q: %w", v[0], err))
+				}
+				sessionTrackingTTL = d
+				if len(v) == 2 {
+					n, err := strconv.Atoi(v[1])
+					if err != nil || n <= 0 {
+						return plugin.Error("proxyproto", fmt.Errorf("udp_session_tracking: invalid max sessions %q: must be a positive integer", v[1]))
+					}
+					sessionTrackingMaxSessions = n
+				}
 			default:
 				return c.Errf("unknown option '%s'", c.Val())
 			}
@@ -77,5 +98,7 @@ func setup(c *caddy.Controller) error {
 		}
 		return policy, nil
 	}
+	config.ProxyProtoUDPSessionTrackingTTL = sessionTrackingTTL
+	config.ProxyProtoUDPSessionTrackingMaxSessions = sessionTrackingMaxSessions
 	return nil
 }

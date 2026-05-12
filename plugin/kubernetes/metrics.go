@@ -3,7 +3,9 @@ package kubernetes
 import (
 	"context"
 	"net/url"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/coredns/coredns/plugin"
 
@@ -64,7 +66,7 @@ type latencyAdapter struct {
 }
 
 func (l *latencyAdapter) Observe(_ context.Context, verb string, u url.URL, latency time.Duration) {
-	l.m.WithLabelValues(verb, u.Host).Observe(latency.Seconds())
+	l.m.WithLabelValues(verb, sanitizeLabelValue(u.Host)).Observe(latency.Seconds())
 }
 
 type resultAdapter struct {
@@ -72,5 +74,14 @@ type resultAdapter struct {
 }
 
 func (r *resultAdapter) Increment(_ context.Context, code, method, host string) {
-	r.m.WithLabelValues(code, method, host).Inc()
+	r.m.WithLabelValues(code, method, sanitizeLabelValue(host)).Inc()
+}
+
+// sanitizeLabelValue ensures the string is valid UTF-8, which is required by
+// Prometheus for label values. Invalid bytes are replaced with U+FFFD.
+func sanitizeLabelValue(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToValidUTF8(s, "\uFFFD")
 }
