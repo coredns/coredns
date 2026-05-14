@@ -10,6 +10,11 @@ import (
 )
 
 func TestSetup(t *testing.T) {
+	var (
+		int0   = 0
+		int200 = 200
+	)
+
 	tests := []struct {
 		input                  string
 		shouldErr              bool
@@ -31,7 +36,7 @@ func TestSetup(t *testing.T) {
 				max_connections 200
 			}`,
 			shouldErr:              false,
-			expectedMaxConnections: intPtr(200),
+			expectedMaxConnections: &int200,
 		},
 		// Zero values (unbounded)
 		{
@@ -39,7 +44,7 @@ func TestSetup(t *testing.T) {
 				max_connections 0
 			}`,
 			shouldErr:              false,
-			expectedMaxConnections: intPtr(0),
+			expectedMaxConnections: &int0,
 		},
 		// Error cases
 		{
@@ -112,10 +117,6 @@ func TestSetup(t *testing.T) {
 			assertIntPtrValue(t, i, test.input, "MaxHTTPSConnections", config.MaxHTTPSConnections, test.expectedMaxConnections)
 		}
 	}
-}
-
-func intPtr(v int) *int {
-	return &v
 }
 
 func assertIntPtrValue(t *testing.T, testIndex int, testInput, fieldName string, actual, expected *int) {

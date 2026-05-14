@@ -507,7 +507,7 @@ func TestDNS64(t *testing.T) {
 			}
 			actual := rec.Msg
 			if actual.Rcode != rc {
-				t.Fatalf("ServeDNS should return real result code %q != %q", actual.Rcode, rc)
+				t.Fatalf("ServeDNS should return real result code %d != %d", actual.Rcode, rc)
 			}
 
 			if !reflect.DeepEqual(actual, tc.resp) {

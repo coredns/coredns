@@ -90,7 +90,7 @@ func TestShouldTransfer(t *testing.T) {
 		t.Fatalf("Unable to run shouldTransfer: %v", err)
 	}
 	if !should {
-		t.Fatalf("ShouldTransfer should return true for serial: %q", soa.serial-1)
+		t.Fatalf("ShouldTransfer should return true for serial: %d", soa.serial-1)
 	}
 	// Serial equal
 	z.SOA = test.SOA(fmt.Sprintf("%s IN SOA bla. bla. %d 0 0 0 0 ", testZone, soa.serial))

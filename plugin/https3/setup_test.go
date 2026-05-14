@@ -10,6 +10,11 @@ import (
 )
 
 func TestSetup(t *testing.T) {
+	var (
+		int0   = 0
+		int100 = 100
+	)
+
 	tests := []struct {
 		input              string
 		shouldErr          bool
@@ -31,7 +36,7 @@ func TestSetup(t *testing.T) {
 				max_streams 100
 			}`,
 			shouldErr:          false,
-			expectedMaxStreams: intPtr(100),
+			expectedMaxStreams: &int100,
 		},
 		// Zero values (unbounded)
 		{
@@ -39,7 +44,7 @@ func TestSetup(t *testing.T) {
 				max_streams 0
 			}`,
 			shouldErr:          false,
-			expectedMaxStreams: intPtr(0),
+			expectedMaxStreams: &int0,
 		},
 		// Error cases
 		{
@@ -112,10 +117,6 @@ func TestSetup(t *testing.T) {
 			assertIntPtrValue(t, i, test.input, "MaxHTTPS3Streams", config.MaxHTTPS3Streams, test.expectedMaxStreams)
 		}
 	}
-}
-
-func intPtr(v int) *int {
-	return &v
 }
 
 func assertIntPtrValue(t *testing.T, testIndex int, testInput, fieldName string, actual, expected *int) {

@@ -10,6 +10,13 @@ import (
 )
 
 func TestSetup(t *testing.T) {
+	var (
+		int0   = 0
+		int50  = 50
+		int100 = 100
+		int200 = 200
+	)
+
 	tests := []struct {
 		input                  string
 		shouldErr              bool
@@ -32,14 +39,14 @@ func TestSetup(t *testing.T) {
 				max_streams 100
 			}`,
 			shouldErr:          false,
-			expectedMaxStreams: intPtr(100),
+			expectedMaxStreams: &int100,
 		},
 		{
 			input: `grpc_server {
 				max_connections 200
 			}`,
 			shouldErr:              false,
-			expectedMaxConnections: intPtr(200),
+			expectedMaxConnections: &int200,
 		},
 		{
 			input: `grpc_server {
@@ -47,8 +54,8 @@ func TestSetup(t *testing.T) {
 				max_connections 100
 			}`,
 			shouldErr:              false,
-			expectedMaxStreams:     intPtr(50),
-			expectedMaxConnections: intPtr(100),
+			expectedMaxStreams:     &int50,
+			expectedMaxConnections: &int100,
 		},
 		// Zero values (unbounded)
 		{
@@ -56,14 +63,14 @@ func TestSetup(t *testing.T) {
 				max_streams 0
 			}`,
 			shouldErr:          false,
-			expectedMaxStreams: intPtr(0),
+			expectedMaxStreams: &int0,
 		},
 		{
 			input: `grpc_server {
 				max_connections 0
 			}`,
 			shouldErr:              false,
-			expectedMaxConnections: intPtr(0),
+			expectedMaxConnections: &int0,
 		},
 		// Error cases
 		{
@@ -137,10 +144,6 @@ func TestSetup(t *testing.T) {
 			assertIntPtrValue(t, i, test.input, "MaxGRPCConnections", config.MaxGRPCConnections, test.expectedMaxConnections)
 		}
 	}
-}
-
-func intPtr(v int) *int {
-	return &v
 }
 
 func assertIntPtrValue(t *testing.T, testIndex int, testInput, fieldName string, actual, expected *int) {
