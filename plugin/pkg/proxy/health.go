@@ -171,7 +171,6 @@ func (h *dnsHc) setDialer() {
 	}
 }
 
-
 // setDefaultTimeout sets the default read and write timeout values for the DNS client to 1 second.
 func setDefaultTimeout(c *dns.Client) {
 	c.ReadTimeout = 1 * time.Second
