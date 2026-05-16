@@ -47,8 +47,7 @@ func NewHealthChecker(proxyName, trans string, recursionDesired bool, domain str
 	case transport.DNS, transport.TLS:
 		c := new(dns.Client)
 		c.Net = "udp"
-		c.ReadTimeout = 1 * time.Second
-		c.WriteTimeout = 1 * time.Second
+		setDefaultTimeout(c)
 
 		return &dnsHc{
 			c:                c,
@@ -155,12 +154,26 @@ func (h *dnsHc) GetLocalAddress() net.IP {
 
 // setDialer sets the local address in the underlying dialer
 func (h *dnsHc) setDialer() {
+	if h.localAddress == nil {
+		if h.c.Dialer != nil {
+			h.c.Dialer.LocalAddr = nil
+		}
+		return
+	}
 	if h.c.Dialer == nil {
 		h.c.Dialer = new(net.Dialer)
+		setDefaultTimeout(h.c)
 	}
 	if h.c.Net == "udp" {
 		h.c.Dialer.LocalAddr = &net.UDPAddr{IP: h.localAddress}
 	} else {
 		h.c.Dialer.LocalAddr = &net.TCPAddr{IP: h.localAddress}
 	}
+}
+
+
+// setDefaultTimeout sets the default read and write timeout values for the DNS client to 1 second.
+func setDefaultTimeout(c *dns.Client) {
+	c.ReadTimeout = 1 * time.Second
+	c.WriteTimeout = 1 * time.Second
 }
