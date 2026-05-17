@@ -34,6 +34,9 @@ grpc FROM TO... {
     tls_servername NAME
     policy random|round_robin|sequential
     fallthrough [ZONES...]
+    pool_size SIZE
+    health_check DURATION
+    max_fails COUNT
 }
 ~~~
 
@@ -61,18 +64,30 @@ grpc FROM TO... {
   don't actually belong to that zone (e.g., search path queries). If **[ZONES...]** is omitted, then
   fallthrough happens for all zones. If specific zones are listed, then only queries for those zones
   will be subject to fallthrough.
+* `pool_size` **SIZE** sets the maximum number of gRPC connections to maintain in the pool for each
+  upstream server. Default is `1` (no pooling). Maximum is `100`. Setting this to a value greater than 1
+  enables connection pooling for improved performance in high-throughput scenarios.
+* `health_check` **DURATION** sets the interval for health check probes to upstream servers. Only active
+  when `max_fails > 0`. Default is `500ms`.
+* `max_fails` **COUNT** sets the number of consecutive failures before marking an upstream server as down.
+  Default is `0` (disabled). Set to a positive value to enable health-based upstream skipping. When a
+  proxy accumulates this many consecutive health check failures, it will be skipped until health checks
+  succeed.
 
 Also note the TLS config is "global" for the whole grpc proxy if you need a different
 `tls-name` for different upstreams you're out of luck.
 
 ## Metrics
 
-If monitoring is enabled (via the *prometheus* plugin) then the following metric are exported:
+If monitoring is enabled (via the *prometheus* plugin) then the following metrics are exported:
 
 * `coredns_grpc_request_duration_seconds{to}` - duration per upstream interaction.
 * `coredns_grpc_requests_total{to}` - query count per upstream.
 * `coredns_grpc_responses_total{to, rcode}` - count of RCODEs per upstream.
-  and we are randomly (this always uses the `random` policy) spraying to an upstream.
+* `coredns_grpc_pool_hits_total{to}` - connection pool cache hits per upstream.
+* `coredns_grpc_pool_misses_total{to}` - connection pool cache misses (new connections created) per upstream.
+* `coredns_grpc_pool_size{to}` - current number of connections in the pool per upstream.
+* `coredns_grpc_healthcheck_failures_total{to}` - health check failure count per upstream.
 
 ## Examples
 
@@ -152,6 +167,19 @@ example.org {
         fallthrough
     }
     forward . 8.8.8.8
+}
+~~~
+
+Enable connection pooling with 5 connections per upstream for high-throughput scenarios, with health checking enabled.
+
+~~~ corefile
+. {
+    grpc . 10.0.0.10:9005 10.0.0.11:9005 {
+        pool_size 5
+        health_check 1s
+        max_fails 3
+        policy round_robin
+    }
 }
 ~~~
 
