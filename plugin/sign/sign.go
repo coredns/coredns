@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_sign
+
 // Package sign implements a zone signer as a plugin.
 package sign
 

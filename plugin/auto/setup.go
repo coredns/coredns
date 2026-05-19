@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_auto
+
 package auto
 
 import (
@@ -19,8 +21,6 @@ import (
 var log = clog.NewWithPlugin("auto")
 
 const maxRegexpLen = 10000
-
-func init() { plugin.Register("auto", setup) }
 
 func setup(c *caddy.Controller) error {
 	a, err := autoParse(c)

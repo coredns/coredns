@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_loop
+
 package loop
 
 import (
@@ -12,8 +14,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 )
-
-func init() { plugin.Register("loop", setup) }
 
 func setup(c *caddy.Controller) error {
 	l, err := parse(c)

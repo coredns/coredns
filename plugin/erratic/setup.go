@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_erratic
+
 package erratic
 
 import (
@@ -9,8 +11,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() { plugin.Register("erratic", setup) }
 
 func setup(c *caddy.Controller) error {
 	e, err := parseErratic(c)

@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_k8s_external
+
 package external
 
 import (
@@ -11,8 +13,6 @@ import (
 )
 
 const pluginName = "k8s_external"
-
-func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	e, err := parse(c)

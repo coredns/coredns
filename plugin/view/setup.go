@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_view
+
 package view
 
 import (
@@ -11,8 +13,6 @@ import (
 
 	"github.com/expr-lang/expr"
 )
-
-func init() { plugin.Register("view", setup) }
 
 func setup(c *caddy.Controller) error {
 	cond, err := parse(c)

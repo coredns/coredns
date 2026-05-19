@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_loadbalance
+
 package loadbalance
 
 import (
@@ -17,8 +19,6 @@ import (
 
 var log = clog.NewWithPlugin("loadbalance")
 var errOpen = errors.New("weight file open error")
-
-func init() { plugin.Register("loadbalance", setup) }
 
 type lbFuncs struct {
 	shuffleFunc    func(*dns.Msg) *dns.Msg

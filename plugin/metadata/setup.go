@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_metadata || coredns_cache
+
 package metadata
 
 import (
@@ -5,8 +7,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() { plugin.Register("metadata", setup) }
 
 func setup(c *caddy.Controller) error {
 	m, err := metadataParse(c)

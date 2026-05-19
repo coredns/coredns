@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_cache
+
 package cache
 
 import (
@@ -15,8 +17,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("cache")
-
-func init() { plugin.Register("cache", setup) }
 
 func setup(c *caddy.Controller) error {
 	ca, err := cacheParse(c)

@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_file || coredns_auto || coredns_secondary || coredns_route53 || coredns_azure || coredns_clouddns || coredns_sign
+
 package file
 
 import (
@@ -13,8 +15,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/plugin/transfer"
 )
-
-func init() { plugin.Register("file", setup) }
 
 func setup(c *caddy.Controller) error {
 	zones, fall, err := fileParse(c)

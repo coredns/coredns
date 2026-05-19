@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_errors
+
 package errors
 
 import (
@@ -12,8 +14,6 @@ import (
 // maxRegexpLen is a hard limit on the length of a regex pattern to prevent
 // OOM during regex compilation with malicious input.
 const maxRegexpLen = 10000
-
-func init() { plugin.Register("errors", setup) }
 
 func setup(c *caddy.Controller) error {
 	handler, err := errorsParse(c)

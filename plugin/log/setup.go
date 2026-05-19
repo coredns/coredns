@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_log
+
 package log
 
 import (
@@ -11,8 +13,6 @@ import (
 
 	"github.com/miekg/dns"
 )
-
-func init() { plugin.Register("log", setup) }
 
 func setup(c *caddy.Controller) error {
 	rules, err := logParse(c)

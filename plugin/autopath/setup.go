@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_autopath || coredns_kubernetes
+
 package autopath
 
 import (
@@ -10,8 +12,6 @@ import (
 
 	"github.com/miekg/dns"
 )
-
-func init() { plugin.Register("autopath", setup) }
 
 func setup(c *caddy.Controller) error {
 	ap, mw, err := autoPathParse(c)

@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_erratic
+
 // Package erratic implements a plugin that returns erratic answers (delayed, dropped).
 package erratic
 

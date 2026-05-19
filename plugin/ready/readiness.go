@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_ready
+
 package ready
 
 // The Readiness interface needs to be implemented by each plugin willing to provide a readiness check.

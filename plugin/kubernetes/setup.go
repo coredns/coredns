@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_kubernetes || coredns_k8s_external
+
 package kubernetes
 
 import (
@@ -27,8 +29,6 @@ import (
 const pluginName = "kubernetes"
 
 var log = clog.NewWithPlugin(pluginName)
-
-func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	// Do not call klog.InitFlags(nil) here.  It will cause reload to panic.

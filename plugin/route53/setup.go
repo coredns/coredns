@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_route53
+
 package route53
 
 import (
@@ -22,8 +24,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("route53")
-
-func init() { plugin.Register("route53", setup) }
 
 // exposed for testing
 type route53Client interface {

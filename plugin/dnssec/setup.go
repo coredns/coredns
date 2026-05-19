@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_dnssec
+
 package dnssec
 
 import (
@@ -17,8 +19,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("dnssec")
-
-func init() { plugin.Register("dnssec", setup) }
 
 func setup(c *caddy.Controller) error {
 	zones, keys, capacity, splitkeys, err := dnssecParse(c)

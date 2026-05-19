@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_etcd
+
 package etcd
 
 import (
@@ -16,8 +18,6 @@ import (
 
 	etcdcv3 "go.etcd.io/etcd/client/v3"
 )
-
-func init() { plugin.Register("etcd", setup) }
 
 func setup(c *caddy.Controller) error {
 	e, err := etcdParse(c)

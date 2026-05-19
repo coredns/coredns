@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_errors
+
 // Package errors implements an error handling plugin.
 package errors
 

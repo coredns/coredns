@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_prometheus || coredns_auto
+
 package metrics
 
 import (
@@ -25,8 +27,6 @@ var (
 	// swap persists across reloads until process restart.
 	runtimeMetricsOnce sync.Once
 )
-
-func init() { plugin.Register("prometheus", setup) }
 
 func setup(c *caddy.Controller) error {
 	m, err := parse(c)

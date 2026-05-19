@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_proxyproto
+
 package proxyproto
 
 import (
@@ -14,8 +16,6 @@ import (
 
 	"github.com/pires/go-proxyproto"
 )
-
-func init() { plugin.Register("proxyproto", setup) }
 
 func setup(c *caddy.Controller) error {
 	config := dnsserver.GetConfig(c)

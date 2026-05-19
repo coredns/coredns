@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_cache
+
 package cache
 
 import "github.com/miekg/dns"

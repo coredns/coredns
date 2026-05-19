@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_clouddns
+
 package clouddns
 
 import (
@@ -19,8 +21,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("clouddns")
-
-func init() { plugin.Register("clouddns", setup) }
 
 // exposed for testing
 var f = func(ctx context.Context, opt option.ClientOption) (gcpDNS, error) {
