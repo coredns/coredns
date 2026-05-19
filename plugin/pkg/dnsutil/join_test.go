@@ -11,6 +11,7 @@ func TestJoin(t *testing.T) {
 		{[]string{"example", "."}, "example."},
 		{[]string{"example", "org."}, "example.org."}, // technically we should not be called like this.
 		{[]string{"."}, "."},
+		{nil, "."},
 	}
 
 	for i, tc := range tests {
