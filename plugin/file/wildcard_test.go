@@ -266,6 +266,29 @@ func TestLookupMultiWildcard(t *testing.T) {
 	}
 }
 
+func TestLookupWildcardRespectsCloserEmptyNonTerminal(t *testing.T) {
+	const name = "example.org."
+	zone, err := Parse(strings.NewReader(exampleOrg), name, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expect no error when reading zone, got %q", err)
+	}
+
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{name: zone}, Names: []string{name}}}
+	req := new(dns.Msg)
+	req.SetQuestion("x.c.w.example.org.", dns.TypeTXT)
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	if _, err := fm.ServeDNS(context.TODO(), rec, req); err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if rec.Msg.Rcode != dns.RcodeNameError {
+		t.Fatalf("Expected NXDOMAIN below closer empty non-terminal, got rcode %d", rec.Msg.Rcode)
+	}
+	if len(rec.Msg.Answer) != 0 {
+		t.Fatalf("Expected no wildcard answer, got %v", rec.Msg.Answer)
+	}
+}
+
 const exampleOrg = `; example.org test file
 $TTL 3600
 example.org.		IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600
