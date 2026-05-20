@@ -3,6 +3,7 @@ package forward
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"reflect"
 	"strings"
@@ -86,6 +87,45 @@ func TestSetup(t *testing.T) {
 			}
 			if f.opts != test.expectedOpts {
 				t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedOpts, f.opts)
+			}
+		}
+	}
+}
+
+func TestSourceAddress(t *testing.T) {
+	tests := []struct {
+		input                 string
+		expectedSourceAddress net.IP
+		expectedErr           string
+	}{
+
+		{"forward . 127.0.0.1 {\nsource_address 192.0.2.1\n}\n", net.ParseIP("192.0.2.1"), ""},
+		{"forward . 127.0.0.1 {\nsource_address not-an-ip\n}\n", nil, "invalid IP address"},
+		{"forward . 127.0.0.1 {\nsource_address 2001:0db8:85a3:0000:1319:8a2e:0370:7344\n}\n", net.ParseIP("2001:0db8:85a3:0000:1319:8a2e:0370:7344"), ""},
+		{"forward . 127.0.0.1 {\nsource_address ::ffff:192.0.2.1\n}\n", net.ParseIP("192.0.2.1"), ""},
+		{"forward . 127.0.0.1 {\nsource_address \n}\n", nil, "Error during parsing: Wrong argument count or unexpected line ending after 'source_address'"},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		fs, err := parseForward(c)
+
+		if test.expectedErr != "" && err == nil {
+			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
+		}
+		if err != nil {
+			if test.expectedErr == "" {
+				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+			}
+
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
+			}
+		}
+		if test.expectedErr == "" {
+			f := fs[0]
+			if !test.expectedSourceAddress.Equal(f.sourceAddress) {
+				t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedSourceAddress, f.sourceAddress)
 			}
 		}
 	}
