@@ -129,6 +129,8 @@ func traceParse(c *caddy.Controller) (*trace, error) {
 				if err != nil {
 					return nil, err
 				}
+			default:
+				return nil, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 	}
