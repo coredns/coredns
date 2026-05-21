@@ -59,6 +59,7 @@ func TestConfig(t *testing.T) {
 		{"dnstap dnstap.sock {\nidentity\n}\n", true, []results{{endpoint: "dnstap.sock", full: false, proto: "unix", identity: []byte(hostname), version: []byte("-"), multipleTcpWriteBuf: 1, multipleQueue: 1}}},
 		{"dnstap dnstap.sock {\nversion\n}\n", true, []results{{endpoint: "dnstap.sock", full: false, proto: "unix", identity: []byte(hostname), version: []byte("-"), multipleTcpWriteBuf: 1, multipleQueue: 1}}},
 		{"dnstap dnstap.sock {\nextra\n}\n", true, []results{{endpoint: "dnstap.sock", full: false, proto: "unix", identity: []byte(hostname), version: []byte("-"), multipleTcpWriteBuf: 1, multipleQueue: 1}}},
+		{"dnstap dnstap.sock {\nidentitiy NAME\n}\n", true, []results{{endpoint: "dnstap.sock", full: false, proto: "unix", identity: []byte(hostname), version: []byte("-"), multipleTcpWriteBuf: 1, multipleQueue: 1}}},
 		// Limits and parsing for writebuffer (MiB) and queue (x10k)
 		{"dnstap dnstap.sock full 1024 2048", false, []results{{endpoint: "dnstap.sock", full: true, proto: "unix", identity: []byte(hostname), version: []byte("-"), multipleTcpWriteBuf: 1024, multipleQueue: 2048}}},
 		{"dnstap dnstap.sock full 1025 1", true, []results{{endpoint: "dnstap.sock", full: true, proto: "unix", identity: []byte(hostname), version: []byte("-"), multipleTcpWriteBuf: 1, multipleQueue: 1}}},

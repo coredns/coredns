@@ -44,6 +44,7 @@ func TestTraceParse(t *testing.T) {
 		{"trace {\n zipkin_max_backlog_size\n}", true, "", 1, `coredns`, false, 0, 0, 0},
 		{"trace {\n zipkin_max_batch_size\n}", true, "", 1, `coredns`, false, 0, 0, 0},
 		{"trace {\n zipkin_max_batch_interval\n}", true, "", 1, `coredns`, false, 0, 0, 0},
+		{"trace {\n evrey 100\n}", true, "", 1, `coredns`, false, 0, 0, 0},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)

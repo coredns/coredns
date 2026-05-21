@@ -180,6 +180,8 @@ func parseConfig(c *caddy.Controller) ([]*Dnstap, error) {
 					}
 					d.ExtraFormat = c.Val()
 				}
+			default:
+				return nil, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 		dnstaps = append(dnstaps, &d)
