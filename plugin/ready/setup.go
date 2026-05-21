@@ -90,7 +90,8 @@ func parse(c *caddy.Controller) (string, monitorType, error) {
 		}
 
 		for c.NextBlock() {
-			if c.Val() == "monitor" {
+			switch c.Val() {
+			case "monitor":
 				args := c.RemainingArgs()
 				if len(args) != 1 {
 					return "", "", c.ArgErr()
@@ -101,6 +102,8 @@ func parse(c *caddy.Controller) (string, monitorType, error) {
 				if err != nil {
 					return "", "", err
 				}
+			default:
+				return "", "", c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 	}

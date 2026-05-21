@@ -62,6 +62,13 @@ ready localhost:1234 {
 			shouldErr: true,
 		},
 		{
+			input: `
+ready {
+	monitro continuously
+}`,
+			shouldErr: true,
+		},
+		{
 			input:     `ready localhost:1234 b`,
 			shouldErr: true,
 		},
