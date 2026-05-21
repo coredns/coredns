@@ -112,7 +112,8 @@ var _ caddy.GracefulServer = &ServerHTTPS3{}
 
 // ListenPacket opens the UDP socket for QUIC.
 func (s *ServerHTTPS3) ListenPacket() (net.PacketConn, error) {
-	p, err := reuseport.ListenPacket("udp", s.Addr[len(transport.HTTPS3+"://"):])
+	addr := s.Addr[len(transport.HTTPS3+"://"):]
+	p, err := reuseport.ListenPacket(s.net("udp"), addr)
 	if err != nil {
 		return nil, err
 	}

@@ -242,7 +242,8 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 
 // ListenPacket implements caddy.UDPServer interface.
 func (s *ServerQUIC) ListenPacket() (net.PacketConn, error) {
-	p, err := reuseport.ListenPacket("udp", s.Addr[len(transport.QUIC+"://"):])
+	addr := s.Addr[len(transport.QUIC+"://"):]
+	p, err := reuseport.ListenPacket(s.net("udp"), addr)
 	if err != nil {
 		return nil, err
 	}

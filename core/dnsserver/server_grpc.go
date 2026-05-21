@@ -133,7 +133,8 @@ func (s *ServergRPC) ServePacket(_p net.PacketConn) error { return nil }
 
 // Listen implements caddy.TCPServer interface.
 func (s *ServergRPC) Listen() (net.Listener, error) {
-	l, err := reuseport.Listen("tcp", s.Addr[len(transport.GRPC+"://"):])
+	addr := s.Addr[len(transport.GRPC+"://"):]
+	l, err := reuseport.Listen(s.net("tcp"), addr)
 	if err != nil {
 		return nil, err
 	}

@@ -23,6 +23,12 @@ type Config struct {
 	// defaults to a single empty string that denote the wildcard address
 	ListenHosts []string
 
+	// ListenNetProtos maps listen hosts to their network protocol suffix.
+	// "4" forces IPv4-only, "6" forces IPv6-only. Hosts not in the map
+	// use the default dual-stack behaviour. Set by the bind plugin when
+	// the ipv4 or ipv6 keyword is used.
+	ListenNetProtos map[string]string
+
 	// The port to listen on.
 	Port string
 
