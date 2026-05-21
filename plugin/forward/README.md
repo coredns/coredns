@@ -31,7 +31,9 @@ forward FROM TO...
   that expand to multiple reverse zones are not fully supported; only the first expanded zone is used.
 * **TO...** are the destination endpoints to forward to. The **TO** syntax allows you to specify
   a protocol, `tls://9.9.9.9` or `dns://` (or no protocol) for plain DNS. The number of upstreams is
-  limited to 15.
+  limited to 15. In addition to IP addresses and files (like `/etc/resolv.conf`), **TO** can also be
+  a hostname (e.g., `my-dns.svc.cluster.local`). Hostnames are resolved to IP addresses at startup
+  and optionally re-resolved in the background. See the `resolver`, `resolve_interval`, and `resolve_hold` options below.
 
 Multiple upstreams are randomized (see `policy`) on first use. When a healthy proxy returns an error
 during the exchange the next upstream in the list is tried.
@@ -55,6 +57,9 @@ forward FROM TO... {
     next RCODE_1 [RCODE_2] [RCODE_3...]
     failfast_all_unhealthy_upstreams
     failover RCODE_1 [RCODE_2] [RCODE_3...]
+    resolver IP [IP...]
+    resolve_interval DURATION
+    resolve_hold DURATION
 }
 ~~~
 
@@ -113,6 +118,9 @@ forward FROM TO... {
 * `next` If the `RCODE` (i.e. `NXDOMAIN`) is returned by the remote then execute the next plugin. If no next plugin is defined, or the next plugin is not a `forward` plugin, this setting is ignored
 * `failfast_all_unhealthy_upstreams` - determines the handling of requests when all upstream servers are unhealthy and unresponsive to health checks. Enabling this option will immediately return SERVFAIL responses for all requests. By default, requests are sent to a random upstream.
 * `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
+* `resolver` **IP [IP...]** specifies one or more DNS resolver IP addresses used to resolve hostname-based **TO** endpoints. If not specified, the system resolver (`/etc/resolv.conf`) is used. Only IP addresses (IPv4 or IPv6) are accepted. Multiple IPs can be specified for redundancy. If re-resolution fails or returns NXDOMAIN, the previously resolved addresses are kept. When `resolver` is set, DNS response TTLs are available and honored by `resolve_interval` and `resolve_hold`. The default system resolver does not expose TTL, so entries are re-resolved on every tick.
+* `resolve_interval` **DURATION** sets the interval for background re-resolution of hostname-based **TO** endpoints. Default is `0s` (disabled — hostnames are only resolved at startup). Set to a positive duration (e.g. `30s`) to enable periodic background re-resolution. On each tick, entries whose DNS TTL has not yet expired are skipped. See also `resolve_hold`.
+* `resolve_hold` **DURATION** caps the maximum TTL honored for hostname-based **TO** endpoints. When a DNS response returns a high TTL (e.g. `3600` = 1 hour), `resolve_hold` limits it to the configured value (e.g. `60s`), forcing re-resolution sooner. Default is `0s` (no cap — the full TTL from DNS is used).
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls_servername` for different upstreams you're out of luck.
@@ -309,6 +317,16 @@ In the following example, if the response from `1.2.3.4` is `SERVFAIL` or `REFUS
      policy sequential
      failover SERVFAIL REFUSED
   }
+}
+~~~
+
+Forward to an upstream identified by hostname, using a specific resolver to look it up:
+
+~~~ txt
+. {
+    forward . dns.example.local {
+        resolver 10.0.0.1
+    }
 }
 ~~~
 
