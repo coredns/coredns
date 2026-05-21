@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -60,7 +61,7 @@ func TestPreserveCase(t *testing.T) {
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 		_, err := k.ServeDNS(ctx, w, r)
-		if err != tc.Error {
+		if !errors.Is(err, tc.Error) {
 			t.Errorf("Test %d expected no error, got %v", i, err)
 			return
 		}

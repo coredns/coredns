@@ -2,6 +2,7 @@ package forward
 
 import (
 	"context"
+	"errors"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -343,8 +344,8 @@ func TestAllUpstreamsDown(t *testing.T) {
 		t.Errorf("Expected Response code: %d, Got: %d", dns.RcodeServerFailure, resp)
 	}
 
-	if err != ErrNoHealthy {
-		t.Errorf("Expected error message: no healthy proxies, Got: %s", err.Error())
+	if !errors.Is(err, ErrNoHealthy) {
+		t.Errorf("Expected error message: no healthy proxies, Got: %v", err)
 	}
 
 	q1 := atomic.LoadUint32(&qs)
@@ -358,7 +359,7 @@ func TestAllUpstreamsDown(t *testing.T) {
 	req = new(dns.Msg)
 	req.SetQuestion("example.org.", dns.TypeA)
 	_, err = f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
-	if err == ErrNoHealthy {
+	if errors.Is(err, ErrNoHealthy) {
 		t.Error("Unexpected error message: no healthy proxies")
 	}
 

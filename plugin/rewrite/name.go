@@ -394,7 +394,7 @@ func parseAnswerRules(name string, args []string) (auto bool, rules ResponseRule
 			rewriteAnswerFromPattern, err := isValidRegexPattern(rewriteAnswerFrom, rewriteAnswerTo)
 			rewriteAnswerTo = plugin.Name(rewriteAnswerTo).Normalize()
 			if err != nil {
-				return false, nil, fmt.Errorf("%s answer rule for %s rule: %s", last, name, err)
+				return false, nil, fmt.Errorf("%s answer rule for %s rule: %w", last, name, err)
 			}
 			rules = append(rules, &nameRewriterResponseRule{newStringRewriter(rewriteAnswerFromPattern, rewriteAnswerTo)})
 			arg += 2
@@ -408,7 +408,7 @@ func parseAnswerRules(name string, args []string) (auto bool, rules ResponseRule
 			rewriteAnswerFromPattern, err := isValidRegexPattern(rewriteAnswerFrom, rewriteAnswerTo)
 			rewriteAnswerTo = plugin.Name(rewriteAnswerTo).Normalize()
 			if err != nil {
-				return false, nil, fmt.Errorf("%s answer rule for %s rule: %s", last, name, err)
+				return false, nil, fmt.Errorf("%s answer rule for %s rule: %w", last, name, err)
 			}
 			rules = append(rules, &valueRewriterResponseRule{newStringRewriter(rewriteAnswerFromPattern, rewriteAnswerTo)})
 			arg += 2

@@ -2,6 +2,7 @@ package nomad
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -189,7 +190,7 @@ func runTests(ctx context.Context, t *testing.T, n *Nomad, cases []test.Case) {
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 		_, err := n.ServeDNS(ctx, w, r)
-		if err != tc.Error {
+		if !errors.Is(err, tc.Error) {
 			t.Errorf("Test %d: %v (%v) (%v)", i, err, w, r)
 			return
 		}

@@ -191,7 +191,7 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 	// io.EOF does not really mean that there's any error, it is just
 	// the STREAM FIN indicating that there will be no data to read
 	// anymore from this stream.
-	if err != nil && err != io.EOF {
+	if err != nil && !errors.Is(err, io.EOF) {
 		s.closeQUICConn(conn, DoQCodeProtocolError)
 
 		return

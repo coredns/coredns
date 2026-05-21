@@ -1,6 +1,7 @@
 package test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -62,7 +63,7 @@ func TestTsigBadKey(t *testing.T) {
 	client := dns.Client{Net: "udp", TsigSecret: map[string]string{"bad.key.": tsigSecret}}
 	r, _, err := client.Exchange(m, udp)
 
-	if err != dns.ErrAuth {
+	if !errors.Is(err, dns.ErrAuth) {
 		t.Fatalf("Expected \"dns: bad authentication\" error, got: %s", err)
 	}
 	if r.Rcode != dns.RcodeNotAuth {
@@ -101,7 +102,7 @@ func TestTsigBadSig(t *testing.T) {
 	client := dns.Client{Net: "udp", TsigSecret: map[string]string{tsigKey: "BADSIG00ECfVZG2qCjr4mPpaGim/Bq+IWMiNrLjUO4Y="}}
 	r, _, err := client.Exchange(m, udp)
 
-	if err != dns.ErrAuth {
+	if !errors.Is(err, dns.ErrAuth) {
 		t.Fatalf("Expected \"dns: bad authentication\" error, got: %s", err)
 	}
 	if r.Rcode != dns.RcodeNotAuth {
@@ -141,7 +142,7 @@ func TestTsigBadTime(t *testing.T) {
 	client := dns.Client{Net: "udp", TsigSecret: map[string]string{tsigKey: tsigSecret}}
 	r, _, err := client.Exchange(m, udp)
 
-	if err != dns.ErrAuth {
+	if !errors.Is(err, dns.ErrAuth) {
 		t.Fatalf("Expected \"dns: bad authentication\" error, got: %s", err)
 	}
 	if r.Rcode != dns.RcodeNotAuth {
