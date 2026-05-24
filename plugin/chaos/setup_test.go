@@ -22,6 +22,11 @@ func TestSetupChaos(t *testing.T) {
 		{
 			`chaos v3 "Miek Gieben"`, false, "v3", "Miek Gieben", "",
 		},
+		{
+			`chaos v2 {
+				unknown
+			}`, true, "", "", "unknown property",
+		},
 	}
 
 	for i, test := range tests {
