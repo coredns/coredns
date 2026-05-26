@@ -44,6 +44,7 @@ type Forward struct {
 	ignored []string
 
 	nextAlternateRcodes []int
+	nextOnNodata        bool
 
 	tlsConfig                  *tls.Config
 	tlsServerName              string
@@ -236,13 +237,19 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			continue
 		}
 
-		if ret.Rcode != dns.RcodeSuccess || isEmpty(ret) { // NOERROR should not call Next handler, unless it is a NODATA-error response.
-			// Check if we have an alternate Rcode defined, check if we match on the code
-			for _, alternateRcode := range f.nextAlternateRcodes {
-				if alternateRcode == ret.Rcode && f.Next != nil { // In case we do not have a Next handler, just continue normally
-					if _, ok := f.Next.(*Forward); ok { // Only continue if the next forwarder is also a Forworder
-						return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
-					}
+		// Check if we have an alternate Rcode defined, check if we match on the code
+		for _, alternateRcode := range f.nextAlternateRcodes {
+			if alternateRcode == ret.Rcode && f.Next != nil { // In case we do not have a Next handler, just continue normally
+				if _, ok := f.Next.(*Forward); ok { // Only continue if the next forwarder is also a Forworder
+					return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
+				}
+			}
+		}
+
+		if f.nextOnNodata && f.Next != nil {
+			if ret.Rcode == dns.RcodeSuccess && isEmpty(ret) {
+				if _, ok := f.Next.(*Forward); ok {
+					return plugin.NextOrFailure(f.Name(), f.Next, ctx, w, r)
 				}
 			}
 		}

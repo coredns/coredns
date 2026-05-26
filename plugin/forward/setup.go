@@ -395,6 +395,11 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 
 			f.nextAlternateRcodes = append(f.nextAlternateRcodes, rc)
 		}
+	case "next_on_nodata":
+		if c.NextArg() {
+			return c.ArgErr()
+		}
+		f.nextOnNodata = true
 	case "failfast_all_unhealthy_upstreams":
 		args := c.RemainingArgs()
 		if len(args) != 0 {
