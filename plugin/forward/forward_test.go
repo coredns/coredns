@@ -2,6 +2,7 @@ package forward
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strings"
 	"testing"
@@ -11,8 +12,10 @@ import (
 	"github.com/coredns/caddy/caddyfile"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/dnstap"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/proxy"
 	"github.com/coredns/coredns/plugin/pkg/transport"
+	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
 	"github.com/opentracing/opentracing-go"
@@ -153,6 +156,84 @@ func TestForward_Regression_NoBusyLoop(t *testing.T) {
 			// attempts as observed via spans should be equal to the configured value.
 			if tc.maxAttempts > 0 && uint32(len(spans)) != tc.maxAttempts {
 				t.Errorf("Expected %d spans, got %d", tc.maxAttempts, len(spans))
+			}
+		})
+	}
+}
+
+func TestForward_NextOnNodata(t *testing.T) {
+	tests := []struct {
+		name         string
+		nextOnNodata bool
+	}{
+		{name: "serveEmpty", nextOnNodata: false},
+		{name: "nextNotEmpty", nextOnNodata: true},
+	}
+
+	s1 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		w.WriteMsg(ret)
+	})
+	s2 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.1"))
+		w.WriteMsg(ret)
+	})
+	defer s1.Close()
+	defer s2.Close()
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var config string
+			if tc.nextOnNodata {
+				config = `
+					forward . %s {
+						next_on_nodata
+					}
+					forward . %s
+					`
+			} else {
+				config = `
+					forward . %s
+					forward . %s
+					`
+			}
+			c := caddy.NewTestController("dns", fmt.Sprintf(config, s1.Addr, s2.Addr))
+			fs, err := parseForward(c)
+			if err != nil {
+				t.Errorf("Failed to create forwarder: %s", err)
+			}
+			if x := len(fs); x != 2 {
+				t.Errorf("Failed to create two forward instances")
+			}
+			f := fs[0]
+			f.Next = fs[1]
+			f.OnStartup()
+			defer f.OnShutdown()
+
+			m := new(dns.Msg)
+			m.SetQuestion("example.org.", dns.TypeA)
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+			if _, err := f.ServeDNS(context.TODO(), rec, m); err != nil {
+				t.Fatal("Expected to receive reply, but didn't")
+			}
+			if x := rec.Rcode; x != dns.RcodeSuccess {
+				t.Errorf("Expected %v, got %+v instead", dns.RcodeSuccess, rec)
+			}
+			if tc.nextOnNodata {
+				if x := len(rec.Msg.Answer); x != 1 {
+					t.Errorf("Expected answer, got %d instead", x)
+				}
+				if x := rec.Msg.Answer[0].Header().Name; x != "example.org." {
+					t.Errorf("Expected %s, got %s", "example.org.", x)
+				}
+			} else {
+				if x := len(rec.Msg.Answer); x != 0 {
+					t.Errorf("Expected zero length answer, got %d instead", x)
+				}
 			}
 		})
 	}
