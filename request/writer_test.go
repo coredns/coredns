@@ -1,6 +1,7 @@
 package request
 
 import (
+	"crypto/tls"
 	"fmt"
 	"testing"
 
@@ -19,6 +20,15 @@ func (m *mockResponseWriter) WriteMsg(msg *dns.Msg) error {
 	m.lastMsg = msg
 	return nil
 }
+
+// connStateResponseWriter implements both dns.ResponseWriter and
+// dns.ConnectionStater for testing forwarding through ScrubWriter.
+type connStateResponseWriter struct {
+	test.ResponseWriter
+	state *tls.ConnectionState
+}
+
+func (c *connStateResponseWriter) ConnectionState() *tls.ConnectionState { return c.state }
 
 func TestScrubWriter(t *testing.T) {
 	req := new(dns.Msg)
@@ -47,5 +57,28 @@ func TestScrubWriter(t *testing.T) {
 	// Verify that ScrubWriter called methods properly
 	if mock.lastMsg == nil {
 		t.Fatalf("Expected WriteMsg to be called with a message")
+	}
+}
+
+func TestScrubWriterConnectionStateForwarded(t *testing.T) {
+	want := &tls.ConnectionState{ServerName: "example.test"}
+	inner := &connStateResponseWriter{state: want}
+
+	sw := NewScrubWriter(new(dns.Msg), inner)
+
+	cs, ok := dns.ResponseWriter(sw).(dns.ConnectionStater)
+	if !ok {
+		t.Fatal("ScrubWriter does not satisfy dns.ConnectionStater")
+	}
+	if got := cs.ConnectionState(); got != want {
+		t.Errorf("ConnectionState() = %v, want %v", got, want)
+	}
+}
+
+func TestScrubWriterConnectionStateNilWhenUnsupported(t *testing.T) {
+	sw := NewScrubWriter(new(dns.Msg), &mockResponseWriter{})
+
+	if got := sw.ConnectionState(); got != nil {
+		t.Errorf("ConnectionState() = %v, want nil when wrapped writer is not a ConnectionStater", got)
 	}
 }

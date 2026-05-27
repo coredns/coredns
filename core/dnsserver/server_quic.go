@@ -221,6 +221,7 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 		localAddr:  conn.LocalAddr(),
 		remoteAddr: conn.RemoteAddr(),
 		stream:     stream,
+		conn:       conn,
 		Msg:        req,
 	}
 

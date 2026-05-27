@@ -1,6 +1,10 @@
 package request
 
-import "github.com/miekg/dns"
+import (
+	"crypto/tls"
+
+	"github.com/miekg/dns"
+)
 
 // ScrubWriter will, when writing the message, call scrub to make it fit the client's buffer.
 type ScrubWriter struct {
@@ -18,4 +22,17 @@ func (s *ScrubWriter) WriteMsg(m *dns.Msg) error {
 	state.SizeAndDo(m)
 	state.Scrub(m)
 	return s.ResponseWriter.WriteMsg(m)
+}
+
+// ConnectionState forwards the TLS connection state from the wrapped
+// dns.ResponseWriter, if any. Method-set promotion through the embedded
+// dns.ResponseWriter does not surface ConnectionState because it belongs to
+// the separate dns.ConnectionStater interface, so plugins that need TLS state
+// (e.g. SNI) would otherwise lose access to it once ScrubWriter wraps the
+// underlying writer.
+func (s *ScrubWriter) ConnectionState() *tls.ConnectionState {
+	if cs, ok := s.ResponseWriter.(dns.ConnectionStater); ok {
+		return cs.ConnectionState()
+	}
+	return nil
 }
