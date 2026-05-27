@@ -2,6 +2,7 @@ package log
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -180,5 +181,16 @@ func TestLogParse(t *testing.T) {
 					i, j, test.expectedLogRules[j].Class, actualLogRule.Class)
 			}
 		}
+	}
+}
+
+func TestLogParseUnknownProperty(t *testing.T) {
+	c := caddy.NewTestController("dns", `log { unknown }`)
+	_, err := logParse(c)
+	if err == nil {
+		t.Fatal("expected error for unknown block option, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown property") {
+		t.Errorf("expected error to contain 'unknown property', got: %v", err)
 	}
 }
