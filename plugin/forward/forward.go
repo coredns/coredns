@@ -57,6 +57,10 @@ type Forward struct {
 	failoverRcodes             []int
 	maxConnectAttempts         uint32
 
+	// Hostname resolution fields
+	resolver  []string  // custom resolver IPs for hostname TO resolution
+	toEntries []toEntry // ordered TO entries preserving config order
+
 	opts proxyPkg.Options // also here for testing
 
 	// ErrLimitExceeded indicates that a query was rejected because the number of concurrent queries has exceeded
