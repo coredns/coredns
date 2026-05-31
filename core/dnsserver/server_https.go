@@ -242,7 +242,7 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	buf, _ := dw.Msg.Pack()
 
 	mt, _ := response.Typify(dw.Msg, time.Now().UTC())
-	age := dnsutil.MinimalTTL(dw.Msg, mt)
+	age := dnsutil.MinimalTTL(dw.Msg, mt, dnsutil.MaximumDefaultTTL)
 
 	w.Header().Set("Content-Type", doh.MimeType)
 	w.Header().Set("Cache-Control", fmt.Sprintf("max-age=%d", uint32(age.Seconds())))
