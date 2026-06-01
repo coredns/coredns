@@ -87,6 +87,9 @@ else
 	    if [ "$${arch}" = "riscv64" ]; then \
 	        DOCKER_ARGS="--build-arg=DEBIAN_IMAGE=debian:unstable-slim --build-arg=BASE=ghcr.io/go-riscv/distroless/static-unstable:nonroot"; \
 	    fi; \
+	    if [ "$${arch}" = "loong64" ]; then \
+            DOCKER_ARGS="--build-arg=DEBIAN_IMAGE=ghcr.io/loong64/debian:trixie-slim --build-arg=BASE=ghcr.io/loong64/debian:trixie-slim"; \
+        fi; \
 	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) $${DOCKER_ARGS} build/docker/$${arch} ;\
 	done
 endif
