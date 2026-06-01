@@ -29,6 +29,8 @@ endif
 VERSION:=
 # DOCKER is the docker image repo we need to push to.
 DOCKER:=
+# EXTRA_DOCKER_BUILD_ARGS is for docker build, such as --load or --pull
+EXTRA_DOCKER_BUILD_ARGS:=
 NAME:=coredns
 GITHUB:=https://github.com/coredns/coredns/releases/download
 # mips is not in LINUX_ARCH because it's not supported by docker manifest. Keep this list in sync with the one in Makefile.release
@@ -87,7 +89,7 @@ else
 	    if [ "$${arch}" = "riscv64" ]; then \
 	        DOCKER_ARGS="--build-arg=DEBIAN_IMAGE=debian:unstable-slim --build-arg=BASE=ghcr.io/go-riscv/distroless/static-unstable:nonroot"; \
 	    fi; \
-	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) $${DOCKER_ARGS} build/docker/$${arch} ;\
+	    DOCKER_BUILDKIT=1 docker build --platform=$${arch} -t $(DOCKER_IMAGE_NAME):$${arch}-$(VERSION) $${DOCKER_ARGS} $(EXTRA_DOCKER_BUILD_ARGS) build/docker/$${arch} ;\
 	done
 endif
 
