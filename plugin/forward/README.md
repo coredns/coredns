@@ -250,7 +250,7 @@ service with health checks.
 ~~~
 
 The same configuration but using DNS-over-HTTPS (DoH) protocol. Note that the implementation uses the default `/dns-query`
-path.
+path (custom paths are not supported).
 
 ~~~ corefile
 . {

@@ -159,6 +159,14 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		return f, fmt.Errorf("max_age (%s) must not be less than expire (%s)", f.maxAge, f.expire)
 	}
 
+	// Reject HTTPS upstreams that include a path, the doh implementation default to /dns-query path.
+	for _, addr := range to {
+		trans, h := parse.Transport(addr)
+		if trans == transport.HTTPS && strings.Contains(h, "/") {
+			return f, fmt.Errorf("paths are not allowed in HTTPS upstream addresses (the /dns-query path is used by default): %s", addr)
+		}
+	}
+
 	// Classify TO addresses in order, preserving config ordering.
 	entries, err := classifyToAddrs(to)
 	if err != nil {

@@ -47,6 +47,7 @@ func TestSetup(t *testing.T) {
 		{"forward . tls://[2400:3200::1%dns.alidns.com]:853 {\ntls\n}\n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
 		{"forward . https://127.0.0.1 \n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
 		// negative
+		{"forward . https://1.1.1.1/ \n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "paths are not allowed in HTTPS upstream addresses"},
 		{"forward . a27.0.0.1", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "failed to resolve"},
 		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unknown property"},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "Wrong argument count or unexpected line ending after 'domain'"},
