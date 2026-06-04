@@ -52,9 +52,6 @@ func (l *loggerAdapter) Write(p []byte) (n int, err error) {
 // Plugins can access the original HTTP request to retrieve headers, client IP, and metadata.
 type HTTPRequestKey struct{}
 
-// connAddrKey is the context key for the per-connection local address set by ConnContext.
-type connAddrKey struct{}
-
 // NewServerHTTPS returns a new CoreDNS HTTPS server and compiles all plugins in to it.
 func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 	s, err := NewServer(addr, group)
@@ -93,9 +90,6 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 		WriteTimeout: s.WriteTimeout,
 		IdleTimeout:  s.IdleTimeout,
 		ErrorLog:     stdlog.New(&loggerAdapter{}, "", 0),
-		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
-			return context.WithValue(ctx, connAddrKey{}, c.LocalAddr())
-		},
 	}
 	maxConnections := DefaultHTTPSMaxConnections
 	if len(group) > 0 && group[0] != nil && group[0].MaxHTTPSConnections != nil {
@@ -176,9 +170,9 @@ func (s *ServerHTTPS) Stop() error {
 	return nil
 }
 
-// localAddr returns the per-connection local address from context, or s.listenAddr as fallback.
+// localAddr returns the per-connection local address, or s.listenAddr as fallback.
 func (s *ServerHTTPS) localAddr(r *http.Request) net.Addr {
-	if addr, ok := r.Context().Value(connAddrKey{}).(net.Addr); ok {
+	if addr, ok := r.Context().Value(http.LocalAddrContextKey).(net.Addr); ok {
 		return addr
 	}
 	return s.listenAddr

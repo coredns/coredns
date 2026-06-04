@@ -196,7 +196,7 @@ func TestDoHWriterLaddrFromConnContext(t *testing.T) {
 	ppDst := &net.TCPAddr{IP: net.ParseIP("10.0.0.1"), Port: 443}
 
 	r := httptest.NewRequest(http.MethodPost, "/dns-query", io.NopCloser(bytes.NewReader(buf)))
-	ctx := context.WithValue(r.Context(), connAddrKey{}, ppDst)
+	ctx := context.WithValue(r.Context(), http.LocalAddrContextKey, ppDst)
 	r = r.WithContext(ctx)
 	w := httptest.NewRecorder()
 
@@ -230,7 +230,7 @@ func TestDoHWriterLaddrFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// No connAddrKey in context; should fall back to s.listenAddr.
+	// No LocalAddrContextKey in context; should fall back to s.listenAddr.
 	r := httptest.NewRequest(http.MethodPost, "/dns-query", io.NopCloser(bytes.NewReader(buf)))
 	w := httptest.NewRecorder()
 
