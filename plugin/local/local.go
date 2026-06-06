@@ -37,8 +37,8 @@ func (l Local) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	qname := state.QName()
 
 	lc := len("localhost.")
-	if len(state.Name()) > lc && strings.HasPrefix(state.Name(), "localhost.") {
-		// we have multiple labels, but the first one is localhost, intercept this and return 127.0.0.1 or ::1
+	if len(state.Name()) > lc && strings.HasSuffix(state.Name(), ".localhost.") {
+		// Intercept names under .localhost. and return loopback addresses for A/AAAA queries.
 		log.Debugf("Intercepting localhost query for %q %s, from %s", state.Name(), state.Type(), state.IP())
 		LocalhostCount.Inc()
 		reply := doLocalhost(state)

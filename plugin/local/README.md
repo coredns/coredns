@@ -6,16 +6,16 @@
 
 ## Description
 
-*local* will respond with a basic reply to a "local request". Local request are defined to be
+*local* will respond with a basic reply to a "local request". Local requests are defined to be
 names in the following zones: localhost, 0.in-addr.arpa, 127.in-addr.arpa and 255.in-addr.arpa *and*
-any query asking for `localhost.<domain>`. When seeing the latter a metric counter is increased and
-if *debug* is enabled a debug log is emitted.
+any query under `.localhost.`. When seeing the latter a metric counter is increased and if *debug*
+is enabled a debug log is emitted.
 
-With *local* enabled any query falling under these zones will get a reply. The prevents the query
+With *local* enabled any query falling under these zones will get a reply. This prevents the query
 from "escaping" to the internet and putting strain on external infrastructure.
 
-The zones are mostly empty, only `localhost.` address records (A and AAAA) are defined and a
-`1.0.0.127.in-addr.arpa.` reverse (PTR) record.
+The zones are mostly empty, only `localhost.` and names under `.localhost.` return loopback address
+records (A and AAAA), and only `1.0.0.127.in-addr.arpa.` has a reverse (PTR) record.
 
 ## Syntax
 
@@ -27,7 +27,7 @@ local
 
 If monitoring is enabled (via the *prometheus* plugin) then the following metric is exported:
 
-* `coredns_local_localhost_requests_total{}` - a counter of the number of `localhost.<domain>`
+* `coredns_local_localhost_requests_total{}` - a counter of the number of queries under `.localhost.`
   requests CoreDNS has seen. Note this does *not* count `localhost.` queries.
 
 Note that this metric *does not* have a `server` label, because it's more interesting to find the
