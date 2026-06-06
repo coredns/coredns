@@ -8,9 +8,14 @@ import (
 	"github.com/miekg/dns"
 )
 
-// MinimalTTL scans the DNS message and returns the lowest TTL found,
+// MinimalTTL scans the message returns the lowest TTL found taking into the response.Type of the message.
+func MinimalTTL(m *dns.Msg, mt response.Type) time.Duration {
+	return MinimalTTLWithMaximum(m, mt, MaximumDefaultTTL)
+}
+
+// MinimalTTLWithMaximum scans the DNS message and returns the lowest TTL found,
 // constrained by maximumTTL and the response type.
-func MinimalTTL(m *dns.Msg, mt response.Type, maximumTTL time.Duration) time.Duration {
+func MinimalTTLWithMaximum(m *dns.Msg, mt response.Type, maximumTTL time.Duration) time.Duration {
 	if mt != response.NoError && mt != response.NameError && mt != response.NoData {
 		return MinimalDefaultTTL
 	}

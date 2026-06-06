@@ -224,12 +224,12 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	var duration time.Duration
 	switch mt {
 	case response.NameError, response.NoData:
-		msgTTL := dnsutil.MinimalTTL(res, mt, w.nttl)
+		msgTTL := dnsutil.MinimalTTLWithMaximum(res, mt, w.nttl)
 		duration = computeTTL(msgTTL, w.minnttl, w.nttl)
 	case response.ServerError:
 		duration = w.failttl
 	default:
-		msgTTL := dnsutil.MinimalTTL(res, mt, w.pttl)
+		msgTTL := dnsutil.MinimalTTLWithMaximum(res, mt, w.pttl)
 		duration = computeTTL(msgTTL, w.minpttl, w.pttl)
 	}
 
