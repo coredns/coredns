@@ -1,4 +1,4 @@
-package any
+package local
 
 import (
 	"testing"
@@ -8,27 +8,26 @@ import (
 )
 
 func TestSetup(t *testing.T) {
-	c := caddy.NewTestController("dns", `any`)
+	c := caddy.NewTestController("dns", `local`)
 	if err := setup(c); err != nil {
-		t.Fatalf("Expected no errors, but got: %v", err)
+		t.Fatalf("expected no errors, but got: %v", err)
 	}
 
-	// Check that the plugin was added to the config
 	cfg := dnsserver.GetConfig(c)
 	if len(cfg.Plugin) == 0 {
-		t.Error("Expected plugin to be added to config")
+		t.Fatal("expected plugin to be added to config")
 	}
 }
 
 func TestSetupRejectsArgs(t *testing.T) {
-	c := caddy.NewTestController("dns", `any example.org`)
+	c := caddy.NewTestController("dns", `local example.org`)
 	if err := setup(c); err == nil {
 		t.Fatal("expected error for unexpected argument, got nil")
 	}
 }
 
 func TestSetupRejectsBlockOptions(t *testing.T) {
-	c := caddy.NewTestController("dns", `any { foo }`)
+	c := caddy.NewTestController("dns", `local { foo }`)
 	if err := setup(c); err == nil {
 		t.Fatal("expected error for unexpected block option, got nil")
 	}

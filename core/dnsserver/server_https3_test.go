@@ -152,6 +152,27 @@ func TestNewServerHTTPS3ZeroLimits(t *testing.T) {
 	}
 }
 
+func TestNewServerHTTPS3DefaultMaxHeaderBytes(t *testing.T) {
+	c := Config{
+		Zone:        "example.com.",
+		Transport:   "https3",
+		TLSConfig:   &tls.Config{},
+		ListenHosts: []string{"127.0.0.1"},
+		Port:        "443",
+	}
+
+	server, err := NewServerHTTPS3("127.0.0.1:443", []*Config{&c})
+	if err != nil {
+		t.Fatalf("NewServerHTTPS3() failed: %v", err)
+	}
+
+	if server.httpsServer.MaxHeaderBytes != DefaultHTTPS3MaxHeaderBytes {
+		t.Errorf("expected MaxHeaderBytes = %d, got %d",
+			DefaultHTTPS3MaxHeaderBytes,
+			server.httpsServer.MaxHeaderBytes)
+	}
+}
+
 func testConfigWithTSIGCheckPluginHTTPS3(t *testing.T, check func(*testing.T, error)) *Config {
 	t.Helper()
 

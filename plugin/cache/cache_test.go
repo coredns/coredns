@@ -362,6 +362,27 @@ func TestCacheZeroTTL(t *testing.T) {
 	}
 }
 
+func TestCacheHonorsConfiguredPositiveMaxTTLAboveDefault(t *testing.T) {
+	c := New()
+	c.pttl = 2 * time.Hour
+	c.minpttl = 0
+	c.Next = ttlBackend(24 * 60 * 60)
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(context.TODO(), rec, req)
+
+	if rec.Msg == nil || len(rec.Msg.Answer) == 0 {
+		t.Fatalf("expected answer, got %+v", rec.Msg)
+	}
+
+	if got, want := rec.Msg.Answer[0].Header().Ttl, uint32(7200); got != want {
+		t.Fatalf("expected TTL %d, got %d", want, got)
+	}
+}
+
 func TestCacheServfailTTL0(t *testing.T) {
 	c := New()
 	c.minpttl = minTTL
