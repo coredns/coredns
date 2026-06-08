@@ -55,5 +55,6 @@ Yong Tang
 * plugin/forward: Forward NODATA responses to Next handler (https://github.com/coredns/coredns/pull/8065)
 * plugin/health: Use descriptive error for unknown block options in health and log plugins (https://github.com/coredns/coredns/pull/8128)
 * plugin/ready: Reject unknown ready plugin properties (https://github.com/coredns/coredns/pull/8119)
+* plugin/proxyproto: Prevent nil pointer dereference when dropping malformed PROXY packets (https://github.com/coredns/coredns/pull/8154)
 * plugin/secondary: Add fallthrough support (https://github.com/coredns/coredns/pull/8041)
 * plugin/trace: Reject unknown trace and dnstap block options (https://github.com/coredns/coredns/pull/8120)
