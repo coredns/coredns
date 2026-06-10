@@ -275,6 +275,10 @@ func propagateConfigParams(configs []*Config) {
 		c.WriteTimeout = c.firstConfigInBlock.WriteTimeout
 		c.IdleTimeout = c.firstConfigInBlock.IdleTimeout
 		c.TsigSecret = c.firstConfigInBlock.TsigSecret
+
+		// Propagate HTTPRequestValidateFunc so that custom path validators work in
+		// multi-transport blocks. Otherwise HTTPS 404s on non-"/dns-query" paths.
+		c.HTTPRequestValidateFunc = c.firstConfigInBlock.HTTPRequestValidateFunc
 	}
 }
 
