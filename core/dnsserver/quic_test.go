@@ -48,3 +48,11 @@ func TestDoQWriter_ResponseWriterMethods(t *testing.T) {
 		t.Errorf("RemoteAddr() = %v, want %v", addr, remoteAddr)
 	}
 }
+
+func TestDoQWriter_ConnectionStateNilConn(t *testing.T) {
+	writer := &DoQWriter{}
+
+	if state := writer.ConnectionState(); state != nil {
+		t.Errorf("ConnectionState() = %v, want nil when conn is unset", state)
+	}
+}

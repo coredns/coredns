@@ -27,12 +27,18 @@ A working syntax would be:
 ~~~
 secondary [zones...] {
     transfer from ADDRESS [ADDRESS...]
+    fallthrough [ZONES...]
 }
 ~~~
 
 *  `transfer from` specifies from which **ADDRESS** to fetch the zone. It can be specified multiple
    times; if one does not work, another will be tried. Transferring this zone outwards again can be
    done by enabling the *transfer* plugin.
+
+*  `fallthrough` If a query for a record in the zone results in NXDOMAIN, the query will be passed
+   to the next plugin in the chain. If **[ZONES...]** are listed, then only queries for those zones
+   will be subject to fallthrough. This can be useful in split DNS setups where the secondary zone
+   contains only partial records.
 
 When a zone is due to be refreshed (refresh timer fires) a random jitter of 5 seconds is applied,
 before fetching. In the case of retry this will be 2 seconds. If there are any errors during the

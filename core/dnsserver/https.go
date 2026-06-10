@@ -17,6 +17,9 @@ type DoHWriter struct {
 	// request is the HTTP request we're currently handling.
 	request *http.Request
 
+	// tsigStatus stores the TSIG verification result for the request.
+	tsigStatus error
+
 	// Msg is a response to be written to the client.
 	Msg *dns.Msg
 }
@@ -58,9 +61,9 @@ func (d *DoHWriter) Close() error {
 	return nil
 }
 
-// TsigStatus no-op implementation.
+// TsigStatus returns the TSIG verification status for this request.
 func (d *DoHWriter) TsigStatus() error {
-	return nil
+	return d.tsigStatus
 }
 
 // TsigTimersOnly no-op implementation.

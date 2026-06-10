@@ -15,9 +15,10 @@ import (
 
 // Zone is a structure that contains all data related to a DNS zone.
 type Zone struct {
-	origin  string
-	origLen int
-	file    string
+	origin     string
+	origLen    int
+	file       string
+	file_mtime time.Time
 	*tree.Tree
 	Apex
 	Expired bool
@@ -28,6 +29,7 @@ type Zone struct {
 	TransferFrom []string
 
 	ReloadInterval time.Duration
+	ReloadByMtime  bool
 	reloadShutdown chan bool
 
 	Upstream *upstream.Upstream // Upstream for looking up external names during the resolution process.
@@ -81,7 +83,7 @@ func (z *Zone) CopyWithoutApex() *Zone {
 func (z *Zone) Insert(r dns.RR) error {
 	// r.Header().Name = strings.ToLower(r.Header().Name)
 	if r.Header().Rrtype != dns.TypeSRV {
-		r.Header().Name = strings.ToLower(r.Header().Name)
+		r.Header().Name = strings.ToLower(canonicalEscape(r.Header().Name))
 	}
 
 	switch h := r.Header().Rrtype; h {
@@ -142,27 +144,42 @@ func (z *Zone) SetFile(path string) {
 	z.Unlock()
 }
 
-// ApexIfDefined returns the apex nodes from z. The SOA record is the first record, if it does not exist, an error is returned.
-func (z *Zone) ApexIfDefined() ([]dns.RR, error) {
+// snapshot returns the apex and tree under a single read lock so callers see
+// a consistent zone generation even if TransferIn or Reload swaps them.
+func (z *Zone) snapshot() (Apex, *tree.Tree) {
 	z.RLock()
 	defer z.RUnlock()
-	if z.SOA == nil {
+	return z.Apex, z.Tree
+}
+
+// setData atomically replaces the zone's apex and tree and clears the expired
+// flag. It is the write-side counterpart to snapshot.
+func (z *Zone) setData(ap Apex, t *tree.Tree) {
+	z.Lock()
+	z.Apex = ap
+	z.Tree = t
+	z.Expired = false
+	z.Unlock()
+}
+
+// records returns the apex records in zone-file order (SOA, RRSIG(SOA), NS,
+// RRSIG(NS)), or an error if no SOA is set.
+func (a Apex) records() ([]dns.RR, error) {
+	if a.SOA == nil {
 		return nil, fmt.Errorf("no SOA")
 	}
-
-	rrs := []dns.RR{z.SOA}
-
-	if len(z.SIGSOA) > 0 {
-		rrs = append(rrs, z.SIGSOA...)
-	}
-	if len(z.NS) > 0 {
-		rrs = append(rrs, z.NS...)
-	}
-	if len(z.SIGNS) > 0 {
-		rrs = append(rrs, z.SIGNS...)
-	}
-
+	rrs := make([]dns.RR, 0, 1+len(a.SIGSOA)+len(a.NS)+len(a.SIGNS))
+	rrs = append(rrs, a.SOA)
+	rrs = append(rrs, a.SIGSOA...)
+	rrs = append(rrs, a.NS...)
+	rrs = append(rrs, a.SIGNS...)
 	return rrs, nil
+}
+
+// ApexIfDefined returns the apex nodes from z. The SOA record is the first record, if it does not exist, an error is returned.
+func (z *Zone) ApexIfDefined() ([]dns.RR, error) {
+	ap, _ := z.snapshot()
+	return ap.records()
 }
 
 // NameFromRight returns the labels from the right, staring with the
@@ -192,14 +209,32 @@ func (z *Zone) nameFromRight(qname string, i int) (string, bool) {
 	return qname[n:], false
 }
 
-func (z *Zone) hasSOA() bool {
-	z.RLock()
-	defer z.RUnlock()
-	return z.SOA != nil
-}
-
 func (z *Zone) getSOA() *dns.SOA {
 	z.RLock()
 	defer z.RUnlock()
 	return z.SOA
+}
+
+// canonicalEscape normalizes the escape representation of name. RFC 1035
+// §5.1 lets the same byte be written as \DDD (decimal) or \c (literal
+// character), and miekg/dns's zone parser preserves whichever form
+// appeared in the input. Wire format has no such freedom, so packing
+// then unpacking yields the canonical text representation that incoming
+// queries use. Without this, an owner name written as has\046dot.example.
+// in a zone file is stored under that literal string and never matches a
+// query for has\.dot.example., which is how the wire form unpacks.
+func canonicalEscape(name string) string {
+	if !strings.ContainsRune(name, '\\') {
+		return name
+	}
+	buf := make([]byte, len(name)+1)
+	off, err := dns.PackDomainName(name, buf, 0, nil, false)
+	if err != nil {
+		return name
+	}
+	out, _, err := dns.UnpackDomainName(buf[:off], 0)
+	if err != nil {
+		return name
+	}
+	return out
 }

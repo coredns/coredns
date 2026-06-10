@@ -362,6 +362,27 @@ func TestCacheZeroTTL(t *testing.T) {
 	}
 }
 
+func TestCacheHonorsConfiguredPositiveMaxTTLAboveDefault(t *testing.T) {
+	c := New()
+	c.pttl = 2 * time.Hour
+	c.minpttl = 0
+	c.Next = ttlBackend(24 * 60 * 60)
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(context.TODO(), rec, req)
+
+	if rec.Msg == nil || len(rec.Msg.Answer) == 0 {
+		t.Fatalf("expected answer, got %+v", rec.Msg)
+	}
+
+	if got, want := rec.Msg.Answer[0].Header().Ttl, uint32(7200); got != want {
+		t.Fatalf("expected TTL %d, got %d", want, got)
+	}
+}
+
 func TestCacheServfailTTL0(t *testing.T) {
 	c := New()
 	c.minpttl = minTTL
@@ -498,6 +519,103 @@ func TestServeFromStaleCacheFetchVerify(t *testing.T) {
 				t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, soaTtl)
 			}
 		}
+	}
+}
+
+func TestServeFromStaleCacheFetchVerifyTimeout(t *testing.T) {
+	// Verify that when verifyStaleTimeout is set and the upstream is slow,
+	// the client gets the stale entry within ~timeout, while the in-flight
+	// verify continues in the background and refreshes the cache.
+	c := New()
+	c.staleUpTo = 1 * time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 50 * time.Millisecond
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// Prime the cache with a 120s TTL entry.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(ctx, rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+
+	// Move forward past the TTL so the entry is stale.
+	c.now = func() time.Time { return time.Now().Add(3 * time.Minute) }
+
+	// Swap in a slow backend that takes longer than the verify timeout.
+	bgDone := make(chan struct{})
+	c.Next = slowTTLBackend(60, 200*time.Millisecond, bgDone)
+
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	start := time.Now()
+	ret, err := c.ServeDNS(ctx, rec, req.Copy())
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ret != dns.RcodeSuccess {
+		t.Fatalf("expected RcodeSuccess, got %d", ret)
+	}
+	if elapsed > 150*time.Millisecond {
+		t.Errorf("expected response within ~timeout (50ms); took %v", elapsed)
+	}
+	if rec.Msg == nil || len(rec.Msg.Answer) == 0 {
+		t.Fatalf("expected an answer, got %+v", rec.Msg)
+	}
+	// Stale serve sets TTL to 0.
+	if got := rec.Msg.Answer[0].Header().Ttl; got != 0 {
+		t.Errorf("expected stale TTL=0, got %d", got)
+	}
+
+	// Wait for the background verify to complete.
+	select {
+	case <-bgDone:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("background verify never completed")
+	}
+}
+
+func TestServeFromStaleCacheFetchVerifyTimeoutFastUpstream(t *testing.T) {
+	// When the upstream answers within the verify timeout, the client should
+	// receive the freshly verified response (not a stale one).
+	c := New()
+	c.staleUpTo = 1 * time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 500 * time.Millisecond
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(ctx, rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+
+	c.now = func() time.Time { return time.Now().Add(3 * time.Minute) }
+	// Fast upstream returning fresh TTL=200.
+	c.Next = ttlBackend(200)
+
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	ret, err := c.ServeDNS(ctx, rec, req.Copy())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ret != dns.RcodeSuccess {
+		t.Fatalf("expected RcodeSuccess, got %d", ret)
+	}
+	if rec.Msg == nil || len(rec.Msg.Answer) == 0 {
+		t.Fatalf("expected an answer, got %+v", rec.Msg)
+	}
+	if got := rec.Msg.Answer[0].Header().Ttl; got != 200 {
+		t.Errorf("expected fresh TTL=200, got %d", got)
 	}
 }
 
@@ -669,6 +787,28 @@ func servFailBackend(ttl int) plugin.Handler {
 		m.Rcode = dns.RcodeServerFailure
 		w.WriteMsg(m)
 		return dns.RcodeServerFailure, nil
+	})
+}
+
+// slowTTLBackend wraps ttlBackend with a fixed delay to simulate a slow upstream.
+// done is closed once the response is written so callers can synchronise with the
+// background goroutine.
+func slowTTLBackend(ttl int, delay time.Duration, done chan<- struct{}) plugin.Handler {
+	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return dns.RcodeServerFailure, ctx.Err()
+		}
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A(fmt.Sprintf("example.org. %d IN A 127.0.0.53", ttl))}
+		w.WriteMsg(m)
+		if done != nil {
+			close(done)
+		}
+		return dns.RcodeSuccess, nil
 	})
 }
 
@@ -907,4 +1047,43 @@ func wildcardMetadataBackend(qname, wildcard string) plugin.Handler {
 
 		return dns.RcodeSuccess, nil
 	})
+}
+
+func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour // enable serve_stale
+	c.failttl = 5 * time.Second
+	now := time.Now()
+	c.now = func() time.Time { return now }
+
+	// Manually insert a positive entry in pcache (stored 30s ago, TTL 120s -> still valid).
+	posMsg := new(dns.Msg)
+	posMsg.SetQuestion("example.org.", dns.TypeA)
+	posMsg.Response = true
+	posMsg.Answer = []dns.RR{test.A("example.org. 120 IN A 127.0.0.53")}
+	posItem := newItem(posMsg, now.Add(-30*time.Second), 120*time.Second)
+	k := hash("example.org.", dns.TypeA, false, false)
+	c.pcache.Add(k, posItem)
+
+	// Manually insert a SERVFAIL entry in ncache (stored just now, TTL 5s).
+	failMsg := new(dns.Msg)
+	failMsg.SetQuestion("example.org.", dns.TypeA)
+	failMsg.Response = true
+	failMsg.Rcode = dns.RcodeServerFailure
+	failMsg.Ns = []dns.RR{test.SOA("example.org. 5 IN SOA sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600")}
+	failItem := newItem(failMsg, now, 5*time.Second)
+	c.ncache.Add(k, failItem)
+
+	// Lookup should prefer the positive entry over the SERVFAIL.
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+
+	got := c.getIfNotStale(now.Add(time.Second), state, "test")
+	if got == nil {
+		t.Fatal("expected a cached item, got nil")
+	}
+	if got.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected positive cache entry (rcode 0), got rcode %d", got.Rcode)
+	}
 }

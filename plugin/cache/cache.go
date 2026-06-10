@@ -42,8 +42,9 @@ type Cache struct {
 	percentage int
 
 	// Stale serve
-	staleUpTo   time.Duration
-	verifyStale bool
+	staleUpTo          time.Duration
+	verifyStale        bool
+	verifyStaleTimeout time.Duration // 0 means wait for upstream until its own timeout (current default).
 
 	// Positive/negative zone exceptions
 	pexcept []string
@@ -220,14 +221,15 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	// key returns empty string for anything we don't want to cache.
 	hasKey, key := key(w.state.Name(), res, mt, w.do, w.cd)
 
-	msgTTL := dnsutil.MinimalTTL(res, mt)
 	var duration time.Duration
 	switch mt {
 	case response.NameError, response.NoData:
+		msgTTL := dnsutil.MinimalTTLWithMaximum(res, mt, w.nttl)
 		duration = computeTTL(msgTTL, w.minnttl, w.nttl)
 	case response.ServerError:
 		duration = w.failttl
 	default:
+		msgTTL := dnsutil.MinimalTTLWithMaximum(res, mt, w.pttl)
 		duration = computeTTL(msgTTL, w.minpttl, w.pttl)
 	}
 

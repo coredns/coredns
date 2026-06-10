@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/fall"
@@ -148,6 +149,15 @@ func Parse(f io.Reader, origin, fileName string, serial int64) (*Zone, error) {
 	zp := dns.NewZoneParser(f, dns.Fqdn(origin), fileName)
 	zp.SetIncludeAllowed(true)
 	z := NewZone(origin, fileName)
+
+	if z.ReloadByMtime {
+		fi, err := os.Stat(fileName)
+		if err != nil {
+			return nil, fmt.Errorf("failed to stat file %q with error %v", fileName, err)
+		}
+		z.file_mtime = fi.ModTime()
+	}
+
 	seenSOA := false
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
 		if !seenSOA {

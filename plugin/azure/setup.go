@@ -67,18 +67,17 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 
 	var fall fall.F
 	var access string
-	var resourceGroup string
-	var zoneName string
 
 	for c.Next() {
 		args := c.RemainingArgs()
+		var currentZoneKeys []string
 
 		for i := range args {
 			parts := strings.SplitN(args[i], ":", 2)
 			if len(parts) != 2 {
 				return env, resourceGroupMapping, accessMap, fall, c.Errf("invalid resource group/zone: %q", args[i])
 			}
-			resourceGroup, zoneName = parts[0], parts[1]
+			resourceGroup, zoneName := parts[0], parts[1]
 			if resourceGroup == "" || zoneName == "" {
 				return env, resourceGroupMapping, accessMap, fall, c.Errf("invalid resource group/zone: %q", args[i])
 			}
@@ -88,6 +87,7 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 
 			resourceGroupSet[resourceGroup+zoneName] = struct{}{}
 			accessMap[resourceGroup+zoneName] = "public"
+			currentZoneKeys = append(currentZoneKeys, resourceGroup+zoneName)
 			resourceGroupMapping[resourceGroup] = append(resourceGroupMapping[resourceGroup], zoneName)
 		}
 
@@ -131,7 +131,9 @@ func parse(c *caddy.Controller) (auth.EnvironmentSettings, map[string][]string, 
 				if access != "public" && access != "private" {
 					return env, resourceGroupMapping, accessMap, fall, c.Errf("invalid access value: can be public/private, found: %s", access)
 				}
-				accessMap[resourceGroup+zoneName] = access
+				for _, k := range currentZoneKeys {
+					accessMap[k] = access
+				}
 			default:
 				return env, resourceGroupMapping, accessMap, fall, c.Errf("unknown property: %q", c.Val())
 			}

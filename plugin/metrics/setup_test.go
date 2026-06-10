@@ -15,8 +15,17 @@ func TestPrometheusParse(t *testing.T) {
 		// oks
 		{`prometheus`, false, "localhost:9153"},
 		{`prometheus localhost:53`, false, "localhost:53"},
+		{`prometheus {
+			runtime_metrics
+		}`, false, "localhost:9153"},
+		{`prometheus localhost:53 {
+			runtime_metrics
+		}`, false, "localhost:53"},
 		// fails
 		{`prometheus {}`, true, ""},
+		{`prometheus {
+			runtime_metrics extra_arg
+		}`, true, ""},
 		{`prometheus /foo`, true, ""},
 		{`prometheus a b c`, true, ""},
 	}

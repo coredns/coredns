@@ -342,6 +342,7 @@ func TestReloadUnreadyPlugin(t *testing.T) {
 	// Add/Register a perpetually unready plugin
 	dnsserver.Directives = append([]string{"unready"}, dnsserver.Directives...)
 	u := new(unready)
+	u.name = "unready"
 	plugin.Register("unready", func(c *caddy.Controller) error {
 		dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 			u.next = next
@@ -376,6 +377,66 @@ func TestReloadUnreadyPlugin(t *testing.T) {
 	resp.Body.Close()
 	if string(bod) != u.Name() {
 		t.Errorf("Expected /ready endpoint response body %q, got %q", u.Name(), bod)
+	}
+
+	c1.Stop()
+}
+
+// TestReloadTwoServerBlocksUnreadyPlugin tests that the ready plugin properly resets the list of readiness implementors during a reload
+// when there are multiple server blocks.
+func TestReloadTwoServerBlocksUnreadyPlugin(t *testing.T) {
+	// Add/Register a perpetually unready plugin
+	dnsserver.Directives = append([]string{"unready1", "unready2"}, dnsserver.Directives...)
+	u1 := new(unready)
+	u2 := new(unready)
+	u1.name = "unready1"
+	u2.name = "unready2"
+	plugin.Register("unready1", func(c *caddy.Controller) error {
+		dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
+			u1.next = next
+			return u1
+		})
+		return nil
+	})
+	plugin.Register("unready2", func(c *caddy.Controller) error {
+		dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
+			u2.next = next
+			return u2
+		})
+		return nil
+	})
+	corefile := `cluster.local.:0 {
+		unready1
+        whoami
+        ready 127.0.0.1:53185
+	}
+    .:0 {
+		unready2
+        whoami
+        ready 127.0.0.1:53185
+	}`
+
+	coreInput := NewInput(corefile)
+
+	c, err := CoreDNSServer(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+
+	c1, err := c.Restart(coreInput)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := http.Get("http://127.0.0.1:53185/ready")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bod, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	uName := u1.Name() + "," + u2.Name()
+	if string(bod) != uName {
+		t.Errorf("Expected /ready endpoint response body %q, got %q", uName, bod)
 	}
 
 	c1.Stop()
@@ -436,11 +497,12 @@ func TestReloadConcurrentRestartAndStop(t *testing.T) {
 
 type unready struct {
 	next plugin.Handler
+	name string
 }
 
 func (u *unready) Ready() bool { return false }
 
-func (u *unready) Name() string { return "unready" }
+func (u *unready) Name() string { return u.name }
 
 func (u *unready) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	return u.next.ServeDNS(ctx, w, r)

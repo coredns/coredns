@@ -117,25 +117,33 @@ func TestSetup(t *testing.T) {
 
 func TestServeStale(t *testing.T) {
 	tests := []struct {
-		input       string
-		shouldErr   bool
-		staleUpTo   time.Duration
-		verifyStale bool
+		input              string
+		shouldErr          bool
+		staleUpTo          time.Duration
+		verifyStale        bool
+		verifyStaleTimeout time.Duration
 	}{
-		{"serve_stale", false, 1 * time.Hour, false},
-		{"serve_stale 20m", false, 20 * time.Minute, false},
-		{"serve_stale 1h20m", false, 80 * time.Minute, false},
-		{"serve_stale 0m", false, 0, false},
-		{"serve_stale 0", false, 0, false},
-		{"serve_stale 0 verify", false, 0, true},
-		{"serve_stale 0 immediate", false, 0, false},
-		{"serve_stale 0 VERIFY", false, 0, true},
+		{"serve_stale", false, 1 * time.Hour, false, 0},
+		{"serve_stale 20m", false, 20 * time.Minute, false, 0},
+		{"serve_stale 1h20m", false, 80 * time.Minute, false, 0},
+		{"serve_stale 0m", false, 0, false, 0},
+		{"serve_stale 0", false, 0, false, 0},
+		{"serve_stale 0 verify", false, 0, true, 0},
+		{"serve_stale 0 immediate", false, 0, false, 0},
+		{"serve_stale 0 VERIFY", false, 0, true, 0},
+		{"serve_stale 1h verify 100ms", false, 1 * time.Hour, true, 100 * time.Millisecond},
+		{"serve_stale 1h verify 0", false, 1 * time.Hour, true, 0},
+		{"serve_stale 1h VERIFY 250ms", false, 1 * time.Hour, true, 250 * time.Millisecond},
 		// fails
-		{"serve_stale 20", true, 0, false},
-		{"serve_stale -20m", true, 0, false},
-		{"serve_stale aa", true, 0, false},
-		{"serve_stale 1m nono", true, 0, false},
-		{"serve_stale 0 after nono", true, 0, false},
+		{"serve_stale 20", true, 0, false, 0},
+		{"serve_stale -20m", true, 0, false, 0},
+		{"serve_stale aa", true, 0, false, 0},
+		{"serve_stale 1m nono", true, 0, false, 0},
+		{"serve_stale 0 after nono", true, 0, false, 0},
+		{"serve_stale 1h immediate 100ms", true, 0, false, 0},
+		{"serve_stale 1h verify -1ms", true, 0, false, 0},
+		{"serve_stale 1h verify garbage", true, 0, false, 0},
+		{"serve_stale 1h verify 100ms extra", true, 0, false, 0},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", test.input))
@@ -152,6 +160,12 @@ func TestServeStale(t *testing.T) {
 		}
 		if ca.staleUpTo != test.staleUpTo {
 			t.Errorf("Test %v: Expected stale %v but found: %v", i, test.staleUpTo, ca.staleUpTo)
+		}
+		if ca.verifyStale != test.verifyStale {
+			t.Errorf("Test %v: Expected verifyStale %v but found: %v", i, test.verifyStale, ca.verifyStale)
+		}
+		if ca.verifyStaleTimeout != test.verifyStaleTimeout {
+			t.Errorf("Test %v: Expected verifyStaleTimeout %v but found: %v", i, test.verifyStaleTimeout, ca.verifyStaleTimeout)
 		}
 	}
 }

@@ -293,8 +293,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 
 	for _, multiclusterZone := range k8s.opts.multiclusterZones {
 		if !slices.Contains(k8s.Zones, multiclusterZone) {
-			fmt.Println(k8s.Zones)
-			return nil, c.Errf("is not authoritative for the multicluster zone %s", multiclusterZone)
+			return nil, c.Errf("is not authoritative for the multicluster zone %s (authoritative zones: %v)", multiclusterZone, k8s.Zones)
 		}
 	}
 

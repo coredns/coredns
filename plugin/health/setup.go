@@ -58,7 +58,7 @@ func parse(c *caddy.Controller) (string, time.Duration, error) {
 				}
 				dur = l
 			default:
-				return "", 0, c.ArgErr()
+				return "", 0, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 	}

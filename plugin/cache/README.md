@@ -40,7 +40,7 @@ cache [TTL] [ZONES...] {
     success CAPACITY [TTL] [MINTTL]
     denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
-    serve_stale [DURATION] [REFRESH_MODE]
+    serve_stale [DURATION] [REFRESH_MODE [VERIFY_TIMEOUT]]
     servfail DURATION
     disable success|denial [ZONES...]
     keepttl
@@ -74,6 +74,10 @@ cache [TTL] [ZONES...] {
   from ever being served if an updated response can be retrieved from the source.
   In `immediate` mode, concurrent requests for the same expired entry dispatch at most one
   background refresh.
+  **VERIFY_TIMEOUT** is only valid with `verify` and bounds how long the cache waits for the upstream
+  verify before falling back to the stale entry. The verify continues in the background and refreshes the
+  cache when it eventually succeeds, so subsequent queries see the fresh entry. The default of `0` means
+  wait until the upstream's own timeout (the original `verify` behavior). Example: `serve_stale 1h verify 100ms`.
 * `servfail` cache SERVFAIL responses for **DURATION**.  Setting **DURATION** to 0 will disable caching of SERVFAIL
   responses.  If this option is not set, SERVFAIL responses will be cached for 5 seconds.  **DURATION** may not be
   greater than 5 minutes.
