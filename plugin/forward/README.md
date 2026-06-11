@@ -57,6 +57,7 @@ forward FROM TO... {
     next RCODE_1 [RCODE_2] [RCODE_3...]
     failfast_all_unhealthy_upstreams
     failover RCODE_1 [RCODE_2] [RCODE_3...]
+    source_address IP
     resolver IP[:PORT] [IP[:PORT]...]
 }
 ~~~
@@ -117,6 +118,7 @@ forward FROM TO... {
 * `next_on_nodata` If `NOERROR` is returned by the remote, but an empty answer section (`NODATA`) was provided, execute the next `forward` plugin, if configured.
 * `failfast_all_unhealthy_upstreams` - determines the handling of requests when all upstream servers are unhealthy and unresponsive to health checks. Enabling this option will immediately return SERVFAIL responses for all requests. By default, requests are sent to a random upstream.
 * `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
+* `source_address` **IP** - set the address to use for all outgoing requests as source address (also health check query). This works reliably when upstream servers are reachable from that address. However, if upstream servers belong to different networks, care must be taken. The selected source address may not be valid for all upstreams, and responses may fail if return routing is not properly configured. In such cases, make sure that upstream servers have a route back to the configured source address.
 * `resolver` **IP[:PORT] [IP[:PORT]...]** specifies one or more DNS resolver addresses used to resolve hostname-based **TO** endpoints at startup. If not specified, the system resolver (`/etc/resolv.conf`) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or `IP:port`. Multiple addresses can be specified for redundancy.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different

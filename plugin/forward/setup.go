@@ -232,6 +232,10 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			f.proxies[i].GetHealthchecker().SetTCPTransport()
 		}
 		f.proxies[i].GetHealthchecker().SetDomain(f.opts.HCDomain)
+		if f.sourceAddress != nil {
+			f.proxies[i].SetLocalAddress(f.sourceAddress)
+			f.proxies[i].GetHealthchecker().SetLocalAddress(f.sourceAddress)
+		}
 	}
 
 	return f, nil
@@ -452,6 +456,15 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			}
 		}
 		f.resolver = args
+	case "source_address":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		addr := net.ParseIP(c.Val())
+		if addr == nil {
+			return c.Errf("invalid IP address: %s", c.Val())
+		}
+		f.sourceAddress = addr
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}

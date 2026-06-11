@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -56,6 +57,7 @@ type Forward struct {
 	failfastUnhealthyUpstreams bool
 	failoverRcodes             []int
 	maxConnectAttempts         uint32
+	sourceAddress              net.IP
 
 	// Hostname resolution fields
 	resolver  []string  // custom resolver IPs for hostname TO resolution
