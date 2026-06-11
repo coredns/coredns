@@ -9,12 +9,12 @@ import (
 
 // Variables declared for monitoring.
 var (
-	healthcheckBrokenCount = promauto.NewCounter(prometheus.CounterOpts{
+	healthcheckBrokenCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,
 		Subsystem: "forward",
 		Name:      "healthcheck_broken_total",
 		Help:      "Counter of the number of complete failures of the healthchecks.",
-	})
+	}, []string{"from", "to"})
 
 	maxConcurrentRejectCount = promauto.NewCounter(prometheus.CounterOpts{
 		Namespace: plugin.Namespace,

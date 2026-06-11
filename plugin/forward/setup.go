@@ -178,6 +178,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	perServerNameProxyCount := make(map[string]int)
 	transports := make([]string, len(toHosts))
 	allowedTrans := map[string]bool{"dns": true, "tls": true}
+	var addrs []string
 	for i, hostWithZone := range toHosts {
 		host, serverName := splitZone(hostWithZone)
 		trans, h := parse.Transport(host)
@@ -194,6 +195,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			perServerNameProxyCount[serverName]++
 		}
 		p := proxy.NewProxy("forward", h, trans)
+		addrs = append(addrs, p.Addr())
 		f.proxies = append(f.proxies, p)
 		transports[i] = trans
 	}
@@ -233,6 +235,9 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		}
 		f.proxies[i].GetHealthchecker().SetDomain(f.opts.HCDomain)
 	}
+
+	// Set the proxiesAddr field with all proxy addresses joined by +
+	f.proxiesAddr = strings.Join(addrs, "+")
 
 	return f, nil
 }
