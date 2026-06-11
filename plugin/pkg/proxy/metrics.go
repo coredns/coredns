@@ -38,4 +38,12 @@ var (
 		Name:      "conn_cache_misses_total",
 		Help:      "Counter of connection cache misses per upstream and protocol.",
 	}, []string{"proxy_name", "to", "proto"})
+
+	upstreamResponseDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: plugin.Namespace,
+		Subsystem: "proxy",
+		Name:      "upstream_response_duration_seconds",
+		Buckets:   plugin.TimeBuckets,
+		Help:      "Histogram of time taken from sending a DNS request to receiving a response from the upstream (excluding CoreDNS delays).",
+	}, []string{"to", "protocol", "rcode", "server"})
 )
