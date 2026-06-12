@@ -9,15 +9,10 @@ import (
 func init() { plugin.Register("local", setup) }
 
 func setup(c *caddy.Controller) error {
-	c.Next() // 'local'
-	if c.NextArg() {
-		return plugin.Error("local", c.ArgErr())
+	l, err := parse(c)
+	if err != nil {
+		return plugin.Error("local", err)
 	}
-	if c.NextBlock() {
-		return plugin.Error("local", c.Errf("unknown property '%s'", c.Val()))
-	}
-
-	l := Local{}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		l.Next = next
@@ -25,4 +20,35 @@ func setup(c *caddy.Controller) error {
 	})
 
 	return nil
+}
+
+func parse(c *caddy.Controller) (Local, error) {
+	l := Local{}
+
+	for c.Next() {
+		if len(c.RemainingArgs()) != 0 {
+			return l, c.ArgErr()
+		}
+		for c.NextBlock() {
+			switch c.Val() {
+			case "localhost_prefix":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return l, c.ArgErr()
+				}
+				switch args[0] {
+				case "on":
+					l.disableLocalhostPrefix = false
+				case "off":
+					l.disableLocalhostPrefix = true
+				default:
+					return l, c.Errf("localhost_prefix expects 'on' or 'off', got %q", args[0])
+				}
+			default:
+				return l, c.Errf("unknown property '%s'", c.Val())
+			}
+		}
+	}
+
+	return l, nil
 }

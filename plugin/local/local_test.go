@@ -76,23 +76,55 @@ func TestLocal(t *testing.T) {
 	}
 }
 
-func TestLocalDoesNotInterceptLocalhostPrefixOutsideLocalhostZone(t *testing.T) {
+func TestLocalInterceptsLocalhostPrefixByDefault(t *testing.T) {
+	req := new(dns.Msg)
+	req.SetQuestion("localhost.example.net.", dns.TypeA)
+
+	nextCalled := false
+	l := Local{Next: plugin.HandlerFunc(func(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
+		nextCalled = true
+		return dns.RcodeSuccess, nil
+	})}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	_, err := l.ServeDNS(context.TODO(), rec, req)
+	if err != nil {
+		t.Fatalf("expected no error, got %q", err)
+	}
+	if nextCalled {
+		t.Fatal("expected legacy localhost prefix query to be intercepted by default")
+	}
+	if rec.Msg.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected rcode %d, got %d", dns.RcodeSuccess, rec.Msg.Rcode)
+	}
+	if len(rec.Msg.Answer) != 1 {
+		t.Fatalf("expected 1 answer RR, got %d", len(rec.Msg.Answer))
+	}
+	if got := rec.Msg.Answer[0].Header().Name; got != "localhost.example.net." {
+		t.Fatalf("expected answer name %q, got %q", "localhost.example.net.", got)
+	}
+}
+
+func TestLocalDoesNotInterceptLocalhostPrefixWhenDisabled(t *testing.T) {
 	req := new(dns.Msg)
 	req.SetQuestion("localhost.example.net.", dns.TypeA)
 
 	expected := test.A("localhost.example.net. IN A 192.0.2.1")
 	nextCalled := false
-	l := Local{Next: plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-		nextCalled = true
+	l := Local{
+		disableLocalhostPrefix: true,
+		Next: plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+			nextCalled = true
 
-		m := new(dns.Msg)
-		m.SetReply(r)
-		m.Answer = []dns.RR{expected}
-		if err := w.WriteMsg(m); err != nil {
-			return dns.RcodeServerFailure, err
-		}
-		return dns.RcodeSuccess, nil
-	})}
+			m := new(dns.Msg)
+			m.SetReply(r)
+			m.Answer = []dns.RR{expected}
+			if err := w.WriteMsg(m); err != nil {
+				return dns.RcodeServerFailure, err
+			}
+			return dns.RcodeSuccess, nil
+		}),
+	}
 
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	_, err := l.ServeDNS(context.TODO(), rec, req)
