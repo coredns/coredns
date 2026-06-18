@@ -37,6 +37,28 @@ Examples:
 fdfc:a744:27b5:3b0e::1  example.com example
 ~~~
 
+### Wildcard records
+
+Owner names may use a `*` as the leftmost label to match one additional label below
+that name. This follows the same wildcard semantics as the *file* plugin.
+
+Examples:
+
+~~~
+192.168.1.10    *.example.com
+192.168.1.11    a.example.com
+192.168.1.12    b.example.com
+~~~
+
+With the entries above:
+
+* `a.example.com` and `b.example.com` resolve to their explicit addresses.
+* `apps.example.com` resolves to `192.168.1.10`.
+* `example.com` does not match the wildcard (the zone apex is excluded).
+* `deep.apps.example.com` does not match `*.example.com` (only one label is matched).
+
+Wildcard entries do not generate PTR records.
+
 ### PTR records
 
 PTR records for reverse lookups are generated automatically by CoreDNS (based on the hosts file
@@ -117,6 +139,20 @@ example.hosts example.org {
         fallthrough
     }
     whoami
+}
+~~~
+
+Resolve all single-label subdomains of `example.com` to one address, with explicit
+exceptions, and fall through for everything else under `example.com`.
+
+~~~
+. {
+    hosts example.hosts example.com {
+        192.168.1.10 *.example.com
+        192.168.1.11 www.example.com
+        fallthrough example.com
+    }
+    forward . 8.8.8.8
 }
 ~~~
 
