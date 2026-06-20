@@ -15,15 +15,13 @@ It also supports arbitrary mapping IPv4<>IPv6.
 
 ~~~
 siit {
-    ipv4_prefix IPV6PREFIX
     ipv6_prefix IPV6PREFIX
     eam IPV4 IPV6
 }
 ~~~
 
-* `ipv4_prefix` specifies any local IPv4 prefix to use, instead of all of them (0.0.0.0/0)
 * `ipv6_prefix` specifies any local IPv6 prefix to use, instead of the well known prefix (64:ff9b::/96)
-* `eam` translates the ipv4 to the corresponding ipv6 and viceversa, it can be set multiple times
+* `eam` translates the ipv4 to the corresponding ipv6 and vice-versa, it can be set multiple times
 
 ## Examples
 
