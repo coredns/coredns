@@ -34,12 +34,14 @@ const (
 // ServerHTTPS3 represents a DNS-over-HTTP/3 server.
 type ServerHTTPS3 struct {
 	*Server
-	httpsServer  *http3.Server
-	listenAddr   net.Addr
-	tlsConfig    *tls.Config
-	quicConfig   *quic.Config
-	validRequest func(*http.Request) bool
-	maxStreams   int
+	httpsServer    *http3.Server
+	listenAddr     net.Addr
+	tlsConfig      *tls.Config
+	quicConfig     *quic.Config
+	validRequest   func(*http.Request) bool
+	maxStreams     int
+	maxConnections int
+	connSem        chan struct{}
 }
 
 // NewServerHTTPS3 builds the HTTP/3 (DoH3) server.
@@ -79,6 +81,11 @@ func NewServerHTTPS3(addr string, group []*Config) (*ServerHTTPS3, error) {
 		maxStreams = *group[0].MaxHTTPS3Streams
 	}
 
+	maxConnections := DefaultHTTPSMaxConnections
+	if len(group) > 0 && group[0] != nil && group[0].MaxHTTPSConnections != nil {
+		maxConnections = *group[0].MaxHTTPSConnections
+	}
+
 	// QUIC transport config with stream limits (0 means use QUIC default)
 	qconf := &quic.Config{
 		MaxIdleTimeout: s.IdleTimeout,
@@ -99,12 +106,16 @@ func NewServerHTTPS3(addr string, group []*Config) (*ServerHTTPS3, error) {
 	}
 
 	sh := &ServerHTTPS3{
-		Server:       s,
-		tlsConfig:    tlsConfig,
-		httpsServer:  h3srv,
-		quicConfig:   qconf,
-		validRequest: validator,
-		maxStreams:   maxStreams,
+		Server:         s,
+		tlsConfig:      tlsConfig,
+		httpsServer:    h3srv,
+		quicConfig:     qconf,
+		validRequest:   validator,
+		maxStreams:     maxStreams,
+		maxConnections: maxConnections,
+	}
+	if maxConnections > 0 {
+		sh.connSem = make(chan struct{}, maxConnections)
 	}
 
 	h3srv.Handler = sh
@@ -131,8 +142,36 @@ func (s *ServerHTTPS3) ServePacket(pc net.PacketConn) error {
 	s.m.Lock()
 	s.listenAddr = pc.LocalAddr()
 	s.m.Unlock()
-	// Serve HTTP/3 over QUIC
-	return s.httpsServer.Serve(pc)
+	if s.maxConnections <= 0 {
+		return s.httpsServer.Serve(pc)
+	}
+
+	tr := &quic.Transport{
+		Conn: pc,
+	}
+	defer tr.Close()
+
+	ln, err := tr.Listen(s.tlsConfig, s.quicConfig)
+	if err != nil {
+		return err
+	}
+
+	for {
+		conn, err := ln.Accept(context.Background())
+		if err != nil {
+			return err
+		}
+
+		select {
+		case s.connSem <- struct{}{}:
+			go func() {
+				defer func() { <-s.connSem }()
+				_ = s.httpsServer.ServeQUICConn(conn)
+			}()
+		default:
+			conn.CloseWithError(0, "too many connections")
+		}
+	}
 }
 
 // Listen function not used in HTTP/3, but defined for compatibility
