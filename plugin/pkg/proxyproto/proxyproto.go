@@ -70,6 +70,7 @@ func (c *PacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 		if err != nil {
 			return n, addr, err
 		}
+		peer := addr
 		n, addr, err = c.readFrom(p[:n], addr)
 		if err != nil {
 			if errors.Is(err, errHeaderOnly) {
@@ -80,7 +81,7 @@ func (c *PacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
 			}
 			// drop invalid packet as returning error would cause the ReadFrom caller to exit
 			// which could result in DoS if an attacker sends intentional invalid packets
-			clog.Warningf("dropping invalid Proxy Protocol packet from %s: %v", addr.String(), err)
+			clog.Warningf("dropping invalid Proxy Protocol packet from %s: %v", peer.String(), err)
 			continue
 		}
 		return n, addr, nil
