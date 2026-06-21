@@ -117,7 +117,7 @@ jobs:
           token: ${{ secrets.K8S_IO_PROMOTION_TOKEN }}
           branch: bot/promote-coredns-${{ steps.image.outputs.image_tag }}
           base: main
-          commit-message: 'registry.k8s.io: promote coredns ${{ env.RELEASE }} (requires K8S_IO_PROMOTION_TOKEN)'
+          commit-message: 'registry.k8s.io: promote coredns ${{ env.RELEASE }}'
           title: 'Promote coredns to ${{ env.RELEASE }}'
           body: |
             CoreDNS ${{ env.RELEASE }} release is available - https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE }}
