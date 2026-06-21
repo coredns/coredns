@@ -61,7 +61,8 @@ jobs:
           INSPECT_OUTPUT="$(docker buildx imagetools inspect coredns/coredns:${IMAGE_TAG} 2>&1 || true)"
           IMAGE_DIGEST="$(printf '%s\n' "${INSPECT_OUTPUT}" | awk '/Digest:/ {print $2; exit}')"
           if [[ -z "${IMAGE_DIGEST}" ]]; then
-            echo "Failed to resolve digest for coredns/coredns:${IMAGE_TAG}. Ensure docker-release job completed successfully. If so, Docker Hub may still be propagating the image (typically 5-10 minutes). Wait and re-run this workflow."
+            echo "Failed to resolve digest for coredns/coredns:${IMAGE_TAG}."
+            echo "Ensure docker-release job completed successfully; Docker Hub propagation can take 5-10 minutes before digest lookup succeeds."
             echo "${INSPECT_OUTPUT}"
             exit 1
           fi
@@ -89,8 +90,9 @@ jobs:
               raise SystemExit(0)
 
           digest_key_pattern = r'^\s+"sha256:[0-9a-f]{64}": '
+          version_pattern = r'v[0-9]+\.[0-9]+\.[0-9]+'
           release_line_pattern = re.compile(rf'{digest_key_pattern}\["{re.escape(release)}"\]\n', re.MULTILINE)
-          digest_line_pattern = re.compile(rf'{digest_key_pattern}\["v[0-9]+\.[0-9]+\.[0-9]+"\]\n', re.MULTILINE)
+          digest_line_pattern = re.compile(rf'{digest_key_pattern}\["{version_pattern}"\]\n', re.MULTILINE)
 
           data = release_line_pattern.sub("", data)
 
