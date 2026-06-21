@@ -61,7 +61,7 @@ jobs:
           INSPECT_OUTPUT="$(docker buildx imagetools inspect coredns/coredns:${IMAGE_TAG} 2>&1 || true)"
           IMAGE_DIGEST="$(printf '%s\n' "${INSPECT_OUTPUT}" | awk '/Digest:/ {print $2; exit}')"
           if [[ -z "${IMAGE_DIGEST}" ]]; then
-            echo "unable to resolve digest for coredns/coredns:${IMAGE_TAG}; check docker-release success and potential Docker Hub propagation delay"
+            echo "Unable to resolve digest for coredns/coredns:${IMAGE_TAG}. Check docker-release job success and potential Docker Hub propagation delay."
             echo "${INSPECT_OUTPUT}"
             exit 1
           fi
@@ -85,7 +85,7 @@ jobs:
           data = path.read_text()
           entry = f'    "{digest}": ["{release}"]\n'
           if entry in data:
-              print("manifest already contains current release and digest")
+              print("Manifest already contains current release and digest")
               raise SystemExit(0)
 
           digest_key_pattern = r'^\s+"sha256:[0-9a-f]{64}": '
