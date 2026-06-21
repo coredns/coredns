@@ -61,7 +61,7 @@ jobs:
           INSPECT_OUTPUT="$(docker buildx imagetools inspect coredns/coredns:${IMAGE_TAG} 2>&1 || true)"
           IMAGE_DIGEST="$(printf '%s\n' "${INSPECT_OUTPUT}" | awk '/Digest:/ {print $2; exit}')"
           if [[ -z "${IMAGE_DIGEST}" ]]; then
-            echo "Unable to resolve digest for coredns/coredns:${IMAGE_TAG}. Check docker-release job success and potential Docker Hub propagation delay."
+            echo "Unable to resolve digest for coredns/coredns:${IMAGE_TAG}. Check docker-release job success and potential Docker Hub propagation delay (5-10 minutes), then re-run the workflow."
             echo "${INSPECT_OUTPUT}"
             exit 1
           fi
@@ -96,7 +96,7 @@ jobs:
 
           digest_lines = list(digest_line_pattern.finditer(data))
           if not digest_lines:
-              raise SystemExit("unable to find digest map entries in images.yaml")
+              raise SystemExit("Unable to find digest map entries in images.yaml")
 
           insert_at = digest_lines[-1].end()
           updated = data[:insert_at] + entry + data[insert_at:]
