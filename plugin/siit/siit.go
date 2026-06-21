@@ -26,11 +26,11 @@ type UpstreamInt interface {
 
 // SIIT performs SIIT.
 type SIIT struct {
-	Next         plugin.Handler
-	IPv6Prefix   *net.IPNet
-	Eam6         map[string]net.IP
-	Eam4         map[string]net.IP
-	Upstream     UpstreamInt
+	Next       plugin.Handler
+	IPv6Prefix *net.IPNet
+	Eam6       map[string]net.IP
+	Eam4       map[string]net.IP
+	Upstream   UpstreamInt
 }
 
 // ServeDNS implements the plugin.Handler interface.

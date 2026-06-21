@@ -480,11 +480,11 @@ func TestSIIT(t *testing.T) {
 	for idx, tc := range cases {
 		t.Run(fmt.Sprintf("%d_%s", idx, tc.name), func(t *testing.T) {
 			d := SIIT{
-				Next:     &fakeHandler{t, tc.initResp},
-				IPv6Prefix:   pfx,
-				Eam6:         eam6,
-				Eam4:         eam4,
-				Upstream: &fakeUpstream{t, tc.req.Question[0].Name, tc.aResp},
+				Next:       &fakeHandler{t, tc.initResp},
+				IPv6Prefix: pfx,
+				Eam6:       eam6,
+				Eam4:       eam4,
+				Upstream:   &fakeUpstream{t, tc.req.Question[0].Name, tc.aResp},
 			}
 
 			rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
