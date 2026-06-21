@@ -223,24 +223,6 @@ func (h *Hostsfile) parse(r io.Reader) *Map {
 	return hmap
 }
 
-// lookupStaticHost looks up the IP addresses for the given host from the hosts file.
-func (h *Hostsfile) lookupStaticHost(m map[string][]net.IP, host string) []net.IP {
-	h.RLock()
-	defer h.RUnlock()
-
-	if len(m) == 0 {
-		return nil
-	}
-
-	ips, ok := m[host]
-	if !ok {
-		return nil
-	}
-	ipsCp := make([]net.IP, len(ips))
-	copy(ipsCp, ips)
-	return ipsCp
-}
-
 func (h *Hostsfile) lookupStaticHostLocked(m, wild map[string][]net.IP, host string) []net.IP {
 	if ips, ok := m[host]; ok {
 		ipsCp := make([]net.IP, len(ips))
