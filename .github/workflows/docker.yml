@@ -61,7 +61,7 @@ jobs:
           INSPECT_OUTPUT="$(docker buildx imagetools inspect coredns/coredns:${IMAGE_TAG} 2>&1 || true)"
           IMAGE_DIGEST="$(printf '%s\n' "${INSPECT_OUTPUT}" | awk '/Digest:/ {print $2; exit}')"
           if [[ -z "${IMAGE_DIGEST}" ]]; then
-            echo "Unable to resolve digest for coredns/coredns:${IMAGE_TAG}. Check docker-release job success and potential Docker Hub propagation delay (5-10 minutes), then re-run the workflow."
+            echo "Failed to resolve digest for coredns/coredns:${IMAGE_TAG}. Ensure docker-release job completed successfully. If so, Docker Hub may still be propagating the image (typically 5-10 minutes). Wait and re-run this workflow."
             echo "${INSPECT_OUTPUT}"
             exit 1
           fi
