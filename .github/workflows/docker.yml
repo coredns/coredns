@@ -58,9 +58,11 @@ jobs:
         run: |
           set -euo pipefail
           IMAGE_TAG="${RELEASE:1}"
-          IMAGE_DIGEST="$(docker buildx imagetools inspect coredns/coredns:${IMAGE_TAG} | awk '/Digest:/ {print $2; exit}')"
+          INSPECT_OUTPUT="$(docker buildx imagetools inspect coredns/coredns:${IMAGE_TAG} 2>&1 || true)"
+          IMAGE_DIGEST="$(printf '%s\n' "${INSPECT_OUTPUT}" | awk '/Digest:/ {print $2; exit}')"
           if [[ -z "${IMAGE_DIGEST}" ]]; then
-            echo "unable to resolve digest for coredns/coredns:${IMAGE_TAG}"
+            echo "unable to resolve digest for coredns/coredns:${IMAGE_TAG}; image may not be available yet"
+            echo "${INSPECT_OUTPUT}"
             exit 1
           fi
           echo "image_tag=${IMAGE_TAG}" >> "${GITHUB_OUTPUT}"
@@ -86,10 +88,13 @@ jobs:
               print("manifest already contains current release and digest")
               raise SystemExit(0)
 
-          tag_pattern = re.compile(rf'^\s+"sha256:[0-9a-f]{{64}}": \["{re.escape(release)}"\]\n', re.MULTILINE)
-          data = tag_pattern.sub("", data)
+          digest_key_pattern = r'^\s+"sha256:[0-9a-f]{64}": '
+          release_line_pattern = re.compile(rf'{digest_key_pattern}\["{re.escape(release)}"\]\n', re.MULTILINE)
+          digest_line_pattern = re.compile(rf'{digest_key_pattern}\["v[0-9]+\.[0-9]+\.[0-9]+"\]\n', re.MULTILINE)
 
-          digest_lines = list(re.finditer(r'^\s+"sha256:[0-9a-f]{64}": \["v[0-9]+\.[0-9]+\.[0-9]+"\]\n', data, re.MULTILINE))
+          data = release_line_pattern.sub("", data)
+
+          digest_lines = list(digest_line_pattern.finditer(data))
           if not digest_lines:
               raise SystemExit("unable to find digest map entries in images.yaml")
 
@@ -115,7 +120,7 @@ jobs:
           commit-message: 'registry.k8s.io: promote coredns ${{ env.RELEASE }} (requires K8S_IO_PROMOTION_TOKEN)'
           title: 'Promote coredns to ${{ env.RELEASE }}'
           body: |
-            Coredns ${{ env.RELEASE }} release is available - https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE }}
+            CoreDNS ${{ env.RELEASE }} release is available - https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE }}
 
             ```
              ❯ docker buildx imagetools inspect coredns/coredns:${{ steps.image.outputs.image_tag }}
