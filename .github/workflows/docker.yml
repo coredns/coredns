@@ -61,7 +61,7 @@ jobs:
           INSPECT_OUTPUT="$(docker buildx imagetools inspect coredns/coredns:${IMAGE_TAG} 2>&1 || true)"
           IMAGE_DIGEST="$(printf '%s\n' "${INSPECT_OUTPUT}" | awk '/Digest:/ {print $2; exit}')"
           if [[ -z "${IMAGE_DIGEST}" ]]; then
-            echo "unable to resolve digest for coredns/coredns:${IMAGE_TAG}; image may not be available yet"
+            echo "unable to resolve digest for coredns/coredns:${IMAGE_TAG}; check docker-release success and potential Docker Hub propagation delay"
             echo "${INSPECT_OUTPUT}"
             exit 1
           fi
