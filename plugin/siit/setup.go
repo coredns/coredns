@@ -30,8 +30,8 @@ func setup(c *caddy.Controller) error {
 func siitParse(c *caddy.Controller) (*SIIT, error) {
 	_, defaultPref6, _ := net.ParseCIDR("64:ff9b::/96")
 	siit := &SIIT{
-		Upstream:     upstream.New(),
-		IPv6Prefix:   defaultPref6,
+		Upstream:   upstream.New(),
+		IPv6Prefix: defaultPref6,
 	}
 
 	for c.Next() {

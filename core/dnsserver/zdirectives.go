@@ -67,6 +67,7 @@ var Directives = []string{
 	"whoami",
 	"on",
 	"sign",
+	"siit",
 	"view",
 	"nomad",
 }
