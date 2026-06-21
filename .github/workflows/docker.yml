@@ -75,7 +75,7 @@ jobs:
           IMAGE_DIGEST: ${{ steps.image.outputs.image_digest }}
         run: |
           set -euo pipefail
-          python - <<'PY'
+          python3 - <<'PY'
           import pathlib
           import re
 
