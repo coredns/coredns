@@ -26,6 +26,7 @@ func (a Auto) Walk() error {
 	for _, n := range a.Names() {
 		toDelete[n] = true
 	}
+	seen := make(map[string]string)
 
 	filepath.Walk(dir, func(path string, info os.FileInfo, e error) error {
 		if e != nil {
@@ -40,14 +41,19 @@ func (a Auto) Walk() error {
 			return nil
 		}
 
+		cleanPath := filepath.Clean(path)
+		if previous, ok := seen[origin]; ok && previous != cleanPath {
+			log.Warningf("Multiple zone files match origin %q: using %q instead of %q", origin, path, previous)
+		}
+		seen[origin] = cleanPath
+
 		if z, ok := a.Z[origin]; ok {
-			// we already have this zone
 			toDelete[origin] = false
 			z.SetFile(path)
 			return nil
 		}
 
-		reader, err := os.Open(filepath.Clean(path)) //nolint:gosec // G122: path is from filepath.Walk rooted in a.directory; symlinks must be followed for configmap-style mounts
+		reader, err := os.Open(cleanPath) //nolint:gosec // G122: path is from filepath.Walk rooted in a.directory; symlinks must be followed for configmap-style mounts
 		if err != nil {
 			log.Warningf("Opening %s failed: %s", path, err)
 			return nil
