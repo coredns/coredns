@@ -46,6 +46,9 @@ type edns0SetResponseRule struct {
 
 func (r *edns0SetResponseRule) RewriteResponse(res *dns.Msg, _ dns.RR) {
 	ednsOpt := res.IsEdns0()
+	if ednsOpt == nil {
+		return
+	}
 	for idx, opt := range ednsOpt.Option {
 		if opt.Option() == r.code {
 			ednsOpt.Option = append(ednsOpt.Option[:idx], ednsOpt.Option[idx+1:]...)
@@ -61,6 +64,9 @@ type edns0ReplaceResponseRule[T dns.EDNS0] struct {
 
 func (r *edns0ReplaceResponseRule[T]) RewriteResponse(res *dns.Msg, _ dns.RR) {
 	ednsOpt := res.IsEdns0()
+	if ednsOpt == nil {
+		return
+	}
 	for idx, opt := range ednsOpt.Option {
 		if opt.Option() == r.code {
 			ednsOpt.Option[idx] = r.source
