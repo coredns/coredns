@@ -292,12 +292,7 @@ func TestEDNS0ResponseReverterNoOPT(t *testing.T) {
 	}
 }
 
-func noOPTMsgPrinter(
-	ctx context.Context,
-	w dns.ResponseWriter,
-	r *dns.Msg,
-) (int, error) {
-
+func noOPTMsgPrinter(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	m := new(dns.Msg)
 	m.SetReply(r)
 
