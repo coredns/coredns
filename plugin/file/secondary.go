@@ -116,11 +116,16 @@ func less(a, b uint32) bool {
 func (z *Zone) Update(updateShutdown chan bool, t *transfer.Transfer) error {
 	// If we don't have a SOA, we don't have a zone, wait for it to appear.
 	for z.getSOA() == nil {
-		time.Sleep(1 * time.Second)
+		if waitOrShutdown(updateShutdown, time.Second) {
+			return nil
+		}
 	}
 	retryActive := false
 
 Restart:
+	if updateStopped(updateShutdown) {
+		return nil
+	}
 	soa := z.getSOA()
 	refresh := time.Second * time.Duration(soa.Refresh)
 	retry := time.Second * time.Duration(soa.Retry)
@@ -145,7 +150,10 @@ Restart:
 				break
 			}
 
-			time.Sleep(jitter(2000)) // 2s randomize
+			if waitOrShutdown(updateShutdown, jitter(2000)) { // 2s randomize
+				stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
+				return nil
+			}
 
 			ok, err := z.shouldTransfer()
 			if err != nil {
@@ -162,14 +170,15 @@ Restart:
 
 			// no errors, stop timers and restart
 			retryActive = false
-			refreshTicker.Stop()
-			retryTicker.Stop()
-			expireTicker.Stop()
+			stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
 			goto Restart
 
 		case <-refreshTicker.C:
 
-			time.Sleep(jitter(5000)) // 5s randomize
+			if waitOrShutdown(updateShutdown, jitter(5000)) { // 5s randomize
+				stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
+				return nil
+			}
 
 			ok, err := z.shouldTransfer()
 			if err != nil {
@@ -188,17 +197,42 @@ Restart:
 
 			// no errors, stop timers and restart
 			retryActive = false
-			refreshTicker.Stop()
-			retryTicker.Stop()
-			expireTicker.Stop()
+			stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
 			goto Restart
 
 		case <-updateShutdown:
-			refreshTicker.Stop()
-			retryTicker.Stop()
-			expireTicker.Stop()
+			stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
 			return nil
 		}
+	}
+}
+
+func waitOrShutdown(updateShutdown <-chan bool, d time.Duration) bool {
+	if updateStopped(updateShutdown) {
+		return true
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return false
+	case <-updateShutdown:
+		return true
+	}
+}
+
+func updateStopped(updateShutdown <-chan bool) bool {
+	select {
+	case <-updateShutdown:
+		return true
+	default:
+		return false
+	}
+}
+
+func stopUpdateTickers(tickers ...*time.Ticker) {
+	for _, ticker := range tickers {
+		ticker.Stop()
 	}
 }
 

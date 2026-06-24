@@ -1,6 +1,7 @@
 package secondary
 
 import (
+	"sync"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -42,6 +43,7 @@ func setup(c *caddy.Controller) error {
 		if len(z.TransferFrom) > 0 {
 			// In order to support secondary plugin reloading.
 			updateShutdown := make(chan bool)
+			var updateShutdownOnce sync.Once
 
 			c.OnStartup(func() error {
 				z.StartupOnce.Do(func() {
@@ -54,16 +56,18 @@ func setup(c *caddy.Controller) error {
 								break
 							}
 							log.Warningf("All '%s' masters failed to transfer, retrying in %s: %s", n, dur.String(), err)
-							time.Sleep(dur)
+							if waitForTransferRetry(updateShutdown, dur) {
+								return
+							}
 							dur <<= 1 // double the duration
 							if dur > max {
 								dur = max
 							}
-							select {
-							case <-updateShutdown:
-								return
-							default:
-							}
+						}
+						select {
+						case <-updateShutdown:
+							return
+						default:
 						}
 						z.Update(updateShutdown, x)
 					}()
@@ -71,7 +75,7 @@ func setup(c *caddy.Controller) error {
 				return nil
 			})
 			c.OnShutdown(func() error {
-				updateShutdown <- true
+				updateShutdownOnce.Do(func() { close(updateShutdown) })
 				return nil
 			})
 		}
@@ -83,6 +87,17 @@ func setup(c *caddy.Controller) error {
 	})
 
 	return nil
+}
+
+func waitForTransferRetry(updateShutdown <-chan bool, dur time.Duration) bool {
+	timer := time.NewTimer(dur)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return false
+	case <-updateShutdown:
+		return true
+	}
 }
 
 func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, error) {
