@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"net"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -15,6 +16,7 @@ func TestParse(t *testing.T) {
 	}{
 		{`transfer example.net example.org {
 			to 1.2.3.4 5.6.7.8:1053 [1::2]:34 [fe80::1%eth0]:53
+			source 2001:db8::53
 		 }
          transfer example.com example.edu {
             to * 1.2.3.4
@@ -23,8 +25,9 @@ func TestParse(t *testing.T) {
 			false,
 			&Transfer{
 				xfrs: []*xfr{{
-					Zones: []string{"example.net.", "example.org."},
-					to:    []string{"1.2.3.4:53", "5.6.7.8:1053", "[1::2]:34", "[fe80::1%eth0]:53"},
+					Zones:  []string{"example.net.", "example.org."},
+					to:     []string{"1.2.3.4:53", "5.6.7.8:1053", "[1::2]:34", "[fe80::1%eth0]:53"},
+					source: net.ParseIP("2001:db8::53"),
 				}, {
 					Zones: []string{"example.com.", "example.edu."},
 					to:    []string{"*", "1.2.3.4:53"},
@@ -40,6 +43,23 @@ func TestParse(t *testing.T) {
 		},
 		{`transfer example.net example.org {
            invalid option
+		 }`,
+			nil,
+			true,
+			nil,
+		},
+		{`transfer example.net example.org {
+			to 1.2.3.4
+			source example.org
+		 }`,
+			nil,
+			true,
+			nil,
+		},
+		{`transfer example.net example.org {
+			to 1.2.3.4
+			source 192.0.2.53
+			source 2001:db8::53
 		 }`,
 			nil,
 			true,
@@ -109,8 +129,18 @@ func TestParse(t *testing.T) {
 					t.Errorf("Test %d expected %v in 'to', got %v", i, tc.exp.xfrs[j].to[k], to)
 				}
 			}
+			if !sameIP(tc.exp.xfrs[j].source, x.source) {
+				t.Errorf("Test %d expected source %v, got %v", i, tc.exp.xfrs[j].source, x.source)
+			}
 		}
 	}
+}
+
+func sameIP(a, b net.IP) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(b)
 }
 
 func TestSetup(t *testing.T) {

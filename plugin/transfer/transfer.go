@@ -23,8 +23,9 @@ type Transfer struct {
 }
 
 type xfr struct {
-	Zones []string
-	to    []string
+	Zones  []string
+	to     []string
+	source net.IP
 }
 
 // Transferer may be implemented by plugins to enable zone transfers
