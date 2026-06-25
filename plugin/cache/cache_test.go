@@ -123,6 +123,16 @@ func TestCacheInsertion(t *testing.T) {
 			shouldCache: true,
 		},
 		{
+			name: "test dns.RcodeNameError without SOA does not cache",
+			in: test.Case{
+				Rcode:              dns.RcodeNameError,
+				Qname:              "1.1.168.192.in-addr.arpa.",
+				Qtype:              dns.TypePTR,
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
 			name: "test dns.RcodeServerFailure cache",
 			out: test.Case{
 				Rcode: dns.RcodeServerFailure,

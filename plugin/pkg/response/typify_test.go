@@ -70,6 +70,17 @@ func TestTypifyRefused(t *testing.T) {
 	}
 }
 
+func TestTypifyNameErrorWithoutSOA(t *testing.T) {
+	m := new(dns.Msg)
+	m.SetQuestion("1.1.168.192.in-addr.arpa.", dns.TypePTR)
+	m.Rcode = dns.RcodeNameError
+
+	mt, _ := Typify(m, time.Now().UTC())
+	if mt != NameError {
+		t.Errorf("NXDOMAIN message not typified as NameError, got %s", mt)
+	}
+}
+
 func delegationMsg() *dns.Msg {
 	return &dns.Msg{
 		Ns: []dns.RR{

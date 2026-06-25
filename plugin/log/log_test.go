@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/replacer"
@@ -183,6 +184,59 @@ func TestLoggedSynthesizesDeferredRefused(t *testing.T) {
 	logged := f.String()
 	if !strings.Contains(logged, "REFUSED") {
 		t.Fatalf("expected REFUSED in log output, got %q", logged)
+	}
+}
+
+func TestLoggedClassNameErrorWithoutSOA(t *testing.T) {
+	tests := []struct {
+		name      string
+		class     response.Class
+		shouldLog bool
+	}{
+		{name: "error", class: response.Error, shouldLog: false},
+		{name: "denial", class: response.Denial, shouldLog: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rule := Rule{
+				NameScope: ".",
+				Format:    DefaultLogFormat,
+				Class:     map[response.Class]struct{}{tc.class: {}},
+			}
+
+			var f bytes.Buffer
+			log.SetOutput(&f)
+
+			logger := Logger{
+				Rules: []Rule{rule},
+				Next: plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+					m := new(dns.Msg)
+					m.SetRcode(r, dns.RcodeNameError)
+					return dns.RcodeNameError, w.WriteMsg(m)
+				}),
+				repl: replacer.New(),
+			}
+
+			ctx := context.TODO()
+			r := new(dns.Msg)
+			r.SetQuestion("1.1.168.192.in-addr.arpa.", dns.TypePTR)
+
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+			_, err := logger.ServeDNS(ctx, rec, r)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			logged := f.String()
+			if !tc.shouldLog && len(logged) != 0 {
+				t.Errorf("Expected it not to be logged, but got string: %s", logged)
+			}
+			if tc.shouldLog && !strings.Contains(logged, "NXDOMAIN") {
+				t.Errorf("Expected it to be logged as NXDOMAIN. Logged string: %s", logged)
+			}
+		})
 	}
 }
 

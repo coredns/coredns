@@ -90,8 +90,21 @@ func key(qname string, m *dns.Msg, t response.Type, do, cd bool) (bool, uint64) 
 	if t == response.OtherError || t == response.Meta || t == response.Update {
 		return false, 0
 	}
+	// Negative caching requires an SOA record to determine the denial TTL.
+	if t == response.NameError && !hasSOA(m) {
+		return false, 0
+	}
 
 	return true, hash(qname, m.Question[0].Qtype, do, cd)
+}
+
+func hasSOA(m *dns.Msg) bool {
+	for _, r := range m.Ns {
+		if r.Header().Rrtype == dns.TypeSOA {
+			return true
+		}
+	}
+	return false
 }
 
 var one = []byte("1")
