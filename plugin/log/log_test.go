@@ -112,6 +112,80 @@ func TestLoggedClassError(t *testing.T) {
 	}
 }
 
+func TestLoggedSynthesizesDeferredServerFailure(t *testing.T) {
+	rule := Rule{
+		NameScope: ".",
+		Format:    DefaultLogFormat,
+		Class:     map[response.Class]struct{}{response.All: {}},
+	}
+
+	var f bytes.Buffer
+	log.SetOutput(&f)
+
+	logger := Logger{
+		Rules: []Rule{rule},
+		repl:  replacer.New(),
+	}
+
+	ctx := context.TODO()
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	rcode, err := logger.ServeDNS(ctx, rec, r)
+	if err == nil {
+		t.Fatal("expected no next plugin error")
+	}
+	if rcode != dns.RcodeServerFailure {
+		t.Fatalf("expected SERVFAIL rcode, got %d", rcode)
+	}
+
+	logged := f.String()
+	if !strings.Contains(logged, "SERVFAIL") {
+		t.Fatalf("expected SERVFAIL in log output, got %q", logged)
+	}
+	if strings.Contains(logged, "\"OTHERERROR ") {
+		t.Fatalf("expected synthesized server error classification, got %q", logged)
+	}
+}
+
+func TestLoggedSynthesizesDeferredRefused(t *testing.T) {
+	rule := Rule{
+		NameScope: ".",
+		Format:    DefaultLogFormat,
+		Class:     map[response.Class]struct{}{response.All: {}},
+	}
+
+	var f bytes.Buffer
+	log.SetOutput(&f)
+
+	logger := Logger{
+		Rules: []Rule{rule},
+		Next:  test.NextHandler(dns.RcodeRefused, nil),
+		repl:  replacer.New(),
+	}
+
+	ctx := context.TODO()
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	rcode, err := logger.ServeDNS(ctx, rec, r)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rcode != dns.RcodeRefused {
+		t.Fatalf("expected REFUSED rcode, got %d", rcode)
+	}
+
+	logged := f.String()
+	if !strings.Contains(logged, "REFUSED") {
+		t.Fatalf("expected REFUSED in log output, got %q", logged)
+	}
+}
+
 func TestLogged(t *testing.T) {
 	tests := []struct {
 		Rules           []Rule

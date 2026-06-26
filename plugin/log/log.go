@@ -35,6 +35,13 @@ func (l Logger) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 		rrw := dnstest.NewRecorder(w)
 		rc, err := plugin.NextOrFailure(l.Name(), l.Next, ctx, rrw, r)
+		if rrw.Msg == nil && !plugin.ClientWrite(rc) {
+			msg := new(dns.Msg)
+			msg.SetRcode(r, rc)
+			rrw.Msg = msg
+			rrw.Rcode = rc
+			rrw.Len = msg.Len()
+		}
 
 		tpe, _ := response.Typify(rrw.Msg, time.Now().UTC())
 		metadata.SetValueFunc(ctx, "log/type", func() string {
