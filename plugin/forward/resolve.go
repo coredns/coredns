@@ -1,6 +1,7 @@
 package forward
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -39,9 +40,14 @@ func classifyToAddrs(toAddrs []string) ([]toEntry, error) {
 			continue
 		}
 
+		// Empty file are skip
+		if errors.Is(parseErr, parse.ErrNoNameservers) {
+			continue
+		}
+
 		// Only fall through to hostname parsing if the error specifically
 		// indicates the address is not an IP or file. Other errors (like
-		// "no nameservers found" from file parsing) should be propagated.
+		// "invalid address" from ip parsing) should be propagated.
 		if !strings.Contains(parseErr.Error(), "not an IP address or file") {
 			return nil, parseErr
 		}

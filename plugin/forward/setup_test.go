@@ -242,6 +242,14 @@ nameserver 10.10.255.253`), 0666); err != nil {
 	}
 	defer os.Remove(resolvIPV6)
 
+	const emptyResolv = "empty.conf"
+	if err := os.WriteFile(emptyResolv,
+		[]byte(`# nameserver 1.1.1.1
+# nameserver 1.0.0.1`), 0666); err != nil {
+		t.Fatalf("Failed to write empty.conf file: %s", err)
+	}
+	defer os.Remove(emptyResolv)
+
 	tests := []struct {
 		input         string
 		shouldErr     bool
@@ -251,9 +259,11 @@ nameserver 10.10.255.253`), 0666); err != nil {
 		// pass
 		{`forward . ` + resolv, false, "", []string{"10.10.255.252:53", "10.10.255.253:53"}},
 		// fail
-		{`forward . /dev/null`, true, "no nameservers", nil},
+		{`forward . /dev/null`, true, "no valid upstream addresses found", nil},
 		// IPV6 with local zone
 		{`forward . ` + resolvIPV6, false, "", []string{"[0388:d254:7aec:6892:9f7f:e93b:5806:1b0f]:53"}},
+		// pass when empty forward file is found
+		{`forward . ` + emptyResolv + ` 127.0.0.1`, false, "", []string{"127.0.0.1:53"}},
 	}
 
 	for i, test := range tests {
@@ -517,6 +527,7 @@ func TestMultiForward(t *testing.T) {
 		t.Error("expected third plugin to be last, but Next is not nil")
 	}
 }
+
 func TestNextAlternate(t *testing.T) {
 	testsValid := []struct {
 		input    string
