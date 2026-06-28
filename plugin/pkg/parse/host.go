@@ -113,13 +113,13 @@ func HostPort(s, defaultPort string) (string, error) {
 		port = defaultPort
 	}
 	if err != nil {
-		if net.ParseIP(s) == nil {
+		if net.ParseIP(stripZone(s)) == nil {
 			return "", fmt.Errorf("must specify an IP address: `%s'", s)
 		}
 		return net.JoinHostPort(s, port), nil
 	}
 
-	if net.ParseIP(addr) == nil {
+	if net.ParseIP(stripZone(addr)) == nil {
 		return "", fmt.Errorf("must specify an IP address: `%s'", addr)
 	}
 	return net.JoinHostPort(addr, port), nil

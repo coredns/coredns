@@ -14,7 +14,7 @@ func TestParse(t *testing.T) {
 		exp       *Transfer
 	}{
 		{`transfer example.net example.org {
-			to 1.2.3.4 5.6.7.8:1053 [1::2]:34
+			to 1.2.3.4 5.6.7.8:1053 [1::2]:34 [fe80::1%eth0]:53
 		 }
          transfer example.com example.edu {
             to * 1.2.3.4
@@ -24,7 +24,7 @@ func TestParse(t *testing.T) {
 			&Transfer{
 				xfrs: []*xfr{{
 					Zones: []string{"example.net.", "example.org."},
-					to:    []string{"1.2.3.4:53", "5.6.7.8:1053", "[1::2]:34"},
+					to:    []string{"1.2.3.4:53", "5.6.7.8:1053", "[1::2]:34", "[fe80::1%eth0]:53"},
 				}, {
 					Zones: []string{"example.com.", "example.edu."},
 					to:    []string{"*", "1.2.3.4:53"},
