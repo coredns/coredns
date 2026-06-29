@@ -250,6 +250,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		f.proxies[i].SetExpire(f.expire)
 		f.proxies[i].SetMaxAge(f.maxAge)
 		f.proxies[i].SetMaxIdleConns(f.maxIdleConns)
+		f.proxies[i].SetReadTimeout(f.readTimeout)
 		f.proxies[i].GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
 		// when TLS is used, checks are set to tcp-tls
 		if f.opts.ForceTCP && transports[i] != transport.TLS {
@@ -389,6 +390,18 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return fmt.Errorf("max_idle_conns can't be negative: %d", n)
 		}
 		f.maxIdleConns = n
+	case "read_timeout":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur <= 0 {
+			return fmt.Errorf("read_timeout must be positive: %s", dur)
+		}
+		f.readTimeout = dur
 	case "doh_method":
 		if !c.NextArg() {
 			return c.ArgErr()
