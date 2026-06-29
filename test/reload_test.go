@@ -66,16 +66,14 @@ func send(t *testing.T, server string) {
 }
 
 func TestReloadHealth(t *testing.T) {
+	healthAddr := fmt.Sprintf("127.0.0.1:%d", pickPort(t))
 	corefile := `.:0 {
-		health 127.0.0.1:52182
+		health ` + healthAddr + `
 		whoami
 	}`
 
 	c, err := CoreDNSServer(corefile)
 	if err != nil {
-		if strings.Contains(err.Error(), inUse) {
-			return // meh, but don't error
-		}
 		t.Fatalf("Could not get service instance: %s", err)
 	}
 
@@ -87,17 +85,16 @@ func TestReloadHealth(t *testing.T) {
 }
 
 func TestReloadMetricsHealth(t *testing.T) {
+	metricsAddr := fmt.Sprintf("127.0.0.1:%d", pickPort(t))
+	healthAddr := fmt.Sprintf("127.0.0.1:%d", pickPort(t))
 	corefile := `.:0 {
-		prometheus 127.0.0.1:53183
-		health 127.0.0.1:53184
+		prometheus ` + metricsAddr + `
+		health ` + healthAddr + `
 		whoami
 	}`
 
 	c, err := CoreDNSServer(corefile)
 	if err != nil {
-		if strings.Contains(err.Error(), inUse) {
-			return // meh, but don't error
-		}
 		t.Fatalf("Could not get service instance: %s", err)
 	}
 
@@ -108,24 +105,14 @@ func TestReloadMetricsHealth(t *testing.T) {
 	defer c1.Stop()
 
 	// Health
-	resp, err := http.Get("http://localhost:53184/health")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ok, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	ok := httpGetBodyEventually(t, "http://"+healthAddr+"/health")
 	if string(ok) != http.StatusText(http.StatusOK) {
 		t.Errorf("Failed to receive OK, got %s", ok)
 	}
 
 	// Metrics
-	resp, err = http.Get("http://localhost:53183/metrics")
-	if err != nil {
-		t.Fatal(err)
-	}
 	const proc = "coredns_build_info"
-	metrics, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
+	metrics := httpGetBodyEventually(t, "http://"+metricsAddr+"/metrics")
 	if !bytes.Contains(metrics, []byte(proc)) {
 		t.Errorf("Failed to see %s in metric output", proc)
 	}
@@ -147,6 +134,71 @@ func collectMetricsInfo(addr string, procs ...string) error {
 	return nil
 }
 
+func waitForMetricsInfo(t *testing.T, addr string, procs ...string) {
+	t.Helper()
+
+	var lastErr error
+	for range 50 {
+		lastErr = collectMetricsInfo(addr, procs...)
+		if lastErr == nil {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("metrics endpoint did not become ready: %v", lastErr)
+}
+
+func httpGetBodyEventually(t *testing.T, url string) []byte {
+	t.Helper()
+
+	var lastErr error
+	for range 50 {
+		resp, err := http.Get(url)
+		if err == nil {
+			body, readErr := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if readErr == nil && resp.StatusCode == http.StatusOK {
+				return body
+			}
+			if readErr != nil {
+				lastErr = readErr
+			} else {
+				lastErr = fmt.Errorf("unexpected status %d with body %q", resp.StatusCode, body)
+			}
+		} else {
+			lastErr = err
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("GET %s did not become ready: %v", url, lastErr)
+	return nil
+}
+
+func waitForHTTPBody(t *testing.T, url string, want string) {
+	t.Helper()
+
+	var lastErr error
+	for range 50 {
+		resp, err := http.Get(url)
+		if err == nil {
+			body, readErr := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if readErr == nil && string(body) == want {
+				return
+			}
+			if readErr != nil {
+				lastErr = readErr
+			} else {
+				lastErr = fmt.Errorf("unexpected body %q", body)
+			}
+		} else {
+			lastErr = err
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("GET %s did not return expected body %q: %v", url, want, lastErr)
+}
+
 // TestReloadSeveralTimeMetrics ensures that metrics are not pushed to
 // prometheus once the metrics plugin is removed and a coredns
 // reload is triggered
@@ -156,9 +208,7 @@ func collectMetricsInfo(addr string, procs ...string) error {
 // 4. remove the metrics plugin and trigger a final reload
 // 5. ensure the original prometheus exporter has not received more metrics
 func TestReloadSeveralTimeMetrics(t *testing.T) {
-	//TODO: add a tool that find an available port because this needs to be a port
-	// that is not used in another test
-	promAddress := "127.0.0.1:53185"
+	promAddress := fmt.Sprintf("127.0.0.1:%d", pickPort(t))
 	proc := "coredns_build_info"
 	corefileWithMetrics := `.:0 {
 		prometheus ` + promAddress + `
@@ -173,15 +223,10 @@ func TestReloadSeveralTimeMetrics(t *testing.T) {
 	}
 	serverWithMetrics, err := CoreDNSServer(corefileWithMetrics)
 	if err != nil {
-		if strings.Contains(err.Error(), inUse) {
-			return
-		}
 		t.Errorf("Could not get service instance: %s", err)
 	}
 	// verify prometheus is running
-	if err := collectMetricsInfo(promAddress, proc); err != nil {
-		t.Errorf("Prometheus is not listening : %s", err)
-	}
+	waitForMetricsInfo(t, promAddress, proc)
 	reloadCount := 2
 	for i := range reloadCount {
 		serverReload, err := serverWithMetrics.Restart(
@@ -190,9 +235,7 @@ func TestReloadSeveralTimeMetrics(t *testing.T) {
 		if err != nil {
 			t.Errorf("Could not restart CoreDNS : %s, at loop %v", err, i)
 		}
-		if err := collectMetricsInfo(promAddress, proc); err != nil {
-			t.Errorf("Prometheus is not listening : %s", err)
-		}
+		waitForMetricsInfo(t, promAddress, proc)
 		serverWithMetrics = serverReload
 	}
 	// reload without prometheus
@@ -210,9 +253,7 @@ func TestReloadSeveralTimeMetrics(t *testing.T) {
 }
 
 func TestMetricsAvailableAfterReload(t *testing.T) {
-	//TODO: add a tool that find an available port because this needs to be a port
-	// that is not used in another test
-	promAddress := "127.0.0.1:53186"
+	promAddress := fmt.Sprintf("127.0.0.1:%d", pickPort(t))
 	procMetric := "coredns_build_info"
 	procCache := "coredns_cache_entries"
 	procForward := "coredns_dns_request_duration_seconds"
@@ -226,9 +267,6 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 
 	inst, _, tcp, err := CoreDNSServerAndPorts(corefileWithMetrics)
 	if err != nil {
-		if strings.Contains(err.Error(), inUse) {
-			return
-		}
 		t.Errorf("Could not get service instance: %s", err)
 	}
 	// send a query and check we can scrap corresponding metrics
@@ -241,9 +279,7 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	}
 
 	// we should have metrics from forward, cache, and metrics itself
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
-		t.Errorf("Could not scrap one of expected stats : %s", err)
-	}
+	waitForMetricsInfo(t, promAddress, procMetric, procCache, procForward)
 
 	// now reload
 	instReload, err := inst.Restart(
@@ -255,18 +291,14 @@ func TestMetricsAvailableAfterReload(t *testing.T) {
 	}
 
 	// check the metrics are available still
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
-		t.Errorf("Could not scrap one of expected stats : %s", err)
-	}
+	waitForMetricsInfo(t, promAddress, procMetric, procCache, procForward)
 
 	instReload.Stop()
 	// verify that metrics have not been pushed
 }
 
 func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
-	//TODO: add a tool that find an available port because this needs to be a port
-	// that is not used in another test
-	promAddress := "127.0.0.1:53187"
+	promAddress := fmt.Sprintf("127.0.0.1:%d", pickPort(t))
 	procMetric := "coredns_build_info"
 	procCache := "coredns_cache_entries"
 	procForward := "coredns_dns_request_duration_seconds"
@@ -288,9 +320,6 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 
 	inst, _, tcp, err := CoreDNSServerAndPorts(corefileWithMetrics)
 	if err != nil {
-		if strings.Contains(err.Error(), inUse) {
-			return
-		}
 		t.Errorf("Could not get service instance: %s", err)
 	}
 	// send a query and check we can scrap corresponding metrics
@@ -303,9 +332,7 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 	}
 
 	// we should have metrics from forward, cache, and metrics itself
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
-		t.Errorf("Could not scrap one of expected stats : %s", err)
-	}
+	waitForMetricsInfo(t, promAddress, procMetric, procCache, procForward)
 
 	for range 2 {
 		// now provide a failed reload
@@ -328,9 +355,7 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 	}
 
 	// check the metrics are available still
-	if err := collectMetricsInfo(promAddress, procMetric, procCache, procForward); err != nil {
-		t.Errorf("Could not scrap one of expected stats : %s", err)
-	}
+	waitForMetricsInfo(t, promAddress, procMetric, procCache, procForward)
 
 	instReload.Stop()
 	// verify that metrics have not been pushed
@@ -339,6 +364,7 @@ func TestMetricsAvailableAfterReloadAndFailedReload(t *testing.T) {
 // TestReloadUnreadyPlugin tests that the ready plugin properly resets the list of readiness implementors during a reload.
 // If it fails to do so, ready will respond with duplicate plugin names after a reload (e.g. in this test "unready,unready").
 func TestReloadUnreadyPlugin(t *testing.T) {
+	readyAddr := fmt.Sprintf("127.0.0.1:%d", pickPort(t))
 	// Add/Register a perpetually unready plugin
 	dnsserver.Directives = append([]string{"unready"}, dnsserver.Directives...)
 	u := new(unready)
@@ -354,7 +380,7 @@ func TestReloadUnreadyPlugin(t *testing.T) {
 	corefile := `.:0 {
 		unready
         whoami
-        ready 127.0.0.1:53185
+        ready ` + readyAddr + `
 	}`
 
 	coreInput := NewInput(corefile)
@@ -369,15 +395,7 @@ func TestReloadUnreadyPlugin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := http.Get("http://127.0.0.1:53185/ready")
-	if err != nil {
-		t.Fatal(err)
-	}
-	bod, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
-	if string(bod) != u.Name() {
-		t.Errorf("Expected /ready endpoint response body %q, got %q", u.Name(), bod)
-	}
+	waitForHTTPBody(t, "http://"+readyAddr+"/ready", u.Name())
 
 	c1.Stop()
 }
@@ -385,6 +403,7 @@ func TestReloadUnreadyPlugin(t *testing.T) {
 // TestReloadTwoServerBlocksUnreadyPlugin tests that the ready plugin properly resets the list of readiness implementors during a reload
 // when there are multiple server blocks.
 func TestReloadTwoServerBlocksUnreadyPlugin(t *testing.T) {
+	readyAddr := fmt.Sprintf("127.0.0.1:%d", pickPort(t))
 	// Add/Register a perpetually unready plugin
 	dnsserver.Directives = append([]string{"unready1", "unready2"}, dnsserver.Directives...)
 	u1 := new(unready)
@@ -408,12 +427,12 @@ func TestReloadTwoServerBlocksUnreadyPlugin(t *testing.T) {
 	corefile := `cluster.local.:0 {
 		unready1
         whoami
-        ready 127.0.0.1:53185
+        ready ` + readyAddr + `
 	}
     .:0 {
 		unready2
         whoami
-        ready 127.0.0.1:53185
+        ready ` + readyAddr + `
 	}`
 
 	coreInput := NewInput(corefile)
@@ -428,16 +447,8 @@ func TestReloadTwoServerBlocksUnreadyPlugin(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := http.Get("http://127.0.0.1:53185/ready")
-	if err != nil {
-		t.Fatal(err)
-	}
-	bod, _ := io.ReadAll(resp.Body)
-	resp.Body.Close()
 	uName := u1.Name() + "," + u2.Name()
-	if string(bod) != uName {
-		t.Errorf("Expected /ready endpoint response body %q, got %q", uName, bod)
-	}
+	waitForHTTPBody(t, "http://"+readyAddr+"/ready", uName)
 
 	c1.Stop()
 }
