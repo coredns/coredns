@@ -1,9 +1,13 @@
 package auto
 
 import (
+	"bytes"
+	"io"
+	golog "log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -96,6 +100,53 @@ func TestWalkNonExistent(t *testing.T) {
 	}
 
 	a.Walk()
+}
+
+func TestWalkWarnsForDuplicateOrigin(t *testing.T) {
+	dir := t.TempDir()
+	zone := filepath.Join(dir, "example.org.zone")
+	backup := filepath.Join(dir, "example.org.zone.bak-20260528")
+
+	for _, path := range []string{zone, backup} {
+		if err := os.WriteFile(path, []byte(zoneContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var logBuf bytes.Buffer
+	golog.SetOutput(&logBuf)
+	defer golog.SetOutput(io.Discard)
+
+	a := Auto{
+		loader: loader{
+			directory: dir,
+			re:        regexp.MustCompile(`(.*)\.zone`),
+			template:  `${1}`,
+		},
+		Zones: &Zones{},
+	}
+
+	a.Walk()
+
+	got := logBuf.String()
+	if count := strings.Count(got, `[WARNING] plugin/auto: Multiple zone files match origin "example.org."`); count != 1 {
+		t.Fatalf("Expected one duplicate origin warning, got %d in %q", count, got)
+	}
+	for _, want := range []string{
+		`[WARNING] plugin/auto: Multiple zone files match origin "example.org."`,
+		"example.org.zone",
+		"example.org.zone.bak-20260528",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Expected log to contain %q, got %q", want, got)
+		}
+	}
+
+	logBuf.Reset()
+	a.Walk()
+	if count := strings.Count(logBuf.String(), `[WARNING] plugin/auto: Multiple zone files match origin "example.org."`); count != 1 {
+		t.Fatalf("Expected one duplicate origin warning after reload, got %d in %q", count, logBuf.String())
+	}
 }
 
 func createFiles(t *testing.T) (string, error) {
