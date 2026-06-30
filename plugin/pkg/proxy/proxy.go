@@ -67,7 +67,13 @@ func (p *Proxy) SetMaxAge(maxAge time.Duration) { p.transport.SetMaxAge(maxAge) 
 
 // SetMaxIdleConns sets the maximum idle connections per transport type.
 // A value of 0 means unlimited (default).
-func (p *Proxy) SetMaxIdleConns(n int) { p.transport.SetMaxIdleConns(n) }
+func (p *Proxy) SetMaxIdleConns(n int) {
+	p.transport.SetMaxIdleConns(n)
+	if p.transport.httpClient != nil {
+		p.transport.httpClient.Transport.(*http.Transport).MaxIdleConns = n
+		p.transport.httpClient.Transport.(*http.Transport).MaxIdleConnsPerHost = n
+	}
+}
 
 func (p *Proxy) SetHTTPClient(client *http.Client) {
 	p.transport.httpClient = client
