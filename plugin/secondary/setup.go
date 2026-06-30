@@ -8,6 +8,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
+	"github.com/coredns/coredns/plugin/pkg/catalog"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/parse"
@@ -20,12 +21,23 @@ var log = clog.NewWithPlugin("secondary")
 func init() { plugin.Register("secondary", setup) }
 
 func setup(c *caddy.Controller) error {
-	zones, fall, err := secondaryParse(c)
+	zones, fall, catalogZones, err := secondaryParse(c)
 	if err != nil {
 		return plugin.Error("secondary", err)
 	}
 
-	s := &Secondary{file.File{Zones: zones, Fall: fall}}
+	s := &Secondary{
+		File:         file.File{Zones: zones, Fall: fall},
+		catalogs:     make(map[string]*catalog.Catalog),
+		catalogZones: catalogZones,
+	}
+	zoneNames := make(map[*file.Zone]string, len(zones.Z))
+	for name, zone := range zones.Z {
+		zoneNames[zone] = name
+	}
+	s.TransferInFunc = func(z *file.Zone, t *transfer.Transfer) error {
+		return s.transferIn(zoneNames[z], z, t)
+	}
 	var x *transfer.Transfer
 	c.OnStartup(func() error {
 		t := dnsserver.GetConfig(c).Handler("transfer")
@@ -51,7 +63,7 @@ func setup(c *caddy.Controller) error {
 						dur := time.Millisecond * 250
 						max := time.Second * 10
 						for {
-							err := z.TransferIn(x)
+							err := s.transferIn(n, z, x)
 							if err == nil {
 								break
 							}
@@ -69,7 +81,9 @@ func setup(c *caddy.Controller) error {
 							return
 						default:
 						}
-						z.Update(updateShutdown, x)
+						z.UpdateWithTransfer(updateShutdown, x, func(z *file.Zone, t *transfer.Transfer) error {
+							return s.transferIn(n, z, t)
+						})
 					}()
 				})
 				return nil
@@ -100,10 +114,11 @@ func waitForTransferRetry(updateShutdown <-chan bool, dur time.Duration) bool {
 	}
 }
 
-func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, error) {
+func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, map[string]struct{}, error) {
 	z := make(map[string]*file.Zone)
 	names := []string{}
 	fall := fall.F{}
+	catalogZones := map[string]struct{}{}
 	for c.Next() {
 		if c.Val() == "secondary" {
 			// secondary [origin]
@@ -122,13 +137,20 @@ func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, error) {
 					var err error
 					f, err = parse.TransferIn(c)
 					if err != nil {
-						return file.Zones{}, fall, err
+						return file.Zones{}, fall, nil, err
 					}
 					hasTransfer = true
+				case "catalog":
+					if len(c.RemainingArgs()) != 0 {
+						return file.Zones{}, fall, nil, c.ArgErr()
+					}
+					for _, origin := range origins {
+						catalogZones[origin] = struct{}{}
+					}
 				case "fallthrough":
 					fall.SetZonesFromArgs(c.RemainingArgs())
 				default:
-					return file.Zones{}, fall, c.Errf("unknown property '%s'", c.Val())
+					return file.Zones{}, fall, nil, c.Errf("unknown property '%s'", c.Val())
 				}
 
 				for _, origin := range origins {
@@ -139,9 +161,9 @@ func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, error) {
 				}
 			}
 			if !hasTransfer {
-				return file.Zones{}, fall, c.Err("secondary zones require a transfer from property")
+				return file.Zones{}, fall, nil, c.Err("secondary zones require a transfer from property")
 			}
 		}
 	}
-	return file.Zones{Z: z, Names: names}, fall, nil
+	return file.Zones{Z: z, Names: names}, fall, catalogZones, nil
 }
