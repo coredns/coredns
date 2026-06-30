@@ -224,20 +224,8 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	f.tlsConfig.ClientSessionCache = tls.NewLRUClientSessionCache(len(f.proxies))
 
 	for i := range f.proxies {
-		// Only set this for proxies that need it.
-		if transports[i] == transport.TLS {
-			if tlsConfig, ok := perServerNameTlsConfig[tlsServerNames[i]]; ok {
-				f.proxies[i].SetTLSConfig(tlsConfig)
-			} else {
-				f.proxies[i].SetTLSConfig(f.tlsConfig)
-			}
-		}
-
 		if transports[i] == transport.HTTPS {
 			httpTransport := http.DefaultTransport.(*http.Transport).Clone()
-			httpTransport.TLSClientConfig = f.tlsConfig
-			httpTransport.MaxIdleConns = f.maxIdleConns
-			httpTransport.MaxIdleConnsPerHost = f.maxIdleConns
 
 			c := http.Client{
 				Transport: httpTransport,
@@ -245,6 +233,15 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			}
 			f.proxies[i].SetHTTPClient(&c)
 			f.proxies[i].SetDOHRequestOptions(f.dohMethod)
+		}
+
+		// Only set this for proxies that need it.
+		if transports[i] == transport.TLS || transports[i] == transport.HTTPS {
+			if tlsConfig, ok := perServerNameTlsConfig[tlsServerNames[i]]; ok {
+				f.proxies[i].SetTLSConfig(tlsConfig)
+			} else {
+				f.proxies[i].SetTLSConfig(f.tlsConfig)
+			}
 		}
 
 		f.proxies[i].SetExpire(f.expire)
