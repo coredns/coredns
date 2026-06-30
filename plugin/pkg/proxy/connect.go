@@ -178,7 +178,11 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 }
 
 func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options) (*dns.Msg, error) {
-	req, err := doh.NewRequestWithContext(ctx, p.dohMethod, p.addr, state.Req)
+	// RFC8484 has DNS ID of 0 as a SHOULD, forward modifies and replaces on response already
+	state.Req.Id = 0
+	// ensuring :authority header in http/2 is populated
+	url := p.transport.GetTLSConfig().ServerName
+	req, err := doh.NewRequestWithContext(ctx, p.dohMethod, url, state.Req)
 	if err != nil {
 		return nil, err
 	}
