@@ -292,6 +292,55 @@ func TestEDNS0ResponseReverterNoOPT(t *testing.T) {
 	}
 }
 
+func TestResponseReverterRestoresMissingQuestion(t *testing.T) {
+	ctx := context.TODO()
+
+	r, err := newNameRule("stop", "suffix", ".example.org", ".example.net", "answer", "auto")
+	if err != nil {
+		t.Fatalf("cannot parse rule: %s", err)
+	}
+
+	req := new(dns.Msg)
+	req.SetQuestion("service.example.org.", dns.TypeA)
+	req.Question[0].Qclass = dns.ClassINET
+
+	rw := Rewrite{
+		Next:         plugin.HandlerFunc(noQuestionMsgPrinter),
+		Rules:        []Rule{r},
+		RevertPolicy: NewRevertPolicy(false, false),
+	}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := rw.ServeDNS(ctx, rec, req); err != nil {
+		t.Fatalf("ServeDNS returned error: %v", err)
+	}
+
+	resp := rec.Msg
+	if resp == nil {
+		t.Fatal("expected response")
+	}
+
+	if len(resp.Question) != 1 {
+		t.Fatalf("expected 1 question got %d", len(resp.Question))
+	}
+
+	if got := resp.Question[0].Name; got != "service.example.org." {
+		t.Fatalf("question name = %q, want %q", got, "service.example.org.")
+	}
+
+	if got := resp.Question[0].Qtype; got != dns.TypeA {
+		t.Fatalf("question type = %d, want %d", got, dns.TypeA)
+	}
+
+	if len(resp.Answer) != 1 {
+		t.Fatalf("expected 1 answer got %d", len(resp.Answer))
+	}
+
+	if got := resp.Answer[0].Header().Name; got != "service.example.org." {
+		t.Fatalf("answer name = %q, want %q", got, "service.example.org.")
+	}
+}
+
 func noOPTMsgPrinter(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	m := new(dns.Msg)
 	m.SetReply(r)
@@ -301,6 +350,19 @@ func noOPTMsgPrinter(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, 
 	}
 
 	// Deliberately do NOT add an OPT RR.
+
+	if err := w.WriteMsg(m); err != nil {
+		return dns.RcodeServerFailure, err
+	}
+
+	return dns.RcodeSuccess, nil
+}
+
+func noQuestionMsgPrinter(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.Answer = []dns.RR{
+		test.A("service.example.net. 60 IN A 127.0.0.1"),
+	}
 
 	if err := w.WriteMsg(m); err != nil {
 		return dns.RcodeServerFailure, err
