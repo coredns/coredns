@@ -74,6 +74,9 @@ type Config struct {
 	// This is nil if not specified, allowing for a default to be used.
 	MaxQUICStreams *int
 
+	// MaxQUICConnections is the maximum number of concurrent connections.
+	MaxQUICConnections *int
+
 	// MaxQUICWorkerPoolSize defines the size of the worker pool for processing QUIC streams.
 	// This is nil if not specified, allowing for a default to be used.
 	MaxQUICWorkerPoolSize *int
