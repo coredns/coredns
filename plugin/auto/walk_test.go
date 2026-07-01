@@ -149,6 +149,37 @@ func TestWalkWarnsForDuplicateOrigin(t *testing.T) {
 	}
 }
 
+func TestWalkKeepsFirstMatchingFileForOrigin(t *testing.T) {
+	dir := t.TempDir()
+	zone := filepath.Join(dir, "example.org.zone")
+	backup := filepath.Join(dir, "example.org.zone.bak-20260528")
+
+	for _, path := range []string{zone, backup} {
+		if err := os.WriteFile(path, []byte(zoneContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	a := Auto{
+		loader: loader{
+			directory: dir,
+			re:        regexp.MustCompile(`(.*)\.zone`),
+			template:  `${1}`,
+		},
+		Zones: &Zones{},
+	}
+
+	a.Walk()
+	if got := a.Z["example.org."].File(); got != zone {
+		t.Fatalf("zone file = %q, want %q", got, zone)
+	}
+
+	a.Walk()
+	if got := a.Z["example.org."].File(); got != zone {
+		t.Fatalf("zone file after reload = %q, want %q", got, zone)
+	}
+}
+
 func createFiles(t *testing.T) (string, error) {
 	t.Helper()
 	dir := t.TempDir()
