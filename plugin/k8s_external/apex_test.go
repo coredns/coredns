@@ -2,6 +2,7 @@ package external
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/kubernetes"
@@ -30,7 +31,7 @@ func TestApex(t *testing.T) {
 		w := dnstest.NewRecorder(&test.ResponseWriter{})
 
 		_, err := e.ServeDNS(ctx, w, r)
-		if err != tc.Error {
+		if !errors.Is(err, tc.Error) {
 			t.Errorf("Test %d expected no error, got %v", i, err)
 			return
 		}

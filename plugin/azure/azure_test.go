@@ -2,6 +2,7 @@ package azure
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -141,7 +142,7 @@ func TestAzure(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		code, err := demoAzure.ServeDNS(context.Background(), rec, req)
 
-		if err != tc.expectedErr {
+		if !errors.Is(err, tc.expectedErr) {
 			t.Fatalf("Test %d: Expected error %v, but got %v", ti, tc.expectedErr, err)
 		}
 

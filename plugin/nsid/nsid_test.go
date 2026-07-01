@@ -3,6 +3,7 @@ package nsid
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
@@ -54,7 +55,7 @@ func TestNsid(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		code, err := em.ServeDNS(ctx, rec, req)
 
-		if err != tc.expectedErr {
+		if !errors.Is(err, tc.expectedErr) {
 			t.Errorf("Test %d: Expected error %v, but got %v", i, tc.expectedErr, err)
 		}
 		if code != tc.expectedCode {
@@ -116,7 +117,7 @@ func TestNsidCache(t *testing.T) {
 		c.Next = em
 		code, err := c.ServeDNS(ctx, rec, req)
 
-		if err != tc.expectedErr {
+		if !errors.Is(err, tc.expectedErr) {
 			t.Errorf("Test %d: Expected error %v, but got %v", i, tc.expectedErr, err)
 		}
 		if code != tc.expectedCode {

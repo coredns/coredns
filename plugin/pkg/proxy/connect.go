@@ -134,7 +134,7 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 
 	if err := pc.c.WriteMsg(state.Req); err != nil {
 		pc.c.Close() // not giving it back
-		if err == io.EOF && cached {
+		if errors.Is(err, io.EOF) && cached {
 			return nil, ErrCachedClosed
 		}
 		return nil, err
@@ -158,7 +158,7 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 			}
 
 			pc.c.Close() // not giving it back
-			if err == io.EOF && cached {
+			if errors.Is(err, io.EOF) && cached {
 				return nil, ErrCachedClosed
 			}
 			// recovery the origin Id after upstream.
@@ -237,7 +237,8 @@ const cumulativeAvgWeight = 4
 func shouldTruncateResponse(err error) bool {
 	// This is to handle a scenario in which upstream sets the TC bit, but doesn't truncate the response
 	// and we get ErrBuf instead of overflow.
-	if _, isDNSErr := err.(*dns.Error); isDNSErr && errors.Is(err, dns.ErrBuf) {
+	var dnsErr *dns.Error
+	if errors.As(err, &dnsErr) && errors.Is(err, dns.ErrBuf) {
 		return true
 	} else if strings.Contains(err.Error(), "overflow") {
 		return true

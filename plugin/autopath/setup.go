@@ -57,7 +57,7 @@ func autoPathParse(c *caddy.Controller) (*AutoPath, string, error) {
 			// assume file on disk
 			rc, err := dns.ClientConfigFromFile(resolv)
 			if err != nil {
-				return ap, "", fmt.Errorf("failed to parse %q: %v", resolv, err)
+				return ap, "", fmt.Errorf("failed to parse %q: %w", resolv, err)
 			}
 			ap.search = rc.Search
 			plugin.Zones(ap.search).Normalize()

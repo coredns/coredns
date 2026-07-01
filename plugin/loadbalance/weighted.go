@@ -322,7 +322,7 @@ func (w *weightedRR) parseWeights(scanner *bufio.Scanner) (map[string]weights, e
 	}
 
 	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("weight file %s parsing error:%s", w.fileName, err)
+		return nil, fmt.Errorf("weight file %s parsing error: %w", w.fileName, err)
 	}
 
 	return domains, nil

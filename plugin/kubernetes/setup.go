@@ -169,7 +169,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				labelSelectorString := strings.Join(args, " ")
 				ls, err := meta.ParseToLabelSelector(labelSelectorString)
 				if err != nil {
-					return nil, fmt.Errorf("unable to parse label selector value: '%v': %v", labelSelectorString, err)
+					return nil, fmt.Errorf("unable to parse label selector value %q: %w", labelSelectorString, err)
 				}
 				k8s.opts.labelSelector = ls
 				continue
@@ -181,7 +181,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				namespaceLabelSelectorString := strings.Join(args, " ")
 				nls, err := meta.ParseToLabelSelector(namespaceLabelSelectorString)
 				if err != nil {
-					return nil, fmt.Errorf("unable to parse namespace_label selector value: '%v': %v", namespaceLabelSelectorString, err)
+					return nil, fmt.Errorf("unable to parse namespace_label selector value %q: %w", namespaceLabelSelectorString, err)
 				}
 				k8s.opts.namespaceLabelSelector = nls
 				continue
@@ -241,7 +241,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 			var err error
 			k8s.startupTimeout, err = time.ParseDuration(args[0])
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse startup_timeout: %v, %s", args[0], err)
+				return nil, fmt.Errorf("failed to parse startup_timeout %q: %w", args[0], err)
 			}
 		case "apiserver_qps":
 			args := c.RemainingArgs()
