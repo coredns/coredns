@@ -92,8 +92,17 @@ func (d *dio) dial() error {
 		tcpConn.SetNoDelay(false)
 	}
 
-	d.enc, err = newEncoder(conn, d.tcpTimeout)
-	return err
+	enc, err := newEncoder(conn, d.tcpTimeout)
+	if err != nil {
+		conn.Close()
+		return err
+	}
+
+	if d.enc != nil {
+		d.enc.close()
+	}
+	d.enc = enc
+	return nil
 }
 
 // Connect connects to the dnstap endpoint.

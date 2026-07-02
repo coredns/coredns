@@ -1,7 +1,7 @@
 package dnstap
 
 import (
-	"io"
+	"net"
 	"time"
 
 	tap "github.com/dnstap/golang-dnstap"
@@ -11,11 +11,12 @@ import (
 
 // encoder wraps a golang-framestream.Encoder.
 type encoder struct {
-	fs *fs.Encoder
+	fs   *fs.Encoder
+	conn net.Conn
 }
 
-func newEncoder(w io.Writer, timeout time.Duration) (*encoder, error) {
-	fs, err := fs.NewEncoder(w, &fs.EncoderOptions{
+func newEncoder(conn net.Conn, timeout time.Duration) (*encoder, error) {
+	fs, err := fs.NewEncoder(conn, &fs.EncoderOptions{
 		ContentType:   []byte("protobuf:dnstap.Dnstap"),
 		Bidirectional: true,
 		Timeout:       timeout,
@@ -23,7 +24,7 @@ func newEncoder(w io.Writer, timeout time.Duration) (*encoder, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &encoder{fs}, nil
+	return &encoder{fs: fs, conn: conn}, nil
 }
 
 func (e *encoder) writeMsg(msg *tap.Dnstap) error {
@@ -37,4 +38,10 @@ func (e *encoder) writeMsg(msg *tap.Dnstap) error {
 }
 
 func (e *encoder) flush() error { return e.fs.Flush() }
-func (e *encoder) close() error { return e.fs.Close() }
+func (e *encoder) close() error {
+	err := e.fs.Close()
+	if closeErr := e.conn.Close(); err == nil {
+		err = closeErr
+	}
+	return err
+}

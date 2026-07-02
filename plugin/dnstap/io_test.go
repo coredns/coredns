@@ -69,6 +69,53 @@ func accept(t *testing.T, l net.Listener, count int) {
 	}
 }
 
+func acceptUntilClosed(l net.Listener) <-chan error {
+	done := make(chan error, 1)
+
+	go func() {
+		server, err := l.Accept()
+		if err != nil {
+			done <- fmt.Errorf("server accept: %w", err)
+			return
+		}
+		defer server.Close()
+
+		dec, err := fs.NewDecoder(server, &fs.DecoderOptions{
+			ContentType:   []byte("protobuf:dnstap.Dnstap"),
+			Bidirectional: true,
+		})
+		if err != nil {
+			done <- fmt.Errorf("server decoder: %w", err)
+			return
+		}
+
+		if _, err := dec.Decode(); err == nil {
+			done <- fmt.Errorf("server decode unexpectedly succeeded")
+			return
+		}
+
+		if err := server.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+			done <- fmt.Errorf("server read deadline: %w", err)
+			return
+		}
+
+		var b [1]byte
+		_, err = server.Read(b[:])
+		if err == nil {
+			done <- fmt.Errorf("server read unexpectedly succeeded")
+			return
+		}
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			done <- fmt.Errorf("server connection was not closed")
+			return
+		}
+
+		done <- nil
+	}()
+
+	return done
+}
+
 func TestTransport(t *testing.T) {
 	transport := [2][2]string{
 		{"tcp", ":0"},
@@ -246,6 +293,27 @@ func TestReconnect(t *testing.T) {
 		}, time.Second, 10*time.Millisecond, "queue should be drained by serve goroutine")
 		require.Less(t, logger.WarnCount(), messageCount)
 	})
+}
+
+func TestDialClosesReplacedConnection(t *testing.T) {
+	l, err := reuseport.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Cannot start listener: %s", err)
+	}
+	defer l.Close()
+
+	dio := newIO("tcp", l.Addr().String(), 1, 1)
+	dio.tcpTimeout = 100 * time.Millisecond
+
+	firstClosed := acceptUntilClosed(l)
+	require.NoError(t, dio.dial())
+
+	secondClosed := acceptUntilClosed(l)
+	require.NoError(t, dio.dial())
+	require.NoError(t, <-firstClosed)
+
+	require.NoError(t, dio.enc.close())
+	require.NoError(t, <-secondClosed)
 }
 
 func TestFullQueueWriteFail(t *testing.T) {
