@@ -32,30 +32,27 @@ func (t TSIGServer) Name() string { return pluginName }
 
 // ServeDNS implements plugin.Handler
 func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	var err error
-	state := request.Request{Req: r, W: w}
-	if z := plugin.Zones(t.Zones).Matches(state.Name()); z == "" {
+	var (
+		state  = request.Request{Req: r, W: w}
+		tsigRR = r.IsTsig()
+	)
+	switch {
+	case tsigRR == nil && !t.tsigRequired(state.QType(), r.Opcode):
+		fallthrough
+	case plugin.Zones(t.Zones).Matches(state.Name()) == "":
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
-	}
-
-	var tsigRR = r.IsTsig()
-	rcode := dns.RcodeSuccess
-	if !t.tsigRequired(state.QType(), r.Opcode) && tsigRR == nil {
-		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
-	}
-
-	if tsigRR == nil {
+	case tsigRR == nil:
 		log.Debugf("rejecting '%s' request without TSIG\n", dns.TypeToString[state.QType()])
-		rcode = dns.RcodeRefused
+		resp := new(dns.Msg).SetRcode(r, dns.RcodeRefused)
+		w.WriteMsg(resp)
+		return dns.RcodeSuccess, nil
 	}
 
 	// wrap the response writer so the response will be TSIG signed.
 	w = &restoreTsigWriter{w, r, tsigRR}
 
-	tsigStatus := w.TsigStatus()
-	if tsigStatus != nil {
+	if tsigStatus := w.TsigStatus(); tsigStatus != nil {
 		log.Debugf("TSIG validation failed: %v %v", dns.TypeToString[state.QType()], tsigStatus)
-		rcode = dns.RcodeNotAuth
 		switch tsigStatus {
 		case dns.ErrSecret:
 			tsigRR.Error = dns.RcodeBadKey
@@ -64,24 +61,18 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 		default:
 			tsigRR.Error = dns.RcodeBadSig
 		}
-		resp := new(dns.Msg).SetRcode(r, rcode)
+		resp := new(dns.Msg).SetRcode(r, dns.RcodeNotAuth)
 		w.WriteMsg(resp)
 		return dns.RcodeSuccess, nil
 	}
 
-	// strip the TSIG RR. Next, and subsequent plugins will not see the TSIG RRs.
-	// This violates forwarding cases (RFC 8945 5.5). See README.md Bugs
+	tsigRR.Error = dns.RcodeSuccess
 	if len(r.Extra) > 1 {
 		r.Extra = r.Extra[0 : len(r.Extra)-1]
-	} else {
-		r.Extra = []dns.RR{}
 	}
-
-	if rcode == dns.RcodeSuccess {
-		rcode, err = plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
-		if err != nil {
-			log.Errorf("request handler returned an error: %v\n", err)
-		}
+	rcode, err := plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
+	if err != nil {
+		log.Errorf("request handler returned an error: %v\n", err)
 	}
 	// If the plugin chain result was not an error, restore the TSIG and write the response.
 	if !plugin.ClientWrite(rcode) {
@@ -120,7 +111,7 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 	state.SizeAndDo(m)
 
 	repTSIG := m.IsTsig()
-	if r.reqTSIG != nil && repTSIG == nil {
+	if repTSIG == nil { // don't overwrite TSIG set by downstream plugin
 		repTSIG = new(dns.TSIG)
 		repTSIG.Hdr = dns.RR_Header{Name: r.reqTSIG.Hdr.Name, Rrtype: dns.TypeTSIG, Class: dns.ClassANY}
 		repTSIG.Algorithm = r.reqTSIG.Algorithm
