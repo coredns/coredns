@@ -30,10 +30,11 @@ forward FROM TO...
 * **FROM** is the base domain to match for the request to be forwarded. Domains using CIDR notation
   that expand to multiple reverse zones are not fully supported; only the first expanded zone is used.
 * **TO...** are the destination endpoints to forward to. The **TO** syntax allows you to specify
-  a protocol, `tls://9.9.9.9`, `https://9.9.9.9` (DoH defaults to `/dns-query` path) or `dns://` (or no protocol)
-  for plain DNS. The number of upstreams is limited to 15. In addition to IP addresses and files (like `/etc/resolv.conf`), **TO** can also be
-  a hostname (e.g., `my-dns.svc.cluster.local`). Hostnames are resolved to IP addresses at startup.
-  See the `resolver` option below.
+  a protocol, `tls://9.9.9.9`, `https://9.9.9.9` (DoH defaults to `/dns-query` path) or `dns://`
+  (or no protocol) for plain DNS. The number of upstreams is limited to 15. In addition to IP
+  addresses and files (like `/etc/resolv.conf`), **TO** can also be a hostname (e.g.,
+  `my-dns.svc.cluster.local`). Hostnames are resolved to IP addresses at startup and optionally
+  re-resolved in the background. See the `resolver`, `resolve_interval`, and `resolve_hold` options below.
 
 Multiple upstreams are randomized (see `policy`) on first use. When a healthy proxy returns an error
 during the exchange the next upstream in the list is tried.
@@ -59,6 +60,8 @@ forward FROM TO... {
     failfast_all_unhealthy_upstreams
     failover RCODE_1 [RCODE_2] [RCODE_3...]
     resolver IP[:PORT] [IP[:PORT]...]
+    resolve_interval DURATION
+    resolve_hold DURATION
 }
 ~~~
 
@@ -119,7 +122,9 @@ forward FROM TO... {
 * `next_on_nodata` If `NOERROR` is returned by the remote, but an empty answer section (`NODATA`) was provided, execute the next `forward` plugin, if configured.
 * `failfast_all_unhealthy_upstreams` - determines the handling of requests when all upstream servers are unhealthy and unresponsive to health checks. Enabling this option will immediately return SERVFAIL responses for all requests. By default, requests are sent to a random upstream.
 * `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
-* `resolver` **IP[:PORT] [IP[:PORT]...]** specifies one or more DNS resolver addresses used to resolve hostname-based **TO** endpoints at startup. If not specified, the system resolver (`/etc/resolv.conf`) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or `IP:port`. Multiple addresses can be specified for redundancy.
+* `resolver` **IP[:PORT] [IP[:PORT]...]** specifies one or more DNS resolver addresses used to resolve hostname-based **TO** endpoints. If not specified, the system resolver (`/etc/resolv.conf`) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or `IP:port`. Multiple addresses can be specified for redundancy. If re-resolution fails or returns NXDOMAIN, the previously resolved addresses are kept. When `resolver` is set, DNS response TTLs are available and honored by `resolve_interval` and `resolve_hold`. The default system resolver does not expose TTL, so entries are re-resolved on every tick.
+* `resolve_interval` **DURATION** sets the interval for background re-resolution of hostname-based **TO** endpoints. Default is `0s` (disabled — hostnames are only resolved at startup). Set to a positive duration (e.g. `30s`) to enable periodic background re-resolution. On each tick, entries whose DNS TTL has not yet expired are skipped. See also `resolve_hold`.
+* `resolve_hold` **DURATION** caps the maximum TTL honored for hostname-based **TO** endpoints. When a DNS response returns a high TTL (e.g. `3600` = 1 hour), `resolve_hold` limits it to the configured value (e.g. `60s`), forcing re-resolution sooner. Default is `0s` (no cap — the full TTL from DNS is used).
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls_servername` for different upstreams you're out of luck.

@@ -76,12 +76,17 @@ func (f *Forward) OnStartup() (err error) {
 	for _, p := range f.proxies {
 		p.Start(f.hcInterval)
 	}
+	f.startResolveLoop()
 	return nil
 }
 
 // OnShutdown stops all configured proxies.
 func (f *Forward) OnShutdown() error {
-	for _, p := range f.proxies {
+	f.stopResolveLoop()
+	f.proxyMu.RLock()
+	proxies := f.proxies
+	f.proxyMu.RUnlock()
+	for _, p := range proxies {
 		p.Stop()
 	}
 	return nil
@@ -175,7 +180,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	f.toEntries = entries
 
 	// Expand hostnames and deduplicate globally (first-seen order wins).
-	toHosts, err := expandAndDedup(f.toEntries, f.resolver)
+	toHosts, err := expandAndDedup(f.toEntries, f.resolver, f.resolveHold)
 	if err != nil {
 		return f, err
 	}
@@ -486,6 +491,30 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			}
 		}
 		f.resolver = args
+	case "resolve_interval":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("resolve_interval can't be negative: %s", dur)
+		}
+		f.resolveInterval = dur
+	case "resolve_hold":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur < 0 {
+			return fmt.Errorf("resolve_hold can't be negative: %s", dur)
+		}
+		f.resolveHold = dur
 	default:
 		return c.Errf("unknown property '%s'", c.Val())
 	}

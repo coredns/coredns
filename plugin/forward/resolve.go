@@ -4,14 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/parse"
+	"github.com/coredns/coredns/plugin/pkg/proxy"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
 	"github.com/miekg/dns"
 )
+
+const defaultResolveInterval = 0 * time.Second // disabled by default; hostnames resolved only at startup
 
 // hostEntry represents a hostname-based TO address that needs DNS resolution.
 type hostEntry struct {
@@ -23,9 +27,11 @@ type hostEntry struct {
 
 // toEntry represents a single TO address from the config, preserving order.
 type toEntry struct {
-	static bool      // true for IP/file-based entries
-	addrs  []string  // for static: resolved by HostPortOrFile
-	entry  hostEntry // for dynamic: hostname to resolve
+	static        bool      // true for IP/file-based entries
+	addrs         []string  // for static: resolved by HostPortOrFile
+	entry         hostEntry // for dynamic: hostname to resolve
+	resolvedAddrs []string  // cached resolved addresses (dynamic entries only)
+	ttlExpiry     time.Time // when cached resolution expires (zero = expired/unknown)
 }
 
 // classifyToAddrs processes TO addresses in order, returning an ordered list of
@@ -106,24 +112,75 @@ func parseAsHostEntry(h string) (hostEntry, bool) {
 
 // expandAndDedup resolves all toEntries in order, expands hostnames to IPs,
 // and deduplicates by first-seen address. Returns the deduplicated address list.
-func expandAndDedup(entries []toEntry, resolvers []string) ([]string, error) {
+// Dynamic entries have their resolvedAddrs and ttlExpiry updated.
+func expandAndDedup(entries []toEntry, resolvers []string, resolveHold time.Duration) ([]string, error) {
 	seen := make(map[string]bool)
 	var result []string
 
-	for _, e := range entries {
+	for i, e := range entries {
 		var addrs []string
 		if e.static {
 			addrs = e.addrs
 		} else {
-			resolved, err := resolveHostEntry(e.entry, resolvers)
+			resolved, ttl, err := resolveHostEntry(e.entry, resolvers)
 			if err != nil {
 				return nil, err
 			}
 			addrs = resolved
+			entries[i].resolvedAddrs = resolved
+			entries[i].ttlExpiry = ttlToExpiry(ttl, resolveHold)
 		}
 
 		for _, addr := range addrs {
 			// Normalize the address for dedup comparison
+			key := normalizeAddr(addr)
+			if !seen[key] {
+				seen[key] = true
+				result = append(result, addr)
+			}
+		}
+	}
+	return result, nil
+}
+
+// ttlToExpiry converts a TTL in seconds to an expiry time, capped by resolveHold.
+// Returns zero time if TTL is 0 (unknown/not available).
+func ttlToExpiry(ttl uint32, resolveHold time.Duration) time.Time {
+	if ttl == 0 {
+		return time.Time{}
+	}
+	d := time.Duration(ttl) * time.Second
+	if resolveHold > 0 && d > resolveHold {
+		d = resolveHold
+	}
+	return time.Now().Add(d)
+}
+
+// expandAndDedupTTLAware resolves toEntries respecting TTL: entries whose TTL
+// has not expired use cached addresses instead of re-resolving.
+func expandAndDedupTTLAware(entries []toEntry, resolvers []string, resolveHold time.Duration) ([]string, error) {
+	seen := make(map[string]bool)
+	var result []string
+	now := time.Now()
+
+	for i, e := range entries {
+		var addrs []string
+		if e.static {
+			addrs = e.addrs
+		} else if !e.ttlExpiry.IsZero() && now.Before(e.ttlExpiry) {
+			// TTL still valid — use cached addresses
+			addrs = e.resolvedAddrs
+		} else {
+			resolved, ttl, err := resolveHostEntry(e.entry, resolvers)
+			if err != nil {
+				return nil, err
+			}
+			addrs = resolved
+			entries[i].resolvedAddrs = resolved
+			entries[i].ttlExpiry = ttlToExpiry(ttl, resolveHold)
+		}
+
+		for _, addr := range addrs {
 			key := normalizeAddr(addr)
 			if !seen[key] {
 				seen[key] = true
@@ -142,17 +199,18 @@ func normalizeAddr(addr string) string {
 	return h
 }
 
-// resolveHostEntry resolves a single hostname entry and returns its addresses.
-func resolveHostEntry(entry hostEntry, resolvers []string) ([]string, error) {
-	ips, err := lookupHost(entry.hostname, resolvers)
+// resolveHostEntry resolves a single hostname entry and returns its addresses
+// along with the minimum TTL (in seconds) from the DNS response.
+func resolveHostEntry(entry hostEntry, resolvers []string) ([]string, uint32, error) {
+	ips, ttl, err := lookupHost(entry.hostname, resolvers)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resolve %q: %v", entry.hostname, err)
+		return nil, 0, fmt.Errorf("failed to resolve %q: %v", entry.hostname, err)
 	}
 	var addrs []string
 	for _, ip := range ips {
 		addrs = append(addrs, formatResolvedAddr(ip, entry.port, entry.transport, entry.zone))
 	}
-	return addrs, nil
+	return addrs, ttl, nil
 }
 
 // formatResolvedAddr formats a resolved IP into an address string compatible
@@ -176,7 +234,8 @@ func formatResolvedAddr(ip, port, trans, zone string) string {
 
 // lookupHost resolves a hostname to IP addresses using the specified resolvers.
 // If resolvers is empty, the system resolver (/etc/resolv.conf) is used.
-func lookupHost(hostname string, resolvers []string) ([]string, error) {
+// Returns IPs and min TTL in seconds (0 if unknown, e.g. system resolver).
+func lookupHost(hostname string, resolvers []string) ([]string, uint32, error) {
 	if len(resolvers) == 0 {
 		return systemLookup(hostname)
 	}
@@ -184,21 +243,24 @@ func lookupHost(hostname string, resolvers []string) ([]string, error) {
 }
 
 // systemLookup resolves using the system resolver (/etc/resolv.conf).
-func systemLookup(hostname string) ([]string, error) {
+// TTL is always 0 because net.LookupHost does not expose it.
+func systemLookup(hostname string) ([]string, uint32, error) {
 	ips, err := net.LookupHost(hostname)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if len(ips) == 0 {
-		return nil, fmt.Errorf("no addresses found for %q", hostname)
+		return nil, 0, fmt.Errorf("no addresses found for %q", hostname)
 	}
-	return ips, nil
+	return ips, 0, nil
 }
 
 // dnsLookup resolves a hostname using specific DNS resolver addresses.
 // Each resolver can be a bare IP (port 53 is assumed) or an IP:port pair.
 // It tries each resolver in order until one succeeds.
-func dnsLookup(hostname string, resolvers []string) ([]string, error) {
+// Returns the resolved IPs and the minimum TTL (in seconds) from the answer records.
+// A TTL of 0 means no TTL information was available.
+func dnsLookup(hostname string, resolvers []string) ([]string, uint32, error) {
 	c := new(dns.Client)
 	c.ReadTimeout = 2 * time.Second
 	c.WriteTimeout = 2 * time.Second
@@ -211,6 +273,7 @@ func dnsLookup(hostname string, resolvers []string) ([]string, error) {
 			resolverAddr = net.JoinHostPort(resolver, transport.Port)
 		}
 		var ips []string
+		var minTTL uint32
 
 		// Try A records
 		m := new(dns.Msg)
@@ -226,6 +289,9 @@ func dnsLookup(hostname string, resolvers []string) ([]string, error) {
 			for _, ans := range r.Answer {
 				if a, ok := ans.(*dns.A); ok {
 					ips = append(ips, a.A.String())
+					if minTTL == 0 || ans.Header().Ttl < minTTL {
+						minTTL = ans.Header().Ttl
+					}
 				}
 			}
 		}
@@ -238,7 +304,7 @@ func dnsLookup(hostname string, resolvers []string) ([]string, error) {
 		r, _, err = c.Exchange(m, resolverAddr)
 		if err != nil {
 			if len(ips) > 0 {
-				return ips, nil // we have A records, AAAA failure is OK
+				return ips, minTTL, nil // we have A records, AAAA failure is OK
 			}
 			lastErr = err
 			continue
@@ -247,17 +313,142 @@ func dnsLookup(hostname string, resolvers []string) ([]string, error) {
 			for _, ans := range r.Answer {
 				if aaaa, ok := ans.(*dns.AAAA); ok {
 					ips = append(ips, aaaa.AAAA.String())
+					if minTTL == 0 || ans.Header().Ttl < minTTL {
+						minTTL = ans.Header().Ttl
+					}
 				}
 			}
 		}
 
 		if len(ips) > 0 {
-			return ips, nil
+			return ips, minTTL, nil
 		}
 	}
 
 	if lastErr != nil {
-		return nil, fmt.Errorf("no addresses found for %q: %v", hostname, lastErr)
+		return nil, 0, fmt.Errorf("no addresses found for %q: %v", hostname, lastErr)
 	}
-	return nil, fmt.Errorf("no addresses found for %q", hostname)
+	return nil, 0, fmt.Errorf("no addresses found for %q", hostname)
+}
+
+// hasDynamicEntries returns true if any toEntry is dynamic (hostname-based).
+func hasDynamicEntries(entries []toEntry) bool {
+	for _, e := range entries {
+		if !e.static {
+			return true
+		}
+	}
+	return false
+}
+
+// startResolveLoop starts a background goroutine that periodically re-resolves
+// hostname-based TO addresses and updates the proxy list.
+func (f *Forward) startResolveLoop() {
+	if !hasDynamicEntries(f.toEntries) || f.resolveInterval == 0 {
+		return
+	}
+
+	f.stopResolve = make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(f.resolveInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				f.reResolve()
+			case <-f.stopResolve:
+				return
+			}
+		}
+	}()
+}
+
+// stopResolveLoop stops the background resolution goroutine.
+func (f *Forward) stopResolveLoop() {
+	if f.stopResolve != nil {
+		close(f.stopResolve)
+	}
+}
+
+// reResolve re-resolves hostname entries whose TTL has expired, deduplicates
+// globally preserving first-seen order, and updates the proxy list if the result changed.
+func (f *Forward) reResolve() {
+	newAddrs, err := expandAndDedupTTLAware(f.toEntries, f.resolver, f.resolveHold)
+	if err != nil {
+		log.Warningf("Failed to re-resolve upstream hostnames: %v", err)
+		return
+	}
+
+	// Compare as sorted sets to avoid false positives from DNS response reordering
+	newNormalized := make([]string, len(newAddrs))
+	for i, addr := range newAddrs {
+		newNormalized[i] = normalizeAddr(addr)
+	}
+	sort.Strings(newNormalized)
+
+	f.proxyMu.RLock()
+	changed := len(f.proxies) != len(newAddrs)
+	if !changed {
+		currentAddrs := make([]string, len(f.proxies))
+		for i, p := range f.proxies {
+			currentAddrs[i] = p.Addr()
+		}
+		sort.Strings(currentAddrs)
+		for i := range currentAddrs {
+			if currentAddrs[i] != newNormalized[i] {
+				changed = true
+				break
+			}
+		}
+	}
+	f.proxyMu.RUnlock()
+
+	if !changed {
+		return
+	}
+
+	log.Infof("Upstream addresses changed, updating proxies")
+
+	// Build new proxy list
+	var newProxies []*proxy.Proxy
+	for _, addr := range newAddrs {
+		host, zone := splitZone(addr)
+		trans, h := parse.Transport(host)
+		p := proxy.NewProxy("forward", h, trans)
+		f.configureProxy(p, trans, zone)
+		p.Start(f.hcInterval)
+		newProxies = append(newProxies, p)
+	}
+
+	// Swap atomically
+	f.proxyMu.Lock()
+	oldProxies := f.proxies
+	f.proxies = newProxies
+	f.proxyMu.Unlock()
+
+	// Stop old proxies (outside lock)
+	for _, p := range oldProxies {
+		p.Stop()
+	}
+}
+
+// configureProxy applies the Forward instance's configuration to a proxy.
+func (f *Forward) configureProxy(p *proxy.Proxy, trans, zone string) {
+	if trans == transport.TLS {
+		if zone != "" && f.tlsServerName == "" {
+			tlsConfig := f.tlsConfig.Clone()
+			tlsConfig.ServerName = zone
+			p.SetTLSConfig(tlsConfig)
+		} else {
+			p.SetTLSConfig(f.tlsConfig)
+		}
+	}
+	p.SetExpire(f.expire)
+	p.SetMaxAge(f.maxAge)
+	p.SetMaxIdleConns(f.maxIdleConns)
+	p.GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
+	if f.opts.ForceTCP && trans != transport.TLS {
+		p.GetHealthchecker().SetTCPTransport()
+	}
+	p.GetHealthchecker().SetDomain(f.opts.HCDomain)
 }
