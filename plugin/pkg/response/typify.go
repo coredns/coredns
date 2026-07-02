@@ -13,7 +13,7 @@ type Type int
 const (
 	// NoError indicates a positive reply
 	NoError Type = iota
-	// NameError is a NXDOMAIN in header, SOA in auth.
+	// NameError is an NXDOMAIN in the header.
 	NameError
 	// ServerError is a set of errors we want to cache, for now it contains SERVFAIL and NOTIMPL.
 	ServerError
@@ -89,6 +89,9 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 	if len(m.Answer) > 0 && m.Rcode == dns.RcodeSuccess {
 		return NoError, opt
 	}
+	if len(m.Answer) > 0 && m.Rcode == dns.RcodeNameError {
+		return OtherError, opt
+	}
 
 	soa := false
 	ns := 0
@@ -105,7 +108,7 @@ func Typify(m *dns.Msg, t time.Time) (Type, *dns.OPT) {
 	if soa && m.Rcode == dns.RcodeSuccess {
 		return NoData, opt
 	}
-	if soa && m.Rcode == dns.RcodeNameError {
+	if m.Rcode == dns.RcodeNameError {
 		return NameError, opt
 	}
 
