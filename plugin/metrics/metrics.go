@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_prometheus || coredns_auto
+
 // Package metrics implement a handler and plugin that provides Prometheus metrics.
 package metrics
 

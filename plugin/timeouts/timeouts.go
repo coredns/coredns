@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_timeouts
+
 package timeouts
 
 import (
@@ -8,8 +10,6 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/durations"
 )
-
-func init() { plugin.Register("timeouts", setup) }
 
 func setup(c *caddy.Controller) error {
 	err := parseTimeouts(c)

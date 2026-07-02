@@ -24,7 +24,7 @@ jobs:
         id: go
 
       - name: Build
-        run: go build -v ./...
+        run: go build -v -tags coredns_all ./...
 
       - name: Test
         run: |
@@ -48,7 +48,7 @@ jobs:
         id: go
 
       - name: Build
-        run: go build -v ./...
+        run: go build -v -tags coredns_all ./...
 
       - name: Test
         shell: bash
@@ -73,10 +73,10 @@ jobs:
         id: go
 
       - name: Build
-        run: go build -v ./...
+        run: go build -v -tags coredns_all ./...
 
       - name: Test
-        run: ( cd plugin; go test -race ./... )
+        run: ( cd plugin; go test -race -tags coredns_all ./... )
 
   test-e2e:
     name: Test e2e
@@ -94,12 +94,12 @@ jobs:
         id: go
 
       - name: Build
-        run: go build -v ./...
+        run: go build -v -tags coredns_all ./...
 
       - name: Test
         run: |
           go install github.com/fatih/faillint@c56e3ec6dbfc933bbeb884fd31f2bcd41f712657 # v1.15.0
-          ( cd test; go test -race ./... )
+          ( cd test; go test -race -tags coredns_all ./... )
 
   test-makefile-release:
     name: Test Makefile.release

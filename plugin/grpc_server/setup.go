@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_grpc_server
+
 package grpc_server
 
 import (
@@ -7,13 +9,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() {
-	caddy.RegisterPlugin("grpc_server", caddy.Plugin{
-		ServerType: "dns",
-		Action:     setup,
-	})
-}
 
 func setup(c *caddy.Controller) error {
 	err := parseGRPCServer(c)

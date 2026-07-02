@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_dnstap || coredns_forward
+
 package dnstap
 
 import (
@@ -14,8 +16,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("dnstap")
-
-func init() { plugin.Register("dnstap", setup) }
 
 const (
 	// Upper bounds chosen to keep memory use and kernel socket buffer requests reasonable

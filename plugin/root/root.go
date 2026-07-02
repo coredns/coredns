@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_root
+
 package root
 
 import (
@@ -10,8 +12,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("root")
-
-func init() { plugin.Register("root", setup) }
 
 func setup(c *caddy.Controller) error {
 	config := dnsserver.GetConfig(c)

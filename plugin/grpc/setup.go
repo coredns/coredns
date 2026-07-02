@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_grpc
+
 package grpc
 
 import (
@@ -11,8 +13,6 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/parse"
 	pkgtls "github.com/coredns/coredns/plugin/pkg/tls"
 )
-
-func init() { plugin.Register("grpc", setup) }
 
 func setup(c *caddy.Controller) error {
 	g, err := parseGRPC(c)

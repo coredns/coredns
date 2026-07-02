@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_chaos
+
 // Package chaos implements a plugin that answer to 'CH version.bind TXT' type queries.
 package chaos
 

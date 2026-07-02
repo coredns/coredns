@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_auto
+
 // Package auto implements an on-the-fly loading file backend.
 package auto
 

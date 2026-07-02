@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_minimal
+
 package minimal
 
 import (
@@ -5,10 +7,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() {
-	plugin.Register("minimal", setup)
-}
 
 func setup(c *caddy.Controller) error {
 	c.Next()
