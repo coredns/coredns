@@ -226,6 +226,11 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			return nil, ret, nil, NoData
 		}
 
+		// Additional section processing for MX, SRV, SVCB, HTTPS. Check response
+		// and see if any of the names are in bailiwick - if so add IP addresses
+		// to the additional section. This mirrors the non-wildcard path above.
+		additional := z.additionalProcessing(rrs, do)
+
 		auth := ap.ns(do)
 		if do {
 			// An NSEC is needed to say no longer name exists under this wildcard.
@@ -238,7 +243,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			sigs = rrutil.SubTypeSignature(sigs, qtype)
 			rrs = append(rrs, sigs...)
 		}
-		return rrs, auth, nil, Success
+		return rrs, auth, additional, Success
 	}
 
 	rcode := NameError
