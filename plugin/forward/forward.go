@@ -29,8 +29,9 @@ import (
 var log = clog.NewWithPlugin("forward")
 
 const (
-	defaultExpire = 10 * time.Second
-	hcInterval    = 500 * time.Millisecond
+	defaultExpire      = 10 * time.Second
+	defaultReadTimeout = 2 * time.Second
+	hcInterval         = 500 * time.Millisecond
 )
 
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
@@ -53,6 +54,7 @@ type Forward struct {
 	maxfails                   uint32
 	expire                     time.Duration
 	maxAge                     time.Duration
+	readTimeout                time.Duration
 	maxIdleConns               int
 	dohMethod                  string
 	maxConcurrent              int64
@@ -77,7 +79,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, dohMethod: http.MethodPost, opts: proxyPkg.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, readTimeout: defaultReadTimeout, p: new(random), from: ".", hcInterval: hcInterval, dohMethod: http.MethodPost, opts: proxyPkg.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
 	return f
 }
 

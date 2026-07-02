@@ -794,3 +794,75 @@ func TestSetupMaxAge(t *testing.T) {
 		})
 	}
 }
+
+func TestSetupReadTimeout(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		shouldErr   bool
+		expectedVal time.Duration
+		expectedErr string
+	}{
+		{
+			name:        "default (no read_timeout)",
+			input:       "forward . 127.0.0.1\n",
+			expectedVal: defaultReadTimeout,
+		},
+		{
+			name:        "valid read_timeout",
+			input:       "forward . 127.0.0.1 {\nread_timeout 5s\n}\n",
+			expectedVal: 5 * time.Second,
+		},
+		{
+			name:        "sub-second read_timeout",
+			input:       "forward . 127.0.0.1 {\nread_timeout 500ms\n}\n",
+			expectedVal: 500 * time.Millisecond,
+		},
+		{
+			name:        "zero read_timeout",
+			input:       "forward . 127.0.0.1 {\nread_timeout 0s\n}\n",
+			shouldErr:   true,
+			expectedErr: "positive",
+		},
+		{
+			name:        "negative read_timeout",
+			input:       "forward . 127.0.0.1 {\nread_timeout -1s\n}\n",
+			shouldErr:   true,
+			expectedErr: "positive",
+		},
+		{
+			name:        "invalid read_timeout value",
+			input:       "forward . 127.0.0.1 {\nread_timeout invalid\n}\n",
+			shouldErr:   true,
+			expectedErr: "invalid",
+		},
+		{
+			name:      "missing read_timeout value",
+			input:     "forward . 127.0.0.1 {\nread_timeout\n}\n",
+			shouldErr: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", test.input)
+			fs, err := parseForward(c)
+			if test.shouldErr {
+				if err == nil {
+					t.Errorf("expected error but found none for input %s", test.input)
+					return
+				}
+				if test.expectedErr != "" && !strings.Contains(err.Error(), test.expectedErr) {
+					t.Errorf("expected error to contain %q, got: %v", test.expectedErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("expected no error but found: %v", err)
+				return
+			}
+			if fs[0].readTimeout != test.expectedVal {
+				t.Errorf("expected readTimeout %v, got %v", test.expectedVal, fs[0].readTimeout)
+			}
+		})
+	}
+}
