@@ -27,6 +27,7 @@ A working syntax would be:
 ~~~
 secondary [zones...] {
     transfer from ADDRESS [ADDRESS...]
+    catalog
     fallthrough [ZONES...]
 }
 ~~~
@@ -34,6 +35,9 @@ secondary [zones...] {
 *  `transfer from` specifies from which **ADDRESS** to fetch the zone. It can be specified multiple
    times; if one does not work, another will be tried. Transferring this zone outwards again can be
    done by enabling the *transfer* plugin.
+
+*  `catalog` treats the transferred zone as an RFC 9432 catalog zone and parses the catalog member
+   list after each successful transfer.
 
 *  `fallthrough` If a query for a record in the zone results in NXDOMAIN, the query will be passed
    to the next plugin in the chain. If **[ZONES...]** are listed, then only queries for those zones

@@ -14,6 +14,7 @@ func TestSecondaryParse(t *testing.T) {
 		transferFrom   string
 		zones          []string
 		fall           fall.F
+		catalogZones   []string
 	}{
 		{
 			`secondary {
@@ -23,6 +24,7 @@ func TestSecondaryParse(t *testing.T) {
 			"127.0.0.1:53",
 			nil,
 			fall.F{},
+			nil,
 		},
 		{
 			`secondary example.org {
@@ -32,6 +34,29 @@ func TestSecondaryParse(t *testing.T) {
 			"127.0.0.1:53",
 			[]string{"example.org."},
 			fall.F{},
+			nil,
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"catalog.example."},
+			fall.F{},
+			[]string{"catalog.example."},
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog extra
+			}`,
+			true,
+			"",
+			nil,
+			fall.F{},
+			nil,
 		},
 		{
 			`secondary`,
@@ -39,6 +64,7 @@ func TestSecondaryParse(t *testing.T) {
 			"",
 			nil,
 			fall.F{},
+			nil,
 		},
 		{
 			`secondary example.org {
@@ -48,6 +74,7 @@ func TestSecondaryParse(t *testing.T) {
 			"",
 			nil,
 			fall.F{},
+			nil,
 		},
 		// fallthrough: bare (all zones)
 		{
@@ -59,6 +86,7 @@ func TestSecondaryParse(t *testing.T) {
 			"127.0.0.1:53",
 			nil,
 			fall.Root,
+			nil,
 		},
 		// fallthrough: specific zone
 		{
@@ -70,12 +98,13 @@ func TestSecondaryParse(t *testing.T) {
 			"127.0.0.1:53",
 			[]string{"example.org."},
 			fall.F{Zones: []string{"example.org."}},
+			nil,
 		},
 	}
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputFileRules)
-		s, f, err := secondaryParse(c)
+		s, f, catalogZones, err := secondaryParse(c)
 
 		if err == nil && test.shouldErr {
 			t.Fatalf("Test %d expected errors, but got no error", i)
@@ -98,6 +127,14 @@ func TestSecondaryParse(t *testing.T) {
 
 		if !f.Equal(test.fall) {
 			t.Fatalf("Test %d fallthrough not equal: expected %v, got %v", i, test.fall, f)
+		}
+		if len(catalogZones) != len(test.catalogZones) {
+			t.Fatalf("Test %d catalog zone count mismatch: expected %d, got %d", i, len(test.catalogZones), len(catalogZones))
+		}
+		for _, name := range test.catalogZones {
+			if _, ok := catalogZones[name]; !ok {
+				t.Fatalf("Test %d expected catalog zone %q", i, name)
+			}
 		}
 	}
 }
