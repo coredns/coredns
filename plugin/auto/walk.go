@@ -44,12 +44,14 @@ func (a Auto) Walk() error {
 		cleanPath := filepath.Clean(path)
 		if previous, ok := seen[origin]; ok && previous != cleanPath {
 			log.Warningf("Multiple zone files match origin %q: using %q instead of %q", origin, path, previous)
+			toDelete[origin] = false
+			return nil
 		}
 		seen[origin] = cleanPath
 
 		if z, ok := a.Z[origin]; ok {
 			toDelete[origin] = false
-			z.SetFile(path)
+			z.SetFile(cleanPath)
 			return nil
 		}
 
