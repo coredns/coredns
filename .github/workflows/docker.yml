@@ -35,3 +35,100 @@ jobs:
         env:
           DOCKER_LOGIN: ${{ secrets.DOCKERHUB_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+  registry-k8s-io-promotion:
+    name: registry.k8s.io promotion
+    runs-on: ubuntu-latest
+    needs:
+      - docker-release
+    env:
+      RELEASE: ${{ github.event.inputs.release || github.event.release.tag_name }}
+    steps:
+      - name: Checkout kubernetes/k8s.io
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        with:
+          repository: kubernetes/k8s.io
+          ref: main
+          token: ${{ secrets.K8S_IO_PROMOTION_TOKEN }}
+          path: k8s-io
+          persist-credentials: false
+
+      - name: Resolve image digest
+        id: image
+        run: |
+          set -euo pipefail
+          IMAGE_TAG="${RELEASE:1}"
+          INSPECT_OUTPUT="$(docker buildx imagetools inspect coredns/coredns:${IMAGE_TAG} 2>&1 || true)"
+          IMAGE_DIGEST="$(printf '%s\n' "${INSPECT_OUTPUT}" | awk '/Digest:/ {print $2; exit}')"
+          if [[ -z "${IMAGE_DIGEST}" ]]; then
+            echo "Failed to resolve digest for coredns/coredns:${IMAGE_TAG}."
+            echo "Ensure docker-release job completed successfully; Docker Hub propagation can take 5-10 minutes before digest lookup succeeds."
+            echo "${INSPECT_OUTPUT}"
+            exit 1
+          fi
+          echo "image_tag=${IMAGE_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "image_digest=${IMAGE_DIGEST}" >> "${GITHUB_OUTPUT}"
+
+      - name: Update k8s.io image promotion manifest
+        id: manifest
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.image_digest }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib
+          import re
+
+          release = "${{ env.RELEASE }}"
+          digest = "${{ env.IMAGE_DIGEST }}"
+          path = pathlib.Path("k8s-io/registry.k8s.io/images/k8s-staging-coredns/images.yaml")
+
+          data = path.read_text()
+          entry = f'    "{digest}": ["{release}"]\n'
+          if entry in data:
+              print("Manifest already contains current release and digest")
+              raise SystemExit(0)
+
+          digest_key_pattern = r'^\s+"sha256:[0-9a-f]{64}": '
+          version_pattern = r'v[0-9]+\.[0-9]+\.[0-9]+'
+          release_line_pattern = re.compile(rf'{digest_key_pattern}\["{re.escape(release)}"\]\n', re.MULTILINE)
+          digest_line_pattern = re.compile(rf'{digest_key_pattern}\["{version_pattern}"\]\n', re.MULTILINE)
+
+          data = release_line_pattern.sub("", data)
+
+          digest_lines = list(digest_line_pattern.finditer(data))
+          if not digest_lines:
+              raise SystemExit("Unable to find digest map entries in images.yaml")
+
+          insert_at = digest_lines[-1].end()
+          updated = data[:insert_at] + entry + data[insert_at:]
+          path.write_text(updated)
+          PY
+
+          if git -C k8s-io diff --quiet -- registry.k8s.io/images/k8s-staging-coredns/images.yaml; then
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+          else
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Create promotion PR
+        if: steps.manifest.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
+        with:
+          path: k8s-io
+          token: ${{ secrets.K8S_IO_PROMOTION_TOKEN }}
+          branch: bot/promote-coredns-${{ steps.image.outputs.image_tag }}
+          base: main
+          commit-message: 'registry.k8s.io: promote coredns ${{ env.RELEASE }}'
+          title: 'Promote coredns to ${{ env.RELEASE }}'
+          body: |
+            CoreDNS ${{ env.RELEASE }} release is available - https://github.com/${{ github.repository }}/releases/tag/${{ env.RELEASE }}
+
+            ```
+             ❯ docker buildx imagetools inspect coredns/coredns:${{ steps.image.outputs.image_tag }}
+            Digest: ${{ steps.image.outputs.image_digest }}
+            ```
+
+            Required repository settings/secrets for this automation:
+            - `K8S_IO_PROMOTION_TOKEN`: token with permission to push a branch to `kubernetes/k8s.io` and open pull requests.
+          signoff: true
