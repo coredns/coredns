@@ -284,3 +284,82 @@ func TestFullQueueWriteFail(t *testing.T) {
 	require.NotEqual(t, 0, logger.WarnCount())
 	require.Contains(t, logger.WarnLog(), "Dropped dnstap messages")
 }
+
+func TestReconnectClosesPreviousConnection(t *testing.T) {
+	// A reconnect (a second dial after a write error) must flush and close the
+	// previous encoder and its connection before installing the new one.
+	// Otherwise the old socket leaks on every redial.
+	l, err := reuseport.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatalf("Cannot start listener: %s", err)
+	}
+	defer l.Close()
+
+	accepted := make(chan struct{}, 2)
+	firstClosed := make(chan struct{})
+
+	go func() {
+		n := 0
+		for {
+			server, err := l.Accept()
+			if err != nil {
+				return
+			}
+			n++
+			go func(server net.Conn, n int) {
+				dec, err := fs.NewDecoder(server, &fs.DecoderOptions{
+					ContentType:   []byte("protobuf:dnstap.Dnstap"),
+					Bidirectional: true,
+				})
+				if err != nil {
+					server.Close()
+					return
+				}
+				accepted <- struct{}{}
+				if n == 1 {
+					// Block until the client closes this connection during the
+					// second dial; Decode then returns an error (framestream FINISH/EOF).
+					for {
+						if _, err := dec.Decode(); err != nil {
+							break
+						}
+					}
+					server.Close()
+					close(firstClosed)
+					return
+				}
+				// n >= 2: leave the connection open for the rest of the test.
+			}(server, n)
+		}
+	}()
+
+	dio := newIO("tcp", l.Addr().String(), 1, 1)
+	dio.tcpTimeout = time.Second
+
+	// First dial establishes the initial connection.
+	if err := dio.dial(); err != nil {
+		t.Fatalf("first dial failed: %s", err)
+	}
+	<-accepted
+	first := dio.enc
+	if first == nil {
+		t.Fatal("first dial did not set an encoder")
+	}
+
+	// Second dial simulates a reconnect: it must replace the encoder.
+	if err := dio.dial(); err != nil {
+		t.Fatalf("second dial failed: %s", err)
+	}
+	<-accepted
+	if dio.enc == first {
+		t.Fatal("second dial did not replace the previous encoder")
+	}
+	defer dio.enc.close()
+
+	// The previous connection must have been closed by the second dial.
+	select {
+	case <-firstClosed:
+	case <-time.After(2 * time.Second):
+		t.Fatal("previous connection was not closed on reconnect (fd/goroutine leak)")
+	}
+}
