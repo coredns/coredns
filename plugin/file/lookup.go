@@ -310,6 +310,16 @@ func (a Apex) ns(do bool) []dns.RR {
 	return a.NS
 }
 
+// authority returns the records for the authority section of a response with
+// the given result: the SOA for negative answers (NXDOMAIN/NODATA), as
+// required by RFC 2308, and the NS records otherwise.
+func (z *Zone) authority(do bool, result Result) []dns.RR {
+	if result == NameError || result == NoData {
+		return z.soa(do)
+	}
+	return z.ns(do)
+}
+
 // externalLookup adds signatures and tries to resolve CNAMEs that point to external names.
 func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
 	qtype := state.QType()
@@ -326,7 +336,7 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 	if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
-		return rrs, z.ns(do), nil, result
+		return rrs, z.authority(do, result), nil, result
 	}
 
 	i := 0
@@ -346,7 +356,7 @@ Redo:
 		if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 			rrs = append(rrs, lookupRRs...)
-			return rrs, z.ns(do), nil, result
+			return rrs, z.authority(do, result), nil, result
 		}
 
 		i++
