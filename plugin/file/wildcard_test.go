@@ -354,3 +354,59 @@ func TestLookupWildcardAdditional(t *testing.T) {
 		}
 	}
 }
+
+const closerENTWildcard = `; example.org test file with a wildcard and a deeper empty non-terminal
+$TTL 3600
+example.org.             IN     SOA     sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600
+example.org.             IN     NS      b.iana-servers.net.
+*.example.org.           IN     A       127.0.0.53
+real.deeper.example.org. IN     A       127.0.0.54
+`
+
+var closerENTWildcardTestCases = []test.Case{
+	// deeper.example.org. is an empty non-terminal (real.deeper.example.org.
+	// exists below it), so it is a closer encloser than the wildcard's parent
+	// example.org. A name under it with no record and no *.deeper.example.org.
+	// wildcard is an NXDOMAIN, not the *.example.org. wildcard.
+	{
+		Qname: "nonexistent.deeper.example.org.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA(`example.org. 3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600`),
+		},
+	},
+	// No closer empty non-terminal between example.org. and the queried name, so
+	// the wildcard still applies exactly as before.
+	{
+		Qname: "nonexistent.example.org.", Qtype: dns.TypeA,
+		Answer: []dns.RR{test.A(`nonexistent.example.org. 3600 IN A 127.0.0.53`)},
+		Ns:     []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
+	},
+}
+
+func TestLookupWildcardRespectsCloserEmptyNonTerminal(t *testing.T) {
+	const name = "example.org."
+	zone, err := Parse(strings.NewReader(closerENTWildcard), name, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expect no error when reading zone, got %q", err)
+	}
+
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{name: zone}, Names: []string{name}}}
+	ctx := context.TODO()
+
+	for _, tc := range closerENTWildcardTestCases {
+		m := tc.Msg()
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		_, err := fm.ServeDNS(ctx, rec, m)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+			return
+		}
+
+		resp := rec.Msg
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Error(err)
+		}
+	}
+}

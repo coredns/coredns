@@ -203,7 +203,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	// Haven't found the original name.
 
 	// Found wildcard.
-	if wildElem != nil {
+	if wildElem != nil && !closerENTExists(tr, qname, wildElem.Name()) {
 		// set metadata value for the wildcard record that synthesized the result
 		metadata.SetValueFunc(ctx, "zone/wildcard", func() string {
 			return wildElem.Name()
@@ -286,6 +286,33 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	}
 Out:
 	return nil, ret, nil, rcode
+}
+
+// closerENTExists reports whether there is an empty-non-terminal between the
+// wildcard's parent and qname. Per RFC 4592, such an ENT is the closest
+// encloser and the shallower wildcard does not apply to qname.
+func closerENTExists(tr *tree.Tree, qname, wildcardName string) bool {
+	// The wildcard owner is "*.<parent>"; anything with that exact prefix is not a closer encloser.
+	if len(wildcardName) < 2 || wildcardName[0] != '*' || wildcardName[1] != '.' {
+		return false
+	}
+	parent := wildcardName[2:]
+	// Walk strict ancestors of qname that are strict descendants of parent.
+	// Each ancestor is an ENT if the tree contains any name strictly below it.
+	name := qname
+	offset, end := dns.NextLabel(name, 0)
+	for !end {
+		name = name[offset:]
+		if name == parent || !dns.IsSubDomain(parent, name) {
+			return false
+		}
+		// An ENT exists at `name` iff tr.Next(name) returns a descendant of name.
+		if x, found := tr.Next(name); found && dns.IsSubDomain(name, x.Name()) {
+			return true
+		}
+		offset, end = dns.NextLabel(name, 0)
+	}
+	return false
 }
 
 // typeFromElem returns the type tp from e and adds signatures (if they exist) and do is true.
