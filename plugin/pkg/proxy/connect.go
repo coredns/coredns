@@ -201,7 +201,7 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	// RFC8484 has DNS ID of 0 as a SHOULD
 	// original ID is replaced on client response by forward plugin
 	state.Req.Id = 0
-	
+
 	var localAddr net.Addr
 	trace := &httptrace.ClientTrace{
 		GotConn: func(info httptrace.GotConnInfo) {
