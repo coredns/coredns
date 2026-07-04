@@ -21,7 +21,7 @@ type Proxy struct {
 	protocol  string
 
 	dohMethod string
-	dohHost	  string
+	dohHost   string
 
 	readTimeout time.Duration
 
