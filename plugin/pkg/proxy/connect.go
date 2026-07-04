@@ -198,8 +198,13 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	// DoH always runs over TCP (HTTPS), regardless of the downstream
 	// client's protocol.
 	const proto = "tcp"
+	// records the origin Id before upstream.
+	originId := state.Req.Id
+	state.Req.Id = dns.Id()
+	defer func() {
+		state.Req.Id = originId
+	}()
 	// RFC8484 has DNS ID of 0 as a SHOULD
-	// original ID is replaced on client response by forward plugin
 	state.Req.Id = 0
 
 	var localAddr net.Addr
@@ -226,6 +231,10 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 		return nil, localAddr, proto, err
 	}
 
+	// recovery the origin Id after upstream.
+	if ret != nil {
+		ret.Id = originId
+	}
 	return ret, localAddr, proto, nil
 }
 
