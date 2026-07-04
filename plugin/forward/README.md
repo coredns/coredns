@@ -89,6 +89,9 @@ forward FROM TO... {
   * `tls` **CERT** **KEY**  **CA** - client authentication is used with the specified cert/key pair.
     The server certificate is verified using the specified CA file
 
+CoreDNS sets the minimum TLS version to TLS 1.2. The maximum TLS version, TLS 1.2 cipher suites, and
+key exchange mechanisms use the Go `crypto/tls` defaults.
+
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
   needs this to be set to `dns.quad9.net`. Using TLS forwarding but not setting `tls_servername` results in anyone
   being able to man-in-the-middle your connection to the DNS server you are forwarding to. Because of this,

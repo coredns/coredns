@@ -13,15 +13,6 @@ import (
 
 func setTLSDefaults(ctls *tls.Config) {
 	ctls.MinVersion = tls.VersionTLS12
-	ctls.MaxVersion = tls.VersionTLS13
-	ctls.CipherSuites = []uint16{
-		tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-		tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-		tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-		tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-		tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-	}
 }
 
 // NewTLSConfigFromArgs returns a TLS config based upon the passed
@@ -102,7 +93,7 @@ func NewTLSConfig(certPath, keyPath, caPath string) (*tls.Config, error) {
 		return nil, err
 	}
 
-	// #nosec G402 -- MinVersion and MaxVersion are set in setTLSDefaults
+	// #nosec G402 -- MinVersion is set in setTLSDefaults
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		RootCAs:      roots,
@@ -120,7 +111,7 @@ func NewTLSClientConfig(caPath string) (*tls.Config, error) {
 		return nil, err
 	}
 
-	// #nosec G402 -- MinVersion and MaxVersion are set in setTLSDefaults
+	// #nosec G402 -- MinVersion is set in setTLSDefaults
 	tlsConfig := &tls.Config{
 		RootCAs: roots,
 	}
