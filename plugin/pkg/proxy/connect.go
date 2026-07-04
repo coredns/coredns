@@ -144,7 +144,6 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
 	// records the origin Id before upstream.
 	originId := state.Req.Id
-	state.Req.Id = dns.Id()
 	defer func() {
 		state.Req.Id = originId
 	}()
@@ -200,10 +199,7 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	const proto = "tcp"
 	// records the origin Id before upstream.
 	originId := state.Req.Id
-<<<<<<< HEAD
-=======
 	state.Req.Id = dns.Id()
->>>>>>> d92667ed9 (ensuring dns transaction ID maintained)
 	defer func() {
 		state.Req.Id = originId
 	}()
