@@ -66,6 +66,7 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 		return dns.RcodeSuccess, nil
 	}
 
+	tsigRR.Error = dns.RcodeSuccess
 	// Strip the TSIG RR. Next, and subsequent plugins will not see the TSIG RRs.
 	// This violates forwarding cases (RFC 8945 5.5). See README.md Bugs
 	if len(r.Extra) > 1 {

@@ -21,6 +21,7 @@ func TestServeDNS(t *testing.T) {
 		reqOpCodes  opCodes
 		qType       uint16
 		opcode      int
+		extra       []dns.RR
 		qTsig       bool
 		allTypes    bool
 		allOpcodes  bool
@@ -221,6 +222,7 @@ func TestServeDNSTsigErrors(t *testing.T) {
 	cases := []struct {
 		desc              string
 		tsigErr           error
+		reqError          int
 		expectRcode       int
 		expectError       int
 		expectOtherLength int
@@ -250,6 +252,15 @@ func TestServeDNSTsigErrors(t *testing.T) {
 			expectOtherLength: 6,
 			expectTimeSigned:  clientNow,
 		},
+		{
+			desc:              "Client Set Error",
+			tsigErr:           nil,
+			reqError:          dns.RcodeBadKey,
+			expectRcode:       dns.RcodeSuccess,
+			expectError:       dns.RcodeSuccess,
+			expectOtherLength: 0,
+			expectTimeSigned:  0,
+		},
 	}
 
 	tsig := TSIGServer{
@@ -268,8 +279,9 @@ func TestServeDNSTsigErrors(t *testing.T) {
 			r.SetQuestion("test.example.", dns.TypeA)
 			r.SetTsig("test.key.", dns.HmacSHA256, 300, clientNow)
 
-			// set a fake MAC and Size in request
 			rtsig := r.IsTsig()
+			rtsig.Error = uint16(tc.reqError)
+			// set a fake MAC and Size in request
 			rtsig.MAC = "0123456789012345678901234567890101234567890123456789012345678901"
 			rtsig.MACSize = 32
 
