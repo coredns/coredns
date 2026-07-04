@@ -200,6 +200,10 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	const proto = "tcp"
 	// records the origin Id before upstream.
 	originId := state.Req.Id
+<<<<<<< HEAD
+=======
+	state.Req.Id = dns.Id()
+>>>>>>> d92667ed9 (ensuring dns transaction ID maintained)
 	defer func() {
 		state.Req.Id = originId
 	}()
