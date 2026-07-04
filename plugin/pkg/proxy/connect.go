@@ -200,11 +200,11 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	const proto = "tcp"
 	// records the origin Id before upstream.
 	originId := state.Req.Id
+	// RFC8484 has DNS ID of 0 as a SHOULD
+	state.Req.Id = 0
 	defer func() {
 		state.Req.Id = originId
 	}()
-	// RFC8484 has DNS ID of 0 as a SHOULD
-	state.Req.Id = 0
 
 	var localAddr net.Addr
 	trace := &httptrace.ClientTrace{
