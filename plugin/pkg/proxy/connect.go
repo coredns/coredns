@@ -144,6 +144,7 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
 	// records the origin Id before upstream.
 	originId := state.Req.Id
+	state.Req.Id = dns.Id()
 	defer func() {
 		state.Req.Id = originId
 	}()
