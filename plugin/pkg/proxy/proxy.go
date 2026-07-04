@@ -21,6 +21,7 @@ type Proxy struct {
 	protocol  string
 
 	dohMethod string
+	dohHost	  string
 
 	readTimeout time.Duration
 
@@ -39,6 +40,7 @@ func NewProxy(proxyName, addr, protocol string) *Proxy {
 		transport:   newTransport(proxyName, addr),
 		protocol:    protocol,
 		dohMethod:   http.MethodPost,
+		dohHost:     "",
 		health:      NewHealthChecker(proxyName, protocol, true, "."),
 		proxyName:   proxyName,
 	}
@@ -82,6 +84,12 @@ func (p *Proxy) SetHTTPClient(client *http.Client) {
 func (p *Proxy) SetDOHRequestOptions(method string) {
 	p.dohMethod = method
 }
+
+func (p *Proxy) SetDOHHost(host string) {
+	p.dohHost = host
+}
+
+func (p *Proxy) DoHHost() string { return p.dohHost }
 
 func (p *Proxy) GetHealthchecker() HealthChecker {
 	return p.health

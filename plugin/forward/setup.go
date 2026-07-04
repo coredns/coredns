@@ -237,6 +237,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 
 		// Only set this for proxies that need it.
 		if transports[i] == transport.TLS || transports[i] == transport.HTTPS {
+			f.proxies[i].SetDOHHost(tlsServerNames[i])
 			if tlsConfig, ok := perServerNameTlsConfig[tlsServerNames[i]]; ok {
 				f.proxies[i].SetTLSConfig(tlsConfig)
 			} else {

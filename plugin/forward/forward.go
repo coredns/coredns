@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"net"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -168,13 +169,15 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		})
 
 		var (
-			ret *dns.Msg
-			err error
+			ret           *dns.Msg
+			localAddr     net.Addr
+			upstreamProto string
+			err           error
 		)
 		opts := f.opts
 
 		for {
-			ret, err = proxy.Connect(ctx, state, opts)
+			ret, localAddr, upstreamProto, err = proxy.Connect(ctx, state, opts)
 
 			if err == proxyPkg.ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
 				continue
@@ -192,7 +195,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 
 		if len(f.tapPlugins) != 0 {
-			toDnstap(ctx, f, proxy.Addr(), state, opts, ret, start)
+			toDnstap(ctx, f, proxy.Addr(), localAddr, upstreamProto, state, ret, start)
 		}
 
 		upstreamErr = err
