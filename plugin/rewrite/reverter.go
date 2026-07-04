@@ -73,7 +73,11 @@ func (r *ResponseReverter) WriteMsg(res1 *dns.Msg) error {
 	res := res1.Copy()
 
 	if r.revertPolicy.DoQuestionRestore() {
-		res.Question[0] = r.originalQuestion
+		if len(res.Question) == 0 {
+			res.Question = []dns.Question{r.originalQuestion}
+		} else {
+			res.Question[0] = r.originalQuestion
+		}
 	}
 	if len(r.ResponseRules) > 0 {
 		for _, rr := range res.Ns {
