@@ -88,7 +88,7 @@ func (h *Dnstap) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	}
 
 	// The query tap message should be sent before sending the query to the
-	// forwarder. Otherwise, the tap messages will come out out of order.
+	// forwarder. Otherwise, the tap messages will come out of order.
 	h.tapQuery(ctx, w, r, rw.queryTime)
 
 	return plugin.NextOrFailure(h.Name(), h.Next, ctx, rw, r)
