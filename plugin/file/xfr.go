@@ -9,8 +9,8 @@ import (
 
 // Transfer implements the transfer.Transfer interface.
 func (f File) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
-	z, ok := f.Z[zone]
-	if !ok || z == nil {
+	matched, z, ok := f.lookupZone(zone)
+	if !ok || matched != zone || z == nil {
 		return nil, transfer.ErrNotAuthoritative
 	}
 	return z.Transfer(serial)

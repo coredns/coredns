@@ -26,18 +26,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("secondary", err)
 	}
 
-	s := &Secondary{
-		File:         file.File{Zones: zones, Fall: fall},
-		catalogs:     make(map[string]*catalog.Catalog),
-		catalogZones: catalogZones,
-	}
-	zoneNames := make(map[*file.Zone]string, len(zones.Z))
-	for name, zone := range zones.Z {
-		zoneNames[zone] = name
-	}
-	s.TransferInFunc = func(z *file.Zone, t *transfer.Transfer) error {
-		return s.transferIn(zoneNames[z], z, t)
-	}
+	s := newSecondary(zones, fall, catalogZones)
 	var x *transfer.Transfer
 	c.OnStartup(func() error {
 		t := dnsserver.GetConfig(c).Handler("transfer")
@@ -59,32 +48,7 @@ func setup(c *caddy.Controller) error {
 
 			c.OnStartup(func() error {
 				z.StartupOnce.Do(func() {
-					go func() {
-						dur := time.Millisecond * 250
-						max := time.Second * 10
-						for {
-							err := s.transferIn(n, z, x)
-							if err == nil {
-								break
-							}
-							log.Warningf("All '%s' masters failed to transfer, retrying in %s: %s", n, dur.String(), err)
-							if waitForTransferRetry(updateShutdown, dur) {
-								return
-							}
-							dur <<= 1 // double the duration
-							if dur > max {
-								dur = max
-							}
-						}
-						select {
-						case <-updateShutdown:
-							return
-						default:
-						}
-						z.UpdateWithTransfer(updateShutdown, x, func(z *file.Zone, t *transfer.Transfer) error {
-							return s.transferIn(n, z, t)
-						})
-					}()
+					go s.transferAndUpdate(n, z, x, updateShutdown)
 				})
 				return nil
 			})
@@ -94,6 +58,10 @@ func setup(c *caddy.Controller) error {
 			})
 		}
 	}
+	c.OnShutdown(func() error {
+		s.stopDynamicZones()
+		return nil
+	})
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		s.Next = next
@@ -101,6 +69,52 @@ func setup(c *caddy.Controller) error {
 	})
 
 	return nil
+}
+
+func newSecondary(zones file.Zones, fall fall.F, catalogZones map[string]struct{}) *Secondary {
+	s := &Secondary{
+		File:               file.File{Zones: zones, Fall: fall},
+		zoneNames:          make(map[*file.Zone]string, len(zones.Z)),
+		dynamicZones:       make(map[string]*dynamicZone),
+		catalogs:           make(map[string]*catalog.Catalog),
+		catalogZones:       catalogZones,
+		catalogMemberZones: make(map[string]map[string]struct{}),
+	}
+	for name, zone := range zones.Z {
+		s.zoneNames[zone] = name
+	}
+	s.ZoneLookupFunc = s.lookupZone
+	s.TransferInFunc = func(z *file.Zone, t *transfer.Transfer) error {
+		return s.transferIn(s.zoneName(z), z, t)
+	}
+	return s
+}
+
+func (s *Secondary) transferAndUpdate(origin string, z *file.Zone, x *transfer.Transfer, updateShutdown chan bool) {
+	dur := time.Millisecond * 250
+	max := time.Second * 10
+	for {
+		err := s.transferIn(origin, z, x)
+		if err == nil {
+			break
+		}
+		log.Warningf("All '%s' masters failed to transfer, retrying in %s: %s", origin, dur.String(), err)
+		if waitForTransferRetry(updateShutdown, dur) {
+			return
+		}
+		dur <<= 1 // double the duration
+		if dur > max {
+			dur = max
+		}
+	}
+	select {
+	case <-updateShutdown:
+		return
+	default:
+	}
+	z.UpdateWithTransfer(updateShutdown, x, func(z *file.Zone, t *transfer.Transfer) error {
+		return s.transferIn(origin, z, t)
+	})
 }
 
 func waitForTransferRetry(updateShutdown <-chan bool, dur time.Duration) bool {

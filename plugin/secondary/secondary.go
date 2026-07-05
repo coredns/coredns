@@ -13,9 +13,20 @@ import (
 type Secondary struct {
 	file.File
 
-	catalogMu    sync.RWMutex
-	catalogs     map[string]*catalog.Catalog
-	catalogZones map[string]struct{}
+	zoneMu       sync.RWMutex
+	zoneNames    map[*file.Zone]string
+	dynamicZones map[string]*dynamicZone
+
+	catalogMu          sync.RWMutex
+	catalogs           map[string]*catalog.Catalog
+	catalogZones       map[string]struct{}
+	catalogMemberZones map[string]map[string]struct{}
+}
+
+type dynamicZone struct {
+	catalog  string
+	shutdown chan bool
+	stopOnce sync.Once
 }
 
 // Name implements the Handler interface.
