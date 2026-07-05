@@ -553,6 +553,131 @@ func TestServerQUIC_ServeQUIC_TSIGBadSigSetsTsigStatus(t *testing.T) {
 	}
 }
 
+// echoPlugin answers every query with a minimal reply. It is used as a
+// negative control to prove a normal DoQ query is still served after the
+// per-stream read deadline was introduced.
+type echoPlugin struct{}
+
+func (echoPlugin) Name() string { return "echo" }
+
+func (echoPlugin) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	if err := w.WriteMsg(m); err != nil {
+		return dns.RcodeServerFailure, err
+	}
+	return dns.RcodeSuccess, nil
+}
+
+// TestServerQUIC_ServeQUIC_StalledStreamDoesNotStarveWorkerPool is a
+// regression test for the DoQ stream/worker-pool starvation DoS
+// (GHSA-f2c9-fp4w-rhw6): a client that opens a stream but never finishes
+// sending its query used to block a worker from streamProcessPool forever,
+// because readDOQMessage was called with no read deadline. With the worker
+// pool shrunk to a single slot, a stalled stream would previously prevent
+// any other query from ever being served. The per-stream read deadline must
+// free the worker so an unrelated, well-behaved client is still served.
+func TestServerQUIC_ServeQUIC_StalledStreamDoesNotStarveWorkerPool(t *testing.T) {
+	config := testConfig("quic", echoPlugin{})
+	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
+	// A single worker means a stalled stream, absent a read deadline, would
+	// hold the only worker and starve every subsequent connection.
+	workerPoolSize := 1
+	config.MaxQUICWorkerPoolSize = &workerPoolSize
+
+	server, err := NewServerQUIC(transport.QUIC+"://127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerQUIC() failed: %v", err)
+	}
+	// Keep the test fast: the stalled stream must time out quickly.
+	server.ReadTimeout = 250 * time.Millisecond
+
+	pc, err := server.ListenPacket()
+	if err != nil {
+		t.Fatalf("ListenPacket() failed: %v", err)
+	}
+	defer pc.Close()
+
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- server.ServeQUIC()
+	}()
+
+	defer func() {
+		_ = server.Stop()
+		select {
+		case <-serveErrCh:
+		case <-time.After(2 * time.Second):
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Connection 1: open a stream and send a length prefix but never the
+	// message body, stalling the server's readDOQMessage. This grabs the
+	// only worker.
+	stallConn, err := quic.DialAddr(ctx, pc.LocalAddr().String(), mustMakeQUICClientTLSConfig(), &quic.Config{})
+	if err != nil {
+		t.Fatalf("quic.DialAddr() for stalled conn failed: %v", err)
+	}
+	defer stallConn.CloseWithError(DoQCodeNoError, "")
+
+	stallStream, err := stallConn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() for stalled stream failed: %v", err)
+	}
+	// Announce a 100-byte message but send nothing more, so the server
+	// blocks reading the body until the read deadline fires.
+	if _, err := stallStream.Write([]byte{0x00, 0x64}); err != nil {
+		t.Fatalf("stalled stream.Write() failed: %v", err)
+	}
+
+	// Connection 2: a well-behaved client. Before the fix this query would
+	// never be answered because the single worker is stuck on the stalled
+	// stream; after the fix the stalled worker is freed once the read
+	// deadline fires and this query succeeds.
+	normalConn, err := quic.DialAddr(ctx, pc.LocalAddr().String(), mustMakeQUICClientTLSConfig(), &quic.Config{})
+	if err != nil {
+		t.Fatalf("quic.DialAddr() for normal conn failed: %v", err)
+	}
+	defer normalConn.CloseWithError(DoQCodeNoError, "")
+
+	normalStream, err := normalConn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() for normal stream failed: %v", err)
+	}
+
+	q := new(dns.Msg)
+	q.SetQuestion("example.com.", dns.TypeA)
+	q.Id = 0
+	wire, err := q.Pack()
+	if err != nil {
+		t.Fatalf("dns.Msg.Pack() failed: %v", err)
+	}
+	if _, err := normalStream.Write(AddPrefix(wire)); err != nil {
+		t.Fatalf("normal stream.Write() failed: %v", err)
+	}
+	if err := normalStream.Close(); err != nil {
+		t.Fatalf("normal stream.Close() failed: %v", err)
+	}
+
+	respCh := make(chan error, 1)
+	go func() {
+		_, rerr := readDOQMessage(normalStream)
+		respCh <- rerr
+	}()
+
+	select {
+	case rerr := <-respCh:
+		if rerr != nil {
+			t.Fatalf("normal query was not served: readDOQMessage() error = %v", rerr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("normal query was not served within 5s: stalled stream starved the worker pool")
+	}
+}
+
 func mustMakeQUICServerTLSConfig(t *testing.T) *tls.Config {
 	t.Helper()
 

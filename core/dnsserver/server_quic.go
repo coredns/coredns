@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
@@ -186,6 +187,19 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 		s.closeQUICConn(conn, DoQCodeInternalError)
 		return
 	}
+
+	// A stream is served by a worker acquired from s.streamProcessPool. A
+	// client that opens a stream but never (or only slowly) sends its DoQ
+	// query would otherwise block readDOQMessage indefinitely, holding that
+	// worker and eventually starving the pool. Bound the wait with the
+	// server's read timeout (the same deadline used for reading a query on
+	// TCP), so a stalled stream cannot hold a worker forever. A deadline
+	// hit surfaces as a read error handled by the existing error path below,
+	// which closes the connection and frees the worker.
+	if s.ReadTimeout != 0 {
+		_ = stream.SetReadDeadline(time.Now().Add(s.ReadTimeout))
+	}
+
 	buf, err := readDOQMessage(stream)
 
 	// io.EOF does not really mean that there's any error, it is just
