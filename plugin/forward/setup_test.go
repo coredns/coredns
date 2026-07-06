@@ -103,13 +103,21 @@ func TestSplitZone(t *testing.T) {
 		}, {
 			"tls://127.0.0.1%example.net", "tls://127.0.0.1", "example.net",
 		}, {
+			"https://127.0.0.1%example.net:443", "https://127.0.0.1:443", "example.net",
+		}, {
+			"https://127.0.0.1%example.net", "https://127.0.0.1", "example.net",
+		}, {
 			"tls://127.0.0.1:854", "tls://127.0.0.1:854", "",
+		}, {
+			"https://127.0.0.1:443", "https://127.0.0.1:443", "",
 		}, {
 			"dns://127.0.0.1", "dns://127.0.0.1", "",
 		}, {
 			"foo%bar:baz", "foo:baz", "bar",
 		}, {
 			"tls://[::1%example.net]:853", "tls://[::1]:853", "example.net",
+		}, {
+			"https://[::1%example.net]:443", "https://[::1]:443", "example.net",
 		},
 	}
 	for i, test := range tests {
