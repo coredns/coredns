@@ -25,7 +25,7 @@ func TestDoH(t *testing.T) {
 			m := new(dns.Msg)
 			m.SetQuestion("example.org.", dns.TypeDNSKEY)
 
-			req, err := NewRequest(test.method, test.url, m)
+			req, err := NewRequest(test.method, test.url, "example.org", m)
 			if err != nil {
 				t.Errorf("Failure to make request: %s", err)
 			}

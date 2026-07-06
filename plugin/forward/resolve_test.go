@@ -80,6 +80,11 @@ func TestClassifyToAddrs(t *testing.T) {
 			wantDynamic: 1,
 		},
 		{
+			name:        "HTTPS hostname",
+			input:       []string{"https://dns.example.com"},
+			wantDynamic: 1,
+		},
+		{
 			name:        "k8s service name",
 			input:       []string{"rbldnsd.rbldnsd.svc.cluster.local"},
 			wantDynamic: 1,
@@ -166,12 +171,15 @@ func TestParseAsHostEntry(t *testing.T) {
 		{"tls://dns.example.com", true, "dns.example.com", "853", transport.TLS, ""},
 		{"tls://dns.example.com:8853", true, "dns.example.com", "8853", transport.TLS, ""},
 		{"tls://dns.example.com%servername.example.com", true, "dns.example.com", "853", transport.TLS, "servername.example.com"},
+		{"https://dns.example.com", true, "dns.example.com", "443", transport.HTTPS, ""},
+		{"https://dns.example.com:8443", true, "dns.example.com", "8443", transport.HTTPS, ""},
+		{"https://dns.example.com%servername.example.com", true, "dns.example.com", "443", transport.HTTPS, "servername.example.com"},
 		{"rbldnsd.rbldnsd.svc.cluster.local", true, "rbldnsd.rbldnsd.svc.cluster.local", "53", transport.DNS, ""},
 		// Should fail for IPs
 		{"127.0.0.1", false, "", "", "", ""},
 		{"::1", false, "", "", "", ""},
 		// Should fail for unsupported transports
-		{"https://example.com", false, "", "", "", ""},
+		{"grpc://example.com", false, "", "", "", ""},
 		// Should fail for empty
 		{"", false, "", "", "", ""},
 	}
@@ -209,9 +217,13 @@ func TestFormatResolvedAddr(t *testing.T) {
 		{"10.0.0.1", "53", transport.DNS, "", "10.0.0.1:53"},
 		{"10.0.0.1", "853", transport.TLS, "", "tls://10.0.0.1:853"},
 		{"10.0.0.1", "853", transport.TLS, "example.com", "tls://10.0.0.1%example.com:853"},
+		{"10.0.0.1", "443", transport.HTTPS, "", "https://10.0.0.1:443"},
+		{"10.0.0.1", "443", transport.HTTPS, "example.com", "https://10.0.0.1%example.com:443"},
 		{"::1", "53", transport.DNS, "", "[::1]:53"},
 		{"::1", "853", transport.TLS, "", "tls://[::1]:853"},
 		{"::1", "853", transport.TLS, "example.com", "tls://[::1%example.com]:853"},
+		{"::1", "443", transport.HTTPS, "", "https://[::1]:443"},
+		{"::1", "443", transport.HTTPS, "example.com", "https://[::1%example.com]:443"},
 	}
 
 	for _, tc := range tests {
@@ -576,6 +588,10 @@ func TestExpandAndDedupTLS(t *testing.T) {
 		{static: false, entry: hostEntry{hostname: "dns2.example.com", port: "853", transport: "tls"}},
 		{static: true, addrs: []string{"tls://149.112.112.112:853"}},
 		{static: true, addrs: []string{"tls://9.9.9.10:853"}},
+		{static: false, entry: hostEntry{hostname: "dns1.example.com", port: "443", transport: "https"}},
+		{static: false, entry: hostEntry{hostname: "dns2.example.com", port: "443", transport: "https"}},
+		{static: true, addrs: []string{"https://149.112.112.112:443"}},
+		{static: true, addrs: []string{"https://9.9.9.10:443"}},
 	}
 
 	result, err := expandAndDedup(entries, []string{s.Addr})
@@ -583,7 +599,7 @@ func TestExpandAndDedupTLS(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expected := []string{"9.9.9.9:853", "149.112.112.112:853", "9.9.9.10:853"}
+	expected := []string{"9.9.9.9:853", "149.112.112.112:853", "9.9.9.10:853", "9.9.9.9:443", "149.112.112.112:443", "9.9.9.10:443"}
 	if len(result) != len(expected) {
 		t.Fatalf("expected %d addresses after dedup, got %d: %v", len(expected), len(result), result)
 	}

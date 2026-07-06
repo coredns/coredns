@@ -198,6 +198,13 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	// DoH always runs over TCP (HTTPS), regardless of the downstream
 	// client's protocol.
 	const proto = "tcp"
+	// records the origin Id before upstream.
+	originId := state.Req.Id
+	// RFC8484 has DNS ID of 0 as a SHOULD
+	state.Req.Id = 0
+	defer func() {
+		state.Req.Id = originId
+	}()
 
 	var localAddr net.Addr
 	trace := &httptrace.ClientTrace{
@@ -207,7 +214,7 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	}
 	ctx = httptrace.WithClientTrace(ctx, trace)
 
-	req, err := doh.NewRequestWithContext(ctx, p.dohMethod, p.addr, state.Req)
+	req, err := doh.NewRequestWithContext(ctx, p.dohMethod, p.addr, p.dohHost, state.Req)
 	if err != nil {
 		return nil, nil, proto, err
 	}
@@ -223,6 +230,10 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 		return nil, localAddr, proto, err
 	}
 
+	// recovery the origin Id after upstream.
+	if ret != nil {
+		ret.Id = originId
+	}
 	return ret, localAddr, proto, nil
 }
 
