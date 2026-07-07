@@ -1153,8 +1153,48 @@ func TestRewriteEDNS0Unset(t *testing.T) {
 		rec := dnstest.NewRecorder(&test.ResponseWriter{})
 		rw.ServeDNS(ctx, rec, m)
 
-		if !optsEqual(o.Option, tc.toOpts) {
-			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, o)
+		respOpt := rec.Msg.IsEdns0()
+		if respOpt == nil {
+			t.Errorf("Test %d: EDNS0 options not set", i)
+			continue
+		}
+		if !optsEqual(respOpt.Option, tc.toOpts) {
+			t.Errorf("Test %d: Expected %v but got %v", i, tc.toOpts, respOpt)
+		}
+	}
+}
+
+func TestRewriteEDNS0RevertDoesNotLeakThroughScrubWriter(t *testing.T) {
+	rw := Rewrite{
+		Next: plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+			resp := new(dns.Msg)
+			resp.SetReply(r)
+			return 0, w.WriteMsg(resp)
+		}),
+		RevertPolicy: NewRevertPolicy(false, false),
+	}
+
+	r, err := newEdns0Rule("stop", "local", "set", "0xffee", "0xabcdef", "revert")
+	if err != nil {
+		t.Fatalf("Error creating test rule: %s", err)
+	}
+	rw.Rules = []Rule{r}
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	m.SetEdns0(4096, false)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	scrub := request.NewScrubWriter(m, rec)
+	rw.ServeDNS(context.TODO(), scrub, m)
+
+	o := rec.Msg.IsEdns0()
+	if o == nil {
+		t.Fatal("expected EDNS0 option record in response")
+	}
+	for _, opt := range o.Option {
+		if opt.Option() == 0xffee {
+			t.Fatalf("expected rewritten EDNS0 option to be reverted, got %v", o.Option)
 		}
 	}
 }

@@ -42,7 +42,9 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		rw.RevertPolicy = NewRevertPolicy(false, false)
 	}
 	wr := NewResponseReverter(w, r, rw.RevertPolicy)
-	state := request.Request{W: w, Req: r}
+	// Rewrite rules may mutate the request, so keep the original message intact.
+	rc := r.Copy()
+	state := request.Request{W: w, Req: rc}
 
 	for _, rule := range rw.Rules {
 		respRules, result := rule.Rewrite(ctx, state)
@@ -55,15 +57,15 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 			wr.ResponseRules = append(wr.ResponseRules, respRules...)
 			if rule.Mode() == Stop {
 				if !rw.DoRevert() {
-					return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
+					return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, state.Req)
 				}
-				rcode, err := plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
+				rcode, err := plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, state.Req)
 				if plugin.ClientWrite(rcode) {
 					return rcode, err
 				}
 				// The next plugins didn't write a response, so write one now with the ResponseReverter.
 				// If server.ServeDNS does this then it will create an answer mismatch.
-				res := new(dns.Msg).SetRcode(r, rcode)
+				res := new(dns.Msg).SetRcode(state.Req, rcode)
 				state.SizeAndDo(res)
 				wr.WriteMsg(res)
 				// return success, so server does not write a second error response to client
@@ -72,9 +74,9 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 	}
 	if !rw.DoRevert() || len(wr.ResponseRules) == 0 {
-		return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, r)
+		return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, w, state.Req)
 	}
-	return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, r)
+	return plugin.NextOrFailure(rw.Name(), rw.Next, ctx, wr, state.Req)
 }
 
 // Name implements the Handler interface.
