@@ -48,6 +48,10 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 		return dns.RcodeSuccess, nil
 	}
 
+	// Strip the TSIG RR. Next, and subsequent plugins will not see the TSIG RRs.
+	// This violates forwarding cases (RFC 8945 5.5). See README.md Bugs
+	r.Extra = r.Extra[:len(r.Extra)-1]
+
 	// Wrap the response writer so the response will be TSIG signed.
 	w = &restoreTsigWriter{w, r, tsigRR}
 
@@ -67,9 +71,6 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	}
 
 	tsigRR.Error = dns.RcodeSuccess
-	// Strip the TSIG RR. Next, and subsequent plugins will not see the TSIG RRs.
-	// This violates forwarding cases (RFC 8945 5.5). See README.md Bugs
-	r.Extra = r.Extra[:len(r.Extra)-1]
 	rcode, err := plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	if err != nil {
 		log.Errorf("request handler returned an error: %v\n", err)
@@ -97,10 +98,10 @@ func (t *TSIGServer) tsigRequired(qtype uint16, opcode int) bool {
 	return typeMatches || opcodeMatches
 }
 
-// restoreTsigWriter Implement Response Writer, and adds a TSIG RR to a response
+// restoreTsigWriter implements [dns.ResponseWriter], and adds a [dns.TSIG] RR to a response.
 type restoreTsigWriter struct {
 	dns.ResponseWriter
-	req     *dns.Msg  // original request excluding TSIG if it has one
+	req     *dns.Msg  // original request excluding TSIG
 	reqTSIG *dns.TSIG // original TSIG
 }
 
