@@ -86,6 +86,8 @@ func parseErratic(c *caddy.Controller) (*Erratic, error) {
 					return nil, c.ArgErr()
 				}
 
+				// Defaults.
+				e.truncate = 2
 				if len(args) == 0 {
 					continue
 				}

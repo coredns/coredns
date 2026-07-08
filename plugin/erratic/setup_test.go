@@ -51,6 +51,10 @@ func TestParseErratic(t *testing.T) {
 			drop 3
 			delay
 		}`, false, 3, 2, 0},
+		{`erratic {
+			drop 3
+			truncate
+		}`, false, 3, 0, 2},
 		// fails
 		{`erratic {
 			drop -1
