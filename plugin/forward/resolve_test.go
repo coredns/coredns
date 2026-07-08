@@ -24,6 +24,13 @@ func TestClassifyToAddrs(t *testing.T) {
 	}
 	defer os.Remove(resolv)
 
+	// Create a commented.conf for file test
+	const commentedResolv = "commented_resolv.conf"
+	if err := os.WriteFile(commentedResolv, []byte("# nameserver 1.1.1.1\n# nameserver 1.0.0.1\n"), 0666); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(commentedResolv)
+
 	tests := []struct {
 		name        string
 		input       []string
@@ -84,10 +91,10 @@ func TestClassifyToAddrs(t *testing.T) {
 			wantDynamic: 1,
 		},
 		{
-			name:        "/dev/null returns file error",
-			input:       []string{"/dev/null"},
-			wantErr:     true,
-			errContains: "no nameservers",
+			name:        "an existing file not empty but without nameserver is skipped",
+			input:       []string{commentedResolv},
+			wantDynamic: 0,
+			wantStatic:  0,
 		},
 	}
 

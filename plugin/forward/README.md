@@ -6,8 +6,8 @@
 
 ## Description
 
-The *forward* plugin re-uses already opened sockets to the upstreams. It supports UDP, TCP and
-DNS-over-TLS and uses in band health checking.
+The *forward* plugin re-uses already opened sockets to the upstreams. It supports UDP, TCP, 
+DNS-over-TLS, DNS-over-HTTPS and uses in band health checking.
 
 When it detects an error a health check is performed. This checks runs in a loop, performing each
 check at a *0.5s* interval for as long as the upstream reports unhealthy. Once healthy we stop
@@ -30,8 +30,8 @@ forward FROM TO...
 * **FROM** is the base domain to match for the request to be forwarded. Domains using CIDR notation
   that expand to multiple reverse zones are not fully supported; only the first expanded zone is used.
 * **TO...** are the destination endpoints to forward to. The **TO** syntax allows you to specify
-  a protocol, `tls://9.9.9.9` or `dns://` (or no protocol) for plain DNS. The number of upstreams is
-  limited to 15. In addition to IP addresses and files (like `/etc/resolv.conf`), **TO** can also be
+  a protocol, `tls://9.9.9.9`, `https://9.9.9.9` (DoH defaults to `/dns-query` path) or `dns://` (or no protocol)
+  for plain DNS. The number of upstreams is limited to 15. In addition to IP addresses and files (like `/etc/resolv.conf`), **TO** can also be
   a hostname (e.g., `my-dns.svc.cluster.local`). Hostnames are resolved to IP addresses at startup.
   See the `resolver` option below.
 
@@ -47,8 +47,10 @@ forward FROM TO... {
     prefer_udp
     expire DURATION
     max_idle_conns INTEGER
+    read_timeout DURATION
     max_fails INTEGER
     max_connect_attempts INTEGER
+    doh_method GET|POST
     tls CERT KEY CA
     tls_servername NAME
     policy random|round_robin|sequential
@@ -76,8 +78,14 @@ forward FROM TO... {
   performed for a single incoming DNS request. Default value of 0 means no per-request
   cap.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
+* `doh_method` **GET|POST**, whether to use GET or POST http method for DoH requests (defaults to POST).
 * `max_idle_conns` **INTEGER**, maximum number of idle connections to cache per upstream for reuse.
   Default is 0, which means unlimited.
+* `read_timeout` **DURATION**, the per-query read timeout applied to each upstream when waiting for a
+  response. The default is 2s. Increase this if upstreams legitimately take longer than 2s to answer
+  (for example slow recursive resolutions that would otherwise surface as `SERVFAIL`/timeouts). Note
+  that this timeout applies to each upstream individually, so large values reduce the time available
+  to retry other upstreams within a single query.
 * `tls` **CERT** **KEY** **CA** define the TLS properties for TLS connection. From 0 to 3 arguments can be
   provided with the meaning as described below
 
@@ -87,6 +95,9 @@ forward FROM TO... {
     The server certificate is verified with the system CAs
   * `tls` **CERT** **KEY**  **CA** - client authentication is used with the specified cert/key pair.
     The server certificate is verified using the specified CA file
+
+CoreDNS sets the minimum TLS version to TLS 1.2. The maximum TLS version, TLS 1.2 cipher suites, and
+key exchange mechanisms use the Go `crypto/tls` defaults.
 
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
   needs this to be set to `dns.quad9.net`. Using TLS forwarding but not setting `tls_servername` results in anyone
@@ -150,7 +161,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 * `coredns_proxy_conn_cache_misses_total{proxy_name="forward", to, proto}` - count of connection cache misses per upstream and protocol.
 
 Where `to` is one of the upstream servers (**TO** from the config), `rcode` is the returned RCODE
-from the upstream, `proto` is the transport protocol like `udp`, `tcp`, `tcp-tls`.
+from the upstream, `proto` is the transport protocol like `udp`, `tcp`, `tcp-tls`, `https`.
 
 The following metrics have recently been deprecated:
 * `coredns_forward_healthcheck_failures_total{to, rcode}`
@@ -249,6 +260,19 @@ service with health checks.
 }
 ~~~
 
+The same configuration but using DNS-over-HTTPS (DoH) protocol. Note that the implementation uses the default `/dns-query`
+path (custom paths are not supported).
+
+~~~ corefile
+. {
+    forward . https://9.9.9.9 {
+       tls_servername dns.quad9.net
+       health_check 5s
+    }
+    cache 30
+}
+~~~
+
 Or configure other domain name for health check requests
 
 ~~~ corefile
@@ -332,3 +356,5 @@ Forward to an upstream identified by hostname, using a specific resolver to look
 ## See Also
 
 [RFC 7858](https://tools.ietf.org/html/rfc7858) for DNS over TLS.
+
+[RFC 8484](https://tools.ietf.org/html/rfc8484) for DNS over HTTPS.

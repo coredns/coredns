@@ -123,8 +123,9 @@ func testMessage() *tap.Message {
 	return &tap.Message{
 		SocketFamily:   &inet,
 		SocketProtocol: &udp,
-		QueryAddress:   net.ParseIP("10.240.0.1"),
-		QueryPort:      &port,
+		// Explicit 4-octet form, because that's the expected dnstap message representation when SocketFamily is INET.
+		QueryAddress: net.ParseIP("10.240.0.1").To4(),
+		QueryPort:    &port,
 	}
 }
 

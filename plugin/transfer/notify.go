@@ -2,6 +2,7 @@ package transfer
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/coredns/coredns/plugin/pkg/rcode"
 
@@ -16,13 +17,13 @@ func (t *Transfer) Notify(zone string) error {
 
 	m := new(dns.Msg)
 	m.SetNotify(zone)
-	c := new(dns.Client)
 
 	x := longestMatch(t.xfrs, zone)
 	if x == nil {
 		// return without error if there is no matching zone
 		return nil
 	}
+	c := notifyClient(x)
 
 	var err1 error
 	for _, t := range x.to {
@@ -35,6 +36,14 @@ func (t *Transfer) Notify(zone string) error {
 	}
 	log.Debugf("Sent notifies for zone %q to %v", zone, x.to)
 	return err1 // this only captures the last error
+}
+
+func notifyClient(x *xfr) *dns.Client {
+	c := new(dns.Client)
+	if x != nil && x.source != nil {
+		c.Dialer = &net.Dialer{LocalAddr: &net.UDPAddr{IP: x.source}}
+	}
+	return c
 }
 
 func sendNotify(c *dns.Client, m *dns.Msg, s string) error {

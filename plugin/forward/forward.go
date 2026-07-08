@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"net"
+	"net/http"
 	"sync/atomic"
 	"time"
 
@@ -28,8 +29,9 @@ import (
 var log = clog.NewWithPlugin("forward")
 
 const (
-	defaultExpire = 10 * time.Second
-	hcInterval    = 500 * time.Millisecond
+	defaultExpire      = 10 * time.Second
+	defaultReadTimeout = 2 * time.Second
+	hcInterval         = 500 * time.Millisecond
 )
 
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
@@ -52,7 +54,9 @@ type Forward struct {
 	maxfails                   uint32
 	expire                     time.Duration
 	maxAge                     time.Duration
+	readTimeout                time.Duration
 	maxIdleConns               int
+	dohMethod                  string
 	maxConcurrent              int64
 	failfastUnhealthyUpstreams bool
 	failoverRcodes             []int
@@ -76,7 +80,7 @@ type Forward struct {
 
 // New returns a new Forward.
 func New() *Forward {
-	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, p: new(random), from: ".", hcInterval: hcInterval, opts: proxyPkg.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
+	f := &Forward{maxfails: 2, tlsConfig: new(tls.Config), expire: defaultExpire, readTimeout: defaultReadTimeout, p: new(random), from: ".", hcInterval: hcInterval, dohMethod: http.MethodPost, opts: proxyPkg.Options{ForceTCP: false, PreferUDP: false, HCRecursionDesired: true, HCDomain: "."}}
 	return f
 }
 
@@ -168,13 +172,15 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		})
 
 		var (
-			ret *dns.Msg
-			err error
+			ret           *dns.Msg
+			localAddr     net.Addr
+			upstreamProto string
+			err           error
 		)
 		opts := f.opts
 
 		for {
-			ret, err = proxy.Connect(ctx, state, opts)
+			ret, localAddr, upstreamProto, err = proxy.Connect(ctx, state, opts)
 
 			if err == proxyPkg.ErrCachedClosed { // Remote side closed conn, can only happen with TCP.
 				continue
@@ -192,7 +198,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		}
 
 		if len(f.tapPlugins) != 0 {
-			toDnstap(ctx, f, proxy.Addr(), state, opts, ret, start)
+			toDnstap(ctx, f, proxy.Addr(), localAddr, upstreamProto, state, ret, start)
 		}
 
 		upstreamErr = err

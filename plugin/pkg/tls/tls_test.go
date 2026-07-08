@@ -1,6 +1,7 @@
 package tls
 
 import (
+	"crypto/tls"
 	"path/filepath"
 	"testing"
 
@@ -21,35 +22,55 @@ func getPEMFiles(t *testing.T) (cert, key, ca string) {
 	return
 }
 
+func assertTLSDefaults(t *testing.T, c *tls.Config) {
+	t.Helper()
+	if c.MinVersion != tls.VersionTLS12 {
+		t.Errorf("MinVersion = %d, want %d", c.MinVersion, tls.VersionTLS12)
+	}
+	if c.MaxVersion != 0 {
+		t.Errorf("MaxVersion = %d, want 0 to use Go defaults", c.MaxVersion)
+	}
+	if c.CipherSuites != nil {
+		t.Errorf("CipherSuites = %v, want nil to use Go defaults", c.CipherSuites)
+	}
+	if c.CurvePreferences != nil {
+		t.Errorf("CurvePreferences = %v, want nil to use Go defaults", c.CurvePreferences)
+	}
+}
+
 func TestNewTLSConfig(t *testing.T) {
 	cert, key, ca := getPEMFiles(t)
-	_, err := NewTLSConfig(cert, key, ca)
+	c, err := NewTLSConfig(cert, key, ca)
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
+	assertTLSDefaults(t, c)
 }
 
 func TestNewTLSClientConfig(t *testing.T) {
 	_, _, ca := getPEMFiles(t)
 
-	_, err := NewTLSClientConfig(ca)
+	c, err := NewTLSClientConfig(ca)
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
+	assertTLSDefaults(t, c)
 }
 
 func TestNewTLSConfigFromArgs(t *testing.T) {
 	cert, key, ca := getPEMFiles(t)
 
-	_, err := NewTLSConfigFromArgs()
+	c, err := NewTLSConfigFromArgs()
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
+	assertTLSDefaults(t, c)
 
-	c, err := NewTLSConfigFromArgs(ca)
+	c, err = NewTLSConfigFromArgs(ca)
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
+	assertTLSDefaults(t, c)
 	if c.RootCAs == nil {
 		t.Error("RootCAs should not be nil when one arg passed")
 	}
@@ -58,6 +79,7 @@ func TestNewTLSConfigFromArgs(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
+	assertTLSDefaults(t, c)
 	if c.RootCAs != nil {
 		t.Error("RootCAs should be nil when two args passed")
 	}
@@ -69,6 +91,7 @@ func TestNewTLSConfigFromArgs(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
+	assertTLSDefaults(t, c)
 	if c.RootCAs == nil {
 		t.Error("RootCAs should not be nil when three args passed")
 	}
@@ -92,6 +115,7 @@ func TestNewTLSConfigFromArgsWithRoot(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to create TLSConfig: %s", err)
 	}
+	assertTLSDefaults(t, c)
 	if c.RootCAs == nil {
 		t.Error("RootCAs should not be nil when three args passed")
 	}

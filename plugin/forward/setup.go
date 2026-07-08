@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -158,6 +159,14 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		return f, fmt.Errorf("max_age (%s) must not be less than expire (%s)", f.maxAge, f.expire)
 	}
 
+	// Reject HTTPS upstreams that include a path, the doh implementation default to /dns-query path.
+	for _, addr := range to {
+		trans, h := parse.Transport(addr)
+		if trans == transport.HTTPS && strings.Contains(h, "/") {
+			return f, fmt.Errorf("paths are not allowed in HTTPS upstream addresses (the /dns-query path is used by default): %s", addr)
+		}
+	}
+
 	// Classify TO addresses in order, preserving config ordering.
 	entries, err := classifyToAddrs(to)
 	if err != nil {
@@ -177,7 +186,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	tlsServerNames := make([]string, len(toHosts))
 	perServerNameProxyCount := make(map[string]int)
 	transports := make([]string, len(toHosts))
-	allowedTrans := map[string]bool{"dns": true, "tls": true}
+	allowedTrans := map[string]bool{"dns": true, "tls": true, "https": true}
 	for i, hostWithZone := range toHosts {
 		host, serverName := splitZone(hostWithZone)
 		trans, h := parse.Transport(host)
@@ -223,9 +232,25 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 				f.proxies[i].SetTLSConfig(f.tlsConfig)
 			}
 		}
+
+		if transports[i] == transport.HTTPS {
+			httpTransport := http.DefaultTransport.(*http.Transport).Clone()
+			httpTransport.TLSClientConfig = f.tlsConfig
+			httpTransport.MaxIdleConns = f.maxIdleConns
+			httpTransport.MaxIdleConnsPerHost = f.maxIdleConns
+
+			c := http.Client{
+				Transport: httpTransport,
+				Timeout:   2 * time.Second,
+			}
+			f.proxies[i].SetHTTPClient(&c)
+			f.proxies[i].SetDOHRequestOptions(f.dohMethod)
+		}
+
 		f.proxies[i].SetExpire(f.expire)
 		f.proxies[i].SetMaxAge(f.maxAge)
 		f.proxies[i].SetMaxIdleConns(f.maxIdleConns)
+		f.proxies[i].SetReadTimeout(f.readTimeout)
 		f.proxies[i].GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
 		// when TLS is used, checks are set to tcp-tls
 		if f.opts.ForceTCP && transports[i] != transport.TLS {
@@ -369,6 +394,28 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return fmt.Errorf("max_idle_conns can't be negative: %d", n)
 		}
 		f.maxIdleConns = n
+	case "read_timeout":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		dur, err := time.ParseDuration(c.Val())
+		if err != nil {
+			return err
+		}
+		if dur <= 0 {
+			return fmt.Errorf("read_timeout must be positive: %s", dur)
+		}
+		f.readTimeout = dur
+	case "doh_method":
+		if !c.NextArg() {
+			return c.ArgErr()
+		}
+		switch c.Val() {
+		case http.MethodPost, http.MethodGet:
+			f.dohMethod = c.Val()
+		default:
+			return fmt.Errorf("doh_method must be either %s or %s", http.MethodPost, http.MethodGet)
+		}
 	case "policy":
 		if !c.NextArg() {
 			return c.ArgErr()

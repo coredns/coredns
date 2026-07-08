@@ -9,7 +9,6 @@ type transportType int
 const (
 	typeUDP transportType = iota
 	typeTCP
-	typeTLS
 	typeTotalCount // keep this last
 )
 
@@ -17,13 +16,11 @@ func stringToTransportType(s string) transportType {
 	switch s {
 	case "udp":
 		return typeUDP
-	case "tcp":
+	case "tcp", "tcp-tls":
 		return typeTCP
-	case "tcp-tls":
-		return typeTLS
+	default:
+		return typeUDP
 	}
-
-	return typeUDP
 }
 
 func (t *Transport) transportTypeFromConn(pc *persistConn) transportType {
@@ -31,9 +28,5 @@ func (t *Transport) transportTypeFromConn(pc *persistConn) transportType {
 		return typeUDP
 	}
 
-	if t.tlsConfig == nil {
-		return typeTCP
-	}
-
-	return typeTLS
+	return typeTCP
 }

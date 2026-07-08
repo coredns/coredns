@@ -3,6 +3,7 @@ package proxy
 import (
 	"crypto/tls"
 	"net"
+	"net/http"
 	"sort"
 	"sync"
 	"time"
@@ -20,12 +21,13 @@ type persistConn struct {
 // Transport hold the persistent cache.
 type Transport struct {
 	avgDialTime  int64                          // kind of average time of dial time
-	conns        [typeTotalCount][]*persistConn // Buckets for udp, tcp and tcp-tls.
+	conns        [typeTotalCount][]*persistConn // Buckets for udp and tcp connections
 	expire       time.Duration                  // After this duration an idle connection is expired.
 	maxAge       time.Duration                  // After this duration a connection is closed regardless of activity; 0 means unlimited.
-	maxIdleConns int                            // Max idle connections per transport type; 0 means unlimited.
+	maxIdleConns int                            // Max idle connections per protocol type; 0 means unlimited.
 	addr         string
 	tlsConfig    *tls.Config
+	httpClient   *http.Client
 	proxyName    string
 	localAddress net.IP
 
@@ -42,6 +44,7 @@ func newTransport(proxyName, addr string) *Transport {
 		stop:        make(chan struct{}),
 		proxyName:   proxyName,
 	}
+
 	return t
 }
 

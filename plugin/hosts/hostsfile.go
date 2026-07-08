@@ -55,6 +55,10 @@ type Map struct {
 	name4 map[string][]net.IP
 	name6 map[string][]net.IP
 
+	// Wildcard owner names (e.g. *.example.com.) map to IP addresses.
+	wildName4 map[string][]net.IP
+	wildName6 map[string][]net.IP
+
 	// Key for the list of host names must be a literal IP address
 	// including IPv6 address without zone identifier.
 	// We don't support old-classful IP address notation.
@@ -63,9 +67,11 @@ type Map struct {
 
 func newMap() *Map {
 	return &Map{
-		name4: make(map[string][]net.IP),
-		name6: make(map[string][]net.IP),
-		addr:  make(map[string][]string),
+		name4:     make(map[string][]net.IP),
+		name6:     make(map[string][]net.IP),
+		wildName4: make(map[string][]net.IP),
+		wildName6: make(map[string][]net.IP),
+		addr:      make(map[string][]string),
 	}
 }
 
@@ -76,6 +82,12 @@ func (h *Map) Len() int {
 		l += len(v4)
 	}
 	for _, v6 := range h.name6 {
+		l += len(v6)
+	}
+	for _, v4 := range h.wildName4 {
+		l += len(v4)
+	}
+	for _, v6 := range h.wildName6 {
 		l += len(v6)
 	}
 	for _, a := range h.addr {
@@ -184,6 +196,15 @@ func (h *Hostsfile) parse(r io.Reader) *Map {
 				// name is not in Origins
 				continue
 			}
+			if isWildcardName(name) {
+				switch family {
+				case 1:
+					hmap.wildName4[name] = append(hmap.wildName4[name], addr)
+				case 2:
+					hmap.wildName6[name] = append(hmap.wildName6[name], addr)
+				}
+				continue
+			}
 			switch family {
 			case 1:
 				hmap.name4[name] = append(hmap.name4[name], addr)
@@ -202,38 +223,41 @@ func (h *Hostsfile) parse(r io.Reader) *Map {
 	return hmap
 }
 
-// lookupStaticHost looks up the IP addresses for the given host from the hosts file.
-func (h *Hostsfile) lookupStaticHost(m map[string][]net.IP, host string) []net.IP {
+func (h *Hostsfile) lookupStaticHostLocked(m, wild map[string][]net.IP, host string) []net.IP {
+	if ips, ok := m[host]; ok {
+		ipsCp := make([]net.IP, len(ips))
+		copy(ipsCp, ips)
+		return ipsCp
+	}
+	if pattern := replaceWithAsteriskLabel(host); pattern != "" {
+		if ips, ok := wild[pattern]; ok {
+			ipsCp := make([]net.IP, len(ips))
+			copy(ipsCp, ips)
+			return ipsCp
+		}
+	}
+	return nil
+}
+
+func (h *Hostsfile) lookupStaticHostFamily(host string, m, wild, inlineM, inlineWild map[string][]net.IP) []net.IP {
+	host = strings.ToLower(host)
+
 	h.RLock()
 	defer h.RUnlock()
 
-	if len(m) == 0 {
-		return nil
-	}
-
-	ips, ok := m[host]
-	if !ok {
-		return nil
-	}
-	ipsCp := make([]net.IP, len(ips))
-	copy(ipsCp, ips)
-	return ipsCp
+	ip1 := h.lookupStaticHostLocked(m, wild, host)
+	ip2 := h.lookupStaticHostLocked(inlineM, inlineWild, host)
+	return append(ip1, ip2...)
 }
 
 // LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
-	host = strings.ToLower(host)
-	ip1 := h.lookupStaticHost(h.hmap.name4, host)
-	ip2 := h.lookupStaticHost(h.inline.name4, host)
-	return append(ip1, ip2...)
+	return h.lookupStaticHostFamily(host, h.hmap.name4, h.hmap.wildName4, h.inline.name4, h.inline.wildName4)
 }
 
 // LookupStaticHostV6 looks up the IPv6 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV6(host string) []net.IP {
-	host = strings.ToLower(host)
-	ip1 := h.lookupStaticHost(h.hmap.name6, host)
-	ip2 := h.lookupStaticHost(h.inline.name6, host)
-	return append(ip1, ip2...)
+	return h.lookupStaticHostFamily(host, h.hmap.name6, h.hmap.wildName6, h.inline.name6, h.inline.wildName6)
 }
 
 // LookupStaticAddr looks up the hosts for the given address from the hosts file.

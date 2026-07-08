@@ -57,6 +57,35 @@ func TestLookupA(t *testing.T) {
 	}
 }
 
+func TestFallthroughUnsupportedType(t *testing.T) {
+	h := Hosts{
+		Next: test.NextHandler(dns.RcodeRefused, nil),
+		Hostsfile: &Hostsfile{
+			Origins: []string{"."},
+			hmap:    newMap(),
+			inline:  newMap(),
+			options: newOptions(),
+		},
+		Fall: fall.Root,
+	}
+	h.hmap = h.parse(strings.NewReader(hostsExample))
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeTXT)
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	rcode, err := h.ServeDNS(context.Background(), rec, m)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+	if rcode != dns.RcodeRefused {
+		t.Fatalf("Expected fallthrough rcode %d, got %d", dns.RcodeRefused, rcode)
+	}
+	if rec.Msg != nil {
+		t.Fatalf("Expected no response from hosts after fallthrough, got %#v", rec.Msg)
+	}
+}
+
 var hostsTestCases = []test.Case{
 	{
 		Qname: "example.org.", Qtype: dns.TypeA,
@@ -107,6 +136,18 @@ var hostsTestCases = []test.Case{
 		Qname: "fallthrough-example.org.", Qtype: dns.TypeAAAA,
 		Answer: []dns.RR{}, Rcode: dns.RcodeSuccess,
 	},
+	{
+		Qname: "apps.example.com.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.A("apps.example.com. 3600	IN	A 5.6.7.8"),
+		},
+	},
+	{
+		Qname: "aa.example.com.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.A("aa.example.com. 3600	IN	A 1.2.3.4"),
+		},
+	},
 }
 
 const hostsExample = `
@@ -115,6 +156,8 @@ const hostsExample = `
 10.0.0.1 example.org
 ::FFFF:10.0.0.2 example.com
 10.0.0.3 fallthrough-example.org
+1.2.3.4 aa.example.com
+5.6.7.8 *.apps.example.com
 reload 5s
 timeout 3600
 `

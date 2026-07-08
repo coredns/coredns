@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/replacer"
@@ -109,6 +110,133 @@ func TestLoggedClassError(t *testing.T) {
 	logged := f.String()
 	if !strings.Contains(logged, "SERVFAIL") {
 		t.Errorf("Expected it to be logged. Logged string: %s", logged)
+	}
+}
+
+func TestLoggedSynthesizesDeferredServerFailure(t *testing.T) {
+	rule := Rule{
+		NameScope: ".",
+		Format:    DefaultLogFormat,
+		Class:     map[response.Class]struct{}{response.All: {}},
+	}
+
+	var f bytes.Buffer
+	log.SetOutput(&f)
+
+	logger := Logger{
+		Rules: []Rule{rule},
+		repl:  replacer.New(),
+	}
+
+	ctx := context.TODO()
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	rcode, err := logger.ServeDNS(ctx, rec, r)
+	if err == nil {
+		t.Fatal("expected no next plugin error")
+	}
+	if rcode != dns.RcodeServerFailure {
+		t.Fatalf("expected SERVFAIL rcode, got %d", rcode)
+	}
+
+	logged := f.String()
+	if !strings.Contains(logged, "SERVFAIL") {
+		t.Fatalf("expected SERVFAIL in log output, got %q", logged)
+	}
+	if strings.Contains(logged, "\"OTHERERROR ") {
+		t.Fatalf("expected synthesized server error classification, got %q", logged)
+	}
+}
+
+func TestLoggedSynthesizesDeferredRefused(t *testing.T) {
+	rule := Rule{
+		NameScope: ".",
+		Format:    DefaultLogFormat,
+		Class:     map[response.Class]struct{}{response.All: {}},
+	}
+
+	var f bytes.Buffer
+	log.SetOutput(&f)
+
+	logger := Logger{
+		Rules: []Rule{rule},
+		Next:  test.NextHandler(dns.RcodeRefused, nil),
+		repl:  replacer.New(),
+	}
+
+	ctx := context.TODO()
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	rcode, err := logger.ServeDNS(ctx, rec, r)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rcode != dns.RcodeRefused {
+		t.Fatalf("expected REFUSED rcode, got %d", rcode)
+	}
+
+	logged := f.String()
+	if !strings.Contains(logged, "REFUSED") {
+		t.Fatalf("expected REFUSED in log output, got %q", logged)
+	}
+}
+
+func TestLoggedClassNameErrorWithoutSOA(t *testing.T) {
+	tests := []struct {
+		name      string
+		class     response.Class
+		shouldLog bool
+	}{
+		{name: "error", class: response.Error, shouldLog: false},
+		{name: "denial", class: response.Denial, shouldLog: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			rule := Rule{
+				NameScope: ".",
+				Format:    DefaultLogFormat,
+				Class:     map[response.Class]struct{}{tc.class: {}},
+			}
+
+			var f bytes.Buffer
+			log.SetOutput(&f)
+
+			logger := Logger{
+				Rules: []Rule{rule},
+				Next: plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+					m := new(dns.Msg)
+					m.SetRcode(r, dns.RcodeNameError)
+					return dns.RcodeNameError, w.WriteMsg(m)
+				}),
+				repl: replacer.New(),
+			}
+
+			ctx := context.TODO()
+			r := new(dns.Msg)
+			r.SetQuestion("1.1.168.192.in-addr.arpa.", dns.TypePTR)
+
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+			_, err := logger.ServeDNS(ctx, rec, r)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			logged := f.String()
+			if !tc.shouldLog && len(logged) != 0 {
+				t.Errorf("Expected it not to be logged, but got string: %s", logged)
+			}
+			if tc.shouldLog && !strings.Contains(logged, "NXDOMAIN") {
+				t.Errorf("Expected it to be logged as NXDOMAIN. Logged string: %s", logged)
+			}
+		})
 	}
 }
 

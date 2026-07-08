@@ -226,6 +226,11 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			return nil, ret, nil, NoData
 		}
 
+		// Additional section processing for MX, SRV, SVCB, HTTPS. Check response
+		// and see if any of the names are in bailiwick - if so add IP addresses
+		// to the additional section. This mirrors the non-wildcard path above.
+		additional := z.additionalProcessing(rrs, do)
+
 		auth := ap.ns(do)
 		if do {
 			// An NSEC is needed to say no longer name exists under this wildcard.
@@ -238,7 +243,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			sigs = rrutil.SubTypeSignature(sigs, qtype)
 			rrs = append(rrs, sigs...)
 		}
-		return rrs, auth, nil, Success
+		return rrs, auth, additional, Success
 	}
 
 	rcode := NameError
@@ -310,6 +315,16 @@ func (a Apex) ns(do bool) []dns.RR {
 	return a.NS
 }
 
+// authority returns the records for the authority section of a response with
+// the given result: the SOA for negative answers (NXDOMAIN/NODATA), as
+// required by RFC 2308, and the NS records otherwise.
+func (z *Zone) authority(do bool, result Result) []dns.RR {
+	if result == NameError || result == NoData {
+		return z.soa(do)
+	}
+	return z.ns(do)
+}
+
 // externalLookup adds signatures and tries to resolve CNAMEs that point to external names.
 func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
 	qtype := state.QType()
@@ -326,7 +341,7 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 	if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
-		return rrs, z.ns(do), nil, result
+		return rrs, z.authority(do, result), nil, result
 	}
 
 	i := 0
@@ -346,7 +361,7 @@ Redo:
 		if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 			rrs = append(rrs, lookupRRs...)
-			return rrs, z.ns(do), nil, result
+			return rrs, z.authority(do, result), nil, result
 		}
 
 		i++

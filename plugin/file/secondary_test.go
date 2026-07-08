@@ -3,6 +3,7 @@ package file
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
@@ -118,6 +119,27 @@ func TestTransferIn(t *testing.T) {
 	}
 	if z.SOA.String() != fmt.Sprintf("%s	3600	IN	SOA	bla. bla. 250 0 0 0 0", testZone) {
 		t.Fatalf("Unknown SOA transferred")
+	}
+}
+
+func TestUpdateStopsBeforeInitialTransfer(t *testing.T) {
+	z := NewZone(testZone, "test")
+	updateShutdown := make(chan bool)
+	done := make(chan struct{})
+
+	go func() {
+		if err := z.Update(updateShutdown, nil); err != nil {
+			t.Errorf("Unexpected update error: %v", err)
+		}
+		close(done)
+	}()
+
+	close(updateShutdown)
+
+	select {
+	case <-done:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("Update did not stop while waiting for initial SOA")
 	}
 }
 
