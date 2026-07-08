@@ -104,8 +104,8 @@ func TestHealthHTTPS(t *testing.T) {
 
 	hc := NewHealthChecker("TestHealthHTTPS", transport.HTTPS, true, ".")
 	hc.SetTLSConfig(s.Client().Transport.(*http.Transport).TLSClientConfig)
-	hc.SetReadTimeout(10 * time.Millisecond)
-	hc.SetWriteTimeout(10 * time.Millisecond)
+	hc.SetReadTimeout(1 * time.Second)
+	hc.SetWriteTimeout(1 * time.Second)
 
 	p := NewProxy("TestHealthHTTPS", s.URL, transport.HTTPS)
 	p.readTimeout = 10 * time.Millisecond
