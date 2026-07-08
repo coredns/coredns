@@ -134,9 +134,10 @@ func (h *Hostsfile) readHosts() {
 	}
 	h.RLock()
 	size := h.size
+	mtime := h.mtime
 	h.RUnlock()
 
-	if h.mtime.Equal(stat.ModTime()) && size == stat.Size() {
+	if mtime.Equal(stat.ModTime()) && size == stat.Size() {
 		return
 	}
 
@@ -239,25 +240,33 @@ func (h *Hostsfile) lookupStaticHostLocked(m, wild map[string][]net.IP, host str
 	return nil
 }
 
-func (h *Hostsfile) lookupStaticHostFamily(host string, m, wild, inlineM, inlineWild map[string][]net.IP) []net.IP {
+func (h *Hostsfile) lookupStaticHostFamily(host string, v4 bool) []net.IP {
 	host = strings.ToLower(host)
 
 	h.RLock()
 	defer h.RUnlock()
 
-	ip1 := h.lookupStaticHostLocked(m, wild, host)
-	ip2 := h.lookupStaticHostLocked(inlineM, inlineWild, host)
+	// h.hmap and h.inline must be read under the lock: readHosts swaps h.hmap
+	// under h.Lock() on every reload.
+	var ip1, ip2 []net.IP
+	if v4 {
+		ip1 = h.lookupStaticHostLocked(h.hmap.name4, h.hmap.wildName4, host)
+		ip2 = h.lookupStaticHostLocked(h.inline.name4, h.inline.wildName4, host)
+	} else {
+		ip1 = h.lookupStaticHostLocked(h.hmap.name6, h.hmap.wildName6, host)
+		ip2 = h.lookupStaticHostLocked(h.inline.name6, h.inline.wildName6, host)
+	}
 	return append(ip1, ip2...)
 }
 
 // LookupStaticHostV4 looks up the IPv4 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV4(host string) []net.IP {
-	return h.lookupStaticHostFamily(host, h.hmap.name4, h.hmap.wildName4, h.inline.name4, h.inline.wildName4)
+	return h.lookupStaticHostFamily(host, true)
 }
 
 // LookupStaticHostV6 looks up the IPv6 addresses for the given host from the hosts file.
 func (h *Hostsfile) LookupStaticHostV6(host string) []net.IP {
-	return h.lookupStaticHostFamily(host, h.hmap.name6, h.hmap.wildName6, h.inline.name6, h.inline.wildName6)
+	return h.lookupStaticHostFamily(host, false)
 }
 
 // LookupStaticAddr looks up the hosts for the given address from the hosts file.
