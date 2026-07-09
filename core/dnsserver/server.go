@@ -35,9 +35,9 @@ import (
 // graceful termination (POSIX only).
 type Server struct {
 	Addr         string        // Address we listen on
-	IdleTimeout  time.Duration // Idle timeout for TCP
-	ReadTimeout  time.Duration // Read timeout for TCP
-	WriteTimeout time.Duration // Write timeout for TCP
+	IdleTimeout  time.Duration // Idle timeout for connection-oriented transports
+	ReadTimeout  time.Duration // Read timeout for connection-oriented transports
+	WriteTimeout time.Duration // Write timeout for connection-oriented transports that support it
 
 	connPolicy                    proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
 	udpSessionTrackingTTL         time.Duration             // TTL for UDP PPv2 session tracking (0 = disabled)

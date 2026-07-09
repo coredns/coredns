@@ -115,7 +115,7 @@ type Config struct {
 	// This is nil if not specified, allowing for a default to be used.
 	MaxHTTPS3Streams *int
 
-	// Timeouts for TCP, TLS and HTTPS servers.
+	// Timeouts for connection-oriented servers. Exact applicability depends on transport.
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
