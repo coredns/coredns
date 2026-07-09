@@ -189,7 +189,8 @@ func (s *ServerHTTPS) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	msg, raw, err := doh.RequestToMsgWire(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		clog.Debugf("DoH request could not be parsed: %v", err)
+		http.Error(w, "invalid request", http.StatusBadRequest)
 		s.countResponse(http.StatusBadRequest)
 		return
 	}

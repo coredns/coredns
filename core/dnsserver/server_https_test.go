@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -581,5 +582,46 @@ func TestDoHWriterTsigStatusReturnsStoredStatus(t *testing.T) {
 	dw := &DoHWriter{tsigStatus: dns.ErrSecret}
 	if dw.TsigStatus() != dns.ErrSecret {
 		t.Fatal("expected TsigStatus to return stored tsigStatus")
+	}
+}
+
+type errReader struct{}
+
+const leakyBodyReadError = "read tcp 10.0.0.1:5443->10.0.0.2:48418: i/o timeout"
+
+func (errReader) Read([]byte) (int, error) { return 0, errors.New(leakyBodyReadError) }
+
+func TestServeHTTPDoesNotLeakBodyReadError(t *testing.T) {
+	c := Config{
+		Zone:        "example.com.",
+		Transport:   "https",
+		TLSConfig:   &tls.Config{},
+		ListenHosts: []string{"127.0.0.1"},
+		Port:        "443",
+	}
+	s, err := NewServerHTTPS("127.0.0.1:443", []*Config{&c})
+	if err != nil {
+		t.Fatal("could not create HTTPS server:", err)
+	}
+
+	r := httptest.NewRequest(http.MethodPost, "/dns-query", errReader{})
+	r.RemoteAddr = "127.0.0.1:12345"
+	w := httptest.NewRecorder()
+
+	s.ServeHTTP(w, r)
+
+	res := w.Result()
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(body)); got != "invalid request" {
+		t.Fatalf("expected sanitized body %q, got %q", "invalid request", got)
 	}
 }

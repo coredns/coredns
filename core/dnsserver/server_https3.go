@@ -13,6 +13,7 @@ import (
 	"github.com/coredns/coredns/plugin/metrics/vars"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/doh"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
 	"github.com/coredns/coredns/plugin/pkg/response"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
@@ -178,7 +179,8 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	msg, raw, err := doh.RequestToMsgWire(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		clog.Debugf("DoH3 request could not be parsed: %v", err)
+		http.Error(w, "invalid request", http.StatusBadRequest)
 		s.countResponse(http.StatusBadRequest)
 		return
 	}
