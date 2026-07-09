@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tap "github.com/dnstap/golang-dnstap"
+	fs "github.com/farsightsec/golang-framestream"
 )
 
 func TestListenerCreation(t *testing.T) {
@@ -61,6 +62,76 @@ func TestListenerBroadcast(_ *testing.T) {
 
 	// Broadcast should handle nil encoder gracefully (will call removeClient on error)
 	l.Dnstap(testPayload)
+}
+
+// TestListenerDnstapFlushErrorNoDeadlock is a regression test for a self-deadlock:
+// Dnstap held clientsMu.RLock and, when a client's flush() failed, called
+// removeClient inline. removeClient takes clientsMu.Lock, which a non-reentrant
+// RWMutex can never grant to a goroutine already holding the RLock, wedging every
+// future broadcast and close(). A flush failure is the normal case for a slow or
+// disconnected sink client, so the whole listen path must survive it.
+func TestListenerDnstapFlushErrorNoDeadlock(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+
+	// Peer completes the framestream bidirectional handshake so newEncoder succeeds.
+	stop := make(chan struct{})
+	defer close(stop)
+	accepted := make(chan struct{})
+	go func() {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		if _, err := fs.NewDecoder(conn, &fs.DecoderOptions{
+			ContentType:   []byte("protobuf:dnstap.Dnstap"),
+			Bidirectional: true,
+		}); err != nil {
+			return
+		}
+		close(accepted)
+		<-stop
+	}()
+
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	enc, err := newEncoder(conn, time.Second)
+	if err != nil {
+		t.Fatalf("newEncoder: %v", err)
+	}
+	<-accepted
+
+	// Break the connection: writeMsg still buffers into framestream successfully,
+	// but flush() (the real socket write) fails, exercising the flush-error branch.
+	conn.Close()
+
+	l := newListener("tcp", "127.0.0.1:0")
+	c := &client{conn: conn, enc: enc, quit: make(chan struct{})}
+	l.clients[c] = struct{}{}
+
+	// Message.Type is a required proto field; without it proto.Marshal fails in
+	// writeMsg and we never reach the flush-error branch this test exercises.
+	dnstapType := tap.Dnstap_MESSAGE
+	msgType := tap.Message_CLIENT_QUERY
+	payload := &tap.Dnstap{Type: &dnstapType, Message: &tap.Message{Type: &msgType}}
+
+	done := make(chan struct{})
+	go func() {
+		l.Dnstap(payload)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Dnstap deadlocked: removeClient takes clientsMu.Lock while Dnstap holds RLock")
+	}
 }
 
 func TestListenerRemoveClient(t *testing.T) {

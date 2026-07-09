@@ -183,11 +183,8 @@ func (l *listener) Dnstap(payload *tap.Dnstap) {
 		default:
 			if err := c.enc.writeMsg(payload); err != nil {
 				go l.removeClient(c)
-			} else {
-				if err := c.enc.flush(); err != nil {
-					l.removeClient(c)
-					return
-				}
+			} else if err := c.enc.flush(); err != nil {
+				go l.removeClient(c)
 			}
 		}
 	}
