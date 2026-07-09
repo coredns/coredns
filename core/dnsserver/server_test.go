@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -178,5 +179,63 @@ func BenchmarkCoreServeDNS(b *testing.B) {
 
 	for b.Loop() {
 		s.ServeDNS(ctx, w, m)
+	}
+}
+
+// recordingWriter counts the packed frames the decorated writer receives
+// before forwarding them to the real writer. The decorator mints a fresh
+// wrapper per packet; the frames counter is shared across them.
+type recordingWriter struct {
+	dns.Writer
+	frames *atomic.Int64
+}
+
+func (rw *recordingWriter) Write(b []byte) (int, error) {
+	rw.frames.Add(1)
+	return rw.Writer.Write(b)
+}
+
+func TestUDPDecorateWriterFunc(t *testing.T) {
+	cfg := testConfig("dns", test.ErrorHandler())
+
+	frames := new(atomic.Int64)
+	var gotServer atomic.Pointer[Server]
+	var calls atomic.Int64
+	cfg.UDPDecorateWriterFunc = func(srv *Server) dns.DecorateWriter {
+		calls.Add(1)
+		gotServer.Store(srv)
+		return func(w dns.Writer) dns.Writer {
+			return &recordingWriter{Writer: w, frames: frames}
+		}
+	}
+
+	s, err := NewServer("127.0.0.1:0", []*Config{cfg})
+	if err != nil {
+		t.Fatalf("NewServer failed: %v", err)
+	}
+
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("ListenPacket failed: %v", err)
+	}
+	defer pc.Close()
+
+	go s.ServePacket(pc)
+	defer s.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	if _, err := dns.Exchange(m, pc.LocalAddr().String()); err != nil {
+		t.Fatalf("dns.Exchange failed: %v", err)
+	}
+
+	if n := calls.Load(); n != 1 {
+		t.Errorf("expected UDPDecorateWriterFunc to be called once per socket, got %d", n)
+	}
+	if gotServer.Load() != s {
+		t.Errorf("expected UDPDecorateWriterFunc to receive the serving *Server")
+	}
+	if frames.Load() == 0 {
+		t.Errorf("expected the decorated writer to observe the response write")
 	}
 }

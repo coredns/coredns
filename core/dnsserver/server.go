@@ -179,12 +179,25 @@ func (s *Server) Serve(l net.Listener) error {
 // ServePacket starts the server with an existing packetconn. It blocks until the server stops.
 // This implements caddy.UDPServer interface.
 func (s *Server) ServePacket(p net.PacketConn) error {
+	// Use a custom writer decorator if one was configured.
+	var f func(*Server) dns.DecorateWriter
+	for _, z := range s.zones {
+		for _, conf := range z {
+			if conf.UDPDecorateWriterFunc != nil {
+				f = conf.UDPDecorateWriterFunc
+			}
+		}
+	}
+	var dw dns.DecorateWriter
+	if f != nil {
+		dw = f(s)
+	}
 	s.m.Lock()
 	s.server[udp] = &dns.Server{PacketConn: p, Net: "udp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	}), TsigSecret: s.tsigSecret}
+	}), TsigSecret: s.tsigSecret, DecorateWriter: dw}
 	s.m.Unlock()
 
 	return s.server[udp].ActivateAndServe()

@@ -11,6 +11,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/request"
 
+	"github.com/miekg/dns"
 	"github.com/pires/go-proxyproto"
 )
 
@@ -48,6 +49,13 @@ type Config struct {
 	// HTTP requests. Although this isn't referenced in-tree, external plugins
 	// may depend on it.
 	HTTPRequestValidateFunc func(*http.Request) bool
+
+	// If this function is not nil it is called once per Server in ServePacket
+	// (so each UDP listening socket gets its own decorator under multisocket)
+	// and its result is installed as the underlying dns.Server's
+	// DecorateWriter. Plain dns:// UDP listeners only. Although this isn't
+	// referenced in-tree, external plugins may depend on it.
+	UDPDecorateWriterFunc func(*Server) dns.DecorateWriter
 
 	// FilterFuncs is used to further filter access
 	// to this handler. E.g. to limit access to a reverse zone

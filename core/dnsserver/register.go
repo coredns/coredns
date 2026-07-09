@@ -279,6 +279,10 @@ func propagateConfigParams(configs []*Config) {
 		// Propagate HTTPRequestValidateFunc so that custom path validators work in
 		// multi-transport blocks. Otherwise HTTPS 404s on non-"/dns-query" paths.
 		c.HTTPRequestValidateFunc = c.firstConfigInBlock.HTTPRequestValidateFunc
+
+		// Propagate UDPDecorateWriterFunc so a decorator configured once in a
+		// server block applies to the block's UDP listener(s).
+		c.UDPDecorateWriterFunc = c.firstConfigInBlock.UDPDecorateWriterFunc
 	}
 }
 
