@@ -55,6 +55,11 @@ type Server struct {
 
 	tsigSecret map[string]string
 
+	// udpDecorateWriterFunc is selected in NewServer from the group configs in
+	// stable order (last one set wins), so the choice is deterministic when
+	// several server blocks share a listener. See Config.UDPDecorateWriterFunc.
+	udpDecorateWriterFunc func(*Server) dns.DecorateWriter
+
 	// Ensure Stop is idempotent when invoked concurrently (e.g., during reload and SIGTERM).
 	stopOnce sync.Once
 	stopErr  error
@@ -101,6 +106,10 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 
 		// copy tsig secrets
 		maps.Copy(s.tsigSecret, site.TsigSecret)
+
+		if site.UDPDecorateWriterFunc != nil {
+			s.udpDecorateWriterFunc = site.UDPDecorateWriterFunc
+		}
 
 		// compile custom plugin for everything
 		var stack plugin.Handler
@@ -180,17 +189,9 @@ func (s *Server) Serve(l net.Listener) error {
 // This implements caddy.UDPServer interface.
 func (s *Server) ServePacket(p net.PacketConn) error {
 	// Use a custom writer decorator if one was configured.
-	var f func(*Server) dns.DecorateWriter
-	for _, z := range s.zones {
-		for _, conf := range z {
-			if conf.UDPDecorateWriterFunc != nil {
-				f = conf.UDPDecorateWriterFunc
-			}
-		}
-	}
 	var dw dns.DecorateWriter
-	if f != nil {
-		dw = f(s)
+	if s.udpDecorateWriterFunc != nil {
+		dw = s.udpDecorateWriterFunc(s)
 	}
 	s.m.Lock()
 	s.server[udp] = &dns.Server{PacketConn: p, Net: "udp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {

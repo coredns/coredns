@@ -53,8 +53,10 @@ type Config struct {
 	// If this function is not nil it is called once per Server in ServePacket
 	// (so each UDP listening socket gets its own decorator under multisocket)
 	// and its result is installed as the underlying dns.Server's
-	// DecorateWriter. Plain dns:// UDP listeners only. Although this isn't
-	// referenced in-tree, external plugins may depend on it.
+	// DecorateWriter. Plain dns:// UDP listeners only. When several server
+	// blocks sharing a listener set it, the last one in config order wins.
+	// Although this isn't referenced in-tree, external plugins may depend
+	// on it.
 	UDPDecorateWriterFunc func(*Server) dns.DecorateWriter
 
 	// FilterFuncs is used to further filter access
