@@ -30,6 +30,7 @@ Thomas Gosteli
 Ville Vesilehto
 Yong Tang
 houyuwushang
+rpb-ant
 
 ## Noteworthy Changes
 
@@ -39,6 +40,7 @@ core: Guard Join against an empty label slice (https://github.com/coredns/coredn
 core: Propagate HTTPRequestValidateFunc to all configs in a server block (https://github.com/coredns/coredns/pull/8169)
 core: Sanitize DoH/DoH3 request parse errors (https://github.com/coredns/coredns/pull/8254)
 core: Use Go TLS defaults (https://github.com/coredns/coredns/pull/8227)
+core: Add Config.UDPDecorateWriterFunc for external plugins (https://github.com/coredns/coredns/pull/8257)
 plugin/auto: Warn on duplicate zone file origins (https://github.com/coredns/coredns/pull/8191)
 plugin/cache: Add regression test for AD bit not partitioning the cache (https://github.com/coredns/coredns/pull/8214)
 plugin/dnstap: Close the previous connection before reconnecting (https://github.com/coredns/coredns/pull/8224)
