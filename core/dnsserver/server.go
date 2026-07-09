@@ -107,10 +107,6 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		// copy tsig secrets
 		maps.Copy(s.tsigSecret, site.TsigSecret)
 
-		if site.UDPDecorateWriterFunc != nil {
-			s.udpDecorateWriterFunc = site.UDPDecorateWriterFunc
-		}
-
 		// compile custom plugin for everything
 		var stack plugin.Handler
 		for i := len(site.Plugin) - 1; i >= 0; i-- {
@@ -146,6 +142,9 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		}
 		if site.ProxyProtoUDPSessionTrackingMaxSessions > 0 {
 			s.udpSessionTrackingMaxSessions = site.ProxyProtoUDPSessionTrackingMaxSessions
+		}
+		if site.UDPDecorateWriterFunc != nil {
+			s.udpDecorateWriterFunc = site.UDPDecorateWriterFunc
 		}
 	}
 
