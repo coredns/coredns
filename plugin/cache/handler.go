@@ -121,7 +121,7 @@ func (c *Cache) doPrefetch(ctx context.Context, cw *ResponseWriter, i *item, now
 	// When prefetching we loose the item i, and with it the frequency
 	// that we've gathered sofar. See we copy the frequencies info back
 	// into the new item that was stored in the cache.
-	if i1 := c.exists(cw.state.Name(), cw.state.QType(), cw.do, cw.cd); i1 != nil {
+	if i1 := c.exists(cw.state.Name(), cw.state.QType(), cw.state.QClass(), cw.do, cw.cd); i1 != nil {
 		i1.Reset(now, i.Hits())
 	}
 }
@@ -153,7 +153,7 @@ func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w 
 		if !cw.refreshed {
 			return false, 0, nil
 		}
-		fresh := c.exists(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
+		fresh := c.exists(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
 		if fresh == nil {
 			// Should not happen: refreshed=true means the upstream response was cacheable.
 			return true, res.code, res.err
@@ -186,7 +186,7 @@ func (c *Cache) Name() string { return "cache" }
 
 // getIfNotStale returns an item if it exists in the cache and has not expired.
 func (c *Cache) getIfNotStale(now time.Time, state request.Request, server string) *item {
-	k := hash(state.Name(), state.QType(), state.Do(), state.Req.CheckingDisabled)
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
 	cacheRequests.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 
 	if i, ok := c.ncache.Get(k); ok {
@@ -219,8 +219,8 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 }
 
 // exists unconditionally returns an item if it exists in the cache.
-func (c *Cache) exists(name string, qtype uint16, do, cd bool) *item {
-	k := hash(name, qtype, do, cd)
+func (c *Cache) exists(name string, qtype, qclass uint16, do, cd bool) *item {
+	k := hash(name, qtype, qclass, do, cd)
 	if i, ok := c.ncache.Get(k); ok {
 		return i
 	}

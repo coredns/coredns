@@ -1072,7 +1072,7 @@ func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
 	posMsg.Response = true
 	posMsg.Answer = []dns.RR{test.A("example.org. 120 IN A 127.0.0.53")}
 	posItem := newItem(posMsg, now.Add(-30*time.Second), 120*time.Second)
-	k := hash("example.org.", dns.TypeA, false, false)
+	k := hash("example.org.", dns.TypeA, dns.ClassINET, false, false)
 	c.pcache.Add(k, posItem)
 
 	// Manually insert a SERVFAIL entry in ncache (stored just now, TTL 5s).

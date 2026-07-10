@@ -95,7 +95,7 @@ func key(qname string, m *dns.Msg, t response.Type, do, cd bool) (bool, uint64) 
 		return false, 0
 	}
 
-	return true, hash(qname, m.Question[0].Qtype, do, cd)
+	return true, hash(qname, m.Question[0].Qtype, m.Question[0].Qclass, do, cd)
 }
 
 func hasSOA(m *dns.Msg) bool {
@@ -110,7 +110,7 @@ func hasSOA(m *dns.Msg) bool {
 var one = []byte("1")
 var zero = []byte("0")
 
-func hash(qname string, qtype uint16, do, cd bool) uint64 {
+func hash(qname string, qtype, qclass uint16, do, cd bool) uint64 {
 	h := fnv.New64()
 
 	if do {
@@ -128,6 +128,9 @@ func hash(qname string, qtype uint16, do, cd bool) uint64 {
 	var qtypeBytes [2]byte
 	binary.BigEndian.PutUint16(qtypeBytes[:], qtype)
 	h.Write(qtypeBytes[:])
+	var qclassBytes [2]byte
+	binary.BigEndian.PutUint16(qclassBytes[:], qclass)
+	h.Write(qclassBytes[:])
 	h.Write([]byte(qname))
 	return h.Sum64()
 }

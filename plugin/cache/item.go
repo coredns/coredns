@@ -14,6 +14,7 @@ import (
 type item struct {
 	Name               string
 	QType              uint16
+	QClass             uint16
 	Rcode              int
 	AuthenticatedData  bool
 	RecursionAvailable bool
@@ -41,6 +42,7 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 	if len(m.Question) != 0 {
 		i.Name = m.Question[0].Name
 		i.QType = m.Question[0].Qtype
+		i.QClass = m.Question[0].Qclass
 	}
 	i.Rcode = m.Rcode
 	i.AuthenticatedData = m.AuthenticatedData
@@ -105,7 +107,7 @@ func (i *item) ttl(now time.Time) int {
 }
 
 func (i *item) matches(state request.Request) bool {
-	if state.QType() == i.QType && strings.EqualFold(state.QName(), i.Name) {
+	if state.QType() == i.QType && state.QClass() == i.QClass && strings.EqualFold(state.QName(), i.Name) {
 		return true
 	}
 	return false

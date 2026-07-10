@@ -12,7 +12,7 @@ import (
 
 // TestCacheADBitNotPartitioned guards the fix for issue #6642.
 //
-// The cache key is hashed on qname, qtype, the DO bit and the CD bit, but
+// The cache key is hashed on qname, qtype, qclass, the DO bit and the CD bit, but
 // deliberately NOT on the AD bit (AD must not partition the cache). This means
 // a single cache entry serves both AD-requesting and non-AD-requesting clients,
 // so the AD bit returned to a client must be derived per request from the
