@@ -121,3 +121,13 @@ jobs:
 
       - name: Test Makefile.docker release/github-push (dry-run)
         run: make VERSION=x DOCKER=x -n release docker-push -f Makefile.docker
+
+      - name: Prepare Docker build
+        run: |
+          for arch in amd64 arm arm64 mips64le ppc64le s390x riscv64 loong64; do
+            mkdir -p build/docker/$arch
+            cp build/linux/$arch/coredns build/docker/$arch/
+          done
+
+      - name: Test Makefile.docker build
+        run: make VERSION=x DOCKER=x -f Makefile.docker docker-build
