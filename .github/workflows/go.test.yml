@@ -114,16 +114,10 @@ jobs:
         run: sudo apt-get install make curl
 
       - name: Test Makefile.release release
-        run: |
-          set -xe
-          make GITHUB_ACCESS_TOKEN=x release -f Makefile.release
+        run: make GITHUB_ACCESS_TOKEN=x release -f Makefile.release
 
       - name: Test Makefile.release release/github-push (dry-run)
-        run: |
-          set -xe
-          make GITHUB_ACCESS_TOKEN=x -n release github-push -f Makefile.release
+        run: make GITHUB_ACCESS_TOKEN=x -n release github-push -f Makefile.release
 
       - name: Test Makefile.docker release/github-push (dry-run)
-        run: |
-          set -xe
-          make VERSION=x DOCKER=x -n release docker-push -f Makefile.docker
+        run: make VERSION=x DOCKER=x -n release docker-push -f Makefile.docker

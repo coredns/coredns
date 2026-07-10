@@ -54,6 +54,8 @@ GITHUB:=coredns
 LINUX_ARCH:=amd64 arm arm64 mips64le ppc64le s390x mips riscv64 loong64
 GOLANG_VERSION ?= $(shell cat .go-version)
 
+.SHELLFLAGS := -e -c
+
 export GOSUMDB = sum.golang.org
 export GOTOOLCHAIN = go$(GOLANG_VERSION)
 
