@@ -253,35 +253,38 @@ func TestMetricsAuto(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(tmpdir, "db.example.org"), []byte(zoneContent), 0644); err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(110 * time.Millisecond) // wait for it to be picked up
 
 	m := new(dns.Msg)
 	m.SetQuestion("www.example.org.", dns.TypeA)
 
-	if _, err := dns.Exchange(m, udp); err != nil {
-		t.Fatalf("Could not send message: %s", err)
-	}
-
 	metricName := "coredns_dns_requests_total" // {zone, proto, family, type}
 
-	data := test.Scrape("http://" + metrics.ListenAddr + "/metrics")
-	// Get the value for the metrics where the one of the labels values matches "example.org."
-	got, _ := test.MetricValueLabel(metricName, "example.org.", data)
+	// pollMetric re-issues the query and scrapes until the example.org. zone
+	// counter is present and non-zero, or the 5s cap is reached.
+	pollMetric := func() string {
+		var got string
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			if _, err := dns.Exchange(m, udp); err != nil {
+				t.Fatalf("Could not send message: %s", err)
+			}
+			data := test.Scrape("http://" + metrics.ListenAddr + "/metrics")
+			got, _ = test.MetricValueLabel(metricName, "example.org.", data)
+			if (got != "" && got != "0") || time.Now().After(deadline) {
+				return got
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
 
+	got := pollMetric()
 	if got == "0" {
 		t.Errorf("Expected value %s for %s, but got %s", "> 1", metricName, got)
 	}
 
-	// Remove db.example.org again. And see if the metric stops increasing.
+	// Remove db.example.org again.
 	os.Remove(filepath.Join(tmpdir, "db.example.org"))
-	time.Sleep(110 * time.Millisecond) // wait for it to be picked up
-	if _, err := dns.Exchange(m, udp); err != nil {
-		t.Fatalf("Could not send message: %s", err)
-	}
-
-	data = test.Scrape("http://" + metrics.ListenAddr + "/metrics")
-	got, _ = test.MetricValueLabel(metricName, "example.org.", data)
-
+	got = pollMetric()
 	if got == "0" {
 		t.Errorf("Expected value %s for %s, but got %s", "> 1", metricName, got)
 	}

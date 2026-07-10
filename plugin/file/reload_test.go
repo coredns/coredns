@@ -58,12 +58,15 @@ func TestZoneReload(t *testing.T) {
 	if err := os.WriteFile(fileName, []byte(reloadZone2Test), 0644); err != nil {
 		t.Fatalf("Failed to write new zone data: %s", err)
 	}
-	// Could still be racy, but we need to wait a bit for the event to be seen
-	time.Sleep(30 * time.Millisecond)
-
-	rrs, err = z.ApexIfDefined()
-	if err != nil {
-		t.Fatal(err)
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		rrs, err = z.ApexIfDefined()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(rrs) == 3 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
 	}
 	if len(rrs) != 3 {
 		t.Fatalf("Expected 3 RRs, got %d", len(rrs))

@@ -10,7 +10,12 @@ import (
 )
 
 func Test_health_overloaded_cancellation(t *testing.T) {
+	started := make(chan struct{}, 1)
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _r *http.Request) {
+		select {
+		case started <- struct{}{}:
+		default:
+		}
 		time.Sleep(1 * time.Second)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -36,8 +41,11 @@ func Test_health_overloaded_cancellation(t *testing.T) {
 		stopped <- struct{}{}
 	}()
 
-	// wait for overloaded function to start atleast once
-	time.Sleep(1 * time.Second)
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("overloaded function did not start")
+	}
 
 	cancel()
 
