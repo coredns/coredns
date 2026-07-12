@@ -152,9 +152,9 @@ Restart:
 		return nil
 	}
 	soa := z.getSOA()
-	refresh := time.Second * time.Duration(soa.Refresh)
-	retry := time.Second * time.Duration(soa.Retry)
-	expire := time.Second * time.Duration(soa.Expire)
+	refresh := time.Second * time.Duration(max(soa.Refresh, 1))
+	retry := time.Second * time.Duration(max(soa.Retry, 1))
+	expire := time.Second * time.Duration(max(soa.Expire, 1))
 
 	refreshTicker := time.NewTicker(refresh)
 	retryTicker := time.NewTicker(retry)

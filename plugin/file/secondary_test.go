@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/plugin/transfer"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -165,4 +166,24 @@ func newRequest(_zone string, _qtype uint16) request.Request {
 	m.SetQuestion("example.com.", dns.TypeA)
 	m.SetEdns0(4097, true)
 	return request.Request{W: &test.ResponseWriter{}, Req: m}
+}
+
+func TestUpdateWithZeroSOATimers(t *testing.T) {
+	z := NewZone(testZone, "test")
+	z.SOA = test.SOA(
+		fmt.Sprintf("%s IN SOA bla. bla. 1 0 0 0 0", testZone),
+	)
+
+	updateShutdown := make(chan bool)
+	time.AfterFunc(10*time.Millisecond, func() {
+		close(updateShutdown)
+	})
+
+	if err := z.UpdateWithTransfer(
+		updateShutdown,
+		nil,
+		func(*Zone, *transfer.Transfer) error { return nil },
+	); err != nil {
+		t.Fatalf("Unexpected update error: %v", err)
+	}
 }
