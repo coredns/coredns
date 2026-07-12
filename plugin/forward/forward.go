@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -237,13 +238,9 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 		// Check if we have a failover Rcode defined, check if we match on the code
 		tryNext := false
-		for _, failoverRcode := range f.failoverRcodes {
-			// if we match, we continue to the next upstream in the list
-			if failoverRcode == ret.Rcode {
-				failoverAttempts++
-				tryNext = failoverAttempts < len(f.proxies)
-				break
-			}
+		if slices.Contains(f.failoverRcodes, ret.Rcode) {
+			failoverAttempts++
+			tryNext = failoverAttempts < len(f.proxies)
 		}
 		if tryNext {
 			continue
