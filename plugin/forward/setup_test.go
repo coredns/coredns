@@ -906,3 +906,30 @@ func TestSetupReadTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestSetupDOHHealthcheckTLSConfig(t *testing.T) {
+	c := caddy.NewTestController(
+		"dns",
+		`forward . https://127.0.0.1 {
+			tls_servername dns.example
+		}`,
+	)
+
+	fs, err := parseForward(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := fs[0].
+		proxies[0].
+		GetHealthchecker().
+		GetTLSConfig()
+
+	if got.ServerName != "dns.example" {
+		t.Fatalf(
+			"Expected DoH healthcheck TLS server name %q, got %q",
+			"dns.example",
+			got.ServerName,
+		)
+	}
+}

@@ -244,6 +244,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 				Timeout:   2 * time.Second,
 			}
 			f.proxies[i].SetHTTPClient(&c)
+			f.proxies[i].SetTLSConfig(f.tlsConfig)
 			f.proxies[i].SetDOHRequestOptions(f.dohMethod)
 		}
 
