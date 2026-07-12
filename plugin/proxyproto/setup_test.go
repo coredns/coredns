@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
+
 	proxyprotoLib "github.com/pires/go-proxyproto"
 )
 
