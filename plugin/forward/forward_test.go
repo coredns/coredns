@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -236,5 +237,70 @@ func TestForward_NextOnNodata(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestForwardFailoverStopsAfterAllUpstreams(t *testing.T) {
+	var first atomic.Int32
+	var second atomic.Int32
+
+	s1 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		first.Add(1)
+
+		m := new(dns.Msg)
+		m.SetRcode(r, dns.RcodeServerFailure)
+		w.WriteMsg(m)
+	})
+	defer s1.Close()
+
+	s2 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		second.Add(1)
+
+		m := new(dns.Msg)
+		m.SetRcode(r, dns.RcodeServerFailure)
+		w.WriteMsg(m)
+	})
+	defer s2.Close()
+
+	c := caddy.NewTestController("dns", fmt.Sprintf(`forward . %s %s {
+		policy sequential
+		failover SERVFAIL
+	}`, s1.Addr, s2.Addr))
+
+	fs, err := parseForward(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := fs[0]
+	if err := f.OnStartup(); err != nil {
+		t.Fatal(err)
+	}
+	defer f.OnShutdown()
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		200*time.Millisecond,
+	)
+	defer cancel()
+
+	if _, err := f.ServeDNS(ctx, rec, req); err != nil {
+		t.Fatalf("Expected the last SERVFAIL response, got error: %v", err)
+	}
+
+	if rec.Rcode != dns.RcodeServerFailure {
+		t.Fatalf("Expected SERVFAIL, got %d", rec.Rcode)
+	}
+
+	if got := first.Load(); got != 1 {
+		t.Errorf("Expected first upstream to be queried once, got %d", got)
+	}
+	if got := second.Load(); got != 1 {
+		t.Errorf("Expected second upstream to be queried once, got %d", got)
 	}
 }

@@ -126,6 +126,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	fails := 0
+	failoverAttempts := 0
 	var span, child ot.Span
 	var upstreamErr error
 	span = ot.SpanFromContext(ctx)
@@ -239,13 +240,12 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		for _, failoverRcode := range f.failoverRcodes {
 			// if we match, we continue to the next upstream in the list
 			if failoverRcode == ret.Rcode {
-				if fails < len(f.proxies) {
-					tryNext = true
-				}
+				failoverAttempts++
+				tryNext = failoverAttempts < len(f.proxies)
+				break
 			}
 		}
 		if tryNext {
-			fails++
 			continue
 		}
 
