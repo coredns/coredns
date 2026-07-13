@@ -25,6 +25,7 @@ type Secondary struct {
 
 type dynamicZone struct {
 	catalog  string
+	memberID string
 	shutdown chan bool
 	stopOnce sync.Once
 }

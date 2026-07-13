@@ -2,6 +2,7 @@ package secondary
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -92,6 +93,83 @@ func TestTransferInCatalogRemovesMemberZone(t *testing.T) {
 	}
 	if _, _, ok := s.lookupZone("www.example.org."); ok {
 		t.Fatal("expected member zone to be removed after catalog update")
+	}
+}
+
+func TestTransferInCatalogResetsMemberZoneOnIDChange(t *testing.T) {
+	const origin = "catalog.example."
+	zones := newTestTransferZones(map[string][]dns.RR{
+		origin:         catalogZoneRecordsWithMemberID(t, "a", 1),
+		"example.org.": memberZoneRecordsWithAddress(t, 1, "192.0.2.1"),
+	})
+
+	server := dnstest.NewServer(zones.handler())
+	defer server.Close()
+
+	z := file.NewZone(origin, "stdin")
+	z.TransferFrom = []string{server.Addr}
+	s := newTestSecondary(origin, z, true)
+	t.Cleanup(s.stopDynamicZones)
+
+	if err := s.transferIn(origin, z, nil); err != nil {
+		t.Fatalf("initial transferIn returned error: %v", err)
+	}
+	waitForAnswer(t, s, "www.example.org.", dns.TypeA)
+
+	s.zoneMu.RLock()
+	before := s.Z["example.org."]
+	beforeDynamic := s.dynamicZones["example.org."]
+	s.zoneMu.RUnlock()
+	if before == nil || beforeDynamic == nil {
+		t.Fatal("expected initial catalog member zone and dynamic state")
+	}
+
+	zones.set(origin, catalogZoneRecordsWithMemberID(t, "a", 2))
+	if err := s.transferIn(origin, z, nil); err != nil {
+		t.Fatalf("same-ID transferIn returned error: %v", err)
+	}
+	s.zoneMu.RLock()
+	sameIDZone := s.Z["example.org."]
+	sameIDDynamic := s.dynamicZones["example.org."]
+	s.zoneMu.RUnlock()
+	if sameIDZone != before || sameIDDynamic != beforeDynamic {
+		t.Fatal("expected unchanged member ID to preserve the dynamic zone")
+	}
+	select {
+	case <-beforeDynamic.shutdown:
+		t.Fatal("expected unchanged member ID to preserve the transfer loop")
+	default:
+	}
+
+	zones.set(origin, catalogZoneRecordsWithMemberID(t, "b", 3))
+	zones.set("example.org.", memberZoneRecordsWithAddress(t, 2, "192.0.2.2"))
+	if err := s.transferIn(origin, z, nil); err != nil {
+		t.Fatalf("updated transferIn returned error: %v", err)
+	}
+
+	s.zoneMu.RLock()
+	after := s.Z["example.org."]
+	afterDynamic := s.dynamicZones["example.org."]
+	s.zoneMu.RUnlock()
+	if before == after {
+		t.Fatal("expected member node ID change to replace the dynamic zone")
+	}
+	if afterDynamic == nil || afterDynamic.memberID != "b" {
+		t.Fatalf("expected active member ID b, got %+v", afterDynamic)
+	}
+	select {
+	case <-beforeDynamic.shutdown:
+	default:
+		t.Fatal("expected member node ID change to stop the old transfer loop")
+	}
+
+	msg := waitForAnswer(t, s, "www.example.org.", dns.TypeA)
+	a, ok := msg.Answer[0].(*dns.A)
+	if !ok {
+		t.Fatalf("expected A answer, got %T", msg.Answer[0])
+	}
+	if a.A.String() != "192.0.2.2" {
+		t.Fatalf("expected reset zone answer 192.0.2.2, got %s", a.A.String())
 	}
 }
 
@@ -212,20 +290,31 @@ func waitForAnswer(t *testing.T, s *Secondary, name string, qtype uint16) *dns.M
 
 func catalogZoneRecords(t *testing.T, includeVersion bool) []dns.RR {
 	t.Helper()
+	if !includeVersion {
+		soa := mustRR(t, "catalog.example. 0 IN SOA invalid. hostmaster.invalid. 1 3600 600 604800 0")
+		return []dns.RR{
+			soa,
+			mustRR(t, "catalog.example. 0 IN NS invalid."),
+			mustRR(t, "a.zones.catalog.example. 0 IN PTR example.org."),
+			mustRR(t, `group.a.zones.catalog.example. 0 IN TXT "default"`),
+			soa,
+		}
+	}
+	return catalogZoneRecordsWithMemberID(t, "a", 1)
+}
 
-	soa := mustRR(t, "catalog.example. 0 IN SOA invalid. hostmaster.invalid. 1 3600 600 604800 0")
+func catalogZoneRecordsWithMemberID(t *testing.T, id string, serial int) []dns.RR {
+	t.Helper()
+
+	soa := mustRR(t, fmt.Sprintf("catalog.example. 0 IN SOA invalid. hostmaster.invalid. %d 3600 600 604800 0", serial))
 	rrs := []dns.RR{
 		soa,
 		mustRR(t, "catalog.example. 0 IN NS invalid."),
-	}
-	if includeVersion {
-		rrs = append(rrs, mustRR(t, `version.catalog.example. 0 IN TXT "2"`))
-	}
-	rrs = append(rrs,
-		mustRR(t, "a.zones.catalog.example. 0 IN PTR example.org."),
-		mustRR(t, `group.a.zones.catalog.example. 0 IN TXT "default"`),
+		mustRR(t, `version.catalog.example. 0 IN TXT "2"`),
+		mustRR(t, fmt.Sprintf("%s.zones.catalog.example. 0 IN PTR example.org.", id)),
+		mustRR(t, fmt.Sprintf(`group.%s.zones.catalog.example. 0 IN TXT "default"`, id)),
 		soa,
-	)
+	}
 	return rrs
 }
 
@@ -243,12 +332,17 @@ func catalogZoneRecordsWithoutMembers(t *testing.T) []dns.RR {
 
 func memberZoneRecords(t *testing.T) []dns.RR {
 	t.Helper()
+	return memberZoneRecordsWithAddress(t, 1, "192.0.2.1")
+}
 
-	soa := mustRR(t, "example.org. 0 IN SOA ns.example.org. hostmaster.example.org. 1 3600 600 604800 0")
+func memberZoneRecordsWithAddress(t *testing.T, serial int, address string) []dns.RR {
+	t.Helper()
+
+	soa := mustRR(t, fmt.Sprintf("example.org. 0 IN SOA ns.example.org. hostmaster.example.org. %d 3600 600 604800 0", serial))
 	return []dns.RR{
 		soa,
 		mustRR(t, "example.org. 0 IN NS ns.example.org."),
-		mustRR(t, "www.example.org. 0 IN A 192.0.2.1"),
+		mustRR(t, fmt.Sprintf("www.example.org. 0 IN A %s", address)),
 		soa,
 	}
 }

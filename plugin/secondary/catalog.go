@@ -58,11 +58,17 @@ func (s *Secondary) applyCatalog(origin string, cat *catalog.Catalog, catalogZon
 		memberZones[member.Zone] = struct{}{}
 
 		if existing, ok := s.Z[member.Zone]; ok {
-			if dyn, ok := s.dynamicZones[member.Zone]; ok && dyn.catalog == origin && existing != nil {
+			dyn, dynamic := s.dynamicZones[member.Zone]
+			if !dynamic || dyn.catalog != origin || existing == nil {
+				log.Warningf("Skipping catalog member zone %s from %s: zone already exists", member.Zone, origin)
 				continue
 			}
-			log.Warningf("Skipping catalog member zone %s from %s: zone already exists", member.Zone, origin)
-			continue
+			if dyn.memberID == member.ID {
+				continue
+			}
+			previousID := dyn.memberID
+			s.removeDynamicZoneLocked(member.Zone, origin)
+			log.Infof("Reset catalog member zone %s from %s after member ID changed from %s to %s", member.Zone, origin, previousID, member.ID)
 		}
 
 		z := file.NewZone(member.Zone, "stdin")
@@ -75,7 +81,7 @@ func (s *Secondary) applyCatalog(origin string, cat *catalog.Catalog, catalogZon
 		s.Z[member.Zone] = z
 		s.Names = append(s.Names, member.Zone)
 		s.zoneNames[z] = member.Zone
-		s.dynamicZones[member.Zone] = &dynamicZone{catalog: origin, shutdown: shutdown}
+		s.dynamicZones[member.Zone] = &dynamicZone{catalog: origin, memberID: member.ID, shutdown: shutdown}
 		starts = append(starts, dynamicZoneStart{origin: member.Zone, zone: z, shutdown: shutdown})
 		log.Infof("Added catalog member zone %s from catalog %s", member.Zone, origin)
 	}
@@ -84,18 +90,9 @@ func (s *Secondary) applyCatalog(origin string, cat *catalog.Catalog, catalogZon
 		if _, ok := memberZones[member]; ok {
 			continue
 		}
-		dyn, ok := s.dynamicZones[member]
-		if !ok || dyn.catalog != origin {
-			continue
+		if s.removeDynamicZoneLocked(member, origin) {
+			log.Infof("Removed catalog member zone %s from catalog %s", member, origin)
 		}
-		dyn.stopOnce.Do(func() { close(dyn.shutdown) })
-		delete(s.dynamicZones, member)
-		if z := s.Z[member]; z != nil {
-			delete(s.zoneNames, z)
-		}
-		delete(s.Z, member)
-		s.Names = removeZoneName(s.Names, member)
-		log.Infof("Removed catalog member zone %s from catalog %s", member, origin)
 	}
 	s.catalogMemberZones[origin] = memberZones
 	s.zoneMu.Unlock()
@@ -103,6 +100,23 @@ func (s *Secondary) applyCatalog(origin string, cat *catalog.Catalog, catalogZon
 	for _, start := range starts {
 		go s.transferAndUpdate(start.origin, start.zone, t, start.shutdown)
 	}
+}
+
+// removeDynamicZoneLocked removes a zone only when it belongs to catalog.
+// The caller must hold s.zoneMu for writing.
+func (s *Secondary) removeDynamicZoneLocked(zone, catalog string) bool {
+	dyn, ok := s.dynamicZones[zone]
+	if !ok || dyn.catalog != catalog {
+		return false
+	}
+	dyn.stopOnce.Do(func() { close(dyn.shutdown) })
+	delete(s.dynamicZones, zone)
+	if z := s.Z[zone]; z != nil {
+		delete(s.zoneNames, z)
+	}
+	delete(s.Z, zone)
+	s.Names = removeZoneName(s.Names, zone)
+	return true
 }
 
 func (s *Secondary) ensureZoneStateLocked() {
