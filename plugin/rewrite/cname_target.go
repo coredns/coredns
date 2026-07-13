@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/request"
@@ -138,6 +139,10 @@ func newCNAMERule(nextAction string, args ...string) (Rule, error) {
 		paramFromTarget, paramToTarget = strings.ToLower(args[0]), strings.ToLower(args[1])
 	} else {
 		return nil, fmt.Errorf("too few (%d) arguments for a cname rule", len(args))
+	}
+	if rewriteType == ExactMatch {
+		paramFromTarget = plugin.Name(paramFromTarget).Normalize()
+		paramToTarget = plugin.Name(paramToTarget).Normalize()
 	}
 	rule := cnameTargetRule{
 		rewriteType:     rewriteType,
