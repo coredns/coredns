@@ -112,6 +112,11 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 			switch c.Val() {
 			case "fallthrough":
 				h.Fall.SetZonesFromArgs(c.RemainingArgs())
+			case "fallthrough_unsupported":
+				if len(c.RemainingArgs()) != 0 {
+					return h, c.ArgErr()
+				}
+				h.fallthroughUnsupported = true
 			case "no_reverse":
 				h.options.autoReverse = false
 			case "ttl":
@@ -149,6 +154,9 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 				return h, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
+	}
+	if h.fallthroughUnsupported && len(h.Fall.Zones) == 0 {
+		return h, c.Err("fallthrough_unsupported requires fallthrough")
 	}
 
 	h.initInline(inline)

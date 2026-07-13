@@ -18,6 +18,8 @@ type Hosts struct {
 	*Hostsfile
 
 	Fall fall.F
+
+	fallthroughUnsupported bool
 }
 
 // ServeDNS implements the plugin.Handle interface.
@@ -51,7 +53,7 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		ips := h.LookupStaticHostV6(qname)
 		answers = aaaa(qname, h.options.ttl, ips)
 	default:
-		if h.Fall.Through(qname) {
+		if h.fallthroughUnsupported && h.Fall.Through(qname) {
 			return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 		}
 	}
