@@ -1,6 +1,7 @@
 package transfer
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -25,17 +26,17 @@ func (t *Transfer) Notify(zone string) error {
 	}
 	c := notifyClient(x)
 
-	var err1 error
+	var errs error
 	for _, t := range x.to {
 		if t == "*" {
 			continue
 		}
 		if err := sendNotify(c, m, t); err != nil {
-			err1 = err
+			errs = errors.Join(errs, err)
 		}
 	}
 	log.Debugf("Sent notifies for zone %q to %v", zone, x.to)
-	return err1 // this only captures the last error
+	return errs
 }
 
 func notifyClient(x *xfr) *dns.Client {
