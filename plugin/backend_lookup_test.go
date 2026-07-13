@@ -650,3 +650,113 @@ func TestSRVInternalAAAA(t *testing.T) {
 		t.Fatalf("expected both A and AAAA in extra, got %v", extra)
 	}
 }
+
+func TestCNAMEInternalAAAA(t *testing.T) {
+	b := &mockBackend{
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
+			if state.Name() == "_sip._tcp.example.org." {
+				return []msg.Service{
+					{Host: "alias.example.org.", Port: 80, Priority: 10, Weight: 5, TTL: 30, Key: "/skydns/org/example/s1"},
+				}, nil
+			}
+			if state.Name() == "alias.example.org." {
+				return []msg.Service{
+					{Host: "internal.example.org.", TTL: 30, Key: "/skydns/org/example/alias"},
+				}, nil
+			}
+			if state.Name() == "internal.example.org." {
+				return []msg.Service{
+					{Host: "1.2.3.4", TTL: 30, Key: "/skydns/org/example/internal"},
+					{Host: "::1", TTL: 30, Key: "/skydns/org/example/internal6"},
+				}, nil
+			}
+			return nil, fmt.Errorf("not found")
+		},
+	}
+	req := new(dns.Msg)
+	req.SetQuestion("_sip._tcp.example.org.", dns.TypeSRV)
+	state := request.Request{Req: req, W: &test.ResponseWriter{}}
+	recs, extra, err := SRV(context.Background(), b, "example.org.", state, Options{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(recs) != 1 {
+		t.Fatalf("expected 1 SRV records, got %d", len(recs))
+	}
+	// We should get 3 extra records: CNAME, A, AAAA (no duplicate CNAME)
+	if len(extra) != 3 {
+		t.Fatalf("expected 3 extra records (CNAME, A, AAAA), got %d: %v", len(extra), extra)
+	}
+	hasCNAME := false
+	hasA := false
+	hasAAAA := false
+	for _, e := range extra {
+		if e.Header().Rrtype == dns.TypeCNAME {
+			hasCNAME = true
+		}
+		if e.Header().Rrtype == dns.TypeA {
+			hasA = true
+		}
+		if e.Header().Rrtype == dns.TypeAAAA {
+			hasAAAA = true
+		}
+	}
+	if !hasCNAME || !hasA || !hasAAAA {
+		t.Fatalf("expected CNAME, A and AAAA in extra, got %v", extra)
+	}
+}
+
+func TestMXInternalAAAA(t *testing.T) {
+	b := &mockBackend{
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
+			if state.Name() == "example.org." {
+				return []msg.Service{
+					{Host: "alias.example.org.", Priority: 10, Mail: true, TTL: 30, Key: "/skydns/org/example/mx1"},
+				}, nil
+			}
+			if state.Name() == "alias.example.org." {
+				return []msg.Service{
+					{Host: "internal.example.org.", TTL: 30, Key: "/skydns/org/example/alias"},
+				}, nil
+			}
+			if state.Name() == "internal.example.org." {
+				return []msg.Service{
+					{Host: "1.2.3.4", TTL: 30, Key: "/skydns/org/example/internal"},
+					{Host: "::1", TTL: 30, Key: "/skydns/org/example/internal6"},
+				}, nil
+			}
+			return nil, fmt.Errorf("not found")
+		},
+	}
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeMX)
+	state := request.Request{Req: req, W: &test.ResponseWriter{}}
+	recs, extra, err := MX(context.Background(), b, "example.org.", state, Options{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(recs) != 1 {
+		t.Fatalf("expected 1 MX records, got %d", len(recs))
+	}
+	// We should get 3 extra records: CNAME, A, AAAA (no duplicate CNAME)
+	if len(extra) != 3 {
+		t.Fatalf("expected 3 extra records (CNAME, A, AAAA), got %d: %v", len(extra), extra)
+	}
+	hasCNAME := false
+	hasA := false
+	hasAAAA := false
+	for _, e := range extra {
+		if e.Header().Rrtype == dns.TypeCNAME {
+			hasCNAME = true
+		}
+		if e.Header().Rrtype == dns.TypeA {
+			hasA = true
+		}
+		if e.Header().Rrtype == dns.TypeAAAA {
+			hasAAAA = true
+		}
+	}
+	if !hasCNAME || !hasA || !hasAAAA {
+		t.Fatalf("expected CNAME, A and AAAA in extra, got %v", extra)
+	}
+}

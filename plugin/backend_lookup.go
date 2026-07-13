@@ -244,7 +244,11 @@ func SRV(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			state2 := state.NewWithQuestion(srv.Target, dns.TypeAAAA)
 			addr6, _, e2 := AAAA(ctx, b, zone, state2, nil, opt)
 			if e2 == nil {
-				extra = append(extra, addr6...)
+				for _, a := range addr6 {
+					if _, ok := a.(*dns.CNAME); !ok {
+						extra = append(extra, a)
+					}
+				}
 			}
 
 		case dns.TypeA, dns.TypeAAAA:
@@ -314,7 +318,11 @@ func MX(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 			state2 := state.NewWithQuestion(mx.Mx, dns.TypeAAAA)
 			addr6, _, e2 := AAAA(ctx, b, zone, state2, nil, opt)
 			if e2 == nil {
-				extra = append(extra, addr6...)
+				for _, a := range addr6 {
+					if _, ok := a.(*dns.CNAME); !ok {
+						extra = append(extra, a)
+					}
+				}
 			}
 
 		case dns.TypeA, dns.TypeAAAA:
