@@ -434,8 +434,11 @@ func (z *Zone) doLookup(ctx context.Context, state request.Request, target strin
 }
 
 // additionalProcessing checks the current answer section and retrieves A or AAAA records
-// (and possible SIGs) to need to be put in the additional section.
+// (and possible SIGs) to need to be put in the additional section. A target referenced by
+// more than one record is only resolved once.
 func (z *Zone) additionalProcessing(answer []dns.RR, do bool) (extra []dns.RR) {
+	var lookup map[string]struct{}
+
 	for _, rr := range answer {
 		name := ""
 		switch x := rr.(type) {
@@ -451,6 +454,20 @@ func (z *Zone) additionalProcessing(answer []dns.RR, do bool) (extra []dns.RR) {
 		if len(name) == 0 || !dns.IsSubDomain(z.origin, name) {
 			continue
 		}
+
+		// The answer can reference one target more than once, e.g. two MX records that only
+		// differ in preference. Its addresses belong in the additional section once. Compare
+		// canonically: SRV targets are not lowercased on insert (see Zone.Insert), while the
+		// zone's tree matches names case-insensitively.
+		target := dns.CanonicalName(name)
+		if _, ok := lookup[target]; ok {
+			continue
+		}
+		if lookup == nil {
+			// Allocate on first use: this runs for every answer, most of which carry no target.
+			lookup = make(map[string]struct{}, len(answer))
+		}
+		lookup[target] = struct{}{}
 
 		elem, _ := z.Search(name)
 		if elem == nil {
