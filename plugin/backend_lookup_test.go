@@ -760,3 +760,105 @@ func TestMXInternalAAAA(t *testing.T) {
 		t.Fatalf("expected CNAME, A and AAAA in extra, got %v", extra)
 	}
 }
+
+func TestSRVInternalIPv6Only(t *testing.T) {
+	b := &mockBackend{
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
+			if state.Name() == "_sip._tcp.example.org." {
+				return []msg.Service{
+					{Host: "alias.example.org.", Port: 80, Priority: 10, Weight: 5, TTL: 30, Key: "/skydns/org/example/s1"},
+				}, nil
+			}
+			if state.Name() == "alias.example.org." {
+				return []msg.Service{
+					{Host: "internal.example.org.", TTL: 30, Key: "/skydns/org/example/alias"},
+				}, nil
+			}
+			if state.Name() == "internal.example.org." {
+				// Only IPv6 address
+				return []msg.Service{
+					{Host: "::1", TTL: 30, Key: "/skydns/org/example/internal6"},
+				}, nil
+			}
+			return nil, fmt.Errorf("not found")
+		},
+	}
+	req := new(dns.Msg)
+	req.SetQuestion("_sip._tcp.example.org.", dns.TypeSRV)
+	state := request.Request{Req: req, W: &test.ResponseWriter{}}
+	recs, extra, err := SRV(context.Background(), b, "example.org.", state, Options{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(recs) != 1 {
+		t.Fatalf("expected 1 SRV records, got %d", len(recs))
+	}
+	// We should get 2 extra records: CNAME and AAAA (since A returned nothing, but CNAME must be preserved)
+	if len(extra) != 2 {
+		t.Fatalf("expected 2 extra records (CNAME, AAAA), got %d: %v", len(extra), extra)
+	}
+	hasCNAME := false
+	hasAAAA := false
+	for _, e := range extra {
+		if e.Header().Rrtype == dns.TypeCNAME {
+			hasCNAME = true
+		}
+		if e.Header().Rrtype == dns.TypeAAAA {
+			hasAAAA = true
+		}
+	}
+	if !hasCNAME || !hasAAAA {
+		t.Fatalf("expected CNAME and AAAA in extra, got %v", extra)
+	}
+}
+
+func TestMXInternalIPv6Only(t *testing.T) {
+	b := &mockBackend{
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
+			if state.Name() == "example.org." {
+				return []msg.Service{
+					{Host: "alias.example.org.", Priority: 10, Mail: true, TTL: 30, Key: "/skydns/org/example/mx1"},
+				}, nil
+			}
+			if state.Name() == "alias.example.org." {
+				return []msg.Service{
+					{Host: "internal.example.org.", TTL: 30, Key: "/skydns/org/example/alias"},
+				}, nil
+			}
+			if state.Name() == "internal.example.org." {
+				// Only IPv6 address
+				return []msg.Service{
+					{Host: "::1", TTL: 30, Key: "/skydns/org/example/internal6"},
+				}, nil
+			}
+			return nil, fmt.Errorf("not found")
+		},
+	}
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeMX)
+	state := request.Request{Req: req, W: &test.ResponseWriter{}}
+	recs, extra, err := MX(context.Background(), b, "example.org.", state, Options{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(recs) != 1 {
+		t.Fatalf("expected 1 MX records, got %d", len(recs))
+	}
+	// We should get 2 extra records: CNAME and AAAA (since A returned nothing, but CNAME must be preserved)
+	if len(extra) != 2 {
+		t.Fatalf("expected 2 extra records (CNAME, AAAA), got %d: %v", len(extra), extra)
+	}
+	hasCNAME := false
+	hasAAAA := false
+	for _, e := range extra {
+		if e.Header().Rrtype == dns.TypeCNAME {
+			hasCNAME = true
+		}
+		if e.Header().Rrtype == dns.TypeAAAA {
+			hasAAAA = true
+		}
+	}
+	if !hasCNAME || !hasAAAA {
+		t.Fatalf("expected CNAME and AAAA in extra, got %v", extra)
+	}
+}
