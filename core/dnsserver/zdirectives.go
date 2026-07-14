@@ -46,6 +46,7 @@ var Directives = []string{
 	"acl",
 	"header",
 	"dnssec",
+	"dane",
 	"autopath",
 	"minimal",
 	"template",
