@@ -38,7 +38,9 @@ secondary [zones...] {
 
 *  `catalog` treats the transferred zone as an RFC 9432 catalog zone. After each successful catalog
    transfer, CoreDNS adds and removes the catalog member zones and transfers those member zones from
-   the same primary servers.
+   the same primary servers. A member in another catalog remains a name clash unless the current
+   catalog's `coo` property points to the newly updated catalog. During that ownership migration,
+   CoreDNS preserves the current zone data only when both catalogs use the same member node label.
 
 *  `fallthrough` If a query for a record in the zone results in NXDOMAIN, the query will be passed
    to the next plugin in the chain. If **[ZONES...]** are listed, then only queries for those zones
