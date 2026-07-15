@@ -293,8 +293,8 @@ func TestProxyMalformedUDPThenValid(t *testing.T) {
 			malformed: func(r *dns.Msg) []byte {
 				badID := r.Id + 1
 
-				// Complete DNS header claiming one question, but with the
-				// question body missing. ReadMsg returns a partial message
+				// Complete DNS header claiming one question, followed by an
+				// incomplete one-byte label. ReadMsg returns a partial message
 				// containing badID together with an unpacking error.
 				return []byte{
 					byte(badID >> 8),
@@ -309,6 +309,7 @@ func TestProxyMalformedUDPThenValid(t *testing.T) {
 					0x00,
 					0x00,
 					0x00,
+					0x01,
 				}
 			},
 		},
