@@ -7,6 +7,7 @@ import (
 	"math"
 	"net"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -267,5 +268,88 @@ func TestShouldTruncateResponse(t *testing.T) {
 				t.Errorf("For testname '%v', expected %v but got %v", tc.testname, tc.expected, result)
 			}
 		})
+	}
+}
+
+func TestProxyMalformedUDPThenValid(t *testing.T) {
+	serverResult := make(chan error, 1)
+
+	s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		// Ensure the malformed packet's partial ID cannot match the query ID.
+		badID := r.Id + 1
+
+		malformed := []byte{
+			byte(badID >> 8),
+			byte(badID),
+			0x00,
+		}
+
+		if _, err := w.Write(malformed); err != nil {
+			serverResult <- err
+			return
+		}
+
+		// Immediately send a completely valid response for the same query.
+		reply := new(dns.Msg)
+		reply.SetReply(r)
+		reply.Answer = append(
+			reply.Answer,
+			test.A("variant.example. IN A 192.0.2.55"),
+		)
+
+		if err := w.WriteMsg(reply); err != nil {
+			serverResult <- err
+			return
+		}
+
+		serverResult <- nil
+	})
+	defer s.Close()
+
+	p := NewProxy(
+		"TestProxyMalformedUDPThenValid",
+		s.Addr,
+		transport.DNS,
+	)
+	p.readTimeout = time.Second
+	p.Start(5 * time.Second)
+	defer p.Stop()
+
+	q := new(dns.Msg)
+	q.SetQuestion("variant.example.", dns.TypeA)
+
+	req := request.Request{
+		Req: q,
+		W:   &test.ResponseWriter{},
+	}
+
+	resp, _, _, err := p.Connect(
+		context.Background(),
+		req,
+		Options{PreferUDP: true},
+	)
+
+	if serverErr := <-serverResult; serverErr != nil {
+		t.Fatalf("upstream failed to send responses: %v", serverErr)
+	}
+
+	// Expected: ignore the malformed UDP datagram and read the valid response.
+	if err != nil {
+		t.Fatalf(
+			"valid response after malformed UDP datagram was not accepted: %v",
+			err,
+		)
+	}
+
+	if resp == nil {
+		t.Fatal("expected valid response, got nil")
+	}
+
+	if len(resp.Answer) != 1 {
+		t.Fatalf("expected one answer, got %d", len(resp.Answer))
+	}
+
+	if got := resp.Answer[0].String(); !strings.Contains(got, "192.0.2.55") {
+		t.Fatalf("expected 192.0.2.55, got %q", got)
 	}
 }

@@ -198,6 +198,10 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 				break
 			}
 
+			if _, isDNSErr := err.(*dns.Error); isDNSErr && p.transport.transportTypeFromConn(pc) == typeUDP {
+				continue
+			}
+
 			pc.c.Close() // not giving it back
 			if err == io.EOF && cached {
 				return nil, localAddr, proto, ErrCachedClosed
