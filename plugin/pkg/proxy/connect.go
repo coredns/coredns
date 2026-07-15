@@ -186,6 +186,12 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
+			if p.transport.transportTypeFromConn(pc) == typeUDP &&
+				((ret == nil && errors.Is(err, dns.ErrShortRead)) ||
+					(ret != nil && ret.Id != state.Req.Id)) {
+				continue
+			}
+
 			if ret != nil && (state.Req.Id == ret.Id) && p.transport.transportTypeFromConn(pc) == typeUDP && shouldTruncateResponse(err) {
 				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
 				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
@@ -196,10 +202,6 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 				// Truncate the response.
 				ret = truncateResponse(ret)
 				break
-			}
-
-			if _, isDNSErr := err.(*dns.Error); isDNSErr && p.transport.transportTypeFromConn(pc) == typeUDP {
-				continue
 			}
 
 			pc.c.Close() // not giving it back
