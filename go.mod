@@ -13,7 +13,7 @@ require (
 	github.com/aws/aws-sdk-go-v2 v1.42.1
 	github.com/aws/aws-sdk-go-v2/config v1.32.26
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.25
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.29
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.18.30
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.64.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.42.4
 	github.com/coredns/caddy v1.1.4-0.20250930002214-15135a999495
