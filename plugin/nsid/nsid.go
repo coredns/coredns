@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_nsid
+
 // Package nsid implements NSID protocol
 package nsid
 

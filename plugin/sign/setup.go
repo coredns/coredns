@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_sign
+
 package sign
 
 import (
@@ -11,8 +13,6 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin"
 )
-
-func init() { plugin.Register("sign", setup) }
 
 func setup(c *caddy.Controller) error {
 	sign, err := parse(c)

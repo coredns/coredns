@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_geoip
+
 // Package geoip implements an MMDB database plugin for geo/network IP lookups.
 package geoip
 

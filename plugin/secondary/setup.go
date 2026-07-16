@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_secondary
+
 package secondary
 
 import (
@@ -17,8 +19,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("secondary")
-
-func init() { plugin.Register("secondary", setup) }
 
 func setup(c *caddy.Controller) error {
 	zones, fall, catalogZones, err := secondaryParse(c)

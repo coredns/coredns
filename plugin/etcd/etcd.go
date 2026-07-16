@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_etcd
+
 // Package etcd provides the etcd version 3 backend plugin.
 package etcd
 

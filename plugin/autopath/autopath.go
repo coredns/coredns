@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_autopath || coredns_kubernetes
+
 /*
 Package autopath implements autopathing. This is a hack; it shortcuts the
 client's search path resolution by performing these lookups on the server...

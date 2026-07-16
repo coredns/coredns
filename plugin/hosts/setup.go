@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_hosts
+
 package hosts
 
 import (
@@ -14,8 +16,6 @@ import (
 )
 
 var log = clog.NewWithPlugin("hosts")
-
-func init() { plugin.Register("hosts", setup) }
 
 func periodicHostsUpdate(h *Hosts) chan bool {
 	parseChan := make(chan bool)

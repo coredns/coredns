@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_dns64
+
 package dns64
 
 import (
@@ -10,8 +12,6 @@ import (
 )
 
 const pluginName = "dns64"
-
-func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	dns64, err := dns64Parse(c)

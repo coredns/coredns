@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_dnssec
+
 // Package dnssec implements a plugin that signs responses on-the-fly using
 // NSEC black lies.
 package dnssec

@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_secondary
+
 // Package secondary implements a secondary plugin.
 package secondary
 

@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_forward
+
 // Package forward implements a forwarding proxy. It caches an upstream net.Conn for some time, so if the same
 // client returns the upstream's Conn will be precached. Depending on how you benchmark this looks to be
 // 50% faster than just opening a new connection for every client. It works with UDP and TCP and uses

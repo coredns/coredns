@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_geoip
+
 package geoip
 
 import (
@@ -7,8 +9,6 @@ import (
 )
 
 const pluginName = "geoip"
-
-func init() { plugin.Register(pluginName, setup) }
 
 func setup(c *caddy.Controller) error {
 	geoip, err := geoipParse(c)

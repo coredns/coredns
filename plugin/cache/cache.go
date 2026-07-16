@@ -1,3 +1,5 @@
+//go:build coredns_all || coredns_cache
+
 // Package cache implements a cache.
 package cache
 
