@@ -71,6 +71,7 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	}
 
 	tsigRR.Error = dns.RcodeSuccess
+	ctx = withValidatedTSIG(ctx)
 	rcode, err := plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	if err != nil {
 		log.Errorf("request handler returned an error: %v\n", err)
