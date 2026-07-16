@@ -12,6 +12,10 @@ respective plugins sending those requests to sign them using the keys defined by
 
 The *tsig* plugin can also require that incoming requests be signed for certain query types, refusing requests that do not comply.
 
+After successfully validating a TSIG record, the plugin marks the request context. Downstream Go plugins can call
+`tsig.Validated(ctx)` to distinguish validated requests from unsigned requests. The marker is not set for requests outside the
+configured zones because the *tsig* plugin does not validate them.
+
 ## Syntax
 
 ~~~

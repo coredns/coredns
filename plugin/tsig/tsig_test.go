@@ -329,6 +329,7 @@ func TestServeDNSTsigNext(t *testing.T) {
 		reqSigned    bool
 		expectExtra  []uint16
 		expectNext   int
+		expectValid  bool
 	}{
 		{
 			desc:         "Optional TSIG",
@@ -338,6 +339,7 @@ func TestServeDNSTsigNext(t *testing.T) {
 			reqSigned:    false,
 			expectExtra:  []uint16{dns.TypeOPT},
 			expectNext:   1,
+			expectValid:  false,
 		},
 		{
 			desc:         "Missing TSIG",
@@ -355,6 +357,7 @@ func TestServeDNSTsigNext(t *testing.T) {
 			reqSigned:   true,
 			expectExtra: []uint16{dns.TypeOPT, dns.TypeTSIG},
 			expectNext:  1,
+			expectValid: false,
 		},
 		{
 			desc:         "Bad Status",
@@ -373,6 +376,7 @@ func TestServeDNSTsigNext(t *testing.T) {
 			reqSigned:    true,
 			expectExtra:  []uint16{dns.TypeOPT},
 			expectNext:   1,
+			expectValid:  true,
 		},
 	}
 
@@ -385,6 +389,9 @@ func TestServeDNSTsigNext(t *testing.T) {
 				allTypes: tc.tsigRequired,
 				Next: test.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 					nextCalled++
+					if got := Validated(_ctx); got != tc.expectValid {
+						t.Errorf("Validated() = %t, want %t", got, tc.expectValid)
+					}
 					if !slices.EqualFunc(r.Extra, tc.expectExtra, func(rr dns.RR, t uint16) bool { return rr.Header().Rrtype == t }) {
 						t.Errorf("expected %v, got %v", tc.expectExtra, r.Extra)
 					}
