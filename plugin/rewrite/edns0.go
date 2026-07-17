@@ -44,6 +44,8 @@ type edns0SetResponseRule struct {
 	code uint16
 }
 
+func (r *edns0SetResponseRule) revertRequestExtra() {}
+
 func (r *edns0SetResponseRule) RewriteResponse(res *dns.Msg, _ dns.RR) {
 	ednsOpt := res.IsEdns0()
 	if ednsOpt == nil {
@@ -61,6 +63,8 @@ type edns0ReplaceResponseRule[T dns.EDNS0] struct {
 	code   uint16
 	source T
 }
+
+func (r *edns0ReplaceResponseRule[T]) revertRequestExtra() {}
 
 func (r *edns0ReplaceResponseRule[T]) RewriteResponse(res *dns.Msg, _ dns.RR) {
 	ednsOpt := res.IsEdns0()
@@ -96,7 +100,7 @@ func unsetEdns0Option(opt *dns.OPT, code uint16) {
 }
 
 // Rewrite will alter the request EDNS0 NSID option
-func (rule *edns0NsidRule) Rewrite(_ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *edns0NsidRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	o := setupEdns0Opt(state.Req)
 
 	if rule.action == Unset {
@@ -135,7 +139,7 @@ func (rule *edns0NsidRule) Rewrite(_ctx context.Context, state request.Request) 
 func (rule *edns0NsidRule) Mode() string { return rule.mode }
 
 // Rewrite will alter the request EDNS0 local options.
-func (rule *edns0LocalRule) Rewrite(_ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *edns0LocalRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	o := setupEdns0Opt(state.Req)
 
 	if rule.action == Unset {
@@ -439,7 +443,7 @@ func (rule *edns0SubnetRule) fillEcsData(state request.Request, ecs *dns.EDNS0_S
 }
 
 // Rewrite will alter the request EDNS0 subnet option.
-func (rule *edns0SubnetRule) Rewrite(_ctx context.Context, state request.Request) (ResponseRules, Result) {
+func (rule *edns0SubnetRule) Rewrite(ctx context.Context, state request.Request) (ResponseRules, Result) {
 	o := setupEdns0Opt(state.Req)
 
 	if rule.action == Unset {

@@ -44,6 +44,11 @@ type ResponseRule interface {
 	RewriteResponse(res *dns.Msg, rr dns.RR)
 }
 
+type requestExtraRevertRule interface {
+	ResponseRule
+	revertRequestExtra()
+}
+
 // ResponseRules describes an ordered list of response rules to apply
 // after a name rewrite
 type ResponseRules = []ResponseRule
@@ -54,6 +59,7 @@ type ResponseRules = []ResponseRule
 type ResponseReverter struct {
 	dns.ResponseWriter
 	originalQuestion dns.Question
+	request          *dns.Msg
 	ResponseRules    ResponseRules
 	revertPolicy     RevertPolicy
 }
@@ -63,6 +69,7 @@ func NewResponseReverter(w dns.ResponseWriter, r *dns.Msg, policy RevertPolicy) 
 	return &ResponseReverter{
 		ResponseWriter:   w,
 		originalQuestion: r.Question[0],
+		request:          r,
 		revertPolicy:     policy,
 	}
 }
@@ -90,13 +97,63 @@ func (r *ResponseReverter) WriteMsg(res1 *dns.Msg) error {
 			r.rewriteResourceRecord(res, rr)
 		}
 	}
+	return r.writeWithRevertedRequestExtra(res)
+}
+
+func (r *ResponseReverter) writeWithRevertedRequestExtra(res *dns.Msg) error {
+	if r.request == nil || !r.hasRequestExtraRevertRule() {
+		return r.ResponseWriter.WriteMsg(res)
+	}
+
+	currentExtra := r.request.Extra
+	req := new(dns.Msg)
+	req.Extra = copyRRs(currentExtra)
+	for _, rr := range req.Extra {
+		r.rewriteRequestExtra(req, rr)
+	}
+	r.request.Extra = req.Extra
+	defer func() {
+		r.request.Extra = currentExtra
+	}()
+
 	return r.ResponseWriter.WriteMsg(res)
+}
+
+func (r *ResponseReverter) hasRequestExtraRevertRule() bool {
+	for _, rule := range r.ResponseRules {
+		if _, ok := rule.(requestExtraRevertRule); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func copyRRs(rrs []dns.RR) []dns.RR {
+	if len(rrs) == 0 {
+		return nil
+	}
+	copied := make([]dns.RR, len(rrs))
+	for i, rr := range rrs {
+		copied[i] = dns.Copy(rr)
+	}
+	return copied
 }
 
 func (r *ResponseReverter) rewriteResourceRecord(res *dns.Msg, rr dns.RR) {
 	// The reverting rules need to be done in reversed order.
 	for i := len(r.ResponseRules) - 1; i >= 0; i-- {
 		r.ResponseRules[i].RewriteResponse(res, rr)
+	}
+}
+
+func (r *ResponseReverter) rewriteRequestExtra(req *dns.Msg, rr dns.RR) {
+	// The reverting rules need to be done in reversed order.
+	for i := len(r.ResponseRules) - 1; i >= 0; i-- {
+		rule, ok := r.ResponseRules[i].(requestExtraRevertRule)
+		if !ok {
+			continue
+		}
+		rule.RewriteResponse(req, rr)
 	}
 }
 

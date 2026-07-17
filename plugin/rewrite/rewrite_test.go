@@ -1166,7 +1166,7 @@ func TestRewriteEDNS0Unset(t *testing.T) {
 
 func TestRewriteEDNS0RevertDoesNotLeakThroughScrubWriter(t *testing.T) {
 	rw := Rewrite{
-		Next: plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		Next: plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 			resp := new(dns.Msg)
 			resp.SetReply(r)
 			return 0, w.WriteMsg(resp)
@@ -1183,6 +1183,7 @@ func TestRewriteEDNS0RevertDoesNotLeakThroughScrubWriter(t *testing.T) {
 	m := new(dns.Msg)
 	m.SetQuestion("example.com.", dns.TypeA)
 	m.SetEdns0(4096, false)
+	m.IsEdns0().Option = append(m.IsEdns0().Option, &dns.EDNS0_COOKIE{Code: dns.EDNS0COOKIE, Cookie: "abcdef0123456789"})
 
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	scrub := request.NewScrubWriter(m, rec)
@@ -1192,9 +1193,16 @@ func TestRewriteEDNS0RevertDoesNotLeakThroughScrubWriter(t *testing.T) {
 	if o == nil {
 		t.Fatal("expected EDNS0 option record in response")
 	}
+	var foundCookie bool
 	for _, opt := range o.Option {
 		if opt.Option() == 0xffee {
 			t.Fatalf("expected rewritten EDNS0 option to be reverted, got %v", o.Option)
 		}
+		if opt.Option() == dns.EDNS0COOKIE {
+			foundCookie = true
+		}
+	}
+	if !foundCookie {
+		t.Fatalf("expected original EDNS0 cookie option to be preserved, got %v", o.Option)
 	}
 }
