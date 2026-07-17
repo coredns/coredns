@@ -42,7 +42,6 @@ func (rw Rewrite) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		rw.RevertPolicy = NewRevertPolicy(false, false)
 	}
 	wr := NewResponseReverter(w, r, rw.RevertPolicy)
-	// Rewrite rules may mutate the request, so keep the original message intact.
 	state := request.Request{W: w, Req: r}
 
 	for _, rule := range rw.Rules {
