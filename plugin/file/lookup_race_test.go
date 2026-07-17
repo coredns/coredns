@@ -52,9 +52,7 @@ func TestLookupReloadRace(t *testing.T) {
 
 	// Writer: keep swapping the zone's data generation until told to stop.
 	var writer sync.WaitGroup
-	writer.Add(1)
-	go func() {
-		defer writer.Done()
+	writer.Go(func() {
 		i := 0
 		for {
 			select {
@@ -66,22 +64,20 @@ func TestLookupReloadRace(t *testing.T) {
 			zone.setData(g.Apex, g.Tree)
 			i++
 		}
-	}()
+	})
 
 	// Readers: hammer the lookup paths that use the helpers.
 	var readers sync.WaitGroup
 	for _, q := range queries {
-		readers.Add(1)
-		go func(qname string, qtype uint16, do bool) {
-			defer readers.Done()
+		readers.Go(func() {
 			m := new(dns.Msg)
-			m.SetQuestion(qname, qtype)
-			m.SetEdns0(4096, do)
+			m.SetQuestion(q.qname, q.qtype)
+			m.SetEdns0(4096, q.do)
 			state := request.Request{W: &test.ResponseWriter{}, Req: m}
-			for j := 0; j < 3000; j++ {
-				zone.Lookup(ctx, state, qname)
+			for range 3000 {
+				zone.Lookup(ctx, state, q.qname)
 			}
-		}(q.qname, q.qtype, q.do)
+		})
 	}
 
 	readers.Wait()
