@@ -269,7 +269,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			goto Out
 		}
 
-		ce, found := z.ClosestEncloser(tr, qname)
+		ce, found := z.closestEncloser(tr, qname)
 
 		// wildcard denial only for NXDOMAIN
 		if found {
