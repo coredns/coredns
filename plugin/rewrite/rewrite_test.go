@@ -1166,7 +1166,7 @@ func TestRewriteEDNS0Unset(t *testing.T) {
 
 func TestRewriteEDNS0RevertDoesNotLeakThroughScrubWriter(t *testing.T) {
 	rw := Rewrite{
-		Next: plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		Next: plugin.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 			resp := new(dns.Msg)
 			resp.SetReply(r)
 			return 0, w.WriteMsg(resp)
