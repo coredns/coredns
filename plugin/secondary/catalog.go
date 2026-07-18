@@ -50,11 +50,16 @@ type dynamicZoneStart struct {
 func (s *Secondary) applyCatalog(origin string, cat *catalog.Catalog, catalogZone *file.Zone, t *transfer.Transfer) {
 	memberZones := make(map[string]struct{}, len(cat.Members))
 	var starts []dynamicZoneStart
+	rejected := 0
 
 	s.zoneMu.Lock()
 	s.ensureZoneStateLocked()
 
 	for _, member := range cat.Members {
+		if !s.catalogMemberAllowed(origin, member.Zone) {
+			rejected++
+			continue
+		}
 		memberZones[member.Zone] = struct{}{}
 
 		if existing, ok := s.Z[member.Zone]; ok {
@@ -105,9 +110,17 @@ func (s *Secondary) applyCatalog(origin string, cat *catalog.Catalog, catalogZon
 	s.catalogMemberZones[origin] = memberZones
 	s.zoneMu.Unlock()
 
+	if rejected > 0 {
+		log.Warningf("Skipped %d member zones from catalog %s: outside configured member zones", rejected, origin)
+	}
 	for _, start := range starts {
 		go s.transferAndUpdate(start.origin, start.zone, t, start.shutdown)
 	}
+}
+
+func (s *Secondary) catalogMemberAllowed(origin, member string) bool {
+	zones, ok := s.catalogZones[origin]
+	return ok && (len(zones) == 0 || zones.Matches(member) != "")
 }
 
 func catalogMember(cat *catalog.Catalog, zone string) (catalog.Member, bool) {

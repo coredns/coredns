@@ -1,9 +1,11 @@
 package secondary
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 )
 
@@ -14,7 +16,7 @@ func TestSecondaryParse(t *testing.T) {
 		transferFrom   string
 		zones          []string
 		fall           fall.F
-		catalogZones   []string
+		catalogZones   map[string]plugin.Zones
 	}{
 		{
 			`secondary {
@@ -45,12 +47,47 @@ func TestSecondaryParse(t *testing.T) {
 			"127.0.0.1:53",
 			[]string{"catalog.example."},
 			fall.F{},
-			[]string{"catalog.example."},
+			map[string]plugin.Zones{"catalog.example.": nil},
 		},
 		{
 			`secondary catalog.example {
 				transfer from 127.0.0.1
-				catalog extra
+				catalog EXAMPLE.ORG internal.example
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"catalog.example."},
+			fall.F{},
+			map[string]plugin.Zones{"catalog.example.": {"example.org.", "internal.example."}},
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog example.org EXAMPLE.ORG
+				catalog internal.example
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"catalog.example."},
+			fall.F{},
+			map[string]plugin.Zones{"catalog.example.": {"example.org.", "internal.example."}},
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog example.org
+				catalog
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"catalog.example."},
+			fall.F{},
+			map[string]plugin.Zones{"catalog.example.": nil},
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog :
 			}`,
 			true,
 			"",
@@ -131,9 +168,13 @@ func TestSecondaryParse(t *testing.T) {
 		if len(catalogZones) != len(test.catalogZones) {
 			t.Fatalf("Test %d catalog zone count mismatch: expected %d, got %d", i, len(test.catalogZones), len(catalogZones))
 		}
-		for _, name := range test.catalogZones {
-			if _, ok := catalogZones[name]; !ok {
+		for name, expected := range test.catalogZones {
+			actual, ok := catalogZones[name]
+			if !ok {
 				t.Fatalf("Test %d expected catalog zone %q", i, name)
+			}
+			if !slices.Equal(actual, expected) {
+				t.Fatalf("Test %d catalog member zones for %q mismatch: expected %v, got %v", i, name, expected, actual)
 			}
 		}
 	}

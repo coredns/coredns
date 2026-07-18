@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/fall"
@@ -64,6 +65,51 @@ func TestTransferInCatalog(t *testing.T) {
 	}
 	if a.A.String() != "192.0.2.1" {
 		t.Fatalf("expected 192.0.2.1, got %s", a.A.String())
+	}
+}
+
+func TestTransferInCatalogRestrictsMemberZones(t *testing.T) {
+	const (
+		origin  = "catalog.example."
+		allowed = "tenant.allowed.example."
+		denied  = "tenant.denied.example."
+	)
+	zones := newTestTransferZones(map[string][]dns.RR{
+		origin: catalogZoneRecordsForMembers(t, origin, []catalogRecordMember{
+			{id: "a", zone: allowed},
+			{id: "b", zone: denied},
+		}, 1),
+		allowed: memberZoneRecordsFor(t, allowed, 1, "192.0.2.1"),
+		denied:  memberZoneRecordsFor(t, denied, 1, "192.0.2.2"),
+	})
+
+	server := dnstest.NewServer(zones.handler())
+	defer server.Close()
+
+	z := file.NewZone(origin, "stdin")
+	z.TransferFrom = []string{server.Addr}
+	s := newTestSecondary(origin, z, true)
+	s.catalogZones[origin] = plugin.Zones{"allowed.example."}
+	t.Cleanup(s.stopDynamicZones)
+
+	if err := s.transferIn(origin, z, nil); err != nil {
+		t.Fatalf("transferIn returned error: %v", err)
+	}
+	waitForAnswer(t, s, "www."+allowed, dns.TypeA)
+
+	s.zoneMu.RLock()
+	_, allowedDynamic := s.dynamicZones[allowed]
+	_, deniedDynamic := s.dynamicZones[denied]
+	_, admittedDenied := s.catalogMemberZones[origin][denied]
+	s.zoneMu.RUnlock()
+	if !allowedDynamic {
+		t.Fatalf("expected member zone %s to match configured suffix", allowed)
+	}
+	if deniedDynamic || admittedDenied {
+		t.Fatalf("expected member zone %s to be rejected", denied)
+	}
+	if _, _, ok := s.lookupZone("www." + denied); ok {
+		t.Fatalf("expected rejected member zone %s not to be served", denied)
 	}
 }
 
@@ -209,6 +255,43 @@ func TestTransferInCatalogMigratesMemberZoneWithSameID(t *testing.T) {
 	waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
 	fixture.releaseTarget()
 	waitForAddress(t, fixture.s, fixture.member, "192.0.2.2")
+}
+
+func TestTransferInCatalogRejectsOwnershipMigrationOutsideMemberZones(t *testing.T) {
+	fixture := newCatalogMigrationFixture(t, "a", "a", "new.catalog.example.", false)
+	fixture.s.catalogZones[fixture.newOrigin] = plugin.Zones{"other.example."}
+
+	if err := fixture.s.transferIn(fixture.oldOrigin, fixture.oldCatalog, nil); err != nil {
+		t.Fatalf("old catalog transferIn returned error: %v", err)
+	}
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+
+	fixture.s.zoneMu.RLock()
+	before := fixture.s.dynamicZones[fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if before == nil || before.catalog != fixture.oldOrigin {
+		t.Fatal("expected member zone to belong to the old catalog")
+	}
+
+	if err := fixture.s.transferIn(fixture.newOrigin, fixture.newCatalog, nil); err != nil {
+		t.Fatalf("new catalog transferIn returned error: %v", err)
+	}
+
+	fixture.s.zoneMu.RLock()
+	after := fixture.s.dynamicZones[fixture.member]
+	_, admitted := fixture.s.catalogMemberZones[fixture.newOrigin][fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if after == nil || after != before || after.catalog != fixture.oldOrigin {
+		t.Fatalf("expected rejected migration to preserve ownership by %s, got %+v", fixture.oldOrigin, after)
+	}
+	if admitted {
+		t.Fatal("expected target catalog not to admit an out-of-scope member")
+	}
+	select {
+	case <-before.shutdown:
+		t.Fatal("expected rejected migration to preserve the old transfer loop")
+	default:
+	}
 }
 
 func TestTransferInCatalogWaitsForTargetUpdateAfterSourceAddsCOO(t *testing.T) {
@@ -500,7 +583,7 @@ func newCatalogMigrationFixture(t *testing.T, oldID, newID, coo string, blockTar
 	s := newSecondary(file.Zones{
 		Z:     map[string]*file.Zone{oldOrigin: oldCatalog, newOrigin: newCatalog},
 		Names: []string{oldOrigin, newOrigin},
-	}, fall.F{}, map[string]struct{}{oldOrigin: {}, newOrigin: {}})
+	}, fall.F{}, map[string]plugin.Zones{oldOrigin: nil, newOrigin: nil})
 	t.Cleanup(s.stopDynamicZones)
 
 	return &catalogMigrationFixture{
@@ -521,9 +604,9 @@ func (f *catalogMigrationFixture) releaseTarget() {
 }
 
 func newTestSecondary(origin string, z *file.Zone, catalog bool) *Secondary {
-	catalogZones := map[string]struct{}{}
+	catalogZones := map[string]plugin.Zones{}
 	if catalog {
-		catalogZones[origin] = struct{}{}
+		catalogZones[origin] = nil
 	}
 	return newSecondary(file.Zones{Z: map[string]*file.Zone{origin: z}, Names: []string{origin}}, fall.F{}, catalogZones)
 }
@@ -584,20 +667,34 @@ func catalogZoneRecordsWithMemberID(t *testing.T, id string, serial int) []dns.R
 
 func catalogZoneRecordsFor(t *testing.T, origin, id, member, coo string, serial int) []dns.RR {
 	t.Helper()
+	return catalogZoneRecordsForMembers(t, origin, []catalogRecordMember{{id: id, zone: member, coo: coo}}, serial)
+}
+
+type catalogRecordMember struct {
+	id   string
+	zone string
+	coo  string
+}
+
+func catalogZoneRecordsForMembers(t *testing.T, origin string, members []catalogRecordMember, serial int) []dns.RR {
+	t.Helper()
 
 	soa := mustRR(t, fmt.Sprintf("%s 0 IN SOA invalid. hostmaster.invalid. %d 3600 600 604800 0", origin, serial))
 	rrs := []dns.RR{
 		soa,
 		mustRR(t, fmt.Sprintf("%s 0 IN NS invalid.", origin)),
 		mustRR(t, fmt.Sprintf(`version.%s 0 IN TXT "2"`, origin)),
-		mustRR(t, fmt.Sprintf("%s.zones.%s 0 IN PTR %s", id, origin, member)),
-		mustRR(t, fmt.Sprintf(`group.%s.zones.%s 0 IN TXT "default"`, id, origin)),
-		soa,
 	}
-	if coo != "" {
-		rrs = append(rrs[:len(rrs)-1], mustRR(t, fmt.Sprintf("coo.%s.zones.%s 0 IN PTR %s", id, origin, coo)), soa)
+	for _, member := range members {
+		rrs = append(rrs,
+			mustRR(t, fmt.Sprintf("%s.zones.%s 0 IN PTR %s", member.id, origin, member.zone)),
+			mustRR(t, fmt.Sprintf(`group.%s.zones.%s 0 IN TXT "default"`, member.id, origin)),
+		)
+		if member.coo != "" {
+			rrs = append(rrs, mustRR(t, fmt.Sprintf("coo.%s.zones.%s 0 IN PTR %s", member.id, origin, member.coo)))
+		}
 	}
-	return rrs
+	return append(rrs, soa)
 }
 
 func catalogZoneRecordsWithoutMembers(t *testing.T) []dns.RR {
@@ -619,12 +716,17 @@ func memberZoneRecords(t *testing.T) []dns.RR {
 
 func memberZoneRecordsWithAddress(t *testing.T, serial int, address string) []dns.RR {
 	t.Helper()
+	return memberZoneRecordsFor(t, "example.org.", serial, address)
+}
 
-	soa := mustRR(t, fmt.Sprintf("example.org. 0 IN SOA ns.example.org. hostmaster.example.org. %d 3600 600 604800 0", serial))
+func memberZoneRecordsFor(t *testing.T, origin string, serial int, address string) []dns.RR {
+	t.Helper()
+
+	soa := mustRR(t, fmt.Sprintf("%s 0 IN SOA ns.%s hostmaster.%s %d 3600 600 604800 0", origin, origin, origin, serial))
 	return []dns.RR{
 		soa,
-		mustRR(t, "example.org. 0 IN NS ns.example.org."),
-		mustRR(t, fmt.Sprintf("www.example.org. 0 IN A %s", address)),
+		mustRR(t, fmt.Sprintf("%s 0 IN NS ns.%s", origin, origin)),
+		mustRR(t, fmt.Sprintf("www.%s 0 IN A %s", origin, address)),
 		soa,
 	}
 }
