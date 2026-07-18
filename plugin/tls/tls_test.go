@@ -2,7 +2,6 @@ package tls
 
 import (
 	"crypto/tls"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -102,8 +101,7 @@ func TestTLSKeyLog(t *testing.T) {
 
 	t.Run("Bad Path", func(t *testing.T) {
 		tmpDir := t.TempDir()
-		os.Chmod(tmpDir, 0000)
-		input := "tls test_cert.pem test_key.pem test_ca.pem {\nkeylog " + filepath.Join(tmpDir, "tls.log") + "\n}"
+		input := "tls test_cert.pem test_key.pem test_ca.pem {\nkeylog " + filepath.Join(tmpDir, "missing", "tls.log") + "\n}"
 		c := caddy.NewTestController("dns", input)
 		err := setup(c)
 		if err == nil {
