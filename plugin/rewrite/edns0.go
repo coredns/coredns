@@ -42,9 +42,17 @@ type edns0NsidRule struct {
 
 type edns0SetResponseRule struct {
 	code uint16
+	// requestOpt is the request OPT the option was added to. It must be cleaned
+	// up on revert as well: the server's ScrubWriter.SizeAndDo reuses the request
+	// OPT when the reply has no OPT of its own, so an option left on the request
+	// leaks into the client reply (#8234).
+	requestOpt *dns.OPT
 }
 
 func (r *edns0SetResponseRule) RewriteResponse(res *dns.Msg, _ dns.RR) {
+	if r.requestOpt != nil {
+		unsetEdns0Option(r.requestOpt, r.code)
+	}
 	ednsOpt := res.IsEdns0()
 	if ednsOpt == nil {
 		return
@@ -123,7 +131,7 @@ func (rule *edns0NsidRule) Rewrite(_ctx context.Context, state request.Request) 
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_NSID{Code: dns.EDNS0NSID, Nsid: ""})
 		if rule.revert {
-			resp = append(resp, &edns0SetResponseRule{code: dns.EDNS0NSID})
+			resp = append(resp, &edns0SetResponseRule{code: dns.EDNS0NSID, requestOpt: o})
 		}
 		return resp, RewriteDone
 	}
@@ -164,7 +172,7 @@ func (rule *edns0LocalRule) Rewrite(_ctx context.Context, state request.Request)
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_LOCAL{Code: rule.code, Data: rule.data})
 		if rule.revert {
-			resp = append(resp, &edns0SetResponseRule{code: rule.code})
+			resp = append(resp, &edns0SetResponseRule{code: rule.code, requestOpt: o})
 		}
 		return resp, RewriteDone
 	}
@@ -350,7 +358,7 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 	if rule.action == Append || rule.action == Set {
 		o.Option = append(o.Option, &dns.EDNS0_LOCAL{Code: rule.code, Data: data})
 		if rule.revert {
-			resp = append(resp, &edns0SetResponseRule{code: rule.code})
+			resp = append(resp, &edns0SetResponseRule{code: rule.code, requestOpt: o})
 		}
 		return resp, RewriteDone
 	}
@@ -470,7 +478,7 @@ func (rule *edns0SubnetRule) Rewrite(_ctx context.Context, state request.Request
 		if rule.fillEcsData(state, opt) == nil {
 			o.Option = append(o.Option, opt)
 			if rule.revert {
-				resp = append(resp, &edns0SetResponseRule{code: dns.EDNS0SUBNET})
+				resp = append(resp, &edns0SetResponseRule{code: dns.EDNS0SUBNET, requestOpt: o})
 			}
 			return resp, RewriteDone
 		}
