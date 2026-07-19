@@ -26,6 +26,8 @@ const (
 	ErrTransportStopped = "proxy: transport stopped"
 )
 
+var ErrInvalidRequest = errors.New("proxy: invalid request")
+
 // limitTimeout is a utility function to auto-tune timeout values
 // average observed time is moved towards the last observed delay moderated by a weight
 // next timeout to use will be the double of the computed average, limited by min and max frame.
@@ -127,6 +129,21 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 		proto = state.Proto()
 	}
 
+	originId := state.Req.Id
+	state.Req.Id = dns.Id()
+	defer func() {
+		state.Req.Id = originId
+	}()
+
+	var wire []byte
+	if state.Req.IsTsig() == nil {
+		var err error
+		wire, err = state.Req.Pack()
+		if err != nil {
+			return nil, nil, proto, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+		}
+	}
+
 	pc, cached, err := p.transport.Dial(proto)
 	if err != nil {
 		return nil, nil, proto, err
@@ -151,14 +168,12 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 	pc.c.UDPSize = max(uint16(state.Size()), 512) // #nosec G115 -- UDP size fits in uint16
 
 	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
-	// records the origin Id before upstream.
-	originId := state.Req.Id
-	state.Req.Id = dns.Id()
-	defer func() {
-		state.Req.Id = originId
-	}()
-
-	if err := pc.c.WriteMsg(state.Req); err != nil {
+	if wire != nil {
+		_, err = pc.c.Write(wire)
+	} else {
+		err = pc.c.WriteMsg(state.Req)
+	}
+	if err != nil {
 		pc.c.Close() // not giving it back
 		if err == io.EOF && cached {
 			return nil, localAddr, proto, ErrCachedClosed

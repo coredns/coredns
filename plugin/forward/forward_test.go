@@ -304,3 +304,46 @@ func TestForwardFailoverStopsAfterAllUpstreams(t *testing.T) {
 		t.Errorf("Expected second upstream to be queried once, got %d", got)
 	}
 }
+
+func TestForwardDoesNotRetryLocalPackError(t *testing.T) {
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	req.Answer = []dns.RR{&dns.TXT{
+		Hdr: dns.RR_Header{
+			Name:   "example.org.",
+			Rrtype: dns.TypeTXT,
+			Class:  dns.ClassINET,
+		},
+		// A TXT character-string is limited to 255 wire bytes. This is a
+		// deterministic local serialization error and is unrelated to HIP or
+		// compression-pointer handling in miekg/dns.
+		Txt: []string{strings.Repeat("x", 256)},
+	}}
+
+	f := New()
+	f.maxfails = 0
+	f.maxConnectAttempts = 2
+	f.opts.ForceTCP = true
+	f.proxies = []*proxy.Proxy{
+		proxy.NewProxy("forward", "127.0.0.1:1", transport.DNS),
+	}
+
+	tracer := mocktracer.New()
+	span := tracer.StartSpan("test")
+	ctx := opentracing.ContextWithSpan(context.Background(), span)
+
+	rcode, err := f.ServeDNS(ctx, &mockResponseWriter{}, req)
+	if rcode != dns.RcodeFormatError {
+		t.Fatalf("expected FORMERR, got %s", dns.RcodeToString[rcode])
+	}
+	if err == nil || !strings.Contains(err.Error(), "string exceeded 255 bytes in txt") {
+		t.Fatalf("expected local TXT packing error, got %v", err)
+	}
+
+	// ServeDNS starts one child span for each forwarding attempt. A local
+	// packing failure must stop after the first attempt even though the normal
+	// connect-attempt limit permits two attempts.
+	if got := len(tracer.FinishedSpans()); got != 1 {
+		t.Fatalf("expected one forwarding attempt, got %d", got)
+	}
+}

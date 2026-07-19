@@ -206,6 +206,10 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		upstreamErr = err
 
 		if err != nil {
+			if errors.Is(err, proxyPkg.ErrInvalidRequest) {
+				return dns.RcodeFormatError, err
+			}
+
 			// Kick off health check to see if *our* upstream is broken.
 			if f.maxfails != 0 {
 				proxy.Healthcheck()
