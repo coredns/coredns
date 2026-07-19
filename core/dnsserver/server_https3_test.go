@@ -2,9 +2,11 @@ package dnsserver
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +16,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 
 	"github.com/miekg/dns"
+	"github.com/quic-go/quic-go"
 )
 
 const (
@@ -404,5 +407,97 @@ func TestServeHTTP3DoesNotLeakBodyReadError(t *testing.T) {
 	}
 	if got := strings.TrimSpace(string(body)); got != "invalid request" {
 		t.Fatalf("expected sanitized body %q, got %q", "invalid request", got)
+	}
+}
+
+func TestServerHTTPS3MaxConnections(t *testing.T) {
+	maxConnections := 1
+
+	config := testConfig("https3", echoPlugin{})
+	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
+	config.MaxHTTPSConnections = &maxConnections
+
+	server, err := NewServerHTTPS3("127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerHTTPS3() failed: %v", err)
+	}
+
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.ListenPacket() failed: %v", err)
+	}
+
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- server.ServePacket(pc)
+	}()
+
+	defer func() {
+		_ = pc.Close()
+
+		select {
+		case <-serveErrCh:
+		case <-time.After(2 * time.Second):
+			t.Error("ServePacket() did not stop after closing the packet connection")
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	clientTLS := mustMakeQUICClientTLSConfig()
+	clientTLS.NextProtos = []string{"h3"}
+
+	// The first connection consumes the only available connection slot.
+	first, err := quic.DialAddr(
+		ctx,
+		pc.LocalAddr().String(),
+		clientTLS,
+		&quic.Config{},
+	)
+	if err != nil {
+		t.Fatalf("first quic.DialAddr() failed: %v", err)
+	}
+	defer first.CloseWithError(0, "")
+
+	// The second connection must be rejected because maxConnections is 1.
+	second, err := quic.DialAddr(
+		ctx,
+		pc.LocalAddr().String(),
+		clientTLS,
+		&quic.Config{},
+	)
+	if err != nil {
+		// Depending on timing, DialAddr may observe the connection close
+		// before returning the connection.
+		if !strings.Contains(err.Error(), "too many connections") {
+			t.Fatalf("second quic.DialAddr() failed with unexpected error: %v", err)
+		}
+		return
+	}
+	defer second.CloseWithError(0, "")
+
+	select {
+	case <-second.Context().Done():
+		cause := context.Cause(second.Context())
+		if cause == nil || !strings.Contains(cause.Error(), "too many connections") {
+			t.Fatalf("second connection closed with unexpected cause: %v", cause)
+		}
+
+	case <-time.After(2 * time.Second):
+		t.Fatal(
+			"second connection remained open after the maximum " +
+				"connection count was reached",
+		)
+	}
+
+	// Make sure the accepted connection was not accidentally rejected.
+	select {
+	case <-first.Context().Done():
+		t.Fatalf(
+			"first connection was unexpectedly closed: %v",
+			context.Cause(first.Context()),
+		)
+	default:
 	}
 }
