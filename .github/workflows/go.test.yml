@@ -59,7 +59,10 @@ jobs:
 
   test-plugins:
     name: Test Plugins
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out code
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
@@ -76,6 +79,7 @@ jobs:
         run: go build -v ./...
 
       - name: Test
+        shell: bash
         run: ( cd plugin; go test -race ./... )
 
   test-e2e:

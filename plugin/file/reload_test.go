@@ -83,26 +83,8 @@ func TestZoneReloadSOAChange(t *testing.T) {
 func TestZoneReloadByMtime(t *testing.T) {
 	// Test 1: Basic mtime trigger - file modification should trigger reload
 	t.Run("BasicMtimeTrigger", func(t *testing.T) {
-		fileName, rm, err := test.TempFile(".", reloadZoneTest)
-		if err != nil {
-			t.Fatalf("Failed to create zone: %s", err)
-		}
-		defer rm()
-
-		reader, err := os.Open(fileName)
-		if err != nil {
-			t.Fatalf("Failed to open zone: %s", err)
-		}
-		z, err := Parse(reader, "miek.nl", fileName, 0)
-		if err != nil {
-			t.Fatalf("Failed to parse zone: %s", err)
-		}
-		reader.Close()
-
-		// Enable mtime-based reload
-		z.ReloadInterval = 10 * time.Millisecond
-		z.ReloadByMtime = true
-		z.Reload(&transfer.Transfer{})
+		z, fileName, cleanup := prepareMtimeZone(t, reloadZoneTest)
+		defer cleanup()
 
 		// Wait for initial load to complete
 		time.Sleep(20 * time.Millisecond)
@@ -136,26 +118,8 @@ func TestZoneReloadByMtime(t *testing.T) {
 
 	// Test 2: No reload when mtime unchanged
 	t.Run("NoReloadWhenMtimeUnchanged", func(t *testing.T) {
-		fileName, rm, err := test.TempFile(".", reloadZoneTest)
-		if err != nil {
-			t.Fatalf("Failed to create zone: %s", err)
-		}
-		defer rm()
-
-		reader, err := os.Open(fileName)
-		if err != nil {
-			t.Fatalf("Failed to open zone: %s", err)
-		}
-		z, err := Parse(reader, "miek.nl", fileName, 0)
-		if err != nil {
-			t.Fatalf("Failed to parse zone: %s", err)
-		}
-		reader.Close()
-
-		// Enable mtime-based reload
-		z.ReloadInterval = 10 * time.Millisecond
-		z.ReloadByMtime = true
-		z.Reload(&transfer.Transfer{})
+		z, _, cleanup := prepareMtimeZone(t, reloadZoneTest)
+		defer cleanup()
 
 		// Wait for initial load
 		time.Sleep(20 * time.Millisecond)
@@ -193,26 +157,8 @@ func TestZoneReloadByMtime(t *testing.T) {
 
 	// Test 3: Content verification after reload
 	t.Run("ContentVerificationAfterReload", func(t *testing.T) {
-		fileName, rm, err := test.TempFile(".", reloadZoneTest)
-		if err != nil {
-			t.Fatalf("Failed to create zone: %s", err)
-		}
-		defer rm()
-
-		reader, err := os.Open(fileName)
-		if err != nil {
-			t.Fatalf("Failed to open zone: %s", err)
-		}
-		z, err := Parse(reader, "miek.nl", fileName, 0)
-		if err != nil {
-			t.Fatalf("Failed to parse zone: %s", err)
-		}
-		reader.Close()
-
-		// Enable mtime-based reload
-		z.ReloadInterval = 10 * time.Millisecond
-		z.ReloadByMtime = true
-		z.Reload(&transfer.Transfer{})
+		z, fileName, cleanup := prepareMtimeZone(t, reloadZoneTest)
+		defer cleanup()
 
 		ctx := context.TODO()
 
@@ -266,26 +212,8 @@ func TestZoneReloadByMtime(t *testing.T) {
 
 	// Test 4: File deleted/missing during reload
 	t.Run("FileMissingDuringReload", func(t *testing.T) {
-		fileName, rm, err := test.TempFile(".", reloadZoneTest)
-		if err != nil {
-			t.Fatalf("Failed to create zone: %s", err)
-		}
-		defer rm()
-
-		reader, err := os.Open(fileName)
-		if err != nil {
-			t.Fatalf("Failed to open zone: %s", err)
-		}
-		z, err := Parse(reader, "miek.nl", fileName, 0)
-		if err != nil {
-			t.Fatalf("Failed to parse zone: %s", err)
-		}
-		reader.Close()
-
-		// Enable mtime-based reload
-		z.ReloadInterval = 10 * time.Millisecond
-		z.ReloadByMtime = true
-		z.Reload(&transfer.Transfer{})
+		z, fileName, cleanup := prepareMtimeZone(t, reloadZoneTest)
+		defer cleanup()
 
 		// Wait for initial load
 		time.Sleep(20 * time.Millisecond)
@@ -325,6 +253,45 @@ func TestZoneReloadByMtime(t *testing.T) {
 			t.Fatalf("Zone should still serve queries after file deletion, got result %d", res)
 		}
 	})
+}
+
+// prepareMtimeZone creates a zone with mtime-based reload enabled.
+func prepareMtimeZone(t *testing.T, content string) (*Zone, string, func()) {
+	t.Helper()
+	fileName, rm, err := test.TempFile(".", content)
+	if err != nil {
+		t.Fatalf("Failed to create zone: %s", err)
+	}
+
+	reader, err := os.Open(fileName)
+	if err != nil {
+		rm()
+		t.Fatalf("Failed to open zone: %s", err)
+	}
+	z, err := Parse(reader, "miek.nl", fileName, 0)
+	reader.Close()
+	if err != nil {
+		rm()
+		t.Fatalf("Failed to parse zone: %s", err)
+	}
+
+	fi, err := os.Stat(fileName)
+	if err != nil {
+		rm()
+		t.Fatalf("Failed to stat zone: %s", err)
+	}
+
+	z.ReloadInterval = 10 * time.Millisecond
+	z.ReloadByMtime = true
+	// Parse does not set file_mtime unless ReloadByMtime is already enabled.
+	// Seed it so the reload loop only opens the file when mtime changes.
+	z.file_mtime = fi.ModTime()
+	z.Reload(&transfer.Transfer{})
+
+	return z, fileName, func() {
+		z.OnShutdown()
+		rm()
+	}
 }
 
 const reloadZoneTest = `miek.nl.		1627	IN	SOA	linode.atoom.net. miek.miek.nl. 1460175181 14400 3600 604800 14400

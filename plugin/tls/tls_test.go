@@ -2,6 +2,7 @@ package tls
 
 import (
 	"crypto/tls"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -51,6 +52,12 @@ func TestTLS(t *testing.T) {
 			if !strings.Contains(err.Error(), test.expectedErrContent) {
 				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErrContent, err, test.input)
 			}
+		}
+
+		// setup registers OnShutdown to close KeyLogWriter, but tests never shut down.
+		// Close explicitly so t.TempDir cleanup can remove the file on Windows.
+		if err == nil {
+			closeKeyLogWriter(t, dnsserver.GetConfig(c))
 		}
 	}
 }
@@ -121,5 +128,22 @@ func TestTLSKeyLog(t *testing.T) {
 		if cfg.TLSConfig.KeyLogWriter == nil {
 			t.Fatal("KeyLogWriter is not set")
 		}
+		// setup registers OnShutdown to close KeyLogWriter, but tests never shut down.
+		// Close explicitly so t.TempDir cleanup can remove the file on Windows.
+		closeKeyLogWriter(t, cfg)
+	})
+}
+
+func closeKeyLogWriter(t *testing.T, cfg *dnsserver.Config) {
+	t.Helper()
+	if cfg.TLSConfig == nil {
+		return
+	}
+	closer, ok := cfg.TLSConfig.KeyLogWriter.(io.Closer)
+	if !ok {
+		return
+	}
+	t.Cleanup(func() {
+		closer.Close()
 	})
 }

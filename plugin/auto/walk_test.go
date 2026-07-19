@@ -151,6 +151,11 @@ func TestWalkWarnsForDuplicateOrigin(t *testing.T) {
 
 func TestWalkKeepsFirstMatchingFileForOrigin(t *testing.T) {
 	dir := t.TempDir()
+	// Match Walk: it stores paths after EvalSymlinks.
+	dir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
 	zone := filepath.Join(dir, "example.org.zone")
 	backup := filepath.Join(dir, "example.org.zone.bak-20260528")
 

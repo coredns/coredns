@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -290,6 +291,12 @@ nameserver 10.10.255.253`), 0666); err != nil {
 	}
 	defer os.Remove(emptyResolv)
 
+	// Portable stand-in for /dev/null: a resolv.conf with no nameserver lines.
+	nullResolv := filepath.Join(t.TempDir(), "null.conf")
+	if err := os.WriteFile(nullResolv, nil, 0666); err != nil {
+		t.Fatalf("Failed to write null.conf file: %s", err)
+	}
+
 	tests := []struct {
 		input         string
 		shouldErr     bool
@@ -299,7 +306,7 @@ nameserver 10.10.255.253`), 0666); err != nil {
 		// pass
 		{`forward . ` + resolv, false, "", []string{"10.10.255.252:53", "10.10.255.253:53"}},
 		// fail
-		{`forward . /dev/null`, true, "no valid upstream addresses found", nil},
+		{`forward . ` + nullResolv, true, "no valid upstream addresses found", nil},
 		// IPV6 with local zone
 		{`forward . ` + resolvIPV6, false, "", []string{"[0388:d254:7aec:6892:9f7f:e93b:5806:1b0f]:53"}},
 		// pass when empty forward file is found

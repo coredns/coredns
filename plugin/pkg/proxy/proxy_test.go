@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"net"
+	"runtime"
 	"testing"
 	"time"
 
@@ -221,6 +222,7 @@ func TestCoreDNSOverflow(t *testing.T) {
 		response, _, _, err := p.Connect(context.Background(), request, options)
 		if err != nil {
 			t.Errorf("Failed to connect to testdnsserver: %s", err)
+			return
 		}
 
 		if response.Truncated != expectTruncated {
@@ -228,14 +230,17 @@ func TestCoreDNSOverflow(t *testing.T) {
 		}
 	}
 
-	// Test PreferUDP, expect truncated response
-	testConnection("PreferUDP", Options{PreferUDP: true}, true)
+	// Oversized UDP replies are truncated on Unix; Windows surfaces WSAEMSGSIZE instead.
+	if runtime.GOOS != "windows" {
+		// Test PreferUDP, expect truncated response
+		testConnection("PreferUDP", Options{PreferUDP: true}, true)
+
+		// Test No options specified, expect truncated response
+		testConnection("NoOptionsSpecified", Options{}, true)
+	}
 
 	// Test ForceTCP, expect no truncated response
 	testConnection("ForceTCP", Options{ForceTCP: true}, false)
-
-	// Test No options specified, expect truncated response
-	testConnection("NoOptionsSpecified", Options{}, true)
 
 	// Test both TCP and UDP provided, expect no truncated response
 	testConnection("BothTCPAndUDP", Options{PreferUDP: true, ForceTCP: true}, false)
