@@ -141,6 +141,15 @@ func TestWalkWarnsForDuplicateOrigin(t *testing.T) {
 			t.Fatalf("Expected log to contain %q, got %q", want, got)
 		}
 	}
+	// The warning must name the kept (first, live) file in the "using" slot and
+	// the skipped backup in the "instead of" slot — not the other way around.
+	// Walk keeps example.org.zone (visited first) and skips the .bak file.
+	if !strings.Contains(got, `example.org.zone" instead of "`) {
+		t.Errorf("Warning names the wrong file as used; want the live zone in the \"using\" slot, got %q", got)
+	}
+	if strings.Contains(got, `example.org.zone.bak-20260528" instead of "`) {
+		t.Errorf("Warning claims the skipped backup is being used, got %q", got)
+	}
 
 	logBuf.Reset()
 	a.Walk()
