@@ -103,13 +103,16 @@ func TestZoneReloadByMtime(t *testing.T) {
 			t.Fatalf("Failed to write new zone data: %s", err)
 		}
 
-		// Wait for reload to trigger
-		time.Sleep(30 * time.Millisecond)
-
-		// Verify reload occurred (3 records now)
-		rrs, err = z.ApexIfDefined()
-		if err != nil {
-			t.Fatal(err)
+		// Poll until reload is observed (fixed sleeps race under -race, esp. on Windows).
+		for start := time.Now(); time.Since(start) < 2*time.Second; {
+			rrs, err = z.ApexIfDefined()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(rrs) == 3 {
+				break
+			}
+			time.Sleep(2 * time.Millisecond)
 		}
 		if len(rrs) != 3 {
 			t.Fatalf("Expected 3 RRs after reload, got %d", len(rrs))
@@ -182,13 +185,16 @@ func TestZoneReloadByMtime(t *testing.T) {
 			t.Fatalf("Failed to write new zone data: %s", err)
 		}
 
-		// Wait for reload
-		time.Sleep(30 * time.Millisecond)
-
-		// Query new content
-		records, _, _, res = z.Lookup(ctx, state, "miek.nl.")
-		if res != Success {
-			t.Fatalf("Failed to lookup reloaded NS records, got %d", res)
+		// Poll until reload is observed (fixed sleeps race under -race, esp. on Windows).
+		for start := time.Now(); time.Since(start) < 2*time.Second; {
+			records, _, _, res = z.Lookup(ctx, state, "miek.nl.")
+			if res != Success {
+				t.Fatalf("Failed to lookup reloaded NS records, got %d", res)
+			}
+			if len(records) == 2 {
+				break
+			}
+			time.Sleep(2 * time.Millisecond)
 		}
 
 		// Reloaded zone has 2 NS records
@@ -261,6 +267,14 @@ func prepareMtimeZone(t *testing.T, content string) (*Zone, string, func()) {
 	fileName, rm, err := test.TempFile(".", content)
 	if err != nil {
 		t.Fatalf("Failed to create zone: %s", err)
+	}
+	// A rewrite immediately after creating the file can retain the same mtime
+	// on filesystems with coarse timestamp resolution. Start with an older
+	// mtime so the rewrite is always observable by the reload loop.
+	initialMtime := time.Now().Add(-time.Minute)
+	if err := os.Chtimes(fileName, initialMtime, initialMtime); err != nil {
+		rm()
+		t.Fatalf("Failed to set initial zone mtime: %s", err)
 	}
 
 	reader, err := os.Open(fileName)
