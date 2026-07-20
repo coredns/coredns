@@ -118,6 +118,10 @@ type Config struct {
 	// This is nil if not specified, allowing for a default to be used.
 	MaxHTTPS3Streams *int
 
+	// MaxHTTPS3Connections defines the maximum number of concurrent HTTPS3 connections.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxHTTPS3Connections *int
+
 	// Timeouts for connection-oriented servers. Exact applicability depends on transport.
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration

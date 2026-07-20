@@ -17,6 +17,7 @@ import (
 
 	"github.com/miekg/dns"
 	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 )
 
 const (
@@ -410,36 +411,64 @@ func TestServeHTTP3DoesNotLeakBodyReadError(t *testing.T) {
 	}
 }
 
+func requireHTTPS3ConnectionRejected(t *testing.T, err error) {
+	t.Helper()
+
+	var appErr *quic.ApplicationError
+	if errors.As(err, &appErr) {
+		if !appErr.Remote {
+			t.Fatalf("connection closed with local application error: %v", err)
+		}
+		if appErr.ErrorCode != quic.ApplicationErrorCode(http3.ErrCodeExcessiveLoad) {
+			t.Fatalf("application error code = %#x, want %#x", appErr.ErrorCode, http3.ErrCodeExcessiveLoad)
+		}
+		return
+	}
+
+	// An application close sent before 1-RTT keys are available is encoded as
+	// the generic transport-level APPLICATION_ERROR. In that case, the peer
+	// cannot observe the HTTP/3 application code or reason phrase.
+	var transportErr *quic.TransportError
+	if errors.As(err, &transportErr) {
+		if !transportErr.Remote {
+			t.Fatalf("connection closed with local transport error: %v", err)
+		}
+		if transportErr.ErrorCode != quic.ApplicationErrorErrorCode {
+			t.Fatalf("transport error code = %#x, want APPLICATION_ERROR", transportErr.ErrorCode)
+		}
+		return
+	}
+
+	t.Fatalf("second connection error has unexpected type %T: %v", err, err)
+}
+
 func TestServerHTTPS3MaxConnections(t *testing.T) {
 	maxConnections := 1
 
 	config := testConfig("https3", echoPlugin{})
 	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
-	config.MaxHTTPSConnections = &maxConnections
+	config.MaxHTTPS3Connections = &maxConnections
 
 	server, err := NewServerHTTPS3("127.0.0.1:0", []*Config{config})
 	if err != nil {
 		t.Fatalf("NewServerHTTPS3() failed: %v", err)
 	}
 
+	accepted := make(chan struct{}, 1)
+	server.httpsServer.ConnContext = func(ctx context.Context, _ *quic.Conn) context.Context {
+		accepted <- struct{}{}
+		return ctx
+	}
+
 	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("net.ListenPacket() failed: %v", err)
 	}
+	defer pc.Close()
 
 	serveErrCh := make(chan error, 1)
 	go func() {
 		serveErrCh <- server.ServePacket(pc)
-	}()
-
-	defer func() {
-		_ = pc.Close()
-
-		select {
-		case <-serveErrCh:
-		case <-time.After(2 * time.Second):
-			t.Error("ServePacket() did not stop after closing the packet connection")
-		}
 	}()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -448,56 +477,62 @@ func TestServerHTTPS3MaxConnections(t *testing.T) {
 	clientTLS := mustMakeQUICClientTLSConfig()
 	clientTLS.NextProtos = []string{"h3"}
 
-	// The first connection consumes the only available connection slot.
-	first, err := quic.DialAddr(
-		ctx,
-		pc.LocalAddr().String(),
-		clientTLS,
-		&quic.Config{},
-	)
+	first, err := quic.DialAddr(ctx, pc.LocalAddr().String(), clientTLS, &quic.Config{})
 	if err != nil {
 		t.Fatalf("first quic.DialAddr() failed: %v", err)
 	}
-	defer first.CloseWithError(0, "")
-
-	// The second connection must be rejected because maxConnections is 1.
-	second, err := quic.DialAddr(
-		ctx,
-		pc.LocalAddr().String(),
-		clientTLS,
-		&quic.Config{},
-	)
-	if err != nil {
-		// Depending on timing, DialAddr may observe the connection close
-		// before returning the connection.
-		if !strings.Contains(err.Error(), "too many connections") {
-			t.Fatalf("second quic.DialAddr() failed with unexpected error: %v", err)
-		}
-		return
-	}
-	defer second.CloseWithError(0, "")
 
 	select {
-	case <-second.Context().Done():
-		cause := context.Cause(second.Context())
-		if cause == nil || !strings.Contains(cause.Error(), "too many connections") {
-			t.Fatalf("second connection closed with unexpected cause: %v", cause)
-		}
-
+	case <-accepted:
 	case <-time.After(2 * time.Second):
-		t.Fatal(
-			"second connection remained open after the maximum " +
-				"connection count was reached",
-		)
+		t.Fatal("first connection was not accepted by the HTTP/3 server")
 	}
 
-	// Make sure the accepted connection was not accidentally rejected.
+	second, err := quic.DialAddr(ctx, pc.LocalAddr().String(), clientTLS, &quic.Config{})
+	if err == nil {
+		defer second.CloseWithError(0, "")
+
+		select {
+		case <-second.Context().Done():
+			err = context.Cause(second.Context())
+		case <-time.After(2 * time.Second):
+			t.Fatal("second connection remained open after the maximum connection count was reached")
+		}
+	}
+	if err == nil {
+		t.Fatal("second connection closed without reporting an error")
+	}
+	requireHTTPS3ConnectionRejected(t, err)
+
+	if err := first.CloseWithError(0, ""); err != nil {
+		t.Fatalf("first.CloseWithError() failed: %v", err)
+	}
 	select {
 	case <-first.Context().Done():
-		t.Fatalf(
-			"first connection was unexpectedly closed: %v",
-			context.Cause(first.Context()),
-		)
-	default:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first connection did not close")
+	}
+
+	stopErrCh := make(chan error, 1)
+	go func() {
+		stopErrCh <- server.Stop()
+	}()
+
+	select {
+	case err := <-stopErrCh:
+		if err != nil {
+			t.Fatalf("Stop() failed: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Stop() did not return")
+	}
+
+	select {
+	case err := <-serveErrCh:
+		if !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("ServePacket() error = %v, want http.ErrServerClosed", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("ServePacket() did not stop after Stop()")
 	}
 }
