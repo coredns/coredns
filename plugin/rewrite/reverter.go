@@ -48,6 +48,16 @@ type ResponseRule interface {
 // after a name rewrite
 type ResponseRules = []ResponseRule
 
+// requestReverter is implemented by response rules that also mutated the
+// request OPT. The server's ScrubWriter reuses the request OPT when the
+// upstream reply carries no OPT of its own, so that mutation must be undone on
+// the response path — once, regardless of how many records the reply carries.
+// A reply with no records (e.g. a bare SERVFAIL) drives no per-record response
+// rule, so relying on RewriteResponse alone would leak the option (#8234).
+type requestReverter interface {
+	revertRequest()
+}
+
 // ResponseReverter reverses the operations done on the question section of a packet.
 // This is need because the client will otherwise disregards the response, i.e.
 // dig will complain with ';; Question section mismatch: got example.org/HINFO/IN'
@@ -88,6 +98,15 @@ func (r *ResponseReverter) WriteMsg(res1 *dns.Msg) error {
 		}
 		for _, rr := range res.Extra {
 			r.rewriteResourceRecord(res, rr)
+		}
+		// Undo any request-OPT mutations once, in reverse order. This runs even
+		// when the reply has no records (the loops above then do nothing), which
+		// is exactly when the request OPT would otherwise leak via ScrubWriter
+		// (#8234).
+		for i := len(r.ResponseRules) - 1; i >= 0; i-- {
+			if rev, ok := r.ResponseRules[i].(requestReverter); ok {
+				rev.revertRequest()
+			}
 		}
 	}
 	return r.ResponseWriter.WriteMsg(res)

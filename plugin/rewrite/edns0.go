@@ -50,9 +50,6 @@ type edns0SetResponseRule struct {
 }
 
 func (r *edns0SetResponseRule) RewriteResponse(res *dns.Msg, _ dns.RR) {
-	if r.requestOpt != nil {
-		unsetEdns0Option(r.requestOpt, r.code)
-	}
 	ednsOpt := res.IsEdns0()
 	if ednsOpt == nil {
 		return
@@ -65,9 +62,20 @@ func (r *edns0SetResponseRule) RewriteResponse(res *dns.Msg, _ dns.RR) {
 	}
 }
 
+// revertRequest strips the option this rule added from the request OPT.
+func (r *edns0SetResponseRule) revertRequest() {
+	if r.requestOpt != nil {
+		unsetEdns0Option(r.requestOpt, r.code)
+	}
+}
+
 type edns0ReplaceResponseRule[T dns.EDNS0] struct {
 	code   uint16
 	source T
+	// requestOpt is the request OPT whose option this rule overwrote; on revert
+	// the original value must be restored there too, since ScrubWriter reuses
+	// the request OPT for an OPT-less reply (#8234).
+	requestOpt *dns.OPT
 }
 
 func (r *edns0ReplaceResponseRule[T]) RewriteResponse(res *dns.Msg, _ dns.RR) {
@@ -78,6 +86,19 @@ func (r *edns0ReplaceResponseRule[T]) RewriteResponse(res *dns.Msg, _ dns.RR) {
 	for idx, opt := range ednsOpt.Option {
 		if opt.Option() == r.code {
 			ednsOpt.Option[idx] = r.source
+			return
+		}
+	}
+}
+
+// revertRequest restores the original option value in the request OPT.
+func (r *edns0ReplaceResponseRule[T]) revertRequest() {
+	if r.requestOpt == nil {
+		return
+	}
+	for idx, opt := range r.requestOpt.Option {
+		if opt.Option() == r.code {
+			r.requestOpt.Option[idx] = r.source
 			return
 		}
 	}
@@ -119,7 +140,7 @@ func (rule *edns0NsidRule) Rewrite(_ctx context.Context, state request.Request) 
 			if rule.action == Replace || rule.action == Set {
 				if rule.revert {
 					old := *e
-					resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_NSID]{code: e.Code, source: &old})
+					resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_NSID]{code: e.Code, source: &old, requestOpt: o})
 				}
 				e.Nsid = "" // make sure it is empty for request
 				return resp, RewriteDone
@@ -159,7 +180,7 @@ func (rule *edns0LocalRule) Rewrite(_ctx context.Context, state request.Request)
 				if rule.action == Replace || rule.action == Set {
 					if rule.revert {
 						old := *e
-						resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_LOCAL]{code: rule.code, source: &old})
+						resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_LOCAL]{code: rule.code, source: &old, requestOpt: o})
 					}
 					e.Data = rule.data
 					return resp, RewriteDone
@@ -344,7 +365,7 @@ func (rule *edns0VariableRule) Rewrite(ctx context.Context, state request.Reques
 				if rule.action == Replace || rule.action == Set {
 					if rule.revert {
 						old := *e
-						resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_LOCAL]{code: rule.code, source: &old})
+						resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_LOCAL]{code: rule.code, source: &old, requestOpt: o})
 					}
 					e.Data = data
 					return resp, RewriteDone
@@ -462,7 +483,7 @@ func (rule *edns0SubnetRule) Rewrite(_ctx context.Context, state request.Request
 			if rule.action == Replace || rule.action == Set {
 				if rule.revert {
 					old := *e
-					resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_SUBNET]{code: e.Code, source: &old})
+					resp = append(resp, &edns0ReplaceResponseRule[*dns.EDNS0_SUBNET]{code: e.Code, source: &old, requestOpt: o})
 				}
 				if rule.fillEcsData(state, e) == nil {
 					return resp, RewriteDone
