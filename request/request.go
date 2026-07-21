@@ -112,6 +112,10 @@ func (r *Request) LocalAddr() string { return r.W.LocalAddr().String() }
 
 // Proto gets the protocol used as the transport. This will be udp or tcp.
 func (r *Request) Proto() string {
+	// return Write.Proto(), if it is implemented
+	if protoProvider, ok := r.W.(interface{ Proto() string }); ok {
+		return protoProvider.Proto()
+	}
 	if _, ok := r.W.RemoteAddr().(*net.UDPAddr); ok {
 		return "udp"
 	}

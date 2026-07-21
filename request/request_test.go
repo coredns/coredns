@@ -73,6 +73,15 @@ func TestRequestProto(t *testing.T) {
 	}
 }
 
+// TestRequestProtoDoQ tests Proto for DoQ
+func TestRequestProtoDoQ(t *testing.T) {
+	st := testRequestDoQ()
+	proto := st.Proto()
+	if proto != "quic" {
+		t.Errorf("Expected proto to be quic, got %s", proto)
+	}
+}
+
 // TestRequestSizeAndDo tests the SizeAndDo method
 func TestRequestSizeAndDo(t *testing.T) {
 	st := testRequest()
@@ -361,6 +370,13 @@ func testRequest() Request {
 	m.SetQuestion("example.com.", dns.TypeA)
 	m.SetEdns0(4096, true)
 	return Request{W: &test.ResponseWriter{}, Req: m}
+}
+
+func testRequestDoQ() Request {
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	m.SetEdns0(4096, true)
+	return Request{W: &test.ResponseWriter{Protocol: "quic"}, Req: m}
 }
 
 func TestRequestClear(t *testing.T) {
