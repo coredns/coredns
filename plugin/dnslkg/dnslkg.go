@@ -16,7 +16,6 @@ package dnslkg
 
 import (
 	"context"
-	"regexp"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -38,15 +37,34 @@ type DnsLKG struct {
 	store Store
 	// maxEntries bounds the in-memory store. 0 selects defaultMaxEntries.
 	maxEntries int
+	// maxAge, when > 0, is the maximum age of an entry that may be served.
+	maxAge time.Duration
 	// ttl, when > 0, is the TTL (in seconds) stamped on every record of an
 	// answer served from the LKG store. Keeping it short makes clients re-query
 	// frequently so that a recovered upstream is picked up quickly.
 	ttl time.Duration
-	// include and exclude are optional regular expressions matched against the
-	// (lower-cased, fully-qualified) query name to select which names are
-	// tracked. See shouldTrack for the exact semantics.
-	include []*regexp.Regexp
-	exclude []*regexp.Regexp
+	// fb selects which upstream failures cause the LKG answer to be served.
+	fb fallbackSet
+	// fallbackTimeout, when > 0, is a soft deadline: the query is always
+	// forwarded upstream, but if no answer arrives within this window the LKG
+	// answer is served immediately (the late upstream answer still refreshes
+	// the store). Only active when fb.timeout is set.
+	fallbackTimeout time.Duration
+	// matcher selects which query names are tracked.
+	matcher *nameMatcher
+}
+
+// fallbackSet records which failure classes trigger an LKG fallback.
+type fallbackSet struct {
+	nxdomain bool // authoritative NXDOMAIN
+	nodata   bool // NOERROR with no matching-type records
+	timeout  bool // no usable response / transport failure / soft-timeout
+	serverr  bool // SERVFAIL and other error rcodes
+}
+
+// allFallbacks returns the default (fully permissive) trigger set.
+func allFallbacks() fallbackSet {
+	return fallbackSet{nxdomain: true, nodata: true, timeout: true, serverr: true}
 }
 
 // defaultTTL is the TTL used for served LKG answers when none is configured.
@@ -54,6 +72,12 @@ const defaultTTL = 30 * time.Second
 
 // Name implements the plugin.Handler interface.
 func (d *DnsLKG) Name() string { return "dnslkg" }
+
+// upstreamResult carries the outcome of the forwarded query between goroutines.
+type upstreamResult struct {
+	rcode int
+	err   error
+}
 
 // ServeDNS implements the plugin.Handler interface.
 func (d *DnsLKG) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
@@ -71,37 +95,66 @@ func (d *DnsLKG) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// Capture the downstream (upstream-facing) response without writing it to
 	// the client yet, so we can decide whether to store it or replace it.
 	nw := nonwriter.New(w)
-	rcode, err := plugin.NextOrFailure(d.Name(), d.Next, ctx, nw, r)
 
+	// Soft-deadline ("verify") mode: forward upstream but fall back to LKG if it
+	// does not answer within fallbackTimeout.
+	if d.fallbackTimeout > 0 && d.fb.timeout {
+		done := make(chan upstreamResult, 1)
+		go func() {
+			rc, e := plugin.NextOrFailure(d.Name(), d.Next, ctx, nw, r)
+			done <- upstreamResult{rc, e}
+		}()
+
+		select {
+		case res := <-done:
+			return d.handleUpstream(w, r, nw, res.rcode, res.err, qname, qtype, server)
+		case <-time.After(d.fallbackTimeout):
+			if d.serveFallback(w, r, qname, qtype, server) {
+				// The late upstream answer still refreshes the store.
+				go d.refreshInBackground(done, nw, qname, qtype, server)
+				return dns.RcodeSuccess, nil
+			}
+			// No LKG entry to fall back to; wait for the real answer.
+			res := <-done
+			return d.handleUpstream(w, r, nw, res.rcode, res.err, qname, qtype, server)
+		}
+	}
+
+	rcode, err := plugin.NextOrFailure(d.Name(), d.Next, ctx, nw, r)
+	return d.handleUpstream(w, r, nw, rcode, err, qname, qtype, server)
+}
+
+// handleUpstream classifies the upstream response and either stores it, serves
+// an LKG fallback, or passes it through, according to the configured triggers.
+func (d *DnsLKG) handleUpstream(w dns.ResponseWriter, r *dns.Msg, nw *nonwriter.Writer, rcode int, err error, qname string, qtype uint16, server string) (int, error) {
 	if err == nil && nw.Msg != nil {
 		ty, _ := response.Typify(nw.Msg, time.Now().UTC())
-		switch response.Classify(ty) {
-		case response.Success:
+		switch ty {
+		case response.NoError:
 			// A good answer: remember it as the last known good and pass it on.
-			if perr := d.store.Put(qname, qtype, nw.Msg); perr != nil {
-				log.Warningf("Failed to store LKG answer for %q: %v", qname, perr)
-			} else {
-				storedResponses.WithLabelValues(server).Inc()
-			}
+			d.storeAnswer(qname, qtype, nw.Msg, server)
 			w.WriteMsg(nw.Msg)
 			return rcode, nil
-		case response.Denial, response.Error:
-			// NXDOMAIN / NODATA / SERVFAIL: try to fall back to the LKG answer.
-			if m := d.serveLKG(qname, qtype, r); m != nil {
-				servedResponses.WithLabelValues(server).Inc()
-				w.WriteMsg(m)
+		case response.NameError:
+			if d.fb.nxdomain && d.serveFallback(w, r, qname, qtype, server) {
+				return dns.RcodeSuccess, nil
+			}
+		case response.NoData:
+			if d.fb.nodata && d.serveFallback(w, r, qname, qtype, server) {
+				return dns.RcodeSuccess, nil
+			}
+		case response.OtherError:
+			if d.fb.serverr && d.serveFallback(w, r, qname, qtype, server) {
 				return dns.RcodeSuccess, nil
 			}
 		}
-		// No LKG fallback available; pass the original response through.
+		// No LKG fallback available (or not configured); pass the response on.
 		w.WriteMsg(nw.Msg)
 		return rcode, nil
 	}
 
-	// The upstream failed to produce a usable message at all; fall back to LKG.
-	if m := d.serveLKG(qname, qtype, r); m != nil {
-		servedResponses.WithLabelValues(server).Inc()
-		w.WriteMsg(m)
+	// The upstream failed to produce a usable message at all.
+	if d.fb.timeout && d.serveFallback(w, r, qname, qtype, server) {
 		return dns.RcodeSuccess, nil
 	}
 
@@ -111,6 +164,40 @@ func (d *DnsLKG) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		return rcode, nil
 	}
 	return rcode, err
+}
+
+// storeAnswer records m as the last known good answer for qname/qtype.
+func (d *DnsLKG) storeAnswer(qname string, qtype uint16, m *dns.Msg, server string) {
+	if perr := d.store.Put(qname, qtype, m); perr != nil {
+		log.Warningf("Failed to store LKG answer for %q: %v", qname, perr)
+		return
+	}
+	storedResponses.WithLabelValues(server).Inc()
+}
+
+// serveFallback writes the stored LKG answer for qname/qtype to w and returns
+// true if one was available.
+func (d *DnsLKG) serveFallback(w dns.ResponseWriter, r *dns.Msg, qname string, qtype uint16, server string) bool {
+	m := d.serveLKG(qname, qtype, r)
+	if m == nil {
+		return false
+	}
+	servedResponses.WithLabelValues(server).Inc()
+	w.WriteMsg(m)
+	return true
+}
+
+// refreshInBackground waits for a late upstream answer (after a soft-timeout
+// fallback was already served) and stores it if it is good. It never touches
+// the client's ResponseWriter.
+func (d *DnsLKG) refreshInBackground(done <-chan upstreamResult, nw *nonwriter.Writer, qname string, qtype uint16, server string) {
+	res := <-done
+	if res.err != nil || nw.Msg == nil {
+		return
+	}
+	if ty, _ := response.Typify(nw.Msg, time.Now().UTC()); ty == response.NoError {
+		d.storeAnswer(qname, qtype, nw.Msg, server)
+	}
 }
 
 // serveLKG returns a response built from the stored last known good answer for
@@ -176,30 +263,11 @@ func setTTL(m *dns.Msg, ttl uint32) {
 	}
 }
 
-// shouldTrack reports whether qname is subject to LKG handling.
-//
-//   - With no include/exclude patterns configured, every name is tracked.
-//   - When include patterns are configured, a name must match at least one of
-//     them to be tracked.
-//   - A name matching any exclude pattern is never tracked, even if it also
-//     matches an include pattern.
+// shouldTrack reports whether qname is subject to LKG handling, per the
+// configured include/exclude rules (see nameMatcher).
 func (d *DnsLKG) shouldTrack(qname string) bool {
-	if len(d.include) > 0 {
-		matched := false
-		for _, re := range d.include {
-			if re.MatchString(qname) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			return false
-		}
+	if d.matcher == nil {
+		return true
 	}
-	for _, re := range d.exclude {
-		if re.MatchString(qname) {
-			return false
-		}
-	}
-	return true
+	return d.matcher.tracked(qname)
 }

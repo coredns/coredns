@@ -2,6 +2,7 @@ package dnslkg
 
 import (
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/test"
 
@@ -10,7 +11,7 @@ import (
 
 func newTestStore(t *testing.T) *memStore {
 	t.Helper()
-	return newMemStore(0)
+	return newMemStore(0, 0)
 }
 
 func msgWith(name string, qtype uint16, answer ...dns.RR) *dns.Msg {
@@ -122,7 +123,7 @@ func TestStoreDelete(t *testing.T) {
 // TestStoreEviction verifies that the store never holds more than max entries
 // and evicts the oldest-written entry first.
 func TestStoreEviction(t *testing.T) {
-	s := newMemStore(3)
+	s := newMemStore(3, 0)
 
 	names := []string{"a.org.", "b.org.", "c.org.", "d.org."}
 	for _, n := range names {
@@ -149,7 +150,7 @@ func TestStoreEviction(t *testing.T) {
 // TestStoreEvictionRefreshesOnWrite verifies that re-writing a key marks it
 // most-recently-written, so it survives eviction over an older, untouched key.
 func TestStoreEvictionRefreshesOnWrite(t *testing.T) {
-	s := newMemStore(2)
+	s := newMemStore(2, 0)
 
 	a := msgWith("a.org.", dns.TypeA, test.A("a.org. 300 IN A 127.0.0.1"))
 	b := msgWith("b.org.", dns.TypeA, test.A("b.org. 300 IN A 127.0.0.1"))
@@ -183,5 +184,37 @@ func TestStoreCloseNoop(t *testing.T) {
 	s := newTestStore(t)
 	if err := s.Close(); err != nil {
 		t.Errorf("Close should be a no-op, got: %v", err)
+	}
+}
+
+// TestStoreMaxAge verifies that entries older than max_age are not served and
+// are reclaimed by the front-eviction on the next write.
+func TestStoreMaxAge(t *testing.T) {
+	s := newMemStore(100, 50*time.Millisecond)
+
+	m := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A 127.0.0.1"))
+	if err := s.Put("example.org.", dns.TypeA, m); err != nil {
+		t.Fatalf("Put failed: %v", err)
+	}
+
+	// Still fresh: served.
+	if got, _, _ := s.Get("example.org.", dns.TypeA); got == nil {
+		t.Fatal("Expected a fresh entry to be served")
+	}
+
+	time.Sleep(70 * time.Millisecond)
+
+	// Expired: not served.
+	if got, _, _ := s.Get("example.org.", dns.TypeA); got != nil {
+		t.Error("Expected an entry past max_age to be treated as absent")
+	}
+
+	// A subsequent write for another name reclaims the expired entry.
+	other := msgWith("other.org.", dns.TypeA, test.A("other.org. 300 IN A 10.0.0.1"))
+	if err := s.Put("other.org.", dns.TypeA, other); err != nil {
+		t.Fatalf("Put failed: %v", err)
+	}
+	if len(s.entries) != 1 {
+		t.Errorf("Expected expired entry to be reclaimed, got %d entries", len(s.entries))
 	}
 }
