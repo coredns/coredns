@@ -40,7 +40,8 @@ const defaultMaxEntries = 10000
 // concurrent look-ups on the failure path do not contend with each other.
 // There is no background goroutine, no disk I/O and no channels.
 type memStore struct {
-	max int
+	max    int
+	maxAge time.Duration
 
 	mu      sync.RWMutex
 	entries map[string]*list.Element // key -> element in order
@@ -58,13 +59,16 @@ type entry struct {
 var _ Store = (*memStore)(nil)
 
 // newMemStore returns an in-memory store bounded to max entries. A non-positive
-// max falls back to defaultMaxEntries.
-func newMemStore(max int) *memStore {
+// max falls back to defaultMaxEntries. maxAge, when > 0, is the maximum age of a
+// served entry; older entries are treated as absent and reclaimed on the next
+// write.
+func newMemStore(max int, maxAge time.Duration) *memStore {
 	if max <= 0 {
 		max = defaultMaxEntries
 	}
 	return &memStore{
 		max:     max,
+		maxAge:  maxAge,
 		entries: make(map[string]*list.Element),
 		order:   list.New(),
 	}
@@ -101,6 +105,24 @@ func (s *memStore) Put(name string, qtype uint16, m *dns.Msg) error {
 
 	s.entries[k] = s.order.PushBack(&entry{key: k, packed: packed, storedAt: now})
 
+	// The order list is sorted by write time (front = oldest), so age-based
+	// eviction just trims expired entries from the front.
+	if s.maxAge > 0 {
+		cutoff := now.Add(-s.maxAge)
+		for {
+			front := s.order.Front()
+			if front == nil {
+				break
+			}
+			e := front.Value.(*entry)
+			if e.storedAt.After(cutoff) {
+				break
+			}
+			s.order.Remove(front)
+			delete(s.entries, e.key)
+		}
+	}
+
 	if s.order.Len() > s.max {
 		if oldest := s.order.Front(); oldest != nil {
 			s.order.Remove(oldest)
@@ -130,6 +152,12 @@ func (s *memStore) Get(name string, qtype uint16) (*dns.Msg, time.Time, error) {
 	s.mu.RUnlock()
 
 	if !ok {
+		return nil, time.Time{}, nil
+	}
+
+	// Entries past max_age are treated as absent; their memory is reclaimed by
+	// the front-eviction on the next write.
+	if s.maxAge > 0 && time.Since(storedAt) > s.maxAge {
 		return nil, time.Time{}, nil
 	}
 

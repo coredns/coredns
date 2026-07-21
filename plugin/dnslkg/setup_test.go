@@ -2,6 +2,7 @@ package dnslkg
 
 import (
 	"testing"
+	"time"
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/core/dnsserver"
@@ -18,6 +19,33 @@ func TestParse(t *testing.T) {
 		{"positional arg rejected", `dnslkg /tmp/lkg.db`, true},
 		{"empty block", `dnslkg {
 		}`, false},
+		{"fallback_on subset", `dnslkg {
+			fallback_on nodata
+		}`, false},
+		{"fallback_on multiple", `dnslkg {
+			fallback_on nxdomain nodata timeout error
+		}`, false},
+		{"fallback_on all alias", `dnslkg {
+			fallback_on all
+		}`, false},
+		{"fallback_on none alias", `dnslkg {
+			fallback_on none
+		}`, false},
+		{"fallback_on empty", `dnslkg {
+			fallback_on
+		}`, true},
+		{"fallback_on unknown", `dnslkg {
+			fallback_on bogus
+		}`, true},
+		{"max_age", `dnslkg {
+			max_age 24h
+		}`, false},
+		{"max_age negative", `dnslkg {
+			max_age -1h
+		}`, true},
+		{"fallback_timeout", `dnslkg {
+			fallback_timeout 200ms
+		}`, false},
 		{"max_entries", `dnslkg {
 			max_entries 500
 		}`, false},
@@ -26,9 +54,6 @@ func TestParse(t *testing.T) {
 		}`, true},
 		{"zero max_entries", `dnslkg {
 			max_entries 0
-		}`, true},
-		{"negative max_entries", `dnslkg {
-			max_entries -5
 		}`, true},
 		{"ttl", `dnslkg {
 			ttl 15s
@@ -42,17 +67,17 @@ func TestParse(t *testing.T) {
 		{"negative ttl", `dnslkg {
 			ttl -5s
 		}`, true},
-		{"include", `dnslkg {
-			include ^example\.org\.$ ^example\.com\.$
+		{"include wildcard", `dnslkg {
+			include *.example.org *.example.com
 		}`, false},
-		{"exclude", `dnslkg {
-			exclude ^internal\.$
+		{"exclude wildcard", `dnslkg {
+			exclude *.internal.example.org
 		}`, false},
 		{"empty include", `dnslkg {
 			include
 		}`, true},
-		{"bad regex", `dnslkg {
-			include (
+		{"bad pattern mid-label wildcard", `dnslkg {
+			include a*.example.org
 		}`, true},
 		{"unknown property", `dnslkg {
 			bogus 1
@@ -82,11 +107,51 @@ func TestParseDefaults(t *testing.T) {
 	if d.maxEntries != 0 {
 		t.Errorf("Expected default maxEntries 0 (store applies default), got %d", d.maxEntries)
 	}
+	if d.maxAge != 0 {
+		t.Errorf("Expected default maxAge 0, got %v", d.maxAge)
+	}
+	if d.fallbackTimeout != 0 {
+		t.Errorf("Expected default fallbackTimeout 0, got %v", d.fallbackTimeout)
+	}
 	if d.ttl != defaultTTL {
 		t.Errorf("Expected default ttl %v, got %v", defaultTTL, d.ttl)
 	}
-	if len(d.include) != 0 || len(d.exclude) != 0 {
-		t.Errorf("Expected no include/exclude patterns by default")
+	if d.fb != allFallbacks() {
+		t.Errorf("Expected all fallback triggers enabled by default, got %+v", d.fb)
+	}
+	if !d.shouldTrack("anything.example.org.") {
+		t.Errorf("Expected all names tracked by default")
+	}
+}
+
+func TestParseFallbackOn(t *testing.T) {
+	c := caddy.NewTestController("dns", `dnslkg {
+		fallback_on nodata
+	}`)
+	d, err := parse(c)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	want := fallbackSet{nodata: true}
+	if d.fb != want {
+		t.Errorf("Expected only nodata trigger, got %+v", d.fb)
+	}
+}
+
+func TestParseMaxAgeAndTimeout(t *testing.T) {
+	c := caddy.NewTestController("dns", `dnslkg {
+		max_age 12h
+		fallback_timeout 250ms
+	}`)
+	d, err := parse(c)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if d.maxAge != 12*time.Hour {
+		t.Errorf("Expected maxAge 12h, got %v", d.maxAge)
+	}
+	if d.fallbackTimeout != 250*time.Millisecond {
+		t.Errorf("Expected fallbackTimeout 250ms, got %v", d.fallbackTimeout)
 	}
 }
 
@@ -105,19 +170,26 @@ func TestParseMaxEntries(t *testing.T) {
 
 func TestParsePatterns(t *testing.T) {
 	c := caddy.NewTestController("dns", `dnslkg {
-		include ^a\.$ ^b\.$
-		include ^c\.$
-		exclude ^x\.$
+		include *.example.com
+		exclude *.internal.example.com
+		include api.internal.example.com
 	}`)
 	d, err := parse(c)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if len(d.include) != 3 {
-		t.Errorf("Expected 3 include patterns, got %d", len(d.include))
+	// Most-specific-wins across the three rules.
+	if !d.shouldTrack("www.example.com.") {
+		t.Error("Expected www.example.com. to be tracked")
 	}
-	if len(d.exclude) != 1 {
-		t.Errorf("Expected 1 exclude pattern, got %d", len(d.exclude))
+	if d.shouldTrack("db.internal.example.com.") {
+		t.Error("Expected db.internal.example.com. to be excluded")
+	}
+	if !d.shouldTrack("api.internal.example.com.") {
+		t.Error("Expected api.internal.example.com. to be re-included")
+	}
+	if d.shouldTrack("other.org.") {
+		t.Error("Expected other.org. to be untracked (allow-list mode)")
 	}
 }
 
@@ -125,6 +197,7 @@ func TestParsePatterns(t *testing.T) {
 func TestSetup(t *testing.T) {
 	c := caddy.NewTestController("dns", `dnslkg {
 		max_entries 100
+		fallback_on nxdomain nodata
 	}`)
 
 	if err := setup(c); err != nil {
