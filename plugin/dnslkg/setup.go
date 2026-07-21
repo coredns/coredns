@@ -17,13 +17,13 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("dnslkg", err)
 	}
 
-	st, err := newStore(d.path)
+	st, err := newSnapshotStore(d.path)
 	if err != nil {
 		return plugin.Error("dnslkg", err)
 	}
 	d.store = st
 
-	c.OnShutdown(func() error { return d.store.close() })
+	c.OnShutdown(func() error { return d.store.Close() })
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		d.Next = next

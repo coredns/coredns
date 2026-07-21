@@ -34,7 +34,7 @@ var log = clog.NewWithPlugin("dnslkg")
 type DnsLKG struct {
 	Next plugin.Handler
 
-	store *store
+	store Store
 	// path is the location of the on-disk snapshot file that backs the store.
 	path string
 	// ttl, when > 0, is the TTL (in seconds) stamped on every record of an
@@ -77,7 +77,7 @@ func (d *DnsLKG) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		switch response.Classify(ty) {
 		case response.Success:
 			// A good answer: remember it as the last known good and pass it on.
-			if perr := d.store.put(qname, qtype, nw.Msg); perr != nil {
+			if perr := d.store.Put(qname, qtype, nw.Msg); perr != nil {
 				log.Warningf("Failed to store LKG answer for %q: %v", qname, perr)
 			} else {
 				storedResponses.WithLabelValues(server).Inc()
@@ -116,7 +116,7 @@ func (d *DnsLKG) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 // qname/qtype, or nil if none is available. The returned message is adapted to
 // the incoming request (id, question) and its TTLs are normalised.
 func (d *DnsLKG) serveLKG(qname string, qtype uint16, r *dns.Msg) *dns.Msg {
-	cached, storedAt, err := d.store.get(qname, qtype)
+	cached, storedAt, err := d.store.Get(qname, qtype)
 	if err != nil {
 		log.Warningf("Failed to read LKG answer for %q: %v", qname, err)
 		return nil

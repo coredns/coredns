@@ -119,7 +119,7 @@ func TestSetup(t *testing.T) {
 	if !ok {
 		t.Fatalf("Expected *DnsLKG, got %T", h)
 	}
-	if err := d.store.close(); err != nil {
+	if err := d.store.Close(); err != nil {
 		t.Errorf("Closing store: %v", err)
 	}
 }
