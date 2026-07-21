@@ -131,14 +131,15 @@ func hasSOA(m *dns.Msg) bool {
 // terminal name (records at any other owner name are irrelevant, and per RFC
 // 1034 a CNAME's owner never co-locates other data). This rule is independent of
 // the queried type: an MX, TXT, SRV, etc. chain that does not reach the queried
-// type is NODATA just like an A or AAAA one. When the chain is broken or
-// ambiguous the response is treated as NODATA, which errs toward re-querying
-// upstream rather than caching a non-answer. An empty answer section returns
-// false so that legitimate positive responses carrying data outside the answer
-// section (for example the whoami plugin) remain cacheable. ANY queries are
-// excluded because any record answers them. Note: a bare DNAME (RFC 6672)
-// without its synthesized CNAME is treated as NODATA; standard responses include
-// the synthesized CNAME, which the chain walk follows.
+// type is NODATA just like an A or AAAA one. When the chain is malformed (an
+// owner with more than one distinct CNAME target, or a loop) it has no
+// well-defined terminal name, so the response is treated as NODATA, which errs
+// toward re-querying upstream rather than caching a non-answer. An empty answer
+// section returns false so that legitimate positive responses carrying data
+// outside the answer section (for example the whoami plugin) remain cacheable.
+// ANY queries are excluded because any record answers them. Note: a bare DNAME
+// (RFC 6672) without its synthesized CNAME is treated as NODATA; standard
+// responses include the synthesized CNAME, which the chain walk follows.
 func isNODATA(m *dns.Msg) bool {
 	if len(m.Answer) == 0 {
 		return false
@@ -151,7 +152,16 @@ func isNODATA(m *dns.Msg) bool {
 	// followed; otherwise resolve it to the terminal owner name.
 	name := m.Question[0].Name
 	if qtype != dns.TypeCNAME {
-		name = canonicalName(m.Answer, name)
+		terminal, ok := canonicalName(m.Answer, name)
+		if !ok {
+			// The CNAME chain is malformed (an owner with more than one
+			// distinct target, or a loop) and therefore has no well-defined
+			// QNAME per RFC 2181 section 10.1 and RFC 1034 section 3.6.2. Such
+			// a response cannot be shown to answer the question, so treat it as
+			// NODATA and (being SOA-less) leave it uncacheable.
+			return true
+		}
+		name = terminal
 	}
 	for _, r := range m.Answer {
 		h := r.Header()
@@ -163,29 +173,43 @@ func isNODATA(m *dns.Msg) bool {
 }
 
 // canonicalName follows the owner-linked CNAME chain in answer starting at name
-// and returns the terminal target name. A record whose owner is not on the chain
-// is ignored. It guards against loops in a malformed answer.
-func canonicalName(answer []dns.RR, name string) string {
+// and returns the terminal target name together with a validity flag. Records
+// whose owner is not on the chain are ignored. The chain is invalid (ok=false)
+// when it is not a single unambiguous path to a terminal name: an owner that has
+// more than one distinct CNAME target violates RFC 2181 section 10.1 (an alias
+// has exactly one canonical name), and a revisited owner is a CNAME loop, which
+// RFC 1034 section 3.6.2 says must be signalled as an error. Reporting validity
+// rather than silently stopping keeps the classification order-independent and
+// fail-closed: callers treat a malformed chain as a non-answer. Duplicate CNAME
+// records that name the same target are tolerated, since they still describe a
+// single canonical name.
+func canonicalName(answer []dns.RR, name string) (string, bool) {
 	seen := make(map[string]bool)
 	for {
 		key := strings.ToLower(name)
 		if seen[key] {
-			break
+			// Revisited owner: the chain contains a loop.
+			return name, false
 		}
 		seen[key] = true
 		target := ""
 		for _, r := range answer {
-			if c, ok := r.(*dns.CNAME); ok && strings.EqualFold(c.Header().Name, name) {
-				target = c.Target
-				break
+			c, ok := r.(*dns.CNAME)
+			if !ok || !strings.EqualFold(c.Header().Name, name) {
+				continue
 			}
+			if target != "" && !strings.EqualFold(target, c.Target) {
+				// More than one distinct canonical name for this owner.
+				return name, false
+			}
+			target = c.Target
 		}
 		if target == "" {
-			break
+			// Terminal owner reached: no CNAME continues the chain.
+			return name, true
 		}
 		name = target
 	}
-	return name
 }
 
 var one = []byte("1")
