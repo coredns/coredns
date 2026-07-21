@@ -1,7 +1,6 @@
 package dnslkg
 
 import (
-	"path/filepath"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -16,36 +15,46 @@ func TestParse(t *testing.T) {
 		shouldErr bool
 	}{
 		{"bare", `dnslkg`, false},
-		{"path arg", `dnslkg /tmp/lkg.db`, false},
-		{"too many args", `dnslkg a b`, true},
-		{"path block", `dnslkg {
-			path /tmp/lkg.db
+		{"positional arg rejected", `dnslkg /tmp/lkg.db`, true},
+		{"empty block", `dnslkg {
 		}`, false},
-		{"ttl", `dnslkg db {
+		{"max_entries", `dnslkg {
+			max_entries 500
+		}`, false},
+		{"bad max_entries", `dnslkg {
+			max_entries notanumber
+		}`, true},
+		{"zero max_entries", `dnslkg {
+			max_entries 0
+		}`, true},
+		{"negative max_entries", `dnslkg {
+			max_entries -5
+		}`, true},
+		{"ttl", `dnslkg {
 			ttl 15s
 		}`, false},
-		{"zero ttl", `dnslkg db {
+		{"zero ttl", `dnslkg {
 			ttl 0s
 		}`, false},
-		{"bad ttl", `dnslkg db {
+		{"bad ttl", `dnslkg {
 			ttl notaduration
 		}`, true},
-		{"negative ttl", `dnslkg db {
+		{"negative ttl", `dnslkg {
 			ttl -5s
 		}`, true},
-		{"include", `dnslkg db {
+		{"include", `dnslkg {
 			include ^example\.org\.$ ^example\.com\.$
 		}`, false},
-		{"exclude", `dnslkg db {
+		{"exclude", `dnslkg {
 			exclude ^internal\.$
 		}`, false},
-		{"empty include", `dnslkg db {
+		{"empty include", `dnslkg {
 			include
 		}`, true},
-		{"bad regex", `dnslkg db {
+		{"bad regex", `dnslkg {
 			include (
 		}`, true},
-		{"unknown property", `dnslkg db {
+		{"unknown property", `dnslkg {
 			bogus 1
 		}`, true},
 	}
@@ -70,8 +79,8 @@ func TestParseDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if d.path != "dnslkg.db" {
-		t.Errorf("Expected default path %q, got %q", "dnslkg.db", d.path)
+	if d.maxEntries != 0 {
+		t.Errorf("Expected default maxEntries 0 (store applies default), got %d", d.maxEntries)
 	}
 	if d.ttl != defaultTTL {
 		t.Errorf("Expected default ttl %v, got %v", defaultTTL, d.ttl)
@@ -81,8 +90,21 @@ func TestParseDefaults(t *testing.T) {
 	}
 }
 
+func TestParseMaxEntries(t *testing.T) {
+	c := caddy.NewTestController("dns", `dnslkg {
+		max_entries 250
+	}`)
+	d, err := parse(c)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if d.maxEntries != 250 {
+		t.Errorf("Expected maxEntries 250, got %d", d.maxEntries)
+	}
+}
+
 func TestParsePatterns(t *testing.T) {
-	c := caddy.NewTestController("dns", `dnslkg db {
+	c := caddy.NewTestController("dns", `dnslkg {
 		include ^a\.$ ^b\.$
 		include ^c\.$
 		exclude ^x\.$
@@ -99,17 +121,16 @@ func TestParsePatterns(t *testing.T) {
 	}
 }
 
-// TestSetup exercises the full setup path, including opening the on-disk store,
-// and closes the store afterwards.
+// TestSetup exercises the full setup path and closes the store afterwards.
 func TestSetup(t *testing.T) {
-	db := filepath.Join(t.TempDir(), "lkg")
-	c := caddy.NewTestController("dns", `dnslkg `+db)
+	c := caddy.NewTestController("dns", `dnslkg {
+		max_entries 100
+	}`)
 
 	if err := setup(c); err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	// Retrieve the registered handler and close its store to release the file.
 	cfg := dnsserver.GetConfig(c)
 	if len(cfg.Plugin) == 0 {
 		t.Fatal("Expected a plugin to be registered")

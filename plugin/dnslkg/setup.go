@@ -2,6 +2,7 @@ package dnslkg
 
 import (
 	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -17,11 +18,7 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("dnslkg", err)
 	}
 
-	st, err := newSnapshotStore(d.path)
-	if err != nil {
-		return plugin.Error("dnslkg", err)
-	}
-	d.store = st
+	d.store = newMemStore(d.maxEntries)
 
 	c.OnShutdown(func() error { return d.store.Close() })
 
@@ -35,16 +32,15 @@ func setup(c *caddy.Controller) error {
 
 // parse builds a *DnsLKG from the Corefile configuration.
 //
-//	dnslkg [PATH] {
-//	    path    PATH
-//	    ttl     DURATION
-//	    include REGEX...
-//	    exclude REGEX...
+//	dnslkg {
+//	    max_entries N
+//	    ttl         DURATION
+//	    include     REGEX...
+//	    exclude     REGEX...
 //	}
 func parse(c *caddy.Controller) (*DnsLKG, error) {
 	d := &DnsLKG{
-		path: "dnslkg.db",
-		ttl:  defaultTTL,
+		ttl: defaultTTL,
 	}
 
 	if !c.Next() { // 'dnslkg'
@@ -52,20 +48,24 @@ func parse(c *caddy.Controller) (*DnsLKG, error) {
 	}
 
 	if args := c.RemainingArgs(); len(args) > 0 {
-		if len(args) > 1 {
-			return nil, c.ArgErr()
-		}
-		d.path = args[0]
+		return nil, c.ArgErr()
 	}
 
 	for c.NextBlock() {
 		switch c.Val() {
-		case "path":
+		case "max_entries":
 			args := c.RemainingArgs()
 			if len(args) != 1 {
 				return nil, c.ArgErr()
 			}
-			d.path = args[0]
+			n, err := strconv.Atoi(args[0])
+			if err != nil {
+				return nil, c.Errf("invalid max_entries %q: %v", args[0], err)
+			}
+			if n <= 0 {
+				return nil, c.Errf("max_entries must be positive: %q", args[0])
+			}
+			d.maxEntries = n
 		case "ttl":
 			args := c.RemainingArgs()
 			if len(args) != 1 {
