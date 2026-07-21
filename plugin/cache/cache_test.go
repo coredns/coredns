@@ -453,6 +453,72 @@ func TestCacheInsertion(t *testing.T) {
 			},
 			shouldCache: true,
 		},
+		{
+			name: "test NOERROR CNAME chain with two distinct targets at one owner without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target2.example.net."),
+					test.A("target1.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with two distinct targets at one owner reversed order without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target2.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.A("target1.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME loop with co-located A without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("target.example.net. 3600 IN CNAME alias.example.org."),
+					test.A("alias.example.org. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with duplicate identical CNAME terminating in A caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
 	}
 	now, _ := time.Parse(time.UnixDate, "Fri Apr 21 10:51:21 BST 2017")
 	utc := now.UTC()
