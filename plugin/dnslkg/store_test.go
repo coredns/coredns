@@ -10,13 +10,13 @@ import (
 	"github.com/miekg/dns"
 )
 
-func newTestStore(t *testing.T) *store {
+func newTestStore(t *testing.T) *snapshotStore {
 	t.Helper()
-	s, err := newStore(filepath.Join(t.TempDir(), "lkg.db"))
+	s, err := newSnapshotStore(filepath.Join(t.TempDir(), "lkg.db"))
 	if err != nil {
 		t.Fatalf("Failed to open store: %v", err)
 	}
-	t.Cleanup(func() { s.close() })
+	t.Cleanup(func() { s.Close() })
 	return s
 }
 
@@ -32,11 +32,11 @@ func TestStorePutGet(t *testing.T) {
 	s := newTestStore(t)
 
 	m := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A 127.0.0.1"))
-	if err := s.put("example.org.", dns.TypeA, m); err != nil {
+	if err := s.Put("example.org.", dns.TypeA, m); err != nil {
 		t.Fatalf("Put failed: %v", err)
 	}
 
-	got, storedAt, err := s.get("example.org.", dns.TypeA)
+	got, storedAt, err := s.Get("example.org.", dns.TypeA)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestStorePutGet(t *testing.T) {
 func TestStoreGetMissing(t *testing.T) {
 	s := newTestStore(t)
 
-	got, _, err := s.get("missing.org.", dns.TypeA)
+	got, _, err := s.Get("missing.org.", dns.TypeA)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -67,12 +67,12 @@ func TestStoreKeyedByType(t *testing.T) {
 	s := newTestStore(t)
 
 	a := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A 127.0.0.1"))
-	if err := s.put("example.org.", dns.TypeA, a); err != nil {
+	if err := s.Put("example.org.", dns.TypeA, a); err != nil {
 		t.Fatalf("Put failed: %v", err)
 	}
 
 	// Different qtype must not collide with the stored A entry.
-	got, _, err := s.get("example.org.", dns.TypeAAAA)
+	got, _, err := s.Get("example.org.", dns.TypeAAAA)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -85,15 +85,15 @@ func TestStoreOverwrite(t *testing.T) {
 	s := newTestStore(t)
 
 	first := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A 127.0.0.1"))
-	if err := s.put("example.org.", dns.TypeA, first); err != nil {
+	if err := s.Put("example.org.", dns.TypeA, first); err != nil {
 		t.Fatalf("Put failed: %v", err)
 	}
 	second := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A 10.0.0.1"))
-	if err := s.put("example.org.", dns.TypeA, second); err != nil {
+	if err := s.Put("example.org.", dns.TypeA, second); err != nil {
 		t.Fatalf("Put failed: %v", err)
 	}
 
-	got, _, err := s.get("example.org.", dns.TypeA)
+	got, _, err := s.Get("example.org.", dns.TypeA)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -106,14 +106,14 @@ func TestStoreDelete(t *testing.T) {
 	s := newTestStore(t)
 
 	m := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A 127.0.0.1"))
-	if err := s.put("example.org.", dns.TypeA, m); err != nil {
+	if err := s.Put("example.org.", dns.TypeA, m); err != nil {
 		t.Fatalf("Put failed: %v", err)
 	}
-	if err := s.delete("example.org.", dns.TypeA); err != nil {
+	if err := s.Delete("example.org.", dns.TypeA); err != nil {
 		t.Fatalf("Delete failed: %v", err)
 	}
 
-	got, _, err := s.get("example.org.", dns.TypeA)
+	got, _, err := s.Get("example.org.", dns.TypeA)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -126,23 +126,23 @@ func TestStorePersistsAcrossReopen(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "lkg.db")
 
-	s1, err := newStore(path)
+	s1, err := newSnapshotStore(path)
 	if err != nil {
 		t.Fatalf("Open failed: %v", err)
 	}
 	m := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A 127.0.0.1"))
-	if err := s1.put("example.org.", dns.TypeA, m); err != nil {
+	if err := s1.Put("example.org.", dns.TypeA, m); err != nil {
 		t.Fatalf("Put failed: %v", err)
 	}
-	s1.close()
+	s1.Close()
 
-	s2, err := newStore(path)
+	s2, err := newSnapshotStore(path)
 	if err != nil {
 		t.Fatalf("Reopen failed: %v", err)
 	}
-	defer s2.close()
+	defer s2.Close()
 
-	got, _, err := s2.get("example.org.", dns.TypeA)
+	got, _, err := s2.Get("example.org.", dns.TypeA)
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestStoreDedupNoDirty(t *testing.T) {
 	s := newTestStore(t)
 
 	m := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A 127.0.0.1"))
-	if err := s.put("example.org.", dns.TypeA, m); err != nil {
+	if err := s.Put("example.org.", dns.TypeA, m); err != nil {
 		t.Fatalf("First put failed: %v", err)
 	}
 	if err := s.flush(); err != nil {
@@ -169,7 +169,7 @@ func TestStoreDedupNoDirty(t *testing.T) {
 	}
 
 	for i := 0; i < 100; i++ {
-		if err := s.put("example.org.", dns.TypeA, m); err != nil {
+		if err := s.Put("example.org.", dns.TypeA, m); err != nil {
 			t.Fatalf("Repeat put failed: %v", err)
 		}
 	}
@@ -179,7 +179,7 @@ func TestStoreDedupNoDirty(t *testing.T) {
 
 	// A changed answer must dirty the store.
 	m2 := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A 10.0.0.1"))
-	if err := s.put("example.org.", dns.TypeA, m2); err != nil {
+	if err := s.Put("example.org.", dns.TypeA, m2); err != nil {
 		t.Fatalf("Changed put failed: %v", err)
 	}
 	if !s.dirty {
@@ -193,11 +193,11 @@ func TestStoreDedupNoDirty(t *testing.T) {
 func TestStoreSnapshotStableSize(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "lkg.db")
-	s, err := newStore(path)
+	s, err := newSnapshotStore(path)
 	if err != nil {
 		t.Fatalf("Open failed: %v", err)
 	}
-	defer s.close()
+	defer s.Close()
 
 	for i := 0; i < 10000; i++ {
 		ip := "10.0.0.1"
@@ -205,7 +205,7 @@ func TestStoreSnapshotStableSize(t *testing.T) {
 			ip = "10.0.0.2"
 		}
 		m := msgWith("example.org.", dns.TypeA, test.A("example.org. 300 IN A "+ip))
-		if err := s.put("example.org.", dns.TypeA, m); err != nil {
+		if err := s.Put("example.org.", dns.TypeA, m); err != nil {
 			t.Fatalf("Put failed: %v", err)
 		}
 	}
@@ -222,13 +222,13 @@ func TestStoreSnapshotStableSize(t *testing.T) {
 		t.Errorf("Expected snapshot to stay small for a single key, got %d bytes", fi.Size())
 	}
 
-	s.close()
-	s2, err := newStore(path)
+	s.Close()
+	s2, err := newSnapshotStore(path)
 	if err != nil {
 		t.Fatalf("Reopen failed: %v", err)
 	}
-	defer s2.close()
-	if got, _, _ := s2.get("example.org.", dns.TypeA); got == nil {
+	defer s2.Close()
+	if got, _, _ := s2.Get("example.org.", dns.TypeA); got == nil {
 		t.Fatal("Expected the live entry to survive reopen")
 	}
 }
@@ -243,12 +243,12 @@ func TestStoreIgnoresCorruptSnapshot(t *testing.T) {
 		t.Fatalf("Write corrupt file failed: %v", err)
 	}
 
-	s, err := newStore(path)
+	s, err := newSnapshotStore(path)
 	if err != nil {
 		t.Fatalf("Expected newStore to tolerate a corrupt snapshot, got: %v", err)
 	}
-	defer s.close()
-	if got, _, _ := s.get("example.org.", dns.TypeA); got != nil {
+	defer s.Close()
+	if got, _, _ := s.Get("example.org.", dns.TypeA); got != nil {
 		t.Errorf("Expected empty store from corrupt snapshot, got %v", got)
 	}
 }

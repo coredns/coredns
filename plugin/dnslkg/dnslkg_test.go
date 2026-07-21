@@ -48,11 +48,11 @@ func (n *nextHandler) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.M
 
 func newTestPlugin(t *testing.T, next plugin.Handler) *DnsLKG {
 	t.Helper()
-	s, err := newStore(filepath.Join(t.TempDir(), "lkg.db"))
+	s, err := newSnapshotStore(filepath.Join(t.TempDir(), "lkg.db"))
 	if err != nil {
 		t.Fatalf("Store: %v", err)
 	}
-	t.Cleanup(func() { s.close() })
+	t.Cleanup(func() { s.Close() })
 	return &DnsLKG{Next: next, store: s, ttl: defaultTTL}
 }
 
@@ -74,7 +74,7 @@ func TestServeStoresGoodAnswer(t *testing.T) {
 		t.Fatalf("Expected the good answer to be passed through, got %v", rec.Msg)
 	}
 
-	got, _, err := d.store.get("example.org.", dns.TypeA)
+	got, _, err := d.store.Get("example.org.", dns.TypeA)
 	if err != nil {
 		t.Fatalf("Store get: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestServeDNSUntrackedBypasses(t *testing.T) {
 
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	// Prime an LKG entry for a name we won't query as tracked.
-	d.store.put("other.org.", dns.TypeA, msgWith("other.org.", dns.TypeA, test.A("other.org. 300 IN A 1.2.3.4")))
+	d.store.Put("other.org.", dns.TypeA, msgWith("other.org.", dns.TypeA, test.A("other.org. 300 IN A 1.2.3.4")))
 
 	d.ServeDNS(context.TODO(), rec, query("other.org.", dns.TypeA))
 	if rec.Msg.Rcode != dns.RcodeNameError {

@@ -14,9 +14,10 @@ import (
 	"github.com/miekg/dns"
 )
 
-// store is a small persistent key/value store, keyed by (name, qtype), that
-// holds the last known good DNS answer (as a packed wire-format message) for
-// each tracked name.
+// Persistence design (implemented by snapshotStore, the default Store below):
+// a small persistent key/value store, keyed by (name, qtype), that holds the
+// last known good DNS answer (as a packed wire-format message) for each tracked
+// name. It is the default Store implementation.
 //
 // It is deliberately simple and dependency-free (standard library only). The
 // design is a periodically-snapshotted in-memory map:
@@ -37,7 +38,28 @@ import (
 // the state: loading it on startup fully restores the store. The trade-off is
 // that answers observed since the last snapshot are lost on an unclean crash,
 // which is acceptable for a best-effort last-known-good cache.
-type store struct {
+
+// Store persists last known good DNS answers, keyed by (name, qtype). It is the
+// abstraction the plugin depends on, so alternative backends (e.g. a bounded
+// LRU, or an external store) can be added without touching the request path.
+//
+// Implementations must be safe for concurrent use.
+type Store interface {
+	// Put records m as the last known good answer for name/qtype.
+	Put(name string, qtype uint16, m *dns.Msg) error
+	// Get returns the stored answer for name/qtype and the time it was stored,
+	// or (nil, zero, nil) when no entry exists.
+	Get(name string, qtype uint16) (*dns.Msg, time.Time, error)
+	// Delete removes the entry for name/qtype if present.
+	Delete(name string, qtype uint16) error
+	// Close flushes any pending state and releases resources.
+	Close() error
+}
+
+// snapshotStore is the default Store implementation: an in-memory map that is
+// periodically snapshotted to a single on-disk file. See the package overview
+// for the design rationale.
+type snapshotStore struct {
 	path string
 
 	mu      sync.RWMutex
@@ -48,6 +70,9 @@ type store struct {
 	done      chan struct{}
 	closeOnce sync.Once
 }
+
+// Ensure snapshotStore satisfies the Store interface.
+var _ Store = (*snapshotStore)(nil)
 
 // entry is a single stored answer held in memory.
 type entry struct {
@@ -67,16 +92,17 @@ var snapMagic = [4]byte{'L', 'K', 'G', '2'}
 
 var crcTable = crc32.MakeTable(crc32.IEEE)
 
-// newStore opens the snapshot file at path (ensuring its parent directory
-// exists), loads any existing entries, and starts the background flusher.
-func newStore(path string) (*store, error) {
+// newSnapshotStore opens the snapshot file at path (ensuring its parent
+// directory exists), loads any existing entries, and starts the background
+// flusher.
+func newSnapshotStore(path string) (*snapshotStore, error) {
 	if dir := filepath.Dir(path); dir != "" {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, fmt.Errorf("creating store directory %q: %w", dir, err)
 		}
 	}
 
-	s := &store{
+	s := &snapshotStore{
 		path:    path,
 		entries: make(map[string]entry),
 		stop:    make(chan struct{}),
@@ -101,10 +127,10 @@ func keyBytes(name string, qtype uint16) [keyLen]byte {
 	return k
 }
 
-// put records m as the last known good answer for name/qtype. Identical repeat
+// Put records m as the last known good answer for name/qtype. Identical repeat
 // answers only refresh the in-memory timestamp and do not dirty the store, so a
 // name that keeps resolving to the same value never triggers a disk write.
-func (s *store) put(name string, qtype uint16, m *dns.Msg) error {
+func (s *snapshotStore) Put(name string, qtype uint16, m *dns.Msg) error {
 	packed, err := m.Pack()
 	if err != nil {
 		return fmt.Errorf("packing message: %w", err)
@@ -126,9 +152,9 @@ func (s *store) put(name string, qtype uint16, m *dns.Msg) error {
 	return nil
 }
 
-// get returns the stored last known good answer for name/qtype together with
+// Get returns the stored last known good answer for name/qtype together with
 // the time it was stored. It returns (nil, zero, nil) when no entry exists.
-func (s *store) get(name string, qtype uint16) (*dns.Msg, time.Time, error) {
+func (s *snapshotStore) Get(name string, qtype uint16) (*dns.Msg, time.Time, error) {
 	k := keyBytes(name, qtype)
 
 	s.mu.RLock()
@@ -145,8 +171,8 @@ func (s *store) get(name string, qtype uint16) (*dns.Msg, time.Time, error) {
 	return m, e.storedAt, nil
 }
 
-// delete removes the entry for name/qtype if present.
-func (s *store) delete(name string, qtype uint16) error {
+// Delete removes the entry for name/qtype if present.
+func (s *snapshotStore) Delete(name string, qtype uint16) error {
 	k := keyBytes(name, qtype)
 	ks := string(k[:])
 
@@ -159,8 +185,8 @@ func (s *store) delete(name string, qtype uint16) error {
 	return nil
 }
 
-// close stops the background flusher and writes a final snapshot.
-func (s *store) close() error {
+// Close stops the background flusher and writes a final snapshot.
+func (s *snapshotStore) Close() error {
 	s.closeOnce.Do(func() {
 		close(s.stop)
 		<-s.done
@@ -169,7 +195,7 @@ func (s *store) close() error {
 }
 
 // flushLoop periodically flushes the snapshot until the store is closed.
-func (s *store) flushLoop() {
+func (s *snapshotStore) flushLoop() {
 	defer close(s.done)
 
 	t := time.NewTicker(flushInterval)
@@ -190,7 +216,7 @@ func (s *store) flushLoop() {
 // flush writes the current map to disk if it has changed since the last flush.
 // The (potentially large) file write happens outside the lock; only the quick
 // in-memory serialisation is done while holding it.
-func (s *store) flush() error {
+func (s *snapshotStore) flush() error {
 	s.mu.Lock()
 	if !s.dirty {
 		s.mu.Unlock()
@@ -220,7 +246,7 @@ func (s *store) flush() error {
 //
 // The CRC covers payload only and guards against on-disk corruption (atomic
 // renames already prevent partially-written snapshots).
-func (s *store) encodeLocked() []byte {
+func (s *snapshotStore) encodeLocked() []byte {
 	size := 4 // count
 	for _, e := range s.entries {
 		size += 8 + keyLen + 4 + len(e.packed)
@@ -250,7 +276,7 @@ func (s *store) encodeLocked() []byte {
 }
 
 // writeFile atomically replaces the snapshot file with buf.
-func (s *store) writeFile(buf []byte) error {
+func (s *snapshotStore) writeFile(buf []byte) error {
 	dir := filepath.Dir(s.path)
 	tmp, err := os.CreateTemp(dir, filepath.Base(s.path)+"-*.tmp")
 	if err != nil {
@@ -281,7 +307,7 @@ func (s *store) writeFile(buf []byte) error {
 
 // load reads the snapshot file (if any) into the in-memory map. A missing file
 // is not an error; a corrupt file is logged and ignored, leaving an empty store.
-func (s *store) load() {
+func (s *snapshotStore) load() {
 	data, err := os.ReadFile(s.path)
 	if err != nil {
 		if !os.IsNotExist(err) {
