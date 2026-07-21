@@ -1,47 +1,19 @@
 package dnslkg
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/binary"
+	"container/list"
 	"fmt"
-	"hash/crc32"
-	"os"
-	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/miekg/dns"
 )
 
-// Persistence design (implemented by snapshotStore, the default Store below):
-// a small persistent key/value store, keyed by (name, qtype), that holds the
-// last known good DNS answer (as a packed wire-format message) for each tracked
-// name. It is the default Store implementation.
-//
-// It is deliberately simple and dependency-free (standard library only). The
-// design is a periodically-snapshotted in-memory map:
-//
-//   - The map is the single source of truth. Reads (only on the upstream-failure
-//     path) and writes are plain, lock-cheap map operations - the request path
-//     never touches the disk.
-//   - A write just flips a dirty flag. A background goroutine flushes the whole
-//     map to one on-disk file at most once every flushInterval, and only when
-//     something actually changed. Disk-write frequency is therefore bounded and
-//     independent of the query rate.
-//   - Each flush writes to a temp file that is fsync'd and atomically renamed
-//     into place, so the on-disk snapshot is always a complete, consistent copy
-//     - a crash can never leave a half-written file, so no journaling, CRC-tail
-//     recovery or compaction machinery is needed.
-//
-// Because the whole (bounded) live set already lives in memory, the snapshot is
-// the state: loading it on startup fully restores the store. The trade-off is
-// that answers observed since the last snapshot are lost on an unclean crash,
-// which is acceptable for a best-effort last-known-good cache.
-
-// Store persists last known good DNS answers, keyed by (name, qtype). It is the
-// abstraction the plugin depends on, so alternative backends (e.g. a bounded
-// LRU, or an external store) can be added without touching the request path.
+// Store holds the last known good DNS answer for each tracked (name, qtype)
+// pair. It is the abstraction the plugin depends on: the default implementation
+// (memStore) keeps everything in memory, but the interface deliberately leaves
+// room for a persistent backend to be added later without touching the request
+// path.
 //
 // Implementations must be safe for concurrent use.
 type Store interface {
@@ -52,319 +24,136 @@ type Store interface {
 	Get(name string, qtype uint16) (*dns.Msg, time.Time, error)
 	// Delete removes the entry for name/qtype if present.
 	Delete(name string, qtype uint16) error
-	// Close flushes any pending state and releases resources.
+	// Close releases any resources held by the store.
 	Close() error
 }
 
-// snapshotStore is the default Store implementation: an in-memory map that is
-// periodically snapshotted to a single on-disk file. See the package overview
-// for the design rationale.
-type snapshotStore struct {
-	path string
+// defaultMaxEntries bounds the in-memory store when no limit is configured.
+const defaultMaxEntries = 10000
+
+// memStore is the default Store: a bounded in-memory map. When the number of
+// entries would exceed max, the least-recently-written entry is evicted, so
+// memory use is capped regardless of how many distinct names are queried.
+//
+// It is intentionally simple. A single RWMutex guards the map and the ordering
+// list; reads take the (shared) read lock and never mutate shared state, so
+// concurrent look-ups on the failure path do not contend with each other.
+// There is no background goroutine, no disk I/O and no channels.
+type memStore struct {
+	max int
 
 	mu      sync.RWMutex
-	entries map[string]entry
-	dirty   bool
-
-	stop      chan struct{}
-	done      chan struct{}
-	closeOnce sync.Once
+	entries map[string]*list.Element // key -> element in order
+	order   *list.List               // front = oldest write, back = newest
 }
 
-// Ensure snapshotStore satisfies the Store interface.
-var _ Store = (*snapshotStore)(nil)
-
-// entry is a single stored answer held in memory.
+// entry is a single stored answer.
 type entry struct {
+	key      string
 	packed   []byte    // packed wire-format DNS message
 	storedAt time.Time // when the answer was last observed as good
 }
 
-const (
-	// keyLen is the fixed length of a hashed key (SHA-256).
-	keyLen = sha256.Size
-	// flushInterval bounds how often the snapshot is written to disk.
-	flushInterval = 10 * time.Second
-)
+// Ensure memStore satisfies the Store interface.
+var _ Store = (*memStore)(nil)
 
-// snapMagic identifies (and versions) the snapshot file format.
-var snapMagic = [4]byte{'L', 'K', 'G', '2'}
-
-var crcTable = crc32.MakeTable(crc32.IEEE)
-
-// newSnapshotStore opens the snapshot file at path (ensuring its parent
-// directory exists), loads any existing entries, and starts the background
-// flusher.
-func newSnapshotStore(path string) (*snapshotStore, error) {
-	if dir := filepath.Dir(path); dir != "" {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, fmt.Errorf("creating store directory %q: %w", dir, err)
-		}
+// newMemStore returns an in-memory store bounded to max entries. A non-positive
+// max falls back to defaultMaxEntries.
+func newMemStore(max int) *memStore {
+	if max <= 0 {
+		max = defaultMaxEntries
 	}
-
-	s := &snapshotStore{
-		path:    path,
-		entries: make(map[string]entry),
-		stop:    make(chan struct{}),
-		done:    make(chan struct{}),
+	return &memStore{
+		max:     max,
+		entries: make(map[string]*list.Element),
+		order:   list.New(),
 	}
-	s.load()
-
-	go s.flushLoop()
-	return s, nil
 }
 
-// keyBytes derives the fixed-length key for a name/qtype pair. A hash keeps keys
-// a constant size regardless of the (arbitrary length) query name.
-func keyBytes(name string, qtype uint16) [keyLen]byte {
-	var buf [2]byte
-	binary.BigEndian.PutUint16(buf[:], qtype)
-	h := sha256.New()
-	h.Write([]byte(name))
-	h.Write(buf[:])
-	var k [keyLen]byte
-	copy(k[:], h.Sum(nil))
-	return k
+// storeKey derives the map key for a name/qtype pair. The name is already a
+// short, lower-cased FQDN, so it is used directly with the 2-byte qtype
+// appended - no hashing is needed for an in-memory map.
+func storeKey(name string, qtype uint16) string {
+	return name + string([]byte{byte(qtype >> 8), byte(qtype)})
 }
 
-// Put records m as the last known good answer for name/qtype. Identical repeat
-// answers only refresh the in-memory timestamp and do not dirty the store, so a
-// name that keeps resolving to the same value never triggers a disk write.
-func (s *snapshotStore) Put(name string, qtype uint16, m *dns.Msg) error {
+// Put records m as the last known good answer for name/qtype. Overwriting an
+// existing key refreshes its value and marks it most-recently-written so it is
+// the last to be evicted.
+func (s *memStore) Put(name string, qtype uint16, m *dns.Msg) error {
 	packed, err := m.Pack()
 	if err != nil {
 		return fmt.Errorf("packing message: %w", err)
 	}
-	k := keyBytes(name, qtype)
-	ks := string(k[:])
+	k := storeKey(name, qtype)
 	now := time.Now()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if cur, ok := s.entries[ks]; ok && bytes.Equal(cur.packed, packed) {
-		cur.storedAt = now
-		s.entries[ks] = cur
+	if el, ok := s.entries[k]; ok {
+		e := el.Value.(*entry)
+		e.packed = packed
+		e.storedAt = now
+		s.order.MoveToBack(el)
 		return nil
 	}
-	s.entries[ks] = entry{packed: packed, storedAt: now}
-	s.dirty = true
+
+	s.entries[k] = s.order.PushBack(&entry{key: k, packed: packed, storedAt: now})
+
+	if s.order.Len() > s.max {
+		if oldest := s.order.Front(); oldest != nil {
+			s.order.Remove(oldest)
+			delete(s.entries, oldest.Value.(*entry).key)
+		}
+	}
 	return nil
 }
 
 // Get returns the stored last known good answer for name/qtype together with
 // the time it was stored. It returns (nil, zero, nil) when no entry exists.
-func (s *snapshotStore) Get(name string, qtype uint16) (*dns.Msg, time.Time, error) {
-	k := keyBytes(name, qtype)
+//
+// Only the (shared) read lock is held, and just long enough to copy the entry's
+// immutable packed bytes; the unpack happens after the lock is released.
+func (s *memStore) Get(name string, qtype uint16) (*dns.Msg, time.Time, error) {
+	k := storeKey(name, qtype)
 
 	s.mu.RLock()
-	e, ok := s.entries[string(k[:])]
+	el, ok := s.entries[k]
+	var packed []byte
+	var storedAt time.Time
+	if ok {
+		e := el.Value.(*entry)
+		packed = e.packed
+		storedAt = e.storedAt
+	}
 	s.mu.RUnlock()
+
 	if !ok {
 		return nil, time.Time{}, nil
 	}
 
 	m := new(dns.Msg)
-	if err := m.Unpack(e.packed); err != nil {
+	if err := m.Unpack(packed); err != nil {
 		return nil, time.Time{}, fmt.Errorf("unpacking message: %w", err)
 	}
-	return m, e.storedAt, nil
+	return m, storedAt, nil
 }
 
 // Delete removes the entry for name/qtype if present.
-func (s *snapshotStore) Delete(name string, qtype uint16) error {
-	k := keyBytes(name, qtype)
-	ks := string(k[:])
+func (s *memStore) Delete(name string, qtype uint16) error {
+	k := storeKey(name, qtype)
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, ok := s.entries[ks]; ok {
-		delete(s.entries, ks)
-		s.dirty = true
+	if el, ok := s.entries[k]; ok {
+		s.order.Remove(el)
+		delete(s.entries, k)
 	}
-	return nil
-}
-
-// Close stops the background flusher and writes a final snapshot.
-func (s *snapshotStore) Close() error {
-	s.closeOnce.Do(func() {
-		close(s.stop)
-		<-s.done
-	})
-	return s.flush()
-}
-
-// flushLoop periodically flushes the snapshot until the store is closed.
-func (s *snapshotStore) flushLoop() {
-	defer close(s.done)
-
-	t := time.NewTicker(flushInterval)
-	defer t.Stop()
-
-	for {
-		select {
-		case <-s.stop:
-			return
-		case <-t.C:
-			if err := s.flush(); err != nil {
-				log.Warningf("Failed to flush LKG store: %v", err)
-			}
-		}
-	}
-}
-
-// flush writes the current map to disk if it has changed since the last flush.
-// The (potentially large) file write happens outside the lock; only the quick
-// in-memory serialisation is done while holding it.
-func (s *snapshotStore) flush() error {
-	s.mu.Lock()
-	if !s.dirty {
-		s.mu.Unlock()
-		return nil
-	}
-	buf := s.encodeLocked()
-	s.dirty = false
 	s.mu.Unlock()
-
-	if err := s.writeFile(buf); err != nil {
-		// Re-mark dirty so the next flush retries.
-		s.mu.Lock()
-		s.dirty = true
-		s.mu.Unlock()
-		return err
-	}
 	return nil
 }
 
-// encodeLocked serialises the whole map into the snapshot file format. The
-// caller must hold s.mu.
-//
-// Layout:
-//
-//	magic[4] | crc32[4] | payload
-//	payload  = count:uint32 | count * ( storedAt:int64 | key[keyLen] | vlen:uint32 | value )
-//
-// The CRC covers payload only and guards against on-disk corruption (atomic
-// renames already prevent partially-written snapshots).
-func (s *snapshotStore) encodeLocked() []byte {
-	size := 4 // count
-	for _, e := range s.entries {
-		size += 8 + keyLen + 4 + len(e.packed)
-	}
-	payload := make([]byte, 0, size)
-
-	var num [8]byte
-	binary.BigEndian.PutUint32(num[:4], uint32(len(s.entries)))
-	payload = append(payload, num[:4]...)
-
-	for ks, e := range s.entries {
-		binary.BigEndian.PutUint64(num[:8], uint64(e.storedAt.Unix()))
-		payload = append(payload, num[:8]...)
-		payload = append(payload, ks...) // ks is exactly keyLen bytes
-		binary.BigEndian.PutUint32(num[:4], uint32(len(e.packed)))
-		payload = append(payload, num[:4]...)
-		payload = append(payload, e.packed...)
-	}
-
-	out := make([]byte, 0, len(snapMagic)+4+len(payload))
-	out = append(out, snapMagic[:]...)
-	var crc [4]byte
-	binary.BigEndian.PutUint32(crc[:], crc32.Checksum(payload, crcTable))
-	out = append(out, crc[:]...)
-	out = append(out, payload...)
-	return out
-}
-
-// writeFile atomically replaces the snapshot file with buf.
-func (s *snapshotStore) writeFile(buf []byte) error {
-	dir := filepath.Dir(s.path)
-	tmp, err := os.CreateTemp(dir, filepath.Base(s.path)+"-*.tmp")
-	if err != nil {
-		return fmt.Errorf("creating temp snapshot: %w", err)
-	}
-	tmpName := tmp.Name()
-
-	if _, err := tmp.Write(buf); err != nil {
-		tmp.Close()
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("writing snapshot: %w", err)
-	}
-	if err := tmp.Sync(); err != nil {
-		tmp.Close()
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("syncing snapshot: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("closing snapshot: %w", err)
-	}
-	if err := os.Rename(tmpName, s.path); err != nil {
-		_ = os.Remove(tmpName)
-		return fmt.Errorf("renaming snapshot into place: %w", err)
-	}
-	return nil
-}
-
-// load reads the snapshot file (if any) into the in-memory map. A missing file
-// is not an error; a corrupt file is logged and ignored, leaving an empty store.
-func (s *snapshotStore) load() {
-	data, err := os.ReadFile(s.path)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			log.Warningf("Failed to read LKG store %q: %v", s.path, err)
-		}
-		return
-	}
-
-	entries, err := decodeSnapshot(data)
-	if err != nil {
-		log.Warningf("Ignoring malformed LKG store %q: %v", s.path, err)
-		return
-	}
-	s.entries = entries
-}
-
-// decodeSnapshot parses the snapshot format produced by encodeLocked.
-func decodeSnapshot(data []byte) (map[string]entry, error) {
-	const headerLen = 4 + 4 // magic + crc
-	if len(data) < headerLen {
-		return nil, fmt.Errorf("snapshot too short (%d bytes)", len(data))
-	}
-	var magic [4]byte
-	copy(magic[:], data[:4])
-	if magic != snapMagic {
-		return nil, fmt.Errorf("bad magic")
-	}
-	crc := binary.BigEndian.Uint32(data[4:8])
-	payload := data[headerLen:]
-	if crc32.Checksum(payload, crcTable) != crc {
-		return nil, fmt.Errorf("bad checksum")
-	}
-	if len(payload) < 4 {
-		return nil, fmt.Errorf("truncated header")
-	}
-
-	count := binary.BigEndian.Uint32(payload[:4])
-	payload = payload[4:]
-
-	entries := make(map[string]entry, count)
-	for i := uint32(0); i < count; i++ {
-		if len(payload) < 8+keyLen+4 {
-			return nil, fmt.Errorf("truncated entry %d", i)
-		}
-		storedAt := time.Unix(int64(binary.BigEndian.Uint64(payload[:8])), 0)
-		key := string(payload[8 : 8+keyLen])
-		vlen := binary.BigEndian.Uint32(payload[8+keyLen : 8+keyLen+4])
-		payload = payload[8+keyLen+4:]
-
-		if uint32(len(payload)) < vlen {
-			return nil, fmt.Errorf("truncated value for entry %d", i)
-		}
-		val := make([]byte, vlen)
-		copy(val, payload[:vlen])
-		payload = payload[vlen:]
-
-		entries[key] = entry{packed: val, storedAt: storedAt}
-	}
-	return entries, nil
-}
+// Close releases resources held by the store. The in-memory store holds none,
+// so this is a no-op; it exists to satisfy the Store interface and to give a
+// future persistent backend a shutdown hook.
+func (s *memStore) Close() error { return nil }

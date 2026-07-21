@@ -7,28 +7,26 @@ NXDOMAIN, NODATA or an error.
 
 ## Description
 
-The *dnslkg* plugin persists every successful answer it observes to an on-disk
-store. When the upstream subsequently returns a negative response
-(NXDOMAIN or NODATA), an error response (e.g. SERVFAIL) or fails to respond at
-all, *dnslkg* replies with the previously stored answer instead - the *last
-known good* result.
+The *dnslkg* plugin remembers every successful answer it observes. When the
+upstream subsequently returns a negative response (NXDOMAIN or NODATA), an error
+response (e.g. SERVFAIL) or fails to respond at all, *dnslkg* replies with the
+previously stored answer instead - the *last known good* result.
 
 This protects against outages caused by an upstream that is **healthy but
 misconfigured** - for example a bug in a provisioning system that publishes an
 empty or wrong zone, causing names that used to resolve to suddenly return
 NXDOMAIN/NODATA. This class of failure (as seen in large scale cloud DNS
 incidents) is *not* covered by the *cache* plugin's `serve_stale` option, which
-only serves stale data while the upstream is considered **unhealthy** and which
-keeps its data in memory only (lost on restart and not shared across processes).
+only serves stale data while the upstream is considered **unhealthy**.
 
-Because the store is on disk, last known good answers survive CoreDNS restarts.
-The store has no external dependencies and is intentionally simple: entries are
-held in memory for fast, concurrent access, and the whole map is periodically
-snapshotted to a single on-disk file (written to a temp file and atomically
-renamed, so the snapshot is always complete and consistent - no journaling or
-compaction is involved). The request path never touches the disk. Repeated
-identical answers do not trigger a write, and the snapshot's size tracks the
-number of tracked names rather than the query volume.
+The store is a simple, bounded, in-memory map with no external dependencies. It
+is capped at `max_entries` records; when full, the least-recently-written entry
+is evicted, so memory use stays bounded regardless of how many distinct names
+are queried. Reads (only on the upstream-failure path) take a shared lock and
+never mutate shared state, so concurrent look-ups do not contend. There is no
+background goroutine and no disk I/O. Because the store is in memory only, the
+last known good answers do **not** survive a CoreDNS restart; the `Store`
+interface is designed so a persistent backend can be added later.
 
 The set of names handled by the plugin can be narrowed with `include` and
 `exclude` regular expressions. With no patterns configured, all names are
@@ -41,26 +39,22 @@ existed (e.g. an `AAAA` for an IPv4-only host) is passed through untouched.
 ## Syntax
 
 ~~~ txt
-dnslkg [PATH]
+dnslkg
 ~~~
-
-* **PATH** is the path to the store's snapshot file. Its parent directory is
-  created if it does not exist. Defaults to `dnslkg.db` in the CoreDNS working
-  directory.
 
 The extended syntax allows finer control:
 
 ~~~ txt
-dnslkg [PATH] {
-    path    PATH
-    ttl     DURATION
-    include REGEX...
-    exclude REGEX...
+dnslkg {
+    max_entries N
+    ttl         DURATION
+    include     REGEX...
+    exclude     REGEX...
 }
 ~~~
 
-* `path` **PATH** sets the snapshot file location (alternative to the
-  inline argument).
+* `max_entries` **N** is the maximum number of answers held in memory. Must be a
+  positive integer. Defaults to `10000`.
 * `ttl` **DURATION** is the TTL stamped on records of answers served from the
   store. A short value (default `30s`) is recommended so clients re-query
   frequently and pick up a recovered upstream quickly. Set to `0s` to instead
@@ -86,23 +80,23 @@ exported:
 
 ## Examples
 
-Serve last known good answers for every name, storing the data at the given
-path:
+Serve last known good answers for every name:
 
 ~~~ corefile
 . {
-    dnslkg dnslkg.db
+    dnslkg
     cache
     forward . 8.8.8.8
 }
 ~~~
 
-Only protect a couple of critical domains, and never protect an internal test
-domain:
+Only protect a couple of critical domains, never protect an internal test
+domain, and cap the store at 1000 entries:
 
 ~~~ corefile
 . {
-    dnslkg dnslkg.db {
+    dnslkg {
+        max_entries 1000
         ttl 15s
         include (^|\.)example\.com\.$ (^|\.)example\.org\.$
         exclude (^|\.)test\.internal\.$

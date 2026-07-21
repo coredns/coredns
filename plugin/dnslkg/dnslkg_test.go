@@ -3,7 +3,6 @@ package dnslkg
 import (
 	"context"
 	"errors"
-	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -48,12 +47,7 @@ func (n *nextHandler) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.M
 
 func newTestPlugin(t *testing.T, next plugin.Handler) *DnsLKG {
 	t.Helper()
-	s, err := newSnapshotStore(filepath.Join(t.TempDir(), "lkg.db"))
-	if err != nil {
-		t.Fatalf("Store: %v", err)
-	}
-	t.Cleanup(func() { s.Close() })
-	return &DnsLKG{Next: next, store: s, ttl: defaultTTL}
+	return &DnsLKG{Next: next, store: newMemStore(0), ttl: defaultTTL}
 }
 
 func query(qname string, qtype uint16) *dns.Msg {
