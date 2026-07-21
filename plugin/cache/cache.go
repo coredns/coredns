@@ -184,25 +184,18 @@ func isNODATA(m *dns.Msg) bool {
 // records that name the same target are tolerated, since they still describe a
 // single canonical name.
 func canonicalName(answer []dns.RR, name string) (string, bool) {
-	seen := make(map[string]bool)
+	visited := nameSet{}
 	for {
-		key := strings.ToLower(name)
-		if seen[key] {
-			// Revisited owner: the chain contains a loop.
+		if visited.contains(name) {
+			// Revisited owner: the chain contains a CNAME loop.
 			return name, false
 		}
-		seen[key] = true
-		target := ""
-		for _, r := range answer {
-			c, ok := r.(*dns.CNAME)
-			if !ok || !strings.EqualFold(c.Header().Name, name) {
-				continue
-			}
-			if target != "" && !strings.EqualFold(target, c.Target) {
-				// More than one distinct canonical name for this owner.
-				return name, false
-			}
-			target = c.Target
+		visited.add(name)
+
+		target, ok := uniqueCNAMETarget(answer, name)
+		if !ok {
+			// Owner has more than one distinct canonical name.
+			return name, false
 		}
 		if target == "" {
 			// Terminal owner reached: no CNAME continues the chain.
@@ -210,6 +203,38 @@ func canonicalName(answer []dns.RR, name string) (string, bool) {
 		}
 		name = target
 	}
+}
+
+// uniqueCNAMETarget returns the canonical name that owner is aliased to by a
+// CNAME record in answer. ok is false when owner carries more than one distinct
+// CNAME target, which violates RFC 2181 section 10.1. When owner has no CNAME the
+// returned target is empty and ok is true, marking a terminal owner. Duplicate
+// CNAME records naming the same target are tolerated.
+func uniqueCNAMETarget(answer []dns.RR, owner string) (target string, ok bool) {
+	for _, r := range answer {
+		c, isCNAME := r.(*dns.CNAME)
+		if !isCNAME || !strings.EqualFold(c.Header().Name, owner) {
+			continue
+		}
+		if target != "" && !strings.EqualFold(target, c.Target) {
+			return "", false
+		}
+		target = c.Target
+	}
+	return target, true
+}
+
+// nameSet is a set of domain names compared case-insensitively, used to detect
+// revisited owners (loops) while walking a CNAME chain.
+type nameSet map[string]struct{}
+
+func (s nameSet) contains(name string) bool {
+	_, ok := s[strings.ToLower(name)]
+	return ok
+}
+
+func (s nameSet) add(name string) {
+	s[strings.ToLower(name)] = struct{}{}
 }
 
 var one = []byte("1")
