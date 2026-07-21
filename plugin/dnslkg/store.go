@@ -1,106 +1,344 @@
 package dnslkg
 
 import (
-	"database/sql"
+	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
-	"net/url"
+	"hash/crc32"
+	"os"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/miekg/dns"
-	_ "modernc.org/sqlite"
 )
 
 // store is a small persistent key/value store, keyed by (name, qtype), that
 // holds the last known good DNS answer (as a packed wire-format message) for
-// each tracked name. It is backed by an on-disk SQLite database opened in WAL
-// mode to allow concurrent readers alongside a single writer.
+// each tracked name.
+//
+// It is deliberately simple and dependency-free (standard library only). The
+// design is a periodically-snapshotted in-memory map:
+//
+//   - The map is the single source of truth. Reads (only on the upstream-failure
+//     path) and writes are plain, lock-cheap map operations - the request path
+//     never touches the disk.
+//   - A write just flips a dirty flag. A background goroutine flushes the whole
+//     map to one on-disk file at most once every flushInterval, and only when
+//     something actually changed. Disk-write frequency is therefore bounded and
+//     independent of the query rate.
+//   - Each flush writes to a temp file that is fsync'd and atomically renamed
+//     into place, so the on-disk snapshot is always a complete, consistent copy
+//     - a crash can never leave a half-written file, so no journaling, CRC-tail
+//     recovery or compaction machinery is needed.
+//
+// Because the whole (bounded) live set already lives in memory, the snapshot is
+// the state: loading it on startup fully restores the store. The trade-off is
+// that answers observed since the last snapshot are lost on an unclean crash,
+// which is acceptable for a best-effort last-known-good cache.
 type store struct {
-	db *sql.DB
+	path string
+
+	mu      sync.RWMutex
+	entries map[string]entry
+	dirty   bool
+
+	stop      chan struct{}
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
-const schema = `
-CREATE TABLE IF NOT EXISTS lkg (
-    name      TEXT    NOT NULL,
-    qtype     INTEGER NOT NULL,
-    msg       BLOB    NOT NULL,
-    stored_at INTEGER NOT NULL,
-    PRIMARY KEY (name, qtype)
-);`
+// entry is a single stored answer held in memory.
+type entry struct {
+	packed   []byte    // packed wire-format DNS message
+	storedAt time.Time // when the answer was last observed as good
+}
 
-// newStore opens (creating if necessary) the SQLite database at path and
-// ensures the schema exists.
+const (
+	// keyLen is the fixed length of a hashed key (SHA-256).
+	keyLen = sha256.Size
+	// flushInterval bounds how often the snapshot is written to disk.
+	flushInterval = 10 * time.Second
+)
+
+// snapMagic identifies (and versions) the snapshot file format.
+var snapMagic = [4]byte{'L', 'K', 'G', '2'}
+
+var crcTable = crc32.MakeTable(crc32.IEEE)
+
+// newStore opens the snapshot file at path (ensuring its parent directory
+// exists), loads any existing entries, and starts the background flusher.
 func newStore(path string) (*store, error) {
-	// Enable WAL journaling and a busy timeout so concurrent access from the
-	// (potentially many) CoreDNS request goroutines does not immediately fail
-	// with "database is locked".
-	dsn := fmt.Sprintf("file:%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)", url.PathEscape(path))
-
-	db, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		return nil, err
-	}
-	if err := db.Ping(); err != nil {
-		db.Close()
-		return nil, err
-	}
-	if _, err := db.Exec(schema); err != nil {
-		db.Close()
-		return nil, err
+	if dir := filepath.Dir(path); dir != "" {
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return nil, fmt.Errorf("creating store directory %q: %w", dir, err)
+		}
 	}
 
-	return &store{db: db}, nil
+	s := &store{
+		path:    path,
+		entries: make(map[string]entry),
+		stop:    make(chan struct{}),
+		done:    make(chan struct{}),
+	}
+	s.load()
+
+	go s.flushLoop()
+	return s, nil
 }
 
-// put records m as the last known good answer for name/qtype, replacing any
-// previous entry.
+// keyBytes derives the fixed-length key for a name/qtype pair. A hash keeps keys
+// a constant size regardless of the (arbitrary length) query name.
+func keyBytes(name string, qtype uint16) [keyLen]byte {
+	var buf [2]byte
+	binary.BigEndian.PutUint16(buf[:], qtype)
+	h := sha256.New()
+	h.Write([]byte(name))
+	h.Write(buf[:])
+	var k [keyLen]byte
+	copy(k[:], h.Sum(nil))
+	return k
+}
+
+// put records m as the last known good answer for name/qtype. Identical repeat
+// answers only refresh the in-memory timestamp and do not dirty the store, so a
+// name that keeps resolving to the same value never triggers a disk write.
 func (s *store) put(name string, qtype uint16, m *dns.Msg) error {
 	packed, err := m.Pack()
 	if err != nil {
 		return fmt.Errorf("packing message: %w", err)
 	}
-	_, err = s.db.Exec(
-		`INSERT INTO lkg (name, qtype, msg, stored_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT(name, qtype) DO UPDATE SET msg = excluded.msg, stored_at = excluded.stored_at`,
-		name, int(qtype), packed, time.Now().Unix(),
-	)
-	return err
+	k := keyBytes(name, qtype)
+	ks := string(k[:])
+	now := time.Now()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if cur, ok := s.entries[ks]; ok && bytes.Equal(cur.packed, packed) {
+		cur.storedAt = now
+		s.entries[ks] = cur
+		return nil
+	}
+	s.entries[ks] = entry{packed: packed, storedAt: now}
+	s.dirty = true
+	return nil
 }
 
 // get returns the stored last known good answer for name/qtype together with
 // the time it was stored. It returns (nil, zero, nil) when no entry exists.
 func (s *store) get(name string, qtype uint16) (*dns.Msg, time.Time, error) {
-	var (
-		packed   []byte
-		storedAt int64
-	)
-	err := s.db.QueryRow(
-		`SELECT msg, stored_at FROM lkg WHERE name = ? AND qtype = ?`,
-		name, int(qtype),
-	).Scan(&packed, &storedAt)
-	if err == sql.ErrNoRows {
+	k := keyBytes(name, qtype)
+
+	s.mu.RLock()
+	e, ok := s.entries[string(k[:])]
+	s.mu.RUnlock()
+	if !ok {
 		return nil, time.Time{}, nil
-	}
-	if err != nil {
-		return nil, time.Time{}, err
 	}
 
 	m := new(dns.Msg)
-	if err := m.Unpack(packed); err != nil {
+	if err := m.Unpack(e.packed); err != nil {
 		return nil, time.Time{}, fmt.Errorf("unpacking message: %w", err)
 	}
-	return m, time.Unix(storedAt, 0), nil
+	return m, e.storedAt, nil
 }
 
 // delete removes the entry for name/qtype if present.
 func (s *store) delete(name string, qtype uint16) error {
-	_, err := s.db.Exec(`DELETE FROM lkg WHERE name = ? AND qtype = ?`, name, int(qtype))
-	return err
+	k := keyBytes(name, qtype)
+	ks := string(k[:])
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.entries[ks]; ok {
+		delete(s.entries, ks)
+		s.dirty = true
+	}
+	return nil
 }
 
-// close releases the underlying database handle.
+// close stops the background flusher and writes a final snapshot.
 func (s *store) close() error {
-	if s.db == nil {
+	s.closeOnce.Do(func() {
+		close(s.stop)
+		<-s.done
+	})
+	return s.flush()
+}
+
+// flushLoop periodically flushes the snapshot until the store is closed.
+func (s *store) flushLoop() {
+	defer close(s.done)
+
+	t := time.NewTicker(flushInterval)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-s.stop:
+			return
+		case <-t.C:
+			if err := s.flush(); err != nil {
+				log.Warningf("Failed to flush LKG store: %v", err)
+			}
+		}
+	}
+}
+
+// flush writes the current map to disk if it has changed since the last flush.
+// The (potentially large) file write happens outside the lock; only the quick
+// in-memory serialisation is done while holding it.
+func (s *store) flush() error {
+	s.mu.Lock()
+	if !s.dirty {
+		s.mu.Unlock()
 		return nil
 	}
-	return s.db.Close()
+	buf := s.encodeLocked()
+	s.dirty = false
+	s.mu.Unlock()
+
+	if err := s.writeFile(buf); err != nil {
+		// Re-mark dirty so the next flush retries.
+		s.mu.Lock()
+		s.dirty = true
+		s.mu.Unlock()
+		return err
+	}
+	return nil
+}
+
+// encodeLocked serialises the whole map into the snapshot file format. The
+// caller must hold s.mu.
+//
+// Layout:
+//
+//	magic[4] | crc32[4] | payload
+//	payload  = count:uint32 | count * ( storedAt:int64 | key[keyLen] | vlen:uint32 | value )
+//
+// The CRC covers payload only and guards against on-disk corruption (atomic
+// renames already prevent partially-written snapshots).
+func (s *store) encodeLocked() []byte {
+	size := 4 // count
+	for _, e := range s.entries {
+		size += 8 + keyLen + 4 + len(e.packed)
+	}
+	payload := make([]byte, 0, size)
+
+	var num [8]byte
+	binary.BigEndian.PutUint32(num[:4], uint32(len(s.entries)))
+	payload = append(payload, num[:4]...)
+
+	for ks, e := range s.entries {
+		binary.BigEndian.PutUint64(num[:8], uint64(e.storedAt.Unix()))
+		payload = append(payload, num[:8]...)
+		payload = append(payload, ks...) // ks is exactly keyLen bytes
+		binary.BigEndian.PutUint32(num[:4], uint32(len(e.packed)))
+		payload = append(payload, num[:4]...)
+		payload = append(payload, e.packed...)
+	}
+
+	out := make([]byte, 0, len(snapMagic)+4+len(payload))
+	out = append(out, snapMagic[:]...)
+	var crc [4]byte
+	binary.BigEndian.PutUint32(crc[:], crc32.Checksum(payload, crcTable))
+	out = append(out, crc[:]...)
+	out = append(out, payload...)
+	return out
+}
+
+// writeFile atomically replaces the snapshot file with buf.
+func (s *store) writeFile(buf []byte) error {
+	dir := filepath.Dir(s.path)
+	tmp, err := os.CreateTemp(dir, filepath.Base(s.path)+"-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating temp snapshot: %w", err)
+	}
+	tmpName := tmp.Name()
+
+	if _, err := tmp.Write(buf); err != nil {
+		tmp.Close()
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("writing snapshot: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("syncing snapshot: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("closing snapshot: %w", err)
+	}
+	if err := os.Rename(tmpName, s.path); err != nil {
+		_ = os.Remove(tmpName)
+		return fmt.Errorf("renaming snapshot into place: %w", err)
+	}
+	return nil
+}
+
+// load reads the snapshot file (if any) into the in-memory map. A missing file
+// is not an error; a corrupt file is logged and ignored, leaving an empty store.
+func (s *store) load() {
+	data, err := os.ReadFile(s.path)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			log.Warningf("Failed to read LKG store %q: %v", s.path, err)
+		}
+		return
+	}
+
+	entries, err := decodeSnapshot(data)
+	if err != nil {
+		log.Warningf("Ignoring malformed LKG store %q: %v", s.path, err)
+		return
+	}
+	s.entries = entries
+}
+
+// decodeSnapshot parses the snapshot format produced by encodeLocked.
+func decodeSnapshot(data []byte) (map[string]entry, error) {
+	const headerLen = 4 + 4 // magic + crc
+	if len(data) < headerLen {
+		return nil, fmt.Errorf("snapshot too short (%d bytes)", len(data))
+	}
+	var magic [4]byte
+	copy(magic[:], data[:4])
+	if magic != snapMagic {
+		return nil, fmt.Errorf("bad magic")
+	}
+	crc := binary.BigEndian.Uint32(data[4:8])
+	payload := data[headerLen:]
+	if crc32.Checksum(payload, crcTable) != crc {
+		return nil, fmt.Errorf("bad checksum")
+	}
+	if len(payload) < 4 {
+		return nil, fmt.Errorf("truncated header")
+	}
+
+	count := binary.BigEndian.Uint32(payload[:4])
+	payload = payload[4:]
+
+	entries := make(map[string]entry, count)
+	for i := uint32(0); i < count; i++ {
+		if len(payload) < 8+keyLen+4 {
+			return nil, fmt.Errorf("truncated entry %d", i)
+		}
+		storedAt := time.Unix(int64(binary.BigEndian.Uint64(payload[:8])), 0)
+		key := string(payload[8 : 8+keyLen])
+		vlen := binary.BigEndian.Uint32(payload[8+keyLen : 8+keyLen+4])
+		payload = payload[8+keyLen+4:]
+
+		if uint32(len(payload)) < vlen {
+			return nil, fmt.Errorf("truncated value for entry %d", i)
+		}
+		val := make([]byte, vlen)
+		copy(val, payload[:vlen])
+		payload = payload[vlen:]
+
+		entries[key] = entry{packed: val, storedAt: storedAt}
+	}
+	return entries, nil
 }

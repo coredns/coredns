@@ -4,8 +4,10 @@
 //
 // Unlike the cache plugin's serve_stale option - which only kicks in when the
 // upstream is considered unhealthy and which keeps its data in memory only -
-// dnslkg persists every successful answer in an on-disk SQLite database. This
-// lets CoreDNS keep serving the last good answer across restarts and, more
+// dnslkg persists every successful answer to disk (using only the standard
+// library, no external dependencies) by periodically snapshotting its in-memory
+// map to a single file. This lets CoreDNS keep serving the last good answer
+// across restarts and, more
 // importantly, when a healthy-but-misconfigured upstream starts returning
 // NXDOMAIN / NODATA for names that previously resolved (the class of failure
 // that caused large scale outages such as the 2025 AWS DNS incident).
@@ -33,7 +35,7 @@ type DnsLKG struct {
 	Next plugin.Handler
 
 	store *store
-	// path is the location of the on-disk SQLite database.
+	// path is the location of the on-disk snapshot file that backs the store.
 	path string
 	// ttl, when > 0, is the TTL (in seconds) stamped on every record of an
 	// answer served from the LKG store. Keeping it short makes clients re-query

@@ -8,7 +8,7 @@ import (
 	"github.com/coredns/coredns/core/dnsserver"
 )
 
-// TestParse validates Corefile parsing without opening a database.
+// TestParse validates Corefile parsing without opening the store.
 func TestParse(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -99,10 +99,10 @@ func TestParsePatterns(t *testing.T) {
 	}
 }
 
-// TestSetup exercises the full setup path, including opening the SQLite store,
-// and closes the store afterwards so the temporary file can be removed.
+// TestSetup exercises the full setup path, including opening the on-disk store,
+// and closes the store afterwards.
 func TestSetup(t *testing.T) {
-	db := filepath.Join(t.TempDir(), "lkg.db")
+	db := filepath.Join(t.TempDir(), "lkg")
 	c := caddy.NewTestController("dns", `dnslkg `+db)
 
 	if err := setup(c); err != nil {
