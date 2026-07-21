@@ -7,8 +7,8 @@ NXDOMAIN, NODATA or an error.
 
 ## Description
 
-The *dnslkg* plugin persists every successful answer it observes into an on-disk
-SQLite database. When the upstream subsequently returns a negative response
+The *dnslkg* plugin persists every successful answer it observes to an on-disk
+store. When the upstream subsequently returns a negative response
 (NXDOMAIN or NODATA), an error response (e.g. SERVFAIL) or fails to respond at
 all, *dnslkg* replies with the previously stored answer instead - the *last
 known good* result.
@@ -22,8 +22,13 @@ only serves stale data while the upstream is considered **unhealthy** and which
 keeps its data in memory only (lost on restart and not shared across processes).
 
 Because the store is on disk, last known good answers survive CoreDNS restarts.
-SQLite is opened in WAL mode with a busy timeout, providing high-performance,
-concurrent, persistent, in-process storage.
+The store has no external dependencies and is intentionally simple: entries are
+held in memory for fast, concurrent access, and the whole map is periodically
+snapshotted to a single on-disk file (written to a temp file and atomically
+renamed, so the snapshot is always complete and consistent - no journaling or
+compaction is involved). The request path never touches the disk. Repeated
+identical answers do not trigger a write, and the snapshot's size tracks the
+number of tracked names rather than the query volume.
 
 The set of names handled by the plugin can be narrowed with `include` and
 `exclude` regular expressions. With no patterns configured, all names are
@@ -36,24 +41,25 @@ existed (e.g. an `AAAA` for an IPv4-only host) is passed through untouched.
 ## Syntax
 
 ~~~ txt
-dnslkg [DBPATH]
+dnslkg [PATH]
 ~~~
 
-* **DBPATH** is the path to the SQLite database file. Defaults to `dnslkg.db`
-  in the CoreDNS working directory.
+* **PATH** is the path to the store's snapshot file. Its parent directory is
+  created if it does not exist. Defaults to `dnslkg.db` in the CoreDNS working
+  directory.
 
 The extended syntax allows finer control:
 
 ~~~ txt
-dnslkg [DBPATH] {
-    path    DBPATH
+dnslkg [PATH] {
+    path    PATH
     ttl     DURATION
     include REGEX...
     exclude REGEX...
 }
 ~~~
 
-* `path` **DBPATH** sets the SQLite database file location (alternative to the
+* `path` **PATH** sets the snapshot file location (alternative to the
   inline argument).
 * `ttl` **DURATION** is the TTL stamped on records of answers served from the
   store. A short value (default `30s`) is recommended so clients re-query
@@ -80,7 +86,7 @@ exported:
 
 ## Examples
 
-Serve last known good answers for every name, storing the database at the given
+Serve last known good answers for every name, storing the data at the given
 path:
 
 ~~~ corefile

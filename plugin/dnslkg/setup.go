@@ -35,8 +35,8 @@ func setup(c *caddy.Controller) error {
 
 // parse builds a *DnsLKG from the Corefile configuration.
 //
-//	dnslkg [DBPATH] {
-//	    path    DBPATH
+//	dnslkg [PATH] {
+//	    path    PATH
 //	    ttl     DURATION
 //	    include REGEX...
 //	    exclude REGEX...
