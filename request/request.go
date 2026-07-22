@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/edns"
-
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/miekg/dns"
 )
 
@@ -165,8 +165,10 @@ func (r *Request) Len() int { return r.Req.Len() }
 // Or when the request was over TCP, we return the maximum allowed size of 64K.
 func (r *Request) Size() int {
 	if r.size != 0 {
+		clog.Infof("Size already set to %d", r.size)
 		return int(r.size)
 	}
+	clog.Infof("ResponseWriter type: %T", r.W)
 	size := uint16(0)
 	if o := r.Req.IsEdns0(); o != nil {
 		r.do = o.Do()
