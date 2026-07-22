@@ -4,6 +4,7 @@ package secondary
 import (
 	"sync"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
 	"github.com/coredns/coredns/plugin/pkg/catalog"
 )
@@ -19,7 +20,7 @@ type Secondary struct {
 
 	catalogMu          sync.RWMutex
 	catalogs           map[string]*catalog.Catalog
-	catalogZones       map[string]struct{}
+	catalogZones       map[string]plugin.Zones
 	catalogMemberZones map[string]map[string]struct{}
 }
 

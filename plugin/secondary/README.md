@@ -27,7 +27,7 @@ A working syntax would be:
 ~~~
 secondary [zones...] {
     transfer from ADDRESS [ADDRESS...]
-    catalog
+    catalog [MEMBER-ZONES...]
     fallthrough [ZONES...]
 }
 ~~~
@@ -38,7 +38,13 @@ secondary [zones...] {
 
 *  `catalog` treats the transferred zone as an RFC 9432 catalog zone. After each successful catalog
    transfer, CoreDNS adds and removes the catalog member zones and transfers those member zones from
-   the same primary servers.
+   the same primary servers. Optional **MEMBER-ZONES** restrict which member zone names are accepted;
+   each name also matches its subdomains. With no **MEMBER-ZONES**, all member zones are accepted for
+   backward compatibility. RFC 9432 Section 7 recommends configuring this restriction because a
+   catalog producer otherwise controls which zones the consumer serves. A member in another catalog
+   remains a name clash unless the current catalog's `coo` property points to the newly updated
+   catalog. During that ownership migration, CoreDNS preserves the current zone data only when both
+   catalogs use the same member node label.
 
 *  `fallthrough` If a query for a record in the zone results in NXDOMAIN, the query will be passed
    to the next plugin in the chain. If **[ZONES...]** are listed, then only queries for those zones
@@ -74,6 +80,17 @@ example.net {
 }
 ~~~
 
+Restrict a catalog consumer to member zones at or below `example.org` and `internal.example`.
+
+~~~ corefile
+catalog.example {
+    secondary {
+        transfer from 10.1.2.1
+        catalog example.org internal.example
+    }
+}
+~~~
+
 ## Bugs
 
 Only AXFR is supported and the retrieved zone is not committed to disk.
@@ -81,4 +98,4 @@ Only AXFR is supported and the retrieved zone is not committed to disk.
 ## See Also
 
 See the *transfer* plugin to enable zone transfers _to_ other servers.
-And RFC 5936 detailing the AXFR protocol.
+RFC 5936 details the AXFR protocol, and RFC 9432 defines DNS catalog zones.

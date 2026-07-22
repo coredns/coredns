@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/file"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/fall"
@@ -64,6 +65,51 @@ func TestTransferInCatalog(t *testing.T) {
 	}
 	if a.A.String() != "192.0.2.1" {
 		t.Fatalf("expected 192.0.2.1, got %s", a.A.String())
+	}
+}
+
+func TestTransferInCatalogRestrictsMemberZones(t *testing.T) {
+	const (
+		origin  = "catalog.example."
+		allowed = "tenant.allowed.example."
+		denied  = "tenant.denied.example."
+	)
+	zones := newTestTransferZones(map[string][]dns.RR{
+		origin: catalogZoneRecordsForMembers(t, origin, []catalogRecordMember{
+			{id: "a", zone: allowed},
+			{id: "b", zone: denied},
+		}, 1),
+		allowed: memberZoneRecordsFor(t, allowed, 1, "192.0.2.1"),
+		denied:  memberZoneRecordsFor(t, denied, 1, "192.0.2.2"),
+	})
+
+	server := dnstest.NewServer(zones.handler())
+	defer server.Close()
+
+	z := file.NewZone(origin, "stdin")
+	z.TransferFrom = []string{server.Addr}
+	s := newTestSecondary(origin, z, true)
+	s.catalogZones[origin] = plugin.Zones{"allowed.example."}
+	t.Cleanup(s.stopDynamicZones)
+
+	if err := s.transferIn(origin, z, nil); err != nil {
+		t.Fatalf("transferIn returned error: %v", err)
+	}
+	waitForAnswer(t, s, "www."+allowed, dns.TypeA)
+
+	s.zoneMu.RLock()
+	_, allowedDynamic := s.dynamicZones[allowed]
+	_, deniedDynamic := s.dynamicZones[denied]
+	_, admittedDenied := s.catalogMemberZones[origin][denied]
+	s.zoneMu.RUnlock()
+	if !allowedDynamic {
+		t.Fatalf("expected member zone %s to match configured suffix", allowed)
+	}
+	if deniedDynamic || admittedDenied {
+		t.Fatalf("expected member zone %s to be rejected", denied)
+	}
+	if _, _, ok := s.lookupZone("www." + denied); ok {
+		t.Fatalf("expected rejected member zone %s not to be served", denied)
 	}
 }
 
@@ -173,6 +219,217 @@ func TestTransferInCatalogResetsMemberZoneOnIDChange(t *testing.T) {
 	}
 }
 
+func TestTransferInCatalogMigratesMemberZoneWithSameID(t *testing.T) {
+	fixture := newCatalogMigrationFixture(t, "a", "a", "new.catalog.example.", true)
+
+	if err := fixture.s.transferIn(fixture.oldOrigin, fixture.oldCatalog, nil); err != nil {
+		t.Fatalf("old catalog transferIn returned error: %v", err)
+	}
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+
+	fixture.s.zoneMu.RLock()
+	oldDynamic := fixture.s.dynamicZones[fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if oldDynamic == nil {
+		t.Fatal("expected member zone to belong to the old catalog")
+	}
+
+	if err := fixture.s.transferIn(fixture.newOrigin, fixture.newCatalog, nil); err != nil {
+		t.Fatalf("new catalog transferIn returned error: %v", err)
+	}
+
+	fixture.s.zoneMu.RLock()
+	newDynamic := fixture.s.dynamicZones[fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if newDynamic == nil || newDynamic.catalog != fixture.newOrigin || newDynamic.memberID != "a" {
+		t.Fatalf("expected member zone to migrate to %s with ID a, got %+v", fixture.newOrigin, newDynamic)
+	}
+	select {
+	case <-oldDynamic.shutdown:
+	default:
+		t.Fatal("expected migration to stop the old catalog transfer loop")
+	}
+
+	// The target transfer is paused, so this answer can only come from state
+	// carried over from the old catalog.
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+	fixture.releaseTarget()
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.2")
+}
+
+func TestTransferInCatalogRejectsOwnershipMigrationOutsideMemberZones(t *testing.T) {
+	fixture := newCatalogMigrationFixture(t, "a", "a", "new.catalog.example.", false)
+	fixture.s.catalogZones[fixture.newOrigin] = plugin.Zones{"other.example."}
+
+	if err := fixture.s.transferIn(fixture.oldOrigin, fixture.oldCatalog, nil); err != nil {
+		t.Fatalf("old catalog transferIn returned error: %v", err)
+	}
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+
+	fixture.s.zoneMu.RLock()
+	before := fixture.s.dynamicZones[fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if before == nil || before.catalog != fixture.oldOrigin {
+		t.Fatal("expected member zone to belong to the old catalog")
+	}
+
+	if err := fixture.s.transferIn(fixture.newOrigin, fixture.newCatalog, nil); err != nil {
+		t.Fatalf("new catalog transferIn returned error: %v", err)
+	}
+
+	fixture.s.zoneMu.RLock()
+	after := fixture.s.dynamicZones[fixture.member]
+	_, admitted := fixture.s.catalogMemberZones[fixture.newOrigin][fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if after == nil || after != before || after.catalog != fixture.oldOrigin {
+		t.Fatalf("expected rejected migration to preserve ownership by %s, got %+v", fixture.oldOrigin, after)
+	}
+	if admitted {
+		t.Fatal("expected target catalog not to admit an out-of-scope member")
+	}
+	select {
+	case <-before.shutdown:
+		t.Fatal("expected rejected migration to preserve the old transfer loop")
+	default:
+	}
+}
+
+func TestTransferInCatalogWaitsForTargetUpdateAfterSourceAddsCOO(t *testing.T) {
+	fixture := newCatalogMigrationFixture(t, "a", "a", "", true)
+
+	if err := fixture.s.transferIn(fixture.oldOrigin, fixture.oldCatalog, nil); err != nil {
+		t.Fatalf("old catalog transferIn returned error: %v", err)
+	}
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+
+	if err := fixture.s.transferIn(fixture.newOrigin, fixture.newCatalog, nil); err != nil {
+		t.Fatalf("new catalog transferIn returned error: %v", err)
+	}
+	fixture.s.zoneMu.RLock()
+	before := fixture.s.dynamicZones[fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if before == nil || before.catalog != fixture.oldOrigin {
+		t.Fatalf("expected missing coo to leave ownership with %s, got %+v", fixture.oldOrigin, before)
+	}
+
+	fixture.oldZones.set(fixture.oldOrigin, catalogZoneRecordsFor(t, fixture.oldOrigin, "a", fixture.member, fixture.newOrigin, 2))
+	if err := fixture.s.transferIn(fixture.oldOrigin, fixture.oldCatalog, nil); err != nil {
+		t.Fatalf("updated old catalog transferIn returned error: %v", err)
+	}
+
+	fixture.s.zoneMu.RLock()
+	afterSourceUpdate := fixture.s.dynamicZones[fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if afterSourceUpdate != before || afterSourceUpdate.catalog != fixture.oldOrigin {
+		t.Fatalf("expected source coo update to wait for a target catalog update, got %+v", afterSourceUpdate)
+	}
+	select {
+	case <-before.shutdown:
+		t.Fatal("expected source coo update to preserve the old transfer loop")
+	default:
+	}
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+
+	fixture.newZones.set(fixture.newOrigin, catalogZoneRecordsFor(t, fixture.newOrigin, "a", fixture.member, "", 2))
+	if err := fixture.s.transferIn(fixture.newOrigin, fixture.newCatalog, nil); err != nil {
+		t.Fatalf("updated target catalog transferIn returned error: %v", err)
+	}
+
+	fixture.s.zoneMu.RLock()
+	afterTargetUpdate := fixture.s.dynamicZones[fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if afterTargetUpdate == nil || afterTargetUpdate.catalog != fixture.newOrigin {
+		t.Fatalf("expected target catalog update to complete migration to %s, got %+v", fixture.newOrigin, afterTargetUpdate)
+	}
+	select {
+	case <-before.shutdown:
+	default:
+		t.Fatal("expected completed coo handshake to stop the old transfer loop")
+	}
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+	fixture.releaseTarget()
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.2")
+}
+
+func TestTransferInCatalogRejectsUncoordinatedMigration(t *testing.T) {
+	tests := []struct {
+		name string
+		coo  string
+	}{
+		{name: "missing coo"},
+		{name: "wrong coo", coo: "other.catalog.example."},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newCatalogMigrationFixture(t, "a", "a", test.coo, false)
+
+			if err := fixture.s.transferIn(fixture.oldOrigin, fixture.oldCatalog, nil); err != nil {
+				t.Fatalf("old catalog transferIn returned error: %v", err)
+			}
+			waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+
+			fixture.s.zoneMu.RLock()
+			before := fixture.s.dynamicZones[fixture.member]
+			fixture.s.zoneMu.RUnlock()
+			if err := fixture.s.transferIn(fixture.newOrigin, fixture.newCatalog, nil); err != nil {
+				t.Fatalf("new catalog transferIn returned error: %v", err)
+			}
+
+			fixture.s.zoneMu.RLock()
+			after := fixture.s.dynamicZones[fixture.member]
+			fixture.s.zoneMu.RUnlock()
+			if after != before || after == nil || after.catalog != fixture.oldOrigin {
+				t.Fatalf("expected uncoordinated migration to preserve old ownership, got before=%+v after=%+v", before, after)
+			}
+			select {
+			case <-before.shutdown:
+				t.Fatal("expected uncoordinated migration to preserve the old transfer loop")
+			default:
+			}
+			waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+		})
+	}
+}
+
+func TestTransferInCatalogMigrationResetsStateForDifferentID(t *testing.T) {
+	fixture := newCatalogMigrationFixture(t, "a", "b", "new.catalog.example.", true)
+
+	if err := fixture.s.transferIn(fixture.oldOrigin, fixture.oldCatalog, nil); err != nil {
+		t.Fatalf("old catalog transferIn returned error: %v", err)
+	}
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.1")
+
+	fixture.s.zoneMu.RLock()
+	oldDynamic := fixture.s.dynamicZones[fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if err := fixture.s.transferIn(fixture.newOrigin, fixture.newCatalog, nil); err != nil {
+		t.Fatalf("new catalog transferIn returned error: %v", err)
+	}
+
+	fixture.s.zoneMu.RLock()
+	memberZone := fixture.s.Z[fixture.member]
+	newDynamic := fixture.s.dynamicZones[fixture.member]
+	fixture.s.zoneMu.RUnlock()
+	if newDynamic == nil || newDynamic.catalog != fixture.newOrigin || newDynamic.memberID != "b" {
+		t.Fatalf("expected member zone to migrate to %s with ID b, got %+v", fixture.newOrigin, newDynamic)
+	}
+	select {
+	case <-oldDynamic.shutdown:
+	default:
+		t.Fatal("expected migration to stop the old catalog transfer loop")
+	}
+	memberZone.RLock()
+	soa := memberZone.SOA
+	memberZone.RUnlock()
+	if soa != nil {
+		t.Fatal("expected different member ID to reset old zone data before the target transfer")
+	}
+
+	fixture.releaseTarget()
+	waitForAddress(t, fixture.s, fixture.member, "192.0.2.2")
+}
+
 func TestTransferInCatalogRejectsInvalidCatalog(t *testing.T) {
 	const origin = "catalog.example."
 	rrs := catalogZoneRecords(t, false)
@@ -222,8 +479,9 @@ func TestTransferInSkipsCatalogParseForRegularZone(t *testing.T) {
 }
 
 type testTransferZones struct {
-	mu      sync.RWMutex
-	records map[string][]dns.RR
+	mu        sync.RWMutex
+	records   map[string][]dns.RR
+	axfrGates map[string]<-chan struct{}
 }
 
 func newTestTransferZones(records map[string][]dns.RR) *testTransferZones {
@@ -236,6 +494,15 @@ func (z *testTransferZones) set(zone string, rrs []dns.RR) {
 	z.mu.Unlock()
 }
 
+func (z *testTransferZones) blockAXFR(zone string, gate <-chan struct{}) {
+	z.mu.Lock()
+	if z.axfrGates == nil {
+		z.axfrGates = make(map[string]<-chan struct{})
+	}
+	z.axfrGates[zone] = gate
+	z.mu.Unlock()
+}
+
 func (z *testTransferZones) handler() dns.HandlerFunc {
 	return func(w dns.ResponseWriter, req *dns.Msg) {
 		m := new(dns.Msg)
@@ -244,6 +511,7 @@ func (z *testTransferZones) handler() dns.HandlerFunc {
 			qname := strings.ToLower(dns.Fqdn(req.Question[0].Name))
 			z.mu.RLock()
 			rrs := append([]dns.RR(nil), z.records[qname]...)
+			gate := z.axfrGates[qname]
 			z.mu.RUnlock()
 
 			switch req.Question[0].Qtype {
@@ -255,6 +523,9 @@ func (z *testTransferZones) handler() dns.HandlerFunc {
 					}
 				}
 			case dns.TypeAXFR:
+				if gate != nil {
+					<-gate
+				}
 				m.Answer = rrs
 			}
 		}
@@ -262,10 +533,80 @@ func (z *testTransferZones) handler() dns.HandlerFunc {
 	}
 }
 
+type catalogMigrationFixture struct {
+	s          *Secondary
+	oldOrigin  string
+	newOrigin  string
+	member     string
+	oldCatalog *file.Zone
+	newCatalog *file.Zone
+	oldZones   *testTransferZones
+	newZones   *testTransferZones
+	release    func()
+}
+
+func newCatalogMigrationFixture(t *testing.T, oldID, newID, coo string, blockTarget bool) *catalogMigrationFixture {
+	t.Helper()
+
+	const (
+		oldOrigin = "old.catalog.example."
+		newOrigin = "new.catalog.example."
+		member    = "example.org."
+	)
+
+	oldZones := newTestTransferZones(map[string][]dns.RR{
+		oldOrigin: catalogZoneRecordsFor(t, oldOrigin, oldID, member, coo, 1),
+		member:    memberZoneRecordsWithAddress(t, 1, "192.0.2.1"),
+	})
+	newZones := newTestTransferZones(map[string][]dns.RR{
+		newOrigin: catalogZoneRecordsFor(t, newOrigin, newID, member, "", 1),
+		member:    memberZoneRecordsWithAddress(t, 2, "192.0.2.2"),
+	})
+
+	var releaseOnce sync.Once
+	targetGate := make(chan struct{})
+	release := func() { releaseOnce.Do(func() { close(targetGate) }) }
+	if blockTarget {
+		newZones.blockAXFR(member, targetGate)
+	}
+
+	oldServer := dnstest.NewMultipleServer(oldZones.handler())
+	t.Cleanup(oldServer.Close)
+	newServer := dnstest.NewMultipleServer(newZones.handler())
+	t.Cleanup(newServer.Close)
+	t.Cleanup(release)
+
+	oldCatalog := file.NewZone(oldOrigin, "stdin")
+	oldCatalog.TransferFrom = []string{oldServer.Addr}
+	newCatalog := file.NewZone(newOrigin, "stdin")
+	newCatalog.TransferFrom = []string{newServer.Addr}
+	s := newSecondary(file.Zones{
+		Z:     map[string]*file.Zone{oldOrigin: oldCatalog, newOrigin: newCatalog},
+		Names: []string{oldOrigin, newOrigin},
+	}, fall.F{}, map[string]plugin.Zones{oldOrigin: nil, newOrigin: nil})
+	t.Cleanup(s.stopDynamicZones)
+
+	return &catalogMigrationFixture{
+		s:          s,
+		oldOrigin:  oldOrigin,
+		newOrigin:  newOrigin,
+		member:     member,
+		oldCatalog: oldCatalog,
+		newCatalog: newCatalog,
+		oldZones:   oldZones,
+		newZones:   newZones,
+		release:    release,
+	}
+}
+
+func (f *catalogMigrationFixture) releaseTarget() {
+	f.release()
+}
+
 func newTestSecondary(origin string, z *file.Zone, catalog bool) *Secondary {
-	catalogZones := map[string]struct{}{}
+	catalogZones := map[string]plugin.Zones{}
 	if catalog {
-		catalogZones[origin] = struct{}{}
+		catalogZones[origin] = nil
 	}
 	return newSecondary(file.Zones{Z: map[string]*file.Zone{origin: z}, Names: []string{origin}}, fall.F{}, catalogZones)
 }
@@ -288,6 +629,22 @@ func waitForAnswer(t *testing.T, s *Secondary, name string, qtype uint16) *dns.M
 	return nil
 }
 
+func waitForAddress(t *testing.T, s *Secondary, zone, address string) {
+	t.Helper()
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		msg := waitForAnswer(t, s, "www."+zone, dns.TypeA)
+		if len(msg.Answer) == 1 {
+			if a, ok := msg.Answer[0].(*dns.A); ok && a.A.String() == address {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s to answer with %s", zone, address)
+}
+
 func catalogZoneRecords(t *testing.T, includeVersion bool) []dns.RR {
 	t.Helper()
 	if !includeVersion {
@@ -305,17 +662,39 @@ func catalogZoneRecords(t *testing.T, includeVersion bool) []dns.RR {
 
 func catalogZoneRecordsWithMemberID(t *testing.T, id string, serial int) []dns.RR {
 	t.Helper()
+	return catalogZoneRecordsFor(t, "catalog.example.", id, "example.org.", "", serial)
+}
 
-	soa := mustRR(t, fmt.Sprintf("catalog.example. 0 IN SOA invalid. hostmaster.invalid. %d 3600 600 604800 0", serial))
+func catalogZoneRecordsFor(t *testing.T, origin, id, member, coo string, serial int) []dns.RR {
+	t.Helper()
+	return catalogZoneRecordsForMembers(t, origin, []catalogRecordMember{{id: id, zone: member, coo: coo}}, serial)
+}
+
+type catalogRecordMember struct {
+	id   string
+	zone string
+	coo  string
+}
+
+func catalogZoneRecordsForMembers(t *testing.T, origin string, members []catalogRecordMember, serial int) []dns.RR {
+	t.Helper()
+
+	soa := mustRR(t, fmt.Sprintf("%s 0 IN SOA invalid. hostmaster.invalid. %d 3600 600 604800 0", origin, serial))
 	rrs := []dns.RR{
 		soa,
-		mustRR(t, "catalog.example. 0 IN NS invalid."),
-		mustRR(t, `version.catalog.example. 0 IN TXT "2"`),
-		mustRR(t, fmt.Sprintf("%s.zones.catalog.example. 0 IN PTR example.org.", id)),
-		mustRR(t, fmt.Sprintf(`group.%s.zones.catalog.example. 0 IN TXT "default"`, id)),
-		soa,
+		mustRR(t, fmt.Sprintf("%s 0 IN NS invalid.", origin)),
+		mustRR(t, fmt.Sprintf(`version.%s 0 IN TXT "2"`, origin)),
 	}
-	return rrs
+	for _, member := range members {
+		rrs = append(rrs,
+			mustRR(t, fmt.Sprintf("%s.zones.%s 0 IN PTR %s", member.id, origin, member.zone)),
+			mustRR(t, fmt.Sprintf(`group.%s.zones.%s 0 IN TXT "default"`, member.id, origin)),
+		)
+		if member.coo != "" {
+			rrs = append(rrs, mustRR(t, fmt.Sprintf("coo.%s.zones.%s 0 IN PTR %s", member.id, origin, member.coo)))
+		}
+	}
+	return append(rrs, soa)
 }
 
 func catalogZoneRecordsWithoutMembers(t *testing.T) []dns.RR {
@@ -337,12 +716,17 @@ func memberZoneRecords(t *testing.T) []dns.RR {
 
 func memberZoneRecordsWithAddress(t *testing.T, serial int, address string) []dns.RR {
 	t.Helper()
+	return memberZoneRecordsFor(t, "example.org.", serial, address)
+}
 
-	soa := mustRR(t, fmt.Sprintf("example.org. 0 IN SOA ns.example.org. hostmaster.example.org. %d 3600 600 604800 0", serial))
+func memberZoneRecordsFor(t *testing.T, origin string, serial int, address string) []dns.RR {
+	t.Helper()
+
+	soa := mustRR(t, fmt.Sprintf("%s 0 IN SOA ns.%s hostmaster.%s %d 3600 600 604800 0", origin, origin, origin, serial))
 	return []dns.RR{
 		soa,
-		mustRR(t, "example.org. 0 IN NS ns.example.org."),
-		mustRR(t, fmt.Sprintf("www.example.org. 0 IN A %s", address)),
+		mustRR(t, fmt.Sprintf("%s 0 IN NS ns.%s", origin, origin)),
+		mustRR(t, fmt.Sprintf("www.%s 0 IN A %s", origin, address)),
 		soa,
 	}
 }
