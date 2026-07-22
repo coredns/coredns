@@ -3,6 +3,7 @@ package edns
 
 import (
 	"errors"
+	"runtime/debug"
 	"sync"
 
 	"github.com/miekg/dns"
@@ -61,6 +62,7 @@ func Version(req *dns.Msg) (*dns.Msg, error) {
 
 // Size returns a normalized size based on proto.
 func Size(proto string, size uint16) uint16 {
+	debug.PrintStack() // for testing
 	if proto == "tcp" || proto == "quic" {
 		return dns.MaxMsgSize
 	}
