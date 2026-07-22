@@ -127,6 +127,14 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 				} else {
 					ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
 					answer, ns, extra, rcode = z.externalLookup(ctx, state, elem, []dns.RR{cname})
+
+					// Additional section processing for MX, SRV, SVCB, HTTPS in the
+					// answer resolved after the DNAME substitution. externalLookup
+					// does not do this, so if any target is in bailiwick add its
+					// A/AAAA glue, mirroring the non-DNAME path.
+					if extra == nil {
+						extra = z.additionalProcessing(answer, do)
+					}
 				}
 
 				if do {
