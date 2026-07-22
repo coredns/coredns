@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"net"
 
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/miekg/dns"
 )
 
@@ -41,7 +40,6 @@ func (s *ScrubWriter) ConnectionState() *tls.ConnectionState {
 
 // Proto gets the protocol used as the transport. This will be udp or tcp.
 func (s *ScrubWriter) Proto() string {
-	clog.Infof("ResponseWriter(scrub) type: %T", s.ResponseWriter)
 	// return Write.Proto(), if it is implemented
 	if protoProvider, ok := s.ResponseWriter.(interface{ Proto() string }); ok {
 		return protoProvider.Proto()

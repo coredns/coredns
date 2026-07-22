@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sync"
 
-	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/miekg/dns"
 )
 
@@ -62,7 +61,6 @@ func Version(req *dns.Msg) (*dns.Msg, error) {
 
 // Size returns a normalized size based on proto.
 func Size(proto string, size uint16) uint16 {
-	clog.Infof("proto: %s, size: %d", proto, size)
 	if proto == "tcp" || proto == "quic" {
 		return dns.MaxMsgSize
 	}
