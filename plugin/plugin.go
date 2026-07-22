@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 	"github.com/miekg/dns"
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
@@ -136,6 +137,7 @@ func (pw *pluginWriter) Hijack() { pw.ResponseWriter.Hijack() }
 
 // Proto gets the protocol used as the transport. This will be udp or tcp.
 func (pw *pluginWriter) Proto() string {
+	clog.Infof("ResponseWriter(plugin) type: %T", pw.ResponseWriter)
 	// return Write.Proto(), if it is implemented
 	if protoProvider, ok := pw.ResponseWriter.(interface{ Proto() string }); ok {
 		return protoProvider.Proto()

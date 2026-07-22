@@ -178,6 +178,7 @@ func (r *Request) Size() int {
 	// normalize size
 	size = edns.Size(r.Proto(), size)
 	r.size = size
+	clog.Infof("Size %d", r.size)
 	return int(size)
 }
 
