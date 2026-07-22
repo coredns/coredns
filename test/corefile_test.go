@@ -2,6 +2,8 @@ package test
 
 import (
 	"testing"
+
+	"github.com/miekg/dns"
 )
 
 // TestCorefileParsing tests the Corefile parsing functionality.
@@ -59,5 +61,25 @@ acl
 				}
 			}()
 		})
+	}
+}
+
+func TestUppercaseServerBlockZone(t *testing.T) {
+	instance, udp, _, err := CoreDNSServerAndPorts(`EXAMPLE.ORG.:0 {
+	whoami
+}`)
+	if err != nil {
+		t.Fatalf("failed to start CoreDNS: %v", err)
+	}
+	defer CoreDNSServerStop(instance)
+
+	query := new(dns.Msg)
+	query.SetQuestion("www.example.org.", dns.TypeA)
+	response, _, err := new(dns.Client).Exchange(query, udp)
+	if err != nil {
+		t.Fatalf("DNS exchange failed: %v", err)
+	}
+	if response.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected response code %s, got %s", dns.RcodeToString[dns.RcodeSuccess], dns.RcodeToString[response.Rcode])
 	}
 }

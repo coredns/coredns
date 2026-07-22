@@ -100,7 +100,7 @@ func (h *dnsContext) InspectServerBlocks(_sourceFile string, serverBlocks []cadd
 				}
 			}
 			for i := range hosts {
-				zoneAddrs = append(zoneAddrs, zoneAddr{Zone: dns.Fqdn(hosts[i]), Port: port, Transport: trans})
+				zoneAddrs = append(zoneAddrs, zoneAddr{Zone: plugin.Name(hosts[i]).Normalize(), Port: port, Transport: trans})
 			}
 		}
 

@@ -144,6 +144,19 @@ func TestInspectServerBlocks(t *testing.T) {
 			},
 		},
 		{
+			name: "uppercase dns",
+			serverBlocks: []caddyfile.ServerBlock{
+				{Keys: []string{"EXAMPLE.ORG"}},
+			},
+			expectedServerBlocks: []caddyfile.ServerBlock{
+				{Keys: []string{"dns://example.org.:53"}},
+			},
+			expectedConfigsLen: 1,
+			expectedZoneAddrs: map[string]zoneAddr{
+				"dns://example.org.:53": {Zone: "example.org.", Port: "53", Transport: "dns"},
+			},
+		},
+		{
 			name: "dns with port",
 			serverBlocks: []caddyfile.ServerBlock{
 				{Keys: []string{"example.org:1053"}},
