@@ -360,3 +360,64 @@ txt     IN	TXT     "v=spf1 a mx ~all"
 caa     IN  CAA    0 issue letsencrypt.org
 *.nodata    IN   A      139.162.196.79
 ext-cname   IN   CNAME  example.com.`
+
+// After a DNAME substitution the file plugin synthesizes a CNAME and continues
+// the lookup. The resolved answer must still run additional-section processing
+// for MX/SRV/SVCB/HTTPS targets, just like the non-DNAME path does.
+// See https://github.com/coredns/coredns/issues/6628.
+const dbDNAMEAdditional = `
+$TTL 30M
+$ORIGIN j.
+@	IN SOA	ns.j. admin.j. 2024010100 14400 3600 604800 14400
+	IN NS	ns.j.
+	IN AAAA	5:2:2:5:5:3:7:5
+ns	IN A	192.0.2.1
+h	IN SRV	10 50 7890 j.
+g	IN DNAME	j.
+`
+
+const testDNAMEAdditionalOrigin = "j."
+
+var dnameAdditionalTestCases = []test.Case{
+	{
+		// Query h.g.j. SRV: DNAME g.j.->j. synthesizes CNAME h.g.j.->h.j., and
+		// h.j. SRV has target j. which has an AAAA. That AAAA belongs in the
+		// additional section, exactly as it would for a direct SRV query.
+		Qname: "h.g.j.", Qtype: dns.TypeSRV,
+		Answer: []dns.RR{
+			test.DNAME("g.j.	1800	IN	DNAME	j."),
+			test.CNAME("h.g.j.	1800	IN	CNAME	h.j."),
+			test.SRV("h.j.	1800	IN	SRV	10 50 7890 j."),
+		},
+		Ns: []dns.RR{
+			test.NS("j.	1800	IN	NS	ns.j."),
+		},
+		Extra: []dns.RR{
+			test.AAAA("j.	1800	IN	AAAA	5:2:2:5:5:3:7:5"),
+		},
+	},
+}
+
+func TestLookupDNAMEAdditional(t *testing.T) {
+	zone, err := Parse(strings.NewReader(dbDNAMEAdditional), testDNAMEAdditionalOrigin, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expected no error when reading zone, got %q", err)
+	}
+
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{testDNAMEAdditionalOrigin: zone}, Names: []string{testDNAMEAdditionalOrigin}}}
+	ctx := context.TODO()
+
+	for _, tc := range dnameAdditionalTestCases {
+		m := tc.Msg()
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		if _, err := fm.ServeDNS(ctx, rec, m); err != nil {
+			t.Errorf("Expected no error for %q/%d, got %v", tc.Qname, tc.Qtype, err)
+			continue
+		}
+
+		if err := test.SortAndCheck(rec.Msg, tc); err != nil {
+			t.Errorf("Test %q/%d: %v", tc.Qname, tc.Qtype, err)
+		}
+	}
+}
