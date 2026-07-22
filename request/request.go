@@ -167,7 +167,6 @@ func (r *Request) Size() int {
 	if r.size != 0 {
 		return int(r.size)
 	}
-
 	size := uint16(0)
 	if o := r.Req.IsEdns0(); o != nil {
 		r.do = o.Do()
