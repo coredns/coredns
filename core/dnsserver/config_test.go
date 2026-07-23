@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin"
 )
 
 func TestKeyForConfig(t *testing.T) {
@@ -64,4 +65,27 @@ func TestGetConfig(t *testing.T) {
 			t.Fatal("config is not the same instance as the one saved in the context")
 		}
 	})
+}
+
+func TestAddPluginToAllServerBlocks(t *testing.T) {
+	c := caddy.NewTestController("dns", "")
+	ctx := c.Context().(*dnsContext)
+	first := &Config{}
+	secondZone := &Config{firstConfigInBlock: first}
+	third := &Config{}
+	first.firstConfigInBlock = first
+	third.firstConfigInBlock = third
+	ctx.configs = []*Config{first, secondZone, third}
+
+	AddPluginToAllServerBlocks(c, func(next plugin.Handler) plugin.Handler { return next })
+
+	if got := len(first.Plugin); got != 1 {
+		t.Fatalf("first server block has %d plugins, want 1", got)
+	}
+	if got := len(secondZone.Plugin); got != 0 {
+		t.Fatalf("secondary zone has %d plugins before propagation, want 0", got)
+	}
+	if got := len(third.Plugin); got != 1 {
+		t.Fatalf("second server block has %d plugins, want 1", got)
+	}
 }
