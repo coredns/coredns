@@ -158,6 +158,50 @@ func doTTLTests(t *testing.T, rules []Rule) {
 	}
 }
 
+func TestTTLRewriteDoesNotCorruptOPT(t *testing.T) {
+	// A ttl rewrite rule must only clamp the TTL of real resource records.
+	// The OPT pseudo-record carries EDNS0 metadata (version, extended RCODE and
+	// flags such as DO) in its header TTL field, so clamping it corrupts the
+	// EDNS0 header of the response.
+	rule, err := newRule("stop", "ttl", "example.org.", "3600")
+	if err != nil {
+		t.Fatalf("unable to create ttl rule: %s", err)
+	}
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	m.Question[0].Qclass = dns.ClassINET
+	// Request advertises DNSSEC OK; the echoing handler replies with the same OPT.
+	m.SetEdns0(4096, true)
+
+	rw := Rewrite{
+		Next:  plugin.HandlerFunc(msgPrinter),
+		Rules: []Rule{rule},
+	}
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	rw.ServeDNS(context.TODO(), rec, m)
+	resp := rec.Msg
+
+	// Sanity check: the ttl rule fired and clamped the real answer records.
+	if len(resp.Answer) == 0 {
+		t.Fatalf("expected an answer, got %q", resp)
+	}
+	if got := resp.Answer[0].Header().Ttl; got != 3600 {
+		t.Fatalf("expected answer TTL to be clamped to 3600, got %d", got)
+	}
+
+	opt := resp.IsEdns0()
+	if opt == nil {
+		t.Fatalf("expected an OPT record in the response, got none")
+	}
+	if !opt.Do() {
+		t.Errorf("DO bit was cleared by the ttl rewrite; OPT header TTL field is now %d", opt.Hdr.Ttl)
+	}
+	if opt.Version() != 0 {
+		t.Errorf("EDNS0 version was corrupted by the ttl rewrite: got %d, want 0", opt.Version())
+	}
+}
+
 func TestNewTTLRuleLargeRegex(t *testing.T) {
 	largeRegex := strings.Repeat("a", maxRegexpLen+1)
 	_, err := newTTLRule("stop", "regex", largeRegex, "300")
