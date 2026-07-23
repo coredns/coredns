@@ -54,7 +54,7 @@ type ServerQUIC struct {
 	listenAddr        net.Addr
 	tlsConfig         *tls.Config
 	quicConfig        *quic.Config
-	quicListener      *quic.Listener
+	quicListener      *quic.EarlyListener
 	maxStreams        int
 	streamProcessPool chan struct{}
 	maxConnections    int
@@ -123,7 +123,7 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 func (s *ServerQUIC) ServePacket(p net.PacketConn) error {
 	s.m.Lock()
 	if s.quicListener == nil {
-		listener, err := quic.Listen(p, s.tlsConfig, s.quicConfig)
+		listener, err := quic.ListenEarly(p, s.tlsConfig, s.quicConfig)
 		if err != nil {
 			s.m.Unlock()
 			return err
@@ -298,7 +298,7 @@ func (s *ServerQUIC) ListenPacket() (net.PacketConn, error) {
 	s.m.Lock()
 	defer s.m.Unlock()
 
-	s.quicListener, err = quic.Listen(p, s.tlsConfig, s.quicConfig)
+	s.quicListener, err = quic.ListenEarly(p, s.tlsConfig, s.quicConfig)
 	if err != nil {
 		return nil, err
 	}
