@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"strings"
 
 	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
@@ -227,7 +228,11 @@ func SRV(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 				if e1 == nil && m1 != nil {
 					// If we have seen CNAME's we *assume* that they are already added.
 					for _, a := range m1.Answer {
-						if _, ok := a.(*dns.CNAME); !ok {
+						if cn, ok := a.(*dns.CNAME); ok {
+							if !containsCNAME(extra, cn) {
+								extra = append(extra, a)
+							}
+						} else {
 							extra = append(extra, a)
 						}
 					}
@@ -241,7 +246,19 @@ func SRV(ctx context.Context, b ServiceBackend, zone string, state request.Reque
 			if e1 == nil {
 				extra = append(extra, addr...)
 			}
-			// TODO(miek): AAAA as well here.
+			state2 := state.NewWithQuestion(srv.Target, dns.TypeAAAA)
+			addr6, _, e2 := AAAA(ctx, b, zone, state2, nil, opt)
+			if e2 == nil {
+				for _, a := range addr6 {
+					if cn, ok := a.(*dns.CNAME); ok {
+						if !containsCNAME(extra, cn) {
+							extra = append(extra, a)
+						}
+					} else {
+						extra = append(extra, a)
+					}
+				}
+			}
 
 		case dns.TypeA, dns.TypeAAAA:
 			addr := serv.Host
@@ -292,9 +309,12 @@ func MX(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 
 				m1, e1 = b.Lookup(ctx, state, mx.Mx, dns.TypeAAAA)
 				if e1 == nil && m1 != nil {
-					// If we have seen CNAME's we *assume* that they are already added.
 					for _, a := range m1.Answer {
-						if _, ok := a.(*dns.CNAME); !ok {
+						if cn, ok := a.(*dns.CNAME); ok {
+							if !containsCNAME(extra, cn) {
+								extra = append(extra, a)
+							}
+						} else {
 							extra = append(extra, a)
 						}
 					}
@@ -307,7 +327,19 @@ func MX(ctx context.Context, b ServiceBackend, zone string, state request.Reques
 			if e1 == nil {
 				extra = append(extra, addr...)
 			}
-			// TODO(miek): AAAA as well here.
+			state2 := state.NewWithQuestion(mx.Mx, dns.TypeAAAA)
+			addr6, _, e2 := AAAA(ctx, b, zone, state2, nil, opt)
+			if e2 == nil {
+				for _, a := range addr6 {
+					if cn, ok := a.(*dns.CNAME); ok {
+						if !containsCNAME(extra, cn) {
+							extra = append(extra, a)
+						}
+					} else {
+						extra = append(extra, a)
+					}
+				}
+			}
 
 		case dns.TypeA, dns.TypeAAAA:
 			addr := serv.Host
@@ -557,3 +589,14 @@ func isDuplicate(m map[item]struct{}, name, addr string, port uint16) bool {
 }
 
 const hostmaster = "hostmaster"
+
+func containsCNAME(records []dns.RR, cname *dns.CNAME) bool {
+	for _, r := range records {
+		if c, ok := r.(*dns.CNAME); ok {
+			if strings.EqualFold(c.Hdr.Name, cname.Hdr.Name) && strings.EqualFold(c.Target, cname.Target) {
+				return true
+			}
+		}
+	}
+	return false
+}
