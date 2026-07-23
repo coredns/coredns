@@ -31,6 +31,7 @@ var Directives = []string{
 	"ready",
 	"health",
 	"pprof",
+	"shed",
 	"prometheus",
 	"errors",
 	"log",
