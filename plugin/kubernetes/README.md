@@ -214,16 +214,21 @@ upstreamNameservers: |
 ## AutoPath
 
 The *kubernetes* plugin can be used in conjunction with the *autopath* plugin.  Using this
-feature enables server-side domain search path completion in Kubernetes clusters.  Note: `pods` must
-be set to `verified` for this to function properly. Furthermore, the remote IP address in the DNS
-packet received by CoreDNS must be the IP address of the Pod that sent the request.
+feature enables server-side domain search path completion in Kubernetes clusters. 
 
+Notes:
+- The `pods` option in `kubernetes` plugin must be set to `verified` for this to function properly
+- The remote IP address in the DNS packet received by CoreDNS must match the IP address of the Pod that sent the request
+- The pod that sent the request must not be using host networking. Since host network pods don't have their own IP address, such pods cannot be uniquely identified. When handling DNS requests from this pod, *autopath* will do nothing.
+
+~~~ txt
     cluster.local {
         autopath @kubernetes
         kubernetes {
             pods verified
         }
     }
+~~~
 
 ## Metadata
 
