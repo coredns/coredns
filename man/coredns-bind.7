@@ -27,7 +27,7 @@ In its basic form, a simple bind uses this syntax:
 .RS
 
 .nf
-bind ADDRESS|IFACE  ...
+bind ADDRESS|IFACE|ipv4|ipv6  ...
 
 .fi
 .RE
@@ -50,7 +50,16 @@ bind ADDRESS|IFACE ... {
 \fBADDRESS|IFACE\fP is an IP address or interface name to bind to.
 When several addresses are provided a listener will be opened on each of the addresses. Please read the \fIDescription\fP for more details.
 .IP \(bu 4
+\fBipv4\fP is a shorthand for \fB\fC0.0.0.0\fR that ensures the listener uses an IPv4-only socket.
+.IP \(bu 4
+\fBipv6\fP is a shorthand for \fB\fC::\fR that ensures the listener uses an IPv6-only socket.
+.IP \(bu 4
 \fB\fCexcept\fR, excludes interfaces or IP addresses to bind to. \fB\fCexcept\fR option only excludes addresses for the current \fB\fCbind\fR directive if multiple \fB\fCbind\fR directives are used in the same server block.
+
+.PP
+Note: By default, Go creates dual-stack sockets, which means that binding to \fB\fC0.0.0.0\fR or \fB\fC::\fR will
+listen on both IPv4 and IPv6. Use the \fB\fCipv4\fR or \fB\fCipv6\fR keywords instead to restrict listening to a
+single address family. The keywords can be combined with other addresses in the same \fB\fCbind\fR directive.
 
 .SH "EXAMPLES"
 
@@ -123,6 +132,48 @@ You can exclude some addresses by their IP or interface name (The following will
     bind lo {
         except 127.0.0.1
     }
+}
+
+.fi
+.RE
+
+.PP
+To bind to IPv4 only:
+
+.PP
+.RS
+
+.nf
+\&. {
+    bind ipv4
+}
+
+.fi
+.RE
+
+.PP
+To bind to IPv6 only:
+
+.PP
+.RS
+
+.nf
+\&. {
+    bind ipv6
+}
+
+.fi
+.RE
+
+.PP
+To bind to specific addresses and all IPv6 addresses:
+
+.PP
+.RS
+
+.nf
+\&. {
+    bind 127.0.0.1 127.0.0.2 ipv6
 }
 
 .fi
