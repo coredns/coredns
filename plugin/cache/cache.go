@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"hash/fnv"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -94,6 +95,20 @@ func key(qname string, m *dns.Msg, t response.Type, do, cd bool) (bool, uint64) 
 	if t == response.NameError && !hasSOA(m) {
 		return false, 0
 	}
+	// An upstream may return NOERROR with a non-empty answer that still does not
+	// resolve the question and without an SOA to bound a negative TTL: a CNAME
+	// chain that does not terminate in the queried type (an incomplete recursion
+	// result from a forwarder). This is effectively an SOA-less NODATA response,
+	// which per RFC 2308 section 5 SHOULD NOT be cached. response.Typify classifies
+	// it as NoError because the answer section is non-empty, so caching it in the
+	// positive cache would replay the non-answer to clients until it expires. Skip
+	// caching so the next query is resolved upstream again. An empty answer section
+	// is deliberately left cacheable: it is indistinguishable from a legitimate
+	// NOERROR positive response that carries its data outside the answer section
+	// (for example the whoami plugin, which answers in the additional section).
+	if t == response.NoError && !hasSOA(m) && isNODATA(m) {
+		return false, 0
+	}
 
 	return true, hash(qname, m.Question[0].Qtype, m.Question[0].Qclass, do, cd)
 }
@@ -105,6 +120,121 @@ func hasSOA(m *dns.Msg) bool {
 		}
 	}
 	return false
+}
+
+// isNODATA reports whether a NOERROR response with a non-empty answer section
+// does not answer the question. Following RFC 1034 section 3.6.2 and RFC 2308
+// sections 1 and 2.2, a query of any type other than CNAME (and ANY) is
+// restarted along the CNAME chain, so the effective owner name is the target at
+// the end of the CNAME chain that starts at the question name. The response
+// answers the question only if it carries a record of the queried type at that
+// terminal name (records at any other owner name are irrelevant, and per RFC
+// 1034 a CNAME's owner never co-locates other data). This rule is independent of
+// the queried type: an MX, TXT, SRV, etc. chain that does not reach the queried
+// type is NODATA just like an A or AAAA one. When the chain is malformed (an
+// owner with more than one distinct CNAME target, or a loop) it has no
+// well-defined terminal name, so the response is treated as NODATA, which errs
+// toward re-querying upstream rather than caching a non-answer. An empty answer
+// section returns false so that legitimate positive responses carrying data
+// outside the answer section (for example the whoami plugin) remain cacheable.
+// ANY queries are excluded because any record answers them. Note: a bare DNAME
+// (RFC 6672) without its synthesized CNAME is treated as NODATA; standard
+// responses include the synthesized CNAME, which the chain walk follows.
+func isNODATA(m *dns.Msg) bool {
+	if len(m.Answer) == 0 {
+		return false
+	}
+	qtype := m.Question[0].Qtype
+	if qtype == dns.TypeANY {
+		return false
+	}
+	// A CNAME query is answered by the CNAME itself, so the chain is not
+	// followed; otherwise resolve it to the terminal owner name.
+	name := m.Question[0].Name
+	if qtype != dns.TypeCNAME {
+		terminal, ok := canonicalName(m.Answer, name)
+		if !ok {
+			// The CNAME chain is malformed (an owner with more than one
+			// distinct target, or a loop) and therefore has no well-defined
+			// QNAME per RFC 2181 section 10.1 and RFC 1034 section 3.6.2. Such
+			// a response cannot be shown to answer the question, so treat it as
+			// NODATA and (being SOA-less) leave it uncacheable.
+			return true
+		}
+		name = terminal
+	}
+	for _, r := range m.Answer {
+		h := r.Header()
+		if h.Rrtype == qtype && strings.EqualFold(h.Name, name) {
+			return false
+		}
+	}
+	return true
+}
+
+// canonicalName follows the owner-linked CNAME chain in answer starting at name
+// and returns the terminal target name together with a validity flag. Records
+// whose owner is not on the chain are ignored. The chain is invalid (ok=false)
+// when it is not a single unambiguous path to a terminal name: an owner that has
+// more than one distinct CNAME target violates RFC 2181 section 10.1 (an alias
+// has exactly one canonical name), and a revisited owner is a CNAME loop, which
+// RFC 1034 section 3.6.2 says must be signalled as an error. Reporting validity
+// rather than silently stopping keeps the classification order-independent and
+// fail-closed: callers treat a malformed chain as a non-answer. Duplicate CNAME
+// records that name the same target are tolerated, since they still describe a
+// single canonical name.
+func canonicalName(answer []dns.RR, name string) (string, bool) {
+	visited := nameSet{}
+	for {
+		if visited.contains(name) {
+			// Revisited owner: the chain contains a CNAME loop.
+			return name, false
+		}
+		visited.add(name)
+
+		target, ok := uniqueCNAMETarget(answer, name)
+		if !ok {
+			// Owner has more than one distinct canonical name.
+			return name, false
+		}
+		if target == "" {
+			// Terminal owner reached: no CNAME continues the chain.
+			return name, true
+		}
+		name = target
+	}
+}
+
+// uniqueCNAMETarget returns the canonical name that owner is aliased to by a
+// CNAME record in answer. ok is false when owner carries more than one distinct
+// CNAME target, which violates RFC 2181 section 10.1. When owner has no CNAME the
+// returned target is empty and ok is true, marking a terminal owner. Duplicate
+// CNAME records naming the same target are tolerated.
+func uniqueCNAMETarget(answer []dns.RR, owner string) (target string, ok bool) {
+	for _, r := range answer {
+		c, isCNAME := r.(*dns.CNAME)
+		if !isCNAME || !strings.EqualFold(c.Header().Name, owner) {
+			continue
+		}
+		if target != "" && !strings.EqualFold(target, c.Target) {
+			return "", false
+		}
+		target = c.Target
+	}
+	return target, true
+}
+
+// nameSet is a set of domain names compared case-insensitively, used to detect
+// revisited owners (loops) while walking a CNAME chain.
+type nameSet map[string]struct{}
+
+func (s nameSet) contains(name string) bool {
+	_, ok := s[strings.ToLower(name)]
+	return ok
+}
+
+func (s nameSet) add(name string) {
+	s[strings.ToLower(name)] = struct{}{}
 }
 
 var one = []byte("1")

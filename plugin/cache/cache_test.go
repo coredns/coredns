@@ -282,6 +282,243 @@ func TestCacheInsertion(t *testing.T) {
 			},
 			shouldCache: true,
 		},
+		{
+			name: "test NOERROR dangling CNAME chain without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.CNAME("target1.example.net. 3600 IN CNAME target2.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain ending in a different type without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.AAAA("target.example.net. 3600 IN AAAA ::1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR MX query CNAME chain without terminal MX without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR MX query CNAME chain terminating in MX caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.MX("target.example.net. 3600 IN MX 10 mail.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.MX("target.example.net. 3600 IN MX 10 mail.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR DNSSEC dangling CNAME chain without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Do:    true,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.RRSIG("alias.example.org.	3600	IN	RRSIG	CNAME 8 2 3600 20170521031301 20170421031301 12051 example.org. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with unrelated A off the chain without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("unrelated.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR lone CNAME answer to an ANY query caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeANY,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeANY,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME chain terminating in A record caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME chain terminating in A record out of order caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME answer to a CNAME query caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeCNAME,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeCNAME,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME chain with two distinct targets at one owner without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target2.example.net."),
+					test.A("target1.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with two distinct targets at one owner reversed order without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target2.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.A("target1.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME loop with co-located A without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("target.example.net. 3600 IN CNAME alias.example.org."),
+					test.A("alias.example.org. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with duplicate identical CNAME terminating in A caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
 	}
 	now, _ := time.Parse(time.UnixDate, "Fri Apr 21 10:51:21 BST 2017")
 	utc := now.UTC()
@@ -780,7 +1017,7 @@ func ttlBackend(ttl int) plugin.Handler {
 		m.SetReply(r)
 		m.Response, m.RecursionAvailable = true, true
 
-		m.Answer = []dns.RR{test.A(fmt.Sprintf("example.org. %d IN A 127.0.0.53", ttl))}
+		m.Answer = []dns.RR{test.A(fmt.Sprintf("%s %d IN A 127.0.0.53", r.Question[0].Name, ttl))}
 		w.WriteMsg(m)
 		return dns.RcodeSuccess, nil
 	})
@@ -813,7 +1050,7 @@ func slowTTLBackend(ttl int, delay time.Duration, done chan<- struct{}) plugin.H
 		m := new(dns.Msg)
 		m.SetReply(r)
 		m.Response, m.RecursionAvailable = true, true
-		m.Answer = []dns.RR{test.A(fmt.Sprintf("example.org. %d IN A 127.0.0.53", ttl))}
+		m.Answer = []dns.RR{test.A(fmt.Sprintf("%s %d IN A 127.0.0.53", r.Question[0].Name, ttl))}
 		w.WriteMsg(m)
 		if done != nil {
 			close(done)
