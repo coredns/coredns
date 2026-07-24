@@ -693,7 +693,9 @@ func (dns *dnsControl) detectChanges(oldObj, newObj any) {
 			dns.updateMultiClusterModified()
 		}
 	case *object.Pod:
-		dns.updateModified()
+		if podModified(oldObj, newObj) {
+			dns.updateModified()
+		}
 	case *object.Endpoints:
 		if !endpointsEquivalent(oldObj.(*object.Endpoints), newObj.(*object.Endpoints)) {
 			dns.updateModified()
@@ -744,6 +746,19 @@ func subsetsEquivalent(sa, sb object.EndpointSubset) bool {
 		}
 	}
 	return true
+}
+
+// podModified checks if an update to a pod changes anything that is visible in
+// DNS. Pod records and the pod IP index only depend on the pod IP, so all
+// other pod status churn (conditions, container statuses, labels) does not
+// need to bump the zone serial.
+func podModified(oldObj, newObj any) bool {
+	oldPod, okOld := oldObj.(*object.Pod)
+	newPod, okNew := newObj.(*object.Pod)
+	if !okOld || !okNew {
+		return true
+	}
+	return oldPod.PodIP != newPod.PodIP
 }
 
 // endpointsEquivalent checks if the update to an endpoint is something

@@ -87,8 +87,10 @@ kubernetes [ZONES...] {
      is vulnerable to abuse if used maliciously in conjunction with wildcard SSL certs.  This
      option is provided for backward compatibility with kube-dns.
    * `verified`: Return an A record if there exists a pod in same namespace with matching IP.  This
-     option requires substantially more memory than in insecure mode, since it will maintain a watch
-     on all pods.
+     option maintains a watch on all pods in the cluster. CoreDNS only keeps a small subset of
+     each pod in memory (IP, name, namespace and labels), so the memory overhead is modest, but
+     the watch itself adds load to the Kubernetes API server, since every pod state change in
+     the cluster is streamed to CoreDNS.
 
 * `endpoint_pod_names` uses the pod name of the pod targeted by the endpoint as
    the endpoint name in A records, e.g.,
