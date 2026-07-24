@@ -355,3 +355,51 @@ func TestServiceModified(t *testing.T) {
 		}
 	}
 }
+
+func TestPodModified(t *testing.T) {
+	var tests = []struct {
+		oldPod  *object.Pod
+		newPod  *object.Pod
+		changed bool
+	}{
+		{
+			oldPod:  &object.Pod{Version: "1", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"},
+			newPod:  &object.Pod{Version: "2", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"},
+			changed: false,
+		},
+		{
+			oldPod:  &object.Pod{Version: "1", PodIP: "", Name: "dns-test", Namespace: "testns"},
+			newPod:  &object.Pod{Version: "2", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"},
+			changed: true,
+		},
+		{
+			oldPod:  &object.Pod{Version: "1", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"},
+			newPod:  &object.Pod{Version: "2", PodIP: "10.240.0.2", Name: "dns-test", Namespace: "testns"},
+			changed: true,
+		},
+	}
+
+	for i, test := range tests {
+		changed := podModified(test.oldPod, test.newPod)
+		if test.changed != changed {
+			t.Errorf("Expected %v for test %v. Got %v", test.changed, i, changed)
+		}
+	}
+}
+
+func TestDetectChangesPodUpdate(t *testing.T) {
+	dns := &dnsControl{}
+
+	p1 := &object.Pod{Version: "1", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"}
+	p2 := &object.Pod{Version: "2", PodIP: "10.240.0.1", Name: "dns-test", Namespace: "testns"}
+	dns.detectChanges(p1, p2)
+	if dns.Modified(ModifiedInternal) != 0 {
+		t.Fatal("pod update with an unchanged IP should not update the modified timestamp")
+	}
+
+	p3 := &object.Pod{Version: "3", PodIP: "10.240.0.2", Name: "dns-test", Namespace: "testns"}
+	dns.detectChanges(p2, p3)
+	if dns.Modified(ModifiedInternal) == 0 {
+		t.Fatal("pod update with a changed IP should update the modified timestamp")
+	}
+}
