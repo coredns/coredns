@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,8 +18,18 @@ import (
 // MimeType is the DoH mimetype that should be used.
 const MimeType = "application/dns-message"
 
+// mimeTypeJSON is the mimetype of the non-standard JSON DNS API offered by
+// some public resolvers. CoreDNS does not implement it.
+const mimeTypeJSON = "application/dns-json"
+
 // Path is the URL path that should be used.
 const Path = "/dns-query"
+
+// ErrJSONNotSupported is returned for GET requests that use the non-standard
+// JSON DNS API (application/dns-json) instead of RFC 8484. The error text is
+// a fixed string that reveals no request or server internals, so it is safe
+// to return to the client.
+var ErrJSONNotSupported = errors.New("the JSON API (" + mimeTypeJSON + ") is not supported; use RFC 8484 (" + MimeType + ")")
 
 // NewRequest returns a new DoH request given a HTTP method, URL and dns.Msg.
 //
@@ -126,6 +137,15 @@ func requestToMsgGet(req *http.Request) (*dns.Msg, []byte, error) {
 	values := req.URL.Query()
 	b64, ok := values["dns"]
 	if !ok {
+		// A 'name' parameter or an application/dns-json Accept header means
+		// the client is using the JSON DNS API as implemented by e.g. the
+		// Google and Cloudflare public resolvers, see
+		// https://developers.google.com/speed/public-dns/docs/doh/json.
+		// Return a specific error so the server can tell the client why the
+		// request is rejected.
+		if values.Has("name") || strings.Contains(req.Header.Get("Accept"), mimeTypeJSON) {
+			return nil, nil, ErrJSONNotSupported
+		}
 		return nil, nil, fmt.Errorf("no 'dns' query parameter found")
 	}
 	if len(b64) != 1 {

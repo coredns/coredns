@@ -72,9 +72,15 @@ https://. {
 }
 ~~~
 
+The DoH server implements RFC 8484: queries carry a DNS message in wire format
+(`application/dns-message`), base64url-encoded in the `dns` query parameter for GET requests or in
+the request body for POST requests. The JSON API (`application/dns-json`) offered by some public
+resolvers is not an IETF standard and is not supported; requests using it are rejected with an
+HTTP 400 error.
+
 Only Knot DNS' `kdig` supports DNS-over-TLS queries, no command line client supports gRPC making
 debugging these transports harder than it should be.
 
 ## See Also
 
-RFC 7858 and https://grpc.io.
+RFC 7858, RFC 8484 and https://grpc.io.
