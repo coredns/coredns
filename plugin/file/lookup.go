@@ -338,7 +338,10 @@ func (z *Zone) authority(do bool, result Result) []dns.RR {
 	return z.ns(do)
 }
 
-// externalLookup adds signatures and tries to resolve CNAMEs that point to external names.
+// externalLookup adds signatures and tries to resolve CNAMEs that point to
+// external names. It also runs additional-section processing on the resolved
+// answer so in-bailiwick SRV/MX/SVCB/HTTPS targets get their A/AAAA glue, like
+// the direct path.
 func (z *Zone) externalLookup(ctx context.Context, state request.Request, tr *tree.Tree, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
 	qtype := state.QType()
 	do := state.Do()
@@ -357,7 +360,7 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, tr *tr
 	if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
-		return rrs, z.authority(do, result), nil, result
+		return rrs, z.authority(do, result), z.additionalProcessing(rrs, do), result
 	}
 
 	i := 0
@@ -380,12 +383,12 @@ Redo:
 		if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 			rrs = append(rrs, lookupRRs...)
-			return rrs, z.authority(do, result), nil, result
+			return rrs, z.authority(do, result), z.additionalProcessing(rrs, do), result
 		}
 
 		i++
 		if i > 8 {
-			return rrs, z.ns(do), nil, Success
+			return rrs, z.ns(do), z.additionalProcessing(rrs, do), Success
 		}
 
 		goto Redo
@@ -402,7 +405,7 @@ Redo:
 		}
 	}
 
-	return rrs, z.ns(do), nil, Success
+	return rrs, z.ns(do), z.additionalProcessing(rrs, do), Success
 }
 
 // findDelegation returns the first zone cut between the zone apex and qname.
