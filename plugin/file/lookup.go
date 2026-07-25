@@ -126,7 +126,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 					rcode = Success
 				} else {
 					ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
-					answer, ns, extra, rcode = z.externalLookup(ctx, state, elem, []dns.RR{cname})
+					answer, ns, extra, rcode = z.externalLookup(ctx, state, tr, elem, []dns.RR{cname})
 				}
 
 				if do {
@@ -146,22 +146,8 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			// with (e.g. another DNAME). So there is nothing special left here.
 		}
 
-		// If we see NS records, it means the name as been delegated, and we should return the delegation.
-		if nsrrs := elem.Type(dns.TypeNS); nsrrs != nil {
-			// If the query is specifically for DS and the qname matches the delegated name, we should
-			// return the DS in the answer section and leave the rest empty, i.e. just continue the loop
-			// and continue searching.
-			if qtype == dns.TypeDS && elem.Name() == qname {
-				i++
-				continue
-			}
-
-			glue := tr.Glue(nsrrs, do)
-			if do {
-				dss := typeFromElem(elem, dns.TypeDS, do)
-				nsrrs = append(nsrrs, dss...)
-			}
-
+		// If we see NS records, it means the name has been delegated.
+		if nsrrs, glue, ok := delegationFromElem(tr, elem, qname, qtype, do); ok {
 			return nil, nsrrs, glue, Delegation
 		}
 
@@ -172,7 +158,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	if found && shot {
 		if rrs := elem.Type(dns.TypeCNAME); len(rrs) > 0 && qtype != dns.TypeCNAME {
 			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
-			return z.externalLookup(ctx, state, elem, rrs)
+			return z.externalLookup(ctx, state, tr, elem, rrs)
 		}
 
 		rrs := elem.Type(qtype)
@@ -211,7 +197,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 		if rrs := wildElem.TypeForWildcard(dns.TypeCNAME, qname); len(rrs) > 0 && qtype != dns.TypeCNAME {
 			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
-			return z.externalLookup(ctx, state, wildElem, rrs)
+			return z.externalLookup(ctx, state, tr, wildElem, rrs)
 		}
 
 		rrs := wildElem.TypeForWildcard(qtype, qname)
@@ -353,7 +339,7 @@ func (z *Zone) authority(do bool, result Result) []dns.RR {
 }
 
 // externalLookup adds signatures and tries to resolve CNAMEs that point to external names.
-func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
+func (z *Zone) externalLookup(ctx context.Context, state request.Request, tr *tree.Tree, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
 	qtype := state.QType()
 	do := state.Do()
 
@@ -364,7 +350,10 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, elem *
 	}
 
 	targetName := rrs[0].(*dns.CNAME).Target
-	elem, _ = z.Search(targetName)
+	elem, _ = tr.Search(targetName)
+	if ns, extra, ok := z.findDelegation(tr, targetName, qtype, do, elem); ok {
+		return rrs, ns, extra, Delegation
+	}
 	if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
@@ -384,7 +373,10 @@ Redo:
 			rrs = append(rrs, sigs...)
 		}
 		targetName := cname[0].(*dns.CNAME).Target
-		elem, _ = z.Search(targetName)
+		elem, _ = tr.Search(targetName)
+		if ns, extra, ok := z.findDelegation(tr, targetName, qtype, do, elem); ok {
+			return rrs, ns, extra, Delegation
+		}
 		if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 			rrs = append(rrs, lookupRRs...)
@@ -411,6 +403,44 @@ Redo:
 	}
 
 	return rrs, z.ns(do), nil, Success
+}
+
+// findDelegation returns the first zone cut between the zone apex and qname.
+func (z *Zone) findDelegation(tr *tree.Tree, qname string, qtype uint16, do bool, exact *tree.Elem) (ns, extra []dns.RR, ok bool) {
+	for i := 1; ; i++ {
+		name, shot := z.nameFromRight(qname, i)
+		if shot {
+			return nil, nil, false
+		}
+		if name == qname {
+			if exact == nil {
+				return nil, nil, false
+			}
+			return delegationFromElem(tr, exact, qname, qtype, do)
+		}
+		elem, found := tr.Search(name)
+		if !found {
+			continue
+		}
+		if ns, extra, ok := delegationFromElem(tr, elem, qname, qtype, do); ok {
+			return ns, extra, true
+		}
+	}
+}
+
+// delegationFromElem builds a referral from a zone-cut element. A DS query at
+// the cut itself is answered by the parent zone instead of returning a referral.
+func delegationFromElem(tr *tree.Tree, elem *tree.Elem, qname string, qtype uint16, do bool) (ns, extra []dns.RR, ok bool) {
+	ns = elem.Type(dns.TypeNS)
+	if ns == nil || (qtype == dns.TypeDS && elem.Name() == qname) {
+		return nil, nil, false
+	}
+
+	extra = tr.Glue(ns, do)
+	if do {
+		ns = append(ns, typeFromElem(elem, dns.TypeDS, do)...)
+	}
+	return ns, extra, true
 }
 
 func (z *Zone) doLookup(ctx context.Context, state request.Request, target string, qtype uint16) ([]dns.RR, Result) {
