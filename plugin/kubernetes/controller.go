@@ -270,9 +270,7 @@ func svcIPIndexFunc(obj any) ([]string, error) {
 	if !ok {
 		return nil, errObj
 	}
-	idx := make([]string, len(svc.ClusterIPs))
-	copy(idx, svc.ClusterIPs)
-	return idx, nil
+	return svc.ClusterIPs, nil
 }
 
 func svcExtIPIndexFunc(obj any) ([]string, error) {
@@ -280,9 +278,7 @@ func svcExtIPIndexFunc(obj any) ([]string, error) {
 	if !ok {
 		return nil, errObj
 	}
-	idx := make([]string, len(svc.ExternalIPs))
-	copy(idx, svc.ExternalIPs)
-	return idx, nil
+	return svc.ExternalIPs, nil
 }
 
 func svcNameNamespaceIndexFunc(obj any) ([]string, error) {
@@ -485,6 +481,7 @@ func (dns *dnsControl) HasSynced() bool {
 
 func (dns *dnsControl) ServiceList() (svcs []*object.Service) {
 	os := dns.svcLister.List()
+	svcs = make([]*object.Service, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.Service)
 		if !ok {
@@ -497,6 +494,7 @@ func (dns *dnsControl) ServiceList() (svcs []*object.Service) {
 
 func (dns *dnsControl) ServiceImportList() (svcs []*object.ServiceImport) {
 	os := dns.svcImportLister.List()
+	svcs = make([]*object.ServiceImport, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.ServiceImport)
 		if !ok {
@@ -509,6 +507,7 @@ func (dns *dnsControl) ServiceImportList() (svcs []*object.ServiceImport) {
 
 func (dns *dnsControl) EndpointsList() (eps []*object.Endpoints) {
 	os := dns.epLister.List()
+	eps = make([]*object.Endpoints, 0, len(os))
 	for _, o := range os {
 		ep, ok := o.(*object.Endpoints)
 		if !ok {
@@ -524,6 +523,7 @@ func (dns *dnsControl) PodIndex(ip string) (pods []*object.Pod) {
 	if err != nil {
 		return nil
 	}
+	pods = make([]*object.Pod, 0, len(os))
 	for _, o := range os {
 		p, ok := o.(*object.Pod)
 		if !ok {
@@ -539,6 +539,7 @@ func (dns *dnsControl) SvcIndex(idx string) (svcs []*object.Service) {
 	if err != nil {
 		return nil
 	}
+	svcs = make([]*object.Service, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.Service)
 		if !ok {
@@ -554,7 +555,7 @@ func (dns *dnsControl) SvcIndexReverse(ip string) (svcs []*object.Service) {
 	if err != nil {
 		return nil
 	}
-
+	svcs = make([]*object.Service, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.Service)
 		if !ok {
@@ -570,7 +571,7 @@ func (dns *dnsControl) SvcExtIndexReverse(ip string) (svcs []*object.Service) {
 	if err != nil {
 		return nil
 	}
-
+	svcs = make([]*object.Service, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.Service)
 		if !ok {
@@ -586,6 +587,7 @@ func (dns *dnsControl) SvcImportIndex(idx string) (svcs []*object.ServiceImport)
 	if err != nil {
 		return nil
 	}
+	svcs = make([]*object.ServiceImport, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.ServiceImport)
 		if !ok {
@@ -601,6 +603,7 @@ func (dns *dnsControl) EpIndex(idx string) (ep []*object.Endpoints) {
 	if err != nil {
 		return nil
 	}
+	ep = make([]*object.Endpoints, 0, len(os))
 	for _, o := range os {
 		e, ok := o.(*object.Endpoints)
 		if !ok {
@@ -616,6 +619,7 @@ func (dns *dnsControl) EpIndexReverse(ip string) (ep []*object.Endpoints) {
 	if err != nil {
 		return nil
 	}
+	ep = make([]*object.Endpoints, 0, len(os))
 	for _, o := range os {
 		e, ok := o.(*object.Endpoints)
 		if !ok {
@@ -631,6 +635,7 @@ func (dns *dnsControl) McEpIndex(idx string) (ep []*object.MultiClusterEndpoints
 	if err != nil {
 		return nil
 	}
+	ep = make([]*object.MultiClusterEndpoints, 0, len(os))
 	for _, o := range os {
 		e, ok := o.(*object.MultiClusterEndpoints)
 		if !ok {
