@@ -683,12 +683,15 @@ func (k *Kubernetes) isMultiClusterZone(zone string) bool {
 
 // match checks if a and b are equal.
 func match(a, b string) bool {
+	if a == b {
+		return true
+	}
 	return strings.EqualFold(a, b)
 }
 
 // matchPortAndProtocol matches port and protocol, permitting the 'a' inputs to be wild
 func matchPortAndProtocol(aPort, bPort, aProtocol, bProtocol string) bool {
-	return (match(aPort, bPort) || aPort == "") && (match(aProtocol, bProtocol) || aProtocol == "")
+	return (aPort == "" || match(aPort, bPort)) && (aProtocol == "" || match(aProtocol, bProtocol))
 }
 
 const coredns = "c" // used as a fake key prefix in msg.Service
