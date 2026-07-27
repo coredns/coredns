@@ -62,7 +62,9 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 	i.Extra = i.Extra[:j]
 
 	i.origTTL = uint32(d.Seconds())
-	i.stored = now.UTC()
+	// Keep the monotonic clock reading so TTL expiry is unaffected by wall
+	// clock adjustments.
+	i.stored = now
 
 	i.Freq = new(freq.Freq)
 
@@ -102,7 +104,7 @@ func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
 }
 
 func (i *item) ttl(now time.Time) int {
-	ttl := int(i.origTTL) - int(now.UTC().Sub(i.stored).Seconds())
+	ttl := int(i.origTTL) - int(now.Sub(i.stored).Seconds())
 	return ttl
 }
 

@@ -26,7 +26,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, rc)
 	}
 
-	now := c.now().UTC()
+	now := c.now()
 	server := metrics.WithServer(ctx)
 
 	// On cache refresh, we will just use the DO bit from the incoming query for the refresh since we key our cache
@@ -158,7 +158,7 @@ func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w 
 			// Should not happen: refreshed=true means the upstream response was cacheable.
 			return true, res.code, res.err
 		}
-		now := c.now().UTC()
+		now := c.now()
 		if c.keepttl {
 			now = fresh.stored
 		}
