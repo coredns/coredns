@@ -187,3 +187,63 @@ func TestUpdateWithZeroSOATimers(t *testing.T) {
 		t.Fatalf("Unexpected update error: %v", err)
 	}
 }
+
+func TestTransferInDoesNotMergeRecordsFromFailedPrimary(t *testing.T) {
+	const serial = 250
+	injectedName := "evil." + testZone
+	legitimateName := "www." + testZone
+
+	soaRR := func() dns.RR {
+		return test.SOA(fmt.Sprintf("%s IN SOA bla. bla. %d 0 0 0 0", testZone, serial))
+	}
+
+	// The first primary sends a valid first AXFR envelope containing an injected
+	// record, but never sends the terminating SOA. Closing the connection makes
+	// the transfer fail with EOF after those records have been delivered.
+	malicious := dnstest.NewMultipleServer(func(w dns.ResponseWriter, req *dns.Msg) {
+		if len(req.Question) == 0 || req.Question[0].Qtype != dns.TypeAXFR {
+			return
+		}
+		m := new(dns.Msg)
+		m.SetReply(req)
+		m.Answer = []dns.RR{
+			soaRR(),
+			test.A(injectedName + " 3600 IN A 6.6.6.6"),
+		}
+		_ = w.WriteMsg(m)
+		_ = w.Close()
+	})
+	defer malicious.Close()
+
+	// The second primary completes a normal AXFR and does not contain the
+	// injected name.
+	legitimate := dnstest.NewMultipleServer(func(w dns.ResponseWriter, req *dns.Msg) {
+		if len(req.Question) == 0 || req.Question[0].Qtype != dns.TypeAXFR {
+			return
+		}
+		m := new(dns.Msg)
+		m.SetReply(req)
+		m.Answer = []dns.RR{
+			soaRR(),
+			test.A(legitimateName + " 3600 IN A 192.0.2.10"),
+			soaRR(),
+		}
+		_ = w.WriteMsg(m)
+	})
+	defer legitimate.Close()
+
+	z := NewZone(testZone, "test")
+	z.TransferFrom = []string{malicious.Addr, legitimate.Addr}
+	if err := z.TransferIn(nil); err != nil {
+		t.Fatalf("TransferIn failed: %v", err)
+	}
+
+	legitimateElem, found := z.Search(legitimateName)
+	if !found || len(legitimateElem.Type(dns.TypeA)) != 1 {
+		t.Fatalf("legitimate primary record %q was not transferred", legitimateName)
+	}
+
+	if injectedElem, found := z.Search(injectedName); found && len(injectedElem.Type(dns.TypeA)) != 0 {
+		t.Fatalf("record %q from failed primary was published: %v", injectedName, injectedElem.Type(dns.TypeA))
+	}
+}
