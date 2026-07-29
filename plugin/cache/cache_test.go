@@ -1334,3 +1334,76 @@ func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
 		t.Fatalf("expected positive cache entry (rcode 0), got rcode %d", got.Rcode)
 	}
 }
+
+func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 20 * time.Millisecond
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+
+	// Prime the cache with a response that will later become stale.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if ret, err := c.ServeDNS(context.TODO(), rec, req); err != nil || ret != dns.RcodeSuccess {
+		t.Fatalf("failed to prime cache: rcode=%d err=%v", ret, err)
+	}
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+	c.now = func() time.Time { return time.Now().Add(3 * time.Minute) }
+
+	// Hold the background verifier until ServeDNS has timed out and returned the
+	// stale response. It then writes metadata through the context it received.
+	started := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan struct{})
+	metadataSet := make(chan bool, 1)
+	c.Next = plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		close(started)
+		<-release
+
+		metadataSet <- metadata.SetValueFunc(ctx, "test/background", func() string { return "set" })
+
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A("cached.org. 60 IN A 127.0.0.54")}
+		err := w.WriteMsg(m)
+		close(done)
+		return dns.RcodeSuccess, err
+	})
+
+	ctx := metadata.ContextWithMetadata(context.TODO())
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	ret, err := c.ServeDNS(ctx, rec, req.Copy())
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		close(release)
+		t.Fatal("background verifier did not start")
+	}
+	close(release)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("background verifier did not finish")
+	}
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ret != dns.RcodeSuccess {
+		t.Fatalf("expected RcodeSuccess, got %d", ret)
+	}
+	if !<-metadataSet {
+		t.Fatal("background verifier did not receive a metadata-enabled context")
+	}
+	if f := metadata.ValueFunc(ctx, "test/background"); f != nil {
+		t.Fatalf("background verifier mutated foreground metadata: %q", f())
+	}
+}

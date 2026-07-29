@@ -142,8 +142,9 @@ func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w 
 		err  error
 	}
 	done := make(chan result, 1)
+	refreshCtx := metadata.ContextWithMetadata(ctx)
 	go func() {
-		rc, re := c.doRefresh(ctx, state, cw)
+		rc, re := c.doRefresh(refreshCtx, state, cw)
 		done <- result{rc, re}
 	}()
 	timer := time.NewTimer(c.verifyStaleTimeout)
