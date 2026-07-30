@@ -3,6 +3,7 @@ package request
 
 import (
 	"net"
+	"strconv"
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/edns"
@@ -46,9 +47,19 @@ func (r *Request) IP() string {
 		return r.ip
 	}
 
-	ip, _, err := net.SplitHostPort(r.W.RemoteAddr().String())
+	addr := r.W.RemoteAddr()
+	if udp, ok := addr.(*net.UDPAddr); ok {
+		r.ip = udp.IP.String()
+		return r.ip
+	}
+	if tcp, ok := addr.(*net.TCPAddr); ok {
+		r.ip = tcp.IP.String()
+		return r.ip
+	}
+
+	ip, _, err := net.SplitHostPort(addr.String())
 	if err != nil {
-		r.ip = r.W.RemoteAddr().String()
+		r.ip = addr.String()
 		return r.ip
 	}
 
@@ -62,9 +73,19 @@ func (r *Request) LocalIP() string {
 		return r.localIP
 	}
 
-	ip, _, err := net.SplitHostPort(r.W.LocalAddr().String())
+	addr := r.W.LocalAddr()
+	if udp, ok := addr.(*net.UDPAddr); ok {
+		r.localIP = udp.IP.String()
+		return r.localIP
+	}
+	if tcp, ok := addr.(*net.TCPAddr); ok {
+		r.localIP = tcp.IP.String()
+		return r.localIP
+	}
+
+	ip, _, err := net.SplitHostPort(addr.String())
 	if err != nil {
-		r.localIP = r.W.LocalAddr().String()
+		r.localIP = addr.String()
 		return r.localIP
 	}
 
@@ -78,7 +99,17 @@ func (r *Request) Port() string {
 		return r.port
 	}
 
-	_, port, err := net.SplitHostPort(r.W.RemoteAddr().String())
+	addr := r.W.RemoteAddr()
+	if udp, ok := addr.(*net.UDPAddr); ok {
+		r.port = strconv.Itoa(udp.Port)
+		return r.port
+	}
+	if tcp, ok := addr.(*net.TCPAddr); ok {
+		r.port = strconv.Itoa(tcp.Port)
+		return r.port
+	}
+
+	_, port, err := net.SplitHostPort(addr.String())
 	if err != nil {
 		r.port = "0"
 		return r.port
@@ -94,7 +125,17 @@ func (r *Request) LocalPort() string {
 		return r.localPort
 	}
 
-	_, port, err := net.SplitHostPort(r.W.LocalAddr().String())
+	addr := r.W.LocalAddr()
+	if udp, ok := addr.(*net.UDPAddr); ok {
+		r.localPort = strconv.Itoa(udp.Port)
+		return r.localPort
+	}
+	if tcp, ok := addr.(*net.TCPAddr); ok {
+		r.localPort = strconv.Itoa(tcp.Port)
+		return r.localPort
+	}
+
+	_, port, err := net.SplitHostPort(addr.String())
 	if err != nil {
 		r.localPort = "0"
 		return r.localPort
@@ -103,6 +144,7 @@ func (r *Request) LocalPort() string {
 	r.localPort = port
 	return r.localPort
 }
+
 
 // RemoteAddr returns the net.Addr of the client that sent the current request.
 func (r *Request) RemoteAddr() string { return r.W.RemoteAddr().String() }
