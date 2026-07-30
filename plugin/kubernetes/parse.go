@@ -4,8 +4,6 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
-
-	"github.com/miekg/dns"
 )
 
 type recordRequest struct {
@@ -48,6 +46,31 @@ const (
 	directivePrefer = "prefer" // zone-local endpoints, all endpoints if none
 )
 
+// maxSegs is the number of labels parseRequest can answer for without growing:
+// _port._protocol.service.namespace.pod|svc. A zone-scoped name may be longer.
+const maxSegs = 6
+
+// joinReverse joins segs, which is in reverse label order, back into a name that
+// reads left to right the way the query did.
+func joinReverse(segs []string) string {
+	if len(segs) == 1 {
+		return segs[0]
+	}
+	size := len(segs) - 1
+	for _, s := range segs {
+		size += len(s)
+	}
+	var b strings.Builder
+	b.Grow(size)
+	for i := len(segs) - 1; i >= 0; i-- {
+		if i != len(segs)-1 {
+			b.WriteByte('.')
+		}
+		b.WriteString(segs[i])
+	}
+	return b.String()
+}
+
 // parseRequest parses the qname to find all the elements we need for querying k8s. Anything
 // that is not parsed will have the wildcard "*" value (except r.endpoint).
 // Potential underscores are stripped from _port and _protocol.
@@ -64,46 +87,66 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 	if base == "" || base == Svc || base == Pod {
 		return r, nil
 	}
-	segs := dns.SplitDomainName(base)
 
-	last := len(segs) - 1
-	if last < 0 {
+	// segs holds the labels of base in reverse order, so segs[0] is the label closest
+	// to the zone. The labels are sliced straight out of base into arr, so a name of
+	// the length this can answer for does not allocate. A zone-scoped name may carry
+	// more labels than that - the zone value may span labels - and grows off arr.
+	var arr [maxSegs]string
+	segs := arr[:0]
+	end := len(base)
+	for end > 0 {
+		idx := strings.LastIndexByte(base[:end], '.')
+		var label string
+		if idx == -1 {
+			label = base[:end]
+			end = 0
+		} else {
+			label = base[idx+1 : end]
+			end = idx
+		}
+		if label == "" {
+			continue
+		}
+		segs = append(segs, label)
+	}
+
+	n := len(segs)
+	if n < 1 {
 		return r, nil
 	}
-	r.podOrSvc = segs[last]
+	r.podOrSvc = segs[0]
 	if r.podOrSvc != Pod && r.podOrSvc != Svc {
 		return r, errInvalidRequest
 	}
-	last--
-	if last < 0 {
+	if n < 2 {
 		return r, nil
 	}
 
-	r.namespace = segs[last]
-	last--
-	if last < 0 {
+	r.namespace = segs[1]
+	if n < 3 {
 		return r, nil
 	}
 
-	r.service = segs[last]
-	last--
-	if last < 0 {
+	r.service = segs[2]
+	if n < 4 {
 		return r, nil
 	}
 
-	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol or endpoint
-	// and clusterid. 3 or more: a zone-scoped name (the zone value may span labels).
-	// Anything else is a query that is too long to answer and can safely be delegated to return an nxdomain.
-	switch last {
-	case 0: // endpoint only
-		r.endpoint = segs[last]
-	case 1: // service and port or endpoint and clusterid
-		if !multicluster || strings.HasPrefix(segs[last], "_") || strings.HasPrefix(segs[last-1], "_") {
-			r.protocol = stripUnderscore(segs[last])
-			r.port = stripUnderscore(segs[last-1])
+	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol
+	// or endpoint and clusterid. 3 or more: a zone-scoped name (the zone value may span
+	// labels). Anything else is a query that is too long to answer and can safely be
+	// delegated to return an nxdomain.
+	switch remaining := n - 3; remaining {
+	case 1: // endpoint only
+		r.endpoint = segs[3]
+	case 2: // service and port or endpoint and clusterid
+		if !multicluster || strings.HasPrefix(segs[3], "_") || strings.HasPrefix(segs[4], "_") {
+			r.protocol = stripUnderscore(segs[3])
+			r.port = stripUnderscore(segs[4])
 		} else {
-			r.cluster = segs[last]
-			r.endpoint = segs[last-1]
+			r.cluster = segs[3]
+			r.endpoint = segs[4]
 		}
 
 	default: // zone-scoped name (topozone.pin|prefer._zone), or too long
@@ -112,17 +155,17 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 		// multicluster zones; everything this arm rejects keeps the stock
 		// too-long NXDOMAIN, so behavior with the option off (or for
 		// unknown directives) is byte-identical to today.
-		if !zonal || multicluster || segs[last] != zoneLabel || r.podOrSvc != Svc {
+		if !zonal || multicluster || segs[3] != zoneLabel || r.podOrSvc != Svc {
 			return r, errInvalidRequest
 		}
-		switch segs[last-1] {
+		switch segs[4] {
 		case directivePin:
 		case directivePrefer:
 			r.zonePrefer = true
 		default:
 			return r, errInvalidRequest
 		}
-		r.zone = strings.Join(segs[:last-1], ".")
+		r.zone = joinReverse(segs[5:])
 	}
 
 	return r, nil
