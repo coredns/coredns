@@ -1,6 +1,6 @@
 [![CoreDNS](https://coredns.io/images/CoreDNS_Colour_Horizontal.png)](https://coredns.io)
 
-[![Documentation](https://img.shields.io/badge/godoc-reference-blue.svg)](https://godoc.org/github.com/coredns/coredns)
+[![Documentation](https://img.shields.io/badge/godoc-reference-blue.svg)](https://pkg.go.dev/github.com/coredns/coredns)
 ![CodeQL](https://github.com/coredns/coredns/actions/workflows/codeql-analysis.yml/badge.svg)
 ![Go Tests](https://github.com/coredns/coredns/actions/workflows/go.test.yml/badge.svg)
 [![CircleCI](https://circleci.com/gh/coredns/coredns.svg?style=shield)](https://circleci.com/gh/coredns/coredns)
@@ -19,7 +19,7 @@ are able to do what you want with your DNS data by utilizing plugins. If some fu
 provided out of the box you can add it by [writing a plugin](https://coredns.io/explugins).
 
 CoreDNS can listen for DNS requests coming in over:
-* UDP/TCP (go'old DNS).
+* UDP/TCP (goold DNS).
 * TLS - DoT ([RFC 7858](https://tools.ietf.org/html/rfc7858)).
 * DNS over HTTP/2 - DoH ([RFC 8484](https://tools.ietf.org/html/rfc8484)).
 * DNS over HTTP/3 - DoH3
@@ -291,7 +291,7 @@ When no transport protocol is specified the default `dns://` is assumed.
 
 ## Community
 
-We're most active on GitHub (and Slack):
+We’re most active on GitHub (and Slack):
 
 - GitHub: <https://github.com/coredns/coredns>
 - Slack: #coredns on <https://slack.cncf.io>
