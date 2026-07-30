@@ -1431,3 +1431,10 @@ func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 		t.Fatalf("background verifier mutated foreground metadata: %q", f())
 	}
 }
+
+func BenchmarkHash(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		_ = hash("example.org.", dns.TypeA, dns.ClassINET, true, false)
+	}
+}
