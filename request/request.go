@@ -145,7 +145,6 @@ func (r *Request) LocalPort() string {
 	return r.localPort
 }
 
-
 // RemoteAddr returns the net.Addr of the client that sent the current request.
 func (r *Request) RemoteAddr() string { return r.W.RemoteAddr().String() }
 
