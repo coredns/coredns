@@ -493,3 +493,34 @@ func TestServicesAuthority(t *testing.T) {
 		}
 	}
 }
+
+func BenchmarkServices(b *testing.B) {
+	k := New([]string{"inter.webs.tests."})
+	k.APIConn = APIConnServiceTest{}
+	ctx := context.TODO()
+
+	m := new(dns.Msg)
+	m.SetQuestion("svc1.testns.svc.inter.webs.tests.", dns.TypeA)
+	state := request.Request{Zone: k.Zones[0], Req: m}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = k.Services(ctx, state, false, plugin.Options{})
+	}
+}
+
+func BenchmarkServicesHeadless(b *testing.B) {
+	k := New([]string{"inter.webs.tests."})
+	k.APIConn = APIConnServiceTest{}
+	ctx := context.TODO()
+
+	m := new(dns.Msg)
+	m.SetQuestion("hdls1.testns.svc.inter.webs.tests.", dns.TypeA)
+	state := request.Request{Zone: k.Zones[0], Req: m}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = k.Services(ctx, state, false, plugin.Options{})
+	}
+}
+
