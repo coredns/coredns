@@ -519,9 +519,10 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
+						epHost := endpointHostname(addr, k.endpointNameMode)
 						// See comments in parse.go parseRequest about the endpoint handling.
 						if r.endpoint != "" {
-							if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+							if !match(r.endpoint, epHost) {
 								continue
 							}
 						}
@@ -531,7 +532,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 								continue
 							}
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
+							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, epHost}, "/")
 
 							err = nil
 
@@ -623,9 +624,10 @@ func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (ser
 
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
+						epHost := endpointHostname(addr, k.endpointNameMode)
 						// See comments in parse.go parseRequest about the endpoint handling.
 						if r.endpoint != "" {
-							if !match(r.cluster, ep.ClusterId) || !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+							if !match(r.cluster, ep.ClusterId) || !match(r.endpoint, epHost) {
 								continue
 							}
 						}
@@ -635,7 +637,7 @@ func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (ser
 								continue
 							}
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, ep.ClusterId, endpointHostname(addr, k.endpointNameMode)}, "/")
+							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, ep.ClusterId, epHost}, "/")
 
 							err = nil
 
