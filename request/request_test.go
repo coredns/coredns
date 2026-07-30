@@ -381,3 +381,24 @@ func TestRequestClear(t *testing.T) {
 		t.Errorf("Expected st.port to be cleared after Clear")
 	}
 }
+
+func BenchmarkRequestIP(b *testing.B) {
+	st := testRequest()
+	b.ReportAllocs()
+
+	for b.Loop() {
+		st.Clear()
+		_ = st.IP()
+	}
+}
+
+func BenchmarkRequestPort(b *testing.B) {
+	st := testRequest()
+	b.ReportAllocs()
+
+	for b.Loop() {
+		st.Clear()
+		_ = st.Port()
+	}
+}
+
