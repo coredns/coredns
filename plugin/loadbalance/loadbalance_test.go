@@ -201,3 +201,15 @@ func handler() plugin.Handler {
 		return dns.RcodeSuccess, nil
 	})
 }
+
+func BenchmarkRoundRobin(b *testing.B) {
+	answer := []dns.RR{
+		test.A("a.example.org. 300 IN A 10.0.0.1"),
+		test.A("a.example.org. 300 IN A 10.0.0.2"),
+		test.A("a.example.org. 300 IN A 10.0.0.3"),
+	}
+	b.ReportAllocs()
+	for b.Loop() {
+		_ = roundRobin(answer)
+	}
+}
