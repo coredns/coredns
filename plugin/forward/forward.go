@@ -30,9 +30,10 @@ import (
 var log = clog.NewWithPlugin("forward")
 
 const (
-	defaultExpire      = 10 * time.Second
-	defaultReadTimeout = 2 * time.Second
-	hcInterval         = 500 * time.Millisecond
+	defaultExpire                     = 10 * time.Second
+	defaultReadTimeout                = 2 * time.Second
+	hcInterval                        = 500 * time.Millisecond
+	defaultConnectAttemptsPerUpstream = 2
 )
 
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
@@ -62,6 +63,7 @@ type Forward struct {
 	failfastUnhealthyUpstreams bool
 	failoverRcodes             []int
 	maxConnectAttempts         uint32
+	maxConnectAttemptsSet      bool
 	sourceAddress              net.IP
 
 	// Hostname resolution fields
@@ -135,9 +137,13 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	list := f.List()
 	deadline := time.Now().Add(defaultTimeout)
 	start := time.Now()
-	connectAttempts := uint32(0)
+	maxConnectAttempts := uint64(f.maxConnectAttempts)
+	if !f.maxConnectAttemptsSet {
+		maxConnectAttempts = uint64(defaultConnectAttemptsPerUpstream) * uint64(len(list))
+	}
+	connectAttempts := uint64(0)
 
-	for time.Now().Before(deadline) && ctx.Err() == nil && (f.maxConnectAttempts == 0 || connectAttempts < f.maxConnectAttempts) {
+	for time.Now().Before(deadline) && ctx.Err() == nil && (maxConnectAttempts == 0 || connectAttempts < maxConnectAttempts) {
 		if i >= len(list) {
 			// reached the end of list, reset to begin
 			i = 0
@@ -215,11 +221,9 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 				proxy.Healthcheck()
 			}
 
-			// If a per-request connect-attempt cap is configured, count this
-			// failed connect attempt and stop retrying when the cap is hit.
-			if f.maxConnectAttempts > 0 {
+			if maxConnectAttempts > 0 {
 				connectAttempts++
-				if connectAttempts >= f.maxConnectAttempts {
+				if connectAttempts >= maxConnectAttempts {
 					break
 				}
 			}
