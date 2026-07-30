@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/doh"
 
 	"github.com/miekg/dns"
 )
@@ -660,5 +661,41 @@ func TestServeHTTPDoesNotLeakBodyReadError(t *testing.T) {
 	}
 	if got := strings.TrimSpace(string(body)); got != "invalid request" {
 		t.Fatalf("expected sanitized body %q, got %q", "invalid request", got)
+	}
+}
+
+func TestServeHTTPExplainsUnsupportedJSONAPI(t *testing.T) {
+	c := Config{
+		Zone:        "example.com.",
+		Transport:   "https",
+		TLSConfig:   &tls.Config{},
+		ListenHosts: []string{"127.0.0.1"},
+		Port:        "443",
+	}
+	s, err := NewServerHTTPS("127.0.0.1:443", []*Config{&c})
+	if err != nil {
+		t.Fatal("could not create HTTPS server:", err)
+	}
+
+	r := httptest.NewRequest(http.MethodGet, "/dns-query?name=example.com&type=A", nil)
+	r.Header.Set("Accept", "application/dns-json")
+	r.RemoteAddr = "127.0.0.1:12345"
+	w := httptest.NewRecorder()
+
+	s.ServeHTTP(w, r)
+
+	res := w.Result()
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(body)); got != doh.ErrJSONNotSupported.Error() {
+		t.Fatalf("expected body %q, got %q", doh.ErrJSONNotSupported.Error(), got)
 	}
 }

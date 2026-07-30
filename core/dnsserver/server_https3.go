@@ -3,6 +3,7 @@ package dnsserver
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -236,7 +237,12 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	msg, raw, err := doh.RequestToMsgWire(r)
 	if err != nil {
 		clog.Debugf("DoH3 request could not be parsed: %v", err)
-		http.Error(w, "invalid request", http.StatusBadRequest)
+		body := "invalid request"
+		if errors.Is(err, doh.ErrJSONNotSupported) {
+			// Fixed string, safe to return to the client.
+			body = err.Error()
+		}
+		http.Error(w, body, http.StatusBadRequest)
 		s.countResponse(http.StatusBadRequest)
 		return
 	}

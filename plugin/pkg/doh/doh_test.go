@@ -1,6 +1,7 @@
 package doh
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 
@@ -42,6 +43,52 @@ func TestDoH(t *testing.T) {
 				t.Errorf("Qname expected %d, got %d", x, dns.TypeDNSKEY)
 			}
 		})
+	}
+}
+
+func TestDoHGETRejectsJSONAPI(t *testing.T) {
+	tests := map[string]struct {
+		target string
+		accept string
+	}{
+		"name and type parameters": {target: "https://example.org" + Path + "?name=example.org&type=A"},
+		"accept header only":       {target: "https://example.org" + Path, accept: "application/dns-json"},
+		"parameters and accept":    {target: "https://example.org" + Path + "?name=example.org&type=A", accept: "application/dns-json"},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			req, err := http.NewRequest(http.MethodGet, test.target, nil)
+			if err != nil {
+				t.Fatalf("failed to build request: %v", err)
+			}
+			if test.accept != "" {
+				req.Header.Set("Accept", test.accept)
+			}
+
+			_, err = RequestToMsg(req)
+			if !errors.Is(err, ErrJSONNotSupported) {
+				t.Fatalf("expected ErrJSONNotSupported, got %v", err)
+			}
+		})
+	}
+}
+
+func TestDoHGETMissingDNSParameter(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "https://example.org"+Path, nil)
+	if err != nil {
+		t.Fatalf("failed to build request: %v", err)
+	}
+
+	_, err = RequestToMsg(req)
+	if err == nil {
+		t.Fatal("expected GET request without 'dns' query parameter to be rejected")
+	}
+	if errors.Is(err, ErrJSONNotSupported) {
+		t.Fatalf("expected a generic error for a request without JSON API markers, got %v", err)
+	}
+	if err.Error() != "no 'dns' query parameter found" {
+		t.Fatalf("expected %q, got %v", "no 'dns' query parameter found", err)
 	}
 }
 
