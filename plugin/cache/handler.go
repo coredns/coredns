@@ -143,6 +143,9 @@ func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w 
 	}
 	done := make(chan result, 1)
 	refreshCtx := metadata.ContextWithMetadata(ctx)
+	for label, valueFunc := range metadata.ValueFuncs(ctx) {
+		metadata.SetValueFunc(refreshCtx, label, valueFunc)
+	}
 	go func() {
 		rc, re := c.doRefresh(refreshCtx, state, cw)
 		done <- result{rc, re}

@@ -1361,22 +1361,36 @@ func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 	release := make(chan struct{})
 	done := make(chan struct{})
 	metadataSet := make(chan bool, 1)
+	metadataReceived := make(chan string, 1)
+
 	c.Next = plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		value := ""
+		if f := metadata.ValueFunc(ctx, "test/request"); f != nil {
+			value = f()
+		}
+		metadataReceived <- value
+
 		close(started)
 		<-release
 
 		metadataSet <- metadata.SetValueFunc(ctx, "test/background", func() string { return "set" })
-
 		m := new(dns.Msg)
 		m.SetReply(r)
 		m.Response, m.RecursionAvailable = true, true
 		m.Answer = []dns.RR{test.A("cached.org. 60 IN A 127.0.0.54")}
+
 		err := w.WriteMsg(m)
 		close(done)
 		return dns.RcodeSuccess, err
 	})
 
 	ctx := metadata.ContextWithMetadata(context.TODO())
+	if !metadata.SetValueFunc(ctx, "test/request", func() string {
+		return "preserved"
+	}) {
+		t.Fatal("failed to set request metadata")
+	}
+
 	rec = dnstest.NewRecorder(&test.ResponseWriter{})
 	ret, err := c.ServeDNS(ctx, rec, req.Copy())
 
@@ -1386,6 +1400,7 @@ func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 		close(release)
 		t.Fatal("background verifier did not start")
 	}
+
 	close(release)
 
 	select {
@@ -1400,9 +1415,18 @@ func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 	if ret != dns.RcodeSuccess {
 		t.Fatalf("expected RcodeSuccess, got %d", ret)
 	}
+
+	if got := <-metadataReceived; got != "preserved" {
+		t.Fatalf(
+			"background verifier did not preserve request metadata: got %q",
+			got,
+		)
+	}
+
 	if !<-metadataSet {
 		t.Fatal("background verifier did not receive a metadata-enabled context")
 	}
+
 	if f := metadata.ValueFunc(ctx, "test/background"); f != nil {
 		t.Fatalf("background verifier mutated foreground metadata: %q", f())
 	}
