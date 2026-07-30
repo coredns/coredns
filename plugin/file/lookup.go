@@ -484,7 +484,6 @@ func (z *Zone) doLookup(ctx context.Context, state request.Request, target strin
 func (z *Zone) additionalProcessing(tr *tree.Tree, answer []dns.RR, do bool) (extra []dns.RR) {
 	var lookup map[string]struct{}
 
-
 	for _, rr := range answer {
 		name := ""
 		switch x := rr.(type) {
