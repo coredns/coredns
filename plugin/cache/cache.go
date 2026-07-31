@@ -46,6 +46,7 @@ type Cache struct {
 	staleUpTo          time.Duration
 	verifyStale        bool
 	verifyStaleTimeout time.Duration // 0 means wait for upstream until its own timeout (current default).
+	preferPositive     bool
 
 	// Positive/negative zone exceptions
 	pexcept []string
@@ -122,6 +123,52 @@ func hasSOA(m *dns.Msg) bool {
 	return false
 }
 
+// cacheResponseType returns the response type used by the cache. Typify treats
+// any NOERROR response with a non-empty answer section as NoError, but RFC 2308
+// NODATA responses may contain a CNAME chain. Reclassify those responses when
+// an SOA provides the negative cache TTL.
+func cacheResponseType(m *dns.Msg, now time.Time) response.Type {
+	t, _ := response.Typify(m, now)
+	if t == response.NoError && hasSOA(m) && isNODATA(m) {
+		return response.NoData
+	}
+	return t
+}
+
+// answersQuestion reports whether a NOERROR response contains an answer to its
+// question. For types other than CNAME and ANY, the queried type must exist at
+// the terminal owner reached by following the CNAME chain from QNAME.
+func answersQuestion(m *dns.Msg) bool {
+	if m == nil || m.Rcode != dns.RcodeSuccess || len(m.Question) == 0 || len(m.Answer) == 0 {
+		return false
+	}
+	q := m.Question[0]
+	return answerHasType(m.Answer, q.Name, q.Qtype)
+}
+
+func answerHasType(answer []dns.RR, name string, qtype uint16) bool {
+	if len(answer) == 0 {
+		return false
+	}
+	if qtype == dns.TypeANY {
+		return true
+	}
+	if qtype != dns.TypeCNAME {
+		terminal, ok := canonicalName(answer, name)
+		if !ok {
+			return false
+		}
+		name = terminal
+	}
+	for _, r := range answer {
+		h := r.Header()
+		if h.Rrtype == qtype && strings.EqualFold(h.Name, name) {
+			return true
+		}
+	}
+	return false
+}
+
 // isNODATA reports whether a NOERROR response with a non-empty answer section
 // does not answer the question. Following RFC 1034 section 3.6.2 and RFC 2308
 // sections 1 and 2.2, a query of any type other than CNAME (and ANY) is
@@ -144,32 +191,7 @@ func isNODATA(m *dns.Msg) bool {
 	if len(m.Answer) == 0 {
 		return false
 	}
-	qtype := m.Question[0].Qtype
-	if qtype == dns.TypeANY {
-		return false
-	}
-	// A CNAME query is answered by the CNAME itself, so the chain is not
-	// followed; otherwise resolve it to the terminal owner name.
-	name := m.Question[0].Name
-	if qtype != dns.TypeCNAME {
-		terminal, ok := canonicalName(m.Answer, name)
-		if !ok {
-			// The CNAME chain is malformed (an owner with more than one
-			// distinct target, or a loop) and therefore has no well-defined
-			// QNAME per RFC 2181 section 10.1 and RFC 1034 section 3.6.2. Such
-			// a response cannot be shown to answer the question, so treat it as
-			// NODATA and (being SOA-less) leave it uncacheable.
-			return true
-		}
-		name = terminal
-	}
-	for _, r := range m.Answer {
-		h := r.Header()
-		if h.Rrtype == qtype && strings.EqualFold(h.Name, name) {
-			return false
-		}
-	}
-	return true
+	return !answersQuestion(m)
 }
 
 // canonicalName follows the owner-linked CNAME chain in answer starting at name
@@ -362,7 +384,7 @@ func (w *ResponseWriter) Hijack() {
 // WriteMsg implements the dns.ResponseWriter interface.
 func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	res = res.Copy()
-	mt, _ := response.Typify(res, w.now().UTC())
+	mt := cacheResponseType(res, w.now().UTC())
 
 	// key returns empty string for anything we don't want to cache.
 	hasKey, key := key(w.state.Name(), res, mt, w.do, w.cd)
@@ -425,8 +447,10 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		if w.pcache.Add(key, i) {
 			evictions.WithLabelValues(w.server, Success, w.zonesMetricLabel, w.viewMetricLabel).Inc()
 		}
-		// when pre-fetching, remove the negative cache entry if it exists
-		if w.prefetch {
+		// A positive refresh is the newest state for this key. Under the
+		// prefer_positive policy, only remove the denial when this response
+		// actually answers the question.
+		if w.prefetch || (w.preferPositive && answersQuestion(m)) {
 			w.ncache.Remove(key)
 		}
 
@@ -468,8 +492,10 @@ type verifyStaleResponseWriter struct {
 }
 
 // newVerifyStaleResponseWriter returns a ResponseWriter to be used when verifying stale cache
-// entries. It only forward writes if an entry was successfully refreshed according to RFC8767,
-// section 4 (response is NoError or NXDomain), and ignores any other response.
+// entries. By default it only forward writes if an entry was successfully refreshed according
+// to RFC8767, section 4 (response is NoError or NXDomain). With prefer_positive, only a response
+// that answers the question is forwarded; other cacheable responses are stored without being
+// sent to the client.
 func newVerifyStaleResponseWriter(w *ResponseWriter) *verifyStaleResponseWriter {
 	return &verifyStaleResponseWriter{
 		w,
@@ -480,6 +506,17 @@ func newVerifyStaleResponseWriter(w *ResponseWriter) *verifyStaleResponseWriter 
 // WriteMsg implements the dns.ResponseWriter interface.
 func (w *verifyStaleResponseWriter) WriteMsg(res *dns.Msg) error {
 	w.refreshed = false
+	if w.preferPositive {
+		if answersQuestion(res) {
+			w.refreshed = true
+			return w.ResponseWriter.WriteMsg(res)
+		}
+		prefetch := w.prefetch
+		w.prefetch = true
+		err := w.ResponseWriter.WriteMsg(res)
+		w.prefetch = prefetch
+		return err
+	}
 	if res.Rcode == dns.RcodeSuccess || res.Rcode == dns.RcodeNameError {
 		w.refreshed = true
 		return w.ResponseWriter.WriteMsg(res) // stores to the cache and send to client

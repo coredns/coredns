@@ -63,6 +63,8 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 			}
 		}
 		origins := plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
+		serveStaleConfigured := false
+		serveStalePolicyConfigured := false
 
 		// Refinements? In an extra block.
 		for c.NextBlock() {
@@ -171,6 +173,7 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 				}
 
 			case "serve_stale":
+				serveStaleConfigured = true
 				args := c.RemainingArgs()
 				if len(args) > 3 {
 					return nil, c.ArgErr()
@@ -207,6 +210,21 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 						return nil, errors.New("invalid negative timeout for serve_stale verify")
 					}
 					ca.verifyStaleTimeout = t
+				}
+			case "serve_stale_policy":
+				if serveStalePolicyConfigured {
+					return nil, errors.New("serve_stale_policy can only be specified once")
+				}
+				serveStalePolicyConfigured = true
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return nil, c.ArgErr()
+				}
+				switch strings.ToLower(args[0]) {
+				case "prefer_positive":
+					ca.preferPositive = true
+				default:
+					return nil, fmt.Errorf("invalid serve_stale_policy: %s", args[0])
 				}
 			case "servfail":
 				args := c.RemainingArgs()
@@ -263,6 +281,9 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 			default:
 				return nil, c.ArgErr()
 			}
+		}
+		if serveStalePolicyConfigured && !serveStaleConfigured {
+			return nil, errors.New("serve_stale_policy requires serve_stale")
 		}
 
 		ca.Zones = origins
