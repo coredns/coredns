@@ -127,6 +127,11 @@ type Config struct {
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
 
+	// MaxTCPQueries defines the maximum number of queries served on a single TCP/TLS
+	// connection before it is closed. -1 means unlimited. This is nil if not specified,
+	// allowing for a default to be used.
+	MaxTCPQueries *int
+
 	// TSIG secrets, [name]key.
 	TsigSecret map[string]string
 

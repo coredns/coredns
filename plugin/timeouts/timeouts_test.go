@@ -30,6 +30,16 @@ func TestTimeouts(t *testing.T) {
 			write 20
 			idle 60
 		}`, false, "", ""},
+		{`timeouts {
+			maxtcpqueries 128
+		}`, false, "", ""},
+		{`timeouts {
+			maxtcpqueries -1
+		}`, false, "", ""},
+		{`timeouts {
+			read 10s
+			maxtcpqueries 128
+		}`, false, "", ""},
 		// negative
 		{`timeouts`, true, "", "block with no timeouts specified"},
 		{`timeouts {
@@ -51,6 +61,15 @@ func TestTimeouts(t *testing.T) {
 		{`timeouts {
 			read 48h
 		}`, true, "", "needs to be between"},
+		{`timeouts {
+			maxtcpqueries 0
+		}`, true, "", "needs to be -1"},
+		{`timeouts {
+			maxtcpqueries -2
+		}`, true, "", "needs to be -1"},
+		{`timeouts {
+			maxtcpqueries snake
+		}`, true, "", "invalid value for maxtcpqueries"},
 	}
 
 	for i, test := range tests {
