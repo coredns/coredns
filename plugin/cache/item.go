@@ -114,3 +114,7 @@ func (i *item) matches(state request.Request) bool {
 	}
 	return false
 }
+
+func (i *item) answersQuestion(state request.Request) bool {
+	return i.Rcode == dns.RcodeSuccess && answerHasType(i.Answer, state.QName(), state.QType())
+}

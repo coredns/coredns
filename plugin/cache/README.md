@@ -41,6 +41,7 @@ cache [TTL] [ZONES...] {
     denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
     serve_stale [DURATION] [REFRESH_MODE [VERIFY_TIMEOUT]]
+    serve_stale_policy prefer_positive
     servfail DURATION
     disable success|denial [ZONES...]
     keepttl
@@ -78,6 +79,13 @@ cache [TTL] [ZONES...] {
   verify before falling back to the stale entry. The verify continues in the background and refreshes the
   cache when it eventually succeeds, so subsequent queries see the fresh entry. The default of `0` means
   wait until the upstream's own timeout (the original `verify` behavior). Example: `serve_stale 1h verify 100ms`.
+* `serve_stale_policy` controls cache selection while `serve_stale` is enabled. The only supported policy is
+  `prefer_positive`. It checks the success cache before the denial cache and returns an eligible positive response
+  when it actually answers the question, even when a cached NXDOMAIN, NODATA, SERVFAIL, or NOTIMP response also
+  exists. The positive response must be unexpired or within the configured `serve_stale` duration. This policy is
+  disabled by default because it can mask legitimate record deletion or removal until the positive response exceeds
+  the stale duration or is evicted. In `immediate` mode, the stale positive response is returned first and the cache
+  refreshes in the background. In `verify` mode, only a refreshed positive answer replaces the stale response.
 * `servfail` cache SERVFAIL responses for **DURATION**.  Setting **DURATION** to 0 will disable caching of SERVFAIL
   responses.  If this option is not set, SERVFAIL responses will be cached for 5 seconds.  **DURATION** may not be
   greater than 5 minutes.

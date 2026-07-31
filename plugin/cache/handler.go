@@ -132,10 +132,10 @@ func (c *Cache) doRefresh(ctx context.Context, state request.Request, cw dns.Res
 
 // verifyWithTimeout runs the upstream verify in a background goroutine and races it
 // against verifyStaleTimeout. If the verify completes within the timeout and the
-// response is cacheable (NoError or NXDomain), the freshly cached entry is served
-// to the client and served is true. Otherwise served is false and the caller falls
-// through to serve stale; the goroutine continues to run and any successful response
-// will update the cache without writing to the (now-detached) client connection.
+// response is accepted by verifyStaleResponseWriter, the freshly cached entry is
+// served to the client and served is true. Otherwise served is false and the caller
+// falls through to serve stale; the goroutine continues to run and any cacheable
+// response updates the cache without writing to the detached client connection.
 func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w dns.ResponseWriter, cw *verifyStaleResponseWriter, r *dns.Msg, do, ad bool) (served bool, code int, err error) {
 	type result struct {
 		code int
@@ -192,6 +192,16 @@ func (c *Cache) Name() string { return "cache" }
 func (c *Cache) getIfNotStale(now time.Time, state request.Request, server string) *item {
 	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
 	cacheRequests.WithLabelValues(server, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+
+	if c.preferPositive && c.staleUpTo > 0 {
+		if i, ok := c.pcache.Get(k); ok {
+			ttl := i.ttl(now)
+			if i.matches(state) && i.answersQuestion(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
+				cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+				return i
+			}
+		}
+	}
 
 	if i, ok := c.ncache.Get(k); ok {
 		ttl := i.ttl(now)

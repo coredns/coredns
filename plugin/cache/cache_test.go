@@ -1335,6 +1335,120 @@ func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
 	}
 }
 
+func TestPreferPositiveCachePolicy(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	now := time.Now()
+	c.now = func() time.Time { return now }
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+
+	positive := new(dns.Msg)
+	positive.SetReply(req)
+	positive.Answer = []dns.RR{test.A("example.org. 60 IN A 192.0.2.1")}
+	c.pcache.Add(k, newItem(positive, now.Add(-2*time.Minute), time.Minute))
+
+	negative := new(dns.Msg)
+	negative.SetRcode(req, dns.RcodeNameError)
+	negative.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
+	c.ncache.Add(k, newItem(negative, now, 5*time.Minute))
+
+	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeNameError {
+		t.Fatalf("default policy should prefer ncache NXDOMAIN, got %+v", got)
+	}
+
+	c.preferPositive = true
+	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeSuccess {
+		t.Fatalf("prefer_positive should prefer eligible pcache answer, got %+v", got)
+	}
+}
+
+func TestPreferPositiveRejectsNonAnswer(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	c.preferPositive = true
+	now := time.Now()
+
+	req := new(dns.Msg)
+	req.SetQuestion("alias.example.org.", dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+
+	incomplete := new(dns.Msg)
+	incomplete.SetReply(req)
+	incomplete.Answer = []dns.RR{test.CNAME("alias.example.org. 60 IN CNAME missing.example.org.")}
+	c.pcache.Add(k, newItem(incomplete, now, time.Minute))
+
+	negative := new(dns.Msg)
+	negative.SetRcode(req, dns.RcodeNameError)
+	negative.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
+	c.ncache.Add(k, newItem(negative, now, 5*time.Minute))
+
+	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeNameError {
+		t.Fatalf("non-answer pcache item must not shadow ncache, got %+v", got)
+	}
+}
+
+func TestPreferPositiveVerifyKeepsStaleOnNXDOMAIN(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.preferPositive = true
+	c.Next = ttlBackend(60)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.Background()
+	c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+
+	c.now = func() time.Time { return time.Now().Add(2 * time.Minute) }
+	c.Next = nxDomainBackend(300)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	ret, err := c.ServeDNS(ctx, rec, req.Copy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ret != dns.RcodeSuccess || rec.Msg == nil || rec.Msg.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected stale positive response, got ret=%d msg=%+v", ret, rec.Msg)
+	}
+	if got := rec.Msg.Answer[0].Header().Ttl; got != 0 {
+		t.Fatalf("expected stale TTL 0, got %d", got)
+	}
+	if c.ncache.Len() != 1 {
+		t.Fatalf("expected verified NXDOMAIN to be retained in ncache, got %d entries", c.ncache.Len())
+	}
+}
+
+func TestCNAMEWithSOAStoredAsNODATA(t *testing.T) {
+	c := New()
+	req := new(dns.Msg)
+	req.SetQuestion("alias.example.org.", dns.TypeA)
+	crr := &ResponseWriter{
+		Cache:    c,
+		state:    request.Request{Req: req},
+		prefetch: true,
+	}
+
+	res := new(dns.Msg)
+	res.SetReply(req)
+	res.Answer = []dns.RR{test.CNAME("alias.example.org. 300 IN CNAME missing.example.net.")}
+	res.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
+
+	if err := crr.WriteMsg(res); err != nil {
+		t.Fatal(err)
+	}
+	if c.ncache.Len() != 1 {
+		t.Fatalf("expected NODATA in ncache, got %d entries", c.ncache.Len())
+	}
+	if c.pcache.Len() != 0 {
+		t.Fatalf("expected no positive cache entry, got %d", c.pcache.Len())
+	}
+}
+
 func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 	c := New()
 	c.staleUpTo = time.Hour
