@@ -511,10 +511,10 @@ func (w *verifyStaleResponseWriter) WriteMsg(res *dns.Msg) error {
 			w.refreshed = true
 			return w.ResponseWriter.WriteMsg(res)
 		}
-		prefetch := w.ResponseWriter.prefetch
-		w.ResponseWriter.prefetch = true
+		prefetch := w.prefetch
+		w.prefetch = true
 		err := w.ResponseWriter.WriteMsg(res)
-		w.ResponseWriter.prefetch = prefetch
+		w.prefetch = prefetch
 		return err
 	}
 	if res.Rcode == dns.RcodeSuccess || res.Rcode == dns.RcodeNameError {
