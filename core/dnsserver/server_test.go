@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -273,6 +274,22 @@ func BenchmarkCoreServeDNS(b *testing.B) {
 
 	for b.Loop() {
 		s.ServeDNS(ctx, w, m)
+	}
+}
+
+func BenchmarkToLowerStd(b *testing.B) {
+	b.ReportAllocs()
+	qname := "svc1.testns.svc.cluster.local."
+	for b.Loop() {
+		_ = strings.ToLower(qname)
+	}
+}
+
+func BenchmarkToLowerFast(b *testing.B) {
+	b.ReportAllocs()
+	qname := "svc1.testns.svc.cluster.local."
+	for b.Loop() {
+		_ = toLower(qname)
 	}
 }
 
