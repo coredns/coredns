@@ -70,4 +70,3 @@ func BenchmarkParseRequest(b *testing.B) {
 		_, _ = parseRequest("1-2-3-4.webs.mynamespace.svc.inter.webs.tests.", zone, false)
 	}
 }
-
