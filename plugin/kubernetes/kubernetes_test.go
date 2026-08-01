@@ -523,4 +523,3 @@ func BenchmarkServicesHeadless(b *testing.B) {
 		_, _ = k.Services(ctx, state, false, plugin.Options{})
 	}
 }
-
