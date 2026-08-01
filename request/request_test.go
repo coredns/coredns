@@ -401,4 +401,3 @@ func BenchmarkRequestPort(b *testing.B) {
 		_ = st.Port()
 	}
 }
-
