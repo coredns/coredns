@@ -301,12 +301,12 @@ func hash(qname string, qtype, qclass uint16, do, cd bool) uint64 {
 		h = (h ^ '0') * prime64
 	}
 
-	h = (h ^ uint64(byte(qtype>>8))) * prime64
-	h = (h ^ uint64(byte(qtype))) * prime64
-	h = (h ^ uint64(byte(qclass>>8))) * prime64
-	h = (h ^ uint64(byte(qclass))) * prime64
+	h = (h ^ uint64((qtype>>8)&0xff)) * prime64
+	h = (h ^ uint64(qtype&0xff)) * prime64
+	h = (h ^ uint64((qclass>>8)&0xff)) * prime64
+	h = (h ^ uint64(qclass&0xff)) * prime64
 
-	for i := 0; i < len(qname); i++ {
+	for i := range len(qname) {
 		h = (h ^ uint64(qname[i])) * prime64
 	}
 	return h
