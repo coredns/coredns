@@ -54,10 +54,10 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	}
 
 	var (
-		found, shot    bool
-		parts          string
-		i              int
-		elem, wildElem *tree.Elem
+		found, shot     bool
+		parts, wildName string
+		i               int
+		elem, wildElem  *tree.Elem
 	)
 
 	loop, _ := ctx.Value(dnsserver.LoopKey{}).(int)
@@ -99,6 +99,11 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			wildcard := replaceWithAsteriskLabel(parts)
 			if wild, found := tr.Search(wildcard); found {
 				wildElem = wild
+				wildName = wild.Name()
+			} else if hasDescendant(tr, wildcard) {
+				// A wildcard domain may exist as an empty non-terminal.
+				wildElem = nil
+				wildName = wildcard
 			}
 
 			// Keep on searching, because maybe we hit an empty-non-terminal (which aren't
@@ -188,8 +193,12 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 	// Haven't found the original name.
 
-	// Found wildcard.
-	if wildElem != nil && !closerENTExists(tr, qname, wildElem.Name()) {
+	// Found a wildcard source of synthesis. It may be an empty non-terminal.
+	if wildName != "" && !closerENTExists(tr, qname, wildName) {
+		if wildElem == nil {
+			return nil, ap.soa(do), nil, NoData
+		}
+
 		// set metadata value for the wildcard record that synthesized the result
 		metadata.SetValueFunc(ctx, "zone/wildcard", func() string {
 			return wildElem.Name()
@@ -236,10 +245,8 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 	// Hacky way to get around empty-non-terminals. If a longer name does exist, but this qname, does not, it
 	// must be an empty-non-terminal. If so, we do the proper NXDOMAIN handling, but set the rcode to be success.
-	if x, found := tr.Next(qname); found {
-		if dns.IsSubDomain(qname, x.Name()) {
-			rcode = Success
-		}
+	if hasDescendant(tr, qname) {
+		rcode = Success
 	}
 
 	ret := ap.soa(do)
@@ -292,13 +299,18 @@ func closerENTExists(tr *tree.Tree, qname, wildcardName string) bool {
 		if name == parent || !dns.IsSubDomain(parent, name) {
 			return false
 		}
-		// An ENT exists at `name` iff tr.Next(name) returns a descendant of name.
-		if x, found := tr.Next(name); found && dns.IsSubDomain(name, x.Name()) {
+		if hasDescendant(tr, name) {
 			return true
 		}
 		offset, end = dns.NextLabel(name, 0)
 	}
 	return false
+}
+
+// hasDescendant reports whether the tree contains a name strictly below name.
+func hasDescendant(tr *tree.Tree, name string) bool {
+	x, found := tr.Next(name)
+	return found && tree.Less(x, name) != 0 && dns.IsSubDomain(name, x.Name())
 }
 
 // typeFromElem returns the type tp from e and adds signatures (if they exist) and do is true.
