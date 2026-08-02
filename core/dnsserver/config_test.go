@@ -89,3 +89,16 @@ func TestAddPluginToAllServerBlocks(t *testing.T) {
 		t.Fatalf("second server block has %d plugins, want 1", got)
 	}
 }
+
+func TestPropagateConfigParamsMaxTCPQueries(t *testing.T) {
+	n := 128
+	first := &Config{MaxTCPQueries: &n}
+	first.firstConfigInBlock = first
+	second := &Config{firstConfigInBlock: first}
+
+	propagateConfigParams([]*Config{first, second})
+
+	if second.MaxTCPQueries == nil || *second.MaxTCPQueries != n {
+		t.Fatalf("expected MaxTCPQueries to propagate to second config as %d, got %v", n, second.MaxTCPQueries)
+	}
+}

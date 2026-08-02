@@ -30,7 +30,7 @@ timeouts {
 ~~~
 
 For any timeouts that are not provided, default values are used which may vary
-depending on the server type. At least one timeout must be specified otherwise
+depending on the server type. At least one option must be specified otherwise
 the entire timeouts block should be omitted.
 
 * `maxtcpqueries` sets the maximum number of queries served on a single TCP or
