@@ -207,6 +207,11 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 				return nil, c.ArgErr()
 			}
 			k8s.opts.initEndpointsCache = false
+		case "zonal":
+			if len(c.RemainingArgs()) != 0 {
+				return nil, c.ArgErr()
+			}
+			k8s.opts.zonal = true
 		case "ignore":
 			args := c.RemainingArgs()
 			if len(args) > 0 {

@@ -15,6 +15,7 @@ import (
 type APIConnTest struct{}
 
 func (APIConnTest) HasSynced() bool                                  { return true }
+func (APIConnTest) ZoneExists(string) bool                           { return false }
 func (APIConnTest) Run()                                             {}
 func (APIConnTest) Stop() error                                      { return nil }
 func (APIConnTest) PodIndex(string) []*object.Pod                    { return nil }

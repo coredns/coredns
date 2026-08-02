@@ -17,6 +17,9 @@ type recordRequest struct {
 	protocol string
 	endpoint string
 	cluster  string
+	// The topology zone from a zone-scoped name (zone._zone.service.namespace.svc.zone);
+	// only set when the zonal option is enabled.
+	zone string
 	// The servicename used in Kubernetes.
 	service string
 	// The namespace used in Kubernetes.
@@ -25,15 +28,23 @@ type recordRequest struct {
 	podOrSvc string
 }
 
+// zoneLabel marks a zone-scoped name: topozone._zone.service.namespace.svc.zone.
+// The underscore keeps the label out of every hostname-shaped grammar: it cannot
+// be an endpoint hostname, a pod name, or a multicluster cluster id, and in the
+// _port._protocol position it reads as protocol "zone", which no Service port
+// can carry (protocol is the TCP/UDP/SCTP enum).
+const zoneLabel = "_zone"
+
 // parseRequest parses the qname to find all the elements we need for querying k8s. Anything
 // that is not parsed will have the wildcard "*" value (except r.endpoint).
 // Potential underscores are stripped from _port and _protocol.
-func parseRequest(name, zone string, multicluster bool) (r recordRequest, err error) {
-	// 4 Possible cases:
+func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest, err error) {
+	// 5 Possible cases:
 	// 1. _port._protocol.service.namespace.pod|svc.zone
 	// 2. (endpoint): endpoint.service.namespace.pod|svc.zone
 	// 3. (service): service.namespace.pod|svc.zone
 	// 4. (endpoint multicluster): endpoint.cluster.service.namespace.pod|svc.zone
+	// 5. (zonal): topozone._zone.service.namespace.svc.zone
 
 	base, _ := dnsutil.TrimZone(name, zone)
 	// return NODATA for apex queries
@@ -67,13 +78,18 @@ func parseRequest(name, zone string, multicluster bool) (r recordRequest, err er
 		return r, nil
 	}
 
-	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol or endpoint and clusterid.
+	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol, endpoint and
+	// clusterid, or a zone-scoped name.
 	// Anything else is a query that is too long to answer and can safely be delegated to return an nxdomain.
 	switch last {
 	case 0: // endpoint only
 		r.endpoint = segs[last]
-	case 1: // service and port or endpoint and clusterid
-		if !multicluster || strings.HasPrefix(segs[last], "_") || strings.HasPrefix(segs[last-1], "_") {
+	case 1: // port and protocol, endpoint and clusterid, or topology zone
+		// Zonal names are not defined in multicluster zones, where the
+		// two-labels-left shape belongs to the endpoint.clusterid grammar.
+		if zonal && !multicluster && segs[last] == zoneLabel && r.podOrSvc == Svc {
+			r.zone = segs[last-1]
+		} else if !multicluster || strings.HasPrefix(segs[last], "_") || strings.HasPrefix(segs[last-1], "_") {
 			r.protocol = stripUnderscore(segs[last])
 			r.port = stripUnderscore(segs[last-1])
 		} else {

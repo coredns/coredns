@@ -829,3 +829,51 @@ func TestBoundIPs(t *testing.T) {
 		})
 	}
 }
+
+func TestKubernetesParseZonal(t *testing.T) {
+	tests := []struct {
+		input         string
+		shouldErr     bool
+		expectedZonal bool
+	}{
+		{
+			`kubernetes coredns.local {
+	zonal
+}`,
+			false,
+			true,
+		},
+		{
+			`kubernetes coredns.local {
+	zonal us-west-2a
+}`,
+			true,
+			false,
+		},
+		{
+			`kubernetes coredns.local {
+}`,
+			false,
+			false,
+		},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		k8sController, err := kubernetesParse(c)
+
+		if test.shouldErr {
+			if err == nil {
+				t.Errorf("Test %d: Expected error, got none for input '%s'", i, test.input)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("Test %d: Expected no error, got '%v' for input '%s'", i, err, test.input)
+			continue
+		}
+		if k8sController.opts.zonal != test.expectedZonal {
+			t.Errorf("Test %d: Expected zonal=%v, got %v", i, test.expectedZonal, k8sController.opts.zonal)
+		}
+	}
+}

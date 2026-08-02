@@ -46,6 +46,7 @@ kubernetes [ZONES...] {
     fallthrough [ZONES...]
     ignore empty_service
     multicluster [ZONES...]
+    zonal
     startup_timeout DURATION
 }
 ```
@@ -117,10 +118,62 @@ kubernetes [ZONES...] {
   Services API (MCS-API). Specifying this option is generally paired with the
   installation of an MCS-API implementation and the ServiceImport and ServiceExport
   CRDs. The plugin MUST be authoritative for the zones listed here.
+* `zonal` enables zone-scoped names for headless services (see the Zonal
+  Names section below). It also publishes the `kubernetes/zone` metadata
+  label (the requested topology zone, empty for non-zonal queries) when the
+  *metadata* plugin is enabled.
 * `startup_timeout` specifies the **DURATION** value that limits the time to wait for informer cache synced
   when the kubernetes plugin starts. If not specified, the default timeout will be 5s.
 
 Enabling zone transfer is done by using the *transfer* plugin.
+
+## Zonal Names
+
+With the `zonal` option, headless services additionally answer a zone-scoped
+form of their name:
+
+~~~
+topology-zone._zone.service.namespace.svc.zone
+~~~
+
+e.g. `us-west-2a._zone.db.prod.svc.cluster.local` returns only the `db`
+endpoints whose EndpointSlice `zone` field is `us-west-2a`. Headless
+services have no ClusterIP for kube-proxy's `trafficDistribution` to act
+on — every client receives every address — so the zone selector in the
+query name lets a client scope an answer to its own zone. Plain service
+names are not affected in any way, and short relative names still work
+from pods (`us-west-2a._zone.db` completes via the first search list
+entry in the same namespace).
+
+A zone-scoped name always answers determinately, never by silently
+ignoring the zone selector — a client cannot distinguish "all endpoints
+are in my zone" from "the selector was dropped":
+
+* Endpoints in the requested zone: exactly those records (A/AAAA and SRV).
+* The service exists and the zone is real, but holds no endpoints of this
+  service: NODATA.
+* The leading label is not a topology zone any endpoint in the cluster has
+  occupied: NXDOMAIN, exactly as without the option — so resolver
+  search-path walks of unrelated names shaped `x._zone.service` are
+  unaffected. The known-zone set is add-only for the process lifetime, so
+  a zone that transiently drains keeps answering NODATA rather than
+  flapping to (negatively cached, per-name) NXDOMAIN.
+* ClusterIP and ExternalName services: NXDOMAIN — zone-scoped names are
+  defined for headless services only; use `trafficDistribution` for VIP
+  topology.
+
+Zonal names are not defined inside `multicluster` zones, and endpoints
+whose EndpointSlices carry no zone (clusters without zone topology) are
+never matched by any zone selector.
+
+Deployment notes: enable the option on every replica behind a shared
+Service before pointing clients at `_zone` names — replicas without the
+option answer NXDOMAIN for them, and clients negative-cache that per name.
+Because each replica learns zones from its own informer, a zone that
+drains to zero endpoints cluster-wide keeps answering NODATA on running
+replicas but answers NXDOMAIN on replicas started during the drain, until
+the zone holds an endpoint again. Zonal names are answered at query time
+only; they are not included in zone transfers.
 
 ## Startup
 

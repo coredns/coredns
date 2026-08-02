@@ -16,6 +16,7 @@ import (
 type APIConnReverseTest struct{}
 
 func (APIConnReverseTest) HasSynced() bool                                  { return true }
+func (APIConnReverseTest) ZoneExists(string) bool                           { return false }
 func (APIConnReverseTest) Run()                                             {}
 func (APIConnReverseTest) Stop() error                                      { return nil }
 func (APIConnReverseTest) PodIndex(string) []*object.Pod                    { return nil }

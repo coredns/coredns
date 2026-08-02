@@ -112,11 +112,23 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, _exact
 		}
 
 		// Check if we have an existing record for this query of another type
-		services, _ := k.Records(ctx, state, false)
+		services, err := k.Records(ctx, state, false)
 
 		if len(services) > 0 {
 			// If so we return an empty NOERROR
 			return nil, nil
+		}
+
+		// A zonal name in its exists-but-empty state answers NODATA for
+		// every query type: NXDOMAIN is negative-cached per name (RFC
+		// 2308), which would poison the address lookups the zonal
+		// contract answers determinately. Names findServices rejected
+		// (unknown zone, unknown service, non-headless) carry errNoItems
+		// and stay NXDOMAIN.
+		if err == nil && k.opts.zonal {
+			if r, e := parseRequest(state.Name(), state.Zone, k.isMultiClusterZone(state.Zone), true); e == nil && r.zone != "" {
+				return nil, nil
+			}
 		}
 
 		// Return NXDOMAIN for no match
@@ -331,7 +343,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 // Records looks up services in kubernetes.
 func (k *Kubernetes) Records(_ctx context.Context, state request.Request, _exact bool) ([]msg.Service, error) {
 	multicluster := k.isMultiClusterZone(state.Zone)
-	r, e := parseRequest(state.Name(), state.Zone, multicluster)
+	r, e := parseRequest(state.Name(), state.Zone, multicluster, k.opts.zonal)
 	if e != nil {
 		return nil, e
 	}
@@ -457,6 +469,14 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		return nil, errNoItems
 	}
 
+	// Zone-scoped names exist only for topology zones some endpoint has
+	// actually occupied; anything else keeps resolving exactly as it did
+	// before the zonal option existed (NXDOMAIN), so resolver search-path
+	// walks of unrelated names shaped x._zone.service are unaffected.
+	if r.zone != "" && !k.APIConn.ZoneExists(r.zone) {
+		return nil, errNoItems
+	}
+
 	err = errNoItems
 
 	var (
@@ -490,6 +510,13 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 			}
 		}
 
+		// Zone-scoped names are defined for headless services only: a
+		// ClusterIP's VIP has no zone, and answering it under a pinned name
+		// would silently discard the pin. NXDOMAIN, as before the option.
+		if r.zone != "" && !svc.Headless() {
+			continue
+		}
+
 		// External service
 		if svc.Type == api.ServiceTypeExternalName {
 			// External services do not have endpoints, nor can we accept port/protocol pseudo subdomains in an SRV query, so skip this service if endpoint, port, or protocol is non-empty in the request
@@ -508,6 +535,13 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 		// Endpoint query or headless service
 		if svc.Headless() || r.endpoint != "" {
+			if r.zone != "" {
+				// The name exists (real zone, headless service): an empty
+				// result set is NODATA, not NXDOMAIN — a client that pinned
+				// a zone must be able to tell "no endpoints there" apart
+				// from "no such name".
+				err = nil
+			}
 			if endpointsList == nil {
 				endpointsList = endpointsListFunc()
 			}
@@ -520,6 +554,9 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 				for _, eps := range ep.Subsets {
 					for _, addr := range eps.Addresses {
 						// See comments in parse.go parseRequest about the endpoint handling.
+						if r.zone != "" && addr.Zone != r.zone {
+							continue
+						}
 						if r.endpoint != "" {
 							if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
 								continue

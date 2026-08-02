@@ -58,6 +58,10 @@ type dnsController interface {
 	GetNodeByName(context.Context, string) (*api.Node, error)
 	GetNamespaceByName(string) (*object.Namespace, error)
 
+	// ZoneExists reports whether any endpoint has ever carried the given
+	// topology zone. Only meaningful when the zonal option is enabled.
+	ZoneExists(string) bool
+
 	Run()
 	HasSynced() bool
 	Stop() error
@@ -108,12 +112,27 @@ type dnsControl struct {
 	zones             []string
 	endpointNameMode  bool
 	multiclusterZones []string
+	zonal             bool
+
+	// topologyZones is the set of topology zones any endpoint has ever
+	// occupied, guarded by topologyZonesLock. It gates the zonal name
+	// grammar so labels that are not real zones keep resolving exactly as
+	// before the option existed (NXDOMAIN — relevant for resolver
+	// search-path walks). The set is add-only on purpose: a zone that
+	// transiently drains to zero endpoints keeps answering NODATA for its
+	// names instead of flapping to NXDOMAIN, which resolvers negative-cache
+	// per name.
+	topologyZones     map[string]struct{}
+	topologyZonesLock sync.RWMutex
 }
 
 type dnsControlOpts struct {
 	initPodCache       bool
 	initEndpointsCache bool
 	ignoreEmptyService bool
+	// zonal enables the zone-scoped name grammar
+	// (topozone._zone.service.namespace.svc.zone) for headless services.
+	zonal bool
 
 	// Label handling.
 	labelSelector          *meta.LabelSelector
@@ -129,6 +148,8 @@ type dnsControlOpts struct {
 // newdnsController creates a controller for CoreDNS.
 func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsClient mcsClientset.MulticlusterV1alpha1Interface, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
+		topologyZones:     map[string]struct{}{},
+		zonal:             opts.zonal,
 		client:            kubeClient,
 		mcsClient:         mcsClient,
 		selector:          opts.selector,
@@ -171,6 +192,10 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsC
 		dns.podController = podController
 	}
 
+	epTransform := object.EndpointSliceToEndpoints
+	if opts.zonal {
+		epTransform = object.EndpointSliceToEndpointsWithZones
+	}
 	epLister, epController := object.NewIndexerInformer(
 		cache.ToListWatcherWithWatchListSemantics(
 			&cache.ListWatch{
@@ -182,7 +207,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsC
 		&discovery.EndpointSlice{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-		object.DefaultProcessor(object.EndpointSliceToEndpoints, dns.EndpointSliceLatencyRecorder()),
+		object.DefaultProcessor(epTransform, dns.EndpointSliceLatencyRecorder()),
 	)
 	dns.epLister = epLister
 	if opts.initEndpointsCache {
@@ -674,9 +699,42 @@ func (dns *dnsControl) GetNamespaceByName(name string) (*object.Namespace, error
 	return ns, nil
 }
 
-func (dns *dnsControl) Add(_obj any)              { dns.updateModified() }
+func (dns *dnsControl) Add(obj any) {
+	dns.recordTopologyZones(obj)
+	dns.updateModified()
+}
 func (dns *dnsControl) Delete(_obj any)           { dns.updateModified() }
 func (dns *dnsControl) Update(oldObj, newObj any) { dns.detectChanges(oldObj, newObj) }
+
+// recordTopologyZones folds an endpoint object's zones into the add-only
+// topology zone set. No-op unless the zonal option is enabled, so the
+// default configuration pays nothing on the informer path.
+func (dns *dnsControl) recordTopologyZones(obj any) {
+	if !dns.zonal {
+		return
+	}
+	eps, ok := obj.(*object.Endpoints)
+	if !ok {
+		return
+	}
+	dns.topologyZonesLock.Lock()
+	defer dns.topologyZonesLock.Unlock()
+	for _, sub := range eps.Subsets {
+		for _, addr := range sub.Addresses {
+			if addr.Zone != "" {
+				dns.topologyZones[addr.Zone] = struct{}{}
+			}
+		}
+	}
+}
+
+// ZoneExists implements dnsController.
+func (dns *dnsControl) ZoneExists(zone string) bool {
+	dns.topologyZonesLock.RLock()
+	defer dns.topologyZonesLock.RUnlock()
+	_, ok := dns.topologyZones[zone]
+	return ok
+}
 
 // detectChanges detects changes in objects, and updates the modified timestamp
 func (dns *dnsControl) detectChanges(oldObj, newObj any) {
@@ -704,6 +762,7 @@ func (dns *dnsControl) detectChanges(oldObj, newObj any) {
 	case *object.Pod:
 		dns.updateModified()
 	case *object.Endpoints:
+		dns.recordTopologyZones(ob)
 		if !endpointsEquivalent(oldObj.(*object.Endpoints), newObj.(*object.Endpoints)) {
 			dns.updateModified()
 		}
