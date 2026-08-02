@@ -483,7 +483,7 @@ var EnableChaos = map[string]struct{}{
 var Quiet bool
 
 func toLower(s string) string {
-	for i := 0; i < len(s); i++ {
+	for i := range len(s) {
 		if 'A' <= s[i] && s[i] <= 'Z' {
 			return strings.ToLower(s)
 		}
