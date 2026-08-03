@@ -168,7 +168,8 @@ never matched by any zone selector.
 
 Deployment notes: enable the option on every replica behind a shared
 Service before pointing clients at `_zone` names — replicas without the
-option answer NXDOMAIN for them, and clients negative-cache that per name.
+option answer NXDOMAIN for them, which clients negative-cache per name for
+the SOA minttl (this follows the `ttl` option).
 Because each replica learns zones from its own informer, a zone that
 drains to zero endpoints cluster-wide keeps answering NODATA on running
 replicas but answers NXDOMAIN on replicas started during the drain, until

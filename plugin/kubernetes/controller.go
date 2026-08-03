@@ -115,15 +115,15 @@ type dnsControl struct {
 	zonal             bool
 
 	// topologyZones is the set of topology zones any endpoint has ever
-	// occupied, guarded by topologyZonesLock. It gates the zonal name
-	// grammar so labels that are not real zones keep resolving exactly as
-	// before the option existed (NXDOMAIN — relevant for resolver
+	// occupied (keys are zone names; values unused). It gates the zonal
+	// name grammar so labels that are not real zones keep resolving exactly
+	// as before the option existed (NXDOMAIN — relevant for resolver
 	// search-path walks). The set is add-only on purpose: a zone that
 	// transiently drains to zero endpoints keeps answering NODATA for its
 	// names instead of flapping to NXDOMAIN, which resolvers negative-cache
-	// per name.
-	topologyZones     map[string]struct{}
-	topologyZonesLock sync.RWMutex
+	// per name. Add-only write-once/read-many is sync.Map's documented
+	// sweet spot: lookups on the serving path are lock-free.
+	topologyZones sync.Map
 }
 
 type dnsControlOpts struct {
@@ -148,7 +148,6 @@ type dnsControlOpts struct {
 // newdnsController creates a controller for CoreDNS.
 func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsClient mcsClientset.MulticlusterV1alpha1Interface, opts dnsControlOpts) *dnsControl {
 	dns := dnsControl{
-		topologyZones:     map[string]struct{}{},
 		zonal:             opts.zonal,
 		client:            kubeClient,
 		mcsClient:         mcsClient,
@@ -717,12 +716,10 @@ func (dns *dnsControl) recordTopologyZones(obj any) {
 	if !ok {
 		return
 	}
-	dns.topologyZonesLock.Lock()
-	defer dns.topologyZonesLock.Unlock()
 	for _, sub := range eps.Subsets {
 		for _, addr := range sub.Addresses {
 			if addr.Zone != "" {
-				dns.topologyZones[addr.Zone] = struct{}{}
+				dns.topologyZones.LoadOrStore(addr.Zone, struct{}{})
 			}
 		}
 	}
@@ -730,9 +727,7 @@ func (dns *dnsControl) recordTopologyZones(obj any) {
 
 // ZoneExists implements dnsController.
 func (dns *dnsControl) ZoneExists(zone string) bool {
-	dns.topologyZonesLock.RLock()
-	defer dns.topologyZonesLock.RUnlock()
-	_, ok := dns.topologyZones[zone]
+	_, ok := dns.topologyZones.Load(zone)
 	return ok
 }
 

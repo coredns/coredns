@@ -120,9 +120,11 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, _exact
 		}
 
 		// A zonal name in its exists-but-empty state answers NODATA for
-		// every query type: NXDOMAIN is negative-cached per name (RFC
-		// 2308), which would poison the address lookups the zonal
-		// contract answers determinately. Names findServices rejected
+		// every query type. NXDOMAIN here is per-name (RFC 2308/8020):
+		// clients that pair query types (HTTPS+A) re-poison the name's
+		// address lookups on every cycle regardless of TTL, and resolvers
+		// cache the denial for the SOA minttl — which follows the ttl
+		// option, not a fixed small constant. Names findServices rejected
 		// (unknown zone, unknown service, non-headless) carry errNoItems
 		// and stay NXDOMAIN.
 		if err == nil && k.opts.zonal {

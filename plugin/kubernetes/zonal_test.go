@@ -197,7 +197,7 @@ func TestRecordTopologyZones(t *testing.T) {
 		}},
 	}
 
-	dns := dnsControl{topologyZones: map[string]struct{}{}, zonal: true}
+	dns := dnsControl{zonal: true}
 	dns.Add(eps)
 	if !dns.ZoneExists("us-west-2a") {
 		t.Fatal("Add must register the endpoint's zone")
@@ -214,7 +214,7 @@ func TestRecordTopologyZones(t *testing.T) {
 		t.Fatal("the zone set is add-only: a drained zone must stay known")
 	}
 
-	off := dnsControl{topologyZones: map[string]struct{}{}, zonal: false}
+	off := dnsControl{zonal: false}
 	off.Add(eps)
 	if off.ZoneExists("us-west-2a") {
 		t.Fatal("zone bookkeeping must be off when the option is off")
