@@ -26,12 +26,6 @@ func (APIConnZonalTest) EpIndexReverse(string) []*object.Endpoints        { retu
 func (APIConnZonalTest) McEpIndex(string) []*object.MultiClusterEndpoints { return nil }
 func (APIConnZonalTest) Modified(ModifiedMode) int64                      { return int64(1499347823) }
 
-func (APIConnZonalTest) ZoneExists(zone string) bool {
-	// us-west-2c is a zone some (other) endpoint occupies, but the headless
-	// service below has nothing there — the NODATA case.
-	return zone == "us-west-2a" || zone == "us-west-2b" || zone == "us-west-2c"
-}
-
 func (a APIConnZonalTest) ServiceList() []*object.Service {
 	return []*object.Service{
 		{
@@ -116,8 +110,17 @@ var zonalTestCases = []test.Case{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
-	{ // a label that is not a zone keeps its pre-option NXDOMAIN (search-path safety)
+	{ // any zone label without matching endpoints — typos included — is the
+		// same determinate empty answer; "no endpoints carry that zone" is
+		// true either way, and NODATA still fails resolution loudly
 		Qname: "db._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
+		},
+	},
+	{ // a nonexistent service stays NXDOMAIN under any zone label
+		Qname: "us-west-2a._zone.ghost.testns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
@@ -138,9 +141,9 @@ var zonalTestCases = []test.Case{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
-	{ // ...while a non-zone label stays NXDOMAIN for TXT as well
+	{ // ...and matches the A behavior for any zone label on a real service
 		Qname: "db._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeTXT,
-		Rcode: dns.RcodeNameError,
+		Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
@@ -183,42 +186,6 @@ func TestServeDNSZonal(t *testing.T) {
 
 	k.opts.zonal = false
 	runZonalCases(ctx, t, k, zonalDisabledTestCases)
-}
-
-// TestRecordTopologyZones drives the real controller-side zone bookkeeping:
-// converted endpoint objects arriving via the informer's Add/Update hooks
-// populate the add-only set that ZoneExists serves, and none of it runs with
-// the option off.
-func TestRecordTopologyZones(t *testing.T) {
-	eps := &object.Endpoints{
-		Index: object.EndpointsKey("hdls", "testns"),
-		Subsets: []object.EndpointSubset{{
-			Addresses: []object.EndpointAddress{{IP: "172.0.0.1", Zone: "us-west-2a"}},
-		}},
-	}
-
-	dns := dnsControl{zonal: true}
-	dns.Add(eps)
-	if !dns.ZoneExists("us-west-2a") {
-		t.Fatal("Add must register the endpoint's zone")
-	}
-
-	moved := eps.DeepCopyObject().(*object.Endpoints)
-	moved.Version = "2"
-	moved.Subsets[0].Addresses[0].Zone = "us-west-2b"
-	dns.Update(eps, moved)
-	if !dns.ZoneExists("us-west-2b") {
-		t.Fatal("Update must register newly occupied zones")
-	}
-	if !dns.ZoneExists("us-west-2a") {
-		t.Fatal("the zone set is add-only: a drained zone must stay known")
-	}
-
-	off := dnsControl{zonal: false}
-	off.Add(eps)
-	if off.ZoneExists("us-west-2a") {
-		t.Fatal("zone bookkeeping must be off when the option is off")
-	}
 }
 
 func runZonalCases(ctx context.Context, t *testing.T, k *Kubernetes, cases []test.Case) {

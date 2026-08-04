@@ -703,7 +703,6 @@ type APIConnServeTest struct {
 }
 
 func (a APIConnServeTest) HasSynced() bool                           { return !a.notSynced }
-func (a APIConnServeTest) ZoneExists(string) bool                    { return false }
 func (APIConnServeTest) Run()                                        {}
 func (APIConnServeTest) Stop() error                                 { return nil }
 func (APIConnServeTest) EpIndexReverse(string) []*object.Endpoints   { return nil }

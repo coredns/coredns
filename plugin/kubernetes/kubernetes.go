@@ -125,8 +125,8 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, _exact
 		// address lookups on every cycle regardless of TTL, and resolvers
 		// cache the denial for the SOA minttl — which follows the ttl
 		// option, not a fixed small constant. Names findServices rejected
-		// (unknown zone, unknown service, non-headless) carry errNoItems
-		// and stay NXDOMAIN.
+		// (unknown service, non-headless) carry errNoItems and stay
+		// NXDOMAIN.
 		if err == nil && k.opts.zonal {
 			if r, e := parseRequest(state.Name(), state.Zone, k.isMultiClusterZone(state.Zone), true); e == nil && r.zone != "" {
 				return nil, nil
@@ -471,14 +471,6 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		return nil, errNoItems
 	}
 
-	// Zone-scoped names exist only for topology zones some endpoint has
-	// actually occupied; anything else keeps resolving exactly as it did
-	// before the zonal option existed (NXDOMAIN), so resolver search-path
-	// walks of unrelated names shaped x._zone.service are unaffected.
-	if r.zone != "" && !k.APIConn.ZoneExists(r.zone) {
-		return nil, errNoItems
-	}
-
 	err = errNoItems
 
 	var (
@@ -538,10 +530,10 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 		// Endpoint query or headless service
 		if svc.Headless() || r.endpoint != "" {
 			if r.zone != "" {
-				// The name exists (real zone, headless service): an empty
-				// result set is NODATA, not NXDOMAIN — a client that pinned
-				// a zone must be able to tell "no endpoints there" apart
-				// from "no such name".
+				// The name exists (headless service, any zone label): an
+				// empty result set is NODATA, not NXDOMAIN — "no endpoints
+				// carry that zone" is true for drained zones and mistyped
+				// ones alike, and identically on every replica.
 				err = nil
 			}
 			if endpointsList == nil {

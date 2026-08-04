@@ -46,7 +46,6 @@ func (m *mockAPIConnector) GetNamespaceByName(_name string) (*object.Namespace, 
 }
 func (m *mockAPIConnector) Run()                        {}
 func (m *mockAPIConnector) HasSynced() bool             { return true }
-func (m *mockAPIConnector) ZoneExists(string) bool      { return false }
 func (m *mockAPIConnector) Stop() error                 { return nil }
 func (m *mockAPIConnector) Modified(ModifiedMode) int64 { return 0 }
 

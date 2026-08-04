@@ -150,17 +150,20 @@ ignoring the zone selector — a client cannot distinguish "all endpoints
 are in my zone" from "the selector was dropped":
 
 * Endpoints in the requested zone: exactly those records (A/AAAA and SRV).
-* The service exists and the zone is real, but holds no endpoints of this
-  service: NODATA.
-* The leading label is not a topology zone any endpoint in the cluster has
-  occupied: NXDOMAIN, exactly as without the option — so resolver
-  search-path walks of unrelated names shaped `x._zone.service` are
-  unaffected. The known-zone set is add-only for the process lifetime, so
-  a zone that transiently drains keeps answering NODATA rather than
-  flapping to (negatively cached, per-name) NXDOMAIN.
+* No endpoints of the service carry the requested zone — a drained zone
+  and a mistyped one alike: NODATA. The statement is true either way, the
+  answer is identical on every replica (it is derived purely from the
+  EndpointSlice cache), and resolution still fails visibly.
+* The service does not exist: NXDOMAIN, as ever.
 * ClusterIP and ExternalName services: NXDOMAIN — zone-scoped names are
   defined for headless services only; use `trafficDistribution` for VIP
   topology.
+
+Only names of existing headless services answer at all, so the grammar
+adds no capture surface beyond the one service creation itself has always
+had: a relative name shaped `x._zone.<existing-headless-service>` stops a
+resolver search walk with NODATA, exactly as creating a service captures
+colliding relative names today.
 
 Zonal names are not defined inside `multicluster` zones, and endpoints
 whose EndpointSlices carry no zone (clusters without zone topology) are
@@ -169,12 +172,8 @@ never matched by any zone selector.
 Deployment notes: enable the option on every replica behind a shared
 Service before pointing clients at `_zone` names — replicas without the
 option answer NXDOMAIN for them, which clients negative-cache per name for
-the SOA minttl (this follows the `ttl` option).
-Because each replica learns zones from its own informer, a zone that
-drains to zero endpoints cluster-wide keeps answering NODATA on running
-replicas but answers NXDOMAIN on replicas started during the drain, until
-the zone holds an endpoint again. Zonal names are answered at query time
-only; they are not included in zone transfers.
+the SOA minttl (this follows the `ttl` option). Zonal names are answered
+at query time only; they are not included in zone transfers.
 
 ## Startup
 

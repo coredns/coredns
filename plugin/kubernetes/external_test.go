@@ -91,7 +91,6 @@ func TestExternal(t *testing.T) {
 type external struct{}
 
 func (external) HasSynced() bool                                  { return true }
-func (external) ZoneExists(string) bool                           { return false }
 func (external) Run()                                             {}
 func (external) Stop() error                                      { return nil }
 func (external) EpIndexReverse(string) []*object.Endpoints        { return nil }
