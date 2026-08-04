@@ -274,6 +274,7 @@ func propagateConfigParams(configs []*Config) {
 		c.ReadTimeout = c.firstConfigInBlock.ReadTimeout
 		c.WriteTimeout = c.firstConfigInBlock.WriteTimeout
 		c.IdleTimeout = c.firstConfigInBlock.IdleTimeout
+		c.MaxTCPQueries = c.firstConfigInBlock.MaxTCPQueries
 		c.TsigSecret = c.firstConfigInBlock.TsigSecret
 
 		// Propagate HTTPRequestValidateFunc so that custom path validators work in

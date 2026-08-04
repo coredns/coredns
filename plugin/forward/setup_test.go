@@ -405,13 +405,15 @@ func TestSetupMaxConnectAttempts(t *testing.T) {
 		input       string
 		shouldErr   bool
 		expectedVal uint32
+		expectedSet bool
 		expectedErr string
 	}{
 
-		{"forward . 127.0.0.1 {\n}\n", false, 0, ""},
-		{"forward . 127.0.0.1 {\nmax_connect_attempts 5\n}\n", false, 5, ""},
-		{"forward . 127.0.0.1 {\nmax_connect_attempts many\n}\n", true, 0, "invalid"},
-		{"forward . 127.0.0.1 {\nmax_connect_attempts -4\n}\n", true, 0, "invalid"},
+		{"forward . 127.0.0.1 {\n}\n", false, 0, false, ""},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts 0\n}\n", false, 0, true, ""},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts 5\n}\n", false, 5, true, ""},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts many\n}\n", true, 0, false, "invalid"},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts -4\n}\n", true, 0, false, "invalid"},
 	}
 
 	for i, test := range tests {
@@ -436,6 +438,9 @@ func TestSetupMaxConnectAttempts(t *testing.T) {
 			f := fs[0]
 			if f.maxConnectAttempts != test.expectedVal {
 				t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedVal, f.maxConnectAttempts)
+			}
+			if f.maxConnectAttemptsSet != test.expectedSet {
+				t.Errorf("Test %d: expected configured state %t, got %t", i, test.expectedSet, f.maxConnectAttemptsSet)
 			}
 		}
 	}

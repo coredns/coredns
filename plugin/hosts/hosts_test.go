@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/test"
@@ -211,3 +212,50 @@ const hostsExample = `
 reload 5s
 timeout 3600
 `
+
+func BenchmarkHostsBaseline(b *testing.B) {
+	h := Hosts{
+		Next: test.NextHandler(dns.RcodeNameError, nil),
+		Hostsfile: &Hostsfile{
+			Origins: []string{"example.org."},
+			hmap:    newMap(),
+			inline:  newMap(),
+			options: newOptions(),
+		},
+	}
+	h.hmap = h.parse(strings.NewReader(hostsExample))
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	ctx := context.Background()
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = h.ServeDNS(ctx, rec, m)
+	}
+}
+
+func BenchmarkHostsOptimized(b *testing.B) {
+	h := Hosts{
+		Next: test.NextHandler(dns.RcodeNameError, nil),
+		Hostsfile: &Hostsfile{
+			Origins: []string{"example.org."},
+			hmap:    newMap(),
+			inline:  newMap(),
+			options: newOptions(),
+		},
+		zones: plugin.Zones([]string{"example.org."}),
+	}
+	h.hmap = h.parse(strings.NewReader(hostsExample))
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	ctx := context.Background()
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = h.ServeDNS(ctx, rec, m)
+	}
+}

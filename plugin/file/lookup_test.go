@@ -408,6 +408,48 @@ var additionalTestCases = []test.Case{
 			test.AAAA("other.example.org. 1800 IN AAAA 2001:db8::20"),
 		},
 	},
+	{
+		// An ordinary CNAME chased to an SRV still needs the target's glue (#6628).
+		Qname: "cname-srv.example.org.", Qtype: dns.TypeSRV,
+		Answer: []dns.RR{
+			test.CNAME("cname-srv.example.org. 1800 IN CNAME srv.example.org."),
+			test.SRV("srv.example.org. 1800 IN SRV 10 50 8080 host.example.org."),
+			test.SRV("srv.example.org. 1800 IN SRV 20 50 8080 host.example.org."),
+		},
+		Ns: additionalAuth,
+		Extra: []dns.RR{
+			test.A("host.example.org. 1800 IN A 192.0.2.10"),
+			test.AAAA("host.example.org. 1800 IN AAAA 2001:db8::10"),
+		},
+	},
+	{
+		// A wildcard CNAME chased to an SRV.
+		Qname: "foo.wild.example.org.", Qtype: dns.TypeSRV,
+		Answer: []dns.RR{
+			test.CNAME("foo.wild.example.org. 1800 IN CNAME srv.example.org."),
+			test.SRV("srv.example.org. 1800 IN SRV 10 50 8080 host.example.org."),
+			test.SRV("srv.example.org. 1800 IN SRV 20 50 8080 host.example.org."),
+		},
+		Ns: additionalAuth,
+		Extra: []dns.RR{
+			test.A("host.example.org. 1800 IN A 192.0.2.10"),
+			test.AAAA("host.example.org. 1800 IN AAAA 2001:db8::10"),
+		},
+	},
+	{
+		// A DNAME substitution landing on an SRV (#6628).
+		Qname: "srv.dname.example.org.", Qtype: dns.TypeSRV,
+		Answer: []dns.RR{
+			test.DNAME("dname.example.org. 1800 IN DNAME dsub.example.org."),
+			test.CNAME("srv.dname.example.org. 1800 IN CNAME srv.dsub.example.org."),
+			test.SRV("srv.dsub.example.org. 1800 IN SRV 10 50 8080 host.example.org."),
+		},
+		Ns: additionalAuth,
+		Extra: []dns.RR{
+			test.A("host.example.org. 1800 IN A 192.0.2.10"),
+			test.AAAA("host.example.org. 1800 IN AAAA 2001:db8::10"),
+		},
+	},
 }
 
 func TestAdditionalSectionDeduplication(t *testing.T) {
@@ -504,4 +546,14 @@ mixed		IN SRV	10 50 8080 host.example.org.
 ; Two MX records with distinct targets.
 two		IN MX	10 host.example.org.
 		IN MX	20 other.example.org.
+
+; A CNAME resolving to an SRV: the ordinary-CNAME chase must still add glue.
+cname-srv	IN CNAME	srv.example.org.
+
+; A wildcard CNAME resolving to an SRV.
+*.wild		IN CNAME	srv.example.org.
+
+; A DNAME whose subtree holds an SRV: the DNAME chase must add glue too.
+dname		IN DNAME	dsub.example.org.
+srv.dsub	IN SRV	10 50 8080 host.example.org.
 `

@@ -75,8 +75,9 @@ forward FROM TO... {
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.
 * `max_connect_attempts` caps the total number of upstream connect attempts
-  performed for a single incoming DNS request. Default value of 0 means no per-request
-  cap.
+  performed for a single incoming DNS request. The default cap is twice the number of
+  configured upstreams, allowing two complete passes when all upstreams are healthy.
+  Set this to 0 to disable the per-request cap.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
 * `doh_method` **GET|POST**, whether to use GET or POST http method for DoH requests (defaults to POST).
 * `max_idle_conns` **INTEGER**, maximum number of idle connections to cache per upstream for reuse.

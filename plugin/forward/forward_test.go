@@ -99,8 +99,8 @@ func (m *mockResponseWriter) Hijack()                      {}
 
 // TestForward_Regression_NoBusyLoop ensures that ServeDNS does not perform
 // an unbounded number of upstream connect attempts for a single request when
-// maxConnectAttempts is configured, and that maxConnectAttempts=0 keeps the
-// legacy behaviour (no per-request cap).
+// maxConnectAttempts is configured, and that an explicit maxConnectAttempts=0
+// keeps the legacy behaviour (no per-request cap).
 func TestForward_Regression_NoBusyLoop(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -122,6 +122,7 @@ func TestForward_Regression_NoBusyLoop(t *testing.T) {
 
 			// Set maxConnectAttempts to the number of attempts we want to test.
 			f.maxConnectAttempts = tc.maxAttempts
+			f.maxConnectAttemptsSet = true
 
 			// Assume nothing is listening on this port, so the connection will be refused.
 			p := proxy.NewProxy("forward", "127.0.0.1:54321", "tcp")
@@ -157,6 +158,74 @@ func TestForward_Regression_NoBusyLoop(t *testing.T) {
 			// attempts as observed via spans should be equal to the configured value.
 			if tc.maxAttempts > 0 && uint32(len(spans)) != tc.maxAttempts {
 				t.Errorf("Expected %d spans, got %d", tc.maxAttempts, len(spans))
+			}
+		})
+	}
+}
+
+func TestForward_DefaultConnectAttemptCap(t *testing.T) {
+	for _, proxyCount := range []int{1, 3} {
+		t.Run(fmt.Sprintf("%d upstreams", proxyCount), func(t *testing.T) {
+			f := New()
+			f.opts.ForceTCP = true
+			f.maxfails = 0
+
+			listeners := make([]net.Listener, 0, proxyCount)
+			t.Cleanup(func() {
+				for _, listener := range listeners {
+					_ = listener.Close()
+				}
+			})
+			for range proxyCount {
+				listener, err := net.Listen("tcp", "127.0.0.1:0")
+				if err != nil {
+					t.Fatalf("failed to allocate upstream address: %v", err)
+				}
+				listeners = append(listeners, listener)
+			}
+
+			upstreams := make([]string, 0, proxyCount)
+			for _, listener := range listeners {
+				upstream := listener.Addr().String()
+				if err := listener.Close(); err != nil {
+					t.Fatalf("failed to close upstream listener: %v", err)
+				}
+				upstreams = append(upstreams, upstream)
+				f.SetProxy(proxy.NewProxy("forward", upstream, "tcp"))
+			}
+
+			tracer := mocktracer.New()
+			span := tracer.StartSpan("test")
+			ctx := opentracing.ContextWithSpan(context.Background(), span)
+			ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+			defer cancel()
+
+			req := new(dns.Msg)
+			req.SetQuestion("example.com.", dns.TypeA)
+
+			_, err := f.ServeDNS(ctx, &mockResponseWriter{}, req)
+			if err == nil {
+				t.Fatal("expected connection refused error")
+			}
+
+			want := defaultConnectAttemptsPerUpstream * proxyCount
+			spans := tracer.FinishedSpans()
+			if got := len(spans); got != want {
+				t.Fatalf("expected %d connect attempts, got %d", want, got)
+			}
+
+			attemptsByUpstream := make(map[string]int, proxyCount)
+			for _, span := range spans {
+				upstream, ok := span.Tags()["peer.address"].(string)
+				if !ok {
+					t.Fatal("connect attempt is missing peer.address")
+				}
+				attemptsByUpstream[upstream]++
+			}
+			for _, upstream := range upstreams {
+				if got := attemptsByUpstream[upstream]; got != defaultConnectAttemptsPerUpstream {
+					t.Errorf("expected %d attempts to %s, got %d", defaultConnectAttemptsPerUpstream, upstream, got)
+				}
 			}
 		})
 	}
@@ -323,6 +392,7 @@ func TestForwardDoesNotRetryLocalPackError(t *testing.T) {
 	f := New()
 	f.maxfails = 0
 	f.maxConnectAttempts = 2
+	f.maxConnectAttemptsSet = true
 	f.opts.ForceTCP = true
 	f.proxies = []*proxy.Proxy{
 		proxy.NewProxy("forward", "127.0.0.1:1", transport.DNS),

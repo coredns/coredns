@@ -107,6 +107,7 @@ func hostsParse(c *caddy.Controller) (Hosts, error) {
 		}
 
 		h.Origins = plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
+		h.zones = plugin.Zones(h.Origins)
 
 		for c.NextBlock() {
 			switch c.Val() {
