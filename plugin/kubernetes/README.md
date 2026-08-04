@@ -129,45 +129,50 @@ Enabling zone transfer is done by using the *transfer* plugin.
 
 ## Zonal Names
 
-With the `zonal` option, headless services additionally answer a zone-scoped
-form of their name:
+With the `zonal` option, headless services additionally answer zone-scoped
+forms of their name:
 
 ~~~
-topology-zone._zone.service.namespace.svc.zone
+topology-zone.pin._zone.service.namespace.svc.zone
+topology-zone.prefer._zone.service.namespace.svc.zone
 ~~~
 
-e.g. `us-west-2a._zone.db.prod.svc.cluster.local` returns only the `db`
-endpoints whose EndpointSlice `zone` field is `us-west-2a`. Headless
+e.g. `us-west-2a.pin._zone.db.prod.svc.cluster.local` returns only the
+`db` endpoints whose EndpointSlice `zone` field is `us-west-2a`. Headless
 services have no ClusterIP for kube-proxy's `trafficDistribution` to act
 on — every client receives every address — so the zone selector in the
 query name lets a client scope an answer to its own zone. Plain service
 names are not affected in any way, and short relative names still work
-from pods (`us-west-2a._zone.db` completes via the first search list
+from pods (`us-west-2a.pin._zone.db` completes via the first search list
 entry in the same namespace).
 
-A zone-scoped name always answers determinately, never by silently
-ignoring the zone selector — a client cannot distinguish "all endpoints
-are in my zone" from "the selector was dropped":
+The directive label chooses the fallback semantics, so a client states in
+the name whether an empty zone is an error or a shrug:
 
-* Endpoints in the requested zone: exactly those records (A/AAAA and SRV).
-* No endpoints of the service carry the requested zone — a drained zone
-  and a mistyped one alike: NODATA. The statement is true either way, the
-  answer is identical on every replica (it is derived purely from the
-  EndpointSlice cache), and resolution still fails visibly.
-* The service does not exist: NXDOMAIN, as ever.
-* ClusterIP and ExternalName services: NXDOMAIN — zone-scoped names are
-  defined for headless services only; use `trafficDistribution` for VIP
-  topology.
+* `pin` — zone-local endpoints only. A zone label no endpoint of the
+  service carries (a drained zone and a mistyped one alike) answers
+  NODATA: "no endpoints carry that zone" is true either way, the answer
+  is identical on every replica, and resolution still fails visibly.
+* `prefer` — zone-local endpoints if there are any, otherwise every
+  endpoint of the service. One query, no client-side fallback logic;
+  the widening is chosen in the name, never applied silently to a pin.
+
+Both directives answer A/AAAA and SRV (filtering happens at endpoint
+selection, so SRV records and their glue are zone-filtered too), answer
+NODATA for other query types, and are answered identically by every
+replica. A nonexistent service is NXDOMAIN as ever; ClusterIP and
+ExternalName services are NXDOMAIN — zone-scoped names are defined for
+headless services only; use `trafficDistribution` for VIP topology.
+Unknown directives keep the stock too-long NXDOMAIN, as does the entire
+shape when the option is off. Zonal names are not defined inside
+`multicluster` zones. Endpoints whose EndpointSlices carry no zone are
+never matched by any zone selector.
 
 Only names of existing headless services answer at all, so the grammar
 adds no capture surface beyond the one service creation itself has always
-had: a relative name shaped `x._zone.<existing-headless-service>` stops a
-resolver search walk with NODATA, exactly as creating a service captures
-colliding relative names today.
-
-Zonal names are not defined inside `multicluster` zones, and endpoints
-whose EndpointSlices carry no zone (clusters without zone topology) are
-never matched by any zone selector.
+had: a relative name shaped `x.pin._zone.<existing-headless-service>`
+stops a resolver search walk with NODATA, exactly as creating a service
+captures colliding relative names today.
 
 Deployment notes: enable the option on every replica behind a shared
 Service before pointing clients at `_zone` names — replicas without the

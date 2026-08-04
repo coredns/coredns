@@ -88,72 +88,102 @@ func (APIConnZonalTest) GetNamespaceByName(name string) (*object.Namespace, erro
 }
 
 var zonalTestCases = []test.Case{
-	{ // endpoints narrowed to the requested zone
-		Qname: "us-west-2a._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
+	{ // pin: endpoints narrowed to the requested zone
+		Qname: "us-west-2a.pin._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.A("us-west-2a._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.1"),
+			test.A("us-west-2a.pin._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.1"),
 		},
 	},
 	{
-		Qname: "us-west-2b._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Qname: "us-west-2b.pin._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.A("us-west-2b._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
-			test.A("us-west-2b._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
+			test.A("us-west-2b.pin._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
+			test.A("us-west-2b.pin._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
 		},
 	},
-	{ // a real zone the service has no endpoints in: NODATA, not NXDOMAIN
-		Qname: "us-west-2c._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
+	{ // pin: any zone label without matching endpoints — drained zones and
+		// typos alike — is the same determinate empty answer
+		Qname: "us-west-2c.pin._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
-	{ // any zone label without matching endpoints — typos included — is the
-		// same determinate empty answer; "no endpoints carry that zone" is
-		// true either way, and NODATA still fails resolution loudly
-		Qname: "db._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
+	{ // prefer: narrows exactly like pin when the zone is populated
+		Qname: "us-west-2a.prefer._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("us-west-2a.prefer._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.1"),
+		},
+	},
+	{ // prefer: an empty zone falls back to every endpoint — the fallback
+		// is chosen in the name, so it is not a silent widening of a pin
+		Qname: "us-west-2c.prefer._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.A("us-west-2c.prefer._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.1"),
+			test.A("us-west-2c.prefer._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
+			test.A("us-west-2c.prefer._zone.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
+		},
+	},
+	{ // a nonexistent service stays NXDOMAIN under any directive
+		Qname: "us-west-2a.pin._zone.ghost.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
-	{ // a nonexistent service stays NXDOMAIN under any zone label
-		Qname: "us-west-2a._zone.ghost.testns.svc.cluster.local.", Qtype: dns.TypeA,
+	{ // an unknown directive keeps the stock too-long NXDOMAIN
+		Qname: "us-west-2a.florp._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
 	{ // zone-scoped names are defined for headless services only
-		Qname: "us-west-2a._zone.clstr.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Qname: "us-west-2a.pin._zone.clstr.testns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
-	{ // exists-but-empty stays NODATA for non-address qtypes too (TXT has
-		// its own lookup branch; NXDOMAIN would be negative-cached per name)
-		Qname: "us-west-2c._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeTXT,
+	{ // pin: exists-but-empty stays NODATA for non-address qtypes too (TXT
+		// has its own lookup branch; NXDOMAIN would be negative-cached per name)
+		Qname: "us-west-2c.pin._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeTXT,
 		Rcode: dns.RcodeSuccess,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
 		},
 	},
-	{ // ...and matches the A behavior for any zone label on a real service
-		Qname: "db._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeTXT,
-		Rcode: dns.RcodeSuccess,
-		Ns: []dns.RR{
-			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
-		},
-	},
-	{ // SRV comes out zone-filtered too, since filtering happens at endpoint selection
-		Qname: "us-west-2b._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
+	{ // prefer: SRV narrows when populated and falls back when not, same as A
+		Qname: "us-west-2c.prefer._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
 		Rcode: dns.RcodeSuccess,
 		Answer: []dns.RR{
-			test.SRV("us-west-2b._zone.hdls.testns.svc.cluster.local.	5	IN	SRV	0 50 80 172-0-0-2.hdls.testns.svc.cluster.local."),
-			test.SRV("us-west-2b._zone.hdls.testns.svc.cluster.local.	5	IN	SRV	0 50 80 172-0-0-3.hdls.testns.svc.cluster.local."),
+			test.SRV("us-west-2c.prefer._zone.hdls.testns.svc.cluster.local.	5	IN	SRV	0 33 80 172-0-0-1.hdls.testns.svc.cluster.local."),
+			test.SRV("us-west-2c.prefer._zone.hdls.testns.svc.cluster.local.	5	IN	SRV	0 33 80 172-0-0-2.hdls.testns.svc.cluster.local."),
+			test.SRV("us-west-2c.prefer._zone.hdls.testns.svc.cluster.local.	5	IN	SRV	0 33 80 172-0-0-3.hdls.testns.svc.cluster.local."),
+		},
+		Extra: []dns.RR{
+			test.A("172-0-0-1.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.1"),
+			test.A("172-0-0-2.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
+			test.A("172-0-0-3.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.3"),
+		},
+	},
+	{ // prefer: TXT on a zonal name is NODATA like every non-address type
+		Qname: "us-west-2c.prefer._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeTXT,
+		Rcode: dns.RcodeSuccess,
+		Ns: []dns.RR{
+			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),
+		},
+	},
+	{ // pin: SRV comes out zone-filtered, since filtering happens at endpoint selection
+		Qname: "us-west-2b.pin._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeSRV,
+		Rcode: dns.RcodeSuccess,
+		Answer: []dns.RR{
+			test.SRV("us-west-2b.pin._zone.hdls.testns.svc.cluster.local.	5	IN	SRV	0 50 80 172-0-0-2.hdls.testns.svc.cluster.local."),
+			test.SRV("us-west-2b.pin._zone.hdls.testns.svc.cluster.local.	5	IN	SRV	0 50 80 172-0-0-3.hdls.testns.svc.cluster.local."),
 		},
 		Extra: []dns.RR{
 			test.A("172-0-0-2.hdls.testns.svc.cluster.local.	5	IN	A	172.0.0.2"),
@@ -162,11 +192,11 @@ var zonalTestCases = []test.Case{
 	},
 }
 
-// Without the option the same name reads as a port/protocol query, which no
-// Service port can match: behavior identical to before the feature existed.
+// Without the option the shape is three-labels-too-long, exactly as it has
+// always been: behavior identical to before the feature existed.
 var zonalDisabledTestCases = []test.Case{
 	{
-		Qname: "us-west-2a._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
+		Qname: "us-west-2a.pin._zone.hdls.testns.svc.cluster.local.", Qtype: dns.TypeA,
 		Rcode: dns.RcodeNameError,
 		Ns: []dns.RR{
 			test.SOA("cluster.local.	5	IN	SOA	ns.dns.cluster.local. hostmaster.cluster.local. 1499347823 7200 1800 86400 5"),

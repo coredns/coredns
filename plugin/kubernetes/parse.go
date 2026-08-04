@@ -17,9 +17,14 @@ type recordRequest struct {
 	protocol string
 	endpoint string
 	cluster  string
-	// The topology zone from a zone-scoped name (zone._zone.service.namespace.svc.zone);
-	// only set when the zonal option is enabled.
+	// The topology zone from a zone-scoped name
+	// (zone.pin._zone.service.namespace.svc.zone); only set when the zonal
+	// option is enabled.
 	zone string
+	// zonePrefer is set for the prefer directive: a zone holding no
+	// endpoints falls back to all endpoints. The zero value is the pin
+	// directive, which answers NODATA instead.
+	zonePrefer bool
 	// The servicename used in Kubernetes.
 	service string
 	// The namespace used in Kubernetes.
@@ -28,12 +33,20 @@ type recordRequest struct {
 	podOrSvc string
 }
 
-// zoneLabel marks a zone-scoped name: topozone._zone.service.namespace.svc.zone.
-// The underscore keeps the label out of every hostname-shaped grammar: it cannot
-// be an endpoint hostname, a pod name, or a multicluster cluster id, and in the
-// _port._protocol position it reads as protocol "zone", which no Service port
-// can carry (protocol is the TCP/UDP/SCTP enum).
+// zoneLabel anchors a zone-scoped name:
+// topozone.DIRECTIVE._zone.service.namespace.svc.zone. It sits three labels
+// left of the service — a shape that has always been "query too long"
+// (NXDOMAIN) — and the underscore keeps it out of every hostname-shaped
+// grammar, so nothing served or servable collides with it. The directive
+// label selects the semantics; bare words are safe there because the
+// subtree is only reachable through the anchor.
 const zoneLabel = "_zone"
+
+// Zone-scoped name directives.
+const (
+	directivePin    = "pin"    // zone-local endpoints, NODATA if none
+	directivePrefer = "prefer" // zone-local endpoints, all endpoints if none
+)
 
 // parseRequest parses the qname to find all the elements we need for querying k8s. Anything
 // that is not parsed will have the wildcard "*" value (except r.endpoint).
@@ -44,7 +57,7 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 	// 2. (endpoint): endpoint.service.namespace.pod|svc.zone
 	// 3. (service): service.namespace.pod|svc.zone
 	// 4. (endpoint multicluster): endpoint.cluster.service.namespace.pod|svc.zone
-	// 5. (zonal): topozone._zone.service.namespace.svc.zone
+	// 5. (zonal): topozone.pin|prefer._zone.service.namespace.svc.zone
 
 	base, _ := dnsutil.TrimZone(name, zone)
 	// return NODATA for apex queries
@@ -78,24 +91,36 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 		return r, nil
 	}
 
-	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol, endpoint and
-	// clusterid, or a zone-scoped name.
+	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol or endpoint
+	// and clusterid. 3: a zone-scoped name.
 	// Anything else is a query that is too long to answer and can safely be delegated to return an nxdomain.
 	switch last {
 	case 0: // endpoint only
 		r.endpoint = segs[last]
-	case 1: // port and protocol, endpoint and clusterid, or topology zone
-		// Zonal names are not defined in multicluster zones, where the
-		// two-labels-left shape belongs to the endpoint.clusterid grammar.
-		if zonal && !multicluster && segs[last] == zoneLabel && r.podOrSvc == Svc {
-			r.zone = segs[last-1]
-		} else if !multicluster || strings.HasPrefix(segs[last], "_") || strings.HasPrefix(segs[last-1], "_") {
+	case 1: // service and port or endpoint and clusterid
+		if !multicluster || strings.HasPrefix(segs[last], "_") || strings.HasPrefix(segs[last-1], "_") {
 			r.protocol = stripUnderscore(segs[last])
 			r.port = stripUnderscore(segs[last-1])
 		} else {
 			r.cluster = segs[last]
 			r.endpoint = segs[last-1]
 		}
+
+	case 2: // zone-scoped name: topozone.pin|prefer._zone
+		// Not defined in multicluster zones; everything this arm rejects
+		// keeps the stock too-long NXDOMAIN, so behavior with the option
+		// off (or for unknown directives) is byte-identical to today.
+		if !zonal || multicluster || segs[last] != zoneLabel || r.podOrSvc != Svc {
+			return r, errInvalidRequest
+		}
+		switch segs[last-1] {
+		case directivePin:
+		case directivePrefer:
+			r.zonePrefer = true
+		default:
+			return r, errInvalidRequest
+		}
+		r.zone = segs[last-2]
 
 	default: // too long
 		return r, errInvalidRequest

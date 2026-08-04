@@ -115,7 +115,8 @@ type dnsControlOpts struct {
 	initEndpointsCache bool
 	ignoreEmptyService bool
 	// zonal enables the zone-scoped name grammar
-	// (topozone._zone.service.namespace.svc.zone) for headless services.
+	// (topozone.pin|prefer._zone.service.namespace.svc.zone) for headless
+	// services.
 	zonal bool
 
 	// Label handling.

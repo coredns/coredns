@@ -30,14 +30,11 @@ func TestParseRequest(t *testing.T) {
 		{"..webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, false, ""},
 		// A multicluster request with a clusterid
 		{"1-2-3-4.cluster1.webs.mynamespace.svc.inter.webs.tests.", "..1-2-3-4.cluster1.webs.mynamespace.svc", true, false, ""},
-		// zone-scoped name
-		{"us-west-2a._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
-		// same name without the zonal option reads as port/protocol
-		{"us-west-2a._zone.webs.mynamespace.svc.inter.webs.tests.", "us-west-2a.zone...webs.mynamespace.svc", false, false, ""},
-		// _zone under the pod subdomain is not the zonal grammar
-		{"us-west-2a._zone.webs.mynamespace.pod.inter.webs.tests.", "us-west-2a.zone...webs.mynamespace.pod", false, true, ""},
-		// zonal names are not defined in multicluster zones
-		{"us-west-2a._zone.webs.mynamespace.svc.inter.webs.tests.", "us-west-2a.zone...webs.mynamespace.svc", true, true, ""},
+		// zone-scoped names, both directives
+		{"us-west-2a.pin._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
+		{"us-west-2a.prefer._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
+		// two-labels-left with an underscore still reads as port/protocol
+		{"us-west-2a._zone.webs.mynamespace.svc.inter.webs.tests.", "us-west-2a.zone...webs.mynamespace.svc", false, true, ""},
 	}
 	for i, tc := range tests {
 		m := new(dns.Msg)
@@ -60,8 +57,28 @@ func TestParseRequest(t *testing.T) {
 
 func TestParseInvalidRequest(t *testing.T) {
 	invalid := []string{
-		"webs.mynamespace.pood.inter.webs.test.",                 // Request must be for pod or svc subdomain.
-		"too.long.for.what.I.am.trying.to.pod.inter.webs.tests.", // Too long.
+		"webs.mynamespace.pood.inter.webs.test.",                      // Request must be for pod or svc subdomain.
+		"too.long.for.what.I.am.trying.to.pod.inter.webs.tests.",      // Too long.
+		"us-west-2a.pin._zone.webs.mynamespace.svc.inter.webs.tests.", // Zonal shape without the zonal option.
+	}
+
+	// The zonal-shaped rejections that must hold even WITH the option on:
+	// wrong subtree, unknown directive, and multicluster zones.
+	zonalInvalid := []struct {
+		query        string
+		multicluster bool
+	}{
+		{"us-west-2a.pin._zone.webs.mynamespace.pod.inter.webs.tests.", false},
+		{"us-west-2a.florp._zone.webs.mynamespace.svc.inter.webs.tests.", false},
+		{"us-west-2a.pin._zone.webs.mynamespace.svc.inter.webs.tests.", true},
+	}
+	for i, tc := range zonalInvalid {
+		m := new(dns.Msg)
+		m.SetQuestion(tc.query, dns.TypeA)
+		state := request.Request{Zone: zone, Req: m}
+		if _, e := parseRequest(state.Name(), state.Zone, tc.multicluster, true); e == nil {
+			t.Errorf("Zonal-invalid test %d: expected error from %s, got none", i, tc.query)
+		}
 	}
 
 	for i, query := range invalid {

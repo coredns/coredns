@@ -540,36 +540,46 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 				endpointsList = endpointsListFunc()
 			}
 
-			for _, ep := range endpointsList {
-				if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
-					continue
-				}
+			addForZone := func(topoZone string) (added int) {
+				for _, ep := range endpointsList {
+					if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
+						continue
+					}
 
-				for _, eps := range ep.Subsets {
-					for _, addr := range eps.Addresses {
-						// See comments in parse.go parseRequest about the endpoint handling.
-						if r.zone != "" && addr.Zone != r.zone {
-							continue
-						}
-						if r.endpoint != "" {
-							if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+					for _, eps := range ep.Subsets {
+						for _, addr := range eps.Addresses {
+							// See comments in parse.go parseRequest about the endpoint handling.
+							if topoZone != "" && addr.Zone != topoZone {
 								continue
 							}
-						}
-
-						for _, p := range eps.Ports {
-							if !(matchPortAndProtocol(r.port, p.Name, r.protocol, p.Protocol)) {
-								continue
+							if r.endpoint != "" {
+								if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+									continue
+								}
 							}
-							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
 
-							err = nil
+							for _, p := range eps.Ports {
+								if !(matchPortAndProtocol(r.port, p.Name, r.protocol, p.Protocol)) {
+									continue
+								}
+								s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
+								s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
 
-							services = append(services, s)
+								err = nil
+
+								services = append(services, s)
+								added++
+							}
 						}
 					}
 				}
+				return added
+			}
+			if addForZone(r.zone) == 0 && r.zonePrefer {
+				// The prefer directive falls back to the whole service when
+				// the zone holds nothing. The fallback is in the NAME the
+				// client chose, so it is never a silent widening of a pin.
+				addForZone("")
 			}
 			continue
 		}
