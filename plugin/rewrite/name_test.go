@@ -379,3 +379,14 @@ func TestNewNameRuleLargeRegex(t *testing.T) {
 		t.Errorf("Expected 'too long' error, got: %v", err)
 	}
 }
+
+func BenchmarkRemapStringRewriter(b *testing.B) {
+	r := newRemapStringRewriter("example.com.", "example.org.")
+	src := "sub.example.com."
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_ = r.rewriteString(src)
+	}
+}
+
