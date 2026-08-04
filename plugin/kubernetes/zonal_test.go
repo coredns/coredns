@@ -204,6 +204,26 @@ var zonalDisabledTestCases = []test.Case{
 	},
 }
 
+// A zone-only endpoint change alters zonal answers, so it must not be
+// classified as equivalent (which would skip the serial bump). Zone is
+// empty in default configurations, so this costs nothing when the option
+// is off.
+func TestEndpointsEquivalentZoneChange(t *testing.T) {
+	eps := func(zone string) *object.Endpoints {
+		return &object.Endpoints{
+			Subsets: []object.EndpointSubset{{
+				Addresses: []object.EndpointAddress{{IP: "172.0.0.1", Zone: zone}},
+			}},
+		}
+	}
+	if !endpointsEquivalent(eps("us-west-2a"), eps("us-west-2a")) {
+		t.Fatal("identical endpoints must be equivalent")
+	}
+	if endpointsEquivalent(eps("us-west-2a"), eps("us-west-2b")) {
+		t.Fatal("a zone-only change alters zonal answers and must not be equivalent")
+	}
+}
+
 func TestServeDNSZonal(t *testing.T) {
 	k := New([]string{"cluster.local."})
 	k.APIConn = &APIConnZonalTest{}

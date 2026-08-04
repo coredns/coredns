@@ -97,6 +97,6 @@ const zone = "inter.webs.tests."
 func BenchmarkParseRequest(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		_, _ = parseRequest("1-2-3-4.webs.mynamespace.svc.inter.webs.tests.", zone, false)
+		_, _ = parseRequest("1-2-3-4.webs.mynamespace.svc.inter.webs.tests.", zone, false, false)
 	}
 }

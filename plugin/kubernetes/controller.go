@@ -748,6 +748,13 @@ func subsetsEquivalent(sa, sb object.EndpointSubset) bool {
 		if aaddr.Hostname != baddr.Hostname {
 			return false
 		}
+		// Zone is only populated when the zonal option is on (the default
+		// transform drops it), so this comparison is a no-op for default
+		// configurations — and with the option on, zone changes alter
+		// served answers and must bump the serial like any other change.
+		if aaddr.Zone != baddr.Zone {
+			return false
+		}
 	}
 
 	for port, aport := range sa.Ports {
