@@ -79,7 +79,7 @@ func (a APIConnZonalTest) EpIndex(idx string) []*object.Endpoints {
 	return nil
 }
 
-func (APIConnZonalTest) GetNodeByName(ctx context.Context, name string) (*api.Node, error) {
+func (APIConnZonalTest) GetNodeByName(_ context.Context, _ string) (*api.Node, error) {
 	return &api.Node{}, nil
 }
 
