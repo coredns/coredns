@@ -52,7 +52,7 @@ func EndpointsKey(name, namespace string) string { return name + "." + namespace
 
 // EndpointSliceToEndpoints converts a *discovery.EndpointSlice to a *Endpoints.
 func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
-	return endpointSliceToEndpoints(obj, false)
+	return endpointSliceToEndpoints(obj, false /* withZones */)
 }
 
 // EndpointSliceToEndpointsWithZones is EndpointSliceToEndpoints, but also
@@ -60,7 +60,7 @@ func EndpointSliceToEndpoints(obj meta.Object) (meta.Object, error) {
 // plugin's zonal option is enabled, so the default configuration's cache
 // stays exactly as slim as before.
 func EndpointSliceToEndpointsWithZones(obj meta.Object) (meta.Object, error) {
-	return endpointSliceToEndpoints(obj, true)
+	return endpointSliceToEndpoints(obj, true /* withZones */)
 }
 
 func endpointSliceToEndpoints(obj meta.Object, withZones bool) (meta.Object, error) {
