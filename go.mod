@@ -56,7 +56,7 @@ require (
 	github.com/mholt/acmez/v3 v3.1.6
 	github.com/pires/go-proxyproto v0.15.0
 	github.com/prometheus/exporter-toolkit v0.17.1
-	go.uber.org/zap v1.27.1
+	go.uber.org/zap v1.28.0
 	golang.org/x/net v0.57.0
 )
 
