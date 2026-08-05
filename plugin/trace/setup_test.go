@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/core/dnsserver"
 )
 
 func TestTraceParse(t *testing.T) {
@@ -85,5 +86,58 @@ func TestTraceParse(t *testing.T) {
 		if test.zipkinMaxBatchInterval != m.zipkinMaxBatchInterval {
 			t.Errorf("Test %v: Expected zipkin_max_batch_interval %v but found: %v", i, test.zipkinMaxBatchInterval, m.zipkinMaxBatchInterval)
 		}
+	}
+}
+
+func TestParseServiceEndpoint(t *testing.T) {
+	tests := []struct {
+		name                    string
+		listenHosts             []string
+		port                    string
+		expectedServiceEndpoint string
+	}{
+		{
+			name:                    "IPv4 address",
+			listenHosts:             []string{"127.0.0.1"},
+			port:                    "8053",
+			expectedServiceEndpoint: "127.0.0.1:8053",
+		},
+		{
+			name:                    "IPv6 address",
+			listenHosts:             []string{"3d47:98c0:b113::3"},
+			port:                    "8853",
+			expectedServiceEndpoint: "[3d47:98c0:b113::3]:8853",
+		},
+		{
+			name:                    "Hostname",
+			listenHosts:             []string{"localhost"},
+			port:                    "8053",
+			expectedServiceEndpoint: "localhost:8053",
+		},
+		{
+			name:                    "Multiple addresses",
+			listenHosts:             []string{"3d47:98c0:b113::3", "127.0.0.1"},
+			port:                    "8853",
+			expectedServiceEndpoint: "[3d47:98c0:b113::3]:8853",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", "trace")
+			cfg := dnsserver.GetConfig(c)
+			cfg.ListenHosts = tc.listenHosts
+			cfg.Port = tc.port
+
+			tr, err := traceParse(c)
+			if err != nil {
+				t.Errorf("Error parsing test input: %s", err)
+				return
+			}
+
+			if tr.serviceEndpoint != tc.expectedServiceEndpoint {
+				t.Errorf("Expected serviceEndpoint %s, got %s", tc.expectedServiceEndpoint, tr.serviceEndpoint)
+			}
+		})
 	}
 }
