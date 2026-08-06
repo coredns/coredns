@@ -40,7 +40,7 @@ cache [TTL] [ZONES...] {
     success CAPACITY [TTL] [MINTTL]
     denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
-    serve_stale [DURATION] [immediate [RESPONSE_TTL] | verify [VERIFY_TIMEOUT [RESPONSE_TTL]]]
+    serve_stale [DURATION] [immediate [RESPONSE_TTL [FAILURE_RECHECK]] | verify [VERIFY_TIMEOUT [RESPONSE_TTL [FAILURE_RECHECK]]]]
     servfail DURATION
     disable success|denial [ZONES...]
     keepttl
@@ -83,6 +83,12 @@ cache [TTL] [ZONES...] {
   for example `serve_stale 1h immediate 30s`. In `verify` mode it follows **VERIFY_TIMEOUT**, for example
   `serve_stale 1h verify 100ms 30s`; use `0` as the timeout to wait for the upstream while setting a response
   TTL, as in `serve_stale 1h verify 0 30s`. The response TTL must be a whole number of seconds.
+  **FAILURE_RECHECK** follows **RESPONSE_TTL** and limits how frequently a failed refresh is attempted again
+  for the same cache entry. While a refresh is in flight or its failure recheck period is active, the stale
+  entry is served immediately without another upstream request. A failed refresh leaves the stale cache entry
+  intact. The default of `0` preserves the existing retry behavior. RFC 8767 recommends `30s` and says this
+  value should not exceed 5 minutes. Examples: `serve_stale 1h immediate 30s 30s` and
+  `serve_stale 1h verify 100ms 30s 30s`.
 * `servfail` cache SERVFAIL responses for **DURATION**.  Setting **DURATION** to 0 will disable caching of SERVFAIL
   responses.  If this option is not set, SERVFAIL responses will be cached for 5 seconds.  **DURATION** may not be
   greater than 5 minutes.

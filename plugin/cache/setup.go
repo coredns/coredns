@@ -172,11 +172,12 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 
 			case "serve_stale":
 				args := c.RemainingArgs()
-				if len(args) > 4 {
+				if len(args) > 5 {
 					return nil, c.ArgErr()
 				}
 				ca.staleUpTo = 1 * time.Hour
 				ca.staleTTL = 0
+				ca.staleRecheck = 0
 				if len(args) > 0 {
 					d, err := time.ParseDuration(args[0])
 					if err != nil {
@@ -212,14 +213,26 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 								return nil, err
 							}
 						}
+						if len(args) > 4 {
+							ca.staleRecheck, err = parseServeStaleRecheck(args[4])
+							if err != nil {
+								return nil, err
+							}
+						}
 					} else {
-						if len(args) > 3 {
+						if len(args) > 4 {
 							return nil, c.ArgErr()
 						}
 						var err error
 						ca.staleTTL, err = parseServeStaleTTL(args[2])
 						if err != nil {
 							return nil, err
+						}
+						if len(args) > 3 {
+							ca.staleRecheck, err = parseServeStaleRecheck(args[3])
+							if err != nil {
+								return nil, err
+							}
 						}
 					}
 				}
@@ -304,4 +317,18 @@ func parseServeStaleTTL(value string) (time.Duration, error) {
 		return 0, errors.New("serve_stale response TTL exceeds the DNS TTL range")
 	}
 	return ttl, nil
+}
+
+func parseServeStaleRecheck(value string) (time.Duration, error) {
+	recheck, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid serve_stale failure recheck: %w", err)
+	}
+	if recheck < 0 {
+		return 0, errors.New("invalid negative failure recheck for serve_stale")
+	}
+	if recheck > 5*time.Minute {
+		return 0, errors.New("serve_stale failure recheck cannot exceed 5 minutes")
+	}
+	return recheck, nil
 }
