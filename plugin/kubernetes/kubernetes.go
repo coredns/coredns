@@ -423,7 +423,7 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 			return nil, errNoItems
 		}
 
-		return []msg.Service{{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip, TTL: k.ttl}}, err
+		return []msg.Service{{Key: zonePath + "/" + Pod + "/" + namespace + "/" + podname, Host: ip, TTL: k.ttl}}, err
 	}
 
 	// PodModeVerified
@@ -432,7 +432,7 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 	for _, p := range k.APIConn.PodIndex(ip) {
 		// check for matching ip and namespace
 		if ip == p.PodIP && match(namespace, p.Namespace) {
-			s := msg.Service{Key: strings.Join([]string{zonePath, Pod, namespace, podname}, "/"), Host: ip, TTL: k.ttl}
+			s := msg.Service{Key: zonePath + "/" + Pod + "/" + namespace + "/" + podname, Host: ip, TTL: k.ttl}
 			pods = append(pods, s)
 
 			err = nil
@@ -496,9 +496,9 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 			if r.endpoint != "" || r.port != "" || r.protocol != "" {
 				continue
 			}
-			s := msg.Service{Key: strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/"), Host: svc.ExternalName, TTL: k.ttl}
+			s := msg.Service{Key: zonePath + "/" + Svc + "/" + svc.Namespace + "/" + svc.Name, Host: svc.ExternalName, TTL: k.ttl}
 			if t, _ := s.HostType(); t == dns.TypeCNAME {
-				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
+				s.Key = zonePath + "/" + Svc + "/" + svc.Namespace + "/" + svc.Name
 				services = append(services, s)
 
 				err = nil
@@ -531,7 +531,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 								continue
 							}
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
+							s.Key = zonePath + "/" + Svc + "/" + svc.Namespace + "/" + svc.Name + "/" + endpointHostname(addr, k.endpointNameMode)
 
 							err = nil
 
@@ -553,7 +553,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 			for _, ip := range svc.ClusterIPs {
 				s := msg.Service{Host: ip, Port: int(p.Port), TTL: k.ttl}
-				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
+				s.Key = zonePath + "/" + Svc + "/" + svc.Namespace + "/" + svc.Name
 				services = append(services, s)
 			}
 		}
@@ -635,7 +635,7 @@ func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (ser
 								continue
 							}
 							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, ep.ClusterId, endpointHostname(addr, k.endpointNameMode)}, "/")
+							s.Key = zonePath + "/" + Svc + "/" + svc.Namespace + "/" + svc.Name + "/" + ep.ClusterId + "/" + endpointHostname(addr, k.endpointNameMode)
 
 							err = nil
 
@@ -657,7 +657,7 @@ func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (ser
 
 			for _, ip := range svc.ClusterIPs {
 				s := msg.Service{Host: ip, Port: int(p.Port), TTL: k.ttl}
-				s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name}, "/")
+				s.Key = zonePath + "/" + Svc + "/" + svc.Namespace + "/" + svc.Name
 				services = append(services, s)
 			}
 		}
