@@ -311,7 +311,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 	// Wrap the response writer in a ScrubWriter so we automatically make the reply fit in the client's buffer.
 	w = request.NewScrubWriter(r, w)
 
-	q := strings.ToLower(r.Question[0].Name)
+	q := toLower(r.Question[0].Name)
 	var (
 		off       int
 		end       bool
@@ -481,3 +481,12 @@ var EnableChaos = map[string]struct{}{
 
 // Quiet mode will not show any informative output on initialization.
 var Quiet bool
+
+func toLower(s string) string {
+	for i := range len(s) {
+		if 'A' <= s[i] && s[i] <= 'Z' {
+			return strings.ToLower(s)
+		}
+	}
+	return s
+}
