@@ -83,7 +83,10 @@ cache [TTL] [ZONES...] {
   `prefer_positive`. It checks the success cache before the denial cache and returns an eligible positive response
   when it actually answers the question, even when a cached NXDOMAIN, NODATA, SERVFAIL, or NOTIMP response also
   exists. The positive response must be unexpired or within the configured `serve_stale` duration. This policy is
-  disabled by default because it can mask legitimate record deletion or removal until the positive response exceeds
+  The positive response is retained independently when a later NOERROR response does not answer the question (for example, an empty response
+  without SOA, a referral, or a response carrying data only in the additional section), so such a refresh cannot
+  destroy the last-known-good answer. A usable positive refresh replaces the retained answer.
+  The policy is disabled by default because it can mask legitimate record deletion or removal until the positive response exceeds
   the stale duration or is evicted. In `immediate` mode, the stale positive response is returned first and the cache
   refreshes in the background. In `verify` mode, only a refreshed positive answer replaces the stale response.
 * `servfail` cache SERVFAIL responses for **DURATION**.  Setting **DURATION** to 0 will disable caching of SERVFAIL

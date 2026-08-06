@@ -157,17 +157,18 @@ func (c *Cache) verifyWithTimeout(ctx context.Context, state request.Request, w 
 		if !cw.refreshed {
 			return false, 0, nil
 		}
-		fresh := c.exists(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
-		if fresh == nil {
-			// Should not happen: refreshed=true means the upstream response was cacheable.
+		if cw.response == nil {
 			return true, res.code, res.err
 		}
-		now := c.now()
-		if c.keepttl {
-			now = fresh.stored
+		response := cw.response
+		if cw.item != nil {
+			now := c.now()
+			if c.keepttl {
+				now = cw.item.stored
+			}
+			response = cw.item.toMsg(r, now, do, ad)
 		}
-		resp := fresh.toMsg(r, now, do, ad)
-		if err := w.WriteMsg(resp); err != nil {
+		if err := w.WriteMsg(response); err != nil {
 			return true, dns.RcodeServerFailure, err
 		}
 		return true, dns.RcodeSuccess, nil
@@ -195,10 +196,13 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 
 	if c.preferPositive && c.staleUpTo > 0 {
 		if i, ok := c.pcache.Get(k); ok {
-			ttl := i.ttl(now)
-			if i.matches(state) && i.answersQuestion(state) && (ttl > 0 || (c.staleUpTo > 0 && -ttl < int(c.staleUpTo.Seconds()))) {
-				cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
-				return i
+			i = i.answeringItem(state)
+			if i != nil {
+				ttl := i.ttl(now)
+				if i.matches(state) && (ttl > 0 || -ttl < int(c.staleUpTo.Seconds())) {
+					cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
+					return i
+				}
 			}
 		}
 	}

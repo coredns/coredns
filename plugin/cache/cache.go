@@ -306,6 +306,8 @@ type ResponseWriter struct {
 	remoteAddr net.Addr
 
 	wildcardFunc func() string // function to retrieve wildcard name that synthesized the result.
+	lastResponse *dns.Msg      // last response after cache TTL and DNSSEC adjustments.
+	lastItem     *item         // cache item written by the last response, if cacheable.
 
 	pexcept []string // positive zone exceptions
 	nexcept []string // negative zone exceptions
@@ -384,6 +386,7 @@ func (w *ResponseWriter) Hijack() {
 // WriteMsg implements the dns.ResponseWriter interface.
 func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 	res = res.Copy()
+	w.lastItem = nil
 	mt := cacheResponseType(res, w.now().UTC())
 
 	// key returns empty string for anything we don't want to cache.
@@ -412,6 +415,7 @@ func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
 		// But retain AD bit if requester set the AD bit in the request, per RFC6840 5.7-5.8
 		res.AuthenticatedData = false
 	}
+	w.lastResponse = res.Copy()
 
 	if hasKey && duration > 0 {
 		if w.state.Match(res) {
@@ -444,13 +448,19 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		if w.wildcardFunc != nil {
 			i.wildcard = w.wildcardFunc()
 		}
+		if w.preferPositive && !answersQuestion(m) {
+			if previous, ok := w.pcache.Get(key); ok {
+				i.lastKnownGood = previous.answeringItem(w.state)
+			}
+		}
 		if w.pcache.Add(key, i) {
 			evictions.WithLabelValues(w.server, Success, w.zonesMetricLabel, w.viewMetricLabel).Inc()
 		}
+		w.lastItem = i
 		// A positive refresh is the newest state for this key. Under the
 		// prefer_positive policy, only remove the denial when this response
 		// actually answers the question.
-		if w.prefetch || (w.preferPositive && answersQuestion(m)) {
+		if (!w.preferPositive && w.prefetch) || (w.preferPositive && answersQuestion(m)) {
 			w.ncache.Remove(key)
 		}
 
@@ -466,6 +476,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		if w.ncache.Add(key, i) {
 			evictions.WithLabelValues(w.server, Denial, w.zonesMetricLabel, w.viewMetricLabel).Inc()
 		}
+		w.lastItem = i
 
 	case response.OtherError:
 		// don't cache these
@@ -489,6 +500,8 @@ func (w *ResponseWriter) Write(buf []byte) (int, error) {
 type verifyStaleResponseWriter struct {
 	*ResponseWriter
 	refreshed bool // set to true if the last WriteMsg wrote to ResponseWriter, false otherwise.
+	response  *dns.Msg
+	item      *item
 }
 
 // newVerifyStaleResponseWriter returns a ResponseWriter to be used when verifying stale cache
@@ -498,18 +511,22 @@ type verifyStaleResponseWriter struct {
 // sent to the client.
 func newVerifyStaleResponseWriter(w *ResponseWriter) *verifyStaleResponseWriter {
 	return &verifyStaleResponseWriter{
-		w,
-		false,
+		ResponseWriter: w,
 	}
 }
 
 // WriteMsg implements the dns.ResponseWriter interface.
 func (w *verifyStaleResponseWriter) WriteMsg(res *dns.Msg) error {
 	w.refreshed = false
+	w.response = nil
+	w.item = nil
 	if w.preferPositive {
-		if answersQuestion(res) {
+		if w.state.Match(res) && answersQuestion(res) {
 			w.refreshed = true
-			return w.ResponseWriter.WriteMsg(res)
+			err := w.ResponseWriter.WriteMsg(res)
+			w.response = w.lastResponse
+			w.item = w.lastItem
+			return err
 		}
 		prefetch := w.prefetch
 		w.prefetch = true
@@ -519,7 +536,10 @@ func (w *verifyStaleResponseWriter) WriteMsg(res *dns.Msg) error {
 	}
 	if res.Rcode == dns.RcodeSuccess || res.Rcode == dns.RcodeNameError {
 		w.refreshed = true
-		return w.ResponseWriter.WriteMsg(res) // stores to the cache and send to client
+		err := w.ResponseWriter.WriteMsg(res) // stores to the cache and send to client
+		w.response = w.lastResponse
+		w.item = w.lastItem
+		return err
 	}
 	return nil // else discard
 }

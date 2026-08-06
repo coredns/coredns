@@ -22,6 +22,7 @@ type item struct {
 	Ns                 []dns.RR
 	Extra              []dns.RR
 	wildcard           string
+	lastKnownGood      *item // answering item retained when a non-answer overwrites this success-cache key.
 
 	origTTL uint32
 	stored  time.Time
@@ -117,4 +118,14 @@ func (i *item) matches(state request.Request) bool {
 
 func (i *item) answersQuestion(state request.Request) bool {
 	return i.Rcode == dns.RcodeSuccess && answerHasType(i.Answer, state.QName(), state.QType())
+}
+
+func (i *item) answeringItem(state request.Request) *item {
+	if i.answersQuestion(state) {
+		return i
+	}
+	if i.lastKnownGood != nil && i.lastKnownGood.answersQuestion(state) {
+		return i.lastKnownGood
+	}
+	return nil
 }
