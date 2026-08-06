@@ -16,6 +16,7 @@ package dnslkg
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -131,10 +132,21 @@ func (d *DnsLKG) handleUpstream(w dns.ResponseWriter, r *dns.Msg, nw *nonwriter.
 		ty, _ := response.Typify(nw.Msg, time.Now().UTC())
 		switch ty {
 		case response.NoError:
-			// A good answer: remember it as the last known good and pass it on.
-			d.storeAnswer(qname, qtype, nw.Msg, server)
-			w.WriteMsg(nw.Msg)
-			return rcode, nil
+			// A NOERROR is only a good answer if it actually resolves the
+			// question - i.e. the answer section contains a record of the
+			// requested type for the query name, following any CNAME chain to
+			// its terminal owner. An empty, partial (CNAME-only), wrong-type,
+			// looping or mismatched-owner NOERROR does not, and must never be
+			// stored (it would silently overwrite a good entry) nor served. It
+			// is effectively a NODATA, so treat it as one.
+			if answersQuestion(nw.Msg, qname, qtype) {
+				d.storeAnswer(qname, qtype, nw.Msg, server)
+				w.WriteMsg(nw.Msg)
+				return rcode, nil
+			}
+			if d.fb.nodata && d.serveFallback(w, r, qname, qtype, server) {
+				return dns.RcodeSuccess, nil
+			}
 		case response.NameError:
 			if d.fb.nxdomain && d.serveFallback(w, r, qname, qtype, server) {
 				return dns.RcodeSuccess, nil
@@ -143,7 +155,10 @@ func (d *DnsLKG) handleUpstream(w dns.ResponseWriter, r *dns.Msg, nw *nonwriter.
 			if d.fb.nodata && d.serveFallback(w, r, qname, qtype, server) {
 				return dns.RcodeSuccess, nil
 			}
-		case response.OtherError:
+		case response.ServerError, response.OtherError:
+			// ServerError covers SERVFAIL and NOTIMP; OtherError covers the
+			// remaining error rcodes. Both are error responses gated by the
+			// same trigger.
 			if d.fb.serverr && d.serveFallback(w, r, qname, qtype, server) {
 				return dns.RcodeSuccess, nil
 			}
@@ -195,9 +210,41 @@ func (d *DnsLKG) refreshInBackground(done <-chan upstreamResult, nw *nonwriter.W
 	if res.err != nil || nw.Msg == nil {
 		return
 	}
-	if ty, _ := response.Typify(nw.Msg, time.Now().UTC()); ty == response.NoError {
+	if ty, _ := response.Typify(nw.Msg, time.Now().UTC()); ty == response.NoError && answersQuestion(nw.Msg, qname, qtype) {
 		d.storeAnswer(qname, qtype, nw.Msg, server)
 	}
+}
+
+// answersQuestion reports whether m actually resolves the question for
+// qname/qtype: the answer section must contain a record of qtype whose owner is
+// qname, or the terminal name reached by following the CNAME chain that starts
+// at qname. Empty, partial (CNAME-only), wrong-type, looping and
+// mismatched-owner NOERROR responses all return false, so they are neither
+// stored as nor served as a last known good answer.
+func answersQuestion(m *dns.Msg, qname string, qtype uint16) bool {
+	name := qname
+	// Bound the CNAME walk by the number of answer records to avoid looping on
+	// a malformed (self-referential) chain.
+	for i := 0; i <= len(m.Answer); i++ {
+		var next string
+		for _, rr := range m.Answer {
+			h := rr.Header()
+			if !strings.EqualFold(h.Name, name) {
+				continue
+			}
+			if h.Rrtype == qtype {
+				return true
+			}
+			if c, ok := rr.(*dns.CNAME); ok {
+				next = c.Target
+			}
+		}
+		if next == "" {
+			return false
+		}
+		name = next
+	}
+	return false
 }
 
 // serveLKG returns a response built from the stored last known good answer for
