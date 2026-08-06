@@ -852,6 +852,14 @@ func TestKubernetesParseZonal(t *testing.T) {
 		},
 		{
 			`kubernetes coredns.local {
+	zonal
+	noendpoints
+}`,
+			true,
+			false,
+		},
+		{
+			`kubernetes coredns.local {
 }`,
 			false,
 			false,

@@ -58,12 +58,17 @@ func (a APIConnZonalTest) EndpointsList() []*object.Endpoints {
 			Subsets: []object.EndpointSubset{
 				{
 					Addresses: []object.EndpointAddress{
-						{IP: "172.0.0.1", Zone: "us-west-2a"},
-						{IP: "172.0.0.2", Zone: "us-west-2b"},
-						{IP: "172.0.0.3", Zone: "us-west-2b"},
+						{IP: "172.0.0.1"},
+						{IP: "172.0.0.2"},
+						{IP: "172.0.0.3"},
 					},
 					Ports: []object.EndpointPort{{Port: 80, Name: "http", Protocol: "tcp"}},
 				},
+			},
+			Zones: map[string]string{
+				"172.0.0.1": "us-west-2a",
+				"172.0.0.2": "us-west-2b",
+				"172.0.0.3": "us-west-2b",
 			},
 			Name:      "hdls-slice",
 			Namespace: "testns",
@@ -212,8 +217,9 @@ func TestEndpointsEquivalentZoneChange(t *testing.T) {
 	eps := func(zone string) *object.Endpoints {
 		return &object.Endpoints{
 			Subsets: []object.EndpointSubset{{
-				Addresses: []object.EndpointAddress{{IP: "172.0.0.1", Zone: zone}},
+				Addresses: []object.EndpointAddress{{IP: "172.0.0.1"}},
 			}},
+			Zones: map[string]string{"172.0.0.1": zone},
 		}
 	}
 	if !endpointsEquivalent(eps("us-west-2a"), eps("us-west-2a")) {

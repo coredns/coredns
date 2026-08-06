@@ -302,6 +302,13 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 		}
 	}
 
+	if k8s.opts.zonal && !k8s.opts.initEndpointsCache {
+		// Zone-scoped names are answered from the endpoint cache;
+		// without it every zonal name would contradict the documented
+		// noendpoints behavior (NXDOMAIN for all headless queries).
+		return nil, c.Errf("zonal requires the endpoint cache; remove noendpoints")
+	}
+
 	return k8s, nil
 }
 

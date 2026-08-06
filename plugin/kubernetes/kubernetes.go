@@ -549,7 +549,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 					for _, eps := range ep.Subsets {
 						for _, addr := range eps.Addresses {
 							// See comments in parse.go parseRequest about the endpoint handling.
-							if topoZone != "" && addr.Zone != topoZone {
+							if topoZone != "" && ep.Zones[addr.IP] != topoZone {
 								continue
 							}
 							if r.endpoint != "" {

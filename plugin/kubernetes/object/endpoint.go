@@ -2,6 +2,7 @@ package object
 
 import (
 	"fmt"
+	"maps"
 	"strings"
 
 	discovery "k8s.io/api/discovery/v1"
@@ -18,6 +19,12 @@ type Endpoints struct {
 	Index     string
 	IndexIP   []string
 	Subsets   []EndpointSubset
+	// Zones maps address IPs to their topology.kubernetes.io/zone,
+	// lowercased. Nil unless the kubernetes plugin's `zonal` option
+	// selected the zone-retaining transform, so default configurations
+	// carry one nil pointer per slice and their addresses stay exactly
+	// as slim as before.
+	Zones map[string]string
 
 	*Empty
 }
@@ -35,9 +42,6 @@ type EndpointAddress struct {
 	Hostname      string
 	NodeName      string
 	TargetRefName string
-	// Zone is the endpoint's topology.kubernetes.io/zone, lowercased. Only
-	// consumed when the kubernetes plugin's `zonal` option is enabled.
-	Zone string
 }
 
 // EndpointPort is a tuple that describes a single port.
@@ -109,9 +113,12 @@ func endpointSliceToEndpoints(obj meta.Object, withZones bool) (meta.Object, err
 				ea.Hostname = *end.Hostname
 			}
 			if withZones && end.Zone != nil {
+				if e.Zones == nil {
+					e.Zones = make(map[string]string)
+				}
 				// Lowercased once here: qnames arrive case-folded, so
 				// lookups compare without folding per query.
-				ea.Zone = strings.ToLower(*end.Zone)
+				e.Zones[a] = strings.ToLower(*end.Zone)
 			}
 			// ignore pod names that are too long to be a valid label
 			if end.TargetRef != nil && len(end.TargetRef.Name) < 64 {
@@ -165,6 +172,9 @@ func (e *Endpoints) DeepCopyObject() runtime.Object {
 		Subsets:   make([]EndpointSubset, len(e.Subsets)),
 	}
 	copy(e1.IndexIP, e.IndexIP)
+	if e.Zones != nil {
+		e1.Zones = maps.Clone(e.Zones)
+	}
 
 	for i, eps := range e.Subsets {
 		sub := EndpointSubset{
@@ -172,7 +182,7 @@ func (e *Endpoints) DeepCopyObject() runtime.Object {
 			Ports:     make([]EndpointPort, len(eps.Ports)),
 		}
 		for j, a := range eps.Addresses {
-			ea := EndpointAddress{IP: a.IP, Hostname: a.Hostname, NodeName: a.NodeName, TargetRefName: a.TargetRefName, Zone: a.Zone}
+			ea := EndpointAddress{IP: a.IP, Hostname: a.Hostname, NodeName: a.NodeName, TargetRefName: a.TargetRefName}
 			sub.Addresses[j] = ea
 		}
 		for k, p := range eps.Ports {

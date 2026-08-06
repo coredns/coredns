@@ -92,7 +92,7 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 	}
 
 	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol or endpoint
-	// and clusterid. 3: a zone-scoped name.
+	// and clusterid. 3 or more: a zone-scoped name (the zone value may span labels).
 	// Anything else is a query that is too long to answer and can safely be delegated to return an nxdomain.
 	switch last {
 	case 0: // endpoint only
@@ -106,10 +106,12 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 			r.endpoint = segs[last-1]
 		}
 
-	case 2: // zone-scoped name: topozone.pin|prefer._zone
-		// Not defined in multicluster zones; everything this arm rejects
-		// keeps the stock too-long NXDOMAIN, so behavior with the option
-		// off (or for unknown directives) is byte-identical to today.
+	default: // zone-scoped name (topozone.pin|prefer._zone), or too long
+		// Kubernetes zone label values may contain dots, so the zone is
+		// every label left of the directive, joined. Not defined in
+		// multicluster zones; everything this arm rejects keeps the stock
+		// too-long NXDOMAIN, so behavior with the option off (or for
+		// unknown directives) is byte-identical to today.
 		if !zonal || multicluster || segs[last] != zoneLabel || r.podOrSvc != Svc {
 			return r, errInvalidRequest
 		}
@@ -120,10 +122,7 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 		default:
 			return r, errInvalidRequest
 		}
-		r.zone = segs[last-2]
-
-	default: // too long
-		return r, errInvalidRequest
+		r.zone = strings.Join(segs[:last-1], ".")
 	}
 
 	return r, nil

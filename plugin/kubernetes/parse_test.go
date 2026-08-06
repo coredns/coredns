@@ -33,6 +33,9 @@ func TestParseRequest(t *testing.T) {
 		// zone-scoped names, both directives
 		{"us-west-2a.pin._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
 		{"us-west-2a.prefer._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "us-west-2a"},
+		// zone label values may contain dots; the value spans every label
+		// left of the directive
+		{"corp.example.com.pin._zone.webs.mynamespace.svc.inter.webs.tests.", "....webs.mynamespace.svc", false, true, "corp.example.com"},
 		// two-labels-left with an underscore still reads as port/protocol
 		{"us-west-2a._zone.webs.mynamespace.svc.inter.webs.tests.", "us-west-2a.zone...webs.mynamespace.svc", false, true, ""},
 	}

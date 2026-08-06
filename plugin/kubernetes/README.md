@@ -139,7 +139,11 @@ topology-zone.prefer._zone.service.namespace.svc.zone
 ~~~
 
 e.g. `us-west-2a.pin._zone.db.prod.svc.cluster.local` returns only the
-`db` endpoints whose EndpointSlice `zone` field is `us-west-2a`. Headless
+`db` endpoints whose EndpointSlice `zone` field is `us-west-2a`. The zone
+value is every label left of the directive, joined, since Kubernetes zone
+label values may themselves contain dots
+(`corp.example.com.pin._zone.db.prod.svc.cluster.local` selects the zone
+`corp.example.com`). Headless
 services have no ClusterIP for kube-proxy's `trafficDistribution` to act
 on — every client receives every address — so the zone selector in the
 query name lets a client scope an answer to its own zone. Plain service
@@ -174,6 +178,31 @@ adds no capture surface beyond the one service creation itself has always
 had: a relative name shaped `x.pin._zone.<existing-headless-service>`
 stops a resolver search walk with NODATA, exactly as creating a service
 captures colliding relative names today.
+
+Relationship to [Topology Aware
+Routing](https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/):
+`pin` and `prefer` are a topology *addressing* primitive, not an
+extension of `trafficDistribution`. They select on the endpoint's
+physical topology zone (`Endpoint.Zone`), which the EndpointSlice
+controller publishes without any Service-side opt-in — not on the routing
+hints
+(`Endpoint.Hints.ForZones`), which exist only when a Service opts in via
+`trafficDistribution` or the legacy `service.kubernetes.io/topology-mode:
+Auto` annotation, and which encode the zone tier of a routing decision
+rather than placement (under `Auto` an endpoint can be hinted for a zone
+it is not in, and the controller withdraws hints entirely when its
+safeguards trip). A client naming a zone under these directives gets the
+endpoints that are actually there. A hints-consuming selector is a
+distinct primitive with distinct semantics (kube-proxy ignores hints
+entirely for unhinted, partially-hinted, and safeguard-withdrawn
+services); if one is added, it takes its own directive label in this
+grammar. Unknown directives answer the stock too-long NXDOMAIN today, so
+that addition is compatible and nothing here forecloses it.
+
+The option requires the endpoint cache: combining `zonal` with
+`noendpoints` is a configuration error, since zone-scoped answers come
+from endpoint data and the `noendpoints` contract (NXDOMAIN for all
+headless queries) could not hold for them.
 
 Deployment notes: enable the option on every replica behind a shared
 Service before pointing clients at `_zone` names — replicas without the
