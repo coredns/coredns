@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -114,6 +115,10 @@ type dnsControlOpts struct {
 	initPodCache       bool
 	initEndpointsCache bool
 	ignoreEmptyService bool
+	// zonal enables the zone-scoped name grammar
+	// (topozone.pin|prefer._zone.service.namespace.svc.zone) for headless
+	// services.
+	zonal bool
 
 	// Label handling.
 	labelSelector          *meta.LabelSelector
@@ -171,6 +176,10 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsC
 		dns.podController = podController
 	}
 
+	epTransform := object.EndpointSliceToEndpoints
+	if opts.zonal {
+		epTransform = object.EndpointSliceToEndpointsWithZones
+	}
 	epLister, epController := object.NewIndexerInformer(
 		cache.ToListWatcherWithWatchListSemantics(
 			&cache.ListWatch{
@@ -182,7 +191,7 @@ func newdnsController(ctx context.Context, kubeClient kubernetes.Interface, mcsC
 		&discovery.EndpointSlice{},
 		cache.ResourceEventHandlerFuncs{AddFunc: dns.Add, UpdateFunc: dns.Update, DeleteFunc: dns.Delete},
 		cache.Indexers{epNameNamespaceIndex: epNameNamespaceIndexFunc, epIPIndex: epIPIndexFunc},
-		object.DefaultProcessor(object.EndpointSliceToEndpoints, dns.EndpointSliceLatencyRecorder()),
+		object.DefaultProcessor(epTransform, dns.EndpointSliceLatencyRecorder()),
 	)
 	dns.epLister = epLister
 	if opts.initEndpointsCache {
@@ -778,6 +787,13 @@ func endpointsEquivalent(a, b *object.Endpoints) bool {
 	}
 
 	if len(a.Subsets) != len(b.Subsets) {
+		return false
+	}
+
+	// Zones is nil unless the zonal option is on, so this is a no-op for
+	// default configurations — and with the option on, zone changes alter
+	// served answers and must bump the serial like any other change.
+	if !maps.Equal(a.Zones, b.Zones) {
 		return false
 	}
 
