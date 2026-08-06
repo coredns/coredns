@@ -46,6 +46,8 @@ type Cache struct {
 	staleUpTo          time.Duration
 	verifyStale        bool
 	verifyStaleTimeout time.Duration // 0 means wait for upstream until its own timeout (current default).
+	staleTTL           time.Duration // TTL returned with stale responses; 0 preserves the legacy behavior.
+	staleRecheck       time.Duration // Delay after a failed refresh before another attempt; 0 preserves the legacy behavior.
 
 	// Positive/negative zone exceptions
 	pexcept []string

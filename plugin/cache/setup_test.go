@@ -122,28 +122,43 @@ func TestServeStale(t *testing.T) {
 		staleUpTo          time.Duration
 		verifyStale        bool
 		verifyStaleTimeout time.Duration
+		staleTTL           time.Duration
 	}{
-		{"serve_stale", false, 1 * time.Hour, false, 0},
-		{"serve_stale 20m", false, 20 * time.Minute, false, 0},
-		{"serve_stale 1h20m", false, 80 * time.Minute, false, 0},
-		{"serve_stale 0m", false, 0, false, 0},
-		{"serve_stale 0", false, 0, false, 0},
-		{"serve_stale 0 verify", false, 0, true, 0},
-		{"serve_stale 0 immediate", false, 0, false, 0},
-		{"serve_stale 0 VERIFY", false, 0, true, 0},
-		{"serve_stale 1h verify 100ms", false, 1 * time.Hour, true, 100 * time.Millisecond},
-		{"serve_stale 1h verify 0", false, 1 * time.Hour, true, 0},
-		{"serve_stale 1h VERIFY 250ms", false, 1 * time.Hour, true, 250 * time.Millisecond},
+		{"serve_stale", false, 1 * time.Hour, false, 0, 0},
+		{"serve_stale 20m", false, 20 * time.Minute, false, 0, 0},
+		{"serve_stale 1h20m", false, 80 * time.Minute, false, 0, 0},
+		{"serve_stale 0m", false, 0, false, 0, 0},
+		{"serve_stale 0", false, 0, false, 0, 0},
+		{"serve_stale 0 verify", false, 0, true, 0, 0},
+		{"serve_stale 0 immediate", false, 0, false, 0, 0},
+		{"serve_stale 0 VERIFY", false, 0, true, 0, 0},
+		{"serve_stale 1h immediate 30s", false, 1 * time.Hour, false, 0, 30 * time.Second},
+		{"serve_stale 1h immediate 30s 30s", false, 1 * time.Hour, false, 0, 30 * time.Second},
+		{"serve_stale 1h immediate 4294967295s", false, 1 * time.Hour, false, 0, time.Duration(^uint32(0)) * time.Second},
+		{"serve_stale 1h immediate 0", false, 1 * time.Hour, false, 0, 0},
+		{"serve_stale 1h verify 100ms", false, 1 * time.Hour, true, 100 * time.Millisecond, 0},
+		{"serve_stale 1h verify 100ms 30s", false, 1 * time.Hour, true, 100 * time.Millisecond, 30 * time.Second},
+		{"serve_stale 1h verify 100ms 30s 30s", false, 1 * time.Hour, true, 100 * time.Millisecond, 30 * time.Second},
+		{"serve_stale 1h verify 0", false, 1 * time.Hour, true, 0, 0},
+		{"serve_stale 1h verify 0 1m", false, 1 * time.Hour, true, 0, time.Minute},
+		{"serve_stale 1h VERIFY 250ms", false, 1 * time.Hour, true, 250 * time.Millisecond, 0},
 		// fails
-		{"serve_stale 20", true, 0, false, 0},
-		{"serve_stale -20m", true, 0, false, 0},
-		{"serve_stale aa", true, 0, false, 0},
-		{"serve_stale 1m nono", true, 0, false, 0},
-		{"serve_stale 0 after nono", true, 0, false, 0},
-		{"serve_stale 1h immediate 100ms", true, 0, false, 0},
-		{"serve_stale 1h verify -1ms", true, 0, false, 0},
-		{"serve_stale 1h verify garbage", true, 0, false, 0},
-		{"serve_stale 1h verify 100ms extra", true, 0, false, 0},
+		{"serve_stale 20", true, 0, false, 0, 0},
+		{"serve_stale -20m", true, 0, false, 0, 0},
+		{"serve_stale aa", true, 0, false, 0, 0},
+		{"serve_stale 1m nono", true, 0, false, 0, 0},
+		{"serve_stale 0 after nono", true, 0, false, 0, 0},
+		{"serve_stale 1h immediate 100ms", true, 0, false, 0, 0},
+		{"serve_stale 1h immediate 4294967296s", true, 0, false, 0, 0},
+		{"serve_stale 1h immediate -1s", true, 0, false, 0, 0},
+		{"serve_stale 1h immediate garbage", true, 0, false, 0, 0},
+		{"serve_stale 1h immediate 30s extra", true, 0, false, 0, 0},
+		{"serve_stale 1h verify -1ms", true, 0, false, 0, 0},
+		{"serve_stale 1h verify garbage", true, 0, false, 0, 0},
+		{"serve_stale 1h verify 100ms 500ms", true, 0, false, 0, 0},
+		{"serve_stale 1h verify 100ms -1s", true, 0, false, 0, 0},
+		{"serve_stale 1h verify 100ms garbage", true, 0, false, 0, 0},
+		{"serve_stale 1h verify 100ms 30s extra", true, 0, false, 0, 0},
 	}
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", test.input))
@@ -167,6 +182,47 @@ func TestServeStale(t *testing.T) {
 		if ca.verifyStaleTimeout != test.verifyStaleTimeout {
 			t.Errorf("Test %v: Expected verifyStaleTimeout %v but found: %v", i, test.verifyStaleTimeout, ca.verifyStaleTimeout)
 		}
+		if ca.staleTTL != test.staleTTL {
+			t.Errorf("Test %v: Expected staleTTL %v but found: %v", i, test.staleTTL, ca.staleTTL)
+		}
+	}
+}
+
+func TestServeStaleFailureRecheck(t *testing.T) {
+	tests := []struct {
+		input       string
+		wantRecheck time.Duration
+		shouldErr   bool
+	}{
+		{input: "serve_stale 1h immediate 30s 30s", wantRecheck: 30 * time.Second},
+		{input: "serve_stale 1h immediate 0 0"},
+		{input: "serve_stale 1h verify 100ms 30s 250ms", wantRecheck: 250 * time.Millisecond},
+		{input: "serve_stale 1h verify 0 0 5m", wantRecheck: 5 * time.Minute},
+		{input: "serve_stale 1h immediate 30s -1s", shouldErr: true},
+		{input: "serve_stale 1h immediate 30s 5m1s", shouldErr: true},
+		{input: "serve_stale 1h immediate 30s invalid", shouldErr: true},
+		{input: "serve_stale 1h immediate 30s 30s extra", shouldErr: true},
+		{input: "serve_stale 1h verify 100ms 30s -1s", shouldErr: true},
+		{input: "serve_stale 1h verify 100ms 30s 30s extra", shouldErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.input, func(t *testing.T) {
+			controller := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", test.input))
+			ca, err := cacheParse(controller)
+			if test.shouldErr {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if ca.staleRecheck != test.wantRecheck {
+				t.Fatalf("expected failure recheck %v, got %v", test.wantRecheck, ca.staleRecheck)
+			}
+		})
 	}
 }
 
