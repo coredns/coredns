@@ -170,6 +170,41 @@ func TestServeStale(t *testing.T) {
 	}
 }
 
+func TestServeStalePolicy(t *testing.T) {
+	tests := []struct {
+		input          string
+		shouldErr      bool
+		preferPositive bool
+	}{
+		{"serve_stale\nserve_stale_policy prefer_positive", false, true},
+		{"serve_stale_policy PREFER_POSITIVE\nserve_stale", false, true},
+		{"serve_stale", false, false},
+		// fails
+		{"serve_stale_policy prefer_positive", true, false},
+		{"serve_stale\nserve_stale_policy", true, false},
+		{"serve_stale\nserve_stale_policy prefer_positive extra", true, false},
+		{"serve_stale\nserve_stale_policy invalid", true, false},
+		{"serve_stale\nserve_stale_policy prefer_positive\nserve_stale_policy prefer_positive", true, false},
+	}
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", test.input))
+		ca, err := cacheParse(c)
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %v: Expected error but found nil", i)
+			continue
+		} else if !test.shouldErr && err != nil {
+			t.Errorf("Test %v: Expected no error but found error: %v", i, err)
+			continue
+		}
+		if test.shouldErr {
+			continue
+		}
+		if ca.preferPositive != test.preferPositive {
+			t.Errorf("Test %v: Expected preferPositive %v but found %v", i, test.preferPositive, ca.preferPositive)
+		}
+	}
+}
+
 func TestServfail(t *testing.T) {
 	tests := []struct {
 		input     string
