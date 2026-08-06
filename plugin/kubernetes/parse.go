@@ -4,8 +4,6 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
-
-	"github.com/miekg/dns"
 )
 
 type recordRequest struct {
@@ -40,45 +38,62 @@ func parseRequest(name, zone string, multicluster bool) (r recordRequest, err er
 	if base == "" || base == Svc || base == Pod {
 		return r, nil
 	}
-	segs := dns.SplitDomainName(base)
 
-	last := len(segs) - 1
-	if last < 0 {
+	var segs [6]string
+	n := 0
+	end := len(base)
+	for end > 0 {
+		idx := strings.LastIndexByte(base[:end], '.')
+		var label string
+		if idx == -1 {
+			label = base[:end]
+			end = 0
+		} else {
+			label = base[idx+1 : end]
+			end = idx
+		}
+		if label == "" {
+			continue
+		}
+		if n >= 6 {
+			return r, errInvalidRequest
+		}
+		segs[n] = label
+		n++
+	}
+
+	if n < 1 {
 		return r, nil
 	}
-	r.podOrSvc = segs[last]
+	r.podOrSvc = segs[0]
 	if r.podOrSvc != Pod && r.podOrSvc != Svc {
 		return r, errInvalidRequest
 	}
-	last--
-	if last < 0 {
+	if n < 2 {
 		return r, nil
 	}
 
-	r.namespace = segs[last]
-	last--
-	if last < 0 {
+	r.namespace = segs[1]
+	if n < 3 {
 		return r, nil
 	}
 
-	r.service = segs[last]
-	last--
-	if last < 0 {
+	r.service = segs[2]
+	if n < 4 {
 		return r, nil
 	}
 
-	// Because of ambiguity we check the labels left: 1: an endpoint. 2: port and protocol or endpoint and clusterid.
-	// Anything else is a query that is too long to answer and can safely be delegated to return an nxdomain.
-	switch last {
-	case 0: // endpoint only
-		r.endpoint = segs[last]
-	case 1: // service and port or endpoint and clusterid
-		if !multicluster || strings.HasPrefix(segs[last], "_") || strings.HasPrefix(segs[last-1], "_") {
-			r.protocol = stripUnderscore(segs[last])
-			r.port = stripUnderscore(segs[last-1])
+	remaining := n - 3
+	switch remaining {
+	case 1: // endpoint only
+		r.endpoint = segs[3]
+	case 2: // service and port or endpoint and clusterid
+		if !multicluster || strings.HasPrefix(segs[3], "_") || strings.HasPrefix(segs[4], "_") {
+			r.protocol = stripUnderscore(segs[3])
+			r.port = stripUnderscore(segs[4])
 		} else {
-			r.cluster = segs[last]
-			r.endpoint = segs[last-1]
+			r.cluster = segs[3]
+			r.endpoint = segs[4]
 		}
 
 	default: // too long
