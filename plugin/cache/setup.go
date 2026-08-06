@@ -172,10 +172,11 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 
 			case "serve_stale":
 				args := c.RemainingArgs()
-				if len(args) > 3 {
+				if len(args) > 4 {
 					return nil, c.ArgErr()
 				}
 				ca.staleUpTo = 1 * time.Hour
+				ca.staleTTL = 0
 				if len(args) > 0 {
 					d, err := time.ParseDuration(args[0])
 					if err != nil {
@@ -196,17 +197,31 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 					ca.verifyStale = mode == "verify"
 				}
 				if len(args) > 2 {
-					if !ca.verifyStale {
-						return nil, errors.New("serve_stale timeout is only valid with the verify refresh mode")
+					if ca.verifyStale {
+						t, err := time.ParseDuration(args[2])
+						if err != nil {
+							return nil, fmt.Errorf("invalid serve_stale verify timeout: %w", err)
+						}
+						if t < 0 {
+							return nil, errors.New("invalid negative timeout for serve_stale verify")
+						}
+						ca.verifyStaleTimeout = t
+						if len(args) > 3 {
+							ca.staleTTL, err = parseServeStaleTTL(args[3])
+							if err != nil {
+								return nil, err
+							}
+						}
+					} else {
+						if len(args) > 3 {
+							return nil, c.ArgErr()
+						}
+						var err error
+						ca.staleTTL, err = parseServeStaleTTL(args[2])
+						if err != nil {
+							return nil, err
+						}
 					}
-					t, err := time.ParseDuration(args[2])
-					if err != nil {
-						return nil, fmt.Errorf("invalid serve_stale verify timeout: %w", err)
-					}
-					if t < 0 {
-						return nil, errors.New("invalid negative timeout for serve_stale verify")
-					}
-					ca.verifyStaleTimeout = t
 				}
 			case "servfail":
 				args := c.RemainingArgs()
@@ -272,4 +287,21 @@ func cacheParse(c *caddy.Controller) (*Cache, error) {
 	}
 
 	return ca, nil
+}
+
+func parseServeStaleTTL(value string) (time.Duration, error) {
+	ttl, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, fmt.Errorf("invalid serve_stale response TTL: %w", err)
+	}
+	if ttl < 0 {
+		return 0, errors.New("invalid negative response TTL for serve_stale")
+	}
+	if ttl%time.Second != 0 {
+		return 0, errors.New("serve_stale response TTL must be a whole number of seconds")
+	}
+	if ttl/time.Second > time.Duration(^uint32(0)) {
+		return 0, errors.New("serve_stale response TTL exceeds the DNS TTL range")
+	}
+	return ttl, nil
 }

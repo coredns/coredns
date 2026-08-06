@@ -40,7 +40,7 @@ cache [TTL] [ZONES...] {
     success CAPACITY [TTL] [MINTTL]
     denial CAPACITY [TTL] [MINTTL]
     prefetch AMOUNT [[DURATION] [PERCENTAGE%]]
-    serve_stale [DURATION] [REFRESH_MODE [VERIFY_TIMEOUT]]
+    serve_stale [DURATION] [immediate [RESPONSE_TTL] | verify [VERIFY_TIMEOUT [RESPONSE_TTL]]]
     servfail DURATION
     disable success|denial [ZONES...]
     keepttl
@@ -66,7 +66,7 @@ cache [TTL] [ZONES...] {
 * `serve_stale`, when serve\_stale is set, cache will always serve an expired entry to a client if there is one
   available as long as it has not been expired for longer than **DURATION** (default 1 hour). By default, the _cache_ plugin will
   attempt to refresh the cache entry after sending the expired cache entry to the client. The
-  responses have a TTL of 0. **REFRESH_MODE** controls the timing of the expired cache entry refresh.
+  responses have a TTL of 0 by default for backward compatibility. **REFRESH_MODE** controls the timing of the expired cache entry refresh.
   `verify` will first verify that an entry is still unavailable from the source before sending the expired entry to the client.
   `immediate` will immediately send the expired entry to the client before
   checking to see if the entry is available from the source. **REFRESH_MODE** defaults to `immediate`. Setting this
@@ -78,6 +78,11 @@ cache [TTL] [ZONES...] {
   verify before falling back to the stale entry. The verify continues in the background and refreshes the
   cache when it eventually succeeds, so subsequent queries see the fresh entry. The default of `0` means
   wait until the upstream's own timeout (the original `verify` behavior). Example: `serve_stale 1h verify 100ms`.
+  **RESPONSE_TTL** sets the TTL returned with expired entries and defaults to `0`. RFC 8767 requires stale
+  responses to use a TTL greater than zero and recommends `30s`. In `immediate` mode it follows the mode,
+  for example `serve_stale 1h immediate 30s`. In `verify` mode it follows **VERIFY_TIMEOUT**, for example
+  `serve_stale 1h verify 100ms 30s`; use `0` as the timeout to wait for the upstream while setting a response
+  TTL, as in `serve_stale 1h verify 0 30s`. The response TTL must be a whole number of seconds.
 * `servfail` cache SERVFAIL responses for **DURATION**.  Setting **DURATION** to 0 will disable caching of SERVFAIL
   responses.  If this option is not set, SERVFAIL responses will be cached for 5 seconds.  **DURATION** may not be
   greater than 5 minutes.

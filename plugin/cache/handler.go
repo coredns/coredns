@@ -41,7 +41,8 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		return c.doRefresh(ctx, state, crr)
 	}
 	ttl := i.ttl(now)
-	if ttl < 0 {
+	stale := ttl <= 0
+	if stale {
 		// serve stale behavior
 		if c.verifyStale {
 			crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, cd: cd}
@@ -83,7 +84,13 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 		// one so that we always get the original TTL
 		now = i.stored
 	}
-	resp := i.toMsg(r, now, do, ad)
+	var resp *dns.Msg
+	if stale && c.staleTTL > 0 {
+		staleTTL := uint32(c.staleTTL / time.Second) // #nosec G115 -- configuration parsing bounds this to the DNS TTL range.
+		resp = i.toMsgWithTTL(r, staleTTL, do, ad)
+	} else {
+		resp = i.toMsg(r, now, do, ad)
+	}
 	w.WriteMsg(resp)
 	return dns.RcodeSuccess, nil
 }

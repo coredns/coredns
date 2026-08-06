@@ -79,6 +79,12 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 // On newer systems(e.g. ubuntu 16.04 with glib version 2.23), this issue is resolved.
 // So we may set this bit back to 0 in the future ?
 func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
+	ttl := uint32(i.ttl(now)) // #nosec G115 -- ttl is bounded by DNS TTL limits
+	return i.toMsgWithTTL(m, ttl, do, ad)
+}
+
+// toMsgWithTTL returns the cached item with an explicit TTL on every RR.
+func (i *item) toMsgWithTTL(m *dns.Msg, ttl uint32, do bool, ad bool) *dns.Msg {
 	m1 := new(dns.Msg)
 	m1.SetReply(m)
 
@@ -95,7 +101,6 @@ func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
 	m1.RecursionAvailable = i.RecursionAvailable
 	m1.Rcode = i.Rcode
 
-	ttl := uint32(i.ttl(now)) // #nosec G115 -- ttl is bounded by DNS TTL limits
 	m1.Answer = filterRRSlice(i.Answer, ttl, true)
 	m1.Ns = filterRRSlice(i.Ns, ttl, true)
 	m1.Extra = filterRRSlice(i.Extra, ttl, true)
