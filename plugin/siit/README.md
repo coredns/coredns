@@ -6,10 +6,14 @@
 
 ## Description
 
-The *siit* plugin will when asked for a domain's A or AAAA records, belonging to a certain IP range,
-synthesizes the corresponding AAAA or A records.
+The *siit* plugin will when asked for a domain's A record,
+synthesizes it from a corresponding AAAA record if it belongs to a certain IP range.
 
 It also supports arbitrary mapping IPv4<>IPv6.
+
+It is useful when published services are IPv6-only and emit their AAAA record accordingly
+but IPv4 clients reach them through a siit routing. This plugin generates the associated A records
+for these clients automatically.
 
 ## Syntax
 
@@ -45,3 +49,7 @@ The `server` label is explained in the _prometheus_ plugin documentation.
 
 See [RFC 6145](https://tools.ietf.org/html/rfc6145) for more information on the SIIT mechanism
 and [RFC 7757](https://tools.ietf.org/html/rfc7757) about the explicit address mappings (eam) mechanism
+
+## Notes
+
+This plugin is heavily based on [dns64 plugin](./plugin/dns64).

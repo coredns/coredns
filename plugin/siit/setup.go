@@ -59,12 +59,6 @@ func siitParse(c *caddy.Controller) (*SIIT, error) {
 					return nil, err
 				}
 
-				if siit.Eam6 == nil {
-					siit.Eam6 = make(map[string]net.IP)
-				}
-
-				siit.Eam6[pref[0].String()] = pref[1]
-
 				if siit.Eam4 == nil {
 					siit.Eam4 = make(map[string]net.IP)
 				}
