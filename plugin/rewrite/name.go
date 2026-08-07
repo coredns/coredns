@@ -53,20 +53,21 @@ func (r *regexStringRewriter) rewriteString(src string) string {
 // it also maps a the domain of a sub domain.
 type remapStringRewriter struct {
 	orig        string
+	dotOrig     string
 	replacement string
 }
 
 var _ stringRewriter = &remapStringRewriter{}
 
 func newRemapStringRewriter(orig, replacement string) stringRewriter {
-	return &remapStringRewriter{orig, replacement}
+	return &remapStringRewriter{orig, "." + orig, replacement}
 }
 
 func (r *remapStringRewriter) rewriteString(src string) string {
 	if src == r.orig {
 		return r.replacement
 	}
-	if strings.HasSuffix(src, "."+r.orig) {
+	if strings.HasSuffix(src, r.dotOrig) {
 		return src[0:len(src)-len(r.orig)] + r.replacement
 	}
 	return src
