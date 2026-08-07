@@ -45,6 +45,7 @@ var Directives = []string{
 	"autopath",
 	"acl",
 	"cache",
+	"dnslkg",
 	"header",
 	"dnssec",
 	"tls",
