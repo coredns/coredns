@@ -14,48 +14,6 @@ import (
 	"github.com/miekg/dns"
 )
 
-func To6(prefix, address string) (net.IP, error) {
-	_, pref, _ := net.ParseCIDR(prefix)
-	addr := net.ParseIP(address)
-	eam := make(map[string]net.IP)
-
-	return to6(pref, eam, addr)
-}
-
-func TestTo6(t *testing.T) {
-	v6, err := To6("64:ff9b::/96", "64.64.64.64")
-	if err != nil {
-		t.Error(err)
-	}
-	if v6.String() != "64:ff9b::4040:4040" {
-		t.Errorf("%d", v6)
-	}
-
-	v6, err = To6("64:ff9b::/64", "64.64.64.64")
-	if err != nil {
-		t.Error(err)
-	}
-	if v6.String() != "64:ff9b::40:4040:4000:0" {
-		t.Errorf("%d", v6)
-	}
-
-	v6, err = To6("64:ff9b::/56", "64.64.64.64")
-	if err != nil {
-		t.Error(err)
-	}
-	if v6.String() != "64:ff9b:0:40:40:4040::" {
-		t.Errorf("%d", v6)
-	}
-
-	v6, err = To6("64::/32", "64.64.64.64")
-	if err != nil {
-		t.Error(err)
-	}
-	if v6.String() != "64:0:4040:4040::" {
-		t.Errorf("%d", v6)
-	}
-}
-
 func TestSIIT(t *testing.T) {
 	var cases = []struct {
 		// a brief summary of the test case
@@ -74,7 +32,7 @@ func TestSIIT(t *testing.T) {
 		resp *dns.Msg
 	}{
 		{
-			// no AAAA record, yes A record. Do SIIT
+			// no A record, yes AAAA record. Do SIIT
 			name: "standard flow",
 			req: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
@@ -82,7 +40,7 @@ func TestSIIT(t *testing.T) {
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
 			initResp: &dns.Msg{ //success, no answers
 				MsgHdr: dns.MsgHdr{
@@ -92,7 +50,7 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 70 IN SOA foo bar 1 1 1 1 1")},
 			},
 			aResp: &dns.Msg{
@@ -103,10 +61,10 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
 				Answer: []dns.RR{
-					test.A("example.com. 60 IN A 192.0.2.42"),
-					test.A("example.com. 5000 IN A 192.0.2.43"),
+					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
+					test.AAAA("example.com. 5000 IN AAAA 64:ff9b::192.0.2.43"),
 				},
 			},
 
@@ -118,24 +76,24 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Answer: []dns.RR{
-					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
+					test.A("example.com. 60 IN A 192.0.2.42"),
 					// override RR ttl to SOA ttl, since it's lower
-					test.AAAA("example.com. 70 IN AAAA 64:ff9b::192.0.2.43"),
+					test.A("example.com. 70 IN A 192.0.2.43"),
 				},
 			},
 		},
 		{
 			// name exists, but has neither A nor AAAA record
-			name: "a empty",
+			name: "aaaa empty",
 			req: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
 					Id:               42,
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
 			initResp: &dns.Msg{ //success, no answers
 				MsgHdr: dns.MsgHdr{
@@ -145,7 +103,7 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 			aResp: &dns.Msg{
@@ -156,7 +114,7 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 
@@ -168,7 +126,7 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 				Answer:   []dns.RR{}, // just to make comparison happy
 			},
@@ -182,7 +140,7 @@ func TestSIIT(t *testing.T) {
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
 			initResp: &dns.Msg{ // failure
 				MsgHdr: dns.MsgHdr{
@@ -192,7 +150,7 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeRefused,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
 			aResp: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
@@ -202,10 +160,10 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
 				Answer: []dns.RR{
-					test.A("example.com. 60 IN A 192.0.2.42"),
-					test.A("example.com. 5000 IN A 192.0.2.43"),
+					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
+					test.AAAA("example.com. 5000 IN AAAA 64:ff9b::192.0.2.43"),
 				},
 			},
 
@@ -217,15 +175,15 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Answer: []dns.RR{
-					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
-					test.AAAA("example.com. 600 IN AAAA 64:ff9b::192.0.2.43"),
+					test.A("example.com. 60 IN A 192.0.2.42"),
+					test.A("example.com. 600 IN A 192.0.2.43"),
 				},
 			},
 		},
 		{
-			// nxdomain (NameError): don't even try an A request.
+			// nxdomain (NameError): don't even try an AAAA request.
 			name: "nxdomain",
 			req: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
@@ -233,7 +191,7 @@ func TestSIIT(t *testing.T) {
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
 			initResp: &dns.Msg{ // failure
 				MsgHdr: dns.MsgHdr{
@@ -243,7 +201,7 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeNameError,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 			resp: &dns.Msg{
@@ -254,20 +212,20 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeNameError,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 3600 IN SOA foo bar 1 7200 900 1209600 86400")},
 			},
 		},
 		{
-			// AAAA record exists
-			name: "AAAA record",
+			// A record exists
+			name: "A record",
 			req: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
 					Id:               42,
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
 
 			initResp: &dns.Msg{
@@ -278,10 +236,9 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Answer: []dns.RR{
-					test.AAAA("example.com. 60 IN AAAA ::1"),
-					test.AAAA("example.com. 5000 IN AAAA ::2"),
+					test.A("example.com. 60 IN A 127.0.0.1"),
 				},
 			},
 
@@ -293,23 +250,22 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Answer: []dns.RR{
-					test.AAAA("example.com. 60 IN AAAA ::1"),
-					test.AAAA("example.com. 5000 IN AAAA ::2"),
+					test.A("example.com. 60 IN A 127.0.0.1"),
 				},
 			},
 		},
 		{
-			// no AAAA records, A record response truncated.
-			name: "truncated A response",
+			// no A records, AAAA record response truncated.
+			name: "truncated AAAA response",
 			req: &dns.Msg{
 				MsgHdr: dns.MsgHdr{
 					Id:               42,
 					RecursionDesired: true,
 					Opcode:           dns.OpcodeQuery,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
 			initResp: &dns.Msg{ //success, no answers
 				MsgHdr: dns.MsgHdr{
@@ -319,7 +275,7 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Ns:       []dns.RR{test.SOA("example.com. 70 IN SOA foo bar 1 1 1 1 1")},
 			},
 			aResp: &dns.Msg{
@@ -331,10 +287,10 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
 				Answer: []dns.RR{
-					test.A("example.com. 60 IN A 192.0.2.42"),
-					test.A("example.com. 5000 IN A 192.0.2.43"),
+					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
+					test.AAAA("example.com. 5000 IN AAAA 64:ff9b::192.0.2.43"),
 				},
 			},
 
@@ -347,11 +303,11 @@ func TestSIIT(t *testing.T) {
 					Rcode:            dns.RcodeSuccess,
 					Response:         true,
 				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
+				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 				Answer: []dns.RR{
-					test.AAAA("example.com. 60 IN AAAA 64:ff9b::192.0.2.42"),
+					test.A("example.com. 60 IN A 192.0.2.42"),
 					// override RR ttl to SOA ttl, since it's lower
-					test.AAAA("example.com. 70 IN AAAA 64:ff9b::192.0.2.43"),
+					test.A("example.com. 70 IN A 192.0.2.43"),
 				},
 			},
 		},
@@ -410,68 +366,9 @@ func TestSIIT(t *testing.T) {
 				},
 			},
 		},
-		{
-			// no AAAA records, A record response via eam.
-			name: "eam A response",
-			req: &dns.Msg{
-				MsgHdr: dns.MsgHdr{
-					Id:               42,
-					RecursionDesired: true,
-					Opcode:           dns.OpcodeQuery,
-				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
-			},
-			initResp: &dns.Msg{ //success, no answers
-				MsgHdr: dns.MsgHdr{
-					Id:               42,
-					Opcode:           dns.OpcodeQuery,
-					RecursionDesired: true,
-					Rcode:            dns.RcodeSuccess,
-					Response:         true,
-				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
-				Ns:       []dns.RR{test.SOA("example.com. 70 IN SOA foo bar 1 1 1 1 1")},
-			},
-			aResp: &dns.Msg{
-				MsgHdr: dns.MsgHdr{
-					Id:               43,
-					Opcode:           dns.OpcodeQuery,
-					RecursionDesired: true,
-					Truncated:        true,
-					Rcode:            dns.RcodeSuccess,
-					Response:         true,
-				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
-				Answer: []dns.RR{
-					test.A("example.com. 60 IN A 10.0.0.1"),
-					test.A("example.com. 5000 IN A 10.0.0.2"),
-				},
-			},
-
-			resp: &dns.Msg{
-				MsgHdr: dns.MsgHdr{
-					Id:               42,
-					Opcode:           dns.OpcodeQuery,
-					RecursionDesired: true,
-					Truncated:        true,
-					Rcode:            dns.RcodeSuccess,
-					Response:         true,
-				},
-				Question: []dns.Question{{Name: "example.com.", Qtype: dns.TypeAAAA, Qclass: dns.ClassINET}},
-				Answer: []dns.RR{
-					test.AAAA("example.com. 60 IN AAAA 64:dead::1"),
-					// override RR ttl to SOA ttl, since it's lower
-					test.AAAA("example.com. 70 IN AAAA 64:dead::2"),
-				},
-			},
-		},
 	}
 
 	_, pfx, _ := net.ParseCIDR("64:ff9b::/96")
-
-	eam6 := make(map[string]net.IP)
-	eam6["10.0.0.1"] = net.ParseIP("64:dead::1")
-	eam6["10.0.0.2"] = net.ParseIP("64:dead::2")
 
 	eam4 := make(map[string]net.IP)
 	eam4["64:dead::1"] = net.ParseIP("10.0.0.1")
@@ -482,7 +379,6 @@ func TestSIIT(t *testing.T) {
 			d := SIIT{
 				Next:       &fakeHandler{t, tc.initResp},
 				IPv6Prefix: pfx,
-				Eam6:       eam6,
 				Eam4:       eam4,
 				Upstream:   &fakeUpstream{t, tc.req.Question[0].Name, tc.aResp},
 			}

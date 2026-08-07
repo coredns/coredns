@@ -28,7 +28,6 @@ type UpstreamInt interface {
 type SIIT struct {
 	Next       plugin.Handler
 	IPv6Prefix *net.IPNet
-	Eam6       map[string]net.IP
 	Eam4       map[string]net.IP
 	Upstream   UpstreamInt
 }
@@ -71,20 +70,20 @@ func (d *SIIT) Name() string { return "siit" }
 
 // requestShouldIntercept returns true if the request represents one that is eligible
 // for SIIT rewriting:
-// 2. The request is of type AAAA or A
+// 2. The request is of type A
 // 3. The request is of class INET
 func (d *SIIT) requestShouldIntercept(req *request.Request) bool {
-	// Do not modify if question is not AAAA or A or not of class IN. See RFC 6147 5.1
-	return (req.QType() == dns.TypeA || req.QType() == dns.TypeAAAA) && req.QClass() == dns.ClassINET
+	// Do not modify if question is not A or not of class IN. See RFC 6147 5.1
+	return (req.QType() == dns.TypeA) && req.QClass() == dns.ClassINET
 }
 
-// responseShouldDNS64 returns true if the response indicates we should attempt
+// responseShouldSIIT returns true if the response indicates we should attempt
 // SIIT rewriting:
-// 1. The response has no valid (RFC 5.1.4) AAAA records (RFC 5.1.1) or A records (depending on the source)
+// 1. The response has no valid (RFC 5.1.4) A records (RFC 5.1.1)
 // 2. The response code (RCODE) is not 3 (Name Error) (RFC 5.1.2)
 //
 // Note that requestShouldIntercept must also have been true, so the request
-// is known to be of type AAAA or A.
+// is known to be of type A.
 func (d *SIIT) responseShouldSIIT(req *request.Request, origResponse *dns.Msg) bool {
 	ty, _ := response.Typify(origResponse, time.Now().UTC())
 
@@ -94,12 +93,8 @@ func (d *SIIT) responseShouldSIIT(req *request.Request, origResponse *dns.Msg) b
 		return false
 	}
 
-	// if response includes AAAA record for an AAAA request, no need to rewrite
-	// same for A record and A request
+	// if response includes A record for an A request, no need to rewrite
 	for _, rr := range origResponse.Answer {
-		if rr.Header().Rrtype == dns.TypeAAAA && req.QType() == dns.TypeAAAA {
-			return false
-		}
 		if rr.Header().Rrtype == dns.TypeA && req.QType() == dns.TypeA {
 			return false
 		}
@@ -107,16 +102,11 @@ func (d *SIIT) responseShouldSIIT(req *request.Request, origResponse *dns.Msg) b
 	return true
 }
 
-// DoSIIT takes an (empty) response to an AAAA question, issues the A request,
+// DoSIIT takes an (empty) response to an A question, issues the AAAA request,
 // and synthesizes the answer. Returns the response message, or error on internal failure.
-// It also do the A question for the AAAA request.
 func (d *SIIT) DoSIIT(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, origResponse *dns.Msg) (*dns.Msg, error) {
 	req := request.Request{W: w, Req: r}
-	defaultreq := dns.TypeA
-
-	if req.QType() == dns.TypeA {
-		defaultreq = dns.TypeAAAA
-	}
+	defaultreq := dns.TypeAAAA
 
 	resp, err := d.Upstream.Lookup(ctx, req, req.Name(), defaultreq)
 
@@ -154,31 +144,13 @@ func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 	for _, rr := range resp.Answer {
 		header := rr.Header()
 		// 5.3.3: All other RR's MUST be returned unchanged
-		if header.Rrtype != dns.TypeA && header.Rrtype != dns.TypeAAAA {
+		if header.Rrtype != dns.TypeAAAA {
 			ret.Answer = append(ret.Answer, rr)
 			continue
 		}
 
-		if header.Rrtype == dns.TypeA {
-			aaaa, _ := to6(d.IPv6Prefix, d.Eam6, rr.(*dns.A).A)
-
-			// ttl is min of SOA TTL and A TTL
-			ttl := min(rr.Header().Ttl, SOATtl)
-
-			// Replace A answer with a SIIT AAAA answer
-			ret.Answer = append(ret.Answer, &dns.AAAA{
-				Hdr: dns.RR_Header{
-					Name:   header.Name,
-					Rrtype: dns.TypeAAAA,
-					Class:  header.Class,
-					Ttl:    ttl,
-				},
-				AAAA: aaaa,
-			})
-		}
-
 		if header.Rrtype == dns.TypeAAAA {
-			a, _ := to4(d.Eam4, rr.(*dns.AAAA).AAAA)
+			a, _ := to4(d.Eam4, d.IPv6Prefix, rr.(*dns.AAAA).AAAA)
 
 			// ttl is min of SOA TTL and A TTL
 			ttl := min(rr.Header().Ttl, SOATtl)
@@ -191,51 +163,47 @@ func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 					Class:  header.Class,
 					Ttl:    ttl,
 				},
-				A: a,
+				A: a.To16(),
 			})
 		}
 	}
 	return &ret
 }
 
-// to6 takes a prefix and IPv4 address or an eam and returns an IPv6 address.
-func to6(prefix *net.IPNet, eam map[string]net.IP, addr net.IP) (net.IP, error) {
-	addr = addr.To4()
-	if addr == nil {
-		return nil, errors.New("not a valid IPv4 address")
-	}
-
-	if eam[addr.String()] != nil {
-		v6 := eam[addr.String()]
-		return v6, nil
-	}
-
+// extractIPv4 reverses CoreDNS's dns64 embedding logic: given a v6 address
+// that was built by embedding a v4 address into prefix, it extracts that
+// v4 address back out. prefix must be a valid NAT64 prefix length per
+// RFC 6052 (/32, /40, /48, /56, /64, or /96).
+func extractIPv4(v6 net.IP, prefix *net.IPNet) net.IP {
 	n, _ := prefix.Mask.Size()
-	// Assumes prefix has been validated during setup
-	v6 := make([]byte, 16)
-	i, j := 0, 0
+	v6 = v6.To16()
 
-	for ; i < n/8; i++ {
-		v6[i] = prefix.IP[i]
-	}
+	addr := make([]byte, 4)
+	i, j := n/8, 0 // skip the prefix bytes, we don't need them back
+
 	for ; i < 8; i, j = i+1, j+1 {
-		v6[i] = addr[j]
+		addr[j] = v6[i]
 	}
 	if i == 8 {
-		i++
+		i++ // skip the reserved "u" byte
 	}
 	for ; j < 4; i, j = i+1, j+1 {
-		v6[i] = addr[j]
+		addr[j] = v6[i]
 	}
 
-	return v6, nil
+	return net.IP(addr)
 }
 
 // to4 takes an IPv6 address and an eam and returns an IPv4 address.
-func to4(eam map[string]net.IP, addr net.IP) (net.IP, error) {
+func to4(eam map[string]net.IP, ipv6prefix *net.IPNet, addr net.IP) (net.IP, error) {
 	addr = addr.To16()
 	if addr == nil || addr.To4() != nil {
 		return nil, errors.New("not a valid IPv6 address")
+	}
+
+	if ipv6prefix.Contains(addr) {
+		v4 := extractIPv4(addr, ipv6prefix)
+		return v4, nil
 	}
 
 	if eam[addr.String()] != nil {
