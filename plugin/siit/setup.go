@@ -73,7 +73,7 @@ func siitParse(c *caddy.Controller) (*SIIT, error) {
 }
 
 func parseIpv6Prefix(c *caddy.Controller, addr string) (*net.IPNet, error) {
-	_, pref, err := net.ParseCIDR(addr)
+	ip, pref, err := net.ParseCIDR(addr)
 	if err != nil {
 		return nil, err
 	}
@@ -83,8 +83,40 @@ func parseIpv6Prefix(c *caddy.Controller, addr string) (*net.IPNet, error) {
 	if total != 128 {
 		return nil, c.Errf("invalid netmask %d IPv6 address: %q", total, pref)
 	}
-	if n%8 != 0 || n < 32 || n > 96 {
-		return nil, c.Errf("invalid prefix length %q", pref)
+
+	ip16 := ip.To16()
+	if ip16 == nil {
+		return nil, c.Errf("invalid IPv6 prefix %q", addr)
+	}
+
+	// RFC 6052 §2.2: only these lengths are valid.
+	// For all Network-Specific Prefix lengths shorter than /96,
+	// the reserved "u" octet must be zero.
+	switch n {
+	case 32:
+		if ip16[4] != 0 {
+			return nil, c.Errf("reserved u octet must be zero")
+		}
+	case 40:
+		if ip16[5] != 0 {
+			return nil, c.Errf("reserved u octet must be zero")
+		}
+	case 48:
+		if ip16[6] != 0 {
+			return nil, c.Errf("reserved u octet must be zero")
+		}
+	case 56:
+		if ip16[7] != 0 {
+			return nil, c.Errf("reserved u octet must be zero")
+		}
+	case 64:
+		if ip16[8] != 0 {
+			return nil, c.Errf("reserved u octet must be zero")
+		}
+	case 96:
+		// ok
+	default:
+		return nil, c.Errf("invalid prefix length %q: must be one of /32, /40, /48, /56, /64, /96", pref)
 	}
 
 	return pref, nil
@@ -92,6 +124,10 @@ func parseIpv6Prefix(c *caddy.Controller, addr string) (*net.IPNet, error) {
 
 func parseEam(c *caddy.Controller) (map[int]net.IP, error) {
 	args := c.RemainingArgs()
+	if len(args) != 2 {
+		return nil, c.ArgErr()
+	}
+
 	pref0 := net.ParseIP(args[0])
 	if pref0 == nil {
 		return nil, c.Errf("invalid IP address: %q", pref0)
