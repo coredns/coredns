@@ -1,6 +1,6 @@
-// Package siit implements a plugin that performs SIIT.
+// Package siit implements a plugin that performs AAAA to A translation.
 //
-// See: RFC 6145 (https://tools.ietf.org/html/rfc6145)
+// See: RFC 6052 (https://tools.ietf.org/html/rfc6052)
 // See: RFC 7757 (https://tools.ietf.org/html/rfc7757)
 package siit
 
@@ -117,8 +117,8 @@ func (d *SIIT) DoSIIT(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, ori
 	if resp == nil || resp.Rcode != dns.RcodeSuccess {
 		// Not a transport error — we got an answer, it's just SERVFAIL/
 		// REFUSED/NXDOMAIN/etc. Don't synthesize from it; return the
-		// original response untouched so ServeDNS writes that instead.
-		return origResponse, nil
+		// response untouched so ServeDNS writes that instead.
+		return resp, nil
 	}
 
 	out := d.Synthesize(r, origResponse, resp)
@@ -129,6 +129,8 @@ func (d *SIIT) DoSIIT(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, ori
 func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 	ret := dns.Msg{}
 	ret.SetReply(origReq)
+
+	mappedAny := false
 
 	// persist truncated state of AAAA or A response
 	ret.Truncated = resp.Truncated
@@ -165,6 +167,8 @@ func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 				continue
 			}
 
+			mappedAny = true
+
 			// ttl is min of SOA TTL and A TTL
 			ttl := min(rr.Header().Ttl, SOATtl)
 
@@ -180,6 +184,11 @@ func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 			})
 		}
 	}
+
+	if !mappedAny {
+		return origResponse
+	}
+
 	return &ret
 }
 
@@ -222,6 +231,15 @@ func to4(eam map[string]net.IP, ipv6prefix *net.IPNet, addr net.IP) (net.IP, boo
 
 	// Fall back to RFC 6052 algorithmic translation only if no EAM matched.
 	if ipv6prefix.Contains(addr) {
+		// RFC 6052 §2.2: byte 8 (bits 64-71, the "u" octet) is reserved and
+		// MUST be zero. A correctly-configured prefix guarantees this for
+		// its own bits (validated at setup time), but for prefix lengths
+		// shorter than /96 that byte belongs to the address, not the
+		// prefix, and an upstream AAAA answer isn't required to zero it.
+		// Reject rather than silently translating from a malformed address.
+		if addr[8] != 0 {
+			return nil, false
+		}
 		v4 := extractIPv4(addr, ipv6prefix)
 		return v4, true
 	}

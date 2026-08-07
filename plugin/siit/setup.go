@@ -90,33 +90,18 @@ func parseIpv6Prefix(c *caddy.Controller, addr string) (*net.IPNet, error) {
 	}
 
 	// RFC 6052 §2.2: only these lengths are valid.
-	// For all Network-Specific Prefix lengths shorter than /96,
-	// the reserved "u" octet must be zero.
 	switch n {
-	case 32:
-		if ip16[4] != 0 {
-			return nil, c.Errf("reserved u octet must be zero")
-		}
-	case 40:
-		if ip16[5] != 0 {
-			return nil, c.Errf("reserved u octet must be zero")
-		}
-	case 48:
-		if ip16[6] != 0 {
-			return nil, c.Errf("reserved u octet must be zero")
-		}
-	case 56:
-		if ip16[7] != 0 {
-			return nil, c.Errf("reserved u octet must be zero")
-		}
-	case 64:
-		if ip16[8] != 0 {
-			return nil, c.Errf("reserved u octet must be zero")
-		}
-	case 96:
+	case 32, 40, 48, 56, 64, 96:
 		// ok
 	default:
 		return nil, c.Errf("invalid prefix length %q: must be one of /32, /40, /48, /56, /64, /96", pref)
+	}
+
+	// RFC 6052 §2.2: byte 8 (bits 64-71, the "u" octet) is reserved and
+	// MUST be zero for every valid prefix length — including /96, where
+	// it's still part of the operator-configured prefix bits.
+	if pref.IP.To16()[8] != 0 {
+		return nil, c.Errf("invalid prefix %q: reserved octet (byte 8) must be zero", pref)
 	}
 
 	return pref, nil

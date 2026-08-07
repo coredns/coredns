@@ -25,7 +25,7 @@ siit {
 ~~~
 
 * `ipv6_prefix` specifies any local IPv6 prefix to use, instead of the well known prefix (64:ff9b::/96)
-* `eam` translates the ipv4 to the corresponding ipv6 and vice-versa, it can be set multiple times
+* `eam` translates the ipv6 to the corresponding ipv4, it can be set multiple times
 
 ## Examples
 
@@ -57,4 +57,4 @@ and [RFC 7757](https://tools.ietf.org/html/rfc7757) about the explicit address m
 
 ## Notes
 
-This plugin is heavily based on [dns64 plugin](./plugin/dns64).
+This plugin is heavily based on [dns64 plugin](../dns64).
