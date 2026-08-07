@@ -2,6 +2,7 @@ package dnslkg
 
 import (
 	"container/list"
+	"encoding/binary"
 	"fmt"
 	"sync"
 	"time"
@@ -78,7 +79,9 @@ func newMemStore(max int, maxAge time.Duration) *memStore {
 // short, lower-cased FQDN, so it is used directly with the 2-byte qtype
 // appended - no hashing is needed for an in-memory map.
 func storeKey(name string, qtype uint16) string {
-	return name + string([]byte{byte(qtype >> 8), byte(qtype)})
+	var b [2]byte
+	binary.BigEndian.PutUint16(b[:], qtype)
+	return name + string(b[:])
 }
 
 // Put records m as the last known good answer for name/qtype. Overwriting an
