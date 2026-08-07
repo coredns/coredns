@@ -36,6 +36,24 @@ func randomShuffle(res *dns.Msg) *dns.Msg {
 }
 
 func roundRobin(in []dns.RR) []dns.RR {
+	if len(in) <= 1 {
+		return in
+	}
+
+	allSame := true
+	firstType := in[0].Header().Rrtype
+	for i := 1; i < len(in); i++ {
+		if in[i].Header().Rrtype != firstType {
+			allSame = false
+			break
+		}
+	}
+
+	if allSame && (firstType == dns.TypeA || firstType == dns.TypeAAAA) {
+		roundRobinShuffle(in)
+		return in
+	}
+
 	cname := []dns.RR{}
 	address := []dns.RR{}
 	mx := []dns.RR{}
