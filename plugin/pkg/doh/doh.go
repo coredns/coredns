@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+
 	"github.com/miekg/dns"
 )
 
@@ -23,11 +25,11 @@ const Path = "/dns-query"
 // The URL should not have a path, so please exclude /dns-query. The URL will
 // be prefixed with https:// by default, unless it's already prefixed with
 // either http:// or https://.
-func NewRequest(method, url string, m *dns.Msg) (*http.Request, error) {
-	return NewRequestWithContext(context.Background(), method, url, m)
+func NewRequest(method, url, host string, m *dns.Msg) (*http.Request, error) {
+	return NewRequestWithContext(context.Background(), method, url, host, m)
 }
 
-func NewRequestWithContext(ctx context.Context, method, url string, m *dns.Msg) (*http.Request, error) {
+func NewRequestWithContext(ctx context.Context, method, url, host string, m *dns.Msg) (*http.Request, error) {
 	buf, err := m.Pack()
 	if err != nil {
 		return nil, err
@@ -53,6 +55,7 @@ func NewRequestWithContext(ctx context.Context, method, url string, m *dns.Msg) 
 
 		req.Header.Set("Content-Type", MimeType)
 		req.Header.Set("Accept", MimeType)
+		req.Host = host
 		return req, nil
 
 	case http.MethodPost:
@@ -68,6 +71,7 @@ func NewRequestWithContext(ctx context.Context, method, url string, m *dns.Msg) 
 
 		req.Header.Set("Content-Type", MimeType)
 		req.Header.Set("Accept", MimeType)
+		req.Host = host
 		return req, nil
 
 	default:
@@ -106,7 +110,12 @@ func RequestToMsgWire(req *http.Request) (*dns.Msg, []byte, error) {
 // requestToMsgPost extracts the dns message from the request body.
 func requestToMsgPost(req *http.Request) (*dns.Msg, []byte, error) {
 	defer req.Body.Close()
-	return toMsgWire(req.Body)
+	buf, err := io.ReadAll(http.MaxBytesReader(nil, req.Body, maxDNSQuerySize))
+	if err != nil {
+		return nil, nil, err
+	}
+	m, err := dnsutil.UnpackRequest(buf)
+	return m, buf, err
 }
 
 const maxDNSQuerySize = 65536
@@ -149,9 +158,7 @@ func base64ToMsgWire(b64 string) (*dns.Msg, []byte, error) {
 		return nil, nil, err
 	}
 
-	m := new(dns.Msg)
-	err = m.Unpack(buf)
-
+	m, err := dnsutil.UnpackRequest(buf)
 	return m, buf, err
 }
 

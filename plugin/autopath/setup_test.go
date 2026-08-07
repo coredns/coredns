@@ -30,10 +30,10 @@ func TestSetupAutoPath(t *testing.T) {
 		{`autopath example.org @kubernetes`, false, "example.org.", "kubernetes", nil, ""},
 		{`autopath 10.0.0.0/8 @kubernetes`, false, "10.in-addr.arpa.", "kubernetes", nil, ""},
 		{`autopath ` + resolv, false, "", "", []string{"bar.com.", "baz.com.", ""}, ""},
-		// negative
-		{`autopath kubernetes`, true, "", "", nil, "open kubernetes: no such file or directory"},
+		// negative (OS error text differs; match the portable prefix)
+		{`autopath kubernetes`, true, "", "", nil, "open kubernetes:"},
 		{`autopath`, true, "", "", nil, "no resolv-conf"},
-		{`autopath ""`, true, "", "", nil, "no such file"},
+		{`autopath ""`, true, "", "", nil, "failed to parse"},
 	}
 
 	for i, test := range tests {

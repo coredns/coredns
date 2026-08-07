@@ -26,6 +26,8 @@ const (
 	ErrTransportStopped = "proxy: transport stopped"
 )
 
+var ErrInvalidRequest = errors.New("proxy: invalid request")
+
 // limitTimeout is a utility function to auto-tune timeout values
 // average observed time is moved towards the last observed delay moderated by a weight
 // next timeout to use will be the double of the computed average, limited by min and max frame.
@@ -127,6 +129,21 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 		proto = state.Proto()
 	}
 
+	originId := state.Req.Id
+	state.Req.Id = dns.Id()
+	defer func() {
+		state.Req.Id = originId
+	}()
+
+	var wire []byte
+	if state.Req.IsTsig() == nil {
+		var err error
+		wire, err = state.Req.Pack()
+		if err != nil {
+			return nil, nil, proto, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+		}
+	}
+
 	pc, cached, err := p.transport.Dial(proto)
 	if err != nil {
 		return nil, nil, proto, err
@@ -151,14 +168,12 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 	pc.c.UDPSize = max(uint16(state.Size()), 512) // #nosec G115 -- UDP size fits in uint16
 
 	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
-	// records the origin Id before upstream.
-	originId := state.Req.Id
-	state.Req.Id = dns.Id()
-	defer func() {
-		state.Req.Id = originId
-	}()
-
-	if err := pc.c.WriteMsg(state.Req); err != nil {
+	if wire != nil {
+		_, err = pc.c.Write(wire)
+	} else {
+		err = pc.c.WriteMsg(state.Req)
+	}
+	if err != nil {
 		pc.c.Close() // not giving it back
 		if err == io.EOF && cached {
 			return nil, localAddr, proto, ErrCachedClosed
@@ -171,6 +186,12 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
+			if p.transport.transportTypeFromConn(pc) == typeUDP &&
+				((ret == nil && errors.Is(err, dns.ErrShortRead)) ||
+					(ret != nil && ret.Id != state.Req.Id)) {
+				continue
+			}
+
 			if ret != nil && (state.Req.Id == ret.Id) && p.transport.transportTypeFromConn(pc) == typeUDP && shouldTruncateResponse(err) {
 				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
 				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
@@ -207,6 +228,13 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	// DoH always runs over TCP (HTTPS), regardless of the downstream
 	// client's protocol.
 	const proto = "tcp"
+	// records the origin Id before upstream.
+	originId := state.Req.Id
+	// RFC8484 has DNS ID of 0 as a SHOULD
+	state.Req.Id = 0
+	defer func() {
+		state.Req.Id = originId
+	}()
 
 	var localAddr net.Addr
 	trace := &httptrace.ClientTrace{
@@ -216,7 +244,7 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 	}
 	ctx = httptrace.WithClientTrace(ctx, trace)
 
-	req, err := doh.NewRequestWithContext(ctx, p.dohMethod, p.addr, state.Req)
+	req, err := doh.NewRequestWithContext(ctx, p.dohMethod, p.addr, p.dohHost, state.Req)
 	if err != nil {
 		return nil, nil, proto, err
 	}
@@ -232,6 +260,10 @@ func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options)
 		return nil, localAddr, proto, err
 	}
 
+	// recovery the origin Id after upstream.
+	if ret != nil {
+		ret.Id = originId
+	}
 	return ret, localAddr, proto, nil
 }
 

@@ -70,3 +70,11 @@ plugin/trace: Correct Zipkin v2 endpoint docs (https://github.com/coredns/coredn
 plugin/transfer: Configure notify source address (https://github.com/coredns/coredns/pull/8192)
 plugin/transfer: Fix panic in CoreDNS transfer plugin caused by empty DNS record (https://github.com/coredns/coredns/pull/8207)
 plugin/tsig: Don't echo client's TSIG.Error if verification is successful (https://github.com/coredns/coredns/pull/8215)
+
+### Hosts Fallthrough Behavior Change
+
+In CoreDNS 1.14.5, queries for record types unsupported by the *hosts* plugin continue to the next
+plugin when `fallthrough` is configured, even if the queried name has an A or AAAA entry in the
+hosts data. Previously, those queries received an authoritative NODATA response. Deployments that
+use hosts entries as split-horizon overrides should review whether forwarding TXT, HTTPS, SVCB, or
+other unsupported query types upstream is appropriate.

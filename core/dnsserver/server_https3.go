@@ -34,12 +34,45 @@ const (
 // ServerHTTPS3 represents a DNS-over-HTTP/3 server.
 type ServerHTTPS3 struct {
 	*Server
-	httpsServer  *http3.Server
-	listenAddr   net.Addr
-	tlsConfig    *tls.Config
-	quicConfig   *quic.Config
-	validRequest func(*http.Request) bool
-	maxStreams   int
+	httpsServer    *http3.Server
+	listenAddr     net.Addr
+	tlsConfig      *tls.Config
+	quicConfig     *quic.Config
+	validRequest   func(*http.Request) bool
+	maxStreams     int
+	maxConnections int
+}
+
+type limitQUICListener struct {
+	http3.QUICListener
+	sem chan struct{}
+}
+
+func newLimitQUICListener(ln http3.QUICListener, maxConnections int) http3.QUICListener {
+	return &limitQUICListener{
+		QUICListener: ln,
+		sem:          make(chan struct{}, maxConnections),
+	}
+}
+
+func (l *limitQUICListener) Accept(ctx context.Context) (*quic.Conn, error) {
+	for {
+		conn, err := l.QUICListener.Accept(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		select {
+		case l.sem <- struct{}{}:
+			go func() {
+				<-conn.Context().Done()
+				<-l.sem
+			}()
+			return conn, nil
+		default:
+			_ = conn.CloseWithError(quic.ApplicationErrorCode(http3.ErrCodeExcessiveLoad), "too many connections")
+		}
+	}
 }
 
 // NewServerHTTPS3 builds the HTTP/3 (DoH3) server.
@@ -79,6 +112,11 @@ func NewServerHTTPS3(addr string, group []*Config) (*ServerHTTPS3, error) {
 		maxStreams = *group[0].MaxHTTPS3Streams
 	}
 
+	maxConnections := DefaultHTTPSMaxConnections
+	if len(group) > 0 && group[0] != nil && group[0].MaxHTTPS3Connections != nil {
+		maxConnections = *group[0].MaxHTTPS3Connections
+	}
+
 	// QUIC transport config with stream limits (0 means use QUIC default)
 	qconf := &quic.Config{
 		MaxIdleTimeout: s.IdleTimeout,
@@ -99,14 +137,14 @@ func NewServerHTTPS3(addr string, group []*Config) (*ServerHTTPS3, error) {
 	}
 
 	sh := &ServerHTTPS3{
-		Server:       s,
-		tlsConfig:    tlsConfig,
-		httpsServer:  h3srv,
-		quicConfig:   qconf,
-		validRequest: validator,
-		maxStreams:   maxStreams,
+		Server:         s,
+		tlsConfig:      tlsConfig,
+		httpsServer:    h3srv,
+		quicConfig:     qconf,
+		validRequest:   validator,
+		maxStreams:     maxStreams,
+		maxConnections: maxConnections,
 	}
-
 	h3srv.Handler = sh
 
 	return sh, nil
@@ -131,8 +169,26 @@ func (s *ServerHTTPS3) ServePacket(pc net.PacketConn) error {
 	s.m.Lock()
 	s.listenAddr = pc.LocalAddr()
 	s.m.Unlock()
-	// Serve HTTP/3 over QUIC
-	return s.httpsServer.Serve(pc)
+
+	if s.maxConnections <= 0 {
+		return s.httpsServer.Serve(pc)
+	}
+
+	quicConfig := s.quicConfig.Clone()
+	if s.httpsServer.EnableDatagrams {
+		quicConfig.EnableDatagrams = true
+	}
+
+	tr := &quic.Transport{Conn: pc}
+	defer tr.Close()
+
+	ln, err := tr.ListenEarly(http3.ConfigureTLSConfig(s.tlsConfig), quicConfig)
+	if err != nil {
+		return err
+	}
+	defer ln.Close()
+
+	return s.httpsServer.ServeListener(newLimitQUICListener(ln, s.maxConnections))
 }
 
 // Listen function not used in HTTP/3, but defined for compatibility

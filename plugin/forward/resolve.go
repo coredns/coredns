@@ -16,8 +16,8 @@ import (
 // hostEntry represents a hostname-based TO address that needs DNS resolution.
 type hostEntry struct {
 	hostname  string // the hostname to resolve (e.g., "rbldnsd.rbldnsd.svc.cluster.local")
-	port      string // port (e.g., "53", "853")
-	transport string // "dns" or "tls"
+	port      string // port (e.g., "53", "443", "853")
+	transport string // "dns", "tls", or "https"
 	zone      string // TLS server name zone (from %zone syntax)
 }
 
@@ -67,15 +67,18 @@ func parseAsHostEntry(h string) (hostEntry, bool) {
 	cleanH, zone := splitZone(h)
 	trans, host := parse.Transport(cleanH)
 
-	// Only dns and tls transports are supported for hostname resolution
-	if trans != transport.DNS && trans != transport.TLS {
+	// Only dns, tls, and https transports are supported for hostname resolution
+	if trans != transport.DNS && trans != transport.TLS && trans != transport.HTTPS {
 		return hostEntry{}, false
 	}
 
 	hostname := host
 	port := transport.Port
-	if trans == transport.TLS {
+	switch trans {
+	case transport.TLS:
 		port = transport.TLSPort
+	case transport.HTTPS:
+		port = transport.HTTPSPort
 	}
 
 	// Check if there's a port
@@ -161,14 +164,14 @@ func formatResolvedAddr(ip, port, trans, zone string) string {
 	isIPv6 := strings.Contains(ip, ":")
 
 	switch trans {
-	case transport.TLS:
+	case transport.TLS, transport.HTTPS:
 		if zone != "" {
 			if isIPv6 {
-				return transport.TLS + "://[" + ip + "%" + zone + "]:" + port
+				return trans + "://[" + ip + "%" + zone + "]:" + port
 			}
-			return transport.TLS + "://" + ip + "%" + zone + ":" + port
+			return trans + "://" + ip + "%" + zone + ":" + port
 		}
-		return transport.TLS + "://" + net.JoinHostPort(ip, port)
+		return trans + "://" + net.JoinHostPort(ip, port)
 	default: // transport.DNS
 		return net.JoinHostPort(ip, port)
 	}

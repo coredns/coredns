@@ -205,7 +205,7 @@ type dohHc struct {
 }
 
 func (h *dohHc) Check(p *Proxy) error {
-	err := h.send(p.addr)
+	err := h.send(p.addr, p.dohHost)
 	if err != nil {
 		healthcheckFailureCount.WithLabelValues(p.proxyName, p.addr).Add(1)
 		p.incrementFails()
@@ -216,7 +216,7 @@ func (h *dohHc) Check(p *Proxy) error {
 	return nil
 }
 
-func (h *dohHc) send(addr string) error {
+func (h *dohHc) send(addr, host string) error {
 	ping := new(dns.Msg)
 	ping.SetQuestion(h.domain, dns.TypeNS)
 	ping.RecursionDesired = h.recursionDesired
@@ -224,7 +224,7 @@ func (h *dohHc) send(addr string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), h.client.Timeout)
 	defer cancel()
 
-	req, err := doh.NewRequestWithContext(ctx, http.MethodPost, addr, ping)
+	req, err := doh.NewRequestWithContext(ctx, http.MethodPost, addr, host, ping)
 	if err != nil {
 		return err
 	}

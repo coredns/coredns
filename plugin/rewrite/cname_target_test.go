@@ -76,7 +76,7 @@ func TestCNameTargetRewrite(t *testing.T) {
 		args         []string
 		expectedType reflect.Type
 	}{
-		{[]string{"continue", "cname", "exact", "def.example.com.", "xyz.example.com."}, reflect.TypeFor[*cnameTargetRule]()},
+		{[]string{"continue", "cname", "exact", "def.example.com", "xyz.example.com"}, reflect.TypeFor[*cnameTargetRule]()},
 		{[]string{"continue", "cname", "prefix", "chat.openai.com", "bard.google.com"}, reflect.TypeFor[*cnameTargetRule]()},
 		{[]string{"continue", "cname", "suffix", "uvw.", "xyz."}, reflect.TypeFor[*cnameTargetRule]()},
 		{[]string{"continue", "cname", "substring", "efgh", "zzzz.www"}, reflect.TypeFor[*cnameTargetRule]()},
@@ -295,5 +295,22 @@ func TestNewCNAMERuleLargeRegex(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "too long") {
 		t.Errorf("Expected 'too long' error, got: %v", err)
+	}
+}
+
+func TestNewCNAMERuleNormalization(t *testing.T) {
+	rule, err := newCNAMERule("stop", "exact", "newyork.foo.com", "vpce-123.amazonaws.com")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cnameRule, ok := rule.(*cnameTargetRule)
+	if !ok {
+		t.Fatalf("expected *cnameTargetRule, got %T", rule)
+	}
+	if cnameRule.paramFromTarget != "newyork.foo.com." {
+		t.Errorf("expected fromTarget to be normalized to 'newyork.foo.com.', got %q", cnameRule.paramFromTarget)
+	}
+	if cnameRule.paramToTarget != "vpce-123.amazonaws.com." {
+		t.Errorf("expected toTarget to be normalized to 'vpce-123.amazonaws.com.', got %q", cnameRule.paramToTarget)
 	}
 }

@@ -26,10 +26,10 @@ func (z *Zone) TransferInWithRecords(t *transfer.Transfer, validate func([]dns.R
 	m := new(dns.Msg)
 	m.SetAxfr(z.origin)
 
-	z1 := z.CopyWithoutApex()
 	var (
 		Err error
 		tr  string
+		z1  *Zone
 	)
 	var transferred []dns.RR
 
@@ -42,6 +42,7 @@ Transfer:
 			Err = err
 			continue Transfer
 		}
+		candidate := z.CopyWithoutApex()
 		var records []dns.RR
 		for env := range c {
 			if env.Error != nil {
@@ -50,7 +51,7 @@ Transfer:
 				continue Transfer
 			}
 			for _, rr := range env.RR {
-				if err := z1.Insert(rr); err != nil {
+				if err := candidate.Insert(rr); err != nil {
 					log.Errorf("Failed to parse transfer `%s' from: %q: %v", z.origin, tr, err)
 					Err = err
 					continue Transfer
@@ -60,6 +61,7 @@ Transfer:
 				}
 			}
 		}
+		z1 = candidate
 		transferred = records
 		Err = nil
 		break
@@ -152,9 +154,9 @@ Restart:
 		return nil
 	}
 	soa := z.getSOA()
-	refresh := time.Second * time.Duration(soa.Refresh)
-	retry := time.Second * time.Duration(soa.Retry)
-	expire := time.Second * time.Duration(soa.Expire)
+	refresh := time.Second * time.Duration(max(soa.Refresh, 1))
+	retry := time.Second * time.Duration(max(soa.Retry, 1))
+	expire := time.Second * time.Duration(max(soa.Expire, 1))
 
 	refreshTicker := time.NewTicker(refresh)
 	retryTicker := time.NewTicker(retry)

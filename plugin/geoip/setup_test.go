@@ -64,7 +64,7 @@ func TestGeoIPParse(t *testing.T) {
 		{true, fmt.Sprintf("%s 1 2 3", pluginName), "Wrong argument count", 0},
 		{true, fmt.Sprintf("%s { }", pluginName), "Error during parsing", 0},
 		{true, fmt.Sprintf("%s /dbpath { city }", pluginName), "unknown property \"city\"", 0},
-		{true, fmt.Sprintf("%s /invalidPath\n", pluginName), "failed to open database file: open /invalidPath: no such file or directory", 0},
+		{true, fmt.Sprintf("%s /invalidPath\n", pluginName), "failed to open database file: open /invalidPath:", 0},
 		{true, fmt.Sprintf("%s %s\n", pluginName, unknownDBPath), "reader does not support the \"UnknownDbType\" database type", 0},
 	}
 

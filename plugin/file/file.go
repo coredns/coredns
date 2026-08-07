@@ -117,7 +117,11 @@ func (f File) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	case NameError:
 		m.Rcode = dns.RcodeNameError
 	case Delegation:
-		m.Authoritative = false
+		// A referral-only response is not authoritative. A partial answer
+		// containing an authoritative alias keeps AA set for the original QNAME.
+		if len(m.Answer) == 0 {
+			m.Authoritative = false
+		}
 	case ServerFailure:
 		// If the result is SERVFAIL and the answer is non-empty, then the SERVFAIL came from an
 		// external CNAME lookup and the answer contains the CNAME with no target record. We should

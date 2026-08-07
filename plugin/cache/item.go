@@ -14,6 +14,7 @@ import (
 type item struct {
 	Name               string
 	QType              uint16
+	QClass             uint16
 	Rcode              int
 	AuthenticatedData  bool
 	RecursionAvailable bool
@@ -41,6 +42,7 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 	if len(m.Question) != 0 {
 		i.Name = m.Question[0].Name
 		i.QType = m.Question[0].Qtype
+		i.QClass = m.Question[0].Qclass
 	}
 	i.Rcode = m.Rcode
 	i.AuthenticatedData = m.AuthenticatedData
@@ -60,7 +62,9 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 	i.Extra = i.Extra[:j]
 
 	i.origTTL = uint32(d.Seconds())
-	i.stored = now.UTC()
+	// Keep the monotonic clock reading so TTL expiry is unaffected by wall
+	// clock adjustments.
+	i.stored = now
 
 	i.Freq = new(freq.Freq)
 
@@ -100,12 +104,12 @@ func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
 }
 
 func (i *item) ttl(now time.Time) int {
-	ttl := int(i.origTTL) - int(now.UTC().Sub(i.stored).Seconds())
+	ttl := int(i.origTTL) - int(now.Sub(i.stored).Seconds())
 	return ttl
 }
 
 func (i *item) matches(state request.Request) bool {
-	if state.QType() == i.QType && strings.EqualFold(state.QName(), i.Name) {
+	if state.QType() == i.QType && state.QClass() == i.QClass && strings.EqualFold(state.QName(), i.Name) {
 		return true
 	}
 	return false

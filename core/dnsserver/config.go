@@ -74,6 +74,9 @@ type Config struct {
 	// This is nil if not specified, allowing for a default to be used.
 	MaxQUICStreams *int
 
+	// MaxQUICConnections is the maximum number of concurrent connections.
+	MaxQUICConnections *int
+
 	// MaxQUICWorkerPoolSize defines the size of the worker pool for processing QUIC streams.
 	// This is nil if not specified, allowing for a default to be used.
 	MaxQUICWorkerPoolSize *int
@@ -115,10 +118,19 @@ type Config struct {
 	// This is nil if not specified, allowing for a default to be used.
 	MaxHTTPS3Streams *int
 
+	// MaxHTTPS3Connections defines the maximum number of concurrent HTTPS3 connections.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxHTTPS3Connections *int
+
 	// Timeouts for connection-oriented servers. Exact applicability depends on transport.
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	IdleTimeout  time.Duration
+
+	// MaxTCPQueries defines the maximum number of queries served on a single TCP/TLS
+	// connection before it is closed. -1 means unlimited. This is nil if not specified,
+	// allowing for a default to be used.
+	MaxTCPQueries *int
 
 	// TSIG secrets, [name]key.
 	TsigSecret map[string]string
@@ -163,4 +175,23 @@ func GetConfig(c *caddy.Controller) *Config {
 	// the configs.
 	ctx.saveConfig(key, &Config{ListenHosts: []string{""}})
 	return GetConfig(c)
+}
+
+// AddPluginToAllServerBlocks adds m once to every server block in c's
+// instance. It is intended for directives that must handle traffic on a
+// listener other than the one where the directive is configured.
+func AddPluginToAllServerBlocks(c *caddy.Controller, m plugin.Plugin) {
+	ctx := c.Context().(*dnsContext)
+	seen := make(map[*Config]struct{})
+	for _, cfg := range ctx.configs {
+		first := cfg.firstConfigInBlock
+		if first == nil {
+			first = cfg
+		}
+		if _, ok := seen[first]; ok {
+			continue
+		}
+		seen[first] = struct{}{}
+		first.AddPlugin(m)
+	}
 }

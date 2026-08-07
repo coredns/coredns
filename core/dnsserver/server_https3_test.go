@@ -2,9 +2,11 @@ package dnsserver
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +16,8 @@ import (
 	"github.com/coredns/coredns/plugin"
 
 	"github.com/miekg/dns"
+	"github.com/quic-go/quic-go"
+	"github.com/quic-go/quic-go/http3"
 )
 
 const (
@@ -70,6 +74,30 @@ func TestCustomHTTP3RequestValidator(t *testing.T) {
 			}
 			res.Body.Close()
 		})
+	}
+}
+
+func TestServerHTTPS3RejectsUpdate(t *testing.T) {
+	handler := new(updateResponsePlugin)
+	config := testConfig("https3", handler)
+	config.TLSConfig = &tls.Config{}
+
+	server, err := NewServerHTTPS3("127.0.0.1:443", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerHTTPS3() failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/dns-query", bytes.NewReader(mustPackRFC2136Update(t)))
+	req.RemoteAddr = "127.0.0.1:12345"
+	recorder := httptest.NewRecorder()
+
+	server.ServeHTTP(recorder, req)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("ServeHTTP() status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+	if handler.called.Load() {
+		t.Fatal("RFC 2136 UPDATE reached the plugin chain")
 	}
 }
 
@@ -380,5 +408,131 @@ func TestServeHTTP3DoesNotLeakBodyReadError(t *testing.T) {
 	}
 	if got := strings.TrimSpace(string(body)); got != "invalid request" {
 		t.Fatalf("expected sanitized body %q, got %q", "invalid request", got)
+	}
+}
+
+func requireHTTPS3ConnectionRejected(t *testing.T, err error) {
+	t.Helper()
+
+	var appErr *quic.ApplicationError
+	if errors.As(err, &appErr) {
+		if !appErr.Remote {
+			t.Fatalf("connection closed with local application error: %v", err)
+		}
+		if appErr.ErrorCode != quic.ApplicationErrorCode(http3.ErrCodeExcessiveLoad) {
+			t.Fatalf("application error code = %#x, want %#x", appErr.ErrorCode, http3.ErrCodeExcessiveLoad)
+		}
+		return
+	}
+
+	// An application close sent before 1-RTT keys are available is encoded as
+	// the generic transport-level APPLICATION_ERROR. In that case, the peer
+	// cannot observe the HTTP/3 application code or reason phrase.
+	var transportErr *quic.TransportError
+	if errors.As(err, &transportErr) {
+		if !transportErr.Remote {
+			t.Fatalf("connection closed with local transport error: %v", err)
+		}
+		if transportErr.ErrorCode != quic.ApplicationErrorErrorCode {
+			t.Fatalf("transport error code = %#x, want APPLICATION_ERROR", transportErr.ErrorCode)
+		}
+		return
+	}
+
+	t.Fatalf("second connection error has unexpected type %T: %v", err, err)
+}
+
+func TestServerHTTPS3MaxConnections(t *testing.T) {
+	maxConnections := 1
+
+	config := testConfig("https3", echoPlugin{})
+	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
+	config.MaxHTTPS3Connections = &maxConnections
+
+	server, err := NewServerHTTPS3("127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerHTTPS3() failed: %v", err)
+	}
+
+	accepted := make(chan struct{}, 1)
+	server.httpsServer.ConnContext = func(ctx context.Context, _ *quic.Conn) context.Context {
+		accepted <- struct{}{}
+		return ctx
+	}
+
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.ListenPacket() failed: %v", err)
+	}
+	defer pc.Close()
+
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- server.ServePacket(pc)
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	clientTLS := mustMakeQUICClientTLSConfig()
+	clientTLS.NextProtos = []string{"h3"}
+
+	first, err := quic.DialAddr(ctx, pc.LocalAddr().String(), clientTLS, &quic.Config{})
+	if err != nil {
+		t.Fatalf("first quic.DialAddr() failed: %v", err)
+	}
+
+	select {
+	case <-accepted:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first connection was not accepted by the HTTP/3 server")
+	}
+
+	second, err := quic.DialAddr(ctx, pc.LocalAddr().String(), clientTLS, &quic.Config{})
+	if err == nil {
+		defer second.CloseWithError(0, "")
+
+		select {
+		case <-second.Context().Done():
+			err = context.Cause(second.Context())
+		case <-time.After(2 * time.Second):
+			t.Fatal("second connection remained open after the maximum connection count was reached")
+		}
+	}
+	if err == nil {
+		t.Fatal("second connection closed without reporting an error")
+	}
+	requireHTTPS3ConnectionRejected(t, err)
+
+	if err := first.CloseWithError(0, ""); err != nil {
+		t.Fatalf("first.CloseWithError() failed: %v", err)
+	}
+	select {
+	case <-first.Context().Done():
+	case <-time.After(2 * time.Second):
+		t.Fatal("first connection did not close")
+	}
+
+	stopErrCh := make(chan error, 1)
+	go func() {
+		stopErrCh <- server.Stop()
+	}()
+
+	select {
+	case err := <-stopErrCh:
+		if err != nil {
+			t.Fatalf("Stop() failed: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Stop() did not return")
+	}
+
+	select {
+	case err := <-serveErrCh:
+		if !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("ServePacket() error = %v, want http.ErrServerClosed", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("ServePacket() did not stop after Stop()")
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -352,5 +353,151 @@ func TestLookupWildcardAdditional(t *testing.T) {
 		if err := test.SortAndCheck(rec.Msg, tc); err != nil {
 			t.Errorf("Test %q/%d: %v", tc.Qname, tc.Qtype, err)
 		}
+	}
+}
+
+const closerENTWildcard = `; example.org test file with a wildcard and a deeper empty non-terminal
+$TTL 3600
+example.org.             IN     SOA     sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600
+example.org.             IN     NS      b.iana-servers.net.
+*.example.org.           IN     A       127.0.0.53
+real.deeper.example.org. IN     A       127.0.0.54
+`
+
+var closerENTWildcardTestCases = []test.Case{
+	// deeper.example.org. is an empty non-terminal (real.deeper.example.org.
+	// exists below it), so it is a closer encloser than the wildcard's parent
+	// example.org. A name under it with no record and no *.deeper.example.org.
+	// wildcard is an NXDOMAIN, not the *.example.org. wildcard.
+	{
+		Qname: "nonexistent.deeper.example.org.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA(`example.org. 3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. 2015082541 7200 3600 1209600 3600`),
+		},
+	},
+	// No closer empty non-terminal between example.org. and the queried name, so
+	// the wildcard still applies exactly as before.
+	{
+		Qname: "nonexistent.example.org.", Qtype: dns.TypeA,
+		Answer: []dns.RR{test.A(`nonexistent.example.org. 3600 IN A 127.0.0.53`)},
+		Ns:     []dns.RR{test.NS(`example.org. 3600 IN NS b.iana-servers.net.`)},
+	},
+}
+
+func TestLookupWildcardRespectsCloserEmptyNonTerminal(t *testing.T) {
+	const name = "example.org."
+	zone, err := Parse(strings.NewReader(closerENTWildcard), name, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expect no error when reading zone, got %q", err)
+	}
+
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{name: zone}, Names: []string{name}}}
+	ctx := context.TODO()
+
+	for _, tc := range closerENTWildcardTestCases {
+		m := tc.Msg()
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		_, err := fm.ServeDNS(ctx, rec, m)
+		if err != nil {
+			t.Errorf("Expected no error, got %v", err)
+			return
+		}
+
+		resp := rec.Msg
+		if err := test.SortAndCheck(resp, tc); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+const emptyNonTerminalWildcard = `; example.org test file with an empty non-terminal wildcard
+$TTL 3600
+example.org.             IN     SOA     ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 3600
+example.org.             IN     NS      ns.example.org.
+f.*.e.example.org.       IN     A       192.0.2.1
+t.e.example.org.         IN     A       192.0.2.2
+real.deep.e.example.org. IN     A       192.0.2.3
+*.ordinary.example.org.  IN     A       192.0.2.4
+`
+
+var emptyNonTerminalWildcardTestCases = []test.Case{
+	{
+		Qname: "something.e.example.org.", Qtype: dns.TypeA,
+		Ns: []dns.RR{
+			test.SOA(`example.org. 3600 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 3600`),
+		},
+	},
+	{
+		Qname: "something.e.example.org.", Qtype: dns.TypeAAAA,
+		Ns: []dns.RR{
+			test.SOA(`example.org. 3600 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 3600`),
+		},
+	},
+	{
+		Qname: "something.somewhere.e.example.org.", Qtype: dns.TypeA,
+		Ns: []dns.RR{
+			test.SOA(`example.org. 3600 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 3600`),
+		},
+	},
+	{
+		Qname:  "f.*.e.example.org.",
+		Qtype:  dns.TypeA,
+		Answer: []dns.RR{test.A(`f.*.e.example.org. 3600 IN A 192.0.2.1`)},
+		Ns:     []dns.RR{test.NS(`example.org. 3600 IN NS ns.example.org.`)},
+	},
+	{
+		// *.e.example.org. is the closest encloser, not a source of synthesis for its own descendants.
+		Qname: "missing.*.e.example.org.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA(`example.org. 3600 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 3600`),
+		},
+	},
+	{
+		// deep.e.example.org. is a closer empty non-terminal, so *.e.example.org. does not apply.
+		Qname: "missing.deep.e.example.org.", Qtype: dns.TypeA,
+		Rcode: dns.RcodeNameError,
+		Ns: []dns.RR{
+			test.SOA(`example.org. 3600 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 3600`),
+		},
+	},
+	{
+		Qname:  "something.ordinary.example.org.",
+		Qtype:  dns.TypeA,
+		Answer: []dns.RR{test.A(`something.ordinary.example.org. 3600 IN A 192.0.2.4`)},
+		Ns:     []dns.RR{test.NS(`example.org. 3600 IN NS ns.example.org.`)},
+	},
+}
+
+func TestLookupEmptyNonTerminalWildcard(t *testing.T) {
+	const name = "example.org."
+	zone, err := Parse(strings.NewReader(emptyNonTerminalWildcard), name, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expect no error when reading zone, got %q", err)
+	}
+
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{name: zone}, Names: []string{name}}}
+	ctx := context.TODO()
+
+	for _, tc := range emptyNonTerminalWildcardTestCases {
+		m := tc.Msg()
+
+		rec := dnstest.NewRecorder(&test.ResponseWriter{})
+		if _, err := fm.ServeDNS(ctx, rec, m); err != nil {
+			t.Errorf("Expected no error for %q/%d, got %v", tc.Qname, tc.Qtype, err)
+			continue
+		}
+
+		if err := test.SortAndCheck(rec.Msg, tc); err != nil {
+			t.Errorf("Test %q/%d: %v", tc.Qname, tc.Qtype, err)
+		}
+	}
+
+	tc := emptyNonTerminalWildcardTestCases[0]
+	state := request.Request{W: &test.ResponseWriter{}, Req: tc.Msg()}
+	if _, _, _, result := zone.Lookup(ctx, state, tc.Qname); result != NoData {
+		t.Errorf("Expected NoData result for empty non-terminal wildcard, got %v", result)
 	}
 }

@@ -47,8 +47,14 @@ func TestHealth(t *testing.T) {
 
 	f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
 
-	time.Sleep(20 * time.Millisecond)
-	i1 := atomic.LoadUint32(&i)
+	i1 := uint32(0)
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		i1 = atomic.LoadUint32(&i)
+		if i1 == 1 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 	if i1 != 1 {
 		t.Errorf("Expected number of health checks with RecursionDesired==true to be %d, got %d", 1, i1)
 	}
@@ -88,8 +94,14 @@ func TestHealthTCP(t *testing.T) {
 
 	f.ServeDNS(context.TODO(), &test.ResponseWriter{TCP: true}, req)
 
-	time.Sleep(20 * time.Millisecond)
-	i1 := atomic.LoadUint32(&i)
+	i1 := uint32(0)
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		i1 = atomic.LoadUint32(&i)
+		if i1 == 1 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 	if i1 != 1 {
 		t.Errorf("Expected number of health checks with RecursionDesired==true to be %d, got %d", 1, i1)
 	}
@@ -129,8 +141,14 @@ func TestHealthNoRecursion(t *testing.T) {
 
 	f.ServeDNS(context.TODO(), &test.ResponseWriter{}, req)
 
-	time.Sleep(20 * time.Millisecond)
-	i1 := atomic.LoadUint32(&i)
+	i1 := uint32(0)
+	for start := time.Now(); time.Since(start) < 2*time.Second; {
+		i1 = atomic.LoadUint32(&i)
+		if i1 == 1 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
 	if i1 != 1 {
 		t.Errorf("Expected number of health checks with RecursionDesired==false to be %d, got %d", 1, i1)
 	}

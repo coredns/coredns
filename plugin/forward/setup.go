@@ -224,6 +224,18 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	f.tlsConfig.ClientSessionCache = tls.NewLRUClientSessionCache(len(f.proxies))
 
 	for i := range f.proxies {
+		if transports[i] == transport.HTTPS {
+			httpTransport := http.DefaultTransport.(*http.Transport).Clone()
+
+			c := http.Client{
+				Transport: httpTransport,
+				Timeout:   2 * time.Second,
+			}
+			f.proxies[i].SetHTTPClient(&c)
+			f.proxies[i].SetTLSConfig(f.tlsConfig)
+			f.proxies[i].SetDOHRequestOptions(f.dohMethod)
+		}
+
 		// Only set this for proxies that need it.
 		if transports[i] == transport.TLS {
 			if tlsConfig, ok := perServerNameTlsConfig[tlsServerNames[i]]; ok {
@@ -231,20 +243,6 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 			} else {
 				f.proxies[i].SetTLSConfig(f.tlsConfig)
 			}
-		}
-
-		if transports[i] == transport.HTTPS {
-			httpTransport := http.DefaultTransport.(*http.Transport).Clone()
-			httpTransport.TLSClientConfig = f.tlsConfig
-			httpTransport.MaxIdleConns = f.maxIdleConns
-			httpTransport.MaxIdleConnsPerHost = f.maxIdleConns
-
-			c := http.Client{
-				Transport: httpTransport,
-				Timeout:   2 * time.Second,
-			}
-			f.proxies[i].SetHTTPClient(&c)
-			f.proxies[i].SetDOHRequestOptions(f.dohMethod)
 		}
 
 		f.proxies[i].SetExpire(f.expire)
@@ -295,6 +293,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return err
 		}
 		f.maxConnectAttempts = uint32(n)
+		f.maxConnectAttemptsSet = true
 	case "health_check":
 		if !c.NextArg() {
 			return c.ArgErr()

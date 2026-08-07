@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"path"
+	"runtime"
 	"slices"
 	"testing"
 
@@ -99,6 +100,10 @@ func (m testServiceClient) Query(_ctx context.Context, _in *pb.DnsPacket, _opts 
 }
 
 func TestProxyUnix(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("unix domain sockets are not supported on windows")
+	}
+
 	tdir := t.TempDir()
 
 	fd := path.Join(tdir, "test.grpc")

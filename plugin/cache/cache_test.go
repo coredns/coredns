@@ -282,6 +282,243 @@ func TestCacheInsertion(t *testing.T) {
 			},
 			shouldCache: true,
 		},
+		{
+			name: "test NOERROR dangling CNAME chain without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.CNAME("target1.example.net. 3600 IN CNAME target2.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain ending in a different type without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.AAAA("target.example.net. 3600 IN AAAA ::1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR MX query CNAME chain without terminal MX without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR MX query CNAME chain terminating in MX caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.MX("target.example.net. 3600 IN MX 10 mail.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.MX("target.example.net. 3600 IN MX 10 mail.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR DNSSEC dangling CNAME chain without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Do:    true,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.RRSIG("alias.example.org.	3600	IN	RRSIG	CNAME 8 2 3600 20170521031301 20170421031301 12051 example.org. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with unrelated A off the chain without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("unrelated.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR lone CNAME answer to an ANY query caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeANY,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeANY,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME chain terminating in A record caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME chain terminating in A record out of order caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME answer to a CNAME query caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeCNAME,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeCNAME,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME chain with two distinct targets at one owner without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target2.example.net."),
+					test.A("target1.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with two distinct targets at one owner reversed order without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target2.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.A("target1.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME loop with co-located A without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("target.example.net. 3600 IN CNAME alias.example.org."),
+					test.A("alias.example.org. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with duplicate identical CNAME terminating in A caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
 	}
 	now, _ := time.Parse(time.UnixDate, "Fri Apr 21 10:51:21 BST 2017")
 	utc := now.UTC()
@@ -780,7 +1017,7 @@ func ttlBackend(ttl int) plugin.Handler {
 		m.SetReply(r)
 		m.Response, m.RecursionAvailable = true, true
 
-		m.Answer = []dns.RR{test.A(fmt.Sprintf("example.org. %d IN A 127.0.0.53", ttl))}
+		m.Answer = []dns.RR{test.A(fmt.Sprintf("%s %d IN A 127.0.0.53", r.Question[0].Name, ttl))}
 		w.WriteMsg(m)
 		return dns.RcodeSuccess, nil
 	})
@@ -813,7 +1050,7 @@ func slowTTLBackend(ttl int, delay time.Duration, done chan<- struct{}) plugin.H
 		m := new(dns.Msg)
 		m.SetReply(r)
 		m.Response, m.RecursionAvailable = true, true
-		m.Answer = []dns.RR{test.A(fmt.Sprintf("example.org. %d IN A 127.0.0.53", ttl))}
+		m.Answer = []dns.RR{test.A(fmt.Sprintf("%s %d IN A 127.0.0.53", r.Question[0].Name, ttl))}
 		w.WriteMsg(m)
 		if done != nil {
 			close(done)
@@ -1072,7 +1309,7 @@ func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
 	posMsg.Response = true
 	posMsg.Answer = []dns.RR{test.A("example.org. 120 IN A 127.0.0.53")}
 	posItem := newItem(posMsg, now.Add(-30*time.Second), 120*time.Second)
-	k := hash("example.org.", dns.TypeA, false, false)
+	k := hash("example.org.", dns.TypeA, dns.ClassINET, false, false)
 	c.pcache.Add(k, posItem)
 
 	// Manually insert a SERVFAIL entry in ncache (stored just now, TTL 5s).
@@ -1095,5 +1332,102 @@ func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
 	}
 	if got.Rcode != dns.RcodeSuccess {
 		t.Fatalf("expected positive cache entry (rcode 0), got rcode %d", got.Rcode)
+	}
+}
+
+func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 20 * time.Millisecond
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+
+	// Prime the cache with a response that will later become stale.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if ret, err := c.ServeDNS(context.TODO(), rec, req); err != nil || ret != dns.RcodeSuccess {
+		t.Fatalf("failed to prime cache: rcode=%d err=%v", ret, err)
+	}
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+	c.now = func() time.Time { return time.Now().Add(3 * time.Minute) }
+
+	// Hold the background verifier until ServeDNS has timed out and returned the
+	// stale response. It then writes metadata through the context it received.
+	started := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan struct{})
+	metadataSet := make(chan bool, 1)
+	metadataReceived := make(chan string, 1)
+
+	c.Next = plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		value := ""
+		if f := metadata.ValueFunc(ctx, "test/request"); f != nil {
+			value = f()
+		}
+		metadataReceived <- value
+
+		close(started)
+		<-release
+
+		metadataSet <- metadata.SetValueFunc(ctx, "test/background", func() string { return "set" })
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A("cached.org. 60 IN A 127.0.0.54")}
+
+		err := w.WriteMsg(m)
+		close(done)
+		return dns.RcodeSuccess, err
+	})
+
+	ctx := metadata.ContextWithMetadata(context.TODO())
+	if !metadata.SetValueFunc(ctx, "test/request", func() string {
+		return "preserved"
+	}) {
+		t.Fatal("failed to set request metadata")
+	}
+
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	ret, err := c.ServeDNS(ctx, rec, req.Copy())
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		close(release)
+		t.Fatal("background verifier did not start")
+	}
+
+	close(release)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("background verifier did not finish")
+	}
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ret != dns.RcodeSuccess {
+		t.Fatalf("expected RcodeSuccess, got %d", ret)
+	}
+
+	if got := <-metadataReceived; got != "preserved" {
+		t.Fatalf(
+			"background verifier did not preserve request metadata: got %q",
+			got,
+		)
+	}
+
+	if !<-metadataSet {
+		t.Fatal("background verifier did not receive a metadata-enabled context")
+	}
+
+	if f := metadata.ValueFunc(ctx, "test/background"); f != nil {
+		t.Fatalf("background verifier mutated foreground metadata: %q", f())
 	}
 }

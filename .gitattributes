@@ -1,0 +1,3 @@
+# DNSSEC key material must keep LF; CRLF breaks miekg/dns private-key parsing.
+*.private text eol=lf
+*.key text eol=lf

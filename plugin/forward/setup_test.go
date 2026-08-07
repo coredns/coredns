@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -143,13 +144,21 @@ func TestSplitZone(t *testing.T) {
 		}, {
 			"tls://127.0.0.1%example.net", "tls://127.0.0.1", "example.net",
 		}, {
+			"https://127.0.0.1%example.net:443", "https://127.0.0.1:443", "example.net",
+		}, {
+			"https://127.0.0.1%example.net", "https://127.0.0.1", "example.net",
+		}, {
 			"tls://127.0.0.1:854", "tls://127.0.0.1:854", "",
+		}, {
+			"https://127.0.0.1:443", "https://127.0.0.1:443", "",
 		}, {
 			"dns://127.0.0.1", "dns://127.0.0.1", "",
 		}, {
 			"foo%bar:baz", "foo:baz", "bar",
 		}, {
 			"tls://[::1%example.net]:853", "tls://[::1]:853", "example.net",
+		}, {
+			"https://[::1%example.net]:443", "https://[::1]:443", "example.net",
 		},
 	}
 	for i, test := range tests {
@@ -290,6 +299,12 @@ nameserver 10.10.255.253`), 0666); err != nil {
 	}
 	defer os.Remove(emptyResolv)
 
+	// Portable stand-in for /dev/null: a resolv.conf with no nameserver lines.
+	nullResolv := filepath.Join(t.TempDir(), "null.conf")
+	if err := os.WriteFile(nullResolv, nil, 0666); err != nil {
+		t.Fatalf("Failed to write null.conf file: %s", err)
+	}
+
 	tests := []struct {
 		input         string
 		shouldErr     bool
@@ -299,7 +314,7 @@ nameserver 10.10.255.253`), 0666); err != nil {
 		// pass
 		{`forward . ` + resolv, false, "", []string{"10.10.255.252:53", "10.10.255.253:53"}},
 		// fail
-		{`forward . /dev/null`, true, "no valid upstream addresses found", nil},
+		{`forward . ` + nullResolv, true, "no valid upstream addresses found", nil},
 		// IPV6 with local zone
 		{`forward . ` + resolvIPV6, false, "", []string{"[0388:d254:7aec:6892:9f7f:e93b:5806:1b0f]:53"}},
 		// pass when empty forward file is found
@@ -390,13 +405,15 @@ func TestSetupMaxConnectAttempts(t *testing.T) {
 		input       string
 		shouldErr   bool
 		expectedVal uint32
+		expectedSet bool
 		expectedErr string
 	}{
 
-		{"forward . 127.0.0.1 {\n}\n", false, 0, ""},
-		{"forward . 127.0.0.1 {\nmax_connect_attempts 5\n}\n", false, 5, ""},
-		{"forward . 127.0.0.1 {\nmax_connect_attempts many\n}\n", true, 0, "invalid"},
-		{"forward . 127.0.0.1 {\nmax_connect_attempts -4\n}\n", true, 0, "invalid"},
+		{"forward . 127.0.0.1 {\n}\n", false, 0, false, ""},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts 0\n}\n", false, 0, true, ""},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts 5\n}\n", false, 5, true, ""},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts many\n}\n", true, 0, false, "invalid"},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts -4\n}\n", true, 0, false, "invalid"},
 	}
 
 	for i, test := range tests {
@@ -421,6 +438,9 @@ func TestSetupMaxConnectAttempts(t *testing.T) {
 			f := fs[0]
 			if f.maxConnectAttempts != test.expectedVal {
 				t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedVal, f.maxConnectAttempts)
+			}
+			if f.maxConnectAttemptsSet != test.expectedSet {
+				t.Errorf("Test %d: expected configured state %t, got %t", i, test.expectedSet, f.maxConnectAttemptsSet)
 			}
 		}
 	}
@@ -904,5 +924,32 @@ func TestSetupReadTimeout(t *testing.T) {
 				t.Errorf("expected readTimeout %v, got %v", test.expectedVal, fs[0].readTimeout)
 			}
 		})
+	}
+}
+
+func TestSetupDOHHealthcheckTLSConfig(t *testing.T) {
+	c := caddy.NewTestController(
+		"dns",
+		`forward . https://127.0.0.1 {
+			tls_servername dns.example
+		}`,
+	)
+
+	fs, err := parseForward(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := fs[0].
+		proxies[0].
+		GetHealthchecker().
+		GetTLSConfig()
+
+	if got.ServerName != "dns.example" {
+		t.Fatalf(
+			"Expected DoH healthcheck TLS server name %q, got %q",
+			"dns.example",
+			got.ServerName,
+		)
 	}
 }

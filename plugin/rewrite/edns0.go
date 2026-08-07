@@ -44,6 +44,8 @@ type edns0SetResponseRule struct {
 	code uint16
 }
 
+func (r *edns0SetResponseRule) revertRequestExtra() {}
+
 func (r *edns0SetResponseRule) RewriteResponse(res *dns.Msg, _ dns.RR) {
 	ednsOpt := res.IsEdns0()
 	if ednsOpt == nil {
@@ -61,6 +63,8 @@ type edns0ReplaceResponseRule[T dns.EDNS0] struct {
 	code   uint16
 	source T
 }
+
+func (r *edns0ReplaceResponseRule[T]) revertRequestExtra() {}
 
 func (r *edns0ReplaceResponseRule[T]) RewriteResponse(res *dns.Msg, _ dns.RR) {
 	ednsOpt := res.IsEdns0()

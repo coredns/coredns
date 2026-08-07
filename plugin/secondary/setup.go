@@ -1,6 +1,7 @@
 package secondary
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -71,7 +72,7 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func newSecondary(zones file.Zones, fall fall.F, catalogZones map[string]struct{}) *Secondary {
+func newSecondary(zones file.Zones, fall fall.F, catalogZones map[string]plugin.Zones) *Secondary {
 	s := &Secondary{
 		File:               file.File{Zones: zones, Fall: fall},
 		zoneNames:          make(map[*file.Zone]string, len(zones.Z)),
@@ -128,11 +129,11 @@ func waitForTransferRetry(updateShutdown <-chan bool, dur time.Duration) bool {
 	}
 }
 
-func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, map[string]struct{}, error) {
+func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, map[string]plugin.Zones, error) {
 	z := make(map[string]*file.Zone)
 	names := []string{}
 	fall := fall.F{}
-	catalogZones := map[string]struct{}{}
+	catalogZones := map[string]plugin.Zones{}
 	for c.Next() {
 		if c.Val() == "secondary" {
 			// secondary [origin]
@@ -155,11 +156,12 @@ func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, map[string]struct{
 					}
 					hasTransfer = true
 				case "catalog":
-					if len(c.RemainingArgs()) != 0 {
-						return file.Zones{}, fall, nil, c.ArgErr()
+					memberZones, err := catalogMemberZonesFromArgs(c.RemainingArgs())
+					if err != nil {
+						return file.Zones{}, fall, nil, err
 					}
 					for _, origin := range origins {
-						catalogZones[origin] = struct{}{}
+						catalogZones[origin] = mergeCatalogMemberZones(catalogZones, origin, memberZones)
 					}
 				case "fallthrough":
 					fall.SetZonesFromArgs(c.RemainingArgs())
@@ -180,4 +182,37 @@ func secondaryParse(c *caddy.Controller) (file.Zones, fall.F, map[string]struct{
 		}
 	}
 	return file.Zones{Z: z, Names: names}, fall, catalogZones, nil
+}
+
+func catalogMemberZonesFromArgs(args []string) (plugin.Zones, error) {
+	zones := make(plugin.Zones, 0, len(args))
+	for _, arg := range args {
+		normalized := plugin.Host(arg).NormalizeExact()
+		if len(normalized) == 0 {
+			return nil, fmt.Errorf("invalid catalog member zone %q", arg)
+		}
+		zones = append(zones, normalized...)
+	}
+	return zones, nil
+}
+
+func mergeCatalogMemberZones(config map[string]plugin.Zones, origin string, zones plugin.Zones) plugin.Zones {
+	existing, configured := config[origin]
+	if configured && (len(existing) == 0 || len(zones) == 0) {
+		return nil
+	}
+
+	merged := append(plugin.Zones(nil), existing...)
+	seen := make(map[string]struct{}, len(merged)+len(zones))
+	for _, zone := range merged {
+		seen[zone] = struct{}{}
+	}
+	for _, zone := range zones {
+		if _, ok := seen[zone]; ok {
+			continue
+		}
+		merged = append(merged, zone)
+		seen[zone] = struct{}{}
+	}
+	return merged
 }

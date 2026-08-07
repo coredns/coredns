@@ -55,7 +55,7 @@ func (s *ServerTLS) Serve(l net.Listener) error {
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp-tls",
 		TsigSecret:    s.tsigSecret,
-		MaxTCPQueries: tlsMaxQueries,
+		MaxTCPQueries: s.MaxTCPQueries,
 		ReadTimeout:   s.ReadTimeout,
 		WriteTimeout:  s.WriteTimeout,
 		IdleTimeout: func() time.Duration {
@@ -102,7 +102,3 @@ func (s *ServerTLS) OnStartupComplete() {
 		fmt.Print(out)
 	}
 }
-
-const (
-	tlsMaxQueries = -1
-)

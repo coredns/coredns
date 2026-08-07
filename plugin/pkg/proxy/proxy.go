@@ -22,6 +22,7 @@ type Proxy struct {
 	protocol  string
 
 	dohMethod string
+	dohHost   string
 
 	readTimeout time.Duration
 
@@ -40,6 +41,7 @@ func NewProxy(proxyName, addr, protocol string) *Proxy {
 		transport:   newTransport(proxyName, addr),
 		protocol:    protocol,
 		dohMethod:   http.MethodPost,
+		dohHost:     "",
 		health:      NewHealthChecker(proxyName, protocol, true, "."),
 		proxyName:   proxyName,
 	}
@@ -68,7 +70,13 @@ func (p *Proxy) SetMaxAge(maxAge time.Duration) { p.transport.SetMaxAge(maxAge) 
 
 // SetMaxIdleConns sets the maximum idle connections per transport type.
 // A value of 0 means unlimited (default).
-func (p *Proxy) SetMaxIdleConns(n int) { p.transport.SetMaxIdleConns(n) }
+func (p *Proxy) SetMaxIdleConns(n int) {
+	p.transport.SetMaxIdleConns(n)
+	if p.transport.httpClient != nil {
+		p.transport.httpClient.Transport.(*http.Transport).MaxIdleConns = n
+		p.transport.httpClient.Transport.(*http.Transport).MaxIdleConnsPerHost = n
+	}
+}
 
 func (p *Proxy) SetHTTPClient(client *http.Client) {
 	p.transport.httpClient = client
@@ -77,6 +85,12 @@ func (p *Proxy) SetHTTPClient(client *http.Client) {
 func (p *Proxy) SetDOHRequestOptions(method string) {
 	p.dohMethod = method
 }
+
+func (p *Proxy) SetDOHHost(host string) {
+	p.dohHost = host
+}
+
+func (p *Proxy) DoHHost() string { return p.dohHost }
 
 func (p *Proxy) GetHealthchecker() HealthChecker {
 	return p.health

@@ -278,6 +278,31 @@ func TestServergRPC_Query(t *testing.T) {
 	}
 }
 
+func TestServergRPC_QueryRejectsUpdate(t *testing.T) {
+	handler := new(updateResponsePlugin)
+	server, err := NewServergRPC("127.0.0.1:0", []*Config{
+		testConfig("grpc", handler),
+	})
+	if err != nil {
+		t.Fatalf("NewServergRPC() failed: %v", err)
+	}
+
+	tcpAddr, err := net.ResolveTCPAddr("tcp", "127.0.0.1:12345")
+	if err != nil {
+		t.Fatalf("net.ResolveTCPAddr() failed: %v", err)
+	}
+	server.listenAddr = tcpAddr
+	ctx := peer.NewContext(context.Background(), &peer.Peer{Addr: tcpAddr})
+
+	_, err = server.Query(ctx, &pb.DnsPacket{Msg: mustPackRFC2136Update(t)})
+	if err == nil {
+		t.Fatal("Query() accepted an RFC 2136 UPDATE")
+	}
+	if handler.called.Load() {
+		t.Fatal("RFC 2136 UPDATE reached the plugin chain")
+	}
+}
+
 func TestServergRPC_Query_ErrorCases(t *testing.T) {
 	server, err := NewServergRPC("127.0.0.1:0", []*Config{testConfig("grpc", testPlugin{})})
 	if err != nil {

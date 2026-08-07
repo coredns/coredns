@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"errors"
 	"io"
 	"net"
@@ -77,6 +78,42 @@ func TestCustomHTTPRequestValidator(t *testing.T) {
 				t.Error("unexpected HTTP code", res.StatusCode)
 			}
 			res.Body.Close()
+		})
+	}
+}
+
+func TestServerHTTPSRejectsUpdate(t *testing.T) {
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		t.Run(method, func(t *testing.T) {
+			handler := new(updateResponsePlugin)
+			config := testConfig("https", handler)
+			config.TLSConfig = &tls.Config{}
+
+			server, err := NewServerHTTPS("127.0.0.1:443", []*Config{config})
+			if err != nil {
+				t.Fatalf("NewServerHTTPS() failed: %v", err)
+			}
+
+			wire := mustPackRFC2136Update(t)
+			target := "/dns-query"
+			var body io.Reader
+			if method == http.MethodGet {
+				target += "?dns=" + base64.RawURLEncoding.EncodeToString(wire)
+			} else {
+				body = bytes.NewReader(wire)
+			}
+			req := httptest.NewRequest(method, target, body)
+			req.RemoteAddr = "127.0.0.1:12345"
+			recorder := httptest.NewRecorder()
+
+			server.ServeHTTP(recorder, req)
+
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("ServeHTTP() status = %d, want %d", recorder.Code, http.StatusBadRequest)
+			}
+			if handler.called.Load() {
+				t.Fatal("RFC 2136 UPDATE reached the plugin chain")
+			}
 		})
 	}
 }

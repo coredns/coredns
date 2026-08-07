@@ -340,8 +340,8 @@ func (r *Request) Clear() {
 	r.do = false
 }
 
-// Match checks if the reply matches the qname and qtype from the request, it returns
-// false when they don't match.
+// Match checks if the reply matches the qname, qtype and qclass from the request.
+// It returns false when they don't match.
 func (r *Request) Match(reply *dns.Msg) bool {
 	if len(reply.Question) != 1 {
 		return false
@@ -356,6 +356,10 @@ func (r *Request) Match(reply *dns.Msg) bool {
 	}
 
 	if reply.Question[0].Qtype != r.QType() {
+		return false
+	}
+
+	if reply.Question[0].Qclass != r.QClass() {
 		return false
 	}
 

@@ -485,6 +485,7 @@ func (dns *dnsControl) HasSynced() bool {
 
 func (dns *dnsControl) ServiceList() (svcs []*object.Service) {
 	os := dns.svcLister.List()
+	svcs = make([]*object.Service, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.Service)
 		if !ok {
@@ -497,6 +498,7 @@ func (dns *dnsControl) ServiceList() (svcs []*object.Service) {
 
 func (dns *dnsControl) ServiceImportList() (svcs []*object.ServiceImport) {
 	os := dns.svcImportLister.List()
+	svcs = make([]*object.ServiceImport, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.ServiceImport)
 		if !ok {
@@ -509,6 +511,7 @@ func (dns *dnsControl) ServiceImportList() (svcs []*object.ServiceImport) {
 
 func (dns *dnsControl) EndpointsList() (eps []*object.Endpoints) {
 	os := dns.epLister.List()
+	eps = make([]*object.Endpoints, 0, len(os))
 	for _, o := range os {
 		ep, ok := o.(*object.Endpoints)
 		if !ok {
@@ -524,6 +527,7 @@ func (dns *dnsControl) PodIndex(ip string) (pods []*object.Pod) {
 	if err != nil {
 		return nil
 	}
+	pods = make([]*object.Pod, 0, len(os))
 	for _, o := range os {
 		p, ok := o.(*object.Pod)
 		if !ok {
@@ -539,6 +543,7 @@ func (dns *dnsControl) SvcIndex(idx string) (svcs []*object.Service) {
 	if err != nil {
 		return nil
 	}
+	svcs = make([]*object.Service, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.Service)
 		if !ok {
@@ -554,7 +559,7 @@ func (dns *dnsControl) SvcIndexReverse(ip string) (svcs []*object.Service) {
 	if err != nil {
 		return nil
 	}
-
+	svcs = make([]*object.Service, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.Service)
 		if !ok {
@@ -570,7 +575,7 @@ func (dns *dnsControl) SvcExtIndexReverse(ip string) (svcs []*object.Service) {
 	if err != nil {
 		return nil
 	}
-
+	svcs = make([]*object.Service, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.Service)
 		if !ok {
@@ -586,6 +591,7 @@ func (dns *dnsControl) SvcImportIndex(idx string) (svcs []*object.ServiceImport)
 	if err != nil {
 		return nil
 	}
+	svcs = make([]*object.ServiceImport, 0, len(os))
 	for _, o := range os {
 		s, ok := o.(*object.ServiceImport)
 		if !ok {
@@ -601,6 +607,7 @@ func (dns *dnsControl) EpIndex(idx string) (ep []*object.Endpoints) {
 	if err != nil {
 		return nil
 	}
+	ep = make([]*object.Endpoints, 0, len(os))
 	for _, o := range os {
 		e, ok := o.(*object.Endpoints)
 		if !ok {
@@ -616,6 +623,7 @@ func (dns *dnsControl) EpIndexReverse(ip string) (ep []*object.Endpoints) {
 	if err != nil {
 		return nil
 	}
+	ep = make([]*object.Endpoints, 0, len(os))
 	for _, o := range os {
 		e, ok := o.(*object.Endpoints)
 		if !ok {
@@ -631,6 +639,7 @@ func (dns *dnsControl) McEpIndex(idx string) (ep []*object.MultiClusterEndpoints
 	if err != nil {
 		return nil
 	}
+	ep = make([]*object.MultiClusterEndpoints, 0, len(os))
 	for _, o := range os {
 		e, ok := o.(*object.MultiClusterEndpoints)
 		if !ok {
@@ -693,7 +702,9 @@ func (dns *dnsControl) detectChanges(oldObj, newObj any) {
 			dns.updateMultiClusterModified()
 		}
 	case *object.Pod:
-		dns.updateModified()
+		if podModified(oldObj, newObj) {
+			dns.updateModified()
+		}
 	case *object.Endpoints:
 		if !endpointsEquivalent(oldObj.(*object.Endpoints), newObj.(*object.Endpoints)) {
 			dns.updateModified()
@@ -744,6 +755,19 @@ func subsetsEquivalent(sa, sb object.EndpointSubset) bool {
 		}
 	}
 	return true
+}
+
+// podModified checks if an update to a pod changes anything that is visible in
+// DNS. Pod records and the pod IP index only depend on the pod IP, so all
+// other pod status churn (conditions, container statuses, labels) does not
+// need to bump the zone serial.
+func podModified(oldObj, newObj any) bool {
+	oldPod, okOld := oldObj.(*object.Pod)
+	newPod, okNew := newObj.(*object.Pod)
+	if !okOld || !okNew {
+		return true
+	}
+	return oldPod.PodIP != newPod.PodIP
 }
 
 // endpointsEquivalent checks if the update to an endpoint is something

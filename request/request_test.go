@@ -310,6 +310,11 @@ func TestRequestMatch(t *testing.T) {
 		t.Errorf("Failed to match %s %d, got %t, expected %t", "example.com.", dns.TypeA, b, true)
 	}
 
+	reply.Question[0].Qclass = dns.ClassCHAOS
+	if b := st.Match(reply); b {
+		t.Errorf("Matched response class %d with request class %d", reply.Question[0].Qclass, st.QClass())
+	}
+
 	reply.SetQuestion("example.org.", dns.TypeA)
 	if b := st.Match(reply); b {
 		t.Errorf("Failed to match %s %d, got %t, expected %t", "example.org.", dns.TypeA, b, false)
@@ -374,5 +379,25 @@ func TestRequestClear(t *testing.T) {
 
 	if st.port != "" {
 		t.Errorf("Expected st.port to be cleared after Clear")
+	}
+}
+
+func BenchmarkRequestIP(b *testing.B) {
+	st := testRequest()
+	b.ReportAllocs()
+
+	for b.Loop() {
+		st.Clear()
+		_ = st.IP()
+	}
+}
+
+func BenchmarkRequestPort(b *testing.B) {
+	st := testRequest()
+	b.ReportAllocs()
+
+	for b.Loop() {
+		st.Clear()
+		_ = st.Port()
 	}
 }

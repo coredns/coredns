@@ -34,10 +34,11 @@ import (
 // the same address and the listener may be stopped for
 // graceful termination (POSIX only).
 type Server struct {
-	Addr         string        // Address we listen on
-	IdleTimeout  time.Duration // Idle timeout for connection-oriented transports
-	ReadTimeout  time.Duration // Read timeout for connection-oriented transports
-	WriteTimeout time.Duration // Write timeout for connection-oriented transports that support it
+	Addr          string        // Address we listen on
+	IdleTimeout   time.Duration // Idle timeout for connection-oriented transports
+	ReadTimeout   time.Duration // Read timeout for connection-oriented transports
+	WriteTimeout  time.Duration // Write timeout for connection-oriented transports that support it
+	MaxTCPQueries int           // Maximum number of queries served on a single TCP/TLS connection. -1 means unlimited.
 
 	connPolicy                    proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
 	udpSessionTrackingTTL         time.Duration             // TTL for UDP PPv2 session tracking (0 = disabled)
@@ -74,13 +75,14 @@ type MetadataCollector interface {
 // queries are blocked unless queries from enableChaos are loaded.
 func NewServer(addr string, group []*Config) (*Server, error) {
 	s := &Server{
-		Addr:         addr,
-		zones:        make(map[string][]*Config),
-		graceTimeout: 5 * time.Second,
-		IdleTimeout:  10 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		tsigSecret:   make(map[string]string),
+		Addr:          addr,
+		zones:         make(map[string][]*Config),
+		graceTimeout:  5 * time.Second,
+		IdleTimeout:   10 * time.Second,
+		ReadTimeout:   3 * time.Second,
+		WriteTimeout:  5 * time.Second,
+		MaxTCPQueries: tcpMaxQueries,
+		tsigSecret:    make(map[string]string),
 	}
 
 	for _, site := range group {
@@ -102,6 +104,9 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		}
 		if site.IdleTimeout != 0 {
 			s.IdleTimeout = site.IdleTimeout
+		}
+		if site.MaxTCPQueries != nil {
+			s.MaxTCPQueries = *site.MaxTCPQueries
 		}
 
 		// copy tsig secrets
@@ -167,7 +172,7 @@ func (s *Server) Serve(l net.Listener) error {
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp",
 		TsigSecret:    s.tsigSecret,
-		MaxTCPQueries: tcpMaxQueries,
+		MaxTCPQueries: s.MaxTCPQueries,
 		ReadTimeout:   s.ReadTimeout,
 		WriteTimeout:  s.WriteTimeout,
 		IdleTimeout: func() time.Duration {

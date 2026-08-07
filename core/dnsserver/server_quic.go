@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/metrics/vars"
+	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
 	cproxyproto "github.com/coredns/coredns/plugin/pkg/proxyproto"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
@@ -42,6 +43,9 @@ const (
 
 	// DefaultQUICStreamWorkers is the default number of workers for processing QUIC streams.
 	DefaultQUICStreamWorkers = 1024
+
+	// DefaultQUICMaxConnections is the default maximum number of concurrent connections.
+	DefaultQUICMaxConnections = 200
 )
 
 // ServerQUIC represents an instance of a DNS-over-QUIC server.
@@ -53,6 +57,8 @@ type ServerQUIC struct {
 	quicListener      *quic.Listener
 	maxStreams        int
 	streamProcessPool chan struct{}
+	maxConnections    int
+	connSem           chan struct{}
 }
 
 // NewServerQUIC returns a new CoreDNS QUIC server and compiles all plugin in to it.
@@ -92,6 +98,15 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 		// Enable 0-RTT by default for all connections on the server-side.
 		Allow0RTT: true,
 	}
+	maxConnections := DefaultQUICMaxConnections
+	if len(group) > 0 && group[0] != nil && group[0].MaxQUICConnections != nil {
+		maxConnections = *group[0].MaxQUICConnections
+	}
+
+	var connSem chan struct{}
+	if maxConnections > 0 {
+		connSem = make(chan struct{}, maxConnections)
+	}
 
 	return &ServerQUIC{
 		Server:            s,
@@ -99,6 +114,8 @@ func NewServerQUIC(addr string, group []*Config) (*ServerQUIC, error) {
 		quicConfig:        quicConfig,
 		maxStreams:        maxStreams,
 		streamProcessPool: make(chan struct{}, streamProcessPoolSize),
+		maxConnections:    maxConnections,
+		connSem:           connSem,
 	}, nil
 }
 
@@ -132,8 +149,21 @@ func (s *ServerQUIC) ServeQUIC() error {
 			s.closeQUICConn(conn, DoQCodeInternalError)
 			return err
 		}
+		if s.connSem == nil {
+			go s.serveQUICConnection(conn)
+			continue
+		}
 
-		go s.serveQUICConnection(conn)
+		select {
+		case s.connSem <- struct{}{}:
+			go func(c *quic.Conn) {
+				defer func() { <-s.connSem }()
+				s.serveQUICConnection(c)
+			}(conn)
+
+		default:
+			_ = conn.CloseWithError(0, "too many connections")
+		}
 	}
 }
 
@@ -211,8 +241,7 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 		return
 	}
 
-	req := &dns.Msg{}
-	err = req.Unpack(buf)
+	req, err := dnsutil.UnpackRequest(buf)
 	if err != nil {
 		clog.Debugf("unpacking quic packet: %s", err)
 		s.closeQUICConn(conn, DoQCodeProtocolError)

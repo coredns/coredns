@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"slices"
 	"sync/atomic"
 	"time"
 
@@ -29,9 +30,10 @@ import (
 var log = clog.NewWithPlugin("forward")
 
 const (
-	defaultExpire      = 10 * time.Second
-	defaultReadTimeout = 2 * time.Second
-	hcInterval         = 500 * time.Millisecond
+	defaultExpire                     = 10 * time.Second
+	defaultReadTimeout                = 2 * time.Second
+	hcInterval                        = 500 * time.Millisecond
+	defaultConnectAttemptsPerUpstream = 2
 )
 
 // Forward represents a plugin instance that can proxy requests to another (DNS) server. It has a list
@@ -61,6 +63,7 @@ type Forward struct {
 	failfastUnhealthyUpstreams bool
 	failoverRcodes             []int
 	maxConnectAttempts         uint32
+	maxConnectAttemptsSet      bool
 	sourceAddress              net.IP
 
 	// Hostname resolution fields
@@ -126,6 +129,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	}
 
 	fails := 0
+	failoverAttempts := 0
 	var span, child ot.Span
 	var upstreamErr error
 	span = ot.SpanFromContext(ctx)
@@ -133,9 +137,13 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 	list := f.List()
 	deadline := time.Now().Add(defaultTimeout)
 	start := time.Now()
-	connectAttempts := uint32(0)
+	maxConnectAttempts := uint64(f.maxConnectAttempts)
+	if !f.maxConnectAttemptsSet {
+		maxConnectAttempts = uint64(defaultConnectAttemptsPerUpstream) * uint64(len(list))
+	}
+	connectAttempts := uint64(0)
 
-	for time.Now().Before(deadline) && ctx.Err() == nil && (f.maxConnectAttempts == 0 || connectAttempts < f.maxConnectAttempts) {
+	for time.Now().Before(deadline) && ctx.Err() == nil && (maxConnectAttempts == 0 || connectAttempts < maxConnectAttempts) {
 		if i >= len(list) {
 			// reached the end of list, reset to begin
 			i = 0
@@ -204,16 +212,18 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		upstreamErr = err
 
 		if err != nil {
+			if errors.Is(err, proxyPkg.ErrInvalidRequest) {
+				return dns.RcodeFormatError, err
+			}
+
 			// Kick off health check to see if *our* upstream is broken.
 			if f.maxfails != 0 {
 				proxy.Healthcheck()
 			}
 
-			// If a per-request connect-attempt cap is configured, count this
-			// failed connect attempt and stop retrying when the cap is hit.
-			if f.maxConnectAttempts > 0 {
+			if maxConnectAttempts > 0 {
 				connectAttempts++
-				if connectAttempts >= f.maxConnectAttempts {
+				if connectAttempts >= maxConnectAttempts {
 					break
 				}
 			}
@@ -236,16 +246,11 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 
 		// Check if we have a failover Rcode defined, check if we match on the code
 		tryNext := false
-		for _, failoverRcode := range f.failoverRcodes {
-			// if we match, we continue to the next upstream in the list
-			if failoverRcode == ret.Rcode {
-				if fails < len(f.proxies) {
-					tryNext = true
-				}
-			}
+		if slices.Contains(f.failoverRcodes, ret.Rcode) {
+			failoverAttempts++
+			tryNext = failoverAttempts < len(f.proxies)
 		}
 		if tryNext {
-			fails++
 			continue
 		}
 
