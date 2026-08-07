@@ -95,6 +95,119 @@ func TestSetupSiit(t *testing.T) {
 				"10.0.0.1": "foobar",
 			},
 		},
+		{
+			`siit {
+				ipv6_prefix 64:ff9b::/72
+			}`,
+			true, // /72 not in the allowed set (32/40/48/56/64/96)
+			"64:ff9b::/72",
+			map[string]string{},
+		},
+		{
+			`siit {
+				ipv6_prefix 64:ff9b::/32
+			}`,
+			false,
+			"64:ff9b::/32",
+			map[string]string{},
+		},
+		{
+			`siit {
+				ipv6_prefix 64:ff9b::/40
+			}`,
+			false,
+			"64:ff9b::/40",
+			map[string]string{},
+		},
+		{
+			`siit {
+				ipv6_prefix 64:ff9b::/48
+			}`,
+			false,
+			"64:ff9b::/48",
+			map[string]string{},
+		},
+		{
+			`siit {
+				ipv6_prefix 64:ff9b::/56
+			}`,
+			false,
+			"64:ff9b::/56",
+			map[string]string{},
+		},
+		{
+			`siit {
+				ipv6_prefix 64:ff9b::/64
+			}`,
+			false,
+			"64:ff9b::/64",
+			map[string]string{},
+		},
+		{
+			// reserved "u" octet nonzero for a /32 prefix
+			`siit {
+				ipv6_prefix 64:ff9b:ff00::/32
+			}`,
+			true,
+			"64:ff9b:ff00::/32",
+			map[string]string{},
+		},
+		{
+			// reserved "u" octet nonzero for a /40 prefix
+			`siit {
+				ipv6_prefix 64:ff9b:00ff::/40
+			}`,
+			true,
+			"64:ff9b:00ff::/40",
+			map[string]string{},
+		},
+		{
+			// reserved "u" octet nonzero for a /48 prefix
+			`siit {
+				ipv6_prefix 64:ff9b:0:ff00::/48
+			}`,
+			true,
+			"64:ff9b:0:ff00::/48",
+			map[string]string{},
+		},
+		{
+			// reserved "u" octet nonzero for a /56 prefix
+			`siit {
+				ipv6_prefix 64:ff9b:0:00ff::/56
+			}`,
+			true,
+			"64:ff9b:0:00ff::/56",
+			map[string]string{},
+		},
+		{
+			// reserved "u" octet nonzero for a /64 prefix
+			`siit {
+				ipv6_prefix 64:ff9b:0:0:ff00::/64
+			}`,
+			true,
+			"64:ff9b:0:0:ff00::/64",
+			map[string]string{},
+		},
+		{
+			// eam missing the second argument must not panic
+			`siit {
+				eam 10.0.0.1
+			}`,
+			true,
+			"64:ff9b::/96",
+			map[string]string{
+				"10.0.0.1": "",
+			},
+		},
+		{
+			// eam with too many arguments should error, not silently ignore extras
+			`siit {
+				eam 10.0.0.1 64:dead::1 extra
+			}`,
+			true,
+			"64:ff9b::/96",
+			map[string]string{},
+		},
 	}
 
 	for i, test := range tests {

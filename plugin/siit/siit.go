@@ -6,7 +6,6 @@ package siit
 
 import (
 	"context"
-	"errors"
 	"net"
 	"time"
 
@@ -99,6 +98,7 @@ func (d *SIIT) responseShouldSIIT(req *request.Request, origResponse *dns.Msg) b
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -113,6 +113,14 @@ func (d *SIIT) DoSIIT(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, ori
 	if err != nil {
 		return nil, err
 	}
+
+	if resp == nil || resp.Rcode != dns.RcodeSuccess {
+		// Not a transport error — we got an answer, it's just SERVFAIL/
+		// REFUSED/NXDOMAIN/etc. Don't synthesize from it; return the
+		// original response untouched so ServeDNS writes that instead.
+		return origResponse, nil
+	}
+
 	out := d.Synthesize(r, origResponse, resp)
 	return out, nil
 }
@@ -150,7 +158,12 @@ func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 		}
 
 		if header.Rrtype == dns.TypeAAAA {
-			a, _ := to4(d.Eam4, d.IPv6Prefix, rr.(*dns.AAAA).AAAA)
+			a, mapped := to4(d.Eam4, d.IPv6Prefix, rr.(*dns.AAAA).AAAA)
+			if !mapped {
+				// No EAM entry and address isn't in ipv6_prefix — nothing to synthesize
+				// for this record; skip it rather than emitting an empty-RDATA A record.
+				continue
+			}
 
 			// ttl is min of SOA TTL and A TTL
 			ttl := min(rr.Header().Ttl, SOATtl)
@@ -195,21 +208,23 @@ func extractIPv4(v6 net.IP, prefix *net.IPNet) net.IP {
 }
 
 // to4 takes an IPv6 address and an eam and returns an IPv4 address.
-func to4(eam map[string]net.IP, ipv6prefix *net.IPNet, addr net.IP) (net.IP, error) {
+func to4(eam map[string]net.IP, ipv6prefix *net.IPNet, addr net.IP) (net.IP, bool) {
 	addr = addr.To16()
 	if addr == nil || addr.To4() != nil {
-		return nil, errors.New("not a valid IPv6 address")
+		return nil, false
 	}
 
-	if ipv6prefix.Contains(addr) {
-		v4 := extractIPv4(addr, ipv6prefix)
-		return v4, nil
-	}
-
+	// RFC 7757 §3.3.2: search the EAM table first.
 	if eam[addr.String()] != nil {
 		v4 := eam[addr.String()]
-		return v4, nil
+		return v4, true
 	}
 
-	return nil, nil
+	// Fall back to RFC 6052 algorithmic translation only if no EAM matched.
+	if ipv6prefix.Contains(addr) {
+		v4 := extractIPv4(addr, ipv6prefix)
+		return v4, true
+	}
+
+	return nil, false
 }

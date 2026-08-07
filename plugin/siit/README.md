@@ -2,7 +2,7 @@
 
 ## Name
 
-*siit* - enables SIIT IPv6<>IPv4 transition mechanism.
+*siit* - enables A<>AAAA translation support for DNS records based on SIIT (IPv6<>IPv4 translation).
 
 ## Description
 
@@ -45,9 +45,14 @@ If monitoring is enabled (via the _prometheus_ plugin) then the following metric
 
 The `server` label is explained in the _prometheus_ plugin documentation.
 
+## Bugs
+
+* Prefix matching in eam is not implemented yet.
+* DNSSEC support is not implemented yet. The problem is the same as DNS64. See: [RFC 6147 Section 3](https://tools.ietf.org/html/rfc6147#section-3)
+
 ## See Also
 
-See [RFC 6145](https://tools.ietf.org/html/rfc6145) for more information on the SIIT mechanism
+See [RFC 6052](https://tools.ietf.org/html/rfc6052) for more information on the SIIT mechanism
 and [RFC 7757](https://tools.ietf.org/html/rfc7757) about the explicit address mappings (eam) mechanism
 
 ## Notes

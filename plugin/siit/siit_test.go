@@ -14,6 +14,57 @@ import (
 	"github.com/miekg/dns"
 )
 
+// TestToUnmappedAAAA reproduces the empty-RDATA-A-record bug: an AAAA
+// address that matches neither an EAM entry nor ipv6_prefix must not
+// produce an A record at all.
+func TestToUnmappedAAAA(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+	eam := map[string]net.IP{}
+
+	unrelated := net.ParseIP("2001:db8::1")
+	a, mapped := to4(eam, prefix, unrelated)
+	if mapped {
+		t.Fatalf("expected no mapping for unrelated AAAA address, got %v", a)
+	}
+}
+
+// TestToEamPrecedence reproduces the reversed-lookup-order bug: when an
+// address matches both ipv6_prefix and an explicit eam entry, the eam
+// entry must win.
+func TestToEamPrecedence(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+	eamAddr := net.ParseIP("64:ff9b::192.0.2.1")
+
+	eam := make(map[string]net.IP)
+	eam[eamAddr.String()] = net.ParseIP("203.0.113.9")
+
+	a, mapped := to4(eam, prefix, eamAddr)
+	if !mapped {
+		t.Fatalf("expected eam mapping to be found")
+	}
+	want := net.ParseIP("203.0.113.9").To4()
+	if !a.Equal(want) {
+		t.Errorf("expected eam-mapped address %v, got %v (algorithmic translation was used instead)", want, a)
+	}
+}
+
+// TestToAlgorithmicFallback verifies RFC 6052 translation still applies
+// when no eam entry matches.
+func TestToAlgorithmicFallback(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+	eam := map[string]net.IP{}
+	addr := net.ParseIP("64:ff9b::192.0.2.42")
+
+	a, mapped := to4(eam, prefix, addr)
+	if !mapped {
+		t.Fatalf("expected algorithmic translation to apply")
+	}
+	want := net.ParseIP("192.0.2.42").To4()
+	if !a.Equal(want) {
+		t.Errorf("expected %v, got %v", want, a)
+	}
+}
+
 func TestSIIT(t *testing.T) {
 	var cases = []struct {
 		// a brief summary of the test case
@@ -436,4 +487,68 @@ func (fu *fakeUpstream) Lookup(_ context.Context, _ request.Request, name string
 	}
 
 	return fu.resp, nil
+}
+
+func TestDoSIITPassesThroughNegativeResponse(t *testing.T) {
+	origResponse := new(dns.Msg)
+	origResponse.SetQuestion("example.org.", dns.TypeA)
+	origResponse.Rcode = dns.RcodeSuccess // the client's original A answer
+
+	aaaaFailure := new(dns.Msg)
+	aaaaFailure.Rcode = dns.RcodeServerFailure // upstream AAAA lookup SERVFAILs
+
+	d := &SIIT{
+		Upstream: &fakeUpstream{
+			t:     t,
+			qname: "example.org.",
+			resp:  aaaaFailure,
+		},
+	}
+
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+	w := &test.ResponseWriter{}
+
+	out, err := d.DoSIIT(context.Background(), w, r, origResponse)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != origResponse {
+		t.Errorf("expected DoSIIT to pass through origResponse untouched, got a different message")
+	}
+	if out.Rcode != dns.RcodeSuccess {
+		t.Errorf("expected original Rcode %v preserved, got %v", dns.RcodeSuccess, out.Rcode)
+	}
+}
+
+func TestDoSIITPassesThroughNXDOMAIN(t *testing.T) {
+	origResponse := new(dns.Msg)
+	origResponse.SetQuestion("example.org.", dns.TypeA)
+	origResponse.Rcode = dns.RcodeSuccess
+
+	aaaaNX := new(dns.Msg)
+	aaaaNX.Rcode = dns.RcodeNameError
+
+	d := &SIIT{
+		Upstream: &fakeUpstream{
+			t:     t,
+			qname: "example.org.",
+			resp:  aaaaNX,
+		},
+	}
+
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+	w := &test.ResponseWriter{}
+
+	out, err := d.DoSIIT(context.Background(), w, r, origResponse)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if out != origResponse {
+		t.Errorf("expected pass-through on NXDOMAIN, got synthesized response")
+	}
+	if out.Rcode != dns.RcodeSuccess {
+		t.Errorf("expected original Rcode %v preserved, got %v", dns.RcodeSuccess, out.Rcode)
+	}
 }

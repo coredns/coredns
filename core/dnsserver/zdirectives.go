@@ -37,6 +37,7 @@ var Directives = []string{
 	"dnstap",
 	"local",
 	"dns64",
+	"siit",
 	"any",
 	"chaos",
 	"loadbalance",
@@ -67,7 +68,6 @@ var Directives = []string{
 	"whoami",
 	"on",
 	"sign",
-	"siit",
 	"view",
 	"nomad",
 }
