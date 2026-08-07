@@ -2,8 +2,6 @@
 package cache
 
 import (
-	"encoding/binary"
-	"hash/fnv"
 	"net"
 	"strings"
 	"time"
@@ -237,32 +235,34 @@ func (s nameSet) add(name string) {
 	s[strings.ToLower(name)] = struct{}{}
 }
 
-var one = []byte("1")
-var zero = []byte("0")
+const (
+	offset64 uint64 = 14695981039346656037
+	prime64  uint64 = 1099511628211
+)
 
 func hash(qname string, qtype, qclass uint16, do, cd bool) uint64 {
-	h := fnv.New64()
-
+	h := offset64
 	if do {
-		h.Write(one)
+		h = (h ^ '1') * prime64
 	} else {
-		h.Write(zero)
+		h = (h ^ '0') * prime64
 	}
 
 	if cd {
-		h.Write(one)
+		h = (h ^ '1') * prime64
 	} else {
-		h.Write(zero)
+		h = (h ^ '0') * prime64
 	}
 
-	var qtypeBytes [2]byte
-	binary.BigEndian.PutUint16(qtypeBytes[:], qtype)
-	h.Write(qtypeBytes[:])
-	var qclassBytes [2]byte
-	binary.BigEndian.PutUint16(qclassBytes[:], qclass)
-	h.Write(qclassBytes[:])
-	h.Write([]byte(qname))
-	return h.Sum64()
+	h = (h ^ uint64((qtype>>8)&0xff)) * prime64
+	h = (h ^ uint64(qtype&0xff)) * prime64
+	h = (h ^ uint64((qclass>>8)&0xff)) * prime64
+	h = (h ^ uint64(qclass&0xff)) * prime64
+
+	for i := range len(qname) {
+		h = (h ^ uint64(qname[i])) * prime64
+	}
+	return h
 }
 
 func computeTTL(msgTTL, minTTL, maxTTL time.Duration) time.Duration {
