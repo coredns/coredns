@@ -144,48 +144,21 @@ func TestSetupSiit(t *testing.T) {
 			map[string]string{},
 		},
 		{
-			// reserved "u" octet nonzero for a /32 prefix
+			// /96 prefix with nonzero byte 8 must be rejected
 			`siit {
-				ipv6_prefix 64:ff9b:ff00::/32
+				ipv6_prefix 2001:db8:122:344:ff00::/96
 			}`,
 			true,
-			"64:ff9b:ff00::/32",
+			"2001:db8:122:344:ff00::/96",
 			map[string]string{},
 		},
 		{
-			// reserved "u" octet nonzero for a /40 prefix
+			// valid /96 prefix, byte 8 zero -- must still be accepted.
 			`siit {
-				ipv6_prefix 64:ff9b:00ff::/40
+				ipv6_prefix 2001:db8::/96
 			}`,
-			true,
-			"64:ff9b:00ff::/40",
-			map[string]string{},
-		},
-		{
-			// reserved "u" octet nonzero for a /48 prefix
-			`siit {
-				ipv6_prefix 64:ff9b:0:ff00::/48
-			}`,
-			true,
-			"64:ff9b:0:ff00::/48",
-			map[string]string{},
-		},
-		{
-			// reserved "u" octet nonzero for a /56 prefix
-			`siit {
-				ipv6_prefix 64:ff9b:0:00ff::/56
-			}`,
-			true,
-			"64:ff9b:0:00ff::/56",
-			map[string]string{},
-		},
-		{
-			// reserved "u" octet nonzero for a /64 prefix
-			`siit {
-				ipv6_prefix 64:ff9b:0:0:ff00::/64
-			}`,
-			true,
-			"64:ff9b:0:0:ff00::/64",
+			false,
+			"2001:db8::/96",
 			map[string]string{},
 		},
 		{
