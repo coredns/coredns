@@ -37,6 +37,7 @@ var Directives = []string{
 	"dnstap",
 	"local",
 	"dns64",
+	"siit",
 	"any",
 	"chaos",
 	"loadbalance",
