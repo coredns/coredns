@@ -1,4 +1,3 @@
-// test/siit_test.go
 package test
 
 import (
