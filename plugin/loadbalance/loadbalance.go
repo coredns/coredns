@@ -40,18 +40,26 @@ func roundRobin(in []dns.RR) []dns.RR {
 		return in
 	}
 
-	allSame := true
-	firstType := in[0].Header().Rrtype
-	for i := 1; i < len(in); i++ {
-		if in[i].Header().Rrtype != firstType {
-			allSame = false
-			break
+	// A response that is only addresses - the common case - needs shuffling but no
+	// partitioning, so it can be served with a single copy instead of four slices.
+	// The copy is not optional: in must not be modified, because a backend may hand
+	// us a slice it owns. plugin/file, for example, answers straight out of the zone
+	// tree, so shuffling in place would reorder the zone itself for every other
+	// query racing with this one.
+	if t := in[0].Header().Rrtype; t == dns.TypeA || t == dns.TypeAAAA {
+		allSame := true
+		for _, r := range in[1:] {
+			if r.Header().Rrtype != t {
+				allSame = false
+				break
+			}
 		}
-	}
-
-	if allSame && (firstType == dns.TypeA || firstType == dns.TypeAAAA) {
-		roundRobinShuffle(in)
-		return in
+		if allSame {
+			out := make([]dns.RR, len(in))
+			copy(out, in)
+			roundRobinShuffle(out)
+			return out
+		}
 	}
 
 	cname := []dns.RR{}

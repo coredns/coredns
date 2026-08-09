@@ -213,3 +213,44 @@ func BenchmarkRoundRobin(b *testing.B) {
 		_ = roundRobin(answer)
 	}
 }
+
+// TestRoundRobinDoesNotMutateInput guards the contract that roundRobin leaves its
+// input alone. Backends may return a slice they own - plugin/file answers directly
+// out of the zone tree - so shuffling in place would corrupt shared state and race
+// with concurrent queries.
+func TestRoundRobinDoesNotMutateInput(t *testing.T) {
+	inputs := map[string][]dns.RR{
+		"addresses only": {
+			test.A("a.example.org. 300 IN A 10.0.0.1"),
+			test.A("a.example.org. 300 IN A 10.0.0.2"),
+			test.A("a.example.org. 300 IN A 10.0.0.3"),
+			test.A("a.example.org. 300 IN A 10.0.0.4"),
+		},
+		"mixed": {
+			test.CNAME("a.example.org. 300 IN CNAME b.example.org."),
+			test.A("b.example.org. 300 IN A 10.0.0.1"),
+			test.A("b.example.org. 300 IN A 10.0.0.2"),
+			test.MX("example.org. 300 IN MX 10 mx.example.org."),
+		},
+	}
+
+	for name, in := range inputs {
+		before := make([]dns.RR, len(in))
+		copy(before, in)
+
+		// Shuffle repeatedly: a single call may leave the order untouched by chance.
+		for range 50 {
+			out := roundRobin(in)
+			if len(out) != len(in) {
+				t.Fatalf("%s: got %d records back, want %d", name, len(out), len(in))
+			}
+		}
+
+		for i := range in {
+			if in[i] != before[i] {
+				t.Errorf("%s: roundRobin reordered its input at index %d", name, i)
+				break
+			}
+		}
+	}
+}
