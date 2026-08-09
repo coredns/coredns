@@ -54,6 +54,7 @@ type Kubernetes struct {
 	apiQPS           float32       // Maximum queries per second from the client to the API server
 	apiBurst         int           // Maximum burst for throttle
 	apiMaxInflight   int           // Maximum number of concurrent requests in flight to the API server
+	zonePaths        map[string]string
 }
 
 // Upstreamer is used to resolve CNAME or other external targets
@@ -69,8 +70,32 @@ func New(zones []string) *Kubernetes {
 	k.Namespaces = make(map[string]struct{})
 	k.podMode = podModeDisabled
 	k.ttl = defaultTTL
+	k.initZonePaths()
 
 	return k
+}
+
+// initZonePaths precomputes msg.Path for every configured zone. It must be called
+// after Zones has been set, and before the plugin starts answering queries: the
+// map is read-only from then on.
+func (k *Kubernetes) initZonePaths() {
+	paths := make(map[string]string, len(k.Zones))
+	for _, z := range k.Zones {
+		paths[z] = msg.Path(z, coredns)
+	}
+	k.zonePaths = paths
+}
+
+// zonePath returns msg.Path(zone, coredns) for a zone served by this plugin.
+// Queries for a configured zone are answered from the precomputed table. A zone
+// that is not in the table - a query that arrived with different casing, which
+// handler.go deliberately preserves - is computed as before, so the case of the
+// original query is retained in the resulting key.
+func (k *Kubernetes) zonePath(zone string) string {
+	if p, ok := k.zonePaths[zone]; ok {
+		return p
+	}
+	return msg.Path(zone, coredns)
 }
 
 const (
@@ -404,7 +429,7 @@ func (k *Kubernetes) findPods(r recordRequest, zone string) (pods []msg.Service,
 		return nil, errNoItems
 	}
 
-	zonePath := msg.Path(zone, coredns)
+	zonePath := k.zonePath(zone)
 
 	var ip string
 	if strings.Count(podname, "-") == 3 && !strings.Contains(podname, "--") {
@@ -469,7 +494,7 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 	serviceList = k.APIConn.SvcIndex(idx)
 	endpointsListFunc = func() []*object.Endpoints { return k.APIConn.EpIndex(idx) }
 
-	zonePath := msg.Path(zone, coredns)
+	zonePath := k.zonePath(zone)
 	for _, svc := range serviceList {
 		if !match(r.namespace, svc.Namespace) || !match(r.service, svc.Name) {
 			continue
@@ -589,7 +614,7 @@ func (k *Kubernetes) findMultiClusterServices(r recordRequest, zone string) (ser
 	serviceList = k.APIConn.SvcImportIndex(idx)
 	endpointsListFunc = func() []*object.MultiClusterEndpoints { return k.APIConn.McEpIndex(idx) }
 
-	zonePath := msg.Path(zone, coredns)
+	zonePath := k.zonePath(zone)
 	for _, svc := range serviceList {
 		if !match(r.namespace, svc.Namespace) || !match(r.service, svc.Name) {
 			continue
