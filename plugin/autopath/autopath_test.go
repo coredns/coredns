@@ -164,3 +164,48 @@ func TestInSearchPath(t *testing.T) {
 		}
 	}
 }
+
+// streamHandler implements plugin.Handler and answers with a stream of messages, the way
+// plugin/transfer answers a zone transfer.
+type streamHandler struct {
+	Envelopes int
+}
+
+func (*streamHandler) Name() string { return "stream-handler" }
+
+func (s *streamHandler) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	for range s.Envelopes {
+		d := new(dns.Msg)
+		d.SetReply(r)
+		d.Answer = []dns.RR{test.SOA("example.org. 100 IN SOA ns.example.org. hostmaster.example.org. 1 7200 1800 86400 100")}
+		if err := w.WriteMsg(d); err != nil {
+			return dns.RcodeServerFailure, err
+		}
+	}
+	return 0, nil
+}
+
+func TestAutoPathZoneTransfer(t *testing.T) {
+	const envelopes = 3
+
+	for _, qtype := range []uint16{dns.TypeAXFR, dns.TypeIXFR} {
+		t.Run(dns.TypeToString[qtype], func(t *testing.T) {
+			ap := newTestAutoPath()
+			ap.Next = &streamHandler{Envelopes: envelopes}
+
+			req := new(dns.Msg)
+			// A name that is the first element of the configured search path, so autopath
+			// would otherwise intercept it.
+			req.SetQuestion("example.org.", qtype)
+
+			rec := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true})
+			if _, err := ap.ServeDNS(context.TODO(), rec, req); err != nil {
+				t.Fatalf("Expected no error, but got %s", err)
+			}
+
+			if len(rec.Msgs) != envelopes {
+				t.Fatalf("Expected %d messages, but got %d", envelopes, len(rec.Msgs))
+			}
+		})
+	}
+}
