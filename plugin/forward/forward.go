@@ -283,8 +283,7 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 }
 
 func (f *Forward) match(state request.Request) bool {
-	name := state.Name()
-	if !plugin.Name(f.from).Matches(name) || !f.isAllowedDomain(name) {
+	if !plugin.Name(f.from).Matches(state.Name()) || !f.isAllowedDomain(state.Name()) {
 		return false
 	}
 
@@ -292,7 +291,7 @@ func (f *Forward) match(state request.Request) bool {
 }
 
 func (f *Forward) isAllowedDomain(name string) bool {
-	if name == f.from || dns.Name(name) == dns.Name(f.from) {
+	if dns.Name(name) == dns.Name(f.from) {
 		return true
 	}
 

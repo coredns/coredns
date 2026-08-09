@@ -1991,9 +1991,12 @@ func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 	}
 }
 
+// hashSink keeps the result live so the compiler cannot drop the call.
+var hashSink uint64
+
 func BenchmarkHash(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		_ = hash("example.org.", dns.TypeA, dns.ClassINET, true, false)
+		hashSink = hash("example.org.", dns.TypeA, dns.ClassINET, true, false)
 	}
 }
