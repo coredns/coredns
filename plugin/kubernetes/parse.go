@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/pkg/dnsutil"
+
+	"github.com/miekg/dns"
 )
 
 type recordRequest struct {
@@ -50,6 +52,44 @@ const (
 // _port._protocol.service.namespace.pod|svc. A zone-scoped name may be longer.
 const maxSegs = 6
 
+// splitReverse returns the labels of base in reverse order, so segs[0] is the label
+// closest to the zone. The labels are sliced straight out of base into arr, so a name
+// of the length parseRequest can answer for does not allocate. A zone-scoped name may
+// carry more labels than that - the zone value may span labels - and grows off arr.
+//
+// Slicing on '.' is only correct while a dot always separates two labels. An escaped
+// dot is part of a label, and an empty label is not a label at all, so names
+// containing either are handed to dns.SplitDomainName, which splits them the way the
+// rest of CoreDNS does. Neither can name a real service, so the allocation it costs
+// is not on any path that matters.
+func splitReverse(base string, arr *[maxSegs]string) []string {
+	// A leading dot is an empty first label, which the loop below would consume
+	// without ever producing it.
+	if base == "" || base[0] == '.' || strings.IndexByte(base, '\\') >= 0 {
+		return splitReverseEscaped(base)
+	}
+
+	segs := arr[:0]
+	for end := len(base); end > 0; {
+		idx := strings.LastIndexByte(base[:end], '.')
+		label := base[idx+1 : end] // idx == -1 yields the first label
+		end = idx
+		if label == "" {
+			return splitReverseEscaped(base)
+		}
+		segs = append(segs, label)
+	}
+	return segs
+}
+
+func splitReverseEscaped(base string) []string {
+	l := dns.SplitDomainName(base)
+	for i, j := 0, len(l)-1; i < j; i, j = i+1, j-1 {
+		l[i], l[j] = l[j], l[i]
+	}
+	return l
+}
+
 // joinReverse joins segs, which is in reverse label order, back into a name that
 // reads left to right the way the query did.
 func joinReverse(segs []string) string {
@@ -88,28 +128,8 @@ func parseRequest(name, zone string, multicluster, zonal bool) (r recordRequest,
 		return r, nil
 	}
 
-	// segs holds the labels of base in reverse order, so segs[0] is the label closest
-	// to the zone. The labels are sliced straight out of base into arr, so a name of
-	// the length this can answer for does not allocate. A zone-scoped name may carry
-	// more labels than that - the zone value may span labels - and grows off arr.
 	var arr [maxSegs]string
-	segs := arr[:0]
-	end := len(base)
-	for end > 0 {
-		idx := strings.LastIndexByte(base[:end], '.')
-		var label string
-		if idx == -1 {
-			label = base[:end]
-			end = 0
-		} else {
-			label = base[idx+1 : end]
-			end = idx
-		}
-		if label == "" {
-			continue
-		}
-		segs = append(segs, label)
-	}
+	segs := splitReverse(base, &arr)
 
 	n := len(segs)
 	if n < 1 {
