@@ -151,3 +151,51 @@ func TestMinimizeResponse(t *testing.T) {
 		}
 	}
 }
+
+// streamHandler implements plugin.Handler and answers with a stream of messages, the way
+// plugin/transfer answers a zone transfer.
+type streamHandler struct {
+	Envelopes int
+}
+
+func (*streamHandler) Name() string { return "stream-handler" }
+
+func (s *streamHandler) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	for i := range s.Envelopes {
+		d := new(dns.Msg)
+		d.SetReply(r)
+		d.Answer = []dns.RR{test.SOA("example.org. 100 IN SOA ns.example.org. hostmaster.example.org. 1 7200 1800 86400 100")}
+		if i > 0 {
+			d.Answer = []dns.RR{test.A("example.org. 100 IN A 127.0.0.1")}
+		}
+		if err := w.WriteMsg(d); err != nil {
+			return dns.RcodeServerFailure, err
+		}
+	}
+	return 0, nil
+}
+
+func TestMinimalZoneTransfer(t *testing.T) {
+	const envelopes = 4
+
+	for _, qtype := range []uint16{dns.TypeAXFR, dns.TypeIXFR} {
+		t.Run(dns.TypeToString[qtype], func(t *testing.T) {
+			m := &minimalHandler{Next: &streamHandler{Envelopes: envelopes}}
+
+			req := new(dns.Msg)
+			req.SetQuestion("example.org.", qtype)
+
+			rec := dnstest.NewMultiRecorder(&test.ResponseWriter{TCP: true})
+			if _, err := m.ServeDNS(context.TODO(), rec, req); err != nil {
+				t.Fatalf("Expected no error, but got %s", err)
+			}
+
+			if len(rec.Msgs) != envelopes {
+				t.Fatalf("Expected %d messages, but got %d", envelopes, len(rec.Msgs))
+			}
+			if rec.Msgs[0].Answer[0].Header().Rrtype != dns.TypeSOA {
+				t.Errorf("Expected the first message to start with the SOA, but got %d", rec.Msgs[0].Answer[0].Header().Rrtype)
+			}
+		})
+	}
+}
