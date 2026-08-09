@@ -1395,6 +1395,77 @@ func TestPreferPositiveRejectsNonAnswer(t *testing.T) {
 	}
 }
 
+func TestAnswersQuestionStrictEligibility(t *testing.T) {
+	chAddress, err := dns.NewRR("cached.org. 60 CH A 192.0.2.20")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name   string
+		qtype  uint16
+		answer []dns.RR
+		want   bool
+	}{
+		{
+			name:   "direct A",
+			qtype:  dns.TypeA,
+			answer: []dns.RR{test.A("cached.org. 60 IN A 192.0.2.10")},
+			want:   true,
+		},
+		{
+			name:   "ANY matching owner",
+			qtype:  dns.TypeANY,
+			answer: []dns.RR{test.A("cached.org. 60 IN A 192.0.2.10")},
+			want:   true,
+		},
+		{
+			name:   "ANY unrelated owner",
+			qtype:  dns.TypeANY,
+			answer: []dns.RR{test.A("unrelated.org. 60 IN A 192.0.2.10")},
+			want:   false,
+		},
+		{
+			name:  "duplicate equivalent CNAME targets",
+			qtype: dns.TypeCNAME,
+			answer: []dns.RR{
+				test.CNAME("cached.org. 60 IN CNAME target.org."),
+				test.CNAME("cached.org. 60 IN CNAME target.org."),
+			},
+			want: true,
+		},
+		{
+			name:  "multiple CNAME targets",
+			qtype: dns.TypeCNAME,
+			answer: []dns.RR{
+				test.CNAME("cached.org. 60 IN CNAME first.org."),
+				test.CNAME("cached.org. 60 IN CNAME second.org."),
+			},
+			want: false,
+		},
+		{
+			name:   "wrong RR class",
+			qtype:  dns.TypeA,
+			answer: []dns.RR{chAddress},
+			want:   false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := new(dns.Msg)
+			req.SetQuestion("cached.org.", tc.qtype)
+			res := new(dns.Msg)
+			res.SetReply(req)
+			res.Answer = tc.answer
+
+			if got := answersQuestion(res); got != tc.want {
+				t.Fatalf("answersQuestion() = %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestPreferPositiveRetainsLKGAcrossNonAnswerSuccessRefreshes(t *testing.T) {
 	c := New()
 	c.staleUpTo = time.Hour
@@ -1539,6 +1610,96 @@ func TestPreferPositiveVerifyKeepsStaleOnNonAnswers(t *testing.T) {
 				t.Fatalf("expected verified %s to be retained in ncache, got %d entries", tc.name, c.ncache.Len())
 			}
 		})
+	}
+}
+
+func TestPreferPositiveVerifyRejectsInvalidFreshAnswers(t *testing.T) {
+	modes := []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{name: "blocking"},
+		{name: "bounded", timeout: time.Second},
+	}
+	invalidResponses := []struct {
+		name  string
+		build func(*dns.Msg) *dns.Msg
+	}{
+		{
+			name: "expired RRSIG",
+			build: func(req *dns.Msg) *dns.Msg {
+				m := new(dns.Msg)
+				m.SetReply(req)
+				m.SetEdns0(4096, true)
+				m.Answer = []dns.RR{
+					test.A("cached.org. 60 IN A 192.0.2.20"),
+					test.RRSIG("cached.org. 60 IN RRSIG A 8 2 60 20160521031301 20160421031301 12051 cached.org. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
+				}
+				return m
+			},
+		},
+		{
+			name: "truncated",
+			build: func(req *dns.Msg) *dns.Msg {
+				m := new(dns.Msg)
+				m.SetReply(req)
+				m.Truncated = true
+				m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.20")}
+				return m
+			},
+		},
+	}
+
+	for _, mode := range modes {
+		for _, invalid := range invalidResponses {
+			t.Run(mode.name+"/"+invalid.name, func(t *testing.T) {
+				c := New()
+				c.staleUpTo = time.Hour
+				c.verifyStale = true
+				c.verifyStaleTimeout = mode.timeout
+				c.preferPositive = true
+
+				now := time.Now().UTC()
+				c.now = func() time.Time { return now }
+				c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+					m := new(dns.Msg)
+					m.SetReply(r)
+					m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.10")}
+					return dns.RcodeSuccess, w.WriteMsg(m)
+				})
+
+				req := new(dns.Msg)
+				req.SetQuestion("cached.org.", dns.TypeA)
+				req.SetEdns0(4096, true)
+				if _, err := c.ServeDNS(context.Background(), &test.ResponseWriter{}, req.Copy()); err != nil {
+					t.Fatal(err)
+				}
+
+				now = now.Add(2 * time.Minute)
+				c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+					return dns.RcodeSuccess, w.WriteMsg(invalid.build(r))
+				})
+
+				rec := dnstest.NewRecorder(&test.ResponseWriter{})
+				ret, err := c.ServeDNS(context.Background(), rec, req.Copy())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if ret != dns.RcodeSuccess || rec.Msg == nil || rec.Msg.Rcode != dns.RcodeSuccess {
+					t.Fatalf("expected stale positive response, got ret=%d msg=%+v", ret, rec.Msg)
+				}
+				if len(rec.Msg.Answer) == 0 {
+					t.Fatal("expected retained stale answer")
+				}
+				a, ok := rec.Msg.Answer[0].(*dns.A)
+				if !ok || a.A.String() != "192.0.2.10" {
+					t.Fatalf("expected retained 192.0.2.10, got %v", rec.Msg.Answer)
+				}
+				if got := a.Hdr.Ttl; got != 0 {
+					t.Fatalf("expected stale TTL 0, got %d", got)
+				}
+			})
+		}
 	}
 }
 

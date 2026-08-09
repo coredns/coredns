@@ -143,30 +143,52 @@ func answersQuestion(m *dns.Msg) bool {
 		return false
 	}
 	q := m.Question[0]
-	return answerHasType(m.Answer, q.Name, q.Qtype)
+	return answerHasType(m.Answer, q.Name, q.Qtype, q.Qclass)
 }
 
-func answerHasType(answer []dns.RR, name string, qtype uint16) bool {
+func answerHasType(answer []dns.RR, name string, qtype, qclass uint16) bool {
 	if len(answer) == 0 {
 		return false
 	}
 	if qtype == dns.TypeANY {
-		return true
-	}
-	if qtype != dns.TypeCNAME {
-		terminal, ok := canonicalName(answer, name)
-		if !ok {
-			return false
+		for _, r := range answer {
+			h := r.Header()
+			if classMatches(h.Class, qclass) && strings.EqualFold(h.Name, name) {
+				return true
+			}
 		}
-		name = terminal
+		return false
 	}
+	if qtype == dns.TypeCNAME {
+		target, ok := uniqueCNAMETarget(answer, name, qclass)
+		return ok && target != ""
+	}
+	terminal, ok := canonicalName(answer, name, qclass)
+	if !ok {
+		return false
+	}
+	name = terminal
 	for _, r := range answer {
 		h := r.Header()
-		if h.Rrtype == qtype && strings.EqualFold(h.Name, name) {
+		if h.Rrtype == qtype && classMatches(h.Class, qclass) && strings.EqualFold(h.Name, name) {
 			return true
 		}
 	}
 	return false
+}
+
+func classMatches(rrClass, qclass uint16) bool {
+	return qclass == dns.ClassANY || rrClass == qclass
+}
+
+// usableAnswer reports whether m is a complete, cache-valid positive response
+// that answers its question. It intentionally permits TTL-zero responses:
+// they are usable for the current client even though they are not retained.
+func usableAnswer(m *dns.Msg, now time.Time) bool {
+	if m == nil || m.Truncated || cacheResponseType(m, now) != response.NoError {
+		return false
+	}
+	return answersQuestion(m)
 }
 
 // isNODATA reports whether a NOERROR response with a non-empty answer section
@@ -184,9 +206,10 @@ func answerHasType(answer []dns.RR, name string, qtype uint16) bool {
 // toward re-querying upstream rather than caching a non-answer. An empty answer
 // section returns false so that legitimate positive responses carrying data
 // outside the answer section (for example the whoami plugin) remain cacheable.
-// ANY queries are excluded because any record answers them. Note: a bare DNAME
-// (RFC 6672) without its synthesized CNAME is treated as NODATA; standard
-// responses include the synthesized CNAME, which the chain walk follows.
+// An ANY query is answered only by a record at the queried owner and in the
+// requested class. Note: a bare DNAME (RFC 6672) without its synthesized CNAME
+// is treated as NODATA; standard responses include the synthesized CNAME, which
+// the chain walk follows.
 func isNODATA(m *dns.Msg) bool {
 	if len(m.Answer) == 0 {
 		return false
@@ -205,7 +228,7 @@ func isNODATA(m *dns.Msg) bool {
 // fail-closed: callers treat a malformed chain as a non-answer. Duplicate CNAME
 // records that name the same target are tolerated, since they still describe a
 // single canonical name.
-func canonicalName(answer []dns.RR, name string) (string, bool) {
+func canonicalName(answer []dns.RR, name string, qclass uint16) (string, bool) {
 	visited := nameSet{}
 	for {
 		if visited.contains(name) {
@@ -214,7 +237,7 @@ func canonicalName(answer []dns.RR, name string) (string, bool) {
 		}
 		visited.add(name)
 
-		target, ok := uniqueCNAMETarget(answer, name)
+		target, ok := uniqueCNAMETarget(answer, name, qclass)
 		if !ok {
 			// Owner has more than one distinct canonical name.
 			return name, false
@@ -232,10 +255,10 @@ func canonicalName(answer []dns.RR, name string) (string, bool) {
 // CNAME target, which violates RFC 2181 section 10.1. When owner has no CNAME the
 // returned target is empty and ok is true, marking a terminal owner. Duplicate
 // CNAME records naming the same target are tolerated.
-func uniqueCNAMETarget(answer []dns.RR, owner string) (target string, ok bool) {
+func uniqueCNAMETarget(answer []dns.RR, owner string, qclass uint16) (target string, ok bool) {
 	for _, r := range answer {
 		c, isCNAME := r.(*dns.CNAME)
-		if !isCNAME || !strings.EqualFold(c.Header().Name, owner) {
+		if !isCNAME || !classMatches(c.Header().Class, qclass) || !strings.EqualFold(c.Header().Name, owner) {
 			continue
 		}
 		if target != "" && !strings.EqualFold(target, c.Target) {
@@ -448,7 +471,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		if w.wildcardFunc != nil {
 			i.wildcard = w.wildcardFunc()
 		}
-		if w.preferPositive && !answersQuestion(m) {
+		if w.preferPositive && !i.answering {
 			if previous, ok := w.pcache.Get(key); ok {
 				i.lastKnownGood = previous.answeringItem(w.state)
 			}
@@ -460,7 +483,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		// A positive refresh is the newest state for this key. Under the
 		// prefer_positive policy, only remove the denial when this response
 		// actually answers the question.
-		if (!w.preferPositive && w.prefetch) || (w.preferPositive && answersQuestion(m)) {
+		if (!w.preferPositive && w.prefetch) || (w.preferPositive && i.answering) {
 			w.ncache.Remove(key)
 		}
 
@@ -521,7 +544,7 @@ func (w *verifyStaleResponseWriter) WriteMsg(res *dns.Msg) error {
 	w.response = nil
 	w.item = nil
 	if w.preferPositive {
-		if w.state.Match(res) && answersQuestion(res) {
+		if w.state.Match(res) && usableAnswer(res, w.now().UTC()) {
 			w.refreshed = true
 			err := w.ResponseWriter.WriteMsg(res)
 			w.response = w.lastResponse

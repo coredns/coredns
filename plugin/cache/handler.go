@@ -199,7 +199,7 @@ func (c *Cache) getIfNotStale(now time.Time, state request.Request, server strin
 			i = i.answeringItem(state)
 			if i != nil {
 				ttl := i.ttl(now)
-				if i.matches(state) && (ttl > 0 || -ttl < int(c.staleUpTo.Seconds())) {
+				if ttl > 0 || -ttl < int(c.staleUpTo.Seconds()) {
 					cacheHits.WithLabelValues(server, Success, c.zonesMetricLabel, c.viewMetricLabel).Inc()
 					return i
 				}

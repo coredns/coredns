@@ -82,7 +82,7 @@ cache [TTL] [ZONES...] {
 * `serve_stale_policy` controls cache selection while `serve_stale` is enabled. The only supported policy is
   `prefer_positive`. It checks the success cache before the denial cache and returns an eligible positive response
   when it actually answers the question, even when a cached NXDOMAIN, NODATA, SERVFAIL, or NOTIMP response also
-  exists. The positive response must be unexpired or within the configured `serve_stale` duration. This policy is
+  exists. The positive response must be unexpired or within the configured `serve_stale` duration.
   The positive response is retained independently when a later NOERROR response does not answer the question (for example, an empty response
   without SOA, a referral, or a response carrying data only in the additional section), so such a refresh cannot
   destroy the last-known-good answer. A usable positive refresh replaces the retained answer.
