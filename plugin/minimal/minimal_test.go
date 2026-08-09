@@ -199,3 +199,32 @@ func TestMinimalZoneTransfer(t *testing.T) {
 		})
 	}
 }
+
+// silentHandler implements plugin.Handler and returns without writing a response, the way
+// acl does when it drops a request.
+type silentHandler struct{}
+
+func (*silentHandler) Name() string { return "silent-handler" }
+
+func (*silentHandler) ServeDNS(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
+	return dns.RcodeSuccess, nil
+}
+
+func TestMinimalNoResponseWritten(t *testing.T) {
+	m := &minimalHandler{Next: &silentHandler{}}
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewMultiRecorder(&test.ResponseWriter{})
+	rcode, err := m.ServeDNS(context.TODO(), rec, req)
+	if err != nil {
+		t.Fatalf("Expected no error, but got %s", err)
+	}
+	if rcode != dns.RcodeSuccess {
+		t.Errorf("Expected rcode %d, but got %d", dns.RcodeSuccess, rcode)
+	}
+	if len(rec.Msgs) != 0 {
+		t.Errorf("Expected no message to be written, but got %d", len(rec.Msgs))
+	}
+}
