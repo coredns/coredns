@@ -558,9 +558,8 @@ func TestCacheInsertion(t *testing.T) {
 
 				// TODO: If we incorporate these individual checks into the
 				//       test.Header function, we can eliminate them from here.
-				// Cache entries are always Authoritative.
-				if resp.Authoritative != true {
-					t.Error("Expected Authoritative Answer bit to be true, but was false")
+				if resp.Authoritative != tc.out.Authoritative {
+					t.Errorf("Expected Authoritative Answer bit to be %t, but got %t", tc.out.Authoritative, resp.Authoritative)
 				}
 				if resp.AuthenticatedData != tc.out.AuthenticatedData {
 					t.Errorf("Expected Authenticated Data bit to be %t, but got %t", tc.out.AuthenticatedData, resp.AuthenticatedData)
