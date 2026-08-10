@@ -118,6 +118,11 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			// Only one DNAME is allowed per name. We just pick the first one to synthesize from.
 			dname := dnamerrs[0]
 			if cname := synthesizeCNAME(state.Name(), dname.(*dns.DNAME)); cname != nil {
+				// A DNAME substitution that does not change the name can only loop.
+				if dns.CanonicalName(cname.Hdr.Name) == dns.CanonicalName(cname.Target) {
+					return nil, nil, nil, ServerFailure
+				}
+
 				var (
 					answer, ns, extra []dns.RR
 					rcode             Result
