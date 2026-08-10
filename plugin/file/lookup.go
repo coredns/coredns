@@ -136,7 +136,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 					rcode = Success
 				} else {
 					ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
-					answer, ns, extra, rcode = z.externalLookup(ctx, state, tr, elem, []dns.RR{cname})
+					answer, ns, extra, rcode = z.externalLookup(ctx, state, ap, tr, elem, []dns.RR{cname})
 				}
 
 				if do {
@@ -168,7 +168,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 	if found && shot {
 		if rrs := elem.Type(dns.TypeCNAME); len(rrs) > 0 && qtype != dns.TypeCNAME {
 			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
-			return z.externalLookup(ctx, state, tr, elem, rrs)
+			return z.externalLookup(ctx, state, ap, tr, elem, rrs)
 		}
 
 		rrs := elem.Type(qtype)
@@ -185,7 +185,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 		// Additional section processing for MX, SRV. Check response and see if any of the names are in bailiwick -
 		// if so add IP addresses to the additional section.
-		additional := z.additionalProcessing(rrs, do)
+		additional := z.additionalProcessing(tr, rrs, do)
 
 		if do {
 			sigs := elem.Type(dns.TypeRRSIG)
@@ -211,7 +211,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 
 		if rrs := wildElem.TypeForWildcard(dns.TypeCNAME, qname); len(rrs) > 0 && qtype != dns.TypeCNAME {
 			ctx = context.WithValue(ctx, dnsserver.LoopKey{}, loop+1)
-			return z.externalLookup(ctx, state, tr, wildElem, rrs)
+			return z.externalLookup(ctx, state, ap, tr, wildElem, rrs)
 		}
 
 		rrs := wildElem.TypeForWildcard(qtype, qname)
@@ -229,7 +229,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 		// Additional section processing for MX, SRV, SVCB, HTTPS. Check response
 		// and see if any of the names are in bailiwick - if so add IP addresses
 		// to the additional section. This mirrors the non-wildcard path above.
-		additional := z.additionalProcessing(rrs, do)
+		additional := z.additionalProcessing(tr, rrs, do)
 
 		auth := ap.ns(do)
 		if do {
@@ -267,7 +267,7 @@ func (z *Zone) Lookup(ctx context.Context, state request.Request, qname string) 
 			goto Out
 		}
 
-		ce, found := z.ClosestEncloser(qname)
+		ce, found := z.closestEncloser(tr, qname)
 
 		// wildcard denial only for NXDOMAIN
 		if found {
@@ -348,18 +348,18 @@ func (a Apex) ns(do bool) []dns.RR {
 // authority returns the records for the authority section of a response with
 // the given result: the SOA for negative answers (NXDOMAIN/NODATA), as
 // required by RFC 2308, and the NS records otherwise.
-func (z *Zone) authority(do bool, result Result) []dns.RR {
+func (a Apex) authority(do bool, result Result) []dns.RR {
 	if result == NameError || result == NoData {
-		return z.soa(do)
+		return a.soa(do)
 	}
-	return z.ns(do)
+	return a.ns(do)
 }
 
 // externalLookup adds signatures and tries to resolve CNAMEs that point to
 // external names. It also runs additional-section processing on the resolved
 // answer so in-bailiwick SRV/MX/SVCB/HTTPS targets get their A/AAAA glue, like
 // the direct path.
-func (z *Zone) externalLookup(ctx context.Context, state request.Request, tr *tree.Tree, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
+func (z *Zone) externalLookup(ctx context.Context, state request.Request, ap Apex, tr *tree.Tree, elem *tree.Elem, rrs []dns.RR) ([]dns.RR, []dns.RR, []dns.RR, Result) {
 	qtype := state.QType()
 	do := state.Do()
 
@@ -377,7 +377,7 @@ func (z *Zone) externalLookup(ctx context.Context, state request.Request, tr *tr
 	if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 		lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 		rrs = append(rrs, lookupRRs...)
-		return rrs, z.authority(do, result), z.additionalProcessing(rrs, do), result
+		return rrs, ap.authority(do, result), z.additionalProcessing(tr, rrs, do), result
 	}
 
 	i := 0
@@ -400,12 +400,12 @@ Redo:
 		if elem == nil || (qtype == dns.TypeNS || qtype == dns.TypeSOA && targetName == z.origin) {
 			lookupRRs, result := z.doLookup(ctx, state, targetName, qtype)
 			rrs = append(rrs, lookupRRs...)
-			return rrs, z.authority(do, result), z.additionalProcessing(rrs, do), result
+			return rrs, ap.authority(do, result), z.additionalProcessing(tr, rrs, do), result
 		}
 
 		i++
 		if i > 8 {
-			return rrs, z.ns(do), z.additionalProcessing(rrs, do), Success
+			return rrs, ap.ns(do), z.additionalProcessing(tr, rrs, do), Success
 		}
 
 		goto Redo
@@ -422,7 +422,7 @@ Redo:
 		}
 	}
 
-	return rrs, z.ns(do), z.additionalProcessing(rrs, do), Success
+	return rrs, ap.ns(do), z.additionalProcessing(tr, rrs, do), Success
 }
 
 // findDelegation returns the first zone cut between the zone apex and qname.
@@ -486,7 +486,7 @@ func (z *Zone) doLookup(ctx context.Context, state request.Request, target strin
 // additionalProcessing checks the current answer section and retrieves A or AAAA records
 // (and possible SIGs) to need to be put in the additional section. A target referenced by
 // more than one record is only resolved once.
-func (z *Zone) additionalProcessing(answer []dns.RR, do bool) (extra []dns.RR) {
+func (z *Zone) additionalProcessing(tr *tree.Tree, answer []dns.RR, do bool) (extra []dns.RR) {
 	var lookup map[string]struct{}
 
 	for _, rr := range answer {
@@ -519,7 +519,7 @@ func (z *Zone) additionalProcessing(answer []dns.RR, do bool) (extra []dns.RR) {
 		}
 		lookup[target] = struct{}{}
 
-		elem, _ := z.Search(name)
+		elem, _ := tr.Search(name)
 		if elem == nil {
 			continue
 		}
