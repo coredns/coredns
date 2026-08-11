@@ -149,6 +149,102 @@ func TestServeStaleFailureRecheckVerify(t *testing.T) {
 	}
 }
 
+func TestServeStaleFailureRecheckRejectsInvalidRefresh(t *testing.T) {
+	modes := []struct {
+		name   string
+		verify bool
+	}{
+		{name: "immediate"},
+		{name: "verify", verify: true},
+	}
+	invalidResponses := []struct {
+		name  string
+		build func(*dns.Msg) *dns.Msg
+	}{
+		{
+			name: "truncated",
+			build: func(req *dns.Msg) *dns.Msg {
+				m := new(dns.Msg)
+				m.SetReply(req)
+				m.Truncated = true
+				m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.20")}
+				return m
+			},
+		},
+		{
+			name: "mismatched question",
+			build: func(req *dns.Msg) *dns.Msg {
+				m := new(dns.Msg)
+				m.SetReply(req)
+				m.Question[0].Name = "other.org."
+				m.Answer = []dns.RR{test.A("other.org. 60 IN A 192.0.2.20")}
+				return m
+			},
+		},
+		{
+			name: "expired RRSIG",
+			build: func(req *dns.Msg) *dns.Msg {
+				m := new(dns.Msg)
+				m.SetReply(req)
+				m.SetEdns0(4096, true)
+				m.Answer = []dns.RR{
+					test.A("cached.org. 60 IN A 192.0.2.20"),
+					test.RRSIG("cached.org. 60 IN RRSIG A 8 2 60 20160521031301 20160421031301 12051 cached.org. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
+				}
+				return m
+			},
+		},
+	}
+
+	for _, mode := range modes {
+		for _, invalid := range invalidResponses {
+			t.Run(mode.name+"/"+invalid.name, func(t *testing.T) {
+				clock := newStaleRecheckClock()
+				c := New()
+				c.now = clock.Now
+				c.minpttl = 0
+				c.staleUpTo = time.Hour
+				c.verifyStale = mode.verify
+				c.staleTTL = 30 * time.Second
+				c.staleRecheck = 30 * time.Second
+				c.Next = ttlBackend(1)
+
+				req := new(dns.Msg)
+				req.SetQuestion("cached.org.", dns.TypeA)
+				req.SetEdns0(4096, true)
+				serveStaleRecheckRequest(t, c, req)
+				item := c.exists("cached.org.", dns.TypeA, dns.ClassINET, true, false)
+				if item == nil {
+					t.Fatal("expected primed cache item")
+				}
+				clock.Set(2 * time.Second)
+
+				var calls atomic.Int32
+				completed := make(chan struct{}, 1)
+				c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, req *dns.Msg) (int, error) {
+					calls.Add(1)
+					err := w.WriteMsg(invalid.build(req))
+					completed <- struct{}{}
+					return dns.RcodeSuccess, err
+				})
+
+				msg := serveStaleRecheckRequest(t, c, req)
+				assertStaleRecheckAddress(t, msg)
+				waitForStaleRefresh(t, completed, item)
+				if retryAfter := item.retryAfter.Load(); retryAfter == nil || !retryAfter.After(clock.Now()) {
+					t.Fatal("invalid refresh did not start the failure recheck interval")
+				}
+
+				msg = serveStaleRecheckRequest(t, c, req)
+				assertStaleRecheckAddress(t, msg)
+				if got := calls.Load(); got != 1 {
+					t.Fatalf("expected invalid refresh to be suppressed during recheck, got %d attempts", got)
+				}
+			})
+		}
+	}
+}
+
 func TestServeStaleFailureRecheckVerifyTimeoutCoalesces(t *testing.T) {
 	clock := newStaleRecheckClock()
 	c := New()
@@ -242,6 +338,20 @@ func serveStaleRecheckRequest(t *testing.T, c *Cache, req *dns.Msg) *dns.Msg {
 		t.Fatal("ServeDNS did not write a response")
 	}
 	return recorder.Msg
+}
+
+func assertStaleRecheckAddress(t *testing.T, msg *dns.Msg) {
+	t.Helper()
+	if msg.Truncated || len(msg.Answer) != 1 {
+		t.Fatalf("expected one complete stale answer, got %#v", msg)
+	}
+	a, ok := msg.Answer[0].(*dns.A)
+	if !ok || a.A.String() != "127.0.0.53" {
+		t.Fatalf("expected stale address 127.0.0.53, got %v", msg.Answer)
+	}
+	if a.Hdr.Ttl != 30 {
+		t.Fatalf("expected stale TTL 30, got %d", a.Hdr.Ttl)
+	}
 }
 
 func waitForStaleRefresh(t *testing.T, completed <-chan struct{}, item *item) {
