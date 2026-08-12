@@ -196,9 +196,9 @@ func (s *ServergRPC) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket
 	w := &gRPCresponse{localAddr: s.listenAddr, remoteAddr: a, Msg: msg}
 
 	if tsig := msg.IsTsig(); tsig != nil {
-		if s.tsigSecret == nil {
+		if s.TsigSecret == nil {
 			w.tsigStatus = dns.ErrSecret
-		} else if secret, ok := s.tsigSecret[tsig.Hdr.Name]; !ok {
+		} else if secret, ok := s.TsigSecret[tsig.Hdr.Name]; !ok {
 			w.tsigStatus = dns.ErrSecret
 		} else {
 			w.tsigStatus = dns.TsigVerify(in.GetMsg(), secret, "", false)

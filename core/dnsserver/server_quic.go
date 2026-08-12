@@ -269,9 +269,9 @@ func (s *ServerQUIC) serveQUICStream(stream *quic.Stream, conn *quic.Conn) {
 	}
 
 	if tsig := req.IsTsig(); tsig != nil {
-		if s.tsigSecret == nil {
+		if s.TsigSecret == nil {
 			w.tsigStatus = dns.ErrSecret
-		} else if secret, ok := s.tsigSecret[tsig.Hdr.Name]; !ok {
+		} else if secret, ok := s.TsigSecret[tsig.Hdr.Name]; !ok {
 			w.tsigStatus = dns.ErrSecret
 		} else {
 			w.tsigStatus = dns.TsigVerify(buf, secret, "", false)
