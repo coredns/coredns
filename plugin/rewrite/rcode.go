@@ -24,6 +24,10 @@ func (r *rcodeResponseRule) RewriteResponse(res *dns.Msg, _rr dns.RR) {
 	}
 }
 
+// rewriteMsg marks rcodeResponseRule as a message-level rule so it is applied
+// even when the response carries no resource records.
+func (r *rcodeResponseRule) rewriteMsg() {}
+
 type rcodeRuleBase struct {
 	nextAction string
 	response   rcodeResponseRule

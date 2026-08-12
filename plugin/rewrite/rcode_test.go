@@ -1,9 +1,11 @@
 package rewrite
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
 
@@ -69,6 +71,34 @@ func TestRCodeRewrite(t *testing.T) {
 	rcRule.response.RewriteResponse(request.Req, rr)
 	if request.Req.Rcode != dns.RcodeFormatError {
 		t.Fatalf("RCode rewrite did not apply changes, request=%#v, err=%v", request.Req, err)
+	}
+}
+
+// TestRCodeRewriteEmptyResponse drives an rcode rewrite end-to-end through
+// ServeDNS for a response that carries no resource records, such as a bare
+// SERVFAIL from a downstream plugin. Rewriting SERVFAIL to NOERROR is the
+// plugin's documented use case (see README.md), and a non-EDNS client's failure
+// reply has no answer, authority or additional records, so the rewrite must be
+// applied at the message level rather than only per record.
+func TestRCodeRewriteEmptyResponse(t *testing.T) {
+	rule, err := newRCodeRule("stop", "exact", "srv1.coredns.rocks", "SERVFAIL", "NOERROR")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Downstream plugin fails without writing a response of its own.
+	next := plugin.HandlerFunc(func(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
+		return dns.RcodeServerFailure, nil
+	})
+	req := new(dns.Msg)
+	req.SetQuestion("srv1.coredns.rocks.", dns.TypeA) // no EDNS OPT record
+
+	resp := serveEdns0Rewrite(t, rule, next, req)
+	if resp == nil {
+		t.Fatal("no response was written to the client")
+	}
+	if resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected RCODE rewritten to NOERROR (%d), got %s (%d)",
+			dns.RcodeSuccess, dns.RcodeToString[resp.Rcode], resp.Rcode)
 	}
 }
 

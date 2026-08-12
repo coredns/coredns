@@ -49,6 +49,14 @@ type requestExtraRevertRule interface {
 	revertRequestExtra()
 }
 
+// msgResponseRule is a ResponseRule that rewrites message-level fields, which
+// are independent of any resource record (for example the RCODE). Such a rule
+// must still be applied when the response carries no records.
+type msgResponseRule interface {
+	ResponseRule
+	rewriteMsg()
+}
+
 // ResponseRules describes an ordered list of response rules to apply
 // after a name rewrite
 type ResponseRules = []ResponseRule
@@ -95,6 +103,13 @@ func (r *ResponseReverter) WriteMsg(res1 *dns.Msg) error {
 		}
 		for _, rr := range res.Extra {
 			r.rewriteResourceRecord(res, rr)
+		}
+		// Message-level response rules (e.g. rcode) rewrite header fields that
+		// are independent of any resource record. The per-record loops above
+		// never run them when the response carries no records (e.g. a bare
+		// SERVFAIL from a downstream plugin), so apply them once here.
+		if len(res.Ns) == 0 && len(res.Answer) == 0 && len(res.Extra) == 0 {
+			r.rewriteMsg(res)
 		}
 	}
 	return r.writeWithRevertedRequestExtra(res)
@@ -143,6 +158,19 @@ func (r *ResponseReverter) rewriteResourceRecord(res *dns.Msg, rr dns.RR) {
 	// The reverting rules need to be done in reversed order.
 	for i := len(r.ResponseRules) - 1; i >= 0; i-- {
 		r.ResponseRules[i].RewriteResponse(res, rr)
+	}
+}
+
+// rewriteMsg applies the message-level response rules once, in reversed order.
+// It is used for responses that carry no resource records, where the per-record
+// loops in WriteMsg would otherwise never apply them.
+func (r *ResponseReverter) rewriteMsg(res *dns.Msg) {
+	// The reverting rules need to be done in reversed order.
+	for i := len(r.ResponseRules) - 1; i >= 0; i-- {
+		if _, ok := r.ResponseRules[i].(msgResponseRule); !ok {
+			continue
+		}
+		r.ResponseRules[i].RewriteResponse(res, nil)
 	}
 }
 
