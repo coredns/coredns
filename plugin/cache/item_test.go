@@ -53,3 +53,30 @@ func TestCacheDoesNotSynthesizeAA(t *testing.T) {
 		t.Errorf("cache hit: expected AA=0, the cached answer was not authoritative, got AA=1")
 	}
 }
+
+// TestCachePreservesAA is the AA=1 counterpart of
+// TestCacheDoesNotSynthesizeAA: an answer that *was* authoritative must still
+// be authoritative when it is replayed from cache. Without it the AA=0 test
+// alone would also pass if toMsg hardcoded AA to 0, silently breaking answers
+// from file, hosts and secondary.
+func TestCachePreservesAA(t *testing.T) {
+	c := New()
+	c.Next = authoritativeBackend()
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	// Miss: the authoritative answer is passed through.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(context.TODO(), rec, req)
+	if !rec.Msg.Authoritative {
+		t.Fatalf("cache miss: expected AA=1 from an authoritative backend, got AA=0")
+	}
+
+	// Hit: rebuilt from the cached item, AA must survive the round trip.
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(context.TODO(), rec, req)
+	if !rec.Msg.Authoritative {
+		t.Errorf("cache hit: expected AA=1, the cached answer was authoritative, got AA=0")
+	}
+}

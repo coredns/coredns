@@ -1115,6 +1115,21 @@ func BackendHandler() plugin.Handler {
 	})
 }
 
+func authoritativeBackend() plugin.Handler {
+	return plugin.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response = true
+		m.Authoritative = true
+
+		owner := m.Question[0].Name
+		m.Answer = []dns.RR{test.A(owner + " 303 IN A 127.0.0.53")}
+
+		w.WriteMsg(m)
+		return dns.RcodeSuccess, nil
+	})
+}
+
 func nxDomainBackend(ttl int) plugin.Handler {
 	return plugin.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		m := new(dns.Msg)
