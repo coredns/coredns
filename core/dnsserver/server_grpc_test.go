@@ -516,7 +516,7 @@ func TestServergRPC_Query_TSIGBadSigSetsTsigStatus(t *testing.T) {
 		t.Fatalf("NewServergRPC() failed: %v", err)
 	}
 
-	server.tsigSecret = map[string]string{
+	server.TsigSecret = map[string]string{
 		keyName: serverSecret,
 	}
 
@@ -563,7 +563,7 @@ func TestServergRPC_Query_TSIGBadTimeSetsTsigStatus(t *testing.T) {
 		t.Fatalf("NewServergRPC() failed: %v", err)
 	}
 
-	server.tsigSecret = map[string]string{
+	server.TsigSecret = map[string]string{
 		keyName: secret,
 	}
 
@@ -610,7 +610,7 @@ func TestServergRPC_Query_TSIGValidLeavesTsigStatusNil(t *testing.T) {
 		t.Fatalf("NewServergRPC() failed: %v", err)
 	}
 
-	server.tsigSecret = map[string]string{
+	server.TsigSecret = map[string]string{
 		keyName: secret,
 	}
 

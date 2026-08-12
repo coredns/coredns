@@ -75,11 +75,12 @@ import (
 // the same address and the listener may be stopped for
 // graceful termination (POSIX only).
 type Server struct {
-	Addr          string        // Address we listen on
-	IdleTimeout   time.Duration // Idle timeout for connection-oriented transports
-	ReadTimeout   time.Duration // Read timeout for connection-oriented transports
-	WriteTimeout  time.Duration // Write timeout for connection-oriented transports that support it
-	MaxTCPQueries int           // Maximum number of queries served on a single TCP/TLS connection. -1 means unlimited.
+	Addr          string            // Address we listen on
+	IdleTimeout   time.Duration     // Idle timeout for connection-oriented transports
+	ReadTimeout   time.Duration     // Read timeout for connection-oriented transports
+	WriteTimeout  time.Duration     // Write timeout for connection-oriented transports that support it
+	MaxTCPQueries int               // Maximum number of queries served on a single TCP/TLS connection. -1 means unlimited.
+	TsigSecret    map[string]string // TSIG secrets of all served zones; must not be modified as it's concurrently accessed by DNS server.
 
 	connPolicy                    proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
 	udpSessionTrackingTTL         time.Duration             // TTL for UDP PPv2 session tracking (0 = disabled)
@@ -95,7 +96,6 @@ type Server struct {
 	stacktrace   bool                 // enable stacktrace in recover error log
 	classChaos   bool                 // allow non-INET class queries
 
-	tsigSecret     map[string]string
 	allowedOpcodes map[int]struct{}
 
 	// udpDecorateWriterFunc is selected in NewServer from the group configs in
@@ -124,7 +124,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		ReadTimeout:    3 * time.Second,
 		WriteTimeout:   5 * time.Second,
 		MaxTCPQueries:  tcpMaxQueries,
-		tsigSecret:     make(map[string]string),
+		TsigSecret:     make(map[string]string),
 		allowedOpcodes: make(map[int]struct{}),
 	}
 
@@ -153,7 +153,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		}
 
 		// copy tsig secrets
-		maps.Copy(s.tsigSecret, site.TsigSecret)
+		maps.Copy(s.TsigSecret, site.TsigSecret)
 		maps.Copy(s.allowedOpcodes, site.allowedOpcodes)
 
 		// compile custom plugin for everything
@@ -215,7 +215,7 @@ func (s *Server) Serve(l net.Listener) error {
 
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp",
-		TsigSecret:    s.tsigSecret,
+		TsigSecret:    s.TsigSecret,
 		MsgAcceptFunc: s.msgAcceptFunc(),
 		MaxTCPQueries: s.MaxTCPQueries,
 		ReadTimeout:   s.ReadTimeout,
@@ -247,7 +247,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	}), TsigSecret: s.tsigSecret, MsgAcceptFunc: s.msgAcceptFunc(), DecorateWriter: dw}
+	}), TsigSecret: s.TsigSecret, MsgAcceptFunc: s.msgAcceptFunc(), DecorateWriter: dw}
 	s.m.Unlock()
 
 	return s.server[udp].ActivateAndServe()
