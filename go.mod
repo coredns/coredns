@@ -39,8 +39,8 @@ require (
 	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/crypto v0.54.0
 	golang.org/x/sys v0.47.0
-	google.golang.org/api v0.291.0
-	google.golang.org/grpc v1.82.1
+	google.golang.org/api v0.292.0
+	google.golang.org/grpc v1.83.0
 	google.golang.org/protobuf v1.36.11
 	k8s.io/api v0.35.4
 	k8s.io/apimachinery v0.35.4
@@ -209,7 +209,7 @@ require (
 	golang.org/x/tools v0.47.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260630182238-925bb5da69e7 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260724162435-b2f20204f0df // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.1 // indirect
