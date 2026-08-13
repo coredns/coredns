@@ -1,4 +1,15 @@
-// Package dnsserver implements all the interfaces from Caddy, so that CoreDNS can be a servertype plugin.
+// Package dnsserver implements CoreDNS as a Caddy server type.
+//
+// Importing this package registers the "dns" server type with Caddy. Programs
+// embedding CoreDNS can import only the plugins they need, set Directives before
+// starting a server, and pass an in-memory Corefile to [caddy.Start]. They should
+// not call coremain.Run, which provides the command-line program behavior such
+// as flag parsing, signal handling, and blocking until shutdown.
+// Before stopping an embedded instance, run its shutdown callbacks so that
+// plugins can release resources.
+//
+// Directives and Caddy's plugin registry are process-wide. Configure them
+// before starting any servers and do not mutate them while servers are running.
 package dnsserver
 
 import (
