@@ -28,7 +28,8 @@ func TestCacheADBitNotPartitioned(t *testing.T) {
 	// The upstream answer is authenticated, so the +ad query must receive AD=1.
 	t.Run("noad_then_ad", func(t *testing.T) {
 		c := New()
-		c.Next = dnssecHandler() // sets AuthenticatedData=true on the reply
+		h := &adBitHandler{}
+		c.Next = h
 
 		// First query: AD not requested, DO not set -> miss, populates cache.
 		noad := new(dns.Msg)
@@ -38,6 +39,9 @@ func TestCacheADBitNotPartitioned(t *testing.T) {
 		if rec.Msg.AuthenticatedData {
 			t.Errorf("first query did not request AD, expected AuthenticatedData=false, got true")
 		}
+		if c.pcache.Len() != 1 {
+			t.Fatalf("expected first query to populate one cache entry, got %d", c.pcache.Len())
+		}
 
 		// Second query: AD requested, DO not set -> hit on the same key.
 		// Must reflect the authenticated answer with AD=1.
@@ -46,6 +50,9 @@ func TestCacheADBitNotPartitioned(t *testing.T) {
 		ad.AuthenticatedData = true
 		rec = dnstest.NewRecorder(&test.ResponseWriter{})
 		c.ServeDNS(context.TODO(), rec, ad)
+		if h.calls != 1 {
+			t.Fatalf("expected second query to be served from cache, backend calls=%d", h.calls)
+		}
 		if !rec.Msg.AuthenticatedData {
 			t.Errorf("second query requested AD on an authenticated cached answer, expected AuthenticatedData=true, got false")
 		}
@@ -55,7 +62,8 @@ func TestCacheADBitNotPartitioned(t *testing.T) {
 	// pin it so a fix for the forward case never breaks it.
 	t.Run("ad_then_noad", func(t *testing.T) {
 		c := New()
-		c.Next = dnssecHandler()
+		h := &adBitHandler{}
+		c.Next = h
 
 		// First query: AD requested -> AD=1 expected.
 		ad := new(dns.Msg)
@@ -66,14 +74,37 @@ func TestCacheADBitNotPartitioned(t *testing.T) {
 		if !rec.Msg.AuthenticatedData {
 			t.Errorf("first query requested AD on an authenticated answer, expected AuthenticatedData=true, got false")
 		}
+		if c.pcache.Len() != 1 {
+			t.Fatalf("expected first query to populate one cache entry, got %d", c.pcache.Len())
+		}
 
 		// Second query: AD not requested -> AD must be cleared for this client.
 		noad := new(dns.Msg)
 		noad.SetQuestion("invent.example.org.", dns.TypeA)
 		rec = dnstest.NewRecorder(&test.ResponseWriter{})
 		c.ServeDNS(context.TODO(), rec, noad)
+		if h.calls != 1 {
+			t.Fatalf("expected second query to be served from cache, backend calls=%d", h.calls)
+		}
 		if rec.Msg.AuthenticatedData {
 			t.Errorf("second query did not request AD, expected AuthenticatedData=false, got true")
 		}
 	})
+}
+
+type adBitHandler struct {
+	calls int
+}
+
+func (h *adBitHandler) Name() string { return "adBitHandler" }
+
+func (h *adBitHandler) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	h.calls++
+
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.AuthenticatedData = true
+	m.Answer = []dns.RR{test.A("invent.example.org. 60 IN A 192.0.2.1")}
+	w.WriteMsg(m)
+	return dns.RcodeSuccess, nil
 }
