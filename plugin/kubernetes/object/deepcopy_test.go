@@ -1,6 +1,8 @@
 package object
 
 import (
+	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -8,6 +10,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 )
+
+func ptrTo[T any](v T) *T { return &v }
+
+// dump renders an object for a failure message. %+v prints an aliased pointer field as
+// an address, which hides the value that actually differs, so render as JSON instead.
+func dump(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%+v", v)
+	}
+	return string(b)
+}
 
 // deepCopyCases holds one fully populated value of every type in this package that
 // implements runtime.Object. Every exported field must be set to a non-zero value:
@@ -59,8 +73,12 @@ func deepCopyCases() []struct {
 			ClusterIPs:   []string{"10.0.0.1"},
 			Type:         api.ServiceTypeClusterIP,
 			ExternalName: "coredns.io",
-			Ports:        []api.ServicePort{{Name: "http", Protocol: api.ProtocolTCP, Port: 80}},
-			ExternalIPs:  []string{"1.2.3.4"},
+			Ports: []api.ServicePort{{
+				Name: "http", Protocol: api.ProtocolTCP, Port: 80,
+				// A pointer field, so a slice copy alone leaves it shared.
+				AppProtocol: ptrTo("kubernetes.io/h2c"),
+			}},
+			ExternalIPs: []string{"1.2.3.4"},
 		}},
 		{"ServiceImport", &ServiceImport{
 			Version:    "1",
@@ -69,7 +87,10 @@ func deepCopyCases() []struct {
 			Index:      ServiceImportKey("svc1", "testns"),
 			ClusterIPs: []string{"10.0.0.1"},
 			Type:       mcs.ClusterSetIP,
-			Ports:      []mcs.ServicePort{{Name: "http", Protocol: api.ProtocolTCP, Port: 80}},
+			Ports: []mcs.ServicePort{{
+				Name: "http", Protocol: api.ProtocolTCP, Port: 80,
+				AppProtocol: ptrTo("kubernetes.io/h2c"),
+			}},
 		}},
 		{"Namespace", &Namespace{Version: "1", Name: "testns"}},
 	}
@@ -99,45 +120,76 @@ func TestDeepCopyObjectCopiesEveryField(t *testing.T) {
 
 			got := tc.obj.DeepCopyObject()
 			if !reflect.DeepEqual(tc.obj, got) {
-				t.Errorf("DeepCopyObject() dropped or altered a field\n got: %+v\nwant: %+v", got, tc.obj)
+				t.Errorf("DeepCopyObject() dropped or altered a field\n got: %s\nwant: %s", dump(got), dump(tc.obj))
 			}
 		})
 	}
 }
 
-// TestDeepCopyObjectIsDeep checks the copy does not alias the original, so mutating
-// one cannot be observed through the other.
-func TestDeepCopyObjectIsDeep(t *testing.T) {
-	pod := &Pod{
-		Version:   "1",
-		PodIP:     "10.244.0.1",
-		Name:      "pod1",
-		Namespace: "testns",
-		Labels:    map[string]string{"app": "nginx"},
+// mutateEverything changes every value in v that is reachable through a pointer,
+// slice, or map. Anything the copy still shares with the original then shows up as a
+// change to the copy. Values reached only by value are changed too; that is harmless,
+// because the caller inspects the copy rather than the original.
+func mutateEverything(v reflect.Value) {
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		if !v.IsNil() {
+			mutateEverything(v.Elem())
+		}
+	case reflect.Slice, reflect.Array:
+		for i := range v.Len() {
+			mutateEverything(v.Index(i))
+		}
+	case reflect.Map:
+		for _, k := range v.MapKeys() {
+			// Map values are not addressable, so mutate a copy and write it back.
+			e := reflect.New(v.Type().Elem()).Elem()
+			e.Set(v.MapIndex(k))
+			mutateEverything(e)
+			v.SetMapIndex(k, e)
+		}
+	case reflect.Struct:
+		for i := range v.NumField() {
+			if v.Type().Field(i).IsExported() {
+				mutateEverything(v.Field(i))
+			}
+		}
+	case reflect.String:
+		if v.CanSet() {
+			v.SetString(v.String() + "-mutated")
+		}
+	case reflect.Bool:
+		if v.CanSet() {
+			v.SetBool(!v.Bool())
+		}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if v.CanSet() {
+			v.SetInt(v.Int() + 1)
+		}
 	}
-	cp := pod.DeepCopyObject().(*Pod)
-	pod.Labels["app"] = "changed"
-	pod.Labels["added"] = "yes"
-	if cp.Labels["app"] != "nginx" {
-		t.Errorf("copy aliases the original label map: got %q, want %q", cp.Labels["app"], "nginx")
-	}
-	if _, ok := cp.Labels["added"]; ok {
-		t.Error("copy aliases the original label map: a key added afterwards is visible in the copy")
-	}
+}
 
-	eps := &Endpoints{
-		Version: "1", Name: "s", Namespace: "n", Index: "i",
-		IndexIP: []string{"1.2.3.4"},
-		Subsets: []EndpointSubset{{
-			Addresses: []EndpointAddress{{IP: "1.2.3.4"}},
-			Ports:     []EndpointPort{{Port: 80}},
-		}},
-	}
-	epsCopy := eps.DeepCopyObject().(*Endpoints)
-	eps.IndexIP[0] = "5.6.7.8"
-	eps.Subsets[0].Addresses[0].IP = "5.6.7.8"
-	if epsCopy.IndexIP[0] != "1.2.3.4" || epsCopy.Subsets[0].Addresses[0].IP != "1.2.3.4" {
-		t.Error("Endpoints copy aliases the original")
+// TestDeepCopyObjectIsDeep checks that a copy shares nothing with the original: after
+// mutating every reference-reachable value in the original, the copy must still equal
+// a pristine fixture. Driving this off deepCopyCases keeps the guarantee package-wide,
+// so a type that gains a pointer, slice, or map field is covered here as soon as
+// assertAllFieldsSet forces the fixture to populate it.
+func TestDeepCopyObjectIsDeep(t *testing.T) {
+	for i, tc := range deepCopyCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			// Rebuild per subtest: the fixtures deliberately share backing arrays
+			// (MultiClusterEndpoints is built from the same Endpoints value), so
+			// mutating one case would otherwise corrupt another.
+			obj := deepCopyCases()[i].obj
+			pristine := deepCopyCases()[i].obj
+
+			cp := obj.DeepCopyObject()
+			mutateEverything(reflect.ValueOf(obj))
+
+			if !reflect.DeepEqual(cp, pristine) {
+				t.Errorf("mutating the original was visible through the copy, so DeepCopyObject aliases it\n got: %s\nwant: %s", dump(cp), dump(pristine))
+			}
+		})
 	}
 }
 
