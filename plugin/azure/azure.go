@@ -319,9 +319,14 @@ func (h *Azure) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	m.Authoritative = true
 	var result file.Result
 	for _, z := range zones {
+		// Only the zone pointer itself needs to be guarded against a
+		// concurrent swap in updateZones; Lookup can run unlocked since it
+		// may block for a while resolving external names via upstream.
 		h.zMu.RLock()
-		m.Answer, m.Ns, m.Extra, result = z.z.Lookup(ctx, state, qname)
+		zz := z.z
 		h.zMu.RUnlock()
+
+		m.Answer, m.Ns, m.Extra, result = zz.Lookup(ctx, state, qname)
 
 		// record type exists for this name (NODATA).
 		if len(m.Answer) != 0 || result == file.NoData {
