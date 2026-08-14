@@ -7,9 +7,11 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/coredns/coredns/plugin/metrics"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/miekg/dns"
 )
@@ -593,7 +595,9 @@ func TestDoSIITNegativeResponse(t *testing.T) {
 	origResponse.Rcode = dns.RcodeSuccess // the client's original A answer
 
 	aaaaFailure := new(dns.Msg)
-	aaaaFailure.Rcode = dns.RcodeServerFailure // upstream AAAA lookup SERVFAILs
+	aaaaFailure.SetQuestion("example.org.", dns.TypeAAAA) // internal AAAA question
+	aaaaFailure.Rcode = dns.RcodeServerFailure            // upstream AAAA lookup SERVFAILs
+	aaaaFailure.RecursionAvailable = true
 
 	d := &SIIT{
 		Upstream: &fakeUpstream{
@@ -605,17 +609,30 @@ func TestDoSIITNegativeResponse(t *testing.T) {
 
 	r := new(dns.Msg)
 	r.SetQuestion("example.org.", dns.TypeA)
+	r.Id = 42
 	w := &test.ResponseWriter{}
 
-	out, err := d.DoSIIT(context.Background(), w, r, origResponse)
+	out, synthesized, err := d.DoSIIT(context.Background(), w, r, origResponse)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if out != aaaaFailure {
-		t.Errorf("expected DoSIIT to pass the lookup response, got a different message")
+	if synthesized {
+		t.Errorf("expected synthesized=false, no A record was actually produced")
+	}
+	if out == aaaaFailure {
+		t.Fatalf("expected DoSIIT to build a new response addressed to the client, not return the internal AAAA lookup response as-is")
 	}
 	if out.Rcode != aaaaFailure.Rcode {
-		t.Errorf("expected Rcode %v from lookup, got %v", aaaaFailure.Rcode, out.Rcode)
+		t.Errorf("expected Rcode %v to be carried over from the lookup, got %v", aaaaFailure.Rcode, out.Rcode)
+	}
+	if out.Id != r.Id {
+		t.Errorf("expected response ID %v to match the client's request, got %v", r.Id, out.Id)
+	}
+	if len(out.Question) != 1 || out.Question[0].Qtype != dns.TypeA || out.Question[0].Name != "example.org." {
+		t.Fatalf("expected the original A question to be preserved in the response, got %+v", out.Question)
+	}
+	if !out.RecursionAvailable {
+		t.Errorf("expected RecursionAvailable to be carried over from the lookup response")
 	}
 }
 
@@ -624,8 +641,13 @@ func TestDoSIITNXDOMAIN(t *testing.T) {
 	origResponse.SetQuestion("example.org.", dns.TypeA)
 	origResponse.Rcode = dns.RcodeSuccess
 
+	soa := test.SOA("example.org. 3600 IN SOA foo bar 1 7200 900 1209600 86400")
+
 	aaaaNX := new(dns.Msg)
+	aaaaNX.SetQuestion("example.org.", dns.TypeAAAA)
 	aaaaNX.Rcode = dns.RcodeNameError
+	aaaaNX.Authoritative = true
+	aaaaNX.Ns = []dns.RR{soa}
 
 	d := &SIIT{
 		Upstream: &fakeUpstream{
@@ -637,17 +659,357 @@ func TestDoSIITNXDOMAIN(t *testing.T) {
 
 	r := new(dns.Msg)
 	r.SetQuestion("example.org.", dns.TypeA)
+	r.Id = 43
 	w := &test.ResponseWriter{}
 
-	out, err := d.DoSIIT(context.Background(), w, r, origResponse)
+	out, synthesized, err := d.DoSIIT(context.Background(), w, r, origResponse)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if out != aaaaNX {
-		t.Errorf("expected DoSIIT to pass the lookup response, got a different message")
+	if synthesized {
+		t.Errorf("expected synthesized=false, no A record was actually produced")
+	}
+	if out == aaaaNX {
+		t.Fatalf("expected DoSIIT to build a new response addressed to the client, not return the internal AAAA lookup response as-is")
 	}
 	if out.Rcode != aaaaNX.Rcode {
 		t.Errorf("expected Rcode %v from lookup, got %v", aaaaNX.Rcode, out.Rcode)
+	}
+	if out.Id != r.Id {
+		t.Errorf("expected response ID %v to match the client's request, got %v", r.Id, out.Id)
+	}
+	if len(out.Question) != 1 || out.Question[0].Qtype != dns.TypeA || out.Question[0].Name != "example.org." {
+		t.Fatalf("expected the original A question to be preserved in the response, got %+v", out.Question)
+	}
+	if !out.Authoritative {
+		t.Errorf("expected Authoritative to be carried over from the lookup response")
+	}
+	if !reflect.DeepEqual(out.Ns, aaaaNX.Ns) {
+		t.Errorf("expected authority section (SOA) to be carried over, got %+v", out.Ns)
+	}
+}
+
+// TestDoSIITNilResponse covers Upstream.Lookup returning (nil, nil): DoSIIT
+// must surface this as an error rather than pass a nil message on to a
+// caller that will dereference it.
+func TestDoSIITNilResponse(t *testing.T) {
+	origResponse := new(dns.Msg)
+	origResponse.SetQuestion("example.org.", dns.TypeA)
+	origResponse.Rcode = dns.RcodeSuccess
+
+	d := &SIIT{
+		Upstream: &fakeUpstream{
+			t:     t,
+			qname: "example.org.",
+			resp:  nil, // simulate a well-behaved Upstream returning (nil, nil)
+		},
+	}
+
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+	w := &test.ResponseWriter{}
+
+	out, synthesized, err := d.DoSIIT(context.Background(), w, r, origResponse)
+	if err == nil {
+		t.Fatal("expected an error for a nil upstream response, got nil")
+	}
+	if synthesized {
+		t.Errorf("expected synthesized=false, no A record was actually produced")
+	}
+	if out != nil {
+		t.Errorf("expected a nil message alongside the error, got %+v", out)
+	}
+}
+
+func TestServeDNSUpstreamSERVFAIL(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+
+	initResp := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Id:               42,
+			Opcode:           dns.OpcodeQuery,
+			RecursionDesired: true,
+			Rcode:            dns.RcodeSuccess,
+			Response:         true,
+		},
+		Question: []dns.Question{{Name: "example.org.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+	}
+
+	aaaaFailure := new(dns.Msg)
+	aaaaFailure.SetQuestion("example.org.", dns.TypeAAAA)
+	aaaaFailure.Rcode = dns.RcodeServerFailure
+	aaaaFailure.RecursionAvailable = true
+
+	d := &SIIT{
+		Next:       &fakeHandler{t, initResp},
+		IPv6Prefix: prefix,
+		Upstream: &fakeUpstream{
+			t:     t,
+			qname: "example.org.",
+			resp:  aaaaFailure,
+		},
+	}
+
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+	r.Id = 42
+	r.RecursionDesired = true
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+	rc, err := d.ServeDNS(context.Background(), rec, r)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rc != dns.RcodeServerFailure {
+		t.Fatalf("expected SERVFAIL rcode, got %v", rc)
+	}
+	if rec.Msg == nil {
+		t.Fatal("expected a response to be written")
+	}
+	if rec.Msg.Id != r.Id {
+		t.Errorf("expected response ID %v to match the client's request, got %v", r.Id, rec.Msg.Id)
+	}
+	if len(rec.Msg.Question) != 1 || rec.Msg.Question[0].Qtype != dns.TypeA || rec.Msg.Question[0].Name != "example.org." {
+		t.Fatalf("expected the original A question to be preserved in the response, got %+v", rec.Msg.Question)
+	}
+	if !rec.Msg.RecursionAvailable {
+		t.Errorf("expected RecursionAvailable to be carried over from the internal AAAA lookup")
+	}
+}
+
+func TestServeDNSUpstreamNXDOMAIN(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+
+	initResp := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Id:               7,
+			Opcode:           dns.OpcodeQuery,
+			RecursionDesired: true,
+			Rcode:            dns.RcodeSuccess,
+			Response:         true,
+		},
+		Question: []dns.Question{{Name: "example.org.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+	}
+
+	soa := test.SOA("example.org. 3600 IN SOA foo bar 1 7200 900 1209600 86400")
+	aaaaNX := new(dns.Msg)
+	aaaaNX.SetQuestion("example.org.", dns.TypeAAAA)
+	aaaaNX.Rcode = dns.RcodeNameError
+	aaaaNX.Authoritative = true
+	aaaaNX.Ns = []dns.RR{soa}
+
+	d := &SIIT{
+		Next:       &fakeHandler{t, initResp},
+		IPv6Prefix: prefix,
+		Upstream: &fakeUpstream{
+			t:     t,
+			qname: "example.org.",
+			resp:  aaaaNX,
+		},
+	}
+
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+	r.Id = 7
+	r.RecursionDesired = true
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+	rc, err := d.ServeDNS(context.Background(), rec, r)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rc != dns.RcodeNameError {
+		t.Fatalf("expected NXDOMAIN rcode, got %v", rc)
+	}
+	if len(rec.Msg.Question) != 1 || rec.Msg.Question[0].Qtype != dns.TypeA {
+		t.Fatalf("expected the original A question to be preserved, got %+v", rec.Msg.Question)
+	}
+	if !rec.Msg.Authoritative {
+		t.Errorf("expected Authoritative to be carried over from the internal AAAA lookup")
+	}
+	if !reflect.DeepEqual(rec.Msg.Ns, aaaaNX.Ns) {
+		t.Errorf("expected authority (SOA) to be carried over, got %+v", rec.Msg.Ns)
+	}
+}
+
+func TestServeDNSUpstreamNilResponse(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+
+	initResp := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Id:               99,
+			Opcode:           dns.OpcodeQuery,
+			RecursionDesired: true,
+			Rcode:            dns.RcodeSuccess,
+			Response:         true,
+		},
+		Question: []dns.Question{{Name: "example.org.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+	}
+
+	d := &SIIT{
+		Next:       &fakeHandler{t, initResp},
+		IPv6Prefix: prefix,
+		Upstream: &fakeUpstream{
+			t:     t,
+			qname: "example.org.",
+			resp:  nil, // simulate a well-behaved Upstream returning (nil, nil)
+		},
+	}
+
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+	r.Id = 99
+	r.RecursionDesired = true
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+	rc, err := d.ServeDNS(context.Background(), rec, r)
+	if err == nil {
+		t.Fatal("expected an error from ServeDNS for a nil upstream response")
+	}
+	if rc != dns.RcodeServerFailure {
+		t.Fatalf("expected SERVFAIL rcode, got %v", rc)
+	}
+}
+
+// TestSynthesizePreservesAuthoritativeAndRecursive verifies RFC 6147 §5.4:
+// the synthesized response's AA/RA flags must reflect the secondary AAAA
+// response (where the data actually came from), not be unconditionally
+// cleared by SetReply.
+func TestSynthesizePreservesAuthoritativeAndRecursive(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+
+	cases := []struct {
+		name          string
+		authoritative bool
+		recursive     bool
+	}{
+		{"authoritative only", true, false},
+		{"recursive only", false, true},
+		{"both", true, true},
+		{"neither", false, false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := &SIIT{IPv6Prefix: prefix}
+
+			origReq := new(dns.Msg)
+			origReq.SetQuestion("example.org.", dns.TypeA)
+			origReq.Id = 55
+
+			origResponse := new(dns.Msg)
+			origResponse.SetReply(origReq)
+
+			resp := new(dns.Msg)
+			resp.SetQuestion("example.org.", dns.TypeAAAA)
+			resp.Rcode = dns.RcodeSuccess
+			resp.Authoritative = tc.authoritative
+			resp.RecursionAvailable = tc.recursive
+			resp.AuthenticatedData = true // must NOT survive synthesis
+			resp.Answer = []dns.RR{
+				test.AAAA("example.org. 60 IN AAAA 64:ff9b::192.0.2.1"),
+			}
+
+			out, _ := d.Synthesize(origReq, origResponse, resp)
+
+			if out.Authoritative != tc.authoritative {
+				t.Errorf("Authoritative: expected %v, got %v", tc.authoritative, out.Authoritative)
+			}
+			if out.RecursionAvailable != tc.recursive {
+				t.Errorf("RecursionAvailable: expected %v, got %v", tc.recursive, out.RecursionAvailable)
+			}
+			if out.AuthenticatedData {
+				t.Errorf("expected AuthenticatedData to be cleared on a synthesized response, got true")
+			}
+			if out.Id != origReq.Id {
+				t.Errorf("expected ID %v to be preserved from the original request, got %v", origReq.Id, out.Id)
+			}
+			if len(out.Question) != 1 || out.Question[0].Qtype != dns.TypeA {
+				t.Fatalf("expected original A question to be preserved, got %+v", out.Question)
+			}
+		})
+	}
+}
+
+// TestServeDNSMetricCounting verifies RequestsTranslatedCount is
+// incremented exactly when a synthetic A record was actually produced, and
+// left untouched for the secondary-failure and unmapped-only cases that
+// previously overcounted.
+func TestServeDNSMetricCounting(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+
+	emptyAResp := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Id: 1, Opcode: dns.OpcodeQuery, RecursionDesired: true,
+			Rcode: dns.RcodeSuccess, Response: true,
+		},
+		Question: []dns.Question{{Name: "example.org.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+	}
+
+	cases := []struct {
+		name         string
+		aaaaResp     *dns.Msg
+		wantIncrease float64
+	}{
+		{
+			name: "successful synthesis increments",
+			aaaaResp: func() *dns.Msg {
+				m := new(dns.Msg)
+				m.SetQuestion("example.org.", dns.TypeAAAA)
+				m.Rcode = dns.RcodeSuccess
+				m.Answer = []dns.RR{test.AAAA("example.org. 60 IN AAAA 64:ff9b::192.0.2.1")}
+				return m
+			}(),
+			wantIncrease: 1,
+		},
+		{
+			name: "secondary SERVFAIL does not increment",
+			aaaaResp: func() *dns.Msg {
+				m := new(dns.Msg)
+				m.SetQuestion("example.org.", dns.TypeAAAA)
+				m.Rcode = dns.RcodeServerFailure
+				return m
+			}(),
+			wantIncrease: 0,
+		},
+		{
+			name: "unmapped-only AAAA does not increment",
+			aaaaResp: func() *dns.Msg {
+				m := new(dns.Msg)
+				m.SetQuestion("example.org.", dns.TypeAAAA)
+				m.Rcode = dns.RcodeSuccess
+				m.Answer = []dns.RR{test.AAAA("example.org. 60 IN AAAA 2001:db8::1")} // outside prefix, no eam
+				return m
+			}(),
+			wantIncrease: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			d := &SIIT{
+				Next:       &fakeHandler{t, emptyAResp},
+				IPv6Prefix: prefix,
+				Upstream:   &fakeUpstream{t, "example.org.", tc.aaaaResp},
+			}
+
+			r := new(dns.Msg)
+			r.SetQuestion("example.org.", dns.TypeA)
+			ctx := context.Background()
+
+			label := metrics.WithServer(ctx)
+			before := testutil.ToFloat64(RequestsTranslatedCount.WithLabelValues(label))
+
+			rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+			if _, err := d.ServeDNS(ctx, rec, r); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			after := testutil.ToFloat64(RequestsTranslatedCount.WithLabelValues(label))
+			if got := after - before; got != tc.wantIncrease {
+				t.Errorf("expected counter to increase by %v, got %v (before=%v after=%v)", tc.wantIncrease, got, before, after)
+			}
+		})
 	}
 }
 
@@ -672,20 +1034,42 @@ func embedIPv4(prefix net.IP, prefixLen int, v4 net.IP) net.IP {
 	return net.IP(out)
 }
 
-// TestExtractIPv4RFC6052Vectors covers all six valid RFC 6052 Table 1
-// prefix lengths and verifies round-trip extraction.
+// TestExtractIPv4RFC6052Vectors uses the six literal example addresses from
+// RFC 6052 §2.2 Table 1 ("Text Representation of IPv4-Embedded IPv6
+// Addresses Using Network-Specific Prefixes"), rather than round-tripping
+// through embedIPv4. embedIPv4 mirrors the same byte-placement algorithm as
+// extractIPv4, so a shared offset bug in both helpers could still round-trip
+// successfully and this test would never catch it. These fixtures are
+// copied verbatim from the RFC, independent of any code in this package.
 func TestExtractIPv4RFC6052Vectors(t *testing.T) {
-	v4 := net.ParseIP("192.0.2.33").To4()
-	base := net.ParseIP("2001:db8::")
+	want := net.ParseIP("192.0.2.33").To4()
 
-	for _, pl := range []int{32, 40, 48, 56, 64, 96} {
-		t.Run(fmt.Sprintf("PL_%d", pl), func(t *testing.T) {
-			addr := embedIPv4(base, pl, v4)
-			_, prefix, _ := net.ParseCIDR(fmt.Sprintf("%s/%d", base.String(), pl))
+	cases := []struct {
+		prefixCIDR string // Network-Specific Prefix column
+		addr       string // IPv4-embedded IPv6 address column
+	}{
+		{"2001:db8::/32", "2001:db8:c000:221::"},
+		{"2001:db8:100::/40", "2001:db8:1c0:2:21::"},
+		{"2001:db8:122::/48", "2001:db8:122:c000:2:2100::"},
+		{"2001:db8:122:300::/56", "2001:db8:122:3c0:0:221::"},
+		{"2001:db8:122:344::/64", "2001:db8:122:344:c0:2:2100::"},
+		{"2001:db8:122:344::/96", "2001:db8:122:344::192.0.2.33"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.prefixCIDR, func(t *testing.T) {
+			_, prefix, err := net.ParseCIDR(tc.prefixCIDR)
+			if err != nil {
+				t.Fatalf("bad prefix fixture %q: %v", tc.prefixCIDR, err)
+			}
+			addr := net.ParseIP(tc.addr)
+			if addr == nil {
+				t.Fatalf("bad address fixture %q", tc.addr)
+			}
 
 			got := extractIPv4(addr, prefix)
-			if !got.Equal(v4) {
-				t.Errorf("PL=%d: expected %v, got %v (embedded addr %v)", pl, v4, got, addr)
+			if !got.Equal(want) {
+				t.Errorf("prefix %s, address %s: expected %v, got %v", tc.prefixCIDR, tc.addr, want, got)
 			}
 		})
 	}

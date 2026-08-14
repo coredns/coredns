@@ -2,14 +2,14 @@
 
 ## Name
 
-*siit* - enables A<>AAAA translation support for DNS records based on SIIT (IPv6<>IPv4 translation).
+*siit* - enables AAAA->A translation support for DNS records based on SIIT (IPv6->IPv4 translation).
 
 ## Description
 
 The *siit* plugin will when asked for a domain's A record,
 synthesizes it from a corresponding AAAA record if it belongs to a certain IP range.
 
-It also supports arbitrary mapping IPv4<>IPv6.
+It also supports arbitrary mapping IPv6->IPv4.
 
 It is useful when published services are IPv6-only and emit their AAAA record accordingly
 but IPv4 clients reach them through a siit routing. This plugin generates the associated A records

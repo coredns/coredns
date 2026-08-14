@@ -6,6 +6,7 @@ package siit
 
 import (
 	"context"
+	"errors"
 	"net"
 	"time"
 
@@ -31,8 +32,41 @@ type SIIT struct {
 	Upstream   UpstreamInt
 }
 
+// synthesisCtxKey marks a context as belonging to a translation plugin's own
+// internal synthesis lookup (as opposed to a query that arrived from a
+// client). Unexported so it can't collide with keys set by other packages.
+type synthesisCtxKey struct{}
+
+// markSynthesisLookup flags ctx as carrying a nested lookup issued by SIIT's
+// own synthesis logic. The flag propagates through every
+// plugin.Handler.ServeDNS(ctx, ...) call in the chain, including through
+// other translation plugins such as dns64, whose own internal
+// Upstream.Lookup calls reuse the context they were invoked with.
+func markSynthesisLookup(ctx context.Context) context.Context {
+	return context.WithValue(ctx, synthesisCtxKey{}, true)
+}
+
+// isSynthesisLookup reports whether ctx was produced by markSynthesisLookup.
+func isSynthesisLookup(ctx context.Context) bool {
+	v, _ := ctx.Value(synthesisCtxKey{}).(bool)
+	return v
+}
+
 // ServeDNS implements the plugin.Handler interface.
 func (d *SIIT) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	// A nested lookup issued as part of an in-flight synthesis (SIIT's own,
+	// or another translation plugin's further up the chain, e.g. dns64)
+	// must not be intercepted again — just pass it through. Otherwise SIIT
+	// and dns64 chained together can trigger each other's internal lookups
+	// indefinitely: SIIT's AAAA synthesis lookup re-enters the server and
+	// reaches dns64, whose own internal A lookup (issued with that same
+	// context) re-enters the server and reaches SIIT again as a plain A
+	// query, which SIIT would otherwise translate by issuing yet another
+	// AAAA lookup, and so on with no bound.
+	if isSynthesisLookup(ctx) {
+		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
+	}
+
 	// Don't proxy if we don't need to.
 	if !d.requestShouldIntercept(&request.Request{W: w, Req: r}) {
 		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
@@ -52,14 +86,16 @@ func (d *SIIT) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	}
 
 	// otherwise do the actual SIIT request and response synthesis
-	msg, err := d.DoSIIT(ctx, w, r, nw.Msg)
+	msg, synthesized, err := d.DoSIIT(ctx, w, r, nw.Msg)
 	if err != nil {
 		// err means we weren't able to even issue the A or AAAA request
 		// to CoreDNS upstream
 		return dns.RcodeServerFailure, err
 	}
 
-	RequestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
+	if synthesized {
+		RequestsTranslatedCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
+	}
 	w.WriteMsg(msg)
 	return msg.Rcode, nil
 }
@@ -104,33 +140,76 @@ func (d *SIIT) responseShouldSIIT(req *request.Request, origResponse *dns.Msg) b
 
 // DoSIIT takes an (empty) response to an A question, issues the AAAA request,
 // and synthesizes the answer. Returns the response message, or error on internal failure.
-func (d *SIIT) DoSIIT(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, origResponse *dns.Msg) (*dns.Msg, error) {
+func (d *SIIT) DoSIIT(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, origResponse *dns.Msg) (*dns.Msg, bool, error) {
 	req := request.Request{W: w, Req: r}
 	defaultreq := dns.TypeAAAA
 
-	resp, err := d.Upstream.Lookup(ctx, req, req.Name(), defaultreq)
+	resp, err := d.Upstream.Lookup(markSynthesisLookup(ctx), req, req.Name(), defaultreq)
 
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	if resp == nil || resp.Rcode != dns.RcodeSuccess {
+	if resp == nil {
+		// Upstream.Lookup isn't expected to return (nil, nil), but guard
+		// against it explicitly rather than let ServeDNS write a nil
+		// message and then dereference msg.Rcode.
+		return nil, false, errors.New("siit: upstream lookup returned no response")
+	}
+
+	if resp.Rcode != dns.RcodeSuccess {
 		// Not a transport error — we got an answer, it's just SERVFAIL/
-		// REFUSED/NXDOMAIN/etc. Don't synthesize from it; return the
-		// response untouched so ServeDNS writes that instead.
-		return resp, nil
+		// REFUSED/NXDOMAIN/etc. resp still carries the *internal* AAAA
+		// question we issued, not the client's original A question.
+		// RFC 6147 §5.4 requires the assembled response to carry the
+		// original initiator's question/ID/transaction framing, so we
+		// can't return resp as-is — rebuild the envelope from the
+		// original request and copy over resp's RCODE, flags, and
+		// authority/additional sections.
+		return d.copyErrorResponse(r, resp), false, nil
 	}
 
-	out := d.Synthesize(r, origResponse, resp)
-	return out, nil
+	out, synthesized := d.Synthesize(r, origResponse, resp)
+	return out, synthesized, nil
 }
 
-// Synthesize merges the AAAA response and the records from the A response
-func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
+// copyErrorResponse builds a response addressed to the client's original
+// request — correct ID, Question, and QR/Opcode framing via SetReply — while
+// carrying over the secondary AAAA lookup's RCODE, AA/RA/TC flags, answer,
+// authority, and additional sections. Used when the internal AAAA lookup
+// itself failed (SERVFAIL, NXDOMAIN, REFUSED, etc.) so the client never sees
+// the internal AAAA question in reply to its A query.
+func (d *SIIT) copyErrorResponse(origReq, resp *dns.Msg) *dns.Msg {
+	ret := new(dns.Msg)
+	ret.SetReply(origReq) // sets Id, Question, Opcode, RD/CD from origReq
+
+	ret.Rcode = resp.Rcode
+	ret.Authoritative = resp.Authoritative
+	ret.RecursionAvailable = resp.RecursionAvailable
+	ret.Truncated = resp.Truncated
+
+	ret.Answer = resp.Answer
+	ret.Ns = resp.Ns
+	ret.Extra = resp.Extra
+
+	return ret
+}
+
+// Synthesize merges the AAAA response and the records from the A response.
+// The bool return reports whether at least one AAAA record was actually
+// translated into a synthetic A record. false means the caller got back
+// origResponse unchanged — nothing in the AAAA answer was mappable (no EAM
+// entry, and the address wasn't in ipv6_prefix) — and this must not be
+// counted as a translated request.
+func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) (*dns.Msg, bool) {
 	ret := dns.Msg{}
 	ret.SetReply(origReq)
 
 	mappedAny := false
+
+	ret.Authoritative = resp.Authoritative
+	ret.RecursionAvailable = resp.RecursionAvailable
+	ret.AuthenticatedData = false
 
 	// persist truncated state of AAAA or A response
 	ret.Truncated = resp.Truncated
@@ -186,10 +265,10 @@ func (d *SIIT) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 	}
 
 	if !mappedAny {
-		return origResponse
+		return origResponse, false
 	}
 
-	return &ret
+	return &ret, true
 }
 
 // extractIPv4 reverses CoreDNS's dns64 embedding logic: given a v6 address

@@ -1,6 +1,7 @@
 package siit
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/coredns/caddy"
@@ -50,7 +51,7 @@ func TestSetupSiit(t *testing.T) {
 			false,
 			"64:ff9b::/96",
 			map[string]string{
-				"10.0.0.1": "64:dead::1",
+				"64:dead::1": "10.0.0.1",
 			},
 		},
 		{
@@ -61,8 +62,8 @@ func TestSetupSiit(t *testing.T) {
 			false,
 			"64:ff9b::/96",
 			map[string]string{
-				"10.0.0.1": "64:dead::1",
-				"10.0.0.2": "64:dead::2",
+				"64:dead::1": "10.0.0.1",
+				"64:dead::2": "10.0.0.2",
 			},
 		},
 		{
@@ -192,6 +193,13 @@ func TestSetupSiit(t *testing.T) {
 		if err == nil {
 			if siit.IPv6Prefix.String() != test.wantIPv6Prefix {
 				t.Errorf("Test %d expected ipv6 prefix %s, got %v", i+1, test.wantIPv6Prefix, siit.IPv6Prefix.String())
+			}
+			gotEam := make(map[string]string, len(siit.Eam4))
+			for v6, v4 := range siit.Eam4 {
+				gotEam[v6] = v4.String()
+			}
+			if !reflect.DeepEqual(gotEam, test.wantEam) {
+				t.Errorf("Test %d expected eam %v, got %v", i+1, test.wantEam, gotEam)
 			}
 		}
 	}
