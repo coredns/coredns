@@ -96,8 +96,13 @@ func (s *Service) DeepCopyObject() runtime.Object {
 		ExternalIPs:  make([]string, len(s.ExternalIPs)),
 	}
 	copy(s1.ClusterIPs, s.ClusterIPs)
-	copy(s1.Ports, s.Ports)
 	copy(s1.ExternalIPs, s.ExternalIPs)
+	// api.ServicePort holds an AppProtocol *string, so copying the slice elementwise
+	// would leave both services pointing at the same string. Use the generated
+	// deep copy so the copy owns everything it can reach.
+	for i := range s.Ports {
+		s.Ports[i].DeepCopyInto(&s1.Ports[i])
+	}
 	return s1
 }
 

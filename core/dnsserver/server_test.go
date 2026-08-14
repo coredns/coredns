@@ -200,6 +200,64 @@ func TestGracefulStopTimeout_Internal(t *testing.T) {
 	}
 }
 
+// TestMaxTCPQueriesBoundary proves the user-visible behavior of MaxTCPQueries:
+// a persistent TCP connection may serve exactly the configured number of
+// queries before the server closes it.
+func TestMaxTCPQueriesBoundary(t *testing.T) {
+	n := 2
+	config := testConfig("dns", test.ErrorHandler())
+	config.MaxTCPQueries = &n
+
+	s, err := NewServer("127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServer failed: %v", err)
+	}
+	defer s.Stop()
+
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.Listen failed: %v", err)
+	}
+	defer l.Close()
+
+	go s.Serve(l)
+
+	conn, err := net.DialTimeout("tcp", l.Addr().String(), 2*time.Second)
+	if err != nil {
+		t.Fatalf("net.DialTimeout failed: %v", err)
+	}
+	defer conn.Close()
+
+	dnsConn := &dns.Conn{Conn: conn}
+
+	for i := range n {
+		m := new(dns.Msg)
+		m.SetQuestion("example.org.", dns.TypeA)
+
+		dnsConn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+		if err := dnsConn.WriteMsg(m); err != nil {
+			t.Fatalf("query %d: WriteMsg failed: %v", i, err)
+		}
+
+		dnsConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		if _, err := dnsConn.ReadMsg(); err != nil {
+			t.Fatalf("query %d: ReadMsg failed: %v", i, err)
+		}
+	}
+
+	// The connection should be closed by the server after serving n queries;
+	// query n+1 must not succeed on the same connection.
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	dnsConn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+	if err := dnsConn.WriteMsg(m); err == nil {
+		dnsConn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		if _, err := dnsConn.ReadMsg(); err == nil {
+			t.Fatal("expected query beyond MaxTCPQueries to fail on the same connection, but it succeeded")
+		}
+	}
+}
+
 func BenchmarkCoreServeDNS(b *testing.B) {
 	s, err := NewServer("127.0.0.1:53", []*Config{testConfig("dns", testPlugin{})})
 	if err != nil {

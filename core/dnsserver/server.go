@@ -1,4 +1,15 @@
-// Package dnsserver implements all the interfaces from Caddy, so that CoreDNS can be a servertype plugin.
+// Package dnsserver implements CoreDNS as a Caddy server type.
+//
+// Importing this package registers the "dns" server type with Caddy. Programs
+// embedding CoreDNS can import only the plugins they need, set Directives before
+// starting a server, and pass an in-memory Corefile to [caddy.Start]. They should
+// not call coremain.Run, which provides the command-line program behavior such
+// as flag parsing, signal handling, and blocking until shutdown.
+// Before stopping an embedded instance, run its shutdown callbacks so that
+// plugins can release resources.
+//
+// Directives and Caddy's plugin registry are process-wide. Configure them
+// before starting any servers and do not mutate them while servers are running.
 package dnsserver
 
 import (
@@ -34,10 +45,11 @@ import (
 // the same address and the listener may be stopped for
 // graceful termination (POSIX only).
 type Server struct {
-	Addr         string        // Address we listen on
-	IdleTimeout  time.Duration // Idle timeout for connection-oriented transports
-	ReadTimeout  time.Duration // Read timeout for connection-oriented transports
-	WriteTimeout time.Duration // Write timeout for connection-oriented transports that support it
+	Addr          string        // Address we listen on
+	IdleTimeout   time.Duration // Idle timeout for connection-oriented transports
+	ReadTimeout   time.Duration // Read timeout for connection-oriented transports
+	WriteTimeout  time.Duration // Write timeout for connection-oriented transports that support it
+	MaxTCPQueries int           // Maximum number of queries served on a single TCP/TLS connection. -1 means unlimited.
 
 	connPolicy                    proxyproto.ConnPolicyFunc // Proxy Protocol connection policy function
 	udpSessionTrackingTTL         time.Duration             // TTL for UDP PPv2 session tracking (0 = disabled)
@@ -74,13 +86,14 @@ type MetadataCollector interface {
 // queries are blocked unless queries from enableChaos are loaded.
 func NewServer(addr string, group []*Config) (*Server, error) {
 	s := &Server{
-		Addr:         addr,
-		zones:        make(map[string][]*Config),
-		graceTimeout: 5 * time.Second,
-		IdleTimeout:  10 * time.Second,
-		ReadTimeout:  3 * time.Second,
-		WriteTimeout: 5 * time.Second,
-		tsigSecret:   make(map[string]string),
+		Addr:          addr,
+		zones:         make(map[string][]*Config),
+		graceTimeout:  5 * time.Second,
+		IdleTimeout:   10 * time.Second,
+		ReadTimeout:   3 * time.Second,
+		WriteTimeout:  5 * time.Second,
+		MaxTCPQueries: tcpMaxQueries,
+		tsigSecret:    make(map[string]string),
 	}
 
 	for _, site := range group {
@@ -102,6 +115,9 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		}
 		if site.IdleTimeout != 0 {
 			s.IdleTimeout = site.IdleTimeout
+		}
+		if site.MaxTCPQueries != nil {
+			s.MaxTCPQueries = *site.MaxTCPQueries
 		}
 
 		// copy tsig secrets
@@ -167,7 +183,7 @@ func (s *Server) Serve(l net.Listener) error {
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp",
 		TsigSecret:    s.tsigSecret,
-		MaxTCPQueries: tcpMaxQueries,
+		MaxTCPQueries: s.MaxTCPQueries,
 		ReadTimeout:   s.ReadTimeout,
 		WriteTimeout:  s.WriteTimeout,
 		IdleTimeout: func() time.Duration {

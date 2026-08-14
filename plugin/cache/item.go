@@ -30,13 +30,12 @@ type item struct {
 
 	*freq.Freq
 
-	// refreshing is set via CAS when a prefetch goroutine is dispatched for
-	// this item and cleared when it returns, bounding in-flight prefetches
-	// per item to one. A successful prefetch replaces this item in the cache
-	// with a new one (zero-valued refreshing); the deferred clear matters
-	// only when the prefetch fails and this item remains cached, so the next
-	// hit can retry.
+	// refreshing bounds in-flight refreshes for this item to one. retryAfter
+	// suppresses another attempt after a failed refresh when failure recheck
+	// is configured. A successful refresh normally replaces this item with a
+	// new one whose refresh state is zero-valued.
 	refreshing atomic.Bool
+	retryAfter atomic.Pointer[time.Time]
 }
 
 func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
@@ -82,6 +81,12 @@ func newItem(m *dns.Msg, now time.Time, d time.Duration) *item {
 // On newer systems(e.g. ubuntu 16.04 with glib version 2.23), this issue is resolved.
 // So we may set this bit back to 0 in the future ?
 func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
+	ttl := uint32(i.ttl(now)) // #nosec G115 -- ttl is bounded by DNS TTL limits
+	return i.toMsgWithTTL(m, ttl, do, ad)
+}
+
+// toMsgWithTTL returns the cached item with an explicit TTL on every RR.
+func (i *item) toMsgWithTTL(m *dns.Msg, ttl uint32, do bool, ad bool) *dns.Msg {
 	m1 := new(dns.Msg)
 	m1.SetReply(m)
 
@@ -98,7 +103,6 @@ func (i *item) toMsg(m *dns.Msg, now time.Time, do bool, ad bool) *dns.Msg {
 	m1.RecursionAvailable = i.RecursionAvailable
 	m1.Rcode = i.Rcode
 
-	ttl := uint32(i.ttl(now)) // #nosec G115 -- ttl is bounded by DNS TTL limits
 	m1.Answer = filterRRSlice(i.Answer, ttl, true)
 	m1.Ns = filterRRSlice(i.Ns, ttl, true)
 	m1.Extra = filterRRSlice(i.Extra, ttl, true)
@@ -130,4 +134,24 @@ func (i *item) answeringItem(state request.Request) *item {
 		return i.lastKnownGood
 	}
 	return nil
+}
+
+func (i *item) beginRefresh(now time.Time, failureRecheck time.Duration) bool {
+	if failureRecheck > 0 {
+		if retryAfter := i.retryAfter.Load(); retryAfter != nil && now.Before(*retryAfter) {
+			return false
+		}
+	}
+	return i.refreshing.CompareAndSwap(false, true)
+}
+
+func (i *item) endRefresh(now time.Time, failureRecheck time.Duration, refreshed bool) {
+	if failureRecheck > 0 && !refreshed {
+		retryAfter := now.Add(failureRecheck)
+		i.retryAfter.Store(&retryAfter)
+	} else {
+		i.retryAfter.Store(nil)
+	}
+	// Publish the retry deadline before allowing another refresh to start.
+	i.refreshing.Store(false)
 }

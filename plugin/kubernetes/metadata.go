@@ -36,7 +36,7 @@ func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) contex
 		multicluster = true
 	}
 	// possible optimization: cache r so it doesn't need to be calculated again in ServeDNS
-	r, err := parseRequest(state.Name(), zone, multicluster)
+	r, err := parseRequest(state.Name(), zone, multicluster, k.opts.zonal)
 	if err != nil {
 		metadata.SetValueFunc(ctx, "kubernetes/parse-error", func() string {
 			return err.Error()
@@ -59,6 +59,12 @@ func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) contex
 	if multicluster {
 		metadata.SetValueFunc(ctx, "kubernetes/cluster", func() string {
 			return r.cluster
+		})
+	}
+
+	if k.opts.zonal {
+		metadata.SetValueFunc(ctx, "kubernetes/zone", func() string {
+			return r.zone
 		})
 	}
 

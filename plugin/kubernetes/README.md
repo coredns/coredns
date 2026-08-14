@@ -46,6 +46,7 @@ kubernetes [ZONES...] {
     fallthrough [ZONES...]
     ignore empty_service
     multicluster [ZONES...]
+    zonal
     startup_timeout DURATION
 }
 ```
@@ -87,8 +88,9 @@ kubernetes [ZONES...] {
      is vulnerable to abuse if used maliciously in conjunction with wildcard SSL certs.  This
      option is provided for backward compatibility with kube-dns.
    * `verified`: Return an A record if there exists a pod in same namespace with matching IP.  This
-     option requires substantially more memory than in insecure mode, since it will maintain a watch
-     on all pods.
+     option maintains a watch on all pods in the cluster, which requires additional memory in
+     CoreDNS (it keeps the IP, name, namespace and labels of every pod) and adds load to the
+     Kubernetes API server, since every pod state change in the cluster is streamed to CoreDNS.
 
 * `endpoint_pod_names` uses the pod name of the pod targeted by the endpoint as
    the endpoint name in A records, e.g.,
@@ -117,10 +119,96 @@ kubernetes [ZONES...] {
   Services API (MCS-API). Specifying this option is generally paired with the
   installation of an MCS-API implementation and the ServiceImport and ServiceExport
   CRDs. The plugin MUST be authoritative for the zones listed here.
+* `zonal` enables zone-scoped names for headless services (see the Zonal
+  Names section below). It also publishes the `kubernetes/zone` metadata
+  label (the requested topology zone, empty for non-zonal queries) when the
+  *metadata* plugin is enabled.
 * `startup_timeout` specifies the **DURATION** value that limits the time to wait for informer cache synced
   when the kubernetes plugin starts. If not specified, the default timeout will be 5s.
 
 Enabling zone transfer is done by using the *transfer* plugin.
+
+## Zonal Names
+
+With the `zonal` option, headless services additionally answer zone-scoped
+forms of their name:
+
+~~~
+topology-zone.pin._zone.service.namespace.svc.zone
+topology-zone.prefer._zone.service.namespace.svc.zone
+~~~
+
+e.g. `us-west-2a.pin._zone.db.prod.svc.cluster.local` returns only the
+`db` endpoints whose EndpointSlice `zone` field is `us-west-2a`. The zone
+value is every label left of the directive, joined, since Kubernetes zone
+label values may themselves contain dots
+(`corp.example.com.pin._zone.db.prod.svc.cluster.local` selects the zone
+`corp.example.com`). Headless
+services have no ClusterIP for kube-proxy's `trafficDistribution` to act
+on — every client receives every address — so the zone selector in the
+query name lets a client scope an answer to its own zone. Plain service
+names are not affected in any way, and short relative names still work
+from pods (`us-west-2a.pin._zone.db` completes via the first search list
+entry in the same namespace).
+
+The directive label chooses the fallback semantics, so a client states in
+the name whether an empty zone is an error or a shrug:
+
+* `pin` — zone-local endpoints only. A zone label no endpoint of the
+  service carries (a drained zone and a mistyped one alike) answers
+  NODATA: "no endpoints carry that zone" is true either way, the answer
+  is identical on every replica, and resolution still fails visibly.
+* `prefer` — zone-local endpoints if there are any, otherwise every
+  endpoint of the service. One query, no client-side fallback logic;
+  the widening is chosen in the name, never applied silently to a pin.
+
+Both directives answer A/AAAA and SRV (filtering happens at endpoint
+selection, so SRV records and their glue are zone-filtered too), answer
+NODATA for other query types, and are answered identically by every
+replica. A nonexistent service is NXDOMAIN as ever; ClusterIP and
+ExternalName services are NXDOMAIN — zone-scoped names are defined for
+headless services only; use `trafficDistribution` for VIP topology.
+Unknown directives keep the stock too-long NXDOMAIN, as does the entire
+shape when the option is off. Zonal names are not defined inside
+`multicluster` zones. Endpoints whose EndpointSlices carry no zone are
+never matched by any zone selector.
+
+Only names of existing headless services answer at all, so the grammar
+adds no capture surface beyond the one service creation itself has always
+had: a relative name shaped `x.pin._zone.<existing-headless-service>`
+stops a resolver search walk with NODATA, exactly as creating a service
+captures colliding relative names today.
+
+Relationship to [Topology Aware
+Routing](https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/):
+`pin` and `prefer` are a topology *addressing* primitive, not an
+extension of `trafficDistribution`. They select on the endpoint's
+physical topology zone (`Endpoint.Zone`), which the EndpointSlice
+controller publishes without any Service-side opt-in — not on the routing
+hints
+(`Endpoint.Hints.ForZones`), which exist only when a Service opts in via
+`trafficDistribution` or the legacy `service.kubernetes.io/topology-mode:
+Auto` annotation, and which encode the zone tier of a routing decision
+rather than placement (under `Auto` an endpoint can be hinted for a zone
+it is not in, and the controller withdraws hints entirely when its
+safeguards trip). A client naming a zone under these directives gets the
+endpoints that are actually there. A hints-consuming selector is a
+distinct primitive with distinct semantics (kube-proxy ignores hints
+entirely for unhinted, partially-hinted, and safeguard-withdrawn
+services); if one is added, it takes its own directive label in this
+grammar. Unknown directives answer the stock too-long NXDOMAIN today, so
+that addition is compatible and nothing here forecloses it.
+
+The option requires the endpoint cache: combining `zonal` with
+`noendpoints` is a configuration error, since zone-scoped answers come
+from endpoint data and the `noendpoints` contract (NXDOMAIN for all
+headless queries) could not hold for them.
+
+Deployment notes: enable the option on every replica behind a shared
+Service before pointing clients at `_zone` names — replicas without the
+option answer NXDOMAIN for them, which clients negative-cache per name for
+the SOA minttl (this follows the `ttl` option). Zonal names are answered
+at query time only; they are not included in zone transfers.
 
 ## Startup
 

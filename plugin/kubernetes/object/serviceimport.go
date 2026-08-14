@@ -72,7 +72,12 @@ func (s *ServiceImport) DeepCopyObject() runtime.Object {
 		Ports:      make([]mcs.ServicePort, len(s.Ports)),
 	}
 	copy(s1.ClusterIPs, s.ClusterIPs)
-	copy(s1.Ports, s.Ports)
+	// mcs.ServicePort holds an AppProtocol *string, so copying the slice elementwise
+	// would leave both imports pointing at the same string. Use the generated deep
+	// copy so the copy owns everything it can reach.
+	for i := range s.Ports {
+		s.Ports[i].DeepCopyInto(&s1.Ports[i])
+	}
 	return s1
 }
 

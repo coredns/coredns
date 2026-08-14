@@ -293,6 +293,7 @@ func parseBlock(c *caddy.Controller, f *Forward) error {
 			return err
 		}
 		f.maxConnectAttempts = uint32(n)
+		f.maxConnectAttemptsSet = true
 	case "health_check":
 		if !c.NextArg() {
 			return c.ArgErr()

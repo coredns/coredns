@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -693,6 +694,121 @@ func TestServeFromStaleCache(t *testing.T) {
 	}
 }
 
+func TestServeFromStaleCacheResponseTTL(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      string
+		primeRcode  int
+		advance     time.Duration
+		expectedTTL uint32
+	}{
+		{
+			name:        "legacy default",
+			config:      "serve_stale 1h immediate",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     2 * time.Minute,
+			expectedTTL: 0,
+		},
+		{
+			name:        "immediate positive",
+			config:      "serve_stale 1h immediate 30s",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     2 * time.Minute,
+			expectedTTL: 30,
+		},
+		{
+			name:        "exact expiry",
+			config:      "serve_stale 1h immediate 30s",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     time.Minute,
+			expectedTTL: 30,
+		},
+		{
+			name:        "immediate negative",
+			config:      "serve_stale 1h immediate 25s",
+			primeRcode:  dns.RcodeNameError,
+			advance:     2 * time.Minute,
+			expectedTTL: 25,
+		},
+		{
+			name:        "verify failure",
+			config:      "serve_stale 1h verify 0 45s",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     2 * time.Minute,
+			expectedTTL: 45,
+		},
+		{
+			name:        "stale ttl overrides keepttl",
+			config:      "serve_stale 1h immediate 17s\nkeepttl",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     2 * time.Minute,
+			expectedTTL: 17,
+		},
+		{
+			name:        "fresh response is unchanged",
+			config:      "serve_stale 1h immediate 30s",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     10 * time.Second,
+			expectedTTL: 50,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			controller := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", tc.config))
+			c, err := cacheParse(controller)
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+			c.Zones = []string{"."}
+
+			switch tc.primeRcode {
+			case dns.RcodeSuccess:
+				c.Next = ttlBackend(60)
+			case dns.RcodeNameError:
+				c.Next = nxDomainBackend(60)
+			default:
+				t.Fatalf("unsupported prime rcode %d", tc.primeRcode)
+			}
+
+			req := new(dns.Msg)
+			req.SetQuestion("cached.org.", dns.TypeA)
+			ctx := context.Background()
+			stored := time.Now()
+			c.now = func() time.Time { return stored }
+			if ret, err := c.ServeDNS(ctx, dnstest.NewRecorder(&test.ResponseWriter{}), req); err != nil || ret != tc.primeRcode {
+				t.Fatalf("failed to prime cache: rcode=%d, err=%v", ret, err)
+			}
+
+			c.now = func() time.Time { return stored.Add(tc.advance) }
+			c.Next = servFailBackend(60)
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+			if ret, err := c.ServeDNS(ctx, rec, req.Copy()); err != nil || ret != dns.RcodeSuccess {
+				t.Fatalf("unexpected cached response: rcode=%d, err=%v", ret, err)
+			}
+			if rec.Msg == nil || rec.Msg.Rcode != tc.primeRcode {
+				t.Fatalf("expected response rcode %d, got %v", tc.primeRcode, rec.Msg)
+			}
+
+			var got uint32
+			if tc.primeRcode == dns.RcodeNameError {
+				if len(rec.Msg.Ns) == 0 {
+					t.Fatalf("expected authority record, got %v", rec.Msg)
+				}
+				got = rec.Msg.Ns[0].Header().Ttl
+			} else {
+				if len(rec.Msg.Answer) == 0 {
+					t.Fatalf("expected answer record, got %v", rec.Msg)
+				}
+				got = rec.Msg.Answer[0].Header().Ttl
+			}
+			if got != tc.expectedTTL {
+				t.Fatalf("expected TTL %d, got %d", tc.expectedTTL, got)
+			}
+		})
+	}
+}
+
 func TestServeFromStaleCacheFetchVerify(t *testing.T) {
 	c := New()
 	c.Next = ttlBackend(120)
@@ -777,6 +893,7 @@ func TestServeFromStaleCacheFetchVerifyTimeout(t *testing.T) {
 	c.staleUpTo = 1 * time.Hour
 	c.verifyStale = true
 	c.verifyStaleTimeout = 50 * time.Millisecond
+	c.staleTTL = 30 * time.Second
 	c.Next = ttlBackend(120)
 
 	req := new(dns.Msg)
@@ -814,9 +931,8 @@ func TestServeFromStaleCacheFetchVerifyTimeout(t *testing.T) {
 	if rec.Msg == nil || len(rec.Msg.Answer) == 0 {
 		t.Fatalf("expected an answer, got %+v", rec.Msg)
 	}
-	// Stale serve sets TTL to 0.
-	if got := rec.Msg.Answer[0].Header().Ttl; got != 0 {
-		t.Errorf("expected stale TTL=0, got %d", got)
+	if got := rec.Msg.Answer[0].Header().Ttl; got != 30 {
+		t.Errorf("expected stale TTL=30, got %d", got)
 	}
 
 	// Wait for the background verify to complete.

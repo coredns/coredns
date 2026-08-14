@@ -47,6 +47,8 @@ type Cache struct {
 	verifyStale        bool
 	verifyStaleTimeout time.Duration // 0 means wait for upstream until its own timeout (current default).
 	preferPositive     bool
+	staleTTL           time.Duration // TTL returned with stale responses; 0 preserves the legacy behavior.
+	staleRecheck       time.Duration // Delay after a failed refresh before another attempt; 0 preserves the legacy behavior.
 
 	// Positive/negative zone exceptions
 	pexcept []string
@@ -528,10 +530,10 @@ type verifyStaleResponseWriter struct {
 }
 
 // newVerifyStaleResponseWriter returns a ResponseWriter to be used when verifying stale cache
-// entries. By default it only forward writes if an entry was successfully refreshed according
-// to RFC8767, section 4 (response is NoError or NXDomain). With prefer_positive, only a response
-// that answers the question is forwarded; other cacheable responses are stored without being
-// sent to the client.
+// entries. It only forwards matching, complete responses that successfully refresh the data
+// according to RFC8767, section 4 (response is NoError or NXDomain). With prefer_positive, only
+// a usable positive answer is forwarded; other matching responses are cached without being sent
+// to the client.
 func newVerifyStaleResponseWriter(w *ResponseWriter) *verifyStaleResponseWriter {
 	return &verifyStaleResponseWriter{
 		ResponseWriter: w,
@@ -543,8 +545,11 @@ func (w *verifyStaleResponseWriter) WriteMsg(res *dns.Msg) error {
 	w.refreshed = false
 	w.response = nil
 	w.item = nil
+	if res == nil || res.Truncated || !w.state.Match(res) {
+		return nil
+	}
 	if w.preferPositive {
-		if w.state.Match(res) && usableAnswer(res, w.now().UTC()) {
+		if usableAnswer(res, w.now().UTC()) {
 			w.refreshed = true
 			err := w.ResponseWriter.WriteMsg(res)
 			w.response = w.lastResponse
@@ -557,14 +562,18 @@ func (w *verifyStaleResponseWriter) WriteMsg(res *dns.Msg) error {
 		w.prefetch = prefetch
 		return err
 	}
-	if res.Rcode == dns.RcodeSuccess || res.Rcode == dns.RcodeNameError {
-		w.refreshed = true
-		err := w.ResponseWriter.WriteMsg(res) // stores to the cache and send to client
-		w.response = w.lastResponse
-		w.item = w.lastItem
-		return err
+	responseType, _ := response.Typify(res, w.now().UTC())
+	if responseType == response.OtherError || responseType == response.Meta || responseType == response.Update {
+		return nil
 	}
-	return nil // else discard
+	if res.Rcode != dns.RcodeSuccess && res.Rcode != dns.RcodeNameError {
+		return nil
+	}
+	w.refreshed = true
+	err := w.ResponseWriter.WriteMsg(res) // stores to the cache and sends to the client
+	w.response = w.lastResponse
+	w.item = w.lastItem
+	return err
 }
 
 const (

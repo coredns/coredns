@@ -11,6 +11,9 @@ import (
 const loopDB = `example.com. 500 IN SOA ns1.outside.com. root.example.com. 3 604800 86400 2419200 604800
 example.com. 500 IN NS ns1.outside.com.
 a.example.com. 500 IN CNAME b.example.com.
+alias.example.com. 500 IN DNAME alias.example.com.
+redirect.example.com. 500 IN DNAME target.example.com.
+www.target.example.com. 500 IN A 192.0.2.1
 *.foo.example.com. 500 IN CNAME bar.foo.example.com.`
 
 func TestFileLoop(t *testing.T) {
@@ -31,18 +34,44 @@ func TestFileLoop(t *testing.T) {
 	}
 	defer i.Stop()
 
-	m := new(dns.Msg)
-	m.SetQuestion("something.foo.example.com.", dns.TypeA)
-
-	r, err := dns.Exchange(m, udp)
-	if err != nil {
-		t.Fatalf("Could not exchange msg: %s", err)
+	tests := []struct {
+		name            string
+		qname           string
+		wantRcode       int
+		checkAnswer     bool
+		wantAnswerTypes []uint16
+	}{
+		{"wildcard CNAME", "something.foo.example.com.", dns.RcodeServerFailure, false, nil},
+		{"self-referential DNAME", "www.alias.example.com.", dns.RcodeServerFailure, true, nil},
+		{"non-looping DNAME", "www.redirect.example.com.", dns.RcodeSuccess, true, []uint16{dns.TypeDNAME, dns.TypeCNAME, dns.TypeA}},
 	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			m := new(dns.Msg)
+			m.SetQuestion(tc.qname, dns.TypeA)
 
-	// This should not loop, don't really care about the correctness of the answer.
-	// Currently we return servfail in the file lookup.go file.
-	// For now: document current behavior in this test.
-	if r.Rcode != dns.RcodeServerFailure {
-		t.Errorf("Rcode should be dns.RcodeServerFailure: %d", r.Rcode)
+			r, err := dns.Exchange(m, udp)
+			if err != nil {
+				t.Fatalf("Could not exchange msg: %s", err)
+			}
+
+			if r.Rcode != tc.wantRcode {
+				t.Errorf("Rcode should be %d, got %d", tc.wantRcode, r.Rcode)
+			}
+			if !tc.checkAnswer {
+				return
+			}
+			if len(r.Answer) != len(tc.wantAnswerTypes) {
+				t.Fatalf("Expected %d answer records, got %d", len(tc.wantAnswerTypes), len(r.Answer))
+			}
+			for i, qtype := range tc.wantAnswerTypes {
+				if r.Answer[i].Header().Rrtype != qtype {
+					t.Errorf("Answer %d should have type %s, got %s", i, dns.TypeToString[qtype], dns.TypeToString[r.Answer[i].Header().Rrtype])
+				}
+			}
+			if len(tc.wantAnswerTypes) == 0 && (len(r.Ns) != 0 || len(r.Extra) != 0) {
+				t.Errorf("Response sections should be empty, got %d answer, %d authority, and %d additional records", len(r.Answer), len(r.Ns), len(r.Extra))
+			}
+		})
 	}
 }
