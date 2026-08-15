@@ -36,9 +36,10 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 	i := c.getIfNotStale(now, state, server)
 	if i == nil {
-		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, ad: ad, cd: cd,
+		refreshState := authenticatedRefreshState(state)
+		crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: refreshState, server: server, do: do, ad: ad, cd: cd,
 			nexcept: c.nexcept, pexcept: c.pexcept, wildcardFunc: wildcardFunc(ctx)}
-		return c.doRefresh(ctx, state, crr)
+		return c.doRefresh(ctx, refreshState, crr)
 	}
 	ttl := i.ttl(now)
 	stale := ttl <= 0
@@ -49,7 +50,8 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 			nowFunc := c.now
 			trackRefresh := failureRecheck > 0
 			if !trackRefresh || i.beginRefresh(now, failureRecheck) {
-				crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: state, server: server, do: do, cd: cd}
+				refreshState := authenticatedRefreshState(state)
+				crr := &ResponseWriter{ResponseWriter: w, Cache: c, state: refreshState, server: server, do: do, ad: ad, cd: cd}
 				if c.verifyStaleTimeout > 0 {
 					// Background verify: cache the response but do not write to the wire.
 					// On timeout, we serve the stale entry below and let the goroutine continue.
@@ -57,14 +59,14 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 				}
 				cw := newVerifyStaleResponseWriter(crr)
 				if c.verifyStaleTimeout == 0 {
-					ret, err := c.doRefresh(ctx, state, cw)
+					ret, err := c.doRefresh(ctx, refreshState, cw)
 					if trackRefresh {
 						i.endRefresh(nowFunc(), failureRecheck, cw.refreshed)
 					}
 					if cw.refreshed {
 						return ret, err
 					}
-				} else if served, ret, err := c.verifyWithTimeout(ctx, state, w, cw, r, do, ad, i, failureRecheck, nowFunc); served {
+				} else if served, ret, err := c.verifyWithTimeout(ctx, refreshState, w, cw, r, do, ad, i, failureRecheck, nowFunc); served {
 					return ret, err
 				}
 			}
@@ -218,6 +220,12 @@ func (c *Cache) shouldPrefetch(i *item, now time.Time) bool {
 	i.Update(c.duration, now)
 	threshold := int(math.Ceil(float64(c.percentage) / 100 * float64(i.origTTL)))
 	return i.Hits() >= c.prefetch && i.ttl(now) <= threshold
+}
+
+func authenticatedRefreshState(state request.Request) request.Request {
+	state.Req = state.Req.Copy()
+	state.Req.AuthenticatedData = true
+	return state
 }
 
 // Name implements the Handler interface.

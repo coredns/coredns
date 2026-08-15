@@ -348,11 +348,14 @@ var prefetchAddr = &net.TCPAddr{}
 // short-circuits after caching when w.prefetch is true, and the nil-safe
 // overrides below make the remaining dns.ResponseWriter methods well-defined.
 func newPrefetchResponseWriter(server string, req *dns.Msg, do, cd bool, c *Cache) *ResponseWriter {
+	req = req.Copy()
+	req.AuthenticatedData = true
 	cw := &ResponseWriter{
 		Cache:      c,
 		server:     server,
 		do:         do,
 		cd:         cd,
+		ad:         true,
 		prefetch:   true,
 		remoteAddr: prefetchAddr,
 	}

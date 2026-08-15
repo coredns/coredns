@@ -3,9 +3,11 @@ package cache
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -38,6 +40,9 @@ func TestCacheADBitNotPartitioned(t *testing.T) {
 		c.ServeDNS(context.TODO(), rec, noad)
 		if rec.Msg.AuthenticatedData {
 			t.Errorf("first query did not request AD, expected AuthenticatedData=false, got true")
+		}
+		if !h.requestedAD[0] {
+			t.Errorf("cache refresh should ask upstream for AD when populating an AD-shared entry")
 		}
 		if c.pcache.Len() != 1 {
 			t.Fatalf("expected first query to populate one cache entry, got %d", c.pcache.Len())
@@ -92,18 +97,98 @@ func TestCacheADBitNotPartitioned(t *testing.T) {
 	})
 }
 
+func TestCacheADBitStaleVerify(t *testing.T) {
+	c := New()
+	h := &adBitHandler{}
+	c.Next = h
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+
+	now := time.Now()
+	c.now = func() time.Time { return now }
+
+	req := new(dns.Msg)
+	req.SetQuestion("invent.example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(context.TODO(), rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("expected first query to populate one cache entry, got %d", c.pcache.Len())
+	}
+	if !h.requestedAD[0] {
+		t.Errorf("cache refresh should ask upstream for AD when populating an AD-shared entry")
+	}
+
+	now = now.Add(2 * time.Minute)
+
+	ad := req.Copy()
+	ad.AuthenticatedData = true
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(context.TODO(), rec, ad)
+	if h.calls != 2 {
+		t.Fatalf("expected stale verify to call backend, backend calls=%d", h.calls)
+	}
+	if !h.requestedAD[1] {
+		t.Errorf("stale verify should ask upstream for AD when refreshing an AD-shared entry")
+	}
+	if !rec.Msg.AuthenticatedData {
+		t.Errorf("AD-requesting client should receive AD from a refreshed authenticated answer, got false")
+	}
+}
+
+func TestCacheADBitPrefetchRequestsAD(t *testing.T) {
+	requestedAD := make(chan bool, 2)
+	c := New()
+	h := &adBitHandler{requestedADCh: requestedAD}
+	c.Next = h
+	c.prefetch = 1
+	c.percentage = 100
+
+	now := time.Now()
+	c.now = func() time.Time { return now }
+
+	req := new(dns.Msg)
+	req.SetQuestion("invent.example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(context.TODO(), rec, req)
+	if got := <-requestedAD; !got {
+		t.Errorf("cache refresh should ask upstream for AD when populating an AD-shared entry")
+	}
+
+	now = now.Add(time.Second)
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(context.TODO(), rec, req.Copy())
+
+	select {
+	case got := <-requestedAD:
+		if !got {
+			t.Errorf("prefetch should ask upstream for AD when refreshing an AD-shared entry")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("prefetch did not call backend")
+	}
+}
+
 type adBitHandler struct {
-	calls int
+	calls         int
+	requestedAD   []bool
+	requestedADCh chan bool
 }
 
 func (h *adBitHandler) Name() string { return "adBitHandler" }
 
 func (h *adBitHandler) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	h.calls++
+	h.requestedAD = append(h.requestedAD, r.AuthenticatedData)
+	if h.requestedADCh != nil {
+		h.requestedADCh <- r.AuthenticatedData
+	}
 
 	m := new(dns.Msg)
 	m.SetReply(r)
-	m.AuthenticatedData = true
+	state := request.Request{W: w, Req: r}
+	m.AuthenticatedData = r.AuthenticatedData || state.Do()
 	m.Answer = []dns.RR{test.A("invent.example.org. 60 IN A 192.0.2.1")}
 	w.WriteMsg(m)
 	return dns.RcodeSuccess, nil
