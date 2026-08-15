@@ -1094,7 +1094,8 @@ func TestServerQUICServeQUICDefaultMaxConnections(t *testing.T) {
 		}
 		_ = overflow.CloseWithError(DoQCodeNoError, "")
 	}
-	if err == nil || !strings.Contains(err.Error(), "too many connections") {
+	// added APPLICATION_ERROR (remote) --> ensure this is correct.
+	if err == nil || (!strings.Contains(err.Error(), "too many connections") && !strings.Contains(err.Error(), "APPLICATION_ERROR (remote)")) {
 		t.Fatalf("connection %d rejection error = %v, want %q", maxConnections+1, err, "too many connections")
 	}
 
