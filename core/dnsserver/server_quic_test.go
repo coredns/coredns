@@ -491,7 +491,7 @@ func TestServerQUIC_ServeQUIC_TSIGBadSigSetsTsigStatus(t *testing.T) {
 		t.Fatalf("NewServerQUIC() failed: %v", err)
 	}
 
-	server.tsigSecret = map[string]string{
+	server.TsigSecret = map[string]string{
 		keyName: serverSecret,
 	}
 
@@ -814,7 +814,7 @@ func TestServerQUIC_ServeQUIC_TSIGValidSigLeavesTsigStatusNil(t *testing.T) {
 		t.Fatalf("NewServerQUIC() failed: %v", err)
 	}
 
-	server.tsigSecret = map[string]string{
+	server.TsigSecret = map[string]string{
 		keyName: secret,
 	}
 

@@ -251,9 +251,9 @@ func (s *ServerHTTPS3) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if tsig := msg.IsTsig(); tsig != nil {
-		if s.tsigSecret == nil {
+		if s.TsigSecret == nil {
 			dw.tsigStatus = dns.ErrSecret
-		} else if secret, ok := s.tsigSecret[tsig.Hdr.Name]; !ok {
+		} else if secret, ok := s.TsigSecret[tsig.Hdr.Name]; !ok {
 			dw.tsigStatus = dns.ErrSecret
 		} else {
 			dw.tsigStatus = dns.TsigVerify(raw, secret, "", false)

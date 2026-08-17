@@ -54,7 +54,7 @@ func (s *ServerTLS) Serve(l net.Listener) error {
 	// Only fill out the TCP server for this one.
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp-tls",
-		TsigSecret:    s.tsigSecret,
+		TsigSecret:    s.TsigSecret,
 		MaxTCPQueries: s.MaxTCPQueries,
 		ReadTimeout:   s.ReadTimeout,
 		WriteTimeout:  s.WriteTimeout,
