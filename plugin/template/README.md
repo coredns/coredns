@@ -14,6 +14,7 @@ The *template* plugin allows you to dynamically respond to queries by just writi
 template CLASS TYPE [ZONE...] {
     match REGEX...
     var NAME EXPRESSION
+    expr EXPRESSION
     answer RR
     additional RR
     authority RR
@@ -35,6 +36,9 @@ template CLASS TYPE [ZONE...] {
 * `var` **NAME** **EXPRESSION** sets the variable **NAME** to the result of **EXPRESSION**, evaluated for each matching query
   and available to the templates as `.Var.NAME`. Multiple variables may be set; each one may use the variables declared before it.
   See the **Expressions** section.
+* `expr` **EXPRESSION** a condition that must evaluate to `true` for the query to match. All conditions must be true for a
+  complete match; otherwise the query is subject to `fallthrough`, as if no regex had matched. Conditions may use the
+  variables declared with `var`. See the **Expressions** section.
 * `rcode` **CODE** A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `NOERROR`. Valid response code values are
   per the `RcodeToString` map defined by the `miekg/dns` package in `msg.go`.
 * `ederror` **EXTENDED_ERROR_CODE** is an extended DNS error code as a number defined in `RFC8914` (0, 1, 2,..., 24).
@@ -75,7 +79,7 @@ The output of the template must be a [RFC 1035](https://tools.ietf.org/html/rfc1
 
 ## Expressions
 
-The **EXPRESSION** of a `var` is written in the expr language, the same as used by the *view* plugin. See
+The **EXPRESSION** of a `var` or `expr` is written in the expr language, the same as used by the *view* plugin. See
 https://expr-lang.org/docs/language-definition as a detailed reference for valid syntax.
 
 Expressions can reference the DNS query functions and utility functions listed in the *view* plugin's documentation, the

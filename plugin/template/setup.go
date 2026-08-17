@@ -165,6 +165,17 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 				}
 				t.vars = append(t.vars, variable{name: args[0], prog: prog})
 
+			case "expr":
+				args := c.RemainingArgs()
+				if len(args) == 0 {
+					return handler, c.ArgErr()
+				}
+				prog, err := expr.Compile(strings.Join(args, " "), expr.Env(varEnv), expr.DisableBuiltin("type"))
+				if err != nil {
+					return handler, c.Errf("could not compile expression: %v", err)
+				}
+				t.exprs = append(t.exprs, prog)
+
 			case "rcode":
 				if !c.NextArg() {
 					return handler, c.ArgErr()

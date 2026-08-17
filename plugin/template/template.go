@@ -40,6 +40,7 @@ type template struct {
 	fall       fall.F
 	upstream   Upstreamer
 	vars       []variable
+	exprs      []*vm.Program
 }
 
 type variable struct {
@@ -244,7 +245,7 @@ func (t template) match(ctx context.Context, state request.Request) (*templateDa
 			}
 		}
 
-		if len(t.vars) > 0 {
+		if len(t.vars) > 0 || len(t.exprs) > 0 {
 			exprState := state // &state would escape unconditionally
 			env := exprEnv(ctx, &exprState, data)
 			data.Var = make(map[string]any)
@@ -255,6 +256,16 @@ func (t template) match(ctx context.Context, state request.Request) (*templateDa
 				}
 				env[v.name] = result
 				data.Var[v.name] = result
+			}
+
+			for _, prog := range t.exprs {
+				result, err := expr.Run(prog, env)
+				if err != nil {
+					return data, false, false
+				}
+				if b, ok := result.(bool); !ok || !b {
+					return data, false, t.fall.Through(state.Name())
+				}
 			}
 		}
 
