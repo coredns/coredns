@@ -26,8 +26,17 @@ func serveEdns0Rewrite(t *testing.T, rule Rule, next plugin.Handler, req *dns.Ms
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	// The server wraps the client writer in a ScrubWriter; reproduce that here.
 	sw := request.NewScrubWriter(req, rec)
-	if _, err := rw.ServeDNS(context.Background(), sw, req); err != nil {
+	rcode, err := rw.ServeDNS(context.Background(), sw, req)
+	if err != nil {
 		t.Fatal(err)
+	}
+	if !plugin.ClientWrite(rcode) {
+		state := request.Request{W: sw, Req: req}
+		resp := new(dns.Msg).SetRcode(req, rcode)
+		state.SizeAndDo(resp)
+		if err := sw.WriteMsg(resp); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return rec.Msg
 }
