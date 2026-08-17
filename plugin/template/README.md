@@ -210,6 +210,36 @@ Having templates to map certain PTR/A pairs is a common pattern.
 
 Fallthrough is needed for mixed domains where only some responses are templated.
 
+### Resolve device addresses for HTTPS on LAN
+
+For an embedded device on a local network to be trusted, it needs to have a certificate signed by a
+CA and the CA needs to verify that the device controls the name for which it is issued. As the local
+address may change, a certificate is issued for the wildcard subdomain `*.<id>.example.com` instead,
+where `<id>` is a unique id for the given device. The same trick as in the example above can be used
+to find out the actual IP address.
+
+Resolving to public IP addresses would allow for this to be used in phishing attacks, so an
+additional expression must be satisfied to limit the allowed IP range.
+
+~~~ corefile
+. {
+    forward . 8.8.8.8
+
+    template IN A example.com {
+      match ^(?P<ip>[0-9]{1,3}(-[0-9]{1,3}){3})[.](?P<id>[a-z2-7]{26})[.]example[.]com[.]$
+      var ip replace(group('ip'), '-', '.')
+      expr "any(['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16'], incidr(ip, #))"
+      answer "{{ .Name }} 60 IN A {{ .Var.ip }}"
+      fallthrough
+    }
+}
+~~~
+
+The regular expression for the unique device id matches a base32 encoded string of a 128-bit device
+id, with the padding removed.
+
+Note that an expression using `#` must be quoted, or it will be interpreted as a comment.
+
 ### Resolve hexadecimal ip pattern using parseInt
 
 ~~~ corefile
