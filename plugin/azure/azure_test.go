@@ -3,6 +3,7 @@ package azure
 import (
 	"context"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -190,14 +191,25 @@ func TestAzure(t *testing.T) {
 // every query behind it queues up, so a single slow upstream response can
 // stall the whole plugin.
 func TestServeDNSDoesNotHoldLockDuringUpstreamLookup(t *testing.T) {
-	const delay = 200 * time.Millisecond
+	const timeout = 5 * time.Second
+
+	// entered signals that the upstream handler has been reached; release
+	// gates the handler's response so the test controls exactly when the
+	// in-flight query completes. releaseOnce lets every exit path (pass or
+	// fail) unblock the handler so no goroutine is left hanging.
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	releaseHandler := func() { releaseOnce.Do(func() { close(release) }) }
+	defer releaseHandler()
 
 	cfg := &dnsserver.Config{
 		Zone: ".",
 		Plugin: []plugin.Plugin{
 			func(plugin.Handler) plugin.Handler {
 				return plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-					time.Sleep(delay)
+					close(entered)
+					<-release
 					m := new(dns.Msg)
 					m.SetReply(r)
 					m.Answer = []dns.RR{test.A("external.target. 300 IN A 5.6.7.8")}
@@ -242,8 +254,13 @@ func TestServeDNSDoesNotHoldLockDuringUpstreamLookup(t *testing.T) {
 		close(done)
 	}()
 
-	// Give the in-flight query time to reach the slow upstream lookup.
-	time.Sleep(delay / 4)
+	select {
+	case <-entered:
+		// The query has reached the upstream handler and is now blocked on
+		// release, so a subsequent zMu.Lock() genuinely races the lookup.
+	case <-time.After(timeout):
+		t.Fatal("query never reached the upstream handler")
+	}
 
 	lockAcquired := make(chan struct{})
 	go func() {
@@ -257,9 +274,15 @@ func TestServeDNSDoesNotHoldLockDuringUpstreamLookup(t *testing.T) {
 	select {
 	case <-lockAcquired:
 		// zMu.Lock() wasn't blocked by the in-flight upstream lookup.
-	case <-time.After(delay / 2):
+	case <-time.After(timeout):
 		t.Fatal("zMu.Lock() blocked while a query awaited a slow upstream lookup")
 	}
 
-	<-done
+	releaseHandler()
+
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		t.Fatal("ServeDNS did not complete after the upstream handler was released")
+	}
 }
