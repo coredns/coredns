@@ -75,6 +75,8 @@ type Server struct {
 	// Ensure Stop is idempotent when invoked concurrently (e.g., during reload and SIGTERM).
 	stopOnce sync.Once
 	stopErr  error
+
+	baseCtx context.Context
 }
 
 // MetadataCollector is a plugin that can retrieve metadata functions from all metadata providing plugins
@@ -169,6 +171,9 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		log.D.Clear()
 	}
 
+	s.baseCtx = context.WithValue(context.Background(), Key{}, s)
+	s.baseCtx = context.WithValue(s.baseCtx, LoopKey{}, 0)
+
 	return s, nil
 }
 
@@ -190,9 +195,7 @@ func (s *Server) Serve(l net.Listener) error {
 			return s.IdleTimeout
 		},
 		Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
-			ctx := context.WithValue(context.Background(), Key{}, s)
-			ctx = context.WithValue(ctx, LoopKey{}, 0)
-			s.ServeDNS(ctx, w, r)
+			s.ServeDNS(s.baseCtx, w, r)
 		})}
 
 	s.m.Unlock()
@@ -210,9 +213,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 	}
 	s.m.Lock()
 	s.server[udp] = &dns.Server{PacketConn: p, Net: "udp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
-		ctx := context.WithValue(context.Background(), Key{}, s)
-		ctx = context.WithValue(ctx, LoopKey{}, 0)
-		s.ServeDNS(ctx, w, r)
+		s.ServeDNS(s.baseCtx, w, r)
 	}), TsigSecret: s.tsigSecret, DecorateWriter: dw}
 	s.m.Unlock()
 
