@@ -1975,3 +1975,13 @@ func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 		t.Fatalf("background verifier mutated foreground metadata: %q", f())
 	}
 }
+
+// hashSink keeps the result live so the compiler cannot drop the call.
+var hashSink uint64
+
+func BenchmarkHash(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		hashSink = hash("example.org.", dns.TypeA, dns.ClassINET, true, false)
+	}
+}
