@@ -66,8 +66,14 @@ func (r *remapStringRewriter) rewriteString(src string) string {
 	if src == r.orig {
 		return r.replacement
 	}
-	if strings.HasSuffix(src, "."+r.orig) {
-		return src[0:len(src)-len(r.orig)] + r.replacement
+	// src is a sub domain of orig when orig sits at the end of src with a label
+	// boundary right before it. Checking that boundary by index matches exactly
+	// what strings.HasSuffix(src, "."+r.orig) matches, without building the
+	// dot-prefixed string. Caching that string on the rewriter is not an option:
+	// responseRuleFor constructs a rewriter per rewritten request, so the cost
+	// would land on every request to save work on every record.
+	if i := len(src) - len(r.orig); i > 0 && src[i-1] == '.' && src[i:] == r.orig {
+		return src[:i] + r.replacement
 	}
 	return src
 }
