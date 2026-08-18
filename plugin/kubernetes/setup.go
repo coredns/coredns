@@ -97,6 +97,7 @@ func ParseStanza(c *caddy.Controller) (*Kubernetes, error) {
 	k8s.opts = opts
 
 	k8s.Zones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
+	k8s.initZonePaths()
 
 	k8s.primaryZoneIndex = -1
 	for i, z := range k8s.Zones {
