@@ -29,13 +29,82 @@ type DNS64 struct {
 	Prefix       *net.IPNet
 	TranslateAll bool // Not comply with 5.1.1
 	AllowIPv4    bool
+	FilterA      bool
 	Upstream     UpstreamInt
+}
+
+// dns64InternalKey marks contexts that belong to a query the dns64 plugin
+// spawned itself (via upstream.Lookup) while handling a client query — either
+// DoDNS64's A lookup for synthesis or filter_a's SOA lookup for negative
+// caching. When set, ServeDNS must not apply filter_a to the re-entered
+// query, otherwise the plugin would shadow its own internal work.
+type dns64InternalKey struct{}
+
+// pickSOA returns the first SOA record from msg, searching the Answer section
+// first (covers the zone-apex case) and then the Authority section (the common
+// NODATA-for-SOA-at-non-apex case). Returns nil if no SOA is present.
+func pickSOA(msg *dns.Msg) dns.RR {
+	for _, rr := range msg.Answer {
+		if rr.Header().Rrtype == dns.TypeSOA {
+			return rr
+		}
+	}
+	for _, rr := range msg.Ns {
+		if rr.Header().Rrtype == dns.TypeSOA {
+			return rr
+		}
+	}
+	return nil
+}
+
+// addEDE attaches an RFC 8914 Extended DNS Error option to msg's EDNS0 record,
+// creating the record (with a 4096-byte UDP size, advertising the server's
+// capacity per RFC 6891 §6.2.3) if none is present, or preserving the existing
+// OPT and appending the EDE option to it.
+func addEDE(msg *dns.Msg, code uint16, reason string) {
+	opt := msg.IsEdns0()
+	if opt == nil {
+		msg.SetEdns0(4096, false)
+		opt = msg.IsEdns0()
+	}
+	opt.Option = append(opt.Option, &dns.EDNS0_EDE{InfoCode: code, ExtraText: reason})
 }
 
 // ServeDNS implements the plugin.Handler interface.
 func (d *DNS64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	state := request.Request{W: w, Req: r}
+
+	// filter_a: suppress client A responses with NOERROR/NODATA + EDE 17
+	// "Filtered". Queries the plugin itself re-entered the chain for (marked
+	// via dns64InternalKey) are exempt so synthesis and the SOA lookup below
+	// keep working.
+	if d.shouldFilterA(ctx, &state) {
+		reply := new(dns.Msg)
+		reply.SetReply(r)
+		// RFC 2308 §5: a NODATA response should carry the enclosing zone's SOA
+		// in the authority section so downstream resolvers can negative-cache it.
+		// Issue an internal SOA query for the queried name — the recursor typically
+		// returns the zone SOA either in Answer (if the name is a zone apex) or
+		// in Authority (the common case). The dns64InternalKey marker prevents us
+		// from looping on our own filter.
+		lookupCtx := context.WithValue(ctx, dns64InternalKey{}, true)
+		if soaResp, err := d.Upstream.Lookup(lookupCtx, state, state.Name(), dns.TypeSOA); err == nil && soaResp != nil {
+			if soa := pickSOA(soaResp); soa != nil {
+				reply.Ns = append(reply.Ns, soa)
+			}
+		}
+		// RFC 6891 §6.1.1: only include OPT (and therefore EDE) when the client
+		// sent OPT.
+		if r.IsEdns0() != nil {
+			addEDE(reply, dns.ExtendedErrorCodeFiltered, "dns64 filter_a: A records suppressed")
+		}
+		RequestsFilteredCount.WithLabelValues(metrics.WithServer(ctx)).Inc()
+		w.WriteMsg(reply)
+		return dns.RcodeSuccess, nil
+	}
+
 	// Don't proxy if we don't need to.
-	if !d.requestShouldIntercept(&request.Request{W: w, Req: r}) {
+	if !d.requestShouldIntercept(&state) {
 		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
 	}
 
@@ -67,6 +136,24 @@ func (d *DNS64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 
 // Name implements the Handler interface.
 func (d *DNS64) Name() string { return "dns64" }
+
+// shouldFilterA returns true if the request is a network-origin client A query
+// that should be suppressed per the filter_a option. Queries the plugin itself
+// spawned via upstream.Lookup (marked via dns64InternalKey) are always passed
+// through so synthesis and the SOA lookup keep working. filter_a only applies
+// to qtype A — ANY queries are left to the `any` plugin per RFC 8482.
+func (d *DNS64) shouldFilterA(ctx context.Context, req *request.Request) bool {
+	if !d.FilterA {
+		return false
+	}
+	if v, _ := ctx.Value(dns64InternalKey{}).(bool); v {
+		return false
+	}
+	if !d.AllowIPv4 && req.Family() == 1 {
+		return false
+	}
+	return req.QType() == dns.TypeA && req.QClass() == dns.ClassINET
+}
 
 // requestShouldIntercept returns true if the request represents one that is eligible
 // for DNS64 rewriting:
@@ -118,6 +205,7 @@ func (d *DNS64) responseShouldDNS64(origResponse *dns.Msg) bool {
 // and synthesizes the answer. Returns the response message, or error on internal failure.
 func (d *DNS64) DoDNS64(ctx context.Context, w dns.ResponseWriter, r *dns.Msg, origResponse *dns.Msg) (*dns.Msg, error) {
 	req := request.Request{W: w, Req: r} // req is unused
+	ctx = context.WithValue(ctx, dns64InternalKey{}, true)
 	resp, err := d.Upstream.Lookup(ctx, req, req.Name(), dns.TypeA)
 	if err != nil {
 		return nil, err
@@ -172,6 +260,12 @@ func (d *DNS64) Synthesize(origReq, origResponse, resp *dns.Msg) *dns.Msg {
 			},
 			AAAA: aaaa,
 		})
+	}
+
+	// RFC 8914 EDE code 29 "Synthesized": tell EDNS-aware clients this AAAA was synthesised.
+	// Only emit OPT/EDE when the client query carried OPT (RFC 6891).
+	if origReq.IsEdns0() != nil {
+		addEDE(&ret, dns.ExtendedErrorCodeSynthesized, "DNS64 synthesised this response from A records")
 	}
 	return &ret
 }
