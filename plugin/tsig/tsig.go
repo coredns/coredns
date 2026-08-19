@@ -35,11 +35,18 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	var (
 		state  = request.Request{Req: r, W: w}
 		tsigRR = r.IsTsig()
+		inZone = false
 	)
+	for _, z := range t.Zones {
+		if plugin.Name(z).Matches(state.Name()) {
+			inZone = true
+			break
+		}
+	}
 	switch {
 	case tsigRR == nil && !t.tsigRequired(state.QType(), r.Opcode):
 		fallthrough
-	case plugin.Zones(t.Zones).Matches(state.Name()) == "":
+	case !inZone:
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	case tsigRR == nil:
 		log.Debugf("rejecting '%s' request without TSIG\n", dns.TypeToString[state.QType()])
