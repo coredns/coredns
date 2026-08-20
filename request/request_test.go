@@ -2,6 +2,7 @@ package request
 
 import (
 	"fmt"
+	"net"
 	"testing"
 
 	"github.com/coredns/coredns/plugin/test"
@@ -399,5 +400,54 @@ func BenchmarkRequestPort(b *testing.B) {
 	for b.Loop() {
 		st.Clear()
 		_ = st.Port()
+	}
+}
+
+// addrResponseWriter serves a fixed pair of addresses so IP, LocalIP, Port and
+// LocalPort can be exercised against address shapes the test package does not
+// build, such as a zoned link-local address.
+type addrResponseWriter struct {
+	dns.ResponseWriter
+	remote, local net.Addr
+}
+
+func (w *addrResponseWriter) RemoteAddr() net.Addr { return w.remote }
+func (w *addrResponseWriter) LocalAddr() net.Addr  { return w.local }
+
+// TestRequestIPPortMatchSplitHostPort checks that the type assertion fast paths
+// in IP, LocalIP, Port and LocalPort return what net.SplitHostPort returns for
+// the same address. A zone belongs to the host, and an address carrying no IP
+// has an empty host rather than "<nil>".
+func TestRequestIPPortMatchSplitHostPort(t *testing.T) {
+	addrs := []net.Addr{
+		&net.UDPAddr{IP: net.ParseIP("10.240.0.1"), Port: 40212},
+		&net.TCPAddr{IP: net.ParseIP("10.240.0.1"), Port: 40212},
+		&net.UDPAddr{IP: net.ParseIP("::1"), Port: 53},
+		&net.TCPAddr{IP: net.ParseIP("::1"), Port: 53},
+		&net.UDPAddr{IP: net.ParseIP("fe80::1"), Port: 53, Zone: "eth0"},
+		&net.TCPAddr{IP: net.ParseIP("fe80::1"), Port: 53, Zone: "eth0"},
+		&net.UDPAddr{Port: 53},
+		&net.TCPAddr{Port: 53},
+	}
+
+	for _, addr := range addrs {
+		wantHost, wantPort, err := net.SplitHostPort(addr.String())
+		if err != nil {
+			t.Fatalf("%s: %s", addr, err)
+		}
+
+		st := Request{W: &addrResponseWriter{remote: addr, local: addr}, Req: new(dns.Msg)}
+		if got := st.IP(); got != wantHost {
+			t.Errorf("%s: IP() = %q, expected %q", addr, got, wantHost)
+		}
+		if got := st.LocalIP(); got != wantHost {
+			t.Errorf("%s: LocalIP() = %q, expected %q", addr, got, wantHost)
+		}
+		if got := st.Port(); got != wantPort {
+			t.Errorf("%s: Port() = %q, expected %q", addr, got, wantPort)
+		}
+		if got := st.LocalPort(); got != wantPort {
+			t.Errorf("%s: LocalPort() = %q, expected %q", addr, got, wantPort)
+		}
 	}
 }
