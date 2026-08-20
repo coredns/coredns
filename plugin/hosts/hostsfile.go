@@ -121,15 +121,11 @@ type Hostsfile struct {
 
 // readHosts determines if the cached data needs to be updated based on the size and modification time of the hostsfile.
 func (h *Hostsfile) readHosts() {
-	file, err := os.Open(h.path)
+	// Only stat the file to check for changes; the file is opened for parsing
+	// only when it actually changed.
+	pstat, err := os.Stat(h.path)
 	if err != nil {
 		// We already log a warning if the file doesn't exist or can't be opened on setup. No need to return the error here.
-		return
-	}
-	defer file.Close()
-
-	stat, err := file.Stat()
-	if err != nil {
 		return
 	}
 	h.RLock()
@@ -137,7 +133,20 @@ func (h *Hostsfile) readHosts() {
 	mtime := h.mtime
 	h.RUnlock()
 
-	if mtime.Equal(stat.ModTime()) && size == stat.Size() {
+	if mtime.Equal(pstat.ModTime()) && size == pstat.Size() {
+		return
+	}
+
+	file, err := os.Open(h.path)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	// Stat the opened file so the recorded mtime/size always match the content
+	// that was parsed, even if the file is replaced between the stat and open.
+	stat, err := file.Stat()
+	if err != nil {
 		return
 	}
 
