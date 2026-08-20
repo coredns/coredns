@@ -531,6 +531,64 @@ func TestKubernetesParseEndpointPodNames(t *testing.T) {
 	}
 }
 
+func TestKubernetesParsePTRHostnameOnly(t *testing.T) {
+	tests := []struct {
+		input           string // Corefile data as string
+		shouldErr       bool   // true if test case is expected to produce an error.
+		expectedErr     string // substring from the expected error. Empty for positive cases.
+		expectedPTROnly bool
+	}{
+		{
+			`kubernetes coredns.local {
+	ptr_hostname_only
+}`,
+			false,
+			"",
+			true,
+		},
+		{
+			`kubernetes coredns.local {
+	ptr_hostname_only foo
+}`,
+			true,
+			"rong argument count or unexpected",
+			false,
+		},
+		{
+			`kubernetes coredns.local {
+}`,
+			false,
+			"",
+			false,
+		},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		k8sController, err := kubernetesParse(c)
+
+		if test.shouldErr && err == nil {
+			t.Errorf("Test %d: Expected error, but did not find error for input '%s'. Error was: '%v'", i, test.input, err)
+		}
+
+		if err != nil {
+			if !test.shouldErr {
+				t.Errorf("Test %d: Expected no error but found one for input %s. Error was: %v", i, test.input, err)
+				continue
+			}
+
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Test %d: Expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
+			}
+			continue
+		}
+
+		if k8sController.ptrHostnameOnly != test.expectedPTROnly {
+			t.Errorf("Test %d: Expected ptrHostnameOnly '%v', got '%v' for input '%s'", i, test.expectedPTROnly, k8sController.ptrHostnameOnly, test.input)
+		}
+	}
+}
+
 func TestKubernetesParseNoEndpoints(t *testing.T) {
 	tests := []struct {
 		input                 string // Corefile data as string

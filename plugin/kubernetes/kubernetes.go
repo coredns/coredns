@@ -44,6 +44,7 @@ type Kubernetes struct {
 	Namespaces       map[string]struct{}
 	podMode          string
 	endpointNameMode bool
+	ptrHostnameOnly  bool
 	Fall             fall.F
 	ttl              uint32
 	opts             dnsControlOpts
