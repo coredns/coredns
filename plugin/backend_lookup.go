@@ -523,12 +523,11 @@ func checkForApex(ctx context.Context, b ServiceBackend, zone string, state requ
 	state.Req.Question[0].Name = dnsutil.Join("apex.dns", zone)
 
 	services, err := b.Services(ctx, state, false, opt)
-	if err == nil {
-		state.Req.Question[0].Name = old
+	state.Req.Question[0].Name = old
+	if err == nil || !b.IsNameError(err) {
 		return services, err
 	}
 
-	state.Req.Question[0].Name = old
 	return b.Services(ctx, state, false, opt)
 }
 
