@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"slices"
 	"time"
 
 	"github.com/coredns/coredns/plugin"
@@ -39,7 +40,7 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 	switch {
 	case tsigRR == nil && !t.tsigRequired(state.QType(), r.Opcode):
 		fallthrough
-	case plugin.Zones(t.Zones).Matches(state.Name()) == "":
+	case !slices.ContainsFunc(t.Zones, func(z string) bool { return plugin.Name(z).Matches(state.Name()) }):
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
 	case tsigRR == nil:
 		log.Debugf("rejecting '%s' request without TSIG\n", dns.TypeToString[state.QType()])
