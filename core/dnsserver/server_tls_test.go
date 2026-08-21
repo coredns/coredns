@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net"
 	"testing"
+
+	"github.com/miekg/dns"
 )
 
 type stubListener struct {
@@ -52,6 +54,41 @@ func TestServerTLSSetsTsigSecret(t *testing.T) {
 
 	if got := server.server[tcp].TsigSecret["test."]; got != "abcd" {
 		t.Fatalf("expected tsig secret %q, got %q", "abcd", got)
+	}
+}
+
+func TestServerTLSUpdateAdmission(t *testing.T) {
+	for _, allow := range []bool{false, true} {
+		name := "default-reject"
+		if allow {
+			name = "explicit-opt-in"
+		}
+		t.Run(name, func(t *testing.T) {
+			config := testConfig("tls", testPlugin{})
+			if allow {
+				config.AllowOpcode(dns.OpcodeUpdate)
+			}
+			server, err := NewServerTLS("tls://127.0.0.1:0", []*Config{config})
+			if err != nil {
+				t.Fatalf("NewServerTLS() failed: %v", err)
+			}
+			if err := server.Serve(&stubListener{}); err == nil {
+				t.Fatal("expected Serve() to return from stub listener")
+			}
+
+			accept := server.server[tcp].MsgAcceptFunc
+			if accept == nil {
+				t.Fatal("TLS server did not initialize MsgAcceptFunc")
+			}
+			header := dns.Header{Bits: uint16(dns.OpcodeUpdate << 11), Qdcount: 1}
+			want := dns.MsgRejectNotImplemented
+			if allow {
+				want = dns.MsgAccept
+			}
+			if got := accept(header); got != want {
+				t.Fatalf("UPDATE action = %v, want %v", got, want)
+			}
+		})
 	}
 }
 

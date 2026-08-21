@@ -135,6 +135,10 @@ type Config struct {
 	// TSIG secrets, [name]key.
 	TsigSecret map[string]string
 
+	// allowedOpcodes contains non-default DNS opcodes that plugins have explicitly
+	// requested for this server block. QUERY and NOTIFY are accepted by default.
+	allowedOpcodes map[int]struct{}
+
 	// Plugin stack.
 	Plugin []plugin.Plugin
 
