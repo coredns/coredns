@@ -37,4 +37,7 @@ type ServiceBackend interface {
 }
 
 // Options are extra options that can be specified for a lookup.
-type Options struct{}
+type Options struct {
+	// NoApexFallback disables the legacy zone-root lookup when apex records are absent.
+	NoApexFallback bool
+}

@@ -62,6 +62,11 @@ func etcdParse(c *caddy.Controller) (*Etcd, error) {
 				etc.Fall.SetZonesFromArgs(c.RemainingArgs())
 			case "debug":
 				/* it is a noop now */
+			case "no_apex_fallback":
+				if len(c.RemainingArgs()) != 0 {
+					return &Etcd{}, c.ArgErr()
+				}
+				etc.NoApexFallback = true
 			case "path":
 				if !c.NextArg() {
 					return &Etcd{}, c.ArgErr()

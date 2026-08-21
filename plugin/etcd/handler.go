@@ -11,7 +11,7 @@ import (
 
 // ServeDNS implements the plugin.Handler interface.
 func (e *Etcd) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	opt := plugin.Options{}
+	opt := plugin.Options{NoApexFallback: e.NoApexFallback}
 	state := request.Request{W: w, Req: r}
 
 	zone := plugin.Zones(e.Zones).Matches(state.Name())
