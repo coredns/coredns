@@ -41,15 +41,22 @@ func (p *updateResponsePlugin) ServeDNS(_ context.Context, w dns.ResponseWriter,
 	return dns.RcodeSuccess, nil
 }
 
-func mustPackRFC2136Update(t *testing.T) []byte {
+func newRFC2136Update(t *testing.T, zone string) *dns.Msg {
 	t.Helper()
 
-	m := new(dns.Msg).SetUpdate("example.com.")
-	rr, err := dns.NewRR("foo.example.com. 300 IN A 192.0.2.123")
+	m := new(dns.Msg).SetUpdate(zone)
+	rr, err := dns.NewRR("host." + zone + " 300 IN A 192.0.2.123")
 	if err != nil {
 		t.Fatalf("dns.NewRR() failed: %v", err)
 	}
 	m.Insert([]dns.RR{rr})
+	return m
+}
+
+func mustPackRFC2136Update(t *testing.T) []byte {
+	t.Helper()
+
+	m := newRFC2136Update(t, "example.com.")
 	// DNS-over-QUIC requires the DNS message ID to be zero.
 	m.Id = 0
 
@@ -112,6 +119,225 @@ func TestNewServer(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected no error for NewServerQUIC, got %s", err)
 	}
+}
+
+func TestUpdateAdmission(t *testing.T) {
+	for _, network := range []string{"udp", "tcp"} {
+		for _, allow := range []bool{false, true} {
+			name := network + "/default-reject"
+			if allow {
+				name = network + "/explicit-opt-in"
+			}
+			t.Run(name, func(t *testing.T) {
+				handler := new(updateResponsePlugin)
+				cfg := testConfig("dns", handler)
+				if allow {
+					cfg.AllowOpcode(dns.OpcodeUpdate)
+				}
+
+				response := exchangeWithTestServer(t, network, []*Config{cfg}, newRFC2136Update(t, "example.com."))
+				wantRcode := dns.RcodeNotImplemented
+				if allow {
+					wantRcode = dns.RcodeSuccess
+				}
+				if response.Rcode != wantRcode {
+					t.Fatalf("rcode = %s, want %s", dns.RcodeToString[response.Rcode], dns.RcodeToString[wantRcode])
+				}
+				if handler.called.Load() != allow {
+					t.Fatalf("plugin called = %v, want %v", handler.called.Load(), allow)
+				}
+			})
+		}
+	}
+}
+
+func TestUpdateAdmissionIsScopedToConfig(t *testing.T) {
+	dynamicHandler := new(updateResponsePlugin)
+	dynamicConfig := testConfig("dns", dynamicHandler)
+	dynamicConfig.Zone = "dynamic.example."
+	dynamicConfig.AllowOpcode(dns.OpcodeUpdate)
+
+	staticHandler := new(updateResponsePlugin)
+	staticConfig := testConfig("dns", staticHandler)
+	staticConfig.Zone = "static.example."
+
+	response := exchangeWithTestServer(t, "udp", []*Config{dynamicConfig, staticConfig}, newRFC2136Update(t, "static.example."))
+	if response.Rcode != dns.RcodeNotImplemented {
+		t.Fatalf("rcode = %s, want NOTIMP", dns.RcodeToString[response.Rcode])
+	}
+	if dynamicHandler.called.Load() || staticHandler.called.Load() {
+		t.Fatalf("UPDATE reached a plugin: dynamic=%v static=%v", dynamicHandler.called.Load(), staticHandler.called.Load())
+	}
+}
+
+func TestUpdateAdmissionHeaderChecks(t *testing.T) {
+	s := &Server{allowedOpcodes: map[int]struct{}{dns.OpcodeUpdate: {}}}
+	header := dns.Header{
+		Bits:    uint16(dns.OpcodeUpdate << 11),
+		Qdcount: 1,
+		Ancount: 3,
+		Nscount: 3,
+		Arcount: 3,
+	}
+	if got := s.acceptMessage(header); got != dns.MsgAccept {
+		t.Fatalf("valid UPDATE action = %v, want MsgAccept", got)
+	}
+
+	header.Qdcount = 0
+	if got := s.acceptMessage(header); got != dns.MsgReject {
+		t.Fatalf("zero-question UPDATE action = %v, want MsgReject", got)
+	}
+	header.Qdcount = 2
+	if got := s.acceptMessage(header); got != dns.MsgReject {
+		t.Fatalf("two-question UPDATE action = %v, want MsgReject", got)
+	}
+
+	header = dns.Header{Bits: uint16(dns.OpcodeUpdate<<11) | 1<<15, Qdcount: 1}
+	if got := s.acceptMessage(header); got != dns.MsgIgnore {
+		t.Fatalf("UPDATE response action = %v, want MsgIgnore", got)
+	}
+
+	header = dns.Header{Bits: uint16(dns.OpcodeStatus << 11), Qdcount: 1}
+	if got := s.acceptMessage(header); got != dns.MsgRejectNotImplemented {
+		t.Fatalf("unregistered opcode action = %v, want MsgRejectNotImplemented", got)
+	}
+
+	queryHeader := dns.Header{Qdcount: 1, Nscount: 2}
+	if got := s.acceptMessage(queryHeader); got != dns.MsgReject {
+		t.Fatalf("invalid QUERY action = %v, want MsgReject", got)
+	}
+}
+
+func TestUpdateAdmissionPreservesTSIGStatus(t *testing.T) {
+	const (
+		keyName = "update-key.example."
+		secret  = "MTIzNDU2Nzg5MDEyMzQ1Ng=="
+	)
+
+	called := make(chan struct{}, 1)
+	handler := tsigStatusCheckPlugin{
+		t:      t,
+		called: called,
+		check: func(t *testing.T, status error) {
+			t.Helper()
+			if status != nil {
+				t.Fatalf("TsigStatus() = %v, want nil", status)
+			}
+		},
+	}
+	cfg := testConfig("dns", handler)
+	cfg.AllowOpcode(dns.OpcodeUpdate)
+	cfg.TsigSecret = map[string]string{keyName: secret}
+
+	request := newRFC2136Update(t, "example.com.")
+	request.SetTsig(keyName, dns.HmacSHA256, 300, time.Now().Unix())
+	client := &dns.Client{TsigSecret: map[string]string{keyName: secret}}
+	response := exchangeWithTestServerUsingClient(t, "udp", []*Config{cfg}, request, client)
+	if response.Rcode != dns.RcodeSuccess {
+		t.Fatalf("rcode = %s, want NOERROR", dns.RcodeToString[response.Rcode])
+	}
+	select {
+	case <-called:
+	default:
+		t.Fatal("TSIG status plugin was not called")
+	}
+}
+
+func TestUpdateAdmissionPreservesTSIGFailure(t *testing.T) {
+	const (
+		keyName      = "update-key.example."
+		serverSecret = "MTIzNDU2Nzg5MDEyMzQ1Ng=="
+		clientSecret = "YWJjZGVmZ2hpamtsbW5vcA=="
+	)
+
+	status := make(chan error, 1)
+	handler := tsigStatusCheckPlugin{
+		t:      t,
+		called: make(chan struct{}, 1),
+		check: func(_ *testing.T, got error) {
+			status <- got
+		},
+	}
+	cfg := testConfig("dns", handler)
+	cfg.AllowOpcode(dns.OpcodeUpdate)
+	cfg.TsigSecret = map[string]string{keyName: serverSecret}
+
+	server, err := NewServer("127.0.0.1:0", []*Config{cfg})
+	if err != nil {
+		t.Fatalf("NewServer() failed: %v", err)
+	}
+	packetConn, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.ListenPacket() failed: %v", err)
+	}
+	go func() { _ = server.ServePacket(packetConn) }()
+	defer func() {
+		_ = server.Stop()
+		_ = packetConn.Close()
+	}()
+
+	request := newRFC2136Update(t, "example.com.")
+	request.SetTsig(keyName, dns.HmacSHA256, 300, time.Now().Unix())
+	client := &dns.Client{
+		Net:        "udp",
+		Timeout:    2 * time.Second,
+		TsigSecret: map[string]string{keyName: clientSecret},
+	}
+	_, _, _ = client.Exchange(request, packetConn.LocalAddr().String())
+
+	select {
+	case got := <-status:
+		if got == nil {
+			t.Fatal("TsigStatus() = nil, want verification error")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("UPDATE with invalid TSIG did not reach the status-check plugin")
+	}
+}
+
+func exchangeWithTestServer(t *testing.T, network string, configs []*Config, request *dns.Msg) *dns.Msg {
+	t.Helper()
+	return exchangeWithTestServerUsingClient(t, network, configs, request, new(dns.Client))
+}
+
+func exchangeWithTestServerUsingClient(t *testing.T, network string, configs []*Config, request *dns.Msg, client *dns.Client) *dns.Msg {
+	t.Helper()
+
+	s, err := NewServer("127.0.0.1:0", configs)
+	if err != nil {
+		t.Fatalf("NewServer() failed: %v", err)
+	}
+
+	var addr string
+	switch network {
+	case "udp":
+		pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("net.ListenPacket() failed: %v", err)
+		}
+		addr = pc.LocalAddr().String()
+		go func() { _ = s.ServePacket(pc) }()
+		t.Cleanup(func() { _ = pc.Close() })
+	case "tcp":
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("net.Listen() failed: %v", err)
+		}
+		addr = listener.Addr().String()
+		go func() { _ = s.Serve(listener) }()
+		t.Cleanup(func() { _ = listener.Close() })
+	default:
+		t.Fatalf("unsupported network %q", network)
+	}
+	t.Cleanup(func() { _ = s.Stop() })
+
+	client.Net = network
+	client.Timeout = 2 * time.Second
+	response, _, err := client.Exchange(request, addr)
+	if err != nil {
+		t.Fatalf("dns exchange failed: %v", err)
+	}
+	return response
 }
 
 func TestDebug(t *testing.T) {

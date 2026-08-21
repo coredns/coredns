@@ -184,6 +184,17 @@ func (c *Config) AddPlugin(m plugin.Plugin) {
 	c.Plugin = append(c.Plugin, m)
 }
 
+// AllowOpcode permits a non-default DNS opcode to reach this config's plugin chain
+// on UDP, TCP, and DNS-over-TLS listeners. Plugins should call it during setup.
+// The listener still requires exactly one question, and configs that do not opt in
+// continue to reject the opcode.
+func (c *Config) AllowOpcode(opcode int) {
+	if c.allowedOpcodes == nil {
+		c.allowedOpcodes = make(map[int]struct{})
+	}
+	c.allowedOpcodes[opcode] = struct{}{}
+}
+
 // registerHandler adds a handler to a site's handler registration. Handlers
 //
 //	use this to announce that they exist to other plugin.
@@ -276,6 +287,7 @@ func propagateConfigParams(configs []*Config) {
 		c.IdleTimeout = c.firstConfigInBlock.IdleTimeout
 		c.MaxTCPQueries = c.firstConfigInBlock.MaxTCPQueries
 		c.TsigSecret = c.firstConfigInBlock.TsigSecret
+		c.allowedOpcodes = c.firstConfigInBlock.allowedOpcodes
 
 		// Propagate HTTPRequestValidateFunc so that custom path validators work in
 		// multi-transport blocks. Otherwise HTTPS 404s on non-"/dns-query" paths.

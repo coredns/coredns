@@ -1,9 +1,13 @@
 package dnsserver
 
 import (
+	"crypto/tls"
 	"errors"
 	"net"
 	"testing"
+	"time"
+
+	"github.com/miekg/dns"
 )
 
 type stubListener struct {
@@ -52,6 +56,63 @@ func TestServerTLSSetsTsigSecret(t *testing.T) {
 
 	if got := server.server[tcp].TsigSecret["test."]; got != "abcd" {
 		t.Fatalf("expected tsig secret %q, got %q", "abcd", got)
+	}
+}
+
+func TestServerTLSUpdateAdmission(t *testing.T) {
+	for _, allow := range []bool{false, true} {
+		name := "default-reject"
+		if allow {
+			name = "explicit-opt-in"
+		}
+		t.Run(name, func(t *testing.T) {
+			handler := new(updateResponsePlugin)
+			config := testConfig("tls", handler)
+			cert, err := tls.LoadX509KeyPair("../../plugin/tls/test_cert.pem", "../../plugin/tls/test_key.pem")
+			if err != nil {
+				t.Fatalf("tls.LoadX509KeyPair() failed: %v", err)
+			}
+			config.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
+			if allow {
+				config.AllowOpcode(dns.OpcodeUpdate)
+			}
+			server, err := NewServerTLS("tls://127.0.0.1:0", []*Config{config})
+			if err != nil {
+				t.Fatalf("NewServerTLS() failed: %v", err)
+			}
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatalf("net.Listen() failed: %v", err)
+			}
+			go func() { _ = server.Serve(listener) }()
+			t.Cleanup(func() {
+				_ = server.Stop()
+				_ = listener.Close()
+			})
+
+			client := &dns.Client{
+				Net:     "tcp-tls",
+				Timeout: 2 * time.Second,
+				TLSConfig: &tls.Config{
+					InsecureSkipVerify: true, // #nosec G402 -- the checked-in test certificate has no SAN.
+				},
+			}
+			response, _, err := client.Exchange(newRFC2136Update(t, "example.com."), listener.Addr().String())
+			if err != nil {
+				t.Fatalf("dns exchange failed: %v", err)
+			}
+
+			wantRcode := dns.RcodeNotImplemented
+			if allow {
+				wantRcode = dns.RcodeSuccess
+			}
+			if response.Rcode != wantRcode {
+				t.Fatalf("rcode = %s, want %s", dns.RcodeToString[response.Rcode], dns.RcodeToString[wantRcode])
+			}
+			if handler.called.Load() != allow {
+				t.Fatalf("plugin called = %v, want %v", handler.called.Load(), allow)
+			}
+		})
 	}
 }
 
