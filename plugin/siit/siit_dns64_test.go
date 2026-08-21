@@ -89,8 +89,8 @@ func TestSIITDNS64NoRecursion(t *testing.T) {
 			if rc != dns.RcodeSuccess {
 				t.Fatalf("unexpected rcode: %v", rc)
 			}
-			if calls > 2 {
-				t.Fatalf("expected at most 2 internal lookups (siit's AAAA lookup + dns64's nested A lookup), got %d", calls)
+			if calls != 2 {
+				t.Fatalf("expected exactly 2 internal lookups (siit's AAAA lookup + dns64's nested A lookup), got %d", calls)
 			}
 		})
 	}
