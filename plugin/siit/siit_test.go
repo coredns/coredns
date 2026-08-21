@@ -11,9 +11,9 @@ import (
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
-	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/miekg/dns"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 // TestToUnmappedAAAA reproduces the empty-RDATA-A-record bug: an AAAA
@@ -928,6 +928,60 @@ func TestSynthesizePreservesAuthoritativeAndRecursive(t *testing.T) {
 				t.Fatalf("expected original A question to be preserved, got %+v", out.Question)
 			}
 		})
+	}
+}
+
+// TestServeDNSTruncatedInitialResponseNotSynthesized reproduces the
+// hidden-truncation bug: an initial A response with TC=1 and no visible
+// Answer must not be treated as NODATA and synthesized from a mapped AAAA
+// record. Doing so would return TC=0 to the client, who would then never
+// retry over TCP to recover the real A RR the original truncation hid.
+func TestServeDNSTruncatedInitialResponseNotSynthesized(t *testing.T) {
+	_, prefix, _ := net.ParseCIDR("64:ff9b::/96")
+
+	initResp := &dns.Msg{
+		MsgHdr: dns.MsgHdr{
+			Id:               42,
+			Opcode:           dns.OpcodeQuery,
+			RecursionDesired: true,
+			Truncated:        true,
+			Rcode:            dns.RcodeSuccess,
+			Response:         true,
+		},
+		Question: []dns.Question{{Name: "example.org.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
+		// no Answer -- looks like NODATA, but TC=1 means it's incomplete
+	}
+
+	d := &SIIT{
+		Next:       &fakeHandler{t, initResp},
+		IPv6Prefix: prefix,
+		// qname left empty: any Lookup call fails the test outright, since
+		// a truncated initial response must short-circuit before ever
+		// issuing the secondary AAAA lookup.
+		Upstream: &fakeUpstream{t: t},
+	}
+
+	r := new(dns.Msg)
+	r.SetQuestion("example.org.", dns.TypeA)
+	r.Id = 42
+	r.RecursionDesired = true
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+	rc, err := d.ServeDNS(context.Background(), rec, r)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if rc != dns.RcodeSuccess {
+		t.Fatalf("unexpected rcode: %v", rc)
+	}
+	if rec.Msg == nil {
+		t.Fatal("expected a response to be written")
+	}
+	if !rec.Msg.Truncated {
+		t.Fatalf("expected TC=1 to be preserved so the client retries over TCP, got TC=%v", rec.Msg.Truncated)
+	}
+	if len(rec.Msg.Answer) != 0 {
+		t.Fatalf("expected no synthesized answer for a truncated initial response, got %+v", rec.Msg.Answer)
 	}
 }
 

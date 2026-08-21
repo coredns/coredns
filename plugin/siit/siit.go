@@ -120,6 +120,10 @@ func (d *SIIT) requestShouldIntercept(req *request.Request) bool {
 // Note that requestShouldIntercept must also have been true, so the request
 // is known to be of type A.
 func (d *SIIT) responseShouldSIIT(req *request.Request, origResponse *dns.Msg) bool {
+	if origResponse.Truncated {
+		return false
+	}
+
 	ty, _ := response.Typify(origResponse, time.Now().UTC())
 
 	// Handle NameError normally. See RFC 6147 5.1.2
