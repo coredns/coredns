@@ -37,6 +37,7 @@ etcd [ZONES...] {
     endpoint ENDPOINT...
     credentials USERNAME PASSWORD
     tls CERT KEY CACERT
+    no_apex_fallback
 }
 ~~~
 
@@ -55,6 +56,10 @@ etcd [ZONES...] {
     * three arguments - path to cert PEM file, path to client private key PEM file, path to CA PEM
       file - if the server certificate is not signed by a system-installed CA and client certificate
       is needed.
+* `no_apex_fallback` disables the legacy zone-root lookup used by address queries and apex-existence
+  checks at a configured zone apex. When `apex.dns.ZONE` does not exist, the lookup returns a name
+  error instead of issuing a prefix range over the complete zone subtree. Migrate zone-apex address
+  records to the `dns/apex` layout before enabling this option.
 
 CoreDNS sets the minimum TLS version to TLS 1.2. The maximum TLS version, TLS 1.2 cipher suites, and
 key exchange mechanisms use the Go `crypto/tls` defaults.
@@ -93,10 +98,11 @@ zone's root prefix for compatibility with older SkyDNS layouts. On a large zone,
 the entire zone subtree.
 
 Store zone-apex address records below the `dns/apex` path, as shown in the examples below, to avoid
-the zone-wide fallback. The *cache* plugin reduces repeated backend reads for the same DNS question,
-but does not reduce the size of the first prefix response. Use the *log* plugin to identify the client
-and question name that trigger a lookup, and `coredns_dns_requests_total` from the *prometheus* plugin
-to measure query volume by zone and type.
+the zone-wide fallback. Once all apex records use that layout, enable `no_apex_fallback` to prevent a
+missing or deleted apex entry from triggering a zone-root scan. The *cache* plugin reduces repeated
+backend reads for the same DNS question, but does not reduce the size of the first prefix response.
+Use the *log* plugin to identify the client and question name that trigger a lookup, and
+`coredns_dns_requests_total` from the *prometheus* plugin to measure query volume by zone and type.
 
 ## Examples
 

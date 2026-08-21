@@ -604,6 +604,37 @@ func TestCheckForApexFallback(t *testing.T) {
 	}
 }
 
+func TestCheckForApexFallbackDisabled(t *testing.T) {
+	errName := errors.New("name not found")
+	calls := 0
+	b := &mockBackend{
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
+			calls++
+			if state.QName() != "apex.dns.example.org." {
+				t.Fatalf("unexpected fallback lookup for %s", state.QName())
+			}
+			return nil, errName
+		},
+		mockNameError: func(err error) bool { return errors.Is(err, errName) },
+	}
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	state := request.Request{Req: req, W: &test.ResponseWriter{}}
+	services, err := checkForApex(context.Background(), b, "example.org.", state, Options{NoApexFallback: true})
+	if !errors.Is(err, errName) {
+		t.Fatalf("expected name error, got %v", err)
+	}
+	if len(services) != 0 {
+		t.Fatalf("expected no services, got %+v", services)
+	}
+	if calls != 1 {
+		t.Fatalf("expected one apex lookup, got %d calls", calls)
+	}
+	if state.QName() != "example.org." {
+		t.Fatalf("query name was not restored: %s", state.QName())
+	}
+}
+
 func TestCheckForApexBackendError(t *testing.T) {
 	errBackend := context.DeadlineExceeded
 	calls := 0

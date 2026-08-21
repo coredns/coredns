@@ -40,6 +40,8 @@ type Etcd struct {
 	Client      *etcdcv3.Client
 	MinLeaseTTL uint32 // minimum TTL for lease-based records
 	MaxLeaseTTL uint32 // maximum TTL for lease-based records
+	// NoApexFallback disables the legacy zone-root lookup when apex.dns records are absent.
+	NoApexFallback bool
 
 	endpoints []string // Stored here as well, to aid in testing.
 }
