@@ -5,6 +5,8 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
+
+	"github.com/miekg/dns"
 )
 
 func TestKeyForConfig(t *testing.T) {
@@ -100,5 +102,18 @@ func TestPropagateConfigParamsMaxTCPQueries(t *testing.T) {
 
 	if second.MaxTCPQueries == nil || *second.MaxTCPQueries != n {
 		t.Fatalf("expected MaxTCPQueries to propagate to second config as %d, got %v", n, second.MaxTCPQueries)
+	}
+}
+
+func TestPropagateConfigParamsAllowedOpcodes(t *testing.T) {
+	first := &Config{}
+	first.firstConfigInBlock = first
+	first.AllowOpcode(dns.OpcodeUpdate)
+	second := &Config{firstConfigInBlock: first}
+
+	propagateConfigParams([]*Config{first, second})
+
+	if !second.acceptsOpcode(dns.OpcodeUpdate) {
+		t.Fatal("expected UPDATE admission to propagate to every zone in the server block")
 	}
 }

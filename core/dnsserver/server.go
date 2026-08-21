@@ -65,7 +65,8 @@ type Server struct {
 	stacktrace   bool                 // enable stacktrace in recover error log
 	classChaos   bool                 // allow non-INET class queries
 
-	tsigSecret map[string]string
+	tsigSecret     map[string]string
+	allowedOpcodes map[int]struct{}
 
 	// udpDecorateWriterFunc is selected in NewServer from the group configs in
 	// stable order (last one set wins), so the choice is deterministic when
@@ -86,14 +87,15 @@ type MetadataCollector interface {
 // queries are blocked unless queries from enableChaos are loaded.
 func NewServer(addr string, group []*Config) (*Server, error) {
 	s := &Server{
-		Addr:          addr,
-		zones:         make(map[string][]*Config),
-		graceTimeout:  5 * time.Second,
-		IdleTimeout:   10 * time.Second,
-		ReadTimeout:   3 * time.Second,
-		WriteTimeout:  5 * time.Second,
-		MaxTCPQueries: tcpMaxQueries,
-		tsigSecret:    make(map[string]string),
+		Addr:           addr,
+		zones:          make(map[string][]*Config),
+		graceTimeout:   5 * time.Second,
+		IdleTimeout:    10 * time.Second,
+		ReadTimeout:    3 * time.Second,
+		WriteTimeout:   5 * time.Second,
+		MaxTCPQueries:  tcpMaxQueries,
+		tsigSecret:     make(map[string]string),
+		allowedOpcodes: make(map[int]struct{}),
 	}
 
 	for _, site := range group {
@@ -122,6 +124,7 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 
 		// copy tsig secrets
 		maps.Copy(s.tsigSecret, site.TsigSecret)
+		maps.Copy(s.allowedOpcodes, site.allowedOpcodes)
 
 		// compile custom plugin for everything
 		var stack plugin.Handler
@@ -183,6 +186,7 @@ func (s *Server) Serve(l net.Listener) error {
 	s.server[tcp] = &dns.Server{Listener: l,
 		Net:           "tcp",
 		TsigSecret:    s.tsigSecret,
+		MsgAcceptFunc: s.msgAcceptFunc(),
 		MaxTCPQueries: s.MaxTCPQueries,
 		ReadTimeout:   s.ReadTimeout,
 		WriteTimeout:  s.WriteTimeout,
@@ -213,7 +217,7 @@ func (s *Server) ServePacket(p net.PacketConn) error {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	}), TsigSecret: s.tsigSecret, DecorateWriter: dw}
+	}), TsigSecret: s.tsigSecret, MsgAcceptFunc: s.msgAcceptFunc(), DecorateWriter: dw}
 	s.m.Unlock()
 
 	return s.server[udp].ActivateAndServe()
@@ -344,11 +348,15 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 				// If all filter funcs pass, use this config.
 				if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+					if !h.acceptsOpcode(r.Opcode) {
+						errorAndMetricsFunc(s.Addr, w, r, dns.RcodeNotImplemented)
+						return
+					}
 					if h.ViewName != "" {
 						// if there was a view defined for this Config, set the view name in the context
 						ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
 					}
-					if r.Question[0].Qtype != dns.TypeDS {
+					if r.Opcode != dns.OpcodeQuery || r.Question[0].Qtype != dns.TypeDS {
 						rcode, _ := h.pluginChain.ServeDNS(ctx, w, r)
 						if !plugin.ClientWrite(rcode) {
 							errorFunc(s.Addr, w, r, rcode)
@@ -393,6 +401,10 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 			// If all filter funcs pass, use this config.
 			if passAllFilterFuncs(ctx, h.FilterFuncs, &request.Request{Req: r, W: w}) {
+				if !h.acceptsOpcode(r.Opcode) {
+					errorAndMetricsFunc(s.Addr, w, r, dns.RcodeNotImplemented)
+					return
+				}
 				if h.ViewName != "" {
 					// if there was a view defined for this Config, set the view name in the context
 					ctx = context.WithValue(ctx, ViewKey{}, h.ViewName)
@@ -408,6 +420,39 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 
 	// Still here? Error out with REFUSED.
 	errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
+}
+
+// msgAcceptFunc returns nil when no plugin has opted into an additional opcode,
+// preserving miekg/dns's default request policy exactly.
+func (s *Server) msgAcceptFunc() dns.MsgAcceptFunc {
+	if len(s.allowedOpcodes) == 0 {
+		return nil
+	}
+	return s.acceptMessage
+}
+
+func (s *Server) acceptMessage(header dns.Header) dns.MsgAcceptAction {
+	action := dns.DefaultMsgAcceptFunc(header)
+	if action != dns.MsgRejectNotImplemented {
+		return action
+	}
+
+	opcode := int(header.Bits>>11) & 0xF
+	if _, ok := s.allowedOpcodes[opcode]; !ok {
+		return action
+	}
+	if header.Qdcount != 1 {
+		return dns.MsgReject
+	}
+	return dns.MsgAccept
+}
+
+func (c *Config) acceptsOpcode(opcode int) bool {
+	if opcode == dns.OpcodeQuery || opcode == dns.OpcodeNotify {
+		return true
+	}
+	_, ok := c.allowedOpcodes[opcode]
+	return ok
 }
 
 // passAllFilterFuncs returns true if all filter funcs evaluate to true for the given request
