@@ -90,6 +90,13 @@ func key(qname string, m *dns.Msg, t response.Type, do, cd bool) (bool, uint64) 
 	if m.Truncated {
 		return false, 0
 	}
+	// A response with no question cannot be keyed or cached and would panic
+	// on m.Question[0] below. Some plugins can emit such a malformed message
+	// (e.g. during prefetch); warn and skip it rather than crash the server.
+	if len(m.Question) == 0 {
+		log.Warningf("Not caching malformed response with an empty question section for %q", qname)
+		return false, 0
+	}
 	// Nor errors or Meta or Update.
 	if t == response.OtherError || t == response.Meta || t == response.Update {
 		return false, 0
