@@ -265,6 +265,7 @@ func propagateConfigParams(configs []*Config) {
 	for _, c := range configs {
 		c.Plugin = c.firstConfigInBlock.Plugin
 		c.ListenHosts = c.firstConfigInBlock.ListenHosts
+		c.ListenNetProtos = c.firstConfigInBlock.ListenNetProtos
 		c.Debug = c.firstConfigInBlock.Debug
 		c.Stacktrace = c.firstConfigInBlock.Stacktrace
 		c.NumSockets = c.firstConfigInBlock.NumSockets

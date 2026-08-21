@@ -16,18 +16,27 @@ func TestSetup(t *testing.T) {
 	}
 
 	for i, test := range []struct {
-		config   string
-		expected []string
-		failing  bool
+		config        string
+		expected      []string
+		expectedProto map[string]string
+		failing       bool
 	}{
-		{`bind 1.2.3.4`, []string{"1.2.3.4"}, false},
-		{`bind`, nil, true},
-		{`bind 1.2.3.invalid`, nil, true},
-		{`bind 1.2.3.4 ::5`, []string{"1.2.3.4", "::5"}, false},
-		{`bind ::1 1.2.3.4 ::5 127.9.9.0`, []string{"::1", "1.2.3.4", "::5", "127.9.9.0"}, false},
-		{`bind ::1 1.2.3.4 ::5 127.9.9.0 noone`, nil, true},
-		{`bind 1.2.3.4 lo`, []string{"1.2.3.4", "127.0.0.1", "::1"}, false},
-		{"bind lo {\nexcept 127.0.0.1\n}\n", []string{"::1"}, false},
+		{`bind 1.2.3.4`, []string{"1.2.3.4"}, nil, false},
+		{`bind`, nil, nil, true},
+		{`bind 1.2.3.invalid`, nil, nil, true},
+		{`bind 1.2.3.4 ::5`, []string{"1.2.3.4", "::5"}, nil, false},
+		{`bind ::1 1.2.3.4 ::5 127.9.9.0`, []string{"::1", "1.2.3.4", "::5", "127.9.9.0"}, nil, false},
+		{`bind ::1 1.2.3.4 ::5 127.9.9.0 noone`, nil, nil, true},
+		{`bind 1.2.3.4 lo`, []string{"1.2.3.4", "127.0.0.1", "::1"}, nil, false},
+		{"bind lo {\nexcept 127.0.0.1\n}\n", []string{"::1"}, nil, false},
+		// ipv4/ipv6 keywords
+		{`bind ipv4`, []string{"0.0.0.0"}, map[string]string{"0.0.0.0": "4"}, false},
+		{`bind ipv6`, []string{"::"}, map[string]string{"::": "6"}, false},
+		{`bind 127.0.0.1 127.0.0.2 ipv6`, []string{"127.0.0.1", "127.0.0.2", "::"}, map[string]string{"::": "6"}, false},
+		{`bind ipv4 ::1`, []string{"0.0.0.0", "::1"}, map[string]string{"0.0.0.0": "4"}, false},
+		// 0.0.0.0 without keyword stays dual-stack (no proto entry)
+		{`bind 0.0.0.0`, []string{"0.0.0.0"}, nil, false},
+		{`bind ::`, []string{"::"}, nil, false},
 	} {
 		c := caddy.NewTestController("dns", test.config)
 		err := setup(c)
@@ -49,6 +58,15 @@ func TestSetup(t *testing.T) {
 			if got, want := cfg.ListenHosts[i], v; got != want {
 				t.Errorf("Test %d : expected the config's ListenHost to be %s, was %s", i, want, got)
 			}
+		}
+		if test.expectedProto != nil {
+			for host, wantProto := range test.expectedProto {
+				if gotProto := cfg.ListenNetProtos[host]; gotProto != wantProto {
+					t.Errorf("Test %d : expected ListenNetProtos[%q] = %q, got %q", i, host, wantProto, gotProto)
+				}
+			}
+		} else if len(cfg.ListenNetProtos) > 0 {
+			t.Errorf("Test %d : expected no ListenNetProtos, got %v", i, cfg.ListenNetProtos)
 		}
 	}
 }
