@@ -61,7 +61,8 @@ func TestCacheDoesNotSynthesizeAA(t *testing.T) {
 // from file, hosts and secondary.
 func TestCachePreservesAA(t *testing.T) {
 	c := New()
-	c.Next = authoritativeBackend()
+	calls := 0
+	c.Next = authoritativeBackend(&calls)
 
 	req := new(dns.Msg)
 	req.SetQuestion("example.org.", dns.TypeA)
@@ -78,5 +79,11 @@ func TestCachePreservesAA(t *testing.T) {
 	c.ServeDNS(context.TODO(), rec, req)
 	if !rec.Msg.Authoritative {
 		t.Errorf("cache hit: expected AA=1, the cached answer was authoritative, got AA=0")
+	}
+
+	// A second backend call would mean the "hit" was really a second miss,
+	// which satisfies the AA=1 assertion without ever touching the cache.
+	if calls != 1 {
+		t.Errorf("expected exactly one backend call after miss and hit, got %d", calls)
 	}
 }
