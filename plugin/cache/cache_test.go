@@ -979,8 +979,8 @@ func TestServeFromStaleCacheFetchVerifyTimeoutFastUpstream(t *testing.T) {
 	if got := rec.Msg.Answer[0].Header().Ttl; got != 200 {
 		t.Errorf("expected fresh TTL=200, got %d", got)
 	}
-	if !rec.Msg.Authoritative {
-		t.Error("expected cached fresh response to preserve authoritative cache reply shaping")
+	if rec.Msg.Authoritative {
+		t.Error("expected AA=0: the freshly verified answer came from a non-authoritative backend")
 	}
 }
 
@@ -1115,8 +1115,9 @@ func BackendHandler() plugin.Handler {
 	})
 }
 
-func authoritativeBackend() plugin.Handler {
+func authoritativeBackend(calls *int) plugin.Handler {
 	return plugin.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		*calls++
 		m := new(dns.Msg)
 		m.SetReply(r)
 		m.Response = true
