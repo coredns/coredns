@@ -558,9 +558,8 @@ func TestCacheInsertion(t *testing.T) {
 
 				// TODO: If we incorporate these individual checks into the
 				//       test.Header function, we can eliminate them from here.
-				// Cache entries are always Authoritative.
-				if resp.Authoritative != true {
-					t.Error("Expected Authoritative Answer bit to be true, but was false")
+				if resp.Authoritative != tc.out.Authoritative {
+					t.Errorf("Expected Authoritative Answer bit to be %t, but got %t", tc.out.Authoritative, resp.Authoritative)
 				}
 				if resp.AuthenticatedData != tc.out.AuthenticatedData {
 					t.Errorf("Expected Authenticated Data bit to be %t, but got %t", tc.out.AuthenticatedData, resp.AuthenticatedData)
@@ -980,8 +979,8 @@ func TestServeFromStaleCacheFetchVerifyTimeoutFastUpstream(t *testing.T) {
 	if got := rec.Msg.Answer[0].Header().Ttl; got != 200 {
 		t.Errorf("expected fresh TTL=200, got %d", got)
 	}
-	if !rec.Msg.Authoritative {
-		t.Error("expected cached fresh response to preserve authoritative cache reply shaping")
+	if rec.Msg.Authoritative {
+		t.Error("expected AA=0: the freshly verified answer came from a non-authoritative backend")
 	}
 }
 
@@ -1107,6 +1106,22 @@ func BackendHandler() plugin.Handler {
 		m.SetReply(r)
 		m.Response = true
 		m.RecursionAvailable = true
+
+		owner := m.Question[0].Name
+		m.Answer = []dns.RR{test.A(owner + " 303 IN A 127.0.0.53")}
+
+		w.WriteMsg(m)
+		return dns.RcodeSuccess, nil
+	})
+}
+
+func authoritativeBackend(calls *int) plugin.Handler {
+	return plugin.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		*calls++
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response = true
+		m.Authoritative = true
 
 		owner := m.Question[0].Name
 		m.Answer = []dns.RR{test.A(owner + " 303 IN A 127.0.0.53")}
