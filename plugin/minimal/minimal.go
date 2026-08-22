@@ -8,6 +8,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/nonwriter"
 	"github.com/coredns/coredns/plugin/pkg/response"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -20,10 +21,20 @@ type minimalHandler struct {
 func (m *minimalHandler) Name() string { return "minimal" }
 
 func (m *minimalHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	// A zone transfer is answered with a stream of messages, which a nonwriter can not
+	// capture, so hand the real writer to the next plugin.
+	state := request.Request{W: w, Req: r}
+	if qtype := state.QType(); qtype == dns.TypeAXFR || qtype == dns.TypeIXFR {
+		return plugin.NextOrFailure(m.Name(), m.Next, ctx, w, r)
+	}
+
 	nw := nonwriter.New(w)
 
 	rcode, err := plugin.NextOrFailure(m.Name(), m.Next, ctx, nw, r)
 	if err != nil {
+		return rcode, err
+	}
+	if nw.Msg == nil { // no response was written (or raw bytes were)
 		return rcode, err
 	}
 

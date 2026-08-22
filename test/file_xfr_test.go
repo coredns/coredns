@@ -100,3 +100,75 @@ func TestLargeAXFR(t *testing.T) {
 		t.Fatalf("Expected a AAAA answer, but it wasn't: type %d", resp.Answer[len(resp.Answer)-1].Header().Rrtype)
 	}
 }
+
+// TestLargeAXFRWithInterceptingPlugin checks that a plugin which captures and rewrites responses
+// does not swallow the stream of messages a zone transfer is answered with. Add a plugin to the
+// table when it starts wrapping the response writer.
+func TestLargeAXFRWithInterceptingPlugin(t *testing.T) {
+	var sb strings.Builder
+	const numAAAAs = 6553
+	sb.WriteString("example.com. IN SOA . . 1 60 60 60 60\n")
+	sb.WriteString("example.com. IN NS ns.example.\n")
+	for i := range numAAAAs {
+		fmt.Fprintf(&sb, "%d.example.com. IN AAAA 2001:db8::1\n", i)
+	}
+
+	name, rm, err := test.TempFile(".", sb.String())
+	if err != nil {
+		t.Fatalf("Failed to create zone: %s", err)
+	}
+	defer rm()
+
+	resolv, rmResolv, err := test.TempFile(".", "search example.com\nnameserver 127.0.0.1\n")
+	if err != nil {
+		t.Fatalf("Failed to create resolv.conf: %s", err)
+	}
+	defer rmResolv()
+
+	plugins := []struct {
+		name      string
+		directive string
+	}{
+		{"minimal", "minimal"},
+		{"autopath", "autopath " + resolv},
+	}
+
+	for _, p := range plugins {
+		t.Run(p.name, func(t *testing.T) {
+			directive := p.directive
+			corefile := `example.com:0 {
+				` + directive + `
+				file ` + name + `
+				transfer {
+					to *
+				}
+			}`
+
+			i, _, tcp, err := CoreDNSServerAndPorts(corefile)
+			if err != nil {
+				t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+			}
+			defer i.Stop()
+
+			tr := new(dns.Transfer)
+			m := new(dns.Msg)
+			m.SetAxfr("example.com.")
+			c, err := tr.In(m, tcp)
+			if err != nil {
+				t.Fatalf("Expected to start AXFR, but didn't: %s", err)
+			}
+
+			nrr := 0
+			for e := range c {
+				if e.Error != nil {
+					t.Fatalf("Expected a clean transfer, but got: %s", e.Error)
+				}
+				nrr += len(e.RR)
+			}
+			// 2 SOA, 1 NS and all the AAAAs.
+			if nrr != numAAAAs+3 {
+				t.Errorf("Got an unexpected number of RRs: %d, expected %d", nrr, numAAAAs+3)
+			}
+		})
+	}
+}
