@@ -19,3 +19,12 @@ func TestJoin(t *testing.T) {
 		}
 	}
 }
+
+func TestJoinEmpty(t *testing.T) {
+	// Join called with no labels must not index labels[ll-1] out of range; it
+	// returns the root name. Callers on the MX/SRV path can reach Join with an
+	// empty label slice.
+	if x := Join(); x != "." {
+		t.Errorf("expected %q, got %q", ".", x)
+	}
+}

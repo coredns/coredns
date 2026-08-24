@@ -10,6 +10,8 @@ READMES:=$(subst /README.md,,$(READMES))
 PLUGINS:=$(subst plugin/,coredns-,$(PLUGINS))
 PLUGINS:=$(subst /README.md,(7),$(PLUGINS))
 
+.SHELLFLAGS := -e -c
+
 all: mmark man/coredns.1 man/corefile.5 plugins
 
 GO           ?= go

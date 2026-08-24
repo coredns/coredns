@@ -47,17 +47,17 @@ func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, erro
 				nsHosts[nsHost] = struct{}{}
 				ch <- []dns.RR{&dns.NS{Hdr: dns.RR_Header{Name: zone, Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: k.ttl}, Ns: nsHost}}
 			}
-			ch <- nsAddrs
-
-			if !k.isMultiClusterZone(zone) {
-				k.transferServices(ch, zonePath)
-			} else {
-				k.transferMultiClusterServices(ch, zonePath)
-			}
-
-			ch <- soa
-			close(ch)
 		}
+		ch <- nsAddrs
+
+		if !k.isMultiClusterZone(zone) {
+			k.transferServices(ch, zonePath)
+		} else {
+			k.transferMultiClusterServices(ch, zonePath)
+		}
+
+		ch <- soa
+		close(ch)
 	}()
 	return ch, nil
 }

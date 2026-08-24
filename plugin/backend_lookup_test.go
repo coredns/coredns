@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"testing"
@@ -18,12 +19,13 @@ import (
 var _ ServiceBackend = &mockBackend{}
 
 type mockBackend struct {
-	mockServices func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error)
-	mockReverse  func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error)
-	mockLookup   func(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error)
-	mockRecords  func(ctx context.Context, state request.Request, exact bool) ([]msg.Service, error)
-	minTTL       uint32
-	serial       uint32
+	mockServices  func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error)
+	mockReverse   func(ctx context.Context, state request.Request, exact bool, opt Options) ([]msg.Service, error)
+	mockLookup    func(ctx context.Context, state request.Request, name string, typ uint16) (*dns.Msg, error)
+	mockRecords   func(ctx context.Context, state request.Request, exact bool) ([]msg.Service, error)
+	mockNameError func(err error) bool
+	minTTL        uint32
+	serial        uint32
 }
 
 func (m *mockBackend) Serial(_state request.Request) uint32 {
@@ -52,7 +54,10 @@ func (m *mockBackend) Lookup(ctx context.Context, state request.Request, name st
 	return m.mockLookup(ctx, state, name, typ)
 }
 
-func (m *mockBackend) IsNameError(_err error) bool {
+func (m *mockBackend) IsNameError(err error) bool {
+	if m.mockNameError != nil {
+		return m.mockNameError(err)
+	}
 	return false
 }
 
@@ -569,13 +574,17 @@ func TestCheckForApex(t *testing.T) {
 }
 
 func TestCheckForApexFallback(t *testing.T) {
+	errName := errors.New("name not found")
+	calls := 0
 	b := &mockBackend{
 		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
+			calls++
 			if state.QName() == "apex.dns.example.org." {
-				return nil, dns.ErrRcode
+				return nil, errName
 			}
 			return []msg.Service{{Host: "::1", TTL: 20}}, nil
 		},
+		mockNameError: func(err error) bool { return errors.Is(err, errName) },
 	}
 	req := new(dns.Msg)
 	req.SetQuestion("example.org.", dns.TypeA)
@@ -586,6 +595,73 @@ func TestCheckForApexFallback(t *testing.T) {
 	}
 	if len(services) != 1 || services[0].Host != "::1" {
 		t.Fatalf("expected fallback services, got %+v", services)
+	}
+	if calls != 2 {
+		t.Fatalf("expected apex and fallback lookups, got %d calls", calls)
+	}
+	if state.QName() != "example.org." {
+		t.Fatalf("query name was not restored: %s", state.QName())
+	}
+}
+
+func TestCheckForApexFallbackDisabled(t *testing.T) {
+	errName := errors.New("name not found")
+	calls := 0
+	b := &mockBackend{
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
+			calls++
+			if state.QName() != "apex.dns.example.org." {
+				t.Fatalf("unexpected fallback lookup for %s", state.QName())
+			}
+			return nil, errName
+		},
+		mockNameError: func(err error) bool { return errors.Is(err, errName) },
+	}
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	state := request.Request{Req: req, W: &test.ResponseWriter{}}
+	services, err := checkForApex(context.Background(), b, "example.org.", state, Options{NoApexFallback: true})
+	if !errors.Is(err, errName) {
+		t.Fatalf("expected name error, got %v", err)
+	}
+	if len(services) != 0 {
+		t.Fatalf("expected no services, got %+v", services)
+	}
+	if calls != 1 {
+		t.Fatalf("expected one apex lookup, got %d calls", calls)
+	}
+	if state.QName() != "example.org." {
+		t.Fatalf("query name was not restored: %s", state.QName())
+	}
+}
+
+func TestCheckForApexBackendError(t *testing.T) {
+	errBackend := context.DeadlineExceeded
+	calls := 0
+	b := &mockBackend{
+		mockServices: func(_ctx context.Context, state request.Request, _exact bool, _opt Options) ([]msg.Service, error) {
+			calls++
+			if state.QName() != "apex.dns.example.org." {
+				t.Fatalf("unexpected fallback lookup for %s", state.QName())
+			}
+			return nil, errBackend
+		},
+	}
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	state := request.Request{Req: req, W: &test.ResponseWriter{}}
+	services, err := checkForApex(context.Background(), b, "example.org.", state, Options{})
+	if !errors.Is(err, errBackend) {
+		t.Fatalf("expected backend error, got %v", err)
+	}
+	if len(services) != 0 {
+		t.Fatalf("expected no services, got %+v", services)
+	}
+	if calls != 1 {
+		t.Fatalf("expected one backend lookup, got %d", calls)
+	}
+	if state.QName() != "example.org." {
+		t.Fatalf("query name was not restored: %s", state.QName())
 	}
 }
 

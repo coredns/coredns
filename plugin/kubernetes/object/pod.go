@@ -3,6 +3,7 @@ package object
 import (
 	"errors"
 	"fmt"
+	"maps"
 
 	api "k8s.io/api/core/v1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,7 +59,9 @@ func (p *Pod) DeepCopyObject() runtime.Object {
 		PodIP:       p.PodIP,
 		Namespace:   p.Namespace,
 		Name:        p.Name,
-		HostNetwork: p.HostNetwork,
+		// maps.Clone returns nil for a nil map, so an unlabelled pod stays unlabelled.
+		Labels: maps.Clone(p.Labels),
+    HostNetwork: p.HostNetwork,
 	}
 	return p1
 }

@@ -54,3 +54,58 @@ func TestServerTLSSetsTsigSecret(t *testing.T) {
 		t.Fatalf("expected tsig secret %q, got %q", "abcd", got)
 	}
 }
+
+func TestServerSetsMaxTCPQueries(t *testing.T) {
+	n := 128
+
+	t.Run("default is unlimited", func(t *testing.T) {
+		server, err := NewServer("127.0.0.1:0", []*Config{testConfig("dns", testPlugin{})})
+		if err != nil {
+			t.Fatalf("NewServer() failed: %v", err)
+		}
+
+		if err := server.Serve(&stubListener{}); err == nil {
+			t.Fatal("expected Serve() to return from stub listener")
+		}
+
+		if got := server.server[tcp].MaxTCPQueries; got != -1 {
+			t.Fatalf("expected default MaxTCPQueries -1, got %d", got)
+		}
+	})
+
+	t.Run("configured value reaches the TCP server", func(t *testing.T) {
+		config := testConfig("dns", testPlugin{})
+		config.MaxTCPQueries = &n
+
+		server, err := NewServer("127.0.0.1:0", []*Config{config})
+		if err != nil {
+			t.Fatalf("NewServer() failed: %v", err)
+		}
+
+		if err := server.Serve(&stubListener{}); err == nil {
+			t.Fatal("expected Serve() to return from stub listener")
+		}
+
+		if got := server.server[tcp].MaxTCPQueries; got != n {
+			t.Fatalf("expected MaxTCPQueries %d, got %d", n, got)
+		}
+	})
+
+	t.Run("configured value reaches the TLS server", func(t *testing.T) {
+		config := testConfig("tls", testPlugin{})
+		config.MaxTCPQueries = &n
+
+		server, err := NewServerTLS("tls://127.0.0.1:0", []*Config{config})
+		if err != nil {
+			t.Fatalf("NewServerTLS() failed: %v", err)
+		}
+
+		if err := server.Serve(&stubListener{}); err == nil {
+			t.Fatal("expected Serve() to return from stub listener")
+		}
+
+		if got := server.server[tcp].MaxTCPQueries; got != n {
+			t.Fatalf("expected MaxTCPQueries %d, got %d", n, got)
+		}
+	})
+}

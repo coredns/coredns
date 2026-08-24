@@ -100,7 +100,7 @@ func (h *dnsContext) InspectServerBlocks(_sourceFile string, serverBlocks []cadd
 				}
 			}
 			for i := range hosts {
-				zoneAddrs = append(zoneAddrs, zoneAddr{Zone: dns.Fqdn(hosts[i]), Port: port, Transport: trans})
+				zoneAddrs = append(zoneAddrs, zoneAddr{Zone: plugin.Name(hosts[i]).Normalize(), Port: port, Transport: trans})
 			}
 		}
 
@@ -274,7 +274,16 @@ func propagateConfigParams(configs []*Config) {
 		c.ReadTimeout = c.firstConfigInBlock.ReadTimeout
 		c.WriteTimeout = c.firstConfigInBlock.WriteTimeout
 		c.IdleTimeout = c.firstConfigInBlock.IdleTimeout
+		c.MaxTCPQueries = c.firstConfigInBlock.MaxTCPQueries
 		c.TsigSecret = c.firstConfigInBlock.TsigSecret
+
+		// Propagate HTTPRequestValidateFunc so that custom path validators work in
+		// multi-transport blocks. Otherwise HTTPS 404s on non-"/dns-query" paths.
+		c.HTTPRequestValidateFunc = c.firstConfigInBlock.HTTPRequestValidateFunc
+
+		// Propagate UDPDecorateWriterFunc so a decorator configured once in a
+		// server block applies to the block's UDP listener(s).
+		c.UDPDecorateWriterFunc = c.firstConfigInBlock.UDPDecorateWriterFunc
 	}
 }
 

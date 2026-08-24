@@ -162,6 +162,38 @@ func TestSetupEtcd(t *testing.T) {
 	}
 }
 
+func TestSetupNoApexFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+		wantErr  bool
+	}{
+		{name: "default", input: `etcd`, expected: false},
+		{name: "disabled", input: "etcd {\nno_apex_fallback\n}", expected: true},
+		{name: "reject arguments", input: "etcd {\nno_apex_fallback unexpected\n}", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", tc.input)
+			etcd, err := etcdParse(c)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if etcd.NoApexFallback != tc.expected {
+				t.Fatalf("NoApexFallback = %t, want %t", etcd.NoApexFallback, tc.expected)
+			}
+		})
+	}
+}
+
 func TestParseTTL(t *testing.T) {
 	tests := []struct {
 		input    string

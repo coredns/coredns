@@ -1,9 +1,13 @@
 package auto
 
 import (
+	"bytes"
+	"io"
+	golog "log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -96,6 +100,98 @@ func TestWalkNonExistent(t *testing.T) {
 	}
 
 	a.Walk()
+}
+
+func TestWalkWarnsForDuplicateOrigin(t *testing.T) {
+	dir := t.TempDir()
+	zone := filepath.Join(dir, "example.org.zone")
+	backup := filepath.Join(dir, "example.org.zone.bak-20260528")
+
+	for _, path := range []string{zone, backup} {
+		if err := os.WriteFile(path, []byte(zoneContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	var logBuf bytes.Buffer
+	golog.SetOutput(&logBuf)
+	defer golog.SetOutput(io.Discard)
+
+	a := Auto{
+		loader: loader{
+			directory: dir,
+			re:        regexp.MustCompile(`(.*)\.zone`),
+			template:  `${1}`,
+		},
+		Zones: &Zones{},
+	}
+
+	a.Walk()
+
+	got := logBuf.String()
+	if count := strings.Count(got, `[WARNING] plugin/auto: Multiple zone files match origin "example.org."`); count != 1 {
+		t.Fatalf("Expected one duplicate origin warning, got %d in %q", count, got)
+	}
+	for _, want := range []string{
+		`[WARNING] plugin/auto: Multiple zone files match origin "example.org."`,
+		"example.org.zone",
+		"example.org.zone.bak-20260528",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Expected log to contain %q, got %q", want, got)
+		}
+	}
+	// The warning must name the kept (first, live) file in the "using" slot and
+	// the skipped backup in the "instead of" slot — not the other way around.
+	// Walk keeps example.org.zone (visited first) and skips the .bak file.
+	if !strings.Contains(got, `example.org.zone" instead of "`) {
+		t.Errorf("Warning names the wrong file as used; want the live zone in the \"using\" slot, got %q", got)
+	}
+	if strings.Contains(got, `example.org.zone.bak-20260528" instead of "`) {
+		t.Errorf("Warning claims the skipped backup is being used, got %q", got)
+	}
+
+	logBuf.Reset()
+	a.Walk()
+	if count := strings.Count(logBuf.String(), `[WARNING] plugin/auto: Multiple zone files match origin "example.org."`); count != 1 {
+		t.Fatalf("Expected one duplicate origin warning after reload, got %d in %q", count, logBuf.String())
+	}
+}
+
+func TestWalkKeepsFirstMatchingFileForOrigin(t *testing.T) {
+	dir := t.TempDir()
+	// Match Walk: it stores paths after EvalSymlinks.
+	dir, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zone := filepath.Join(dir, "example.org.zone")
+	backup := filepath.Join(dir, "example.org.zone.bak-20260528")
+
+	for _, path := range []string{zone, backup} {
+		if err := os.WriteFile(path, []byte(zoneContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	a := Auto{
+		loader: loader{
+			directory: dir,
+			re:        regexp.MustCompile(`(.*)\.zone`),
+			template:  `${1}`,
+		},
+		Zones: &Zones{},
+	}
+
+	a.Walk()
+	if got := a.Z["example.org."].File(); got != zone {
+		t.Fatalf("zone file = %q, want %q", got, zone)
+	}
+
+	a.Walk()
+	if got := a.Z["example.org."].File(); got != zone {
+		t.Fatalf("zone file after reload = %q, want %q", got, zone)
+	}
 }
 
 func createFiles(t *testing.T) (string, error) {

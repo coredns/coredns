@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
 
@@ -24,13 +25,12 @@ var testcases = []struct {
 	{"localhost.", dns.TypeSOA, dns.RcodeSuccess, test.SOA("localhost. IN SOA root.localhost. localhost. 1 0 0 0 0"), nil},
 	{"127.in-addr.arpa.", dns.TypeA, dns.RcodeSuccess, nil, test.SOA("127.in-addr.arpa. IN SOA root.localhost. localhost. 1 0 0 0 0")},
 	{"localhost.", dns.TypeMX, dns.RcodeSuccess, nil, test.SOA("localhost. IN SOA root.localhost. localhost. 1 0 0 0 0")},
-	{"a.localhost.", dns.TypeA, dns.RcodeNameError, nil, test.SOA("localhost. IN SOA root.localhost. localhost. 1 0 0 0 0")},
+	{"a.localhost.", dns.TypeA, dns.RcodeSuccess, test.A("a.localhost. IN A 127.0.0.1"), nil},
+	{"a.localhost.", dns.TypeAAAA, dns.RcodeSuccess, test.AAAA("a.localhost. IN AAAA ::1"), nil},
+	{"a.localhost.", dns.TypeMX, dns.RcodeSuccess, nil, test.SOA("a.localhost. IN SOA root.localhost. localhost. 1 0 0 0 0")},
 	{"1.0.0.127.in-addr.arpa.", dns.TypePTR, dns.RcodeSuccess, test.PTR("1.0.0.127.in-addr.arpa. IN PTR localhost."), nil},
 	{"1.0.0.127.in-addr.arpa.", dns.TypeMX, dns.RcodeSuccess, nil, test.SOA("127.in-addr.arpa. IN SOA root.localhost. localhost. 1 0 0 0 0")},
 	{"2.0.0.127.in-addr.arpa.", dns.TypePTR, dns.RcodeNameError, nil, test.SOA("127.in-addr.arpa. IN SOA root.localhost. localhost. 1 0 0 0 0")},
-	{"localhost.example.net.", dns.TypeA, dns.RcodeSuccess, test.A("localhost.example.net. IN A 127.0.0.1"), nil},
-	{"localhost.example.net.", dns.TypeAAAA, dns.RcodeSuccess, test.AAAA("localhost.example.net IN AAAA ::1"), nil},
-	{"localhost.example.net.", dns.TypeSOA, dns.RcodeSuccess, nil, test.SOA("localhost.example.net. IN SOA root.localhost.example.net. localhost.example.net. 1 0 0 0 0")},
 }
 
 func TestLocal(t *testing.T) {
@@ -73,5 +73,74 @@ func TestLocal(t *testing.T) {
 				t.Errorf("Test %d, expected RR name %q in authority, got %q", i, x, rec.Msg.Ns[0].Header().Name)
 			}
 		}
+	}
+}
+
+func TestLocalInterceptsLocalhostPrefixByDefault(t *testing.T) {
+	req := new(dns.Msg)
+	req.SetQuestion("localhost.example.net.", dns.TypeA)
+
+	nextCalled := false
+	l := Local{Next: plugin.HandlerFunc(func(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
+		nextCalled = true
+		return dns.RcodeSuccess, nil
+	})}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	_, err := l.ServeDNS(context.TODO(), rec, req)
+	if err != nil {
+		t.Fatalf("expected no error, got %q", err)
+	}
+	if nextCalled {
+		t.Fatal("expected legacy localhost prefix query to be intercepted by default")
+	}
+	if rec.Msg.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected rcode %d, got %d", dns.RcodeSuccess, rec.Msg.Rcode)
+	}
+	if len(rec.Msg.Answer) != 1 {
+		t.Fatalf("expected 1 answer RR, got %d", len(rec.Msg.Answer))
+	}
+	if got := rec.Msg.Answer[0].Header().Name; got != "localhost.example.net." {
+		t.Fatalf("expected answer name %q, got %q", "localhost.example.net.", got)
+	}
+}
+
+func TestLocalDoesNotInterceptLocalhostPrefixWhenDisabled(t *testing.T) {
+	req := new(dns.Msg)
+	req.SetQuestion("localhost.example.net.", dns.TypeA)
+
+	expected := test.A("localhost.example.net. IN A 192.0.2.1")
+	nextCalled := false
+	l := Local{
+		disableLocalhostPrefix: true,
+		Next: plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+			nextCalled = true
+
+			m := new(dns.Msg)
+			m.SetReply(r)
+			m.Answer = []dns.RR{expected}
+			if err := w.WriteMsg(m); err != nil {
+				return dns.RcodeServerFailure, err
+			}
+			return dns.RcodeSuccess, nil
+		}),
+	}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	_, err := l.ServeDNS(context.TODO(), rec, req)
+	if err != nil {
+		t.Fatalf("expected no error, got %q", err)
+	}
+	if !nextCalled {
+		t.Fatal("expected query to fall through to the next plugin")
+	}
+	if rec.Msg.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected rcode %d, got %d", dns.RcodeSuccess, rec.Msg.Rcode)
+	}
+	if len(rec.Msg.Answer) != 1 {
+		t.Fatalf("expected 1 answer RR, got %d", len(rec.Msg.Answer))
+	}
+	if got := rec.Msg.Answer[0].Header().Name; got != expected.Header().Name {
+		t.Fatalf("expected answer name %q, got %q", expected.Header().Name, got)
 	}
 }

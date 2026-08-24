@@ -6,8 +6,8 @@
 
 ## Description
 
-The *forward* plugin re-uses already opened sockets to the upstreams. It supports UDP, TCP and
-DNS-over-TLS and uses in band health checking.
+The *forward* plugin re-uses already opened sockets to the upstreams. It supports UDP, TCP, 
+DNS-over-TLS, DNS-over-HTTPS and uses in band health checking.
 
 When it detects an error a health check is performed. This checks runs in a loop, performing each
 check at a *0.5s* interval for as long as the upstream reports unhealthy. Once healthy we stop
@@ -30,8 +30,10 @@ forward FROM TO...
 * **FROM** is the base domain to match for the request to be forwarded. Domains using CIDR notation
   that expand to multiple reverse zones are not fully supported; only the first expanded zone is used.
 * **TO...** are the destination endpoints to forward to. The **TO** syntax allows you to specify
-  a protocol, `tls://9.9.9.9` or `dns://` (or no protocol) for plain DNS. The number of upstreams is
-  limited to 15.
+  a protocol, `tls://9.9.9.9`, `https://9.9.9.9` (DoH defaults to `/dns-query` path) or `dns://` (or no protocol)
+  for plain DNS. The number of upstreams is limited to 15. In addition to IP addresses and files (like `/etc/resolv.conf`), **TO** can also be
+  a hostname (e.g., `my-dns.svc.cluster.local`). Hostnames are resolved to IP addresses at startup.
+  See the `resolver` option below.
 
 Multiple upstreams are randomized (see `policy`) on first use. When a healthy proxy returns an error
 during the exchange the next upstream in the list is tried.
@@ -45,8 +47,10 @@ forward FROM TO... {
     prefer_udp
     expire DURATION
     max_idle_conns INTEGER
+    read_timeout DURATION
     max_fails INTEGER
     max_connect_attempts INTEGER
+    doh_method GET|POST
     tls CERT KEY CA
     tls_servername NAME
     policy random|round_robin|sequential
@@ -55,6 +59,8 @@ forward FROM TO... {
     next RCODE_1 [RCODE_2] [RCODE_3...]
     failfast_all_unhealthy_upstreams
     failover RCODE_1 [RCODE_2] [RCODE_3...]
+    source_address IP
+    resolver IP[:PORT] [IP[:PORT]...]
 }
 ~~~
 
@@ -69,11 +75,18 @@ forward FROM TO... {
   an upstream to be down. If 0, the upstream will never be marked as down (nor health checked).
   Default is 2.
 * `max_connect_attempts` caps the total number of upstream connect attempts
-  performed for a single incoming DNS request. Default value of 0 means no per-request
-  cap.
+  performed for a single incoming DNS request. The default cap is twice the number of
+  configured upstreams, allowing two complete passes when all upstreams are healthy.
+  Set this to 0 to disable the per-request cap.
 * `expire` **DURATION**, expire (cached) connections after this time, the default is 10s.
+* `doh_method` **GET|POST**, whether to use GET or POST http method for DoH requests (defaults to POST).
 * `max_idle_conns` **INTEGER**, maximum number of idle connections to cache per upstream for reuse.
   Default is 0, which means unlimited.
+* `read_timeout` **DURATION**, the per-query read timeout applied to each upstream when waiting for a
+  response. The default is 2s. Increase this if upstreams legitimately take longer than 2s to answer
+  (for example slow recursive resolutions that would otherwise surface as `SERVFAIL`/timeouts). Note
+  that this timeout applies to each upstream individually, so large values reduce the time available
+  to retry other upstreams within a single query.
 * `tls` **CERT** **KEY** **CA** define the TLS properties for TLS connection. From 0 to 3 arguments can be
   provided with the meaning as described below
 
@@ -83,6 +96,9 @@ forward FROM TO... {
     The server certificate is verified with the system CAs
   * `tls` **CERT** **KEY**  **CA** - client authentication is used with the specified cert/key pair.
     The server certificate is verified using the specified CA file
+
+CoreDNS sets the minimum TLS version to TLS 1.2. The maximum TLS version, TLS 1.2 cipher suites, and
+key exchange mechanisms use the Go `crypto/tls` defaults.
 
 * `tls_servername` **NAME** allows you to set a server name in the TLS configuration; for instance 9.9.9.9
   needs this to be set to `dns.quad9.net`. Using TLS forwarding but not setting `tls_servername` results in anyone
@@ -111,8 +127,11 @@ forward FROM TO... {
   at least greater than the expected *upstream query rate* * *latency* of the upstream servers.
   As an upper bound for **MAX**, consider that each concurrent query will use about 2kb of memory.
 * `next` If the `RCODE` (i.e. `NXDOMAIN`) is returned by the remote then execute the next plugin. If no next plugin is defined, or the next plugin is not a `forward` plugin, this setting is ignored
+* `next_on_nodata` If `NOERROR` is returned by the remote, but an empty answer section (`NODATA`) was provided, execute the next `forward` plugin, if configured.
 * `failfast_all_unhealthy_upstreams` - determines the handling of requests when all upstream servers are unhealthy and unresponsive to health checks. Enabling this option will immediately return SERVFAIL responses for all requests. By default, requests are sent to a random upstream.
 * `failover` - By default when a DNS lookup fails to return a DNS response (e.g. timeout), _forward_ will attempt a lookup on the next upstream server. The `failover` option will make _forward_ do the same for any response with a response code matching an `RCODE` ( e.g. `SERVFAIL`、`REFUSED`). `NOERROR` cannot be used. If all upstreams have been tried, the response from the last attempt is returned.
+* `source_address` **IP** - set the address to use for all outgoing requests as source address (also health check query). This works reliably when upstream servers are reachable from that address. However, if upstream servers belong to different networks, care must be taken. The selected source address may not be valid for all upstreams, and responses may fail if return routing is not properly configured. In such cases, make sure that upstream servers have a route back to the configured source address.
+* `resolver` **IP[:PORT] [IP[:PORT]...]** specifies one or more DNS resolver addresses used to resolve hostname-based **TO** endpoints at startup. If not specified, the system resolver (`/etc/resolv.conf`) is used. Each address is either a bare IP (IPv4 or IPv6, port 53 assumed) or `IP:port`. Multiple addresses can be specified for redundancy.
 
 Also note the TLS config is "global" for the whole forwarding proxy if you need a different
 `tls_servername` for different upstreams you're out of luck.
@@ -143,7 +162,7 @@ If monitoring is enabled (via the *prometheus* plugin) then the following metric
 * `coredns_proxy_conn_cache_misses_total{proxy_name="forward", to, proto}` - count of connection cache misses per upstream and protocol.
 
 Where `to` is one of the upstream servers (**TO** from the config), `rcode` is the returned RCODE
-from the upstream, `proto` is the transport protocol like `udp`, `tcp`, `tcp-tls`.
+from the upstream, `proto` is the transport protocol like `udp`, `tcp`, `tcp-tls`, `https`.
 
 The following metrics have recently been deprecated:
 * `coredns_forward_healthcheck_failures_total{to, rcode}`
@@ -242,6 +261,19 @@ service with health checks.
 }
 ~~~
 
+The same configuration but using DNS-over-HTTPS (DoH) protocol. Note that the implementation uses the default `/dns-query`
+path (custom paths are not supported).
+
+~~~ corefile
+. {
+    forward . https://9.9.9.9 {
+       tls_servername dns.quad9.net
+       health_check 5s
+    }
+    cache 30
+}
+~~~
+
 Or configure other domain name for health check requests
 
 ~~~ corefile
@@ -312,6 +344,18 @@ In the following example, if the response from `1.2.3.4` is `SERVFAIL` or `REFUS
 }
 ~~~
 
+Forward to an upstream identified by hostname, using a specific resolver to look it up:
+
+~~~ txt
+. {
+    forward . dns.example.local {
+        resolver 10.0.0.1
+    }
+}
+~~~
+
 ## See Also
 
 [RFC 7858](https://tools.ietf.org/html/rfc7858) for DNS over TLS.
+
+[RFC 8484](https://tools.ietf.org/html/rfc8484) for DNS over HTTPS.

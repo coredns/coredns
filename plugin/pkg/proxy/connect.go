@@ -6,12 +6,17 @@ package proxy
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"net"
+	"net/http/httptrace"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/coredns/coredns/plugin/pkg/doh"
+	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
@@ -20,6 +25,8 @@ import (
 const (
 	ErrTransportStopped = "proxy: transport stopped"
 )
+
+var ErrInvalidRequest = errors.New("proxy: invalid request")
 
 // limitTimeout is a utility function to auto-tune timeout values
 // average observed time is moved towards the last observed delay moderated by a weight
@@ -92,20 +99,26 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
-	if proto == "tcp-tls" {
-		conn, err := dns.DialTimeoutWithTLS("tcp", t.addr, t.tlsConfig, timeout)
-		t.updateDialTimeout(time.Since(reqTime))
-		return &persistConn{c: conn, created: time.Now()}, false, err
+	dialer := &net.Dialer{Timeout: timeout}
+
+	if t.localAddress != nil {
+		if proto == "udp" {
+			dialer.LocalAddr = &net.UDPAddr{IP: t.localAddress}
+		} else {
+			dialer.LocalAddr = &net.TCPAddr{IP: t.localAddress}
+		}
 	}
-	conn, err := dns.DialTimeout(proto, t.addr, timeout)
+
+	// pass nil tlsConfig to use system default
+	client := dns.Client{Net: proto, Dialer: dialer, TLSConfig: t.tlsConfig}
+
+	conn, err := client.Dial(t.addr)
+
 	t.updateDialTimeout(time.Since(reqTime))
 	return &persistConn{c: conn, created: time.Now()}, false, err
 }
 
-// Connect selects an upstream, sends the request and waits for a response.
-func (p *Proxy) Connect(_ctx context.Context, state request.Request, opts Options) (*dns.Msg, error) {
-	start := time.Now()
-
+func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Options) (*dns.Msg, net.Addr, string, error) {
 	var proto string
 	switch {
 	case opts.ForceTCP: // TCP flag has precedence over UDP flag
@@ -116,28 +129,56 @@ func (p *Proxy) Connect(_ctx context.Context, state request.Request, opts Option
 		proto = state.Proto()
 	}
 
-	pc, cached, err := p.transport.Dial(proto)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set buffer size correctly for this client.
-	pc.c.UDPSize = max(uint16(state.Size()), 512) // #nosec G115 -- UDP size fits in uint16
-
-	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
-	// records the origin Id before upstream.
 	originId := state.Req.Id
 	state.Req.Id = dns.Id()
 	defer func() {
 		state.Req.Id = originId
 	}()
 
-	if err := pc.c.WriteMsg(state.Req); err != nil {
+	var wire []byte
+	if state.Req.IsTsig() == nil {
+		var err error
+		wire, err = state.Req.Pack()
+		if err != nil {
+			return nil, nil, proto, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
+		}
+	}
+
+	pc, cached, err := p.transport.Dial(proto)
+	if err != nil {
+		return nil, nil, proto, err
+	}
+
+	// Dial may have upgraded the transport (e.g. from udp to tcp for DoT),
+	// so report the transport the dialed connection actually uses, not the
+	// requested proto.
+	if p.transport.transportTypeFromConn(pc) == typeUDP {
+		proto = "udp"
+	} else {
+		proto = "tcp"
+	}
+
+	// localAddr is CoreDNS's own outbound address on the upstream socket.
+	// The forward plugin reports it as the dnstap query_address (the
+	// initiator) so that query_address and response_address describe the
+	// two ends of the same upstream connection.
+	localAddr := pc.c.LocalAddr()
+
+	// Set buffer size correctly for this client.
+	pc.c.UDPSize = max(uint16(state.Size()), 512) // #nosec G115 -- UDP size fits in uint16
+
+	pc.c.SetWriteDeadline(time.Now().Add(maxTimeout))
+	if wire != nil {
+		_, err = pc.c.Write(wire)
+	} else {
+		err = pc.c.WriteMsg(state.Req)
+	}
+	if err != nil {
 		pc.c.Close() // not giving it back
 		if err == io.EOF && cached {
-			return nil, ErrCachedClosed
+			return nil, localAddr, proto, ErrCachedClosed
 		}
-		return nil, err
+		return nil, localAddr, proto, err
 	}
 
 	var ret *dns.Msg
@@ -145,6 +186,12 @@ func (p *Proxy) Connect(_ctx context.Context, state request.Request, opts Option
 	for {
 		ret, err = pc.c.ReadMsg()
 		if err != nil {
+			if p.transport.transportTypeFromConn(pc) == typeUDP &&
+				((ret == nil && errors.Is(err, dns.ErrShortRead)) ||
+					(ret != nil && ret.Id != state.Req.Id)) {
+				continue
+			}
+
 			if ret != nil && (state.Req.Id == ret.Id) && p.transport.transportTypeFromConn(pc) == typeUDP && shouldTruncateResponse(err) {
 				// For UDP, if the error is an overflow, we probably have an upstream misbehaving in some way.
 				// (e.g. sending >512 byte responses without an eDNS0 OPT RR).
@@ -159,23 +206,95 @@ func (p *Proxy) Connect(_ctx context.Context, state request.Request, opts Option
 
 			pc.c.Close() // not giving it back
 			if err == io.EOF && cached {
-				return nil, ErrCachedClosed
+				return nil, localAddr, proto, ErrCachedClosed
 			}
 			// recovery the origin Id after upstream.
 			if ret != nil {
 				ret.Id = originId
 			}
-			return ret, err
+			return ret, localAddr, proto, err
 		}
 		// drop out-of-order responses
 		if state.Req.Id == ret.Id {
 			break
 		}
 	}
+	p.transport.Yield(pc)
+
+	return ret, localAddr, proto, nil
+}
+
+func (p *Proxy) lookupDoH(ctx context.Context, state request.Request, _ Options) (*dns.Msg, net.Addr, string, error) {
+	// DoH always runs over TCP (HTTPS), regardless of the downstream
+	// client's protocol.
+	const proto = "tcp"
+	// records the origin Id before upstream.
+	originId := state.Req.Id
+	// RFC8484 has DNS ID of 0 as a SHOULD
+	state.Req.Id = 0
+	defer func() {
+		state.Req.Id = originId
+	}()
+
+	var localAddr net.Addr
+	trace := &httptrace.ClientTrace{
+		GotConn: func(info httptrace.GotConnInfo) {
+			localAddr = info.Conn.LocalAddr()
+		},
+	}
+	ctx = httptrace.WithClientTrace(ctx, trace)
+
+	req, err := doh.NewRequestWithContext(ctx, p.dohMethod, p.addr, p.dohHost, state.Req)
+	if err != nil {
+		return nil, nil, proto, err
+	}
+
+	resp, err := p.transport.httpClient.Do(req)
+	if err != nil {
+		return nil, localAddr, proto, err
+	}
+
+	// ResponseToMsg always closes the body via defer resp.Body.Close().
+	ret, err := doh.ResponseToMsg(resp)
+	if err != nil {
+		return nil, localAddr, proto, err
+	}
+
+	// recovery the origin Id after upstream.
+	if ret != nil {
+		ret.Id = originId
+	}
+	return ret, localAddr, proto, nil
+}
+
+// Connect selects an upstream, sends the request and waits for a response. It
+// also returns CoreDNS's own outbound address on the upstream socket
+// (localAddr) and the transport proto ("udp" or "tcp") actually used to reach
+// the upstream.
+func (p *Proxy) Connect(ctx context.Context, state request.Request, opts Options) (*dns.Msg, net.Addr, string, error) {
+	start := time.Now()
+	originId := state.Req.Id
+
+	var (
+		ret       *dns.Msg
+		localAddr net.Addr
+		proto     string
+		err       error
+	)
+	switch p.protocol {
+	case transport.HTTPS:
+		ret, localAddr, proto, err = p.lookupDoH(ctx, state, opts)
+	case transport.DNS, transport.TLS:
+		ret, localAddr, proto, err = p.lookupDNS(ctx, state, opts)
+	default:
+		return nil, nil, "", fmt.Errorf("transport %s not supported to proxy", p.protocol)
+	}
+	if err != nil {
+		return nil, localAddr, proto, err
+	}
+
 	// recovery the origin Id after upstream.
 	ret.Id = originId
-
-	p.transport.Yield(pc)
 
 	rc, ok := dns.RcodeToString[ret.Rcode]
 	if !ok {
@@ -184,7 +303,7 @@ func (p *Proxy) Connect(_ctx context.Context, state request.Request, opts Option
 
 	requestDuration.WithLabelValues(p.proxyName, p.addr, rc).Observe(time.Since(start).Seconds())
 
-	return ret, nil
+	return ret, localAddr, proto, nil
 }
 
 const cumulativeAvgWeight = 4

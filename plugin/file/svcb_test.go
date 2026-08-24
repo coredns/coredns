@@ -53,12 +53,17 @@ var svcbTestCases = []test.Case{
 		},
 	},
 	{
-		// Wildcard SVCB expansion (no additional section — wildcards don't run additionalProcessing)
+		// Wildcard SVCB expansion — glue for the in-bailiwick target is added to
+		// the additional section, same as for non-wildcard answers (issue #6629).
 		Qname: "_http._tcp.example.com.", Qtype: dns.TypeSVCB,
 		Answer: []dns.RR{
 			test.SVCB("_http._tcp.example.com. 1800 IN SVCB 1 svc-target.example.com. port=\"443\""),
 		},
 		Ns: svcbAuth,
+		Extra: []dns.RR{
+			test.A("svc-target.example.com. 1800 IN A 192.0.2.10"),
+			test.AAAA("svc-target.example.com. 1800 IN AAAA 2001:db8::10"),
+		},
 	},
 	{
 		// NoData: existing name, no SVCB record

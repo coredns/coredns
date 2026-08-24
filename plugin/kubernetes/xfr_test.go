@@ -104,6 +104,65 @@ func TestKubernetesIXFRCurrent(t *testing.T) {
 	}
 }
 
+// TestKubernetesAXFRMultipleNSAddrs guards against a regression where the SOA
+// send, service transfer, and close(ch) were nested inside the per-NS-address
+// loop. When nsAddrs returns more than one record (e.g. a dual-stack CoreDNS
+// whose own Service/Endpoint is not discoverable, so nsAddrs falls back to one
+// record per bound IP), the second iteration sent on an already-closed channel
+// and crashed the process with "panic: send on closed channel".
+func TestKubernetesAXFRMultipleNSAddrs(t *testing.T) {
+	k := New([]string{"cluster.local."})
+	k.APIConn = &APIConnServeTest{}
+	k.Namespaces = map[string]struct{}{"testns": {}, "kube-system": {}}
+	// Dual-stack: two bound addresses -> nsAddrs returns two glue records that
+	// share the ns.dns.cluster.local. owner name.
+	k.localIPs = []net.IP{net.ParseIP("10.0.0.10"), net.ParseIP("fd00::10")}
+
+	ch, err := k.Transfer(k.Zones[0], 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var xfr []dns.RR
+	for rrs := range ch {
+		xfr = append(xfr, rrs...)
+	}
+
+	if len(xfr) == 0 {
+		t.Fatal("no records returned from transfer")
+	}
+	if xfr[0].Header().Rrtype != dns.TypeSOA {
+		t.Errorf("transfer must start with SOA, got %s", dns.TypeToString[xfr[0].Header().Rrtype])
+	}
+	if xfr[len(xfr)-1].Header().Rrtype != dns.TypeSOA {
+		t.Errorf("transfer must end with SOA, got %s", dns.TypeToString[xfr[len(xfr)-1].Header().Rrtype])
+	}
+
+	var ns, a, aaaa int
+	for _, rr := range xfr {
+		switch rr.Header().Rrtype {
+		case dns.TypeNS:
+			ns++
+		case dns.TypeA:
+			if rr.Header().Name == "ns.dns.cluster.local." {
+				a++
+			}
+		case dns.TypeAAAA:
+			if rr.Header().Name == "ns.dns.cluster.local." {
+				aaaa++
+			}
+		}
+	}
+	// The NS owner name is deduplicated, so exactly one NS record is expected...
+	if ns != 1 {
+		t.Errorf("expected exactly 1 NS record, got %d", ns)
+	}
+	// ...while both nameserver glue addresses must be present.
+	if a != 1 || aaaa != 1 {
+		t.Errorf("expected both glue records (1 A, 1 AAAA) for ns.dns.cluster.local., got %d A and %d AAAA", a, aaaa)
+	}
+}
+
 func validateAXFR(t *testing.T, ch <-chan []dns.RR, multicluster bool) {
 	t.Helper()
 	xfr := []dns.RR{}

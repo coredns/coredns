@@ -169,7 +169,10 @@ func TestDelegationUnSigned(t *testing.T) {
 		}
 	}
 	if nsec == nil {
-		t.Error("Authority section should hold a NSEC record")
+		t.Fatal("Authority section should hold a NSEC record")
+	}
+	if rrsig == nil {
+		t.Fatal("Authority section should hold a RRSIG record")
 	}
 	if rrsig.TypeCovered != dns.TypeNSEC {
 		t.Errorf("RRSIG should cover type %s, got %s",

@@ -112,11 +112,25 @@ func (k *Kubernetes) Services(ctx context.Context, state request.Request, _exact
 		}
 
 		// Check if we have an existing record for this query of another type
-		services, _ := k.Records(ctx, state, false)
+		services, err := k.Records(ctx, state, false)
 
 		if len(services) > 0 {
 			// If so we return an empty NOERROR
 			return nil, nil
+		}
+
+		// A zonal name in its exists-but-empty state answers NODATA for
+		// every query type. NXDOMAIN here is per-name (RFC 2308/8020):
+		// clients that pair query types (HTTPS+A) re-poison the name's
+		// address lookups on every cycle regardless of TTL, and resolvers
+		// cache the denial for the SOA minttl — which follows the ttl
+		// option, not a fixed small constant. Names findServices rejected
+		// (unknown service, non-headless) carry errNoItems and stay
+		// NXDOMAIN.
+		if err == nil && k.opts.zonal {
+			if r, e := parseRequest(state.Name(), state.Zone, k.isMultiClusterZone(state.Zone), true); e == nil && r.zone != "" {
+				return nil, nil
+			}
 		}
 
 		// Return NXDOMAIN for no match
@@ -331,7 +345,7 @@ func (k *Kubernetes) InitKubeCache(ctx context.Context) (onStart func() error, o
 // Records looks up services in kubernetes.
 func (k *Kubernetes) Records(_ctx context.Context, state request.Request, _exact bool) ([]msg.Service, error) {
 	multicluster := k.isMultiClusterZone(state.Zone)
-	r, e := parseRequest(state.Name(), state.Zone, multicluster)
+	r, e := parseRequest(state.Name(), state.Zone, multicluster, k.opts.zonal)
 	if e != nil {
 		return nil, e
 	}
@@ -490,6 +504,13 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 			}
 		}
 
+		// Zone-scoped names are defined for headless services only: a
+		// ClusterIP's VIP has no zone, and answering it under a pinned name
+		// would silently discard the pin. NXDOMAIN, as before the option.
+		if r.zone != "" && !svc.Headless() {
+			continue
+		}
+
 		// External service
 		if svc.Type == api.ServiceTypeExternalName {
 			// External services do not have endpoints, nor can we accept port/protocol pseudo subdomains in an SRV query, so skip this service if endpoint, port, or protocol is non-empty in the request
@@ -508,37 +529,57 @@ func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.
 
 		// Endpoint query or headless service
 		if svc.Headless() || r.endpoint != "" {
+			if r.zone != "" {
+				// The name exists (headless service, any zone label): an
+				// empty result set is NODATA, not NXDOMAIN — "no endpoints
+				// carry that zone" is true for drained zones and mistyped
+				// ones alike, and identically on every replica.
+				err = nil
+			}
 			if endpointsList == nil {
 				endpointsList = endpointsListFunc()
 			}
 
-			for _, ep := range endpointsList {
-				if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
-					continue
-				}
+			addForZone := func(topoZone string) (added int) {
+				for _, ep := range endpointsList {
+					if object.EndpointsKey(svc.Name, svc.Namespace) != ep.Index {
+						continue
+					}
 
-				for _, eps := range ep.Subsets {
-					for _, addr := range eps.Addresses {
-						// See comments in parse.go parseRequest about the endpoint handling.
-						if r.endpoint != "" {
-							if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+					for _, eps := range ep.Subsets {
+						for _, addr := range eps.Addresses {
+							// See comments in parse.go parseRequest about the endpoint handling.
+							if topoZone != "" && ep.Zones[addr.IP] != topoZone {
 								continue
 							}
-						}
-
-						for _, p := range eps.Ports {
-							if !(matchPortAndProtocol(r.port, p.Name, r.protocol, p.Protocol)) {
-								continue
+							if r.endpoint != "" {
+								if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) {
+									continue
+								}
 							}
-							s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
-							s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
 
-							err = nil
+							for _, p := range eps.Ports {
+								if !(matchPortAndProtocol(r.port, p.Name, r.protocol, p.Protocol)) {
+									continue
+								}
+								s := msg.Service{Host: addr.IP, Port: int(p.Port), TTL: k.ttl}
+								s.Key = strings.Join([]string{zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)}, "/")
 
-							services = append(services, s)
+								err = nil
+
+								services = append(services, s)
+								added++
+							}
 						}
 					}
 				}
+				return added
+			}
+			if addForZone(r.zone) == 0 && r.zonePrefer {
+				// The prefer directive falls back to the whole service when
+				// the zone holds nothing. The fallback is in the NAME the
+				// client chose, so it is never a silent widening of a pin.
+				addForZone("")
 			}
 			continue
 		}
@@ -683,12 +724,15 @@ func (k *Kubernetes) isMultiClusterZone(zone string) bool {
 
 // match checks if a and b are equal.
 func match(a, b string) bool {
+	if a == b {
+		return true
+	}
 	return strings.EqualFold(a, b)
 }
 
 // matchPortAndProtocol matches port and protocol, permitting the 'a' inputs to be wild
 func matchPortAndProtocol(aPort, bPort, aProtocol, bProtocol string) bool {
-	return (match(aPort, bPort) || aPort == "") && (match(aProtocol, bProtocol) || aProtocol == "")
+	return (aPort == "" || match(aPort, bPort)) && (aProtocol == "" || match(aProtocol, bProtocol))
 }
 
 const coredns = "c" // used as a fake key prefix in msg.Service

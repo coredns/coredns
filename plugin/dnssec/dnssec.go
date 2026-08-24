@@ -93,21 +93,34 @@ func (d Dnssec) Sign(state request.Request, now time.Time, server string) *dns.M
 		return req
 	}
 
+	zones := plugin.Zones(d.zones) // only sign if CNAME is not outside of our zones
 	for _, r := range rrSets(req.Answer) {
+		signer := zones.Matches(r[0].Header().Name)
+		if signer == "" {
+			continue
+		}
 		ttl := r[0].Header().Ttl
-		if sigs, err := d.sign(r, state.Zone, ttl, incep, expir, server); err == nil {
+		if sigs, err := d.sign(r, signer, ttl, incep, expir, server); err == nil {
 			req.Answer = append(req.Answer, sigs...)
 		}
 	}
 	for _, r := range rrSets(req.Ns) {
+		signer := zones.Matches(r[0].Header().Name)
+		if signer == "" {
+			continue
+		}
 		ttl := r[0].Header().Ttl
-		if sigs, err := d.sign(r, state.Zone, ttl, incep, expir, server); err == nil {
+		if sigs, err := d.sign(r, signer, ttl, incep, expir, server); err == nil {
 			req.Ns = append(req.Ns, sigs...)
 		}
 	}
 	for _, r := range rrSets(req.Extra) {
+		signer := zones.Matches(r[0].Header().Name)
+		if signer == "" {
+			continue
+		}
 		ttl := r[0].Header().Ttl
-		if sigs, err := d.sign(r, state.Zone, ttl, incep, expir, server); err == nil {
+		if sigs, err := d.sign(r, signer, ttl, incep, expir, server); err == nil {
 			req.Extra = append(req.Extra, sigs...)
 		}
 	}

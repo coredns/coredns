@@ -15,10 +15,12 @@ This plugin can only be used once per HTTPS3 listener block.
 ```txt
 https3 {
     max_streams POSITIVE_INTEGER
+    max_connections POSITIVE_INTEGER
 }
 ```
 
 * `max_streams` limits the number of concurrent QUIC streams per connection. This helps prevent unbounded streams on a single connection, exhausting server resources. The default value is 256 if not specified. Set to 0 to use underlying QUIC transport default.
+* `max_connections` limits the number of concurrent HTTPS/3 connections accepted by the server. The default value is 200 if not specified. Connections above the configured limit are rejected. Set to 0 to disable the CoreDNS connection limit.
 
 ## Examples
 

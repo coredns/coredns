@@ -6,8 +6,10 @@ package hosts
 
 import (
 	"net"
+	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
@@ -240,4 +242,51 @@ func TestHostCacheModification(t *testing.T) {
 		hosts[i] += "junk"
 	}
 	testStaticAddr(t, entip, h)
+}
+
+// TestLookupStaticHostReloadRace exercises concurrent A/AAAA lookups against a
+// reload that swaps h.hmap. Before the fix, LookupStaticHostV4/V6 dereferenced
+// h.hmap/h.inline as call arguments (outside the RLock), racing the swap that
+// readHosts performs under h.Lock(). Run with -race.
+func TestLookupStaticHostReloadRace(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "hosts")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("127.0.0.1 example.org\n::1 example.org\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	h := &Hostsfile{
+		Origins: []string{"."},
+		hmap:    newMap(),
+		inline:  newMap(),
+		options: newOptions(),
+		path:    f.Name(),
+	}
+
+	var wg sync.WaitGroup
+
+	// Reloader: force a re-parse + h.hmap swap on every iteration.
+	wg.Go(func() {
+		for range 1000 {
+			h.Lock()
+			h.size = 0
+			h.Unlock()
+			h.readHosts()
+		}
+	})
+
+	// Readers: concurrent A/AAAA lookups.
+	for range 4 {
+		wg.Go(func() {
+			for range 1000 {
+				h.LookupStaticHostV4("example.org.")
+				h.LookupStaticHostV6("example.org.")
+			}
+		})
+	}
+
+	wg.Wait()
 }

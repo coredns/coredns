@@ -2,7 +2,7 @@
 
 ## Name
 
-*timeouts* - allows you to configure the server read, write and idle timeouts for the TCP, TLS, DoH and DoQ (idle only) servers.
+*timeouts* - allows you to configure the supported server read, write and idle timeouts for the TCP, TLS, DoH and DoQ servers, and the maximum number of queries served on a single TCP or TLS connection.
 
 ## Description
 
@@ -15,7 +15,8 @@ over HTTPS. Allowing a longer idle timeout helps performance and reduces issues
 with such routers.
 
 The *timeouts* "plugin" allows you to configure CoreDNS server read, write and
-idle timeouts.
+idle timeouts, and the maximum number of queries CoreDNS will serve on a single
+TCP or TLS connection before closing it.
 
 ## Syntax
 
@@ -24,12 +25,28 @@ timeouts {
 	read DURATION
 	write DURATION
 	idle DURATION
+	maxtcpqueries MAXIMUM
 }
 ~~~
 
 For any timeouts that are not provided, default values are used which may vary
-depending on the server type. At least one timeout must be specified otherwise
+depending on the server type. At least one option must be specified otherwise
 the entire timeouts block should be omitted.
+
+* `maxtcpqueries` sets the maximum number of queries served on a single TCP or
+  TLS connection before CoreDNS closes it. **MAXIMUM** must be a positive
+  integer, or `-1` to allow an unlimited number of queries per connection
+  (the default). Long-lived connections that serve an unlimited number of
+  queries can cause uneven load distribution across CoreDNS replicas that sit
+  behind a connection-based load balancer, since new queries keep reusing the
+  same connection instead of establishing a new one. Setting a bound, e.g.
+  `maxtcpqueries 128`, forces clients to periodically reconnect, which allows
+  the load balancer to redistribute load.
+
+The configured timeouts apply where the selected server transport supports
+them. TCP, TLS and DoH servers use the read, write and idle timeouts. DoQ
+servers use the read timeout to bound receiving a query on an opened QUIC
+stream, and the idle timeout to bound idle QUIC connections.
 
 ## Examples
 
@@ -63,12 +80,14 @@ https://. {
 }
 ~~~
 
-Start a DNS-over-QUIC server that has the idle timeout set to two minutes.
+Start a DNS-over-QUIC server that has a 10 second read timeout for receiving a
+query on an opened stream and the idle timeout set to two minutes.
 
 ~~~
 quic://.:853 {
 	tls cert.pem key.pem ca.pem
 	timeouts {
+		read 10s
 		idle 2m
 	}
 	forward . /etc/resolv.conf
@@ -83,6 +102,19 @@ configured. The timeouts are only applied to the TCP side of the server.
 	timeouts {
 		read 15s
 		write 30s
+	}
+	forward . /etc/resolv.conf
+}
+~~~
+
+Start a standard TCP/UDP server that closes a TCP connection after it has
+served 128 queries, to help spread load evenly across replicas sitting behind
+a connection-based load balancer.
+
+~~~
+. {
+	timeouts {
+		maxtcpqueries 128
 	}
 	forward . /etc/resolv.conf
 }

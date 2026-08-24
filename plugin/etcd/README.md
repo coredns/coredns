@@ -37,6 +37,7 @@ etcd [ZONES...] {
     endpoint ENDPOINT...
     credentials USERNAME PASSWORD
     tls CERT KEY CACERT
+    no_apex_fallback
 }
 ~~~
 
@@ -55,6 +56,14 @@ etcd [ZONES...] {
     * three arguments - path to cert PEM file, path to client private key PEM file, path to CA PEM
       file - if the server certificate is not signed by a system-installed CA and client certificate
       is needed.
+* `no_apex_fallback` disables the legacy zone-root lookup used by address queries and apex-existence
+  checks at a configured zone apex. When `apex.dns.ZONE` does not exist, the lookup returns a name
+  error instead of issuing a prefix range over the complete zone subtree. Migrate zone-apex address
+  records to the `dns/apex` layout before enabling this option.
+
+CoreDNS sets the minimum TLS version to TLS 1.2. The maximum TLS version, TLS 1.2 cipher suites, and
+key exchange mechanisms use the Go `crypto/tls` defaults.
+
 * `min-lease-ttl` the minimum TTL for DNS records based on etcd lease duration. Accepts flexible time formats like '30', '30s', '5m', '1h', '2h30m'. Default: 30 seconds.
 * `max-lease-ttl` the maximum TTL for DNS records based on etcd lease duration. Accepts flexible time formats like '30', '30s', '5m', '1h', '2h30m'. Default: 24 hours.
 
@@ -75,6 +84,25 @@ if there is nothing found on `/skydns/test/skydns/mx/`, it looks for `/skydns/te
 find entries like `/skydns/test/skydns/mx1`.
 
 This causes two lookups from CoreDNS to etcd in certain cases.
+
+### Backend load
+
+The *etcd* plugin does not watch or poll etcd when data changes. Record lookups are driven by
+incoming DNS queries. An uncached lookup may issue multiple etcd requests when an exact-key fallback
+or an internal CNAME lookup is needed.
+
+Non-exact lookups use an etcd prefix range and return the complete subtree by design. Querying a name
+high in the hierarchy can therefore read many keys. In particular, an A or AAAA query for a configured
+zone name first looks below `apex.dns.ZONE`. If that entry does not exist, CoreDNS falls back to the
+zone's root prefix for compatibility with older SkyDNS layouts. On a large zone, that fallback scans
+the entire zone subtree.
+
+Store zone-apex address records below the `dns/apex` path, as shown in the examples below, to avoid
+the zone-wide fallback. Once all apex records use that layout, enable `no_apex_fallback` to prevent a
+missing or deleted apex entry from triggering a zone-root scan. The *cache* plugin reduces repeated
+backend reads for the same DNS question, but does not reduce the size of the first prefix response.
+Use the *log* plugin to identify the client and question name that trigger a lookup, and
+`coredns_dns_requests_total` from the *prometheus* plugin to measure query volume by zone and type.
 
 ## Examples
 
@@ -131,7 +159,7 @@ If you prefer, you can use `curl` to populate the `etcd` server, but with `curl`
 endpoint URL depends on the version of `etcd`. For instance, `etcd v3.2` or before uses only
 [CLIENT-URL]/v3alpha/* while `etcd v3.5` or later uses [CLIENT-URL]/v3/* . Also, Key and Value must
 be base64 encoded in the JSON payload. With `etcdctl` these details are automatically taken care
-of. You can check [this document](https://github.com/coreos/etcd/blob/master/Documentation/dev-guide/api_grpc_gateway.md#notes)
+of. You can check [this document](https://github.com/etcd-io/website/blob/main/content/en/docs/v3.2/dev-guide/api_grpc_gateway.md)
 for details.
 
 ### Reverse zones
@@ -166,7 +194,7 @@ entries to the ETCD path of your zone. If your zone is named `skydns.local` for 
 create an `A` record for this zone as follows:
 
 ~~~
-% etcdctl put /skydns/local/skydns/ '{"host":"1.1.1.1","ttl":60}'
+% etcdctl put /skydns/local/skydns/dns/apex/x1 '{"host":"1.1.1.1","ttl":60}'
 ~~~
 
 If you query the zone name itself, you will receive the created `A` record:
@@ -178,8 +206,8 @@ If you query the zone name itself, you will receive the created `A` record:
 
 If you would like to use DNS RR for the zone name, you can set the following:
 ~~~
-% etcdctl put /skydns/local/skydns/x1 '{"host":"1.1.1.1","ttl":60}'
-% etcdctl put /skydns/local/skydns/x2 '{"host":"1.1.1.2","ttl":60}'
+% etcdctl put /skydns/local/skydns/dns/apex/x1 '{"host":"1.1.1.1","ttl":60}'
+% etcdctl put /skydns/local/skydns/dns/apex/x2 '{"host":"1.1.1.2","ttl":60}'
 ~~~
 
 If you query the zone name now, you will get the following response:
@@ -194,8 +222,8 @@ If you query the zone name now, you will get the following response:
 
 If you would like to use `AAAA` records for the zone name too, you can set the following:
 ~~~
-% etcdctl put /skydns/local/skydns/x3 '{"host":"2003::8:1","ttl":60}'
-% etcdctl put /skydns/local/skydns/x4 '{"host":"2003::8:2","ttl":60}'
+% etcdctl put /skydns/local/skydns/dns/apex/x3 '{"host":"2003::8:1","ttl":60}'
+% etcdctl put /skydns/local/skydns/dns/apex/x4 '{"host":"2003::8:2","ttl":60}'
 ~~~
 
 If you query the zone name for `AAAA` now, you will get the following response:

@@ -9,8 +9,7 @@ import (
 // list is a structure that holds the plugins that signals readiness for this server block.
 type list struct {
 	sync.RWMutex
-	rs    []Readiness
-	names []string
+	rs map[string]Readiness
 
 	// keepReadiness indicates whether the readiness status of plugins should be retained
 	// after they have been confirmed as ready. When set to false, the plugin readiness
@@ -24,36 +23,38 @@ func (l *list) Reset() {
 	l.Lock()
 	defer l.Unlock()
 	l.rs = nil
-	l.names = nil
 }
 
 // Append adds a new readiness to l.
 func (l *list) Append(r Readiness, name string) {
 	l.Lock()
 	defer l.Unlock()
-	l.rs = append(l.rs, r)
-	l.names = append(l.names, name)
+
+	if l.rs == nil {
+		l.rs = make(map[string]Readiness)
+	}
+	l.rs[name] = r
 }
 
 // Ready return true when all plugins ready, if the returned value is false the string
 // contains a comma separated list of plugins that are not ready.
 func (l *list) Ready() (bool, string) {
-	l.RLock()
-	defer l.RUnlock()
+	l.Lock()
+	defer l.Unlock()
 	ok := true
 	s := []string{}
-	for i, r := range l.rs {
+	for name, r := range l.rs {
 		if r == nil {
 			continue
 		}
 		if r.Ready() {
 			if !l.keepReadiness {
-				l.rs[i] = nil
+				l.rs[name] = nil
 			}
 			continue
 		}
 		ok = false
-		s = append(s, l.names[i])
+		s = append(s, name)
 	}
 	if ok {
 		return true, ""

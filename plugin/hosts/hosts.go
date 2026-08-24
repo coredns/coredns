@@ -17,7 +17,11 @@ type Hosts struct {
 	Next plugin.Handler
 	*Hostsfile
 
+	zones plugin.Zones
+
 	Fall fall.F
+
+	fallthroughUnsupported bool
 }
 
 // ServeDNS implements the plugin.Handle interface.
@@ -25,9 +29,13 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	state := request.Request{W: w, Req: r}
 	qname := state.Name()
 
-	answers := []dns.RR{}
+	var answers []dns.RR
 
-	zone := plugin.Zones(h.Origins).Matches(qname)
+	zones := h.zones
+	if zones == nil {
+		zones = plugin.Zones(h.Origins)
+	}
+	zone := zones.Matches(qname)
 	if zone == "" {
 		// PTR zones don't need to be specified in Origins.
 		if state.QType() != dns.TypePTR {
@@ -50,6 +58,10 @@ func (h Hosts) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	case dns.TypeAAAA:
 		ips := h.LookupStaticHostV6(qname)
 		answers = aaaa(qname, h.options.ttl, ips)
+	default:
+		if h.fallthroughUnsupported && h.Fall.Through(qname) {
+			return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
+		}
 	}
 
 	// Only on NXDOMAIN we will fallthrough.

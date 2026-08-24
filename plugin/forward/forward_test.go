@@ -2,8 +2,10 @@ package forward
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -11,8 +13,10 @@ import (
 	"github.com/coredns/caddy/caddyfile"
 	"github.com/coredns/coredns/core/dnsserver"
 	"github.com/coredns/coredns/plugin/dnstap"
+	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/proxy"
 	"github.com/coredns/coredns/plugin/pkg/transport"
+	"github.com/coredns/coredns/plugin/test"
 
 	"github.com/miekg/dns"
 	"github.com/opentracing/opentracing-go"
@@ -95,8 +99,8 @@ func (m *mockResponseWriter) Hijack()                      {}
 
 // TestForward_Regression_NoBusyLoop ensures that ServeDNS does not perform
 // an unbounded number of upstream connect attempts for a single request when
-// maxConnectAttempts is configured, and that maxConnectAttempts=0 keeps the
-// legacy behaviour (no per-request cap).
+// maxConnectAttempts is configured, and that an explicit maxConnectAttempts=0
+// keeps the legacy behaviour (no per-request cap).
 func TestForward_Regression_NoBusyLoop(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -118,6 +122,7 @@ func TestForward_Regression_NoBusyLoop(t *testing.T) {
 
 			// Set maxConnectAttempts to the number of attempts we want to test.
 			f.maxConnectAttempts = tc.maxAttempts
+			f.maxConnectAttemptsSet = true
 
 			// Assume nothing is listening on this port, so the connection will be refused.
 			p := proxy.NewProxy("forward", "127.0.0.1:54321", "tcp")
@@ -155,5 +160,260 @@ func TestForward_Regression_NoBusyLoop(t *testing.T) {
 				t.Errorf("Expected %d spans, got %d", tc.maxAttempts, len(spans))
 			}
 		})
+	}
+}
+
+func TestForward_DefaultConnectAttemptCap(t *testing.T) {
+	for _, proxyCount := range []int{1, 3} {
+		t.Run(fmt.Sprintf("%d upstreams", proxyCount), func(t *testing.T) {
+			f := New()
+			f.opts.ForceTCP = true
+			f.maxfails = 0
+
+			listeners := make([]net.Listener, 0, proxyCount)
+			t.Cleanup(func() {
+				for _, listener := range listeners {
+					_ = listener.Close()
+				}
+			})
+			for range proxyCount {
+				listener, err := net.Listen("tcp", "127.0.0.1:0")
+				if err != nil {
+					t.Fatalf("failed to allocate upstream address: %v", err)
+				}
+				listeners = append(listeners, listener)
+			}
+
+			upstreams := make([]string, 0, proxyCount)
+			for _, listener := range listeners {
+				upstream := listener.Addr().String()
+				if err := listener.Close(); err != nil {
+					t.Fatalf("failed to close upstream listener: %v", err)
+				}
+				upstreams = append(upstreams, upstream)
+				f.SetProxy(proxy.NewProxy("forward", upstream, "tcp"))
+			}
+
+			tracer := mocktracer.New()
+			span := tracer.StartSpan("test")
+			ctx := opentracing.ContextWithSpan(context.Background(), span)
+			ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+			defer cancel()
+
+			req := new(dns.Msg)
+			req.SetQuestion("example.com.", dns.TypeA)
+
+			_, err := f.ServeDNS(ctx, &mockResponseWriter{}, req)
+			if err == nil {
+				t.Fatal("expected connection refused error")
+			}
+
+			want := defaultConnectAttemptsPerUpstream * proxyCount
+			spans := tracer.FinishedSpans()
+			if got := len(spans); got != want {
+				t.Fatalf("expected %d connect attempts, got %d", want, got)
+			}
+
+			attemptsByUpstream := make(map[string]int, proxyCount)
+			for _, span := range spans {
+				upstream, ok := span.Tags()["peer.address"].(string)
+				if !ok {
+					t.Fatal("connect attempt is missing peer.address")
+				}
+				attemptsByUpstream[upstream]++
+			}
+			for _, upstream := range upstreams {
+				if got := attemptsByUpstream[upstream]; got != defaultConnectAttemptsPerUpstream {
+					t.Errorf("expected %d attempts to %s, got %d", defaultConnectAttemptsPerUpstream, upstream, got)
+				}
+			}
+		})
+	}
+}
+
+func TestForward_NextOnNodata(t *testing.T) {
+	tests := []struct {
+		name         string
+		nextOnNodata bool
+	}{
+		{name: "serveEmpty", nextOnNodata: false},
+		{name: "nextNotEmpty", nextOnNodata: true},
+	}
+
+	s1 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		w.WriteMsg(ret)
+	})
+	s2 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		ret := new(dns.Msg)
+		ret.SetReply(r)
+		ret.Answer = append(ret.Answer, test.A("example.org. IN A 127.0.0.1"))
+		w.WriteMsg(ret)
+	})
+	defer s1.Close()
+	defer s2.Close()
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var config string
+			if tc.nextOnNodata {
+				config = `
+					forward . %s {
+						next_on_nodata
+					}
+					forward . %s
+					`
+			} else {
+				config = `
+					forward . %s
+					forward . %s
+					`
+			}
+			c := caddy.NewTestController("dns", fmt.Sprintf(config, s1.Addr, s2.Addr))
+			fs, err := parseForward(c)
+			if err != nil {
+				t.Errorf("Failed to create forwarder: %s", err)
+			}
+			if x := len(fs); x != 2 {
+				t.Errorf("Failed to create two forward instances")
+			}
+			f := fs[0]
+			f.Next = fs[1]
+			f.OnStartup()
+			defer f.OnShutdown()
+
+			m := new(dns.Msg)
+			m.SetQuestion("example.org.", dns.TypeA)
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+			if _, err := f.ServeDNS(context.TODO(), rec, m); err != nil {
+				t.Fatal("Expected to receive reply, but didn't")
+			}
+			if x := rec.Rcode; x != dns.RcodeSuccess {
+				t.Errorf("Expected %v, got %+v instead", dns.RcodeSuccess, rec)
+			}
+			if tc.nextOnNodata {
+				if x := len(rec.Msg.Answer); x != 1 {
+					t.Errorf("Expected answer, got %d instead", x)
+				}
+				if x := rec.Msg.Answer[0].Header().Name; x != "example.org." {
+					t.Errorf("Expected %s, got %s", "example.org.", x)
+				}
+			} else {
+				if x := len(rec.Msg.Answer); x != 0 {
+					t.Errorf("Expected zero length answer, got %d instead", x)
+				}
+			}
+		})
+	}
+}
+
+func TestForwardFailoverStopsAfterAllUpstreams(t *testing.T) {
+	var first atomic.Int32
+	var second atomic.Int32
+
+	s1 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		first.Add(1)
+
+		m := new(dns.Msg)
+		m.SetRcode(r, dns.RcodeServerFailure)
+		w.WriteMsg(m)
+	})
+	defer s1.Close()
+
+	s2 := dnstest.NewMultipleServer(func(w dns.ResponseWriter, r *dns.Msg) {
+		second.Add(1)
+
+		m := new(dns.Msg)
+		m.SetRcode(r, dns.RcodeServerFailure)
+		w.WriteMsg(m)
+	})
+	defer s2.Close()
+
+	c := caddy.NewTestController("dns", fmt.Sprintf(`forward . %s %s {
+		policy sequential
+		failover SERVFAIL
+	}`, s1.Addr, s2.Addr))
+
+	fs, err := parseForward(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := fs[0]
+	if err := f.OnStartup(); err != nil {
+		t.Fatal(err)
+	}
+	defer f.OnShutdown()
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		200*time.Millisecond,
+	)
+	defer cancel()
+
+	if _, err := f.ServeDNS(ctx, rec, req); err != nil {
+		t.Fatalf("Expected the last SERVFAIL response, got error: %v", err)
+	}
+
+	if rec.Rcode != dns.RcodeServerFailure {
+		t.Fatalf("Expected SERVFAIL, got %d", rec.Rcode)
+	}
+
+	if got := first.Load(); got != 1 {
+		t.Errorf("Expected first upstream to be queried once, got %d", got)
+	}
+	if got := second.Load(); got != 1 {
+		t.Errorf("Expected second upstream to be queried once, got %d", got)
+	}
+}
+
+func TestForwardDoesNotRetryLocalPackError(t *testing.T) {
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	req.Answer = []dns.RR{&dns.TXT{
+		Hdr: dns.RR_Header{
+			Name:   "example.org.",
+			Rrtype: dns.TypeTXT,
+			Class:  dns.ClassINET,
+		},
+		// A TXT character-string is limited to 255 wire bytes. This is a
+		// deterministic local serialization error and is unrelated to HIP or
+		// compression-pointer handling in miekg/dns.
+		Txt: []string{strings.Repeat("x", 256)},
+	}}
+
+	f := New()
+	f.maxfails = 0
+	f.maxConnectAttempts = 2
+	f.maxConnectAttemptsSet = true
+	f.opts.ForceTCP = true
+	f.proxies = []*proxy.Proxy{
+		proxy.NewProxy("forward", "127.0.0.1:1", transport.DNS),
+	}
+
+	tracer := mocktracer.New()
+	span := tracer.StartSpan("test")
+	ctx := opentracing.ContextWithSpan(context.Background(), span)
+
+	rcode, err := f.ServeDNS(ctx, &mockResponseWriter{}, req)
+	if rcode != dns.RcodeFormatError {
+		t.Fatalf("expected FORMERR, got %s", dns.RcodeToString[rcode])
+	}
+	if err == nil || !strings.Contains(err.Error(), "string exceeded 255 bytes in txt") {
+		t.Fatalf("expected local TXT packing error, got %v", err)
+	}
+
+	// ServeDNS starts one child span for each forwarding attempt. A local
+	// packing failure must stop after the first attempt even though the normal
+	// connect-attempt limit permits two attempts.
+	if got := len(tracer.FinishedSpans()); got != 1 {
+		t.Fatalf("expected one forwarding attempt, got %d", got)
 	}
 }

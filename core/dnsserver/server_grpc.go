@@ -9,6 +9,7 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/pb"
+	"github.com/coredns/coredns/plugin/pkg/dnsutil"
 	"github.com/coredns/coredns/plugin/pkg/reuseport"
 	"github.com/coredns/coredns/plugin/pkg/transport"
 
@@ -177,8 +178,7 @@ func (s *ServergRPC) Query(ctx context.Context, in *pb.DnsPacket) (*pb.DnsPacket
 	if len(in.GetMsg()) > dns.MaxMsgSize {
 		return nil, fmt.Errorf("dns message exceeds size limit: %d", len(in.GetMsg()))
 	}
-	msg := new(dns.Msg)
-	err := msg.Unpack(in.GetMsg())
+	msg, err := dnsutil.UnpackRequest(in.GetMsg())
 	if err != nil {
 		return nil, err
 	}

@@ -1,9 +1,12 @@
 package secondary
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/pkg/fall"
 )
 
 func TestSecondaryParse(t *testing.T) {
@@ -12,6 +15,8 @@ func TestSecondaryParse(t *testing.T) {
 		shouldErr      bool
 		transferFrom   string
 		zones          []string
+		fall           fall.F
+		catalogZones   map[string]plugin.Zones
 	}{
 		{
 			`secondary {
@@ -19,6 +24,8 @@ func TestSecondaryParse(t *testing.T) {
 			}`,
 			false,
 			"127.0.0.1:53",
+			nil,
+			fall.F{},
 			nil,
 		},
 		{
@@ -28,11 +35,72 @@ func TestSecondaryParse(t *testing.T) {
 			false,
 			"127.0.0.1:53",
 			[]string{"example.org."},
+			fall.F{},
+			nil,
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"catalog.example."},
+			fall.F{},
+			map[string]plugin.Zones{"catalog.example.": nil},
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog EXAMPLE.ORG internal.example
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"catalog.example."},
+			fall.F{},
+			map[string]plugin.Zones{"catalog.example.": {"example.org.", "internal.example."}},
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog example.org EXAMPLE.ORG
+				catalog internal.example
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"catalog.example."},
+			fall.F{},
+			map[string]plugin.Zones{"catalog.example.": {"example.org.", "internal.example."}},
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog example.org
+				catalog
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"catalog.example."},
+			fall.F{},
+			map[string]plugin.Zones{"catalog.example.": nil},
+		},
+		{
+			`secondary catalog.example {
+				transfer from 127.0.0.1
+				catalog :
+			}`,
+			true,
+			"",
+			nil,
+			fall.F{},
+			nil,
 		},
 		{
 			`secondary`,
 			true,
 			"",
+			nil,
+			fall.F{},
 			nil,
 		},
 		{
@@ -42,12 +110,38 @@ func TestSecondaryParse(t *testing.T) {
 			true,
 			"",
 			nil,
+			fall.F{},
+			nil,
+		},
+		// fallthrough: bare (all zones)
+		{
+			`secondary {
+				transfer from 127.0.0.1
+				fallthrough
+			}`,
+			false,
+			"127.0.0.1:53",
+			nil,
+			fall.Root,
+			nil,
+		},
+		// fallthrough: specific zone
+		{
+			`secondary example.org {
+				transfer from 127.0.0.1
+				fallthrough example.org
+			}`,
+			false,
+			"127.0.0.1:53",
+			[]string{"example.org."},
+			fall.F{Zones: []string{"example.org."}},
+			nil,
 		},
 	}
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.inputFileRules)
-		s, err := secondaryParse(c)
+		s, f, catalogZones, err := secondaryParse(c)
 
 		if err == nil && test.shouldErr {
 			t.Fatalf("Test %d expected errors, but got no error", i)
@@ -65,6 +159,22 @@ func TestSecondaryParse(t *testing.T) {
 		for _, v := range s.Z {
 			if x := v.TransferFrom[0]; x != test.transferFrom {
 				t.Fatalf("Test %d transform from names don't match expected %q, but got %q", i, test.transferFrom, x)
+			}
+		}
+
+		if !f.Equal(test.fall) {
+			t.Fatalf("Test %d fallthrough not equal: expected %v, got %v", i, test.fall, f)
+		}
+		if len(catalogZones) != len(test.catalogZones) {
+			t.Fatalf("Test %d catalog zone count mismatch: expected %d, got %d", i, len(test.catalogZones), len(catalogZones))
+		}
+		for name, expected := range test.catalogZones {
+			actual, ok := catalogZones[name]
+			if !ok {
+				t.Fatalf("Test %d expected catalog zone %q", i, name)
+			}
+			if !slices.Equal(actual, expected) {
+				t.Fatalf("Test %d catalog member zones for %q mismatch: expected %v, got %v", i, name, expected, actual)
 			}
 		}
 	}

@@ -20,13 +20,26 @@ func (z *Zone) Reload(t *transfer.Transfer) error {
 			select {
 			case <-tick.C:
 				zFile := z.File()
+				serial := z.SOASerialIfDefined()
+
+				if z.ReloadByMtime {
+					fi, err := os.Stat(zFile)
+					if err != nil {
+						log.Errorf("Failed to stat zone %q in %q: %v", z.origin, zFile, err)
+						continue
+					}
+					if !fi.ModTime().After(z.file_mtime) {
+						continue
+					}
+					serial = 0 // force reload of the zone
+				}
+
 				reader, err := os.Open(filepath.Clean(zFile))
 				if err != nil {
 					log.Errorf("Failed to open zone %q in %q: %v", z.origin, zFile, err)
 					continue
 				}
 
-				serial := z.SOASerialIfDefined()
 				zone, err := Parse(reader, z.origin, zFile, serial)
 				reader.Close()
 				if err != nil {
@@ -36,13 +49,9 @@ func (z *Zone) Reload(t *transfer.Transfer) error {
 					continue
 				}
 
-				// copy elements we need
-				z.Lock()
-				z.Apex = zone.Apex
-				z.Tree = zone.Tree
-				z.Unlock()
+				z.setData(zone.Apex, zone.Tree)
 
-				log.Infof("Successfully reloaded zone %q in %q with %d SOA serial", z.origin, zFile, z.SOA.Serial)
+				log.Infof("Successfully reloaded zone %q in %q with %d SOA serial", z.origin, zFile, zone.SOA.Serial)
 				if t != nil {
 					if err := t.Notify(z.origin); err != nil {
 						log.Warningf("Failed sending notifies: %s", err)

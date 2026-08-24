@@ -474,3 +474,31 @@ func TestTransferLargeRecordBatching(t *testing.T) {
 		t.Errorf("expected multiple messages for large transfer, got %d", len(w.Msgs))
 	}
 }
+
+type emptyBatchTransferer struct{}
+
+func (emptyBatchTransferer) Transfer(_ string, _ uint32) (<-chan []dns.RR, error) {
+	ch := make(chan []dns.RR, 1)
+
+	ch <- []dns.RR{}
+
+	close(ch)
+	return ch, nil
+}
+
+func TestTransferEmptyBatch(t *testing.T) {
+	tr := &Transfer{
+		Transferers: []Transferer{emptyBatchTransferer{}},
+		xfrs:        []*xfr{{Zones: []string{"example.org."}, to: []string{"*"}}},
+	}
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeAXFR)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{TCP: true})
+
+	_, err := tr.ServeDNS(context.Background(), rec, req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

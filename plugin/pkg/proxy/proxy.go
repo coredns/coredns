@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"crypto/tls"
+	"net"
+	"net/http"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -17,6 +19,10 @@ type Proxy struct {
 	proxyName string
 
 	transport *Transport
+	protocol  string
+
+	dohMethod string
+	dohHost   string
 
 	readTimeout time.Duration
 
@@ -26,14 +32,17 @@ type Proxy struct {
 }
 
 // NewProxy returns a new proxy.
-func NewProxy(proxyName, addr, trans string) *Proxy {
+func NewProxy(proxyName, addr, protocol string) *Proxy {
 	p := &Proxy{
 		addr:        addr,
 		fails:       0,
 		probe:       up.New(),
 		readTimeout: 2 * time.Second,
 		transport:   newTransport(proxyName, addr),
-		health:      NewHealthChecker(proxyName, trans, true, "."),
+		protocol:    protocol,
+		dohMethod:   http.MethodPost,
+		dohHost:     "",
+		health:      NewHealthChecker(proxyName, protocol, true, "."),
 		proxyName:   proxyName,
 	}
 
@@ -47,6 +56,9 @@ func (p *Proxy) Addr() string { return p.addr }
 func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 	p.transport.SetTLSConfig(cfg)
 	p.health.SetTLSConfig(cfg)
+	if p.transport.httpClient != nil {
+		p.transport.httpClient.Transport.(*http.Transport).TLSClientConfig = cfg
+	}
 }
 
 // SetExpire sets the expire duration in the lower p.transport.
@@ -58,7 +70,27 @@ func (p *Proxy) SetMaxAge(maxAge time.Duration) { p.transport.SetMaxAge(maxAge) 
 
 // SetMaxIdleConns sets the maximum idle connections per transport type.
 // A value of 0 means unlimited (default).
-func (p *Proxy) SetMaxIdleConns(n int) { p.transport.SetMaxIdleConns(n) }
+func (p *Proxy) SetMaxIdleConns(n int) {
+	p.transport.SetMaxIdleConns(n)
+	if p.transport.httpClient != nil {
+		p.transport.httpClient.Transport.(*http.Transport).MaxIdleConns = n
+		p.transport.httpClient.Transport.(*http.Transport).MaxIdleConnsPerHost = n
+	}
+}
+
+func (p *Proxy) SetHTTPClient(client *http.Client) {
+	p.transport.httpClient = client
+}
+
+func (p *Proxy) SetDOHRequestOptions(method string) {
+	p.dohMethod = method
+}
+
+func (p *Proxy) SetDOHHost(host string) {
+	p.dohHost = host
+}
+
+func (p *Proxy) DoHHost() string { return p.dohHost }
 
 func (p *Proxy) GetHealthchecker() HealthChecker {
 	return p.health
@@ -116,6 +148,20 @@ func (p *Proxy) incrementFails() {
 		return
 	}
 	atomic.AddUint32(&p.fails, 1)
+}
+
+// SetLocalAddress sets the local address for the proxy, used as the source address for outbound connections.
+func (p *Proxy) SetLocalAddress(addr net.IP) {
+	p.transport.SetLocalAddress(addr)
+	if p.transport.httpClient != nil {
+		httpTransport := p.transport.httpClient.Transport.(*http.Transport)
+		if addr == nil {
+			httpTransport.DialContext = nil
+			return
+		}
+		dialer := &net.Dialer{LocalAddr: &net.TCPAddr{IP: addr}}
+		httpTransport.DialContext = dialer.DialContext
+	}
 }
 
 const (

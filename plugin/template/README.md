@@ -13,6 +13,8 @@ The *template* plugin allows you to dynamically respond to queries by just writi
 ~~~
 template CLASS TYPE [ZONE...] {
     match REGEX...
+    var NAME EXPRESSION
+    expr EXPRESSION
     answer RR
     additional RR
     authority RR
@@ -31,6 +33,12 @@ template CLASS TYPE [ZONE...] {
 * `answer|additional|authority` **RR** A [RFC 1035](https://tools.ietf.org/html/rfc1035#section-5) style resource record fragment
   built by a [Go template](https://golang.org/pkg/text/template/) that contains the reply. Specifying no answer will result
   in a response with an empty answer section.
+* `var` **NAME** **EXPRESSION** sets the variable **NAME** to the result of **EXPRESSION**, evaluated for each matching query
+  and available to the templates as `.Var.NAME`. Multiple variables may be set; each one may use the variables declared before it.
+  See the **Expressions** section.
+* `expr` **EXPRESSION** a condition that must evaluate to `true` for the query to match. All conditions must be true for a
+  complete match; otherwise the query is subject to `fallthrough`, as if no regex had matched. Conditions may use the
+  variables declared with `var`. See the **Expressions** section.
 * `rcode` **CODE** A response code (`NXDOMAIN, SERVFAIL, ...`). The default is `NOERROR`. Valid response code values are
   per the `RcodeToString` map defined by the `miekg/dns` package in `msg.go`.
 * `ederror` **EXTENDED_ERROR_CODE** is an extended DNS error code as a number defined in `RFC8914` (0, 1, 2,..., 24).
@@ -55,6 +63,7 @@ Each resource record is a full-featured [Go template](https://golang.org/pkg/tex
 * `.Message` the complete incoming DNS message.
 * `.Question` the matched question section.
 * `.Remote` client’s IP address
+* `.Var` the variables defined with `var` (e.g. `.Var.myvariable`).
 * `.Meta` a function that takes a metadata name and returns the value, if the
   metadata plugin is enabled. For example, `.Meta "kubernetes/client-namespace"`
 
@@ -67,6 +76,21 @@ The output of the template must be a [RFC 1035](https://tools.ietf.org/html/rfc1
 **WARNING** there is a syntactical problem with Go templates and CoreDNS config files. Expressions
  like `{{$var}}` will be interpreted as a reference to an environment variable by CoreDNS (and
  Caddy) while `{{ $var }}` will work. See [Bugs](#bugs) and corefile(5).
+
+## Expressions
+
+The **EXPRESSION** of a `var` or `expr` is written in the expr language, the same as used by the *view* plugin. See
+https://expr-lang.org/docs/language-definition as a detailed reference for valid syntax.
+
+Expressions can reference the DNS query functions and utility functions listed in the *view* plugin's documentation, the
+variables declared by preceding `var` options, and
+
+* `group(name string) string`: the capture group named _name_ of the matching regex, or `""` if there is no such group.
+* `group(index int) string`: the _index_-th capture group of the matching regex, `group(0)` being the entire match, or `""`
+  if there is no such group.
+
+A variable name must be a valid identifier and must not be the name of an existing function, or of a keyword or literal of
+the expr language, such as `len` or `true`.
 
 ## Metrics
 
@@ -185,6 +209,36 @@ Note that the A record is actually a wildcard: any subdomain of the IP address w
 Having templates to map certain PTR/A pairs is a common pattern.
 
 Fallthrough is needed for mixed domains where only some responses are templated.
+
+### Resolve device addresses for HTTPS on LAN
+
+For an embedded device on a local network to be trusted, it needs to have a certificate signed by a
+CA and the CA needs to verify that the device controls the name for which it is issued. As the local
+address may change, a certificate is issued for the wildcard subdomain `*.<id>.example.com` instead,
+where `<id>` is a unique id for the given device. The same trick as in the example above can be used
+to find out the actual IP address.
+
+Resolving to public IP addresses would allow for this to be used in phishing attacks, so an
+additional expression must be satisfied to limit the allowed IP range.
+
+~~~ corefile
+. {
+    forward . 8.8.8.8
+
+    template IN A example.com {
+      match ^(?P<ip>[0-9]{1,3}(-[0-9]{1,3}){3})[.](?P<id>[a-z2-7]{26})[.]example[.]com[.]$
+      var ip replace(group('ip'), '-', '.')
+      expr "any(['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '169.254.0.0/16'], incidr(ip, #))"
+      answer "{{ .Name }} 60 IN A {{ .Var.ip }}"
+      fallthrough
+    }
+}
+~~~
+
+The regular expression for the unique device id matches a base32 encoded string of a 128-bit device
+id, with the padding removed.
+
+Note that an expression using `#` must be quoted, or it will be interpreted as a comment.
 
 ### Resolve hexadecimal ip pattern using parseInt
 

@@ -23,8 +23,9 @@ type Transfer struct {
 }
 
 type xfr struct {
-	Zones []string
-	to    []string
+	Zones  []string
+	to     []string
+	source net.IP
 }
 
 // Transferer may be implemented by plugins to enable zone transfers
@@ -127,6 +128,9 @@ func (t *Transfer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 	batchSize := 0
 	var soa *dns.SOA
 	for records := range pchan {
+		if len(records) == 0 {
+			continue
+		}
 		if x, ok := records[0].(*dns.SOA); ok && soa == nil {
 			soa = x
 		}

@@ -16,7 +16,8 @@ var log = clog.NewWithPlugin("local")
 
 // Local is a plugin that returns standard replies for local queries.
 type Local struct {
-	Next plugin.Handler
+	Next                   plugin.Handler
+	disableLocalhostPrefix bool
 }
 
 var zones = []string{"localhost.", "0.in-addr.arpa.", "127.in-addr.arpa.", "255.in-addr.arpa."}
@@ -37,8 +38,11 @@ func (l Local) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	qname := state.QName()
 
 	lc := len("localhost.")
-	if len(state.Name()) > lc && strings.HasPrefix(state.Name(), "localhost.") {
-		// we have multiple labels, but the first one is localhost, intercept this and return 127.0.0.1 or ::1
+	name := state.Name()
+	matchesRFCSubdomain := len(name) > lc && strings.HasSuffix(name, ".localhost.")
+	matchesLegacyPrefix := len(name) > lc && !l.disableLocalhostPrefix && strings.HasPrefix(name, "localhost.")
+	if matchesRFCSubdomain || matchesLegacyPrefix {
+		// Intercept special localhost subdomain queries and return loopback addresses for A/AAAA queries.
 		log.Debugf("Intercepting localhost query for %q %s, from %s", state.Name(), state.Type(), state.IP())
 		LocalhostCount.Inc()
 		reply := doLocalhost(state)

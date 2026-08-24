@@ -3,6 +3,7 @@ package tsig
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ func TestServeDNS(t *testing.T) {
 		reqOpCodes  opCodes
 		qType       uint16
 		opcode      int
+		extra       []dns.RR
 		qTsig       bool
 		allTypes    bool
 		allOpcodes  bool
@@ -220,6 +222,7 @@ func TestServeDNSTsigErrors(t *testing.T) {
 	cases := []struct {
 		desc              string
 		tsigErr           error
+		reqError          int
 		expectRcode       int
 		expectError       int
 		expectOtherLength int
@@ -249,6 +252,15 @@ func TestServeDNSTsigErrors(t *testing.T) {
 			expectOtherLength: 6,
 			expectTimeSigned:  clientNow,
 		},
+		{
+			desc:              "Client Set Error",
+			tsigErr:           nil,
+			reqError:          dns.RcodeBadKey,
+			expectRcode:       dns.RcodeSuccess,
+			expectError:       dns.RcodeSuccess,
+			expectOtherLength: 0,
+			expectTimeSigned:  0,
+		},
 	}
 
 	tsig := TSIGServer{
@@ -267,8 +279,9 @@ func TestServeDNSTsigErrors(t *testing.T) {
 			r.SetQuestion("test.example.", dns.TypeA)
 			r.SetTsig("test.key.", dns.HmacSHA256, 300, clientNow)
 
-			// set a fake MAC and Size in request
 			rtsig := r.IsTsig()
+			rtsig.Error = uint16(tc.reqError)
+			// set a fake MAC and Size in request
 			rtsig.MAC = "0123456789012345678901234567890101234567890123456789012345678901"
 			rtsig.MACSize = 32
 
@@ -301,6 +314,101 @@ func TestServeDNSTsigErrors(t *testing.T) {
 
 			if ts.TimeSigned != uint64(tc.expectTimeSigned) {
 				t.Errorf("expected TimeSigned to be %v, got %v", tc.expectTimeSigned, ts.TimeSigned)
+			}
+		})
+	}
+}
+
+func TestServeDNSTsigNext(t *testing.T) {
+	cases := []struct {
+		desc         string
+		zones        []string
+		tsigRequired bool
+		tsigStatus   error
+		reqExtra     []dns.RR
+		reqSigned    bool
+		expectExtra  []uint16
+		expectNext   int
+	}{
+		{
+			desc:         "Optional TSIG",
+			zones:        []string{"."},
+			tsigRequired: false,
+			reqExtra:     []dns.RR{test.OPT(42, true)},
+			reqSigned:    false,
+			expectExtra:  []uint16{dns.TypeOPT},
+			expectNext:   1,
+		},
+		{
+			desc:         "Missing TSIG",
+			zones:        []string{"."},
+			tsigRequired: true,
+			tsigStatus:   nil,
+			reqExtra:     []dns.RR{test.OPT(42, true)},
+			reqSigned:    false,
+			expectNext:   0,
+		},
+		{
+			desc:        "Bad Zone",
+			zones:       []string{"another.domain."},
+			reqExtra:    []dns.RR{test.OPT(42, true)},
+			reqSigned:   true,
+			expectExtra: []uint16{dns.TypeOPT, dns.TypeTSIG},
+			expectNext:  1,
+		},
+		{
+			desc:         "Bad Status",
+			zones:        []string{"."},
+			tsigRequired: true,
+			tsigStatus:   dns.ErrSig,
+			reqExtra:     []dns.RR{test.OPT(42, true)},
+			reqSigned:    true,
+			expectNext:   0,
+		},
+		{
+			desc:         "Success",
+			zones:        []string{"."},
+			tsigRequired: true,
+			reqExtra:     []dns.RR{test.OPT(42, true)},
+			reqSigned:    true,
+			expectExtra:  []uint16{dns.TypeOPT},
+			expectNext:   1,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			h := testHandler()
+			var nextCalled int
+			tsig := TSIGServer{
+				Zones:    tc.zones,
+				allTypes: tc.tsigRequired,
+				Next: test.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+					nextCalled++
+					if !slices.EqualFunc(r.Extra, tc.expectExtra, func(rr dns.RR, t uint16) bool { return rr.Header().Rrtype == t }) {
+						t.Errorf("expected %v, got %v", tc.expectExtra, r.Extra)
+					}
+					return h(_ctx, w, r)
+				}),
+			}
+
+			ctx := context.TODO()
+
+			w := dnstest.NewRecorder(&ErrWriter{err: tc.tsigStatus})
+
+			r := new(dns.Msg)
+			r.SetQuestion("test.example.", dns.TypeA)
+			r.Extra = tc.reqExtra
+			if tc.reqSigned {
+				r.SetTsig("test.key.", dns.HmacSHA256, 300, time.Now().Unix())
+			}
+
+			_, err := tsig.ServeDNS(ctx, w, r)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if nextCalled != tc.expectNext {
+				t.Errorf("expected next plugin called")
 			}
 		})
 	}

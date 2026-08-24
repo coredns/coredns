@@ -54,6 +54,22 @@ func parseDOH3(c *caddy.Controller) error {
 				return c.Err("max_streams already defined for this server block")
 			}
 			config.MaxHTTPS3Streams = &val
+		case "max_connections":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return c.ArgErr()
+			}
+			val, err := strconv.Atoi(args[0])
+			if err != nil {
+				return c.Errf("invalid max_connections value '%s': %v", args[0], err)
+			}
+			if val < 0 {
+				return c.Errf("max_connections must be a non-negative integer: %d", val)
+			}
+			if config.MaxHTTPS3Connections != nil {
+				return c.Err("max_connections already defined for this server block")
+			}
+			config.MaxHTTPS3Connections = &val
 		default:
 			return c.Errf("unknown property '%s'", c.Val())
 		}

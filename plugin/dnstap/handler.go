@@ -15,9 +15,10 @@ import (
 
 // Dnstap is the dnstap handler.
 type Dnstap struct {
-	Next plugin.Handler
-	io   tapper
-	repl replacer.Replacer
+	Next     plugin.Handler
+	io       tapper
+	listener *listener
+	repl     replacer.Replacer
 
 	// IncludeRawMessage will include the raw DNS message into the dnstap messages if true.
 	IncludeRawMessage   bool
@@ -49,7 +50,17 @@ func (h *Dnstap) TapMessageWithMetadata(ctx context.Context, m *tap.Message, sta
 
 func (h *Dnstap) tapWithExtra(m *tap.Message, extra []byte) {
 	t := tap.Dnstap_MESSAGE
-	h.io.Dnstap(&tap.Dnstap{Type: &t, Message: m, Identity: h.Identity, Version: h.Version, Extra: extra})
+	payload := &tap.Dnstap{Type: &t, Message: m, Identity: h.Identity, Version: h.Version, Extra: extra}
+
+	// Send to outgoing connection if configured
+	if h.io != nil {
+		h.io.Dnstap(payload)
+	}
+
+	// Broadcast to incoming listeners if configured
+	if h.listener != nil {
+		h.listener.Dnstap(payload)
+	}
 }
 
 func (h *Dnstap) tapQuery(ctx context.Context, w dns.ResponseWriter, query *dns.Msg, queryTime time.Time) {

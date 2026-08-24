@@ -27,6 +27,7 @@ If you want to round-robin A and AAAA responses look at the *loadbalance* plugin
 ~~~
 file DBFILE [ZONES... ] {
     reload DURATION
+    reload_by_mtime
     fallthrough [ZONES...]
 }
 ~~~
@@ -34,6 +35,8 @@ file DBFILE [ZONES... ] {
 * `reload` interval to perform a reload of the zone if the SOA version changes. Default is one minute.
   Value of `0` means to not scan for changes and reload. For example, `30s` checks the zonefile every 30 seconds
   and reloads the zone when serial changes.
+* `reload_by_mtime` if set, decision to reload the zone will be based on the zone file modification time,
+  instead of change in the SOA serial.
 * `fallthrough` If zone matches and no record can be generated, pass request to the next plugin.
   If **[ZONES...]** is omitted, then fallthrough happens for all zones for which the plugin
   is authoritative. If specific zones are listed (for example `in-addr.arpa` and `ip6.arpa`), then only

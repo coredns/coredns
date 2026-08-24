@@ -32,30 +32,31 @@ func (t TSIGServer) Name() string { return pluginName }
 
 // ServeDNS implements plugin.Handler
 func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-	var err error
-	state := request.Request{Req: r, W: w}
-	if z := plugin.Zones(t.Zones).Matches(state.Name()); z == "" {
+	var (
+		state  = request.Request{Req: r, W: w}
+		tsigRR = r.IsTsig()
+	)
+	switch {
+	case tsigRR == nil && !t.tsigRequired(state.QType(), r.Opcode):
+		fallthrough
+	case plugin.Zones(t.Zones).Matches(state.Name()) == "":
 		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
-	}
-
-	var tsigRR = r.IsTsig()
-	rcode := dns.RcodeSuccess
-	if !t.tsigRequired(state.QType(), r.Opcode) && tsigRR == nil {
-		return plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
-	}
-
-	if tsigRR == nil {
+	case tsigRR == nil:
 		log.Debugf("rejecting '%s' request without TSIG\n", dns.TypeToString[state.QType()])
-		rcode = dns.RcodeRefused
+		resp := new(dns.Msg).SetRcode(r, dns.RcodeRefused)
+		w.WriteMsg(resp)
+		return dns.RcodeSuccess, nil
 	}
 
-	// wrap the response writer so the response will be TSIG signed.
+	// Strip the TSIG RR. Next, and subsequent plugins will not see the TSIG RRs.
+	// This violates forwarding cases (RFC 8945 5.5). See README.md Bugs
+	r.Extra = r.Extra[:len(r.Extra)-1]
+
+	// Wrap the response writer so the response will be TSIG signed.
 	w = &restoreTsigWriter{w, r, tsigRR}
 
-	tsigStatus := w.TsigStatus()
-	if tsigStatus != nil {
+	if tsigStatus := w.TsigStatus(); tsigStatus != nil {
 		log.Debugf("TSIG validation failed: %v %v", dns.TypeToString[state.QType()], tsigStatus)
-		rcode = dns.RcodeNotAuth
 		switch tsigStatus {
 		case dns.ErrSecret:
 			tsigRR.Error = dns.RcodeBadKey
@@ -64,26 +65,18 @@ func (t *TSIGServer) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.
 		default:
 			tsigRR.Error = dns.RcodeBadSig
 		}
-		resp := new(dns.Msg).SetRcode(r, rcode)
+		resp := new(dns.Msg).SetRcode(r, dns.RcodeNotAuth)
 		w.WriteMsg(resp)
 		return dns.RcodeSuccess, nil
 	}
 
-	// strip the TSIG RR. Next, and subsequent plugins will not see the TSIG RRs.
-	// This violates forwarding cases (RFC 8945 5.5). See README.md Bugs
-	if len(r.Extra) > 1 {
-		r.Extra = r.Extra[0 : len(r.Extra)-1]
-	} else {
-		r.Extra = []dns.RR{}
+	tsigRR.Error = dns.RcodeSuccess
+	rcode, err := plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
+	if err != nil {
+		log.Errorf("request handler returned an error: %v\n", err)
 	}
-
-	if rcode == dns.RcodeSuccess {
-		rcode, err = plugin.NextOrFailure(t.Name(), t.Next, ctx, w, r)
-		if err != nil {
-			log.Errorf("request handler returned an error: %v\n", err)
-		}
-	}
-	// If the plugin chain result was not an error, restore the TSIG and write the response.
+	// If the downstream plugin chain did not write, use custom ResponseWriter here
+	// because [dnsserver.errorFunc] ignores TSIG.
 	if !plugin.ClientWrite(rcode) {
 		resp := new(dns.Msg).SetRcode(r, rcode)
 		w.WriteMsg(resp)
@@ -105,22 +98,21 @@ func (t *TSIGServer) tsigRequired(qtype uint16, opcode int) bool {
 	return typeMatches || opcodeMatches
 }
 
-// restoreTsigWriter Implement Response Writer, and adds a TSIG RR to a response
+// restoreTsigWriter implements [dns.ResponseWriter], and adds a [dns.TSIG] RR to a response.
 type restoreTsigWriter struct {
 	dns.ResponseWriter
-	req     *dns.Msg  // original request excluding TSIG if it has one
+	req     *dns.Msg  // original request excluding TSIG
 	reqTSIG *dns.TSIG // original TSIG
 }
 
 // WriteMsg adds a TSIG RR to the response
 func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
-	// Make sure the response has an EDNS OPT RR if the request had it.
-	// Otherwise ScrubWriter would append it *after* TSIG, making it a non-compliant DNS message.
-	state := request.Request{Req: r.req, W: r.ResponseWriter}
-	state.SizeAndDo(m)
+	if repTSIG := m.IsTsig(); repTSIG == nil { // respect TSIG set downstream
+		// Make sure the response has an EDNS OPT RR if the request had it.
+		// Otherwise [request.ScrubWriter] would append it *after* TSIG, making it a non-compliant DNS message.
+		state := request.Request{Req: r.req, W: r.ResponseWriter}
+		state.SizeAndDo(m)
 
-	repTSIG := m.IsTsig()
-	if r.reqTSIG != nil && repTSIG == nil {
 		repTSIG = new(dns.TSIG)
 		repTSIG.Hdr = dns.RR_Header{Name: r.reqTSIG.Hdr.Name, Rrtype: dns.TypeTSIG, Class: dns.ClassANY}
 		repTSIG.Algorithm = r.reqTSIG.Algorithm
@@ -140,7 +132,6 @@ func (r *restoreTsigWriter) WriteMsg(m *dns.Msg) error {
 		}
 		m.Extra = append(m.Extra, repTSIG)
 	}
-
 	return r.ResponseWriter.WriteMsg(m)
 }
 

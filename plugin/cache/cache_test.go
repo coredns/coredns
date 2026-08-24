@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
@@ -121,6 +122,16 @@ func TestCacheInsertion(t *testing.T) {
 				RecursionAvailable: true,
 			},
 			shouldCache: true,
+		},
+		{
+			name: "test dns.RcodeNameError without SOA does not cache",
+			in: test.Case{
+				Rcode:              dns.RcodeNameError,
+				Qname:              "1.1.168.192.in-addr.arpa.",
+				Qtype:              dns.TypePTR,
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
 		},
 		{
 			name: "test dns.RcodeServerFailure cache",
@@ -272,6 +283,243 @@ func TestCacheInsertion(t *testing.T) {
 			},
 			shouldCache: true,
 		},
+		{
+			name: "test NOERROR dangling CNAME chain without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.CNAME("target1.example.net. 3600 IN CNAME target2.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain ending in a different type without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.AAAA("target.example.net. 3600 IN AAAA ::1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR MX query CNAME chain without terminal MX without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR MX query CNAME chain terminating in MX caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.MX("target.example.net. 3600 IN MX 10 mail.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeMX,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.MX("target.example.net. 3600 IN MX 10 mail.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR DNSSEC dangling CNAME chain without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Do:    true,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.RRSIG("alias.example.org.	3600	IN	RRSIG	CNAME 8 2 3600 20170521031301 20170421031301 12051 example.org. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with unrelated A off the chain without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("unrelated.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR lone CNAME answer to an ANY query caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeANY,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeANY,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME chain terminating in A record caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME chain terminating in A record out of order caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME answer to a CNAME query caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeCNAME,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeCNAME,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
+		{
+			name: "test NOERROR CNAME chain with two distinct targets at one owner without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target2.example.net."),
+					test.A("target1.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with two distinct targets at one owner reversed order without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target2.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target1.example.net."),
+					test.A("target1.example.net. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME loop with co-located A without SOA does not cache",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("target.example.net. 3600 IN CNAME alias.example.org."),
+					test.A("alias.example.org. 3600 IN A 192.0.2.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: false,
+		},
+		{
+			name: "test NOERROR CNAME chain with duplicate identical CNAME terminating in A caches",
+			in: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			out: test.Case{
+				Rcode: dns.RcodeSuccess,
+				Qname: "alias.example.org.", Qtype: dns.TypeA,
+				Answer: []dns.RR{
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.CNAME("alias.example.org. 3600 IN CNAME target.example.net."),
+					test.A("target.example.net. 3600 IN A 127.0.0.1"),
+				},
+				RecursionAvailable: true,
+			},
+			shouldCache: true,
+		},
 	}
 	now, _ := time.Parse(time.UnixDate, "Fri Apr 21 10:51:21 BST 2017")
 	utc := now.UTC()
@@ -310,9 +558,8 @@ func TestCacheInsertion(t *testing.T) {
 
 				// TODO: If we incorporate these individual checks into the
 				//       test.Header function, we can eliminate them from here.
-				// Cache entries are always Authoritative.
-				if resp.Authoritative != true {
-					t.Error("Expected Authoritative Answer bit to be true, but was false")
+				if resp.Authoritative != tc.out.Authoritative {
+					t.Errorf("Expected Authoritative Answer bit to be %t, but got %t", tc.out.Authoritative, resp.Authoritative)
 				}
 				if resp.AuthenticatedData != tc.out.AuthenticatedData {
 					t.Errorf("Expected Authenticated Data bit to be %t, but got %t", tc.out.AuthenticatedData, resp.AuthenticatedData)
@@ -359,6 +606,27 @@ func TestCacheZeroTTL(t *testing.T) {
 	}
 	if c.ncache.Len() != 0 {
 		t.Errorf("Msg with 0 TTL should not have been cached")
+	}
+}
+
+func TestCacheHonorsConfiguredPositiveMaxTTLAboveDefault(t *testing.T) {
+	c := New()
+	c.pttl = 2 * time.Hour
+	c.minpttl = 0
+	c.Next = ttlBackend(24 * 60 * 60)
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(context.TODO(), rec, req)
+
+	if rec.Msg == nil || len(rec.Msg.Answer) == 0 {
+		t.Fatalf("expected answer, got %+v", rec.Msg)
+	}
+
+	if got, want := rec.Msg.Answer[0].Header().Ttl, uint32(7200); got != want {
+		t.Fatalf("expected TTL %d, got %d", want, got)
 	}
 }
 
@@ -422,6 +690,121 @@ func TestServeFromStaleCache(t *testing.T) {
 		if ret, _ := c.ServeDNS(ctx, rec, r); ret != tt.expectedResult {
 			t.Errorf("Test %d: expecting %v; got %v", i, tt.expectedResult, ret)
 		}
+	}
+}
+
+func TestServeFromStaleCacheResponseTTL(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      string
+		primeRcode  int
+		advance     time.Duration
+		expectedTTL uint32
+	}{
+		{
+			name:        "legacy default",
+			config:      "serve_stale 1h immediate",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     2 * time.Minute,
+			expectedTTL: 0,
+		},
+		{
+			name:        "immediate positive",
+			config:      "serve_stale 1h immediate 30s",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     2 * time.Minute,
+			expectedTTL: 30,
+		},
+		{
+			name:        "exact expiry",
+			config:      "serve_stale 1h immediate 30s",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     time.Minute,
+			expectedTTL: 30,
+		},
+		{
+			name:        "immediate negative",
+			config:      "serve_stale 1h immediate 25s",
+			primeRcode:  dns.RcodeNameError,
+			advance:     2 * time.Minute,
+			expectedTTL: 25,
+		},
+		{
+			name:        "verify failure",
+			config:      "serve_stale 1h verify 0 45s",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     2 * time.Minute,
+			expectedTTL: 45,
+		},
+		{
+			name:        "stale ttl overrides keepttl",
+			config:      "serve_stale 1h immediate 17s\nkeepttl",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     2 * time.Minute,
+			expectedTTL: 17,
+		},
+		{
+			name:        "fresh response is unchanged",
+			config:      "serve_stale 1h immediate 30s",
+			primeRcode:  dns.RcodeSuccess,
+			advance:     10 * time.Second,
+			expectedTTL: 50,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			controller := caddy.NewTestController("dns", fmt.Sprintf("cache {\n%s\n}", tc.config))
+			c, err := cacheParse(controller)
+			if err != nil {
+				t.Fatalf("unexpected parse error: %v", err)
+			}
+			c.Zones = []string{"."}
+
+			switch tc.primeRcode {
+			case dns.RcodeSuccess:
+				c.Next = ttlBackend(60)
+			case dns.RcodeNameError:
+				c.Next = nxDomainBackend(60)
+			default:
+				t.Fatalf("unsupported prime rcode %d", tc.primeRcode)
+			}
+
+			req := new(dns.Msg)
+			req.SetQuestion("cached.org.", dns.TypeA)
+			ctx := context.Background()
+			stored := time.Now()
+			c.now = func() time.Time { return stored }
+			if ret, err := c.ServeDNS(ctx, dnstest.NewRecorder(&test.ResponseWriter{}), req); err != nil || ret != tc.primeRcode {
+				t.Fatalf("failed to prime cache: rcode=%d, err=%v", ret, err)
+			}
+
+			c.now = func() time.Time { return stored.Add(tc.advance) }
+			c.Next = servFailBackend(60)
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+			if ret, err := c.ServeDNS(ctx, rec, req.Copy()); err != nil || ret != dns.RcodeSuccess {
+				t.Fatalf("unexpected cached response: rcode=%d, err=%v", ret, err)
+			}
+			if rec.Msg == nil || rec.Msg.Rcode != tc.primeRcode {
+				t.Fatalf("expected response rcode %d, got %v", tc.primeRcode, rec.Msg)
+			}
+
+			var got uint32
+			if tc.primeRcode == dns.RcodeNameError {
+				if len(rec.Msg.Ns) == 0 {
+					t.Fatalf("expected authority record, got %v", rec.Msg)
+				}
+				got = rec.Msg.Ns[0].Header().Ttl
+			} else {
+				if len(rec.Msg.Answer) == 0 {
+					t.Fatalf("expected answer record, got %v", rec.Msg)
+				}
+				got = rec.Msg.Answer[0].Header().Ttl
+			}
+			if got != tc.expectedTTL {
+				t.Fatalf("expected TTL %d, got %d", tc.expectedTTL, got)
+			}
+		})
 	}
 }
 
@@ -498,6 +881,106 @@ func TestServeFromStaleCacheFetchVerify(t *testing.T) {
 				t.Errorf("Test %d: expected TTL=%d, got TTL=%d", i, tt.expectedTtl, soaTtl)
 			}
 		}
+	}
+}
+
+func TestServeFromStaleCacheFetchVerifyTimeout(t *testing.T) {
+	// Verify that when verifyStaleTimeout is set and the upstream is slow,
+	// the client gets the stale entry within ~timeout, while the in-flight
+	// verify continues in the background and refreshes the cache.
+	c := New()
+	c.staleUpTo = 1 * time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 50 * time.Millisecond
+	c.staleTTL = 30 * time.Second
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	// Prime the cache with a 120s TTL entry.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(ctx, rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+
+	// Move forward past the TTL so the entry is stale.
+	c.now = func() time.Time { return time.Now().Add(3 * time.Minute) }
+
+	// Swap in a slow backend that takes longer than the verify timeout.
+	bgDone := make(chan struct{})
+	c.Next = slowTTLBackend(60, 200*time.Millisecond, bgDone)
+
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	start := time.Now()
+	ret, err := c.ServeDNS(ctx, rec, req.Copy())
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ret != dns.RcodeSuccess {
+		t.Fatalf("expected RcodeSuccess, got %d", ret)
+	}
+	if elapsed > 150*time.Millisecond {
+		t.Errorf("expected response within ~timeout (50ms); took %v", elapsed)
+	}
+	if rec.Msg == nil || len(rec.Msg.Answer) == 0 {
+		t.Fatalf("expected an answer, got %+v", rec.Msg)
+	}
+	if got := rec.Msg.Answer[0].Header().Ttl; got != 30 {
+		t.Errorf("expected stale TTL=30, got %d", got)
+	}
+
+	// Wait for the background verify to complete.
+	select {
+	case <-bgDone:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("background verify never completed")
+	}
+}
+
+func TestServeFromStaleCacheFetchVerifyTimeoutFastUpstream(t *testing.T) {
+	// When the upstream answers within the verify timeout, the client should
+	// receive the freshly verified response (not a stale one).
+	c := New()
+	c.staleUpTo = 1 * time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 500 * time.Millisecond
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	ctx := context.TODO()
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	c.ServeDNS(ctx, rec, req)
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+
+	c.now = func() time.Time { return time.Now().Add(3 * time.Minute) }
+	// Fast upstream returning fresh TTL=200.
+	c.Next = ttlBackend(200)
+
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	ret, err := c.ServeDNS(ctx, rec, req.Copy())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ret != dns.RcodeSuccess {
+		t.Fatalf("expected RcodeSuccess, got %d", ret)
+	}
+	if rec.Msg == nil || len(rec.Msg.Answer) == 0 {
+		t.Fatalf("expected an answer, got %+v", rec.Msg)
+	}
+	if got := rec.Msg.Answer[0].Header().Ttl; got != 200 {
+		t.Errorf("expected fresh TTL=200, got %d", got)
+	}
+	if rec.Msg.Authoritative {
+		t.Error("expected AA=0: the freshly verified answer came from a non-authoritative backend")
 	}
 }
 
@@ -632,6 +1115,22 @@ func BackendHandler() plugin.Handler {
 	})
 }
 
+func authoritativeBackend(calls *int) plugin.Handler {
+	return plugin.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		*calls++
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response = true
+		m.Authoritative = true
+
+		owner := m.Question[0].Name
+		m.Answer = []dns.RR{test.A(owner + " 303 IN A 127.0.0.53")}
+
+		w.WriteMsg(m)
+		return dns.RcodeSuccess, nil
+	})
+}
+
 func nxDomainBackend(ttl int) plugin.Handler {
 	return plugin.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 		m := new(dns.Msg)
@@ -652,7 +1151,7 @@ func ttlBackend(ttl int) plugin.Handler {
 		m.SetReply(r)
 		m.Response, m.RecursionAvailable = true, true
 
-		m.Answer = []dns.RR{test.A(fmt.Sprintf("example.org. %d IN A 127.0.0.53", ttl))}
+		m.Answer = []dns.RR{test.A(fmt.Sprintf("%s %d IN A 127.0.0.53", r.Question[0].Name, ttl))}
 		w.WriteMsg(m)
 		return dns.RcodeSuccess, nil
 	})
@@ -669,6 +1168,28 @@ func servFailBackend(ttl int) plugin.Handler {
 		m.Rcode = dns.RcodeServerFailure
 		w.WriteMsg(m)
 		return dns.RcodeServerFailure, nil
+	})
+}
+
+// slowTTLBackend wraps ttlBackend with a fixed delay to simulate a slow upstream.
+// done is closed once the response is written so callers can synchronise with the
+// background goroutine.
+func slowTTLBackend(ttl int, delay time.Duration, done chan<- struct{}) plugin.Handler {
+	return plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return dns.RcodeServerFailure, ctx.Err()
+		}
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A(fmt.Sprintf("%s %d IN A 127.0.0.53", r.Question[0].Name, ttl))}
+		w.WriteMsg(m)
+		if done != nil {
+			close(done)
+		}
+		return dns.RcodeSuccess, nil
 	})
 }
 
@@ -907,4 +1428,565 @@ func wildcardMetadataBackend(qname, wildcard string) plugin.Handler {
 
 		return dns.RcodeSuccess, nil
 	})
+}
+
+func TestServfailDoesNotShadowPositiveCache(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour // enable serve_stale
+	c.failttl = 5 * time.Second
+	now := time.Now()
+	c.now = func() time.Time { return now }
+
+	// Manually insert a positive entry in pcache (stored 30s ago, TTL 120s -> still valid).
+	posMsg := new(dns.Msg)
+	posMsg.SetQuestion("example.org.", dns.TypeA)
+	posMsg.Response = true
+	posMsg.Answer = []dns.RR{test.A("example.org. 120 IN A 127.0.0.53")}
+	posItem := newItem(posMsg, now.Add(-30*time.Second), 120*time.Second)
+	k := hash("example.org.", dns.TypeA, dns.ClassINET, false, false)
+	c.pcache.Add(k, posItem)
+
+	// Manually insert a SERVFAIL entry in ncache (stored just now, TTL 5s).
+	failMsg := new(dns.Msg)
+	failMsg.SetQuestion("example.org.", dns.TypeA)
+	failMsg.Response = true
+	failMsg.Rcode = dns.RcodeServerFailure
+	failMsg.Ns = []dns.RR{test.SOA("example.org. 5 IN SOA sns.dns.icann.org. noc.dns.icann.org. 2016082540 7200 3600 1209600 3600")}
+	failItem := newItem(failMsg, now, 5*time.Second)
+	c.ncache.Add(k, failItem)
+
+	// Lookup should prefer the positive entry over the SERVFAIL.
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+
+	got := c.getIfNotStale(now.Add(time.Second), state, "test")
+	if got == nil {
+		t.Fatal("expected a cached item, got nil")
+	}
+	if got.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected positive cache entry (rcode 0), got rcode %d", got.Rcode)
+	}
+}
+
+func TestPreferPositiveCachePolicy(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	now := time.Now()
+	c.now = func() time.Time { return now }
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.org.", dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+
+	positive := new(dns.Msg)
+	positive.SetReply(req)
+	positive.Answer = []dns.RR{test.A("example.org. 60 IN A 192.0.2.1")}
+	c.pcache.Add(k, newItem(positive, now.Add(-2*time.Minute), time.Minute))
+
+	negative := new(dns.Msg)
+	negative.SetRcode(req, dns.RcodeNameError)
+	negative.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
+	c.ncache.Add(k, newItem(negative, now, 5*time.Minute))
+
+	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeNameError {
+		t.Fatalf("default policy should prefer ncache NXDOMAIN, got %+v", got)
+	}
+
+	c.preferPositive = true
+	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeSuccess {
+		t.Fatalf("prefer_positive should prefer eligible pcache answer, got %+v", got)
+	}
+}
+
+func TestPreferPositiveRejectsNonAnswer(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	c.preferPositive = true
+	now := time.Now()
+
+	req := new(dns.Msg)
+	req.SetQuestion("alias.example.org.", dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+
+	incomplete := new(dns.Msg)
+	incomplete.SetReply(req)
+	incomplete.Answer = []dns.RR{test.CNAME("alias.example.org. 60 IN CNAME missing.example.org.")}
+	c.pcache.Add(k, newItem(incomplete, now, time.Minute))
+
+	negative := new(dns.Msg)
+	negative.SetRcode(req, dns.RcodeNameError)
+	negative.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
+	c.ncache.Add(k, newItem(negative, now, 5*time.Minute))
+
+	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeNameError {
+		t.Fatalf("non-answer pcache item must not shadow ncache, got %+v", got)
+	}
+}
+
+func TestAnswersQuestionStrictEligibility(t *testing.T) {
+	chAddress, err := dns.NewRR("cached.org. 60 CH A 192.0.2.20")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name   string
+		qtype  uint16
+		answer []dns.RR
+		want   bool
+	}{
+		{
+			name:   "direct A",
+			qtype:  dns.TypeA,
+			answer: []dns.RR{test.A("cached.org. 60 IN A 192.0.2.10")},
+			want:   true,
+		},
+		{
+			name:   "ANY matching owner",
+			qtype:  dns.TypeANY,
+			answer: []dns.RR{test.A("cached.org. 60 IN A 192.0.2.10")},
+			want:   true,
+		},
+		{
+			name:   "ANY unrelated owner",
+			qtype:  dns.TypeANY,
+			answer: []dns.RR{test.A("unrelated.org. 60 IN A 192.0.2.10")},
+			want:   false,
+		},
+		{
+			name:  "duplicate equivalent CNAME targets",
+			qtype: dns.TypeCNAME,
+			answer: []dns.RR{
+				test.CNAME("cached.org. 60 IN CNAME target.org."),
+				test.CNAME("cached.org. 60 IN CNAME target.org."),
+			},
+			want: true,
+		},
+		{
+			name:  "multiple CNAME targets",
+			qtype: dns.TypeCNAME,
+			answer: []dns.RR{
+				test.CNAME("cached.org. 60 IN CNAME first.org."),
+				test.CNAME("cached.org. 60 IN CNAME second.org."),
+			},
+			want: false,
+		},
+		{
+			name:   "wrong RR class",
+			qtype:  dns.TypeA,
+			answer: []dns.RR{chAddress},
+			want:   false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			req := new(dns.Msg)
+			req.SetQuestion("cached.org.", tc.qtype)
+			res := new(dns.Msg)
+			res.SetReply(req)
+			res.Answer = tc.answer
+
+			if got := answersQuestion(res); got != tc.want {
+				t.Fatalf("answersQuestion() = %t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPreferPositiveRetainsLKGAcrossNonAnswerSuccessRefreshes(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	c.preferPositive = true
+	now := time.Now()
+	c.now = func() time.Time { return now }
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+	writer := &ResponseWriter{Cache: c, state: state, prefetch: true}
+
+	positive := new(dns.Msg)
+	positive.SetReply(req)
+	positive.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.10")}
+	if err := writer.WriteMsg(positive); err != nil {
+		t.Fatal(err)
+	}
+
+	now = now.Add(2 * time.Minute)
+	refreshes := []*dns.Msg{
+		func() *dns.Msg {
+			m := new(dns.Msg)
+			m.SetReply(req)
+			return m
+		}(),
+		func() *dns.Msg {
+			m := new(dns.Msg)
+			m.SetReply(req)
+			m.Ns = []dns.RR{test.NS("example.org. 60 IN NS ns.example.org.")}
+			return m
+		}(),
+		func() *dns.Msg {
+			m := new(dns.Msg)
+			m.SetReply(req)
+			m.Ns = []dns.RR{test.NS("example.org. 60 IN NS ns.example.org.")}
+			m.Extra = []dns.RR{test.A("ns.example.org. 60 IN A 192.0.2.53")}
+			return m
+		}(),
+		func() *dns.Msg {
+			m := new(dns.Msg)
+			m.SetReply(req)
+			m.Extra = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.54")}
+			return m
+		}(),
+	}
+
+	for i, refresh := range refreshes {
+		if err := writer.WriteMsg(refresh); err != nil {
+			t.Fatal(err)
+		}
+		got := c.getIfNotStale(now, state, "test")
+		if got == nil || !got.answersQuestion(state) {
+			t.Fatalf("refresh %d lost last-known-good answer: %+v", i, got)
+		}
+		if address := got.Answer[0].(*dns.A).A.String(); address != "192.0.2.10" {
+			t.Fatalf("refresh %d returned %s, want 192.0.2.10", i, address)
+		}
+	}
+}
+
+func TestPreferPositiveDoesNotServeLKGOutsideStaleWindow(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	c.preferPositive = true
+	now := time.Now()
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	state := request.Request{W: &test.ResponseWriter{}, Req: req}
+	k := hash(state.Name(), state.QType(), state.QClass(), state.Do(), state.Req.CheckingDisabled)
+
+	positive := new(dns.Msg)
+	positive.SetReply(req)
+	positive.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.10")}
+	lastKnownGood := newItem(positive, now.Add(-2*time.Hour), time.Minute)
+
+	empty := new(dns.Msg)
+	empty.SetReply(req)
+	current := newItem(empty, now, time.Minute)
+	current.lastKnownGood = lastKnownGood
+	c.pcache.Add(k, current)
+
+	negative := new(dns.Msg)
+	negative.SetRcode(req, dns.RcodeNameError)
+	negative.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
+	c.ncache.Add(k, newItem(negative, now, 5*time.Minute))
+
+	if got := c.getIfNotStale(now, state, "test"); got == nil || got.Rcode != dns.RcodeNameError {
+		t.Fatalf("expected current NXDOMAIN after LKG stale window, got %+v", got)
+	}
+}
+
+func TestPreferPositiveVerifyKeepsStaleOnNonAnswers(t *testing.T) {
+	tests := []struct {
+		name    string
+		backend plugin.Handler
+	}{
+		{name: "NXDOMAIN", backend: nxDomainBackend(300)},
+		{name: "NODATA", backend: plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+			m := new(dns.Msg)
+			m.SetReply(r)
+			m.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
+			return dns.RcodeSuccess, w.WriteMsg(m)
+		})},
+		{name: "SERVFAIL", backend: servFailBackend(300)},
+		{name: "NOTIMP", backend: plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+			m := new(dns.Msg)
+			m.SetRcode(r, dns.RcodeNotImplemented)
+			return dns.RcodeNotImplemented, w.WriteMsg(m)
+		})},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := New()
+			c.staleUpTo = time.Hour
+			c.verifyStale = true
+			c.preferPositive = true
+			c.Next = ttlBackend(60)
+
+			req := new(dns.Msg)
+			req.SetQuestion("cached.org.", dns.TypeA)
+			ctx := context.Background()
+			c.ServeDNS(ctx, &test.ResponseWriter{}, req)
+
+			c.now = func() time.Time { return time.Now().Add(2 * time.Minute) }
+			c.Next = tc.backend
+
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+			ret, err := c.ServeDNS(ctx, rec, req.Copy())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ret != dns.RcodeSuccess || rec.Msg == nil || rec.Msg.Rcode != dns.RcodeSuccess {
+				t.Fatalf("expected stale positive response, got ret=%d msg=%+v", ret, rec.Msg)
+			}
+			if got := rec.Msg.Answer[0].Header().Ttl; got != 0 {
+				t.Fatalf("expected stale TTL 0, got %d", got)
+			}
+			if c.ncache.Len() != 1 {
+				t.Fatalf("expected verified %s to be retained in ncache, got %d entries", tc.name, c.ncache.Len())
+			}
+		})
+	}
+}
+
+func TestPreferPositiveVerifyRejectsInvalidFreshAnswers(t *testing.T) {
+	modes := []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{name: "blocking"},
+		{name: "bounded", timeout: time.Second},
+	}
+	invalidResponses := []struct {
+		name  string
+		build func(*dns.Msg) *dns.Msg
+	}{
+		{
+			name: "expired RRSIG",
+			build: func(req *dns.Msg) *dns.Msg {
+				m := new(dns.Msg)
+				m.SetReply(req)
+				m.SetEdns0(4096, true)
+				m.Answer = []dns.RR{
+					test.A("cached.org. 60 IN A 192.0.2.20"),
+					test.RRSIG("cached.org. 60 IN RRSIG A 8 2 60 20160521031301 20160421031301 12051 cached.org. lAaEzB5teQLLKyDenatmyhca7blLRg9DoGNrhe3NReBZN5C5/pMQk8Jc u25hv2fW23/SLm5IC2zaDpp2Fzgm6Jf7e90/yLcwQPuE7JjS55WMF+HE LEh7Z6AEb+Iq4BWmNhUz6gPxD4d9eRMs7EAzk13o1NYi5/JhfL6IlaYy qkc="),
+				}
+				return m
+			},
+		},
+		{
+			name: "truncated",
+			build: func(req *dns.Msg) *dns.Msg {
+				m := new(dns.Msg)
+				m.SetReply(req)
+				m.Truncated = true
+				m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.20")}
+				return m
+			},
+		},
+	}
+
+	for _, mode := range modes {
+		for _, invalid := range invalidResponses {
+			t.Run(mode.name+"/"+invalid.name, func(t *testing.T) {
+				c := New()
+				c.staleUpTo = time.Hour
+				c.verifyStale = true
+				c.verifyStaleTimeout = mode.timeout
+				c.preferPositive = true
+
+				now := time.Now().UTC()
+				c.now = func() time.Time { return now }
+				c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+					m := new(dns.Msg)
+					m.SetReply(r)
+					m.Answer = []dns.RR{test.A("cached.org. 60 IN A 192.0.2.10")}
+					return dns.RcodeSuccess, w.WriteMsg(m)
+				})
+
+				req := new(dns.Msg)
+				req.SetQuestion("cached.org.", dns.TypeA)
+				req.SetEdns0(4096, true)
+				if _, err := c.ServeDNS(context.Background(), &test.ResponseWriter{}, req.Copy()); err != nil {
+					t.Fatal(err)
+				}
+
+				now = now.Add(2 * time.Minute)
+				c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+					return dns.RcodeSuccess, w.WriteMsg(invalid.build(r))
+				})
+
+				rec := dnstest.NewRecorder(&test.ResponseWriter{})
+				ret, err := c.ServeDNS(context.Background(), rec, req.Copy())
+				if err != nil {
+					t.Fatal(err)
+				}
+				if ret != dns.RcodeSuccess || rec.Msg == nil || rec.Msg.Rcode != dns.RcodeSuccess {
+					t.Fatalf("expected stale positive response, got ret=%d msg=%+v", ret, rec.Msg)
+				}
+				if len(rec.Msg.Answer) == 0 {
+					t.Fatal("expected retained stale answer")
+				}
+				a, ok := rec.Msg.Answer[0].(*dns.A)
+				if !ok || a.A.String() != "192.0.2.10" {
+					t.Fatalf("expected retained 192.0.2.10, got %v", rec.Msg.Answer)
+				}
+				if got := a.Hdr.Ttl; got != 0 {
+					t.Fatalf("expected stale TTL 0, got %d", got)
+				}
+			})
+		}
+	}
+}
+
+func TestServeFromStaleCacheFetchVerifyTimeoutUncacheableResponse(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = time.Second
+	c.Next = ttlBackend(60)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+	c.ServeDNS(context.Background(), &test.ResponseWriter{}, req)
+	c.now = func() time.Time { return time.Now().Add(2 * time.Minute) }
+	c.Next = plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		m := new(dns.Msg)
+		m.SetRcode(r, dns.RcodeNameError)
+		return dns.RcodeNameError, w.WriteMsg(m)
+	})
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	ret, err := c.ServeDNS(context.Background(), rec, req.Copy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ret != dns.RcodeSuccess || rec.Msg == nil || rec.Msg.Rcode != dns.RcodeNameError {
+		t.Fatalf("expected direct uncacheable NXDOMAIN, got ret=%d msg=%+v", ret, rec.Msg)
+	}
+	for _, section := range [][]dns.RR{rec.Msg.Answer, rec.Msg.Ns, rec.Msg.Extra} {
+		for _, rr := range section {
+			if rr.Header().Ttl > uint32(maxTTL.Seconds()) {
+				t.Fatalf("unexpected wrapped TTL %d", rr.Header().Ttl)
+			}
+		}
+	}
+}
+
+func TestCNAMEWithSOAStoredAsNODATA(t *testing.T) {
+	c := New()
+	req := new(dns.Msg)
+	req.SetQuestion("alias.example.org.", dns.TypeA)
+	crr := &ResponseWriter{
+		Cache:    c,
+		state:    request.Request{Req: req},
+		prefetch: true,
+	}
+
+	res := new(dns.Msg)
+	res.SetReply(req)
+	res.Answer = []dns.RR{test.CNAME("alias.example.org. 300 IN CNAME missing.example.net.")}
+	res.Ns = []dns.RR{test.SOA("example.org. 300 IN SOA ns.example.org. hostmaster.example.org. 1 7200 3600 1209600 300")}
+
+	if err := crr.WriteMsg(res); err != nil {
+		t.Fatal(err)
+	}
+	if c.ncache.Len() != 1 {
+		t.Fatalf("expected NODATA in ncache, got %d entries", c.ncache.Len())
+	}
+	if c.pcache.Len() != 0 {
+		t.Fatalf("expected no positive cache entry, got %d", c.pcache.Len())
+	}
+}
+
+func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
+	c := New()
+	c.staleUpTo = time.Hour
+	c.verifyStale = true
+	c.verifyStaleTimeout = 20 * time.Millisecond
+	c.Next = ttlBackend(120)
+
+	req := new(dns.Msg)
+	req.SetQuestion("cached.org.", dns.TypeA)
+
+	// Prime the cache with a response that will later become stale.
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if ret, err := c.ServeDNS(context.TODO(), rec, req); err != nil || ret != dns.RcodeSuccess {
+		t.Fatalf("failed to prime cache: rcode=%d err=%v", ret, err)
+	}
+	if c.pcache.Len() != 1 {
+		t.Fatalf("Msg with > 0 TTL should have been cached")
+	}
+	c.now = func() time.Time { return time.Now().Add(3 * time.Minute) }
+
+	// Hold the background verifier until ServeDNS has timed out and returned the
+	// stale response. It then writes metadata through the context it received.
+	started := make(chan struct{})
+	release := make(chan struct{})
+	done := make(chan struct{})
+	metadataSet := make(chan bool, 1)
+	metadataReceived := make(chan string, 1)
+
+	c.Next = plugin.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		value := ""
+		if f := metadata.ValueFunc(ctx, "test/request"); f != nil {
+			value = f()
+		}
+		metadataReceived <- value
+
+		close(started)
+		<-release
+
+		metadataSet <- metadata.SetValueFunc(ctx, "test/background", func() string { return "set" })
+		m := new(dns.Msg)
+		m.SetReply(r)
+		m.Response, m.RecursionAvailable = true, true
+		m.Answer = []dns.RR{test.A("cached.org. 60 IN A 127.0.0.54")}
+
+		err := w.WriteMsg(m)
+		close(done)
+		return dns.RcodeSuccess, err
+	})
+
+	ctx := metadata.ContextWithMetadata(context.TODO())
+	if !metadata.SetValueFunc(ctx, "test/request", func() string {
+		return "preserved"
+	}) {
+		t.Fatal("failed to set request metadata")
+	}
+
+	rec = dnstest.NewRecorder(&test.ResponseWriter{})
+	ret, err := c.ServeDNS(ctx, rec, req.Copy())
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		close(release)
+		t.Fatal("background verifier did not start")
+	}
+
+	close(release)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("background verifier did not finish")
+	}
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ret != dns.RcodeSuccess {
+		t.Fatalf("expected RcodeSuccess, got %d", ret)
+	}
+
+	if got := <-metadataReceived; got != "preserved" {
+		t.Fatalf(
+			"background verifier did not preserve request metadata: got %q",
+			got,
+		)
+	}
+
+	if !<-metadataSet {
+		t.Fatal("background verifier did not receive a metadata-enabled context")
+	}
+
+	if f := metadata.ValueFunc(ctx, "test/background"); f != nil {
+		t.Fatalf("background verifier mutated foreground metadata: %q", f())
+	}
 }

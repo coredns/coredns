@@ -9,19 +9,29 @@ import (
 	"github.com/miekg/dns"
 )
 
+// TransferInFunc transfers zone data into z.
+type TransferInFunc func(z *Zone, t *transfer.Transfer) error
+
 // TransferIn retrieves the zone from the masters, parses it and sets it live.
 func (z *Zone) TransferIn(t *transfer.Transfer) error {
+	return z.TransferInWithRecords(t, nil)
+}
+
+// TransferInWithRecords retrieves the zone from the masters, calls validate
+// with the transferred records, and sets the zone live if validation succeeds.
+func (z *Zone) TransferInWithRecords(t *transfer.Transfer, validate func([]dns.RR) error) error {
 	if len(z.TransferFrom) == 0 {
 		return nil
 	}
 	m := new(dns.Msg)
 	m.SetAxfr(z.origin)
 
-	z1 := z.CopyWithoutApex()
 	var (
 		Err error
 		tr  string
+		z1  *Zone
 	)
+	var transferred []dns.RR
 
 Transfer:
 	for _, tr = range z.TransferFrom {
@@ -32,6 +42,8 @@ Transfer:
 			Err = err
 			continue Transfer
 		}
+		candidate := z.CopyWithoutApex()
+		var records []dns.RR
 		for env := range c {
 			if env.Error != nil {
 				log.Errorf("Failed to transfer `%s' from %q: %v", z.origin, tr, env.Error)
@@ -39,25 +51,31 @@ Transfer:
 				continue Transfer
 			}
 			for _, rr := range env.RR {
-				if err := z1.Insert(rr); err != nil {
+				if err := candidate.Insert(rr); err != nil {
 					log.Errorf("Failed to parse transfer `%s' from: %q: %v", z.origin, tr, err)
 					Err = err
 					continue Transfer
 				}
+				if validate != nil {
+					records = append(records, rr)
+				}
 			}
 		}
+		z1 = candidate
+		transferred = records
 		Err = nil
 		break
 	}
 	if Err != nil {
 		return Err
 	}
+	if validate != nil {
+		if err := validate(transferred); err != nil {
+			return err
+		}
+	}
 
-	z.Lock()
-	z.Tree = z1.Tree
-	z.Apex = z1.Apex
-	z.Expired = false
-	z.Unlock()
+	z.setData(z1.Apex, z1.Tree)
 	log.Infof("Transferred: %s from %s", z.origin, tr)
 
 	// Send notify messages to secondary servers
@@ -98,10 +116,10 @@ Transfer:
 	if serial == -1 {
 		return false, Err
 	}
-	if !z.hasSOA() {
+	soa := z.getSOA()
+	if soa == nil {
 		return true, Err
 	}
-	soa := z.getSOA()
 	return less(soa.Serial, uint32(serial)), Err // #nosec G115 -- serial fits in uint32 per DNS RFC
 }
 
@@ -118,17 +136,27 @@ func less(a, b uint32) bool {
 // server) it will retry every retry interval. If the zone failed to transfer before the expire, the zone
 // will be marked expired.
 func (z *Zone) Update(updateShutdown chan bool, t *transfer.Transfer) error {
+	return z.UpdateWithTransfer(updateShutdown, t, (*Zone).TransferIn)
+}
+
+// UpdateWithTransfer updates the secondary zone using transferIn for zone transfers.
+func (z *Zone) UpdateWithTransfer(updateShutdown chan bool, t *transfer.Transfer, transferIn TransferInFunc) error {
 	// If we don't have a SOA, we don't have a zone, wait for it to appear.
-	for !z.hasSOA() {
-		time.Sleep(1 * time.Second)
+	for z.getSOA() == nil {
+		if waitOrShutdown(updateShutdown, time.Second) {
+			return nil
+		}
 	}
 	retryActive := false
 
 Restart:
+	if updateStopped(updateShutdown) {
+		return nil
+	}
 	soa := z.getSOA()
-	refresh := time.Second * time.Duration(soa.Refresh)
-	retry := time.Second * time.Duration(soa.Retry)
-	expire := time.Second * time.Duration(soa.Expire)
+	refresh := time.Second * time.Duration(max(soa.Refresh, 1))
+	retry := time.Second * time.Duration(max(soa.Retry, 1))
+	expire := time.Second * time.Duration(max(soa.Expire, 1))
 
 	refreshTicker := time.NewTicker(refresh)
 	retryTicker := time.NewTicker(retry)
@@ -149,7 +177,10 @@ Restart:
 				break
 			}
 
-			time.Sleep(jitter(2000)) // 2s randomize
+			if waitOrShutdown(updateShutdown, jitter(2000)) { // 2s randomize
+				stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
+				return nil
+			}
 
 			ok, err := z.shouldTransfer()
 			if err != nil {
@@ -158,7 +189,7 @@ Restart:
 			}
 
 			if ok {
-				if err := z.TransferIn(t); err != nil {
+				if err := transferIn(z, t); err != nil {
 					// transfer failed, leave retryActive true
 					break
 				}
@@ -166,14 +197,15 @@ Restart:
 
 			// no errors, stop timers and restart
 			retryActive = false
-			refreshTicker.Stop()
-			retryTicker.Stop()
-			expireTicker.Stop()
+			stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
 			goto Restart
 
 		case <-refreshTicker.C:
 
-			time.Sleep(jitter(5000)) // 5s randomize
+			if waitOrShutdown(updateShutdown, jitter(5000)) { // 5s randomize
+				stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
+				return nil
+			}
 
 			ok, err := z.shouldTransfer()
 			if err != nil {
@@ -183,7 +215,7 @@ Restart:
 			}
 
 			if ok {
-				if err := z.TransferIn(t); err != nil {
+				if err := transferIn(z, t); err != nil {
 					// transfer failed
 					retryActive = true
 					break
@@ -192,17 +224,42 @@ Restart:
 
 			// no errors, stop timers and restart
 			retryActive = false
-			refreshTicker.Stop()
-			retryTicker.Stop()
-			expireTicker.Stop()
+			stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
 			goto Restart
 
 		case <-updateShutdown:
-			refreshTicker.Stop()
-			retryTicker.Stop()
-			expireTicker.Stop()
+			stopUpdateTickers(refreshTicker, retryTicker, expireTicker)
 			return nil
 		}
+	}
+}
+
+func waitOrShutdown(updateShutdown <-chan bool, d time.Duration) bool {
+	if updateStopped(updateShutdown) {
+		return true
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return false
+	case <-updateShutdown:
+		return true
+	}
+}
+
+func updateStopped(updateShutdown <-chan bool) bool {
+	select {
+	case <-updateShutdown:
+		return true
+	default:
+		return false
+	}
+}
+
+func stopUpdateTickers(tickers ...*time.Ticker) {
+	for _, ticker := range tickers {
+		ticker.Stop()
 	}
 }
 

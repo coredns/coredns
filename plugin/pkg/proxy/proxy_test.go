@@ -6,6 +6,8 @@ import (
 	"errors"
 	"math"
 	"net"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,7 +38,7 @@ func TestProxy(t *testing.T) {
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	req := request.Request{Req: m, W: rec}
 
-	resp, err := p.Connect(context.Background(), req, Options{PreferUDP: true})
+	resp, _, _, err := p.Connect(context.Background(), req, Options{PreferUDP: true})
 	if err != nil {
 		t.Errorf("Failed to connect to testdnsserver: %s", err)
 	}
@@ -67,7 +69,7 @@ func TestProxyTLSFail(t *testing.T) {
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	req := request.Request{Req: m, W: rec}
 
-	_, err := p.Connect(context.Background(), req, Options{})
+	_, _, _, err := p.Connect(context.Background(), req, Options{})
 	if err == nil {
 		t.Fatal("Expected *not* to receive reply, but got one")
 	}
@@ -121,7 +123,7 @@ func TestProtocolSelection(t *testing.T) {
 				Req: m,
 			}
 
-			resp, err := p.Connect(context.Background(), req, tc.opts)
+			resp, _, proto, err := p.Connect(context.Background(), req, tc.opts)
 			if err != nil {
 				t.Fatalf("Connect failed: %v", err)
 			}
@@ -132,6 +134,10 @@ func TestProtocolSelection(t *testing.T) {
 			receivedProto := <-protoChan
 			if receivedProto != tc.expectedProto {
 				t.Errorf("Expected protocol %q, but server received %q", tc.expectedProto, receivedProto)
+			}
+
+			if proto != tc.expectedProto {
+				t.Errorf("Expected Connect to report proto %q, got %q", tc.expectedProto, proto)
 			}
 		})
 	}
@@ -214,9 +220,10 @@ func TestCoreDNSOverflow(t *testing.T) {
 		recorder := dnstest.NewRecorder(&test.ResponseWriter{})
 		request := request.Request{Req: queryMsg, W: recorder}
 
-		response, err := p.Connect(context.Background(), request, options)
+		response, _, _, err := p.Connect(context.Background(), request, options)
 		if err != nil {
 			t.Errorf("Failed to connect to testdnsserver: %s", err)
+			return
 		}
 
 		if response.Truncated != expectTruncated {
@@ -224,14 +231,17 @@ func TestCoreDNSOverflow(t *testing.T) {
 		}
 	}
 
-	// Test PreferUDP, expect truncated response
-	testConnection("PreferUDP", Options{PreferUDP: true}, true)
+	// Oversized UDP replies are truncated on Unix; Windows surfaces WSAEMSGSIZE instead.
+	if runtime.GOOS != "windows" {
+		// Test PreferUDP, expect truncated response
+		testConnection("PreferUDP", Options{PreferUDP: true}, true)
+
+		// Test No options specified, expect truncated response
+		testConnection("NoOptionsSpecified", Options{}, true)
+	}
 
 	// Test ForceTCP, expect no truncated response
 	testConnection("ForceTCP", Options{ForceTCP: true}, false)
-
-	// Test No options specified, expect truncated response
-	testConnection("NoOptionsSpecified", Options{}, true)
 
 	// Test both TCP and UDP provided, expect no truncated response
 	testConnection("BothTCPAndUDP", Options{PreferUDP: true, ForceTCP: true}, false)
@@ -256,6 +266,127 @@ func TestShouldTruncateResponse(t *testing.T) {
 			result := shouldTruncateResponse(tc.err)
 			if result != tc.expected {
 				t.Errorf("For testname '%v', expected %v but got %v", tc.testname, tc.expected, result)
+			}
+		})
+	}
+}
+
+func TestProxyMalformedUDPThenValid(t *testing.T) {
+	tests := []struct {
+		name      string
+		malformed func(*dns.Msg) []byte
+	}{
+		{
+			name: "short packet without complete header",
+			malformed: func(r *dns.Msg) []byte {
+				badID := r.Id + 1
+
+				return []byte{
+					byte(badID >> 8),
+					byte(badID),
+					0x00,
+				}
+			},
+		},
+		{
+			name: "partial malformed response with mismatched ID",
+			malformed: func(r *dns.Msg) []byte {
+				badID := r.Id + 1
+
+				// Complete DNS header claiming one question, followed by an
+				// incomplete one-byte label. ReadMsg returns a partial message
+				// containing badID together with an unpacking error.
+				return []byte{
+					byte(badID >> 8),
+					byte(badID),
+					0x81,
+					0x80,
+					0x00,
+					0x01,
+					0x00,
+					0x00,
+					0x00,
+					0x00,
+					0x00,
+					0x00,
+					0x01,
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			serverResult := make(chan error, 1)
+
+			s := dnstest.NewServer(func(w dns.ResponseWriter, r *dns.Msg) {
+				if _, err := w.Write(tc.malformed(r)); err != nil {
+					serverResult <- err
+					return
+				}
+
+				// Immediately send a completely valid response for the same query.
+				reply := new(dns.Msg)
+				reply.SetReply(r)
+				reply.Answer = append(
+					reply.Answer,
+					test.A("variant.example. IN A 192.0.2.55"),
+				)
+
+				if err := w.WriteMsg(reply); err != nil {
+					serverResult <- err
+					return
+				}
+
+				serverResult <- nil
+			})
+			defer s.Close()
+
+			p := NewProxy(
+				"TestProxyMalformedUDPThenValid",
+				s.Addr,
+				transport.DNS,
+			)
+			p.readTimeout = time.Second
+			p.Start(5 * time.Second)
+			defer p.Stop()
+
+			q := new(dns.Msg)
+			q.SetQuestion("variant.example.", dns.TypeA)
+
+			req := request.Request{
+				Req: q,
+				W:   &test.ResponseWriter{},
+			}
+
+			resp, _, _, err := p.Connect(
+				context.Background(),
+				req,
+				Options{PreferUDP: true},
+			)
+
+			if serverErr := <-serverResult; serverErr != nil {
+				t.Fatalf("upstream failed to send responses: %v", serverErr)
+			}
+
+			// Expected: ignore the malformed UDP datagram and read the valid response.
+			if err != nil {
+				t.Fatalf(
+					"valid response after malformed UDP datagram was not accepted: %v",
+					err,
+				)
+			}
+
+			if resp == nil {
+				t.Fatal("expected valid response, got nil")
+			}
+
+			if len(resp.Answer) != 1 {
+				t.Fatalf("expected one answer, got %d", len(resp.Answer))
+			}
+
+			if got := resp.Answer[0].String(); !strings.Contains(got, "192.0.2.55") {
+				t.Fatalf("expected 192.0.2.55, got %q", got)
 			}
 		})
 	}

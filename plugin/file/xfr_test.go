@@ -8,6 +8,7 @@ import (
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/plugin/transfer"
 
 	"github.com/miekg/dns"
 )
@@ -68,5 +69,17 @@ func TestAXFRWithOutTransferPlugin(t *testing.T) {
 	}
 	if code != dns.RcodeRefused {
 		t.Errorf("Expecting REFUSED, got %d", code)
+	}
+}
+
+func TestTransferRequiresExactZone(t *testing.T) {
+	zone, err := Parse(strings.NewReader(dbMiekNL), testzone, "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expected no error when reading zone, got %q", err)
+	}
+
+	fm := File{Zones: Zones{Z: map[string]*Zone{testzone: zone}, Names: []string{testzone}}}
+	if _, err := fm.Transfer("www."+testzone, 0); err != transfer.ErrNotAuthoritative {
+		t.Fatalf("expected ErrNotAuthoritative for subdomain transfer, got %v", err)
 	}
 }

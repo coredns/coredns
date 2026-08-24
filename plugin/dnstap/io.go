@@ -64,7 +64,17 @@ func newIO(proto, endpoint string, multipleQueue int, multipleTcpWriteBuf int) *
 	}
 }
 
+// dial opens a new connection to the dnstap endpoint and installs the new
+// encoder on d.enc. Any previous encoder (and the socket beneath it) is
+// flushed and closed first so a reconnect after a write error does not leak
+// the old connection.
 func (d *dio) dial() error {
+	if d.enc != nil {
+		d.enc.flush()
+		d.enc.close()
+		d.enc = nil
+	}
+
 	var conn net.Conn
 	var err error
 

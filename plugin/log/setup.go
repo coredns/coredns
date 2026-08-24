@@ -86,7 +86,7 @@ func logParse(c *caddy.Controller) ([]Rule, error) {
 					classes[cls] = struct{}{}
 				}
 			default:
-				return nil, c.ArgErr()
+				return nil, c.Errf("unknown property '%s'", c.Val())
 			}
 		}
 		if len(classes) == 0 {

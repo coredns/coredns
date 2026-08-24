@@ -19,3 +19,17 @@ func TestSetup(t *testing.T) {
 		t.Error("Expected plugin to be added to config")
 	}
 }
+
+func TestSetupRejectsArgs(t *testing.T) {
+	c := caddy.NewTestController("dns", `any example.org`)
+	if err := setup(c); err == nil {
+		t.Fatal("expected error for unexpected argument, got nil")
+	}
+}
+
+func TestSetupRejectsBlockOptions(t *testing.T) {
+	c := caddy.NewTestController("dns", `any { foo }`)
+	if err := setup(c); err == nil {
+		t.Fatal("expected error for unexpected block option, got nil")
+	}
+}

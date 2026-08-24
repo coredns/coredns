@@ -12,6 +12,8 @@ GOLANG_VERSION ?= $(shell cat .go-version)
 STRIP_FLAGS?=-s -w
 LDFLAGS?=-ldflags="$(STRIP_FLAGS) -X github.com/coredns/coredns/coremain.GitCommit=$(GITCOMMIT)"
 
+.SHELLFLAGS := -e -c
+
 export GOSUMDB = sum.golang.org
 export GOTOOLCHAIN = go$(GOLANG_VERSION)
 

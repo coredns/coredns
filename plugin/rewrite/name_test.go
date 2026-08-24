@@ -8,6 +8,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
+	"github.com/coredns/coredns/request"
 
 	"github.com/miekg/dns"
 )
@@ -379,3 +380,135 @@ func TestNewNameRuleLargeRegex(t *testing.T) {
 		t.Errorf("Expected 'too long' error, got: %v", err)
 	}
 }
+
+func TestRemapStringRewriter(t *testing.T) {
+	r := newRemapStringRewriter("example.com.", "example.org.")
+
+	tests := []struct {
+		src      string
+		expected string
+	}{
+		{"example.com.", "example.org."},         // the name itself
+		{"sub.example.com.", "sub.example.org."}, // a sub domain
+		{"a.b.example.com.", "a.b.example.org."},
+		{"notexample.com.", "notexample.com."}, // same suffix, no label boundary
+		{".example.com.", ".example.org."},
+		{"example.net.", "example.net."},
+		{"com.", "com."}, // shorter than orig
+		{"", ""},
+	}
+	for _, tc := range tests {
+		if got := r.rewriteString(tc.src); got != tc.expected {
+			t.Errorf("rewriteString(%q) = %q, expected %q", tc.src, got, tc.expected)
+		}
+	}
+}
+
+// k8sName is a Kubernetes service name of the length these routinely reach. It
+// matters because it is longer than 31 bytes: Go concatenates short strings into
+// a 32-byte stack buffer, so "."+orig stayed off the heap for a name like
+// example.com. but had to be allocated for one this long, once per call.
+const k8sName = "my-service.my-namespace.svc.cluster.local." // 42 bytes
+
+// BenchmarkRemapStringRewriter measures a single rewriteString call on a rewriter
+// that already exists. An auto rule builds a fresh rewriter per matching request
+// and then calls it once per record, so this is the per-record cost only — see
+// BenchmarkAutoNameRuleResponse for what one whole request costs.
+//
+// orig is the name the question was rewritten to, so its length is a property of
+// the Corefile, and it decides whether the old "."+orig temporary allocated.
+func BenchmarkRemapStringRewriter(b *testing.B) {
+	cases := []struct{ name, orig, src string }{
+		{"short/match", "example.com.", "sub.example.com."},
+		{"short/nomatch", "example.com.", "sub.example.net."},
+		{"long/match", k8sName, "pod-1234." + k8sName},
+		// Same length as orig, so this reaches the byte comparison rather than
+		// being rejected on length alone.
+		{"long/nomatch", k8sName, "my-service.my-namespace.svc.cluster.zzzzz."},
+	}
+	for _, tc := range cases {
+		b.Run(tc.name, func(b *testing.B) {
+			r := newRemapStringRewriter(tc.orig, "example.org.")
+			b.ReportAllocs()
+			for b.Loop() {
+				remapSink = r.rewriteString(tc.src)
+			}
+		})
+	}
+}
+
+// BenchmarkAutoNameRuleResponse measures one whole request through an auto name
+// rule: rewrite the question, build the response rules for it — which is where the
+// rewriter is constructed — and apply them to the answer a backend would return.
+// This is the shape that decides whether an optimization in rewriteString is worth
+// what it costs newRemapStringRewriter, since neither survives the request.
+//
+// The sub cases are the paths a record owner can take through the rewriter. Only
+// the sub domain ones reach the label boundary check; an owner equal to the
+// rewritten question name returns the replacement without comparing anything, so
+// that case measures construction and nothing else. The k8s cases rewrite to a
+// name past the 32-byte concat buffer, where the old temporary had to allocate.
+func BenchmarkAutoNameRuleResponse(b *testing.B) {
+	subdomains := func(to string, n int) []string {
+		owners := make([]string, n)
+		for i := range owners {
+			owners[i] = string(rune('a'+i)) + "." + to
+		}
+		return owners
+	}
+
+	cases := []struct {
+		name  string
+		from  string
+		to    string
+		owner []string
+	}{
+		{"exact", "example.com.", "example.org.", []string{"example.org."}},
+		{"subdomain", "example.com.", "example.org.", []string{"sub.example.org."}},
+		{"nomatch", "example.com.", "example.org.", []string{"sub.example.net."}},
+		{"subdomain-8", "example.com.", "example.org.", subdomains("example.org.", 8)},
+		{"k8s/subdomain", "svc.example.com.", k8sName, []string{"pod-1234." + k8sName}},
+		{"k8s/subdomain-8", "svc.example.com.", k8sName, subdomains(k8sName, 8)},
+	}
+
+	for _, tc := range cases {
+		b.Run(tc.name, func(b *testing.B) {
+			rule, err := newNameRule("stop", "exact", tc.from, tc.to, "answer", "auto")
+			if err != nil {
+				b.Fatal(err)
+			}
+			ctx := b.Context()
+			m := new(dns.Msg)
+			m.SetQuestion(tc.from, dns.TypeA)
+			answer := make([]dns.RR, len(tc.owner))
+			for i, owner := range tc.owner {
+				answer[i] = test.A(owner + " 3600 IN A 127.0.0.1")
+			}
+
+			b.ReportAllocs()
+			for b.Loop() {
+				// Both rules rewrite in place, so restore the request and the
+				// answer the backend would have returned for it.
+				m.Question[0].Name = tc.from
+				for i, rr := range answer {
+					rr.Header().Name = tc.owner[i]
+				}
+
+				rules, _ := rule.Rewrite(ctx, request.Request{Req: m})
+				for _, rr := range answer {
+					for _, rule := range rules {
+						rule.RewriteResponse(m, rr)
+					}
+				}
+				rulesSink = rules
+			}
+		})
+	}
+}
+
+// remapSink keeps the rewritten string live; assigning to _ lets the compiler
+// drop the concatenation and the benchmark then reports work it never did.
+var (
+	remapSink string
+	rulesSink ResponseRules
+)

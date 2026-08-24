@@ -1,8 +1,11 @@
 package template
 
 import (
+	"context"
+	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	gotmpl "text/template"
 
 	"github.com/coredns/caddy"
@@ -10,12 +13,27 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/upstream"
 
+	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/ast"
+	"github.com/expr-lang/expr/builtin"
+	"github.com/expr-lang/expr/parser"
 	"github.com/miekg/dns"
 )
 
 // maxRegexpLen is a hard limit on the length of a regex pattern to prevent
 // OOM during regex compilation with malicious input.
 const maxRegexpLen = 10000
+
+var varNameRegexp = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
+func isExprIdentifier(name string) bool {
+	tree, err := parser.Parse(name)
+	if err != nil {
+		return false
+	}
+	ident, ok := tree.Node.(*ast.IdentifierNode)
+	return ok && ident.Value == name
+}
 
 func init() { plugin.Register("template", setupTemplate) }
 
@@ -62,6 +80,8 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 
 		t.answer = make([]*gotmpl.Template, 0)
 		t.upstream = upstream.New()
+
+		varEnv := exprEnv(context.Background(), nil, &templateData{})
 
 		for c.NextBlock() {
 			switch c.Val() {
@@ -120,6 +140,41 @@ func templateParse(c *caddy.Controller) (handler Handler, err error) {
 					}
 					t.authority = append(t.authority, tmpl)
 				}
+
+			case "var":
+				args := c.RemainingArgs()
+				if len(args) < 2 {
+					return handler, c.ArgErr()
+				}
+				if !varNameRegexp.MatchString(args[0]) {
+					return handler, c.Errf("invalid variable name %q", args[0])
+				}
+				_, isEnv := varEnv[args[0]]
+				_, isBuiltin := builtin.Index[args[0]]
+				if isEnv || isBuiltin || !isExprIdentifier(args[0]) {
+					return handler, c.Errf("variable name %q is reserved", args[0])
+				}
+				prog, err := expr.Compile(strings.Join(args[1:], " "), expr.Env(varEnv), expr.DisableBuiltin("type"))
+				if err != nil {
+					return handler, c.Errf("could not compile expression: %s, %v", args[0], err)
+				}
+				if rt := prog.Node().Type(); rt == nil || rt.Kind() == reflect.Interface {
+					varEnv[args[0]] = new(any)
+				} else {
+					varEnv[args[0]] = reflect.Zero(rt).Interface()
+				}
+				t.vars = append(t.vars, variable{name: args[0], prog: prog})
+
+			case "expr":
+				args := c.RemainingArgs()
+				if len(args) == 0 {
+					return handler, c.ArgErr()
+				}
+				prog, err := expr.Compile(strings.Join(args, " "), expr.Env(varEnv), expr.DisableBuiltin("type"))
+				if err != nil {
+					return handler, c.Errf("could not compile expression: %v", err)
+				}
+				t.exprs = append(t.exprs, prog)
 
 			case "rcode":
 				if !c.NextArg() {

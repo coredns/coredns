@@ -10,6 +10,7 @@ import (
 	"crypto/x509/pkix"
 	"errors"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -553,6 +554,198 @@ func TestServerQUIC_ServeQUIC_TSIGBadSigSetsTsigStatus(t *testing.T) {
 	}
 }
 
+func TestServerQUIC_ServeQUICRejectsUpdate(t *testing.T) {
+	handler := new(updateResponsePlugin)
+	config := testConfig("quic", handler)
+	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
+
+	server, err := NewServerQUIC(transport.QUIC+"://127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerQUIC() failed: %v", err)
+	}
+
+	pc, err := server.ListenPacket()
+	if err != nil {
+		t.Fatalf("ListenPacket() failed: %v", err)
+	}
+	defer pc.Close()
+
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- server.ServeQUIC()
+	}()
+	defer func() {
+		_ = server.Stop()
+		select {
+		case <-serveErrCh:
+		case <-time.After(2 * time.Second):
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, err := quic.DialAddr(ctx, pc.LocalAddr().String(), mustMakeQUICClientTLSConfig(), &quic.Config{})
+	if err != nil {
+		t.Fatalf("quic.DialAddr() failed: %v", err)
+	}
+	defer conn.CloseWithError(DoQCodeNoError, "")
+
+	stream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() failed: %v", err)
+	}
+	if err := stream.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		t.Fatalf("SetReadDeadline() failed: %v", err)
+	}
+	if _, err := stream.Write(AddPrefix(mustPackRFC2136Update(t))); err != nil {
+		t.Fatalf("stream.Write() failed: %v", err)
+	}
+	if err := stream.Close(); err != nil {
+		t.Fatalf("stream.Close() failed: %v", err)
+	}
+
+	_, err = readDOQMessage(stream)
+	if err == nil {
+		t.Fatal("DoQ server accepted an RFC 2136 UPDATE")
+	}
+	var applicationErr *quic.ApplicationError
+	if !errors.As(err, &applicationErr) {
+		t.Fatalf("readDOQMessage() error = %T %v, want QUIC application error", err, err)
+	}
+	if applicationErr.ErrorCode != DoQCodeProtocolError {
+		t.Fatalf("QUIC application error code = %d, want %d", applicationErr.ErrorCode, DoQCodeProtocolError)
+	}
+	if handler.called.Load() {
+		t.Fatal("RFC 2136 UPDATE reached the plugin chain")
+	}
+}
+
+// echoPlugin answers every query with a minimal reply. It is used as a
+// negative control to prove a normal DoQ query is still served after the
+// per-stream read deadline was introduced.
+type echoPlugin struct{}
+
+func (echoPlugin) Name() string { return "echo" }
+
+func (echoPlugin) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	if err := w.WriteMsg(m); err != nil {
+		return dns.RcodeServerFailure, err
+	}
+	return dns.RcodeSuccess, nil
+}
+
+// TestServerQUIC_ServeQUIC_StalledStreamDoesNotStarveWorkerPool is a
+// regression test for the DoQ stream/worker-pool starvation DoS
+// (GHSA-f2c9-fp4w-rhw6): a client that opens a stream but never finishes
+// sending its query used to block a worker from streamProcessPool forever,
+// because readDOQMessage was called with no read deadline. With the worker
+// pool shrunk to a single slot, a stalled stream would previously prevent
+// any other query from ever being served. The per-stream read deadline must
+// free the worker so an unrelated, well-behaved client is still served.
+func TestServerQUIC_ServeQUIC_StalledStreamDoesNotStarveWorkerPool(t *testing.T) {
+	config := testConfig("quic", echoPlugin{})
+	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
+	// A single worker means a stalled stream, absent a read deadline, would
+	// hold the only worker and starve every subsequent connection.
+	workerPoolSize := 1
+	config.MaxQUICWorkerPoolSize = &workerPoolSize
+
+	server, err := NewServerQUIC(transport.QUIC+"://127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerQUIC() failed: %v", err)
+	}
+	// Keep the test fast: the stalled stream must time out quickly.
+	server.ReadTimeout = 250 * time.Millisecond
+
+	pc, err := server.ListenPacket()
+	if err != nil {
+		t.Fatalf("ListenPacket() failed: %v", err)
+	}
+	defer pc.Close()
+
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- server.ServeQUIC()
+	}()
+
+	defer func() {
+		_ = server.Stop()
+		select {
+		case <-serveErrCh:
+		case <-time.After(2 * time.Second):
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Connection 1: open a stream and send a length prefix but never the
+	// message body, stalling the server's readDOQMessage. This grabs the
+	// only worker.
+	stallConn, err := quic.DialAddr(ctx, pc.LocalAddr().String(), mustMakeQUICClientTLSConfig(), &quic.Config{})
+	if err != nil {
+		t.Fatalf("quic.DialAddr() for stalled conn failed: %v", err)
+	}
+	defer stallConn.CloseWithError(DoQCodeNoError, "")
+
+	stallStream, err := stallConn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() for stalled stream failed: %v", err)
+	}
+	// Announce a 100-byte message but send nothing more, so the server
+	// blocks reading the body until the read deadline fires.
+	if _, err := stallStream.Write([]byte{0x00, 0x64}); err != nil {
+		t.Fatalf("stalled stream.Write() failed: %v", err)
+	}
+
+	// Connection 2: a well-behaved client. Before the fix this query would
+	// never be answered because the single worker is stuck on the stalled
+	// stream; after the fix the stalled worker is freed once the read
+	// deadline fires and this query succeeds.
+	normalConn, err := quic.DialAddr(ctx, pc.LocalAddr().String(), mustMakeQUICClientTLSConfig(), &quic.Config{})
+	if err != nil {
+		t.Fatalf("quic.DialAddr() for normal conn failed: %v", err)
+	}
+	defer normalConn.CloseWithError(DoQCodeNoError, "")
+
+	normalStream, err := normalConn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() for normal stream failed: %v", err)
+	}
+
+	q := new(dns.Msg)
+	q.SetQuestion("example.com.", dns.TypeA)
+	q.Id = 0
+	wire, err := q.Pack()
+	if err != nil {
+		t.Fatalf("dns.Msg.Pack() failed: %v", err)
+	}
+	if _, err := normalStream.Write(AddPrefix(wire)); err != nil {
+		t.Fatalf("normal stream.Write() failed: %v", err)
+	}
+	if err := normalStream.Close(); err != nil {
+		t.Fatalf("normal stream.Close() failed: %v", err)
+	}
+
+	respCh := make(chan error, 1)
+	go func() {
+		_, rerr := readDOQMessage(normalStream)
+		respCh <- rerr
+	}()
+
+	select {
+	case rerr := <-respCh:
+		if rerr != nil {
+			t.Fatalf("normal query was not served: readDOQMessage() error = %v", rerr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("normal query was not served within 5s: stalled stream starved the worker pool")
+	}
+}
+
 func mustMakeQUICServerTLSConfig(t *testing.T) *tls.Config {
 	t.Helper()
 
@@ -681,5 +874,248 @@ func TestServerQUIC_ServeQUIC_TSIGValidSigLeavesTsigStatusNil(t *testing.T) {
 	case <-called:
 	case <-time.After(5 * time.Second):
 		t.Fatal("ServeDNS() was not called")
+	}
+}
+
+// connectionStateCapturePlugin records the *tls.ConnectionState observed via
+// the dns.ConnectionStater interface implemented by the DoQ response writer.
+type connectionStateCapturePlugin struct {
+	t      *testing.T
+	called chan struct{}
+	state  chan *tls.ConnectionState
+}
+
+func (p connectionStateCapturePlugin) Name() string { return "connection-state-capture" }
+
+func (p connectionStateCapturePlugin) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	p.t.Helper()
+
+	if cs, ok := w.(dns.ConnectionStater); ok {
+		p.state <- cs.ConnectionState()
+	} else {
+		p.state <- nil
+	}
+	if p.called != nil {
+		p.called <- struct{}{}
+	}
+
+	m := new(dns.Msg)
+	m.SetReply(r)
+	if err := w.WriteMsg(m); err != nil {
+		p.t.Fatalf("WriteMsg() failed: %v", err)
+	}
+	return dns.RcodeSuccess, nil
+}
+
+func TestServerQUIC_ServeQUIC_ConnectionStateExposesSNI(t *testing.T) {
+	const sni = "doq.example.com"
+
+	called := make(chan struct{}, 1)
+	stateCh := make(chan *tls.ConnectionState, 1)
+
+	config := testConfig("quic", connectionStateCapturePlugin{
+		t:      t,
+		called: called,
+		state:  stateCh,
+	})
+	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
+
+	server, err := NewServerQUIC(transport.QUIC+"://127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerQUIC() failed: %v", err)
+	}
+
+	pc, err := server.ListenPacket()
+	if err != nil {
+		t.Fatalf("ListenPacket() failed: %v", err)
+	}
+	defer pc.Close()
+
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- server.ServeQUIC()
+	}()
+
+	defer func() {
+		_ = server.Stop()
+		select {
+		case <-serveErrCh:
+		case <-time.After(2 * time.Second):
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	clientTLS := mustMakeQUICClientTLSConfig()
+	clientTLS.ServerName = sni
+
+	conn, err := quic.DialAddr(ctx, pc.LocalAddr().String(), clientTLS, &quic.Config{})
+	if err != nil {
+		t.Fatalf("quic.DialAddr() failed: %v", err)
+	}
+	defer conn.CloseWithError(DoQCodeNoError, "")
+
+	stream, err := conn.OpenStreamSync(ctx)
+	if err != nil {
+		t.Fatalf("OpenStreamSync() failed: %v", err)
+	}
+
+	q := new(dns.Msg)
+	q.SetQuestion("example.com.", dns.TypeA)
+	q.Id = 0
+	wire, err := q.Pack()
+	if err != nil {
+		t.Fatalf("dns.Msg.Pack() failed: %v", err)
+	}
+
+	if _, err := stream.Write(AddPrefix(wire)); err != nil {
+		t.Fatalf("stream.Write() failed: %v", err)
+	}
+	if err := stream.Close(); err != nil {
+		t.Fatalf("stream.Close() failed: %v", err)
+	}
+
+	if _, err := readDOQMessage(stream); err != nil {
+		t.Fatalf("readDOQMessage() failed: %v", err)
+	}
+
+	select {
+	case <-called:
+	case <-time.After(5 * time.Second):
+		t.Fatal("ServeDNS() was not called")
+	}
+
+	select {
+	case state := <-stateCh:
+		if state == nil {
+			t.Fatal("ConnectionState() = nil, want non-nil TLS state for DoQ request")
+		}
+		if state.ServerName != sni {
+			t.Errorf("ConnectionState().ServerName = %q, want %q", state.ServerName, sni)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("did not receive connection state from plugin")
+	}
+}
+
+func TestServerQUICServeQUICDefaultMaxConnections(t *testing.T) {
+	const maxConnections = 200
+
+	config := testConfig("quic", echoPlugin{})
+	config.TLSConfig = mustMakeQUICServerTLSConfig(t)
+
+	server, err := NewServerQUIC(transport.QUIC+"://127.0.0.1:0", []*Config{config})
+	if err != nil {
+		t.Fatalf("NewServerQUIC() failed: %v", err)
+	}
+
+	pc, err := server.ListenPacket()
+	if err != nil {
+		t.Fatalf("ListenPacket() failed: %v", err)
+	}
+	defer pc.Close()
+
+	serveErrCh := make(chan error, 1)
+	go func() {
+		serveErrCh <- server.ServeQUIC()
+	}()
+
+	defer func() {
+		_ = server.Stop()
+		select {
+		case <-serveErrCh:
+		case <-time.After(2 * time.Second):
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	query := func(conn *quic.Conn) error {
+		stream, err := conn.OpenStreamSync(ctx)
+		if err != nil {
+			return err
+		}
+
+		q := new(dns.Msg)
+		q.SetQuestion("example.com.", dns.TypeA)
+		q.Id = 0
+		wire, err := q.Pack()
+		if err != nil {
+			return err
+		}
+		if _, err := stream.Write(AddPrefix(wire)); err != nil {
+			return err
+		}
+		if err := stream.Close(); err != nil {
+			return err
+		}
+		_, err = readDOQMessage(stream)
+		return err
+	}
+
+	connections := make([]*quic.Conn, 0, maxConnections)
+	defer func() {
+		for _, conn := range connections {
+			_ = conn.CloseWithError(DoQCodeNoError, "")
+		}
+	}()
+
+	addr := pc.LocalAddr().String()
+	for i := range maxConnections {
+		conn, err := quic.DialAddr(ctx, addr, mustMakeQUICClientTLSConfig(), &quic.Config{})
+		if err != nil {
+			t.Fatalf("quic.DialAddr() for connection %d failed: %v", i+1, err)
+		}
+		connections = append(connections, conn)
+
+		// Receiving a response proves ServeQUIC accepted the connection and
+		// started serveQUICConnection, which keeps its connection slot held.
+		if err := query(conn); err != nil {
+			t.Fatalf("query on connection %d failed: %v", i+1, err)
+		}
+	}
+
+	overflow, err := quic.DialAddr(ctx, addr, mustMakeQUICClientTLSConfig(), &quic.Config{})
+	if err == nil {
+		err = query(overflow)
+	}
+	if err == nil {
+		_ = overflow.CloseWithError(DoQCodeNoError, "")
+		t.Fatalf("connection %d was served; want it rejected by the default connection limit", maxConnections+1)
+	}
+
+	if overflow != nil {
+		select {
+		case <-overflow.Context().Done():
+			err = context.Cause(overflow.Context())
+		case <-time.After(2 * time.Second):
+		}
+		_ = overflow.CloseWithError(DoQCodeNoError, "")
+	}
+	if err == nil || !strings.Contains(err.Error(), "too many connections") {
+		t.Fatalf("connection %d rejection error = %v, want %q", maxConnections+1, err, "too many connections")
+	}
+
+	// Releasing one accepted connection must release its semaphore slot.
+	_ = connections[0].CloseWithError(DoQCodeNoError, "")
+	connections = connections[1:]
+
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		replacement, dialErr := quic.DialAddr(ctx, addr, mustMakeQUICClientTLSConfig(), &quic.Config{})
+		if dialErr == nil {
+			if queryErr := query(replacement); queryErr == nil {
+				connections = append(connections, replacement)
+				break
+			}
+			_ = replacement.CloseWithError(DoQCodeNoError, "")
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatal("replacement connection was not served after a connection slot was released")
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }

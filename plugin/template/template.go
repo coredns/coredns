@@ -10,9 +10,12 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/metadata"
 	"github.com/coredns/coredns/plugin/metrics"
+	"github.com/coredns/coredns/plugin/pkg/expression"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/request"
 
+	"github.com/expr-lang/expr"
+	"github.com/expr-lang/expr/vm"
 	"github.com/miekg/dns"
 )
 
@@ -36,6 +39,13 @@ type template struct {
 	ederror    *ederror
 	fall       fall.F
 	upstream   Upstreamer
+	vars       []variable
+	exprs      []*vm.Program
+}
+
+type variable struct {
+	name string
+	prog *vm.Program
 }
 
 type ederror struct {
@@ -59,6 +69,7 @@ type templateData struct {
 	Message  *dns.Msg
 	Question *dns.Question
 	Remote   string
+	Var      map[string]any
 	md       map[string]metadata.Func
 }
 
@@ -72,6 +83,20 @@ func (data *templateData) Meta(metaName string) string {
 	}
 
 	return ""
+}
+
+func exprEnv(ctx context.Context, state *request.Request, data *templateData) map[string]any {
+	env := expression.DefaultEnv(ctx, state)
+	env["group"] = func(name any) string {
+		switch n := name.(type) {
+		case int:
+			return data.Group[strconv.Itoa(n)]
+		case string:
+			return data.Group[n]
+		}
+		return ""
+	}
+	return env
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -217,6 +242,30 @@ func (t template) match(ctx context.Context, state request.Request) (*templateDa
 		for i, m := range matches {
 			if len(groupNames[i]) > 0 {
 				data.Group[groupNames[i]] = m
+			}
+		}
+
+		if len(t.vars) > 0 || len(t.exprs) > 0 {
+			exprState := state // &state would escape unconditionally
+			env := exprEnv(ctx, &exprState, data)
+			data.Var = make(map[string]any)
+			for _, v := range t.vars {
+				result, err := expr.Run(v.prog, env)
+				if err != nil {
+					return data, false, false
+				}
+				env[v.name] = result
+				data.Var[v.name] = result
+			}
+
+			for _, prog := range t.exprs {
+				result, err := expr.Run(prog, env)
+				if err != nil {
+					return data, false, false
+				}
+				if b, ok := result.(bool); !ok || !b {
+					return data, false, t.fall.Through(state.Name())
+				}
 			}
 		}
 

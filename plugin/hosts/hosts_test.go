@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/pkg/fall"
 	"github.com/coredns/coredns/plugin/test"
@@ -54,6 +55,85 @@ func TestLookupA(t *testing.T) {
 				t.Error(err)
 			}
 		}
+	}
+}
+
+func TestFallthroughUnsupportedType(t *testing.T) {
+	tests := []struct {
+		name              string
+		qname             string
+		fall              fall.F
+		unsupported       bool
+		expectFallthrough bool
+	}{
+		{
+			name:  "existing name returns nodata by default",
+			qname: "example.org.",
+			fall:  fall.Root,
+		},
+		{
+			name:              "existing name falls through with opt-in",
+			qname:             "example.org.",
+			fall:              fall.Root,
+			unsupported:       true,
+			expectFallthrough: true,
+		},
+		{
+			name:        "opt-in respects fallthrough zones",
+			qname:       "example.org.",
+			fall:        fall.F{Zones: []string{"example.net."}},
+			unsupported: true,
+		},
+		{
+			name:              "missing name still falls through",
+			qname:             "missing.example.org.",
+			fall:              fall.Root,
+			expectFallthrough: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := Hosts{
+				Next: test.NextHandler(dns.RcodeRefused, nil),
+				Hostsfile: &Hostsfile{
+					Origins: []string{"."},
+					hmap:    newMap(),
+					inline:  newMap(),
+					options: newOptions(),
+				},
+				Fall:                   tc.fall,
+				fallthroughUnsupported: tc.unsupported,
+			}
+			h.hmap = h.parse(strings.NewReader(hostsExample))
+
+			m := new(dns.Msg)
+			m.SetQuestion(tc.qname, dns.TypeTXT)
+			rec := dnstest.NewRecorder(&test.ResponseWriter{})
+
+			rcode, err := h.ServeDNS(context.Background(), rec, m)
+			if err != nil {
+				t.Fatalf("Expected no error, got %v", err)
+			}
+			if tc.expectFallthrough {
+				if rcode != dns.RcodeRefused {
+					t.Fatalf("Expected fallthrough rcode %d, got %d", dns.RcodeRefused, rcode)
+				}
+				if rec.Msg != nil {
+					t.Fatalf("Expected no response from hosts after fallthrough, got %#v", rec.Msg)
+				}
+				return
+			}
+			if rcode != dns.RcodeSuccess {
+				t.Fatalf("Expected authoritative NODATA rcode %d, got %d", dns.RcodeSuccess, rcode)
+			}
+			if rec.Msg == nil {
+				t.Fatal("Expected authoritative NODATA response from hosts, got no response")
+			}
+			if !rec.Msg.Authoritative || len(rec.Msg.Answer) != 0 {
+				t.Fatalf("Expected authoritative NODATA response, got %#v", rec.Msg)
+			}
+		})
 	}
 }
 
@@ -107,6 +187,18 @@ var hostsTestCases = []test.Case{
 		Qname: "fallthrough-example.org.", Qtype: dns.TypeAAAA,
 		Answer: []dns.RR{}, Rcode: dns.RcodeSuccess,
 	},
+	{
+		Qname: "apps.example.com.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.A("apps.example.com. 3600	IN	A 5.6.7.8"),
+		},
+	},
+	{
+		Qname: "aa.example.com.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.A("aa.example.com. 3600	IN	A 1.2.3.4"),
+		},
+	},
 }
 
 const hostsExample = `
@@ -115,6 +207,55 @@ const hostsExample = `
 10.0.0.1 example.org
 ::FFFF:10.0.0.2 example.com
 10.0.0.3 fallthrough-example.org
+1.2.3.4 aa.example.com
+5.6.7.8 *.apps.example.com
 reload 5s
 timeout 3600
 `
+
+func BenchmarkHostsBaseline(b *testing.B) {
+	h := Hosts{
+		Next: test.NextHandler(dns.RcodeNameError, nil),
+		Hostsfile: &Hostsfile{
+			Origins: []string{"example.org."},
+			hmap:    newMap(),
+			inline:  newMap(),
+			options: newOptions(),
+		},
+	}
+	h.hmap = h.parse(strings.NewReader(hostsExample))
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	ctx := context.Background()
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = h.ServeDNS(ctx, rec, m)
+	}
+}
+
+func BenchmarkHostsOptimized(b *testing.B) {
+	h := Hosts{
+		Next: test.NextHandler(dns.RcodeNameError, nil),
+		Hostsfile: &Hostsfile{
+			Origins: []string{"example.org."},
+			hmap:    newMap(),
+			inline:  newMap(),
+			options: newOptions(),
+		},
+		zones: plugin.Zones([]string{"example.org."}),
+	}
+	h.hmap = h.parse(strings.NewReader(hostsExample))
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.org.", dns.TypeA)
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	ctx := context.Background()
+
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = h.ServeDNS(ctx, rec, m)
+	}
+}

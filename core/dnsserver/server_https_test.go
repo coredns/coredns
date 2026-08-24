@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
+	"errors"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,6 +23,12 @@ import (
 var (
 	validPath = regexp.MustCompile("^/(dns-query|(?P<uuid>[0-9a-f]+))$")
 	validator = func(r *http.Request) bool { return validPath.MatchString(r.URL.Path) }
+)
+
+const (
+	testTSIGKeyName     = "tsig-key."
+	testTSIGSecret      = "MTIzNA=="
+	testTSIGWrongSecret = "NTY3OA=="
 )
 
 func testServerHTTPS(t *testing.T, path string, validator func(*http.Request) bool) *http.Response {
@@ -69,6 +78,42 @@ func TestCustomHTTPRequestValidator(t *testing.T) {
 				t.Error("unexpected HTTP code", res.StatusCode)
 			}
 			res.Body.Close()
+		})
+	}
+}
+
+func TestServerHTTPSRejectsUpdate(t *testing.T) {
+	for _, method := range []string{http.MethodGet, http.MethodPost} {
+		t.Run(method, func(t *testing.T) {
+			handler := new(updateResponsePlugin)
+			config := testConfig("https", handler)
+			config.TLSConfig = &tls.Config{}
+
+			server, err := NewServerHTTPS("127.0.0.1:443", []*Config{config})
+			if err != nil {
+				t.Fatalf("NewServerHTTPS() failed: %v", err)
+			}
+
+			wire := mustPackRFC2136Update(t)
+			target := "/dns-query"
+			var body io.Reader
+			if method == http.MethodGet {
+				target += "?dns=" + base64.RawURLEncoding.EncodeToString(wire)
+			} else {
+				body = bytes.NewReader(wire)
+			}
+			req := httptest.NewRequest(method, target, body)
+			req.RemoteAddr = "127.0.0.1:12345"
+			recorder := httptest.NewRecorder()
+
+			server.ServeHTTP(recorder, req)
+
+			if recorder.Code != http.StatusBadRequest {
+				t.Fatalf("ServeHTTP() status = %d, want %d", recorder.Code, http.StatusBadRequest)
+			}
+			if handler.called.Load() {
+				t.Fatal("RFC 2136 UPDATE reached the plugin chain")
+			}
 		})
 	}
 }
@@ -189,7 +234,7 @@ func TestDoHWriterLaddrFromConnContext(t *testing.T) {
 	ppDst := &net.TCPAddr{IP: net.ParseIP("10.0.0.1"), Port: 443}
 
 	r := httptest.NewRequest(http.MethodPost, "/dns-query", io.NopCloser(bytes.NewReader(buf)))
-	ctx := context.WithValue(r.Context(), connAddrKey{}, ppDst)
+	ctx := context.WithValue(r.Context(), http.LocalAddrContextKey, ppDst)
 	r = r.WithContext(ctx)
 	w := httptest.NewRecorder()
 
@@ -223,7 +268,7 @@ func TestDoHWriterLaddrFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// No connAddrKey in context; should fall back to s.listenAddr.
+	// No LocalAddrContextKey in context; should fall back to s.listenAddr.
 	r := httptest.NewRequest(http.MethodPost, "/dns-query", io.NopCloser(bytes.NewReader(buf)))
 	w := httptest.NewRecorder()
 
@@ -395,4 +440,225 @@ func TestHTTPRequestContextPropagation(t *testing.T) {
 			t.Error("Context deadline is zero")
 		}
 	})
+}
+
+type tsigStatusPlugin struct{}
+
+func (p *tsigStatusPlugin) ServeDNS(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Authoritative = true
+
+	switch {
+	case r.IsTsig() == nil:
+		m.Rcode = dns.RcodeRefused
+	case w.TsigStatus() != nil:
+		m.Rcode = dns.RcodeNotAuth
+	default:
+		m.Rcode = dns.RcodeSuccess
+	}
+
+	if err := w.WriteMsg(m); err != nil {
+		return dns.RcodeServerFailure, err
+	}
+	return dns.RcodeSuccess, nil
+}
+
+func (p *tsigStatusPlugin) Name() string { return "tsig_status" }
+
+func testConfigWithTSIGStatusPlugin() *Config {
+	c := &Config{
+		Zone:        "example.com.",
+		Transport:   "https",
+		TLSConfig:   &tls.Config{},
+		ListenHosts: []string{"127.0.0.1"},
+		Port:        "443",
+		TsigSecret: map[string]string{
+			testTSIGKeyName: testTSIGSecret,
+		},
+	}
+	c.AddPlugin(func(_next plugin.Handler) plugin.Handler { return &tsigStatusPlugin{} })
+	return c
+}
+
+func testServerHTTPSMsg(t *testing.T, cfg *Config, req *dns.Msg) *dns.Msg {
+	t.Helper()
+
+	s, err := NewServerHTTPS("127.0.0.1:443", []*Config{cfg})
+	if err != nil {
+		t.Fatal("could not create HTTPS server:", err)
+	}
+
+	buf, err := req.Pack()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	r := httptest.NewRequest(http.MethodPost, "/dns-query", bytes.NewReader(buf))
+	r.RemoteAddr = "127.0.0.1:12345"
+	w := httptest.NewRecorder()
+
+	s.ServeHTTP(w, r)
+
+	res := w.Result()
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected HTTP status: got %d", res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m := new(dns.Msg)
+	if err := m.Unpack(body); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func testServerHTTPSRaw(t *testing.T, cfg *Config, buf []byte) *dns.Msg {
+	t.Helper()
+
+	s, err := NewServerHTTPS("127.0.0.1:443", []*Config{cfg})
+	if err != nil {
+		t.Fatal("could not create HTTPS server:", err)
+	}
+
+	r := httptest.NewRequest(http.MethodPost, "/dns-query", bytes.NewReader(buf))
+	r.RemoteAddr = "127.0.0.1:12345"
+	w := httptest.NewRecorder()
+
+	s.ServeHTTP(w, r)
+
+	res := w.Result()
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected HTTP status: got %d", res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m := new(dns.Msg)
+	if err := m.Unpack(body); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func forgedTSIGMsg() *dns.Msg {
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+
+	m.Extra = append(m.Extra, &dns.TSIG{
+		Hdr: dns.RR_Header{
+			Name:   "bogus-key.",
+			Rrtype: dns.TypeTSIG,
+			Class:  dns.ClassANY,
+			Ttl:    0,
+		},
+		Algorithm:  dns.HmacSHA256,
+		TimeSigned: uint64(time.Now().Unix()),
+		Fudge:      300,
+		MACSize:    32,
+		MAC:        strings.Repeat("00", 32),
+		OrigId:     m.Id,
+		Error:      dns.RcodeSuccess,
+	})
+	return m
+}
+
+func mustSignedTSIGQueryBytes(t *testing.T, keyName, secret string) []byte {
+	t.Helper()
+	return mustPackSignedTSIGQuery(t, keyName, secret, time.Now().Unix())
+}
+
+func TestServeHTTPRejectsUnsignedTSIGRequiredRequest(t *testing.T) {
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+
+	resp := testServerHTTPSMsg(t, testConfigWithTSIGStatusPlugin(), m)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("expected REFUSED for unsigned request, got %s", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+func TestServeHTTPRejectsTSIGWithUnknownKey(t *testing.T) {
+	resp := testServerHTTPSMsg(t, testConfigWithTSIGStatusPlugin(), forgedTSIGMsg())
+
+	if resp.Rcode != dns.RcodeNotAuth {
+		t.Fatalf("expected NOTAUTH for unknown TSIG key, got %s", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+func TestServeHTTPRejectsTSIGWithBadMAC(t *testing.T) {
+	buf := mustSignedTSIGQueryBytes(t, testTSIGKeyName, testTSIGWrongSecret)
+
+	resp := testServerHTTPSRaw(t, testConfigWithTSIGStatusPlugin(), buf)
+	if resp.Rcode != dns.RcodeNotAuth {
+		t.Fatalf("expected NOTAUTH for bad TSIG MAC, got %s", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+func TestServeHTTPAcceptsValidTSIG(t *testing.T) {
+	buf := mustSignedTSIGQueryBytes(t, testTSIGKeyName, testTSIGSecret)
+
+	resp := testServerHTTPSRaw(t, testConfigWithTSIGStatusPlugin(), buf)
+	if resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("expected NOERROR for valid TSIG, got %s", dns.RcodeToString[resp.Rcode])
+	}
+}
+
+func TestDoHWriterTsigStatusReturnsStoredStatus(t *testing.T) {
+	dw := &DoHWriter{tsigStatus: dns.ErrSecret}
+	if dw.TsigStatus() != dns.ErrSecret {
+		t.Fatal("expected TsigStatus to return stored tsigStatus")
+	}
+}
+
+type errReader struct{}
+
+const leakyBodyReadError = "read tcp 10.0.0.1:5443->10.0.0.2:48418: i/o timeout"
+
+func (errReader) Read([]byte) (int, error) { return 0, errors.New(leakyBodyReadError) }
+
+func TestServeHTTPDoesNotLeakBodyReadError(t *testing.T) {
+	c := Config{
+		Zone:        "example.com.",
+		Transport:   "https",
+		TLSConfig:   &tls.Config{},
+		ListenHosts: []string{"127.0.0.1"},
+		Port:        "443",
+	}
+	s, err := NewServerHTTPS("127.0.0.1:443", []*Config{&c})
+	if err != nil {
+		t.Fatal("could not create HTTPS server:", err)
+	}
+
+	r := httptest.NewRequest(http.MethodPost, "/dns-query", errReader{})
+	r.RemoteAddr = "127.0.0.1:12345"
+	w := httptest.NewRecorder()
+
+	s.ServeHTTP(w, r)
+
+	res := w.Result()
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, res.StatusCode)
+	}
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(string(body)); got != "invalid request" {
+		t.Fatalf("expected sanitized body %q, got %q", "invalid request", got)
+	}
 }

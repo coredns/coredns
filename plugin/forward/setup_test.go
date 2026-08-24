@@ -3,7 +3,9 @@ package forward
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -45,11 +47,12 @@ func TestSetup(t *testing.T) {
 		{`forward . ::1
 		forward com ::2`, false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "plugin"},
 		{"forward . tls://[2400:3200::1%dns.alidns.com]:853 {\ntls\n}\n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
+		{"forward . https://127.0.0.1 \n", false, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, ""},
 		// negative
-		{"forward . a27.0.0.1", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "not an IP"},
+		{"forward . https://1.1.1.1/ \n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "paths are not allowed in HTTPS upstream addresses"},
+		{"forward . a27.0.0.1", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "failed to resolve"},
 		{"forward . 127.0.0.1 {\nblaatl\n}\n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unknown property"},
 		{"forward . 127.0.0.1 {\nhealth_check 0.5s domain\n}\n", true, "", nil, 0, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "Wrong argument count or unexpected line ending after 'domain'"},
-		{"forward . https://127.0.0.1 \n", true, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "'https' is not supported as a destination protocol in forward: https://127.0.0.1"},
 		{"forward xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 127.0.0.1 \n", true, ".", nil, 2, proxy.Options{HCRecursionDesired: true, HCDomain: "."}, "unable to normalize 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'"},
 	}
 
@@ -91,6 +94,45 @@ func TestSetup(t *testing.T) {
 	}
 }
 
+func TestSourceAddress(t *testing.T) {
+	tests := []struct {
+		input                 string
+		expectedSourceAddress net.IP
+		expectedErr           string
+	}{
+
+		{"forward . 127.0.0.1 {\nsource_address 192.0.2.1\n}\n", net.ParseIP("192.0.2.1"), ""},
+		{"forward . 127.0.0.1 {\nsource_address not-an-ip\n}\n", nil, "invalid IP address"},
+		{"forward . 127.0.0.1 {\nsource_address 2001:0db8:85a3:0000:1319:8a2e:0370:7344\n}\n", net.ParseIP("2001:0db8:85a3:0000:1319:8a2e:0370:7344"), ""},
+		{"forward . 127.0.0.1 {\nsource_address ::ffff:192.0.2.1\n}\n", net.ParseIP("192.0.2.1"), ""},
+		{"forward . 127.0.0.1 {\nsource_address \n}\n", nil, "Error during parsing: Wrong argument count or unexpected line ending after 'source_address'"},
+	}
+
+	for i, test := range tests {
+		c := caddy.NewTestController("dns", test.input)
+		fs, err := parseForward(c)
+
+		if test.expectedErr != "" && err == nil {
+			t.Errorf("Test %d: expected error but found %s for input %s", i, err, test.input)
+		}
+		if err != nil {
+			if test.expectedErr == "" {
+				t.Errorf("Test %d: expected no error but found one for input %s, got: %v", i, test.input, err)
+			}
+
+			if !strings.Contains(err.Error(), test.expectedErr) {
+				t.Errorf("Test %d: expected error to contain: %v, found error: %v, input: %s", i, test.expectedErr, err, test.input)
+			}
+		}
+		if test.expectedErr == "" {
+			f := fs[0]
+			if !test.expectedSourceAddress.Equal(f.sourceAddress) {
+				t.Errorf("Test %d: expected: %v, got: %v", i, test.expectedSourceAddress, f.sourceAddress)
+			}
+		}
+	}
+}
+
 func TestSplitZone(t *testing.T) {
 	tests := []struct {
 		input        string
@@ -102,13 +144,21 @@ func TestSplitZone(t *testing.T) {
 		}, {
 			"tls://127.0.0.1%example.net", "tls://127.0.0.1", "example.net",
 		}, {
+			"https://127.0.0.1%example.net:443", "https://127.0.0.1:443", "example.net",
+		}, {
+			"https://127.0.0.1%example.net", "https://127.0.0.1", "example.net",
+		}, {
 			"tls://127.0.0.1:854", "tls://127.0.0.1:854", "",
+		}, {
+			"https://127.0.0.1:443", "https://127.0.0.1:443", "",
 		}, {
 			"dns://127.0.0.1", "dns://127.0.0.1", "",
 		}, {
 			"foo%bar:baz", "foo:baz", "bar",
 		}, {
 			"tls://[::1%example.net]:853", "tls://[::1]:853", "example.net",
+		}, {
+			"https://[::1%example.net]:443", "https://[::1]:443", "example.net",
 		},
 	}
 	for i, test := range tests {
@@ -241,6 +291,20 @@ nameserver 10.10.255.253`), 0666); err != nil {
 	}
 	defer os.Remove(resolvIPV6)
 
+	const emptyResolv = "empty.conf"
+	if err := os.WriteFile(emptyResolv,
+		[]byte(`# nameserver 1.1.1.1
+# nameserver 1.0.0.1`), 0666); err != nil {
+		t.Fatalf("Failed to write empty.conf file: %s", err)
+	}
+	defer os.Remove(emptyResolv)
+
+	// Portable stand-in for /dev/null: a resolv.conf with no nameserver lines.
+	nullResolv := filepath.Join(t.TempDir(), "null.conf")
+	if err := os.WriteFile(nullResolv, nil, 0666); err != nil {
+		t.Fatalf("Failed to write null.conf file: %s", err)
+	}
+
 	tests := []struct {
 		input         string
 		shouldErr     bool
@@ -250,9 +314,11 @@ nameserver 10.10.255.253`), 0666); err != nil {
 		// pass
 		{`forward . ` + resolv, false, "", []string{"10.10.255.252:53", "10.10.255.253:53"}},
 		// fail
-		{`forward . /dev/null`, true, "no nameservers", nil},
+		{`forward . ` + nullResolv, true, "no valid upstream addresses found", nil},
 		// IPV6 with local zone
 		{`forward . ` + resolvIPV6, false, "", []string{"[0388:d254:7aec:6892:9f7f:e93b:5806:1b0f]:53"}},
+		// pass when empty forward file is found
+		{`forward . ` + emptyResolv + ` 127.0.0.1`, false, "", []string{"127.0.0.1:53"}},
 	}
 
 	for i, test := range tests {
@@ -339,13 +405,15 @@ func TestSetupMaxConnectAttempts(t *testing.T) {
 		input       string
 		shouldErr   bool
 		expectedVal uint32
+		expectedSet bool
 		expectedErr string
 	}{
 
-		{"forward . 127.0.0.1 {\n}\n", false, 0, ""},
-		{"forward . 127.0.0.1 {\nmax_connect_attempts 5\n}\n", false, 5, ""},
-		{"forward . 127.0.0.1 {\nmax_connect_attempts many\n}\n", true, 0, "invalid"},
-		{"forward . 127.0.0.1 {\nmax_connect_attempts -4\n}\n", true, 0, "invalid"},
+		{"forward . 127.0.0.1 {\n}\n", false, 0, false, ""},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts 0\n}\n", false, 0, true, ""},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts 5\n}\n", false, 5, true, ""},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts many\n}\n", true, 0, false, "invalid"},
+		{"forward . 127.0.0.1 {\nmax_connect_attempts -4\n}\n", true, 0, false, "invalid"},
 	}
 
 	for i, test := range tests {
@@ -370,6 +438,9 @@ func TestSetupMaxConnectAttempts(t *testing.T) {
 			f := fs[0]
 			if f.maxConnectAttempts != test.expectedVal {
 				t.Errorf("Test %d: expected: %d, got: %d", i, test.expectedVal, f.maxConnectAttempts)
+			}
+			if f.maxConnectAttemptsSet != test.expectedSet {
+				t.Errorf("Test %d: expected configured state %t, got %t", i, test.expectedSet, f.maxConnectAttemptsSet)
 			}
 		}
 	}
@@ -516,6 +587,7 @@ func TestMultiForward(t *testing.T) {
 		t.Error("expected third plugin to be last, but Next is not nil")
 	}
 }
+
 func TestNextAlternate(t *testing.T) {
 	testsValid := []struct {
 		input    string
@@ -780,5 +852,104 @@ func TestSetupMaxAge(t *testing.T) {
 				t.Errorf("expected maxAge %v, got %v", test.expectedVal, fs[0].maxAge)
 			}
 		})
+	}
+}
+
+func TestSetupReadTimeout(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       string
+		shouldErr   bool
+		expectedVal time.Duration
+		expectedErr string
+	}{
+		{
+			name:        "default (no read_timeout)",
+			input:       "forward . 127.0.0.1\n",
+			expectedVal: defaultReadTimeout,
+		},
+		{
+			name:        "valid read_timeout",
+			input:       "forward . 127.0.0.1 {\nread_timeout 5s\n}\n",
+			expectedVal: 5 * time.Second,
+		},
+		{
+			name:        "sub-second read_timeout",
+			input:       "forward . 127.0.0.1 {\nread_timeout 500ms\n}\n",
+			expectedVal: 500 * time.Millisecond,
+		},
+		{
+			name:        "zero read_timeout",
+			input:       "forward . 127.0.0.1 {\nread_timeout 0s\n}\n",
+			shouldErr:   true,
+			expectedErr: "positive",
+		},
+		{
+			name:        "negative read_timeout",
+			input:       "forward . 127.0.0.1 {\nread_timeout -1s\n}\n",
+			shouldErr:   true,
+			expectedErr: "positive",
+		},
+		{
+			name:        "invalid read_timeout value",
+			input:       "forward . 127.0.0.1 {\nread_timeout invalid\n}\n",
+			shouldErr:   true,
+			expectedErr: "invalid",
+		},
+		{
+			name:      "missing read_timeout value",
+			input:     "forward . 127.0.0.1 {\nread_timeout\n}\n",
+			shouldErr: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			c := caddy.NewTestController("dns", test.input)
+			fs, err := parseForward(c)
+			if test.shouldErr {
+				if err == nil {
+					t.Errorf("expected error but found none for input %s", test.input)
+					return
+				}
+				if test.expectedErr != "" && !strings.Contains(err.Error(), test.expectedErr) {
+					t.Errorf("expected error to contain %q, got: %v", test.expectedErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("expected no error but found: %v", err)
+				return
+			}
+			if fs[0].readTimeout != test.expectedVal {
+				t.Errorf("expected readTimeout %v, got %v", test.expectedVal, fs[0].readTimeout)
+			}
+		})
+	}
+}
+
+func TestSetupDOHHealthcheckTLSConfig(t *testing.T) {
+	c := caddy.NewTestController(
+		"dns",
+		`forward . https://127.0.0.1 {
+			tls_servername dns.example
+		}`,
+	)
+
+	fs, err := parseForward(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got := fs[0].
+		proxies[0].
+		GetHealthchecker().
+		GetTLSConfig()
+
+	if got.ServerName != "dns.example" {
+		t.Fatalf(
+			"Expected DoH healthcheck TLS server name %q, got %q",
+			"dns.example",
+			got.ServerName,
+		)
 	}
 }
