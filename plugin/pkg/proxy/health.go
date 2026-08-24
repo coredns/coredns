@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
 	"net/http"
 	"sync/atomic"
@@ -73,10 +74,88 @@ func NewHealthChecker(proxyName, protocol string, recursionDesired bool, domain 
 			domain:           domain,
 			proxyName:        proxyName,
 		}
+	case transport.QUIC:
+		return &doqHc{
+			recursionDesired: recursionDesired,
+			domain:           domain,
+			proxyName:        proxyName,
+			readTimeout:      defaultTimeout,
+			writeTimeout:     defaultTimeout,
+		}
 	}
 
 	log.Warningf("No healthchecker for transport %q", protocol)
 	return nil
+}
+
+// doqHc is a health checker for a DNS-over-QUIC endpoint. It uses the same
+// reusable QUIC connection as normal forwarded queries.
+type doqHc struct {
+	tlsConfig        *tls.Config
+	recursionDesired bool
+	domain           string
+	proxyName        string
+	localAddress     net.IP
+	readTimeout      time.Duration
+	writeTimeout     time.Duration
+}
+
+func (h *doqHc) Check(p *Proxy) error {
+	if p.doq == nil {
+		return errors.New("proxy: DoQ transport is not initialized")
+	}
+	ping := new(dns.Msg)
+	ping.SetQuestion(h.domain, dns.TypeNS)
+	ping.RecursionDesired = h.recursionDesired
+
+	timeout := max(h.readTimeout, h.writeTimeout)
+	if timeout <= 0 {
+		timeout = defaultTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	var err error
+	for range 2 {
+		_, _, err = p.doq.exchange(ctx, ping, timeout)
+		if !errors.Is(err, ErrCachedClosed) {
+			break
+		}
+	}
+	if err != nil {
+		healthcheckFailureCount.WithLabelValues(p.proxyName, p.addr).Inc()
+		p.incrementFails()
+		return err
+	}
+
+	atomic.StoreUint32(&p.fails, 0)
+	return nil
+}
+
+func (h *doqHc) SetTLSConfig(cfg *tls.Config) { h.tlsConfig = cfg }
+func (h *doqHc) GetTLSConfig() *tls.Config    { return h.tlsConfig }
+func (h *doqHc) SetRecursionDesired(v bool)   { h.recursionDesired = v }
+func (h *doqHc) GetRecursionDesired() bool    { return h.recursionDesired }
+func (h *doqHc) SetDomain(domain string)      { h.domain = domain }
+func (h *doqHc) GetDomain() string            { return h.domain }
+func (h *doqHc) SetTCPTransport()             {}
+func (h *doqHc) GetReadTimeout() time.Duration {
+	return h.readTimeout
+}
+func (h *doqHc) SetReadTimeout(timeout time.Duration) {
+	h.readTimeout = timeout
+}
+func (h *doqHc) GetWriteTimeout() time.Duration {
+	return h.writeTimeout
+}
+func (h *doqHc) SetWriteTimeout(timeout time.Duration) {
+	h.writeTimeout = timeout
+}
+func (h *doqHc) SetLocalAddress(addr net.IP) {
+	h.localAddress = append(net.IP(nil), addr...)
+}
+func (h *doqHc) GetLocalAddress() net.IP {
+	return append(net.IP(nil), h.localAddress...)
 }
 
 func (h *dnsHc) SetTLSConfig(cfg *tls.Config) {
