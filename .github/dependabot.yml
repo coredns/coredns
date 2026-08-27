@@ -8,12 +8,16 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      k8s.io:
+      k8s:
         patterns:
           - "k8s.io/*"
-      go.etcd.io:
+      etcd:
         patterns:
           - "go.etcd.io/etcd/*"
+      aws:
+        patterns:
+          - "github.com/aws/aws-sdk-go-v2"
+          - "github.com/aws/aws-sdk-go-v2/*"
     open-pull-requests-limit: 20
 
   - package-ecosystem: "github-actions"
