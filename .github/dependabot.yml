@@ -8,10 +8,10 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      k8s:
+      k8s.io:
         patterns:
           - "k8s.io/*"
-      etcd:
+      go.etcd.io:
         patterns:
           - "go.etcd.io/etcd/*"
       aws:
