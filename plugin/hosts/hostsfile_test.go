@@ -290,3 +290,19 @@ func TestLookupStaticHostReloadRace(t *testing.T) {
 
 	wg.Wait()
 }
+
+func TestParseLineLongerThanDefaultScanBuffer(t *testing.T) {
+	// A line longer than bufio.Scanner's default 64KiB buffer must not stop
+	// the scan: the entries that follow it still have to be parsed.
+	long := strings.Repeat("a", 70*1024)
+	h := testHostsfile("127.0.0.1 before.example.org\n" +
+		"127.0.0.2 " + long + ".example.org\n" +
+		"127.0.0.3 after.example.org\n")
+
+	if addrs := h.LookupStaticHostV4("before.example.org."); len(addrs) != 1 || addrs[0].String() != "127.0.0.1" {
+		t.Errorf("LookupStaticHostV4(before.example.org.) = %v, want [127.0.0.1]", addrs)
+	}
+	if addrs := h.LookupStaticHostV4("after.example.org."); len(addrs) != 1 || addrs[0].String() != "127.0.0.3" {
+		t.Errorf("LookupStaticHostV4(after.example.org.) = %v, want [127.0.0.3]", addrs)
+	}
+}

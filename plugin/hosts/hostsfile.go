@@ -164,11 +164,20 @@ func (h *Hostsfile) initInline(inline []string) {
 	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")))
 }
 
+// maxLineSize is the largest hosts file line we are willing to parse. A line
+// can legitimately be long when many names share a single address, so this is
+// well above bufio.Scanner's 64KiB default, but still bounded.
+const maxLineSize = 1024 * 1024
+
 // Parse reads the hostsfile and populates the byName and addr maps.
 func (h *Hostsfile) parse(r io.Reader) *Map {
 	hmap := newMap()
 
 	scanner := bufio.NewScanner(r)
+	// The scanner grows its buffer as needed; only raise the limit at which it
+	// gives up, otherwise a single long line aborts the scan and every entry
+	// after it is dropped.
+	scanner.Buffer(nil, maxLineSize)
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if i := bytes.Index(line, []byte{'#'}); i >= 0 {
@@ -219,6 +228,10 @@ func (h *Hostsfile) parse(r io.Reader) *Map {
 			}
 			hmap.addr[addr.String()] = append(hmap.addr[addr.String()], name)
 		}
+	}
+	if err := scanner.Err(); err != nil {
+		// Entries after the failing line have not been read.
+		log.Errorf("Failed to parse hosts file %q: %v", h.path, err)
 	}
 
 	return hmap
