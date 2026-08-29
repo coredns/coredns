@@ -154,3 +154,7 @@ The view plugin will publish the following metadata, if the *metadata*
 plugin is also enabled:
 
 * `view/name`: the name of the view handling the current request
+
+## Bugs
+
+For requests over UDP `server_ip()` returns bound address, which can be the wildcard address (`0.0.0.0` or `::`), rather than local address the datagram was actually sent to.
