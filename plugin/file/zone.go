@@ -81,8 +81,20 @@ func (z *Zone) CopyWithoutApex() *Zone {
 
 // Insert inserts r into z.
 func (z *Zone) Insert(r dns.RR) error {
-	// r.Header().Name = strings.ToLower(r.Header().Name)
-	if r.Header().Rrtype != dns.TypeSRV {
+	switch r.Header().Rrtype {
+	case dns.TypeTXT:
+		fallthrough
+	case dns.TypeSRV:
+		name := r.Header().Name
+		labels := dns.Split(name)
+		if len(labels) > 3 {
+			if proto := name[labels[2] : labels[3]-1]; proto == "_tcp" || proto == "_udp" {
+				r.Header().Name = name[:labels[1]] + strings.ToLower(canonicalEscape(name[labels[1]:]))
+				break
+			}
+		}
+		fallthrough
+	default:
 		r.Header().Name = strings.ToLower(canonicalEscape(r.Header().Name))
 	}
 
@@ -119,7 +131,7 @@ func (z *Zone) Insert(r dns.RR) error {
 	case dns.TypeMX:
 		r.(*dns.MX).Mx = strings.ToLower(r.(*dns.MX).Mx)
 	case dns.TypeSRV:
-		// r.(*dns.SRV).Target = strings.ToLower(r.(*dns.SRV).Target)
+		r.(*dns.SRV).Target = strings.ToLower(r.(*dns.SRV).Target)
 	case dns.TypeSVCB:
 		r.(*dns.SVCB).Target = strings.ToLower(r.(*dns.SVCB).Target)
 	case dns.TypeHTTPS:
