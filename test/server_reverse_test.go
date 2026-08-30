@@ -40,7 +40,7 @@ func TestClasslessReverse(t *testing.T) {
 
 		r, e := dns.Exchange(m, udp)
 		if e != nil {
-			t.Errorf("Test %d, expected no error, got %q", i, e)
+			t.Fatalf("Test %d, expected no error, got %q", i, e)
 		}
 		if r.Rcode != tc.rcode {
 			t.Errorf("Test %d, expected %d, got %d for %s", i, tc.rcode, r.Rcode, tc.addr)
@@ -86,7 +86,7 @@ func TestReverse(t *testing.T) {
 
 		r, e := dns.Exchange(m, udp)
 		if e != nil {
-			t.Errorf("Test %d, expected no error, got %q", i, e)
+			t.Fatalf("Test %d, expected no error, got %q", i, e)
 		}
 		if r.Rcode != tc.rcode {
 			t.Errorf("Test %d, expected %d, got %d for %s", i, tc.rcode, r.Rcode, tc.addr)
@@ -132,7 +132,7 @@ func TestReverseInAddr(t *testing.T) {
 
 		r, e := dns.Exchange(m, udp)
 		if e != nil {
-			t.Errorf("Test %d, expected no error, got %q", i, e)
+			t.Fatalf("Test %d, expected no error, got %q", i, e)
 		}
 		if r.Rcode != tc.rcode {
 			t.Errorf("Test %d, expected %d, got %d for %s", i, tc.rcode, r.Rcode, tc.addr)
