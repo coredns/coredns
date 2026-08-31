@@ -70,21 +70,6 @@ Tests:
 	}
 }
 
-func TestLess_EmptyVsName(t *testing.T) {
-	if d := less("", "a."); d >= 0 {
-		t.Fatalf("expected < 0, got %d", d)
-	}
-	if d := less("a.", ""); d <= 0 {
-		t.Fatalf("expected > 0, got %d", d)
-	}
-}
-
-func TestLess_EmptyVsEmpty(t *testing.T) {
-	if d := less("", ""); d != 0 {
-		t.Fatalf("expected 0, got %d", d)
-	}
-}
-
 // Test that concurrent calls to Less (which calls Elem.Name) do not race or panic.
 // See issue #7561 for reference.
 func TestLess_ConcurrentNameAccess(t *testing.T) {
@@ -114,6 +99,9 @@ func TestLess_EdgeCases(t *testing.T) {
 		b    string
 		want int
 	}{
+		{``, ``, 0},
+		{``, `\000`, -1},
+		{``, `example.`, -1},
 		{`a.example.`, `a-b.example.`, -1},
 		{`a.example.`, `a*.example.`, -1},
 		{`a.example.`, `a\000.example.`, -1},
