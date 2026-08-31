@@ -12,11 +12,8 @@ import (
 //   - Absence of octet sorts before zero value octet
 func less(a, b string) int {
 	for {
-		ai, adone := dns.PrevLabel(a, 1)
-		bi, bdone := dns.PrevLabel(b, 1)
-		if adone && bdone {
-			return 0
-		}
+		ai, _ := dns.PrevLabel(a, 1)
+		bi, _ := dns.PrevLabel(b, 1)
 
 		var (
 			ac, bc     byte
@@ -40,6 +37,10 @@ func less(a, b string) int {
 
 		if d := (len(a) - aoff) - (len(b) - boff); d != 0 {
 			return d
+		}
+
+		if ai == 0 && ai == bi {
+			return 0
 		}
 
 		a, b = a[:ai], b[:bi]
