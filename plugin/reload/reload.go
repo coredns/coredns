@@ -25,7 +25,7 @@ type reload struct {
 	dur  time.Duration
 	u    int
 	mtx  sync.RWMutex
-	quit chan bool
+	quit chan struct{}
 }
 
 func (r *reload) setUsage(u int) {
@@ -133,7 +133,7 @@ func hook(event caddy.EventName, info any) error {
 
 // shutdownRequested reports whether a shutdown has been requested via quit channel.
 // helps with unit testing of the shutdown gate logic.
-func shutdownRequested(quit <-chan bool) bool {
+func shutdownRequested(quit <-chan struct{}) bool {
 	select {
 	case <-quit:
 		return true

@@ -30,11 +30,11 @@ func TestParseInvalidCorefile(t *testing.T) {
 func TestShutdownGate(t *testing.T) {
 	t.Parallel()
 
-	q := make(chan bool, 1)
+	q := make(chan struct{})
 	if shutdownRequested(q) {
 		t.Fatalf("expected no shutdown before signal")
 	}
-	q <- true
+	close(q)
 	if !shutdownRequested(q) {
 		t.Fatalf("expected shutdown after signal")
 	}
@@ -46,5 +46,19 @@ func TestHookIgnoresNonStartupEvent(t *testing.T) {
 
 	if err := hook(caddy.EventName("not-startup"), nil); err != nil {
 		t.Fatalf("expected no error for non-startup event, got %v", err)
+	}
+}
+
+// TestShutdownRequestedConsumesSignal ensures that once a shutdown signal is consumed, it still can be observed by other observers as it's a global broadcast.
+func TestShutdownRequestedConsumesSignal(t *testing.T) {
+	quit := make(chan struct{})
+	close(quit)
+
+	if !shutdownRequested(quit) {
+		t.Fatal("expected first shutdownRequested call to observe shutdown")
+	}
+
+	if !shutdownRequested(quit) {
+		t.Fatal("expected second shutdownRequested call to observe shutdown as well")
 	}
 }

@@ -20,7 +20,7 @@ func init() { plugin.Register("reload", setup) }
 // channel for QUIT is never changed in purpose.
 // WARNING: this data may be unsync after an invalid attempt of reload Corefile.
 var (
-	r              = reload{dur: defaultInterval, u: unused, quit: make(chan bool, 1)}
+	r              = reload{dur: defaultInterval, u: unused, quit: make(chan struct{})}
 	once, shutOnce sync.Once
 )
 
@@ -75,7 +75,7 @@ func setup(c *caddy.Controller) error {
 	// re-register on finalShutDown as the instance most-likely will be changed
 	shutOnce.Do(func() {
 		c.OnFinalShutdown(func() error {
-			r.quit <- true
+			close(r.quit)
 			return nil
 		})
 	})
