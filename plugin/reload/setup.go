@@ -15,14 +15,22 @@ var log = clog.NewWithPlugin("reload")
 
 func init() { plugin.Register("reload", setup) }
 
-// the info reload is global to all application, whatever number of reloads.
-// it is used to transmit data between Setup and start of the hook called 'onInstanceStartup'
-// channel for QUIT is never changed in purpose.
-// WARNING: this data may be unsync after an invalid attempt of reload Corefile.
-var (
-	r              = reload{dur: defaultInterval, u: unused, quit: make(chan struct{})}
-	once, shutOnce sync.Once
-)
+// The event hook is process-global, but reload state belongs to each Caddy instance.
+type reloadStorageKey struct{}
+
+func reloadForController(c *caddy.Controller) *reload {
+	if state, ok := c.Get(reloadStorageKey{}).(*reload); ok {
+		return state
+	}
+
+	state := newReload()
+	c.Set(reloadStorageKey{}, state)
+	// Stop this instance's watcher on both reload and final shutdown.
+	c.OnShutdown(state.shutdown)
+	return state
+}
+
+var once sync.Once
 
 func setup(c *caddy.Controller) error {
 	c.Next() // 'reload'
@@ -67,17 +75,11 @@ func setup(c *caddy.Controller) error {
 	}
 
 	// prepare info for next onInstanceStartup event
-	r.setInterval(i)
-	r.setUsage(used)
+	state := reloadForController(c)
+	state.setInterval(i)
+	state.setUsage(used)
 	once.Do(func() {
 		caddy.RegisterEventHook("reload", hook)
-	})
-	// re-register on finalShutDown as the instance most-likely will be changed
-	shutOnce.Do(func() {
-		c.OnFinalShutdown(func() error {
-			close(r.quit)
-			return nil
-		})
 	})
 	return nil
 }

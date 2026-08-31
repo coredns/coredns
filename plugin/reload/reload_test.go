@@ -49,8 +49,8 @@ func TestHookIgnoresNonStartupEvent(t *testing.T) {
 	}
 }
 
-// TestShutdownRequestedConsumesSignal ensures that once a shutdown signal is consumed, it still can be observed by other observers as it's a global broadcast.
-func TestShutdownRequestedConsumesSignal(t *testing.T) {
+// TestShutdownRequestedBroadcastsClosedSignal ensures a shutdown remains visible to every observer.
+func TestShutdownRequestedBroadcastsClosedSignal(t *testing.T) {
 	quit := make(chan struct{})
 	close(quit)
 
@@ -60,5 +60,52 @@ func TestShutdownRequestedConsumesSignal(t *testing.T) {
 
 	if !shutdownRequested(quit) {
 		t.Fatal("expected second shutdownRequested call to observe shutdown as well")
+	}
+}
+
+// TestSetupCreatesIndependentReloadStates ensures one instance shutdown does not stop another.
+func TestSetupCreatesIndependentReloadStates(t *testing.T) {
+	c1 := caddy.NewTestController("dns", `reload 2s 0s`)
+	if err := setup(c1); err != nil {
+		t.Fatalf("expected first setup to succeed, got %v", err)
+	}
+	state1, ok := c1.Get(reloadStorageKey{}).(*reload)
+	if !ok {
+		t.Fatal("expected first controller to own reload state")
+	}
+
+	c2 := caddy.NewTestController("dns", `reload 2s 0s`)
+	if err := setup(c2); err != nil {
+		t.Fatalf("expected second setup to succeed, got %v", err)
+	}
+	state2, ok := c2.Get(reloadStorageKey{}).(*reload)
+	if !ok {
+		t.Fatal("expected second controller to own reload state")
+	}
+	if state1 == state2 {
+		t.Fatal("expected each controller to own independent reload state")
+	}
+
+	if err := state1.shutdown(); err != nil {
+		t.Fatalf("expected first state shutdown to succeed, got %v", err)
+	}
+	if shutdownRequested(state2.quit) {
+		t.Fatal("expected shutting down the first state not to stop the second")
+	}
+}
+
+// TestReloadStateShutdownIsIdempotent ensures repeated shutdown callbacks do not panic.
+func TestReloadStateShutdownIsIdempotent(t *testing.T) {
+	state := newReload()
+
+	if err := state.shutdown(); err != nil {
+		t.Fatalf("expected first shutdown to succeed, got %v", err)
+	}
+	if err := state.shutdown(); err != nil {
+		t.Fatalf("expected second shutdown to succeed, got %v", err)
+	}
+
+	if !shutdownRequested(state.quit) {
+		t.Fatal("expected shutdown after state shutdown")
 	}
 }
