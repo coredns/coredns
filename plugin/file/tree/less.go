@@ -1,58 +1,59 @@
 package tree
 
 import (
-	"bytes"
-	"strings"
-
 	"github.com/miekg/dns"
 )
 
-// less returns <0 when a is less than b, 0 when they are equal and
-// >0 when a is larger than b.
-// The function orders names in DNSSEC canonical order: RFC 4034s section-6.1
+// less returns <0 when a is less than b, 0 when they are equal and >0 when a is larger than b.
 //
-// See https://bert-hubert.blogspot.co.uk/2015/10/how-to-do-fast-canonical-ordering-of.html
-// for a blog article on this implementation, although here we still go label by label.
-//
-// The values of a and b are *not* lowercased before the comparison!
+// Follows DNSSEC canonical ordering (RFC 4034, Section 6.1):
+//   - \DDD byte is decoded before comparison
+//   - Uppercase A-Z letters are treated as if they were lowercase
+//   - Absence of octet sorts before zero value octet
 func less(a, b string) int {
-	aj := len(a)
-	bj := len(b)
 	for {
-		ai, oka := dns.PrevLabel(a[:aj], 1)
-		bi, okb := dns.PrevLabel(b[:bj], 1)
-		if oka && okb {
+		ai, adone := dns.PrevLabel(a, 1)
+		bi, bdone := dns.PrevLabel(b, 1)
+		if adone && bdone {
 			return 0
 		}
 
-		// sadly this []byte will allocate... TODO(miek): check if this is needed
-		// for a name, otherwise compare the strings.
-		ab := []byte(strings.ToLower(a[ai:aj]))
-		bb := []byte(strings.ToLower(b[bi:bj]))
-		doDDD(ab)
-		doDDD(bb)
-
-		res := bytes.Compare(ab, bb)
-		if res != 0 {
-			return res
-		}
-
-		aj, bj = ai, bi
-	}
-}
-
-func doDDD(b []byte) {
-	lb := len(b)
-	for i := 0; i < lb; i++ {
-		if i+3 < lb && b[i] == '\\' && isDigit(b[i+1]) && isDigit(b[i+2]) && isDigit(b[i+3]) {
-			b[i] = dddToByte(b[i:])
-			for j := i + 1; j < lb-3; j++ {
-				b[j] = b[j+3]
+		var (
+			ac, bc     byte
+			aoff, boff = ai, bi
+		)
+		for aoff < len(a)-1 && boff < len(b)-1 {
+			ac, aoff = nextByte(a, aoff)
+			if ac-'A' < 26 {
+				ac |= 0x20
 			}
-			lb -= 3
+
+			bc, boff = nextByte(b, boff)
+			if bc-'A' < 26 {
+				bc |= 0x20
+			}
+
+			if ac != bc {
+				return int(ac) - int(bc)
+			}
 		}
+
+		if d := (len(a) - aoff) - (len(b) - boff); d != 0 {
+			return d
+		}
+
+		a, b = a[:ai], b[:bi]
 	}
 }
 
-func isDigit(b byte) bool     { return b >= '0' && b <= '9' }
-func dddToByte(s []byte) byte { return (s[1]-'0')*100 + (s[2]-'0')*10 + (s[3] - '0') }
+// nextByte implements \DDD-aware advancement.
+func nextByte(s string, off int) (byte, int) {
+	b := s[off]
+	if b == '\\' && off+3 < len(s) {
+		d0, d1, d2 := s[off+1]-'0', s[off+2]-'0', s[off+3]-'0'
+		if d0 < 10 && d1 < 10 && d2 < 10 {
+			return d0*100 + d1*10 + d2, off + 4
+		}
+	}
+	return b, off + 1
+}

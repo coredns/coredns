@@ -2,7 +2,8 @@ package tree
 
 import (
 	"bytes"
-	"sort"
+	"cmp"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -10,24 +11,18 @@ import (
 	"github.com/miekg/dns"
 )
 
-type set []string
-
-func (p set) Len() int           { return len(p) }
-func (p set) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
-func (p set) Less(i, j int) bool { d := less(p[i], p[j]); return d <= 0 }
-
 func TestLess(t *testing.T) {
 	tests := []struct {
 		in  []string
 		out []string
 	}{
 		{
-			[]string{"aaa.powerdns.de", "bbb.powerdns.net.", "xxx.powerdns.com."},
-			[]string{"xxx.powerdns.com.", "aaa.powerdns.de", "bbb.powerdns.net."},
+			[]string{"aaa.powerdns.de.", "bbb.powerdns.net.", "xxx.powerdns.com."},
+			[]string{"xxx.powerdns.com.", "aaa.powerdns.de.", "bbb.powerdns.net."},
 		},
 		{
-			[]string{"aaa.POWERDNS.de", "bbb.PoweRdnS.net.", "xxx.powerdns.com."},
-			[]string{"xxx.powerdns.com.", "aaa.POWERDNS.de", "bbb.PoweRdnS.net."},
+			[]string{"aaa.POWERDNS.de.", "bbb.PoweRdnS.net.", "xxx.powerdns.com."},
+			[]string{"xxx.powerdns.com.", "aaa.POWERDNS.de.", "bbb.PoweRdnS.net."},
 		},
 		{
 			[]string{"aaa.aaaa.aa.", "aa.aaa.a.", "bbb.bbbb.bb."},
@@ -58,15 +53,7 @@ func TestLess(t *testing.T) {
 
 Tests:
 	for j, test := range tests {
-		// Need to lowercase these example as the Less function does lowercase for us anymore.
-		for i, b := range test.in {
-			test.in[i] = strings.ToLower(b)
-		}
-		for i, b := range test.out {
-			test.out[i] = strings.ToLower(b)
-		}
-
-		sort.Sort(set(test.in))
+		slices.SortFunc(test.in, less)
 		for i := range len(test.in) {
 			if test.in[i] != test.out[i] {
 				t.Errorf("Test %d: expected %s, got %s", j, test.out[i], test.in[i])
@@ -121,6 +108,32 @@ func TestLess_ConcurrentNameAccess(t *testing.T) {
 	wg.Wait()
 }
 
+func TestLess_EdgeCases(t *testing.T) {
+	tests := []struct {
+		a    string
+		b    string
+		want int
+	}{
+		{`a.example.`, `a-b.example.`, -1},
+		{`a.example.`, `a*.example.`, -1},
+		{`a.example.`, `a\000.example.`, -1},
+		{`a.eXaMpLe.`, `a.example.`, 0},
+		{`.`, `\000.`, -1},
+		{`\000\0320 \"\046@*.`, `\000\032\048\032\092\034\046\064\042.`, 0},
+		{`<=>?@ABCDE.`, `\060\061\062\063\064\065\066\067\068\069.`, 0},
+		{`café.example.`, `CAFÉ.example.`, 1}, // é (\195\169) > É (\195\137)
+	}
+	for i, test := range tests {
+		if got := less(test.a, test.b); cmp.Compare(got, 0) != test.want {
+			t.Errorf("Test %d: expected less(%s, %s)=%d, got %d", i, test.a, test.b, test.want, cmp.Compare(got, 0))
+		}
+
+		if got := less(test.b, test.a); cmp.Compare(got, 0) != -test.want {
+			t.Errorf("Test %d: expected less(%s, %s)=%d, got %d", i, test.b, test.a, -test.want, cmp.Compare(got, 0))
+		}
+	}
+}
+
 func BenchmarkLess(b *testing.B) {
 	// The original less function, serving as the benchmark test baseline.
 	less0 := func(a, b string) int {
@@ -151,7 +164,7 @@ func BenchmarkLess(b *testing.B) {
 		}
 	}
 
-	tests := []set{
+	tests := [][]string{
 		{"aaa.powerdns.de", "bbb.powerdns.net.", "xxx.powerdns.com."},
 		{"aaa.POWERDNS.de", "bbb.PoweRdnS.net.", "xxx.powerdns.com."},
 		{"aaa.aaaa.aa.", "aa.aaa.a.", "bbb.bbbb.bb."},
@@ -187,3 +200,18 @@ func BenchmarkLess(b *testing.B) {
 		}
 	})
 }
+
+func doDDD(b []byte) {
+	lb := len(b)
+	for i := 0; i < lb; i++ {
+		if i+3 < lb && b[i] == '\\' && isDigit(b[i+1]) && isDigit(b[i+2]) && isDigit(b[i+3]) {
+			b[i] = dddToByte(b[i:])
+			for j := i + 1; j < lb-3; j++ {
+				b[j] = b[j+3]
+			}
+			lb -= 3
+		}
+	}
+}
+func isDigit(b byte) bool     { return b >= '0' && b <= '9' }
+func dddToByte(s []byte) byte { return (s[1]-'0')*100 + (s[2]-'0')*10 + (s[3] - '0') }
