@@ -39,8 +39,9 @@ func less(a, b string) int {
 			return d
 		}
 
-		if ai == 0 && ai == bi {
-			return 0
+		// Exit early when either of strings is out of labels.
+		if ai == 0 || bi == 0 {
+			return ai - bi
 		}
 
 		a, b = a[:ai], b[:bi]
