@@ -153,7 +153,7 @@ func TestMinimizeResponse(t *testing.T) {
 }
 
 func TestMinimizeResponseNilMsgPanic(t *testing.T) {
-	nilMsgHandler := plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	nilMsgHandler := plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
 		w.WriteMsg(nil)
 		return 0, nil
 	})
