@@ -23,8 +23,7 @@ type Zones []string
 // Matches checks if qname is a subdomain of any of the zones in z.  The match
 // will return the most specific zones that matches. The empty string
 // signals a not found condition.
-func (z Zones) Matches(qname string) string {
-	zone := ""
+func (z Zones) Matches(qname string) (zone string) {
 	for _, zname := range z {
 		if dns.IsSubDomain(zname, qname) {
 			// We want the *longest* matching zone, otherwise we may end up in a parent
