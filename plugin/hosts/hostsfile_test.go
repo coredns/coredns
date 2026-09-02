@@ -5,6 +5,7 @@
 package hosts
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"reflect"
@@ -301,6 +302,85 @@ func TestParseLineLongerThanDefaultScanBuffer(t *testing.T) {
 
 	if addrs := h.LookupStaticHostV4("before.example.org."); len(addrs) != 1 || addrs[0].String() != "127.0.0.1" {
 		t.Errorf("LookupStaticHostV4(before.example.org.) = %v, want [127.0.0.1]", addrs)
+	}
+	if addrs := h.LookupStaticHostV4("after.example.org."); len(addrs) != 1 || addrs[0].String() != "127.0.0.3" {
+		t.Errorf("LookupStaticHostV4(after.example.org.) = %v, want [127.0.0.3]", addrs)
+	}
+}
+
+func TestParseVeryLongLine(t *testing.T) {
+	// A line of several megabytes must be parsed without an arbitrary cutoff,
+	// and must not hide the entries that follow it.
+	var sb strings.Builder
+	sb.WriteString("127.0.0.1 before.example.org\n")
+	sb.WriteString("127.0.0.2")
+	const names = 200000
+	for i := range names {
+		fmt.Fprintf(&sb, " n%d.example.org", i)
+	}
+	sb.WriteString("\n127.0.0.3 after.example.org\n")
+	if sb.Len() < 3<<20 {
+		t.Fatalf("test line is %d bytes, want at least 3 MiB", sb.Len())
+	}
+	h := testHostsfile(sb.String())
+
+	for _, tc := range []struct {
+		name string
+		addr string
+	}{
+		{"before.example.org.", "127.0.0.1"},
+		{"n0.example.org.", "127.0.0.2"},
+		{"n199999.example.org.", "127.0.0.2"},
+		{"after.example.org.", "127.0.0.3"},
+	} {
+		if addrs := h.LookupStaticHostV4(tc.name); len(addrs) != 1 || addrs[0].String() != tc.addr {
+			t.Errorf("LookupStaticHostV4(%s) = %v, want [%s]", tc.name, addrs, tc.addr)
+		}
+	}
+}
+
+func TestParseLongFieldSpanningReads(t *testing.T) {
+	// A single field longer than the read buffer is not a usable name, but it
+	// must not corrupt the fields around it or the rest of the file.
+	long := strings.Repeat("a", 5<<20)
+	h := testHostsfile("127.0.0.1 before.example.org\n" +
+		"127.0.0.2 " + long + ".example.org one.example.org\n" +
+		"127.0.0.3 after.example.org\n")
+
+	for _, tc := range []struct {
+		name string
+		addr string
+	}{
+		{"before.example.org.", "127.0.0.1"},
+		{"one.example.org.", "127.0.0.2"},
+		{"after.example.org.", "127.0.0.3"},
+	} {
+		if addrs := h.LookupStaticHostV4(tc.name); len(addrs) != 1 || addrs[0].String() != tc.addr {
+			t.Errorf("LookupStaticHostV4(%s) = %v, want [%s]", tc.name, addrs, tc.addr)
+		}
+	}
+}
+
+func TestParseNoTrailingNewline(t *testing.T) {
+	h := testHostsfile("127.0.0.1 first.example.org\n127.0.0.2 last.example.org")
+
+	if addrs := h.LookupStaticHostV4("last.example.org."); len(addrs) != 1 || addrs[0].String() != "127.0.0.2" {
+		t.Errorf("LookupStaticHostV4(last.example.org.) = %v, want [127.0.0.2]", addrs)
+	}
+}
+
+func TestParseLongLineWithComment(t *testing.T) {
+	// A comment that starts beyond the read buffer must still be discarded,
+	// and must not swallow the following line.
+	long := strings.Repeat(" padding.invalid", 1<<16)
+	h := testHostsfile("127.0.0.1 one.example.org" + long + " # two.example.org\n" +
+		"127.0.0.3 after.example.org\n")
+
+	if addrs := h.LookupStaticHostV4("one.example.org."); len(addrs) != 1 || addrs[0].String() != "127.0.0.1" {
+		t.Errorf("LookupStaticHostV4(one.example.org.) = %v, want [127.0.0.1]", addrs)
+	}
+	if addrs := h.LookupStaticHostV4("two.example.org."); len(addrs) != 0 {
+		t.Errorf("LookupStaticHostV4(two.example.org.) = %v, want []", addrs)
 	}
 	if addrs := h.LookupStaticHostV4("after.example.org."); len(addrs) != 1 || addrs[0].String() != "127.0.0.3" {
 		t.Errorf("LookupStaticHostV4(after.example.org.) = %v, want [127.0.0.3]", addrs)
