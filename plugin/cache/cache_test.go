@@ -1990,3 +1990,16 @@ func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 		t.Fatalf("background verifier mutated foreground metadata: %q", f())
 	}
 }
+
+func TestKeyEmptyQuestion(t *testing.T) {
+	// A response with an empty question section must be reported as
+	// non-cacheable instead of panicking on m.Question[0]. Some plugins can
+	// emit such a message (e.g. during prefetch). Regression test for #6051.
+	m := new(dns.Msg)
+	m.Response = true
+	m.Rcode = dns.RcodeSuccess
+
+	if ok, _ := key("example.org.", m, response.NoError, false, false); ok {
+		t.Fatal("expected a response with an empty question section to be non-cacheable")
+	}
+}
