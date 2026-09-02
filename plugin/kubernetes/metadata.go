@@ -32,7 +32,7 @@ func (k *Kubernetes) Metadata(ctx context.Context, state request.Request) contex
 		return ctx
 	}
 	multicluster := false
-	if z := plugin.Zones(k.opts.multiclusterZones).Matches(state.Zone); z != "" {
+	if plugin.Zones(k.opts.multiclusterZones).MatchesAny(state.Zone) {
 		multicluster = true
 	}
 	// possible optimization: cache r so it doesn't need to be calculated again in ServeDNS

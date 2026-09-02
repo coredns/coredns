@@ -120,7 +120,7 @@ func (s *Secondary) applyCatalog(origin string, cat *catalog.Catalog, catalogZon
 
 func (s *Secondary) catalogMemberAllowed(origin, member string) bool {
 	zones, ok := s.catalogZones[origin]
-	return ok && (len(zones) == 0 || zones.Matches(member) != "")
+	return ok && (len(zones) == 0 || zones.MatchesAny(member))
 }
 
 func catalogMember(cat *catalog.Catalog, zone string) (catalog.Member, bool) {

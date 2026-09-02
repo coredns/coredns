@@ -68,8 +68,7 @@ type AutoPath struct {
 func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
-	zone := plugin.Zones(a.Zones).Matches(state.Name())
-	if zone == "" {
+	if !plugin.Zones(a.Zones).MatchesAny(state.Name()) {
 		return plugin.NextOrFailure(a.Name(), a.Next, ctx, w, r)
 	}
 

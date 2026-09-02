@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -33,6 +34,12 @@ func (z Zones) Matches(qname string) string {
 		}
 	}
 	return zone
+}
+
+func (z Zones) MatchesAny(qname string) bool {
+	return slices.ContainsFunc(z, func(zname string) bool {
+		return dns.IsSubDomain(zname, qname)
+	})
 }
 
 // Normalize fully qualifies all zones in z. The zones in Z must be domain names, without

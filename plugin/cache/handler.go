@@ -21,8 +21,7 @@ func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) 
 	cd := r.CheckingDisabled
 	ad := r.AuthenticatedData
 
-	zone := plugin.Zones(c.Zones).Matches(state.Name())
-	if zone == "" {
+	if !plugin.Zones(c.Zones).MatchesAny(state.Name()) {
 		return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, rc)
 	}
 

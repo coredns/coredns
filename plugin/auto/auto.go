@@ -43,13 +43,12 @@ func (a Auto) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	qname := state.Name()
 
 	// Precheck with the origins, i.e. are we allowed to look here?
-	zone := plugin.Zones(a.Zones.Origins()).Matches(qname)
-	if zone == "" {
+	if !plugin.Zones(a.Zones.Origins()).MatchesAny(qname) {
 		return plugin.NextOrFailure(a.Name(), a.Next, ctx, w, r)
 	}
 
 	// Now the real zone.
-	zone = plugin.Zones(a.Zones.Names()).Matches(qname)
+	zone := plugin.Zones(a.Zones.Names()).Matches(qname)
 	if zone == "" {
 		// If no next plugin is configured, it's more correct to return REFUSED as auto acts as an authoritative server
 		if a.Next == nil {

@@ -468,7 +468,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 	// and key is valid
 	switch mt {
 	case response.NoError, response.Delegation:
-		if plugin.Zones(w.pexcept).Matches(m.Question[0].Name) != "" {
+		if plugin.Zones(w.pexcept).MatchesAny(m.Question[0].Name) {
 			// zone is in exception list, do not cache
 			return
 		}
@@ -493,7 +493,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		}
 
 	case response.NameError, response.NoData, response.ServerError:
-		if plugin.Zones(w.nexcept).Matches(m.Question[0].Name) != "" {
+		if plugin.Zones(w.nexcept).MatchesAny(m.Question[0].Name) {
 			// zone is in exception list, do not cache
 			return
 		}
