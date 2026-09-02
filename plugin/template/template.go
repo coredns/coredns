@@ -103,7 +103,7 @@ func exprEnv(ctx context.Context, state *request.Request, data *templateData) ma
 func (h Handler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
-	if !plugin.Zones(h.Zones).MatchesAny(state.Name()) {
+	if !plugin.Zones(h.Zones).Contains(state.Name()) {
 		return plugin.NextOrFailure(h.Name(), h.Next, ctx, w, r)
 	}
 

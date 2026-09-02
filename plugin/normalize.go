@@ -36,7 +36,7 @@ func (z Zones) Matches(qname string) string {
 	return zone
 }
 
-func (z Zones) MatchesAny(qname string) bool {
+func (z Zones) Contains(qname string) bool {
 	return slices.ContainsFunc(z, func(zname string) bool {
 		return dns.IsSubDomain(zname, qname)
 	})

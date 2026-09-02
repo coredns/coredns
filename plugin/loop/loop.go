@@ -40,7 +40,7 @@ func (l *Loop) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 	state := request.Request{W: w, Req: r}
 
-	if !plugin.Zones([]string{l.zone}).MatchesAny(state.Name()) {
+	if !plugin.Zones([]string{l.zone}).Contains(state.Name()) {
 		return plugin.NextOrFailure(l.Name(), l.Next, ctx, w, r)
 	}
 

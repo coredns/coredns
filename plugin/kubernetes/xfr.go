@@ -18,7 +18,7 @@ import (
 
 // Transfer implements the transfer.Transfer interface.
 func (k *Kubernetes) Transfer(zone string, serial uint32) (<-chan []dns.RR, error) {
-	if !plugin.Zones(k.Zones).MatchesAny(zone) {
+	if !plugin.Zones(k.Zones).Contains(zone) {
 		return nil, transfer.ErrNotAuthoritative
 	}
 	// state is not used here, hence the empty request.Request{]

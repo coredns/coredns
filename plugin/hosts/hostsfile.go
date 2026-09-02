@@ -202,7 +202,7 @@ func (h *Hostsfile) parse(r io.Reader) *Map {
 
 		for i := 1; i < len(f); i++ {
 			name := plugin.Name(string(f[i])).Normalize()
-			if !plugin.Zones(h.Origins).MatchesAny(name) {
+			if !plugin.Zones(h.Origins).Contains(name) {
 				// name is not in Origins
 				continue
 			}

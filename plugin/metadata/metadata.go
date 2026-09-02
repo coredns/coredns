@@ -34,7 +34,7 @@ func (m *Metadata) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 // Collect will retrieve metadata functions from each metadata provider and update the context
 func (m *Metadata) Collect(ctx context.Context, state request.Request) context.Context {
 	ctx = ContextWithMetadata(ctx)
-	if plugin.Zones(m.Zones).MatchesAny(state.Name()) {
+	if plugin.Zones(m.Zones).Contains(state.Name()) {
 		// Go through all Providers and collect metadata.
 		for _, p := range m.Providers {
 			ctx = p.Metadata(ctx, state)

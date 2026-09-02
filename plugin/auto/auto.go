@@ -43,7 +43,7 @@ func (a Auto) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (i
 	qname := state.Name()
 
 	// Precheck with the origins, i.e. are we allowed to look here?
-	if !plugin.Zones(a.Zones.Origins()).MatchesAny(qname) {
+	if !plugin.Zones(a.Zones.Origins()).Contains(qname) {
 		return plugin.NextOrFailure(a.Name(), a.Next, ctx, w, r)
 	}
 

@@ -718,7 +718,7 @@ func (k *Kubernetes) Serial(state request.Request) uint32 {
 func (k *Kubernetes) MinTTL(_state request.Request) uint32 { return k.ttl }
 
 func (k *Kubernetes) isMultiClusterZone(zone string) bool {
-	return plugin.Zones(k.opts.multiclusterZones).MatchesAny(zone)
+	return plugin.Zones(k.opts.multiclusterZones).Contains(zone)
 }
 
 // match checks if a and b are equal.
