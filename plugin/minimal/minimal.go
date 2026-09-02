@@ -26,6 +26,9 @@ func (m *minimalHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *
 	if err != nil {
 		return rcode, err
 	}
+	if nw.Msg == nil {
+		return rcode, nil
+	}
 
 	ty, _ := response.Typify(nw.Msg, time.Now().UTC())
 	cl := response.Classify(ty)
