@@ -13,6 +13,8 @@ Specifically this plugin looks at successful responses (this excludes negative r
 nodata or name error). If the successful response isn't a delegation only the RRs in the answer
 section are written to the client.
 
+Zone transfers (AXFR and IXFR) are passed through untouched.
+
 ## Syntax
 
 ~~~ txt
