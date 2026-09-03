@@ -1993,9 +1993,6 @@ func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 
 func TestCacheWriteMsgNilResponse(t *testing.T) {
 	c := New()
-	c.Next = test.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
-		return dns.RcodeSuccess, nil
-	})
 
 	rec := dnstest.NewRecorder(&test.ResponseWriter{})
 	cw := &ResponseWriter{ResponseWriter: rec, Cache: c}

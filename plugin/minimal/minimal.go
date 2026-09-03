@@ -35,9 +35,6 @@ func (m *minimalHandler) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *
 
 	// if response is Denial or Error pass through also if the type is Delegation pass through
 	if cl == response.Denial || cl == response.Error || ty == response.Delegation {
-		if nw.Msg == nil {
-			return rcode, err
-		}
 		w.WriteMsg(nw.Msg)
 		return 0, nil
 	}
