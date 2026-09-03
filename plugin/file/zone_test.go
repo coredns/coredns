@@ -127,7 +127,7 @@ func TestInsertPreservesSRVCase(t *testing.T) {
 	z := NewZone("home.arpa.", "stdin")
 
 	// SRV with mixed case and space-escaped instance name
-	srv, err := dns.NewRR(`Home\032Media._smb._tcp.home.arpa. 5 IN SRV 0 0 445 samba.home.arpa.`)
+	srv, err := dns.NewRR(`Home\032Media._smb._tcp.home.arpa. 5 IN SRV 0 0 445 SAMBA.HOME.ARPA.`)
 	if err != nil {
 		t.Fatalf("Failed to parse SRV RR: %v", err)
 	}
