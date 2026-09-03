@@ -58,6 +58,10 @@ func TestLookupCache(t *testing.T) {
 	t.Run("DNSSEC OPT", func(t *testing.T) {
 		testCaseDNSSEC(t, "example.org.", udp, 0)
 	})
+
+	t.Run("EDNS request options", func(t *testing.T) {
+		testCaseEDNSOptionsNotEchoed(t, "example.org.", udp)
+	})
 }
 
 func testCase(t *testing.T, name, addr string, expectAnsLen int, expectTTL uint32) {
@@ -115,6 +119,29 @@ func testCaseDNSSEC(t *testing.T, name, addr string, bufsize int) {
 		if opt.Header().Rrtype == dns.TypeOPT {
 			t.Errorf("Expected no OPT RR, but got one: %s", opt)
 		}
+	}
+}
+
+func testCaseEDNSOptionsNotEchoed(t *testing.T, name, addr string) {
+	t.Helper()
+	m := new(dns.Msg)
+	m.SetQuestion(name, dns.TypeA)
+	m.SetEdns0(4096, false)
+	m.IsEdns0().Option = []dns.EDNS0{
+		&dns.EDNS0_NSID{Code: dns.EDNS0NSID},
+		&dns.EDNS0_COOKIE{Code: dns.EDNS0COOKIE, Cookie: "abcdef0123456789"},
+	}
+
+	resp, err := dns.Exchange(m, addr)
+	if err != nil {
+		t.Fatalf("Expected to receive reply, but didn't: %s", err)
+	}
+	opt := resp.IsEdns0()
+	if opt == nil {
+		t.Fatal("Expected OPT RR in response")
+	}
+	if len(opt.Option) != 0 {
+		t.Fatalf("Expected request EDNS options not to be echoed, got %v", opt.Option)
 	}
 }
 
