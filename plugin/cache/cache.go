@@ -3,6 +3,7 @@ package cache
 
 import (
 	"encoding/binary"
+	"fmt"
 	"hash/fnv"
 	"net"
 	"strings"
@@ -413,6 +414,9 @@ func (w *ResponseWriter) Hijack() {
 
 // WriteMsg implements the dns.ResponseWriter interface.
 func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
+	if res == nil {
+		return fmt.Errorf("cache: response message is nil")
+	}
 	res = res.Copy()
 	w.lastItem = nil
 	mt := cacheResponseType(res, w.now().UTC())

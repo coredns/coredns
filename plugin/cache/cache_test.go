@@ -1990,3 +1990,24 @@ func TestServeFromStaleCacheFetchVerifyTimeoutMetadataIsolation(t *testing.T) {
 		t.Fatalf("background verifier mutated foreground metadata: %q", f())
 	}
 }
+
+func TestCacheWriteMsgNilResponse(t *testing.T) {
+	c := New()
+	c.Next = test.HandlerFunc(func(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+		return dns.RcodeSuccess, nil
+	})
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	cw := &ResponseWriter{ResponseWriter: rec, Cache: c}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("ResponseWriter.WriteMsg panicked on nil response: %v", r)
+		}
+	}()
+
+	err := cw.WriteMsg(nil)
+	if err == nil {
+		t.Error("Expected error when passing nil response to WriteMsg, got nil")
+	}
+}
