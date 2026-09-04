@@ -1,3 +1,5 @@
+//go:build !noquic
+
 package dnsserver
 
 import (
@@ -20,6 +22,8 @@ import (
 	"github.com/miekg/dns"
 	"github.com/quic-go/quic-go"
 )
+
+func init() { Register(transport.QUIC, NewServerQUIC) }
 
 const (
 	// DoQCodeNoError is used when the connection or stream needs to be

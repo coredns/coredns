@@ -39,6 +39,8 @@ import (
 	"github.com/pires/go-proxyproto"
 )
 
+func init() { Register(transport.DNS, NewServer) }
+
 // Server represents an instance of a server, which serves
 // DNS requests at a particular address (host and port). A
 // server is capable of serving numerous zones on
