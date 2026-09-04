@@ -26,7 +26,7 @@ import (
 	"golang.org/x/net/netutil"
 )
 
-func init() { Register(transport.HTTPS, NewServerHTTPS) }
+func init() { Register(transport.HTTPS, NewServerHTTPS, transport.HTTPSPort) }
 
 const (
 	// DefaultHTTPSMaxConnections is the default maximum number of concurrent connections.

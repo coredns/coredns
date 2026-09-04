@@ -90,6 +90,8 @@ func (h *dnsContext) InspectServerBlocks(_sourceFile string, serverBlocks []cadd
 					port = transport.HTTPSPort
 				case transport.HTTPS3:
 					port = transport.HTTPSPort
+				default:
+					port = transport.Ports[trans]
 				}
 			}
 
@@ -324,13 +326,14 @@ var transportServers = make(map[string]func(string, []*Config) (caddy.Server, er
 
 type NewServerFunc[T caddy.Server] func(string, []*Config) (T, error)
 
-func Register[T caddy.Server](tr string, action NewServerFunc[T]) {
+func Register[T caddy.Server](tr string, action NewServerFunc[T], port string) {
 	if tr == "" {
 		panic("server must have a transport")
 	}
 	if _, dup := transportServers[tr]; dup {
 		panic("server for " + tr + ":// already registered")
 	}
+	transport.Register(tr, port)
 	transportServers[tr] = func(addr string, group []*Config) (caddy.Server, error) {
 		s, err := action(addr, group)
 		return s, err

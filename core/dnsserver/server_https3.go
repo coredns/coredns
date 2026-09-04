@@ -26,7 +26,7 @@ import (
 	"github.com/quic-go/quic-go/http3"
 )
 
-func init() { Register(transport.HTTPS3, NewServerHTTPS3) }
+func init() { Register(transport.HTTPS3, NewServerHTTPS3, transport.HTTPSPort) }
 
 const (
 	// DefaultHTTPS3MaxStreams is the default maximum number of concurrent QUIC streams per connection.

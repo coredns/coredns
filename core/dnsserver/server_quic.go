@@ -23,7 +23,7 @@ import (
 	"github.com/quic-go/quic-go"
 )
 
-func init() { Register(transport.QUIC, NewServerQUIC) }
+func init() { Register(transport.QUIC, NewServerQUIC, transport.QUICPort) }
 
 const (
 	// DoQCodeNoError is used when the connection or stream needs to be

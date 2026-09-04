@@ -17,7 +17,7 @@ import (
 	"github.com/pires/go-proxyproto"
 )
 
-func init() { Register(transport.TLS, NewServerTLS) }
+func init() { Register(transport.TLS, NewServerTLS, transport.TLSPort) }
 
 // ServerTLS represents an instance of a TLS-over-DNS-server.
 type ServerTLS struct {
