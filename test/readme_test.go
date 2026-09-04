@@ -20,7 +20,7 @@ import (
 var contents = map[string]string{
 	"Kexample.org.+013+45330.key":     examplePub,
 	"Kexample.org.+013+45330.private": examplePriv,
-	"example.org.zone":                 exampleOrg,
+	"example.org.zone":                exampleOrg,
 	"example.org.signed":              exampleOrg, // not signed, but does not matter for this test.
 }
 
