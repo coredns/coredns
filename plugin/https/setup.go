@@ -1,6 +1,7 @@
 package https
 
 import (
+	"math"
 	"strconv"
 
 	"github.com/coredns/caddy"
@@ -54,6 +55,25 @@ func parseDOH(c *caddy.Controller) error {
 				return c.Err("max_connections already defined for this server block")
 			}
 			config.MaxHTTPSConnections = &val
+		case "max_streams":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return c.ArgErr()
+			}
+			val, err := strconv.Atoi(args[0])
+			if err != nil {
+				return c.Errf("invalid max_streams value '%s': %v", args[0], err)
+			}
+			if val < 0 {
+				return c.Errf("max_streams must be a non-negative integer: %d", val)
+			}
+			if val > math.MaxUint32 {
+				return c.Errf("max_streams must not exceed %d: %d", uint64(math.MaxUint32), val)
+			}
+			if config.MaxHTTPSStreams != nil {
+				return c.Err("max_streams already defined for this server block")
+			}
+			config.MaxHTTPSStreams = &val
 		default:
 			return c.Errf("unknown property '%s'", c.Val())
 		}

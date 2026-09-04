@@ -105,6 +105,19 @@ func TestPropagateConfigParamsMaxTCPQueries(t *testing.T) {
 	}
 }
 
+func TestPropagateConfigParamsMaxHTTPSStreams(t *testing.T) {
+	n := 7
+	first := &Config{MaxHTTPSStreams: &n}
+	first.firstConfigInBlock = first
+	second := &Config{firstConfigInBlock: first}
+
+	propagateConfigParams([]*Config{first, second})
+
+	if second.MaxHTTPSStreams == nil || *second.MaxHTTPSStreams != n {
+		t.Fatalf("expected MaxHTTPSStreams to propagate to second config as %d, got %v", n, second.MaxHTTPSStreams)
+	}
+}
+
 func TestPropagateConfigParamsAllowedOpcodes(t *testing.T) {
 	first := &Config{}
 	first.firstConfigInBlock = first

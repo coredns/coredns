@@ -114,6 +114,10 @@ type Config struct {
 	// This is nil if not specified, allowing for a default to be used.
 	MaxHTTPSConnections *int
 
+	// MaxHTTPSStreams defines the maximum number of concurrent HTTP/2 streams per HTTPS connection.
+	// This is nil if not specified, allowing for a default to be used.
+	MaxHTTPSStreams *int
+
 	// MaxHTTPS3Streams defines the maximum number of concurrent QUIC streams for HTTPS3.
 	// This is nil if not specified, allowing for a default to be used.
 	MaxHTTPS3Streams *int

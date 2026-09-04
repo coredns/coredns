@@ -3,12 +3,14 @@ package test
 import (
 	"bytes"
 	"crypto/tls"
+	"encoding/binary"
 	"io"
 	"net"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/coredns/caddy"
 	"github.com/miekg/dns"
 )
 
@@ -174,4 +176,107 @@ func TestHTTPSConnectionLimit(t *testing.T) {
 		t.Fatalf("Connection after freeing slot failed: %v", err)
 	}
 	conns = append(conns, conn)
+}
+
+// TestHTTPSMaxStreamsKeyOrder verifies that max_streams applies regardless of the
+// order of keys in a multi-transport server block. Caddy runs the https directive
+// setup only for the first key, so without propagation the setting would be stored
+// on the first key's config and dropped for the HTTPS key when it is listed second.
+func TestHTTPSMaxStreamsKeyOrder(t *testing.T) {
+	const maxStreams = 7
+	corefiles := map[string]string{
+		"https_first": `https://.:0 .:0 {
+	bind 127.0.0.1
+	tls ../plugin/tls/test_cert.pem ../plugin/tls/test_key.pem ../plugin/tls/test_ca.pem
+	https {
+		max_streams 7
+	}
+	whoami
+}`,
+		"https_second": `.:0 https://.:0 {
+	bind 127.0.0.1
+	tls ../plugin/tls/test_cert.pem ../plugin/tls/test_key.pem ../plugin/tls/test_ca.pem
+	https {
+		max_streams 7
+	}
+	whoami
+}`,
+	}
+
+	for name, corefile := range corefiles {
+		t.Run(name, func(t *testing.T) {
+			s, err := CoreDNSServer(corefile)
+			if err != nil {
+				t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+			}
+			defer s.Stop()
+
+			tcp := httpsListenerAddr(t, s)
+			if got := advertisedMaxConcurrentStreams(t, tcp); got != maxStreams {
+				t.Errorf("advertised SETTINGS_MAX_CONCURRENT_STREAMS = %d, want %d", got, maxStreams)
+			}
+		})
+	}
+}
+
+// httpsListenerAddr returns the TCP address of the instance's HTTPS listener.
+// In a multi-transport block the HTTPS server is not necessarily first; it is
+// the TCP-only listener (no packetconn), identified by a nil LocalAddr.
+func httpsListenerAddr(t *testing.T, i *caddy.Instance) string {
+	t.Helper()
+	for _, s := range i.Servers() {
+		if s.LocalAddr() == nil && s.Addr() != nil {
+			return s.Addr().String()
+		}
+	}
+	t.Fatal("no HTTPS (TCP-only) listener found among started servers")
+	return ""
+}
+
+// advertisedMaxConcurrentStreams opens a TLS/h2 connection to addr and returns the
+// server's advertised SETTINGS_MAX_CONCURRENT_STREAMS. It returns 0 if the server
+// does not send the setting.
+func advertisedMaxConcurrentStreams(t *testing.T, addr string) uint32 {
+	t.Helper()
+
+	conn, err := tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true, NextProtos: []string{"h2"}})
+	if err != nil {
+		t.Fatalf("TLS dial %s failed: %v", addr, err)
+	}
+	defer conn.Close()
+
+	if proto := conn.ConnectionState().NegotiatedProtocol; proto != "h2" {
+		t.Fatalf("ALPN did not negotiate h2, got %q", proto)
+	}
+
+	if _, err := conn.Write([]byte("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n")); err != nil {
+		t.Fatalf("write preface: %v", err)
+	}
+	if _, err := conn.Write([]byte{0, 0, 0, 0x4, 0, 0, 0, 0, 0}); err != nil {
+		t.Fatalf("write client SETTINGS: %v", err)
+	}
+
+	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	hdr := make([]byte, 9)
+	for {
+		if _, err := io.ReadFull(conn, hdr); err != nil {
+			t.Fatalf("read frame header: %v", err)
+		}
+		length := int(hdr[0])<<16 | int(hdr[1])<<8 | int(hdr[2])
+		payload := make([]byte, length)
+		if length > 0 {
+			if _, err := io.ReadFull(conn, payload); err != nil {
+				t.Fatalf("read frame payload: %v", err)
+			}
+		}
+		if hdr[3] != 0x4 || hdr[4]&0x1 != 0 { // not a SETTINGS frame, or a SETTINGS ACK
+			continue
+		}
+		for i := 0; i+6 <= len(payload); i += 6 {
+			if binary.BigEndian.Uint16(payload[i:i+2]) == 0x3 { // SETTINGS_MAX_CONCURRENT_STREAMS
+				return binary.BigEndian.Uint32(payload[i+2 : i+6])
+			}
+		}
+		return 0
+	}
 }
