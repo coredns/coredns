@@ -70,7 +70,7 @@ func TestExternalCNAMENilUpstreamResponse(t *testing.T) {
 		Zone: ".",
 		Plugin: []plugin.Plugin{
 			func(plugin.Handler) plugin.Handler {
-				return plugin.HandlerFunc(func(_ context.Context, w dns.ResponseWriter, _ *dns.Msg) (int, error) {
+				return plugin.HandlerFunc(func(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
 					return dns.RcodeSuccess, nil
 				})
 			},
