@@ -106,6 +106,26 @@ func TestAutoPathNoAnswer(t *testing.T) {
 	}
 }
 
+func TestAutoPathNilMsgFromNext(t *testing.T) {
+	ap := new(AutoPath)
+	ap.Zones = []string{"."}
+	// Simulate a plugin like acl's drop action that returns success
+	// without writing a response.
+	ap.Next = test.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, _r *dns.Msg) (int, error) {
+		return dns.RcodeSuccess, nil
+	})
+	ap.search = []string{"example.org.", "example.com.", "com.", ""}
+
+	m := new(dns.Msg)
+	m.SetQuestion("b.example.org.", dns.TypeA)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	_, err := ap.ServeDNS(context.TODO(), rec, m)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+}
+
 // nextHandler returns a Handler that returns an answer for the question in the
 // request per the domain->answer map. On success an RR will be returned: "qname 3600 IN A 127.0.0.53"
 func nextHandler(mm map[string]int) test.Handler {
