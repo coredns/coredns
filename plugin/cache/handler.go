@@ -15,6 +15,13 @@ import (
 
 // ServeDNS implements the plugin.Handler interface.
 func (c *Cache) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+	// The cache only handles QUERY messages. In particular, an UPDATE can
+	// have the same zone name and QTYPE as a cached query, but must always
+	// reach the authoritative handler instead of being answered from cache.
+	if r.Opcode != dns.OpcodeQuery {
+		return plugin.NextOrFailure(c.Name(), c.Next, ctx, w, r)
+	}
+
 	rc := r.Copy() // We potentially modify r, to prevent other plugins from seeing this (r is a pointer), copy r into rc.
 	state := request.Request{W: w, Req: rc}
 	do := state.Do()
