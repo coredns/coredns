@@ -27,6 +27,10 @@ import (
 const (
 	// DefaultHTTPSMaxConnections is the default maximum number of concurrent connections.
 	DefaultHTTPSMaxConnections = 200
+
+	// DefaultHTTPSMaxStreams is the default maximum number of concurrent HTTP/2 streams
+	// per connection, used when max_streams is not specified.
+	DefaultHTTPSMaxStreams = 250
 )
 
 // ServerHTTPS represents an instance of a DNS-over-HTTPS server.
@@ -90,6 +94,31 @@ func NewServerHTTPS(addr string, group []*Config) (*ServerHTTPS, error) {
 		WriteTimeout: s.WriteTimeout,
 		IdleTimeout:  s.IdleTimeout,
 		ErrorLog:     stdlog.New(&loggerAdapter{}, "", 0),
+	}
+	// max_streams limits the number of concurrent HTTP/2 streams per connection. When unset,
+	// DefaultHTTPSMaxStreams is applied; a value of 0 leaves the underlying HTTP/2 transport
+	// default in place; a positive value sets the limit explicitly. The chosen value is
+	// advertised in the server's SETTINGS frame. Resolve across the whole group since blocks
+	// sharing a listener share one HTTP/2 server; conflicting explicit values are rejected.
+	maxStreams := DefaultHTTPSMaxStreams
+	var resolved *int
+	for _, conf := range group {
+		if conf == nil || conf.MaxHTTPSStreams == nil {
+			continue
+		}
+		if resolved != nil && *resolved != *conf.MaxHTTPSStreams {
+			return nil, fmt.Errorf("conflicting max_streams values for shared HTTPS listener %s: %d and %d",
+				addr, *resolved, *conf.MaxHTTPSStreams)
+		}
+		resolved = conf.MaxHTTPSStreams
+	}
+	if resolved != nil {
+		maxStreams = *resolved
+	}
+	if maxStreams > 0 {
+		srv.HTTP2 = &http.HTTP2Config{
+			MaxConcurrentStreams: maxStreams,
+		}
 	}
 	maxConnections := DefaultHTTPSMaxConnections
 	if len(group) > 0 && group[0] != nil && group[0].MaxHTTPSConnections != nil {

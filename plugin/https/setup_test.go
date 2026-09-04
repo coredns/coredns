@@ -2,6 +2,7 @@ package https
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -10,11 +11,27 @@ import (
 )
 
 func TestSetup(t *testing.T) {
+	// The uint32 upper-bound boundary is architecture-dependent. On 64-bit int,
+	// 4294967295 is accepted and 4294967296 hits the "must not exceed" guard. On
+	// 32-bit int, both overflow and Atoi rejects them as "invalid max_streams"
+	// first. Derive the value via Atoi (never a constant literal) so the source
+	// stays portable to 32-bit targets.
+	maxUint32Err, maxUint32ErrContent := false, ""
+	var maxUint32Streams *int
+	overMaxUint32ErrContent := "must not exceed"
+	if v, err := strconv.Atoi("4294967295"); err == nil {
+		maxUint32Streams = &v
+	} else {
+		maxUint32Err, maxUint32ErrContent = true, "invalid max_streams value"
+		overMaxUint32ErrContent = "invalid max_streams value"
+	}
+
 	tests := []struct {
 		input                  string
 		shouldErr              bool
 		expectedErrContent     string
 		expectedMaxConnections *int
+		expectedMaxStreams     *int
 	}{
 		// Valid configurations
 		{
@@ -32,6 +49,22 @@ func TestSetup(t *testing.T) {
 			}`,
 			shouldErr:              false,
 			expectedMaxConnections: intPtr(200),
+		},
+		{
+			input: `https {
+				max_streams 100
+			}`,
+			shouldErr:          false,
+			expectedMaxStreams: intPtr(100),
+		},
+		{
+			input: `https {
+				max_connections 200
+				max_streams 100
+			}`,
+			shouldErr:              false,
+			expectedMaxConnections: intPtr(200),
+			expectedMaxStreams:     intPtr(100),
 		},
 		// Zero values (unbounded)
 		{
@@ -67,6 +100,57 @@ func TestSetup(t *testing.T) {
 			input: `https {
 				max_connections 100
 				max_connections 200
+			}`,
+			shouldErr:          true,
+			expectedErrContent: "already defined",
+		},
+		{
+			input: `https {
+				max_streams
+			}`,
+			shouldErr:          true,
+			expectedErrContent: "Wrong argument count",
+		},
+		{
+			input: `https {
+				max_streams abc
+			}`,
+			shouldErr:          true,
+			expectedErrContent: "invalid max_streams value",
+		},
+		{
+			input: `https {
+				max_streams 0
+			}`,
+			shouldErr:          false,
+			expectedMaxStreams: intPtr(0),
+		},
+		{
+			input: `https {
+				max_streams -1
+			}`,
+			shouldErr:          true,
+			expectedErrContent: "must be a non-negative integer",
+		},
+		{
+			input: `https {
+				max_streams 4294967295
+			}`,
+			shouldErr:          maxUint32Err,
+			expectedErrContent: maxUint32ErrContent,
+			expectedMaxStreams: maxUint32Streams,
+		},
+		{
+			input: `https {
+				max_streams 4294967296
+			}`,
+			shouldErr:          true,
+			expectedErrContent: overMaxUint32ErrContent,
+		},
+		{
+			input: `https {
+				max_streams 100
+				max_streams 200
 			}`,
 			shouldErr:          true,
 			expectedErrContent: "already defined",
@@ -110,6 +194,7 @@ func TestSetup(t *testing.T) {
 		if !test.shouldErr {
 			config := dnsserver.GetConfig(c)
 			assertIntPtrValue(t, i, test.input, "MaxHTTPSConnections", config.MaxHTTPSConnections, test.expectedMaxConnections)
+			assertIntPtrValue(t, i, test.input, "MaxHTTPSStreams", config.MaxHTTPSStreams, test.expectedMaxStreams)
 		}
 	}
 }
