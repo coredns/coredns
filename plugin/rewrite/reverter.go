@@ -1,6 +1,8 @@
 package rewrite
 
 import (
+	"fmt"
+
 	"github.com/miekg/dns"
 )
 
@@ -84,6 +86,9 @@ func NewResponseReverter(w dns.ResponseWriter, r *dns.Msg, policy RevertPolicy) 
 
 // WriteMsg records the status code and calls the underlying ResponseWriter's WriteMsg method.
 func (r *ResponseReverter) WriteMsg(res1 *dns.Msg) error {
+	if res1 == nil {
+		return fmt.Errorf("rewrite: response message is nil")
+	}
 	// Deep copy 'res' as to not (e.g). rewrite a message that's also stored in the cache.
 	res := res1.Copy()
 
