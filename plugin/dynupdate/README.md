@@ -39,9 +39,11 @@ If the *cache* plugin is enabled in the same server block, exclude the dynamic
 zone so existing query answers cannot outlive an update:
 
 ~~~ corefile
-cache {
-    disable success example.org
-    disable denial example.org
+example.org {
+    cache {
+        disable success example.org
+        disable denial example.org
+    }
 }
 ~~~
 
