@@ -164,77 +164,176 @@ func (h *Hostsfile) initInline(inline []string) {
 	h.inline = h.parse(strings.NewReader(strings.Join(inline, "\n")))
 }
 
-// maxLineSize is the largest hosts file line we are willing to parse. A line
-// can legitimately be long when many names share a single address, so this is
-// well above bufio.Scanner's 64KiB default, but still bounded.
-const maxLineSize = 1024 * 1024
+// maxFieldSize bounds the memory used while assembling a single field that
+// spans several reads. A DNS name is at most 255 octets, so a longer field can
+// never yield a usable entry and is discarded instead of being buffered.
+const maxFieldSize = 1024
 
 // Parse reads the hostsfile and populates the byName and addr maps.
+//
+// Lines are read with a bufio.Reader and parsed field by field as the data
+// arrives, so a line of any length is handled with a fixed amount of memory
+// and never aborts the parse of the entries that follow it.
 func (h *Hostsfile) parse(r io.Reader) *Map {
 	hmap := newMap()
+	p := lineParser{h: h, hmap: hmap}
 
-	scanner := bufio.NewScanner(r)
-	// The scanner grows its buffer as needed; only raise the limit at which it
-	// gives up, otherwise a single long line aborts the scan and every entry
-	// after it is dropped.
-	scanner.Buffer(nil, maxLineSize)
-	for scanner.Scan() {
-		line := scanner.Bytes()
-		if i := bytes.Index(line, []byte{'#'}); i >= 0 {
+	reader := bufio.NewReader(r)
+	for {
+		chunk, err := reader.ReadSlice('\n')
+		// The slice returned by ReadSlice is only valid until the next read,
+		// so feed consumes it before looping. ErrBufferFull means the line
+		// continues in the next chunk.
+		p.feed(chunk, err != bufio.ErrBufferFull)
+		if err == nil || err == bufio.ErrBufferFull {
+			continue
+		}
+		if err != io.EOF {
+			log.Errorf("Failed to parse hosts file %q: %v", h.path, err)
+		}
+		return hmap
+	}
+}
+
+// lineParser turns a stream of chunks into hosts file entries. It keeps only
+// the current field, so its memory use does not grow with the line length.
+type lineParser struct {
+	h    *Hostsfile
+	hmap *Map
+
+	field     []byte // the field being assembled, possibly spanning chunks
+	oversized bool   // the current field exceeded maxFieldSize and is dropped
+	index     int    // number of fields already seen on this line
+	comment   bool   // the rest of this line is a comment
+	addr      net.IP // address of the current line, nil if unusable
+	family    int
+}
+
+// feed consumes one chunk of the current line. last reports whether the chunk
+// ends the line.
+func (p *lineParser) feed(chunk []byte, last bool) {
+	if !p.comment {
+		if i := bytes.IndexByte(chunk, '#'); i >= 0 {
 			// Discard comments.
-			line = line[0:i]
+			chunk = chunk[:i]
+			p.comment = true
 		}
-		f := bytes.Fields(line)
-		if len(f) < 2 {
-			continue
-		}
-		addr := parseIP(string(f[0]))
-		if addr == nil {
-			continue
-		}
+		p.scan(chunk, last || p.comment)
+	}
+	if last {
+		p.index, p.comment, p.addr = 0, false, nil
+	}
+}
 
-		var family int
-		if addr.To4() != nil {
-			family = 1
+// scan splits a chunk into fields. A field at the end of the chunk is only
+// complete if terminal is set, otherwise it continues in the next chunk.
+func (p *lineParser) scan(b []byte, terminal bool) {
+	for len(b) > 0 {
+		i := 0
+		for i < len(b) && isSpace(b[i]) {
+			i++
+		}
+		if i > 0 {
+			// Whitespace terminates the field before it.
+			p.emit()
+			b = b[i:]
+			continue
+		}
+		j := 0
+		for j < len(b) && !isSpace(b[j]) {
+			j++
+		}
+		p.append(b[:j])
+		b = b[j:]
+	}
+	if terminal {
+		p.emit()
+	}
+}
+
+// append extends the current field, dropping it once it grows beyond any
+// length a DNS name can have.
+func (p *lineParser) append(b []byte) {
+	if p.oversized {
+		return
+	}
+	if len(p.field)+len(b) > maxFieldSize {
+		p.oversized = true
+		p.field = p.field[:0]
+		return
+	}
+	p.field = append(p.field, b...)
+}
+
+// emit handles a completed field. It is a no-op when no field is pending.
+func (p *lineParser) emit() {
+	if len(p.field) == 0 && !p.oversized {
+		return
+	}
+	// field aliases p.field's storage, which is reused by the next append; it
+	// is only read below, before any further append happens.
+	field, oversized := p.field, p.oversized
+	p.field, p.oversized = p.field[:0], false
+	p.index++
+
+	if p.index == 1 {
+		// The first field is the address; without it the line is unusable.
+		if oversized {
+			return
+		}
+		p.addr = parseIP(string(field))
+		if p.addr == nil {
+			return
+		}
+		if p.addr.To4() != nil {
+			p.family = 1
 		} else {
-			family = 2
+			p.family = 2
 		}
+		return
+	}
+	if p.addr == nil || oversized {
+		return
+	}
+	p.addName(string(field))
+}
 
-		for i := 1; i < len(f); i++ {
-			name := plugin.Name(string(f[i])).Normalize()
-			if !plugin.Zones(h.Origins).Contains(name) {
-				// name is not in Origins
-				continue
-			}
-			if isWildcardName(name) {
-				switch family {
-				case 1:
-					hmap.wildName4[name] = append(hmap.wildName4[name], addr)
-				case 2:
-					hmap.wildName6[name] = append(hmap.wildName6[name], addr)
-				}
-				continue
-			}
-			switch family {
-			case 1:
-				hmap.name4[name] = append(hmap.name4[name], addr)
-			case 2:
-				hmap.name6[name] = append(hmap.name6[name], addr)
-			default:
-				continue
-			}
-			if !h.options.autoReverse {
-				continue
-			}
-			hmap.addr[addr.String()] = append(hmap.addr[addr.String()], name)
+func (p *lineParser) addName(field string) {
+	name := plugin.Name(field).Normalize()
+	if !plugin.Zones(p.h.Origins).Contains(name) {
+		// name is not in Origins
+		return
+	}
+	if isWildcardName(name) {
+		switch p.family {
+		case 1:
+			p.hmap.wildName4[name] = append(p.hmap.wildName4[name], p.addr)
+		case 2:
+			p.hmap.wildName6[name] = append(p.hmap.wildName6[name], p.addr)
 		}
+		return
 	}
-	if err := scanner.Err(); err != nil {
-		// Entries after the failing line have not been read.
-		log.Errorf("Failed to parse hosts file %q: %v", h.path, err)
+	switch p.family {
+	case 1:
+		p.hmap.name4[name] = append(p.hmap.name4[name], p.addr)
+	case 2:
+		p.hmap.name6[name] = append(p.hmap.name6[name], p.addr)
+	default:
+		return
 	}
+	if !p.h.options.autoReverse {
+		return
+	}
+	key := p.addr.String()
+	p.hmap.addr[key] = append(p.hmap.addr[key], name)
+}
 
-	return hmap
+func isSpace(c byte) bool {
+	switch c {
+	case ' ', '\t', '\n', '\v', '\f', '\r':
+		return true
+	}
+	return false
 }
 
 func (h *Hostsfile) lookupStaticHostLocked(m, wild map[string][]net.IP, host string) []net.IP {
