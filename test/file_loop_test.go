@@ -14,7 +14,10 @@ a.example.com. 500 IN CNAME b.example.com.
 alias.example.com. 500 IN DNAME alias.example.com.
 redirect.example.com. 500 IN DNAME target.example.com.
 www.target.example.com. 500 IN A 192.0.2.1
-*.foo.example.com. 500 IN CNAME bar.foo.example.com.`
+*.foo.example.com. 500 IN CNAME bar.foo.example.com.
+self.example.com. 500 IN CNAME self.example.com.
+c.example.com. 500 IN CNAME d.example.com.
+d.example.com. 500 IN CNAME d.example.com.`
 
 func TestFileLoop(t *testing.T) {
 	name, rm, err := test.TempFile(".", loopDB)
@@ -43,6 +46,8 @@ func TestFileLoop(t *testing.T) {
 	}{
 		{"wildcard CNAME", "something.foo.example.com.", dns.RcodeServerFailure, false, nil},
 		{"self-referential DNAME", "www.alias.example.com.", dns.RcodeServerFailure, true, nil},
+		{"self-referential CNAME", "self.example.com.", dns.RcodeServerFailure, true, nil},
+		{"CNAME chain into self-referential CNAME", "c.example.com.", dns.RcodeServerFailure, true, nil},
 		{"non-looping DNAME", "www.redirect.example.com.", dns.RcodeSuccess, true, []uint16{dns.TypeDNAME, dns.TypeCNAME, dns.TypeA}},
 	}
 	for _, tc := range tests {
