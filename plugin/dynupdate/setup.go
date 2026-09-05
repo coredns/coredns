@@ -46,6 +46,7 @@ func setup(c *caddy.Controller) error {
 		}
 		return nil
 	})
+	c.OnShutdown(d.close)
 
 	return nil
 }
@@ -64,9 +65,41 @@ func parse(c *caddy.Controller) (*DynUpdate, error) {
 		seed        string
 		seedDefined bool
 		permissions []permission
+		database    string
+		bound       limits
 	)
+	seen := make(map[string]bool)
 	for c.NextBlock() {
+		property := c.Val()
+		if property != "allow" && seen[property] {
+			return nil, c.Errf("%s specified more than once", property)
+		}
+		seen[property] = true
 		switch c.Val() {
+		case "database":
+			args := c.RemainingArgs()
+			if len(args) != 1 || args[0] == "" {
+				return nil, c.ArgErr()
+			}
+			database = args[0]
+
+		case "max_records", "max_bytes", "max_update_records":
+			args := c.RemainingArgs()
+			if len(args) != 1 {
+				return nil, c.ArgErr()
+			}
+			n, err := strconv.Atoi(args[0])
+			if err != nil || n <= 0 {
+				return nil, c.Errf("%s requires a positive integer", property)
+			}
+			switch property {
+			case "max_records":
+				bound.records = n
+			case "max_bytes":
+				bound.bytes = n
+			case "max_update_records":
+				bound.updateRecords = n
+			}
 		case "file":
 			args := c.RemainingArgs()
 			if len(args) != 1 {
@@ -99,17 +132,36 @@ func parse(c *caddy.Controller) (*DynUpdate, error) {
 	if !filepath.IsAbs(seed) && dnsserver.GetConfig(c).Root != "" {
 		seed = filepath.Join(dnsserver.GetConfig(c).Root, seed)
 	}
-	records, err := readZone(seed, origin)
-	if err != nil {
-		return nil, err
-	}
-
 	d := &DynUpdate{
 		Zone:        origin,
 		permissions: permissions,
-		records:     records,
+		limits:      bound.defaults(),
+		seed:        seed,
 	}
-	d.view, err = d.build(records)
+	if database != "" {
+		d.database, err = databasePath(database, dnsserver.GetConfig(c).Root)
+		if err != nil {
+			return nil, err
+		}
+		s, err := d.acquireStore()
+		if err != nil {
+			return nil, err
+		}
+		s.mu.RLock()
+		d.records = s.records
+		copyView := *s.view
+		d.view = &copyView
+		s.mu.RUnlock()
+		if err := releaseStore(s); err != nil {
+			return nil, err
+		}
+		return d, nil
+	}
+	d.records, err = readZoneLimited(seed, origin, d.limits)
+	if err != nil {
+		return nil, err
+	}
+	d.view, err = d.build(d.records)
 	if err != nil {
 		return nil, fmt.Errorf("building zone %q: %w", origin, err)
 	}
@@ -244,6 +296,10 @@ func validPolicyType(rrType uint16) bool {
 }
 
 func readZone(path, origin string) ([]dns.RR, error) {
+	return readZoneLimited(path, origin, limits{})
+}
+
+func readZoneLimited(path, origin string, bound limits) ([]dns.RR, error) {
 	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return nil, fmt.Errorf("opening zone file %q: %w", path, err)
@@ -254,7 +310,15 @@ func readZone(path, origin string) ([]dns.RR, error) {
 	zp.SetIncludeAllowed(true)
 	z := file.NewZone(origin, path)
 	soaCount := 0
+	bound = bound.defaults()
+	count, remaining := 0, bound.bytes
 	for rr, ok := zp.Next(); ok; rr, ok = zp.Next() {
+		count++
+		size := dns.Len(rr)
+		if count > bound.records || size > remaining {
+			return nil, fmt.Errorf("zone file %q exceeds configured limits", path)
+		}
+		remaining -= size
 		if _, ok := rr.(*dns.SOA); ok {
 			soaCount++
 		}

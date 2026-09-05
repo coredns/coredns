@@ -53,56 +53,89 @@ func (d *DynUpdate) serveUpdate(ctx context.Context, w dns.ResponseWriter, r *dn
 // installed. The caller must not hold d.mu.
 func (d *DynUpdate) applyUpdate(key string, prerequisites, updates []dns.RR) (int, error) {
 	d.mu.Lock()
+	changed, rcode, err := d.updateLocked(key, prerequisites, updates)
+	if changed && d.Xfer != nil {
+		d.notifyPending = true
+		if !d.notifyRunning {
+			d.notifyRunning = true
+			go d.notify()
+		}
+	}
+	d.mu.Unlock()
+	return rcode, err
+}
 
+// Coalesce bursts and keep at most one NOTIFY operation in flight per instance.
+func (d *DynUpdate) notify() {
+	for {
+		d.mu.Lock()
+		if d.closed || !d.notifyPending {
+			d.notifyRunning = false
+			d.mu.Unlock()
+			return
+		}
+		d.notifyPending = false
+		xfer, zone := d.Xfer, d.Zone
+		d.mu.Unlock()
+		if err := xfer.Notify(zone); err != nil {
+			log.Warningf("NOTIFY for %s after UPDATE failed: %v", zone, err)
+		}
+	}
+}
+
+func (d *DynUpdate) updateLocked(key string, prerequisites, updates []dns.RR) (bool, int, error) {
 	// Authenticate and identify the key before doing semantic work on the
 	// request. An unknown valid TSIG must not be able to probe zone state.
 	if !d.configuredKey(key) {
-		d.mu.Unlock()
-		return dns.RcodeRefused, nil
+		return false, dns.RcodeRefused, nil
+	}
+	bound := d.limits.defaults()
+	if len(prerequisites) > bound.updateRecords || len(updates) > bound.updateRecords-len(prerequisites) {
+		return false, dns.RcodeRefused, nil
+	}
+	if err := d.ensureStore(); err != nil {
+		return false, dns.RcodeServerFailure, err
+	}
+	if d.store != nil {
+		d.store.mu.Lock()
+		defer d.store.mu.Unlock()
+		d.records = d.store.records
 	}
 	// RFC 2136 evaluates prerequisites against the current snapshot before
 	// checking permissions and prescanning the Update section. Keeping this
 	// order matters when a request contains both a failed prerequisite and an
 	// invalid update record.
 	if rcode := d.checkPrerequisites(prerequisites); rcode != dns.RcodeSuccess {
-		d.mu.Unlock()
-		return rcode, nil
+		return false, rcode, nil
 	}
 	if rcode := d.authorize(key, updates); rcode != dns.RcodeSuccess {
-		d.mu.Unlock()
-		return rcode, nil
+		return false, rcode, nil
 	}
 	if rcode := d.validateUpdates(updates); rcode != dns.RcodeSuccess {
-		d.mu.Unlock()
-		return rcode, nil
+		return false, rcode, nil
 	}
 
 	candidate, changed, explicitSOA := d.apply(updates)
 	if !changed {
-		d.mu.Unlock()
-		return dns.RcodeSuccess, nil
+		return false, dns.RcodeSuccess, nil
+	}
+	if err := d.limits.check(candidate); err != nil {
+		return false, dns.RcodeRefused, err
 	}
 	if !explicitSOA {
 		bumpSerial(candidate)
 	}
 	view, err := d.build(candidate)
 	if err != nil {
-		d.mu.Unlock()
-		return dns.RcodeServerFailure, fmt.Errorf("building candidate zone: %w", err)
+		return false, dns.RcodeServerFailure, fmt.Errorf("building candidate zone: %w", err)
+	}
+	if d.store != nil {
+		if err := d.store.commit(candidate, view); err != nil {
+			return false, dns.RcodeServerFailure, fmt.Errorf("committing zone: %w", err)
+		}
 	}
 	d.install(candidate, view)
-	xfer := d.Xfer
-	zone := d.Zone
-	d.mu.Unlock()
-
-	if xfer != nil {
-		go func() {
-			if err := xfer.Notify(zone); err != nil {
-				log.Warningf("NOTIFY for %s after UPDATE failed: %v", zone, err)
-			}
-		}()
-	}
-	return dns.RcodeSuccess, nil
+	return true, dns.RcodeSuccess, nil
 }
 
 func (d *DynUpdate) checkPrerequisites(prerequisites []dns.RR) int {

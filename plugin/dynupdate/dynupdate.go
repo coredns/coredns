@@ -1,13 +1,13 @@
 // Package dynupdate implements RFC 2136 dynamic updates for a file-backed
 // authoritative zone.
 //
-// The seed file is read at startup and is never modified. Updates are kept in
-// memory until the process restarts. The plugin owns its zone so that normal
-// queries and AXFR see the same atomically replaced snapshot.
+// The seed file is never modified. An optional local database makes accepted
+// updates durable. Queries and AXFR see the same atomically replaced snapshot.
 package dynupdate
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/coredns/coredns/plugin"
@@ -38,10 +38,17 @@ type DynUpdate struct {
 	Xfer *transfer.Transfer
 
 	permissions []permission
+	limits      limits
+	seed        string
+	database    string
 
-	mu      sync.RWMutex
-	records []dns.RR
-	view    *file.File
+	mu            sync.RWMutex
+	records       []dns.RR
+	view          *file.File
+	store         *zoneStore
+	closed        bool
+	notifyPending bool
+	notifyRunning bool
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -49,12 +56,18 @@ func (d *DynUpdate) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	if r.Opcode == dns.OpcodeUpdate {
 		return d.serveUpdate(ctx, w, r)
 	}
+	if len(r.Question) == 1 && !inZone(d.Zone, r.Question[0].Name) {
+		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
+	}
+	// dynupdate precedes cache so that authoritative answers cannot become
+	// stale locally. Transfer requests still need the transfer plugin's ACLs.
+	if len(r.Question) == 1 && (r.Question[0].Qtype == dns.TypeAXFR || r.Question[0].Qtype == dns.TypeIXFR) {
+		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
+	}
 
-	d.mu.RLock()
-	view := d.view
-	d.mu.RUnlock()
-	if view == nil {
-		return dns.RcodeServerFailure, nil
+	view, err := d.snapshot()
+	if err != nil {
+		return dns.RcodeServerFailure, err
 	}
 
 	return view.ServeDNS(ctx, w, r)
@@ -68,11 +81,9 @@ func (d *DynUpdate) Transfer(zone string, serial uint32) (<-chan []dns.RR, error
 		return nil, transfer.ErrNotAuthoritative
 	}
 
-	d.mu.RLock()
-	view := d.view
-	d.mu.RUnlock()
-	if view == nil {
-		return nil, transfer.ErrNotAuthoritative
+	view, err := d.snapshot()
+	if err != nil {
+		return nil, err
 	}
 	return view.Transfer(zone, serial)
 }
@@ -80,10 +91,33 @@ func (d *DynUpdate) Transfer(zone string, serial uint32) (<-chan []dns.RR, error
 // Name implements the plugin.Handler interface.
 func (d *DynUpdate) Name() string { return pluginName }
 
+func (d *DynUpdate) snapshot() (*file.File, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if err := d.ensureStore(); err != nil {
+		return nil, err
+	}
+	view := d.view
+	if d.store != nil {
+		d.store.mu.RLock()
+		view = d.store.view
+		d.store.mu.RUnlock()
+	}
+	if view == nil {
+		return nil, fmt.Errorf("zone %q has no snapshot", d.Zone)
+	}
+	copyView := *view
+	copyView.Next = d.Next
+	return &copyView, nil
+}
+
 // build creates the read and transfer view for a record snapshot. file.Zone
 // already contains CoreDNS's authoritative lookup, wildcard, delegation, and
 // DNSSEC response behavior, so this plugin does not duplicate those rules.
 func (d *DynUpdate) build(records []dns.RR) (*file.File, error) {
+	if err := d.limits.check(records); err != nil {
+		return nil, err
+	}
 	if err := validateRecords(records, d.Zone); err != nil {
 		return nil, err
 	}

@@ -34,6 +34,7 @@ require (
 	github.com/prometheus/common v0.70.1
 	github.com/quic-go/quic-go v0.61.0
 	github.com/stretchr/testify v1.12.1
+	go.etcd.io/bbolt v1.5.0
 	go.etcd.io/etcd/api/v3 v3.6.13
 	go.etcd.io/etcd/client/v3 v3.6.13
 	go.uber.org/automaxprocs v1.6.0
