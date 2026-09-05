@@ -35,6 +35,9 @@ func persistentDynUpdateConfig(t *testing.T, network string) (corefile, seed str
 	return fmt.Sprintf(`%s {
 		bind 127.0.0.1
 		%s
+		header {
+			response set ra
+		}
 		tsig {
 			secret %s %s
 			require_opcode UPDATE
@@ -125,6 +128,9 @@ func TestDynUpdatePersistentWire(t *testing.T) {
 					if len(r.Answer) != 1 || r.Answer[0].String() != rr.String() {
 						t.Fatalf("round %d: stale or lost record: %v", round, r)
 					}
+					if !r.RecursionAvailable {
+						t.Fatal("dynamic answer bypassed the configured header plugin")
+					}
 				}
 				query.SetQuestion("example.org.", dns.TypeSOA)
 				soa := exchangeDynUpdate(t, client, addr, query, dns.RcodeSuccess)
@@ -157,6 +163,23 @@ func TestDynUpdatePersistentWire(t *testing.T) {
 	}
 }
 
+func TestDynUpdateFailedStartupReleasesDatabase(t *testing.T) {
+	corefile, _ := persistentDynUpdateConfig(t, "udp")
+	bad := strings.Replace(corefile, "\n\t\tcache", "\n\t\tfile\n\t\tcache", 1)
+	if s, err := CoreDNSServer(bad); err == nil {
+		stopDynUpdateServer(t, s)
+		t.Fatal("invalid file directive unexpectedly succeeded")
+	}
+	s, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("failed startup retained a database lock: %v", err)
+	}
+	defer stopDynUpdateServer(t, s)
+	query := new(dns.Msg)
+	query.SetQuestion("example.org.", dns.TypeSOA)
+	exchangeDynUpdate(t, &dns.Client{Net: "udp"}, udp, query, dns.RcodeSuccess)
+}
+
 func TestDynUpdateCorefileReload(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Caddy listener file-descriptor inheritance is unavailable on Windows")
@@ -175,10 +198,11 @@ func TestDynUpdateCorefileReload(t *testing.T) {
 	update := new(dns.Msg).SetUpdate("example.org.")
 	update.Insert([]dns.RR{rr})
 	exchangeDynUpdate(t, client, udp, update, dns.RcodeSuccess)
-	// file is initialized after dynupdate. Its error must leave the old server
+	// file is initialized after dynupdate. An invalid directive must leave the old server
 	// and database usable, without retaining a ref for the abandoned config.
-	bad := strings.Replace(corefile, "\n\t\tcache", "\n\t\tfile does-not-exist.example\n\t\tcache", 1)
-	if _, err := s.Restart(NewInput(bad)); err == nil {
+	bad := strings.Replace(corefile, "\n\t\tcache", "\n\t\tfile\n\t\tcache", 1)
+	if next, err := s.Restart(NewInput(bad)); err == nil {
+		s = next
 		t.Fatal("invalid reload unexpectedly succeeded")
 	}
 	query := new(dns.Msg)
@@ -206,16 +230,20 @@ func TestDynUpdateNsupdate(t *testing.T) {
 		t.Skip("BIND nsupdate is not installed")
 	}
 	corefile, _ := persistentDynUpdateConfig(t, "udp")
-	s, udp, _, err := CoreDNSServerAndPorts(corefile)
+	s, udp, tcpAddr, err := CoreDNSServerAndPorts(corefile)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer stopDynUpdateServer(t, s)
-	host, port, err := net.SplitHostPort(udp)
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, tcp := range []bool{false, true} {
+		addr := udp
+		if tcp {
+			addr = tcpAddr
+		}
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			t.Fatal(err)
+		}
 		args := []string{"-y", "hmac-sha256:" + dynUpdateKey + ":" + dynUpdateSecret}
 		if tcp {
 			args = append(args, "-v")

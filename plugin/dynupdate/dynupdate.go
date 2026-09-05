@@ -59,12 +59,6 @@ func (d *DynUpdate) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	if len(r.Question) == 1 && !inZone(d.Zone, r.Question[0].Name) {
 		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
 	}
-	// dynupdate precedes cache so that authoritative answers cannot become
-	// stale locally. Transfer requests still need the transfer plugin's ACLs.
-	if len(r.Question) == 1 && (r.Question[0].Qtype == dns.TypeAXFR || r.Question[0].Qtype == dns.TypeIXFR) {
-		return plugin.NextOrFailure(d.Name(), d.Next, ctx, w, r)
-	}
-
 	view, err := d.snapshot()
 	if err != nil {
 		return dns.RcodeServerFailure, err
@@ -90,6 +84,10 @@ func (d *DynUpdate) Transfer(zone string, serial uint32) (<-chan []dns.RR, error
 
 // Name implements the plugin.Handler interface.
 func (d *DynUpdate) Name() string { return pluginName }
+
+// CacheBypassZones prevents caching of mutable data without bypassing other
+// middleware between cache and this authoritative backend.
+func (d *DynUpdate) CacheBypassZones() []string { return []string{d.Zone} }
 
 func (d *DynUpdate) snapshot() (*file.File, error) {
 	d.mu.Lock()

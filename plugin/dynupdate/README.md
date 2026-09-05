@@ -35,9 +35,10 @@ re-signing are not supported. The plugin is experimental; it does not provide
 multi-primary replication or atomic transactions across zones. Do not expose
 the UPDATE service without network controls in addition to TSIG authentication.
 
-The plugin runs before *cache*, so authoritative queries for the dynamic zone
-always read its current snapshot, including after negative or positive answers.
-Other zones continue through the plugin chain normally. External recursive
+The *cache* plugin automatically bypasses dynamic zones, so their authoritative
+queries always read the current snapshot, including after negative or positive
+answers. Other middleware, such as *header*, still processes those requests and
+responses, and unrelated zones remain cacheable. External recursive
 caches can still retain old answers until their TTL expires. AXFR requests
 pass through *transfer* and its access controls. Successful changes trigger
 best-effort NOTIFY; bursts are coalesced to one in-flight notification per zone
