@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/pkg/log"
+	"github.com/coredns/coredns/plugin/pkg/transport"
 	"github.com/coredns/coredns/plugin/pkg/up"
 )
 
@@ -19,6 +20,7 @@ type Proxy struct {
 	proxyName string
 
 	transport *Transport
+	doq       *doqTransport
 	protocol  string
 
 	dohMethod string
@@ -45,6 +47,9 @@ func NewProxy(proxyName, addr, protocol string) *Proxy {
 		health:      NewHealthChecker(proxyName, protocol, true, "."),
 		proxyName:   proxyName,
 	}
+	if protocol == transport.QUIC {
+		p.doq = newDoQTransport(proxyName, addr)
+	}
 
 	runtime.SetFinalizer(p, (*Proxy).finalizer)
 	return p
@@ -55,18 +60,33 @@ func (p *Proxy) Addr() string { return p.addr }
 // SetTLSConfig sets the TLS config in the lower p.transport and in the healthchecking client.
 func (p *Proxy) SetTLSConfig(cfg *tls.Config) {
 	p.transport.SetTLSConfig(cfg)
-	p.health.SetTLSConfig(cfg)
+	if p.doq != nil {
+		p.doq.setTLSConfig(cfg)
+	}
+	if p.health != nil {
+		p.health.SetTLSConfig(cfg)
+	}
 	if p.transport.httpClient != nil {
 		p.transport.httpClient.Transport.(*http.Transport).TLSClientConfig = cfg
 	}
 }
 
 // SetExpire sets the expire duration in the lower p.transport.
-func (p *Proxy) SetExpire(expire time.Duration) { p.transport.SetExpire(expire) }
+func (p *Proxy) SetExpire(expire time.Duration) {
+	p.transport.SetExpire(expire)
+	if p.doq != nil {
+		p.doq.setExpire(expire)
+	}
+}
 
 // SetMaxAge sets the maximum connection lifetime in the lower p.transport.
 // A value of 0 (default) disables max-age.
-func (p *Proxy) SetMaxAge(maxAge time.Duration) { p.transport.SetMaxAge(maxAge) }
+func (p *Proxy) SetMaxAge(maxAge time.Duration) {
+	p.transport.SetMaxAge(maxAge)
+	if p.doq != nil {
+		p.doq.setMaxAge(maxAge)
+	}
+}
 
 // SetMaxIdleConns sets the maximum idle connections per transport type.
 // A value of 0 means unlimited (default).
@@ -126,18 +146,37 @@ func (p *Proxy) Down(maxfails uint32) bool {
 	return fails > maxfails
 }
 
-// Stop close stops the health checking goroutine.
-func (p *Proxy) Stop()      { p.probe.Stop() }
-func (p *Proxy) finalizer() { p.transport.Stop() }
+// Stop stops health checking and closes the DoQ transport, when configured.
+func (p *Proxy) Stop() {
+	p.probe.Stop()
+	if p.doq != nil {
+		p.doq.stopTransport()
+	}
+}
+
+func (p *Proxy) finalizer() {
+	if p.doq != nil {
+		p.doq.stopTransport()
+		return
+	}
+	p.transport.Stop()
+}
 
 // Start starts the proxy's healthchecking.
 func (p *Proxy) Start(duration time.Duration) {
 	p.probe.Start(duration)
+	if p.doq != nil {
+		p.doq.start()
+		return
+	}
 	p.transport.Start()
 }
 
 func (p *Proxy) SetReadTimeout(duration time.Duration) {
 	p.readTimeout = duration
+	if p.doq != nil {
+		p.doq.setReadTimeout(duration)
+	}
 }
 
 // incrementFails increments the number of fails safely.
@@ -153,6 +192,9 @@ func (p *Proxy) incrementFails() {
 // SetLocalAddress sets the local address for the proxy, used as the source address for outbound connections.
 func (p *Proxy) SetLocalAddress(addr net.IP) {
 	p.transport.SetLocalAddress(addr)
+	if p.doq != nil {
+		p.doq.setLocalAddress(addr)
+	}
 	if p.transport.httpClient != nil {
 		httpTransport := p.transport.httpClient.Transport.(*http.Transport)
 		if addr == nil {

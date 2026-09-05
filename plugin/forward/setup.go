@@ -186,7 +186,12 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 	tlsServerNames := make([]string, len(toHosts))
 	perServerNameProxyCount := make(map[string]int)
 	transports := make([]string, len(toHosts))
-	allowedTrans := map[string]bool{"dns": true, "tls": true, "https": true}
+	allowedTrans := map[string]bool{
+		transport.DNS:   true,
+		transport.TLS:   true,
+		transport.QUIC:  true,
+		transport.HTTPS: true,
+	}
 	for i, hostWithZone := range toHosts {
 		host, serverName := splitZone(hostWithZone)
 		trans, h := parse.Transport(host)
@@ -194,7 +199,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		if !allowedTrans[trans] {
 			return f, fmt.Errorf("'%s' is not supported as a destination protocol in forward: %s", trans, host)
 		}
-		if trans == transport.TLS && serverName != "" {
+		if (trans == transport.TLS || trans == transport.QUIC) && serverName != "" {
 			if f.tlsServerName != "" {
 				return f, fmt.Errorf("both forward ('%s') and proxy level ('%s') TLS servernames are set for upstream proxy '%s'", f.tlsServerName, serverName, host)
 			}
@@ -237,7 +242,7 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		}
 
 		// Only set this for proxies that need it.
-		if transports[i] == transport.TLS {
+		if transports[i] == transport.TLS || transports[i] == transport.QUIC {
 			if tlsConfig, ok := perServerNameTlsConfig[tlsServerNames[i]]; ok {
 				f.proxies[i].SetTLSConfig(tlsConfig)
 			} else {
@@ -250,8 +255,8 @@ func parseStanza(c *caddy.Controller) (*Forward, error) {
 		f.proxies[i].SetMaxIdleConns(f.maxIdleConns)
 		f.proxies[i].SetReadTimeout(f.readTimeout)
 		f.proxies[i].GetHealthchecker().SetRecursionDesired(f.opts.HCRecursionDesired)
-		// when TLS is used, checks are set to tcp-tls
-		if f.opts.ForceTCP && transports[i] != transport.TLS {
+		// DoT and DoQ health checkers already use their configured transport.
+		if f.opts.ForceTCP && transports[i] != transport.TLS && transports[i] != transport.QUIC {
 			f.proxies[i].GetHealthchecker().SetTCPTransport()
 		}
 		f.proxies[i].GetHealthchecker().SetDomain(f.opts.HCDomain)
