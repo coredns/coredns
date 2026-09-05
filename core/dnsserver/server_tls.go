@@ -1,3 +1,5 @@
+//go:build !notls
+
 package dnsserver
 
 import (
@@ -14,6 +16,8 @@ import (
 	"github.com/miekg/dns"
 	"github.com/pires/go-proxyproto"
 )
+
+func init() { Register(transport.TLS, NewServerTLS, transport.TLSPort) }
 
 // ServerTLS represents an instance of a TLS-over-DNS-server.
 type ServerTLS struct {

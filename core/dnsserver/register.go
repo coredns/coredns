@@ -90,6 +90,8 @@ func (h *dnsContext) InspectServerBlocks(_sourceFile string, serverBlocks []cadd
 					port = transport.HTTPSPort
 				case transport.HTTPS3:
 					port = transport.HTTPSPort
+				default:
+					port = transport.Ports[trans]
 				}
 			}
 
@@ -320,6 +322,24 @@ func groupConfigsByListenAddr(configs []*Config) (map[string][]*Config, error) {
 	return groups, nil
 }
 
+var transportServers = make(map[string]func(string, []*Config) (caddy.Server, error))
+
+type NewServerFunc[T caddy.Server] func(string, []*Config) (T, error)
+
+func Register[T caddy.Server](tr string, action NewServerFunc[T], port string) {
+	if tr == "" {
+		panic("server must have a transport")
+	}
+	if _, dup := transportServers[tr]; dup {
+		panic("server for " + tr + ":// already registered")
+	}
+	transport.Register(tr, port)
+	transportServers[tr] = func(addr string, group []*Config) (caddy.Server, error) {
+		s, err := action(addr, group)
+		return s, err
+	}
+}
+
 // makeServersForGroup creates servers for a specific transport and group.
 // It creates as many servers as specified in the NumSockets configuration.
 // If the NumSockets param is not specified, one server is created by default.
@@ -336,50 +356,16 @@ func makeServersForGroup(addr string, group []*Config) ([]caddy.Server, error) {
 
 	var servers []caddy.Server
 	for range numSockets {
-		// switch on addr
-		switch tr, _ := parse.Transport(addr); tr {
-		case transport.DNS:
-			s, err := NewServer(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
-
-		case transport.TLS:
-			s, err := NewServerTLS(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
-
-		case transport.QUIC:
-			s, err := NewServerQUIC(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
-
-		case transport.GRPC:
-			s, err := NewServergRPC(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
-
-		case transport.HTTPS:
-			s, err := NewServerHTTPS(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
-
-		case transport.HTTPS3:
-			s, err := NewServerHTTPS3(addr, group)
-			if err != nil {
-				return nil, err
-			}
-			servers = append(servers, s)
+		tr, _ := parse.Transport(addr)
+		f, ok := transportServers[tr]
+		if !ok {
+			continue
 		}
+		s, err := f(addr, group)
+		if err != nil {
+			return nil, err
+		}
+		servers = append(servers, s)
 	}
 	return servers, nil
 }
