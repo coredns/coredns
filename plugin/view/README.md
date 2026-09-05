@@ -131,14 +131,14 @@ functions defined below.
 
 * `bufsize() int`: the EDNS0 buffer size advertised in the query
 * `class() string`: class of the request (IN, CH, ...)
-* `client_ip() string`: client's IP address, for IPv6 addresses these are enclosed in brackets: `[::1]`
+* `client_ip() string`: client's IP address
 * `do() bool`: the EDNS0 DO (DNSSEC OK) bit set in the query
 * `id() int`: query ID
 * `name() string`: name of the request (the domain name requested ending with a dot): `example.com.`
 * `opcode() int`: query OPCODE
 * `port() string`: client's port
 * `proto() string`: protocol used (tcp or udp)
-* `server_ip() string`: server's IP address; for IPv6 addresses these are enclosed in brackets: `[::1]`
+* `server_ip() string`: server's IP address
 * `server_port() string` : server's port
 * `size() int`: request size in bytes
 * `type() string`: type of the request (A, AAAA, TXT, ...)
@@ -154,3 +154,7 @@ The view plugin will publish the following metadata, if the *metadata*
 plugin is also enabled:
 
 * `view/name`: the name of the view handling the current request
+
+## Bugs
+
+For requests over UDP `server_ip()` returns bound address, which can be the wildcard address (`0.0.0.0` or `::`), rather than local address the datagram was actually sent to.
