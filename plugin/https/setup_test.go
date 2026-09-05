@@ -15,6 +15,7 @@ func TestSetup(t *testing.T) {
 		shouldErr              bool
 		expectedErrContent     string
 		expectedMaxConnections *int
+		expectedMaxStreams     *int
 	}{
 		// Valid configurations
 		{
@@ -32,6 +33,22 @@ func TestSetup(t *testing.T) {
 			}`,
 			shouldErr:              false,
 			expectedMaxConnections: intPtr(200),
+		},
+		{
+			input: `https {
+				max_streams 100
+			}`,
+			shouldErr:          false,
+			expectedMaxStreams: intPtr(100),
+		},
+		{
+			input: `https {
+				max_connections 200
+				max_streams 100
+			}`,
+			shouldErr:              false,
+			expectedMaxConnections: intPtr(200),
+			expectedMaxStreams:     intPtr(100),
 		},
 		// Zero values (unbounded)
 		{
@@ -67,6 +84,56 @@ func TestSetup(t *testing.T) {
 			input: `https {
 				max_connections 100
 				max_connections 200
+			}`,
+			shouldErr:          true,
+			expectedErrContent: "already defined",
+		},
+		{
+			input: `https {
+				max_streams
+			}`,
+			shouldErr:          true,
+			expectedErrContent: "Wrong argument count",
+		},
+		{
+			input: `https {
+				max_streams abc
+			}`,
+			shouldErr:          true,
+			expectedErrContent: "invalid max_streams value",
+		},
+		{
+			input: `https {
+				max_streams 0
+			}`,
+			shouldErr:          false,
+			expectedMaxStreams: intPtr(0),
+		},
+		{
+			input: `https {
+				max_streams -1
+			}`,
+			shouldErr:          true,
+			expectedErrContent: "must be a non-negative integer",
+		},
+		{
+			input: `https {
+				max_streams 4294967295
+			}`,
+			shouldErr:          false,
+			expectedMaxStreams: intPtr(4294967295),
+		},
+		{
+			input: `https {
+				max_streams 4294967296
+			}`,
+			shouldErr:          true,
+			expectedErrContent: "must not exceed",
+		},
+		{
+			input: `https {
+				max_streams 100
+				max_streams 200
 			}`,
 			shouldErr:          true,
 			expectedErrContent: "already defined",
@@ -110,6 +177,7 @@ func TestSetup(t *testing.T) {
 		if !test.shouldErr {
 			config := dnsserver.GetConfig(c)
 			assertIntPtrValue(t, i, test.input, "MaxHTTPSConnections", config.MaxHTTPSConnections, test.expectedMaxConnections)
+			assertIntPtrValue(t, i, test.input, "MaxHTTPSStreams", config.MaxHTTPSStreams, test.expectedMaxStreams)
 		}
 	}
 }
