@@ -26,6 +26,11 @@ func setup(c *caddy.Controller) error {
 
 	c.OnStartup(func() error {
 		ca.viewMetricLabel = dnsserver.GetConfig(c).ViewName
+		for _, h := range dnsserver.GetConfig(c).Handlers() {
+			if b, ok := h.(ZoneBypasser); ok {
+				ca.bypass = append(ca.bypass, b.CacheBypassZones()...)
+			}
+		}
 		return nil
 	})
 
