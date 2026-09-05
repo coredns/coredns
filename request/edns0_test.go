@@ -3,48 +3,31 @@ package request
 import (
 	"testing"
 
+	"github.com/coredns/coredns/plugin/pkg/edns"
+
 	"github.com/miekg/dns"
 )
 
 func TestSupportedOptions(t *testing.T) {
-	tests := []struct {
-		name     string
-		options  []dns.EDNS0
-		expected int
-	}{
-		{
-			name:     "empty options",
-			options:  []dns.EDNS0{},
-			expected: 0,
-		},
-		{
-			name: "all supported options",
-			options: []dns.EDNS0{
-				&dns.EDNS0_NSID{},
-				&dns.EDNS0_EXPIRE{},
-				&dns.EDNS0_COOKIE{},
-				&dns.EDNS0_TCP_KEEPALIVE{},
-				&dns.EDNS0_PADDING{},
-			},
-			expected: 5,
-		},
-		{
-			name: "mixed supported and unsupported options",
-			options: []dns.EDNS0{
-				&dns.EDNS0_NSID{},
-				&dns.EDNS0_LOCAL{Code: 65001}, // unsupported code
-				&dns.EDNS0_PADDING{},
-			},
-			expected: 2,
-		},
+	const supportedCode = 65001
+	edns.SetSupportedOption(supportedCode)
+
+	want := &dns.EDNS0_LOCAL{Code: supportedCode}
+	options := []dns.EDNS0{
+		&dns.EDNS0_NSID{},
+		&dns.EDNS0_EXPIRE{},
+		&dns.EDNS0_COOKIE{},
+		&dns.EDNS0_TCP_KEEPALIVE{},
+		&dns.EDNS0_PADDING{},
+		&dns.EDNS0_LOCAL{Code: supportedCode + 1},
+		want,
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			result := supportedOptions(tc.options)
-			if len(result) != tc.expected {
-				t.Errorf("Expected %d supported options, got %d", tc.expected, len(result))
-			}
-		})
+	got := supportedOptions(options)
+	if len(got) != 1 {
+		t.Fatalf("Expected one explicitly supported option, got %d: %v", len(got), got)
+	}
+	if got[0] != want {
+		t.Errorf("Expected explicitly supported option %v, got %v", want, got[0])
 	}
 }

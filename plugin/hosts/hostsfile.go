@@ -300,7 +300,7 @@ func (p *lineParser) emit() {
 
 func (p *lineParser) addName(field string) {
 	name := plugin.Name(field).Normalize()
-	if plugin.Zones(p.h.Origins).Matches(name) == "" {
+	if !plugin.Zones(p.h.Origins).Contains(name) {
 		// name is not in Origins
 		return
 	}

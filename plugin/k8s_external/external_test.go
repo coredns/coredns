@@ -4,9 +4,12 @@ import (
 	"context"
 	"testing"
 
+	"github.com/coredns/coredns/core/dnsserver"
+	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/kubernetes"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
+	"github.com/coredns/coredns/plugin/pkg/upstream"
 	"github.com/coredns/coredns/plugin/test"
 	"github.com/coredns/coredns/request"
 
@@ -52,6 +55,49 @@ func TestExternal(t *testing.T) {
 		if err = test.SortAndCheck(resp, tc); err != nil {
 			t.Errorf("Test %d: %v", i, err)
 		}
+	}
+}
+
+// TestExternalCNAMENilUpstreamResponse checks that a CNAME-hosted service does not
+// panic when the internal upstream lookup returns no response, e.g. when a plugin
+// like acl's drop action returns success without writing.
+func TestExternalCNAMENilUpstreamResponse(t *testing.T) {
+	k := kubernetes.New([]string{"cluster.local."})
+	k.Namespaces = map[string]struct{}{"testns": {}}
+	k.APIConn = &external{}
+
+	cfg := &dnsserver.Config{
+		Zone: ".",
+		Plugin: []plugin.Plugin{
+			func(plugin.Handler) plugin.Handler {
+				return plugin.HandlerFunc(func(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
+					return dns.RcodeSuccess, nil
+				})
+			},
+		},
+	}
+	srv, err := dnsserver.NewServer("", []*dnsserver.Config{cfg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.WithValue(context.Background(), dnsserver.Key{}, srv)
+
+	e := New()
+	e.Zones = []string{"example.com."}
+	e.headless = true
+	e.Next = test.NextHandler(dns.RcodeSuccess, nil)
+	e.externalFunc = k.External
+	e.externalAddrFunc = externalAddress
+	e.externalSerialFunc = externalSerial
+	e.upstream = upstream.New()
+
+	m := new(dns.Msg)
+	m.SetQuestion("svc12.testns.example.com.", dns.TypeA)
+	w := dnstest.NewRecorder(&test.ResponseWriter{})
+
+	_, err = e.ServeDNS(ctx, w, m)
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
 	}
 }
 

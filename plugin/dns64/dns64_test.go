@@ -554,3 +554,30 @@ func (fu *fakeUpstream) Lookup(_ context.Context, _ request.Request, name string
 
 	return fu.resp, nil
 }
+
+type nilUpstream struct{}
+
+func (n *nilUpstream) Lookup(_ context.Context, _ request.Request, _ string, _ uint16) (*dns.Msg, error) {
+	return nil, nil
+}
+func TestDNS64NilUpstreamResponse(t *testing.T) {
+	_, pfx, _ := net.ParseCIDR("64:ff9b::/96")
+
+	d := DNS64{
+		Prefix:   pfx,
+		Upstream: &nilUpstream{},
+	}
+
+	req := new(dns.Msg)
+	req.SetQuestion("example.com.", dns.TypeAAAA)
+
+	origResponse := new(dns.Msg)
+	origResponse.SetReply(req)
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{RemoteIP: "::1"})
+
+	_, err := d.DoDNS64(context.Background(), rec, req, origResponse)
+	if err == nil {
+		t.Error("Expected error when upstream returns nil response, got nil")
+	}
+}

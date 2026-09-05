@@ -68,8 +68,7 @@ type AutoPath struct {
 func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
-	zone := plugin.Zones(a.Zones).Matches(state.Name())
-	if zone == "" {
+	if !plugin.Zones(a.Zones).Contains(state.Name()) {
 		return plugin.NextOrFailure(a.Name(), a.Next, ctx, w, r)
 	}
 
@@ -124,6 +123,10 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 			continue
 		}
 
+		if nw.Msg == nil {
+			continue
+		}
+
 		if nw.Msg.Rcode == dns.RcodeNameError {
 			continue
 		}
@@ -136,7 +139,7 @@ func (a *AutoPath) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Ms
 		autoPathCount.WithLabelValues(metrics.WithServer(ctx)).Add(1)
 		return rcode, err
 	}
-	if plugin.ClientWrite(firstRcode) {
+	if plugin.ClientWrite(firstRcode) && firstReply != nil {
 		w.WriteMsg(firstReply)
 	}
 	return firstRcode, firstErr

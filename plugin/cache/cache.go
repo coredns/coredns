@@ -3,6 +3,7 @@ package cache
 
 import (
 	"encoding/binary"
+	"fmt"
 	"hash/fnv"
 	"net"
 	"strings"
@@ -413,6 +414,9 @@ func (w *ResponseWriter) Hijack() {
 
 // WriteMsg implements the dns.ResponseWriter interface.
 func (w *ResponseWriter) WriteMsg(res *dns.Msg) error {
+	if res == nil {
+		return fmt.Errorf("cache: response message is nil")
+	}
 	res = res.Copy()
 	w.lastItem = nil
 	mt := cacheResponseType(res, w.now().UTC())
@@ -468,7 +472,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 	// and key is valid
 	switch mt {
 	case response.NoError, response.Delegation:
-		if plugin.Zones(w.pexcept).Matches(m.Question[0].Name) != "" {
+		if plugin.Zones(w.pexcept).Contains(m.Question[0].Name) {
 			// zone is in exception list, do not cache
 			return
 		}
@@ -493,7 +497,7 @@ func (w *ResponseWriter) set(m *dns.Msg, key uint64, mt response.Type, duration 
 		}
 
 	case response.NameError, response.NoData, response.ServerError:
-		if plugin.Zones(w.nexcept).Matches(m.Question[0].Name) != "" {
+		if plugin.Zones(w.nexcept).Contains(m.Question[0].Name) {
 			// zone is in exception list, do not cache
 			return
 		}
