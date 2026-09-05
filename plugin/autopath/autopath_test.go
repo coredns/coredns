@@ -111,7 +111,7 @@ func TestAutoPathNilMsgFromNext(t *testing.T) {
 	ap.Zones = []string{"."}
 	// Simulate a plugin like acl's drop action that returns success
 	// without writing a response.
-	ap.Next = test.HandlerFunc(func(_ctx context.Context, w dns.ResponseWriter, _r *dns.Msg) (int, error) {
+	ap.Next = test.HandlerFunc(func(_ctx context.Context, _w dns.ResponseWriter, _r *dns.Msg) (int, error) {
 		return dns.RcodeSuccess, nil
 	})
 	ap.search = []string{"example.org.", "example.com.", "com.", ""}
@@ -123,6 +123,9 @@ func TestAutoPathNilMsgFromNext(t *testing.T) {
 	_, err := ap.ServeDNS(context.TODO(), rec, m)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
+	}
+	if rec.Msg != nil {
+		t.Fatalf("Expected no client write, but the recorder got a message")
 	}
 }
 
