@@ -181,6 +181,41 @@ func TestLookup(t *testing.T) {
 	}
 }
 
+func TestLookupDecimalEscapedOwnerName(t *testing.T) {
+	const zoneData = `campus.edu.              500 IN SOA ns1.outside.edu. root.campus.edu. 8 6048 4000 2419200 6048
+campus.edu.              500 IN NS  ns1.outside.edu.
+has\046dot.campus.edu.   500 IN A   192.0.2.2
+`
+
+	zone, err := Parse(strings.NewReader(zoneData), "campus.edu.", "stdin", 0)
+	if err != nil {
+		t.Fatalf("Expected no error when reading zone, got %q", err)
+	}
+
+	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{"campus.edu.": zone}, Names: []string{"campus.edu."}}}
+	ctx := context.TODO()
+
+	tc := test.Case{
+		Qname: "has\\.dot.campus.edu.", Qtype: dns.TypeA,
+		Answer: []dns.RR{
+			test.A("has\\046dot.campus.edu. 500 IN A 192.0.2.2"),
+		},
+		Ns: []dns.RR{
+			test.NS("campus.edu. 500 IN NS ns1.outside.edu."),
+		},
+	}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	_, err = fm.ServeDNS(ctx, rec, tc.Msg())
+	if err != nil {
+		t.Fatalf("Expected no error, got %v", err)
+	}
+
+	if err := test.SortAndCheck(rec.Msg, tc); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestLookupNil(_t *testing.T) {
 	fm := File{Next: test.ErrorHandler(), Zones: Zones{Z: map[string]*Zone{testzone: nil}, Names: []string{testzone}}}
 	ctx := context.TODO()
