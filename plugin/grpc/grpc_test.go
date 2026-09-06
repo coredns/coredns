@@ -18,6 +18,13 @@ import (
 	grpcgo "google.golang.org/grpc"
 )
 
+// newTestPooledProxy creates a Proxy with a mock transport for testing pooled behavior.
+func newTestPooledProxy(addr string, client pb.DnsServiceClient) *Proxy {
+	tr := newTransport("grpc", addr, nil, 1)
+	tr.connList.Store(&connList{conns: []*grpcConn{{client: client}}})
+	return &Proxy{addr: addr, transport: tr}
+}
+
 func TestGRPC(t *testing.T) {
 	m := &dns.Msg{}
 	msg, err := m.Pack()
@@ -31,37 +38,37 @@ func TestGRPC(t *testing.T) {
 	}{
 		"single_proxy_ok": {
 			proxies: []*Proxy{
-				{client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
+				{addr: "test1", client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
 			},
 			wantErr: false,
 		},
 		"multiple_proxies_ok": {
 			proxies: []*Proxy{
-				{client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
-				{client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
-				{client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
+				{addr: "test1", client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
+				{addr: "test2", client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
+				{addr: "test3", client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
 			},
 			wantErr: false,
 		},
 		"single_proxy_ko": {
 			proxies: []*Proxy{
-				{client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
+				{addr: "test1", client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
 			},
 			wantErr: true,
 		},
 		"multiple_proxies_one_ko": {
 			proxies: []*Proxy{
-				{client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
-				{client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
-				{client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
+				{addr: "test1", client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
+				{addr: "test2", client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
+				{addr: "test3", client: &testServiceClient{dnsPacket: dnsPacket, err: nil}},
 			},
 			wantErr: false,
 		},
 		"multiple_proxies_ko": {
 			proxies: []*Proxy{
-				{client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
-				{client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
-				{client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
+				{addr: "test1", client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
+				{addr: "test2", client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
+				{addr: "test3", client: &testServiceClient{dnsPacket: nil, err: errors.New("")}},
 			},
 			wantErr: true,
 		},
@@ -139,7 +146,7 @@ func TestGRPC_SpansOnErrorPath(t *testing.T) {
 
 	g := newGRPC()
 	g.from = "."
-	g.proxies = []*Proxy{{client: p1}, {client: p2}}
+	g.proxies = []*Proxy{{addr: "test1", client: p1}, {addr: "test2", client: p2}}
 
 	// Ensure deterministic order of the retries: try p1 then p2
 	g.p = new(sequential)
@@ -177,5 +184,25 @@ func TestGRPC_SpansOnErrorPath(t *testing.T) {
 	}
 	if !p2.sawDeadline {
 		t.Fatalf("expected deadline to be set on second proxy call context")
+	}
+}
+
+// TestGRPC_Pooled tests that the pooled path (transport != nil) works correctly via ServeDNS.
+func TestGRPC_Pooled(t *testing.T) {
+	// tests that pool_size > 1 path works: ServeDNS routes through transport
+	m := &dns.Msg{}
+	msg, _ := m.Pack()
+	dnsPacket := &pb.DnsPacket{Msg: msg}
+
+	p := newTestPooledProxy("test", &testServiceClient{dnsPacket: dnsPacket, err: nil})
+	defer p.Stop()
+
+	g := newGRPC()
+	g.from = "."
+	g.proxies = []*Proxy{p}
+
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	if _, err := g.ServeDNS(context.TODO(), rec, m); err != nil {
+		t.Fatal("Expected to receive reply, but didn't")
 	}
 }
