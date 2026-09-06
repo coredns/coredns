@@ -337,6 +337,9 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		if z, ok := s.zones[q[off:]]; ok {
 			for _, h := range z {
 				if h.pluginChain == nil { // zone defined, but has not got any plugins
+					if dshandler != nil {
+						continue
+					}
 					errorAndMetricsFunc(s.Addr, w, r, dns.RcodeRefused)
 					return
 				}
@@ -378,7 +381,7 @@ func (s *Server) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg)
 		}
 	}
 
-	if r.Question[0].Qtype == dns.TypeDS && dshandler != nil && dshandler.pluginChain != nil {
+	if r.Question[0].Qtype == dns.TypeDS && dshandler != nil {
 		// DS request, and we found a zone, use the handler for the query.
 		rcode, _ := dshandler.pluginChain.ServeDNS(ctx, w, r)
 		if !plugin.ClientWrite(rcode) {
