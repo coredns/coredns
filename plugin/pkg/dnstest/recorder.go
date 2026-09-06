@@ -2,6 +2,7 @@
 package dnstest
 
 import (
+	"net"
 	"time"
 
 	"github.com/miekg/dns"
@@ -51,4 +52,19 @@ func (r *Recorder) Write(buf []byte) (int, error) {
 		r.Len += n
 	}
 	return n, err
+}
+
+// Proto gets the protocol used as the transport. This will be udp or tcp.
+func (r *Recorder) Proto() string {
+	// return Write.Proto(), if it is implemented
+	if protoProvider, ok := r.ResponseWriter.(interface{ Proto() string }); ok {
+		return protoProvider.Proto()
+	}
+	if _, ok := r.ResponseWriter.RemoteAddr().(*net.UDPAddr); ok {
+		return "udp"
+	}
+	if _, ok := r.ResponseWriter.RemoteAddr().(*net.TCPAddr); ok {
+		return "tcp"
+	}
+	return "udp"
 }
