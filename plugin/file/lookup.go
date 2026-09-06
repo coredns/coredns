@@ -471,7 +471,11 @@ func (z *Zone) doLookup(ctx context.Context, state request.Request, target strin
 	if m == nil {
 		return nil, Success
 	}
-	if m.Rcode == dns.RcodeNameError {
+	if m.Rcode == dns.RcodeNameError || m.Rcode == dns.RcodeRefused {
+		// A CNAME chasing lookup that lands outside any zone served by this
+		// process comes back REFUSED (see core/dnsserver's no-zone-matched
+		// handler), which otherwise fell through to Success below and turned
+		// a non-existent CNAME target into a bogus NOERROR response.
 		return m.Answer, NameError
 	}
 	if m.Rcode == dns.RcodeServerFailure {

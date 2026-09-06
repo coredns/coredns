@@ -172,6 +172,55 @@ nodata   3600 IN CNAME nodata.example.net.
 	}
 }
 
+// TestFileUpstreamRefused verifies that chasing a CNAME to a target outside
+// any zone served by this process is reported as NXDOMAIN, not NOERROR. The
+// self-lookup used to chase the CNAME comes back REFUSED (core/dnsserver's
+// no-zone-matched handler), which previously fell through to a Success
+// result. See https://github.com/coredns/coredns/issues/6625.
+func TestFileUpstreamRefused(t *testing.T) {
+	name, rm, err := test.TempFile(".", `$ORIGIN example.org.
+@	3600 IN	SOA   sns.dns.icann.org. noc.dns.icann.org. (
+        2017042745 ; serial
+        7200       ; refresh (2 hours)
+        3600       ; retry (1 hour)
+        1209600    ; expire (2 weeks)
+        3600       ; minimum (1 hour)
+)
+
+    3600 IN NS    a.iana-servers.net.
+    3600 IN NS    b.iana-servers.net.
+
+www 3600 IN CNAME www.unserved-zone.invalid.
+`)
+	if err != nil {
+		t.Fatalf("Failed to create zone: %s", err)
+	}
+	defer rm()
+
+	// Only example.org is served here; www.unserved-zone.invalid. matches no
+	// zone in this Corefile at all.
+	corefile := `example.org:0 {
+		file ` + name + `
+	}`
+
+	i, udp, _, err := CoreDNSServerAndPorts(corefile)
+	if err != nil {
+		t.Fatalf("Could not get CoreDNS serving instance: %s", err)
+	}
+	defer i.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("www.example.org.", dns.TypeA)
+
+	r, err := dns.Exchange(m, udp)
+	if err != nil {
+		t.Fatalf("Could not exchange msg: %s", err)
+	}
+	if r.Rcode != dns.RcodeNameError {
+		t.Errorf("Expected rcode %v (NXDOMAIN), got %v", dns.RcodeNameError, r.Rcode)
+	}
+}
+
 // TestFileUpstreamAdditional runs two CoreDNS servers that serve example.org and foo.example.org.
 // example.org contains a cname to foo.example.org; this should be resolved via upstream.Self.
 func TestFileUpstreamAdditional(t *testing.T) {
