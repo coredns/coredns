@@ -16,6 +16,7 @@ func setup(c *caddy.Controller) error {
 	config := dnsserver.GetConfig(c)
 	// addresses will be consolidated over all BIND directives available in that BlocServer
 	all := []string{}
+	netProtos := map[string]string{}
 	ifaces, err := net.Interfaces()
 	if err != nil {
 		log.Warning(plugin.Error("bind", fmt.Errorf("failed to get interfaces list, cannot bind by interface name: %s", err)))
@@ -27,7 +28,24 @@ func setup(c *caddy.Controller) error {
 			return plugin.Error("bind", err)
 		}
 
-		ips, err := listIP(b.addrs, ifaces)
+		// Handle ipv4/ipv6 keywords: expand to the corresponding wildcard
+		// address and record the protocol suffix so the listener creates a
+		// single-stack socket.
+		var addrs []string
+		for _, a := range b.addrs {
+			switch a {
+			case "ipv4":
+				addrs = append(addrs, "0.0.0.0")
+				netProtos["0.0.0.0"] = "4"
+			case "ipv6":
+				addrs = append(addrs, "::")
+				netProtos["::"] = "6"
+			default:
+				addrs = append(addrs, a)
+			}
+		}
+
+		ips, err := listIP(addrs, ifaces)
 		if err != nil {
 			return plugin.Error("bind", err)
 		}
@@ -45,6 +63,9 @@ func setup(c *caddy.Controller) error {
 	}
 
 	config.ListenHosts = all
+	if len(netProtos) > 0 {
+		config.ListenNetProtos = netProtos
+	}
 	return nil
 }
 
