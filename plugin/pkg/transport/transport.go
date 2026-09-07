@@ -24,3 +24,22 @@ const (
 	// HTTPSPort is the default port for DNS-over-HTTPS.
 	HTTPSPort = "443"
 )
+
+var Ports = map[string]string{
+	DNS:    Port,
+	TLS:    TLSPort,
+	QUIC:   QUICPort,
+	GRPC:   GRPCPort,
+	HTTPS:  HTTPSPort,
+	HTTPS3: HTTPSPort,
+}
+
+func Register(name string, port string) {
+	if name == "" {
+		panic("transport must have a name")
+	}
+	if p, dup := Ports[name]; dup && p != port { // allows builtin to "re-register"
+		panic("port for " + name + ":// already registered as " + p)
+	}
+	Ports[name] = port
+}
