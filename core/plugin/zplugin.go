@@ -18,6 +18,7 @@ import (
 	_ "github.com/coredns/coredns/plugin/clouddns"
 	_ "github.com/coredns/coredns/plugin/debug"
 	_ "github.com/coredns/coredns/plugin/dns64"
+	_ "github.com/coredns/coredns/plugin/dnslkg"
 	_ "github.com/coredns/coredns/plugin/dnssec"
 	_ "github.com/coredns/coredns/plugin/dnstap"
 	_ "github.com/coredns/coredns/plugin/erratic"
