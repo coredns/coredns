@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/coredns/coredns/plugin"
+	"github.com/coredns/coredns/plugin/etcd/msg"
 	"github.com/coredns/coredns/plugin/kubernetes/object"
 	"github.com/coredns/coredns/request"
 
@@ -521,5 +522,31 @@ func BenchmarkServicesHeadless(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		_, _ = k.Services(ctx, state, false, plugin.Options{})
+	}
+}
+
+func TestZonePath(t *testing.T) {
+	k := New([]string{"cluster.local.", "0.10.in-addr.arpa."})
+
+	// Configured zones are served from the precomputed table, and must be
+	// identical to what msg.Path would have returned.
+	for _, z := range k.Zones {
+		if got, want := k.zonePath(z), msg.Path(z, coredns); got != want {
+			t.Errorf("zonePath(%q) = %q, want %q", z, got, want)
+		}
+	}
+
+	// Zones that are not in the table fall back to msg.Path. A query that
+	// arrives with different casing must keep that casing, see handler.go.
+	for _, z := range []string{"CLUSTER.LOCAL.", "Cluster.Local.", "example.org."} {
+		if got, want := k.zonePath(z), msg.Path(z, coredns); got != want {
+			t.Errorf("zonePath(%q) = %q, want %q", z, got, want)
+		}
+	}
+
+	// A Kubernetes value built without New must still work.
+	bare := &Kubernetes{}
+	if got, want := bare.zonePath("cluster.local."), msg.Path("cluster.local.", coredns); got != want {
+		t.Errorf("zonePath on zero value = %q, want %q", got, want)
 	}
 }
