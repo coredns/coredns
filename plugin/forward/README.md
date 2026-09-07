@@ -105,7 +105,7 @@ key exchange mechanisms use the Go `crypto/tls` defaults.
   being able to man-in-the-middle your connection to the DNS server you are forwarding to. Because of this,
   it is strongly recommended to set this value when using TLS forwarding.
 
-  Per destination endpoint TLS server name indication is possible in the form of `tls://9.9.9.9%dns.quad9.net`.
+  Per destination endpoint TLS server name indication is possible in the form of `tls://9.9.9.9%dns.quad9.net` and `tls://[2620:fe::9%dns.quad9.net]`.
   `tls_servername` must not be specified when using per destination endpoint TLS server name indication
   as it would introduce clash between the server name indication spectifications. If destination endpoint
   is to be reached via a port other than 853 then the port must be appended to the end of the destination
