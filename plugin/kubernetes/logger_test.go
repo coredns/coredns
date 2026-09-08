@@ -96,3 +96,41 @@ func TestLoggerAdapterWithValues(t *testing.T) {
 		t.Errorf("parent sink polluted by WithValues: %q", buf.String())
 	}
 }
+
+func TestLoggerAdapterWithValuesOddLength(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLoggerAdapter(&buf)
+	defer clog.Discard()
+
+	// An odd-length WithValues list must be padded so that later
+	// key/value pairs stay aligned, matching klog behaviour.
+	sink := l.WithValues("base-key")
+	sink.Info(0, "msg", "call-key", "call-value")
+
+	got := buf.String()
+	if want := `base-key="(MISSING)" call-key="call-value"`; !strings.Contains(got, want) {
+		t.Errorf("log output missing %q, got: %q", want, got)
+	}
+	if strings.Contains(got, `base-key="call-key"`) {
+		t.Errorf("key/value pairs misaligned: %q", got)
+	}
+}
+
+func TestLoggerAdapterDuplicateKeysLastWins(t *testing.T) {
+	var buf bytes.Buffer
+	l := newTestLoggerAdapter(&buf)
+	defer clog.Discard()
+
+	sink := l.WithValues("reflector", "old", "type", "*v1.Service")
+	sink.Error(nil, "msg", "reflector", "new")
+
+	got := buf.String()
+	if strings.Count(got, "reflector=") != 1 {
+		t.Errorf("expected a single reflector key, got: %q", got)
+	}
+	for _, want := range []string{`reflector="new"`, `type="*v1.Service"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("log output missing %q, got: %q", want, got)
+		}
+	}
+}
