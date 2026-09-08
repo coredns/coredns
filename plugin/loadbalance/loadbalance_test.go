@@ -254,3 +254,49 @@ func TestRoundRobinDoesNotMutateInput(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadBalanceWriteMsgNilResponse(t *testing.T) {
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	lw := &LoadBalanceResponseWriter{ResponseWriter: rec, shuffle: randomShuffle}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("WriteMsg panicked on a nil response: %v", r)
+		}
+	}()
+
+	if err := lw.WriteMsg(nil); err == nil {
+		t.Error("WriteMsg on a nil response: got nil error, want an error")
+	}
+}
+
+func TestLoadBalanceWriteMsgEmptyQuestion(t *testing.T) {
+	rec := dnstest.NewRecorder(&test.ResponseWriter{})
+	lw := &LoadBalanceResponseWriter{ResponseWriter: rec, shuffle: randomShuffle}
+
+	// A plugin further down the chain can hand back NOERROR with no question
+	// section at all. See #6051.
+	res := new(dns.Msg)
+	res.Response = true
+	res.Rcode = dns.RcodeSuccess
+	res.Answer = []dns.RR{
+		test.A("endpoint.example.org. 300 IN A 10.240.0.1"),
+		test.A("endpoint.example.org. 300 IN A 10.240.0.2"),
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("WriteMsg panicked on a response with an empty question section: %v", r)
+		}
+	}()
+
+	if err := lw.WriteMsg(res); err != nil {
+		t.Errorf("WriteMsg on a response with an empty question section: got error %v, want nil", err)
+	}
+	if rec.Msg == nil {
+		t.Fatal("WriteMsg did not pass the response on to the client")
+	}
+	if got := len(rec.Msg.Answer); got != 2 {
+		t.Errorf("answer section has %d records, want 2", got)
+	}
+}

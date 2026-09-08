@@ -1,6 +1,8 @@
 package loadbalance
 
 import (
+	"fmt"
+
 	"github.com/miekg/dns"
 )
 
@@ -17,7 +19,18 @@ type LoadBalanceResponseWriter struct {
 
 // WriteMsg implements the dns.ResponseWriter interface.
 func (r *LoadBalanceResponseWriter) WriteMsg(res *dns.Msg) error {
+	if res == nil {
+		return fmt.Errorf("loadbalance: response message is nil")
+	}
+
 	if res.Rcode != dns.RcodeSuccess {
+		return r.ResponseWriter.WriteMsg(res)
+	}
+
+	// A response can arrive with no question section at all, in which case
+	// there is nothing to key the shuffle on and Question[0] below would
+	// panic. Pass it through untouched, as the transfer types do.
+	if len(res.Question) == 0 {
 		return r.ResponseWriter.WriteMsg(res)
 	}
 
