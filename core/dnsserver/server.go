@@ -8,8 +8,18 @@
 // Before stopping an embedded instance, run its shutdown callbacks so that
 // plugins can release resources.
 //
+// A host can register a custom directive with [plugin.Register] before starting
+// Caddy; it does not need to rebuild CoreDNS or modify plugin.cfg. Include the
+// directive in Directives at the desired execution position, and use [GetConfig]
+// and [Config.AddPlugin] in its setup function to add the handler. The setup
+// function can register startup and shutdown callbacks on the Caddy controller.
+// Directives determines execution order, not the order in the Corefile.
+// Each directive must be registered only once per process.
+//
 // Directives and Caddy's plugin registry are process-wide. Configure them
 // before starting any servers and do not mutate them while servers are running.
+// Automatic server-type registration is retained for existing embedding users;
+// it does not start listeners or prevent the host from selecting directives.
 package dnsserver
 
 import (
