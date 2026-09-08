@@ -45,16 +45,17 @@ func setup(c *caddy.Controller) error {
 		return plugin.Error("azure", err)
 	}
 	h.Fall = fall
-	if err := h.Run(ctx); err != nil {
-		cancel()
-		return plugin.Error("azure", err)
-	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
 		h.Next = next
 		return h
 	})
-	c.OnShutdown(func() error { cancel(); return nil })
+	c.OnStartup(func() error { return h.Run(ctx) })
+	c.OnShutdown(func() error {
+		cancel()
+		h.updates.Wait()
+		return nil
+	})
 	return nil
 }
 

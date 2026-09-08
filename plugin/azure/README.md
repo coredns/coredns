@@ -10,6 +10,19 @@ The azure plugin is useful for serving zones from Microsoft Azure DNS. The *azur
 all the DNS records supported by Azure, viz. A, AAAA, CNAME, MX, NS, PTR, SOA, SRV, and TXT
 record types. NS record type is not supported by azure private DNS.
 
+Zone data is loaded asynchronously after startup and refreshed every minute.
+An unavailable zone or zone-listing error is logged without preventing CoreDNS from
+starting or other configured zones from being updated. Each zone listing,
+including retries and pagination, has a one-minute timeout.
+Configuration and credential initialization errors still prevent startup.
+
+Until a zone has been successfully loaded, queries for it return SERVFAIL unless
+`fallthrough` is explicitly configured. Only complete, successful updates replace
+the in-memory zone. Failed updates, including a deleted Azure zone returning an
+error, retain the last successfully loaded data and are retried. Remove the zone
+from the Corefile to stop serving this retained data. Snapshots are not persisted
+across restarts or configuration reloads.
+
 ## Syntax
 
 ~~~ txt
