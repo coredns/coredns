@@ -126,6 +126,8 @@ func TestLess_EdgeCases(t *testing.T) {
 		{`a\.b.example`, `a\046b.example`, true, 0},
 		{`0.example`, `\0.example`, true, 0},
 		{`01.example`, `\01.example`, true, 0},
+		{`a\.b.example`, `a\046b.example`, true, 0},
+		{`\\.example`, `\092.example`, true, 0},
 	}
 	for i, test := range tests {
 		variants := []struct{ a, b string }{
