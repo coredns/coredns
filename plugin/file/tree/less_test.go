@@ -94,64 +94,63 @@ func TestLess_ConcurrentNameAccess(t *testing.T) {
 }
 
 func TestLess_EdgeCases(t *testing.T) {
+	// For every case four variants are synthesized:
+	//  - a  b
+	//  - a. b
+	//  - a  b.
+	//  - a. b.
+	//
+	// For each variant commutativity is tested.
 	tests := []struct {
-		a    string
-		b    string
-		want int
+		a, b     string
+		variants bool
+		want     int
 	}{
-		{``, ``, 0},
-		{``, `\000`, -1},
-		{``, `example.`, -1},
-		{`a.example.`, `a-b.example.`, -1},
-		{`a.example.`, `a*.example.`, -1},
-		{`a.example.`, `a\000.example.`, -1},
-		{`a.eXaMpLe.`, `a.example.`, 0},
-		{`.`, `\000.`, -1},
-		{`\000\0320 \"\046@*.`, `\000\032\048\032\092\034\046\064\042.`, 0},
-		{`<=>?@ABCDE.`, `\060\061\062\063\064\065\066\067\068\069.`, 0},
-		{`café.example.`, `CAFÉ.example.`, 1}, // é (\195\169) > É (\195\137)
+		{``, ``, true, 0},
+		{``, `\000`, true, -1},
+		{``, `\.`, true, -1},
+		{`\.`, `\.`, true, 0},
+		{``, `example`, true, -1},
+		{`example`, `example`, true, 0},
+		{`a\.example`, `a.example`, true, -1},
+		{`a.example`, `a-b.example`, true, -1},
+		{`a.example`, `a*.example`, true, -1},
+		{`a.example`, `a\000.example`, true, -1},
+		{`a.eXaMpLe`, `a.example`, true, 0},
+		{`\000\0320 \"\046@*`, `\000\032\048\032\034\046\064\042`, true, 0},
+		{`<=>?@ABCDE`, `\060\061\062\063\064\065\066\067\068\069`, true, 0},
+		{`<=>?@ABCDE`, `\060\061\062\063\064\097\098\099\100\101`, true, 0},
+		{`café.example`, `CAFÉ.example`, true, 1}, // é (\195\169) > É (\195\137)
+		{`\\065.example`, `\\097.example`, true, -1},
+		{``, `\`, false, 0},
+		{`a\.b.example`, `a\046b.example`, true, 0},
+		{`0.example`, `\0.example`, true, 0},
+		{`01.example`, `\01.example`, true, 0},
 	}
 	for i, test := range tests {
-		if got := less(test.a, test.b); cmp.Compare(got, 0) != test.want {
-			t.Errorf("Test %d: expected less(%s, %s)=%d, got %d", i, test.a, test.b, test.want, cmp.Compare(got, 0))
+		variants := []struct{ a, b string }{
+			{test.a, test.b},
+			{test.a + `.`, test.b},
+			{test.a, test.b + `.`},
+			{test.a + `.`, test.b + `.`},
+		}
+		if !test.variants {
+			variants = variants[:1]
 		}
 
-		if got := less(test.b, test.a); cmp.Compare(got, 0) != -test.want {
-			t.Errorf("Test %d: expected less(%s, %s)=%d, got %d", i, test.b, test.a, -test.want, cmp.Compare(got, 0))
+		for _, variant := range variants {
+			if got := less(variant.a, variant.b); cmp.Compare(got, 0) != test.want {
+				t.Errorf("Test %d: expected less(%s, %s)=%d, got %d", i, variant.a, variant.b, test.want, cmp.Compare(got, 0))
+			}
+
+			if got := less(variant.b, variant.a); cmp.Compare(got, 0) != -test.want {
+				t.Errorf("Test %d: expected less(%s, %s)=%d, got %d", i, variant.b, variant.a, -test.want, cmp.Compare(got, 0))
+			}
 		}
 	}
 }
 
 func BenchmarkLess(b *testing.B) {
-	// The original less function, serving as the benchmark test baseline.
-	less0 := func(a, b string) int {
-		i := 1
-		aj := len(a)
-		bj := len(b)
-		for {
-			ai, oka := dns.PrevLabel(a, i)
-			bi, okb := dns.PrevLabel(b, i)
-			if oka && okb {
-				return 0
-			}
-
-			// sadly this []byte will allocate... TODO(miek): check if this is needed
-			// for a name, otherwise compare the strings.
-			ab := []byte(strings.ToLower(a[ai:aj]))
-			bb := []byte(strings.ToLower(b[bi:bj]))
-			doDDD(ab)
-			doDDD(bb)
-
-			res := bytes.Compare(ab, bb)
-			if res != 0 {
-				return res
-			}
-
-			i++
-			aj, bj = ai, bi
-		}
-	}
-
 	tests := [][]string{
 		{"aaa.powerdns.de", "bbb.powerdns.net.", "xxx.powerdns.com."},
 		{"aaa.POWERDNS.de", "bbb.PoweRdnS.net.", "xxx.powerdns.com."},
@@ -187,6 +186,35 @@ func BenchmarkLess(b *testing.B) {
 			}
 		}
 	})
+}
+
+// The original less function, serving as the benchmark test baseline.
+func less0(a, b string) int {
+	i := 1
+	aj := len(a)
+	bj := len(b)
+	for {
+		ai, oka := dns.PrevLabel(a, i)
+		bi, okb := dns.PrevLabel(b, i)
+		if oka && okb {
+			return 0
+		}
+
+		// sadly this []byte will allocate... TODO(miek): check if this is needed
+		// for a name, otherwise compare the strings.
+		ab := []byte(strings.ToLower(a[ai:aj]))
+		bb := []byte(strings.ToLower(b[bi:bj]))
+		doDDD(ab)
+		doDDD(bb)
+
+		res := bytes.Compare(ab, bb)
+		if res != 0 {
+			return res
+		}
+
+		i++
+		aj, bj = ai, bi
+	}
 }
 
 func doDDD(b []byte) {

@@ -1,61 +1,117 @@
 package tree
 
-import (
-	"github.com/miekg/dns"
-)
-
 // less returns <0 when a is less than b, 0 when they are equal and >0 when a is larger than b.
 //
 // Follows DNSSEC canonical ordering (RFC 4034, Section 6.1):
-//   - \DDD byte is decoded before comparison
+//   - `\DDD` byte is decoded before comparison
 //   - Uppercase A-Z letters are treated as if they were lowercase
 //   - Absence of octet sorts before zero value octet
+//
+// Quirks:
+//   - Trailing `\` that escapes nothing is ignored
+//   - Leading `\` in `\D` and `\DD` is ignored
+//   - Non-FQDN names are assumed to be root-terminated
 func less(a, b string) int {
-	for {
-		ai, _ := dns.PrevLabel(a, 1)
-		bi, _ := dns.PrevLabel(b, 1)
+	var (
+		adot, bdot   int
+		aoff, boff   int
+		alast, blast = stripTrailingBackslash(a), stripTrailingBackslash(b)
+		ac, bc       byte
+	)
 
-		var (
-			ac, bc     byte
-			aoff, boff = ai, bi
-		)
-		for aoff < len(a)-1 && boff < len(b)-1 {
-			ac, aoff = nextByte(a, aoff)
-			if ac-'A' < 26 {
-				ac |= 0x20
-			}
+	if adot, _ = prevDot(a, alast); alast >= 0 && alast == adot {
+		alast--
+	}
+	if bdot, _ = prevDot(b, blast); blast >= 0 && blast == bdot {
+		blast--
+	}
 
-			bc, boff = nextByte(b, boff)
-			if bc-'A' < 26 {
-				bc |= 0x20
+	//   dot       off
+	//    ▼         ▼
+	//  my.exampledomain.com.
+	//     ▲           ▲
+	//   first        last
+
+	for alast >= 0 && blast >= 0 {
+		adot, aoff = prevDot(a, alast)
+		bdot, boff = prevDot(b, blast)
+
+		for aoff <= alast && boff <= blast {
+			ac, aoff = a[aoff], aoff+1
+			if ac == '\\' {
+				ac, aoff = nextEscapedByte(a, aoff, alast)
 			}
+			ac = foldCase(ac)
+
+			bc, boff = b[boff], boff+1
+			if bc == '\\' {
+				bc, boff = nextEscapedByte(b, boff, blast)
+			}
+			bc = foldCase(bc)
 
 			if ac != bc {
 				return int(ac) - int(bc)
 			}
 		}
 
-		if d := (len(a) - aoff) - (len(b) - boff); d != 0 {
+		// Shorter label means less.
+		if d := (alast - aoff) - (blast - boff); d != 0 {
 			return d
 		}
 
-		// Exit early when either of strings is out of labels.
-		if ai == 0 || bi == 0 {
-			return ai - bi
-		}
-
-		a, b = a[:ai], b[:bi]
+		alast = adot - 1
+		blast = bdot - 1
 	}
+
+	// Fewer labels means less.
+	return alast - blast
 }
 
-// nextByte implements \DDD-aware advancement.
-func nextByte(s string, off int) (byte, int) {
-	b := s[off]
-	if b == '\\' && off+3 < len(s) {
-		d0, d1, d2 := s[off+1]-'0', s[off+2]-'0', s[off+3]-'0'
+// stripTrailingBackslash removes hanging backslash that escapes nothing.
+func stripTrailingBackslash(s string) (last int) {
+	last = len(s) - 1
+	for last >= 0 && s[last] == '\\' {
+		last--
+	}
+	if (len(s)-last)%2 == 0 { // `...\` vs `...\\`
+		return len(s) - 2
+	}
+	return len(s) - 1
+}
+
+// prevDot finds label-separator dot in [0, last].
+func prevDot(s string, last int) (dot, first int) {
+	for last >= 0 {
+		if s[last] != '.' {
+			last--
+			continue
+		}
+		off1 := last - 1
+		for off1 >= 0 && s[off1] == '\\' {
+			off1--
+		}
+		if (last-off1)%2 != 0 { // `a\.example` vs `a\\.example`
+			break
+		}
+		last = off1
+	}
+	return last, last + 1
+}
+
+// nextByte implements \DDD-aware and escape-aware advancement.
+func nextEscapedByte(s string, off, last int) (byte, int) {
+	if off+2 <= last {
+		d0, d1, d2 := s[off]-'0', s[off+1]-'0', s[off+2]-'0'
 		if d0 < 10 && d1 < 10 && d2 < 10 {
-			return d0*100 + d1*10 + d2, off + 4
+			return d0*100 + d1*10 + d2, off + 3
 		}
 	}
-	return b, off + 1
+	return s[off], off + 1
+}
+
+func foldCase(c byte) byte {
+	if c-'A' < 26 {
+		c |= 0x20
+	}
+	return c
 }
