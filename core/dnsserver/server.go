@@ -1,10 +1,11 @@
 // Package dnsserver implements CoreDNS as a Caddy server type.
 //
-// Importing this package registers the "dns" server type with Caddy. Programs
-// embedding CoreDNS can import only the plugins they need, call [SetDirectives]
-// before starting a server, and pass an in-memory Corefile to [caddy.Start].
-// They should not call coremain.Run, which provides the command-line program
-// behavior such as flag parsing, signal handling, and blocking until shutdown.
+// By default, importing this package registers the "dns" server type with Caddy.
+// Programs embedding CoreDNS can import only the plugins they need, call
+// [SetDirectives] before starting a server, and pass an in-memory Corefile to
+// [caddy.Start]. They should not import coremain or the generated all-plugin
+// bundle: coremain provides command-line behavior such as flag registration,
+// signal handling, and blocking until shutdown, and registers the server type.
 // Before stopping an embedded instance, run its shutdown callbacks so that
 // plugins can release resources.
 //
@@ -25,6 +26,19 @@
 // before starting any servers and do not mutate them while servers are running.
 // Automatic server-type registration is retained for existing embedding users;
 // it does not start listeners or prevent the host from selecting directives.
+//
+// To control when the DNS server type is registered, build the host with
+// -tags=coredns_manual_registration. This excludes this package's registration
+// init function. After selecting directives and registering host plugins, call
+// [Register] before caddy.Start. Register is idempotent and also works in default
+// builds. It returns an error if another caller already registered a DNS server
+// type, leaving that registration unchanged.
+//
+// The build tag does not disable initialization in Caddy or individual plugins,
+// or make their registries instance-local. Selected plugins must not import
+// coremain, directly or transitively, to avoid its command-line initialization
+// and server-type registration. The CoreDNS command-line program explicitly
+// registers the server type in both build modes.
 package dnsserver
 
 import (

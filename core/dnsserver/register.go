@@ -3,6 +3,8 @@ package dnsserver
 import (
 	"fmt"
 	"net"
+	"slices"
+	"sync"
 	"time"
 
 	"github.com/coredns/caddy"
@@ -16,7 +18,22 @@ import (
 
 const serverType = "dns"
 
-func init() {
+// Register registers the DNS server type with Caddy. Repeated calls return the
+// result of the first call without registering again. An existing server type
+// registered by another caller is left unchanged and causes an error.
+//
+// Default builds call Register automatically. When built with the
+// coredns_manual_registration tag, an embedding host must call Register before
+// starting Caddy. Register neither registers plugins nor starts listeners.
+//
+// Concurrent calls to Register are safe, but the first call must not run
+// concurrently with other Caddy configuration or startup operations.
+func Register() error { return registerServerType() }
+
+var registerServerType = sync.OnceValue(func() error {
+	if slices.Contains(caddy.ListPlugins()["server_types"], serverType) {
+		return fmt.Errorf("dnsserver: server type %q already registered", serverType)
+	}
 	caddy.RegisterServerType(serverType, caddy.ServerType{
 		Directives: func() []string { return Directives },
 		DefaultInput: func() caddy.Input {
@@ -28,7 +45,8 @@ func init() {
 		},
 		NewContext: newContext,
 	})
-}
+	return nil
+})
 
 func newContext(_i *caddy.Instance) caddy.Context {
 	return &dnsContext{keysToConfigs: make(map[string]*Config)}

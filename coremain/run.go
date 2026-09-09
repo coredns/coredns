@@ -17,6 +17,9 @@ import (
 )
 
 func init() {
+	if err := dnsserver.Register(); err != nil {
+		panic(err)
+	}
 	caddy.DefaultConfigFile = "Corefile"
 	caddy.Quiet = true // don't show init stuff from caddy
 	setVersion()

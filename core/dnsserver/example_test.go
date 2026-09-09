@@ -19,8 +19,18 @@ func ExampleSetDirectives() {
 	if err := dnsserver.SetDirectives([]string{"bind", "whoami"}); err != nil {
 		panic(err)
 	}
-	fmt.Println(caddy.ValidDirectives("dns"))
+	fmt.Println(dnsserver.Directives)
 	// Output: [bind whoami]
+}
+
+func ExampleRegister() {
+	// Required before caddy.Start in builds with coredns_manual_registration;
+	// harmless when the default import-time registration has already run.
+	if err := dnsserver.Register(); err != nil {
+		panic(err)
+	}
+	fmt.Println("registered")
+	// Output: registered
 }
 
 func Example_embedding() {
@@ -36,6 +46,9 @@ func Example_embedding() {
 	// Import only the plugins the host needs and set their execution order
 	// before starting the first server.
 	dnsserver.Directives = []string{"bind", "whoami"}
+	if err := dnsserver.Register(); err != nil {
+		panic(err)
+	}
 	caddy.Quiet = true
 	dnsserver.Quiet = true
 
