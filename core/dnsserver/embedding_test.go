@@ -92,7 +92,9 @@ func TestEmbeddingInvalidPlugin(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			dnsserver.Directives = tc.directives
+			if err := dnsserver.SetDirectives(tc.directives); err != nil {
+				t.Fatal(err)
+			}
 			instance, err := caddy.Start(caddy.CaddyfileInput{
 				Filepath:       "Corefile",
 				Contents:       []byte(tc.config),
@@ -124,14 +126,20 @@ func TestEmbeddingDoesNotRegisterCLIFlags(t *testing.T) {
 
 func configureEmbedding(t *testing.T) {
 	t.Helper()
-	registerEmbeddingObserver.Do(func() {
-		plugin.Register("test_observe", setupEmbeddingObserver)
-	})
 	oldDirectives, oldCaddyQuiet, oldDNSQuiet := dnsserver.Directives, caddy.Quiet, dnsserver.Quiet
 	t.Cleanup(func() {
 		dnsserver.Directives, caddy.Quiet, dnsserver.Quiet = oldDirectives, oldCaddyQuiet, oldDNSQuiet
 	})
-	dnsserver.Directives = []string{"bind", "test_observe", "forward"}
+	directives := []string{"bind", "test_observe", "forward"}
+	if err := dnsserver.SetDirectives(directives); err != nil {
+		t.Fatal(err)
+	}
+	// A host can reuse its input and register a selected plugin after setting
+	// the execution order, as long as both happen before startup.
+	directives[1] = "test_missing"
+	registerEmbeddingObserver.Do(func() {
+		plugin.Register("test_observe", setupEmbeddingObserver)
+	})
 	caddy.Quiet, dnsserver.Quiet = true, true
 }
 

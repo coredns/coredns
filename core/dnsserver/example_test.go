@@ -12,6 +12,17 @@ import (
 	"github.com/miekg/dns"
 )
 
+func ExampleSetDirectives() {
+	oldDirectives := dnsserver.Directives
+	defer func() { dnsserver.Directives = oldDirectives }()
+
+	if err := dnsserver.SetDirectives([]string{"bind", "whoami"}); err != nil {
+		panic(err)
+	}
+	fmt.Println(caddy.ValidDirectives("dns"))
+	// Output: [bind whoami]
+}
+
 func Example_embedding() {
 	oldDirectives := dnsserver.Directives
 	oldCaddyQuiet := caddy.Quiet

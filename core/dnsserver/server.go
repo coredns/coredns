@@ -1,20 +1,25 @@
 // Package dnsserver implements CoreDNS as a Caddy server type.
 //
 // Importing this package registers the "dns" server type with Caddy. Programs
-// embedding CoreDNS can import only the plugins they need, set Directives before
-// starting a server, and pass an in-memory Corefile to [caddy.Start]. They should
-// not call coremain.Run, which provides the command-line program behavior such
-// as flag parsing, signal handling, and blocking until shutdown.
+// embedding CoreDNS can import only the plugins they need, call [SetDirectives]
+// before starting a server, and pass an in-memory Corefile to [caddy.Start].
+// They should not call coremain.Run, which provides the command-line program
+// behavior such as flag parsing, signal handling, and blocking until shutdown.
 // Before stopping an embedded instance, run its shutdown callbacks so that
 // plugins can release resources.
 //
 // A host can register a custom directive with [plugin.Register] before starting
 // Caddy; it does not need to rebuild CoreDNS or modify plugin.cfg. Include the
-// directive in Directives at the desired execution position, and use [GetConfig]
-// and [Config.AddPlugin] in its setup function to add the handler. The setup
-// function can register startup and shutdown callbacks on the Caddy controller.
+// directive in the list passed to SetDirectives at the desired execution
+// position, and use [GetConfig] and [Config.AddPlugin] in its setup function to
+// add the handler. The setup function can register startup and shutdown callbacks
+// on the Caddy controller.
 // Directives determines execution order, not the order in the Corefile.
 // Each directive must be registered only once per process.
+//
+// SetDirectives copies the supplied list and rejects empty or duplicate names.
+// Direct assignment to Directives remains supported for existing callers.
+// Neither entry point imports plugins or registers them on the host's behalf.
 //
 // Directives and Caddy's plugin registry are process-wide. Configure them
 // before starting any servers and do not mutate them while servers are running.
