@@ -12,7 +12,6 @@ import (
 )
 
 //go:fix inline
-func ptrTo[T any](v T) *T { return new(v) }
 
 // dump renders an object for a failure message. %+v prints an aliased pointer field as
 // an address, which hides the value that actually differs, so render as JSON instead.

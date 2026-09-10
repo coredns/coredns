@@ -240,6 +240,3 @@ func formatNilableInt(v *int) string {
 }
 
 //go:fix inline
-func pint(i int) *int {
-	return new(i)
-}

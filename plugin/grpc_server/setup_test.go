@@ -140,9 +140,6 @@ func TestSetup(t *testing.T) {
 }
 
 //go:fix inline
-func intPtr(v int) *int {
-	return new(v)
-}
 
 func assertIntPtrValue(t *testing.T, testIndex int, testInput, fieldName string, actual, expected *int) {
 	t.Helper()
