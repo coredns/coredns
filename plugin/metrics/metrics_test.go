@@ -8,8 +8,10 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"math/big"
 	"net"
 	"net/http"
@@ -24,6 +26,7 @@ import (
 	"github.com/miekg/dns"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/exporter-toolkit/web"
 )
 
 const (
@@ -406,6 +409,63 @@ func TestMetricsTLS(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMetricsTLSValidationErrorDoesNotClaimAddress(t *testing.T) {
+	probe, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("failed to reserve test address: %v", err)
+	}
+	addr := probe.Addr().String()
+	if err := probe.Close(); err != nil {
+		t.Fatalf("failed to release test address: %v", err)
+	}
+
+	met := New(addr)
+	met.tlsConfigPath = "test_data/configs/junk.yml"
+	if err := met.OnStartup(); err == nil {
+		t.Fatal("expected invalid TLS config to fail startup")
+	}
+	if met.lnSetup {
+		t.Fatal("listener marked as set up after failed startup")
+	}
+
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		t.Fatalf("failed startup kept metrics address %s: %v", addr, err)
+	}
+	listener.Close()
+}
+
+func TestMetricsTLSServeErrorReleasesAddress(t *testing.T) {
+	probe, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatalf("failed to reserve test address: %v", err)
+	}
+	addr := probe.Addr().String()
+	if err := probe.Close(); err != nil {
+		t.Fatalf("failed to release test address: %v", err)
+	}
+
+	serveErr := errors.New("injected TLS serve failure")
+	met := New(addr)
+	met.tlsConfigPath = "test_data/configs/empty.yml"
+	met.serveTLS = func(net.Listener, *http.Server, *web.FlagConfig, *slog.Logger) error {
+		return serveErr
+	}
+
+	if err := met.OnStartup(); !errors.Is(err, serveErr) {
+		t.Fatalf("expected injected TLS serve error, got %v", err)
+	}
+	if met.lnSetup {
+		t.Fatal("listener marked as set up after TLS serve failure")
+	}
+
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		t.Fatalf("TLS serve failure kept metrics address %s: %v", addr, err)
+	}
+	listener.Close()
 }
 
 func TestMetrics(t *testing.T) {
