@@ -225,7 +225,8 @@ func TestHandlerRestart(t *testing.T) {
 	if m.Rcode != dns.RcodeSuccess || len(m.TLV) == 0 || m.TLV[0].Type() != dsomessage.TypeRetryDelay {
 		t.Fatalf("Got %v, want RetryDelay", m)
 	}
-	if retryDelay := time.Duration(m.TLV[0].(*dsomessage.RetryDelay).RetryDelay) * time.Millisecond; retryDelay != time.Minute {
+	v := m.TLV[0].(*dsomessage.RetryDelay).RetryDelay
+	if retryDelay := time.Duration(v) * time.Millisecond; retryDelay != time.Minute {
 		t.Errorf("Got RetryDelay=%v, want %v", retryDelay, time.Minute)
 	}
 }
@@ -242,7 +243,8 @@ func TestHandlerShutdown(t *testing.T) {
 	if m.Rcode != dns.RcodeSuccess || len(m.TLV) == 0 || m.TLV[0].Type() != dsomessage.TypeRetryDelay {
 		t.Fatalf("Got %v, want RetryDelay", m)
 	}
-	if retryDelay := time.Duration(m.TLV[0].(*dsomessage.RetryDelay).RetryDelay) * time.Millisecond; retryDelay != time.Hour {
+	v := m.TLV[0].(*dsomessage.RetryDelay).RetryDelay
+	if retryDelay := time.Duration(v) * time.Millisecond; retryDelay != time.Hour {
 		t.Errorf("Got RetryDelay=%v, want %v", retryDelay, time.Hour)
 	}
 }

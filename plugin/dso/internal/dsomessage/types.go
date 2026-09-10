@@ -126,11 +126,16 @@ type (
 
 const (
 	LengthPrefixLen = 2
-	MsgHeaderLen    = 12
-	TLVHeaderLen    = 4
+	// MsgHeaderLen is fixed wire length of DSO message header.
+	MsgHeaderLen = 12
+	// TLVHeaderLen is fixed wire length of [TLVHeader].
+	TLVHeaderLen = 4
 
-	KeepAliveLen   = 8
-	RetryDelayLen  = 4
+	// KeepAliveLen is fixed wire length of [KeepAlive] TLV.
+	KeepAliveLen = 8
+	// RetryDelayLen is fixed wire length of [RetryDelay] TLV.
+	RetryDelayLen = 4
+	// UnsubscribeLen is fixed wire length of [Unsubscribe] TLV.
 	UnsubscribeLen = 2
 
 	// TLSBlockLen is recommended multiple for padding.
@@ -139,56 +144,86 @@ const (
 	// option, ... SHOULD pad the corresponding response to a multiple of 468 octets
 	TLSBlockLen = 468
 
+	// MaxMsgLen is maximum wire length of DSO message.
 	MaxMsgLen = dns.MaxMsgSize
 )
 
 const (
-	TypeKeepAlive         = Type(dns.StatefulTypeKeepAlive)
-	TypeRetryDelay        = Type(dns.StatefulTypeRetryDelay)
+	// TypeKeepAlive is type of KeepAlive TLV.
+	TypeKeepAlive = Type(dns.StatefulTypeKeepAlive)
+	// TypeRetryDelay is type of RetryDelay TLV.
+	TypeRetryDelay = Type(dns.StatefulTypeRetryDelay)
+	// TypeEncryptionPadding is type of EncryptionPadding TLV.
 	TypeEncryptionPadding = Type(dns.StatefulTypeEncryptionPadding)
 
-	TypeSubscribe   Type = 0x0040
-	TypePush        Type = 0x0041
+	// Subscribe is type of Subscribe TLV.
+	TypeSubscribe Type = 0x0040
+	// Push is type of Push TLV.
+	TypePush Type = 0x0041
+	// Unsubscribe is type of Unsubscribe TLV.
 	TypeUnsubscribe Type = 0x0042
-	TypeReconfirm   Type = 0x0043
+	// Reconfirm is type of Reconfirm TLV.
+	TypeReconfirm Type = 0x0043
 )
 
 const (
+	// InactivityTimeoutDefault is default inactivity timeout.
+	//
 	// RFC 8490, Section 6.2: On a new DSO Session, if no explicit DSO Keepalive message exchange
 	// has taken place, the default value ... is 15 seconds.
 	InactivityTimeoutDefault = 15 * 1000
+	// InactivityTimeoutNever is special value that represents "infinity".
+	//
 	// RFC 8490, Section 6.4.2: An inactivity timeout of 0xFFFFFFFF represents "infinity"
 	// and informs the client that it may keep an idle connection open as long as it wishes.
 	InactivityTimeoutNever = 0xFFFFFFFF
 
+	// KeepAliveIntervalDefault is default keepalive interval.
+	//
 	// RFC 8490, Section 6.2: On a new DSO Session, if no explicit DSO Keepalive message exchange
 	// has taken place, the default value ... is 15 seconds.
 	KeepAliveIntervalDefault = 15 * 1000
+	// KeepAliveIntervalRecommended is recommended keepalive interval.
+	//
 	// RFC 8490, Section 6.5.2: By default, it is RECOMMENDED that clients request, and servers
 	// grant, a keepalive interval of 60 minutes.
 	KeepAliveIntervalRecommended = 60 * 60 * 1000
+	// KeepAliveIntervalMin is minimum allowed keepalive interval.
+	//
 	// RFC 8490, Section 7.1: The keepalive interval MUST NOT be less than ten seconds.
 	KeepAliveIntervalMin = 10 * 1000
+	// KeepAliveIntervalNever is special value that represents "infinity".
+	//
 	// RFC 8490, Section 6.5.2: A keepalive interval value of 0xFFFFFFFF represents "infinity"
 	// and informs the client that it should generate no DSO keepalive traffic.
 	KeepAliveIntervalNever = 0xFFFFFFFF
 )
 
 const (
+	// PushTTLRemove is special TTL value for removal.
+	//
 	// RFC 8765, Section 6.3.1: If the TTL has the value 0xFFFFFFFF, then the DNS Resource Record
 	// with the given name, type, class, and RDATA is removed.
 	PushTTLRemove = 0xFFFFFFFF
+	// PushTTLCollectiveRemove is special TTL value for collective removal.
+	//
 	// RFC 8765, Section 6.3.1: If the TTL has the value 0xFFFFFFFE, then this is a 'collective'
 	// remove notification.
 	PushTTLCollectiveRemove = 0xFFFFFFFE
+	// PushTTLAddMin is mininum allowd TTL for addition.
+	//
 	// RFC 8765, Section 6.3.1: If the TTL is in the range 0 to 2,147,483,647 seconds
 	// (0 to 231 - 1, or 0x7FFFFFFF), then a new DNS Resource Record with the given name,
 	// type, class, and RDATA is added.
 	PushTTLAddMin = 0
+	// PushTTLAddMax is maximum allowd TTL for addition.
+	//
 	// RFC 8765, Section 6.3.1: If the TTL is in the range 0 to 2,147,483,647 seconds
 	// (0 to 2^(31) - 1, or 0x7FFFFFFF), then a new DNS Resource Record with the given name,
 	// type, class, and RDATA is added.
 	PushTTLAddMax = 0x7FFFFFFF
+	// MaxPushMsgLen is maximum push message length.
+	//
 	// RFC 8765, Section 6.3.1: Servers may generate PUSH messages up to a maximum DNS message
 	// length of 16,382 bytes, counting from the start of the DSO 12-byte header. Including
 	// the two-byte length prefix that is used to frame DNS over a byte stream like TLS,
@@ -280,6 +315,7 @@ func (h MsgHeader) IsResponse() bool {
 	return h.ID != 0 && h.Response
 }
 
+// Verify checks if header is valid DSO header.
 func (h MsgHeader) Verify() error {
 	if h.ID == 0 && h.Response {
 		return ErrHeader
@@ -668,11 +704,11 @@ func (tlv Push) String() string {
 func (tlv *Push) pack(buf []byte, off int, compression map[string]int) (off1 int, err error) {
 	off1 = off
 	for i, rr := range tlv.Change {
-		if off2, err := dns.PackRR(rr, buf, off1, compression, compression != nil); err == nil {
-			off1 = off2
-		} else {
+		off2, err := dns.PackRR(rr, buf, off1, compression, compression != nil)
+		if err != nil {
 			return off, &PackingError{i, off1, err}
 		}
+		off1 = off2
 	}
 	return off1, nil
 }
@@ -684,12 +720,12 @@ func (tlv *Push) unpack(msg []byte, off int, tlvLen uint16) (off1 int, err error
 	msg = msg[:off+int(tlvLen)]
 	off1 = off
 	for off1 < len(msg) {
-		if rr, off2, err := dns.UnpackRR(msg, off1); err == nil {
-			tlv.Change = append(tlv.Change, rr)
-			off1 = off2
-		} else {
+		rr, off2, err := dns.UnpackRR(msg, off1)
+		if err != nil {
 			return off, fmt.Errorf("%w - %w", errMalformed, &UnpackingError{off1, err})
 		}
+		tlv.Change = append(tlv.Change, rr)
+		off1 = off2
 	}
 	return off1, nil
 }
@@ -882,23 +918,23 @@ func RRLen(rr dns.RR) (l int) {
 	switch rr := rr.(type) {
 	case *dns.AVC:
 		if len(rr.Txt) == 0 {
-			l += 1
+			l++
 		}
 	case *dns.NINFO:
 		if len(rr.ZSData) == 0 {
-			l += 1
+			l++
 		}
 	case *dns.RESINFO:
 		if len(rr.Txt) == 0 {
-			l += 1
+			l++
 		}
 	case *dns.SPF:
 		if len(rr.Txt) == 0 {
-			l += 1
+			l++
 		}
 	case *dns.TXT:
 		if len(rr.Txt) == 0 {
-			l += 1
+			l++
 		}
 	}
 	return l

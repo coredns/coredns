@@ -180,9 +180,8 @@ func (b *Builder) WriteKeepAlive(tlv *KeepAlive) (int, error) {
 			binary.BigEndian.PutUint64(b.msg[b.off+4:], uint64(tlv.InactivityTimeout)<<32|uint64(tlv.KeepAliveInterval))
 			b.off += tlvLen
 			return tlvLen, nil
-		} else {
-			b.err = ErrShortWrite
 		}
+		b.err = ErrShortWrite
 	}
 	return 0, b.err
 }
@@ -196,9 +195,8 @@ func (b *Builder) WriteRetryDelay(tlv *RetryDelay) (int, error) {
 			binary.BigEndian.PutUint32(b.msg[b.off+4:], tlv.RetryDelay)
 			b.off += tlvLen
 			return tlvLen, nil
-		} else {
-			b.err = ErrShortWrite
 		}
+		b.err = ErrShortWrite
 	}
 	return 0, b.err
 }
@@ -211,9 +209,8 @@ func (b *Builder) WriteEncryptionPadding(tlv *EncryptionPadding) (int, error) {
 			binary.BigEndian.PutUint32(b.msg[b.off:], uint32(TypeEncryptionPadding)<<16|uint32(tlv.Padding))
 			b.off += tlvLen
 			return tlvLen, nil
-		} else {
-			b.err = ErrShortWrite
 		}
+		b.err = ErrShortWrite
 	}
 	return 0, b.err
 }
@@ -237,9 +234,8 @@ func (b *Builder) WriteUnsubscribe(tlv *Unsubscribe) (int, error) {
 			binary.BigEndian.PutUint16(b.msg[b.off+4:], tlv.SubscribeID)
 			b.off += tlvLen
 			return tlvLen, nil
-		} else {
-			b.err = ErrShortWrite
 		}
+		b.err = ErrShortWrite
 	}
 	return 0, b.err
 }
