@@ -180,7 +180,7 @@ func (w *weightedRR) topAddressIndex(address []dns.RR) int {
 		case dns.TypeAAAA:
 			ip = ar.(*dns.AAAA).AAAA
 		}
-		ws := w.domains[ar.Header().Name]
+		ws := w.domains[dns.CanonicalName(ar.Header().Name)]
 		for _, w := range ws {
 			if w.address.Equal(ip) {
 				wa.weight = w.value
@@ -288,12 +288,7 @@ func (w *weightedRR) parseWeights(scanner *bufio.Scanner) (map[string]weights, e
 				return nil, fmt.Errorf("wrong domain name:\"%s\" in weight file %s. (Maybe a missing weight value?)",
 					fields[0], w.fileName)
 			}
-			dname = fields[0]
-
-			// add the root domain if it is missing
-			if dname[len(dname)-1] != '.' {
-				dname += "."
-			}
+			dname = dns.CanonicalName(fields[0])
 			var ok bool
 			ws, ok = domains[dname]
 			if !ok {
