@@ -18,6 +18,7 @@ import (
 	"maps"
 	"net"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -128,8 +129,8 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 
 		// compile custom plugin for everything
 		var stack plugin.Handler
-		for i := len(site.Plugin) - 1; i >= 0; i-- {
-			stack = site.Plugin[i](stack)
+		for _, v := range slices.Backward(site.Plugin) {
+			stack = v(stack)
 
 			// register the *handler* also
 			site.registerHandler(stack)

@@ -97,7 +97,7 @@ func getBucketCount(mf *test.MetricFamily, bucketLabel string) (int, error) {
 		return 0, fmt.Errorf("metric point for %s has no 'Buckets' field", mf.Name)
 	}
 
-	bucketsMap, ok := bucketsField.Interface().(map[string]string)
+	bucketsMap, ok := reflect.TypeAssert[map[string]string](bucketsField)
 	if !ok {
 		return 0, fmt.Errorf("'Buckets' field for %s is not a map[string]string", mf.Name)
 	}

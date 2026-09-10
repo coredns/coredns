@@ -36,7 +36,7 @@ func TestQuicSetup(t *testing.T) {
 				max_streams 100
 			}`,
 			shouldErr:              false,
-			expectedMaxStreams:     pint(100),
+			expectedMaxStreams:     new(100),
 			expectedWorkerPoolSize: nil,
 		},
 		{
@@ -45,7 +45,7 @@ func TestQuicSetup(t *testing.T) {
 			}`,
 			shouldErr:              false,
 			expectedMaxStreams:     nil,
-			expectedWorkerPoolSize: pint(1000),
+			expectedWorkerPoolSize: new(1000),
 		},
 		{
 			input: `quic {
@@ -53,8 +53,8 @@ func TestQuicSetup(t *testing.T) {
 				worker_pool_size 1000
 			}`,
 			shouldErr:              false,
-			expectedMaxStreams:     pint(100),
-			expectedWorkerPoolSize: pint(1000),
+			expectedMaxStreams:     new(100),
+			expectedWorkerPoolSize: new(1000),
 		},
 		{
 			input: `quic {
@@ -133,7 +133,7 @@ func TestQuicSetup(t *testing.T) {
 			}`,
 			shouldErr:          true,
 			expectedErrContent: "already defined",
-			expectedMaxStreams: pint(100),
+			expectedMaxStreams: new(100),
 		},
 		{
 			input: `quic {
@@ -142,7 +142,7 @@ func TestQuicSetup(t *testing.T) {
 			}`,
 			shouldErr:              true,
 			expectedErrContent:     "already defined",
-			expectedWorkerPoolSize: pint(1000),
+			expectedWorkerPoolSize: new(1000),
 		},
 		{
 			input: `quic {
@@ -239,6 +239,7 @@ func formatNilableInt(v *int) string {
 	return fmt.Sprintf("%d", *v)
 }
 
+//go:fix inline
 func pint(i int) *int {
-	return &i
+	return new(i)
 }

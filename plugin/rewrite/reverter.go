@@ -2,6 +2,7 @@ package rewrite
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/miekg/dns"
 )
@@ -161,8 +162,8 @@ func copyRRs(rrs []dns.RR) []dns.RR {
 
 func (r *ResponseReverter) rewriteResourceRecord(res *dns.Msg, rr dns.RR) {
 	// The reverting rules need to be done in reversed order.
-	for i := len(r.ResponseRules) - 1; i >= 0; i-- {
-		r.ResponseRules[i].RewriteResponse(res, rr)
+	for _, v := range slices.Backward(r.ResponseRules) {
+		v.RewriteResponse(res, rr)
 	}
 }
 
@@ -171,18 +172,18 @@ func (r *ResponseReverter) rewriteResourceRecord(res *dns.Msg, rr dns.RR) {
 // loops in WriteMsg would otherwise never apply them.
 func (r *ResponseReverter) rewriteMsg(res *dns.Msg) {
 	// The reverting rules need to be done in reversed order.
-	for i := len(r.ResponseRules) - 1; i >= 0; i-- {
-		if _, ok := r.ResponseRules[i].(msgResponseRule); !ok {
+	for _, v := range slices.Backward(r.ResponseRules) {
+		if _, ok := v.(msgResponseRule); !ok {
 			continue
 		}
-		r.ResponseRules[i].RewriteResponse(res, nil)
+		v.RewriteResponse(res, nil)
 	}
 }
 
 func (r *ResponseReverter) rewriteRequestExtra(req *dns.Msg, rr dns.RR) {
 	// The reverting rules need to be done in reversed order.
-	for i := len(r.ResponseRules) - 1; i >= 0; i-- {
-		rule, ok := r.ResponseRules[i].(requestExtraRevertRule)
+	for _, v := range slices.Backward(r.ResponseRules) {
+		rule, ok := v.(requestExtraRevertRule)
 		if !ok {
 			continue
 		}

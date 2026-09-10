@@ -48,14 +48,14 @@ func TestSetup(t *testing.T) {
 				max_connections 200
 			}`,
 			shouldErr:              false,
-			expectedMaxConnections: intPtr(200),
+			expectedMaxConnections: new(200),
 		},
 		{
 			input: `https {
 				max_streams 100
 			}`,
 			shouldErr:          false,
-			expectedMaxStreams: intPtr(100),
+			expectedMaxStreams: new(100),
 		},
 		{
 			input: `https {
@@ -63,8 +63,8 @@ func TestSetup(t *testing.T) {
 				max_streams 100
 			}`,
 			shouldErr:              false,
-			expectedMaxConnections: intPtr(200),
-			expectedMaxStreams:     intPtr(100),
+			expectedMaxConnections: new(200),
+			expectedMaxStreams:     new(100),
 		},
 		// Zero values (unbounded)
 		{
@@ -72,7 +72,7 @@ func TestSetup(t *testing.T) {
 				max_connections 0
 			}`,
 			shouldErr:              false,
-			expectedMaxConnections: intPtr(0),
+			expectedMaxConnections: new(0),
 		},
 		// Error cases
 		{
@@ -123,7 +123,7 @@ func TestSetup(t *testing.T) {
 				max_streams 0
 			}`,
 			shouldErr:          false,
-			expectedMaxStreams: intPtr(0),
+			expectedMaxStreams: new(0),
 		},
 		{
 			input: `https {
@@ -199,8 +199,9 @@ func TestSetup(t *testing.T) {
 	}
 }
 
+//go:fix inline
 func intPtr(v int) *int {
-	return &v
+	return new(v)
 }
 
 func assertIntPtrValue(t *testing.T, testIndex int, testInput, fieldName string, actual, expected *int) {

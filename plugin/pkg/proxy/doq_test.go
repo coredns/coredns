@@ -176,12 +176,12 @@ func makeDoQTestTLSConfigs(t *testing.T) (*tls.Config, *tls.Config) {
 	}
 	roots.AddCert(parsed)
 	return &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			NextProtos:   []string{doqALPN},
-		}, &tls.Config{
-			RootCAs:    roots,
-			ServerName: "doq.test",
-		}
+		Certificates: []tls.Certificate{cert},
+		NextProtos:   []string{doqALPN},
+	}, &tls.Config{
+		RootCAs:    roots,
+		ServerName: "doq.test",
+	}
 }
 
 func writeDoQTestResponse(stream *quic.Stream, response *dns.Msg) error {
@@ -291,8 +291,7 @@ func TestProxyDoQVerifiesServerName(t *testing.T) {
 	if err == nil {
 		t.Fatal("Connect() succeeded with the wrong TLS server name")
 	}
-	var hostnameError x509.HostnameError
-	if !errors.As(err, &hostnameError) {
+	if _, ok := errors.AsType[x509.HostnameError](err); !ok {
 		t.Fatalf("Connect() error = %T %v, want x509.HostnameError", err, err)
 	}
 }
