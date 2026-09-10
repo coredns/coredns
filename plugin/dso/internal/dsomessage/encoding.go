@@ -59,7 +59,7 @@ func (tlv *KeepAlive) UnmarshalBinary(data []byte) error {
 	if len(data) > MaxMsgLen {
 		return errMalformed
 	}
-	_, err := tlv.unpack(data, 0, uint16(len(data)))
+	_, err := tlv.unpack(data, 0, uint16(len(data))) // #nosec G115
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (tlv *RetryDelay) UnmarshalBinary(data []byte) error {
 	if len(data) > MaxMsgLen {
 		return errMalformed
 	}
-	_, err := tlv.unpack(data, 0, uint16(len(data)))
+	_, err := tlv.unpack(data, 0, uint16(len(data))) // #nosec G115
 	if err != nil {
 		return err
 	}
@@ -107,7 +107,7 @@ func (tlv *EncryptionPadding) UnmarshalBinary(data []byte) error {
 	if len(data) > MaxMsgLen {
 		return errMalformed
 	}
-	_, err := tlv.unpack(data, 0, uint16(len(data)))
+	_, err := tlv.unpack(data, 0, uint16(len(data))) // #nosec G115
 	if err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func (tlv *Subscribe) UnmarshalBinary(data []byte) error {
 	if len(data) > MaxMsgLen {
 		return errMalformed
 	}
-	_, err := tlv.unpack(data, 0, uint16(len(data)))
+	_, err := tlv.unpack(data, 0, uint16(len(data))) // #nosec G115
 	if err != nil {
 		return err
 	}
@@ -188,7 +188,7 @@ func (tlv *Push) UnmarshalBinary(data []byte) error {
 	if len(data) > MaxMsgLen {
 		return errMalformed
 	}
-	_, err := tlv.unpack(data, 0, uint16(len(data)))
+	_, err := tlv.unpack(data, 0, uint16(len(data))) // #nosec G115
 	if err != nil {
 		return err
 	}
@@ -212,7 +212,7 @@ func (tlv *Unsubscribe) UnmarshalBinary(data []byte) error {
 	if len(data) > MaxMsgLen {
 		return errMalformed
 	}
-	_, err := tlv.unpack(data, 0, uint16(len(data)))
+	_, err := tlv.unpack(data, 0, uint16(len(data))) // #nosec G115
 	if err != nil {
 		return err
 	}
@@ -248,7 +248,7 @@ func (tlv *Reconfirm) UnmarshalBinary(data []byte) error {
 	if len(data) > MaxMsgLen {
 		return errMalformed
 	}
-	_, err := tlv.unpack(data, 0, uint16(len(data)))
+	_, err := tlv.unpack(data, 0, uint16(len(data))) // #nosec G115
 	if err != nil {
 		return err
 	}

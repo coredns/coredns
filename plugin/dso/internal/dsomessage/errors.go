@@ -47,9 +47,8 @@ type (
 func (e *PackingError) Error() string {
 	if e.Index >= 0 {
 		return "failed to pack RR at index " + strconv.Itoa(e.Index) + " at byte " + strconv.Itoa(e.Offset) + " - " + e.cause.Error()
-	} else {
-		return "failed to pack RR at byte " + strconv.Itoa(e.Offset) + " - " + e.cause.Error()
 	}
+	return "failed to pack RR at byte " + strconv.Itoa(e.Offset) + " - " + e.cause.Error()
 }
 
 func (e *PackingError) Unwrap() error { return e.cause }

@@ -166,7 +166,7 @@ func writeDynamicLenTLV[T TLV](b *Builder, tlv T) (int, error) {
 		return 0, b.err
 	}
 
-	TLVHeader{tlv.Type(), uint16(off - tlvHeaderEnd)}.pack(b.msg, tlvHeaderStart)
+	TLVHeader{tlv.Type(), uint16(off - tlvHeaderEnd)}.pack(b.msg, tlvHeaderStart) // #nosec G115
 	b.off = off
 	return b.off - tlvHeaderStart, nil
 }
@@ -180,9 +180,8 @@ func (b *Builder) WriteKeepAlive(tlv *KeepAlive) (int, error) {
 			binary.BigEndian.PutUint64(b.msg[b.off+4:], uint64(tlv.InactivityTimeout)<<32|uint64(tlv.KeepAliveInterval))
 			b.off += tlvLen
 			return tlvLen, nil
-		} else {
-			b.err = ErrShortWrite
 		}
+		b.err = ErrShortWrite
 	}
 	return 0, b.err
 }
@@ -196,9 +195,8 @@ func (b *Builder) WriteRetryDelay(tlv *RetryDelay) (int, error) {
 			binary.BigEndian.PutUint32(b.msg[b.off+4:], tlv.RetryDelay)
 			b.off += tlvLen
 			return tlvLen, nil
-		} else {
-			b.err = ErrShortWrite
 		}
+		b.err = ErrShortWrite
 	}
 	return 0, b.err
 }
@@ -211,9 +209,8 @@ func (b *Builder) WriteEncryptionPadding(tlv *EncryptionPadding) (int, error) {
 			binary.BigEndian.PutUint32(b.msg[b.off:], uint32(TypeEncryptionPadding)<<16|uint32(tlv.Padding))
 			b.off += tlvLen
 			return tlvLen, nil
-		} else {
-			b.err = ErrShortWrite
 		}
+		b.err = ErrShortWrite
 	}
 	return 0, b.err
 }
@@ -237,9 +234,8 @@ func (b *Builder) WriteUnsubscribe(tlv *Unsubscribe) (int, error) {
 			binary.BigEndian.PutUint16(b.msg[b.off+4:], tlv.SubscribeID)
 			b.off += tlvLen
 			return tlvLen, nil
-		} else {
-			b.err = ErrShortWrite
 		}
+		b.err = ErrShortWrite
 	}
 	return 0, b.err
 }
@@ -300,7 +296,7 @@ func (b *Builder) WritePushChange(change []dns.RR) (n int, err error) {
 		b.off = rrOff
 	}
 	if err == nil || err.(*PackingError).Index > 0 {
-		TLVHeader{TypePush, uint16(b.off - tlvHeaderEnd)}.pack(b.msg, tlvHeaderStart)
+		TLVHeader{TypePush, uint16(b.off - tlvHeaderEnd)}.pack(b.msg, tlvHeaderStart) // #nosec G115
 	} else {
 		b.off = tlvHeaderStart
 	}
@@ -338,7 +334,7 @@ func (b *Builder) Message() ([]byte, error) {
 	off := b.off
 	if off%b.blockLen != 0 {
 		padLen := (b.blockLen - (off+TLVHeaderLen)%b.blockLen) % b.blockLen
-		binary.BigEndian.PutUint32(b.msg[off:], uint32(TypeEncryptionPadding)<<16|uint32(padLen))
+		binary.BigEndian.PutUint32(b.msg[off:], uint32(TypeEncryptionPadding)<<16|uint32(padLen)) // #nosec G115
 		off += TLVHeaderLen + padLen
 	}
 	if b.base > 0 {
@@ -346,7 +342,7 @@ func (b *Builder) Message() ([]byte, error) {
 			b.err = ErrTooLong
 			binary.BigEndian.PutUint16(b.buf, 0)
 		} else {
-			binary.BigEndian.PutUint16(b.buf, uint16(off))
+			binary.BigEndian.PutUint16(b.buf, uint16(off)) // #nosec G115
 		}
 	}
 	return b.buf[:b.base+off], b.err
