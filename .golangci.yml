@@ -10,6 +10,7 @@ linters:
     - canonicalheader
     - copyloopvar
     - durationcheck
+    - forbidigo
     - godoclint
     - gosec
     - govet
@@ -43,6 +44,13 @@ linters:
           - perfsprint
           - gosec
   settings:
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: "^prometheus\\.(NewCounter|NewCounterVec|NewGauge|NewGaugeVec|NewGaugeFunc|NewHistogram|NewHistogramVec|NewSummary|NewSummaryVec)$"
+          pkg: "^github\\.com/prometheus/client_golang/prometheus$"
+          msg: use github.com/prometheus/client_golang/prometheus/promauto
+
     govet:
       enable:
         - nilness
