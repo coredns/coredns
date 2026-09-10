@@ -141,10 +141,10 @@ func loadRoots(caPath string) (*x509.CertPool, error) {
 func NewHTTPSTransport(cc *tls.Config) *http.Transport {
 	tr := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
-		Dial: (&net.Dialer{
+		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
 			KeepAlive: 30 * time.Second,
-		}).Dial,
+		}).DialContext,
 		TLSHandshakeTimeout: 10 * time.Second,
 		TLSClientConfig:     cc,
 		MaxIdleConnsPerHost: 25,
