@@ -45,7 +45,10 @@ func unmarshalTLV(tb testing.TB, tp Type, data []byte) (tlv TLV, err error) {
 func TestEncodingTLVMarshaller(t *testing.T) {
 	t.Parallel()
 
-	var msgBytes []byte
+	var (
+		testMsg  = testMsg.Clone()
+		msgBytes []byte
+	)
 
 	t.Run("marshal", func(t *testing.T) {
 		headerBytes, _ := testMsg.MsgHeader.MarshalBinary()
@@ -91,6 +94,7 @@ func TestEncodingTLVAppender(t *testing.T) {
 
 	prefix := slices.Repeat([]byte{1}, 16)
 	msgBytes := slices.Clone(prefix)
+	testMsg := testMsg.Clone()
 
 	msgBytes, _ = testMsg.MsgHeader.AppendBinary(msgBytes)
 	for _, tlv := range testMsg.TLV {
@@ -111,7 +115,10 @@ func TestEncodingTLVAppender(t *testing.T) {
 func TestEncodingMsgMarshaller(t *testing.T) {
 	t.Parallel()
 
-	var msgBytes []byte
+	var (
+		msgBytes []byte
+		testMsg  = testMsg.Clone()
+	)
 
 	t.Run("marshal", func(t *testing.T) {
 		msgBytes, _ = testMsg.MarshalBinary()
@@ -135,7 +142,7 @@ func TestEncodingMsgAppender(t *testing.T) {
 	prefix := slices.Repeat([]byte{1}, 16)
 	msgBytes := slices.Clone(prefix)
 
-	msgBytes, _ = testMsg.AppendBinary(msgBytes)
+	msgBytes, _ = testMsg.Clone().AppendBinary(msgBytes)
 	if !slices.Equal(msgBytes[:len(prefix)], prefix) {
 		t.Errorf("Want unchanged prefix")
 	}

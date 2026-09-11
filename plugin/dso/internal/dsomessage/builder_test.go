@@ -52,7 +52,10 @@ func writeTLV(tb testing.TB, b *Builder, tlv TLV) int {
 }
 
 func TestBuilderAllocs(t *testing.T) {
-	buf := make([]byte, 128)
+	var (
+		buf     = make([]byte, 128)
+		testMsg = testMsg.Clone()
+	)
 	n := testing.AllocsPerRun(100, func() {
 		b := NewBuilder(buf)
 
@@ -139,7 +142,7 @@ func TestBuilderStickyError(t *testing.T) {
 		t.Error("Expected Write() to have no effect")
 	}
 
-	for _, tlv := range testMsg.TLV {
+	for _, tlv := range testMsg.Clone().TLV {
 		n, err := b.WriteTLV(tlv)
 		if b.Err() == nil {
 			t.Fatal("Expected error to stick")
@@ -178,7 +181,7 @@ func TestBuilderReset(t *testing.T) {
 	if msgLen := len(msgBytes); msgLen != MsgHeaderLen {
 		t.Errorf("Got len(Message()) = %v, want HeaderLen", msgLen)
 	}
-	if !slices.Equal(msgBytes[:MsgHeaderLen], make([]byte, MsgHeaderLen)) {
+	if !slices.Equal(msgBytes[:MsgHeaderLen], zeroMsgHeader) {
 		t.Error(cmp.Diff(msgBytes, nil))
 	}
 	if b.compression != nil {
@@ -534,7 +537,7 @@ func TestBuilderWriteOverflow(t *testing.T) {
 func TestBuilderWriteTLVOverflow(t *testing.T) {
 	t.Parallel()
 
-	for _, tlv := range testMsg.TLV {
+	for _, tlv := range testMsg.Clone().TLV {
 		tcs := []struct {
 			name     string
 			bufLen   int
@@ -584,7 +587,7 @@ func TestBuilderWriteAtPaddingBoundary(t *testing.T) {
 		err      error
 	}{
 		{
-			"below",
+			"before",
 			128,
 			128,
 			128 - MsgHeaderLen - TLVHeaderLen - 1,
@@ -625,7 +628,9 @@ func TestBuilderWriteAtPaddingBoundary(t *testing.T) {
 }
 
 func TestBuilderWriteTLVAtPaddingBoundary(t *testing.T) {
-	for _, tlv := range testMsg.TLV {
+	t.Parallel()
+
+	for _, tlv := range testMsg.Clone().TLV {
 		dsoLen := func() int {
 			b := NewBuilder(make([]byte, 128))
 			n, _ := b.WriteTLV(tlv)
@@ -639,7 +644,7 @@ func TestBuilderWriteTLVAtPaddingBoundary(t *testing.T) {
 			err      error
 		}{
 			{
-				tlv.Type().String() + " below",
+				tlv.Type().String() + " before",
 				128,
 				0,
 				128,
@@ -669,8 +674,6 @@ func TestBuilderWriteTLVAtPaddingBoundary(t *testing.T) {
 		}
 		for _, tc := range tcs {
 			t.Run(tc.name, func(t *testing.T) {
-				t.Parallel()
-
 				b := NewBuilder(make([]byte, tc.bufLen)).EnablePadding(tc.blockLen)
 
 				b.Write(make([]byte, tc.writeLen))
@@ -732,8 +735,6 @@ func TestBuilderWritePushChange(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			b := NewBuilder(make([]byte, tc.bufLen))
 			if tc.lenPrefix {
 				b.EnableLengthPrefix()
@@ -761,8 +762,6 @@ func TestBuilderWritePushChange(t *testing.T) {
 	}
 
 	t.Run("empty", func(t *testing.T) {
-		t.Parallel()
-
 		b := NewBuilder(make([]byte, 128))
 		n, err := b.WritePushChange(nil)
 		if n != 0 {
@@ -774,8 +773,6 @@ func TestBuilderWritePushChange(t *testing.T) {
 	})
 
 	t.Run("too small", func(t *testing.T) {
-		t.Parallel()
-
 		b := NewBuilder(make([]byte, MsgHeaderLen+TLVHeaderLen))
 		n, err := b.WritePushChange([]dns.RR{rr})
 		if n != 0 {
@@ -792,7 +789,7 @@ func TestBuilderWritePushChange(t *testing.T) {
 
 func TestBuilderWriteTo(t *testing.T) {
 	b := NewBuilder(make([]byte, 128))
-	testMsg.PackTo(b)
+	testMsg.Clone().PackTo(b)
 	if b.Err() != nil {
 		t.Fatal("Want to pack testMsg")
 	}
@@ -928,7 +925,7 @@ func TestBuilderGrowNegativePanics(t *testing.T) {
 }
 
 func FuzzBuilder(f *testing.F) {
-	TLVs := testMsg.TLV
+	TLVs := testMsg.Clone().TLV
 
 	f.Fuzz(func(t *testing.T,
 		bufLen uint16,
@@ -1088,7 +1085,7 @@ func FuzzBuilderWritePushChange(f *testing.F) {
 }
 
 func BenchmarkBuilder(b *testing.B) {
-	for _, tlv := range testMsg.TLV {
+	for _, tlv := range testMsg.Clone().TLV {
 		b.Run(tlv.Type().String(), func(b *testing.B) {
 			buf := make([]byte, 128)
 			for b.Loop() {
