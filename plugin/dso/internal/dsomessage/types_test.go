@@ -95,6 +95,7 @@ func TestBuilderParserParity(t *testing.T) {
 			if tc.compress {
 				b.EnableCompression()
 			}
+			testMsg := testMsg.Clone()
 			testMsg.PackTo(b)
 			if err := b.Err(); err != nil {
 				t.Fatalf("Expected to pack message, got %v", err)

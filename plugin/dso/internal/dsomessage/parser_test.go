@@ -144,7 +144,10 @@ func TestParseMalformed(t *testing.T) {
 	t.Run("TLV header", func(t *testing.T) {
 		t.Parallel()
 
-		var p Parser
+		var (
+			p       Parser
+			testMsg = testMsg.Clone()
+		)
 		_, err := p.Start(msgBytes[:MsgHeaderLen+TLVHeaderLen+testMsg.TLV[0].Len()+1], OriginClient)
 		if err != nil {
 			t.Fatal("Expected parser to start")
@@ -161,7 +164,10 @@ func TestParseMalformed(t *testing.T) {
 	t.Run("skip TLV", func(t *testing.T) {
 		t.Parallel()
 
-		var p Parser
+		var (
+			p       Parser
+			testMsg = testMsg.Clone()
+		)
 		msg := msgBytes[:MsgHeaderLen+TLVHeaderLen+testMsg.TLV[0].Len()+TLVHeaderLen+testMsg.TLV[1].Len()-1]
 		_, err := p.Start(msg, OriginClient)
 		if err != nil {
