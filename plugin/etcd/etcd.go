@@ -125,7 +125,7 @@ func (e *Etcd) loopNodes(kv []*mvccpb.KeyValue, nameParts []string, star bool, q
 Nodes:
 	for _, n := range kv {
 		if star {
-			s := string(n.Key)
+			s := string(n.GetKey())
 			keyParts := strings.Split(s, "/")
 			for i, n := range nameParts {
 				if i > len(keyParts)-1 {
@@ -141,10 +141,10 @@ Nodes:
 			}
 		}
 		serv := new(msg.Service)
-		if err := json.Unmarshal(n.Value, serv); err != nil {
-			return nil, fmt.Errorf("%s: %s", n.Key, err.Error())
+		if err := json.Unmarshal(n.GetValue(), serv); err != nil {
+			return nil, fmt.Errorf("%s: %s", n.GetKey(), err.Error())
 		}
-		serv.Key = string(n.Key)
+		serv.Key = string(n.GetKey())
 		if _, ok := bx[*serv]; ok {
 			continue
 		}
@@ -168,8 +168,8 @@ func (e *Etcd) TTL(kv *mvccpb.KeyValue, serv *msg.Service) uint32 {
 	var etcdTTL uint32
 
 	// Get actual lease TTL from etcd if lease exists and client is available
-	if kv.Lease != 0 && e.Client != nil {
-		if resp, err := e.Client.TimeToLive(context.Background(), etcdcv3.LeaseID(kv.Lease)); err == nil && resp.TTL > 0 {
+	if kv.GetLease() != 0 && e.Client != nil {
+		if resp, err := e.Client.TimeToLive(context.Background(), etcdcv3.LeaseID(kv.GetLease())); err == nil && resp.TTL > 0 {
 			leaseTTL := resp.TTL
 
 			// Get bounds with defaults
