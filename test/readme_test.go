@@ -88,6 +88,7 @@ func TestReadme(t *testing.T) {
 				t.Errorf("Failed to start server with %s, for input %q:\n%s", readme, err, in.Body())
 			}
 			server.Stop()
+			server.ShutdownCallbacks()
 			port++
 		}
 	}
