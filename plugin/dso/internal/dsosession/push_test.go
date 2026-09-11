@@ -24,7 +24,9 @@ type testPush struct {
 	*Push
 
 	zone    sync.Map
+	mu      sync.Mutex
 	changes [][]dns.RR
+	i       int
 
 	writeErr    error
 	writeDelay  time.Duration
@@ -59,6 +61,10 @@ func (push *testPush) Write(msg []byte) (int, error) {
 		panic("TestPushSession.WriteDSO: failed to unpack")
 	}
 	tlv := m.TLV[0].(*dsomessage.Push)
+
+	push.mu.Lock()
+	defer push.mu.Unlock()
+
 	push.changes = append(push.changes, cloneRRSet(tlv.Change))
 	return len(msg), nil
 }
@@ -169,34 +175,61 @@ func (push *testPush) assertRemove(tb testing.TB, id uint16) {
 	}
 }
 
+// diffChanges is aggregate cmd.Diff(a[i], b[i])
+func diffChanges(a, b [][]dns.RR) string {
+	var (
+		builder strings.Builder
+		i       int
+	)
+	for ; i < min(len(a), len(b)); i++ {
+		diff := cmp.Diff(a[i], b[i], cmp.Comparer(func(a, b dns.RR) bool {
+			return a.Header().Ttl == b.Header().Ttl && a.Header().Name == b.Header().Name && dns.IsDuplicate(a, b)
+		}))
+		if len(diff) > 0 {
+			fmt.Fprintf(&builder, "%d:\n%s", i, diff)
+		}
+	}
+	for ; i < len(a); i++ {
+		if diff := cmp.Diff(a[i], []dns.RR{}); len(diff) > 0 {
+			fmt.Fprintf(&builder, "%d:\n%s", i, diff)
+		}
+	}
+	for ; i < len(b); i++ {
+		if diff := cmp.Diff([]dns.RR{}, b[i]); len(diff) > 0 {
+			fmt.Fprintf(&builder, "%d:\n%s", i, diff)
+		}
+	}
+	return builder.String()
+}
+
+// assertChanges asserts that changes match expectation.
 func (push *testPush) assertChanges(tb testing.TB, changes ...[]dns.RR) {
 	tb.Helper()
 
 	synctest.Wait()
 
-	var (
-		b    strings.Builder
-		i    int
-		diff string
-	)
-	for ; i < len(changes); i++ {
-		if i < len(push.changes) {
-			diff = cmp.Diff(changes[i], push.changes[i], cmp.Comparer(func(a, b dns.RR) bool {
-				return a.Header().Ttl == b.Header().Ttl && a.Header().Name == b.Header().Name && dns.IsDuplicate(a, b)
-			}))
-		} else {
-			diff = cmp.Diff(changes[i], []dns.RR{})
-		}
-		if len(diff) > 0 {
-			fmt.Fprintf(&b, "%d:\n%s", i, diff)
-		}
+	push.mu.Lock()
+	defer push.mu.Unlock()
+
+	diff := diffChanges(changes, push.changes)
+	if len(diff) > 0 {
+		tb.Errorf("Bad changes:\n%s", diff)
 	}
-	for ; i < len(push.changes); i++ {
-		diff = cmp.Diff([]dns.RR{}, push.changes[i])
-		fmt.Fprintf(&b, "%d:\n%s", i, diff)
-	}
-	if b.Len() > 0 {
-		tb.Errorf("Bad changes:\n%v", b.String())
+}
+
+// assertNewChanges asserts that changes were added after delay.
+func (push *testPush) assertNewChanges(tb testing.TB, d time.Duration, changes ...[]dns.RR) {
+	tb.Helper()
+
+	time.Sleep(d)
+	synctest.Wait()
+
+	push.mu.Lock()
+	defer push.mu.Unlock()
+	diff := diffChanges(changes, push.changes[push.i:])
+	push.i = len(push.changes)
+	if len(diff) > 0 {
+		tb.Errorf("Bad changes:\n%s", diff)
 	}
 }
 
@@ -370,12 +403,16 @@ func TestPushUpdate(t *testing.T) {
 		push.zone.Store(q, []dns.RR{rr})
 		push.assertAdd(t, 1, tlv)
 
-		synctest.Wait()
+		push.assertNewChanges(t, 0,
+			[]dns.RR{rr},
+		)
 
 		push.zone.Store(q, []dns.RR{})
 		push.Refresh()
 
-		synctest.Wait()
+		push.assertNewChanges(t, 0,
+			[]dns.RR{rrToPushRemoval(rr)},
+		)
 
 		_, rr1, _ := newRRf("test. IN A 192.0.2.2")
 		push.zone.Store(q, []dns.RR{rr1})
@@ -421,13 +458,17 @@ func TestPushReconfirm(t *testing.T) {
 		push.zone.Store(q, []dns.RR{rr})
 		push.assertAdd(t, 1, tlv)
 
-		synctest.Wait()
+		push.assertNewChanges(t, 0,
+			[]dns.RR{rr},
+		)
 
 		_, rr1, _ := newRRf("test. IN A 192.0.2.2")
 		push.zone.Store(q, []dns.RR{rr1})
 		push.Reconfirm(rrToReconfirm(rr))
 
-		synctest.Wait()
+		push.assertNewChanges(t, 0,
+			[]dns.RR{rrToPushRemoval(rr), rr1},
+		)
 
 		q2, rr2, _ := newRRf("b.test IN A 192.0.2.2")
 		push.zone.Store(q2, []dns.RR{rr2})
@@ -464,11 +505,8 @@ func TestPushDebounce(t *testing.T) {
 		push.zone.Store(q, []dns.RR{rr})
 		push.assertAdd(t, 1, tlv)
 
-		time.Sleep(debounceDelay / 2)
-		push.assertChanges(t)
-
-		time.Sleep(debounceDelay / 2)
-		push.assertChanges(t,
+		push.assertNewChanges(t, debounceDelay/2)
+		push.assertNewChanges(t, debounceDelay/2,
 			[]dns.RR{rr},
 		)
 	})
@@ -508,7 +546,9 @@ func TestPushRefresh(t *testing.T) {
 				push.zone.Store(q, []dns.RR{rr})
 				push.assertAdd(t, 1, tlv)
 
-				synctest.Wait()
+				push.assertNewChanges(t, 0,
+					[]dns.RR{rr},
+				)
 
 				_, rr1, _ := newRRf("test. IN A 192.0.2.2")
 				push.zone.Store(q, []dns.RR{rr, rr1})
@@ -639,48 +679,44 @@ func TestPushCancelDebounce(t *testing.T) {
 		push.zone.Store(q, []dns.RR{rr})
 		push.assertAdd(t, 1, tlv)
 
-		synctest.Wait()
+		push.assertNewChanges(t, debounceDelay/2)
 
-		time.Sleep(debounceDelay / 2)
 		cancel()
 
-		synctest.Wait()
-
-		time.Sleep(debounceDelay / 2)
-		push.assertChanges(t)
+		push.assertNewChanges(t, debounceDelay/2)
 
 		err := <-doneC
 		if err != context.Canceled {
 			t.Errorf("Expected Serve() error %v, got %v", context.Canceled, err)
 		}
+
+		push.assertChanges(t)
 	})
 }
 
 func TestPushCancelRefresh(t *testing.T) {
 	t.Parallel()
 
-	const refreshInterval = time.Minute
-
 	synctest.Test(t, func(t *testing.T) {
 		push := newTestPush()
 		push.lookupDelay = time.Minute
 
 		ctx, cancel := context.WithCancel(t.Context())
-		doneC := push.start(t, ctx, 0, refreshInterval)
+		doneC := push.start(t, ctx, 0, 0)
 
 		q, rr, tlv := newRRf("test. IN A 192.0.2.1")
 		push.zone.Store(q, []dns.RR{rr})
 		push.assertAdd(t, 1, tlv)
 
-		time.Sleep(push.lookupDelay)
-		synctest.Wait()
+		push.assertNewChanges(t, push.lookupDelay/2)
+		push.assertNewChanges(t, push.lookupDelay/2,
+			[]dns.RR{rr},
+		)
 
-		_, rr1, _ := newRRf("test. IN A 192.0.2.2")
-		push.zone.Store(q, []dns.RR{rr, rr1})
+		push.zone.Store(q, []dns.RR{})
+		push.Refresh()
 
-		time.Sleep(refreshInterval) // refresh started but lookup is delayed
 		cancel()
-
 		err := <-doneC
 		if err != context.Canceled {
 			t.Errorf("Got Serve()=%v, want context.Canceled", err)
@@ -698,22 +734,25 @@ func TestPushCancelWrite(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		push := newTestPush()
 		push.writeDelay = time.Minute
+
 		ctx, cancel := context.WithCancel(t.Context())
 		doneC := push.start(t, ctx, 0, 0)
 
+		// Force push to require multiple writes.
 		q, rr, tlv := newRRf("test. IN TXT (%s)", strings.Repeat("\""+strings.Repeat("X", 255)+"\" ", 62))
-		push.zone.Store(q, []dns.RR{rr, rr, rr, rr, rr})
+		push.zone.Store(q, []dns.RR{rr, rr})
 		push.assertAdd(t, 1, tlv)
 
-		synctest.Wait()
+		// First write was attempted and will complete.
+		push.assertNewChanges(t, push.writeDelay/2)
 
-		time.Sleep(push.writeDelay)
 		cancel()
-
 		err := <-doneC
 		if err != context.Canceled {
 			t.Errorf("Got Serve()=%v, want context.Canceled", err)
 		}
+
+		// Second must not be attempted.
 		push.assertChanges(t,
 			[]dns.RR{rr},
 		)
@@ -726,24 +765,22 @@ func TestPushCancelLookup(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		push := newTestPush()
 		push.lookupDelay = time.Minute
+
 		ctx, cancel := context.WithCancel(t.Context())
 		doneC := push.start(t, ctx, 0, 0)
 
-		for i, s := range []string{"a.test. IN A 192.0.2.1", "b.test. IN A 192.0.2.1"} {
-			q, rr, tlv := newRRf("%s", s)
-			push.zone.Store(q, []dns.RR{rr})
-			push.assertAdd(t, uint16(i+1), tlv)
-		}
+		q, rr, tlv := newRRf("a.test. IN A 192.0.2.1")
+		push.zone.Store(q, []dns.RR{rr})
+		push.assertAdd(t, 1, tlv)
 
-		synctest.Wait()
+		push.assertNewChanges(t, push.lookupDelay/2)
 
-		time.Sleep(push.lookupDelay)
 		cancel()
-
 		err := <-doneC
 		if err != context.Canceled {
 			t.Errorf("Got Serve()=%v, want context.Canceled", err)
 		}
+
 		push.assertChanges(t)
 	})
 }

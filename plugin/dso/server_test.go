@@ -433,17 +433,14 @@ func setupServer(tb testing.TB, usePush bool) *testServer {
 		tb.Fatalf("Got %v, want CoreDNS server", err)
 	}
 
-	server := &Server{
-		Config: &Config{
-			InactivityTimeout:         DefaultInactivityTimeout,
-			KeepAliveInterval:         DefaultKeepAliveInterval,
-			RestartReconnectInterval:  DefaultRestartReconnectInterval,
-			ShutdownReconnectInterval: DefaultShutdownReconnectInterval,
-		},
-		Upstream: upstream,
+	cfg := &Config{
+		InactivityTimeout:         DefaultInactivityTimeout,
+		KeepAliveInterval:         DefaultKeepAliveInterval,
+		RestartReconnectInterval:  DefaultRestartReconnectInterval,
+		ShutdownReconnectInterval: DefaultShutdownReconnectInterval,
 	}
 	if usePush {
-		server.Config.Push = &PushConfig{
+		cfg.Push = &PushConfig{
 			Zones:           []string{"."},
 			Classes:         []uint16{dns.ClassINET},
 			Types:           []uint16{dns.TypeA},
@@ -451,7 +448,7 @@ func setupServer(tb testing.TB, usePush bool) *testServer {
 			DebounceDelay:   0,
 		}
 	}
-	return &testServer{Server: server, plugin: upstreamPlugin}
+	return &testServer{Server: newServer(cfg, upstream), plugin: upstreamPlugin}
 }
 
 func setupServerConn(tb testing.TB, usePush, useTLS bool) (*testServer, *testListener, *testConn) {
@@ -774,8 +771,6 @@ func TestServerHandleDNS(t *testing.T) {
 }
 
 func TestServerHandleBadDNS(t *testing.T) {
-	t.Parallel()
-
 	rr, _ := dns.NewRR("test. IN A 192.0.2.1")
 
 	tcs := []struct {
@@ -929,8 +924,6 @@ func TestServerHandleBadDNS(t *testing.T) {
 	}
 
 	t.Run("malformed", func(t *testing.T) {
-		t.Parallel()
-
 		synctest.Test(t, func(t *testing.T) {
 			_, _, conn := setupServerConn(t, false, false)
 
@@ -1425,8 +1418,6 @@ func TestServerHandleReconfirm(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
 			synctest.Test(t, func(t *testing.T) {
 				_, _, conn := setupServerConn(t, tc.usePush, true)
 				conn.assertExchangeKeepAlive(t, 1, dsomessage.KeepAlive{})
