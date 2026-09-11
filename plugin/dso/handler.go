@@ -89,10 +89,7 @@ func (b *serverBuilder) unsetListeners(reconnectInterval time.Duration) {
 }
 
 func (b *serverBuilder) start() {
-	b.server = &Server{
-		Config:   b.config,
-		Upstream: b.upstream,
-	}
+	b.server = newServer(b.config, b.upstream)
 	if ln := b.listeners[0]; ln != nil {
 		go b.server.Serve(ln)
 		log.Infof("Paired dso://%v to %v", ln.Addr(), b.upstream.Addr)

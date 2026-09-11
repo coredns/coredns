@@ -433,17 +433,14 @@ func setupServer(tb testing.TB, usePush bool) *testServer {
 		tb.Fatalf("Got %v, want CoreDNS server", err)
 	}
 
-	server := &Server{
-		Config: &Config{
-			InactivityTimeout:         DefaultInactivityTimeout,
-			KeepAliveInterval:         DefaultKeepAliveInterval,
-			RestartReconnectInterval:  DefaultRestartReconnectInterval,
-			ShutdownReconnectInterval: DefaultShutdownReconnectInterval,
-		},
-		Upstream: upstream,
+	cfg := &Config{
+		InactivityTimeout:         DefaultInactivityTimeout,
+		KeepAliveInterval:         DefaultKeepAliveInterval,
+		RestartReconnectInterval:  DefaultRestartReconnectInterval,
+		ShutdownReconnectInterval: DefaultShutdownReconnectInterval,
 	}
 	if usePush {
-		server.Config.Push = &PushConfig{
+		cfg.Push = &PushConfig{
 			Zones:           []string{"."},
 			Classes:         []uint16{dns.ClassINET},
 			Types:           []uint16{dns.TypeA},
@@ -451,7 +448,7 @@ func setupServer(tb testing.TB, usePush bool) *testServer {
 			DebounceDelay:   0,
 		}
 	}
-	return &testServer{Server: server, plugin: upstreamPlugin}
+	return &testServer{Server: newServer(cfg, upstream), plugin: upstreamPlugin}
 }
 
 func setupServerConn(tb testing.TB, usePush, useTLS bool) (*testServer, *testListener, *testConn) {
