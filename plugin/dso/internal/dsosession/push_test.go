@@ -24,6 +24,7 @@ type testPush struct {
 	*Push
 
 	zone    sync.Map
+	mu      sync.Mutex
 	changes [][]dns.RR
 
 	writeErr    error
@@ -65,6 +66,10 @@ func (push *testPush) Write(msg []byte) (int, error) {
 		panic("TestPushSession.WriteDSO: failed to unpack")
 	}
 	tlv := m.TLV[0].(*dsomessage.Push)
+
+	push.mu.Lock()
+	defer push.mu.Unlock()
+
 	push.changes = append(push.changes, cloneRRSet(tlv.Change))
 	return len(msg), nil
 }
@@ -179,6 +184,9 @@ func (push *testPush) assertChanges(tb testing.TB, changes ...[]dns.RR) {
 	tb.Helper()
 
 	synctest.Wait()
+
+	push.mu.Lock()
+	defer push.mu.Unlock()
 
 	var (
 		b    strings.Builder
