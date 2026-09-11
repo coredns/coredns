@@ -11,6 +11,7 @@ import (
 	_ "github.com/coredns/coredns/plugin/bind"
 	"github.com/coredns/coredns/plugin/dso/internal/dsomessage"
 	_ "github.com/coredns/coredns/plugin/multisocket"
+
 	"github.com/miekg/dns"
 )
 
