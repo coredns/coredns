@@ -10,6 +10,7 @@ import (
 	"github.com/coredns/caddy"
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/dso/internal/dsomessage"
+
 	"github.com/miekg/dns"
 )
 

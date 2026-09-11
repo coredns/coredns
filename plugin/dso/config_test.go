@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/coredns/caddy"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/miekg/dns"
 )

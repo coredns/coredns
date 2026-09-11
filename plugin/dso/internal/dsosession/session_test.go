@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin/dso/internal/dsomessage"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/miekg/dns"
 )
