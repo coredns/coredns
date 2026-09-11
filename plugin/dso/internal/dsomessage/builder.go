@@ -47,7 +47,7 @@ func (b *Builder) Reset() *Builder {
 		off:      MsgHeaderLen,
 		blockLen: 1,
 	}
-	copy(b.buf, zeroMsgHeader)
+	copy(b.buf[:MsgHeaderLen], zeroMsgHeader)
 	return b
 }
 
