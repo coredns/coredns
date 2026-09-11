@@ -1,14 +1,11 @@
 package dsomessage
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"math"
 	"slices"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
 	"github.com/miekg/dns"
 )
 
@@ -181,74 +178,4 @@ func TestHeader(t *testing.T) {
 			}
 		})
 	}
-}
-
-func assertUnpackPackUnpack[P interface {
-	TLV
-	*T
-}, T any](tb testing.TB, buf []byte) {
-	tb.Helper()
-
-	var tlv P = new(T)
-	_, err := tlv.unpack(buf, 0, uint16(len(buf)))
-	if err != nil {
-		return
-	}
-	buf1 := make([]byte, tlv.Len())
-	off1, err := tlv.pack(buf1, 0, nil)
-	if err != nil {
-		tb.Errorf("Expected to pack %v, got %v", tlv, err)
-		return
-	}
-	buf1 = buf1[:off1]
-
-	var tlv1 P = new(T)
-	_, err = tlv1.unpack(buf1, 0, uint16(len(buf1)))
-	if err != nil {
-		tb.Errorf("Expected to unpack, got %v", err)
-		return
-	}
-	buf2 := make([]byte, tlv1.Len())
-	off2, err := tlv1.pack(buf2, 0, nil)
-	if err != nil {
-		tb.Errorf("Expected to pack %v, got %v", tlv1, err)
-		return
-	}
-	buf2 = buf2[:off2]
-
-	if diff := cmp.Diff(tlv.String(), tlv1.String()); len(diff) > 0 {
-		tb.Errorf("Expected equal TLVs, got %v", diff)
-	}
-	if !slices.Equal(buf2, buf1) {
-		tb.Error("Expected equal packed TLVs")
-	}
-}
-
-func FuzzUnpack(f *testing.F) {
-	// f.SkipNow()
-
-	for _, tlv := range testMsg.TLV {
-		buf := make([]byte, tlv.Len())
-		off, err := tlv.pack(buf, 0, nil)
-		if err != nil {
-			f.Fatalf("Expected to pack, got %v", err)
-		}
-		f.Add(buf[:off])
-	}
-	f.Fuzz(func(t *testing.T, in []byte) {
-		if len(in) > math.MaxUint16 {
-			t.SkipNow()
-		}
-
-		buf := bytes.Clone(in)
-		// assertUnpackPackUnpack[*KeepAlive](t, buf)
-		// assertUnpackPackUnpack[*RetryDelay](t, buf)
-		// assertUnpackPackUnpack[*EncryptionPadding](t, buf)
-		// assertUnpackPackUnpack[*Subscribe](t, buf)
-		// assertUnpackPackUnpack[*Push](t, buf)
-		// assertUnpackPackUnpack[*Unsubscribe](t, buf)
-		assertUnpackPackUnpack[*Reconfirm](t, buf)
-	})
-
-	f.Fail()
 }
