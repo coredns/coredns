@@ -85,6 +85,18 @@ type (
 	}
 )
 
+func newServer(cfg *Config, upstream *dnsserver.Server) (s *Server) {
+	s = &Server{
+		Config:   cfg,
+		Upstream: upstream,
+
+		listeners: make(map[net.Listener]struct{}),
+		conns:     make(map[net.Conn]*connHandler),
+	}
+	s.shutdownCtx, s.shutdownFunc = context.WithCancelCause(context.Background())
+	return s
+}
+
 // Serve serves DNS and DSO over accepted connections.
 func (s *Server) Serve(ln net.Listener) error {
 	if !s.trackListener(ln, true) {
@@ -135,10 +147,6 @@ func (s *Server) Shutdown(ctx context.Context, reconnectInterval time.Duration) 
 		return nil
 	}
 
-	if s.listeners == nil {
-		return nil
-	}
-
 	s.shutdownFunc(&shutdownError{dns.RcodeSuccess, reconnectInterval})
 
 	s.mu.Lock()
@@ -173,12 +181,6 @@ func (s *Server) Shutdown(ctx context.Context, reconnectInterval time.Duration) 
 func (s *Server) trackListener(ln net.Listener, add bool) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	if s.listeners == nil {
-		s.listeners = make(map[net.Listener]struct{})
-		s.conns = make(map[net.Conn]*connHandler)
-		s.shutdownCtx, s.shutdownFunc = context.WithCancelCause(context.Background())
-	}
 
 	if add {
 		if s.shutdown.Load() {
