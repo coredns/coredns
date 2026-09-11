@@ -6,9 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	clog "github.com/coredns/coredns/plugin/pkg/log"
-
 	"github.com/coredns/coredns/plugin/dso/internal/dsomessage"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 )
 
 func formatLog(conn net.Conn, origin dsomessage.Origin, buf []byte) string {

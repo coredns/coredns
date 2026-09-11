@@ -18,6 +18,7 @@ import (
 	"github.com/coredns/coredns/plugin"
 	"github.com/coredns/coredns/plugin/dso/internal/dsomessage"
 	"github.com/coredns/coredns/plugin/dso/internal/dsosession"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/miekg/dns"
 )
