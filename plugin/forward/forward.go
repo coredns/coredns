@@ -141,6 +141,15 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		maxConnectAttempts = uint64(defaultConnectAttemptsPerUpstream) * uint64(len(list))
 	}
 	connectAttempts := uint64(0)
+	tlsDeadline := deadline
+	if d, ok := ctx.Deadline(); ok && d.Before(tlsDeadline) {
+		tlsDeadline = d
+	}
+	tlsConnectTimeout := time.Until(tlsDeadline)
+	if maxConnectAttempts != 1 {
+		// Reserve time for a fresh connection if the first TLS handshake stalls.
+		tlsConnectTimeout /= 2
+	}
 
 	for time.Now().Before(deadline) && ctx.Err() == nil && (maxConnectAttempts == 0 || connectAttempts < maxConnectAttempts) {
 		if i >= len(list) {
@@ -187,6 +196,10 @@ func (f *Forward) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg
 		opts := f.opts
 
 		for {
+			opts.TLSConnectDeadline = time.Now().Add(tlsConnectTimeout)
+			if opts.TLSConnectDeadline.After(tlsDeadline) {
+				opts.TLSConnectDeadline = tlsDeadline
+			}
 			ret, localAddr, upstreamProto, err = proxy.Connect(ctx, state, opts)
 
 			if err == proxyPkg.ErrCachedClosed { // The peer closed a cached TCP or QUIC connection before the query was sent.
