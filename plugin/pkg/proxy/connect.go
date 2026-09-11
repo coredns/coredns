@@ -57,6 +57,20 @@ func (t *Transport) updateDialTimeout(newDialTime time.Duration) {
 
 // Dial dials the address configured in transport, potentially reusing a connection or creating a new one.
 func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
+	return t.DialContext(context.Background(), proto)
+}
+
+// DialContext is like Dial but honors ctx while establishing a new connection,
+// including the TLS handshake. The context does not affect the connection after dialing.
+func (t *Transport) DialContext(ctx context.Context, proto string) (*persistConn, bool, error) {
+	return t.dial(ctx, proto, time.Time{})
+}
+
+func (t *Transport) dial(ctx context.Context, proto string, tlsDeadline time.Time) (*persistConn, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+
 	// If tls has been configured; use it.
 	if t.tlsConfig != nil {
 		proto = "tcp-tls"
@@ -97,6 +111,11 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 
 	connCacheMissesCount.WithLabelValues(t.proxyName, t.addr, proto).Add(1)
 
+	if proto == "tcp-tls" && !tlsDeadline.IsZero() {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, tlsDeadline)
+		defer cancel()
+	}
 	reqTime := time.Now()
 	timeout := t.dialTimeout()
 	dialer := &net.Dialer{Timeout: timeout}
@@ -112,13 +131,13 @@ func (t *Transport) Dial(proto string) (*persistConn, bool, error) {
 	// pass nil tlsConfig to use system default
 	client := dns.Client{Net: proto, Dialer: dialer, TLSConfig: t.tlsConfig}
 
-	conn, err := client.Dial(t.addr)
+	conn, err := client.DialContext(ctx, t.addr)
 
 	t.updateDialTimeout(time.Since(reqTime))
 	return &persistConn{c: conn, created: time.Now()}, false, err
 }
 
-func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Options) (*dns.Msg, net.Addr, string, error) {
+func (p *Proxy) lookupDNS(ctx context.Context, state request.Request, opts Options) (*dns.Msg, net.Addr, string, error) {
 	var proto string
 	switch {
 	case opts.ForceTCP: // TCP flag has precedence over UDP flag
@@ -144,7 +163,7 @@ func (p *Proxy) lookupDNS(_ctx context.Context, state request.Request, opts Opti
 		}
 	}
 
-	pc, cached, err := p.transport.Dial(proto)
+	pc, cached, err := p.transport.dial(ctx, proto, opts.TLSConnectDeadline)
 	if err != nil {
 		return nil, nil, proto, err
 	}

@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"errors"
+	"time"
 )
 
 var (
@@ -25,4 +26,7 @@ type Options struct {
 	HCRecursionDesired bool
 	// HCDomain sets domain for Proxy healthcheck requests
 	HCDomain string
+	// TLSConnectDeadline bounds the TCP dial and TLS handshake for DoT, not the DNS exchange.
+	// A zero value leaves the adaptive dial timeout and caller context as the only limits.
+	TLSConnectDeadline time.Time
 }
