@@ -16,7 +16,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.19.1
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.68.0
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.47.0
-	github.com/coredns/caddy v1.1.4-0.20250930002214-15135a999495
+	github.com/coredns/caddy v1.1.4
 	github.com/dnstap/golang-dnstap v0.4.0
 	github.com/expr-lang/expr v1.17.8
 	github.com/farsightsec/golang-framestream v0.3.0
@@ -51,6 +51,7 @@ require (
 
 require (
 	github.com/caddyserver/certmagic v0.25.4
+	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/letsencrypt/pebble/v2 v2.10.1
 	github.com/mholt/acmez/v3 v3.1.6
