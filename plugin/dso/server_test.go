@@ -105,7 +105,7 @@ type (
 	}
 )
 
-func (p *testPlugin) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (p *testPlugin) ServeDNS(_ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if p.serveDNSFunc != nil {
 		p.serveDNSFunc(w, r)
 	} else {
@@ -229,13 +229,14 @@ func (c *testConn) readMsg(tb testing.TB) (m any, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if rawMsg(msg).opcode() == dns.OpcodeStateful {
+	switch rawMsg(msg).opcode() {
+	case dns.OpcodeStateful:
 		m, err := dsomessage.UnpackMsg(msg, dsomessage.OriginServer)
 		if err != nil {
 			tb.Fatalf("Got %v, want to unpack DSO message %#v", err, msg)
 		}
 		return m, nil
-	} else {
+	default:
 		m := new(dns.Msg)
 		err := m.Unpack(msg)
 		if err != nil {
@@ -260,8 +261,7 @@ func (c *testConn) assertExchangeKeepAlive(tb testing.TB, id uint16, ka dsomessa
 
 	c.assertWriteMsg(tb, dsomessage.NewReqMsg(id, &ka))
 	for {
-		switch m := c.assertReadMsg(tb).(type) {
-		case *dsomessage.Msg:
+		if m, ok := c.assertReadMsg(tb).(*dsomessage.Msg); ok {
 			if m.ID == id {
 				if m.Rcode != dns.RcodeSuccess || len(m.TLV) == 0 || m.TLV[0].Type() != dsomessage.TypeKeepAlive {
 					tb.Fatalf("Got %v, want KeepAlive response", m)
@@ -277,8 +277,7 @@ func (c *testConn) assertExchangeSubscribe(tb testing.TB, id uint16, sub dsomess
 
 	c.assertWriteMsg(tb, dsomessage.NewReqMsg(id, &sub))
 	for {
-		switch m := c.assertReadMsg(tb).(type) {
-		case *dsomessage.Msg:
+		if m, ok := c.assertReadMsg(tb).(*dsomessage.Msg); ok {
 			if m.ID == id {
 				if m.Rcode != dns.RcodeSuccess {
 					tb.Fatalf("Got %#v, want Subscribe response", m)
@@ -293,8 +292,7 @@ func (c *testConn) assertReadPush(tb testing.TB, change []dns.RR) {
 	tb.Helper()
 
 	for {
-		switch m := c.assertReadMsg(tb).(type) {
-		case *dsomessage.Msg:
+		if m, ok := c.assertReadMsg(tb).(*dsomessage.Msg); ok {
 			if m.ID == 0 && len(m.TLV) > 0 && m.TLV[0].Type() == dsomessage.TypePush {
 				got := m.TLV[0].(*dsomessage.Push).Change
 				diff := cmp.Diff(change, got, cmp.Comparer(func(a, b dns.RR) bool {
@@ -429,7 +427,7 @@ func setupServer(tb testing.TB, usePush bool) *testServer {
 		Stacktrace:  false,
 	}
 	upstreamPlugin := &testPlugin{}
-	upstreamCfg.AddPlugin(func(next plugin.Handler) plugin.Handler { return upstreamPlugin })
+	upstreamCfg.AddPlugin(func(plugin.Handler) plugin.Handler { return upstreamPlugin })
 	upstream, err := dnsserver.NewServer("127.0.0.1:0", []*dnsserver.Config{upstreamCfg})
 	if err != nil {
 		tb.Fatalf("Got %v, want CoreDNS server", err)
@@ -851,7 +849,7 @@ func TestServerHandleBadDNS(t *testing.T) {
 			&dns.Msg{
 				Question: []dns.Question{{Name: "a.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
-			func(dh dns.Header) dns.MsgAcceptAction {
+			func(dns.Header) dns.MsgAcceptAction {
 				return dns.MsgRejectNotImplemented
 			},
 			false,
@@ -862,7 +860,7 @@ func TestServerHandleBadDNS(t *testing.T) {
 			&dns.Msg{
 				Question: []dns.Question{{Name: "a.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
-			func(dh dns.Header) dns.MsgAcceptAction {
+			func(dns.Header) dns.MsgAcceptAction {
 				return dns.MsgReject
 			},
 			false,
@@ -873,7 +871,7 @@ func TestServerHandleBadDNS(t *testing.T) {
 			&dns.Msg{
 				Question: []dns.Question{{Name: "a.test.", Qtype: dns.TypeA, Qclass: dns.ClassINET}},
 			},
-			func(dh dns.Header) dns.MsgAcceptAction {
+			func(dns.Header) dns.MsgAcceptAction {
 				return 42
 			},
 			true,

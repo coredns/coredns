@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/rand/v2"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -1023,11 +1024,13 @@ func FuzzBuilderWritePushChange(f *testing.F) {
 			change = make([]dns.RR, len(writeRRSeq))
 		)
 		for i, n := range writeRRSeq {
-			domain := ""
+			var b strings.Builder
 			for range 4 {
-				domain += WordList[r.Int()%len(WordList)] + "."
+				b.WriteString(WordList[r.Int()%len(WordList)])
+				b.WriteByte('.')
 			}
-			domain += "test"
+			b.WriteString("test")
+			domain := b.String()
 
 			rdata := string(slices.Repeat([]byte{'x'}, int(n)+1)) // ensure non-empty rdata
 			change[i] = txtRRf("%s IN TXT %s", domain, rdata)

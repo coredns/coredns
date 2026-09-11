@@ -81,12 +81,11 @@ func (push *testPush) LookupPushSubscription(ctx context.Context, tlv dsomessage
 	q := dns.Question{Name: tlv.Name, Qtype: tlv.RRType, Qclass: tlv.Class}
 	if rrs, ok := push.zone.Load(q); ok {
 		return rrs.([]dns.RR), true
-	} else {
-		return nil, true
 	}
+	return nil, true
 }
 
-func (push *testPush) start(tb testing.TB, ctx context.Context, debounceDelay, refreshInterval time.Duration) <-chan error {
+func (push *testPush) start(tb testing.TB, ctx context.Context, debounceDelay, refreshInterval time.Duration) <-chan error { //nolint:revive
 	tb.Helper()
 
 	doneC := make(chan error, 1)
@@ -498,7 +497,7 @@ func TestPushRefresh(t *testing.T) {
 		},
 		{
 			"auto",
-			func(push *testPush) {
+			func(*testPush) {
 				time.Sleep(refreshInterval)
 			},
 		},
@@ -570,7 +569,8 @@ func TestPushAbortOnTooLongRR(t *testing.T) {
 		push.assertAdd(t, 1, tlv)
 
 		err := <-doneC
-		if _, ok := errors.AsType[*dsomessage.PackingError](err); !ok {
+		var packingErr *dsomessage.PackingError
+		if ok := errors.As(err, &packingErr); !ok {
 			t.Errorf("Got Serve()=%v, want PackingError", err)
 		}
 	})
@@ -604,7 +604,8 @@ func TestPushAbortOnInvalidRR(t *testing.T) {
 		push.assertAdd(t, 1, rrToSubscribe(invalidRR))
 
 		err := <-doneC
-		if _, ok := errors.AsType[*dsomessage.PackingError](err); !ok {
+		var packingErr *dsomessage.PackingError
+		if ok := errors.As(err, &packingErr); !ok {
 			t.Errorf("Got Serve()=%v, want PackingError", err)
 		}
 	})
