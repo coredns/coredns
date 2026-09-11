@@ -90,7 +90,7 @@ Minimal DSO service:
 ~~~ corefile
 example.org {
     dso {
-        tcp_port 8053
+        tcp_port 58053
     }
 }
 ~~~
@@ -100,7 +100,7 @@ Minimal DSO service with DNS Push Notifications:
 ~~~ corefile
 example.org {
     dso {
-        tls_port 8853
+        tls_port 58853
         push
     }
 }
@@ -111,7 +111,7 @@ Minimal DSO service for a DNS server defined by two server blocks:
 ~~~ corefile
 example.org {
     dso {
-        tls_port 8853
+        tls_port 58853
         push example.org example.net
     }
 }
