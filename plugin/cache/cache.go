@@ -54,12 +54,19 @@ type Cache struct {
 	// Positive/negative zone exceptions
 	pexcept []string
 	nexcept []string
+	bypass  []string // mutable authoritative zones discovered at startup
 
 	// Keep ttl option
 	keepttl bool
 
 	// Testing.
 	now func() time.Time
+}
+
+// ZoneBypasser identifies canonical authoritative zones that must always be
+// queried directly. Cache discovers implementations in its server block at startup.
+type ZoneBypasser interface {
+	CacheBypassZones() []string
 }
 
 // New returns an initialized Cache with default settings. It's up to the
