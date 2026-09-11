@@ -33,6 +33,15 @@ match on the query name will receive the query.
 server with no plugins will just return SERVFAIL for all queries. Each plugin can have a number of
 properties than can have arguments, see the documentation for each plugin.
 
+The Corefile is line oriented: the arguments of a plugin, or of one of its properties, run until the
+end of the line. Put each plugin, each property and each closing `}` on a line of its own. A `}` that
+shares a line with a plugin or a property can be read as part of that line. For example, this fails
+with "Unexpected '}' because no matching opening brace":
+
+~~~ txt
+. { whoami }
+~~~
+
 Comments are allowed and begin with an unquoted hash `#` and continue to the end of the line.
 Comments may be started anywhere on a line.
 
