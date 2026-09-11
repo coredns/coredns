@@ -103,14 +103,14 @@ func (s *Server) Serve(ln net.Listener) error {
 			}
 			return err
 		}
-		if !s.trackConn(ln, conn, true) {
+		if !s.trackConn(conn, true) {
 			conn.Close()
 			return ErrServerClosed
 		}
 	}
 }
 
-// Serve serves DNS and DSO via TLS over accepted connections.
+// ServeTLS serves DNS and DSO via TLS over accepted connections.
 func (s *Server) ServeTLS(ln net.Listener) error {
 	return s.Serve(tls.NewListener(ln, s.Config.TLSConfig.Clone()))
 }
@@ -194,7 +194,7 @@ func (s *Server) trackListener(ln net.Listener, add bool) bool {
 	return true
 }
 
-func (s *Server) trackConn(ln net.Listener, conn net.Conn, add bool) bool {
+func (s *Server) trackConn(conn net.Conn, add bool) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -202,10 +202,10 @@ func (s *Server) trackConn(ln net.Listener, conn net.Conn, add bool) bool {
 		if s.shutdown.Load() {
 			return false
 		}
-		h := newConnHandler(s, ln, conn)
+		h := newConnHandler(s, conn)
 		s.conns[conn] = h
 		s.connsGroup.Go(func() {
-			defer s.trackConn(ln, conn, false)
+			defer s.trackConn(conn, false)
 			h.handle(s.shutdownCtx)
 		})
 	} else {
@@ -214,7 +214,7 @@ func (s *Server) trackConn(ln net.Listener, conn net.Conn, add bool) bool {
 	return true
 }
 
-func newConnHandler(server *Server, ln net.Listener, conn net.Conn) (h *connHandler) {
+func newConnHandler(server *Server, conn net.Conn) (h *connHandler) {
 	h = &connHandler{
 		connState: &connState{
 			sesh: dsosession.New(conn),
@@ -948,10 +948,9 @@ FilterRRset:
 	}
 	if cname != nil {
 		return []dns.RR{cname}, true
-	} else {
-		clear(rrs[i:])
-		return rrs[:i], true
 	}
+	clear(rrs[i:])
+	return rrs[:i], true
 }
 
 type shutdownError struct {

@@ -156,13 +156,13 @@ const (
 	// TypeEncryptionPadding is type of EncryptionPadding TLV.
 	TypeEncryptionPadding = Type(dns.StatefulTypeEncryptionPadding)
 
-	// Subscribe is type of Subscribe TLV.
+	// TypeSubscribe is type of Subscribe TLV.
 	TypeSubscribe Type = 0x0040
-	// Push is type of Push TLV.
+	// TypePush is type of Push TLV.
 	TypePush Type = 0x0041
-	// Unsubscribe is type of Unsubscribe TLV.
+	// TypeUnsubscribe is type of Unsubscribe TLV.
 	TypeUnsubscribe Type = 0x0042
-	// Reconfirm is type of Reconfirm TLV.
+	// TypeReconfirm is type of Reconfirm TLV.
 	TypeReconfirm Type = 0x0043
 )
 
@@ -851,7 +851,7 @@ func (tlv *Reconfirm) unpack(msg []byte, off int, tlvLen uint16) (off1 int, err 
 	h.Class = binary.BigEndian.Uint16(msg[off1+2:])
 	off1 += 4
 
-	h.Rdlength = tlvLen - uint16(off1-off)
+	h.Rdlength = tlvLen - uint16(off1-off) // #nosec G115
 	if rr, off2, err := dns.UnpackRRWithHeader(h, msg, off1); err == nil {
 		tlv.RR = rr
 		off1 = off2
