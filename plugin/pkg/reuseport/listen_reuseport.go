@@ -12,6 +12,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const Enabled = true
+
 func control(_network, _address string, c syscall.RawConn) error {
 	c.Control(func(fd uintptr) {
 		const maxInt = int(^uint(0) >> 1)
