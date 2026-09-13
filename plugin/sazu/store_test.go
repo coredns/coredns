@@ -67,6 +67,122 @@ func TestZoneDataInsertAndLookupA(t *testing.T) {
 	}
 }
 
+// TestZoneDataInsertOfIdenticalRDataDoesNotDuplicate proves RFC 2136
+// §3.4.2.2's "duplicate RDATA replaces" rule: inserting an RR whose
+// content (ignoring TTL) already exists in the RRset must not produce a
+// second, redundant copy -- e.g. re-onboarding or re-pushing a zone
+// whose non-signature content hasn't actually changed.
+func TestZoneDataInsertOfIdenticalRDataDoesNotDuplicate(t *testing.T) {
+	z := NewZoneData("example.org.")
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10)))
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10))) // identical content, pushed again
+
+	got := z.Lookup("www.example.org.", dns.TypeA)
+	if len(got) != 1 {
+		t.Fatalf("expected the duplicate insert to be a no-op (1 record), got %d: %+v", len(got), got)
+	}
+}
+
+// TestZoneDataInsertOfIdenticalRDataRefreshesTTL proves the "replaces"
+// half of the same RFC 2136 rule: the TTL on the (sole) surviving record
+// tracks the most recently inserted value, rather than the insert being
+// silently dropped outright.
+func TestZoneDataInsertOfIdenticalRDataRefreshesTTL(t *testing.T) {
+	z := NewZoneData("example.org.")
+	first := testA("www.example.org.", net.IPv4(203, 0, 113, 10))
+	first.Hdr.Ttl = 300
+	z.Insert(first)
+
+	second := testA("www.example.org.", net.IPv4(203, 0, 113, 10))
+	second.Hdr.Ttl = 600
+	z.Insert(second)
+
+	got := z.Lookup("www.example.org.", dns.TypeA)
+	if len(got) != 1 || got[0].Header().Ttl != 600 {
+		t.Fatalf("expected 1 record with the refreshed TTL 600, got %+v", got)
+	}
+}
+
+// TestZoneDataInsertOfDifferentContentDoesNotReplace proves the dedup fix
+// only collapses genuinely identical content -- two A records at the same
+// name with different addresses are a real multi-value RRset, not a
+// duplicate.
+func TestZoneDataInsertOfDifferentContentDoesNotReplace(t *testing.T) {
+	z := NewZoneData("example.org.")
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10)))
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 11)))
+
+	got := z.Lookup("www.example.org.", dns.TypeA)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 distinct A records, got %d: %+v", len(got), got)
+	}
+}
+
+// TestZoneDataInsertRRSIGReplacesSameSignersPreviousSignature proves the
+// fix for real, previously-undiscovered unbounded growth: re-signing an
+// RRset (e.g. ahead of the previous signature's expiry) produces a fresh
+// RRSIG whose RDATA -- the signature bytes and validity window -- always
+// differs from the last one, even when the covered content hasn't
+// changed at all. RFC 2136's literal "identical RDATA replaces" rule
+// can't catch that, so without this, every re-sign of a long-lived zone
+// would accumulate one more RRSIG forever. SAZU's single-key design means
+// at most one active signature per (RRset, signer) is ever wanted, so a
+// fresh RRSIG from the same signer replaces its own previous one.
+func TestZoneDataInsertRRSIGReplacesSameSignersPreviousSignature(t *testing.T) {
+	z := NewZoneData("example.org.")
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10)))
+
+	older := &dns.RRSIG{
+		Hdr:         dns.RR_Header{Name: "www.example.org.", Rrtype: dns.TypeRRSIG, Class: dns.ClassINET, Ttl: 300},
+		TypeCovered: dns.TypeA, Algorithm: 15, KeyTag: 1234, SignerName: "example.org.",
+		Inception: 1000, Expiration: 2000, Signature: "old-signature-bytes",
+	}
+	z.Insert(older)
+
+	newer := &dns.RRSIG{
+		Hdr:         dns.RR_Header{Name: "www.example.org.", Rrtype: dns.TypeRRSIG, Class: dns.ClassINET, Ttl: 300},
+		TypeCovered: dns.TypeA, Algorithm: 15, KeyTag: 1234, SignerName: "example.org.",
+		Inception: 5000, Expiration: 6000, Signature: "new-signature-bytes",
+	}
+	z.Insert(newer)
+
+	got := z.LookupRRSIG("www.example.org.", dns.TypeA)
+	if len(got) != 1 {
+		t.Fatalf("expected the re-sign to replace, not accumulate, RRSIGs; got %d: %+v", len(got), got)
+	}
+	sig, ok := got[0].(*dns.RRSIG)
+	if !ok || sig.Signature != "new-signature-bytes" {
+		t.Fatalf("expected only the newer signature to survive, got %+v", got[0])
+	}
+}
+
+// TestZoneDataInsertRRSIGFromDifferentSignerCoexists proves the replace
+// logic is scoped to "same signer, same covered type, same key" -- a
+// second key legitimately signing the same RRset (e.g. mid key rollover)
+// must not evict the first signer's still-valid signature.
+func TestZoneDataInsertRRSIGFromDifferentSignerCoexists(t *testing.T) {
+	z := NewZoneData("example.org.")
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10)))
+
+	fromKeyA := &dns.RRSIG{
+		Hdr:         dns.RR_Header{Name: "www.example.org.", Rrtype: dns.TypeRRSIG, Class: dns.ClassINET, Ttl: 300},
+		TypeCovered: dns.TypeA, Algorithm: 15, KeyTag: 1111, SignerName: "example.org.",
+		Inception: 1000, Expiration: 2000, Signature: "key-a-signature",
+	}
+	fromKeyB := &dns.RRSIG{
+		Hdr:         dns.RR_Header{Name: "www.example.org.", Rrtype: dns.TypeRRSIG, Class: dns.ClassINET, Ttl: 300},
+		TypeCovered: dns.TypeA, Algorithm: 15, KeyTag: 2222, SignerName: "example.org.",
+		Inception: 1000, Expiration: 2000, Signature: "key-b-signature",
+	}
+	z.Insert(fromKeyA)
+	z.Insert(fromKeyB)
+
+	got := z.LookupRRSIG("www.example.org.", dns.TypeA)
+	if len(got) != 2 {
+		t.Fatalf("expected both signers' RRSIGs to coexist, got %d: %+v", len(got), got)
+	}
+}
+
 func TestZoneDataLookupReturnsIndependentCopies(t *testing.T) {
 	z := NewZoneData("example.org.")
 	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10)))

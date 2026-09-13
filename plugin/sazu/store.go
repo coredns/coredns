@@ -103,9 +103,13 @@ func (z *ZoneData) NameExists(name string) bool {
 	return false
 }
 
-// Insert adds rr to its RRset, per RFC 2136 §2.5.1 ("add to an RRset").
-// A SOA at the zone apex replaces the tracked SOA outright (RFC 1035:
-// a zone has exactly one SOA) rather than appending to a list of one.
+// Insert adds rr to its RRset, per RFC 2136 §3.4.2.2 ("Add To An
+// RRset"): "In case of duplicate RDATAs ... the Zone RR is replaced by
+// [the] Update RR" -- an RR identical in content (ignoring TTL) to one
+// already in the RRset replaces it in place rather than accumulating a
+// second, redundant copy. A SOA at the zone apex replaces the tracked
+// SOA outright regardless of content (RFC 1035: a zone has exactly one
+// SOA) rather than appending to a list of one.
 func (z *ZoneData) Insert(rr dns.RR) {
 	z.mu.Lock()
 	defer z.mu.Unlock()
@@ -121,7 +125,47 @@ func (z *ZoneData) insertLocked(rr dns.RR) {
 	if z.rrsets[name] == nil {
 		z.rrsets[name] = make(map[uint16][]dns.RR)
 	}
-	z.rrsets[name][rr.Header().Rrtype] = append(z.rrsets[name][rr.Header().Rrtype], dns.Copy(rr))
+	existing := z.rrsets[name][rr.Header().Rrtype]
+
+	if sig, ok := rr.(*dns.RRSIG); ok {
+		z.rrsets[name][rr.Header().Rrtype] = replaceRRSIG(existing, sig)
+		return
+	}
+
+	for i, e := range existing {
+		if rrEqualContent(e, rr) {
+			existing[i] = dns.Copy(rr) // replace -- refreshes TTL, per RFC 2136 §3.4.2.2
+			return
+		}
+	}
+	z.rrsets[name][rr.Header().Rrtype] = append(existing, dns.Copy(rr))
+}
+
+// replaceRRSIG adds sig to existing, first dropping any RRSIG already
+// there that was produced by the same signer over the same covered type.
+// RFC 2136 §3.4.2.2's "identical RDATA replaces" rule can't catch a
+// re-signed RRset the way it catches an ordinary record: a fresh
+// signature over unchanged content still has different RDATA (a new
+// signature value, a new validity window), so by that rule alone it
+// would just accumulate forever, once per re-sign, for as long as the
+// zone exists -- eventually bloating every answer with expired
+// signatures nothing ever removed. SAZU's single-key design (one signer
+// per zone; no concurrent multi-key/algorithm rollover modeled by this
+// in-memory store) means at most one active signature from a given
+// signer should ever cover a given RRset at a time, so a fresh RRSIG
+// from that signer replaces its own previous one instead of piling up
+// beside it.
+func replaceRRSIG(existing []dns.RR, sig *dns.RRSIG) []dns.RR {
+	kept := existing[:0]
+	for _, e := range existing {
+		old, ok := e.(*dns.RRSIG)
+		if ok && old.TypeCovered == sig.TypeCovered && old.Algorithm == sig.Algorithm &&
+			old.KeyTag == sig.KeyTag && strings.EqualFold(old.SignerName, sig.SignerName) {
+			continue
+		}
+		kept = append(kept, e)
+	}
+	return append(kept, dns.Copy(sig))
 }
 
 // DeleteRRset removes every RR of rtype at name (RFC 2136 §2.5.2).

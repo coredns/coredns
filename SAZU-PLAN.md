@@ -149,8 +149,32 @@ for a manually verified real-binary walkthrough.
   miekg/dns's 512-byte default, silently truncating any signed push over
   that size; added `Config.UDPSize` (own commit, cleanly separable from
   the sazu-specific work) to fix it.
-
-## Outstanding
+- **Fixed unbounded duplicate/RRSIG accumulation in `store.go`.** Found
+  live, verifying a real onboarded zone (sinepress.org) against the DNSSEC
+  standard end to end: `ZoneData.insertLocked` appended every inserted RR
+  unconditionally, with no check for content already present -- a direct
+  violation of RFC 2136 §3.4.2.2 ("In case of duplicate RDATAs ... the
+  Zone RR is replaced by [the] Update RR"), confirmed on the wire as a
+  literal duplicate A/DNSKEY/NS record served twice after two pushes of
+  the same content. Cryptographic validation was unaffected only by luck:
+  miekg/dns's own `RRSIG.Verify` already deduplicates identical wire-form
+  records before hashing (RFC 4034 §6.2 canonical form), so the served
+  signatures still verified -- but the underlying store bug was real, and
+  had a second, worse consequence: since a *fresh* RRSIG always has
+  different RDATA (a new signature and validity window) even over
+  unchanged content, it was never caught by the RFC's literal
+  duplicate-RDATA rule either, so every routine re-sign of a long-lived
+  zone (expected periodically, given `DefaultSignatureValidity`'s 30-day
+  window) would have accumulated one more RRSIG forever, with nothing
+  ever pruning the old ones. Fixed by making `Insert` replace
+  content-identical ordinary RRs in place (refreshing TTL, per the RFC),
+  and by having a fresh RRSIG from a given signer replace that same
+  signer's previous RRSIG over the same covered type at that name instead
+  of accumulating beside it (scoped by signer/key/covered-type, so a
+  second key's simultaneous signature, e.g. mid key rollover, still
+  legitimately coexists). Verified against the real binary: three
+  identical `push-zone` calls in a row now leave exactly one A record and
+  one RRSIG being served, not three of each.
 
 Split by where each belongs, per the architectural review that led to this
 document. The one item marked **separate server** is the exception; every
