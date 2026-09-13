@@ -1,12 +1,13 @@
 # Publishing a DS record at your registrar
 
-**Status: placeholder.** This document doesn't have registrar-specific
-walkthroughs yet — it exists so `sazuctl`'s onboarding-denied message has
-somewhere real to point to, and so the per-registrar instructions have an
-obvious home once they're written. If your registrar isn't listed below,
-search their support site for "DS record," "DNSSEC," or "delegation
-signer," or contact their support directly — every registrar that supports
-DNSSEC has *some* way to do this, the interface just varies.
+**Status: in progress.** Only AWS Route 53 is confirmed so far; everything
+else below is an open TODO. This exists so `sazuctl`'s onboarding-denied
+message has somewhere real to point to, and so each registrar's
+instructions have an obvious home once they're written. If your registrar
+isn't listed below, search their support site for "DS record," "DNSSEC,"
+or "delegation signer," or contact their support directly — every
+registrar that supports DNSSEC has *some* way to do this, the interface
+just varies.
 
 ## What you're doing, in general
 
@@ -30,6 +31,43 @@ can check whether it's live with:
 ```
 dig DS yourdomain.example +short
 ```
+
+## Confirmed registrars
+
+### AWS Route 53
+
+Route 53's "Add a public key" flow for DNSSEC doesn't ask for a DS record
+directly -- it asks for the DNSKEY's own fields and computes the DS
+itself. Two of those fields are a dropdown of numeric codes rather than
+free text, so here's exactly what to pick for a SAZU-generated key:
+
+- **Public key type** -- Route 53 offers 256 (ZSK) or 257 (KSK). SAZU
+  always generates SEP-flagged keys (the design's single-key model: one
+  key both signs and authenticates, so it's always a KSK by DNSSEC's own
+  definition of that flag), so pick **257 (KSK)**. `sazuctl keygen` and
+  `sazuctl ds` both print this as "key type" / "public key type" so you
+  don't have to work it out by hand.
+
+- **Algorithm** -- Route 53's dropdown lists 2 (DH), 3 (DSA), 5
+  (RSASHA1), 6 (DSA-NSEC3-SHA1), 7 (RSASHA1-NSEC3-SHA1), 8 (RSASHA256),
+  10 (RSASHA512), 13 (ECDSAP256SHA256, **Route 53's own default**), 14
+  (ECDSAP384SHA384), 15 (Ed25519), 16 (Ed448), 253 (PRIVATEDNS), and 254
+  (PRIVATEOID). SAZU generates Ed25519 keys, so pick **15 (Ed25519)** --
+  **do not leave this on Route 53's default of 13.** If you do, Route 53
+  computes a DS digest under the wrong algorithm number: not "no DS
+  published" (a DS record *is* there), but a "candidate key does not
+  match any DS record" rejection, since the published digest no longer
+  corresponds to your actual key at all. If onboarding fails with that
+  specific message after using this flow, this mismatch is the first
+  thing to check.
+
+- **Public key** -- the base64 value `sazuctl keygen`/`sazuctl ds` prints
+  as "public key." Paste it exactly as shown; it's the same value either
+  command prints, regardless of which one you ran.
+
+Route 53 computes and publishes the DS record itself from these three
+values, so there's nothing further to copy from `sazuctl ds`'s DS-record
+line for this particular registrar.
 
 ## Registrar-specific notes (TODO)
 

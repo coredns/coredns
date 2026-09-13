@@ -5,3 +5,12 @@ Corefile
 build/
 release/
 vendor/
+
+# SAZU: never let a private key or local test artifact end up committed.
+# *.private is the BIND9 private-key-file format sazuctl/keygen writes --
+# real key material, must never be checked in.
+sazuctl
+sazu-stub-tld
+*.private
+*.db
+*.zone

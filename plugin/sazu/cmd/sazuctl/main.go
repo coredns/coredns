@@ -113,9 +113,14 @@ func runDS(args []string) error {
 	fmt.Printf("DS record for %s -- give this to your registrar/parent zone:\n\n", *zone)
 	fmt.Printf("  %s IN DS %d %d %d %s\n\n", key.Hdr.Name, ds.KeyTag, ds.Algorithm, ds.DigestType, ds.Digest)
 	fmt.Printf("  key tag:     %d\n", ds.KeyTag)
-	fmt.Printf("  algorithm:   %d (Ed25519)\n", ds.Algorithm)
+	fmt.Printf("  algorithm:   %d (%s)\n", ds.Algorithm, algorithmLabel(key.Algorithm))
 	fmt.Printf("  digest type: %d (SHA-256)\n", ds.DigestType)
-	fmt.Printf("  digest:      %s\n", ds.Digest)
+	fmt.Printf("  digest:      %s\n\n", ds.Digest)
+	fmt.Println("Some registrars (e.g. AWS Route 53) ask for the raw public key")
+	fmt.Println("and its flags instead of, or in addition to, a DS record:")
+	fmt.Println()
+	fmt.Printf("  public key type: %d (%s)\n", key.Flags, keyTypeLabel(key.Flags))
+	fmt.Printf("  public key:      %s\n", key.PublicKey)
 	return nil
 }
 
@@ -447,7 +452,31 @@ func printNoDSGuidance(zone string, key *dns.DNSKEY) {
 
 func printKeyInfo(path string, key *dns.DNSKEY) {
 	fmt.Printf("Ed25519 key -> %s\n", path)
-	fmt.Printf("  algorithm: %d (ED25519)\n", key.Algorithm)
+	fmt.Printf("  key type:  %d (%s)\n", key.Flags, keyTypeLabel(key.Flags))
+	fmt.Printf("  algorithm: %d (%s)\n", key.Algorithm, algorithmLabel(key.Algorithm))
 	fmt.Printf("  key tag:   %d\n", key.KeyTag())
 	fmt.Printf("  public key (base64): %s\n", key.PublicKey)
+}
+
+// keyTypeLabel names the DNSKEY flags value the way registrar UIs
+// commonly present it (e.g. AWS Route 53's "public key type" field):
+// 256 for a Zone Signing Key (the ZONE bit only) or 257 for a Key Signing
+// Key (ZONE + SEP). SAZU always generates SEP-flagged (KSK) keys, so 257
+// is what you'll see today, but this stays correct if that ever changes.
+func keyTypeLabel(flags uint16) string {
+	switch flags {
+	case dns.ZONE | dns.SEP:
+		return "KSK"
+	case dns.ZONE:
+		return "ZSK"
+	default:
+		return "unrecognized flags"
+	}
+}
+
+func algorithmLabel(algorithm uint8) string {
+	if name, ok := dns.AlgorithmToString[algorithm]; ok {
+		return name
+	}
+	return "unknown"
 }
