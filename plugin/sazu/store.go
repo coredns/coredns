@@ -1,0 +1,198 @@
+package sazu
+
+import (
+	"strings"
+	"sync"
+
+	"github.com/miekg/dns"
+)
+
+// ZoneData is one zone's live RRset store: name (lowercased FQDN) -> type
+// -> RRs, plus its SOA tracked separately since queries for it are
+// answered directly rather than via the generic map. Deliberately minimal
+// -- SAZU needs "apply an accepted update and serve it back for testing
+// the onboarding/full-push/partial-push flow end to end," not full
+// authoritative fidelity (wildcards, delegation, NSEC). A production
+// deployment would wire SAZU's acceptance logic into a real zone-storage
+// backend instead of this self-contained one.
+type ZoneData struct {
+	Origin string
+
+	mu     sync.RWMutex
+	soa    *dns.SOA
+	rrsets map[string]map[uint16][]dns.RR
+}
+
+// NewZoneData returns an empty zone for origin with no SOA yet -- callers
+// creating a brand-new zone are expected to Insert one as part of the
+// same update that creates it.
+func NewZoneData(origin string) *ZoneData {
+	return &ZoneData{Origin: dns.Fqdn(strings.ToLower(origin)), rrsets: make(map[string]map[uint16][]dns.RR)}
+}
+
+// SOA returns the zone's current SOA, or nil if none has been pushed yet.
+func (z *ZoneData) SOA() *dns.SOA {
+	z.mu.RLock()
+	defer z.mu.RUnlock()
+	return z.soa
+}
+
+// Lookup returns a copy of the RRset for name/qtype, or nil if none.
+func (z *ZoneData) Lookup(name string, qtype uint16) []dns.RR {
+	z.mu.RLock()
+	defer z.mu.RUnlock()
+	name = strings.ToLower(name)
+	if qtype == dns.TypeSOA && name == z.Origin {
+		if z.soa == nil {
+			return nil
+		}
+		return []dns.RR{dns.Copy(z.soa)}
+	}
+	byType, ok := z.rrsets[name]
+	if !ok {
+		return nil
+	}
+	out := make([]dns.RR, len(byType[qtype]))
+	for i, rr := range byType[qtype] {
+		out[i] = dns.Copy(rr)
+	}
+	return out
+}
+
+// NameExists reports whether name has any RRset at all (including being
+// the zone apex, which always "exists" once a SOA has been pushed).
+func (z *ZoneData) NameExists(name string) bool {
+	z.mu.RLock()
+	defer z.mu.RUnlock()
+	name = strings.ToLower(name)
+	if name == z.Origin && z.soa != nil {
+		return true
+	}
+	byType, ok := z.rrsets[name]
+	if !ok {
+		return false
+	}
+	for _, rrs := range byType {
+		if len(rrs) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// Insert adds rr to its RRset, per RFC 2136 §2.5.1 ("add to an RRset").
+// A SOA at the zone apex replaces the tracked SOA outright (RFC 1035:
+// a zone has exactly one SOA) rather than appending to a list of one.
+func (z *ZoneData) Insert(rr dns.RR) {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	z.insertLocked(rr)
+}
+
+func (z *ZoneData) insertLocked(rr dns.RR) {
+	if soa, ok := rr.(*dns.SOA); ok && strings.EqualFold(rr.Header().Name, z.Origin) {
+		z.soa = dns.Copy(soa).(*dns.SOA)
+		return
+	}
+	name := strings.ToLower(rr.Header().Name)
+	if z.rrsets[name] == nil {
+		z.rrsets[name] = make(map[uint16][]dns.RR)
+	}
+	z.rrsets[name][rr.Header().Rrtype] = append(z.rrsets[name][rr.Header().Rrtype], dns.Copy(rr))
+}
+
+// DeleteRRset removes every RR of rtype at name (RFC 2136 §2.5.2).
+func (z *ZoneData) DeleteRRset(name string, rtype uint16) {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	name = strings.ToLower(name)
+	if rtype == dns.TypeSOA && name == z.Origin {
+		return // a zone's SOA is never removable this way, only replaced
+	}
+	if byType, ok := z.rrsets[name]; ok {
+		delete(byType, rtype)
+	}
+}
+
+// DeleteName removes every RRset at name, apex SOA excepted (RFC 2136
+// §2.5.3 -- there is no protocol-level way to delete a zone this way,
+// only its non-apex content).
+func (z *ZoneData) DeleteName(name string) {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	name = strings.ToLower(name)
+	if name == z.Origin {
+		return
+	}
+	delete(z.rrsets, name)
+}
+
+// DeleteRR removes one specific RR matching rr's content -- not its TTL,
+// which RFC 2136 §2.5.4 deletes ignore -- from its RRset.
+func (z *ZoneData) DeleteRR(rr dns.RR) {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	name := strings.ToLower(rr.Header().Name)
+	byType, ok := z.rrsets[name]
+	if !ok {
+		return
+	}
+	rrs := byType[rr.Header().Rrtype]
+	kept := rrs[:0]
+	for _, existing := range rrs {
+		if !rrEqualContent(existing, rr) {
+			kept = append(kept, existing)
+		}
+	}
+	byType[rr.Header().Rrtype] = kept
+}
+
+// rrEqualContent compares two RRs by name/type/rdata only, ignoring TTL
+// and Class. TTL is never part of RFC 2136 delete matching. Class also
+// has to be ignored here specifically because RFC 2136 §2.5.4 "delete an
+// RR" (and this store's own DeleteRR caller) carries the real rdata
+// alongside Class NONE as a wire-protocol marker for "this is a delete,"
+// not as part of the record's identity -- the stored record being
+// deleted has the zone's real class (usually IN), so comparing Class
+// along with the rest would make every such delete a no-op.
+func rrEqualContent(a, b dns.RR) bool {
+	a2, b2 := dns.Copy(a), dns.Copy(b)
+	a2.Header().Ttl, b2.Header().Ttl = 0, 0
+	a2.Header().Class, b2.Header().Class = 0, 0
+	return a2.String() == b2.String()
+}
+
+// Store holds every zone this plugin instance is currently serving,
+// keyed by origin.
+type Store struct {
+	mu    sync.RWMutex
+	zones map[string]*ZoneData
+}
+
+// NewStore returns an empty Store.
+func NewStore() *Store {
+	return &Store{zones: make(map[string]*ZoneData)}
+}
+
+// Get returns the zone for origin, if it has been created (by a
+// successful first-contact push).
+func (s *Store) Get(origin string) (*ZoneData, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	z, ok := s.zones[dns.Fqdn(strings.ToLower(origin))]
+	return z, ok
+}
+
+// GetOrCreate returns the existing zone for origin, or creates and
+// registers a new empty one.
+func (s *Store) GetOrCreate(origin string) *ZoneData {
+	origin = dns.Fqdn(strings.ToLower(origin))
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if z, ok := s.zones[origin]; ok {
+		return z
+	}
+	z := NewZoneData(origin)
+	s.zones[origin] = z
+	return z
+}

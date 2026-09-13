@@ -61,6 +61,7 @@ var Directives = []string{
 	"file",
 	"auto",
 	"secondary",
+	"sazu",
 	"etcd",
 	"loop",
 	"forward",
