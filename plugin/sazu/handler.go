@@ -123,6 +123,8 @@ func (s *Sazu) serveQuery(w dns.ResponseWriter, r *dns.Msg, z *ZoneData) (int, e
 	q := r.Question[0]
 	rrs := z.Lookup(q.Name, q.Qtype)
 	nameExists := z.NameExists(q.Name)
+	log.Debugf("query %s/%s (zone %s, DO=%v): %d matching RRset(s), nameExists=%v",
+		q.Name, dns.TypeToString[q.Qtype], z.Origin, isDNSSECRequested(r), len(rrs), nameExists)
 	if len(rrs) == 0 && !nameExists {
 		m.Rcode = dns.RcodeNameError
 	} else {
@@ -165,6 +167,8 @@ func (s *Sazu) serveQuery(w dns.ResponseWriter, r *dns.Msg, z *ZoneData) (int, e
 			}
 		}
 	}
+	log.Debugf("query %s/%s: replying rcode=%s answer=%v authority=%v",
+		q.Name, dns.TypeToString[q.Qtype], dns.RcodeToString[m.Rcode], m.Answer, m.Ns)
 	return writeMsg(w, m)
 }
 
