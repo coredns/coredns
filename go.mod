@@ -4,6 +4,8 @@ module github.com/coredns/coredns
 // Go versions. This follows the upstream Go project support.
 go 1.26.0
 
+toolchain go1.26.6
+
 require (
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.30
