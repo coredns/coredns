@@ -3,13 +3,15 @@
 // It builds a first-contact SAZU push (a DNSKEY add for the client's own
 // key, plus one A record), signs it with SIG(0) (RFC 2931) using that same
 // key -- the design's central decision (§9.1: one key does both jobs) --
-// and either sends it to a target over UDP or just prints/self-verifies
-// it.
+// and either sends it to a target (UDP or TCP, chosen automatically by
+// size -- see safeUDPPushSize) or just prints/self-verifies it.
 package main
 
 import (
+	"encoding/binary"
 	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strings"
@@ -19,6 +21,23 @@ import (
 
 	"github.com/miekg/dns"
 )
+
+// safeUDPPushSize is the threshold above which sazuctl sends a push over
+// TCP instead of UDP. Real DNSSEC-signed content (this project's own
+// motivation) routinely exceeds it, and matters for a concrete, not
+// theoretical, reason: found against a real server during this
+// project's own testing, a signed push over roughly this size gets
+// silently dropped -- not truncated, not FORMERR'd, just gone -- once it
+// exceeds the path MTU and has to fragment at the IP layer, which many
+// real firewalls and security groups (that server's included) drop
+// entirely. 1232 bytes matches the industry-wide "DNS Flag Day 2020"
+// consensus value (BIND, PowerDNS, Knot, Unbound, et al.) for the same
+// underlying reason on the response side. RFC 1035 built TCP in as the
+// transport for exactly this case from the very beginning: there is no
+// "split one UPDATE across several UDP datagrams" mechanism in RFC 2136
+// or any real implementation, so escalating transport, not shrinking the
+// message, is the only real option once a push is this size.
+const safeUDPPushSize = 1232
 
 func main() {
 	if len(os.Args) < 2 {
@@ -362,21 +381,29 @@ func signSelfVerifyAndSend(zone string, wire []byte, key *dns.DNSKEY, target str
 		return nil
 	}
 
-	conn, err := net.Dial("udp", target)
+	network := "udp"
+	if len(wire) > safeUDPPushSize {
+		network = "tcp"
+	}
+
+	conn, err := net.Dial(network, target)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	if _, err := conn.Write(wire); err != nil {
+	if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 		return err
 	}
-	fmt.Printf("Sent %d bytes to %s\n", len(wire), target)
+	if err := writeRequest(conn, network, wire); err != nil {
+		return err
+	}
+	if network == "tcp" {
+		fmt.Printf("Sent %d bytes to %s over TCP (exceeds the %d-byte safe UDP size)\n", len(wire), target, safeUDPPushSize)
+	} else {
+		fmt.Printf("Sent %d bytes to %s\n", len(wire), target)
+	}
 
-	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
-		return err
-	}
-	buf := make([]byte, 4096)
-	n, err := conn.Read(buf)
+	buf, err := readResponse(conn, network)
 	if err != nil {
 		fmt.Printf("No response (%v) -- fine if nothing is listening yet; "+
 			"the push itself encoded, signed, and self-verified correctly.\n", err)
@@ -384,11 +411,48 @@ func signSelfVerifyAndSend(zone string, wire []byte, key *dns.DNSKEY, target str
 	}
 
 	resp := new(dns.Msg)
-	if err := resp.Unpack(buf[:n]); err != nil {
-		fmt.Printf("Response (%d bytes, did not parse as a DNS message: %v):\n%x\n", n, err, buf[:n])
+	if err := resp.Unpack(buf); err != nil {
+		fmt.Printf("Response (%d bytes, did not parse as a DNS message: %v):\n%x\n", len(buf), err, buf)
 		return nil
 	}
 	return interpretResponse(zone, key, resp)
+}
+
+// writeRequest sends wire to conn, prefixing it with the 2-byte
+// big-endian length RFC 1035 §4.2.2 requires for TCP framing (not needed
+// for UDP, which is message-oriented already).
+func writeRequest(conn net.Conn, network string, wire []byte) error {
+	if network == "tcp" {
+		var lenPrefix [2]byte
+		binary.BigEndian.PutUint16(lenPrefix[:], uint16(len(wire)))
+		if _, err := conn.Write(lenPrefix[:]); err != nil {
+			return err
+		}
+	}
+	_, err := conn.Write(wire)
+	return err
+}
+
+// readResponse reads one complete response message from conn, handling
+// TCP's length-prefix framing.
+func readResponse(conn net.Conn, network string) ([]byte, error) {
+	if network == "tcp" {
+		var lenPrefix [2]byte
+		if _, err := io.ReadFull(conn, lenPrefix[:]); err != nil {
+			return nil, err
+		}
+		buf := make([]byte, binary.BigEndian.Uint16(lenPrefix[:]))
+		if _, err := io.ReadFull(conn, buf); err != nil {
+			return nil, err
+		}
+		return buf, nil
+	}
+	buf := make([]byte, 4096)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf[:n], nil
 }
 
 // interpretResponse prints a plain-language verdict for the server's

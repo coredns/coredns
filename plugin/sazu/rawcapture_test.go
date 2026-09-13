@@ -172,3 +172,57 @@ func TestRawCaptureEndToEndThroughUDPDecorateReaderFunc(t *testing.T) {
 		t.Fatalf("expected the captured bytes to decode to the same question that was sent")
 	}
 }
+
+// TestRawCaptureEndToEndThroughTCPDecorateReaderFunc mirrors the UDP
+// version above for core/dnsserver.Config.TCPDecorateReaderFunc -- the
+// transport sazuctl actually uses for anything of meaningful size (see
+// push.go), since a real signed push routinely exceeds the path MTU and
+// gets silently dropped as an IP fragment over UDP on real networks.
+func TestRawCaptureEndToEndThroughTCPDecorateReaderFunc(t *testing.T) {
+	capture := NewRawCapture(5*time.Second, 64)
+	handler := &captureAssertHandler{capture: capture}
+
+	cfg := &dnsserver.Config{
+		Zone:        "example.com.",
+		Transport:   "dns",
+		ListenHosts: []string{"127.0.0.1"},
+		Port:        "0",
+	}
+	cfg.AddPlugin(func(plugin.Handler) plugin.Handler { return handler })
+	cfg.TCPDecorateReaderFunc = capture.DecorateReaderFunc
+
+	s, err := dnsserver.NewServer("127.0.0.1:0", []*dnsserver.Config{cfg})
+	if err != nil {
+		t.Fatalf("NewServer failed: %v", err)
+	}
+
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen failed: %v", err)
+	}
+	defer l.Close()
+
+	go func() { _ = s.Serve(l) }()
+	defer s.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	co, err := dns.DialTimeout("tcp", l.Addr().String(), 2*time.Second)
+	if err != nil {
+		t.Fatalf("DialTimeout failed: %v", err)
+	}
+	defer co.Close()
+	if err := co.WriteMsg(m); err != nil {
+		t.Fatalf("WriteMsg failed: %v", err)
+	}
+	if _, err := co.ReadMsg(); err != nil {
+		t.Fatalf("ReadMsg failed: %v", err)
+	}
+
+	if !handler.found.Load() {
+		t.Fatalf("expected the handler to find a captured entry for its own request")
+	}
+	if !handler.matched.Load() {
+		t.Fatalf("expected the captured bytes to decode to the same question that was sent")
+	}
+}

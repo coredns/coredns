@@ -3,6 +3,8 @@ package sazu
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/binary"
+	"io"
 	"net"
 	"strings"
 	"sync/atomic"
@@ -31,10 +33,11 @@ func newTestSazu(zone string) *Sazu {
 }
 
 // serveThroughRealServer starts a real dnsserver.Server (as CoreDNS
-// itself would) with s installed as the sole plugin, so its
-// UDPDecorateReaderFunc-based raw capture is genuinely exercised over a
-// real UDP round trip -- not called directly, which would prove nothing
-// about the wiring this depends on.
+// itself would) with s installed as the sole plugin, listening on both
+// UDP and TCP on the same port -- exactly like a real deployment -- so
+// its DecorateReaderFunc-based raw capture is genuinely exercised over a
+// real round trip on either transport, not called directly, which would
+// prove nothing about the wiring this depends on.
 func serveThroughRealServer(t *testing.T, s *Sazu) string {
 	t.Helper()
 	cfg := &dnsserver.Config{
@@ -49,7 +52,7 @@ func serveThroughRealServer(t *testing.T, s *Sazu) string {
 	})
 	cfg.AllowOpcode(dns.OpcodeUpdate)
 	cfg.UDPDecorateReaderFunc = s.Capture.DecorateReaderFunc
-	cfg.UDPSize = maxUDPMessageSize // see setup.go: a signed push regularly exceeds the 512B default
+	cfg.TCPDecorateReaderFunc = s.Capture.DecorateReaderFunc
 
 	srv, err := dnsserver.NewServer("127.0.0.1:0", []*dnsserver.Config{cfg})
 	if err != nil {
@@ -61,33 +64,61 @@ func serveThroughRealServer(t *testing.T, s *Sazu) string {
 	}
 	t.Cleanup(func() { pc.Close() })
 	go func() { _ = srv.ServePacket(pc) }()
+
+	// Bind TCP to the exact same port UDP got assigned, matching a real
+	// CoreDNS deployment (one address, both transports).
+	_, port, err := net.SplitHostPort(pc.LocalAddr().String())
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	l, err := net.Listen("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	t.Cleanup(func() { l.Close() })
+	go func() { _ = srv.Serve(l) }()
+
 	t.Cleanup(func() { _ = srv.Stop() })
 	return pc.LocalAddr().String()
 }
 
-// sendRaw sends wire directly over UDP to addr and returns the response,
-// bypassing dns.Client/dns.Exchange -- which would re-pack the message
-// and defeat the entire point of testing byte-exact SIG(0) delivery.
+// sendRaw sends wire directly over TCP to addr (RFC 1035 §4.2.2 length-
+// prefix framing) and returns the response, bypassing dns.Client/
+// dns.Exchange -- which would re-pack the message and defeat the entire
+// point of testing byte-exact SIG(0) delivery. TCP, not UDP, because a
+// real signed push routinely exceeds the ~1472-byte path MTU and gets
+// silently dropped as an IP fragment on real networks -- exactly what
+// sazuctl itself now avoids by using TCP for anything of meaningful size
+// (see push.go); UDP-specific behavior has its own dedicated tests in
+// rawcapture_test.go.
 func sendRaw(t *testing.T, addr string, wire []byte) *dns.Msg {
 	t.Helper()
-	conn, err := net.Dial("udp", addr)
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		t.Fatalf("Dial: %v", err)
 	}
 	defer conn.Close()
+	if err := conn.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatalf("SetDeadline: %v", err)
+	}
+	var lenPrefix [2]byte
+	binary.BigEndian.PutUint16(lenPrefix[:], uint16(len(wire)))
+	if _, err := conn.Write(lenPrefix[:]); err != nil {
+		t.Fatalf("writing length prefix: %v", err)
+	}
 	if _, err := conn.Write(wire); err != nil {
 		t.Fatalf("Write: %v", err)
 	}
-	if err := conn.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
-		t.Fatalf("SetReadDeadline: %v", err)
+
+	if _, err := io.ReadFull(conn, lenPrefix[:]); err != nil {
+		t.Fatalf("reading response length prefix: %v", err)
 	}
-	buf := make([]byte, 4096)
-	n, err := conn.Read(buf)
-	if err != nil {
-		t.Fatalf("Read: %v", err)
+	buf := make([]byte, binary.BigEndian.Uint16(lenPrefix[:]))
+	if _, err := io.ReadFull(conn, buf); err != nil {
+		t.Fatalf("reading response: %v", err)
 	}
 	resp := new(dns.Msg)
-	if err := resp.Unpack(buf[:n]); err != nil {
+	if err := resp.Unpack(buf); err != nil {
 		t.Fatalf("Unpack response: %v", err)
 	}
 	return resp
@@ -911,7 +942,7 @@ func TestWildcardScopeFallsThroughForNeverOnboardedNames(t *testing.T) {
 	})
 	cfg.AllowOpcode(dns.OpcodeUpdate)
 	cfg.UDPDecorateReaderFunc = s.Capture.DecorateReaderFunc
-	cfg.UDPSize = maxUDPMessageSize
+	cfg.TCPDecorateReaderFunc = s.Capture.DecorateReaderFunc
 	srv, err := dnsserver.NewServer("127.0.0.1:0", []*dnsserver.Config{cfg})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)
@@ -922,6 +953,16 @@ func TestWildcardScopeFallsThroughForNeverOnboardedNames(t *testing.T) {
 	}
 	defer pc.Close()
 	go func() { _ = srv.ServePacket(pc) }()
+	_, port, err := net.SplitHostPort(pc.LocalAddr().String())
+	if err != nil {
+		t.Fatalf("SplitHostPort: %v", err)
+	}
+	l, err := net.Listen("tcp", "127.0.0.1:"+port)
+	if err != nil {
+		t.Fatalf("Listen: %v", err)
+	}
+	defer l.Close()
+	go func() { _ = srv.Serve(l) }()
 	defer srv.Stop()
 	addr := pc.LocalAddr().String()
 

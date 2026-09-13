@@ -24,16 +24,17 @@ func setup(c *caddy.Controller) error {
 	config.AllowOpcode(dns.OpcodeUpdate)
 
 	capture := NewRawCapture(5*time.Second, 4096)
+	// A signed push carrying real RRSIGs routinely exceeds 512 bytes (RFC
+	// 1035's plain-DNS-over-UDP ceiling) -- and, worse, often exceeds the
+	// ~1472-byte path MTU before IP fragmentation kicks in, which gets
+	// silently dropped by many networks/firewalls entirely (found the
+	// hard way against a real server). Raising the UDP receive buffer
+	// only helped with the first problem, not the second, so sazuctl
+	// sends anything of meaningful size over TCP instead -- both
+	// listeners share the same capture, since RawCapture keys entries by
+	// address + message ID regardless of transport.
 	config.UDPDecorateReaderFunc = capture.DecorateReaderFunc
-
-	// CoreDNS never raises its UDP receive buffer above miekg/dns's
-	// 512-byte default (RFC 1035's plain-DNS-over-UDP ceiling) -- silently
-	// truncating any inbound message larger than that. Ordinary queries
-	// never hit this, but a real, RRSIG-signed SAZU push routinely does
-	// (each RRSIG alone is well over 100 bytes), so this plugin has to ask
-	// for more room on the *request* side, which EDNS0 payload-size
-	// negotiation doesn't cover (that only governs response size).
-	config.UDPSize = maxUDPMessageSize
+	config.TCPDecorateReaderFunc = capture.DecorateReaderFunc
 
 	s := &Sazu{
 		Zones:                       cfg.zones,

@@ -250,6 +250,15 @@ through its real nameservers throughout.
    machine with normal internet access, but worth checking explicitly if
    this runs somewhere with restrictive egress rules.
 
+   It also needs **inbound TCP/53 reachable**, not just UDP/53: `sazuctl`
+   sends anything over roughly 1.2 KB over TCP automatically (see
+   `push.go`/`cmd/sazuctl`), since a real signed push routinely exceeds
+   the path MTU and gets silently dropped as an IP fragment on UDP —
+   found the hard way against a real security-group-restricted host. If
+   `push-zone` reports no response at all (not even a denial) against a
+   server you otherwise know is up, check that inbound TCP/53 specifically
+   isn't blocked, separately from UDP/53.
+
 2. **If this domain is currently live with real traffic on it, read
    [Migrating an already-live domain](REGISTRARS.md#migrating-an-already-live-domain)
    in `REGISTRARS.md` before doing anything else in this section.**
@@ -344,8 +353,6 @@ a real-world test isn't mistaken for a production trial run:
   persists across a restart).
 * **No delegation-change watch loop** (§11). A pinned key that later drops
   out of the zone's real DNSKEY RRset at the parent isn't detected.
-* **UDP only.** RFC 2136 updates are commonly sent over TCP for large
-  zones; this plugin has not been tested against TCP.
 * **A single mutex serializes every UPDATE** this plugin instance handles,
   across all zones. Fine for testing; a production version would want
   per-zone locking for throughput.

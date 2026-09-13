@@ -153,11 +153,11 @@ for a manually verified real-binary walkthrough.
   diagnostic) unless every added RRset carries a covering RRSIG that
   actually verifies against the candidate/pinned key. Left off, "Level 0,
   trust the pipe" (SIG(0) alone) remains a supported, simpler mode. Also
-  fixed a real, previously-undiscovered CoreDNS-wide bug this surfaced:
-  `core/dnsserver` never raised `dns.Server`'s UDP receive buffer past
-  miekg/dns's 512-byte default, silently truncating any signed push over
-  that size; added `Config.UDPSize` (own commit, cleanly separable from
-  the sazu-specific work) to fix it.
+  surfaced a real, previously-undiscovered CoreDNS-wide bug: `core/dnsserver`
+  never raised `dns.Server`'s UDP receive buffer past miekg/dns's 512-byte
+  default, silently truncating any signed push over that size. Initially
+  fixed with a `Config.UDPSize` field -- since removed, see the TCP entry
+  below for why a bigger UDP buffer turned out to be the wrong fix.
 - **Fixed unbounded duplicate/RRSIG accumulation in `store.go`.** Found
   live, verifying a real onboarded zone (sinepress.org) against the DNSSEC
   standard end to end: `ZoneData.insertLocked` appended every inserted RR
@@ -249,6 +249,56 @@ for a manually verified real-binary walkthrough.
     NXDOMAIN/NODATA proof requires. Plain NSEC is what actually resolves
     validating resolvers treating this server's negative answers as
     Bogus, which was the real problem.
+- **TCP support for pushes, replacing the earlier `Config.UDPSize`
+  workaround.** Found live against a real server: a genuine signed push
+  well under `UDPSize`'s 16 KiB ceiling (around 1.5-2 KB) got *no
+  response at all*, confirmed via a controlled size sweep to fail
+  starting exactly around the ~1472-byte path MTU -- not a receive-buffer
+  truncation (which at least produces `FORMERR`), but the message getting
+  fragmented at the IP layer and the fragments silently dropped
+  somewhere in the network path (a very common security posture: many
+  firewalls and security groups drop non-initial UDP fragments). No
+  server-side receive-buffer size can fix a problem that happens before
+  the packet ever arrives. The actual, standards-correct fix -- TCP has
+  been DNS's designated fallback transport for oversized messages since
+  RFC 1035 itself, formalized as a requirement in RFC 7766, and is
+  exactly the direction the 2020 "DNS Flag Day" industry consensus (BIND,
+  PowerDNS, Knot, Unbound) pushed the whole ecosystem for the same
+  underlying reason on the response side:
+  - `core/dnsserver.Config.TCPDecorateReaderFunc` (own commit, cleanly
+    separable, on `feat/tcp-decorate-reader` off `master`): CoreDNS's TCP
+    listener never wired `DecorateReader` through to the underlying
+    `dns.Server` at all, unlike UDP, so there was no way to get
+    byte-exact request bytes for SIG(0) verification over TCP even in
+    principle. Added, mirroring `UDPDecorateReaderFunc` exactly.
+  - `rawcapture.go`'s `RawCapture`/`capturingReader` needed almost no
+    change: entries are keyed by address + message ID regardless of
+    transport, so the one missing piece was `ReadTCP` actually calling
+    `Put` (it was a silent passthrough before). The same `RawCapture`
+    instance and the same `DecorateReaderFunc` now serve both
+    `UDPDecorateReaderFunc` and `TCPDecorateReaderFunc`.
+  - `sazuctl` now picks the transport automatically by size
+    (`safeUDPPushSize`, 1232 bytes -- the same DNS Flag Day value) rather
+    than always using UDP: small pushes (most `push-update` calls) stay
+    on UDP: fewer round trips, no connection overhead; anything larger
+    (most `push-zone` full pushes, especially now that a real NSEC chain
+    is included) goes over TCP automatically, with RFC 1035 §4.2.2's
+    2-byte length-prefix framing. There is no "split one UPDATE across
+    several UDP datagrams" mechanism in RFC 2136 or any real
+    implementation -- escalating transport, not shrinking the message,
+    is the only real option once a push is this size.
+  - `Config.UDPSize` and everything that threaded it through
+    (`core/dnsserver`, `setup.go`'s `maxUDPMessageSize`) were removed
+    entirely rather than kept alongside TCP: once genuinely large pushes
+    go over TCP, no legitimate UPDATE traffic needs a bigger UDP receive
+    buffer any more, and every test that previously needed it now sends
+    over TCP instead (`handler_test.go`'s `serveThroughRealServer` binds
+    both transports on the same port, matching a real deployment).
+  - Verified against the real binary and manually against the real
+    server that found this: a small partial update still goes out over
+    UDP (confirmed in the server's own log); a full-zone push of the
+    same shape that previously vanished now goes over TCP automatically
+    and is accepted.
 
 ## Outstanding
 
@@ -285,12 +335,6 @@ other outstanding item is a CoreDNS-plugin change.
   Recommend plugging into CoreDNS's existing `https` plugin rather than a
   separate service — same authorization and zone state, just a different
   wire encoding.
-- [ ] **TCP.** `AllowOpcode` already permits UPDATE over TCP at the
-  `core/dnsserver` level, but `RawCapture` is UDP-only, so a TCP UPDATE
-  reaches the handler today but always fails closed (no captured bytes to
-  verify SIG(0) against) — safely, but uselessly. Needs `RawCapture`'s
-  `DecorateReaderFunc` pattern extended to TCP reads.
-
 ### Client-side (not a server concern either way)
 
 - [ ] **Key custody hardening (§10.8).** `sazuctl` writes a plain BIND-format

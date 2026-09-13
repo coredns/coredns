@@ -388,14 +388,6 @@ const statusErrUnknownSigner = "ERR_UNKNOWN_SIGNER"
 // actually verify against the candidate/pinned key.
 const statusErrSigInvalid = "ERR_SIG_INVALID"
 
-// maxUDPMessageSize is the UDP receive buffer size setup.go asks
-// core/dnsserver for -- see the comment there for why the 512-byte
-// default isn't enough once a push carries real RRSIGs. 16 KiB
-// comfortably fits a full-zone push for a moderately sized zone; a zone
-// large enough to exceed even this should go over TCP instead (not yet
-// implemented here -- see SAZU-PLAN.md).
-const maxUDPMessageSize = 16384
-
 // replyWithStatus replies to r with rcode and, if status is non-empty,
 // a diagnostic TXT record carrying it in the Additional section.
 func replyWithStatus(w dns.ResponseWriter, r *dns.Msg, rcode int, status string) (int, error) {

@@ -27,14 +27,17 @@ type capturedEntry struct {
 	expires time.Time
 }
 
-// RawCapture stashes the exact wire bytes of inbound UDP requests, keyed
-// by source address and DNS message ID, so a plugin's ServeDNS -- which
-// only ever receives a parsed *dns.Msg -- can retrieve the literal bytes
-// a client sent, for byte-exact SIG(0) (RFC 2931) verification that a
-// re-encoding of the parsed message cannot guarantee reproduces. Wired in
-// via DecorateReaderFunc, installable as
-// core/dnsserver.Config.UDPDecorateReaderFunc -- see that field's doc
-// comment for why this exists instead of a second, separate listener.
+// RawCapture stashes the exact wire bytes of inbound UDP or TCP
+// requests, keyed by source address and DNS message ID, so a plugin's
+// ServeDNS -- which only ever receives a parsed *dns.Msg -- can retrieve
+// the literal bytes a client sent, for byte-exact SIG(0) (RFC 2931)
+// verification that a re-encoding of the parsed message cannot guarantee
+// reproduces. Wired in via DecorateReaderFunc, installable as either
+// core/dnsserver.Config.UDPDecorateReaderFunc or .TCPDecorateReaderFunc
+// (the same instance and the same decorator function work for both,
+// since entries are keyed by address + message ID regardless of
+// transport) -- see UDPDecorateReaderFunc's doc comment for why this
+// exists instead of a second, separate listener.
 //
 // Entries are single-use: Take deletes them. An entry nobody ever claims
 // (a malformed request, or a request for a zone/plugin that doesn't use
@@ -124,9 +127,10 @@ func (c *RawCapture) Take(addr net.Addr, id uint16) ([]byte, bool) {
 	return entry.raw, true
 }
 
-// DecorateReaderFunc is installable directly as
-// core/dnsserver.Config.UDPDecorateReaderFunc: it captures every UDP
-// request's raw bytes into c before handing them on unmodified.
+// DecorateReaderFunc is installable directly as either
+// core/dnsserver.Config.UDPDecorateReaderFunc or .TCPDecorateReaderFunc:
+// it captures every request's raw bytes into c before handing them on
+// unmodified, regardless of which transport it's installed on.
 func (c *RawCapture) DecorateReaderFunc(*dnsserver.Server) dns.DecorateReader {
 	return func(r dns.Reader) dns.Reader {
 		pcr, _ := r.(dns.PacketConnReader)
@@ -134,10 +138,11 @@ func (c *RawCapture) DecorateReaderFunc(*dnsserver.Server) dns.DecorateReader {
 	}
 }
 
-// capturingReader overrides both ReadUDP and ReadPacketConn since which
-// one the server actually calls depends on whether the underlying
-// net.PacketConn's concrete type is *net.UDPConn or something more
-// generic (e.g. under a reuseport or proxyproto wrapper).
+// capturingReader overrides ReadTCP, ReadUDP, and ReadPacketConn -- which
+// of the latter two the server actually calls depends on whether the
+// underlying net.PacketConn's concrete type is *net.UDPConn or something
+// more generic (e.g. under a reuseport or proxyproto wrapper); ReadTCP is
+// separate again since it comes from an entirely different listener.
 type capturingReader struct {
 	inner   dns.Reader
 	innerPC dns.PacketConnReader
@@ -145,7 +150,11 @@ type capturingReader struct {
 }
 
 func (r *capturingReader) ReadTCP(conn net.Conn, timeout time.Duration) ([]byte, error) {
-	return r.inner.ReadTCP(conn, timeout)
+	m, err := r.inner.ReadTCP(conn, timeout)
+	if err == nil {
+		r.capture.Put(conn.RemoteAddr(), m)
+	}
+	return m, err
 }
 
 func (r *capturingReader) ReadUDP(conn *net.UDPConn, timeout time.Duration) ([]byte, *dns.SessionUDP, error) {
