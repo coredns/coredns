@@ -177,3 +177,57 @@ func TestNilIoAndListener(t *testing.T) {
 		t.Errorf("Expected io to receive message")
 	}
 }
+
+// collectTapper records every dnstap payload it receives so a test can inspect
+// the sequence and contents of the emitted messages.
+type collectTapper struct {
+	msgs []*tap.Dnstap
+}
+
+func (c *collectTapper) Dnstap(e *tap.Dnstap) { c.msgs = append(c.msgs, e) }
+
+func TestDnstapDeferredError(t *testing.T) {
+	// When the plugin chain returns an error rcode without writing a response,
+	// the server generates and sends the error to the client after dnstap's
+	// ServeDNS returns, so ResponseWriter.WriteMsg is never called. dnstap must
+	// still emit a CLIENT_RESPONSE reflecting that deferred error, otherwise a
+	// dnstap stream shows a CLIENT_QUERY with no matching CLIENT_RESPONSE (#6532).
+	q := test.Case{Qname: "example.org.", Qtype: dns.TypeA}.Msg()
+
+	c := &collectTapper{}
+	h := Dnstap{
+		Next: test.HandlerFunc(func(_ context.Context, _ dns.ResponseWriter, _ *dns.Msg) (int, error) {
+			// Return an error rcode WITHOUT calling WriteMsg, deferring the
+			// response to the server (as e.g. an unmatched plugin/auto does).
+			return dns.RcodeServerFailure, nil
+		}),
+		io:                c,
+		IncludeRawMessage: true,
+	}
+
+	rcode, err := h.ServeDNS(context.TODO(), &test.ResponseWriter{}, q)
+	if err != nil {
+		t.Fatalf("ServeDNS returned error: %v", err)
+	}
+	if rcode != dns.RcodeServerFailure {
+		t.Fatalf("expected rcode SERVFAIL, got %d", rcode)
+	}
+
+	if len(c.msgs) != 2 {
+		t.Fatalf("expected 2 dnstap messages (CLIENT_QUERY + CLIENT_RESPONSE), got %d", len(c.msgs))
+	}
+	if got := c.msgs[0].GetMessage().GetType(); got != tap.Message_CLIENT_QUERY {
+		t.Errorf("first message: expected CLIENT_QUERY, got %v", got)
+	}
+	respMsg := c.msgs[1].GetMessage()
+	if got := respMsg.GetType(); got != tap.Message_CLIENT_RESPONSE {
+		t.Fatalf("second message: expected CLIENT_RESPONSE, got %v", got)
+	}
+	unpacked := new(dns.Msg)
+	if err := unpacked.Unpack(respMsg.GetResponseMessage()); err != nil {
+		t.Fatalf("failed to unpack tapped CLIENT_RESPONSE: %v", err)
+	}
+	if unpacked.Rcode != dns.RcodeServerFailure {
+		t.Errorf("expected SERVFAIL in tapped response, got %s", dns.RcodeToString[unpacked.Rcode])
+	}
+}
