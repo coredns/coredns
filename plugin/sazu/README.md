@@ -205,43 +205,7 @@ you can point `sazuctl` at a test instance of this server running anywhere
 reachable to you, on any port, while your domain keeps working normally
 through its real nameservers throughout.
 
-1. **Pick a domain you control that supports DNSSEC**, and generate a key:
-
-   ```
-   ./sazuctl keygen -out client.private -zone yourdomain.example
-   ```
-
-2. **Publish the DS record at your registrar.**
-
-   ```
-   ./sazuctl ds -zone yourdomain.example -key client.private
-   ```
-
-   This prints something like:
-
-   ```
-   yourdomain.example. IN DS 12345 15 2 <64-hex-char digest>
-   ```
-
-   Take the key tag, algorithm (15 = Ed25519), digest type (2 = SHA-256),
-   and digest, and add them as a DS record through your registrar's control
-   panel (every major registrar that supports DNSSEC has a form for this —
-   look for "DS record," "DNSSEC," or "delegation signer"). **This step is
-   the one genuinely manual, out-of-band part of onboarding** — it's
-   ordinary DNSSEC hygiene, not something SAZU replaces.
-
-3. **Wait for the DS to actually be visible**, since registrars propagate
-   this at their own pace (minutes to a few hours is typical):
-
-   ```
-   dig DS yourdomain.example +short
-   ```
-
-   Don't proceed until this returns your digest — a chain-of-trust check
-   before propagation completes will correctly fail with "no DS published
-   yet," which is the right behavior, not a bug.
-
-4. **Start the server** — same as the sandbox walkthrough, but with the
+1. **Start the server** — same as the sandbox walkthrough, but with the
    Corefile pointed at your real domain and `insecure_skip_chain_validation`
    **removed** (this is the whole point of testing in the real world):
 
@@ -261,6 +225,62 @@ through its real nameservers throughout.
    and TLD servers) for the chain walk to succeed — the usual case for any
    machine with normal internet access, but worth checking explicitly if
    this runs somewhere with restrictive egress rules.
+
+2. **Just try onboarding it.** You don't need to generate a key or fetch a
+   DS record up front — `push-zone` does that for you and, on a domain
+   with no DS published yet, tells you exactly what to do next:
+
+   ```
+   ./sazuctl push-zone -zone yourdomain.example -key client.private \
+       -zonefile yourdomain.example.zone -target 127.0.0.1:15353
+   ```
+
+   The first attempt against a real, not-yet-onboarded domain is *expected*
+   to be denied — that's the chain-of-trust cross-check working correctly,
+   not a bug. `sazuctl` generates the key (if `client.private` doesn't
+   exist yet), prints the exact DS record to give your registrar, and
+   points you at `REGISTRARS.md` for registrar-specific steps:
+
+   ```
+   Onboarding denied: no DS record published for yourdomain.example yet.
+
+   Your registrar doesn't know about this key. To fix this:
+
+     1. Give your registrar this DS record:
+
+          yourdomain.example. IN DS 12345 15 2 <64-hex-char digest>
+
+        See REGISTRARS.md (plugin/sazu/REGISTRARS.md in this checkout) for
+        registrar-specific instructions -- not every registrar is covered yet;
+        if yours isn't, search their support site for "DS record" or "DNSSEC."
+
+     2. Wait for it to propagate (minutes to a few hours is typical):
+
+          dig DS yourdomain.example +short
+
+     3. Re-run this same command once that shows your digest.
+   ```
+
+3. **Submit that DS record at your registrar** — every major registrar
+   that supports DNSSEC has a form for this (look for "DS record,"
+   "DNSSEC," or "delegation signer"); see `REGISTRARS.md` for what's
+   documented so far per registrar. **This is the one genuinely manual,
+   out-of-band step** — ordinary DNSSEC hygiene, not something SAZU
+   replaces.
+
+4. **Wait for it to propagate**, then confirm with `dig DS yourdomain.example
+   +short` as the message above says, and **re-run the exact same
+   `push-zone` command from step 2.** Once the DS is visible, the same
+   command that was denied now succeeds:
+
+   ```
+   Self-verification: OK (420 bytes)
+   Sent 420 bytes to 127.0.0.1:15353
+   Accepted (NOERROR).
+   ```
+
+   Your zone is now onboarded — verify with `dig @127.0.0.1 -p 15353 ...`
+   exactly as in the sandbox walkthrough.
 
 5. **Onboard your real zone content** and confirm the response is NOERROR,
    not REFUSED:

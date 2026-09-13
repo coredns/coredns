@@ -179,7 +179,7 @@ func runPush(args []string) error {
 	if err != nil {
 		return err
 	}
-	return signSelfVerifyAndSend(wire, key, *target)
+	return signSelfVerifyAndSend(*zone, wire, key, *target)
 }
 
 func runPushZone(args []string) error {
@@ -225,7 +225,7 @@ func runPushZone(args []string) error {
 	if err != nil {
 		return err
 	}
-	return signSelfVerifyAndSend(wire, key, *target)
+	return signSelfVerifyAndSend(*zone, wire, key, *target)
 }
 
 // runPushUpdate builds an ordinary (non-first-contact) SAZU push: no
@@ -293,7 +293,7 @@ func runPushUpdate(args []string) error {
 	if err != nil {
 		return err
 	}
-	return signSelfVerifyAndSend(wire, key, *target)
+	return signSelfVerifyAndSend(*zone, wire, key, *target)
 }
 
 // parseRRs parses each s in values as a zone-file-format resource record.
@@ -336,8 +336,9 @@ func parseNameTypePairs(values []string) ([]dns.RR, error) {
 
 // signSelfVerifyAndSend proves a signed push actually verifies against
 // its own key before sending anything, then either sends it to target
-// over UDP and reports the response, or just prints the wire bytes.
-func signSelfVerifyAndSend(wire []byte, key *dns.DNSKEY, target string) error {
+// over UDP and reports what the server did with it, or just prints the
+// wire bytes if no target was given.
+func signSelfVerifyAndSend(zone string, wire []byte, key *dns.DNSKEY, target string) error {
 	if err := sazu.VerifySIG0(wire, key); err != nil {
 		return fmt.Errorf("self-verification failed (this would be a bug): %w", err)
 	}
@@ -368,8 +369,80 @@ func signSelfVerifyAndSend(wire []byte, key *dns.DNSKEY, target string) error {
 			"the push itself encoded, signed, and self-verified correctly.\n", err)
 		return nil
 	}
-	fmt.Printf("Response (%d bytes): %x\n", n, buf[:n])
-	return nil
+
+	resp := new(dns.Msg)
+	if err := resp.Unpack(buf[:n]); err != nil {
+		fmt.Printf("Response (%d bytes, did not parse as a DNS message: %v):\n%x\n", n, err, buf[:n])
+		return nil
+	}
+	return interpretResponse(zone, key, resp)
+}
+
+// interpretResponse prints a plain-language verdict for the server's
+// response to a push, and returns a non-nil error (so sazuctl exits
+// non-zero) when the push wasn't accepted. The one case with dedicated
+// guidance is ERR_NO_DS_PUBLISHED (§12's status-code convention, carried
+// as a TXT record in the response's Additional section) -- by far the
+// most common reason a first-contact push gets refused, and the one with
+// a concrete, actionable next step.
+func interpretResponse(zone string, key *dns.DNSKEY, resp *dns.Msg) error {
+	if resp.Rcode == dns.RcodeSuccess {
+		fmt.Println("Accepted (NOERROR).")
+		return nil
+	}
+
+	status, _ := diagnosticStatus(resp)
+	if status == statusErrNoDSPublished {
+		printNoDSGuidance(zone, key)
+		return fmt.Errorf("denied: no DS record published for %s yet", zone)
+	}
+
+	rcodeName := dns.RcodeToString[resp.Rcode]
+	if status != "" {
+		return fmt.Errorf("denied: %s (%s)", rcodeName, status)
+	}
+	return fmt.Errorf("denied: %s", rcodeName)
+}
+
+// statusErrNoDSPublished mirrors the constant of the same name in
+// plugin/sazu/handler.go -- kept as a literal here rather than imported
+// since it's an unexported implementation detail of the server, not part
+// of that package's public API; the wire value is what actually matters,
+// and it's fixed by the design doc's §12 status-code list.
+const statusErrNoDSPublished = "ERR_NO_DS_PUBLISHED"
+
+// diagnosticStatus extracts a §12 SAZU status code from a response's
+// Additional section, if present.
+func diagnosticStatus(m *dns.Msg) (string, bool) {
+	for _, rr := range m.Extra {
+		if txt, ok := rr.(*dns.TXT); ok && len(txt.Txt) > 0 {
+			return txt.Txt[0], true
+		}
+	}
+	return "", false
+}
+
+func printNoDSGuidance(zone string, key *dns.DNSKEY) {
+	ds := key.ToDS(dns.SHA256)
+	fmt.Println()
+	fmt.Printf("Onboarding denied: no DS record published for %s yet.\n", zone)
+	fmt.Println()
+	fmt.Println("Your registrar doesn't know about this key. To fix this:")
+	fmt.Println()
+	fmt.Println("  1. Give your registrar this DS record:")
+	fmt.Println()
+	fmt.Printf("       %s IN DS %d %d %d %s\n", key.Hdr.Name, ds.KeyTag, ds.Algorithm, ds.DigestType, ds.Digest)
+	fmt.Println()
+	fmt.Println("     See REGISTRARS.md (plugin/sazu/REGISTRARS.md in this checkout) for")
+	fmt.Println("     registrar-specific instructions -- not every registrar is covered yet;")
+	fmt.Println("     if yours isn't, search their support site for \"DS record\" or \"DNSSEC.\"")
+	fmt.Println()
+	fmt.Println("  2. Wait for it to propagate (minutes to a few hours is typical):")
+	fmt.Println()
+	fmt.Printf("       dig DS %s +short\n", zone)
+	fmt.Println()
+	fmt.Println("  3. Re-run this same command once that shows your digest.")
+	fmt.Println()
 }
 
 func printKeyInfo(path string, key *dns.DNSKEY) {

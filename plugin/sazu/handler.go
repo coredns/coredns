@@ -27,7 +27,7 @@ type Sazu struct {
 	Zones     []string
 	Store     *Store
 	Keys      *KeyRegistry
-	Validator *Validator
+	Validator ChainValidator
 	Capture   *RawCapture
 
 	// DB, if non-nil, persists every accepted UPDATE (see db.go): a
@@ -130,7 +130,17 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	if !alreadyPinned {
 		if !s.InsecureSkipChainValidation {
 			if err := s.Validator.VerifyChainOfTrust(zone, candidate); err != nil {
-				return reply(dns.RcodeRefused)
+				status := ""
+				if ce, ok := err.(*ChainError); ok && ce.Op == "no-ds-published" {
+					// §12's status-code convention: the specific, by far
+					// most common first-contact failure -- "you haven't
+					// told your registrar about this key yet" -- gets its
+					// own diagnostic so a client can say exactly that,
+					// rather than a bare REFUSED indistinguishable from a
+					// wrong key or a broken chain elsewhere.
+					status = statusErrNoDSPublished
+				}
+				return replyWithStatus(w, r, dns.RcodeRefused, status)
 			}
 		}
 		if !containsAPEXSOA(r.Ns, zone) {
@@ -219,4 +229,27 @@ func writeMsg(w dns.ResponseWriter, m *dns.Msg) (int, error) {
 		return dns.RcodeServerFailure, err
 	}
 	return dns.RcodeSuccess, nil
+}
+
+// statusErrNoDSPublished is one of §12's SAZU status codes, carried as a
+// diagnostic TXT record per that section: "On the raw-DNS carrier this
+// rides as a short diagnostic TXT record in the response's Additional
+// section." Only this one code is implemented today -- the rest of §12's
+// list (ERR_STALE_SERIAL, ERR_UNKNOWN_SIGNER, etc.) is still outstanding,
+// see SAZU-PLAN.md.
+const statusErrNoDSPublished = "ERR_NO_DS_PUBLISHED"
+
+// replyWithStatus replies to r with rcode and, if status is non-empty,
+// a diagnostic TXT record carrying it in the Additional section.
+func replyWithStatus(w dns.ResponseWriter, r *dns.Msg, rcode int, status string) (int, error) {
+	m := new(dns.Msg)
+	m.SetReply(r)
+	m.Rcode = rcode
+	if status != "" {
+		m.Extra = append(m.Extra, &dns.TXT{
+			Hdr: dns.RR_Header{Name: r.Question[0].Name, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0},
+			Txt: []string{status},
+		})
+	}
+	return writeMsg(w, m)
 }

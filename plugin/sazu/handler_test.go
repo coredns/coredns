@@ -274,3 +274,92 @@ func TestPartialPushFromWrongKeyRejected(t *testing.T) {
 		t.Fatalf("expected a push signed by an unpinned key to be rejected")
 	}
 }
+
+// fakeValidator lets tests control exactly what VerifyChainOfTrust returns,
+// so the response-shaping logic in serveUpdate (in particular the
+// ERR_NO_DS_PUBLISHED diagnostic) can be tested without real network
+// queries -- chain.go's own tests already cover the real network-calling
+// logic; this covers what handler.go does with its result.
+type fakeValidator struct {
+	err error
+}
+
+func (f fakeValidator) VerifyChainOfTrust(string, *dns.DNSKEY) error { return f.err }
+
+// TestOnboardDeniedWithNoDSPublishedGivesDiagnostic proves the exact
+// behavior the onboarding UX depends on: a first-contact push for a zone
+// with no DS published yet is refused, and carries a machine-readable
+// ERR_NO_DS_PUBLISHED diagnostic a client can act on -- distinct from any
+// other reason a push might be refused.
+func TestOnboardDeniedWithNoDSPublishedGivesDiagnostic(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.InsecureSkipChainValidation = false
+	s.Validator = fakeValidator{err: &ChainError{Op: "no-ds-published", Msg: "no DS record published yet for example.org."}}
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	push := BuildFullZonePush("example.org.", testSOA(1), nil, key, nil)
+	now := time.Now()
+	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+
+	resp := sendRaw(t, addr, wire)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("rcode = %s, want REFUSED", dns.RcodeToString[resp.Rcode])
+	}
+	status, ok := diagnosticStatus(resp)
+	if !ok || status != statusErrNoDSPublished {
+		t.Fatalf("expected an %s diagnostic TXT record, got status=%q ok=%v (extra=%+v)",
+			statusErrNoDSPublished, status, ok, resp.Extra)
+	}
+	if _, pinned := s.Keys.Get("example.org."); pinned {
+		t.Fatalf("expected no key to be pinned for a denied first-contact push")
+	}
+}
+
+// TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic proves the
+// diagnostic is specific to the no-DS-published case: any other
+// chain-of-trust failure (a broken ancestor, a network error, a key that
+// doesn't match a DS that does exist) is still refused, but without
+// implying "go publish a DS" when that isn't actually the problem.
+func TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.InsecureSkipChainValidation = false
+	s.Validator = fakeValidator{err: &ChainError{Op: "verify", Msg: "candidate key does not match any DS record published for example.org."}}
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	push := BuildFullZonePush("example.org.", testSOA(1), nil, key, nil)
+	now := time.Now()
+	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+
+	resp := sendRaw(t, addr, wire)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("rcode = %s, want REFUSED", dns.RcodeToString[resp.Rcode])
+	}
+	if _, ok := diagnosticStatus(resp); ok {
+		t.Fatalf("expected no diagnostic TXT record for a non-no-DS chain failure, got extra=%+v", resp.Extra)
+	}
+}
+
+// diagnosticStatus extracts a §12 SAZU status code from a response's
+// Additional section, if present.
+func diagnosticStatus(m *dns.Msg) (string, bool) {
+	for _, rr := range m.Extra {
+		if txt, ok := rr.(*dns.TXT); ok && len(txt.Txt) > 0 {
+			return txt.Txt[0], true
+		}
+	}
+	return "", false
+}

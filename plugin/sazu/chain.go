@@ -1,6 +1,7 @@
 package sazu
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -41,6 +42,28 @@ func (e *ChainError) Error() string { return fmt.Sprintf("sazu: chain-of-trust: 
 
 func chainErr(op, format string, args ...any) error {
 	return &ChainError{Op: op, Msg: fmt.Sprintf(format, args...)}
+}
+
+// errNoDSRecords is returned internally by fetchAndVerifyDS when the
+// parent answered authoritatively but currently publishes no DS at all
+// for the queried name (an authoritative NOERROR/NODATA, not a failure).
+// VerifyChainOfTrust checks for this specifically only on its *final*
+// fetchAndVerifyDS call (the target zone's own parent), re-tagging it as
+// ChainError{Op: "no-ds-published"} -- the single most common, expected
+// state for a zone that has never been onboarded before, worth
+// distinguishing from every other way the chain can fail (a broken
+// ancestor, a network error, a key that doesn't match a DS that *does*
+// exist) so a client can tell someone exactly what to do next instead of
+// a bare "rejected."
+var errNoDSRecords = errors.New("no DS records found")
+
+// ChainValidator is the interface Sazu depends on for the §10.2
+// chain-of-trust cross-check -- satisfied by *Validator, and small enough
+// that tests can supply a fake implementation to exercise handler.go's
+// response-shaping logic (in particular the ERR_NO_DS_PUBLISHED path)
+// without making real network queries.
+type ChainValidator interface {
+	VerifyChainOfTrust(zone string, candidateKey *dns.DNSKEY) error
 }
 
 // Validator performs DNSSEC chain-of-trust validation from the hardcoded
@@ -127,6 +150,9 @@ func (v *Validator) VerifyChainOfTrust(zone string, candidateKey *dns.DNSKEY) er
 	// target zone's own DNSKEY set.
 	finalDS, err := v.fetchAndVerifyDS(zone, servers, trustedKeys)
 	if err != nil {
+		if errors.Is(err, errNoDSRecords) {
+			return &ChainError{Op: "no-ds-published", Msg: fmt.Sprintf("no DS record published yet for %s", zone)}
+		}
 		return err
 	}
 	for _, ds := range finalDS {
@@ -232,7 +258,7 @@ func (v *Validator) fetchAndVerifyDS(child string, servers []string, trustedKeys
 	}
 	dsRecords, sigs := splitDSAndSigs(resp.Answer)
 	if len(dsRecords) == 0 {
-		return nil, chainErr("ds", "no DS records found for %s", child)
+		return nil, fmt.Errorf("%s: %w", child, errNoDSRecords)
 	}
 
 	if err := verifyAnyRRSIG(child, toRR(dsRecords), dns.TypeDS, sigs, trustedKeys); err != nil {
