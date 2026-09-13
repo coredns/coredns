@@ -8,9 +8,11 @@ vendor/
 
 # SAZU: never let a private key or local test artifact end up committed.
 # *.private is the BIND9 private-key-file format sazuctl/keygen writes --
-# real key material, must never be checked in.
-sazuctl
-sazu-stub-tld
+# real key material, must never be checked in. The leading slashes on the
+# binary names matter: unanchored, they'd also match the source
+# directories plugin/sazu/cmd/sazuctl/ and .../sazu_stub_tld/.
+/sazuctl
+/sazu-stub-tld
 *.private
 *.db
 *.zone
