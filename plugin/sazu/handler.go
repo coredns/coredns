@@ -8,9 +8,20 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/plugin"
+	clog "github.com/coredns/coredns/plugin/pkg/log"
 
 	"github.com/miekg/dns"
 )
+
+// log follows the same convention as every other CoreDNS plugin (see
+// e.g. plugin/hosts): log.Info/Warning/Error are always visible; log.Debug
+// only prints once the Corefile also loads the `debug` plugin. There was
+// no logging anywhere in this plugin before -- added specifically because
+// a real production hang (a first-contact push that got no response at
+// all, even after a minute) turned out to be undiagnosable without it:
+// nothing here distinguished "stuck in the chain-of-trust network walk"
+// from "silently dropped" from the outside.
+var log = clog.NewWithPlugin("sazu")
 
 // Sazu is the CoreDNS plugin implementing SAZU (Self-Authenticated Zone
 // Update): a customer's own signer pushes DNSSEC-signed zone content,
@@ -173,36 +184,50 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		return writeMsg(w, m)
 	}
 
+	log.Debugf("update for %s from %s: %d prerequisite(s), %d op(s)", zone, w.RemoteAddr(), len(r.Answer), len(r.Ns))
+
 	raw, ok := s.Capture.Take(w.RemoteAddr(), r.Id)
 	if !ok {
 		// No exact wire bytes captured for this request -- there is
 		// nothing to verify a SIG(0) signature against. Fail closed
 		// rather than trust a re-encoding of the parsed message.
+		log.Warningf("update for %s from %s: no raw bytes captured for id %d, refusing", zone, w.RemoteAddr(), r.Id)
 		return reply(dns.RcodeServerFailure)
 	}
 
+	log.Debugf("update for %s: waiting for updateMu (serializes all zones on this instance)", zone)
 	s.updateMu.Lock()
 	defer s.updateMu.Unlock()
+	log.Debugf("update for %s: acquired updateMu", zone)
 
 	pinned, alreadyPinned := s.Keys.Get(zone)
 	var candidate *dns.DNSKEY
 	if alreadyPinned {
 		candidate = pinned
+		log.Debugf("update for %s: zone already pinned to key tag %d", zone, candidate.KeyTag())
 	} else {
 		var err error
 		candidate, err = findCandidateKey(r.Ns, zone)
 		if err != nil {
+			log.Debugf("update for %s: no candidate DNSKEY found in a first-contact push: %v", zone, err)
 			return reply(dns.RcodeRefused)
 		}
+		log.Debugf("update for %s: first-contact candidate key tag %d algorithm %d", zone, candidate.KeyTag(), candidate.Algorithm)
 	}
 
 	if err := VerifySIG0(raw, candidate); err != nil {
+		log.Debugf("update for %s: SIG(0) verification failed: %v", zone, err)
 		return reply(dns.RcodeNotAuth)
 	}
+	log.Debugf("update for %s: SIG(0) verified", zone)
 
 	if !alreadyPinned {
 		if !s.InsecureSkipChainValidation {
-			if err := s.Validator.VerifyChainOfTrust(zone, candidate); err != nil {
+			log.Infof("update for %s: first contact, starting chain-of-trust walk to the DNS root (this makes real outbound DNS queries and can take a while on a restricted network)", zone)
+			start := time.Now()
+			err := s.Validator.VerifyChainOfTrust(zone, candidate)
+			log.Infof("update for %s: chain-of-trust walk finished in %s, err=%v", zone, time.Since(start), err)
+			if err != nil {
 				status := ""
 				if ce, ok := err.(*ChainError); ok {
 					switch ce.Op {
@@ -240,7 +265,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 
 	z := s.Store.GetOrCreate(zone)
 	if rcode, err := EvaluatePrerequisites(z, r.Answer, dns.ClassINET); err != nil {
-		_ = err // surfaced only via rcode; see EvaluatePrerequisites' doc comment
+		log.Debugf("update for %s: prerequisite failed: %v", zone, err)
 		return reply(rcode)
 	}
 
@@ -252,6 +277,7 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		// mode -- but this is what actually determines whether a zone
 		// will validate for real DNSSEC resolvers once served.
 		if err := VerifySignedRRsets(candidate, r.Ns, dns.ClassINET, time.Now()); err != nil {
+			log.Debugf("update for %s: RequireValidRRSIGs check failed: %v", zone, err)
 			return replyWithStatus(w, r, dns.RcodeNotAuth, statusErrSigInvalid)
 		}
 	}
@@ -265,8 +291,10 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 			keyToPin = candidate
 		}
 		if err := s.DB.CommitUpdate(zone, keyToPin, r.Ns, dns.ClassINET); err != nil {
+			log.Errorf("update for %s: DB.CommitUpdate failed: %v", zone, err)
 			return reply(dns.RcodeServerFailure)
 		}
+		log.Debugf("update for %s: committed to DB", zone)
 	}
 
 	// Invalidate any existing NSEC chain before applying this update's own
@@ -275,12 +303,15 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	// about to insert, so they repopulate the chain immediately after.
 	z.PurgeNSEC()
 	if err := ApplyUpdateOps(z, r.Ns, dns.ClassINET); err != nil {
+		log.Errorf("update for %s: ApplyUpdateOps failed: %v", zone, err)
 		return reply(dns.RcodeFormatError)
 	}
 
 	if !alreadyPinned {
 		s.Keys.Pin(zone, candidate)
+		log.Infof("update for %s: onboarded and pinned to key tag %d", zone, candidate.KeyTag())
 	}
+	log.Debugf("update for %s: accepted", zone)
 	return reply(dns.RcodeSuccess)
 }
 

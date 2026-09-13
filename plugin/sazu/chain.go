@@ -124,35 +124,48 @@ func (v *Validator) VerifyChainOfTrust(zone string, candidateKey *dns.DNSKEY) er
 
 	// Bootstrap: the root's own DNSKEY RRset, trusted directly via the
 	// hardcoded anchor rather than a DS record (the root has no parent).
+	log.Debugf("chain-of-trust for %s: fetching root DNSKEY from %d root hint(s)", zone, len(RootHints))
 	servers := RootHints
 	trustedKeys, err := v.fetchAndVerifyDNSKEYAtRoot(servers)
 	if err != nil {
+		log.Debugf("chain-of-trust for %s: root DNSKEY fetch failed: %v", zone, err)
 		return err
 	}
+	log.Debugf("chain-of-trust for %s: root DNSKEY OK (%d key(s))", zone, len(trustedKeys))
 
 	for _, ancestor := range ancestors {
+		log.Debugf("chain-of-trust for %s: fetching DS for %s from %d server(s)", zone, ancestor, len(servers))
 		ds, err := v.fetchAndVerifyDS(ancestor, servers, trustedKeys)
 		if err != nil {
+			log.Debugf("chain-of-trust for %s: DS fetch for %s failed: %v", zone, ancestor, err)
 			return err
 		}
+		log.Debugf("chain-of-trust for %s: finding delegation servers for %s", zone, ancestor)
 		servers, err = v.fetchDelegationServers(ancestor, servers)
 		if err != nil {
+			log.Debugf("chain-of-trust for %s: delegation lookup for %s failed: %v", zone, ancestor, err)
 			return err
 		}
+		log.Debugf("chain-of-trust for %s: fetching DNSKEY for %s from %d server(s)", zone, ancestor, len(servers))
 		trustedKeys, err = v.fetchAndVerifyDNSKEY(ancestor, servers, ds)
 		if err != nil {
+			log.Debugf("chain-of-trust for %s: DNSKEY fetch for %s failed: %v", zone, ancestor, err)
 			return err
 		}
+		log.Debugf("chain-of-trust for %s: %s verified (%d key(s))", zone, ancestor, len(trustedKeys))
 	}
 
 	// Final step: the immediate parent's DS answer for the actual target
 	// zone. This is what the candidate key must match -- no fetch of the
 	// target zone's own DNSKEY set.
+	log.Debugf("chain-of-trust for %s: fetching final DS from %d server(s)", zone, len(servers))
 	finalDS, err := v.fetchAndVerifyDS(zone, servers, trustedKeys)
 	if err != nil {
 		if errors.Is(err, errNoDSRecords) {
+			log.Debugf("chain-of-trust for %s: no DS published yet", zone)
 			return &ChainError{Op: "no-ds-published", Msg: fmt.Sprintf("no DS record published yet for %s", zone)}
 		}
+		log.Debugf("chain-of-trust for %s: final DS fetch failed: %v", zone, err)
 		return err
 	}
 	for _, ds := range finalDS {
@@ -337,11 +350,15 @@ func (v *Validator) queryDO(name string, qtype uint16, servers []string) (*dns.M
 
 	var lastErr error
 	for _, server := range servers {
+		log.Debugf("querying %s for %s/%s (timeout %s)", server, name, dns.TypeToString[qtype], v.Client.Timeout)
+		start := time.Now()
 		resp, _, err := v.Client.Exchange(m, server)
 		if err != nil {
+			log.Debugf("query to %s failed after %s: %v", server, time.Since(start), err)
 			lastErr = err
 			continue
 		}
+		log.Debugf("query to %s answered in %s (rcode=%s)", server, time.Since(start), dns.RcodeToString[resp.Rcode])
 		return resp, nil
 	}
 	if lastErr == nil {
