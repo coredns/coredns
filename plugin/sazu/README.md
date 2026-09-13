@@ -352,3 +352,15 @@ a real-world test isn't mistaken for a production trial run:
 * **In-memory only if `db` is omitted.** Persistence via `db PATH` (SQLite)
   is available and tested; without it, restarting the server loses every
   onboarded zone and pinned key.
+* **NSEC, not NSEC3** for authenticated denial of existence. NSEC3 exists
+  to additionally hide a zone's name set from enumeration ("zone
+  walking"); that's a real but separate, opt-in privacy property, not
+  something a correct NXDOMAIN/NODATA proof requires, so it isn't
+  implemented.
+* **A partial push (`push-update`) invalidates the zone's NSEC chain
+  until the next full push.** Only a full push (`push-zone`) ever
+  computes one, since only it sees the entire zone's name set at once;
+  see SAZU-PLAN.md for why a partial push can't safely patch the existing
+  chain instead of just discarding it. Negative answers still work
+  correctly in between, they just carry no DNSSEC denial-of-existence
+  proof until the next full push.

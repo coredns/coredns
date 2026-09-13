@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"net"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -371,6 +372,143 @@ func TestNegativeResponseCarriesSOARRSIGWithDOBit(t *testing.T) {
 	if err := sig.Verify(key, []dns.RR{soa}); err != nil {
 		t.Fatalf("the served authority-section RRSIG does not verify: %v", err)
 	}
+}
+
+// TestNXDOMAINCarriesValidNSECProof is the real end-to-end proof this
+// whole feature exists for: a full push (via BuildFullZonePush, which
+// now synthesizes and signs a real NSEC chain automatically) genuinely
+// authenticates an NXDOMAIN answer over the wire, not just in unit tests
+// against ZoneData directly.
+func TestNXDOMAINCarriesValidNSECProof(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+	key := onboardExampleOrg(t, addr, s)
+
+	resp := queryDO(t, addr, "does-not-exist.example.org.", dns.TypeA)
+	if resp.Rcode != dns.RcodeNameError {
+		t.Fatalf("rcode = %s, want NXDOMAIN", dns.RcodeToString[resp.Rcode])
+	}
+	nsecs, sigs := splitNSECAndRRSIGs(t, resp.Ns)
+	if len(nsecs) == 0 {
+		t.Fatalf("expected at least one NSEC in authority, got %+v", resp.Ns)
+	}
+	for _, n := range nsecs {
+		sig, ok := sigs[strings.ToLower(n.Hdr.Name)]
+		if !ok {
+			t.Fatalf("NSEC at %s has no covering RRSIG in the response", n.Hdr.Name)
+		}
+		if err := sig.Verify(key, []dns.RR{n}); err != nil {
+			t.Fatalf("NSEC at %s's RRSIG does not verify: %v", n.Hdr.Name, err)
+		}
+	}
+}
+
+// TestNODATACarriesValidNSECProof mirrors the above for a NODATA answer
+// (name exists, queried type doesn't): the NSEC stored at that exact
+// name is what's served, and it genuinely verifies.
+func TestNODATACarriesValidNSECProof(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+	key := onboardExampleOrg(t, addr, s)
+
+	resp := queryDO(t, addr, "www.example.org.", dns.TypeTXT)
+	if resp.Rcode != dns.RcodeSuccess || len(resp.Answer) != 0 {
+		t.Fatalf("expected NOERROR/NODATA, got rcode=%s answer=%+v", dns.RcodeToString[resp.Rcode], resp.Answer)
+	}
+	nsecs, sigs := splitNSECAndRRSIGs(t, resp.Ns)
+	if len(nsecs) != 1 || nsecs[0].Hdr.Name != "www.example.org." {
+		t.Fatalf("expected exactly one NSEC, at www.example.org., got %+v", nsecs)
+	}
+	sig, ok := sigs["www.example.org."]
+	if !ok {
+		t.Fatalf("expected a covering RRSIG for www's NSEC, got %+v", resp.Ns)
+	}
+	if err := sig.Verify(key, []dns.RR{nsecs[0]}); err != nil {
+		t.Fatalf("www's NSEC RRSIG does not verify: %v", err)
+	}
+}
+
+// TestPartialPushInvalidatesNSECUntilNextFullPush proves the documented
+// trade-off (see ZoneData.PurgeNSEC): a partial push, which never
+// includes NSEC records of its own, invalidates any existing chain
+// rather than risk it going stale -- an NXDOMAIN answer right afterward
+// carries no NSEC at all -- and a subsequent full push, which always
+// recomputes the whole chain, restores it.
+func TestPartialPushInvalidatesNSECUntilNextFullPush(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	soa := testSOA(1)
+	rrs := []dns.RR{testA("www.example.org.", net.IPv4(203, 0, 113, 10))}
+	fullPush := func() {
+		t.Helper()
+		push, err := BuildFullZonePush("example.org.", soa, rrs, key, priv, nil)
+		if err != nil {
+			t.Fatalf("building full push: %v", err)
+		}
+		now := time.Now()
+		wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+		if err != nil {
+			t.Fatalf("signing full push: %v", err)
+		}
+		if resp := sendRaw(t, addr, wire); resp.Rcode != dns.RcodeSuccess {
+			t.Fatalf("full push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+		}
+	}
+	fullPush() // onboards the zone
+
+	before := queryDO(t, addr, "does-not-exist.example.org.", dns.TypeA)
+	if nsecs, _ := splitNSECAndRRSIGs(t, before.Ns); len(nsecs) == 0 {
+		t.Fatalf("expected a full push to leave a usable NSEC chain, got none")
+	}
+
+	now := time.Now()
+	update := new(dns.Msg)
+	update.SetUpdate("example.org.")
+	update.Insert([]dns.RR{testA("mail.example.org.", net.IPv4(203, 0, 113, 20))})
+	wire, err := SignUpdate(update, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing partial update: %v", err)
+	}
+	if resp := sendRaw(t, addr, wire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("partial push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	during := queryDO(t, addr, "does-not-exist.example.org.", dns.TypeA)
+	if nsecs, _ := splitNSECAndRRSIGs(t, during.Ns); len(nsecs) != 0 {
+		t.Fatalf("expected the partial push to invalidate the NSEC chain, still got %+v", nsecs)
+	}
+
+	fullPush() // recomputes the chain from the same rrs given to BuildFullZonePush
+
+	after := queryDO(t, addr, "does-not-exist.example.org.", dns.TypeA)
+	if nsecs, _ := splitNSECAndRRSIGs(t, after.Ns); len(nsecs) == 0 {
+		t.Fatalf("expected a subsequent full push to restore the NSEC chain, got none")
+	}
+}
+
+// splitNSECAndRRSIGs separates rrs into NSEC records and a map of
+// covering-name -> RRSIG-over-NSEC, for tests that need to pair each
+// NSEC with its own signature.
+func splitNSECAndRRSIGs(t *testing.T, rrs []dns.RR) ([]*dns.NSEC, map[string]*dns.RRSIG) {
+	t.Helper()
+	var nsecs []*dns.NSEC
+	sigs := make(map[string]*dns.RRSIG)
+	for _, rr := range rrs {
+		switch v := rr.(type) {
+		case *dns.NSEC:
+			nsecs = append(nsecs, v)
+		case *dns.RRSIG:
+			if v.TypeCovered == dns.TypeNSEC {
+				sigs[strings.ToLower(v.Hdr.Name)] = v
+			}
+		}
+	}
+	return nsecs, sigs
 }
 
 // onboardExampleOrg onboards example.org. with SOA serial 1 and a single

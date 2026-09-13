@@ -111,7 +111,8 @@ func (s *Sazu) serveQuery(w dns.ResponseWriter, r *dns.Msg, z *ZoneData) (int, e
 
 	q := r.Question[0]
 	rrs := z.Lookup(q.Name, q.Qtype)
-	if len(rrs) == 0 && !z.NameExists(q.Name) {
+	nameExists := z.NameExists(q.Name)
+	if len(rrs) == 0 && !nameExists {
 		m.Rcode = dns.RcodeNameError
 	} else {
 		m.Answer = rrs // NOERROR/NODATA when the name exists but this type doesn't
@@ -136,15 +137,20 @@ func (s *Sazu) serveQuery(w dns.ResponseWriter, r *dns.Msg, z *ZoneData) (int, e
 		// negative caching -- every repeat query for the same
 		// nonexistent name or type would otherwise bypass cache and hit
 		// this server directly every time.
-		//
-		// This does not, on its own, make a negative answer validate as
-		// secure for a resolver with the DO bit set: that needs an
-		// authenticated denial-of-existence proof (NSEC/NSEC3), which
-		// this store doesn't generate -- see SAZU-PLAN.md.
 		if soa := z.SOA(); soa != nil {
 			m.Ns = append(m.Ns, soa)
 			if isDNSSECRequested(r) {
 				m.Ns = append(m.Ns, z.LookupRRSIG(z.Origin, dns.TypeSOA)...)
+				// RFC 4035 §3.1.3: the authenticated denial-of-existence
+				// proof itself, without which a validating resolver has
+				// to treat this negative answer as Bogus rather than
+				// Insecure or Secure once a DS is published for this
+				// zone. See ZoneData.NegativeProof and nsec.go's
+				// top-of-file comment for why this can be empty (no NSEC
+				// chain currently exists) even on a zone that has one on
+				// other names, and why that's a safe degradation rather
+				// than a bug.
+				m.Ns = append(m.Ns, z.NegativeProof(q.Name, nameExists)...)
 			}
 		}
 	}
@@ -263,6 +269,11 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		}
 	}
 
+	// Invalidate any existing NSEC chain before applying this update's own
+	// ops -- see ZoneData.PurgeNSEC's doc comment for why. A full push's
+	// own freshly signed NSEC records are among the ops ApplyUpdateOps is
+	// about to insert, so they repopulate the chain immediately after.
+	z.PurgeNSEC()
 	if err := ApplyUpdateOps(z, r.Ns, dns.ClassINET); err != nil {
 		return reply(dns.RcodeFormatError)
 	}

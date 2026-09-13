@@ -132,6 +132,16 @@ func (z *ZoneData) insertLocked(rr dns.RR) {
 		return
 	}
 
+	if rr.Header().Rrtype == dns.TypeNSEC {
+		// Exactly one NSEC record per name, always -- unlike an ordinary
+		// RRset, a differing NSEC at the same name (e.g. the zone's name
+		// set changed and this name's "next" pointer needs to reflect
+		// that) is a replacement, not a second value to keep alongside
+		// the first.
+		z.rrsets[name][rr.Header().Rrtype] = []dns.RR{dns.Copy(rr)}
+		return
+	}
+
 	for i, e := range existing {
 		if rrEqualContent(e, rr) {
 			existing[i] = dns.Copy(rr) // replace -- refreshes TTL, per RFC 2136 §3.4.2.2
@@ -212,6 +222,114 @@ func (z *ZoneData) DeleteRR(rr dns.RR) {
 		}
 	}
 	byType[rr.Header().Rrtype] = kept
+}
+
+// PurgeNSEC removes every stored NSEC record (and its covering RRSIGs)
+// across the whole zone. Called before applying any update (see
+// handler.go's serveUpdate): SAZU's split-signing model means only a
+// freshly, completely recomputed chain -- from a full push, the only
+// kind that sees the zone's entire name set at once -- can be trusted as
+// correct, so any existing chain is invalidated up front rather than
+// risked going stale. Serving no negative-existence proof is safe;
+// serving a stale one that contradicts what the zone actually contains
+// now is not. A full push's own NSEC records (see BuildNSECChain)
+// repopulate the chain in the same update, immediately afterward; a
+// partial push that doesn't include any leaves the zone with none until
+// the next full push does.
+func (z *ZoneData) PurgeNSEC() {
+	z.mu.Lock()
+	defer z.mu.Unlock()
+	for _, byType := range z.rrsets {
+		delete(byType, dns.TypeNSEC)
+		sigs, ok := byType[dns.TypeRRSIG]
+		if !ok {
+			continue
+		}
+		kept := sigs[:0]
+		for _, rr := range sigs {
+			if sig, ok := rr.(*dns.RRSIG); !ok || sig.TypeCovered != dns.TypeNSEC {
+				kept = append(kept, rr)
+			}
+		}
+		byType[dns.TypeRRSIG] = kept
+	}
+}
+
+// ownerNames returns every name z holds any RRset for, including the
+// apex, lowercased and deduplicated -- the node set NegativeProof's
+// canonical-order search runs over.
+func (z *ZoneData) ownerNames() []string {
+	z.mu.RLock()
+	defer z.mu.RUnlock()
+	seen := map[string]bool{z.Origin: true}
+	for name := range z.rrsets {
+		seen[name] = true
+	}
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	return names
+}
+
+// NegativeProof returns the NSEC record(s) (each paired with its RRSIG)
+// needed to authenticate qname's negative result, per RFC 4035 §3.1.3:
+//
+//   - NODATA (nameExists true): just the NSEC stored at qname itself --
+//     its type bitmap simply won't list the queried type, which is the
+//     whole proof.
+//   - NXDOMAIN (nameExists false): the NSEC covering qname itself, plus
+//     the NSEC covering the wildcard slot ("*." + qname's closest
+//     encloser) -- proving not only that qname doesn't exist, but that
+//     no wildcard elsewhere in the zone could have matched it either.
+//     SAZU never synthesizes wildcard-matched answers (see this file's
+//     own top-of-file doc comment), so this is a completeness proof
+//     about the zone's actual (non-wildcard) content, not a corner this
+//     package cuts by ignoring wildcards it might otherwise need to
+//     handle.
+//
+// Returns nil if the zone has no NSEC chain at all -- either nothing was
+// ever pushed with one (an older push, from before this feature), or a
+// partial push invalidated it (see PurgeNSEC) and no full push has
+// repopulated it since. A negative response simply carries no
+// authenticated denial in that case, the same as before this existed.
+func (z *ZoneData) NegativeProof(qname string, nameExists bool) []dns.RR {
+	qname = strings.ToLower(dns.Fqdn(qname))
+
+	if nameExists {
+		out := z.Lookup(qname, dns.TypeNSEC)
+		return append(out, z.LookupRRSIG(qname, dns.TypeNSEC)...)
+	}
+
+	owners := z.ownerNames()
+	if len(owners) == 0 {
+		return nil
+	}
+	ownerSet := make(map[string]bool, len(owners))
+	for _, o := range owners {
+		ownerSet[o] = true
+	}
+	sortNamesCanonically(owners)
+
+	var out []dns.RR
+	added := make(map[string]bool, 2)
+	add := func(owner string) {
+		if added[owner] {
+			return
+		}
+		added[owner] = true
+		out = append(out, z.Lookup(owner, dns.TypeNSEC)...)
+		out = append(out, z.LookupRRSIG(owner, dns.TypeNSEC)...)
+	}
+
+	if owner, ok := coveringOwner(qname, owners); ok {
+		add(owner)
+	}
+	ce := closestEncloser(qname, ownerSet)
+	if owner, ok := coveringOwner("*."+ce, owners); ok {
+		add(owner)
+	}
+	return out
 }
 
 // rrEqualContent compares two RRs by name/type/rdata only, ignoring TTL

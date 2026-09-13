@@ -71,14 +71,21 @@ func LoadZoneFile(path, origin string) (soa *dns.SOA, rrs []dns.RR, err error) {
 // always travels with the push, first contact or not.
 //
 // signer is that same key's private half, used to actually sign the
-// pushed content (DNSKEY, SOA, and every RRset in rrs) with real RFC 4034
-// RRSIGs via SignZoneContent -- this is what SAZU's whole premise
-// ("split-signing DNSSEC," the hoster never touches a private key)
-// actually requires: SIG(0) alone only authenticates the push
+// pushed content (DNSKEY, SOA, every RRset in rrs, and a freshly
+// computed NSEC chain covering all of it -- see BuildNSECChain) with
+// real RFC 4034 RRSIGs via SignZoneContent -- this is what SAZU's whole
+// premise ("split-signing DNSSEC," the hoster never touches a private
+// key) actually requires: SIG(0) alone only authenticates the push
 // *transaction*, not the zone *content*. Without this, a validating
 // resolver would see a zone with a published DS but no RRSIGs at all —
 // exactly the "bogus" state that produces SERVFAIL for real DNSSEC
 // clients, regardless of whether the push mechanics themselves are sound.
+//
+// A full push is the only kind that ever computes or sends NSEC records
+// -- it's the only one that sees the zone's entire name set at once,
+// which a correct chain needs. The server invalidates any existing chain
+// before applying a push that doesn't include one (see
+// ZoneData.PurgeNSEC); this one always does.
 func BuildFullZonePush(zone string, soa *dns.SOA, rrs []dns.RR, candidateKey *dns.DNSKEY, signer crypto.Signer, previousSOA *dns.SOA) (*dns.Msg, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dns.Fqdn(zone), dns.TypeSOA)
@@ -98,6 +105,7 @@ func BuildFullZonePush(zone string, soa *dns.SOA, rrs []dns.RR, candidateKey *dn
 	adds := make([]dns.RR, 0, len(rrs)+2)
 	adds = append(adds, dnskeyRR, soa)
 	adds = append(adds, rrs...)
+	adds = append(adds, BuildNSECChain(soa, adds)...)
 
 	now := time.Now()
 	signed, err := SignZoneContent(adds, dnskeyRR, signer, now.Add(-DefaultSignatureInceptionSkew), now.Add(DefaultSignatureValidity))

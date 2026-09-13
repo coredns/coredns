@@ -64,6 +64,58 @@ func TestDBCommitUpdateThenLoadAllReproducesOnboarding(t *testing.T) {
 	}
 }
 
+// TestDBCommitUpdatePurgesStaleNSECOnNextUpdate proves CommitUpdate's SQL
+// mirrors ZoneData.PurgeNSEC exactly: an NSEC (and its RRSIG) persisted by
+// one update must not survive a later update that doesn't include one,
+// even across a full reload from disk -- otherwise a restarted server
+// would resurrect a stale chain that live, in-memory traffic already
+// correctly discarded.
+func TestDBCommitUpdatePurgesStaleNSECOnNextUpdate(t *testing.T) {
+	db := openTestDB(t)
+
+	key, _, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	dnskeyRR := &dns.DNSKEY{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeDNSKEY, Class: dns.ClassINET, Ttl: 3600},
+		Flags: key.Flags, Protocol: key.Protocol, Algorithm: key.Algorithm, PublicKey: key.PublicKey}
+	nsec := &dns.NSEC{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeNSEC, Class: dns.ClassINET, Ttl: 3600},
+		NextDomain: "example.org.", TypeBitMap: []uint16{dns.TypeNSEC}}
+	sig := &dns.RRSIG{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeRRSIG, Class: dns.ClassINET, Ttl: 3600},
+		TypeCovered: dns.TypeNSEC, Algorithm: 15, KeyTag: 1, SignerName: "example.org."}
+	firstOps := []dns.RR{dnskeyRR, testSOA(1), nsec, sig}
+	for _, rr := range firstOps {
+		rr.Header().Class = dns.ClassINET
+	}
+	if err := db.CommitUpdate("example.org.", key, firstOps, dns.ClassINET); err != nil {
+		t.Fatalf("first CommitUpdate: %v", err)
+	}
+
+	secondOps := []dns.RR{testA("www.example.org.", net.IPv4(203, 0, 113, 10))}
+	secondOps[0].Header().Class = dns.ClassINET
+	if err := db.CommitUpdate("example.org.", nil, secondOps, dns.ClassINET); err != nil {
+		t.Fatalf("second CommitUpdate: %v", err)
+	}
+
+	store, _, err := db.LoadAll()
+	if err != nil {
+		t.Fatalf("LoadAll: %v", err)
+	}
+	z, ok := store.Get("example.org.")
+	if !ok {
+		t.Fatalf("expected the zone to exist after loading")
+	}
+	if got := z.Lookup("example.org.", dns.TypeNSEC); len(got) != 0 {
+		t.Fatalf("expected the stale NSEC to be purged, got %+v", got)
+	}
+	if got := z.LookupRRSIG("example.org.", dns.TypeNSEC); len(got) != 0 {
+		t.Fatalf("expected the stale NSEC's RRSIG to be purged, got %+v", got)
+	}
+	if got := z.Lookup("www.example.org.", dns.TypeA); len(got) != 1 {
+		t.Fatalf("expected the second update's own content to survive, got %+v", got)
+	}
+}
+
 func TestDBPersistsAcrossReopen(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "sazu.db")
 

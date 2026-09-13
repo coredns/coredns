@@ -10,7 +10,7 @@ specifically (`plugin/sazu/`), branch `feat/sazu-test`.
 
 ## Done
 
-All of the following is real, tested code — see `plugin/sazu/*_test.go` (78+
+All of the following is real, tested code — see `plugin/sazu/*_test.go` (100+
 tests, including several full end-to-end tests that start a real
 `dnsserver.Server` and drive it over actual UDP) and `plugin/sazu/README.md`
 for a manually verified real-binary walkthrough.
@@ -193,13 +193,62 @@ for a manually verified real-binary walkthrough.
   not even the SOA RFC 2308 §3 requires there for negative caching,
   independent of DNSSEC entirely. Fixed `serveQuery` to add the zone's
   SOA (plus its RRSIG when DO is set) to `m.Ns` for both the NXDOMAIN and
-  NODATA branches. This does not by itself make a negative answer
-  validate as secure -- that needs an authenticated denial-of-existence
-  proof (NSEC/NSEC3), which is a separate, larger item; see Outstanding.
+  NODATA branches. This alone doesn't make a negative answer validate as
+  secure -- that needed the NSEC work below, done as a direct follow-on.
   Verified against the real binary with the same query shape as the
   side-by-side comparison that found this (`A` query at a zone's apex,
-  where only SOA/NS exist): the authority section now matches AWS's up
-  to the missing NSEC pair.
+  where only SOA/NS exist).
+- **Authenticated denial of existence, via NSEC** (not NSEC3 -- see
+  below for why). Closes the gap the previous bullet's comparison against
+  AWS Route 53 found and explicitly left open: negative answers now carry
+  a real, cryptographically valid NSEC (+ its RRSIG, when DO is set),
+  matching AWS's own `SOA + RRSIG(SOA) + NSEC + RRSIG(NSEC)` shape
+  exactly, verified against the real binary with the identical query.
+  Genuinely harder for SAZU than for a provider like AWS: AWS can
+  synthesize a covering NSEC on the fly, at answer time, because it holds
+  the zone's private key; SAZU's server never does, so that's not an
+  option here. Instead:
+  - `nsec.go`'s `BuildNSECChain`, called from `BuildFullZonePush`,
+    computes a complete, correctly-ordered NSEC chain (RFC 4034 §6.1
+    canonical name order) from a full push's own content and folds it
+    into the same `SignZoneContent` call as everything else -- the
+    customer's own signer produces it, the same way traditional offline
+    zone-signing tools (`dnssec-signzone`) do, since only a full push
+    ever sees the zone's entire name set at once.
+  - `store.go`'s `ZoneData.NegativeProof` serves the right already-signed
+    record(s) at query time: for NODATA, the NSEC stored at the queried
+    name itself; for NXDOMAIN, the NSEC covering the queried name plus
+    the one covering the wildcard slot at its closest encloser (RFC 4035
+    §3.1.3) -- meaningful even though SAZU never synthesizes
+    wildcard-matched answers itself, since it's proving no wildcard
+    *elsewhere in the zone* could have matched either.
+  - **A partial push (`push-update`) never computes or includes NSEC
+    records** -- only a full push sees the whole name set, so only a full
+    push can be trusted to produce a *complete* chain. Rather than risk
+    serving a stale chain that contradicts what a partial push just
+    changed (a real danger: a stale NSEC's type bitmap could wrongly
+    claim a just-deleted record type still exists, which is worse than no
+    proof at all -- an actively wrong one), `ZoneData.PurgeNSEC` -- called
+    before applying *any* update, full or partial -- invalidates the
+    entire existing chain up front. A full push's own fresh chain
+    repopulates it in the same update, immediately after; a partial push
+    leaves the zone with no negative-existence proof at all until the
+    next full push. A deliberate, documented trade of completeness for
+    correctness, verified end to end (`TestPartialPushInvalidatesNSECUntilNextFullPush`).
+    `db.go`'s `CommitUpdate` mirrors the same purge in SQL, so this holds
+    across a restart, not just in memory.
+  - `store.go`'s `insertLocked` also now treats NSEC as a singleton per
+    name (like the existing RRSIG-replace logic, generalized) --
+    necessary because two different NSEC values at the same name (e.g.
+    from two different full pushes) are a replacement, not a legitimate
+    second value the existing RFC 2136 "identical RDATA replaces" rule
+    would ever recognize as such.
+  - **NSEC3 is a deliberate non-goal for now.** It exists to additionally
+    hide a zone's name set from enumeration ("zone walking"), which is a
+    real but separate, opt-in privacy property -- not something a correct
+    NXDOMAIN/NODATA proof requires. Plain NSEC is what actually resolves
+    validating resolvers treating this server's negative answers as
+    Bogus, which was the real problem.
 
 ## Outstanding
 
@@ -209,23 +258,6 @@ other outstanding item is a CoreDNS-plugin change.
 
 ### CoreDNS-side
 
-- [ ] **Authenticated denial of existence (NSEC/NSEC3).** Negative
-  responses (NXDOMAIN/NODATA) carry the zone's SOA (see Done, above) but
-  no NSEC/NSEC3 record, so they cannot validate as *secure* for a
-  resolver with the DO bit set once this server is actually authoritative
-  for a signed zone — a strict validator has to treat an unprovable
-  negative answer as Bogus rather than Insecure. Notably harder for SAZU
-  than for a typical hosting provider: providers like AWS Route 53
-  synthesize a covering NSEC record online, at answer time, because they
-  also hold the zone's private key and can sign anything on demand.
-  SAZU's server never holds a private key at all, so that's not an option
-  here — this would instead need the *customer's own signer* to
-  pre-compute and push a complete, correctly-ordered NSEC (or NSEC3)
-  chain across the whole zone up front (the same way traditional offline
-  zone-signing tools like `dnssec-signzone` do), plus server-side support
-  for finding the right covering record for an arbitrary query name
-  (`ZoneData` has no name-ordering today — it's a plain hash map). A
-  real, non-trivial feature, not a small addition alongside the SOA fix.
 - [ ] **Registration record: key + contact address together (§10.6).** No
   contact field exists anywhere yet. Needed both for its own sake and
   because the separate watch daemon (below) needs to read it. Depends on

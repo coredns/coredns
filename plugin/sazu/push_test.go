@@ -95,19 +95,27 @@ func TestBuildFullZonePushShapesPrerequisiteAndUpdateSections(t *testing.T) {
 	}
 
 	// Update section (Ns): the DNSKEY, the new SOA, every non-SOA record
-	// from the zone file, and one RRSIG per distinct RRset among those --
-	// nothing dropped or duplicated, and everything actually signed.
+	// from the zone file, a synthesized NSEC chain covering every distinct
+	// owner name among those, and one RRSIG per distinct RRset among all
+	// of it -- nothing dropped or duplicated, and everything actually
+	// signed.
 	var nonSigs []dns.RR
 	var sigs []*dns.RRSIG
+	var nsecs []*dns.NSEC
 	for _, rr := range m.Ns {
-		if sig, ok := rr.(*dns.RRSIG); ok {
-			sigs = append(sigs, sig)
-		} else {
+		switch v := rr.(type) {
+		case *dns.RRSIG:
+			sigs = append(sigs, v)
+		case *dns.NSEC:
+			nsecs = append(nsecs, v)
+			nonSigs = append(nonSigs, rr)
+		default:
 			nonSigs = append(nonSigs, rr)
 		}
 	}
-	if len(nonSigs) != len(rrs)+2 {
-		t.Fatalf("got %d non-RRSIG update ops, want %d (%d zone records + DNSKEY + SOA)", len(nonSigs), len(rrs)+2, len(rrs))
+	if len(nonSigs) != len(rrs)+2+len(nsecs) {
+		t.Fatalf("got %d non-RRSIG update ops, want %d (%d zone records + DNSKEY + SOA + %d NSEC)",
+			len(nonSigs), len(rrs)+2+len(nsecs), len(rrs), len(nsecs))
 	}
 	wantSigs := len(groupRRsets(nonSigs))
 	if len(sigs) != wantSigs {
@@ -121,6 +129,35 @@ func TestBuildFullZonePushShapesPrerequisiteAndUpdateSections(t *testing.T) {
 	if !ok || newSOA.Serial != soa.Serial {
 		t.Fatalf("expected the new SOA to be pushed as content (second update op), got %+v", nonSigs[1])
 	}
+
+	// The zone file's records land at 3 distinct owner names (the apex,
+	// www, and mx), so the chain should have exactly 3 links, and
+	// following NextDomain from any one of them should visit all 3 and
+	// cycle back to the start (RFC 4034 §4: the chain is circular).
+	if len(nsecs) != 3 {
+		t.Fatalf("got %d NSEC records, want 3 (apex, www, mx)", len(nsecs))
+	}
+	byOwner := make(map[string]*dns.NSEC, len(nsecs))
+	for _, n := range nsecs {
+		byOwner[strings.ToLower(n.Hdr.Name)] = n
+	}
+	visited := map[string]bool{}
+	name := strings.ToLower(nsecs[0].Hdr.Name)
+	for i := 0; i < len(nsecs); i++ {
+		if visited[name] {
+			t.Fatalf("NSEC chain revisited %s before covering all %d owners", name, len(nsecs))
+		}
+		visited[name] = true
+		next, ok := byOwner[name]
+		if !ok {
+			t.Fatalf("NSEC chain points at %s, which has no NSEC record of its own", name)
+		}
+		name = strings.ToLower(next.NextDomain)
+	}
+	if name != strings.ToLower(nsecs[0].Hdr.Name) {
+		t.Fatalf("NSEC chain did not cycle back to its start, ended at %s", name)
+	}
+
 	for _, sig := range sigs {
 		var rrset []dns.RR
 		for _, rr := range nonSigs {

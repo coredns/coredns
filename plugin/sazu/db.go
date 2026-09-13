@@ -110,6 +110,42 @@ func (db *DB) CommitUpdate(zone string, newKey *dns.DNSKEY, ops []dns.RR, zclass
 		}
 	}
 
+	// Invalidate any existing NSEC chain before applying this update's own
+	// ops -- mirrors ZoneData.PurgeNSEC exactly, and for the same reason
+	// (see its doc comment): only a freshly, completely recomputed chain
+	// from a full push can be trusted, so an existing one is invalidated
+	// up front rather than risked going stale once this row set no longer
+	// matches what LoadAll would reconstruct from it. A full push's own
+	// NSEC rows, added by the loop below immediately after this, repopulate
+	// it in the same transaction.
+	if _, err := tx.Exec(`DELETE FROM rrs WHERE zone = ? AND rrtype = ?`, zone, dns.TypeNSEC); err != nil {
+		return fmt.Errorf("purging stale NSEC records: %w", err)
+	}
+	sigRows, err := tx.Query(`SELECT id, rr FROM rrs WHERE zone = ? AND rrtype = ?`, zone, dns.TypeRRSIG)
+	if err != nil {
+		return fmt.Errorf("finding RRSIGs to check for stale NSEC coverage: %w", err)
+	}
+	var staleSigIDs []int64
+	for sigRows.Next() {
+		var id int64
+		var text string
+		if err := sigRows.Scan(&id, &text); err != nil {
+			sigRows.Close()
+			return err
+		}
+		if rr, err := dns.NewRR(text); err == nil {
+			if sig, ok := rr.(*dns.RRSIG); ok && sig.TypeCovered == dns.TypeNSEC {
+				staleSigIDs = append(staleSigIDs, id)
+			}
+		}
+	}
+	sigRows.Close()
+	for _, id := range staleSigIDs {
+		if _, err := tx.Exec(`DELETE FROM rrs WHERE id = ?`, id); err != nil {
+			return fmt.Errorf("purging stale NSEC RRSIG: %w", err)
+		}
+	}
+
 	for _, rr := range ops {
 		h := rr.Header()
 		switch {

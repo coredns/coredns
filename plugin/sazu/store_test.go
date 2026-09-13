@@ -280,3 +280,131 @@ func TestStoreGetReportsAbsence(t *testing.T) {
 		t.Fatalf("expected Get to report absence for a zone never created")
 	}
 }
+
+func testNSEC(name, next string, types ...uint16) *dns.NSEC {
+	return &dns.NSEC{
+		Hdr:        dns.RR_Header{Name: name, Rrtype: dns.TypeNSEC, Class: dns.ClassINET, Ttl: 3600},
+		NextDomain: next,
+		TypeBitMap: types,
+	}
+}
+
+func testRRSIGCoveringNSEC(name string, expiration uint32) *dns.RRSIG {
+	return &dns.RRSIG{
+		Hdr:         dns.RR_Header{Name: name, Rrtype: dns.TypeRRSIG, Class: dns.ClassINET, Ttl: 3600},
+		TypeCovered: dns.TypeNSEC, Algorithm: 15, KeyTag: 1, SignerName: "example.org.",
+		Expiration: expiration,
+	}
+}
+
+// TestZoneDataInsertNSECReplacesRatherThanAccumulates proves NSEC is
+// treated as a singleton per name -- unlike an ordinary RRset, a second,
+// differently-valued NSEC at the same name (e.g. after the zone's name
+// set changed) replaces the first outright, since RFC 2136's own
+// "identical RDATA replaces" rule can't catch two NSEC records whose
+// NextDomain genuinely differs.
+func TestZoneDataInsertNSECReplacesRatherThanAccumulates(t *testing.T) {
+	z := NewZoneData("example.org.")
+	z.Insert(testNSEC("example.org.", "a.example.org.", dns.TypeNSEC))
+	z.Insert(testNSEC("example.org.", "b.example.org.", dns.TypeNSEC))
+
+	got := z.Lookup("example.org.", dns.TypeNSEC)
+	if len(got) != 1 {
+		t.Fatalf("expected exactly one NSEC to survive, got %d: %+v", len(got), got)
+	}
+	if got[0].(*dns.NSEC).NextDomain != "b.example.org." {
+		t.Fatalf("expected the newer NSEC to have replaced the older, got %+v", got[0])
+	}
+}
+
+func TestZoneDataPurgeNSECRemovesRecordsAndTheirRRSIGs(t *testing.T) {
+	z := NewZoneData("example.org.")
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10)))
+	z.Insert(testNSEC("example.org.", "www.example.org.", dns.TypeSOA, dns.TypeNSEC))
+	z.Insert(testRRSIGCoveringNSEC("example.org.", 2000))
+	z.Insert(testNSEC("www.example.org.", "example.org.", dns.TypeA, dns.TypeNSEC))
+	z.Insert(testRRSIGCoveringNSEC("www.example.org.", 2000))
+
+	z.PurgeNSEC()
+
+	if got := z.Lookup("example.org.", dns.TypeNSEC); len(got) != 0 {
+		t.Fatalf("expected the apex NSEC to be purged, got %+v", got)
+	}
+	if got := z.LookupRRSIG("example.org.", dns.TypeNSEC); len(got) != 0 {
+		t.Fatalf("expected the apex NSEC's RRSIG to be purged, got %+v", got)
+	}
+	if got := z.Lookup("www.example.org.", dns.TypeNSEC); len(got) != 0 {
+		t.Fatalf("expected www's NSEC to be purged, got %+v", got)
+	}
+	if got := z.LookupRRSIG("www.example.org.", dns.TypeNSEC); len(got) != 0 {
+		t.Fatalf("expected www's NSEC RRSIG to be purged, got %+v", got)
+	}
+	// Purging NSEC must not touch unrelated content.
+	if got := z.Lookup("www.example.org.", dns.TypeA); len(got) != 1 {
+		t.Fatalf("expected the A record to survive PurgeNSEC, got %+v", got)
+	}
+}
+
+// TestZoneDataNegativeProofNODATAReturnsNSECAtQueriedName proves the
+// NODATA case: the name exists, so the proof is simply whatever NSEC (+
+// RRSIG) is stored at that exact name.
+func TestZoneDataNegativeProofNODATAReturnsNSECAtQueriedName(t *testing.T) {
+	z := NewZoneData("example.org.")
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10)))
+	z.Insert(testNSEC("www.example.org.", "example.org.", dns.TypeA, dns.TypeNSEC))
+	z.Insert(testRRSIGCoveringNSEC("www.example.org.", 2000))
+
+	got := z.NegativeProof("www.example.org.", true)
+	var sawNSEC, sawRRSIG bool
+	for _, rr := range got {
+		switch rr.(type) {
+		case *dns.NSEC:
+			sawNSEC = true
+		case *dns.RRSIG:
+			sawRRSIG = true
+		}
+	}
+	if !sawNSEC || !sawRRSIG {
+		t.Fatalf("expected both the NSEC and its RRSIG, got %+v", got)
+	}
+}
+
+// TestZoneDataNegativeProofNXDOMAINCoversQnameAndWildcardSlot proves the
+// NXDOMAIN case returns the NSEC covering the queried name itself, plus
+// the NSEC covering the wildcard slot at its closest encloser (here, the
+// same NSEC covers both, which is a legitimate and common outcome, not a
+// bug -- NegativeProof must not report the same owner twice).
+func TestZoneDataNegativeProofNXDOMAINCoversQnameAndWildcardSlot(t *testing.T) {
+	z := NewZoneData("example.org.")
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10)))
+	// Apex covers everything up to www (including the wildcard slot
+	// "*.example.org.", and any nonexistent name that sorts before www,
+	// e.g. "aaa.example.org."); www wraps back around to the apex.
+	z.Insert(testNSEC("example.org.", "www.example.org.", dns.TypeSOA, dns.TypeNS, dns.TypeNSEC))
+	z.Insert(testRRSIGCoveringNSEC("example.org.", 2000))
+	z.Insert(testNSEC("www.example.org.", "example.org.", dns.TypeA, dns.TypeNSEC))
+	z.Insert(testRRSIGCoveringNSEC("www.example.org.", 2000))
+
+	got := z.NegativeProof("aaa.example.org.", false)
+	var owners []string
+	for _, rr := range got {
+		if n, ok := rr.(*dns.NSEC); ok {
+			owners = append(owners, n.Hdr.Name)
+		}
+	}
+	if len(owners) != 1 || owners[0] != "example.org." {
+		t.Fatalf("expected exactly one NSEC, from the apex (which covers both the qname and the wildcard slot), got %+v", owners)
+	}
+}
+
+func TestZoneDataNegativeProofReturnsNilWithNoChainPushed(t *testing.T) {
+	z := NewZoneData("example.org.")
+	z.Insert(testA("www.example.org.", net.IPv4(203, 0, 113, 10)))
+
+	if got := z.NegativeProof("nope.example.org.", false); len(got) != 0 {
+		t.Fatalf("expected no proof when no NSEC chain was ever pushed, got %+v", got)
+	}
+	if got := z.NegativeProof("www.example.org.", true); len(got) != 0 {
+		t.Fatalf("expected no proof when no NSEC chain was ever pushed, got %+v", got)
+	}
+}
