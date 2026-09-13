@@ -45,6 +45,19 @@ verified real-binary walkthrough.
 - **Registered as a real CoreDNS plugin** (`plugin.cfg`, `setup.go`,
   regenerated `zdirectives.go`/`zplugin.go`) — a normal `go build .` produces
   a `coredns` binary with `sazu` in it, configurable from a Corefile.
+- **Persistence** (`db.go`, the `db PATH` Corefile option): SQLite via
+  `modernc.org/sqlite` (pure Go, no cgo). Every accepted UPDATE is
+  transactional (`CommitUpdate`, all-or-nothing) and committed to disk
+  *before* the in-memory `Store`/`KeyRegistry` are mutated, so a
+  persistence failure can't leave memory and disk disagreeing;
+  `LoadAll` replays everything back into fresh in-memory state at
+  startup. `Store`/`KeyRegistry`/`prereq.go` themselves stay pure
+  in-memory and untouched — this is a wrapper `handler.go`/`setup.go`
+  add on top, not a rewrite. Manually verified end to end: onboarded a
+  zone, killed and restarted the real `coredns` binary, confirmed the
+  zone served correctly and the pinned key still rejected an
+  impersonation attempt with no re-onboarding needed. Omitting `db`
+  keeps the original pure in-memory behavior.
 
 ## Outstanding
 
@@ -54,9 +67,6 @@ other outstanding item is a CoreDNS-plugin change.
 
 ### CoreDNS-side
 
-- [ ] **Persistence.** `Store`/`KeyRegistry` are in-memory only — a restart
-  loses every onboarded zone and pinned key. First cut: SQLite (see
-  "Persistence backend" below for the concrete design being implemented).
 - [ ] **Registration record: key + contact address together (§10.6).** No
   contact field exists anywhere yet. Needed both for its own sake and
   because the separate watch daemon (below) needs to read it. Depends on
@@ -119,27 +129,6 @@ other outstanding item is a CoreDNS-plugin change.
   Kept out of CoreDNS deliberately: it's a periodic background job, not
   request-driven, and its failure mode (a slow/flaky query to some TLD
   server) must never be able to add latency to actual DNS answers or tie
-  monitoring continuity to the query-serving process's uptime.
-
-## Persistence backend (in progress)
-
-First cut, per the instruction to rely on CoreDNS's own plugin
-lifecycle/config machinery rather than a bolted-on subsystem: SQLite via
-`modernc.org/sqlite` (pure Go, no cgo — CoreDNS has zero cgo dependencies
-today, and a cgo-based driver like `mattn/go-sqlite3` would be a real
-departure from that, affecting cross-compilation and static builds).
-
-- `plugin/sazu/db.go`: schema (zones/keys/contacts/rrsets tables) and a thin
-  CRUD layer, transactional per UPDATE (all-or-nothing, matching RFC 2136's
-  own atomicity expectation).
-- `setup.go` gains a `db <path>` Corefile option; when set, the plugin opens
-  or creates the SQLite file, hydrates `Store`/`KeyRegistry` from it at
-  startup, and every successful UPDATE writes through to it before the
-  in-memory state changes (DB commit first, so a persistence failure can't
-  leave memory and disk disagreeing).
-- `Store`/`KeyRegistry`/`prereq.go` themselves are staying pure in-memory,
-  unchanged, so their existing unit tests need no changes — persistence is
-  a wrapper `handler.go`/`setup.go` add on top, not a rewrite of the
-  storage types.
-- Omitting `db` keeps today's pure in-memory behavior (what all the existing
-  tests use), so nothing existing breaks.
+  monitoring continuity to the query-serving process's uptime. It will read
+  the persistence layer above (zones/keys) once the registration-record
+  item adds a contact address to persist alongside them.

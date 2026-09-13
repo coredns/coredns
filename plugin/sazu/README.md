@@ -36,6 +36,7 @@ from the content it has accepted.
 ```
 sazu ZONES... {
     insecure_skip_chain_validation
+    db PATH
 }
 ```
 
@@ -47,6 +48,11 @@ sazu ZONES... {
   production: with it set, *any* self-signed key claiming *any* zone name is
   accepted on first contact, which is exactly the spoofable behavior the
   cross-check exists to prevent.
+* `db PATH` persists every onboarded zone and pinned key to a SQLite
+  database at PATH (created if it doesn't exist), so a restart doesn't
+  forget them. **Omit this and everything is purely in-memory** — lost on
+  every restart, which is fine for a quick one-off test but not for
+  anything you want to survive a redeploy.
 
 ## Examples
 
@@ -294,5 +300,6 @@ a real-world test isn't mistaken for a production trial run:
 * **A single mutex serializes every UPDATE** this plugin instance handles,
   across all zones. Fine for testing; a production version would want
   per-zone locking for throughput.
-* **In-memory only.** Restarting the server loses every onboarded zone and
-  pinned key. There is no persistence layer.
+* **In-memory only if `db` is omitted.** Persistence via `db PATH` (SQLite)
+  is available and tested; without it, restarting the server loses every
+  onboarded zone and pinned key.

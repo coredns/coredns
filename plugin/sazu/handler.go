@@ -30,6 +30,13 @@ type Sazu struct {
 	Validator *Validator
 	Capture   *RawCapture
 
+	// DB, if non-nil, persists every accepted UPDATE (see db.go): a
+	// restart replays it back into Store/Keys instead of starting empty.
+	// Nil is a fully supported mode -- purely in-memory, matching every
+	// behavior this plugin had before persistence existed (what all of
+	// this package's unit tests still use).
+	DB *DB
+
 	// InsecureSkipChainValidation disables the §10.2 chain-of-trust
 	// cross-check at first contact. It exists purely for local testing,
 	// where there is no real parent zone to publish a DS record against
@@ -139,6 +146,20 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		_ = err // surfaced only via rcode; see EvaluatePrerequisites' doc comment
 		return reply(rcode)
 	}
+
+	// Persist before mutating memory: if the disk write fails, memory
+	// stays exactly as it was before this request, rather than the two
+	// disagreeing about whether the update actually happened.
+	if s.DB != nil {
+		var keyToPin *dns.DNSKEY
+		if !alreadyPinned {
+			keyToPin = candidate
+		}
+		if err := s.DB.CommitUpdate(zone, keyToPin, r.Ns, dns.ClassINET); err != nil {
+			return reply(dns.RcodeServerFailure)
+		}
+	}
+
 	if err := ApplyUpdateOps(z, r.Ns, dns.ClassINET); err != nil {
 		return reply(dns.RcodeFormatError)
 	}

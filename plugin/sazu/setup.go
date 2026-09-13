@@ -13,7 +13,7 @@ import (
 func init() { plugin.Register("sazu", setup) }
 
 func setup(c *caddy.Controller) error {
-	zones, insecure, err := parseSazu(c)
+	cfg, err := parseSazu(c)
 	if err != nil {
 		return plugin.Error("sazu", err)
 	}
@@ -27,12 +27,29 @@ func setup(c *caddy.Controller) error {
 	config.UDPDecorateReaderFunc = capture.DecorateReaderFunc
 
 	s := &Sazu{
-		Zones:                       zones,
-		Store:                       NewStore(),
-		Keys:                        NewKeyRegistry(),
+		Zones:                       cfg.zones,
 		Validator:                   NewValidator(),
 		Capture:                     capture,
-		InsecureSkipChainValidation: insecure,
+		InsecureSkipChainValidation: cfg.insecureSkipChainValidation,
+	}
+
+	if cfg.dbPath != "" {
+		db, err := Open(cfg.dbPath)
+		if err != nil {
+			return plugin.Error("sazu", err)
+		}
+		store, keys, err := db.LoadAll()
+		if err != nil {
+			db.Close()
+			return plugin.Error("sazu", err)
+		}
+		s.DB = db
+		s.Store = store
+		s.Keys = keys
+		c.OnShutdown(db.Close)
+	} else {
+		s.Store = NewStore()
+		s.Keys = NewKeyRegistry()
 	}
 
 	config.AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -43,22 +60,39 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func parseSazu(c *caddy.Controller) (zones []string, insecureSkipChainValidation bool, err error) {
+type sazuConfig struct {
+	zones                       []string
+	insecureSkipChainValidation bool
+	dbPath                      string
+}
+
+func parseSazu(c *caddy.Controller) (sazuConfig, error) {
+	var cfg sazuConfig
 	for c.Next() {
 		args := c.RemainingArgs()
-		zones = plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
+		cfg.zones = plugin.OriginsFromArgsOrServerBlock(args, c.ServerBlockKeys)
 
 		for c.NextBlock() {
+			// RemainingArgs, not NextArg/c.Val(), for both cases below --
+			// the idiomatic way elsewhere in this codebase (see e.g.
+			// plugin/hosts/setup.go) to collect a directive's own
+			// arguments within a block, and to reject the wrong count.
 			switch c.Val() {
 			case "insecure_skip_chain_validation":
-				if c.NextArg() {
-					return nil, false, c.ArgErr()
+				if len(c.RemainingArgs()) != 0 {
+					return sazuConfig{}, c.ArgErr()
 				}
-				insecureSkipChainValidation = true
+				cfg.insecureSkipChainValidation = true
+			case "db":
+				args := c.RemainingArgs()
+				if len(args) != 1 {
+					return sazuConfig{}, c.ArgErr()
+				}
+				cfg.dbPath = args[0]
 			default:
-				return nil, false, c.ArgErr()
+				return sazuConfig{}, c.ArgErr()
 			}
 		}
 	}
-	return zones, insecureSkipChainValidation, nil
+	return cfg, nil
 }
