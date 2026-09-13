@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/coredns/coredns/core/dnsserver"
+
 	"github.com/miekg/dns"
 )
 

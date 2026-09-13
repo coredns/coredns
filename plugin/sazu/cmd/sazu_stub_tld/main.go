@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/coredns/coredns/plugin/sazu"
+
 	"github.com/miekg/dns"
 )
 

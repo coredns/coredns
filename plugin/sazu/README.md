@@ -48,7 +48,13 @@ sazu ZONES... {
   accepted on first contact, which is exactly the spoofable behavior the
   cross-check exists to prevent.
 
-## Building the server
+## Examples
+
+Building the server and client, then onboarding a zone locally, verifying
+it, sending a partial update, and finally testing chain-of-trust validation
+against a real domain.
+
+### Building the server
 
 From the root of this checkout:
 
@@ -60,7 +66,7 @@ go build -o coredns .
 The `sazu` directive is already registered in `plugin.cfg`; a normal
 `go build .` at the repo root produces a `coredns` binary with it included.
 
-## The client: sazuctl
+### The client: sazuctl
 
 `plugin/sazu/cmd/sazuctl` is the customer-side tool — it never runs inside
 CoreDNS, and in a real deployment runs on the customer's own infrastructure,
@@ -94,12 +100,12 @@ Subcommands:
 Every subcommand without `-target` just prints the signed wire bytes and
 self-verifies — safe to run with nothing listening yet.
 
-`plugin/sazu/cmd/sazu-stub-tld` is a minimal stand-in parent zone, useful for
+`plugin/sazu/cmd/sazu_stub_tld` is a minimal stand-in parent zone, useful for
 manually checking DS-digest wire correctness offline. It **cannot** be used
 to satisfy chain-of-trust validation itself, which always walks the real DNS
 root — see the next two sections for how to actually test that.
 
-## Local sandbox testing
+### Local sandbox testing
 
 This is the fastest way to prove the whole mechanism works, using
 `insecure_skip_chain_validation` since there's no real parent zone in a
@@ -180,7 +186,7 @@ by `insecure_skip_chain_validation`). That part has its own dedicated,
 network-based tests in `chain_test.go`/the package's other tests, and needs
 a real domain to test live — see below.
 
-## Testing in the real world
+### Testing in the real world
 
 To test chain-of-trust validation for real, you need a domain with DNSSEC
 enabled at your registrar. You do **not** need to change that domain's
