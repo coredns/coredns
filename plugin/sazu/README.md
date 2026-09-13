@@ -250,9 +250,20 @@ through its real nameservers throughout.
    machine with normal internet access, but worth checking explicitly if
    this runs somewhere with restrictive egress rules.
 
-2. **Just try onboarding it.** You don't need to generate a key or fetch a
+2. **If this domain is currently live with real traffic on it, read
+   [Migrating an already-live domain](REGISTRARS.md#migrating-an-already-live-domain)
+   in `REGISTRARS.md` before doing anything else in this section.**
+   Publishing a DS record for a domain whose current host isn't also
+   serving matching signatures breaks the *entire* domain — not just
+   DNSSEC lookups — for every validating resolver, until that's fixed. A
+   brand-new domain with no live traffic yet has none of this risk and can
+   skip straight to the next step.
+
+3. **Just try onboarding it.** You don't need to generate a key or fetch a
    DS record up front — `push-zone` does that for you and, on a domain
-   with no DS published yet, tells you exactly what to do next:
+   with no DS published yet, tells you exactly what to do next (including
+   the live-migration warning from the previous step, inline, if you skip
+   reading it up front):
 
    ```
    ./sazuctl push-zone -zone yourdomain.example -key client.private \
@@ -263,38 +274,25 @@ through its real nameservers throughout.
    to be denied — that's the chain-of-trust cross-check working correctly,
    not a bug. `sazuctl` generates the key (if `client.private` doesn't
    exist yet), prints the exact DS record to give your registrar, and
-   points you at `REGISTRARS.md` for registrar-specific steps:
+   points you at `REGISTRARS.md` for registrar-specific steps.
 
-   ```
-   Onboarding denied: no DS record published for yourdomain.example yet.
+   A different denial is also possible here: if a DS record already exists
+   for this domain but doesn't match this key (`ERR_UNKNOWN_SIGNER`),
+   `sazuctl` prints separate guidance for that instead — it usually means
+   DNSSEC is already enabled for this domain under a different key
+   (possibly its current host's own, if you followed step 2 above), not
+   necessarily anything wrong with this key.
 
-   Your registrar doesn't know about this key. To fix this:
-
-     1. Give your registrar this DS record:
-
-          yourdomain.example. IN DS 12345 15 2 <64-hex-char digest>
-
-        See REGISTRARS.md (plugin/sazu/REGISTRARS.md in this checkout) for
-        registrar-specific instructions -- not every registrar is covered yet;
-        if yours isn't, search their support site for "DS record" or "DNSSEC."
-
-     2. Wait for it to propagate (minutes to a few hours is typical):
-
-          dig DS yourdomain.example +short
-
-     3. Re-run this same command once that shows your digest.
-   ```
-
-3. **Submit that DS record at your registrar** — every major registrar
+4. **Submit that DS record at your registrar** — every major registrar
    that supports DNSSEC has a form for this (look for "DS record,"
    "DNSSEC," or "delegation signer"); see `REGISTRARS.md` for what's
    documented so far per registrar. **This is the one genuinely manual,
    out-of-band step** — ordinary DNSSEC hygiene, not something SAZU
    replaces.
 
-4. **Wait for it to propagate**, then confirm with `dig DS yourdomain.example
+5. **Wait for it to propagate**, then confirm with `dig DS yourdomain.example
    +short` as the message above says, and **re-run the exact same
-   `push-zone` command from step 2.** Once the DS is visible, the same
+   `push-zone` command from step 3.** Once the DS is visible, the same
    command that was denied now succeeds:
 
    ```
@@ -306,7 +304,7 @@ through its real nameservers throughout.
    Your zone is now onboarded — verify with `dig @127.0.0.1 -p 15353 ...`
    exactly as in the sandbox walkthrough.
 
-5. **Onboard your real zone content** and confirm the response is NOERROR,
+6. **Onboard your real zone content** and confirm the response is NOERROR,
    not REFUSED:
 
    ```
@@ -315,10 +313,10 @@ through its real nameservers throughout.
    ```
 
    A REFUSED response here most likely means the DS isn't visible yet
-   (recheck step 3), or the digest doesn't match the key you generated
-   (recheck step 2).
+   (recheck step 4), or the digest doesn't match the key you generated
+   (recheck step 3).
 
-6. **Verify and iterate** with `dig @127.0.0.1 -p 15353 ...` and
+7. **Verify and iterate** with `dig @127.0.0.1 -p 15353 ...` and
    `sazuctl push-update` exactly as in the sandbox walkthrough.
 
 At no point in this flow does your domain's real, currently-serving

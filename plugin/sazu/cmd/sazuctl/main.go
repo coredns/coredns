@@ -405,9 +405,13 @@ func interpretResponse(zone string, key *dns.DNSKEY, resp *dns.Msg) error {
 	}
 
 	status, _ := diagnosticStatus(resp)
-	if status == statusErrNoDSPublished {
+	switch status {
+	case statusErrNoDSPublished:
 		printNoDSGuidance(zone, key)
 		return fmt.Errorf("denied: no DS record published for %s yet", zone)
+	case statusErrUnknownSigner:
+		printUnknownSignerGuidance(zone)
+		return fmt.Errorf("denied: a DS record for %s is already published, but not for this key", zone)
 	}
 
 	rcodeName := dns.RcodeToString[resp.Rcode]
@@ -423,6 +427,10 @@ func interpretResponse(zone string, key *dns.DNSKEY, resp *dns.Msg) error {
 // of that package's public API; the wire value is what actually matters,
 // and it's fixed by the design doc's §12 status-code list.
 const statusErrNoDSPublished = "ERR_NO_DS_PUBLISHED"
+
+// statusErrUnknownSigner mirrors the constant of the same name in
+// plugin/sazu/handler.go, for the same reason statusErrNoDSPublished does.
+const statusErrUnknownSigner = "ERR_UNKNOWN_SIGNER"
 
 // diagnosticStatus extracts a §12 SAZU status code from a response's
 // Additional section, if present.
@@ -442,6 +450,28 @@ func printNoDSGuidance(zone string, key *dns.DNSKEY) {
 	fmt.Println()
 	fmt.Println("Your registrar doesn't know about this key. To fix this:")
 	fmt.Println()
+	fmt.Println("  0. If this domain is CURRENTLY LIVE and serving real traffic, and its")
+	fmt.Println("     current host has never published DNSSEC for it before (which is why")
+	fmt.Println("     you're seeing this message), read this first:")
+	fmt.Println()
+	fmt.Println("     Publishing the DS record below makes every DNSSEC-validating resolver")
+	fmt.Println("     in the world expect signed answers for this domain immediately -- not")
+	fmt.Println("     only once this server is actually authoritative for it. Until the")
+	fmt.Println("     cutover to this server is complete, the domain's *current* host is")
+	fmt.Println("     still the one answering, and if it isn't serving matching signatures,")
+	fmt.Println("     the entire domain (not just DNSSEC-specific lookups) breaks --")
+	fmt.Println("     SERVFAIL for every validating resolver -- for as long as that mismatch")
+	fmt.Println("     lasts. A brand-new domain with no live traffic yet has no such risk.")
+	fmt.Println()
+	fmt.Println("     If your current host supports enabling its own DNSSEC signing, turn")
+	fmt.Println("     that on there FIRST and confirm the domain still resolves correctly")
+	fmt.Println("     everywhere -- that keeps it validly signed throughout the migration,")
+	fmt.Println("     under its own key, right up until you actually cut over to this")
+	fmt.Println("     server (at which point its DS gets replaced by the one below). If")
+	fmt.Println("     your current host has no way to enable DNSSEC at all, consider moving")
+	fmt.Println("     this domain's hosting to one that does (e.g. AWS Route 53) before")
+	fmt.Println("     publishing anything below.")
+	fmt.Println()
 	fmt.Println("  1. Give your registrar this DS record:")
 	fmt.Println()
 	fmt.Printf("       %s IN DS %d %d %d %s\n", key.Hdr.Name, ds.KeyTag, ds.Algorithm, ds.DigestType, ds.Digest)
@@ -455,6 +485,36 @@ func printNoDSGuidance(zone string, key *dns.DNSKEY) {
 	fmt.Printf("       dig DS %s +short\n", zone)
 	fmt.Println()
 	fmt.Println("  3. Re-run this same command once that shows your digest.")
+	fmt.Println()
+}
+
+// printUnknownSignerGuidance explains ERR_UNKNOWN_SIGNER: a DS record
+// already exists for zone, just not for this key. Deliberately does not
+// assume anything adversarial -- the far more likely explanation is that
+// the zone's current host already has its own DNSSEC set up (its own
+// key, unrelated to SAZU), which is exactly the state the no-DS guidance
+// above recommends putting a domain into during migration.
+func printUnknownSignerGuidance(zone string) {
+	fmt.Println()
+	fmt.Printf("Onboarding denied: a DS record is already published for %s, but not for\n", zone)
+	fmt.Println("this key.")
+	fmt.Println()
+	fmt.Println("This is not necessarily a problem with this key, and not necessarily an")
+	fmt.Println("attack -- it most likely means DNSSEC is already enabled for this domain")
+	fmt.Println("under a different key, quite possibly by its current host (e.g. if you")
+	fmt.Println("followed the migration guidance to enable DNSSEC there first). Find out")
+	fmt.Println("what's actually publishing that DS before doing anything about it:")
+	fmt.Println()
+	fmt.Printf("  dig DS %s +short\n", zone)
+	fmt.Println()
+	fmt.Println("If that DS is your current host's own DNSSEC (expected mid-migration):")
+	fmt.Println("switch this domain's DS to the one this key generates only once you are")
+	fmt.Println("actually ready to cut authoritative service over to this server --")
+	fmt.Println("replacing it any earlier breaks the domain the same way publishing a DS")
+	fmt.Println("too early does (see the no-DS-published guidance for why).")
+	fmt.Println()
+	fmt.Println("If you don't recognize that DS at all, treat it as a real incident: stop")
+	fmt.Println("and investigate with your registrar before proceeding.")
 	fmt.Println()
 }
 

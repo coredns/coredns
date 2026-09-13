@@ -59,28 +59,52 @@ for a manually verified real-binary walkthrough.
   zone served correctly and the pinned key still rejected an
   impersonation attempt with no re-onboarding needed. Omitting `db`
   keeps the original pure in-memory behavior.
-- **Guided onboarding UX + `ERR_NO_DS_PUBLISHED` status code** (a first,
-  minimal slice of §12's audit-trail/status-code item, not the whole
-  thing). `chain.go` now distinguishes "the target zone's parent
+- **Guided onboarding UX + `ERR_NO_DS_PUBLISHED`/`ERR_UNKNOWN_SIGNER`
+  status codes** (a first, still-partial slice of §12's audit-trail/
+  status-code item, not the whole thing). `chain.go` distinguishes three
+  outcomes of the final DS check: "the target zone's parent
   authoritatively publishes no DS at all" (`errNoDSRecords`, re-tagged as
-  `ChainError{Op: "no-ds-published"}` only for the *final* DS check, so an
-  unrelated break higher up the chain isn't confused with it) from every
-  other way the chain-of-trust check can fail. `handler.go` carries that
-  as a `TXT` diagnostic (`ERR_NO_DS_PUBLISHED`, exactly the design doc's
-  own status-code name) in the response's Additional section alongside
-  `REFUSED`. `sazuctl` reads it and prints the DS record plus concrete
-  next steps instead of a bare failure, pointing at the new
-  `plugin/sazu/REGISTRARS.md` (a placeholder today — no registrar-specific
-  walkthroughs written yet, but a real place for them to live, referenced
-  by name so the CLI message isn't pointing at nothing). `Sazu.Validator`
-  is now the small `ChainValidator` interface rather than `*Validator`
-  directly, so this response-shaping logic has its own tests using a fake
-  validator, with no real network needed. Manually verified against the
-  real chain-of-trust walk with a real, DNSSEC-less domain (`rust-lang.org`,
-  not controlled by this project): a genuine first-contact push against it
-  is denied with the exact guidance above; a domain with a real DS but the
-  wrong key classifies as a different, undiagnosed rejection, proving the
-  two cases don't get confused.
+  `ChainError{Op: "no-ds-published"}`), "a DS is published but doesn't
+  match the candidate key" (`ChainError{Op: "key-mismatch"}`), and every
+  other, generic chain-of-trust failure (broken ancestor, network error,
+  etc.), which stays undiagnosed on purpose. `handler.go` carries the
+  first two as `TXT` diagnostics (`ERR_NO_DS_PUBLISHED` /
+  `ERR_UNKNOWN_SIGNER`, the design doc's own status-code names) in the
+  response's Additional section alongside `REFUSED`. `sazuctl` reads
+  either and prints dedicated next steps instead of a bare failure,
+  pointing at `plugin/sazu/REGISTRARS.md`. `ERR_UNKNOWN_SIGNER`'s guidance
+  deliberately does not assume an attack: a DS that doesn't match this key
+  is just as likely to be the zone's *current* host already publishing its
+  own, unrelated DNSSEC — see the next bullet for why that specific case
+  matters. `Sazu.Validator` is the small `ChainValidator` interface rather
+  than `*Validator` directly, so this response-shaping logic has its own
+  tests using a fake validator, with no real network needed. Manually
+  verified against the real chain-of-trust walk with a real, DNSSEC-less
+  domain (`rust-lang.org`, not controlled by this project): a genuine
+  first-contact push against it is denied with the `ERR_NO_DS_PUBLISHED`
+  guidance above.
+- **Live-migration hazard documented, and flagged in `sazuctl`'s own
+  output.** A real finding from testing against a live domain
+  (sinepress.org): if a domain currently has *no* DNSSEC at all and is
+  still being served by its current (non-SAZU) host, publishing a DS
+  record for the SAZU key breaks the **entire domain** — not just DNSSEC
+  lookups — for every validating resolver, from the moment the DS
+  propagates until the domain is actually, fully cut over to serving
+  signed content from this server. There is no way for this server to
+  detect or prevent that by itself (the breakage happens entirely outside
+  it, at the domain's current, unrelated host), so this is handled by
+  making sure the guidance is unmissable at exactly the two moments a
+  client would otherwise walk into it blind: `sazuctl`'s
+  `ERR_NO_DS_PUBLISHED` guidance (printed before a client is told to
+  publish a DS at all) and its `ERR_UNKNOWN_SIGNER` guidance (printed if a
+  pre-existing, unrelated DS is found instead), plus a dedicated
+  "Migrating an already-live domain" section in `REGISTRARS.md` referenced
+  from both. The recommended mitigation: enable DNSSEC on the domain's
+  *current* host first if it supports that (keeps the domain validly
+  signed under its own key throughout the migration, with the SAZU DS only
+  swapped in at actual cutover), or move hosting to one that supports
+  enabling DNSSEC (e.g. AWS Route 53) if it doesn't. A brand-new domain
+  with no live traffic yet has none of this risk.
 - **Onboarding a new domain needs no server-side Corefile edit.** Fixed a
   real bug where zone routing conflated "which static Corefile entry
   matched" with "which zone a request is actually about" -- under a
@@ -150,13 +174,13 @@ other outstanding item is a CoreDNS-plugin change.
   50 differential/day per zone (customizable), 24h rolling window, per the
   design doc's starting numbers.
 - [ ] **Audit trail, remaining transaction status codes, transaction UUID
-  (§12).** `ERR_NO_DS_PUBLISHED` and `ERR_SIG_INVALID` are done (see Done,
-  above) — the rest of the list isn't: no `ERR_STALE_SERIAL`,
-  `ERR_UNKNOWN_SIGNER`, `ERR_EXPIRED_SIGNATURE`, `ERR_WEAK_ALGORITHM`,
-  `ERR_QUOTA_EXCEEDED`, or `ERR_RATE_LIMITED` yet (most of these are
-  blocked on the features that would produce them, e.g. rate limiting
-  below), and no per-transaction UUID or persistent audit log of
-  accepted/rejected transactions.
+  (§12).** `ERR_NO_DS_PUBLISHED`, `ERR_UNKNOWN_SIGNER`, and
+  `ERR_SIG_INVALID` are done (see Done, above) — the rest of the list
+  isn't: no `ERR_STALE_SERIAL`, `ERR_EXPIRED_SIGNATURE`,
+  `ERR_WEAK_ALGORITHM`, `ERR_QUOTA_EXCEEDED`, or `ERR_RATE_LIMITED` yet
+  (most of these are blocked on the features that would produce them,
+  e.g. rate limiting below), and no per-transaction UUID or persistent
+  audit log of accepted/rejected transactions.
 - [ ] **HTTPS/JSON carrier, RFC 8427 (§7.3).** UDP wire format only today.
   Recommend plugging into CoreDNS's existing `https` plugin rather than a
   separate service — same authorization and zone state, just a different

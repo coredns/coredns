@@ -483,15 +483,56 @@ func TestOnboardDeniedWithNoDSPublishedGivesDiagnostic(t *testing.T) {
 	}
 }
 
-// TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic proves the
-// diagnostic is specific to the no-DS-published case: any other
-// chain-of-trust failure (a broken ancestor, a network error, a key that
-// doesn't match a DS that does exist) is still refused, but without
-// implying "go publish a DS" when that isn't actually the problem.
+// TestOnboardDeniedWithKeyMismatchGivesDiagnostic proves the second
+// dedicated diagnostic: a DS *is* published for the zone, just not one
+// matching the candidate key -- distinct from ERR_NO_DS_PUBLISHED, since
+// the fix isn't "go publish a DS" (one already exists) but "find out what
+// already has DNSSEC set up for this zone" (possibly the zone's current
+// host, mid-migration, rather than an attacker).
+func TestOnboardDeniedWithKeyMismatchGivesDiagnostic(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.InsecureSkipChainValidation = false
+	s.Validator = fakeValidator{err: &ChainError{Op: "key-mismatch", Msg: "a DS record is published for example.org., but none of them match the candidate key"}}
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	push, err := BuildFullZonePush("example.org.", testSOA(1), nil, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building push: %v", err)
+	}
+	now := time.Now()
+	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+
+	resp := sendRaw(t, addr, wire)
+	if resp.Rcode != dns.RcodeRefused {
+		t.Fatalf("rcode = %s, want REFUSED", dns.RcodeToString[resp.Rcode])
+	}
+	status, ok := diagnosticStatus(resp)
+	if !ok || status != statusErrUnknownSigner {
+		t.Fatalf("expected an %s diagnostic TXT record, got status=%q ok=%v (extra=%+v)",
+			statusErrUnknownSigner, status, ok, resp.Extra)
+	}
+	if _, pinned := s.Keys.Get("example.org."); pinned {
+		t.Fatalf("expected no key to be pinned for a denied first-contact push")
+	}
+}
+
+// TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic proves the two
+// dedicated diagnostics above are specific: a genuinely generic
+// chain-of-trust failure (a broken ancestor, a network error -- anything
+// that isn't "no DS" or "wrong key") is still refused, but without
+// implying either of those more specific, actionable situations when
+// neither is actually what happened.
 func TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic(t *testing.T) {
 	s := newTestSazu("example.org.")
 	s.InsecureSkipChainValidation = false
-	s.Validator = fakeValidator{err: &ChainError{Op: "verify", Msg: "candidate key does not match any DS record published for example.org."}}
+	s.Validator = fakeValidator{err: &ChainError{Op: "root-dnskey", Msg: "root did not answer authoritatively for its own DNSKEY"}}
 	addr := serveThroughRealServer(t, s)
 
 	key, priv, err := GenerateEd25519Key("example.org.", true)
@@ -513,7 +554,7 @@ func TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic(t *testing.T) {
 		t.Fatalf("rcode = %s, want REFUSED", dns.RcodeToString[resp.Rcode])
 	}
 	if _, ok := diagnosticStatus(resp); ok {
-		t.Fatalf("expected no diagnostic TXT record for a non-no-DS chain failure, got extra=%+v", resp.Extra)
+		t.Fatalf("expected no diagnostic TXT record for a generic chain failure, got extra=%+v", resp.Extra)
 	}
 }
 

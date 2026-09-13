@@ -176,14 +176,28 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 		if !s.InsecureSkipChainValidation {
 			if err := s.Validator.VerifyChainOfTrust(zone, candidate); err != nil {
 				status := ""
-				if ce, ok := err.(*ChainError); ok && ce.Op == "no-ds-published" {
-					// §12's status-code convention: the specific, by far
-					// most common first-contact failure -- "you haven't
-					// told your registrar about this key yet" -- gets its
-					// own diagnostic so a client can say exactly that,
-					// rather than a bare REFUSED indistinguishable from a
-					// wrong key or a broken chain elsewhere.
-					status = statusErrNoDSPublished
+				if ce, ok := err.(*ChainError); ok {
+					switch ce.Op {
+					case "no-ds-published":
+						// §12's status-code convention: the specific, by far
+						// most common first-contact failure -- "you haven't
+						// told your registrar about this key yet" -- gets its
+						// own diagnostic so a client can say exactly that,
+						// rather than a bare REFUSED indistinguishable from a
+						// wrong key or a broken chain elsewhere.
+						status = statusErrNoDSPublished
+					case "key-mismatch":
+						// A DS *is* published for this zone, just not for
+						// this key. Distinct from ERR_NO_DS_PUBLISHED and
+						// deliberately not phrased as "wrong key" or
+						// "attack": the DS found here may well be
+						// legitimate DNSSEC this zone's current host
+						// already publishes under its own key, unrelated
+						// to SAZU entirely -- exactly the case a client
+						// needs flagged rather than silently lumped in
+						// with a bare REFUSED.
+						status = statusErrUnknownSigner
+					}
 				}
 				return replyWithStatus(w, r, dns.RcodeRefused, status)
 			}
@@ -295,6 +309,15 @@ func writeMsg(w dns.ResponseWriter, m *dns.Msg) (int, error) {
 // list (ERR_STALE_SERIAL, ERR_UNKNOWN_SIGNER, etc.) is still outstanding,
 // see SAZU-PLAN.md.
 const statusErrNoDSPublished = "ERR_NO_DS_PUBLISHED"
+
+// statusErrUnknownSigner is another of §12's status codes: a DS record is
+// published for the target zone, but none of them match the candidate
+// key. Unlike statusErrNoDSPublished, this does not mean "nothing is
+// there yet" -- something else already has DNSSEC set up for this zone,
+// which the operator needs to understand (it may simply be the zone's
+// current host, e.g. mid-migration) before doing anything that might
+// disturb it.
+const statusErrUnknownSigner = "ERR_UNKNOWN_SIGNER"
 
 // statusErrSigInvalid is another of §12's status codes: emitted only when
 // RequireValidRRSIGs is enabled and a pushed RRset's RRSIG doesn't

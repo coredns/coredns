@@ -160,7 +160,14 @@ func (v *Validator) VerifyChainOfTrust(zone string, candidateKey *dns.DNSKEY) er
 			return nil
 		}
 	}
-	return chainErr("verify", "candidate key does not match any DS record published for %s", zone)
+	// A DS *is* published for zone -- just not one matching this key.
+	// Tagged separately from a generic "verify" failure because it needs
+	// its own diagnostic (handler.go's ERR_UNKNOWN_SIGNER): the DS found
+	// here isn't necessarily an attacker's. It's just as likely to be
+	// pre-existing DNSSEC this zone's current host already publishes
+	// (its own key, unrelated to SAZU) -- something a client needs to
+	// know about before doing anything that might disturb it.
+	return &ChainError{Op: "key-mismatch", Msg: fmt.Sprintf("a DS record is published for %s, but none of them match the candidate key", zone)}
 }
 
 // dsMatchesKey reports whether ds is the DS record for key, recomputing
