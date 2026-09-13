@@ -363,7 +363,18 @@ other outstanding item is a CoreDNS-plugin change.
 - [ ] **Key rollover (§10.4).** Once pinned, a key is permanent. Needs the
   same chain-of-trust-recheck machinery already built for first contact,
   triggered by a different condition (an already-pinned zone presenting a
-  new candidate key that also chains to the parent's DS).
+  new candidate key that also chains to the parent's DS). When this gets
+  designed, also decide then whether to introduce a KSK/ZSK split (SAZU
+  currently uses one Ed25519 key, KSK-flagged, for everything -- §9.1's
+  own deliberate choice): the two are effectively the same question,
+  since a ZSK's entire benefit is being rotatable without a new DS record
+  or registrar involvement, which only pays off once rollover itself
+  exists. Given SAZU's actual threat model -- the private key only ever
+  signs offline, on the customer's own machine, never held by an
+  always-on server -- the traditional reason for the split (limiting a
+  frequently-used, exposed online key) doesn't really apply here; the
+  rollover-cost argument is the one piece of the usual rationale that
+  would still be relevant.
 - [ ] **Rate limiting / quota (§12).** No throttling at all — 5 full-zone/day,
   50 differential/day per zone (customizable), 24h rolling window, per the
   design doc's starting numbers.
