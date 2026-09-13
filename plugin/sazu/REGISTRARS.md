@@ -58,12 +58,24 @@ To migrate safely:
    domain validly signed under its *current* host's own key throughout the
    migration — there is no gap where a DS is published with nothing
    matching it.
-2. **Only once you are actually ready to cut authoritative service over to
-   this server**, replace that DS record with the one `sazuctl ds` prints
-   for your SAZU key (the normal onboarding flow above) — ideally as close
-   as possible to the moment the delegation/NS records also switch, since
-   the DS and what's actually being served need to agree throughout.
-3. **If your current host has no way to enable DNSSEC at all**, you don't
+2. **Add the DS record for your SAZU key alongside that one, not instead
+   of it**, as soon as you're ready to start onboarding — most registrars
+   (AWS Route 53 included, see below) accept more than one DS record for
+   the same domain at once, which is exactly how a DNSSEC key/algorithm
+   rollover normally works (RFC 6781 §4.1.4). `sazuctl` onboards a zone as
+   soon as *any* published DS matches its key, so the other, coexisting
+   DS record doesn't block onboarding — there's no need to wait for
+   cutover to add this one.
+3. **Only once you are actually ready to cut authoritative service over to
+   this server**, remove the *other* DS record (your current host's).
+   Leaving it in place any earlier is harmless; removing your current
+   host's DS before this server is actually serving the domain reintroduces
+   the exact hazard described above, just from the opposite direction.
+   If your registrar's DNSSEC panel only ever accepts a single DS record
+   at a time, you don't have the option of adding one alongside the other
+   — wait until cutover, then replace the existing DS with this one at the
+   same moment you switch delegation.
+4. **If your current host has no way to enable DNSSEC at all**, you don't
    have a safe way to keep this domain validated during a transition
    window on that host. Consider moving this domain's DNS hosting to one
    that does support it (AWS Route 53 is confirmed to, see below) *before*
@@ -107,6 +119,17 @@ free text, so here's exactly what to pick for a SAZU-generated key:
 Route 53 computes and publishes the DS record itself from these three
 values, so there's nothing further to copy from `sazuctl ds`'s DS-record
 line for this particular registrar.
+
+**Adding this key alongside an existing DS (see "Migrating an
+already-live domain" above):** Route 53's DNSSEC page supports adding
+more than one public key, so you can go through "Add a public key" for
+the SAZU key without removing whatever's already listed there — both DS
+records end up published side by side at the registry. Confirmed against
+a real domain: a Route 53-hosted zone with its own DNSSEC signing already
+enabled (its own auto-generated key) still validated correctly with a
+second, SAZU-key DS record published alongside it — the extra DS record
+by itself did not break anything, precisely because Route 53's own key
+was still the one actually signing what it served.
 
 ## Registrar-specific notes (TODO)
 

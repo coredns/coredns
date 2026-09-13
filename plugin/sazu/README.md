@@ -281,7 +281,11 @@ through its real nameservers throughout.
    `sazuctl` prints separate guidance for that instead — it usually means
    DNSSEC is already enabled for this domain under a different key
    (possibly its current host's own, if you followed step 2 above), not
-   necessarily anything wrong with this key.
+   necessarily anything wrong with this key. Onboarding isn't blocked by
+   this: `sazuctl` tells you to add this key's DS record *alongside* the
+   existing one (most registrars accept more than one) rather than
+   replacing it, so you can proceed the same way as step 3 above without
+   disturbing whatever's already keeping the domain validated.
 
 4. **Submit that DS record at your registrar** — every major registrar
    that supports DNSSEC has a form for this (look for "DS record,"

@@ -76,7 +76,16 @@ for a manually verified real-binary walkthrough.
   deliberately does not assume an attack: a DS that doesn't match this key
   is just as likely to be the zone's *current* host already publishing its
   own, unrelated DNSSEC — see the next bullet for why that specific case
-  matters. `Sazu.Validator` is the small `ChainValidator` interface rather
+  matters. It also doesn't just tell the operator to investigate and wait:
+  since `VerifyChainOfTrust` accepts a candidate key as soon as *any*
+  published DS matches it, the guidance gives the same concrete DS record
+  as the no-DS case, framed as "add this alongside the existing DS, most
+  registrars accept more than one (RFC 6781 §4.1.4 key/algorithm
+  rollover) — don't remove the other one until actual cutover." Manually
+  verified against `cloudflare.com` (a real domain with its own,
+  unrelated DNSSEC already enabled): onboarding is correctly denied with
+  this exact guidance rather than a bare, unhelpful `REFUSED`.
+  `Sazu.Validator` is the small `ChainValidator` interface rather
   than `*Validator` directly, so this response-shaping logic has its own
   tests using a fake validator, with no real network needed. Manually
   verified against the real chain-of-trust walk with a real, DNSSEC-less

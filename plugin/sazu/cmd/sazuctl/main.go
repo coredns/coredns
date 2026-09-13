@@ -410,7 +410,7 @@ func interpretResponse(zone string, key *dns.DNSKEY, resp *dns.Msg) error {
 		printNoDSGuidance(zone, key)
 		return fmt.Errorf("denied: no DS record published for %s yet", zone)
 	case statusErrUnknownSigner:
-		printUnknownSignerGuidance(zone)
+		printUnknownSignerGuidance(zone, key)
 		return fmt.Errorf("denied: a DS record for %s is already published, but not for this key", zone)
 	}
 
@@ -493,28 +493,65 @@ func printNoDSGuidance(zone string, key *dns.DNSKEY) {
 // assume anything adversarial -- the far more likely explanation is that
 // the zone's current host already has its own DNSSEC set up (its own
 // key, unrelated to SAZU), which is exactly the state the no-DS guidance
-// above recommends putting a domain into during migration.
-func printUnknownSignerGuidance(zone string) {
+// above recommends putting a domain into during migration. Unlike an
+// earlier version of this message, this gives a concrete way to actually
+// get onboarded now rather than just "investigate and wait": chain.go's
+// VerifyChainOfTrust accepts a candidate key as soon as *any* published DS
+// matches it, so a second, coexisting DS record for this key is enough --
+// nothing needs to be removed first.
+func printUnknownSignerGuidance(zone string, key *dns.DNSKEY) {
+	ds := key.ToDS(dns.SHA256)
 	fmt.Println()
 	fmt.Printf("Onboarding denied: a DS record is already published for %s, but not for\n", zone)
 	fmt.Println("this key.")
 	fmt.Println()
 	fmt.Println("This is not necessarily a problem with this key, and not necessarily an")
 	fmt.Println("attack -- it most likely means DNSSEC is already enabled for this domain")
-	fmt.Println("under a different key, quite possibly by its current host (e.g. if you")
-	fmt.Println("followed the migration guidance to enable DNSSEC there first). Find out")
-	fmt.Println("what's actually publishing that DS before doing anything about it:")
+	fmt.Println("under a different key, quite possibly its current host's own (e.g. if you")
+	fmt.Println("followed the migration guidance to enable DNSSEC there first). Check what's")
+	fmt.Println("actually publishing that DS before doing anything about it:")
 	fmt.Println()
 	fmt.Printf("  dig DS %s +short\n", zone)
 	fmt.Println()
-	fmt.Println("If that DS is your current host's own DNSSEC (expected mid-migration):")
-	fmt.Println("switch this domain's DS to the one this key generates only once you are")
-	fmt.Println("actually ready to cut authoritative service over to this server --")
-	fmt.Println("replacing it any earlier breaks the domain the same way publishing a DS")
-	fmt.Println("too early does (see the no-DS-published guidance for why).")
+	fmt.Println("You can still get this key onboarded now, without disturbing that one. Most")
+	fmt.Println("registrars accept more than one DS record for the same domain at once --")
+	fmt.Println("this is exactly how a DNSSEC key or algorithm rollover works (RFC 6781")
+	fmt.Println("§4.1.4) -- so:")
 	fmt.Println()
-	fmt.Println("If you don't recognize that DS at all, treat it as a real incident: stop")
-	fmt.Println("and investigate with your registrar before proceeding.")
+	fmt.Println("  1. Give your registrar this DS record IN ADDITION TO the one already")
+	fmt.Println("     there -- do not remove or replace the existing one yet:")
+	fmt.Println()
+	fmt.Printf("       %s IN DS %d %d %d %s\n", key.Hdr.Name, ds.KeyTag, ds.Algorithm, ds.DigestType, ds.Digest)
+	fmt.Println()
+	fmt.Println("     See REGISTRARS.md (plugin/sazu/REGISTRARS.md in this checkout) for")
+	fmt.Println("     registrar-specific instructions, including how to add a second DS/key")
+	fmt.Println("     record rather than replacing the one already there.")
+	fmt.Println()
+	fmt.Println("  2. Wait for it to propagate, then confirm both digests are visible:")
+	fmt.Println()
+	fmt.Printf("       dig DS %s +short\n", zone)
+	fmt.Println()
+	fmt.Println("  3. Re-run this same command once that shows both. Onboarding succeeds as")
+	fmt.Println("     soon as this key's own DS is visible -- the other, coexisting DS")
+	fmt.Println("     record doesn't block it.")
+	fmt.Println()
+	fmt.Println("  4. Only once you are actually ready to cut authoritative service over to")
+	fmt.Println("     this server, remove the OTHER DS record (the one that was already")
+	fmt.Println("     there before this key's). Leaving it in place until then is harmless:")
+	fmt.Println("     this server only cares that its own key's DS is among whatever is")
+	fmt.Println("     published, not that it's the only one.")
+	fmt.Println()
+	fmt.Println("If your registrar's DNSSEC panel only accepts a single DS record and won't")
+	fmt.Println("let you add a second one, you can't do the above safely: replacing the sole")
+	fmt.Println("DS record before you're ready for cutover breaks the domain the same way")
+	fmt.Println("publishing a DS too early does on a domain with no DNSSEC at all (see the")
+	fmt.Println("no-DS-published guidance for why). In that case, wait until cutover, then")
+	fmt.Println("replace the existing DS with this one at the same time you switch")
+	fmt.Println("delegation to this server.")
+	fmt.Println()
+	fmt.Println("If you don't recognize the existing DS at all -- it isn't your current")
+	fmt.Println("host's own DNSSEC and nothing you set up -- treat it as a real incident:")
+	fmt.Println("stop and investigate with your registrar before proceeding.")
 	fmt.Println()
 }
 
