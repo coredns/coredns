@@ -128,13 +128,15 @@ This is the fastest way to prove the whole mechanism works, using
 `insecure_skip_chain_validation` since there's no real parent zone in a
 sandbox to publish a DS record against.
 
-1. **Start the server.**
+1. **Start the server.** `sazu .` accepts onboarding *any* domain --
+   nothing about which domain(s) you'll actually test needs deciding, or
+   editing into the Corefile, up front:
 
    ```
    cat > Corefile <<'EOF'
    .:15353 {
        bind 127.0.0.1
-       sazu example.org {
+       sazu . {
            insecure_skip_chain_validation
        }
        log
@@ -143,6 +145,11 @@ sandbox to publish a DS record against.
    EOF
    ./coredns -conf Corefile
    ```
+
+   (The steps below onboard `example.org` as a concrete example, but that
+   name is chosen when you run `sazuctl`, not when you started the server
+   above -- any other domain would work against this same, unmodified
+   Corefile and running server.)
 
 2. **Generate a key and check it.**
 
@@ -216,15 +223,17 @@ you can point `sazuctl` at a test instance of this server running anywhere
 reachable to you, on any port, while your domain keeps working normally
 through its real nameservers throughout.
 
-1. **Start the server** — same as the sandbox walkthrough, but with the
-   Corefile pointed at your real domain and `insecure_skip_chain_validation`
-   **removed** (this is the whole point of testing in the real world):
+1. **Start the server** — same as the sandbox walkthrough, but with
+   `insecure_skip_chain_validation` **removed** (this is the whole point of
+   testing in the real world). `sazu .` still means no domain name needs
+   deciding or editing into the Corefile up front — including onboarding
+   more than one real domain later, with no second server block or restart:
 
    ```
    cat > Corefile <<'EOF'
    .:15353 {
        bind 127.0.0.1
-       sazu yourdomain.example
+       sazu .
        log
        errors
    }
@@ -232,11 +241,9 @@ through its real nameservers throughout.
    ./coredns -conf Corefile
    ```
 
-   Onboarding more than one domain later doesn't need a second server block
-   or a restart: replace `sazu yourdomain.example` with `sazu .` to accept
-   onboarding any domain this instance is asked about (see **Syntax**
-   above) — which domains actually exist is then entirely driven by what
-   gets onboarded at runtime, not by what's in this file.
+   (A narrower scope, e.g. `sazu yourdomain.example`, works the same way if
+   you'd rather this instance only ever accept that one domain — see
+   **Syntax** above.)
 
    The server needs outbound UDP/53 reachability to the internet (real root
    and TLD servers) for the chain walk to succeed — the usual case for any
