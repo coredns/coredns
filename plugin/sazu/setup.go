@@ -26,11 +26,21 @@ func setup(c *caddy.Controller) error {
 	capture := NewRawCapture(5*time.Second, 4096)
 	config.UDPDecorateReaderFunc = capture.DecorateReaderFunc
 
+	// CoreDNS never raises its UDP receive buffer above miekg/dns's
+	// 512-byte default (RFC 1035's plain-DNS-over-UDP ceiling) -- silently
+	// truncating any inbound message larger than that. Ordinary queries
+	// never hit this, but a real, RRSIG-signed SAZU push routinely does
+	// (each RRSIG alone is well over 100 bytes), so this plugin has to ask
+	// for more room on the *request* side, which EDNS0 payload-size
+	// negotiation doesn't cover (that only governs response size).
+	config.UDPSize = maxUDPMessageSize
+
 	s := &Sazu{
 		Zones:                       cfg.zones,
 		Validator:                   NewValidator(),
 		Capture:                     capture,
 		InsecureSkipChainValidation: cfg.insecureSkipChainValidation,
+		RequireValidRRSIGs:          cfg.requireValidRRSIGs,
 	}
 
 	if cfg.dbPath != "" {
@@ -63,6 +73,7 @@ func setup(c *caddy.Controller) error {
 type sazuConfig struct {
 	zones                       []string
 	insecureSkipChainValidation bool
+	requireValidRRSIGs          bool
 	dbPath                      string
 }
 
@@ -83,6 +94,11 @@ func parseSazu(c *caddy.Controller) (sazuConfig, error) {
 					return sazuConfig{}, c.ArgErr()
 				}
 				cfg.insecureSkipChainValidation = true
+			case "require_valid_rrsigs":
+				if len(c.RemainingArgs()) != 0 {
+					return sazuConfig{}, c.ArgErr()
+				}
+				cfg.requireValidRRSIGs = true
 			case "db":
 				args := c.RemainingArgs()
 				if len(args) != 1 {

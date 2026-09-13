@@ -249,7 +249,10 @@ func runPushZone(args []string) error {
 		prev.Serial = uint32(*previousSerial)
 		previousSOA = &prev
 	}
-	m := sazu.BuildFullZonePush(*zone, soa, rrs, key, previousSOA)
+	m, err := sazu.BuildFullZonePush(*zone, soa, rrs, key, priv, previousSOA)
+	if err != nil {
+		return err
+	}
 	now := time.Now()
 	wire, err := sazu.SignUpdate(m, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
@@ -301,7 +304,12 @@ func runPushUpdate(args []string) error {
 		if err != nil {
 			return err
 		}
-		m.Insert(rrs)
+		now := time.Now()
+		signed, err := sazu.SignZoneContent(rrs, key, priv, now.Add(-sazu.DefaultSignatureInceptionSkew), now.Add(sazu.DefaultSignatureValidity))
+		if err != nil {
+			return fmt.Errorf("signing added records: %w", err)
+		}
+		m.Insert(signed)
 	}
 	if len(dels) > 0 {
 		rrs, err := parseRRs("-del", dels)

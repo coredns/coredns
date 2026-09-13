@@ -2,6 +2,7 @@ package sazu
 
 import (
 	"context"
+	"crypto/ed25519"
 	"net"
 	"sync/atomic"
 	"testing"
@@ -47,6 +48,7 @@ func serveThroughRealServer(t *testing.T, s *Sazu) string {
 	})
 	cfg.AllowOpcode(dns.OpcodeUpdate)
 	cfg.UDPDecorateReaderFunc = s.Capture.DecorateReaderFunc
+	cfg.UDPSize = maxUDPMessageSize // see setup.go: a signed push regularly exceeds the 512B default
 
 	srv, err := dnsserver.NewServer("127.0.0.1:0", []*dnsserver.Config{cfg})
 	if err != nil {
@@ -101,6 +103,151 @@ func query(t *testing.T, addr, name string, qtype uint16) *dns.Msg {
 	return resp
 }
 
+func queryDO(t *testing.T, addr, name string, qtype uint16) *dns.Msg {
+	t.Helper()
+	m := new(dns.Msg)
+	m.SetQuestion(dns.Fqdn(name), qtype)
+	m.SetEdns0(4096, true)
+	resp, _, err := new(dns.Client).Exchange(m, addr)
+	if err != nil {
+		t.Fatalf("query(DO) %s/%d: %v", name, qtype, err)
+	}
+	return resp
+}
+
+// TestOnboardedZoneServesRRSIGsWithDOBit proves a full onboarding push's
+// real signatures actually reach a validating client: once onboarded (via
+// BuildFullZonePush, which signs everything), a DO-bit query for A gets
+// back both the A record and its covering RRSIG in the same answer --
+// what a real validating resolver needs, and specifically what was
+// missing when this was tested against a real domain (a published DS
+// with no RRSIGs served at all produces exactly the "bogus"/SERVFAIL
+// state this closes). A query without the DO bit gets no RRSIG, matching
+// ordinary non-DNSSEC client expectations.
+func TestOnboardedZoneServesRRSIGsWithDOBit(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	soa := testSOA(1)
+	rrs := []dns.RR{testA("www.example.org.", net.IPv4(203, 0, 113, 10))}
+	push, err := BuildFullZonePush("example.org.", soa, rrs, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building push: %v", err)
+	}
+	now := time.Now()
+	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	if resp := sendRaw(t, addr, wire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("onboarding push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+
+	withDO := queryDO(t, addr, "www.example.org.", dns.TypeA)
+	var aRRs []dns.RR
+	var sig *dns.RRSIG
+	for _, rr := range withDO.Answer {
+		switch v := rr.(type) {
+		case *dns.A:
+			aRRs = append(aRRs, v)
+		case *dns.RRSIG:
+			if v.TypeCovered == dns.TypeA {
+				sig = v
+			}
+		}
+	}
+	if len(aRRs) == 0 || sig == nil {
+		t.Fatalf("expected both the A record and its covering RRSIG with DO set, got %+v", withDO.Answer)
+	}
+	if err := sig.Verify(key, aRRs); err != nil {
+		t.Fatalf("the served RRSIG does not verify against the served A record: %v", err)
+	}
+
+	withoutDO := query(t, addr, "www.example.org.", dns.TypeA)
+	for _, rr := range withoutDO.Answer {
+		if _, ok := rr.(*dns.RRSIG); ok {
+			t.Fatalf("expected no RRSIG without the DO bit, got %+v", withoutDO.Answer)
+		}
+	}
+}
+
+// buildUnsignedFirstContactPush builds a first-contact UPDATE that
+// establishes candidate/SOA/content exactly like a real onboarding push,
+// but with none of it carrying an RRSIG -- only the SIG(0) transaction
+// signature over the whole message is genuine. It exists to distinguish
+// "Level 0: trust the pipe" (SIG(0) alone) from "Level 2: full
+// verification" (the content itself must be validly signed), which is
+// exactly what RequireValidRRSIGs toggles between.
+func buildUnsignedFirstContactPush(t *testing.T, zone string, key *dns.DNSKEY, priv ed25519.PrivateKey) []byte {
+	t.Helper()
+	m := new(dns.Msg)
+	m.SetUpdate(dns.Fqdn(zone))
+	soa := SynthesizeSOA(zone, "")
+	rrs := []dns.RR{testA("www."+dns.Fqdn(zone), net.IPv4(203, 0, 113, 10))}
+	adds := append([]dns.RR{key, soa}, rrs...)
+	m.Insert(adds)
+	now := time.Now()
+	wire, err := SignUpdate(m, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing unsigned-content push: %v", err)
+	}
+	return wire
+}
+
+// TestRequireValidRRSIGsRejectsUnsignedContent proves the opt-in Level 2
+// check actually gates on it: a push whose transaction is genuinely
+// SIG(0)-signed but whose content carries no RRSIGs at all must be
+// rejected once RequireValidRRSIGs is on.
+func TestRequireValidRRSIGsRejectsUnsignedContent(t *testing.T) {
+	s := newTestSazu("example.org.")
+	s.RequireValidRRSIGs = true
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	wire := buildUnsignedFirstContactPush(t, "example.org.", key, priv)
+
+	resp := sendRaw(t, addr, wire)
+	if resp.Rcode != dns.RcodeNotAuth {
+		t.Fatalf("rcode = %s, want NotAuth", dns.RcodeToString[resp.Rcode])
+	}
+	if status, ok := diagnosticStatus(resp); !ok || status != statusErrSigInvalid {
+		t.Fatalf("diagnostic status = %q, ok=%v, want %q", status, ok, statusErrSigInvalid)
+	}
+	if _, ok := s.Keys.Get("example.org."); ok {
+		t.Fatalf("a rejected push must not pin a key")
+	}
+}
+
+// TestRequireValidRRSIGsOffAcceptsUnsignedContent proves the flag is
+// genuinely opt-in: with it left at its default (false), the exact same
+// unsigned-content push that the previous test rejects is accepted --
+// "Level 0, trust the pipe" is still a supported mode.
+func TestRequireValidRRSIGsOffAcceptsUnsignedContent(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	wire := buildUnsignedFirstContactPush(t, "example.org.", key, priv)
+
+	resp := sendRaw(t, addr, wire)
+	if resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+	if _, ok := s.Keys.Get("example.org."); !ok {
+		t.Fatalf("expected the candidate key to be pinned after a successful first-contact push")
+	}
+}
+
 // TestOnboardFullPushThenQuery is the whole-chain proof: a first-contact
 // full-zone push is accepted (with chain-of-trust validation skipped, the
 // one piece that needs a real network -- see chain_test.go for that in
@@ -119,7 +266,10 @@ func TestOnboardFullPushThenQuery(t *testing.T) {
 		&dns.NS{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: 3600}, Ns: "ns1.example.org."},
 		testA("www.example.org.", net.IPv4(203, 0, 113, 10)),
 	}
-	push := BuildFullZonePush("example.org.", soa, rrs, key, nil)
+	push, err := BuildFullZonePush("example.org.", soa, rrs, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building push: %v", err)
+	}
 	now := time.Now()
 	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
@@ -199,7 +349,10 @@ func TestOrdinaryPartialPushAfterOnboarding(t *testing.T) {
 	}
 	soa := testSOA(1)
 	rrs := []dns.RR{testA("www.example.org.", net.IPv4(203, 0, 113, 10))}
-	onboard := BuildFullZonePush("example.org.", soa, rrs, key, nil)
+	onboard, err := BuildFullZonePush("example.org.", soa, rrs, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building onboarding push: %v", err)
+	}
 	now := time.Now()
 	wire, err := SignUpdate(onboard, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
@@ -247,7 +400,10 @@ func TestPartialPushFromWrongKeyRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generating key: %v", err)
 	}
-	onboard := BuildFullZonePush("example.org.", testSOA(1), nil, key, nil)
+	onboard, err := BuildFullZonePush("example.org.", testSOA(1), nil, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building onboarding push: %v", err)
+	}
 	now := time.Now()
 	wire, err := SignUpdate(onboard, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
@@ -303,7 +459,10 @@ func TestOnboardDeniedWithNoDSPublishedGivesDiagnostic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generating key: %v", err)
 	}
-	push := BuildFullZonePush("example.org.", testSOA(1), nil, key, nil)
+	push, err := BuildFullZonePush("example.org.", testSOA(1), nil, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building push: %v", err)
+	}
 	now := time.Now()
 	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
@@ -339,7 +498,10 @@ func TestOnboardDeniedForOtherChainReasonsCarriesNoDiagnostic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("generating key: %v", err)
 	}
-	push := BuildFullZonePush("example.org.", testSOA(1), nil, key, nil)
+	push, err := BuildFullZonePush("example.org.", testSOA(1), nil, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building push: %v", err)
+	}
 	now := time.Now()
 	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
@@ -377,7 +539,10 @@ func onboard(t *testing.T, addr, zone string) *dns.DNSKEY {
 		Hdr: dns.RR_Header{Name: "www." + dns.Fqdn(zone), Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 300},
 		A:   net.IPv4(203, 0, 113, 10),
 	}}
-	push := BuildFullZonePush(zone, soa, rrs, key, nil)
+	push, err := BuildFullZonePush(zone, soa, rrs, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building onboarding push for %s: %v", zone, err)
+	}
 	now := time.Now()
 	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
@@ -456,6 +621,7 @@ func TestWildcardScopeFallsThroughForNeverOnboardedNames(t *testing.T) {
 	})
 	cfg.AllowOpcode(dns.OpcodeUpdate)
 	cfg.UDPDecorateReaderFunc = s.Capture.DecorateReaderFunc
+	cfg.UDPSize = maxUDPMessageSize
 	srv, err := dnsserver.NewServer("127.0.0.1:0", []*dnsserver.Config{cfg})
 	if err != nil {
 		t.Fatalf("NewServer: %v", err)

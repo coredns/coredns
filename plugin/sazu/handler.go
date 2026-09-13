@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/coredns/coredns/plugin"
 
@@ -45,6 +46,16 @@ type Sazu struct {
 	// first contact, which is exactly the spoofable behavior the
 	// cross-check exists to prevent.
 	InsecureSkipChainValidation bool
+
+	// RequireValidRRSIGs enables §4's "Level 2 -- full verification":
+	// every Add-shaped RRset in an UPDATE must carry a covering RRSIG
+	// that actually verifies against the candidate/pinned key, or the
+	// whole update is rejected. Off by default -- "Level 0, trust the
+	// pipe" (SIG(0) authenticates the push, nothing checks the content
+	// itself is validly signed) is still a supported, simpler mode, and
+	// is what every test in this package other than the ones specifically
+	// about this flag exercises.
+	RequireValidRRSIGs bool
 
 	// updateMu serializes the whole authenticate-evaluate-apply sequence
 	// for UPDATE requests across all zones this instance serves. Simple
@@ -104,8 +115,26 @@ func (s *Sazu) serveQuery(w dns.ResponseWriter, r *dns.Msg, z *ZoneData) (int, e
 		m.Rcode = dns.RcodeNameError
 	} else {
 		m.Answer = rrs // NOERROR/NODATA when the name exists but this type doesn't
+		if len(rrs) > 0 && isDNSSECRequested(r) {
+			// A validating resolver needs the covering RRSIG(s) in the
+			// *same* answer as the RRset they cover, not as a separate
+			// query -- without this, the zone would carry real
+			// signatures (once actually pushed signed) that never
+			// reached anyone asking for them, still producing exactly
+			// the "RRSIGs Missing" bogus state this whole feature exists
+			// to avoid.
+			m.Answer = append(m.Answer, z.LookupRRSIG(q.Name, q.Qtype)...)
+		}
 	}
 	return writeMsg(w, m)
+}
+
+// isDNSSECRequested reports whether r carries the EDNS0 DO bit -- the
+// signal a validating resolver (or any DNSSEC-aware client) sets to ask
+// for RRSIGs alongside ordinary answers.
+func isDNSSECRequested(r *dns.Msg) bool {
+	opt := r.IsEdns0()
+	return opt != nil && opt.Do()
 }
 
 func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, error) {
@@ -171,6 +200,18 @@ func (s *Sazu) serveUpdate(w dns.ResponseWriter, r *dns.Msg, zone string) (int, 
 	if rcode, err := EvaluatePrerequisites(z, r.Answer, dns.ClassINET); err != nil {
 		_ = err // surfaced only via rcode; see EvaluatePrerequisites' doc comment
 		return reply(rcode)
+	}
+
+	if s.RequireValidRRSIGs {
+		// §4's "Level 2 -- full verification": confirm the content being
+		// pushed is itself validly DNSSEC-signed, not just that the
+		// transaction carrying it was. Off by default -- SIG(0) alone
+		// ("Level 0 -- trust the pipe") is still a supported, simpler
+		// mode -- but this is what actually determines whether a zone
+		// will validate for real DNSSEC resolvers once served.
+		if err := VerifySignedRRsets(candidate, r.Ns, dns.ClassINET, time.Now()); err != nil {
+			return replyWithStatus(w, r, dns.RcodeNotAuth, statusErrSigInvalid)
+		}
 	}
 
 	// Persist before mutating memory: if the disk write fails, memory
@@ -254,6 +295,19 @@ func writeMsg(w dns.ResponseWriter, m *dns.Msg) (int, error) {
 // list (ERR_STALE_SERIAL, ERR_UNKNOWN_SIGNER, etc.) is still outstanding,
 // see SAZU-PLAN.md.
 const statusErrNoDSPublished = "ERR_NO_DS_PUBLISHED"
+
+// statusErrSigInvalid is another of §12's status codes: emitted only when
+// RequireValidRRSIGs is enabled and a pushed RRset's RRSIG doesn't
+// actually verify against the candidate/pinned key.
+const statusErrSigInvalid = "ERR_SIG_INVALID"
+
+// maxUDPMessageSize is the UDP receive buffer size setup.go asks
+// core/dnsserver for -- see the comment there for why the 512-byte
+// default isn't enough once a push carries real RRSIGs. 16 KiB
+// comfortably fits a full-zone push for a moderately sized zone; a zone
+// large enough to exceed even this should go over TCP instead (not yet
+// implemented here -- see SAZU-PLAN.md).
+const maxUDPMessageSize = 16384
 
 // replyWithStatus replies to r with rcode and, if status is non-empty,
 // a diagnostic TXT record carrying it in the Additional section.

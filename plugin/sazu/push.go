@@ -1,11 +1,23 @@
 package sazu
 
 import (
+	"crypto"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/miekg/dns"
+)
+
+// Default RRSIG validity window for content this package signs.
+// Independent of, and much longer than, a SIG(0) transaction signature's
+// own inception/expiration (typically ~1 hour, protecting the UPDATE
+// message itself against replay): this window protects the *zone
+// content* — how long it stays validly signed once served, which is
+// what a customer's re-signing schedule needs to stay ahead of.
+const (
+	DefaultSignatureInceptionSkew = 1 * time.Hour
+	DefaultSignatureValidity      = 30 * 24 * time.Hour
 )
 
 // LoadZoneFile parses a BIND-format zone file and returns its SOA record
@@ -83,7 +95,17 @@ func SynthesizeSOA(zone, ns string) *dns.SOA {
 // candidateKey is added as a DNSKEY at the zone apex -- the design's
 // central decision (§9.1: the same key signs and authenticates), so it
 // always travels with the push, first contact or not.
-func BuildFullZonePush(zone string, soa *dns.SOA, rrs []dns.RR, candidateKey *dns.DNSKEY, previousSOA *dns.SOA) *dns.Msg {
+//
+// signer is that same key's private half, used to actually sign the
+// pushed content (DNSKEY, SOA, and every RRset in rrs) with real RFC 4034
+// RRSIGs via SignZoneContent -- this is what SAZU's whole premise
+// ("split-signing DNSSEC," the hoster never touches a private key)
+// actually requires: SIG(0) alone only authenticates the push
+// *transaction*, not the zone *content*. Without this, a validating
+// resolver would see a zone with a published DS but no RRSIGs at all —
+// exactly the "bogus" state that produces SERVFAIL for real DNSSEC
+// clients, regardless of whether the push mechanics themselves are sound.
+func BuildFullZonePush(zone string, soa *dns.SOA, rrs []dns.RR, candidateKey *dns.DNSKEY, signer crypto.Signer, previousSOA *dns.SOA) (*dns.Msg, error) {
 	m := new(dns.Msg)
 	m.SetQuestion(dns.Fqdn(zone), dns.TypeSOA)
 	m.Opcode = dns.OpcodeUpdate
@@ -102,7 +124,13 @@ func BuildFullZonePush(zone string, soa *dns.SOA, rrs []dns.RR, candidateKey *dn
 	adds := make([]dns.RR, 0, len(rrs)+2)
 	adds = append(adds, dnskeyRR, soa)
 	adds = append(adds, rrs...)
-	m.Insert(adds)
 
-	return m
+	now := time.Now()
+	signed, err := SignZoneContent(adds, dnskeyRR, signer, now.Add(-DefaultSignatureInceptionSkew), now.Add(DefaultSignatureValidity))
+	if err != nil {
+		return nil, err
+	}
+	m.Insert(signed)
+
+	return m, nil
 }

@@ -59,6 +59,29 @@ func (z *ZoneData) Lookup(name string, qtype uint16) []dns.RR {
 	return out
 }
 
+// LookupRRSIG returns the RRSIG(s) covering coveredType at name, if any.
+// RRSIGs are stored like any other RR (under their own type, TypeRRSIG,
+// in the same per-name map Lookup reads) -- including for the apex SOA,
+// which is the one type Lookup itself special-cases into z.soa: a
+// covering RRSIG is never diverted that way, since it isn't itself a
+// *dns.SOA, so this needs no equivalent special case.
+func (z *ZoneData) LookupRRSIG(name string, coveredType uint16) []dns.RR {
+	z.mu.RLock()
+	defer z.mu.RUnlock()
+	name = strings.ToLower(name)
+	byType, ok := z.rrsets[name]
+	if !ok {
+		return nil
+	}
+	var out []dns.RR
+	for _, rr := range byType[dns.TypeRRSIG] {
+		if sig, ok := rr.(*dns.RRSIG); ok && sig.TypeCovered == coveredType {
+			out = append(out, dns.Copy(rr))
+		}
+	}
+	return out
+}
+
 // NameExists reports whether name has any RRset at all (including being
 // the zone apex, which always "exists" once a SOA has been pushed).
 func (z *ZoneData) NameExists(name string) bool {

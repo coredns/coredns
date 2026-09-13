@@ -3,6 +3,7 @@ package sazu
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,14 +64,17 @@ func TestBuildFullZonePushShapesPrerequisiteAndUpdateSections(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadZoneFile: %v", err)
 	}
-	key, _, err := GenerateEd25519Key("example.org.", true)
+	key, priv, err := GenerateEd25519Key("example.org.", true)
 	if err != nil {
 		t.Fatalf("generating key: %v", err)
 	}
 
 	previousSOA := *soa
 	previousSOA.Serial-- // simulate "what the client last saw published"
-	m := BuildFullZonePush("example.org.", soa, rrs, key, &previousSOA)
+	m, err := BuildFullZonePush("example.org.", soa, rrs, key, priv, &previousSOA)
+	if err != nil {
+		t.Fatalf("BuildFullZonePush: %v", err)
+	}
 
 	if m.Opcode != dns.OpcodeUpdate {
 		t.Fatalf("got opcode %d, want Update", m.Opcode)
@@ -90,18 +94,43 @@ func TestBuildFullZonePushShapesPrerequisiteAndUpdateSections(t *testing.T) {
 		t.Fatalf("expected the SOA-serial staleness prerequisite against the previous serial, got %+v", m.Answer[0])
 	}
 
-	// Update section (Ns): the DNSKEY, the new SOA, and every non-SOA
-	// record from the zone file, nothing dropped or duplicated.
-	if len(m.Ns) != len(rrs)+2 {
-		t.Fatalf("got %d update ops, want %d (%d zone records + DNSKEY + SOA)", len(m.Ns), len(rrs)+2, len(rrs))
+	// Update section (Ns): the DNSKEY, the new SOA, every non-SOA record
+	// from the zone file, and one RRSIG per distinct RRset among those --
+	// nothing dropped or duplicated, and everything actually signed.
+	var nonSigs []dns.RR
+	var sigs []*dns.RRSIG
+	for _, rr := range m.Ns {
+		if sig, ok := rr.(*dns.RRSIG); ok {
+			sigs = append(sigs, sig)
+		} else {
+			nonSigs = append(nonSigs, rr)
+		}
 	}
-	dnskeyRR, ok := m.Ns[0].(*dns.DNSKEY)
+	if len(nonSigs) != len(rrs)+2 {
+		t.Fatalf("got %d non-RRSIG update ops, want %d (%d zone records + DNSKEY + SOA)", len(nonSigs), len(rrs)+2, len(rrs))
+	}
+	wantSigs := len(groupRRsets(nonSigs))
+	if len(sigs) != wantSigs {
+		t.Fatalf("got %d RRSIGs, want %d (one per distinct RRset)", len(sigs), wantSigs)
+	}
+	dnskeyRR, ok := nonSigs[0].(*dns.DNSKEY)
 	if !ok || dnskeyRR.PublicKey != key.PublicKey {
-		t.Fatalf("expected the candidate DNSKEY to be the first update op, got %+v", m.Ns[0])
+		t.Fatalf("expected the candidate DNSKEY to be the first update op, got %+v", nonSigs[0])
 	}
-	newSOA, ok := m.Ns[1].(*dns.SOA)
+	newSOA, ok := nonSigs[1].(*dns.SOA)
 	if !ok || newSOA.Serial != soa.Serial {
-		t.Fatalf("expected the new SOA to be pushed as content (second update op), got %+v", m.Ns[1])
+		t.Fatalf("expected the new SOA to be pushed as content (second update op), got %+v", nonSigs[1])
+	}
+	for _, sig := range sigs {
+		var rrset []dns.RR
+		for _, rr := range nonSigs {
+			if rr.Header().Rrtype == sig.TypeCovered && strings.EqualFold(rr.Header().Name, sig.Hdr.Name) {
+				rrset = append(rrset, rr)
+			}
+		}
+		if err := sig.Verify(dnskeyRR, rrset); err != nil {
+			t.Fatalf("RRSIG covering %s/%s does not verify: %v", sig.Hdr.Name, dns.TypeToString[sig.TypeCovered], err)
+		}
 	}
 }
 
@@ -111,12 +140,15 @@ func TestBuildFullZonePushFirstContactHasNoPrerequisite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadZoneFile: %v", err)
 	}
-	key, _, err := GenerateEd25519Key("example.org.", true)
+	key, priv, err := GenerateEd25519Key("example.org.", true)
 	if err != nil {
 		t.Fatalf("generating key: %v", err)
 	}
 
-	m := BuildFullZonePush("example.org.", soa, rrs, key, nil)
+	m, err := BuildFullZonePush("example.org.", soa, rrs, key, priv, nil)
+	if err != nil {
+		t.Fatalf("BuildFullZonePush: %v", err)
+	}
 
 	if len(m.Answer) != 0 {
 		t.Fatalf("expected no prerequisites on a first-contact push, got %d", len(m.Answer))
@@ -158,7 +190,10 @@ func TestOnboardWithoutZoneFileOrLocalRecords(t *testing.T) {
 	soa := SynthesizeSOA("example.org.", "")
 	ns := &dns.NS{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: 3600}, Ns: soa.Ns}
 
-	m := BuildFullZonePush("example.org.", soa, []dns.RR{ns}, key, nil)
+	m, err := BuildFullZonePush("example.org.", soa, []dns.RR{ns}, key, priv, nil)
+	if err != nil {
+		t.Fatalf("BuildFullZonePush: %v", err)
+	}
 	now := time.Now()
 	wire, err := SignUpdate(m, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
@@ -180,7 +215,10 @@ func TestBuildFullZonePushSignsAndVerifies(t *testing.T) {
 		t.Fatalf("generating key: %v", err)
 	}
 
-	m := BuildFullZonePush("example.org.", soa, rrs, key, nil)
+	m, err := BuildFullZonePush("example.org.", soa, rrs, key, priv, nil)
+	if err != nil {
+		t.Fatalf("BuildFullZonePush: %v", err)
+	}
 	now := time.Now()
 	wire, err := SignUpdate(m, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
