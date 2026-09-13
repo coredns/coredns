@@ -52,6 +52,45 @@ func TestSignZoneContentProducesOneRRSIGPerRRset(t *testing.T) {
 	}
 }
 
+// TestSignZoneContentRRSIGsCarryTheCoveredRRsetsTTL proves a real,
+// previously-shipped bug stays fixed: RFC 4034 §3 requires an RRSIG's own
+// TTL to match the TTL of the RRset it covers, but miekg/dns's
+// RRSIG.Sign only sets OrigTtl (the RDATA field carried inside the
+// signed data) and deliberately leaves Hdr.Ttl -- the RRSIG's own wire
+// TTL -- for the caller to set. Left unset, it silently defaults to
+// zero. Found against a real validating resolver (Unbound): a zero-TTL
+// RRSIG gets dropped from its cache immediately upon receipt, which
+// corrupts its own multi-step recursive validation state and produces
+// an opaque SERVFAIL ("Cannot retrieve DS for signature") for an
+// otherwise completely valid, correctly signed answer.
+func TestSignZoneContentRRSIGsCarryTheCoveredRRsetsTTL(t *testing.T) {
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	dnskeyRR := dnskeyRRFor(key)
+	a := testA("www.example.org.", net.IPv4(203, 0, 113, 10))
+	a.Hdr.Ttl = 300
+
+	now := time.Now()
+	signed, err := SignZoneContent([]dns.RR{a}, dnskeyRR, priv, now.Add(-time.Hour), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("SignZoneContent: %v", err)
+	}
+	for _, rr := range signed {
+		sig, ok := rr.(*dns.RRSIG)
+		if !ok {
+			continue
+		}
+		if sig.Hdr.Ttl != a.Hdr.Ttl {
+			t.Fatalf("RRSIG Hdr.Ttl = %d, want %d (the covered A record's TTL, per RFC 4034 §3)", sig.Hdr.Ttl, a.Hdr.Ttl)
+		}
+		if sig.OrigTtl != a.Hdr.Ttl {
+			t.Fatalf("RRSIG OrigTtl = %d, want %d", sig.OrigTtl, a.Hdr.Ttl)
+		}
+	}
+}
+
 func TestSignZoneContentRRSIGsActuallyVerify(t *testing.T) {
 	key, priv, err := GenerateEd25519Key("example.org.", true)
 	if err != nil {

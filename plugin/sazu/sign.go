@@ -70,9 +70,22 @@ func groupRRsets(rrs []dns.RR) [][]dns.RR {
 // signOneRRset signs one RRset, filling in the RRSIG fields Sign itself
 // doesn't derive from the RRset (TypeCovered, Labels, OrigTtl, and the
 // owner/class/type of the RRSIG record are all set by Sign itself from
-// rrset[0]'s header).
+// rrset[0]'s header) -- with one exception. Sign sets OrigTtl (the RDATA
+// field carried inside the signed data itself, per RFC 4034 §3.1.5) but
+// deliberately never touches Hdr.Ttl, the RRSIG record's own wire TTL:
+// miekg/dns leaves that to the caller. RFC 4034 §3 requires it to match
+// the covered RRset's TTL exactly ("the TTL value of an RRSIG RR MUST
+// match the TTL value of the RRset it covers"); left unset, it silently
+// defaults to zero. A zero-TTL record isn't just a hygiene nit here --
+// found the hard way against a real validating resolver (Unbound):
+// treating a just-received RRSIG as instantly-expired and dropping it
+// from its cache mid-validation corrupts its own multi-step recursive
+// validation state, producing an opaque, misleading SERVFAIL
+// ("Cannot retrieve DS for signature") for answers that are otherwise
+// completely valid.
 func signOneRRset(rrset []dns.RR, dnskeyRR *dns.DNSKEY, signer crypto.Signer, inception, expiration time.Time) (*dns.RRSIG, error) {
 	sig := &dns.RRSIG{
+		Hdr:        dns.RR_Header{Ttl: rrset[0].Header().Ttl},
 		Algorithm:  dnskeyRR.Algorithm,
 		KeyTag:     dnskeyRR.KeyTag(),
 		SignerName: dnskeyRR.Hdr.Name,

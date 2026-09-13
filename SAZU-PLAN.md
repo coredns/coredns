@@ -310,6 +310,39 @@ for a manually verified real-binary walkthrough.
     UDP (confirmed in the server's own log); a full-zone push of the
     same shape that previously vanished now goes over TCP automatically
     and is accepted.
+- **Fixed every RRSIG this package ever produced serving a wrong TTL of
+  zero.** Found live against a real cutover: a real validating resolver
+  (Unbound, with `aggressive-nsec` on) returned `SERVFAIL` for negative
+  answers this server served, with no obvious cause -- positive answers
+  from the same zone validated perfectly (`ad` bit set). Root-caused by
+  building a real Unbound instance from scratch (Docker, full real root
+  trust anchor, no shortcuts) against a locally reproduced copy of the
+  exact same zone, isolating variable by variable: not the two-DS
+  scenario (still failed with only the real key's own DS configured),
+  not `aggressive-nsec` (still failed with it explicitly off) -- the
+  actual cause was in `sign.go`'s `signOneRRset` the whole time.
+  `miekg/dns`'s `RRSIG.Sign` sets `OrigTtl` (the RDATA field carried
+  *inside* the signed data) but deliberately leaves `Hdr.Ttl` -- the
+  RRSIG record's own wire TTL -- for the caller to set; `signOneRRset`
+  never did, so every RRSIG this package has ever produced carried TTL 0,
+  a direct violation of RFC 4034 §3 ("the TTL value of an RRSIG RR MUST
+  match the TTL value of the RRset it covers"). The literal Unbound log
+  line that gave it away: `TTL 0: dropped msg from cache` -- immediately
+  discarding a just-received, validly-signed RRset from its own cache
+  mid-validation corrupted its multi-step recursive validation state,
+  surfacing as an opaque `SERVFAIL` (`Cannot retrieve DS for signature`)
+  for answers that were otherwise completely valid. Fixed by setting
+  `sig.Hdr.Ttl` from the covered RRset's own TTL before signing. Verified
+  three ways: (1) the real Unbound reproduction above, both before (fails)
+  and after (passes, `ad` bit set, TTLs correctly decrementing in cache)
+  the fix, for both a NODATA answer and a positive one; (2) a new unit
+  test (`TestSignZoneContentRRSIGsCarryTheCoveredRRsetsTTL`) asserting
+  this permanently; (3) the full existing suite still green. This
+  explains a real end-user report ("`dig` looks right, but `ping` fails")
+  that had otherwise resisted diagnosis through several rounds of
+  network-level investigation (packet captures, transport fixes) --
+  those were real findings, but this was the actual root cause a strict
+  validating resolver was reacting to the whole time.
 
 ## Outstanding
 
