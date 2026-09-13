@@ -315,6 +315,10 @@ func propagateConfigParams(configs []*Config) {
 		// server block applies to the block's UDP listener(s).
 		c.UDPDecorateWriterFunc = c.firstConfigInBlock.UDPDecorateWriterFunc
 
+		// Propagate UDPDecorateReaderFunc/TCPDecorateReaderFunc the same way.
+		c.UDPDecorateReaderFunc = c.firstConfigInBlock.UDPDecorateReaderFunc
+		c.TCPDecorateReaderFunc = c.firstConfigInBlock.TCPDecorateReaderFunc
+
 		// Propagate MaxHTTPSStreams so a `https { max_streams N }` set once in a
 		// server block applies to the block's HTTPS key regardless of key order.
 		c.MaxHTTPSStreams = c.firstConfigInBlock.MaxHTTPSStreams

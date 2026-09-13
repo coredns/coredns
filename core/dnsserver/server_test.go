@@ -559,3 +559,164 @@ func TestUDPDecorateWriterFunc(t *testing.T) {
 		t.Errorf("expected the decorated writer to observe the response write")
 	}
 }
+
+// recordingReader captures the raw bytes of every packet/stream message
+// it reads before handing them to the real reader, standing in for a
+// plugin (e.g. SAZU's SIG(0) verification) that needs the exact wire
+// bytes of a request rather than a re-encoding of the parsed *dns.Msg.
+// It overrides both ReadUDP and ReadPacketConn since which one the
+// server actually calls depends on whether the underlying
+// net.PacketConn's concrete type is *net.UDPConn or something more
+// generic (e.g. under a reuseport or proxyproto wrapper) -- exactly the
+// ambiguity a real decorator has to handle, not just a test artifact.
+type recordingReader struct {
+	inner    dns.Reader
+	innerPC  dns.PacketConnReader
+	captured *atomic.Pointer[[]byte]
+}
+
+func (rr *recordingReader) ReadTCP(conn net.Conn, timeout time.Duration) ([]byte, error) {
+	m, err := rr.inner.ReadTCP(conn, timeout)
+	if err == nil {
+		cp := append([]byte(nil), m...)
+		rr.captured.Store(&cp)
+	}
+	return m, err
+}
+
+func (rr *recordingReader) ReadUDP(conn *net.UDPConn, timeout time.Duration) ([]byte, *dns.SessionUDP, error) {
+	m, s, err := rr.inner.ReadUDP(conn, timeout)
+	if err == nil {
+		cp := append([]byte(nil), m...)
+		rr.captured.Store(&cp)
+	}
+	return m, s, err
+}
+
+func (rr *recordingReader) ReadPacketConn(conn net.PacketConn, timeout time.Duration) ([]byte, net.Addr, error) {
+	m, addr, err := rr.innerPC.ReadPacketConn(conn, timeout)
+	if err == nil {
+		cp := append([]byte(nil), m...)
+		rr.captured.Store(&cp)
+	}
+	return m, addr, err
+}
+
+func TestUDPDecorateReaderFunc(t *testing.T) {
+	cfg := testConfig("dns", test.ErrorHandler())
+
+	captured := new(atomic.Pointer[[]byte])
+	var gotServer atomic.Pointer[Server]
+	var calls atomic.Int64
+	cfg.UDPDecorateReaderFunc = func(srv *Server) dns.DecorateReader {
+		calls.Add(1)
+		gotServer.Store(srv)
+		return func(r dns.Reader) dns.Reader {
+			pcr, _ := r.(dns.PacketConnReader)
+			return &recordingReader{inner: r, innerPC: pcr, captured: captured}
+		}
+	}
+
+	s, err := NewServer("127.0.0.1:0", []*Config{cfg})
+	if err != nil {
+		t.Fatalf("NewServer failed: %v", err)
+	}
+
+	pc, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("ListenPacket failed: %v", err)
+	}
+	defer pc.Close()
+
+	go s.ServePacket(pc)
+	defer s.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	if _, err := dns.Exchange(m, pc.LocalAddr().String()); err != nil {
+		t.Fatalf("dns.Exchange failed: %v", err)
+	}
+
+	if n := calls.Load(); n != 1 {
+		t.Errorf("expected UDPDecorateReaderFunc to be called once per socket, got %d", n)
+	}
+	if gotServer.Load() != s {
+		t.Errorf("expected UDPDecorateReaderFunc to receive the serving *Server")
+	}
+	raw := captured.Load()
+	if raw == nil {
+		t.Fatalf("expected the decorated reader to capture the request's raw bytes")
+	}
+	var decoded dns.Msg
+	if err := decoded.Unpack(*raw); err != nil {
+		t.Fatalf("captured bytes do not unpack as a DNS message: %v", err)
+	}
+	if len(decoded.Question) != 1 || decoded.Question[0].Name != "example.com." {
+		t.Errorf("captured bytes do not match the request sent: %+v", decoded.Question)
+	}
+}
+
+// TestTCPDecorateReaderFunc mirrors TestUDPDecorateReaderFunc for the TCP
+// listener -- proving Config.TCPDecorateReaderFunc actually reaches
+// dns.Server's DecorateReader for Serve (TCP), which nothing wired up at
+// all before this existed, unlike ServePacket (UDP).
+func TestTCPDecorateReaderFunc(t *testing.T) {
+	cfg := testConfig("dns", test.ErrorHandler())
+
+	captured := new(atomic.Pointer[[]byte])
+	var gotServer atomic.Pointer[Server]
+	var calls atomic.Int64
+	cfg.TCPDecorateReaderFunc = func(srv *Server) dns.DecorateReader {
+		calls.Add(1)
+		gotServer.Store(srv)
+		return func(r dns.Reader) dns.Reader {
+			return &recordingReader{inner: r, captured: captured}
+		}
+	}
+
+	s, err := NewServer("127.0.0.1:0", []*Config{cfg})
+	if err != nil {
+		t.Fatalf("NewServer failed: %v", err)
+	}
+
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("Listen failed: %v", err)
+	}
+	defer l.Close()
+
+	go s.Serve(l)
+	defer s.Stop()
+
+	m := new(dns.Msg)
+	m.SetQuestion("example.com.", dns.TypeA)
+	co, err := dns.DialTimeout("tcp", l.Addr().String(), 2*time.Second)
+	if err != nil {
+		t.Fatalf("DialTimeout failed: %v", err)
+	}
+	defer co.Close()
+	if err := co.WriteMsg(m); err != nil {
+		t.Fatalf("WriteMsg failed: %v", err)
+	}
+	if _, err := co.ReadMsg(); err != nil {
+		t.Fatalf("ReadMsg failed: %v", err)
+	}
+
+	if n := calls.Load(); n != 1 {
+		t.Errorf("expected TCPDecorateReaderFunc to be called once, got %d", n)
+	}
+	if gotServer.Load() != s {
+		t.Errorf("expected TCPDecorateReaderFunc to receive the serving *Server")
+	}
+	raw := captured.Load()
+	if raw == nil {
+		t.Fatalf("expected the decorated reader to capture the request's raw bytes")
+	}
+	var decoded dns.Msg
+	if err := decoded.Unpack(*raw); err != nil {
+		t.Fatalf("captured bytes do not unpack as a DNS message: %v", err)
+	}
+	if len(decoded.Question) != 1 || decoded.Question[0].Name != "example.com." {
+		t.Errorf("captured bytes do not match the request sent: %+v", decoded.Question)
+	}
+}

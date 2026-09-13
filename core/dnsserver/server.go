@@ -103,6 +103,14 @@ type Server struct {
 	// several server blocks share a listener. See Config.UDPDecorateWriterFunc.
 	udpDecorateWriterFunc func(*Server) dns.DecorateWriter
 
+	// udpDecorateReaderFunc mirrors udpDecorateWriterFunc; see
+	// Config.UDPDecorateReaderFunc.
+	udpDecorateReaderFunc func(*Server) dns.DecorateReader
+
+	// tcpDecorateReaderFunc mirrors udpDecorateReaderFunc for the TCP
+	// listener; see Config.TCPDecorateReaderFunc.
+	tcpDecorateReaderFunc func(*Server) dns.DecorateReader
+
 	// Ensure Stop is idempotent when invoked concurrently (e.g., during reload and SIGTERM).
 	stopOnce sync.Once
 	stopErr  error
@@ -195,6 +203,12 @@ func NewServer(addr string, group []*Config) (*Server, error) {
 		if site.UDPDecorateWriterFunc != nil {
 			s.udpDecorateWriterFunc = site.UDPDecorateWriterFunc
 		}
+		if site.UDPDecorateReaderFunc != nil {
+			s.udpDecorateReaderFunc = site.UDPDecorateReaderFunc
+		}
+		if site.TCPDecorateReaderFunc != nil {
+			s.tcpDecorateReaderFunc = site.TCPDecorateReaderFunc
+		}
 	}
 
 	if !s.debug {
@@ -211,15 +225,22 @@ var _ caddy.GracefulServer = &Server{}
 // Serve starts the server with an existing listener. It blocks until the server stops.
 // This implements caddy.TCPServer interface.
 func (s *Server) Serve(l net.Listener) error {
+	// Use a custom reader decorator if one was configured.
+	var dr dns.DecorateReader
+	if s.tcpDecorateReaderFunc != nil {
+		dr = s.tcpDecorateReaderFunc(s)
+	}
+
 	s.m.Lock()
 
 	s.server[tcp] = &dns.Server{Listener: l,
-		Net:           "tcp",
-		TsigSecret:    s.tsigSecret,
-		MsgAcceptFunc: s.msgAcceptFunc(),
-		MaxTCPQueries: s.MaxTCPQueries,
-		ReadTimeout:   s.ReadTimeout,
-		WriteTimeout:  s.WriteTimeout,
+		Net:            "tcp",
+		TsigSecret:     s.tsigSecret,
+		MsgAcceptFunc:  s.msgAcceptFunc(),
+		MaxTCPQueries:  s.MaxTCPQueries,
+		ReadTimeout:    s.ReadTimeout,
+		WriteTimeout:   s.WriteTimeout,
+		DecorateReader: dr,
 		IdleTimeout: func() time.Duration {
 			return s.IdleTimeout
 		},
@@ -237,17 +258,21 @@ func (s *Server) Serve(l net.Listener) error {
 // ServePacket starts the server with an existing packetconn. It blocks until the server stops.
 // This implements caddy.UDPServer interface.
 func (s *Server) ServePacket(p net.PacketConn) error {
-	// Use a custom writer decorator if one was configured.
+	// Use a custom writer/reader decorator if one was configured.
 	var dw dns.DecorateWriter
 	if s.udpDecorateWriterFunc != nil {
 		dw = s.udpDecorateWriterFunc(s)
+	}
+	var dr dns.DecorateReader
+	if s.udpDecorateReaderFunc != nil {
+		dr = s.udpDecorateReaderFunc(s)
 	}
 	s.m.Lock()
 	s.server[udp] = &dns.Server{PacketConn: p, Net: "udp", Handler: dns.HandlerFunc(func(w dns.ResponseWriter, r *dns.Msg) {
 		ctx := context.WithValue(context.Background(), Key{}, s)
 		ctx = context.WithValue(ctx, LoopKey{}, 0)
 		s.ServeDNS(ctx, w, r)
-	}), TsigSecret: s.tsigSecret, MsgAcceptFunc: s.msgAcceptFunc(), DecorateWriter: dw}
+	}), TsigSecret: s.tsigSecret, MsgAcceptFunc: s.msgAcceptFunc(), DecorateWriter: dw, DecorateReader: dr}
 	s.m.Unlock()
 
 	return s.server[udp].ActivateAndServe()

@@ -59,6 +59,30 @@ type Config struct {
 	// on it.
 	UDPDecorateWriterFunc func(*Server) dns.DecorateWriter
 
+	// If this function is not nil it is called once per Server in ServePacket
+	// (so each UDP listening socket gets its own decorator under multisocket)
+	// and its result is installed as the underlying dns.Server's
+	// DecorateReader. Unlike DecorateWriter, which only wraps the outbound
+	// write path, a decorated Reader sees the exact raw bytes of each
+	// inbound message before they are unpacked into a *dns.Msg -- the one
+	// thing no plugin's ServeDNS can otherwise get at, since dns.Msg's own
+	// re-encoding is not guaranteed to reproduce the sender's wire bytes.
+	// A plugin that needs byte-exact verification of what was actually
+	// sent (e.g. SIG(0), RFC 2931, which signs literal wire bytes) uses
+	// this to capture them for its own later correlation and lookup: this
+	// hook only supplies the raw bytes to whatever the plugin's decorator
+	// does with them, it does not interpret or store them itself. Plain
+	// dns:// UDP listeners only, same restriction as UDPDecorateWriterFunc.
+	UDPDecorateReaderFunc func(*Server) dns.DecorateReader
+
+	// TCPDecorateReaderFunc mirrors UDPDecorateReaderFunc for this
+	// Server's plain dns:// TCP listener -- CoreDNS's TCP listener never
+	// wired DecorateReader through to the underlying dns.Server at all
+	// before this existed, unlike UDP, so a plugin needing byte-exact
+	// request bytes (see UDPDecorateReaderFunc's doc comment) had no way
+	// to get them for a TCP-received message.
+	TCPDecorateReaderFunc func(*Server) dns.DecorateReader
+
 	// FilterFuncs is used to further filter access
 	// to this handler. E.g. to limit access to a reverse zone
 	// on a non-octet boundary, i.e. /17
