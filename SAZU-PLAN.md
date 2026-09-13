@@ -278,15 +278,26 @@ for a manually verified real-binary walkthrough.
     instance and the same `DecorateReaderFunc` now serve both
     `UDPDecorateReaderFunc` and `TCPDecorateReaderFunc`.
   - `sazuctl` now picks the transport automatically by size
-    (`safeUDPPushSize`, 1232 bytes -- the same DNS Flag Day value) rather
-    than always using UDP: small pushes (most `push-update` calls) stay
-    on UDP: fewer round trips, no connection overhead; anything larger
-    (most `push-zone` full pushes, especially now that a real NSEC chain
-    is included) goes over TCP automatically, with RFC 1035 §4.2.2's
-    2-byte length-prefix framing. There is no "split one UPDATE across
-    several UDP datagrams" mechanism in RFC 2136 or any real
-    implementation -- escalating transport, not shrinking the message,
-    is the only real option once a push is this size.
+    (`safeUDPPushSize`) rather than always using UDP: small pushes (most
+    `push-update` calls) stay on UDP: fewer round trips, no connection
+    overhead; anything larger (most `push-zone` full pushes, especially
+    now that a real NSEC chain is included) goes over TCP automatically,
+    with RFC 1035 §4.2.2's 2-byte length-prefix framing. There is no
+    "split one UPDATE across several UDP datagrams" mechanism in RFC 2136
+    or any real implementation -- escalating transport, not shrinking the
+    message, is the only real option once a push is this size.
+    `safeUDPPushSize` is **512 bytes, not the 1232-byte "DNS Flag Day"
+    value it was first set to** -- a real bug found immediately after
+    landing this: 1232 is the safe ceiling for *response* sizes once a
+    receive buffer is raised to match it, which nothing on the request
+    side does here (that's the whole point of removing `Config.UDPSize`
+    below). A push between 512 and 1232 bytes still went out over UDP,
+    still got silently truncated to exactly 512 bytes on receipt
+    (miekg/dns's real, unmodified default), and failed with a low-level
+    `FORMERR` indistinguishable from a genuinely malformed request --
+    reproduced locally byte-for-byte against a real user's zone file and
+    key. `safeUDPPushSize` has to track the server's actual receive
+    capacity, not a value borrowed from an unrelated convention.
   - `Config.UDPSize` and everything that threaded it through
     (`core/dnsserver`, `setup.go`'s `maxUDPMessageSize`) were removed
     entirely rather than kept alongside TCP: once genuinely large pushes

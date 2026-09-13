@@ -23,21 +23,29 @@ import (
 )
 
 // safeUDPPushSize is the threshold above which sazuctl sends a push over
-// TCP instead of UDP. Real DNSSEC-signed content (this project's own
-// motivation) routinely exceeds it, and matters for a concrete, not
-// theoretical, reason: found against a real server during this
-// project's own testing, a signed push over roughly this size gets
-// silently dropped -- not truncated, not FORMERR'd, just gone -- once it
-// exceeds the path MTU and has to fragment at the IP layer, which many
-// real firewalls and security groups (that server's included) drop
-// entirely. 1232 bytes matches the industry-wide "DNS Flag Day 2020"
-// consensus value (BIND, PowerDNS, Knot, Unbound, et al.) for the same
-// underlying reason on the response side. RFC 1035 built TCP in as the
-// transport for exactly this case from the very beginning: there is no
-// "split one UPDATE across several UDP datagrams" mechanism in RFC 2136
-// or any real implementation, so escalating transport, not shrinking the
-// message, is the only real option once a push is this size.
-const safeUDPPushSize = 1232
+// TCP instead of UDP: RFC 1035's own original plain-DNS-over-UDP ceiling
+// (miekg/dns's MinMsgSize), and -- deliberately -- the real, actual
+// receive capacity of a CoreDNS UDP listener today, since core/dnsserver
+// does not raise it (an earlier Config.UDPSize override was tried and
+// removed; see SAZU-PLAN.md for why). This has to track that real
+// capacity exactly, not some larger "should be safe" value: a push
+// between 512 bytes and any bigger guess would still go out over UDP,
+// still get silently truncated to 512 bytes on receipt, and still fail
+// with an unhelpful low-level FORMERR indistinguishable from a genuinely
+// malformed request -- a real bug this project hit by picking 1232 (the
+// "DNS Flag Day 2020" convention for *response* sizes, which doesn't
+// apply here since nothing on this side raises the receive buffer to
+// match it). Separately, real DNSSEC-signed content -- this project's
+// whole point -- also routinely exceeds the ~1472-byte path MTU and gets
+// fragmented at the IP layer, which many real firewalls and security
+// groups silently drop entirely; TCP avoids that failure mode too, for
+// the same reason RFC 1035 built it in as DNS's fallback transport from
+// the very beginning, later formalized as a requirement in RFC 7766.
+// There is no "split one UPDATE across several UDP datagrams" mechanism
+// in RFC 2136 or any real implementation, so escalating transport, not
+// shrinking the message, is the only real option once a push exceeds
+// either ceiling.
+const safeUDPPushSize = 512
 
 func main() {
 	if len(os.Args) < 2 {
