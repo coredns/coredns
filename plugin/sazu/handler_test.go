@@ -300,6 +300,117 @@ func TestOnboardFullPushThenQuery(t *testing.T) {
 	}
 }
 
+// TestNXDOMAINCarriesSOAInAuthority and TestNODATACarriesSOAInAuthority
+// prove RFC 2308 §3: any negative response -- NXDOMAIN (name doesn't
+// exist at all) or NODATA (name exists, just not this type) -- carries
+// the zone's SOA in the authority section, which a resolver needs to
+// know how long it may cache the negative result for. A real gap found
+// comparing this server's answers directly against a real, standards-
+// compliant authoritative server (AWS Route 53) for the same zone: AWS's
+// negative answers carried SOA+RRSIG(SOA)+NSEC+RRSIG(NSEC) in Authority;
+// this server's carried nothing there at all.
+func TestNXDOMAINCarriesSOAInAuthority(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+	onboardExampleOrg(t, addr, s)
+
+	resp := query(t, addr, "does-not-exist.example.org.", dns.TypeA)
+	if resp.Rcode != dns.RcodeNameError {
+		t.Fatalf("rcode = %s, want NXDOMAIN", dns.RcodeToString[resp.Rcode])
+	}
+	soa := soaFromAuthority(t, resp)
+	if soa.Serial != 1 {
+		t.Fatalf("expected the zone's real SOA (serial 1) in authority, got %+v", soa)
+	}
+}
+
+func TestNODATACarriesSOAInAuthority(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+	onboardExampleOrg(t, addr, s)
+
+	// www.example.org. exists (has an A record) but has no TXT record --
+	// NODATA, not NXDOMAIN.
+	resp := query(t, addr, "www.example.org.", dns.TypeTXT)
+	if resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("rcode = %s, want NOERROR (NODATA)", dns.RcodeToString[resp.Rcode])
+	}
+	if len(resp.Answer) != 0 {
+		t.Fatalf("expected no answers for a NODATA response, got %+v", resp.Answer)
+	}
+	soa := soaFromAuthority(t, resp)
+	if soa.Serial != 1 {
+		t.Fatalf("expected the zone's real SOA (serial 1) in authority, got %+v", soa)
+	}
+}
+
+// TestNegativeResponseCarriesSOARRSIGWithDOBit proves the authority-
+// section SOA is itself signed when the query asked for DNSSEC, the same
+// way a positive answer's RRset is.
+func TestNegativeResponseCarriesSOARRSIGWithDOBit(t *testing.T) {
+	s := newTestSazu("example.org.")
+	addr := serveThroughRealServer(t, s)
+	key := onboardExampleOrg(t, addr, s)
+
+	resp := queryDO(t, addr, "does-not-exist.example.org.", dns.TypeA)
+	var soa *dns.SOA
+	var sig *dns.RRSIG
+	for _, rr := range resp.Ns {
+		switch v := rr.(type) {
+		case *dns.SOA:
+			soa = v
+		case *dns.RRSIG:
+			if v.TypeCovered == dns.TypeSOA {
+				sig = v
+			}
+		}
+	}
+	if soa == nil || sig == nil {
+		t.Fatalf("expected both SOA and its covering RRSIG in authority with DO set, got %+v", resp.Ns)
+	}
+	if err := sig.Verify(key, []dns.RR{soa}); err != nil {
+		t.Fatalf("the served authority-section RRSIG does not verify: %v", err)
+	}
+}
+
+// onboardExampleOrg onboards example.org. with SOA serial 1 and a single
+// www A record, and returns the onboarded key.
+func onboardExampleOrg(t *testing.T, addr string, s *Sazu) *dns.DNSKEY {
+	t.Helper()
+	key, priv, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+	soa := testSOA(1)
+	rrs := []dns.RR{testA("www.example.org.", net.IPv4(203, 0, 113, 10))}
+	push, err := BuildFullZonePush("example.org.", soa, rrs, key, priv, nil)
+	if err != nil {
+		t.Fatalf("building push: %v", err)
+	}
+	now := time.Now()
+	wire, err := SignUpdate(push, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("signing: %v", err)
+	}
+	if resp := sendRaw(t, addr, wire); resp.Rcode != dns.RcodeSuccess {
+		t.Fatalf("onboarding push rcode = %s, want NOERROR", dns.RcodeToString[resp.Rcode])
+	}
+	return key
+}
+
+// soaFromAuthority extracts the (sole) SOA record from resp's authority
+// section, failing the test if it's missing.
+func soaFromAuthority(t *testing.T, resp *dns.Msg) *dns.SOA {
+	t.Helper()
+	for _, rr := range resp.Ns {
+		if soa, ok := rr.(*dns.SOA); ok {
+			return soa
+		}
+	}
+	t.Fatalf("expected a SOA record in the authority section, got %+v", resp.Ns)
+	return nil
+}
+
 // TestOnboardWithoutSOAIsRejected proves the "first contact must
 // establish a real SOA" guard: a push with a candidate DNSKEY but no SOA
 // content must be refused, and must not pin a key for a zone with

@@ -184,6 +184,24 @@ for a manually verified real-binary walkthrough.
   legitimately coexists). Verified against the real binary: three
   identical `push-zone` calls in a row now leave exactly one A record and
   one RRSIG being served, not three of each.
+- **Negative responses (NXDOMAIN/NODATA) now carry the zone's SOA in the
+  authority section**, signed when DO is set. Found the same way as the
+  bug above: comparing this server's answers directly against a real
+  authoritative server (AWS Route 53) for the same zone side by side. AWS
+  returned `SOA + RRSIG(SOA) + NSEC + RRSIG(NSEC)` in Authority for a
+  NODATA answer; this server returned nothing in Authority at all --
+  not even the SOA RFC 2308 §3 requires there for negative caching,
+  independent of DNSSEC entirely. Fixed `serveQuery` to add the zone's
+  SOA (plus its RRSIG when DO is set) to `m.Ns` for both the NXDOMAIN and
+  NODATA branches. This does not by itself make a negative answer
+  validate as secure -- that needs an authenticated denial-of-existence
+  proof (NSEC/NSEC3), which is a separate, larger item; see Outstanding.
+  Verified against the real binary with the same query shape as the
+  side-by-side comparison that found this (`A` query at a zone's apex,
+  where only SOA/NS exist): the authority section now matches AWS's up
+  to the missing NSEC pair.
+
+## Outstanding
 
 Split by where each belongs, per the architectural review that led to this
 document. The one item marked **separate server** is the exception; every
@@ -191,6 +209,23 @@ other outstanding item is a CoreDNS-plugin change.
 
 ### CoreDNS-side
 
+- [ ] **Authenticated denial of existence (NSEC/NSEC3).** Negative
+  responses (NXDOMAIN/NODATA) carry the zone's SOA (see Done, above) but
+  no NSEC/NSEC3 record, so they cannot validate as *secure* for a
+  resolver with the DO bit set once this server is actually authoritative
+  for a signed zone — a strict validator has to treat an unprovable
+  negative answer as Bogus rather than Insecure. Notably harder for SAZU
+  than for a typical hosting provider: providers like AWS Route 53
+  synthesize a covering NSEC record online, at answer time, because they
+  also hold the zone's private key and can sign anything on demand.
+  SAZU's server never holds a private key at all, so that's not an option
+  here — this would instead need the *customer's own signer* to
+  pre-compute and push a complete, correctly-ordered NSEC (or NSEC3)
+  chain across the whole zone up front (the same way traditional offline
+  zone-signing tools like `dnssec-signzone` do), plus server-side support
+  for finding the right covering record for an arbitrary query name
+  (`ZoneData` has no name-ordering today — it's a plain hash map). A
+  real, non-trivial feature, not a small addition alongside the SOA fix.
 - [ ] **Registration record: key + contact address together (§10.6).** No
   contact field exists anywhere yet. Needed both for its own sake and
   because the separate watch daemon (below) needs to read it. Depends on

@@ -126,6 +126,28 @@ func (s *Sazu) serveQuery(w dns.ResponseWriter, r *dns.Msg, z *ZoneData) (int, e
 			m.Answer = append(m.Answer, z.LookupRRSIG(q.Name, q.Qtype)...)
 		}
 	}
+
+	if len(rrs) == 0 {
+		// RFC 2308 §3: every negative response (NXDOMAIN here, or NODATA
+		// in the "name exists but not this type" branch above) MUST
+		// carry the zone's SOA in the authority section, so a resolver
+		// knows how long it may cache the negative result for. Omitting
+		// it doesn't make the *answer* wrong, but it silently defeats
+		// negative caching -- every repeat query for the same
+		// nonexistent name or type would otherwise bypass cache and hit
+		// this server directly every time.
+		//
+		// This does not, on its own, make a negative answer validate as
+		// secure for a resolver with the DO bit set: that needs an
+		// authenticated denial-of-existence proof (NSEC/NSEC3), which
+		// this store doesn't generate -- see SAZU-PLAN.md.
+		if soa := z.SOA(); soa != nil {
+			m.Ns = append(m.Ns, soa)
+			if isDNSSECRequested(r) {
+				m.Ns = append(m.Ns, z.LookupRRSIG(z.Origin, dns.TypeSOA)...)
+			}
+		}
+	}
 	return writeMsg(w, m)
 }
 
