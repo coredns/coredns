@@ -33,6 +33,8 @@ func main() {
 		err = runDS(os.Args[2:])
 	case "push":
 		err = runPush(os.Args[2:])
+	case "push-zone":
+		err = runPushZone(os.Args[2:])
 	default:
 		usage()
 		os.Exit(1)
@@ -44,10 +46,11 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: sazuctl <keygen|ds|push> [flags]")
+	fmt.Fprintln(os.Stderr, "usage: sazuctl <keygen|ds|push|push-zone> [flags]")
 	fmt.Fprintln(os.Stderr, "  sazuctl keygen -out <path> [-zone <owner>]")
 	fmt.Fprintln(os.Stderr, "  sazuctl ds -zone <zone> -key <path>")
 	fmt.Fprintln(os.Stderr, "  sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-ttl 300] [-target host:port]")
+	fmt.Fprintln(os.Stderr, "  sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-target host:port]")
 }
 
 func runKeygen(args []string) error {
@@ -161,19 +164,61 @@ func runPush(args []string) error {
 	if err != nil {
 		return err
 	}
+	return signSelfVerifyAndSend(wire, key, *target)
+}
 
-	// Prove sign and verify actually agree before sending anything.
+func runPushZone(args []string) error {
+	fs := flag.NewFlagSet("push-zone", flag.ExitOnError)
+	zone := fs.String("zone", "", "zone being pushed")
+	keyPath := fs.String("key", "", "path to the Ed25519 key (created if missing)")
+	zoneFile := fs.String("zonefile", "", "path to a BIND-format zone file for -zone")
+	target := fs.String("target", "", "host:port to send the signed push to (omit to just self-verify)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *zone == "" || *keyPath == "" || *zoneFile == "" {
+		return fmt.Errorf("-zone, -key, and -zonefile are required")
+	}
+
+	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true)
+	if err != nil {
+		return err
+	}
+	if generated {
+		fmt.Fprintf(os.Stderr, "No key found at %s -- generated a new one.\n", *keyPath)
+	}
+	printKeyInfo(*keyPath, key)
+
+	soa, rrs, err := sazu.LoadZoneFile(*zoneFile, *zone)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Loaded %s: SOA serial %d, %d other record(s)\n", *zoneFile, soa.Serial, len(rrs))
+
+	m := sazu.BuildFullZonePush(*zone, soa, rrs, key)
+	now := time.Now()
+	wire, err := sazu.SignUpdate(m, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
+	if err != nil {
+		return err
+	}
+	return signSelfVerifyAndSend(wire, key, *target)
+}
+
+// signSelfVerifyAndSend proves a signed push actually verifies against
+// its own key before sending anything, then either sends it to target
+// over UDP and reports the response, or just prints the wire bytes.
+func signSelfVerifyAndSend(wire []byte, key *dns.DNSKEY, target string) error {
 	if err := sazu.VerifySIG0(wire, key); err != nil {
 		return fmt.Errorf("self-verification failed (this would be a bug): %w", err)
 	}
 	fmt.Printf("Self-verification: OK (%d bytes)\n", len(wire))
 
-	if *target == "" {
+	if target == "" {
 		fmt.Printf("No -target given; wire bytes (hex):\n%x\n", wire)
 		return nil
 	}
 
-	conn, err := net.Dial("udp", *target)
+	conn, err := net.Dial("udp", target)
 	if err != nil {
 		return err
 	}
@@ -181,7 +226,7 @@ func runPush(args []string) error {
 	if _, err := conn.Write(wire); err != nil {
 		return err
 	}
-	fmt.Printf("Sent %d bytes to %s\n", len(wire), *target)
+	fmt.Printf("Sent %d bytes to %s\n", len(wire), target)
 
 	if err := conn.SetReadDeadline(time.Now().Add(5 * time.Second)); err != nil {
 		return err
