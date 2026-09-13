@@ -476,6 +476,7 @@ func printNoDSGuidance(zone string, key *dns.DNSKEY) {
 	fmt.Println()
 	fmt.Printf("       %s IN DS %d %d %d %s\n", key.Hdr.Name, ds.KeyTag, ds.Algorithm, ds.DigestType, ds.Digest)
 	fmt.Println()
+	printRegistrarKeyFieldsAlternative(key)
 	fmt.Println("     See REGISTRARS.md (plugin/sazu/REGISTRARS.md in this checkout) for")
 	fmt.Println("     registrar-specific instructions -- not every registrar is covered yet;")
 	fmt.Println("     if yours isn't, search their support site for \"DS record\" or \"DNSSEC.\"")
@@ -523,6 +524,7 @@ func printUnknownSignerGuidance(zone string, key *dns.DNSKEY) {
 	fmt.Println()
 	fmt.Printf("       %s IN DS %d %d %d %s\n", key.Hdr.Name, ds.KeyTag, ds.Algorithm, ds.DigestType, ds.Digest)
 	fmt.Println()
+	printRegistrarKeyFieldsAlternative(key)
 	fmt.Println("     See REGISTRARS.md (plugin/sazu/REGISTRARS.md in this checkout) for")
 	fmt.Println("     registrar-specific instructions, including how to add a second DS/key")
 	fmt.Println("     record rather than replacing the one already there.")
@@ -552,6 +554,25 @@ func printUnknownSignerGuidance(zone string, key *dns.DNSKEY) {
 	fmt.Println("If you don't recognize the existing DS at all -- it isn't your current")
 	fmt.Println("host's own DNSSEC and nothing you set up -- treat it as a real incident:")
 	fmt.Println("stop and investigate with your registrar before proceeding.")
+	fmt.Println()
+}
+
+// printRegistrarKeyFieldsAlternative prints the DNSKEY's own fields
+// (public key type, algorithm, key tag, public key) as an alternative to
+// the DS record printed just above it. Not every registrar's DNSSEC UI
+// takes a DS record directly -- AWS Route 53 is a confirmed example (see
+// REGISTRARS.md) of one that instead asks you to enter these fields
+// yourself and computes the DS itself, which needs manual, one-field-at-
+// a-time entry rather than pasting a single string.
+func printRegistrarKeyFieldsAlternative(key *dns.DNSKEY) {
+	fmt.Println("     Some registrars (e.g. AWS Route 53) instead ask you to enter the key's")
+	fmt.Println("     own fields by hand and compute the DS themselves. If that's what you're")
+	fmt.Println("     looking at, enter:")
+	fmt.Println()
+	fmt.Printf("       public key type: %d (%s)\n", key.Flags, keyTypeLabel(key.Flags))
+	fmt.Printf("       algorithm:       %d (%s)\n", key.Algorithm, algorithmLabel(key.Algorithm))
+	fmt.Printf("       key tag:         %d\n", key.KeyTag())
+	fmt.Printf("       public key (base64): %s\n", key.PublicKey)
 	fmt.Println()
 }
 

@@ -273,8 +273,11 @@ through its real nameservers throughout.
    The first attempt against a real, not-yet-onboarded domain is *expected*
    to be denied — that's the chain-of-trust cross-check working correctly,
    not a bug. `sazuctl` generates the key (if `client.private` doesn't
-   exist yet), prints the exact DS record to give your registrar, and
-   points you at `REGISTRARS.md` for registrar-specific steps.
+   exist yet), prints the exact DS record to give your registrar (plus the
+   key's raw fields — type, algorithm, key tag, public key — for a
+   registrar like AWS Route 53 that asks you to enter those by hand
+   instead of pasting a DS record), and points you at `REGISTRARS.md` for
+   registrar-specific steps.
 
    A different denial is also possible here: if a DS record already exists
    for this domain but doesn't match this key (`ERR_UNKNOWN_SIGNER`),
