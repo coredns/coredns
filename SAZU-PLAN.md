@@ -10,10 +10,10 @@ specifically (`plugin/sazu/`), branch `feat/sazu-test`.
 
 ## Done
 
-All of the following is real, tested code — see `plugin/sazu/*_test.go` (29+
-tests, including 4 full end-to-end tests that start a real `dnsserver.Server`
-and drive it over actual UDP) and `plugin/sazu/README.md` for a manually
-verified real-binary walkthrough.
+All of the following is real, tested code — see `plugin/sazu/*_test.go` (78+
+tests, including several full end-to-end tests that start a real
+`dnsserver.Server` and drive it over actual UDP) and `plugin/sazu/README.md`
+for a manually verified real-binary walkthrough.
 
 - **SIG(0) transaction authentication**, byte-exact, with no second listener.
   `sig0.go` wraps `miekg/dns`'s native `SIG.Sign`/`SIG.Verify`; `rawcapture.go`
@@ -101,6 +101,30 @@ verified real-binary walkthrough.
   zone files and no Corefile changes between them, both served
   correctly and independently; a third, never-onboarded domain falls
   through rather than getting a false NXDOMAIN from this plugin.
+- **Real DNSSEC content-signing, and DNSSEC-aware query serving.**
+  `sign.go`'s `SignZoneContent` gives every RRset a full-zone push carries
+  (DNSKEY, SOA, and content alike) a genuine RFC 4034 RRSIG, in both
+  `BuildFullZonePush` and `sazuctl push-update`'s added records --
+  previously SIG(0) authenticated the transaction but nothing signed the
+  content itself. `serveQuery` now attaches the covering RRSIG(s) to an
+  answer when the query's EDNS0 DO bit is set (`store.go`'s
+  `LookupRRSIG`), and omits them otherwise -- closing the exact gap found
+  diagnosing why sinepress.org was SERVFAIL (DS published, but nothing
+  signed being served). This is §4's Level 1 (content is genuinely
+  signed) plus DO-bit-aware serving; Level 2 (below) makes acceptance
+  itself conditional on it.
+- **Content verification, Level 2 (§4), opt-in.** `sign.go`'s
+  `VerifySignedRRsets` plus a new `RequireValidRRSIGs` field on `Sazu`
+  (Corefile: `require_valid_rrsigs`, zero-arg boolean, off by default) --
+  when enabled, a push is rejected (`NOTAUTH` + the new `ERR_SIG_INVALID`
+  diagnostic) unless every added RRset carries a covering RRSIG that
+  actually verifies against the candidate/pinned key. Left off, "Level 0,
+  trust the pipe" (SIG(0) alone) remains a supported, simpler mode. Also
+  fixed a real, previously-undiscovered CoreDNS-wide bug this surfaced:
+  `core/dnsserver` never raised `dns.Server`'s UDP receive buffer past
+  miekg/dns's 512-byte default, silently truncating any signed push over
+  that size; added `Config.UDPSize` (own commit, cleanly separable from
+  the sazu-specific work) to fix it.
 
 ## Outstanding
 
@@ -114,16 +138,6 @@ other outstanding item is a CoreDNS-plugin change.
   contact field exists anywhere yet. Needed both for its own sake and
   because the separate watch daemon (below) needs to read it. Depends on
   persistence landing first.
-- [ ] **DNSSEC-aware query serving** — RRSIG attachment on answers, EDNS
-  DO-bit awareness. More fundamental than a "verification level": without
-  this, a zone isn't actually usable as a signed zone by a validating
-  resolver even if the customer pushed RRSIGs, because `serveQuery` doesn't
-  attach them or even look at the DO bit today.
-- [ ] **Content verification, Levels 1/2** (§4's orthogonal axis). Currently
-  Level 0 ("trust the pipe"): SIG(0) proves who sent the UPDATE, but nothing
-  checks the pushed RRs carry valid RRSIGs at all. The design doc's own
-  recommendation is Level 1 first, Level 2 before trusting this for a zone
-  anyone else depends on.
 - [ ] **Algorithm policy / weak-algorithm floor (§10.7).** No rejection of
   weak algorithms (e.g. SHA-1-only DS digests) anywhere in the Go port today
   — the Rust/rDNS port had `meets_minimum_floor()` checks (RFC 8624); it
@@ -136,9 +150,9 @@ other outstanding item is a CoreDNS-plugin change.
   50 differential/day per zone (customizable), 24h rolling window, per the
   design doc's starting numbers.
 - [ ] **Audit trail, remaining transaction status codes, transaction UUID
-  (§12).** `ERR_NO_DS_PUBLISHED` is done (see Done, above) — the rest of
-  the list isn't: no `ERR_STALE_SERIAL`, `ERR_UNKNOWN_SIGNER`,
-  `ERR_SIG_INVALID`, `ERR_EXPIRED_SIGNATURE`, `ERR_WEAK_ALGORITHM`,
+  (§12).** `ERR_NO_DS_PUBLISHED` and `ERR_SIG_INVALID` are done (see Done,
+  above) — the rest of the list isn't: no `ERR_STALE_SERIAL`,
+  `ERR_UNKNOWN_SIGNER`, `ERR_EXPIRED_SIGNATURE`, `ERR_WEAK_ALGORITHM`,
   `ERR_QUOTA_EXCEEDED`, or `ERR_RATE_LIMITED` yet (most of these are
   blocked on the features that would produce them, e.g. rate limiting
   below), and no per-transaction UUID or persistent audit log of
