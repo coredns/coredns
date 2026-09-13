@@ -68,7 +68,9 @@ func TestBuildFullZonePushShapesPrerequisiteAndUpdateSections(t *testing.T) {
 		t.Fatalf("generating key: %v", err)
 	}
 
-	m := BuildFullZonePush("example.org.", soa, rrs, key)
+	previousSOA := *soa
+	previousSOA.Serial-- // simulate "what the client last saw published"
+	m := BuildFullZonePush("example.org.", soa, rrs, key, &previousSOA)
 
 	if m.Opcode != dns.OpcodeUpdate {
 		t.Fatalf("got opcode %d, want Update", m.Opcode)
@@ -77,24 +79,47 @@ func TestBuildFullZonePushShapesPrerequisiteAndUpdateSections(t *testing.T) {
 		t.Fatalf("unexpected zone section: %+v", m.Question)
 	}
 
-	// Prerequisite section (Answer, per RFC 2136's field reuse): exactly
-	// the SOA, unmodified content, guarding against a stale push.
+	// Prerequisite section (Answer, per RFC 2136's field reuse): the
+	// *previous* SOA, guarding against a stale push -- not the new one
+	// being pushed.
 	if len(m.Answer) != 1 {
 		t.Fatalf("expected exactly one prerequisite, got %d", len(m.Answer))
 	}
 	gotSOA, ok := m.Answer[0].(*dns.SOA)
-	if !ok || gotSOA.Serial != soa.Serial {
-		t.Fatalf("expected the SOA-serial staleness prerequisite, got %+v", m.Answer[0])
+	if !ok || gotSOA.Serial != previousSOA.Serial {
+		t.Fatalf("expected the SOA-serial staleness prerequisite against the previous serial, got %+v", m.Answer[0])
 	}
 
-	// Update section (Ns): the DNSKEY plus every non-SOA record from the
-	// zone file, nothing dropped or duplicated.
-	if len(m.Ns) != len(rrs)+1 {
-		t.Fatalf("got %d update ops, want %d (%d zone records + 1 DNSKEY)", len(m.Ns), len(rrs)+1, len(rrs))
+	// Update section (Ns): the DNSKEY, the new SOA, and every non-SOA
+	// record from the zone file, nothing dropped or duplicated.
+	if len(m.Ns) != len(rrs)+2 {
+		t.Fatalf("got %d update ops, want %d (%d zone records + DNSKEY + SOA)", len(m.Ns), len(rrs)+2, len(rrs))
 	}
 	dnskeyRR, ok := m.Ns[0].(*dns.DNSKEY)
 	if !ok || dnskeyRR.PublicKey != key.PublicKey {
 		t.Fatalf("expected the candidate DNSKEY to be the first update op, got %+v", m.Ns[0])
+	}
+	newSOA, ok := m.Ns[1].(*dns.SOA)
+	if !ok || newSOA.Serial != soa.Serial {
+		t.Fatalf("expected the new SOA to be pushed as content (second update op), got %+v", m.Ns[1])
+	}
+}
+
+func TestBuildFullZonePushFirstContactHasNoPrerequisite(t *testing.T) {
+	path := writeTestZone(t)
+	soa, rrs, err := LoadZoneFile(path, "example.org.")
+	if err != nil {
+		t.Fatalf("LoadZoneFile: %v", err)
+	}
+	key, _, err := GenerateEd25519Key("example.org.", true)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+
+	m := BuildFullZonePush("example.org.", soa, rrs, key, nil)
+
+	if len(m.Answer) != 0 {
+		t.Fatalf("expected no prerequisites on a first-contact push, got %d", len(m.Answer))
 	}
 }
 
@@ -109,7 +134,7 @@ func TestBuildFullZonePushSignsAndVerifies(t *testing.T) {
 		t.Fatalf("generating key: %v", err)
 	}
 
-	m := BuildFullZonePush("example.org.", soa, rrs, key)
+	m := BuildFullZonePush("example.org.", soa, rrs, key, nil)
 	now := time.Now()
 	wire, err := SignUpdate(m, key, priv, now.Add(-time.Minute), now.Add(time.Hour))
 	if err != nil {
