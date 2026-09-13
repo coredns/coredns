@@ -54,7 +54,6 @@ func usage() {
 	fmt.Fprintln(os.Stderr, "  sazuctl ds -zone <zone> -key <path>")
 	fmt.Fprintln(os.Stderr, "  sazuctl push -zone <zone> -key <path> [-record name=ipv4] [-ttl 300] [-target host:port]")
 	fmt.Fprintln(os.Stderr, "  sazuctl push-zone -zone <zone> -key <path> -zonefile <path> [-previous-serial N] [-target host:port]")
-	fmt.Fprintln(os.Stderr, "  sazuctl push-zone -zone <zone> -key <path> [-ns <nsname>] [-add \"rr\"]... [-target host:port]  (no zone file needed)")
 	fmt.Fprintln(os.Stderr, "  sazuctl push-update -zone <zone> -key <path> [-add \"rr\"]... [-del \"rr\"]... [-del-rrset \"name TYPE\"]... [-target host:port]")
 }
 
@@ -192,14 +191,7 @@ func runPushZone(args []string) error {
 	fs := flag.NewFlagSet("push-zone", flag.ExitOnError)
 	zone := fs.String("zone", "", "zone being pushed")
 	keyPath := fs.String("key", "", "path to the Ed25519 key (created if missing)")
-	zoneFile := fs.String("zonefile", "",
-		"path to a BIND-format zone file for -zone. Omit this to onboard a brand-new "+
-			"domain with nothing pre-authored on disk -- see -ns and -add instead.")
-	ns := fs.String("ns", "", "nameserver name for a synthesized SOA/NS (only used without -zonefile; "+
-		"defaults to ns1.<zone> if omitted)")
-	var adds stringSliceFlag
-	fs.Var(&adds, "add", `record to include, zone-file format, e.g. -add "www.example.org. 300 IN A 203.0.113.10" `+
-		`(repeatable; only used without -zonefile)`)
+	zoneFile := fs.String("zonefile", "", "path to a BIND-format zone file for -zone")
 	previousSerial := fs.Uint64("previous-serial", 0,
 		"SOA serial you last saw published for this zone, to guard against a stale push (RFC 2136 §2.4.2). "+
 			"Omit (0) for first contact, where there is nothing yet to be stale against.")
@@ -207,8 +199,8 @@ func runPushZone(args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *zone == "" || *keyPath == "" {
-		return fmt.Errorf("-zone and -key are required")
+	if *zone == "" || *keyPath == "" || *zoneFile == "" {
+		return fmt.Errorf("-zone, -key, and -zonefile are required")
 	}
 
 	key, priv, generated, err := sazu.LoadOrGenerateKey(*keyPath, *zone, true)
@@ -220,28 +212,11 @@ func runPushZone(args []string) error {
 	}
 	printKeyInfo(*keyPath, key)
 
-	var soa *dns.SOA
-	var rrs []dns.RR
-	if *zoneFile != "" {
-		soa, rrs, err = sazu.LoadZoneFile(*zoneFile, *zone)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("Loaded %s: SOA serial %d, %d other record(s)\n", *zoneFile, soa.Serial, len(rrs))
-	} else {
-		soa = sazu.SynthesizeSOA(*zone, *ns)
-		rrs = append(rrs, &dns.NS{
-			Hdr: dns.RR_Header{Name: dns.Fqdn(*zone), Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: soa.Hdr.Ttl},
-			Ns:  soa.Ns,
-		})
-		extra, err := parseRRs("-add", adds)
-		if err != nil {
-			return err
-		}
-		rrs = append(rrs, extra...)
-		fmt.Printf("No -zonefile given -- synthesized SOA serial %d and NS %s, plus %d -add record(s)\n",
-			soa.Serial, soa.Ns, len(extra))
+	soa, rrs, err := sazu.LoadZoneFile(*zoneFile, *zone)
+	if err != nil {
+		return err
 	}
+	fmt.Printf("Loaded %s: SOA serial %d, %d other record(s)\n", *zoneFile, soa.Serial, len(rrs))
 
 	var previousSOA *dns.SOA
 	if *previousSerial != 0 {

@@ -155,39 +155,17 @@ func TestBuildFullZonePushFirstContactHasNoPrerequisite(t *testing.T) {
 	}
 }
 
-func TestSynthesizeSOADefaultsNameserver(t *testing.T) {
-	soa := SynthesizeSOA("example.org.", "")
-	if soa.Ns != "ns1.example.org." {
-		t.Fatalf("got Ns %q, want default ns1.example.org.", soa.Ns)
-	}
-	if soa.Mbox != "hostmaster.example.org." {
-		t.Fatalf("got Mbox %q, want hostmaster.example.org.", soa.Mbox)
-	}
-	if soa.Hdr.Name != "example.org." {
-		t.Fatalf("got owner %q, want example.org.", soa.Hdr.Name)
-	}
-	if soa.Serial == 0 {
-		t.Fatalf("expected a non-zero synthesized serial")
-	}
-}
-
-func TestSynthesizeSOAHonorsExplicitNameserver(t *testing.T) {
-	soa := SynthesizeSOA("example.org.", "ns.otherprovider.example.")
-	if soa.Ns != "ns.otherprovider.example." {
-		t.Fatalf("got Ns %q, want the explicit nameserver", soa.Ns)
-	}
-}
-
-// TestOnboardWithoutZoneFileOrLocalRecords proves a brand-new domain can
-// be onboarded with nothing pre-authored on disk: a synthesized SOA plus
-// an NS record plus whatever's given directly, exactly the shape
-// BuildFullZonePush expects.
-func TestOnboardWithoutZoneFileOrLocalRecords(t *testing.T) {
+// TestBuildFullZonePushAcceptsHandBuiltRecords proves BuildFullZonePush
+// itself has no dependency on the records having come from a real zone
+// file -- any caller-constructed SOA/RRs work the same way. sazuctl's
+// push-zone command requires a zone file (LoadZoneFile) regardless; this
+// only exercises the underlying library function.
+func TestBuildFullZonePushAcceptsHandBuiltRecords(t *testing.T) {
 	key, priv, err := GenerateEd25519Key("example.org.", true)
 	if err != nil {
 		t.Fatalf("generating key: %v", err)
 	}
-	soa := SynthesizeSOA("example.org.", "")
+	soa := synthesizeSOA("example.org.")
 	ns := &dns.NS{Hdr: dns.RR_Header{Name: "example.org.", Rrtype: dns.TypeNS, Class: dns.ClassINET, Ttl: 3600}, Ns: soa.Ns}
 
 	m, err := BuildFullZonePush("example.org.", soa, []dns.RR{ns}, key, priv, nil)
@@ -200,7 +178,7 @@ func TestOnboardWithoutZoneFileOrLocalRecords(t *testing.T) {
 		t.Fatalf("signing: %v", err)
 	}
 	if err := VerifySIG0(wire, key); err != nil {
-		t.Fatalf("a no-zonefile onboarding push should self-verify: %v", err)
+		t.Fatalf("a hand-built push should self-verify: %v", err)
 	}
 }
 

@@ -186,7 +186,7 @@ func buildUnsignedFirstContactPush(t *testing.T, zone string, key *dns.DNSKEY, p
 	t.Helper()
 	m := new(dns.Msg)
 	m.SetUpdate(dns.Fqdn(zone))
-	soa := SynthesizeSOA(zone, "")
+	soa := synthesizeSOA(zone)
 	rrs := []dns.RR{testA("www."+dns.Fqdn(zone), net.IPv4(203, 0, 113, 10))}
 	adds := append([]dns.RR{key, soa}, rrs...)
 	m.Insert(adds)
@@ -534,7 +534,7 @@ func onboard(t *testing.T, addr, zone string) *dns.DNSKEY {
 	if err != nil {
 		t.Fatalf("generating key for %s: %v", zone, err)
 	}
-	soa := SynthesizeSOA(zone, "")
+	soa := synthesizeSOA(zone)
 	rrs := []dns.RR{&dns.A{
 		Hdr: dns.RR_Header{Name: "www." + dns.Fqdn(zone), Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 300},
 		A:   net.IPv4(203, 0, 113, 10),

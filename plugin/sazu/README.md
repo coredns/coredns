@@ -102,11 +102,9 @@ Subcommands:
   onboards a zone (first contact) and what re-publishes a whole zone
   afterward. `-previous-serial` adds the SOA-serial staleness guard for a
   *re*-push against an already-onboarded zone; omit it for first contact.
-  **`-zonefile` is optional** — for a brand-new domain with nothing
-  pre-authored on disk, omit it and use `[-ns <nsname>] [-add "rr"]...`
-  instead: `push-zone` synthesizes a reasonable default SOA and an NS
-  record for you, so onboarding a new domain never requires creating a
-  local file first.
+  `-zonefile` is required — author a small BIND-format zone file (SOA plus
+  whatever records you're onboarding) even for a brand-new domain; there is
+  no synthesized-SOA shortcut.
 * `sazuctl push-update -zone <zone> -key <path> [-add "rr"]... [-del "rr"]... [-del-rrset "name TYPE"]... [-target host:port]` —
   build, sign, and (optionally) send a **partial** push: individual
   add/delete operations against an already-onboarded zone. No DNSKEY is

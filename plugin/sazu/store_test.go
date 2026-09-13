@@ -3,6 +3,7 @@ package sazu
 import (
 	"net"
 	"testing"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -19,6 +20,21 @@ func testSOA(serial uint32) *dns.SOA {
 
 func testA(name string, ip net.IP) *dns.A {
 	return &dns.A{Hdr: dns.RR_Header{Name: name, Rrtype: dns.TypeA, Class: dns.ClassINET, Ttl: 300}, A: ip}
+}
+
+// synthesizeSOA builds a throwaway SOA for zone, for tests that need one
+// for an arbitrary zone name rather than the fixed "example.org." testSOA
+// uses. Onboarding for real always goes through a real zone file
+// (LoadZoneFile) -- this has no production equivalent.
+func synthesizeSOA(zone string) *dns.SOA {
+	zone = dns.Fqdn(zone)
+	return &dns.SOA{
+		Hdr:     dns.RR_Header{Name: zone, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: 3600},
+		Ns:      "ns1." + zone,
+		Mbox:    "hostmaster." + zone,
+		Serial:  uint32(time.Now().Unix()),
+		Refresh: 3600, Retry: 900, Expire: 604800, Minttl: 3600,
+	}
 }
 
 func TestZoneDataInsertAndLookupSOA(t *testing.T) {

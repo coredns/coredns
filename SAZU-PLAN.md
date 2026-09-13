@@ -81,26 +81,26 @@ for a manually verified real-binary walkthrough.
   is denied with the exact guidance above; a domain with a real DS but the
   wrong key classifies as a different, undiagnosed rejection, proving the
   two cases don't get confused.
-- **Onboarding a new domain needs no local file, client- or server-side.**
-  Client-side: `sazuctl push-zone`'s `-zonefile` is now optional --
-  `SynthesizeSOA` (`push.go`) builds a reasonable default SOA (and the
-  caller adds a matching NS record) when there's nothing pre-authored on
-  disk, driven entirely by `-zone`/`-ns`/repeatable `-add` flags instead.
-  Server-side: fixed a real bug where zone routing conflated "which
-  static Corefile entry matched" with "which zone a request is actually
-  about" -- under a wildcard `sazu .` scope (meant to accept onboarding
-  *any* domain with no Corefile edit per customer), every distinct
-  domain used to collapse onto the single literal zone "." itself.
-  `Store.FindZoneForName` now does the zone lookup against what's
-  actually been onboarded at runtime, independent of the plugin's static
-  configured scope; a name within that scope but never onboarded falls
-  through to the next plugin rather than a false authoritative NXDOMAIN,
-  so a broad `.` scope can't swallow every other zone on the same
-  server. Manually verified with the real binary: one `sazu .` Corefile
-  entry, two different domains onboarded back to back with no
-  zone files and no Corefile changes between them, both served
-  correctly and independently; a third, never-onboarded domain falls
-  through rather than getting a false NXDOMAIN from this plugin.
+- **Onboarding a new domain needs no server-side Corefile edit.** Fixed a
+  real bug where zone routing conflated "which static Corefile entry
+  matched" with "which zone a request is actually about" -- under a
+  wildcard `sazu .` scope (meant to accept onboarding *any* domain with
+  no Corefile edit per customer), every distinct domain used to collapse
+  onto the single literal zone "." itself. `Store.FindZoneForName` now
+  does the zone lookup against what's actually been onboarded at
+  runtime, independent of the plugin's static configured scope; a name
+  within that scope but never onboarded falls through to the next plugin
+  rather than a false authoritative NXDOMAIN, so a broad `.` scope can't
+  swallow every other zone on the same server. Manually verified with
+  the real binary: one `sazu .` Corefile entry, two different domains
+  onboarded back to back with no Corefile changes between them, both
+  served correctly and independently; a third, never-onboarded domain
+  falls through rather than getting a false NXDOMAIN from this plugin.
+  (Client-side, onboarding still requires a real zone file --
+  `sazuctl push-zone -zonefile <path>` -- an earlier synthesized-SOA
+  shortcut that skipped it was tried and then deliberately removed as
+  more confusing than helpful; see git history if it's ever wanted
+  back.)
 - **Real DNSSEC content-signing, and DNSSEC-aware query serving.**
   `sign.go`'s `SignZoneContent` gives every RRset a full-zone push carries
   (DNSKEY, SOA, and content alike) a genuine RFC 4034 RRSIG, in both
