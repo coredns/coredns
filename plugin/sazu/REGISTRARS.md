@@ -71,9 +71,10 @@ line for this particular registrar.
 
 ## Registrar-specific notes (TODO)
 
-The design document (`sazu-protocol.md` §10.3, in the separate `sazu`
-design repo) flags a few registrars with open questions worth confirming
-empirically and writing up here:
+The design document (`sazu-protocol.md` §10.3, in the separate
+[github.com/mrwiora/sazu](https://github.com/mrwiora/sazu) repo) flags a
+few registrars with open questions worth confirming empirically and
+writing up here:
 
 - [ ] **GoDaddy** — has a DS-record submission flow; whether it does a
   live-match check against the zone before accepting is unconfirmed.

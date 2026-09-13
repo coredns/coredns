@@ -3,6 +3,7 @@ package sazu
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/miekg/dns"
 )
@@ -37,6 +38,32 @@ func LoadZoneFile(path, origin string) (soa *dns.SOA, rrs []dns.RR, err error) {
 		return nil, nil, fmt.Errorf("%s: no SOA record found", path)
 	}
 	return soa, rrs, nil
+}
+
+// SynthesizeSOA builds a reasonable default SOA for a zone that doesn't
+// have one yet -- for onboarding a brand-new domain without first having
+// to hand-author a zone file just to get one SOA record. ns is the
+// nameserver name to use as the SOA's MNAME (and, typically, the target
+// of a matching NS record the caller adds separately); an empty ns
+// defaults to "ns1.<zone>.". The serial is the current Unix time, which
+// is simplest here since there is no previous file to read one from: a
+// zone that has never been published has nothing for "the next serial"
+// to be relative to.
+func SynthesizeSOA(zone, ns string) *dns.SOA {
+	zone = dns.Fqdn(zone)
+	if ns == "" {
+		ns = "ns1." + zone
+	}
+	return &dns.SOA{
+		Hdr:     dns.RR_Header{Name: zone, Rrtype: dns.TypeSOA, Class: dns.ClassINET, Ttl: 3600},
+		Ns:      dns.Fqdn(ns),
+		Mbox:    "hostmaster." + zone,
+		Serial:  uint32(time.Now().Unix()),
+		Refresh: 3600,
+		Retry:   900,
+		Expire:  604800,
+		Minttl:  3600,
+	}
 }
 
 // BuildFullZonePush builds an RFC 2136 UPDATE message for a full-zone

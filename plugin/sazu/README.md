@@ -7,7 +7,8 @@ signer pushes DNSSEC-signed zone content to this server, authenticated purely
 by SIG(0) (RFC 2931) riding on an RFC 2136 dynamic UPDATE, with no separate
 account or API-key handshake. The server never holds a private key.
 
-See the design document (`sazu-protocol.md`, in the separate `sazu` design
+See the design document (`sazu-protocol.md` in
+[github.com/mrwiora/sazu](https://github.com/mrwiora/sazu), the separate
 repo this port was built against) for the full protocol. This plugin
 implements enough of it — first-contact chain-of-trust bootstrap, full and
 partial pushes, in-memory serving — to exercise the whole chain end to end.
@@ -40,8 +41,15 @@ sazu ZONES... {
 }
 ```
 
-* **ZONES** zones this plugin accepts SAZU pushes for and serves. If empty,
-  the zones from the server block are used.
+* **ZONES** the *scope* this instance accepts SAZU pushes and queries
+  for — not a fixed list of pre-declared domains. Use `.` to accept
+  onboarding any domain at all, with no Corefile edit or server restart
+  needed per new customer domain: which specific zones actually exist is
+  entirely driven by what's been onboarded at runtime (in `Store`, and in
+  the `db` file if configured), not by this list. Use a narrower zone
+  (e.g. `customers.example.`) to restrict onboarding to subdomains
+  delegated under one umbrella zone instead. If empty, the zones from the
+  server block are used.
 * `insecure_skip_chain_validation` disables the §10.2 chain-of-trust
   cross-check at first contact. **For local testing only** — see
   [Local sandbox testing](#local-sandbox-testing) below. Never set this in
@@ -94,6 +102,11 @@ Subcommands:
   onboards a zone (first contact) and what re-publishes a whole zone
   afterward. `-previous-serial` adds the SOA-serial staleness guard for a
   *re*-push against an already-onboarded zone; omit it for first contact.
+  **`-zonefile` is optional** — for a brand-new domain with nothing
+  pre-authored on disk, omit it and use `[-ns <nsname>] [-add "rr"]...`
+  instead: `push-zone` synthesizes a reasonable default SOA and an NS
+  record for you, so onboarding a new domain never requires creating a
+  local file first.
 * `sazuctl push-update -zone <zone> -key <path> [-add "rr"]... [-del "rr"]... [-del-rrset "name TYPE"]... [-target host:port]` —
   build, sign, and (optionally) send a **partial** push: individual
   add/delete operations against an already-onboarded zone. No DNSKEY is
@@ -220,6 +233,12 @@ through its real nameservers throughout.
    EOF
    ./coredns -conf Corefile
    ```
+
+   Onboarding more than one domain later doesn't need a second server block
+   or a restart: replace `sazu yourdomain.example` with `sazu .` to accept
+   onboarding any domain this instance is asked about (see **Syntax**
+   above) — which domains actually exist is then entirely driven by what
+   gets onboarded at runtime, not by what's in this file.
 
    The server needs outbound UDP/53 reachability to the internet (real root
    and TLD servers) for the chain walk to succeed — the usual case for any

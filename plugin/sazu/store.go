@@ -196,3 +196,31 @@ func (s *Store) GetOrCreate(origin string) *ZoneData {
 	s.zones[origin] = z
 	return z
 }
+
+// FindZoneForName returns the most specific onboarded zone name falls
+// under, if any -- a longest-suffix match over every zone this Store
+// currently holds, independent of any static configuration. This is what
+// lets many customer domains be onboarded dynamically under one broad
+// plugin scope (e.g. a Corefile's "sazu ."), with no per-domain Corefile
+// edit needed: the set of zones this searches is whatever has actually
+// been onboarded, not a fixed list. A zone with no SOA yet (shouldn't
+// normally exist, given handler.go's first-contact invariant, but
+// defensively excluded here too) doesn't count as found.
+func (s *Store) FindZoneForName(name string) (origin string, zone *ZoneData, ok bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var best string
+	var bestZone *ZoneData
+	for candidate, z := range s.zones {
+		if z.SOA() == nil {
+			continue
+		}
+		if dns.IsSubDomain(candidate, name) && len(candidate) > len(best) {
+			best, bestZone = candidate, z
+		}
+	}
+	if bestZone == nil {
+		return "", nil, false
+	}
+	return best, bestZone, true
+}

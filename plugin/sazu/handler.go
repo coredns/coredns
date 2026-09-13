@@ -57,30 +57,46 @@ type Sazu struct {
 func (s *Sazu) Name() string { return "sazu" }
 
 // ServeDNS implements plugin.Handler.
+// ServeDNS implements plugin.Handler. s.Zones (from the Corefile) sets
+// this instance's *static scope* -- e.g. "." to accept any domain at
+// all, or a narrower umbrella zone to only accept subdomains delegated
+// under one zone -- and is deliberately kept separate from which zones
+// have actually been onboarded (dynamic, in s.Store): that separation is
+// what lets a new customer domain be onboarded by sending it a signed
+// push, with no Corefile edit or server restart needed per domain.
 func (s *Sazu) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	if len(r.Question) != 1 {
 		return plugin.NextOrFailure(s.Name(), s.Next, ctx, w, r)
 	}
-	zone := plugin.Zones(s.Zones).Matches(r.Question[0].Name)
-	if zone == "" {
+	qname := r.Question[0].Name
+
+	if r.Opcode == dns.OpcodeUpdate {
+		// RFC 2136: the "question" of an UPDATE message is the zone
+		// section, naming the zone directly -- no suffix matching, and
+		// it may well be a zone never seen before (first contact).
+		if plugin.Zones(s.Zones).Matches(qname) == "" {
+			return plugin.NextOrFailure(s.Name(), s.Next, ctx, w, r)
+		}
+		return s.serveUpdate(w, r, qname)
+	}
+
+	// Ordinary query: find which *onboarded* zone (if any) qname falls
+	// under -- a lookup against live state, not the static Corefile
+	// list, since many customer zones can share one broad "sazu ." scope.
+	// A qname within s.Zones' scope but never actually onboarded falls
+	// through to Next rather than NXDOMAIN, so a broad scope like "."
+	// doesn't swallow every other zone/plugin on the same server.
+	_, z, ok := s.Store.FindZoneForName(qname)
+	if !ok {
 		return plugin.NextOrFailure(s.Name(), s.Next, ctx, w, r)
 	}
-	if r.Opcode == dns.OpcodeUpdate {
-		return s.serveUpdate(w, r, zone)
-	}
-	return s.serveQuery(w, r, zone)
+	return s.serveQuery(w, r, z)
 }
 
-func (s *Sazu) serveQuery(w dns.ResponseWriter, r *dns.Msg, zone string) (int, error) {
+func (s *Sazu) serveQuery(w dns.ResponseWriter, r *dns.Msg, z *ZoneData) (int, error) {
 	m := new(dns.Msg)
 	m.SetReply(r)
 	m.Authoritative = true
-
-	z, ok := s.Store.Get(zone)
-	if !ok || z.SOA() == nil {
-		m.Rcode = dns.RcodeNameError
-		return writeMsg(w, m)
-	}
 
 	q := r.Question[0]
 	rrs := z.Lookup(q.Name, q.Qtype)
